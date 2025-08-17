@@ -1,8 +1,6 @@
-// middleware.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import findSchoolByHost from './lib/schoolStore';
-import { getTenantModels } from '@/models';
 import { getSession } from '@/utils/session';
 
 export type UserRole = 'student' | 'teacher' | 'administrator' | 'system_admin';
@@ -53,10 +51,7 @@ export async function middleware(request: NextRequest) {
 
 	if (!host) return NextResponse.next();
 
-	// Get school information for this host
 	const school = await findSchoolByHost(host);
-
-	// Create response object
 	let response = NextResponse.next();
 
 	// Set school information in cookies and headers
@@ -144,7 +139,6 @@ export async function authenticateRequest(
 		throw new Error('Invalid or expired session');
 	}
 
-	// 3. Optionally, check tenant
 	const requestHost = request.headers.get('host');
 	if (session.tenantId && session.tenantId !== requestHost) {
 		throw new Error('Invalid tenant access');
@@ -156,13 +150,16 @@ export async function authenticateRequest(
 
 export async function authorizeUser(
 	request: NextRequest,
-	requiredRole?: UserRole[]
+	requiredRoles?: UserRole[]
 ) {
 	let user;
 
 	try {
 		user = await authenticateRequest(request);
-		if (requiredRole && !requiredRole.includes(user.role as UserRole)) {
+		if (
+			Array.isArray(requiredRoles) &&
+			!requiredRoles.includes(user.role as UserRole)
+		) {
 			return false;
 		}
 	} catch {

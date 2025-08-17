@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
 	BookOpen,
 	Plus,
@@ -34,44 +34,72 @@ interface StudentGrade {
 	rank?: number;
 }
 
-interface SubjectGrades {
+interface GradeSubmission {
+	submissionId: string;
 	academicYear: string;
 	period: string;
 	gradeLevel: string;
 	subject: string;
 	teacherId: string;
-	grades: StudentGrade[];
+	grades: (StudentGrade & { status: 'Approved' | 'Rejected' | 'Pending' })[];
+	status: 'Approved' | 'Rejected' | 'Pending' | 'Partially Approved';
+	lastUpdated: string;
 	stats: {
 		incompletes: number;
 		passes: number;
 		fails: number;
 		average: number;
+		totalStudents: number;
 	};
 }
 
 interface TeacherInfo {
 	name: string;
 	userId: string;
-	subjects: string[];
-	classes: { [subject: string]: string[] };
+	teacherId: string;
+	role: 'teacher';
+	subjects: { subject: string; level: string }[];
+	classes: { [subject: string]: string[] }; // This might need adjustment based on actual data
 }
 
+// Interface for handling grade input state (value and approved status)
+interface GradeInputState {
+	grade: number | '';
+	isApproved: boolean;
+}
+
+// StudentForGrading now uses the new GradeInputState
 interface StudentForGrading {
 	studentId: string;
 	name: string;
-	grade: number | '';
+	grades: { [period: string]: GradeInputState };
 }
 
 const periods = [
-	{ id: 'first', label: 'First Period', value: 'first' },
-	{ id: 'second', label: 'Second Period', value: 'second' },
-	{ id: 'third', label: 'Third Period', value: 'third' },
-	{ id: 'third_exam', label: 'Third Period Exam', value: 'third_exam' },
-	{ id: 'fourth', label: 'Fourth Period', value: 'fourth' },
-	{ id: 'fifth', label: 'Fifth Period', value: 'fifth' },
-	{ id: 'sixth', label: 'Sixth Period', value: 'sixth' },
-	{ id: 'sixth_exam', label: 'Sixth Period Exam', value: 'sixth_exam' },
+	{ id: 'first', label: 'First Period', value: 'firstPeriod' },
+	{ id: 'second', label: 'Second Period', value: 'secondPeriod' },
+	{ id: 'third', label: 'Third Period', value: 'thirdPeriod' },
+	{ id: 'third_exam', label: 'Third Period Exam', value: 'thirdPeriodExam' },
+	{ id: 'fourth', label: 'Fourth Period', value: 'fourthPeriod' },
+	{ id: 'fifth', label: 'Fifth Period', value: 'fifthPeriod' },
+	{ id: 'sixth', label: 'Sixth Period', value: 'sixthPeriod' },
+	{ id: 'sixth_exam', label: 'Sixth Period Exam', value: 'sixthPeriodExam' },
 ];
+
+const classOptionsByLevel: { [key: string]: string[] } = {
+	'Self Contained': [
+		'Daycare',
+		'Nursery',
+		'K-I',
+		'K-II',
+		'1st Grade',
+		'2nd Grade',
+		'3rd Grade',
+	],
+	Elementry: ['4th Grade', '5th Grade', '6th Grade'],
+	'Junior High': ['7th Grade', '8th Grade', 'Grade 9A'],
+	'Senior High': ['Grade 10A', '11th Grade', '12th Grade'],
+};
 
 const TeacherGradeManagement = () => {
 	const [activeTab, setActiveTab] = useState('overview');
@@ -80,25 +108,26 @@ const TeacherGradeManagement = () => {
 	const [showSubmitModal, setShowSubmitModal] = useState(false);
 	const [showFilterModal, setShowFilterModal] = useState(false);
 	const [selectedGradeForEdit, setSelectedGradeForEdit] =
-		useState<SubjectGrades | null>(null);
+		useState<GradeSubmission | null>(null);
 	const [selectedGradeForView, setSelectedGradeForView] =
-		useState<SubjectGrades | null>(null);
+		useState<GradeSubmission | null>(null);
 	const [editReason, setEditReason] = useState('');
 	const [selectedPeriods, setSelectedPeriods] = useState<string[]>([]);
 	const [selectedSubject, setSelectedSubject] = useState('');
+	const [selectedClassLevel, setSelectedClassLevel] = useState('');
 	const [selectedGradeLevel, setSelectedGradeLevel] = useState('');
+	const [selectedMasterClassLevel, setSelectedMasterClassLevel] = useState('');
 	const [selectedMasterGradeLevel, setSelectedMasterGradeLevel] = useState('');
 	const [selectedMasterSubject, setSelectedMasterSubject] = useState('');
 	const [studentsForGrading, setStudentsForGrading] = useState<
 		StudentForGrading[]
 	>([]);
-	const [gradesToSubmit, setGradesToSubmit] = useState<StudentForGrading[]>([]);
 	const [masterGradesData, setMasterGradesData] = useState<any[] | null>(null);
 	const [editStudents, setEditStudents] = useState<any[]>([]);
 
 	// API Data States
 	const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
-	const [submittedGrades, setSubmittedGrades] = useState<SubjectGrades[]>([]);
+	const [submittedGrades, setSubmittedGrades] = useState<GradeSubmission[]>([]);
 	const [academicYear, setAcademicYear] = useState<string>('');
 
 	// Loading and Error States
@@ -128,7 +157,7 @@ const TeacherGradeManagement = () => {
 
 	// Sorting states
 	const [sortConfig, setSortConfig] = useState<{
-		key: keyof SubjectGrades | null;
+		key: keyof GradeSubmission | null;
 		direction: 'asc' | 'desc';
 	}>({
 		key: null,
@@ -177,12 +206,87 @@ const TeacherGradeManagement = () => {
 				setLoading((prev) => ({ ...prev, submittedGrades: true }));
 				try {
 					const res = await fetch(
-						`/api/grades?academicYear=${academicYear}&teacherId=${teacherInfo.userId}`
+						`/api/grades?academicYear=${academicYear}&teacherId=${teacherInfo.teacherId}`
 					);
 					if (!res.ok) throw new Error('Failed to fetch submitted grades');
 					const data = await res.json();
-					setSubmittedGrades(data.data.grades);
-					console.log('SUBMITTED: ', data);
+
+					// Group grades by submissionId
+					const groupedGrades = data.data.grades.reduce(
+						(acc: { [key: string]: GradeSubmission }, grade: any) => {
+							const { submissionId } = grade;
+							if (!acc[submissionId]) {
+								acc[submissionId] = {
+									submissionId,
+									academicYear: grade.academicYear,
+									period: grade.period,
+									gradeLevel: grade.classId,
+									subject: grade.subject,
+									teacherId: grade.teacherId,
+									lastUpdated:
+										grade.lastUpdated ||
+										grade.createdAt ||
+										new Date().toISOString(),
+									grades: [],
+									stats: {
+										incompletes: 0,
+										passes: 0,
+										fails: 0,
+										average: 0,
+										totalStudents: 0,
+									},
+								};
+							}
+							acc[submissionId].grades.push({
+								studentId: grade.studentId,
+								name: grade.studentName,
+								grade: grade.grade,
+								status: grade.status,
+							});
+							return acc;
+						},
+						{}
+					);
+
+					// Calculate stats for each submission
+					Object.values(groupedGrades).forEach((submission) => {
+						const grades = submission.grades.map((g) => g.grade);
+						const validGrades = grades.filter((g) => g !== null) as number[];
+						const totalStudents = grades.length;
+						const passes = validGrades.filter((g) => g >= 70).length;
+						const fails = validGrades.length - passes;
+						const incompletes = totalStudents - validGrades.length;
+						const average =
+							validGrades.length > 0
+								? validGrades.reduce((sum, g) => sum + g, 0) /
+								  validGrades.length
+								: 0;
+
+						submission.stats = {
+							totalStudents,
+							passes,
+							fails,
+							incompletes,
+							average,
+						};
+					});
+
+					// Determine the overall status for each submission
+					Object.values(groupedGrades).forEach((submission) => {
+						const statuses = submission.grades.map((g) => g.status);
+						if (statuses.every((status) => status === 'Approved')) {
+							submission.status = 'Approved';
+						} else if (statuses.every((status) => status === 'Rejected')) {
+							submission.status = 'Rejected';
+						} else if (statuses.some((status) => status === 'Approved')) {
+							submission.status = 'Partially Approved';
+						} else {
+							submission.status = 'Pending';
+						}
+					});
+
+					setSubmittedGrades(Object.values(groupedGrades));
+
 					setError((prev) => ({ ...prev, submittedGrades: '' }));
 				} catch (err) {
 					setError((prev) => ({
@@ -198,57 +302,67 @@ const TeacherGradeManagement = () => {
 		}
 	}, [activeTab, academicYear, teacherInfo]);
 
-	// Function to load students for grading from the backend
+	// Function now correctly parses the report structure from the API
 	const loadStudentsForGrading = async () => {
-		if (!selectedSubject || !selectedGradeLevel) return;
+		if (!selectedSubject || !selectedGradeLevel || selectedPeriods.length === 0)
+			return;
 
 		setLoading((prev) => ({ ...prev, studentsForGrading: true }));
 		setError((prev) => ({ ...prev, studentsForGrading: '' }));
 		setStudentsForGrading([]);
-		setGradesToSubmit([]);
 
 		try {
 			// Step 1: Fetch students for the selected class
 			const studentsRes = await fetch(
-				`/api/students?gradeLevel=${selectedGradeLevel}`
+				`/api/users?classId=${selectedGradeLevel}`
 			);
 			if (!studentsRes.ok)
 				throw new Error('Failed to fetch students for class');
 			const studentsData = await studentsRes.json();
-			const studentsList = studentsData.user;
+			const studentsList = studentsData.data;
 
-			// Step 2: Fetch existing grades for all students in the selected subject/class/periods
+			// Step 2: Fetch existing grades report for the class and subject
 			const existingGradesRes = await fetch(
-				`/api/grades?academicYear=${academicYear}&gradeLevel=${selectedGradeLevel}&subject=${selectedSubject}&teacherId=${teacherInfo?.userId}`
+				`/api/grades?academicYear=${academicYear}&classId=${selectedGradeLevel}&subject=${selectedSubject}`
 			);
 			if (!existingGradesRes.ok)
 				throw new Error('Failed to fetch existing grades');
 			const existingGradesData = await existingGradesRes.json();
 
-			const existingGradesMap: {
-				[studentId: string]: { [period: string]: number };
-			} = {};
-			if (existingGradesData.grades.length > 0) {
-				const subjectData = existingGradesData.grades.find(
-					(g: any) =>
-						g.gradeLevel === selectedGradeLevel && g.subject === selectedSubject
-				);
-				if (subjectData) {
-					subjectData.grades.forEach((g: any) => {
-						if (!existingGradesMap[g.studentId]) {
-							existingGradesMap[g.studentId] = {};
-						}
-					});
-				}
+			// Create a map from the report for quick lookup
+			const reportStudentsMap = new Map();
+			if (existingGradesData.data?.report?.students) {
+				existingGradesData.data.report.students.forEach((student: any) => {
+					reportStudentsMap.set(student.studentId, student.periods);
+				});
 			}
 
-			const initialStudentsForGrading = studentsList.map((student: any) => ({
-				studentId: student.userId,
-				name: student.name,
-				grade: '',
-			}));
+			// Combine student data with existing grades and their statuses
+			const initialStudentsForGrading = studentsList.map((student: any) => {
+				const studentExistingPeriods =
+					reportStudentsMap.get(student.studentId) || {};
+				const grades: { [period: string]: GradeInputState } = {};
+
+				selectedPeriods.forEach((period) => {
+					const existingGradeInfo = studentExistingPeriods[period];
+					if (existingGradeInfo) {
+						grades[period] = {
+							grade: existingGradeInfo.grade,
+							isApproved: existingGradeInfo.status === 'Approved',
+						};
+					} else {
+						grades[period] = { grade: '', isApproved: false };
+					}
+				});
+
+				return {
+					studentId: student.studentId,
+					name: `${student.firstName} ${student.lastName}`,
+					grades,
+				};
+			});
+
 			setStudentsForGrading(initialStudentsForGrading);
-			setGradesToSubmit(initialStudentsForGrading);
 		} catch (err) {
 			setError((prev) => ({
 				...prev,
@@ -260,11 +374,42 @@ const TeacherGradeManagement = () => {
 		}
 	};
 
-	const handleGradeChange = (studentId: string, value: string) => {
-		setGradesToSubmit((prev) =>
+	// This effect handles dynamically adding/removing periods after students are loaded
+	useEffect(() => {
+		if (studentsForGrading.length > 0) {
+			setStudentsForGrading((prevStudents) => {
+				return prevStudents.map((student) => {
+					const newGrades = { ...student.grades };
+					// Add any newly selected periods that aren't in the student's grade object yet
+					selectedPeriods.forEach((period) => {
+						if (!newGrades[period]) {
+							newGrades[period] = { grade: '', isApproved: false };
+						}
+					});
+					return { ...student, grades: newGrades };
+				});
+			});
+		}
+	}, [selectedPeriods]);
+
+	const handleGradeChange = (
+		studentId: string,
+		period: string,
+		value: string
+	) => {
+		setStudentsForGrading((prev) =>
 			prev.map((student) =>
 				student.studentId === studentId
-					? { ...student, grade: value === '' ? '' : Number(value) }
+					? {
+							...student,
+							grades: {
+								...student.grades,
+								[period]: {
+									...student.grades[period], // Keep isApproved status
+									grade: value === '' ? '' : Number(value),
+								},
+							},
+					  }
 					: student
 			)
 		);
@@ -278,60 +423,63 @@ const TeacherGradeManagement = () => {
 
 		setLoading((prev) => ({ ...prev, submittingGrades: true }));
 
+		// Create a single flat array, excluding any grades that are already approved
+		const gradesToSubmit = studentsForGrading.flatMap((student) =>
+			selectedPeriods
+				.filter((period) => {
+					const gradeInfo = student.grades[period];
+					return !gradeInfo.isApproved && gradeInfo.grade !== '';
+				})
+				.map((period) => ({
+					studentId: student.studentId,
+					name: student.name,
+					grade: Number(student.grades[period].grade),
+					period: period,
+				}))
+		);
+
+		if (gradesToSubmit.length === 0) {
+			alert(
+				'No new or editable grades to submit. All entered grades may be approved already.'
+			);
+			setLoading((prev) => ({ ...prev, submittingGrades: false }));
+			return;
+		}
+
+		const payload = {
+			classId: selectedGradeLevel,
+			subject: selectedSubject,
+			grades: gradesToSubmit,
+		};
+
 		try {
-			for (const period of selectedPeriods) {
-				const gradesToSubmitForPeriod = gradesToSubmit
-					.filter((student) => student.grade !== '' && student.grade !== null)
-					.map((student) => ({
-						studentId: student.studentId,
-						name: student.name,
-						grade: student.grade,
-						status: 'Pending',
-					}));
+			const res = await fetch('/api/grades', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload),
+			});
 
-				if (gradesToSubmitForPeriod.length === 0) {
-					continue;
-				}
-
-				const payload = {
-					academicYear,
-					period,
-					gradeLevel: selectedGradeLevel,
-					subject: selectedSubject,
-					teacherId: teacherInfo?.userId,
-					grades: gradesToSubmitForPeriod,
-				};
-
-				const res = await fetch('/api/grades', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(payload),
-				});
-
-				if (!res.ok) {
-					const errorData = await res.json();
-					throw new Error(
-						errorData.message || `Failed to submit grades for ${period}`
-					);
-				}
+			if (!res.ok) {
+				const errorData = await res.json();
+				throw new Error(errorData.message || 'Failed to submit grades');
 			}
 
 			alert('Grades submitted successfully!');
 			setStudentsForGrading([]);
-			setGradesToSubmit([]);
 			setSelectedPeriods([]);
 			setSelectedSubject('');
 			setSelectedGradeLevel('');
+			setSelectedClassLevel('');
 			setActiveTab('overview');
 		} catch (err: any) {
-			alert(err.message);
+			alert(`Error: ${err.message}`);
 			console.error('Error submitting grades:', err);
 		} finally {
 			setLoading((prev) => ({ ...prev, submittingGrades: false }));
 		}
 	};
 
-	const loadStudentsForEdit = async (submission: SubjectGrades) => {
+	const loadStudentsForEdit = async (submission: GradeSubmission) => {
 		if (!submission) return;
 		setLoading((prev) => ({ ...prev, studentsForEdit: true }));
 		setError((prev) => ({ ...prev, studentsForEdit: '' }));
@@ -442,7 +590,7 @@ const TeacherGradeManagement = () => {
 				setError((prev) => ({ ...prev, masterGrades: '' }));
 				try {
 					const res = await fetch(
-						`/api/grades?academicYear=${academicYear}&gradeLevel=${selectedMasterGradeLevel}&subject=${selectedMasterSubject}`
+						`/api/grades?academicYear=${academicYear}&classId=${selectedMasterGradeLevel}&subject=${selectedMasterSubject}`
 					);
 					if (!res.ok) throw new Error('Failed to fetch master grade sheet');
 					const data = await res.json();
@@ -467,12 +615,31 @@ const TeacherGradeManagement = () => {
 	]);
 
 	// Helper functions
-	const getAllGradeLevels = () => {
-		if (!teacherInfo) return [];
-		const gradeLevels = new Set<string>();
-		Object.values(teacherInfo.classes).forEach((classes) => {
-			classes.forEach((cls) => gradeLevels.add(cls));
+	const uniqueSubjects = useMemo(() => {
+		if (!teacherInfo?.subjects) return [];
+		const subjectNames = teacherInfo.subjects.map((s) => s.subject);
+		return [...new Set(subjectNames)];
+	}, [teacherInfo]);
+
+	const classesBySubject = useMemo(() => {
+		if (!teacherInfo?.subjects) return {};
+		const result: { [subject: string]: string[] } = {};
+		teacherInfo.subjects.forEach((s) => {
+			if (!result[s.subject]) {
+				result[s.subject] = [];
+			}
+			if (!result[s.subject].includes(s.level)) {
+				result[s.subject].push(s.level);
+			}
 		});
+		return result;
+	}, [teacherInfo]);
+
+	const getAllGradeLevels = () => {
+		if (!teacherInfo?.subjects) return [];
+		const gradeLevels = new Set<string>();
+		// Use `classOptionsByLevel` to get all possible grade levels
+		teacherInfo.subjects.forEach((s) => gradeLevels.add(s.level));
 		return Array.from(gradeLevels);
 	};
 
@@ -492,22 +659,22 @@ const TeacherGradeManagement = () => {
 		return 'text-red-600 dark:text-red-400';
 	};
 
-	const applyFilters = (grades: SubjectGrades[]) => {
+	const applyFilters = (grades: GradeSubmission[]) => {
 		return grades?.filter((grade) => {
 			if (filters.subject && grade.subject !== filters.subject) return false;
 			if (filters.gradeLevel && grade.gradeLevel !== filters.gradeLevel)
-				return false;
+				return false; // Filter on gradeLevel directly
 			if (filters.period && grade.period !== filters.period) return false;
 			return true;
 		});
 	};
 
-	const applySorting = (grades: SubjectGrades[]) => {
+	const applySorting = (grades: GradeSubmission[]) => {
 		if (!sortConfig.key) return grades;
 		return grades;
 	};
 
-	const getSortIcon = (columnName: keyof SubjectGrades) => {
+	const getSortIcon = (columnName: keyof GradeSubmission) => {
 		if (sortConfig.key !== columnName) {
 			return <ArrowUpDown className="h-3 w-3 text-muted-foreground" />;
 		}
@@ -518,18 +685,24 @@ const TeacherGradeManagement = () => {
 		);
 	};
 
-	const getStatusColor = (status: 'Approved' | 'Rejected' | 'Pending') => {
+	const getStatusColor = (
+		status: 'Approved' | 'Rejected' | 'Pending' | 'Partially Approved'
+	) => {
 		switch (status) {
 			case 'Approved':
 				return 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200';
 			case 'Pending':
 				return 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200';
+			case 'Partially Approved':
+				return 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200';
 			default:
-				return 'bg-muted text-muted-foreground';
+				return 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200';
 		}
 	};
 
-	const getStatusIcon = (status: 'Approved' | 'Rejected' | 'Pending') => {
+	const getStatusIcon = (
+		status: 'Approved' | 'Rejected' | 'Pending' | 'Partially Approved'
+	) => {
 		switch (status) {
 			case 'Approved':
 				return <CheckCircle className="h-4 w-4" />;
@@ -537,6 +710,8 @@ const TeacherGradeManagement = () => {
 				return <Clock className="h-4 w-4" />;
 			case 'Rejected':
 				return <AlertCircle className="h-4 w-4" />;
+			case 'Partially Approved':
+				return <Info className="h-4 w-4" />;
 			default:
 				return <AlertCircle className="h-4 w-4" />;
 		}
@@ -545,16 +720,28 @@ const TeacherGradeManagement = () => {
 	const getAvailableSubjects = () => {
 		if (!teacherInfo || !selectedMasterGradeLevel) return [];
 		const subjectSet = new Set<string>();
-		Object.entries(teacherInfo.classes).forEach(([subject, gradeLevels]) => {
-			if (gradeLevels.includes(selectedMasterGradeLevel)) {
-				subjectSet.add(subject);
+		teacherInfo.subjects.forEach((s) => {
+			if (s.level === selectedMasterGradeLevel) {
+				subjectSet.add(s.subject);
 			}
 		});
 		return Array.from(subjectSet);
 	};
 
+	const formatLastUpdated = (dateString: string) => {
+		const date = new Date(dateString);
+		return (
+			date.toLocaleDateString() +
+			' ' +
+			date.toLocaleTimeString([], {
+				hour: '2-digit',
+				minute: '2-digit',
+			})
+		);
+	};
+
 	// Generate unique key for each grade row
-	const generateGradeKey = (grade: SubjectGrades) => {
+	const generateGradeKey = (grade: GradeSubmission) => {
 		return `${grade.academicYear}-${grade.period}-${grade.gradeLevel}-${grade.subject}-${grade.teacherId}`;
 	};
 
@@ -614,8 +801,14 @@ const TeacherGradeManagement = () => {
 									<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/80">
 										<div className="flex items-center gap-2">Period</div>
 									</th>
-									<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-										Average
+									<th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+										Students
+									</th>
+									<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/80">
+										<div className="flex items-center gap-2">Status</div>
+									</th>
+									<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/80">
+										<div className="flex items-center gap-2">Last Updated</div>
 									</th>
 									<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
 										Actions
@@ -635,13 +828,24 @@ const TeacherGradeManagement = () => {
 											{grade.gradeLevel}
 										</td>
 										<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-											{periods.find((p) => p.value === grade.period)?.label ||
+											{periods.find((p) => p.value === grade.period)?.label ??
 												grade.period}
 										</td>
-										<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-											<span className={getGradeColor(grade.stats.average)}>
-												{grade.stats.average.toFixed(2)}
+										<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground text-center">
+											{grade.stats?.totalStudents ?? 'N/A'}
+										</td>
+										<td className="px-6 py-4 whitespace-nowrap text-sm">
+											<span
+												className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+													grade.status
+												)}`}
+											>
+												{getStatusIcon(grade.status)}
+												{grade.status}
 											</span>
+										</td>
+										<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+											{formatLastUpdated(grade.lastUpdated)}
 										</td>
 										<td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
 											<div className="flex items-center gap-2">
@@ -696,11 +900,37 @@ const TeacherGradeManagement = () => {
 							className="mt-1 block w-full rounded-md border-border bg-background py-2 pl-3 pr-10 text-foreground focus:border-primary focus:ring-primary sm:text-sm"
 						>
 							<option value="">Select a Subject</option>
-							{teacherInfo?.subjects.map((subject, index) => (
+							{uniqueSubjects.map((subject, index) => (
 								<option key={`subject-${subject}-${index}`} value={subject}>
 									{subject}
 								</option>
 							))}
+						</select>
+					</div>
+					<div>
+						<label
+							htmlFor="class-level-select"
+							className="block text-sm font-medium text-muted-foreground"
+						>
+							Class Level
+						</label>
+						<select
+							id="class-level-select"
+							value={selectedClassLevel}
+							onChange={(e) => {
+								setSelectedClassLevel(e.target.value);
+								setSelectedGradeLevel('');
+							}}
+							className="mt-1 block w-full rounded-md border-border bg-background py-2 pl-3 pr-10 text-foreground focus:border-primary focus:ring-primary sm:text-sm"
+							disabled={!selectedSubject}
+						>
+							<option value="">Select a Level</option>
+							{selectedSubject &&
+								classesBySubject[selectedSubject]?.map((level, index) => (
+									<option key={`level-${level}-${index}`} value={level}>
+										{level}
+									</option>
+								))}
 						</select>
 					</div>
 					<div>
@@ -715,18 +945,18 @@ const TeacherGradeManagement = () => {
 							value={selectedGradeLevel}
 							onChange={(e) => setSelectedGradeLevel(e.target.value)}
 							className="mt-1 block w-full rounded-md border-border bg-background py-2 pl-3 pr-10 text-foreground focus:border-primary focus:ring-primary sm:text-sm"
-							disabled={!selectedSubject}
+							disabled={!selectedClassLevel}
 						>
 							<option value="">Select a Class</option>
-							{selectedSubject &&
-								teacherInfo?.classes[selectedSubject]?.map((cls, index) => (
+							{selectedClassLevel &&
+								classOptionsByLevel[selectedClassLevel]?.map((cls, index) => (
 									<option key={`class-${cls}-${index}`} value={cls}>
 										{cls}
 									</option>
 								))}
 						</select>
 					</div>
-					<div>
+					<div className="md:col-span-3">
 						<label
 							htmlFor="period-select"
 							className="block text-sm font-medium text-muted-foreground mb-2"
@@ -777,6 +1007,7 @@ const TeacherGradeManagement = () => {
 					disabled={
 						!selectedSubject ||
 						!selectedGradeLevel ||
+						selectedPeriods.length === 0 ||
 						loading.studentsForGrading
 					}
 				>
@@ -795,6 +1026,14 @@ const TeacherGradeManagement = () => {
 							<h3 className="text-xl font-semibold">
 								Grades for {selectedGradeLevel} - {selectedSubject}
 							</h3>
+							<p className="text-sm text-muted-foreground mt-1">
+								Selected Periods:{' '}
+								{selectedPeriods
+									.map(
+										(p) => periods.find((period) => period.value === p)?.label
+									)
+									.join(', ')}
+							</p>
 						</div>
 					</div>
 
@@ -811,30 +1050,49 @@ const TeacherGradeManagement = () => {
 									<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
 										Student Name
 									</th>
-									<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-										Grade
-									</th>
+									{selectedPeriods.map((period) => (
+										<th
+											key={`period-header-${period}`}
+											className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+										>
+											{periods.find((p) => p.value === period)?.label}
+										</th>
+									))}
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-border bg-card">
-								{gradesToSubmit.map((student) => (
-									<tr key={`student-grading-${student.studentId}`}>
+								{studentsForGrading.map((student, index) => (
+									<tr key={`student-grading-${index}`}>
 										<td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
 											{student.name}
 										</td>
-										<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-											<input
-												type="number"
-												value={student.grade}
-												onChange={(e) =>
-													handleGradeChange(student.studentId, e.target.value)
-												}
-												min="0"
-												max="100"
-												placeholder="Enter grade"
-												className="w-24 rounded-md border-border bg-background text-foreground text-center focus:ring-primary focus:border-primary"
-											/>
-										</td>
+										{selectedPeriods.map((period) => (
+											<td
+												key={`grade-${student.studentId}-${period}`}
+												className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground"
+											>
+												<input
+													type="number"
+													value={student.grades[period]?.grade}
+													disabled={student.grades[period]?.isApproved}
+													onChange={(e) =>
+														handleGradeChange(
+															student.studentId,
+															period,
+															e.target.value
+														)
+													}
+													min="0"
+													max="100"
+													placeholder="0"
+													className={`w-24 rounded-md border bg-background text-foreground text-center focus:ring-2 focus:ring-primary focus:border-primary disabled:cursor-not-allowed disabled:bg-muted/50 disabled:opacity-70 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+														student.grades[period]?.isApproved
+															? 'border-green-400'
+															: 'border-border'
+													}`}
+												/>
+											</td>
+										))}
 									</tr>
 								))}
 							</tbody>
@@ -847,7 +1105,7 @@ const TeacherGradeManagement = () => {
 							className="inline-flex justify-center rounded-md border border-transparent bg-primary px-6 py-2 text-base font-medium text-primary-foreground shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 sm:text-sm disabled:opacity-50"
 							disabled={
 								loading.submittingGrades ||
-								gradesToSubmit.length === 0 ||
+								studentsForGrading.length === 0 ||
 								selectedPeriods.length === 0
 							}
 						>
@@ -891,11 +1149,39 @@ const TeacherGradeManagement = () => {
 		return (
 			<div className="space-y-6">
 				<div className="p-6 bg-card border rounded-lg">
-					<h3 className="text-xl font-semibold mb-2">Master Grade Sheet</h3>
-					<p className="text-muted-foreground mb-6">
-						View all grades for a class and subject.
-					</p>
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+					{/* Master Grade Sheet Actions */}
+					<div className="flex items-center justify-between mb-4">
+						<h3 className="text-xl font-semibold">Master Grade Sheet</h3>
+						<p className="text-muted-foreground">
+							View all grades for a class and subject.
+						</p>
+					</div>
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+						<div>
+							<label
+								htmlFor="master-class-level-select"
+								className="block text-sm font-medium text-muted-foreground"
+							>
+								Class Level
+							</label>
+							<select
+								id="master-class-level-select"
+								value={selectedMasterClassLevel}
+								onChange={(e) => {
+									setSelectedMasterClassLevel(e.target.value);
+									setSelectedMasterGradeLevel('');
+									setSelectedMasterSubject('');
+								}}
+								className="mt-1 block w-full rounded-md border-border bg-background py-2 pl-3 pr-10 text-foreground focus:border-primary focus:ring-primary sm:text-sm"
+							>
+								<option value="">Select a Level</option>
+								{Object.keys(classOptionsByLevel).map((level) => (
+									<option key={`master-class-level-${level}`} value={level}>
+										{level}
+									</option>
+								))}
+							</select>
+						</div>
 						<div>
 							<label
 								htmlFor="master-class-select"
@@ -906,15 +1192,22 @@ const TeacherGradeManagement = () => {
 							<select
 								id="master-class-select"
 								value={selectedMasterGradeLevel}
-								onChange={(e) => setSelectedMasterGradeLevel(e.target.value)}
+								onChange={(e) => {
+									setSelectedMasterGradeLevel(e.target.value);
+									setSelectedMasterSubject('');
+								}}
 								className="mt-1 block w-full rounded-md border-border bg-background py-2 pl-3 pr-10 text-foreground focus:border-primary focus:ring-primary sm:text-sm"
+								disabled={!selectedMasterClassLevel}
 							>
 								<option value="">Select a Class</option>
-								{getAllGradeLevels().map((cls, index) => (
-									<option key={`master-class-${cls}-${index}`} value={cls}>
-										{cls}
-									</option>
-								))}
+								{selectedMasterClassLevel &&
+									classOptionsByLevel[selectedMasterClassLevel]?.map(
+										(cls, index) => (
+											<option key={`master-class-${cls}-${index}`} value={cls}>
+												{cls}
+											</option>
+										)
+									)}
 							</select>
 						</div>
 						<div>
@@ -1041,8 +1334,11 @@ const TeacherGradeManagement = () => {
 							>
 								<option value="">All Subjects</option>
 								{teacherInfo?.subjects.map((s, index) => (
-									<option key={`filter-subject-${s}-${index}`} value={s}>
-										{s}
+									<option
+										key={`filter-subject-${s.subject}-${index}`}
+										value={s.subject}
+									>
+										{s.subject}
 									</option>
 								))}
 							</select>

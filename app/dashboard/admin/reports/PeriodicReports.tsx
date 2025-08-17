@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
 	Document,
 	Page,
@@ -40,6 +40,12 @@ interface StudentInfo {
 	grade: string;
 }
 
+interface Student {
+	id: string;
+	name: string;
+	className: string;
+}
+
 interface Subject {
 	name: string;
 	marks: number;
@@ -47,12 +53,10 @@ interface Subject {
 
 interface PeriodicStudentData {
 	studentId: string;
-	name: string;
+	studentName: string;
 	subjects: Array<{
 		subject: string;
 		grade: number;
-		rank: number;
-		classAverage: number;
 	}>;
 	periodicAverage: number;
 	rank: number;
@@ -74,10 +78,30 @@ const academicYearOptions = [
 	'2021/2022',
 ];
 
-const classOptions = ['7A', '7B', '8A', '8B', '9A', '9B'];
+const gradeLevels = [
+	'Self Contained',
+	'Elementry',
+	'Junior High',
+	'Senior High',
+];
 
-function gradeStyle(score: number) {
-	if (score < 70) {
+const classOptionsByLevel: { [key: string]: string[] } = {
+	'Self Contained': [
+		'Daycare',
+		'Nursery',
+		'K-I',
+		'K-II',
+		'1st Grade',
+		'2nd Grade',
+		'3rd Grade',
+	],
+	Elementry: ['4th Grade', '5th Grade', '6th Grade'],
+	'Junior High': ['7th Grade', '8th Grade', 'Grade 9A'],
+	'Senior High': ['Grade 10A', '11th Grade', '12th Grade'],
+};
+
+function gradeStyle(score: number | null) {
+	if (score === null || Number.isNaN(score) || score < 70) {
 		return {
 			...styles.tableCell,
 			color: 'red',
@@ -157,21 +181,246 @@ function SchoolHeader({ student }: { student: StudentInfo }) {
 	);
 }
 
+// Multi-select component for student selection
+function StudentMultiSelect({
+	students,
+	selectedStudents,
+	onSelectionChange,
+	className,
+}: {
+	students: Student[];
+	selectedStudents: string[];
+	onSelectionChange: (studentIds: string[]) => void;
+	className: string;
+}) {
+	const [searchTerm, setSearchTerm] = useState('');
+	const [isOpen, setIsOpen] = useState(false);
+	const dropdownRef = useRef<HTMLDivElement>(null);
+
+	const filteredStudents = students.filter((student) =>
+		student.name.toLowerCase().includes(searchTerm.toLowerCase())
+	);
+
+	// Close dropdown when clicking outside
+	useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+			if (
+				dropdownRef.current &&
+				!dropdownRef.current.contains(event.target as Node)
+			) {
+				setIsOpen(false);
+			}
+		};
+
+		document.addEventListener('mousedown', handleClickOutside);
+		return () => {
+			document.removeEventListener('mousedown', handleClickOutside);
+		};
+	}, []);
+
+	const handleStudentToggle = (studentId: string) => {
+		const newSelection = selectedStudents.includes(studentId)
+			? selectedStudents.filter((id) => id !== studentId)
+			: [...selectedStudents, studentId];
+		onSelectionChange(newSelection);
+	};
+
+	const selectedStudentNames = students
+		.filter((s) => selectedStudents.includes(s.id))
+		.map((s) => s.name);
+
+	return (
+		<div className="relative" ref={dropdownRef}>
+			<label className="block text-sm font-medium mb-1">
+				Select Students ({selectedStudents.length} selected)
+			</label>
+			<div
+				className="w-full border border-border px-3 py-2 rounded bg-background text-foreground cursor-pointer min-h-[42px] flex items-center justify-between"
+				onClick={() => setIsOpen(!isOpen)}
+			>
+				<div className="flex-1">
+					{selectedStudents.length === 0 ? (
+						<span className="text-muted-foreground">Select students...</span>
+					) : selectedStudents.length <= 3 ? (
+						<span>{selectedStudentNames.join(', ')}</span>
+					) : (
+						<span>{selectedStudents.length} students selected</span>
+					)}
+				</div>
+				<div className="ml-2">
+					<svg
+						className={`w-4 h-4 transition-transform ${
+							isOpen ? 'rotate-180' : ''
+						}`}
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth={2}
+							d="M19 9l-7 7-7-7"
+						/>
+					</svg>
+				</div>
+			</div>
+
+			{isOpen && (
+				<div className="absolute z-10 w-full mt-1 bg-background border border-border rounded shadow-lg max-h-60 overflow-hidden">
+					<div className="p-2 border-b border-border">
+						<input
+							type="text"
+							placeholder="Search students..."
+							value={searchTerm}
+							onChange={(e) => setSearchTerm(e.target.value)}
+							className="w-full px-2 py-1 text-sm border border-border rounded bg-background text-foreground"
+							onClick={(e) => e.stopPropagation()}
+						/>
+					</div>
+					<div className="max-h-48 overflow-y-auto">
+						{filteredStudents.length === 0 ? (
+							<div className="p-3 text-sm text-muted-foreground text-center">
+								No students found
+							</div>
+						) : (
+							filteredStudents.map((student) => (
+								<div
+									key={student.id}
+									className="flex items-center px-3 py-2 hover:bg-muted cursor-pointer"
+									onClick={(e) => {
+										e.stopPropagation();
+										handleStudentToggle(student.id);
+									}}
+								>
+									<input
+										type="checkbox"
+										checked={selectedStudents.includes(student.id)}
+										onChange={() => {}}
+										className="mr-2"
+									/>
+									<span className="text-sm">{student.name}</span>
+								</div>
+							))
+						)}
+					</div>
+					<div className="p-2 border-t border-border bg-muted/50">
+						<div className="flex gap-2">
+							<button
+								type="button"
+								onClick={(e) => {
+									e.stopPropagation();
+									onSelectionChange(students.map((s) => s.id));
+								}}
+								className="flex-1 px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
+							>
+								Select All
+							</button>
+							<button
+								type="button"
+								onClick={(e) => {
+									e.stopPropagation();
+									onSelectionChange([]);
+								}}
+								className="flex-1 px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border"
+							>
+								Clear All
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+		</div>
+	);
+}
+
 function FilterContent({
 	filters,
 	setFilters,
 	onSubmit,
 }: {
-	filters: { academicYear: string; period: string; className: string };
+	filters: {
+		academicYear: string;
+		period: string;
+		gradeLevel: string;
+		className: string;
+		reportType: 'entire-class' | 'selected-students';
+		selectedStudents: string[];
+	};
 	setFilters: React.Dispatch<
 		React.SetStateAction<{
 			academicYear: string;
 			period: string;
+			gradeLevel: string;
 			className: string;
+			reportType: 'entire-class' | 'selected-students';
+			selectedStudents: string[];
 		}>
 	>;
 	onSubmit: () => void;
 }) {
+	const [students, setStudents] = useState<Student[]>([]);
+	const [loadingStudents, setLoadingStudents] = useState(false);
+
+	// Fetch students when class is selected
+	useEffect(() => {
+		if (filters.className) {
+			const fetchStudents = async () => {
+				try {
+					setLoadingStudents(true);
+					const response = await fetch(
+						`/api/users?classId=${filters.className}&role=student`
+					);
+					if (response.ok) {
+						const responseData = await response.json();
+						if (responseData.success && responseData.data) {
+							// Map the response data to the expected format
+							const mappedStudents = responseData.data.map((student: any) => ({
+								id: student.studentId,
+								name: `${student.firstName} ${
+									student.middleName ? student.middleName + ' ' : ''
+								}${student.lastName}`.trim(),
+								className: student.classId,
+							}));
+							setStudents(mappedStudents);
+						} else {
+							console.error('Invalid response format:', responseData);
+							setStudents([]);
+						}
+					} else {
+						console.error('Failed to fetch students');
+						setStudents([]);
+					}
+				} catch (error) {
+					console.error('Error fetching students:', error);
+					setStudents([]);
+				} finally {
+					setLoadingStudents(false);
+				}
+			};
+
+			fetchStudents();
+		} else {
+			setStudents([]);
+			setFilters((prev) => ({ ...prev, selectedStudents: [] }));
+		}
+	}, [filters.className, setFilters]);
+
+	// Reset selected students when switching back to entire class
+	useEffect(() => {
+		if (filters.reportType === 'entire-class') {
+			setFilters((prev) => ({ ...prev, selectedStudents: [] }));
+		}
+	}, [filters.reportType, setFilters]);
+
+	const canSubmit =
+		filters.academicYear &&
+		filters.period &&
+		filters.className &&
+		(filters.reportType === 'entire-class' ||
+			(filters.reportType === 'selected-students' &&
+				filters.selectedStudents.length > 0));
+
 	return (
 		<div className="flex flex-col items-center justify-center min-h-[60vh] py-10 bg-background text-foreground">
 			<div className="bg-card rounded-lg shadow border border-border w-full max-w-md p-6">
@@ -186,7 +435,13 @@ function FilterContent({
 					<select
 						value={filters.academicYear}
 						onChange={(e) =>
-							setFilters((f) => ({ ...f, academicYear: e.target.value }))
+							setFilters((f) => ({
+								...f,
+								academicYear: e.target.value,
+								gradeLevel: '',
+								className: '',
+								selectedStudents: [],
+							}))
 						}
 						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
 					>
@@ -198,24 +453,131 @@ function FilterContent({
 						))}
 					</select>
 				</div>
-
 				<div className="mb-4">
-					<label className="block text-sm font-medium mb-1">Class</label>
+					<label className="block text-sm font-medium mb-1">Grade Level</label>
 					<select
-						value={filters.className}
+						value={filters.gradeLevel}
 						onChange={(e) =>
-							setFilters((f) => ({ ...f, className: e.target.value }))
+							setFilters((f) => ({
+								...f,
+								gradeLevel: e.target.value,
+								className: '',
+								selectedStudents: [],
+							}))
 						}
 						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+						disabled={!filters.academicYear}
 					>
-						<option value="">Select Class</option>
-						{classOptions.map((c) => (
-							<option key={c} value={c}>
-								{c}
+						<option value="">Select Grade Level</option>
+						{gradeLevels.map((level) => (
+							<option key={level} value={level}>
+								{level}
 							</option>
 						))}
 					</select>
 				</div>
+				<div className="mb-4">
+					<label className="block text-sm font-medium mb-1">Class</label>
+					<select
+						value={filters.className}
+						onChange={(e) => {
+							setFilters((f) => ({
+								...f,
+								className: e.target.value,
+								reportType: 'entire-class',
+								selectedStudents: [],
+							}));
+						}}
+						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+						disabled={!filters.gradeLevel}
+					>
+						<option value="">Select Class</option>
+						{filters.gradeLevel &&
+							classOptionsByLevel[filters.gradeLevel].map((c) => (
+								<option key={c} value={c}>
+									{c}
+								</option>
+							))}
+					</select>
+				</div>
+
+				{filters.className && (
+					<div className="mb-4">
+						<label className="block text-sm font-medium mb-2">
+							Report Type
+						</label>
+						<div className="flex items-center justify-between p-3 bg-muted/50 rounded border border-border">
+							<span className="text-sm">
+								{filters.reportType === 'entire-class'
+									? 'Entire Class'
+									: 'Selected Students'}
+							</span>
+							<div className="relative inline-block w-12 h-6">
+								<input
+									type="checkbox"
+									checked={filters.reportType === 'selected-students'}
+									onChange={(e) => {
+										setFilters((prev) => ({
+											...prev,
+											reportType: e.target.checked
+												? 'selected-students'
+												: 'entire-class',
+										}));
+									}}
+									className="sr-only"
+								/>
+								<div
+									className={`block w-12 h-6 rounded-full cursor-pointer transition-colors ${
+										filters.reportType === 'selected-students'
+											? 'bg-primary'
+											: 'bg-muted-foreground/30'
+									}`}
+									onClick={() => {
+										setFilters((prev) => ({
+											...prev,
+											reportType:
+												prev.reportType === 'entire-class'
+													? 'selected-students'
+													: 'entire-class',
+										}));
+									}}
+								>
+									<div
+										className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+											filters.reportType === 'selected-students'
+												? 'transform translate-x-6'
+												: ''
+										}`}
+									/>
+								</div>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{filters.className && filters.reportType === 'selected-students' && (
+					<div className="mb-4">
+						{loadingStudents ? (
+							<div className="flex items-center justify-center py-8">
+								<div className="text-sm text-muted-foreground">
+									Loading students...
+								</div>
+							</div>
+						) : (
+							<StudentMultiSelect
+								students={students}
+								selectedStudents={filters.selectedStudents}
+								onSelectionChange={(studentIds) => {
+									setFilters((prev) => ({
+										...prev,
+										selectedStudents: studentIds,
+									}));
+								}}
+								className={filters.className}
+							/>
+						)}
+					</div>
+				)}
 
 				<div className="mb-4">
 					<label className="block text-sm font-medium mb-1">Period</label>
@@ -239,7 +601,14 @@ function FilterContent({
 					<button
 						type="button"
 						onClick={() => {
-							setFilters({ academicYear: '', period: '', className: '' });
+							setFilters({
+								academicYear: '',
+								period: '',
+								gradeLevel: '',
+								className: '',
+								reportType: 'entire-class',
+								selectedStudents: [],
+							});
 						}}
 						className="flex-1 px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border"
 					>
@@ -249,9 +618,7 @@ function FilterContent({
 						type="button"
 						onClick={onSubmit}
 						className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary disabled:opacity-50"
-						disabled={
-							!filters.academicYear || !filters.period || !filters.className
-						}
+						disabled={!canSubmit}
 					>
 						Apply Filter
 					</button>
@@ -265,7 +632,13 @@ function ReportContent({
 	reportFilters,
 	onBack,
 }: {
-	reportFilters: { academicYear: string; period: string; className: string };
+	reportFilters: {
+		academicYear: string;
+		period: string;
+		className: string;
+		reportType: 'entire-class' | 'selected-students';
+		selectedStudents: string[];
+	};
 	onBack: () => void;
 }) {
 	const [studentsData, setStudentsData] = useState<PeriodicStudentData[]>([]);
@@ -279,14 +652,17 @@ function ReportContent({
 				setLoading(true);
 				setError(null);
 
-				const gradeLevel = reportFilters.className.charAt(0);
-
-				const params = {
+				const params: any = {
 					period: reportFilters.period,
 					academicYear: reportFilters.academicYear,
-					gradeLevel,
-					reportType: 'periodic',
+					classId: reportFilters.className,
+					// No reportType param needed anymore
 				};
+
+				// Conditionally add studentIds if they exist
+				if (reportFilters.selectedStudents.length > 0) {
+					params.studentIds = reportFilters.selectedStudents.join(',');
+				}
 
 				const url = new URL('/api/grades', window.location.origin);
 				Object.entries(params).forEach(([key, value]) => {
@@ -297,11 +673,17 @@ function ReportContent({
 				if (!res.ok) throw new Error('Failed to fetch periodic grades');
 				const data = await res.json();
 
-				if (!data.success || !data.data || !Array.isArray(data.data.grades)) {
+				// Normalize the response to always be an array
+				const reportData = Array.isArray(data.data.report)
+					? data.data.report
+					: [data.data.report];
+
+				// Check for invalid format after normalization
+				if (!data.success || !data.data || !Array.isArray(reportData)) {
 					throw new Error('Invalid data format received from the server');
 				}
 
-				setStudentsData(data.data.grades);
+				setStudentsData(reportData);
 			} catch (err) {
 				console.error('Error fetching periodic grades:', err);
 				setError(
@@ -317,6 +699,7 @@ function ReportContent({
 		reportFilters.academicYear,
 		reportFilters.period,
 		reportFilters.className,
+		reportFilters.selectedStudents,
 	]);
 
 	if (loading) {
@@ -375,7 +758,9 @@ function ReportContent({
 
 	const title =
 		studentsData.length === 1
-			? `Periodic Report - ${studentsData[0].name}`
+			? `Periodic Report - ${studentsData[0].studentName}`
+			: reportFilters.reportType === 'selected-students'
+			? `Periodic Report - Selected Students - ${selectedPeriodLabel}`
 			: `Periodic Report - ${reportFilters.className} - ${selectedPeriodLabel}`;
 
 	return (
@@ -447,14 +832,17 @@ function ReportContent({
 											>
 												<SchoolHeader
 													student={{
-														firstName: studentData.name?.split(' ')[0] || '',
+														firstName:
+															studentData.studentName?.split(' ')[0] || '',
 														middleName:
-															studentData.name?.split(' ').length > 2
-																? studentData.name.split(' ')[1]
+															studentData.studentName?.split(' ').length > 2
+																? studentData.studentName.split(' ')[1]
 																: '',
 														lastName:
-															studentData.name?.split(' ').length > 1
-																? studentData.name.split(' ').slice(-1)[0]
+															studentData.studentName?.split(' ').length > 1
+																? studentData.studentName
+																		.split(' ')
+																		.slice(-1)[0]
 																: '',
 														class: reportFilters.className,
 														id: studentData.studentId,
@@ -465,7 +853,7 @@ function ReportContent({
 
 												<View style={{ marginBottom: 8 }}>
 													<Text style={{ fontWeight: 'bold', fontSize: 10 }}>
-														{studentData.name}
+														{studentData.studentName}
 													</Text>
 													<Text style={{ fontSize: 9 }}>
 														ID: {studentData.studentId}
@@ -513,7 +901,7 @@ function ReportContent({
 																	s.subject.toLowerCase() ===
 																	subjectName.toLowerCase()
 															);
-														const mark = subject ? subject.grade : '';
+														const mark = subject ? subject.grade : null;
 														return (
 															<View
 																key={sidx}
@@ -542,7 +930,7 @@ function ReportContent({
 																		paddingVertical: 1,
 																	}}
 																>
-																	{mark !== '' ? mark : '-'}
+																	{mark !== null ? mark : '-'}
 																</Text>
 															</View>
 														);
@@ -580,7 +968,7 @@ function ReportContent({
 																	fontSize: 9,
 																}}
 															>
-																{studentData.periodicAverage.toFixed(2)}
+																{studentData.periodicAverage.toFixed(1)}
 															</Text>
 														</View>
 														<View
@@ -645,11 +1033,17 @@ export default function PeriodicReportWrapper() {
 	const [filters, setFilters] = useState<{
 		academicYear: string;
 		period: string;
+		gradeLevel: string;
 		className: string;
+		reportType: 'entire-class' | 'selected-students';
+		selectedStudents: string[];
 	}>({
 		academicYear: '',
 		period: '',
+		gradeLevel: '',
 		className: '',
+		reportType: 'entire-class',
+		selectedStudents: [],
 	});
 
 	return (

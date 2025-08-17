@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
 		let responseData;
 
 		// --- TEACHER / STUDENT: Only fetch their own account ---
-		if (['teacher', 'student'].includes(currentUser.role)) {
+		if (['student'].includes(currentUser.role)) {
 			responseData = await models.User.findById(currentUser.id).select(
 				'-password'
 			);
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
 		if (targetId) filters._id = targetId;
 
 		// --- SYSTEM ADMIN: can fetch all or filtered ---
-		if (currentUser.role === 'system_admin') {
+		if (['teacher', 'system_admin'].includes(currentUser.role)) {
 			if (Object.keys(filters).length === 0) {
 				// No filters – fetch all users
 				responseData = await models.User.find({})
@@ -105,6 +105,7 @@ export async function GET(request: NextRequest) {
 				responseData = await models.User.find(filters)
 					.limit(limit)
 					.select('-password');
+				console.log('RESPONSE: ', responseData);
 			}
 		}
 

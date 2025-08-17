@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import { GradeStatus } from '../constants';
 
-const gradeSchema = new mongoose.Schema(
+const GradeSchema = new mongoose.Schema(
 	{
 		submissionId: { type: String, required: true },
 		academicYear: { type: String, required: true },
@@ -13,9 +13,10 @@ const gradeSchema = new mongoose.Schema(
 		studentName: { type: String, required: true },
 		grade: { type: Number, required: true },
 		status: { type: String, enum: GradeStatus, required: true },
-		submittedAt: { type: Date, required: true },
+		lastUpdated: { type: Date, required: true },
 	},
 	{ _id: false }
 );
 
-export const Grade = mongoose.model('Grade', gradeSchema);
+// Check if the model is already defined before defining it
+export default GradeSchema;

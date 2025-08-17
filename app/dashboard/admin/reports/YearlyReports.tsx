@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
 	Document,
 	Page,
@@ -13,7 +13,7 @@ import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 
 function gradeStyle(score: string | number | null) {
-	if (score === null || Number(score) < 70) {
+	if (score === null || Number.isNaN(score) || Number(score) < 70) {
 		return {
 			...styles.tableCell,
 			color: 'red',
@@ -30,33 +30,22 @@ function gradeStyle(score: string | number | null) {
 	}
 }
 
-interface StudentReportCardData {
+interface StudentYearlyReport {
 	studentId: string;
+	studentName: string;
+	periods: Record<string, Array<{ subject: string; grade: number }>>;
+	firstSemesterAverage: Record<string, number>;
+	secondSemesterAverage: Record<string, number>;
+	periodAverages: Record<string, number>;
+	yearlyAverage: number;
+	ranks: Record<string, number>;
+}
+
+// Interfaces from PeriodicReports.tsx
+interface Student {
+	id: string;
 	name: string;
-	subjects: {
-		[subject: string]: {
-			firstSemester: {
-				ca1: number | null;
-				ca2: number | null;
-				ca3: number | null;
-				exam: number | null;
-				average: number | null;
-			};
-			secondSemester: {
-				ca1: number | null;
-				ca2: number | null;
-				ca3: number | null;
-				exam: number | null;
-				average: number | null;
-			};
-			yearlyAverage: number | null;
-		};
-	};
-	ranks: {
-		firstSemester: { [period: string]: number | null };
-		secondSemester: { [period: string]: number | null };
-		yearlyRank: number | null;
-	};
+	className: string;
 }
 
 const academicYearOptions = [
@@ -73,7 +62,7 @@ const gradeLevels = [
 	'Senior High',
 ];
 
-const classOptionsByLevel = {
+const classOptionsByLevel: { [key: string]: string[] } = {
 	'Self Contained': [
 		'Daycare',
 		'Nursery',
@@ -84,25 +73,240 @@ const classOptionsByLevel = {
 		'3rd Grade',
 	],
 	Elementry: ['4th Grade', '5th Grade', '6th Grade'],
-	'Junior High': ['7th Grade', '8th Grade', '9th Grade'],
-	'Senior High': ['10th Grade', '11th Grade', '12th Grade'],
+	'Junior High': ['7th Grade', '8th Grade', 'Grade 9A'],
+	'Senior High': ['Grade 10A', '11th Grade', '12th Grade'],
 };
+
+function StudentMultiSelect({
+	students,
+	selectedStudents,
+	onSelectionChange,
+	className,
+}: {
+	students: Student[];
+	selectedStudents: string[];
+	onSelectionChange: (studentIds: string[]) => void;
+	className: string;
+}) {
+	const [searchTerm, setSearchTerm] = useState('');
+	const [isOpen, setIsOpen] = useState(false);
+	const dropdownRef = useRef<HTMLDivElement>(null);
+
+	const filteredStudents = students.filter((student) =>
+		student.name.toLowerCase().includes(searchTerm.toLowerCase())
+	);
+
+	// Close dropdown when clicking outside
+	useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+			if (
+				dropdownRef.current &&
+				!dropdownRef.current.contains(event.target as Node)
+			) {
+				setIsOpen(false);
+			}
+		};
+
+		document.addEventListener('mousedown', handleClickOutside);
+		return () => {
+			document.removeEventListener('mousedown', handleClickOutside);
+		};
+	}, []);
+
+	const handleStudentToggle = (studentId: string) => {
+		const newSelection = selectedStudents.includes(studentId)
+			? selectedStudents.filter((id) => id !== studentId)
+			: [...selectedStudents, studentId];
+		onSelectionChange(newSelection);
+	};
+
+	const selectedStudentNames = students
+		.filter((s) => selectedStudents.includes(s.id))
+		.map((s) => s.name);
+
+	return (
+		<div className="relative" ref={dropdownRef}>
+			<label className="block text-sm font-medium mb-1">
+				Select Students ({selectedStudents.length} selected)
+			</label>
+			<div
+				className="w-full border border-border px-3 py-2 rounded bg-background text-foreground cursor-pointer min-h-[42px] flex items-center justify-between"
+				onClick={() => setIsOpen(!isOpen)}
+			>
+				<div className="flex-1">
+					{selectedStudents.length === 0 ? (
+						<span className="text-muted-foreground">Select students...</span>
+					) : selectedStudents.length <= 3 ? (
+						<span>{selectedStudentNames.join(', ')}</span>
+					) : (
+						<span>{selectedStudents.length} students selected</span>
+					)}
+				</div>
+				<div className="ml-2">
+					<svg
+						className={`w-4 h-4 transition-transform ${
+							isOpen ? 'rotate-180' : ''
+						}`}
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth={2}
+							d="M19 9l-7 7-7-7"
+						/>
+					</svg>
+				</div>
+			</div>
+
+			{isOpen && (
+				<div className="absolute z-10 w-full mt-1 bg-background border border-border rounded shadow-lg max-h-60 overflow-hidden">
+					<div className="p-2 border-b border-border">
+						<input
+							type="text"
+							placeholder="Search students..."
+							value={searchTerm}
+							onChange={(e) => setSearchTerm(e.target.value)}
+							className="w-full px-2 py-1 text-sm border border-border rounded bg-background text-foreground"
+							onClick={(e) => e.stopPropagation()}
+						/>
+					</div>
+					<div className="max-h-48 overflow-y-auto">
+						{filteredStudents.length === 0 ? (
+							<div className="p-3 text-sm text-muted-foreground text-center">
+								No students found
+							</div>
+						) : (
+							filteredStudents.map((student) => (
+								<div
+									key={student.id}
+									className="flex items-center px-3 py-2 hover:bg-muted cursor-pointer"
+									onClick={(e) => {
+										e.stopPropagation();
+										handleStudentToggle(student.id);
+									}}
+								>
+									<input
+										type="checkbox"
+										checked={selectedStudents.includes(student.id)}
+										onChange={() => {}}
+										className="mr-2"
+									/>
+									<span className="text-sm">{student.name}</span>
+								</div>
+							))
+						)}
+					</div>
+					<div className="p-2 border-t border-border bg-muted/50">
+						<div className="flex gap-2">
+							<button
+								type="button"
+								onClick={(e) => {
+									e.stopPropagation();
+									onSelectionChange(students.map((s) => s.id));
+								}}
+								className="flex-1 px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
+							>
+								Select All
+							</button>
+							<button
+								type="button"
+								onClick={(e) => {
+									e.stopPropagation();
+									onSelectionChange([]);
+								}}
+								className="flex-1 px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border"
+							>
+								Clear All
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+		</div>
+	);
+}
 
 function FilterContent({
 	filters,
 	setFilters,
 	onSubmit,
 }: {
-	filters: { academicYear: string; gradeLevel: string; className: string };
+	filters: {
+		academicYear: string;
+		gradeLevel: string;
+		className: string;
+		reportType: 'entire-class' | 'selected-students';
+		selectedStudents: string[];
+	};
 	setFilters: React.Dispatch<
 		React.SetStateAction<{
 			academicYear: string;
 			gradeLevel: string;
 			className: string;
+			reportType: 'entire-class' | 'selected-students';
+			selectedStudents: string[];
 		}>
 	>;
 	onSubmit: () => void;
 }) {
+	const [students, setStudents] = useState<Student[]>([]);
+	const [loadingStudents, setLoadingStudents] = useState(false);
+
+	// Fetch students when class is selected
+	useEffect(() => {
+		if (filters.className) {
+			const fetchStudents = async () => {
+				try {
+					setLoadingStudents(true);
+					const response = await fetch(
+						`/api/users?classId=${filters.className}&role=student`
+					);
+					if (response.ok) {
+						const responseData = await response.json();
+						if (responseData.success && responseData.data) {
+							const mappedStudents = responseData.data.map((student: any) => ({
+								id: student.studentId,
+								name: `${student.firstName} ${
+									student.middleName ? student.middleName + ' ' : ''
+								}${student.lastName}`.trim(),
+								className: student.classId,
+							}));
+							setStudents(mappedStudents);
+						} else {
+							console.error('Invalid response format:', responseData);
+							setStudents([]);
+						}
+					} else {
+						console.error('Failed to fetch students');
+						setStudents([]);
+					}
+				} catch (error) {
+					console.error('Error fetching students:', error);
+					setStudents([]);
+				} finally {
+					setLoadingStudents(false);
+				}
+			};
+
+			fetchStudents();
+		} else {
+			setStudents([]);
+			setFilters((prev) => ({ ...prev, selectedStudents: [] }));
+		}
+	}, [filters.className, setFilters]);
+
+	// Reset selected students when switching report type
+	useEffect(() => {
+		if (filters.reportType === 'entire-class') {
+			setFilters((prev) => ({ ...prev, selectedStudents: [] }));
+		}
+	}, [filters.reportType, setFilters]);
+
+	const canSubmit = filters.academicYear && filters.className;
+
 	return (
 		<div className="flex flex-col items-center justify-center min-h-[60vh] py-10 bg-background text-foreground">
 			<div className="bg-card rounded-lg shadow border border-border w-full max-w-md p-6">
@@ -121,6 +325,7 @@ function FilterContent({
 								academicYear: e.target.value,
 								gradeLevel: '',
 								className: '',
+								selectedStudents: [],
 							}))
 						}
 						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
@@ -142,6 +347,7 @@ function FilterContent({
 								...f,
 								gradeLevel: e.target.value,
 								className: '',
+								selectedStudents: [],
 							}))
 						}
 						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
@@ -159,9 +365,14 @@ function FilterContent({
 					<label className="block text-sm font-medium mb-1">Class</label>
 					<select
 						value={filters.className}
-						onChange={(e) =>
-							setFilters((f) => ({ ...f, className: e.target.value }))
-						}
+						onChange={(e) => {
+							setFilters((f) => ({
+								...f,
+								className: e.target.value,
+								selectedStudents: [],
+								reportType: 'entire-class',
+							}));
+						}}
 						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
 						disabled={!filters.gradeLevel}
 					>
@@ -174,11 +385,96 @@ function FilterContent({
 							))}
 					</select>
 				</div>
+
+				{filters.className && (
+					<div className="mb-4">
+						<label className="block text-sm font-medium mb-2">
+							Report Type
+						</label>
+						<div className="flex items-center justify-between p-3 bg-muted/50 rounded border border-border">
+							<span className="text-sm">
+								{filters.reportType === 'entire-class'
+									? 'Entire Class'
+									: 'Selected Students'}
+							</span>
+							<div className="relative inline-block w-12 h-6">
+								<input
+									type="checkbox"
+									checked={filters.reportType === 'selected-students'}
+									onChange={(e) => {
+										setFilters((prev) => ({
+											...prev,
+											reportType: e.target.checked
+												? 'selected-students'
+												: 'entire-class',
+										}));
+									}}
+									className="sr-only"
+								/>
+								<div
+									className={`block w-12 h-6 rounded-full cursor-pointer transition-colors ${
+										filters.reportType === 'selected-students'
+											? 'bg-primary'
+											: 'bg-muted-foreground/30'
+									}`}
+									onClick={() => {
+										setFilters((prev) => ({
+											...prev,
+											reportType:
+												prev.reportType === 'entire-class'
+													? 'selected-students'
+													: 'entire-class',
+										}));
+									}}
+								>
+									<div
+										className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+											filters.reportType === 'selected-students'
+												? 'transform translate-x-6'
+												: ''
+										}`}
+									/>
+								</div>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{filters.className && filters.reportType === 'selected-students' && (
+					<div className="mb-4">
+						{loadingStudents ? (
+							<div className="flex items-center justify-center py-8">
+								<div className="text-sm text-muted-foreground">
+									Loading students...
+								</div>
+							</div>
+						) : (
+							<StudentMultiSelect
+								students={students}
+								selectedStudents={filters.selectedStudents}
+								onSelectionChange={(studentIds) => {
+									setFilters((prev) => ({
+										...prev,
+										selectedStudents: studentIds,
+									}));
+								}}
+								className={filters.className}
+							/>
+						)}
+					</div>
+				)}
+
 				<div className="flex gap-2 mt-6">
 					<button
 						type="button"
 						onClick={() => {
-							setFilters({ academicYear: '', gradeLevel: '', className: '' });
+							setFilters({
+								academicYear: '',
+								gradeLevel: '',
+								className: '',
+								reportType: 'entire-class',
+								selectedStudents: [],
+							});
 						}}
 						className="flex-1 px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border"
 					>
@@ -188,7 +484,7 @@ function FilterContent({
 						type="button"
 						onClick={onSubmit}
 						className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary disabled:opacity-50"
-						disabled={!filters.academicYear || !filters.className}
+						disabled={!canSubmit}
 					>
 						Apply Filter
 					</button>
@@ -202,10 +498,15 @@ function ReportContent({
 	reportFilters,
 	onBack,
 }: {
-	reportFilters: { academicYear: string; className: string };
+	reportFilters: {
+		academicYear: string;
+		gradeLevel: string;
+		className: string;
+		selectedStudents: string[];
+	};
 	onBack: () => void;
 }) {
-	const [studentsData, setStudentsData] = useState<StudentReportCardData[]>([]);
+	const [studentsData, setStudentsData] = useState<StudentYearlyReport[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const school = useSchoolStore((state) => state.school);
@@ -215,31 +516,46 @@ function ReportContent({
 			try {
 				setLoading(true);
 				setError(null);
-				const params = {
-					gradeLevel: reportFilters.className,
+				const params: any = {
+					classId: reportFilters.className,
 					academicYear: reportFilters.academicYear,
-					reportType: 'reportcard',
 				};
+
+				// Conditionally add studentIds if they exist
+				if (reportFilters.selectedStudents.length > 0) {
+					params.studentIds = reportFilters.selectedStudents.join(',');
+				}
+
 				const url = new URL('/api/grades', window.location.origin);
 				Object.entries(params).forEach(([key, value]) => {
-					if (value) url.searchParams.append(key, value);
+					if (value) url.searchParams.append(key, value as string);
 				});
 				const res = await fetch(url.toString());
 				if (!res.ok) throw new Error('Failed to fetch grades');
 				const data = await res.json();
-				if (!data.success || !data.data || !Array.isArray(data.data.grades)) {
+
+				// Normalize the response to always be an array
+				const reportData = Array.isArray(data.data.report)
+					? data.data.report
+					: [data.data.report];
+
+				if (!data.success || !data.data || !Array.isArray(reportData)) {
 					throw new Error('Invalid data format received from the server');
 				}
-				setStudentsData(data.data.grades);
-				setLoading(false);
-			} catch (err) {
+				setStudentsData(reportData);
+			} catch (err: any) {
 				console.error('Error fetching students data:', err);
-				setError('Failed to load students data');
+				setError(err.message || 'Failed to load students data');
+			} finally {
 				setLoading(false);
 			}
 		};
 		fetchStudentsData();
-	}, [reportFilters.academicYear, reportFilters.className]);
+	}, [
+		reportFilters.academicYear,
+		reportFilters.className,
+		reportFilters.selectedStudents,
+	]);
 
 	if (loading) {
 		return <PageLoading fullScreen={false} />;
@@ -283,6 +599,14 @@ function ReportContent({
 		);
 	}
 
+	const allSubjects = Array.from(
+		new Set(
+			studentsData.flatMap((student) =>
+				Object.values(student.periods).flatMap((p) => p.map((g) => g.subject))
+			)
+		)
+	);
+
 	return (
 		<div className="w-full h-screen bg-background flex flex-col">
 			<div className="flex justify-end px-8 py-4">
@@ -300,92 +624,35 @@ function ReportContent({
 						title={`Report Card for ${reportFilters.className} - ${reportFilters.academicYear}`}
 					>
 						{studentsData.map((studentData, studentIndex) => {
-							const subjectNames = Object.keys(studentData.subjects);
-							const studentsReportSubjects = subjectNames.map(
-								(name) => studentData.subjects[name]
-							);
+							const subjects = Object.keys(studentData.firstSemesterAverage);
 
-							// Calculate periodic averages
-							const calculatePeriodicAverage = (
-								periodKey: string,
-								semesterKey: 'firstSemester' | 'secondSemester'
-							) => {
-								const grades = subjectNames
-									.map(
-										(subject) =>
-											studentData.subjects[subject][semesterKey][periodKey]
-									)
-									.filter((grade) => grade !== null) as number[];
-								if (grades.length === 0) return null;
-								const avg =
-									grades.reduce((sum, grade) => sum + grade, 0) / grades.length;
-								return parseFloat(avg.toFixed(2));
+							const getGrade = (period: string, subject: string) =>
+								studentData.periods[period]?.find((s) => s.subject === subject)
+									?.grade ?? null;
+
+							const getOverallSubjectAverage = (subject: string) => {
+								const sem1Avg = studentData.firstSemesterAverage[subject];
+								const sem2Avg = studentData.secondSemesterAverage[subject];
+
+								if (
+									sem1Avg !== null &&
+									sem1Avg !== undefined &&
+									sem2Avg !== null &&
+									sem2Avg !== undefined
+								) {
+									return Math.round((sem1Avg + sem2Avg) / 2);
+								}
+								return null;
 							};
-
-							const periodicAverages = {
-								firstSemester: {
-									ca1: calculatePeriodicAverage('ca1', 'firstSemester'),
-									ca2: calculatePeriodicAverage('ca2', 'firstSemester'),
-									ca3: calculatePeriodicAverage('ca3', 'firstSemester'),
-									exam: calculatePeriodicAverage('exam', 'firstSemester'),
-									average: calculatePeriodicAverage('average', 'firstSemester'),
-								},
-								secondSemester: {
-									ca1: calculatePeriodicAverage('ca1', 'secondSemester'),
-									ca2: calculatePeriodicAverage('ca2', 'secondSemester'),
-									ca3: calculatePeriodicAverage('ca3', 'secondSemester'),
-									exam: calculatePeriodicAverage('exam', 'secondSemester'),
-									average: calculatePeriodicAverage(
-										'average',
-										'secondSemester'
-									),
-								},
-								yearlyAverage: 0, // Will be calculated below
-							};
-
-							const allYearlyAverages = subjectNames
-								.map((subject) => studentData.subjects[subject].yearlyAverage)
-								.filter((avg) => avg !== null) as number[];
-
-							if (allYearlyAverages.length > 0) {
-								periodicAverages.yearlyAverage = parseFloat(
-									(
-										allYearlyAverages.reduce((sum, avg) => sum + avg, 0) /
-										allYearlyAverages.length
-									).toFixed(2)
-								);
-							}
 
 							return (
 								<React.Fragment key={studentIndex}>
 									{/* First Page - Grades */}
 									<Page size="A4" orientation="landscape" style={styles.page}>
-										{/* Watermark */}
-										<View
-											style={{
-												position: 'absolute',
-												top: '50%',
-												left: '50%',
-												transform: 'translate(150%, 50%)',
-												opacity: 0.1,
-												zIndex: -1,
-											}}
-										>
-											<Image
-												src={school.logoUrl}
-												style={{
-													width: 200,
-													height: 200,
-													opacity: 0.1,
-												}}
-											/>
-										</View>
-
-										{/* Header */}
 										<View style={styles.topRow}>
 											<View style={styles.headerLeft}>
 												<Text style={{ fontWeight: 'bold' }}>
-													Name: {studentData.name}
+													Name: {studentData.studentName}
 												</Text>
 												<Text>Class: {reportFilters.className}</Text>
 												<Text>ID: {studentData.studentId}</Text>
@@ -396,10 +663,7 @@ function ReportContent({
 												</Text>
 											</View>
 										</View>
-
-										{/* Grades Table */}
 										<View style={styles.gradesContainer}>
-											{/* First Semester */}
 											<View style={styles.semester}>
 												<Text style={styles.semesterHeader}>
 													First Semester
@@ -412,59 +676,46 @@ function ReportContent({
 													<Text style={styles.tableCell}>Exam</Text>
 													<Text style={styles.tableCell}>Average</Text>
 												</View>
-												{subjectNames.map((subjectName, index) => (
+												{subjects.map((subject, index) => (
 													<View key={index} style={styles.tableRow}>
-														<Text style={styles.subjectCell}>
-															{subjectName}
+														<Text style={styles.subjectCell}>{subject}</Text>
+														<Text
+															style={gradeStyle(
+																getGrade('firstPeriod', subject)
+															)}
+														>
+															{getGrade('firstPeriod', subject) ?? '-'}
 														</Text>
 														<Text
 															style={gradeStyle(
-																studentData.subjects[subjectName].firstSemester
-																	.ca1
+																getGrade('secondPeriod', subject)
 															)}
 														>
-															{studentData.subjects[subjectName].firstSemester
-																.ca1 ?? '-'}
+															{getGrade('secondPeriod', subject) ?? '-'}
 														</Text>
 														<Text
 															style={gradeStyle(
-																studentData.subjects[subjectName].firstSemester
-																	.ca2
+																getGrade('thirdPeriod', subject)
 															)}
 														>
-															{studentData.subjects[subjectName].firstSemester
-																.ca2 ?? '-'}
+															{getGrade('thirdPeriod', subject) ?? '-'}
 														</Text>
 														<Text
 															style={gradeStyle(
-																studentData.subjects[subjectName].firstSemester
-																	.ca3
+																getGrade('thirdPeriodExam', subject)
 															)}
 														>
-															{studentData.subjects[subjectName].firstSemester
-																.ca3 ?? '-'}
+															{getGrade('thirdPeriodExam', subject) ?? '-'}
 														</Text>
 														<Text
 															style={gradeStyle(
-																studentData.subjects[subjectName].firstSemester
-																	.exam
+																studentData.firstSemesterAverage[subject]
 															)}
 														>
-															{studentData.subjects[subjectName].firstSemester
-																.exam ?? '-'}
-														</Text>
-														<Text
-															style={gradeStyle(
-																studentData.subjects[subjectName].firstSemester
-																	.average
-															)}
-														>
-															{studentData.subjects[subjectName].firstSemester
-																.average ?? '-'}
+															{studentData.firstSemesterAverage[subject] ?? '-'}
 														</Text>
 													</View>
 												))}
-												{/* Periodic Average Row */}
 												<View
 													style={{
 														...styles.tableRow,
@@ -477,45 +728,54 @@ function ReportContent({
 															fontWeight: 'bold',
 														}}
 													>
-														Periodic Average
+														Average
 													</Text>
 													<Text
 														style={gradeStyle(
-															periodicAverages.firstSemester.ca1
+															studentData.periodAverages.firstPeriod
 														)}
 													>
-														{periodicAverages.firstSemester.ca1 ?? '-'}
+														{studentData.periodAverages.firstPeriod?.toFixed(
+															1
+														) ?? '-'}
 													</Text>
 													<Text
 														style={gradeStyle(
-															periodicAverages.firstSemester.ca2
+															studentData.periodAverages.secondPeriod
 														)}
 													>
-														{periodicAverages.firstSemester.ca2 ?? '-'}
+														{studentData.periodAverages.secondPeriod?.toFixed(
+															1
+														) ?? '-'}
 													</Text>
 													<Text
 														style={gradeStyle(
-															periodicAverages.firstSemester.ca3
+															studentData.periodAverages.thirdPeriod
 														)}
 													>
-														{periodicAverages.firstSemester.ca3 ?? '-'}
+														{studentData.periodAverages.thirdPeriod?.toFixed(
+															1
+														) ?? '-'}
 													</Text>
 													<Text
 														style={gradeStyle(
-															periodicAverages.firstSemester.exam
+															studentData.periodAverages.thirdPeriodExam
 														)}
 													>
-														{periodicAverages.firstSemester.exam ?? '-'}
+														{studentData.periodAverages.thirdPeriodExam?.toFixed(
+															1
+														) ?? '-'}
 													</Text>
 													<Text
 														style={gradeStyle(
-															periodicAverages.firstSemester.average
+															studentData.periodAverages.firstSemesterAverage
 														)}
 													>
-														{periodicAverages.firstSemester.average ?? '-'}
+														{studentData.periodAverages.firstSemesterAverage?.toFixed(
+															1
+														) ?? '-'}
 													</Text>
 												</View>
-												{/* Rank Row */}
 												<View
 													style={{
 														...styles.tableRow,
@@ -531,23 +791,22 @@ function ReportContent({
 														Rank
 													</Text>
 													<Text style={styles.tableCell}>
-														{studentData.ranks.firstSemester.ca1}
+														{studentData.ranks.firstPeriod ?? '-'}
 													</Text>
 													<Text style={styles.tableCell}>
-														{studentData.ranks.firstSemester.ca2}
+														{studentData.ranks.secondPeriod ?? '-'}
 													</Text>
 													<Text style={styles.tableCell}>
-														{studentData.ranks.firstSemester.ca3}
+														{studentData.ranks.thirdPeriod ?? '-'}
 													</Text>
 													<Text style={styles.tableCell}>
-														{studentData.ranks.firstSemester.exam}
+														{studentData.ranks.thirdPeriodExam ?? '-'}
 													</Text>
 													<Text style={styles.tableCell}>
-														{studentData.ranks.firstSemester.average}
+														{studentData.ranks.firstSemesterAverage ?? '-'}
 													</Text>
 												</View>
 											</View>
-											{/* Second Semester */}
 											<View style={styles.lastSemester}>
 												<Text style={styles.semesterHeader}>
 													Second Semester
@@ -560,64 +819,53 @@ function ReportContent({
 													<Text style={styles.tableCell}>Average</Text>
 													<Text style={styles.lastCell}>Yearly Average</Text>
 												</View>
-												{subjectNames.map((subjectName, index) => (
+												{subjects.map((subject, index) => (
 													<View key={index} style={styles.tableRow}>
 														<Text
 															style={gradeStyle(
-																studentData.subjects[subjectName].secondSemester
-																	.ca1
+																getGrade('fourthPeriod', subject)
 															)}
 														>
-															{studentData.subjects[subjectName].secondSemester
-																.ca1 ?? '-'}
+															{getGrade('fourthPeriod', subject) ?? '-'}
 														</Text>
 														<Text
 															style={gradeStyle(
-																studentData.subjects[subjectName].secondSemester
-																	.ca2
+																getGrade('fifthPeriod', subject)
 															)}
 														>
-															{studentData.subjects[subjectName].secondSemester
-																.ca2 ?? '-'}
+															{getGrade('fifthPeriod', subject) ?? '-'}
 														</Text>
 														<Text
 															style={gradeStyle(
-																studentData.subjects[subjectName].secondSemester
-																	.ca3
+																getGrade('sixthPeriod', subject)
 															)}
 														>
-															{studentData.subjects[subjectName].secondSemester
-																.ca3 ?? '-'}
+															{getGrade('sixthPeriod', subject) ?? '-'}
 														</Text>
 														<Text
 															style={gradeStyle(
-																studentData.subjects[subjectName].secondSemester
-																	.exam
+																getGrade('sixthPeriodExam', subject)
 															)}
 														>
-															{studentData.subjects[subjectName].secondSemester
-																.exam ?? '-'}
+															{getGrade('sixthPeriodExam', subject) ?? '-'}
 														</Text>
 														<Text
 															style={gradeStyle(
-																studentData.subjects[subjectName].secondSemester
-																	.average
+																studentData.secondSemesterAverage[subject]
 															)}
 														>
-															{studentData.subjects[subjectName].secondSemester
-																.average ?? '-'}
+															{studentData.secondSemesterAverage[subject] ??
+																'-'}
 														</Text>
 														<Text
 															style={gradeStyle(
-																studentData.subjects[subjectName].yearlyAverage
+																getOverallSubjectAverage(subject)
 															)}
 														>
-															{studentData.subjects[subjectName]
-																.yearlyAverage ?? '-'}
+															{getOverallSubjectAverage(subject) ?? '-'}
 														</Text>
 													</View>
 												))}
-												{/* Periodic Average Row */}
 												<View
 													style={{
 														...styles.tableRow,
@@ -626,46 +874,53 @@ function ReportContent({
 												>
 													<Text
 														style={gradeStyle(
-															periodicAverages.secondSemester.ca1
+															studentData.periodAverages.fourthPeriod
 														)}
 													>
-														{periodicAverages.secondSemester.ca1 ?? '-'}
+														{studentData.periodAverages.fourthPeriod?.toFixed(
+															1
+														) ?? '-'}
 													</Text>
 													<Text
 														style={gradeStyle(
-															periodicAverages.secondSemester.ca2
+															studentData.periodAverages.fifthPeriod
 														)}
 													>
-														{periodicAverages.secondSemester.ca2 ?? '-'}
+														{studentData.periodAverages.fifthPeriod?.toFixed(
+															1
+														) ?? '-'}
 													</Text>
 													<Text
 														style={gradeStyle(
-															periodicAverages.secondSemester.ca3
+															studentData.periodAverages.sixthPeriod
 														)}
 													>
-														{periodicAverages.secondSemester.ca3 ?? '-'}
+														{studentData.periodAverages.sixthPeriod?.toFixed(
+															1
+														) ?? '-'}
 													</Text>
 													<Text
 														style={gradeStyle(
-															periodicAverages.secondSemester.exam
+															studentData.periodAverages.sixthPeriodExam
 														)}
 													>
-														{periodicAverages.secondSemester.exam ?? '-'}
+														{studentData.periodAverages.sixthPeriodExam?.toFixed(
+															1
+														) ?? '-'}
 													</Text>
 													<Text
 														style={gradeStyle(
-															periodicAverages.secondSemester.average
+															studentData.periodAverages.secondSemesterAverage
 														)}
 													>
-														{periodicAverages.secondSemester.average ?? '-'}
+														{studentData.periodAverages.secondSemesterAverage?.toFixed(
+															1
+														) ?? '-'}
 													</Text>
-													<Text
-														style={gradeStyle(periodicAverages.yearlyAverage)}
-													>
-														{periodicAverages.yearlyAverage || '-'}
+													<Text style={gradeStyle(studentData.yearlyAverage)}>
+														{studentData.yearlyAverage?.toFixed(1) ?? '-'}
 													</Text>
 												</View>
-												{/* Rank Row */}
 												<View
 													style={{
 														...styles.tableRow,
@@ -673,27 +928,26 @@ function ReportContent({
 													}}
 												>
 													<Text style={styles.tableCell}>
-														{studentData.ranks.secondSemester.ca1}
+														{studentData.ranks.fourthPeriod ?? '-'}
 													</Text>
 													<Text style={styles.tableCell}>
-														{studentData.ranks.secondSemester.ca2}
+														{studentData.ranks.fifthPeriod ?? '-'}
 													</Text>
 													<Text style={styles.tableCell}>
-														{studentData.ranks.secondSemester.ca3}
+														{studentData.ranks.sixthPeriod ?? '-'}
 													</Text>
 													<Text style={styles.tableCell}>
-														{studentData.ranks.secondSemester.exam}
+														{studentData.ranks.sixthPeriodExam ?? '-'}
 													</Text>
 													<Text style={styles.tableCell}>
-														{studentData.ranks.secondSemester.average}
+														{studentData.ranks.secondSemesterAverage ?? '-'}
 													</Text>
 													<Text style={styles.lastCell}>
-														{studentData.ranks.yearlyRank}
+														{studentData.ranks.yearly ?? '-'}
 													</Text>
 												</View>
 											</View>
 										</View>
-										{/* Bottom Section */}
 										<View style={styles.bottomSection}>
 											<View style={styles.leftBottom}>
 												<View style={styles.gradingMethod}>
@@ -704,7 +958,7 @@ function ReportContent({
 														A = 90 - 100 Excellent
 													</Text>
 													<Text style={styles.gradingText}>
-														B = 80 - 89 Very Good
+														B = 00 - 89 Very Good
 													</Text>
 													<Text style={styles.gradingText}>
 														C = 75 - 79 Good
@@ -730,7 +984,7 @@ function ReportContent({
 														Signed: _________________________
 													</Text>
 													<Text style={{ marginTop: 10, marginLeft: 50 }}>
-														{'Class Sponsor'}, Class Sponsor
+														Isaac D. Jallah, Class Sponsor
 													</Text>
 												</View>
 											</View>
@@ -738,29 +992,7 @@ function ReportContent({
 									</Page>
 									{/* Second Page - School Info and Parent Section */}
 									<Page size="A4" orientation="landscape" style={styles.page}>
-										{/* Watermark */}
-										<View
-											style={{
-												position: 'absolute',
-												top: '50%',
-												left: '50%',
-												transform: 'translate(100%, 1%)',
-												opacity: 0.2,
-												zIndex: -1,
-											}}
-										>
-											<Image
-												src={school.logoUrl}
-												style={{
-													width: 200,
-													height: 200,
-													opacity: 0.1,
-												}}
-											/>
-										</View>
-										{/* Two Column Container */}
 										<View style={styles.pageTwoContainer}>
-											{/* Left Column - Promotion Statement */}
 											<View
 												style={{
 													flex: 1,
@@ -811,7 +1043,7 @@ function ReportContent({
 												>
 													This is to certify that{' '}
 													<Text style={{ textDecoration: 'underline' }}>
-														{studentData.name}
+														{studentData.studentName}
 													</Text>{' '}
 													has satisfactorily completed the work of{' '}
 													<Text style={{ textDecoration: 'underline' }}> </Text>
@@ -830,27 +1062,7 @@ function ReportContent({
 													<Text>Date: ____________________</Text>
 													<Text>Principal: __________________</Text>
 												</View>
-												{/* QR Code placeholder */}
-												<View
-													style={{
-														width: 80,
-														height: 80,
-														backgroundColor: '#e2e8f0',
-														alignSelf: 'center',
-														marginTop: 80,
-														justifyContent: 'center',
-														alignItems: 'center',
-														borderWidth: 1,
-														borderColor: '#000',
-														left: -120,
-													}}
-												>
-													<Text style={{ fontSize: 8, textAlign: 'center' }}>
-														QR CODE{'\n'}PLACEHOLDER
-													</Text>
-												</View>
 											</View>
-											{/* Right Column - School Information */}
 											<View
 												style={{
 													flex: 1,
@@ -861,7 +1073,7 @@ function ReportContent({
 												}}
 											>
 												<View style={styles.schoolHeader}>
-													<Text style={styles.schoolName}>{school.name}</Text>
+													<Text style={styles.schoolName}>{school?.name}</Text>
 													<View>
 														<View
 															style={{
@@ -874,7 +1086,7 @@ function ReportContent({
 															}}
 														>
 															<Image
-																src={school.logoUrl2}
+																src={school?.logoUrl2}
 																style={{
 																	width: 65,
 																	height: 65,
@@ -886,13 +1098,13 @@ function ReportContent({
 															Senior High
 														</Text>
 														<Text style={styles.schoolDetails}>
-															{school.address[0]}
+															{school?.address[0]}
 														</Text>
 														<Text style={styles.schoolDetails}>
-															{school.address[1]}
+															{school?.address[1]}
 														</Text>
 														<Text style={styles.schoolDetails}>
-															Email: {school.emails[0]}
+															Email: {school?.emails[0]}
 														</Text>
 														<Text style={styles.schoolDetails}>
 															Website: www.uca.con.lr
@@ -908,7 +1120,7 @@ function ReportContent({
 															}}
 														>
 															<Image
-																src={school.logoUrl}
+																src={school?.logoUrl}
 																style={{
 																	width: 65,
 																	height: 65,
@@ -920,32 +1132,37 @@ function ReportContent({
 														JUNIOR HIGH PROGRESS REPORT
 													</Text>
 												</View>
-												<View style={styles.studentInfo}>
-													<View
-														style={{
-															display: 'flex',
-															flexDirection: 'row',
-															gap: 14,
-														}}
-													>
+												<View
+													style={{
+														flexDirection: 'row',
+														justifyContent: 'space-between',
+														marginBottom: 10,
+													}}
+												>
+													<View style={{ flexDirection: 'column' }}>
 														<Text>
 															Name:{' '}
 															<Text style={{ fontWeight: 'bold' }}>
-																{studentData.name}
+																{studentData.studentName}
 															</Text>
 														</Text>
-														<Text>
-															ID:{' '}
-															<Text style={{ fontWeight: 'bold' }}>
-																{studentData.studentId}
-															</Text>
-														</Text>
-													</View>
-													<View style={{ flexDirection: 'row', gap: 78 }}>
 														<Text>
 															Class:{' '}
 															<Text style={{ fontWeight: 'bold' }}>
 																{reportFilters.className}
+															</Text>
+														</Text>
+													</View>
+													<View
+														style={{
+															flexDirection: 'column',
+															alignItems: 'flex-start',
+														}}
+													>
+														<Text>
+															ID:{' '}
+															<Text style={{ fontWeight: 'bold' }}>
+																{studentData.studentId}
 															</Text>
 														</Text>
 														<Text>
@@ -1114,17 +1331,71 @@ function ReportContent({
 	);
 }
 
-export default function ReportCardWrapper() {
+export default function YearlyReportWrapper() {
 	const [showReport, setShowReport] = useState(false);
 	const [filters, setFilters] = useState<{
 		academicYear: string;
 		gradeLevel: string;
 		className: string;
+		reportType: 'entire-class' | 'selected-students';
+		selectedStudents: string[];
 	}>({
 		academicYear: '',
 		gradeLevel: '',
 		className: '',
+		reportType: 'entire-class',
+		selectedStudents: [],
 	});
+
+	// This useEffect is used to correctly update the selected students when the class changes
+	const [students, setStudents] = useState<Student[]>([]);
+	const [loadingStudents, setLoadingStudents] = useState(false);
+
+	useEffect(() => {
+		if (filters.className) {
+			const fetchStudents = async () => {
+				try {
+					setLoadingStudents(true);
+					const response = await fetch(
+						`/api/users?classId=${filters.className}&role=student`
+					);
+					if (response.ok) {
+						const responseData = await response.json();
+						if (responseData.success && responseData.data) {
+							const mappedStudents = responseData.data.map((student: any) => ({
+								id: student.studentId,
+								name: `${student.firstName} ${
+									student.middleName ? student.middleName + ' ' : ''
+								}${student.lastName}`.trim(),
+								className: student.classId,
+							}));
+							setStudents(mappedStudents);
+						} else {
+							setStudents([]);
+						}
+					} else {
+						setStudents([]);
+					}
+				} catch (error) {
+					setStudents([]);
+				} finally {
+					setLoadingStudents(false);
+				}
+			};
+
+			fetchStudents();
+		} else {
+			setStudents([]);
+			setFilters((prev) => ({ ...prev, selectedStudents: [] }));
+		}
+	}, [filters.className, setFilters]);
+
+	// Reset selected students when switching report type
+	useEffect(() => {
+		if (filters.reportType === 'entire-class') {
+			setFilters((prev) => ({ ...prev, selectedStudents: [] }));
+		}
+	}, [filters.reportType, setFilters]);
 
 	return (
 		<div className="w-full h-screen bg-background">

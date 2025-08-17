@@ -1,11 +1,11 @@
 import { getTenantConnection } from '@/lib/mongoose';
-import { Grade } from './grade/Grade';
 
 import UserSchema from './user/User';
 import StudentSchema from './user/Student';
 import TeacherSchema from './user/Teacher';
 import AdministratorSchema from './user/Administrator';
 import SystemAdminSchema from './user/SystemAdmin';
+import GradeSchema from './grade/Grade';
 
 // import SchoolInfoSchema from './school/SchoolInfo';
 // import SchoolSchema from './school/School';
@@ -13,7 +13,7 @@ import SystemAdminSchema from './user/SystemAdmin';
 
 // import MessageSchema from './message/Message';
 
-import type { Document } from 'mongoose';
+import { Document } from 'mongoose';
 import type {
 	User,
 	Student,
@@ -48,6 +48,8 @@ export const getTenantModels = async (host: string | null) => {
 			AdministratorSchema
 		);
 
+	const GradeModel = connection.model<Document>('Grade', GradeSchema);
+
 	const SystemAdminModel =
 		User.discriminators?.system_admin ||
 		User.discriminator<SystemAdmin & Document>(
@@ -76,7 +78,7 @@ export const getTenantModels = async (host: string | null) => {
 		// School,
 		// Class,
 		// Message: MessageModel,
-		Grade,
+		Grade: GradeModel,
 	};
 };
 
