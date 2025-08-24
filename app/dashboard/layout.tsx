@@ -44,13 +44,18 @@ export default function AdminLayout({
 
 	return (
 		<ProtectedRoute>
-			<div className="min-h-screen xl:flex">
+			<div className="min-h-screen flex bg-background">
 				<AppSidebar />
+				{/*
+          THE FIX: Added `min-w-0` here.
+          This prevents the flex container from growing beyond its available space,
+          which stops the wide table from creating a page-level scrollbar.
+        */}
 				<div
-					className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}
+					className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${mainContentMargin}`}
 				>
 					<AppHeader />
-					<div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
+					<main className="p-4 md:p-6">
 						{loading || navigationLoading ? (
 							<div className="flex items-center justify-center min-h-[60vh]">
 								<PageLoading
@@ -61,7 +66,7 @@ export default function AdminLayout({
 						) : (
 							children
 						)}
-					</div>
+					</main>
 				</div>
 			</div>
 		</ProtectedRoute>

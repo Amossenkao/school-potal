@@ -1,14 +1,229 @@
 'use client';
+import React, { useState, useEffect, useRef } from 'react';
 import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
-import UserDropdown from '@/components/header/UserDropdown';
 import Logo from '@/components/Logo';
 import { useSidebar } from '@/context/SidebarContext';
-import React, { useState, useEffect, useRef } from 'react';
+import useAuth from '@/store/useAuth';
+import { KeyRound, LogOut, User, X } from 'lucide-react';
+import Link from 'next/link';
+import Spinner from '@/components/ui/spinner';
+import Input from '@/components/form/input/InputField';
+import Label from '@/components/form/Label';
+import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 
+// --- Custom Hook for Modal State ---
+const useModal = () => {
+	const [isOpen, setIsOpen] = useState(false);
+	const openModal = () => setIsOpen(true);
+	const closeModal = () => setIsOpen(false);
+	return { isOpen, openModal, closeModal };
+};
+
+// --- Reset Password Modal Component ---
+const ResetPasswordModal = ({ isOpen, onClose }) => {
+	const [oldPassword, setOldPassword] = useState('');
+	const [newPassword, setNewPassword] = useState('');
+	const [confirmPassword, setConfirmPassword] = useState('');
+	const [error, setError] = useState('');
+	const [success, setSuccess] = useState('');
+	const [isLoading, setIsLoading] = useState(false);
+
+	const handleSubmit = async (e) => {
+		e.preventDefault();
+		setError('');
+		setSuccess('');
+
+		if (newPassword !== confirmPassword) {
+			setError("New passwords don't match.");
+			return;
+		}
+		if (newPassword.length < 6) {
+			setError('Password must be at least 6 characters long.');
+			return;
+		}
+
+		setIsLoading(true);
+		try {
+			// Replace with your actual API endpoint for changing password
+			const response = await fetch('/api/auth/change-password', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ oldPassword, newPassword }),
+			});
+
+			const data = await response.json();
+
+			if (!response.ok) {
+				throw new Error(data.message || 'Failed to reset password.');
+			}
+
+			setSuccess('Password updated successfully!');
+			setTimeout(() => {
+				onClose();
+				setSuccess('');
+			}, 2000);
+		} catch (err) {
+			setError(err.message);
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	return (
+		<Modal isOpen={isOpen} onClose={onClose} className="max-w-[500px] m-4">
+			<div className="no-scrollbar relative w-full max-w-[500px] overflow-y-auto rounded-2xl bg-white p-6 dark:bg-gray-900 lg:p-8">
+				<h4 className="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">
+					Reset Password
+				</h4>
+				<p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+					Enter your old and new password to update your credentials.
+				</p>
+				<form onSubmit={handleSubmit} className="flex flex-col gap-4">
+					<Label>
+						Old Password
+						<Input
+							type="password"
+							value={oldPassword}
+							onChange={(e) => setOldPassword(e.target.value)}
+							required
+						/>
+					</Label>
+					<Label>
+						New Password
+						<Input
+							type="password"
+							value={newPassword}
+							onChange={(e) => setNewPassword(e.target.value)}
+							required
+						/>
+					</Label>
+					<Label>
+						Confirm New Password
+						<Input
+							type="password"
+							value={confirmPassword}
+							onChange={(e) => setConfirmPassword(e.target.value)}
+							required
+						/>
+					</Label>
+
+					{error && <p className="text-sm text-red-500">{error}</p>}
+					{success && <p className="text-sm text-green-500">{success}</p>}
+
+					<div className="flex items-center gap-3 mt-4 justify-end">
+						<Button size="sm" variant="outline" type="button" onClick={onClose}>
+							Cancel
+						</Button>
+						<Button size="sm" type="submit" disabled={isLoading}>
+							{isLoading ? 'Saving...' : 'Save Changes'}
+						</Button>
+					</div>
+				</form>
+			</div>
+		</Modal>
+	);
+};
+
+// --- User Dropdown Component ---
+const UserDropdown = () => {
+	const { user, logout } = useAuth();
+	const [isOpen, setIsOpen] = useState(false);
+	const dropdownRef = useRef<HTMLDivElement>(null);
+	const {
+		isOpen: isPasswordModalOpen,
+		openModal: openPasswordModal,
+		closeModal: closePasswordModal,
+	} = useModal();
+
+	useEffect(() => {
+		const handleClickOutside = (event) => {
+			if (
+				dropdownRef.current &&
+				!dropdownRef.current.contains(event.target as Node)
+			) {
+				setIsOpen(false);
+			}
+		};
+		document.addEventListener('mousedown', handleClickOutside);
+		return () => document.removeEventListener('mousedown', handleClickOutside);
+	}, []);
+
+	if (!user) {
+		return <Spinner />;
+	}
+
+	return (
+		<>
+			<div className="relative" ref={dropdownRef}>
+				<button
+					onClick={() => setIsOpen(!isOpen)}
+					className="flex items-center gap-3 rounded-full p-1 pr-3 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+				>
+					<img
+						src={
+							user.avatar ||
+							`https://ui-avatars.com/api/?name=${user.firstName}+${user.lastName}`
+						}
+						alt="User Avatar"
+						className="w-9 h-9 rounded-full object-cover"
+					/>
+					<div className="text-left hidden sm:block">
+						<p className="text-sm font-semibold text-gray-800 dark:text-white/90">
+							{user.firstName} {user.lastName}
+						</p>
+						<p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+							{user.role.replace('_', ' ')}
+						</p>
+					</div>
+				</button>
+
+				{isOpen && (
+					<div className="absolute right-0 mt-2 w-56 origin-top-right rounded-xl bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+						<div className="py-2">
+							<Link
+								href="/dashboard/profile"
+								className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+								onClick={() => setIsOpen(false)}
+							>
+								<User className="h-4 w-4" />
+								My Profile
+							</Link>
+							<button
+								onClick={() => {
+									openPasswordModal();
+									setIsOpen(false);
+								}}
+								className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+							>
+								<KeyRound className="h-4 w-4" />
+								Reset Password
+							</button>
+							<div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+							<button
+								onClick={logout}
+								className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+							>
+								<LogOut className="h-4 w-4" />
+								Logout
+							</button>
+						</div>
+					</div>
+				)}
+			</div>
+			<ResetPasswordModal
+				isOpen={isPasswordModalOpen}
+				onClose={closePasswordModal}
+			/>
+		</>
+	);
+};
+
+// --- Main AppHeader Component ---
 const AppHeader: React.FC = () => {
 	const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
-
 	const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
+	const inputRef = useRef<HTMLInputElement>(null);
 
 	const handleToggle = () => {
 		if (window.innerWidth >= 1024) {
@@ -18,11 +233,6 @@ const AppHeader: React.FC = () => {
 		}
 	};
 
-	const toggleApplicationMenu = () => {
-		setApplicationMenuOpen(!isApplicationMenuOpen);
-	};
-	const inputRef = useRef<HTMLInputElement>(null);
-
 	useEffect(() => {
 		const handleKeyDown = (event: KeyboardEvent) => {
 			if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
@@ -30,38 +240,21 @@ const AppHeader: React.FC = () => {
 				inputRef.current?.focus();
 			}
 		};
-
 		document.addEventListener('keydown', handleKeyDown);
-
-		return () => {
-			document.removeEventListener('keydown', handleKeyDown);
-		};
+		return () => document.removeEventListener('keydown', handleKeyDown);
 	}, []);
 
 	return (
-		<header className="sticky top-0 flex w-full bg-white border-gray-200 z-99999 dark:border-gray-800 dark:bg-gray-900 lg:border-b">
+		<header className="sticky top-0 flex w-full bg-white border-gray-200 z-40 dark:border-gray-800 dark:bg-gray-900 lg:border-b">
 			<div className="flex flex-col items-center justify-between grow lg:flex-row lg:px-6">
 				<div className="flex items-center justify-between w-full gap-2 px-3 py-3 border-b border-gray-200 dark:border-gray-800 sm:gap-4 lg:justify-normal lg:border-b-0 lg:px-0 lg:py-4">
 					<button
-						className="items-center justify-center w-10 h-10 text-gray-500 border-gray-200 rounded-lg z-99999 dark:border-gray-800 lg:flex dark:text-gray-400 lg:h-11 lg:w-11 lg:border"
+						className="items-center justify-center w-10 h-10 text-gray-500 border-gray-200 rounded-lg z-40 dark:border-gray-800 lg:flex dark:text-gray-400 lg:h-11 lg:w-11 lg:border"
 						onClick={handleToggle}
 						aria-label="Toggle Sidebar"
 					>
 						{isMobileOpen ? (
-							<svg
-								width="24"
-								height="24"
-								viewBox="0 0 24 24"
-								fill="none"
-								xmlns="http://www.w3.org/2000/svg"
-							>
-								<path
-									fillRule="evenodd"
-									clipRule="evenodd"
-									d="M6.21967 7.28131C5.92678 6.98841 5.92678 6.51354 6.21967 6.22065C6.51256 5.92775 6.98744 5.92775 7.28033 6.22065L11.999 10.9393L16.7176 6.22078C17.0105 5.92789 17.4854 5.92788 17.7782 6.22078C18.0711 6.51367 18.0711 6.98855 17.7782 7.28144L13.0597 12L17.7782 16.7186C18.0711 17.0115 18.0711 17.4863 17.7782 17.7792C17.4854 18.0721 17.0105 18.0721 16.7176 17.7792L11.999 13.0607L7.28033 17.7794C6.98744 18.0722 6.51256 18.0722 6.21967 17.7794C5.92678 17.4865 5.92678 17.0116 6.21967 16.7187L10.9384 12L6.21967 7.28131Z"
-									fill="currentColor"
-								/>
-							</svg>
+							<X className="h-6 w-6" />
 						) : (
 							<svg
 								width="16"
@@ -78,7 +271,6 @@ const AppHeader: React.FC = () => {
 								/>
 							</svg>
 						)}
-						{/* Cross Icon */}
 					</button>
 
 					<div className="lg:hidden">
@@ -86,8 +278,8 @@ const AppHeader: React.FC = () => {
 					</div>
 
 					<button
-						onClick={toggleApplicationMenu}
-						className="flex items-center justify-center w-10 h-10 text-gray-700 rounded-lg z-99999 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 lg:hidden"
+						onClick={() => setApplicationMenuOpen(!isApplicationMenuOpen)}
+						className="flex items-center justify-center w-10 h-10 text-gray-700 rounded-lg z-40 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 lg:hidden"
 					>
 						<svg
 							width="24"
@@ -104,12 +296,6 @@ const AppHeader: React.FC = () => {
 							/>
 						</svg>
 					</button>
-
-					<div className="hidden lg:block">
-						<form>
-							<div className="relative"></div>
-						</form>
-					</div>
 				</div>
 				<div
 					className={`${
@@ -117,7 +303,6 @@ const AppHeader: React.FC = () => {
 					} items-center justify-between w-full gap-4 px-5 py-4 lg:flex shadow-theme-md lg:justify-end lg:px-0 lg:shadow-none`}
 				>
 					<div className="flex items-center gap-2 2xsm:gap-3">
-						{/* <!-- Dark Mode Toggler --> */}
 						<ThemeToggleButton />
 					</div>
 					<UserDropdown />

@@ -8,27 +8,9 @@ import {
 	View,
 	Image,
 } from '@react-pdf/renderer';
-import styles from './styles';
+import styles from '../../shared/styles';
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
-
-const JUNIOR_HIGH_SUBJECTS = [
-	'Mathematics',
-	'English',
-	'General Science',
-	'Health Science',
-	'Vocabulary',
-	'Phonics',
-	'History',
-	'Geography',
-	'Literature',
-	'Civics',
-	'Physical Education',
-	'Agriculture',
-	'French',
-	'Computer',
-	'Bible',
-];
 
 interface StudentInfo {
 	firstName: string;
@@ -78,26 +60,19 @@ const academicYearOptions = [
 	'2021/2022',
 ];
 
-const gradeLevels = [
-	'Self Contained',
-	'Elementry',
-	'Junior High',
-	'Senior High',
-];
+// Get current academic year (2024/2025 format)
+const getCurrentAcademicYear = () => {
+	const currentDate = new Date();
+	const currentYear = currentDate.getFullYear();
+	const currentMonth = currentDate.getMonth() + 1; // getMonth() returns 0-11
 
-const classOptionsByLevel: { [key: string]: string[] } = {
-	'Self Contained': [
-		'Daycare',
-		'Nursery',
-		'K-I',
-		'K-II',
-		'1st Grade',
-		'2nd Grade',
-		'3rd Grade',
-	],
-	Elementry: ['4th Grade', '5th Grade', '6th Grade'],
-	'Junior High': ['7th Grade', '8th Grade', 'Grade 9A'],
-	'Senior High': ['Grade 10A', '11th Grade', '12th Grade'],
+	// Academic year typically starts in August/September
+	// If current month is August (8) or later, we're in the new academic year
+	if (currentMonth >= 8) {
+		return `${currentYear}/${currentYear + 1}`;
+	} else {
+		return `${currentYear - 1}/${currentYear}`;
+	}
 };
 
 function gradeStyle(score: number | null) {
@@ -171,7 +146,7 @@ function SchoolHeader({ student }: { student: StudentInfo }) {
 					marginBottom: 2,
 				}}
 			>
-				JUNIOR HIGH PERIODIC REPORT
+				{student.grade.toUpperCase()} PERIODIC REPORT
 			</Text>
 			<Text style={{ fontSize: 8, textAlign: 'center', marginBottom: 1 }}>
 				Academic Year: {student.academicYear} &nbsp;&nbsp; Class:{' '}
@@ -338,10 +313,12 @@ function FilterContent({
 	filters,
 	setFilters,
 	onSubmit,
+	userRole,
 }: {
 	filters: {
 		academicYear: string;
 		period: string;
+		session: string;
 		gradeLevel: string;
 		className: string;
 		reportType: 'entire-class' | 'selected-students';
@@ -351,6 +328,7 @@ function FilterContent({
 		React.SetStateAction<{
 			academicYear: string;
 			period: string;
+			session: string;
 			gradeLevel: string;
 			className: string;
 			reportType: 'entire-class' | 'selected-students';
@@ -358,9 +336,34 @@ function FilterContent({
 		}>
 	>;
 	onSubmit: () => void;
+	userRole: string;
 }) {
+	const currentSchool = useSchoolStore((state: any) => state.school);
 	const [students, setStudents] = useState<Student[]>([]);
 	const [loadingStudents, setLoadingStudents] = useState(false);
+
+	// Get available sessions and grade levels from school profile
+	const availableSessions = currentSchool?.classLevels
+		? Object.keys(currentSchool.classLevels)
+		: [];
+	const availableGradeLevels =
+		filters.session && currentSchool?.classLevels?.[filters.session]
+			? Object.keys(currentSchool.classLevels[filters.session])
+			: [];
+	const availableClasses =
+		filters.session &&
+		filters.gradeLevel &&
+		currentSchool?.classLevels?.[filters.session]?.[filters.gradeLevel]?.classes
+			? currentSchool.classLevels[filters.session][filters.gradeLevel].classes
+			: [];
+
+	// Set default academic year on component mount
+	useEffect(() => {
+		if (!filters.academicYear) {
+			const currentAcademicYear = getCurrentAcademicYear();
+			setFilters((prev) => ({ ...prev, academicYear: currentAcademicYear }));
+		}
+	}, [filters.academicYear, setFilters]);
 
 	// Fetch students when class is selected
 	useEffect(() => {
@@ -416,6 +419,8 @@ function FilterContent({
 	const canSubmit =
 		filters.academicYear &&
 		filters.period &&
+		filters.session &&
+		filters.gradeLevel &&
 		filters.className &&
 		(filters.reportType === 'entire-class' ||
 			(filters.reportType === 'selected-students' &&
@@ -426,6 +431,11 @@ function FilterContent({
 			<div className="bg-card rounded-lg shadow border border-border w-full max-w-md p-6">
 				<h2 className="text-lg font-semibold mb-4 text-center">
 					Filter Periodic Report
+					{userRole === 'system_admin' && (
+						<span className="block text-xs text-muted-foreground mt-1">
+							System Admin - View All Students
+						</span>
+					)}
 				</h2>
 
 				<div className="mb-4">
@@ -438,6 +448,7 @@ function FilterContent({
 							setFilters((f) => ({
 								...f,
 								academicYear: e.target.value,
+								session: '',
 								gradeLevel: '',
 								className: '',
 								selectedStudents: [],
@@ -453,6 +464,34 @@ function FilterContent({
 						))}
 					</select>
 				</div>
+
+				{userRole === 'system_admin' && (
+					<div className="mb-4">
+						<label className="block text-sm font-medium mb-1">Session</label>
+						<select
+							value={filters.session}
+							onChange={(e) =>
+								setFilters((f) => ({
+									...f,
+									session: e.target.value,
+									gradeLevel: '',
+									className: '',
+									selectedStudents: [],
+								}))
+							}
+							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+							disabled={!filters.academicYear}
+						>
+							<option value="">Select Session</option>
+							{availableSessions.map((session) => (
+								<option key={session} value={session}>
+									{session}
+								</option>
+							))}
+						</select>
+					</div>
+				)}
+
 				<div className="mb-4">
 					<label className="block text-sm font-medium mb-1">Grade Level</label>
 					<select
@@ -466,10 +505,13 @@ function FilterContent({
 							}))
 						}
 						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-						disabled={!filters.academicYear}
+						disabled={
+							!filters.academicYear ||
+							(userRole === 'system_admin' && !filters.session)
+						}
 					>
 						<option value="">Select Grade Level</option>
-						{gradeLevels.map((level) => (
+						{availableGradeLevels.map((level) => (
 							<option key={level} value={level}>
 								{level}
 							</option>
@@ -481,9 +523,12 @@ function FilterContent({
 					<select
 						value={filters.className}
 						onChange={(e) => {
+							const selectedClass = availableClasses.find(
+								(c) => c.classId === e.target.value
+							);
 							setFilters((f) => ({
 								...f,
-								className: e.target.value,
+								className: selectedClass?.classId || e.target.value,
 								reportType: 'entire-class',
 								selectedStudents: [],
 							}));
@@ -492,12 +537,11 @@ function FilterContent({
 						disabled={!filters.gradeLevel}
 					>
 						<option value="">Select Class</option>
-						{filters.gradeLevel &&
-							classOptionsByLevel[filters.gradeLevel].map((c) => (
-								<option key={c} value={c}>
-									{c}
-								</option>
-							))}
+						{availableClasses.map((classInfo) => (
+							<option key={classInfo.classId} value={classInfo.classId}>
+								{classInfo.name}
+							</option>
+						))}
 					</select>
 				</div>
 
@@ -602,8 +646,9 @@ function FilterContent({
 						type="button"
 						onClick={() => {
 							setFilters({
-								academicYear: '',
+								academicYear: getCurrentAcademicYear(),
 								period: '',
+								session: '',
 								gradeLevel: '',
 								className: '',
 								reportType: 'entire-class',
@@ -631,20 +676,58 @@ function FilterContent({
 function ReportContent({
 	reportFilters,
 	onBack,
+	userRole,
 }: {
 	reportFilters: {
 		academicYear: string;
 		period: string;
+		session: string;
+		gradeLevel: string;
 		className: string;
 		reportType: 'entire-class' | 'selected-students';
 		selectedStudents: string[];
 	};
 	onBack: () => void;
+	userRole: string;
 }) {
 	const [studentsData, setStudentsData] = useState<PeriodicStudentData[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const school = useSchoolStore((state) => state.school);
+	const currentSchool = useSchoolStore((state: any) => state.school);
+
+	// Get subjects from school profile
+	const getSubjectsForGradeLevel = () => {
+		if (
+			currentSchool?.classLevels?.[reportFilters.session]?.[
+				reportFilters.gradeLevel
+			]?.subjects
+		) {
+			return currentSchool.classLevels[reportFilters.session][
+				reportFilters.gradeLevel
+			].subjects;
+		}
+		// Fallback to default subjects if not found in school profile
+		return [
+			'Mathematics',
+			'English',
+			'General Science',
+			'Health Science',
+			'Vocabulary',
+			'Phonics',
+			'History',
+			'Geography',
+			'Literature',
+			'Civics',
+			'Physical Education',
+			'Agriculture',
+			'French',
+			'Computer',
+			'Bible',
+		];
+	};
+
+	const SUBJECTS = getSubjectsForGradeLevel();
 
 	useEffect(() => {
 		const fetchPeriodicGrades = async () => {
@@ -656,8 +739,12 @@ function ReportContent({
 					period: reportFilters.period,
 					academicYear: reportFilters.academicYear,
 					classId: reportFilters.className,
-					// No reportType param needed anymore
 				};
+
+				// Add session for system admin
+				if (userRole === 'system_admin' && reportFilters.session) {
+					params.session = reportFilters.session;
+				}
 
 				// Conditionally add studentIds if they exist
 				if (reportFilters.selectedStudents.length > 0) {
@@ -698,8 +785,10 @@ function ReportContent({
 	}, [
 		reportFilters.academicYear,
 		reportFilters.period,
+		reportFilters.session,
 		reportFilters.className,
 		reportFilters.selectedStudents,
+		userRole,
 	]);
 
 	if (loading) {
@@ -756,12 +845,29 @@ function ReportContent({
 		periodOptions.find((p) => p.value === reportFilters.period)?.label ||
 		reportFilters.period;
 
+	// Get class name from school profile
+	const getClassName = () => {
+		if (
+			currentSchool?.classLevels?.[reportFilters.session]?.[
+				reportFilters.gradeLevel
+			]?.classes
+		) {
+			const classInfo = currentSchool.classLevels[reportFilters.session][
+				reportFilters.gradeLevel
+			].classes.find((c: any) => c.classId === reportFilters.className);
+			return classInfo ? classInfo.name : reportFilters.className;
+		}
+		return reportFilters.className;
+	};
+
+	const className = getClassName();
+
 	const title =
 		studentsData.length === 1
 			? `Periodic Report - ${studentsData[0].studentName}`
 			: reportFilters.reportType === 'selected-students'
 			? `Periodic Report - Selected Students - ${selectedPeriodLabel}`
-			: `Periodic Report - ${reportFilters.className} - ${selectedPeriodLabel}`;
+			: `Periodic Report - ${className} - ${selectedPeriodLabel}`;
 
 	return (
 		<div className="w-full h-screen bg-background flex flex-col">
@@ -844,10 +950,10 @@ function ReportContent({
 																		.split(' ')
 																		.slice(-1)[0]
 																: '',
-														class: reportFilters.className,
+														class: className,
 														id: studentData.studentId,
 														academicYear: reportFilters.academicYear,
-														grade: '',
+														grade: reportFilters.gradeLevel,
 													}}
 												/>
 
@@ -861,6 +967,12 @@ function ReportContent({
 													<Text style={{ fontSize: 9 }}>
 														Period: {selectedPeriodLabel}
 													</Text>
+													{userRole === 'system_admin' &&
+														reportFilters.session && (
+															<Text style={{ fontSize: 9 }}>
+																Session: {reportFilters.session}
+															</Text>
+														)}
 												</View>
 
 												<View style={{ marginTop: 5, flex: 1 }}>
@@ -893,7 +1005,7 @@ function ReportContent({
 															Marks
 														</Text>
 													</View>
-													{JUNIOR_HIGH_SUBJECTS.map((subjectName, sidx) => {
+													{SUBJECTS.map((subjectName, sidx) => {
 														const subject =
 															studentData.subjects &&
 															studentData.subjects.find(
@@ -1028,18 +1140,24 @@ function ReportContent({
 	);
 }
 
-export default function PeriodicReportWrapper() {
+export default function PeriodicReportWrapper({
+	userRole = 'teacher',
+}: {
+	userRole?: string;
+}) {
 	const [showReport, setShowReport] = useState(false);
 	const [filters, setFilters] = useState<{
 		academicYear: string;
 		period: string;
+		session: string;
 		gradeLevel: string;
 		className: string;
 		reportType: 'entire-class' | 'selected-students';
 		selectedStudents: string[];
 	}>({
-		academicYear: '',
+		academicYear: getCurrentAcademicYear(),
 		period: '',
+		session: '',
 		gradeLevel: '',
 		className: '',
 		reportType: 'entire-class',
@@ -1053,11 +1171,13 @@ export default function PeriodicReportWrapper() {
 					filters={filters}
 					setFilters={setFilters}
 					onSubmit={() => setShowReport(true)}
+					userRole={userRole}
 				/>
 			) : (
 				<ReportContent
 					reportFilters={filters}
 					onBack={() => setShowReport(false)}
+					userRole={userRole}
 				/>
 			)}
 		</div>

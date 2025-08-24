@@ -1,25 +1,6 @@
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from '@/components/ui/card';
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
 	Search,
 	MoreHorizontal,
 	Send,
@@ -27,22 +8,51 @@ import {
 	Smile,
 	Phone,
 	Video,
-	Info,
-	UserPlus,
-	Archive,
-	Trash2,
-	Star,
+	Bot,
+	GraduationCap,
+	Users,
 	MessageCircle,
-	Calendar,
+	Star,
 } from 'lucide-react';
 
-interface User {
+// Included directly in this file as requested.
+const Typewriter: React.FC<{ text: string; speed?: number }> = ({
+	text,
+	speed = 1,
+}) => {
+	const [displayedText, setDisplayedText] = useState('');
+
+	useEffect(() => {
+		setDisplayedText(''); // Reset when text prop changes
+		let i = 0;
+		const intervalId = setInterval(() => {
+			if (i < text.length) {
+				setDisplayedText((prev) => prev + text.charAt(i));
+				i++;
+			} else {
+				clearInterval(intervalId);
+			}
+		}, speed);
+
+		return () => clearInterval(intervalId); // Cleanup on unmount
+	}, [text, speed]);
+
+	return (
+		<p className="text-sm" style={{ whiteSpace: 'pre-wrap' }}>
+			{displayedText}
+		</p>
+	);
+};
+
+// INTERFACES
+interface Contact {
 	id: string;
 	name: string;
 	role: string;
-	avatar?: string;
+	department?: string;
 	isOnline: boolean;
 	lastSeen?: string;
+	type: 'teacher' | 'admin' | 'ai';
 }
 
 interface Message {
@@ -50,241 +60,72 @@ interface Message {
 	senderId: string;
 	content: string;
 	timestamp: string;
-	type: 'text' | 'image' | 'file';
+	type: 'text';
 	isRead: boolean;
+	isTyping?: boolean;
 }
 
 interface Chat {
 	id: string;
-	participants: User[];
+	contact: Contact;
 	lastMessage: Message;
-	unreadCount: number;
 	isPinned: boolean;
-	isArchived: boolean;
-	type: 'direct' | 'group';
-	groupName?: string;
 }
 
-const USERS: User[] = [
+// CONSTANTS
+const CONTACTS: Contact[] = [
 	{
-		id: '1',
-		name: 'Kaiya George',
-		role: 'Project Manager',
+		id: 'ai-assistant',
+		name: 'Study Assistant',
+		role: 'AI Helper',
+		department: 'Academic Support',
 		isOnline: true,
-		avatar: '/api/placeholder/40/40',
-	},
-	{
-		id: '2',
-		name: 'Lindsey Curtis',
-		role: 'Designer',
-		isOnline: true,
-		avatar: '/api/placeholder/40/40',
-	},
-	{
-		id: '3',
-		name: 'Zain Geidt',
-		role: 'Content Writer',
-		isOnline: true,
-		avatar: '/api/placeholder/40/40',
-	},
-	{
-		id: '4',
-		name: 'Carla George',
-		role: 'Front-end Developer',
-		isOnline: false,
-		lastSeen: '2 days ago',
-		avatar: '/api/placeholder/40/40',
-	},
-	{
-		id: '5',
-		name: 'Abram Schleifer',
-		role: 'Digital Marketer',
-		isOnline: true,
-		avatar: '/api/placeholder/40/40',
-	},
-	{
-		id: '6',
-		name: 'Lincoln Donin',
-		role: 'Product Manager',
-		isOnline: false,
-		lastSeen: '3 days ago',
-		avatar: '/api/placeholder/40/40',
+		type: 'ai',
 	},
 ];
-
-const SAMPLE_MESSAGES: { [chatId: string]: Message[] } = {
-	'chat-2': [
-		{
-			id: 'msg1',
-			senderId: '2',
-			content: 'I want to make an appointment tomorrow from 2:00 to 5:00pm?',
-			timestamp: '2 hours ago',
-			type: 'text',
-			isRead: true,
-		},
-		{
-			id: 'msg2',
-			senderId: 'current-user',
-			content: "If don't like something, I'll stay away from it.",
-			timestamp: '2 hours ago',
-			type: 'text',
-			isRead: true,
-		},
-		{
-			id: 'msg3',
-			senderId: '2',
-			content: 'I want more detailed information.',
-			timestamp: '2 hours ago',
-			type: 'text',
-			isRead: true,
-		},
-		{
-			id: 'msg4',
-			senderId: 'current-user',
-			content: "If don't like something, I'll stay away from it.",
-			timestamp: '2 hours ago',
-			type: 'text',
-			isRead: true,
-		},
-		{
-			id: 'msg5',
-			senderId: 'current-user',
-			content: 'They got there early, and got really good seats.',
-			timestamp: '2 hours ago',
-			type: 'text',
-			isRead: true,
-		},
-	],
-};
 
 const CHATS: Chat[] = [
 	{
-		id: 'chat-1',
-		participants: [USERS[0]],
+		id: 'ai-assistant',
+		contact: CONTACTS.find((c) => c.id === 'ai-assistant')!,
 		lastMessage: {
-			id: 'last1',
-			senderId: '1',
-			content: "Hey, how's the project going?",
-			timestamp: '15 mins',
-			type: 'text',
-			isRead: false,
-		},
-		unreadCount: 2,
-		isPinned: false,
-		isArchived: false,
-		type: 'direct',
-	},
-	{
-		id: 'chat-2',
-		participants: [USERS[1]],
-		lastMessage: {
-			id: 'last2',
-			senderId: '2',
-			content: 'I want to make an appointment tomorrow from 2:00 to 5:00pm?',
-			timestamp: '30 mins',
+			id: 'last-ai',
+			senderId: 'ai-assistant',
+			content: 'How can I help you?',
+			timestamp: 'now',
 			type: 'text',
 			isRead: true,
 		},
-		unreadCount: 0,
 		isPinned: true,
-		isArchived: false,
-		type: 'direct',
-	},
-	{
-		id: 'chat-3',
-		participants: [USERS[2]],
-		lastMessage: {
-			id: 'last3',
-			senderId: '3',
-			content: 'The content is ready for review',
-			timestamp: '45 mins',
-			type: 'text',
-			isRead: false,
-		},
-		unreadCount: 1,
-		isPinned: false,
-		isArchived: false,
-		type: 'direct',
-	},
-	{
-		id: 'chat-4',
-		participants: [USERS[3]],
-		lastMessage: {
-			id: 'last4',
-			senderId: '4',
-			content: 'Thanks for the feedback!',
-			timestamp: '2 days',
-			type: 'text',
-			isRead: true,
-		},
-		unreadCount: 0,
-		isPinned: false,
-		isArchived: false,
-		type: 'direct',
-	},
-	{
-		id: 'chat-5',
-		participants: [USERS[4]],
-		lastMessage: {
-			id: 'last5',
-			senderId: '5',
-			content: 'The marketing campaign is live',
-			timestamp: '1 hour',
-			type: 'text',
-			isRead: false,
-		},
-		unreadCount: 3,
-		isPinned: false,
-		isArchived: false,
-		type: 'direct',
-	},
-	{
-		id: 'chat-6',
-		participants: [USERS[5]],
-		lastMessage: {
-			id: 'last6',
-			senderId: '6',
-			content: "Let's schedule a meeting",
-			timestamp: '3 days',
-			type: 'text',
-			isRead: true,
-		},
-		unreadCount: 0,
-		isPinned: false,
-		isArchived: false,
-		type: 'direct',
 	},
 ];
 
-export default function Messages() {
-	const [selectedChat, setSelectedChat] = useState<Chat | null>(CHATS[1]); // Default to Lindsey Curtis chat
+const initialAiMessage: Message = {
+	id: 'ai-msg-initial',
+	senderId: 'ai-assistant',
+	content: "Hello! I'm your AI study assistant. How can I help you today?",
+	timestamp: 'Just now',
+	type: 'text',
+	isRead: true,
+};
+
+// MAIN COMPONENT
+export default function SchoolMessages() {
+	const [selectedChat, setSelectedChat] = useState<Chat | null>(CHATS[0]);
 	const [searchQuery, setSearchQuery] = useState('');
 	const [newMessage, setNewMessage] = useState('');
-	const [messages, setMessages] = useState<Message[]>(
-		SAMPLE_MESSAGES['chat-2'] || []
-	);
+	const [messages, setMessages] = useState<Message[]>([initialAiMessage]);
+	const [isLoading, setIsLoading] = useState(false);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
-	const scrollToBottom = () => {
-		messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-	};
-
 	useEffect(() => {
-		scrollToBottom();
-	}, [messages]);
-
-	const filteredChats = CHATS.filter((chat) => {
-		const participant = chat.participants[0];
-		return (
-			participant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			participant.role.toLowerCase().includes(searchQuery.toLowerCase())
-		);
+		messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 	});
 
-	const handleSendMessage = () => {
-		if (!newMessage.trim() || !selectedChat) return;
+	const handleSendMessage = async () => {
+		if (!newMessage.trim() || !selectedChat || isLoading) return;
 
-		const message: Message = {
+		const userMessage: Message = {
 			id: `msg-${Date.now()}`,
 			senderId: 'current-user',
 			content: newMessage.trim(),
@@ -293,9 +134,74 @@ export default function Messages() {
 			isRead: true,
 		};
 
-		setMessages((prev) => [...prev, message]);
+		setMessages((prev) => [...prev, userMessage]);
+		const currentInput = newMessage.trim();
 		setNewMessage('');
+		setIsLoading(true);
+
+		const aiResponseId = `ai-response-${Date.now()}`;
+		const aiPlaceholder: Message = {
+			id: aiResponseId,
+			senderId: 'ai-assistant',
+			content: '',
+			timestamp: 'now',
+			type: 'text',
+			isRead: false,
+			isTyping: true,
+		};
+		setMessages((prev) => [...prev, aiPlaceholder]);
+
+		try {
+			const response = await fetch('/api/chat', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ prompt: currentInput }),
+			});
+
+			if (!response.ok) throw new Error('API request failed');
+			const { text } = await response.json();
+
+			setMessages((prev) =>
+				prev.map((msg) =>
+					msg.id === aiResponseId
+						? { ...msg, content: text, isTyping: false, isRead: true }
+						: msg
+				)
+			);
+		} catch (error) {
+			console.error('Error fetching AI response:', error);
+			setMessages((prev) =>
+				prev.map((msg) =>
+					msg.id === aiResponseId
+						? {
+								...msg,
+								content: 'Sorry, I ran into an error. Please try again.',
+								isTyping: false,
+						  }
+						: msg
+				)
+			);
+		} finally {
+			setIsLoading(false);
+		}
 	};
+
+	const filteredChats = CHATS.filter((chat) =>
+		chat.contact.name.toLowerCase().includes(searchQuery.toLowerCase())
+	);
+
+	const getContactIcon = (type: string) => {
+		if (type === 'ai') return <Bot className="h-4 w-4" />;
+		if (type === 'teacher') return <GraduationCap className="h-4 w-4" />;
+		return <Users className="h-4 w-4" />;
+	};
+
+	const getContactInitials = (name: string) =>
+		name
+			.split(' ')
+			.map((n) => n[0])
+			.join('')
+			.toUpperCase();
 
 	const handleKeyPress = (e: React.KeyboardEvent) => {
 		if (e.key === 'Enter' && !e.shiftKey) {
@@ -306,13 +212,13 @@ export default function Messages() {
 
 	const handleChatSelect = (chat: Chat) => {
 		setSelectedChat(chat);
-		setMessages(SAMPLE_MESSAGES[chat.id] || []);
+		setMessages(chat.id === 'ai-assistant' ? [initialAiMessage] : []);
 	};
 
-	const formatTime = (timestamp: string) => {
-		if (timestamp === 'now') return 'Just now';
-		return timestamp;
-	};
+	const formatTime = (timestamp: string) =>
+		timestamp.toLowerCase() === 'now' || timestamp.toLowerCase() === 'just now'
+			? 'Just now'
+			: timestamp;
 
 	return (
 		<div className="space-y-6">
@@ -320,189 +226,144 @@ export default function Messages() {
 			<div className="flex justify-between items-center">
 				<div>
 					<h1 className="text-3xl font-bold tracking-tight">Messages</h1>
-					<p className="text-muted-foreground">Stay connected with your team</p>
+					<p className="text-muted-foreground">
+						Get help from your AI study assistant
+					</p>
 				</div>
-				<Button>
-					<UserPlus className="mr-2 h-4 w-4" /> New Chat
-				</Button>
+				<button className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+					<MessageCircle className="mr-2 h-4 w-4" /> New Message
+				</button>
 			</div>
 
 			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
 				{/* Chat List */}
-				<Card className="lg:col-span-1">
-					<CardHeader className="pb-3">
+				<div className="lg:col-span-1 rounded-lg border bg-card text-card-foreground shadow-sm">
+					<div className="flex flex-col space-y-1.5 p-6 pb-3">
 						<div className="flex items-center justify-between">
-							<CardTitle className="text-lg">Chats</CardTitle>
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<Button variant="ghost" size="sm">
-										<MoreHorizontal className="h-4 w-4" />
-									</Button>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent align="end">
-									<DropdownMenuItem>
-										<Archive className="mr-2 h-4 w-4" />
-										Archived Chats
-									</DropdownMenuItem>
-									<DropdownMenuItem>
-										<Star className="mr-2 h-4 w-4" />
-										Starred Messages
-									</DropdownMenuItem>
-								</DropdownMenuContent>
-							</DropdownMenu>
+							<h3 className="text-lg font-semibold">AI Assistant</h3>
+							<button className="inline-flex items-center justify-center p-0 h-8 w-8 rounded-md hover:bg-accent">
+								<MoreHorizontal className="h-4 w-4" />
+							</button>
 						</div>
-
 						<div className="relative">
 							<Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-							<Input
-								placeholder="Search..."
-								className="pl-8"
+							<input
+								className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm pl-8"
+								placeholder="Search conversations..."
 								value={searchQuery}
 								onChange={(e) => setSearchQuery(e.target.value)}
 							/>
 						</div>
-					</CardHeader>
-
-					<CardContent className="p-0">
+					</div>
+					<div className="p-0">
 						<div className="space-y-1">
-							{filteredChats.map((chat) => {
-								const participant = chat.participants[0];
-								const isSelected = selectedChat?.id === chat.id;
-
-								return (
-									<div
-										key={chat.id}
-										className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
-											isSelected ? 'bg-muted' : ''
-										}`}
-										onClick={() => handleChatSelect(chat)}
-									>
-										<div className="relative">
-											<Avatar>
-												<AvatarFallback>
-													{participant.name
-														.split(' ')
-														.map((n) => n[0])
-														.join('')}
-												</AvatarFallback>
-											</Avatar>
-											{participant.isOnline && (
-												<div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-900"></div>
-											)}
-										</div>
-
-										<div className="flex-1 min-w-0">
-											<div className="flex items-center justify-between">
-												<p className="font-medium truncate">
-													{participant.name}
-												</p>
-												<span className="text-xs text-muted-foreground">
-													{chat.lastMessage.timestamp}
-												</span>
+							{filteredChats.map((chat) => (
+								<div
+									key={chat.id}
+									className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
+										selectedChat?.id === chat.id ? 'bg-muted' : ''
+									}`}
+									onClick={() => handleChatSelect(chat)}
+								>
+									<div className="relative">
+										<div
+											className={`relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full ${
+												chat.contact.type === 'ai'
+													? 'bg-primary/10'
+													: 'bg-muted'
+											}`}
+										>
+											<div
+												className={`flex h-full w-full items-center justify-center rounded-full text-sm font-medium ${
+													chat.contact.type === 'ai'
+														? 'bg-primary/20 text-primary'
+														: 'bg-muted text-muted-foreground'
+												}`}
+											>
+												{chat.contact.type === 'ai' ? (
+													<Bot className="h-4 w-4" />
+												) : (
+													getContactInitials(chat.contact.name)
+												)}
 											</div>
-											<p className="text-sm text-muted-foreground truncate">
-												{participant.role}
-											</p>
-											<p className="text-sm text-muted-foreground truncate">
-												{chat.lastMessage.content}
-											</p>
 										</div>
-
-										<div className="flex flex-col items-end gap-1">
-											{chat.unreadCount > 0 && (
-												<Badge className="bg-blue-500 text-white text-xs px-2 py-0.5 min-w-[20px] h-5">
-													{chat.unreadCount}
-												</Badge>
-											)}
-											{chat.isPinned && (
-												<Star className="h-3 w-3 text-yellow-500 fill-current" />
-											)}
-										</div>
+										{chat.contact.isOnline && (
+											<div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-background"></div>
+										)}
 									</div>
-								);
-							})}
+									<div className="flex-1 min-w-0">
+										<div className="flex items-center justify-between">
+											<p className="font-medium truncate">
+												{chat.contact.name}
+											</p>
+											<span className="text-xs text-muted-foreground">
+												{chat.lastMessage.timestamp}
+											</span>
+										</div>
+										<p className="text-sm text-muted-foreground truncate">
+											{chat.contact.role}
+										</p>
+										<p
+											className="text-sm text-muted-foreground truncate"
+											style={{ whiteSpace: 'pre-wrap' }}
+										>
+											{chat.lastMessage.content}
+										</p>
+									</div>
+									{chat.isPinned && (
+										<Star className="h-3 w-3 text-yellow-500 fill-current self-start mt-1" />
+									)}
+								</div>
+							))}
 						</div>
-					</CardContent>
-				</Card>
+					</div>
+				</div>
 
 				{/* Chat Window */}
-				<Card className="lg:col-span-2 flex flex-col">
+				<div className="lg:col-span-2 rounded-lg border bg-card text-card-foreground shadow-sm flex flex-col overflow-hidden">
 					{selectedChat ? (
 						<>
 							{/* Chat Header */}
-							<CardHeader className="pb-3 border-b">
-								<div className="flex items-center justify-between">
-									<div className="flex items-center gap-3">
-										<div className="relative">
-											<Avatar>
-												<AvatarFallback>
-													{selectedChat.participants[0].name
-														.split(' ')
-														.map((n) => n[0])
-														.join('')}
-												</AvatarFallback>
-											</Avatar>
-											{selectedChat.participants[0].isOnline && (
-												<div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-900"></div>
-											)}
+							<div className="flex items-center justify-between p-4 border-b">
+								<div className="flex items-center gap-3">
+									<div className="relative">
+										<div className="relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full bg-primary/10">
+											<div className="flex h-full w-full items-center justify-center rounded-full text-primary bg-primary/20">
+												<Bot className="h-4 w-4" />
+											</div>
 										</div>
-										<div>
-											<h3 className="font-semibold">
-												{selectedChat.participants[0].name}
-											</h3>
-											<p className="text-sm text-muted-foreground">
-												{selectedChat.participants[0].isOnline
-													? 'Online'
-													: selectedChat.participants[0].lastSeen}
-											</p>
-										</div>
+										{selectedChat.contact.isOnline && (
+											<div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-background"></div>
+										)}
 									</div>
-
-									<div className="flex items-center gap-2">
-										<Button variant="ghost" size="sm">
-											<Phone className="h-4 w-4" />
-										</Button>
-										<Button variant="ghost" size="sm">
-											<Video className="h-4 w-4" />
-										</Button>
-										<DropdownMenu>
-											<DropdownMenuTrigger asChild>
-												<Button variant="ghost" size="sm">
-													<MoreHorizontal className="h-4 w-4" />
-												</Button>
-											</DropdownMenuTrigger>
-											<DropdownMenuContent align="end">
-												<DropdownMenuItem>
-													<Info className="mr-2 h-4 w-4" />
-													View Profile
-												</DropdownMenuItem>
-												<DropdownMenuItem>
-													<Calendar className="mr-2 h-4 w-4" />
-													Schedule Meeting
-												</DropdownMenuItem>
-												<DropdownMenuSeparator />
-												<DropdownMenuItem>
-													<Archive className="mr-2 h-4 w-4" />
-													Archive Chat
-												</DropdownMenuItem>
-												<DropdownMenuItem className="text-red-600">
-													<Trash2 className="mr-2 h-4 w-4" />
-													Delete Chat
-												</DropdownMenuItem>
-											</DropdownMenuContent>
-										</DropdownMenu>
+									<div>
+										<h3 className="font-semibold">
+											{selectedChat.contact.name}
+										</h3>
+										<p className="text-sm text-muted-foreground">
+											{selectedChat.contact.isOnline
+												? 'Online'
+												: selectedChat.contact.lastSeen}
+										</p>
 									</div>
 								</div>
-							</CardHeader>
+								<div className="flex items-center gap-2">
+									<button className="inline-flex items-center justify-center p-0 h-8 w-8 rounded-md hover:bg-accent">
+										<Phone className="h-4 w-4" />
+									</button>
+									<button className="inline-flex items-center justify-center p-0 h-8 w-8 rounded-md hover:bg-accent">
+										<Video className="h-4 w-4" />
+									</button>
+									<button className="inline-flex items-center justify-center p-0 h-8 w-8 rounded-md hover:bg-accent">
+										<MoreHorizontal className="h-4 w-4" />
+									</button>
+								</div>
+							</div>
 
 							{/* Messages */}
-							<CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+							<div className="flex-1 overflow-y-auto p-4 space-y-4">
 								{messages.map((message) => {
 									const isCurrentUser = message.senderId === 'current-user';
-									const sender = isCurrentUser
-										? null
-										: selectedChat.participants[0];
-
 									return (
 										<div
 											key={message.id}
@@ -511,16 +372,12 @@ export default function Messages() {
 											}`}
 										>
 											{!isCurrentUser && (
-												<Avatar className="w-8 h-8">
-													<AvatarFallback className="text-xs">
-														{sender?.name
-															.split(' ')
-															.map((n) => n[0])
-															.join('')}
-													</AvatarFallback>
-												</Avatar>
+												<div className="relative flex h-8 w-8 shrink-0 overflow-hidden rounded-full bg-primary/10">
+													<div className="flex h-full w-full items-center justify-center rounded-full text-primary bg-primary/20">
+														<Bot className="h-3 w-3" />
+													</div>
+												</div>
 											)}
-
 											<div
 												className={`max-w-[70%] ${
 													isCurrentUser ? 'order-first' : ''
@@ -529,18 +386,29 @@ export default function Messages() {
 												<div
 													className={`px-4 py-2 rounded-2xl ${
 														isCurrentUser
-															? 'bg-blue-500 text-white ml-auto'
-															: 'bg-muted'
+															? 'bg-primary text-primary-foreground'
+															: 'bg-primary/10 text-foreground'
 													}`}
 												>
-													<p className="text-sm">{message.content}</p>
+													{message.isTyping ? (
+														<div className="typing-indicator">
+															<span></span>
+															<span></span>
+															<span></span>
+														</div>
+													) : !isCurrentUser ? (
+														<Typewriter
+															text={message.content.replaceAll(/[*#]/gi, '')}
+														/>
+													) : (
+														<p className="text-sm">{message.content}</p>
+													)}
 												</div>
 												<p
 													className={`text-xs text-muted-foreground mt-1 ${
 														isCurrentUser ? 'text-right' : 'text-left'
 													}`}
 												>
-													{!isCurrentUser && `${sender?.name}, `}
 													{formatTime(message.timestamp)}
 												</p>
 											</div>
@@ -548,56 +416,55 @@ export default function Messages() {
 									);
 								})}
 								<div ref={messagesEndRef} />
-							</CardContent>
+							</div>
 
 							{/* Message Input */}
 							<div className="border-t p-4">
 								<div className="flex items-end gap-2">
-									<Button variant="ghost" size="sm">
+									<button
+										className="inline-flex items-center justify-center p-0 h-8 w-8 rounded-md hover:bg-accent"
+										disabled={isLoading}
+									>
 										<Paperclip className="h-4 w-4" />
-									</Button>
-
+									</button>
 									<div className="flex-1 relative">
-										<Input
-											placeholder="Type a message..."
-											className="pr-10 resize-none"
+										<input
+											className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm pr-10"
+											placeholder="Ask the AI assistant anything..."
 											value={newMessage}
 											onChange={(e) => setNewMessage(e.target.value)}
 											onKeyPress={handleKeyPress}
+											disabled={isLoading}
 										/>
-										<Button
-											variant="ghost"
-											size="sm"
-											className="absolute right-1 top-1/2 -translate-y-1/2"
+										<button
+											className="absolute right-1 top-1/2 -translate-y-1/2 p-0 h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-accent"
+											disabled={isLoading}
 										>
 											<Smile className="h-4 w-4" />
-										</Button>
+										</button>
 									</div>
-
-									<Button
+									<button
 										onClick={handleSendMessage}
-										disabled={!newMessage.trim()}
-										className="bg-blue-500 hover:bg-blue-600"
+										disabled={!newMessage.trim() || isLoading}
+										className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
 									>
 										<Send className="h-4 w-4" />
-									</Button>
+									</button>
 								</div>
 							</div>
 						</>
 					) : (
-						<CardContent className="flex-1 flex items-center justify-center">
-							<div className="text-center">
+						<div className="flex-1 flex items-center justify-center p-6 text-center">
+							<div>
 								<MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-								<h3 className="text-lg font-semibold mb-2">
-									Select a chat to start messaging
-								</h3>
+								<h3 className="text-lg font-semibold">Select a conversation</h3>
 								<p className="text-muted-foreground">
-									Choose from your existing conversations or start a new one
+									Choose a contact to start messaging.
 								</p>
 							</div>
-						</CardContent>
+						</div>
 					)}
-				</Card>
+				</div>
 			</div>
 		</div>
 	);

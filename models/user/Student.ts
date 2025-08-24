@@ -13,6 +13,9 @@ const GuardianSchema = new Schema({
 const StudentSchema = new Schema<Student & Document>({
 	studentId: { type: String, required: true, unique: true },
 	classId: { type: String, required: true },
+	className: { type: String, required: true },
+	session: { type: String },
+	classLevel: { type: String, required: true },
 	guardian: { type: GuardianSchema, required: true },
 });
 

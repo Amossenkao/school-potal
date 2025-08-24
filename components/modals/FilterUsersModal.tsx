@@ -1,103 +1,187 @@
-// src/components/modals/FilterUsersModal.jsx
-import React from 'react';
-import { X, Filter } from 'lucide-react';
-import { Modal } from '@/components/ui/modal';
+import React, { useState, useEffect } from 'react';
 
 const FilterUsersModal = ({
 	isOpen,
 	onClose,
 	statusFilter,
 	setStatusFilter,
-	gradeFilter,
-	setGradeFilter,
+	sessionFilter,
+	setSessionFilter,
+	classLevelFilter,
+	setClassLevelFilter,
+	classFilter,
+	setClassFilter,
 	subjectFilter,
 	setSubjectFilter,
 	resetFilters,
 	onApply,
+	schoolProfile,
 }) => {
-	const allSubjects = ['Mathematics', 'Science', 'English', 'History'];
-	const allGrades = ['9th Grade', '10th Grade', '11th Grade', '12th Grade'];
+	const [sessions, setSessions] = useState([]);
+	const [classLevels, setClassLevels] = useState([]);
+	const [classes, setClasses] = useState([]);
+	const [subjects, setSubjects] = useState([]);
+
+	useEffect(() => {
+		if (schoolProfile?.classLevels) {
+			setSessions(Object.keys(schoolProfile.classLevels));
+		}
+	}, [schoolProfile]);
+
+	useEffect(() => {
+		if (sessionFilter !== 'all' && schoolProfile?.classLevels[sessionFilter]) {
+			setClassLevels(Object.keys(schoolProfile.classLevels[sessionFilter]));
+		} else {
+			setClassLevels([]);
+		}
+		setClassFilter('all');
+		setSubjectFilter('all');
+	}, [sessionFilter, schoolProfile]);
+
+	useEffect(() => {
+		if (
+			sessionFilter !== 'all' &&
+			classLevelFilter !== 'all' &&
+			schoolProfile?.classLevels[sessionFilter]?.[classLevelFilter]
+		) {
+			setClasses(
+				schoolProfile.classLevels[sessionFilter][classLevelFilter].classes || []
+			);
+			setSubjects(
+				schoolProfile.classLevels[sessionFilter][classLevelFilter].subjects ||
+					[]
+			);
+		} else {
+			setClasses([]);
+			setSubjects([]);
+		}
+		setClassFilter('all');
+		setSubjectFilter('all');
+	}, [sessionFilter, classLevelFilter, schoolProfile]);
+
+	if (!isOpen) return null;
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose}>
-			<div className="bg-card rounded-lg border border-border p-6 w-full max-w-md">
-				<div className="flex items-center justify-between mb-4">
-					<h2 className="text-lg font-semibold text-foreground">
-						Filter Users
-					</h2>
-					<button
-						onClick={onClose}
-						className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+			<div className="bg-card p-6 rounded-lg shadow-xl max-w-md w-full space-y-4">
+				<h4 className="text-xl font-semibold text-foreground">Filter Users</h4>
+
+				<div>
+					<label className="block text-sm font-medium text-foreground mb-2">
+						Status
+					</label>
+					<select
+						value={statusFilter}
+						onChange={(e) => setStatusFilter(e.target.value)}
+						className="w-full p-2 border border-border rounded-lg bg-background"
 					>
-						<X className="h-5 w-5" />
-					</button>
+						<option value="all">All</option>
+						<option value="active">Active</option>
+						<option value="inactive">Inactive</option>
+					</select>
 				</div>
-				<div className="space-y-4">
+				<div>
+					<label className="block text-sm font-medium text-foreground mb-2">
+						Session
+					</label>
+					<select
+						value={sessionFilter}
+						onChange={(e) => setSessionFilter(e.target.value)}
+						className="w-full p-2 border border-border rounded-lg bg-background"
+					>
+						<option value="all">All</option>
+						{sessions.map((session) => (
+							<option key={session} value={session}>
+								{session}
+							</option>
+						))}
+					</select>
+				</div>
+				{sessionFilter !== 'all' && (
 					<div>
 						<label className="block text-sm font-medium text-foreground mb-2">
-							Status
+							Class Level
 						</label>
 						<select
-							value={statusFilter}
-							onChange={(e) => setStatusFilter(e.target.value)}
-							className="w-full p-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+							value={classLevelFilter}
+							onChange={(e) => setClassLevelFilter(e.target.value)}
+							className="w-full p-2 border border-border rounded-lg bg-background"
 						>
-							<option value="all">All Status</option>
-							<option value="active">Active</option>
-							<option value="inactive">Inactive</option>
-						</select>
-					</div>
-					<div>
-						<label className="block text-sm font-medium text-foreground mb-2">
-							Grade (Students)
-						</label>
-						<select
-							value={gradeFilter}
-							onChange={(e) => setGradeFilter(e.target.value)}
-							className="w-full p-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-						>
-							<option value="all">All Grades</option>
-							{allGrades.map((grade) => (
-								<option key={grade} value={grade}>
-									{grade}
+							<option value="all">All</option>
+							{classLevels.map((level) => (
+								<option key={level} value={level}>
+									{level}
 								</option>
 							))}
 						</select>
 					</div>
-					<div>
-						<label className="block text-sm font-medium text-foreground mb-2">
-							Subject (Teachers)
-						</label>
-						<select
-							value={subjectFilter}
-							onChange={(e) => setSubjectFilter(e.target.value)}
-							className="w-full p-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-						>
-							<option value="all">All Subjects</option>
-							{allSubjects.map((subject) => (
-								<option key={subject} value={subject}>
-									{subject}
-								</option>
-							))}
-						</select>
-					</div>
-				</div>
-				<div className="flex gap-3 mt-6">
+				)}
+				{classLevelFilter !== 'all' && (
+					<>
+						<div>
+							<label className="block text-sm font-medium text-foreground mb-2">
+								Class
+							</label>
+							<select
+								value={classFilter}
+								onChange={(e) => setClassFilter(e.target.value)}
+								className="w-full p-2 border border-border rounded-lg bg-background"
+							>
+								<option value="all">All</option>
+								{classes.map((c) => (
+									<option key={c.classId} value={c.classId}>
+										{c.name}
+									</option>
+								))}
+							</select>
+						</div>
+						<div>
+							<label className="block text-sm font-medium text-foreground mb-2">
+								Subject
+							</label>
+							<select
+								value={subjectFilter}
+								onChange={(e) => setSubjectFilter(e.target.value)}
+								className="w-full p-2 border border-border rounded-lg bg-background"
+							>
+								<option value="all">All</option>
+								{subjects.map((sub) => (
+									<option key={sub} value={sub}>
+										{sub}
+									</option>
+								))}
+							</select>
+						</div>
+					</>
+				)}
+
+				<div className="flex justify-between mt-4">
 					<button
-						onClick={resetFilters}
-						className="flex-1 px-4 py-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-colors"
+						onClick={() => {
+							resetFilters();
+							onApply();
+						}}
+						className="px-4 py-2 bg-muted text-muted-foreground rounded-lg"
 					>
 						Reset
 					</button>
-					<button
-						onClick={onApply}
-						className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-					>
-						Apply Filters
-					</button>
+					<div>
+						<button
+							onClick={onClose}
+							className="px-4 py-2 text-muted-foreground rounded-lg"
+						>
+							Cancel
+						</button>
+						<button
+							onClick={onApply}
+							className="px-4 py-2 bg-primary text-primary-foreground rounded-lg"
+						>
+							Apply Filters
+						</button>
+					</div>
 				</div>
 			</div>
-		</Modal>
+		</div>
 	);
 };
 

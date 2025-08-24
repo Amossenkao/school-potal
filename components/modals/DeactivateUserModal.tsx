@@ -1,34 +1,30 @@
 import React, { useState } from 'react';
 
-const ResetPasswordModal = ({
+const DeactivateUserModal = ({
 	isOpen,
 	onClose,
-	resetPasswordUser,
-	onResetSuccess,
+	user,
+	onSuccess,
+	setFeedback,
 }) => {
 	const [isLoading, setIsLoading] = useState(false);
-	const [error, setError] = useState('');
 
-	const handleReset = async () => {
+	const handleConfirm = async () => {
 		setIsLoading(true);
-		setError('');
 		try {
-			// Replace with your API endpoint
-			const res = await fetch(
-				`/api/users/${resetPasswordUser._id}/reset-password`,
-				{
-					method: 'POST',
-				}
-			);
-
+			const res = await fetch(`/api/users/${user._id}/status`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ isActive: !user.isActive }),
+			});
+			const data = await res.json();
 			if (!res.ok) {
-				const data = await res.json();
-				throw new Error(data.message || 'Failed to reset password.');
+				throw new Error(data.message || 'Failed to update status.');
 			}
-			onResetSuccess();
+			onSuccess(data.data);
 			onClose();
 		} catch (err) {
-			setError(err.message);
+			setFeedback({ type: 'error', message: err.message });
 		} finally {
 			setIsLoading(false);
 		}
@@ -36,20 +32,21 @@ const ResetPasswordModal = ({
 
 	if (!isOpen) return null;
 
+	const actionText = user.isActive ? 'Deactivate' : 'Activate';
+
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
 			<div className="bg-card p-6 rounded-lg shadow-xl max-w-sm w-full space-y-4 text-center">
 				<h4 className="text-xl font-semibold text-foreground">
-					Reset Password
+					{actionText} User
 				</h4>
 				<p className="text-sm text-muted-foreground">
-					Are you sure you want to reset the password for{' '}
+					Are you sure you want to {actionText.toLowerCase()} the account for{' '}
 					<span className="font-bold">
-						{resetPasswordUser?.firstName} {resetPasswordUser?.lastName}
+						{user.firstName} {user.lastName}
 					</span>
-					? This will revert it to the default password.
+					?
 				</p>
-				{error && <p className="text-sm text-red-500">{error}</p>}
 				<div className="flex justify-center gap-4 mt-4">
 					<button
 						onClick={onClose}
@@ -58,11 +55,13 @@ const ResetPasswordModal = ({
 						Cancel
 					</button>
 					<button
-						onClick={handleReset}
+						onClick={handleConfirm}
 						disabled={isLoading}
-						className="px-6 py-2 bg-primary text-primary-foreground rounded-lg"
+						className={`px-6 py-2 text-white rounded-lg ${
+							user.isActive ? 'bg-red-600' : 'bg-green-600'
+						}`}
 					>
-						{isLoading ? 'Resetting...' : 'Confirm'}
+						{isLoading ? 'Processing...' : `Confirm ${actionText}`}
 					</button>
 				</div>
 			</div>
@@ -70,4 +69,4 @@ const ResetPasswordModal = ({
 	);
 };
 
-export default ResetPasswordModal;
+export default DeactivateUserModal;

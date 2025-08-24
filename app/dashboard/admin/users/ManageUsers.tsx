@@ -19,6 +19,7 @@ import {
 	RotateCcw,
 	Trash2,
 	Eye,
+	Power,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/button/Button';
@@ -29,6 +30,8 @@ import ResetPasswordModal from '@/components/modals/ResetPasswordModal';
 import ViewUserModal from '@/components/modals/ViewUserModal';
 import FilterUsersModal from '@/components/modals/FilterUsersModal';
 import EditUserModal from '@/components/modals/EditUserModal';
+import DeactivateUserModal from '@/components/modals/DeactivateUserModal';
+import { useSchoolStore } from '@/store/schoolStore';
 
 const API_URL = '/api/users';
 
@@ -45,10 +48,13 @@ const UserManagementDashboard = () => {
 	const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
 	const [showViewModal, setShowViewModal] = useState(false);
 	const [showFilterModal, setShowFilterModal] = useState(false);
+	const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+
 	const [editingUser, setEditingUser] = useState(null);
 	const [deletingUser, setDeletingUser] = useState(null);
 	const [viewingUser, setViewingUser] = useState(null);
 	const [resetPasswordUser, setResetPasswordUser] = useState(null);
+	const [deactivatingUser, setDeactivatingUser] = useState(null);
 
 	// Pagination state
 	const [currentPage, setCurrentPage] = useState(1);
@@ -56,12 +62,16 @@ const UserManagementDashboard = () => {
 	// Sorting state
 	const [sortField, setSortField] = useState('name');
 	const [sortDirection, setSortDirection] = useState('asc');
+
 	// Filter state
 	const [statusFilter, setStatusFilter] = useState('all');
-	const [gradeFilter, setGradeFilter] = useState('all');
+	const [sessionFilter, setSessionFilter] = useState('all');
+	const [classLevelFilter, setClassLevelFilter] = useState('all');
+	const [classFilter, setClassFilter] = useState('all');
 	const [subjectFilter, setSubjectFilter] = useState('all');
 
 	const router = useRouter();
+	const schoolProfile = useSchoolStore((state) => state.school);
 
 	const fetchUsers = async () => {
 		setLoading(true);
@@ -129,19 +139,34 @@ const UserManagementDashboard = () => {
 				statusFilter === 'all' ||
 				(statusFilter === 'active' && user.isActive !== false) ||
 				(statusFilter === 'inactive' && user.isActive === false);
-			const matchesGrade =
-				gradeFilter === 'all' ||
-				(user.grade && user.grade === gradeFilter) ||
-				(user.classId && user.classId === gradeFilter);
+
+			const matchesSession =
+				sessionFilter === 'all' ||
+				(user.role === 'student' && user.session === sessionFilter) ||
+				(user.role === 'teacher' &&
+					user.subjects?.some((s) => s.session === sessionFilter));
+
+			const matchesClassLevel =
+				classLevelFilter === 'all' ||
+				(user.role === 'student' && user.classLevel === classLevelFilter) ||
+				(user.role === 'teacher' &&
+					user.subjects?.some((s) => s.level === classLevelFilter));
+
+			const matchesClass =
+				classFilter === 'all' ||
+				(user.role === 'student' && user.classId === classFilter);
 			const matchesSubject =
 				subjectFilter === 'all' ||
-				(user.subjects &&
-					user.subjects.some((s) => s.subject === subjectFilter));
+				(user.role === 'teacher' &&
+					user.subjects?.some((s) => s.subject === subjectFilter));
+
 			return (
 				matchesTab &&
 				matchesSearch &&
 				matchesStatus &&
-				matchesGrade &&
+				matchesSession &&
+				matchesClassLevel &&
+				matchesClass &&
 				matchesSubject
 			);
 		});
@@ -176,7 +201,9 @@ const UserManagementDashboard = () => {
 		activeTab,
 		searchTerm,
 		statusFilter,
-		gradeFilter,
+		sessionFilter,
+		classLevelFilter,
+		classFilter,
 		subjectFilter,
 		sortField,
 		sortDirection,
@@ -209,14 +236,14 @@ const UserManagementDashboard = () => {
 
 	const resetFilters = () => {
 		setStatusFilter('all');
-		setGradeFilter('all');
+		setSessionFilter('all');
+		setClassLevelFilter('all');
+		setClassFilter('all');
 		setSubjectFilter('all');
 	};
 
-	const getStatusColor = (status) => {
-		return status === 'active'
-			? 'bg-green-100 text-green-800'
-			: 'bg-red-100 text-red-800';
+	const getStatusColor = (isActive) => {
+		return isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
 	};
 
 	const getUserTypeColor = (role) => {
@@ -242,6 +269,18 @@ const UserManagementDashboard = () => {
 		setFeedback({
 			type: 'success',
 			message: 'Password reset successfully',
+		});
+	};
+
+	const handleDeactivateSuccess = (updatedUser) => {
+		setUsers((currentUsers) =>
+			currentUsers.map((u) => (u._id === updatedUser._id ? updatedUser : u))
+		);
+		setFeedback({
+			type: 'success',
+			message: `User ${
+				updatedUser.isActive ? 'activated' : 'deactivated'
+			} successfully`,
 		});
 	};
 
@@ -398,11 +437,11 @@ const UserManagementDashboard = () => {
 									</th>
 									<th
 										className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/70"
-										onClick={() => handleSort('status')}
+										onClick={() => handleSort('isActive')}
 									>
 										<div className="flex items-center gap-1">
 											Status
-											{getSortIcon('status')}
+											{getSortIcon('isActive')}
 										</div>
 									</th>
 									<th
@@ -428,12 +467,16 @@ const UserManagementDashboard = () => {
 										<td className="px-6 py-4">
 											<div className="flex items-center">
 												<div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-													<span className="text-sm font-medium text-primary">
-														{getFullName(user)
-															?.split(' ')
-															.map((n) => n[0])
-															.join('')}
-													</span>
+													<img
+														src={
+															user.avatar ||
+															`https://ui-avatars.com/api/?name=${getFullName(
+																user
+															)}`
+														}
+														alt={getFullName(user)}
+														className="h-10 w-10 rounded-full"
+													/>
 												</div>
 												<div className="ml-4">
 													<div className="text-sm font-medium text-foreground">
@@ -463,16 +506,10 @@ const UserManagementDashboard = () => {
 										<td className="px-6 py-4">
 											<span
 												className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-													user.status ||
-														(user.isActive !== false ? 'active' : 'inactive')
+													user.isActive
 												)}`}
 											>
-												{user.status
-													? user.status.charAt(0).toUpperCase() +
-													  user.status.slice(1)
-													: user.isActive !== false
-													? 'Active'
-													: 'Inactive'}
+												{user.isActive ? 'Active' : 'Inactive'}
 											</span>
 										</td>
 										<td className="px-6 py-4 text-sm text-muted-foreground">
@@ -511,6 +548,18 @@ const UserManagementDashboard = () => {
 													title="Reset User Password"
 												>
 													<RotateCcw className="h-4 w-4" />
+												</button>
+												<button
+													onClick={() => {
+														setDeactivatingUser(user);
+														setShowDeactivateModal(true);
+													}}
+													className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+													title={
+														user.isActive ? 'Deactivate User' : 'Activate User'
+													}
+												>
+													<Power className="h-4 w-4" />
 												</button>
 												<button
 													disabled={user.role == 'system_admin'}
@@ -663,8 +712,12 @@ const UserManagementDashboard = () => {
 				onClose={() => setShowFilterModal(false)}
 				statusFilter={statusFilter}
 				setStatusFilter={setStatusFilter}
-				gradeFilter={gradeFilter}
-				setGradeFilter={setGradeFilter}
+				sessionFilter={sessionFilter}
+				setSessionFilter={setSessionFilter}
+				classLevelFilter={classLevelFilter}
+				setClassLevelFilter={setClassLevelFilter}
+				classFilter={classFilter}
+				setClassFilter={setClassFilter}
 				subjectFilter={subjectFilter}
 				setSubjectFilter={setSubjectFilter}
 				resetFilters={resetFilters}
@@ -672,6 +725,15 @@ const UserManagementDashboard = () => {
 					setShowFilterModal(false);
 					setCurrentPage(1);
 				}}
+				schoolProfile={schoolProfile}
+			/>
+
+			<DeactivateUserModal
+				isOpen={showDeactivateModal}
+				onClose={() => setShowDeactivateModal(false)}
+				user={deactivatingUser}
+				onSuccess={handleDeactivateSuccess}
+				setFeedback={setFeedback}
 			/>
 
 			{showEditModal && editingUser && (

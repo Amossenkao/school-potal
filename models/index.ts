@@ -93,6 +93,9 @@ export const getAdministratorModel = async (host: string | null) =>
 	(await getTenantModels(host)).Administrator;
 export const getSystemAdminModel = async (host: string | null) =>
 	(await getTenantModels(host)).SystemAdmin;
+export const getGradeModel = async (host: string | null) =>
+	(await getTenantModels(host)).Grade;
+
 // export const getSchoolInfoModel = async (host: string | null) =>
 // 	(await getTenantModels(host)).SchoolInfo;
 // export const getSchoolModel = async (host: string | null) =>
@@ -101,21 +104,3 @@ export const getSystemAdminModel = async (host: string | null) =>
 // 	(await getTenantModels(host)).Class;
 // export const getMessageModel = async (host: string | null) =>
 // 	(await getTenantModels(host)).Message;
-export const getGradeModel = async (host: string | null) =>
-	(await getTenantModels(host)).Grade;
-
-export const getUserModelByRole = async (host: string | null, role: string) => {
-	const models = await getTenantModels(host);
-	switch (role) {
-		case 'student':
-			return models.Student;
-		case 'teacher':
-			return models.Teacher;
-		case 'administrator':
-			return models.Administrator;
-		case 'system_admin':
-			return models.SystemAdmin;
-		default:
-			return models.User;
-	}
-};

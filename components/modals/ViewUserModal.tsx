@@ -1,266 +1,168 @@
-// src/components/modals/ViewUserModal.jsx
 import React from 'react';
-import { Modal } from '@/components/ui/modal';
-import { classIds } from '@/types';
+import { X } from 'lucide-react';
 
 const ViewUserModal = ({ isOpen, onClose, viewingUser }) => {
-	if (!viewingUser) {
-		return null;
-	}
+	if (!isOpen || !viewingUser) return null;
 
 	const getFullName = (user) => {
-		const names = [user.firstName, user.middleName, user.lastName].filter(
-			Boolean
-		);
-		return names.join(' ');
+		return [user.firstName, user.middleName, user.lastName]
+			.filter(Boolean)
+			.join(' ');
 	};
 
-	const getClassDisplayName = (classId) => {
-		const cls = classIds.find((c) => c.id === classId);
-		return cls ? `${cls.name} (${cls.level})` : classId;
-	};
+	const InfoField = ({ label, value }) => (
+		<div>
+			<p className="text-sm text-muted-foreground">{label}</p>
+			<p className="text-md font-medium text-foreground">{value || 'N/A'}</p>
+		</div>
+	);
 
 	return (
-		<Modal
-			isOpen={isOpen}
-			onClose={onClose}
-			isFullscreen={true}
-			showCloseButton={true}
-		>
-			<div className="fixed top-0 left-0 flex flex-col w-full h-screen p-6 overflow-x-hidden overflow-y-auto bg-card dark:bg-gray-900 lg:p-10">
-				<div>
-					<div className="flex items-center justify-between mb-6">
-						<h2 className="text-lg font-semibold text-foreground">
-							User Profile
-						</h2>
-					</div>
-					{viewingUser.avatar && (
-						<div className="m-6 ">
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+			<div className="bg-card rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-border transform transition-all duration-300 ease-in-out">
+				{/* Modal Header */}
+				<div className="flex justify-between items-center p-4 sm:p-6 border-b border-border flex-shrink-0">
+					<h4 className="text-xl md:text-2xl font-semibold text-foreground">
+						User Profile
+					</h4>
+					<button
+						onClick={onClose}
+						className="p-2 rounded-full hover:bg-muted transition-colors"
+					>
+						<X className="h-5 w-5" />
+					</button>
+				</div>
+
+				{/* Modal Body with Scrolling */}
+				<div className="overflow-y-auto flex-grow">
+					<div className="p-4 sm:p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+						{/* Left Column: Avatar and Basic Info */}
+						<div className="col-span-1 flex flex-col items-center text-center md:border-r md:pr-8">
 							<img
-								src={viewingUser.avatar}
-								width={100}
-								className="rounded-full"
+								src={
+									viewingUser.avatar ||
+									`https://ui-avatars.com/api/?name=${getFullName(
+										viewingUser
+									)}&background=random`
+								}
+								alt={getFullName(viewingUser)}
+								className="h-24 w-24 md:h-32 md:w-32 rounded-full border-4 border-primary/20 object-cover mb-4"
 							/>
-						</div>
-					)}
-					<div className="space-y-6">
-						<div>
-							<h3 className="text-md font-medium text-foreground mb-3">
-								Basic Information
+							<h3 className="text-lg md:text-xl font-bold text-foreground">
+								{getFullName(viewingUser)}
 							</h3>
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-								<div>
-									<label className="block text-sm font-medium text-muted-foreground">
-										Full Name
-									</label>
-									<p className="text-sm text-foreground">
-										{getFullName(viewingUser)}
-									</p>
-								</div>
-								<div>
-									<label className="block text-sm font-medium text-muted-foreground">
-										Username
-									</label>
-									<p className="text-sm text-foreground">
-										{viewingUser.username}
-									</p>
-								</div>
-								<div>
-									<label className="block text-sm font-medium text-muted-foreground">
-										Gender
-									</label>
-									<p className="text-sm text-foreground">
-										{viewingUser.gender}
-									</p>
-								</div>
-								<div>
-									<label className="block text-sm font-medium text-muted-foreground">
-										Date of Birth
-									</label>
-									<p className="text-sm text-foreground">
-										{viewingUser.dateOfBirth
-											? new Date(viewingUser.dateOfBirth).toLocaleDateString()
-											: 'N/A'}
-									</p>
-								</div>
-								<div>
-									<label className="block text-sm font-medium text-muted-foreground">
-										Phone
-									</label>
-									<p className="text-sm text-foreground">
-										{viewingUser.phone || 'N/A'}
-									</p>
-								</div>
-								<div>
-									<label className="block text-sm font-medium text-muted-foreground">
-										Email
-									</label>
-									<p className="text-sm text-foreground">
-										{viewingUser.email || 'N/A'}
-									</p>
-								</div>
-							</div>
-							<div className="mt-4">
-								<label className="block text-sm font-medium text-muted-foreground">
-									Address
-								</label>
-								<p className="text-sm text-foreground">
-									{viewingUser.address || 'N/A'}
-								</p>
-							</div>
-							{viewingUser.bio && (
-								<div className="mt-4">
-									<label className="block text-sm font-medium text-muted-foreground">
-										Bio
-									</label>
-									<p className="text-sm text-foreground">{viewingUser.bio}</p>
-								</div>
-							)}
+							<p className="text-md text-muted-foreground capitalize">
+								{viewingUser.role}
+							</p>
+							<span
+								className={`mt-2 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+									viewingUser.isActive
+										? 'bg-green-100 text-green-800'
+										: 'bg-red-100 text-red-800'
+								}`}
+							>
+								{viewingUser.isActive ? 'Active' : 'Inactive'}
+							</span>
 						</div>
 
-						<div className="border-t pt-4">
-							<h3 className="text-md font-medium text-foreground mb-3">
-								Role Information
-							</h3>
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-								<div>
-									<label className="block text-sm font-medium text-muted-foreground">
-										Role
-									</label>
-									<p className="text-sm text-foreground capitalize">
-										{viewingUser.role}
-									</p>
-								</div>
-								<div>
-									<label className="block text-sm font-medium text-muted-foreground">
-										Status
-									</label>
-									<p className="text-sm text-foreground">
-										{viewingUser.status ||
-											(viewingUser.isActive !== false ? 'Active' : 'Inactive')}
-									</p>
+						{/* Right Column: Detailed Info */}
+						<div className="col-span-1 md:col-span-2 space-y-6">
+							<div>
+								<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+									Personal Information
+								</h5>
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+									<InfoField label="Email Address" value={viewingUser.email} />
+									<InfoField label="Phone Number" value={viewingUser.phone} />
+									<InfoField label="Gender" value={viewingUser.gender} />
+									<InfoField
+										label="Date of Birth"
+										value={new Date(
+											viewingUser.dateOfBirth
+										).toLocaleDateString()}
+									/>
+									<div className="sm:col-span-2">
+										<InfoField label="Address" value={viewingUser.address} />
+									</div>
 								</div>
 							</div>
+
 							{viewingUser.role === 'student' && (
-								<div className="mt-4 space-y-4">
-									<div>
-										<label className="block text-sm font-medium text-muted-foreground">
-											Class
-										</label>
-										<p className="text-sm text-foreground">
-											{viewingUser.classId
-												? getClassDisplayName(viewingUser.classId)
-												: 'N/A'}
-										</p>
+								<div>
+									<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+										Academic Information
+									</h5>
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+										<InfoField
+											label="Student ID"
+											value={viewingUser.studentId}
+										/>
+										<InfoField label="Session" value={viewingUser.session} />
+										<InfoField label="Class" value={viewingUser.className} />
+										<InfoField
+											label="Class Level"
+											value={viewingUser.classLevel}
+										/>
 									</div>
-									{viewingUser.guardian && (
-										<div>
-											<h4 className="text-sm font-medium text-foreground mb-2">
-												Guardian Information
-											</h4>
-											<div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-												<div>
-													<span className="text-muted-foreground">Name:</span>
-													<span className="ml-2 text-foreground">
-														{[
-															viewingUser.guardian.firstName,
-															viewingUser.guardian.middleName,
-															viewingUser.guardian.lastName,
-														]
-															.filter(Boolean)
-															.join(' ')}
-													</span>
-												</div>
-												<div>
-													<span className="text-muted-foreground">Phone:</span>
-													<span className="ml-2 text-foreground">
-														{viewingUser.guardian.phone || 'N/A'}
-													</span>
-												</div>
-												<div>
-													<span className="text-muted-foreground">Email:</span>
-													<span className="ml-2 text-foreground">
-														{viewingUser.guardian.email || 'N/A'}
-													</span>
-												</div>
-												<div className="md:col-span-2">
-													<span className="text-muted-foreground">
-														Address:
-													</span>
-													<span className="ml-2 text-foreground">
-														{viewingUser.guardian.address || 'N/A'}
-													</span>
-												</div>
-											</div>
-										</div>
-									)}
 								</div>
 							)}
+
 							{viewingUser.role === 'teacher' && (
-								<div className="mt-4 space-y-4">
-									{viewingUser.subjects && viewingUser.subjects.length > 0 && (
+								<div>
+									<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+										Teaching Information
+									</h5>
+									<div className="space-y-4">
+										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+											<InfoField
+												label="Teacher ID"
+												value={viewingUser.teacherId}
+											/>
+											<InfoField
+												label="Sponsor Class"
+												value={viewingUser.sponsorClass}
+											/>
+										</div>
 										<div>
-											<label className="block text-sm font-medium text-muted-foreground mb-2">
-												Subjects & Levels
-											</label>
-											<div className="space-y-1">
-												{viewingUser.subjects.map((subject, index) => (
-													<p key={index} className="text-sm text-foreground">
-														{subject.subject} - {subject.level}
-													</p>
+											<p className="text-sm text-muted-foreground">Subjects</p>
+											<ul className="list-disc list-inside mt-1 text-md font-medium text-foreground">
+												{viewingUser.subjects?.map((s, i) => (
+													<li key={i}>
+														{s.subject} ({s.level}, {s.session})
+													</li>
 												))}
-											</div>
+											</ul>
 										</div>
-									)}
-									{viewingUser.isSponsor && (
-										<div>
-											<label className="block text-sm font-medium text-muted-foreground">
-												Class Sponsor
-											</label>
-											<p className="text-sm text-foreground">
-												{viewingUser.sponsorClass
-													? getClassDisplayName(viewingUser.sponsorClass)
-													: 'Yes'}
-											</p>
-										</div>
-									)}
+									</div>
 								</div>
 							)}
+
 							{viewingUser.role === 'administrator' && (
-								<div className="mt-4 space-y-4">
-									<div>
-										<label className="block text-sm font-medium text-muted-foreground">
-											Position
-										</label>
-										<p className="text-sm text-foreground">
-											{viewingUser.position || 'N/A'}
-										</p>
+								<div>
+									<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+										Administrative Information
+									</h5>
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+										<InfoField label="Admin ID" value={viewingUser.adminId} />
+										<InfoField label="Position" value={viewingUser.position} />
 									</div>
-									{viewingUser.permissions &&
-										viewingUser.permissions.length > 0 && (
-											<div>
-												<label className="block text-sm font-medium text-muted-foreground mb-2">
-													Permissions
-												</label>
-												<div className="flex flex-wrap gap-1">
-													{viewingUser.permissions.map((permission, index) => (
-														<span
-															key={index}
-															className="px-2 py-1 bg-muted text-xs rounded"
-														>
-															{permission.replace(/_/g, ' ')}
-														</span>
-													))}
-												</div>
-											</div>
-										)}
 								</div>
 							)}
 						</div>
 					</div>
 				</div>
+
+				{/* Modal Footer */}
+				<div className="p-4 sm:p-6 bg-muted/50 border-t border-border text-right rounded-b-xl flex-shrink-0">
+					<button
+						onClick={onClose}
+						className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+					>
+						Close
+					</button>
+				</div>
 			</div>
-		</Modal>
+		</div>
 	);
 };
 

@@ -53,16 +53,16 @@ export const componentsMap: any = {
 			},
 
 			// Grading
-			'view-grades': {
-				title: 'View Grades',
+			submissions: {
+				title: 'Grade Submissions',
 				icon: FileText,
 				category: 'Grading',
 				component: dynamic(
-					() => import('@/app/dashboard/admin/grades/ViewGrades')
+					() => import('@/app/dashboard/admin/grades/GradeSubmissions')
 				),
 			},
-			'approve-grades': {
-				title: 'Approve or Reject Grades',
+			requests: {
+				title: 'Grade Requests',
 				icon: CheckSquare,
 				category: 'Grading',
 				component: dynamic(
@@ -101,9 +101,7 @@ export const componentsMap: any = {
 				title: 'Yearly Reports',
 				icon: FileText,
 				category: 'Academic Reports',
-				component: dynamic(
-					() => import('@/app/dashboard/admin/reports/YearlyReports')
-				),
+				component: dynamic(() => import('@/app/dashboard/shared/YearlyReport')),
 			},
 			masters: {
 				title: 'Master Grade Sheets',
@@ -248,7 +246,7 @@ export const componentsMap: any = {
 				icon: FilePen,
 				category: 'Grading',
 				component: dynamic(
-					() => import('@/app/dashboard/teacher/grading/GradesOverview')
+					() => import('@/app/dashboard/teacher/grading/GradeManagement')
 				),
 			},
 
@@ -320,12 +318,10 @@ export const componentsMap: any = {
 				),
 			},
 
-			'Events Log': {
+			Events: {
 				title: 'Events Log',
 				icon: AlignEndVerticalIcon,
-				component: dynamic(
-					() => import('@/app/dashboard/teacher/ManageResources')
-				),
+				component: dynamic(() => import('@/app/dashboard/teacher/EventsLog')),
 			},
 		},
 	},
@@ -363,9 +359,7 @@ export const componentsMap: any = {
 				title: 'View Yearly Grades',
 				icon: CheckSquare,
 				category: 'Grading',
-				component: dynamic(
-					() => import('@/app/dashboard/student/grades/yearlyReports')
-				),
+				component: dynamic(() => import('@/app/dashboard/shared/YearlyReport')),
 			},
 			'resources/view': {
 				title: 'View Resources',

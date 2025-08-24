@@ -8,9 +8,10 @@ import {
 	View,
 	Image,
 } from '@react-pdf/renderer';
-import styles from './styles';
+import styles from '../../shared/styles';
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
+import useAuth from '@/store/useAuth';
 
 function gradeStyle(score: string | number | null) {
 	if (score === null || Number.isNaN(score) || Number(score) < 70) {
@@ -33,15 +34,14 @@ function gradeStyle(score: string | number | null) {
 interface StudentYearlyReport {
 	studentId: string;
 	studentName: string;
-	periods: Record<string, Array<{ subject: string; grade: number }>>;
-	firstSemesterAverage: Record<string, number>;
-	secondSemesterAverage: Record<string, number>;
-	periodAverages: Record<string, number>;
-	yearlyAverage: number;
-	ranks: Record<string, number>;
+	periods: Record<string, Array<{ subject: string; grade: number | null }>>;
+	firstSemesterAverage: Record<string, number | null>;
+	secondSemesterAverage: Record<string, number | null>;
+	periodAverages: Record<string, number | null>;
+	yearlyAverage: number | null;
+	ranks: Record<string, number | null>;
 }
 
-// Interfaces from PeriodicReports.tsx
 interface Student {
 	id: string;
 	name: string;
@@ -55,26 +55,19 @@ const academicYearOptions = [
 	'2021/2022',
 ];
 
-const gradeLevels = [
-	'Self Contained',
-	'Elementry',
-	'Junior High',
-	'Senior High',
-];
+// Get current academic year (2024/2025 format)
+const getCurrentAcademicYear = () => {
+	const currentDate = new Date();
+	const currentYear = currentDate.getFullYear();
+	const currentMonth = currentDate.getMonth() + 1; // getMonth() returns 0-11
 
-const classOptionsByLevel: { [key: string]: string[] } = {
-	'Self Contained': [
-		'Daycare',
-		'Nursery',
-		'K-I',
-		'K-II',
-		'1st Grade',
-		'2nd Grade',
-		'3rd Grade',
-	],
-	Elementry: ['4th Grade', '5th Grade', '6th Grade'],
-	'Junior High': ['7th Grade', '8th Grade', 'Grade 9A'],
-	'Senior High': ['Grade 10A', '11th Grade', '12th Grade'],
+	// Academic year typically starts in August/September
+	// If current month is August (8) or later, we're in the new academic year
+	if (currentMonth >= 8) {
+		return `${currentYear}/${currentYear + 1}`;
+	} else {
+		return `${currentYear - 1}/${currentYear}`;
+	}
 };
 
 function StudentMultiSelect({
@@ -236,6 +229,7 @@ function FilterContent({
 }: {
 	filters: {
 		academicYear: string;
+		session: string;
 		gradeLevel: string;
 		className: string;
 		reportType: 'entire-class' | 'selected-students';
@@ -244,6 +238,7 @@ function FilterContent({
 	setFilters: React.Dispatch<
 		React.SetStateAction<{
 			academicYear: string;
+			session: string;
 			gradeLevel: string;
 			className: string;
 			reportType: 'entire-class' | 'selected-students';
@@ -252,12 +247,106 @@ function FilterContent({
 	>;
 	onSubmit: () => void;
 }) {
+	const currentSchool = useSchoolStore((state) => state.school);
+	const { user } = useAuth();
 	const [students, setStudents] = useState<Student[]>([]);
 	const [loadingStudents, setLoadingStudents] = useState(false);
 
+	// Get user role and determine access level
+	const userRole = user?.role || 'student';
+	const isSystemAdmin = userRole === 'system_admin';
+	const isTeacher = userRole === 'teacher';
+	const isStudent = userRole === 'student';
+
+	// For students, auto-populate their class information
+	useEffect(() => {
+		if (isStudent && user) {
+			// Get user's class information from their profile
+			const userSession = user.session;
+			const userGradeLevel = user.gradeLevel;
+			const userClassId = user.classId;
+
+			setFilters((prev) => ({
+				...prev,
+				session: userSession || '',
+				gradeLevel: userGradeLevel || '',
+				className: userClassId || '',
+				reportType: 'selected-students',
+				selectedStudents: [user.studentId || ''], // Only show their own report
+			}));
+		}
+	}, [isStudent, user, setFilters]);
+
+	// Get available sessions from school profile
+	const availableSessions = currentSchool?.classLevels
+		? Object.keys(currentSchool.classLevels)
+		: [];
+
+	// For non-system-admin users, filter sessions based on user's assignment or default to first session
+	const getUserSessions = () => {
+		if (isSystemAdmin) {
+			return availableSessions;
+		}
+
+		// For students, only their session
+		if (isStudent && user?.session) {
+			return [user.session];
+		}
+
+		// For teachers and other roles, you might want to filter based on their assigned session
+		// For now, we'll show all available sessions, but you can modify this logic
+		// based on how user sessions are stored in your user object
+		if (user?.session && availableSessions.includes(user.session)) {
+			return [user.session];
+		}
+
+		return availableSessions;
+	};
+
+	const userAvailableSessions = getUserSessions();
+
+	// Get available grade levels based on selected session
+	const availableGradeLevels =
+		filters.session && currentSchool?.classLevels?.[filters.session]
+			? Object.keys(currentSchool.classLevels[filters.session])
+			: [];
+
+	// Get available classes based on session and grade level
+	const availableClasses =
+		filters.session &&
+		filters.gradeLevel &&
+		currentSchool?.classLevels?.[filters.session]?.[filters.gradeLevel]?.classes
+			? currentSchool.classLevels[filters.session][filters.gradeLevel].classes
+			: [];
+
+	// Set default values on component mount
+	useEffect(() => {
+		if (!filters.academicYear) {
+			const currentAcademicYear = getCurrentAcademicYear();
+			setFilters((prev) => ({ ...prev, academicYear: currentAcademicYear }));
+		}
+
+		// Auto-select session for non-system-admin users if only one session is available
+		if (
+			!isSystemAdmin &&
+			userAvailableSessions.length === 1 &&
+			!filters.session &&
+			!isStudent // Don't override student auto-selection
+		) {
+			setFilters((prev) => ({ ...prev, session: userAvailableSessions[0] }));
+		}
+	}, [
+		filters.academicYear,
+		filters.session,
+		isSystemAdmin,
+		userAvailableSessions,
+		setFilters,
+		isStudent,
+	]);
+
 	// Fetch students when class is selected
 	useEffect(() => {
-		if (filters.className) {
+		if (filters.className && !isStudent) {
 			const fetchStudents = async () => {
 				try {
 					setLoadingStudents(true);
@@ -292,27 +381,148 @@ function FilterContent({
 			};
 
 			fetchStudents();
+		} else if (isStudent) {
+			// For students, set their own data
+			if (user) {
+				setStudents([
+					{
+						id: user.studentId || '',
+						name: `${user.firstName} ${
+							user.middleName ? user.middleName + ' ' : ''
+						}${user.lastName}`.trim(),
+						className: user.classId || '',
+					},
+				]);
+			}
 		} else {
 			setStudents([]);
 			setFilters((prev) => ({ ...prev, selectedStudents: [] }));
 		}
-	}, [filters.className, setFilters]);
+	}, [filters.className, setFilters, isStudent, user]);
 
-	// Reset selected students when switching report type
+	// Reset dependent fields when parent fields change
 	useEffect(() => {
 		if (filters.reportType === 'entire-class') {
 			setFilters((prev) => ({ ...prev, selectedStudents: [] }));
 		}
 	}, [filters.reportType, setFilters]);
 
-	const canSubmit = filters.academicYear && filters.className;
+	// Validation for submit button
+	const canSubmit =
+		filters.academicYear &&
+		filters.className &&
+		(isSystemAdmin ? filters.session : true) && // System admin must select session
+		(filters.reportType === 'entire-class' ||
+			filters.selectedStudents.length > 0);
 
+	// Show loading if school profile is not loaded
+	if (!currentSchool) {
+		return <PageLoading fullScreen={false} />;
+	}
+
+	// If user is a student, show simplified view
+	if (isStudent) {
+		return (
+			<div className="flex flex-col items-center justify-center min-h-[60vh] py-10 bg-background text-foreground">
+				<div className="bg-card rounded-lg shadow border border-border w-full max-w-md p-6">
+					<h2 className="text-lg font-semibold mb-4 text-center">
+						My Report Card
+						{user && (
+							<span className="block text-xs text-muted-foreground mt-1">
+								Welcome, {user.firstName} {user.lastName}
+							</span>
+						)}
+					</h2>
+
+					<div className="mb-4">
+						<label className="block text-sm font-medium mb-1">
+							Academic Year
+						</label>
+						<select
+							value={filters.academicYear}
+							onChange={(e) =>
+								setFilters((f) => ({
+									...f,
+									academicYear: e.target.value,
+								}))
+							}
+							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+						>
+							<option value="">Select Academic Year</option>
+							{academicYearOptions.map((year) => (
+								<option key={year} value={year}>
+									{year}
+								</option>
+							))}
+						</select>
+					</div>
+
+					{/* Display read-only class information */}
+					<div className="mb-4 p-3 bg-muted/50 rounded border border-border">
+						<p className="text-sm text-muted-foreground mb-1">
+							Class Information
+						</p>
+						<p className="text-sm">
+							<strong>Session:</strong> {user?.session || 'Not assigned'}
+						</p>
+						<p className="text-sm">
+							<strong>Grade Level:</strong> {user?.gradeLevel || 'Not assigned'}
+						</p>
+						<p className="text-sm">
+							<strong>Class:</strong>{' '}
+							{currentSchool?.classLevels?.[user?.session || '']?.[
+								user?.gradeLevel || ''
+							]?.classes?.find((c: any) => c.classId === user?.classId)?.name ||
+								user?.classId ||
+								'Not assigned'}
+						</p>
+					</div>
+
+					<div className="flex gap-2 mt-6">
+						<button
+							type="button"
+							onClick={() => {
+								setFilters((prev) => ({
+									...prev,
+									academicYear: getCurrentAcademicYear(),
+								}));
+							}}
+							className="flex-1 px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border"
+						>
+							Reset
+						</button>
+						<button
+							type="button"
+							onClick={onSubmit}
+							className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary disabled:opacity-50"
+							disabled={!canSubmit}
+						>
+							View Report
+						</button>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	// Regular view for admins and teachers
 	return (
 		<div className="flex flex-col items-center justify-center min-h-[60vh] py-10 bg-background text-foreground">
 			<div className="bg-card rounded-lg shadow border border-border w-full max-w-md p-6">
 				<h2 className="text-lg font-semibold mb-4 text-center">
 					Filter Report Card
+					{isSystemAdmin && (
+						<span className="block text-xs text-muted-foreground mt-1">
+							System Admin - View All Students
+						</span>
+					)}
+					{user && (
+						<span className="block text-xs text-muted-foreground mt-1">
+							Welcome, {user.firstName} {user.lastName}
+						</span>
+					)}
 				</h2>
+
 				<div className="mb-4">
 					<label className="block text-sm font-medium mb-1">
 						Academic Year
@@ -323,6 +533,7 @@ function FilterContent({
 							setFilters((f) => ({
 								...f,
 								academicYear: e.target.value,
+								session: '',
 								gradeLevel: '',
 								className: '',
 								selectedStudents: [],
@@ -338,6 +549,41 @@ function FilterContent({
 						))}
 					</select>
 				</div>
+
+				{/* Session selection - shown for all users but may be auto-selected for non-admins */}
+				{userAvailableSessions.length > 0 && (
+					<div className="mb-4">
+						<label className="block text-sm font-medium mb-1">Session</label>
+						{userAvailableSessions.length === 1 && !isSystemAdmin ? (
+							<div className="w-full border border-border px-3 py-2 rounded bg-muted text-foreground">
+								{userAvailableSessions[0]} (Auto-selected)
+							</div>
+						) : (
+							<select
+								value={filters.session}
+								onChange={(e) =>
+									setFilters((f) => ({
+										...f,
+										session: e.target.value,
+										gradeLevel: '',
+										className: '',
+										selectedStudents: [],
+									}))
+								}
+								className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+								disabled={!filters.academicYear}
+							>
+								<option value="">Select Session</option>
+								{userAvailableSessions.map((session) => (
+									<option key={session} value={session}>
+										{session}
+									</option>
+								))}
+							</select>
+						)}
+					</div>
+				)}
+
 				<div className="mb-4">
 					<label className="block text-sm font-medium mb-1">Grade Level</label>
 					<select
@@ -351,16 +597,17 @@ function FilterContent({
 							}))
 						}
 						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-						disabled={!filters.academicYear}
+						disabled={!filters.academicYear || !filters.session}
 					>
 						<option value="">Select Grade Level</option>
-						{gradeLevels.map((level) => (
+						{availableGradeLevels.map((level) => (
 							<option key={level} value={level}>
 								{level}
 							</option>
 						))}
 					</select>
 				</div>
+
 				<div className="mb-4">
 					<label className="block text-sm font-medium mb-1">Class</label>
 					<select
@@ -377,12 +624,11 @@ function FilterContent({
 						disabled={!filters.gradeLevel}
 					>
 						<option value="">Select Class</option>
-						{filters.gradeLevel &&
-							classOptionsByLevel[filters.gradeLevel].map((c) => (
-								<option key={c} value={c}>
-									{c}
-								</option>
-							))}
+						{availableClasses.map((classInfo: any) => (
+							<option key={classInfo.classId} value={classInfo.classId}>
+								{classInfo.name}
+							</option>
+						))}
 					</select>
 				</div>
 
@@ -468,8 +714,13 @@ function FilterContent({
 					<button
 						type="button"
 						onClick={() => {
+							const defaultSession =
+								!isSystemAdmin && userAvailableSessions.length === 1
+									? userAvailableSessions[0]
+									: '';
 							setFilters({
-								academicYear: '',
+								academicYear: getCurrentAcademicYear(),
+								session: defaultSession,
 								gradeLevel: '',
 								className: '',
 								reportType: 'entire-class',
@@ -489,6 +740,17 @@ function FilterContent({
 						Apply Filter
 					</button>
 				</div>
+
+				{/* Debug info for development */}
+				{process.env.NODE_ENV === 'development' && (
+					<div className="mt-4 p-2 bg-muted/20 rounded text-xs">
+						<p>
+							User: {user?.firstName} {user?.lastName} ({userRole})
+						</p>
+						<p>Sessions: {userAvailableSessions.join(', ')}</p>
+						<p>Current Session: {filters.session || 'None'}</p>
+					</div>
+				)}
 			</div>
 		</div>
 	);
@@ -500,6 +762,7 @@ function ReportContent({
 }: {
 	reportFilters: {
 		academicYear: string;
+		session: string;
 		gradeLevel: string;
 		className: string;
 		selectedStudents: string[];
@@ -510,38 +773,203 @@ function ReportContent({
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const school = useSchoolStore((state) => state.school);
+	const currentSchool = useSchoolStore((state) => state.school);
+	const { user } = useAuth();
 
 	useEffect(() => {
 		const fetchStudentsData = async () => {
 			try {
 				setLoading(true);
 				setError(null);
+
+				// Get all subjects for the class from school profile
+				const classSubjects =
+					currentSchool?.classLevels?.[reportFilters.session]?.[
+						reportFilters.gradeLevel
+					]?.subjects || [];
+
+				// Fetch all students in the class
+				const studentsResponse = await fetch(
+					`/api/users?classId=${reportFilters.className}&role=student`
+				);
+
+				if (!studentsResponse.ok) throw new Error('Failed to fetch students');
+				const studentsData = await studentsResponse.json();
+
+				if (!studentsData.success || !studentsData.data) {
+					throw new Error('Invalid student data format');
+				}
+
+				// If specific students are selected, filter the list
+				let studentsToProcess = studentsData.data;
+				if (reportFilters.selectedStudents.length > 0) {
+					studentsToProcess = studentsData.data.filter((student: any) =>
+						reportFilters.selectedStudents.includes(student.studentId)
+					);
+				}
+
+				// Fetch grades for all students
 				const params: any = {
 					classId: reportFilters.className,
 					academicYear: reportFilters.academicYear,
 				};
 
-				// Conditionally add studentIds if they exist
-				if (reportFilters.selectedStudents.length > 0) {
-					params.studentIds = reportFilters.selectedStudents.join(',');
+				// Add session parameter
+				if (reportFilters.session) {
+					params.session = reportFilters.session;
 				}
 
 				const url = new URL('/api/grades', window.location.origin);
 				Object.entries(params).forEach(([key, value]) => {
 					if (value) url.searchParams.append(key, value as string);
 				});
-				const res = await fetch(url.toString());
-				if (!res.ok) throw new Error('Failed to fetch grades');
-				const data = await res.json();
 
-				// Normalize the response to always be an array
-				const reportData = Array.isArray(data.data.report)
-					? data.data.report
-					: [data.data.report];
+				const gradesResponse = await fetch(url.toString());
+				let gradesData = { success: true, data: { report: [] } };
 
-				if (!data.success || !data.data || !Array.isArray(reportData)) {
-					throw new Error('Invalid data format received from the server');
+				if (gradesResponse.ok) {
+					gradesData = await gradesResponse.json();
 				}
+
+				// Normalize the grades response to always be an array
+				const existingReports = Array.isArray(gradesData.data?.report)
+					? gradesData.data.report
+					: gradesData.data?.report
+					? [gradesData.data.report]
+					: [];
+
+				// Create report data for all students, merging with existing grades
+				const reportData = studentsToProcess.map((student: any) => {
+					const studentId = student.studentId;
+					const studentName = `${student.firstName} ${
+						student.middleName ? student.middleName + ' ' : ''
+					}${student.lastName}`.trim();
+
+					// Find existing report for this student
+					const existingReport = existingReports.find(
+						(report: any) => report.studentId === studentId
+					);
+
+					// Initialize periods with all subjects
+					const periods: Record<
+						string,
+						Array<{ subject: string; grade: number | null }>
+					> = {
+						firstPeriod: classSubjects.map((subject) => ({
+							subject,
+							grade: null,
+						})),
+						secondPeriod: classSubjects.map((subject) => ({
+							subject,
+							grade: null,
+						})),
+						thirdPeriod: classSubjects.map((subject) => ({
+							subject,
+							grade: null,
+						})),
+						thirdPeriodExam: classSubjects.map((subject) => ({
+							subject,
+							grade: null,
+						})),
+						fourthPeriod: classSubjects.map((subject) => ({
+							subject,
+							grade: null,
+						})),
+						fifthPeriod: classSubjects.map((subject) => ({
+							subject,
+							grade: null,
+						})),
+						sixthPeriod: classSubjects.map((subject) => ({
+							subject,
+							grade: null,
+						})),
+						sixthPeriodExam: classSubjects.map((subject) => ({
+							subject,
+							grade: null,
+						})),
+					};
+
+					// Initialize averages and ranks
+					const firstSemesterAverage: Record<string, number | null> = {};
+					const secondSemesterAverage: Record<string, number | null> = {};
+					const periodAverages: Record<string, number | null> = {
+						firstPeriod: null,
+						secondPeriod: null,
+						thirdPeriod: null,
+						thirdPeriodExam: null,
+						fourthPeriod: null,
+						fifthPeriod: null,
+						sixthPeriod: null,
+						sixthPeriodExam: null,
+						firstSemesterAverage: null,
+						secondSemesterAverage: null,
+					};
+
+					const ranks: Record<string, number | null> = {
+						firstPeriod: null,
+						secondPeriod: null,
+						thirdPeriod: null,
+						thirdPeriodExam: null,
+						fourthPeriod: null,
+						fifthPeriod: null,
+						sixthPeriod: null,
+						sixthPeriodExam: null,
+						firstSemesterAverage: null,
+						secondSemesterAverage: null,
+						yearly: null,
+					};
+
+					// Initialize subject averages with null values
+					classSubjects.forEach((subject) => {
+						firstSemesterAverage[subject] = null;
+						secondSemesterAverage[subject] = null;
+					});
+
+					let yearlyAverage: number | null = null;
+
+					// If existing report found, merge the data
+					if (existingReport) {
+						// Merge period grades
+						Object.keys(periods).forEach((period) => {
+							if (existingReport.periods[period]) {
+								existingReport.periods[period].forEach((gradeEntry: any) => {
+									const subjectIndex = periods[period].findIndex(
+										(item) => item.subject === gradeEntry.subject
+									);
+									if (subjectIndex !== -1) {
+										periods[period][subjectIndex].grade = gradeEntry.grade;
+									}
+								});
+							}
+						});
+
+						// Merge averages
+						Object.assign(
+							firstSemesterAverage,
+							existingReport.firstSemesterAverage || {}
+						);
+						Object.assign(
+							secondSemesterAverage,
+							existingReport.secondSemesterAverage || {}
+						);
+						Object.assign(periodAverages, existingReport.periodAverages || {});
+						Object.assign(ranks, existingReport.ranks || {});
+
+						yearlyAverage = existingReport.yearlyAverage;
+					}
+
+					return {
+						studentId,
+						studentName,
+						periods,
+						firstSemesterAverage,
+						secondSemesterAverage,
+						periodAverages,
+						yearlyAverage,
+						ranks,
+					};
+				});
+
 				setStudentsData(reportData);
 			} catch (err: any) {
 				console.error('Error fetching students data:', err);
@@ -553,8 +981,10 @@ function ReportContent({
 		fetchStudentsData();
 	}, [
 		reportFilters.academicYear,
+		reportFilters.session,
 		reportFilters.className,
 		reportFilters.selectedStudents,
+		currentSchool,
 	]);
 
 	if (loading) {
@@ -599,17 +1029,35 @@ function ReportContent({
 		);
 	}
 
-	const allSubjects = Array.from(
-		new Set(
-			studentsData.flatMap((student) =>
-				Object.values(student.periods).flatMap((p) => p.map((g) => g.subject))
-			)
-		)
-	);
+	// Get class name from school profile
+	const getClassName = () => {
+		if (
+			currentSchool?.classLevels?.[reportFilters.session]?.[
+				reportFilters.gradeLevel
+			]?.classes
+		) {
+			const classInfo = currentSchool.classLevels[reportFilters.session][
+				reportFilters.gradeLevel
+			].classes.find((c: any) => c.classId === reportFilters.className);
+			return classInfo ? classInfo.name : reportFilters.className;
+		}
+		return reportFilters.className;
+	};
+
+	const className = getClassName();
+
+	// Get all subjects for the class
+	const classSubjects =
+		currentSchool?.classLevels?.[reportFilters.session]?.[
+			reportFilters.gradeLevel
+		]?.subjects || [];
 
 	return (
 		<div className="w-full h-screen bg-background flex flex-col">
-			<div className="flex justify-end px-8 py-4">
+			<div className="flex justify-between items-center px-8 py-4">
+				<div className="text-sm text-muted-foreground">
+					{user && `Generated by: ${user.firstName} ${user.lastName}`}
+				</div>
 				<button
 					type="button"
 					onClick={onBack}
@@ -621,10 +1069,10 @@ function ReportContent({
 			<div className="flex-1">
 				<PDFViewer className="w-full h-[calc(100vh-80px)] bg-background">
 					<Document
-						title={`Report Card for ${reportFilters.className} - ${reportFilters.academicYear}`}
+						title={`Report Card for ${className} - ${reportFilters.academicYear}`}
 					>
 						{studentsData.map((studentData, studentIndex) => {
-							const subjects = Object.keys(studentData.firstSemesterAverage);
+							const subjects = classSubjects;
 
 							const getGrade = (period: string, subject: string) =>
 								studentData.periods[period]?.find((s) => s.subject === subject)
@@ -654,8 +1102,11 @@ function ReportContent({
 												<Text style={{ fontWeight: 'bold' }}>
 													Name: {studentData.studentName}
 												</Text>
-												<Text>Class: {reportFilters.className}</Text>
+												<Text>Class: {className}</Text>
 												<Text>ID: {studentData.studentId}</Text>
+												{reportFilters.session && (
+													<Text>Session: {reportFilters.session}</Text>
+												)}
 											</View>
 											<View style={styles.headerRight}>
 												<Text style={{ fontWeight: 'bold' }}>
@@ -958,7 +1409,7 @@ function ReportContent({
 														A = 90 - 100 Excellent
 													</Text>
 													<Text style={styles.gradingText}>
-														B = 00 - 89 Very Good
+														B = 80 - 89 Very Good
 													</Text>
 													<Text style={styles.gradingText}>
 														C = 75 - 79 Good
@@ -1046,7 +1497,9 @@ function ReportContent({
 														{studentData.studentName}
 													</Text>{' '}
 													has satisfactorily completed the work of{' '}
-													<Text style={{ textDecoration: 'underline' }}> </Text>
+													<Text style={{ textDecoration: 'underline' }}>
+														{reportFilters.gradeLevel}
+													</Text>
 													and is promoted to{' '}
 													<Text style={{ textDecoration: 'underline' }}> </Text>
 													for Academic Year {reportFilters.academicYear}.
@@ -1129,7 +1582,8 @@ function ReportContent({
 														</View>
 													</View>
 													<Text style={styles.reportTitle}>
-														JUNIOR HIGH PROGRESS REPORT
+														{reportFilters.gradeLevel?.toUpperCase()} PROGRESS
+														REPORT
 													</Text>
 												</View>
 												<View
@@ -1149,9 +1603,17 @@ function ReportContent({
 														<Text>
 															Class:{' '}
 															<Text style={{ fontWeight: 'bold' }}>
-																{reportFilters.className}
+																{className}
 															</Text>
 														</Text>
+														{reportFilters.session && (
+															<Text>
+																Session:{' '}
+																<Text style={{ fontWeight: 'bold' }}>
+																	{reportFilters.session}
+																</Text>
+															</Text>
+														)}
 													</View>
 													<View
 														style={{
@@ -1335,67 +1797,19 @@ export default function YearlyReportWrapper() {
 	const [showReport, setShowReport] = useState(false);
 	const [filters, setFilters] = useState<{
 		academicYear: string;
+		session: string;
 		gradeLevel: string;
 		className: string;
 		reportType: 'entire-class' | 'selected-students';
 		selectedStudents: string[];
 	}>({
-		academicYear: '',
+		academicYear: getCurrentAcademicYear(),
+		session: '',
 		gradeLevel: '',
 		className: '',
 		reportType: 'entire-class',
 		selectedStudents: [],
 	});
-
-	// This useEffect is used to correctly update the selected students when the class changes
-	const [students, setStudents] = useState<Student[]>([]);
-	const [loadingStudents, setLoadingStudents] = useState(false);
-
-	useEffect(() => {
-		if (filters.className) {
-			const fetchStudents = async () => {
-				try {
-					setLoadingStudents(true);
-					const response = await fetch(
-						`/api/users?classId=${filters.className}&role=student`
-					);
-					if (response.ok) {
-						const responseData = await response.json();
-						if (responseData.success && responseData.data) {
-							const mappedStudents = responseData.data.map((student: any) => ({
-								id: student.studentId,
-								name: `${student.firstName} ${
-									student.middleName ? student.middleName + ' ' : ''
-								}${student.lastName}`.trim(),
-								className: student.classId,
-							}));
-							setStudents(mappedStudents);
-						} else {
-							setStudents([]);
-						}
-					} else {
-						setStudents([]);
-					}
-				} catch (error) {
-					setStudents([]);
-				} finally {
-					setLoadingStudents(false);
-				}
-			};
-
-			fetchStudents();
-		} else {
-			setStudents([]);
-			setFilters((prev) => ({ ...prev, selectedStudents: [] }));
-		}
-	}, [filters.className, setFilters]);
-
-	// Reset selected students when switching report type
-	useEffect(() => {
-		if (filters.reportType === 'entire-class') {
-			setFilters((prev) => ({ ...prev, selectedStudents: [] }));
-		}
-	}, [filters.reportType, setFilters]);
 
 	return (
 		<div className="w-full h-screen bg-background">

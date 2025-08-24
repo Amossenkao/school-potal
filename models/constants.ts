@@ -9,7 +9,7 @@ export const UserRoles = [
 
 export const ClassLevels = [
 	'Self Contained',
-	'Elementry',
+	'Elementary',
 	'Junior High',
 	'Senior High',
 ] as const;

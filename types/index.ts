@@ -66,34 +66,6 @@ export interface SchoolInfo {
 }
 
 export type UserRole = 'student' | 'teacher' | 'administrator' | 'system_admin';
-export type session = 'AM' | 'PM';
-
-export type ClassLevel =
-	| 'Self Contained'
-	| 'Elementry'
-	| 'Junior High'
-	| 'Senior High';
-
-export type ClassId =
-	| 'daycare'
-	| 'nursery'
-	| 'kOne'
-	| 'kTwo'
-	| 'one'
-	| 'two'
-	| 'three'
-	| 'four'
-	| 'five'
-	| 'six'
-	| 'seven'
-	| 'eight'
-	| 'nine'
-	| 'thenOne'
-	| 'tenTwo'
-	| 'elevenOne'
-	| 'elevenTwo'
-	| 'twelveOne'
-	| 'twelveTwo';
 
 export interface School {
 	id: string;
@@ -125,9 +97,9 @@ interface ClassSubjects {
 }
 
 export interface Class {
-	classId: ClassId;
+	classId: string;
 	name: string;
-	level: ClassLevel;
+	level: string;
 	sponsorId: string;
 	schedule: ClassSchedule[];
 	subjects: ClassSubjects;
@@ -179,7 +151,10 @@ interface UserNavItem {
 export interface Student extends User {
 	role: 'student';
 	studentId: string;
-	classId: ClassId;
+	classId: string;
+	classLevel: string;
+	className: string;
+	session?: string;
 	requiresOtp: false;
 	guardian: {
 		firstName: string;
@@ -193,7 +168,8 @@ export interface Student extends User {
 
 export interface TeacherSubject {
 	subject: string;
-	level: ClassLevel;
+	level: string;
+	session: string;
 }
 
 export interface Teacher extends User {
@@ -201,7 +177,7 @@ export interface Teacher extends User {
 	teacherId: string;
 	requiresOtp: false;
 	subjects: TeacherSubject[];
-	sponsorClass: ClassId | null;
+	sponsorClass: string | null;
 }
 
 export interface Administrator extends User {

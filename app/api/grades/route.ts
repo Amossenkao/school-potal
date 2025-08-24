@@ -4,9 +4,8 @@ import { authorizeUser, getTenantFromRequest } from '@/middleware';
 import { now } from 'mongoose';
 
 // -----------------------------------------------------------------------------
-// Types and Interfaces
+// Types and Interfaces (Unchanged)
 // -----------------------------------------------------------------------------
-
 interface GradeRecord {
 	submissionId: string;
 	academicYear: string;
@@ -41,6 +40,7 @@ interface StudentYearlyReport {
 	periods: Record<string, Array<{ subject: string; grade: number }>>;
 	firstSemesterAverage: Record<string, number>;
 	secondSemesterAverage: Record<string, number>;
+	yearlySubjectAverages: Record<string, number>;
 	periodAverages: Record<string, number>;
 	yearlyAverage: number;
 	ranks: Record<string, number>;
@@ -53,7 +53,7 @@ interface MastersReport {
 	students: Array<{
 		studentId: string;
 		studentName: string;
-		periods: Record<string, number>;
+		periods: Record<string, { grade: number; status: string }>;
 		overallAverage: number;
 	}>;
 	periodStats: Record<
@@ -68,20 +68,55 @@ interface MastersReport {
 	>;
 }
 
+interface GradeSubmissionReport {
+	teacherId: string;
+	academicYear: string;
+	submissions: Array<{
+		submissionId: string;
+		classId: string;
+		subject: string;
+		period: string;
+		totalStudents: number;
+		pendingCount: number;
+		approvedCount: number;
+		rejectedCount: number;
+		lastUpdated: Date;
+		students: Array<{
+			studentId: string;
+			studentName: string;
+			grade: number;
+			status: string;
+		}>;
+	}>;
+}
+
+interface AllGradesReport {
+	academicYear: string;
+	totalRecords: number;
+	grades: Array<{
+		submissionId: string;
+		academicYear: string;
+		period: string;
+		classId: string;
+		subject: string;
+		teacherId: string;
+		studentId: string;
+		studentName: string;
+		grade: number;
+		status: string;
+		lastUpdated: Date;
+	}>;
+}
+
 // -----------------------------------------------------------------------------
-// Helper Functions
+// Helper Functions (Unchanged)
 // -----------------------------------------------------------------------------
 
 function getCurrentAcademicYear() {
-	const date = now().getDate();
-	const month = now().getMonth();
-	const year = now().getFullYear();
-
-	if (month >= 8 && month <= 12) {
-		return `${year}/${year + 1}`;
-	}
-
-	return `${year - 1}/${year}`;
+	const date = new Date();
+	const month = date.getMonth() + 1;
+	const year = date.getFullYear();
+	return month >= 8 ? `${year}/${year + 1}` : `${year - 1}/${year}`;
 }
 
 function getSubmissionId(classId: string, period: string, subject: string) {
@@ -90,24 +125,19 @@ function getSubmissionId(classId: string, period: string, subject: string) {
 		.toLowerCase();
 }
 
-/**
- * Validates the grades array to ensure proper structure.
- */
 function validateGrades(grades: any[]): { isValid: boolean; message?: string } {
 	if (!Array.isArray(grades)) {
 		return { isValid: false, message: 'Grades must be an array.' };
 	}
-
-	console.log(grades);
-
 	for (const grade of grades) {
 		if (
 			!grade.studentId ||
 			!grade.name ||
 			!grade.period ||
-			(grade.grade && typeof grade.grade !== 'number') ||
-			grade.grade < 60 ||
-			grade.grade > 100
+			(grade.grade &&
+				(typeof grade.grade !== 'number' ||
+					grade.grade < 60 ||
+					grade.grade > 100))
 		) {
 			return {
 				isValid: false,
@@ -118,9 +148,6 @@ function validateGrades(grades: any[]): { isValid: boolean; message?: string } {
 	return { isValid: true };
 }
 
-/**
- * Calculates statistics for a set of grades.
- */
 function getStats(grades: Array<{ grade: number }>) {
 	const validGrades = grades.filter(
 		(g) => typeof g.grade === 'number' && !isNaN(g.grade)
@@ -128,12 +155,10 @@ function getStats(grades: Array<{ grade: number }>) {
 	const incompletes = grades.length - validGrades.length;
 	const passes = validGrades.filter((g) => g.grade >= 70).length;
 	const fails = validGrades.length - passes;
-
 	const average =
 		validGrades.length > 0
 			? validGrades.reduce((acc, g) => acc + g.grade, 0) / validGrades.length
 			: 0;
-
 	return {
 		incompletes,
 		passes,
@@ -143,27 +168,17 @@ function getStats(grades: Array<{ grade: number }>) {
 	};
 }
 
-/**
- * Calculates ranks for students based on their averages, handling ties properly.
- * Students with the same rounded average get the same rank.
- */
 function calculateRanks(
 	students: Array<{ studentId: string; average: number }>
 ) {
 	if (students.length === 0) return [];
-
-	// Round averages to 1 decimal place for ranking
 	const studentsWithRoundedAvg = students.map((student) => ({
 		...student,
 		roundedAverage: parseFloat(student.average.toFixed(1)),
 	}));
-
-	// Sort by rounded average (descending)
 	const sortedStudents = [...studentsWithRoundedAvg].sort(
 		(a, b) => b.roundedAverage - a.roundedAverage
 	);
-
-	// Assign ranks, handling ties
 	let currentRank = 1;
 	for (let i = 0; i < sortedStudents.length; i++) {
 		if (
@@ -174,13 +189,9 @@ function calculateRanks(
 		}
 		(sortedStudents[i] as any).rank = currentRank;
 	}
-
 	return sortedStudents;
 }
 
-/**
- * Parses comma-separated student IDs from query parameter
- */
 function parseStudentIds(studentIdsParam: string | null): string[] | null {
 	if (!studentIdsParam) return null;
 	return studentIdsParam
@@ -189,9 +200,114 @@ function parseStudentIds(studentIdsParam: string | null): string[] | null {
 		.filter((id) => id.length > 0);
 }
 
-/**
- * 1. Processes periodic report for entire class
- */
+function removeDuplicateSubjects(
+	grades: Array<{ subject: string; grade: number }>
+) {
+	const subjectMap = new Map<string, number>();
+	grades.forEach((grade) => {
+		subjectMap.set(grade.subject, grade.grade);
+	});
+	return Array.from(subjectMap.entries()).map(([subject, grade]) => ({
+		subject,
+		grade,
+	}));
+}
+
+// -----------------------------------------------------------------------------
+// Report Processing Functions
+// -----------------------------------------------------------------------------
+
+function processAllGradesReport(
+	grades: GradeRecord[],
+	academicYear: string
+): AllGradesReport {
+	return {
+		academicYear,
+		totalRecords: grades.length,
+		grades: grades.map((grade) => ({
+			submissionId: grade.submissionId,
+			academicYear: grade.academicYear,
+			period: grade.period,
+			classId: grade.classId,
+			subject: grade.subject,
+			teacherId: grade.teacherId,
+			studentId: grade.studentId,
+			studentName: grade.studentName,
+			grade: grade.grade,
+			status: grade.status,
+			lastUpdated: grade.lastUpdated,
+		})),
+	};
+}
+
+function processGradeSubmissionReport(
+	grades: GradeRecord[],
+	teacherId: string
+): GradeSubmissionReport {
+	// Filter grades by teacher
+	const teacherGrades = grades.filter((g) => g.teacherId === teacherId);
+
+	// Group by submission ID
+	const submissionsMap = new Map<string, any>();
+
+	teacherGrades.forEach((grade) => {
+		if (!submissionsMap.has(grade.submissionId)) {
+			submissionsMap.set(grade.submissionId, {
+				submissionId: grade.submissionId,
+				classId: grade.classId,
+				subject: grade.subject,
+				period: grade.period,
+				lastUpdated: grade.lastUpdated,
+				students: [],
+			});
+		}
+
+		const submission = submissionsMap.get(grade.submissionId);
+		submission.students.push({
+			studentId: grade.studentId,
+			studentName: grade.studentName,
+			grade: grade.grade,
+			status: grade.status,
+		});
+
+		// Update lastUpdated to the most recent
+		if (grade.lastUpdated > submission.lastUpdated) {
+			submission.lastUpdated = grade.lastUpdated;
+		}
+	});
+
+	// Process each submission to add counts
+	const submissions = Array.from(submissionsMap.values()).map((submission) => {
+		const totalStudents = submission.students.length;
+		const pendingCount = submission.students.filter(
+			(s: any) => s.status === 'Pending'
+		).length;
+		const approvedCount = submission.students.filter(
+			(s: any) => s.status === 'Approved'
+		).length;
+		const rejectedCount = submission.students.filter(
+			(s: any) => s.status === 'Rejected'
+		).length;
+
+		return {
+			...submission,
+			totalStudents,
+			pendingCount,
+			approvedCount,
+			rejectedCount,
+		};
+	});
+
+	// Sort by most recent first
+	submissions.sort((a, b) => b.lastUpdated.getTime() - a.lastUpdated.getTime());
+
+	return {
+		teacherId,
+		academicYear: grades[0]?.academicYear || getCurrentAcademicYear(),
+		submissions,
+	};
+}
+
 function processClassPeriodicReport(
 	grades: GradeRecord[],
 	classId: string,
@@ -200,7 +316,7 @@ function processClassPeriodicReport(
 ): StudentPeriodicReport[] {
 	const studentsMap = new Map<string, StudentPeriodicReport>();
 
-	// Filter for the specific class and period, and group by student
+	// Process all students in the class for ranking purposes
 	grades
 		.filter((g) => g.classId === classId && g.period === period)
 		.forEach((g) => {
@@ -216,18 +332,19 @@ function processClassPeriodicReport(
 					fails: 0,
 				});
 			}
-			studentsMap.get(g.studentId)!.subjects.push({
-				subject: g.subject,
-				grade: g.grade,
-			});
+			studentsMap
+				.get(g.studentId)!
+				.subjects.push({ subject: g.subject, grade: g.grade });
 		});
 
-	// Calculate averages and stats for each student
+	// Calculate averages for all students
 	const studentsWithAverages = Array.from(studentsMap.values()).map(
 		(student) => {
-			const stats = getStats(student.subjects);
+			const cleanedSubjects = removeDuplicateSubjects(student.subjects);
+			const stats = getStats(cleanedSubjects);
 			return {
 				...student,
+				subjects: cleanedSubjects,
 				periodicAverage: stats.average,
 				incompletes: stats.incompletes,
 				passes: stats.passes,
@@ -236,7 +353,7 @@ function processClassPeriodicReport(
 		}
 	);
 
-	// Calculate ranks based on rounded averages for ALL students in the class
+	// Calculate ranks based on ALL students in the class
 	const rankedData = calculateRanks(
 		studentsWithAverages.map((s) => ({
 			studentId: s.studentId,
@@ -244,15 +361,16 @@ function processClassPeriodicReport(
 		}))
 	);
 
-	// Apply ranks to students
+	// Apply ranks to all students
 	studentsWithAverages.forEach((student) => {
 		const rankData = rankedData.find((r) => r.studentId === student.studentId);
 		student.rank = (rankData as any)?.rank || 0;
 	});
 
+	// Sort all students by rank
 	let result = studentsWithAverages.sort((a, b) => a.rank - b.rank);
 
-	// Filter by specific student IDs if provided, AFTER ranking is done
+	// Filter by specific student IDs AFTER calculating ranks
 	if (studentIds && studentIds.length > 0) {
 		result = result.filter((student) => studentIds.includes(student.studentId));
 	}
@@ -260,9 +378,6 @@ function processClassPeriodicReport(
 	return result;
 }
 
-/**
- * 3. Processes masters report for a subject across all periods
- */
 function processMastersReport(
 	grades: GradeRecord[],
 	classId: string,
@@ -270,27 +385,21 @@ function processMastersReport(
 	teacherId?: string,
 	studentIds?: string[]
 ): MastersReport {
+	// Filter grades for the report (but don't filter by studentIds yet for ranking)
 	let filteredGrades = grades.filter((g) => g.classId === classId);
-
 	if (subject) {
 		filteredGrades = filteredGrades.filter((g) => g.subject === subject);
 	}
 	if (teacherId) {
 		filteredGrades = filteredGrades.filter((g) => g.teacherId === teacherId);
 	}
-	if (studentIds && studentIds.length > 0) {
-		filteredGrades = filteredGrades.filter((g) =>
-			studentIds.includes(g.studentId)
-		);
-	}
 
 	const studentsMap = new Map<string, any>();
 	const periodsSet = new Set<string>();
 
-	// Group grades by student and collect all periods
+	// Process all students for ranking
 	filteredGrades.forEach((g) => {
 		periodsSet.add(g.period);
-
 		if (!studentsMap.has(g.studentId)) {
 			studentsMap.set(g.studentId, {
 				studentId: g.studentId,
@@ -299,13 +408,12 @@ function processMastersReport(
 				grades: [],
 			});
 		}
-
 		const student = studentsMap.get(g.studentId);
-		student.periods[g.period] = g.grade;
+		student.periods[g.period] = { grade: g.grade, status: g.status };
 		student.grades.push({ grade: g.grade });
 	});
 
-	// Calculate overall averages for each student
+	// Calculate averages for all students
 	const studentsWithAverages = Array.from(studentsMap.values()).map(
 		(student) => {
 			const stats = getStats(student.grades);
@@ -318,13 +426,19 @@ function processMastersReport(
 		}
 	);
 
-	// Calculate period statistics
+	// Filter by specific student IDs AFTER processing all students
+	let finalStudents = studentsWithAverages;
+	if (studentIds && studentIds.length > 0) {
+		finalStudents = studentsWithAverages.filter((student) =>
+			studentIds.includes(student.studentId)
+		);
+	}
+
 	const periodStats: Record<string, any> = {};
 	Array.from(periodsSet).forEach((period) => {
 		const periodGrades = filteredGrades
 			.filter((g) => g.period === period)
 			.map((g) => ({ grade: g.grade }));
-
 		periodStats[period] = getStats(periodGrades);
 	});
 
@@ -332,14 +446,11 @@ function processMastersReport(
 		subject: subject || 'All Subjects',
 		teacherId: teacherId || 'All Teachers',
 		classId,
-		students: studentsWithAverages,
+		students: finalStudents,
 		periodStats,
 	};
 }
 
-/**
- * 4. Processes yearly report for entire class with corrected semester average calculation
- */
 function processClassYearlyReport(
 	grades: GradeRecord[],
 	classId: string,
@@ -348,7 +459,7 @@ function processClassYearlyReport(
 	const studentsMap = new Map<string, StudentYearlyReport>();
 	const subjectsSet = new Set<string>();
 
-	// Group all grades by student and subject
+	// Process all students in the class for ranking
 	grades
 		.filter((g) => g.classId === classId)
 		.forEach((g) => {
@@ -359,130 +470,114 @@ function processClassYearlyReport(
 					periods: {},
 					firstSemesterAverage: {},
 					secondSemesterAverage: {},
+					yearlySubjectAverages: {},
 					periodAverages: {},
 					yearlyAverage: 0,
 					ranks: {},
 				});
 			}
-
 			subjectsSet.add(g.subject);
 			const student = studentsMap.get(g.studentId)!;
-
 			if (!student.periods[g.period]) {
 				student.periods[g.period] = [];
 			}
 			student.periods[g.period].push({ subject: g.subject, grade: g.grade });
 		});
 
-	// Calculate periodic, subject-level semester, and overall semester/yearly averages for each student
+	// Calculate all averages and ranks for ALL students
 	studentsMap.forEach((student) => {
 		const allSubjects = Array.from(subjectsSet);
+		Object.keys(student.periods).forEach((period) => {
+			student.periods[period] = removeDuplicateSubjects(
+				student.periods[period]
+			);
+		});
 
-		// Calculate subject-level averages for each period
 		allSubjects.forEach((subject) => {
-			// Find grades for the current subject across periods
 			const getGradeForPeriod = (period: string) =>
 				student.periods[period]?.find((g) => g.subject === subject)?.grade;
-
-			const firstPeriodGrade = getGradeForPeriod('firstPeriod');
-			const secondPeriodGrade = getGradeForPeriod('secondPeriod');
-			const thirdPeriodGrade = getGradeForPeriod('thirdPeriod');
-			const firstSemesterExamGrade = getGradeForPeriod('thirdPeriodExam');
-
-			const fourthPeriodGrade = getGradeForPeriod('fourthPeriod');
-			const fifthPeriodGrade = getGradeForPeriod('fifthPeriod');
-			const sixthPeriodGrade = getGradeForPeriod('sixthPeriod');
-			const secondSemesterExamGrade = getGradeForPeriod('sixthPeriodExam');
-
-			// Calculate First Semester Average for the subject
 			const firstSemGrades = [
-				firstPeriodGrade,
-				secondPeriodGrade,
-				thirdPeriodGrade,
-			].filter((grade): grade is number => grade !== undefined);
+				getGradeForPeriod('firstPeriod'),
+				getGradeForPeriod('secondPeriod'),
+				getGradeForPeriod('thirdPeriod'),
+			].filter((g): g is number => g !== undefined);
 			if (firstSemGrades.length > 0) {
-				const periodsAverage =
+				const avg =
 					firstSemGrades.reduce((a, b) => a + b, 0) / firstSemGrades.length;
-				if (firstSemesterExamGrade !== undefined) {
-					student.firstSemesterAverage[subject] = Math.round(
-						(periodsAverage + firstSemesterExamGrade) / 2
-					);
-				} else {
-					student.firstSemesterAverage[subject] = Math.round(periodsAverage);
-				}
+				const exam = getGradeForPeriod('thirdPeriodExam');
+				student.firstSemesterAverage[subject] = Math.round(
+					exam !== undefined ? (avg + exam) / 2 : avg
+				);
 			}
 
-			// Calculate Second Semester Average for the subject
-			const secondSemesterPeriods = [
-				'fourthPeriod',
-				'fifthPeriod',
-				'sixthPeriod',
-			];
-			const secondSemGrades = secondSemesterPeriods
-				.map((p) => getGradeForPeriod(p))
-				.filter((grade): grade is number => grade !== undefined);
-
+			const secondSemGrades = [
+				getGradeForPeriod('fourthPeriod'),
+				getGradeForPeriod('fifthPeriod'),
+				getGradeForPeriod('sixthPeriod'),
+			].filter((g): g is number => g !== undefined);
 			if (secondSemGrades.length > 0) {
-				const periodsAverage =
+				const avg =
 					secondSemGrades.reduce((a, b) => a + b, 0) / secondSemGrades.length;
-				if (secondSemesterExamGrade !== undefined) {
-					student.secondSemesterAverage[subject] = Math.round(
-						(periodsAverage + secondSemesterExamGrade) / 2
-					);
-				} else {
-					student.secondSemesterAverage[subject] = Math.round(periodsAverage);
-				}
+				const exam = getGradeForPeriod('sixthPeriodExam');
+				student.secondSemesterAverage[subject] = Math.round(
+					exam !== undefined ? (avg + exam) / 2 : avg
+				);
+			}
+
+			const firstAvg = student.firstSemesterAverage[subject];
+			const secondAvg = student.secondSemesterAverage[subject];
+			if (firstAvg !== undefined && secondAvg !== undefined) {
+				student.yearlySubjectAverages[subject] = parseFloat(
+					((firstAvg + secondAvg) / 2).toFixed(1)
+				);
+			} else if (firstAvg !== undefined) {
+				student.yearlySubjectAverages[subject] = firstAvg;
+			} else if (secondAvg !== undefined) {
+				student.yearlySubjectAverages[subject] = secondAvg;
 			}
 		});
 
-		// Calculate Overall Periodic Averages
 		for (const period in student.periods) {
-			const periodGrades = student.periods[period];
-			const periodStats = getStats(periodGrades);
-			student.periodAverages[period] = periodStats.average;
+			student.periodAverages[period] = getStats(
+				student.periods[period]
+			).average;
 		}
-
-		// Calculate Overall Semester Averages and Yearly Average from subject averages
-		const firstSemAverages = Object.values(student.firstSemesterAverage).filter(
-			(avg) => !isNaN(avg)
+		const yearlyAvgs = Object.values(student.yearlySubjectAverages).filter(
+			(avg) => !isNaN(avg) && avg > 0
 		);
-		if (firstSemAverages.length > 0) {
+		student.yearlyAverage =
+			yearlyAvgs.length > 0
+				? parseFloat(
+						(yearlyAvgs.reduce((a, b) => a + b, 0) / yearlyAvgs.length).toFixed(
+							1
+						)
+				  )
+				: 0;
+		student.periodAverages.yearlyAverage = student.yearlyAverage;
+
+		const firstSemAvgs = Object.values(student.firstSemesterAverage).filter(
+			(avg) => !isNaN(avg) && avg > 0
+		);
+		if (firstSemAvgs.length > 0) {
 			student.periodAverages.firstSemesterAverage = parseFloat(
-				(
-					firstSemAverages.reduce((a, b) => a + b, 0) / firstSemAverages.length
-				).toFixed(1)
+				(firstSemAvgs.reduce((a, b) => a + b, 0) / firstSemAvgs.length).toFixed(
+					1
+				)
 			);
 		}
-
-		const secondSemAverages = Object.values(
-			student.secondSemesterAverage
-		).filter((avg) => !isNaN(avg));
-		if (secondSemAverages.length > 0) {
+		const secondSemAvgs = Object.values(student.secondSemesterAverage).filter(
+			(avg) => !isNaN(avg) && avg > 0
+		);
+		if (secondSemAvgs.length > 0) {
 			student.periodAverages.secondSemesterAverage = parseFloat(
 				(
-					secondSemAverages.reduce((a, b) => a + b, 0) /
-					secondSemAverages.length
+					secondSemAvgs.reduce((a, b) => a + b, 0) / secondSemAvgs.length
 				).toFixed(1)
 			);
-		}
-
-		const sem1Avg = student.periodAverages.firstSemesterAverage;
-		const sem2Avg = student.periodAverages.secondSemesterAverage;
-
-		if (sem1Avg !== undefined && sem2Avg !== undefined) {
-			student.yearlyAverage = parseFloat(((sem1Avg + sem2Avg) / 2).toFixed(1));
-		} else if (sem1Avg !== undefined) {
-			student.yearlyAverage = sem1Avg;
-		} else if (sem2Avg !== undefined) {
-			student.yearlyAverage = sem2Avg;
-		} else {
-			student.yearlyAverage = 0;
 		}
 	});
 
 	const studentsArray = Array.from(studentsMap.values());
-
-	// Define all keys for which ranks should be calculated
 	const allPeriodsAndAverages = [
 		...new Set(
 			grades.filter((g) => g.classId === classId).map((g) => g.period)
@@ -491,7 +586,7 @@ function processClassYearlyReport(
 		'secondSemesterAverage',
 	];
 
-	// Calculate ranks for each period and semester average on the full class
+	// Calculate ranks for ALL students in the class
 	allPeriodsAndAverages.forEach((period) => {
 		const periodRanks = calculateRanks(
 			studentsArray.map((s) => ({
@@ -499,35 +594,29 @@ function processClassYearlyReport(
 				average: s.periodAverages[period] || 0,
 			}))
 		);
-
 		periodRanks.forEach((r) => {
 			const student = studentsMap.get(r.studentId);
-			if (student) {
-				student.ranks[period] = (r as any).rank;
-			}
+			if (student) student.ranks[period] = (r as any).rank;
 		});
 	});
 
-	// Calculate yearly ranks separately on the full class
 	const yearlyRanks = calculateRanks(
 		studentsArray.map((s) => ({
 			studentId: s.studentId,
 			average: s.yearlyAverage,
 		}))
 	);
-
 	yearlyRanks.forEach((r) => {
 		const student = studentsMap.get(r.studentId);
-		if (student) {
-			student.ranks.yearly = (r as any).rank;
-		}
+		if (student) student.ranks.yearly = (r as any).rank;
 	});
 
+	// Sort all students by yearly rank
 	let finalResult = studentsArray.sort(
 		(a, b) => (a.ranks.yearly || Infinity) - (b.ranks.yearly || Infinity)
 	);
 
-	// Filter by specific student IDs if provided, after all calculations and rankings are complete
+	// Filter by specific student IDs AFTER calculating ranks
 	if (studentIds && studentIds.length > 0) {
 		finalResult = finalResult.filter((student) =>
 			studentIds.includes(student.studentId)
@@ -562,62 +651,169 @@ export async function GET(request: NextRequest) {
 		const { Grade } = await getTenantModels(tenant);
 		const { searchParams } = new URL(request.url);
 
-		const academicYear = searchParams.get('academicYear') || '2024/2025';
+		// --- 1. Extract and process parameters ---
+		const academicYear =
+			searchParams.get('academicYear') || getCurrentAcademicYear();
 		let classId = searchParams.get('classId');
 		const period = searchParams.get('period');
-		let studentIdsParam = searchParams.get('studentIds');
 		const subject = searchParams.get('subject');
+		const reportType = searchParams.get('reportType');
 		let teacherId = searchParams.get('teacherId');
+		let studentIds = parseStudentIds(searchParams.get('studentIds'));
 
-		let studentIds = parseStudentIds(studentIdsParam);
+		// --- 2. Check for system_admin requesting all grades for academic year ---
+		if (
+			currentUser.role === 'system_admin' &&
+			academicYear &&
+			!classId &&
+			!period &&
+			!subject &&
+			!reportType &&
+			!teacherId &&
+			!studentIds
+		) {
+			// Fetch all grades for the academic year
+			const allGrades = (await Grade.find({
+				academicYear,
+			}).lean()) as GradeRecord[];
 
-		if (currentUser.role === 'student') {
-			studentIds = [currentUser.studentId];
-			teacherId = null;
-		} else if (currentUser.role === 'teacher') {
-			teacherId = currentUser.teacherId;
+			if (allGrades.length === 0) {
+				return NextResponse.json({
+					success: true,
+					message: 'No grades found for this academic year.',
+					data: {
+						report: {
+							academicYear,
+							totalRecords: 0,
+							grades: [],
+						},
+					},
+				});
+			}
+
+			const reportData = processAllGradesReport(allGrades, academicYear);
+
+			return NextResponse.json({
+				success: true,
+				data: {
+					report: reportData,
+					academicYear,
+				},
+			});
 		}
 
-		if (!classId && studentIds && studentIds.length > 0) {
-			const studentGradeEntry = await Grade.findOne({
-				studentId: { $in: studentIds },
-				academicYear,
-			}).lean();
-			if (studentGradeEntry) {
-				classId = studentGradeEntry.classId;
+		// --- 3. Apply security and role-based overrides ---
+		if (currentUser.role === 'student') {
+			studentIds = [currentUser.studentId];
+			teacherId = null; // Students can't filter by teacher
+			// A student's classId is the source of truth
+			classId = currentUser.classId;
+		} else if (currentUser.role === 'teacher') {
+			// A teacher can only see their own grades unless they're requesting grade submissions
+			if (reportType !== 'gradeSubmission') {
+				teacherId = currentUser.teacherId;
 			} else {
+				// For grade submissions, use the teacherId from params or default to current user
+				teacherId = teacherId || currentUser.teacherId;
+			}
+		}
+
+		// --- 4. Handle gradeSubmission report type early ---
+		if (reportType === 'gradeSubmission') {
+			if (!teacherId) {
 				return NextResponse.json(
 					{
 						success: false,
-						message:
-							'No grades found for these students to determine their class.',
+						message: 'teacherId is required for grade submission reports',
 					},
-					{ status: 404 }
+					{ status: 400 }
+				);
+			}
+
+			// Authorization check for grade submissions
+			if (
+				currentUser.role === 'teacher' &&
+				currentUser.teacherId !== teacherId
+			) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'Teachers can only view their own grade submissions',
+					},
+					{ status: 403 }
+				);
+			}
+
+			// Fetch all grades for the teacher
+			const teacherGrades = (await Grade.find({
+				academicYear,
+				teacherId,
+			}).lean()) as GradeRecord[];
+
+			if (teacherGrades.length === 0) {
+				return NextResponse.json({
+					success: true,
+					message: 'No grade submissions found for this teacher.',
+					data: {
+						report: {
+							teacherId,
+							academicYear,
+							submissions: [],
+						},
+					},
+				});
+			}
+
+			const reportData = processGradeSubmissionReport(teacherGrades, teacherId);
+
+			return NextResponse.json({
+				success: true,
+				data: {
+					report: reportData,
+					academicYear,
+					teacherId,
+				},
+			});
+		}
+
+		// --- 5. Build the primary database query for other report types ---
+		const query: any = { academicYear };
+
+		if (classId) {
+			query.classId = classId;
+		} else if (studentIds && studentIds.length > 0) {
+			// If no classId, try to find it from the first student's record
+			const studentRecord = await Grade.findOne({
+				studentId: studentIds[0],
+				academicYear,
+			}).lean();
+			if (studentRecord) {
+				query.classId = studentRecord.classId;
+				classId = studentRecord.classId; // Update classId for use below
+			} else {
+				return NextResponse.json(
+					{
+						success: true,
+						message: 'No grades found for the student to determine class.',
+						data: { report: [] },
+					},
+					{ status: 200 }
 				);
 			}
 		}
 
+		// For ranking, we need all grades for the determined class, regardless of selected students.
+		const allGradesForClass = (await Grade.find({
+			academicYear: query.academicYear,
+			classId: query.classId,
+		}).lean()) as GradeRecord[];
+
+		// --- 6. Process the data based on report type ---
 		let reportData: any;
-		let gradesForRanking: GradeRecord[];
-		const queryFilter: any = { academicYear };
-
-		if (classId) {
-			queryFilter.classId = classId;
-		}
-		if (teacherId) {
-			queryFilter.teacherId = teacherId;
-		}
-
-		// This filter is for fetching all grades of the entire class to correctly calculate ranks
-		const rankingFilter: any = { ...queryFilter };
-		if (period) {
-			rankingFilter.period = period;
-		}
-
-		gradesForRanking = (await Grade.find(rankingFilter).lean()) as any[];
 
 		if (period) {
-			if (!classId) {
+			// Periodic Report
+			if (!query.classId) {
 				return NextResponse.json(
 					{
 						success: false,
@@ -626,82 +822,51 @@ export async function GET(request: NextRequest) {
 					{ status: 400 }
 				);
 			}
-
-			const fullClassReport = processClassPeriodicReport(
-				gradesForRanking,
-				classId,
+			reportData = processClassPeriodicReport(
+				allGradesForClass,
+				query.classId,
 				period,
 				studentIds || undefined
 			);
-
-			reportData = fullClassReport;
-
-			if (
-				studentIds &&
-				studentIds.length === 1 &&
-				fullClassReport.length === 1
-			) {
-				reportData = fullClassReport[0];
-			} else if (
-				studentIds &&
-				studentIds.length > 0 &&
-				fullClassReport.length === 0
-			) {
-				return NextResponse.json(
-					{
-						success: false,
-						message: 'Student reports not found for this period',
-					},
-					{ status: 404 }
-				);
+			if (studentIds?.length === 1 && reportData.length === 1) {
+				reportData = reportData[0]; // Return single object if one student was requested
 			}
-		} else if (classId) {
-			if (subject) {
-				reportData = processMastersReport(
-					gradesForRanking,
-					classId,
-					subject,
-					teacherId || undefined,
-					studentIds || undefined
-				);
-			} else {
-				reportData = processClassYearlyReport(
-					gradesForRanking,
-					classId,
-					studentIds || undefined
-				);
-
-				if (studentIds && studentIds.length === 1 && reportData.length === 1) {
-					reportData = reportData[0];
-				} else if (
-					studentIds &&
-					studentIds.length > 0 &&
-					reportData.length === 0
-				) {
-					return NextResponse.json(
-						{ success: false, message: 'Student yearly reports not found' },
-						{ status: 404 }
-					);
-				}
-			}
+		} else if (subject) {
+			// Masters Report
+			reportData = processMastersReport(
+				allGradesForClass,
+				query.classId,
+				subject,
+				teacherId || undefined,
+				studentIds || undefined
+			);
 		} else {
-			const grades = (await Grade.find(queryFilter).lean()) as any[];
-			const stats = getStats(grades.map((g: any) => ({ grade: g.grade })));
-
-			return NextResponse.json({
-				success: true,
-				data: { grades, stats },
-			});
+			// Yearly Report (default)
+			if (!query.classId) {
+				return NextResponse.json(
+					{ success: false, message: 'classId is required for yearly reports' },
+					{ status: 400 }
+				);
+			}
+			reportData = processClassYearlyReport(
+				allGradesForClass,
+				query.classId,
+				studentIds || undefined
+			);
+			if (studentIds?.length === 1 && reportData.length === 1) {
+				reportData = reportData[0]; // Return single object if one student was requested
+			}
 		}
 
+		// --- 7. Return the final response ---
 		return NextResponse.json({
 			success: true,
 			data: {
 				report: reportData,
 				academicYear,
-				classId,
+				classId: query.classId,
 				period,
-				studentIds: studentIds,
+				studentIds,
 			},
 		});
 	} catch (error) {
@@ -713,6 +878,7 @@ export async function GET(request: NextRequest) {
 	}
 }
 
+// POST, PUT, PATCH handlers remain unchanged
 export async function POST(request: NextRequest) {
 	try {
 		const tenant = getTenantFromRequest(request);
@@ -722,7 +888,6 @@ export async function POST(request: NextRequest) {
 				{ status: 400 }
 			);
 		}
-
 		const teacher = await authorizeUser(request, ['teacher']);
 		if (!teacher) {
 			return NextResponse.json(
@@ -731,23 +896,17 @@ export async function POST(request: NextRequest) {
 			);
 		}
 		const { Grade } = await getTenantModels(tenant);
-
 		const body = await request.json();
 		const { classId, subject, grades } = body;
-		console.log('Received body:', body);
-
-		// Validation
 		if (!classId || !subject || !grades) {
 			return NextResponse.json(
 				{ success: false, message: 'Missing required fields' },
 				{ status: 400 }
 			);
 		}
-
 		const isAuthorized = teacher.subjects.some(
 			(s: any) => s.subject === subject
 		);
-
 		if (!isAuthorized) {
 			return NextResponse.json(
 				{
@@ -758,7 +917,6 @@ export async function POST(request: NextRequest) {
 				{ status: 403 }
 			);
 		}
-
 		const validation = validateGrades(grades);
 		if (!validation.isValid) {
 			return NextResponse.json(
@@ -766,38 +924,31 @@ export async function POST(request: NextRequest) {
 				{ status: 400 }
 			);
 		}
-
-		// Check for existing approved grades for each student/period combination
 		const studentPeriodPairs = grades.map((g: any) => ({
 			studentId: g.studentId,
 			period: g.period,
 		}));
-
-		const existingApprovedGrades = await Grade.find({
+		const existingGrades = await Grade.find({
 			$or: studentPeriodPairs.map((pair) => ({
 				studentId: pair.studentId,
 				period: pair.period,
 				subject,
 				academicYear: getCurrentAcademicYear(),
-				status: 'Approved',
 			})),
 		});
-
-		if (existingApprovedGrades.length > 0) {
-			const conflicts = existingApprovedGrades
-				.map((g: any) => `${g.studentName} (${g.period})`)
+		if (existingGrades.length > 0) {
+			const conflicts = existingGrades
+				.map((g: any) => `${g.studentName} (${g.period}) - ${g.status}`)
 				.join(', ');
 			return NextResponse.json(
 				{
 					success: false,
-					message: `Cannot submit grades. The following students already have approved grades for their respective periods and subject: ${conflicts}`,
+					message: `Cannot submit grades. The following students already have grades for their respective periods and subject: ${conflicts}`,
 				},
 				{ status: 409 }
 			);
 		}
-
 		const lastUpdated = new Date();
-
 		const gradeDocuments = grades.map((grade: any) => ({
 			classId,
 			subject,
@@ -811,9 +962,7 @@ export async function POST(request: NextRequest) {
 			submissionId: getSubmissionId(classId, grade.period, subject),
 			lastUpdated,
 		}));
-
 		const result = await Grade.insertMany(gradeDocuments);
-
 		return NextResponse.json({ success: true, data: result }, { status: 201 });
 	} catch (error) {
 		console.error('Error in grades POST:', error);
@@ -833,7 +982,6 @@ export async function PUT(request: NextRequest) {
 				{ status: 400 }
 			);
 		}
-
 		const currentUser = await authorizeUser(request, ['teacher']);
 		if (!currentUser) {
 			return NextResponse.json(
@@ -841,11 +989,9 @@ export async function PUT(request: NextRequest) {
 				{ status: 401 }
 			);
 		}
-
 		const { Grade } = await getTenantModels(tenant);
 		const body = await request.json();
 		const { submissionId, grades } = body;
-
 		if (!submissionId || !grades) {
 			return NextResponse.json(
 				{ success: false, message: 'Missing submissionId or grades' },
@@ -859,7 +1005,6 @@ export async function PUT(request: NextRequest) {
 				{ status: 400 }
 			);
 		}
-
 		const existingSubmission = await Grade.findOne({ submissionId }).lean();
 		if (
 			!existingSubmission ||
@@ -870,7 +1015,6 @@ export async function PUT(request: NextRequest) {
 				{ status: 404 }
 			);
 		}
-
 		if (existingSubmission.status === 'Approved') {
 			return NextResponse.json(
 				{
@@ -881,9 +1025,7 @@ export async function PUT(request: NextRequest) {
 				{ status: 403 }
 			);
 		}
-
 		await Grade.deleteMany({ submissionId });
-
 		const newGradeDocuments = grades.map((grade: any) => ({
 			...existingSubmission,
 			studentId: grade.studentId,
@@ -893,9 +1035,7 @@ export async function PUT(request: NextRequest) {
 			status: 'Pending',
 			lastUpdated: new Date(),
 		}));
-
 		const result = await Grade.insertMany(newGradeDocuments);
-
 		return NextResponse.json({ success: true, data: result });
 	} catch (error) {
 		console.error('Error in grades PUT:', error);
@@ -904,6 +1044,39 @@ export async function PUT(request: NextRequest) {
 			{ status: 500 }
 		);
 	}
+}
+
+async function updateGradeStatus(
+	tenant: string,
+	submissionId: string,
+	studentId: string,
+	status: string
+) {
+	const { Grade } = await getTenantModels(tenant);
+
+	if (!['Approved', 'Rejected', 'Pending'].includes(status)) {
+		return {
+			success: false,
+			message: 'Invalid status. Must be Approved, Rejected, or Pending.',
+			status: 400,
+		};
+	}
+
+	const result = await Grade.findOneAndUpdate(
+		{ submissionId, studentId },
+		{ $set: { status, lastUpdated: new Date() } },
+		{ new: true }
+	);
+
+	if (!result) {
+		return {
+			success: false,
+			message: 'Grade record not found',
+			status: 404,
+		};
+	}
+
+	return { success: true, data: result, status: 200 };
 }
 
 export async function PATCH(request: NextRequest) {
@@ -916,52 +1089,53 @@ export async function PATCH(request: NextRequest) {
 			);
 		}
 
-		const currentUser = await authorizeUser(request);
-		if (
-			!currentUser ||
-			!['administrator', 'system_admin'].includes(currentUser.role)
-		) {
+		const currentUser = await authorizeUser(request, ['system_admin']);
+		if (!currentUser) {
 			return NextResponse.json(
 				{ success: false, message: 'Unauthorized' },
 				{ status: 403 }
 			);
 		}
 
-		const { Grade } = await getTenantModels(tenant);
 		const body = await request.json();
-		const { submissionId, studentId, status } = body;
+		const updates = Array.isArray(body) ? body : [body];
 
-		if (!submissionId || !studentId || !status) {
-			return NextResponse.json(
-				{ success: false, message: 'Missing required fields' },
-				{ status: 400 }
-			);
-		}
+		const results = await Promise.all(
+			updates.map(async ({ submissionId, studentId, status }) => {
+				if (!submissionId || !studentId || !status) {
+					return {
+						success: false,
+						message: 'Missing required fields',
+						submissionId,
+						studentId,
+					};
+				}
 
-		if (!['Approved', 'Rejected', 'Pending'].includes(status)) {
-			return NextResponse.json(
-				{
-					success: false,
-					message: 'Invalid status. Must be Approved, Rejected, or Pending.',
-				},
-				{ status: 400 }
-			);
-		}
+				// Use the new function to update the grade status
+				const updateResult = await updateGradeStatus(
+					tenant,
+					submissionId,
+					studentId,
+					status
+				);
 
-		const result = await Grade.findOneAndUpdate(
-			{ submissionId, studentId },
-			{ $set: { status, lastUpdated: new Date() } },
-			{ new: true }
+				return {
+					success: updateResult.success,
+					data: updateResult.data || updateResult.message,
+					submissionId,
+					studentId,
+				};
+			})
 		);
 
-		if (!result) {
-			return NextResponse.json(
-				{ success: false, message: 'Grade record not found' },
-				{ status: 404 }
-			);
-		}
+		const successfulUpdates = results.filter((result) => result.success);
+		const failedUpdates = results.filter((result) => !result.success);
 
-		return NextResponse.json({ success: true, data: result });
+		return NextResponse.json({
+			success: true,
+			message: `${successfulUpdates.length} updates succeeded, ${failedUpdates.length} failed.`,
+			results,
+		});
 	} catch (error) {
 		console.error('Error in grades PATCH:', error);
 		return NextResponse.json(

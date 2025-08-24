@@ -1,15 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantModels, getUserModel } from '@/models';
+import { getTenantModels } from '@/models';
 import bcrypt from 'bcryptjs';
 import { authorizeUser, getTenantFromRequest, UserRole } from '@/middleware';
 import { getSession, createSession, destroySession } from '@/utils/session';
 import { sendOTP, verifyOTP } from '@/utils/otp';
 
+/**
+ * Sends an OTP to the admin for account deletion.
+ *
+ * @param adminUser - The admin user object.
+ * @param otp - The one-time password to be sent.
+ *
+ * @returns {Promise<void>} - A promise that resolves when the OTP is sent.
+ *
+ * This function logs the OTP for demonstration purposes. In a production environment,
+ * you should send the OTP via email or SMS.
+ */
 async function sendOtpToAdmin(adminUser: any, otp: string): Promise<void> {
 	// This is a simple implementation that logs the OTP.
 	// In production, you should send the OTP via email or SMS.
 	const contact = adminUser.email || adminUser.phone || 'admin contact not set';
 	console.log(`Sending OTP ${otp} to admin (${contact})`);
+}
+
+/**
+ * Determines the starting year of the current academic year.
+ * If the current month is August-December, the academic year starts in the current year.
+ * Otherwise, it's the second half of the academic year that started in the previous year.
+ */
+function getAcademicYear(): number {
+	const now = new Date();
+	const currentYear = now.getFullYear();
+	const currentMonth = now.getMonth();
+
+	// Check if the current month is between August and December (inclusive)
+	if (currentMonth >= 7 && currentMonth <= 11) {
+		return currentYear;
+	} else {
+		return currentYear - 1;
+	}
 }
 
 /**
@@ -71,14 +100,14 @@ export async function GET(request: NextRequest) {
 
 		const rawLimit = searchParams.get('limit');
 		const limit =
-			rawLimit && !isNaN(parseInt(rawLimit)) ? parseInt(rawLimit) : 50;
+			rawLimit && !isNaN(parseInt(rawLimit)) ? parseInt(rawLimit) : 50000;
 
 		let responseData;
 
 		// --- TEACHER / STUDENT: Only fetch their own account ---
 		if (['student'].includes(currentUser.role)) {
 			responseData = await models.User.findById(currentUser.id).select(
-				'-password'
+				'-password -defaultPassword'
 			);
 			return NextResponse.json({
 				success: true,
@@ -99,13 +128,12 @@ export async function GET(request: NextRequest) {
 				// No filters – fetch all users
 				responseData = await models.User.find({})
 					.limit(limit)
-					.select('-password');
+					.select('-password -defaultPassword');
 			} else {
 				// Filtered search
 				responseData = await models.User.find(filters)
 					.limit(limit)
-					.select('-password');
-				console.log('RESPONSE: ', responseData);
+					.select('-password -defaultPassword');
 			}
 		}
 
@@ -124,7 +152,7 @@ export async function GET(request: NextRequest) {
 
 			responseData = await models.User.find(finalQuery)
 				.limit(limit)
-				.select('-password');
+				.select('-password -defaultPassword');
 		}
 
 		return NextResponse.json({
@@ -174,8 +202,6 @@ function validateUserData(userData: any, isUpdate: boolean = false): string[] {
 		'dateOfBirth',
 		'phone',
 		'address',
-		'username',
-		'password',
 		'role',
 		'gender',
 	];
@@ -200,7 +226,10 @@ function validateUserData(userData: any, isUpdate: boolean = false): string[] {
 	if (userData.phone && !/^\+?[\d\s\-\(\)]{10,}$/.test(userData.phone)) {
 		errors.push('Invalid phone number format');
 	}
-	if (userData.password && userData.password.length < 8) {
+
+	// Remove password validation for creation since we auto-generate
+	// Only validate if password is being updated
+	if (isUpdate && userData.password && userData.password.length < 8) {
 		errors.push('Password must be at least 8 characters long');
 	}
 
@@ -245,6 +274,10 @@ function validateUserData(userData: any, isUpdate: boolean = false): string[] {
 	return errors;
 }
 
+/**
+ * Generates a unique ID for a user based on their role
+ * Format: PREFIX + YEAR + 4-digit sequence number
+ */
 async function generateIdByRole(models: any, role: string): Promise<string> {
 	const prefixes = {
 		student: 'STU',
@@ -252,109 +285,65 @@ async function generateIdByRole(models: any, role: string): Promise<string> {
 		administrator: 'ADM',
 		system_admin: 'SYS',
 	};
-	const year = new Date().getFullYear();
-	const prefix = prefixes[role as keyof typeof prefixes];
 
-	let idField = '';
-	switch (role) {
-		case 'student':
-			idField = 'studentId';
-			break;
-		case 'teacher':
-			idField = 'teacherId';
-			break;
-		case 'administrator':
-			idField = 'adminId';
-			break;
-		case 'system_admin':
-			idField = 'sysId';
-			break;
-	}
-
-	// Keep trying until we find a unique ID
-	let attempts = 0;
-	const maxAttempts = 100;
-
-	while (attempts < maxAttempts) {
-		// Find the latest user for this role, ordered by the id descending
-		const lastUser = await models.User.findOne({
-			role,
-			[idField]: { $regex: `^${prefix}${year}` },
-		})
-			.sort({ [idField]: -1 })
-			.lean();
-
-		let nextNumber = 1;
-		if (lastUser && lastUser[idField]) {
-			const lastId = lastUser[idField];
-			const match = lastId.match(/\d+$/); // match trailing digits
-			if (match) {
-				nextNumber = parseInt(match[0], 10) + 1;
-			}
-		}
-
-		// Add attempt number to avoid collisions in concurrent requests
-		const candidateId = `${prefix}${year}${String(
-			nextNumber + attempts
-		).padStart(4, '0')}`;
-
-		// Check if this ID already exists
-		const existingUser = await models.User.findOne({
-			[idField]: candidateId,
-		});
-
-		if (!existingUser) {
-			return candidateId;
-		}
-
-		attempts++;
-	}
-
-	// If we've exhausted attempts, throw an error
-	throw new Error(
-		`Unable to generate unique ${idField} after ${maxAttempts} attempts`
-	);
-}
-
-// Option 2: Counter-based approach (more efficient)
-async function generateIdByRoleWithCounter(
-	models: any,
-	role: string
-): Promise<string> {
-	const prefixes = {
-		student: 'STU',
-		teacher: 'TEA',
-		administrator: 'ADM',
-		system_admin: 'SYS',
+	const idFieldMap = {
+		student: 'studentId',
+		teacher: 'teacherId',
+		administrator: 'adminId',
+		system_admin: 'sysId',
 	};
-	const year = new Date().getFullYear();
-	const prefix = prefixes[role as keyof typeof prefixes];
 
-	let idField = '';
-	switch (role) {
-		case 'student':
-			idField = 'studentId';
-			break;
-		case 'teacher':
-			idField = 'teacherId';
-			break;
-		case 'administrator':
-			idField = 'adminId';
-			break;
-		case 'system_admin':
-			idField = 'sysId';
-			break;
+	const prefix = prefixes[role as keyof typeof prefixes];
+	const idField = idFieldMap[role as keyof typeof idFieldMap];
+	const year = getAcademicYear();
+	console.log('CURRENT YEAR: ', year);
+
+	// Find the latest user for this role and academic year to determine the next sequence number
+	const lastUser = await models.User.findOne({
+		role,
+		[idField]: { $regex: `^${prefix}${year}` },
+	})
+		.sort({ [idField]: -1 })
+		.lean();
+
+	let nextNumber = 1;
+	if (lastUser && lastUser[idField]) {
+		const lastId = lastUser[idField];
+		const sequenceStr = lastId.substring(
+			prefix.length + year.toString().length
+		);
+		if (sequenceStr) {
+			nextNumber = parseInt(sequenceStr, 10) + 1;
+		}
 	}
 
-	// Use MongoDB's atomic findOneAndUpdate to get next sequence number
-	const counterDoc = await models.Counter?.findOneAndUpdate(
-		{ _id: `${role}_${year}` },
-		{ $inc: { sequence: 1 } },
-		{ upsert: true, new: true }
-	);
+	const sequenceNumber = String(nextNumber).padStart(3, '0');
 
-	const sequenceNumber = counterDoc?.sequence || 1;
-	return `${prefix}${year}${String(sequenceNumber).padStart(4, '0')}`;
+	const newId = `${prefix}${year}${sequenceNumber}`;
+
+	// Check for a highly unlikely collision, just in case.
+	const existingUser = await models.User.findOne({ [idField]: newId });
+	if (existingUser) {
+		// If a collision occurs, recursively call with a slight delay or throw an error.
+		// For simplicity, we'll throw an error here.
+		throw new Error(`ID collision detected for ${newId}. Please try again.`);
+	}
+
+	return newId;
+}
+/**
+ * Generates username and default password based on user role and ID
+ * Username and initial password are the same (user's role-based ID)
+ */
+function generateCredentials(roleBasedId: string): {
+	username: string;
+	defaultPassword: string;
+} {
+	console.log(roleBasedId);
+	return {
+		username: roleBasedId, // Use the ID directly (it's already uppercase)
+		defaultPassword: roleBasedId, // Password is the same, case-sensitive
+	};
 }
 
 async function buildUserData(
@@ -362,6 +351,12 @@ async function buildUserData(
 	userData: any,
 	currentUser: any
 ): Promise<any> {
+	// Generate role-based ID first
+	const roleBasedId = await generateIdByRole(models, userData.role);
+
+	// Generate credentials based on the role-based ID
+	const credentials = generateCredentials(roleBasedId);
+
 	const commonData = {
 		firstName: userData.firstName.trim(),
 		middleName: userData.middleName?.trim(),
@@ -370,8 +365,9 @@ async function buildUserData(
 			userData.middleName ? userData.middleName.trim() + ' ' : ''
 		}${userData.lastName.trim()}`,
 		gender: userData.gender,
-		username: userData.username.toLowerCase().trim(),
-		password: await hashPassword(userData.password),
+		username: credentials.username,
+		password: await hashPassword(credentials.defaultPassword),
+		defaultPassword: credentials.defaultPassword, // Store unhashed for admin reset
 		nickName: userData.nickName?.trim(),
 		dateOfBirth: new Date(userData.dateOfBirth),
 		phone: userData.phone?.trim(),
@@ -379,7 +375,7 @@ async function buildUserData(
 		address: userData.address.trim(),
 		bio: userData.bio?.trim(),
 		isActive: true,
-		mustChangePassword: true,
+		mustChangePassword: true, // User must change password on first login
 		role: userData.role,
 		createdBy: currentUser.userId,
 		createdAt: new Date(),
@@ -389,8 +385,11 @@ async function buildUserData(
 		case 'student':
 			return {
 				...commonData,
-				studentId: await generateIdByRole(models, 'student'),
+				studentId: roleBasedId,
 				classId: userData.classId,
+				classLevel: userData.classLevel,
+				className: userData.className,
+				session: userData.session,
 				guardian: {
 					firstName: userData.guardian.firstName?.trim(),
 					middleName: userData.guardian.middleName?.trim(),
@@ -408,18 +407,18 @@ async function buildUserData(
 				subjects: userData.subjects || [],
 				isSponsor: userData.isSponsor || false,
 				sponsorClass: userData.isSponsor ? userData.sponsorClass : undefined,
-				teacherId: await generateIdByRole(models, 'teacher'),
+				teacherId: roleBasedId,
 			};
 		case 'administrator':
 			return {
 				...commonData,
 				position: userData.position,
-				adminId: await generateIdByRole(models, 'administrator'),
+				adminId: roleBasedId,
 			};
 		case 'system_admin':
 			return {
 				...commonData,
-				sysId: await generateIdByRole(models, 'system_admin'),
+				sysId: roleBasedId,
 			};
 		default:
 			throw new Error('Invalid user role');
@@ -431,7 +430,7 @@ async function buildUserData(
  * /api/users:
  *   post:
  *     summary: Create a new user
- *     description: Only system_admin can create users.
+ *     description: Only system_admin can create users. Username and password are auto-generated based on role ID.
  *     requestBody:
  *       required: true
  *       content:
@@ -440,7 +439,7 @@ async function buildUserData(
  *             $ref: '#/components/schemas/User'
  *     responses:
  *       201:
- *         description: User created successfully
+ *         description: User created successfully with auto-generated credentials
  *       400:
  *         description: Validation or duplicate error
  *       401:
@@ -468,7 +467,6 @@ export async function POST(request: NextRequest) {
 		const models = await getTenantModels(tenant);
 		const userData = await request.json();
 
-		// Only system_admin can create users (already enforced by authorizeUser)
 		const validationErrors = validateUserData(userData);
 		if (validationErrors.length > 0) {
 			return NextResponse.json(
@@ -481,16 +479,7 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const usernameExists = await models.User.findOne({
-			username: userData.username,
-		});
-		if (usernameExists) {
-			return NextResponse.json(
-				{ success: false, message: 'Username is already registered' },
-				{ status: 400 }
-			);
-		}
-
+		// Check if email already exists (if provided)
 		if (userData.email) {
 			const emailExists = await models.User.findOne({ email: userData.email });
 			if (emailExists) {
@@ -502,9 +491,21 @@ export async function POST(request: NextRequest) {
 		}
 
 		const finalUserData = await buildUserData(models, userData, currentUser);
+
 		const newUser = await models.User.create(finalUserData);
 		const userResponse = newUser.toObject();
+
+		// Remove sensitive data from response but include generated credentials for admin
 		delete userResponse?.password;
+		const responseData = {
+			...userResponse,
+			generatedCredentials: {
+				username: finalUserData.username,
+				defaultPassword: finalUserData.defaultPassword,
+				note: 'User must change password on first login',
+			},
+		};
+		delete responseData.defaultPassword; // Remove from main object
 
 		return NextResponse.json(
 			{
@@ -512,7 +513,7 @@ export async function POST(request: NextRequest) {
 				message: `${
 					userData.role.charAt(0).toUpperCase() + userData.role.slice(1)
 				} created successfully`,
-				data: { user: userResponse },
+				data: { user: responseData },
 			},
 			{ status: 201 }
 		);
@@ -566,7 +567,7 @@ export async function POST(request: NextRequest) {
  * /api/users:
  *   put:
  *     summary: Update a user
- *     description: System admin can update any user. Users can only update their own profile.
+ *     description: System admin can update any user. Users can only update their own profile. Includes password reset functionality.
  *     requestBody:
  *       required: true
  *       content:
@@ -580,6 +581,11 @@ export async function POST(request: NextRequest) {
  *           type: string
  *         required: true
  *         description: User ID to update
+ *       - in: query
+ *         name: resetPassword
+ *         schema:
+ *           type: boolean
+ *         description: Admin-only flag to reset password to default
  *     responses:
  *       200:
  *         description: User updated successfully
@@ -625,6 +631,7 @@ export async function PUT(request: NextRequest) {
 		const userData = await request.json();
 		const { searchParams } = new URL(request.url);
 		const targetUserId = searchParams.get('id');
+		const resetPassword = searchParams.get('resetPassword') === 'true';
 
 		if (!targetUserId) {
 			return NextResponse.json(
@@ -644,12 +651,70 @@ export async function PUT(request: NextRequest) {
 		const isSystemAdmin = currentUser.role === 'system_admin';
 		const isSelfUpdate = currentUser.userId === targetUserId;
 
+		// Handle password reset (admin only)
+		if (resetPassword) {
+			if (!isSystemAdmin) {
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							'Unauthorized: Only system administrators can reset passwords',
+					},
+					{ status: 403 }
+				);
+			}
+
+			if (!targetUser.defaultPassword) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'Default password not found for this user',
+					},
+					{ status: 400 }
+				);
+			}
+
+			const updateData = {
+				password: await hashPassword(targetUser.defaultPassword),
+				mustChangePassword: true,
+				updatedBy: currentUser.userId,
+				updatedAt: new Date(),
+			};
+
+			const updatedUser = await models.User.findOneAndUpdate(
+				{ _id: targetUserId },
+				{ $set: updateData },
+				{ new: true, runValidators: true }
+			).select('-password -defaultPassword');
+
+			return NextResponse.json({
+				success: true,
+				message:
+					'Password reset to default successfully. User must change password on next login.',
+				data: {
+					user: updatedUser,
+					resetInfo: {
+						username: targetUser.username,
+						temporaryPassword: targetUser.defaultPassword,
+						note: 'User must change password on next login',
+					},
+				},
+			});
+		}
+
 		let allowedFields: string[] = [];
 		let filteredUserData: any = {};
 
 		if (isSystemAdmin) {
-			allowedFields = Object.keys(userData);
-			filteredUserData = { ...userData };
+			// System admin can update most fields except username and defaultPassword
+			allowedFields = Object.keys(userData).filter(
+				(field) => !['username', 'defaultPassword'].includes(field)
+			);
+			allowedFields.forEach((field) => {
+				if (userData[field] !== undefined) {
+					filteredUserData[field] = userData[field];
+				}
+			});
 		} else if (isSelfUpdate) {
 			allowedFields = ['bio', 'phone', 'password', 'email'];
 			allowedFields.forEach((field) => {
@@ -721,36 +786,17 @@ export async function PUT(request: NextRequest) {
 			);
 		}
 
-		if (isSystemAdmin) {
-			if (
-				filteredUserData.username &&
-				filteredUserData.username !== targetUser.username
-			) {
-				const usernameExists = await models.User.findOne({
-					username: filteredUserData.username,
-					_id: { $ne: targetUserId },
-				});
-				if (usernameExists) {
-					return NextResponse.json(
-						{ success: false, message: 'Username is already taken' },
-						{ status: 400 }
-					);
-				}
-			}
-			if (
-				filteredUserData.email &&
-				filteredUserData.email !== targetUser.email
-			) {
-				const emailExists = await models.User.findOne({
-					email: filteredUserData.email,
-					_id: { $ne: targetUserId },
-				});
-				if (emailExists) {
-					return NextResponse.json(
-						{ success: false, message: 'Email address is already taken' },
-						{ status: 400 }
-					);
-				}
+		// Check for email conflicts (only if email is being updated)
+		if (filteredUserData.email && filteredUserData.email !== targetUser.email) {
+			const emailExists = await models.User.findOne({
+				email: filteredUserData.email,
+				_id: { $ne: targetUserId },
+			});
+			if (emailExists) {
+				return NextResponse.json(
+					{ success: false, message: 'Email address is already taken' },
+					{ status: 400 }
+				);
 			}
 		}
 
@@ -760,10 +806,16 @@ export async function PUT(request: NextRequest) {
 			updatedAt: new Date(),
 		};
 
+		// Handle password updates
 		if (filteredUserData.password) {
 			updateData.password = await hashPassword(filteredUserData.password);
+			// If user is changing their own password, clear mustChangePassword flag
+			if (isSelfUpdate) {
+				updateData.mustChangePassword = false;
+			}
 		}
 
+		// Trim string fields
 		[
 			'firstName',
 			'middleName',
@@ -779,8 +831,6 @@ export async function PUT(request: NextRequest) {
 			}
 		});
 		if (updateData.email) updateData.email = updateData.email.toLowerCase();
-		if (updateData.username)
-			updateData.username = updateData.username.toLowerCase();
 
 		const updatedUser = await models.User.findOneAndUpdate(
 			{ _id: targetUserId },
@@ -789,7 +839,7 @@ export async function PUT(request: NextRequest) {
 				new: true,
 				runValidators: true,
 			}
-		).select('-password');
+		).select('-password -defaultPassword');
 
 		if (!updatedUser) {
 			return NextResponse.json(
@@ -971,131 +1021,162 @@ export async function PATCH(request: NextRequest) {
 			);
 		}
 
-		switch (action) {
-			case 'verify_password':
-				const isPasswordValid = bcrypt.compare();
-				break;
-			case 'verify_otp':
-				break;
-			default:
-				break;
-		}
-
 		const models = await getTenantModels(tenant);
 
-		// If sessionId and OTP are provided, verify OTP for deletion
-		if (sessionId && otp) {
-			const otpResult = await verifyOTP(sessionId, otp, tenant);
-			if (!otpResult.success) {
-				return NextResponse.json(
-					{ success: false, message: otpResult.message },
-					{ status: otpResult.status }
+		// Handle different actions
+		switch (action) {
+			case 'verify_password':
+				// Verify admin password before proceeding
+				const adminUser = await models.User.findById(currentUser.userId);
+				if (!adminUser) {
+					return NextResponse.json(
+						{ success: false, message: 'Admin user not found' },
+						{ status: 401 }
+					);
+				}
+
+				const passwordMatch = await bcrypt.compare(
+					adminPassword,
+					adminUser.password
 				);
-			}
+				if (!passwordMatch) {
+					return NextResponse.json(
+						{ success: false, message: 'Incorrect admin password' },
+						{ status: 401 }
+					);
+				}
 
-			// Get session to retrieve targetUserId
-			const session = await getSession(sessionId);
-			if (!session || !session.targetUserId) {
-				return NextResponse.json(
-					{ success: false, message: 'Invalid session or missing target user' },
-					{ status: 400 }
+				return NextResponse.json({
+					success: true,
+					message: 'Password verified successfully',
+				});
+
+			case 'verify_otp':
+				// Verify OTP for deletion
+				if (!sessionId || !otp) {
+					return NextResponse.json(
+						{ success: false, message: 'Session ID and OTP are required' },
+						{ status: 400 }
+					);
+				}
+
+				const otpResult = await verifyOTP(sessionId, otp, tenant);
+				if (!otpResult.success) {
+					return NextResponse.json(
+						{ success: false, message: otpResult.message },
+						{ status: otpResult.status }
+					);
+				}
+
+				// Get session to retrieve targetUserId
+				const session = await getSession(sessionId);
+				if (!session || !session.targetUserId) {
+					return NextResponse.json(
+						{
+							success: false,
+							message: 'Invalid session or missing target user',
+						},
+						{ status: 400 }
+					);
+				}
+
+				// Verify the user still exists
+				const userToDelete = await models.User.findById(session.targetUserId);
+				if (!userToDelete) {
+					return NextResponse.json(
+						{ success: false, message: 'User not found' },
+						{ status: 404 }
+					);
+				}
+
+				// Delete the user
+				await models.User.deleteOne({ _id: session.targetUserId });
+
+				// Clean up the session
+				await destroySession(sessionId);
+
+				return NextResponse.json({
+					success: true,
+					message: 'User deleted successfully',
+					data: { userId: session.targetUserId },
+				});
+
+			default:
+				// Default action: Request OTP for deletion
+				if (!adminPassword || !targetUserId) {
+					return NextResponse.json(
+						{
+							success: false,
+							message: 'Missing adminPassword or targetUserId',
+						},
+						{ status: 400 }
+					);
+				}
+
+				// Find the admin user from the session (must be system_admin)
+				const currentAdminUser = await models.User.findById(currentUser.userId);
+				if (!currentAdminUser) {
+					return NextResponse.json(
+						{ success: false, message: 'Admin user not found' },
+						{ status: 401 }
+					);
+				}
+
+				// Verify admin password
+				const adminPasswordMatch = await bcrypt.compare(
+					adminPassword,
+					currentAdminUser.password
 				);
-			}
+				if (!adminPasswordMatch) {
+					return NextResponse.json(
+						{ success: false, message: 'Incorrect admin password' },
+						{ status: 401 }
+					);
+				}
 
-			// Verify the user still exists
-			const userToDelete = await models.User.findById(session.targetUserId);
-			if (!userToDelete) {
-				return NextResponse.json(
-					{ success: false, message: 'User not found' },
-					{ status: 404 }
+				// Verify target user exists
+				const targetUser = await models.User.findById(targetUserId);
+				if (!targetUser) {
+					return NextResponse.json(
+						{ success: false, message: 'Target user not found' },
+						{ status: 404 }
+					);
+				}
+
+				// Create session with OTP data
+				const newSessionId = await createSession(
+					{
+						userId: currentAdminUser._id.toString(),
+						tenantId: tenant,
+						targetUserId,
+						purpose: 'delete_user',
+						email: currentAdminUser.email,
+						phone: currentAdminUser.phone,
+					},
+					60 * 5
+				); // 5 minutes expiry
+
+				// Use the sendOTP helper to generate and send OTP
+				const otpSendResult = await sendOTP(
+					newSessionId,
+					request.headers.get('host') || ''
 				);
-			}
 
-			// Delete the user
-			await models.User.deleteOne({ _id: session.targetUserId });
+				if (!otpSendResult.success) {
+					await destroySession(newSessionId); // Clean up on failure
+					return NextResponse.json(
+						{ success: false, message: otpSendResult.message },
+						{ status: otpSendResult.status }
+					);
+				}
 
-			// Clean up the session
-			await destroySession(sessionId);
-
-			return NextResponse.json({
-				success: true,
-				message: 'User deleted successfully',
-				data: { userId: session.targetUserId },
-			});
+				return NextResponse.json({
+					success: true,
+					message: 'OTP sent to your registered contact',
+					sessionId: newSessionId,
+					contact: otpSendResult.contact,
+				});
 		}
-
-		// If no sessionId/OTP, handle initial OTP request
-		if (!adminPassword || !targetUserId) {
-			return NextResponse.json(
-				{ success: false, message: 'Missing adminPassword or targetUserId' },
-				{ status: 400 }
-			);
-		}
-
-		// Find the admin user from the session (must be system_admin)
-		const currentUser = await authorizeUser(request, ['system_admin']);
-		const adminUser = await models.User.findById(currentUser.userId);
-		if (!adminUser) {
-			return NextResponse.json(
-				{ success: false, message: 'Admin user not found' },
-				{ status: 401 }
-			);
-		}
-
-		// Verify admin password
-		const passwordMatch = await bcrypt.compare(
-			adminPassword,
-			adminUser.password
-		);
-		if (!passwordMatch) {
-			return NextResponse.json(
-				{ success: false, message: 'Incorrect admin password' },
-				{ status: 401 }
-			);
-		}
-
-		// Verify target user exists
-		const targetUser = await models.User.findById(targetUserId);
-		if (!targetUser) {
-			return NextResponse.json(
-				{ success: false, message: 'Target user not found' },
-				{ status: 404 }
-			);
-		}
-
-		// Create session with OTP data
-		const newSessionId = await createSession(
-			{
-				userId: adminUser._id.toString(),
-				tenantId: tenant,
-				targetUserId,
-				purpose: 'delete_user',
-				email: adminUser.email,
-				phone: adminUser.phone,
-			},
-			60 * 5
-		); // 5 minutes expiry
-
-		// Use the sendOTP helper to generate and send OTP
-		const otpResult = await sendOTP(
-			newSessionId,
-			request.headers.get('host') || ''
-		);
-
-		if (!otpResult.success) {
-			await destroySession(newSessionId); // Clean up on failure
-			return NextResponse.json(
-				{ success: false, message: otpResult.message },
-				{ status: otpResult.status }
-			);
-		}
-
-		return NextResponse.json({
-			success: true,
-			message: 'OTP sent to your registered contact',
-			sessionId: newSessionId,
-			contact: otpResult.contact,
-		});
 	} catch (error) {
 		console.error('Error in PATCH /users (OTP for deletion):', error);
 		return NextResponse.json(

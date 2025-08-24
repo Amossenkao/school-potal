@@ -864,3 +864,41 @@ span.flatpickr-weekday,
 		@apply bg-background text-foreground;
 	}
 }
+
+/* Typing indicator animation */
+.typing-indicator {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 10px 0;
+}
+
+.typing-indicator span {
+	height: 8px;
+	width: 8px;
+	margin: 0 2px;
+	background-color: currentColor; /* Use the parent text color */
+	border-radius: 50%;
+	opacity: 0.4;
+	animation: blink 1.4s infinite both;
+}
+
+.typing-indicator span:nth-child(2) {
+	animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+	animation-delay: 0.4s;
+}
+
+@keyframes blink {
+	0% {
+		opacity: 0.4;
+	}
+	20% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0.4;
+	}
+}

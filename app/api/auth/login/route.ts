@@ -184,6 +184,9 @@ function buildUserResponse(user: any) {
 				...baseUser,
 				studentId: user.studentId,
 				classId: user.classId,
+				className: user.className,
+				classLevel: user.classLevel,
+				session: user.session,
 				guardian: user.guardian,
 			};
 		case 'teacher':
