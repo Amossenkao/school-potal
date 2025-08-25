@@ -9,7 +9,7 @@ const UserSchema = new Schema<User & Document>(
 		middleName: String,
 		lastName: { type: String, required: true },
 		username: { type: String, required: true, unique: true },
-		password: { type: String, required: true },
+		password: { type: String },
 		nickName: String,
 		gender: { type: String, required: true },
 		dateOfBirth: { type: String, required: true },

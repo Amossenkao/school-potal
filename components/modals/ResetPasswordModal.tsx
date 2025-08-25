@@ -1,4 +1,6 @@
+// modals/ResetPasswordModal.tsx
 import React, { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 
 const ResetPasswordModal = ({
 	isOpen,
@@ -13,11 +15,11 @@ const ResetPasswordModal = ({
 		setIsLoading(true);
 		setError('');
 		try {
-			// Replace with your API endpoint
+			// Updated API endpoint to match the backend PUT method for resetting passwords
 			const res = await fetch(
-				`/api/users/${resetPasswordUser._id}/reset-password`,
+				`/api/users?id=${resetPasswordUser._id}&resetPassword=true`,
 				{
-					method: 'POST',
+					method: 'PUT',
 				}
 			);
 
@@ -25,7 +27,8 @@ const ResetPasswordModal = ({
 				const data = await res.json();
 				throw new Error(data.message || 'Failed to reset password.');
 			}
-			onResetSuccess();
+			const result = await res.json();
+			onResetSuccess(result.data.resetInfo); // Pass the reset info up
 			onClose();
 		} catch (err) {
 			setError(err.message);
@@ -47,7 +50,8 @@ const ResetPasswordModal = ({
 					<span className="font-bold">
 						{resetPasswordUser?.firstName} {resetPasswordUser?.lastName}
 					</span>
-					? This will revert it to the default password.
+					? This will revert it to the default password (
+					{resetPasswordUser?.username}).
 				</p>
 				{error && <p className="text-sm text-red-500">{error}</p>}
 				<div className="flex justify-center gap-4 mt-4">
@@ -60,8 +64,9 @@ const ResetPasswordModal = ({
 					<button
 						onClick={handleReset}
 						disabled={isLoading}
-						className="px-6 py-2 bg-primary text-primary-foreground rounded-lg"
+						className="px-6 py-2 bg-primary text-primary-foreground rounded-lg flex items-center justify-center"
 					>
+						{isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
 						{isLoading ? 'Resetting...' : 'Confirm'}
 					</button>
 				</div>

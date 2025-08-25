@@ -16,7 +16,7 @@ export default function UserMetaCard() {
 
 		try {
 			// API call to update the user's avatar
-			const response = await fetch(`/api/users/${user._id}/avatar`, {
+			const response = await fetch(`/api/users/`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ avatar: newAvatarUrl }),
@@ -28,12 +28,13 @@ export default function UserMetaCard() {
 				throw new Error(result.message || 'Failed to update avatar.');
 			}
 
-			// Update user state in Zustand store
-			const updatedUser = { ...user, avatar: newAvatarUrl };
-			setUser(updatedUser);
+			// Update user state in Zustand store with data from API response
+			if (result.data && result.data.user) {
+				setUser(result.data.user);
+			}
 
 			setFeedback({ message: 'Avatar updated successfully!', type: 'success' });
-		} catch (error) {
+		} catch (error: any) {
 			setFeedback({ message: error.message, type: 'error' });
 		} finally {
 			setIsSaving(false);

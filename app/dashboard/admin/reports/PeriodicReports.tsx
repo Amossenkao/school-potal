@@ -64,10 +64,8 @@ const academicYearOptions = [
 const getCurrentAcademicYear = () => {
 	const currentDate = new Date();
 	const currentYear = currentDate.getFullYear();
-	const currentMonth = currentDate.getMonth() + 1; // getMonth() returns 0-11
+	const currentMonth = currentDate.getMonth() + 1;
 
-	// Academic year typically starts in August/September
-	// If current month is August (8) or later, we're in the new academic year
 	if (currentMonth >= 8) {
 		return `${currentYear}/${currentYear + 1}`;
 	} else {

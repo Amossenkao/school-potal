@@ -1,36 +1,11 @@
 import { create } from 'zustand';
 import { User } from '@/types';
-// import { getCookie } from '@/utils/';
 
 interface LoginData {
 	role: string;
 	username: string;
 	password: string;
 	position?: string;
-}
-
-// export const demoUser = {
-// 	firstName: 'Amos',
-// 	lastName: 'Senkao',
-// 	role: 'system_admin',
-// 	userId: 'SYS2025001',
-// 	username: 'amos.senkao',
-// 	gender: 'male',
-// 	address: 'Logan Town',
-// 	phone: '0776949463',
-// 	isActive: true,
-// };
-
-function getCookie(name: string): string | null {
-	if (typeof document === 'undefined') return null;
-
-	try {
-		const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
-		return match ? decodeURIComponent(match[2]) : null;
-	} catch (error) {
-		console.error('Error reading cookie:', name, error);
-		return null;
-	}
 }
 
 interface AuthState {
@@ -51,6 +26,7 @@ interface AuthState {
 	checkAuthStatus: () => Promise<void>;
 	clearError: () => void;
 	resetOtpState: () => void;
+	setUser: (user: User) => void; // Add setUser method
 }
 
 const useAuth = create<AuthState>((set, get) => ({
@@ -105,17 +81,6 @@ const useAuth = create<AuthState>((set, get) => ({
 
 			return true;
 		} catch (error: any) {
-			// TODO: Only for testing without internet
-			// set({
-			// 	user: demoUser,
-			// 	isLoggedIn: false,
-			// 	error: error,
-			// 	isLoading: false,
-			// 	sessionId: null,
-			// 	isAwaitingOtp: false,
-			// 	otpContact: null,
-			// 	userId: null,
-			// });
 			set({ error: error.message || 'Network error', isLoading: false });
 			return false;
 		}
@@ -239,9 +204,6 @@ const useAuth = create<AuthState>((set, get) => ({
 
 	checkAuthStatus: async () => {
 		try {
-			// Check if user is authenticated via session cookie
-			//set({ user: demoUser, isLoggedIn: true }); // TODO: Only for testing without internet
-			//return;
 			const res = await fetch('/api/auth/me', {
 				method: 'GET',
 				credentials: 'include',
@@ -298,6 +260,8 @@ const useAuth = create<AuthState>((set, get) => ({
 			error: null,
 			userId: null,
 		}),
+
+	setUser: (user: User) => set({ user }), // Implement setUser method
 }));
 
 export default useAuth;

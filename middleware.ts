@@ -7,12 +7,12 @@ export type UserRole = 'student' | 'teacher' | 'administrator' | 'system_admin';
 
 function setSchoolCookies(response: NextResponse, school: any) {
 	// Server-side cookies (httpOnly)
-	response.cookies.set('x-school-id', school.id, {
+	response.cookies.set('x-school-id', school.profileId, {
 		httpOnly: true,
 		path: '/',
 		sameSite: 'lax',
 	});
-	response.cookies.set('x-school-name', school.shortName.toLowerCase(), {
+	response.cookies.set('x-school-name', school.name.toLowerCase(), {
 		httpOnly: true,
 		path: '/',
 		sameSite: 'lax',
@@ -24,13 +24,13 @@ function setSchoolCookies(response: NextResponse, school: any) {
 	});
 
 	// Client-accessible cookies (for client-side components)
-	response.cookies.set('school-id', school.id, {
+	response.cookies.set('school-id', school.profileId, {
 		httpOnly: false,
 		path: '/',
 		sameSite: 'lax',
 		secure: process.env.NODE_ENV === 'production',
 	});
-	response.cookies.set('school-name', school.shortName.toLowerCase(), {
+	response.cookies.set('school-name', school.name.toLowerCase(), {
 		httpOnly: false,
 		path: '/',
 		sameSite: 'lax',
@@ -53,6 +53,7 @@ export async function middleware(request: NextRequest) {
 
 	const school = await findSchoolByHost(host);
 	let response = NextResponse.next();
+	console.log('SCHOOL:', school);
 
 	// Set school information in cookies and headers
 	if (school) {

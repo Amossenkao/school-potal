@@ -1,6 +1,27 @@
+// modals/EditUserModal.tsx
+'use client';
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, ChevronDown } from 'lucide-react';
 import { useSchoolStore } from '@/store/schoolStore';
+
+// Helper function to find the differences between two objects
+const getChangedFields = (originalUser, updatedFormData) => {
+	const changes = {};
+	Object.keys(updatedFormData).forEach((key) => {
+		// Simple comparison for primitive values
+		if (originalUser[key] !== updatedFormData[key]) {
+			// Deep comparison for nested objects like 'subjects'
+			if (
+				JSON.stringify(originalUser[key]) !==
+				JSON.stringify(updatedFormData[key])
+			) {
+				changes[key] = updatedFormData[key];
+			}
+		}
+	});
+	return changes;
+};
 
 const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	const [formData, setFormData] = useState(null);
@@ -12,9 +33,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 	useEffect(() => {
 		if (user) {
-			// Deep copy user to avoid mutating the original prop
 			setFormData(JSON.parse(JSON.stringify(user)));
-			// Pre-expand sessions the teacher is teaching in
 			if (user.role === 'teacher' && user.subjects) {
 				const initialAccordions = {};
 				user.subjects.forEach((s) => {
@@ -109,7 +128,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 	const handleSubjectChange = (subject, level, session, checked) => {
 		setFormData((prev) => {
-			const existingSubjects = prev.teacher?.subjects || prev.subjects || [];
+			const existingSubjects = prev.subjects || [];
 			let updatedSubjects;
 			if (checked) {
 				updatedSubjects = [...existingSubjects, { subject, level, session }];
@@ -140,20 +159,32 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		e.preventDefault();
 		setIsLoading(true);
 		setError('');
+
+		// **THIS IS THE FIX**: Only send the fields that have changed
+		const changedData = getChangedFields(user, formData);
+
+		if (Object.keys(changedData).length === 0) {
+			setFeedback({ type: 'info', message: 'No changes were made.' });
+			setIsLoading(false);
+			onClose();
+			return;
+		}
+
 		try {
-			const res = await fetch(`/api/users/${user._id}`, {
+			const res = await fetch(`/api/users?id=${user._id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(formData),
+				body: JSON.stringify(changedData), // Send only the changed data
 			});
 			const data = await res.json();
 			if (!res.ok) {
 				throw new Error(data.message || 'Failed to update user.');
 			}
-			onSave(data.data);
+			onSave(data.data.user); // The backend now returns { data: { user: ... } }
 		} catch (err) {
-			setError(err.message);
-			setFeedback({ type: 'error', message: err.message });
+			const errorMessage = err.message || 'An unexpected error occurred.';
+			setError(errorMessage);
+			setFeedback({ type: 'error', message: errorMessage });
 		} finally {
 			setIsLoading(false);
 		}

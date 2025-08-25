@@ -4,7 +4,9 @@ const styles = StyleSheet.create({
 	page: {
 		flexDirection: 'column',
 		backgroundColor: '#ffffff',
+		margin: 0,
 		padding: 25,
+		// paddingBottom: 20,
 		fontSize: 12,
 	},
 
@@ -27,8 +29,10 @@ const styles = StyleSheet.create({
 
 	headerRight: {
 		flexDirection: 'column',
+		justifyContent: 'flex-end',
 		width: 700,
 		paddingLeft: 120,
+		paddingBottom: 4,
 	},
 
 	// Main grades section

@@ -1,6 +1,6 @@
 // components/DashboardHome.tsx
 'use client';
-import { componentsMap } from '@/utils/componentsMap';
+import { generateDynamicComponentsMap } from '@/utils/componentsMap';
 import Link from 'next/link';
 import {
 	Card,
@@ -9,14 +9,25 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@/components/ui/card';
+import type { SchoolProfile } from '@/types/schoolProfile';
 
 interface DashboardHomeProps {
 	user: any;
+	schoolProfile: SchoolProfile; // Add school profile prop
 }
 
-export default function DashboardHome({ user }: DashboardHomeProps) {
-	const roleItems = componentsMap[user.role]?.items || {};
-	const sharedItems = componentsMap.shared?.items || {};
+export default function DashboardHome({
+	user,
+	schoolProfile,
+}: DashboardHomeProps) {
+	// Generate dynamic components map based on school profile and user role
+	const dynamicComponentsMap = generateDynamicComponentsMap(
+		schoolProfile,
+		user.role
+	);
+
+	const roleItems = dynamicComponentsMap[user.role]?.items || {};
+	const sharedItems = dynamicComponentsMap.shared?.items || {};
 
 	// Get quick access items (first few items from each category)
 	const getQuickAccessItems = () => {

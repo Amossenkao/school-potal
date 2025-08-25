@@ -8,7 +8,7 @@ import profiles from '../app/school-profiles';
 
 interface SchoolProviderProps {
 	children: React.ReactNode;
-	skipSchoolCheck?: boolean; // For pages that don't need school data
+	skipSchoolCheck?: boolean;
 }
 
 export default function SchoolProvider({
@@ -36,12 +36,10 @@ export default function SchoolProvider({
 				const name = getCookie('school-name');
 
 				if (id && name) {
-					setSchool(profiles[name]);
+					setSchool(profiles[id]);
 					console.log('School set in store:', { id, name });
 				} else {
 					console.log('No school cookies found');
-					// You might want to redirect to school selection page here
-					// router.push('/select-school');
 				}
 			} catch (error) {
 				console.error('Error loading school:', error);

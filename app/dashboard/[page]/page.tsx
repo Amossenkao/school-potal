@@ -1,6 +1,14 @@
-import { componentsMap } from '@/utils/componentsMap';
+// app/dashboard/[page]/page.tsx
+import {
+	generateDynamicComponentsMap,
+	validateComponentAccess,
+} from '@/utils/componentsMap';
 import { getCurrentUser } from '@/lib/auth';
+import { getSchoolProfile } from '@/lib/school';
 import { PageLoading } from '@/components/loading';
+import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
+import type { SchoolProfile } from '@/types/schoolProfile';
 
 interface PageProps {
 	params: {
@@ -9,32 +17,154 @@ interface PageProps {
 }
 
 export default async function DynamicDashboardPage({ params }: PageProps) {
-	const user: any = await getCurrentUser();
+	try {
+		// Read cookies in Server Component
+		const cookieStore = cookies();
 
-	if (!user) {
-		return <PageLoading variant="not-found" message="" />;
-	}
+		// Example: Get specific cookies
+		const sessionToken = cookieStore.get('sessionId')?.value;
+		const userPreferences = cookieStore.get('user-preferences')?.value;
+		const theme = cookieStore.get('theme')?.value || 'light';
 
-	const { page } = await params;
+		// You can also get all cookies
+		const allCookies = cookieStore.getAll();
+		console.log('All cookies:', allCookies);
 
-	const entry =
-		componentsMap[user.role]?.items[page] || componentsMap.shared?.items[page];
+		// Get current user and school profile
+		const user: any = await getCurrentUser();
+		if (!user) {
+			redirect('/login');
+		}
 
-	if (!entry) {
+		// Get school profile (updated to match your implementation)
+		const schoolProfile: SchoolProfile = await getSchoolProfile();
+		console.log('SCHOOL PROFILE:', schoolProfile);
+		if (!schoolProfile) {
+			return (
+				<PageLoading
+					variant="not-found"
+					fullScreen={false}
+					message="School profile not found"
+				/>
+			);
+		}
+
+		const { page } = await params;
+
+		// Validate component access before rendering
+		const hasAccess = validateComponentAccess(schoolProfile, user.role, page);
+		if (!hasAccess) {
+			return (
+				<PageLoading
+					variant="access-denied"
+					fullScreen={false}
+					message="You don't have permission to access this page"
+				/>
+			);
+		}
+
+		// Generate dynamic components map
+		const componentsMap = generateDynamicComponentsMap(
+			schoolProfile,
+			user.role
+		);
+
+		console.log(componentsMap);
+
+		// Try to find the component in role-specific items first, then shared items
+		const entry =
+			componentsMap[user.role]?.items[page] ||
+			componentsMap.shared?.items[page];
+
+		if (!entry) {
+			return (
+				<PageLoading
+					variant="dashboard-not-found"
+					fullScreen={false}
+					message={`Page "${page}" not found or not available for your role`}
+				/>
+			);
+		}
+
+		// Get the component
+		const Component = entry.component;
+
+		if (!Component) {
+			console.error(`Component not found for page: ${page}`);
+			return (
+				<PageLoading
+					variant="dashboard-not-found"
+					fullScreen={false}
+					message="Component not available"
+				/>
+			);
+		}
+
+		// Generate page title from page slug
+		const pageTitle = page
+			.split('-')
+			.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+			.join(' ');
+
+		return (
+			<>
+				<title>
+					{pageTitle} - {schoolProfile.shortName}
+				</title>
+				<Component
+					user={user}
+					schoolProfile={schoolProfile}
+					theme={theme}
+					userPreferences={userPreferences}
+					sessionToken={sessionToken}
+				/>
+			</>
+		);
+	} catch (error) {
+		console.error('Error in DynamicDashboardPage:', error);
+
 		return (
 			<PageLoading
-				variant="dashboard-not-found"
+				variant="error"
 				fullScreen={false}
-				message=""
+				message="An error occurred while loading the page"
 			/>
 		);
 	}
+}
 
-	const Component = entry.component;
-	return (
-		<>
-			<title>{page.split('-').join(' ')}</title>
-			<Component />
-		</>
-	);
+// Generate metadata for the page
+export async function generateMetadata({ params }: PageProps) {
+	try {
+		// You can also read cookies in generateMetadata
+		const cookieStore = cookies();
+		const theme = cookieStore.get('theme')?.value || 'light';
+
+		const user = await getCurrentUser();
+		const schoolProfile = user ? await getSchoolProfile() : null;
+
+		const { page } = await params;
+		const pageTitle = page
+			.split('-')
+			.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+			.join(' ');
+
+		return {
+			title: `${pageTitle} - ${
+				schoolProfile?.shortName || 'School Management System'
+			}`,
+			description: `${pageTitle} page for ${
+				schoolProfile?.name || 'school management'
+			}`,
+			// You could use theme for conditional metadata
+			...(theme === 'dark' && {
+				themeColor: '#000000',
+			}),
+		};
+	} catch (error) {
+		return {
+			title: 'School Management System',
+			description: 'School management system dashboard',
+		};
+	}
 }

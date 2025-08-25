@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import { useModal } from '../../hooks/useModal';
 import { Modal } from '../ui/modal';
 import Button from '../ui/button/Button';
@@ -21,16 +21,126 @@ const InfoField = ({ label, value }: any) => (
 
 export default function UserInfoCard() {
 	const { isOpen, openModal, closeModal } = useModal();
-	const { user } = useAuth();
+	const { user, setUser } = useAuth();
+
+	// State for form data
+	const [formData, setFormData] = useState({
+		firstName: '',
+		lastName: '',
+		email: '',
+		phone: '',
+		bio: '',
+		password: '',
+	});
+	const [isLoading, setIsLoading] = useState(false);
+	const [errors, setErrors] = useState<any>({});
+	const [showPassword, setShowPassword] = useState(false);
 
 	if (!user) {
 		return <Spinner />;
 	}
 
-	const handleSave = () => {
-		// Handle save logic here
-		console.log('Saving changes...');
-		closeModal();
+	// Initialize form data when modal opens
+	const handleOpenModal = () => {
+		setFormData({
+			firstName: user?.firstName || '',
+			lastName: user?.lastName || '',
+			email: user?.email || '',
+			phone: user?.phone || '',
+			bio: user?.bio || '',
+			password: '', // Always start with empty password
+		});
+		setErrors({});
+		setShowPassword(false);
+		openModal();
+	};
+
+	// Handle form input changes
+	const handleInputChange = (field: string, value: string) => {
+		setFormData((prev) => ({
+			...prev,
+			[field]: value,
+		}));
+		// Clear error for this field when user starts typing
+		if (errors[field as keyof typeof errors]) {
+			setErrors((prev) => ({
+				...prev,
+				[field]: undefined,
+			}));
+		}
+	};
+
+	// Validate form data
+	const validateForm = () => {
+		const newErrors: any = {};
+
+		// Email validation
+		if (!formData.email.trim()) {
+			newErrors.email = 'Email is required';
+		} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+			newErrors.email = 'Please enter a valid email address';
+		}
+
+		// Phone validation (optional but must be valid if provided)
+		if (formData.phone && !/^\+?[\d\s-()]+$/.test(formData.phone)) {
+			newErrors.phone = 'Please enter a valid phone number';
+		}
+
+		// Password validation (optional but must be valid if provided)
+		if (formData.password && formData.password.length < 8) {
+			newErrors.password = 'Password must be at least 8 characters long';
+		}
+
+		setErrors(newErrors);
+		return Object.keys(newErrors).length === 0;
+	};
+
+	// Implement the save functionality here
+	const handleSave = async () => {
+		if (!validateForm()) {
+			return;
+		}
+
+		setIsLoading(true);
+		try {
+			// Only send editable fields (exclude firstName and lastName)
+			const { firstName, lastName, ...editableData } = formData;
+
+			// API call to update user profile (no ID needed for self-update)
+			const response = await fetch(`/api/users`, {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				credentials: 'include',
+				body: JSON.stringify(editableData),
+			});
+
+			const result = await response.json();
+
+			if (!response.ok) {
+				throw new Error(result.message || 'Failed to update profile');
+			}
+
+			// Update user in the auth store with data from API response
+			if (result.data && result.data.user) {
+				setUser(result.data.user);
+			}
+
+			console.log('Profile updated successfully!');
+			closeModal();
+		} catch (error) {
+			console.error('Error updating profile:', error);
+			// Set error state to show user-friendly error message
+			setErrors({
+				general:
+					error instanceof Error
+						? error.message
+						: 'Failed to update profile. Please try again.',
+			});
+		} finally {
+			setIsLoading(false);
+		}
 	};
 
 	return (
@@ -87,7 +197,7 @@ export default function UserInfoCard() {
 											Subjects
 										</p>
 										<div className="flex flex-wrap gap-2">
-											{user.subjects?.map((s, i) => (
+											{user.subjects?.map((s: any, i: number) => (
 												<span
 													key={i}
 													className="text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 px-2.5 py-1 rounded-full"
@@ -116,7 +226,7 @@ export default function UserInfoCard() {
 				</div>
 
 				<button
-					onClick={openModal}
+					onClick={handleOpenModal}
 					className="flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200 lg:inline-flex lg:w-auto flex-shrink-0"
 				>
 					<svg
@@ -148,8 +258,15 @@ export default function UserInfoCard() {
 							Update your details to keep your profile up-to-date.
 						</p>
 					</div>
-					<form className="flex flex-col">
+					<form className="flex flex-col" onSubmit={(e) => e.preventDefault()}>
 						<div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
+							{/* Display general error if any */}
+							{errors.general && (
+								<div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+									<p className="text-sm text-red-600">{errors.general}</p>
+								</div>
+							)}
+
 							<div className="mt-7">
 								<h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
 									Personal Information
@@ -157,33 +274,154 @@ export default function UserInfoCard() {
 								<div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
 									<div className="col-span-2 lg:col-span-1">
 										<Label>First Name</Label>
-										<Input type="text" defaultValue={user.firstName} disabled />
+										<Input
+											type="text"
+											value={formData.firstName}
+											onChange={(e) =>
+												handleInputChange('firstName', e.target.value)
+											}
+											disabled
+											placeholder={user?.firstName || 'Not provided'}
+											className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400"
+										/>
+										<p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+											This field cannot be modified
+										</p>
 									</div>
 									<div className="col-span-2 lg:col-span-1">
 										<Label>Last Name</Label>
-										<Input type="text" defaultValue={user.lastName} disabled />
+										<Input
+											type="text"
+											value={formData.lastName}
+											onChange={(e) =>
+												handleInputChange('lastName', e.target.value)
+											}
+											disabled
+											placeholder={user?.lastName || 'Not provided'}
+											className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400"
+										/>
+										<p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+											This field cannot be modified
+										</p>
 									</div>
 									<div className="col-span-2 lg:col-span-1">
 										<Label>Email Address</Label>
-										<Input type="text" defaultValue={user.email} />
+										<Input
+											type="email"
+											value={formData.email}
+											onChange={(e) =>
+												handleInputChange('email', e.target.value)
+											}
+											className={errors.email ? 'border-red-500' : ''}
+										/>
+										{errors.email && (
+											<p className="mt-1 text-xs text-red-500">
+												{errors.email}
+											</p>
+										)}
 									</div>
 									<div className="col-span-2 lg:col-span-1">
 										<Label>Phone</Label>
-										<Input type="text" defaultValue={user.phone} />
+										<Input
+											type="tel"
+											value={formData.phone}
+											onChange={(e) =>
+												handleInputChange('phone', e.target.value)
+											}
+											className={errors.phone ? 'border-red-500' : ''}
+										/>
+										{errors.phone && (
+											<p className="mt-1 text-xs text-red-500">
+												{errors.phone}
+											</p>
+										)}
 									</div>
 									<div className="col-span-2">
 										<Label>Bio</Label>
-										<Input type="text" defaultValue={user.bio} />
+										<Input
+											type="text"
+											value={formData.bio}
+											onChange={(e) => handleInputChange('bio', e.target.value)}
+										/>
+									</div>
+									<div className="col-span-2">
+										<Label>Change Password (Optional)</Label>
+										<div className="relative">
+											<Input
+												type={showPassword ? 'text' : 'password'}
+												value={formData.password}
+												onChange={(e) =>
+													handleInputChange('password', e.target.value)
+												}
+												placeholder="Leave empty to keep current password"
+												className={errors.password ? 'border-red-500' : ''}
+											/>
+											<button
+												type="button"
+												onClick={() => setShowPassword(!showPassword)}
+												className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+											>
+												{showPassword ? (
+													<svg
+														className="w-5 h-5"
+														fill="none"
+														stroke="currentColor"
+														viewBox="0 0 24 24"
+													>
+														<path
+															strokeLinecap="round"
+															strokeLinejoin="round"
+															strokeWidth={2}
+															d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L8.464 8.464M14.12 14.12l1.415 1.415M14.12 14.12L9.88 9.88"
+														/>
+													</svg>
+												) : (
+													<svg
+														className="w-5 h-5"
+														fill="none"
+														stroke="currentColor"
+														viewBox="0 0 24 24"
+													>
+														<path
+															strokeLinecap="round"
+															strokeLinejoin="round"
+															strokeWidth={2}
+															d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+														/>
+														<path
+															strokeLinecap="round"
+															strokeLinejoin="round"
+															strokeWidth={2}
+															d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.543 7-1.275 4.057-5.065 7-9.543 7-4.477 0-8.268-2.943-9.542-7z"
+														/>
+													</svg>
+												)}
+											</button>
+										</div>
+										{errors.password && (
+											<p className="mt-1 text-xs text-red-500">
+												{errors.password}
+											</p>
+										)}
+										<p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+											Minimum 8 characters. Leave empty to keep current
+											password.
+										</p>
 									</div>
 								</div>
 							</div>
 						</div>
 						<div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
-							<Button size="sm" variant="outline" onClick={closeModal}>
+							<Button
+								size="sm"
+								variant="outline"
+								onClick={closeModal}
+								disabled={isLoading}
+							>
 								Close
 							</Button>
-							<Button size="sm" onClick={handleSave}>
-								Save Changes
+							<Button size="sm" onClick={handleSave} disabled={isLoading}>
+								{isLoading ? 'Saving...' : 'Save Changes'}
 							</Button>
 						</div>
 					</form>

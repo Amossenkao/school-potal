@@ -12,6 +12,7 @@ import styles from './styles';
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
+import Spinner from '@/components/ui/spinner';
 
 function gradeStyle(score: string | number | null) {
 	if (score === null || Number.isNaN(score) || Number(score) < 70) {
@@ -49,10 +50,10 @@ interface Student {
 }
 
 const academicYearOptions = [
+	'2025/2026',
 	'2024/2025',
 	'2023/2024',
 	'2022/2023',
-	'2021/2022',
 ];
 
 const getCurrentAcademicYear = () => {
@@ -285,19 +286,41 @@ function FilterContent({
 				academicYear: getCurrentAcademicYear(),
 			}));
 		}
+
+		// Auto-select session if there's only one available and not already set
+		if (userAvailableSessions.length === 1 && !filters.session && !isStudent) {
+			setFilters((prev) => ({ ...prev, session: userAvailableSessions[0] }));
+		}
+
+		// Auto-select grade level if there's only one available and session is set
 		if (
-			!isSystemAdmin &&
-			userAvailableSessions.length === 1 &&
-			!filters.session &&
+			filters.session &&
+			availableGradeLevels.length === 1 &&
+			!filters.classLevel &&
 			!isStudent
 		) {
-			setFilters((prev) => ({ ...prev, session: userAvailableSessions[0] }));
+			setFilters((prev) => ({ ...prev, classLevel: availableGradeLevels[0] }));
+		}
+
+		// Auto-select class if there's only one available and grade level is set
+		if (
+			filters.classLevel &&
+			availableClasses.length === 1 &&
+			!filters.className &&
+			!isStudent
+		) {
+			setFilters((prev) => ({
+				...prev,
+				className: availableClasses[0].classId,
+			}));
 		}
 	}, [
 		filters.academicYear,
 		filters.session,
-		isSystemAdmin,
+		filters.classLevel,
 		userAvailableSessions,
+		availableGradeLevels,
+		availableClasses,
 		setFilters,
 		isStudent,
 	]);
@@ -428,7 +451,7 @@ function FilterContent({
 								selectedStudents: [],
 							}))
 						}
-						className="w-full border border-border px-3 py-2 rounded"
+						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
 					>
 						{academicYearOptions.map((year) => (
 							<option key={year} value={year}>
@@ -437,80 +460,97 @@ function FilterContent({
 						))}
 					</select>
 				</div>
-				<div className="mb-4">
-					<label className="block text-sm font-medium mb-1">Session</label>
-					<select
-						value={filters.session}
-						onChange={(e) =>
-							setFilters((f) => ({
-								...f,
-								session: e.target.value,
-								classLevel: '',
-								className: '',
-								selectedStudents: [],
-							}))
-						}
-						className="w-full border border-border px-3 py-2 rounded"
-						disabled={!filters.academicYear}
-					>
-						<option value="">Select Session</option>
-						{userAvailableSessions.map((session) => (
-							<option key={session} value={session}>
-								{session}
-							</option>
-						))}
-					</select>
-				</div>
-				<div className="mb-4">
-					<label className="block text-sm font-medium mb-1">Grade Level</label>
-					<select
-						value={filters.classLevel}
-						onChange={(e) =>
-							setFilters((f) => ({
-								...f,
-								classLevel: e.target.value,
-								className: '',
-								selectedStudents: [],
-							}))
-						}
-						className="w-full border border-border px-3 py-2 rounded"
-						disabled={!filters.session}
-					>
-						<option value="">Select Grade Level</option>
-						{availableGradeLevels.map((level) => (
-							<option key={level} value={level}>
-								{level}
-							</option>
-						))}
-					</select>
-				</div>
-				<div className="mb-4">
-					<label className="block text-sm font-medium mb-1">Class</label>
-					<select
-						value={filters.className}
-						onChange={(e) =>
-							setFilters((f) => ({
-								...f,
-								className: e.target.value,
-								selectedStudents: [],
-							}))
-						}
-						className="w-full border border-border px-3 py-2 rounded"
-						disabled={!filters.classLevel}
-					>
-						<option value="">Select Class</option>
-						{availableClasses.map((classInfo: any) => (
-							<option key={classInfo.classId} value={classInfo.classId}>
-								{classInfo.name}
-							</option>
-						))}
-					</select>
-				</div>
+
+				{/* Show session dropdown only when there are multiple sessions */}
+				{userAvailableSessions.length > 1 && (
+					<div className="mb-4">
+						<label className="block text-sm font-medium mb-1">Session</label>
+						<select
+							value={filters.session}
+							onChange={(e) =>
+								setFilters((f) => ({
+									...f,
+									session: e.target.value,
+									classLevel: '',
+									className: '',
+									selectedStudents: [],
+								}))
+							}
+							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
+							disabled={!filters.academicYear}
+						>
+							<option value="">Select Session</option>
+							{userAvailableSessions.map((session) => (
+								<option key={session} value={session}>
+									{session}
+								</option>
+							))}
+						</select>
+					</div>
+				)}
+
+				{/* Show grade level dropdown only when there are multiple grade levels */}
+				{filters.session && availableGradeLevels.length > 1 && (
+					<div className="mb-4">
+						<label className="block text-sm font-medium mb-1">
+							Grade Level
+						</label>
+						<select
+							value={filters.classLevel}
+							onChange={(e) =>
+								setFilters((f) => ({
+									...f,
+									classLevel: e.target.value,
+									className: '',
+									selectedStudents: [],
+								}))
+							}
+							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
+							disabled={!filters.session}
+						>
+							<option value="">Select Grade Level</option>
+							{availableGradeLevels.map((level) => (
+								<option key={level} value={level}>
+									{level}
+								</option>
+							))}
+						</select>
+					</div>
+				)}
+
+				{/* Show class dropdown only when there are multiple classes */}
+				{filters.classLevel && availableClasses.length > 1 && (
+					<div className="mb-4">
+						<label className="block text-sm font-medium mb-1">Class</label>
+						<select
+							value={filters.className}
+							onChange={(e) =>
+								setFilters((f) => ({
+									...f,
+									className: e.target.value,
+									selectedStudents: [],
+								}))
+							}
+							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
+							disabled={!filters.classLevel}
+						>
+							<option value="">Select Class</option>
+							{availableClasses.map((classInfo: any) => (
+								<option key={classInfo.classId} value={classInfo.classId}>
+									{classInfo.name}
+								</option>
+							))}
+						</select>
+					</div>
+				)}
 
 				{filters.className && (
 					<div className="mb-4">
 						{loadingStudents ? (
-							<div className="text-center py-4">Loading students...</div>
+							<div className="text-center py-4">
+								Loading students
+								<Spinner />
+							</div>
 						) : (
 							<StudentMultiSelect
 								students={students}
@@ -539,7 +579,6 @@ function FilterContent({
 		</div>
 	);
 }
-
 function ReportContent({
 	reportFilters,
 	onBack,
@@ -628,9 +667,15 @@ function ReportContent({
 					throw new Error(errorData.message || 'Failed to fetch grades');
 				}
 
-				const existingReports = Array.isArray(gradesData.data?.report)
-					? gradesData.data.report
-					: [];
+				let existingReports: any[] = [];
+				if (Array.isArray(gradesData.data?.report)) {
+					existingReports = gradesData.data.report;
+				} else if (
+					gradesData.data?.report &&
+					typeof gradesData.data.report === 'object'
+				) {
+					existingReports = [gradesData.data.report];
+				}
 
 				const reportData = studentsToProcess.map((student: any) => {
 					const studentId = student.studentId;
@@ -786,9 +831,9 @@ function ReportContent({
 		return (
 			<div className="flex flex-col items-center justify-center min-h-[60vh] py-10">
 				<div className="bg-card rounded-lg shadow border border-border w-full max-w-md p-6 text-center">
-					<h2 className="text-lg font-semibold mb-4">No Data Found</h2>
+					<h2 className="text-lg font-semibold mb-4">No Student Found</h2>
 					<p className="text-muted-foreground mb-6">
-						No report data found for the selected criteria.
+						No student found matching the selected filters.
 					</p>
 					<button
 						type="button"
@@ -815,9 +860,6 @@ function ReportContent({
 	return (
 		<div className="w-full h-screen bg-background flex flex-col">
 			<div className="flex justify-between items-center px-8 py-4">
-				<div className="text-sm text-muted-foreground">
-					{user && `Generated by: ${user.firstName} ${user.lastName}`}
-				</div>
 				<button
 					type="button"
 					onClick={onBack}
@@ -858,9 +900,6 @@ function ReportContent({
 											</Text>
 											<Text>Class: {className}</Text>
 											<Text>ID: {studentData.studentId}</Text>
-											{reportFilters.session && (
-												<Text>Session: {reportFilters.session}</Text>
-											)}
 										</View>
 										<View style={styles.headerRight}>
 											<Text style={{ fontWeight: 'bold' }}>
@@ -1229,10 +1268,12 @@ function ReportContent({
 												</Text>{' '}
 												has satisfactorily completed the work of{' '}
 												<Text style={{ textDecoration: 'underline' }}>
-													{reportFilters.classLevel}
+													{className}
 												</Text>{' '}
 												and is promoted to{' '}
-												<Text style={{ textDecoration: 'underline' }}> </Text>{' '}
+												<Text style={{ textDecoration: 'underline' }}>
+													{className}
+												</Text>{' '}
 												for Academic Year {reportFilters.academicYear}.
 											</Text>
 											<View
@@ -1270,8 +1311,8 @@ function ReportContent({
 														}}
 													>
 														<Image
-															src={school?.logoUrl2}
-															style={{ width: 65, height: 65 }}
+															src={school?.logoUrl2 || school?.logoUrl}
+															style={{ width: 60 }}
 														/>
 													</View>
 													<Text style={styles.schoolDetails}>
@@ -1302,7 +1343,7 @@ function ReportContent({
 													>
 														<Image
 															src={school?.logoUrl}
-															style={{ width: 65, height: 65 }}
+															style={{ width: 60 }}
 														/>
 													</View>
 												</View>
@@ -1331,14 +1372,6 @@ function ReportContent({
 															{className}
 														</Text>
 													</Text>
-													{reportFilters.session && (
-														<Text>
-															Session:{' '}
-															<Text style={{ fontWeight: 'bold' }}>
-																{reportFilters.session}
-															</Text>
-														</Text>
-													)}
 												</View>
 												<View
 													style={{

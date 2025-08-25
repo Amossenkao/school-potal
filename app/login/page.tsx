@@ -11,8 +11,6 @@ import {
 	Users,
 	Settings,
 	Loader2,
-	ArrowBigLeft,
-	Home,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import useAuth from '@/store/useAuth';
@@ -20,7 +18,6 @@ import { PageLoading } from '@/components/loading';
 // import NavBar from '@/components/sections/NavBar';
 import { useSchoolStore } from '@/store/schoolStore';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
 
 const LoginPage = () => {
@@ -76,6 +73,7 @@ const LoginPage = () => {
 			!isInitializing &&
 			!isLoading &&
 			user &&
+			user.isActive &&
 			isLoggedIn &&
 			!isAwaitingOtp &&
 			!isRedirecting
@@ -97,7 +95,7 @@ const LoginPage = () => {
 	if (
 		isInitializing ||
 		isRedirecting ||
-		(isLoggedIn && user && !isAwaitingOtp)
+		(isLoggedIn && user && user.isActive && !isAwaitingOtp)
 	) {
 		return <PageLoading variant="school" />;
 	}

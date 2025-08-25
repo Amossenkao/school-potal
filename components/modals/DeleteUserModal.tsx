@@ -1,5 +1,6 @@
+// modals/DeleteUserModal.tsx
 import React, { useState } from 'react';
-import { X, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { X, AlertTriangle, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 const DeleteUserModal = ({
 	isOpen,
@@ -12,6 +13,7 @@ const DeleteUserModal = ({
 	const [password, setPassword] = useState('');
 	const [showPassword, setShowPassword] = useState(false);
 	const [otp, setOtp] = useState('');
+	const [sessionId, setSessionId] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState('');
 
@@ -20,18 +22,22 @@ const DeleteUserModal = ({
 		setIsLoading(true);
 		setError('');
 		try {
-			const res = await fetch(
-				`/api/users/${deletingUser._id}/initiate-delete`,
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ adminPassword: password }),
-				}
-			);
+			const res = await fetch(`/api/users`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					adminPassword: password,
+					targetUserId: deletingUser._id,
+					action: 'request_otp', // This can be the default action
+				}),
+			});
 			const data = await res.json();
 			if (!res.ok) {
-				throw new Error(data.message || 'Incorrect password.');
+				throw new Error(
+					data.message || 'Incorrect password or failed to send OTP.'
+				);
 			}
+			setSessionId(data.sessionId);
 			setStep(2);
 		} catch (err) {
 			setError(err.message);
@@ -45,14 +51,18 @@ const DeleteUserModal = ({
 		setIsLoading(true);
 		setError('');
 		try {
-			const res = await fetch(`/api/users/${deletingUser._id}`, {
-				method: 'DELETE',
+			const res = await fetch(`/api/users`, {
+				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ otp }),
+				body: JSON.stringify({
+					otp,
+					sessionId,
+					action: 'verify_otp',
+				}),
 			});
 			const data = await res.json();
 			if (!res.ok) {
-				throw new Error(data.message || 'Invalid OTP.');
+				throw new Error(data.message || 'Invalid OTP or deletion failed.');
 			}
 			onDeleteSuccess(deletingUser._id);
 			handleClose();
@@ -69,6 +79,7 @@ const DeleteUserModal = ({
 		setPassword('');
 		setOtp('');
 		setError('');
+		setSessionId('');
 		setShowPassword(false);
 		onClose();
 	};
@@ -77,7 +88,7 @@ const DeleteUserModal = ({
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-			<div className="bg-card rounded-xl shadow-2xl w-full max-w-md border border-border transform transition-all duration-300 ease-in-out">
+			<div className="bg-card rounded-xl shadow-2xl w-full max-w-md border border-border">
 				<div className="flex justify-between items-center p-4 border-b border-border">
 					<h4 className="text-lg font-semibold text-foreground">
 						Confirm Deletion
@@ -117,7 +128,7 @@ const DeleteUserModal = ({
 								htmlFor="admin-password"
 								className="block text-sm font-medium text-foreground mb-2"
 							>
-								Admin Password *
+								Admin Password
 							</label>
 							<div className="relative">
 								<input
@@ -151,8 +162,11 @@ const DeleteUserModal = ({
 								<button
 									type="submit"
 									disabled={isLoading || !password}
-									className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:bg-orange-300"
+									className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:bg-orange-300 flex items-center"
 								>
+									{isLoading && (
+										<Loader2 className="h-4 w-4 animate-spin mr-2" />
+									)}
 									{isLoading ? 'Verifying...' : 'Send OTP'}
 								</button>
 							</div>
@@ -191,8 +205,11 @@ const DeleteUserModal = ({
 								<button
 									type="submit"
 									disabled={isLoading || otp.length !== 6}
-									className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-red-400"
+									className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-red-400 flex items-center"
 								>
+									{isLoading && (
+										<Loader2 className="h-4 w-4 animate-spin mr-2" />
+									)}
 									{isLoading ? 'Deleting...' : 'Confirm Delete'}
 								</button>
 							</div>

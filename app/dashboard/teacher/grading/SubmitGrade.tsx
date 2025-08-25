@@ -248,6 +248,19 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 		}
 	}, [classesForSelectedLevelAndSession, selectedClassId]);
 
+	// NEW: Auto-fetch students when class selection is complete
+	useEffect(() => {
+		// Check if all required selections are made
+		if (selectedSubject && selectedClassId && selectedSession) {
+			loadStudentsForGrading();
+		} else {
+			// Clear students data when selections are incomplete
+			setStudentsForGrading([]);
+			setHasAttemptedLoad(false);
+			setError((prev) => ({ ...prev, studentsForGrading: '' }));
+		}
+	}, [selectedSubject, selectedClassId, selectedSession]);
+
 	const loadStudentsForGrading = async () => {
 		if (!selectedSubject || !selectedClassId || !selectedSession) return;
 
@@ -385,17 +398,37 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 		setSelectedSession('');
 		setSelectedClassLevel('');
 		setSelectedClassId('');
+		// Clear students and reset state when subject changes
+		setStudentsForGrading([]);
+		setSelectedPeriods([]);
+		setHasAttemptedLoad(false);
 	};
 
 	const handleSessionChange = (session: string) => {
 		setSelectedSession(session);
 		setSelectedClassLevel('');
 		setSelectedClassId('');
+		// Clear students and reset state when session changes
+		setStudentsForGrading([]);
+		setSelectedPeriods([]);
+		setHasAttemptedLoad(false);
 	};
 
 	const handleClassLevelChange = (level: string) => {
 		setSelectedClassLevel(level);
 		setSelectedClassId('');
+		// Clear students and reset state when class level changes
+		setStudentsForGrading([]);
+		setSelectedPeriods([]);
+		setHasAttemptedLoad(false);
+	};
+
+	const handleClassChange = (classId: string) => {
+		setSelectedClassId(classId);
+		// Clear students and reset state when class changes
+		setStudentsForGrading([]);
+		setSelectedPeriods([]);
+		setHasAttemptedLoad(false);
 	};
 
 	// Helper function to get grade validation status
@@ -737,14 +770,6 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 					<span className="font-medium">{className}</span> for{' '}
 					<span className="font-medium">{selectedSubject}</span>.
 				</p>
-				<div className="bg-muted/30 rounded-lg p-4 text-sm text-muted-foreground">
-					<p className="font-medium mb-1">This could mean:</p>
-					<ul className="text-left space-y-1">
-						<li>• The class hasn't been assigned any students yet</li>
-						<li>• Students may be enrolled in a different session or level</li>
-						<li>• There might be a data synchronization issue</li>
-					</ul>
-				</div>
 				<button
 					onClick={loadStudentsForGrading}
 					className="mt-4 inline-flex items-center px-4 py-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
@@ -878,7 +903,7 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 								<select
 									id="class-select"
 									value={selectedClassId}
-									onChange={(e) => setSelectedClassId(e.target.value)}
+									onChange={(e) => handleClassChange(e.target.value)}
 									className="mt-1 block w-full rounded-md border border-input bg-background py-2 pl-3 pr-10 text-foreground focus:border-ring focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background sm:text-sm disabled:opacity-50"
 									disabled={!selectedClassLevel}
 								>
@@ -897,22 +922,13 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 					</div>
 				)}
 
-				<button
-					onClick={loadStudentsForGrading}
-					className="w-full inline-flex justify-center rounded-md border border-transparent bg-primary px-4 py-2 text-base font-medium text-primary-foreground shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background sm:text-sm disabled:opacity-50 mb-6 transition-colors"
-					disabled={
-						!selectedSubject ||
-						!selectedClassId ||
-						!selectedSession ||
-						loading.studentsForGrading
-					}
-				>
-					{loading.studentsForGrading ? (
-						<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-					) : (
-						'Load Students for Grading'
-					)}
-				</button>
+				{/* Show loading indicator when students are being fetched automatically */}
+				{loading.studentsForGrading && (
+					<div className="flex justify-center items-center py-4">
+						<Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+						<span className="text-muted-foreground">Loading students...</span>
+					</div>
+				)}
 
 				{studentsForGrading.length > 0 && (
 					<div>

@@ -1,6 +1,7 @@
 // school-profiles/upstairs.tsx
-// This file contains the profile data for Upstairs Christian Academy
+// Simplified school profile with only feature keys
 
+import SchoolProfile from '@/types/schoolProfile';
 import {
 	Award,
 	Laptop,
@@ -16,7 +17,8 @@ import {
 	Star,
 	Wifi,
 } from 'lucide-react';
-export const upstairs = {
+
+export const upstairs: SchoolProfile = {
 	name: 'Upstairs Christian Academy',
 	slogan: 'Excellence in Education',
 	shortName: 'Upstairs',
@@ -24,7 +26,7 @@ export const upstairs = {
 	logoUrl:
 		'https://res.cloudinary.com/dcalueltd/image/upload/v1753368059/school-management-system/uca/logo.png',
 	logoUrl2:
-		'https://res.cloudinary.com/dcalueltd/image/upload/v1753484515/uca_logo2_kqlgdl.png',
+		'https://res.cloudinary.com/dcalueltd/image/upload/v1753484515/school-management-system/uca/uca_logo2_kqlgdl.png',
 	description:
 		'We provide exceptional education that nurtures both academic excellence and spiritual growth',
 	heroImageUrl:
@@ -32,7 +34,83 @@ export const upstairs = {
 	tagline:
 		'Nurturing minds, building character, and inspiring excellence through quality Christian education',
 	yearFounded: 1995,
+	subscriptionPlan: 'premium',
+	subscriptionExpiry: new Date('2025-12-31'),
 
+	customizations: {
+		theme: 'dark',
+	},
+
+	// Only feature keys enabled for this school
+	enabledFeatures: [
+		'dashboard',
+		'user_management',
+		'profile_management',
+		'messages',
+		'grading_system',
+		'lesson_planning',
+		'academic_reports',
+		'academic_resources',
+		'calendar_events',
+		'class_management',
+		'fee_payment',
+		'salary_management',
+		'school_settings',
+		'support_system',
+		'events_log',
+	],
+
+	// Role-based feature access - only feature keys
+	roleFeatureAccess: {
+		system_admin: {
+			features: [
+				'dashboard',
+				'user_management',
+				'grading_system',
+				'class_management',
+				'academic_reports',
+				'lesson_planning',
+				'calendar_events',
+				'academic_resources',
+				'school_settings',
+				'support_system',
+				'profile_management',
+				'messages',
+			],
+		},
+		teacher: {
+			features: [
+				'dashboard',
+				'grading_system',
+				'lesson_planning',
+				'salary_management',
+				'academic_resources',
+				'events_log',
+				'profile_management',
+				'messages',
+			],
+		},
+		student: {
+			features: [
+				'dashboard',
+				'fee_payment',
+				'grading_system',
+				'academic_resources',
+				'profile_management',
+				'messages',
+			],
+		},
+		administrator: {
+			features: [
+				'dashboard',
+				'salary_management',
+				'profile_management',
+				'messages',
+			],
+		},
+	},
+
+	// Existing properties remain the same...
 	whyChoose: [
 		{
 			icon: <Award className="h-8 w-8 text-blue-600 dark:text-blue-400" />,
@@ -190,17 +268,13 @@ export const upstairs = {
 	],
 
 	address: ['123 Education Street', 'Monrovia, Montserrado', 'Liberia'],
-
 	phones: ['+231 770 123 456', '+231 880 789 012'],
-
 	emails: ['info@unityca.edu.lr', 'admissions@unityca.edu.lr'],
-
 	hours: [
 		'Monday - Friday: 7:30 AM - 3:30 PM',
 		'Saturday: 8:00 AM - 12:00 PM',
 		'Sunday: Closed',
 	],
-
 	quickLinks: [
 		{ label: 'About Us', href: '#about' },
 		{ label: 'Admissions', href: '#admissions' },
@@ -209,7 +283,6 @@ export const upstairs = {
 		{ label: 'Student Life', href: '#student-life' },
 		{ label: 'News & Events', href: '#news' },
 	],
-
 	academicLinks: [
 		{ label: 'Elementary School', href: '#elementary' },
 		{ label: 'Junior High School', href: '#junior-high' },
@@ -218,13 +291,11 @@ export const upstairs = {
 		{ label: 'Academic Calendar', href: '#calendar' },
 		{ label: 'Library', href: '#library' },
 	],
-
 	footerLinks: [
 		{ label: 'Privacy Policy', href: '#privacy' },
 		{ label: 'Terms of Service', href: '#terms' },
 		{ label: 'Site Map', href: '#sitemap' },
 	],
-
 	classLevels: {
 		Morning: {
 			'Self Contained': {
@@ -411,12 +482,4 @@ export const upstairs = {
 			},
 		},
 	},
-
-	features: [
-		'onlineAdmissions',
-		'onlinePayments',
-		'aiChat',
-		'schoolAdministratorsAccount',
-		'homepage',
-	],
 };

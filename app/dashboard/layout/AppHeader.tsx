@@ -46,8 +46,8 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
 		setIsLoading(true);
 		try {
 			// Replace with your actual API endpoint for changing password
-			const response = await fetch('/api/auth/change-password', {
-				method: 'POST',
+			const response = await fetch('/api/users', {
+				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ oldPassword, newPassword }),
 			});

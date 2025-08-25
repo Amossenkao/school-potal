@@ -46,11 +46,6 @@ export default function AdminLayout({
 		<ProtectedRoute>
 			<div className="min-h-screen flex bg-background">
 				<AppSidebar />
-				{/*
-          THE FIX: Added `min-w-0` here.
-          This prevents the flex container from growing beyond its available space,
-          which stops the wide table from creating a page-level scrollbar.
-        */}
 				<div
 					className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${mainContentMargin}`}
 				>

@@ -1,4 +1,6 @@
+// modals/DeactivateUserModal.tsx
 import React, { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 
 const DeactivateUserModal = ({
 	isOpen,
@@ -12,7 +14,7 @@ const DeactivateUserModal = ({
 	const handleConfirm = async () => {
 		setIsLoading(true);
 		try {
-			const res = await fetch(`/api/users/${user._id}/status`, {
+			const res = await fetch(`/api/users?id=${user._id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ isActive: !user.isActive }),
@@ -21,7 +23,7 @@ const DeactivateUserModal = ({
 			if (!res.ok) {
 				throw new Error(data.message || 'Failed to update status.');
 			}
-			onSuccess(data.data);
+			onSuccess(data.data.user); // The backend returns the updated user object
 			onClose();
 		} catch (err) {
 			setFeedback({ type: 'error', message: err.message });
@@ -57,10 +59,11 @@ const DeactivateUserModal = ({
 					<button
 						onClick={handleConfirm}
 						disabled={isLoading}
-						className={`px-6 py-2 text-white rounded-lg ${
+						className={`px-6 py-2 text-white rounded-lg flex items-center justify-center ${
 							user.isActive ? 'bg-red-600' : 'bg-green-600'
 						}`}
 					>
+						{isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
 						{isLoading ? 'Processing...' : `Confirm ${actionText}`}
 					</button>
 				</div>

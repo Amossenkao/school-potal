@@ -45,7 +45,11 @@ const ProtectedRoute = ({
 	}, [checkAuthStatus]);
 
 	useEffect(() => {
-		if (initialCheckComplete && !isLoading && !isLoggedIn) {
+		if (
+			initialCheckComplete &&
+			!isLoading &&
+			(!isLoggedIn || !user?.isActive)
+		) {
 			// Reset the global flag if user is not logged in
 			globalAuthInitialized = false;
 			router.replace('/login');
