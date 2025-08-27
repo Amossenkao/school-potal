@@ -1,6 +1,23 @@
 import { Schema, Document } from 'mongoose';
-import { User } from '@/types';
+import { User, Notification } from '@/types';
 import { UserRoles } from '../constants';
+
+const NotificationSchema = new Schema<Notification & Document>(
+	{
+		title: { type: String, required: true },
+		message: { type: String, required: true },
+		details: String,
+		timestamp: { type: Date, default: Date.now },
+		read: { type: Boolean, default: false },
+		dismissed: { type: Boolean, default: false },
+		type: {
+			type: String,
+			enum: ['Login', 'Grades', 'Security', 'Profile'],
+			required: true,
+		},
+	},
+	{ _id: false }
+);
 
 const UserSchema = new Schema<User & Document>(
 	{
@@ -14,22 +31,19 @@ const UserSchema = new Schema<User & Document>(
 		gender: { type: String, required: true },
 		dateOfBirth: { type: String, required: true },
 		isActive: { type: Boolean, default: true },
-		mustChangePassowrd: { type: Boolean, default: false },
-		requiresOtp: { type: Boolean, default: false },
+		mustChangePassword: { type: Boolean, default: false },
 		phone: { type: String, required: true },
 		email: String,
 		address: { type: String, required: true },
 		bio: String,
 		avatar: String,
 		lockedUntil: Date,
+		notifications: { type: [NotificationSchema], required: true, default: [] },
 	},
 	{
 		timestamps: true,
 		discriminatorKey: 'role',
 	}
 );
-
-UserSchema.set('toJSON', { virtuals: true });
-UserSchema.set('toObject', { virtuals: true });
 
 export default UserSchema;

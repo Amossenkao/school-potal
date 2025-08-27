@@ -19,16 +19,12 @@ interface PageProps {
 export default async function DynamicDashboardPage({ params }: PageProps) {
 	try {
 		// Read cookies in Server Component
-		const cookieStore = cookies();
+		const cookieStore = await cookies();
 
 		// Example: Get specific cookies
-		const sessionToken = cookieStore.get('sessionId')?.value;
-		const userPreferences = cookieStore.get('user-preferences')?.value;
-		const theme = cookieStore.get('theme')?.value || 'light';
-
-		// You can also get all cookies
-		const allCookies = cookieStore.getAll();
-		console.log('All cookies:', allCookies);
+		const sessionToken = await cookieStore.get('sessionId')?.value;
+		const userPreferences = await cookieStore.get('user-preferences')?.value;
+		const theme = (await cookieStore.get('theme')?.value) || 'light';
 
 		// Get current user and school profile
 		const user: any = await getCurrentUser();
@@ -38,7 +34,6 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 
 		// Get school profile (updated to match your implementation)
 		const schoolProfile: SchoolProfile = await getSchoolProfile();
-		console.log('SCHOOL PROFILE:', schoolProfile);
 		if (!schoolProfile) {
 			return (
 				<PageLoading
@@ -68,8 +63,6 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 			schoolProfile,
 			user.role
 		);
-
-		console.log(componentsMap);
 
 		// Try to find the component in role-specific items first, then shared items
 		const entry =

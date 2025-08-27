@@ -1,49 +1,61 @@
 // modals/EditUserModal.tsx
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, ChevronDown, AlertTriangle, User, BookOpen } from 'lucide-react';
 import { useSchoolStore } from '@/store/schoolStore';
 
 // Helper function to find the differences between two objects
 const getChangedFields = (originalUser, updatedFormData) => {
 	const changes = {};
+	if (!originalUser || !updatedFormData) return changes;
+
 	Object.keys(updatedFormData).forEach((key) => {
-		// Simple comparison for primitive values
-		if (originalUser[key] !== updatedFormData[key]) {
-			// Deep comparison for nested objects like 'subjects'
-			if (
-				JSON.stringify(originalUser[key]) !==
-				JSON.stringify(updatedFormData[key])
-			) {
-				changes[key] = updatedFormData[key];
-			}
+		// Skip the isSponsor field entirely - don't include it in changes
+		if (key === 'isSponsor') return;
+
+		if (
+			JSON.stringify(originalUser[key]) !== JSON.stringify(updatedFormData[key])
+		) {
+			changes[key] = updatedFormData[key];
 		}
 	});
+
 	return changes;
 };
 
 const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	const [formData, setFormData] = useState(null);
 	const [isLoading, setIsLoading] = useState(false);
-	const [error, setError] = useState('');
+	const [validationErrors, setValidationErrors] = useState([]);
+	const [conflictState, setConflictState] = useState(null);
 	const [expandedAccordions, setExpandedAccordions] = useState({});
 
 	const schoolProfile = useSchoolStore((state) => state.school);
 
 	useEffect(() => {
 		if (user) {
-			setFormData(JSON.parse(JSON.stringify(user)));
+			// Deep copy user object to prevent direct mutation
+			const userData = JSON.parse(JSON.stringify(user));
+			setFormData(userData);
+			// Reset states when a new user is selected for editing
+			setValidationErrors([]);
+			setConflictState(null);
+
 			if (user.role === 'teacher' && user.subjects) {
 				const initialAccordions = {};
+				// Pre-expand accordions for sessions where the teacher has subjects
 				user.subjects.forEach((s) => {
-					initialAccordions[s.session] = true;
+					if (s.session) {
+						initialAccordions[s.session] = true;
+					}
 				});
 				setExpandedAccordions(initialAccordions);
 			}
 		}
 	}, [user]);
 
+	// Memoized helper functions to derive data from school profile
 	const getSessions = () =>
 		schoolProfile?.classLevels ? Object.keys(schoolProfile.classLevels) : [];
 	const getClassLevels = (session) =>
@@ -52,7 +64,12 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			: [];
 	const getSubjectsBySessionAndLevel = (session, level) =>
 		schoolProfile?.classLevels?.[session]?.[level]?.subjects || [];
-
+	const getAllClassesForSession = (session) => {
+		if (!schoolProfile?.classLevels?.[session]) return [];
+		return Object.values(schoolProfile.classLevels[session]).flatMap(
+			(level) => level.classes || []
+		);
+	};
 	const getAllClassesWithLevelsForSession = (session) => {
 		if (!schoolProfile?.classLevels?.[session]) return [];
 		const allClasses = [];
@@ -66,12 +83,6 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		return allClasses;
 	};
 
-	const getAllClassesForSession = (session) => {
-		if (!schoolProfile?.classLevels?.[session]) return [];
-		return Object.values(schoolProfile.classLevels[session]).flatMap(
-			(level) => level.classes || []
-		);
-	};
 	const adminPositions = [
 		'Principal',
 		'Vice Principal',
@@ -87,6 +98,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		'Administrative Assistant',
 	];
 
+	// Form input change handlers
 	const handleInputChange = (e) => {
 		const { name, value } = e.target;
 		setFormData((prev) => ({ ...prev, [name]: value }));
@@ -97,7 +109,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		setFormData((prev) => ({
 			...prev,
 			session: newSession,
-			classId: '', // Reset class when session changes
+			classId: '',
 			className: '',
 			classLevel: '',
 		}));
@@ -151,16 +163,16 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		setFormData((prev) => ({
 			...prev,
 			sponsorClass: value || null,
-			isSponsor: !!value,
 		}));
 	};
 
+	// Primary save handler with enhanced conflict detection
 	const handleSave = async (e) => {
 		e.preventDefault();
 		setIsLoading(true);
-		setError('');
+		setValidationErrors([]);
+		setConflictState(null);
 
-		// **THIS IS THE FIX**: Only send the fields that have changed
 		const changedData = getChangedFields(user, formData);
 
 		if (Object.keys(changedData).length === 0) {
@@ -174,38 +186,212 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			const res = await fetch(`/api/users?id=${user._id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(changedData), // Send only the changed data
+				body: JSON.stringify({ ...changedData, forceAssignments: false }),
 			});
 			const data = await res.json();
+
 			if (!res.ok) {
-				throw new Error(data.message || 'Failed to update user.');
+				if (res.status === 409 && data.requiresConfirmation) {
+					// Handle conflict detection with enhanced UI
+					setConflictState({
+						conflicts: data.conflicts || [],
+						conflictSummary: data.conflictSummary || {},
+						errors: data.errors || [],
+						changedData,
+					});
+				} else if (res.status === 400 && data.errors) {
+					// Handle regular validation errors
+					setValidationErrors(data.errors);
+				} else {
+					setValidationErrors([
+						{ message: data.message || 'An unexpected error occurred.' },
+					]);
+				}
+				setIsLoading(false);
+				return;
 			}
-			onSave(data.data.user); // The backend now returns { data: { user: ... } }
+
+			// Success case
+			if (data.reassignments?.performed) {
+				setFeedback({
+					type: 'success',
+					message: `User updated successfully. ${data.reassignments.count} assignment(s) were reassigned.`,
+				});
+			} else {
+				setFeedback({ type: 'success', message: 'User updated successfully.' });
+			}
+			onSave(data.data.user);
 		} catch (err) {
-			const errorMessage = err.message || 'An unexpected error occurred.';
-			setError(errorMessage);
-			setFeedback({ type: 'error', message: errorMessage });
-		} finally {
+			setValidationErrors([
+				{ message: err.message || 'A network error occurred.' },
+			]);
 			setIsLoading(false);
 		}
 	};
 
+	// Handler for confirmed reassignment
+	const handleConfirmReassignment = async () => {
+		if (!conflictState?.changedData) return;
+		setIsLoading(true);
+		setValidationErrors([]);
+
+		try {
+			const res = await fetch(`/api/users?id=${user._id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					...conflictState.changedData,
+					confirmReassignments: true,
+				}),
+			});
+			const data = await res.json();
+
+			if (!res.ok) {
+				throw new Error(
+					data.message || 'Failed to update user with reassignments.'
+				);
+			}
+
+			if (data.reassignments?.performed) {
+				setFeedback({
+					type: 'success',
+					message: `User updated successfully. ${data.reassignments.count} assignment(s) were reassigned from other teachers.`,
+				});
+			} else {
+				setFeedback({ type: 'success', message: 'User updated successfully.' });
+			}
+			onSave(data.data.user);
+		} catch (err) {
+			setValidationErrors([{ message: err.message }]);
+		} finally {
+			setIsLoading(false);
+			setConflictState(null);
+		}
+	};
+
 	const toggleAccordion = (session) => {
-		setExpandedAccordions((prev) => ({
-			...prev,
-			[session]: !prev[session],
-		}));
+		setExpandedAccordions((prev) => ({ ...prev, [session]: !prev[session] }));
+	};
+
+	// Render conflict details component
+	const renderConflictDetails = () => {
+		if (!conflictState) return null;
+
+		const { conflicts, conflictSummary } = conflictState;
+		const sponsorshipConflicts = conflicts.filter(
+			(c) => c.type === 'sponsorship'
+		);
+		const subjectConflicts = conflicts.filter((c) => c.type === 'subject');
+
+		return (
+			<div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
+				<div className="flex">
+					<div className="flex-shrink-0">
+						<AlertTriangle className="h-6 w-6 text-amber-600" />
+					</div>
+					<div className="ml-3 flex-1">
+						<h3 className="text-lg font-semibold text-amber-900 mb-2">
+							Assignment Conflicts Detected
+						</h3>
+
+						<div className="text-sm text-amber-800 mb-4">
+							<p className="mb-2">
+								The following assignments are already held by other teachers.
+								Proceeding will reassign them to this teacher.
+							</p>
+
+							{conflictSummary.sponsorshipConflicts > 0 && (
+								<div className="mb-3">
+									<h4 className="font-medium flex items-center mb-2">
+										<User className="h-4 w-4 mr-1" />
+										Class Sponsorship Conflicts (
+										{conflictSummary.sponsorshipConflicts})
+									</h4>
+									{sponsorshipConflicts.map((conflict, i) => (
+										<div
+											key={i}
+											className="bg-white/50 p-2 rounded mb-2 text-xs"
+										>
+											<p className="font-medium">
+												Class: {conflict.sponsorClass}
+											</p>
+											<p>
+												Current Sponsor: {conflict.conflictingTeacher.name}(
+												{conflict.conflictingTeacher.teacherId})
+											</p>
+										</div>
+									))}
+								</div>
+							)}
+
+							{conflictSummary.subjectConflicts > 0 && (
+								<div className="mb-3">
+									<h4 className="font-medium flex items-center mb-2">
+										<BookOpen className="h-4 w-4 mr-1" />
+										Subject Assignment Conflicts (
+										{conflictSummary.subjectConflicts})
+									</h4>
+									{subjectConflicts.map((conflict, i) => (
+										<div
+											key={i}
+											className="bg-white/50 p-2 rounded mb-2 text-xs"
+										>
+											<p className="font-medium">
+												{conflict.assignment.subject} -{' '}
+												{conflict.assignment.level} (
+												{conflict.assignment.session})
+											</p>
+											<p>
+												Current Teacher: {conflict.conflictingTeacher.name}(
+												{conflict.conflictingTeacher.teacherId})
+											</p>
+										</div>
+									))}
+								</div>
+							)}
+						</div>
+
+						<div className="bg-amber-100 p-3 rounded border border-amber-300 mb-4">
+							<h4 className="font-medium text-amber-900 mb-1">⚠️ Warning</h4>
+							<p className="text-sm text-amber-800">
+								Confirming will remove these assignments from the current
+								teachers and assign them to{' '}
+								<strong>
+									{formData.firstName} {formData.lastName}
+								</strong>
+								. This action cannot be undone.
+							</p>
+						</div>
+
+						<div className="flex flex-wrap gap-2">
+							<button
+								type="button"
+								onClick={handleConfirmReassignment}
+								disabled={isLoading}
+								className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:bg-amber-400 disabled:cursor-not-allowed font-medium"
+							>
+								{isLoading ? 'Processing...' : 'Confirm Reassignments'}
+							</button>
+							<button
+								type="button"
+								onClick={() => setConflictState(null)}
+								className="px-4 py-2 bg-white text-amber-700 border border-amber-300 rounded-lg hover:bg-amber-50"
+							>
+								Cancel
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		);
 	};
 
 	if (!isOpen || !formData) return null;
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-			<form
-				onSubmit={handleSave}
-				className="bg-card rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-border"
-			>
-				<div className="flex justify-between items-center p-4 sm:p-6 border-b border-border flex-shrink-0">
+			<div className="bg-card rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-border">
+				<header className="flex justify-between items-center p-4 sm:p-6 border-b border-border flex-shrink-0">
 					<h4 className="text-xl md:text-2xl font-semibold text-foreground">
 						Edit User Profile
 					</h4>
@@ -216,16 +402,28 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 					>
 						<X className="h-5 w-5" />
 					</button>
-				</div>
+				</header>
 
-				<div className="overflow-y-auto flex-grow p-4 sm:p-8 space-y-6">
-					{error && (
-						<p className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
-							{error}
-						</p>
+				<main className="overflow-y-auto flex-grow p-4 sm:p-8 space-y-6">
+					{/* Regular validation errors */}
+					{validationErrors.length > 0 && (
+						<div className="text-sm text-red-600 bg-red-50 p-4 rounded-lg border border-red-200">
+							<p className="font-semibold flex items-center mb-2">
+								<AlertTriangle className="h-4 w-4 mr-2" />
+								Please fix the following issues:
+							</p>
+							<ul className="list-disc pl-5 space-y-1">
+								{validationErrors.map((err, index) => (
+									<li key={index}>{err.message}</li>
+								))}
+							</ul>
+						</div>
 					)}
-					{/* Personal Information */}
-					<div>
+
+					{/* Conflict detection UI */}
+					{conflictState && renderConflictDetails()}
+
+					<section>
 						<h5 className="font-semibold mb-3 text-lg border-b pb-2">
 							Personal Information
 						</h5>
@@ -256,11 +454,10 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 								onChange={handleInputChange}
 							/>
 						</div>
-					</div>
+					</section>
 
-					{/* Role-Specific Information */}
 					{user.role === 'student' && (
-						<div>
+						<section>
 							<h5 className="font-semibold mb-3 text-lg border-b pb-2">
 								Academic Information
 							</h5>
@@ -310,38 +507,36 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 									</select>
 								</div>
 							</div>
-						</div>
+						</section>
 					)}
 
 					{user.role === 'administrator' && (
-						<div>
+						<section>
 							<h5 className="font-semibold mb-3 text-lg border-b pb-2">
 								Administrative Information
 							</h5>
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-								<div>
-									<label className="block text-sm font-medium text-foreground mb-1">
-										Position
-									</label>
-									<select
-										name="position"
-										value={formData.position}
-										onChange={handleInputChange}
-										className="w-full p-2 border border-border rounded-lg bg-background"
-									>
-										{adminPositions.map((pos) => (
-											<option key={pos} value={pos}>
-												{pos}
-											</option>
-										))}
-									</select>
-								</div>
+							<div>
+								<label className="block text-sm font-medium text-foreground mb-1">
+									Position
+								</label>
+								<select
+									name="position"
+									value={formData.position}
+									onChange={handleInputChange}
+									className="w-full p-2 border border-border rounded-lg bg-background"
+								>
+									{adminPositions.map((pos) => (
+										<option key={pos} value={pos}>
+											{pos}
+										</option>
+									))}
+								</select>
 							</div>
-						</div>
+						</section>
 					)}
 
 					{user.role === 'teacher' && schoolProfile && (
-						<div>
+						<section>
 							<h5 className="font-semibold mb-3 text-lg border-b pb-2">
 								Teaching Assignments
 							</h5>
@@ -354,7 +549,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 										<button
 											type="button"
 											onClick={() => toggleAccordion(session)}
-											className="flex justify-between items-center w-full p-3 font-medium text-left bg-muted/50 hover:bg-muted/80"
+											className="flex justify-between items-center w-full p-3 font-medium text-left bg-muted/50 hover:bg-muted/80 rounded-t-lg"
 										>
 											<span>{session} Session</span>
 											<ChevronDown
@@ -364,7 +559,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 											/>
 										</button>
 										{expandedAccordions[session] && (
-											<div className="p-4 space-y-4">
+											<div className="p-4 space-y-4 border-t border-border">
 												<div>
 													<label className="block text-sm font-medium text-foreground mb-2">
 														Class Sponsorship
@@ -381,6 +576,12 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 															</option>
 														))}
 													</select>
+													{formData.sponsorClass && (
+														<p className="text-xs text-green-600 mt-1">
+															This teacher will be assigned as sponsor for the
+															selected class
+														</p>
+													)}
 												</div>
 												<div>
 													<label className="block text-sm font-medium text-foreground mb-2">
@@ -432,11 +633,11 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 									</div>
 								))}
 							</div>
-						</div>
+						</section>
 					)}
-				</div>
+				</main>
 
-				<div className="p-4 sm:p-6 bg-muted/50 border-t border-border text-right rounded-b-xl flex-shrink-0">
+				<footer className="p-4 sm:p-6 bg-muted/50 border-t border-border text-right rounded-b-xl flex-shrink-0">
 					<button
 						type="button"
 						onClick={onClose}
@@ -445,14 +646,15 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 						Cancel
 					</button>
 					<button
-						type="submit"
-						disabled={isLoading}
-						className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:bg-primary/50"
+						type="button"
+						onClick={handleSave}
+						disabled={isLoading || !!conflictState}
+						className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:bg-primary/50 disabled:cursor-not-allowed"
 					>
 						{isLoading ? 'Saving...' : 'Save Changes'}
 					</button>
-				</div>
-			</form>
+				</footer>
+			</div>
 		</div>
 	);
 };

@@ -76,9 +76,7 @@ const componentMappings: Record<string, any> = {
 	'yearly-reports': dynamic(
 		() => import('@/app/dashboard/shared/YearlyReport')
 	),
-	masters: dynamic(
-		() => import('@/app/dashboard/admin/reports/MasterGradeSheets')
-	),
+	masters: dynamic(() => import('@/app/dashboard/shared/MasterGradeSheet')),
 
 	// Lesson Planning
 	'view-lessonplans': dynamic(

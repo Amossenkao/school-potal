@@ -1,16 +1,35 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
 import Logo from '@/components/Logo';
 import { useSidebar } from '@/context/SidebarContext';
 import useAuth from '@/store/useAuth';
-import { KeyRound, LogOut, User, X } from 'lucide-react';
+import {
+	KeyRound,
+	LogOut,
+	User,
+	X,
+	Bell,
+	Check,
+	CheckCheck,
+	Trash2,
+} from 'lucide-react';
 import Link from 'next/link';
 import Spinner from '@/components/ui/spinner';
 import Input from '@/components/form/input/InputField';
 import Label from '@/components/form/Label';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
+
+// --- Types ---
+interface Notification {
+	_id: string; // Mongoose subdocuments have a unique _id
+	title: string;
+	message: string;
+	timestamp: string; // Comes as a Date string from backend
+	read: boolean;
+	type: 'Login' | 'Grades' | 'Security' | 'Profile';
+}
 
 // --- Custom Hook for Modal State ---
 const useModal = () => {
@@ -74,7 +93,7 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
 		<Modal isOpen={isOpen} onClose={onClose} className="max-w-[500px] m-4">
 			<div className="no-scrollbar relative w-full max-w-[500px] overflow-y-auto rounded-2xl bg-white p-6 dark:bg-gray-900 lg:p-8">
 				<h4 className="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">
-					Reset Password
+					Change Password
 				</h4>
 				<p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
 					Enter your old and new password to update your credentials.
@@ -122,6 +141,289 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
 				</form>
 			</div>
 		</Modal>
+	);
+};
+
+// --- Notifications Dropdown Component ---
+const NotificationsDropdown = () => {
+	const { user, setUser } = useAuth(); // Assumes setUser updates the auth store
+	const [isOpen, setIsOpen] = useState(false);
+	const [isLoading, setIsLoading] = useState(false);
+	const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+	const dropdownRef = useRef<HTMLDivElement>(null);
+
+	// Filter and sort notifications from the user object
+	const notifications = useMemo(() => {
+		if (!user?.notifications) return [];
+		return user.notifications
+			.filter((n) => !dismissedIds.includes(n._id))
+			.sort(
+				(a, b) =>
+					new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+			);
+	}, [user?.notifications, dismissedIds]);
+
+	useEffect(() => {
+		const handleClickOutside = (event) => {
+			if (
+				dropdownRef.current &&
+				!dropdownRef.current.contains(event.target as Node)
+			) {
+				setIsOpen(false);
+			}
+		};
+		document.addEventListener('mousedown', handleClickOutside);
+		return () => document.removeEventListener('mousedown', handleClickOutside);
+	}, []);
+
+	const unreadCount = notifications.filter((n) => !n.read).length;
+	const displayCount = unreadCount > 10 ? '10+' : unreadCount.toString();
+
+	const markAsRead = async (id: string) => {
+		if (!user) return;
+		// Optimistically update the UI
+		const updatedUser = {
+			...user,
+			notifications: user.notifications.map((n) =>
+				n._id === id ? { ...n, read: true } : n
+			),
+		};
+		setUser(updatedUser);
+
+		try {
+			// Replace with your actual API endpoint to mark a notification as read
+			await fetch(`/api/notifications/${id}/read`, { method: 'PATCH' });
+		} catch (error) {
+			console.error('Failed to mark notification as read:', error);
+			// Revert on failure
+			setUser(user);
+		}
+	};
+
+	const markAllAsRead = async () => {
+		if (!user) return;
+		setIsLoading(true);
+		const unreadIds = notifications.filter((n) => !n.read).map((n) => n._id);
+		// Optimistically update the UI
+		const updatedUser = {
+			...user,
+			notifications: user.notifications.map((n) =>
+				unreadIds.includes(n._id) ? { ...n, read: true } : n
+			),
+		};
+		setUser(updatedUser);
+
+		try {
+			// Replace with your actual API endpoint to mark all as read
+			await fetch('/api/notifications/mark-all-read', { method: 'POST' });
+		} catch (error) {
+			console.error('Failed to mark all as read:', error);
+			setUser(user); // Revert on failure
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	const deleteNotification = (id: string) => {
+		// Only hide from the dropdown, does not delete from the database
+		setDismissedIds((prev) => [...prev, id]);
+	};
+
+	const getNotificationIcon = (type: Notification['type']) => {
+		const iconClass = 'h-4 w-4';
+		switch (type) {
+			case 'Grades':
+				return (
+					<div className="bg-blue-100 dark:bg-blue-900/30 rounded-full p-1">
+						<svg
+							className={`${iconClass} text-blue-600 dark:text-blue-400`}
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+							/>
+						</svg>
+					</div>
+				);
+			case 'Security':
+				return (
+					<div className="bg-orange-100 dark:bg-orange-900/30 rounded-full p-1">
+						<svg
+							className={`${iconClass} text-orange-600 dark:text-orange-400`}
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+							/>
+						</svg>
+					</div>
+				);
+			case 'Profile':
+				return (
+					<div className="bg-green-100 dark:bg-green-900/30 rounded-full p-1">
+						<svg
+							className={`${iconClass} text-green-600 dark:text-green-400`}
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+							/>
+						</svg>
+					</div>
+				);
+			case 'Login':
+				return (
+					<div className="bg-yellow-100 dark:bg-yellow-900/30 rounded-full p-1">
+						<svg
+							className={`${iconClass} text-yellow-600 dark:text-yellow-400`}
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M15 7a3 3 0 013 3v6a3 3 0 01-3 3H9a3 3 0 01-3-3V10a3 3 0 013-3h6zM9 4h6a3 3 0 013 3v1"
+							/>
+						</svg>
+					</div>
+				);
+			default:
+				return (
+					<div className="bg-gray-100 dark:bg-gray-700 rounded-full p-1">
+						<Bell className={`${iconClass} text-gray-600 dark:text-gray-400`} />
+					</div>
+				);
+		}
+	};
+
+	return (
+		<div className="relative" ref={dropdownRef}>
+			<button
+				onClick={() => setIsOpen(!isOpen)}
+				className="relative flex items-center justify-center w-10 h-10 text-gray-500 border border-gray-200 rounded-lg transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800"
+				aria-label="Notifications"
+			>
+				<Bell className="h-5 w-5" />
+				{unreadCount > 0 && (
+					<span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] text-xs font-semibold text-white bg-red-500 rounded-full px-1">
+						{displayCount}
+					</span>
+				)}
+			</button>
+
+			{isOpen && (
+				<div className="absolute right-0 mt-2 w-80 origin-top-right rounded-xl bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+					<div className="p-4 border-b border-gray-200 dark:border-gray-700">
+						<div className="flex items-center justify-between">
+							<h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+								Notifications
+							</h3>
+							{unreadCount > 0 && (
+								<button
+									onClick={markAllAsRead}
+									disabled={isLoading}
+									className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 disabled:opacity-50"
+								>
+									<CheckCheck className="h-4 w-4" />
+									Mark all read
+								</button>
+							)}
+						</div>
+					</div>
+
+					<div className="max-h-80 overflow-y-auto">
+						{notifications.length === 0 ? (
+							<div className="p-4 text-center text-gray-500 dark:text-gray-400">
+								<Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
+								<p>No new notifications</p>
+							</div>
+						) : (
+							notifications.map((notification) => (
+								<div
+									key={notification.timestamp.toString()}
+									className={`relative p-4 border-b border-gray-200 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
+										!notification.read
+											? 'bg-blue-50/50 dark:bg-blue-900/10'
+											: ''
+									}`}
+								>
+									<div className="flex items-start gap-3">
+										<div className="flex-shrink-0 mt-1">
+											{getNotificationIcon(notification.type)}
+										</div>
+										<div className="flex-1 min-w-0">
+											<div className="flex items-start justify-between">
+												<div className="flex-1">
+													<p className="text-sm font-medium text-gray-800 dark:text-white">
+														{notification.title}
+													</p>
+													<p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+														{notification.message}
+													</p>
+													<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+														{new Date(notification.timestamp).toLocaleString()}
+													</p>
+												</div>
+												<div className="flex items-center gap-1 ml-2">
+													{!notification.read && (
+														<button
+															onClick={() => markAsRead(notification._id)}
+															className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+															title="Mark as read"
+														>
+															<Check className="h-3 w-3" />
+														</button>
+													)}
+													<button
+														onClick={() => deleteNotification(notification._id)}
+														className="p-1 text-gray-400 hover:text-red-500"
+														title="Dismiss notification"
+													>
+														<Trash2 className="h-3 w-3" />
+													</button>
+												</div>
+											</div>
+										</div>
+									</div>
+									{!notification.read && (
+										<div className="absolute left-2 top-1/2 -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full"></div>
+									)}
+								</div>
+							))
+						)}
+					</div>
+
+					{notifications.length > 0 && (
+						<div className="p-3 border-t border-gray-200 dark:border-gray-700">
+							<Link
+								href="/dashboard/notifications"
+								className="block w-full text-center text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+								onClick={() => setIsOpen(false)}
+							>
+								View all notifications
+							</Link>
+						</div>
+					)}
+				</div>
+			)}
+		</div>
 	);
 };
 
@@ -179,7 +481,7 @@ const UserDropdown = () => {
 				</button>
 
 				{isOpen && (
-					<div className="absolute right-0 mt-2 w-56 origin-top-right rounded-xl bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+					<div className="absolute right-0 mt-2 w-56 origin-top-right rounded-xl bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
 						<div className="py-2">
 							<Link
 								href="/dashboard/profile"
@@ -197,7 +499,7 @@ const UserDropdown = () => {
 								className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
 							>
 								<KeyRound className="h-4 w-4" />
-								Reset Password
+								Change Password
 							</button>
 							<div className="border-t border-gray-200 dark:border-gray-700 my-1" />
 							<button
@@ -302,7 +604,8 @@ const AppHeader: React.FC = () => {
 						isApplicationMenuOpen ? 'flex' : 'hidden'
 					} items-center justify-between w-full gap-4 px-5 py-4 lg:flex shadow-theme-md lg:justify-end lg:px-0 lg:shadow-none`}
 				>
-					<div className="flex items-center gap-2 2xsm:gap-3">
+					<div className="flex items-center gap-3 2xsm:gap-4">
+						<NotificationsDropdown />
 						<ThemeToggleButton />
 					</div>
 					<UserDropdown />

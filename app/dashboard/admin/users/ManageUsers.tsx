@@ -1,4 +1,3 @@
-// The refactored UserManagementDashboard component
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
@@ -24,7 +23,6 @@ import {
 import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/button/Button';
 import { PageLoading } from '@/components/loading';
-import { classIds } from '@/types';
 import DeleteUserModal from '@/components/modals/DeleteUserModal';
 import ResetPasswordModal from '@/components/modals/ResetPasswordModal';
 import ViewUserModal from '@/components/modals/ViewUserModal';
@@ -72,6 +70,54 @@ const UserManagementDashboard = () => {
 
 	const router = useRouter();
 	const schoolProfile = useSchoolStore((state) => state.school);
+
+	// Get all available classes from school profile
+	const availableClasses = useMemo(() => {
+		if (!schoolProfile?.classLevels) return [];
+
+		const allClasses = [];
+		Object.entries(schoolProfile.classLevels).forEach(([session, levels]) => {
+			Object.entries(levels).forEach(([level, levelData]) => {
+				levelData.classes.forEach((cls) => {
+					allClasses.push({
+						...cls,
+						session,
+						level,
+						displayName: `${cls.name} (${level} - ${session})`,
+					});
+				});
+			});
+		});
+		return allClasses;
+	}, [schoolProfile]);
+
+	// Get all available sessions from school profile
+	const availableSessions = useMemo(() => {
+		if (!schoolProfile?.classLevels) return [];
+		return Object.keys(schoolProfile.classLevels);
+	}, [schoolProfile]);
+
+	// Get all available class levels from school profile
+	const availableClassLevels = useMemo(() => {
+		if (!schoolProfile?.classLevels) return [];
+		const levels = new Set();
+		Object.values(schoolProfile.classLevels).forEach((sessionData) => {
+			Object.keys(sessionData).forEach((level) => levels.add(level));
+		});
+		return Array.from(levels);
+	}, [schoolProfile]);
+
+	// Get all available subjects from school profile
+	const availableSubjects = useMemo(() => {
+		if (!schoolProfile?.classLevels) return [];
+		const subjects = new Set();
+		Object.values(schoolProfile.classLevels).forEach((sessionData) => {
+			Object.values(sessionData).forEach((levelData) => {
+				levelData.subjects.forEach((subject) => subjects.add(subject));
+			});
+		});
+		return Array.from(subjects).sort();
+	}, [schoolProfile]);
 
 	const fetchUsers = async () => {
 		setLoading(true);
@@ -127,6 +173,30 @@ const UserManagementDashboard = () => {
 		return names.join(' ');
 	};
 
+	// Helper function to get class display name from school profile
+	const getClassDisplayName = (classId) => {
+		if (!classId || !schoolProfile?.classLevels) return classId;
+
+		const foundClass = availableClasses.find((cls) => cls.classId === classId);
+		return foundClass ? foundClass.displayName : classId;
+	};
+
+	// Helper function to get class level from class ID
+	const getClassLevelFromId = (classId) => {
+		if (!classId || !schoolProfile?.classLevels) return null;
+
+		const foundClass = availableClasses.find((cls) => cls.classId === classId);
+		return foundClass ? foundClass.level : null;
+	};
+
+	// Helper function to get session from class ID
+	const getSessionFromId = (classId) => {
+		if (!classId || !schoolProfile?.classLevels) return null;
+
+		const foundClass = availableClasses.find((cls) => cls.classId === classId);
+		return foundClass ? foundClass.session : null;
+	};
+
 	const filteredAndSortedUsers = useMemo(() => {
 		const filtered = users.filter((user) => {
 			const fullName = getFullName(user).toLowerCase();
@@ -142,13 +212,15 @@ const UserManagementDashboard = () => {
 
 			const matchesSession =
 				sessionFilter === 'all' ||
-				(user.role === 'student' && user.session === sessionFilter) ||
+				(user.role === 'student' &&
+					getSessionFromId(user.classId) === sessionFilter) ||
 				(user.role === 'teacher' &&
 					user.subjects?.some((s) => s.session === sessionFilter));
 
 			const matchesClassLevel =
 				classLevelFilter === 'all' ||
-				(user.role === 'student' && user.classLevel === classLevelFilter) ||
+				(user.role === 'student' &&
+					getClassLevelFromId(user.classId) === classLevelFilter) ||
 				(user.role === 'teacher' &&
 					user.subjects?.some((s) => s.level === classLevelFilter));
 
@@ -207,6 +279,8 @@ const UserManagementDashboard = () => {
 		subjectFilter,
 		sortField,
 		sortDirection,
+		schoolProfile,
+		availableClasses,
 	]);
 
 	const totalPages = Math.ceil(filteredAndSortedUsers.length / itemsPerPage);
@@ -282,11 +356,6 @@ const UserManagementDashboard = () => {
 				updatedUser.isActive ? 'activated' : 'deactivated'
 			} successfully`,
 		});
-	};
-
-	const getClassDisplayName = (classId) => {
-		const cls = classIds.find((c) => c.id === classId);
-		return cls ? `${cls.name} (${cls.level})` : classId;
 	};
 
 	if (loading) {
@@ -726,6 +795,10 @@ const UserManagementDashboard = () => {
 					setCurrentPage(1);
 				}}
 				schoolProfile={schoolProfile}
+				availableClasses={availableClasses}
+				availableSessions={availableSessions}
+				availableClassLevels={availableClassLevels}
+				availableSubjects={availableSubjects}
 			/>
 
 			<DeactivateUserModal
@@ -753,6 +826,9 @@ const UserManagementDashboard = () => {
 						});
 					}}
 					setFeedback={setFeedback}
+					schoolProfile={schoolProfile}
+					availableClasses={availableClasses}
+					availableSubjects={availableSubjects}
 				/>
 			)}
 		</div>

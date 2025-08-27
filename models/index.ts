@@ -1,4 +1,5 @@
 import { getTenantConnection } from '@/lib/mongoose';
+import { Connection, Document } from 'mongoose';
 
 import UserSchema from './user/User';
 import StudentSchema from './user/Student';
@@ -6,31 +7,32 @@ import TeacherSchema from './user/Teacher';
 import AdministratorSchema from './user/Administrator';
 import SystemAdminSchema from './user/SystemAdmin';
 import GradeSchema from './grade/Grade';
+import GradeChangeRequestSchema from './grade/GradeChangeRequest';
 
-// import SchoolInfoSchema from './school/SchoolInfo';
-// import SchoolSchema from './school/School';
-// import ClassSchema from './school/Class';
-
-// import MessageSchema from './message/Message';
-
-import { Document } from 'mongoose';
 import type {
 	User,
 	Student,
 	Teacher,
 	Administrator,
 	SystemAdmin,
-	// SchoolInfo,
-	// School,
-	// Class,
-	// Message,
 } from '@/types';
+
+// --- Model Cache ---
+// Store models per tenant to avoid recompilation
+const modelCache = new Map<Connection, any>();
 
 export const getTenantModels = async (host: string | null) => {
 	const connection = await getTenantConnection(host);
-	if (!connection)
+	if (!connection) {
 		throw new Error('Could not establish DB connection for tenant');
+	}
 
+	// --- Check if models are already compiled for this connection ---
+	if (modelCache.has(connection)) {
+		return modelCache.get(connection);
+	}
+
+	// --- If not cached, compile them once ---
 	const User = connection.model<User & Document>('User', UserSchema);
 
 	const StudentModel =
@@ -48,8 +50,6 @@ export const getTenantModels = async (host: string | null) => {
 			AdministratorSchema
 		);
 
-	const GradeModel = connection.model<Document>('Grade', GradeSchema);
-
 	const SystemAdminModel =
 		User.discriminators?.system_admin ||
 		User.discriminator<SystemAdmin & Document>(
@@ -57,32 +57,28 @@ export const getTenantModels = async (host: string | null) => {
 			SystemAdminSchema
 		);
 
-	// const SchoolInfo = connection.model<SchoolInfo & Document>(
-	// 	'SchoolInfo',
-	// 	SchoolInfoSchema
-	// );
-	// const School = connection.model<School & Document>('School', SchoolSchema);
-	// const Class = connection.model<Class & Document>('Class', ClassSchema);
-	// const MessageModel = connection.model<Message & Document>(
-	// 	'Message',
-	// 	MessageSchema
-	// );
-
-	return {
+	const GradeModel = connection.model<Document>('Grade', GradeSchema);
+	const GradeChangeRequestModal = connection.model<Document>(
+		'GradeChangeRequest',
+		GradeChangeRequestSchema
+	);
+	const models = {
 		User,
 		Student: StudentModel,
 		Teacher: TeacherModel,
 		Administrator: AdministratorModel,
 		SystemAdmin: SystemAdminModel,
-		// SchoolInfo,
-		// School,
-		// Class,
-		// Message: MessageModel,
 		Grade: GradeModel,
+		GradeChangeRequest: GradeChangeRequestModal,
 	};
+
+	// --- Store the compiled models in the cache ---
+	modelCache.set(connection, models);
+
+	return models;
 };
 
-// Convenience getters
+// Convenience getters remain the same
 export const getUserModel = async (host: string | null) =>
 	(await getTenantModels(host)).User;
 export const getStudentModel = async (host: string | null) =>
@@ -95,12 +91,3 @@ export const getSystemAdminModel = async (host: string | null) =>
 	(await getTenantModels(host)).SystemAdmin;
 export const getGradeModel = async (host: string | null) =>
 	(await getTenantModels(host)).Grade;
-
-// export const getSchoolInfoModel = async (host: string | null) =>
-// 	(await getTenantModels(host)).SchoolInfo;
-// export const getSchoolModel = async (host: string | null) =>
-// 	(await getTenantModels(host)).School;
-// export const getClassModel = async (host: string | null) =>
-// 	(await getTenantModels(host)).Class;
-// export const getMessageModel = async (host: string | null) =>
-// 	(await getTenantModels(host)).Message;

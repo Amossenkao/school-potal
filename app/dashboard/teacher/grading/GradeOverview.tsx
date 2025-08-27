@@ -12,7 +12,11 @@ import {
 	ArrowUpDown,
 	ArrowUp,
 	ArrowDown,
+	XCircle,
+	RefreshCw,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button'; // Assuming you have a button component
+import { useSchoolStore } from '@/store/schoolStore';
 
 // Types
 interface StudentGrade {
@@ -27,11 +31,12 @@ interface GradeSubmission {
 	submissionId: string;
 	academicYear: string;
 	period: string;
-	gradeLevel: string;
+	gradeLevel: string; // This is actually the classId
 	subject: string;
 	teacherId: string;
 	grades: (StudentGrade & { status: 'Approved' | 'Rejected' | 'Pending' })[];
 	status: 'Approved' | 'Rejected' | 'Pending' | 'Partially Approved';
+	lastUpdated: string;
 	stats: {
 		incompletes: number;
 		passes: number;
@@ -46,7 +51,7 @@ interface TeacherInfo {
 	userId: string;
 	teacherId: string;
 	role: 'teacher';
-	subjects: { subject: string; level: string }[];
+	subjects: { subject: string; level: string; session: string }[];
 	classes: { [subject: string]: string[] };
 }
 
@@ -57,6 +62,12 @@ interface GradeChangeRequestStudent {
 	newGrade: string;
 	selected: boolean;
 	status: 'Approved' | 'Rejected' | 'Pending';
+	reason?: string;
+}
+
+interface ConfirmationModalState {
+	isOpen: boolean;
+	reason: string;
 }
 
 interface GradeOverviewProps {
@@ -65,11 +76,9 @@ interface GradeOverviewProps {
 	error: string;
 	teacherInfo: TeacherInfo | null;
 	onSwitchToSubmit: () => void;
-	onGradeChangeRequest: (payload: {
-		submissionId: string;
-		reason: string;
-		changes: { studentId: string; newGrade: number }[];
-	}) => Promise<void>;
+	onRefresh: () => void;
+	onEditGrade: (submission: GradeSubmission) => void;
+	onViewGrade: (submission: GradeSubmission) => void;
 }
 
 const periods = [
@@ -94,15 +103,14 @@ const PageLoading = ({ fullScreen = true }: { fullScreen?: boolean }) => (
 );
 
 const GradeOverview: React.FC<GradeOverviewProps> = ({
-	submittedGrades = null,
+	submittedGrades = [],
 	loading = false,
 	error = '',
 	teacherInfo = null,
 	onSwitchToSubmit = () => console.log('Switch to submit'),
-	onGradeChangeRequest = async (payload) =>
-		console.log('Submitting grade change:', payload),
+	onRefresh,
 }) => {
-	const [showFilterModal, setShowFilterModal] = useState(false);
+	const school = useSchoolStore((state) => state.school);
 	const [showDetailsModal, setShowDetailsModal] = useState(false);
 	const [selectedGrade, setSelectedGrade] = useState<GradeSubmission | null>(
 		null
@@ -110,13 +118,23 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 	const [gradeChangeStudents, setGradeChangeStudents] = useState<
 		GradeChangeRequestStudent[]
 	>([]);
-	const [changeReason, setChangeReason] = useState('');
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [confirmationModal, setConfirmationModal] =
+		useState<ConfirmationModalState>({
+			isOpen: false,
+			reason: '',
+		});
+	const [notification, setNotification] = useState<{
+		type: 'success' | 'error' | 'info';
+		message: string;
+	} | null>(null);
 
 	// Filter states
 	const [filters, setFilters] = useState({
 		subject: '',
+		session: '',
 		gradeLevel: '',
+		classId: '',
 		period: '',
 	});
 	// Sorting states
@@ -125,19 +143,66 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 		direction: 'asc' | 'desc';
 	}>({ key: 'lastUpdated', direction: 'desc' });
 
-	const getAllGradeLevels = () => {
+	const classMap = useMemo(() => {
+		if (!school?.classLevels) return new Map();
+		const map = new Map();
+		Object.values(school.classLevels).forEach((session: any) => {
+			Object.values(session).forEach((level: any) => {
+				level.classes.forEach((cls: any) => {
+					map.set(cls.classId, cls.name);
+				});
+			});
+		});
+		return map;
+	}, [school]);
+
+	const availableSessions = useMemo(() => {
 		if (!teacherInfo?.subjects) return [];
-		const gradeLevels = new Set<string>();
-		teacherInfo.subjects.forEach((s) => gradeLevels.add(s.level));
-		return Array.from(gradeLevels);
+		return [...new Set(teacherInfo.subjects.map((s) => s.session))];
+	}, [teacherInfo]);
+
+	const availableSubjects = useMemo(() => {
+		if (!teacherInfo?.subjects) return [];
+		let subjects = teacherInfo.subjects;
+		if (filters.session) {
+			subjects = subjects.filter((s) => s.session === filters.session);
+		}
+		return [...new Set(subjects.map((s) => s.subject))];
+	}, [teacherInfo, filters.session]);
+
+	const availableLevels = useMemo(() => {
+		if (!teacherInfo?.subjects) return [];
+		let subjects = teacherInfo.subjects;
+		if (filters.session) {
+			subjects = subjects.filter((s) => s.session === filters.session);
+		}
+		if (filters.subject) {
+			subjects = subjects.filter((s) => s.subject === filters.subject);
+		}
+		return [...new Set(subjects.map((s) => s.level))];
+	}, [teacherInfo, filters.session, filters.subject]);
+
+	const availableClasses = useMemo(() => {
+		if (!filters.gradeLevel || !school?.classLevels) return [];
+		const classes: any[] = [];
+		const sessionToFilter = filters.session || availableSessions[0];
+
+		if (school.classLevels[sessionToFilter]?.[filters.gradeLevel]) {
+			classes.push(
+				...school.classLevels[sessionToFilter][filters.gradeLevel].classes
+			);
+		}
+		return [...new Map(classes.map((item) => [item.classId, item])).values()];
+	}, [filters.gradeLevel, filters.session, school, availableSessions]);
+
+	const showNotification = (
+		type: 'success' | 'error' | 'info',
+		message: string
+	) => {
+		setNotification({ type, message });
+		setTimeout(() => setNotification(null), 5000);
 	};
 
-	const resetFilters = () =>
-		setFilters({ subject: '', gradeLevel: '', period: '' });
-
-	/**
-	 * NEW: Derives the overall status of a submission based on its individual grades.
-	 */
 	const deriveSubmissionStatus = (
 		submission: GradeSubmission
 	): 'Approved' | 'Rejected' | 'Pending' | 'Partially Approved' => {
@@ -155,21 +220,37 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 		return 'Pending';
 	};
 
-	/**
-	 * NEW: Simplified color logic for the modal (Pass/Fail only).
-	 */
 	const getModalGradeColor = (grade: number | null) => {
 		if (grade === null || grade === undefined) return 'text-muted-foreground';
-		if (grade >= 70) return 'text-sky-500 font-semibold'; // Blue for pass
-		return 'text-destructive font-semibold'; // Red for fail
+		if (grade >= 70) return 'text-sky-500 font-semibold';
+		return 'text-destructive font-semibold';
 	};
 
 	const applyFilters = (grades: GradeSubmission[]) =>
-		grades?.filter((grade) => {
+		grades.filter((grade) => {
 			if (filters.subject && grade.subject !== filters.subject) return false;
-			if (filters.gradeLevel && grade.gradeLevel !== filters.gradeLevel)
-				return false;
+			if (filters.classId && grade.gradeLevel !== filters.classId) return false;
 			if (filters.period && grade.period !== filters.period) return false;
+
+			if (filters.gradeLevel && !filters.classId) {
+				const levelClasses = availableClasses.map((c) => c.classId);
+				if (!levelClasses.includes(grade.gradeLevel)) return false;
+			}
+			if (filters.session) {
+				const teacherSubject = teacherInfo?.subjects.find(
+					(s) =>
+						s.subject === grade.subject &&
+						s.level ===
+							Object.entries(school.classLevels[filters.session] || {}).find(
+								([, levelData]: [string, any]) =>
+									levelData.classes.some(
+										(c: any) => c.classId === grade.gradeLevel
+									)
+							)?.[0] &&
+						s.session === filters.session
+				);
+				if (!teacherSubject) return false;
+			}
 			return true;
 		});
 
@@ -253,11 +334,32 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 				status: g.status,
 			}))
 		);
-		setChangeReason('');
 		setShowDetailsModal(true);
 	};
 
-	const handleSubmitGradeChange = async () => {
+	const handleOpenConfirmationModal = () => {
+		const changes = gradeChangeStudents.filter(
+			(s) =>
+				s.selected && s.newGrade.trim() !== '' && !isNaN(Number(s.newGrade))
+		);
+
+		if (changes.length === 0) {
+			showNotification(
+				'info',
+				'Please select at least one student and provide a valid new grade.'
+			);
+			return;
+		}
+
+		const hasApprovedChange = changes.some((s) => s.status === 'Approved');
+		if (hasApprovedChange) {
+			setConfirmationModal({ isOpen: true, reason: '' });
+		} else {
+			handleFinalSubmit();
+		}
+	};
+
+	const handleFinalSubmit = async () => {
 		if (!selectedGrade) return;
 
 		const changes = gradeChangeStudents
@@ -265,36 +367,92 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 				(s) =>
 					s.selected && s.newGrade.trim() !== '' && !isNaN(Number(s.newGrade))
 			)
-			.map((s) => ({ studentId: s.studentId, newGrade: Number(s.newGrade) }));
+			.map((s) => ({
+				studentId: s.studentId,
+				name: s.name,
+				originalGrade: s.currentGrade,
+				requestedGrade: Number(s.newGrade),
+				reason:
+					s.status === 'Approved'
+						? confirmationModal.reason
+						: 'Teacher grade correction',
+			}));
 
 		if (changes.length === 0) {
-			alert(
-				'Please select at least one student and provide a valid new grade.'
-			);
-			return;
+			return; // This case is handled by the opener, but as a safeguard.
 		}
-		if (!changeReason.trim()) {
-			alert('Please provide a reason for the grade change request.');
+
+		if (
+			changes.some((c) => c.reason === '') &&
+			confirmationModal.isOpen &&
+			!confirmationModal.reason.trim()
+		) {
+			showNotification(
+				'info',
+				'A reason is required for changing approved grades.'
+			);
 			return;
 		}
 
 		setIsSubmitting(true);
+		setConfirmationModal((prev) => ({ ...prev, isOpen: false }));
 		try {
-			await onGradeChangeRequest({
-				submissionId: selectedGrade.submissionId,
-				reason: changeReason,
-				changes,
+			const payload = {
+				classId: selectedGrade.gradeLevel,
+				subject: selectedGrade.subject,
+				period: selectedGrade.period,
+				requests: changes,
+			};
+
+			const res = await fetch('/api/grades/requests', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload),
 			});
-			alert(`Grade change request submitted for ${changes.length} student(s).`);
+
+			const result = await res.json();
+			if (!res.ok) {
+				throw new Error(
+					result.message || 'Failed to submit grade change request.'
+				);
+			}
+
+			if (result.success) {
+				const { createdRequests, updatedGrades } = result.data;
+				if (createdRequests.length === 0 && updatedGrades.length === 0) {
+					showNotification(
+						'info',
+						'No new requests were created. This may be because a pending request already exists for the selected grades.'
+					);
+				} else {
+					showNotification('success', result.message);
+				}
+			} else {
+				throw new Error(result.message || 'An unknown error occurred.');
+			}
+
 			setShowDetailsModal(false);
 		} catch (err: any) {
-			alert(`Error: ${err.message}`);
+			showNotification('error', `Error: ${err.message}`);
 		} finally {
 			setIsSubmitting(false);
 		}
 	};
 
-	const filteredAndSortedGrades = applySorting(applyFilters(submittedGrades));
+	const handleGradeInputChange = (studentId: string, newGrade: string) => {
+		setGradeChangeStudents((prev) =>
+			prev.map((s) =>
+				s.studentId === studentId
+					? { ...s, newGrade, selected: newGrade !== '' }
+					: s
+			)
+		);
+	};
+
+	const filteredAndSortedGrades = useMemo(
+		() => applySorting(applyFilters(submittedGrades)),
+		[submittedGrades, filters, sortConfig, availableClasses]
+	);
 
 	const renderDetailsModal = () =>
 		selectedGrade && (
@@ -313,10 +471,60 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 							</button>
 						</div>
 						<div className="text-sm text-muted-foreground mt-1">
-							{selectedGrade.subject} - {selectedGrade.gradeLevel} (
-							{periods.find((p) => p.value === selectedGrade.period)?.label})
+							{selectedGrade.subject} -{' '}
+							{classMap.get(selectedGrade.gradeLevel) ||
+								selectedGrade.gradeLevel}{' '}
+							({periods.find((p) => p.value === selectedGrade.period)?.label})
 						</div>
 					</div>
+
+					{/* Confirmation Modal */}
+					{confirmationModal.isOpen && (
+						<div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000] backdrop-blur-sm">
+							<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md border">
+								<h3 className="text-lg font-semibold mb-2">
+									Reason for Change Request
+								</h3>
+								<p className="text-sm text-muted-foreground mb-4">
+									You are editing one or more <strong>approved grades</strong>.
+									Please provide a reason for this change. This will be sent for
+									administrator review.
+								</p>
+								<textarea
+									value={confirmationModal.reason}
+									onChange={(e) =>
+										setConfirmationModal((prev) => ({
+											...prev,
+											reason: e.target.value,
+										}))
+									}
+									className="w-full rounded-md border-input bg-background p-2"
+									rows={4}
+									placeholder="e.g., Correction of data entry error, re-evaluation of an assignment..."
+								/>
+								<div className="mt-4 flex justify-end gap-2">
+									<Button
+										onClick={() =>
+											setConfirmationModal({ isOpen: false, reason: '' })
+										}
+										variant="outline"
+									>
+										Cancel
+									</Button>
+									<Button
+										onClick={handleFinalSubmit}
+										disabled={!confirmationModal.reason.trim() || isSubmitting}
+									>
+										{isSubmitting ? (
+											<Loader2 className="h-4 w-4 animate-spin" />
+										) : (
+											'Confirm & Submit'
+										)}
+									</Button>
+								</div>
+							</div>
+						</div>
+					)}
 
 					<div className="p-6 overflow-y-auto flex-grow">
 						<div className="bg-muted p-4 rounded-lg mb-6">
@@ -337,7 +545,7 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 									</span>
 								</div>
 								<div>
-									<span className="text-muted-foreground">Fails (70):</span>
+									<span className="text-muted-foreground">Fails (&lt;70):</span>
 									<span className="ml-2 font-semibold text-destructive">
 										{selectedGrade.stats.fails}
 									</span>
@@ -409,7 +617,6 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 												{student.name}
 											</td>
 											<td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-												{/* UPDATED: Using getModalGradeColor here */}
 												<span
 													className={getModalGradeColor(student.currentGrade)}
 												>
@@ -423,12 +630,9 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 													max="100"
 													value={student.newGrade}
 													onChange={(e) =>
-														setGradeChangeStudents((prev) =>
-															prev.map((s) =>
-																s.studentId === student.studentId
-																	? { ...s, newGrade: e.target.value }
-																	: s
-															)
+														handleGradeInputChange(
+															student.studentId,
+															e.target.value
 														)
 													}
 													disabled={!student.selected}
@@ -449,170 +653,157 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 								</tbody>
 							</table>
 						</div>
-
-						<div className="mt-6 border-t border-border pt-6">
-							<h4 className="font-medium text-foreground mb-2">
-								Grade Change Request
-							</h4>
-							<p className="text-sm text-muted-foreground mb-4">
-								Select students, enter new grades, and provide a reason.
-								Requests require administrator approval.
-							</p>
-							<textarea
-								id="change-reason"
-								rows={4}
-								value={changeReason}
-								onChange={(e) => setChangeReason(e.target.value)}
-								placeholder="Provide a detailed reason for the requested changes..."
-								className="w-full rounded-md border-border shadow-sm focus:ring-primary focus:border-primary bg-background"
-							/>
-							{gradeChangeStudents.filter((s) => s.selected).length > 0 && (
-								<div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
-									<p className="text-sm text-amber-800">
-										<strong>
-											{gradeChangeStudents.filter((s) => s.selected).length}
-										</strong>{' '}
-										student(s) selected for grade change request.
-									</p>
-								</div>
-							)}
-						</div>
 					</div>
 
 					<div className="p-6 border-t bg-muted/50 flex justify-end gap-3">
-						<button
+						<Button
 							onClick={() => setShowDetailsModal(false)}
-							className="px-4 py-2 text-foreground bg-background border border-border rounded-md hover:bg-muted"
+							variant="outline"
 						>
 							Cancel
-						</button>
-						<button
-							onClick={handleSubmitGradeChange}
+						</Button>
+						<Button
+							onClick={handleOpenConfirmationModal}
 							disabled={
 								isSubmitting ||
-								gradeChangeStudents.filter((s) => s.selected).length === 0 ||
-								!changeReason.trim()
+								gradeChangeStudents.filter((s) => s.selected).length === 0
 							}
 							className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
 						>
 							{isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
 							Submit Request
-						</button>
+						</Button>
 					</div>
 				</div>
 			</div>
 		);
 
-	const renderFilterModal = () => (
-		<div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-			<div className="bg-background rounded-lg border shadow-xl w-full max-w-sm">
-				<div className="p-6 border-b">
-					<div className="flex justify-between items-center">
-						<h3 className="text-lg font-semibold text-foreground">
-							Filter Grades
-						</h3>
-						<button
-							onClick={() => setShowFilterModal(false)}
-							className="text-muted-foreground hover:text-foreground"
-						>
-							<X className="h-5 w-5" />
-						</button>
-					</div>
-				</div>
-				<div className="p-6 space-y-4">
-					<div>
-						<label className="block text-sm font-medium text-foreground mb-1">
-							Subject
-						</label>
-						<select
-							value={filters.subject}
-							onChange={(e) =>
-								setFilters({ ...filters, subject: e.target.value })
-							}
-							className="mt-1 block w-full rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
-						>
-							<option value="">All Subjects</option>
-							{teacherInfo?.subjects.map((s, i) => (
-								<option key={`${s.subject}-${i}`} value={s.subject}>
-									{s.subject}
-								</option>
-							))}
-						</select>
-					</div>
-					<div>
-						<label className="block text-sm font-medium text-foreground mb-1">
-							Class
-						</label>
-						<select
-							value={filters.gradeLevel}
-							onChange={(e) =>
-								setFilters({ ...filters, gradeLevel: e.target.value })
-							}
-							className="mt-1 block w-full rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
-						>
-							<option value="">All Classes</option>
-							{getAllGradeLevels().map((c, i) => (
-								<option key={`${c}-${i}`} value={c}>
-									{c}
-								</option>
-							))}
-						</select>
-					</div>
-					<div>
-						<label className="block text-sm font-medium text-foreground mb-1">
-							Period
-						</label>
-						<select
-							value={filters.period}
-							onChange={(e) =>
-								setFilters({ ...filters, period: e.target.value })
-							}
-							className="mt-1 block w-full rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
-						>
-							<option value="">All Periods</option>
-							{periods.map((p) => (
-								<option key={p.value} value={p.value}>
-									{p.label}
-								</option>
-							))}
-						</select>
-					</div>
-				</div>
-				<div className="p-6 border-t bg-muted/50 flex justify-end gap-3">
-					<button
-						onClick={resetFilters}
-						className="px-4 py-2 text-foreground bg-background border border-border rounded-md hover:bg-muted"
-					>
-						Reset
-					</button>
-					<button
-						onClick={() => setShowFilterModal(false)}
-						className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-					>
-						Apply Filters
-					</button>
-				</div>
-			</div>
-		</div>
-	);
-
 	return (
 		<div className="space-y-6">
-			<div className="flex flex-col sm:flex-row gap-4">
-				<button
-					onClick={onSwitchToSubmit}
-					className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 shadow-sm"
+			{notification && (
+				<div
+					className={`p-4 rounded-md text-sm flex items-center gap-3 ${
+						notification.type === 'success'
+							? 'bg-green-100 text-green-800 border border-green-200'
+							: notification.type === 'error'
+							? 'bg-red-100 text-red-800 border border-red-200'
+							: 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+					}`}
 				>
+					{notification.type === 'success' && (
+						<CheckCircle className="h-5 w-5" />
+					)}
+					{notification.type === 'error' && <XCircle className="h-5 w-5" />}
+					{notification.type === 'info' && <Info className="h-5 w-5" />}
+					<span>{notification.message}</span>
+				</div>
+			)}
+
+			<div className="flex flex-col sm:flex-row gap-4">
+				<Button onClick={onSwitchToSubmit} className="flex items-center gap-2">
 					<Plus className="h-4 w-4" />
 					Submit New Grades
-				</button>
-				<button
-					onClick={() => setShowFilterModal(true)}
-					className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 shadow-sm"
+				</Button>
+
+				{availableSessions.length > 1 && (
+					<select
+						value={filters.session}
+						onChange={(e) =>
+							setFilters({
+								...filters,
+								session: e.target.value,
+								gradeLevel: '',
+								classId: '',
+							})
+						}
+						className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
+					>
+						<option value="">All Sessions</option>
+						{availableSessions.map((s, i) => (
+							<option key={`${s}-${i}`} value={s}>
+								{s}
+							</option>
+						))}
+					</select>
+				)}
+
+				{availableSubjects.length > 1 && (
+					<select
+						value={filters.subject}
+						onChange={(e) =>
+							setFilters({ ...filters, subject: e.target.value })
+						}
+						className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
+					>
+						<option value="">All Subjects</option>
+						{availableSubjects.map((s, i) => (
+							<option key={`${s}-${i}`} value={s}>
+								{s}
+							</option>
+						))}
+					</select>
+				)}
+
+				{availableLevels.length > 1 && (
+					<select
+						value={filters.gradeLevel}
+						onChange={(e) =>
+							setFilters({
+								...filters,
+								gradeLevel: e.target.value,
+								classId: '',
+							})
+						}
+						className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
+					>
+						<option value="">All Levels</option>
+						{availableLevels.map((l, i) => (
+							<option key={`${l}-${i}`} value={l}>
+								{l}
+							</option>
+						))}
+					</select>
+				)}
+
+				{filters.gradeLevel && availableClasses.length > 1 && (
+					<select
+						value={filters.classId}
+						onChange={(e) =>
+							setFilters({ ...filters, classId: e.target.value })
+						}
+						className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
+					>
+						<option value="">All Classes</option>
+						{availableClasses.map((c, i) => (
+							<option key={`${c.classId}-${i}`} value={c.classId}>
+								{c.name}
+							</option>
+						))}
+					</select>
+				)}
+
+				<select
+					value={filters.period}
+					onChange={(e) => setFilters({ ...filters, period: e.target.value })}
+					className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
 				>
-					<Filter className="h-4 w-4" />
-					Filter
-				</button>
+					<option value="">All Periods</option>
+					{periods.map((p) => (
+						<option key={p.value} value={p.value}>
+							{p.label}
+						</option>
+					))}
+				</select>
+
+				<Button
+					onClick={onRefresh}
+					disabled={loading}
+					className="flex items-center gap-2"
+					variant="outline"
+				>
+					<RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+					Refresh
+				</Button>
 			</div>
 
 			<div className="bg-background border border-border rounded-lg overflow-hidden shadow-sm">
@@ -639,7 +830,7 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 								<tr>
 									{[
 										'subject',
-										'gradeLevel',
+										'classId',
 										'period',
 										'status',
 										'lastUpdated',
@@ -650,9 +841,11 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 											onClick={() => handleSort(key as keyof GradeSubmission)}
 										>
 											<div className="flex items-center gap-2">
-												{key
-													.replace(/([A-Z])/g, ' $1')
-													.replace(/^./, (str) => str.toUpperCase())}
+												{key === 'classId'
+													? 'Class'
+													: key
+															.replace(/([A-Z])/g, ' $1')
+															.replace(/^./, (str) => str.toUpperCase())}
 												{getSortIcon(key as keyof GradeSubmission)}
 											</div>
 										</th>
@@ -666,18 +859,16 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-border bg-background">
-								{filteredAndSortedGrades?.map((grade) => {
-									{
-										/* UPDATED: Using deriveSubmissionStatus to get the calculated status */
-									}
+								{filteredAndSortedGrades.map((grade) => {
 									const derivedStatus = deriveSubmissionStatus(grade);
+									const isRejected = derivedStatus === 'Rejected';
 									return (
 										<tr key={grade.submissionId} className="hover:bg-muted/50">
 											<td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
 												{grade.subject}
 											</td>
 											<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-												{grade.gradeLevel}
+												{classMap.get(grade.gradeLevel) || grade.gradeLevel}
 											</td>
 											<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
 												{periods.find((p) => p.value === grade.period)?.label ??
@@ -701,8 +892,13 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 											<td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
 												<button
 													onClick={() => openDetailsModal(grade)}
-													className="text-primary hover:text-primary/80"
-													title="View Details"
+													className="text-primary hover:text-primary/80 disabled:text-muted-foreground disabled:cursor-not-allowed"
+													title={
+														isRejected
+															? 'Cannot modify a rejected submission'
+															: 'View Details'
+													}
+													disabled={isRejected}
 												>
 													<Info className="h-5 w-5" />
 												</button>
@@ -717,7 +913,6 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 			</div>
 
 			{showDetailsModal && renderDetailsModal()}
-			{showFilterModal && renderFilterModal()}
 		</div>
 	);
 };

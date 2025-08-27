@@ -173,9 +173,9 @@ function buildUserResponse(user: any) {
 		phone: user.phone,
 		email: user.email,
 		bio: user.bio,
-		photo: user.photo,
 		avatar: user.avatar,
 		isActive: user.isActive,
+		notifications: user.notifications,
 	};
 
 	switch (user.role) {

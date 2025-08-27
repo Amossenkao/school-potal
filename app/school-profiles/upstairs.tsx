@@ -41,26 +41,21 @@ export const upstairs: SchoolProfile = {
 		theme: 'dark',
 	},
 
-	// Only feature keys enabled for this school
 	enabledFeatures: [
 		'dashboard',
-		'user_management',
 		'profile_management',
 		'messages',
 		'grading_system',
-		'lesson_planning',
-		'academic_reports',
 		'academic_resources',
 		'calendar_events',
-		'class_management',
 		'fee_payment',
-		'salary_management',
-		'school_settings',
-		'support_system',
-		'events_log',
+		'admissions',
+		'user_management',
+		'class_management',
+		'academic_reports',
 	],
 
-	// Role-based feature access - only feature keys
+	// Role-based feature access for Samore
 	roleFeatureAccess: {
 		system_admin: {
 			features: [
@@ -69,11 +64,9 @@ export const upstairs: SchoolProfile = {
 				'grading_system',
 				'class_management',
 				'academic_reports',
-				'lesson_planning',
 				'calendar_events',
 				'academic_resources',
-				'school_settings',
-				'support_system',
+				'admissions',
 				'profile_management',
 				'messages',
 			],
@@ -82,10 +75,7 @@ export const upstairs: SchoolProfile = {
 			features: [
 				'dashboard',
 				'grading_system',
-				'lesson_planning',
-				'salary_management',
 				'academic_resources',
-				'events_log',
 				'profile_management',
 				'messages',
 			],
@@ -101,12 +91,7 @@ export const upstairs: SchoolProfile = {
 			],
 		},
 		administrator: {
-			features: [
-				'dashboard',
-				'salary_management',
-				'profile_management',
-				'messages',
-			],
+			features: ['dashboard', 'profile_management', 'messages'],
 		},
 	},
 

@@ -24,17 +24,14 @@ interface StudentInfo {
 	grade: string;
 }
 
+// Represents an active student from the /api/users endpoint
 interface Student {
 	id: string;
 	name: string;
 	className: string;
 }
 
-interface Subject {
-	name: string;
-	marks: number;
-}
-
+// Represents grade data from the /api/grades endpoint
 interface PeriodicStudentData {
 	studentId: string;
 	studentName: string;
@@ -332,17 +329,8 @@ function FilterContent({
 		className: string;
 		selectedStudents: string[];
 	};
-	setFilters: React.Dispatch<
-		React.SetStateAction<{
-			academicYear: string;
-			period: string;
-			session: string;
-			gradeLevel: string;
-			className: string;
-			selectedStudents: string[];
-		}>
-	>;
-	onSubmit: () => void;
+	setFilters: React.Dispatch<React.SetStateAction<typeof filters>>;
+	onSubmit: (students: Student[]) => void;
 }) {
 	const { user } = useAuth();
 	const school = useSchoolStore((state) => state.school);
@@ -463,6 +451,30 @@ function FilterContent({
 		  filters.gradeLevel &&
 		  filters.className;
 
+	const handleSubmit = () => {
+		if (!canSubmit) return;
+
+		if (isStudent && user) {
+			const studentAsList: Student[] = [
+				{
+					id: user.studentId || user.id,
+					name: `${user.firstName || ''} ${user.middleName || ''} ${
+						user.lastName || ''
+					}`.trim(),
+					className: user.classId || '',
+				},
+			];
+			onSubmit(studentAsList);
+		} else {
+			// If specific students are selected, pass only them. Otherwise, pass all.
+			const studentsToSubmit =
+				filters.selectedStudents.length > 0
+					? students.filter((s) => filters.selectedStudents.includes(s.id))
+					: students;
+			onSubmit(studentsToSubmit);
+		}
+	};
+
 	// Show loading if no school data
 	if (!school) {
 		return <PageLoading fullScreen={false} />;
@@ -470,12 +482,6 @@ function FilterContent({
 
 	// For students, check if their profile is complete
 	if (isStudent) {
-		const isStudentInfoComplete = !!(
-			user?.session &&
-			user.gradeLevel &&
-			user.classId
-		);
-
 		return (
 			<div className="flex flex-col items-center justify-center min-h-[60vh] py-10 bg-background text-foreground">
 				<div className="bg-card rounded-lg shadow border border-border w-full max-w-md p-6">
@@ -490,10 +496,7 @@ function FilterContent({
 								setFilters((f) => ({
 									...f,
 									academicYear: e.target.value,
-									session: '',
-									gradeLevel: '',
-									className: '',
-									selectedStudents: [],
+									period: '', // Reset period when year changes
 								}))
 							}
 							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
@@ -548,7 +551,7 @@ function FilterContent({
 						</button>
 						<button
 							type="button"
-							onClick={onSubmit}
+							onClick={handleSubmit}
 							className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary disabled:opacity-50"
 							disabled={!canSubmit}
 						>
@@ -743,7 +746,7 @@ function FilterContent({
 					</button>
 					<button
 						type="button"
-						onClick={onSubmit}
+						onClick={handleSubmit}
 						className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary disabled:opacity-50"
 						disabled={!canSubmit}
 					>
@@ -757,6 +760,7 @@ function FilterContent({
 
 function ReportContent({
 	reportFilters,
+	activeStudents,
 	onBack,
 }: {
 	reportFilters: {
@@ -767,15 +771,13 @@ function ReportContent({
 		className: string;
 		selectedStudents: string[];
 	};
+	activeStudents: Student[];
 	onBack: () => void;
 }) {
 	const [studentsData, setStudentsData] = useState<PeriodicStudentData[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const school = useSchoolStore((state) => state.school);
-	const { user } = useAuth();
-
-	const userRole = user?.role;
 
 	// Get subjects from school profile based on session, grade level
 	const getSubjectsForGradeLevel = () => {
@@ -813,52 +815,66 @@ function ReportContent({
 	const SUBJECTS = getSubjectsForGradeLevel();
 
 	useEffect(() => {
-		const fetchPeriodicGrades = async () => {
+		const fetchAndMergeGrades = async () => {
+			// If there are no active students to display, don't fetch grades.
+			if (!activeStudents || activeStudents.length === 0) {
+				setStudentsData([]);
+				setLoading(false);
+				return;
+			}
+
 			try {
 				setLoading(true);
 				setError(null);
 
-				const params: any = {
+				const params = new URLSearchParams({
 					period: reportFilters.period,
 					academicYear: reportFilters.academicYear,
 					classId: reportFilters.className,
 					session: reportFilters.session,
-				};
-
-				// Add studentIds if they exist
-				if (reportFilters.selectedStudents.length > 0) {
-					params.studentIds = reportFilters.selectedStudents.join(',');
-				}
-
-				const url = new URL('/api/grades', window.location.origin);
-				Object.entries(params).forEach(([key, value]) => {
-					if (value) url.searchParams.append(key, value as string);
 				});
 
-				const res = await fetch(url.toString());
+				// We fetch grades for the whole class to build rank, then filter locally
+				const res = await fetch(`/api/grades?${params.toString()}`);
 				if (!res.ok) throw new Error('Failed to fetch periodic grades');
 				const data = await res.json();
 
-				const reportData = Array.isArray(data.data.report)
-					? data.data.report
-					: [data.data.report];
-
-				if (!data.success || !data.data) {
-					throw new Error('Invalid data format received from the server');
+				if (!data.success) {
+					throw new Error(data.message || 'Invalid data format from server');
 				}
 
-				// Check if reportData is empty or contains no valid students
-				if (!Array.isArray(reportData) || reportData.length === 0) {
-					setStudentsData([]);
-				} else {
-					// Filter out any null/undefined entries
-					const validStudents = reportData.filter(
-						(student) => student && student.studentId
-					);
-					setStudentsData(validStudents);
+				const gradeReports: PeriodicStudentData[] = data.data?.report ?? [];
+				const gradesMap = new Map<string, PeriodicStudentData>();
+
+				if (Array.isArray(gradeReports)) {
+					gradeReports.forEach((report) => {
+						if (report && report.studentId) {
+							gradesMap.set(report.studentId, report);
+						}
+					});
 				}
+
+				// The final data is based on the activeStudents list
+				const finalReportData = activeStudents.map((activeStudent) => {
+					const gradeData = gradesMap.get(activeStudent.id);
+					if (gradeData) {
+						// Student has grades, use the data from the API
+						return gradeData;
+					} else {
+						// This active student has no grades, create a default entry
+						return {
+							studentId: activeStudent.id,
+							studentName: activeStudent.name,
+							subjects: [], // Will result in '-' for all subjects
+							periodicAverage: 0,
+							rank: 0, // Or 'N/A'
+						};
+					}
+				});
+
+				setStudentsData(finalReportData);
 			} catch (err) {
-				console.error('Error fetching periodic grades:', err);
+				console.error('Error fetching and merging grades:', err);
 				setError(
 					err instanceof Error ? err.message : 'Failed to load report data'
 				);
@@ -867,14 +883,8 @@ function ReportContent({
 			}
 		};
 
-		fetchPeriodicGrades();
-	}, [
-		reportFilters.academicYear,
-		reportFilters.period,
-		reportFilters.session,
-		reportFilters.className,
-		reportFilters.selectedStudents,
-	]);
+		fetchAndMergeGrades();
+	}, [reportFilters, activeStudents]); // Dependency array includes activeStudents
 
 	if (loading) {
 		return (
@@ -1183,7 +1193,7 @@ function ReportContent({
 																	fontSize: 9,
 																}}
 															>
-																{studentData.rank}
+																{studentData.rank || 'N/A'}
 															</Text>
 														</View>
 													</View>
@@ -1216,6 +1226,7 @@ function ReportContent({
 
 export default function PeriodicReportWrapper() {
 	const [showReport, setShowReport] = useState(false);
+	const [activeStudents, setActiveStudents] = useState<Student[]>([]);
 	const [filters, setFilters] = useState<{
 		academicYear: string;
 		period: string;
@@ -1232,18 +1243,29 @@ export default function PeriodicReportWrapper() {
 		selectedStudents: [],
 	});
 
+	const handleFilterSubmit = (students: Student[]) => {
+		setActiveStudents(students);
+		setShowReport(true);
+	};
+
+	const handleBack = () => {
+		setShowReport(false);
+		setActiveStudents([]); // Clear the student list when going back
+	};
+
 	return (
 		<div className="w-full h-screen bg-background">
 			{!showReport ? (
 				<FilterContent
 					filters={filters}
 					setFilters={setFilters}
-					onSubmit={() => setShowReport(true)}
+					onSubmit={handleFilterSubmit}
 				/>
 			) : (
 				<ReportContent
 					reportFilters={filters}
-					onBack={() => setShowReport(false)}
+					activeStudents={activeStudents}
+					onBack={handleBack}
 				/>
 			)}
 		</div>

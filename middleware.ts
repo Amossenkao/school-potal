@@ -53,7 +53,6 @@ export async function middleware(request: NextRequest) {
 
 	const school = await findSchoolByHost(host);
 	let response = NextResponse.next();
-	console.log('SCHOOL:', school);
 
 	// Set school information in cookies and headers
 	if (school) {

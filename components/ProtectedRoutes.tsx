@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import useAuth from '@/store/useAuth';
 import LoginPage from '@/app/login/page';
@@ -19,24 +19,116 @@ const ProtectedRoute = ({
 	requiredRole,
 	allowedRoles,
 }: ProtectedRouteProps) => {
-	const { isLoggedIn, user, isLoading, checkAuthStatus } = useAuth();
+	const { isLoggedIn, user, isLoading, checkAuthStatus, setUser } = useAuth();
 	const router = useRouter();
 	const [initialCheckComplete, setInitialCheckComplete] = useState(
 		globalAuthInitialized
 	);
 	const [hasUnauthorizedAccess, setHasUnauthorizedAccess] = useState(false);
 	const [roleCheckComplete, setRoleCheckComplete] = useState(false);
+	const [authCheckError, setAuthCheckError] = useState<string | null>(null);
+
+	// Refs to store interval and prevent multiple intervals
+	const authCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+	const isCheckingAuthRef = useRef(false);
 
 	// Check if this route has role requirements
 	const hasRoleRequirements =
 		requiredRole || (allowedRoles && allowedRoles.length > 0);
 
+	// Function to determine if an error indicates no session vs network/other error
+	const isSessionError = (error: any): boolean => {
+		// Customize this logic based on your API's error responses
+		// Examples of session-related errors (adjust based on your API):
+		if (error?.response?.status === 401) return true; // Unauthorized
+		if (error?.response?.status === 403) return true; // Forbidden
+		if (error?.message?.includes('session expired')) return true;
+		if (error?.message?.includes('unauthorized')) return true;
+		if (error?.message?.includes('authentication failed')) return true;
+
+		// Network errors, server errors, etc. should NOT log out the user
+		return false;
+	};
+
+	// Function to handle auth check and potential redirect
+	const handleAuthCheck = async () => {
+		// Prevent multiple simultaneous auth checks
+		if (isCheckingAuthRef.current) return;
+
+		try {
+			isCheckingAuthRef.current = true;
+			setAuthCheckError(null); // Clear any previous errors
+
+			await checkAuthStatus();
+
+			// Get the latest auth state after check
+			const authStore = useAuth.getState();
+
+			// Only redirect if we successfully checked auth but user is not logged in or inactive
+			if (!authStore.isLoggedIn || !authStore.user?.isActive) {
+				// Clear the interval before redirect
+				if (authCheckIntervalRef.current) {
+					clearInterval(authCheckIntervalRef.current);
+					authCheckIntervalRef.current = null;
+				}
+
+				// Reset the global flag
+				globalAuthInitialized = false;
+
+				// Redirect to login only if we successfully determined no valid session
+				router.replace('/login');
+			} else {
+				setUser(authStore.user);
+			}
+		} catch (error) {
+			console.error('Auth check failed:', error);
+
+			// Only redirect on session-related errors, not network/server errors
+			if (isSessionError(error)) {
+				// Clear the interval before redirect
+				if (authCheckIntervalRef.current) {
+					clearInterval(authCheckIntervalRef.current);
+					authCheckIntervalRef.current = null;
+				}
+				globalAuthInitialized = false;
+				router.replace('/login');
+			} else {
+				// For network errors or other non-session errors, don't log out
+				// Just set error state and continue with existing session
+				setAuthCheckError(
+					'Unable to verify session. Please check your connection.'
+				);
+				console.warn(
+					'Auth check failed due to network/server error, maintaining current session'
+				);
+			}
+		} finally {
+			isCheckingAuthRef.current = false;
+		}
+	};
+
+	// Initial auth check
 	useEffect(() => {
 		const initializeAuth = async () => {
 			// Only run the auth check if it hasn't been done globally
 			if (!globalAuthInitialized) {
-				await checkAuthStatus();
-				globalAuthInitialized = true;
+				try {
+					await checkAuthStatus();
+					globalAuthInitialized = true;
+				} catch (error) {
+					console.error('Initial auth check failed:', error);
+
+					// Only mark as initialized and potentially redirect for session errors
+					if (isSessionError(error)) {
+						globalAuthInitialized = true;
+					} else {
+						// For network errors, mark as initialized but don't redirect
+						globalAuthInitialized = true;
+						setAuthCheckError(
+							'Unable to verify session. Please check your connection.'
+						);
+					}
+				}
 			}
 			setInitialCheckComplete(true);
 		};
@@ -44,18 +136,60 @@ const ProtectedRoute = ({
 		initializeAuth();
 	}, [checkAuthStatus]);
 
+	// Set up periodic auth check
+	useEffect(() => {
+		// Only start the interval if user is logged in and initial check is complete
+		if (initialCheckComplete && isLoggedIn && user?.isActive) {
+			// Clear any existing interval first
+			if (authCheckIntervalRef.current) {
+				clearInterval(authCheckIntervalRef.current);
+			}
+
+			// Set up new interval for every 15 seconds (changed back from 1 second)
+			authCheckIntervalRef.current = setInterval(() => {
+				handleAuthCheck();
+			}, 15000);
+		}
+
+		// Cleanup function
+		return () => {
+			if (authCheckIntervalRef.current) {
+				clearInterval(authCheckIntervalRef.current);
+				authCheckIntervalRef.current = null;
+			}
+		};
+	}, [initialCheckComplete, isLoggedIn, user?.isActive]);
+
+	// Handle initial redirect for unauthenticated users
 	useEffect(() => {
 		if (
 			initialCheckComplete &&
 			!isLoading &&
 			(!isLoggedIn || !user?.isActive)
 		) {
-			// Reset the global flag if user is not logged in
-			globalAuthInitialized = false;
-			router.replace('/login');
-		}
-	}, [initialCheckComplete, isLoggedIn, isLoading, router]);
+			// Only redirect if there's no auth check error (meaning we successfully determined no session)
+			if (!authCheckError) {
+				// Clear any running interval
+				if (authCheckIntervalRef.current) {
+					clearInterval(authCheckIntervalRef.current);
+					authCheckIntervalRef.current = null;
+				}
 
+				// Reset the global flag if user is not logged in
+				globalAuthInitialized = false;
+				router.replace('/login');
+			}
+		}
+	}, [
+		initialCheckComplete,
+		isLoggedIn,
+		isLoading,
+		router,
+		user?.isActive,
+		authCheckError,
+	]);
+
+	// Role-based access control check
 	useEffect(() => {
 		// Check for unauthorized access after user data is loaded
 		if (initialCheckComplete && !isLoading && isLoggedIn && user) {
@@ -94,27 +228,33 @@ const ProtectedRoute = ({
 		router,
 	]);
 
+	// Cleanup interval on component unmount
+	useEffect(() => {
+		return () => {
+			if (authCheckIntervalRef.current) {
+				clearInterval(authCheckIntervalRef.current);
+				authCheckIntervalRef.current = null;
+			}
+		};
+	}, []);
+
 	// Show full loading screen only during the very first authentication check
 	if ((isLoading || !initialCheckComplete) && !globalAuthInitialized) {
 		return <PageLoading variant="school" fullScreen={true} />;
 	}
 
-	// Show brief loading for role-protected routes while checking permissions
-	// if (
-	// 	hasRoleRequirements &&
-	// 	initialCheckComplete &&
-	// 	isLoggedIn &&
-	// 	!roleCheckComplete
-	// ) {
-	// 	return (
-	// 		<div className="flex items-center justify-center min-h-[200px]">
-	// 			<PageLoading message="Checking permissions..." fullScreen={false} />
-	// 		</div>
-	// 	);
-	// }
+	// Show error message if there's an auth check error but user appears to be logged in
+	if (authCheckError && isLoggedIn) {
+		return (
+			<div className="p-4 mb-4 text-yellow-800 bg-yellow-100 border border-yellow-300 rounded-md">
+				<p className="text-sm">⚠️ {authCheckError}</p>
+				<div className="mt-2">{children}</div>
+			</div>
+		);
+	}
 
-	// If not logged in, show login page (this handles cases where redirect might not work)
-	if (!isLoggedIn) {
+	// If not logged in and no auth check error, show login page
+	if (!isLoggedIn && !authCheckError) {
 		return <LoginPage />;
 	}
 
