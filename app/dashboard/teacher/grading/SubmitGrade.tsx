@@ -1,3 +1,4 @@
+// app/dashboard/teacher/grading/SubmitGrade.tsx
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -34,7 +35,7 @@ interface GradeSubmitProps {
 	onSwitchToOverview: () => void;
 }
 
-const periods = [
+const allPeriods = [
 	{ id: 'first', label: 'First Period', value: 'firstPeriod' },
 	{ id: 'second', label: 'Second Period', value: 'secondPeriod' },
 	{ id: 'third', label: 'Third Period', value: 'thirdPeriod' },
@@ -76,7 +77,14 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 		isVisible: boolean;
 	} | null>(null);
 
-	const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
+	const periods = useMemo(() => {
+		if (school?.settings?.teacherSettings?.gradeSubmissionPeriods) {
+			const allowedPeriods =
+				school.settings.teacherSettings.gradeSubmissionPeriods;
+			return allPeriods.filter((p) => allowedPeriods.includes(p.id));
+		}
+		return allPeriods;
+	}, [school]);
 
 	// Effect to automatically clear the notification after 5 seconds
 	useEffect(() => {
@@ -106,156 +114,119 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 		setTimeout(() => setNotification(null), 300);
 	};
 
-	// Helper functions
-	const uniqueSubjects = useMemo(() => {
+	// --- Top-Down Filter Logic ---
+
+	const availableSessions = useMemo(() => {
 		if (!teacherInfo?.subjects) return [];
-		const subjectsWithSessions = teacherInfo.subjects.map((s) => ({
-			subject: s.subject,
-			session: s.session,
-		}));
-		const uniqueSubjectsMap = new Map();
-		subjectsWithSessions.forEach((s) => uniqueSubjectsMap.set(s.subject, s));
-		return Array.from(uniqueSubjectsMap.values());
+		return [...new Set(teacherInfo.subjects.map((s) => s.session))];
 	}, [teacherInfo]);
 
-	const classesBySubject = useMemo(() => {
-		if (!teacherInfo?.subjects || !school) return {};
-		const result: {
-			[subject: string]: {
-				session: string;
-				level: string;
-				classId: string;
-				name: string;
-			}[];
-		} = {};
-		teacherInfo.subjects.forEach((s) => {
-			if (!result[s.subject]) {
-				result[s.subject] = [];
-			}
-			const classesInLevel =
-				school.classLevels?.[s.session]?.[s.level]?.classes || [];
-			classesInLevel.forEach((cls) => {
-				result[s.subject].push({
-					session: s.session,
-					level: s.level,
-					classId: cls.classId,
-					name: cls.name,
-				});
-			});
-		});
-		return result;
-	}, [teacherInfo, school]);
+	const availableLevels = useMemo(() => {
+		if (!selectedSession || !teacherInfo?.subjects) return [];
+		return [
+			...new Set(
+				teacherInfo.subjects
+					.filter((s) => s.session === selectedSession)
+					.map((s) => s.level)
+			),
+		];
+	}, [selectedSession, teacherInfo]);
 
-	const orderedSelectedPeriods = useMemo(() => {
-		return periods
-			.filter((period) => selectedPeriods.includes(period.value))
-			.map((period) => period.value);
-	}, [selectedPeriods]);
+	// Check if the teacher is a "Self Contained" teacher
+	const isSelfContainedTeacher = useMemo(() => {
+		return availableLevels.includes('Self Contained');
+	}, [availableLevels]);
 
-	const classesForSelectedSubject = useMemo(() => {
-		if (!selectedSubject) return [];
-		return classesBySubject[selectedSubject] || [];
-	}, [selectedSubject, classesBySubject]);
+	const availableClasses = useMemo(() => {
+		if (
+			!selectedSession ||
+			!selectedClassLevel ||
+			!school?.classLevels?.[selectedSession]?.[selectedClassLevel]
+		)
+			return [];
 
-	const sessionsForSelectedSubject = useMemo(() => {
-		const sessions = classesForSelectedSubject.map((cls) => cls.session);
-		return [...new Set(sessions)];
-	}, [classesForSelectedSubject]);
+		if (isSelfContainedTeacher && teacherInfo?.sponsorClass) {
+			// Find the specific sponsor class from the school profile
+			const allClassesInLevel =
+				school.classLevels[selectedSession]?.[selectedClassLevel]?.classes ||
+				[];
+			return allClassesInLevel.filter(
+				(cls) => cls.classId === teacherInfo.sponsorClass
+			);
+		}
 
-	const levelsForSelectedSession = useMemo(() => {
-		if (!selectedSession) return [];
-		const levels = classesForSelectedSubject
-			.filter((cls) => cls.session === selectedSession)
-			.map((cls) => cls.level);
-		return [...new Set(levels)];
-	}, [selectedSession, classesForSelectedSubject]);
-
-	const classesForSelectedLevelAndSession = useMemo(() => {
-		if (!selectedSession || !selectedClassLevel) return [];
-		return classesForSelectedSubject.filter(
-			(cls) =>
-				cls.session === selectedSession && cls.level === selectedClassLevel
+		return (
+			school.classLevels[selectedSession][selectedClassLevel].classes || []
 		);
-	}, [selectedSession, selectedClassLevel, classesForSelectedSubject]);
+	}, [
+		selectedSession,
+		selectedClassLevel,
+		school,
+		isSelfContainedTeacher,
+		teacherInfo?.sponsorClass,
+	]);
 
-	// Auto-selection effects
-	useEffect(() => {
-		// Auto-select subject if only one available
-		if (
-			uniqueSubjects.length === 1 &&
-			selectedSubject !== uniqueSubjects[0].subject
-		) {
-			setSelectedSubject(uniqueSubjects[0].subject);
-		}
-	}, [uniqueSubjects, selectedSubject]);
+	const availableSubjects = useMemo(() => {
+		if (!selectedSession || !selectedClassLevel || !teacherInfo?.subjects)
+			return [];
+		// Only show subjects that the teacher is assigned to for that specific level and session.
+		return [
+			...new Set(
+				teacherInfo.subjects
+					.filter(
+						(s) =>
+							s.session === selectedSession && s.level === selectedClassLevel
+					)
+					.map((s) => s.subject)
+			),
+		];
+	}, [selectedSession, selectedClassLevel, teacherInfo]);
 
+	// Auto-selection effects for the new top-down flow
 	useEffect(() => {
-		// Auto-select session if only one available for the selected subject
-		if (
-			sessionsForSelectedSubject.length === 1 &&
-			selectedSession !== sessionsForSelectedSubject[0]
-		) {
-			setSelectedSession(sessionsForSelectedSubject[0]);
-		} else if (
-			sessionsForSelectedSubject.length > 1 &&
-			selectedSession &&
-			!sessionsForSelectedSubject.includes(selectedSession)
-		) {
-			// Reset session if it's no longer valid for the selected subject
-			setSelectedSession('');
-		} else if (sessionsForSelectedSubject.length === 0) {
-			setSelectedSession('');
+		if (availableSessions.length === 1 && !selectedSession) {
+			setSelectedSession(availableSessions[0]);
 		}
-	}, [sessionsForSelectedSubject, selectedSession]);
-
-	useEffect(() => {
-		// Auto-select class level if only one available for the selected session
-		if (
-			levelsForSelectedSession.length === 1 &&
-			selectedClassLevel !== levelsForSelectedSession[0]
-		) {
-			setSelectedClassLevel(levelsForSelectedSession[0]);
-		} else if (
-			levelsForSelectedSession.length > 1 &&
-			selectedClassLevel &&
-			!levelsForSelectedSession.includes(selectedClassLevel)
-		) {
-			// Reset class level if it's no longer valid for the selected session
-			setSelectedClassLevel('');
-		} else if (levelsForSelectedSession.length === 0) {
-			setSelectedClassLevel('');
-		}
-	}, [levelsForSelectedSession, selectedClassLevel]);
+	}, [availableSessions, selectedSession]);
 
 	useEffect(() => {
-		// Auto-select class if only one available for the selected level and session
-		if (
-			classesForSelectedLevelAndSession.length === 1 &&
-			selectedClassId !== classesForSelectedLevelAndSession[0].classId
-		) {
-			setSelectedClassId(classesForSelectedLevelAndSession[0].classId);
-		} else if (
-			classesForSelectedLevelAndSession.length > 1 &&
-			selectedClassId &&
-			!classesForSelectedLevelAndSession.some(
-				(cls) => cls.classId === selectedClassId
-			)
-		) {
-			// Reset class if it's no longer valid
-			setSelectedClassId('');
-		} else if (classesForSelectedLevelAndSession.length === 0) {
-			setSelectedClassId('');
+		if (availableLevels.length === 1 && !selectedClassLevel) {
+			setSelectedClassLevel(availableLevels[0]);
 		}
-	}, [classesForSelectedLevelAndSession, selectedClassId]);
+	}, [availableLevels, selectedClassLevel]);
+
+	useEffect(() => {
+		if (isSelfContainedTeacher && teacherInfo?.sponsorClass) {
+			setSelectedClassId(teacherInfo.sponsorClass);
+		} else if (availableClasses.length === 1 && !selectedClassId) {
+			setSelectedClassId(availableClasses[0].classId);
+		}
+	}, [
+		availableClasses,
+		selectedClassId,
+		isSelfContainedTeacher,
+		teacherInfo?.sponsorClass,
+	]);
+
+	useEffect(() => {
+		if (availableSubjects.length === 1 && !selectedSubject) {
+			setSelectedSubject(availableSubjects[0]);
+		}
+	}, [availableSubjects, selectedSubject]);
 
 	const loadStudentsForGrading = useCallback(async () => {
-		if (!selectedSubject || !selectedClassId || !selectedSession) return;
+		if (
+			!selectedSubject ||
+			!selectedClassId ||
+			!selectedSession ||
+			!selectedClassLevel
+		)
+			return;
 
 		setLoading((prev) => ({ ...prev, studentsForGrading: true }));
 		setError((prev) => ({ ...prev, studentsForGrading: '' }));
 		setStudentsForGrading([]);
 		setNotification(null);
-		setHasAttemptedLoad(true);
 
 		try {
 			// Step 1: Fetch students for the selected class
@@ -297,7 +268,7 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 						existingGrade &&
 						existingGrade.grade !== undefined &&
 						existingGrade.grade !== null &&
-						existingGrade.status !== 'Rejected' // Restore this check
+						existingGrade.status !== 'Rejected'
 					) {
 						grades[period] = {
 							grade: existingGrade.grade,
@@ -332,10 +303,21 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 	}, [academicYear, selectedClassId, selectedSubject, selectedSession]);
 
 	useEffect(() => {
-		if (hasAttemptedLoad) {
+		if (
+			selectedSession &&
+			selectedClassLevel &&
+			selectedClassId &&
+			selectedSubject
+		) {
 			loadStudentsForGrading();
 		}
-	}, [selectedClassId, hasAttemptedLoad, loadStudentsForGrading]);
+	}, [
+		selectedSession,
+		selectedClassLevel,
+		selectedClassId,
+		selectedSubject,
+		loadStudentsForGrading,
+	]);
 
 	const handlePeriodToggle = (periodValue: string, checked: boolean) => {
 		if (checked) {
@@ -386,80 +368,30 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 			)
 		);
 	};
-
-	const handleSubjectChange = (subject: string) => {
-		setSelectedSubject(subject);
-		setSelectedSession('');
-		setSelectedClassLevel('');
-		setSelectedClassId('');
-	};
-
+	// Handlers to reset dependent dropdowns
 	const handleSessionChange = (session: string) => {
 		setSelectedSession(session);
 		setSelectedClassLevel('');
 		setSelectedClassId('');
+		setSelectedSubject('');
 	};
 
 	const handleClassLevelChange = (level: string) => {
 		setSelectedClassLevel(level);
 		setSelectedClassId('');
+		setSelectedSubject('');
 	};
 
-	// Helper function to get grade validation status
-	const getGradeValidationStatus = (grade: number | '') => {
-		if (grade === '') return { isValid: true, message: '' };
-		const num = Number(grade);
-		if (num < 60) return { isValid: false, message: 'Min: 60' };
-		if (num > 100) return { isValid: false, message: 'Max: 100' };
-		return { isValid: true, message: '' };
+	const handleClassChange = (classId: string) => {
+		setSelectedClassId(classId);
+		setSelectedSubject('');
 	};
 
-	// Helper function to get grade display color based on pass/fail
-	const getGradeDisplayColor = (
-		grade: number | '',
-		isExisting: boolean = false
-	) => {
-		if (grade === '' || Number(grade) < 60)
-			return isExisting ? 'text-muted-foreground' : 'text-foreground';
-		const num = Number(grade);
-		if (num < 70) return 'text-red-600 dark:text-red-400'; // Fail
-		return 'text-blue-600 dark:text-blue-400'; // Pass
-	};
-
-	// Validation function for grades
-	const validateGrades = (): { isValid: boolean; errors: string[] } => {
-		const errors: string[] = [];
-		let invalidGradeCount = 0;
-
-		studentsForGrading.forEach((student) => {
-			selectedPeriods.forEach((period) => {
-				const gradeInfo = student.grades[period];
-				if (
-					gradeInfo &&
-					!gradeInfo.hasExistingGrade &&
-					gradeInfo.grade !== ''
-				) {
-					const grade = Number(gradeInfo.grade);
-					if (grade < 60 || grade > 100) {
-						invalidGradeCount++;
-					}
-				}
-			});
-		});
-
-		if (invalidGradeCount > 0) {
-			errors.push(
-				`${invalidGradeCount} grade${
-					invalidGradeCount > 1 ? 's' : ''
-				} must be between 60 and 100 (inclusive).`
-			);
-		}
-
-		return {
-			isValid: errors.length === 0,
-			errors,
-		};
-	};
+	const orderedSelectedPeriods = useMemo(() => {
+		return periods
+			.filter((period) => selectedPeriods.includes(period.value))
+			.map((period) => period.value);
+	}, [selectedPeriods]);
 
 	const handleSubmitGrades = async () => {
 		if (selectedPeriods.length === 0) {
@@ -467,13 +399,6 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 				'error',
 				'Please select at least one period to submit grades for.'
 			);
-			return;
-		}
-
-		// Validate grades before submission
-		const validation = validateGrades();
-		if (!validation.isValid) {
-			showNotification('error', validation.errors.join(' '));
 			return;
 		}
 
@@ -567,6 +492,27 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 		}
 	};
 
+	// Helper function to get grade validation status
+	const getGradeValidationStatus = (grade: number | '') => {
+		if (grade === '') return { isValid: true, message: '' };
+		const num = Number(grade);
+		if (num < 60) return { isValid: false, message: 'Min: 60' };
+		if (num > 100) return { isValid: false, message: 'Max: 100' };
+		return { isValid: true, message: '' };
+	};
+
+	// Helper function to get grade display color based on pass/fail
+	const getGradeDisplayColor = (
+		grade: number | '',
+		isExisting: boolean = false
+	) => {
+		if (grade === '' || Number(grade) < 60)
+			return isExisting ? 'text-muted-foreground' : 'text-foreground';
+		const num = Number(grade);
+		if (num < 70) return 'text-red-600 dark:text-red-400'; // Fail
+		return 'text-blue-600 dark:text-blue-400'; // Pass
+	};
+
 	if (parentLoading) {
 		return (
 			<div className="flex justify-center items-center py-8">
@@ -581,13 +527,14 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 		);
 	}
 
-	// Determine which dropdowns to show based on available options
-	const showSubjectSelect = uniqueSubjects.length > 1;
-	const showSessionSelect = sessionsForSelectedSubject.length > 1;
-	const showClassLevelSelect = levelsForSelectedSession.length > 1;
-	const showClassSelect = classesForSelectedLevelAndSession.length > 1;
+	// Determine which dropdowns to show
+	const showSessionSelect = availableSessions.length > 1;
+	const showLevelSelect = availableLevels.length > 1;
+	const showClassSelect =
+		!isSelfContainedTeacher && availableClasses.length > 1;
+	const showSubjectSelect = availableSubjects.length > 1;
 
-	// Popup Notification component
+	// Popup Notification component (self-contained, no changes needed)
 	const PopupNotification = () => {
 		if (!notification) return null;
 
@@ -711,11 +658,11 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 		);
 	};
 
-	// Empty state component
+	// Empty state component (self-contained, no changes needed)
 	const EmptyStudentsState = () => {
-		if (!hasAttemptedLoad || loading.studentsForGrading) return null;
+		if (loading.studentsForGrading) return null;
 
-		const className = classesForSelectedLevelAndSession.find(
+		const className = availableClasses.find(
 			(c) => c.classId === selectedClassId
 		)?.name;
 
@@ -744,39 +691,111 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 					<span className="font-medium">{className}</span> for{' '}
 					<span className="font-medium">{selectedSubject}</span>.
 				</p>
-				<div className="bg-muted/30 rounded-lg p-4 text-sm text-muted-foreground">
-					<p className="font-medium mb-1">This could mean:</p>
-					<ul className="text-left space-y-1">
-						<li>• The class hasn't been assigned any students yet</li>
-						<li>• Students may be enrolled in a different session or level</li>
-						<li>• There might be a data synchronization issue</li>
-					</ul>
-				</div>
-				<button
-					onClick={loadStudentsForGrading}
-					className="mt-4 inline-flex items-center px-4 py-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-				>
-					<svg
-						className="w-4 h-4 mr-2"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth={2}
-							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-						/>
-					</svg>
-					Try Again
-				</button>
 			</div>
 		);
 	};
 
 	return (
 		<div className="space-y-6">
+			<style jsx>{`
+				.custom-scrollbar {
+					scrollbar-width: thin;
+					scrollbar-color: #8b5cf6 #f1f5f9;
+				}
+
+				.custom-scrollbar::-webkit-scrollbar {
+					height: 16px;
+					width: 16px;
+				}
+
+				.custom-scrollbar::-webkit-scrollbar-track {
+					background: linear-gradient(
+						90deg,
+						#f1f5f9 0%,
+						#e2e8f0 50%,
+						#f1f5f9 100%
+					);
+					border-radius: 12px;
+					box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+				}
+
+				.custom-scrollbar::-webkit-scrollbar-thumb {
+					background: linear-gradient(
+						135deg,
+						#8b5cf6 0%,
+						#7c3aed 50%,
+						#6d28d9 100%
+					);
+					border-radius: 12px;
+					border: 2px solid #f1f5f9;
+					box-shadow: 0 4px 8px rgba(139, 92, 246, 0.3),
+						inset 0 1px 2px rgba(255, 255, 255, 0.2);
+					transition: all 0.3s ease;
+				}
+
+				.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+					background: linear-gradient(
+						135deg,
+						#7c3aed 0%,
+						#6d28d9 50%,
+						#5b21b6 100%
+					);
+					box-shadow: 0 6px 12px rgba(139, 92, 246, 0.4),
+						inset 0 1px 2px rgba(255, 255, 255, 0.3);
+					transform: scale(1.05);
+				}
+
+				.custom-scrollbar::-webkit-scrollbar-thumb:active {
+					background: linear-gradient(
+						135deg,
+						#6d28d9 0%,
+						#5b21b6 50%,
+						#4c1d95 100%
+					);
+					box-shadow: 0 2px 4px rgba(139, 92, 246, 0.5),
+						inset 0 2px 4px rgba(0, 0, 0, 0.1);
+					transform: scale(0.95);
+				}
+
+				.custom-scrollbar::-webkit-scrollbar-corner {
+					background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+					border-radius: 12px;
+				}
+
+				/* Add a subtle glow effect on hover */
+				.custom-scrollbar:hover::-webkit-scrollbar-thumb {
+					animation: scrollbarGlow 2s ease-in-out infinite alternate;
+				}
+
+				@keyframes scrollbarGlow {
+					from {
+						box-shadow: 0 6px 12px rgba(139, 92, 246, 0.4),
+							inset 0 1px 2px rgba(255, 255, 255, 0.3);
+					}
+					to {
+						box-shadow: 0 8px 16px rgba(139, 92, 246, 0.6),
+							inset 0 1px 2px rgba(255, 255, 255, 0.4),
+							0 0 20px rgba(139, 92, 246, 0.3);
+					}
+				}
+
+				/* Responsive scrollbar for smaller screens */
+				@media (max-width: 640px) {
+					.custom-scrollbar::-webkit-scrollbar {
+						height: 12px;
+						width: 12px;
+					}
+
+					.custom-scrollbar::-webkit-scrollbar-track {
+						border-radius: 8px;
+					}
+
+					.custom-scrollbar::-webkit-scrollbar-thumb {
+						border-radius: 8px;
+						border: 1px solid #f1f5f9;
+					}
+				}
+			`}</style>
 			<PopupNotification />
 
 			<div className="p-6 bg-card border border-border rounded-lg shadow-sm">
@@ -784,142 +803,130 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 					Submit New Grades
 				</h3>
 				<p className="text-muted-foreground mb-6">
-					{showSubjectSelect ||
-					showSessionSelect ||
-					showClassLevelSelect ||
-					showClassSelect
-						? 'Select a class and subject to start, then choose periods to grade.'
-						: 'Choose periods to grade for your class.'}
+					Follow the steps to select your class and subject.
 				</p>
 
-				{(showSubjectSelect ||
-					showSessionSelect ||
-					showClassLevelSelect ||
-					showClassSelect) && (
-					<div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-						{showSubjectSelect && (
-							<div>
-								<label
-									htmlFor="subject-select"
-									className="block text-sm font-medium text-foreground"
-								>
-									Subject
-								</label>
-								<select
-									id="subject-select"
-									value={selectedSubject}
-									onChange={(e) => handleSubjectChange(e.target.value)}
-									className="mt-1 block w-full rounded-md border border-input bg-background py-2 pl-3 pr-10 text-foreground focus:border-ring focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background sm:text-sm"
-								>
-									<option value="">Select a Subject</option>
-									{uniqueSubjects.map((s, index) => (
-										<option
-											key={`subject-${s.subject}-${index}`}
-											value={s.subject}
-										>
-											{s.subject}
-										</option>
-									))}
-								</select>
-							</div>
-						)}
+				<div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+					{/* Session Selector */}
+					{showSessionSelect && (
+						<div>
+							<label
+								htmlFor="session-select"
+								className="block text-sm font-medium text-foreground"
+							>
+								1. Session
+							</label>
+							<select
+								id="session-select"
+								value={selectedSession}
+								onChange={(e) => handleSessionChange(e.target.value)}
+								className="mt-1 block w-full rounded-md border border-input bg-background py-2 pl-3 pr-10 text-foreground focus:border-ring focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background sm:text-sm"
+							>
+								<option value="">Select Session</option>
+								{availableSessions.map((session, index) => (
+									<option key={`session-${session}-${index}`} value={session}>
+										{session}
+									</option>
+								))}
+							</select>
+						</div>
+					)}
 
-						{showSessionSelect && (
-							<div>
-								<label
-									htmlFor="session-select"
-									className="block text-sm font-medium text-foreground"
-								>
-									Session
-								</label>
-								<select
-									id="session-select"
-									value={selectedSession}
-									onChange={(e) => handleSessionChange(e.target.value)}
-									className="mt-1 block w-full rounded-md border border-input bg-background py-2 pl-3 pr-10 text-foreground focus:border-ring focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background sm:text-sm disabled:opacity-50"
-									disabled={!selectedSubject}
-								>
-									<option value="">Select a Session</option>
-									{sessionsForSelectedSubject.map((session, index) => (
-										<option key={`session-${session}-${index}`} value={session}>
-											{session}
-										</option>
-									))}
-								</select>
-							</div>
-						)}
+					{/* Level Selector */}
+					{showLevelSelect && selectedSession && (
+						<div>
+							<label
+								htmlFor="class-level-select"
+								className="block text-sm font-medium text-foreground"
+							>
+								2. Class Level
+							</label>
+							<select
+								id="class-level-select"
+								value={selectedClassLevel}
+								onChange={(e) => handleClassLevelChange(e.target.value)}
+								className="mt-1 block w-full rounded-md border border-input bg-background py-2 pl-3 pr-10 text-foreground focus:border-ring focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background sm:text-sm"
+							>
+								<option value="">Select Level</option>
+								{availableLevels.map((level, index) => (
+									<option key={`level-${level}-${index}`} value={level}>
+										{level}
+									</option>
+								))}
+							</select>
+						</div>
+					)}
 
-						{showClassLevelSelect && (
-							<div>
-								<label
-									htmlFor="class-level-select"
-									className="block text-sm font-medium text-foreground"
-								>
-									Class Level
-								</label>
-								<select
-									id="class-level-select"
-									value={selectedClassLevel}
-									onChange={(e) => handleClassLevelChange(e.target.value)}
-									className="mt-1 block w-full rounded-md border border-input bg-background py-2 pl-3 pr-10 text-foreground focus:border-ring focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background sm:text-sm disabled:opacity-50"
-									disabled={!selectedSession}
-								>
-									<option value="">Select a Level</option>
-									{levelsForSelectedSession.map((level, index) => (
-										<option key={`level-${level}-${index}`} value={level}>
-											{level}
-										</option>
-									))}
-								</select>
-							</div>
-						)}
+					{/* Class Selector */}
+					{showClassSelect && selectedClassLevel && (
+						<div>
+							<label
+								htmlFor="class-select"
+								className="block text-sm font-medium text-foreground"
+							>
+								3. Class
+							</label>
+							<select
+								id="class-select"
+								value={selectedClassId}
+								onChange={(e) => handleClassChange(e.target.value)}
+								className="mt-1 block w-full rounded-md border border-input bg-background py-2 pl-3 pr-10 text-foreground focus:border-ring focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background sm:text-sm"
+							>
+								<option value="">Select Class</option>
+								{availableClasses.map((cls, index) => (
+									<option
+										key={`class-${cls.classId}-${index}`}
+										value={cls.classId}
+									>
+										{cls.name}
+									</option>
+								))}
+							</select>
+						</div>
+					)}
 
-						{showClassSelect && (
-							<div>
-								<label
-									htmlFor="class-select"
-									className="block text-sm font-medium text-foreground"
-								>
-									Class
-								</label>
-								<select
-									id="class-select"
-									value={selectedClassId}
-									onChange={(e) => setSelectedClassId(e.target.value)}
-									className="mt-1 block w-full rounded-md border border-input bg-background py-2 pl-3 pr-10 text-foreground focus:border-ring focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background sm:text-sm disabled:opacity-50"
-									disabled={!selectedClassLevel}
-								>
-									<option value="">Select a Class</option>
-									{classesForSelectedLevelAndSession.map((cls, index) => (
-										<option
-											key={`class-${cls.classId}-${index}`}
-											value={cls.classId}
-										>
-											{cls.name}
-										</option>
-									))}
-								</select>
+					{isSelfContainedTeacher && (
+						<div>
+							<label className="block text-sm font-medium text-foreground">
+								3. Class
+							</label>
+							<div className="mt-1 block w-full rounded-md border border-input bg-muted py-2 px-3 text-muted-foreground sm:text-sm">
+								{availableClasses[0]?.name || 'Sponsor Class'}
 							</div>
-						)}
+						</div>
+					)}
+
+					{/* Subject Selector */}
+					{showSubjectSelect && selectedClassId && (
+						<div>
+							<label
+								htmlFor="subject-select"
+								className="block text-sm font-medium text-foreground"
+							>
+								4. Subject
+							</label>
+							<select
+								id="subject-select"
+								value={selectedSubject}
+								onChange={(e) => setSelectedSubject(e.target.value)}
+								className="mt-1 block w-full rounded-md border border-input bg-background py-2 pl-3 pr-10 text-foreground focus:border-ring focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background sm:text-sm"
+							>
+								<option value="">Select Subject</option>
+								{availableSubjects.map((subject, index) => (
+									<option key={`subject-${subject}-${index}`} value={subject}>
+										{subject}
+									</option>
+								))}
+							</select>
+						</div>
+					)}
+				</div>
+
+				{loading.studentsForGrading && (
+					<div className="flex justify-center items-center py-8">
+						<Loader2 className="h-8 w-8 animate-spin text-primary" />
 					</div>
 				)}
-
-				<button
-					onClick={loadStudentsForGrading}
-					className="w-full md:w-auto inline-flex justify-center rounded-md border border-transparent bg-primary px-4 md:px-6 py-2 text-base font-medium text-primary-foreground shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background sm:text-sm disabled:opacity-50 mb-6 transition-colors"
-					disabled={
-						!selectedSubject ||
-						!selectedClassId ||
-						!selectedSession ||
-						loading.studentsForGrading
-					}
-				>
-					{loading.studentsForGrading ? (
-						<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-					) : (
-						'Load Students for Grading'
-					)}
-				</button>
 
 				{studentsForGrading.length > 0 && (
 					<div>
@@ -959,10 +966,12 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 				)}
 			</div>
 
-			{/* Show empty state if no students and has attempted load */}
+			{/* Show empty state if no students and filters are filled */}
 			{studentsForGrading.length === 0 &&
-				hasAttemptedLoad &&
-				!loading.studentsForGrading && <EmptyStudentsState />}
+				selectedSession &&
+				selectedClassLevel &&
+				selectedClassId &&
+				selectedSubject && <EmptyStudentsState />}
 
 			{studentsForGrading.length > 0 && selectedPeriods.length > 0 && (
 				<div className="bg-card border border-border rounded-lg p-6 shadow-sm">
@@ -971,9 +980,8 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 							<h3 className="text-xl font-semibold text-foreground">
 								Grades for{' '}
 								{
-									classesForSelectedLevelAndSession.find(
-										(c) => c.classId === selectedClassId
-									)?.name
+									availableClasses.find((c) => c.classId === selectedClassId)
+										?.name
 								}{' '}
 								- {selectedSubject}
 							</h3>
@@ -991,133 +999,121 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 						</div>
 					)}
 
-					<div className="overflow-x-auto rounded-lg border border-border">
-						<div className="scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-muted/20 hover:scrollbar-thumb-muted-foreground/40 scrollbar-thumb-rounded-full scrollbar-track-rounded-full">
-							<table className="min-w-full divide-y divide-border">
-								<thead className="bg-muted/50">
-									<tr>
-										<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground tracking-wider sticky left-0 bg-muted/50 z-10 border-r border-border">
-											Student Name
-										</th>
-										{orderedSelectedPeriods.map((period) => (
-											<th
-												key={`period-header-${period}`}
-												className="px-3 py-3 text-center text-xs font-medium text-muted-foreground tracking-wider min-w-[80px]"
-											>
-												{periods.find((p) => p.value === period)?.label}
-											</th>
-										))}
-									</tr>
-								</thead>
-								<tbody className="divide-y divide-border bg-background">
-									{studentsForGrading.map((student, index) => (
-										<tr
-											key={`student-grading-${index}`}
-											className="hover:bg-muted/20 transition-colors"
+					<div
+						className="relative overflow-x-auto border rounded-lg custom-scrollbar"
+						style={{ maxHeight: '70vh' }}
+					>
+						<table className="table-fixed w-full divide-y divide-border">
+							<thead className="bg-muted">
+								<tr>
+									<th
+										scope="col"
+										className="sticky top-0 left-0 z-30 bg-muted px-3 sm:px-6 py-3 text-left font-medium text-muted-foreground uppercase tracking-wider border-r border-border text-xs w-[140px] sm:w-[200px]"
+									>
+										Student Name
+									</th>
+									{orderedSelectedPeriods.map((period) => (
+										<th
+											key={`period-header-${period}`}
+											scope="col"
+											className="sticky top-0 z-20 bg-muted px-3 sm:px-6 py-3 text-center font-medium text-muted-foreground uppercase tracking-wider border-r border-border last:border-r-0 text-xs w-[90px] sm:w-[120px]"
 										>
-											<td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-foreground sticky left-0 bg-background z-10 border-r border-border">
-												{student.name}
-											</td>
-											{orderedSelectedPeriods.map((period) => (
-												<td
-													key={`grade-${student.studentId}-${period}`}
-													className="px-3 py-3 whitespace-nowrap text-sm text-center min-w-[80px]"
-												>
-													<div className="relative space-y-1 flex flex-col items-center">
-														{(() => {
-															const validationStatus = getGradeValidationStatus(
-																student.grades[period]?.grade
-															);
-															const gradeValue = student.grades[period]?.grade;
-															const isExisting =
-																student.grades[period]?.hasExistingGrade;
-															const isInvalid =
-																!validationStatus.isValid && gradeValue !== '';
+											{periods.find((p) => p.value === period)?.label}
+										</th>
+									))}
+								</tr>
+							</thead>
+							<tbody className="divide-y divide-border bg-background">
+								{studentsForGrading.map((student) => (
+									<tr key={student.studentId}>
+										<td className="sticky left-0 z-10 bg-card px-3 sm:px-6 py-4 font-medium text-foreground whitespace-nowrap border-r border-border text-sm">
+											{student.name}
+										</td>
+										{orderedSelectedPeriods.map((period) => (
+											<td
+												key={`${student.studentId}-${period}`}
+												className="px-3 sm:px-6 py-4 text-center whitespace-nowrap border-r border-border last:border-r-0 text-sm"
+											>
+												<div className="relative space-y-1 flex flex-col items-center">
+													{(() => {
+														const gradeInfo = student.grades[period];
+														const validationStatus = getGradeValidationStatus(
+															gradeInfo?.grade
+														);
+														const gradeValue = gradeInfo?.grade;
+														const isExisting = gradeInfo?.hasExistingGrade;
+														const isInvalid =
+															!validationStatus.isValid && gradeValue !== '';
+														let textColorClass = getGradeDisplayColor(
+															gradeValue,
+															isExisting
+														);
 
-															// Determine text color class - updated to apply color to existing grades
-															let textColorClass = 'text-foreground'; // default
-															if (isInvalid) {
-																textColorClass = 'text-foreground';
-															} else {
-																textColorClass = getGradeDisplayColor(
-																	gradeValue,
-																	isExisting
-																);
-															}
-
-															return (
-																<>
-																	<input
-																		type="text"
-																		value={gradeValue || ''}
-																		disabled={isExisting}
-																		onChange={(e) =>
-																			handleGradeChange(
-																				student.studentId,
-																				period,
-																				e.target.value
-																			)
-																		}
-																		placeholder="0"
-																		className={`w-16 h-8 rounded-md border text-center text-sm focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:border-ring transition-colors font-semibold ${textColorClass} ${
-																			isExisting
-																				? 'bg-muted border-border cursor-not-allowed opacity-60'
-																				: isInvalid
-																				? 'bg-background border-red-500 focus:ring-red-500 focus:border-red-500'
-																				: 'bg-background border-input hover:border-ring'
-																		}`}
-																		inputMode="numeric"
-																		pattern="[0-9]*"
-																	/>
-																	{isInvalid && (
-																		<div className="text-xs text-red-500 font-medium">
-																			{validationStatus.message}
+														return (
+															<>
+																<input
+																	type="text"
+																	value={gradeValue || ''}
+																	disabled={isExisting}
+																	onChange={(e) =>
+																		handleGradeChange(
+																			student.studentId,
+																			period,
+																			e.target.value
+																		)
+																	}
+																	placeholder="0"
+																	className={`w-14 sm:w-16 h-8 rounded-md border text-center text-sm focus:ring-2 focus:ring-ring focus:ring-offset-1 focus:ring-offset-background focus:border-ring transition-colors font-semibold ${textColorClass} ${
+																		isExisting
+																			? 'bg-muted border-border cursor-not-allowed opacity-60'
+																			: isInvalid
+																			? 'bg-background border-red-500 focus:ring-red-500 focus:border-red-500'
+																			: 'bg-background border-input hover:border-ring'
+																	}`}
+																	inputMode="numeric"
+																	pattern="[0-9]*"
+																/>
+																{isInvalid && (
+																	<div className="text-xs text-red-500 font-medium">
+																		{validationStatus.message}
+																	</div>
+																)}
+																{validationStatus.isValid &&
+																	gradeValue !== '' &&
+																	!isExisting &&
+																	Number(gradeValue) >= 60 && (
+																		<div
+																			className={`text-xs font-medium ${
+																				Number(gradeValue) >= 70
+																					? 'text-blue-600 dark:text-blue-400'
+																					: 'text-red-600 dark:text-red-400'
+																			}`}
+																		>
+																			{Number(gradeValue) >= 70
+																				? 'Pass'
+																				: 'Fail'}
 																		</div>
 																	)}
-																	{/* Pass/Fail indicator for valid grades - only for new grades */}
-																	{validationStatus.isValid &&
-																		gradeValue !== '' &&
-																		!isExisting &&
-																		Number(gradeValue) >= 60 && (
-																			<div
-																				className={`text-xs font-medium ${
-																					Number(gradeValue) >= 70
-																						? 'text-blue-600 dark:text-blue-400'
-																						: 'text-red-600 dark:text-red-400'
-																				}`}
-																			>
-																				{Number(gradeValue) >= 70
-																					? 'Pass'
-																					: 'Fail'}
-																			</div>
-																		)}
-																</>
-															);
-														})()}
-														{student.grades[period]?.hasExistingGrade &&
-															student.grades[period]?.status && (
-																<div
-																	className={`inline-flex px-1.5 py-0.5 text-xs font-medium rounded-full ${getStatusBadgeColor(
-																		student.grades[period].status!
-																	)}`}
-																>
-																	{student.grades[period].status}
-																</div>
-															)}
-														{student.grades[period]?.hasExistingGrade &&
-															!student.grades[period]?.status && (
-																<div className="text-xs text-muted-foreground">
-																	Existing
-																</div>
-															)}
-													</div>
-												</td>
-											))}
-										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
+															</>
+														);
+													})()}
+													{student.grades[period]?.hasExistingGrade &&
+														student.grades[period]?.status && (
+															<div
+																className={`inline-flex px-1.5 py-0.5 text-xs font-medium rounded-full ${getStatusBadgeColor(
+																	student.grades[period].status!
+																)}`}
+															>
+																{student.grades[period].status}
+															</div>
+														)}
+												</div>
+											</td>
+										))}
+									</tr>
+								))}
+							</tbody>
+						</table>
 					</div>
 
 					<div className="mt-6 flex justify-end items-center">

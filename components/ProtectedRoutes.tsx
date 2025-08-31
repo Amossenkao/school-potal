@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import useAuth from '@/store/useAuth';
 import LoginPage from '@/app/login/page';
 import { PageLoading } from '@/components/loading';
@@ -21,6 +21,7 @@ const ProtectedRoute = ({
 }: ProtectedRouteProps) => {
 	const { isLoggedIn, user, isLoading, checkAuthStatus, setUser } = useAuth();
 	const router = useRouter();
+	const pathname = usePathname();
 	const [initialCheckComplete, setInitialCheckComplete] = useState(
 		globalAuthInitialized
 	);
@@ -195,6 +196,16 @@ const ProtectedRoute = ({
 		if (initialCheckComplete && !isLoading && isLoggedIn && user) {
 			let unauthorized = false;
 
+			// **NEW:** Check if user must change password
+			if (
+				user.role !== 'system_admin' &&
+				user.mustChangePassword &&
+				pathname !== '/login/account-setup'
+			) {
+				router.replace('/login/account-setup');
+				return; // Stop further execution
+			}
+
 			// Check for specific required role
 			if (requiredRole && user.role !== requiredRole) {
 				unauthorized = true;
@@ -226,6 +237,7 @@ const ProtectedRoute = ({
 		requiredRole,
 		allowedRoles,
 		router,
+		pathname,
 	]);
 
 	// Cleanup interval on component unmount
@@ -256,6 +268,15 @@ const ProtectedRoute = ({
 	// If not logged in and no auth check error, show login page
 	if (!isLoggedIn && !authCheckError) {
 		return <LoginPage />;
+	}
+
+	// If the user must change their password, show a loading screen while redirecting
+	if (
+		user?.role !== 'system_admin' &&
+		user?.mustChangePassword &&
+		pathname !== '/login/account-setup'
+	) {
+		return <PageLoading variant="school" fullScreen={true} />;
 	}
 
 	// Check role-based access if user is logged in

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { getTenantModels } from '@/models';
-import { authorizeUser, getTenantFromRequest } from '@/middleware';
+import { authorizeUser } from '@/middleware';
 import {
 	getSession,
 	createSession,
@@ -47,6 +47,7 @@ function buildUserResponse(user: any) {
 		avatar: user.avatar,
 		isActive: user.isActive,
 		mustChangePassword: user.mustChangePassword,
+		passwordChangedAt: user.passwordChangedAt || null,
 	};
 
 	switch (user.role) {
@@ -233,16 +234,9 @@ async function buildUserData(
 export async function GET(request: NextRequest) {
 	try {
 		const currentUser = await authorizeUser(request);
-		const tenant = getTenantFromRequest(request);
+		const host = request.headers.get('host');
 
-		if (!tenant) {
-			return NextResponse.json(
-				{ success: false, message: 'Tenant not found' },
-				{ status: 400 }
-			);
-		}
-
-		const models = await getTenantModels(tenant);
+		const models = await getTenantModels(host);
 		const { searchParams } = new URL(request.url);
 
 		const role = searchParams.get('role');
@@ -303,7 +297,7 @@ export async function GET(request: NextRequest) {
 // --- Conflict Types ---
 
 interface ConflictDetails {
-	type: 'subject' | 'sponsorship';
+	type: 'subject' | 'sponsorship' | 'self_contained_conflict';
 	conflictingTeacher: {
 		id: string;
 		name: string;
@@ -331,6 +325,44 @@ async function validateTeacherData(
 	currentUserId?: string
 ): Promise<void> {
 	const conflicts: ConflictDetails[] = [];
+	const isSelfContainedAssignment =
+		userData.subjects?.some((s) => s.level === 'Self Contained') ||
+		userData.sponsorClass;
+
+	if (isSelfContainedAssignment && userData.sponsorClass) {
+		const session = userData.subjects.find(
+			(s) => s.level === 'Self Contained'
+		)?.session;
+		if (session) {
+			const existingSponsor = await models.Teacher.findOne({
+				...baseQuery,
+				role: 'teacher',
+				'subjects.session': session,
+				sponsorClass: { $ne: null },
+			}).lean();
+
+			if (existingSponsor) {
+				const conflict: ConflictDetails = {
+					type: 'self_contained_conflict',
+					conflictingTeacher: {
+						id: existingSponsor._id.toString(),
+						name:
+							existingSponsor.fullName ||
+							`${existingSponsor.firstName} ${existingSponsor.lastName}`,
+						teacherId: existingSponsor.teacherId,
+					},
+					sponsorClass: existingSponsor.sponsorClass,
+				};
+				errors.push({
+					field: 'sponsorClass',
+					type: 'DUPLICATE_ENTRY',
+					message: `A teacher can only be a sponsor for one Self Contained class per session. ${conflict.conflictingTeacher.name} is already a sponsor in this session.`,
+					requiresConfirmation: true,
+					conflicts: [conflict],
+				});
+			}
+		}
+	}
 
 	// Validate class sponsorship (sponsorClass)
 	if (userData.sponsorClass) {
@@ -570,21 +602,33 @@ async function handleForceReassignmentEnhanced(
 			);
 		}
 	}
+	// Handle self-contained conflicts
+	const selfContainedConflicts = conflicts.filter(
+		(c) => c.type === 'self_contained_conflict'
+	);
+	for (const conflict of selfContainedConflicts) {
+		// Remove all subjects and sponsorship for the session from the conflicting teacher
+		const session = conflict.assignment?.session;
+		if (session) {
+			await models.Teacher.updateOne(
+				{ _id: conflict.conflictingTeacher.id },
+				{
+					$pull: { subjects: { session: session } },
+					$unset: { sponsorClass: 1 },
+					$set: { updatedAt: new Date() },
+				}
+			);
+		}
+	}
 }
 
 // --- POST Handler ---
 export async function POST(request: NextRequest) {
 	try {
 		const currentUser = await authorizeUser(request, ['system_admin']);
-		const tenant = getTenantFromRequest(request);
-		if (!tenant) {
-			return NextResponse.json(
-				{ success: false, message: 'Tenant not found' },
-				{ status: 400 }
-			);
-		}
+		const host = request.headers.get('host');
 
-		const models = await getTenantModels(tenant);
+		const models = await getTenantModels(host);
 		const {
 			forceAssignments = false,
 			confirmReassignments = false,
@@ -669,7 +713,7 @@ export async function POST(request: NextRequest) {
 			...userResponse,
 			generatedCredentials: {
 				username: finalUserData.username,
-				defaultPassword: finalUserData.defaultPassword,
+				defaultPassword: finalUserData.username,
 				note: 'User must change password on first login',
 			},
 		};
@@ -721,16 +765,9 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
 	try {
 		const currentUser = await authorizeUser(request);
-		const tenant = getTenantFromRequest(request);
+		const host = request.headers.get('host');
 
-		if (!tenant) {
-			return NextResponse.json(
-				{ success: false, message: 'Tenant not found' },
-				{ status: 400 }
-			);
-		}
-
-		const models = await getTenantModels(tenant);
+		const models = await getTenantModels(host);
 		const { searchParams } = new URL(request.url);
 		const targetUserId = searchParams.get('id');
 		const resetPassword = searchParams.get('resetPassword') === 'true';
@@ -1045,8 +1082,22 @@ export async function PUT(request: NextRequest) {
 					{ success: false, message: 'Incorrect old password' },
 					{ status: 401 }
 				);
+			if (
+				targetUser.mustChangePassword &&
+				updateData.newPassword === targetUser.username
+			) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'New password cannot be the same as the default password.',
+					},
+					{ status: 400 }
+				);
+			}
 			updateData.password = await hashPassword(updateData.newPassword);
 			updateData.mustChangePassword = false;
+			updateData.passwordChangedAt = new Date();
+			updateData.defaultPassword = null;
 			delete updateData.oldPassword;
 			delete updateData.newPassword;
 		}
@@ -1125,14 +1176,10 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
 	try {
 		const currentUser = await authorizeUser(request, ['system_admin']);
-		const tenant = getTenantFromRequest(request);
-		if (!tenant) {
-			return NextResponse.json(
-				{ success: false, message: 'Tenant not found' },
-				{ status: 400 }
-			);
-		}
-		const models = await getTenantModels(tenant);
+
+		const host = request.headers.get('host');
+
+		const models = await getTenantModels(host);
 		const { searchParams } = new URL(request.url);
 		const targetUserId = searchParams.get('id');
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantModels } from '@/models';
-import { authorizeUser, getTenantFromRequest } from '@/middleware';
+import { authorizeUser } from '@/middleware';
 import {
 	updateAllUserSessions,
 	updateUserSessionNotifications,
@@ -89,14 +89,6 @@ async function addNotificationToUser(
 // -----------------------------------------------------------------------------
 export async function GET(request: NextRequest) {
 	try {
-		const tenant = getTenantFromRequest(request);
-		if (!tenant) {
-			return NextResponse.json(
-				{ message: 'Tenant not found' },
-				{ status: 400 }
-			);
-		}
-
 		// Authorize for both admin and teacher roles
 		const currentUser = await authorizeUser(request, [
 			'system_admin',
@@ -106,7 +98,7 @@ export async function GET(request: NextRequest) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}
 
-		const { GradeChangeRequest } = await getTenantModels(tenant);
+		const { GradeChangeRequest } = await getTenantModels();
 		const { searchParams } = new URL(request.url);
 		const academicYear =
 			searchParams.get('academicYear') || getCurrentAcademicYear();
@@ -186,20 +178,12 @@ export async function GET(request: NextRequest) {
 // -----------------------------------------------------------------------------
 export async function POST(request: NextRequest) {
 	try {
-		const tenant = getTenantFromRequest(request);
-		if (!tenant) {
-			return NextResponse.json(
-				{ message: 'Tenant not found' },
-				{ status: 400 }
-			);
-		}
-
 		const teacher = await authorizeUser(request, ['teacher']);
 		if (!teacher) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}
 
-		const { Grade, GradeChangeRequest, User } = await getTenantModels(tenant);
+		const { Grade, GradeChangeRequest, User } = await getTenantModels();
 		const body = await request.json();
 		const { classId, subject, period, requests } = body;
 
@@ -296,7 +280,7 @@ export async function POST(request: NextRequest) {
 				read: false,
 				type: 'Grades',
 			};
-			const notificationPromises = admins.map((admin) =>
+			const notificationPromises = admins.map((admin: any) =>
 				addNotificationToUser(User, admin._id.toString(), notification)
 			);
 			await Promise.allSettled(notificationPromises);
@@ -326,20 +310,12 @@ export async function POST(request: NextRequest) {
 // -----------------------------------------------------------------------------
 export async function PATCH(request: NextRequest) {
 	try {
-		const tenant = getTenantFromRequest(request);
-		if (!tenant) {
-			return NextResponse.json(
-				{ message: 'Tenant not found' },
-				{ status: 400 }
-			);
-		}
-
 		const admin = await authorizeUser(request, ['system_admin']);
 		if (!admin) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}
 
-		const { Grade, GradeChangeRequest, User } = await getTenantModels(tenant);
+		const { Grade, GradeChangeRequest, User } = await getTenantModels();
 		const body = await request.json();
 		const { requestIds, status, adminRejectionReason } = body;
 
@@ -457,20 +433,12 @@ export async function PATCH(request: NextRequest) {
 // -----------------------------------------------------------------------------
 export async function PUT(request: NextRequest) {
 	try {
-		const tenant = getTenantFromRequest(request);
-		if (!tenant) {
-			return NextResponse.json(
-				{ message: 'Tenant not found' },
-				{ status: 400 }
-			);
-		}
-
 		const teacher = await authorizeUser(request, ['teacher']);
 		if (!teacher) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}
 
-		const { GradeChangeRequest } = await getTenantModels(tenant);
+		const { GradeChangeRequest } = await getTenantModels();
 		const body = await request.json();
 		const { requestId, requestedGrade, reasonForChange } = body;
 
@@ -539,20 +507,12 @@ export async function PUT(request: NextRequest) {
 // -----------------------------------------------------------------------------
 export async function DELETE(request: NextRequest) {
 	try {
-		const tenant = getTenantFromRequest(request);
-		if (!tenant) {
-			return NextResponse.json(
-				{ message: 'Tenant not found' },
-				{ status: 400 }
-			);
-		}
-
 		const teacher = await authorizeUser(request, ['teacher']);
 		if (!teacher) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}
 
-		const { GradeChangeRequest } = await getTenantModels(tenant);
+		const { GradeChangeRequest } = await getTenantModels();
 		const { searchParams } = new URL(request.url);
 		const requestId = searchParams.get('requestId');
 

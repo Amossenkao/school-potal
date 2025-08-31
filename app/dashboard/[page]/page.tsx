@@ -4,11 +4,10 @@ import {
 	validateComponentAccess,
 } from '@/utils/componentsMap';
 import { getCurrentUser } from '@/lib/auth';
-import { getSchoolProfile } from '@/lib/school';
 import { PageLoading } from '@/components/loading';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
-import type { SchoolProfile } from '@/types/schoolProfile';
+import { getSchoolProfile } from '@/lib/mongoose';
 
 interface PageProps {
 	params: {
@@ -33,7 +32,8 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 		}
 
 		// Get school profile (updated to match your implementation)
-		const schoolProfile: SchoolProfile = await getSchoolProfile();
+		let schoolProfile = await getSchoolProfile();
+		console.log('School profile:', schoolProfile);
 		if (!schoolProfile) {
 			return (
 				<PageLoading
@@ -44,10 +44,17 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 			);
 		}
 
+		// FIX: Convert the Mongoose document to a plain object
+		const plainSchoolProfile = JSON.parse(JSON.stringify(schoolProfile));
+
 		const { page } = await params;
 
 		// Validate component access before rendering
-		const hasAccess = validateComponentAccess(schoolProfile, user.role, page);
+		const hasAccess = validateComponentAccess(
+			plainSchoolProfile,
+			user.role,
+			page
+		);
 		if (!hasAccess) {
 			return (
 				<PageLoading
@@ -60,7 +67,7 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 
 		// Generate dynamic components map
 		const componentsMap = generateDynamicComponentsMap(
-			schoolProfile,
+			plainSchoolProfile,
 			user.role
 		);
 
@@ -102,11 +109,11 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 		return (
 			<>
 				<title>
-					{pageTitle} - {schoolProfile.shortName}
+					{pageTitle} - {plainSchoolProfile.shortName}
 				</title>
 				<Component
 					user={user}
-					schoolProfile={schoolProfile}
+					schoolProfile={plainSchoolProfile}
 					theme={theme}
 					userPreferences={userPreferences}
 					sessionToken={sessionToken}

@@ -115,7 +115,11 @@ export default function NavBar({ skipStorageLoad = false }) {
 	const navigateToDashboard = async () => {
 		setIsNavigatingToDashboard(true);
 		try {
-			await router.push('/dashboard');
+			if (user?.mustChangePassword) {
+				await router.push('/login/account-setup');
+			} else {
+				await router.push('/dashboard');
+			}
 		} finally {
 			setTimeout(() => {
 				setIsNavigatingToDashboard(false);
@@ -214,6 +218,15 @@ export default function NavBar({ skipStorageLoad = false }) {
 		console.log(user);
 
 		// User is logged in
+		const getDashboardButtonText = () => {
+			if (user?.mustChangePassword) {
+				return user.passwordChangedAt === undefined
+					? 'Setup Account'
+					: 'Change Password';
+			}
+			return 'Dashboard';
+		};
+
 		return (
 			<div
 				className={`flex items-center gap-2 ${
@@ -236,7 +249,7 @@ export default function NavBar({ skipStorageLoad = false }) {
 						isLoading={isNavigatingToDashboard}
 						defaultIcon={LayoutDashboard}
 					/>
-					{isNavigatingToDashboard ? 'Loading...' : 'Dashboard'}
+					{isNavigatingToDashboard ? 'Loading...' : getDashboardButtonText()}
 				</Button>
 
 				<Button

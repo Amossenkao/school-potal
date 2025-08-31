@@ -21,8 +21,8 @@ import type {
 // Store models per tenant to avoid recompilation
 const modelCache = new Map<Connection, any>();
 
-export const getTenantModels = async (host: string | null) => {
-	const connection = await getTenantConnection(host);
+export const getTenantModels = async () => {
+	const connection = await getTenantConnection();
 	if (!connection) {
 		throw new Error('Could not establish DB connection for tenant');
 	}

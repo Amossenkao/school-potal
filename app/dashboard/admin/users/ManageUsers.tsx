@@ -19,6 +19,9 @@ import {
 	Trash2,
 	Eye,
 	Power,
+	CheckCircle,
+	XCircle,
+	X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/button/Button';
@@ -32,6 +35,44 @@ import DeactivateUserModal from '@/components/modals/DeactivateUserModal';
 import { useSchoolStore } from '@/store/schoolStore';
 
 const API_URL = '/api/users';
+
+// --- NEW: Reusable Feedback Toast Component ---
+const FeedbackToast = ({ type, message, onClose }) => {
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			onClose();
+		}, 5000); // Auto-dismiss after 5 seconds
+
+		return () => clearTimeout(timer);
+	}, [onClose]);
+
+	const isSuccess = type === 'success';
+	const baseClasses =
+		'flex items-start gap-4 p-4 rounded-lg shadow-lg border w-full max-w-sm';
+	const colorClasses = isSuccess
+		? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-800 dark:text-green-200'
+		: 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700 text-red-800 dark:text-red-200';
+	const Icon = isSuccess ? CheckCircle : XCircle;
+	const iconColor = isSuccess ? 'text-green-500' : 'text-red-500';
+
+	return (
+		<div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-5 fade-in-0 duration-300">
+			<div className={`${baseClasses} ${colorClasses}`}>
+				<Icon className={`h-6 w-6 flex-shrink-0 ${iconColor}`} />
+				<div className="flex-1">
+					<h4 className="font-semibold">{isSuccess ? 'Success' : 'Error'}</h4>
+					<p className="text-sm">{message}</p>
+				</div>
+				<button
+					onClick={onClose}
+					className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+				>
+					<X className="h-4 w-4" />
+				</button>
+			</div>
+		</div>
+	);
+};
 
 const UserManagementDashboard = () => {
 	const [activeTab, setActiveTab] = useState('all');
@@ -372,16 +413,13 @@ const UserManagementDashboard = () => {
 	return (
 		<div className="min-h-screen bg-background text-foreground p-6">
 			<div className="max-w-7xl mx-auto">
+				{/* MODIFICATION: Render FeedbackToast instead of static banner */}
 				{feedback.message && (
-					<div
-						className={`mb-4 px-4 py-3 rounded ${
-							feedback.type === 'success'
-								? 'bg-green-100 text-green-800 border border-green-200'
-								: 'bg-red-100 text-red-800 border border-red-200'
-						}`}
-					>
-						{feedback.message}
-					</div>
+					<FeedbackToast
+						type={feedback.type}
+						message={feedback.message}
+						onClose={() => setFeedback({ type: '', message: '' })}
+					/>
 				)}
 				<div className="mb-8">
 					<div className="flex items-center gap-3 mb-2">

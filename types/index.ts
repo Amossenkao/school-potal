@@ -7,29 +7,15 @@ export interface ClassSchedule {
 	subject: string;
 }
 
-interface ClassRanks {
-	academicYear: string;
-	period: string;
-	ranks: string[];
-}
-
-interface ClassTeacher {
-	teacherId: string;
-	teacherName: string;
-	subjectsTaught: string[];
-}
-
 export interface Class {
+	academicYear: string;
 	classId: string;
 	className: string;
 	classLevel: string;
-	sponsorId: string;
-	sponsorName: string;
+	session?: string;
+	sponsorName?: string;
 	schedule: ClassSchedule[];
-	subjects: string[];
 	studentIds: string[];
-	teachers: ClassTeacher[];
-	ranks: ClassRanks[];
 }
 
 export interface User {
@@ -45,6 +31,7 @@ export interface User {
 	dateOfBirth: string;
 	isActive: boolean;
 	mustChangePassword: boolean;
+	passwordChangedAt?: Date | null;
 	phone: string;
 	email?: string;
 	address: string;
@@ -94,7 +81,7 @@ export interface Administrator extends User {
 
 export interface SystemAdmin extends User {
 	role: 'system_admin';
-	requiresOtp: true;
+	sysId: string;
 }
 
 export interface Message {

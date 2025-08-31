@@ -19,14 +19,14 @@ interface AuthState {
 	otpContact: string | null;
 	userId: string | null;
 
-	login: (loginData: LoginData) => Promise<boolean>;
+	login: (loginData: LoginData) => Promise<User | null>; // Return User or null
 	verifyOtp: (otp: string) => Promise<boolean>;
 	resendOtp: () => Promise<boolean>;
 	logout: () => Promise<void>;
 	checkAuthStatus: () => Promise<void>;
 	clearError: () => void;
 	resetOtpState: () => void;
-	setUser: (user: User) => void; // Add setUser method
+	setUser: (user: User) => void;
 }
 
 const useAuth = create<AuthState>((set, get) => ({
@@ -39,7 +39,8 @@ const useAuth = create<AuthState>((set, get) => ({
 	otpContact: null,
 	userId: null,
 
-	login: async (loginData: LoginData): Promise<boolean> => {
+	login: async (loginData: LoginData): Promise<User | null> => {
+		// Return User or null
 		set({ isLoading: true, error: null });
 		try {
 			const res = await fetch('/api/auth/login', {
@@ -53,7 +54,7 @@ const useAuth = create<AuthState>((set, get) => ({
 
 			if (!res.ok) {
 				set({ error: data.message || 'Invalid credentials', isLoading: false });
-				return false;
+				return null;
 			}
 
 			if (data.requiresOTP) {
@@ -64,10 +65,9 @@ const useAuth = create<AuthState>((set, get) => ({
 					isLoading: false,
 					userId: data.userId,
 				});
-				return false;
+				return null;
 			}
 
-			// Cookie-based auth: user info comes from server, no localStorage needed
 			set({
 				user: data.user,
 				isLoggedIn: true,
@@ -79,10 +79,10 @@ const useAuth = create<AuthState>((set, get) => ({
 				userId: null,
 			});
 
-			return true;
+			return data.user;
 		} catch (error: any) {
 			set({ error: error.message || 'Network error', isLoading: false });
-			return false;
+			return null;
 		}
 	},
 
@@ -261,7 +261,7 @@ const useAuth = create<AuthState>((set, get) => ({
 			userId: null,
 		}),
 
-	setUser: (user: User) => set({ user }), // Implement setUser method
+	setUser: (user: User) => set({ user }),
 }));
 
 export default useAuth;

@@ -13,6 +13,7 @@ import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import Spinner from '@/components/ui/spinner';
+import AccessDenied from '@/components/AccessDenied';
 
 interface StudentInfo {
 	firstName: string;
@@ -43,13 +44,23 @@ interface PeriodicStudentData {
 	rank: number;
 }
 
-const periodOptions = [
-	{ value: 'firstPeriod', label: 'First Period' },
-	{ value: 'secondPeriod', label: 'Second Period' },
-	{ value: 'thirdPeriod', label: 'Third Period' },
-	{ value: 'fourthPeriod', label: 'Fourth Period' },
-	{ value: 'fifthPeriod', label: 'Fifth Period' },
-	{ value: 'sixthPeriod', label: 'Sixth Period' },
+let periodOptions = [
+	{ id: 'first', label: 'First Period', value: 'firstPeriod' },
+	{ id: 'second', label: 'Second Period', value: 'secondPeriod' },
+	{ id: 'third', label: 'Third Period', value: 'thirdPeriod' },
+	{
+		id: 'third_period_exam',
+		label: 'Third Period Exam',
+		value: 'thirdPeriodExam',
+	},
+	{ id: 'fourth', label: 'Fourth Period', value: 'fourthPeriod' },
+	{ id: 'fifth', label: 'Fifth Period', value: 'fifthPeriod' },
+	{ id: 'sixth', label: 'Sixth Period', value: 'sixthPeriod' },
+	{
+		id: 'sixth_periodi_exam',
+		label: 'Sixth Period Exam',
+		value: 'sixthPeriodExam',
+	},
 ];
 
 const academicYearOptions = [
@@ -106,6 +117,7 @@ function paginateStudents(
 
 function SchoolHeader({ student }: { student: StudentInfo }) {
 	const school = useSchoolStore((state) => state.school);
+
 	return (
 		<View style={{ marginBottom: 7 }}>
 			<View
@@ -347,7 +359,12 @@ function FilterContent({
 	const availableGradeLevels = filters.session
 		? Object.keys(school?.classLevels?.[filters.session] || {})
 		: [];
-
+	const availableClasses =
+		filters.session &&
+		filters.gradeLevel &&
+		school?.classLevels?.[filters.session]?.[filters.gradeLevel]?.classes
+			? school.classLevels[filters.session][filters.gradeLevel].classes
+			: [];
 	// Auto-select session if only one is available
 	useEffect(() => {
 		if (isSystemAdmin && !filters.session && availableSessions.length === 1) {
@@ -478,6 +495,28 @@ function FilterContent({
 	// Show loading if no school data
 	if (!school) {
 		return <PageLoading fullScreen={false} />;
+	}
+
+	console.log('School data:', school);
+
+	const canAccessReport =
+		isStudent &&
+		school?.settings?.studentSettings.reportAccessPeriods &&
+		school?.settings?.studentSettings.reportAccessPeriods.length > 0;
+
+	if (isStudent && canAccessReport) {
+		periodOptions = periodOptions.filter((period) => {
+			return school?.settings?.studentSettings.reportAccessPeriods.includes(
+				period.id
+			);
+		});
+	} else if (isStudent && !canAccessReport) {
+		return (
+			<AccessDenied
+				message={`You are currently not allowed to view periodic grades`}
+				description=""
+			/>
+		);
 	}
 
 	// For students, check if their profile is complete
@@ -677,9 +716,13 @@ function FilterContent({
 						<select
 							value={filters.className}
 							onChange={(e) => {
+								const selectedClass = availableClasses.find(
+									(c) => c.classId === e.target.value
+								);
 								setFilters((f) => ({
 									...f,
-									className: e.target.value,
+									className: selectedClass?.classId || e.target.value,
+									reportType: 'entire-class',
 									selectedStudents: [],
 								}));
 							}}
@@ -687,14 +730,11 @@ function FilterContent({
 							disabled={!filters.gradeLevel}
 						>
 							<option value="">Select Class</option>
-							{filters.gradeLevel &&
-								school?.classLevels?.[filters.session]?.[
-									filters.gradeLevel
-								]?.classes.map((classInfo: any) => (
-									<option key={classInfo.classId} value={classInfo.classId}>
-										{classInfo.name}
-									</option>
-								))}
+							{availableClasses.map((classInfo) => (
+								<option key={classInfo.classId} value={classInfo.classId}>
+									{classInfo.name}
+								</option>
+							))}
 						</select>
 					</div>
 				)}
@@ -721,6 +761,7 @@ function FilterContent({
 										selectedStudents: studentIds,
 									}));
 								}}
+								className={filters.className}
 							/>
 						)}
 					</div>
@@ -737,6 +778,7 @@ function FilterContent({
 								session: '',
 								gradeLevel: '',
 								className: '',
+								reportType: 'entire-class',
 								selectedStudents: [],
 							});
 						}}
@@ -778,19 +820,20 @@ function ReportContent({
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const school = useSchoolStore((state) => state.school);
+	const { user } = useAuth();
+	const isStudent = user?.role === 'student';
 
 	// Get subjects from school profile based on session, grade level
 	const getSubjectsForGradeLevel = () => {
+		if (user && isStudent) {
+			return school?.classLevels[user.session][user.classLevel].subjects;
+		}
 		if (
 			school?.classLevels?.[reportFilters.session]?.[reportFilters.gradeLevel]
 				?.subjects
 		) {
 			return school.classLevels[reportFilters.session][reportFilters.gradeLevel]
 				.subjects;
-		}
-
-		if (school?.subjects && school.subjects.length > 0) {
-			return school.subjects;
 		}
 
 		return [
@@ -842,8 +885,13 @@ function ReportContent({
 				if (!data.success) {
 					throw new Error(data.message || 'Invalid data format from server');
 				}
-
-				const gradeReports: PeriodicStudentData[] = data.data?.report ?? [];
+				const gradeReports: PeriodicStudentData[] = Array.isArray(
+					data.data?.report
+				)
+					? data.data.report
+					: data.data?.report
+					? [data.data.report]
+					: [];
 				const gradesMap = new Map<string, PeriodicStudentData>();
 
 				if (Array.isArray(gradeReports)) {

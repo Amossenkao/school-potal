@@ -19,6 +19,7 @@ import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import Link from 'next/link';
 import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
+import AccessDenied from '@/components/AccessDenied';
 
 const LoginPage = () => {
 	const router = useRouter();
@@ -28,7 +29,8 @@ const LoginPage = () => {
 	const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
 	const [isInitializing, setIsInitializing] = useState(true);
 	const [isRedirecting, setIsRedirecting] = useState(false);
-	const currentSchool = useSchoolStore((state: any) => state.school);
+	const currentSchool = useSchoolStore((state) => state.school);
+	const [loginDisabledError, setLoginDisabledError] = useState('');
 
 	const {
 		isLoading,
@@ -157,6 +159,7 @@ const LoginPage = () => {
 			[e.target.name]: e.target.value,
 		});
 		if (error) clearError();
+		if (loginDisabledError) setLoginDisabledError('');
 	};
 
 	const handleLogin = async (e: any) => {
@@ -165,6 +168,20 @@ const LoginPage = () => {
 		if (selectedRole === 'administrator' && !adminPosition) return;
 
 		clearError();
+		setLoginDisabledError('');
+
+		// Check if login is disabled for the selected role in school settings
+		if (selectedRole !== 'system_admin' && currentSchool?.settings) {
+			const roleSettingsKey = `${selectedRole}Settings`;
+			const roleSettings = currentSchool.settings[roleSettingsKey];
+
+			if (roleSettings && roleSettings.loginAccess === false) {
+				setLoginDisabledError(
+					`Login is currently disabled for ${selectedRole}s.`
+				);
+				return; // Stop the login process
+			}
+		}
 
 		const loginData = {
 			role: selectedRole,
@@ -174,14 +191,19 @@ const LoginPage = () => {
 		};
 
 		try {
-			const success = await login(loginData);
+			const loggedInUser = await login(loginData);
 
-			if (success) {
-				setIsRedirecting(true);
-				console.log('Login successful, redirecting to dashboard...');
-				setTimeout(() => {
+			if (loggedInUser) {
+				if (
+					loggedInUser.role !== 'system_admin' &&
+					loggedInUser.mustChangePassword
+				) {
+					router.push('/login/account-setup');
+				} else {
+					setIsRedirecting(true);
+					console.log('Login successful, redirecting to dashboard...');
 					router.push('/dashboard');
-				}, 100);
+				}
 			}
 		} catch (err) {
 			setIsRedirecting(false);
@@ -372,6 +394,13 @@ const LoginPage = () => {
 											<div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
 												<p className="text-sm text-destructive font-medium">
 													{error}
+												</p>
+											</div>
+										)}
+										{loginDisabledError && (
+											<div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+												<p className="text-sm text-destructive font-medium">
+													{loginDisabledError}
 												</p>
 											</div>
 										)}

@@ -32,6 +32,7 @@ const UserSchema = new Schema<User & Document>(
 		dateOfBirth: { type: String, required: true },
 		isActive: { type: Boolean, default: true },
 		mustChangePassword: { type: Boolean, default: false },
+		passwordChangedAt: { type: Date, default: null },
 		phone: { type: String, required: true },
 		email: String,
 		address: { type: String, required: true },

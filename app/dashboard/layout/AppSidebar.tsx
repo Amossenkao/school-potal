@@ -21,13 +21,20 @@ interface NavItem {
 
 const AppSidebar: React.FC = () => {
 	const { user, logout } = useAuth();
-	const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+	const {
+		isExpanded,
+		isMobileOpen,
+		isHovered,
+		setIsHovered,
+		toggleMobileSidebar,
+	} = useSidebar();
 	const pathname = usePathname();
 	const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
 	const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
 		{}
 	);
-	const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
+	const subMenuRefs = useRef<Record<string, HTMLDivDevice | null>>({});
+	const sidebarRef = useRef<HTMLElement>(null);
 	const [initialSetupDone, setInitialSetupDone] = useState(false);
 	const [navigationItems, setNavigationItems] = useState<NavItem[]>([]);
 
@@ -51,6 +58,36 @@ const AppSidebar: React.FC = () => {
 		},
 		[pathname]
 	);
+
+	// Close mobile sidebar when pathname changes (navigation occurs)
+	useEffect(() => {
+		if (isMobileOpen) {
+			toggleMobileSidebar();
+		}
+	}, [pathname]); // Remove toggleMobileSidebar from dependencies to avoid infinite loop
+
+	// Handle click outside to close mobile sidebar
+	useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+			if (
+				isMobileOpen &&
+				sidebarRef.current &&
+				!sidebarRef.current.contains(event.target as Node)
+			) {
+				toggleMobileSidebar();
+			}
+		};
+
+		// Add event listener when mobile sidebar is open
+		if (isMobileOpen) {
+			document.addEventListener('mousedown', handleClickOutside);
+		}
+
+		// Cleanup event listener
+		return () => {
+			document.removeEventListener('mousedown', handleClickOutside);
+		};
+	}, [isMobileOpen, toggleMobileSidebar]);
 
 	// Generate navigation items when school profile or user role changes
 	useEffect(() => {
@@ -313,6 +350,7 @@ const AppSidebar: React.FC = () => {
 
 	return (
 		<aside
+			ref={sidebarRef}
 			className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 dark:text-gray-100 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 dark:border-gray-700 ${
 				isExpanded || isMobileOpen
 					? 'w-[290px]'

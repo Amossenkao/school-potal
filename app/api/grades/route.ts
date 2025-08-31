@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantModels } from '@/models';
-import { authorizeUser, getTenantFromRequest } from '@/middleware';
+import { authorizeUser } from '@/middleware';
 import { now } from 'mongoose';
 
 // -----------------------------------------------------------------------------
@@ -632,14 +632,6 @@ function processClassYearlyReport(
 
 export async function GET(request: NextRequest) {
 	try {
-		const tenant = getTenantFromRequest(request);
-		if (!tenant) {
-			return NextResponse.json(
-				{ success: false, message: 'Tenant not found' },
-				{ status: 400 }
-			);
-		}
-
 		const currentUser = await authorizeUser(request);
 		if (!currentUser) {
 			return NextResponse.json(
@@ -648,7 +640,7 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
-		const { Grade } = await getTenantModels(tenant);
+		const { Grade } = await getTenantModels();
 		const { searchParams } = new URL(request.url);
 
 		// --- 1. Extract and process parameters ---
@@ -881,13 +873,6 @@ export async function GET(request: NextRequest) {
 // POST, PUT, PATCH handlers remain unchanged
 export async function POST(request: NextRequest) {
 	try {
-		const tenant = getTenantFromRequest(request);
-		if (!tenant) {
-			return NextResponse.json(
-				{ success: false, message: 'Tenant not found' },
-				{ status: 400 }
-			);
-		}
 		const teacher = await authorizeUser(request, ['teacher']);
 		if (!teacher) {
 			return NextResponse.json(
@@ -895,7 +880,7 @@ export async function POST(request: NextRequest) {
 				{ status: 401 }
 			);
 		}
-		const { Grade } = await getTenantModels(tenant);
+		const { Grade } = await getTenantModels();
 		const body = await request.json();
 		const { classId, subject, grades } = body;
 		if (!classId || !subject || !grades) {
@@ -917,6 +902,22 @@ export async function POST(request: NextRequest) {
 				{ status: 403 }
 			);
 		}
+
+		// Check if the teacher is a "Self Contained" teacher and validate the classId
+		const isSelfContained = teacher.subjects.some(
+			(s: any) => s.level === 'Self Contained'
+		);
+		if (isSelfContained && teacher.sponsorClass !== classId) {
+			return NextResponse.json(
+				{
+					success: false,
+					message:
+						'Self Contained teachers can only submit grades for their own sponsor class.',
+				},
+				{ status: 403 }
+			);
+		}
+
 		const validation = validateGrades(grades);
 		if (!validation.isValid) {
 			return NextResponse.json(
@@ -929,7 +930,7 @@ export async function POST(request: NextRequest) {
 			period: g.period,
 		}));
 		const existingGrades = await Grade.find({
-			$or: studentPeriodPairs.map((pair) => ({
+			$or: studentPeriodPairs.map((pair: any) => ({
 				studentId: pair.studentId,
 				period: pair.period,
 				subject,
@@ -975,13 +976,6 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
 	try {
-		const tenant = getTenantFromRequest(request);
-		if (!tenant) {
-			return NextResponse.json(
-				{ success: false, message: 'Tenant not found' },
-				{ status: 400 }
-			);
-		}
 		const currentUser = await authorizeUser(request, ['teacher']);
 		if (!currentUser) {
 			return NextResponse.json(
@@ -989,7 +983,7 @@ export async function PUT(request: NextRequest) {
 				{ status: 401 }
 			);
 		}
-		const { Grade } = await getTenantModels(tenant);
+		const { Grade } = await getTenantModels();
 		const body = await request.json();
 		const { submissionId, grades } = body;
 		if (!submissionId || !grades) {
@@ -1047,12 +1041,11 @@ export async function PUT(request: NextRequest) {
 }
 
 async function updateGradeStatus(
-	tenant: string,
 	submissionId: string,
 	studentId: string,
 	status: string
 ) {
-	const { Grade } = await getTenantModels(tenant);
+	const { Grade } = await getTenantModels();
 
 	if (!['Approved', 'Rejected', 'Pending'].includes(status)) {
 		return {
@@ -1081,14 +1074,6 @@ async function updateGradeStatus(
 
 export async function PATCH(request: NextRequest) {
 	try {
-		const tenant = getTenantFromRequest(request);
-		if (!tenant) {
-			return NextResponse.json(
-				{ success: false, message: 'Tenant not found' },
-				{ status: 400 }
-			);
-		}
-
 		const currentUser = await authorizeUser(request, ['system_admin']);
 		if (!currentUser) {
 			return NextResponse.json(
@@ -1113,7 +1098,6 @@ export async function PATCH(request: NextRequest) {
 
 				// Use the new function to update the grade status
 				const updateResult = await updateGradeStatus(
-					tenant,
 					submissionId,
 					studentId,
 					status

@@ -1,5 +1,5 @@
 'use server';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { getSession } from '@/utils/session';
 
 export async function getCurrentUser() {
@@ -9,7 +9,7 @@ export async function getCurrentUser() {
 		const currentUser = getSession(sessionId || '');
 
 		if (!currentUser) return null;
-
+		(await headers()).get('host');
 		return currentUser;
 	} catch (error) {
 		console.error('Error getting current user:', error);

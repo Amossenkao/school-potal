@@ -176,6 +176,9 @@ function buildUserResponse(user: any) {
 		avatar: user.avatar,
 		isActive: user.isActive,
 		notifications: user.notifications,
+		mustChangePassword: user.mustChangePassword,
+		defaultPassword: user.defaultPassword,
+		passwordChangedAt: user.passwordChangedAt,
 	};
 
 	switch (user.role) {

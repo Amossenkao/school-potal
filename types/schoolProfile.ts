@@ -5,6 +5,7 @@ export type FeatureKey =
 	| 'user_management'
 	| 'profile_management'
 	| 'messages'
+	| 'homepage'
 
 	// Academic Features
 	| 'grading_system'
@@ -41,8 +42,36 @@ export interface RoleFeatureAccess {
 	};
 }
 
+export interface StudentSettings {
+	loginAccess: boolean;
+	yearlyReportAccess: boolean;
+	reportAccessPeriods: string[];
+}
+
+export interface TeacherSettings {
+	loginAccess: boolean;
+	gradeSubmissionPeriods: string[];
+	gradeSubmissionAcademicYears: string[];
+	viewMastersAcademicYears: string[];
+	viewGradeSubmissionsAcademicYears: string[];
+	gradeChangeRequestAcademicYears: string[];
+	gradeChangeRequestPeriods: string[];
+}
+
+export interface AdministratorSettings {
+	loginAccess: boolean;
+}
+
+export interface SchoolSettings {
+	studentSettings: StudentSettings;
+	teacherSettings: TeacherSettings;
+	administratorSettings: AdministratorSettings;
+}
+
 export interface SchoolProfile {
 	// Basic school info
+	host: string;
+	dbName: string;
 	id?: string;
 	name: string;
 	slogan: string;
@@ -59,7 +88,7 @@ export interface SchoolProfile {
 	roleFeatureAccess: RoleFeatureAccess;
 
 	// Subscription/Plan info
-	subscriptionPlan: 'basic' | 'standard' | 'premium' | 'enterprise';
+	subscriptionPlan: 'basic' | 'standard' | 'premium';
 	subscriptionExpiry?: Date;
 
 	// Custom configurations
@@ -75,17 +104,20 @@ export interface SchoolProfile {
 		};
 	};
 
+	// School Settings
+	settings?: SchoolSettings;
+
 	// Additional properties
-	whyChoose: any[];
-	facilities: any[];
-	team: any[];
+	whyChoose: any;
+	facilities: any;
+	team: any;
 	address: string[];
 	phones: string[];
 	emails: string[];
 	hours: string[];
-	quickLinks: any[];
-	academicLinks: any[];
-	footerLinks: any[];
+	quickLinks: any;
+	academicLinks: any;
+	footerLinks: any;
 	classLevels: any;
 }
 
@@ -109,6 +141,7 @@ export const PLAN_FEATURES: Record<string, FeatureKey[]> = {
 		'fee_payment',
 	],
 	premium: [
+		'homepage',
 		'dashboard',
 		'user_management',
 		'profile_management',
@@ -147,65 +180,6 @@ export const PLAN_FEATURES: Record<string, FeatureKey[]> = {
 		'notifications',
 		'events_log',
 	],
-};
-
-// Default role access configurations
-export const DEFAULT_ROLE_ACCESS: RoleFeatureAccess = {
-	system_admin: {
-		features: [
-			'dashboard',
-			'user_management',
-			'grading_system',
-			'class_management',
-			'academic_reports',
-			'lesson_planning',
-			'calendar_events',
-			'academic_resources',
-			'school_settings',
-			'support_system',
-			'profile_management',
-			'messages',
-		],
-	},
-	teacher: {
-		features: [
-			'dashboard',
-			'grading_system',
-			'lesson_planning',
-			'salary_management',
-			'academic_resources',
-			'events_log',
-			'profile_management',
-			'messages',
-		],
-	},
-	student: {
-		features: [
-			'dashboard',
-			'fee_payment',
-			'grading_system',
-			'academic_resources',
-			'profile_management',
-			'messages',
-		],
-	},
-	administrator: {
-		features: [
-			'dashboard',
-			'salary_management',
-			'profile_management',
-			'messages',
-		],
-	},
-	parent: {
-		features: [
-			'dashboard',
-			'fee_payment',
-			'grading_system',
-			'messages',
-			'profile_management',
-		],
-	},
 };
 
 export default SchoolProfile;

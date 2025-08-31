@@ -13,6 +13,7 @@ import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import Spinner from '@/components/ui/spinner';
+import AccessDenied from '@/components/AccessDenied';
 
 function gradeStyle(score: string | number | null) {
 	if (score === null || Number.isNaN(score) || Number(score) < 70) {
@@ -360,7 +361,7 @@ function FilterContent({
 				setFilters((prev) => ({ ...prev, selectedStudents: [] }));
 			}
 		}
-	}, [filters.className, setFilters, isStudent]);
+	}, [filters.className, isStudent]);
 
 	const canSubmit = (() => {
 		if (isStudent) {
@@ -376,6 +377,18 @@ function FilterContent({
 
 	if (!currentSchool) {
 		return <PageLoading fullScreen={false} />;
+	}
+
+	if (
+		isStudent &&
+		!currentSchool?.settings?.studentSettings.yearlyReportAccess
+	) {
+		return (
+			<AccessDenied
+				message="You are currently not allowed to view yearly reports"
+				description=""
+			/>
+		);
 	}
 
 	if (isStudent) {
