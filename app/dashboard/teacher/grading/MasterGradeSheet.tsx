@@ -1,3 +1,4 @@
+// app/dashboard/shared/MasterGradeSheet.tsx
 'use client';
 import React, { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
@@ -98,13 +99,15 @@ const formatGrade = (grade: any): string => {
 };
 
 const MasterGradeSheet: React.FC<GradeMasterProps> = ({
-	academicYear,
+	academicYear: currentAcademicYear,
 	loading: parentLoading,
 	error: parentError,
 }) => {
 	const { user: userInfo } = useAuth(); // Get user from auth
 	const currentSchool = useSchoolStore((state) => state.school); // Get school from store
 
+	const [selectedAcademicYear, setSelectedAcademicYear] =
+		useState(currentAcademicYear);
 	const [selectedSession, setSelectedSession] = useState('');
 	const [selectedMasterClassLevel, setSelectedMasterClassLevel] = useState('');
 	const [selectedMasterGradeLevel, setSelectedMasterGradeLevel] = useState('');
@@ -123,6 +126,31 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		grades: '',
 		subjects: '',
 	});
+
+	const availableAcademicYears = useMemo(() => {
+		if (userInfo?.role === 'system_admin') {
+			return (
+				currentSchool?.settings?.teacherSettings?.viewMastersAcademicYears || [
+					currentAcademicYear,
+				]
+			);
+		}
+		// For teachers, it would also come from settings.
+		return (
+			currentSchool?.settings?.teacherSettings?.viewMastersAcademicYears || [
+				currentAcademicYear,
+			]
+		);
+	}, [currentSchool, userInfo, currentAcademicYear]);
+
+	useEffect(() => {
+		if (availableAcademicYears.length === 1) {
+			setSelectedAcademicYear(availableAcademicYears[0]);
+		} else if (!availableAcademicYears.includes(selectedAcademicYear)) {
+			// If the current year is not in the list, default to the first available one
+			setSelectedAcademicYear(availableAcademicYears[0] || '');
+		}
+	}, [availableAcademicYears, selectedAcademicYear]);
 
 	const combineStudentsAndGrades = (students: Student[], grades: any) => {
 		const gradesMap = new Map();
@@ -308,7 +336,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		} else {
 			setStudentsData([]);
 		}
-	}, [academicYear, selectedMasterGradeLevel]);
+	}, [selectedAcademicYear, selectedMasterGradeLevel]);
 
 	// Fetch grades when both class and subject are selected
 	useEffect(() => {
@@ -319,7 +347,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 				try {
 					const res = await fetch(
-						`/api/grades?academicYear=${academicYear}&classId=${selectedMasterGradeLevel}&subject=${selectedMasterSubject}`
+						`/api/grades?academicYear=${selectedAcademicYear}&classId=${selectedMasterGradeLevel}&subject=${selectedMasterSubject}`
 					);
 
 					if (!res.ok) {
@@ -347,7 +375,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		} else {
 			setGradesData(null);
 		}
-	}, [academicYear, selectedMasterGradeLevel, selectedMasterSubject]);
+	}, [selectedAcademicYear, selectedMasterGradeLevel, selectedMasterSubject]);
 
 	// Combine data whenever students or grades change
 	useEffect(() => {
@@ -677,6 +705,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				<div
 					className={`grid grid-cols-1 gap-4 ${
 						[
+							availableAcademicYears.length > 1,
 							shouldShowSessionSelector(),
 							shouldShowLevelSelector(),
 							shouldShowClassSelector(),
@@ -686,6 +715,37 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 							: 'md:grid-cols-2'
 					}`}
 				>
+					{/* Academic Year Selector */}
+					{availableAcademicYears.length > 1 && (
+						<div>
+							<label
+								htmlFor="academic-year-select"
+								className="block text-sm font-medium text-card-foreground"
+							>
+								Academic Year
+							</label>
+							<select
+								id="academic-year-select"
+								value={selectedAcademicYear}
+								onChange={(e) => {
+									setSelectedAcademicYear(e.target.value);
+									// Reset dependent filters
+									setSelectedSession('');
+									setSelectedMasterClassLevel('');
+									setSelectedMasterGradeLevel('');
+									setSelectedMasterSubject('');
+								}}
+								className="mt-1 block w-full rounded-md border-input bg-background py-2 pl-3 pr-10 text-base focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
+							>
+								<option value="">Select Year</option>
+								{availableAcademicYears.map((year) => (
+									<option key={year} value={year}>
+										{year}
+									</option>
+								))}
+							</select>
+						</div>
+					)}
 					{/* Session selector */}
 					{shouldShowSessionSelector() && (
 						<div>
@@ -769,7 +829,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 								}
 							>
 								<option value="">Select Class</option>
-								{getAvailableClasses().map((cls) => (
+								{getAvailableClasses().map((cls: any) => (
 									<option key={cls.classId} value={cls.classId}>
 										{cls.name}
 									</option>
@@ -816,7 +876,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 						<h3 className="text-lg sm:text-xl font-semibold text-card-foreground">
 							Sheet for{' '}
 							{getAvailableClasses().find(
-								(cls) => cls.classId === selectedMasterGradeLevel
+								(cls: any) => cls.classId === selectedMasterGradeLevel
 							)?.name ||
 								// Fallback: try to get class name from student data if available
 								(studentsData.length > 0
@@ -846,11 +906,11 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 									}}
 									classLevel={
 										getAvailableClasses().find(
-											(cls) => cls.classId === selectedMasterGradeLevel
+											(cls: any) => cls.classId === selectedMasterGradeLevel
 										)?.name || selectedMasterGradeLevel
 									}
 									subject={selectedMasterSubject}
-									academicYear={academicYear}
+									academicYear={selectedAcademicYear}
 								/>
 							)}
 						</div>

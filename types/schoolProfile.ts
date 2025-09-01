@@ -30,8 +30,7 @@ export type FeatureKey =
 	| 'notifications'
 
 	// System Features
-	| 'school_settings'
-	| 'events_log';
+	| 'school_settings';
 
 export interface RoleFeatureAccess {
 	[role: string]: {
@@ -141,24 +140,6 @@ export const PLAN_FEATURES: Record<string, FeatureKey[]> = {
 		'fee_payment',
 	],
 	premium: [
-		'homepage',
-		'dashboard',
-		'user_management',
-		'profile_management',
-		'messages',
-		'grading_system',
-		'lesson_planning',
-		'academic_reports',
-		'academic_resources',
-		'calendar_events',
-		'class_management',
-		'fee_payment',
-		'salary_management',
-		'school_settings',
-		'support_system',
-		'events_log',
-	],
-	enterprise: [
 		'dashboard',
 		'user_management',
 		'profile_management',
@@ -178,7 +159,6 @@ export const PLAN_FEATURES: Record<string, FeatureKey[]> = {
 		'school_settings',
 		'support_system',
 		'notifications',
-		'events_log',
 	],
 };
 

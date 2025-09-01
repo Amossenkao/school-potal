@@ -21,6 +21,10 @@ import {
 	UserPlus,
 	UserCheck,
 	BookOpen,
+	BellDot,
+	Book,
+	BookA,
+	BookCheck,
 } from 'lucide-react';
 import type { SchoolProfile, FeatureKey } from '@/types/schoolProfile';
 
@@ -135,7 +139,7 @@ const componentMappings: Record<string, any> = {
 	),
 
 	// Events Log
-	Events: dynamic(() => import('@/app/dashboard/teacher/EventsLog')),
+	notifications: dynamic(() => import('@/app/dashboard/shared/Notifications')),
 
 	// Settings & Support
 	settings: dynamic(() => import('@/app/dashboard/admin/Settings')),
@@ -200,7 +204,7 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					key: 'submissions',
 					title: 'Grade Submissions',
 					href: '/submissions',
-					icon: ClipboardList,
+					icon: BookCheck,
 				},
 				{
 					key: 'requests',
@@ -483,17 +487,26 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		},
 	},
 
-	events_log: {
-		key: 'events_log',
-		title: 'Events Log',
+	notifications: {
+		key: 'notifications',
+		title: 'Notificatios',
 		icon: AlignEndVerticalIcon,
 		routes: {
 			teacher: [
 				{
-					key: 'Events',
-					title: 'Events Log',
-					href: '/Events',
-					icon: AlignEndVerticalIcon,
+					key: 'notifications',
+					title: 'Notifications',
+					href: '/notifications',
+					icon: BellDot,
+				},
+			],
+
+			system_admin: [
+				{
+					key: 'notifications',
+					title: 'Notifications',
+					href: '/notifications',
+					icon: BellDot,
 				},
 			],
 		},
@@ -636,14 +649,6 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		title: 'Student Records',
 		icon: FileText,
 		category: 'Student Management',
-		routes: {},
-	},
-
-	notifications: {
-		key: 'notifications',
-		title: 'Notifications',
-		icon: MessageCircle,
-		category: 'Communication',
 		routes: {},
 	},
 };

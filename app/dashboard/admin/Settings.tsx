@@ -76,11 +76,11 @@ const academicPeriodsMap = [
 	{ value: 'first', label: 'First Period' },
 	{ value: 'second', label: 'Second Period' },
 	{ value: 'third', label: 'Third Period' },
-	{ value: 'third-period-exam', label: 'Third Period Exam' },
+	{ value: 'third_period_exam', label: 'Third Period Exam' },
 	{ value: 'fourth', label: 'Fourth Period' },
 	{ value: 'fifth', label: 'Fifth Period' },
 	{ value: 'sixth', label: 'Sixth Period' },
-	{ value: 'sixth-period-exam', label: 'Sixth Period Exam' },
+	{ value: 'sixth_period_exam', label: 'Sixth Period Exam' },
 ];
 
 // MODIFICATION: Update MultiSelect to handle an array of objects

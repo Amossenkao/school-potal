@@ -30,6 +30,7 @@ import {
 	X,
 	Info,
 	Loader2,
+	KeyRound,
 } from 'lucide-react';
 import Logo from '../Logo';
 import useAuth from '@/store/useAuth';
@@ -218,14 +219,27 @@ export default function NavBar({ skipStorageLoad = false }) {
 		console.log(user);
 
 		// User is logged in
-		const getDashboardButtonText = () => {
+		const getDashboardButtonState = () => {
 			if (user?.mustChangePassword) {
-				return user.passwordChangedAt === undefined
-					? 'Setup Account'
-					: 'Change Password';
+				if (user.passwordChangedAt === null) {
+					return {
+						text: 'Setup Account',
+						icon: UserPlus,
+					};
+				} else {
+					return {
+						text: 'Change Password',
+						icon: KeyRound,
+					};
+				}
 			}
-			return 'Dashboard';
+			return {
+				text: 'Dashboard',
+				icon: LayoutDashboard,
+			};
 		};
+
+		const dashboardButtonState = getDashboardButtonState();
 
 		return (
 			<div
@@ -247,9 +261,9 @@ export default function NavBar({ skipStorageLoad = false }) {
 				>
 					<LoadingIcon
 						isLoading={isNavigatingToDashboard}
-						defaultIcon={LayoutDashboard}
+						defaultIcon={dashboardButtonState.icon}
 					/>
-					{isNavigatingToDashboard ? 'Loading...' : getDashboardButtonText()}
+					{isNavigatingToDashboard ? 'Loading...' : dashboardButtonState.text}
 				</Button>
 
 				<Button

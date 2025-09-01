@@ -236,7 +236,7 @@ export async function GET(request: NextRequest) {
 		const currentUser = await authorizeUser(request);
 		const host = request.headers.get('host');
 
-		const models = await getTenantModels(host);
+		const models = await getTenantModels();
 		const { searchParams } = new URL(request.url);
 
 		const role = searchParams.get('role');
@@ -765,13 +765,30 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
 	try {
 		const currentUser = await authorizeUser(request);
-		const host = request.headers.get('host');
 
-		const models = await getTenantModels(host);
+		const models = await getTenantModels();
 		const { searchParams } = new URL(request.url);
 		const targetUserId = searchParams.get('id');
 		const resetPassword = searchParams.get('resetPassword') === 'true';
+		const action = searchParams.get('action'); // expecting 'promote' or 'demote'
+		const promotionType = searchParams.get('type'); // expecting 'yearly' or 'semester'
+
 		const actualTargetUserId = targetUserId || currentUser.userId;
+
+		if (action === 'promote' || action === 'demote') {
+			// Ensure only admins can perform this action
+			if (currentUser.role !== 'system_admin') {
+				return NextResponse.json(
+					{ success: false, message: 'Unauthorized' },
+					{ status: 403 }
+				);
+			}
+			// ... promotion/demotion logic will go here
+			return NextResponse.json({
+				success: true,
+				message: 'Promotion/demotion endpoint hit',
+			});
+		}
 
 		const targetUser = await models.User.findById(actualTargetUserId);
 		if (!targetUser) {
@@ -1176,19 +1193,51 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
 	try {
 		const currentUser = await authorizeUser(request, ['system_admin']);
+		if (!currentUser) {
+			NextResponse.json(
+				{
+					success: false,
+					message: 'Unauthorized',
+				},
+				{ status: 400 }
+			);
+		}
 
-		const host = request.headers.get('host');
-
-		const models = await getTenantModels(host);
-		const { searchParams } = new URL(request.url);
-		const targetUserId = searchParams.get('id');
+		const models = await getTenantModels();
+		const body = await request.json();
+		const { targetUserId, adminPassword } = body;
 
 		if (!targetUserId) {
 			return NextResponse.json(
 				{ success: false, message: 'User ID is required' },
 				{ status: 400 }
 			);
+		} else if (!adminPassword) {
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'Admin password is required',
+				},
+				{ status: 400 }
+			);
 		}
+
+		const adminUser = await models.SystemAdmin.findById(currentUser.userId);
+		const isPasswordValid = await bcrypt.compare(
+			adminPassword,
+			adminUser.password
+		);
+
+		if (!isPasswordValid) {
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'Invalid Admin Password',
+				},
+				{ status: 401 }
+			);
+		}
+
 		const targetUser = await models.User.findById(targetUserId);
 		if (!targetUser) {
 			return NextResponse.json(

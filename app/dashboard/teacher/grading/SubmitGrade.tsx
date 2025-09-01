@@ -39,16 +39,24 @@ const allPeriods = [
 	{ id: 'first', label: 'First Period', value: 'firstPeriod' },
 	{ id: 'second', label: 'Second Period', value: 'secondPeriod' },
 	{ id: 'third', label: 'Third Period', value: 'thirdPeriod' },
-	{ id: 'third_exam', label: 'Third Period Exam', value: 'thirdPeriodExam' },
+	{
+		id: 'third_period_exam',
+		label: 'Third Period Exam',
+		value: 'thirdPeriodExam',
+	},
 	{ id: 'fourth', label: 'Fourth Period', value: 'fourthPeriod' },
 	{ id: 'fifth', label: 'Fifth Period', value: 'fifthPeriod' },
 	{ id: 'sixth', label: 'Sixth Period', value: 'sixthPeriod' },
-	{ id: 'sixth_exam', label: 'Sixth Period Exam', value: 'sixthPeriodExam' },
+	{
+		id: 'sixth_period_exam',
+		label: 'Sixth Period Exam',
+		value: 'sixthPeriodExam',
+	},
 ];
 
 const SubmitGrade: React.FC<GradeSubmitProps> = ({
 	teacherInfo,
-	academicYear,
+	academicYear, // This is the current academic year, used as a default
 	loading: parentLoading,
 	error: parentError,
 	onSwitchToOverview,
@@ -62,6 +70,9 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 	const [studentsForGrading, setStudentsForGrading] = useState<
 		StudentForGrading[]
 	>([]);
+
+	// NEW: State for selected academic year
+	const [selectedAcademicYear, setSelectedAcademicYear] = useState('');
 
 	const [loading, setLoading] = useState({
 		studentsForGrading: false,
@@ -85,6 +96,26 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 		}
 		return allPeriods;
 	}, [school]);
+
+	// NEW: Memoize available academic years from settings
+	const availableAcademicYears = useMemo(() => {
+		return (
+			school?.settings?.teacherSettings?.gradeSubmissionAcademicYears || [
+				academicYear,
+			]
+		);
+	}, [school, academicYear]);
+
+	// NEW: Effect to auto-select academic year if only one is available
+	useEffect(() => {
+		if (availableAcademicYears.length === 1) {
+			setSelectedAcademicYear(availableAcademicYears[0]);
+		} else if (availableAcademicYears.includes(academicYear)) {
+			setSelectedAcademicYear(academicYear);
+		} else {
+			setSelectedAcademicYear('');
+		}
+	}, [availableAcademicYears, academicYear]);
 
 	// Effect to automatically clear the notification after 5 seconds
 	useEffect(() => {
@@ -219,7 +250,8 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 			!selectedSubject ||
 			!selectedClassId ||
 			!selectedSession ||
-			!selectedClassLevel
+			!selectedClassLevel ||
+			!selectedAcademicYear // NEW: check for academic year
 		)
 			return;
 
@@ -243,8 +275,9 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 			}
 
 			// Step 2: Fetch existing grades report for the class and subject
+			// UPDATED: Use selectedAcademicYear from state
 			const existingGradesRes = await fetch(
-				`/api/grades?academicYear=${academicYear}&classId=${selectedClassId}&subject=${selectedSubject}`
+				`/api/grades?academicYear=${selectedAcademicYear}&classId=${selectedClassId}&subject=${selectedSubject}`
 			);
 			if (!existingGradesRes.ok)
 				throw new Error('Failed to fetch existing grades');
@@ -300,14 +333,21 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 		} finally {
 			setLoading((prev) => ({ ...prev, studentsForGrading: false }));
 		}
-	}, [academicYear, selectedClassId, selectedSubject, selectedSession]);
+	}, [
+		selectedAcademicYear,
+		selectedClassId,
+		selectedSubject,
+		selectedSession,
+		periods,
+	]);
 
 	useEffect(() => {
 		if (
 			selectedSession &&
 			selectedClassLevel &&
 			selectedClassId &&
-			selectedSubject
+			selectedSubject &&
+			selectedAcademicYear
 		) {
 			loadStudentsForGrading();
 		}
@@ -316,6 +356,7 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 		selectedClassLevel,
 		selectedClassId,
 		selectedSubject,
+		selectedAcademicYear,
 		loadStudentsForGrading,
 	]);
 
@@ -391,7 +432,7 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 		return periods
 			.filter((period) => selectedPeriods.includes(period.value))
 			.map((period) => period.value);
-	}, [selectedPeriods]);
+	}, [selectedPeriods, periods]);
 
 	const handleSubmitGrades = async () => {
 		if (selectedPeriods.length === 0) {
@@ -533,6 +574,8 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 	const showClassSelect =
 		!isSelfContainedTeacher && availableClasses.length > 1;
 	const showSubjectSelect = availableSubjects.length > 1;
+	// NEW: Determine if academic year filter should be shown
+	const showAcademicYearFilter = availableAcademicYears.length > 1;
 
 	// Popup Notification component (self-contained, no changes needed)
 	const PopupNotification = () => {
@@ -695,6 +738,24 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 		);
 	};
 
+	if (periods.length === 0) {
+		return (
+			<div className="bg-card border-l-4 border-yellow-500 rounded-r-lg p-6 shadow-sm text-center">
+				<div className="mx-auto w-16 h-16 bg-yellow-100 dark:bg-yellow-900/20 rounded-full flex items-center justify-center mb-4">
+					<AlertCircle className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+				</div>
+				<h3 className="text-lg font-semibold text-foreground mb-2">
+					Grade Submission Disabled
+				</h3>
+				<p className="text-muted-foreground">
+					The administrator has not enabled grade submission for any academic
+					periods at this time. Please check back later or contact an
+					administrator for more information.
+				</p>
+			</div>
+		);
+	}
+
 	return (
 		<div className="space-y-6">
 			<style jsx>{`
@@ -806,7 +867,31 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 					Follow the steps to select your class and subject.
 				</p>
 
-				<div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+					{/* NEW: Academic Year Selector */}
+					{showAcademicYearFilter && (
+						<div>
+							<label
+								htmlFor="academic-year-select"
+								className="block text-sm font-medium text-foreground"
+							>
+								Academic Year
+							</label>
+							<select
+								id="academic-year-select"
+								value={selectedAcademicYear}
+								onChange={(e) => setSelectedAcademicYear(e.target.value)}
+								className="mt-1 block w-full rounded-md border border-input bg-background py-2 pl-3 pr-10 text-foreground focus:border-ring focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background sm:text-sm"
+							>
+								<option value="">Select Year</option>
+								{availableAcademicYears.map((year, index) => (
+									<option key={`year-${year}-${index}`} value={year}>
+										{year}
+									</option>
+								))}
+							</select>
+						</div>
+					)}
 					{/* Session Selector */}
 					{showSessionSelect && (
 						<div>
@@ -814,7 +899,7 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 								htmlFor="session-select"
 								className="block text-sm font-medium text-foreground"
 							>
-								1. Session
+								Session
 							</label>
 							<select
 								id="session-select"
@@ -839,7 +924,7 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 								htmlFor="class-level-select"
 								className="block text-sm font-medium text-foreground"
 							>
-								2. Class Level
+								Class Level
 							</label>
 							<select
 								id="class-level-select"
@@ -864,7 +949,7 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 								htmlFor="class-select"
 								className="block text-sm font-medium text-foreground"
 							>
-								3. Class
+								Class
 							</label>
 							<select
 								id="class-select"
@@ -888,7 +973,7 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 					{isSelfContainedTeacher && (
 						<div>
 							<label className="block text-sm font-medium text-foreground">
-								3. Class
+								Class
 							</label>
 							<div className="mt-1 block w-full rounded-md border border-input bg-muted py-2 px-3 text-muted-foreground sm:text-sm">
 								{availableClasses[0]?.name || 'Sponsor Class'}
@@ -903,7 +988,7 @@ const SubmitGrade: React.FC<GradeSubmitProps> = ({
 								htmlFor="subject-select"
 								className="block text-sm font-medium text-foreground"
 							>
-								4. Subject
+								Subject
 							</label>
 							<select
 								id="subject-select"

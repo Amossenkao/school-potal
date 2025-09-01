@@ -57,7 +57,7 @@ let periodOptions = [
 	{ id: 'fifth', label: 'Fifth Period', value: 'fifthPeriod' },
 	{ id: 'sixth', label: 'Sixth Period', value: 'sixthPeriod' },
 	{
-		id: 'sixth_periodi_exam',
+		id: 'sixth_period_exam',
 		label: 'Sixth Period Exam',
 		value: 'sixthPeriodExam',
 	},

@@ -9,65 +9,34 @@ const DeleteUserModal = ({
 	onDeleteSuccess,
 	setFeedback,
 }) => {
-	const [step, setStep] = useState(1); // 1: password, 2: otp
 	const [password, setPassword] = useState('');
 	const [showPassword, setShowPassword] = useState(false);
-	const [otp, setOtp] = useState('');
-	const [sessionId, setSessionId] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState('');
 
-	const handlePasswordSubmit = async (e) => {
+	const handleDeleteSubmit = async (e: any) => {
 		e.preventDefault();
 		setIsLoading(true);
 		setError('');
 		try {
 			const res = await fetch(`/api/users`, {
-				method: 'PATCH',
+				method: 'DELETE',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					adminPassword: password,
 					targetUserId: deletingUser._id,
-					action: 'request_otp', // This can be the default action
 				}),
 			});
 			const data = await res.json();
 			if (!res.ok) {
 				throw new Error(
-					data.message || 'Incorrect password or failed to send OTP.'
+					data.message || 'Incorrect password or failed to delete user.'
 				);
-			}
-			setSessionId(data.sessionId);
-			setStep(2);
-		} catch (err) {
-			setError(err.message);
-		} finally {
-			setIsLoading(false);
-		}
-	};
-
-	const handleOtpSubmit = async (e) => {
-		e.preventDefault();
-		setIsLoading(true);
-		setError('');
-		try {
-			const res = await fetch(`/api/users`, {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					otp,
-					sessionId,
-					action: 'verify_otp',
-				}),
-			});
-			const data = await res.json();
-			if (!res.ok) {
-				throw new Error(data.message || 'Invalid OTP or deletion failed.');
 			}
 			onDeleteSuccess(deletingUser._id);
 			handleClose();
 			setFeedback({ type: 'success', message: 'User deleted successfully.' });
-		} catch (err) {
+		} catch (err: any) {
 			setError(err.message);
 		} finally {
 			setIsLoading(false);
@@ -75,11 +44,8 @@ const DeleteUserModal = ({
 	};
 
 	const handleClose = () => {
-		setStep(1);
 		setPassword('');
-		setOtp('');
 		setError('');
-		setSessionId('');
 		setShowPassword(false);
 		onClose();
 	};
@@ -122,99 +88,52 @@ const DeleteUserModal = ({
 						</p>
 					)}
 
-					{step === 1 && (
-						<form onSubmit={handlePasswordSubmit}>
-							<label
-								htmlFor="admin-password"
-								className="block text-sm font-medium text-foreground mb-2"
-							>
-								Admin Password
-							</label>
-							<div className="relative">
-								<input
-									id="admin-password"
-									type={showPassword ? 'text' : 'password'}
-									value={password}
-									onChange={(e) => setPassword(e.target.value)}
-									className="w-full p-2 pr-10 border border-border rounded-lg bg-background"
-									placeholder="Enter your admin password"
-								/>
-								<button
-									type="button"
-									onClick={() => setShowPassword(!showPassword)}
-									className="absolute inset-y-0 right-0 px-3 flex items-center text-muted-foreground"
-								>
-									{showPassword ? (
-										<EyeOff className="h-5 w-5" />
-									) : (
-										<Eye className="h-5 w-5" />
-									)}
-								</button>
-							</div>
-							<div className="flex justify-end gap-3 mt-6">
-								<button
-									type="button"
-									onClick={handleClose}
-									className="px-4 py-2 rounded-lg bg-muted hover:bg-muted/80"
-								>
-									Cancel
-								</button>
-								<button
-									type="submit"
-									disabled={isLoading || !password}
-									className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:bg-orange-300 flex items-center"
-								>
-									{isLoading && (
-										<Loader2 className="h-4 w-4 animate-spin mr-2" />
-									)}
-									{isLoading ? 'Verifying...' : 'Send OTP'}
-								</button>
-							</div>
-						</form>
-					)}
-
-					{step === 2 && (
-						<form onSubmit={handleOtpSubmit}>
-							<p className="text-sm text-muted-foreground mb-4">
-								An OTP has been sent to your registered contact method. Please
-								enter it below to confirm deletion.
-							</p>
-							<label
-								htmlFor="otp"
-								className="block text-sm font-medium text-foreground mb-2"
-							>
-								Enter 6-digit OTP
-							</label>
+					<form onSubmit={handleDeleteSubmit}>
+						<label
+							htmlFor="admin-password"
+							className="block text-sm font-medium text-foreground mb-2"
+						>
+							Admin Password
+						</label>
+						<div className="relative">
 							<input
-								id="otp"
-								type="text"
-								value={otp}
-								onChange={(e) => setOtp(e.target.value)}
-								className="w-full p-2 border border-border rounded-lg bg-background tracking-widest text-center"
-								placeholder="_ _ _ _ _ _"
-								maxLength={6}
+								id="admin-password"
+								type={showPassword ? 'text' : 'password'}
+								value={password}
+								onChange={(e) => setPassword(e.target.value)}
+								className="w-full p-2 pr-10 border border-border rounded-lg bg-background"
+								placeholder="Enter your admin password"
 							/>
-							<div className="flex justify-end gap-3 mt-6">
-								<button
-									type="button"
-									onClick={handleClose}
-									className="px-4 py-2 rounded-lg bg-muted hover:bg-muted/80"
-								>
-									Cancel
-								</button>
-								<button
-									type="submit"
-									disabled={isLoading || otp.length !== 6}
-									className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-red-400 flex items-center"
-								>
-									{isLoading && (
-										<Loader2 className="h-4 w-4 animate-spin mr-2" />
-									)}
-									{isLoading ? 'Deleting...' : 'Confirm Delete'}
-								</button>
-							</div>
-						</form>
-					)}
+							<button
+								type="button"
+								onClick={() => setShowPassword(!showPassword)}
+								className="absolute inset-y-0 right-0 px-3 flex items-center text-muted-foreground"
+							>
+								{showPassword ? (
+									<EyeOff className="h-5 w-5" />
+								) : (
+									<Eye className="h-5 w-5" />
+								)}
+							</button>
+						</div>
+						<div className="flex justify-end gap-3 mt-6">
+							<button
+								type="button"
+								onClick={handleClose}
+								className="px-4 py-2 rounded-lg bg-muted hover:bg-muted/80"
+							>
+								Cancel
+							</button>
+							<button
+								type="submit"
+								disabled={isLoading || !password}
+								className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-red-400 flex items-center"
+							>
+								{isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+								{isLoading ? 'Deleting...' : 'Confirm Delete'}
+							</button>
+						</div>
+					</form>
 				</div>
 			</div>
 		</div>
