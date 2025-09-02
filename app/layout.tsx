@@ -21,7 +21,7 @@ export default function RootLayout({
 		const currentHost = window.location.hostname;
 
 		// Call the fetch action with the host
-		fetchSchool(currentHost);
+		fetchSchool();
 	}, [fetchSchool]); // Runs once on component mount
 
 	// Optional: Show a loading state until the school profile is loaded
@@ -30,7 +30,7 @@ export default function RootLayout({
 			<html lang="en">
 				<ThemeProvider>
 					<body>
-						<PageLoading variant="pulse" message="Loading Home Page..." />
+						<PageLoading variant="pulse" message="" />
 					</body>
 				</ThemeProvider>
 			</html>

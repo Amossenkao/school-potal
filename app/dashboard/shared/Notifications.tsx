@@ -1,129 +1,71 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import useAuth from '@/store/useAuth';
 import {
-	Calendar,
 	User,
 	Lock,
 	GraduationCap,
 	Clock,
-	ChevronDown,
-	Filter,
 	Search,
+	Bell,
+	X,
 } from 'lucide-react';
 
+import { Notification } from '@/types';
 const EventLogComponent = () => {
+	const { user, setUser } = useAuth();
 	const [activeTab, setActiveTab] = useState('all');
 	const [searchTerm, setSearchTerm] = useState('');
 	const [timeFilter, setTimeFilter] = useState('7days');
+	const [selectedEvent, setSelectedEvent] = useState<Notification | null>(null);
+	const [visibleCount, setVisibleCount] = useState(5);
 
-	// Sample event data
-	const events = [
-		{
-			id: 1,
-			type: 'login',
-			title: 'User Login',
-			description: 'Successfully logged into the system',
-			timestamp: '2025-08-21T09:15:00Z',
-			severity: 'info',
-			details: 'IP: 192.168.1.100, Device: Chrome on Windows',
-		},
-		{
-			id: 2,
-			type: 'grades',
-			title: 'Grade Updated',
-			description: 'Updated grade for John Smith in Mathematics',
-			timestamp: '2025-08-21T10:30:00Z',
-			severity: 'success',
-			details: 'Changed from B+ to A-, Assignment: Algebra Quiz #3',
-		},
-		{
-			id: 3,
-			type: 'password',
-			title: 'Password Changed',
-			description: 'Password successfully updated',
-			timestamp: '2025-08-21T11:45:00Z',
-			severity: 'warning',
-			details: 'Password strength: Strong',
-		},
-		{
-			id: 5,
-			type: 'grades',
-			title: 'Bulk Grade Import',
-			description: 'Imported grades for 28 students',
-			timestamp: '2025-08-21T14:10:00Z',
-			severity: 'success',
-			details: 'CSV import successful, Subject: Physics Lab Reports',
-		},
-		{
-			id: 7,
-			type: 'login',
-			title: 'Failed Login Attempt',
-			description: 'Invalid password attempt',
-			timestamp: '2025-08-20T08:20:00Z',
-			severity: 'error',
-			details: 'IP: 203.45.67.89, Attempts: 3',
-		},
-		{
-			id: 8,
-			type: 'profile',
-			title: 'Profile Updated',
-			description: 'Contact information updated',
-			timestamp: '2025-08-20T16:45:00Z',
-			severity: 'info',
-			details: 'Changed phone number and office hours',
-		},
-	];
+	const events: Notification[] = useMemo(
+		() =>
+			user?.notifications?.sort(
+				(a, b) =>
+					new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+			) || [],
+		[user]
+	);
 
 	const tabs = [
 		{ id: 'all', label: 'All Events', icon: Clock, count: events.length },
 		{
-			id: 'login',
+			id: 'Login',
 			label: 'Login',
 			icon: User,
-			count: events.filter((e) => e.type === 'login').length,
+			count: events.filter((e) => e.type === 'Login').length,
 		},
 		{
-			id: 'grades',
+			id: 'Grades',
 			label: 'Grades',
 			icon: GraduationCap,
-			count: events.filter((e) => e.type === 'grades').length,
+			count: events.filter((e) => e.type === 'Grades').length,
 		},
 		{
-			id: 'password',
+			id: 'Security',
 			label: 'Security',
 			icon: Lock,
-			count: events.filter((e) => e.type === 'password').length,
+			count: events.filter((e) => e.type === 'Security').length,
 		},
 		{
-			id: 'profile',
+			id: 'Profile',
 			label: 'Profile',
 			icon: User,
-			count: events.filter((e) => e.type === 'profile').length,
+			count: events.filter((e) => e.type === 'Profile').length,
 		},
 	];
 
-	const getSeverityColor = (severity: string) => {
-		switch (severity) {
-			case 'error':
-				return 'bg-destructive/10 text-destructive border-destructive/20';
-			case 'warning':
-				return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20 dark:text-yellow-500';
-			case 'success':
-				return 'bg-green-500/10 text-green-600 border-green-500/20 dark:text-green-500';
-			default:
-				return 'bg-primary/10 text-primary border-primary/20';
-		}
-	};
-
 	const getTypeIcon = (type: string) => {
 		switch (type) {
-			case 'login':
+			case 'Login':
 				return User;
-			case 'grades':
+			case 'Grades':
 				return GraduationCap;
-			case 'password':
+			case 'Security':
 				return Lock;
-			case 'profile':
+			case 'Profile':
 				return User;
 			default:
 				return Clock;
@@ -152,8 +94,117 @@ const EventLogComponent = () => {
 			(event) =>
 				searchTerm === '' ||
 				event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-				event.description.toLowerCase().includes(searchTerm.toLowerCase())
+				event.message.toLowerCase().includes(searchTerm.toLowerCase())
 		);
+
+	const handleMarkAsRead = async (notificationId: string) => {
+		if (!user) return;
+
+		const originalNotifications = user.notifications;
+		const updatedNotifications = originalNotifications.map((n) =>
+			n.id === notificationId ? { ...n, read: true } : n
+		);
+		setUser({ ...user, notifications: updatedNotifications });
+		if (selectedEvent?.id === notificationId) {
+			setSelectedEvent((prev) => (prev ? { ...prev, read: true } : null));
+		}
+
+		try {
+			const response = await fetch(`/api/notifications/${notificationId}`, {
+				method: 'PATCH',
+			});
+			if (!response.ok) {
+				throw new Error('Failed to mark as read');
+			}
+		} catch (error) {
+			console.error('Error marking notification as read:', error);
+			setUser({ ...user, notifications: originalNotifications });
+			if (selectedEvent?.id === notificationId) {
+				setSelectedEvent((prev) => (prev ? { ...prev, read: false } : null));
+			}
+		}
+	};
+
+	const handleMarkAllAsRead = async () => {
+		if (!user) return;
+
+		const originalNotifications = user.notifications;
+		const updatedNotifications = originalNotifications.map((notification) => {
+			if (activeTab === 'all' || notification.type === activeTab) {
+				return { ...notification, read: true };
+			}
+			return notification;
+		});
+		setUser({ ...user, notifications: updatedNotifications });
+
+		try {
+			const response = await fetch('/api/notifications/read-all', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ tab: activeTab }),
+			});
+
+			if (!response.ok) {
+				throw new Error('Failed to mark all as read');
+			}
+		} catch (error) {
+			console.error('Error marking all notifications as read:', error);
+			setUser({ ...user, notifications: originalNotifications });
+		}
+	};
+
+	const handleEventClick = (event: Notification) => {
+		setSelectedEvent(event);
+		if (!event.read) {
+			handleMarkAsRead(event.id);
+		}
+	};
+
+	const EventModal = ({
+		event,
+		onClose,
+	}: {
+		event: Notification | null;
+		onClose: () => void;
+	}) => {
+		if (!event) return null;
+		const Icon = getTypeIcon(event.type);
+		return (
+			<div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+				<div className="bg-card rounded-lg shadow-xl w-full max-w-lg">
+					<div className="p-4 border-b flex justify-between items-center">
+						<h3 className="text-lg font-semibold flex items-center gap-2">
+							<Icon className="w-5 h-5" />
+							{event.title}
+						</h3>
+						<button onClick={onClose} className="text-muted-foreground">
+							<X className="w-5 h-5" />
+						</button>
+					</div>
+					<div className="p-6 space-y-4">
+						<p>
+							<strong>Description:</strong> {event.message}
+						</p>
+						<p>
+							<strong>Details:</strong>{' '}
+							{event.details || 'No additional details.'}
+						</p>
+						<p className="text-sm text-muted-foreground">
+							{formatTimestamp(event.timestamp)}
+						</p>
+					</div>
+					<div className="p-4 border-t text-right">
+						<button
+							onClick={onClose}
+							className="px-4 py-2 bg-primary text-primary-foreground rounded-lg"
+						>
+							Close
+						</button>
+					</div>
+				</div>
+			</div>
+		);
+	};
 
 	return (
 		<div className="w-full p-4 sm:p-6 bg-background min-h-screen">
@@ -163,7 +214,7 @@ const EventLogComponent = () => {
 					<div className="flex flex-col space-y-4 sm:flex-row sm:justify-between sm:items-center sm:space-y-0">
 						<div>
 							<h1 className="text-xl sm:text-2xl font-bold text-foreground">
-								Events Log
+								Notifications
 							</h1>
 							<p className="text-muted-foreground mt-1 text-sm sm:text-base">
 								Monitor and track all system activities
@@ -190,6 +241,12 @@ const EventLogComponent = () => {
 								<option value="30days">Last 30 days</option>
 								<option value="all">All time</option>
 							</select>
+							<button
+								onClick={handleMarkAllAsRead}
+								className="px-4 py-2 bg-primary text-primary-foreground rounded-lg"
+							>
+								Mark All as Read
+							</button>
 						</div>
 					</div>
 				</div>
@@ -206,7 +263,10 @@ const EventLogComponent = () => {
 							return (
 								<button
 									key={tab.id}
-									onClick={() => setActiveTab(tab.id)}
+									onClick={() => {
+										setActiveTab(tab.id);
+										setVisibleCount(5);
+									}}
 									className={`${
 										isActive
 											? 'border-primary text-primary'
@@ -235,24 +295,30 @@ const EventLogComponent = () => {
 				<div className="divide-y divide-border">
 					{filteredEvents.length === 0 ? (
 						<div className="p-8 sm:p-12 text-center">
-							<Clock className="mx-auto h-12 w-12 text-muted-foreground" />
+							<Bell className="mx-auto h-12 w-12 text-muted-foreground" />
 							<h3 className="mt-2 text-sm font-medium text-foreground">
-								No events found
+								No notifications found
 							</h3>
 							<p className="mt-1 text-sm text-muted-foreground">
 								{searchTerm
 									? 'Try adjusting your search terms.'
-									: 'No events match the current filter.'}
+									: 'No notifications match the current filter.'}
 							</p>
 						</div>
 					) : (
-						filteredEvents.map((event) => {
+						filteredEvents.slice(0, visibleCount).map((event) => {
 							const Icon = getTypeIcon(event.type);
 							return (
 								<div
 									key={event.id}
-									className="p-4 sm:p-6 hover:bg-muted/50 transition-colors duration-150"
+									className={`p-4 sm:p-6 hover:bg-muted/50 transition-colors duration-150 cursor-pointer relative ${
+										!event.read ? 'bg-primary/5' : ''
+									}`}
+									onClick={() => handleEventClick(event)}
 								>
+									{!event.read && (
+										<div className="absolute left-2 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-primary"></div>
+									)}
 									<div className="flex items-start space-x-3 sm:space-x-4">
 										<div className="flex-shrink-0">
 											<div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-muted flex items-center justify-center">
@@ -261,27 +327,15 @@ const EventLogComponent = () => {
 										</div>
 										<div className="flex-1 min-w-0">
 											<div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-												<div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-3">
-													<p className="text-sm font-medium text-foreground">
-														{event.title}
-													</p>
-													<span
-														className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium border ${getSeverityColor(
-															event.severity
-														)} self-start`}
-													>
-														{event.severity}
-													</span>
-												</div>
+												<p className="text-sm font-medium text-foreground">
+													{event.title}
+												</p>
 												<p className="text-xs sm:text-sm text-muted-foreground">
 													{formatTimestamp(event.timestamp)}
 												</p>
 											</div>
 											<p className="mt-1 text-sm text-muted-foreground">
-												{event.description}
-											</p>
-											<p className="mt-2 text-xs text-muted-foreground/80 break-words">
-												{event.details}
+												{event.message}
 											</p>
 										</div>
 									</div>
@@ -292,19 +346,21 @@ const EventLogComponent = () => {
 				</div>
 
 				{/* Footer */}
-				{filteredEvents.length > 0 && (
-					<div className="border-t border-border px-4 sm:px-6 py-3">
-						<div className="flex flex-col space-y-2 sm:flex-row sm:justify-between sm:items-center sm:space-y-0 text-sm text-muted-foreground">
-							<p>
-								Showing {filteredEvents.length} of {events.length} events
-							</p>
-							<button className="text-primary hover:text-primary/80 font-medium transition-colors self-start sm:self-auto">
-								Load more events
-							</button>
-						</div>
+				{filteredEvents.length > visibleCount && (
+					<div className="border-t border-border px-4 sm:px-6 py-3 text-center">
+						<button
+							onClick={() => setVisibleCount((prev) => prev + 5)}
+							className="text-primary hover:text-primary/80 font-medium transition-colors"
+						>
+							Load more notifications
+						</button>
 					</div>
 				)}
 			</div>
+			<EventModal
+				event={selectedEvent}
+				onClose={() => setSelectedEvent(null)}
+			/>
 		</div>
 	);
 };

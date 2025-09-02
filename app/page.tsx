@@ -6,31 +6,7 @@ import NavBar from '@/components/sections/NavBar';
 import { PageLoading } from '@/components/loading';
 
 export default function SchoolHomepage() {
-	const [school, setSchool] = useState<null | any>(null);
-	const [loading, setLoading] = useState(true);
-	const currentSchool = useSchoolStore((state) => state.school);
-
-	useEffect(() => {
-		const loadSchoolData = async () => {
-			setLoading(true);
-			try {
-				await new Promise((resolve) => setTimeout(resolve, 1000));
-				setSchool(currentSchool);
-			} catch (error) {
-				console.error('Failed to load school profile:', error);
-				setSchool(null);
-			} finally {
-				setLoading(false);
-			}
-		};
-		loadSchoolData();
-	}, [currentSchool]);
-
-	if (loading) {
-		return (
-			<PageLoading variant="pulse" message="Loading Home Page..." size="lg" />
-		);
-	}
+	const school = useSchoolStore((state) => state.school);
 
 	if (!school) {
 		return (

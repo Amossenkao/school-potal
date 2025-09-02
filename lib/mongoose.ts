@@ -3,6 +3,7 @@ import mongoose, { Connection } from 'mongoose';
 import SchoolProfileSchema from '@/models/profile/SchoolProfile';
 import SchoolProfile from '@/types/schoolProfile';
 import { headers } from 'next/headers';
+import { redis } from '@/lib/redis';
 
 const MONGODB_URI = process.env.MONGODB_URI || '';
 
@@ -98,16 +99,31 @@ export const getTenantConnection = async (): Promise<Connection | null> => {
 };
 
 /**
- * Retrieves a school's profile from the central 'tenants' database.
- * @param host The hostname used to find the profile.
+ * Retrieves a school's profile from the central 'tenants' database, with Redis caching.
  * @returns The profile document, or null if not found or an error occurs.
  */
-
 export const getSchoolProfile = async (): Promise<any> => {
-	let host = (await headers()).get('host') || undefined;
+	const hostHeader = await headers();
+	let host = hostHeader.get('host') || undefined;
 	host = host?.split(':')[0];
+
+	if (!host) {
+		console.error('Host is undefined, cannot fetch school profile.');
+		return null;
+	}
+
+	const cacheKey = `school_profile:${host}`;
+
 	try {
-		// Ensure the connection to the 'tenants' database is established
+		// 1. Try to get the profile from Redis cache
+		const cachedProfile = await redis.get(cacheKey);
+		if (cachedProfile) {
+			console.log(`[Cache] HIT for ${host}`);
+			return cachedProfile;
+		}
+
+		console.log(`[Cache] MISS for ${host}`);
+		// 2. If not in cache, fetch from DB
 		const connection = await connectToTenantsDb();
 
 		const ProfileModel =
@@ -115,6 +131,15 @@ export const getSchoolProfile = async (): Promise<any> => {
 			connection.model<SchoolProfile>('Profile', SchoolProfileSchema);
 
 		const profile = await ProfileModel.findOne({ host }).lean().exec();
+
+		if (profile) {
+			// 3. Store in Redis cache for future requests (e.g., for 24 hours)
+			await redis.set(cacheKey, JSON.stringify(profile), {
+				ex: 60 * 60 * 24 * 30,
+			});
+			console.log(`[Cache] SET for ${host}`);
+		}
+
 		return profile;
 	} catch (error) {
 		console.error(`Error fetching school profile for host ${host}:`, error);

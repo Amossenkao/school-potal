@@ -4,8 +4,6 @@ import { getSchoolProfile } from '@/lib/mongoose';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
-	console.log('Fetching school profile for host:');
-
 	try {
 		const profile = await getSchoolProfile();
 
@@ -16,7 +14,6 @@ export async function GET(request: Request) {
 			);
 		}
 
-		// FIX: Convert the Mongoose document to a plain JavaScript object
 		const plainProfile = JSON.parse(JSON.stringify(profile));
 
 		return NextResponse.json(plainProfile);

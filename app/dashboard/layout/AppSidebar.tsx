@@ -17,6 +17,7 @@ interface NavItem {
 	isLogout?: boolean;
 	category?: string;
 	subItems?: NavItem[];
+	badgeCount?: number;
 }
 
 const AppSidebar: React.FC = () => {
@@ -33,7 +34,7 @@ const AppSidebar: React.FC = () => {
 	const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
 		{}
 	);
-	const subMenuRefs = useRef<Record<string, HTMLDivDevice | null>>({});
+	const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 	const sidebarRef = useRef<HTMLElement>(null);
 	const [initialSetupDone, setInitialSetupDone] = useState(false);
 	const [navigationItems, setNavigationItems] = useState<NavItem[]>([]);
@@ -64,7 +65,7 @@ const AppSidebar: React.FC = () => {
 		if (isMobileOpen) {
 			toggleMobileSidebar();
 		}
-	}, [pathname]); // Remove toggleMobileSidebar from dependencies to avoid infinite loop
+	}, [pathname, isMobileOpen, toggleMobileSidebar]);
 
 	// Handle click outside to close mobile sidebar
 	useEffect(() => {
@@ -95,6 +96,9 @@ const AppSidebar: React.FC = () => {
 			try {
 				const dynamicNavItems = generateNavigationItems(currentSchool, role);
 
+				const unreadNotifications =
+					user?.notifications?.filter((n) => !n.read).length || 0;
+
 				// Add logout item
 				const completeNavItems = [
 					...dynamicNavItems,
@@ -106,7 +110,7 @@ const AppSidebar: React.FC = () => {
 					},
 				];
 
-				// Prepend dashboard to all hrefs
+				// Prepend dashboard to all hrefs and add notification badge
 				const processedNavItems = completeNavItems.map((item) => ({
 					...item,
 					href: item.href ? prependDashboard(item.href) : undefined,
@@ -116,6 +120,8 @@ const AppSidebar: React.FC = () => {
 								href: prependDashboard(sub.href),
 						  }))
 						: undefined,
+					badgeCount:
+						item.name === 'Notifications' ? unreadNotifications : undefined,
 				}));
 
 				setNavigationItems(processedNavItems);
@@ -137,7 +143,7 @@ const AppSidebar: React.FC = () => {
 				]);
 			}
 		}
-	}, [currentSchool, role]);
+	}, [currentSchool, role, user?.notifications]);
 
 	const handleSubmenuToggle = (itemName: string) => {
 		setOpenSubmenu((prev) => (prev === itemName ? null : itemName));
@@ -267,8 +273,15 @@ const AppSidebar: React.FC = () => {
 										<item.icon className="w-5 h-5" />
 									</span>
 									{(isExpanded || isHovered || isMobileOpen) && (
-										<span className="menu-item-text">{item.name}</span>
+										<span className="menu-item-text flex-1">{item.name}</span>
 									)}
+									{(isExpanded || isHovered || isMobileOpen) &&
+										item.badgeCount &&
+										item.badgeCount > 0 && (
+											<span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+												{item.badgeCount}
+											</span>
+										)}
 								</Link>
 							)
 						) : null}

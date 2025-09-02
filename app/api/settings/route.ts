@@ -8,7 +8,8 @@ import {
 } from '@/types/schoolProfile';
 import SchoolProfileSchema from '@/models/profile/SchoolProfile';
 import { getTenantModels } from '@/models';
-import { updateAllUserSessions, destroyAllUserSessions } from '@/utils/session'; // Import session utilities
+import { updateAllUserSessions, destroyAllUserSessions } from '@/utils/session';
+import { redis } from '@/lib/redis';
 
 // Helper function to build a consistent user object for session data.
 function buildUserResponse(user: any) {
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
 			);
 
 		// --- MODIFICATION: Fetch current settings BEFORE updating ---
-		const currentSchool = await SchoolProfile.findOne({
+		const currentSchool: any = await SchoolProfile.findOne({
 			host: cleanHost,
 		}).lean();
 		const oldSettings = currentSchool?.settings;
@@ -94,15 +95,23 @@ export async function POST(request: Request) {
 				teacherSettings,
 				administratorSettings,
 			};
-			await SchoolProfile.findOneAndUpdate(
+			const updatedSchoolProfile = await SchoolProfile.findOneAndUpdate(
 				{ host: cleanHost },
-				{ $set: { settings: newSettings } }
-			);
+				{ $set: { settings: newSettings } },
+				{ new: true }
+			).lean();
+
+			if (updatedSchoolProfile) {
+				const cacheKey = `school_profile:${cleanHost}`;
+				await redis.set(cacheKey, JSON.stringify(updatedSchoolProfile), {
+					ex: 60 * 60 * 24 * 30,
+				});
+			}
 		}
 
 		// --- MODIFICATION: Check for login access changes and destroy sessions ---
 		if (oldSettings) {
-			const sessionDestructionPromises = [];
+			const sessionDestructionPromises: any = [];
 
 			// Check for Student login deactivation
 			if (
@@ -112,7 +121,7 @@ export async function POST(request: Request) {
 				const studentsToLogout = await Student.find({ role: 'student' })
 					.select('_id')
 					.lean();
-				studentsToLogout.forEach((student) =>
+				studentsToLogout.forEach((student: any) =>
 					sessionDestructionPromises.push(
 						destroyAllUserSessions(student._id.toString())
 					)
@@ -127,7 +136,7 @@ export async function POST(request: Request) {
 				const teachersToLogout = await Teacher.find({ role: 'teacher' })
 					.select('_id')
 					.lean();
-				teachersToLogout.forEach((teacher) =>
+				teachersToLogout.forEach((teacher: any) =>
 					sessionDestructionPromises.push(
 						destroyAllUserSessions(teacher._id.toString())
 					)
@@ -144,7 +153,7 @@ export async function POST(request: Request) {
 				})
 					.select('_id')
 					.lean();
-				adminsToLogout.forEach((admin) =>
+				adminsToLogout.forEach((admin: any) =>
 					sessionDestructionPromises.push(
 						destroyAllUserSessions(admin._id.toString())
 					)
@@ -168,7 +177,7 @@ export async function POST(request: Request) {
 
 				await Model.updateMany({ role }, { $set: { isActive } });
 
-				const sessionUpdatePromises = usersToUpdate.map((user) => {
+				const sessionUpdatePromises = usersToUpdate.map((user: any) => {
 					const updatedSessionData = buildUserResponse({ ...user, isActive });
 					return updateAllUserSessions(user._id.toString(), updatedSessionData);
 				});
