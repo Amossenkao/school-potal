@@ -4,7 +4,7 @@ export type FeatureKey =
 	| 'dashboard'
 	| 'user_management'
 	| 'profile_management'
-	| 'messages'
+	| 'ai_chat'
 	| 'homepage'
 
 	// Academic Features

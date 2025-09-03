@@ -13,7 +13,8 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const { tab } = await request.json(); // e.g., 'all', 'Grades', 'Security'
+		const { tab } = await request.json();
+		const tabToUse = !tab || tab === 'all' ? 'all' : tab;
 
 		const { User } = await getTenantModels();
 		const user = await User.findById(currentUser.userId);
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		user.notifications.forEach((notif: any) => {
-			if (tab === 'all' || notif.type === tab) {
+			if (tabToUse === 'all' || notif.type === tabToUse) {
 				notif.read = true;
 			}
 		});

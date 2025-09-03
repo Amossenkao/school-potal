@@ -147,7 +147,7 @@ const componentMappings: Record<string, any> = {
 
 	// Shared components
 	profile: dynamic(() => import('@/app/dashboard/shared/UserProfile')),
-	messages: dynamic(() => import('@/app/dashboard/shared/Messages')),
+	'AI Chats': dynamic(() => import('@/app/dashboard/shared/Chat')),
 };
 
 // Feature configurations with navigation structure - NOW COMPLETE!
@@ -579,40 +579,40 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		},
 	},
 
-	messages: {
-		key: 'messages',
-		title: 'Messages',
+	ai_chat: {
+		key: 'ai_chat',
+		title: 'AI Chat',
 		icon: MessageCircle,
 		routes: {
 			system_admin: [
 				{
-					key: 'messages',
-					title: 'Messages',
-					href: '/messages',
+					key: 'ai_chat',
+					title: 'AI Chat',
+					href: '/chat',
 					icon: MessageCircle,
 				},
 			],
 			teacher: [
 				{
-					key: 'messages',
-					title: 'Messages',
-					href: '/messages',
+					key: 'ai_chat',
+					title: 'AI Chat',
+					href: '/chat',
 					icon: MessageCircle,
 				},
 			],
 			student: [
 				{
-					key: 'messages',
-					title: 'Messages',
-					href: '/messages',
+					key: 'ai_chat',
+					title: 'AI Chat',
+					href: '/chat',
 					icon: MessageCircle,
 				},
 			],
 			administrator: [
 				{
-					key: 'messages',
-					title: 'Messages',
-					href: '/messages',
+					key: 'ai_chat',
+					title: 'AI Chat',
+					href: '/chat',
 					icon: MessageCircle,
 				},
 			],

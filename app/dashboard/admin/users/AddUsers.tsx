@@ -1,6 +1,8 @@
 'use client';
 import React, { useState } from 'react';
 import { useSchoolStore } from '@/store/schoolStore';
+import ConflictModal from '@/components/modals/ConflictModal';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
 	ChevronDown,
 	ChevronLeft,
@@ -12,6 +14,9 @@ import {
 	CheckCircle,
 	Copy,
 	XCircle,
+	Loader2,
+	CheckCircle2,
+	BookOpen,
 } from 'lucide-react';
 
 const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
@@ -22,6 +27,9 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	const [createdUserInfo, setCreatedUserInfo] = useState(null);
 	const [showErrorModal, setShowErrorModal] = useState(false);
 	const [errorMessage, setErrorMessage] = useState('');
+	const [conflictState, setConflictState] = useState(null);
+	const [showConflictModal, setShowConflictModal] = useState(false);
+	const [pendingUserData, setPendingUserData] = useState(null);
 
 	const school = useSchoolStore((state) => state.school);
 
@@ -40,6 +48,8 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		student: {
 			session: '',
 			classId: '',
+			enrollmentYear: '',
+			enrollmentSemester: '',
 			guardian: {
 				firstName: '',
 				middleName: '',
@@ -65,6 +75,15 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		class: false,
 		teacherSessions: {},
 	});
+
+	const generateAcademicYears = () => {
+		const currentYear = new Date().getFullYear();
+		const years = [];
+		for (let i = 0; i < 5; i++) {
+			years.push(`${currentYear - i}-${currentYear - i + 1}`);
+		}
+		return years;
+	};
 
 	const toggleAccordion = (name) => {
 		setExpandedAccordions((prev) => ({
@@ -149,16 +168,24 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	};
 
 	const handleSelfContainedSelection = (classId, session, checked) => {
+		const otherSubjectsInSession = formData.teacher.subjects.filter(
+			(s) => s.session !== session
+		);
 		const updatedSubjects = checked
-			? getSubjectsBySessionAndLevel(session, 'Self Contained').map(
-					(subject) => ({
-						subject,
-						level: 'Self Contained',
-						session: session,
-					})
-			  )
-			: [];
+			? [
+					...otherSubjectsInSession,
+					...getSubjectsBySessionAndLevel(session, 'Self Contained').map(
+						(subject) => ({
+							subject,
+							level: 'Self Contained',
+							session: session,
+						})
+					),
+			  ]
+			: otherSubjectsInSession;
+
 		const updatedSponsorClass = checked ? classId : null;
+
 		setFormData({
 			...formData,
 			teacher: {
@@ -212,6 +239,10 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 					} else if (!formData.student.classId) {
 						newErrors.classId = 'Class selection is required';
 					}
+					if (!formData.student.enrollmentYear)
+						newErrors.enrollmentYear = 'Enrollment year is required';
+					if (!formData.student.enrollmentSemester)
+						newErrors.enrollmentSemester = 'Enrollment semester is required';
 				} else if (userType === 'teacher') {
 					if (formData.teacher.subjects.length === 0) {
 						newErrors.subjects = 'At least one subject must be selected';
@@ -250,20 +281,44 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 
 	const handleSubjectChange = (subject, level, session, checked) => {
 		let updatedSubjects = [...formData.teacher.subjects];
+		const subjectIdentifier = { subject, level, session };
+
+		// Clear self-contained selection for the session if a regular subject is selected
+		const selfContainedSubjectsInSession = updatedSubjects.filter(
+			(s) => s.session === session && s.level === 'Self Contained'
+		);
+
+		if (selfContainedSubjectsInSession.length > 0) {
+			updatedSubjects = updatedSubjects.filter(
+				(s) => s.session !== session || s.level !== 'Self Contained'
+			);
+		}
+
 		if (checked) {
-			updatedSubjects.push({ subject, level, session });
+			updatedSubjects.push(subjectIdentifier);
 		} else {
 			updatedSubjects = updatedSubjects.filter(
 				(s) =>
 					!(s.subject === subject && s.level === level && s.session === session)
 			);
 		}
+
 		setFormData({
 			...formData,
-			teacher: { ...formData.teacher, subjects: updatedSubjects },
+			teacher: {
+				...formData.teacher,
+				subjects: updatedSubjects,
+				sponsorClass:
+					selfContainedSubjectsInSession.length > 0
+						? null
+						: formData.teacher.sponsorClass,
+				isSponsor:
+					selfContainedSubjectsInSession.length > 0
+						? false
+						: formData.teacher.isSponsor,
+			},
 		});
 	};
-
 	const handlePermissionChange = (permission, checked) => {
 		let updatedPermissions = [...formData.administrator.permissions];
 		if (checked && !updatedPermissions.includes(permission)) {
@@ -292,8 +347,51 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		});
 	};
 
-	const handleSubmit = async () => {
+	const proceedWithUserCreation = async (userData, force = false) => {
 		setIsValidating(true);
+
+		const body = { ...userData };
+		if (force) {
+			body.confirmReassignments = true;
+		}
+
+		try {
+			const res = await fetch('/api/users', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body),
+			});
+
+			const result = await res.json();
+
+			if (res.ok && result.success) {
+				setCreatedUserInfo(result.data.user);
+				if (onUserCreated) onUserCreated(result.data.user);
+				setCurrentStep(5);
+			} else if (res.status === 409 && result.requiresConfirmation) {
+				setConflictState(result);
+				setPendingUserData(userData);
+				setShowConflictModal(true);
+			} else {
+				setErrorMessage(result.message || 'Failed to create user');
+				setShowErrorModal(true);
+			}
+		} catch (err) {
+			setErrorMessage('Network error: Unable to create user');
+			setShowErrorModal(true);
+		} finally {
+			setIsValidating(false);
+		}
+	};
+
+	const handleConfirmReassignment = async () => {
+		if (pendingUserData) {
+			await proceedWithUserCreation(pendingUserData, true);
+		}
+		setShowConflictModal(false);
+	};
+
+	const handleSubmit = async () => {
 		const baseUser = {
 			role: userType,
 			firstName: formData.firstName,
@@ -323,6 +421,8 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 					classId: formData.student.classId,
 					className: selectedClass?.name,
 					classLevel: selectedClass?.level,
+					enrollmentYear: formData.student.enrollmentYear,
+					enrollmentSemester: formData.student.enrollmentSemester,
 					guardian: formData.student.guardian,
 				};
 				break;
@@ -345,28 +445,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				userData = baseUser;
 		}
 
-		try {
-			const res = await fetch('/api/users', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(userData),
-			});
-			const result = await res.json();
-
-			if (result.success) {
-				setCreatedUserInfo(result.data.user);
-				if (onUserCreated) onUserCreated(result.data.user);
-				setCurrentStep(5);
-			} else {
-				setErrorMessage(result.message || 'Failed to create user');
-				setShowErrorModal(true);
-			}
-		} catch (err) {
-			setErrorMessage('Network error: Unable to create user');
-			setShowErrorModal(true);
-		} finally {
-			setIsValidating(false);
-		}
+		await proceedWithUserCreation(userData);
 	};
 
 	const resetForm = () => {
@@ -387,6 +466,8 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			student: {
 				session: '',
 				classId: '',
+				enrollmentYear: '',
+				enrollmentSemester: '',
 				guardian: {
 					firstName: '',
 					middleName: '',
@@ -428,6 +509,15 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 
 	return (
 		<div className="w-full max-w-6xl mx-auto">
+			<ConflictModal
+				isOpen={showConflictModal}
+				onClose={() => setShowConflictModal(false)}
+				conflictState={conflictState}
+				onConfirm={handleConfirmReassignment}
+				isLoading={isValidating}
+				userName={`${formData.firstName} ${formData.lastName}`}
+			/>
+
 			{/* Header */}
 			{currentStep < 5 && (
 				<div className="mb-8">
@@ -779,16 +869,166 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 												}`}
 											/>
 										</button>
-										{expandedAccordions.guardian && (
-											<div className="p-4 space-y-4">
-												<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+										<AnimatePresence>
+											{expandedAccordions.guardian && (
+												<motion.div
+													initial={{ opacity: 0, height: 0 }}
+													animate={{ opacity: 1, height: 'auto' }}
+													exit={{ opacity: 0, height: 0 }}
+													className="p-4 space-y-4"
+												>
+													<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+														<div>
+															<label className="block text-sm font-medium text-foreground mb-2">
+																Guardian First Name *
+															</label>
+															<input
+																type="text"
+																value={formData.student.guardian.firstName}
+																onChange={(e) =>
+																	setFormData({
+																		...formData,
+																		student: {
+																			...formData.student,
+																			guardian: {
+																				...formData.student.guardian,
+																				firstName: e.target.value,
+																			},
+																		},
+																	})
+																}
+																className={`w-full p-3 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
+																	errors.guardianFirstName
+																		? 'border-red-500'
+																		: 'border-border'
+																}`}
+																placeholder="Guardian first name"
+															/>
+															{errors.guardianFirstName && (
+																<p className="text-destructive text-sm mt-1">
+																	{errors.guardianFirstName}
+																</p>
+															)}
+														</div>
+														<div>
+															<label className="block text-sm font-medium text-foreground mb-2">
+																Guardian Middle Name
+															</label>
+															<input
+																type="text"
+																value={formData.student.guardian.middleName}
+																onChange={(e) =>
+																	setFormData({
+																		...formData,
+																		student: {
+																			...formData.student,
+																			guardian: {
+																				...formData.student.guardian,
+																				middleName: e.target.value,
+																			},
+																		},
+																	})
+																}
+																className="w-full p-3 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary border-border"
+																placeholder="Guardian middle name"
+															/>
+														</div>
+														<div>
+															<label className="block text-sm font-medium text-foreground mb-2">
+																Guardian Last Name *
+															</label>
+															<input
+																type="text"
+																value={formData.student.guardian.lastName}
+																onChange={(e) =>
+																	setFormData({
+																		...formData,
+																		student: {
+																			...formData.student,
+																			guardian: {
+																				...formData.student.guardian,
+																				lastName: e.target.value,
+																			},
+																		},
+																	})
+																}
+																className={`w-full p-3 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
+																	errors.guardianLastName
+																		? 'border-red-500'
+																		: 'border-border'
+																}`}
+																placeholder="Guardian last name"
+															/>
+															{errors.guardianLastName && (
+																<p className="text-destructive text-sm mt-1">
+																	{errors.guardianLastName}
+																</p>
+															)}
+														</div>
+													</div>
+													<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+														<div>
+															<label className="block text-sm font-medium text-foreground mb-2">
+																Guardian Phone *
+															</label>
+															<input
+																type="tel"
+																value={formData.student.guardian.phone}
+																onChange={(e) =>
+																	setFormData({
+																		...formData,
+																		student: {
+																			...formData.student,
+																			guardian: {
+																				...formData.student.guardian,
+																				phone: e.target.value,
+																			},
+																		},
+																	})
+																}
+																className={`w-full p-3 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
+																	errors.guardianPhone
+																		? 'border-red-500'
+																		: 'border-border'
+																}`}
+																placeholder="Guardian phone number"
+															/>
+															{errors.guardianPhone && (
+																<p className="text-destructive text-sm mt-1">
+																	{errors.guardianPhone}
+																</p>
+															)}
+														</div>
+														<div>
+															<label className="block text-sm font-medium text-foreground mb-2">
+																Guardian Email
+															</label>
+															<input
+																type="email"
+																value={formData.student.guardian.email}
+																onChange={(e) =>
+																	setFormData({
+																		...formData,
+																		student: {
+																			...formData.student,
+																			guardian: {
+																				...formData.student.guardian,
+																				email: e.target.value,
+																			},
+																		},
+																	})
+																}
+																className="w-full p-3 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+																placeholder="Guardian email address"
+															/>
+														</div>
+													</div>
 													<div>
 														<label className="block text-sm font-medium text-foreground mb-2">
-															Guardian First Name *
+															Guardian Address *
 														</label>
-														<input
-															type="text"
-															value={formData.student.guardian.firstName}
+														<textarea
+															value={formData.student.guardian.address}
 															onChange={(e) =>
 																setFormData({
 																	...formData,
@@ -796,171 +1036,28 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																		...formData.student,
 																		guardian: {
 																			...formData.student.guardian,
-																			firstName: e.target.value,
+																			address: e.target.value,
 																		},
 																	},
 																})
 															}
 															className={`w-full p-3 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
-																errors.guardianFirstName
+																errors.guardianAddress
 																	? 'border-red-500'
 																	: 'border-border'
 															}`}
-															placeholder="Guardian first name"
+															rows="3"
+															placeholder="Guardian full address"
 														/>
-														{errors.guardianFirstName && (
+														{errors.guardianAddress && (
 															<p className="text-destructive text-sm mt-1">
-																{errors.guardianFirstName}
+																{errors.guardianAddress}
 															</p>
 														)}
 													</div>
-													<div>
-														<label className="block text-sm font-medium text-foreground mb-2">
-															Guardian Middle Name
-														</label>
-														<input
-															type="text"
-															value={formData.student.guardian.middleName}
-															onChange={(e) =>
-																setFormData({
-																	...formData,
-																	student: {
-																		...formData.student,
-																		guardian: {
-																			...formData.student.guardian,
-																			middleName: e.target.value,
-																		},
-																	},
-																})
-															}
-															className="w-full p-3 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary border-border"
-															placeholder="Guardian middle name"
-														/>
-													</div>
-													<div>
-														<label className="block text-sm font-medium text-foreground mb-2">
-															Guardian Last Name *
-														</label>
-														<input
-															type="text"
-															value={formData.student.guardian.lastName}
-															onChange={(e) =>
-																setFormData({
-																	...formData,
-																	student: {
-																		...formData.student,
-																		guardian: {
-																			...formData.student.guardian,
-																			lastName: e.target.value,
-																		},
-																	},
-																})
-															}
-															className={`w-full p-3 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
-																errors.guardianLastName
-																	? 'border-red-500'
-																	: 'border-border'
-															}`}
-															placeholder="Guardian last name"
-														/>
-														{errors.guardianLastName && (
-															<p className="text-destructive text-sm mt-1">
-																{errors.guardianLastName}
-															</p>
-														)}
-													</div>
-												</div>
-												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-													<div>
-														<label className="block text-sm font-medium text-foreground mb-2">
-															Guardian Phone *
-														</label>
-														<input
-															type="tel"
-															value={formData.student.guardian.phone}
-															onChange={(e) =>
-																setFormData({
-																	...formData,
-																	student: {
-																		...formData.student,
-																		guardian: {
-																			...formData.student.guardian,
-																			phone: e.target.value,
-																		},
-																	},
-																})
-															}
-															className={`w-full p-3 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
-																errors.guardianPhone
-																	? 'border-red-500'
-																	: 'border-border'
-															}`}
-															placeholder="Guardian phone number"
-														/>
-														{errors.guardianPhone && (
-															<p className="text-destructive text-sm mt-1">
-																{errors.guardianPhone}
-															</p>
-														)}
-													</div>
-													<div>
-														<label className="block text-sm font-medium text-foreground mb-2">
-															Guardian Email
-														</label>
-														<input
-															type="email"
-															value={formData.student.guardian.email}
-															onChange={(e) =>
-																setFormData({
-																	...formData,
-																	student: {
-																		...formData.student,
-																		guardian: {
-																			...formData.student.guardian,
-																			email: e.target.value,
-																		},
-																	},
-																})
-															}
-															className="w-full p-3 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-															placeholder="Guardian email address"
-														/>
-													</div>
-												</div>
-												<div>
-													<label className="block text-sm font-medium text-foreground mb-2">
-														Guardian Address *
-													</label>
-													<textarea
-														value={formData.student.guardian.address}
-														onChange={(e) =>
-															setFormData({
-																...formData,
-																student: {
-																	...formData.student,
-																	guardian: {
-																		...formData.student.guardian,
-																		address: e.target.value,
-																	},
-																},
-															})
-														}
-														className={`w-full p-3 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
-															errors.guardianAddress
-																? 'border-red-500'
-																: 'border-border'
-														}`}
-														rows="3"
-														placeholder="Guardian full address"
-													/>
-													{errors.guardianAddress && (
-														<p className="text-destructive text-sm mt-1">
-															{errors.guardianAddress}
-														</p>
-													)}
-												</div>
-											</div>
-										)}
+												</motion.div>
+											)}
+										</AnimatePresence>
 									</div>
 									{/* Class Assignment Accordion */}
 									<div className="border border-border rounded-lg">
@@ -976,295 +1073,550 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 												}`}
 											/>
 										</button>
-										{expandedAccordions.class && (
-											<div className="p-4 space-y-4">
-												<div>
-													<label className="block text-sm font-medium text-foreground mb-2">
-														Session *
-													</label>
-													<div className="flex gap-4">
-														{getSessions().map((session) => (
-															<label
-																key={session}
-																className="flex items-center"
-															>
-																<input
-																	type="radio"
-																	name="session"
-																	value={session}
-																	checked={formData.student.session === session}
-																	onChange={(e) =>
-																		handleSessionSelection(e.target.value)
-																	}
-																	className="mr-2 accent-primary"
-																/>
-																<span className="text-foreground">
-																	{session}
-																</span>
+										<AnimatePresence>
+											{expandedAccordions.class && (
+												<motion.div
+													initial={{ opacity: 0, height: 0 }}
+													animate={{ opacity: 1, height: 'auto' }}
+													exit={{ opacity: 0, height: 0 }}
+													className="p-4 space-y-4"
+												>
+													<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+														<div>
+															<label className="block text-sm font-medium text-foreground mb-2">
+																Enrollment Year *
 															</label>
-														))}
+															<select
+																value={formData.student.enrollmentYear}
+																onChange={(e) =>
+																	setFormData({
+																		...formData,
+																		student: {
+																			...formData.student,
+																			enrollmentYear: e.target.value,
+																		},
+																	})
+																}
+																className={`w-full p-3 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
+																	errors.enrollmentYear
+																		? 'border-red-500'
+																		: 'border-border'
+																}`}
+															>
+																<option value="">Select year</option>
+																{generateAcademicYears().map((year) => (
+																	<option key={year} value={year}>
+																		{year}
+																	</option>
+																))}
+															</select>
+															{errors.enrollmentYear && (
+																<p className="text-destructive text-sm mt-1">
+																	{errors.enrollmentYear}
+																</p>
+															)}
+														</div>
+														<div>
+															<label className="block text-sm font-medium text-foreground mb-2">
+																Enrollment Semester *
+															</label>
+															<select
+																value={formData.student.enrollmentSemester}
+																onChange={(e) =>
+																	setFormData({
+																		...formData,
+																		student: {
+																			...formData.student,
+																			enrollmentSemester: e.target.value,
+																		},
+																	})
+																}
+																className={`w-full p-3 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
+																	errors.enrollmentSemester
+																		? 'border-red-500'
+																		: 'border-border'
+																}`}
+															>
+																<option value="">Select semester</option>
+																<option value="1st Semester">
+																	1st Semester
+																</option>
+																<option value="2nd Semester">
+																	2nd Semester
+																</option>
+															</select>
+															{errors.enrollmentSemester && (
+																<p className="text-destructive text-sm mt-1">
+																	{errors.enrollmentSemester}
+																</p>
+															)}
+														</div>
 													</div>
-													{errors.session && (
-														<p className="text-destructive text-sm mt-1">
-															{errors.session}
-														</p>
-													)}
-												</div>
-												{formData.student.session && (
 													<div>
 														<label className="block text-sm font-medium text-foreground mb-2">
-															Select Class
+															Session *
 														</label>
-														{getClassLevels(formData.student.session).map(
-															(level) => (
-																<div key={level} className="mb-4">
-																	<h4 className="text-md font-medium text-foreground mb-2">
-																		{level}
-																	</h4>
-																	<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-																		{getClassesBySessionAndLevel(
-																			formData.student.session,
-																			level
-																		).map((cls) => (
-																			<label
-																				key={cls.classId}
-																				className="flex items-center"
-																			>
-																				<input
-																					type="radio"
-																					name="studentClass"
-																					value={cls.classId}
-																					checked={
-																						formData.student.classId ===
-																						cls.classId
-																					}
-																					onChange={(e) =>
-																						setFormData({
-																							...formData,
-																							student: {
-																								...formData.student,
-																								classId: e.target.value,
-																							},
-																						})
-																					}
-																					className="mr-2 accent-primary"
-																				/>
-																				<span className="text-sm text-foreground">
-																					{cls.name}
-																				</span>
-																			</label>
-																		))}
-																	</div>
-																</div>
-															)
-														)}
-														{errors.classId && (
+														<div className="grid grid-cols-3 gap-4">
+															{getSessions().map((session) => {
+																const isSelected =
+																	formData.student.session === session;
+
+																return (
+																	<label
+																		key={session}
+																		className={`relative flex items-center justify-center rounded-2xl border p-4 cursor-pointer transition-all duration-300 
+          ${
+						isSelected
+							? 'border-primary bg-primary/10 shadow-md'
+							: 'border-muted hover:border-primary/50'
+					}
+        `}
+																	>
+																		<input
+																			type="radio"
+																			name="session"
+																			value={session}
+																			checked={isSelected}
+																			onChange={(e) =>
+																				handleSessionSelection(e.target.value)
+																			}
+																			className="absolute opacity-0"
+																		/>
+
+																		<motion.div
+																			className="flex items-center justify-center gap-2"
+																			initial={{ scale: 0.95 }}
+																			animate={{
+																				scale: isSelected ? 1.05 : 1,
+																			}}
+																			transition={{
+																				duration: 0.2,
+																			}}
+																		>
+																			{/* Animated check icon */}
+																			{isSelected && (
+																				<CheckCircle2 className="w-5 h-5 text-primary transition-opacity duration-300" />
+																			)}
+																			<span className="text-foreground font-medium">
+																				{session}
+																			</span>
+																		</motion.div>
+																	</label>
+																);
+															})}
+														</div>
+														{errors.session && (
 															<p className="text-destructive text-sm mt-1">
-																{errors.classId}
+																{errors.session}
 															</p>
 														)}
 													</div>
-												)}
-											</div>
-										)}
+													{formData.student.session && (
+														<div className="space-y-6">
+															<label className="block text-sm font-semibold text-foreground tracking-wide">
+																Select Class
+															</label>
+
+															{getClassLevels(formData.student.session).map(
+																(level, levelIndex) => (
+																	<div key={level} className="space-y-3">
+																		{/* Level Heading */}
+																		<motion.h4
+																			initial={{
+																				opacity: 0,
+																				y: -5,
+																			}}
+																			animate={{
+																				opacity: 1,
+																				y: 0,
+																			}}
+																			transition={{
+																				duration: 0.3,
+																				delay: levelIndex * 0.1,
+																			}}
+																			className="text-md font-medium text-foreground/90"
+																		>
+																			{level}
+																		</motion.h4>
+
+																		{/* Class Grid */}
+																		<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+																			{getClassesBySessionAndLevel(
+																				formData.student.session,
+																				level
+																			).map((cls, idx) => {
+																				const isSelected =
+																					formData.student.classId ===
+																					cls.classId;
+																				return (
+																					<motion.label
+																						key={cls.classId}
+																						className={`relative flex items-center justify-center rounded-xl border p-4 cursor-pointer transition-all duration-300
+                    ${
+											isSelected
+												? 'border-primary bg-primary/10 shadow-md'
+												: 'border-muted hover:border-primary/50 hover:bg-accent/10'
+										}
+                  `}
+																						initial={{
+																							opacity: 0,
+																							scale: 0.95,
+																						}}
+																						animate={{
+																							opacity: 1,
+																							scale: 1,
+																						}}
+																						transition={{
+																							duration: 0.3,
+																							delay: idx * 0.05,
+																						}}
+																					>
+																						<input
+																							type="radio"
+																							name="studentClass"
+																							value={cls.classId}
+																							checked={isSelected}
+																							onChange={(e) =>
+																								setFormData({
+																									...formData,
+																									student: {
+																										...formData.student,
+																										classId: e.target.value,
+																									},
+																								})
+																							}
+																							className="absolute opacity-0"
+																						/>
+
+																						<div className="flex items-center gap-2">
+																							{/* Checkmark Icon */}
+																							{isSelected && (
+																								<CheckCircle2 className="w-5 h-5 text-primary transition-opacity duration-300" />
+																							)}
+																							<span className="text-sm font-medium text-foreground">
+																								{cls.name}
+																							</span>
+																						</div>
+																					</motion.label>
+																				);
+																			})}
+																		</div>
+																	</div>
+																)
+															)}
+
+															{/* Error Message */}
+															{errors.classId && (
+																<motion.p
+																	initial={{
+																		opacity: 0,
+																	}}
+																	animate={{
+																		opacity: 1,
+																	}}
+																	className="text-destructive text-sm mt-2"
+																>
+																	{errors.classId}
+																</motion.p>
+															)}
+														</div>
+													)}
+												</motion.div>
+											)}
+										</AnimatePresence>
 									</div>
 								</>
 							)}
 
 							{/* Teacher specific fields */}
 							{userType === 'teacher' && (
-								<div className="space-y-4">
-									<h4 className="text-lg font-medium text-foreground">
+								<div className="space-y-6">
+									<h4 className="text-lg font-semibold text-foreground tracking-wide">
 										Assign Subjects and Sponsorship
 									</h4>
-									{getSessions().map((session) => (
-										<div
-											key={session}
-											className="border border-border rounded-lg"
-										>
-											<button
-												type="button"
-												onClick={() =>
-													setExpandedAccordions((prev) => ({
-														...prev,
-														teacherSessions: {
-															...prev.teacherSessions,
-															[session]: !prev.teacherSessions[session],
-														},
-													}))
-												}
-												className="flex justify-between items-center w-full p-4 font-medium text-left text-foreground bg-muted hover:bg-muted/80"
+
+									{getSessions().map((session, sessionIdx) => {
+										const isExpanded =
+											expandedAccordions.teacherSessions[session];
+
+										return (
+											<motion.div
+												key={session}
+												initial={{ opacity: 0, y: 10 }}
+												animate={{ opacity: 1, y: 0 }}
+												transition={{ delay: sessionIdx * 0.1, duration: 0.3 }}
+												className="border border-border rounded-xl overflow-hidden shadow-sm"
 											>
-												<span>{session} Session</span>
-												<ChevronDown
-													className={`w-5 h-5 transition-transform ${
-														expandedAccordions.teacherSessions[session]
-															? 'rotate-180'
-															: ''
-													}`}
-												/>
-											</button>
-											{expandedAccordions.teacherSessions[session] && (
-												<div className="p-4 space-y-4">
-													{/* Self Contained Class Selection */}
-													{getSelfContainedClasses(session).length > 0 && (
-														<div className="mb-4">
-															<p className="text-sm text-muted-foreground mb-2">
-																Self-Contained Class Teacher (
-																<span className="italic">
-																	teaches all subjects
-																</span>
-																)
-															</p>
-															<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-																{getSelfContainedClasses(session).map((cls) => (
-																	<label
-																		key={cls.classId}
-																		className="flex items-center p-2 border border-border rounded hover:bg-muted cursor-pointer"
-																	>
-																		<input
-																			type="radio"
-																			name={`selfContainedClass-${session}`}
-																			checked={
-																				formData.teacher.isSponsor &&
-																				formData.teacher.sponsorClass ===
-																					cls.classId
-																			}
-																			onChange={(e) =>
-																				handleSelfContainedSelection(
-																					cls.classId,
-																					session,
-																					e.target.checked
-																				)
-																			}
-																			className="mr-2 accent-primary"
-																		/>
-																		<span className="text-sm text-foreground">
-																			{cls.name}
-																		</span>
-																	</label>
-																))}
-															</div>
-														</div>
-													)}
+												{/* Accordion Header */}
+												<button
+													type="button"
+													onClick={() =>
+														setExpandedAccordions((prev) => ({
+															...prev,
+															teacherSessions: {
+																...prev.teacherSessions,
+																[session]: !isExpanded,
+															},
+														}))
+													}
+													className="flex justify-between items-center w-full p-4 font-medium text-left text-foreground bg-muted hover:bg-muted/80 transition-all"
+												>
+													<span className="flex items-center gap-2">
+														<BookOpen className="w-5 h-5 text-primary" />
+														{session} Session
+													</span>
+													<ChevronDown
+														className={`w-5 h-5 transition-transform ${
+															isExpanded ? 'rotate-180' : ''
+														}`}
+													/>
+												</button>
 
-													{/* Subject Level Teaching */}
-													<div className="space-y-4">
-														<label className="block text-sm font-medium text-foreground">
-															Subject & Level Teaching
-														</label>
-														<p className="text-sm text-muted-foreground mb-4">
-															Select subjects and education levels you will
-															teach in the {session} session.
-														</p>
-														<div className="space-y-4 max-h-96 overflow-y-auto border border-border rounded-lg p-4 bg-background">
-															{getClassLevels(session)
-																.filter((level) => level !== 'Self Contained')
-																.map((level) => (
-																	<div
-																		key={level}
-																		className="border-b border-border pb-4 last:border-b-0"
-																	>
-																		<h5 className="font-medium text-foreground mb-3">
-																			{level}
-																		</h5>
-																		<div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-																			{getSubjectsBySessionAndLevel(
-																				session,
-																				level
-																			)?.map((subject) => (
-																				<label
-																					key={`${subject}-${level}-${session}`}
-																					className="flex items-center text-sm"
-																				>
-																					<input
-																						type="checkbox"
-																						checked={formData.teacher.subjects.some(
-																							(s) =>
-																								s.subject === subject &&
-																								s.level === level &&
-																								s.session === session
-																						)}
-																						onChange={(e) =>
-																							handleSubjectChange(
-																								subject,
-																								level,
-																								session,
-																								e.target.checked
-																							)
-																						}
-																						className="mr-2 accent-primary"
-																					/>
-																					<span className="text-foreground">
-																						{subject}
-																					</span>
-																				</label>
-																			))}
-																		</div>
-																	</div>
-																))}
-														</div>
-													</div>
-
-													{/* Class Sponsorship for non-self-contained */}
-													<div className="mt-4">
-														<label className="block text-sm font-medium text-foreground mb-2">
-															Class Sponsorship (Optional)
-														</label>
-														<select
-															value={
-																formData.teacher.sponsorClass &&
-																getAllClassesForSession(session).find(
-																	(cls) =>
-																		cls.classId ===
-																		formData.teacher.sponsorClass
-																)
-																	? formData.teacher.sponsorClass
-																	: ''
-															}
-															onChange={(e) =>
-																setFormData({
-																	...formData,
-																	teacher: {
-																		...formData.teacher,
-																		sponsorClass: e.target.value || null,
-																		isSponsor: !!e.target.value,
-																	},
-																})
-															}
-															className="w-full p-3 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+												{/* Accordion Content */}
+												<AnimatePresence initial={false}>
+													{isExpanded && (
+														<motion.div
+															initial={{ opacity: 0, height: 0 }}
+															animate={{ opacity: 1, height: 'auto' }}
+															exit={{ opacity: 0, height: 0 }}
+															transition={{ duration: 0.3 }}
+															className="p-5 space-y-6 bg-background"
 														>
-															<option value="">No class sponsorship</option>
-															{getAllClassesForSession(session)
-																.filter((cls) => cls.level !== 'Self Contained')
-																.map((cls) => (
-																	<option key={cls.classId} value={cls.classId}>
-																		{cls.name} ({cls.level})
-																	</option>
-																))}
-														</select>
-													</div>
-												</div>
-											)}
-										</div>
-									))}
+															{/* Self Contained Class Selection */}
+															{getSelfContainedClasses(session).length > 0 && (
+																<div className="space-y-3">
+																	<p className="text-sm text-muted-foreground">
+																		<span className="font-medium">
+																			Self-Contained Class Teacher
+																		</span>{' '}
+																		<span className="italic">
+																			(teaches all subjects)
+																		</span>
+																	</p>
+																	<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+																		{getSelfContainedClasses(session).map(
+																			(cls) => {
+																				const isSelected =
+																					formData.teacher.isSponsor &&
+																					formData.teacher.sponsorClass ===
+																						cls.classId;
+																				return (
+																					<motion.label
+																						key={cls.classId}
+																						whileHover={{
+																							scale: 1.03,
+																						}}
+																						className={`relative flex items-center justify-center rounded-xl border p-3 cursor-pointer transition-all duration-300
+                              ${
+																isSelected
+																	? 'border-primary bg-primary/10 shadow-md'
+																	: 'border-muted hover:border-primary/50 hover:bg-accent/10'
+															}`}
+																					>
+																						<input
+																							type="radio"
+																							name={`selfContainedClass-${session}`}
+																							checked={isSelected}
+																							onChange={(e) =>
+																								handleSelfContainedSelection(
+																									cls.classId,
+																									session,
+																									e.target.checked
+																								)
+																							}
+																							className="absolute opacity-0"
+																						/>
+																						<div className="flex items-center gap-2">
+																							{isSelected && (
+																								<CheckCircle2 className="w-5 h-5 text-primary" />
+																							)}
+																							<span className="text-sm font-medium text-foreground">
+																								{cls.name}
+																							</span>
+																						</div>
+																					</motion.label>
+																				);
+																			}
+																		)}
+																	</div>
+																</div>
+															)}
+
+															{/* Subject Level Teaching */}
+															<div className="space-y-4">
+																<label className="block text-sm font-medium text-foreground">
+																	Subject & Level Teaching
+																</label>
+																<p className="text-sm text-muted-foreground">
+																	Select subjects and education levels you will
+																	teach in the{' '}
+																	<span className="font-medium">{session}</span>{' '}
+																	session.
+																</p>
+
+																<div className="space-y-4 max-h-96 overflow-y-auto border border-border rounded-lg p-4 bg-background">
+																	{getClassLevels(session)
+																		.filter(
+																			(level) => level !== 'Self Contained'
+																		)
+																		.map((level) => (
+																			<div
+																				key={level}
+																				className="border-b border-border pb-4 last:border-b-0"
+																			>
+																				<h5 className="font-medium text-foreground mb-3">
+																					{level}
+																				</h5>
+																				<div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+																					{getSubjectsBySessionAndLevel(
+																						session,
+																						level
+																					)?.map((subject) => {
+																						const isChecked =
+																							formData.teacher.subjects.some(
+																								(s) =>
+																									s.subject === subject &&
+																									s.level === level &&
+																									s.session === session
+																							);
+
+																						return (
+																							<motion.label
+																								key={`${subject}-${level}-${session}`}
+																								whileHover={{
+																									scale: 1.03,
+																								}}
+																								className={`relative flex items-center rounded-lg border p-2 cursor-pointer transition-all text-sm
+                                      ${
+																				isChecked
+																					? 'border-primary bg-primary/10 shadow-sm'
+																					: 'border-muted hover:border-primary/40 hover:bg-accent/5'
+																			}`}
+																							>
+																								<input
+																									type="checkbox"
+																									checked={isChecked}
+																									onChange={(e) =>
+																										handleSubjectChange(
+																											subject,
+																											level,
+																											session,
+																											e.target.checked
+																										)
+																									}
+																									className="absolute opacity-0"
+																								/>
+																								<span className="ml-1 text-foreground">
+																									{subject}
+																								</span>
+																							</motion.label>
+																						);
+																					})}
+																				</div>
+																			</div>
+																		))}
+																</div>
+															</div>
+
+															{/* Class Sponsorship for non-self-contained */}
+															<div className="space-y-2">
+																<label className="block text-sm font-medium text-foreground">
+																	Class Sponsorship (Optional)
+																</label>
+																<select
+																	value={
+																		formData.teacher.sponsorClass &&
+																		getAllClassesForSession(session).find(
+																			(cls) =>
+																				cls.classId ===
+																				formData.teacher.sponsorClass
+																		)
+																			? formData.teacher.sponsorClass
+																			: ''
+																	}
+																	onChange={(e) => {
+																		const isSelfContained =
+																			formData.teacher.subjects.some(
+																				(s) =>
+																					s.level === 'Self Contained' &&
+																					s.session === session
+																			);
+																		if (isSelfContained) {
+																			const otherSubjects =
+																				formData.teacher.subjects.filter(
+																					(s) => s.session !== session
+																				);
+																			setFormData({
+																				...formData,
+																				teacher: {
+																					...formData.teacher,
+																					subjects: otherSubjects,
+																					sponsorClass: e.target.value || null,
+																					isSponsor: !!e.target.value,
+																				},
+																			});
+																		} else {
+																			setFormData({
+																				...formData,
+																				teacher: {
+																					...formData.teacher,
+																					sponsorClass: e.target.value || null,
+																					isSponsor: !!e.target.value,
+																				},
+																			});
+																		}
+																	}}
+																	className="w-full p-3 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+																>
+																	<option value="">No class sponsorship</option>
+																	{getAllClassesForSession(session)
+																		.filter(
+																			(cls) => cls.level !== 'Self Contained'
+																		)
+																		.map((cls) => (
+																			<option
+																				key={cls.classId}
+																				value={cls.classId}
+																			>
+																				{cls.name} ({cls.level})
+																			</option>
+																		))}
+																</select>
+															</div>
+														</motion.div>
+													)}
+												</AnimatePresence>
+											</motion.div>
+										);
+									})}
+
+									{/* Validation Error */}
 									{errors.subjects && (
-										<p className="text-destructive text-sm mt-1">
+										<motion.p
+											initial={{ opacity: 0 }}
+											animate={{ opacity: 1 }}
+											className="text-destructive text-sm mt-1"
+										>
 											{errors.subjects}
-										</p>
+										</motion.p>
 									)}
 
+									{/* Teaching Summary */}
 									{formData.teacher.subjects.length > 0 && (
-										<div className="bg-muted border border-border rounded-lg p-4 mt-6">
-											<h5 className="font-medium text-foreground mb-2">
+										<motion.div
+											initial={{ opacity: 0, y: 10 }}
+											animate={{ opacity: 1, y: 0 }}
+											className="bg-muted border border-border rounded-xl p-5 mt-6 shadow-sm"
+										>
+											<h5 className="font-semibold text-foreground mb-3">
 												Teaching Summary
 											</h5>
-											<div className="space-y-2">
-												<p className="text-sm text-foreground">
+											<div className="space-y-2 text-sm">
+												<p>
 													<span className="font-medium">Total Subjects:</span>{' '}
 													{formData.teacher.subjects.length}
 												</p>
-												<p className="text-sm text-foreground">
+												<p>
 													<span className="font-medium">Sessions:</span>{' '}
 													{Array.from(
 														new Set(
@@ -1273,7 +1625,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 													).join(', ')}
 												</p>
 												{formData.teacher.isSponsor && (
-													<p className="text-sm text-foreground">
+													<p>
 														<span className="font-medium">Class Sponsor:</span>{' '}
 														{
 															getAllClassesForSession(
@@ -1286,11 +1638,10 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 													</p>
 												)}
 											</div>
-										</div>
+										</motion.div>
 									)}
 								</div>
 							)}
-
 							{/* Administrator specific fields */}
 							{userType === 'administrator' && (
 								<>
@@ -1406,6 +1757,15 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 									</div>
 									{userType === 'student' && (
 										<>
+											<div className="flex justify-between">
+												<span className="text-sm text-muted-foreground">
+													Enrollment:
+												</span>
+												<span className="text-sm font-medium text-foreground">
+													{formData.student.enrollmentYear} (
+													{formData.student.enrollmentSemester})
+												</span>
+											</div>
 											<div className="flex justify-between">
 												<span className="text-sm text-muted-foreground">
 													Session:
@@ -1596,6 +1956,9 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 								disabled={isValidating || (currentStep === 1 && !userType)}
 								className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
 							>
+								{isValidating && (
+									<Loader2 className="h-4 w-4 animate-spin mr-2" />
+								)}
 								{isValidating ? 'Validating...' : 'Next'}
 								<ChevronRight className="w-4 h-4" />
 							</button>
@@ -1605,6 +1968,9 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 								disabled={isValidating}
 								className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 							>
+								{isValidating && (
+									<Loader2 className="h-4 w-4 animate-spin mr-2" />
+								)}
 								{isValidating ? 'Creating...' : 'Create User'}
 							</button>
 						)}

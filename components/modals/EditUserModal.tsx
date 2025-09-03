@@ -2,9 +2,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, ChevronDown, AlertTriangle } from 'lucide-react';
+import { X, ChevronDown, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useSchoolStore } from '@/store/schoolStore';
 import ConflictModal from './ConflictModal'; // Import the new modal
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
 
 // Helper function to find the differences between two objects
 const getChangedFields = (originalUser, updatedFormData) => {
@@ -99,8 +107,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		setFormData((prev) => ({ ...prev, [name]: value }));
 	};
 
-	const handleStudentSessionChange = (e) => {
-		const newSession = e.target.value;
+	const handleStudentSessionChange = (newSession) => {
 		setFormData((prev) => ({
 			...prev,
 			session: newSession,
@@ -110,8 +117,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		}));
 	};
 
-	const handleStudentClassChange = (e) => {
-		const newClassId = e.target.value;
+	const handleStudentClassChange = (newClassId) => {
 		if (!newClassId) {
 			setFormData((prev) => ({
 				...prev,
@@ -135,7 +141,18 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 	const handleSubjectChange = (subject, level, session, checked) => {
 		setFormData((prev) => {
-			const existingSubjects = prev.subjects || [];
+			let existingSubjects = prev.subjects || [];
+			// Clear self-contained selection for the session if a regular subject is selected
+			const selfContainedInSession = existingSubjects.some(
+				(s) => s.session === session && s.level === 'Self Contained'
+			);
+
+			if (selfContainedInSession) {
+				existingSubjects = existingSubjects.filter(
+					(s) => s.session !== session || s.level !== 'Self Contained'
+				);
+			}
+
 			let updatedSubjects;
 			if (checked) {
 				updatedSubjects = [...existingSubjects, { subject, level, session }];
@@ -149,15 +166,18 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 						)
 				);
 			}
-			return { ...prev, subjects: updatedSubjects };
+			return {
+				...prev,
+				subjects: updatedSubjects,
+				sponsorClass: selfContainedInSession ? null : prev.sponsorClass,
+			};
 		});
 	};
 
-	const handleSponsorClassChange = (e) => {
-		const { value } = e.target;
+	const handleSponsorClassChange = (value) => {
 		setFormData((prev) => ({
 			...prev,
-			sponsorClass: value || null,
+			sponsorClass: value === '__none__' ? null : value,
 		}));
 	};
 
@@ -350,45 +370,57 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 										<label className="block text-sm font-medium text-foreground mb-1">
 											Session
 										</label>
-										<select
-											name="session"
+										<Select
 											value={formData.session || ''}
-											onChange={handleStudentSessionChange}
-											className="w-full p-2 border border-border rounded-lg bg-background"
+											onValueChange={handleStudentSessionChange}
 										>
-											<option value="">Select Session</option>
-											{getSessions().map((session) => (
-												<option key={session} value={session}>
-													{session}
-												</option>
-											))}
-										</select>
+											<SelectTrigger>
+												<SelectValue placeholder="Select Session" />
+											</SelectTrigger>
+											<SelectContent>
+												{getSessions().map((session) => (
+													<SelectItem key={session} value={session}>
+														{session}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
 									</div>
 									<div>
 										<label className="block text-sm font-medium text-foreground mb-1">
 											Class
 										</label>
-										<select
-											name="classId"
+										<Select
 											value={formData.classId || ''}
-											onChange={handleStudentClassChange}
+											onValueChange={handleStudentClassChange}
 											disabled={!formData.session}
-											className="w-full p-2 border border-border rounded-lg bg-background disabled:bg-muted/50"
 										>
-											<option value="">Select Class</option>
-											{formData.session &&
-												getClassLevels(formData.session).map((level) => (
-													<optgroup key={level} label={level}>
-														{getAllClassesWithLevelsForSession(formData.session)
-															.filter((cls) => cls.level === level)
-															.map((cls) => (
-																<option key={cls.classId} value={cls.classId}>
-																	{cls.name}
-																</option>
-															))}
-													</optgroup>
-												))}
-										</select>
+											<SelectTrigger>
+												<SelectValue placeholder="Select Class" />
+											</SelectTrigger>
+											<SelectContent>
+												{formData.session &&
+													getClassLevels(formData.session).map((level) => (
+														<React.Fragment key={level}>
+															<div className="px-2 py-1.5 text-sm font-semibold">
+																{level}
+															</div>
+															{getAllClassesWithLevelsForSession(
+																formData.session
+															)
+																.filter((cls) => cls.level === level)
+																.map((cls) => (
+																	<SelectItem
+																		key={cls.classId}
+																		value={cls.classId}
+																	>
+																		{cls.name}
+																	</SelectItem>
+																))}
+														</React.Fragment>
+													))}
+											</SelectContent>
+										</Select>
 									</div>
 								</div>
 							</section>
@@ -405,28 +437,48 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 											Action Type
 										</label>
 										<div className="flex items-center space-x-4">
-											<label className="flex items-center text-sm">
-												<input
-													type="radio"
-													name="promotionType"
-													value="yearly"
-													checked={promotionType === 'yearly'}
-													onChange={(e) => setPromotionType(e.target.value)}
-													className="mr-2 accent-primary"
-												/>
-												Yearly
-											</label>
-											<label className="flex items-center text-sm">
-												<input
-													type="radio"
-													name="promotionType"
-													value="double"
-													checked={promotionType === 'double'}
-													onChange={(e) => setPromotionType(e.target.value)}
-													className="mr-2 accent-primary"
-												/>
-												Semester (Double)
-											</label>
+											{[
+												{ value: 'yearly', label: 'Yearly' },
+												{ value: 'double', label: 'Semester (Double)' },
+											].map((item) => {
+												const isSelected = promotionType === item.value;
+												return (
+													<label
+														key={item.value}
+														className={`relative flex items-center justify-center rounded-2xl border p-4 cursor-pointer transition-all duration-300 w-full
+                                ${
+																	isSelected
+																		? 'border-primary bg-primary/10 shadow-md'
+																		: 'border-muted hover:border-primary/50'
+																}
+                              `}
+													>
+														<input
+															type="radio"
+															name="promotionType"
+															value={item.value}
+															checked={isSelected}
+															onChange={(e) => setPromotionType(e.target.value)}
+															className="absolute opacity-0"
+														/>
+														<motion.div
+															className="flex items-center justify-center gap-2"
+															initial={{ scale: 0.95 }}
+															animate={{
+																scale: isSelected ? 1.05 : 1,
+															}}
+															transition={{ duration: 0.2 }}
+														>
+															{isSelected && (
+																<CheckCircle2 className="w-5 h-5 text-primary transition-opacity duration-300" />
+															)}
+															<span className="text-foreground font-medium">
+																{item.label}
+															</span>
+														</motion.div>
+													</label>
+												);
+											})}
 										</div>
 									</div>
 								</div>
@@ -442,18 +494,25 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 									<label className="block text-sm font-medium text-foreground mb-1">
 										Position
 									</label>
-									<select
-										name="position"
+									<Select
 										value={formData.position}
-										onChange={handleInputChange}
-										className="w-full p-2 border border-border rounded-lg bg-background"
+										onValueChange={(value) =>
+											handleInputChange({
+												target: { name: 'position', value },
+											})
+										}
 									>
-										{adminPositions.map((pos) => (
-											<option key={pos} value={pos}>
-												{pos}
-											</option>
-										))}
-									</select>
+										<SelectTrigger>
+											<SelectValue placeholder="Select Position" />
+										</SelectTrigger>
+										<SelectContent>
+											{adminPositions.map((pos) => (
+												<SelectItem key={pos} value={pos}>
+													{pos}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
 								</div>
 							</section>
 						)}
@@ -481,80 +540,111 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 													}`}
 												/>
 											</button>
-											{expandedAccordions[session] && (
-												<div className="p-4 space-y-4 border-t border-border">
-													<div>
-														<label className="block text-sm font-medium text-foreground mb-2">
-															Class Sponsorship
-														</label>
-														<select
-															value={formData.sponsorClass || ''}
-															onChange={handleSponsorClassChange}
-															className="w-full p-2 border border-border rounded-lg bg-background"
-														>
-															<option value="">No sponsorship</option>
-															{getAllClassesForSession(session).map((cls) => (
-																<option key={cls.classId} value={cls.classId}>
-																	{cls.name}
-																</option>
-															))}
-														</select>
-														{formData.sponsorClass && (
-															<p className="text-xs text-green-600 mt-1">
-																This teacher will be assigned as sponsor for the
-																selected class
-															</p>
-														)}
-													</div>
-													<div>
-														<label className="block text-sm font-medium text-foreground mb-2">
-															Subjects Taught
-														</label>
-														<div className="space-y-3">
-															{getClassLevels(session).map((level) => (
-																<div key={level}>
-																	<h6 className="font-medium text-foreground mb-2">
-																		{level}
-																	</h6>
-																	<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-																		{getSubjectsBySessionAndLevel(
-																			session,
-																			level
-																		).map((subject) => (
-																			<label
-																				key={`${subject}-${level}`}
-																				className="flex items-center text-sm"
+											<AnimatePresence>
+												{expandedAccordions[session] && (
+													<motion.div
+														initial={{ opacity: 0, height: 0 }}
+														animate={{ opacity: 1, height: 'auto' }}
+														exit={{ opacity: 0, height: 0 }}
+														className="p-4 space-y-4 border-t border-border"
+													>
+														<div>
+															<label className="block text-sm font-medium text-foreground mb-2">
+																Class Sponsorship
+															</label>
+															<Select
+																value={formData.sponsorClass || '__none__'}
+																onValueChange={handleSponsorClassChange}
+															>
+																<SelectTrigger>
+																	<SelectValue placeholder="No sponsorship" />
+																</SelectTrigger>
+																<SelectContent>
+																	<SelectItem value="__none__">
+																		No sponsorship
+																	</SelectItem>
+																	{getAllClassesForSession(session).map(
+																		(cls) => (
+																			<SelectItem
+																				key={cls.classId}
+																				value={cls.classId}
 																			>
-																				<input
-																					type="checkbox"
-																					checked={(
-																						formData.subjects || []
-																					).some(
-																						(s) =>
-																							s.subject === subject &&
-																							s.level === level &&
-																							s.session === session
-																					)}
-																					onChange={(e) =>
-																						handleSubjectChange(
-																							subject,
-																							level,
-																							session,
-																							e.target.checked
-																						)
-																					}
-																					className="mr-2 accent-primary"
-																				/>
-																				{subject}
-																			</label>
-																		))}
-																	</div>
-																</div>
-															))}
+																				{cls.name}
+																			</SelectItem>
+																		)
+																	)}
+																</SelectContent>
+															</Select>
+															{formData.sponsorClass && (
+																<p className="text-xs text-green-600 mt-1">
+																	This teacher will be assigned as sponsor for
+																	the selected class
+																</p>
+															)}
 														</div>
-													</div>
-												</div>
-											)}
+														<div>
+															<label className="block text-sm font-medium text-foreground mb-2">
+																Subjects Taught
+															</label>
+															<div className="space-y-3">
+																{getClassLevels(session).map((level) => (
+																	<div key={level}>
+																		<h6 className="font-medium text-foreground mb-2">
+																			{level}
+																		</h6>
+																		<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+																			{getSubjectsBySessionAndLevel(
+																				session,
+																				level
+																			).map((subject) => {
+																				const isChecked = (
+																					formData.subjects || []
+																				).some(
+																					(s) =>
+																						s.subject === subject &&
+																						s.level === level &&
+																						s.session === session
+																				);
+																				return (
+																					<motion.label
+																						key={`${subject}-${level}`}
+																						whileHover={{
+																							scale: 1.03,
+																						}}
+																						className={`relative flex items-center rounded-lg border p-2 cursor-pointer transition-all text-sm
+                                        ${
+																					isChecked
+																						? 'border-primary bg-primary/10 shadow-sm'
+																						: 'border-muted hover:border-primary/40 hover:bg-accent/5'
+																				}`}
+																					>
+																						<input
+																							type="checkbox"
+																							checked={isChecked}
+																							onChange={(e) =>
+																								handleSubjectChange(
+																									subject,
+																									level,
+																									session,
+																									e.target.checked
+																								)
+																							}
+																							className="absolute opacity-0"
+																						/>
+																						<span className="ml-1 text-foreground">
+																							{subject}
+																						</span>
+																					</motion.label>
+																				);
+																			})}
+																		</div>
+																	</div>
+																))}
+															</div>
+														</div>
+													</motion.div>
+												)}
+											</AnimatePresence>
 										</div>
 									))}
 								</div>

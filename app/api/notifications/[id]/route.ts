@@ -3,10 +3,8 @@ import { authorizeUser } from '@/middleware';
 import { getTenantModels } from '@/models';
 import { updateUserSessionNotifications } from '@/utils/session';
 
-export async function PATCH(
-	request: NextRequest,
-	context: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest) {
+	const { searchParams } = new URL(request.url);
 	try {
 		const currentUser = await authorizeUser(request);
 		if (!currentUser) {
@@ -16,7 +14,7 @@ export async function PATCH(
 			);
 		}
 
-		const notificationId = context.params.id;
+		const notificationId = searchParams.get('id');
 		if (!notificationId) {
 			return NextResponse.json(
 				{ success: false, message: 'Notification ID is required.' },

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
 	Search,
 	Plus,
@@ -22,6 +23,7 @@ import {
 	CheckCircle,
 	XCircle,
 	X,
+	MoreVertical,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/button/Button';
@@ -36,13 +38,140 @@ import { useSchoolStore } from '@/store/schoolStore';
 
 const API_URL = '/api/users';
 
-// --- NEW: Reusable Feedback Toast Component ---
-const FeedbackToast = ({ type, message, onClose }) => {
+// --- Portal Component for escaping containers ---
+const Portal = ({ children }: { children: React.ReactNode }) => {
+	const [mounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		setMounted(true);
+		return () => setMounted(false);
+	}, []);
+
+	return mounted ? createPortal(children, document.body) : null;
+};
+
+// --- Dropdown Menu Component (Styled with Tailwind) ---
+const ActionDropdown = ({
+	user,
+	onAction,
+}: {
+	user: any;
+	onAction: (actionType: string, user: any) => void;
+}) => {
+	const [isOpen, setIsOpen] = useState(false);
+	const [position, setPosition] = useState({});
+	const dropdownRef = useRef<HTMLDivElement | null>(null);
+	const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+	useEffect(() => {
+		if (isOpen && buttonRef.current) {
+			const rect = buttonRef.current.getBoundingClientRect();
+			const spaceBelow = window.innerHeight - rect.bottom;
+			const dropdownHeight = dropdownRef.current?.offsetHeight || 200;
+
+			let top, bottom;
+			if (spaceBelow < dropdownHeight && rect.top > dropdownHeight) {
+				bottom = window.innerHeight - rect.top + 8;
+			} else {
+				top = rect.bottom + 8;
+			}
+			setPosition({
+				top,
+				bottom,
+				right: window.innerWidth - rect.right,
+			});
+		}
+	}, [isOpen]);
+
+	useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+			if (
+				dropdownRef.current &&
+				!dropdownRef.current.contains(event.target as Node) &&
+				buttonRef.current &&
+				!buttonRef.current.contains(event.target as Node)
+			) {
+				setIsOpen(false);
+			}
+		};
+		document.addEventListener('mousedown', handleClickOutside);
+		return () => document.removeEventListener('mousedown', handleClickOutside);
+	}, []);
+
+	const handleAction = (actionType: string) => {
+		onAction(actionType, user);
+		setIsOpen(false);
+	};
+
+	return (
+		<div>
+			<button
+				ref={buttonRef}
+				onClick={() => setIsOpen(!isOpen)}
+				className="inline-flex items-center justify-center w-8 h-8 rounded-lg border bg-card text-muted-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring focus:ring-offset-background"
+			>
+				<MoreVertical className="h-4 w-4" />
+			</button>
+
+			{isOpen && (
+				<Portal>
+					<div
+						ref={dropdownRef}
+						style={position}
+						className="fixed z-50 w-48 rounded-lg border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95"
+					>
+						<div className="py-1" role="menu" aria-orientation="vertical">
+							<button
+								onClick={() => handleAction('view')}
+								className="flex items-center w-full px-3 py-1.5 text-sm rounded-sm hover:bg-muted"
+							>
+								<Eye className="mr-2 h-4 w-4" />
+								View
+							</button>
+							<button
+								onClick={() => handleAction('edit')}
+								className="flex items-center w-full px-3 py-1.5 text-sm rounded-sm hover:bg-muted"
+							>
+								<Edit className="mr-2 h-4 w-4" />
+								Edit
+							</button>
+							<button
+								onClick={() => handleAction('reset-password')}
+								className="flex items-center w-full px-3 py-1.5 text-sm rounded-sm hover:bg-muted"
+							>
+								<RotateCcw className="mr-2 h-4 w-4" />
+								Reset Password
+							</button>
+							<button
+								onClick={() => handleAction('toggle-status')}
+								className="flex items-center w-full px-3 py-1.5 text-sm rounded-sm hover:bg-muted"
+							>
+								<Power className="mr-2 h-4 w-4" />
+								{user.isActive ? 'Deactivate' : 'Activate'}
+							</button>
+							<div className="my-1 h-px bg-border" />
+							<button
+								onClick={() => handleAction('delete')}
+								disabled={user.role === 'system_admin'}
+								className="flex items-center w-full px-3 py-1.5 text-sm rounded-sm text-destructive hover:bg-destructive/10 disabled:text-muted-foreground disabled:bg-transparent disabled:cursor-not-allowed"
+							>
+								<Trash2 className="mr-2 h-4 w-4" />
+								Delete
+							</button>
+						</div>
+					</div>
+				</Portal>
+			)}
+		</div>
+	);
+};
+
+// --- Reusable Feedback Toast Component (Styled with Tailwind) ---
+const FeedbackToast = ({ type, message, onClose }: any) => {
 	useEffect(() => {
 		const timer = setTimeout(() => {
 			onClose();
-		}, 5000); // Auto-dismiss after 5 seconds
-
+		}, 5000);
 		return () => clearTimeout(timer);
 	}, [onClose]);
 
@@ -50,10 +179,10 @@ const FeedbackToast = ({ type, message, onClose }) => {
 	const baseClasses =
 		'flex items-start gap-4 p-4 rounded-lg shadow-lg border w-full max-w-sm';
 	const colorClasses = isSuccess
-		? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-800 dark:text-green-200'
-		: 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700 text-red-800 dark:text-red-200';
+		? 'bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-800 dark:text-green-200'
+		: 'bg-destructive/10 border-destructive/20 text-destructive';
 	const Icon = isSuccess ? CheckCircle : XCircle;
-	const iconColor = isSuccess ? 'text-green-500' : 'text-red-500';
+	const iconColor = isSuccess ? 'text-green-500' : 'text-destructive';
 
 	return (
 		<div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-5 fade-in-0 duration-300">
@@ -74,10 +203,11 @@ const FeedbackToast = ({ type, message, onClose }) => {
 	);
 };
 
+// --- Main Dashboard Component ---
 const UserManagementDashboard = () => {
 	const [activeTab, setActiveTab] = useState('all');
 	const [searchTerm, setSearchTerm] = useState('');
-	const [users, setUsers] = useState([]);
+	const [users, setUsers] = useState<any[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [feedback, setFeedback] = useState({ type: '', message: '' });
 
@@ -99,7 +229,7 @@ const UserManagementDashboard = () => {
 	const [currentPage, setCurrentPage] = useState(1);
 	const [itemsPerPage, setItemsPerPage] = useState(10);
 	// Sorting state
-	const [sortField, setSortField] = useState('name');
+	const [sortField, setSortField] = useState('fullName');
 	const [sortDirection, setSortDirection] = useState('asc');
 
 	// Filter state
@@ -110,51 +240,48 @@ const UserManagementDashboard = () => {
 	const [subjectFilter, setSubjectFilter] = useState('all');
 
 	const router = useRouter();
-	const schoolProfile = useSchoolStore((state) => state.school);
+	const schoolProfile = useSchoolStore((state: any) => state.school);
 
-	// Get all available classes from school profile
 	const availableClasses = useMemo(() => {
 		if (!schoolProfile?.classLevels) return [];
-
-		const allClasses = [];
-		Object.entries(schoolProfile.classLevels).forEach(([session, levels]) => {
-			Object.entries(levels).forEach(([level, levelData]) => {
-				levelData.classes.forEach((cls) => {
-					allClasses.push({
-						...cls,
-						session,
-						level,
-						displayName: `${cls.name} (${level} - ${session})`,
+		const allClasses: any[] = [];
+		Object.entries(schoolProfile.classLevels).forEach(
+			([session, levels]: [string, any]) => {
+				Object.entries(levels).forEach(([level, levelData]: [string, any]) => {
+					levelData.classes.forEach((cls: any) => {
+						allClasses.push({
+							...cls,
+							session,
+							level,
+							displayName: `${cls.name} (${level} - ${session})`,
+						});
 					});
 				});
-			});
-		});
+			}
+		);
 		return allClasses;
 	}, [schoolProfile]);
 
-	// Get all available sessions from school profile
 	const availableSessions = useMemo(() => {
 		if (!schoolProfile?.classLevels) return [];
 		return Object.keys(schoolProfile.classLevels);
 	}, [schoolProfile]);
 
-	// Get all available class levels from school profile
 	const availableClassLevels = useMemo(() => {
 		if (!schoolProfile?.classLevels) return [];
 		const levels = new Set();
-		Object.values(schoolProfile.classLevels).forEach((sessionData) => {
+		Object.values(schoolProfile.classLevels).forEach((sessionData: any) => {
 			Object.keys(sessionData).forEach((level) => levels.add(level));
 		});
 		return Array.from(levels);
 	}, [schoolProfile]);
 
-	// Get all available subjects from school profile
 	const availableSubjects = useMemo(() => {
 		if (!schoolProfile?.classLevels) return [];
 		const subjects = new Set();
-		Object.values(schoolProfile.classLevels).forEach((sessionData) => {
-			Object.values(sessionData).forEach((levelData) => {
-				levelData.subjects.forEach((subject) => subjects.add(subject));
+		Object.values(schoolProfile.classLevels).forEach((sessionData: any) => {
+			Object.values(sessionData).forEach((levelData: any) => {
+				levelData.subjects.forEach((subject: any) => subjects.add(subject));
 			});
 		});
 		return Array.from(subjects).sort();
@@ -207,33 +334,27 @@ const UserManagementDashboard = () => {
 		[users]
 	);
 
-	const getFullName = (user) => {
+	const getFullName = (user: any) => {
 		const names = [user.firstName, user.middleName, user.lastName].filter(
 			Boolean
 		);
 		return names.join(' ');
 	};
 
-	// Helper function to get class display name from school profile
-	const getClassDisplayName = (classId) => {
+	const getClassDisplayName = (classId: any) => {
 		if (!classId || !schoolProfile?.classLevels) return classId;
-
 		const foundClass = availableClasses.find((cls) => cls.classId === classId);
 		return foundClass ? foundClass.displayName : classId;
 	};
 
-	// Helper function to get class level from class ID
-	const getClassLevelFromId = (classId) => {
+	const getClassLevelFromId = (classId: any) => {
 		if (!classId || !schoolProfile?.classLevels) return null;
-
 		const foundClass = availableClasses.find((cls) => cls.classId === classId);
 		return foundClass ? foundClass.level : null;
 	};
 
-	// Helper function to get session from class ID
-	const getSessionFromId = (classId) => {
+	const getSessionFromId = (classId: any) => {
 		if (!classId || !schoolProfile?.classLevels) return null;
-
 		const foundClass = availableClasses.find((cls) => cls.classId === classId);
 		return foundClass ? foundClass.session : null;
 	};
@@ -250,28 +371,25 @@ const UserManagementDashboard = () => {
 				statusFilter === 'all' ||
 				(statusFilter === 'active' && user.isActive !== false) ||
 				(statusFilter === 'inactive' && user.isActive === false);
-
 			const matchesSession =
 				sessionFilter === 'all' ||
 				(user.role === 'student' &&
 					getSessionFromId(user.classId) === sessionFilter) ||
 				(user.role === 'teacher' &&
-					user.subjects?.some((s) => s.session === sessionFilter));
-
+					user.subjects?.some((s: any) => s.session === sessionFilter));
 			const matchesClassLevel =
 				classLevelFilter === 'all' ||
 				(user.role === 'student' &&
 					getClassLevelFromId(user.classId) === classLevelFilter) ||
 				(user.role === 'teacher' &&
-					user.subjects?.some((s) => s.level === classLevelFilter));
-
+					user.subjects?.some((s: any) => s.level === classLevelFilter));
 			const matchesClass =
 				classFilter === 'all' ||
 				(user.role === 'student' && user.classId === classFilter);
 			const matchesSubject =
 				subjectFilter === 'all' ||
 				(user.role === 'teacher' &&
-					user.subjects?.some((s) => s.subject === subjectFilter));
+					user.subjects?.some((s: any) => s.subject === subjectFilter));
 
 			return (
 				matchesTab &&
@@ -285,23 +403,20 @@ const UserManagementDashboard = () => {
 		});
 
 		filtered.sort((a, b) => {
-			let aVal = a[sortField];
-			let bVal = b[sortField];
+			let aVal = a[sortField as keyof typeof a];
+			let bVal = b[sortField as keyof typeof b];
 			if (sortField === 'fullName') {
 				aVal = getFullName(a);
 				bVal = getFullName(b);
 			}
-
 			if (sortField === 'createdAt') {
-				aVal = new Date(aVal);
-				bVal = new Date(bVal);
+				aVal = new Date(aVal) as any;
+				bVal = new Date(bVal) as any;
 			}
-
 			if (typeof aVal === 'string') {
 				aVal = aVal.toLowerCase();
-				bVal = bVal.toLowerCase();
+				bVal = (bVal as string).toLowerCase();
 			}
-
 			if (sortDirection === 'asc') {
 				return aVal > bVal ? 1 : -1;
 			} else {
@@ -320,8 +435,6 @@ const UserManagementDashboard = () => {
 		subjectFilter,
 		sortField,
 		sortDirection,
-		schoolProfile,
-		availableClasses,
 	]);
 
 	const totalPages = Math.ceil(filteredAndSortedUsers.length / itemsPerPage);
@@ -331,7 +444,7 @@ const UserManagementDashboard = () => {
 		startIndex + itemsPerPage
 	);
 
-	const handleSort = (field) => {
+	const handleSort = (field: any) => {
 		if (sortField === field) {
 			setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
 		} else {
@@ -340,7 +453,7 @@ const UserManagementDashboard = () => {
 		}
 	};
 
-	const getSortIcon = (field) => {
+	const getSortIcon = (field: any) => {
 		if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />;
 		return sortDirection === 'asc' ? (
 			<ArrowUp className="h-4 w-4" />
@@ -357,24 +470,53 @@ const UserManagementDashboard = () => {
 		setSubjectFilter('all');
 	};
 
-	const getStatusColor = (isActive) => {
-		return isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+	const getStatusColor = (isActive: boolean) => {
+		return isActive
+			? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+			: 'bg-destructive/10 text-destructive';
 	};
 
-	const getUserTypeColor = (role) => {
+	const getUserTypeColor = (role: string) => {
 		switch (role) {
 			case 'student':
-				return 'bg-blue-100 text-blue-800';
+				return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
 			case 'teacher':
-				return 'bg-purple-100 text-purple-800';
+				return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
 			case 'administrator':
-				return 'bg-orange-100 text-orange-800';
+				return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
 			default:
-				return 'bg-gray-100 text-gray-800';
+				return 'bg-muted text-muted-foreground';
 		}
 	};
 
-	const handleDeleteSuccess = (deletedUserId) => {
+	const handleAction = (actionType: string, user: any) => {
+		switch (actionType) {
+			case 'view':
+				setViewingUser(user);
+				setShowViewModal(true);
+				break;
+			case 'edit':
+				setEditingUser(user);
+				setShowEditModal(true);
+				break;
+			case 'reset-password':
+				setResetPasswordUser(user);
+				setShowResetPasswordModal(true);
+				break;
+			case 'toggle-status':
+				setDeactivatingUser(user);
+				setShowDeactivateModal(true);
+				break;
+			case 'delete':
+				setDeletingUser(user);
+				setShowDeleteModal(true);
+				break;
+			default:
+				break;
+		}
+	};
+
+	const handleDeleteSuccess = (deletedUserId: string) => {
 		setUsers((currentUsers) =>
 			currentUsers.filter((u) => u._id !== deletedUserId)
 		);
@@ -387,7 +529,7 @@ const UserManagementDashboard = () => {
 		});
 	};
 
-	const handleDeactivateSuccess = (updatedUser) => {
+	const handleDeactivateSuccess = (updatedUser: any) => {
 		setUsers((currentUsers) =>
 			currentUsers.map((u) => (u._id === updatedUser._id ? updatedUser : u))
 		);
@@ -412,8 +554,8 @@ const UserManagementDashboard = () => {
 
 	return (
 		<div className="min-h-screen bg-background text-foreground p-6">
+			{/* The rest of your component remains the same, no changes needed below this line */}
 			<div className="max-w-7xl mx-auto">
-				{/* MODIFICATION: Render FeedbackToast instead of static banner */}
 				{feedback.message && (
 					<FeedbackToast
 						type={feedback.type}
@@ -513,7 +655,7 @@ const UserManagementDashboard = () => {
 							Filter
 						</button>
 						<button
-							onClick={() => router.push('/dashboard/add-users')}
+							onClick={() => router.push('/dashboard/admin/users/AddUsers')}
 							className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
 						>
 							<Plus className="h-4 w-4" />
@@ -522,13 +664,13 @@ const UserManagementDashboard = () => {
 					</div>
 				</div>
 
-				<div className="bg-card rounded-lg border border-border overflow-hidden">
+				<div className="bg-card rounded-lg border border-border">
 					<div className="overflow-x-auto">
 						<table className="w-full">
 							<thead className="bg-muted/50">
 								<tr>
 									<th
-										className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/70"
+										className="sticky left-0 bg-muted/50 px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/70 z-10"
 										onClick={() => handleSort('fullName')}
 									>
 										<div className="flex items-center gap-1">
@@ -560,7 +702,7 @@ const UserManagementDashboard = () => {
 											{getSortIcon('createdAt')}
 										</div>
 									</th>
-									<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+									<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-20">
 										Actions
 									</th>
 								</tr>
@@ -571,9 +713,9 @@ const UserManagementDashboard = () => {
 										key={user._id}
 										className="hover:bg-muted/20 transition-colors"
 									>
-										<td className="px-6 py-4">
-											<div className="flex items-center">
-												<div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+										<td className="sticky left-0 bg-card hover:bg-muted/20 px-4 sm:px-6 py-4 z-10">
+											<div className="flex flex-col items-start sm:flex-row sm:items-center">
+												<div className="flex-shrink-0 h-8 w-8 sm:h-10 sm:w-10">
 													<img
 														src={
 															user.avatar ||
@@ -582,11 +724,14 @@ const UserManagementDashboard = () => {
 															)}`
 														}
 														alt={getFullName(user)}
-														className="h-10 w-10 rounded-full"
+														className="h-8 w-8 sm:h-10 sm:w-10 rounded-full"
 													/>
 												</div>
-												<div className="ml-4">
-													<div className="text-sm font-medium text-foreground">
+												<div className="mt-2 sm:mt-0 sm:ml-4 max-w-[150px]">
+													<div
+														className="text-sm font-medium text-foreground truncate"
+														title={getFullName(user)}
+													>
 														{getFullName(user)}
 													</div>
 												</div>
@@ -607,7 +752,7 @@ const UserManagementDashboard = () => {
 												getClassDisplayName(user.classId)}
 											{user.role === 'teacher' &&
 												user.subjects &&
-												user.subjects.map((s) => s.subject).join(', ')}
+												user.subjects.map((s: any) => s.subject).join(', ')}
 											{user.role === 'administrator' && user.position}
 										</td>
 										<td className="px-6 py-4">
@@ -625,65 +770,7 @@ const UserManagementDashboard = () => {
 												: ''}
 										</td>
 										<td className="px-6 py-4">
-											<div className="flex items-center gap-2">
-												<button
-													onClick={() => {
-														setViewingUser(user);
-														setShowViewModal(true);
-													}}
-													className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
-													title="View User"
-												>
-													<Eye className="h-4 w-4" />
-												</button>
-												<button
-													onClick={() => {
-														setEditingUser(user);
-														setShowEditModal(true);
-													}}
-													className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
-													title="Edit User"
-												>
-													<Edit className="h-4 w-4" />
-												</button>
-												<button
-													onClick={() => {
-														setResetPasswordUser(user);
-														setShowResetPasswordModal(true);
-													}}
-													className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
-													title="Reset User Password"
-												>
-													<RotateCcw className="h-4 w-4" />
-												</button>
-												<button
-													onClick={() => {
-														setDeactivatingUser(user);
-														setShowDeactivateModal(true);
-													}}
-													className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
-													title={
-														user.isActive ? 'Deactivate User' : 'Activate User'
-													}
-												>
-													<Power className="h-4 w-4" />
-												</button>
-												<button
-													disabled={user.role == 'system_admin'}
-													onClick={() => {
-														setDeletingUser(user);
-														setShowDeleteModal(true);
-													}}
-													className={`p-1 hover:bg-red-100 rounded text-muted-foreground hover:text-red-600 transition-colors ${
-														user.role == 'system_admin'
-															? 'cursor-not-allowed'
-															: ''
-													}`}
-													title="Delete User"
-												>
-													<Trash2 className="h-4 w-4" />
-												</button>
-											</div>
+											<ActionDropdown user={user} onAction={handleAction} />
 										</td>
 									</tr>
 								))}
@@ -691,7 +778,7 @@ const UserManagementDashboard = () => {
 						</table>
 					</div>
 
-					<div className="flex items-center justify-between p-4 border-t border-border">
+					<div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-border">
 						<div className="flex items-center gap-2">
 							<span className="text-sm text-muted-foreground">Show</span>
 							<select
@@ -720,7 +807,7 @@ const UserManagementDashboard = () => {
 								variant="outline"
 							>
 								<ChevronLeft className="h-4 w-4" />
-								Previous
+								<span className="hidden sm:inline">Previous</span>
 							</Button>
 
 							<div className="flex gap-0.5">
@@ -785,7 +872,7 @@ const UserManagementDashboard = () => {
 								disabled={currentPage === totalPages}
 								className="p-2 rounded hover:bg-muted disabled:opacity-50 disabled:hover:bg-transparent"
 							>
-								Next
+								<span className="hidden sm:inline">Next</span>
 								<ChevronRight className="h-4 w-4" />
 							</Button>
 						</div>
@@ -852,7 +939,7 @@ const UserManagementDashboard = () => {
 					isOpen={showEditModal}
 					onClose={() => setShowEditModal(false)}
 					user={editingUser}
-					onSave={(updatedUser) => {
+					onSave={(updatedUser: any) => {
 						setUsers(
 							users.map((u) => (u._id === updatedUser._id ? updatedUser : u))
 						);

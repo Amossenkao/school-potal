@@ -102,7 +102,7 @@ const EventLogComponent = () => {
 
 		const originalNotifications = user.notifications;
 		const updatedNotifications = originalNotifications.map((n) =>
-			n.id === notificationId ? { ...n, read: true } : n
+			n._id === notificationId ? { ...n, read: true } : n
 		);
 		setUser({ ...user, notifications: updatedNotifications });
 		if (selectedEvent?.id === notificationId) {
@@ -110,16 +110,19 @@ const EventLogComponent = () => {
 		}
 
 		try {
-			const response = await fetch(`/api/notifications/${notificationId}`, {
-				method: 'PATCH',
-			});
+			const response = await fetch(
+				`/api/notifications/${notificationId}?id=${notificationId}`,
+				{
+					method: 'PATCH',
+				}
+			);
 			if (!response.ok) {
 				throw new Error('Failed to mark as read');
 			}
 		} catch (error) {
 			console.error('Error marking notification as read:', error);
 			setUser({ ...user, notifications: originalNotifications });
-			if (selectedEvent?.id === notificationId) {
+			if (selectedEvent?._id === notificationId) {
 				setSelectedEvent((prev) => (prev ? { ...prev, read: false } : null));
 			}
 		}
@@ -156,7 +159,7 @@ const EventLogComponent = () => {
 	const handleEventClick = (event: Notification) => {
 		setSelectedEvent(event);
 		if (!event.read) {
-			handleMarkAsRead(event.id);
+			handleMarkAsRead(event._id);
 		}
 	};
 
@@ -310,7 +313,7 @@ const EventLogComponent = () => {
 							const Icon = getTypeIcon(event.type);
 							return (
 								<div
-									key={event.id}
+									key={event._id}
 									className={`p-4 sm:p-6 hover:bg-muted/50 transition-colors duration-150 cursor-pointer relative ${
 										!event.read ? 'bg-primary/5' : ''
 									}`}

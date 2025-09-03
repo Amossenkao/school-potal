@@ -94,7 +94,7 @@ export interface Message {
 }
 
 export interface Notification {
-	id: string;
+	_id: string;
 	title: string;
 	message: string;
 	details?: string;

@@ -20,6 +20,18 @@ interface NavItem {
 	badgeCount?: number;
 }
 
+const getCurrentAcademicYear = () => {
+	const now = new Date();
+	const currentYear = now.getFullYear();
+	const currentMonth = now.getMonth() + 1;
+
+	if (currentMonth >= 8) {
+		return `${currentYear}/${currentYear + 1}`;
+	} else {
+		return `${currentYear - 1}/${currentYear}`;
+	}
+};
+
 const AppSidebar: React.FC = () => {
 	const { user, logout } = useAuth();
 	const {
@@ -38,6 +50,8 @@ const AppSidebar: React.FC = () => {
 	const sidebarRef = useRef<HTMLElement>(null);
 	const [initialSetupDone, setInitialSetupDone] = useState(false);
 	const [navigationItems, setNavigationItems] = useState<NavItem[]>([]);
+	const [pendingSubmissionsCount, setPendingSubmissionsCount] = useState(0);
+	const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
 	// Get current school profile
 	const currentSchool = useSchoolStore(
@@ -45,6 +59,48 @@ const AppSidebar: React.FC = () => {
 	) as SchoolProfile;
 
 	const role = user?.role;
+
+	useEffect(() => {
+		const fetchPendingCounts = async () => {
+			if (user) {
+				try {
+					// Fetch pending grade submissions
+					const submissionsRes = await fetch(
+						`/api/grades?reportType=gradeSubmission&teacherId=${
+							user.teacherId
+						}&academicYear=${getCurrentAcademicYear()}`
+					);
+					if (submissionsRes.ok) {
+						const submissionsData = await submissionsRes.json();
+						const pendingSubmissions =
+							submissionsData.data.report.submissions.filter(
+								(sub: any) =>
+									sub.status === 'Pending' ||
+									sub.status === 'Partially Approved'
+							).length;
+						setPendingSubmissionsCount(pendingSubmissions);
+					}
+
+					// Fetch pending grade change requests
+					const requestsRes = await fetch(
+						`/api/grades/requests?academicYear=${getCurrentAcademicYear()}`
+					);
+					if (requestsRes.ok) {
+						const requestsData = await requestsRes.json();
+						const pendingRequests = requestsData.data.report.filter(
+							(req: any) =>
+								req.status === 'Pending' || req.status === 'Partially Approved'
+						).length;
+						setPendingRequestsCount(pendingRequests);
+					}
+				} catch (error) {
+					console.error('Failed to fetch pending counts:', error);
+				}
+			}
+		};
+
+		fetchPendingCounts();
+	}, [user]);
 
 	const prependDashboard = (href: string) => {
 		if (!href) return href;
@@ -111,18 +167,36 @@ const AppSidebar: React.FC = () => {
 				];
 
 				// Prepend dashboard to all hrefs and add notification badge
-				const processedNavItems = completeNavItems.map((item) => ({
-					...item,
-					href: item.href ? prependDashboard(item.href) : undefined,
-					subItems: item.subItems
-						? item.subItems.map((sub) => ({
-								...sub,
-								href: prependDashboard(sub.href),
-						  }))
-						: undefined,
-					badgeCount:
-						item.name === 'Notifications' ? unreadNotifications : undefined,
-				}));
+				const processedNavItems = completeNavItems.map((item) => {
+					const newItem = {
+						...item,
+						href: item.href ? prependDashboard(item.href) : undefined,
+						subItems: item.subItems
+							? item.subItems.map((sub) => {
+									let badgeCount;
+									if (sub.name === 'Grade Submissions') {
+										badgeCount = pendingSubmissionsCount;
+									} else if (sub.name === 'Grade Requests') {
+										badgeCount = pendingRequestsCount;
+									}
+									return {
+										...sub,
+										href: prependDashboard(sub.href),
+										badgeCount: badgeCount > 0 ? badgeCount : undefined,
+									};
+							  })
+							: undefined,
+						badgeCount:
+							item.name === 'Notifications' && unreadNotifications > 0
+								? unreadNotifications
+								: undefined,
+					};
+					if (item.name === 'Academics') {
+						const totalPending = pendingSubmissionsCount + pendingRequestsCount;
+						newItem.badgeCount = totalPending > 0 ? totalPending : undefined;
+					}
+					return newItem;
+				});
 
 				setNavigationItems(processedNavItems);
 			} catch (error) {
@@ -143,7 +217,13 @@ const AppSidebar: React.FC = () => {
 				]);
 			}
 		}
-	}, [currentSchool, role, user?.notifications]);
+	}, [
+		currentSchool,
+		role,
+		user?.notifications,
+		pendingSubmissionsCount,
+		pendingRequestsCount,
+	]);
 
 	const handleSubmenuToggle = (itemName: string) => {
 		setOpenSubmenu((prev) => (prev === itemName ? null : itemName));
@@ -226,6 +306,13 @@ const AppSidebar: React.FC = () => {
 										{item.name}
 									</span>
 								)}
+								{(isExpanded || isHovered || isMobileOpen) &&
+									item.badgeCount &&
+									item.badgeCount > 0 && (
+										<span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+											{item.badgeCount}
+										</span>
+									)}
 								{(isExpanded || isHovered || isMobileOpen) && (
 									<ChevronDown
 										className={`ml-auto w-4 h-4 transition-transform duration-200 ${
@@ -321,6 +408,11 @@ const AppSidebar: React.FC = () => {
 													/>
 												)}
 												<span>{sub.name}</span>
+												{sub.badgeCount && sub.badgeCount > 0 && (
+													<span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+														{sub.badgeCount}
+													</span>
+												)}
 											</Link>
 										</li>
 									))}

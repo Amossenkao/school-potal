@@ -2,7 +2,33 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantModels } from '@/models';
 import { authorizeUser } from '@/middleware';
 import { now } from 'mongoose';
+import { updateUserSessionNotifications } from '@/utils/session';
 
+// Helper function to add notification to user and update their session
+async function addNotificationToUser(
+	User: any,
+	userId: string,
+	notification: any
+) {
+	try {
+		const updatedUser = await User.findByIdAndUpdate(
+			userId,
+			{
+				$push: { notifications: notification },
+			},
+			{ new: true, select: 'notifications' } // Only return notifications to minimize data transfer
+		);
+
+		if (updatedUser) {
+			await updateUserSessionNotifications(userId, updatedUser.notifications);
+			return true;
+		}
+		return false;
+	} catch (error) {
+		console.error(`Failed to add notification to user ${userId}:`, error);
+		return false;
+	}
+}
 // -----------------------------------------------------------------------------
 // Types and Interfaces (Unchanged)
 // -----------------------------------------------------------------------------
@@ -880,7 +906,7 @@ export async function POST(request: NextRequest) {
 				{ status: 401 }
 			);
 		}
-		const { Grade } = await getTenantModels();
+		const { Grade, User } = await getTenantModels();
 		const body = await request.json();
 		const { classId, subject, grades } = body;
 		if (!classId || !subject || !grades) {
@@ -964,6 +990,24 @@ export async function POST(request: NextRequest) {
 			lastUpdated,
 		}));
 		const result = await Grade.insertMany(gradeDocuments);
+
+		// Notify admins
+		const admins = await User.find({ role: 'system_admin' })
+			.select('_id')
+			.lean();
+		const notification = {
+			title: 'New Grade Submission',
+			message: `${teacher.firstName} ${teacher.lastName} submitted grades for ${subject} in ${classId}.`,
+			timestamp: new Date(),
+			read: false,
+			type: 'Grades',
+		};
+
+		const notificationPromises = admins.map((admin: any) =>
+			addNotificationToUser(User, admin._id.toString(), notification)
+		);
+		await Promise.allSettled(notificationPromises);
+
 		return NextResponse.json({ success: true, data: result }, { status: 201 });
 	} catch (error) {
 		console.error('Error in grades POST:', error);
@@ -1043,9 +1087,10 @@ export async function PUT(request: NextRequest) {
 async function updateGradeStatus(
 	submissionId: string,
 	studentId: string,
-	status: string
+	status: string,
+	rejectionReason?: string
 ) {
-	const { Grade } = await getTenantModels();
+	const { Grade, User } = await getTenantModels();
 
 	if (!['Approved', 'Rejected', 'Pending'].includes(status)) {
 		return {
@@ -1055,9 +1100,14 @@ async function updateGradeStatus(
 		};
 	}
 
+	const update: any = { status, lastUpdated: new Date() };
+	if (status === 'Rejected' && rejectionReason) {
+		update.rejectionReason = rejectionReason;
+	}
+
 	const result = await Grade.findOneAndUpdate(
 		{ submissionId, studentId },
-		{ $set: { status, lastUpdated: new Date() } },
+		{ $set: update },
 		{ new: true }
 	);
 
@@ -1067,6 +1117,25 @@ async function updateGradeStatus(
 			message: 'Grade record not found',
 			status: 404,
 		};
+	}
+
+	// Notify the teacher
+	const teacher = await User.findOne({ teacherId: result.teacherId })
+		.select('_id')
+		.lean();
+	if (teacher) {
+		const notification = {
+			title: `Grades ${status}`,
+			message: `Your grade for ${result.studentName} in ${
+				result.subject
+			} has been ${status.toLowerCase()}.${
+				rejectionReason ? ` Reason: ${rejectionReason}` : ''
+			}`,
+			timestamp: new Date(),
+			read: false,
+			type: 'Grades',
+		};
+		await addNotificationToUser(User, teacher._id.toString(), notification);
 	}
 
 	return { success: true, data: result, status: 200 };
@@ -1086,30 +1155,33 @@ export async function PATCH(request: NextRequest) {
 		const updates = Array.isArray(body) ? body : [body];
 
 		const results = await Promise.all(
-			updates.map(async ({ submissionId, studentId, status }) => {
-				if (!submissionId || !studentId || !status) {
+			updates.map(
+				async ({ submissionId, studentId, status, rejectionReason }) => {
+					if (!submissionId || !studentId || !status) {
+						return {
+							success: false,
+							message: 'Missing required fields',
+							submissionId,
+							studentId,
+						};
+					}
+
+					// Use the new function to update the grade status
+					const updateResult = await updateGradeStatus(
+						submissionId,
+						studentId,
+						status,
+						rejectionReason
+					);
+
 					return {
-						success: false,
-						message: 'Missing required fields',
+						success: updateResult.success,
+						data: updateResult.data || updateResult.message,
 						submissionId,
 						studentId,
 					};
 				}
-
-				// Use the new function to update the grade status
-				const updateResult = await updateGradeStatus(
-					submissionId,
-					studentId,
-					status
-				);
-
-				return {
-					success: updateResult.success,
-					data: updateResult.data || updateResult.message,
-					submissionId,
-					studentId,
-				};
-			})
+			)
 		);
 
 		const successfulUpdates = results.filter((result) => result.success);
