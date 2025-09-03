@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantModels } from '@/models';
 import { authorizeUser } from '@/middleware';
-import { now } from 'mongoose';
 import { updateUserSessionNotifications } from '@/utils/session';
+import { SchoolProfile } from '@/types/schoolProfile';
 
 // Helper function to add notification to user and update their session
 async function addNotificationToUser(
@@ -676,6 +676,7 @@ export async function GET(request: NextRequest) {
 		const period = searchParams.get('period');
 		const subject = searchParams.get('subject');
 		const reportType = searchParams.get('reportType');
+		const status = searchParams.get('status');
 		let teacherId = searchParams.get('teacherId');
 		let studentIds = parseStudentIds(searchParams.get('studentIds'));
 
@@ -690,10 +691,12 @@ export async function GET(request: NextRequest) {
 			!teacherId &&
 			!studentIds
 		) {
+			const query: any = { academicYear };
+			if (status) {
+				query.status = status;
+			}
 			// Fetch all grades for the academic year
-			const allGrades = (await Grade.find({
-				academicYear,
-			}).lean()) as GradeRecord[];
+			const allGrades = (await Grade.find(query).lean()) as GradeRecord[];
 
 			if (allGrades.length === 0) {
 				return NextResponse.json({
@@ -762,11 +765,13 @@ export async function GET(request: NextRequest) {
 				);
 			}
 
+			const query: any = { academicYear, teacherId };
+			if (status) {
+				query.status = status;
+			}
+
 			// Fetch all grades for the teacher
-			const teacherGrades = (await Grade.find({
-				academicYear,
-				teacherId,
-			}).lean()) as GradeRecord[];
+			const teacherGrades = (await Grade.find(query).lean()) as GradeRecord[];
 
 			if (teacherGrades.length === 0) {
 				return NextResponse.json({
@@ -796,6 +801,9 @@ export async function GET(request: NextRequest) {
 
 		// --- 5. Build the primary database query for other report types ---
 		const query: any = { academicYear };
+		if (status) {
+			query.status = status;
+		}
 
 		if (classId) {
 			query.classId = classId;
@@ -824,6 +832,7 @@ export async function GET(request: NextRequest) {
 		const allGradesForClass = (await Grade.find({
 			academicYear: query.academicYear,
 			classId: query.classId,
+			...(status && { status }),
 		}).lean()) as GradeRecord[];
 
 		// --- 6. Process the data based on report type ---
@@ -906,15 +915,43 @@ export async function POST(request: NextRequest) {
 				{ status: 401 }
 			);
 		}
-		const { Grade, User } = await getTenantModels();
+		const { Grade, User, SchoolProfile } = await getTenantModels();
 		const body = await request.json();
-		const { classId, subject, grades } = body;
-		if (!classId || !subject || !grades) {
+		const { classId, subject, period, grades } = body;
+
+		console.log('Received grades POST:', body);
+
+		if (!classId || !subject || !grades || !period) {
 			return NextResponse.json(
 				{ success: false, message: 'Missing required fields' },
 				{ status: 400 }
 			);
 		}
+
+		// Fetch school settings to check if grade submission is allowed
+		const schoolProfile =
+			(await SchoolProfile.findOne().lean()) as SchoolProfile;
+		if (schoolProfile?.settings?.teacherSettings) {
+			const { gradeSubmissionAcademicYears = [], gradeSubmissionPeriods = [] } =
+				schoolProfile.settings.teacherSettings;
+
+			const currentAcademicYear = getCurrentAcademicYear();
+
+			if (
+				!gradeSubmissionAcademicYears.includes(currentAcademicYear) ||
+				!gradeSubmissionPeriods.includes(period)
+			) {
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							'Grade submission is not currently open for this academic year or period.',
+					},
+					{ status: 403 }
+				);
+			}
+		}
+
 		const isAuthorized = teacher.subjects.some(
 			(s: any) => s.subject === subject
 		);

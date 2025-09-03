@@ -5,6 +5,7 @@ import {
 	updateAllUserSessions,
 	updateUserSessionNotifications,
 } from '@/utils/session';
+import { SchoolProfile } from '@/types/schoolProfile';
 
 // Helper function to get the current academic year
 function getCurrentAcademicYear() {
@@ -183,7 +184,8 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}
 
-		const { Grade, GradeChangeRequest, User } = await getTenantModels();
+		const { Grade, GradeChangeRequest, User, SchoolProfile } =
+			await getTenantModels();
 		const body = await request.json();
 		const { classId, subject, period, requests } = body;
 
@@ -198,6 +200,32 @@ export async function POST(request: NextRequest) {
 				{ message: 'Missing required fields' },
 				{ status: 400 }
 			);
+		}
+
+		// Fetch school settings to check if grade change requests are allowed
+		const schoolProfile =
+			(await SchoolProfile.findOne().lean()) as SchoolProfile;
+		if (schoolProfile?.settings?.teacherSettings) {
+			const {
+				gradeChangeRequestAcademicYears = [],
+				gradeChangeRequestPeriods = [],
+			} = schoolProfile.settings.teacherSettings;
+
+			const currentAcademicYear = getCurrentAcademicYear();
+
+			if (
+				!gradeChangeRequestAcademicYears.includes(currentAcademicYear) ||
+				!gradeChangeRequestPeriods.includes(period)
+			) {
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							'Grade change requests are not currently open for this academic year or period.',
+					},
+					{ status: 403 }
+				);
+			}
 		}
 
 		const academicYear = getCurrentAcademicYear();
