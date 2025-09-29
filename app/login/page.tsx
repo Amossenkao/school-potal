@@ -19,7 +19,6 @@ import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import Link from 'next/link';
 import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
-import AccessDenied from '@/components/AccessDenied';
 
 const LoginPage = () => {
 	const router = useRouter();
@@ -152,28 +151,13 @@ const LoginPage = () => {
 		},
 	];
 
-	const adminPositions = [
-		'principal',
-		'vpa',
-		'vpi',
-		'registrar',
-		'supervisor',
-		'proprietor',
-		'secretary',
-		'dean',
-		'cashier',
-	];
+	// Get administrative positions from school profile
+	const adminPositions = currentSchool?.administrativePositions || [];
 
-	const positionLabels = {
-		proprietor: 'Proprietor',
-		principal: 'Principal',
-		supervisor: 'Supervisor',
-		vpa: 'Vice Principal for Academic Affairs',
-		dean: 'Dean of Students',
-		vpi: 'Vicp Principal for Instruction',
-		secretary: 'Secretary',
-		registrar: 'Registrar',
-		cashier: 'Cashier',
+	// Create a mapping of position IDs to names for display
+	const getPositionLabel = (positionId: string) => {
+		const position = adminPositions.find((pos) => pos.id === positionId);
+		return position ? position.name : positionId;
 	};
 
 	const handleInputChange = (e: any) => {
@@ -383,7 +367,7 @@ const LoginPage = () => {
 															Position
 														</p>
 														<p className="font-medium text-foreground">
-															{positionLabels[adminPosition]}
+															{getPositionLabel(adminPosition)}
 														</p>
 													</div>
 												</div>
@@ -433,20 +417,30 @@ const LoginPage = () => {
 												<h3 className="text-xl font-semibold text-foreground mb-6">
 													Select Your Position
 												</h3>
-												<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto">
-													{adminPositions.map((position) => (
-														<button
-															key={position}
-															onClick={() => setAdminPosition(position)}
-															className="text-left p-4 border border-border rounded-lg hover:border-primary hover:bg-accent transition-colors disabled:opacity-50"
-															disabled={isLoading}
-														>
-															<span className="text-sm font-medium text-foreground">
-																{positionLabels[position]}
-															</span>
-														</button>
-													))}
-												</div>
+												{adminPositions.length > 0 ? (
+													<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto">
+														{adminPositions.map((position) => (
+															<button
+																key={position.id}
+																onClick={() => setAdminPosition(position.id)}
+																className="text-left p-4 border border-border rounded-lg hover:border-primary hover:bg-accent transition-colors disabled:opacity-50"
+																disabled={isLoading}
+															>
+																<span className="text-sm font-medium text-foreground">
+																	{position.name}
+																</span>
+															</button>
+														))}
+													</div>
+												) : (
+													<div className="p-4 bg-muted/50 border border-border rounded-lg text-center">
+														<p className="text-sm text-muted-foreground">
+															No administrative positions are configured for
+															this school. Please contact the system
+															administrator.
+														</p>
+													</div>
+												)}
 											</div>
 										)}
 
@@ -517,7 +511,9 @@ const LoginPage = () => {
 																!formData.password ||
 																(selectedRole === 'administrator' &&
 																	!adminPosition) ||
-																!!loginDisabledError
+																!!loginDisabledError ||
+																(selectedRole === 'administrator' &&
+																	adminPositions.length === 0)
 															}
 														>
 															{isLoading ? (
