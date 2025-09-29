@@ -1002,8 +1002,8 @@ const PeriodicReportDocument = React.memo(
 													studentData.subjects &&
 													studentData.subjects.find(
 														(s) =>
-															s.subject.toLowerCase() ===
-															subjectName.toLowerCase()
+															s?.subject?.toLowerCase() ===
+															subjectName?.toLowerCase()
 													);
 												const mark = subject ? subject.grade : null;
 												return (
