@@ -960,11 +960,11 @@ const PeriodicReportDocument = React.memo(
 											<Text style={{ fontSize: 9 }}>
 												Period: {selectedPeriodLabel}
 											</Text>
-											{reportFilters.session && (
+											{/* {reportFilters.session && (
 												<Text style={{ fontSize: 9 }}>
 													Session: {reportFilters.session}
 												</Text>
-											)}
+											)} */}
 										</View>
 
 										<View style={{ marginTop: 5, flex: 1 }}>

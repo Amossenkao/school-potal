@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
 	reportTitle: {
 		fontSize: 14,
 		fontWeight: 'bold',
-		marginTop: -110,
+		marginTop: -70,
 	},
 
 	studentInfo: {

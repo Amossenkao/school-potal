@@ -1002,7 +1002,7 @@ const PDFDocument = React.memo(function PDFDocument({
 												justifyContent: 'center',
 												alignItems: 'center',
 												left: -140,
-												bottom: -8,
+												bottom: -18,
 											}}
 										>
 											<Image
@@ -1011,19 +1011,7 @@ const PDFDocument = React.memo(function PDFDocument({
 											/>
 										</View>
 										<Text style={styles.schoolDetails}>
-											Daycare, Nursery, Kindergarten, Elem, Junior & Senior High
-										</Text>
-										<Text style={styles.schoolDetails}>
-											{school?.address[0]}
-										</Text>
-										<Text style={styles.schoolDetails}>
-											{school?.address[1]}
-										</Text>
-										<Text style={styles.schoolDetails}>
-											{school.email && `Email: ${school?.emails[0]}`}
-										</Text>
-										<Text style={styles.schoolDetails}>
-											{school?.website && `Website: ${school?.website}`}
+											{school?.address.join('\n')}
 										</Text>
 										<View
 											style={{

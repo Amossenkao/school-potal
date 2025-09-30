@@ -22,11 +22,20 @@ function validatePhone(phone: string): boolean {
 	return /^\+?[\d\s\-\(\)]{10,}$/.test(phone);
 }
 
-function getAcademicYear(): number {
+function getAcademicYear(): string {
 	const now = new Date();
 	const currentYear = now.getFullYear();
 	const currentMonth = now.getMonth();
-	return currentMonth >= 7 ? currentYear : currentYear - 1;
+	return currentMonth >= 7
+		? `${currentYear}-${currentYear + 1}`
+		: `${currentYear - 1}-${currentYear}`;
+}
+
+function getCurrentSemester(): string {
+	const now = new Date();
+	const currentMonth = now.getMonth();
+	// July-December = First Semester, January-June = Second Semester
+	return currentMonth >= 6 ? 'First Semester' : 'Second Semester';
 }
 
 function buildUserResponse(user: any) {
@@ -44,11 +53,12 @@ function buildUserResponse(user: any) {
 		phone: user.phone,
 		email: user.email,
 		bio: user.bio,
-		photo: user.photo,
 		avatar: user.avatar,
 		isActive: user.isActive,
 		mustChangePassword: user.mustChangePassword,
 		passwordChangedAt: user.passwordChangedAt || null,
+		chats: user.chats || [],
+		notifications: user.notifications || [],
 	};
 
 	switch (user.role) {
@@ -56,17 +66,25 @@ function buildUserResponse(user: any) {
 			return {
 				...baseUser,
 				studentId: user.studentId,
+				enrollmentYear: user.enrollmentYear,
+				enrollmentSemester: user.enrollmentSemester,
+				enrollmentStatus: user.enrollmentStatus,
 				classId: user.classId,
 				className: user.className,
 				classLevel: user.classLevel,
 				session: user.session,
+				academicYears: user.academicYears || [],
 				guardian: user.guardian,
+				financialProfile: user.financialProfile || {
+					outstandingBalances: [],
+					paymentReceipts: [],
+				},
 			};
 		case 'teacher':
 			return {
 				...baseUser,
 				teacherId: user.teacherId,
-				subjects: user.subjects,
+				subjects: user.subjects || [],
 				sponsorClass: user.sponsorClass,
 			};
 		case 'administrator':
@@ -138,19 +156,20 @@ async function generateIdByRole(models: any, role: string): Promise<string> {
 	};
 	const prefix = prefixes[role];
 	const idField = idFieldMap[role];
-	const year = getAcademicYear();
+	const academicYear = getAcademicYear();
+	const year = academicYear.split('-')[0];
+
 	const lastUser = await models.User.findOne({
 		role,
 		[idField]: { $regex: `^${prefix}${year}` },
 	})
 		.sort({ [idField]: -1 })
 		.lean();
+
 	let nextNumber = 1;
 	if (lastUser && lastUser[idField]) {
 		const lastId = lastUser[idField];
-		const sequenceStr = lastId.substring(
-			prefix.length + year.toString().length
-		);
+		const sequenceStr = lastId.substring(prefix.length + year.length);
 		if (sequenceStr) {
 			nextNumber = parseInt(sequenceStr, 10) + 1;
 		}
@@ -170,6 +189,8 @@ async function buildUserData(
 ): Promise<any> {
 	const roleBasedId = await generateIdByRole(models, userData.role);
 	const credentials = generateCredentials(roleBasedId);
+	const academicYear = getAcademicYear();
+	const currentSemester = getCurrentSemester();
 
 	const commonData = {
 		firstName: userData.firstName.trim(),
@@ -191,6 +212,8 @@ async function buildUserData(
 		role: userData.role,
 		createdBy: currentUser.userId,
 		createdAt: new Date(),
+		chats: [],
+		notifications: [],
 	};
 
 	switch (userData.role) {
@@ -198,23 +221,42 @@ async function buildUserData(
 			return {
 				...commonData,
 				studentId: roleBasedId,
+				enrollmentYear: academicYear,
+				enrollmentSemester: currentSemester,
+				enrollmentStatus: 'enrolled',
 				classId: userData.classId,
 				classLevel: userData.classLevel,
 				className: userData.className,
 				session: userData.session,
+				academicYears: [
+					{
+						year: academicYear,
+						classIds: [userData.classId],
+					},
+				],
 				guardian: {
 					firstName: userData.guardian?.firstName?.trim(),
+					middleName: userData.guardian?.middleName?.trim(),
 					lastName: userData.guardian?.lastName?.trim(),
 					email: userData.guardian?.email?.trim().toLowerCase(),
 					phone: userData.guardian?.phone?.trim(),
 					address: userData.guardian?.address?.trim(),
+				},
+				financialProfile: {
+					outstandingBalances: [],
+					paymentReceipts: [],
 				},
 			};
 		case 'teacher':
 			return {
 				...commonData,
 				teacherId: roleBasedId,
-				subjects: userData.subjects || [],
+				subjects: (userData.subjects || []).map((subject: any) => ({
+					academicYear: academicYear,
+					subject: subject.subject,
+					level: subject.level,
+					session: subject.session,
+				})),
 				sponsorClass: userData.sponsorClass || null,
 			};
 		case 'administrator':
@@ -228,6 +270,310 @@ async function buildUserData(
 		default:
 			throw new Error('Invalid user role');
 	}
+}
+
+// --- Student Promotion/Demotion Functions ---
+
+interface ClassInfo {
+	classId: string;
+	name: string;
+	level: string;
+	session: string;
+	fees: { feeType: string; category: string; requiredAmount: number }[];
+}
+
+function flattenClassStructure(classLevels: any): ClassInfo[] {
+	const allClasses: ClassInfo[] = [];
+
+	if (!classLevels) return allClasses;
+
+	// Iterate through sessions (e.g., "Morning", "Afternoon")
+	for (const sessionName in classLevels) {
+		const session = classLevels[sessionName];
+
+		// Iterate through levels (e.g., "Kindergarten", "Elementary")
+		for (const levelName in session) {
+			const level = session[levelName];
+
+			// Get classes from this level
+			if (level.classes && Array.isArray(level.classes)) {
+				level.classes.forEach((classObj: any) => {
+					allClasses.push({
+						classId: classObj.classId,
+						name: classObj.name,
+						level: levelName,
+						session: sessionName,
+						fees: classObj.fees || [],
+					});
+				});
+			}
+		}
+	}
+
+	return allClasses;
+}
+
+async function getNextClass(
+	currentClassId: string,
+	schoolProfile: any
+): Promise<ClassInfo | null> {
+	const allClasses = flattenClassStructure(schoolProfile.classLevels);
+
+	const currentClassIndex = allClasses.findIndex(
+		(c) => c.classId === currentClassId
+	);
+
+	if (currentClassIndex === -1) {
+		throw new Error('Current class not found in school profile');
+	}
+
+	if (currentClassIndex === allClasses.length - 1) {
+		return null; // Student is in the highest class
+	}
+
+	return allClasses[currentClassIndex + 1];
+}
+
+async function getPreviousClass(
+	currentClassId: string,
+	schoolProfile: any
+): Promise<ClassInfo | null> {
+	const allClasses = flattenClassStructure(schoolProfile.classLevels);
+
+	const currentClassIndex = allClasses.findIndex(
+		(c) => c.classId === currentClassId
+	);
+
+	if (currentClassIndex === -1) {
+		throw new Error('Current class not found in school profile');
+	}
+
+	if (currentClassIndex === 0) {
+		return null; // Student is in the lowest class
+	}
+
+	return allClasses[currentClassIndex - 1];
+}
+
+async function promoteStudent(
+	student: any,
+	promotionType: 'yearly' | 'semester',
+	models: any
+) {
+	const schoolProfile = await getSchoolProfile();
+	const currentAcademicYear = getAcademicYear();
+	const nextClass = await getNextClass(student.classId, schoolProfile);
+
+	if (!nextClass) {
+		throw new Error(
+			'Student is already in the highest class and cannot be promoted'
+		);
+	}
+
+	const updateData: any = {
+		classId: nextClass.classId,
+		className: nextClass.name,
+		classLevel: nextClass.level,
+		session: nextClass.session,
+		updatedAt: new Date(),
+	};
+
+	if (promotionType === 'yearly') {
+		// Calculate next academic year
+		const [startYear] = currentAcademicYear.split('-').map(Number);
+		const nextAcademicYear = `${startYear + 1}-${startYear + 2}`;
+
+		// Add new academic year to academicYears array
+		const academicYearExists = student.academicYears.some(
+			(ay: any) => ay.year === nextAcademicYear
+		);
+
+		if (academicYearExists) {
+			// Update existing academic year
+			updateData['academicYears'] = student.academicYears.map((ay: any) =>
+				ay.year === nextAcademicYear
+					? {
+							...ay,
+							classIds: [...new Set([...ay.classIds, nextClass.classId])],
+					  }
+					: ay
+			);
+		} else {
+			// Add new academic year
+			updateData['$push'] = {
+				academicYears: {
+					year: nextAcademicYear,
+					classIds: [nextClass.classId],
+				},
+			};
+		}
+	} else if (promotionType === 'semester') {
+		// Add new classId to current academic year
+		const currentAcademicYearData = student.academicYears.find(
+			(ay: any) => ay.year === currentAcademicYear
+		);
+
+		if (currentAcademicYearData) {
+			updateData['academicYears'] = student.academicYears.map((ay: any) =>
+				ay.year === currentAcademicYear
+					? {
+							...ay,
+							classIds: [...new Set([...ay.classIds, nextClass.classId])],
+					  }
+					: ay
+			);
+		} else {
+			// If current academic year doesn't exist, add it
+			updateData['$push'] = {
+				academicYears: {
+					year: currentAcademicYear,
+					classIds: [student.classId, nextClass.classId],
+				},
+			};
+		}
+	}
+
+	const updatedStudent = await models.Student.findByIdAndUpdate(
+		student._id,
+		updateData['$push']
+			? { $set: updateData, $push: updateData['$push'] }
+			: { $set: updateData },
+		{ new: true, runValidators: true }
+	).select('-password -defaultPassword');
+
+	return {
+		student: updatedStudent,
+		promotionDetails: {
+			type: promotionType,
+			fromClass: {
+				classId: student.classId,
+				className: student.className,
+				classLevel: student.classLevel,
+				session: student.session,
+			},
+			toClass: {
+				classId: nextClass.classId,
+				className: nextClass.name,
+				classLevel: nextClass.level,
+				session: nextClass.session,
+			},
+			academicYear:
+				promotionType === 'yearly'
+					? `${currentAcademicYear.split('-')[0] + 1}-${
+							currentAcademicYear.split('-')[1] + 1
+					  }`
+					: currentAcademicYear,
+		},
+	};
+}
+
+async function demoteStudent(
+	student: any,
+	demotionType: 'yearly' | 'semester',
+	models: any
+) {
+	const schoolProfile = await getSchoolProfile();
+	const currentAcademicYear = getAcademicYear();
+	const previousClass = await getPreviousClass(student.classId, schoolProfile);
+
+	if (!previousClass) {
+		throw new Error(
+			'Student is already in the lowest class and cannot be demoted'
+		);
+	}
+
+	const updateData: any = {
+		classId: previousClass.classId,
+		className: previousClass.name,
+		classLevel: previousClass.level,
+		session: previousClass.session,
+		updatedAt: new Date(),
+	};
+
+	if (demotionType === 'yearly') {
+		// Calculate previous academic year
+		const [startYear] = currentAcademicYear.split('-').map(Number);
+		const previousAcademicYear = `${startYear - 1}-${startYear}`;
+
+		// Add previous academic year to academicYears array
+		const academicYearExists = student.academicYears.some(
+			(ay: any) => ay.year === previousAcademicYear
+		);
+
+		if (academicYearExists) {
+			updateData['academicYears'] = student.academicYears.map((ay: any) =>
+				ay.year === previousAcademicYear
+					? {
+							...ay,
+							classIds: [...new Set([...ay.classIds, previousClass.classId])],
+					  }
+					: ay
+			);
+		} else {
+			updateData['$push'] = {
+				academicYears: {
+					year: previousAcademicYear,
+					classIds: [previousClass.classId],
+				},
+			};
+		}
+	} else if (demotionType === 'semester') {
+		// Add previous classId to current academic year
+		const currentAcademicYearData = student.academicYears.find(
+			(ay: any) => ay.year === currentAcademicYear
+		);
+
+		if (currentAcademicYearData) {
+			updateData['academicYears'] = student.academicYears.map((ay: any) =>
+				ay.year === currentAcademicYear
+					? {
+							...ay,
+							classIds: [...new Set([...ay.classIds, previousClass.classId])],
+					  }
+					: ay
+			);
+		} else {
+			updateData['$push'] = {
+				academicYears: {
+					year: currentAcademicYear,
+					classIds: [student.classId, previousClass.classId],
+				},
+			};
+		}
+	}
+
+	const updatedStudent = await models.Student.findByIdAndUpdate(
+		student._id,
+		updateData['$push']
+			? { $set: updateData, $push: updateData['$push'] }
+			: { $set: updateData },
+		{ new: true, runValidators: true }
+	).select('-password -defaultPassword');
+
+	return {
+		student: updatedStudent,
+		demotionDetails: {
+			type: demotionType,
+			fromClass: {
+				classId: student.classId,
+				className: student.className,
+				classLevel: student.classLevel,
+				session: student.session,
+			},
+			toClass: {
+				classId: previousClass.classId,
+				className: previousClass.name,
+				classLevel: previousClass.level,
+				session: previousClass.session,
+			},
+			academicYear:
+				demotionType === 'yearly'
+					? `${currentAcademicYear.split('-')[0] - 1}-${
+							currentAcademicYear.split('-')[1] - 1
+					  }`
+					: currentAcademicYear,
+		},
+	};
 }
 
 // --- CRUD HANDLERS ---
@@ -306,6 +652,7 @@ interface ConflictDetails {
 		teacherId: string;
 	};
 	assignment?: {
+		academicYear: string;
 		subject: string;
 		level: string;
 		session: string;
@@ -327,19 +674,21 @@ async function validateTeacherData(
 	currentUserId?: string
 ): Promise<void> {
 	const conflicts: ConflictDetails[] = [];
+	const academicYear = getAcademicYear();
 	const isSelfContainedAssignment =
-		userData.subjects?.some((s) => s.level === 'Self Contained') ||
+		userData.subjects?.some((s: any) => s.level === 'Self Contained') ||
 		userData.sponsorClass;
 
 	if (isSelfContainedAssignment && userData.sponsorClass) {
 		const session = userData.subjects.find(
-			(s) => s.level === 'Self Contained'
+			(s: any) => s.level === 'Self Contained'
 		)?.session;
 		if (session) {
 			const existingSponsor = await models.Teacher.findOne({
 				...baseQuery,
 				role: 'teacher',
 				'subjects.session': session,
+				'subjects.academicYear': academicYear,
 				sponsorClass: { $ne: null },
 			}).lean();
 
@@ -404,11 +753,14 @@ async function validateTeacherData(
 	if (userData.subjects && Array.isArray(userData.subjects)) {
 		for (const assignment of userData.subjects) {
 			if (assignment.subject && assignment.level && assignment.session) {
+				const assignmentAcademicYear = assignment.academicYear || academicYear;
+
 				const assignmentExists = await models.Teacher.findOne({
 					...baseQuery,
 					role: 'teacher',
 					subjects: {
 						$elemMatch: {
+							academicYear: assignmentAcademicYear,
 							subject: assignment.subject,
 							level: assignment.level,
 							session: assignment.session,
@@ -427,6 +779,7 @@ async function validateTeacherData(
 							teacherId: assignmentExists.teacherId,
 						},
 						assignment: {
+							academicYear: assignmentAcademicYear,
 							subject: assignment.subject,
 							level: assignment.level,
 							session: assignment.session,
@@ -436,7 +789,7 @@ async function validateTeacherData(
 					errors.push({
 						field: 'subjects',
 						type: 'DUPLICATE_ENTRY',
-						message: `Subject "${assignment.subject}" at ${assignment.level} level (${assignment.session} session) is already assigned to ${conflict.conflictingTeacher.name} (${conflict.conflictingTeacher.teacherId}).`,
+						message: `Subject "${assignment.subject}" at ${assignment.level} level (${assignment.session} session, ${assignmentAcademicYear}) is already assigned to ${conflict.conflictingTeacher.name} (${conflict.conflictingTeacher.teacherId}).`,
 						details: {
 							existingUserId: assignmentExists._id.toString(),
 							existingUserName: assignmentExists.fullName,
@@ -565,14 +918,12 @@ async function validateUserData(
 }
 
 // --- FORCE REASSIGNMENT ---
-// This function will REMOVE the sponsorship/subject from the old teacher before assigning to the new one
 async function handleForceReassignmentEnhanced(
 	userData: any,
 	models: any,
 	newUserId: string | null,
 	conflicts: ConflictDetails[]
 ) {
-	// Remove sponsorship from old teacher(s)
 	const sponsorshipConflicts = conflicts.filter(
 		(c) => c.type === 'sponsorship'
 	);
@@ -586,11 +937,11 @@ async function handleForceReassignmentEnhanced(
 		);
 	}
 
-	// Remove subject assignments from old teacher(s)
 	const subjectConflicts = conflicts.filter((c) => c.type === 'subject');
 	for (const conflict of subjectConflicts) {
 		if (conflict.assignment) {
 			const matchCriteria = {
+				academicYear: conflict.assignment.academicYear,
 				subject: conflict.assignment.subject,
 				level: conflict.assignment.level,
 				session: conflict.assignment.session,
@@ -604,18 +955,23 @@ async function handleForceReassignmentEnhanced(
 			);
 		}
 	}
-	// Handle self-contained conflicts
+
 	const selfContainedConflicts = conflicts.filter(
 		(c) => c.type === 'self_contained_conflict'
 	);
 	for (const conflict of selfContainedConflicts) {
-		// Remove all subjects and sponsorship for the session from the conflicting teacher
 		const session = conflict.assignment?.session;
-		if (session) {
+		const academicYear = conflict.assignment?.academicYear;
+		if (session && academicYear) {
 			await models.Teacher.updateOne(
 				{ _id: conflict.conflictingTeacher.id },
 				{
-					$pull: { subjects: { session: session } },
+					$pull: {
+						subjects: {
+							session: session,
+							academicYear: academicYear,
+						},
+					},
 					$unset: { sponsorClass: 1 },
 					$set: { updatedAt: new Date() },
 				}
@@ -696,7 +1052,6 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// --- Fix: Remove from previous teacher(s) before assigning to new one
 		if (confirmReassignments && conflictsToHandle.length > 0) {
 			await handleForceReassignmentEnhanced(
 				userData,
@@ -772,24 +1127,127 @@ export async function PUT(request: NextRequest) {
 		const { searchParams } = new URL(request.url);
 		const targetUserId = searchParams.get('id');
 		const resetPassword = searchParams.get('resetPassword') === 'true';
-		const action = searchParams.get('action'); // expecting 'promote' or 'demote'
-		const promotionType = searchParams.get('type'); // expecting 'yearly' or 'semester'
+		const action = searchParams.get('action');
+		const promotionType = searchParams.get('type') as 'yearly' | 'semester';
 
 		const actualTargetUserId = targetUserId || currentUser.userId;
 
+		// Handle promotion/demotion
 		if (action === 'promote' || action === 'demote') {
-			// Ensure only admins can perform this action
 			if (currentUser.role !== 'system_admin') {
 				return NextResponse.json(
-					{ success: false, message: 'Unauthorized' },
+					{
+						success: false,
+						message:
+							'Unauthorized: Only system administrators can promote or demote students',
+					},
 					{ status: 403 }
 				);
 			}
-			// ... promotion/demotion logic will go here
-			return NextResponse.json({
-				success: true,
-				message: 'Promotion/demotion endpoint hit',
-			});
+
+			if (!targetUserId) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'Student ID is required for promotion/demotion',
+					},
+					{ status: 400 }
+				);
+			}
+
+			if (!promotionType || !['yearly', 'semester'].includes(promotionType)) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'Valid promotion type is required (yearly or semester)',
+					},
+					{ status: 400 }
+				);
+			}
+
+			const student = await models.Student.findById(targetUserId);
+			if (!student) {
+				return NextResponse.json(
+					{ success: false, message: 'Student not found' },
+					{ status: 404 }
+				);
+			}
+
+			if (student.role !== 'student') {
+				return NextResponse.json(
+					{ success: false, message: 'User is not a student' },
+					{ status: 400 }
+				);
+			}
+
+			try {
+				let result;
+				if (action === 'promote') {
+					result = await promoteStudent(student, promotionType, models);
+
+					// Add notification
+					await models.Student.updateOne(
+						{ _id: targetUserId },
+						{
+							$push: {
+								notifications: {
+									title: 'Promotion',
+									message: `You have been promoted to ${result.promotionDetails.toClass.className}`,
+									details: `Promotion Type: ${
+										promotionType === 'yearly'
+											? 'Yearly Promotion'
+											: 'Semester Promotion (Double Promotion)'
+									}`,
+									timestamp: new Date(),
+									read: false,
+									dismissed: false,
+									type: 'Profile',
+								},
+							},
+						}
+					);
+				} else {
+					result = await demoteStudent(student, promotionType, models);
+
+					// Add notification
+					await models.Student.updateOne(
+						{ _id: targetUserId },
+						{
+							$push: {
+								notifications: {
+									title: 'Class Change',
+									message: `You have been moved to ${result.demotionDetails.toClass.className}`,
+									details: `Change Type: ${
+										promotionType === 'yearly'
+											? 'Yearly Change'
+											: 'Semester Change'
+									}`,
+									timestamp: new Date(),
+									read: false,
+									dismissed: false,
+									type: 'Profile',
+								},
+							},
+						}
+					);
+				}
+
+				await updateAllUserSessions(
+					targetUserId,
+					buildUserResponse(result.student.toObject())
+				);
+
+				return NextResponse.json({
+					success: true,
+					message: `Student ${action}d successfully`,
+					data: result,
+				});
+			} catch (error: any) {
+				return NextResponse.json(
+					{ success: false, message: error.message },
+					{ status: 400 }
+				);
+			}
 		}
 
 		const targetUser = await models.User.findById(actualTargetUserId);
@@ -802,7 +1260,6 @@ export async function PUT(request: NextRequest) {
 
 		// Handle password reset for system_admin
 		if (resetPassword) {
-			// Only system_admin can reset other users' passwords
 			if (currentUser.role !== 'system_admin') {
 				return NextResponse.json(
 					{
@@ -814,7 +1271,6 @@ export async function PUT(request: NextRequest) {
 				);
 			}
 
-			// System admin cannot reset their own password using this endpoint
 			if (currentUser.userId === actualTargetUserId) {
 				return NextResponse.json(
 					{
@@ -826,7 +1282,6 @@ export async function PUT(request: NextRequest) {
 				);
 			}
 
-			// Generate new default password based on user's role-based ID
 			let defaultPassword: string;
 			switch (targetUser.role) {
 				case 'student':
@@ -847,7 +1302,6 @@ export async function PUT(request: NextRequest) {
 
 			const hashedPassword = await hashPassword(defaultPassword);
 
-			// Update password and set mustChangePassword flag
 			const updateData = {
 				password: hashedPassword,
 				defaultPassword: defaultPassword,
@@ -893,7 +1347,6 @@ export async function PUT(request: NextRequest) {
 				);
 			}
 
-			// Destroy all user sessions to force re-login with new password
 			await destroyAllUserSessions(actualTargetUserId);
 
 			return NextResponse.json({
@@ -911,7 +1364,7 @@ export async function PUT(request: NextRequest) {
 			});
 		}
 
-		// Regular update logic continues here...
+		// Regular update logic
 		const {
 			forceAssignments = false,
 			confirmReassignments = false,
@@ -955,6 +1408,8 @@ export async function PUT(request: NextRequest) {
 							'classLevel',
 							'session',
 							'guardian',
+							'enrollmentStatus',
+							'financialProfile',
 						];
 						break;
 					case 'teacher':
