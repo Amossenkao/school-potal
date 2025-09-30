@@ -1001,8 +1001,10 @@ const PDFDocument = React.memo(function PDFDocument({
 												marginBottom: 10,
 												justifyContent: 'center',
 												alignItems: 'center',
-												left: -140,
-												bottom: -18,
+												left: -145,
+												bottom: school.name.toLowerCase().includes('kolleh')
+													? -10
+													: -18,
 											}}
 										>
 											<Image
@@ -1019,7 +1021,12 @@ const PDFDocument = React.memo(function PDFDocument({
 												marginBottom: 10,
 												justifyContent: 'center',
 												alignItems: 'center',
-												top: -100,
+												top: -95, //school?.name
+												// .toLowerCase()
+												// .split(' ')
+												// .includes('kolleh')
+												// ? -110
+												// : -100,
 												right: -145,
 											}}
 										>
