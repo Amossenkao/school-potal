@@ -16,6 +16,7 @@ export function useBreakpoint(): Breakpoint | null {
 		};
 
 		calculateBreakpoint();
+		if (typeof window === 'undefined') return;
 		window.addEventListener('resize', calculateBreakpoint);
 		return () => window.removeEventListener('resize', calculateBreakpoint);
 	}, []);

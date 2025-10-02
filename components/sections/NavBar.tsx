@@ -57,11 +57,6 @@ export default function NavBar({ skipStorageLoad = false }) {
 	// 	loadSchoolData();
 	// }, [currentSchool]);
 
-	const path = usePathname();
-	const bp = useBreakpoint();
-	if (!bp) return null;
-	const router = useRouter();
-
 	// Get auth state and actions from store
 	const {
 		isLoggedIn,
@@ -74,6 +69,9 @@ export default function NavBar({ skipStorageLoad = false }) {
 	const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 	const [mounted, setMounted] = useState(false);
 
+	const path = usePathname();
+	const bp = mounted ? useBreakpoint() : 'sm';
+	const router = useRouter();
 	// Local loading states for UI feedback
 	const [isLoggingIn, setIsLoggingIn] = useState(false);
 	const [isLoggingOut, setIsLoggingOut] = useState(false);
