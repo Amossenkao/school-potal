@@ -205,7 +205,7 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		key: 'grading_system',
 		title: 'Grading System',
 		icon: CheckSquare,
-		category: 'Academics',
+		category: 'Grading',
 		routes: {
 			system_admin: [
 				{
@@ -220,6 +220,12 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					href: '/requests',
 					icon: CheckSquare,
 				},
+				{
+					key: 'masters',
+					title: 'Master Grade Sheets',
+					href: '/masters',
+					icon: ClipboardList,
+				},
 			],
 			teacher: [
 				{
@@ -229,20 +235,6 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					icon: CheckSquare,
 				},
 			],
-			student: [
-				{
-					key: 'periodic-grade',
-					title: 'Periodic Grades',
-					href: '/periodic-grade',
-					icon: FileText,
-				},
-				{
-					key: 'yearly-grade',
-					title: 'Yearly Grades',
-					href: '/yearly-grade',
-					icon: FileText,
-				},
-			],
 		},
 	},
 
@@ -250,7 +242,7 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		key: 'class_management',
 		title: 'Class Management',
 		icon: GraduationCap,
-		category: 'Academics',
+		category: 'Enrollment',
 		routes: {
 			system_admin: [
 				{
@@ -273,7 +265,7 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		key: 'academic_reports',
 		title: 'Academic Reports',
 		icon: Library,
-		category: 'Academics',
+		category: 'Academic Reports',
 		routes: {
 			system_admin: [
 				{
@@ -288,11 +280,19 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					href: '/yearly-reports',
 					icon: FileText,
 				},
+			],
+			student: [
 				{
-					key: 'masters',
-					title: 'Master Grade Sheets',
-					href: '/masters',
-					icon: ClipboardList,
+					key: 'periodic-grade',
+					title: 'Periodic Grades',
+					href: '/periodic-grade',
+					icon: FileText,
+				},
+				{
+					key: 'yearly-grade',
+					title: 'Yearly Grades',
+					href: '/yearly-grade',
+					icon: FileText,
 				},
 			],
 		},
