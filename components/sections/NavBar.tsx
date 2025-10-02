@@ -59,6 +59,7 @@ export default function NavBar({ skipStorageLoad = false }) {
 
 	const path = usePathname();
 	const bp = useBreakpoint();
+	if (!bp) return null;
 	const router = useRouter();
 
 	// Get auth state and actions from store

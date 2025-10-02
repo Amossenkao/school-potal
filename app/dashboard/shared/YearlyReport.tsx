@@ -895,7 +895,7 @@ const PDFDocument = React.memo(function PDFDocument({
 										Signed: _________________________
 									</Text>
 									<Text style={{ marginTop: 3, marginLeft: 50 }}>
-										Amos Senkao, Class Sponsor
+										Daniel S. Borbor, Class Sponsor
 									</Text>
 								</View>
 							</View>
