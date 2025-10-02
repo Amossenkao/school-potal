@@ -66,7 +66,7 @@ export interface User {
 export interface Student extends User {
 	role: 'student';
 	studentId: string;
-	enrollmantYear: string;
+	enrollmentYear: string;
 	enrollmentSemester: string;
 	enrollmentStatus: 'enrolled' | 'graduated' | 'transferred' | 'dropped';
 	session: string;

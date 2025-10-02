@@ -49,7 +49,7 @@ const StudentSchema = new Schema<Student & Document>({
 	studentId: { type: String, required: true, unique: true },
 	classId: { type: String, required: true },
 	className: { type: String, required: true },
-	enrollmantYear: { type: String, required: true },
+	enrollmentYear: { type: String, required: true },
 	enrollmentSemester: { type: String, required: true },
 	enrollmentStatus: {
 		type: String,
