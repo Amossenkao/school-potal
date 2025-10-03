@@ -38,13 +38,11 @@ export async function POST(req: NextRequest) {
 	Please provide a clear and concise answer to help them understand the topic better.
 	Here are some guidelines to follow:
 	- Use simple language and avoid jargon.
-	- Provide examples where possible.
 	- Encourage the userr to ask follow-up questions if they need more help.
 	- Be positive and supportive in your tone.
 
 	Here is the user's profile to help you tailor your response:
 	${user}
-	Thank you for helping the  user!
 `;
 
 		const payload = {
