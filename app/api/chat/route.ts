@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authenticateRequest } from '@/middleware';
 
 const API_KEY = process.env.GEMINI_API_KEY;
 const MODEL_NAME = 'gemini-2.5-flash-lite';
@@ -21,18 +22,29 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
+		const user = await authenticateRequest(req);
+
+		if (!user) {
+			return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+		}
+
 		// The Gemini REST API endpoint URL
 		const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
 
 		// The request payload, structured for the REST API
 		const finalPrompt = `
   You are a friendly and encouraging AI study assistant. 
-  A student has asked the following question: "${prompt}"
+  A user has asked the following question: "${prompt}"
+	Please provide a clear and concise answer to help them understand the topic better.
+	Here are some guidelines to follow:
+	- Use simple language and avoid jargon.
+	- Provide examples where possible.
+	- Encourage the userr to ask follow-up questions if they need more help.
+	- Be positive and supportive in your tone.
 
-  If the user' message require solving or explination, Please explain the answer in a step-by-step guide. 
-  Use simple language, relatable analogies (like recipes or tools), 
-  and break down complex terms. Use markdown for headings and bold 
-  for key terms. Use emojis to make the explanation engaging and fun.
+	Here is the user's profile to help you tailor your response:
+	${user}
+	Thank you for helping the  user!
 `;
 
 		const payload = {
