@@ -14,6 +14,7 @@ import {
 	Clock,
 	Star,
 	MessageSquare,
+	Search,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
@@ -146,9 +147,20 @@ const NotificationItem = ({
 
 	const isDeletable = !['Grades', 'Security'].includes(notification.type);
 
+	const handleClick = (e: React.MouseEvent) => {
+		const target = e.target as HTMLElement;
+		if (!target.closest('button')) {
+			onView(notification);
+			if (!notification.read) {
+				onMarkAsRead(notification._id);
+			}
+		}
+	};
+
 	return (
 		<div
-			className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 hover:shadow-lg hover:scale-[1.02] ${
+			onClick={handleClick}
+			className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer ${
 				notification.read
 					? 'bg-card/50'
 					: 'bg-primary/5 border-primary/20 shadow-md'
@@ -196,16 +208,12 @@ const NotificationItem = ({
 							{notification.message}
 						</p>
 						<div className="flex items-center gap-3">
-							<button
-								onClick={() => onView(notification)}
-								className="flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-sm font-medium transition-colors"
-							>
-								<Eye className="w-4 h-4" />
-								View Details
-							</button>
 							{!notification.read && (
 								<button
-									onClick={() => onMarkAsRead(notification._id)}
+									onClick={(e) => {
+										e.stopPropagation();
+										onMarkAsRead(notification._id);
+									}}
 									className="flex items-center gap-2 px-4 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 rounded-lg text-sm font-medium transition-colors"
 								>
 									<CheckCircle className="w-4 h-4" />
@@ -214,7 +222,10 @@ const NotificationItem = ({
 							)}
 							{isDeletable && (
 								<button
-									onClick={() => onDelete(notification._id)}
+									onClick={(e) => {
+										e.stopPropagation();
+										onDelete(notification._id);
+									}}
 									className="flex items-center gap-2 px-4 py-2 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg text-sm font-medium transition-colors"
 								>
 									<Trash2 className="w-4 h-4" />
@@ -235,12 +246,12 @@ const Notifications: React.FC = () => {
 	const [selectedNotification, setSelectedNotification] =
 		useState<Notification | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
+	const [searchQuery, setSearchQuery] = useState('');
 
 	const handleNotificationAction = async (
 		action: 'markAsRead' | 'delete' | 'markAllAsRead',
 		payload: { notificationId?: string; tab?: string }
 	) => {
-		setIsLoading(true);
 		try {
 			const response = await fetch('/api/notifications', {
 				method: 'PATCH',
@@ -258,8 +269,6 @@ const Notifications: React.FC = () => {
 			}
 		} catch (error) {
 			console.error(`Failed to perform action: ${action}`, error);
-		} finally {
-			setIsLoading(false);
 		}
 	};
 
@@ -273,7 +282,14 @@ const Notifications: React.FC = () => {
 
 	const filteredNotifications =
 		user?.notifications
-			?.filter((n) => activeTab === 'All' || n.type === activeTab)
+			?.filter((n) => {
+				const matchesTab = activeTab === 'All' || n.type === activeTab;
+				const matchesSearch =
+					searchQuery.trim() === '' ||
+					n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+					n.message.toLowerCase().includes(searchQuery.toLowerCase());
+				return matchesTab && matchesSearch;
+			})
 			.sort(
 				(a, b) =>
 					new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -311,7 +327,7 @@ const Notifications: React.FC = () => {
 				)}
 
 				<div className="bg-card border rounded-2xl shadow-lg p-6 mb-8">
-					<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+					<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
 						<div className="flex items-center space-x-6">
 							<div className="text-center">
 								<div className="text-2xl font-bold text-primary">
@@ -331,10 +347,28 @@ const Notifications: React.FC = () => {
 								onClick={() =>
 									handleNotificationAction('markAllAsRead', { tab: activeTab })
 								}
-								disabled={isLoading}
-								className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-medium transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
+								className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-medium transition-all duration-300 shadow-lg hover:shadow-xl"
 							>
 								Mark All as Read
+							</button>
+						)}
+					</div>
+
+					<div className="relative">
+						<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+						<input
+							type="text"
+							placeholder="Search notifications by keyword..."
+							value={searchQuery}
+							onChange={(e) => setSearchQuery(e.target.value)}
+							className="w-full pl-11 pr-4 py-3 bg-background border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+						/>
+						{searchQuery && (
+							<button
+								onClick={() => setSearchQuery('')}
+								className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-accent rounded-full transition-colors"
+							>
+								<X className="w-4 h-4 text-muted-foreground" />
 							</button>
 						)}
 					</div>
@@ -401,19 +435,6 @@ const Notifications: React.FC = () => {
 						</div>
 					)}
 				</div>
-
-				{isLoading && (
-					<div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-40">
-						<div className="bg-card rounded-2xl p-6 shadow-2xl">
-							<div className="flex items-center space-x-3">
-								<div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>
-								<span className="text-foreground font-medium">
-									Processing...
-								</span>
-							</div>
-						</div>
-					</div>
-				)}
 			</div>
 		</div>
 	);
