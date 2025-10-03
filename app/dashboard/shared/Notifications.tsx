@@ -44,40 +44,40 @@ const NotificationModal = ({
 			case 'Profile':
 				return <User className="w-8 h-8 text-blue-500" />;
 			case 'Others':
-				return <MessageSquare className="w-8 h-8 text-slate-500" />;
+				return <MessageSquare className="w-8 h-8 text-muted-foreground" />;
 			default:
-				return <Info className="w-8 h-8 text-gray-500" />;
+				return <Info className="w-8 h-8 text-muted-foreground" />;
 		}
 	};
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-			<div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-8 w-full max-w-lg border border-gray-200 dark:border-gray-700 animate-in fade-in zoom-in duration-300">
+			<div className="bg-background rounded-2xl shadow-2xl p-8 w-full max-w-lg border animate-in fade-in zoom-in duration-300">
 				<div className="flex items-center justify-between mb-6">
 					<div className="flex items-center space-x-4">
 						{getIcon(notification.type)}
 						<div>
-							<h3 className="text-xl font-bold text-gray-900 dark:text-white">
+							<h3 className="text-xl font-bold text-foreground">
 								{notification.title}
 							</h3>
-							<span className="inline-block px-3 py-1 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium mt-2">
+							<span className="inline-block px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium mt-2">
 								{notification.type}
 							</span>
 						</div>
 					</div>
 					<button
 						onClick={onClose}
-						className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+						className="p-2 hover:bg-accent rounded-full transition-colors"
 					>
-						<X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+						<X className="w-6 h-6 text-muted-foreground" />
 					</button>
 				</div>
-				<div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-6">
-					<p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+				<div className="bg-muted rounded-xl p-4 mb-6">
+					<p className="text-foreground leading-relaxed">
 						{notification.message}
 					</p>
 				</div>
-				<div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+				<div className="flex items-center justify-between text-sm text-muted-foreground">
 					<div className="flex items-center space-x-2">
 						<Clock className="w-4 h-4" />
 						<span>
@@ -123,9 +123,9 @@ const NotificationItem = ({
 			case 'Profile':
 				return <User className="w-6 h-6 text-blue-500" />;
 			case 'Others':
-				return <MessageSquare className="w-6 h-6 text-slate-500" />;
+				return <MessageSquare className="w-6 h-6 text-muted-foreground" />;
 			default:
-				return <Info className="w-6 h-6 text-gray-500" />;
+				return <Info className="w-6 h-6 text-muted-foreground" />;
 		}
 	};
 
@@ -138,9 +138,9 @@ const NotificationItem = ({
 			case 'Profile':
 				return 'from-blue-500 to-indigo-600';
 			case 'Others':
-				return 'from-slate-500 to-gray-600';
+				return 'from-muted-foreground to-muted-foreground/80';
 			default:
-				return 'from-gray-500 to-gray-600';
+				return 'from-muted-foreground to-muted-foreground/80';
 		}
 	};
 
@@ -150,8 +150,8 @@ const NotificationItem = ({
 		<div
 			className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 hover:shadow-lg hover:scale-[1.02] ${
 				notification.read
-					? 'bg-white/50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700'
-					: 'bg-gradient-to-r from-blue-50 via-white to-purple-50 dark:from-blue-900/20 dark:via-gray-900 dark:to-purple-900/20 border-blue-200 dark:border-blue-700 shadow-md'
+					? 'bg-card/50'
+					: 'bg-primary/5 border-primary/20 shadow-md'
 			}`}
 		>
 			<div
@@ -161,25 +161,25 @@ const NotificationItem = ({
 			/>
 			{!notification.read && (
 				<div className="absolute top-4 right-4">
-					<div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse shadow-lg" />
+					<div className="w-3 h-3 bg-primary rounded-full animate-pulse shadow-lg" />
 				</div>
 			)}
 			<div className="p-6">
 				<div className="flex items-start space-x-4">
-					<div className="flex-shrink-0 p-2 rounded-xl bg-white dark:bg-gray-800 shadow-sm">
+					<div className="flex-shrink-0 p-2 rounded-xl bg-background shadow-sm">
 						{getIcon(notification.type)}
 					</div>
 					<div className="flex-1 min-w-0">
 						<div className="flex justify-between items-start mb-2">
 							<div>
-								<h4 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+								<h4 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">
 									{notification.title}
 								</h4>
-								<span className="inline-block px-2 py-1 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-medium mt-1">
+								<span className="inline-block px-2 py-1 bg-muted text-muted-foreground rounded-lg text-xs font-medium mt-1">
 									{notification.type}
 								</span>
 							</div>
-							<div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+							<div className="flex items-center space-x-2 text-sm text-muted-foreground">
 								<Clock className="w-4 h-4" />
 								<span className="hidden sm:block">
 									{format(
@@ -192,13 +192,13 @@ const NotificationItem = ({
 								</span>
 							</div>
 						</div>
-						<p className="text-gray-600 dark:text-gray-300 mb-4 line-clamp-2">
+						<p className="text-muted-foreground mb-4 line-clamp-2">
 							{notification.message}
 						</p>
 						<div className="flex items-center gap-3">
 							<button
 								onClick={() => onView(notification)}
-								className="flex items-center gap-2 px-4 py-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-800/40 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-medium transition-colors"
+								className="flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-sm font-medium transition-colors"
 							>
 								<Eye className="w-4 h-4" />
 								View Details
@@ -206,7 +206,7 @@ const NotificationItem = ({
 							{!notification.read && (
 								<button
 									onClick={() => onMarkAsRead(notification._id)}
-									className="flex items-center gap-2 px-4 py-2 bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-800/40 text-green-700 dark:text-green-300 rounded-lg text-sm font-medium transition-colors"
+									className="flex items-center gap-2 px-4 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 rounded-lg text-sm font-medium transition-colors"
 								>
 									<CheckCircle className="w-4 h-4" />
 									Mark Read
@@ -215,7 +215,7 @@ const NotificationItem = ({
 							{isDeletable && (
 								<button
 									onClick={() => onDelete(notification._id)}
-									className="flex items-center gap-2 px-4 py-2 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-800/40 text-red-700 dark:text-red-300 rounded-lg text-sm font-medium transition-colors"
+									className="flex items-center gap-2 px-4 py-2 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg text-sm font-medium transition-colors"
 								>
 									<Trash2 className="w-4 h-4" />
 									Delete
@@ -301,7 +301,7 @@ const Notifications: React.FC = () => {
 	};
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/20">
+		<div className="min-h-screen bg-background">
 			<div className="container mx-auto px-4 py-8 max-w-6xl">
 				{selectedNotification && (
 					<NotificationModal
@@ -310,36 +310,20 @@ const Notifications: React.FC = () => {
 					/>
 				)}
 
-				<div className="text-center mb-12">
-					<div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mb-4 shadow-lg">
-						<Bell className="w-8 h-8 text-white" />
-					</div>
-					<h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-						Notifications Center
-					</h1>
-					<p className="text-lg text-gray-600 dark:text-gray-300">
-						Stay updated with your latest activities and alerts
-					</p>
-				</div>
-
-				<div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg p-6 mb-8">
+				<div className="bg-card border rounded-2xl shadow-lg p-6 mb-8">
 					<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
 						<div className="flex items-center space-x-6">
 							<div className="text-center">
-								<div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+								<div className="text-2xl font-bold text-primary">
 									{filteredNotifications.length}
 								</div>
-								<div className="text-sm text-gray-500 dark:text-gray-400">
-									Total
-								</div>
+								<div className="text-sm text-muted-foreground">Total</div>
 							</div>
 							<div className="text-center">
-								<div className="text-2xl font-bold text-red-600 dark:text-red-400">
+								<div className="text-2xl font-bold text-destructive">
 									{filteredUnreadCount}
 								</div>
-								<div className="text-sm text-gray-500 dark:text-gray-400">
-									Unread
-								</div>
+								<div className="text-sm text-muted-foreground">Unread</div>
 							</div>
 						</div>
 						{filteredUnreadCount > 0 && (
@@ -348,7 +332,7 @@ const Notifications: React.FC = () => {
 									handleNotificationAction('markAllAsRead', { tab: activeTab })
 								}
 								disabled={isLoading}
-								className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl font-medium transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
+								className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-medium transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50"
 							>
 								Mark All as Read
 							</button>
@@ -356,7 +340,7 @@ const Notifications: React.FC = () => {
 					</div>
 				</div>
 
-				<div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg mb-8 overflow-hidden">
+				<div className="bg-card border rounded-2xl shadow-lg mb-8 overflow-hidden">
 					<nav className="flex overflow-x-auto">
 						{tabs.map((tab) => (
 							<button
@@ -364,8 +348,8 @@ const Notifications: React.FC = () => {
 								onClick={() => setActiveTab(tab)}
 								className={`flex items-center gap-2 px-6 py-4 font-medium text-sm transition-all duration-300 whitespace-nowrap border-b-2 ${
 									activeTab === tab
-										? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30'
-										: 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800/50'
+										? 'border-primary text-primary bg-primary/10'
+										: 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
 								}`}
 							>
 								{getTabIcon(tab)}
@@ -373,7 +357,7 @@ const Notifications: React.FC = () => {
 								{tab !== 'All' &&
 									user?.notifications?.filter((n) => n.type === tab && !n.read)
 										.length > 0 && (
-										<span className="ml-1 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
+										<span className="ml-1 px-2 py-0.5 bg-destructive text-destructive-foreground text-xs rounded-full">
 											{
 												user.notifications.filter(
 													(n) => n.type === tab && !n.read
@@ -403,13 +387,13 @@ const Notifications: React.FC = () => {
 						))
 					) : (
 						<div className="text-center py-16">
-							<div className="inline-flex items-center justify-center w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full mb-6">
-								<Archive className="w-12 h-12 text-gray-400 dark:text-gray-600" />
+							<div className="inline-flex items-center justify-center w-24 h-24 bg-muted rounded-full mb-6">
+								<Archive className="w-12 h-12 text-muted-foreground" />
 							</div>
-							<h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+							<h3 className="text-2xl font-bold text-foreground mb-2">
 								All Clear!
 							</h3>
-							<p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+							<p className="text-muted-foreground max-w-md mx-auto">
 								{activeTab === 'All'
 									? "You don't have any notifications at the moment."
 									: `No ${activeTab.toLowerCase()} notifications to show.`}
@@ -420,10 +404,10 @@ const Notifications: React.FC = () => {
 
 				{isLoading && (
 					<div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-40">
-						<div className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-2xl">
+						<div className="bg-card rounded-2xl p-6 shadow-2xl">
 							<div className="flex items-center space-x-3">
-								<div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent"></div>
-								<span className="text-gray-700 dark:text-gray-300 font-medium">
+								<div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>
+								<span className="text-foreground font-medium">
 									Processing...
 								</span>
 							</div>
