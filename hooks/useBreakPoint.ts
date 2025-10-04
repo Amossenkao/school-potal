@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 
 type Breakpoint = 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 
-export function useBreakpoint(): Breakpoint | null {
-	const [breakpoint, setBreakpoint] = useState<Breakpoint | null>(null);
+export function useBreakpoint(): Breakpoint {
+	// Default to 'sm' for SSR safety (or any sensible default)
+	const [breakpoint, setBreakpoint] = useState<Breakpoint>('sm');
 
 	useEffect(() => {
+		if (typeof window === 'undefined') return; // ✅ prevent SSR crash
+
 		const calculateBreakpoint = () => {
 			const width = window.innerWidth;
 			if (width < 850) setBreakpoint('sm');
@@ -15,8 +18,10 @@ export function useBreakpoint(): Breakpoint | null {
 			else setBreakpoint('2xl');
 		};
 
+		// ✅ run once on mount
 		calculateBreakpoint();
-		if (typeof window === 'undefined') return;
+
+		// ✅ listen for resize events
 		window.addEventListener('resize', calculateBreakpoint);
 		return () => window.removeEventListener('resize', calculateBreakpoint);
 	}, []);

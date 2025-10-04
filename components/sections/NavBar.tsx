@@ -41,22 +41,6 @@ export default function NavBar({ skipStorageLoad = false }) {
 	const [loading, setLoading] = useState(true);
 	const currentSchool = useSchoolStore((state) => state.school);
 
-	// useEffect(() => {
-	// 	const loadSchoolData = async () => {
-	// 		setLoading(true);
-	// 		try {
-	// 			await new Promise((resolve) => setTimeout(resolve, 1000));
-	// 			setSchool(currentSchool);
-	// 		} catch (error) {
-	// 			console.error('Failed to load school profile:', error);
-	// 			setSchool(null);
-	// 		} finally {
-	// 			setLoading(false);
-	// 		}
-	// 	};
-	// 	loadSchoolData();
-	// }, [currentSchool]);
-
 	// Get auth state and actions from store
 	const {
 		isLoggedIn,
@@ -70,14 +54,20 @@ export default function NavBar({ skipStorageLoad = false }) {
 	const [mounted, setMounted] = useState(false);
 
 	const path = usePathname();
-	const bp = mounted ? useBreakpoint() : 'sm';
+	// FIXED: Always call useBreakpoint() - hooks must be called unconditionally
+	const breakpoint = useBreakpoint();
+	const bp = mounted ? breakpoint : 'sm';
 	const router = useRouter();
+
 	// Local loading states for UI feedback
 	const [isLoggingIn, setIsLoggingIn] = useState(false);
 	const [isLoggingOut, setIsLoggingOut] = useState(false);
 	const [isNavigatingToDashboard, setIsNavigatingToDashboard] = useState(false);
 	const [isNavigatingHome, setIsNavigatingHome] = useState(false);
 	const [isNavigatingToSection, setIsNavigatingToSection] = useState('');
+	const [openMobileSubmenu, setOpenMobileSubmenu] = useState<string | null>(
+		null
+	);
 
 	// Handle mounting and check auth status
 	useEffect(() => {
@@ -88,6 +78,10 @@ export default function NavBar({ skipStorageLoad = false }) {
 			checkAuthStatus();
 		}
 	}, [skipStorageLoad, checkAuthStatus]);
+
+	const handleMobileSubmenuToggle = (menuName: string) => {
+		setOpenMobileSubmenu((prev) => (prev === menuName ? null : menuName));
+	};
 
 	const handleLogin = async () => {
 		setIsLoggingIn(true);
@@ -307,11 +301,11 @@ export default function NavBar({ skipStorageLoad = false }) {
 					</div>
 
 					{/* Sidebar Navigation */}
-					<div className="flex-1 overflow-y-auto p-4">
-						<div className="space-y-4">
+					<div className="flex-1 overflow-y-auto">
+						<nav className="flex flex-col gap-2 py-4">
 							{/* User info in mobile sidebar */}
 							{user && isLoggedIn && (
-								<div className="p-3 bg-muted rounded-lg">
+								<div className="p-3 bg-muted rounded-lg mb-4 mx-4">
 									<p className="text-sm font-medium">
 										{user.firstName || user.username}
 									</p>
@@ -321,157 +315,268 @@ export default function NavBar({ skipStorageLoad = false }) {
 								</div>
 							)}
 
-							{/* Navigation Links */}
-							<div className="space-y-2">
+							<ul className="flex flex-col gap-2 px-4">
 								{!isHomePage && (
-									<button
-										onClick={() => handleNavClick('/')}
-										disabled={isNavigatingHome}
-										className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
-									>
-										<LoadingIcon
-											isLoading={isNavigatingHome}
-											defaultIcon={Home}
-										/>
-										<span className="font-medium">Home</span>
-									</button>
+									<li>
+										<button
+											onClick={() => handleNavClick('/')}
+											disabled={isNavigatingHome}
+											className={`flex items-center gap-3 py-3 px-4 rounded-md text-sm transition-colors duration-150 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+												isNavigatingHome
+													? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+													: 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+											}`}
+										>
+											<LoadingIcon
+												isLoading={isNavigatingHome}
+												defaultIcon={Home}
+											/>
+											<span className="font-medium">Home</span>
+										</button>
+									</li>
 								)}
 
 								{isHomePage && (
-									<button
-										onClick={() => handleNavClick('#about')}
-										disabled={isSectionLoading('about')}
-										className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
-									>
-										<LoadingIcon
-											isLoading={isSectionLoading('about')}
-											defaultIcon={Info}
-										/>
-										<span className="font-medium">
-											About {currentSchool.shortName}
-										</span>
-									</button>
+									<li>
+										<button
+											onClick={() => handleNavClick('#about')}
+											disabled={isSectionLoading('about')}
+											className={`flex items-center gap-3 py-3 px-4 rounded-md text-sm transition-colors duration-150 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+												isSectionLoading('about')
+													? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+													: 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+											}`}
+										>
+											<LoadingIcon
+												isLoading={isSectionLoading('about')}
+												defaultIcon={Info}
+											/>
+											<span className="font-medium">
+												About {currentSchool.shortName}
+											</span>
+										</button>
+									</li>
 								)}
 
 								{/* Admissions Section */}
-								<div className="space-y-1">
-									<div className="flex items-center gap-3 p-3 text-muted-foreground">
-										<UserPlus className="h-5 w-5" />
-										<span className="font-medium">Admissions</span>
+								<li>
+									<button
+										onClick={() => handleMobileSubmenuToggle('admissions')}
+										className={`flex items-center justify-between w-full py-3 px-4 rounded-md text-sm transition-colors duration-150 ${
+											openMobileSubmenu === 'admissions'
+												? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+												: 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+										}`}
+									>
+										<div className="flex items-center gap-3">
+											<UserPlus className="h-5 w-5" />
+											<span className="font-medium">Admissions</span>
+										</div>
+										<ChevronDown
+											className={`h-4 w-4 transition-transform duration-200 ${
+												openMobileSubmenu === 'admissions'
+													? 'rotate-180 text-blue-600 dark:text-blue-400'
+													: ''
+											}`}
+										/>
+									</button>
+
+									{/* Submenu items */}
+									<div
+										className={`overflow-hidden transition-all duration-300 ease-in-out ${
+											openMobileSubmenu === 'admissions'
+												? 'max-h-96 opacity-100'
+												: 'max-h-0 opacity-0'
+										}`}
+									>
+										<ul className="mt-2 space-y-1 ml-8 pl-4 border-l border-gray-200 dark:border-gray-700">
+											<li>
+												<button
+													onClick={() => handleNavClick('#information-sheets')}
+													disabled={isSectionLoading('information-sheets')}
+													className={`flex items-center gap-3 py-2 px-3 rounded-md text-sm transition-colors duration-150 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+														isSectionLoading('information-sheets')
+															? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
+															: 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+													}`}
+												>
+													<LoadingIcon
+														isLoading={isSectionLoading('information-sheets')}
+														defaultIcon={FileText}
+													/>
+													<span>Information Sheets</span>
+												</button>
+											</li>
+											<li>
+												<button
+													onClick={() => handleNavClick('#entrance')}
+													disabled={isSectionLoading('entrance')}
+													className={`flex items-center gap-3 py-2 px-3 rounded-md text-sm transition-colors duration-150 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+														isSectionLoading('entrance')
+															? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
+															: 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+													}`}
+												>
+													<LoadingIcon
+														isLoading={isSectionLoading('entrance')}
+														defaultIcon={DoorOpen}
+													/>
+													<span>Entrance</span>
+												</button>
+											</li>
+											<li>
+												<button
+													onClick={() => handleNavClick('#registration')}
+													disabled={isSectionLoading('registration')}
+													className={`flex items-center gap-3 py-2 px-3 rounded-md text-sm transition-colors duration-150 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+														isSectionLoading('registration')
+															? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
+															: 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+													}`}
+												>
+													<LoadingIcon
+														isLoading={isSectionLoading('registration')}
+														defaultIcon={ClipboardList}
+													/>
+													<span>General Registration</span>
+												</button>
+											</li>
+										</ul>
 									</div>
-									<div className="ml-8 space-y-1">
-										<button
-											onClick={() => handleNavClick('#information-sheets')}
-											disabled={isSectionLoading('information-sheets')}
-											className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
-										>
-											<LoadingIcon
-												isLoading={isSectionLoading('information-sheets')}
-												defaultIcon={FileText}
-											/>
-											Information Sheets
-										</button>
-										<button
-											onClick={() => handleNavClick('#entrance')}
-											disabled={isSectionLoading('entrance')}
-											className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
-										>
-											<LoadingIcon
-												isLoading={isSectionLoading('entrance')}
-												defaultIcon={DoorOpen}
-											/>
-											Entrance
-										</button>
-										<button
-											onClick={() => handleNavClick('#registration')}
-											disabled={isSectionLoading('registration')}
-											className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
-										>
-											<LoadingIcon
-												isLoading={isSectionLoading('registration')}
-												defaultIcon={ClipboardList}
-											/>
-											General Registration
-										</button>
-									</div>
-								</div>
+								</li>
 
 								{/* Payments Section */}
-								<div className="space-y-1">
-									<div className="flex items-center gap-3 p-3 text-muted-foreground">
-										<CreditCard className="h-5 w-5" />
-										<span className="font-medium">Payments</span>
+								<li>
+									<button
+										onClick={() => handleMobileSubmenuToggle('payments')}
+										className={`flex items-center justify-between w-full py-3 px-4 rounded-md text-sm transition-colors duration-150 ${
+											openMobileSubmenu === 'payments'
+												? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+												: 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+										}`}
+									>
+										<div className="flex items-center gap-3">
+											<CreditCard className="h-5 w-5" />
+											<span className="font-medium">Payments</span>
+										</div>
+										<ChevronDown
+											className={`h-4 w-4 transition-transform duration-200 ${
+												openMobileSubmenu === 'payments'
+													? 'rotate-180 text-blue-600 dark:text-blue-400'
+													: ''
+											}`}
+										/>
+									</button>
+
+									{/* Submenu items */}
+									<div
+										className={`overflow-hidden transition-all duration-300 ease-in-out ${
+											openMobileSubmenu === 'payments'
+												? 'max-h-96 opacity-100'
+												: 'max-h-0 opacity-0'
+										}`}
+									>
+										<ul className="mt-2 space-y-1 ml-8 pl-4 border-l border-gray-200 dark:border-gray-700">
+											<li>
+												<button
+													onClick={() => handleNavClick('#tuition-fees')}
+													disabled={isSectionLoading('tuition-fees')}
+													className={`flex items-center gap-3 py-2 px-3 rounded-md text-sm transition-colors duration-150 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+														isSectionLoading('tuition-fees')
+															? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
+															: 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+													}`}
+												>
+													<LoadingIcon
+														isLoading={isSectionLoading('tuition-fees')}
+														defaultIcon={DollarSign}
+													/>
+													<span>Pay Tuition Fees</span>
+												</button>
+											</li>
+											<li>
+												<button
+													onClick={() => handleNavClick('#registration-fees')}
+													disabled={isSectionLoading('registration-fees')}
+													className={`flex items-center gap-3 py-2 px-3 rounded-md text-sm transition-colors duration-150 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+														isSectionLoading('registration-fees')
+															? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
+															: 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+													}`}
+												>
+													<LoadingIcon
+														isLoading={isSectionLoading('registration-fees')}
+														defaultIcon={Receipt}
+													/>
+													<span>Pay Registration Fees</span>
+												</button>
+											</li>
+											<li>
+												<button
+													onClick={() => handleNavClick('#other-fees')}
+													disabled={isSectionLoading('other-fees')}
+													className={`flex items-center gap-3 py-2 px-3 rounded-md text-sm transition-colors duration-150 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+														isSectionLoading('other-fees')
+															? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
+															: 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+													}`}
+												>
+													<LoadingIcon
+														isLoading={isSectionLoading('other-fees')}
+														defaultIcon={MoreHorizontal}
+													/>
+													<span>Pay Other Fees</span>
+												</button>
+											</li>
+										</ul>
 									</div>
-									<div className="ml-8 space-y-1">
-										<button
-											onClick={() => handleNavClick('#tuition-fees')}
-											disabled={isSectionLoading('tuition-fees')}
-											className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
-										>
-											<LoadingIcon
-												isLoading={isSectionLoading('tuition-fees')}
-												defaultIcon={DollarSign}
-											/>
-											Pay Tuition Fees
-										</button>
-										<button
-											onClick={() => handleNavClick('#registration-fees')}
-											disabled={isSectionLoading('registration-fees')}
-											className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
-										>
-											<LoadingIcon
-												isLoading={isSectionLoading('registration-fees')}
-												defaultIcon={Receipt}
-											/>
-											Pay Registration Fees
-										</button>
-										<button
-											onClick={() => handleNavClick('#other-fees')}
-											disabled={isSectionLoading('other-fees')}
-											className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
-										>
-											<LoadingIcon
-												isLoading={isSectionLoading('other-fees')}
-												defaultIcon={MoreHorizontal}
-											/>
-											Pay Other Fees
-										</button>
-									</div>
-								</div>
+								</li>
 
 								{!isLoginPage && (
 									<>
-										<button
-											onClick={() => handleNavClick('#facilities')}
-											disabled={isSectionLoading('facilities')}
-											className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
-										>
-											<LoadingIcon
-												isLoading={isSectionLoading('facilities')}
-												defaultIcon={Building}
-											/>
-											<span className="font-medium">Facilities</span>
-										</button>
+										<li>
+											<button
+												onClick={() => handleNavClick('#facilities')}
+												disabled={isSectionLoading('facilities')}
+												className={`flex items-center gap-3 py-3 px-4 rounded-md text-sm transition-colors duration-150 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+													isSectionLoading('facilities')
+														? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+														: 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+												}`}
+											>
+												<LoadingIcon
+													isLoading={isSectionLoading('facilities')}
+													defaultIcon={Building}
+												/>
+												<span className="font-medium">Facilities</span>
+											</button>
+										</li>
 
-										<button
-											onClick={() => handleNavClick('#team')}
-											disabled={isSectionLoading('team')}
-											className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
-										>
-											<LoadingIcon
-												isLoading={isSectionLoading('team')}
-												defaultIcon={Users}
-											/>
-											<span className="font-medium">Team</span>
-										</button>
+										<li>
+											<button
+												onClick={() => handleNavClick('#team')}
+												disabled={isSectionLoading('team')}
+												className={`flex items-center gap-3 py-3 px-4 rounded-md text-sm transition-colors duration-150 w-full text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+													isSectionLoading('team')
+														? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+														: 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+												}`}
+											>
+												<LoadingIcon
+													isLoading={isSectionLoading('team')}
+													defaultIcon={Users}
+												/>
+												<span className="font-medium">Team</span>
+											</button>
+										</li>
 									</>
 								)}
-							</div>
-						</div>
+							</ul>
+						</nav>
 					</div>
 
 					{/* Sidebar Footer - Auth Buttons */}
-					<div className="p-4 border-t border-border">
+					<div className="p-4 border-t border-gray-200 dark:border-gray-700">
 						<AuthButtons isMobile={true} />
 					</div>
 				</div>
