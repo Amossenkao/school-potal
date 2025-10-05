@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart3, Loader2 } from 'lucide-react';
-import GradeOverview from './GradeOverview';
+import GradeSubmissions from './GradeSubmissions';
 import SubmitGrade from './SubmitGrade';
 import MasterGradeSheet from '../../shared/MasterGradeSheet';
 import TeacherGradeChangeRequests from './GradeRequests';
@@ -283,7 +283,7 @@ const GradeManagement = () => {
 				) : (
 					<>
 						{activeTab === 'overview' && (
-							<GradeOverview
+							<GradeSubmissions
 								submittedGrades={submittedGrades}
 								loading={loading.submittedGrades}
 								error={error.submittedGrades}

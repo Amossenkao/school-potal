@@ -80,9 +80,9 @@ const componentMappings: Record<string, any> = {
 	),
 	masters: dynamic(() => import('@/app/dashboard/shared/MasterGradeSheet')),
 
-	// 'grade-submissions': dynamic(
-	// 	() => import('@/app/dashboard/teacher/grading/GradeSubmissions')
-	// ),
+	'grade-submissions': dynamic(
+		() => import('@/app/dashboard/teacher/grading/GradeSubmissions')
+	),
 	'submit-grades': dynamic(
 		() => import('@/app/dashboard/teacher/grading/SubmitGrade')
 	),
