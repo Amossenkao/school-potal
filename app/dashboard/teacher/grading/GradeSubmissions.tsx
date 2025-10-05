@@ -1,8 +1,8 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
 	Plus,
-	Filter,
 	CheckCircle,
 	Clock,
 	AlertCircle,
@@ -14,8 +14,9 @@ import {
 	ArrowDown,
 	XCircle,
 	RefreshCw,
+	BarChart3,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button'; // Assuming you have a button component
+import { Button } from '@/components/ui/button';
 import { useSchoolStore } from '@/store/schoolStore';
 
 // Types
@@ -31,7 +32,7 @@ interface GradeSubmission {
 	submissionId: string;
 	academicYear: string;
 	period: string;
-	gradeLevel: string; // This is actually the classId
+	gradeLevel: string;
 	subject: string;
 	teacherId: string;
 	grades: (StudentGrade & { status: 'Approved' | 'Rejected' | 'Pending' })[];
@@ -70,17 +71,6 @@ interface ConfirmationModalState {
 	reason: string;
 }
 
-interface GradeOverviewProps {
-	submittedGrades: GradeSubmission[];
-	loading: boolean;
-	error: string;
-	teacherInfo: TeacherInfo | null;
-	onSwitchToSubmit: () => void;
-	onRefresh: () => void;
-	onEditGrade: (submission: GradeSubmission) => void;
-	onViewGrade: (submission: GradeSubmission) => void;
-}
-
 const periods = [
 	{ id: 'first', label: 'First Period', value: 'firstPeriod' },
 	{ id: 'second', label: 'Second Period', value: 'secondPeriod' },
@@ -102,15 +92,21 @@ const PageLoading = ({ fullScreen = true }: { fullScreen?: boolean }) => (
 	</div>
 );
 
-const GradeOverview: React.FC<GradeOverviewProps> = ({
-	submittedGrades = [],
-	loading = false,
-	error = '',
-	teacherInfo = null,
-	onSwitchToSubmit = () => console.log('Switch to submit'),
-	onRefresh,
-}) => {
+const GradeSubmissions = () => {
 	const school = useSchoolStore((state) => state.school);
+	const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
+	const [submittedGrades, setSubmittedGrades] = useState<GradeSubmission[]>([]);
+	const [academicYear, setAcademicYear] = useState<string>('');
+
+	const [loading, setLoading] = useState({
+		teacherInfo: true,
+		submittedGrades: false,
+	});
+	const [error, setError] = useState({
+		teacherInfo: '',
+		submittedGrades: '',
+	});
+
 	const [showDetailsModal, setShowDetailsModal] = useState(false);
 	const [selectedGrade, setSelectedGrade] = useState<GradeSubmission | null>(
 		null
@@ -129,7 +125,6 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 		message: string;
 	} | null>(null);
 
-	// Filter states
 	const [filters, setFilters] = useState({
 		subject: '',
 		session: '',
@@ -137,11 +132,140 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 		classId: '',
 		period: '',
 	});
-	// Sorting states
+
 	const [sortConfig, setSortConfig] = useState<{
 		key: keyof GradeSubmission | null;
 		direction: 'asc' | 'desc';
 	}>({ key: 'lastUpdated', direction: 'desc' });
+
+	const getAcademicYear = () => {
+		const now = new Date();
+		const currentYear = now.getFullYear();
+		const currentMonth = now.getMonth() + 1;
+		return currentMonth >= 8
+			? `${currentYear}-${currentYear + 1}`
+			: `${currentYear - 1}-${currentYear}`;
+	};
+
+	const fetchSubmittedGrades = useCallback(async () => {
+		if (!teacherInfo) return;
+
+		setLoading((prev) => ({ ...prev, submittedGrades: true }));
+		try {
+			const res = await fetch(
+				`/api/grades?academicYear=${academicYear}&teacherId=${teacherInfo.teacherId}&reportType=gradeSubmission`
+			);
+			if (!res.ok) throw new Error('Failed to fetch submitted grades');
+			const data = await res.json();
+
+			const processedSubmissions: GradeSubmission[] =
+				data.data.report.submissions.map((submission: any) => {
+					const grades = submission.students.map(
+						(student: any) => student.grade
+					);
+					const validGrades = grades.filter(
+						(g: number) => g !== null && g !== undefined
+					) as number[];
+					const totalStudents = submission.totalStudents;
+					const passes = validGrades.filter((g: number) => g >= 70).length;
+					const fails = validGrades.length - passes;
+					const incompletes = totalStudents - validGrades.length;
+					const average =
+						validGrades.length > 0
+							? validGrades.reduce((sum: number, g: number) => sum + g, 0) /
+							  validGrades.length
+							: 0;
+
+					const statuses = submission.students.map(
+						(student: any) => student.status
+					);
+					let overallStatus:
+						| 'Approved'
+						| 'Rejected'
+						| 'Pending'
+						| 'Partially Approved';
+
+					if (statuses.every((s: string) => s === 'Approved')) {
+						overallStatus = 'Approved';
+					} else if (statuses.every((s: string) => s === 'Rejected')) {
+						overallStatus = 'Rejected';
+					} else if (statuses.some((s: string) => s === 'Approved')) {
+						overallStatus = 'Partially Approved';
+					} else {
+						overallStatus = 'Pending';
+					}
+
+					return {
+						submissionId: submission.submissionId,
+						academicYear: data.data.academicYear,
+						period: submission.period,
+						gradeLevel: submission.classId,
+						subject: submission.subject,
+						teacherId: data.data.teacherId,
+						lastUpdated: submission.lastUpdated,
+						status: overallStatus,
+						grades: submission.students.map((student: any) => ({
+							studentId: student.studentId,
+							name: student.studentName,
+							grade: student.grade,
+							status: student.status as 'Approved' | 'Rejected' | 'Pending',
+						})),
+						stats: {
+							totalStudents,
+							passes,
+							fails,
+							incompletes,
+							average: parseFloat(average.toFixed(1)),
+						},
+					};
+				});
+
+			processedSubmissions.sort(
+				(a, b) =>
+					new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()
+			);
+
+			setSubmittedGrades(processedSubmissions);
+			setError((prev) => ({ ...prev, submittedGrades: '' }));
+		} catch (err) {
+			setError((prev) => ({
+				...prev,
+				submittedGrades: 'Failed to load submitted grades.',
+			}));
+			console.error('Error fetching submitted grades:', err);
+		} finally {
+			setLoading((prev) => ({ ...prev, submittedGrades: false }));
+		}
+	}, [academicYear, teacherInfo]);
+
+	useEffect(() => {
+		const fetchTeacherInfo = async () => {
+			setLoading((prev) => ({ ...prev, teacherInfo: true }));
+			try {
+				const res = await fetch('/api/auth/me');
+				if (!res.ok) throw new Error('Failed to fetch teacher info');
+				const data = await res.json();
+				setTeacherInfo(data.user);
+				setAcademicYear(getAcademicYear());
+				setError((prev) => ({ ...prev, teacherInfo: '' }));
+			} catch (err) {
+				setError((prev) => ({
+					...prev,
+					teacherInfo: 'Failed to load teacher information.',
+				}));
+				console.error(err);
+			} finally {
+				setLoading((prev) => ({ ...prev, teacherInfo: false }));
+			}
+		};
+		fetchTeacherInfo();
+	}, []);
+
+	useEffect(() => {
+		if (teacherInfo) {
+			fetchSubmittedGrades();
+		}
+	}, [teacherInfo, fetchSubmittedGrades]);
 
 	const classMap = useMemo(() => {
 		if (!school?.classLevels) return new Map();
@@ -216,7 +340,6 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 		if (allApproved) return 'Approved';
 		if (hasApproved) return 'Partially Approved';
 		if (allRejected) return 'Rejected';
-
 		return 'Pending';
 	};
 
@@ -275,6 +398,7 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 			key,
 			direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
 		}));
+
 	const getSortIcon = (columnName: keyof GradeSubmission) => {
 		if (sortConfig.key !== columnName)
 			return <ArrowUpDown className="h-3 w-3 text-muted-foreground" />;
@@ -378,9 +502,7 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 						: 'Teacher grade correction',
 			}));
 
-		if (changes.length === 0) {
-			return; // This case is handled by the opener, but as a safeguard.
-		}
+		if (changes.length === 0) return;
 
 		if (
 			changes.some((c) => c.reason === '') &&
@@ -396,6 +518,7 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 
 		setIsSubmitting(true);
 		setConfirmationModal((prev) => ({ ...prev, isOpen: false }));
+
 		try {
 			const payload = {
 				classId: selectedGrade.gradeLevel,
@@ -432,6 +555,7 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 			}
 
 			setShowDetailsModal(false);
+			fetchSubmittedGrades(); // Refresh the list
 		} catch (err: any) {
 			showNotification('error', `Error: ${err.message}`);
 		} finally {
@@ -478,7 +602,6 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 						</div>
 					</div>
 
-					{/* Confirmation Modal */}
 					{confirmationModal.isOpen && (
 						<div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000] backdrop-blur-sm">
 							<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md border">
@@ -678,243 +801,293 @@ const GradeOverview: React.FC<GradeOverviewProps> = ({
 			</div>
 		);
 
+	if (loading.teacherInfo) {
+		return <PageLoading />;
+	}
+
+	if (error.teacherInfo) {
+		return (
+			<div className="min-h-screen bg-background p-6 flex items-center justify-center">
+				<div className="text-center text-destructive">{error.teacherInfo}</div>
+			</div>
+		);
+	}
+
 	return (
-		<div className="space-y-6">
-			{notification && (
-				<div
-					className={`p-4 rounded-md text-sm flex items-center gap-3 ${
-						notification.type === 'success'
-							? 'bg-green-100 text-green-800 border border-green-200'
-							: notification.type === 'error'
-							? 'bg-red-100 text-red-800 border border-red-200'
-							: 'bg-yellow-100 text-yellow-800 border border-yellow-200'
-					}`}
-				>
-					{notification.type === 'success' && (
-						<CheckCircle className="h-5 w-5" />
-					)}
-					{notification.type === 'error' && <XCircle className="h-5 w-5" />}
-					{notification.type === 'info' && <Info className="h-5 w-5" />}
-					<span>{notification.message}</span>
-				</div>
-			)}
-
-			<div className="flex flex-col sm:flex-row gap-4">
-				<Button onClick={onSwitchToSubmit} className="flex items-center gap-2">
-					<Plus className="h-4 w-4" />
-					Submit New Grades
-				</Button>
-
-				{availableSessions.length > 1 && (
-					<select
-						value={filters.session}
-						onChange={(e) =>
-							setFilters({
-								...filters,
-								session: e.target.value,
-								gradeLevel: '',
-								classId: '',
-							})
-						}
-						className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
-					>
-						<option value="">All Sessions</option>
-						{availableSessions.map((s, i) => (
-							<option key={`${s}-${i}`} value={s}>
-								{s}
-							</option>
-						))}
-					</select>
-				)}
-
-				{availableSubjects.length > 1 && (
-					<select
-						value={filters.subject}
-						onChange={(e) =>
-							setFilters({ ...filters, subject: e.target.value })
-						}
-						className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
-					>
-						<option value="">All Subjects</option>
-						{availableSubjects.map((s, i) => (
-							<option key={`${s}-${i}`} value={s}>
-								{s}
-							</option>
-						))}
-					</select>
-				)}
-
-				{availableLevels.length > 1 && (
-					<select
-						value={filters.gradeLevel}
-						onChange={(e) =>
-							setFilters({
-								...filters,
-								gradeLevel: e.target.value,
-								classId: '',
-							})
-						}
-						className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
-					>
-						<option value="">All Levels</option>
-						{availableLevels.map((l, i) => (
-							<option key={`${l}-${i}`} value={l}>
-								{l}
-							</option>
-						))}
-					</select>
-				)}
-
-				{filters.gradeLevel && availableClasses.length > 1 && (
-					<select
-						value={filters.classId}
-						onChange={(e) =>
-							setFilters({ ...filters, classId: e.target.value })
-						}
-						className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
-					>
-						<option value="">All Classes</option>
-						{availableClasses.map((c, i) => (
-							<option key={`${c.classId}-${i}`} value={c.classId}>
-								{c.name}
-							</option>
-						))}
-					</select>
-				)}
-
-				<select
-					value={filters.period}
-					onChange={(e) => setFilters({ ...filters, period: e.target.value })}
-					className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
-				>
-					<option value="">All Periods</option>
-					{periods.map((p) => (
-						<option key={p.value} value={p.value}>
-							{p.label}
-						</option>
-					))}
-				</select>
-
-				<Button
-					onClick={onRefresh}
-					disabled={loading}
-					className="flex items-center gap-2"
-					variant="outline"
-				>
-					<RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-					Refresh
-				</Button>
-			</div>
-
-			<div className="bg-background border border-border rounded-lg overflow-hidden shadow-sm">
-				<div className="p-6 border-b border-border">
-					<h3 className="text-lg font-semibold text-foreground">
-						Recent Grade Submissions
-					</h3>
-					<p className="text-muted-foreground text-sm">
-						Track your submitted and pending grade submissions.
-					</p>
-				</div>
-				{loading ? (
-					<PageLoading fullScreen={false} />
-				) : error ? (
-					<div className="p-6 text-center text-destructive">{error}</div>
-				) : submittedGrades?.length === 0 ? (
-					<div className="p-6 text-center text-muted-foreground">
-						No grades have been submitted yet.
+		<div className="min-h-screen bg-background p-6">
+			<div className="max-w-7xl mx-auto">
+				<div className="mb-8">
+					<div className="flex items-center gap-3 mb-2">
+						<div className="p-2 bg-primary/10 rounded-lg">
+							<BarChart3 className="h-6 w-6 text-primary" />
+						</div>
+						<div>
+							<h1 className="text-2xl font-bold text-foreground">
+								Grade Submissions
+							</h1>
+							<p className="text-muted-foreground">
+								Track and manage your submitted grades
+							</p>
+						</div>
 					</div>
-				) : (
-					<div className="overflow-x-auto">
-						<table className="w-full">
-							<thead className="bg-muted/50">
-								<tr>
-									{[
-										'subject',
-										'classId',
-										'period',
-										'status',
-										'lastUpdated',
-									].map((key) => (
-										<th
-											key={key}
-											className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted"
-											onClick={() => handleSort(key as keyof GradeSubmission)}
-										>
-											<div className="flex items-center gap-2">
-												{key === 'classId'
-													? 'Class'
-													: key
-															.replace(/([A-Z])/g, ' $1')
-															.replace(/^./, (str) => str.toUpperCase())}
-												{getSortIcon(key as keyof GradeSubmission)}
-											</div>
-										</th>
-									))}
-									<th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
-										Students
-									</th>
-									<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-										Actions
-									</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-border bg-background">
-								{filteredAndSortedGrades.map((grade) => {
-									const derivedStatus = deriveSubmissionStatus(grade);
-									const isRejected = derivedStatus === 'Rejected';
-									return (
-										<tr key={grade.submissionId} className="hover:bg-muted/50">
-											<td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
-												{grade.subject}
-											</td>
-											<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-												{classMap.get(grade.gradeLevel) || grade.gradeLevel}
-											</td>
-											<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-												{periods.find((p) => p.value === grade.period)?.label ??
-													grade.period}
-											</td>
-											<td className="px-6 py-4 whitespace-nowrap text-sm">
-												<span
-													className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
-														derivedStatus
-													)}`}
-												>
-													{getStatusIcon(derivedStatus)} {derivedStatus}
-												</span>
-											</td>
-											<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-												{formatLastUpdated(grade.lastUpdated)}
-											</td>
-											<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground text-center">
-												{grade.stats?.totalStudents ?? 'N/A'}
-											</td>
-											<td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-												<button
-													onClick={() => openDetailsModal(grade)}
-													className="text-primary hover:text-primary/80 disabled:text-muted-foreground disabled:cursor-not-allowed"
-													title={
-														isRejected
-															? 'Cannot modify a rejected submission'
-															: 'View Details'
+				</div>
+
+				{notification && (
+					<div
+						className={`mb-6 p-4 rounded-md text-sm flex items-center gap-3 ${
+							notification.type === 'success'
+								? 'bg-green-100 text-green-800 border border-green-200'
+								: notification.type === 'error'
+								? 'bg-red-100 text-red-800 border border-red-200'
+								: 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+						}`}
+					>
+						{notification.type === 'success' && (
+							<CheckCircle className="h-5 w-5" />
+						)}
+						{notification.type === 'error' && <XCircle className="h-5 w-5" />}
+						{notification.type === 'info' && <Info className="h-5 w-5" />}
+						<span>{notification.message}</span>
+					</div>
+				)}
+
+				<div className="space-y-6">
+					<div className="flex flex-col sm:flex-row gap-4 flex-wrap">
+						<Button
+							onClick={() =>
+								(window.location.href = '/dashboard/submit-grades')
+							}
+							className="flex items-center gap-2"
+						>
+							<Plus className="h-4 w-4" />
+							Submit New Grades
+						</Button>
+
+						{availableSessions.length > 1 && (
+							<select
+								value={filters.session}
+								onChange={(e) =>
+									setFilters({
+										...filters,
+										session: e.target.value,
+										gradeLevel: '',
+										classId: '',
+									})
+								}
+								className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
+							>
+								<option value="">All Sessions</option>
+								{availableSessions.map((s, i) => (
+									<option key={`${s}-${i}`} value={s}>
+										{s}
+									</option>
+								))}
+							</select>
+						)}
+
+						{availableSubjects.length > 1 && (
+							<select
+								value={filters.subject}
+								onChange={(e) =>
+									setFilters({ ...filters, subject: e.target.value })
+								}
+								className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
+							>
+								<option value="">All Subjects</option>
+								{availableSubjects.map((s, i) => (
+									<option key={`${s}-${i}`} value={s}>
+										{s}
+									</option>
+								))}
+							</select>
+						)}
+
+						{availableLevels.length > 1 && (
+							<select
+								value={filters.gradeLevel}
+								onChange={(e) =>
+									setFilters({
+										...filters,
+										gradeLevel: e.target.value,
+										classId: '',
+									})
+								}
+								className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
+							>
+								<option value="">All Levels</option>
+								{availableLevels.map((l, i) => (
+									<option key={`${l}-${i}`} value={l}>
+										{l}
+									</option>
+								))}
+							</select>
+						)}
+
+						{filters.gradeLevel && availableClasses.length > 1 && (
+							<select
+								value={filters.classId}
+								onChange={(e) =>
+									setFilters({ ...filters, classId: e.target.value })
+								}
+								className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
+							>
+								<option value="">All Classes</option>
+								{availableClasses.map((c, i) => (
+									<option key={`${c.classId}-${i}`} value={c.classId}>
+										{c.name}
+									</option>
+								))}
+							</select>
+						)}
+
+						<select
+							value={filters.period}
+							onChange={(e) =>
+								setFilters({ ...filters, period: e.target.value })
+							}
+							className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
+						>
+							<option value="">All Periods</option>
+							{periods.map((p) => (
+								<option key={p.value} value={p.value}>
+									{p.label}
+								</option>
+							))}
+						</select>
+
+						<Button
+							onClick={fetchSubmittedGrades}
+							disabled={loading.submittedGrades}
+							className="flex items-center gap-2"
+							variant="outline"
+						>
+							<RefreshCw
+								className={`h-4 w-4 ${
+									loading.submittedGrades ? 'animate-spin' : ''
+								}`}
+							/>
+							Refresh
+						</Button>
+					</div>
+
+					<div className="bg-background border border-border rounded-lg overflow-hidden shadow-sm">
+						<div className="p-6 border-b border-border">
+							<h3 className="text-lg font-semibold text-foreground">
+								Recent Grade Submissions
+							</h3>
+							<p className="text-muted-foreground text-sm">
+								Track your submitted and pending grade submissions.
+							</p>
+						</div>
+						{loading.submittedGrades ? (
+							<PageLoading fullScreen={false} />
+						) : error.submittedGrades ? (
+							<div className="p-6 text-center text-destructive">
+								{error.submittedGrades}
+							</div>
+						) : submittedGrades?.length === 0 ? (
+							<div className="p-6 text-center text-muted-foreground">
+								No grades have been submitted yet.
+							</div>
+						) : (
+							<div className="overflow-x-auto">
+								<table className="w-full">
+									<thead className="bg-muted/50">
+										<tr>
+											{[
+												'subject',
+												'classId',
+												'period',
+												'status',
+												'lastUpdated',
+											].map((key) => (
+												<th
+													key={key}
+													className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted"
+													onClick={() =>
+														handleSort(key as keyof GradeSubmission)
 													}
-													disabled={isRejected}
 												>
-													<Info className="h-5 w-5" />
-												</button>
-											</td>
+													<div className="flex items-center gap-2">
+														{key === 'classId'
+															? 'Class'
+															: key
+																	.replace(/([A-Z])/g, ' $1')
+																	.replace(/^./, (str) => str.toUpperCase())}
+														{getSortIcon(key as keyof GradeSubmission)}
+													</div>
+												</th>
+											))}
+											<th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+												Students
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+												Actions
+											</th>
 										</tr>
-									);
-								})}
-							</tbody>
-						</table>
+									</thead>
+									<tbody className="divide-y divide-border bg-background">
+										{filteredAndSortedGrades.map((grade) => {
+											const derivedStatus = deriveSubmissionStatus(grade);
+											const isRejected = derivedStatus === 'Rejected';
+											return (
+												<tr
+													key={grade.submissionId}
+													className="hover:bg-muted/50"
+												>
+													<td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+														{grade.subject}
+													</td>
+													<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+														{classMap.get(grade.gradeLevel) || grade.gradeLevel}
+													</td>
+													<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+														{periods.find((p) => p.value === grade.period)
+															?.label ?? grade.period}
+													</td>
+													<td className="px-6 py-4 whitespace-nowrap text-sm">
+														<span
+															className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
+																derivedStatus
+															)}`}
+														>
+															{getStatusIcon(derivedStatus)} {derivedStatus}
+														</span>
+													</td>
+													<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+														{formatLastUpdated(grade.lastUpdated)}
+													</td>
+													<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground text-center">
+														{grade.stats?.totalStudents ?? 'N/A'}
+													</td>
+													<td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+														<button
+															onClick={() => openDetailsModal(grade)}
+															className="text-primary hover:text-primary/80 disabled:text-muted-foreground disabled:cursor-not-allowed"
+															title={
+																isRejected
+																	? 'Cannot modify a rejected submission'
+																	: 'View Details'
+															}
+															disabled={isRejected}
+														>
+															<Info className="h-5 w-5" />
+														</button>
+													</td>
+												</tr>
+											);
+										})}
+									</tbody>
+								</table>
+							</div>
+						)}
 					</div>
-				)}
-			</div>
+				</div>
 
-			{showDetailsModal && renderDetailsModal()}
+				{showDetailsModal && renderDetailsModal()}
+			</div>
 		</div>
 	);
 };
 
-export default GradeOverview;
+export default GradeSubmissions;
