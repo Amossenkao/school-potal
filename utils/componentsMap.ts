@@ -229,25 +229,25 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 			],
 			teacher: [
 				{
-					key: 'grading',
+					key: 'grade-submissions',
 					title: 'Grade Submissions',
 					href: '/grade-submissions',
 					icon: BookCheck,
 				},
 				{
-					key: 'grading',
+					key: 'submit-grades',
 					title: 'Submit Grades',
 					href: '/submit-grades',
 					icon: CheckSquare,
 				},
 				{
-					key: 'grading',
+					key: 'grade-requests',
 					title: 'Submit Grades',
 					href: '/grade-requests',
 					icon: CheckSquare,
 				},
 				{
-					key: 'grading',
+					key: 'masters',
 					title: 'Master Grade Sheets',
 					href: '/masters',
 					icon: ClipboardList,

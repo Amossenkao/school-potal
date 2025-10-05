@@ -301,7 +301,7 @@ export default function NavBar({ skipStorageLoad = false }) {
 					</div>
 
 					{/* Sidebar Navigation */}
-					<div className="flex-1 overflow-y-auto">
+					<div className="flex-1 overflow-y-auto ">
 						<nav className="flex flex-col gap-2 py-4">
 							{/* User info in mobile sidebar */}
 							{user && isLoggedIn && (
