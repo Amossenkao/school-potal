@@ -80,6 +80,16 @@ const componentMappings: Record<string, any> = {
 	),
 	masters: dynamic(() => import('@/app/dashboard/shared/MasterGradeSheet')),
 
+	// 'grade-submissions': dynamic(
+	// 	() => import('@/app/dashboard/teacher/grading/GradeSubmissions')
+	// ),
+	'submit-grades': dynamic(
+		() => import('@/app/dashboard/teacher/grading/SubmitGrade')
+	),
+	'grade-requests': dynamic(
+		() => import('@/app/dashboard/teacher/grading/GradeRequests')
+	),
+
 	// Lesson Planning
 	// 'view-lessonplans': dynamic(
 	// 	() => import('@/app/dashboard/admin/ViewLessonPlans')
@@ -242,7 +252,7 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 				},
 				{
 					key: 'grade-requests',
-					title: 'Submit Grades',
+					title: 'Grade Requests',
 					href: '/grade-requests',
 					icon: CheckSquare,
 				},
