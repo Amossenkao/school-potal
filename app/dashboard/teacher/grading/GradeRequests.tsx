@@ -12,6 +12,7 @@ import {
 	ChevronLeft,
 	ChevronRight,
 } from 'lucide-react';
+import { PageLoading } from '@/components/loading';
 
 // --- TYPES ---
 interface TeacherInfo {
@@ -171,9 +172,8 @@ const TeacherGradeChangeRequests = ({
 
 	if (loading) {
 		return (
-			<div className="text-center p-8">
-				<Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-				<p className="mt-2 text-muted-foreground">Loading your requests...</p>
+			<div className="text-center p-8 flex items-center justify-center min-h-[60vh]">
+				<PageLoading fullScreen={false} message="Loading..." />
 			</div>
 		);
 	}

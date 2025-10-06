@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSchoolStore } from '@/store/schoolStore';
+import { PageLoading } from '@/components/loading';
 
 // Types
 interface StudentGrade {
@@ -81,16 +82,6 @@ const periods = [
 	{ id: 'sixth', label: 'Sixth Period', value: 'sixthPeriod' },
 	{ id: 'sixth_exam', label: 'Sixth Period Exam', value: 'sixthPeriodExam' },
 ];
-
-const PageLoading = ({ fullScreen = true }: { fullScreen?: boolean }) => (
-	<div
-		className={`flex justify-center items-center ${
-			fullScreen ? 'min-h-screen' : 'py-8'
-		}`}
-	>
-		<Loader2 className="h-8 w-8 animate-spin text-primary" />
-	</div>
-);
 
 const GradeSubmissions = () => {
 	const school = useSchoolStore((state) => state.school);
@@ -802,7 +793,11 @@ const GradeSubmissions = () => {
 		);
 
 	if (loading.teacherInfo) {
-		return <PageLoading />;
+		return (
+			<div className="flex items-center justify-center min-h-[60vh]">
+				<PageLoading message="Loading..." fullScreen={false}></PageLoading>
+			</div>
+		);
 	}
 
 	if (error.teacherInfo) {
@@ -980,7 +975,10 @@ const GradeSubmissions = () => {
 							</p>
 						</div>
 						{loading.submittedGrades ? (
-							<PageLoading fullScreen={false} />
+							<PageLoading
+								fullScreen={false}
+								message="Loading Submissions..."
+							/>
 						) : error.submittedGrades ? (
 							<div className="p-6 text-center text-destructive">
 								{error.submittedGrades}

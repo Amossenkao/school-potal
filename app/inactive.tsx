@@ -11,14 +11,14 @@ import {
 } from 'lucide-react';
 
 interface InactiveAccountProps {
-	schoolName: string;
+	schoolName: string[];
 	contactEmail?: string;
 	contactPhone?: string;
 	onRetry?: () => void;
 }
 
 const InactiveAccountDisplay: React.FC<InactiveAccountProps> = ({
-	schoolName = 'School',
+	schoolName = ['School'],
 	contactEmail = 'amossenkao@gmail.com',
 	contactPhone = '0776949463',
 	onRetry,

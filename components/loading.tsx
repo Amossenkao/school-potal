@@ -209,9 +209,6 @@ export const PageLoading = ({
 								<p className="text-lg font-medium text-foreground">{message}</p>
 								<div className="w-2 h-2 bg-primary rounded-full animate-pulse [animation-delay:0.5s]"></div>
 							</div>
-							<p className="text-xs text-muted-foreground">
-								Please wait while we load your content
-							</p>
 						</div>
 					</div>
 				);
