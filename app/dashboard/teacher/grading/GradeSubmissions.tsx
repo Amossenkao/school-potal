@@ -67,20 +67,31 @@ interface GradeChangeRequestStudent {
 	reason?: string;
 }
 
+// UPDATED: Added errorMessage to handle error state for the modal
 interface ConfirmationModalState {
 	isOpen: boolean;
 	reason: string;
+	isError?: boolean;
+	errorMessage?: string;
 }
 
 const periods = [
-	{ id: 'first', label: 'First Period', value: 'firstPeriod' },
-	{ id: 'second', label: 'Second Period', value: 'secondPeriod' },
-	{ id: 'third', label: 'Third Period', value: 'thirdPeriod' },
-	{ id: 'third_exam', label: 'Third Period Exam', value: 'thirdPeriodExam' },
-	{ id: 'fourth', label: 'Fourth Period', value: 'fourthPeriod' },
-	{ id: 'fifth', label: 'Fifth Period', value: 'fifthPeriod' },
-	{ id: 'sixth', label: 'Sixth Period', value: 'sixthPeriod' },
-	{ id: 'sixth_exam', label: 'Sixth Period Exam', value: 'sixthPeriodExam' },
+	{ id: 'first', label: '1st Period', value: 'first' },
+	{ id: 'second', label: '2nd Period', value: 'second' },
+	{ id: 'third', label: '3rd Period', value: 'third' },
+	{
+		id: 'third_period_exam',
+		label: '3rd Period Exam',
+		value: 'third_period_exam',
+	},
+	{ id: 'fourth', label: '4th Period', value: 'fourth' },
+	{ id: 'fifth', label: '5th Period', value: 'fifth' },
+	{ id: 'sixth', label: '6th Period', value: 'sixth' },
+	{
+		id: 'sixth_period_exam',
+		label: '6th Period Exam',
+		value: 'sixth_period_exam',
+	},
 ];
 
 const GradeSubmissions = () => {
@@ -110,6 +121,7 @@ const GradeSubmissions = () => {
 		useState<ConfirmationModalState>({
 			isOpen: false,
 			reason: '',
+			isError: false,
 		});
 	const [notification, setNotification] = useState<{
 		type: 'success' | 'error' | 'info';
@@ -450,8 +462,16 @@ const GradeSubmissions = () => {
 			}))
 		);
 		setShowDetailsModal(true);
+		// Reset modal state on open
+		setConfirmationModal({
+			isOpen: false,
+			reason: '',
+			isError: false,
+			errorMessage: '',
+		});
 	};
 
+	// MODIFIED: Check school settings for grade change request period
 	const handleOpenConfirmationModal = () => {
 		const changes = gradeChangeStudents.filter(
 			(s) =>
@@ -467,15 +487,63 @@ const GradeSubmissions = () => {
 		}
 
 		const hasApprovedChange = changes.some((s) => s.status === 'Approved');
+
+		if (hasApprovedChange && selectedGrade) {
+			const periodValue = selectedGrade.period;
+			// Get the list of periods where grade change requests are allowed
+			const allowedPeriods =
+				school?.settings?.teacherSettings?.gradeChangeRequestPeriods || [];
+
+			// Check if the current submission period is in the allowed list
+			const isRequestAllowed = allowedPeriods.includes(periodValue);
+
+			if (!isRequestAllowed) {
+				// School settings do not allow grade change requests for this period's approved grades.
+				setConfirmationModal({
+					isOpen: true, // Open the modal
+					reason: '',
+					isError: true, // Set to error state
+					errorMessage: `Grade change requests for approved grades are not currently allowed for ${
+						periods.find((p) => p.value === periodValue)?.label || 'this period'
+					}. Please contact an administrator.`,
+				});
+				return;
+			}
+		}
+
+		// If no approved grades are being changed OR the period is allowed, show the reason modal
 		if (hasApprovedChange) {
-			setConfirmationModal({ isOpen: true, reason: '' });
+			setConfirmationModal({
+				isOpen: true,
+				reason: '',
+				isError: false,
+				errorMessage: '',
+			});
 		} else {
+			// If only Pending or Rejected grades are being changed, submit directly without a reason
 			handleFinalSubmit();
 		}
 	};
 
 	const handleFinalSubmit = async () => {
 		if (!selectedGrade) return;
+
+		// IMPORTANT: Re-check for an error state before submitting, especially if this function is called directly
+		if (confirmationModal.isError) {
+			// If it's an error modal, submission should be blocked
+			setConfirmationModal({
+				isOpen: false,
+				reason: '',
+				isError: false,
+				errorMessage: '',
+			}); // Close modal without submitting
+			showNotification(
+				'error',
+				confirmationModal.errorMessage ||
+					'Cannot submit request due to school settings error.'
+			);
+			return;
+		}
 
 		const changes = gradeChangeStudents
 			.filter(
@@ -487,6 +555,7 @@ const GradeSubmissions = () => {
 				name: s.name,
 				originalGrade: s.currentGrade,
 				requestedGrade: Number(s.newGrade),
+				// Use the reason from the modal if it was shown for an Approved grade change, otherwise a default for corrections
 				reason:
 					s.status === 'Approved'
 						? confirmationModal.reason
@@ -495,8 +564,16 @@ const GradeSubmissions = () => {
 
 		if (changes.length === 0) return;
 
+		// Check if a reason is required and is missing
+		const requiresReason = changes.some((c) => {
+			const student = gradeChangeStudents.find(
+				(s) => s.studentId === c.studentId
+			);
+			return student?.status === 'Approved';
+		});
+
 		if (
-			changes.some((c) => c.reason === '') &&
+			requiresReason &&
 			confirmationModal.isOpen &&
 			!confirmationModal.reason.trim()
 		) {
@@ -569,6 +646,88 @@ const GradeSubmissions = () => {
 		[submittedGrades, filters, sortConfig, availableClasses]
 	);
 
+	const renderConfirmationErrorModal = () => {
+		if (!confirmationModal.isOpen) return null;
+
+		if (confirmationModal.isError) {
+			// Renders the error modal
+			return (
+				<div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000] backdrop-blur-sm">
+					<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md border border-destructive/50">
+						<div className="flex items-center gap-3 mb-4">
+							<XCircle className="h-6 w-6 text-destructive flex-shrink-0" />
+							<h3 className="text-xl font-bold text-destructive">
+								Request Blocked
+							</h3>
+						</div>
+						<p className="text-sm text-foreground mb-6">
+							{confirmationModal.errorMessage ||
+								'An unexpected error occurred. You cannot submit this request.'}
+						</p>
+						<div className="mt-4 flex justify-end">
+							<Button
+								onClick={() =>
+									setConfirmationModal({ isOpen: false, reason: '' })
+								}
+								variant="destructive"
+							>
+								Close
+							</Button>
+						</div>
+					</div>
+				</div>
+			);
+		}
+
+		// Renders the standard confirmation/reason modal
+		return (
+			<div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000] backdrop-blur-sm">
+				<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md border">
+					<h3 className="text-lg font-semibold mb-2">
+						Reason for Grade Change Request
+					</h3>
+					<p className="text-sm text-muted-foreground mb-4">
+						You are editing one or more <strong>approved grades</strong>. Please
+						provide a reason for this change. This will be sent for
+						administrator review.
+					</p>
+					<textarea
+						value={confirmationModal.reason}
+						onChange={(e) =>
+							setConfirmationModal((prev) => ({
+								...prev,
+								reason: e.target.value,
+							}))
+						}
+						className="w-full rounded-md border border-input bg-background p-2"
+						rows={4}
+						placeholder="e.g., Correction of data entry error, re-evaluation of an assignment..."
+					/>
+					<div className="mt-4 flex justify-end gap-2">
+						<Button
+							onClick={() =>
+								setConfirmationModal({ isOpen: false, reason: '' })
+							}
+							variant="outline"
+						>
+							Cancel
+						</Button>
+						<Button
+							onClick={handleFinalSubmit}
+							disabled={!confirmationModal.reason.trim() || isSubmitting}
+						>
+							{isSubmitting ? (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							) : (
+								'Confirm & Submit'
+							)}
+						</Button>
+					</div>
+				</div>
+			</div>
+		);
+	};
+
 	const renderDetailsModal = () =>
 		selectedGrade && (
 			<div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -593,86 +752,10 @@ const GradeSubmissions = () => {
 						</div>
 					</div>
 
-					{confirmationModal.isOpen && (
-						<div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000] backdrop-blur-sm">
-							<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md border">
-								<h3 className="text-lg font-semibold mb-2">
-									Reason for Change Request
-								</h3>
-								<p className="text-sm text-muted-foreground mb-4">
-									You are editing one or more <strong>approved grades</strong>.
-									Please provide a reason for this change. This will be sent for
-									administrator review.
-								</p>
-								<textarea
-									value={confirmationModal.reason}
-									onChange={(e) =>
-										setConfirmationModal((prev) => ({
-											...prev,
-											reason: e.target.value,
-										}))
-									}
-									className="w-full rounded-md border-input bg-background p-2"
-									rows={4}
-									placeholder="e.g., Correction of data entry error, re-evaluation of an assignment..."
-								/>
-								<div className="mt-4 flex justify-end gap-2">
-									<Button
-										onClick={() =>
-											setConfirmationModal({ isOpen: false, reason: '' })
-										}
-										variant="outline"
-									>
-										Cancel
-									</Button>
-									<Button
-										onClick={handleFinalSubmit}
-										disabled={!confirmationModal.reason.trim() || isSubmitting}
-									>
-										{isSubmitting ? (
-											<Loader2 className="h-4 w-4 animate-spin" />
-										) : (
-											'Confirm & Submit'
-										)}
-									</Button>
-								</div>
-							</div>
-						</div>
-					)}
+					{/* Renders EITHER the confirmation or the error modal */}
+					{renderConfirmationErrorModal()}
 
 					<div className="p-6 overflow-y-auto flex-grow">
-						<div className="bg-muted p-4 rounded-lg mb-6">
-							<h5 className="text-sm font-medium text-foreground mb-2">
-								Summary Statistics
-							</h5>
-							<div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-								<div>
-									<span className="text-muted-foreground">Total:</span>
-									<span className="ml-2 font-semibold text-foreground">
-										{selectedGrade.stats.totalStudents}
-									</span>
-								</div>
-								<div>
-									<span className="text-muted-foreground">Passes (≥70):</span>
-									<span className="ml-2 font-semibold text-emerald-500">
-										{selectedGrade.stats.passes}
-									</span>
-								</div>
-								<div>
-									<span className="text-muted-foreground">Fails (&lt;70):</span>
-									<span className="ml-2 font-semibold text-destructive">
-										{selectedGrade.stats.fails}
-									</span>
-								</div>
-								<div>
-									<span className="text-muted-foreground">Average:</span>
-									<span className="ml-2 font-semibold text-foreground">
-										{selectedGrade.stats.average.toFixed(1)}
-									</span>
-								</div>
-							</div>
-						</div>
-
 						<div className="overflow-x-auto">
 							<table className="min-w-full divide-y divide-border">
 								<thead className="bg-muted/50">
@@ -1016,74 +1099,57 @@ const GradeSubmissions = () => {
 													</div>
 												</th>
 											))}
-											<th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
-												Students
-											</th>
-											<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+											<th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
 												Actions
 											</th>
 										</tr>
 									</thead>
 									<tbody className="divide-y divide-border bg-background">
-										{filteredAndSortedGrades.map((grade) => {
-											const derivedStatus = deriveSubmissionStatus(grade);
-											const isRejected = derivedStatus === 'Rejected';
-											return (
-												<tr
-													key={grade.submissionId}
-													className="hover:bg-muted/50"
-												>
-													<td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
-														{grade.subject}
-													</td>
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-														{classMap.get(grade.gradeLevel) || grade.gradeLevel}
-													</td>
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-														{periods.find((p) => p.value === grade.period)
-															?.label ?? grade.period}
-													</td>
-													<td className="px-6 py-4 whitespace-nowrap text-sm">
-														<span
-															className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
-																derivedStatus
-															)}`}
-														>
-															{getStatusIcon(derivedStatus)} {derivedStatus}
-														</span>
-													</td>
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-														{formatLastUpdated(grade.lastUpdated)}
-													</td>
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground text-center">
-														{grade.stats?.totalStudents ?? 'N/A'}
-													</td>
-													<td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-														<button
-															onClick={() => openDetailsModal(grade)}
-															className="text-primary hover:text-primary/80 disabled:text-muted-foreground disabled:cursor-not-allowed"
-															title={
-																isRejected
-																	? 'Cannot modify a rejected submission'
-																	: 'View Details'
-															}
-															disabled={isRejected}
-														>
-															<Info className="h-5 w-5" />
-														</button>
-													</td>
-												</tr>
-											);
-										})}
+										{filteredAndSortedGrades.map((grade) => (
+											<tr
+												key={grade.submissionId}
+												className="hover:bg-muted/70 transition-colors"
+											>
+												<td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+													{grade.subject}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+													{classMap.get(grade.gradeLevel) || grade.gradeLevel}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+													{periods.find((p) => p.value === grade.period)?.label}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap text-sm">
+													<span
+														className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
+															grade.status
+														)}`}
+													>
+														{getStatusIcon(grade.status)} {grade.status}
+													</span>
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+													{formatLastUpdated(grade.lastUpdated)}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+													<Button
+														variant="outline"
+														size="sm"
+														onClick={() => openDetailsModal(grade)}
+													>
+														Details & Change Grade
+													</Button>
+												</td>
+											</tr>
+										))}
 									</tbody>
 								</table>
 							</div>
 						)}
 					</div>
 				</div>
-
-				{showDetailsModal && renderDetailsModal()}
 			</div>
+			{showDetailsModal && renderDetailsModal()}
 		</div>
 	);
 };
