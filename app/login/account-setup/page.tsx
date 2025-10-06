@@ -129,7 +129,11 @@ export default function AccountSetupPage() {
 	if (isInitializing || authLoading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-background">
-				<PageLoading fullScreen variant="school" />
+				<PageLoading
+					fullScreen
+					variant="school"
+					message="loading from account setup"
+				/>
 			</div>
 		);
 	}

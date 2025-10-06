@@ -5,6 +5,7 @@ import useAuth from '@/store/useAuth';
 import LoginPage from '@/app/login/page';
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
+import { useNetworkStore } from '@/store/networkStore';
 
 interface ProtectedRouteProps {
 	children: React.ReactNode;
@@ -17,8 +18,9 @@ const ProtectedRoute = ({
 	requiredRole,
 	allowedRoles,
 }: ProtectedRouteProps) => {
-	const { isLoggedIn, user, isLoading } = useAuth();
+	const { user, isLoading } = useAuth();
 	const { school } = useSchoolStore();
+	const { isOnline, authCheckFailed } = useNetworkStore();
 	const router = useRouter();
 	const pathname = usePathname();
 	const [initialCheckComplete, setInitialCheckComplete] = useState(false);
@@ -40,19 +42,33 @@ const ProtectedRoute = ({
 
 	// Handle initial redirect for unauthenticated users
 	useEffect(() => {
-		if (
-			initialCheckComplete &&
-			!isLoading &&
-			(!isLoggedIn || !user?.isActive)
-		) {
+		// ✅ Don't redirect if user is offline and auth check failed
+		if (authCheckFailed && !isOnline) {
+			return; // Stay on the page, show offline message
+		}
+
+		// Also check if we have user data in memory - if yes, stay on page even if auth check failed temporarily
+		if (user && authCheckFailed && !isOnline) {
+			return; // User was authenticated before going offline
+		}
+
+		if (initialCheckComplete && !isLoading && (!user || !user?.isActive)) {
 			router.replace('/login');
 		}
-	}, [initialCheckComplete, isLoggedIn, isLoading, router, user?.isActive]);
+	}, [
+		initialCheckComplete,
+		isLoading,
+		router,
+		user?.isActive,
+		authCheckFailed,
+		isOnline,
+		user,
+	]);
 
 	// Role-based access control check
 	useEffect(() => {
 		// Check for unauthorized access after user data is loaded
-		if (initialCheckComplete && !isLoading && isLoggedIn && user) {
+		if (initialCheckComplete && !isLoading && user) {
 			let unauthorized = false;
 
 			// **NEW:** Check if user must change password
@@ -88,7 +104,6 @@ const ProtectedRoute = ({
 	}, [
 		initialCheckComplete,
 		isLoading,
-		isLoggedIn,
 		user,
 		requiredRole,
 		allowedRoles,
@@ -101,8 +116,13 @@ const ProtectedRoute = ({
 		return <PageLoading variant="school" fullScreen={true} />;
 	}
 
+	// ✅ If offline and auth check failed, don't redirect - let AdminLayout handle the UI
+	if (authCheckFailed && !isOnline) {
+		return <>{children}</>;
+	}
+
 	// If not logged in and no auth check error, show login page
-	if (!isLoggedIn) {
+	if (!user) {
 		return <LoginPage />;
 	}
 

@@ -16,7 +16,7 @@ export default function DashboardPage() {
 
 	// 3. Show a loading indicator while waiting for either the school or user data.
 	if (!school || isUserLoading) {
-		return <PageLoading />;
+		return <PageLoading message="Loading..." />;
 	}
 
 	// 5. Once all data is ready, render the main dashboard component.

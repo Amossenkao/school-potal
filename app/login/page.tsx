@@ -121,7 +121,7 @@ const LoginPage = () => {
 		isRedirecting ||
 		(isLoggedIn && user && user.isActive && !isAwaitingOtp)
 	) {
-		return <PageLoading variant="school" />;
+		return <PageLoading variant="school" message="Loading from login" />;
 	}
 
 	const roles = [

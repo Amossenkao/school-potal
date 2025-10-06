@@ -9,7 +9,7 @@ import { PageLoading } from '@/components/loading';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { getSchoolProfile } from '@/lib/mongoose';
-import { User, Administrator, UserRole } from '@/types/user';
+import { User, Administrator, UserRole } from '@/types';
 import { SchoolProfile } from '@/types/schoolProfile';
 
 interface PageProps {

@@ -7,7 +7,7 @@ import { PageLoading } from '@/components/loading';
 
 export default function NotFound() {
 	const pathname = usePathname();
-	const { isLoggedIn, checkAuthStatus, isLoading } = useAuth();
+	const { user, checkAuthStatus, isLoading } = useAuth();
 	const [authChecked, setAuthChecked] = useState(false);
 	const isDashboardRoute = pathname.startsWith('/dashboard');
 	const router = useRouter();
@@ -23,11 +23,11 @@ export default function NotFound() {
 	// Handle navigation after auth is checked
 	useEffect(() => {
 		if (authChecked && !isLoading) {
-			if (isDashboardRoute && !isLoggedIn) {
+			if (isDashboardRoute && !user) {
 				router.replace('/login');
 			}
 		}
-	}, [authChecked, isLoading, isDashboardRoute, isLoggedIn, router]);
+	}, [authChecked, isLoading, isDashboardRoute, user, router]);
 
 	// Show loading while checking auth
 	// if (!authChecked || isLoading) {
@@ -44,21 +44,21 @@ export default function NotFound() {
 	// }
 
 	// If it's a dashboard route and user is not logged in, show loading while redirecting
-	if (isDashboardRoute && !isLoggedIn) {
+	if (isDashboardRoute && !user) {
 		return (
 			<div className="flex items-center justify-center h-screen">
 				<PageLoading
 					// fullScreen={false}
-					variant="school"
+					// variant="school"
 					// size="lg"
-					// message="Redirecting to login..."
+					message="Redirecting to login... from not found"
 				/>
 			</div>
 		);
 	}
 
 	// If it's a dashboard route and user is logged in, show dashboard 404
-	if (isDashboardRoute && isLoggedIn) {
+	if (isDashboardRoute && user) {
 		return <PageLoading variant="dashboard-not-found" message="" />;
 	}
 

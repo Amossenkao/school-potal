@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { isEqual } from 'lodash';
 import { User } from '@/types';
 import { useSchoolStore } from './schoolStore';
+import { useNetworkStore } from './networkStore'; // NEW IMPORT
 
 interface LoginData {
 	role: string;
@@ -223,16 +224,28 @@ const useAuth = create<AuthState>((set, get) => {
 			});
 		},
 
+		// MODIFIED: Only clear user state if the server explicitly returns no user,
+		// or if a true network error occurs, set authCheckFailed flag.
 		checkAuthStatus: async () => {
+			const { setAuthCheckFailed } = useNetworkStore.getState();
+
 			try {
 				const res = await fetch('/api/auth/me', {
 					method: 'GET',
 					credentials: 'include',
 				});
 
+				// We throw here for a non-401/200, but rely on the subsequent logic for a 401 (logged out)
+				if (!res.ok && res.status !== 401) {
+					throw new Error(`Server status ${res.status}`);
+				}
+
 				const data = await res.json().catch(() => ({}));
 
 				console.log('Auth status:', data);
+
+				// Auth check succeeded, clear network failure flag
+				setAuthCheckFailed(false);
 
 				if (
 					data.school &&
@@ -241,23 +254,25 @@ const useAuth = create<AuthState>((set, get) => {
 					useSchoolStore.getState().setSchool(data.school);
 				}
 
-				if (data.user && !isEqual(data.user, get().user)) {
-					set({ user: data.user, isLoggedIn: true });
-				}
-
-				if (!data.user && get().isLoggedIn) {
-					set({ user: null, isLoggedIn: false });
+				if (data.user) {
+					// Server confirms user is logged in
+					if (!isEqual(data.user, get().user)) {
+						set({ user: data.user, isLoggedIn: true });
+					} else if (!get().isLoggedIn) {
+						set({ isLoggedIn: true });
+					}
+				} else {
+					// Server explicitly says the user is NOT logged in (e.g., 401/200 with null user)
+					if (get().isLoggedIn) {
+						set({ user: null, isLoggedIn: false });
+					}
 				}
 			} catch (error) {
-				console.error('Auth check failed:', error);
-				// set({
-				// 	user: null,
-				// 	isLoggedIn: false,
-				// 	sessionId: null,
-				// 	isAwaitingOtp: false,
-				// 	otpContact: null,
-				// 	userId: null,
-				// });
+				// CATCH: Network error (e.g., fetch failed) or non-401 server error
+				console.error('Auth check failed (network/server error):', error);
+
+				// Keep current user state, but set the flag to signal the network issue
+				setAuthCheckFailed(true);
 			}
 		},
 
