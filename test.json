@@ -1,0 +1,2130 @@
+[
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d33"
+    },
+    "role": "student",
+    "firstName": "Abraham",
+    "lastName": "Kromah",
+    "username": "UCA2022813",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4551",
+    "email": "abraham.kromah@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2022813",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Abraham",
+      "lastName": "Kromah",
+      "email": "guardian.a.kromah@gmail.com",
+      "phone": "0886-234-5651",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d34"
+    },
+    "role": "student",
+    "firstName": "Rodell",
+    "middleName": "T.",
+    "lastName": "Talah",
+    "username": "UCA2024227",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4552",
+    "email": "rodell.talah@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2024227",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Rodell",
+      "lastName": "Talah",
+      "email": "guardian.r.talah@gmail.com",
+      "phone": "0886-234-5652",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d35"
+    },
+    "role": "student",
+    "firstName": "Alex",
+    "middleName": "S.",
+    "lastName": "Gondo",
+    "username": "UCA2023316",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4553",
+    "email": "alex.gondo@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2023316",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Alex",
+      "lastName": "Gondo",
+      "email": "guardian.a.gondo@gmail.com",
+      "phone": "0886-234-5653",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d36"
+    },
+    "role": "student",
+    "firstName": "Rodel",
+    "middleName": "T.",
+    "lastName": "Talah",
+    "username": "UCA2026033",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4554",
+    "email": "rodel.talah@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2026033",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Rodel",
+      "lastName": "Talah",
+      "email": "guardian.r.talah2@gmail.com",
+      "phone": "0886-234-5654",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d37"
+    },
+    "role": "student",
+    "firstName": "Charlesline",
+    "lastName": "Charles",
+    "username": "UCA2026034",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4555",
+    "email": "charlesline.charles@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2026034",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Charlesline",
+      "lastName": "Charles",
+      "email": "guardian.c.charles@gmail.com",
+      "phone": "0886-234-5655",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d38"
+    },
+    "role": "student",
+    "firstName": "Ade",
+    "lastName": "Cooper",
+    "username": "UCA2026035",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4556",
+    "email": "ade.cooper@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2026035",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Ade",
+      "lastName": "Cooper",
+      "email": "guardian.a.cooper@gmail.com",
+      "phone": "0886-234-5656",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d39"
+    },
+    "role": "student",
+    "firstName": "Matengbeh",
+    "lastName": "Sheriff",
+    "username": "UCA2026036",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4557",
+    "email": "matengbeh.sheriff@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2026036",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Matengbeh",
+      "lastName": "Sheriff",
+      "email": "guardian.m.sheriff@gmail.com",
+      "phone": "0886-234-5657",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d3a"
+    },
+    "role": "student",
+    "firstName": "Philip",
+    "middleName": "Saah",
+    "lastName": "Korfeh",
+    "username": "UCA2026037",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4558",
+    "email": "philip.korfeh@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2026037",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Philip",
+      "lastName": "Korfeh",
+      "email": "guardian.p.korfeh@gmail.com",
+      "phone": "0886-234-5658",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d3b"
+    },
+    "role": "student",
+    "firstName": "Peter",
+    "lastName": "Bondo",
+    "username": "UCA2026038",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4559",
+    "email": "peter.bondo@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2026038",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Peter",
+      "lastName": "Bondo",
+      "email": "guardian.p.bondo@gmail.com",
+      "phone": "0886-234-5659",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d3c"
+    },
+    "role": "student",
+    "firstName": "Lusu",
+    "lastName": "Mansuo",
+    "username": "UCA2026039",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4560",
+    "email": "lusu.mansuo@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2026039",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Lusu",
+      "lastName": "Mansuo",
+      "email": "guardian.l.mansuo@gmail.com",
+      "phone": "0886-234-5660",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d3d"
+    },
+    "role": "student",
+    "firstName": "Blessing",
+    "middleName": "M.",
+    "lastName": "Kerbay",
+    "username": "UCA2026040",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4561",
+    "email": "blessing.kerbay@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2026040",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Blessing",
+      "lastName": "Kerbay",
+      "email": "guardian.b.kerbay@gmail.com",
+      "phone": "0886-234-5661",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d21"
+    },
+    "role": "student",
+    "firstName": "Marthaline",
+    "lastName": "Bedell",
+    "username": "UCA2024185",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4516",
+    "email": "marthaline.bedell@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2024185",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Melvin",
+      "lastName": "Kollie",
+      "email": "guardian.m.kollie@gmail.com",
+      "phone": "0886-234-5633",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d22"
+    },
+    "role": "student",
+    "firstName": "Yatta",
+    "middleName": "S",
+    "lastName": "Fokoe",
+    "username": "UCA2022212",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4534",
+    "email": "yatta.fokoe@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2022212",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Yatta",
+      "lastName": "Fokoe",
+      "email": "guardian.y.fokoe@gmail.com",
+      "phone": "0886-234-5634",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d23"
+    },
+    "role": "student",
+    "firstName": "Andrew",
+    "middleName": "Sam",
+    "lastName": "Doekpah",
+    "username": "UCA2024999",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4535",
+    "email": "andrew.doekpah@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2024999",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Andrew",
+      "lastName": "Doekpah",
+      "email": "guardian.a.doekpah@gmail.com",
+      "phone": "0886-234-5635",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d24"
+    },
+    "role": "student",
+    "firstName": "Martin",
+    "middleName": "K.",
+    "lastName": "Gaye",
+    "username": "UCA2022089",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4536",
+    "email": "martin.gaye@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2022089",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Martin",
+      "lastName": "Gaye",
+      "email": "guardian.m.gaye@gmail.com",
+      "phone": "0886-234-5636",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d25"
+    },
+    "role": "student",
+    "firstName": "Rebecca",
+    "middleName": "Krubo",
+    "lastName": "Harris",
+    "username": "UCA2022051",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4537",
+    "email": "rebecca.harris@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2022051",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Rebecca",
+      "lastName": "Harris",
+      "email": "guardian.r.harris@gmail.com",
+      "phone": "0886-234-5637",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d26"
+    },
+    "role": "student",
+    "firstName": "Vicesther",
+    "lastName": "Siaffa",
+    "username": "UCA2024176",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4538",
+    "email": "vicesther.siaffa@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2024176",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Vicesther",
+      "lastName": "Siaffa",
+      "email": "guardian.v.siaffa@gmail.com",
+      "phone": "0886-234-5638",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d27"
+    },
+    "role": "student",
+    "firstName": "Alice",
+    "middleName": "Baby",
+    "lastName": "Gono",
+    "username": "UCA2024223",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4539",
+    "email": "alice.gono@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2024223",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Alice",
+      "lastName": "Gono",
+      "email": "guardian.a.gono@gmail.com",
+      "phone": "0886-234-5639",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d28"
+    },
+    "role": "student",
+    "firstName": "Sandra",
+    "middleName": "K.",
+    "lastName": "Gertee",
+    "username": "UCA2022292",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4540",
+    "email": "sandra.gertee@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2022292",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Sandra",
+      "lastName": "Gertee",
+      "email": "guardian.s.gertee@gmail.com",
+      "phone": "0886-234-5640",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d29"
+    },
+    "role": "student",
+    "firstName": "Ericline",
+    "middleName": "P.",
+    "lastName": "Yancy",
+    "username": "UCA2022291",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4541",
+    "email": "ericline.yancy@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2022291",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Ericline",
+      "lastName": "Yancy",
+      "email": "guardian.e.yancy@gmail.com",
+      "phone": "0886-234-5641",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d2a"
+    },
+    "role": "student",
+    "firstName": "Princess",
+    "middleName": "S. M.",
+    "lastName": "Kamara",
+    "username": "UCA2026018",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4542",
+    "email": "princess.kamara@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2026018",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Princess",
+      "lastName": "Kamara",
+      "email": "guardian.p.kamara@gmail.com",
+      "phone": "0886-234-5642",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d2b"
+    },
+    "role": "student",
+    "firstName": "Arthurlyn",
+    "middleName": "S.",
+    "lastName": "Karbah",
+    "username": "UCA2026022",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4543",
+    "email": "arthurlyn.karbah@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2026022",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Arthurlyn",
+      "lastName": "Karbah",
+      "email": "guardian.a.karbah@gmail.com",
+      "phone": "0886-234-5643",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d2c"
+    },
+    "role": "student",
+    "firstName": "Joseph",
+    "lastName": "Karmon",
+    "username": "UCA2026023",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4544",
+    "email": "joseph.karmon@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2026023",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Joseph",
+      "lastName": "Karmon",
+      "email": "guardian.j.karmon@gmail.com",
+      "phone": "0886-234-5644",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d2d"
+    },
+    "role": "student",
+    "firstName": "Linda",
+    "middleName": "M.",
+    "lastName": "Gaye",
+    "username": "UCA2026024",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4545",
+    "email": "linda.gaye@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2026024",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Linda",
+      "lastName": "Gaye",
+      "email": "guardian.l.gaye@gmail.com",
+      "phone": "0886-234-5645",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d2e"
+    },
+    "role": "student",
+    "firstName": "Esther",
+    "middleName": "Korpo",
+    "lastName": "Flomo",
+    "username": "UCA2026026",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4546",
+    "email": "esther.flomo@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2026026",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Esther",
+      "lastName": "Flomo",
+      "email": "guardian.e.flomo@gmail.com",
+      "phone": "0886-234-5646",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d2f"
+    },
+    "role": "student",
+    "firstName": "J.",
+    "middleName": "Ebenezer Bless",
+    "lastName": "William",
+    "username": "UCA2024155",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4547",
+    "email": "j.william@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2024155",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_J.",
+      "lastName": "William",
+      "email": "guardian.j.william@gmail.com",
+      "phone": "0886-234-5647",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d30"
+    },
+    "role": "student",
+    "firstName": "Abel",
+    "middleName": "Robinho",
+    "lastName": "Wobil",
+    "username": "UCA2022702",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4548",
+    "email": "abel.wobil@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2022702",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Abel",
+      "lastName": "Wobil",
+      "email": "guardian.a.wobil@gmail.com",
+      "phone": "0886-234-5648",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d31"
+    },
+    "role": "student",
+    "firstName": "Darius",
+    "middleName": "N.",
+    "lastName": "Kpee",
+    "username": "UCA2023410",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4549",
+    "email": "darius.kpee@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2023410",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Darius",
+      "lastName": "Kpee",
+      "email": "guardian.d.kpee@gmail.com",
+      "phone": "0886-234-5649",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d32"
+    },
+    "role": "student",
+    "firstName": "Christian",
+    "middleName": "L.",
+    "lastName": "Tamba",
+    "username": "UCA2023068",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4550",
+    "email": "christian.tamba@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2023068",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Christian",
+      "lastName": "Tamba",
+      "email": "guardian.c.tamba@gmail.com",
+      "phone": "0886-234-5650",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Marthaline",
+      "lastName": "Bedell",
+      "email": "guardian.m.bedell@gmail.com",
+      "phone": "0886-234-5616",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d11"
+    },
+    "role": "student",
+    "firstName": "Marnayee",
+    "middleName": "K.M",
+    "lastName": "Uray",
+    "username": "UCA2023131",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4517",
+    "email": "marnayee.uray@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2023131",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Marnayee",
+      "lastName": "Uray",
+      "email": "guardian.m.uray@gmail.com",
+      "phone": "0886-234-5617",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d12"
+    },
+    "role": "student",
+    "firstName": "Judy",
+    "lastName": "Miller",
+    "username": "UCA2022114",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4518",
+    "email": "judy.miller@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2022114",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Judy",
+      "lastName": "Miller",
+      "email": "guardian.j.miller@gmail.com",
+      "phone": "0886-234-5618",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d13"
+    },
+    "role": "student",
+    "firstName": "Daniel",
+    "middleName": "K.",
+    "lastName": "Kollie",
+    "username": "UCA2023067",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4519",
+    "email": "daniel.kollie@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2023067",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Daniel",
+      "lastName": "Kollie",
+      "email": "guardian.d.kollie@gmail.com",
+      "phone": "0886-234-5619",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d14"
+    },
+    "role": "student",
+    "firstName": "Richard",
+    "lastName": "Gboffua",
+    "username": "UCA2024846",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4520",
+    "email": "richard.gboffua@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2024846",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Richard",
+      "lastName": "Gboffua",
+      "email": "guardian.r.gboffua@gmail.com",
+      "phone": "0886-234-5620",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d15"
+    },
+    "role": "student",
+    "firstName": "Sensee",
+    "middleName": "Deco",
+    "lastName": "Vonziah",
+    "username": "UCA2024169",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4521",
+    "email": "sensee.vonziah@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2024169",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Sensee",
+      "lastName": "Vonziah",
+      "email": "guardian.s.vonziah@gmail.com",
+      "phone": "0886-234-5621",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d16"
+    },
+    "role": "student",
+    "firstName": "Favor",
+    "middleName": "Y.",
+    "lastName": "Togbah",
+    "username": "UCA2022005",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4522",
+    "email": "favor.togbah@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2022005",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Favor",
+      "lastName": "Togbah",
+      "email": "guardian.f.togbah@gmail.com",
+      "phone": "0886-234-5622",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d17"
+    },
+    "role": "student",
+    "firstName": "Lovetee",
+    "middleName": "W.",
+    "lastName": "Kornuah",
+    "username": "UCA2022213",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4523",
+    "email": "lovetee.kornuah@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2022213",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Lovetee",
+      "lastName": "Kornuah",
+      "email": "guardian.l.kornuah@gmail.com",
+      "phone": "0886-234-5623",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d18"
+    },
+    "role": "student",
+    "firstName": "Victoria",
+    "lastName": "Brisbane",
+    "username": "UCA2023145",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4524",
+    "email": "victoria.brisbane@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2023145",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Victoria",
+      "lastName": "Brisbane",
+      "email": "guardian.v.brisbane@gmail.com",
+      "phone": "0886-234-5624",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d19"
+    },
+    "role": "student",
+    "firstName": "Elizabeth",
+    "middleName": "B.",
+    "lastName": "Davies",
+    "username": "UCA2022331",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4525",
+    "email": "elizabeth.davies@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2022331",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Elizabeth",
+      "lastName": "Davies",
+      "email": "guardian.e.davies@gmail.com",
+      "phone": "0886-234-5625",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d1a"
+    },
+    "role": "student",
+    "firstName": "Naomi",
+    "middleName": "S.",
+    "lastName": "Cooper",
+    "username": "UCA2022307",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4526",
+    "email": "naomi.cooper@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2022307",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Naomi",
+      "lastName": "Cooper",
+      "email": "guardian.n.cooper@gmail.com",
+      "phone": "0886-234-5626",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d1b"
+    },
+    "role": "student",
+    "firstName": "Sarah",
+    "middleName": "M.",
+    "lastName": "Parker",
+    "username": "UCA2024222",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4527",
+    "email": "sarah.parker@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2024222",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Sarah",
+      "lastName": "Parker",
+      "email": "guardian.s.parker@gmail.com",
+      "phone": "0886-234-5627",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d1c"
+    },
+    "role": "student",
+    "firstName": "Abraham",
+    "middleName": "B.",
+    "lastName": "Morais",
+    "username": "UCA2024872",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4528",
+    "email": "abraham.morais@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2024872",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Abraham",
+      "lastName": "Morais",
+      "email": "guardian.a.morais@gmail.com",
+      "phone": "0886-234-5628",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d1d"
+    },
+    "role": "student",
+    "firstName": "Julie",
+    "middleName": "E.",
+    "lastName": "Sakor",
+    "username": "UCA2022367",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4529",
+    "email": "julie.sakor@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2022367",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Julie",
+      "lastName": "Sakor",
+      "email": "guardian.j.sakor@gmail.com",
+      "phone": "0886-234-5629",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d1e"
+    },
+    "role": "student",
+    "firstName": "Lawrence",
+    "lastName": "Suah",
+    "username": "UCA2023351",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4530",
+    "email": "lawrence.suah@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2023351",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Lawrence",
+      "lastName": "Suah",
+      "email": "guardian.l.suah@gmail.com",
+      "phone": "0886-234-5630",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d1f"
+    },
+    "role": "student",
+    "firstName": "Eugene",
+    "middleName": "T.",
+    "lastName": "Wyne",
+    "username": "UCA2024215",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4531",
+    "email": "eugene.wyne@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2024215",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Eugene",
+      "lastName": "Wyne",
+      "email": "guardian.e.wyne@gmail.com",
+      "phone": "0886-234-5631",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  },
+  {
+    "_id": {
+      "$oid": "671a2b3c4d5e6f7a8b9c0d20"
+    },
+    "role": "student",
+    "firstName": "Zeogai",
+    "lastName": "Reeves",
+    "username": "UCA2022822",
+    "password": "hashed_password_placeholder",
+    "gender": "Not Specified",
+    "dateOfBirth": "YYYY-MM-DD",
+    "isActive": true,
+    "mustChangePassword": true,
+    "phone": "0770-123-4532",
+    "email": "zeogai.reeves@uca.edu.lr",
+    "address": "Monrovia, Liberia",
+    "chats": [],
+    "notifications": [],
+    "studentId": "UCA2022822",
+    "enrollmentYear": "2025-2026",
+    "enrollmentSemester": "First Semester",
+    "enrollmentStatus": "enrolled",
+    "session": "Morning",
+    "classId": "Morning-Grade12-A",
+    "classLevel": "Senior High",
+    "className": "Grade 12-A",
+    "academicYears": [
+      {
+        "year": "2025-2026",
+        "classIds": [
+          "Morning-Grade12-A"
+        ]
+      }
+    ],
+    "guardian": {
+      "firstName": "Guardian_Zeogai",
+      "lastName": "Reeves",
+      "email": "guardian.z.reeves@gmail.com",
+      "phone": "0886-234-5632",
+      "address": "Monrovia, Liberia"
+    },
+    "financialProfile": {
+      "outstandingBalances": [],
+      "paymentReceipts": []
+    }
+  }
+]

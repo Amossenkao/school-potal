@@ -121,7 +121,7 @@ const LoginPage = () => {
 		isRedirecting ||
 		(isLoggedIn && user && user.isActive && !isAwaitingOtp)
 	) {
-		return <PageLoading variant="school" message="Loading from login" />;
+		return <PageLoading variant="school" message="Loading..." />;
 	}
 
 	const roles = [
@@ -208,7 +208,6 @@ const LoginPage = () => {
 					router.push('/login/account-setup');
 				} else {
 					setIsRedirecting(true);
-					console.log('Login successful, redirecting to dashboard...');
 					router.push('/dashboard');
 				}
 			}

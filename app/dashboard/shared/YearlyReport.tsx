@@ -6,6 +6,7 @@ import React, {
 	useMemo,
 	useCallback,
 } from 'react';
+import QRCode from 'qrcode';
 import {
 	Document,
 	Page,
@@ -15,12 +16,14 @@ import {
 	Image,
 	pdf,
 } from '@react-pdf/renderer';
-import styles from './styles';
+import styles from './styles'; // Assuming styles is defined elsewhere
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import Spinner from '@/components/ui/spinner';
 import AccessDenied from '@/components/AccessDenied';
+
+// --- Type Definitions ---
 
 function gradeStyle(score: string | number | null) {
 	if (score === null || Number.isNaN(score) || Number(score) < 70) {
@@ -49,6 +52,7 @@ interface StudentYearlyReport {
 	periodAverages: Record<string, number | null>;
 	yearlyAverage: number | null;
 	ranks: Record<string, number | null>;
+	qrCodeDataUrl: string;
 }
 
 interface Student {
@@ -56,6 +60,8 @@ interface Student {
 	name: string;
 	className: string;
 }
+
+// --- Constants & Utilities ---
 
 const academicYearOptions = [
 	'2025-2026',
@@ -78,7 +84,8 @@ const getCurrentAcademicYear = () => {
 	}
 };
 
-// Memoized student multi-select component
+// --- Student Multi-Select Component ---
+
 const StudentMultiSelect = React.memo(function StudentMultiSelect({
 	students,
 	selectedStudents,
@@ -245,28 +252,22 @@ const StudentMultiSelect = React.memo(function StudentMultiSelect({
 	);
 });
 
-// Memoized filter content component
+interface ReportFilters {
+	academicYear: string;
+	session: string;
+	classLevel: string;
+	className: string;
+	selectedStudents: string[];
+	sponsorName: string; // NEW: Sponsor name field
+}
+
 const FilterContent = React.memo(function FilterContent({
 	filters,
 	setFilters,
 	onSubmit,
 }: {
-	filters: {
-		academicYear: string;
-		session: string;
-		classLevel: string;
-		className: string;
-		selectedStudents: string[];
-	};
-	setFilters: React.Dispatch<
-		React.SetStateAction<{
-			academicYear: string;
-			session: string;
-			classLevel: string;
-			className: string;
-			selectedStudents: string[];
-		}>
-	>;
+	filters: ReportFilters;
+	setFilters: React.Dispatch<React.SetStateAction<ReportFilters>>;
 	onSubmit: () => void;
 }) {
 	const currentSchool = useSchoolStore((state) => state.school);
@@ -353,7 +354,16 @@ const FilterContent = React.memo(function FilterContent({
 				className: availableClasses[0].classId,
 			}));
 		}
-	}, [filters.academicYear, filters.session, filters.classLevel, userAvailableSessions, availableGradeLevels, availableClasses, setFilters, isStudent]);
+	}, [
+		filters.academicYear,
+		filters.session,
+		filters.classLevel,
+		userAvailableSessions,
+		availableGradeLevels,
+		availableClasses,
+		setFilters,
+		isStudent,
+	]);
 
 	useEffect(() => {
 		if (filters.className && !isStudent) {
@@ -403,10 +413,6 @@ const FilterContent = React.memo(function FilterContent({
 		}
 		return !!(filters.academicYear && filters.className);
 	}, [isStudent, filters.academicYear, filters.className, user]);
-
-	// if (!currentSchool) {
-	// 	return <PageLoading fullScreen={false} />;
-	// }
 
 	if (
 		isStudent &&
@@ -491,6 +497,7 @@ const FilterContent = React.memo(function FilterContent({
 								classLevel: '',
 								className: '',
 								selectedStudents: [],
+								// Keep sponsorName
 							}))
 						}
 						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
@@ -604,6 +611,28 @@ const FilterContent = React.memo(function FilterContent({
 						)}
 					</div>
 				)}
+
+				{/* NEW: Optional Sponsor Text Area */}
+				{filters.className && (
+					<div className="mb-4">
+						<label
+							htmlFor="sponsor-name"
+							className="block text-sm font-medium mb-1"
+						>
+							Class Sponsor Name (Optional Override)
+						</label>
+						<input
+							id="sponsor-name"
+							type="text"
+							value={filters.sponsorName}
+							onChange={(e) =>
+								setFilters((f) => ({ ...f, sponsorName: e.target.value }))
+							}
+							placeholder="e.g., Jane Doe"
+							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+						/>
+					</div>
+				)}
 				<div className="flex gap-2 mt-6">
 					<button
 						type="button"
@@ -619,20 +648,47 @@ const FilterContent = React.memo(function FilterContent({
 	);
 });
 
-// Memoized PDF document component
+// --- QR Code Component ---
+
+function ReportQRCode({ qrDataUrl }: { qrDataUrl: string }) {
+	return qrDataUrl ? (
+		<Image src={qrDataUrl} style={{ width: '99%', height: '99%' }} />
+	) : (
+		<Text style={{ fontSize: 8, textAlign: 'center' }}>
+			QR Code Unavailable
+		</Text>
+	);
+}
+
 const PDFDocument = React.memo(function PDFDocument({
 	studentsData,
 	className,
 	classSubjects,
 	reportFilters,
 	school,
+	classSponsor,
 }: {
 	studentsData: StudentYearlyReport[];
 	className: string;
 	classSubjects: string[];
-	reportFilters: any;
+	reportFilters: ReportFilters; // Use updated interface
 	school: any;
+	classSponsor: string | undefined;
 }) {
+	// Logic to determine the sponsor name to display
+	const sponsorToDisplay = useMemo(() => {
+		// 1. First priority: Sponsor name from the filter override
+		if (reportFilters.sponsorName.trim()) {
+			return reportFilters.sponsorName.trim();
+		}
+		// 2. Second priority: Sponsor name from the server data (classSponsor)
+		if (classSponsor) {
+			return classSponsor;
+		}
+		// 3. Fallback: No sponsor name will be displayed
+		return null;
+	}, [reportFilters.sponsorName, classSponsor]);
+
 	return (
 		<Document
 			title={`Report Card for ${className} - ${reportFilters.academicYear}`}
@@ -889,14 +945,16 @@ const PDFDocument = React.memo(function PDFDocument({
 								<Text style={styles.promotionText}>
 									Yearly Average below 70 will not be eligible for promotion.
 								</Text>
+								{/* UPDATED SPONSOR SECTION LOGIC */}
 								<View style={styles.signatureSection}>
 									<Text>Teachers Remark: ____________________________</Text>
-									<Text style={{ marginTop: 15 }}>
-										Signed: _________________________
-									</Text>
-									<Text style={{ marginTop: 3, marginLeft: 50 }}>
-										Daniel S. Borbor, Class Sponsor
-									</Text>
+									<View style={{ marginTop: 15, alignItems: 'center' }}>
+										<Text>Signed: _________________________</Text>
+										<Text style={{ marginTop: 3 }}>
+											{sponsorToDisplay ? `${sponsorToDisplay}, ` : ''}Class
+											Sponsor
+										</Text>
+									</View>
 								</View>
 							</View>
 						</View>
@@ -929,13 +987,11 @@ const PDFDocument = React.memo(function PDFDocument({
 										lineHeight: 1.7,
 									}}
 								>
-									This report will be periodically for your inspection. It is a
-									pupil progress report by which pupils' work could result in
-									lack of study, irregular attendance or something that could be
-									connected, special attention should be paid to ensure that the
-									child improves. Moreover, parent conferences with parent(s) or
-									guardians are encouraged, and it will serve to secure the best
-									co-operation for your child.
+									This report is provided periodically to help you monitor your
+									child’s progress. It highlights areas such as study habits and
+									attendance that may need improvement. Parent-teacher
+									conferences are encouraged to ensure your child’s continued
+									success.
 								</Text>
 								<Text
 									style={{
@@ -967,7 +1023,7 @@ const PDFDocument = React.memo(function PDFDocument({
 									<Text style={{ textDecoration: 'underline' }}>
 										{className.split('-')[0] === 'Grade 10'
 											? 'Grade 11'
-											: 'Grade 13'}
+											: 'Grade 12'}
 									</Text>{' '}
 									for Academic Year {reportFilters.academicYear}.
 								</Text>
@@ -981,6 +1037,44 @@ const PDFDocument = React.memo(function PDFDocument({
 								>
 									<Text>Date: ____________________</Text>
 									<Text>Principal: __________________</Text>
+
+									<View
+										style={{
+											position: 'absolute',
+											left: 15,
+											top: 100,
+											textAlign: 'center',
+											width: '100%',
+										}}
+									>
+										<View
+											style={{
+												display: 'flex',
+												gap: 10,
+												justifyContent: 'center',
+												width: '100%',
+												fontSize: 12,
+											}}
+										>
+											<View
+												style={{
+													borderWidth: 1,
+													borderColor: '#000',
+													borderStyle: 'dashed',
+													borderRadius: 5,
+													width: 100,
+													height: 100,
+												}}
+											>
+												<ReportQRCode qrDataUrl={studentData.qrCodeDataUrl} />
+											</View>
+
+											<Text style={{ width: '100%', textAlign: 'left' }}>
+												Scan the QR Code to verify the authenticity of this
+												report.
+											</Text>
+										</View>
+									</View>
 								</View>
 							</View>
 							<View
@@ -1021,12 +1115,7 @@ const PDFDocument = React.memo(function PDFDocument({
 												marginBottom: 10,
 												justifyContent: 'center',
 												alignItems: 'center',
-												top: -95, //school?.name
-												// .toLowerCase()
-												// .split(' ')
-												// .includes('kolleh')
-												// ? -110
-												// : -100,
+												top: -95,
 												right: -145,
 											}}
 										>
@@ -1127,7 +1216,7 @@ const PDFDocument = React.memo(function PDFDocument({
 												fontSize: 8,
 											}}
 										>
-											Parent
+											Period
 										</Text>
 										<Text
 											style={{
@@ -1171,7 +1260,7 @@ const PDFDocument = React.memo(function PDFDocument({
 														color: 'royalblue',
 													}}
 												>
-													{row}
+													{row} Period
 												</Text>
 												<Text
 													style={{
@@ -1231,37 +1320,40 @@ const PDFDocument = React.memo(function PDFDocument({
 	);
 });
 
-// Main report content component
+// --- Main Report Content Component (Blank Screen Fix Implemented) ---
+
 function ReportContent({
 	reportFilters,
 	onBack,
 }: {
-	reportFilters: {
-		academicYear: string;
-		session: string;
-		classLevel: string;
-		className: string;
-		selectedStudents: string[];
-	};
+	reportFilters: ReportFilters; // Use updated interface
 	onBack: () => void;
 }) {
 	const [studentsData, setStudentsData] = useState<StudentYearlyReport[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [downloading, setDownloading] = useState(false);
+	const [classSponsor, setClassSponsor] = useState<string | undefined>(
+		undefined
+	);
+	const [pdfIsReady, setPdfIsReady] = useState(false); // STATE for PDF readiness
 
 	const school = useSchoolStore((state) => state.school);
 	const currentSchool = useSchoolStore((state) => state.school);
 	const { user } = useAuth();
 
-	// Memoize computed values to prevent unnecessary recalculations
 	const className = useMemo(() => {
-		return (
-			currentSchool?.classLevels?.[reportFilters.session]?.[
-				reportFilters.classLevel
-			]?.classes.find((c: any) => c.classId === reportFilters.className)
-				?.name || reportFilters.className
-		);
+		const classInfo = currentSchool?.classLevels?.[reportFilters.session]?.[
+			reportFilters.classLevel
+		]?.classes.find((c: any) => c.classId === reportFilters.className);
+
+		if (classInfo && classInfo.classSponsor) {
+			setClassSponsor(classInfo.classSponsor);
+		} else {
+			setClassSponsor(undefined);
+		}
+
+		return classInfo?.name || reportFilters.className;
 	}, [
 		currentSchool,
 		reportFilters.session,
@@ -1274,19 +1366,19 @@ function ReportContent({
 			currentSchool?.classLevels?.[reportFilters.session]?.[
 				reportFilters.classLevel
 			]?.subjects || [];
-		// Extract just the names from the subject objects
-		return subjects.map((subject) =>
+		return subjects.map((subject: any) =>
 			typeof subject === 'string' ? subject : subject.name
 		);
 	}, [currentSchool, reportFilters.session, reportFilters.classLevel]);
 
-	// Fetch students data effect
 	useEffect(() => {
 		const fetchStudentsData = async () => {
-			try {
-				setLoading(true);
-				setError(null);
+			setLoading(true);
+			// CRUCIAL: Reset pdfIsReady here before starting the fetch
+			setPdfIsReady(false);
+			setError(null);
 
+			try {
 				const isStudent = user?.role === 'student';
 				let studentsToProcess: any[] = [];
 
@@ -1348,160 +1440,199 @@ function ReportContent({
 					existingReports = [gradesData.data.report];
 				}
 
-				const reportData = studentsToProcess.map((student: any) => {
-					const studentId = student.studentId;
-					const studentName = `${student.firstName} ${
-						student.middleName ? student.middleName + ' ' : ''
-					}${student.lastName}`.trim();
-					const existingReport = existingReports.find(
-						(report: any) => report.studentId === studentId
-					);
+				const reportData = await Promise.all(
+					studentsToProcess.map(async (student: any) => {
+						const studentId = student.studentId;
+						const studentName = `${student.firstName} ${
+							student.middleName ? student.middleName + ' ' : ''
+						}${student.lastName}`.trim();
+						const existingReport = existingReports.find(
+							(report: any) => report.studentId === studentId
+						);
 
-					const periods: Record<
-						string,
-						Array<{ subject: string; grade: number | null }>
-					> = {
-						first: classSubjects.map((subject) => ({
-							subject: typeof subject === 'string' ? subject : subject.name, // Handle both cases
-							grade: null,
-						})),
-						second: classSubjects.map((subject) => ({
-							subject: typeof subject === 'string' ? subject : subject.name,
-							grade: null,
-						})),
-						third: classSubjects.map((subject) => ({
-							subject: typeof subject === 'string' ? subject : subject.name,
-							grade: null,
-						})),
-						third_period_exam: classSubjects.map((subject) => ({
-							subject: typeof subject === 'string' ? subject : subject.name,
-							grade: null,
-						})),
-						fourth: classSubjects.map((subject) => ({
-							subject: typeof subject === 'string' ? subject : subject.name,
-							grade: null,
-						})),
-						fifth: classSubjects.map((subject) => ({
-							subject: typeof subject === 'string' ? subject : subject.name,
-							grade: null,
-						})),
-						sixth: classSubjects.map((subject) => ({
-							subject: typeof subject === 'string' ? subject : subject.name,
-							grade: null,
-						})),
-						six_period_exam: classSubjects.map((subject) => ({
-							subject: typeof subject === 'string' ? subject : subject.name,
-							grade: null,
-						})),
-					};
-
-					const firstSemesterAverage: Record<string, number | null> = {};
-					const secondSemesterAverage: Record<string, number | null> = {};
-					const periodAverages: Record<string, number | null> = {
-						first: null,
-						second: null,
-						third: null,
-						third_period_exam: null,
-						fourth: null,
-						fifth: null,
-						sixth: null,
-						six_period_exam: null,
-						firstSemesterAverage: null,
-						secondSemesterAverage: null,
-					};
-					const ranks: Record<string, number | null> = {
-						first: null,
-						second: null,
-						third: null,
-						third_period_exam: null,
-						fourth: null,
-						fifth: null,
-						sixth: null,
-						six_period_exam: null,
-						firstSemesterAverage: null,
-						secondSemesterAverage: null,
-						yearly: null,
-					};
-
-					classSubjects.forEach((subject) => {
-						const subjectName =
-							typeof subject === 'string' ? subject : subject.name;
-						firstSemesterAverage[subjectName] = null;
-						secondSemesterAverage[subjectName] = null;
-					});
-					let yearlyAverage: number | null = null;
-
-					if (existingReport) {
-						Object.keys(periods).forEach((period) => {
-							if (existingReport.periods[period]) {
-								existingReport.periods[period].forEach((gradeEntry: any) => {
-									const subjectIndex = periods[period].findIndex(
-										(item) => item.subject === gradeEntry.subject
-									);
-									if (subjectIndex !== -1) {
-										periods[period][subjectIndex].grade = gradeEntry.grade;
-									}
+						let qrCodeDataUrl = '';
+						if (typeof window !== 'undefined' && studentId) {
+							const origin = window.location.origin;
+							const verifyUrl = `${origin}/verify?id=${studentId}`;
+							try {
+								// QR Code generation is also synchronous and can take time, but less than PDF
+								qrCodeDataUrl = await QRCode.toDataURL(verifyUrl, {
+									errorCorrectionLevel: 'H',
+									width: 100,
 								});
+							} catch (error) {
+								console.error(
+									'Error generating QR code for student:',
+									studentId,
+									error
+								);
 							}
-						});
-						Object.assign(
-							firstSemesterAverage,
-							existingReport.firstSemesterAverage || {}
-						);
-						Object.assign(
-							secondSemesterAverage,
-							existingReport.secondSemesterAverage || {}
-						);
-						Object.assign(periodAverages, existingReport.periodAverages || {});
-						Object.assign(ranks, existingReport.ranks || {});
-						yearlyAverage = existingReport.yearlyAverage;
-					}
+						}
 
-					return {
-						studentId,
-						studentName,
-						periods,
-						firstSemesterAverage,
-						secondSemesterAverage,
-						periodAverages,
-						yearlyAverage,
-						ranks,
-					};
-				});
+						const periods: Record<
+							string,
+							Array<{ subject: string; grade: number | null }>
+						> = {
+							first: classSubjects.map((subject) => ({
+								subject: typeof subject === 'string' ? subject : subject.name,
+								grade: null,
+							})),
+							second: classSubjects.map((subject) => ({
+								subject: typeof subject === 'string' ? subject : subject.name,
+								grade: null,
+							})),
+							third: classSubjects.map((subject) => ({
+								subject: typeof subject === 'string' ? subject : subject.name,
+								grade: null,
+							})),
+							third_period_exam: classSubjects.map((subject) => ({
+								subject: typeof subject === 'string' ? subject : subject.name,
+								grade: null,
+							})),
+							fourth: classSubjects.map((subject) => ({
+								subject: typeof subject === 'string' ? subject : subject.name,
+								grade: null,
+							})),
+							fifth: classSubjects.map((subject) => ({
+								subject: typeof subject === 'string' ? subject : subject.name,
+								grade: null,
+							})),
+							sixth: classSubjects.map((subject) => ({
+								subject: typeof subject === 'string' ? subject : subject.name,
+								grade: null,
+							})),
+							six_period_exam: classSubjects.map((subject) => ({
+								subject: typeof subject === 'string' ? subject : subject.name,
+								grade: null,
+							})),
+						};
+
+						const firstSemesterAverage: Record<string, number | null> = {};
+						const secondSemesterAverage: Record<string, number | null> = {};
+						const periodAverages: Record<string, number | null> = {
+							first: null,
+							second: null,
+							third: null,
+							third_period_exam: null,
+							fourth: null,
+							fifth: null,
+							sixth: null,
+							six_period_exam: null,
+							firstSemesterAverage: null,
+							secondSemesterAverage: null,
+						};
+						const ranks: Record<string, number | null> = {
+							first: null,
+							second: null,
+							third: null,
+							third_period_exam: null,
+							fourth: null,
+							fifth: null,
+							sixth: null,
+							six_period_exam: null,
+							firstSemesterAverage: null,
+							secondSemesterAverage: null,
+							yearly: null,
+						};
+
+						classSubjects.forEach((subject) => {
+							const subjectName =
+								typeof subject === 'string' ? subject : subject.name;
+							firstSemesterAverage[subjectName] = null;
+							secondSemesterAverage[subjectName] = null;
+						});
+						let yearlyAverage: number | null = null;
+
+						if (existingReport) {
+							Object.keys(periods).forEach((period) => {
+								if (existingReport.periods[period]) {
+									existingReport.periods[period].forEach((gradeEntry: any) => {
+										const subjectIndex = periods[period].findIndex(
+											(item) => item.subject === gradeEntry.subject
+										);
+										if (subjectIndex !== -1) {
+											periods[period][subjectIndex].grade = gradeEntry.grade;
+										}
+									});
+								}
+							});
+							Object.assign(
+								firstSemesterAverage,
+								existingReport.firstSemesterAverage || {}
+							);
+							Object.assign(
+								secondSemesterAverage,
+								existingReport.secondSemesterAverage || {}
+							);
+							Object.assign(
+								periodAverages,
+								existingReport.periodAverages || {}
+							);
+							Object.assign(ranks, existingReport.ranks || {});
+							yearlyAverage = existingReport.yearlyAverage;
+						}
+
+						return {
+							studentId,
+							studentName,
+							periods,
+							firstSemesterAverage,
+							secondSemesterAverage,
+							periodAverages,
+							yearlyAverage,
+							ranks,
+							qrCodeDataUrl,
+						};
+					})
+				);
 
 				setStudentsData(reportData);
+				// ONLY stop data loading here. The PDF generation (useMemo) will take over.
+				setLoading(false);
 			} catch (err: any) {
 				console.error('Error fetching report data:', err);
 				setError(err.message || 'Failed to load report data');
-			} finally {
 				setLoading(false);
 			}
 		};
 
 		fetchStudentsData();
-	}, [reportFilters]);
+	}, [reportFilters, user, classSubjects, className]);
 
-	// Memoize the PDF document to prevent re-rendering
+	// Memoize the PDF document - This is the blocking operation
 	const pdfDocument = useMemo(() => {
-		if (!studentsData.length || loading || error) return null;
+		// Only proceed if data is loaded and no error
+		if (!studentsData.length || loading || error) {
+			setPdfIsReady(false);
+			return null;
+		}
 
-		return (
+		// The expensive, synchronous PDF component creation happens here.
+		const component = (
 			<PDFDocument
 				studentsData={studentsData}
 				className={className}
 				classSubjects={classSubjects}
 				reportFilters={reportFilters}
 				school={school}
+				classSponsor={classSponsor}
 			/>
 		);
+
+		// CRUCIAL: Set the readiness flag to true immediately after the component is constructed.
+		// This guarantees the 'Generating PDF' screen stays until the synchronous work finishes.
+		setPdfIsReady(true);
+
+		return component;
 	}, [
 		studentsData,
 		className,
 		classSubjects,
 		reportFilters,
 		school,
-		loading,
+		loading, // Keep loading here to re-evaluate after data fetch
 		error,
+		classSponsor,
 	]);
 
 	// Download handler
@@ -1524,7 +1655,8 @@ function ReportContent({
 		}
 	}, [pdfDocument, className, reportFilters.academicYear]);
 
-	if (!studentsData.length && loading) {
+	// FIX: The loading state remains visible if data is fetching OR if the heavy memoization hasn't finished.
+	if (loading || !pdfIsReady) {
 		return <PageLoading fullScreen={false} message="Generating PDF" />;
 	}
 
@@ -1606,6 +1738,7 @@ function ReportContent({
 				</button>
 			</div>
 			<div className="flex-1">
+				{/* The check above ensures pdfDocument is not null and pdfIsReady is true */}
 				<PDFViewer className="w-full h-[calc(100vh-80px)] bg-background">
 					{pdfDocument}
 				</PDFViewer>
@@ -1614,14 +1747,17 @@ function ReportContent({
 	);
 }
 
-// Main component
+// --- Main Component ---
+
 export default function ReportCardPage() {
-	const [filters, setFilters] = useState({
+	// UPDATED: Initial state for filters now includes sponsorName
+	const [filters, setFilters] = useState<ReportFilters>({
 		academicYear: getCurrentAcademicYear(),
 		session: '',
 		classLevel: '',
 		className: '',
 		selectedStudents: [],
+		sponsorName: '', // NEW: Default to empty string
 	});
 
 	const [reportStep, setReportStep] = useState(0);
