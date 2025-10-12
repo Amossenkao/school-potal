@@ -1453,7 +1453,10 @@ function ReportContent({
 						let qrCodeDataUrl = '';
 						if (typeof window !== 'undefined' && studentId) {
 							const origin = window.location.origin;
-							const verifyUrl = `${origin}/verify?id=${studentId}`;
+							const verifyUrl = `${origin}/verify?id=${reportFilters.academicYear.replace(
+								'-',
+								studentId
+							)}`;
 							try {
 								// QR Code generation is also synchronous and can take time, but less than PDF
 								qrCodeDataUrl = await QRCode.toDataURL(verifyUrl, {
