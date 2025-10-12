@@ -56,21 +56,17 @@ const FeedbackToast = ({ type, message, onClose }) => {
 
 	const isSuccess = type === 'success';
 	const Icon = isSuccess ? CheckCircle : XCircle;
+	const colorClasses = isSuccess
+		? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-800 dark:text-green-200'
+		: 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700 text-red-800 dark:text-red-200';
+	const iconColor = isSuccess ? 'text-green-500' : 'text-red-500';
 
 	return (
 		<div className="fixed top-4 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-[100] animate-in slide-in-from-top-5 fade-in-0 duration-300">
 			<div
-				className={`flex items-start gap-3 p-4 rounded-lg shadow-lg border ${
-					isSuccess
-						? 'bg-green-50 border-green-200 text-green-800'
-						: 'bg-red-50 border-red-200 text-red-800'
-				}`}
+				className={`flex items-start gap-3 p-4 rounded-lg shadow-lg border ${colorClasses}`}
 			>
-				<Icon
-					className={`h-5 w-5 flex-shrink-0 ${
-						isSuccess ? 'text-green-500' : 'text-red-500'
-					}`}
-				/>
+				<Icon className={`h-5 w-5 flex-shrink-0 ${iconColor}`} />
 				<div className="flex-1 min-w-0">
 					<h4 className="font-semibold text-sm">
 						{isSuccess ? 'Success' : 'Error'}
@@ -79,7 +75,7 @@ const FeedbackToast = ({ type, message, onClose }) => {
 				</div>
 				<button
 					onClick={onClose}
-					className="flex-shrink-0 p-1 rounded-full hover:bg-black/10 transition-colors"
+					className="flex-shrink-0 p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
 				>
 					<X className="h-4 w-4" />
 				</button>
@@ -123,10 +119,10 @@ const MultiSelect = ({ options, selected, onChange, label }) => {
 
 	return (
 		<div className="relative w-full">
-			<label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
+			<label className="block text-xs sm:text-sm font-medium text-foreground mb-1.5">
 				{label}
 			</label>
-			<div className="w-full rounded-lg border border-gray-300 bg-white p-2 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
+			<div className="w-full rounded-lg border border-border bg-background p-2 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
 				<div className="flex flex-wrap gap-1.5 items-center min-h-[32px]">
 					{selected.map((itemValue) => {
 						const itemLabel =
@@ -134,7 +130,7 @@ const MultiSelect = ({ options, selected, onChange, label }) => {
 						return (
 							<div
 								key={itemValue}
-								className="flex items-center gap-1 bg-blue-100 text-blue-700 text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap"
+								className="flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap"
 							>
 								<span className="max-w-[120px] sm:max-w-none truncate">
 									{itemLabel}
@@ -142,7 +138,7 @@ const MultiSelect = ({ options, selected, onChange, label }) => {
 								<button
 									type="button"
 									onClick={() => handleDeselect(itemValue)}
-									className="flex-shrink-0 text-blue-600 hover:text-blue-800"
+									className="flex-shrink-0 text-primary/70 hover:text-primary"
 								>
 									<X className="h-3 w-3" />
 								</button>
@@ -155,10 +151,10 @@ const MultiSelect = ({ options, selected, onChange, label }) => {
 							onClick={() => setIsOpen(!isOpen)}
 							className="w-full text-left bg-transparent focus:outline-none flex justify-between items-center gap-2 text-sm"
 						>
-							<span className="text-gray-500 truncate">
+							<span className="text-muted-foreground truncate">
 								{selected.length === 0 ? 'Select...' : 'Add...'}
 							</span>
-							<ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
+							<ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
 						</button>
 						{isOpen && (
 							<>
@@ -166,7 +162,7 @@ const MultiSelect = ({ options, selected, onChange, label }) => {
 									className="fixed inset-0 z-10"
 									onClick={() => setIsOpen(false)}
 								/>
-								<div className="absolute z-20 mt-1 w-full sm:w-auto sm:min-w-[200px] rounded-md bg-white shadow-lg border border-gray-200 max-h-60 overflow-auto">
+								<div className="absolute z-20 mt-1 w-full sm:w-auto sm:min-w-[200px] rounded-md bg-card shadow-lg border border-border max-h-60 overflow-auto">
 									<ul className="py-1">
 										{options
 											.filter((o) => !selected.includes(o.value))
@@ -177,14 +173,14 @@ const MultiSelect = ({ options, selected, onChange, label }) => {
 														handleSelect(option.value);
 														setIsOpen(false);
 													}}
-													className="text-gray-900 cursor-pointer select-none px-3 py-2 hover:bg-gray-100 text-sm"
+													className="text-foreground cursor-pointer select-none px-3 py-2 hover:bg-muted text-sm"
 												>
 													{option.label}
 												</li>
 											))}
 										{options.filter((o) => !selected.includes(o.value))
 											.length === 0 && (
-											<li className="text-gray-400 px-3 py-2 text-sm">
+											<li className="text-muted-foreground px-3 py-2 text-sm">
 												All selected
 											</li>
 										)}
@@ -207,8 +203,8 @@ const ToggleSwitch = ({ checked, onChange, disabled = false }) => {
 			onClick={onChange}
 			disabled={disabled}
 			className={`
-				relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-				${checked ? 'bg-blue-600' : 'bg-gray-300'}
+				relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2
+				${checked ? 'bg-primary' : 'bg-muted'}
 				${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
 			`}
 		>
@@ -226,17 +222,17 @@ const ToggleSwitch = ({ checked, onChange, disabled = false }) => {
 // Improved Settings Section with better mobile layout
 const SettingsSection = ({ icon: Icon, title, description, children }) => {
 	return (
-		<div className="rounded-lg sm:rounded-xl border border-gray-200 bg-white p-4 sm:p-6 shadow-sm">
+		<div className="rounded-lg sm:rounded-xl border border-border bg-card p-4 sm:p-6 shadow-sm">
 			<div className="flex items-start gap-3 sm:gap-4 mb-4">
-				<div className="rounded-lg bg-blue-100 p-2 sm:p-3 flex-shrink-0">
-					<Icon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+				<div className="rounded-lg bg-primary/10 p-2 sm:p-3 flex-shrink-0">
+					<Icon className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
 				</div>
 				<div className="flex-1 min-w-0">
-					<h3 className="text-base sm:text-lg font-semibold text-gray-900">
+					<h3 className="text-base sm:text-lg font-semibold text-foreground">
 						{title}
 					</h3>
 					{description && (
-						<p className="text-xs sm:text-sm text-gray-600 mt-1 break-words">
+						<p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words">
 							{description}
 						</p>
 					)}
@@ -256,13 +252,13 @@ const SettingsItem = ({
 	disabled = false,
 }) => {
 	return (
-		<div className="flex items-start sm:items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50/50 p-3 sm:p-4">
+		<div className="flex items-start sm:items-center justify-between gap-3 rounded-lg border border-border bg-muted/50 p-3 sm:p-4 transition-colors hover:bg-muted">
 			<div className="flex-1 min-w-0">
-				<div className="font-medium text-gray-900 text-sm sm:text-base capitalize break-words">
+				<div className="font-medium text-foreground text-sm sm:text-base capitalize break-words">
 					{label}
 				</div>
 				{description && (
-					<div className="text-xs sm:text-sm text-gray-600 mt-1 break-words">
+					<div className="text-xs sm:text-sm text-muted-foreground mt-1 break-words">
 						{description}
 					</div>
 				)}
@@ -289,14 +285,14 @@ const BulkActionItem = ({
 	disabled = false,
 }) => {
 	return (
-		<div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 sm:p-4">
+		<div className="rounded-lg border border-border bg-muted/50 p-3 sm:p-4 transition-colors hover:bg-muted">
 			<div className="space-y-3">
 				<div className="flex-1 min-w-0">
-					<div className="font-medium text-gray-900 text-sm sm:text-base capitalize break-words">
+					<div className="font-medium text-foreground text-sm sm:text-base capitalize break-words">
 						{label}
 					</div>
 					{description && (
-						<div className="text-xs sm:text-sm text-gray-600 mt-1 break-words">
+						<div className="text-xs sm:text-sm text-muted-foreground mt-1 break-words">
 							{description}
 						</div>
 					)}
@@ -305,8 +301,8 @@ const BulkActionItem = ({
 							<span
 								className={`text-xs font-bold px-2 py-1 rounded-md ${
 									pendingAction === 'activate'
-										? 'bg-green-100 text-green-800'
-										: 'bg-red-100 text-red-800'
+										? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
+										: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
 								}`}
 							>
 								Pending:{' '}
@@ -314,7 +310,7 @@ const BulkActionItem = ({
 							</span>
 							<button
 								onClick={onClear}
-								className="text-gray-500 hover:text-gray-700"
+								className="text-muted-foreground hover:text-foreground"
 							>
 								<RotateCw className="h-3 w-3" />
 							</button>
@@ -383,7 +379,7 @@ export default function Settings() {
 			);
 			setIsLoading(false);
 		}
-	}, [school, currentAcademicYear]);
+	}, []); // Empty dependency array - only run once on mount
 
 	const toggleStudentSetting = (setting) =>
 		setStudentSettings((prev) => ({ ...prev, [setting]: !prev[setting] }));
@@ -440,14 +436,14 @@ export default function Settings() {
 		!administratorSettings
 	) {
 		return (
-			<div className="flex items-center justify-center min-h-screen bg-gray-50">
-				<Loader2 className="h-8 w-8 sm:h-12 sm:w-12 animate-spin text-blue-600" />
+			<div className="flex items-center justify-center min-h-screen bg-background">
+				<Loader2 className="h-8 w-8 sm:h-12 sm:w-12 animate-spin text-primary" />
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 p-3 sm:p-6">
+		<div className="min-h-screen bg-background p-3 sm:p-6">
 			{feedback.message && (
 				<FeedbackToast
 					type={feedback.type}
@@ -458,13 +454,13 @@ export default function Settings() {
 			<div className="mx-auto max-w-4xl space-y-4 sm:space-y-8">
 				{/* Header */}
 				<div className="text-center space-y-2 px-2">
-					<div className="inline-flex items-center justify-center rounded-full bg-blue-100 p-2 sm:p-3 mb-2 sm:mb-4">
-						<Cog className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
+					<div className="inline-flex items-center justify-center rounded-full bg-primary/10 p-2 sm:p-3 mb-2 sm:mb-4">
+						<Cog className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
 					</div>
-					<h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+					<h1 className="text-2xl sm:text-3xl font-bold text-foreground">
 						System Settings
 					</h1>
-					<p className="text-xs sm:text-sm text-gray-600 max-w-3xl mx-auto">
+					<p className="text-xs sm:text-sm text-muted-foreground max-w-3xl mx-auto">
 						Configure access controls, permissions, user management, and system
 						behavior for your e-Portal.
 					</p>
@@ -491,8 +487,8 @@ export default function Settings() {
 							onChange={() => toggleStudentSetting('yearlyReportAccess')}
 						/>
 
-						<div className="pt-3 sm:pt-4 border-t border-gray-200 space-y-3">
-							<h4 className="font-medium text-gray-900 text-sm sm:text-base">
+						<div className="pt-3 sm:pt-4 border-t border-border space-y-3">
+							<h4 className="font-medium text-foreground text-sm sm:text-base">
 								Periodic Report Access
 							</h4>
 							<MultiSelect
@@ -508,8 +504,8 @@ export default function Settings() {
 							/>
 						</div>
 
-						<div className="pt-3 sm:pt-4 border-t border-gray-200 space-y-3">
-							<h4 className="font-medium text-gray-900 text-sm sm:text-base">
+						<div className="pt-3 sm:pt-4 border-t border-border space-y-3">
+							<h4 className="font-medium text-foreground text-sm sm:text-base">
 								Bulk Student Management
 							</h4>
 							<BulkActionItem
@@ -541,8 +537,8 @@ export default function Settings() {
 							onChange={() => toggleTeacherSetting('loginAccess')}
 						/>
 
-						<div className="pt-3 sm:pt-4 border-t border-gray-200 space-y-3">
-							<h4 className="font-medium text-gray-900 text-sm sm:text-base">
+						<div className="pt-3 sm:pt-4 border-t border-border space-y-3">
+							<h4 className="font-medium text-foreground text-sm sm:text-base">
 								Grade Submission Windows
 							</h4>
 							<div className="space-y-3">
@@ -571,8 +567,8 @@ export default function Settings() {
 							</div>
 						</div>
 
-						<div className="pt-3 sm:pt-4 border-t border-gray-200 space-y-3">
-							<h4 className="font-medium text-gray-900 text-sm sm:text-base">
+						<div className="pt-3 sm:pt-4 border-t border-border space-y-3">
+							<h4 className="font-medium text-foreground text-sm sm:text-base">
 								Permissions
 							</h4>
 							<div className="space-y-3">
@@ -601,8 +597,8 @@ export default function Settings() {
 							</div>
 						</div>
 
-						<div className="pt-3 sm:pt-4 border-t border-gray-200 space-y-3">
-							<h4 className="font-medium text-gray-900 text-sm sm:text-base">
+						<div className="pt-3 sm:pt-4 border-t border-border space-y-3">
+							<h4 className="font-medium text-foreground text-sm sm:text-base">
 								Grade Change Request Windows
 							</h4>
 							<div className="space-y-3">
@@ -631,8 +627,8 @@ export default function Settings() {
 							</div>
 						</div>
 
-						<div className="pt-3 sm:pt-4 border-t border-gray-200 space-y-3">
-							<h4 className="font-medium text-gray-900 text-sm sm:text-base">
+						<div className="pt-3 sm:pt-4 border-t border-border space-y-3">
+							<h4 className="font-medium text-foreground text-sm sm:text-base">
 								Bulk Teacher Management
 							</h4>
 							<BulkActionItem
@@ -664,8 +660,8 @@ export default function Settings() {
 							onChange={() => toggleAdministratorSetting('loginAccess')}
 						/>
 
-						<div className="pt-3 sm:pt-4 border-t border-gray-200 space-y-3">
-							<h4 className="font-medium text-gray-900 text-sm sm:text-base">
+						<div className="pt-3 sm:pt-4 border-t border-border space-y-3">
+							<h4 className="font-medium text-foreground text-sm sm:text-base">
 								Bulk Administrator Management
 							</h4>
 							<BulkActionItem
@@ -686,20 +682,20 @@ export default function Settings() {
 				</div>
 
 				{/* Save Button - Fixed on mobile */}
-				<div className="sticky bottom-0 left-0 right-0 bg-gray-50 pt-4 pb-6 sm:pb-8 sm:static">
+				<div className="sticky bottom-0 left-0 right-0 bg-background pt-4 pb-6 sm:pb-8 sm:static">
 					<div className="flex justify-center px-3">
 						<button
 							onClick={handleSaveSettings}
 							disabled={isSaving}
-							className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg px-6 sm:px-8 py-3 text-sm font-medium shadow-lg sm:shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+							className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg px-6 sm:px-8 py-3 text-sm font-medium shadow-lg sm:shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
 								isSaving
-									? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-									: 'bg-blue-600 text-white hover:bg-blue-700'
+									? 'bg-muted text-muted-foreground cursor-not-allowed'
+									: 'bg-primary text-primary-foreground hover:bg-primary/90'
 							}`}
 						>
 							{isSaving ? (
 								<>
-									<div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent"></div>
+									<div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent"></div>
 									Saving...
 								</>
 							) : (
