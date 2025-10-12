@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
 	Shield,
 	Users,
@@ -17,51 +17,23 @@ import {
 	ChevronDown,
 	X,
 	Loader2,
-	XCircle,
+	XCircle, // Import XCircle for error icon
 } from 'lucide-react';
-
-// NOTE: useSchoolStore is assumed to be defined externally, as in the original file.
-// const useSchoolStore = (selector) => ({ school: { settings: {} } });
-// Assuming a placeholder store structure for a runnable example:
-const useSchoolStore = (selector) =>
-	selector({
-		school: {
-			settings: {
-				studentSettings: {
-					loginAccess: true,
-					yearlyReportAccess: false,
-					reportAccessPeriods: [],
-				},
-				teacherSettings: {
-					loginAccess: true,
-					gradeSubmissionPeriods: [],
-					gradeSubmissionAcademicYears: ['2025-2026'],
-					viewMastersAcademicYears: ['2025-2026'],
-					viewGradeSubmissionsAcademicYears: ['2025-2026'],
-					gradeChangeRequestAcademicYears: ['2025-2026'],
-					gradeChangeRequestPeriods: [],
-				},
-				administratorSettings: {
-					loginAccess: true,
-				},
-			},
-		},
-	});
+import { useSchoolStore } from '@/store/schoolStore';
 
 // --- Reusable Feedback Toast Component ---
 const FeedbackToast = ({ type, message, onClose }) => {
 	useEffect(() => {
 		const timer = setTimeout(() => {
 			onClose();
-		}, 5000);
+		}, 5000); // Auto-dismiss after 5 seconds
 
 		return () => clearTimeout(timer);
 	}, [onClose]);
 
 	const isSuccess = type === 'success';
-	// Adjusted for better mobile positioning: fixed top-4 inset-x-4
 	const baseClasses =
-		'flex items-start gap-4 p-4 rounded-xl shadow-xl border w-full max-w-sm mx-auto';
+		'flex items-start gap-4 p-4 rounded-lg shadow-lg border w-full max-w-sm';
 	const colorClasses = isSuccess
 		? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-green-800 dark:text-green-200'
 		: 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700 text-red-800 dark:text-red-200';
@@ -69,7 +41,7 @@ const FeedbackToast = ({ type, message, onClose }) => {
 	const iconColor = isSuccess ? 'text-green-500' : 'text-red-500';
 
 	return (
-		<div className="fixed top-4 sm:top-6 right-4 sm:right-6 z-[100] animate-in slide-in-from-top-5 fade-in-0 duration-300">
+		<div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-5 fade-in-0 duration-300">
 			<div className={`${baseClasses} ${colorClasses}`}>
 				<Icon className={`h-6 w-6 flex-shrink-0 ${iconColor}`} />
 				<div className="flex-1">
@@ -91,7 +63,7 @@ const FeedbackToast = ({ type, message, onClose }) => {
 const getCurrentAcademicYear = () => {
 	const now = new Date();
 	const year = now.getFullYear();
-	const month = now.getMonth() + 1;
+	const month = now.getMonth() + 1; // getMonth() is 0-indexed
 	// Assuming academic year starts in August
 	if (month >= 8) {
 		return `${year}-${year + 1}`;
@@ -99,22 +71,21 @@ const getCurrentAcademicYear = () => {
 	return `${year - 1}-${year}`;
 };
 
-// Map for periods with user-friendly labels
+// MODIFICATION: Create a map for periods with user-friendly labels
 const academicPeriodsMap = [
 	{ value: 'first', label: 'First Period' },
 	{ value: 'second', label: 'Second Period' },
 	{ value: 'third', label: 'Third Period' },
+	{ value: 'third_period_exam', label: 'Third Period Exam' },
 	{ value: 'fourth', label: 'Fourth Period' },
 	{ value: 'fifth', label: 'Fifth Period' },
 	{ value: 'sixth', label: 'Sixth Period' },
-	{ value: 'third_period_exam', label: 'Third Period Exam' },
 	{ value: 'sixth_period_exam', label: 'Sixth Period Exam' },
 ];
 
-// MultiSelect Component - Enhanced for responsiveness and UX
+// MODIFICATION: Update MultiSelect to handle an array of objects
 const MultiSelect = ({ options, selected, onChange, label }) => {
 	const [isOpen, setIsOpen] = useState(false);
-	const [searchTerm, setSearchTerm] = useState('');
 
 	const handleDeselect = (optionValue) => {
 		onChange(selected.filter((item) => item !== optionValue));
@@ -126,106 +97,71 @@ const MultiSelect = ({ options, selected, onChange, label }) => {
 		}
 	};
 
-	const filteredOptions = options
-		.filter((o) => !selected.includes(o.value))
-		.filter((o) => o.label.toLowerCase().includes(searchTerm.toLowerCase()));
-
 	return (
-		<div className="relative w-full">
+		<div className="relative">
 			<label className="block text-sm font-medium text-foreground mb-1">
 				{label}
 			</label>
-			<div
-				className="w-full rounded-xl border border-border bg-card shadow-sm text-left text-foreground focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all duration-150"
-				onClick={() => setIsOpen(true)}
-			>
-				<div className="flex flex-wrap gap-2 p-2 items-center min-h-[44px]">
+			<div className="w-full rounded-lg border border-border bg-background p-2 text-left text-foreground focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+				<div className="flex flex-wrap gap-2 items-center">
 					{selected.map((itemValue) => {
 						const itemLabel =
 							options.find((o) => o.value === itemValue)?.label || itemValue;
 						return (
 							<div
 								key={itemValue}
-								className="flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium px-3 py-1 rounded-full whitespace-nowrap"
+								className="flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded-full"
 							>
 								{itemLabel}
 								<button
 									type="button"
-									onClick={(e) => {
-										e.stopPropagation(); // Prevent opening the dropdown
-										handleDeselect(itemValue);
-									}}
-									className="ml-1 p-0.5 rounded-full text-primary/70 hover:text-primary hover:bg-primary/20 transition-colors"
-									aria-label={`Deselect ${itemLabel}`}
+									onClick={() => handleDeselect(itemValue)}
+									className="ml-1 text-primary/70 hover:text-primary"
 								>
 									<X className="h-3 w-3" />
 								</button>
 							</div>
 						);
 					})}
-					{selected.length === 0 && (
-						<span className="text-sm text-muted-foreground ml-1">
-							Select periods...
-						</span>
-					)}
-					<button
-						type="button"
-						onClick={() => setIsOpen(!isOpen)}
-						className="ml-auto p-1 rounded-full text-muted-foreground hover:bg-muted"
-						aria-expanded={isOpen}
-						aria-label="Toggle select dropdown"
-					>
-						<ChevronDown
-							className={`h-5 w-5 transition-transform duration-200 ${
-								isOpen ? 'rotate-180' : 'rotate-0'
-							}`}
-						/>
-					</button>
+					<div className="relative flex-1" style={{ minWidth: '100px' }}>
+						<button
+							type="button"
+							onClick={() => setIsOpen(!isOpen)}
+							className="w-full text-left bg-transparent focus:outline-none flex justify-between items-center"
+						>
+							<span className="text-muted-foreground">
+								{selected.length === 0 ? 'Select...' : 'Add...'}
+							</span>
+							<ChevronDown className="h-5 w-5 text-muted-foreground" />
+						</button>
+						{isOpen && (
+							<div
+								className="absolute z-10 mt-1 w-full rounded-md bg-card shadow-lg border border-border"
+								onMouseLeave={() => setIsOpen(false)}
+							>
+								<ul className="max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
+									{options
+										.filter((o) => !selected.includes(o.value))
+										.map((option) => (
+											<li
+												key={option.value}
+												onClick={() => {
+													handleSelect(option.value);
+													setIsOpen(false);
+												}}
+												className="text-foreground cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-muted"
+											>
+												<span className="font-normal block truncate">
+													{option.label}
+												</span>
+											</li>
+										))}
+								</ul>
+							</div>
+						)}
+					</div>
 				</div>
 			</div>
-			{isOpen && (
-				<div
-					className="absolute z-20 mt-1 w-full rounded-xl bg-card shadow-2xl border border-border animate-in fade-in-0 slide-in-from-top-1"
-					onMouseLeave={() => setIsOpen(false)}
-					onBlur={() => setIsOpen(false)}
-					tabIndex={-1}
-				>
-					<div className="p-2 border-b border-border">
-						<input
-							type="text"
-							placeholder="Search periods..."
-							value={searchTerm}
-							onChange={(e) => setSearchTerm(e.target.value)}
-							className="w-full p-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-						/>
-					</div>
-					<ul className="max-h-60 rounded-b-xl py-1 text-base overflow-y-auto focus:outline-none text-sm">
-						{filteredOptions.length > 0 ? (
-							filteredOptions.map((option) => (
-								<li
-									key={option.value}
-									onClick={() => {
-										handleSelect(option.value);
-										setSearchTerm('');
-										// Keeping dropdown open for quick multiple selections, but closing on click-away
-									}}
-									className="text-foreground cursor-pointer select-none relative py-2 px-4 hover:bg-muted transition-colors"
-								>
-									<span className="font-medium block truncate">
-										{option.label}
-									</span>
-								</li>
-							))
-						) : (
-							<li className="text-muted-foreground px-4 py-2">
-								{searchTerm
-									? 'No matching periods found.'
-									: 'All periods selected.'}
-							</li>
-						)}
-					</ul>
-				</div>
-			)}
 		</div>
 	);
 };
@@ -239,7 +175,7 @@ const ToggleSwitch = ({ checked, onChange, disabled = false }) => {
 			disabled={disabled}
 			className={`
         relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2
-        ${checked ? 'bg-primary' : 'bg-muted-foreground/50'}
+        ${checked ? 'bg-primary' : 'bg-muted'}
         ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
       `}
 		>
@@ -254,34 +190,31 @@ const ToggleSwitch = ({ checked, onChange, disabled = false }) => {
 	);
 };
 
-// Settings Section Component - Added responsive gap and padding
+// Settings Section Component
 const SettingsSection = ({ icon: Icon, title, description, children }) => {
 	return (
-		<div className="group rounded-xl border border-border bg-card p-4 sm:p-6 shadow-md transition-all duration-200 hover:shadow-lg">
-			<div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-				{/* Icon Block */}
-				<div className="rounded-xl bg-primary/10 p-3 flex-shrink-0">
-					<Icon className="h-6 w-6 text-primary" />
+		<div className="group rounded-xl border border-border bg-card p-6 shadow-sm transition-all duration-200 hover:shadow-md">
+			<div className="flex items-start gap-4">
+				<div className="rounded-lg bg-primary/10 p-3">
+					<Icon className="h-5 w-5 text-primary" />
 				</div>
-				{/* Content Block */}
-				<div className="flex-1 space-y-4 w-full">
-					<div className="border-b border-border/50 pb-4 sm:pb-0 sm:border-b-0">
-						<h3 className="text-xl font-bold text-foreground">{title}</h3>
+				<div className="flex-1 space-y-4">
+					<div>
+						<h3 className="text-lg font-semibold text-foreground">{title}</h3>
 						{description && (
 							<p className="text-sm text-muted-foreground mt-1">
 								{description}
 							</p>
 						)}
 					</div>
-					{/* Settings Items container - now uses responsive gap */}
-					<div className="space-y-4 pt-4 sm:pt-0">{children}</div>
+					<div className="space-y-3">{children}</div>
 				</div>
 			</div>
 		</div>
 	);
 };
 
-// Settings Item Component - Clean and responsive
+// Settings Item Component
 const SettingsItem = ({
 	label,
 	description,
@@ -290,29 +223,21 @@ const SettingsItem = ({
 	disabled = false,
 }) => {
 	return (
-		<div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-muted/50 p-4 transition-colors hover:bg-muted">
+		<div className="flex items-center justify-between rounded-lg border border-border bg-muted/50 p-4 transition-colors hover:bg-muted">
 			<div className="flex-1">
-				<div className="font-semibold text-foreground capitalize text-base">
-					{label}
-				</div>
+				<div className="font-medium text-foreground capitalize">{label}</div>
 				{description && (
 					<div className="text-sm text-muted-foreground mt-1">
 						{description}
 					</div>
 				)}
 			</div>
-			<div className="flex-shrink-0 pt-1">
-				<ToggleSwitch
-					checked={checked}
-					onChange={onChange}
-					disabled={disabled}
-				/>
-			</div>
+			<ToggleSwitch checked={checked} onChange={onChange} disabled={disabled} />
 		</div>
 	);
 };
 
-// Bulk Action Item Component - Critically enhanced for mobile stacking
+// Bulk Action Item Component with explicit buttons
 const BulkActionItem = ({
 	label,
 	description,
@@ -323,13 +248,10 @@ const BulkActionItem = ({
 	disabled = false,
 }) => {
 	return (
-		<div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-4 transition-colors hover:bg-primary/10">
+		<div className="rounded-lg border border-border bg-muted/50 p-4 transition-colors hover:bg-muted">
 			<div className="flex flex-col sm:flex-row sm:items-center justify-between">
-				{/* Text Block */}
-				<div className="flex-1 mb-4 sm:mb-0">
-					<div className="font-semibold text-foreground text-base capitalize">
-						{label}
-					</div>
+				<div className="flex-1 mb-3 sm:mb-0">
+					<div className="font-medium text-foreground capitalize">{label}</div>
 					{description && (
 						<div className="text-sm text-muted-foreground mt-1">
 							{description}
@@ -338,10 +260,10 @@ const BulkActionItem = ({
 					{pendingAction && (
 						<div className="mt-2 flex items-center gap-2">
 							<span
-								className={`text-xs font-bold px-3 py-1 rounded-full ${
+								className={`text-xs font-bold px-2 py-1 rounded-md ${
 									pendingAction === 'activate'
-										? 'bg-green-600/20 text-green-800 dark:text-green-300'
-										: 'bg-red-600/20 text-red-800 dark:text-red-300'
+										? 'bg-green-100 text-green-800'
+										: 'bg-red-100 text-red-800'
 								}`}
 							>
 								Pending:{' '}
@@ -349,20 +271,18 @@ const BulkActionItem = ({
 							</span>
 							<button
 								onClick={onClear}
-								className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-white/10"
-								title="Clear Pending Action"
+								className="text-muted-foreground hover:text-foreground"
 							>
-								<X className="h-4 w-4" />
+								<RotateCw className="h-3 w-3" />
 							</button>
 						</div>
 					)}
 				</div>
-				{/* Button Group - Stacks vertically on mobile, horizontal on sm+ */}
-				<div className="flex flex-col space-y-2 w-full sm:w-auto sm:flex-row sm:gap-2 sm:ml-4">
+				<div className="flex gap-2 ml-auto sm:ml-4 flex-shrink-0">
 					<button
 						onClick={onActivate}
 						disabled={disabled || pendingAction === 'activate'}
-						className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed bg-green-600 text-white hover:bg-green-700 focus:ring-green-500"
+						className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed bg-green-600 text-white hover:bg-green-700 focus:ring-green-500"
 					>
 						<UserCheck className="h-4 w-4" />
 						Activate All
@@ -370,7 +290,7 @@ const BulkActionItem = ({
 					<button
 						onClick={onDeactivate}
 						disabled={disabled || pendingAction === 'deactivate'}
-						className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed bg-red-600 text-white hover:bg-red-700 focus:ring-red-500"
+						className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed bg-red-600 text-white hover:bg-red-700 focus:ring-red-500"
 					>
 						<UserX className="h-4 w-4" />
 						Deactivate All
@@ -396,6 +316,7 @@ export default function Settings() {
 	// State for UI feedback
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSaving, setIsSaving] = useState(false);
+	// MODIFICATION: Use an object for feedback to include type and message
 	const [feedback, setFeedback] = useState({ type: '', message: '' });
 
 	useEffect(() => {
@@ -427,39 +348,27 @@ export default function Settings() {
 		}
 	}, [school, currentAcademicYear]);
 
-	// Memoized setting handlers
-	const toggleStudentSetting = useCallback(
-		(setting) =>
-			setStudentSettings((prev) => ({ ...prev, [setting]: !prev[setting] })),
-		[]
-	);
-	const toggleTeacherSetting = useCallback(
-		(setting) =>
-			setTeacherSettings((prev) => ({ ...prev, [setting]: !prev[setting] })),
-		[]
-	);
-	const toggleAdministratorSetting = useCallback(
-		(setting) =>
-			setAdministratorSettings((prev) => ({
-				...prev,
-				[setting]: !prev[setting],
-			})),
-		[]
-	);
-	const handleQueueBulkAction = useCallback(
-		(category, action) =>
-			setPendingBulkActions((prev) => ({ ...prev, [category]: action })),
-		[]
-	);
-	const clearPendingBulkAction = useCallback((category) => {
+	// Setting handlers remain the same
+	const toggleStudentSetting = (setting) =>
+		setStudentSettings((prev) => ({ ...prev, [setting]: !prev[setting] }));
+	const toggleTeacherSetting = (setting) =>
+		setTeacherSettings((prev) => ({ ...prev, [setting]: !prev[setting] }));
+	const toggleAdministratorSetting = (setting) =>
+		setAdministratorSettings((prev) => ({
+			...prev,
+			[setting]: !prev[setting],
+		}));
+	const handleQueueBulkAction = (category, action) =>
+		setPendingBulkActions((prev) => ({ ...prev, [category]: action }));
+	const clearPendingBulkAction = (category) => {
 		setPendingBulkActions((prev) => {
 			const newActions = { ...prev };
 			delete newActions[category];
 			return newActions;
 		});
-	}, []);
+	};
 
-	// Save handler
+	// MODIFICATION: Updated save handler to show toast notifications
 	const handleSaveSettings = async () => {
 		setIsSaving(true);
 		setFeedback({ type: '', message: '' });
@@ -472,11 +381,15 @@ export default function Settings() {
 		};
 
 		try {
-			// Mock API call to simulate saving
-			await new Promise((resolve) => setTimeout(resolve, 1500));
-			const isSuccess = Math.random() > 0.1; // 90% chance of success
+			const response = await fetch('/api/settings', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(allSettings),
+			});
 
-			if (isSuccess) {
+			const result = await response.json();
+
+			if (response.ok && result.success) {
 				setFeedback({
 					type: 'success',
 					message:
@@ -484,13 +397,13 @@ export default function Settings() {
 				});
 				setPendingBulkActions({});
 			} else {
-				throw new Error('Server simulation failed to save settings.');
+				throw new Error(result.message || 'Failed to save settings');
 			}
-		} catch (error) {
+		} catch (error: any) {
 			console.error('Error saving settings:', error);
 			setFeedback({
 				type: 'error',
-				message: error.message || 'An unknown error occurred during saving.',
+				message: error.message || 'An unknown error occurred.',
 			});
 		} finally {
 			setIsSaving(false);
@@ -511,15 +424,15 @@ export default function Settings() {
 		!administratorSettings
 	) {
 		return (
-			<div className="flex flex-col items-center justify-center min-h-screen bg-background p-6">
+			<div className="flex items-center justify-center h-screen bg-background">
 				<Loader2 className="h-12 w-12 animate-spin text-primary" />
-				<p className="mt-4 text-primary font-medium">Loading Settings...</p>
 			</div>
 		);
 	}
 
 	return (
-		<div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
+		<div className="min-h-screen bg-background p-6">
+			{/* MODIFICATION: Render FeedbackToast component when there is a message */}
 			{feedback.message && (
 				<FeedbackToast
 					type={feedback.type}
@@ -527,22 +440,22 @@ export default function Settings() {
 					onClose={() => setFeedback({ type: '', message: '' })}
 				/>
 			)}
-			<div className="mx-auto max-w-5xl space-y-8">
-				{/* Header - Enhanced for mobile typography */}
-				<header className="text-center space-y-2 pb-4">
-					<div className="inline-flex items-center justify-center rounded-full bg-primary/10 p-4 mb-4">
+			<div className="mx-auto max-w-4xl space-y-8">
+				{/* Header */}
+				<div className="text-center space-y-2">
+					<div className="inline-flex items-center justify-center rounded-full bg-primary/10 p-3 mb-4">
 						<Cog className="h-8 w-8 text-primary" />
 					</div>
-					<h1 className="text-3xl sm:text-4xl font-extrabold text-foreground">
+					<h1 className="text-3xl font-bold text-foreground">
 						System Settings
 					</h1>
-					<p className="text-sm sm:text-base text-muted-foreground max-w-3xl mx-auto">
+					<p className="text-muted-foreground max-w-3xl mx-auto">
 						Configure access controls, permissions, user management, and system
 						behavior for your e-Potal.
 					</p>
-				</header>
+				</div>
 
-				{/* Settings Sections Grid - Full width on mobile, better spacing on desktop */}
+				{/* Settings Sections */}
 				<div className="space-y-6">
 					{/* Student Settings */}
 					<SettingsSection
@@ -565,7 +478,7 @@ export default function Settings() {
 
 						{/* Student Report Access Periods */}
 						<div className="mt-4 pt-4 border-t border-border">
-							<h4 className="font-semibold text-lg text-foreground mb-3">
+							<h4 className="font-medium text-foreground mb-3">
 								Periodic Report Access
 							</h4>
 							<MultiSelect
@@ -577,18 +490,18 @@ export default function Settings() {
 										reportAccessPeriods: selectedPeriods,
 									}))
 								}
-								label="Select periods students can view."
+								label="Select periods students can view. Leave empty to disable."
 							/>
 						</div>
 
 						{/* Student Bulk Actions */}
-						<div className="mt-6 pt-4 border-t border-border">
-							<h4 className="font-semibold text-lg text-foreground mb-3">
+						<div className="mt-4 pt-4 border-t border-border">
+							<h4 className="font-medium text-foreground mb-3">
 								Bulk Student Management
 							</h4>
 							<BulkActionItem
 								label="All Students"
-								description="Activate or deactivate all student accounts system-wide. This change is pending until settings are saved."
+								description="Activate or deactivate all student accounts system-wide"
 								onActivate={() =>
 									handleQueueBulkAction('all-students', 'activate')
 								}
@@ -615,7 +528,7 @@ export default function Settings() {
 							onChange={() => toggleTeacherSetting('loginAccess')}
 						/>
 						<div className="mt-4 pt-4 border-t border-border">
-							<h4 className="font-semibold text-lg text-foreground mb-3">
+							<h4 className="font-medium text-foreground mb-3">
 								Grade Submission Windows
 							</h4>
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -644,10 +557,8 @@ export default function Settings() {
 							</div>
 						</div>
 
-						<div className="mt-6 pt-4 border-t border-border space-y-4">
-							<h4 className="font-semibold text-lg text-foreground mb-3">
-								Access Permissions
-							</h4>
+						<div className="mt-4 pt-4 border-t border-border">
+							<h4 className="font-medium text-foreground mb-3">Permissions</h4>
 							<MultiSelect
 								options={academicYearOptions}
 								selected={teacherSettings.viewMastersAcademicYears}
@@ -672,8 +583,8 @@ export default function Settings() {
 							/>
 						</div>
 
-						<div className="mt-6 pt-4 border-t border-border">
-							<h4 className="font-semibold text-lg text-foreground mb-3">
+						<div className="mt-4 pt-4 border-t border-border">
+							<h4 className="font-medium text-foreground mb-3">
 								Grade Change Request Windows
 							</h4>
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -703,13 +614,13 @@ export default function Settings() {
 						</div>
 
 						{/* Teacher Bulk Actions */}
-						<div className="mt-6 pt-4 border-t border-border">
-							<h4 className="font-semibold text-lg text-foreground mb-3">
+						<div className="mt-4 pt-4 border-t border-border">
+							<h4 className="font-medium text-foreground mb-3">
 								Bulk Teacher Management
 							</h4>
 							<BulkActionItem
 								label="All Teachers"
-								description="Activate or deactivate all teacher accounts system-wide. This change is pending until settings are saved."
+								description="Activate or deactivate all teacher accounts system-wide"
 								onActivate={() =>
 									handleQueueBulkAction('all-teachers', 'activate')
 								}
@@ -737,13 +648,13 @@ export default function Settings() {
 						/>
 
 						{/* Administrator Bulk Actions */}
-						<div className="mt-6 pt-4 border-t border-border">
-							<h4 className="font-semibold text-lg text-foreground mb-3">
+						<div className="mt-4 pt-4 border-t border-border">
+							<h4 className="font-medium text-foreground mb-3">
 								Bulk Administrator Management
 							</h4>
 							<BulkActionItem
 								label="All Administrators"
-								description="Activate or deactivate all administrator accounts system-wide. This change is pending until settings are saved."
+								description="Activate or deactivate all administrator accounts system-wide"
 								onActivate={() =>
 									handleQueueBulkAction('all-administrators', 'activate')
 								}
@@ -758,31 +669,29 @@ export default function Settings() {
 					</SettingsSection>
 				</div>
 
-				{/* Save Button - Always visible, sticky footer on mobile? */}
-				<div className="sticky bottom-0 left-0 right-0 p-4 sm:p-6 bg-card/95 backdrop-blur-sm border-t border-border z-10">
-					<div className="flex justify-center mx-auto max-w-lg">
-						<button
-							onClick={handleSaveSettings}
-							disabled={isSaving}
-							className={`w-full inline-flex items-center justify-center gap-2 rounded-xl px-8 py-3 text-lg font-bold shadow-lg transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-primary/50 focus:ring-offset-2 ${
-								isSaving
-									? 'bg-muted-foreground/30 text-white/70 cursor-not-allowed'
-									: 'bg-primary text-white hover:bg-primary/90'
-							}`}
-						>
-							{isSaving ? (
-								<>
-									<Loader2 className="h-5 w-5 animate-spin" />
-									Saving Changes...
-								</>
-							) : (
-								<>
-									<Save className="h-5 w-5" />
-									Save Settings
-								</>
-							)}
-						</button>
-					</div>
+				{/* Save Button */}
+				<div className="flex justify-center pt-8">
+					<button
+						onClick={handleSaveSettings}
+						disabled={isSaving}
+						className={`inline-flex items-center gap-2 rounded-lg px-8 py-3 text-sm font-medium shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+							isSaving
+								? 'bg-muted text-muted-foreground cursor-not-allowed'
+								: 'bg-primary text-primary-foreground hover:bg-primary/90'
+						}`}
+					>
+						{isSaving ? (
+							<>
+								<div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent"></div>
+								Saving...
+							</>
+						) : (
+							<>
+								<Save className="h-4 w-4" />
+								Save Settings
+							</>
+						)}
+					</button>
 				</div>
 			</div>
 		</div>
