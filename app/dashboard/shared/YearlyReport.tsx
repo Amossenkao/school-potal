@@ -660,6 +660,13 @@ function ReportQRCode({ qrDataUrl }: { qrDataUrl: string }) {
 	);
 }
 
+// --- Watermark Style ---
+const watermarkStyle = {
+	position: 'absolute',
+	opacity: 0.1, // Low transparency
+	// Watermark image size and centering will be determined by the parent View
+};
+
 const PDFDocument = React.memo(function PDFDocument({
 	studentsData,
 	className,
@@ -730,6 +737,19 @@ const PDFDocument = React.memo(function PDFDocument({
 						</View>
 						<View style={styles.gradesContainer}>
 							<View style={styles.semester}>
+								{/* WATERMARK 1: First Semester Table */}
+								{school?.logoUrl && (
+									<Image
+										src={school.logoUrl}
+										style={{
+											...watermarkStyle,
+											width: '40%', // Adjust size
+											// height: '50%', // Adjust size
+											top: '25%', // Center vertically
+											left: '35%', // Center horizontally
+										}}
+									/>
+								)}
 								<Text style={styles.semesterHeader}>First Semester</Text>
 								<View style={styles.tableHeader}>
 									<Text style={styles.subjectCell}>Subject</Text>
@@ -829,6 +849,19 @@ const PDFDocument = React.memo(function PDFDocument({
 								</View>
 							</View>
 							<View style={styles.lastSemester}>
+								{/* WATERMARK 2: Second Semester Table */}
+								{school?.logoUrl && (
+									<Image
+										src={school.logoUrl}
+										style={{
+											...watermarkStyle,
+											width: '40%', // Adjust size
+											// height: '50%', // Adjust size
+											top: '25%', // Center vertically
+											left: '25%', // Center horizontally
+										}}
+									/>
+								)}
 								<Text style={styles.semesterHeader}>Second Semester</Text>
 								<View style={styles.tableHeader}>
 									<Text style={styles.tableCell}>4th Period</Text>
@@ -945,7 +978,7 @@ const PDFDocument = React.memo(function PDFDocument({
 								<Text style={styles.promotionText}>
 									Yearly Average below 70 will not be eligible for promotion.
 								</Text>
-								{/* UPDATED SPONSOR SECTION LOGIC */}
+								{/* UPDATED SPONSOR SECTION LOGIC - WATERMARK 3 REMOVED FROM HERE */}
 								<View style={styles.signatureSection}>
 									<Text>Teachers Remark: ____________________________</Text>
 									<View style={{ marginTop: 15, alignItems: 'center' }}>
@@ -973,8 +1006,22 @@ const PDFDocument = React.memo(function PDFDocument({
 									borderWidth: 1,
 									borderColor: '#000',
 									padding: 10,
+									position: 'relative', // Set relative positioning to contain watermark
 								}}
 							>
+								{/* WATERMARK 3: Corrected position on Page 2 (Left Column) */}
+								{(school?.logoUrl2 || school?.logoUrl) && (
+									<Image
+										src={school?.logoUrl2 || school?.logoUrl}
+										style={{
+											...watermarkStyle,
+											width: '45%', // Adjust size
+											// height: '30%', // Adjust size
+											top: '40%', // Positioned near the Date/Principal area, above QR
+											left: '25%', // Center horizontally
+										}}
+									/>
+								)}
 								<Text style={styles.parentsSectionTitle}>
 									TO OUR PARENTS & GUARDIANS
 								</Text>
