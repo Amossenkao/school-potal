@@ -619,7 +619,7 @@ const FilterContent = React.memo(function FilterContent({
 							htmlFor="sponsor-name"
 							className="block text-sm font-medium mb-1"
 						>
-							Class Sponsor Name (Optional Override)
+							Class Sponsor Name (Optional)
 						</label>
 						<input
 							id="sponsor-name"
