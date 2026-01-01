@@ -128,7 +128,7 @@ async function handleLogin(user: any, password: string, host: string) {
 
 	if (!user.isActive) {
 		return NextResponse.json(
-			{ message: 'Account is deactivated. Please contact administrator.' },
+			{ message: 'Account is deactivated. Please contact your admin.' },
 			{ status: 403 }
 		);
 	}

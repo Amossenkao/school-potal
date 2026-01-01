@@ -77,7 +77,7 @@ function buildUserResponse(user: any) {
 				guardian: user.guardian,
 				financialProfile: user.financialProfile || {
 					outstandingBalances: [],
-					paymentReceipts: [],
+					paymentRecords: [],
 				},
 			};
 		case 'teacher':

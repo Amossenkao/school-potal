@@ -7,7 +7,7 @@ export interface ClassSchedule {
 	subject: string;
 }
 
-export interface PaymentReceipt {
+export interface PaymentRecords {
 	id: string;
 	receiptNumber: string;
 	paidBy: string;
@@ -26,7 +26,7 @@ export interface StudentFinancialProfile {
 		requiredAmount: number;
 		remainingBalance: number;
 	}[];
-	paymentReceipts: PaymentReceipt[];
+	paymentRecords: PaymentRecords[];
 }
 
 export interface Class {
