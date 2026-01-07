@@ -199,7 +199,7 @@ const ClearanceCard = ({
 					{isAnonymous ? (
 						<View style={s.nameLineShort} />
 					) : (
-						<Text style={s.boldValue}>{studentName.toUpperCase()}</Text>
+						<Text style={s.boldValue}>{studentName}</Text>
 					)}
 				</View>
 				<View style={s.infoRow}>
@@ -215,7 +215,9 @@ const ClearanceCard = ({
 					<Text>
 						This is to certify that{' '}
 						{isAnonymous ? (
-							<View style={s.bodyNameLine} />
+							<View style={s.nameLineShort}>
+								<Text>___________________________</Text>
+							</View>
 						) : (
 							<Text style={s.bold}>{studentName}</Text>
 						)}{' '}

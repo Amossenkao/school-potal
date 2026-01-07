@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { getSession } from '@/utils/session';
 import { UserRole } from './types';
 
-export default function middleware() {}
+export default function proxy() {}
 
 export interface AuthenticatedUser {
 	id: string;
