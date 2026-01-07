@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
 	Document,
 	Page,
@@ -7,7 +7,7 @@ import {
 	Text,
 	View,
 	StyleSheet,
-	Image, // Added Image import
+	Image,
 } from '@react-pdf/renderer';
 
 // --- EDITABLE APP DATA ---
@@ -24,16 +24,6 @@ const CONFIG_DATA = {
 		'https://res.cloudinary.com/dcalueltd/image/upload/v1753368059/school-management-system/uca/logo.png',
 	logoUrl2:
 		'https://res.cloudinary.com/dcalueltd/image/upload/v1753484515/school-management-system/uca/uca_logo2_kqlgdl.png',
-};
-
-const studentDatabase = {
-	Elementary: {
-		'Grade 1': ['Paul Johnson', 'James Kojo', 'Sarah Williams', 'Blessing Doe'],
-		'Grade 2': ['Mary Brown', 'David Wilson', 'Prince Carter', 'Kojo Mensah'],
-	},
-	'Junior High': {
-		'Grade 7': ['Amara Diallo', 'Kofi Annan', 'Samuel Lofa', 'Janet Sackie'],
-	},
 };
 
 const createStyles = (theme) =>
@@ -69,7 +59,6 @@ const createStyles = (theme) =>
 			marginBottom: 8,
 		},
 		logoImage: {
-			// Updated style name for clarity
 			width: 40,
 			height: 40,
 			objectFit: 'contain',
@@ -101,8 +90,6 @@ const createStyles = (theme) =>
 			alignItems: 'flex-end',
 		},
 		label: { fontWeight: 'bold', width: 50, color: theme.theme },
-
-		// Handwriting Lines
 		nameLineShort: {
 			flex: 1,
 			borderBottomWidth: 1,
@@ -124,7 +111,6 @@ const createStyles = (theme) =>
 			height: 12,
 			marginBottom: -2,
 		},
-
 		boldValue: { fontWeight: 'bold', color: '#000', marginLeft: 5 },
 		clearanceText: {
 			fontSize: 14,
@@ -170,7 +156,6 @@ const ClearanceCard = ({
 		<View style={s.card}>
 			<View style={s.innerBorder}>
 				<View style={s.letterhead}>
-					{/* Logo added here */}
 					<Image style={s.logoImage} src={CONFIG_DATA.logoUrl2} />
 					<View style={s.schoolInfo}>
 						<Text style={s.schoolName}>Upstairs Christian Academy</Text>
@@ -185,7 +170,6 @@ const ClearanceCard = ({
 							</Text>
 						))}
 					</View>
-					{/* Symmetrical Logo added here */}
 					<Image style={s.logoImage} src={CONFIG_DATA.logoUrl} />
 				</View>
 				<View style={s.titleBar}>
@@ -215,8 +199,8 @@ const ClearanceCard = ({
 					<Text>
 						This is to certify that{' '}
 						{isAnonymous ? (
-							<View style={s.nameLineShort}>
-								<Text>___________________________</Text>
+							<View style={s.bodyNameLine}>
+								<Text>______________________</Text>
 							</View>
 						) : (
 							<Text style={s.bold}>{studentName}</Text>
@@ -290,6 +274,8 @@ const ClearanceDocument = ({
 };
 
 export default function TestClearanceGenerator() {
+	const [studentDatabase, setStudentDatabase] = useState({});
+	const [loading, setLoading] = useState(true);
 	const [showPreview, setShowPreview] = useState(false);
 	const [isAnonymous, setIsAnonymous] = useState(false);
 	const [division, setDivision] = useState('');
@@ -301,20 +287,83 @@ export default function TestClearanceGenerator() {
 	const [selectedDbStudents, setSelectedDbStudents] = useState([]);
 	const [manualStudents, setManualStudents] = useState('');
 
+	// --- CSV PARSING LOGIC ---
+	useEffect(() => {
+		const loadCSV = async () => {
+			try {
+				const response = await fetch('/students.csv');
+				const text = await response.text();
+
+				const rows = text.split(/\r?\n/).map((row) => {
+					return row
+						.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+						.map((cell) => cell.trim().replace(/^"|"$/g, ''));
+				});
+
+				const headers = rows[0];
+				const data = {};
+
+				headers.forEach((header, index) => {
+					if (!header) return;
+
+					let div = 'Senior High';
+					if (header.match(/Grade [4-6]/)) div = 'Elementary';
+					else if (header.match(/Grade [7-9]/)) div = 'Junior High';
+					else if (
+						['K-II', 'K-I', 'Nursery', 'Daycare'].includes(header) ||
+						header.match(/Grade [1-3]$/)
+					)
+						div = 'Self-Contained';
+
+					if (!data[div]) data[div] = {};
+					data[div][header] = [];
+
+					for (let i = 1; i < rows.length; i++) {
+						const name = rows[i][index];
+						if (name && name !== 'Name' && name !== '') {
+							data[div][header].push(name);
+						}
+					}
+
+					// SORT names alphabetically in the selection database
+					data[div][header].sort((a, b) => a.localeCompare(b));
+				});
+
+				setStudentDatabase(data);
+				setLoading(false);
+			} catch (error) {
+				console.error('Error loading student CSV:', error);
+				setLoading(false);
+			}
+		};
+
+		loadCSV();
+	}, []);
+
 	const currentTheme = useMemo(
 		() => CONFIG_DATA.sheetColors.find((c) => c.name === sheetColorName),
 		[sheetColorName]
 	);
-	const finalStudentList = useMemo(
-		() => [
+
+	const finalStudentList = useMemo(() => {
+		const combined = [
 			...selectedDbStudents,
 			...manualStudents
 				.split(',')
 				.map((n) => n.trim())
 				.filter((n) => n !== ''),
-		],
-		[selectedDbStudents, manualStudents]
-	);
+		];
+		// SORT names alphabetically before generating PDF
+		return combined.sort((a, b) => a.localeCompare(b));
+	}, [selectedDbStudents, manualStudents]);
+
+	if (loading) {
+		return (
+			<div className="h-screen flex items-center justify-center font-black text-blue-900">
+				LOADING STUDENT DATABASE...
+			</div>
+		);
+	}
 
 	if (showPreview) {
 		return (
@@ -360,7 +409,6 @@ export default function TestClearanceGenerator() {
 					CLEARANCE PORTAL
 				</h1>
 
-				{/* MODE SWITCH */}
 				<div className="mt-6 flex items-center gap-4 bg-slate-50 p-2 px-6 rounded-2xl border-2 border-slate-100 shadow-sm">
 					<span
 						className={`text-xs font-black transition-colors ${
@@ -425,7 +473,6 @@ export default function TestClearanceGenerator() {
 					</div>
 				</div>
 
-				{/* Division Selection - Always visible now */}
 				<div className="bg-slate-50 p-4 rounded-2xl border-2 border-slate-100">
 					<label className="text-[10px] font-black text-slate-400 uppercase mb-2 block tracking-widest">
 						Division
@@ -483,10 +530,9 @@ export default function TestClearanceGenerator() {
 				</div>
 			</div>
 
-			{/* STUDENT DATA SECTION - HIDDEN IN ANONYMOUS MODE */}
 			{!isAnonymous && (
 				<div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-					{division && (
+					{division && studentDatabase[division] && (
 						<div className="mb-8 flex gap-3 flex-wrap bg-slate-50 p-4 rounded-3xl border-2 border-slate-100">
 							{Object.keys(studentDatabase[division]).map((g) => (
 								<button
@@ -507,7 +553,7 @@ export default function TestClearanceGenerator() {
 						</div>
 					)}
 
-					{grade && (
+					{grade && studentDatabase[division]?.[grade] && (
 						<div className="mb-8 p-6 bg-slate-50 rounded-3xl border-2 border-slate-100 shadow-inner">
 							<div className="flex flex-col md:flex-row justify-between mb-6 gap-4">
 								<input
@@ -543,9 +589,9 @@ export default function TestClearanceGenerator() {
 									.filter((n) =>
 										n.toLowerCase().includes(searchTerm.toLowerCase())
 									)
-									.map((name) => (
+									.map((name, idx) => (
 										<label
-											key={name}
+											key={`${name}-${idx}`}
 											className={`flex items-center p-3 rounded-2xl border-2 cursor-pointer transition-all ${
 												selectedDbStudents.includes(name)
 													? 'bg-blue-600 border-blue-600 text-white shadow-md'
@@ -587,7 +633,6 @@ export default function TestClearanceGenerator() {
 				</div>
 			)}
 
-			{/* ACTION BUTTON */}
 			<button
 				onClick={() => setShowPreview(true)}
 				disabled={!isAnonymous && (!grade || finalStudentList.length === 0)}
