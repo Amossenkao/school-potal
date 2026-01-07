@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { getTenantModels } from '@/models';
-import { authorizeUser } from '@/middleware';
+import { authorizeUser } from '@/proxy';
 import { getSchoolProfile } from '@/lib/mongoose';
 import {
 	getSession,

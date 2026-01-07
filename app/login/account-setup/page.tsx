@@ -17,7 +17,7 @@ import {
 import { useRouter } from 'next/navigation';
 import useAuth from '@/store/useAuth';
 import { PageLoading } from '@/components/loading';
-import AvatarPicker from '@/app/avatars/page';
+import AvatarPicker from '@/components/avatarPicker';
 import { Button } from '@/components/ui/button';
 
 export default function AccountSetupPage() {

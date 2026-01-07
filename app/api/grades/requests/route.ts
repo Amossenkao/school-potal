@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantModels } from '@/models';
-import { authorizeUser } from '@/middleware';
+import { authorizeUser } from '@/proxy';
 import {
 	updateAllUserSessions,
 	updateUserSessionNotifications,
