@@ -339,14 +339,29 @@ export default function TestClearanceGenerator() {
 				headers.forEach((header, index) => {
 					if (!header) return;
 
-					let div = 'Senior High';
-					if (header.match(/Grade [4-6]/)) div = 'Elementary';
-					else if (header.match(/Grade [7-9]/)) div = 'Junior High';
+					let div = 'Grade 12';
+					if (header.includes('Grade 12')) {
+						div = 'Grade 12';
+					}
+					// 2. Check for 10 and 11 (Senior High)
+					else if (header.match(/Grade (10|11)/)) {
+						div = 'Senior High';
+					}
+					// 3. Junior High (7, 8, or 9)
+					else if (header.match(/Grade [7-9]/)) {
+						div = 'Junior High';
+					}
+					// 4. Elementary (4, 5, or 6)
+					else if (header.match(/Grade [4-6]/)) {
+						div = 'Elementary';
+					}
+					// 5. Self-Contained (1-3 or specific names)
 					else if (
 						['K-II', 'K-I', 'Nursery', 'Daycare'].includes(header) ||
 						header.match(/Grade [1-3]$/)
-					)
+					) {
 						div = 'Self-Contained';
+					}
 
 					if (!data[div]) data[div] = {};
 					data[div][header] = [];
