@@ -29,81 +29,113 @@ const CONFIG_DATA = {
 const createStyles = (theme) =>
 	StyleSheet.create({
 		page: { padding: 20, backgroundColor: '#ffffff' },
-		gridContainer: {
-			flexDirection: 'row',
-			flexWrap: 'wrap',
-			justifyContent: 'space-between',
-			alignContent: 'space-between',
-			height: '100%',
-		},
 		card: {
 			width: '48.5%',
 			height: '48.5%',
-			borderWidth: 2,
+			borderWidth: 3,
 			borderColor: theme.theme,
-			padding: 2,
+			borderRadius: 12,
+			padding: 4,
+			position: 'relative',
+			overflow: 'hidden',
 		},
 		innerBorder: {
 			flex: 1,
 			borderWidth: 1,
 			borderColor: theme.theme,
-			padding: 12,
+			borderRadius: 8,
+			padding: 15,
+			backgroundColor: 'rgba(255, 255, 255, 0.9)',
+			display: 'flex',
+			flexDirection: 'column',
+		},
+		watermarkContainer: {
+			position: 'absolute',
+			top: '20%',
+			left: '20%',
+			width: '60%',
+			height: '60%',
+			opacity: 0.07,
+			zIndex: -1,
+		},
+		watermarkImage: {
+			width: '100%',
+			height: '100%',
+			objectFit: 'contain',
 		},
 		letterhead: {
 			flexDirection: 'row',
 			alignItems: 'center',
 			justifyContent: 'space-between',
-			borderBottomWidth: 2,
+			borderBottomWidth: 1.5,
 			borderBottomColor: theme.theme,
-			paddingBottom: 5,
-			marginBottom: 8,
+			paddingBottom: 8,
+			marginBottom: 10,
 		},
 		logoImage: {
-			width: 40,
-			height: 40,
+			width: 45,
+			height: 45,
 			objectFit: 'contain',
 		},
 		schoolInfo: { flex: 1, textAlign: 'center' },
 		schoolName: {
-			fontSize: 13,
-			fontWeight: 'bold',
+			fontSize: 14,
+			fontWeight: 'extrabold',
 			color: theme.theme,
 			textTransform: 'uppercase',
+			letterSpacing: 1,
 		},
-		schoolAddress: { fontSize: 7, color: theme.text },
+		schoolAddress: { fontSize: 6.5, color: theme.text, marginTop: 1 },
 		titleBar: {
 			backgroundColor: theme.theme,
-			paddingVertical: 4,
-			marginBottom: 10,
+			paddingVertical: 5,
+			borderRadius: 4,
+			marginBottom: 12,
 		},
 		titleText: {
-			fontSize: 11,
+			fontSize: 10,
 			color: '#ffffff',
 			textAlign: 'center',
 			fontWeight: 'bold',
 			textTransform: 'uppercase',
+			letterSpacing: 1.5,
+		},
+		detailsSection: {
+			marginBottom: 8,
 		},
 		infoRow: {
-			fontSize: 12,
+			fontSize: 11,
 			flexDirection: 'row',
-			marginBottom: 5,
+			marginBottom: 6,
 			alignItems: 'flex-end',
 		},
-		label: { fontWeight: 'bold', width: 50, color: theme.theme },
-		nameLineShort: {
+		label: {
+			fontWeight: 'bold',
+			width: 60,
+			color: theme.theme,
+			fontSize: 10,
+			textTransform: 'uppercase',
+		},
+		valueUnderline: {
 			flex: 1,
 			borderBottomWidth: 1,
-			borderBottomColor: theme.theme,
+			borderBottomColor: '#ccc',
 			marginLeft: 5,
-			height: 12,
+			minHeight: 14,
+			paddingLeft: 5,
 		},
-		classLineShort: {
-			width: 60,
-			borderBottomWidth: 1,
-			borderBottomColor: theme.theme,
-			marginLeft: 5,
-			height: 12,
+		boldValue: {
+			fontWeight: 'bold',
+			color: '#000',
+			fontSize: 12,
 		},
+		clearanceText: {
+			fontSize: 13, // Slightly reduced to prevent overlap
+			lineHeight: 1.5, // Tighter line height
+			marginTop: 8,
+			color: theme.text,
+		},
+		bold: { fontWeight: 'bold', color: '#000' },
 		bodyNameLine: {
 			width: 180,
 			borderBottomWidth: 1,
@@ -111,19 +143,17 @@ const createStyles = (theme) =>
 			height: 12,
 			marginBottom: -2,
 		},
-		boldValue: { fontWeight: 'bold', color: '#000', marginLeft: 5 },
-		clearanceText: {
-			fontSize: 14,
-			lineHeight: 1.8,
-			marginTop: 10,
-			color: theme.text,
+		footer: {
+			marginTop: 'auto',
+			paddingTop: 10,
+			alignItems: 'center',
+			width: '100%',
 		},
-		bold: { fontWeight: 'bold', color: '#000' },
-		footer: { marginTop: 'auto', alignItems: 'center', width: '100%' },
 		signatureRow: {
 			flexDirection: 'row',
 			alignItems: 'flex-end',
 			width: '80%',
+			marginTop: 20,
 		},
 		signedLabel: {
 			fontSize: 11,
@@ -155,6 +185,10 @@ const ClearanceCard = ({
 	return (
 		<View style={s.card}>
 			<View style={s.innerBorder}>
+				<View style={s.watermarkContainer}>
+					<Image style={s.watermarkImage} src={CONFIG_DATA.logoUrl} />
+				</View>
+
 				<View style={s.letterhead}>
 					<Image style={s.logoImage} src={CONFIG_DATA.logoUrl2} />
 					<View style={s.schoolInfo}>
@@ -163,7 +197,6 @@ const ClearanceCard = ({
 							'Unity Town, Pipeline Road Lower Johnsonville',
 							'PO Box 2553 Montserrado County, Liberia',
 							'Cell#: 0886851802/0770851802/0886022009',
-							'Email: ucacademy2011@gmail.com',
 						].map((line, idx) => (
 							<Text key={idx} style={s.schoolAddress}>
 								{line}
@@ -172,27 +205,26 @@ const ClearanceCard = ({
 					</View>
 					<Image style={s.logoImage} src={CONFIG_DATA.logoUrl} />
 				</View>
+
 				<View style={s.titleBar}>
 					<Text style={s.titleText}>
-						{division} {period} Period Test Clearance
+						{division} • {period} Period Test Clearance
 					</Text>
 				</View>
 
-				<View style={s.infoRow}>
-					<Text style={s.label}>NAME:</Text>
-					{isAnonymous ? (
-						<View style={s.nameLineShort} />
-					) : (
-						<Text style={s.boldValue}>{studentName}</Text>
-					)}
-				</View>
-				<View style={s.infoRow}>
-					<Text style={s.label}>CLASS:</Text>
-					{isAnonymous ? (
-						<View style={s.classLineShort} />
-					) : (
-						<Text style={s.boldValue}>{grade}</Text>
-					)}
+				<View style={s.detailsSection}>
+					<View style={s.infoRow}>
+						<Text style={s.label}>Student:</Text>
+						<View style={s.valueUnderline}>
+							{!isAnonymous && <Text style={s.boldValue}>{studentName}</Text>}
+						</View>
+					</View>
+					<View style={s.infoRow}>
+						<Text style={s.label}>Class:</Text>
+						<View style={s.valueUnderline}>
+							{!isAnonymous && <Text style={s.boldValue}>{grade}</Text>}
+						</View>
+					</View>
 				</View>
 
 				<View style={s.clearanceText}>
@@ -205,9 +237,10 @@ const ClearanceCard = ({
 						) : (
 							<Text style={s.bold}>{studentName}</Text>
 						)}{' '}
-						is cleared with the <Text style={s.bold}>{installment}</Text>{' '}
-						installment with zero balance and is cleared to write the{' '}
-						{period.toLowerCase()} period test.
+						is cleared with the{' '}
+						<Text style={s.bold}>{installment} installment</Text> with zero
+						balance and is cleared to write the{' '}
+						<Text style={s.bold}>{period} period test.</Text>{' '}
 					</Text>
 				</View>
 
@@ -287,7 +320,6 @@ export default function TestClearanceGenerator() {
 	const [selectedDbStudents, setSelectedDbStudents] = useState([]);
 	const [manualStudents, setManualStudents] = useState('');
 
-	// --- CSV PARSING LOGIC ---
 	useEffect(() => {
 		const loadCSV = async () => {
 			try {
@@ -324,8 +356,6 @@ export default function TestClearanceGenerator() {
 							data[div][header].push(name);
 						}
 					}
-
-					// SORT names alphabetically in the selection database
 					data[div][header].sort((a, b) => a.localeCompare(b));
 				});
 
@@ -353,7 +383,6 @@ export default function TestClearanceGenerator() {
 				.map((n) => n.trim())
 				.filter((n) => n !== ''),
 		];
-		// SORT names alphabetically before generating PDF
 		return combined.sort((a, b) => a.localeCompare(b));
 	}, [selectedDbStudents, manualStudents]);
 
