@@ -56,7 +56,7 @@ const createStyles = (theme) =>
 			left: '20%',
 			width: '60%',
 			height: '60%',
-			opacity: 0.1,
+			opacity: 0.2,
 			zIndex: -1,
 		},
 		watermarkImage: {
