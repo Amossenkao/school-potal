@@ -238,9 +238,9 @@ const ClearanceCard = ({
 						) : (
 							<Text style={s.bold}>{studentName}</Text>
 						)}{' '}
-						is cleared with the{' '}
-						<Text style={s.bold}>{installment} installment</Text> with zero
-						balance and is cleared to write the{' '}
+						has fully paid the{' '}
+						<Text style={s.bold}>{installment} installment,</Text> and is
+						cleared to write the{' '}
 						<Text style={s.bold}>{period} period test.</Text>{' '}
 					</Text>
 				</View>
