@@ -10,6 +10,7 @@ import {
 	Image,
 } from '@react-pdf/renderer';
 
+import { PageLoading } from '@/components/loading';
 // --- EDITABLE APP DATA ---
 const CONFIG_DATA = {
 	periods: ['1st', '2nd', '3rd', '4th', '5th', '6th'],
@@ -387,11 +388,7 @@ export default function TestClearanceGenerator() {
 	}, [selectedDbStudents, manualStudents]);
 
 	if (loading) {
-		return (
-			<div className="h-screen flex items-center justify-center font-black text-blue-900">
-				LOADING STUDENT DATABASE...
-			</div>
-		);
+		return <PageLoading message="Loading students..." variant="dots" />;
 	}
 
 	if (showPreview) {
