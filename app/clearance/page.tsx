@@ -55,7 +55,7 @@ const createStyles = (theme) =>
 			left: '20%',
 			width: '60%',
 			height: '60%',
-			opacity: 0.07,
+			opacity: 0.1,
 			zIndex: -1,
 		},
 		watermarkImage: {
@@ -186,7 +186,7 @@ const ClearanceCard = ({
 		<View style={s.card}>
 			<View style={s.innerBorder}>
 				<View style={s.watermarkContainer}>
-					<Image style={s.watermarkImage} src={CONFIG_DATA.logoUrl} />
+					<Image style={s.watermarkImage} src={CONFIG_DATA.logoUrl2} />
 				</View>
 
 				<View style={s.letterhead}>
