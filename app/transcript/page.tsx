@@ -45,7 +45,7 @@ const randomGrade = () => (78 + Math.floor(Math.random() * 21)).toString();
 // Calculate average from array of grades
 const calculateAverage = (grades) => {
 	const sum = grades.reduce((acc, grade) => acc + parseInt(grade), 0);
-	return Math.round(sum / grades.length);
+	return (sum / grades.length).toFixed(1);
 };
 
 // --- STYLING (Optimized for A4) ---
@@ -175,7 +175,7 @@ const TranscriptTable = ({
 					{gradeLabel} ({academicYear})
 				</Text>
 			</View>
-			<View style={[styles.cellNarrow, { width: 70 }]}>
+			<View style={[styles.cellNarrow, { width: 80 }]}>
 				<Text>Yearly Ave: {yearAvg}</Text>
 			</View>
 			<View style={styles.cellNarrow}>
@@ -245,12 +245,12 @@ const MultiDocument = ({ students }) => (
 				.map(() => randomGrade());
 
 			// Calculate year averages
-			const year10Avg = calculateAverage(grade10Grades);
-			const year11Avg = calculateAverage(grade11Grades);
-			const year12Avg = calculateAverage(grade12Grades);
+			const year10Avg = Number(calculateAverage(grade10Grades));
+			const year11Avg = Number(calculateAverage(grade11Grades))
+			const year12Avg = Number( calculateAverage(grade12Grades))
 
 			// Calculate overall senior high average
-			const seniorAvg = Math.round((year10Avg + year11Avg + year12Avg) / 3);
+			const seniorAvg = ((year10Avg + year11Avg + year12Avg) / 3).toFixed(1);
 
 			// Generate ranks
 			const rank10 = Math.floor(Math.random() * 50) + 1;
