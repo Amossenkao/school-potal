@@ -326,7 +326,6 @@ const MultiDocument = ({ students }) => (
 							}}
 						>
 							<Text>Senior High Ave: {seniorAvg}</Text>
-							<Text>Rank: {overallRank}</Text>
 							<Text>Conduct: Good</Text>
 						</View>
 						<Footer />
