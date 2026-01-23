@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
 	mottoImage: {
 		width: '50%',
 		alignSelf: 'center',
-		marginTop: 6,
+		marginTop: 2,
 	},
 });
 
@@ -256,7 +256,6 @@ const MultiDocument = ({ students }) => (
 			const rank10 = Math.floor(Math.random() * 50) + 1;
 			const rank11 = Math.floor(Math.random() * 50) + 1;
 			const rank12 = Math.floor(Math.random() * 50) + 1;
-			const overallRank = Math.floor(Math.random() * 50) + 1;
 
 			return (
 				<React.Fragment key={index}>
@@ -438,9 +437,9 @@ export default function DocumentPortal() {
 			date: formData.date,
 			placeOfBirth: '',
 			dateOfBirth: '',
-			year10: '',
-			year11: '',
-			year12: '',
+			year10: '2022-2023',
+			year11: '2023-2024',
+			year12: '2024-2025',
 		});
 	};
 
@@ -586,7 +585,7 @@ export default function DocumentPortal() {
 											type="text"
 											className="w-full border-2 border-gray-300 p-2 rounded focus:border-blue-500 focus:outline-none text-sm"
 											placeholder="2020-2021"
-											value={formData.year10}
+											value="2022-2023"
 											onChange={(e) =>
 												setFormData({ ...formData, year10: e.target.value })
 											}
@@ -600,7 +599,7 @@ export default function DocumentPortal() {
 											type="text"
 											className="w-full border-2 border-gray-300 p-2 rounded focus:border-blue-500 focus:outline-none text-sm"
 											placeholder="2021-2022"
-											value={formData.year11}
+											value="2023-2024"
 											onChange={(e) =>
 												setFormData({ ...formData, year11: e.target.value })
 											}
@@ -614,7 +613,7 @@ export default function DocumentPortal() {
 											type="text"
 											className="w-full border-2 border-gray-300 p-2 rounded focus:border-blue-500 focus:outline-none text-sm"
 											placeholder="2022-2023"
-											value={formData.year12}
+											value="2024-2025"
 											onChange={(e) =>
 												setFormData({ ...formData, year12: e.target.value })
 											}
