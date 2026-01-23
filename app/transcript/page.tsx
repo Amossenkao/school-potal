@@ -253,9 +253,9 @@ const MultiDocument = ({ students }) => (
 			const seniorAvg = ((year10Avg + year11Avg + year12Avg) / 3).toFixed(1);
 
 			// Generate ranks
-			const rank10 = Math.floor(Math.random() * 50) + 1;
-			const rank11 = Math.floor(Math.random() * 50) + 1;
-			const rank12 = Math.floor(Math.random() * 50) + 1;
+			const rank10 = Math.floor(Math.random() * 25) + 1;
+			const rank11 = Math.floor(Math.random() * 25) + 1;
+			const rank12 = Math.floor(Math.random() * 25) + 1;
 
 			return (
 				<React.Fragment key={index}>
