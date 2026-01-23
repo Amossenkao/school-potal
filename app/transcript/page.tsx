@@ -406,9 +406,9 @@ export default function DocumentPortal() {
 		}),
 		placeOfBirth: '',
 		dateOfBirth: '',
-		year10: '',
-		year11: '',
-		year12: '',
+		year10: '2022-2023',
+		year11: '2023-2024',
+		year12: '2024-2025',
 	});
 
 	const handleAddStudent = () => {
@@ -437,9 +437,9 @@ export default function DocumentPortal() {
 			date: formData.date,
 			placeOfBirth: '',
 			dateOfBirth: '',
-			year10: '2022-2023',
-			year11: '2023-2024',
-			year12: '2024-2025',
+			year10: '',
+			year11: '',
+			year12: '',
 		});
 	};
 
@@ -585,7 +585,7 @@ export default function DocumentPortal() {
 											type="text"
 											className="w-full border-2 border-gray-300 p-2 rounded focus:border-blue-500 focus:outline-none text-sm"
 											placeholder="2020-2021"
-											value="2022-2023"
+											value={formData.year10}
 											onChange={(e) =>
 												setFormData({ ...formData, year10: e.target.value })
 											}
@@ -599,7 +599,7 @@ export default function DocumentPortal() {
 											type="text"
 											className="w-full border-2 border-gray-300 p-2 rounded focus:border-blue-500 focus:outline-none text-sm"
 											placeholder="2021-2022"
-											value="2023-2024"
+											value={formData.year11}
 											onChange={(e) =>
 												setFormData({ ...formData, year11: e.target.value })
 											}
@@ -613,7 +613,7 @@ export default function DocumentPortal() {
 											type="text"
 											className="w-full border-2 border-gray-300 p-2 rounded focus:border-blue-500 focus:outline-none text-sm"
 											placeholder="2022-2023"
-											value="2024-2025"
+											value={formData.year12}
 											onChange={(e) =>
 												setFormData({ ...formData, year12: e.target.value })
 											}
