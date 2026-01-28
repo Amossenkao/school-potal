@@ -82,7 +82,7 @@ export default function VercelUpgrade() {
 					<div className="text-center">
 						{/* Vercel Logo */}
 						<div className="flex items-center justify-center mb-8">
-							<img src="/vercel.svg" alt="Vercel" className="h-6" />
+							<img src="/vercel.svg" alt="Vercel" className="h-12" />
 						</div>
 
 						{/* Icon */}
