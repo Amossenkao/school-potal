@@ -77,7 +77,7 @@ export default function VercelUpgrade() {
 	return (
 		<>
 			{/* Expired Plan Banner */}
-			<div className="min-h-screen bg-white flex items-center justify-center p-6">
+			<div className="min-h-screen bg-black flex items-center justify-center p-6">
 				<div className="max-w-2xl w-full">
 					<div className="text-center">
 						{/* Vercel Logo */}
@@ -87,9 +87,9 @@ export default function VercelUpgrade() {
 
 						{/* Icon */}
 						<div className="flex items-center justify-center mb-6">
-							<div className="w-16 h-16 bg-black rounded-full flex items-center justify-center">
+							<div className="w-16 h-16 bg-white rounded-full flex items-center justify-center">
 								<svg
-									className="w-8 h-8 text-white"
+									className="w-8 h-8 text-black"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -105,12 +105,12 @@ export default function VercelUpgrade() {
 						</div>
 
 						{/* Title */}
-						<h1 className="text-4xl font-bold text-black mb-4 tracking-tight">
+						<h1 className="text-4xl font-bold text-white mb-4 tracking-tight">
 							Your Hobby plan has expired
 						</h1>
 
 						{/* Subtitle */}
-						<p className="text-lg text-gray-600 mb-8 max-w-md mx-auto">
+						<p className="text-lg text-gray-400 mb-8 max-w-md mx-auto">
 							Your projects are paused. Upgrade to restore access and unlock
 							powerful deployment features.
 						</p>
@@ -118,7 +118,7 @@ export default function VercelUpgrade() {
 						{/* CTA Button */}
 						<button
 							onClick={() => setIsModalOpen(true)}
-							className="bg-black hover:bg-gray-800 text-white font-medium py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2"
+							className="bg-white hover:bg-gray-100 text-black font-medium py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2"
 						>
 							View Upgrade Options
 						</button>
@@ -127,7 +127,7 @@ export default function VercelUpgrade() {
 							Need help?{' '}
 							<a
 								href="https://vercel.com/contact/sales"
-								className="text-black underline hover:no-underline"
+								className="text-white underline hover:no-underline"
 							>
 								Contact Sales
 							</a>
@@ -141,22 +141,22 @@ export default function VercelUpgrade() {
 				<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
 					<div className="bg-white rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
 						{/* Modal Header */}
-						<div className="relative border-b border-gray-200 p-8">
+						<div className="relative bg-black border-b border-gray-800 p-8">
 							<button
 								onClick={() => setIsModalOpen(false)}
-								className="absolute top-6 right-6 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"
+								className="absolute top-6 right-6 w-8 h-8 rounded-full hover:bg-gray-900 flex items-center justify-center transition-colors"
 							>
-								<X className="w-5 h-5 text-gray-500" />
+								<X className="w-5 h-5 text-gray-400" />
 							</button>
 
 							<div>
 								<div className="mb-6">
 									<img src="/vercel.svg" alt="Vercel" className="h-6" />
 								</div>
-								<h2 className="text-3xl font-bold text-black mb-2">
+								<h2 className="text-3xl font-bold text-white mb-2">
 									Find a plan to power your apps.
 								</h2>
-								<p className="text-gray-600">
+								<p className="text-gray-400">
 									Vercel supports teams of all sizes, with pricing that scales.
 								</p>
 							</div>
