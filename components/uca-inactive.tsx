@@ -80,6 +80,11 @@ export default function VercelUpgrade() {
 			<div className="min-h-screen bg-white flex items-center justify-center p-6">
 				<div className="max-w-2xl w-full">
 					<div className="text-center">
+						{/* Vercel Logo */}
+						<div className="flex items-center justify-center mb-8">
+							<img src="/vercel.svg" alt="Vercel" className="h-6" />
+						</div>
+
 						{/* Icon */}
 						<div className="flex items-center justify-center mb-6">
 							<div className="w-16 h-16 bg-black rounded-full flex items-center justify-center">
@@ -145,6 +150,9 @@ export default function VercelUpgrade() {
 							</button>
 
 							<div>
+								<div className="mb-6">
+									<img src="/vercel.svg" alt="Vercel" className="h-6" />
+								</div>
 								<h2 className="text-3xl font-bold text-black mb-2">
 									Find a plan to power your apps.
 								</h2>
