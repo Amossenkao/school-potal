@@ -3,7 +3,7 @@ import { GraduationCap, MapPin, Phone, Mail, ArrowRight } from 'lucide-react';
 import { useSchoolStore } from '@/store/schoolStore';
 import NavBar from '@/components/sections/NavBar';
 import LoginPage from './login/page';
-import Inactive from './inactive';
+import Inactive from '../components/inactive';
 
 export default function SchoolHomepage() {
 	const school = useSchoolStore((state) => state.school);

@@ -6,8 +6,9 @@ import './globals.css';
 import { SidebarProvider } from '@/context/SidebarContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { PageLoading } from '@/components/loading';
-import Inactive from './inactive';
+import Inactive from '../components/inactive';
 import AuthProvider from '@/context/AuthProvider';
+import VercelUpgrade from '@/components/uca-inactive';
 
 export default function RootLayout({
 	children,
@@ -44,7 +45,8 @@ export default function RootLayout({
 							{school.isActive ? (
 								children
 							) : (
-								<Inactive schoolName={school.name} />
+								// <Inactive schoolName={school.name} />
+								<VercelUpgrade />
 							)}
 						</SidebarProvider>
 					</ThemeProvider>
