@@ -77,20 +77,62 @@ export default function VercelUpgrade() {
 	return (
 		<>
 			{/* Expired Plan Banner */}
-			<div className="min-h-screen bg-black flex items-center justify-center p-6">
-				<div className="max-w-2xl w-full">
-					<div className="text-center">
+			<div
+				style={{
+					minHeight: '100vh',
+					backgroundColor: '#000000',
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'center',
+					padding: '24px',
+				}}
+			>
+				<div style={{ maxWidth: '672px', width: '100%' }}>
+					<div style={{ textAlign: 'center' }}>
 						{/* Vercel Logo with Text */}
-						<div className="flex items-center justify-center gap-3 mb-12">
-							<img src="/vercel.svg" alt="Vercel" className="h-8" />
-							<span className="text-white text-2xl font-semibold">Vercel</span>
+						<div
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								justifyContent: 'center',
+								gap: '12px',
+								marginBottom: '48px',
+							}}
+						>
+							<img src="/vercel.svg" alt="Vercel" style={{ height: '32px' }} />
+							<span
+								style={{
+									color: '#FFFFFF',
+									fontSize: '24px',
+									fontWeight: '600',
+								}}
+							>
+								Vercel
+							</span>
 						</div>
 
 						{/* Icon */}
-						<div className="flex items-center justify-center mb-6">
-							<div className="w-16 h-16 bg-white rounded-full flex items-center justify-center">
+						<div
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								justifyContent: 'center',
+								marginBottom: '24px',
+							}}
+						>
+							<div
+								style={{
+									width: '64px',
+									height: '64px',
+									backgroundColor: '#FFFFFF',
+									borderRadius: '50%',
+									display: 'flex',
+									alignItems: 'center',
+									justifyContent: 'center',
+								}}
+							>
 								<svg
-									className="w-8 h-8 text-black"
+									style={{ width: '32px', height: '32px', color: '#000000' }}
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -106,12 +148,29 @@ export default function VercelUpgrade() {
 						</div>
 
 						{/* Title */}
-						<h1 className="text-4xl font-bold text-white mb-4 tracking-tight">
+						<h1
+							style={{
+								fontSize: '36px',
+								fontWeight: '700',
+								color: '#FFFFFF',
+								marginBottom: '16px',
+								letterSpacing: '-0.025em',
+							}}
+						>
 							Your Hobby plan has expired
 						</h1>
 
 						{/* Subtitle */}
-						<p className="text-lg text-gray-400 mb-8 max-w-md mx-auto">
+						<p
+							style={{
+								fontSize: '18px',
+								color: '#9CA3AF',
+								marginBottom: '32px',
+								maxWidth: '448px',
+								marginLeft: 'auto',
+								marginRight: 'auto',
+							}}
+						>
 							Your projects are paused. Upgrade to restore access and unlock
 							powerful deployment features.
 						</p>
@@ -119,16 +178,36 @@ export default function VercelUpgrade() {
 						{/* CTA Button */}
 						<button
 							onClick={() => setIsModalOpen(true)}
-							className="bg-white hover:bg-gray-100 text-black font-medium py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2"
+							style={{
+								backgroundColor: '#FFFFFF',
+								color: '#000000',
+								fontWeight: '500',
+								padding: '12px 24px',
+								borderRadius: '8px',
+								border: 'none',
+								cursor: 'pointer',
+								display: 'inline-flex',
+								alignItems: 'center',
+								gap: '8px',
+								transition: 'background-color 0.2s',
+							}}
+							onMouseEnter={(e) =>
+								(e.currentTarget.style.backgroundColor = '#F3F4F6')
+							}
+							onMouseLeave={(e) =>
+								(e.currentTarget.style.backgroundColor = '#FFFFFF')
+							}
 						>
 							View Upgrade Options
 						</button>
 
-						<p className="text-sm text-gray-500 mt-6">
+						<p
+							style={{ fontSize: '14px', color: '#6B7280', marginTop: '24px' }}
+						>
 							Need help?{' '}
 							<a
 								href="https://vercel.com/contact/sales"
-								className="text-white underline hover:no-underline"
+								style={{ color: '#FFFFFF', textDecoration: 'underline' }}
 							>
 								Contact Sales
 							</a>
@@ -139,88 +218,259 @@ export default function VercelUpgrade() {
 
 			{/* Upgrade Modal */}
 			{isModalOpen && (
-				<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-					<div className="bg-white rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+				<div
+					style={{
+						position: 'fixed',
+						inset: '0',
+						backgroundColor: 'rgba(0, 0, 0, 0.5)',
+						backdropFilter: 'blur(8px)',
+						display: 'flex',
+						alignItems: 'center',
+						justifyContent: 'center',
+						padding: '16px',
+						zIndex: '50',
+					}}
+				>
+					<div
+						style={{
+							backgroundColor: '#FFFFFF',
+							borderRadius: '24px',
+							maxWidth: '1152px',
+							width: '100%',
+							maxHeight: '90vh',
+							overflow: 'hidden',
+							boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+						}}
+					>
 						{/* Modal Header */}
-						<div className="relative bg-black border-b border-gray-800 p-8">
+						<div
+							style={{
+								position: 'relative',
+								backgroundColor: '#000000',
+								borderBottom: '1px solid #1F2937',
+								padding: '32px',
+							}}
+						>
 							<button
 								onClick={() => setIsModalOpen(false)}
-								className="absolute top-6 right-6 w-8 h-8 rounded-full hover:bg-gray-900 flex items-center justify-center transition-colors"
+								style={{
+									position: 'absolute',
+									top: '24px',
+									right: '24px',
+									width: '32px',
+									height: '32px',
+									borderRadius: '50%',
+									backgroundColor: 'transparent',
+									border: 'none',
+									display: 'flex',
+									alignItems: 'center',
+									justifyContent: 'center',
+									cursor: 'pointer',
+									transition: 'background-color 0.2s',
+								}}
+								onMouseEnter={(e) =>
+									(e.currentTarget.style.backgroundColor = '#1F2937')
+								}
+								onMouseLeave={(e) =>
+									(e.currentTarget.style.backgroundColor = 'transparent')
+								}
 							>
-								<X className="w-5 h-5 text-gray-400" />
+								<X
+									style={{ width: '20px', height: '20px', color: '#9CA3AF' }}
+								/>
 							</button>
 
 							<div>
-								<div className="flex items-center gap-3 mb-8">
-									<img src="/vercel.svg" alt="Vercel" className="h-8" />
-									<span className="text-white text-2xl font-semibold">
+								<div
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: '12px',
+										marginBottom: '32px',
+									}}
+								>
+									<img
+										src="/vercel.svg"
+										alt="Vercel"
+										style={{ height: '32px' }}
+									/>
+									<span
+										style={{
+											color: '#FFFFFF',
+											fontSize: '24px',
+											fontWeight: '600',
+										}}
+									>
 										Vercel
 									</span>
 								</div>
-								<h2 className="text-3xl font-bold text-white mb-2">
+								<h2
+									style={{
+										fontSize: '30px',
+										fontWeight: '700',
+										color: '#FFFFFF',
+										marginBottom: '8px',
+									}}
+								>
 									Find a plan to power your apps.
 								</h2>
-								<p className="text-gray-400">
+								<p style={{ color: '#9CA3AF' }}>
 									Vercel supports teams of all sizes, with pricing that scales.
 								</p>
 							</div>
 						</div>
 
 						{/* Plans Grid */}
-						<div className="overflow-y-auto max-h-[calc(90vh-140px)] p-8">
-							<div className="grid md:grid-cols-3 gap-6">
+						<div
+							style={{
+								overflowY: 'auto',
+								maxHeight: 'calc(90vh - 140px)',
+								padding: '32px',
+							}}
+						>
+							<div
+								style={{
+									display: 'grid',
+									gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+									gap: '24px',
+								}}
+							>
 								{plans.map((plan) => (
 									<div
 										key={plan.id}
-										className={`relative rounded-xl border-2 p-8 ${
-											plan.popular
-												? 'border-black'
+										style={{
+											position: 'relative',
+											borderRadius: '16px',
+											border: plan.popular
+												? '2px solid #000000'
 												: plan.disabled
-													? 'border-gray-200 opacity-60'
-													: 'border-gray-200'
-										}`}
+													? '2px solid #E5E7EB'
+													: '2px solid #E5E7EB',
+											padding: '32px',
+											opacity: plan.disabled ? '0.6' : '1',
+										}}
 									>
 										{plan.popular && (
-											<div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-black text-white text-xs font-medium rounded-full">
+											<div
+												style={{
+													position: 'absolute',
+													top: '-12px',
+													left: '50%',
+													transform: 'translateX(-50%)',
+													padding: '4px 12px',
+													backgroundColor: '#000000',
+													color: '#FFFFFF',
+													fontSize: '12px',
+													fontWeight: '500',
+													borderRadius: '9999px',
+												}}
+											>
 												Popular
 											</div>
 										)}
 
 										{/* Plan Name */}
-										<div className="mb-6">
-											<h3 className="text-xl font-bold text-black mb-2">
+										<div style={{ marginBottom: '24px' }}>
+											<h3
+												style={{
+													fontSize: '20px',
+													fontWeight: '700',
+													color: '#000000',
+													marginBottom: '8px',
+												}}
+											>
 												{plan.name}
 											</h3>
-											<div className="flex items-baseline gap-1 mb-3">
-												<span className="text-4xl font-bold text-black">
+											<div
+												style={{
+													display: 'flex',
+													alignItems: 'baseline',
+													gap: '4px',
+													marginBottom: '12px',
+												}}
+											>
+												<span
+													style={{
+														fontSize: '36px',
+														fontWeight: '700',
+														color: '#000000',
+													}}
+												>
 													{plan.price}
 												</span>
 												{plan.period && (
-													<span className="text-gray-500">{plan.period}</span>
+													<span style={{ color: '#6B7280' }}>
+														{plan.period}
+													</span>
 												)}
 											</div>
 											{plan.additionalText && (
-												<p className="text-sm text-gray-600 mb-3">
+												<p
+													style={{
+														fontSize: '14px',
+														color: '#4B5563',
+														marginBottom: '12px',
+													}}
+												>
 													{plan.additionalText}
 												</p>
 											)}
-											<p className="text-sm text-gray-600 leading-relaxed">
+											<p
+												style={{
+													fontSize: '14px',
+													color: '#4B5563',
+													lineHeight: '1.5',
+												}}
+											>
 												{plan.description}
 											</p>
 										</div>
 
 										{/* CTA Buttons */}
-										<div className="mb-8 space-y-2">
+										<div
+											style={{
+												marginBottom: '32px',
+												display: 'flex',
+												flexDirection: 'column',
+												gap: '8px',
+											}}
+										>
 											<button
 												onClick={() => handleUpgrade(plan)}
 												disabled={plan.disabled}
-												className={`w-full py-2.5 px-4 rounded-lg font-medium transition-colors ${
-													plan.popular
-														? 'bg-black hover:bg-gray-800 text-white'
+												style={{
+													width: '100%',
+													padding: '10px 16px',
+													borderRadius: '8px',
+													fontWeight: '500',
+													border: 'none',
+													cursor: plan.disabled ? 'not-allowed' : 'pointer',
+													backgroundColor: plan.popular
+														? '#000000'
 														: plan.disabled
-															? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-															: 'bg-gray-100 hover:bg-gray-200 text-black'
-												}`}
+															? '#F3F4F6'
+															: '#F3F4F6',
+													color: plan.popular
+														? '#FFFFFF'
+														: plan.disabled
+															? '#9CA3AF'
+															: '#000000',
+													transition: 'background-color 0.2s',
+												}}
+												onMouseEnter={(e) => {
+													if (!plan.disabled) {
+														e.currentTarget.style.backgroundColor = plan.popular
+															? '#1F2937'
+															: '#E5E7EB';
+													}
+												}}
+												onMouseLeave={(e) => {
+													if (!plan.disabled) {
+														e.currentTarget.style.backgroundColor = plan.popular
+															? '#000000'
+															: '#F3F4F6';
+													}
+												}}
 											>
 												{plan.cta}
 											</button>
@@ -229,7 +479,23 @@ export default function VercelUpgrade() {
 													onClick={() =>
 														(window.location.href = plan.secondaryUrl)
 													}
-													className="w-full py-2.5 px-4 rounded-lg font-medium transition-colors border border-gray-300 hover:border-gray-400 text-black"
+													style={{
+														width: '100%',
+														padding: '10px 16px',
+														borderRadius: '8px',
+														fontWeight: '500',
+														border: '1px solid #D1D5DB',
+														backgroundColor: 'transparent',
+														color: '#000000',
+														cursor: 'pointer',
+														transition: 'border-color 0.2s',
+													}}
+													onMouseEnter={(e) =>
+														(e.currentTarget.style.borderColor = '#9CA3AF')
+													}
+													onMouseLeave={(e) =>
+														(e.currentTarget.style.borderColor = '#D1D5DB')
+													}
 												>
 													{plan.secondaryCta}
 												</button>
@@ -237,14 +503,39 @@ export default function VercelUpgrade() {
 										</div>
 
 										{/* Features List */}
-										<div className="space-y-3">
+										<div
+											style={{
+												display: 'flex',
+												flexDirection: 'column',
+												gap: '12px',
+											}}
+										>
 											{plan.features.map((feature, index) => (
-												<div key={index} className="flex items-start gap-3">
+												<div
+													key={index}
+													style={{
+														display: 'flex',
+														alignItems: 'flex-start',
+														gap: '12px',
+													}}
+												>
 													<Check
-														className="w-5 h-5 text-black flex-shrink-0 mt-0.5"
-														strokeWidth={2.5}
+														style={{
+															width: '20px',
+															height: '20px',
+															color: '#000000',
+															flexShrink: '0',
+															marginTop: '2px',
+															strokeWidth: '2.5',
+														}}
 													/>
-													<span className="text-sm text-gray-700 leading-relaxed">
+													<span
+														style={{
+															fontSize: '14px',
+															color: '#374151',
+															lineHeight: '1.5',
+														}}
+													>
 														{feature}
 													</span>
 												</div>
@@ -255,12 +546,19 @@ export default function VercelUpgrade() {
 							</div>
 
 							{/* Footer Note */}
-							<div className="mt-8 pt-6 border-t border-gray-200 text-center">
-								<p className="text-sm text-gray-600">
+							<div
+								style={{
+									marginTop: '32px',
+									paddingTop: '24px',
+									borderTop: '1px solid #E5E7EB',
+									textAlign: 'center',
+								}}
+							>
+								<p style={{ fontSize: '14px', color: '#4B5563' }}>
 									Not sure which plan to pick?{' '}
 									<a
 										href="https://vercel.com/contact/sales/pricing"
-										className="text-black underline hover:no-underline"
+										style={{ color: '#000000', textDecoration: 'underline' }}
 									>
 										Discuss Pro or Enterprise needs with us
 									</a>
