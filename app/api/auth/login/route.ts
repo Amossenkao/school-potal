@@ -5,22 +5,23 @@ import { getUserModel } from '@/models';
 import { createSession, destroySession } from '@/utils/session';
 import { verifyOTP, sendOTP } from '@/utils/otp';
 import { getSchoolProfile } from '@/lib/mongoose';
+import { UserRole } from '@/types';
 
 export async function POST(request: NextRequest) {
 	const host = request.headers.get('host');
 	if (!host) {
 		return NextResponse.json(
 			{ message: 'Host header is required' },
-			{ status: 400 }
+			{ status: 400 },
 		);
 	}
 
 	const body = await request.json();
-	const { action, username, password, role, otp, sessionId, userId } = body;
+	const { action, username, password, role, otp, sessionId, id } = body; // Changed userId to id
 
 	const User = await getUserModel(host);
-	let user: any = await (userId
-		? User.findById(userId)
+	let user: any = await (id
+		? User.findById(id)
 		: User.findOne({ username, role }));
 
 	try {
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
 					sessionId,
 					otp,
 					host,
-					userId
+					id, // Changed userId to id
 				);
 
 				const response = NextResponse.json(
@@ -44,40 +45,40 @@ export async function POST(request: NextRequest) {
 						}),
 						requiresOTP: !verificationResult.success,
 					},
-					{ status: verificationResult.status }
+					{ status: verificationResult.status },
 				);
 
 				if (verificationResult.success) {
-					const loginSessoinId = await createSession({
-						tennentId: host,
+					const loginSessionId = await createSession({
+						tenantId: host,
 						purpose: 'login',
 						...buildUserResponse(user),
 					});
 
-					setSessionCookie(response, loginSessoinId);
+					setSessionCookie(response, loginSessionId);
 				}
 				return response;
 
 			case 'resend_otp':
-				const sendResult = await sendOTP(user._id.toString(), role);
+				const sendResult = await sendOTP(user._id.toString(), host);
 				return NextResponse.json(
 					{
 						...sendResult.data,
 						otpContact: user.phone || user.email,
 					},
-					{ status: sendResult.status }
+					{ status: sendResult.status },
 				);
 			default:
 				return NextResponse.json(
 					{ message: 'Invalid action' },
-					{ status: 400 }
+					{ status: 400 },
 				);
 		}
 	} catch (error) {
 		console.error('Authentication error:', error);
 		return NextResponse.json(
 			{ message: 'Internal server error' },
-			{ status: 500 }
+			{ status: 500 },
 		);
 	}
 }
@@ -85,12 +86,11 @@ export async function POST(request: NextRequest) {
 async function handleLogin(user: any, password: string, host: string) {
 	if (!user || !password) {
 		return NextResponse.json(
-			{ message: 'Incorrect username or password' },
-			{ status: 401 }
+			{ message: 'Incorrect credentials' },
+			{ status: 401 },
 		);
 	}
 
-	// Fetch school profile and check login access for role
 	let schoolProfile: any = null;
 	try {
 		schoolProfile = await getSchoolProfile();
@@ -99,8 +99,9 @@ async function handleLogin(user: any, password: string, host: string) {
 	}
 
 	let loginAllowed = true;
-	if (schoolProfile && schoolProfile.settings) {
-		switch (user.role) {
+	if (schoolProfile?.settings) {
+		const role = user.role as UserRole;
+		switch (role) {
 			case 'student':
 				loginAllowed =
 					schoolProfile.settings.studentSettings?.loginAccess !== false;
@@ -113,83 +114,68 @@ async function handleLogin(user: any, password: string, host: string) {
 				loginAllowed =
 					schoolProfile.settings.administratorSettings?.loginAccess !== false;
 				break;
-			// Add more roles as needed
-			default:
-				loginAllowed = true;
+			case 'system_admin':
+				loginAllowed =
+					schoolProfile.settings.systemAdminSettings?.loginAccess !== false;
+				break;
 		}
 	}
 
 	if (!loginAllowed) {
 		return NextResponse.json(
-			{ message: `Login is currently disabled for ${user.role}s` },
-			{ status: 403 }
+			{ message: `Login disabled for ${user.role}s` },
+			{ status: 403 },
 		);
 	}
 
 	if (!user.isActive) {
 		return NextResponse.json(
-			{ message: 'Account is deactivated. Please contact your admin.' },
-			{ status: 403 }
-		);
-	}
-
-	if (user.lockedUntil && user.lockedUntil > new Date()) {
-		return NextResponse.json(
-			{ message: 'Account is temporarily locked. Please try again later.' },
-			{ status: 423 }
+			{ message: 'Account is deactivated' },
+			{ status: 403 },
 		);
 	}
 
 	const isPasswordValid = await bcrypt.compare(password, user.password);
 	if (!isPasswordValid) {
 		return NextResponse.json(
-			{ message: 'Incorrect username or password' },
-			{ status: 401 }
+			{ message: 'Incorrect credentials' },
+			{ status: 401 },
 		);
 	}
 
-	// Generate session and store session data using createSession
 	const userData = buildUserResponse(user);
 	const sessionData = {
 		tenantId: host,
 		purpose: 'login',
-		...userData,
+		...userData, // buildUserResponse now provides 'id'
 	};
-	let response: NextResponse;
-	let sessionId;
 
-	// If the user is a system admin, they have to verify OTP
 	if (user.role === 'system_admins') {
 		const sendResult = await sendOTP(user._id.toString(), host);
-		response = NextResponse.json(
+		return NextResponse.json(
 			{
 				...sendResult.data,
-				message: 'OTP verification is required for admin login',
+				message: 'OTP verification required',
 				otpContact: user.phone || user.email,
 			},
-			{ status: sendResult.status }
+			{ status: sendResult.status },
 		);
 	} else {
-		sessionId = await createSession(sessionData);
-		response = NextResponse.json(
-			{
-				message: 'Login successful',
-				requiresOTP: false,
-				user: userData,
-			},
-			{ status: 200 }
+		const sessionId = await createSession(sessionData);
+		const response = NextResponse.json(
+			{ message: 'Login successful', user: userData },
+			{ status: 200 },
 		);
-		// Set session cookie
 		setSessionCookie(response, sessionId);
+		return response;
 	}
-	return response;
 }
 
 function setSessionCookie(response: NextResponse, sessionId: string) {
 	response.cookies.set('sessionId', sessionId, {
 		httpOnly: true,
 		path: '/',
-		maxAge: 60 * 60 * 24, // 1 day
+		maxAge: 60 * 60 * 24,
 		sameSite: 'lax',
 		secure: process.env.NODE_ENV === 'production',
 	});
@@ -197,56 +183,56 @@ function setSessionCookie(response: NextResponse, sessionId: string) {
 
 function buildUserResponse(user: any) {
 	const baseUser = {
-		userId: user._id.toString(),
+		id: user._id.toString(), // Ensuring 'id' is used
 		username: user.username,
+		role: user.role as UserRole,
 		firstName: user.firstName,
 		middleName: user.middleName,
 		lastName: user.lastName,
-		role: user.role,
 		nickName: user.nickName,
 		gender: user.gender,
 		dateOfBirth: user.dateOfBirth,
-		address: user.address,
+		isActive: user.isActive,
+		mustChangePassword: user.mustChangePassword,
+		passwordChangedAt: user.passwordChangedAt,
 		phone: user.phone,
 		email: user.email,
+		address: user.address,
 		bio: user.bio,
 		avatar: user.avatar,
-		isActive: user.isActive,
-		notifications: user.notifications,
-		mustChangePassword: user.mustChangePassword,
-		defaultPassword: user.defaultPassword,
-		passwordChangedAt: user.passwordChangedAt,
+		profilePictureUrl: user.profilePictureUrl,
+		notifications: user.notifications || [],
+		chats: user.chats || [],
 	};
 
-	switch (user.role) {
+	switch (user.role as UserRole) {
 		case 'student':
 			return {
 				...baseUser,
-				studentId: user.studentId,
+				studentId: user.studentId || user.username,
+				enrollmentYear: user.enrollmentYear,
+				enrollmentSemester: user.enrollmentSemester,
+				enrollmentStatus: user.enrollmentStatus,
 				classId: user.classId,
 				className: user.className,
-				classLevel: user.classLevel,
-				session: user.session,
+				academicYears: user.academicYears || [],
 				guardian: user.guardian,
+				financialProfile: user.financialProfile,
 			};
 		case 'teacher':
 			return {
 				...baseUser,
-				teacherId: user.teacherId,
-				subjects: user.subjects,
-				sponsorClass: user.sponsorClass,
+				subjects: user.subjects || [],
+				sponsorClass: user.sponsorClass || null,
 			};
 		case 'administrator':
 			return {
 				...baseUser,
-				adminId: user.adminId,
 				position: user.position,
+				academicYears: user.academicYears || [],
 			};
 		case 'system_admin':
-			return {
-				...baseUser,
-				sysId: user.sysId,
-			};
+			return { ...baseUser, username: user.username };
 		default:
 			return baseUser;
 	}
@@ -254,28 +240,11 @@ function buildUserResponse(user: any) {
 
 export async function DELETE(request: NextRequest) {
 	const sessionId = request.cookies.get('sessionId')?.value;
-
-	if (sessionId) {
-		try {
-			await destroySession(sessionId);
-		} catch (error) {
-			console.error('Error deleting session:', error);
-		}
-	}
-
+	if (sessionId) await destroySession(sessionId);
 	const response = NextResponse.json({ message: 'Logged out successfully' });
-
-	// Clear session cookie
 	response.headers.set(
 		'Set-Cookie',
-		serialize('sessionId', '', {
-			httpOnly: true,
-			path: '/',
-			maxAge: 0,
-			sameSite: 'lax',
-			secure: process.env.NODE_ENV === 'production',
-		})
+		serialize('sessionId', '', { httpOnly: true, path: '/', maxAge: 0 }),
 	);
-
 	return response;
 }

@@ -14,7 +14,7 @@ export interface AuthenticatedUser {
 }
 
 export async function authenticateRequest(
-	request: NextRequest
+	request: NextRequest,
 ): Promise<AuthenticatedUser> {
 	// 1. Get sessionId from cookie
 	const sessionId = request.cookies.get('sessionId')?.value;
@@ -26,7 +26,7 @@ export async function authenticateRequest(
 	// 2. Look up session using getSession
 	const session = (await getSession(sessionId)) as any;
 
-	if (!session || !session.userId) {
+	if (!session || !session.id) {
 		throw new Error('Invalid or expired session');
 	}
 
@@ -41,12 +41,13 @@ export async function authenticateRequest(
 
 export async function authorizeUser(
 	request: NextRequest,
-	requiredRoles?: UserRole[]
+	requiredRoles?: UserRole[],
 ) {
 	let user;
 
 	try {
 		user = await authenticateRequest(request);
+		console.log('Authorized user:', user);
 		if (
 			Array.isArray(requiredRoles) &&
 			!requiredRoles.includes(user.role as UserRole)

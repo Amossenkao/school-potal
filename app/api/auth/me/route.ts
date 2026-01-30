@@ -8,44 +8,44 @@ export async function GET(request: NextRequest) {
 		const schoolProfile = await getSchoolProfile();
 
 		if (!sessionCookie) {
-			console.error('No session cookie found');
 			return NextResponse.json(
 				{
 					user: null,
 					school: schoolProfile || null,
-					message: 'No session cookie found',
+					message: 'No active session',
 				},
-				{ status: 401 }
+				{ status: 401 },
 			);
 		}
 
 		const sessionId = sessionCookie.value;
-		const session = await getSession(sessionId);
 
+		// Basic format check
 		if (!sessionId || sessionId.length < 10) {
-			console.error('Invalid session format:', sessionId);
 			return NextResponse.json(
 				{
 					user: null,
 					school: schoolProfile || null,
 					message: 'Invalid session format',
 				},
-				{ status: 401 }
+				{ status: 401 },
 			);
 		}
 
-		if (!session || !session.userId) {
-			console.error('Session expired or invalid:', session);
+		const session = await getSession(sessionId);
+
+		// Update: Checking for 'id' instead of 'userId' per your new types
+		if (!session || !session.id) {
 			const response = NextResponse.json(
 				{
 					user: null,
 					school: schoolProfile || null,
 					message: 'Session expired or invalid',
 				},
-				{ status: 401 }
+				{ status: 401 },
 			);
 
-			// Clear the session cookie
+			// Clear the invalid session cookie
 			response.cookies.set('sessionId', '', {
 				httpOnly: true,
 				secure: process.env.NODE_ENV === 'production',
@@ -57,9 +57,9 @@ export async function GET(request: NextRequest) {
 			return response;
 		}
 
-		// Fetch school profile (already fetched above)
+		// Return the session data (which now uses 'id') and school profile
 		return NextResponse.json({
-			user: session || null,
+			user: session,
 			school: schoolProfile || null,
 			message: 'Session valid',
 		});
@@ -67,11 +67,9 @@ export async function GET(request: NextRequest) {
 		console.error('Session validation error:', error);
 		return NextResponse.json(
 			{
-				// user: null,
-				// school: null,
 				message: 'Internal server error',
 			},
-			{ status: 500 }
+			{ status: 500 },
 		);
 	}
 }
@@ -79,9 +77,11 @@ export async function GET(request: NextRequest) {
 export async function POST() {
 	return NextResponse.json({ message: 'Method not allowed' }, { status: 405 });
 }
+
 export async function PUT() {
 	return NextResponse.json({ message: 'Method not allowed' }, { status: 405 });
 }
+
 export async function DELETE() {
 	return NextResponse.json({ message: 'Method not allowed' }, { status: 405 });
 }

@@ -1,4 +1,9 @@
-export type UserRole = 'student' | 'teacher' | 'administrator' | 'system_admin';
+export type UserRole =
+	| 'student'
+	| 'teacher'
+	| 'administrator'
+	| 'system_admin'
+	| 'super_admin';
 
 export interface ClassSchedule {
 	day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday';
@@ -21,6 +26,7 @@ export interface PaymentRecords {
 
 export interface StudentFinancialProfile {
 	outstandingBalances: {
+		academicYear: string;
 		feeType: string;
 		category: string;
 		requiredAmount: number;
@@ -34,19 +40,30 @@ export interface Class {
 	classId: string;
 	className: string;
 	classLevel: string;
-	session?: string;
 	sponsorName?: string;
 	schedule: ClassSchedule[];
 	studentIds: string[];
+	stats: {
+		totalStudents: number;
+		activeStudents: number;
+		inactiveStudents: number;
+		droppedStudents: number;
+		totalMales: number;
+		totalFemales: number;
+		academicRankings: {
+			period: string;
+			rankings: { studentId: string; rank: number }[];
+		}[];
+	};
 }
 
 export interface User {
-	userId: string;
+	id: string;
+	username: string;
 	role: UserRole;
 	firstName: string;
 	middleName?: string;
 	lastName: string;
-	username: string;
 	password: string;
 	nickName?: string;
 	gender: string;
@@ -59,6 +76,7 @@ export interface User {
 	address: string;
 	bio?: string;
 	avatar?: string;
+	profilePictureUrl?: string;
 	chats: AIChatMessage[];
 	notifications: Notification[];
 }
@@ -69,21 +87,9 @@ export interface Student extends User {
 	enrollmentYear: string;
 	enrollmentSemester: string;
 	enrollmentStatus: 'enrolled' | 'graduated' | 'transferred' | 'dropped';
-	session: string;
 	classId: string;
-	classLevel: string;
 	className: string;
-
-	// This new structiure for and academicYears key is meant to handle
-	// details for students who stay more than one year. it will hold all
-	// the academic years that the studetn has stayed in the school and their classes in that year
-	// if the student gets a double promotion after first semester, the classIds of both classes will
-	// be added to the classIds array in the same academic year
-	// that way, if the student fetches their periodid grades for any of the periods in the first
-	// semester, it will show the previous class, which is appropiate it was where they got the grades
-	// if the student fetches their yearly grades, it will combine all the grades for the previous and currnet class
-
-	academicYears: { year: string; classIds: string[] }[];
+	academicYears: { year: string; classId: string }[];
 	guardian: {
 		firstName: string;
 		middleName?: string;
@@ -95,29 +101,24 @@ export interface Student extends User {
 	financialProfile: StudentFinancialProfile;
 }
 
-export interface TeacherSubject {
-	academicYear: string;
-	subject: string;
-	level: string;
-	session: string;
-}
-
 export interface Teacher extends User {
 	role: 'teacher';
-	teacherId: string;
-	subjects: TeacherSubject[];
+	subjects: {
+		year: string;
+		classes: { classId: string; subjects: string[] }[];
+	}[];
 	sponsorClass: string | null;
 }
 
 export interface Administrator extends User {
 	role: 'administrator';
-	adminId: string;
 	position: string;
+	academicYears: { year: string; position: string }[];
 }
 
 export interface SystemAdmin extends User {
 	role: 'system_admin';
-	sysId: string;
+	username: string;
 }
 
 export interface AIChatMessage {
