@@ -3,13 +3,7 @@ import bcrypt from 'bcryptjs';
 import { getTenantModels } from '@/models';
 import { authorizeUser } from '@/proxy';
 import { getSchoolProfile } from '@/lib/mongoose';
-import {
-	getSession,
-	createSession,
-	destroySession,
-	updateAllUserSessions,
-	destroyAllUserSessions,
-} from '@/utils/session';
+import { updateAllUserSessions, destroyAllUserSessions } from '@/utils/session';
 import { sendOTP, verifyOTP } from '@/utils/otp';
 import type {
 	UserRole,
@@ -40,13 +34,6 @@ function getAcademicYear(): string {
 	return currentMonth >= 7
 		? `${currentYear}-${currentYear + 1}`
 		: `${currentYear - 1}-${currentYear}`;
-}
-
-function getCurrentSemester(): string {
-	const now = new Date();
-	const currentMonth = now.getMonth();
-	// July-December = First Semester, January-June = Second Semester
-	return currentMonth >= 6 ? 'First Semester' : 'Second Semester';
 }
 
 function buildUserResponse(
@@ -184,7 +171,7 @@ async function generateIdByRole(models: any, role: string): Promise<string> {
 	};
 	const prefix = prefixes[role];
 	const idField = idFieldMap[role];
-	const academicYear = getAcademicYear();
+	const academicYear = schoolProfile.currentAcademicYear || getAcademicYear();
 	const year = academicYear.split('-')[0];
 
 	const lastUser = await models.User.findOne({
@@ -218,7 +205,7 @@ async function buildUserData(
 	const roleBasedId = await generateIdByRole(models, userData.role);
 	const credentials = generateCredentials(roleBasedId);
 	const academicYear = getAcademicYear();
-	const currentSemester = getCurrentSemester();
+	const enrollmentSemester = userData.enrollmentSemester;
 
 	const commonData = {
 		firstName: userData.firstName.trim(),
@@ -250,7 +237,7 @@ async function buildUserData(
 				...commonData,
 				studentId: roleBasedId,
 				enrollmentYear: academicYear,
-				enrollmentSemester: currentSemester,
+				enrollmentSemester: enrollmentSemester,
 				enrollmentStatus: 'enrolled',
 				classId: userData.classId,
 				className: userData.className,
@@ -349,48 +336,6 @@ function flattenClassStructure(classLevels: any): ClassInfo[] {
 	return allClasses;
 }
 
-async function getNextClass(
-	currentClassId: string,
-	schoolProfile: any,
-): Promise<ClassInfo | null> {
-	const allClasses = flattenClassStructure(schoolProfile.classLevels);
-
-	const currentClassIndex = allClasses.findIndex(
-		(c) => c.classId === currentClassId,
-	);
-
-	if (currentClassIndex === -1) {
-		throw new Error('Current class not found in school profile');
-	}
-
-	if (currentClassIndex === allClasses.length - 1) {
-		return null; // Student is in the highest class
-	}
-
-	return allClasses[currentClassIndex + 1];
-}
-
-async function getPreviousClass(
-	currentClassId: string,
-	schoolProfile: any,
-): Promise<ClassInfo | null> {
-	const allClasses = flattenClassStructure(schoolProfile.classLevels);
-
-	const currentClassIndex = allClasses.findIndex(
-		(c) => c.classId === currentClassId,
-	);
-
-	if (currentClassIndex === -1) {
-		throw new Error('Current class not found in school profile');
-	}
-
-	if (currentClassIndex === 0) {
-		return null; // Student is in the lowest class
-	}
-
-	return allClasses[currentClassIndex - 1];
-}
-
 async function promoteStudent(
 	student: any,
 	promotionType: 'yearlyPromotion' | 'doublePromotion',
@@ -400,7 +345,8 @@ async function promoteStudent(
 	models: any,
 ) {
 	const schoolProfile = await getSchoolProfile();
-	const currentAcademicYear = getAcademicYear();
+	const currentAcademicYear =
+		schoolProfile.currentAcademicYear || getAcademicYear();
 
 	// Validate if double promotion is allowed
 	if (promotionType === 'doublePromotion') {
@@ -526,7 +472,8 @@ async function demoteStudent(
 	models: any,
 ) {
 	const schoolProfile = await getSchoolProfile();
-	const currentAcademicYear = getAcademicYear();
+	const currentAcademicYear =
+		schoolProfile.currentAcademicYear || getAcademicYear();
 
 	// Validate if semester demotion is allowed
 	if (demotionType === 'semesterDemotion') {

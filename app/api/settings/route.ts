@@ -56,7 +56,7 @@ export async function POST(request: Request) {
 		if (!host) {
 			return NextResponse.json(
 				{ success: false, message: 'Host header is missing.' },
-				{ status: 400 }
+				{ status: 400 },
 			);
 		}
 		const cleanHost = host.split(':')[0];
@@ -71,82 +71,130 @@ export async function POST(request: Request) {
 			mongoose.models.Profile ||
 			mongoose.model<SchoolProfileType & Document>(
 				'Profile',
-				SchoolProfileSchema
+				SchoolProfileSchema,
 			);
 
-		// --- MODIFICATION: Fetch current settings BEFORE updating ---
+		// Fetch current settings BEFORE updating
 		const currentSchool: any = await SchoolProfile.findOne({
 			host: cleanHost,
 		}).lean();
+
+		if (!currentSchool) {
+			return NextResponse.json(
+				{ success: false, message: 'School profile not found.' },
+				{ status: 404 },
+			);
+		}
+
 		const oldSettings = currentSchool?.settings;
 
 		const body = await request.json();
 		const {
+			currentAcademicYear,
 			studentSettings,
 			teacherSettings,
 			administratorSettings,
+			gradingSettings,
 			bulkUserActions,
 		} = body;
 
-		// 1. Update School Settings on the Profile document
+		// Prepare update object
+		const updateObject: any = {};
+
+		// 1. Update Current Academic Year if provided
+		if (currentAcademicYear) {
+			updateObject.currentAcademicYear = currentAcademicYear;
+		}
+
+		// 2. Update School Settings
 		if (studentSettings && teacherSettings && administratorSettings) {
 			const newSettings: SchoolSettings = {
 				studentSettings,
 				teacherSettings,
 				administratorSettings,
+				gradingSettings: gradingSettings || {
+					passMark: 50,
+					gradeScale: { min: 0, max: 100 },
+					summerSchoolWeight: 0.5,
+					failuerWeight: 1.0,
+					givesDoublePromotion: false,
+					givesDemotion: true,
+				},
 			};
-			const updatedSchoolProfile = await SchoolProfile.findOneAndUpdate(
-				{ host: cleanHost },
-				{ $set: { settings: newSettings } },
-				{ new: true }
-			).lean();
-
-			if (updatedSchoolProfile) {
-				const cacheKey = `school_profile:${cleanHost}`;
-				await redis.set(cacheKey, JSON.stringify(updatedSchoolProfile), {
-					ex: 60 * 60 * 24 * 30,
-				});
-			}
+			updateObject.settings = newSettings;
 		}
 
-		// --- MODIFICATION: Check for login access changes and destroy sessions ---
+		// Update the school profile
+		const updatedSchoolProfile = await SchoolProfile.findOneAndUpdate(
+			{ host: cleanHost },
+			{ $set: updateObject },
+			{ new: true },
+		).lean();
+
+		if (!updatedSchoolProfile) {
+			return NextResponse.json(
+				{ success: false, message: 'Failed to update school profile.' },
+				{ status: 500 },
+			);
+		}
+
+		// Update cache immediately
+		const cacheKey = `school_profile:${cleanHost}`;
+		await redis.set(cacheKey, JSON.stringify(updatedSchoolProfile), {
+			ex: 60 * 60 * 24 * 30, // 30 days
+		});
+
+		// Also update a shorter TTL cache for frequently accessed data
+		const quickCacheKey = `school_settings:${cleanHost}`;
+		await redis.set(
+			quickCacheKey,
+			JSON.stringify({
+				currentAcademicYear: updatedSchoolProfile.currentAcademicYear,
+				settings: updatedSchoolProfile.settings,
+			}),
+			{
+				ex: 60 * 5, // 5 minutes for quick access
+			},
+		);
+
+		// Check for login access changes and destroy sessions if needed
 		if (oldSettings) {
-			const sessionDestructionPromises: any = [];
+			const sessionDestructionPromises: Promise<void>[] = [];
 
 			// Check for Student login deactivation
 			if (
-				oldSettings.studentSettings.loginAccess === true &&
-				studentSettings.loginAccess === false
+				oldSettings.studentSettings?.loginAccess === true &&
+				studentSettings?.loginAccess === false
 			) {
 				const studentsToLogout = await Student.find({ role: 'student' })
 					.select('_id')
 					.lean();
 				studentsToLogout.forEach((student: any) =>
 					sessionDestructionPromises.push(
-						destroyAllUserSessions(student._id.toString())
-					)
+						destroyAllUserSessions(student._id.toString()),
+					),
 				);
 			}
 
 			// Check for Teacher login deactivation
 			if (
-				oldSettings.teacherSettings.loginAccess === true &&
-				teacherSettings.loginAccess === false
+				oldSettings.teacherSettings?.loginAccess === true &&
+				teacherSettings?.loginAccess === false
 			) {
 				const teachersToLogout = await Teacher.find({ role: 'teacher' })
 					.select('_id')
 					.lean();
 				teachersToLogout.forEach((teacher: any) =>
 					sessionDestructionPromises.push(
-						destroyAllUserSessions(teacher._id.toString())
-					)
+						destroyAllUserSessions(teacher._id.toString()),
+					),
 				);
 			}
 
 			// Check for Administrator login deactivation
 			if (
-				oldSettings.administratorSettings.loginAccess === true &&
-				administratorSettings.loginAccess === false
+				oldSettings.administratorSettings?.loginAccess === true &&
+				administratorSettings?.loginAccess === false
 			) {
 				const adminsToLogout = await Administrator.find({
 					role: 'administrator',
@@ -155,8 +203,8 @@ export async function POST(request: Request) {
 					.lean();
 				adminsToLogout.forEach((admin: any) =>
 					sessionDestructionPromises.push(
-						destroyAllUserSessions(admin._id.toString())
-					)
+						destroyAllUserSessions(admin._id.toString()),
+					),
 				);
 			}
 
@@ -164,12 +212,12 @@ export async function POST(request: Request) {
 			await Promise.all(sessionDestructionPromises);
 		}
 
-		// 2. Perform Bulk User Actions (Activate/Deactivate)
+		// 3. Perform Bulk User Actions (Activate/Deactivate)
 		if (bulkUserActions && Object.keys(bulkUserActions).length > 0) {
 			const processBulkAction = async (
 				role: string,
 				Model: any,
-				action: 'activate' | 'deactivate'
+				action: 'activate' | 'deactivate',
 			) => {
 				const isActive = action === 'activate';
 				const usersToUpdate = await Model.find({ role }).lean();
@@ -187,12 +235,20 @@ export async function POST(request: Request) {
 			const actionsToRun = [];
 			if (bulkUserActions['all-students']) {
 				actionsToRun.push(
-					processBulkAction('student', Student, bulkUserActions['all-students'])
+					processBulkAction(
+						'student',
+						Student,
+						bulkUserActions['all-students'],
+					),
 				);
 			}
 			if (bulkUserActions['all-teachers']) {
 				actionsToRun.push(
-					processBulkAction('teacher', Teacher, bulkUserActions['all-teachers'])
+					processBulkAction(
+						'teacher',
+						Teacher,
+						bulkUserActions['all-teachers'],
+					),
 				);
 			}
 			if (bulkUserActions['all-administrators']) {
@@ -200,8 +256,8 @@ export async function POST(request: Request) {
 					processBulkAction(
 						'administrator',
 						Administrator,
-						bulkUserActions['all-administrators']
-					)
+						bulkUserActions['all-administrators'],
+					),
 				);
 			}
 
@@ -211,6 +267,10 @@ export async function POST(request: Request) {
 		return NextResponse.json({
 			success: true,
 			message: 'Settings and user actions applied successfully.',
+			data: {
+				currentAcademicYear: updatedSchoolProfile.currentAcademicYear,
+				settings: updatedSchoolProfile.settings,
+			},
 		});
 	} catch (error) {
 		console.error('Failed to update school settings:', error);
@@ -222,7 +282,91 @@ export async function POST(request: Request) {
 				message: 'Failed to update school settings.',
 				error: errorMessage,
 			},
-			{ status: 500 }
+			{ status: 500 },
+		);
+	}
+}
+
+/**
+ * GET endpoint to fetch current school settings
+ */
+export async function GET(request: Request) {
+	try {
+		const host = request.headers.get('host');
+		if (!host) {
+			return NextResponse.json(
+				{ success: false, message: 'Host header is missing.' },
+				{ status: 400 },
+			);
+		}
+		const cleanHost = host.split(':')[0];
+
+		// Try to get from cache first
+		const quickCacheKey = `school_settings:${cleanHost}`;
+		const cachedData = await redis.get(quickCacheKey);
+
+		if (cachedData) {
+			return NextResponse.json({
+				success: true,
+				data: JSON.parse(cachedData as string),
+				source: 'cache',
+			});
+		}
+
+		// If not in cache, fetch from database
+		await mongoose.connect(process.env.MONGODB_URI || '', {
+			dbName: 'tenants',
+		});
+
+		const SchoolProfile =
+			mongoose.models.Profile ||
+			mongoose.model<SchoolProfileType & Document>(
+				'Profile',
+				SchoolProfileSchema,
+			);
+
+		const school = await SchoolProfile.findOne({ host: cleanHost })
+			.select('currentAcademicYear settings')
+			.lean();
+
+		if (!school) {
+			return NextResponse.json(
+				{ success: false, message: 'School profile not found.' },
+				{ status: 404 },
+			);
+		}
+
+		// Update cache
+		await redis.set(
+			quickCacheKey,
+			JSON.stringify({
+				currentAcademicYear: school.currentAcademicYear,
+				settings: school.settings,
+			}),
+			{
+				ex: 60 * 5, // 5 minutes
+			},
+		);
+
+		return NextResponse.json({
+			success: true,
+			data: {
+				currentAcademicYear: school.currentAcademicYear,
+				settings: school.settings,
+			},
+			source: 'database',
+		});
+	} catch (error) {
+		console.error('Failed to fetch school settings:', error);
+		const errorMessage =
+			error instanceof Error ? error.message : 'An unknown error occurred';
+		return NextResponse.json(
+			{
+				success: false,
+				message: 'Failed to fetch school settings.',
+				error: errorMessage,
+			},
+			{ status: 500 },
 		);
 	}
 }

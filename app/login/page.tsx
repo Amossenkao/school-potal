@@ -9,13 +9,15 @@ import {
 	BookOpen,
 	GraduationCap,
 	Users,
-	Settings,
 	Loader2,
+	ChevronLeft,
+	RefreshCcw,
+	Clock,
+	AlertCircle,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import useAuth from '@/store/useAuth';
 import { PageLoading } from '@/components/loading';
-// import NavBar from '@/components/sections/NavBar';
 import { useSchoolStore } from '@/store/schoolStore';
 import Link from 'next/link';
 import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
@@ -35,14 +37,12 @@ const LoginPage = () => {
 		isLoading,
 		isLoggedIn,
 		user,
-		error,
+		error, // Auth error (e.g., "Invalid username or password")
 		isAwaitingOtp,
 		otpContact,
 		login,
 		verifyOtp,
-		resendOtp,
 		clearError,
-		resetOtpState,
 		checkAuthStatus,
 	} = useAuth();
 
@@ -52,7 +52,7 @@ const LoginPage = () => {
 		otp: '',
 	});
 
-	// Check auth status on mount, then load page
+	// Check auth status on mount
 	useEffect(() => {
 		let cancelled = false;
 		const init = async () => {
@@ -68,13 +68,12 @@ const LoginPage = () => {
 		};
 	}, [checkAuthStatus]);
 
-	// If already logged in, redirect immediately (unless handling OTP)
+	// Redirect if logged in
 	useEffect(() => {
 		if (
 			!isInitializing &&
 			!isLoading &&
-			user &&
-			user.isActive &&
+			user?.isActive &&
 			isLoggedIn &&
 			!isAwaitingOtp &&
 			!isRedirecting
@@ -92,34 +91,36 @@ const LoginPage = () => {
 		isRedirecting,
 	]);
 
-	// Automatically update loginDisabledError if school settings or role changes
+	/**
+	 * FIX: Reset all error states when switching roles or positions.
+	 * This ensures an error from a "System Admin" attempt doesn't
+	 * show up when you switch to "Teacher".
+	 */
 	useEffect(() => {
+		// Clear UI errors and credentials on context change
+		clearError();
+		setLoginDisabledError('');
 		setFormData({ username: '', password: '', otp: '' });
-		if (
-			selectedRole &&
-			selectedRole !== 'system_admin' &&
-			currentSchool?.settings
-		) {
+
+		if (!selectedRole || selectedRole === 'system_admin') return;
+
+		// Check school-specific login toggle
+		if (currentSchool?.settings) {
 			const roleSettingsKey = `${selectedRole}Settings`;
 			const roleSettings = (currentSchool.settings as any)[roleSettingsKey];
+
 			if (roleSettings && roleSettings.loginAccess === false) {
 				setLoginDisabledError(
-					`Login is currently disabled for ${selectedRole}s.`
+					`Login is currently disabled for ${selectedRole}s.`,
 				);
-				return;
-			} else if (roleSettings && roleSettings.loginAccess === true) {
-				setLoginDisabledError('');
 			}
 		}
-		// // If settings now allow login, clear the error
-		// if (loginDisabledError) setLoginDisabledError('');
-	}, [currentSchool, selectedRole, adminPosition]);
+	}, [selectedRole, adminPosition, currentSchool, clearError]);
 
-	// Show loading while initializing (school data is handled by SchoolProvider)
 	if (
 		isInitializing ||
 		isRedirecting ||
-		(isLoggedIn && user && user.isActive && !isAwaitingOtp)
+		(isLoggedIn && user?.isActive && !isAwaitingOtp)
 	) {
 		return <PageLoading variant="school" message="Loading..." />;
 	}
@@ -151,44 +152,18 @@ const LoginPage = () => {
 		},
 	];
 
-	// Get administrative positions from school profile
 	const adminPositions = currentSchool?.administrativePositions || [];
 
-	// Create a mapping of position IDs to names for display
-	const getPositionLabel = (positionId: string) => {
-		const position = adminPositions.find((pos) => pos.id === positionId);
-		return position ? position.name : positionId;
-	};
-
-	const handleInputChange = (e: any) => {
-		setFormData({
-			...formData,
-			[e.target.name]: e.target.value,
-		});
+	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		setFormData({ ...formData, [e.target.name]: e.target.value });
+		// Clear errors immediately when user starts fixing their input
 		if (error) clearError();
 		if (loginDisabledError) setLoginDisabledError('');
 	};
 
-	const handleLogin = async (e: any) => {
+	const handleLoginSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!formData.username || !formData.password) return;
-		if (selectedRole === 'administrator' && !adminPosition) return;
-
-		clearError();
-		setLoginDisabledError('');
-
-		// Check if login is disabled for the selected role in school settings
-		if (selectedRole !== 'system_admin' && currentSchool?.settings) {
-			const roleSettingsKey = `${selectedRole}Settings`;
-			const roleSettings = currentSchool.settings[roleSettingsKey];
-
-			if (roleSettings && roleSettings.loginAccess === false) {
-				setLoginDisabledError(
-					`Login is currently disabled for ${selectedRole}s.`
-				);
-				return; // Stop the login process
-			}
-		}
+		if (loginDisabledError) return;
 
 		const loginData = {
 			role: selectedRole,
@@ -197,75 +172,18 @@ const LoginPage = () => {
 			...(selectedRole === 'administrator' && { position: adminPosition }),
 		};
 
-		try {
-			const loggedInUser = await login(loginData);
-
-			if (loggedInUser) {
-				if (
-					loggedInUser.role !== 'system_admin' &&
-					loggedInUser.mustChangePassword
-				) {
-					router.push('/login/account-setup');
-				} else {
-					setIsRedirecting(true);
-					router.push('/dashboard');
-				}
+		const loggedInUser = await login(loginData);
+		if (loggedInUser) {
+			if (
+				loggedInUser.role !== 'system_admin' &&
+				loggedInUser.mustChangePassword
+			) {
+				router.push('/login/account-setup');
+			} else {
+				setIsRedirecting(true);
+				router.push('/dashboard');
 			}
-		} catch (err) {
-			setIsRedirecting(false);
-			console.error('Invalid username or password', err);
 		}
-	};
-
-	const handleOtpVerification = async (e: React.FormEvent) => {
-		e.preventDefault();
-
-		if (!formData.otp || formData.otp.length !== 6) {
-			return;
-		}
-
-		clearError();
-
-		try {
-			const success = await verifyOtp(formData.otp);
-
-			if (success) {
-				console.log('OTP verification successful');
-			}
-		} catch (err) {
-			console.error('OTP verification failed:', err);
-		}
-	};
-
-	const handleResendOtp = async () => {
-		try {
-			const success = await resendOtp();
-			if (success) {
-				setFormData((prev) => ({ ...prev, otp: '' }));
-			}
-		} catch (err) {
-			console.error('Failed to resend OTP:', err);
-		}
-	};
-
-	const resetForm = () => {
-		setSelectedRole('');
-		setAdminPosition('');
-		setFormData({ username: '', password: '', otp: '' });
-		setShowPassword(false);
-		resetOtpState();
-		clearError();
-	};
-
-	const changeRole = () => {
-		setSelectedRole('');
-		setAdminPosition('');
-		clearError();
-	};
-
-	const changePosition = () => {
-		setAdminPosition('');
-		clearError();
 	};
 
 	return (
@@ -273,434 +191,340 @@ const LoginPage = () => {
 			<div className="absolute top-3 right-5">
 				<ThemeToggleButton />
 			</div>
-			<div className="min-h-screen bg-background">
-				<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-					{/* School Logo and Header */}
+			<div className="min-h-screen bg-background flex flex-col">
+				<div className="flex-grow max-w-6xl mx-auto px-4 py-8 w-full">
+					{/* Header */}
 					<div className="text-center mb-12">
-						<Link href={'/'}>
-							<div className="w-24 h-24 mx-auto mb-6 flex items-center justify-center">
+						<Link href="/">
+							<div className="w-24 h-24 mx-auto mb-6">
 								{currentSchool?.logoUrl && (
 									<img
 										src={currentSchool.logoUrl}
-										alt={`${currentSchool?.name || 'School'} Logo`}
+										alt="Logo"
 										className="w-full h-full object-contain"
-										onError={(e) => {
-											e.currentTarget.style.display = 'none';
-										}}
 									/>
 								)}
 							</div>
 						</Link>
-						<h1 className="text-4xl font-bold text-foreground mb-4">
+						<h1 className="text-3xl font-bold text-foreground">
 							{currentSchool?.shortName || 'School'} e-Portal System
 						</h1>
-						<p className="text-xl text-muted-foreground mb-8">
-							Welcome back! Please login to continue
+						<p className="text-muted-foreground mt-2">
+							{currentSchool?.tagline || 'Excellence in Education'}
 						</p>
 					</div>
 
 					<div className="max-w-4xl mx-auto">
 						{!selectedRole ? (
-							/* Role Selection */
-							<div className="bg-card rounded-2xl shadow-lg border border-border p-8">
-								<h2 className="text-2xl font-semibold text-foreground text-center mb-8">
+							/* Step 1: Role Selection */
+							<div className="bg-card rounded-2xl shadow-lg border border-border p-8 animate-in fade-in duration-500">
+								<h2 className="text-2xl font-semibold text-center mb-8">
 									Choose Your Role
 								</h2>
 								<div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-									{roles.map((role) => {
-										const IconComponent = role.icon;
-										return (
-											<button
-												key={role.value}
-												onClick={() => setSelectedRole(role.value)}
-												className="p-6 border-2 border-border rounded-xl hover:border-primary hover:bg-accent transition-all duration-200 flex flex-col items-center space-y-4 group min-h-[160px] justify-center transform hover:scale-[1.02]"
-												disabled={isLoading}
+									{roles.map((role) => (
+										<button
+											key={role.value}
+											onClick={() => setSelectedRole(role.value)}
+											className="p-6 border-2 border-border rounded-xl hover:border-primary hover:bg-accent transition-all flex flex-col items-center space-y-4 group"
+										>
+											<div
+												className={`w-16 h-16 ${role.color} rounded-xl flex items-center justify-center`}
 											>
-												<div
-													className={`w-16 h-16 ${role.color} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform`}
-												>
-													<IconComponent className="w-8 h-8 text-white" />
-												</div>
-												<span className="text-base font-medium text-foreground group-hover:text-primary text-center leading-tight">
-													{role.label}
-												</span>
-											</button>
-										);
-									})}
+												<role.icon className="w-8 h-8 text-white" />
+											</div>
+											<span className="font-medium">{role.label}</span>
+										</button>
+									))}
 								</div>
 							</div>
 						) : (
-							/* Login Form */
 							<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-								{/* Selected Role Info */}
+								{/* Left Sidebar */}
 								<div className="lg:col-span-1">
-									<div className="bg-card rounded-2xl shadow-lg border border-border p-6 sticky top-8">
-										<h3 className="text-lg font-semibold text-foreground mb-4">
-											Login Information
+									<div className="bg-card rounded-2xl shadow-lg border border-border p-6 sticky top-8 space-y-4">
+										<h3 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">
+											Your Selection
 										</h3>
-										<div className="space-y-4">
-											<div className="flex items-center gap-3">
+										<div className="space-y-3">
+											<div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
 												{React.createElement(
 													roles.find((r) => r.value === selectedRole)?.icon ||
 														User,
 													{
-														className: `w-8 h-8 ${
-															roles.find((r) => r.value === selectedRole)?.color
-														} p-1.5 rounded-lg text-white`,
-													}
+														className: `w-8 h-8 ${roles.find((r) => r.value === selectedRole)?.color} p-1.5 rounded-lg text-white`,
+													},
 												)}
-												<div className="flex-1">
-													<p className="text-sm text-muted-foreground">Role</p>
-													<p className="font-medium text-foreground">
+												<div>
+													<p className="text-[10px] uppercase text-muted-foreground">
+														Role
+													</p>
+													<p className="font-bold text-sm">
 														{roles.find((r) => r.value === selectedRole)?.label}
 													</p>
 												</div>
 											</div>
 											{selectedRole === 'administrator' && adminPosition && (
-												<div className="flex items-center gap-3">
-													<div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
-														<Settings className="w-4 h-4 text-white" />
-													</div>
-													<div className="flex-1">
-														<p className="text-sm text-muted-foreground">
+												<div className="flex items-center gap-3 p-3 bg-primary/10 border border-primary/20 rounded-lg animate-in slide-in-from-left-2">
+													<Shield className="w-5 h-5 text-primary" />
+													<div>
+														<p className="text-[10px] uppercase text-primary font-bold">
 															Position
 														</p>
-														<p className="font-medium text-foreground">
-															{getPositionLabel(adminPosition)}
+														<p className="font-bold text-sm">
+															{
+																adminPositions.find(
+																	(p) => p.id === adminPosition,
+																)?.name
+															}
 														</p>
 													</div>
 												</div>
 											)}
 										</div>
-										<div className="mt-6 space-y-2">
-											<button
-												onClick={changeRole}
-												className="w-full text-primary hover:text-primary/80 text-sm font-medium flex items-center justify-center disabled:opacity-50 py-2 px-4 border border-border rounded-lg hover:bg-accent transition-colors"
-												disabled={isLoading}
-											>
-												← Change Role
-											</button>
+										<div className="pt-4 space-y-2 border-t border-border">
 											{selectedRole === 'administrator' && adminPosition && (
 												<button
-													onClick={changePosition}
-													className="w-full text-primary hover:text-primary/80 text-sm font-medium flex items-center justify-center disabled:opacity-50 py-2 px-4 border border-border rounded-lg hover:bg-accent transition-colors"
-													disabled={isLoading}
+													onClick={() => setAdminPosition('')}
+													className="w-full flex items-center justify-center gap-2 text-xs py-2.5 rounded-lg bg-accent hover:bg-accent/80 transition-colors"
 												>
-													Change Position
+													<RefreshCcw className="w-3 h-3" /> Change Position
 												</button>
 											)}
+											<button
+												onClick={() => setSelectedRole('')}
+												className="w-full flex items-center justify-center gap-2 text-xs py-2.5 rounded-lg border border-border hover:bg-accent transition-colors"
+											>
+												<ChevronLeft className="w-3 h-3" /> Switch Main Role
+											</button>
 										</div>
 									</div>
 								</div>
 
-								{/* Main Form */}
+								{/* Main Content Area */}
 								<div className="lg:col-span-2">
-									<div className="bg-card rounded-2xl shadow-lg border border-border p-8">
+									<div className="bg-card rounded-2xl shadow-lg border border-border p-8 min-h-[400px]">
+										{/* Authentication Error (Incorrect Credentials) */}
 										{error && (
-											<div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-												<p className="text-sm text-destructive font-medium">
+											<div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-3 animate-in shake-1">
+												<AlertCircle className="h-5 w-5 text-destructive" />
+												<p className="text-sm text-destructive font-semibold">
 													{error}
 												</p>
 											</div>
 										)}
+
+										{/* System/Role Disabled Error */}
 										{loginDisabledError && (
-											<div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-												<p className="text-sm text-destructive font-medium">
+											<div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-3 animate-in shake-1">
+												<Shield className="h-5 w-5 text-destructive" />
+												<p className="text-sm text-destructive font-semibold">
 													{loginDisabledError}
 												</p>
 											</div>
 										)}
 
-										{selectedRole === 'administrator' && !adminPosition && (
-											<div className="mb-8">
-												<h3 className="text-xl font-semibold text-foreground mb-6">
-													Select Your Position
-												</h3>
-												{adminPositions.length > 0 ? (
-													<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto">
-														{adminPositions.map((position) => (
+										{/* Step 2: Administrator Position Picker */}
+										{selectedRole === 'administrator' &&
+											!adminPosition &&
+											!loginDisabledError && (
+												<div className="animate-in fade-in slide-in-from-right-4">
+													<h3 className="text-xl font-bold mb-6">
+														Identify Your Office
+													</h3>
+													<div className="grid grid-cols-1 gap-3">
+														{adminPositions.map((pos) => (
 															<button
-																key={position.id}
-																onClick={() => setAdminPosition(position.id)}
-																className="text-left p-4 border border-border rounded-lg hover:border-primary hover:bg-accent transition-colors disabled:opacity-50"
-																disabled={isLoading}
+																key={pos.id}
+																onClick={() => setAdminPosition(pos.id)}
+																className="text-left p-4 border border-border rounded-xl hover:border-primary hover:bg-primary/5 transition-all flex justify-between items-center group"
 															>
-																<span className="text-sm font-medium text-foreground">
-																	{position.name}
+																<span className="font-medium group-hover:text-primary">
+																	{pos.name}
 																</span>
+																<ChevronLeft className="w-4 h-4 rotate-180 opacity-0 group-hover:opacity-100 transition-opacity" />
 															</button>
 														))}
 													</div>
-												) : (
-													<div className="p-4 bg-muted/50 border border-border rounded-lg text-center">
-														<p className="text-sm text-muted-foreground">
-															No administrative positions are configured for
-															this school. Please contact the system
-															administrator.
-														</p>
-													</div>
-												)}
-											</div>
-										)}
+												</div>
+											)}
 
+										{/* Step 3: Input Form */}
 										{(selectedRole !== 'administrator' || adminPosition) &&
 											!isAwaitingOtp && (
-												<>
-													<h3 className="text-xl font-semibold text-foreground mb-6">
-														Login to Your Account
-													</h3>
-													<form onSubmit={handleLogin} className="space-y-6">
-														<div>
-															<label className="block text-sm font-medium text-foreground mb-2">
+												<form
+													onSubmit={handleLoginSubmit}
+													className="space-y-6 animate-in fade-in"
+												>
+													<div className="mb-2">
+														<h3 className="text-xl font-bold">Sign In</h3>
+														<p className="text-sm text-muted-foreground">
+															Enter your portal credentials below.
+														</p>
+													</div>
+													<div className="space-y-4">
+														<div className="space-y-1.5">
+															<label className="text-sm font-medium">
 																Username
 															</label>
 															<div className="relative">
-																<User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+																<User className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
 																<input
 																	type="text"
 																	name="username"
 																	value={formData.username}
 																	onChange={handleInputChange}
-																	className="w-full pl-10 pr-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent outline-none transition-all bg-background text-foreground disabled:opacity-50"
+																	disabled={isLoading || !!loginDisabledError}
+																	className="w-full pl-10 pr-4 py-3 border border-border rounded-lg bg-background focus:ring-2 focus:ring-primary outline-none disabled:opacity-50"
 																	placeholder="Enter your username"
-																	autoFocus
 																	required
-																	disabled={isLoading}
 																/>
 															</div>
 														</div>
-
-														<div>
-															<label className="block text-sm font-medium text-foreground mb-2">
+														<div className="space-y-1.5">
+															<label className="text-sm font-medium">
 																Password
 															</label>
 															<div className="relative">
-																<Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+																<Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
 																<input
 																	type={showPassword ? 'text' : 'password'}
 																	name="password"
 																	value={formData.password}
 																	onChange={handleInputChange}
-																	className="w-full pl-10 pr-12 py-3 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent outline-none transition-all bg-background text-foreground disabled:opacity-50"
-																	placeholder="Enter your password"
+																	disabled={isLoading || !!loginDisabledError}
+																	className="w-full pl-10 pr-12 py-3 border border-border rounded-lg bg-background focus:ring-2 focus:ring-primary outline-none disabled:opacity-50"
+																	placeholder="••••••••"
 																	required
-																	disabled={isLoading}
 																/>
 																<button
 																	type="button"
 																	onClick={() => setShowPassword(!showPassword)}
-																	className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground disabled:opacity-50"
-																	disabled={isLoading}
+																	className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
 																>
 																	{showPassword ? (
-																		<EyeOff className="w-5 h-5" />
+																		<EyeOff className="w-4 h-4" />
 																	) : (
-																		<Eye className="w-5 h-5" />
+																		<Eye className="w-4 h-4" />
 																	)}
 																</button>
 															</div>
 														</div>
-
-														<button
-															type="submit"
-															className="w-full bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
-															disabled={
-																isLoading ||
-																!formData.username ||
-																!formData.password ||
-																(selectedRole === 'administrator' &&
-																	!adminPosition) ||
-																!!loginDisabledError ||
-																(selectedRole === 'administrator' &&
-																	adminPositions.length === 0)
-															}
-														>
-															{isLoading ? (
-																<div className="flex items-center">
-																	<Loader2 className="w-5 h-5 animate-spin mr-2" />
-																	Logging in...
-																</div>
-															) : (
-																'Login to Dashboard'
-															)}
-														</button>
-
-														<div className="text-center">
-															<button
-																type="button"
-																onClick={() => setShowForgotPasswordModal(true)}
-																className="text-sm text-primary hover:text-primary/80 font-medium disabled:opacity-50"
-																disabled={isLoading}
-															>
-																Forgot your password?
-															</button>
-														</div>
-													</form>
-												</>
-											)}
-
-										{isAwaitingOtp && (
-											<>
-												<h3 className="text-xl font-semibold text-foreground mb-6">
-													Verify Your Identity
-												</h3>
-												<div className="mb-6 p-4 bg-accent rounded-lg border border-border">
-													<p className="text-sm text-foreground">
-														<strong>OTP sent to:</strong> {otpContact}
-													</p>
-													<p className="text-xs text-muted-foreground mt-1">
-														Please check your phone or email for the
-														verification code
-													</p>
-												</div>
-
-												<form
-													onSubmit={handleOtpVerification}
-													className="space-y-6"
-												>
-													<div>
-														<label className="block text-sm font-medium text-foreground mb-2">
-															Enter OTP Code
-														</label>
-														<div className="relative">
-															<Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
-															<input
-																type="text"
-																name="otp"
-																value={formData.otp}
-																onChange={handleInputChange}
-																className="w-full pl-10 pr-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent outline-none transition-all bg-background text-foreground disabled:opacity-50 text-center text-lg tracking-widest"
-																placeholder="000000"
-																maxLength={6}
-																required
-																disabled={isLoading}
-																autoFocus
-															/>
-														</div>
 													</div>
-
 													<button
 														type="submit"
-														className="w-full bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
 														disabled={
 															isLoading ||
-															!formData.otp ||
-															formData.otp.length !== 6
+															!!loginDisabledError ||
+															!formData.username ||
+															!formData.password
 														}
+														className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-bold shadow-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
 													>
 														{isLoading ? (
-															<div className="flex items-center">
-																<Loader2 className="w-5 h-5 animate-spin mr-2" />
-																Verifying OTP...
-															</div>
+															<Loader2 className="w-5 h-5 animate-spin mr-2" />
 														) : (
-															'Verify OTP & Login'
+															'Access e-Portal'
 														)}
 													</button>
-
 													<div className="text-center">
 														<button
 															type="button"
-															onClick={handleResendOtp}
-															className="text-sm text-primary hover:text-primary/80 font-medium disabled:opacity-50 flex items-center justify-center mx-auto"
-															disabled={isLoading}
+															onClick={() => setShowForgotPasswordModal(true)}
+															className="text-sm text-primary font-medium hover:underline"
 														>
-															{isLoading ? (
-																<div className="flex items-center">
-																	<Loader2 className="w-4 w-4 animate-spin mr-1" />
-																	Sending...
-																</div>
-															) : (
-																'Resend OTP'
-															)}
+															Forgot your credentials?
 														</button>
 													</div>
 												</form>
-											</>
-										)}
+											)}
 									</div>
 								</div>
 							</div>
 						)}
 					</div>
-
-					{/* Footer */}
-					<div className="text-center mt-12 py-6 border-t border-border">
-						<p className="text-sm text-muted-foreground">
-							©{new Date().getFullYear()}{' '}
-							{currentSchool?.name || 'Upstairs Christian Academy'}. All Rights
-							Reserved
-						</p>
-					</div>
 				</div>
 
-				{/* Forgot Password Modal */}
-				{showForgotPasswordModal && (
-					<div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-in fade-in-0 duration-300">
-						<div className="bg-card rounded-2xl shadow-2xl w-full max-w-md p-8 relative border border-border animate-in zoom-in-95 duration-300">
+				{/* Footer */}
+				<footer className="w-full py-8 mt-auto border-t border-border bg-card/50">
+					<div className="max-w-6xl mx-auto px-4 text-center">
+						<p className="text-sm text-muted-foreground">
+							&copy; {new Date().getFullYear()}{' '}
+							{currentSchool?.name || 'Upstairs Christian Academy'}. All Rights
+							Reserved.
+						</p>
+						<p className="text-[10px] text-muted-foreground/60 mt-1">
+							Powered by SMS e-Portal v2.4.0
+						</p>
+					</div>
+				</footer>
+			</div>
+
+			{/* Recovery Modal */}
+			{showForgotPasswordModal && (
+				<div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-in fade-in">
+					<div className="bg-card rounded-2xl shadow-2xl w-full max-w-md p-8 relative border border-border">
+						<button
+							onClick={() => setShowForgotPasswordModal(false)}
+							className="absolute top-4 right-4 text-muted-foreground hover:text-foreground text-2xl font-bold transition-colors"
+						>
+							×
+						</button>
+						<div className="text-center">
+							<div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+								<Shield className="w-8 h-8 text-primary" />
+							</div>
+							<h3 className="text-xl font-bold mb-4">Account Recovery</h3>
+							<p className="text-muted-foreground mb-6 text-sm">
+								{selectedRole === 'system_admin'
+									? 'Please contact the system development team for root access recovery.'
+									: "Please reach out to your school's administrator to initiate a password reset."}
+							</p>
+
+							<div className="bg-muted p-4 rounded-xl text-left text-sm space-y-2 border border-border">
+								{selectedRole === 'system_admin' ? (
+									<div className="flex flex-col gap-2">
+										<div className="flex justify-between border-b border-border/50 pb-2 text-foreground">
+											<span className="text-muted-foreground">Developer:</span>
+											<span className="font-semibold text-sm">Amos Senkao</span>
+										</div>
+										<div className="flex justify-between border-b border-border/50 pb-2 text-foreground">
+											<span className="text-muted-foreground">Phone:</span>
+											<span className="font-semibold text-sm">0776-949463</span>
+										</div>
+										<div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-1">
+											<Clock className="w-3 h-3" />
+											<span>Support: 8:00 am - 5:00 pm (Mon - Fri)</span>
+										</div>
+									</div>
+								) : (
+									<div className="flex flex-col gap-2">
+										<div className="flex justify-between border-b border-border/50 pb-2 text-foreground">
+											<span className="text-muted-foreground">Admin:</span>
+											<span className="font-semibold text-sm">
+												{currentSchool?.sysAdmin?.name || 'Amos Senkao'}
+											</span>
+										</div>
+										<div className="flex justify-between border-b border-border/50 pb-2 text-foreground">
+											<span className="text-muted-foreground">Phone:</span>
+											<span className="font-semibold text-sm">
+												{currentSchool?.sysAdmin?.phone || '0776 - 949463'}
+											</span>
+										</div>
+									</div>
+								)}
+							</div>
+
 							<button
 								onClick={() => setShowForgotPasswordModal(false)}
-								className="absolute top-4 right-4 text-muted-foreground hover:text-foreground text-2xl font-bold"
+								className="w-full mt-6 bg-primary text-primary-foreground py-3 rounded-lg font-bold"
 							>
-								×
+								Close
 							</button>
-							<div className="text-center">
-								<div className="w-16 h-16 bg-secondary rounded-full mx-auto mb-4 flex items-center justify-center">
-									<Lock className="w-8 h-8 text-secondary-foreground" />
-								</div>
-								<h3 className="text-xl font-bold text-foreground mb-4">
-									Password Reset Required
-								</h3>
-								<p className="text-muted-foreground mb-6 leading-relaxed">
-									To reset your password, please contact{' '}
-									{selectedRole == 'system_admin'
-										? 'our support team to'
-										: 'the school administrator. They will be able to help you'}{' '}
-									regain access to your account.
-								</p>
-								<div className="bg-accent border border-border rounded-lg p-4 mb-6">
-									<strong>Contact Information:</strong>
-									{selectedRole == 'system_admin' ? (
-										<div className="flex flex-col gap-1.5 text-foreground">
-											<div>Name: Amos Senkao</div>
-											<div>Email: amossenkao@gmail.com</div>
-											<div>Phone: 0776-949463</div>
-											<div>Office: Upstairs Campus</div>
-											<div className="">
-												Working Hours: <i>8:00 am - 5:00 pm </i>{' '}
-											</div>
-										</div>
-									) : (
-										<div className=" text-foreground flex flex-col gap-1.5">
-											<p>
-												Name: {currentSchool?.sysAdmin?.name || 'Amos Senkao'}{' '}
-											</p>
-											<p>
-												{' '}
-												Email:{' '}
-												{currentSchool?.sysAdmin?.email ||
-													'amossenkao@gmail.com'}
-											</p>
-											<p>
-												{' '}
-												Phone:{' '}
-												{currentSchool?.sysAdmin?.phone || '0776 - 949463'}
-											</p>
-											<p> Office: {currentSchool?.shortName} Campus</p>
-										</div>
-									)}
-								</div>
-								<button
-									onClick={() => setShowForgotPasswordModal(false)}
-									className="w-full bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:bg-primary/90 transition-colors"
-								>
-									Got it
-								</button>
-							</div>
 						</div>
 					</div>
-				)}
-			</div>
+				</div>
+			)}
 		</>
 	);
 };

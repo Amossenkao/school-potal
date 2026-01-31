@@ -209,7 +209,7 @@ function buildUserResponse(user: any) {
 		case 'student':
 			return {
 				...baseUser,
-				studentId: user.studentId || user.username,
+				studentId: user.username,
 				enrollmentYear: user.enrollmentYear,
 				enrollmentSemester: user.enrollmentSemester,
 				enrollmentStatus: user.enrollmentStatus,

@@ -18,12 +18,15 @@ import {
 	X,
 	Loader2,
 	XCircle,
+	Award,
+	Building,
 } from 'lucide-react';
 
 // Mock store for demo
 const useSchoolStore = (selector) => {
 	return selector({
 		school: {
+			currentAcademicYear: '2025-2026',
 			settings: {
 				studentSettings: {
 					loginAccess: true,
@@ -103,7 +106,17 @@ const academicPeriodsMap = [
 	{ value: 'sixth_period_exam', label: 'Sixth Period Exam' },
 ];
 
-// Improved MultiSelect with better mobile responsiveness
+const generateAcademicYears = (yearsAhead = 5) => {
+	const years = [];
+	const currentYear = new Date().getFullYear();
+	for (let i = 0; i < yearsAhead + 3; i++) {
+		const year = currentYear - 2 + i;
+		years.push(`${year}-${year + 1}`);
+	}
+	return years;
+};
+
+// Improved MultiSelect
 const MultiSelect = ({ options, selected, onChange, label }) => {
 	const [isOpen, setIsOpen] = useState(false);
 
@@ -195,7 +208,58 @@ const MultiSelect = ({ options, selected, onChange, label }) => {
 	);
 };
 
-// Improved Toggle Switch
+// Single Select Component
+const SingleSelect = ({ options, selected, onChange, label }) => {
+	const [isOpen, setIsOpen] = useState(false);
+
+	return (
+		<div className="relative w-full">
+			<label className="block text-xs sm:text-sm font-medium text-foreground mb-1.5">
+				{label}
+			</label>
+			<div className="relative">
+				<button
+					type="button"
+					onClick={() => setIsOpen(!isOpen)}
+					className="w-full rounded-lg border border-border bg-background p-3 text-left focus:border-primary focus:ring-2 focus:ring-primary/20 flex justify-between items-center"
+				>
+					<span className="text-sm">
+						{options.find((o) => o.value === selected)?.label || 'Select...'}
+					</span>
+					<ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+				</button>
+				{isOpen && (
+					<>
+						<div
+							className="fixed inset-0 z-10"
+							onClick={() => setIsOpen(false)}
+						/>
+						<div className="absolute z-20 mt-1 w-full rounded-md bg-card shadow-lg border border-border max-h-60 overflow-auto">
+							<ul className="py-1">
+								{options.map((option) => (
+									<li
+										key={option.value}
+										onClick={() => {
+											onChange(option.value);
+											setIsOpen(false);
+										}}
+										className={`text-foreground cursor-pointer select-none px-3 py-2 hover:bg-muted text-sm ${
+											selected === option.value ? 'bg-muted font-medium' : ''
+										}`}
+									>
+										{option.label}
+									</li>
+								))}
+							</ul>
+						</div>
+					</>
+				)}
+			</div>
+		</div>
+	);
+};
+
+// Toggle Switch
 const ToggleSwitch = ({ checked, onChange, disabled = false }) => {
 	return (
 		<button
@@ -219,7 +283,7 @@ const ToggleSwitch = ({ checked, onChange, disabled = false }) => {
 	);
 };
 
-// Improved Settings Section with better mobile layout
+// Settings Section
 const SettingsSection = ({ icon: Icon, title, description, children }) => {
 	return (
 		<div className="rounded-lg sm:rounded-xl border border-border bg-card p-4 sm:p-6 shadow-sm">
@@ -243,7 +307,7 @@ const SettingsSection = ({ icon: Icon, title, description, children }) => {
 	);
 };
 
-// Improved Settings Item with better mobile responsiveness
+// Settings Item
 const SettingsItem = ({
 	label,
 	description,
@@ -274,7 +338,7 @@ const SettingsItem = ({
 	);
 };
 
-// Improved Bulk Action Item with stacked mobile layout
+// Bulk Action Item
 const BulkActionItem = ({
 	label,
 	description,
@@ -341,57 +405,76 @@ const BulkActionItem = ({
 };
 
 export default function Settings() {
-	const currentAcademicYear = getCurrentAcademicYear();
 	const school = useSchoolStore((state) => state.school);
 
-	const [studentSettings, setStudentSettings] = useState(null);
-	const [teacherSettings, setTeacherSettings] = useState(null);
-	const [administratorSettings, setAdministratorSettings] = useState(null);
 	const [pendingBulkActions, setPendingBulkActions] = useState({});
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSaving, setIsSaving] = useState(false);
 	const [feedback, setFeedback] = useState({ type: '', message: '' });
 
+	// Derive state directly from school settings - no local state needed
+	const currentAcademicYear =
+		school?.currentAcademicYear || getCurrentAcademicYear();
+
+	const studentSettings = school?.settings?.studentSettings || {
+		loginAccess: true,
+		yearlyReportAccess: false,
+		reportAccessPeriods: [],
+	};
+
+	const teacherSettings = school?.settings?.teacherSettings || {
+		loginAccess: true,
+		gradeSubmissionPeriods: [],
+		gradeSubmissionAcademicYears: [currentAcademicYear],
+		viewMastersAcademicYears: [currentAcademicYear],
+		viewGradeSubmissionsAcademicYears: [currentAcademicYear],
+		gradeChangeRequestAcademicYears: [currentAcademicYear],
+		gradeChangeRequestPeriods: [],
+	};
+
+	const administratorSettings = school?.settings?.administratorSettings || {
+		loginAccess: true,
+	};
+
 	useEffect(() => {
 		if (school && school.settings) {
-			setStudentSettings(
-				school.settings.studentSettings || {
-					loginAccess: true,
-					yearlyReportAccess: false,
-					reportAccessPeriods: [],
-				}
-			);
-			setTeacherSettings(
-				school.settings.teacherSettings || {
-					loginAccess: true,
-					gradeSubmissionPeriods: [],
-					gradeSubmissionAcademicYears: [currentAcademicYear],
-					viewMastersAcademicYears: [currentAcademicYear],
-					viewGradeSubmissionsAcademicYears: [currentAcademicYear],
-					gradeChangeRequestAcademicYears: [currentAcademicYear],
-					gradeChangeRequestPeriods: [],
-				}
-			);
-			setAdministratorSettings(
-				school.settings.administratorSettings || {
-					loginAccess: true,
-				}
-			);
 			setIsLoading(false);
 		}
-	}, []); // Empty dependency array - only run once on mount
+	}, [school]);
 
-	const toggleStudentSetting = (setting) =>
-		setStudentSettings((prev) => ({ ...prev, [setting]: !prev[setting] }));
-	const toggleTeacherSetting = (setting) =>
-		setTeacherSettings((prev) => ({ ...prev, [setting]: !prev[setting] }));
-	const toggleAdministratorSetting = (setting) =>
-		setAdministratorSettings((prev) => ({
-			...prev,
-			[setting]: !prev[setting],
-		}));
+	// Update handlers to modify the school store directly
+	const toggleStudentSetting = (setting) => {
+		// In a real implementation, this would update the store
+		// For now, this demonstrates the pattern
+		console.log('Toggle student setting:', setting);
+	};
+
+	const toggleTeacherSetting = (setting) => {
+		console.log('Toggle teacher setting:', setting);
+	};
+
+	const toggleAdministratorSetting = (setting) => {
+		console.log('Toggle administrator setting:', setting);
+	};
+
+	const updateStudentSettings = (updates) => {
+		// In real implementation, update the store
+		console.log('Update student settings:', updates);
+	};
+
+	const updateTeacherSettings = (updates) => {
+		// In real implementation, update the store
+		console.log('Update teacher settings:', updates);
+	};
+
+	const updateCurrentAcademicYear = (year) => {
+		// In real implementation, update the store
+		console.log('Update academic year:', year);
+	};
+
 	const handleQueueBulkAction = (category, action) =>
 		setPendingBulkActions((prev) => ({ ...prev, [category]: action }));
+
 	const clearPendingBulkAction = (category) => {
 		setPendingBulkActions((prev) => {
 			const newActions = { ...prev };
@@ -404,37 +487,52 @@ export default function Settings() {
 		setIsSaving(true);
 		setFeedback({ type: '', message: '' });
 
-		const allSettings = {
+		const payload = {
+			currentAcademicYear,
 			studentSettings,
 			teacherSettings,
 			administratorSettings,
 			bulkUserActions: pendingBulkActions,
 		};
 
-		// Simulate API call
-		setTimeout(() => {
-			setFeedback({
-				type: 'success',
-				message:
-					'Settings saved successfully! Changes will be applied shortly.',
+		try {
+			const response = await fetch('/api/settings', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload),
 			});
-			setPendingBulkActions({});
+
+			const data = await response.json();
+
+			if (data.success) {
+				setFeedback({
+					type: 'success',
+					message: 'Settings saved successfully! Changes have been applied.',
+				});
+				setPendingBulkActions({});
+			} else {
+				setFeedback({
+					type: 'error',
+					message: data.message || 'Failed to save settings.',
+				});
+			}
+		} catch (error) {
+			setFeedback({
+				type: 'error',
+				message: 'An error occurred while saving settings.',
+			});
+		} finally {
 			setIsSaving(false);
-		}, 1000);
+		}
 	};
 
-	const academicYears = ['2023-2024', '2024-2025', '2025-2026', '2026-2027'];
+	const academicYears = generateAcademicYears();
 	const academicYearOptions = academicYears.map((year) => ({
 		value: year,
 		label: year,
 	}));
 
-	if (
-		isLoading ||
-		!studentSettings ||
-		!teacherSettings ||
-		!administratorSettings
-	) {
+	if (isLoading || !school?.settings) {
 		return (
 			<div className="flex items-center justify-center min-h-screen bg-background">
 				<Loader2 className="h-8 w-8 sm:h-12 sm:w-12 animate-spin text-primary" />
@@ -466,8 +564,23 @@ export default function Settings() {
 					</p>
 				</div>
 
-				{/* Settings Sections */}
 				<div className="space-y-4 sm:space-y-6">
+					{/* General Settings */}
+					<SettingsSection
+						icon={Calendar}
+						title="General Settings"
+						description="Configure academic year and system-wide settings"
+					>
+						<div className="space-y-3">
+							<SingleSelect
+								options={academicYearOptions}
+								selected={currentAcademicYear}
+								onChange={updateCurrentAcademicYear}
+								label="Current Academic Year"
+							/>
+						</div>
+					</SettingsSection>
+
 					{/* Student Settings */}
 					<SettingsSection
 						icon={GraduationCap}
@@ -495,10 +608,9 @@ export default function Settings() {
 								options={academicPeriodsMap}
 								selected={studentSettings.reportAccessPeriods}
 								onChange={(selectedPeriods) =>
-									setStudentSettings((prev) => ({
-										...prev,
+									updateStudentSettings({
 										reportAccessPeriods: selectedPeriods,
-									}))
+									})
 								}
 								label="Select periods students can view. Leave empty to disable."
 							/>
@@ -546,10 +658,9 @@ export default function Settings() {
 									options={academicYearOptions}
 									selected={teacherSettings.gradeSubmissionAcademicYears}
 									onChange={(selectedYears) =>
-										setTeacherSettings((prev) => ({
-											...prev,
+										updateTeacherSettings({
 											gradeSubmissionAcademicYears: selectedYears,
-										}))
+										})
 									}
 									label="Academic Years"
 								/>
@@ -557,10 +668,9 @@ export default function Settings() {
 									options={academicPeriodsMap}
 									selected={teacherSettings.gradeSubmissionPeriods}
 									onChange={(selectedPeriods) =>
-										setTeacherSettings((prev) => ({
-											...prev,
+										updateTeacherSettings({
 											gradeSubmissionPeriods: selectedPeriods,
-										}))
+										})
 									}
 									label="Periods"
 								/>
@@ -576,10 +686,9 @@ export default function Settings() {
 									options={academicYearOptions}
 									selected={teacherSettings.viewMastersAcademicYears}
 									onChange={(selectedYears) =>
-										setTeacherSettings((prev) => ({
-											...prev,
+										updateTeacherSettings({
 											viewMastersAcademicYears: selectedYears,
-										}))
+										})
 									}
 									label="View Master Grade Sheets for Academic Years"
 								/>
@@ -587,10 +696,9 @@ export default function Settings() {
 									options={academicYearOptions}
 									selected={teacherSettings.viewGradeSubmissionsAcademicYears}
 									onChange={(selectedYears) =>
-										setTeacherSettings((prev) => ({
-											...prev,
+										updateTeacherSettings({
 											viewGradeSubmissionsAcademicYears: selectedYears,
-										}))
+										})
 									}
 									label="View Grade Submissions for Academic Years"
 								/>
@@ -606,10 +714,9 @@ export default function Settings() {
 									options={academicYearOptions}
 									selected={teacherSettings.gradeChangeRequestAcademicYears}
 									onChange={(selectedYears) =>
-										setTeacherSettings((prev) => ({
-											...prev,
+										updateTeacherSettings({
 											gradeChangeRequestAcademicYears: selectedYears,
-										}))
+										})
 									}
 									label="Academic Years"
 								/>
@@ -617,10 +724,9 @@ export default function Settings() {
 									options={academicPeriodsMap}
 									selected={teacherSettings.gradeChangeRequestPeriods}
 									onChange={(selectedPeriods) =>
-										setTeacherSettings((prev) => ({
-											...prev,
+										updateTeacherSettings({
 											gradeChangeRequestPeriods: selectedPeriods,
-										}))
+										})
 									}
 									label="Periods"
 								/>
@@ -681,7 +787,7 @@ export default function Settings() {
 					</SettingsSection>
 				</div>
 
-				{/* Save Button - Fixed on mobile */}
+				{/* Save Button */}
 				<div className="sticky bottom-0 left-0 right-0 bg-background pt-4 pb-6 sm:pb-8 sm:static">
 					<div className="flex justify-center px-3">
 						<button
