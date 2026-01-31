@@ -38,6 +38,25 @@ import { useSchoolStore } from '@/store/schoolStore';
 
 const API_URL = '/api/users';
 
+const getAcademicYear = () => {
+	const now = new Date();
+	const currentYear = now.getFullYear();
+	const currentMonth = now.getMonth();
+	return currentMonth >= 7
+		? `${currentYear}-${currentYear + 1}`
+		: `${currentYear - 1}-${currentYear}`;
+};
+
+const generateAcademicYears = (yearsAhead = 5) => {
+	const years = [];
+	const currentYear = new Date().getFullYear();
+	for (let i = 0; i < yearsAhead + 3; i++) {
+		const year = currentYear - 2 + i;
+		years.push(`${year}-${year + 1}`);
+	}
+	return years;
+};
+
 // --- Portal Component for escaping containers ---
 const Portal = ({ children }: { children: React.ReactNode }) => {
 	const [mounted, setMounted] = useState(false);
@@ -241,6 +260,11 @@ const UserManagementDashboard = () => {
 
 	const router = useRouter();
 	const schoolProfile = useSchoolStore((state: any) => state.school);
+	const fetchSchool = useSchoolStore((state: any) => state.fetchSchool);
+	const activeAcademicYear =
+		schoolProfile?.currentAcademicYear || getAcademicYear();
+	const [selectedAcademicYear, setSelectedAcademicYear] =
+		useState(activeAcademicYear);
 
 	// Fixed availableClasses
 	const availableClasses = useMemo(() => {
@@ -319,14 +343,69 @@ const UserManagementDashboard = () => {
 		return Array.from(subjects).sort();
 	}, [schoolProfile]);
 
+	const academicYearOptions = useMemo(() => {
+		const years = new Set(generateAcademicYears());
+		if (schoolProfile?.currentAcademicYear) {
+			years.add(schoolProfile.currentAcademicYear);
+		}
+		const profileYears = schoolProfile?.academicYears;
+		if (Array.isArray(profileYears)) {
+			profileYears.forEach((year: any) => {
+				if (typeof year === 'string') years.add(year);
+				else if (year?.year) years.add(year.year);
+			});
+		}
+		return Array.from(years).sort((a, b) => b.localeCompare(a));
+	}, [schoolProfile]);
+
+	const normalizeUsers = (data: any) => {
+		if (!data) return [];
+		if (Array.isArray(data)) return data;
+		if (data.students || data.teachers || data.administrators) {
+			return [
+				...(data.students || []),
+				...(data.teachers || []),
+				...(data.administrators || []),
+			];
+		}
+		return [data];
+	};
+
+	const normalizeUser = (user: any) => {
+		const id = user.id || user._id;
+		const currentClass = user.currentClass || {};
+		const historicalClass = user.historicalClass || {};
+		const classId =
+			user.classId || currentClass.classId || historicalClass.classId || null;
+		const className =
+			user.className ||
+			currentClass.className ||
+			historicalClass.className ||
+			null;
+
+		return {
+			...user,
+			id,
+			_id: id,
+			classId,
+			className,
+			isActive: user.isActive ?? true,
+			createdAt: user.createdAt ?? null,
+		};
+	};
+
 	const fetchUsers = async () => {
 		setLoading(true);
 		try {
-			const res = await fetch(API_URL);
+			const res = await fetch(
+				`${API_URL}?academicYear=${selectedAcademicYear}`,
+			);
 			const data = await res.json();
 			if (data.success) {
-				const userList = Array.isArray(data.data) ? data.data : [data.data];
-				setUsers(userList.filter(Boolean));
+				const userList = normalizeUsers(data.data)
+					.filter(Boolean)
+					.map(normalizeUser);
+				setUsers(userList);
 			} else {
 				setUsers([]);
 			}
@@ -338,8 +417,20 @@ const UserManagementDashboard = () => {
 	};
 
 	useEffect(() => {
+		fetchSchool();
+	}, [fetchSchool]);
+
+	useEffect(() => {
+		if (!schoolProfile) return;
+		setSelectedAcademicYear(
+			schoolProfile.currentAcademicYear || getAcademicYear(),
+		);
+	}, [schoolProfile]);
+
+	useEffect(() => {
+		if (!schoolProfile) return;
 		fetchUsers();
-	}, []);
+	}, [schoolProfile, selectedAcademicYear]);
 
 	const userTypes = useMemo(
 		() => [
@@ -363,12 +454,13 @@ const UserManagementDashboard = () => {
 				count: users.filter((u) => u.role === 'administrator').length,
 			},
 		],
-		[users]
+		[users],
 	);
 
 	const getFullName = (user: any) => {
+		if (user.fullName) return user.fullName;
 		const names = [user.firstName, user.middleName, user.lastName].filter(
-			Boolean
+			Boolean,
 		);
 		return names.join(' ');
 	};
@@ -391,6 +483,36 @@ const UserManagementDashboard = () => {
 		return foundClass ? foundClass.session : null;
 	};
 
+	const getTeacherClassIds = (teacher: any) => {
+		if (!teacher?.subjects) return [];
+		const classIds: string[] = [];
+		teacher.subjects.forEach((yearData: any) => {
+			if (yearData?.year && yearData.year !== selectedAcademicYear) return;
+			if (!yearData?.classes) return;
+			yearData.classes.forEach((classData: any) => {
+				if (classData?.classId) classIds.push(classData.classId);
+			});
+		});
+		return classIds;
+	};
+
+	const getTeacherSubjects = (teacher: any) => {
+		if (!teacher?.subjects) return [];
+		const subjects = new Set<string>();
+		teacher.subjects.forEach((yearData: any) => {
+			if (yearData?.year && yearData.year !== selectedAcademicYear) return;
+			if (!yearData?.classes) return;
+			yearData.classes.forEach((classData: any) => {
+				(classData?.subjects || []).forEach((subject: any) => {
+					if (typeof subject === 'string') subjects.add(subject);
+					else if (subject?.subject) subjects.add(subject.subject);
+					else if (subject?.name) subjects.add(subject.name);
+				});
+			});
+		});
+		return Array.from(subjects);
+	};
+
 	const filteredAndSortedUsers = useMemo(() => {
 		const filtered = users.filter((user) => {
 			const fullName = getFullName(user).toLowerCase();
@@ -408,20 +530,26 @@ const UserManagementDashboard = () => {
 				(user.role === 'student' &&
 					getSessionFromId(user.classId) === sessionFilter) ||
 				(user.role === 'teacher' &&
-					user.subjects?.some((s: any) => s.session === sessionFilter));
+					getTeacherClassIds(user).some(
+						(classId) => getSessionFromId(classId) === sessionFilter,
+					));
 			const matchesClassLevel =
 				classLevelFilter === 'all' ||
 				(user.role === 'student' &&
 					getClassLevelFromId(user.classId) === classLevelFilter) ||
 				(user.role === 'teacher' &&
-					user.subjects?.some((s: any) => s.level === classLevelFilter));
+					getTeacherClassIds(user).some(
+						(classId) => getClassLevelFromId(classId) === classLevelFilter,
+					));
 			const matchesClass =
 				classFilter === 'all' ||
-				(user.role === 'student' && user.classId === classFilter);
+				(user.role === 'student' && user.classId === classFilter) ||
+				(user.role === 'teacher' &&
+					getTeacherClassIds(user).includes(classFilter));
 			const matchesSubject =
 				subjectFilter === 'all' ||
 				(user.role === 'teacher' &&
-					user.subjects?.some((s: any) => s.subject === subjectFilter));
+					getTeacherSubjects(user).includes(subjectFilter));
 
 			return (
 				matchesTab &&
@@ -442,8 +570,8 @@ const UserManagementDashboard = () => {
 				bVal = getFullName(b);
 			}
 			if (sortField === 'createdAt') {
-				aVal = new Date(aVal) as any;
-				bVal = new Date(bVal) as any;
+				aVal = aVal ? new Date(aVal) : new Date(0);
+				bVal = bVal ? new Date(bVal) : new Date(0);
 			}
 			if (typeof aVal === 'string') {
 				aVal = aVal.toLowerCase();
@@ -473,7 +601,7 @@ const UserManagementDashboard = () => {
 	const startIndex = (currentPage - 1) * itemsPerPage;
 	const paginatedUsers = filteredAndSortedUsers.slice(
 		startIndex,
-		startIndex + itemsPerPage
+		startIndex + itemsPerPage,
 	);
 
 	const handleSort = (field: any) => {
@@ -550,7 +678,7 @@ const UserManagementDashboard = () => {
 
 	const handleDeleteSuccess = (deletedUserId: string) => {
 		setUsers((currentUsers) =>
-			currentUsers.filter((u) => u._id !== deletedUserId)
+			currentUsers.filter((u) => (u.id || u._id) !== deletedUserId),
 		);
 	};
 
@@ -563,7 +691,11 @@ const UserManagementDashboard = () => {
 
 	const handleDeactivateSuccess = (updatedUser: any) => {
 		setUsers((currentUsers) =>
-			currentUsers.map((u) => (u._id === updatedUser._id ? updatedUser : u))
+			currentUsers.map((u) =>
+				(u.id || u._id) === (updatedUser.id || updatedUser._id)
+					? normalizeUser(updatedUser)
+					: u,
+			),
 		);
 		setFeedback({
 			type: 'success',
@@ -587,7 +719,7 @@ const UserManagementDashboard = () => {
 	return (
 		<div className="min-h-screen bg-background text-foreground p-6">
 			{/* The rest of your component remains the same, no changes needed below this line */}
-			<div className="max-w-7xl mx-auto">
+			<div className="max-w-none">
 				{feedback.message && (
 					<FeedbackToast
 						type={feedback.type}
@@ -640,10 +772,10 @@ const UserManagementDashboard = () => {
 											type.key === 'student'
 												? 'bg-blue-100'
 												: type.key === 'teacher'
-												? 'bg-purple-100'
-												: type.key === 'administrator'
-												? 'bg-orange-100'
-												: 'bg-gray-100'
+													? 'bg-purple-100'
+													: type.key === 'administrator'
+														? 'bg-orange-100'
+														: 'bg-gray-100'
 										}`}
 									>
 										<IconComponent
@@ -651,10 +783,10 @@ const UserManagementDashboard = () => {
 												type.key === 'student'
 													? 'text-blue-600'
 													: type.key === 'teacher'
-													? 'text-purple-600'
-													: type.key === 'administrator'
-													? 'text-orange-600'
-													: 'text-gray-600'
+														? 'text-purple-600'
+														: type.key === 'administrator'
+															? 'text-orange-600'
+															: 'text-gray-600'
 											}`}
 										/>
 									</div>
@@ -678,7 +810,21 @@ const UserManagementDashboard = () => {
 							}}
 						/>
 					</div>
-					<div className="flex gap-2">
+					<div className="flex flex-wrap gap-2">
+						<select
+							value={selectedAcademicYear}
+							onChange={(e) => {
+								setSelectedAcademicYear(e.target.value);
+								setCurrentPage(1);
+							}}
+							className="bg-card border border-border rounded-lg px-3 py-2 text-sm"
+						>
+							{academicYearOptions.map((year) => (
+								<option key={year} value={year}>
+									{year}
+								</option>
+							))}
+						</select>
 						<button
 							onClick={() => setShowFilterModal(true)}
 							className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg hover:bg-card/80 transition-colors"
@@ -742,7 +888,7 @@ const UserManagementDashboard = () => {
 							<tbody className="divide-y divide-border">
 								{paginatedUsers.map((user) => (
 									<tr
-										key={user._id}
+										key={user.id || user._id}
 										className="hover:bg-muted/20 transition-colors"
 									>
 										<td className="sticky left-0 bg-card hover:bg-muted/20 px-4 sm:px-6 py-4 z-10">
@@ -759,7 +905,7 @@ const UserManagementDashboard = () => {
 														src={
 															user.avatar ||
 															`https://ui-avatars.com/api/?name=${getFullName(
-																user
+																user,
 															)}`
 														}
 														alt={getFullName(user)}
@@ -783,7 +929,7 @@ const UserManagementDashboard = () => {
 										<td className="px-6 py-4">
 											<span
 												className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getUserTypeColor(
-													user.role
+													user.role,
 												)}`}
 											>
 												{user.role.charAt(0).toUpperCase() + user.role.slice(1)}
@@ -794,14 +940,13 @@ const UserManagementDashboard = () => {
 												user.classId &&
 												getClassDisplayName(user.classId)}
 											{user.role === 'teacher' &&
-												user.subjects &&
-												user.subjects.map((s: any) => s.subject).join(', ')}
+												getTeacherSubjects(user).join(', ')}
 											{user.role === 'administrator' && user.position}
 										</td>
 										<td className="px-6 py-4">
 											<span
 												className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-													user.isActive
+													user.isActive,
 												)}`}
 											>
 												{user.isActive ? 'Active' : 'Inactive'}
@@ -942,6 +1087,7 @@ const UserManagementDashboard = () => {
 				isOpen={showViewModal}
 				onClose={() => setShowViewModal(false)}
 				viewingUser={viewingUser}
+				schoolProfile={schoolProfile}
 			/>
 
 			<FilterUsersModal
@@ -984,7 +1130,11 @@ const UserManagementDashboard = () => {
 					user={editingUser}
 					onSave={(updatedUser: any) => {
 						setUsers(
-							users.map((u) => (u._id === updatedUser._id ? updatedUser : u))
+							users.map((u) =>
+								(u.id || u._id) === (updatedUser.id || updatedUser._id)
+									? normalizeUser(updatedUser)
+									: u,
+							),
 						);
 						setShowEditModal(false);
 						setEditingUser(null);

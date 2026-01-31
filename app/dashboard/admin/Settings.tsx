@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { useSchoolStore } from '@/store/schoolStore';
 import {
 	Shield,
 	Users,
@@ -18,37 +19,7 @@ import {
 	X,
 	Loader2,
 	XCircle,
-	Award,
-	Building,
 } from 'lucide-react';
-
-// Mock store for demo
-const useSchoolStore = (selector) => {
-	return selector({
-		school: {
-			currentAcademicYear: '2025-2026',
-			settings: {
-				studentSettings: {
-					loginAccess: true,
-					yearlyReportAccess: false,
-					reportAccessPeriods: ['first', 'second'],
-				},
-				teacherSettings: {
-					loginAccess: true,
-					gradeSubmissionPeriods: ['first'],
-					gradeSubmissionAcademicYears: ['2025-2026'],
-					viewMastersAcademicYears: ['2025-2026'],
-					viewGradeSubmissionsAcademicYears: ['2025-2026'],
-					gradeChangeRequestAcademicYears: ['2025-2026'],
-					gradeChangeRequestPeriods: [],
-				},
-				administratorSettings: {
-					loginAccess: true,
-				},
-			},
-		},
-	});
-};
 
 // --- Reusable Feedback Toast Component ---
 const FeedbackToast = ({ type, message, onClose }) => {
@@ -116,7 +87,7 @@ const generateAcademicYears = (yearsAhead = 5) => {
 	return years;
 };
 
-// Improved MultiSelect
+// Improved MultiSelect with better mobile responsiveness
 const MultiSelect = ({ options, selected, onChange, label }) => {
 	const [isOpen, setIsOpen] = useState(false);
 
@@ -259,7 +230,7 @@ const SingleSelect = ({ options, selected, onChange, label }) => {
 	);
 };
 
-// Toggle Switch
+// Improved Toggle Switch
 const ToggleSwitch = ({ checked, onChange, disabled = false }) => {
 	return (
 		<button
@@ -283,7 +254,7 @@ const ToggleSwitch = ({ checked, onChange, disabled = false }) => {
 	);
 };
 
-// Settings Section
+// Improved Settings Section with better mobile layout
 const SettingsSection = ({ icon: Icon, title, description, children }) => {
 	return (
 		<div className="rounded-lg sm:rounded-xl border border-border bg-card p-4 sm:p-6 shadow-sm">
@@ -307,7 +278,7 @@ const SettingsSection = ({ icon: Icon, title, description, children }) => {
 	);
 };
 
-// Settings Item
+// Improved Settings Item with better mobile responsiveness
 const SettingsItem = ({
 	label,
 	description,
@@ -338,7 +309,7 @@ const SettingsItem = ({
 	);
 };
 
-// Bulk Action Item
+// Improved Bulk Action Item with stacked mobile layout
 const BulkActionItem = ({
 	label,
 	description,
@@ -406,75 +377,66 @@ const BulkActionItem = ({
 
 export default function Settings() {
 	const school = useSchoolStore((state) => state.school);
+	const fetchSchool = useSchoolStore((state) => state.fetchSchool);
 
+	const [currentAcademicYear, setCurrentAcademicYear] = useState('');
+	const [studentSettings, setStudentSettings] = useState(null);
+	const [teacherSettings, setTeacherSettings] = useState(null);
+	const [administratorSettings, setAdministratorSettings] = useState(null);
 	const [pendingBulkActions, setPendingBulkActions] = useState({});
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSaving, setIsSaving] = useState(false);
 	const [feedback, setFeedback] = useState({ type: '', message: '' });
 
-	// Derive state directly from school settings - no local state needed
-	const currentAcademicYear =
-		school?.currentAcademicYear || getCurrentAcademicYear();
-
-	const studentSettings = school?.settings?.studentSettings || {
-		loginAccess: true,
-		yearlyReportAccess: false,
-		reportAccessPeriods: [],
-	};
-
-	const teacherSettings = school?.settings?.teacherSettings || {
-		loginAccess: true,
-		gradeSubmissionPeriods: [],
-		gradeSubmissionAcademicYears: [currentAcademicYear],
-		viewMastersAcademicYears: [currentAcademicYear],
-		viewGradeSubmissionsAcademicYears: [currentAcademicYear],
-		gradeChangeRequestAcademicYears: [currentAcademicYear],
-		gradeChangeRequestPeriods: [],
-	};
-
-	const administratorSettings = school?.settings?.administratorSettings || {
-		loginAccess: true,
-	};
+	useEffect(() => {
+		fetchSchool();
+	}, [fetchSchool]);
 
 	useEffect(() => {
 		if (school && school.settings) {
+			const baseAcademicYear =
+				school.currentAcademicYear || getCurrentAcademicYear();
+
+			setCurrentAcademicYear(baseAcademicYear);
+			setStudentSettings(
+				school.settings.studentSettings || {
+					loginAccess: true,
+					yearlyReportAccess: false,
+					reportAccessPeriods: [],
+				},
+			);
+			setTeacherSettings(
+				school.settings.teacherSettings || {
+					loginAccess: true,
+					gradeSubmissionPeriods: [],
+					gradeSubmissionAcademicYears: [baseAcademicYear],
+					viewMastersAcademicYears: [baseAcademicYear],
+					viewGradeSubmissionsAcademicYears: [baseAcademicYear],
+					gradeChangeRequestAcademicYears: [baseAcademicYear],
+					gradeChangeRequestPeriods: [],
+				},
+			);
+			setAdministratorSettings(
+				school.settings.administratorSettings || {
+					loginAccess: true,
+				},
+			);
 			setIsLoading(false);
 		}
 	}, [school]);
 
-	// Update handlers to modify the school store directly
-	const toggleStudentSetting = (setting) => {
-		// In a real implementation, this would update the store
-		// For now, this demonstrates the pattern
-		console.log('Toggle student setting:', setting);
-	};
-
-	const toggleTeacherSetting = (setting) => {
-		console.log('Toggle teacher setting:', setting);
-	};
-
-	const toggleAdministratorSetting = (setting) => {
-		console.log('Toggle administrator setting:', setting);
-	};
-
-	const updateStudentSettings = (updates) => {
-		// In real implementation, update the store
-		console.log('Update student settings:', updates);
-	};
-
-	const updateTeacherSettings = (updates) => {
-		// In real implementation, update the store
-		console.log('Update teacher settings:', updates);
-	};
-
-	const updateCurrentAcademicYear = (year) => {
-		// In real implementation, update the store
-		console.log('Update academic year:', year);
-	};
+	const toggleStudentSetting = (setting) =>
+		setStudentSettings((prev) => ({ ...prev, [setting]: !prev[setting] }));
+	const toggleTeacherSetting = (setting) =>
+		setTeacherSettings((prev) => ({ ...prev, [setting]: !prev[setting] }));
+	const toggleAdministratorSetting = (setting) =>
+		setAdministratorSettings((prev) => ({
+			...prev,
+			[setting]: !prev[setting],
+		}));
 
 	const handleQueueBulkAction = (category, action) =>
 		setPendingBulkActions((prev) => ({ ...prev, [category]: action }));
-
 	const clearPendingBulkAction = (category) => {
 		setPendingBulkActions((prev) => {
 			const newActions = { ...prev };
@@ -532,7 +494,12 @@ export default function Settings() {
 		label: year,
 	}));
 
-	if (isLoading || !school?.settings) {
+	if (
+		isLoading ||
+		!studentSettings ||
+		!teacherSettings ||
+		!administratorSettings
+	) {
 		return (
 			<div className="flex items-center justify-center min-h-screen bg-background">
 				<Loader2 className="h-8 w-8 sm:h-12 sm:w-12 animate-spin text-primary" />
@@ -549,7 +516,7 @@ export default function Settings() {
 					onClose={() => setFeedback({ type: '', message: '' })}
 				/>
 			)}
-			<div className="mx-auto max-w-4xl space-y-4 sm:space-y-8">
+			<div className="max-w-none space-y-4 sm:space-y-8">
 				{/* Header */}
 				<div className="text-center space-y-2 px-2">
 					<div className="inline-flex items-center justify-center rounded-full bg-primary/10 p-2 sm:p-3 mb-2 sm:mb-4">
@@ -564,6 +531,7 @@ export default function Settings() {
 					</p>
 				</div>
 
+				{/* Settings Sections */}
 				<div className="space-y-4 sm:space-y-6">
 					{/* General Settings */}
 					<SettingsSection
@@ -575,7 +543,7 @@ export default function Settings() {
 							<SingleSelect
 								options={academicYearOptions}
 								selected={currentAcademicYear}
-								onChange={updateCurrentAcademicYear}
+								onChange={setCurrentAcademicYear}
 								label="Current Academic Year"
 							/>
 						</div>
@@ -608,9 +576,10 @@ export default function Settings() {
 								options={academicPeriodsMap}
 								selected={studentSettings.reportAccessPeriods}
 								onChange={(selectedPeriods) =>
-									updateStudentSettings({
+									setStudentSettings((prev) => ({
+										...prev,
 										reportAccessPeriods: selectedPeriods,
-									})
+									}))
 								}
 								label="Select periods students can view. Leave empty to disable."
 							/>
@@ -658,9 +627,10 @@ export default function Settings() {
 									options={academicYearOptions}
 									selected={teacherSettings.gradeSubmissionAcademicYears}
 									onChange={(selectedYears) =>
-										updateTeacherSettings({
+										setTeacherSettings((prev) => ({
+											...prev,
 											gradeSubmissionAcademicYears: selectedYears,
-										})
+										}))
 									}
 									label="Academic Years"
 								/>
@@ -668,9 +638,10 @@ export default function Settings() {
 									options={academicPeriodsMap}
 									selected={teacherSettings.gradeSubmissionPeriods}
 									onChange={(selectedPeriods) =>
-										updateTeacherSettings({
+										setTeacherSettings((prev) => ({
+											...prev,
 											gradeSubmissionPeriods: selectedPeriods,
-										})
+										}))
 									}
 									label="Periods"
 								/>
@@ -686,9 +657,10 @@ export default function Settings() {
 									options={academicYearOptions}
 									selected={teacherSettings.viewMastersAcademicYears}
 									onChange={(selectedYears) =>
-										updateTeacherSettings({
+										setTeacherSettings((prev) => ({
+											...prev,
 											viewMastersAcademicYears: selectedYears,
-										})
+										}))
 									}
 									label="View Master Grade Sheets for Academic Years"
 								/>
@@ -696,9 +668,10 @@ export default function Settings() {
 									options={academicYearOptions}
 									selected={teacherSettings.viewGradeSubmissionsAcademicYears}
 									onChange={(selectedYears) =>
-										updateTeacherSettings({
+										setTeacherSettings((prev) => ({
+											...prev,
 											viewGradeSubmissionsAcademicYears: selectedYears,
-										})
+										}))
 									}
 									label="View Grade Submissions for Academic Years"
 								/>
@@ -714,9 +687,10 @@ export default function Settings() {
 									options={academicYearOptions}
 									selected={teacherSettings.gradeChangeRequestAcademicYears}
 									onChange={(selectedYears) =>
-										updateTeacherSettings({
+										setTeacherSettings((prev) => ({
+											...prev,
 											gradeChangeRequestAcademicYears: selectedYears,
-										})
+										}))
 									}
 									label="Academic Years"
 								/>
@@ -724,9 +698,10 @@ export default function Settings() {
 									options={academicPeriodsMap}
 									selected={teacherSettings.gradeChangeRequestPeriods}
 									onChange={(selectedPeriods) =>
-										updateTeacherSettings({
+										setTeacherSettings((prev) => ({
+											...prev,
 											gradeChangeRequestPeriods: selectedPeriods,
-										})
+										}))
 									}
 									label="Periods"
 								/>
@@ -787,8 +762,8 @@ export default function Settings() {
 					</SettingsSection>
 				</div>
 
-				{/* Save Button */}
-				<div className="sticky bottom-0 left-0 right-0 bg-background pt-4 pb-6 sm:pb-8 sm:static">
+				{/* Save Button - Sticky across all viewports */}
+				<div className="sticky bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur border-t border-border pt-4 pb-6 sm:pb-6">
 					<div className="flex justify-center px-3">
 						<button
 							onClick={handleSaveSettings}

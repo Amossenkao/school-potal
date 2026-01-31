@@ -336,6 +336,57 @@ function flattenClassStructure(classLevels: any): ClassInfo[] {
 	return allClasses;
 }
 
+function normalizeClassName(name?: string): string {
+	if (!name) return '';
+	return name.replace(/\s*-?\s*[A-D]$/i, '').trim();
+}
+
+function getClassMetaById(classLevels: any, classId: string) {
+	if (!classLevels || !classId) return null;
+	for (const [sessionName, session] of Object.entries(classLevels)) {
+		if (!session || typeof session !== 'object') continue;
+		const levelOrder = Object.keys(session);
+		for (const levelName of levelOrder) {
+			const level: any = (session as any)[levelName];
+			if (level?.classes && Array.isArray(level.classes)) {
+				const found = level.classes.find((c: any) => c.classId === classId);
+				if (found) {
+					return {
+						classId: found.classId,
+						name: found.name,
+						session: sessionName,
+						level: levelName,
+						baseName: normalizeClassName(found.name),
+					};
+				}
+			}
+		}
+	}
+	return null;
+}
+
+function getOrderedClassesForSession(classLevels: any, sessionName: string) {
+	if (!classLevels?.[sessionName]) return [];
+	const ordered: any[] = [];
+	const session: any = classLevels[sessionName];
+	const levelOrder = Object.keys(session);
+	for (const levelName of levelOrder) {
+		const level = session[levelName];
+		if (level?.classes && Array.isArray(level.classes)) {
+			level.classes.forEach((cls: any) => {
+				ordered.push({
+					classId: cls.classId,
+					name: cls.name,
+					session: sessionName,
+					level: levelName,
+					baseName: normalizeClassName(cls.name),
+				});
+			});
+		}
+	}
+	return ordered;
+}
+
 async function promoteStudent(
 	student: any,
 	promotionType: 'yearlyPromotion' | 'doublePromotion',
@@ -1086,7 +1137,6 @@ export async function GET(request: NextRequest) {
 			if (role === 'teacher') {
 				const teachers = await models.User.find({
 					role: 'teacher',
-					isActive: true,
 					subjects: {
 						$elemMatch: {
 							year: academicYear,
@@ -1136,7 +1186,6 @@ export async function GET(request: NextRequest) {
 				const classmates = await models.User.find({
 					role: 'student',
 					_id: { $ne: currentUser.id },
-					isActive: true,
 					academicYears: {
 						$elemMatch: {
 							year: academicYear,
@@ -1164,7 +1213,6 @@ export async function GET(request: NextRequest) {
 			if (role === 'administrator') {
 				const administrators = await models.User.find({
 					role: 'administrator',
-					isActive: true,
 					'academicYears.year': academicYear,
 				})
 					.select('-password -defaultPassword')
@@ -1196,7 +1244,6 @@ export async function GET(request: NextRequest) {
 				// Build filter to ensure student can only access allowed users
 				const userFilters: any = {
 					_id: targetId,
-					isActive: true,
 					$or: [
 						// Classmates from the same class in the same academic year
 						{
@@ -1293,7 +1340,6 @@ export async function GET(request: NextRequest) {
 			const classmates = await models.User.find({
 				role: 'student',
 				_id: { $ne: currentUser.id },
-				isActive: true,
 				academicYears: {
 					$elemMatch: {
 						year: academicYear,
@@ -1307,7 +1353,6 @@ export async function GET(request: NextRequest) {
 
 			const teachers = await models.User.find({
 				role: 'teacher',
-				isActive: true,
 				subjects: {
 					$elemMatch: {
 						year: academicYear,
@@ -1320,7 +1365,6 @@ export async function GET(request: NextRequest) {
 
 			const administrators = await models.User.find({
 				role: 'administrator',
-				isActive: true,
 				'academicYears.year': academicYear,
 			})
 				.select('-password -defaultPassword')
@@ -1414,7 +1458,6 @@ export async function GET(request: NextRequest) {
 				// Build filters for students the teacher can access
 				const filters: Record<string, any> = {
 					role: 'student',
-					isActive: true,
 					'academicYears.year': academicYear,
 				};
 
@@ -1461,7 +1504,6 @@ export async function GET(request: NextRequest) {
 				const filters: Record<string, any> = {
 					role: 'teacher',
 					_id: { $ne: currentUser.id }, // Exclude self
-					isActive: true,
 					'subjects.year': academicYear,
 				};
 
@@ -1485,7 +1527,6 @@ export async function GET(request: NextRequest) {
 			if (role === 'administrator') {
 				const filters: Record<string, any> = {
 					role: 'administrator',
-					isActive: true,
 					'academicYears.year': academicYear,
 				};
 
@@ -1511,7 +1552,6 @@ export async function GET(request: NextRequest) {
 				// from the requested academic year
 				const userFilters: any = {
 					_id: targetId,
-					isActive: true,
 					$or: [
 						// Students from classes they taught in this year
 						{
@@ -1563,7 +1603,6 @@ export async function GET(request: NextRequest) {
 			const students = await models.User.find({
 				role: 'student',
 				classId: { $in: teacherClassIds },
-				isActive: true,
 				'academicYears.year': academicYear,
 			})
 				.limit(limit)
@@ -1573,7 +1612,6 @@ export async function GET(request: NextRequest) {
 			const teachers = await models.User.find({
 				role: 'teacher',
 				_id: { $ne: currentUser.id },
-				isActive: true,
 				'subjects.year': academicYear,
 			})
 				.select('-password -defaultPassword')
@@ -1581,7 +1619,6 @@ export async function GET(request: NextRequest) {
 
 			const administrators = await models.User.find({
 				role: 'administrator',
-				isActive: true,
 				'academicYears.year': academicYear,
 			})
 				.select('-password -defaultPassword')
@@ -1635,7 +1672,6 @@ export async function GET(request: NextRequest) {
 			}
 
 			const filters: Record<string, any> = {
-				isActive: true,
 				role: { $ne: 'system_admin' }, // Exclude system_admins
 			};
 
@@ -1680,24 +1716,6 @@ export async function GET(request: NextRequest) {
 				.select('-password -defaultPassword')
 				.lean();
 
-			// Format student data based on year
-			const isCurrentYearAdmin = academicYear === currentAcademicYear;
-			if (role === 'student' || !role) {
-				// If fetching students specifically or all users
-				responseData = Array.isArray(responseData)
-					? responseData.map((user: any) => {
-							if (user.role === 'student') {
-								return formatStudentData(
-									user,
-									academicYear,
-									isCurrentYearAdmin,
-								);
-							}
-							return user;
-						})
-					: responseData;
-			}
-
 			return NextResponse.json({
 				success: true,
 				message: 'User Fetch Successful',
@@ -1711,7 +1729,6 @@ export async function GET(request: NextRequest) {
 		// ========================================================================
 		if (currentUser.role === 'system_admin') {
 			const filters: Record<string, any> = {
-				isActive: true,
 				role: { $ne: 'system_admin' }, // Exclude other system_admins
 			};
 
@@ -1755,24 +1772,6 @@ export async function GET(request: NextRequest) {
 				.limit(limit)
 				.select('-password -defaultPassword')
 				.lean();
-
-			// Format student data based on year
-			const isCurrentYearSysAdmin = academicYear === currentAcademicYear;
-			if (role === 'student' || !role) {
-				// If fetching students specifically or all users
-				responseData = Array.isArray(responseData)
-					? responseData.map((user: any) => {
-							if (user.role === 'student') {
-								return formatStudentData(
-									user,
-									academicYear,
-									isCurrentYearSysAdmin,
-								);
-							}
-							return user;
-						})
-					: responseData;
-			}
 
 			return NextResponse.json({
 				success: true,
@@ -2099,6 +2098,57 @@ export async function PUT(request: NextRequest) {
 				);
 			}
 
+			const schoolProfile = await getSchoolProfile();
+			const classLevels = schoolProfile?.classLevels;
+			const currentMeta = getClassMetaById(classLevels, student.classId);
+			const targetMeta = getClassMetaById(classLevels, promotedToClassId);
+
+			if (currentMeta && targetMeta) {
+				if (currentMeta.baseName === targetMeta.baseName) {
+					return NextResponse.json(
+						{
+							success: false,
+							message:
+								'Cannot promote to a different section of the same class. Use class change instead.',
+						},
+						{ status: 400 },
+					);
+				}
+				if (currentMeta.session !== targetMeta.session) {
+					return NextResponse.json(
+						{
+							success: false,
+							message: 'Promotion must remain within the same session.',
+						},
+						{ status: 400 },
+					);
+				}
+				const ordered = getOrderedClassesForSession(
+					classLevels,
+					currentMeta.session,
+				);
+				const currentIndex = ordered.findIndex(
+					(cls) => cls.classId === currentMeta.classId,
+				);
+				const targetIndex = ordered.findIndex(
+					(cls) => cls.classId === targetMeta.classId,
+				);
+				if (
+					currentIndex !== -1 &&
+					targetIndex !== -1 &&
+					targetIndex <= currentIndex
+				) {
+					return NextResponse.json(
+						{
+							success: false,
+							message:
+								'Promotion target must be a higher class than the current class.',
+						},
+						{ status: 400 },
+					);
+				}
+			}
+
 			try {
 				const result = await promoteStudent(
 					student,
@@ -2224,6 +2274,57 @@ export async function PUT(request: NextRequest) {
 					},
 					{ status: 400 },
 				);
+			}
+
+			const schoolProfile = await getSchoolProfile();
+			const classLevels = schoolProfile?.classLevels;
+			const currentMeta = getClassMetaById(classLevels, student.classId);
+			const targetMeta = getClassMetaById(classLevels, demotedToClassId);
+
+			if (currentMeta && targetMeta) {
+				if (currentMeta.baseName === targetMeta.baseName) {
+					return NextResponse.json(
+						{
+							success: false,
+							message:
+								'Cannot demote to a different section of the same class. Use class change instead.',
+						},
+						{ status: 400 },
+					);
+				}
+				if (currentMeta.session !== targetMeta.session) {
+					return NextResponse.json(
+						{
+							success: false,
+							message: 'Demotion must remain within the same session.',
+						},
+						{ status: 400 },
+					);
+				}
+				const ordered = getOrderedClassesForSession(
+					classLevels,
+					currentMeta.session,
+				);
+				const currentIndex = ordered.findIndex(
+					(cls) => cls.classId === currentMeta.classId,
+				);
+				const targetIndex = ordered.findIndex(
+					(cls) => cls.classId === targetMeta.classId,
+				);
+				if (
+					currentIndex !== -1 &&
+					targetIndex !== -1 &&
+					targetIndex >= currentIndex
+				) {
+					return NextResponse.json(
+						{
+							success: false,
+							message:
+								'Demotion target must be a lower class than the current class.',
+						},
+						{ status: 400 },
+					);
+				}
 			}
 
 			try {
@@ -2581,6 +2682,57 @@ export async function PUT(request: NextRequest) {
 			updatedBy: currentUser.userId,
 			updatedAt: new Date(),
 		};
+
+		// Handle student class change (update academicYears + grades)
+		if (
+			targetUser.role === 'student' &&
+			filteredUserData.classId &&
+			filteredUserData.classId !== targetUser.classId
+		) {
+			const schoolProfile = await getSchoolProfile();
+			const currentAcademicYear =
+				schoolProfile.currentAcademicYear || getAcademicYear();
+			const updatedAcademicYears = Array.isArray(targetUser.academicYears)
+				? targetUser.academicYears.map((ay: any) =>
+						ay.year === currentAcademicYear
+							? { ...ay, classId: filteredUserData.classId }
+							: ay,
+					)
+				: [];
+			const hasCurrentYear = updatedAcademicYears.some(
+				(ay: any) => ay.year === currentAcademicYear,
+			);
+			if (!hasCurrentYear) {
+				updatedAcademicYears.push({
+					year: currentAcademicYear,
+					classId: filteredUserData.classId,
+				});
+			}
+			updateData.academicYears = updatedAcademicYears;
+
+			if (!filteredUserData.className) {
+				const classMeta = getClassMetaById(
+					schoolProfile.classLevels,
+					filteredUserData.classId,
+				);
+				if (classMeta?.name) {
+					updateData.className = classMeta.name;
+				}
+			}
+
+			await models.Grade.updateMany(
+				{
+					studentId: targetUser.studentId,
+					academicYear: currentAcademicYear,
+				},
+				{
+					$set: {
+						classId: filteredUserData.classId,
+						updatedAt: new Date(),
+					},
+				},
+			);
+		}
 
 		// Handle password change for self-update
 		if (isSelfUpdate && updateData.newPassword) {

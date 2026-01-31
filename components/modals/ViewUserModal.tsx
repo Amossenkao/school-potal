@@ -1,7 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 
-const ViewUserModal = ({ isOpen, onClose, viewingUser }) => {
+const ViewUserModal = ({ isOpen, onClose, viewingUser, schoolProfile }) => {
 	if (!isOpen || !viewingUser) return null;
 
 	const getFullName = (user) => {
@@ -16,6 +16,62 @@ const ViewUserModal = ({ isOpen, onClose, viewingUser }) => {
 			<p className="text-md font-medium text-foreground">{value || 'N/A'}</p>
 		</div>
 	);
+
+	const getClassNameFromId = (classId) => {
+		if (!classId || !schoolProfile?.classLevels) return classId;
+		for (const session of Object.values(schoolProfile.classLevels)) {
+			if (!session || typeof session !== 'object') continue;
+			for (const level of Object.values(session)) {
+				if (!level?.classes || !Array.isArray(level.classes)) continue;
+				const found = level.classes.find((cls) => cls.classId === classId);
+				if (found) return found.name || classId;
+			}
+		}
+		return classId;
+	};
+
+	const getYearsSpent = (user) => {
+		if (user.role === 'student') {
+			return user.academicYears?.length || 0;
+		}
+		if (user.role === 'teacher') {
+			const years = new Set(
+				(user.subjects || []).map((s) => s.year).filter(Boolean),
+			);
+			return years.size;
+		}
+		if (user.role === 'administrator') {
+			return user.academicYears?.length || 0;
+		}
+		return 0;
+	};
+
+	const getTeacherCurrentYearData = (user) => {
+		const years = (user.subjects || []).map((s) => s.year).filter(Boolean);
+		if (years.length === 0) return null;
+		const currentYear = years.sort((a, b) => b.localeCompare(a))[0];
+		return (user.subjects || []).find((s) => s.year === currentYear) || null;
+	};
+
+	const getAcademicYearTimeline = (user) => {
+		if (user.role !== 'student') return [];
+		return (user.academicYears || [])
+			.slice()
+			.sort((a, b) => (b.year || '').localeCompare(a.year || ''));
+	};
+
+	const getAdminTimeline = (user) => {
+		if (user.role !== 'administrator') return [];
+		return (user.academicYears || [])
+			.slice()
+			.sort((a, b) => (b.year || '').localeCompare(a.year || ''));
+	};
+
+	const safeDate = (value) => {
+		if (!value) return 'N/A';
+		const date = new Date(value);
+		return Number.isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString();
+	};
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -77,9 +133,7 @@ const ViewUserModal = ({ isOpen, onClose, viewingUser }) => {
 									<InfoField label="Gender" value={viewingUser.gender} />
 									<InfoField
 										label="Date of Birth"
-										value={new Date(
-											viewingUser.dateOfBirth
-										).toLocaleDateString()}
+										value={safeDate(viewingUser.dateOfBirth)}
 									/>
 									<div className="sm:col-span-2">
 										<InfoField label="Address" value={viewingUser.address} />
@@ -98,12 +152,47 @@ const ViewUserModal = ({ isOpen, onClose, viewingUser }) => {
 												label="Student ID"
 												value={viewingUser.studentId}
 											/>
-											<InfoField label="Session" value={viewingUser.session} />
-											<InfoField label="Class" value={viewingUser.className} />
 											<InfoField
-												label="Class Level"
-												value={viewingUser.classLevel}
+												label="Current Class"
+												value={
+													viewingUser.className ||
+													getClassNameFromId(viewingUser.classId)
+												}
 											/>
+											<InfoField
+												label="Years with Institution"
+												value={getYearsSpent(viewingUser)}
+											/>
+										</div>
+									</div>
+									<div>
+										<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+											Academic Year History
+										</h5>
+										<div className="space-y-3">
+											{getAcademicYearTimeline(viewingUser).length === 0 && (
+												<p className="text-sm text-muted-foreground">
+													No academic history available.
+												</p>
+											)}
+									{getAcademicYearTimeline(viewingUser).map((entry, idx) => (
+												<div
+													key={`${entry.year}-${idx}`}
+													className="flex items-start justify-between rounded-lg border border-border bg-muted/40 p-3"
+												>
+													<div>
+														<p className="text-sm font-medium text-foreground">
+															{entry.year || 'Unknown Year'}
+														</p>
+														<p className="text-xs text-muted-foreground">
+															Class:{' '}
+															{entry.className ||
+																getClassNameFromId(entry.classId) ||
+																'N/A'}
+														</p>
+													</div>
+												</div>
+											))}
 										</div>
 									</div>
 									{viewingUser.guardian && (
@@ -151,16 +240,41 @@ const ViewUserModal = ({ isOpen, onClose, viewingUser }) => {
 												label="Sponsor Class"
 												value={viewingUser.sponsorClass}
 											/>
+											<InfoField
+												label="Years with Institution"
+												value={getYearsSpent(viewingUser)}
+											/>
 										</div>
 										<div>
-											<p className="text-sm text-muted-foreground">Subjects</p>
-											<ul className="list-disc list-inside mt-1 text-md font-medium text-foreground">
-												{viewingUser.subjects?.map((s, i) => (
-													<li key={i}>
-														{s.subject} ({s.level}, {s.session})
-													</li>
-												))}
-											</ul>
+											<p className="text-sm text-muted-foreground">
+												Current Subjects & Classes
+											</p>
+											{getTeacherCurrentYearData(viewingUser) ? (
+												<div className="mt-2 space-y-2">
+													{getTeacherCurrentYearData(viewingUser).classes?.map(
+														(cls, idx) => (
+															<div
+																key={`${cls.classId}-${idx}`}
+																className="rounded-lg border border-border bg-muted/40 p-3"
+															>
+																<p className="text-sm font-medium text-foreground">
+																	Class:{' '}
+																	{cls.className ||
+																		getClassNameFromId(cls.classId) ||
+																		cls.classId}
+																</p>
+																<p className="text-xs text-muted-foreground">
+																	Subjects: {(cls.subjects || []).join(', ') || 'N/A'}
+																</p>
+															</div>
+														),
+													)}
+												</div>
+											) : (
+												<p className="text-sm text-muted-foreground mt-1">
+													No current assignments available.
+												</p>
+											)}
 										</div>
 									</div>
 								</div>
@@ -174,6 +288,35 @@ const ViewUserModal = ({ isOpen, onClose, viewingUser }) => {
 									<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 										<InfoField label="Admin ID" value={viewingUser.adminId} />
 										<InfoField label="Position" value={viewingUser.position} />
+										<InfoField
+											label="Years with Institution"
+											value={getYearsSpent(viewingUser)}
+										/>
+									</div>
+									<div className="mt-4">
+										<p className="text-sm text-muted-foreground mb-2">
+											Position Timeline
+										</p>
+										<div className="space-y-2">
+											{getAdminTimeline(viewingUser).length === 0 && (
+												<p className="text-sm text-muted-foreground">
+													No administrative history available.
+												</p>
+											)}
+											{getAdminTimeline(viewingUser).map((entry, idx) => (
+												<div
+													key={`${entry.year}-${idx}`}
+													className="rounded-lg border border-border bg-muted/40 p-3"
+												>
+													<p className="text-sm font-medium text-foreground">
+														{entry.year || 'Unknown Year'}
+													</p>
+													<p className="text-xs text-muted-foreground">
+														Position: {entry.position || 'N/A'}
+													</p>
+												</div>
+											))}
+										</div>
 									</div>
 								</div>
 							)}

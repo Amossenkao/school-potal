@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, ChevronDown, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { X, ChevronDown, AlertTriangle } from 'lucide-react';
 import { useSchoolStore } from '@/store/schoolStore';
 import ConflictModal from './ConflictModal'; // Import the new modal
 import { motion, AnimatePresence } from 'framer-motion';
@@ -37,16 +37,175 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	const [validationErrors, setValidationErrors] = useState([]);
 	const [conflictState, setConflictState] = useState(null);
 	const [expandedAccordions, setExpandedAccordions] = useState({});
-	const [promotionType, setPromotionType] = useState('yearly');
+	const [showPromotionModal, setShowPromotionModal] = useState(false);
+	const [showDemotionModal, setShowDemotionModal] = useState(false);
+	const [promotionForm, setPromotionForm] = useState({
+		type: 'yearlyPromotion',
+		classId: '',
+		className: '',
+		academicYear: '',
+	});
+	const [demotionForm, setDemotionForm] = useState({
+		type: 'yearlyDemotion',
+		classId: '',
+		className: '',
+		academicYear: '',
+	});
+	const [actionError, setActionError] = useState('');
+	const [actionLoading, setActionLoading] = useState(false);
 
 	const schoolProfile = useSchoolStore((state) => state.school);
+	const allowsDemotion =
+		schoolProfile?.settings?.gradingSettings?.givesDemotion === true;
+	const allowsDoublePromotion =
+		schoolProfile?.settings?.gradingSettings?.givesDoublePromotion === true;
+
+	const getClassNameFromId = (classId) => {
+		if (!classId || !schoolProfile?.classLevels) return classId;
+		for (const session of Object.values(schoolProfile.classLevels)) {
+			if (!session || typeof session !== 'object') continue;
+			for (const level of Object.values(session)) {
+				if (!level?.classes || !Array.isArray(level.classes)) continue;
+				const found = level.classes.find((cls) => cls.classId === classId);
+				if (found) return found.name || classId;
+			}
+		}
+		return classId;
+	};
+
+	const getYearsSpent = (profile) => {
+		if (!profile) return 0;
+		if (profile.role === 'student') {
+			return profile.academicYears?.length || 0;
+		}
+		if (profile.role === 'teacher') {
+			const years = new Set(
+				(profile.subjects || []).map((s) => s.year).filter(Boolean),
+			);
+			return years.size;
+		}
+		if (profile.role === 'administrator') {
+			return profile.academicYears?.length || 0;
+		}
+		return 0;
+	};
+
+	const getTeacherCurrentYearData = (profile) => {
+		const years = (profile?.subjects || []).map((s) => s.year).filter(Boolean);
+		if (years.length === 0) return null;
+		const currentYear = years.sort((a, b) => b.localeCompare(a))[0];
+		return (profile.subjects || []).find((s) => s.year === currentYear) || null;
+	};
+
+	const getAcademicYearTimeline = (profile) => {
+		if (!profile || profile.role !== 'student') return [];
+		return (profile.academicYears || [])
+			.slice()
+			.sort((a, b) => (b.year || '').localeCompare(a.year || ''));
+	};
+
+	const getAdminTimeline = (profile) => {
+		if (!profile || profile.role !== 'administrator') return [];
+		return (profile.academicYears || [])
+			.slice()
+			.sort((a, b) => (b.year || '').localeCompare(a.year || ''));
+	};
+
+	const getAllClassesWithSessionAndLevel = () => {
+		if (!schoolProfile?.classLevels) return [];
+		const all = [];
+		Object.entries(schoolProfile.classLevels).forEach(([session, levels]) => {
+			if (!levels || typeof levels !== 'object') return;
+			Object.entries(levels).forEach(([level, levelData]) => {
+				levelData.classes?.forEach((cls) => {
+					all.push({ ...cls, session, level });
+				});
+			});
+		});
+		return all;
+	};
+
+	const getClassMetaById = (classId) => {
+		if (!classId || !schoolProfile?.classLevels) return null;
+		for (const [session, levels] of Object.entries(schoolProfile.classLevels)) {
+			if (!levels || typeof levels !== 'object') continue;
+			for (const [level, levelData] of Object.entries(levels)) {
+				if (!levelData?.classes || !Array.isArray(levelData.classes)) continue;
+				const found = levelData.classes.find((cls) => cls.classId === classId);
+				if (found) return { ...found, session, level };
+			}
+		}
+		return null;
+	};
+
+	const normalizeClassName = (name) => {
+		if (!name) return '';
+		return name.replace(/\s*-?\s*[A-D]$/i, '').trim();
+	};
+
+	const getOrderedClassesForSession = (session) => {
+		if (!session || !schoolProfile?.classLevels?.[session]) return [];
+		const ordered = [];
+		Object.entries(schoolProfile.classLevels[session]).forEach(
+			([level, levelData]) => {
+				levelData.classes?.forEach((cls) => {
+					ordered.push({ ...cls, session, level });
+				});
+			},
+		);
+		return ordered;
+	};
+
+	const getPromotionClassOptions = () => {
+		const current = getClassMetaById(formData?.classId || user?.classId);
+		if (!current) return getAllClassesWithSessionAndLevel();
+		const ordered = getOrderedClassesForSession(current.session);
+		const index = ordered.findIndex((cls) => cls.classId === current.classId);
+		const currentBase = normalizeClassName(current.name);
+		const higher = index >= 0 ? ordered.slice(index + 1) : ordered;
+		return higher.filter(
+			(cls) => normalizeClassName(cls.name) !== currentBase,
+		);
+	};
+
+	const getDemotionClassOptions = () => {
+		const current = getClassMetaById(formData?.classId || user?.classId);
+		if (!current) return getAllClassesWithSessionAndLevel();
+		const ordered = getOrderedClassesForSession(current.session);
+		const index = ordered.findIndex((cls) => cls.classId === current.classId);
+		const currentBase = normalizeClassName(current.name);
+		const lower = index >= 0 ? ordered.slice(0, index) : ordered;
+		return lower.filter((cls) => normalizeClassName(cls.name) !== currentBase);
+	};
+
+	const generateAcademicYears = (yearsAhead = 5) => {
+		const years = [];
+		const currentYear = new Date().getFullYear();
+		for (let i = 0; i < yearsAhead + 3; i++) {
+			const year = currentYear - 2 + i;
+			years.push(`${year}-${year + 1}`);
+		}
+		return years;
+	};
 
 	useEffect(() => {
 		if (user) {
 			const userData = JSON.parse(JSON.stringify(user));
+			if (userData.role === 'student' && userData.classId && schoolProfile) {
+				const allClasses = getAllClassesWithSessionAndLevel();
+				const foundClass = allClasses.find(
+					(cls) => cls.classId === userData.classId,
+				);
+				if (foundClass) {
+					userData.session = userData.session || foundClass.session;
+					userData.classLevel = userData.classLevel || foundClass.level;
+					userData.className = userData.className || foundClass.name;
+				}
+			}
 			setFormData(userData);
 			setValidationErrors([]);
 			setConflictState(null);
+			setActionError('');
 
 			if (user.role === 'teacher' && user.subjects) {
 				const initialAccordions = {};
@@ -57,8 +216,21 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				});
 				setExpandedAccordions(initialAccordions);
 			}
+
+			setPromotionForm({
+				type: 'yearlyPromotion',
+				classId: '',
+				className: '',
+				academicYear: '',
+			});
+			setDemotionForm({
+				type: 'yearlyDemotion',
+				classId: '',
+				className: '',
+				academicYear: '',
+			});
 		}
-	}, [user]);
+	}, [user, schoolProfile]);
 
 	const getSessions = () =>
 		schoolProfile?.classLevels ? Object.keys(schoolProfile.classLevels) : [];
@@ -105,6 +277,17 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	const handleInputChange = (e) => {
 		const { name, value } = e.target;
 		setFormData((prev) => ({ ...prev, [name]: value }));
+	};
+
+	const handleGuardianInputChange = (e) => {
+		const { name, value } = e.target;
+		setFormData((prev) => ({
+			...prev,
+			guardian: {
+				...(prev.guardian || {}),
+				[name]: value,
+			},
+		}));
 	};
 
 	const handleStudentSessionChange = (newSession) => {
@@ -284,13 +467,126 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	};
 
 	const handlePromotion = () => {
-		// Logic for promotion will go here
-		console.log(`Promoting student with type: ${promotionType}`);
+		setActionError('');
+		setPromotionForm((prev) => ({
+			...prev,
+			type: allowsDoublePromotion ? prev.type : 'yearlyPromotion',
+			classId: '',
+			className: '',
+			academicYear: '',
+		}));
+		setShowPromotionModal(true);
 	};
 
 	const handleDemotion = () => {
-		// Logic for demotion will go here
-		console.log(`Demoting student with type: ${promotionType}`);
+		setActionError('');
+		setDemotionForm((prev) => ({
+			...prev,
+			classId: '',
+			className: '',
+			academicYear: '',
+		}));
+		setShowDemotionModal(true);
+	};
+
+	const getAcademicYearOptions = () => {
+		const years = new Set(generateAcademicYears());
+		if (schoolProfile?.currentAcademicYear) {
+			years.add(schoolProfile.currentAcademicYear);
+		}
+		return Array.from(years).sort((a, b) => b.localeCompare(a));
+	};
+
+	const handlePromotionSubmit = async () => {
+		setActionError('');
+		if (!promotionForm.classId || !promotionForm.className) {
+			setActionError('Please select a new class.');
+			return;
+		}
+		if (
+			promotionForm.type === 'yearlyPromotion' &&
+			!promotionForm.academicYear
+		) {
+			setActionError('Please select the new academic year.');
+			return;
+		}
+
+		setActionLoading(true);
+		try {
+			const res = await fetch(
+				`/api/users?id=${user._id}&action=promote&type=${promotionForm.type}`,
+				{
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						promotedToClassId: promotionForm.classId,
+						promotedToClassName: promotionForm.className,
+						newAcademicYear:
+							promotionForm.type === 'yearlyPromotion'
+								? promotionForm.academicYear
+								: undefined,
+					}),
+				},
+			);
+			const data = await res.json();
+			if (!res.ok || !data.success) {
+				throw new Error(data.message || 'Promotion failed.');
+			}
+			onSave(data.data?.student || data.data?.user || data.data);
+			setFeedback({ type: 'success', message: data.message });
+			setShowPromotionModal(false);
+		} catch (err) {
+			const message = err instanceof Error ? err.message : 'Promotion failed.';
+			setActionError(message);
+		} finally {
+			setActionLoading(false);
+		}
+	};
+
+	const handleDemotionSubmit = async () => {
+		setActionError('');
+		if (!demotionForm.classId || !demotionForm.className) {
+			setActionError('Please select a new class.');
+			return;
+		}
+		if (
+			demotionForm.type === 'yearlyDemotion' &&
+			!demotionForm.academicYear
+		) {
+			setActionError('Please select the academic year to repeat.');
+			return;
+		}
+
+		setActionLoading(true);
+		try {
+			const res = await fetch(
+				`/api/users?id=${user._id}&action=demote&type=${demotionForm.type}`,
+				{
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						demotedToClassId: demotionForm.classId,
+						demotedToClassName: demotionForm.className,
+						previousAcademicYear:
+							demotionForm.type === 'yearlyDemotion'
+								? demotionForm.academicYear
+								: undefined,
+					}),
+				},
+			);
+			const data = await res.json();
+			if (!res.ok || !data.success) {
+				throw new Error(data.message || 'Demotion failed.');
+			}
+			onSave(data.data?.student || data.data?.user || data.data);
+			setFeedback({ type: 'success', message: data.message });
+			setShowDemotionModal(false);
+		} catch (err) {
+			const message = err instanceof Error ? err.message : 'Demotion failed.';
+			setActionError(message);
+		} finally {
+			setActionLoading(false);
+		}
 	};
 
 	if (!isOpen || !formData) return null;
@@ -329,6 +625,132 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 						<section>
 							<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+								Profile Overview
+							</h5>
+							<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+								<div>
+									<p className="text-sm text-muted-foreground">Role</p>
+									<p className="text-md font-medium text-foreground capitalize">
+										{user.role}
+									</p>
+								</div>
+								<div>
+									<p className="text-sm text-muted-foreground">
+										Years with Institution
+									</p>
+									<p className="text-md font-medium text-foreground">
+										{getYearsSpent(user)}
+									</p>
+								</div>
+								<div>
+									<p className="text-sm text-muted-foreground">Status</p>
+									<p className="text-md font-medium text-foreground">
+										{user.isActive ? 'Active' : 'Inactive'}
+									</p>
+								</div>
+							</div>
+
+							{user.role === 'student' && (
+								<div className="mt-4 space-y-3">
+									<p className="text-sm text-muted-foreground">Current Class</p>
+									<p className="text-md font-medium text-foreground">
+										{user.className ||
+											getClassNameFromId(user.classId) ||
+											'N/A'}
+									</p>
+									<div className="mt-2 space-y-2">
+										<p className="text-sm text-muted-foreground">
+											Academic Year History
+										</p>
+										{getAcademicYearTimeline(user).length === 0 && (
+											<p className="text-sm text-muted-foreground">
+												No academic history available.
+											</p>
+										)}
+										{getAcademicYearTimeline(user).map((entry, idx) => (
+											<div
+												key={`${entry.year}-${idx}`}
+												className="rounded-lg border border-border bg-muted/40 p-3"
+											>
+												<p className="text-sm font-medium text-foreground">
+													{entry.year || 'Unknown Year'}
+												</p>
+												<p className="text-xs text-muted-foreground">
+													Class:{' '}
+													{entry.className ||
+														getClassNameFromId(entry.classId) ||
+														'N/A'}
+												</p>
+											</div>
+										))}
+									</div>
+								</div>
+							)}
+
+							{user.role === 'teacher' && (
+								<div className="mt-4 space-y-2">
+									<p className="text-sm text-muted-foreground">
+										Current Subjects & Classes
+									</p>
+									{getTeacherCurrentYearData(user) ? (
+										<div className="space-y-2">
+											{getTeacherCurrentYearData(user).classes?.map(
+												(cls, idx) => (
+													<div
+														key={`${cls.classId}-${idx}`}
+														className="rounded-lg border border-border bg-muted/40 p-3"
+													>
+														<p className="text-sm font-medium text-foreground">
+															Class:{' '}
+															{cls.className ||
+																getClassNameFromId(cls.classId) ||
+																cls.classId}
+														</p>
+														<p className="text-xs text-muted-foreground">
+															Subjects:{' '}
+															{(cls.subjects || []).join(', ') || 'N/A'}
+														</p>
+													</div>
+												),
+											)}
+										</div>
+									) : (
+										<p className="text-sm text-muted-foreground">
+											No current assignments available.
+										</p>
+									)}
+								</div>
+							)}
+
+							{user.role === 'administrator' && (
+								<div className="mt-4 space-y-2">
+									<p className="text-sm text-muted-foreground">
+										Position Timeline
+									</p>
+									{getAdminTimeline(user).length === 0 && (
+										<p className="text-sm text-muted-foreground">
+											No administrative history available.
+										</p>
+									)}
+									{getAdminTimeline(user).map((entry, idx) => (
+										<div
+											key={`${entry.year}-${idx}`}
+											className="rounded-lg border border-border bg-muted/40 p-3"
+										>
+											<p className="text-sm font-medium text-foreground">
+												{entry.year || 'Unknown Year'}
+											</p>
+											<p className="text-xs text-muted-foreground">
+												Position: {entry.position || 'N/A'}
+											</p>
+										</div>
+									))}
+								</div>
+							)}
+						</section>
+
+						<section>
+							<h5 className="font-semibold mb-3 text-lg border-b pb-2">
 								Personal Information
 							</h5>
 							<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -336,6 +758,12 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 									label="First Name"
 									name="firstName"
 									value={formData.firstName}
+									onChange={handleInputChange}
+								/>
+								<InputField
+									label="Middle Name"
+									name="middleName"
+									value={formData.middleName}
 									onChange={handleInputChange}
 								/>
 								<InputField
@@ -357,6 +785,14 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 									value={formData.phone}
 									onChange={handleInputChange}
 								/>
+								<div className="sm:col-span-2">
+									<InputField
+										label="Address"
+										name="address"
+										value={formData.address}
+										onChange={handleInputChange}
+									/>
+								</div>
 							</div>
 						</section>
 
@@ -429,57 +865,47 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 						{user.role === 'student' && (
 							<section>
 								<h5 className="font-semibold mb-3 text-lg border-b pb-2">
-									Promotion & Demotion
+									Guardian Information
 								</h5>
 								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-									<div>
-										<label className="block text-sm font-medium text-foreground mb-2">
-											Action Type
-										</label>
-										<div className="flex items-center space-x-4">
-											{[
-												{ value: 'yearly', label: 'Yearly' },
-												{ value: 'double', label: 'Semester (Double)' },
-											].map((item) => {
-												const isSelected = promotionType === item.value;
-												return (
-													<label
-														key={item.value}
-														className={`relative flex items-center justify-center rounded-2xl border p-4 cursor-pointer transition-all duration-300 w-full
-                                ${
-																	isSelected
-																		? 'border-primary bg-primary/10 shadow-md'
-																		: 'border-muted hover:border-primary/50'
-																}
-                              `}
-													>
-														<input
-															type="radio"
-															name="promotionType"
-															value={item.value}
-															checked={isSelected}
-															onChange={(e) => setPromotionType(e.target.value)}
-															className="absolute opacity-0"
-														/>
-														<motion.div
-															className="flex items-center justify-center gap-2"
-															initial={{ scale: 0.95 }}
-															animate={{
-																scale: isSelected ? 1.05 : 1,
-															}}
-															transition={{ duration: 0.2 }}
-														>
-															{isSelected && (
-																<CheckCircle2 className="w-5 h-5 text-primary transition-opacity duration-300" />
-															)}
-															<span className="text-foreground font-medium">
-																{item.label}
-															</span>
-														</motion.div>
-													</label>
-												);
-											})}
-										</div>
+									<InputField
+										label="Guardian First Name"
+										name="firstName"
+										value={formData.guardian?.firstName}
+										onChange={handleGuardianInputChange}
+									/>
+									<InputField
+										label="Guardian Middle Name"
+										name="middleName"
+										value={formData.guardian?.middleName}
+										onChange={handleGuardianInputChange}
+									/>
+									<InputField
+										label="Guardian Last Name"
+										name="lastName"
+										value={formData.guardian?.lastName}
+										onChange={handleGuardianInputChange}
+									/>
+									<InputField
+										label="Guardian Email"
+										name="email"
+										type="email"
+										value={formData.guardian?.email}
+										onChange={handleGuardianInputChange}
+									/>
+									<InputField
+										label="Guardian Phone"
+										name="phone"
+										value={formData.guardian?.phone}
+										onChange={handleGuardianInputChange}
+									/>
+									<div className="sm:col-span-2">
+										<InputField
+											label="Guardian Address"
+											name="address"
+											value={formData.guardian?.address}
+											onChange={handleGuardianInputChange}
+										/>
 									</div>
 								</div>
 							</section>
@@ -655,21 +1081,23 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 					<footer className="p-4 sm:p-6 bg-muted/50 border-t border-border rounded-b-xl flex-shrink-0 flex justify-between items-center">
 						<div>
 							{user.role === 'student' && (
-								<div className="flex gap-2">
+								<div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
 									<button
 										type="button"
 										onClick={handlePromotion}
-										className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+										className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
 									>
 										Promote Student
 									</button>
-									<button
-										type="button"
-										onClick={handleDemotion}
-										className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-									>
-										Demote Student
-									</button>
+									{allowsDemotion && (
+										<button
+											type="button"
+											onClick={handleDemotion}
+											className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+										>
+											Demote Student
+										</button>
+									)}
 								</div>
 							)}
 						</div>
@@ -691,6 +1119,268 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 							</button>
 						</div>
 					</footer>
+
+					{showPromotionModal && (
+						<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+							<div className="bg-card w-full max-w-lg rounded-xl border border-border shadow-xl">
+								<div className="flex items-center justify-between p-4 border-b border-border">
+									<h5 className="text-lg font-semibold text-foreground">
+										Promote Student
+									</h5>
+									<button
+										type="button"
+										onClick={() => setShowPromotionModal(false)}
+										className="p-2 rounded-full hover:bg-muted transition-colors"
+									>
+										<X className="h-4 w-4" />
+									</button>
+								</div>
+								<div className="p-4 space-y-4">
+									{actionError && (
+										<p className="text-sm text-red-600">{actionError}</p>
+									)}
+									{allowsDoublePromotion ? (
+										<div>
+											<label className="block text-sm font-medium text-foreground mb-1">
+												Promotion Type
+											</label>
+											<Select
+												value={promotionForm.type}
+												onValueChange={(value) =>
+													setPromotionForm((prev) => ({
+														...prev,
+														type: value,
+													}))
+												}
+											>
+												<SelectTrigger>
+													<SelectValue placeholder="Select type" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="yearlyPromotion">
+														Yearly Promotion
+													</SelectItem>
+										<SelectItem value="doublePromotion">
+											Semester (Double) Promotion
+										</SelectItem>
+												</SelectContent>
+											</Select>
+										</div>
+									) : (
+										<p className="text-sm text-muted-foreground">
+											Only yearly promotion is allowed.
+										</p>
+									)}
+									<div>
+										<label className="block text-sm font-medium text-foreground mb-1">
+											New Class
+										</label>
+										<Select
+											value={promotionForm.classId}
+											onValueChange={(value) => {
+												const selected = getPromotionClassOptions().find(
+													(cls) => cls.classId === value,
+												);
+												setPromotionForm((prev) => ({
+													...prev,
+													classId: value,
+													className: selected?.name || '',
+												}));
+											}}
+										>
+											<SelectTrigger>
+												<SelectValue placeholder="Select Class" />
+											</SelectTrigger>
+											<SelectContent>
+												{getPromotionClassOptions().map((cls) => (
+													<SelectItem key={cls.classId} value={cls.classId}>
+														{cls.name} ({cls.level} - {cls.session})
+													</SelectItem>
+												))}
+												{getPromotionClassOptions().length === 0 && (
+													<div className="px-2 py-1.5 text-sm text-muted-foreground">
+														No higher classes available.
+													</div>
+												)}
+											</SelectContent>
+										</Select>
+									</div>
+									{promotionForm.type === 'yearlyPromotion' && (
+										<div>
+											<label className="block text-sm font-medium text-foreground mb-1">
+												New Academic Year
+											</label>
+											<Select
+												value={promotionForm.academicYear}
+												onValueChange={(value) =>
+													setPromotionForm((prev) => ({
+														...prev,
+														academicYear: value,
+													}))
+												}
+											>
+												<SelectTrigger>
+													<SelectValue placeholder="Select Academic Year" />
+												</SelectTrigger>
+												<SelectContent>
+													{getAcademicYearOptions().map((year) => (
+														<SelectItem key={year} value={year}>
+															{year}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+										</div>
+									)}
+								</div>
+								<div className="p-4 border-t border-border flex justify-end gap-2">
+									<button
+										type="button"
+										onClick={() => setShowPromotionModal(false)}
+										className="px-4 py-2 rounded-lg hover:bg-muted/80"
+									>
+										Cancel
+									</button>
+									<button
+										type="button"
+										onClick={handlePromotionSubmit}
+										disabled={actionLoading}
+										className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+									>
+										{actionLoading ? 'Saving...' : 'Confirm Promotion'}
+									</button>
+								</div>
+							</div>
+						</div>
+					)}
+
+					{showDemotionModal && (
+						<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+							<div className="bg-card w-full max-w-lg rounded-xl border border-border shadow-xl">
+								<div className="flex items-center justify-between p-4 border-b border-border">
+									<h5 className="text-lg font-semibold text-foreground">
+										Demote Student
+									</h5>
+									<button
+										type="button"
+										onClick={() => setShowDemotionModal(false)}
+										className="p-2 rounded-full hover:bg-muted transition-colors"
+									>
+										<X className="h-4 w-4" />
+									</button>
+								</div>
+								<div className="p-4 space-y-4">
+									{actionError && (
+										<p className="text-sm text-red-600">{actionError}</p>
+									)}
+									<div>
+										<label className="block text-sm font-medium text-foreground mb-1">
+											Demotion Type
+										</label>
+										<Select
+											value={demotionForm.type}
+											onValueChange={(value) =>
+												setDemotionForm((prev) => ({
+													...prev,
+													type: value,
+												}))
+											}
+										>
+											<SelectTrigger>
+												<SelectValue placeholder="Select type" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="yearlyDemotion">
+													Yearly Demotion
+												</SelectItem>
+												<SelectItem value="semesterDemotion">
+													Semester Demotion
+												</SelectItem>
+											</SelectContent>
+										</Select>
+									</div>
+									<div>
+										<label className="block text-sm font-medium text-foreground mb-1">
+											New Class
+										</label>
+										<Select
+											value={demotionForm.classId}
+											onValueChange={(value) => {
+												const selected = getDemotionClassOptions().find(
+													(cls) => cls.classId === value,
+												);
+												setDemotionForm((prev) => ({
+													...prev,
+													classId: value,
+													className: selected?.name || '',
+												}));
+											}}
+										>
+											<SelectTrigger>
+												<SelectValue placeholder="Select Class" />
+											</SelectTrigger>
+											<SelectContent>
+												{getDemotionClassOptions().map((cls) => (
+													<SelectItem key={cls.classId} value={cls.classId}>
+														{cls.name} ({cls.level} - {cls.session})
+													</SelectItem>
+												))}
+												{getDemotionClassOptions().length === 0 && (
+													<div className="px-2 py-1.5 text-sm text-muted-foreground">
+														No lower classes available.
+													</div>
+												)}
+											</SelectContent>
+										</Select>
+									</div>
+									{demotionForm.type === 'yearlyDemotion' && (
+										<div>
+											<label className="block text-sm font-medium text-foreground mb-1">
+												Academic Year to Repeat
+											</label>
+											<Select
+												value={demotionForm.academicYear}
+												onValueChange={(value) =>
+													setDemotionForm((prev) => ({
+														...prev,
+														academicYear: value,
+													}))
+												}
+											>
+												<SelectTrigger>
+													<SelectValue placeholder="Select Academic Year" />
+												</SelectTrigger>
+												<SelectContent>
+													{getAcademicYearOptions().map((year) => (
+														<SelectItem key={year} value={year}>
+															{year}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+										</div>
+									)}
+								</div>
+								<div className="p-4 border-t border-border flex justify-end gap-2">
+									<button
+										type="button"
+										onClick={() => setShowDemotionModal(false)}
+										className="px-4 py-2 rounded-lg hover:bg-muted/80"
+									>
+										Cancel
+									</button>
+									<button
+										type="button"
+										onClick={handleDemotionSubmit}
+										disabled={actionLoading}
+										className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+									>
+										{actionLoading ? 'Saving...' : 'Confirm Demotion'}
+									</button>
+								</div>
+							</div>
+						</div>
+					)}
 				</div>
 			</div>
 			<ConflictModal

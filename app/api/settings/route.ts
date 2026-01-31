@@ -94,7 +94,6 @@ export async function POST(request: Request) {
 			studentSettings,
 			teacherSettings,
 			administratorSettings,
-			gradingSettings,
 			bulkUserActions,
 		} = body;
 
@@ -112,14 +111,6 @@ export async function POST(request: Request) {
 				studentSettings,
 				teacherSettings,
 				administratorSettings,
-				gradingSettings: gradingSettings || {
-					passMark: 50,
-					gradeScale: { min: 0, max: 100 },
-					summerSchoolWeight: 0.5,
-					failuerWeight: 1.0,
-					givesDoublePromotion: false,
-					givesDemotion: true,
-				},
 			};
 			updateObject.settings = newSettings;
 		}
@@ -224,6 +215,14 @@ export async function POST(request: Request) {
 				if (usersToUpdate.length === 0) return;
 
 				await Model.updateMany({ role }, { $set: { isActive } });
+
+				if (!isActive) {
+					const sessionDestructionPromises = usersToUpdate.map((user: any) =>
+						destroyAllUserSessions(user._id.toString()),
+					);
+					await Promise.all(sessionDestructionPromises);
+					return;
+				}
 
 				const sessionUpdatePromises = usersToUpdate.map((user: any) => {
 					const updatedSessionData = buildUserResponse({ ...user, isActive });
