@@ -7,7 +7,6 @@ import { redis } from '@/lib/redis';
 
 const MONGODB_URI = process.env.MONGODB_URI || '';
 
-console.log(MONGODB_URI);
 if (!MONGODB_URI) {
 	throw new Error('Please define the MONGODB_URI environment variable.');
 }
@@ -150,7 +149,7 @@ export const getSchoolProfile = async (): Promise<any> => {
  */
 export const closeAllConnections = async () => {
 	const tenantConnections = Array.from(connections.values()).map((conn) =>
-		conn.close()
+		conn.close(),
 	);
 
 	const allPromises = [...tenantConnections];

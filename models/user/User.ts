@@ -41,12 +41,13 @@ const UserSchema = new Schema<User & Document>(
 		address: { type: String, required: true },
 		bio: String,
 		avatar: String,
+		profilePictureUrl: String, // Added to align with User interface
 		notifications: { type: [NotificationSchema], required: true, default: [] },
 		chats: [ChatSchema],
 	},
 	{
 		discriminatorKey: 'role',
-	}
+	},
 );
 
 export default UserSchema;

@@ -41,16 +41,16 @@ export async function authenticateRequest(
 
 export async function authorizeUser(
 	request: NextRequest,
-	requiredRoles?: UserRole[],
+	requiredRoles?: UserRole[] | UserRole,
 ) {
 	let user;
 
 	try {
 		user = await authenticateRequest(request);
-		console.log('Authorized user:', user);
 		if (
-			Array.isArray(requiredRoles) &&
-			!requiredRoles.includes(user.role as UserRole)
+			(Array.isArray(requiredRoles) &&
+				!requiredRoles.includes(user.role as UserRole)) ||
+			(typeof requiredRoles === 'string' && user.role !== requiredRoles)
 		) {
 			return false;
 		}

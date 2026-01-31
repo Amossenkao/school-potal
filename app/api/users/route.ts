@@ -944,20 +944,153 @@ async function handleForceReassignmentEnhanced(
 export async function GET(request: NextRequest) {
 	try {
 		const currentUser = await authorizeUser(request);
+		if (!currentUser) {
+			return NextResponse.json(
+				{ success: false, message: 'Unauthorized' },
+				{ status: 401 },
+			);
+		}
+
 		const models = await getTenantModels();
 		const { searchParams } = new URL(request.url);
-
 		const role = searchParams.get('role') as UserRole | null;
 		const classId = searchParams.get('classId');
 		const targetId = searchParams.get('id');
-		const academicYear = searchParams.get('academicYear');
-		const limit = parseInt(searchParams.get('limit') || '50000', 10);
 		const currentAcademicYear = getAcademicYear();
+		const academicYear =
+			searchParams.get('academicYear') || currentAcademicYear;
+		const limit = parseInt(searchParams.get('limit') || '50000', 10);
 
 		let responseData: any;
 
 		// ========================================================================
+		// REQUIRE ACADEMIC YEAR PARAMETER FOR ALL REQUESTS
+		// ========================================================================
+		if (!academicYear) {
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'Academic year parameter is required',
+				},
+				{ status: 400 },
+			);
+		}
+
+		// ========================================================================
+		// HELPER FUNCTION: Format Student Data with Class Information
+		// ========================================================================
+		const formatStudentData = (
+			student: any,
+			queryYear: string,
+			isCurrentYear: boolean,
+		) => {
+			const baseData = {
+				id: student._id.toString(),
+				firstName: student.firstName,
+				lastName: student.lastName,
+				email: student.email,
+				phone: student.shareContactWithClassmates ? student.phone : undefined,
+				avatar: student.avatar || student.profilePictureUrl,
+				bio: student.bio,
+				nickName: student.nickName,
+				gender: student.gender,
+				role: 'student',
+			};
+
+			if (isCurrentYear) {
+				// For current year, return only current class
+				return {
+					...baseData,
+					className: student.className,
+					classId: student.classId,
+				};
+			} else {
+				// For past years, return both historical and current class
+				const yearData = student.academicYears?.find(
+					(ay: any) => ay.year === queryYear,
+				);
+
+				return {
+					...baseData,
+					// Historical class from the queried year
+					historicalClass: {
+						className: yearData?.className,
+						classId: yearData?.classId,
+						academicYear: queryYear,
+					},
+					// Current class
+					currentClass: {
+						className: student.className,
+						classId: student.classId,
+					},
+				};
+			}
+		};
+
+		// ========================================================================
+		// HELPER FUNCTION: Validate Academic Year Access
+		// ========================================================================
+		const validateAcademicYearAccess = async (
+			userId: string,
+			userRole: UserRole,
+			year: string,
+		): Promise<boolean> => {
+			if (userRole === 'student') {
+				const student = await models.Student.findById(userId)
+					.select('academicYears')
+					.lean();
+				if (!student) return false;
+				return (
+					student.academicYears?.some((ay: any) => ay.year === year) || false
+				);
+			}
+
+			if (userRole === 'teacher') {
+				const teacher = await models.Teacher.findById(userId)
+					.select('subjects')
+					.lean();
+				if (!teacher) return false;
+				return teacher.subjects?.some((s: any) => s.year === year) || false;
+			}
+
+			if (userRole === 'administrator') {
+				const admin = await models.Administrator.findById(userId)
+					.select('academicYears')
+					.lean();
+				if (!admin) return false;
+				return (
+					admin.academicYears?.some((ay: any) => ay.year === year) || false
+				);
+			}
+
+			// System admins have access to all years
+			if (userRole === 'system_admin') {
+				return true;
+			}
+
+			return false;
+		};
+
+		// Validate current user has access to the requested academic year
+		const hasAccess = await validateAcademicYearAccess(
+			currentUser.id,
+			currentUser.role,
+			academicYear,
+		);
+
+		if (!hasAccess) {
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'You do not have access to this academic year',
+				},
+				{ status: 403 },
+			);
+		}
+
+		// ========================================================================
 		// 1. STUDENT ROLE - Can fetch classmates, their teachers, and administrators
+		//    from academic years they attended
 		// ========================================================================
 		if (currentUser.role === 'student') {
 			const studentData = await models.Student.findById(currentUser.id).lean();
@@ -969,8 +1102,26 @@ export async function GET(request: NextRequest) {
 				);
 			}
 
-			const myClassId = studentData.classId;
-			const yearToQuery = academicYear || currentAcademicYear;
+			// Get the class ID for the requested academic year
+			// This ensures we fetch classmates from the class they were in THAT year
+			const yearData = studentData.academicYears?.find(
+				(ay: any) => ay.year === academicYear,
+			);
+
+			if (!yearData) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'You were not enrolled in this academic year',
+					},
+					{ status: 403 },
+				);
+			}
+
+			// Use the classId from the specific academic year
+			// e.g., if student was in "Morning-GradeNine" in 2022-2023,
+			// fetch all students who were also in "Morning-GradeNine" that year
+			const myClassId = yearData.classId;
 
 			// If requesting their own profile, return full data
 			if (targetId === currentUser.id) {
@@ -991,7 +1142,7 @@ export async function GET(request: NextRequest) {
 					isActive: true,
 					subjects: {
 						$elemMatch: {
-							year: yearToQuery,
+							year: academicYear,
 							'classes.classId': myClassId,
 						},
 					},
@@ -1001,8 +1152,10 @@ export async function GET(request: NextRequest) {
 
 				// Filter subjects to only show what they teach in this student's class
 				const filteredTeachers = teachers.map((t: any) => {
-					const yearData = t.subjects?.find((s: any) => s.year === yearToQuery);
-					const classData = yearData?.classes?.find(
+					const yearDataTeacher = t.subjects?.find(
+						(s: any) => s.year === academicYear,
+					);
+					const classData = yearDataTeacher?.classes?.find(
 						(c: any) => c.classId === myClassId,
 					);
 
@@ -1030,29 +1183,28 @@ export async function GET(request: NextRequest) {
 
 			// --- FETCH ONLY CLASSMATES ---
 			if (role === 'student') {
+				// Fetch students who were in the SAME class during the SAME academic year
+				// For example: if querying 2022-2023 when student was in "Morning-GradeNine",
+				// return all students who were also in "Morning-GradeNine" in 2022-2023
 				const classmates = await models.User.find({
 					role: 'student',
-					classId: myClassId,
 					_id: { $ne: currentUser.id },
 					isActive: true,
+					academicYears: {
+						$elemMatch: {
+							year: academicYear,
+							classId: myClassId,
+						},
+					},
 				})
 					.limit(limit)
 					.select('-password -defaultPassword')
 					.lean();
 
-				const filteredClassmates = classmates.map((s: any) => ({
-					id: s._id.toString(),
-					firstName: s.firstName,
-					lastName: s.lastName,
-					email: s.email,
-					phone: s.shareContactWithClassmates ? s.phone : undefined,
-					avatar: s.avatar || s.profilePictureUrl,
-					bio: s.bio,
-					nickName: s.nickName,
-					gender: s.gender,
-					className: s.className,
-					role: 'student',
-				}));
+				const isCurrentYear = academicYear === currentAcademicYear;
+				const filteredClassmates = classmates.map((s: any) =>
+					formatStudentData(s, academicYear, isCurrentYear),
+				);
 
 				return NextResponse.json({
 					success: true,
@@ -1066,6 +1218,7 @@ export async function GET(request: NextRequest) {
 				const administrators = await models.User.find({
 					role: 'administrator',
 					isActive: true,
+					'academicYears.year': academicYear,
 				})
 					.select('-password -defaultPassword')
 					.lean();
@@ -1098,20 +1251,31 @@ export async function GET(request: NextRequest) {
 					_id: targetId,
 					isActive: true,
 					$or: [
-						// Classmates
-						{ role: 'student', classId: myClassId },
-						// Teachers teaching their class
+						// Classmates from the same class in the same academic year
+						{
+							role: 'student',
+							academicYears: {
+								$elemMatch: {
+									year: academicYear,
+									classId: myClassId,
+								},
+							},
+						},
+						// Teachers teaching their class in this academic year
 						{
 							role: 'teacher',
 							subjects: {
 								$elemMatch: {
-									year: yearToQuery,
+									year: academicYear,
 									'classes.classId': myClassId,
 								},
 							},
 						},
-						// All administrators
-						{ role: 'administrator' },
+						// Administrators who were at the school in this academic year
+						{
+							role: 'administrator',
+							'academicYears.year': academicYear,
+						},
 					],
 				};
 
@@ -1131,24 +1295,13 @@ export async function GET(request: NextRequest) {
 				let filteredUser: any;
 
 				if (user.role === 'student') {
-					filteredUser = {
-						id: user._id.toString(),
-						firstName: user.firstName,
-						lastName: user.lastName,
-						email: user.email,
-						phone: user.shareContactWithClassmates ? user.phone : undefined,
-						avatar: user.avatar || user.profilePictureUrl,
-						bio: user.bio,
-						nickName: user.nickName,
-						gender: user.gender,
-						className: user.className,
-						role: 'student',
-					};
+					const isCurrentYear = academicYear === currentAcademicYear;
+					filteredUser = formatStudentData(user, academicYear, isCurrentYear);
 				} else if (user.role === 'teacher') {
-					const yearData = user.subjects?.find(
-						(s: any) => s.year === yearToQuery,
+					const yearDataTeacher = user.subjects?.find(
+						(s: any) => s.year === academicYear,
 					);
-					const classData = yearData?.classes?.find(
+					const classData = yearDataTeacher?.classes?.find(
 						(c: any) => c.classId === myClassId,
 					);
 
@@ -1189,11 +1342,17 @@ export async function GET(request: NextRequest) {
 			}
 
 			// --- FETCH ALL (CLASSMATES, TEACHERS, ADMINS) ---
+			// Fetch students who were in the same class during the same academic year
 			const classmates = await models.User.find({
 				role: 'student',
-				classId: myClassId,
 				_id: { $ne: currentUser.id },
 				isActive: true,
+				academicYears: {
+					$elemMatch: {
+						year: academicYear,
+						classId: myClassId,
+					},
+				},
 			})
 				.limit(limit)
 				.select('-password -defaultPassword')
@@ -1204,7 +1363,7 @@ export async function GET(request: NextRequest) {
 				isActive: true,
 				subjects: {
 					$elemMatch: {
-						year: yearToQuery,
+						year: academicYear,
 						'classes.classId': myClassId,
 					},
 				},
@@ -1215,29 +1374,23 @@ export async function GET(request: NextRequest) {
 			const administrators = await models.User.find({
 				role: 'administrator',
 				isActive: true,
+				'academicYears.year': academicYear,
 			})
 				.select('-password -defaultPassword')
 				.lean();
 
 			// Apply privacy filters
+			const isCurrentYear = academicYear === currentAcademicYear;
 			const filteredData = {
-				students: classmates.map((s: any) => ({
-					id: s._id.toString(),
-					firstName: s.firstName,
-					lastName: s.lastName,
-					email: s.email,
-					phone: s.shareContactWithClassmates ? s.phone : undefined,
-					avatar: s.avatar || s.profilePictureUrl,
-					bio: s.bio,
-					nickName: s.nickName,
-					gender: s.gender,
-					className: s.className,
-					role: 'student',
-				})),
+				students: classmates.map((s: any) =>
+					formatStudentData(s, academicYear, isCurrentYear),
+				),
 				teachers: teachers.map((t: any) => {
 					// Only show subjects the teacher teaches in this student's class
-					const yearData = t.subjects?.find((s: any) => s.year === yearToQuery);
-					const classData = yearData?.classes?.find(
+					const yearDataTeacher = t.subjects?.find(
+						(s: any) => s.year === academicYear,
+					);
+					const classData = yearDataTeacher?.classes?.find(
 						(c: any) => c.classId === myClassId,
 					);
 
@@ -1279,6 +1432,7 @@ export async function GET(request: NextRequest) {
 
 		// ========================================================================
 		// 2. TEACHER ROLE - Can fetch students they teach, other teachers, and administrators
+		//    from academic years they taught
 		// ========================================================================
 		if (currentUser.role === 'teacher') {
 			const teacherData = await models.Teacher.findById(currentUser.id).lean();
@@ -1290,32 +1444,31 @@ export async function GET(request: NextRequest) {
 				);
 			}
 
-			// Get all class IDs the teacher is assigned to (all years)
-			const teacherClassIds = new Set<string>();
-			const teacherYears = new Set<string>();
+			// Get teacher's assignment for the requested academic year
+			const yearAssignment = teacherData.subjects.find(
+				(assignment: any) => assignment.year === academicYear,
+			);
 
-			teacherData.subjects.forEach((assignment: any) => {
-				teacherYears.add(assignment.year);
-				assignment.classes.forEach((c: any) => {
-					teacherClassIds.add(c.classId);
-				});
-			});
+			if (!yearAssignment) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'You were not assigned to this academic year',
+					},
+					{ status: 403 },
+				);
+			}
+
+			// Get all class IDs the teacher taught in this academic year
+			const teacherClassIds = yearAssignment.classes.map((c: any) => c.classId);
 
 			// --- FETCH ONLY STUDENTS ---
 			if (role === 'student') {
-				// If academicYear is specified, validate teacher has access to that year
-				if (academicYear && !teacherYears.has(academicYear)) {
-					return NextResponse.json({
-						success: true,
-						message: 'No records found for the specified academic year.',
-						data: [],
-					});
-				}
-
 				// Build filters for students the teacher can access
 				const filters: Record<string, any> = {
 					role: 'student',
 					isActive: true,
+					'academicYears.year': academicYear,
 				};
 
 				// If specific student ID requested
@@ -1326,28 +1479,28 @@ export async function GET(request: NextRequest) {
 				// If specific class requested
 				if (classId) {
 					filters.classId = classId;
-					// Verify teacher teaches this class
-					if (!teacherClassIds.has(classId)) {
+					// Verify teacher taught this class in the requested year
+					if (!teacherClassIds.includes(classId)) {
 						return NextResponse.json({
 							success: true,
-							message: 'No access to students in this class.',
+							message: 'No access to students in this class for this year.',
 							data: [],
 						});
 					}
 				} else {
-					// Otherwise, only show students from classes the teacher teaches
-					filters.classId = { $in: Array.from(teacherClassIds) };
+					// Otherwise, only show students from classes the teacher taught
+					filters.classId = { $in: teacherClassIds };
 				}
 
-				// Filter by academic year if specified
-				if (academicYear) {
-					filters['academicYears.year'] = academicYear;
-				}
-
-				responseData = await models.User.find(filters)
+				const students = await models.User.find(filters)
 					.limit(limit)
 					.select('-password -defaultPassword')
 					.lean();
+
+				const isCurrentYear = academicYear === currentAcademicYear;
+				responseData = students.map((s: any) =>
+					formatStudentData(s, academicYear, isCurrentYear),
+				);
 
 				return NextResponse.json({
 					success: true,
@@ -1362,14 +1515,11 @@ export async function GET(request: NextRequest) {
 					role: 'teacher',
 					_id: { $ne: currentUser.id }, // Exclude self
 					isActive: true,
+					'subjects.year': academicYear,
 				};
 
 				if (targetId) {
 					filters._id = targetId;
-				}
-
-				if (academicYear) {
-					filters['subjects.year'] = academicYear;
 				}
 
 				const teachers = await models.User.find(filters)
@@ -1389,14 +1539,11 @@ export async function GET(request: NextRequest) {
 				const filters: Record<string, any> = {
 					role: 'administrator',
 					isActive: true,
+					'academicYears.year': academicYear,
 				};
 
 				if (targetId) {
 					filters._id = targetId;
-				}
-
-				if (academicYear) {
-					filters['academicYears.year'] = academicYear;
 				}
 
 				const administrators = await models.User.find(filters)
@@ -1414,16 +1561,27 @@ export async function GET(request: NextRequest) {
 			// --- FETCH SPECIFIC USER BY ID ---
 			if (targetId) {
 				// Teachers can access: their students, other teachers, and administrators
+				// from the requested academic year
 				const userFilters: any = {
 					_id: targetId,
 					isActive: true,
 					$or: [
-						// Students from classes they teach
-						{ role: 'student', classId: { $in: Array.from(teacherClassIds) } },
-						// Other teachers
-						{ role: 'teacher' },
-						// All administrators
-						{ role: 'administrator' },
+						// Students from classes they taught in this year
+						{
+							role: 'student',
+							classId: { $in: teacherClassIds },
+							'academicYears.year': academicYear,
+						},
+						// Other teachers who taught in this year
+						{
+							role: 'teacher',
+							'subjects.year': academicYear,
+						},
+						// Administrators who were at the school in this year
+						{
+							role: 'administrator',
+							'academicYears.year': academicYear,
+						},
 					],
 				};
 
@@ -1439,18 +1597,27 @@ export async function GET(request: NextRequest) {
 					});
 				}
 
+				// Format student data based on year
+				if (user.role === 'student') {
+					const isCurrentYear = academicYear === currentAcademicYear;
+					responseData = formatStudentData(user, academicYear, isCurrentYear);
+				} else {
+					responseData = user;
+				}
+
 				return NextResponse.json({
 					success: true,
 					message: 'User Fetch Successful',
-					data: user,
+					data: responseData,
 				});
 			}
 
 			// --- FETCH ALL (STUDENTS, TEACHERS, ADMINS) ---
 			const students = await models.User.find({
 				role: 'student',
-				classId: { $in: Array.from(teacherClassIds) },
+				classId: { $in: teacherClassIds },
 				isActive: true,
+				'academicYears.year': academicYear,
 			})
 				.limit(limit)
 				.select('-password -defaultPassword')
@@ -1460,6 +1627,7 @@ export async function GET(request: NextRequest) {
 				role: 'teacher',
 				_id: { $ne: currentUser.id },
 				isActive: true,
+				'subjects.year': academicYear,
 			})
 				.select('-password -defaultPassword')
 				.lean();
@@ -1467,12 +1635,16 @@ export async function GET(request: NextRequest) {
 			const administrators = await models.User.find({
 				role: 'administrator',
 				isActive: true,
+				'academicYears.year': academicYear,
 			})
 				.select('-password -defaultPassword')
 				.lean();
 
+			const isCurrentYear = academicYear === currentAcademicYear;
 			const allData = {
-				students: students,
+				students: students.map((s: any) =>
+					formatStudentData(s, academicYear, isCurrentYear),
+				),
 				teachers: teachers,
 				administrators: administrators,
 			};
@@ -1486,23 +1658,49 @@ export async function GET(request: NextRequest) {
 
 		// ========================================================================
 		// 3. ADMINISTRATOR ROLE - Can fetch all users except system_admins
+		//    from academic years they worked
 		// ========================================================================
 		if (currentUser.role === 'administrator') {
-			const filters: Record<string, any> = { isActive: true };
+			const adminData = await models.Administrator.findById(
+				currentUser.id,
+			).lean();
 
-			// Administrators cannot see system_admins unless specifically requested
-			if (role === 'system_admin') {
-				return NextResponse.json({
-					success: true,
-					message: 'Access denied to system admin records.',
-					data: [],
-				});
+			if (!adminData) {
+				return NextResponse.json(
+					{ success: false, message: 'Administrator profile not found' },
+					{ status: 404 },
+				);
 			}
 
-			filters.role = { $ne: 'system_admin' };
+			// Verify administrator worked during the requested academic year
+			const yearData = adminData.academicYears?.find(
+				(ay: any) => ay.year === academicYear,
+			);
 
-			// Apply role filter if provided
+			if (!yearData) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'You were not assigned to this academic year',
+					},
+					{ status: 403 },
+				);
+			}
+
+			const filters: Record<string, any> = {
+				isActive: true,
+				role: { $ne: 'system_admin' }, // Exclude system_admins
+			};
+
+			// Apply role filter if provided (but never allow system_admin)
 			if (role) {
+				if (role === 'system_admin') {
+					return NextResponse.json({
+						success: true,
+						message: 'Access denied to system admin records.',
+						data: [],
+					});
+				}
 				filters.role = role;
 			}
 
@@ -1516,18 +1714,42 @@ export async function GET(request: NextRequest) {
 				filters._id = targetId;
 			}
 
-			// Filter by academic year if provided
-			if (academicYear) {
-				filters.$or = [
-					{ 'academicYears.year': academicYear }, // Students/Admins
-					{ 'subjects.year': academicYear }, // Teachers
-				];
-			}
+			// Filter by academic year based on role
+			filters.$or = [
+				// Students and administrators
+				{
+					role: { $in: ['student', 'administrator'] },
+					'academicYears.year': academicYear,
+				},
+				// Teachers
+				{
+					role: 'teacher',
+					'subjects.year': academicYear,
+				},
+			];
 
 			responseData = await models.User.find(filters)
 				.limit(limit)
 				.select('-password -defaultPassword')
 				.lean();
+
+			// Format student data based on year
+			const isCurrentYearAdmin = academicYear === currentAcademicYear;
+			if (role === 'student' || !role) {
+				// If fetching students specifically or all users
+				responseData = Array.isArray(responseData)
+					? responseData.map((user: any) => {
+							if (user.role === 'student') {
+								return formatStudentData(
+									user,
+									academicYear,
+									isCurrentYearAdmin,
+								);
+							}
+							return user;
+						})
+					: responseData;
+			}
 
 			return NextResponse.json({
 				success: true,
@@ -1537,13 +1759,24 @@ export async function GET(request: NextRequest) {
 		}
 
 		// ========================================================================
-		// 4. SYSTEM_ADMIN ROLE - Can fetch all users including system_admins
+		// 4. SYSTEM_ADMIN ROLE - Can fetch all users from any academic year
+		//    but exclude other system_admins from results
 		// ========================================================================
 		if (currentUser.role === 'system_admin') {
-			const filters: Record<string, any> = { isActive: true };
+			const filters: Record<string, any> = {
+				isActive: true,
+				role: { $ne: 'system_admin' }, // Exclude other system_admins
+			};
 
-			// Apply role filter if provided
+			// Apply role filter if provided (but never allow system_admin)
 			if (role) {
+				if (role === 'system_admin') {
+					return NextResponse.json({
+						success: true,
+						message: 'Access denied to system admin records.',
+						data: [],
+					});
+				}
 				filters.role = role;
 			}
 
@@ -1557,18 +1790,42 @@ export async function GET(request: NextRequest) {
 				filters._id = targetId;
 			}
 
-			// Filter by academic year if provided
-			if (academicYear) {
-				filters.$or = [
-					{ 'academicYears.year': academicYear }, // Students/Admins
-					{ 'subjects.year': academicYear }, // Teachers
-				];
-			}
+			// Filter by academic year based on role
+			filters.$or = [
+				// Students and administrators
+				{
+					role: { $in: ['student', 'administrator'] },
+					'academicYears.year': academicYear,
+				},
+				// Teachers
+				{
+					role: 'teacher',
+					'subjects.year': academicYear,
+				},
+			];
 
 			responseData = await models.User.find(filters)
 				.limit(limit)
 				.select('-password -defaultPassword')
 				.lean();
+
+			// Format student data based on year
+			const isCurrentYearSysAdmin = academicYear === currentAcademicYear;
+			if (role === 'student' || !role) {
+				// If fetching students specifically or all users
+				responseData = Array.isArray(responseData)
+					? responseData.map((user: any) => {
+							if (user.role === 'student') {
+								return formatStudentData(
+									user,
+									academicYear,
+									isCurrentYearSysAdmin,
+								);
+							}
+							return user;
+						})
+					: responseData;
+			}
 
 			return NextResponse.json({
 				success: true,
@@ -1586,12 +1843,7 @@ export async function GET(request: NextRequest) {
 		);
 	} catch (err) {
 		console.error('Error in GET /users:', err);
-		if (err instanceof Error && err.message.includes('session')) {
-			return NextResponse.json(
-				{ success: false, message: 'Authentication required' },
-				{ status: 401 },
-			);
-		}
+
 		return NextResponse.json(
 			{ success: false, message: 'An error occurred' },
 			{ status: 500 },
@@ -1621,10 +1873,18 @@ interface ValidationErrorWithConflicts extends ValidationError {
 }
 
 // --- POST Handler ---
-// --- POST Handler ---
 export async function POST(request: NextRequest) {
 	try {
-		const currentUser = await authorizeUser(request, ['system_admin']);
+		// Only system admins can create new users
+		const currentUser = await authorizeUser(request, 'system_admin');
+
+		if (!currentUser) {
+			return NextResponse.json(
+				{ success: false, message: 'Unauthorized' },
+				{ status: 401 },
+			);
+		}
+
 		const host = request.headers.get('host');
 
 		const models = await getTenantModels(host);
@@ -1794,6 +2054,13 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
 	try {
 		const currentUser = await authorizeUser(request);
+
+		if (!currentUser) {
+			return NextResponse.json(
+				{ success: false, message: 'Unauthorized' },
+				{ status: 401 },
+			);
+		}
 
 		const models = await getTenantModels();
 		const { searchParams } = new URL(request.url);
@@ -2183,7 +2450,8 @@ export async function PUT(request: NextRequest) {
 		} = await request.json();
 
 		const isSystemAdmin = currentUser.role === 'system_admin';
-		const isSelfUpdate = currentUser.userId === actualTargetUserId;
+
+		const isSelfUpdate = currentUser.id === actualTargetUserId;
 
 		// Define allowed fields based on role and permissions
 		let allowedFields: string[] = [];
@@ -2194,6 +2462,7 @@ export async function PUT(request: NextRequest) {
 					'firstName',
 					'middleName',
 					'lastName',
+					'nickName',
 					'email',
 					'phone',
 					'address',
@@ -2212,6 +2481,7 @@ export async function PUT(request: NextRequest) {
 					'phone',
 					'address',
 					'isActive',
+					'academicYears',
 				];
 				switch (targetUser.role) {
 					case 'student':
@@ -2238,6 +2508,7 @@ export async function PUT(request: NextRequest) {
 			// Non-admin users updating themselves
 			allowedFields = [
 				'email',
+				'nickName',
 				'phone',
 				'bio',
 				'address',

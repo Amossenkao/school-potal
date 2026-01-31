@@ -10,13 +10,16 @@ const GuardianSchema = new Schema(
 		phone: { type: String, required: true },
 		address: { type: String, required: true },
 	},
-	{ _id: false }
+	{ _id: false },
 );
 
-const YearSchema = new Schema({
-	year: String,
-	classIds: [String],
-});
+const YearSchema = new Schema(
+	{
+		year: { type: String, required: true },
+		classId: { type: String, required: true }, // Aligned with { year; classId }[]
+	},
+	{ _id: false },
+);
 
 const PaymentReceiptSchema = new Schema<PaymentRecords & Document>({
 	id: { type: String, required: true, unique: true },
@@ -34,6 +37,7 @@ const FinancialProfileSchema = new Schema<StudentFinancialProfile & Document>(
 	{
 		outstandingBalances: [
 			{
+				academicYear: { type: String, required: true }, // Added field
 				feeType: { type: String, required: true },
 				category: { type: String, required: true },
 				requiredAmount: { type: Number, required: true },
@@ -42,7 +46,7 @@ const FinancialProfileSchema = new Schema<StudentFinancialProfile & Document>(
 		],
 		paymentRecords: [PaymentReceiptSchema],
 	},
-	{ _id: false }
+	{ _id: false },
 );
 
 const StudentSchema = new Schema<Student & Document>({
@@ -56,8 +60,6 @@ const StudentSchema = new Schema<Student & Document>({
 		enum: ['enrolled', 'graduated', 'transferred', 'dropped'],
 		required: true,
 	},
-	session: { type: String, required: true },
-	classLevel: { type: String, required: true },
 	guardian: { type: GuardianSchema, required: true },
 	academicYears: { type: [YearSchema], required: true },
 	financialProfile: { type: FinancialProfileSchema, required: true },

@@ -1,19 +1,21 @@
 import { Schema, Document } from 'mongoose';
-import { Teacher, TeacherSubject } from '@/types';
-import { ClassLevels } from '../constants';
+import { Teacher } from '@/types';
 
-const TeacherSubjectSchema = new Schema<TeacherSubject>(
+const TeacherSubjectSchema = new Schema(
 	{
-		academicYear: { type: String, required: true },
-		subject: { type: String, required: true },
-		level: { type: String, enum: ClassLevels, required: true },
-		session: { type: String, required: true },
+		year: { type: String, required: true },
+		classes: [
+			{
+				classId: { type: String, required: true },
+				subjects: [{ type: String, required: true }],
+			},
+		],
 	},
-	{ _id: false }
+	{ _id: false },
 );
 
 const TeacherSchema = new Schema<Teacher & Document>({
-	teacherId: { type: String, required: true, unique: true },
+	// teacherId removed to align with interface which uses base User fields
 	subjects: [TeacherSubjectSchema],
 	sponsorClass: { type: String, default: null },
 });
