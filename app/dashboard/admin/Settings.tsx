@@ -412,64 +412,126 @@ export default function Settings() {
 	const [isSaving, setIsSaving] = useState(false);
 	const [feedback, setFeedback] = useState({ type: '', message: '' });
 
-	// Derive state directly from school settings - no local state needed
-	const currentAcademicYear =
-		school?.currentAcademicYear || getCurrentAcademicYear();
-
-	const studentSettings = school?.settings?.studentSettings || {
-		loginAccess: true,
-		yearlyReportAccess: false,
-		reportAccessPeriods: [],
-	};
-
-	const teacherSettings = school?.settings?.teacherSettings || {
-		loginAccess: true,
-		gradeSubmissionPeriods: [],
-		gradeSubmissionAcademicYears: [currentAcademicYear],
-		viewMastersAcademicYears: [currentAcademicYear],
-		viewGradeSubmissionsAcademicYears: [currentAcademicYear],
-		gradeChangeRequestAcademicYears: [currentAcademicYear],
-		gradeChangeRequestPeriods: [],
-	};
-
-	const administratorSettings = school?.settings?.administratorSettings || {
-		loginAccess: true,
-	};
+	const [currentAcademicYear, setCurrentAcademicYear] = useState(
+		school?.currentAcademicYear || getCurrentAcademicYear()
+	);
+	const [studentSettings, setStudentSettings] = useState(() => ({
+		loginAccess: school?.settings?.studentSettings?.loginAccess ?? true,
+		yearlyReportAccess:
+			school?.settings?.studentSettings?.yearlyReportAccess ?? false,
+		reportAccessPeriods:
+			school?.settings?.studentSettings?.reportAccessPeriods ?? [],
+	}));
+	const [teacherSettings, setTeacherSettings] = useState(() => ({
+		loginAccess: school?.settings?.teacherSettings?.loginAccess ?? true,
+		gradeSubmissionPeriods:
+			school?.settings?.teacherSettings?.gradeSubmissionPeriods ?? [],
+		gradeSubmissionAcademicYears:
+			school?.settings?.teacherSettings?.gradeSubmissionAcademicYears ?? [
+				school?.currentAcademicYear || getCurrentAcademicYear(),
+			],
+		viewMastersAcademicYears:
+			school?.settings?.teacherSettings?.viewMastersAcademicYears ?? [
+				school?.currentAcademicYear || getCurrentAcademicYear(),
+			],
+		viewGradeSubmissionsAcademicYears:
+			school?.settings?.teacherSettings?.viewGradeSubmissionsAcademicYears ?? [
+				school?.currentAcademicYear || getCurrentAcademicYear(),
+			],
+		gradeChangeRequestAcademicYears:
+			school?.settings?.teacherSettings?.gradeChangeRequestAcademicYears ?? [
+				school?.currentAcademicYear || getCurrentAcademicYear(),
+			],
+		gradeChangeRequestPeriods:
+			school?.settings?.teacherSettings?.gradeChangeRequestPeriods ?? [],
+	}));
+	const [administratorSettings, setAdministratorSettings] = useState(() => ({
+		loginAccess:
+			school?.settings?.administratorSettings?.loginAccess ?? true,
+	}));
 
 	useEffect(() => {
-		if (school && school.settings) {
+		if (!school) return;
+
+		const academicYear =
+			school.currentAcademicYear || getCurrentAcademicYear();
+		setCurrentAcademicYear(academicYear);
+		setStudentSettings({
+			loginAccess: school.settings?.studentSettings?.loginAccess ?? true,
+			yearlyReportAccess:
+				school.settings?.studentSettings?.yearlyReportAccess ?? false,
+			reportAccessPeriods:
+				school.settings?.studentSettings?.reportAccessPeriods ?? [],
+		});
+		setTeacherSettings({
+			loginAccess: school.settings?.teacherSettings?.loginAccess ?? true,
+			gradeSubmissionPeriods:
+				school.settings?.teacherSettings?.gradeSubmissionPeriods ?? [],
+			gradeSubmissionAcademicYears:
+				school.settings?.teacherSettings?.gradeSubmissionAcademicYears ?? [
+					academicYear,
+				],
+			viewMastersAcademicYears:
+				school.settings?.teacherSettings?.viewMastersAcademicYears ?? [
+					academicYear,
+				],
+			viewGradeSubmissionsAcademicYears:
+				school.settings?.teacherSettings?.viewGradeSubmissionsAcademicYears ??
+				[academicYear],
+			gradeChangeRequestAcademicYears:
+				school.settings?.teacherSettings?.gradeChangeRequestAcademicYears ?? [
+					academicYear,
+				],
+			gradeChangeRequestPeriods:
+				school.settings?.teacherSettings?.gradeChangeRequestPeriods ?? [],
+		});
+		setAdministratorSettings({
+			loginAccess:
+				school.settings?.administratorSettings?.loginAccess ?? true,
+		});
+		if (school.settings) {
 			setIsLoading(false);
 		}
 	}, [school]);
 
 	// Update handlers to modify the school store directly
 	const toggleStudentSetting = (setting) => {
-		// In a real implementation, this would update the store
-		// For now, this demonstrates the pattern
-		console.log('Toggle student setting:', setting);
+		setStudentSettings((prev) => ({
+			...prev,
+			[setting]: !prev[setting],
+		}));
 	};
 
 	const toggleTeacherSetting = (setting) => {
-		console.log('Toggle teacher setting:', setting);
+		setTeacherSettings((prev) => ({
+			...prev,
+			[setting]: !prev[setting],
+		}));
 	};
 
 	const toggleAdministratorSetting = (setting) => {
-		console.log('Toggle administrator setting:', setting);
+		setAdministratorSettings((prev) => ({
+			...prev,
+			[setting]: !prev[setting],
+		}));
 	};
 
 	const updateStudentSettings = (updates) => {
-		// In real implementation, update the store
-		console.log('Update student settings:', updates);
+		setStudentSettings((prev) => ({
+			...prev,
+			...updates,
+		}));
 	};
 
 	const updateTeacherSettings = (updates) => {
-		// In real implementation, update the store
-		console.log('Update teacher settings:', updates);
+		setTeacherSettings((prev) => ({
+			...prev,
+			...updates,
+		}));
 	};
 
 	const updateCurrentAcademicYear = (year) => {
-		// In real implementation, update the store
-		console.log('Update academic year:', year);
+		setCurrentAcademicYear(year);
 	};
 
 	const handleQueueBulkAction = (category, action) =>
