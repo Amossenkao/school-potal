@@ -11,6 +11,7 @@ import {
 	User,
 	GraduationCap,
 	Clock,
+	ChevronLeft,
 } from 'lucide-react';
 import { useSchoolStore } from '@/store/schoolStore';
 import { PageLoading } from '@/components/loading';
@@ -84,6 +85,7 @@ const SubmitGrade: React.FC = () => {
 		message: string;
 		isVisible: boolean;
 	} | null>(null);
+	const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
 
 	const getAcademicYear = () => {
 		const now = new Date();
@@ -1097,21 +1099,51 @@ const SubmitGrade: React.FC = () => {
 											{studentsForGrading
 												.slice()
 												.sort((a, b) => a.name.localeCompare(b.name))
-												.map((student, index) => (
+												.map((student, index) => {
+													const rowBg = 'bg-background';
+													const isActive = activeStudentId === student.studentId;
+													return (
 													<tr
 														key={student.studentId}
-														className={`border-b border-border/60 ${
-															index % 2 === 0 ? 'bg-muted/10' : 'bg-background'
-														} hover:bg-muted/20`}
+														className={`border-b border-border/60 ${rowBg} ${
+															isActive
+																? 'bg-primary/10 ring-1 ring-primary/40 shadow-[inset_6px_0_0_0_rgba(59,130,246,0.7)]'
+																: 'hover:bg-muted/20'
+														}`}
 													>
-														<td className="sticky left-0 bg-background px-4 py-3">
+														<td
+															className={`sticky left-0 px-4 py-3 ${rowBg} ${
+																isActive ? 'bg-primary/10' : ''
+															}`}
+														>
 															<div className="flex items-center gap-2 sm:gap-3">
-																<div className="p-1.5 bg-primary/10 rounded-full">
-																	<User className="w-4 h-4 text-primary" />
+																<div
+																	className={`p-1.5 rounded-full ${
+																		isActive
+																			? 'bg-primary/20'
+																			: 'bg-primary/10'
+																	}`}
+																>
+																	<User
+																		className={`w-4 h-4 ${
+																			isActive
+																				? 'text-primary'
+																				: 'text-primary'
+																		}`}
+																	/>
 																</div>
-																<span className="font-medium text-sm text-foreground">
+																<span
+																	className={`font-medium text-sm ${
+																		isActive
+																			? 'text-primary font-semibold -translate-x-1'
+																			: 'text-foreground'
+																	}`}
+																>
 																	{student.name}
 																</span>
+																{isActive && (
+																	<ChevronLeft className="h-4 w-4 text-primary" />
+																)}
 															</div>
 														</td>
 														{orderedSelectedPeriods.map((period) => {
@@ -1157,6 +1189,11 @@ const SubmitGrade: React.FC = () => {
 																						e.target.value
 																					)
 																				}
+																				onFocus={() =>
+																					setActiveStudentId(
+																						student.studentId
+																					)
+																				}
 																				placeholder="0"
 																				className={`w-20 h-10 rounded-lg border-2 text-center text-base font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors ${getGradeDisplayColor(
 																					gradeValue
@@ -1194,7 +1231,8 @@ const SubmitGrade: React.FC = () => {
 															);
 														})}
 													</tr>
-												))}
+												);
+											})}
 										</tbody>
 									</table>
 								</div>
