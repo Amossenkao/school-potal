@@ -53,8 +53,7 @@ interface TeacherInfo {
 	userId: string;
 	username: string;
 	role: 'teacher';
-	subjects: { subject: string; level: string; session: string }[];
-	classes: { [subject: string]: string[] };
+	subjects: { year: string; classes: { classId: string; subjects: string[] }[] }[];
 }
 
 interface GradeChangeRequestStudent {
@@ -155,73 +154,81 @@ const GradeSubmissions = () => {
 
 		setLoading((prev) => ({ ...prev, submittedGrades: true }));
 		try {
-			const res = await fetch(
-				`/api/grades?academicYear=${academicYear}&teacherUsername=${teacherInfo.username}&reportType=gradeSubmission`
-			);
+			const res = await fetch(`/api/grades?academicYear=${academicYear}`);
 			if (!res.ok) throw new Error('Failed to fetch submitted grades');
 			const data = await res.json();
+			const grades = Array.isArray(data.data?.grades) ? data.data.grades : [];
 
-			const processedSubmissions: GradeSubmission[] =
-				data.data.report.submissions.map((submission: any) => {
-					const grades = submission.students.map(
-						(student: any) => student.grade
-					);
-					const validGrades = grades.filter(
-						(g: number) => g !== null && g !== undefined
-					) as number[];
-					const totalStudents = submission.totalStudents;
-					const passes = validGrades.filter((g: number) => g >= 70).length;
-					const fails = validGrades.length - passes;
-					const incompletes = totalStudents - validGrades.length;
-					const average =
-						validGrades.length > 0
-							? validGrades.reduce((sum: number, g: number) => sum + g, 0) /
-							  validGrades.length
-							: 0;
-
-					const statuses = submission.students.map(
-						(student: any) => student.status
-					);
-					let overallStatus:
-						| 'Approved'
-						| 'Rejected'
-						| 'Pending'
-						| 'Partially Approved';
-
-					if (statuses.every((s: string) => s === 'Approved')) {
-						overallStatus = 'Approved';
-					} else if (statuses.every((s: string) => s === 'Rejected')) {
-						overallStatus = 'Rejected';
-					} else if (statuses.some((s: string) => s === 'Approved')) {
-						overallStatus = 'Partially Approved';
-					} else {
-						overallStatus = 'Pending';
-					}
-
-					return {
-						submissionId: submission.submissionId,
-						academicYear: data.data.academicYear,
-						period: submission.period,
-						gradeLevel: submission.classId,
-						subject: submission.subject,
-						teacherUsername: data.data.teacherUsername,
-						lastUpdated: submission.lastUpdated,
-						status: overallStatus,
-						grades: submission.students.map((student: any) => ({
-							studentId: student.studentId,
-							name: student.studentName,
-							grade: student.grade,
-							status: student.status as 'Approved' | 'Rejected' | 'Pending',
-						})),
-						stats: {
-							totalStudents,
-							passes,
-							fails,
-							incompletes,
-							average: parseFloat(average.toFixed(1)),
-						},
-					};
+			const submissionsMap = new Map<string, any>();
+			grades.forEach((grade: any) => {
+				if (!submissionsMap.has(grade.submissionId)) {
+					submissionsMap.set(grade.submissionId, {
+						submissionId: grade.submissionId,
+						academicYear: grade.academicYear,
+						period: grade.period,
+						gradeLevel: grade.classId,
+						subject: grade.subject,
+						teacherUsername: grade.teacherUsername || teacherInfo.username,
+						lastUpdated: grade.lastUpdated,
+						grades: [],
+					});
+				}
+				const submission = submissionsMap.get(grade.submissionId);
+				submission.grades.push({
+					studentId: grade.studentId,
+					name: grade.studentName,
+					grade: grade.grade,
+					status: grade.status,
 				});
+				if (grade.lastUpdated > submission.lastUpdated) {
+					submission.lastUpdated = grade.lastUpdated;
+				}
+			});
+
+			const processedSubmissions: GradeSubmission[] = Array.from(
+				submissionsMap.values()
+			).map((submission: any) => {
+				const gradeValues = submission.grades.map((g: any) => g.grade);
+				const validGrades = gradeValues.filter(
+					(g: number) => g !== null && g !== undefined
+				) as number[];
+				const totalStudents = submission.grades.length;
+				const passes = validGrades.filter((g: number) => g >= 70).length;
+				const fails = validGrades.length - passes;
+				const incompletes = totalStudents - validGrades.length;
+				const average =
+					validGrades.length > 0
+						? validGrades.reduce((sum: number, g: number) => sum + g, 0) /
+						  validGrades.length
+						: 0;
+
+				const statuses = submission.grades.map((s: any) => s.status);
+				let overallStatus:
+					| 'Approved'
+					| 'Rejected'
+					| 'Pending'
+					| 'Partially Approved' = 'Pending';
+
+				if (statuses.every((s: string) => s === 'Approved')) {
+					overallStatus = 'Approved';
+				} else if (statuses.every((s: string) => s === 'Rejected')) {
+					overallStatus = 'Rejected';
+				} else if (statuses.some((s: string) => s === 'Approved')) {
+					overallStatus = 'Partially Approved';
+				}
+
+				return {
+					...submission,
+					status: overallStatus,
+					stats: {
+						totalStudents,
+						passes,
+						fails,
+						incompletes,
+						average: parseFloat(average.toFixed(1)),
+					},
+				};
+			});
 
 			processedSubmissions.sort(
 				(a, b) =>
@@ -283,44 +290,89 @@ const GradeSubmissions = () => {
 		return map;
 	}, [school]);
 
+	const getClassMetaById = useCallback(
+		(classId: string) => {
+			if (!classId || !school?.classLevels) return null;
+			for (const [session, levels] of Object.entries(school.classLevels)) {
+				if (!levels || typeof levels !== 'object') continue;
+				for (const [level, levelData] of Object.entries(levels)) {
+					if (!levelData?.classes || !Array.isArray(levelData.classes)) continue;
+					const found = levelData.classes.find(
+						(cls: any) => cls.classId === classId
+					);
+					if (found) return { ...found, session, level };
+				}
+			}
+			return null;
+		},
+		[school],
+	);
+
+	const yearAssignment = useMemo(() => {
+		return (teacherInfo?.subjects || []).find(
+			(entry) => entry.year === academicYear
+		);
+	}, [teacherInfo, academicYear]);
+
+	const assignedClasses = useMemo(() => {
+		const classes = yearAssignment?.classes || [];
+		return classes
+			.map((entry) => {
+				const meta = getClassMetaById(entry.classId);
+				return meta ? { ...meta, classId: entry.classId } : null;
+			})
+			.filter(Boolean) as Array<{
+			classId: string;
+			name: string;
+			session: string;
+			level: string;
+		}>;
+	}, [yearAssignment, getClassMetaById]);
+
 	const availableSessions = useMemo(() => {
-		if (!teacherInfo?.subjects) return [];
-		return [...new Set(teacherInfo.subjects.map((s) => s.session))];
-	}, [teacherInfo]);
+		return [...new Set(assignedClasses.map((c) => c.session))];
+	}, [assignedClasses]);
 
 	const availableSubjects = useMemo(() => {
-		if (!teacherInfo?.subjects) return [];
-		let subjects = teacherInfo.subjects;
-		if (filters.session) {
-			subjects = subjects.filter((s) => s.session === filters.session);
-		}
-		return [...new Set(subjects.map((s) => s.subject))];
-	}, [teacherInfo, filters.session]);
+		const classIds = assignedClasses
+			.filter((c) => !filters.session || c.session === filters.session)
+			.map((c) => c.classId);
+		const subjectSet = new Set<string>();
+		(yearAssignment?.classes || []).forEach((c) => {
+			if (classIds.includes(c.classId)) {
+				(c.subjects || []).forEach((s) => subjectSet.add(s));
+			}
+		});
+		return Array.from(subjectSet);
+	}, [assignedClasses, yearAssignment, filters.session]);
 
 	const availableLevels = useMemo(() => {
-		if (!teacherInfo?.subjects) return [];
-		let subjects = teacherInfo.subjects;
-		if (filters.session) {
-			subjects = subjects.filter((s) => s.session === filters.session);
-		}
-		if (filters.subject) {
-			subjects = subjects.filter((s) => s.subject === filters.subject);
-		}
-		return [...new Set(subjects.map((s) => s.level))];
-	}, [teacherInfo, filters.session, filters.subject]);
+		const classIds = assignedClasses
+			.filter((c) => !filters.session || c.session === filters.session)
+			.filter((c) => {
+				if (!filters.subject) return true;
+				const classData = yearAssignment?.classes?.find(
+					(entry) => entry.classId === c.classId
+				);
+				return classData?.subjects?.includes(filters.subject);
+			})
+			.map((c) => c.level);
+		return [...new Set(classIds)];
+	}, [assignedClasses, filters.session, filters.subject, yearAssignment]);
 
 	const availableClasses = useMemo(() => {
-		if (!filters.gradeLevel || !school?.classLevels) return [];
-		const classes: any[] = [];
-		const sessionToFilter = filters.session || availableSessions[0];
-
-		if (school.classLevels[sessionToFilter]?.[filters.gradeLevel]) {
-			classes.push(
-				...school.classLevels[sessionToFilter][filters.gradeLevel].classes
-			);
-		}
-		return [...new Map(classes.map((item) => [item.classId, item])).values()];
-	}, [filters.gradeLevel, filters.session, school, availableSessions]);
+		return assignedClasses.filter((c) => {
+			if (filters.session && c.session !== filters.session) return false;
+			if (filters.gradeLevel && c.level !== filters.gradeLevel) return false;
+			if (filters.subject) {
+				const classData = yearAssignment?.classes?.find(
+					(entry) => entry.classId === c.classId
+				);
+				return classData?.subjects?.includes(filters.subject);
+			}
+			return true;
+		});
+	}, [assignedClasses, filters.session, filters.gradeLevel, filters.subject, yearAssignment]);
 
 	const showNotification = (
 		type: 'success' | 'error' | 'info',
@@ -363,19 +415,8 @@ const GradeSubmissions = () => {
 				if (!levelClasses.includes(grade.gradeLevel)) return false;
 			}
 			if (filters.session) {
-				const teacherSubject = teacherInfo?.subjects.find(
-					(s) =>
-						s.subject === grade.subject &&
-						s.level ===
-							Object.entries(school.classLevels[filters.session] || {}).find(
-								([, levelData]: [string, any]) =>
-									levelData.classes.some(
-										(c: any) => c.classId === grade.gradeLevel
-									)
-							)?.[0] &&
-						s.session === filters.session
-				);
-				if (!teacherSubject) return false;
+				const classMeta = getClassMetaById(grade.gradeLevel);
+				if (!classMeta || classMeta.session !== filters.session) return false;
 			}
 			return true;
 		});
@@ -893,7 +934,7 @@ const GradeSubmissions = () => {
 
 	return (
 		<div className="min-h-screen bg-background p-6">
-			<div className="max-w-7xl mx-auto">
+			<div className="w-full">
 				<div className="mb-8">
 					<div className="flex items-center gap-3 mb-2">
 						<div className="p-2 bg-primary/10 rounded-lg">

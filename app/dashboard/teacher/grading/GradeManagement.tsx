@@ -1,47 +1,18 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart3, Loader2 } from 'lucide-react';
 import GradeSubmissions from './GradeSubmissions';
 import SubmitGrade from './SubmitGrade';
 import MasterGradeSheet from '../../shared/MasterGradeSheet';
 import TeacherGradeChangeRequests from './GradeRequests';
 
-// Types
-interface StudentGrade {
-	studentId: string;
-	name: string;
-	grade: number | null;
-	status: 'Approved' | 'Rejected' | 'Pending';
-	rank?: number;
-}
-
-interface GradeSubmission {
-	submissionId: string;
-	academicYear: string;
-	period: string;
-	gradeLevel: string;
-	subject: string;
-	teacherUsername: string;
-	grades: (StudentGrade & { status: 'Approved' | 'Rejected' | 'Pending' })[];
-	status: 'Approved' | 'Rejected' | 'Pending' | 'Partially Approved';
-	lastUpdated: string;
-	stats: {
-		incompletes: number;
-		passes: number;
-		fails: number;
-		average: number;
-		totalStudents: number;
-	};
-}
-
 interface TeacherInfo {
 	name: string;
 	userId: string;
 	username: string;
 	role: 'teacher';
-	subjects: { subject: string; level: string }[];
-	classes: { [subject: string]: string[] };
+	subjects: { year: string; classes: { classId: string; subjects: string[] }[] }[];
 }
 
 const PageLoading = ({ fullScreen = true }: { fullScreen?: boolean }) => (
@@ -59,17 +30,14 @@ const GradeManagement = () => {
 
 	// API Data States
 	const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
-	const [submittedGrades, setSubmittedGrades] = useState<GradeSubmission[]>([]);
 	const [academicYear, setAcademicYear] = useState<string>('');
 
 	// Loading and Error States
 	const [loading, setLoading] = useState({
 		teacherInfo: true,
-		submittedGrades: false,
 	});
 	const [error, setError] = useState({
 		teacherInfo: '',
-		submittedGrades: '',
 	});
 
 	const getAcademicYear = () => {
@@ -83,97 +51,6 @@ const GradeManagement = () => {
 			return `${currentYear - 1}-${currentYear}`;
 		}
 	};
-
-	const fetchSubmittedGrades = useCallback(async () => {
-		if (!teacherInfo) return;
-
-		setLoading((prev) => ({ ...prev, submittedGrades: true }));
-		try {
-			const res = await fetch(
-				`/api/grades?academicYear=${academicYear}&teacherUsername=${teacherInfo.username}&reportType=gradeSubmission`
-			);
-			if (!res.ok) throw new Error('Failed to fetch submitted grades');
-			const data = await res.json();
-
-			const processedSubmissions: GradeSubmission[] =
-				data.data.report.submissions.map((submission: any) => {
-					const grades = submission.students.map(
-						(student: any) => student.grade
-					);
-					const validGrades = grades.filter(
-						(g: number) => g !== null && g !== undefined
-					) as number[];
-					const totalStudents = submission.totalStudents;
-					const passes = validGrades.filter((g: number) => g >= 70).length;
-					const fails = validGrades.length - passes;
-					const incompletes = totalStudents - validGrades.length;
-					const average =
-						validGrades.length > 0
-							? validGrades.reduce((sum: number, g: number) => sum + g, 0) /
-							  validGrades.length
-							: 0;
-
-					const statuses = submission.students.map(
-						(student: any) => student.status
-					);
-					let overallStatus:
-						| 'Approved'
-						| 'Rejected'
-						| 'Pending'
-						| 'Partially Approved';
-
-					if (statuses.every((s: string) => s === 'Approved')) {
-						overallStatus = 'Approved';
-					} else if (statuses.every((s: string) => s === 'Rejected')) {
-						overallStatus = 'Rejected';
-					} else if (statuses.some((s: string) => s === 'Approved')) {
-						overallStatus = 'Partially Approved';
-					} else {
-						overallStatus = 'Pending';
-					}
-
-					return {
-						submissionId: submission.submissionId,
-						academicYear: data.data.academicYear,
-						period: submission.period,
-						gradeLevel: submission.classId,
-						subject: submission.subject,
-						teacherUsername: data.data.teacherUsername,
-						lastUpdated: submission.lastUpdated,
-						status: overallStatus,
-						grades: submission.students.map((student: any) => ({
-							studentId: student.studentId,
-							name: student.studentName,
-							grade: student.grade,
-							status: student.status as 'Approved' | 'Rejected' | 'Pending',
-						})),
-						stats: {
-							totalStudents,
-							passes,
-							fails,
-							incompletes,
-							average: parseFloat(average.toFixed(1)),
-						},
-					};
-				});
-
-			processedSubmissions.sort(
-				(a, b) =>
-					new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()
-			);
-
-			setSubmittedGrades(processedSubmissions);
-			setError((prev) => ({ ...prev, submittedGrades: '' }));
-		} catch (err) {
-			setError((prev) => ({
-				...prev,
-				submittedGrades: 'Failed to load submitted grades.',
-			}));
-			console.error('Error fetching submitted grades:', err);
-		} finally {
-			setLoading((prev) => ({ ...prev, submittedGrades: false }));
-		}
-	}, [academicYear, teacherInfo]);
 
 	// Fetch teacher info on component mount
 	useEffect(() => {
@@ -200,19 +77,8 @@ const GradeManagement = () => {
 		fetchTeacherInfo();
 	}, []);
 
-	// Fetch submitted grades when activeTab is 'overview'
-	useEffect(() => {
-		if (activeTab === 'overview' && teacherInfo) {
-			fetchSubmittedGrades();
-		}
-	}, [activeTab, teacherInfo, fetchSubmittedGrades]);
-
 	const handleSwitchToSubmit = () => setActiveTab('submit');
 	const handleSwitchToOverview = () => setActiveTab('overview');
-	const handleEditGrade = (submission: GradeSubmission) =>
-		console.log('Edit grade:', submission);
-	const handleViewGrade = (submission: GradeSubmission) =>
-		console.log('View grade:', submission);
 
 	const tabButtonStyle = (tabName: string) =>
 		`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
@@ -222,8 +88,8 @@ const GradeManagement = () => {
 		}`;
 
 	return (
-		<div className="min-h-screen bg-background p-6">
-			<div className="max-w-7xl mx-auto">
+		<div className="min-h-screen bg-background py-6 px-0">
+			<div className="w-full">
 				{/* Header */}
 				<div className="mb-8">
 					<div className="flex items-center gap-3 mb-2">
@@ -283,16 +149,7 @@ const GradeManagement = () => {
 				) : (
 					<>
 						{activeTab === 'overview' && (
-							<GradeSubmissions
-								submittedGrades={submittedGrades}
-								loading={loading.submittedGrades}
-								error={error.submittedGrades}
-								teacherInfo={teacherInfo}
-								onSwitchToSubmit={handleSwitchToSubmit}
-								onEditGrade={handleEditGrade}
-								onViewGrade={handleViewGrade}
-								onRefresh={fetchSubmittedGrades}
-							/>
+							<GradeSubmissions />
 						)}
 						{activeTab === 'submit' && (
 							<SubmitGrade

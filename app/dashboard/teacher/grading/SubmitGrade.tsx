@@ -10,6 +10,7 @@ import {
 	BarChart3,
 	User,
 	GraduationCap,
+	Clock,
 } from 'lucide-react';
 import { useSchoolStore } from '@/store/schoolStore';
 import { PageLoading } from '@/components/loading';
@@ -20,7 +21,7 @@ interface TeacherInfo {
 	userId: string;
 	username: string;
 	role: 'teacher';
-	subjects: { subject: string; level: string; session: string }[];
+	subjects: { year: string; classes: { classId: string; subjects: string[] }[] }[];
 	sponsorClass?: string;
 }
 
@@ -93,6 +94,24 @@ const SubmitGrade: React.FC = () => {
 			: `${currentYear - 1}-${currentYear}`;
 	};
 
+	const getClassMetaById = useCallback(
+		(classId: string) => {
+			if (!classId || !school?.classLevels) return null;
+			for (const [session, levels] of Object.entries(school.classLevels)) {
+				if (!levels || typeof levels !== 'object') continue;
+				for (const [level, levelData] of Object.entries(levels)) {
+					if (!levelData?.classes || !Array.isArray(levelData.classes)) continue;
+					const found = levelData.classes.find(
+						(cls: any) => cls.classId === classId
+					);
+					if (found) return { ...found, session, level };
+				}
+			}
+			return null;
+		},
+		[school],
+	);
+
 	const periods = useMemo(() => {
 		if (school?.settings?.teacherSettings?.gradeSubmissionPeriods) {
 			const allowedPeriods =
@@ -102,13 +121,21 @@ const SubmitGrade: React.FC = () => {
 		return allPeriods;
 	}, [school]);
 
+	const teacherYears = useMemo(() => {
+		return (teacherInfo?.subjects || [])
+			.map((s) => s.year)
+			.filter(Boolean);
+	}, [teacherInfo]);
+
 	const availableAcademicYears = useMemo(() => {
-		return (
+		const allowed =
 			school?.settings?.teacherSettings?.gradeSubmissionAcademicYears || [
 				getAcademicYear(),
-			]
-		);
-	}, [school]);
+			];
+		return teacherYears.length > 0
+			? allowed.filter((year) => teacherYears.includes(year))
+			: allowed;
+	}, [school, teacherYears]);
 
 	useEffect(() => {
 		if (availableAcademicYears.length === 1) {
@@ -119,6 +146,15 @@ const SubmitGrade: React.FC = () => {
 			setSelectedAcademicYear('');
 		}
 	}, [availableAcademicYears]);
+
+	useEffect(() => {
+		setSelectedSession('');
+		setSelectedClassLevel('');
+		setSelectedClassId('');
+		setSelectedSubject('');
+		setSelectedPeriods([]);
+		setStudentsForGrading([]);
+	}, [selectedAcademicYear]);
 
 	useEffect(() => {
 		if (notification?.isVisible) {
@@ -166,68 +202,72 @@ const SubmitGrade: React.FC = () => {
 		fetchTeacherInfo();
 	}, []);
 
+	const yearAssignment = useMemo(() => {
+		return (teacherInfo?.subjects || []).find(
+			(entry) => entry.year === selectedAcademicYear
+		);
+	}, [teacherInfo, selectedAcademicYear]);
+
+	const assignedClasses = useMemo(() => {
+		const classes = yearAssignment?.classes || [];
+		return classes
+			.map((entry) => {
+				const meta = getClassMetaById(entry.classId);
+				return meta ? { ...meta, classId: entry.classId } : null;
+			})
+			.filter(Boolean) as Array<{
+			classId: string;
+			name: string;
+			session: string;
+			level: string;
+		}>;
+	}, [yearAssignment, getClassMetaById]);
+
 	const availableSessions = useMemo(() => {
-		if (!teacherInfo?.subjects) return [];
-		return [...new Set(teacherInfo.subjects.map((s) => s.session))];
-	}, [teacherInfo]);
+		return [...new Set(assignedClasses.map((c) => c.session))];
+	}, [assignedClasses]);
 
 	const availableLevels = useMemo(() => {
-		if (!selectedSession || !teacherInfo?.subjects) return [];
+		if (!selectedSession) return [];
 		return [
 			...new Set(
-				teacherInfo.subjects
-					.filter((s) => s.session === selectedSession)
-					.map((s) => s.level)
+				assignedClasses
+					.filter((c) => c.session === selectedSession)
+					.map((c) => c.level)
 			),
 		];
-	}, [selectedSession, teacherInfo]);
+	}, [assignedClasses, selectedSession]);
 
 	const isSelfContainedTeacher = useMemo(() => {
-		return availableLevels.includes('Self Contained');
-	}, [availableLevels]);
+		return selectedClassLevel === 'Self Contained';
+	}, [selectedClassLevel]);
 
 	const availableClasses = useMemo(() => {
-		if (
-			!selectedSession ||
-			!selectedClassLevel ||
-			!school?.classLevels?.[selectedSession]?.[selectedClassLevel]
-		)
-			return [];
+		if (!selectedSession || !selectedClassLevel) return [];
+		let classes = assignedClasses.filter(
+			(c) => c.session === selectedSession && c.level === selectedClassLevel
+		);
 
 		if (isSelfContainedTeacher && teacherInfo?.sponsorClass) {
-			const allClassesInLevel =
-				school.classLevels[selectedSession]?.[selectedClassLevel]?.classes ||
-				[];
-			return allClassesInLevel.filter(
-				(cls) => cls.classId === teacherInfo.sponsorClass
-			);
+			classes = classes.filter((c) => c.classId === teacherInfo.sponsorClass);
 		}
 
-		return (
-			school.classLevels[selectedSession][selectedClassLevel].classes || []
-		);
+		return classes;
 	}, [
+		assignedClasses,
 		selectedSession,
 		selectedClassLevel,
-		school,
 		isSelfContainedTeacher,
 		teacherInfo?.sponsorClass,
 	]);
 
 	const availableSubjects = useMemo(() => {
-		if (!selectedSession || !selectedClassLevel || !teacherInfo?.subjects)
-			return [];
-		return [
-			...new Set(
-				teacherInfo.subjects
-					.filter(
-						(s) =>
-							s.session === selectedSession && s.level === selectedClassLevel
-					)
-					.map((s) => s.subject)
-			),
-		];
-	}, [selectedSession, selectedClassLevel, teacherInfo]);
+		if (!selectedClassId || !yearAssignment?.classes) return [];
+		const classData = yearAssignment.classes.find(
+			(c) => c.classId === selectedClassId
+		);
+		return classData?.subjects || [];
+	}, [selectedClassId, yearAssignment]);
 
 	useEffect(() => {
 		if (availableSessions.length === 1 && !selectedSession) {
@@ -276,7 +316,9 @@ const SubmitGrade: React.FC = () => {
 		setNotification(null);
 
 		try {
-			const studentsRes = await fetch(`/api/users?classId=${selectedClassId}`);
+			const studentsRes = await fetch(
+				`/api/users?role=student&academicYear=${selectedAcademicYear}&classId=${selectedClassId}`
+			);
 			if (!studentsRes.ok)
 				throw new Error('Failed to fetch students for class');
 			const studentsData = await studentsRes.json();
@@ -288,38 +330,32 @@ const SubmitGrade: React.FC = () => {
 			}
 
 			const existingGradesRes = await fetch(
-				`/api/grades?academicYear=${selectedAcademicYear}&classId=${selectedClassId}&subject=${selectedSubject}&reportType=masters`
+				`/api/grades?academicYear=${selectedAcademicYear}&classId=${selectedClassId}&subject=${selectedSubject}`
 			);
 			if (!existingGradesRes.ok)
 				throw new Error('Failed to fetch existing grades');
 			const existingGradesData = await existingGradesRes.json();
 
 			const reportStudentsMap = new Map();
-			if (existingGradesData.data?.report?.students) {
-				existingGradesData.data.report.students.forEach((student: any) => {
-					reportStudentsMap.set(student.studentId, student.periods);
+			if (Array.isArray(existingGradesData.data?.grades)) {
+				existingGradesData.data.grades.forEach((grade: any) => {
+					if (!reportStudentsMap.has(grade.studentId)) {
+						reportStudentsMap.set(grade.studentId, {});
+					}
+					reportStudentsMap.get(grade.studentId)[grade.period] = {
+						grade: grade.grade,
+						status: grade.status,
+					};
 				});
 			}
 
-			const periodIdToApiKey: Record<string, string> = {
-				first: 'first',
-				second: 'second',
-				third: 'third',
-				third_period_exam: 'third_period_exam',
-				fourth: 'fourth',
-				fifth: 'fifth',
-				sixth: 'sixth',
-				sixth_period_exam: 'six_period_exam',
-			};
-
 			const initialStudentsForGrading = studentsList.map((student: any) => {
-				const studentExistingPeriods =
-					reportStudentsMap.get(student.studentId) || {};
+				const studentKey = student.studentId || student.id || student._id;
+				const studentExistingPeriods = reportStudentsMap.get(studentKey) || {};
 				const grades: { [period: string]: GradeInputState } = {};
 
 				periods.forEach(({ id }) => {
-					const apiPeriodKey = periodIdToApiKey[id] || id;
-					const existingGrade = studentExistingPeriods[apiPeriodKey];
+					const existingGrade = studentExistingPeriods[id];
 
 					if (
 						existingGrade &&
@@ -343,7 +379,7 @@ const SubmitGrade: React.FC = () => {
 				});
 
 				return {
-					studentId: student.studentId,
+					studentId: student.studentId || student.id || student._id,
 					name: `${student.firstName} ${student.lastName}`,
 					grades,
 				};
@@ -456,6 +492,29 @@ const SubmitGrade: React.FC = () => {
 			.map((period) => period.id);
 	}, [selectedPeriods, periods]);
 
+	const formatPeriodLabel = (periodValue: string) => {
+		switch (periodValue) {
+			case 'first':
+				return '1st PD';
+			case 'second':
+				return '2nd PD';
+			case 'third':
+				return '3rd PD';
+			case 'third_period_exam':
+				return '3rd PD Exam';
+			case 'fourth':
+				return '4th PD';
+			case 'fifth':
+				return '5th PD';
+			case 'sixth':
+				return '6th PD';
+			case 'sixth_period_exam':
+				return '6th PD Exam';
+			default:
+				return periodValue;
+		}
+	};
+
 	const handleSubmitGrades = async () => {
 		if (selectedPeriods.length === 0) {
 			showNotification(
@@ -518,10 +577,10 @@ const SubmitGrade: React.FC = () => {
 				'success',
 				`Successfully submitted ${gradesToSubmit.length} grades!`
 			);
-
-			setTimeout(() => {
-				window.location.href = '/dashboard/grade-submissions';
-			}, 2000);
+			setSelectedClassId('');
+			setSelectedSubject('');
+			setSelectedPeriods([]);
+			setStudentsForGrading([]);
 		} catch (err: any) {
 			showNotification('error', `Error: ${err.message}`);
 			console.error('Error submitting grades:', err);
@@ -583,8 +642,50 @@ const SubmitGrade: React.FC = () => {
 	const showSubjectSelect = availableSubjects.length > 1;
 	const showAcademicYearFilter = availableAcademicYears.length > 1;
 
+	const FeedbackToast = () => {
+		if (!notification || notification.type === 'error') return null;
+		const tone =
+			notification.type === 'success'
+				? {
+						bg: 'bg-green-50 border-green-200',
+						text: 'text-green-800',
+						icon: CheckCircle,
+				  }
+				: {
+						bg: 'bg-blue-50 border-blue-200',
+						text: 'text-blue-800',
+						icon: Info,
+				  };
+		const IconComponent = tone.icon;
+
+		return (
+			<div className="fixed top-4 right-4 z-50 max-w-md">
+				<div
+					className={`rounded-lg border px-4 py-3 shadow-lg ${tone.bg} ${tone.text}`}
+				>
+					<div className="flex items-start gap-3">
+						<IconComponent className="h-5 w-5 flex-shrink-0" />
+						<div className="flex-1 text-sm">
+							<p className="font-semibold capitalize">
+								{notification.type}
+							</p>
+							<p className="opacity-90">{notification.message}</p>
+						</div>
+						<button
+							onClick={dismissNotification}
+							className="rounded-full p-1 hover:bg-black/10"
+							aria-label="Close notification"
+						>
+							<X className="h-4 w-4" />
+						</button>
+					</div>
+				</div>
+			</div>
+		);
+	};
+
 	const PopupNotification = () => {
-		if (!notification) return null;
+		if (!notification || notification.type !== 'error') return null;
 
 		const getNotificationStyles = () => {
 			switch (notification.type) {
@@ -720,7 +821,7 @@ const SubmitGrade: React.FC = () => {
 	if (periods.length === 0) {
 		return (
 			<div className="min-h-screen bg-background p-4 sm:p-6">
-				<div className="max-w-7xl mx-auto">
+				<div className="w-full">
 					<div className="mb-6 sm:mb-8">
 						<div className="flex items-center gap-2 sm:gap-3 mb-2">
 							<div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
@@ -755,8 +856,9 @@ const SubmitGrade: React.FC = () => {
 	}
 
 	return (
-		<div className="min-h-screen bg-background p-3 sm:p-4 md:p-6">
-			<div className="max-w-7xl mx-auto">
+		<div className="min-h-screen bg-background py-3 sm:py-4 md:py-6 px-0">
+			<FeedbackToast />
+			<div className="w-full">
 				<div className="mb-4 sm:mb-6 md:mb-8">
 					<div className="flex items-center gap-2 sm:gap-3 mb-2">
 						<div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
@@ -970,124 +1072,135 @@ const SubmitGrade: React.FC = () => {
 								</div>
 							)}
 
-							<div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-								{studentsForGrading
-									.slice()
-									.sort((a, b) => a.name.localeCompare(b.name))
-									.map((student) => (
-										<div
-											key={student.studentId}
-											className="border border-border rounded-lg overflow-hidden"
-										>
-											<div className="w-full flex items-center justify-between p-3 sm:p-4 bg-muted">
-												<div className="flex items-center gap-2 sm:gap-3">
-													<div className="p-1.5 sm:p-2 bg-primary/10 rounded-full">
-														<User className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-													</div>
-													<span className="font-medium text-sm sm:text-base text-foreground">
-														{student.name}
-													</span>
-												</div>
-											</div>
-
-											<div className="p-3 sm:p-4 space-y-3 bg-background">
+							<div className="p-3 sm:p-4">
+								<div className="overflow-x-auto">
+									<table className="w-full min-w-[720px] border-separate border-spacing-0">
+										<thead className="bg-muted/60">
+											<tr>
+												<th className="sticky left-0 bg-muted/60 px-4 py-3 text-left text-xs font-semibold uppercase text-muted-foreground">
+													Student
+												</th>
 												{orderedSelectedPeriods.map((period) => {
-													const gradeInfo = student.grades[period];
-													const periodLabel = periods.find(
-														(p) => p.value === period
-													)?.label;
-													const isExisting = gradeInfo?.hasExistingGrade;
-													const gradeValue = gradeInfo?.grade;
-													const validationStatus =
-														getGradeValidationStatus(gradeValue);
-													const isInvalid =
-														!validationStatus.isValid && gradeValue !== '';
-
+													const periodLabel = formatPeriodLabel(period);
 													return (
-														<div
+														<th
 															key={period}
-															className="flex items-center justify-between p-3 bg-muted rounded-lg"
+															className="px-4 py-3 text-left text-xs font-semibold uppercase text-muted-foreground"
 														>
-															<div className="flex-1">
-																<div className="flex items-center gap-2 mb-1">
-																	<GraduationCap className="w-4 h-4 text-muted-foreground" />
-																	<span className="text-sm font-medium text-foreground">
-																		{periodLabel}
-																	</span>
-																</div>
-																{isExisting && gradeInfo.status && (
-																	<span
-																		className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${getStatusBadgeColor(
-																			gradeInfo.status
-																		)}`}
-																	>
-																		{gradeInfo.status}
-																	</span>
-																)}
-																{isInvalid && (
-																	<div className="text-xs text-red-500 font-medium mt-1">
-																		{validationStatus.message}
-																	</div>
-																)}
-																{validationStatus.isValid &&
-																	gradeValue !== '' &&
-																	Number(gradeValue) >= 60 &&
-																	!isExisting && (
-																		<div
-																			className={`text-xs font-medium mt-1 ${
-																				Number(gradeValue) >= 70
-																					? 'text-blue-600 dark:text-blue-400'
-																					: 'text-red-600 dark:text-red-400'
-																			}`}
-																		>
-																			{Number(gradeValue) >= 70
-																				? 'Pass'
-																				: 'Fail'}
-																		</div>
-																	)}
-															</div>
-															<div className="flex items-center gap-2">
-																{isExisting ? (
-																	<div
-																		className={`text-xl sm:text-2xl font-bold ${getGradeDisplayColor(
-																			gradeValue,
-																			true
-																		)}`}
-																	>
-																		{gradeValue}
-																	</div>
-																) : (
-																	<input
-																		type="text"
-																		value={gradeValue || ''}
-																		onChange={(e) =>
-																			handleGradeChange(
-																				student.studentId,
-																				period,
-																				e.target.value
-																			)
-																		}
-																		placeholder="0"
-																		className={`w-16 sm:w-20 h-12 sm:h-14 rounded-lg border-2 text-center text-lg sm:text-xl font-bold focus:ring-2 focus:ring-ring focus:border-ring transition-colors ${getGradeDisplayColor(
-																			gradeValue
-																		)} ${
-																			isInvalid
-																				? 'bg-background border-red-500 focus:ring-red-500'
-																				: 'bg-background border-input hover:border-ring'
-																		}`}
-																		inputMode="numeric"
-																	/>
-																)}
-															</div>
-														</div>
+															{periodLabel}
+														</th>
 													);
 												})}
-											</div>
-										</div>
-									))}
+											</tr>
+										</thead>
+										<tbody className="divide-y divide-border/60">
+											{studentsForGrading
+												.slice()
+												.sort((a, b) => a.name.localeCompare(b.name))
+												.map((student, index) => (
+													<tr
+														key={student.studentId}
+														className={`border-b border-border/60 ${
+															index % 2 === 0 ? 'bg-muted/10' : 'bg-background'
+														} hover:bg-muted/20`}
+													>
+														<td className="sticky left-0 bg-background px-4 py-3">
+															<div className="flex items-center gap-2 sm:gap-3">
+																<div className="p-1.5 bg-primary/10 rounded-full">
+																	<User className="w-4 h-4 text-primary" />
+																</div>
+																<span className="font-medium text-sm text-foreground">
+																	{student.name}
+																</span>
+															</div>
+														</td>
+														{orderedSelectedPeriods.map((period) => {
+															const gradeInfo = student.grades[period];
+															const isExisting = gradeInfo?.hasExistingGrade;
+															const gradeValue = gradeInfo?.grade;
+															const validationStatus =
+																getGradeValidationStatus(gradeValue);
+															const isInvalid =
+																!validationStatus.isValid &&
+																gradeValue !== '';
+
+															return (
+																<td key={period} className="px-4 py-3">
+																	<div className="flex flex-col gap-1">
+																		{isExisting ? (
+																			<div className="flex items-center gap-2">
+																				<span
+																					className={`text-lg font-semibold ${getGradeDisplayColor(
+																						gradeValue,
+																						true
+																					)}`}
+																				>
+																					{gradeValue}
+																				</span>
+																				{gradeInfo.status?.toLowerCase() ===
+																					'approved' && (
+																					<CheckCircle className="h-4 w-4 text-green-600" />
+																				)}
+																				{gradeInfo.status?.toLowerCase() ===
+																					'pending' && (
+																					<Clock className="h-4 w-4 text-yellow-600" />
+																				)}
+																			</div>
+																		) : (
+																			<input
+																				type="text"
+																				value={gradeValue || ''}
+																				onChange={(e) =>
+																					handleGradeChange(
+																						student.studentId,
+																						period,
+																						e.target.value
+																					)
+																				}
+																				placeholder="0"
+																				className={`w-20 h-10 rounded-lg border-2 text-center text-base font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors ${getGradeDisplayColor(
+																					gradeValue
+																				)} ${
+																					isInvalid
+																						? 'bg-background border-red-500 focus:ring-red-500'
+																						: 'bg-background border-input hover:border-ring'
+																				}`}
+																				inputMode="numeric"
+																			/>
+																		)}
+																		{isInvalid && (
+																			<span className="text-xs text-red-500 font-medium">
+																				{validationStatus.message}
+																			</span>
+																		)}
+																		{validationStatus.isValid &&
+																			gradeValue !== '' &&
+																			Number(gradeValue) >= 60 &&
+																			!isExisting && (
+																				<span
+																					className={`text-xs font-medium ${
+																						Number(gradeValue) >= 70
+																							? 'text-blue-600 dark:text-blue-400'
+																							: 'text-red-600 dark:text-red-400'
+																					}`}
+																				>
+																					{Number(gradeValue) >= 70
+																						? 'Pass'
+																						: 'Fail'}
+																				</span>
+																			)}
+																	</div>
+																</td>
+															);
+														})}
+													</tr>
+												))}
+										</tbody>
+									</table>
+								</div>
 							</div>
 
-							<div className="p-4 sm:p-6 border-t border-border">
+							<div className="p-4 sm:p-6 border-t border-border sticky bottom-0 bg-card">
 								<button
 									onClick={handleSubmitGrades}
 									className="w-full sm:w-auto sm:ml-auto flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-base font-medium text-primary-foreground shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"

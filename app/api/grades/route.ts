@@ -942,7 +942,8 @@ export async function POST(request: NextRequest) {
 				{ status: 401 },
 			);
 		}
-		const { Grade, User } = await getTenantModels();
+		const models = await getTenantModels();
+		const { Grade, User } = models;
 		const body = await request.json();
 		const { classId, subject, period, grades, academicYear } = body;
 		const resolvedAcademicYear = academicYear || getCurrentAcademicYear();

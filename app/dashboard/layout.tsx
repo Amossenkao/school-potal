@@ -65,7 +65,7 @@ export default function AdminLayout({
 						{/* Header */}
 						<AppHeader />
 						{/* Page Content */}
-						<main className="p-4 md:p-6">{children}</main>
+						<main className="py-4 md:py-6 px-0">{children}</main>
 					</div>
 
 					{/* Mobile overlay */}

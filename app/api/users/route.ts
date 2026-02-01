@@ -1108,6 +1108,7 @@ export async function GET(request: NextRequest) {
 		) => {
 			const baseData = {
 				id: student._id.toString(),
+				studentId: student.studentId,
 				firstName: student.firstName,
 				lastName: student.lastName,
 				email: student.email,
