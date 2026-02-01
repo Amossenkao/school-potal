@@ -18,7 +18,7 @@ import { PageLoading } from '@/components/loading';
 interface TeacherInfo {
 	name: string;
 	userId: string;
-	teacherId: string;
+	username: string;
 	role: 'teacher';
 	subjects: { subject: string; level: string; session: string }[];
 	sponsorClass?: string;

@@ -370,7 +370,7 @@ function FilterContent({
 				try {
 					setLoadingStudents(true);
 					const response = await fetch(
-						`/api/users?classId=${filters.className}&role=student`
+						`/api/users?classId=${filters.className}&role=student&academicYear=${filters.academicYear}`
 					);
 					if (response.ok) {
 						const responseData = await response.json();

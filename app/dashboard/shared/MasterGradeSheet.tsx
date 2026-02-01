@@ -31,7 +31,6 @@ interface UserInfo {
 	phone?: string;
 	email?: string;
 	isActive?: boolean;
-	teacherId?: string;
 	subjects?: SubjectInfo[];
 	sponsorClass?: string | null;
 }

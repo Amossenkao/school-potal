@@ -16,7 +16,8 @@ const GuardianSchema = new Schema(
 const YearSchema = new Schema(
 	{
 		year: { type: String, required: true },
-		classId: { type: String, required: true }, // Aligned with { year; classId }[]
+		classId: { type: String, required: true }, // Aligned with { year; classId; className }[]
+		className: { type: String, required: false },
 	},
 	{ _id: false },
 );

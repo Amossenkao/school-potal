@@ -16,7 +16,7 @@ interface TeacherInfo {
 	name?: string;
 	firstName?: string;
 	lastName?: string;
-	teacherId: string;
+	username: string;
 }
 
 interface GradesPDFProps {

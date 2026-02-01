@@ -33,6 +33,7 @@ export type FeatureKey =
 
 	// Communication & Support
 	| 'support_system'
+	| 'community'
 	| 'notifications'
 
 	// System Features

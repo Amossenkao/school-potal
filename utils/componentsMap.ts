@@ -1,4 +1,5 @@
 // utils/componentsMap.ts
+import React from 'react';
 import dynamic from 'next/dynamic';
 import {
 	LayoutDashboard,
@@ -42,51 +43,73 @@ interface FeatureConfig {
 	};
 }
 
+const DashboardSectionLoading = () =>
+	React.createElement(
+		'div',
+		{ className: 'flex items-center justify-center min-h-[40vh]' },
+		React.createElement(
+			'div',
+			{ className: 'flex flex-col items-center gap-3 text-muted-foreground' },
+			React.createElement('div', {
+				className:
+					'h-6 w-6 rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground animate-spin',
+			}),
+			React.createElement('span', { className: 'text-sm' }, 'Loading...')
+		)
+	);
+
+const lazySection = (importer: () => Promise<any>) =>
+	dynamic(importer, {
+		loading: () => React.createElement(DashboardSectionLoading),
+	});
+
 // Component mappings - centralized component imports
 const componentMappings: Record<string, any> = {
 	// User Management
-	'add-users': dynamic(() => import('@/app/dashboard/admin/users/AddUsers')),
-	'manage-users': dynamic(
+	'add-users': lazySection(() => import('@/app/dashboard/admin/users/AddUsers')),
+	'manage-users': lazySection(
 		() => import('@/app/dashboard/admin/users/ManageUsers')
 	),
 
 	// Grading
-	submissions: dynamic(
+	submissions: lazySection(
 		() => import('@/app/dashboard/admin/grades/GradeSubmissions')
 	),
-	requests: dynamic(() => import('@/app/dashboard/admin/grades/GradeRequests')),
-	grading: dynamic(
+	requests: lazySection(
+		() => import('@/app/dashboard/admin/grades/GradeRequests')
+	),
+	grading: lazySection(
 		() => import('@/app/dashboard/teacher/grading/GradeManagement')
 	),
-	'periodic-grade': dynamic(
+	'periodic-grade': lazySection(
 		() => import('@/app/dashboard/shared/PeriodicReport')
 	),
-	'yearly-grade': dynamic(() => import('@/app/dashboard/shared/YearlyReport')),
+	'yearly-grade': lazySection(() => import('@/app/dashboard/shared/YearlyReport')),
 
 	// Classes
-	'classes-overview': dynamic(
+	'classes-overview': lazySection(
 		() => import('@/app/dashboard/admin/classes/ClassOverview')
 	),
-	'manage-class': dynamic(
+	'manage-class': lazySection(
 		() => import('@/app/dashboard/admin/classes/ManageClass')
 	),
 
 	// Academic Reports
-	'periodic-reports': dynamic(
+	'periodic-reports': lazySection(
 		() => import('@/app/dashboard/shared/PeriodicReport')
 	),
-	'yearly-reports': dynamic(
+	'yearly-reports': lazySection(
 		() => import('@/app/dashboard/shared/YearlyReport')
 	),
-	masters: dynamic(() => import('@/app/dashboard/shared/MasterGradeSheet')),
+	masters: lazySection(() => import('@/app/dashboard/shared/MasterGradeSheet')),
 
-	'grade-submissions': dynamic(
+	'grade-submissions': lazySection(
 		() => import('@/app/dashboard/teacher/grading/GradeSubmissions')
 	),
-	'submit-grades': dynamic(
+	'submit-grades': lazySection(
 		() => import('@/app/dashboard/teacher/grading/SubmitGrade')
 	),
-	'grade-requests': dynamic(
+	'grade-requests': lazySection(
 		() => import('@/app/dashboard/teacher/grading/GradeRequests')
 	),
 
@@ -129,8 +152,8 @@ const componentMappings: Record<string, any> = {
 	// ),
 
 	// Fees Payment
-	pay: dynamic(() => import('@/app/dashboard/student/fees/PayFees')),
-	'payment-history': dynamic(
+	pay: lazySection(() => import('@/app/dashboard/student/fees/PayFees')),
+	'payment-history': lazySection(
 		() => import('@/app/dashboard/student/fees/PaymentHistory')
 	),
 
@@ -147,15 +170,16 @@ const componentMappings: Record<string, any> = {
 	// ),
 
 	// Events Log
-	notifications: dynamic(() => import('@/app/dashboard/shared/Notifications')),
+	notifications: lazySection(() => import('@/app/dashboard/shared/Notifications')),
 
 	// Settings & Support
-	settings: dynamic(() => import('@/app/dashboard/admin/Settings')),
-	support: dynamic(() => import('@/app/dashboard/admin/Support')),
+	settings: lazySection(() => import('@/app/dashboard/admin/Settings')),
+	support: lazySection(() => import('@/app/dashboard/admin/Support')),
 
 	// Shared components
-	profile: dynamic(() => import('@/app/dashboard/shared/UserProfile')),
-	chat: dynamic(() => import('@/app/dashboard/shared/Chat')),
+	profile: lazySection(() => import('@/app/dashboard/shared/UserProfile')),
+	chat: lazySection(() => import('@/app/dashboard/shared/Chat')),
+	community: lazySection(() => import('@/app/dashboard/shared/Community')),
 
 	// Dynamic Administrator pages (to be defined in school profile)
 	// 'financial-reports': dynamic(
@@ -261,6 +285,20 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					title: 'Master Grade Sheets',
 					href: '/masters',
 					icon: ClipboardList,
+				},
+			],
+			student: [
+				{
+					key: 'periodic-grade',
+					title: 'Periodic Grades',
+					href: '/periodic-grade',
+					icon: FileText,
+				},
+				{
+					key: 'yearly-grade',
+					title: 'Yearly Grades',
+					href: '/yearly-grade',
+					icon: FileText,
 				},
 			],
 		},
@@ -580,6 +618,15 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					icon: BellDot,
 				},
 			],
+		},
+	},
+	community: {
+		key: 'community',
+		title: 'Community',
+		icon: UserCircle,
+		routes: {
+			student: [{ key: 'community', title: 'Community', href: '/dashboard/community' }],
+			teacher: [{ key: 'community', title: 'Community', href: '/dashboard/community' }],
 		},
 	},
 
@@ -1030,13 +1077,23 @@ export function generateNavigationItems(
 	});
 
 	// Add uncategorized routes
-	uncategorizedRoutes.forEach((route) => {
+	const uncategorizedOrder = ['community', 'profile'];
+	uncategorizedRoutes
+		.sort((a, b) => {
+			const aIndex = uncategorizedOrder.indexOf(a.key);
+			const bIndex = uncategorizedOrder.indexOf(b.key);
+			if (aIndex === -1 && bIndex === -1) return 0;
+			if (aIndex === -1) return 1;
+			if (bIndex === -1) return -1;
+			return aIndex - bIndex;
+		})
+		.forEach((route) => {
 		navItems.push({
 			name: route.title,
 			icon: route.icon,
 			href: route.href,
 		});
-	});
+		});
 
 	return navItems;
 }

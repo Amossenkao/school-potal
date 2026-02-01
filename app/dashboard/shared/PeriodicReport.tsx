@@ -89,6 +89,21 @@ const getCurrentAcademicYear = () => {
 	}
 };
 
+const getClassMetaById = (classLevels: any, classId?: string) => {
+	if (!classLevels || !classId) return null;
+	for (const [session, levels] of Object.entries(classLevels)) {
+		if (!levels || typeof levels !== 'object') continue;
+		for (const [level, levelData] of Object.entries(levels as any)) {
+			if (!levelData?.classes || !Array.isArray(levelData.classes)) continue;
+			const found = levelData.classes.find((cls: any) => cls.classId === classId);
+			if (found) {
+				return { session, level, name: found.name };
+			}
+		}
+	}
+	return null;
+};
+
 function gradeStyle(score: number | null) {
 	if (score === null || Number.isNaN(score) || score < 70) {
 		return {
@@ -445,7 +460,7 @@ function FilterContent({
 				setLoadingStudents(true);
 				try {
 					const response = await fetch(
-						`/api/users?classId=${filters.className}&role=student`
+						`/api/users?classId=${filters.className}&role=student&academicYear=${filters.academicYear}`
 					);
 					if (!response.ok) throw new Error('Failed to fetch students');
 					const data = await response.json();
@@ -490,20 +505,32 @@ function FilterContent({
 
 	// Auto-populate student's information if user is a student
 	useEffect(() => {
-		if (isStudent && user) {
-			setFilters((prev) => ({
+		if (!isStudent || !user) return;
+		const yearEntry = Array.isArray(user.academicYears)
+			? user.academicYears.find((ay: any) => ay.year === filters.academicYear)
+			: null;
+		const classIdForYear =
+			yearEntry?.classId ||
+			(filters.academicYear === getCurrentAcademicYear()
+				? user.classId || ''
+				: '');
+		const classMeta = getClassMetaById(school?.classLevels, classIdForYear);
+
+		setFilters((prev) => {
+			const next = {
 				...prev,
-				session: user.session || prev.session,
-				gradeLevel: user.gradeLevel || prev.gradeLevel,
-				className: user.classId || prev.className,
+				session: classMeta?.session || prev.session,
+				gradeLevel: classMeta?.level || prev.gradeLevel,
+				className: classIdForYear || prev.className,
 				selectedStudents: [user.studentId || user.id],
-			}));
-		}
-	}, [isStudent, user, setFilters]);
+			};
+			return next;
+		});
+	}, [isStudent, user, filters.academicYear, setFilters, school]);
 
 	// Determine what's required for submission
 	const canSubmit = isStudent
-		? filters.academicYear && filters.period
+		? filters.academicYear && filters.period && filters.className
 		: filters.academicYear &&
 		  filters.period &&
 		  filters.session &&

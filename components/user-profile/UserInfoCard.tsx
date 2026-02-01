@@ -187,7 +187,7 @@ export default function UserInfoCard() {
 									Teaching Details
 								</h5>
 								<div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
-									<InfoField label="Teacher ID" value={user.teacherId} />
+									<InfoField label="Username" value={user.username} />
 									<InfoField
 										label="Sponsor Class"
 										value={user.sponsorClass?.name || 'None'}

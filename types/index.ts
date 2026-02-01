@@ -89,7 +89,7 @@ export interface Student extends User {
 	enrollmentStatus: 'enrolled' | 'graduated' | 'transferred' | 'dropped';
 	classId: string;
 	className: string;
-	academicYears: { year: string; classId: string }[];
+	academicYears: { year: string; classId: string; className?: string }[];
 	guardian: {
 		firstName: string;
 		middleName?: string;

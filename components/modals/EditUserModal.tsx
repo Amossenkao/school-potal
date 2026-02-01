@@ -163,9 +163,22 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		const index = ordered.findIndex((cls) => cls.classId === current.classId);
 		const currentBase = normalizeClassName(current.name);
 		const higher = index >= 0 ? ordered.slice(index + 1) : ordered;
-		return higher.filter(
-			(cls) => normalizeClassName(cls.name) !== currentBase,
+		return higher.filter((cls) => normalizeClassName(cls.name) !== currentBase);
+	};
+
+	const isAtHighestClass = () => {
+		const current = getClassMetaById(formData?.classId || user?.classId);
+		if (!current) return false;
+		const ordered = getOrderedClassesForSession(current.session);
+		const currentIndex = ordered.findIndex(
+			(cls) => cls.classId === current.classId,
 		);
+		if (currentIndex === -1) return false;
+		const currentBase = normalizeClassName(current.name);
+		const hasHigherBaseClass = ordered
+			.slice(currentIndex + 1)
+			.some((cls) => normalizeClassName(cls.name) !== currentBase);
+		return !hasHigherBaseClass;
 	};
 
 	const getDemotionClassOptions = () => {
@@ -188,6 +201,24 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		return years;
 	};
 
+	const getAcademicYear = () => {
+		const now = new Date();
+		const currentYear = now.getFullYear();
+		const currentMonth = now.getMonth();
+		return currentMonth >= 7
+			? `${currentYear}-${currentYear + 1}`
+			: `${currentYear - 1}-${currentYear}`;
+	};
+
+	const getAcademicYearStart = (year) => {
+		if (!year || typeof year !== 'string') return null;
+		const start = Number.parseInt(year.split('-')[0], 10);
+		return Number.isFinite(start) ? start : null;
+	};
+
+	const getCurrentAcademicYear = () =>
+		schoolProfile?.currentAcademicYear || getAcademicYear();
+
 	useEffect(() => {
 		if (user) {
 			const userData = JSON.parse(JSON.stringify(user));
@@ -202,17 +233,40 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 					userData.className = userData.className || foundClass.name;
 				}
 			}
+			if (userData.role === 'teacher') {
+				const activeYear = getCurrentAcademicYear();
+				const yearData =
+					userData.subjects?.find((entry) => entry.year === activeYear) ||
+					(userData.subjects || [])
+						.slice()
+						.sort((a, b) => (b.year || '').localeCompare(a.year || ''))[0];
+				const selectionMap = new Map();
+				(yearData?.classes || []).forEach((classData) => {
+					const meta = getClassMetaById(classData.classId);
+					if (!meta) return;
+					(classData.subjects || []).forEach((subject) => {
+						const key = `${meta.session}|${meta.level}|${subject}`;
+						if (!selectionMap.has(key)) {
+							selectionMap.set(key, {
+								subject,
+								level: meta.level,
+								session: meta.session,
+							});
+						}
+					});
+				});
+				userData.subjects = Array.from(selectionMap.values());
+			}
+
 			setFormData(userData);
 			setValidationErrors([]);
 			setConflictState(null);
 			setActionError('');
 
-			if (user.role === 'teacher' && user.subjects) {
+			if (user.role === 'teacher') {
 				const initialAccordions = {};
-				user.subjects.forEach((s) => {
-					if (s.session) {
-						initialAccordions[s.session] = true;
-					}
+				(userData.subjects || []).forEach((s) => {
+					if (s.session) initialAccordions[s.session] = true;
 				});
 				setExpandedAccordions(initialAccordions);
 			}
@@ -243,9 +297,11 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	const getAllClassesForSession = (session) => {
 		if (!schoolProfile?.classLevels?.[session]) return [];
 		return Object.values(schoolProfile.classLevels[session]).flatMap(
-			(level) => level.classes || []
+			(level) => level.classes || [],
 		);
 	};
+	const getClassesBySessionAndLevel = (session, level) =>
+		schoolProfile?.classLevels?.[session]?.[level]?.classes || [];
 	const getAllClassesWithLevelsForSession = (session) => {
 		if (!schoolProfile?.classLevels?.[session]) return [];
 		const allClasses = [];
@@ -254,10 +310,21 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				levelData.classes?.forEach((cls) => {
 					allClasses.push({ ...cls, level });
 				});
-			}
+			},
 		);
 		return allClasses;
 	};
+
+	const getFullName = (profile) => {
+		if (!profile) return 'User';
+		return [profile.firstName, profile.middleName, profile.lastName]
+			.filter(Boolean)
+			.join(' ')
+			.trim() || 'User';
+	};
+
+	const selectTriggerClass =
+		'bg-gradient-to-br from-background to-muted/30 border-border/70 hover:border-primary/40 focus:ring-2 focus:ring-primary/30 transition';
 
 	const adminPositions = [
 		'Principal',
@@ -327,12 +394,12 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			let existingSubjects = prev.subjects || [];
 			// Clear self-contained selection for the session if a regular subject is selected
 			const selfContainedInSession = existingSubjects.some(
-				(s) => s.session === session && s.level === 'Self Contained'
+				(s) => s.session === session && s.level === 'Self Contained',
 			);
 
 			if (selfContainedInSession) {
 				existingSubjects = existingSubjects.filter(
-					(s) => s.session !== session || s.level !== 'Self Contained'
+					(s) => s.session !== session || s.level !== 'Self Contained',
 				);
 			}
 
@@ -346,7 +413,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 							s.subject === subject &&
 							s.level === level &&
 							s.session === session
-						)
+						),
 				);
 			}
 			return {
@@ -364,13 +431,41 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		}));
 	};
 
+	const fetchReassignedTeachers = async (reassignments) => {
+		const reassignedTeacherIds = Array.isArray(reassignments?.details)
+			? reassignments.details
+					.map((detail) => detail?.previousTeacher?.id)
+					.filter(Boolean)
+			: [];
+		if (reassignedTeacherIds.length === 0) return [];
+
+		const results = await Promise.all(
+			reassignedTeacherIds.map(async (id) => {
+				try {
+					const res = await fetch(`/api/users?id=${id}`);
+					if (!res.ok) return null;
+					const data = await res.json();
+					return data.data;
+				} catch {
+					return null;
+				}
+			}),
+		);
+
+		return results.filter(Boolean);
+	};
+
 	const handleSave = async (e) => {
 		e.preventDefault();
 		setIsLoading(true);
 		setValidationErrors([]);
 		setConflictState(null);
 
-		const changedData = getChangedFields(user, formData);
+		const payload =
+			user?.role === 'teacher'
+				? { ...formData, subjects: buildTeacherSubjectsPayload() }
+				: formData;
+		const changedData = getChangedFields(user, payload);
 
 		if (Object.keys(changedData).length === 0) {
 			setFeedback({ type: 'info', message: 'No changes were made.' });
@@ -406,6 +501,9 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				return;
 			}
 
+			const updatedReassignedTeachers = await fetchReassignedTeachers(
+				data.reassignments,
+			);
 			if (data.reassignments?.performed) {
 				setFeedback({
 					type: 'success',
@@ -414,7 +512,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			} else {
 				setFeedback({ type: 'success', message: 'User updated successfully.' });
 			}
-			onSave(data.data.user);
+			onSave(data.data.user, updatedReassignedTeachers);
 		} catch (err) {
 			setValidationErrors([
 				{ message: err.message || 'A network error occurred.' },
@@ -441,10 +539,13 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 			if (!res.ok) {
 				throw new Error(
-					data.message || 'Failed to update user with reassignments.'
+					data.message || 'Failed to update user with reassignments.',
 				);
 			}
 
+			const updatedReassignedTeachers = await fetchReassignedTeachers(
+				data.reassignments,
+			);
 			if (data.reassignments?.performed) {
 				setFeedback({
 					type: 'success',
@@ -453,7 +554,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			} else {
 				setFeedback({ type: 'success', message: 'User updated successfully.' });
 			}
-			onSave(data.data.user);
+			onSave(data.data.user, updatedReassignedTeachers);
 		} catch (err) {
 			setValidationErrors([{ message: err.message }]);
 		} finally {
@@ -497,8 +598,72 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		return Array.from(years).sort((a, b) => b.localeCompare(a));
 	};
 
+	const getPromotionAcademicYearOptions = () => {
+		const currentStart = getAcademicYearStart(getCurrentAcademicYear());
+		if (!currentStart) return [];
+		return getAcademicYearOptions().filter((year) => {
+			const start = getAcademicYearStart(year);
+			return start !== null && start > currentStart;
+		});
+	};
+
+	const buildTeacherSubjectsPayload = () => {
+		const academicYear = getCurrentAcademicYear();
+		const classMap = new Map();
+		const selections = formData?.subjects || [];
+		const selfContainedSelections = selections.filter(
+			(s) => s.level === 'Self Contained',
+		);
+		const regularSelections = selections.filter(
+			(s) => s.level !== 'Self Contained',
+		);
+
+		regularSelections.forEach((selection) => {
+			const classes = getClassesBySessionAndLevel(
+				selection.session,
+				selection.level,
+			);
+			classes.forEach((cls) => {
+				if (!classMap.has(cls.classId)) {
+					classMap.set(cls.classId, new Set());
+				}
+				classMap.get(cls.classId).add(selection.subject);
+			});
+		});
+
+		if (selfContainedSelections.length > 0 && formData?.sponsorClass) {
+			if (!classMap.has(formData.sponsorClass)) {
+				classMap.set(formData.sponsorClass, new Set());
+			}
+			selfContainedSelections.forEach((selection) => {
+				classMap.get(formData.sponsorClass).add(selection.subject);
+			});
+		}
+
+		const classes = Array.from(classMap.entries())
+			.map(([classId, subjectsSet]) => ({
+				classId,
+				subjects: Array.from(subjectsSet).sort(),
+			}))
+			.sort((a, b) => a.classId.localeCompare(b.classId));
+
+		const existingSubjects = Array.isArray(user?.subjects) ? user.subjects : [];
+		const otherYears = existingSubjects.filter(
+			(entry) => entry.year !== academicYear,
+		);
+		const currentYearEntry = { year: academicYear, classes };
+
+		return [...otherYears, currentYearEntry];
+	};
+
 	const handlePromotionSubmit = async () => {
 		setActionError('');
+		if (isAtHighestClass()) {
+			setActionError(
+				'Cannot promote this student because they are already in the highest possible class.',
+			);
+			return;
+		}
 		if (!promotionForm.classId || !promotionForm.className) {
 			setActionError('Please select a new class.');
 			return;
@@ -508,6 +673,17 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			!promotionForm.academicYear
 		) {
 			setActionError('Please select the new academic year.');
+			return;
+		}
+		if (
+			promotionForm.type === 'yearlyPromotion' &&
+			!getPromotionAcademicYearOptions().includes(
+				promotionForm.academicYear,
+			)
+		) {
+			setActionError(
+				'Yearly promotions must use a future academic year.',
+			);
 			return;
 		}
 
@@ -549,10 +725,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			setActionError('Please select a new class.');
 			return;
 		}
-		if (
-			demotionForm.type === 'yearlyDemotion' &&
-			!demotionForm.academicYear
-		) {
+		if (demotionForm.type === 'yearlyDemotion' && !demotionForm.academicYear) {
 			setActionError('Please select the academic year to repeat.');
 			return;
 		}
@@ -596,9 +769,34 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
 				<div className="bg-card rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-border">
 					<header className="flex justify-between items-center p-4 sm:p-6 border-b border-border flex-shrink-0">
-						<h4 className="text-xl md:text-2xl font-semibold text-foreground">
-							Edit User Profile
-						</h4>
+						<div className="flex items-center gap-3">
+							<img
+								src={
+									formData?.avatar ||
+									user?.avatar ||
+									`https://ui-avatars.com/api/?name=${encodeURIComponent(
+										getFullName(user),
+									)}&background=random`
+								}
+								alt={getFullName(user)}
+								className="h-10 w-10 rounded-full border-2 border-primary/20 object-cover"
+							/>
+							<div>
+								<h4 className="text-xl md:text-2xl font-semibold text-foreground">
+									Edit User Profile
+								</h4>
+								<p className="text-xs text-muted-foreground truncate max-w-[180px] sm:max-w-none">
+									{getFullName(user)}
+								</p>
+								{user?.role === 'student' && (
+									<p className="text-[11px] text-muted-foreground/80 truncate max-w-[200px] sm:max-w-none">
+										{formData?.className ||
+											getClassNameFromId(formData?.classId || user?.classId) ||
+											'No class assigned'}
+									</p>
+								)}
+							</div>
+						</div>
 						<button
 							type="button"
 							onClick={onClose}
@@ -644,9 +842,15 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 								</div>
 								<div>
 									<p className="text-sm text-muted-foreground">Status</p>
-									<p className="text-md font-medium text-foreground">
+									<span
+										className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+											user.isActive
+												? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+												: 'bg-destructive/10 text-destructive'
+										}`}
+									>
 										{user.isActive ? 'Active' : 'Inactive'}
-									</p>
+									</span>
 								</div>
 							</div>
 
@@ -810,7 +1014,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 											value={formData.session || ''}
 											onValueChange={handleStudentSessionChange}
 										>
-											<SelectTrigger>
+											<SelectTrigger className={selectTriggerClass}>
 												<SelectValue placeholder="Select Session" />
 											</SelectTrigger>
 											<SelectContent>
@@ -831,7 +1035,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 											onValueChange={handleStudentClassChange}
 											disabled={!formData.session}
 										>
-											<SelectTrigger>
+											<SelectTrigger className={selectTriggerClass}>
 												<SelectValue placeholder="Select Class" />
 											</SelectTrigger>
 											<SelectContent>
@@ -842,7 +1046,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																{level}
 															</div>
 															{getAllClassesWithLevelsForSession(
-																formData.session
+																formData.session,
 															)
 																.filter((cls) => cls.level === level)
 																.map((cls) => (
@@ -928,7 +1132,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 											})
 										}
 									>
-										<SelectTrigger>
+										<SelectTrigger className={selectTriggerClass}>
 											<SelectValue placeholder="Select Position" />
 										</SelectTrigger>
 										<SelectContent>
@@ -982,7 +1186,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																value={formData.sponsorClass || '__none__'}
 																onValueChange={handleSponsorClassChange}
 															>
-																<SelectTrigger>
+																<SelectTrigger className={selectTriggerClass}>
 																	<SelectValue placeholder="No sponsorship" />
 																</SelectTrigger>
 																<SelectContent>
@@ -997,7 +1201,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																			>
 																				{cls.name}
 																			</SelectItem>
-																		)
+																		),
 																	)}
 																</SelectContent>
 															</Select>
@@ -1021,7 +1225,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																		<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
 																			{getSubjectsBySessionAndLevel(
 																				session,
-																				level
+																				level,
 																			).map((subject) => {
 																				const isChecked = (
 																					formData.subjects || []
@@ -1029,7 +1233,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																					(s) =>
 																						s.subject === subject.name &&
 																						s.level === level &&
-																						s.session === session
+																						s.session === session,
 																				);
 																				return (
 																					<motion.label
@@ -1052,7 +1256,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																									subject.name,
 																									level,
 																									session,
-																									e.target.checked
+																									e.target.checked,
 																								)
 																							}
 																							className="absolute opacity-0"
@@ -1078,8 +1282,8 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 						)}
 					</main>
 
-					<footer className="p-4 sm:p-6 bg-muted/50 border-t border-border rounded-b-xl flex-shrink-0 flex justify-between items-center">
-						<div>
+					<footer className="p-4 sm:p-6 bg-muted/50 border-t border-border rounded-b-xl flex-shrink-0 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+						<div className="w-full sm:w-auto">
 							{user.role === 'student' && (
 								<div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
 									<button
@@ -1101,11 +1305,11 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 								</div>
 							)}
 						</div>
-						<div className="text-right">
+						<div className="w-full sm:w-auto flex flex-col sm:flex-row sm:justify-end gap-2">
 							<button
 								type="button"
 								onClick={onClose}
-								className="px-6 py-2 rounded-lg hover:bg-muted/80 mr-2"
+								className="w-full sm:w-auto px-6 py-2 rounded-lg hover:bg-muted/80"
 							>
 								Cancel
 							</button>
@@ -1113,7 +1317,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 								type="button"
 								onClick={handleSave}
 								disabled={isLoading || !!conflictState}
-								className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:bg-primary/50 disabled:cursor-not-allowed"
+								className="w-full sm:w-auto px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:bg-primary/50 disabled:cursor-not-allowed"
 							>
 								{isLoading ? 'Saving...' : 'Save Changes'}
 							</button>
@@ -1139,72 +1343,80 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 									{actionError && (
 										<p className="text-sm text-red-600">{actionError}</p>
 									)}
-									{allowsDoublePromotion ? (
-										<div>
-											<label className="block text-sm font-medium text-foreground mb-1">
-												Promotion Type
-											</label>
-											<Select
-												value={promotionForm.type}
-												onValueChange={(value) =>
-													setPromotionForm((prev) => ({
-														...prev,
-														type: value,
-													}))
-												}
-											>
-												<SelectTrigger>
-													<SelectValue placeholder="Select type" />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value="yearlyPromotion">
-														Yearly Promotion
-													</SelectItem>
-										<SelectItem value="doublePromotion">
-											Semester (Double) Promotion
-										</SelectItem>
-												</SelectContent>
-											</Select>
-										</div>
-									) : (
+									{isAtHighestClass() ? (
 										<p className="text-sm text-muted-foreground">
-											Only yearly promotion is allowed.
+											Cannot promote this student because they are already in
+											the highest possible class.
 										</p>
-									)}
-									<div>
-										<label className="block text-sm font-medium text-foreground mb-1">
-											New Class
-										</label>
-										<Select
-											value={promotionForm.classId}
-											onValueChange={(value) => {
-												const selected = getPromotionClassOptions().find(
-													(cls) => cls.classId === value,
-												);
-												setPromotionForm((prev) => ({
-													...prev,
-													classId: value,
-													className: selected?.name || '',
-												}));
-											}}
-										>
-											<SelectTrigger>
-												<SelectValue placeholder="Select Class" />
-											</SelectTrigger>
-											<SelectContent>
-												{getPromotionClassOptions().map((cls) => (
-													<SelectItem key={cls.classId} value={cls.classId}>
-														{cls.name} ({cls.level} - {cls.session})
-													</SelectItem>
-												))}
-												{getPromotionClassOptions().length === 0 && (
-													<div className="px-2 py-1.5 text-sm text-muted-foreground">
-														No higher classes available.
-													</div>
-												)}
-											</SelectContent>
-										</Select>
-									</div>
+									) : (
+										<>
+											{allowsDoublePromotion ? (
+												<div>
+													<label className="block text-sm font-medium text-foreground mb-1">
+														Promotion Type
+													</label>
+													<Select
+														value={promotionForm.type}
+														onValueChange={(value) =>
+															setPromotionForm((prev) => ({
+																...prev,
+																type: value,
+															}))
+														}
+													>
+														<SelectTrigger className={selectTriggerClass}>
+															<SelectValue placeholder="Select type" />
+														</SelectTrigger>
+														<SelectContent>
+															<SelectItem value="yearlyPromotion">
+																Yearly Promotion
+															</SelectItem>
+															<SelectItem value="doublePromotion">
+																Semester (Double) Promotion
+															</SelectItem>
+														</SelectContent>
+													</Select>
+												</div>
+											) : (
+												<p className="text-sm text-muted-foreground">
+													Only yearly promotion is allowed.
+												</p>
+											)}
+											<div>
+												<label className="block text-sm font-medium text-foreground mb-1">
+													New Class
+												</label>
+												<Select
+													value={promotionForm.classId}
+													onValueChange={(value) => {
+														const selected =
+															getPromotionClassOptions().find(
+																(cls) => cls.classId === value,
+															);
+														setPromotionForm((prev) => ({
+															...prev,
+															classId: value,
+															className: selected?.name || '',
+														}));
+													}}
+												>
+													<SelectTrigger className={selectTriggerClass}>
+														<SelectValue placeholder="Select Class" />
+													</SelectTrigger>
+													<SelectContent>
+														{getPromotionClassOptions().map((cls) => (
+															<SelectItem key={cls.classId} value={cls.classId}>
+																{cls.name} ({cls.level} - {cls.session})
+															</SelectItem>
+														))}
+														{getPromotionClassOptions().length === 0 && (
+															<div className="px-2 py-1.5 text-sm text-muted-foreground">
+																No higher classes available.
+															</div>
+														)}
+													</SelectContent>
+												</Select>
+											</div>
 									{promotionForm.type === 'yearlyPromotion' && (
 										<div>
 											<label className="block text-sm font-medium text-foreground mb-1">
@@ -1219,18 +1431,25 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 													}))
 												}
 											>
-												<SelectTrigger>
+												<SelectTrigger className={selectTriggerClass}>
 													<SelectValue placeholder="Select Academic Year" />
 												</SelectTrigger>
 												<SelectContent>
-													{getAcademicYearOptions().map((year) => (
+													{getPromotionAcademicYearOptions().map((year) => (
 														<SelectItem key={year} value={year}>
 															{year}
 														</SelectItem>
 													))}
+													{getPromotionAcademicYearOptions().length === 0 && (
+														<div className="px-2 py-1.5 text-sm text-muted-foreground">
+															No future academic years available.
+														</div>
+													)}
 												</SelectContent>
 											</Select>
 										</div>
+									)}
+										</>
 									)}
 								</div>
 								<div className="p-4 border-t border-border flex justify-end gap-2">
@@ -1241,14 +1460,16 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 									>
 										Cancel
 									</button>
-									<button
-										type="button"
-										onClick={handlePromotionSubmit}
-										disabled={actionLoading}
-										className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
-									>
-										{actionLoading ? 'Saving...' : 'Confirm Promotion'}
-									</button>
+									{!isAtHighestClass() && (
+										<button
+											type="button"
+											onClick={handlePromotionSubmit}
+											disabled={actionLoading}
+											className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+										>
+											{actionLoading ? 'Saving...' : 'Confirm Promotion'}
+										</button>
+									)}
 								</div>
 							</div>
 						</div>
@@ -1286,7 +1507,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 												}))
 											}
 										>
-											<SelectTrigger>
+											<SelectTrigger className={selectTriggerClass}>
 												<SelectValue placeholder="Select type" />
 											</SelectTrigger>
 											<SelectContent>
@@ -1316,7 +1537,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 												}));
 											}}
 										>
-											<SelectTrigger>
+											<SelectTrigger className={selectTriggerClass}>
 												<SelectValue placeholder="Select Class" />
 											</SelectTrigger>
 											<SelectContent>
@@ -1347,7 +1568,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 													}))
 												}
 											>
-												<SelectTrigger>
+												<SelectTrigger className={selectTriggerClass}>
 													<SelectValue placeholder="Select Academic Year" />
 												</SelectTrigger>
 												<SelectContent>
@@ -1390,6 +1611,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				onConfirm={handleConfirmReassignment}
 				isLoading={isLoading}
 				userName={`${formData.firstName} ${formData.lastName}`}
+				schoolProfile={schoolProfile}
 			/>
 		</>
 	);
@@ -1400,10 +1622,10 @@ const InputField = ({ label, ...props }) => (
 		<label className="block text-sm font-medium text-foreground mb-1">
 			{label}
 		</label>
-		<input
-			{...props}
-			className="w-full p-2 border border-border rounded-lg bg-background"
-		/>
+	<input
+		{...props}
+		className="w-full p-2 border border-border/70 rounded-lg bg-gradient-to-br from-background to-muted/30 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-primary/30 hover:border-primary/40"
+	/>
 	</div>
 );
 

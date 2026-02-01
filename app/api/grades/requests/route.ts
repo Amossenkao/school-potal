@@ -30,7 +30,7 @@ function prepareUserDataForSession(userDoc: any) {
 		lastName: plainDoc.lastName,
 		role: plainDoc.role,
 		isActive: plainDoc.isActive,
-		teacherId: plainDoc.teacherId,
+		teacherUsername: plainDoc.username,
 		notifications: plainDoc.notifications || [],
 		// Add any other essential fields your session needs
 		lastLogin: plainDoc.lastLogin,
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
 
 		// If the user is a teacher, only fetch their requests
 		if (currentUser.role === 'teacher') {
-			query.teacherId = currentUser.teacherId;
+			query.teacherUsername = currentUser.username;
 		}
 
 		const allRequests = await GradeChangeRequest.find(query).lean();
@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
 					period: request.period,
 					classId: request.classId,
 					subject: request.subject,
-					teacherId: request.teacherId,
+					teacherUsername: request.teacherUsername,
 					teacherName: request.teacherName,
 					submittedAt: request.submittedAt,
 					requests: [],
@@ -273,7 +273,7 @@ export async function POST(request: NextRequest) {
 				const newRequest = {
 					batchId,
 					originalGradeId: originalGradeDoc._id,
-					teacherId: teacher.teacherId,
+					teacherUsername: teacher.username,
 					teacherName: `${teacher.firstName} ${teacher.lastName}`.trim(),
 					studentId: req.studentId,
 					studentName: req.name,
@@ -387,10 +387,12 @@ export async function PATCH(request: NextRequest) {
 					type: 'Grades',
 				};
 
-				if (!teacherNotifications.has(gradeRequest.teacherId)) {
-					teacherNotifications.set(gradeRequest.teacherId, []);
+				if (!teacherNotifications.has(gradeRequest.teacherUsername)) {
+					teacherNotifications.set(gradeRequest.teacherUsername, []);
 				}
-				teacherNotifications.get(gradeRequest.teacherId).push(notification);
+				teacherNotifications
+					.get(gradeRequest.teacherUsername)
+					.push(notification);
 			} else if (status === 'Rejected') {
 				gradeRequest.status = 'Rejected';
 				gradeRequest.adminRejectionReason = adminRejectionReason;
@@ -408,18 +410,20 @@ export async function PATCH(request: NextRequest) {
 					type: 'Grades',
 				};
 
-				if (!teacherNotifications.has(gradeRequest.teacherId)) {
-					teacherNotifications.set(gradeRequest.teacherId, []);
+				if (!teacherNotifications.has(gradeRequest.teacherUsername)) {
+					teacherNotifications.set(gradeRequest.teacherUsername, []);
 				}
-				teacherNotifications.get(gradeRequest.teacherId).push(notification);
+				teacherNotifications
+					.get(gradeRequest.teacherUsername)
+					.push(notification);
 			}
 		}
 
 		// Send notifications to teachers (batched by teacher)
 		const notificationPromises = Array.from(teacherNotifications.entries()).map(
-			async ([teacherId, notifications]) => {
+			async ([teacherUsername, notifications]) => {
 				try {
-					const teacherUser = await User.findOne({ teacherId })
+					const teacherUser = await User.findOne({ username: teacherUsername })
 						.select('_id')
 						.lean();
 					if (teacherUser) {
@@ -435,7 +439,10 @@ export async function PATCH(request: NextRequest) {
 					}
 					return false;
 				} catch (error) {
-					console.error(`Failed to notify teacher ${teacherId}:`, error);
+					console.error(
+						`Failed to notify teacher ${teacherUsername}:`,
+						error
+					);
 					return false;
 				}
 			}
@@ -485,7 +492,7 @@ export async function PUT(request: NextRequest) {
 			);
 		}
 
-		if (requestToUpdate.teacherId !== teacher.teacherId) {
+		if (requestToUpdate.teacherUsername !== teacher.username) {
 			return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
 		}
 
@@ -562,7 +569,7 @@ export async function DELETE(request: NextRequest) {
 			);
 		}
 
-		if (requestToDelete.teacherId !== teacher.teacherId) {
+		if (requestToDelete.teacherUsername !== teacher.username) {
 			return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
 		}
 		if (requestToDelete.status !== 'Pending') {

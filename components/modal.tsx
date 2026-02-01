@@ -323,7 +323,6 @@ const MultiStepUserModal = ({ showModal, onClose, onUserCreated }) => {
       case 'teacher':
         userData = {
           ...baseUser,
-          teacherId: baseUser.id,
           requiresOtp: false,
           subjects: formData.subjects,
           isSponsor: formData.isSponsor,

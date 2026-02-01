@@ -57,7 +57,7 @@ interface BulkGradeRequest {
 	period: string;
 	classId: string;
 	subject: string;
-	teacherId: string;
+	teacherUsername: string;
 	teacherName: string;
 	submittedAt: string;
 	lastUpdated: string;

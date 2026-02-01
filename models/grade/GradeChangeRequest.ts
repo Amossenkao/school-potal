@@ -11,7 +11,7 @@ const GradeChangeRequestSchema = new Schema({
 		required: true,
 	},
 
-	teacherId: { type: String, required: true, index: true },
+	teacherUsername: { type: String, required: true, index: true },
 	teacherName: { type: String, required: true },
 
 	// Information about the student whose grade is being changed.

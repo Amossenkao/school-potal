@@ -246,7 +246,7 @@ interface GradeSubmission {
 	period: string;
 	classId: string;
 	subject: string;
-	teacherId: string;
+	teacherUsername: string;
 	teacherName: string;
 	submittedAt: string;
 	lastUpdated: string;
@@ -271,7 +271,7 @@ interface RawGradeData {
 	period: string;
 	classId: string;
 	subject: string;
-	teacherId: string;
+	teacherUsername: string;
 	teacherName: string;
 	grade: number | null;
 	status: 'Approved' | 'Rejected' | 'Pending';
@@ -407,7 +407,7 @@ const AdminGradeManagement: React.FC = () => {
 					period: firstGrade.period,
 					classId: firstGrade.classId,
 					subject: firstGrade.subject,
-					teacherId: firstGrade.teacherId,
+					teacherUsername: firstGrade.teacherUsername,
 					teacherName: firstGrade.teacherName,
 					submittedAt: firstGrade.submittedAt,
 					lastUpdated: firstGrade.lastUpdated,

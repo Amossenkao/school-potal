@@ -67,7 +67,7 @@ const CLASSES_DATA = [
 		id: 'CLS001',
 		name: 'Grade 10A',
 		classTeacher: 'Dr. Robert Johnson',
-		teacherId: 'TCH001',
+		teacherUsername: 'TCH001',
 		studentsCount: 28,
 		subjects: [
 			{ name: 'Mathematics', teacher: 'Dr. Robert Johnson' },
@@ -84,7 +84,7 @@ const CLASSES_DATA = [
 		id: 'CLS002',
 		name: 'Grade 10B',
 		classTeacher: 'Prof. Emily Davis',
-		teacherId: 'TCH004',
+		teacherUsername: 'TCH004',
 		studentsCount: 26,
 		subjects: [
 			{ name: 'Mathematics', teacher: 'Dr. Robert Johnson' },
@@ -101,7 +101,7 @@ const CLASSES_DATA = [
 		id: 'CLS003',
 		name: 'Grade 9A',
 		classTeacher: 'Prof. Sarah Williams',
-		teacherId: 'TCH002',
+		teacherUsername: 'TCH002',
 		studentsCount: 30,
 		subjects: [
 			{ name: 'Mathematics', teacher: 'Dr. Robert Johnson' },
@@ -118,7 +118,7 @@ const CLASSES_DATA = [
 		id: 'CLS004',
 		name: 'Grade 11A',
 		classTeacher: 'Dr. James Miller',
-		teacherId: 'TCH003',
+		teacherUsername: 'TCH003',
 		studentsCount: 25,
 		subjects: [
 			{ name: 'Mathematics', teacher: 'Dr. Robert Johnson' },
@@ -135,7 +135,7 @@ const CLASSES_DATA = [
 		id: 'CLS005',
 		name: 'Grade 11B',
 		classTeacher: 'Dr. Michael Brown',
-		teacherId: 'TCH005',
+		teacherUsername: 'TCH005',
 		studentsCount: 24,
 		subjects: [
 			{ name: 'Mathematics', teacher: 'Dr. Robert Johnson' },
@@ -152,7 +152,7 @@ const CLASSES_DATA = [
 		id: 'CLS006',
 		name: 'Grade 12A',
 		classTeacher: 'Prof. Jennifer Smith',
-		teacherId: 'TCH006',
+		teacherUsername: 'TCH006',
 		studentsCount: 22,
 		subjects: [
 			{ name: 'Mathematics', teacher: 'Dr. Robert Johnson' },
@@ -169,7 +169,7 @@ const CLASSES_DATA = [
 		id: 'CLS007',
 		name: 'Grade 9B',
 		classTeacher: 'Dr. David Wilson',
-		teacherId: 'TCH007',
+		teacherUsername: 'TCH007',
 		studentsCount: 29,
 		subjects: [
 			{ name: 'Mathematics', teacher: 'Dr. Robert Johnson' },
@@ -531,7 +531,7 @@ export default function ManageClasses() {
 									<div className="space-y-2">
 										<Label htmlFor="classTeacher">Class Teacher</Label>
 										{editingClass ? (
-											<Select defaultValue={currentClass.teacherId}>
+											<Select defaultValue={currentClass.teacherUsername}>
 												<SelectTrigger id="classTeacher">
 													<SelectValue placeholder="Select class teacher" />
 												</SelectTrigger>

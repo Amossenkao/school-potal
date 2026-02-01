@@ -22,7 +22,7 @@ interface GradeSubmission {
 	period: string;
 	gradeLevel: string;
 	subject: string;
-	teacherId: string;
+	teacherUsername: string;
 	grades: (StudentGrade & { status: 'Approved' | 'Rejected' | 'Pending' })[];
 	status: 'Approved' | 'Rejected' | 'Pending' | 'Partially Approved';
 	lastUpdated: string;
@@ -38,7 +38,7 @@ interface GradeSubmission {
 interface TeacherInfo {
 	name: string;
 	userId: string;
-	teacherId: string;
+	username: string;
 	role: 'teacher';
 	subjects: { subject: string; level: string }[];
 	classes: { [subject: string]: string[] };
@@ -90,7 +90,7 @@ const GradeManagement = () => {
 		setLoading((prev) => ({ ...prev, submittedGrades: true }));
 		try {
 			const res = await fetch(
-				`/api/grades?academicYear=${academicYear}&teacherId=${teacherInfo.teacherId}&reportType=gradeSubmission`
+				`/api/grades?academicYear=${academicYear}&teacherUsername=${teacherInfo.username}&reportType=gradeSubmission`
 			);
 			if (!res.ok) throw new Error('Failed to fetch submitted grades');
 			const data = await res.json();
@@ -138,7 +138,7 @@ const GradeManagement = () => {
 						period: submission.period,
 						gradeLevel: submission.classId,
 						subject: submission.subject,
-						teacherId: data.data.teacherId,
+						teacherUsername: data.data.teacherUsername,
 						lastUpdated: submission.lastUpdated,
 						status: overallStatus,
 						grades: submission.students.map((student: any) => ({

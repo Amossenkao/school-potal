@@ -165,7 +165,7 @@ async function generateIdByRole(models: any, role: string): Promise<string> {
 	};
 	const idFieldMap: { [key: string]: string } = {
 		student: 'studentId',
-		teacher: 'teacherId',
+		teacher: 'username',
 		administrator: 'adminId',
 		system_admin: 'sysId',
 	};
@@ -174,12 +174,25 @@ async function generateIdByRole(models: any, role: string): Promise<string> {
 	const academicYear = schoolProfile.currentAcademicYear || getAcademicYear();
 	const year = academicYear.split('-')[0];
 
-	const lastUser = await models.User.findOne({
+	const idPrefixRegex = `^${prefix}${year}`;
+	let lastUser = await models.User.findOne({
 		role,
-		[idField]: { $regex: `^${prefix}${year}` },
+		[idField]: { $regex: idPrefixRegex },
 	})
 		.sort({ [idField]: -1 })
+		.collation({ locale: 'en', numericOrdering: true })
 		.lean();
+
+	// Fallback in case legacy records are missing the role-specific id field
+	if (!lastUser) {
+		lastUser = await models.User.findOne({
+			role,
+			username: { $regex: idPrefixRegex },
+		})
+			.sort({ username: -1 })
+			.collation({ locale: 'en', numericOrdering: true })
+			.lean();
+	}
 
 	let nextNumber = 1;
 	if (lastUser && lastUser[idField]) {
@@ -188,9 +201,21 @@ async function generateIdByRole(models: any, role: string): Promise<string> {
 		if (sequenceStr) {
 			nextNumber = parseInt(sequenceStr, 10) + 1;
 		}
+	} else if (lastUser?.username) {
+		const sequenceStr = lastUser.username.substring(prefix.length + year.length);
+		if (sequenceStr) {
+			nextNumber = parseInt(sequenceStr, 10) + 1;
+		}
 	}
-	const sequenceNumber = String(nextNumber).padStart(3, '0');
-	return `${prefix}${year}${sequenceNumber}`;
+
+	for (let attempt = 0; attempt < 5; attempt++) {
+		const sequenceNumber = String(nextNumber + attempt).padStart(3, '0');
+		const candidate = `${prefix}${year}${sequenceNumber}`;
+		const exists = await models.User.exists({ username: candidate });
+		if (!exists) return candidate;
+	}
+
+	throw new Error('Unable to generate a unique username. Please retry.');
 }
 
 function generateCredentials(roleBasedId: string) {
@@ -214,6 +239,7 @@ async function buildUserData(
 		fullName: `${userData.firstName.trim()} ${
 			userData.middleName ? userData.middleName.trim() + ' ' : ''
 		}${userData.lastName.trim()}`,
+		nickName: userData.nickName?.trim(),
 		gender: userData.gender,
 		username: credentials.username,
 		password: await hashPassword(credentials.defaultPassword),
@@ -222,6 +248,9 @@ async function buildUserData(
 		phone: userData.phone?.trim(),
 		email: userData.email?.trim().toLowerCase(),
 		address: userData.address.trim(),
+		bio: userData.bio?.trim(),
+		avatar: userData.avatar,
+		profilePictureUrl: userData.profilePictureUrl,
 		isActive: true,
 		mustChangePassword: true,
 		role: userData.role,
@@ -245,6 +274,7 @@ async function buildUserData(
 					{
 						year: academicYear,
 						classId: userData.classId,
+						className: userData.className,
 					},
 				],
 				guardian: {
@@ -264,7 +294,6 @@ async function buildUserData(
 		case 'teacher':
 			return {
 				...commonData,
-				teacherId: roleBasedId,
 				subjects: (userData.subjects || []).map((yearData: any) => ({
 					year: yearData.year || academicYear,
 					classes: yearData.classes || [],
@@ -341,6 +370,12 @@ function normalizeClassName(name?: string): string {
 	return name.replace(/\s*-?\s*[A-D]$/i, '').trim();
 }
 
+function getAcademicYearStart(year?: string): number | null {
+	if (!year) return null;
+	const start = Number.parseInt(year.split('-')[0], 10);
+	return Number.isFinite(start) ? start : null;
+}
+
 function getClassMetaById(classLevels: any, classId: string) {
 	if (!classLevels || !classId) return null;
 	for (const [sessionName, session] of Object.entries(classLevels)) {
@@ -387,6 +422,20 @@ function getOrderedClassesForSession(classLevels: any, sessionName: string) {
 	return ordered;
 }
 
+function isAtHighestClass(classLevels: any, classId: string) {
+	const currentMeta = getClassMetaById(classLevels, classId);
+	if (!currentMeta) return false;
+	const ordered = getOrderedClassesForSession(classLevels, currentMeta.session);
+	const currentIndex = ordered.findIndex(
+		(cls) => cls.classId === currentMeta.classId,
+	);
+	if (currentIndex === -1) return false;
+	const hasHigherBaseClass = ordered
+		.slice(currentIndex + 1)
+		.some((cls) => cls.baseName !== currentMeta.baseName);
+	return !hasHigherBaseClass;
+}
+
 async function promoteStudent(
 	student: any,
 	promotionType: 'yearlyPromotion' | 'doublePromotion',
@@ -431,7 +480,11 @@ async function promoteStudent(
 			// Update existing academic year's classId
 			updateData['academicYears'] = student.academicYears.map((ay: any) =>
 				ay.year === newAcademicYear
-					? { year: ay.year, classId: promotedToClassId }
+					? {
+							...ay,
+							classId: promotedToClassId,
+							className: promotedToClassName,
+						}
 					: ay,
 			);
 		} else {
@@ -440,6 +493,7 @@ async function promoteStudent(
 				academicYears: {
 					year: newAcademicYear,
 					classId: promotedToClassId,
+					className: promotedToClassName,
 				},
 			};
 		}
@@ -457,7 +511,11 @@ async function promoteStudent(
 			// Update the classId for the current academic year
 			updateData['academicYears'] = student.academicYears.map((ay: any) =>
 				ay.year === currentAcademicYear
-					? { year: ay.year, classId: promotedToClassId }
+					? {
+							...ay,
+							classId: promotedToClassId,
+							className: promotedToClassName,
+						}
 					: ay,
 			);
 		} else {
@@ -466,6 +524,7 @@ async function promoteStudent(
 				academicYears: {
 					year: currentAcademicYear,
 					classId: promotedToClassId,
+					className: promotedToClassName,
 				},
 			};
 		}
@@ -557,7 +616,11 @@ async function demoteStudent(
 		if (academicYearExists) {
 			updateData['academicYears'] = student.academicYears.map((ay: any) =>
 				ay.year === previousAcademicYear
-					? { year: ay.year, classId: demotedToClassId }
+					? {
+							...ay,
+							classId: demotedToClassId,
+							className: demotedToClassName,
+						}
 					: ay,
 			);
 		} else {
@@ -565,6 +628,7 @@ async function demoteStudent(
 				academicYears: {
 					year: previousAcademicYear,
 					classId: demotedToClassId,
+					className: demotedToClassName,
 				},
 			};
 		}
@@ -581,7 +645,11 @@ async function demoteStudent(
 		if (currentAcademicYearData) {
 			updateData['academicYears'] = student.academicYears.map((ay: any) =>
 				ay.year === currentAcademicYear
-					? { year: ay.year, classId: demotedToClassId }
+					? {
+							...ay,
+							classId: demotedToClassId,
+							className: demotedToClassName,
+						}
 					: ay,
 			);
 		} else {
@@ -589,6 +657,7 @@ async function demoteStudent(
 				academicYears: {
 					year: currentAcademicYear,
 					classId: demotedToClassId,
+					className: demotedToClassName,
 				},
 			};
 		}
@@ -642,7 +711,7 @@ interface ConflictDetails {
 	conflictingTeacher: {
 		id: string;
 		name: string;
-		teacherId: string;
+		teacherUsername: string;
 	};
 	assignment?: {
 		year: string;
@@ -684,14 +753,14 @@ async function validateTeacherData(
 					name:
 						sponsorExists.fullName ||
 						`${sponsorExists.firstName} ${sponsorExists.lastName}`,
-					teacherId: sponsorExists.teacherId,
+					teacherUsername: sponsorExists.username,
 				},
 				sponsorClass: userData.sponsorClass,
 			};
 			errors.push({
 				field: 'sponsorClass',
 				type: 'DUPLICATE_ENTRY',
-				message: `${conflict.conflictingTeacher.name} (${conflict.conflictingTeacher.teacherId}) is already the sponsor for class "${userData.sponsorClass}".`,
+				message: `${conflict.conflictingTeacher.name} (${conflict.conflictingTeacher.teacherUsername}) is already the sponsor for class "${userData.sponsorClass}".`,
 				details: {
 					existingUserId: sponsorExists._id.toString(),
 					existingUserName: sponsorExists.fullName,
@@ -733,7 +802,7 @@ async function validateTeacherData(
 								name:
 									assignmentExists.fullName ||
 									`${assignmentExists.firstName} ${assignmentExists.lastName}`,
-								teacherId: assignmentExists.teacherId,
+								teacherUsername: assignmentExists.username,
 							},
 							assignment: {
 								year: year,
@@ -745,7 +814,7 @@ async function validateTeacherData(
 						errors.push({
 							field: 'subjects',
 							type: 'DUPLICATE_ENTRY',
-							message: `Class "${classData.classId}" for academic year ${year} is already assigned to ${conflict.conflictingTeacher.name} (${conflict.conflictingTeacher.teacherId}).`,
+							message: `Class "${classData.classId}" for academic year ${year} is already assigned to ${conflict.conflictingTeacher.name} (${conflict.conflictingTeacher.teacherUsername}).`,
 							details: {
 								existingUserId: assignmentExists._id.toString(),
 								existingUserName: assignmentExists.fullName,
@@ -769,6 +838,40 @@ async function validateUserData(
 	forceAssignments: boolean = false,
 ): Promise<ValidationErrorWithConflicts[]> {
 	const errors: ValidationErrorWithConflicts[] = [];
+	if (userData.email !== undefined) {
+		const normalizedEmail = userData.email?.toString().trim();
+		if (!normalizedEmail) {
+			delete userData.email;
+		} else {
+			userData.email = normalizedEmail;
+		}
+	}
+	if (userData.phone !== undefined) {
+		const normalizedPhone = userData.phone?.toString().trim();
+		if (!normalizedPhone) {
+			delete userData.phone;
+		} else {
+			userData.phone = normalizedPhone;
+		}
+	}
+	if (userData.guardian?.email !== undefined) {
+		const normalizedGuardianEmail =
+			userData.guardian.email?.toString().trim();
+		if (!normalizedGuardianEmail) {
+			delete userData.guardian.email;
+		} else {
+			userData.guardian.email = normalizedGuardianEmail;
+		}
+	}
+	if (userData.guardian?.phone !== undefined) {
+		const normalizedGuardianPhone =
+			userData.guardian.phone?.toString().trim();
+		if (!normalizedGuardianPhone) {
+			delete userData.guardian.phone;
+		} else {
+			userData.guardian.phone = normalizedGuardianPhone;
+		}
+	}
 	const requiredFields = [
 		'firstName',
 		'lastName',
@@ -900,30 +1003,51 @@ async function handleForceReassignmentEnhanced(
 	const subjectConflicts = conflicts.filter((c) => c.type === 'subject');
 	for (const conflict of subjectConflicts) {
 		if (conflict.assignment) {
-			// Remove the specific class assignment from the conflicting teacher
-			// We need to pull the entire year entry and reconstruct it without this class
+			// Remove only the reassigned subjects for the specific class/year
 			const conflictingTeacher = await models.Teacher.findById(
 				conflict.conflictingTeacher.id,
 			).lean();
 
 			if (conflictingTeacher && conflictingTeacher.subjects) {
-				const updatedSubjects = conflictingTeacher.subjects
-					.map((yearData: any) => {
-						if (yearData.year === conflict.assignment!.year) {
-							// Remove the conflicting class from this year's classes
-							const filteredClasses = yearData.classes.filter(
-								(classData: any) =>
-									classData.classId !== conflict.assignment!.classId,
-							);
-
-							return {
-								year: yearData.year,
-								classes: filteredClasses,
-							};
+				const updatedSubjects = conflictingTeacher.subjects.map(
+					(yearData: any) => {
+						if (yearData.year !== conflict.assignment!.year) {
+							return yearData;
 						}
-						return yearData;
-					})
-					.filter((yearData: any) => yearData.classes.length > 0); // Remove empty year entries
+
+						const updatedClasses = (yearData.classes || [])
+							.map((classData: any) => {
+								if (classData.classId !== conflict.assignment!.classId) {
+									return classData;
+								}
+
+								const subjectsToRemove =
+									conflict.assignment!.subjects || [];
+								if (subjectsToRemove.length === 0) {
+									return null;
+								}
+
+								const remainingSubjects = (classData.subjects || []).filter(
+									(subject: string) => !subjectsToRemove.includes(subject),
+								);
+
+								if (remainingSubjects.length === 0) {
+									return null;
+								}
+
+								return {
+									...classData,
+									subjects: remainingSubjects,
+								};
+							})
+							.filter(Boolean);
+
+						return {
+							year: yearData.year,
+							classes: updatedClasses,
+						};
+					},
+				);
 
 				await models.Teacher.updateOne(
 					{ _id: conflict.conflictingTeacher.id },
@@ -1698,18 +1822,26 @@ export async function GET(request: NextRequest) {
 			}
 
 			// Filter by academic year based on role
-			filters.$or = [
-				// Students and administrators
-				{
-					role: { $in: ['student', 'administrator'] },
-					'academicYears.year': academicYear,
-				},
-				// Teachers
-				{
-					role: 'teacher',
-					'subjects.year': academicYear,
-				},
-			];
+			if (role) {
+				if (role === 'teacher') {
+					filters['subjects.year'] = academicYear;
+				} else {
+					filters['academicYears.year'] = academicYear;
+				}
+			} else {
+				filters.$or = [
+					// Students and administrators
+					{
+						role: { $in: ['student', 'administrator'] },
+						'academicYears.year': academicYear,
+					},
+					// Teachers
+					{
+						role: 'teacher',
+						'subjects.year': academicYear,
+					},
+				];
+			}
 
 			responseData = await models.User.find(filters)
 				.limit(limit)
@@ -1755,18 +1887,26 @@ export async function GET(request: NextRequest) {
 			}
 
 			// Filter by academic year based on role
-			filters.$or = [
-				// Students and administrators
-				{
-					role: { $in: ['student', 'administrator'] },
-					'academicYears.year': academicYear,
-				},
-				// Teachers
-				{
-					role: 'teacher',
-					'subjects.year': academicYear,
-				},
-			];
+			if (role) {
+				if (role === 'teacher') {
+					filters['subjects.year'] = academicYear;
+				} else {
+					filters['academicYears.year'] = academicYear;
+				}
+			} else {
+				filters.$or = [
+					// Students and administrators
+					{
+						role: { $in: ['student', 'administrator'] },
+						'academicYears.year': academicYear,
+					},
+					// Teachers
+					{
+						role: 'teacher',
+						'subjects.year': academicYear,
+					},
+				];
+			}
 
 			responseData = await models.User.find(filters)
 				.limit(limit)
@@ -1802,13 +1942,12 @@ interface ConflictDetails {
 	conflictingTeacher: {
 		id: string;
 		name: string;
-		teacherId: string;
+		teacherUsername: string;
 	};
 	assignment?: {
-		academicYear: string;
-		subject: string;
-		level: string;
-		session: string;
+		year: string;
+		classId: string;
+		subjects: string[];
 	};
 	sponsorClass?: string;
 }
@@ -1916,9 +2055,27 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Build and create the new user
-		const finalUserData = await buildUserData(models, userData, currentUser);
-		const newUser = await models.User.create(finalUserData);
+		// Build and create the new user (retry on duplicate username)
+		let finalUserData: any = null;
+		let newUser: any = null;
+		for (let attempt = 0; attempt < 3; attempt++) {
+			finalUserData = await buildUserData(models, userData, currentUser);
+			try {
+				newUser = await models.User.create(finalUserData);
+				break;
+			} catch (error: any) {
+				if (
+					error?.code === 11000 &&
+					(error?.keyPattern?.username || error?.keyValue?.username)
+				) {
+					if (attempt === 2) {
+						throw error;
+					}
+					continue;
+				}
+				throw error;
+			}
+		}
 		const userResponse = newUser.toObject();
 
 		// Remove sensitive data
@@ -1927,7 +2084,7 @@ export async function POST(request: NextRequest) {
 			...userResponse,
 			generatedCredentials: {
 				username: finalUserData.username,
-				defaultPassword: finalUserData.username,
+				defaultPassword: finalUserData.defaultPassword || finalUserData.username,
 				note: 'User must change password on first login',
 			},
 		};
@@ -2099,9 +2256,36 @@ export async function PUT(request: NextRequest) {
 			}
 
 			const schoolProfile = await getSchoolProfile();
+			if (promotionType === 'yearlyPromotion') {
+				const currentAcademicYear =
+					schoolProfile?.currentAcademicYear || getAcademicYear();
+				const currentStart = getAcademicYearStart(currentAcademicYear);
+				const newStart = getAcademicYearStart(newAcademicYear);
+				if (!currentStart || !newStart || newStart <= currentStart) {
+					return NextResponse.json(
+						{
+							success: false,
+							message:
+								'Yearly promotions must use a future academic year.',
+						},
+						{ status: 400 },
+					);
+				}
+			}
 			const classLevels = schoolProfile?.classLevels;
 			const currentMeta = getClassMetaById(classLevels, student.classId);
 			const targetMeta = getClassMetaById(classLevels, promotedToClassId);
+
+			if (currentMeta && isAtHighestClass(classLevels, currentMeta.classId)) {
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							'Cannot promote this student because they are already in the highest possible class.',
+					},
+					{ status: 400 },
+				);
+			}
 
 			if (currentMeta && targetMeta) {
 				if (currentMeta.baseName === targetMeta.baseName) {
@@ -2416,7 +2600,7 @@ export async function PUT(request: NextRequest) {
 					defaultPassword = targetUser.studentId;
 					break;
 				case 'teacher':
-					defaultPassword = targetUser.teacherId;
+					defaultPassword = targetUser.username;
 					break;
 				case 'administrator':
 					defaultPassword = targetUser.adminId;
@@ -2427,6 +2611,19 @@ export async function PUT(request: NextRequest) {
 				default:
 					defaultPassword = targetUser.username;
 			}
+
+			if (!defaultPassword) {
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							'Password reset failed: user is missing a default credential.',
+					},
+					{ status: 400 },
+				);
+			}
+
+			defaultPassword = String(defaultPassword);
 
 			const hashedPassword = await hashPassword(defaultPassword);
 
@@ -2692,33 +2889,55 @@ export async function PUT(request: NextRequest) {
 			const schoolProfile = await getSchoolProfile();
 			const currentAcademicYear =
 				schoolProfile.currentAcademicYear || getAcademicYear();
-			const updatedAcademicYears = Array.isArray(targetUser.academicYears)
-				? targetUser.academicYears.map((ay: any) =>
-						ay.year === currentAcademicYear
-							? { ...ay, classId: filteredUserData.classId }
-							: ay,
-					)
-				: [];
-			const hasCurrentYear = updatedAcademicYears.some(
+			if (!Array.isArray(targetUser.academicYears)) {
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							'Current academic year is missing for this student. Cannot change class.',
+					},
+					{ status: 400 },
+				);
+			}
+			const hasCurrentYear = targetUser.academicYears.some(
 				(ay: any) => ay.year === currentAcademicYear,
 			);
 			if (!hasCurrentYear) {
-				updatedAcademicYears.push({
-					year: currentAcademicYear,
-					classId: filteredUserData.classId,
-				});
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							'Current academic year is missing for this student. Cannot change class.',
+					},
+					{ status: 400 },
+				);
 			}
-			updateData.academicYears = updatedAcademicYears;
-
-			if (!filteredUserData.className) {
+			let resolvedClassName = filteredUserData.className;
+			if (!resolvedClassName) {
 				const classMeta = getClassMetaById(
 					schoolProfile.classLevels,
 					filteredUserData.classId,
 				);
 				if (classMeta?.name) {
 					updateData.className = classMeta.name;
+					resolvedClassName = classMeta.name;
 				}
 			}
+
+			await models.Student.updateOne(
+				{
+					_id: actualTargetUserId,
+					'academicYears.year': currentAcademicYear,
+				},
+				{
+					$set: {
+						'academicYears.$.classId': filteredUserData.classId,
+						...(resolvedClassName
+							? { 'academicYears.$.className': resolvedClassName }
+							: {}),
+					},
+				},
+			);
 
 			await models.Grade.updateMany(
 				{

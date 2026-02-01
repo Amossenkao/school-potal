@@ -35,7 +35,6 @@ function buildUserResponse(user: any) {
 		case 'teacher':
 			return {
 				...baseUser,
-				teacherId: user.teacherId,
 				subjects: user.subjects,
 				sponsorClass: user.sponsorClass,
 			};

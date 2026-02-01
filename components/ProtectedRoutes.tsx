@@ -18,13 +18,14 @@ const ProtectedRoute = ({
 	requiredRole,
 	allowedRoles,
 }: ProtectedRouteProps) => {
-	const { user, isLoading } = useAuth();
+	const { user, isLoading, checkAuthStatus } = useAuth();
 	const { school } = useSchoolStore();
 	const { isOnline, authCheckFailed } = useNetworkStore();
 	const router = useRouter();
 	const pathname = usePathname();
 	const [initialCheckComplete, setInitialCheckComplete] = useState(false);
 	const [hasUnauthorizedAccess, setHasUnauthorizedAccess] = useState(false);
+	const [authCheckInProgress, setAuthCheckInProgress] = useState(true);
 
 	// Check if this route has role requirements
 	const hasRoleRequirements =
@@ -33,12 +34,14 @@ const ProtectedRoute = ({
 	// Initial auth check
 	useEffect(() => {
 		const initializeAuth = async () => {
-			// For initial load, just check if user is logged in
+			setAuthCheckInProgress(true);
+			await checkAuthStatus();
 			setInitialCheckComplete(true);
+			setAuthCheckInProgress(false);
 		};
 
 		initializeAuth();
-	}, []);
+	}, [checkAuthStatus]);
 
 	// Handle initial redirect for unauthenticated users
 	useEffect(() => {
@@ -52,17 +55,26 @@ const ProtectedRoute = ({
 			return; // User was authenticated before going offline
 		}
 
-		if (initialCheckComplete && !isLoading && (!user || !user?.isActive)) {
-			router.replace('/login');
+		if (
+			initialCheckComplete &&
+			!authCheckInProgress &&
+			!isLoading &&
+			(!user || !user?.isActive)
+		) {
+			if (pathname !== '/login') {
+				router.replace('/login');
+			}
 		}
 	}, [
 		initialCheckComplete,
+		authCheckInProgress,
 		isLoading,
 		router,
 		user?.isActive,
 		authCheckFailed,
 		isOnline,
 		user,
+		pathname,
 	]);
 
 	// Role-based access control check
@@ -112,7 +124,7 @@ const ProtectedRoute = ({
 	]);
 
 	// Show full loading screen only during the very first authentication check
-	if (isLoading || !initialCheckComplete) {
+	if (isLoading || !initialCheckComplete || authCheckInProgress) {
 		return <PageLoading variant="school" fullScreen={true} />;
 	}
 

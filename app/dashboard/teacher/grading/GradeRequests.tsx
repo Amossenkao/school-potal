@@ -16,7 +16,7 @@ import { PageLoading } from '@/components/loading';
 
 // --- TYPES ---
 interface TeacherInfo {
-	teacherId: string;
+	username: string;
 	name: string;
 }
 interface GradeChangeRequest {

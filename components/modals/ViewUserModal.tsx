@@ -233,8 +233,8 @@ const ViewUserModal = ({ isOpen, onClose, viewingUser, schoolProfile }) => {
 									<div className="space-y-4">
 										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 											<InfoField
-												label="Teacher ID"
-												value={viewingUser.teacherId}
+												label="Username"
+												value={viewingUser.username}
 											/>
 											<InfoField
 												label="Sponsor Class"

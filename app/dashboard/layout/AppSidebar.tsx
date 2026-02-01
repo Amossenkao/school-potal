@@ -72,8 +72,8 @@ const AppSidebar: React.FC = () => {
 				try {
 					// Fetch pending grade submissions
 					const submissionsRes = await fetch(
-						`/api/grades?reportType=gradeSubmission&teacherId=${
-							user.teacherId
+						`/api/grades?reportType=gradeSubmission&teacherUsername=${
+							user.username
 						}&academicYear=${getCurrentAcademicYear()}`
 					);
 					if (submissionsRes.ok) {

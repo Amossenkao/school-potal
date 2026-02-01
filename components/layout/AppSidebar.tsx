@@ -103,7 +103,7 @@ const AppSidebar: React.FC = () => {
 					} else if (user.role === 'teacher') {
 						// Teacher: Fetch only their submissions
 						const submissionsRes = await fetch(
-							`/api/grades?reportType=gradeSubmission&teacherId=${user.teacherId}&academicYear=${currentYear}`
+							`/api/grades?reportType=gradeSubmission&teacherUsername=${user.username}&academicYear=${currentYear}`
 						);
 						if (submissionsRes.ok) {
 							const submissionsData = await submissionsRes.json();

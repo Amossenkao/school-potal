@@ -71,7 +71,7 @@ const LESSON_PLANS = [
 	{
 		id: 'LP001',
 		teacher: 'Dr. Robert Johnson',
-		teacherId: 'TCH001',
+		teacherUsername: 'TCH001',
 		subject: 'Mathematics',
 		class: 'Grade 10A',
 		topic: 'Quadratic Equations',
@@ -92,7 +92,7 @@ const LESSON_PLANS = [
 	{
 		id: 'LP002',
 		teacher: 'Prof. Sarah Williams',
-		teacherId: 'TCH002',
+		teacherUsername: 'TCH002',
 		subject: 'English Literature',
 		class: 'Grade 10A',
 		topic: "Shakespeare's Macbeth",
@@ -113,7 +113,7 @@ const LESSON_PLANS = [
 	{
 		id: 'LP003',
 		teacher: 'Dr. James Miller',
-		teacherId: 'TCH003',
+		teacherUsername: 'TCH003',
 		subject: 'Chemistry',
 		class: 'Grade 10B',
 		topic: 'Chemical Bonding',
@@ -134,7 +134,7 @@ const LESSON_PLANS = [
 	{
 		id: 'LP004',
 		teacher: 'Prof. Emily Davis',
-		teacherId: 'TCH004',
+		teacherUsername: 'TCH004',
 		subject: 'History',
 		class: 'Grade 9A',
 		topic: 'World War II',
@@ -155,7 +155,7 @@ const LESSON_PLANS = [
 	{
 		id: 'LP005',
 		teacher: 'Dr. Michael Brown',
-		teacherId: 'TCH005',
+		teacherUsername: 'TCH005',
 		subject: 'Computer Science',
 		class: 'Grade 11B',
 		topic: 'Introduction to Python Programming',
@@ -176,7 +176,7 @@ const LESSON_PLANS = [
 	{
 		id: 'LP006',
 		teacher: 'Prof. Jennifer Smith',
-		teacherId: 'TCH006',
+		teacherUsername: 'TCH006',
 		subject: 'Art',
 		class: 'Grade 12A',
 		topic: 'Renaissance Art Techniques',
@@ -197,7 +197,7 @@ const LESSON_PLANS = [
 	{
 		id: 'LP007',
 		teacher: 'Dr. David Wilson',
-		teacherId: 'TCH007',
+		teacherUsername: 'TCH007',
 		subject: 'Economics',
 		class: 'Grade 11A',
 		topic: 'Market Structures and Competition',
@@ -379,7 +379,7 @@ export default function ViewLessonPlans() {
 																{plan.teacher}
 															</p>
 															<p className="text-xs text-muted-foreground">
-																{plan.teacherId}
+																{plan.teacherUsername}
 															</p>
 														</div>
 													</div>

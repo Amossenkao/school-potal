@@ -1128,13 +1128,19 @@ const UserManagementDashboard = () => {
 					isOpen={showEditModal}
 					onClose={() => setShowEditModal(false)}
 					user={editingUser}
-					onSave={(updatedUser: any) => {
-						setUsers(
-							users.map((u) =>
-								(u.id || u._id) === (updatedUser.id || updatedUser._id)
-									? normalizeUser(updatedUser)
-									: u,
-							),
+					onSave={(updatedUser: any, relatedUsers: any[] = []) => {
+						const updates = [updatedUser, ...relatedUsers].filter(Boolean);
+						const updateMap = new Map(
+							updates.map((u) => [
+								(u.id || u._id)?.toString(),
+								normalizeUser(u),
+							]),
+						);
+						setUsers((current) =>
+							current.map((u) => {
+								const key = (u.id || u._id)?.toString();
+								return updateMap.has(key) ? updateMap.get(key) : u;
+							}),
 						);
 						setShowEditModal(false);
 						setEditingUser(null);

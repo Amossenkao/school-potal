@@ -84,6 +84,21 @@ const getCurrentAcademicYear = () => {
 	}
 };
 
+const getClassMetaById = (classLevels: any, classId?: string) => {
+	if (!classLevels || !classId) return null;
+	for (const [session, levels] of Object.entries(classLevels)) {
+		if (!levels || typeof levels !== 'object') continue;
+		for (const [level, levelData] of Object.entries(levels as any)) {
+			if (!levelData?.classes || !Array.isArray(levelData.classes)) continue;
+			const found = levelData.classes.find((cls: any) => cls.classId === classId);
+			if (found) {
+				return { session, level, name: found.name };
+			}
+		}
+	}
+	return null;
+};
+
 // --- Student Multi-Select Component ---
 
 const StudentMultiSelect = React.memo(function StudentMultiSelect({
@@ -280,16 +295,28 @@ const FilterContent = React.memo(function FilterContent({
 	const isStudent = userRole === 'student';
 
 	useEffect(() => {
-		if (isStudent && user) {
-			setFilters((prev) => ({
-				...prev,
-				session: user.session || '',
-				classLevel: user.classLevel || '',
-				className: user.classId || '',
-				selectedStudents: [user.studentId || ''],
-			}));
-		}
-	}, [isStudent, user, setFilters]);
+		if (!isStudent || !user) return;
+		const yearEntry = Array.isArray(user.academicYears)
+			? user.academicYears.find((ay: any) => ay.year === filters.academicYear)
+			: null;
+		const classIdForYear =
+			yearEntry?.classId ||
+			(filters.academicYear === getCurrentAcademicYear()
+				? user.classId || ''
+				: '');
+		const classMeta = getClassMetaById(
+			currentSchool?.classLevels,
+			classIdForYear
+		);
+
+		setFilters((prev) => ({
+			...prev,
+			session: classMeta?.session || prev.session,
+			classLevel: classMeta?.level || prev.classLevel,
+			className: classIdForYear || prev.className,
+			selectedStudents: [user.studentId || ''],
+		}));
+	}, [isStudent, user, filters.academicYear, setFilters, currentSchool]);
 
 	const availableSessions = useMemo(
 		() =>
@@ -371,7 +398,7 @@ const FilterContent = React.memo(function FilterContent({
 				setLoadingStudents(true);
 				try {
 					const response = await fetch(
-						`/api/users?classId=${filters.className}&role=student`
+						`/api/users?classId=${filters.className}&role=student&academicYear=${filters.academicYear}`
 					);
 					const responseData = await response.json();
 					if (responseData.success && responseData.data) {
@@ -406,13 +433,19 @@ const FilterContent = React.memo(function FilterContent({
 		if (isStudent) {
 			return !!(
 				filters.academicYear &&
-				user?.session &&
-				user?.classLevel &&
-				user?.classId
+				filters.session &&
+				filters.classLevel &&
+				filters.className
 			);
 		}
 		return !!(filters.academicYear && filters.className);
-	}, [isStudent, filters.academicYear, filters.className, user]);
+	}, [
+		isStudent,
+		filters.academicYear,
+		filters.className,
+		filters.session,
+		filters.classLevel,
+	]);
 
 	if (
 		isStudent &&
@@ -428,9 +461,9 @@ const FilterContent = React.memo(function FilterContent({
 
 	if (isStudent) {
 		const isStudentInfoComplete = !!(
-			user?.session &&
-			user?.classLevel &&
-			user?.classId
+			filters.session &&
+			filters.classLevel &&
+			filters.className
 		);
 		return (
 			<div className="flex flex-col items-center justify-center min-h-[60vh] py-10 bg-background text-foreground">

@@ -44,7 +44,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		email: '',
 		address: '',
 		bio: '',
-		photo: '',
+		avatar: '',
 		student: {
 			session: '',
 			classId: '',
@@ -66,7 +66,6 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		},
 		administrator: {
 			position: '',
-			permissions: [],
 		},
 	});
 
@@ -83,6 +82,15 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			years.push(`${currentYear - i}-${currentYear - i + 1}`);
 		}
 		return years;
+	};
+
+	const getCurrentAcademicYear = () => {
+		const currentDate = new Date();
+		const currentYear = currentDate.getFullYear();
+		const currentMonth = currentDate.getMonth() + 1;
+		return currentMonth >= 8
+			? `${currentYear}-${currentYear + 1}`
+			: `${currentYear - 1}-${currentYear}`;
 	};
 
 	const toggleAccordion = (name) => {
@@ -127,7 +135,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		if (!school?.classLevels?.[session]?.[level]?.subjects) return [];
 		// Extract just the subject names from the objects
 		return school.classLevels[session][level].subjects.map(
-			(subject) => subject.name
+			(subject) => subject.name,
 		);
 	};
 
@@ -146,20 +154,6 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		'Administrative Assistant',
 	];
 
-	const adminPermissions = [
-		'user_management',
-		'grade_management',
-		'schedule_management',
-		'financial_management',
-		'system_administration',
-		'reporting',
-		'student_records',
-		'teacher_records',
-		'academic_planning',
-		'disciplinary_actions',
-		'parent_communication',
-	];
-
 	const existingUsers = [
 		{ email: 'john@school.edu' },
 		{ email: 'jane@school.edu' },
@@ -171,7 +165,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	};
 	const handleSelfContainedSelection = (classId, session, checked) => {
 		const otherSubjectsInSession = formData.teacher.subjects.filter(
-			(s) => s.session !== session
+			(s) => s.session !== session,
 		);
 		const updatedSubjects = checked
 			? [
@@ -182,9 +176,9 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 							subject: subjectName, // Now using the extracted name
 							level: 'Self Contained',
 							session: session,
-						})
+						}),
 					),
-			  ]
+				]
 			: otherSubjectsInSession;
 
 		const updatedSponsorClass = checked ? classId : null;
@@ -248,12 +242,13 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				} else if (userType === 'teacher') {
 					if (formData.teacher.subjects.length === 0) {
 						newErrors.subjects = 'At least one subject must be selected';
+					} else if (buildTeacherSubjectsPayload().length === 0) {
+						newErrors.subjects =
+							'Selected subjects did not map to any classes.';
 					}
 				} else if (userType === 'administrator') {
 					if (!formData.administrator.position)
 						newErrors.position = 'Position is required';
-					if (formData.administrator.permissions.length === 0)
-						newErrors.permissions = 'At least one permission must be selected';
 				}
 				break;
 			case 4:
@@ -287,12 +282,12 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 
 		// Clear self-contained selection for the session if a regular subject is selected
 		const selfContainedSubjectsInSession = updatedSubjects.filter(
-			(s) => s.session === session && s.level === 'Self Contained'
+			(s) => s.session === session && s.level === 'Self Contained',
 		);
 
 		if (selfContainedSubjectsInSession.length > 0) {
 			updatedSubjects = updatedSubjects.filter(
-				(s) => s.session !== session || s.level !== 'Self Contained'
+				(s) => s.session !== session || s.level !== 'Self Contained',
 			);
 		}
 
@@ -301,7 +296,11 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		} else {
 			updatedSubjects = updatedSubjects.filter(
 				(s) =>
-					!(s.subject === subject && s.level === level && s.session === session)
+					!(
+						s.subject === subject &&
+						s.level === level &&
+						s.session === session
+					),
 			);
 		}
 
@@ -321,20 +320,49 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			},
 		});
 	};
-	const handlePermissionChange = (permission, checked) => {
-		let updatedPermissions = [...formData.administrator.permissions];
-		if (checked && !updatedPermissions.includes(permission)) {
-			updatedPermissions.push(permission);
-		} else if (!checked) {
-			updatedPermissions = updatedPermissions.filter((p) => p !== permission);
-		}
-		setFormData({
-			...formData,
-			administrator: {
-				...formData.administrator,
-				permissions: updatedPermissions,
-			},
+	const buildTeacherSubjectsPayload = () => {
+		const academicYear =
+			school?.currentAcademicYear || getCurrentAcademicYear();
+		const classMap = new Map();
+
+		const selections = formData.teacher.subjects || [];
+		const selfContainedSelections = selections.filter(
+			(s) => s.level === 'Self Contained',
+		);
+		const regularSelections = selections.filter(
+			(s) => s.level !== 'Self Contained',
+		);
+
+		regularSelections.forEach((selection) => {
+			const classes = getClassesBySessionAndLevel(
+				selection.session,
+				selection.level,
+			);
+			classes.forEach((cls) => {
+				if (!classMap.has(cls.classId)) {
+					classMap.set(cls.classId, new Set());
+				}
+				classMap.get(cls.classId).add(selection.subject);
+			});
 		});
+
+		if (selfContainedSelections.length > 0 && formData.teacher.sponsorClass) {
+			if (!classMap.has(formData.teacher.sponsorClass)) {
+				classMap.set(formData.teacher.sponsorClass, new Set());
+			}
+			selfContainedSelections.forEach((selection) => {
+				classMap.get(formData.teacher.sponsorClass).add(selection.subject);
+			});
+		}
+
+		const classes = Array.from(classMap.entries()).map(
+			([classId, subjectsSet]) => ({
+				classId,
+				subjects: Array.from(subjectsSet),
+			}),
+		);
+
+		return classes.length > 0 ? [{ year: academicYear, classes }] : [];
 	};
 
 	const handleSessionSelection = (session) => {
@@ -408,14 +436,14 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			email: formData.email || undefined,
 			address: formData.address,
 			bio: formData.bio || undefined,
-			photo: formData.photo || undefined,
+			avatar: formData.avatar || undefined,
 		};
 
 		let userData;
 		switch (userType) {
 			case 'student':
 				const selectedClass = getAllClassesForSession(
-					formData.student.session
+					formData.student.session,
 				).find((c) => c.classId === formData.student.classId);
 				userData = {
 					...baseUser,
@@ -431,8 +459,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			case 'teacher':
 				userData = {
 					...baseUser,
-					subjects: formData.teacher.subjects,
-					isSponsor: formData.teacher.isSponsor,
+					subjects: buildTeacherSubjectsPayload(),
 					sponsorClass: formData.teacher.sponsorClass,
 				};
 				break;
@@ -440,7 +467,6 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				userData = {
 					...baseUser,
 					position: formData.administrator.position,
-					permissions: formData.administrator.permissions,
 				};
 				break;
 			default:
@@ -464,7 +490,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			email: '',
 			address: '',
 			bio: '',
-			photo: '',
+			avatar: '',
 			student: {
 				session: '',
 				classId: '',
@@ -486,7 +512,6 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			},
 			administrator: {
 				position: '',
-				permissions: [],
 			},
 		});
 		setErrors({});
@@ -518,6 +543,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				onConfirm={handleConfirmReassignment}
 				isLoading={isValidating}
 				userName={`${formData.firstName} ${formData.lastName}`}
+				schoolProfile={school}
 			/>
 
 			{/* Header */}
@@ -1245,7 +1271,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																		<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 																			{getClassesBySessionAndLevel(
 																				formData.student.session,
-																				level
+																				level,
 																			).map((cls, idx) => {
 																				const isSelected =
 																					formData.student.classId ===
@@ -1304,7 +1330,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																			})}
 																		</div>
 																	</div>
-																)
+																),
 															)}
 
 															{/* Error Message */}
@@ -1423,7 +1449,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																								handleSelfContainedSelection(
 																									cls.classId,
 																									session,
-																									e.target.checked
+																									e.target.checked,
 																								)
 																							}
 																							className="absolute opacity-0"
@@ -1438,7 +1464,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																						</div>
 																					</motion.label>
 																				);
-																			}
+																			},
 																		)}
 																	</div>
 																</div>
@@ -1459,7 +1485,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																<div className="space-y-4 max-h-96 overflow-y-auto border border-border rounded-lg p-4 bg-background">
 																	{getClassLevels(session)
 																		.filter(
-																			(level) => level !== 'Self Contained'
+																			(level) => level !== 'Self Contained',
 																		)
 																		.map((level) => (
 																			<div
@@ -1472,14 +1498,14 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																				<div className="grid grid-cols-2 md:grid-cols-3 gap-3">
 																					{getSubjectsBySessionAndLevel(
 																						session,
-																						level
+																						level,
 																					)?.map((subject, subjectIndex) => {
 																						const isChecked =
 																							formData.teacher.subjects.some(
 																								(s) =>
 																									s.subject === subject &&
 																									s.level === level &&
-																									s.session === session
+																									s.session === session,
 																							);
 
 																						return (
@@ -1501,7 +1527,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																											subject,
 																											level,
 																											session,
-																											e.target.checked
+																											e.target.checked,
 																										)
 																									}
 																									className="absolute opacity-0"
@@ -1529,7 +1555,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																		getAllClassesForSession(session).find(
 																			(cls) =>
 																				cls.classId ===
-																				formData.teacher.sponsorClass
+																				formData.teacher.sponsorClass,
 																		)
 																			? formData.teacher.sponsorClass
 																			: ''
@@ -1539,12 +1565,12 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																			formData.teacher.subjects.some(
 																				(s) =>
 																					s.level === 'Self Contained' &&
-																					s.session === session
+																					s.session === session,
 																			);
 																		if (isSelfContained) {
 																			const otherSubjects =
 																				formData.teacher.subjects.filter(
-																					(s) => s.session !== session
+																					(s) => s.session !== session,
 																				);
 																			setFormData({
 																				...formData,
@@ -1571,7 +1597,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																	<option value="">No class sponsorship</option>
 																	{getAllClassesForSession(session)
 																		.filter(
-																			(cls) => cls.level !== 'Self Contained'
+																			(cls) => cls.level !== 'Self Contained',
 																		)
 																		.map((cls) => (
 																			<option
@@ -1620,8 +1646,8 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 													<span className="font-medium">Sessions:</span>{' '}
 													{Array.from(
 														new Set(
-															formData.teacher.subjects.map((s) => s.session)
-														)
+															formData.teacher.subjects.map((s) => s.session),
+														),
 													).join(', ')}
 												</p>
 												{formData.teacher.isSponsor && (
@@ -1629,10 +1655,10 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 														<span className="font-medium">Class Sponsor:</span>{' '}
 														{
 															getAllClassesForSession(
-																formData.teacher.subjects[0]?.session
+																formData.teacher.subjects[0]?.session,
 															).find(
 																(c) =>
-																	c.classId === formData.teacher.sponsorClass
+																	c.classId === formData.teacher.sponsorClass,
 															)?.name
 														}
 													</p>
@@ -1678,36 +1704,9 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 										)}
 									</div>
 									<div>
-										<label className="block text-sm font-medium text-foreground mb-3">
-											System Permissions *
-										</label>
-										<div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-64 overflow-y-auto border border-border rounded-lg p-4 bg-background">
-											{adminPermissions.map((permission) => (
-												<label key={permission} className="flex items-center">
-													<input
-														type="checkbox"
-														checked={formData.administrator.permissions.includes(
-															permission
-														)}
-														onChange={(e) =>
-															handlePermissionChange(
-																permission,
-																e.target.checked
-															)
-														}
-														className="mr-3 accent-primary"
-													/>
-													<span className="text-sm text-foreground capitalize">
-														{permission.replace(/_/g, ' ')}
-													</span>
-												</label>
-											))}
+										<div className="p-3 text-sm text-muted-foreground bg-muted/50 rounded-lg border border-border">
+											Administrator permissions are managed in system settings.
 										</div>
-										{errors.permissions && (
-											<p className="text-destructive text-sm mt-1">
-												{errors.permissions}
-											</p>
-										)}
 									</div>
 								</>
 							)}
@@ -1781,9 +1780,9 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 												<span className="text-sm font-medium text-foreground">
 													{
 														getAllClassesForSession(
-															formData.student.session
+															formData.student.session,
 														).find(
-															(c) => c.classId === formData.student.classId
+															(c) => c.classId === formData.student.classId,
 														)?.name
 													}
 												</span>
@@ -1840,10 +1839,10 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 														<span className="text-sm font-medium text-foreground">
 															{
 																getAllClassesForSession(
-																	formData.teacher.subjects[0]?.session
+																	formData.teacher.subjects[0]?.session,
 																).find(
 																	(c) =>
-																		c.classId === formData.teacher.sponsorClass
+																		c.classId === formData.teacher.sponsorClass,
 																)?.name
 															}
 														</span>
@@ -1860,14 +1859,6 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 													</span>
 													<span className="text-sm font-medium text-foreground">
 														{formData.administrator.position}
-													</span>
-												</div>
-												<div className="flex justify-between">
-													<span className="text-sm text-muted-foreground">
-														Permissions:
-													</span>
-													<span className="text-sm font-medium text-foreground">
-														{formData.administrator.permissions.length} selected
 													</span>
 												</div>
 											</>

@@ -37,7 +37,7 @@ const UserSchema = new Schema<User & Document>(
 		mustChangePassword: { type: Boolean, default: false },
 		passwordChangedAt: { type: Date, default: null },
 		phone: { type: String, required: true, unique: true },
-		email: { type: String, unique: true },
+		email: { type: String, unique: true, sparse: true },
 		address: { type: String, required: true },
 		bio: String,
 		avatar: String,

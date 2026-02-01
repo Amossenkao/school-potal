@@ -9,6 +9,7 @@ const ConflictModal = ({
 	onConfirm,
 	isLoading,
 	userName,
+	schoolProfile,
 }) => {
 	if (!isOpen || !conflictState) return null;
 
@@ -17,6 +18,19 @@ const ConflictModal = ({
 		(c) => c.type === 'sponsorship'
 	);
 	const subjectConflicts = conflicts.filter((c) => c.type === 'subject');
+
+	const getClassNameFromId = (classId) => {
+		if (!classId || !schoolProfile?.classLevels) return classId;
+		for (const session of Object.values(schoolProfile.classLevels)) {
+			if (!session || typeof session !== 'object') continue;
+			for (const level of Object.values(session)) {
+				if (!level?.classes || !Array.isArray(level.classes)) continue;
+				const found = level.classes.find((cls) => cls.classId === classId);
+				if (found) return found.name || classId;
+			}
+		}
+		return classId;
+	};
 
 	return (
 		<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -57,7 +71,7 @@ const ConflictModal = ({
 													</p>
 													<p>
 														Current Sponsor: {conflict.conflictingTeacher.name}{' '}
-														({conflict.conflictingTeacher.teacherId})
+														({conflict.conflictingTeacher.teacherUsername})
 													</p>
 												</div>
 											))}
@@ -79,13 +93,17 @@ const ConflictModal = ({
 													className="bg-muted/50 p-3 rounded-lg text-xs"
 												>
 													<p className="font-semibold text-foreground">
-														{conflict.assignment.subject} -{' '}
-														{conflict.assignment.level} (
-														{conflict.assignment.session})
+														Year: {conflict.assignment.year} · Class:{' '}
+														{getClassNameFromId(conflict.assignment.classId)}
+													</p>
+													<p>
+														Subjects:{' '}
+														{(conflict.assignment.subjects || []).join(', ') ||
+															'N/A'}
 													</p>
 													<p>
 														Current Teacher: {conflict.conflictingTeacher.name}{' '}
-														({conflict.conflictingTeacher.teacherId})
+														({conflict.conflictingTeacher.teacherUsername})
 													</p>
 												</div>
 											))}
