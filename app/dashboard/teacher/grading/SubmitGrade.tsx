@@ -1076,10 +1076,10 @@ const SubmitGrade: React.FC = () => {
 
 							<div className="p-3 sm:p-4">
 								<div className="overflow-x-auto">
-									<table className="w-full min-w-[720px] border-separate border-spacing-0">
+									<table className="w-full min-w-[460px] md:min-w-[560px] xl:min-w-[660px] border-separate border-spacing-0 table-auto xl:w-auto">
 										<thead className="bg-muted/60">
 											<tr>
-												<th className="sticky left-0 bg-muted/60 px-4 py-3 text-left text-xs font-semibold uppercase text-muted-foreground">
+												<th className="sticky left-0 bg-muted/60 px-2 sm:px-4 py-3 text-left text-xs font-semibold uppercase text-muted-foreground w-44 sm:w-56 xl:w-72">
 													Student
 												</th>
 												{orderedSelectedPeriods.map((period) => {
@@ -1087,7 +1087,7 @@ const SubmitGrade: React.FC = () => {
 													return (
 														<th
 															key={period}
-															className="px-4 py-3 text-left text-xs font-semibold uppercase text-muted-foreground"
+															className="px-1.5 sm:px-2.5 md:px-3 xl:px-4 py-3 text-left text-xs font-semibold uppercase text-muted-foreground whitespace-nowrap"
 														>
 															{periodLabel}
 														</th>
@@ -1112,9 +1112,9 @@ const SubmitGrade: React.FC = () => {
 														}`}
 													>
 														<td
-															className={`sticky left-0 px-4 py-3 ${rowBg} ${
+															className={`sticky left-0 px-2 sm:px-4 py-3 ${rowBg} ${
 																isActive ? 'bg-primary/10' : ''
-															}`}
+															} w-44 sm:w-56 xl:w-72`}
 														>
 															<div className="flex items-center gap-2 sm:gap-3">
 																<div
@@ -1133,7 +1133,7 @@ const SubmitGrade: React.FC = () => {
 																	/>
 																</div>
 																<span
-																	className={`font-medium text-sm ${
+																	className={`font-medium text-sm truncate max-w-[120px] sm:max-w-none xl:max-w-[260px] ${
 																		isActive
 																			? 'text-primary font-semibold -translate-x-1'
 																			: 'text-foreground'
@@ -1157,7 +1157,7 @@ const SubmitGrade: React.FC = () => {
 																gradeValue !== '';
 
 															return (
-																<td key={period} className="px-4 py-3">
+																<td key={period} className="px-1.5 sm:px-2.5 md:px-3 xl:px-4 py-3">
 																	<div className="flex flex-col gap-1">
 																		{isExisting ? (
 																			<div className="flex items-center gap-2">
@@ -1195,7 +1195,7 @@ const SubmitGrade: React.FC = () => {
 																					)
 																				}
 																				placeholder="0"
-																				className={`w-20 h-10 rounded-lg border-2 text-center text-base font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors ${getGradeDisplayColor(
+																				className={`w-14 sm:w-16 md:w-20 xl:w-24 h-10 rounded-lg border-2 text-center text-base font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors ${getGradeDisplayColor(
 																					gradeValue
 																				)} ${
 																					isInvalid
