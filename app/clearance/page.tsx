@@ -388,7 +388,7 @@ export default function TestClearanceGenerator() {
 
 	const currentTheme = useMemo(
 		() => CONFIG_DATA.sheetColors.find((c) => c.name === sheetColorName),
-		[sheetColorName]
+		[sheetColorName],
 	);
 
 	const finalStudentList = useMemo(() => {
@@ -504,10 +504,10 @@ export default function TestClearanceGenerator() {
 										c.name === 'White'
 											? '#fff'
 											: c.name === 'Blue'
-											? '#dbeafe'
-											: c.name === 'Yellow'
-											? '#fef9c3'
-											: '#fce7f3',
+												? '#dbeafe'
+												: c.name === 'Yellow'
+													? '#fef9c3'
+													: '#fce7f3',
 								}}
 							/>
 						))}
@@ -609,8 +609,8 @@ export default function TestClearanceGenerator() {
 										onClick={() =>
 											setSelectedDbStudents(
 												studentDatabase[division][grade].filter((n) =>
-													n.toLowerCase().includes(searchTerm.toLowerCase())
-												)
+													n.toLowerCase().includes(searchTerm.toLowerCase()),
+												),
 											)
 										}
 										className="bg-blue-600 text-white px-6 py-2 rounded-xl font-black text-xs uppercase hover:bg-blue-700 transition-colors"
@@ -628,7 +628,7 @@ export default function TestClearanceGenerator() {
 							<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 max-h-48 overflow-y-auto pr-2">
 								{studentDatabase[division][grade]
 									.filter((n) =>
-										n.toLowerCase().includes(searchTerm.toLowerCase())
+										n.toLowerCase().includes(searchTerm.toLowerCase()),
 									)
 									.map((name, idx) => (
 										<label
@@ -647,7 +647,7 @@ export default function TestClearanceGenerator() {
 													setSelectedDbStudents((prev) =>
 														prev.includes(name)
 															? prev.filter((s) => s !== name)
-															: [...prev, name]
+															: [...prev, name],
 													)
 												}
 											/>
@@ -687,7 +687,7 @@ export default function TestClearanceGenerator() {
 					? 'PRINT ANONYMOUS MASTER'
 					: `PRINT ${
 							finalStudentList.length > 0 ? `(${finalStudentList.length})` : ''
-					  } CLEARANCES`}
+						} CLEARANCES`}
 			</button>
 		</div>
 	);
