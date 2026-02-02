@@ -1417,6 +1417,8 @@ function ReportContent({
 	);
 	const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 	const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+	const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+	const [serverKey, setServerKey] = useState<string | null>(null);
 	const [pdfGenerating, setPdfGenerating] = useState(false);
 	const [inlineError, setInlineError] = useState(false);
 	const pdfUrlRef = useRef<string | null>(null);
@@ -1722,6 +1724,8 @@ function ReportContent({
 			}
 			setPdfUrl(null);
 			setDownloadUrl(null);
+			setPdfBlob(null);
+			setServerKey(null);
 			setInlineError(false);
 			return;
 		}
@@ -1741,6 +1745,8 @@ function ReportContent({
 				const objectUrl = URL.createObjectURL(blob);
 				pdfUrlRef.current = objectUrl;
 				setDownloadUrl(objectUrl);
+				setPdfBlob(blob);
+				setServerKey(null);
 				setInlineError(false);
 				if (isIOS) {
 					const reader = new FileReader();
@@ -1867,10 +1873,38 @@ function ReportContent({
 				<button
 					type="button"
 					onClick={() => {
-						if (!pdfUrl) return;
-						window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+						if (!pdfBlob || !downloadUrl) return;
+						const openWithKey = (key: string) => {
+							const url = `/api/reports/pdf?key=${encodeURIComponent(
+								key
+							)}&fileName=${encodeURIComponent(
+								`Yearly_Report_${className}_${reportFilters.academicYear}.pdf`
+							)}`;
+							window.open(url, '_blank', 'noopener,noreferrer');
+						};
+						if (serverKey) {
+							openWithKey(serverKey);
+							return;
+						}
+						fetch('/api/reports/pdf', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/pdf' },
+							body: pdfBlob,
+						})
+							.then((res) => res.json())
+							.then((data) => {
+								if (data?.cacheKey) {
+									setServerKey(data.cacheKey);
+									openWithKey(data.cacheKey);
+								} else {
+									window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+								}
+							})
+							.catch(() => {
+								window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+							});
 					}}
-					disabled={!pdfUrl || pdfGenerating}
+					disabled={!downloadUrl || pdfGenerating}
 					className="px-3 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm"
 				>
 					Open PDF
