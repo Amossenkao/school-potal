@@ -3,7 +3,11 @@ import bcrypt from 'bcryptjs';
 import { getTenantModels } from '@/models';
 import { authorizeUser } from '@/proxy';
 import { getSchoolProfile } from '@/lib/mongoose';
-import { updateAllUserSessions, destroyAllUserSessions } from '@/utils/session';
+import {
+	updateAllUserSessions,
+	destroyAllUserSessions,
+	updateUserSessionNotifications,
+} from '@/utils/session';
 import { sendOTP, verifyOTP } from '@/utils/otp';
 import type {
 	UserRole,
@@ -18,6 +22,21 @@ import type {
 } from '@/types';
 
 // --- Helper Functions ---
+
+async function addNotificationToUser(
+	UserModel: any,
+	userId: string,
+	notification: Notification,
+) {
+	const updatedUser = await UserModel.findByIdAndUpdate(
+		userId,
+		{ $push: { notifications: notification } },
+		{ new: true, select: 'notifications' },
+	);
+	if (updatedUser) {
+		await updateUserSessionNotifications(userId, updatedUser.notifications);
+	}
+}
 
 function validateEmail(email: string): boolean {
 	return /\S+@\S+\.\S+/.test(email);
@@ -2673,6 +2692,16 @@ export async function PUT(request: NextRequest) {
 
 			await destroyAllUserSessions(actualTargetUserId);
 
+			await addNotificationToUser(models.User, actualTargetUserId, {
+				title: 'Password Reset',
+				message:
+					'Your password has been reset by an administrator. Please change it after logging in.',
+				timestamp: new Date(),
+				read: false,
+				dismissed: false,
+				type: 'Security',
+			} as Notification);
+
 			return NextResponse.json({
 				success: true,
 				message:
@@ -2955,7 +2984,8 @@ export async function PUT(request: NextRequest) {
 		}
 
 		// Handle password change for self-update
-		if (isSelfUpdate && updateData.newPassword) {
+		const isSelfPasswordChange = isSelfUpdate && updateData.newPassword;
+		if (isSelfPasswordChange) {
 			if (!updateData.oldPassword) {
 				return NextResponse.json(
 					{ success: false, message: 'Old password is required' },
@@ -3037,6 +3067,35 @@ export async function PUT(request: NextRequest) {
 			actualTargetUserId,
 			buildUserResponse(updatedUser.toObject()),
 		);
+
+		const profileUpdated =
+			Object.keys(filteredUserData || {}).length > 0 &&
+			!['notifications'].some((key) => key in filteredUserData);
+
+		if (profileUpdated) {
+			const updatedBySelf = currentUser.userId === actualTargetUserId;
+			await addNotificationToUser(models.User, actualTargetUserId, {
+				title: 'Profile Updated',
+				message: updatedBySelf
+					? 'Your profile information was updated successfully.'
+					: 'Your profile information was updated by an administrator.',
+				timestamp: new Date(),
+				read: false,
+				dismissed: false,
+				type: 'Profile',
+			} as Notification);
+		}
+
+		if (isSelfPasswordChange) {
+			await addNotificationToUser(models.User, actualTargetUserId, {
+				title: 'Password Changed',
+				message: 'Your password was changed successfully.',
+				timestamp: new Date(),
+				read: false,
+				dismissed: false,
+				type: 'Security',
+			} as Notification);
+		}
 
 		return NextResponse.json({
 			success: true,

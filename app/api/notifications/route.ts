@@ -18,7 +18,8 @@ export async function PATCH(request: NextRequest) {
 		const { action, notificationId, tab } = body;
 
 		const { User } = await getTenantModels();
-		const user = await User.findById(currentUser.userId);
+		const currentUserId = currentUser.userId || currentUser.id;
+		const user = await User.findById(currentUserId);
 
 		if (!user) {
 			return NextResponse.json(
@@ -40,6 +41,22 @@ export async function PATCH(request: NextRequest) {
 				console.log('Marking notification as read:', notificationId);
 				if (notification) {
 					notification.read = true;
+				}
+				break;
+			}
+
+			// a2. Mark a single notification as read and dismissed
+			case 'markAsReadAndDismiss': {
+				if (!notificationId) {
+					return NextResponse.json(
+						{ success: false, message: 'Notification ID is required.' },
+						{ status: 400 }
+					);
+				}
+				const notification = user.notifications.id(notificationId);
+				if (notification) {
+					notification.read = true;
+					notification.dismissed = true;
 				}
 				break;
 			}
@@ -110,10 +127,7 @@ export async function PATCH(request: NextRequest) {
 		}
 
 		await user.save();
-		await updateUserSessionNotifications(
-			currentUser.userId,
-			user.notifications
-		);
+		await updateUserSessionNotifications(currentUserId, user.notifications);
 
 		return NextResponse.json({
 			success: true,
@@ -143,7 +157,8 @@ export async function GET(request: NextRequest) {
 		}
 
 		const { User } = await getTenantModels();
-		const user = await User.findById(currentUser.userId);
+		const currentUserId = currentUser.userId || currentUser.id;
+		const user = await User.findById(currentUserId);
 
 		if (!user) {
 			return NextResponse.json(

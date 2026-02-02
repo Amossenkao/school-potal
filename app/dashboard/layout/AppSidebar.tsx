@@ -163,7 +163,8 @@ const AppSidebar: React.FC = () => {
 				);
 
 				const unreadNotifications =
-					user?.notifications?.filter((n) => !n.read).length || 0;
+					user?.notifications?.filter((n) => !n.read && !n.dismissed).length ||
+					0;
 
 				// Add logout item
 				const completeNavItems = [

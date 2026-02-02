@@ -10,7 +10,6 @@ import {
 	User,
 	X,
 	Bell,
-	Check,
 	CheckCheck,
 	Trash2,
 } from 'lucide-react';
@@ -28,7 +27,8 @@ interface Notification {
 	message: string;
 	timestamp: string; // Comes as a Date string from backend
 	read: boolean;
-	type: 'Login' | 'Grades' | 'Security' | 'Profile';
+	dismissed?: boolean;
+	type: 'Login' | 'Grades' | 'Security' | 'Profile' | 'Others';
 }
 
 // --- Custom Hook for Modal State ---
@@ -149,19 +149,20 @@ const NotificationsDropdown = () => {
 	const { user, setUser } = useAuth(); // Assumes setUser updates the auth store
 	const [isOpen, setIsOpen] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
-	const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+	const [selectedNotification, setSelectedNotification] =
+		useState<Notification | null>(null);
 	const dropdownRef = useRef<HTMLDivElement>(null);
 
 	// Filter and sort notifications from the user object
 	const notifications = useMemo(() => {
 		if (!user?.notifications) return [];
 		return user.notifications
-			.filter((n) => !dismissedIds.includes(n._id))
+			.filter((n) => !n.read && !n.dismissed)
 			.sort(
 				(a, b) =>
 					new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
 			);
-	}, [user?.notifications, dismissedIds]);
+	}, [user?.notifications]);
 
 	useEffect(() => {
 		const handleClickOutside = (event) => {
@@ -176,23 +177,29 @@ const NotificationsDropdown = () => {
 		return () => document.removeEventListener('mousedown', handleClickOutside);
 	}, []);
 
-	const unreadCount = notifications.filter((n) => !n.read).length;
+	const unreadCount = notifications.length;
 	const displayCount = unreadCount > 10 ? '10+' : unreadCount.toString();
 
-	const markAsRead = async (id: string) => {
+	const markAsReadAndDismiss = async (id: string) => {
 		if (!user) return;
 		// Optimistically update the UI
 		const updatedUser = {
 			...user,
 			notifications: user.notifications.map((n) =>
-				n._id === id ? { ...n, read: true } : n
+				n._id === id ? { ...n, read: true, dismissed: true } : n
 			),
 		};
 		setUser(updatedUser);
 
 		try {
-			// Replace with your actual API endpoint to mark a notification as read
-			await fetch(`/api/notifications/${id}/read`, { method: 'PATCH' });
+			await fetch('/api/notifications', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					action: 'markAsReadAndDismiss',
+					notificationId: id,
+				}),
+			});
 		} catch (error) {
 			console.error('Failed to mark notification as read:', error);
 			// Revert on failure
@@ -203,7 +210,7 @@ const NotificationsDropdown = () => {
 	const markAllAsRead = async () => {
 		if (!user) return;
 		setIsLoading(true);
-		const unreadIds = notifications.filter((n) => !n.read).map((n) => n._id);
+		const unreadIds = notifications.map((n) => n._id);
 		// Optimistically update the UI
 		const updatedUser = {
 			...user,
@@ -214,8 +221,11 @@ const NotificationsDropdown = () => {
 		setUser(updatedUser);
 
 		try {
-			// Replace with your actual API endpoint to mark all as read
-			await fetch('/api/notifications/mark-all-read', { method: 'POST' });
+			await fetch('/api/notifications', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'markAllAsRead' }),
+			});
 		} catch (error) {
 			console.error('Failed to mark all as read:', error);
 			setUser(user); // Revert on failure
@@ -224,9 +234,24 @@ const NotificationsDropdown = () => {
 		}
 	};
 
-	const deleteNotification = (id: string) => {
-		// Only hide from the dropdown, does not delete from the database
-		setDismissedIds((prev) => [...prev, id]);
+	const deleteNotification = async (id: string) => {
+		if (!user) return;
+		const updatedUser = {
+			...user,
+			notifications: user.notifications.filter((n) => n._id !== id),
+		};
+		setUser(updatedUser);
+
+		try {
+			await fetch('/api/notifications', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'delete', notificationId: id }),
+			});
+		} catch (error) {
+			console.error('Failed to delete notification:', error);
+			setUser(user);
+		}
 	};
 
 	const getNotificationIcon = (type: Notification['type']) => {
@@ -315,6 +340,32 @@ const NotificationsDropdown = () => {
 
 	return (
 		<div className="relative" ref={dropdownRef}>
+			{selectedNotification && (
+				<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+					<div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 w-full max-w-md border border-gray-200 dark:border-gray-800">
+						<div className="flex items-start justify-between gap-4 mb-4">
+							<div>
+								<h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+									{selectedNotification.title}
+								</h3>
+								<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+									{new Date(selectedNotification.timestamp).toLocaleString()}
+								</p>
+							</div>
+							<button
+								onClick={() => setSelectedNotification(null)}
+								className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+								aria-label="Close"
+							>
+								<X className="h-5 w-5 text-gray-500" />
+							</button>
+						</div>
+						<div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-4 text-sm text-gray-700 dark:text-gray-200">
+							{selectedNotification.message}
+						</div>
+					</div>
+				</div>
+			)}
 			<button
 				onClick={() => setIsOpen(!isOpen)}
 				className="relative flex items-center justify-center w-10 h-10 text-gray-500 border border-gray-200 rounded-lg transition-colors hover:bg-gray-100 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800"
@@ -363,6 +414,13 @@ const NotificationsDropdown = () => {
 											? 'bg-blue-50/50 dark:bg-blue-900/10'
 											: ''
 									}`}
+									role="button"
+									tabIndex={0}
+									onClick={() => {
+										setSelectedNotification(notification);
+										markAsReadAndDismiss(notification._id);
+										setIsOpen(false);
+									}}
 								>
 									<div className="flex items-start gap-3">
 										<div className="flex-shrink-0 mt-1">
@@ -382,22 +440,20 @@ const NotificationsDropdown = () => {
 													</p>
 												</div>
 												<div className="flex items-center gap-1 ml-2">
-													{!notification.read && (
+													{!['Grades', 'Security'].includes(
+														notification.type
+													) && (
 														<button
-															onClick={() => markAsRead(notification._id)}
-															className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-															title="Mark as read"
+															onClick={(e) => {
+																e.stopPropagation();
+																deleteNotification(notification._id);
+															}}
+															className="p-1 text-gray-400 hover:text-red-500"
+															title="Delete notification"
 														>
-															<Check className="h-3 w-3" />
+															<Trash2 className="h-3 w-3" />
 														</button>
 													)}
-													<button
-														onClick={() => deleteNotification(notification._id)}
-														className="p-1 text-gray-400 hover:text-red-500"
-														title="Dismiss notification"
-													>
-														<Trash2 className="h-3 w-3" />
-													</button>
 												</div>
 											</div>
 										</div>

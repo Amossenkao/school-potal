@@ -21,13 +21,13 @@ const NotificationDropdown = () => {
 
 	const activeNotifications =
 		user?.notifications
-			?.filter((n: Notification) => !n.dismissed)
+			?.filter((n: Notification) => !n.read && !n.dismissed)
 			.sort(
 				(a, b) =>
 					new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
 			) || [];
 
-	const unreadCount = activeNotifications.filter((n) => !n.read).length;
+	const unreadCount = activeNotifications.length;
 
 	useEffect(() => {
 		const clickHandler = (event: MouseEvent) => {
@@ -40,7 +40,12 @@ const NotificationDropdown = () => {
 	}, []);
 
 	const handleAction = async (
-		action: 'markAsRead' | 'dismiss' | 'markAllAsRead',
+		action:
+			| 'markAsRead'
+			| 'dismiss'
+			| 'markAllAsRead'
+			| 'markAsReadAndDismiss'
+			| 'delete',
 		notificationId?: string
 	) => {
 		setIsLoading(true);
@@ -119,22 +124,13 @@ const NotificationDropdown = () => {
 									!notification.read ? 'bg-blue-50 dark:bg-blue-900/20' : ''
 								}`}
 							>
-								{!notification.read && (
-									<button
-										title="Mark as read"
-										onClick={(e) => {
-											e.stopPropagation();
-											handleAction('markAsRead', notification._id);
-										}}
-										className="flex-shrink-0 p-1 rounded-full hover:bg-green-100 dark:hover:bg-green-800/50"
-									>
-										<CheckCircle className="w-4 h-4 text-green-500" />
-									</button>
-								)}
 								<Link
 									href="/dashboard/notifications"
 									className="flex-grow flex items-center gap-3"
-									onClick={() => setIsOpen(false)}
+									onClick={() => {
+										handleAction('markAsReadAndDismiss', notification._id);
+										setIsOpen(false);
+									}}
 								>
 									<div className="h-10 w-10 rounded-full flex items-center justify-center bg-gray-100 dark:bg-meta-4">
 										{getIcon(notification.type)}
@@ -148,16 +144,18 @@ const NotificationDropdown = () => {
 										</p>
 									</div>
 								</Link>
-								<button
-									title="Dismiss notification"
-									onClick={(e) => {
-										e.stopPropagation();
-										handleAction('dismiss', notification._id);
-									}}
-									className="flex-shrink-0 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-800/50"
-								>
-									<X className="w-4 h-4 text-red-500" />
-								</button>
+								{!['Grades', 'Security'].includes(notification.type) && (
+									<button
+										title="Delete notification"
+										onClick={(e) => {
+											e.stopPropagation();
+											handleAction('delete', notification._id);
+										}}
+										className="flex-shrink-0 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-800/50"
+									>
+										<X className="w-4 h-4 text-red-500" />
+									</button>
+								)}
 							</li>
 						))
 					) : (

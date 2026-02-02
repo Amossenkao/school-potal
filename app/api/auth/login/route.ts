@@ -7,6 +7,20 @@ import { verifyOTP, sendOTP } from '@/utils/otp';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { UserRole } from '@/types';
 
+async function addLoginNotification(user: any) {
+	if (!user) return;
+	user.notifications = user.notifications || [];
+	user.notifications.push({
+		title: 'Login',
+		message: 'A new login to your account was detected.',
+		timestamp: new Date(),
+		read: false,
+		dismissed: false,
+		type: 'Security',
+	});
+	await user.save();
+}
+
 export async function POST(request: NextRequest) {
 	const host = request.headers.get('host');
 	if (!host) {
@@ -49,6 +63,7 @@ export async function POST(request: NextRequest) {
 				);
 
 				if (verificationResult.success) {
+					await addLoginNotification(user);
 					const loginSessionId = await createSession({
 						tenantId: host,
 						purpose: 'login',
@@ -161,6 +176,7 @@ async function handleLogin(user: any, password: string, host: string) {
 			{ status: sendResult.status },
 		);
 	} else {
+		await addLoginNotification(user);
 		const sessionId = await createSession(sessionData);
 		const response = NextResponse.json(
 			{ message: 'Login successful', user: userData },
