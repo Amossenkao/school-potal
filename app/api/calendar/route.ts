@@ -6,6 +6,19 @@ import { redis } from '@/lib/redis';
 
 const CACHE_TTL_SECONDS = 60 * 5;
 
+const parseCachedJson = (cached: unknown) => {
+	if (!cached) return null;
+	if (typeof cached !== 'string') return cached;
+	try {
+		const trimmed = cached.trim();
+		if (!trimmed) return null;
+		return JSON.parse(trimmed);
+	} catch (error) {
+		console.warn('Failed to parse cached calendar JSON.', error);
+		return null;
+	}
+};
+
 const getAcademicYear = (schoolProfile: any) => {
 	const now = new Date();
 	if (schoolProfile?.currentAcademicYear) {
@@ -40,13 +53,16 @@ export async function GET(request: NextRequest) {
 		const cacheKey = `school_events:${schoolProfile?.dbName}:academic:${academicYear}`;
 		const cached = await redis.get(cacheKey);
 		if (cached) {
-			return NextResponse.json({
-				success: true,
-				source: 'cache',
-				data: JSON.parse(cached as string),
-			});
+			const parsed = parseCachedJson(cached);
+			if (parsed) {
+				return NextResponse.json({
+					success: true,
+					source: 'cache',
+					data: parsed,
+				});
+			}
+			await redis.del(cacheKey);
 		}
-
 		const models = await getTenantModels();
 		const events = await models.SchoolEvent.find({
 			eventType: 'academic_calendar',

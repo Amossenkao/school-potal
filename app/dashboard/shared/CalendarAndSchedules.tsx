@@ -1048,10 +1048,7 @@ export default function CalendarAndSchedules({
 					<CardContent>
 						<Calendar canEdit={isSystemAdmin} academicYear={academicYear} />
 						{!isSystemAdmin ? (
-							<p className="mt-4 text-sm text-muted-foreground">
-								Only system administrators can add or edit academic calendar
-								events.
-							</p>
+							<p className="mt-4 text-sm text-muted-foreground"></p>
 						) : null}
 					</CardContent>
 				</Card>
@@ -1220,8 +1217,7 @@ export default function CalendarAndSchedules({
 															className="px-4 py-6 text-center text-sm text-muted-foreground"
 															colSpan={
 																1 +
-																classVisibleDays.length *
-																	displayClasses.length
+																classVisibleDays.length * displayClasses.length
 															}
 														>
 															No class schedules yet.
