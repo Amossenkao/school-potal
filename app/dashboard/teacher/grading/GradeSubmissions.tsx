@@ -126,6 +126,7 @@ const GradeSubmissions = () => {
 		type: 'success' | 'error' | 'info';
 		message: string;
 	} | null>(null);
+	const [resultModalOpen, setResultModalOpen] = useState(false);
 
 	const [filters, setFilters] = useState({
 		subject: '',
@@ -379,7 +380,7 @@ const GradeSubmissions = () => {
 		message: string
 	) => {
 		setNotification({ type, message });
-		setTimeout(() => setNotification(null), 5000);
+		setResultModalOpen(true);
 	};
 
 	const deriveSubmissionStatus = (
@@ -402,6 +403,15 @@ const GradeSubmissions = () => {
 		if (grade === null || grade === undefined) return 'text-muted-foreground';
 		if (grade >= 70) return 'text-sky-500 font-semibold';
 		return 'text-destructive font-semibold';
+	};
+
+	const getGradeValidationStatus = (gradeValue: string) => {
+		if (gradeValue === '') return { isValid: true, message: '' };
+		const num = Number(gradeValue);
+		if (Number.isNaN(num)) return { isValid: false, message: 'Numbers only' };
+		if (num < 60) return { isValid: false, message: 'Min: 60' };
+		if (num > 100) return { isValid: false, message: 'Max: 100' };
+		return { isValid: true, message: '' };
 	};
 
 	const applyFilters = (grades: GradeSubmission[]) =>
@@ -673,12 +683,61 @@ const GradeSubmissions = () => {
 	};
 
 	const handleGradeInputChange = (studentId: string, newGrade: string) => {
+		if (newGrade !== '' && (isNaN(Number(newGrade)) || !/^\d*\.?\d*$/.test(newGrade))) {
+			return;
+		}
 		setGradeChangeStudents((prev) =>
 			prev.map((s) =>
 				s.studentId === studentId
 					? { ...s, newGrade, selected: newGrade !== '' }
 					: s
 			)
+		);
+	};
+
+	const renderResultModal = () => {
+		if (!notification || !resultModalOpen) return null;
+		const tone =
+			notification.type === 'success'
+				? {
+						bg: 'bg-green-50 border-green-200 text-green-800',
+						icon: CheckCircle,
+				  }
+				: notification.type === 'error'
+				? {
+						bg: 'bg-red-50 border-red-200 text-red-800',
+						icon: XCircle,
+				  }
+				: {
+						bg: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+						icon: Info,
+				  };
+		const Icon = tone.icon;
+		return (
+			<div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[1000]">
+				<div className="bg-card rounded-lg border shadow-xl w-full max-w-md">
+					<div className={`p-6 rounded-lg border ${tone.bg}`}>
+						<div className="flex items-start gap-3">
+							<Icon className="h-5 w-5 flex-shrink-0" />
+							<div>
+								<p className="font-semibold capitalize">{notification.type}</p>
+								<p className="text-sm mt-1">{notification.message}</p>
+							</div>
+						</div>
+					</div>
+					<div className="p-4 flex justify-end">
+						<Button
+							variant="outline"
+							onClick={() => {
+								setResultModalOpen(false);
+								setNotification(null);
+							}}
+						>
+							Close
+						</Button>
+					</div>
+				</div>
+			</div>
 		);
 	};
 
@@ -861,37 +920,60 @@ const GradeSubmissions = () => {
 													{student.currentGrade ?? 'N/A'}
 												</span>
 											</td>
-											<td className="px-6 py-4">
-												<input
-													type="number"
-													min="0"
-													max="100"
-													value={student.newGrade}
-													onChange={(e) =>
-														handleGradeInputChange(
-															student.studentId,
-															e.target.value
-														)
-													}
-													disabled={!student.selected}
-													className="w-24 p-2 text-center border border-border rounded-md bg-background disabled:bg-muted disabled:cursor-not-allowed"
-												/>
-											</td>
-											<td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-												<span
-													className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
-														student.status
-													)}`}
-												>
-													{getStatusIcon(student.status)} {student.status}
-												</span>
-											</td>
-										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
+										<td className="px-6 py-4">
+											{(() => {
+												const validation = getGradeValidationStatus(
+													student.newGrade
+												);
+												const isInvalid =
+													!validation.isValid && student.newGrade !== '';
+												return (
+													<div className="flex flex-col items-center gap-1">
+														<input
+															type="text"
+															value={student.newGrade}
+															onChange={(e) =>
+																handleGradeInputChange(
+																	student.studentId,
+																	e.target.value
+																)
+															}
+															disabled={!student.selected}
+															className={`w-20 h-10 rounded-lg border-2 text-center text-base font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors ${getModalGradeColor(
+																student.newGrade === ''
+																	? null
+																	: Number(student.newGrade)
+															)} ${
+																isInvalid
+																	? 'bg-background border-red-500 focus:ring-red-500'
+																	: 'bg-background border-input hover:border-ring'
+															} disabled:bg-muted disabled:cursor-not-allowed`}
+															inputMode="numeric"
+														/>
+														{isInvalid && (
+															<span className="text-xs text-red-500">
+																{validation.message}
+															</span>
+														)}
+													</div>
+												);
+											})()}
+										</td>
+										<td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+											<span
+												className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
+													student.status
+												)}`}
+											>
+												{getStatusIcon(student.status)}
+											</span>
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
 					</div>
+				</div>
 
 					<div className="p-6 border-t bg-muted/50 flex justify-end gap-3">
 						<Button
@@ -951,24 +1033,7 @@ const GradeSubmissions = () => {
 					</div>
 				</div>
 
-				{notification && (
-					<div
-						className={`mb-6 p-4 rounded-md text-sm flex items-center gap-3 ${
-							notification.type === 'success'
-								? 'bg-green-100 text-green-800 border border-green-200'
-								: notification.type === 'error'
-								? 'bg-red-100 text-red-800 border border-red-200'
-								: 'bg-yellow-100 text-yellow-800 border border-yellow-200'
-						}`}
-					>
-						{notification.type === 'success' && (
-							<CheckCircle className="h-5 w-5" />
-						)}
-						{notification.type === 'error' && <XCircle className="h-5 w-5" />}
-						{notification.type === 'info' && <Info className="h-5 w-5" />}
-						<span>{notification.message}</span>
-					</div>
-				)}
+				{renderResultModal()}
 
 				<div className="space-y-6">
 					<div className="flex flex-col sm:flex-row gap-4 flex-wrap">
