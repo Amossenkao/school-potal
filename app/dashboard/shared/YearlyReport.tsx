@@ -15,6 +15,14 @@ import {
 	Image,
 	pdf,
 } from '@react-pdf/renderer';
+import {
+	Facebook,
+	Mail,
+	MessageCircle,
+	MessagesSquare,
+	Send,
+	Twitter,
+} from 'lucide-react';
 import styles from './styles'; // Assuming styles is defined elsewhere
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
@@ -1429,6 +1437,11 @@ function ReportContent({
 		expiresAt: string;
 	} | null>(null);
 	const [shareNotice, setShareNotice] = useState('');
+	const [shareLoading, setShareLoading] = useState(false);
+	const [copiedLink, setCopiedLink] = useState(false);
+	const [copiedPin, setCopiedPin] = useState(false);
+	const [viewLoading, setViewLoading] = useState(false);
+	const resetCopiedTimeoutRef = useRef<number | null>(null);
 
 	const school = useSchoolStore((state) => state.school);
 	const currentSchool = useSchoolStore((state) => state.school);
@@ -1735,6 +1748,10 @@ function ReportContent({
 			setPdfBlob(null);
 			setServerKey(null);
 			setInlineError(false);
+			if (resetCopiedTimeoutRef.current) {
+				window.clearTimeout(resetCopiedTimeoutRef.current);
+				resetCopiedTimeoutRef.current = null;
+			}
 			return;
 		}
 
@@ -1890,6 +1907,7 @@ function ReportContent({
 									}),
 								}).then((res) => res.json());
 							const doShare = (cacheKey: string) => {
+								setShareLoading(true);
 								createShare(cacheKey).then((data) => {
 									if (!data?.shareUrl || !data?.pin) return;
 									setShareInfo({
@@ -1898,6 +1916,10 @@ function ReportContent({
 										expiresAt: data.expiresAt,
 									});
 									setShareModalOpen(true);
+									setCopiedLink(false);
+									setCopiedPin(false);
+									setShareNotice('');
+									setShareLoading(false);
 								});
 							};
 							if (serverKey) {
@@ -2000,6 +2022,7 @@ function ReportContent({
 											openWithKey(serverKey);
 											return;
 										}
+										setViewLoading(true);
 										fetch('/api/reports/pdf', {
 											method: 'POST',
 											headers: { 'Content-Type': 'application/pdf' },
@@ -2013,12 +2036,14 @@ function ReportContent({
 												} else {
 													window.open(downloadUrl, '_blank', 'noopener,noreferrer');
 												}
+												setViewLoading(false);
 											})
 											.catch(() => {
 												window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+												setViewLoading(false);
 											});
 									}}
-									disabled={!downloadUrl || pdfGenerating}
+									disabled={!downloadUrl || pdfGenerating || viewLoading}
 									className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm inline-flex items-center gap-2"
 								>
 									<svg
@@ -2035,7 +2060,7 @@ function ReportContent({
 										/>
 										<circle cx="12" cy="12" r="3" />
 									</svg>
-									View Report Card
+									{viewLoading ? 'Opening...' : 'View Report Card'}
 								</button>
 								{isStudent && (
 									<button
@@ -2055,6 +2080,7 @@ function ReportContent({
 													}),
 												}).then((res) => res.json());
 											const doShare = (cacheKey: string) => {
+												setShareLoading(true);
 												createShare(cacheKey).then((data) => {
 													if (!data?.shareUrl || !data?.pin) return;
 													setShareInfo({
@@ -2063,6 +2089,9 @@ function ReportContent({
 														expiresAt: data.expiresAt,
 													});
 													setShareModalOpen(true);
+													setCopiedLink(false);
+													setCopiedPin(false);
+													setShareLoading(false);
 												});
 											};
 											if (serverKey) {
@@ -2110,7 +2139,7 @@ function ReportContent({
 												d="M12 2v14"
 											/>
 										</svg>
-										Share Report Card
+						{shareLoading ? 'Generating Link...' : 'Share Report Card'}
 									</button>
 								)}
 							</div>
@@ -2175,13 +2204,28 @@ function ReportContent({
 										try {
 											await navigator.clipboard.writeText(shareInfo.url);
 											setShareNotice('Link copied.');
+											setCopiedLink(true);
+											if (resetCopiedTimeoutRef.current) {
+												window.clearTimeout(resetCopiedTimeoutRef.current);
+											}
+											resetCopiedTimeoutRef.current = window.setTimeout(() => {
+												setCopiedLink(false);
+												setShareNotice('');
+											}, 2000);
 										} catch {
 											setShareNotice('Copy failed.');
 										}
 									}}
 									className="mt-2 px-3 py-1.5 text-xs rounded border border-border hover:bg-muted"
 								>
-									Copy Link
+										{copiedLink ? (
+											<span className="inline-flex items-center gap-1">
+												<span className="text-green-600">✓</span>
+												<span>Copied</span>
+											</span>
+										) : (
+											'Copy Link'
+										)}
 								</button>
 							</div>
 							<div className="rounded-lg border border-border bg-muted/40 p-3">
@@ -2195,18 +2239,123 @@ function ReportContent({
 										try {
 											await navigator.clipboard.writeText(shareInfo.pin);
 											setShareNotice('PIN copied.');
+											setCopiedPin(true);
+											if (resetCopiedTimeoutRef.current) {
+												window.clearTimeout(resetCopiedTimeoutRef.current);
+											}
+											resetCopiedTimeoutRef.current = window.setTimeout(() => {
+												setCopiedPin(false);
+												setShareNotice('');
+											}, 2000);
 										} catch {
 											setShareNotice('Copy failed.');
 										}
 									}}
 									className="mt-2 px-3 py-1.5 text-xs rounded border border-border hover:bg-muted"
 								>
-									Copy PIN
+										{copiedPin ? (
+											<span className="inline-flex items-center gap-1">
+												<span className="text-green-600">✓</span>
+												<span>Copied</span>
+											</span>
+										) : (
+											'Copy PIN'
+										)}
 								</button>
 							</div>
 							{shareNotice && (
 								<p className="text-xs text-muted-foreground">{shareNotice}</p>
 							)}
+							<div className="rounded-lg border border-border bg-muted/30 p-3">
+								<div className="flex items-center justify-between mb-2">
+									<p className="text-xs text-muted-foreground">
+										Share on social media
+									</p>
+									<button
+										type="button"
+										onClick={() => {
+											if (navigator.share) {
+												navigator.share({
+													title: 'Report Card',
+													text: `PIN: ${shareInfo.pin}`,
+													url: shareInfo.url,
+												});
+											}
+										}}
+										className="px-2 py-1 text-[11px] rounded border border-border hover:bg-muted"
+									>
+										Share via
+									</button>
+								</div>
+								<div className="flex flex-wrap gap-2">
+									{[
+										{
+											label: 'WhatsApp',
+											Icon: MessageCircle,
+											build: () =>
+												`https://wa.me/?text=${encodeURIComponent(
+													`Report Card link: ${shareInfo.url} | PIN: ${shareInfo.pin}`
+												)}`,
+										},
+										{
+											label: 'Facebook',
+											Icon: Facebook,
+											build: () =>
+												`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+													shareInfo.url
+												)}&quote=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
+										},
+										{
+											label: 'Messenger',
+											Icon: MessagesSquare,
+											build: () =>
+												`fb-messenger://share/?link=${encodeURIComponent(
+													shareInfo.url
+												)}&app_id=${encodeURIComponent(
+													process.env.NEXT_PUBLIC_FB_APP_ID || ''
+												)}&ref=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
+										},
+										{
+											label: 'X',
+											Icon: Twitter,
+											build: () =>
+												`https://twitter.com/intent/tweet?text=${encodeURIComponent(
+													`Report Card link: ${shareInfo.url} | PIN: ${shareInfo.pin}`
+												)}`,
+										},
+										{
+											label: 'Telegram',
+											Icon: Send,
+											build: () =>
+												`https://t.me/share/url?url=${encodeURIComponent(
+													shareInfo.url
+												)}&text=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
+										},
+										{
+											label: 'Email',
+											Icon: Mail,
+											build: () =>
+												`mailto:?subject=${encodeURIComponent(
+													'Report Card'
+												)}&body=${encodeURIComponent(
+													`Report Card link: ${shareInfo.url}\nPIN: ${shareInfo.pin}`
+												)}`,
+										},
+									].map((item) => (
+										<button
+											key={item.label}
+											type="button"
+											onClick={() => window.open(item.build(), '_blank')}
+											className="px-3 py-1.5 text-xs rounded border border-border hover:bg-muted inline-flex items-center gap-2"
+										>
+											<span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted">
+												<item.Icon className="h-3.5 w-3.5 text-muted-foreground" />
+											</span>
+											{item.label}
+										</button>
+									))}
+								</div>
+							</div>
 							<div className="flex justify-end gap-2">
 								<button
 									type="button"
