@@ -329,7 +329,7 @@ const NotificationsDropdown = () => {
 			</button>
 
 			{isOpen && (
-				<div className="absolute right-0 mt-2 w-72 max-w-[85vw] sm:w-80 origin-top-right rounded-xl bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50 -translate-x-2 sm:translate-x-0">
+				<div className="fixed left-3 right-3 top-[72px] w-auto max-w-none sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80 sm:max-w-[85vw] origin-top-right rounded-xl bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
 					<div className="p-4 border-b border-gray-200 dark:border-gray-700">
 						<div className="flex items-center justify-between">
 							<h3 className="text-lg font-semibold text-gray-800 dark:text-white">
@@ -481,7 +481,7 @@ const UserDropdown = () => {
 				</button>
 
 				{isOpen && (
-					<div className="absolute right-0 mt-2 w-52 max-w-[90vw] origin-top-right rounded-xl bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+					<div className="fixed left-3 right-3 top-[72px] w-auto max-w-none sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-52 sm:max-w-[90vw] origin-top-right rounded-xl bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
 						<div className="py-2">
 							<Link
 								href="/dashboard/profile"

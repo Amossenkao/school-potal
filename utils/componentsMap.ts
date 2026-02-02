@@ -287,20 +287,6 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					icon: ClipboardList,
 				},
 			],
-			student: [
-				{
-					key: 'periodic-grade',
-					title: 'Periodic Grades',
-					href: '/periodic-grade',
-					icon: FileText,
-				},
-				{
-					key: 'yearly-grade',
-					title: 'Yearly Grades',
-					href: '/yearly-grade',
-					icon: FileText,
-				},
-			],
 		},
 	},
 
@@ -1107,11 +1093,25 @@ export function validateComponentAccess(
 	routeKey: string,
 	adminPosition?: string
 ): boolean {
+	// Explicitly tie report routes to academic_reports feature access
+	const reportRouteFeatureMap: Record<string, FeatureKey> = {
+		'periodic-grade': 'academic_reports',
+		'yearly-grade': 'academic_reports',
+		'periodic-reports': 'academic_reports',
+		'yearly-reports': 'academic_reports',
+	};
+	if (reportRouteFeatureMap[routeKey]) {
+		return hasFeatureAccess(
+			schoolProfile,
+			userRole,
+			reportRouteFeatureMap[routeKey],
+			adminPosition
+		);
+	}
+
 	// Find which feature this route belongs to
 	for (const feature of Object.values(featureConfigurations)) {
 		let userRoutes = feature.routes[userRole];
-		console.log('Validating routeKey:', routeKey, 'for feature:', feature.key);
-		console.log('User routes for role:', userRole, userRoutes);
 		if (!userRoutes) {
 			continue;
 		}
