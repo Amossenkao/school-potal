@@ -1178,7 +1178,9 @@ function ReportContent({
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+	const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 	const [pdfGenerating, setPdfGenerating] = useState(false);
+	const [inlineError, setInlineError] = useState(false);
 	const pdfUrlRef = useRef<string | null>(null);
 	const school = useSchoolStore((state) => state.school);
 	const { user } = useAuth();
@@ -1286,11 +1288,17 @@ function ReportContent({
 				pdfUrlRef.current = null;
 			}
 			setPdfUrl(null);
+			setDownloadUrl(null);
+			setInlineError(false);
 			return;
 		}
 
 		let cancelled = false;
 		setPdfGenerating(true);
+		const isIOS =
+			typeof navigator !== 'undefined' &&
+			/iPad|iPhone|iPod/.test(navigator.userAgent);
+
 		pdf(pdfDocument)
 			.toBlob()
 			.then((blob) => {
@@ -1298,9 +1306,21 @@ function ReportContent({
 				if (pdfUrlRef.current) {
 					URL.revokeObjectURL(pdfUrlRef.current);
 				}
-				const url = URL.createObjectURL(blob);
-				pdfUrlRef.current = url;
-				setPdfUrl(url);
+				const objectUrl = URL.createObjectURL(blob);
+				pdfUrlRef.current = objectUrl;
+				setDownloadUrl(objectUrl);
+				setInlineError(false);
+
+				if (isIOS) {
+					const reader = new FileReader();
+					reader.onloadend = () => {
+						if (cancelled) return;
+						setPdfUrl(typeof reader.result === 'string' ? reader.result : objectUrl);
+					};
+					reader.readAsDataURL(blob);
+				} else {
+					setPdfUrl(objectUrl);
+				}
 			})
 			.catch((err) => {
 				console.error('Failed to generate PDF blob', err);
@@ -1456,55 +1476,78 @@ function ReportContent({
 				</button>
 
 				{/* Download Button */}
-				<button
-					type="button"
-					onClick={() => {
-						if (!pdfUrl) return;
-						const link = document.createElement('a');
-						link.href = pdfUrl;
-						link.download = fileName;
-						document.body.appendChild(link);
-						link.click();
-						link.remove();
-					}}
-					disabled={!pdfUrl || pdfGenerating}
-					className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm inline-flex items-center gap-2 disabled:opacity-50"
-				>
-					{pdfGenerating ? (
-						<>
-							<Spinner size="sm" />
-							<span>Preparing PDF...</span>
-						</>
-					) : (
-						<>
-							<svg
-								className="w-4 h-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-							>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth={2}
-									d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-								/>
-							</svg>
-							<span>Download PDF</span>
-						</>
-					)}
-				</button>
+				<div className="flex items-center gap-2">
+					<button
+						type="button"
+						onClick={() => {
+							if (!pdfUrl) return;
+							window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+						}}
+						disabled={!pdfUrl || pdfGenerating}
+						className="px-3 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm inline-flex items-center gap-2 disabled:opacity-50"
+					>
+						Open PDF
+					</button>
+					<button
+						type="button"
+						onClick={() => {
+							if (!downloadUrl) return;
+							const link = document.createElement('a');
+							link.href = downloadUrl;
+							link.download = fileName;
+							document.body.appendChild(link);
+							link.click();
+							link.remove();
+						}}
+						disabled={!downloadUrl || pdfGenerating}
+						className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm inline-flex items-center gap-2 disabled:opacity-50"
+					>
+						{pdfGenerating ? (
+							<>
+								<Spinner size="sm" />
+								<span>Preparing PDF...</span>
+							</>
+						) : (
+							<>
+								<svg
+									className="w-4 h-4"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+									/>
+								</svg>
+								<span>Download PDF</span>
+							</>
+						)}
+					</button>
+				</div>
 			</div>
 
 			<div className="flex-1 bg-gray-100">
 				{pdfUrl ? (
 					<div className="w-full" style={{ height: '80vh' }}>
-						<iframe
-							title="Periodic Report PDF"
-							className="w-full h-full"
-							style={{ border: 'none' }}
-							src={pdfUrl}
-						/>
+						{inlineError ? (
+							<div className="flex items-center justify-center h-full text-center text-muted-foreground">
+								<div>
+									<p>Inline PDF preview is not supported on this device.</p>
+									<p className="mt-2">Use “Open PDF” to view it.</p>
+								</div>
+							</div>
+						) : (
+							<iframe
+								title="Periodic Report PDF"
+								className="w-full h-full"
+								style={{ border: 'none' }}
+								src={pdfUrl}
+								onError={() => setInlineError(true)}
+							/>
+						)}
 					</div>
 				) : (
 					<div className="flex items-center justify-center h-full">

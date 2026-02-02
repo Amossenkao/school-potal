@@ -1416,7 +1416,9 @@ function ReportContent({
 		undefined
 	);
 	const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+	const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 	const [pdfGenerating, setPdfGenerating] = useState(false);
+	const [inlineError, setInlineError] = useState(false);
 	const pdfUrlRef = useRef<string | null>(null);
 
 	const school = useSchoolStore((state) => state.school);
@@ -1719,11 +1721,16 @@ function ReportContent({
 				pdfUrlRef.current = null;
 			}
 			setPdfUrl(null);
+			setDownloadUrl(null);
+			setInlineError(false);
 			return;
 		}
 
 		let cancelled = false;
 		setPdfGenerating(true);
+		const isIOS =
+			typeof navigator !== 'undefined' &&
+			/iPad|iPhone|iPod/.test(navigator.userAgent);
 		pdf(pdfDocument)
 			.toBlob()
 			.then((blob) => {
@@ -1731,9 +1738,20 @@ function ReportContent({
 				if (pdfUrlRef.current) {
 					URL.revokeObjectURL(pdfUrlRef.current);
 				}
-				const url = URL.createObjectURL(blob);
-				pdfUrlRef.current = url;
-				setPdfUrl(url);
+				const objectUrl = URL.createObjectURL(blob);
+				pdfUrlRef.current = objectUrl;
+				setDownloadUrl(objectUrl);
+				setInlineError(false);
+				if (isIOS) {
+					const reader = new FileReader();
+					reader.onloadend = () => {
+						if (cancelled) return;
+						setPdfUrl(typeof reader.result === 'string' ? reader.result : objectUrl);
+					};
+					reader.readAsDataURL(blob);
+				} else {
+					setPdfUrl(objectUrl);
+				}
 			})
 			.catch((err) => {
 				console.error('Failed to generate PDF blob', err);
@@ -1750,11 +1768,11 @@ function ReportContent({
 
 	// Download handler
 	const handleDownload = useCallback(async () => {
-		if (!pdfUrl) return;
+		if (!downloadUrl) return;
 		setDownloading(true);
 		try {
 			const a = document.createElement('a');
-			a.href = pdfUrl;
+			a.href = downloadUrl;
 			a.download = `Yearly_Report_${className}_${reportFilters.academicYear}.pdf`;
 			document.body.appendChild(a);
 			a.click();
@@ -1762,7 +1780,7 @@ function ReportContent({
 		} finally {
 			setDownloading(false);
 		}
-	}, [pdfUrl, className, reportFilters.academicYear]);
+	}, [downloadUrl, className, reportFilters.academicYear]);
 
 	if (loading) {
 		return <PageLoading fullScreen={false} message="Loading report" />;
@@ -1820,7 +1838,7 @@ function ReportContent({
 					type="button"
 					onClick={handleDownload}
 					className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm flex items-center gap-2"
-					disabled={downloading || pdfGenerating || !pdfUrl}
+					disabled={downloading || pdfGenerating || !downloadUrl}
 				>
 					{pdfGenerating ? (
 						<span>Preparing PDF...</span>
@@ -1846,16 +1864,37 @@ function ReportContent({
 						</>
 					)}
 				</button>
+				<button
+					type="button"
+					onClick={() => {
+						if (!pdfUrl) return;
+						window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+					}}
+					disabled={!pdfUrl || pdfGenerating}
+					className="px-3 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm"
+				>
+					Open PDF
+				</button>
 			</div>
 			<div className="flex-1">
 				{pdfUrl ? (
 					<div className="w-full" style={{ height: '80vh' }}>
-						<iframe
-							title="Yearly Report PDF"
-							className="w-full h-full"
-							style={{ border: 'none' }}
-							src={pdfUrl}
-						/>
+						{inlineError ? (
+							<div className="flex items-center justify-center h-full text-center text-muted-foreground">
+								<div>
+									<p>Inline PDF preview is not supported on this device.</p>
+									<p className="mt-2">Use “Open PDF” to view it.</p>
+								</div>
+							</div>
+						) : (
+							<iframe
+								title="Yearly Report PDF"
+								className="w-full h-full"
+								style={{ border: 'none' }}
+								src={pdfUrl}
+								onError={() => setInlineError(true)}
+							/>
+						)}
 					</div>
 				) : (
 					<div className="flex items-center justify-center h-full">
