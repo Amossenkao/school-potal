@@ -128,6 +128,15 @@ const GradeSubmissions = () => {
 	} | null>(null);
 	const [resultModalOpen, setResultModalOpen] = useState(false);
 
+	useEffect(() => {
+		if (!resultModalOpen) return;
+		const timer = setTimeout(() => {
+			setResultModalOpen(false);
+			setNotification(null);
+		}, 3500);
+		return () => clearTimeout(timer);
+	}, [resultModalOpen]);
+
 	const [filters, setFilters] = useState({
 		subject: '',
 		session: '',

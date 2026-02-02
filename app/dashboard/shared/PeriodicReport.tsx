@@ -9,11 +9,10 @@ import React, {
 import {
 	Document,
 	Page,
-	PDFViewer,
-	PDFDownloadLink,
 	Text,
 	View,
 	Image,
+	pdf,
 } from '@react-pdf/renderer';
 import styles from './styles';
 import { PageLoading } from '@/components/loading';
@@ -95,7 +94,9 @@ const getClassMetaById = (classLevels: any, classId?: string) => {
 		if (!levels || typeof levels !== 'object') continue;
 		for (const [level, levelData] of Object.entries(levels as any)) {
 			if (!levelData?.classes || !Array.isArray(levelData.classes)) continue;
-			const found = levelData.classes.find((cls: any) => cls.classId === classId);
+			const found = levelData.classes.find(
+				(cls: any) => cls.classId === classId,
+			);
 			if (found) {
 				return { session, level, name: found.name };
 			}
@@ -124,7 +125,7 @@ function gradeStyle(score: number | null) {
 
 function paginateStudents(
 	students: PeriodicStudentData[],
-	perPage: number = 3
+	perPage: number = 3,
 ): PeriodicStudentData[][] {
 	const pages: PeriodicStudentData[][] = [];
 	for (let i = 0; i < students.length; i += perPage) {
@@ -228,7 +229,7 @@ function StudentMultiSelect({
 	const dropdownRef = useRef<HTMLDivElement>(null);
 
 	const filteredStudents = students.filter((student) =>
-		student.name.toLowerCase().includes(searchTerm.toLowerCase())
+		student.name.toLowerCase().includes(searchTerm.toLowerCase()),
 	);
 
 	// Close dropdown when clicking outside
@@ -265,10 +266,10 @@ function StudentMultiSelect({
 		selectedStudents.length === 0
 			? 'All students in class...'
 			: selectedStudents.length === students.length
-			? 'All students in class...'
-			: selectedStudents.length <= 3
-			? selectedStudentNames.join(', ')
-			: `${selectedStudents.length} students selected`;
+				? 'All students in class...'
+				: selectedStudents.length <= 3
+					? selectedStudentNames.join(', ')
+					: `${selectedStudents.length} students selected`;
 
 	return (
 		<div className="relative" ref={dropdownRef}>
@@ -403,7 +404,7 @@ function FilterContent({
 	// Determine available sessions from the new structure
 	const availableSessions = useMemo(
 		() => (school?.classLevels ? Object.keys(school.classLevels) : []),
-		[school]
+		[school],
 	);
 
 	// Determine available grade levels for the selected session
@@ -412,7 +413,7 @@ function FilterContent({
 			filters.session
 				? Object.keys(school?.classLevels?.[filters.session] || {})
 				: [],
-		[school, filters.session]
+		[school, filters.session],
 	);
 
 	// Determine available classes for the selected session and grade level
@@ -422,7 +423,7 @@ function FilterContent({
 				? school?.classLevels?.[filters.session]?.[filters.gradeLevel]
 						?.classes || []
 				: [],
-		[school, filters.session, filters.gradeLevel]
+		[school, filters.session, filters.gradeLevel],
 	);
 
 	// Auto-select session if only one is available
@@ -460,7 +461,7 @@ function FilterContent({
 				setLoadingStudents(true);
 				try {
 					const response = await fetch(
-						`/api/users?classId=${filters.className}&role=student&academicYear=${filters.academicYear}`
+						`/api/users?classId=${filters.className}&role=student&academicYear=${filters.academicYear}`,
 					);
 					if (!response.ok) throw new Error('Failed to fetch students');
 					const data = await response.json();
@@ -472,7 +473,7 @@ function FilterContent({
 									student.lastName
 								}`.trim(),
 								className: student.classId,
-							}))
+							})),
 						);
 					} else {
 						setStudents([]);
@@ -532,10 +533,10 @@ function FilterContent({
 	const canSubmit = isStudent
 		? filters.academicYear && filters.period && filters.className
 		: filters.academicYear &&
-		  filters.period &&
-		  filters.session &&
-		  filters.gradeLevel &&
-		  filters.className;
+			filters.period &&
+			filters.session &&
+			filters.gradeLevel &&
+			filters.className;
 
 	const handleSubmit = () => {
 		if (!canSubmit) return;
@@ -575,7 +576,7 @@ function FilterContent({
 	if (isStudent && canAccessReport) {
 		filteredPeriodOptions = periodOptions.filter((period) => {
 			return school?.settings?.studentSettings.reportAccessPeriods.includes(
-				period.id
+				period.id,
 			);
 		});
 	} else if (isStudent && !canAccessReport) {
@@ -785,7 +786,7 @@ function FilterContent({
 							value={filters.className}
 							onChange={(e) => {
 								const selectedClass = availableClasses.find(
-									(c) => c.classId === e.target.value
+									(c) => c.classId === e.target.value,
 								);
 								setFilters((f) => ({
 									...f,
@@ -885,7 +886,7 @@ const PeriodicReportDocument = React.memo(
 		// Memoize the pages calculation
 		const pages = useMemo(
 			() => paginateStudents(studentsData, 3),
-			[studentsData]
+			[studentsData],
 		);
 
 		// Memoize the title
@@ -893,9 +894,9 @@ const PeriodicReportDocument = React.memo(
 			return studentsData.length === 1
 				? `Periodic Report - ${studentsData[0].studentName}`
 				: reportFilters.selectedStudents.length > 0 &&
-				  reportFilters.selectedStudents.length < studentsData.length
-				? `Periodic Report - Selected Students - ${selectedPeriodLabel}`
-				: `Periodic Report - ${className} - ${selectedPeriodLabel}`;
+					  reportFilters.selectedStudents.length < studentsData.length
+					? `Periodic Report - Selected Students - ${selectedPeriodLabel}`
+					: `Periodic Report - ${className} - ${selectedPeriodLabel}`;
 		}, [
 			studentsData,
 			reportFilters.selectedStudents,
@@ -1030,7 +1031,7 @@ const PeriodicReportDocument = React.memo(
 													studentData.subjects.find(
 														(s) =>
 															s?.subject?.toLowerCase() ===
-															subjectName?.toLowerCase()
+															subjectName?.toLowerCase(),
 													);
 												const mark = subject ? subject.grade : null;
 												return (
@@ -1154,7 +1155,7 @@ const PeriodicReportDocument = React.memo(
 					))}
 			</Document>
 		);
-	}
+	},
 );
 
 function ReportContent({
@@ -1176,6 +1177,9 @@ function ReportContent({
 	const [studentsData, setStudentsData] = useState<PeriodicStudentData[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+	const [pdfGenerating, setPdfGenerating] = useState(false);
+	const pdfUrlRef = useRef<string | null>(null);
 	const school = useSchoolStore((state) => state.school);
 	const { user } = useAuth();
 	const isStudent = user?.role === 'student';
@@ -1189,7 +1193,7 @@ function ReportContent({
 		if (isStudent && user?.session && user?.classLevel) {
 			const subjects =
 				school.classLevels?.[user.session]?.[user.classLevel]?.subjects?.map(
-					(s) => s.name
+					(s) => s.name,
 				) || [];
 			return subjects;
 		}
@@ -1243,12 +1247,12 @@ function ReportContent({
 		if (studentsData.length === 1) {
 			return `Periodic_Report_${studentsData[0].studentName.replace(
 				/\s+/g,
-				'_'
+				'_',
 			)}_${timestamp}.pdf`;
 		}
 		return `Periodic_Report_${className.replace(
 			/\s+/g,
-			'_'
+			'_',
 		)}_${selectedPeriodLabel.replace(/\s+/g, '_')}_${timestamp}.pdf`;
 	}, [studentsData, className, selectedPeriodLabel]);
 
@@ -1272,8 +1276,44 @@ function ReportContent({
 		SUBJECTS,
 		className,
 		selectedPeriodLabel,
-		schoolData,
-	]);
+			schoolData,
+		]);
+
+	useEffect(() => {
+		if (!pdfDocument) {
+			if (pdfUrlRef.current) {
+				URL.revokeObjectURL(pdfUrlRef.current);
+				pdfUrlRef.current = null;
+			}
+			setPdfUrl(null);
+			return;
+		}
+
+		let cancelled = false;
+		setPdfGenerating(true);
+		pdf(pdfDocument)
+			.toBlob()
+			.then((blob) => {
+				if (cancelled) return;
+				if (pdfUrlRef.current) {
+					URL.revokeObjectURL(pdfUrlRef.current);
+				}
+				const url = URL.createObjectURL(blob);
+				pdfUrlRef.current = url;
+				setPdfUrl(url);
+			})
+			.catch((err) => {
+				console.error('Failed to generate PDF blob', err);
+				if (!cancelled) setPdfUrl(null);
+			})
+			.finally(() => {
+				if (!cancelled) setPdfGenerating(false);
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [pdfDocument]);
 
 	// Fetch data only once when component mounts - use useCallback to prevent recreation
 	const fetchAndMergeGrades = useCallback(async () => {
@@ -1304,12 +1344,12 @@ function ReportContent({
 				throw new Error(data.message || 'Invalid data format from server');
 			}
 			const gradeReports: PeriodicStudentData[] = Array.isArray(
-				data.data?.report
+				data.data?.report,
 			)
 				? data.data.report
 				: data.data?.report
-				? [data.data.report]
-				: [];
+					? [data.data.report]
+					: [];
 			const gradesMap = new Map<string, PeriodicStudentData>();
 
 			if (Array.isArray(gradeReports)) {
@@ -1342,7 +1382,7 @@ function ReportContent({
 		} catch (err) {
 			console.error('Error fetching and merging grades:', err);
 			setError(
-				err instanceof Error ? err.message : 'Failed to load report data'
+				err instanceof Error ? err.message : 'Failed to load report data',
 			);
 		} finally {
 			setLoading(false);
@@ -1390,7 +1430,7 @@ function ReportContent({
 						{isNoStudentsFound
 							? 'No students were found matching the selected filters.'
 							: error ||
-							  'No periodic student data found for the selected filters.'}
+								'No periodic student data found for the selected filters.'}
 					</p>
 					<button
 						type="button"
@@ -1406,7 +1446,7 @@ function ReportContent({
 
 	return (
 		<div className="w-full h-screen bg-background flex flex-col">
-			<div className="flex justify-between items-center px-8 py-4 bg-background border-b border-border">
+			<div className="flex justify-between items-center px-4 sm:px-8 py-4 bg-background border-b border-border">
 				<button
 					type="button"
 					onClick={handleBack}
@@ -1416,53 +1456,55 @@ function ReportContent({
 				</button>
 
 				{/* Download Button */}
-				{pdfDocument && (
-					<PDFDownloadLink
-						document={pdfDocument}
-						fileName={fileName}
-						className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm inline-flex items-center gap-2"
-					>
-						{({ blob, url, loading, error }) => (
-							<>
-								{loading ? (
-									<>
-										<Spinner size="sm" />
-										<span>Preparing PDF...</span>
-									</>
-								) : (
-									<>
-										<svg
-											className="w-4 h-4"
-											fill="none"
-											stroke="currentColor"
-											viewBox="0 0 24 24"
-										>
-											<path
-												strokeLinecap="round"
-												strokeLinejoin="round"
-												strokeWidth={2}
-												d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-											/>
-										</svg>
-										<span>Download PDF</span>
-									</>
-								)}
-							</>
-						)}
-					</PDFDownloadLink>
-				)}
+				<button
+					type="button"
+					onClick={() => {
+						if (!pdfUrl) return;
+						const link = document.createElement('a');
+						link.href = pdfUrl;
+						link.download = fileName;
+						document.body.appendChild(link);
+						link.click();
+						link.remove();
+					}}
+					disabled={!pdfUrl || pdfGenerating}
+					className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm inline-flex items-center gap-2 disabled:opacity-50"
+				>
+					{pdfGenerating ? (
+						<>
+							<Spinner size="sm" />
+							<span>Preparing PDF...</span>
+						</>
+					) : (
+						<>
+							<svg
+								className="w-4 h-4"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth={2}
+									d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+								/>
+							</svg>
+							<span>Download PDF</span>
+						</>
+					)}
+				</button>
 			</div>
 
 			<div className="flex-1 bg-gray-100">
-				{pdfDocument ? (
+				{pdfUrl ? (
 					<div className="w-full" style={{ height: '80vh' }}>
-						<PDFViewer
-							className="w-full"
-							style={{ height: '100%', width: '100%', border: 'none' }}
-							showToolbar={true}
-						>
-							{pdfDocument}
-						</PDFViewer>
+						<iframe
+							title="Periodic Report PDF"
+							className="w-full h-full"
+							style={{ border: 'none' }}
+							src={pdfUrl}
+						/>
 					</div>
 				) : (
 					<div className="flex items-center justify-center h-full">
@@ -1547,7 +1589,7 @@ export default function PeriodicReportWrapper() {
 				onSubmit={handleFilterSubmit}
 			/>
 		),
-		[filters, handleFilterSubmit]
+		[filters, handleFilterSubmit],
 	);
 
 	// Memoize the report content with a stable key based on filter values

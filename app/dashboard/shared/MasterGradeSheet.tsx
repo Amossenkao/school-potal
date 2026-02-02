@@ -6,12 +6,6 @@ import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
 
 // Types
-interface SubjectInfo {
-	subject: string;
-	level: string;
-	session: 'Morning' | 'Night';
-	_id?: string;
-}
 interface Student {
 	studentId: string;
 	studentName: string;
@@ -31,13 +25,14 @@ interface UserInfo {
 	phone?: string;
 	email?: string;
 	isActive?: boolean;
-	subjects?: SubjectInfo[];
+	subjects?: { year: string; classes: { classId: string; subjects: string[] }[] }[];
 	sponsorClass?: string | null;
 }
 interface GradeMasterProps {
 	academicYear: string;
 	loading: boolean;
 	error: string;
+	teacherInfo?: UserInfo | null;
 }
 
 const periods = [
@@ -86,16 +81,39 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	academicYear: currentAcademicYear,
 	loading: parentLoading,
 	error: parentError,
+	teacherInfo,
 }) => {
 	const { user: userInfo } = useAuth();
 	const currentSchool = useSchoolStore((state) => state.school);
+	const effectiveUser = teacherInfo || userInfo;
+
+	const getClassMetaById = (classId: string) => {
+		if (!classId || !currentSchool?.classLevels) return null;
+		for (const [session, levels] of Object.entries(currentSchool.classLevels)) {
+			if (!levels || typeof levels !== 'object') continue;
+			for (const [level, levelData] of Object.entries(levels)) {
+				if (!levelData?.classes || !Array.isArray(levelData.classes)) continue;
+				const found = levelData.classes.find(
+					(cls: any) => cls.classId === classId
+				);
+				if (found) return { ...found, session, level };
+			}
+		}
+		return null;
+	};
 
 	// Helper functions for options per role
 	const getAllSessions = () =>
 		currentSchool?.classLevels ? Object.keys(currentSchool.classLevels) : [];
 	const getTeacherSessions = () => {
-		if (!userInfo?.subjects) return [];
-		return Array.from(new Set(userInfo.subjects.map((s) => s.session)));
+		const yearData = (effectiveUser?.subjects || []).find(
+			(s) => s.year === selectedAcademicYear
+		);
+		if (!yearData?.classes) return [];
+		const sessions = yearData.classes
+			.map((c) => getClassMetaById(c.classId)?.session)
+			.filter(Boolean) as string[];
+		return Array.from(new Set(sessions));
 	};
 
 	const getAllClassLevels = (session: string) => {
@@ -103,31 +121,35 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		return Object.keys(currentSchool.classLevels[session]);
 	};
 	const getTeacherClassLevels = (session: string) => {
-		if (!userInfo?.subjects) return [];
-		return Array.from(
-			new Set(
-				userInfo.subjects
-					.filter((s) => s.session === session)
-					.map((s) => s.level)
-			)
+		const yearData = (effectiveUser?.subjects || []).find(
+			(s) => s.year === selectedAcademicYear
 		);
+		if (!yearData?.classes) return [];
+		const levels = yearData.classes
+			.map((c) => getClassMetaById(c.classId))
+			.filter((meta) => meta?.session === session)
+			.map((meta) => meta?.level)
+			.filter(Boolean) as string[];
+		return Array.from(new Set(levels));
 	};
 
 	const getAllClasses = (session: string, level: string) => {
 		return currentSchool?.classLevels?.[session]?.[level]?.classes || [];
 	};
 	const getTeacherClasses = (session: string, level: string) => {
-		const all = getAllClasses(session, level);
-		const teacherClassIds =
-			userInfo?.subjects
-				?.filter((s) => s.session === session && s.level === level)
-				?.map((s) => s.sponsorClass)
-				?.filter(Boolean) || [];
-		// If sponsorClass is not set, fallback to all
-		return all.filter(
-			(c: any) =>
-				teacherClassIds.length === 0 || teacherClassIds.includes(c.classId)
+		const yearData = (effectiveUser?.subjects || []).find(
+			(s) => s.year === selectedAcademicYear
 		);
+		if (!yearData?.classes) return [];
+		const classIds = yearData.classes
+			.map((c) => c.classId)
+			.filter((id) => {
+				const meta = getClassMetaById(id);
+				return meta?.session === session && meta?.level === level;
+			});
+		return classIds
+			.map((id) => getClassMetaById(id))
+			.filter(Boolean) as any[];
 	};
 
 	const getAllSubjects = (session: string, level: string) => {
@@ -138,14 +160,18 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		);
 	};
 	const getTeacherSubjects = (session: string, level: string) => {
-		if (!userInfo?.subjects) return [];
-		return Array.from(
-			new Set(
-				userInfo.subjects
-					.filter((s) => s.session === session && s.level === level)
-					.map((s) => s.subject)
-			)
+		const yearData = (effectiveUser?.subjects || []).find(
+			(s) => s.year === selectedAcademicYear
 		);
+		if (!yearData?.classes) return [];
+		const subjects = new Set<string>();
+		yearData.classes.forEach((c) => {
+			const meta = getClassMetaById(c.classId);
+			if (meta?.session === session && meta?.level === level) {
+				(c.subjects || []).forEach((s) => subjects.add(s));
+			}
+		});
+		return Array.from(subjects);
 	};
 
 	// -- Academic Years --
@@ -155,8 +181,11 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 			(currentSchool?.firstAcademicYear
 				? [currentSchool.firstAcademicYear]
 				: []);
-		return schoolYears;
-	}, [currentSchool, currentAcademicYear]);
+		if (effectiveUser?.role !== 'teacher') return schoolYears;
+		const teacherYears =
+			effectiveUser?.subjects?.map((s) => s.year).filter(Boolean) || [];
+		return schoolYears.filter((year) => teacherYears.includes(year));
+	}, [currentSchool, effectiveUser]);
 
 	const [selectedAcademicYear, setSelectedAcademicYear] =
 		useState(currentAcademicYear);
@@ -168,29 +197,41 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	// --- Available options for each filter (dynamic per role) ---
 	const sessions = useMemo(
 		() =>
-			userInfo?.role === 'system_admin'
+			effectiveUser?.role === 'system_admin'
 				? getAllSessions()
 				: getTeacherSessions(),
-		[userInfo, currentSchool]
+		[effectiveUser, currentSchool, selectedAcademicYear]
 	);
 	const classLevels = useMemo(() => {
 		if (!selectedSession) return [];
-		return userInfo?.role === 'system_admin'
+		return effectiveUser?.role === 'system_admin'
 			? getAllClassLevels(selectedSession)
 			: getTeacherClassLevels(selectedSession);
-	}, [selectedSession, userInfo, currentSchool]);
+	}, [selectedSession, effectiveUser, currentSchool, selectedAcademicYear]);
 	const classes = useMemo(() => {
 		if (!selectedSession || !selectedLevel) return [];
-		return userInfo?.role === 'system_admin'
+		return effectiveUser?.role === 'system_admin'
 			? getAllClasses(selectedSession, selectedLevel)
 			: getTeacherClasses(selectedSession, selectedLevel);
-	}, [selectedSession, selectedLevel, userInfo, currentSchool]);
+	}, [
+		selectedSession,
+		selectedLevel,
+		effectiveUser,
+		currentSchool,
+		selectedAcademicYear,
+	]);
 	const subjects = useMemo(() => {
 		if (!selectedSession || !selectedLevel) return [];
-		return userInfo?.role === 'system_admin'
+		return effectiveUser?.role === 'system_admin'
 			? getAllSubjects(selectedSession, selectedLevel)
 			: getTeacherSubjects(selectedSession, selectedLevel);
-	}, [selectedSession, selectedLevel, userInfo, currentSchool]);
+	}, [
+		selectedSession,
+		selectedLevel,
+		effectiveUser,
+		currentSchool,
+		selectedAcademicYear,
+	]);
 
 	// --- Auto-select and hide filter logic (per role) ---
 	useEffect(() => {
@@ -221,7 +262,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	// Reset logic when parent filter changes
 	const handleAcademicYearChange = (v: string) => {
 		setSelectedAcademicYear(v);
-		setSelectedSession(sessions.length === 1 ? sessions[0] : '');
+		setSelectedSession('');
 		setSelectedLevel('');
 		setSelectedClass('');
 		setSelectedSubject('');
@@ -247,7 +288,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 	// ----------- DATA FETCHING LOGIC -----------
 	const [studentsData, setStudentsData] = useState<Student[]>([]);
-	const [gradesData, setGradesData] = useState<any>(null);
+	const [gradesData, setGradesData] = useState<any[]>([]);
 	const [combinedData, setCombinedData] = useState<Student[]>([]);
 	const [pdfKey, setPdfKey] = useState(0);
 	const [loading, setLoading] = useState({
@@ -261,11 +302,20 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		subjects: '',
 	});
 
-	const combineStudentsAndGrades = (students: Student[], grades: any) => {
-		const gradesMap = new Map();
-		if (grades?.students) {
-			grades.students.forEach((gradeStudent: any) => {
-				gradesMap.set(gradeStudent.studentId, gradeStudent.periods || {});
+	const combineStudentsAndGrades = (
+		students: Student[],
+		grades: any[]
+	) => {
+		const gradesMap = new Map<string, Record<string, any>>();
+		if (Array.isArray(grades)) {
+			grades.forEach((grade) => {
+				if (!gradesMap.has(grade.studentId)) {
+					gradesMap.set(grade.studentId, {});
+				}
+				gradesMap.get(grade.studentId)![grade.period] = {
+					grade: grade.grade,
+					status: grade.status,
+				};
 			});
 		}
 		return students.map((student) => ({
@@ -281,7 +331,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				setError((prev) => ({ ...prev, students: '' }));
 				try {
 					const res = await fetch(
-						`/api/users?role=student&classId=${selectedClass}`
+						`/api/users?role=student&academicYear=${selectedAcademicYear}&classId=${selectedClass}`
 					);
 					if (!res.ok) {
 						throw new Error('Failed to fetch students');
@@ -289,7 +339,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					const data = await res.json();
 					if (data.success) {
 						const students = data.data.map((student: any) => ({
-							studentId: student.studentId,
+							studentId: student.studentId || student.id || student._id,
 							studentName: `${student.firstName} ${student.lastName}`.trim(),
 						}));
 						setStudentsData(students);
@@ -327,27 +377,29 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					}
 					const data = await res.json();
 					if (data.success) {
-						setGradesData(data.data?.report || null);
+						setGradesData(
+							Array.isArray(data.data?.grades) ? data.data.grades : []
+						);
 					} else {
 						throw new Error('API returned unsuccessful response');
 					}
 				} catch (err) {
 					setError((prev) => ({ ...prev, grades: 'Failed to load grades.' }));
 					console.error('Error fetching grades:', err);
-					setGradesData(null);
+					setGradesData([]);
 				} finally {
 					setLoading((prev) => ({ ...prev, grades: false }));
 				}
 			};
 			fetchGrades();
 		} else {
-			setGradesData(null);
+			setGradesData([]);
 		}
 	}, [selectedAcademicYear, selectedClass, selectedSubject]);
 
 	useEffect(() => {
 		if (studentsData.length > 0) {
-			const combined = combineStudentsAndGrades(studentsData, gradesData);
+			const combined = combineStudentsAndGrades(studentsData, gradesData || []);
 			setCombinedData(combined);
 			setPdfKey((prev) => prev + 1);
 		} else {
@@ -434,7 +486,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		return (
 			<div className="text-center text-destructive py-8">{parentError}</div>
 		);
-	if (!userInfo) {
+	if (!effectiveUser) {
 		return (
 			<div className="text-center text-muted-foreground py-8">
 				User information is not available. Please refresh the page.
@@ -442,8 +494,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		);
 	}
 	if (
-		userInfo.role === 'teacher' &&
-		(!userInfo.subjects || userInfo.subjects.length === 0)
+		effectiveUser.role === 'teacher' &&
+		(!effectiveUser.subjects || effectiveUser.subjects.length === 0)
 	) {
 		return (
 			<div className="text-center text-muted-foreground py-8">
@@ -473,14 +525,14 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
 					<h3 className="text-xl font-semibold text-card-foreground">
 						Master Grade Sheet
-						{userInfo?.role === 'system_admin' && (
+						{effectiveUser?.role === 'system_admin' && (
 							<span className="ml-2 text-sm text-muted-foreground font-normal">
 								(Admin View - All Access)
 							</span>
 						)}
 					</h3>
 					<p className="text-sm text-muted-foreground mt-1 sm:mt-0">
-						{userInfo?.role === 'system_admin'
+						{effectiveUser?.role === 'system_admin'
 							? 'View grades for any class and subject.'
 							: 'View all grades for your assigned classes and subjects.'}
 					</p>
@@ -642,9 +694,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 								<GradesPDFDownload
 									key={pdfKey}
 									disabled={isLoading}
-									userInfo={userInfo}
+									teacherInfo={effectiveUser}
 									gradeData={{
-										...gradesData,
+										grades: gradesData,
 										students: combinedData.map((student) => ({
 											...student,
 											periods: Object.fromEntries(

@@ -10,7 +10,6 @@ import QRCode from 'qrcode';
 import {
 	Document,
 	Page,
-	PDFViewer,
 	Text,
 	View,
 	Image,
@@ -1416,7 +1415,9 @@ function ReportContent({
 	const [classSponsor, setClassSponsor] = useState<string | undefined>(
 		undefined
 	);
-	const [pdfIsReady, setPdfIsReady] = useState(false); // STATE for PDF readiness
+	const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+	const [pdfGenerating, setPdfGenerating] = useState(false);
+	const pdfUrlRef = useRef<string | null>(null);
 
 	const school = useSchoolStore((state) => state.school);
 	const currentSchool = useSchoolStore((state) => state.school);
@@ -1454,8 +1455,6 @@ function ReportContent({
 	useEffect(() => {
 		const fetchStudentsData = async () => {
 			setLoading(true);
-			// CRUCIAL: Reset pdfIsReady here before starting the fetch
-			setPdfIsReady(false);
 			setError(null);
 
 			try {
@@ -1686,7 +1685,6 @@ function ReportContent({
 	const pdfDocument = useMemo(() => {
 		// Only proceed if data is loaded and no error
 		if (!studentsData.length || loading || error) {
-			setPdfIsReady(false);
 			return null;
 		}
 
@@ -1702,10 +1700,6 @@ function ReportContent({
 			/>
 		);
 
-		// CRUCIAL: Set the readiness flag to true immediately after the component is constructed.
-		// This guarantees the 'Generating PDF' screen stays until the synchronous work finishes.
-		setPdfIsReady(true);
-
 		return component;
 	}, [
 		studentsData,
@@ -1718,29 +1712,60 @@ function ReportContent({
 		classSponsor,
 	]);
 
+	useEffect(() => {
+		if (!pdfDocument) {
+			if (pdfUrlRef.current) {
+				URL.revokeObjectURL(pdfUrlRef.current);
+				pdfUrlRef.current = null;
+			}
+			setPdfUrl(null);
+			return;
+		}
+
+		let cancelled = false;
+		setPdfGenerating(true);
+		pdf(pdfDocument)
+			.toBlob()
+			.then((blob) => {
+				if (cancelled) return;
+				if (pdfUrlRef.current) {
+					URL.revokeObjectURL(pdfUrlRef.current);
+				}
+				const url = URL.createObjectURL(blob);
+				pdfUrlRef.current = url;
+				setPdfUrl(url);
+			})
+			.catch((err) => {
+				console.error('Failed to generate PDF blob', err);
+				if (!cancelled) setPdfUrl(null);
+			})
+			.finally(() => {
+				if (!cancelled) setPdfGenerating(false);
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [pdfDocument]);
+
 	// Download handler
 	const handleDownload = useCallback(async () => {
-		if (!pdfDocument) return;
-
+		if (!pdfUrl) return;
 		setDownloading(true);
 		try {
-			const blob = await pdf(pdfDocument).toBlob();
-			const url = URL.createObjectURL(blob);
 			const a = document.createElement('a');
-			a.href = url;
+			a.href = pdfUrl;
 			a.download = `Yearly_Report_${className}_${reportFilters.academicYear}.pdf`;
 			document.body.appendChild(a);
 			a.click();
 			a.remove();
-			URL.revokeObjectURL(url);
 		} finally {
 			setDownloading(false);
 		}
-	}, [pdfDocument, className, reportFilters.academicYear]);
+	}, [pdfUrl, className, reportFilters.academicYear]);
 
-	// FIX: The loading state remains visible if data is fetching OR if the heavy memoization hasn't finished.
-	if (loading || !pdfIsReady) {
-		return <PageLoading fullScreen={false} message="Generating PDF" />;
+	if (loading) {
+		return <PageLoading fullScreen={false} message="Loading report" />;
 	}
 
 	if (error) {
@@ -1795,9 +1820,11 @@ function ReportContent({
 					type="button"
 					onClick={handleDownload}
 					className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm flex items-center gap-2"
-					disabled={downloading}
+					disabled={downloading || pdfGenerating || !pdfUrl}
 				>
-					{downloading ? (
+					{pdfGenerating ? (
+						<span>Preparing PDF...</span>
+					) : downloading ? (
 						<span>Downloading...</span>
 					) : (
 						<>
@@ -1821,10 +1848,22 @@ function ReportContent({
 				</button>
 			</div>
 			<div className="flex-1">
-				{/* The check above ensures pdfDocument is not null and pdfIsReady is true */}
-				<PDFViewer className="w-full h-[calc(100vh-80px)] bg-background">
-					{pdfDocument}
-				</PDFViewer>
+				{pdfUrl ? (
+					<div className="w-full" style={{ height: '80vh' }}>
+						<iframe
+							title="Yearly Report PDF"
+							className="w-full h-full"
+							style={{ border: 'none' }}
+							src={pdfUrl}
+						/>
+					</div>
+				) : (
+					<div className="flex items-center justify-center h-full">
+						<div className="text-center text-muted-foreground">
+							Preparing PDF...
+						</div>
+					</div>
+				)}
 			</div>
 		</div>
 	);

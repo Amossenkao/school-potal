@@ -748,6 +748,17 @@ export async function GET(request: NextRequest) {
 				});
 			}
 
+			if (academicYear && classId && subject) {
+				const query: any = { academicYear, classId, subject };
+				if (period) query.period = period;
+				if (status) query.status = status;
+				const grades = (await Grade.find(query).lean()) as GradeRecord[];
+				return NextResponse.json({
+					success: true,
+					data: { grades, academicYear, classId, subject, period },
+				});
+			}
+
 			if (academicYear && classId && period) {
 				const query: any = { academicYear, classId, period };
 				if (status) query.status = status;
