@@ -6,6 +6,7 @@ import GradeSubmissions from './GradeSubmissions';
 import SubmitGrade from './SubmitGrade';
 import MasterGradeSheet from '../../shared/MasterGradeSheet';
 import TeacherGradeChangeRequests from './GradeRequests';
+import useAuth from '@/store/useAuth';
 
 interface TeacherInfo {
 	name: string;
@@ -27,6 +28,7 @@ const PageLoading = ({ fullScreen = true }: { fullScreen?: boolean }) => (
 
 const GradeManagement = () => {
 	const [activeTab, setActiveTab] = useState('overview');
+	const { user } = useAuth();
 
 	// API Data States
 	const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
@@ -54,28 +56,20 @@ const GradeManagement = () => {
 
 	// Fetch teacher info on component mount
 	useEffect(() => {
-		console.log(getAcademicYear());
-		const fetchTeacherInfo = async () => {
-			setLoading((prev) => ({ ...prev, teacherInfo: true }));
-			try {
-				const res = await fetch('/api/auth/me');
-				if (!res.ok) throw new Error('Failed to fetch teacher info');
-				const data = await res.json();
-				setTeacherInfo(data.user);
-				setAcademicYear(getAcademicYear());
-				setError((prev) => ({ ...prev, teacherInfo: '' }));
-			} catch (err) {
-				setError((prev) => ({
-					...prev,
-					teacherInfo: 'Failed to load teacher information.',
-				}));
-				console.error(err);
-			} finally {
-				setLoading((prev) => ({ ...prev, teacherInfo: false }));
-			}
-		};
-		fetchTeacherInfo();
-	}, []);
+		setLoading((prev) => ({ ...prev, teacherInfo: true }));
+		if (user && user.role === 'teacher') {
+			setTeacherInfo(user as TeacherInfo);
+			setAcademicYear(getAcademicYear());
+			setError((prev) => ({ ...prev, teacherInfo: '' }));
+		} else {
+			setTeacherInfo(null);
+			setError((prev) => ({
+				...prev,
+				teacherInfo: 'Failed to load teacher information.',
+			}));
+		}
+		setLoading((prev) => ({ ...prev, teacherInfo: false }));
+	}, [user]);
 
 	const handleSwitchToSubmit = () => setActiveTab('submit');
 	const handleSwitchToOverview = () => setActiveTab('overview');

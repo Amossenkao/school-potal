@@ -229,6 +229,7 @@ export default function CalendarAndSchedules({
 				const uniqueKeys = Array.from(new Set(levelKeys));
 				const classResults: ClassScheduleItem[] = [];
 				const testResults: TestScheduleItem[] = [];
+				const keysToFetch: { session: string; level: string }[] = [];
 
 				for (const key of uniqueKeys) {
 					const [session, level] = key.split('::');
@@ -245,7 +246,18 @@ export default function CalendarAndSchedules({
 					if (cachedTestSchedules) {
 						testResults.push(...cachedTestSchedules);
 					}
+					if (!cachedClassSchedules || !cachedTestSchedules) {
+						keysToFetch.push({ session, level });
+					}
+				}
 
+				for (const { session, level } of keysToFetch) {
+					const classCacheKey = `schedules:class:${academicYear}:${session}:${level}`;
+					const testCacheKey = `schedules:test:${academicYear}:${session}:${level}`;
+					const cachedClassSchedules =
+						getClientCache<ClassScheduleItem[]>(classCacheKey);
+					const cachedTestSchedules =
+						getClientCache<TestScheduleItem[]>(testCacheKey);
 					const classParams = new URLSearchParams({
 						type: 'class',
 						session,
@@ -262,58 +274,78 @@ export default function CalendarAndSchedules({
 						testParams.set('academicYear', academicYear);
 					}
 
-					const [classRes, testRes] = await Promise.all([
-						fetch(`/api/schedules?${classParams.toString()}`),
-						fetch(`/api/schedules?${testParams.toString()}`),
-					]);
+					const requests: Array<{
+						type: 'class' | 'test';
+						promise: Promise<Response>;
+					}> = [];
 
-					const [classPayload, testPayload] = await Promise.all([
-						classRes.json(),
-						testRes.json(),
-					]);
-
-					if (classRes.ok && classPayload?.success) {
-						const mapped = (classPayload.data || []).map((item: any) => {
-							const meta = item.classId
-								? classOptionsById.get(item.classId)
-								: null;
-							return {
-								id: item._id,
-								classId: item.classId || meta?.classId || '',
-								className: item.className || meta?.className || '',
-								level: item.level || meta?.level || '',
-								session: item.session || meta?.session || '',
-								subject: item.subject,
-								isRecess: item.isRecess || false,
-								dayOfWeek: item.dayOfWeek || '',
-								startTime: item.startTime || '',
-								endTime: item.endTime || '',
-							};
+					if (!cachedClassSchedules) {
+						requests.push({
+							type: 'class',
+							promise: fetch(`/api/schedules?${classParams.toString()}`),
 						});
-						classResults.push(...mapped);
-						setClientCache(classCacheKey, mapped);
+					}
+					if (!cachedTestSchedules) {
+						requests.push({
+							type: 'test',
+							promise: fetch(`/api/schedules?${testParams.toString()}`),
+						});
 					}
 
-					if (testRes.ok && testPayload?.success) {
-						const mapped = (testPayload.data || []).map((item: any) => {
-							const meta = item.classId
-								? classOptionsById.get(item.classId)
-								: null;
-							return {
-								id: item._id,
-								level: item.level || meta?.level || '',
-								session: item.session || meta?.session || '',
-								title: item.title || '',
-								subject: item.subject,
-								date: item.startDate || '',
-								startTime: item.startTime || '',
-								endTime: item.endTime || '',
-								venue: item.venue || item.location || '',
-							};
-						});
-						testResults.push(...mapped);
-						setClientCache(testCacheKey, mapped);
-					}
+					if (requests.length === 0) continue;
+
+					const responses = await Promise.all(
+						requests.map((request) => request.promise),
+					);
+					const payloads = await Promise.all(
+						responses.map((response) => response.json()),
+					);
+
+					responses.forEach((response, index) => {
+						const payload = payloads[index];
+						const requestType = requests[index].type;
+						if (requestType === 'class' && response.ok && payload?.success) {
+							const mapped = (payload.data || []).map((item: any) => {
+								const meta = item.classId
+									? classOptionsById.get(item.classId)
+									: null;
+								return {
+									id: item._id,
+									classId: item.classId || meta?.classId || '',
+									className: item.className || meta?.className || '',
+									level: item.level || meta?.level || '',
+									session: item.session || meta?.session || '',
+									subject: item.subject,
+									isRecess: item.isRecess || false,
+									dayOfWeek: item.dayOfWeek || '',
+									startTime: item.startTime || '',
+									endTime: item.endTime || '',
+								};
+							});
+							classResults.push(...mapped);
+							setClientCache(classCacheKey, mapped);
+						}
+						if (requestType === 'test' && response.ok && payload?.success) {
+							const mapped = (payload.data || []).map((item: any) => {
+								const meta = item.classId
+									? classOptionsById.get(item.classId)
+									: null;
+								return {
+									id: item._id,
+									level: item.level || meta?.level || '',
+									session: item.session || meta?.session || '',
+									title: item.title || '',
+									subject: item.subject,
+									date: item.startDate || '',
+									startTime: item.startTime || '',
+									endTime: item.endTime || '',
+									venue: item.venue || item.location || '',
+								};
+							});
+							testResults.push(...mapped);
+							setClientCache(testCacheKey, mapped);
+						}
+					});
 				}
 
 				setClassSchedules(classResults);
@@ -1046,7 +1078,10 @@ export default function CalendarAndSchedules({
 						<CardTitle>Academic Calendar</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<Calendar canEdit={isSystemAdmin} academicYear={academicYear} />
+						<Calendar
+							canEdit={isSystemAdmin}
+							academicYear={academicYear}
+						/>
 						{!isSystemAdmin ? (
 							<p className="mt-4 text-sm text-muted-foreground"></p>
 						) : null}

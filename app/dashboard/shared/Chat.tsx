@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import useAuth from '@/store/useAuth';
+import { getClientCache, setClientCache } from '@/utils/clientCache';
 
 // INTERFACES
 interface Contact {
@@ -91,19 +92,11 @@ export default function SchoolMessages() {
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const emojiPickerRef = useRef<HTMLDivElement>(null);
 	const menuRef = useRef<HTMLDivElement>(null);
-	const streamRef = useRef<EventSource | null>(null);
-	const aiBufferRef = useRef('');
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 	});
-
-	useEffect(() => {
-		return () => {
-			streamRef.current?.close();
-		};
-	}, []);
 
 	useEffect(() => {
 		inputRef.current?.focus();
@@ -136,9 +129,17 @@ export default function SchoolMessages() {
 
 	useEffect(() => {
 		let isMounted = true;
+		const cacheKey = `chat:history:${user?.id || user?.username || 'me'}`;
 		const loadChatHistory = async () => {
 			setIsHistoryLoading(true);
 			try {
+				const cached = getClientCache<Message[]>(cacheKey);
+				if (cached && cached.length > 0) {
+					setMessages(cached);
+					setIsHistoryLoading(false);
+					return;
+				}
+
 				const res = await fetch('/api/chat');
 				if (!res.ok) throw new Error('Failed to load chat history');
 				const data = await res.json();
@@ -147,12 +148,14 @@ export default function SchoolMessages() {
 
 				if (history.length === 0) {
 					const greetingName = user?.firstName ? ` ${user.firstName}` : '';
-					setMessages([
+					const greeting = [
 						{
 							...initialAiMessage,
 							content: `Hello${greetingName}! I'm your AI study assistant. How can I help you today?`,
 						},
-					]);
+					];
+					setMessages(greeting);
+					setClientCache(cacheKey, greeting);
 				} else {
 					const mapped: Message[] = history.map((msg: any, index: number) => ({
 						id: `history-${index}-${new Date(msg.timestamp).getTime()}`,
@@ -166,6 +169,7 @@ export default function SchoolMessages() {
 						isRead: true,
 					}));
 					setMessages(mapped);
+					setClientCache(cacheKey, mapped);
 				}
 			} catch (error) {
 				console.error('Failed to load chat history:', error);
@@ -181,7 +185,7 @@ export default function SchoolMessages() {
 		return () => {
 			isMounted = false;
 		};
-	}, [selectedChat?.id, user?.firstName]);
+	}, [selectedChat?.id, user?.firstName, user?.id, user?.username]);
 
 	const handleSendMessage = async () => {
 		if (!newMessage.trim() || !selectedChat || isLoading) return;
@@ -213,58 +217,33 @@ export default function SchoolMessages() {
 		setMessages((prev) => [...prev, aiPlaceholder]);
 
 		try {
-			streamRef.current?.close();
-			aiBufferRef.current = '';
-			const streamUrl = `/api/chat/stream?prompt=${encodeURIComponent(
-				currentInput,
-			)}`;
-			const eventSource = new EventSource(streamUrl);
-			streamRef.current = eventSource;
-
-			eventSource.onmessage = (event) => {
-				try {
-					const data = JSON.parse(event.data);
-					if (data?.delta) {
-						aiBufferRef.current += data.delta;
-						setMessages((prev) =>
-							prev.map((msg) =>
-								msg.id === aiResponseId
-									? {
-											...msg,
-											content: aiBufferRef.current,
-											isTyping: false,
-											isRead: true,
-									  }
-									: msg,
-							),
-						);
-					}
-					if (data?.done) {
-						eventSource.close();
-						streamRef.current = null;
-						setIsLoading(false);
-					}
-				} catch (error) {
-					console.error('Stream parse error:', error);
-				}
-			};
-
-			eventSource.onerror = () => {
-				eventSource.close();
-				streamRef.current = null;
-				setIsLoading(false);
-				setMessages((prev) =>
-					prev.map((msg) =>
-						msg.id === aiResponseId
-							? {
-									...msg,
-									content: 'Sorry, I ran into an error. Please try again.',
-									isTyping: false,
-							  }
-							: msg,
-					),
+			const res = await fetch('/api/chat', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ prompt: currentInput }),
+			});
+			if (!res.ok) throw new Error('Failed to fetch AI response');
+			const data = await res.json();
+			const responseText =
+				typeof data?.text === 'string' && data.text.trim().length > 0
+					? data.text
+					: 'Sorry, I could not generate a response.';
+			const cacheKey = `chat:history:${user?.id || user?.username || 'me'}`;
+			setMessages((prev) => {
+				const next = prev.map((msg) =>
+					msg.id === aiResponseId
+						? {
+								...msg,
+								content: responseText,
+								isTyping: false,
+								isRead: true,
+						  }
+						: msg,
 				);
-			};
+				setClientCache(cacheKey, next);
+				return next;
+			});
+			setIsLoading(false);
 		} catch (error) {
 			console.error('Error fetching AI response:', error);
 			setMessages((prev) =>
@@ -360,17 +339,18 @@ export default function SchoolMessages() {
 		if (isClearing) return;
 		setIsClearing(true);
 		try {
-			streamRef.current?.close();
-			streamRef.current = null;
 			const res = await fetch('/api/chat', { method: 'DELETE' });
 			if (!res.ok) throw new Error('Failed to clear chat');
 			const greetingName = user?.firstName ? ` ${user.firstName}` : '';
-			setMessages([
+			const resetMessages = [
 				{
 					...initialAiMessage,
 					content: `Hello${greetingName}! I'm your AI study assistant. How can I help you today?`,
 				},
-			]);
+			];
+			setMessages(resetMessages);
+			const cacheKey = `chat:history:${user?.id || user?.username || 'me'}`;
+			setClientCache(cacheKey, resetMessages);
 			setIsClearDialogOpen(false);
 			setShowMenu(false);
 		} catch (error) {

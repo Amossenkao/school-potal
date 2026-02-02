@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useSchoolStore } from '@/store/schoolStore';
 import { PageLoading } from '@/components/loading';
+import useAuth from '@/store/useAuth';
 
 // Types
 interface TeacherInfo {
@@ -59,6 +60,7 @@ const allPeriods = [
 
 const SubmitGrade: React.FC = () => {
 	const school = useSchoolStore((state) => state.school);
+	const { user } = useAuth();
 	const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
 	const [selectedPeriods, setSelectedPeriods] = useState<string[]>([]);
 	const [selectedSubject, setSelectedSubject] = useState('');
@@ -183,26 +185,19 @@ const SubmitGrade: React.FC = () => {
 	};
 
 	useEffect(() => {
-		const fetchTeacherInfo = async () => {
-			setLoading((prev) => ({ ...prev, teacherInfo: true }));
-			try {
-				const res = await fetch('/api/auth/me');
-				if (!res.ok) throw new Error('Failed to fetch teacher info');
-				const data = await res.json();
-				setTeacherInfo(data.user);
-				setError((prev) => ({ ...prev, teacherInfo: '' }));
-			} catch (err) {
-				setError((prev) => ({
-					...prev,
-					teacherInfo: 'Failed to load teacher information.',
-				}));
-				console.error(err);
-			} finally {
-				setLoading((prev) => ({ ...prev, teacherInfo: false }));
-			}
-		};
-		fetchTeacherInfo();
-	}, []);
+		setLoading((prev) => ({ ...prev, teacherInfo: true }));
+		if (user && user.role === 'teacher') {
+			setTeacherInfo(user as TeacherInfo);
+			setError((prev) => ({ ...prev, teacherInfo: '' }));
+		} else {
+			setTeacherInfo(null);
+			setError((prev) => ({
+				...prev,
+				teacherInfo: 'Failed to load teacher information.',
+			}));
+		}
+		setLoading((prev) => ({ ...prev, teacherInfo: false }));
+	}, [user]);
 
 	const yearAssignment = useMemo(() => {
 		return (teacherInfo?.subjects || []).find(

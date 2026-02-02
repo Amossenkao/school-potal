@@ -19,6 +19,7 @@ import styles from './styles';
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
+import { getClientCache, setClientCache } from '@/utils/clientCache';
 import Spinner from '@/components/ui/spinner';
 import AccessDenied from '@/components/AccessDenied';
 
@@ -461,21 +462,27 @@ function FilterContent({
 			if (filters.className) {
 				setLoadingStudents(true);
 				try {
+					const cacheKey = `periodic:students:${filters.academicYear}:${filters.className}`;
+					const cached = getClientCache<Student[]>(cacheKey);
+					if (cached) {
+						setStudents(cached);
+						return;
+					}
 					const response = await fetch(
 						`/api/users?classId=${filters.className}&role=student&academicYear=${filters.academicYear}`,
 					);
 					if (!response.ok) throw new Error('Failed to fetch students');
 					const data = await response.json();
 					if (data.success && data.data) {
-						setStudents(
-							data.data.map((student: any) => ({
-								id: student.studentId,
-								name: `${student.firstName} ${student.middleName || ''} ${
-									student.lastName
-								}`.trim(),
-								className: student.classId,
-							})),
-						);
+						const mapped = data.data.map((student: any) => ({
+							id: student.studentId,
+							name: `${student.firstName} ${student.middleName || ''} ${
+								student.lastName
+							}`.trim(),
+							className: student.classId,
+						}));
+						setStudents(mapped);
+						setClientCache(cacheKey, mapped);
 					} else {
 						setStudents([]);
 					}
@@ -493,7 +500,11 @@ function FilterContent({
 		if (!isStudent) {
 			fetchStudents();
 		}
-	}, [filters.className, isStudent]);
+	}, [
+		filters.className,
+		filters.academicYear,
+		isStudent,
+	]);
 
 	// Set default academic year on component mount
 	useEffect(() => {
@@ -1397,6 +1408,14 @@ function ReportContent({
 			setLoading(true);
 			setError(null);
 
+			const cacheKey = `periodic:report:${reportFilters.academicYear}:${reportFilters.className}:${reportFilters.period}`;
+			const cachedReport = getClientCache<PeriodicStudentData[]>(cacheKey);
+			if (cachedReport) {
+				setStudentsData(cachedReport);
+				setLoading(false);
+				return;
+			}
+
 			const params = new URLSearchParams({
 				period: reportFilters.period,
 				academicYear: reportFilters.academicYear,
@@ -1448,6 +1467,7 @@ function ReportContent({
 			});
 
 			setStudentsData(finalReportData);
+			setClientCache(cacheKey, finalReportData);
 		} catch (err) {
 			console.error('Error fetching and merging grades:', err);
 			setError(

@@ -5,6 +5,7 @@ import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
 import { Loader2, Search } from 'lucide-react';
 import ViewUserModal from '@/components/modals/ViewUserModal';
+import { getClientCache, setClientCache } from '@/utils/clientCache';
 
 const getFullName = (user: any) =>
 	`${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User';
@@ -12,7 +13,6 @@ const getFullName = (user: any) =>
 const Community = () => {
 	const { user } = useAuth();
 	const schoolProfile = useSchoolStore((state) => state.school);
-
 	const [roleFilter, setRoleFilter] = useState<'student' | 'teacher' | 'administrator'>(
 		'student',
 	);
@@ -26,10 +26,6 @@ const Community = () => {
 	}>({ students: [], teachers: [], administrators: [] });
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState('');
-	const cacheRef = React.useRef<Record<
-		string,
-		{ students: any[]; teachers: any[]; administrators: any[] }
-	>>({});
 	const [currentPage, setCurrentPage] = useState(1);
 	const [itemsPerPage, setItemsPerPage] = useState(10);
 	const [viewingUser, setViewingUser] = useState<any>(null);
@@ -80,8 +76,14 @@ const Community = () => {
 	useEffect(() => {
 		const fetchCommunity = async () => {
 			if (!academicYear) return;
-			if (cacheRef.current[academicYear]) {
-				setCommunityData(cacheRef.current[academicYear]);
+			const cacheKey = `community:${academicYear}`;
+			const cached = getClientCache<{
+				students: any[];
+				teachers: any[];
+				administrators: any[];
+			}>(cacheKey);
+			if (cached) {
+				setCommunityData(cached);
 				return;
 			}
 			setLoading(true);
@@ -101,7 +103,7 @@ const Community = () => {
 						? data.data.administrators
 						: [],
 				};
-				cacheRef.current[academicYear] = payload;
+				setClientCache(cacheKey, payload);
 				setCommunityData(payload);
 			} catch (err: any) {
 				setError(err.message || 'Failed to load community.');

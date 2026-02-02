@@ -13,6 +13,7 @@ import {
 	ChevronRight,
 } from 'lucide-react';
 import { PageLoading } from '@/components/loading';
+import { getClientCache, setClientCache } from '@/utils/clientCache';
 
 // --- TYPES ---
 interface TeacherInfo {
@@ -77,10 +78,20 @@ const TeacherGradeChangeRequests = ({
 	const [currentPage, setCurrentPage] = useState(1);
 	const [itemsPerPage, setItemsPerPage] = useState(5);
 
-	const fetchRequests = async () => {
+	const fetchRequests = async (skipCache = false) => {
 		setLoading(true);
 		setError('');
 		try {
+			const cacheKey = `gradeRequests:${getCurrentAcademicYear()}:${
+				teacherInfo?.username || 'teacher'
+			}`;
+			if (!skipCache) {
+				const cached = getClientCache<BatchRequest[]>(cacheKey);
+				if (cached) {
+					setRequests(cached);
+					return;
+				}
+			}
 			const res = await fetch(
 				`/api/grades/requests?academicYear=${getCurrentAcademicYear()}`
 			);
@@ -88,6 +99,7 @@ const TeacherGradeChangeRequests = ({
 				throw new Error('Failed to fetch your grade change requests.');
 			const data = await res.json();
 			setRequests(data.data.report);
+			setClientCache(cacheKey, data.data.report);
 		} catch (err) {
 			setError(
 				'Could not load your grade change requests. Please try again later.'
@@ -121,7 +133,7 @@ const TeacherGradeChangeRequests = ({
 				const errorData = await res.json();
 				throw new Error(errorData.message || 'Failed to withdraw request.');
 			}
-			await fetchRequests();
+			await fetchRequests(true);
 		} catch (err: any) {
 			alert(`Error: ${err.message}`);
 		}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
 	Search,
@@ -35,6 +35,7 @@ import FilterUsersModal from '@/components/modals/FilterUsersModal';
 import EditUserModal from '@/components/modals/EditUserModal';
 import DeactivateUserModal from '@/components/modals/DeactivateUserModal';
 import { useSchoolStore } from '@/store/schoolStore';
+import { getClientCache, setClientCache } from '@/utils/clientCache';
 
 const API_URL = '/api/users';
 
@@ -247,6 +248,11 @@ const UserManagementDashboard = () => {
 	// Pagination state
 	const [currentPage, setCurrentPage] = useState(1);
 	const [itemsPerPage, setItemsPerPage] = useState(10);
+	const [serverPage, setServerPage] = useState(1);
+	const [totalUsers, setTotalUsers] = useState<number | null>(null);
+	const [roleCounts, setRoleCounts] = useState<Record<string, number>>({});
+	const [isFetchingMore, setIsFetchingMore] = useState(false);
+	const serverPageSize = 100;
 	// Sorting state
 	const [sortField, setSortField] = useState('fullName');
 	const [sortDirection, setSortDirection] = useState('asc');
@@ -394,27 +400,76 @@ const UserManagementDashboard = () => {
 		};
 	};
 
-	const fetchUsers = async () => {
-		setLoading(true);
-		try {
-			const res = await fetch(
-				`${API_URL}?academicYear=${selectedAcademicYear}`,
-			);
-			const data = await res.json();
-			if (data.success) {
-				const userList = normalizeUsers(data.data)
-					.filter(Boolean)
-					.map(normalizeUser);
-				setUsers(userList);
+	const fetchUsers = useCallback(
+		async (page = 1, replace = false) => {
+			const isInitialLoad = page === 1;
+			if (isInitialLoad) {
+				setLoading(true);
 			} else {
-				setUsers([]);
+				setIsFetchingMore(true);
 			}
-		} catch (e) {
-			setUsers([]);
-		} finally {
-			setLoading(false);
-		}
-	};
+
+			try {
+				const cacheKey = `manageUsers:${selectedAcademicYear}`;
+				const params = new URLSearchParams();
+				params.set('academicYear', selectedAcademicYear);
+				params.set('limit', String(serverPageSize));
+				params.set('page', String(page));
+				params.set('includeCounts', '1');
+
+				const res = await fetch(`${API_URL}?${params.toString()}`);
+				const data = await res.json();
+				if (data.success) {
+					const userList = normalizeUsers(data.data)
+						.filter(Boolean)
+						.map(normalizeUser);
+					let nextUsers: any[] = [];
+					setUsers((currentUsers) => {
+						if (replace) return userList;
+						const seen = new Set(
+							currentUsers.map((u) => u.id || u._id),
+						);
+						const merged = [...currentUsers];
+						userList.forEach((user) => {
+							const id = user.id || user._id;
+							if (id && !seen.has(id)) {
+								seen.add(id);
+								merged.push(user);
+							}
+						});
+						nextUsers = merged;
+						return merged;
+					});
+					setServerPage(page);
+					const nextTotal =
+						data?.meta?.total !== undefined ? data.meta.total : totalUsers;
+					const nextCounts = data?.meta?.counts || roleCounts;
+					if (data?.meta?.total !== undefined) {
+						setTotalUsers(data.meta.total);
+					}
+					if (data?.meta?.counts) {
+						setRoleCounts(data.meta.counts);
+					}
+					setClientCache(cacheKey, {
+						users: replace ? userList : nextUsers,
+						totalUsers: typeof nextTotal === 'number' ? nextTotal : null,
+						roleCounts: nextCounts,
+						serverPage: page,
+					});
+				} else if (replace) {
+					setUsers([]);
+				}
+			} catch (e) {
+				if (replace) {
+					setUsers([]);
+				}
+			} finally {
+				setLoading(false);
+				setIsFetchingMore(false);
+			}
+		},
+		[selectedAcademicYear, serverPageSize, totalUsers, roleCounts],
+	);
 
 	useEffect(() => {
 		fetchSchool();
@@ -429,33 +484,63 @@ const UserManagementDashboard = () => {
 
 	useEffect(() => {
 		if (!schoolProfile) return;
-		fetchUsers();
-	}, [schoolProfile, selectedAcademicYear]);
+		setCurrentPage(1);
+		setServerPage(1);
+		setTotalUsers(null);
+		setRoleCounts({});
+		setUsers([]);
+		const cacheKey = `manageUsers:${selectedAcademicYear}`;
+		const cached = getClientCache<{
+			users: any[];
+			totalUsers: number | null;
+			roleCounts: Record<string, number>;
+			serverPage: number;
+		}>(cacheKey);
+		if (cached) {
+			setUsers(cached.users || []);
+			setTotalUsers(
+				typeof cached.totalUsers === 'number' ? cached.totalUsers : null,
+			);
+			setRoleCounts(cached.roleCounts || {});
+			setServerPage(cached.serverPage || 1);
+			setLoading(false);
+			return;
+		}
+		fetchUsers(1, true);
+	}, [schoolProfile, selectedAcademicYear, fetchUsers]);
 
-	const userTypes = useMemo(
-		() => [
-			{ key: 'all', label: 'All Users', icon: Users, count: users.length },
+	const userTypes = useMemo(() => {
+		const totalCount = totalUsers ?? users.length;
+		const studentCount =
+			roleCounts.student ?? users.filter((u) => u.role === 'student').length;
+		const teacherCount =
+			roleCounts.teacher ?? users.filter((u) => u.role === 'teacher').length;
+		const adminCount =
+			roleCounts.administrator ??
+			users.filter((u) => u.role === 'administrator').length;
+
+		return [
+			{ key: 'all', label: 'All Users', icon: Users, count: totalCount },
 			{
 				key: 'student',
 				label: 'Students',
 				icon: GraduationCap,
-				count: users.filter((u) => u.role === 'student').length,
+				count: studentCount,
 			},
 			{
 				key: 'teacher',
 				label: 'Teachers',
 				icon: BookOpen,
-				count: users.filter((u) => u.role === 'teacher').length,
+				count: teacherCount,
 			},
 			{
 				key: 'administrator',
 				label: 'Administrators',
 				icon: Shield,
-				count: users.filter((u) => u.role === 'administrator').length,
+				count: adminCount,
 			},
-		],
-		[users],
-	);
+		];
+	}, [users, roleCounts, totalUsers]);
 
 	const getFullName = (user: any) => {
 		if (user.fullName) return user.fullName;
@@ -597,7 +682,32 @@ const UserManagementDashboard = () => {
 		sortDirection,
 	]);
 
-	const totalPages = Math.ceil(filteredAndSortedUsers.length / itemsPerPage);
+	const isAdditionalFilterActive =
+		searchTerm.trim().length > 0 ||
+		statusFilter !== 'all' ||
+		sessionFilter !== 'all' ||
+		classLevelFilter !== 'all' ||
+		classFilter !== 'all' ||
+		subjectFilter !== 'all';
+
+	const tabTotal =
+		activeTab === 'all'
+			? totalUsers ?? filteredAndSortedUsers.length
+			: roleCounts[activeTab] ?? filteredAndSortedUsers.length;
+
+	const hasMoreServer = !isAdditionalFilterActive
+		? tabTotal > filteredAndSortedUsers.length
+		: false;
+
+	const displayTotalResults = isAdditionalFilterActive
+		? filteredAndSortedUsers.length
+		: tabTotal;
+
+	const totalPages = Math.max(
+		1,
+		Math.ceil(filteredAndSortedUsers.length / itemsPerPage),
+	);
+	const canGoNext = currentPage < totalPages || hasMoreServer;
 	const startIndex = (currentPage - 1) * itemsPerPage;
 	const paginatedUsers = filteredAndSortedUsers.slice(
 		startIndex,
@@ -612,6 +722,25 @@ const UserManagementDashboard = () => {
 			setSortDirection('asc');
 		}
 	};
+
+	const handleNextPage = useCallback(async () => {
+		if (isFetchingMore) return;
+		if (currentPage < totalPages) {
+			setCurrentPage(currentPage + 1);
+			return;
+		}
+		if (hasMoreServer) {
+			await fetchUsers(serverPage + 1, false);
+			setCurrentPage((prev) => prev + 1);
+		}
+	}, [
+		currentPage,
+		totalPages,
+		hasMoreServer,
+		fetchUsers,
+		serverPage,
+		isFetchingMore,
+	]);
 
 	const getSortIcon = (field: any) => {
 		if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />;
@@ -629,6 +758,19 @@ const UserManagementDashboard = () => {
 		setClassFilter('all');
 		setSubjectFilter('all');
 	};
+
+	useEffect(() => {
+		setCurrentPage(1);
+	}, [
+		activeTab,
+		searchTerm,
+		statusFilter,
+		sessionFilter,
+		classLevelFilter,
+		classFilter,
+		subjectFilter,
+		itemsPerPage,
+	]);
 
 	const getStatusColor = (isActive: boolean) => {
 		return isActive
@@ -677,9 +819,49 @@ const UserManagementDashboard = () => {
 	};
 
 	const handleDeleteSuccess = (deletedUserId: string) => {
-		setUsers((currentUsers) =>
-			currentUsers.filter((u) => (u.id || u._id) !== deletedUserId),
-		);
+		setUsers((currentUsers) => {
+			const deletedUser = currentUsers.find(
+				(u) => (u.id || u._id) === deletedUserId,
+			);
+			if (deletedUser) {
+				if (totalUsers !== null) {
+					setTotalUsers((prev) =>
+						prev !== null ? Math.max(0, prev - 1) : prev,
+					);
+				}
+				if (deletedUser.role) {
+					setRoleCounts((prev) => ({
+						...prev,
+						[deletedUser.role]: Math.max(
+							0,
+							(prev[deletedUser.role] || 0) - 1,
+						),
+					}));
+				}
+			}
+			const nextUsers = currentUsers.filter(
+				(u) => (u.id || u._id) !== deletedUserId,
+			);
+			const cacheKey = `manageUsers:${selectedAcademicYear}`;
+			setClientCache(cacheKey, {
+				users: nextUsers,
+				totalUsers:
+					typeof totalUsers === 'number'
+						? Math.max(0, totalUsers - 1)
+						: totalUsers,
+				roleCounts: deletedUser?.role
+					? {
+							...roleCounts,
+							[deletedUser.role]: Math.max(
+								0,
+								(roleCounts[deletedUser.role] || 0) - 1,
+							),
+					  }
+					: roleCounts,
+				serverPage,
+			});
+			return nextUsers;
+		});
 	};
 
 	const handleResetPasswordSuccess = () => {
@@ -983,7 +1165,7 @@ const UserManagementDashboard = () => {
 								<option value={50}>50</option>
 							</select>
 							<span className="text-sm text-muted-foreground">
-								of {filteredAndSortedUsers.length} results
+								of {displayTotalResults} results
 							</span>
 						</div>
 
@@ -1054,10 +1236,8 @@ const UserManagementDashboard = () => {
 								)}
 							</div>
 							<Button
-								onClick={() =>
-									setCurrentPage(Math.min(totalPages, currentPage + 1))
-								}
-								disabled={currentPage === totalPages}
+								onClick={() => void handleNextPage()}
+								disabled={!canGoNext || isFetchingMore}
 								className="p-2 rounded hover:bg-muted disabled:opacity-50 disabled:hover:bg-transparent"
 							>
 								<span className="hidden sm:inline">Next</span>

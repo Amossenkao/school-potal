@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
 	Card,
@@ -9,9 +9,25 @@ import {
 	CardTitle,
 } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import useAuth from '@/store/useAuth'; // Assuming this is your global auth store
 import {
-	ArrowLeft,
+	Dialog,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
+import useAuth from '@/store/useAuth'; // Assuming this is your global auth store
+import { useSchoolStore } from '@/store/schoolStore';
+import {
+	Document,
+	Page,
+	Text,
+	View,
+	StyleSheet,
+	PDFDownloadLink,
+	Image,
+} from '@react-pdf/renderer';
+import {
 	CheckCircle,
 	XCircle,
 	Loader2,
@@ -28,19 +44,178 @@ import {
 	Filter,
 	Eye,
 	Receipt,
-	X,
-	DollarSign,
-	Hash,
 } from 'lucide-react';
+
+const receiptStyles = StyleSheet.create({
+	page: {
+		flexDirection: 'column',
+		backgroundColor: '#FFFFFF',
+		padding: 24,
+		fontSize: 10,
+	},
+	headerRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		marginBottom: 12,
+	},
+	logo: {
+		width: 55,
+		height: 55,
+	},
+	headerCenter: {
+		flex: 1,
+		alignItems: 'center',
+		justifyContent: 'center',
+		paddingHorizontal: 8,
+	},
+	schoolName: {
+		fontSize: 16,
+		fontWeight: 'bold',
+		textAlign: 'center',
+	},
+	schoolDetails: {
+		fontSize: 9,
+		textAlign: 'center',
+		color: '#5a5a5a',
+	},
+	divider: {
+		height: 1,
+		backgroundColor: '#e5e7eb',
+		marginVertical: 10,
+	},
+	title: {
+		fontSize: 12,
+		fontWeight: 'bold',
+		textAlign: 'center',
+		marginBottom: 12,
+	},
+	section: {
+		marginBottom: 10,
+		borderWidth: 1,
+		borderColor: '#e5e7eb',
+		padding: 10,
+		borderRadius: 6,
+	},
+	label: {
+		fontSize: 9,
+		color: '#6b7280',
+		marginBottom: 2,
+	},
+	value: {
+		fontSize: 11,
+		fontWeight: 'bold',
+	},
+	row: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		marginBottom: 6,
+		gap: 8,
+	},
+});
+
+const ReceiptDocument = ({ payment, school }: { payment: any; school: any }) => (
+	<Document>
+		<Page size="A4" style={receiptStyles.page}>
+			<View style={receiptStyles.headerRow}>
+				{school?.logoUrl ? (
+					<Image src={school.logoUrl} style={receiptStyles.logo} />
+				) : (
+					<View style={receiptStyles.logo} />
+				)}
+				<View style={receiptStyles.headerCenter}>
+					<Text style={receiptStyles.schoolName}>{school?.name}</Text>
+					<Text style={receiptStyles.schoolDetails}>
+						{Array.isArray(school?.address)
+							? school.address.join('\n')
+							: school?.address || ''}
+					</Text>
+				</View>
+				{school?.logoUrl2 || school?.logoUrl ? (
+					<Image
+						src={school?.logoUrl2 || school?.logoUrl}
+						style={receiptStyles.logo}
+					/>
+				) : (
+					<View style={receiptStyles.logo} />
+				)}
+			</View>
+			<View style={receiptStyles.divider} />
+			<Text style={receiptStyles.title}>Payment Receipt</Text>
+			<View style={receiptStyles.section}>
+				<View style={receiptStyles.row}>
+					<View>
+						<Text style={receiptStyles.label}>Receipt Number</Text>
+						<Text style={receiptStyles.value}>{payment.receiptNumber}</Text>
+					</View>
+					<View>
+						<Text style={receiptStyles.label}>Academic Year</Text>
+						<Text style={receiptStyles.value}>{payment.paymentAcademicYear}</Text>
+					</View>
+				</View>
+				<View style={receiptStyles.row}>
+					<View>
+						<Text style={receiptStyles.label}>Paid By</Text>
+						<Text style={receiptStyles.value}>{payment.paidBy}</Text>
+					</View>
+					<View>
+						<Text style={receiptStyles.label}>Fee Type</Text>
+						<Text style={receiptStyles.value}>{payment.feeType}</Text>
+					</View>
+				</View>
+				<View style={receiptStyles.row}>
+					<View>
+						<Text style={receiptStyles.label}>Payment Method</Text>
+						<Text style={receiptStyles.value}>{payment.category}</Text>
+					</View>
+					<View>
+						<Text style={receiptStyles.label}>Amount</Text>
+						<Text style={receiptStyles.value}>
+							LRD {Number(payment.paymentAmount).toFixed(2)}
+						</Text>
+					</View>
+				</View>
+				<View style={receiptStyles.row}>
+					<View>
+						<Text style={receiptStyles.label}>Date</Text>
+						<Text style={receiptStyles.value}>{payment.paymentDate}</Text>
+					</View>
+					<View>
+						<Text style={receiptStyles.label}>Time</Text>
+						<Text style={receiptStyles.value}>{payment.paymentTime}</Text>
+					</View>
+				</View>
+			</View>
+			<Text style={receiptStyles.schoolDetails}>
+				This receipt is generated electronically and is valid without a
+				signature.
+			</Text>
+		</Page>
+	</Document>
+);
 
 export default function PaymentHistory() {
 	const { user, isLoading } = useAuth(); // Get user from global state
 
 	// Component states
-	const [payments, setPayments] = useState([]);
-	const [filteredPayments, setFilteredPayments] = useState([]);
+	const [payments, setPayments] = useState<any[]>([]);
+	const [filteredPayments, setFilteredPayments] = useState<any[]>([]);
 	const [isLoadingPayments, setIsLoadingPayments] = useState(false);
 	const [error, setError] = useState('');
+	const school = useSchoolStore((state) => state.school);
+
+	const getPaymentTypeLabel = (type) => {
+		switch (type) {
+			case 'tuition':
+				return 'Tuition Fees';
+			case 'registration':
+				return 'Registration Fees';
+			case 'other':
+				return 'Other Fees';
+			default:
+				return type;
+		}
+	};
 
 	// Filter states
 	const [searchTerm, setSearchTerm] = useState('');
@@ -52,90 +227,44 @@ export default function PaymentHistory() {
 	const [selectedPayment, setSelectedPayment] = useState(null);
 	const [showModal, setShowModal] = useState(false);
 
-	// API Configuration
-	const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+	const normalizePayments = useMemo(() => {
+		const records = user?.financialProfile?.paymentRecords || [];
+		return records.map((record: any) => ({
+			id: record.id,
+			type: record.feeType,
+			amount: record.paymentAmount,
+			status: 'completed',
+			paymentMethod: record.category,
+			phoneNumber: user?.phone || 'N/A',
+			date: `${record.paymentDate}T${record.paymentTime || '00:00'}:00Z`,
+			transactionId: record.receiptNumber,
+			description: `${getPaymentTypeLabel(record.feeType)} - ${
+				record.paymentAcademicYear
+			}`,
+			raw: record,
+		}));
+	}, [user]);
 
-	// Mock payment data (replace with actual API call)
-	const mockPayments = [
-		{
-			id: 'PAY001',
-			type: 'tuition',
-			amount: 750.0,
-			status: 'completed',
-			paymentMethod: 'orange',
-			phoneNumber: '+231 77 123 4567',
-			date: '2024-08-05T10:30:00Z',
-			transactionId: 'TXN123456789',
-			description: 'Tuition Fees - Semester 1',
-		},
-		{
-			id: 'PAY002',
-			type: 'registration',
-			amount: 150.0,
-			status: 'completed',
-			paymentMethod: 'lonester',
-			phoneNumber: '+231 88 654 3210',
-			date: '2024-07-20T14:15:00Z',
-			transactionId: 'TXN987654321',
-			description: 'Registration Fees - Academic Year 2024',
-		},
-		{
-			id: 'PAY003',
-			type: 'other',
-			amount: 50.0,
-			status: 'pending',
-			paymentMethod: 'orange',
-			phoneNumber: '+231 77 123 4567',
-			date: '2024-08-08T09:00:00Z',
-			transactionId: 'TXN456789123',
-			description: 'Library Fees',
-		},
-		{
-			id: 'PAY004',
-			type: 'tuition',
-			amount: 375.0,
-			status: 'failed',
-			paymentMethod: 'lonester',
-			phoneNumber: '+231 88 654 3210',
-			date: '2024-08-01T16:45:00Z',
-			transactionId: 'TXN789123456',
-			description: 'Partial Tuition Payment',
-		},
-	];
+	const refreshPayments = () => {
+		setPayments(normalizePayments);
+		setFilteredPayments(normalizePayments);
+	};
 
 	// Fetch payment history
 	useEffect(() => {
-		if (user) {
-			fetchPaymentHistory();
-		}
-	}, [user]);
-
-	const fetchPaymentHistory = async () => {
+		if (!user) return;
 		setIsLoadingPayments(true);
 		setError('');
-
 		try {
-			// Replace with actual API call
-			// const response = await fetch(`${API_BASE_URL}/payments/history/${user.id}`);
-			// if (response.ok) {
-			//   const data = await response.json();
-			//   setPayments(data);
-			// } else {
-			//   throw new Error('Failed to fetch payment history');
-			// }
-
-			// Using mock data for demonstration
-			setTimeout(() => {
-				setPayments(mockPayments);
-				setFilteredPayments(mockPayments);
-				setIsLoadingPayments(false);
-			}, 1000);
+			setPayments(normalizePayments);
+			setFilteredPayments(normalizePayments);
 		} catch (error) {
 			console.error('Error fetching payment history:', error);
 			setError('Failed to load payment history');
+		} finally {
 			setIsLoadingPayments(false);
 		}
-	};
+	}, [user, normalizePayments]);
 
 	// Filter payments based on search and filters
 	useEffect(() => {
@@ -185,19 +314,6 @@ export default function PaymentHistory() {
 
 		setFilteredPayments(filtered);
 	}, [payments, searchTerm, statusFilter, typeFilter, dateFilter]);
-
-	const getPaymentTypeLabel = (type) => {
-		switch (type) {
-			case 'tuition':
-				return 'Tuition Fees';
-			case 'registration':
-				return 'Registration Fees';
-			case 'other':
-				return 'Other Fees';
-			default:
-				return type;
-		}
-	};
 
 	const getPaymentTypeIcon = (type) => {
 		switch (type) {
@@ -255,6 +371,7 @@ export default function PaymentHistory() {
 	};
 
 	const formatDate = (dateString) => {
+		if (!dateString) return 'N/A';
 		const date = new Date(dateString);
 		return date.toLocaleDateString('en-US', {
 			year: 'numeric',
@@ -263,13 +380,6 @@ export default function PaymentHistory() {
 			hour: '2-digit',
 			minute: '2-digit',
 		});
-	};
-
-	const downloadReceipt = (payment) => {
-		// Implement receipt download logic
-		console.log('Downloading receipt for payment:', payment.id);
-		// You can implement actual download functionality here
-		// For example, generate a PDF or redirect to receipt endpoint
 	};
 
 	const viewPaymentDetails = (payment) => {
@@ -317,19 +427,9 @@ export default function PaymentHistory() {
 	return (
 		<div className="min-h-screen bg-background">
 			{/* Main Content */}
-			<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+			<div className="w-full px-4 sm:px-6 lg:px-8 py-8">
 				{/* Header */}
 				<div className="mb-8">
-					<div className="flex items-center gap-4 mb-4">
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={() => window.history.back()}
-						>
-							<ArrowLeft className="h-4 w-4 mr-2" />
-							Back
-						</Button>
-					</div>
 					<h1 className="text-3xl sm:text-4xl font-bold mb-2">
 						Payment History
 					</h1>
@@ -349,7 +449,14 @@ export default function PaymentHistory() {
 					<CardContent>
 						<div className="flex gap-4 items-start border p-4 rounded-lg bg-muted/50">
 							<Avatar className="w-12 h-12">
-								<AvatarImage src={user.profilePhoto} />
+								<AvatarImage
+									src={
+										user.profilePictureUrl ||
+										user.avatar ||
+										(user as any).profilePhoto ||
+										''
+									}
+								/>
 								<AvatarFallback>
 									{user.firstName?.[0]}
 									{user.lastName?.[0]}
@@ -360,10 +467,10 @@ export default function PaymentHistory() {
 									{user.firstName} {user.lastName}
 								</h3>
 								<p className="text-sm text-muted-foreground">
-									Student ID: {user.id}
+									Student ID: {user.studentId || user.id}
 								</p>
 								<p className="text-sm text-muted-foreground">
-									Class: {user.class || 'Grade 9'}
+									Class: {user.className || 'Grade 9'}
 								</p>
 							</div>
 						</div>
@@ -382,7 +489,7 @@ export default function PaymentHistory() {
 									</h3>
 									<p className="text-red-700 dark:text-red-300">{error}</p>
 									<Button
-										onClick={fetchPaymentHistory}
+										onClick={refreshPayments}
 										variant="outline"
 										size="sm"
 										className="mt-4"
@@ -556,20 +663,38 @@ export default function PaymentHistory() {
 												<div className="flex items-center gap-4">
 													<div className="text-right">
 														<p className="text-lg font-semibold">
-															${payment.amount.toFixed(2)}
+															LRD {Number(payment.amount).toFixed(2)}
 														</p>
 														<p className="text-sm text-muted-foreground">
 															{getPaymentTypeLabel(payment.type)}
 														</p>
 													</div>
 													<div className="flex gap-2">
-														<Button
-															variant="outline"
-															size="sm"
-															onClick={() => downloadReceipt(payment)}
-														>
-															<Download className="h-4 w-4" />
-														</Button>
+														{school ? (
+															<PDFDownloadLink
+																document={
+																	<ReceiptDocument
+																		payment={payment.raw}
+																		school={school}
+																	/>
+																}
+																fileName={`receipt-${payment.id}.pdf`}
+															>
+																{({ loading }) => (
+																	<Button variant="outline" size="sm">
+																		{loading ? (
+																			<Loader2 className="h-4 w-4 animate-spin" />
+																		) : (
+																			<Download className="h-4 w-4" />
+																		)}
+																	</Button>
+																)}
+															</PDFDownloadLink>
+														) : (
+															<Button variant="outline" size="sm" disabled>
+																<Download className="h-4 w-4" />
+															</Button>
+														)}
 														<Button
 															variant="outline"
 															size="sm"
@@ -588,6 +713,117 @@ export default function PaymentHistory() {
 					</CardContent>
 				</Card>
 			</div>
+
+			<Dialog open={showModal} onOpenChange={(open) => setShowModal(open)}>
+				<DialogContent className="max-w-lg">
+					<DialogHeader>
+						<DialogTitle>Payment Details</DialogTitle>
+					</DialogHeader>
+					{selectedPayment ? (
+						<div className="space-y-4 text-sm">
+							<div className="flex items-center justify-between gap-4">
+								<div>
+									<p className="text-muted-foreground">Receipt Number</p>
+									<p className="font-semibold">
+										{selectedPayment.raw.receiptNumber}
+									</p>
+								</div>
+								<div className="text-right">
+									<p className="text-muted-foreground">Amount</p>
+									<p className="font-semibold">
+										LRD {Number(selectedPayment.amount).toFixed(2)}
+									</p>
+								</div>
+							</div>
+							<div className="grid gap-3 sm:grid-cols-2">
+								<div>
+									<p className="text-muted-foreground">Paid By</p>
+									<p className="font-semibold">
+										{selectedPayment.raw.paidBy}
+									</p>
+								</div>
+								<div>
+									<p className="text-muted-foreground">Fee Type</p>
+									<p className="font-semibold">
+										{getPaymentTypeLabel(selectedPayment.type)}
+									</p>
+								</div>
+								<div>
+									<p className="text-muted-foreground">Payment Method</p>
+									<p className="font-semibold">
+										{selectedPayment.paymentMethod === 'orange'
+											? 'Orange Money'
+											: selectedPayment.paymentMethod === 'lonester'
+												? 'Lonester Mobile Money'
+												: selectedPayment.paymentMethod}
+									</p>
+								</div>
+								<div>
+									<p className="text-muted-foreground">Academic Year</p>
+									<p className="font-semibold">
+										{selectedPayment.raw.paymentAcademicYear}
+									</p>
+								</div>
+								<div>
+									<p className="text-muted-foreground">Date</p>
+									<p className="font-semibold">
+										{selectedPayment.raw.paymentDate}
+									</p>
+								</div>
+								<div>
+									<p className="text-muted-foreground">Time</p>
+									<p className="font-semibold">
+										{selectedPayment.raw.paymentTime}
+									</p>
+								</div>
+								<div>
+									<p className="text-muted-foreground">Student ID</p>
+									<p className="font-semibold">
+										{user?.studentId || user?.id}
+									</p>
+								</div>
+								<div>
+									<p className="text-muted-foreground">Status</p>
+									<p className="font-semibold capitalize">
+										{selectedPayment.status}
+									</p>
+								</div>
+							</div>
+						</div>
+					) : null}
+					<DialogFooter className="flex flex-wrap gap-2 sm:justify-between">
+						{selectedPayment && school ? (
+							<PDFDownloadLink
+								document={
+									<ReceiptDocument payment={selectedPayment.raw} school={school} />
+								}
+								fileName={`receipt-${selectedPayment.id}.pdf`}
+							>
+								{({ loading }) => (
+									<Button type="button" variant="outline" size="sm">
+										{loading ? (
+											<Loader2 className="h-4 w-4 animate-spin" />
+										) : (
+											<>
+												<Download className="h-4 w-4 mr-2" />
+												Download Receipt
+											</>
+										)}
+									</Button>
+								)}
+							</PDFDownloadLink>
+						) : (
+							<Button type="button" variant="outline" size="sm" disabled>
+								<Download className="h-4 w-4 mr-2" />
+								Download Receipt
+							</Button>
+						)}
+						<Button type="button" onClick={closeModal} size="sm">
+							Close
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

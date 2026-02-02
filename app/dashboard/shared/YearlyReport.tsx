@@ -7,14 +7,7 @@ import React, {
 	useCallback,
 } from 'react';
 import QRCode from 'qrcode';
-import {
-	Document,
-	Page,
-	Text,
-	View,
-	Image,
-	pdf,
-} from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, pdf } from '@react-pdf/renderer';
 import {
 	Facebook,
 	Mail,
@@ -27,6 +20,7 @@ import styles from './styles'; // Assuming styles is defined elsewhere
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
+import { getClientCache, setClientCache } from '@/utils/clientCache';
 import Spinner from '@/components/ui/spinner';
 import AccessDenied from '@/components/AccessDenied';
 
@@ -97,7 +91,9 @@ const getClassMetaById = (classLevels: any, classId?: string) => {
 		if (!levels || typeof levels !== 'object') continue;
 		for (const [level, levelData] of Object.entries(levels as any)) {
 			if (!levelData?.classes || !Array.isArray(levelData.classes)) continue;
-			const found = levelData.classes.find((cls: any) => cls.classId === classId);
+			const found = levelData.classes.find(
+				(cls: any) => cls.classId === classId,
+			);
 			if (found) {
 				return { session, level, name: found.name };
 			}
@@ -124,9 +120,9 @@ const StudentMultiSelect = React.memo(function StudentMultiSelect({
 	const filteredStudents = useMemo(
 		() =>
 			students.filter((student) =>
-				student.name.toLowerCase().includes(searchTerm.toLowerCase())
+				student.name.toLowerCase().includes(searchTerm.toLowerCase()),
 			),
-		[students, searchTerm]
+		[students, searchTerm],
 	);
 
 	useEffect(() => {
@@ -152,7 +148,7 @@ const StudentMultiSelect = React.memo(function StudentMultiSelect({
 				: [...selectedStudents, studentId];
 			onSelectionChange(newSelection);
 		},
-		[selectedStudents, onSelectionChange]
+		[selectedStudents, onSelectionChange],
 	);
 
 	const selectedStudentNames = useMemo(
@@ -160,7 +156,7 @@ const StudentMultiSelect = React.memo(function StudentMultiSelect({
 			students
 				.filter((s) => selectedStudents.includes(s.id))
 				.map((s) => s.name),
-		[students, selectedStudents]
+		[students, selectedStudents],
 	);
 
 	const handleSelectAll = useCallback(
@@ -168,7 +164,7 @@ const StudentMultiSelect = React.memo(function StudentMultiSelect({
 			e.stopPropagation();
 			onSelectionChange(students.map((s) => s.id));
 		},
-		[students, onSelectionChange]
+		[students, onSelectionChange],
 	);
 
 	const handleClearAll = useCallback(
@@ -176,7 +172,7 @@ const StudentMultiSelect = React.memo(function StudentMultiSelect({
 			e.stopPropagation();
 			onSelectionChange([]);
 		},
-		[onSelectionChange]
+		[onSelectionChange],
 	);
 
 	return (
@@ -313,7 +309,7 @@ const FilterContent = React.memo(function FilterContent({
 				: '');
 		const classMeta = getClassMetaById(
 			currentSchool?.classLevels,
-			classIdForYear
+			classIdForYear,
 		);
 
 		setFilters((prev) => ({
@@ -328,7 +324,7 @@ const FilterContent = React.memo(function FilterContent({
 	const availableSessions = useMemo(
 		() =>
 			currentSchool?.classLevels ? Object.keys(currentSchool.classLevels) : [],
-		[currentSchool?.classLevels]
+		[currentSchool?.classLevels],
 	);
 
 	const userAvailableSessions = useMemo(() => {
@@ -342,7 +338,7 @@ const FilterContent = React.memo(function FilterContent({
 			filters.session && currentSchool?.classLevels?.[filters.session]
 				? Object.keys(currentSchool.classLevels[filters.session])
 				: [],
-		[filters.session, currentSchool?.classLevels]
+		[filters.session, currentSchool?.classLevels],
 	);
 
 	const availableClasses = useMemo(
@@ -353,7 +349,7 @@ const FilterContent = React.memo(function FilterContent({
 				?.classes
 				? currentSchool.classLevels[filters.session][filters.classLevel].classes
 				: [],
-		[filters.session, filters.classLevel, currentSchool?.classLevels]
+		[filters.session, filters.classLevel, currentSchool?.classLevels],
 	);
 
 	useEffect(() => {
@@ -404,8 +400,14 @@ const FilterContent = React.memo(function FilterContent({
 			const fetchStudents = async () => {
 				setLoadingStudents(true);
 				try {
+					const cacheKey = `yearly:students:${filters.academicYear}:${filters.className}`;
+					const cached = getClientCache<Student[]>(cacheKey);
+					if (cached) {
+						setStudents(cached);
+						return;
+					}
 					const response = await fetch(
-						`/api/users?classId=${filters.className}&role=student&academicYear=${filters.academicYear}`
+						`/api/users?classId=${filters.className}&role=student&academicYear=${filters.academicYear}`,
 					);
 					const responseData = await response.json();
 					if (responseData.success && responseData.data) {
@@ -417,6 +419,7 @@ const FilterContent = React.memo(function FilterContent({
 							className: student.classId,
 						}));
 						setStudents(mappedStudents);
+						setClientCache(cacheKey, mappedStudents);
 					} else {
 						setStudents([]);
 					}
@@ -434,7 +437,12 @@ const FilterContent = React.memo(function FilterContent({
 				setFilters((prev) => ({ ...prev, selectedStudents: [] }));
 			}
 		}
-	}, [filters.className, isStudent, setFilters]);
+	}, [
+		filters.className,
+		filters.academicYear,
+		isStudent,
+		setFilters,
+	]);
 
 	const canSubmit = useMemo(() => {
 		if (isStudent) {
@@ -818,7 +826,7 @@ const PDFDocument = React.memo(function PDFDocument({
 										</Text>
 										<Text
 											style={gradeStyle(
-												studentData.firstSemesterAverage[subject]
+												studentData.firstSemesterAverage[subject],
 											)}
 										>
 											{studentData.firstSemesterAverage[subject]?.toFixed(0) ??
@@ -846,7 +854,7 @@ const PDFDocument = React.memo(function PDFDocument({
 									</Text>
 									<Text
 										style={gradeStyle(
-											studentData.periodAverages.third_period_exam
+											studentData.periodAverages.third_period_exam,
 										)}
 									>
 										{studentData.periodAverages.third_period_exam?.toFixed(1) ??
@@ -854,11 +862,11 @@ const PDFDocument = React.memo(function PDFDocument({
 									</Text>
 									<Text
 										style={gradeStyle(
-											studentData.periodAverages.firstSemesterAverage
+											studentData.periodAverages.firstSemesterAverage,
 										)}
 									>
 										{studentData.periodAverages.firstSemesterAverage?.toFixed(
-											1
+											1,
 										) ?? '-'}
 									</Text>
 								</View>
@@ -929,7 +937,7 @@ const PDFDocument = React.memo(function PDFDocument({
 										</Text>
 										<Text
 											style={gradeStyle(
-												studentData.secondSemesterAverage[subject]
+												studentData.secondSemesterAverage[subject],
 											)}
 										>
 											{studentData.secondSemesterAverage[subject]?.toFixed(0) ??
@@ -957,7 +965,7 @@ const PDFDocument = React.memo(function PDFDocument({
 									</Text>
 									<Text
 										style={gradeStyle(
-											studentData.periodAverages.six_period_exam
+											studentData.periodAverages.six_period_exam,
 										)}
 									>
 										{studentData.periodAverages.six_period_exam?.toFixed(1) ??
@@ -965,11 +973,11 @@ const PDFDocument = React.memo(function PDFDocument({
 									</Text>
 									<Text
 										style={gradeStyle(
-											studentData.periodAverages.secondSemesterAverage
+											studentData.periodAverages.secondSemesterAverage,
 										)}
 									>
 										{studentData.periodAverages.secondSemesterAverage?.toFixed(
-											1
+											1,
 										) ?? '-'}
 									</Text>
 									<Text style={gradeStyle(studentData.yearlyAverage)}>
@@ -1368,7 +1376,7 @@ const PDFDocument = React.memo(function PDFDocument({
 													}}
 												></Text>
 											</View>
-										)
+										),
 									)}
 								</View>
 								<View style={styles.noteSection}>
@@ -1421,7 +1429,7 @@ function ReportContent({
 	const [error, setError] = useState<string | null>(null);
 	const [downloading, setDownloading] = useState(false);
 	const [classSponsor, setClassSponsor] = useState<string | undefined>(
-		undefined
+		undefined,
 	);
 	const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 	const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
@@ -1473,7 +1481,7 @@ function ReportContent({
 				reportFilters.classLevel
 			]?.subjects || [];
 		return subjects.map((subject: any) =>
-			typeof subject === 'string' ? subject : subject.name
+			typeof subject === 'string' ? subject : subject.name,
 		);
 	}, [currentSchool, reportFilters.session, reportFilters.classLevel]);
 
@@ -1496,21 +1504,42 @@ function ReportContent({
 						},
 					];
 				} else {
-					const studentsResponse = await fetch(
-						`/api/users?classId=${reportFilters.className}&role=student`
-					);
-					if (!studentsResponse.ok) throw new Error('Failed to fetch students');
-					const studentsResult = await studentsResponse.json();
-					if (!studentsResult.success || !studentsResult.data) {
-						throw new Error('Invalid student data format');
-					}
-
-					if (reportFilters.selectedStudents.length > 0) {
-						studentsToProcess = studentsResult.data.filter((student: any) =>
-							reportFilters.selectedStudents.includes(student.studentId)
-						);
+					const cacheKey = `yearly:students:${reportFilters.academicYear}:${reportFilters.className}`;
+					const cached = getClientCache<any[]>(cacheKey);
+					if (cached) {
+						if (reportFilters.selectedStudents.length > 0) {
+							studentsToProcess = cached.filter((student: any) =>
+								reportFilters.selectedStudents.includes(student.studentId),
+							);
+						} else {
+							studentsToProcess = cached;
+						}
 					} else {
-						studentsToProcess = studentsResult.data;
+						const studentsResponse = await fetch(
+							`/api/users?classId=${reportFilters.className}&role=student&academicYear=${reportFilters.academicYear}`,
+						);
+						if (!studentsResponse.ok)
+							throw new Error('Failed to fetch students');
+						const studentsResult = await studentsResponse.json();
+						if (!studentsResult.success || !studentsResult.data) {
+							throw new Error('Invalid student data format');
+						}
+
+						const mapped = studentsResult.data.map((student: any) => ({
+							studentId: student.studentId || student.id,
+							firstName: student.firstName,
+							middleName: student.middleName,
+							lastName: student.lastName,
+						}));
+						setClientCache(cacheKey, mapped);
+
+						if (reportFilters.selectedStudents.length > 0) {
+							studentsToProcess = mapped.filter((student: any) =>
+								reportFilters.selectedStudents.includes(student.studentId),
+							);
+						} else {
+							studentsToProcess = mapped;
+						}
 					}
 				}
 
@@ -1524,9 +1553,8 @@ function ReportContent({
 					params.append('studentIds', reportFilters.selectedStudents.join(','));
 				}
 
-				const gradesResponse = await fetch(`/api/grades?${params.toString()}`);
-
 				let gradesData = { success: true, data: { report: [] } };
+				const gradesResponse = await fetch(`/api/grades?${params.toString()}`);
 				if (gradesResponse.ok) {
 					gradesData = await gradesResponse.json();
 				} else {
@@ -1551,7 +1579,7 @@ function ReportContent({
 							student.middleName ? student.middleName + ' ' : ''
 						}${student.lastName}`.trim();
 						const existingReport = existingReports.find(
-							(report: any) => report.studentId === studentId
+							(report: any) => report.studentId === studentId,
 						);
 
 						let qrCodeDataUrl = '';
@@ -1559,7 +1587,7 @@ function ReportContent({
 							const origin = window.location.origin;
 							const verifyUrl = `${origin}/verify?id=${reportFilters.academicYear.replace(
 								'-',
-								studentId
+								studentId,
 							)}`;
 							try {
 								// QR Code generation is also synchronous and can take time, but less than PDF
@@ -1571,7 +1599,7 @@ function ReportContent({
 								console.error(
 									'Error generating QR code for student:',
 									studentId,
-									error
+									error,
 								);
 							}
 						}
@@ -1655,7 +1683,7 @@ function ReportContent({
 								if (existingReport.periods[period]) {
 									existingReport.periods[period].forEach((gradeEntry: any) => {
 										const subjectIndex = periods[period].findIndex(
-											(item) => item.subject === gradeEntry.subject
+											(item) => item.subject === gradeEntry.subject,
 										);
 										if (subjectIndex !== -1) {
 											periods[period][subjectIndex].grade = gradeEntry.grade;
@@ -1665,15 +1693,15 @@ function ReportContent({
 							});
 							Object.assign(
 								firstSemesterAverage,
-								existingReport.firstSemesterAverage || {}
+								existingReport.firstSemesterAverage || {},
 							);
 							Object.assign(
 								secondSemesterAverage,
-								existingReport.secondSemesterAverage || {}
+								existingReport.secondSemesterAverage || {},
 							);
 							Object.assign(
 								periodAverages,
-								existingReport.periodAverages || {}
+								existingReport.periodAverages || {},
 							);
 							Object.assign(ranks, existingReport.ranks || {});
 							yearlyAverage = existingReport.yearlyAverage;
@@ -1690,7 +1718,7 @@ function ReportContent({
 							ranks,
 							qrCodeDataUrl,
 						};
-					})
+					}),
 				);
 
 				setStudentsData(reportData);
@@ -1777,7 +1805,9 @@ function ReportContent({
 					const reader = new FileReader();
 					reader.onloadend = () => {
 						if (cancelled) return;
-						setPdfUrl(typeof reader.result === 'string' ? reader.result : objectUrl);
+						setPdfUrl(
+							typeof reader.result === 'string' ? reader.result : objectUrl,
+						);
 					};
 					reader.readAsDataURL(blob);
 				} else {
@@ -1786,7 +1816,7 @@ function ReportContent({
 				const isMobile =
 					typeof navigator !== 'undefined' &&
 					/Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(
-						navigator.userAgent
+						navigator.userAgent,
 					);
 				if (isMobile) setInlineError(true);
 			})
@@ -1902,8 +1932,7 @@ function ReportContent({
 										cacheKey,
 										fileName: `Yearly_Report_${className}_${reportFilters.academicYear}.pdf`,
 										reportType: 'yearly',
-										createdBy:
-											user?.id || user?._id || user?.studentId || '',
+										createdBy: user?.id || user?._id || user?.studentId || '',
 									}),
 								}).then((res) => res.json());
 							const doShare = (cacheKey: string) => {
@@ -2003,101 +2032,26 @@ function ReportContent({
 			<div className="flex-1">
 				{pdfUrl ? (
 					<div className="w-full" style={{ height: '80vh' }}>
-					{inlineError ? (
-						<div className="flex items-center justify-center h-full">
-							<div className="flex flex-col items-center gap-3">
-								<button
-									type="button"
-									onClick={() => {
-										if (!pdfBlob || !downloadUrl) return;
-										const openWithKey = (key: string) => {
-											const url = `/api/reports/pdf?key=${encodeURIComponent(
-												key
-											)}&fileName=${encodeURIComponent(
-												`Yearly_Report_${className}_${reportFilters.academicYear}.pdf`
-											)}`;
-											window.open(url, '_blank', 'noopener,noreferrer');
-										};
-										if (serverKey) {
-											openWithKey(serverKey);
-											return;
-										}
-										setViewLoading(true);
-										fetch('/api/reports/pdf', {
-											method: 'POST',
-											headers: { 'Content-Type': 'application/pdf' },
-											body: pdfBlob,
-										})
-											.then((res) => res.json())
-											.then((data) => {
-												if (data?.cacheKey) {
-													setServerKey(data.cacheKey);
-													openWithKey(data.cacheKey);
-												} else {
-													window.open(downloadUrl, '_blank', 'noopener,noreferrer');
-												}
-												setViewLoading(false);
-											})
-											.catch(() => {
-												window.open(downloadUrl, '_blank', 'noopener,noreferrer');
-												setViewLoading(false);
-											});
-									}}
-									disabled={!downloadUrl || pdfGenerating || viewLoading}
-									className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm inline-flex items-center gap-2"
-								>
-									<svg
-										className="w-4 h-4"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											strokeLinecap="round"
-											strokeLinejoin="round"
-											strokeWidth={2}
-											d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"
-										/>
-										<circle cx="12" cy="12" r="3" />
-									</svg>
-									{viewLoading ? 'Opening...' : 'View Report Card'}
-								</button>
-								{isStudent && (
+						{inlineError ? (
+							<div className="flex items-center justify-center h-full">
+								<div className="flex flex-col items-center gap-3">
 									<button
 										type="button"
 										onClick={() => {
 											if (!pdfBlob || !downloadUrl) return;
-											const createShare = (cacheKey: string) =>
-												fetch('/api/reports/share', {
-													method: 'POST',
-													headers: { 'Content-Type': 'application/json' },
-													body: JSON.stringify({
-														cacheKey,
-														fileName: `Yearly_Report_${className}_${reportFilters.academicYear}.pdf`,
-														reportType: 'yearly',
-														createdBy:
-															user?.id || user?._id || user?.studentId || '',
-													}),
-												}).then((res) => res.json());
-											const doShare = (cacheKey: string) => {
-												setShareLoading(true);
-												createShare(cacheKey).then((data) => {
-													if (!data?.shareUrl || !data?.pin) return;
-													setShareInfo({
-														url: data.shareUrl,
-														pin: data.pin,
-														expiresAt: data.expiresAt,
-													});
-													setShareModalOpen(true);
-													setCopiedLink(false);
-													setCopiedPin(false);
-													setShareLoading(false);
-												});
+											const openWithKey = (key: string) => {
+												const url = `/api/reports/pdf?key=${encodeURIComponent(
+													key,
+												)}&fileName=${encodeURIComponent(
+													`Yearly_Report_${className}_${reportFilters.academicYear}.pdf`,
+												)}`;
+												window.open(url, '_blank', 'noopener,noreferrer');
 											};
 											if (serverKey) {
-												doShare(serverKey);
+												openWithKey(serverKey);
 												return;
 											}
+											setViewLoading(true);
 											fetch('/api/reports/pdf', {
 												method: 'POST',
 												headers: { 'Content-Type': 'application/pdf' },
@@ -2107,12 +2061,27 @@ function ReportContent({
 												.then((data) => {
 													if (data?.cacheKey) {
 														setServerKey(data.cacheKey);
-														doShare(data.cacheKey);
+														openWithKey(data.cacheKey);
+													} else {
+														window.open(
+															downloadUrl,
+															'_blank',
+															'noopener,noreferrer',
+														);
 													}
+													setViewLoading(false);
+												})
+												.catch(() => {
+													window.open(
+														downloadUrl,
+														'_blank',
+														'noopener,noreferrer',
+													);
+													setViewLoading(false);
 												});
 										}}
-										disabled={!downloadUrl || pdfGenerating}
-										className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm inline-flex items-center gap-2"
+										disabled={!downloadUrl || pdfGenerating || viewLoading}
+										className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm inline-flex items-center gap-2"
 									>
 										<svg
 											className="w-4 h-4"
@@ -2124,27 +2093,97 @@ function ReportContent({
 												strokeLinecap="round"
 												strokeLinejoin="round"
 												strokeWidth={2}
-												d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"
+												d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"
 											/>
-											<path
-												strokeLinecap="round"
-												strokeLinejoin="round"
-												strokeWidth={2}
-												d="M16 6l-4-4-4 4"
-											/>
-											<path
-												strokeLinecap="round"
-												strokeLinejoin="round"
-												strokeWidth={2}
-												d="M12 2v14"
-											/>
+											<circle cx="12" cy="12" r="3" />
 										</svg>
-						{shareLoading ? 'Generating Link...' : 'Share Report Card'}
+										{viewLoading ? 'Opening...' : 'View Report Card'}
 									</button>
-								)}
+									{isStudent && (
+										<button
+											type="button"
+											onClick={() => {
+												if (!pdfBlob || !downloadUrl) return;
+												const createShare = (cacheKey: string) =>
+													fetch('/api/reports/share', {
+														method: 'POST',
+														headers: { 'Content-Type': 'application/json' },
+														body: JSON.stringify({
+															cacheKey,
+															fileName: `Yearly_Report_${className}_${reportFilters.academicYear}.pdf`,
+															reportType: 'yearly',
+															createdBy:
+																user?.id || user?._id || user?.studentId || '',
+														}),
+													}).then((res) => res.json());
+												const doShare = (cacheKey: string) => {
+													setShareLoading(true);
+													createShare(cacheKey).then((data) => {
+														if (!data?.shareUrl || !data?.pin) return;
+														setShareInfo({
+															url: data.shareUrl,
+															pin: data.pin,
+															expiresAt: data.expiresAt,
+														});
+														setShareModalOpen(true);
+														setCopiedLink(false);
+														setCopiedPin(false);
+														setShareLoading(false);
+													});
+												};
+												if (serverKey) {
+													doShare(serverKey);
+													return;
+												}
+												fetch('/api/reports/pdf', {
+													method: 'POST',
+													headers: { 'Content-Type': 'application/pdf' },
+													body: pdfBlob,
+												})
+													.then((res) => res.json())
+													.then((data) => {
+														if (data?.cacheKey) {
+															setServerKey(data.cacheKey);
+															doShare(data.cacheKey);
+														}
+													});
+											}}
+											disabled={!downloadUrl || pdfGenerating}
+											className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm inline-flex items-center gap-2"
+										>
+											<svg
+												className="w-4 h-4"
+												fill="none"
+												stroke="currentColor"
+												viewBox="0 0 24 24"
+											>
+												<path
+													strokeLinecap="round"
+													strokeLinejoin="round"
+													strokeWidth={2}
+													d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"
+												/>
+												<path
+													strokeLinecap="round"
+													strokeLinejoin="round"
+													strokeWidth={2}
+													d="M16 6l-4-4-4 4"
+												/>
+												<path
+													strokeLinecap="round"
+													strokeLinejoin="round"
+													strokeWidth={2}
+													d="M12 2v14"
+												/>
+											</svg>
+											{shareLoading
+												? 'Generating Link...'
+												: 'Share Report Card'}
+										</button>
+									)}
+								</div>
 							</div>
-						</div>
-					) : (
+						) : (
 							<iframe
 								title="Yearly Report PDF"
 								className="w-full h-full"
@@ -2218,14 +2257,14 @@ function ReportContent({
 									}}
 									className="mt-2 px-3 py-1.5 text-xs rounded border border-border hover:bg-muted"
 								>
-										{copiedLink ? (
-											<span className="inline-flex items-center gap-1">
-												<span className="text-green-600">✓</span>
-												<span>Copied</span>
-											</span>
-										) : (
-											'Copy Link'
-										)}
+									{copiedLink ? (
+										<span className="inline-flex items-center gap-1">
+											<span className="text-green-600">✓</span>
+											<span>Copied</span>
+										</span>
+									) : (
+										'Copy Link'
+									)}
 								</button>
 							</div>
 							<div className="rounded-lg border border-border bg-muted/40 p-3">
@@ -2253,14 +2292,14 @@ function ReportContent({
 									}}
 									className="mt-2 px-3 py-1.5 text-xs rounded border border-border hover:bg-muted"
 								>
-										{copiedPin ? (
-											<span className="inline-flex items-center gap-1">
-												<span className="text-green-600">✓</span>
-												<span>Copied</span>
-											</span>
-										) : (
-											'Copy PIN'
-										)}
+									{copiedPin ? (
+										<span className="inline-flex items-center gap-1">
+											<span className="text-green-600">✓</span>
+											<span>Copied</span>
+										</span>
+									) : (
+										'Copy PIN'
+									)}
 								</button>
 							</div>
 							{shareNotice && (
@@ -2294,7 +2333,7 @@ function ReportContent({
 											Icon: MessageCircle,
 											build: () =>
 												`https://wa.me/?text=${encodeURIComponent(
-													`Report Card link: ${shareInfo.url} | PIN: ${shareInfo.pin}`
+													`Report Card link: ${shareInfo.url} | PIN: ${shareInfo.pin}`,
 												)}`,
 										},
 										{
@@ -2302,7 +2341,7 @@ function ReportContent({
 											Icon: Facebook,
 											build: () =>
 												`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-													shareInfo.url
+													shareInfo.url,
 												)}&quote=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
 										},
 										{
@@ -2310,9 +2349,9 @@ function ReportContent({
 											Icon: MessagesSquare,
 											build: () =>
 												`fb-messenger://share/?link=${encodeURIComponent(
-													shareInfo.url
+													shareInfo.url,
 												)}&app_id=${encodeURIComponent(
-													process.env.NEXT_PUBLIC_FB_APP_ID || ''
+													process.env.NEXT_PUBLIC_FB_APP_ID || '',
 												)}&ref=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
 										},
 										{
@@ -2320,7 +2359,7 @@ function ReportContent({
 											Icon: Twitter,
 											build: () =>
 												`https://twitter.com/intent/tweet?text=${encodeURIComponent(
-													`Report Card link: ${shareInfo.url} | PIN: ${shareInfo.pin}`
+													`Report Card link: ${shareInfo.url} | PIN: ${shareInfo.pin}`,
 												)}`,
 										},
 										{
@@ -2328,7 +2367,7 @@ function ReportContent({
 											Icon: Send,
 											build: () =>
 												`https://t.me/share/url?url=${encodeURIComponent(
-													shareInfo.url
+													shareInfo.url,
 												)}&text=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
 										},
 										{
@@ -2336,9 +2375,9 @@ function ReportContent({
 											Icon: Mail,
 											build: () =>
 												`mailto:?subject=${encodeURIComponent(
-													'Report Card'
+													'Report Card',
 												)}&body=${encodeURIComponent(
-													`Report Card link: ${shareInfo.url}\nPIN: ${shareInfo.pin}`
+													`Report Card link: ${shareInfo.url}\nPIN: ${shareInfo.pin}`,
 												)}`,
 										},
 									].map((item) => (

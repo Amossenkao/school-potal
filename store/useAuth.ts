@@ -222,6 +222,7 @@ const useAuth = create<AuthState>((set, get) => {
 				otpContact: null,
 				userId: null,
 			});
+			useBootstrapStore.getState().clearBootstrap();
 		},
 
 		// MODIFIED: Only clear user state if the server explicitly returns no user,
@@ -261,6 +262,7 @@ const useAuth = create<AuthState>((set, get) => {
 					} else if (!get().isLoggedIn) {
 						set({ isLoggedIn: true });
 					}
+
 				} else {
 					// Server explicitly says the user is NOT logged in (e.g., 401/200 with null user)
 					if (get().isLoggedIn) {

@@ -1101,6 +1101,11 @@ export async function GET(request: NextRequest) {
 		const academicYear =
 			searchParams.get('academicYear') || currentAcademicYear;
 		const limit = parseInt(searchParams.get('limit') || '50000', 10);
+		const page = Math.max(parseInt(searchParams.get('page') || '1', 10), 1);
+		const includeCounts =
+			searchParams.get('includeCounts') === 'true' ||
+			searchParams.get('includeCounts') === '1';
+		const skip = (page - 1) * limit;
 
 		let responseData: any;
 
@@ -1864,14 +1869,33 @@ export async function GET(request: NextRequest) {
 			}
 
 			responseData = await models.User.find(filters)
+				.sort({ _id: 1 })
+				.skip(skip)
 				.limit(limit)
 				.select('-password -defaultPassword')
 				.lean();
+
+			let meta;
+			if (includeCounts) {
+				const [total, counts] = await Promise.all([
+					models.User.countDocuments(filters),
+					models.User.aggregate([
+						{ $match: filters },
+						{ $group: { _id: '$role', count: { $sum: 1 } } },
+					]),
+				]);
+				const roleCounts: Record<string, number> = {};
+				counts.forEach((entry: any) => {
+					if (entry?._id) roleCounts[entry._id] = entry.count;
+				});
+				meta = { total, counts: roleCounts, page, limit };
+			}
 
 			return NextResponse.json({
 				success: true,
 				message: 'User Fetch Successful',
 				data: responseData,
+				...(meta ? { meta } : {}),
 			});
 		}
 
@@ -1929,14 +1953,33 @@ export async function GET(request: NextRequest) {
 			}
 
 			responseData = await models.User.find(filters)
+				.sort({ _id: 1 })
+				.skip(skip)
 				.limit(limit)
 				.select('-password -defaultPassword')
 				.lean();
+
+			let meta;
+			if (includeCounts) {
+				const [total, counts] = await Promise.all([
+					models.User.countDocuments(filters),
+					models.User.aggregate([
+						{ $match: filters },
+						{ $group: { _id: '$role', count: { $sum: 1 } } },
+					]),
+				]);
+				const roleCounts: Record<string, number> = {};
+				counts.forEach((entry: any) => {
+					if (entry?._id) roleCounts[entry._id] = entry.count;
+				});
+				meta = { total, counts: roleCounts, page, limit };
+			}
 
 			return NextResponse.json({
 				success: true,
 				message: 'User Fetch Successful',
 				data: responseData,
+				...(meta ? { meta } : {}),
 			});
 		}
 

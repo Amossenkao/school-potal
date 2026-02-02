@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
 	Card,
@@ -11,7 +11,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import useAuth from '@/store/useAuth'; // Assuming this is your global auth store
 import {
-	ArrowLeft,
 	CheckCircle,
 	XCircle,
 	Loader2,
@@ -23,6 +22,8 @@ import {
 	MoreHorizontal,
 	User,
 	Phone,
+	Sparkles,
+	Clock,
 } from 'lucide-react';
 
 export default function PayFees() {
@@ -38,9 +39,15 @@ export default function PayFees() {
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [paymentStatus, setPaymentStatus] = useState('');
 	const [paymentMessage, setPaymentMessage] = useState('');
+	const [paymentResult, setPaymentResult] = useState<any>(null);
 
 	// API Configuration
 	const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+	const formatAmount = (value: string | number) => {
+		const amountValue =
+			typeof value === 'string' ? Number.parseFloat(value || '0') : value;
+		return `LRD ${amountValue.toFixed(2)}`;
+	};
 
 	// Payment processing
 	const handlePayment = async () => {
@@ -51,6 +58,7 @@ export default function PayFees() {
 
 		setIsProcessing(true);
 		setPaymentStatus('');
+		setPaymentResult(null);
 
 		try {
 			const paymentData = {
@@ -69,21 +77,21 @@ export default function PayFees() {
 				body: JSON.stringify(paymentData),
 			});
 
-			if (response.ok) {
-				const result = await response.json();
-				setPaymentStatus('success');
-				setPaymentMessage(
-					`Payment of $${amount} for ${paymentType} has been processed successfully.`
-				);
-			} else {
-				const error = await response.json();
-				throw new Error(error.message || 'Payment failed');
+			const result = await response.json();
+			if (!response.ok) {
+				throw new Error(result?.message || 'Payment failed');
 			}
+			setPaymentResult(result?.data || null);
+			setPaymentStatus(result?.status || (result?.success ? 'success' : 'failed'));
+			setPaymentMessage(
+				result?.message ||
+					`Payment of ${formatAmount(amount)} for ${paymentType} has been processed.`,
+			);
 		} catch (error) {
 			console.error('Payment error:', error);
-			setPaymentStatus('error');
+			setPaymentStatus('failed');
 			setPaymentMessage(
-				error.message ||
+				(error as Error).message ||
 					'Payment failed. Please check your payment details and try again.'
 			);
 		} finally {
@@ -98,6 +106,7 @@ export default function PayFees() {
 		setAmount('');
 		setPaymentMethod('');
 		setPhoneNumber('');
+		setPaymentResult(null);
 	};
 
 	const paymentTypes = [
@@ -141,28 +150,28 @@ export default function PayFees() {
 	return (
 		<div className="min-h-screen bg-background">
 			{/* Main Content */}
-			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+			<div className="w-full px-4 sm:px-6 lg:px-8 py-8">
 				{/* Header */}
-				<div className="mb-8">
-					<div className="flex items-center gap-4 mb-4">
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={() => window.history.back()}
-						>
-							<ArrowLeft className="h-4 w-4 mr-2" />
-							Back
-						</Button>
+				<div className="mb-8 rounded-2xl border border-gray-200/70 bg-white/80 p-6 shadow-sm backdrop-blur dark:border-gray-800/70 dark:bg-gray-950/70">
+					<div className="flex flex-wrap items-center justify-between gap-4">
+						<div>
+							<h1 className="text-3xl sm:text-4xl font-bold mb-2">
+								Make Payment
+							</h1>
+							<p className="text-lg text-muted-foreground">
+								Pay tuition, registration, or other fees in seconds
+							</p>
+						</div>
+						<div className="inline-flex items-center gap-2 rounded-full border border-gray-200/80 bg-white/70 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-800/80 dark:bg-gray-900/70 dark:text-gray-300">
+							<Sparkles className="h-3 w-3" />
+							Secure Student Payment
+						</div>
 					</div>
-					<h1 className="text-3xl sm:text-4xl font-bold mb-2">Make Payment</h1>
-					<p className="text-lg text-muted-foreground">
-						Pay your tuition, registration, or other fees
-					</p>
 				</div>
 
 				{/* Payment Status Messages */}
 				{paymentStatus === 'success' && (
-					<Card className="mb-8 border-green-200 bg-green-50 dark:bg-green-950/30 dark:border-green-800">
+					<Card className="mb-8 border-green-200 bg-green-50/80 dark:bg-green-950/30 dark:border-green-800">
 						<CardContent className="p-6">
 							<div className="flex items-center gap-4">
 								<CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
@@ -173,6 +182,12 @@ export default function PayFees() {
 									<p className="text-green-700 dark:text-green-300">
 										{paymentMessage}
 									</p>
+									{paymentResult ? (
+										<div className="mt-3 text-sm text-green-700/80 dark:text-green-200/80">
+											<p>Receipt: {paymentResult.receiptNumber}</p>
+											<p>Amount: {formatAmount(paymentResult.paymentAmount)}</p>
+										</div>
+									) : null}
 									<div className="flex flex-col sm:flex-row gap-4 mt-4">
 										<Button onClick={resetForm} variant="outline" size="sm">
 											Make Another Payment
@@ -188,8 +203,37 @@ export default function PayFees() {
 					</Card>
 				)}
 
-				{paymentStatus === 'error' && (
-					<Card className="mb-8 border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-800">
+				{paymentStatus === 'pending' && (
+					<Card className="mb-8 border-amber-200 bg-amber-50/80 dark:bg-amber-950/30 dark:border-amber-800">
+						<CardContent className="p-6">
+							<div className="flex items-center gap-4">
+								<Clock className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+								<div>
+									<h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200">
+										Payment Pending
+									</h3>
+									<p className="text-amber-700 dark:text-amber-300">
+										{paymentMessage}
+									</p>
+									{paymentResult ? (
+										<div className="mt-3 text-sm text-amber-700/80 dark:text-amber-200/80">
+											<p>Receipt: {paymentResult.receiptNumber}</p>
+											<p>Amount: {formatAmount(paymentResult.paymentAmount)}</p>
+										</div>
+									) : null}
+									<div className="flex flex-col sm:flex-row gap-4 mt-4">
+										<Button onClick={resetForm} variant="outline" size="sm">
+											Make Another Payment
+										</Button>
+									</div>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+				)}
+
+				{paymentStatus === 'failed' && (
+					<Card className="mb-8 border-red-200 bg-red-50/80 dark:bg-red-950/30 dark:border-red-800">
 						<CardContent className="p-6">
 							<div className="flex items-center gap-4">
 								<XCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
@@ -218,7 +262,7 @@ export default function PayFees() {
 				{paymentStatus === '' && (
 					<div className="space-y-8">
 						{/* Student Information Display */}
-						<Card>
+						<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
 							<CardHeader>
 								<CardTitle className="flex items-center gap-2">
 									<User className="h-5 w-5" />
@@ -227,9 +271,16 @@ export default function PayFees() {
 								<CardDescription>Confirm your details below</CardDescription>
 							</CardHeader>
 							<CardContent>
-								<div className="flex gap-4 items-start border p-4 rounded-lg bg-muted/50">
-									<Avatar className="w-16 h-16">
-										<AvatarImage src={user.profilePhoto} />
+								<div className="flex gap-4 items-start border border-gray-200/70 p-4 rounded-xl bg-muted/40 dark:border-gray-800/70">
+									<Avatar className="w-16 h-16 ring-2 ring-primary/20">
+										<AvatarImage
+											src={
+												user.profilePictureUrl ||
+												user.avatar ||
+												(user as any).profilePhoto ||
+												''
+											}
+										/>
 										<AvatarFallback>
 											{user.firstName?.[0]}
 											{user.lastName?.[0]}
@@ -243,7 +294,7 @@ export default function PayFees() {
 											Student ID: {user.studentId}
 										</p>
 										<p className="text-sm text-muted-foreground">
-											Class: {user.class || 'Grade 9'}
+											Class: {user.className || 'Grade 9'}
 										</p>
 									</div>
 								</div>
@@ -251,7 +302,7 @@ export default function PayFees() {
 						</Card>
 
 						{/* Payment Form */}
-						<Card>
+						<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
 							<CardHeader>
 								<CardTitle className="flex items-center gap-2">
 									<CreditCard className="h-5 w-5" />
@@ -337,7 +388,7 @@ export default function PayFees() {
 
 										<div>
 											<label className="block text-sm font-medium mb-2">
-												Amount (USD)
+												Amount (LRD)
 											</label>
 											<input
 												type="number"
@@ -356,23 +407,23 @@ export default function PayFees() {
 								{paymentMethod && phoneNumber && amount && (
 									<div className="pt-4">
 										<div className="bg-muted/50 p-4 rounded-lg mb-4">
-											<h4 className="font-medium mb-2">Payment Summary</h4>
-											<div className="text-sm space-y-1">
-												<p>
-													<span className="text-muted-foreground">Type:</span>{' '}
+												<h4 className="font-medium mb-2">Payment Summary</h4>
+												<div className="text-sm space-y-1">
+													<p>
+														<span className="text-muted-foreground">Type:</span>{' '}
 													{
 														paymentTypes.find((t) => t.value === paymentType)
 															?.label
 													}
-												</p>
-												<p>
-													<span className="text-muted-foreground">Amount:</span>{' '}
-													${parseFloat(amount).toFixed(2)} USD
-												</p>
-												<p>
-													<span className="text-muted-foreground">Method:</span>{' '}
-													{paymentMethod === 'orange'
-														? 'Orange Money'
+													</p>
+													<p>
+														<span className="text-muted-foreground">Amount:</span>{' '}
+														{formatAmount(amount)}
+													</p>
+													<p>
+														<span className="text-muted-foreground">Method:</span>{' '}
+														{paymentMethod === 'orange'
+															? 'Orange Money'
 														: 'Lonester Mobile Money'}
 												</p>
 												<p>
@@ -395,7 +446,7 @@ export default function PayFees() {
 											) : (
 												<>
 													<CreditCard className="h-4 w-4 mr-2" />
-													Pay ${parseFloat(amount || 0).toFixed(2)} via{' '}
+													Pay {formatAmount(amount || 0)} via{' '}
 													{paymentMethod === 'orange'
 														? 'Orange Money'
 														: 'Lonester Mobile Money'}

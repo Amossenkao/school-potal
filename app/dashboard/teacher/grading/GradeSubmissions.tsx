@@ -18,7 +18,9 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSchoolStore } from '@/store/schoolStore';
+import useAuth from '@/store/useAuth';
 import { PageLoading } from '@/components/loading';
+import { getClientCache, setClientCache } from '@/utils/clientCache';
 
 // Types
 interface StudentGrade {
@@ -95,6 +97,7 @@ const periods = [
 
 const GradeSubmissions = () => {
 	const school = useSchoolStore((state) => state.school);
+	const { user } = useAuth();
 	const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
 	const [submittedGrades, setSubmittedGrades] = useState<GradeSubmission[]>([]);
 	const [academicYear, setAcademicYear] = useState<string>('');
@@ -164,10 +167,18 @@ const GradeSubmissions = () => {
 
 		setLoading((prev) => ({ ...prev, submittedGrades: true }));
 		try {
-			const res = await fetch(`/api/grades?academicYear=${academicYear}`);
-			if (!res.ok) throw new Error('Failed to fetch submitted grades');
-			const data = await res.json();
-			const grades = Array.isArray(data.data?.grades) ? data.data.grades : [];
+			const cacheKey = `submittedGrades:${teacherInfo.username}:${academicYear}`;
+			const cached = getClientCache<any[]>(cacheKey);
+			let grades: any[] = [];
+			if (cached) {
+				grades = cached;
+			} else {
+				const res = await fetch(`/api/grades?academicYear=${academicYear}`);
+				if (!res.ok) throw new Error('Failed to fetch submitted grades');
+				const data = await res.json();
+				grades = Array.isArray(data.data?.grades) ? data.data.grades : [];
+				setClientCache(cacheKey, grades);
+			}
 
 			const submissionsMap = new Map<string, any>();
 			grades.forEach((grade: any) => {
@@ -259,27 +270,23 @@ const GradeSubmissions = () => {
 	}, [academicYear, teacherInfo]);
 
 	useEffect(() => {
-		const fetchTeacherInfo = async () => {
-			setLoading((prev) => ({ ...prev, teacherInfo: true }));
-			try {
-				const res = await fetch('/api/auth/me');
-				if (!res.ok) throw new Error('Failed to fetch teacher info');
-				const data = await res.json();
-				setTeacherInfo(data.user);
-				setAcademicYear(getAcademicYear());
-				setError((prev) => ({ ...prev, teacherInfo: '' }));
-			} catch (err) {
-				setError((prev) => ({
-					...prev,
-					teacherInfo: 'Failed to load teacher information.',
-				}));
-				console.error(err);
-			} finally {
-				setLoading((prev) => ({ ...prev, teacherInfo: false }));
+		setLoading((prev) => ({ ...prev, teacherInfo: true }));
+		try {
+			if (user && user.role === 'teacher') {
+				setTeacherInfo(user as TeacherInfo);
 			}
-		};
-		fetchTeacherInfo();
-	}, []);
+			setAcademicYear(getAcademicYear());
+			setError((prev) => ({ ...prev, teacherInfo: '' }));
+		} catch (err) {
+			setError((prev) => ({
+				...prev,
+				teacherInfo: 'Failed to load teacher information.',
+			}));
+			console.error(err);
+		} finally {
+			setLoading((prev) => ({ ...prev, teacherInfo: false }));
+		}
+	}, [user]);
 
 	useEffect(() => {
 		if (teacherInfo) {
