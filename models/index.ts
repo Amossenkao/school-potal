@@ -9,6 +9,7 @@ import SystemAdminSchema from './user/SystemAdmin';
 import GradeSchema from './grade/Grade';
 import GradeChangeRequestSchema from './grade/GradeChangeRequest';
 import ReportShareSchema from './reports/ReportShare';
+import SchoolEventSchema from '@/models/events/SchoolEvent';
 
 import type {
 	User,
@@ -67,6 +68,10 @@ export const getTenantModels = async () => {
 		'ReportShare',
 		ReportShareSchema
 	);
+	const SchoolEventModel = connection.model<Document>(
+		'SchoolEvent',
+		SchoolEventSchema
+	);
 	const models = {
 		User,
 		Student: StudentModel,
@@ -76,6 +81,7 @@ export const getTenantModels = async () => {
 		Grade: GradeModel,
 		GradeChangeRequest: GradeChangeRequestModal,
 		ReportShare: ReportShareModel,
+		SchoolEvent: SchoolEventModel,
 	};
 
 	// --- Store the compiled models in the cache ---

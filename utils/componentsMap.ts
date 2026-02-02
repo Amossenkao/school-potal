@@ -54,8 +54,8 @@ const DashboardSectionLoading = () =>
 				className:
 					'h-6 w-6 rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground animate-spin',
 			}),
-			React.createElement('span', { className: 'text-sm' }, 'Loading...')
-		)
+			React.createElement('span', { className: 'text-sm' }, 'Loading...'),
+		),
 	);
 
 const lazySection = (importer: () => Promise<any>) =>
@@ -66,51 +66,55 @@ const lazySection = (importer: () => Promise<any>) =>
 // Component mappings - centralized component imports
 const componentMappings: Record<string, any> = {
 	// User Management
-	'add-users': lazySection(() => import('@/app/dashboard/admin/users/AddUsers')),
+	'add-users': lazySection(
+		() => import('@/app/dashboard/admin/users/AddUsers'),
+	),
 	'manage-users': lazySection(
-		() => import('@/app/dashboard/admin/users/ManageUsers')
+		() => import('@/app/dashboard/admin/users/ManageUsers'),
 	),
 
 	// Grading
 	submissions: lazySection(
-		() => import('@/app/dashboard/admin/grades/GradeSubmissions')
+		() => import('@/app/dashboard/admin/grades/GradeSubmissions'),
 	),
 	requests: lazySection(
-		() => import('@/app/dashboard/admin/grades/GradeRequests')
+		() => import('@/app/dashboard/admin/grades/GradeRequests'),
 	),
 	grading: lazySection(
-		() => import('@/app/dashboard/teacher/grading/GradeManagement')
+		() => import('@/app/dashboard/teacher/grading/GradeManagement'),
 	),
 	'periodic-grade': lazySection(
-		() => import('@/app/dashboard/shared/PeriodicReport')
+		() => import('@/app/dashboard/shared/PeriodicReport'),
 	),
-	'yearly-grade': lazySection(() => import('@/app/dashboard/shared/YearlyReport')),
+	'yearly-grade': lazySection(
+		() => import('@/app/dashboard/shared/YearlyReport'),
+	),
 
 	// Classes
 	'classes-overview': lazySection(
-		() => import('@/app/dashboard/admin/classes/ClassOverview')
+		() => import('@/app/dashboard/admin/classes/ClassOverview'),
 	),
 	'manage-class': lazySection(
-		() => import('@/app/dashboard/admin/classes/ManageClass')
+		() => import('@/app/dashboard/admin/classes/ManageClass'),
 	),
 
 	// Academic Reports
 	'periodic-reports': lazySection(
-		() => import('@/app/dashboard/shared/PeriodicReport')
+		() => import('@/app/dashboard/shared/PeriodicReport'),
 	),
 	'yearly-reports': lazySection(
-		() => import('@/app/dashboard/shared/YearlyReport')
+		() => import('@/app/dashboard/shared/YearlyReport'),
 	),
 	masters: lazySection(() => import('@/app/dashboard/shared/MasterGradeSheet')),
 
 	'grade-submissions': lazySection(
-		() => import('@/app/dashboard/teacher/grading/GradeSubmissions')
+		() => import('@/app/dashboard/teacher/grading/GradeSubmissions'),
 	),
 	'submit-grades': lazySection(
-		() => import('@/app/dashboard/teacher/grading/SubmitGrade')
+		() => import('@/app/dashboard/teacher/grading/SubmitGrade'),
 	),
 	'grade-requests': lazySection(
-		() => import('@/app/dashboard/teacher/grading/GradeRequests')
+		() => import('@/app/dashboard/teacher/grading/GradeRequests'),
 	),
 
 	// Lesson Planning
@@ -131,10 +135,10 @@ const componentMappings: Record<string, any> = {
 	// ),
 
 	// // Calendar
-	// 'add-event': dynamic(() => import('@/app/dashboard/admin/AddCalendarEvent')),
-	// 'calendar/academic': dynamic(
-	// 	() => import('@/app/dashboard/shared/CalendarAndSchedules')
-	// ),
+	'calendar-academic': lazySection(
+		() => import('@/app/dashboard/shared/AcademicCalendar'),
+	),
+	schedules: lazySection(() => import('@/app/dashboard/shared/Schedules')),
 
 	// Academic Resources
 	// 'resources/view': dynamic(
@@ -154,7 +158,7 @@ const componentMappings: Record<string, any> = {
 	// Fees Payment
 	pay: lazySection(() => import('@/app/dashboard/student/fees/PayFees')),
 	'payment-history': lazySection(
-		() => import('@/app/dashboard/student/fees/PaymentHistory')
+		() => import('@/app/dashboard/student/fees/PaymentHistory'),
 	),
 
 	// Salary
@@ -170,7 +174,9 @@ const componentMappings: Record<string, any> = {
 	// ),
 
 	// Events Log
-	notifications: lazySection(() => import('@/app/dashboard/shared/Notifications')),
+	notifications: lazySection(
+		() => import('@/app/dashboard/shared/Notifications'),
+	),
 
 	// Settings & Support
 	settings: lazySection(() => import('@/app/dashboard/admin/Settings')),
@@ -430,31 +436,57 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		routes: {
 			system_admin: [
 				{
-					key: 'add-event',
-					title: 'Add Event to Calendar',
-					href: '/add-event',
+					key: 'calendar-academic',
+					title: 'Academic Calendar',
+					href: '/calendar-academic',
 					icon: CalendarDays,
 				},
 				{
-					key: 'calendar/academic',
-					title: 'Academic Calendar',
-					href: '/calendar/academic',
+					key: 'schedules',
+					title: 'Schedules',
+					href: '/schedules',
 					icon: CalendarDays,
 				},
 			],
 			teacher: [
 				{
-					key: 'calendar/academic',
+					key: 'calendar-academic',
 					title: 'Academic Calendar',
-					href: '/calendar/academic',
+					href: '/calendar-academic',
+					icon: CalendarDays,
+				},
+				{
+					key: 'schedules',
+					title: 'Schedules',
+					href: '/schedules',
 					icon: CalendarDays,
 				},
 			],
 			student: [
 				{
-					key: 'calendar/academic',
+					key: 'schedules',
+					title: 'Schedules',
+					href: '/schedules',
+					icon: CalendarDays,
+				},
+				{
+					key: 'calendar-academic',
 					title: 'Academic Calendar',
-					href: '/calendar/academic',
+					href: '/calendar-academic',
+					icon: CalendarDays,
+				},
+			],
+			administrator: [
+				{
+					key: 'calendar-academic',
+					title: 'Academic Calendar',
+					href: '/calendar-academic',
+					icon: CalendarDays,
+				},
+				{
+					key: 'schedules',
+					title: 'Schedules',
+					href: '/schedules',
 					icon: CalendarDays,
 				},
 			],
@@ -611,8 +643,12 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		title: 'Community',
 		icon: UserCircle,
 		routes: {
-			student: [{ key: 'community', title: 'Community', href: '/dashboard/community' }],
-			teacher: [{ key: 'community', title: 'Community', href: '/dashboard/community' }],
+			student: [
+				{ key: 'community', title: 'Community', href: '/dashboard/community' },
+			],
+			teacher: [
+				{ key: 'community', title: 'Community', href: '/dashboard/community' },
+			],
 		},
 	},
 
@@ -827,12 +863,12 @@ interface ComponentItem {
  */
 export function isValidAdministratorPosition(
 	schoolProfile: SchoolProfile,
-	position: string
+	position: string,
 ): boolean {
 	return (
 		!!schoolProfile.roleFeatureAccess?.administrator &&
 		Object.keys(schoolProfile.roleFeatureAccess.administrator).includes(
-			position
+			position,
 		)
 	);
 }
@@ -845,7 +881,7 @@ function hasFeatureAccess(
 	schoolProfile: SchoolProfile,
 	userRole: string,
 	feature: FeatureKey,
-	adminPosition?: string
+	adminPosition?: string,
 ): boolean {
 	// Check if feature is enabled for the school
 	if (!schoolProfile.enabledFeatures.includes(feature)) return false;
@@ -880,7 +916,7 @@ function hasFeatureAccess(
 export function generateDynamicComponentsMap(
 	schoolProfile: SchoolProfile,
 	userRole: string,
-	adminPosition?: string
+	adminPosition?: string,
 ): any {
 	const dynamicMap: any = {
 		[userRole]: {
@@ -895,7 +931,7 @@ export function generateDynamicComponentsMap(
 	const userFeatures = getUserAccessibleFeatures(
 		schoolProfile,
 		userRole,
-		adminPosition
+		adminPosition,
 	);
 
 	// Process each feature the user has access to
@@ -955,7 +991,8 @@ function isSharedComponent(key: string): boolean {
 		'chat',
 		'notifications',
 		'resources/view',
-		'calendar/academic',
+		'calendar-academic',
+		'schedules',
 		'periodic-grade',
 		'yearly-grade',
 		'periodic-reports',
@@ -970,7 +1007,7 @@ function isSharedComponent(key: string): boolean {
 export function generateNavigationItems(
 	schoolProfile: SchoolProfile,
 	userRole: string,
-	adminPosition?: string
+	adminPosition?: string,
 ): NavItem[] {
 	const navItems: NavItem[] = [];
 
@@ -985,7 +1022,7 @@ export function generateNavigationItems(
 	const accessibleFeatures = getUserAccessibleFeatures(
 		schoolProfile,
 		userRole,
-		adminPosition
+		adminPosition,
 	);
 
 	// Group routes by category
@@ -1032,9 +1069,19 @@ export function generateNavigationItems(
 				if (!routesByCategory[featureConfig.category]) {
 					routesByCategory[featureConfig.category] = [];
 				}
-				routesByCategory[featureConfig.category].push(routeItem);
+				const alreadyAdded = routesByCategory[featureConfig.category].some(
+					(item) => item.href === routeItem.href
+				);
+				if (!alreadyAdded) {
+					routesByCategory[featureConfig.category].push(routeItem);
+				}
 			} else {
-				uncategorizedRoutes.push(routeItem);
+				const alreadyAdded = uncategorizedRoutes.some(
+					(item) => item.href === routeItem.href
+				);
+				if (!alreadyAdded) {
+					uncategorizedRoutes.push(routeItem);
+				}
 			}
 		});
 	});
@@ -1074,11 +1121,11 @@ export function generateNavigationItems(
 			return aIndex - bIndex;
 		})
 		.forEach((route) => {
-		navItems.push({
-			name: route.title,
-			icon: route.icon,
-			href: route.href,
-		});
+			navItems.push({
+				name: route.title,
+				icon: route.icon,
+				href: route.href,
+			});
 		});
 
 	return navItems;
@@ -1091,7 +1138,7 @@ export function validateComponentAccess(
 	schoolProfile: SchoolProfile,
 	userRole: string,
 	routeKey: string,
-	adminPosition?: string
+	adminPosition?: string,
 ): boolean {
 	// Explicitly tie report routes to academic_reports feature access
 	const reportRouteFeatureMap: Record<string, FeatureKey> = {
@@ -1105,7 +1152,7 @@ export function validateComponentAccess(
 			schoolProfile,
 			userRole,
 			reportRouteFeatureMap[routeKey],
-			adminPosition
+			adminPosition,
 		);
 	}
 
@@ -1121,7 +1168,7 @@ export function validateComponentAccess(
 				schoolProfile,
 				userRole,
 				feature.key,
-				adminPosition
+				adminPosition,
 			);
 		}
 	}
@@ -1135,7 +1182,7 @@ export function validateComponentAccess(
 export function getUserRoutes(
 	schoolProfile: SchoolProfile,
 	userRole: string,
-	adminPosition?: string
+	adminPosition?: string,
 ): Array<{
 	key: string;
 	title: string;
@@ -1154,7 +1201,7 @@ export function getUserRoutes(
 	const accessibleFeatures = getUserAccessibleFeatures(
 		schoolProfile,
 		userRole,
-		adminPosition
+		adminPosition,
 	);
 
 	accessibleFeatures.forEach((feature) => {
@@ -1183,7 +1230,7 @@ export function getUserRoutes(
 // Export utility functions
 export function isFeatureEnabled(
 	schoolProfile: SchoolProfile,
-	feature: FeatureKey
+	feature: FeatureKey,
 ): boolean {
 	return schoolProfile.enabledFeatures.includes(feature);
 }
@@ -1191,7 +1238,7 @@ export function isFeatureEnabled(
 export function getUserAccessibleFeatures(
 	schoolProfile: SchoolProfile,
 	userRole: string,
-	adminPosition?: string
+	adminPosition?: string,
 ): FeatureKey[] {
 	if (userRole === 'administrator' && adminPosition) {
 		const adminAccess =
@@ -1200,8 +1247,9 @@ export function getUserAccessibleFeatures(
 			];
 		const features = adminAccess || [];
 
-		return features.filter((feature) =>
-			schoolProfile.enabledFeatures.includes(feature)
+		const uniqueFeatures = Array.from(new Set(features));
+		return uniqueFeatures.filter((feature) =>
+			schoolProfile.enabledFeatures.includes(feature),
 		);
 	}
 
@@ -1211,14 +1259,15 @@ export function getUserAccessibleFeatures(
 		];
 
 	const features = Array.isArray(roleAccess) ? roleAccess : [];
+	const uniqueFeatures = Array.from(new Set(features));
 
-	return features.filter((feature) =>
-		schoolProfile.enabledFeatures.includes(feature)
+	return uniqueFeatures.filter((feature) =>
+		schoolProfile.enabledFeatures.includes(feature),
 	);
 }
 
 export function getFeatureConfig(
-	feature: FeatureKey
+	feature: FeatureKey,
 ): FeatureConfig | undefined {
 	return featureConfigurations[feature];
 }

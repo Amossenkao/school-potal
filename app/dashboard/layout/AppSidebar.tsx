@@ -78,13 +78,16 @@ const AppSidebar: React.FC = () => {
 					);
 					if (submissionsRes.ok) {
 						const submissionsData = await submissionsRes.json();
-						const pendingSubmissions =
-							submissionsData.data.report.submissions.filter(
-								(sub: any) =>
-									sub.status === 'Pending' ||
-									sub.status === 'Partially Approved'
-							).length;
+						const submissions =
+							submissionsData?.data?.report?.submissions ?? [];
+						const pendingSubmissions = submissions.filter(
+							(sub: any) =>
+								sub.status === 'Pending' ||
+								sub.status === 'Partially Approved'
+						).length;
 						setPendingSubmissionsCount(pendingSubmissions);
+					} else {
+						setPendingSubmissionsCount(0);
 					}
 
 					// Fetch pending grade change requests
@@ -93,11 +96,14 @@ const AppSidebar: React.FC = () => {
 					);
 					if (requestsRes.ok) {
 						const requestsData = await requestsRes.json();
-						const pendingRequests = requestsData.data.report.filter(
+						const requests = requestsData?.data?.report ?? [];
+						const pendingRequests = requests.filter(
 							(req: any) =>
 								req.status === 'Pending' || req.status === 'Partially Approved'
 						).length;
 						setPendingRequestsCount(pendingRequests);
+					} else {
+						setPendingRequestsCount(0);
 					}
 				} catch (error) {
 					console.error('Failed to fetch pending counts:', error);
@@ -400,8 +406,8 @@ const AppSidebar: React.FC = () => {
 								}}
 							>
 								<ul className="mt-2 space-y-1 ml-8 pl-4 border-l border-gray-200 dark:border-gray-700">
-									{subItems.map((sub) => (
-										<li key={sub.name}>
+									{subItems.map((sub, index) => (
+										<li key={`${sub.href || sub.name}-${index}`}>
 											<Link
 												href={sub.href!}
 												className={`menu-dropdown-item flex items-center gap-3 py-2 px-3 rounded-md text-sm transition-colors duration-150 ${
