@@ -1010,6 +1010,18 @@ export function generateNavigationItems(
 	adminPosition?: string,
 ): NavItem[] {
 	const navItems: NavItem[] = [];
+	const moveNavItemBefore = (
+		items: NavItem[],
+		itemName: string,
+		beforeName: string,
+	) => {
+		const fromIndex = items.findIndex((item) => item.name === itemName);
+		const toIndex = items.findIndex((item) => item.name === beforeName);
+		if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
+		const [moved] = items.splice(fromIndex, 1);
+		const nextIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
+		items.splice(nextIndex, 0, moved);
+	};
 
 	// Add dashboard home (always first)
 	navItems.push({
@@ -1127,6 +1139,13 @@ export function generateNavigationItems(
 				href: route.href,
 			});
 		});
+
+	const calendarNavLabel = 'Calendar & Schedules';
+	if (userRole === 'system_admin') {
+		moveNavItemBefore(navItems, calendarNavLabel, 'Profile');
+	} else {
+		moveNavItemBefore(navItems, calendarNavLabel, 'Community');
+	}
 
 	return navItems;
 }
