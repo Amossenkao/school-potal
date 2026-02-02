@@ -1422,7 +1422,6 @@ function ReportContent({
 	const [pdfGenerating, setPdfGenerating] = useState(false);
 	const [inlineError, setInlineError] = useState(false);
 	const pdfUrlRef = useRef<string | null>(null);
-	const autoOpenedRef = useRef(false);
 
 	const school = useSchoolStore((state) => state.school);
 	const currentSchool = useSchoolStore((state) => state.school);
@@ -1728,7 +1727,6 @@ function ReportContent({
 			setPdfBlob(null);
 			setServerKey(null);
 			setInlineError(false);
-			autoOpenedRef.current = false;
 			return;
 		}
 
@@ -1737,11 +1735,6 @@ function ReportContent({
 		const isIOS =
 			typeof navigator !== 'undefined' &&
 			/iPad|iPhone|iPod/.test(navigator.userAgent);
-		const isMobile =
-			typeof navigator !== 'undefined' &&
-			/Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(
-				navigator.userAgent
-			);
 		pdf(pdfDocument)
 			.toBlob()
 			.then((blob) => {
@@ -1755,7 +1748,6 @@ function ReportContent({
 				setPdfBlob(blob);
 				setServerKey(null);
 				setInlineError(false);
-				autoOpenedRef.current = false;
 				if (isIOS) {
 					const reader = new FileReader();
 					reader.onloadend = () => {
@@ -1766,9 +1758,12 @@ function ReportContent({
 				} else {
 					setPdfUrl(objectUrl);
 				}
-				if (isMobile) {
-					setInlineError(true);
-				}
+				const isMobile =
+					typeof navigator !== 'undefined' &&
+					/Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(
+						navigator.userAgent
+					);
+				if (isMobile) setInlineError(true);
 			})
 			.catch((err) => {
 				console.error('Failed to generate PDF blob', err);
@@ -1782,47 +1777,6 @@ function ReportContent({
 			cancelled = true;
 		};
 	}, [pdfDocument]);
-
-	useEffect(() => {
-		if (!pdfBlob || !downloadUrl || pdfGenerating) return;
-		if (autoOpenedRef.current) return;
-		const isMobile =
-			typeof navigator !== 'undefined' &&
-			/Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(
-				navigator.userAgent
-			);
-		if (!isMobile) return;
-
-		const openWithKey = (key: string) => {
-			const url = `/api/reports/pdf?key=${encodeURIComponent(
-				key
-			)}&fileName=${encodeURIComponent(
-				`Yearly_Report_${className}_${reportFilters.academicYear}.pdf`
-			)}`;
-			window.open(url, '_blank', 'noopener,noreferrer');
-		};
-
-		autoOpenedRef.current = true;
-		if (serverKey) {
-			openWithKey(serverKey);
-			return;
-		}
-		fetch('/api/reports/pdf', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/pdf' },
-			body: pdfBlob,
-		})
-			.then((res) => res.json())
-			.then((data) => {
-				if (data?.cacheKey) {
-					setServerKey(data.cacheKey);
-					openWithKey(data.cacheKey);
-				}
-			})
-			.catch(() => {
-				autoOpenedRef.current = false;
-			});
-	}, [pdfBlob, downloadUrl, pdfGenerating, serverKey, className, reportFilters.academicYear]);
 
 	// Download handler
 	const handleDownload = useCallback(async () => {
@@ -1922,54 +1876,53 @@ function ReportContent({
 						</>
 					)}
 				</button>
-				<button
-					type="button"
-					onClick={() => {
-						if (!pdfBlob || !downloadUrl) return;
-						const openWithKey = (key: string) => {
-							const url = `/api/reports/pdf?key=${encodeURIComponent(
-								key
-							)}&fileName=${encodeURIComponent(
-								`Yearly_Report_${className}_${reportFilters.academicYear}.pdf`
-							)}`;
-							window.open(url, '_blank', 'noopener,noreferrer');
-						};
-						if (serverKey) {
-							openWithKey(serverKey);
-							return;
-						}
-						fetch('/api/reports/pdf', {
-							method: 'POST',
-							headers: { 'Content-Type': 'application/pdf' },
-							body: pdfBlob,
-						})
-							.then((res) => res.json())
-							.then((data) => {
-								if (data?.cacheKey) {
-									setServerKey(data.cacheKey);
-									openWithKey(data.cacheKey);
-								} else {
-									window.open(downloadUrl, '_blank', 'noopener,noreferrer');
-								}
-							})
-							.catch(() => {
-								window.open(downloadUrl, '_blank', 'noopener,noreferrer');
-							});
-					}}
-					disabled={!downloadUrl || pdfGenerating}
-					className="px-3 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm"
-				>
-					Open PDF
-				</button>
 			</div>
 			<div className="flex-1">
 				{pdfUrl ? (
 					<div className="w-full" style={{ height: '80vh' }}>
 						{inlineError ? (
 							<div className="flex items-center justify-center h-full text-center text-muted-foreground">
-								<div>
+								<div className="space-y-3">
 									<p>Inline PDF preview is not supported on this device.</p>
-									<p className="mt-2">Use “Open PDF” to view it.</p>
+									<button
+										type="button"
+										onClick={() => {
+											if (!pdfBlob || !downloadUrl) return;
+											const openWithKey = (key: string) => {
+												const url = `/api/reports/pdf?key=${encodeURIComponent(
+													key
+												)}&fileName=${encodeURIComponent(
+													`Yearly_Report_${className}_${reportFilters.academicYear}.pdf`
+												)}`;
+												window.open(url, '_blank', 'noopener,noreferrer');
+											};
+											if (serverKey) {
+												openWithKey(serverKey);
+												return;
+											}
+											fetch('/api/reports/pdf', {
+												method: 'POST',
+												headers: { 'Content-Type': 'application/pdf' },
+												body: pdfBlob,
+											})
+												.then((res) => res.json())
+												.then((data) => {
+													if (data?.cacheKey) {
+														setServerKey(data.cacheKey);
+														openWithKey(data.cacheKey);
+													} else {
+														window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+													}
+												})
+												.catch(() => {
+													window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+												});
+										}}
+										disabled={!downloadUrl || pdfGenerating}
+										className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm"
+									>
+										View Grade Sheet
+									</button>
 								</div>
 							</div>
 						) : (
