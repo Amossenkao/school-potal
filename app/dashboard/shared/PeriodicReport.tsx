@@ -1442,10 +1442,7 @@ function ReportContent({
 	if (loading) {
 		return (
 			<div className="flex items-center justify-center min-h-[60vh]">
-				<PageLoading
-					message="Content Loading, Please wait..."
-					fullScreen={false}
-				/>
+				<PageLoading message="Generating Grade Sheet" fullScreen={false} />
 			</div>
 		);
 	}
@@ -1524,7 +1521,7 @@ function ReportContent({
 									d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
 								/>
 							</svg>
-							<span>Download PDF</span>
+							<span>Download Grade Sheet</span>
 						</>
 					)}
 				</button>
@@ -1533,50 +1530,61 @@ function ReportContent({
 			<div className="flex-1 bg-gray-100">
 				{pdfUrl ? (
 					<div className="w-full" style={{ height: '80vh' }}>
-						{inlineError ? (
-							<div className="flex items-center justify-center h-full text-center text-muted-foreground">
-								<div className="space-y-3">
-									<p>Inline PDF preview is not supported on this device.</p>
-									<button
-										type="button"
-										onClick={() => {
-											if (!pdfBlob || !downloadUrl) return;
-											const openWithKey = (key: string) => {
-												const url = `/api/reports/pdf?key=${encodeURIComponent(
-													key
-												)}&fileName=${encodeURIComponent(fileName)}`;
-												window.open(url, '_blank', 'noopener,noreferrer');
-											};
-											if (serverKey) {
-												openWithKey(serverKey);
-												return;
+					{inlineError ? (
+						<div className="flex items-center justify-center h-full">
+							<button
+								type="button"
+								onClick={() => {
+									if (!pdfBlob || !downloadUrl) return;
+									const openWithKey = (key: string) => {
+										const url = `/api/reports/pdf?key=${encodeURIComponent(
+											key
+										)}&fileName=${encodeURIComponent(fileName)}`;
+										window.open(url, '_blank', 'noopener,noreferrer');
+									};
+									if (serverKey) {
+										openWithKey(serverKey);
+										return;
+									}
+									fetch('/api/reports/pdf', {
+										method: 'POST',
+										headers: { 'Content-Type': 'application/pdf' },
+										body: pdfBlob,
+									})
+										.then((res) => res.json())
+										.then((data) => {
+											if (data?.cacheKey) {
+												setServerKey(data.cacheKey);
+												openWithKey(data.cacheKey);
+											} else {
+												window.open(downloadUrl, '_blank', 'noopener,noreferrer');
 											}
-											fetch('/api/reports/pdf', {
-												method: 'POST',
-												headers: { 'Content-Type': 'application/pdf' },
-												body: pdfBlob,
-											})
-												.then((res) => res.json())
-												.then((data) => {
-													if (data?.cacheKey) {
-														setServerKey(data.cacheKey);
-														openWithKey(data.cacheKey);
-													} else {
-														window.open(downloadUrl, '_blank', 'noopener,noreferrer');
-													}
-												})
-												.catch(() => {
-													window.open(downloadUrl, '_blank', 'noopener,noreferrer');
-												});
-										}}
-										disabled={!downloadUrl || pdfGenerating}
-										className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm"
-									>
-										View Report Card
-									</button>
-								</div>
-							</div>
-						) : (
+										})
+										.catch(() => {
+											window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+										});
+								}}
+								disabled={!downloadUrl || pdfGenerating}
+								className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm inline-flex items-center gap-2"
+							>
+								<svg
+									className="w-4 h-4"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"
+									/>
+									<circle cx="12" cy="12" r="3" />
+								</svg>
+								View Grade Sheet
+							</button>
+						</div>
+					) : (
 							<iframe
 								title="Periodic Report PDF"
 								className="w-full h-full"
