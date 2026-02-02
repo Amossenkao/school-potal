@@ -1422,10 +1422,18 @@ function ReportContent({
 	const [pdfGenerating, setPdfGenerating] = useState(false);
 	const [inlineError, setInlineError] = useState(false);
 	const pdfUrlRef = useRef<string | null>(null);
+	const [shareModalOpen, setShareModalOpen] = useState(false);
+	const [shareInfo, setShareInfo] = useState<{
+		url: string;
+		pin: string;
+		expiresAt: string;
+	} | null>(null);
+	const [shareNotice, setShareNotice] = useState('');
 
 	const school = useSchoolStore((state) => state.school);
 	const currentSchool = useSchoolStore((state) => state.school);
 	const { user } = useAuth();
+	const isStudent = user?.role === 'student';
 
 	const className = useMemo(() => {
 		const classInfo = currentSchool?.classLevels?.[reportFilters.session]?.[
@@ -1864,6 +1872,82 @@ function ReportContent({
 				>
 					← Back to Filter
 				</button>
+				{isStudent && !inlineError && (
+					<button
+						type="button"
+						onClick={() => {
+							if (!pdfBlob || !downloadUrl) return;
+							const createShare = (cacheKey: string) =>
+								fetch('/api/reports/share', {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({
+										cacheKey,
+										fileName: `Yearly_Report_${className}_${reportFilters.academicYear}.pdf`,
+										reportType: 'yearly',
+										createdBy:
+											user?.id || user?._id || user?.studentId || '',
+									}),
+								}).then((res) => res.json());
+							const doShare = (cacheKey: string) => {
+								createShare(cacheKey).then((data) => {
+									if (!data?.shareUrl || !data?.pin) return;
+									setShareInfo({
+										url: data.shareUrl,
+										pin: data.pin,
+										expiresAt: data.expiresAt,
+									});
+									setShareModalOpen(true);
+								});
+							};
+							if (serverKey) {
+								doShare(serverKey);
+								return;
+							}
+							fetch('/api/reports/pdf', {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/pdf' },
+								body: pdfBlob,
+							})
+								.then((res) => res.json())
+								.then((data) => {
+									if (data?.cacheKey) {
+										setServerKey(data.cacheKey);
+										doShare(data.cacheKey);
+									}
+								});
+						}}
+						disabled={!downloadUrl || pdfGenerating}
+						className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm inline-flex items-center gap-2"
+					>
+						<svg
+							className="w-4 h-4"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"
+							/>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M16 6l-4-4-4 4"
+							/>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M12 2v14"
+							/>
+						</svg>
+						Share Report Card
+					</button>
+				)}
 				<button
 					type="button"
 					onClick={handleDownload}
@@ -1953,82 +2037,82 @@ function ReportContent({
 									</svg>
 									View Report Card
 								</button>
-								<button
-									type="button"
-									onClick={() => {
-										if (!pdfBlob || !downloadUrl) return;
-										const shareUrl = (key: string) =>
-											`${window.location.origin}/api/reports/pdf?key=${encodeURIComponent(
-												key
-											)}&fileName=${encodeURIComponent(
-												`Yearly_Report_${className}_${reportFilters.academicYear}.pdf`
-											)}`;
-										const doShare = (key: string) => {
-											const url = shareUrl(key);
-											if (navigator.share) {
-												navigator.share({ title: 'Report Card', url });
-											} else {
-												window.open(url, '_blank', 'noopener,noreferrer');
+								{isStudent && (
+									<button
+										type="button"
+										onClick={() => {
+											if (!pdfBlob || !downloadUrl) return;
+											const createShare = (cacheKey: string) =>
+												fetch('/api/reports/share', {
+													method: 'POST',
+													headers: { 'Content-Type': 'application/json' },
+													body: JSON.stringify({
+														cacheKey,
+														fileName: `Yearly_Report_${className}_${reportFilters.academicYear}.pdf`,
+														reportType: 'yearly',
+														createdBy:
+															user?.id || user?._id || user?.studentId || '',
+													}),
+												}).then((res) => res.json());
+											const doShare = (cacheKey: string) => {
+												createShare(cacheKey).then((data) => {
+													if (!data?.shareUrl || !data?.pin) return;
+													setShareInfo({
+														url: data.shareUrl,
+														pin: data.pin,
+														expiresAt: data.expiresAt,
+													});
+													setShareModalOpen(true);
+												});
+											};
+											if (serverKey) {
+												doShare(serverKey);
+												return;
 											}
-										};
-										if (serverKey) {
-											doShare(serverKey);
-											return;
-										}
-										fetch('/api/reports/pdf', {
-											method: 'POST',
-											headers: { 'Content-Type': 'application/pdf' },
-											body: pdfBlob,
-										})
-											.then((res) => res.json())
-											.then((data) => {
-												if (data?.cacheKey) {
-													setServerKey(data.cacheKey);
-													doShare(data.cacheKey);
-												} else if (navigator.share) {
-													navigator.share({ title: 'Report Card', url: downloadUrl });
-												} else {
-													window.open(downloadUrl, '_blank', 'noopener,noreferrer');
-												}
+											fetch('/api/reports/pdf', {
+												method: 'POST',
+												headers: { 'Content-Type': 'application/pdf' },
+												body: pdfBlob,
 											})
-											.catch(() => {
-												if (navigator.share) {
-													navigator.share({ title: 'Report Card', url: downloadUrl });
-												} else {
-													window.open(downloadUrl, '_blank', 'noopener,noreferrer');
-												}
-											});
-									}}
-									disabled={!downloadUrl || pdfGenerating}
-									className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm inline-flex items-center gap-2"
-								>
-									<svg
-										className="w-4 h-4"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
+												.then((res) => res.json())
+												.then((data) => {
+													if (data?.cacheKey) {
+														setServerKey(data.cacheKey);
+														doShare(data.cacheKey);
+													}
+												});
+										}}
+										disabled={!downloadUrl || pdfGenerating}
+										className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm inline-flex items-center gap-2"
 									>
-										<path
-											strokeLinecap="round"
-											strokeLinejoin="round"
-											strokeWidth={2}
-											d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"
-										/>
-										<path
-											strokeLinecap="round"
-											strokeLinejoin="round"
-											strokeWidth={2}
-											d="M16 6l-4-4-4 4"
-										/>
-										<path
-											strokeLinecap="round"
-											strokeLinejoin="round"
-											strokeWidth={2}
-											d="M12 2v14"
-										/>
-									</svg>
-									Share Report Card
-								</button>
+										<svg
+											className="w-4 h-4"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+										>
+											<path
+												strokeLinecap="round"
+												strokeLinejoin="round"
+												strokeWidth={2}
+												d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"
+											/>
+											<path
+												strokeLinecap="round"
+												strokeLinejoin="round"
+												strokeWidth={2}
+												d="M16 6l-4-4-4 4"
+											/>
+											<path
+												strokeLinecap="round"
+												strokeLinejoin="round"
+												strokeWidth={2}
+												d="M12 2v14"
+											/>
+										</svg>
+										Share Report Card
+									</button>
+								)}
 							</div>
 						</div>
 					) : (
@@ -2049,6 +2133,108 @@ function ReportContent({
 					</div>
 				)}
 			</div>
+			{shareModalOpen && shareInfo && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+					<div className="bg-card w-full max-w-md rounded-xl border border-border shadow-xl">
+						<div className="flex items-center justify-between p-4 border-b border-border">
+							<h5 className="text-lg font-semibold text-foreground">
+								Share Report Card
+							</h5>
+							<button
+								type="button"
+								onClick={() => setShareModalOpen(false)}
+								className="p-2 rounded-full hover:bg-muted transition-colors"
+							>
+								<svg
+									className="h-4 w-4"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M6 18L18 6M6 6l12 12"
+									/>
+								</svg>
+							</button>
+						</div>
+						<div className="p-4 space-y-4">
+							<div>
+								<p className="text-sm text-muted-foreground">
+									This link expires in 24 hours.
+								</p>
+							</div>
+							<div className="rounded-lg border border-border bg-muted/40 p-3">
+								<p className="text-xs text-muted-foreground mb-1">Share Link</p>
+								<p className="text-sm break-all">{shareInfo.url}</p>
+								<button
+									type="button"
+									onClick={async () => {
+										try {
+											await navigator.clipboard.writeText(shareInfo.url);
+											setShareNotice('Link copied.');
+										} catch {
+											setShareNotice('Copy failed.');
+										}
+									}}
+									className="mt-2 px-3 py-1.5 text-xs rounded border border-border hover:bg-muted"
+								>
+									Copy Link
+								</button>
+							</div>
+							<div className="rounded-lg border border-border bg-muted/40 p-3">
+								<p className="text-xs text-muted-foreground mb-1">PIN</p>
+								<p className="text-2xl font-semibold tracking-widest">
+									{shareInfo.pin}
+								</p>
+								<button
+									type="button"
+									onClick={async () => {
+										try {
+											await navigator.clipboard.writeText(shareInfo.pin);
+											setShareNotice('PIN copied.');
+										} catch {
+											setShareNotice('Copy failed.');
+										}
+									}}
+									className="mt-2 px-3 py-1.5 text-xs rounded border border-border hover:bg-muted"
+								>
+									Copy PIN
+								</button>
+							</div>
+							{shareNotice && (
+								<p className="text-xs text-muted-foreground">{shareNotice}</p>
+							)}
+							<div className="flex justify-end gap-2">
+								<button
+									type="button"
+									onClick={() => {
+										if (navigator.share) {
+											navigator.share({
+												title: 'Report Card',
+												text: `PIN: ${shareInfo.pin}`,
+												url: shareInfo.url,
+											});
+										}
+									}}
+									className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm"
+								>
+									Share
+								</button>
+								<button
+									type="button"
+									onClick={() => setShareModalOpen(false)}
+									className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm"
+								>
+									Done
+								</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
