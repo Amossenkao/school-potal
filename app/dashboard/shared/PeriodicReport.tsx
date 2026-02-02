@@ -1979,21 +1979,6 @@ function ReportContent({
 									<p className="text-xs text-muted-foreground">
 										Share on social media
 									</p>
-									<button
-										type="button"
-										onClick={() => {
-											if (navigator.share) {
-												navigator.share({
-													title: 'Grade Sheet',
-													text: `PIN: ${shareInfo.pin}`,
-													url: shareInfo.url,
-												});
-											}
-										}}
-										className="px-2 py-1 text-[11px] rounded border border-border hover:bg-muted"
-									>
-										Share via
-									</button>
 								</div>
 								<div className="flex flex-wrap gap-2">
 									{[
@@ -2065,21 +2050,6 @@ function ReportContent({
 								</div>
 							</div>
 							<div className="flex justify-end gap-2">
-								<button
-									type="button"
-									onClick={() => {
-										if (navigator.share) {
-											navigator.share({
-												title: 'Grade Sheet',
-												text: `PIN: ${shareInfo.pin}`,
-												url: shareInfo.url,
-											});
-										}
-									}}
-									className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm"
-								>
-									Share
-								</button>
 								<button
 									type="button"
 									onClick={() => setShareModalOpen(false)}
