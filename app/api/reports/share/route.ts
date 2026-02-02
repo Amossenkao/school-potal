@@ -17,7 +17,7 @@ const buildOrigin = (request: NextRequest) => {
 	return `${proto}://${host}`;
 };
 
-const renderPinForm = (token: string) => `<!doctype html>
+const renderPinForm = (token: string, errorMessage?: string) => `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
@@ -29,6 +29,7 @@ const renderPinForm = (token: string) => `<!doctype html>
     .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; max-width: 360px; width: 100%; }
     h1 { font-size: 18px; margin: 0 0 12px; }
     p { font-size: 13px; margin: 0 0 16px; color: #475569; }
+    .error { color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; padding: 8px 10px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
     input { width: 100%; padding: 10px 12px; font-size: 16px; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 12px; }
     button { width: 100%; padding: 10px 12px; font-size: 14px; border: none; background: #2563eb; color: white; border-radius: 8px; cursor: pointer; }
   </style>
@@ -38,6 +39,7 @@ const renderPinForm = (token: string) => `<!doctype html>
     <form class="card" method="get" action="/api/reports/share">
       <h1>Enter 4-digit PIN</h1>
       <p>This report is protected. Ask the sender for the PIN.</p>
+      ${errorMessage ? `<div class="error">${errorMessage}</div>` : ''}
       <input type="hidden" name="token" value="${token}"/>
       <input type="text" name="pin" inputmode="numeric" pattern="\\d{4}" maxlength="4" placeholder="PIN" required />
       <button type="submit">View Report</button>
@@ -132,7 +134,7 @@ export async function GET(request: NextRequest) {
 
 		const pinOk = await bcrypt.compare(pin, share.pinHash);
 		if (!pinOk) {
-			return new NextResponse(renderPinForm(token), {
+			return new NextResponse(renderPinForm(token, 'Invalid PIN. Please try again.'), {
 				status: 401,
 				headers: { 'Content-Type': 'text/html; charset=utf-8' },
 			});

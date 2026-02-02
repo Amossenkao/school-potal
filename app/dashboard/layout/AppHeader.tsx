@@ -329,7 +329,7 @@ const NotificationsDropdown = () => {
 			</button>
 
 			{isOpen && (
-				<div className="absolute right-0 mt-2 w-80 origin-top-right rounded-xl bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+				<div className="absolute right-0 mt-2 w-72 max-w-[90vw] sm:w-80 origin-top-right rounded-xl bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
 					<div className="p-4 border-b border-gray-200 dark:border-gray-700">
 						<div className="flex items-center justify-between">
 							<h3 className="text-lg font-semibold text-gray-800 dark:text-white">
@@ -460,7 +460,7 @@ const UserDropdown = () => {
 			<div className="relative" ref={dropdownRef}>
 				<button
 					onClick={() => setIsOpen(!isOpen)}
-					className="flex items-center gap-3 rounded-full p-1 pr-3 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+					className="flex items-center gap-3 flex-row-reverse rounded-full p-1 pl-3 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
 				>
 					<img
 						src={
@@ -481,7 +481,7 @@ const UserDropdown = () => {
 				</button>
 
 				{isOpen && (
-					<div className="absolute right-0 mt-2 w-56 origin-top-right rounded-xl bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+					<div className="absolute right-0 mt-2 w-52 max-w-[90vw] origin-top-right rounded-xl bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
 						<div className="py-2">
 							<Link
 								href="/dashboard/profile"
