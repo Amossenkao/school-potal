@@ -1422,6 +1422,7 @@ function ReportContent({
 	const [pdfGenerating, setPdfGenerating] = useState(false);
 	const [inlineError, setInlineError] = useState(false);
 	const pdfUrlRef = useRef<string | null>(null);
+	const autoOpenedRef = useRef(false);
 
 	const school = useSchoolStore((state) => state.school);
 	const currentSchool = useSchoolStore((state) => state.school);
@@ -1727,6 +1728,7 @@ function ReportContent({
 			setPdfBlob(null);
 			setServerKey(null);
 			setInlineError(false);
+			autoOpenedRef.current = false;
 			return;
 		}
 
@@ -1735,6 +1737,11 @@ function ReportContent({
 		const isIOS =
 			typeof navigator !== 'undefined' &&
 			/iPad|iPhone|iPod/.test(navigator.userAgent);
+		const isMobile =
+			typeof navigator !== 'undefined' &&
+			/Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(
+				navigator.userAgent
+			);
 		pdf(pdfDocument)
 			.toBlob()
 			.then((blob) => {
@@ -1748,6 +1755,7 @@ function ReportContent({
 				setPdfBlob(blob);
 				setServerKey(null);
 				setInlineError(false);
+				autoOpenedRef.current = false;
 				if (isIOS) {
 					const reader = new FileReader();
 					reader.onloadend = () => {
@@ -1757,6 +1765,9 @@ function ReportContent({
 					reader.readAsDataURL(blob);
 				} else {
 					setPdfUrl(objectUrl);
+				}
+				if (isMobile) {
+					setInlineError(true);
 				}
 			})
 			.catch((err) => {
@@ -1771,6 +1782,47 @@ function ReportContent({
 			cancelled = true;
 		};
 	}, [pdfDocument]);
+
+	useEffect(() => {
+		if (!pdfBlob || !downloadUrl || pdfGenerating) return;
+		if (autoOpenedRef.current) return;
+		const isMobile =
+			typeof navigator !== 'undefined' &&
+			/Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(
+				navigator.userAgent
+			);
+		if (!isMobile) return;
+
+		const openWithKey = (key: string) => {
+			const url = `/api/reports/pdf?key=${encodeURIComponent(
+				key
+			)}&fileName=${encodeURIComponent(
+				`Yearly_Report_${className}_${reportFilters.academicYear}.pdf`
+			)}`;
+			window.open(url, '_blank', 'noopener,noreferrer');
+		};
+
+		autoOpenedRef.current = true;
+		if (serverKey) {
+			openWithKey(serverKey);
+			return;
+		}
+		fetch('/api/reports/pdf', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/pdf' },
+			body: pdfBlob,
+		})
+			.then((res) => res.json())
+			.then((data) => {
+				if (data?.cacheKey) {
+					setServerKey(data.cacheKey);
+					openWithKey(data.cacheKey);
+				}
+			})
+			.catch(() => {
+				autoOpenedRef.current = false;
+			});
+	}, [pdfBlob, downloadUrl, pdfGenerating, serverKey, className, reportFilters.academicYear]);
 
 	// Download handler
 	const handleDownload = useCallback(async () => {
