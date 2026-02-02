@@ -439,9 +439,9 @@ const AppSidebar: React.FC = () => {
 	// Show loading state if user or school is being fetched
 	if (user === undefined || !currentSchool) {
 		return (
-			<aside
-				className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 w-[290px]`}
-			>
+		<aside
+			className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 w-[260px] sm:w-[290px] rounded-tr-2xl lg:rounded-tr-none`}
+		>
 				<div className="flex items-center gap-3 cursor-pointer">
 					{/* Logo placeholder */}
 					<div className="w-12 h-12 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded animate-pulse">
@@ -467,11 +467,11 @@ const AppSidebar: React.FC = () => {
 	return (
 		<aside
 			ref={sidebarRef}
-			className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 dark:text-gray-100 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 dark:border-gray-700 ${
+			className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 dark:text-gray-100 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 dark:border-gray-700 rounded-tr-2xl lg:rounded-tr-none ${
 				isExpanded || isMobileOpen
-					? 'w-[290px]'
+					? 'w-[260px] sm:w-[290px]'
 					: isHovered
-					? 'w-[290px]'
+					? 'w-[260px] sm:w-[290px]'
 					: 'w-[90px]'
 			} ${
 				isMobileOpen ? 'translate-x-0' : '-translate-x-full'
