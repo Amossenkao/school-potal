@@ -6,6 +6,7 @@ import { createSession, destroySession } from '@/utils/session';
 import { verifyOTP, sendOTP } from '@/utils/otp';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { UserRole } from '@/types';
+import { buildBootstrapPayload } from '@/app/api/auth/bootstrap';
 
 async function addLoginNotification(user: any) {
 	if (!user) return;
@@ -50,12 +51,25 @@ export async function POST(request: NextRequest) {
 					id, // Changed userId to id
 				);
 
+				const verifiedUser = verificationResult.success
+					? buildUserResponse(user)
+					: null;
+				let bootstrapPayload: any = null;
+				if (verificationResult.success && verifiedUser) {
+					try {
+						bootstrapPayload = await buildBootstrapPayload(verifiedUser);
+					} catch (error) {
+						console.warn('Failed to build bootstrap payload:', error);
+					}
+				}
+
 				const response = NextResponse.json(
 					{
 						success: verificationResult.success,
 						message: verificationResult.message,
 						...(verificationResult.success && {
-							user: buildUserResponse(user),
+							user: verifiedUser,
+							...bootstrapPayload,
 						}),
 						requiresOTP: !verificationResult.success,
 					},
@@ -178,8 +192,14 @@ async function handleLogin(user: any, password: string, host: string) {
 	} else {
 		await addLoginNotification(user);
 		const sessionId = await createSession(sessionData);
+		let bootstrapPayload: any = null;
+		try {
+			bootstrapPayload = await buildBootstrapPayload(userData);
+		} catch (error) {
+			console.warn('Failed to build bootstrap payload:', error);
+		}
 		const response = NextResponse.json(
-			{ message: 'Login successful', user: userData },
+			{ message: 'Login successful', user: userData, ...bootstrapPayload },
 			{ status: 200 },
 		);
 		setSessionCookie(response, sessionId);

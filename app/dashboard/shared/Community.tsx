@@ -13,6 +13,10 @@ const getFullName = (user: any) =>
 const Community = () => {
 	const { user } = useAuth();
 	const schoolProfile = useSchoolStore((state) => state.school);
+	const usersByAcademicYear = useSchoolStore(
+		(state) => state.usersByAcademicYear,
+	);
+	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
 	const [roleFilter, setRoleFilter] = useState<'student' | 'teacher' | 'administrator'>(
 		'student',
 	);
@@ -76,6 +80,15 @@ const Community = () => {
 	useEffect(() => {
 		const fetchCommunity = async () => {
 			if (!academicYear) return;
+			const cachedUsers = usersByAcademicYear?.[academicYear];
+			if (cachedUsers) {
+				setCommunityData({
+					students: cachedUsers.students || [],
+					teachers: cachedUsers.teachers || [],
+					administrators: cachedUsers.administrators || [],
+				});
+				return;
+			}
 			const cacheKey = `community:${academicYear}`;
 			const cached = getClientCache<{
 				students: any[];
@@ -104,6 +117,7 @@ const Community = () => {
 						: [],
 				};
 				setClientCache(cacheKey, payload);
+				setUsersForYear(academicYear, payload, { merge: true });
 				setCommunityData(payload);
 			} catch (err: any) {
 				setError(err.message || 'Failed to load community.');
@@ -113,7 +127,7 @@ const Community = () => {
 		};
 
 		fetchCommunity();
-	}, [academicYear]);
+	}, [academicYear, setUsersForYear, usersByAcademicYear]);
 
 	useEffect(() => {
 		setCurrentPage(1);

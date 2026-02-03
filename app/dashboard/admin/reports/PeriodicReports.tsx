@@ -337,6 +337,12 @@ function FilterContent({
 	userRole: string;
 }) {
 	const currentSchool = useSchoolStore((state: any) => state.school);
+	const usersByAcademicYear = useSchoolStore(
+		(state: any) => state.usersByAcademicYear,
+	);
+	const setUsersForYear = useSchoolStore(
+		(state: any) => state.setUsersForYear,
+	);
 	const [students, setStudents] = useState<Student[]>([]);
 	const [loadingStudents, setLoadingStudents] = useState(false);
 
@@ -369,12 +375,37 @@ function FilterContent({
 			const fetchStudents = async () => {
 				try {
 					setLoadingStudents(true);
+					const cachedUsers =
+						usersByAcademicYear?.[filters.academicYear];
+					if (cachedUsers?.students?.length) {
+						const filtered = cachedUsers.students.filter(
+							(student: any) => student.classId === filters.className,
+						);
+						const mappedStudents = filtered.map((student: any) => ({
+							id: student.studentId || student.id,
+							name: `${student.firstName} ${
+								student.middleName ? student.middleName + ' ' : ''
+							}${student.lastName}`.trim(),
+							className: student.classId,
+						}));
+						setStudents(mappedStudents);
+						return;
+					}
 					const response = await fetch(
 						`/api/users?classId=${filters.className}&role=student&academicYear=${filters.academicYear}`
 					);
 					if (response.ok) {
 						const responseData = await response.json();
 						if (responseData.success && responseData.data) {
+							setUsersForYear(
+								filters.academicYear,
+								{
+									students: Array.isArray(responseData.data)
+										? responseData.data
+										: [],
+								},
+								{ merge: true },
+							);
 							// Map the response data to the expected format
 							const mappedStudents = responseData.data.map((student: any) => ({
 								id: student.studentId,
@@ -405,7 +436,13 @@ function FilterContent({
 			setStudents([]);
 			setFilters((prev) => ({ ...prev, selectedStudents: [] }));
 		}
-	}, [filters.className, setFilters]);
+	}, [
+		filters.className,
+		filters.academicYear,
+		setFilters,
+		usersByAcademicYear,
+		setUsersForYear,
+	]);
 
 	// Reset selected students when switching back to entire class
 	useEffect(() => {

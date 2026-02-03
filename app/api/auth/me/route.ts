@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/utils/session';
 import { getSchoolProfile } from '@/lib/mongoose';
+import { buildBootstrapPayload } from '@/app/api/auth/bootstrap';
 
 export async function GET(request: NextRequest) {
 	try {
@@ -58,10 +59,17 @@ export async function GET(request: NextRequest) {
 		}
 
 		// Return the session data (which now uses 'id') and school profile
+		let bootstrapPayload: any = null;
+		try {
+			bootstrapPayload = await buildBootstrapPayload(session);
+		} catch (error) {
+			console.warn('Failed to build bootstrap payload:', error);
+		}
 		return NextResponse.json({
 			user: session,
 			school: schoolProfile || null,
 			message: 'Session valid',
+			...(bootstrapPayload || {}),
 		});
 	} catch (error) {
 		console.error('Session validation error:', error);

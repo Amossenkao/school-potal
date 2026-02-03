@@ -289,6 +289,10 @@ const FilterContent = React.memo(function FilterContent({
 	onSubmit: () => void;
 }) {
 	const currentSchool = useSchoolStore((state) => state.school);
+	const usersByAcademicYear = useSchoolStore(
+		(state) => state.usersByAcademicYear,
+	);
+	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
 	const { user } = useAuth();
 	const [students, setStudents] = useState<Student[]>([]);
 	const [loadingStudents, setLoadingStudents] = useState(false);
@@ -400,6 +404,21 @@ const FilterContent = React.memo(function FilterContent({
 			const fetchStudents = async () => {
 				setLoadingStudents(true);
 				try {
+					const cachedUsers = usersByAcademicYear?.[filters.academicYear];
+					if (cachedUsers?.students?.length) {
+						const filtered = cachedUsers.students.filter(
+							(student: any) => student.classId === filters.className,
+						);
+						const mappedStudents = filtered.map((student: any) => ({
+							id: student.studentId || student.id,
+							name: `${student.firstName} ${
+								student.middleName ? student.middleName + ' ' : ''
+							}${student.lastName}`.trim(),
+							className: student.classId,
+						}));
+						setStudents(mappedStudents);
+						return;
+					}
 					const cacheKey = `yearly:students:${filters.academicYear}:${filters.className}`;
 					const cached = getClientCache<Student[]>(cacheKey);
 					if (cached) {
@@ -411,6 +430,15 @@ const FilterContent = React.memo(function FilterContent({
 					);
 					const responseData = await response.json();
 					if (responseData.success && responseData.data) {
+						setUsersForYear(
+							filters.academicYear,
+							{
+								students: Array.isArray(responseData.data)
+									? responseData.data
+									: [],
+							},
+							{ merge: true },
+						);
 						const mappedStudents = responseData.data.map((student: any) => ({
 							id: student.studentId,
 							name: `${student.firstName} ${
@@ -442,6 +470,8 @@ const FilterContent = React.memo(function FilterContent({
 		filters.academicYear,
 		isStudent,
 		setFilters,
+		usersByAcademicYear,
+		setUsersForYear,
 	]);
 
 	const canSubmit = useMemo(() => {
@@ -1504,6 +1534,28 @@ function ReportContent({
 						},
 					];
 				} else {
+					const cachedUsers =
+						usersByAcademicYear?.[reportFilters.academicYear];
+					if (cachedUsers?.students?.length) {
+						const filtered = cachedUsers.students.filter(
+							(student: any) => student.classId === reportFilters.className,
+						);
+						const mapped = filtered.map((student: any) => ({
+							studentId: student.studentId || student.id,
+							firstName: student.firstName,
+							middleName: student.middleName,
+							lastName: student.lastName,
+						}));
+						if (reportFilters.selectedStudents.length > 0) {
+							studentsToProcess = mapped.filter((student: any) =>
+								reportFilters.selectedStudents.includes(student.studentId),
+							);
+						} else {
+							studentsToProcess = mapped;
+						}
+						setLoading(false);
+						return;
+					}
 					const cacheKey = `yearly:students:${reportFilters.academicYear}:${reportFilters.className}`;
 					const cached = getClientCache<any[]>(cacheKey);
 					if (cached) {
@@ -1524,6 +1576,16 @@ function ReportContent({
 						if (!studentsResult.success || !studentsResult.data) {
 							throw new Error('Invalid student data format');
 						}
+
+						setUsersForYear(
+							reportFilters.academicYear,
+							{
+								students: Array.isArray(studentsResult.data)
+									? studentsResult.data
+									: [],
+							},
+							{ merge: true },
+						);
 
 						const mapped = studentsResult.data.map((student: any) => ({
 							studentId: student.studentId || student.id,
@@ -1732,7 +1794,14 @@ function ReportContent({
 		};
 
 		fetchStudentsData();
-	}, [reportFilters, user, classSubjects, className]);
+	}, [
+		reportFilters,
+		user,
+		classSubjects,
+		className,
+		usersByAcademicYear,
+		setUsersForYear,
+	]);
 
 	// Memoize the PDF document - This is the blocking operation
 	const pdfDocument = useMemo(() => {

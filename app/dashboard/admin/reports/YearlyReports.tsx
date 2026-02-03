@@ -248,6 +248,10 @@ function FilterContent({
 	onSubmit: () => void;
 }) {
 	const currentSchool = useSchoolStore((state) => state.school);
+	const usersByAcademicYear = useSchoolStore(
+		(state) => state.usersByAcademicYear,
+	);
+	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
 	const { user } = useAuth();
 	const [students, setStudents] = useState<Student[]>([]);
 	const [loadingStudents, setLoadingStudents] = useState(false);
@@ -350,12 +354,37 @@ function FilterContent({
 			const fetchStudents = async () => {
 				try {
 					setLoadingStudents(true);
+					const cachedUsers =
+						usersByAcademicYear?.[filters.academicYear];
+					if (cachedUsers?.students?.length) {
+						const filtered = cachedUsers.students.filter(
+							(student: any) => student.classId === filters.className,
+						);
+						const mappedStudents = filtered.map((student: any) => ({
+							id: student.studentId || student.id,
+							name: `${student.firstName} ${
+								student.middleName ? student.middleName + ' ' : ''
+							}${student.lastName}`.trim(),
+							className: student.classId,
+						}));
+						setStudents(mappedStudents);
+						return;
+					}
 					const response = await fetch(
 						`/api/users?classId=${filters.className}&role=student&academicYear=${filters.academicYear}`
 					);
 					if (response.ok) {
 						const responseData = await response.json();
 						if (responseData.success && responseData.data) {
+							setUsersForYear(
+								filters.academicYear,
+								{
+									students: Array.isArray(responseData.data)
+										? responseData.data
+										: [],
+								},
+								{ merge: true },
+							);
 							const mappedStudents = responseData.data.map((student: any) => ({
 								id: student.studentId,
 								name: `${student.firstName} ${
@@ -398,7 +427,15 @@ function FilterContent({
 			setStudents([]);
 			setFilters((prev) => ({ ...prev, selectedStudents: [] }));
 		}
-	}, [filters.className, setFilters, isStudent, user]);
+	}, [
+		filters.className,
+		filters.academicYear,
+		setFilters,
+		isStudent,
+		user,
+		usersByAcademicYear,
+		setUsersForYear,
+	]);
 
 	// Reset dependent fields when parent fields change
 	useEffect(() => {

@@ -3,8 +3,39 @@ import type SchoolProfile from '@/types/schoolProfile';
 
 type SchoolStore = {
 	school: SchoolProfile | null;
+	usersByAcademicYear: Record<
+		string,
+		{
+			students: any[];
+			teachers: any[];
+			administrators: any[];
+		}
+	>;
+	calendarByAcademicYear: Record<string, any[]>;
+	schedulesByAcademicYear: Record<
+		string,
+		{
+			classSchedules: any[];
+			testSchedules: any[];
+		}
+	>;
 	fetchSchool: (host?: string) => Promise<void>;
 	setSchool: (school: SchoolProfile | null) => void;
+	setUsersForYear: (
+		academicYear: string,
+		payload: {
+			students?: any[];
+			teachers?: any[];
+			administrators?: any[];
+		},
+		options?: { merge?: boolean },
+	) => void;
+	setCalendarForYear: (academicYear: string, events: any[]) => void;
+	setSchedulesForYear: (
+		academicYear: string,
+		payload: { classSchedules?: any[]; testSchedules?: any[] },
+	) => void;
+	clearCache: () => void;
 };
 
 // Prevent multiple simultaneous fetches
@@ -12,6 +43,9 @@ let fetchPromise: Promise<void> | null = null;
 
 export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	school: null,
+	usersByAcademicYear: {},
+	calendarByAcademicYear: {},
+	schedulesByAcademicYear: {},
 
 	fetchSchool: async () => {
 		// 1. If we already have the correct school, no need to fetch
@@ -60,5 +94,78 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		} else {
 			localStorage.removeItem('school-profile');
 		}
+	},
+
+	setUsersForYear: (academicYear, payload, options = {}) => {
+		if (!academicYear) return;
+		const merge = options.merge !== false;
+		set((state) => {
+			const existing = state.usersByAcademicYear[academicYear] || {
+				students: [],
+				teachers: [],
+				administrators: [],
+			};
+			const nextStudents = payload.students || [];
+			const nextTeachers = payload.teachers || [];
+			const nextAdmins = payload.administrators || [];
+
+			const mergeById = (current: any[], incoming: any[]) => {
+				if (!merge) return incoming;
+				const seen = new Map<string, any>();
+				current.forEach((user) => {
+					const id = user?.id || user?._id;
+					if (id) seen.set(id, user);
+				});
+				incoming.forEach((user) => {
+					const id = user?.id || user?._id;
+					if (id) seen.set(id, user);
+				});
+				return Array.from(seen.values());
+			};
+
+			const updated = {
+				students: mergeById(existing.students, nextStudents),
+				teachers: mergeById(existing.teachers, nextTeachers),
+				administrators: mergeById(existing.administrators, nextAdmins),
+			};
+
+			return {
+				usersByAcademicYear: {
+					...state.usersByAcademicYear,
+					[academicYear]: updated,
+				},
+			};
+		});
+	},
+
+	setCalendarForYear: (academicYear, events) => {
+		if (!academicYear) return;
+		set((state) => ({
+			calendarByAcademicYear: {
+				...state.calendarByAcademicYear,
+				[academicYear]: Array.isArray(events) ? events : [],
+			},
+		}));
+	},
+
+	setSchedulesForYear: (academicYear, payload) => {
+		if (!academicYear) return;
+		set((state) => ({
+			schedulesByAcademicYear: {
+				...state.schedulesByAcademicYear,
+				[academicYear]: {
+					classSchedules: payload.classSchedules || [],
+					testSchedules: payload.testSchedules || [],
+				},
+			},
+		}));
+	},
+
+	clearCache: () => {
+		set({
+			usersByAcademicYear: {},
+			calendarByAcademicYear: {},
+			schedulesByAcademicYear: {},
+		});
 	},
 }));

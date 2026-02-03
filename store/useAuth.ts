@@ -81,6 +81,21 @@ const useAuth = create<AuthState>((set, get) => {
 				if (data.school !== undefined && data.school !== null) {
 					useSchoolStore.getState().setSchool(data.school);
 				}
+				if (data.academicYear && data.users) {
+					useSchoolStore
+						.getState()
+						.setUsersForYear(data.academicYear, data.users);
+				}
+				if (data.academicYear && data.calendarEvents) {
+					useSchoolStore
+						.getState()
+						.setCalendarForYear(data.academicYear, data.calendarEvents);
+				}
+				if (data.academicYear && data.schedules) {
+					useSchoolStore
+						.getState()
+						.setSchedulesForYear(data.academicYear, data.schedules);
+				}
 
 				set({
 					user: data.user,
@@ -134,6 +149,21 @@ const useAuth = create<AuthState>((set, get) => {
 
 				if (data.school !== undefined && data.school !== null) {
 					useSchoolStore.getState().setSchool(data.school);
+				}
+				if (data.academicYear && data.users) {
+					useSchoolStore
+						.getState()
+						.setUsersForYear(data.academicYear, data.users);
+				}
+				if (data.academicYear && data.calendarEvents) {
+					useSchoolStore
+						.getState()
+						.setCalendarForYear(data.academicYear, data.calendarEvents);
+				}
+				if (data.academicYear && data.schedules) {
+					useSchoolStore
+						.getState()
+						.setSchedulesForYear(data.academicYear, data.schedules);
 				}
 
 				set({
@@ -222,6 +252,7 @@ const useAuth = create<AuthState>((set, get) => {
 				otpContact: null,
 				userId: null,
 			});
+			useSchoolStore.getState().clearCache();
 			useBootstrapStore.getState().clearBootstrap();
 		},
 
@@ -253,6 +284,21 @@ const useAuth = create<AuthState>((set, get) => {
 					!isEqual(data.school, useSchoolStore.getState().school)
 				) {
 					useSchoolStore.getState().setSchool(data.school);
+				}
+				if (data.academicYear && data.users) {
+					useSchoolStore
+						.getState()
+						.setUsersForYear(data.academicYear, data.users);
+				}
+				if (data.academicYear && data.calendarEvents) {
+					useSchoolStore
+						.getState()
+						.setCalendarForYear(data.academicYear, data.calendarEvents);
+				}
+				if (data.academicYear && data.schedules) {
+					useSchoolStore
+						.getState()
+						.setSchedulesForYear(data.academicYear, data.schedules);
 				}
 
 				if (data.user) {

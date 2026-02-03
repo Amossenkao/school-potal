@@ -397,6 +397,10 @@ function FilterContent({
 }) {
 	const { user } = useAuth();
 	const school = useSchoolStore((state) => state.school);
+	const usersByAcademicYear = useSchoolStore(
+		(state) => state.usersByAcademicYear,
+	);
+	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
 	const [students, setStudents] = useState<Student[]>([]);
 	const [loadingStudents, setLoadingStudents] = useState(false);
 
@@ -462,6 +466,21 @@ function FilterContent({
 			if (filters.className) {
 				setLoadingStudents(true);
 				try {
+					const cachedUsers = usersByAcademicYear?.[filters.academicYear];
+					if (cachedUsers?.students?.length) {
+						const filtered = cachedUsers.students.filter(
+							(student: any) => student.classId === filters.className,
+						);
+						const mapped = filtered.map((student: any) => ({
+							id: student.studentId || student.id,
+							name: `${student.firstName} ${student.middleName || ''} ${
+								student.lastName
+							}`.trim(),
+							className: student.classId,
+						}));
+						setStudents(mapped);
+						return;
+					}
 					const cacheKey = `periodic:students:${filters.academicYear}:${filters.className}`;
 					const cached = getClientCache<Student[]>(cacheKey);
 					if (cached) {
@@ -474,6 +493,11 @@ function FilterContent({
 					if (!response.ok) throw new Error('Failed to fetch students');
 					const data = await response.json();
 					if (data.success && data.data) {
+						setUsersForYear(
+							filters.academicYear,
+							{ students: Array.isArray(data.data) ? data.data : [] },
+							{ merge: true },
+						);
 						const mapped = data.data.map((student: any) => ({
 							id: student.studentId,
 							name: `${student.firstName} ${student.middleName || ''} ${
@@ -504,6 +528,8 @@ function FilterContent({
 		filters.className,
 		filters.academicYear,
 		isStudent,
+		usersByAcademicYear,
+		setUsersForYear,
 	]);
 
 	// Set default academic year on component mount

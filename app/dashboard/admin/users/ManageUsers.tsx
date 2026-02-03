@@ -230,6 +230,8 @@ const UserManagementDashboard = () => {
 	const [users, setUsers] = useState<any[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [feedback, setFeedback] = useState({ type: '', message: '' });
+	const totalUsersRef = useRef<number | null>(null);
+	const roleCountsRef = useRef<Record<string, number>>({});
 
 	// Modal State
 	const [showEditModal, setShowEditModal] = useState(false);
@@ -267,6 +269,12 @@ const UserManagementDashboard = () => {
 	const router = useRouter();
 	const schoolProfile = useSchoolStore((state: any) => state.school);
 	const fetchSchool = useSchoolStore((state: any) => state.fetchSchool);
+	const usersByAcademicYear = useSchoolStore(
+		(state: any) => state.usersByAcademicYear,
+	);
+	const setUsersForYear = useSchoolStore(
+		(state: any) => state.setUsersForYear,
+	);
 	const activeAcademicYear =
 		schoolProfile?.currentAcademicYear || getAcademicYear();
 	const [selectedAcademicYear, setSelectedAcademicYear] =
@@ -442,8 +450,10 @@ const UserManagementDashboard = () => {
 					});
 					setServerPage(page);
 					const nextTotal =
-						data?.meta?.total !== undefined ? data.meta.total : totalUsers;
-					const nextCounts = data?.meta?.counts || roleCounts;
+						data?.meta?.total !== undefined
+							? data.meta.total
+							: totalUsersRef.current;
+					const nextCounts = data?.meta?.counts || roleCountsRef.current;
 					if (data?.meta?.total !== undefined) {
 						setTotalUsers(data.meta.total);
 					}
@@ -456,6 +466,13 @@ const UserManagementDashboard = () => {
 						roleCounts: nextCounts,
 						serverPage: page,
 					});
+
+					const grouped = {
+						students: userList.filter((u) => u.role === 'student'),
+						teachers: userList.filter((u) => u.role === 'teacher'),
+						administrators: userList.filter((u) => u.role === 'administrator'),
+					};
+					setUsersForYear(selectedAcademicYear, grouped, { merge: true });
 				} else if (replace) {
 					setUsers([]);
 				}
@@ -468,12 +485,20 @@ const UserManagementDashboard = () => {
 				setIsFetchingMore(false);
 			}
 		},
-		[selectedAcademicYear, serverPageSize, totalUsers, roleCounts],
+		[selectedAcademicYear, serverPageSize],
 	);
 
 	useEffect(() => {
 		fetchSchool();
 	}, [fetchSchool]);
+
+	useEffect(() => {
+		totalUsersRef.current = totalUsers;
+	}, [totalUsers]);
+
+	useEffect(() => {
+		roleCountsRef.current = roleCounts;
+	}, [roleCounts]);
 
 	useEffect(() => {
 		if (!schoolProfile) return;
@@ -489,6 +514,23 @@ const UserManagementDashboard = () => {
 		setTotalUsers(null);
 		setRoleCounts({});
 		setUsers([]);
+		const cachedUsers = usersByAcademicYear?.[selectedAcademicYear];
+		if (cachedUsers) {
+			const mergedUsers = [
+				...(cachedUsers.students || []),
+				...(cachedUsers.teachers || []),
+				...(cachedUsers.administrators || []),
+			];
+			setUsers(mergedUsers);
+			setRoleCounts({
+				student: cachedUsers.students?.length || 0,
+				teacher: cachedUsers.teachers?.length || 0,
+				administrator: cachedUsers.administrators?.length || 0,
+			});
+			setTotalUsers(mergedUsers.length);
+			setLoading(false);
+			return;
+		}
 		const cacheKey = `manageUsers:${selectedAcademicYear}`;
 		const cached = getClientCache<{
 			users: any[];
@@ -507,7 +549,12 @@ const UserManagementDashboard = () => {
 			return;
 		}
 		fetchUsers(1, true);
-	}, [schoolProfile, selectedAcademicYear, fetchUsers]);
+	}, [
+		schoolProfile,
+		selectedAcademicYear,
+		fetchUsers,
+		usersByAcademicYear,
+	]);
 
 	const userTypes = useMemo(() => {
 		const totalCount = totalUsers ?? users.length;
