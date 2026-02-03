@@ -169,11 +169,3 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		});
 	},
 }));
-/** 
-* Paste one or more documents here
-*/
-{
-  "_id": {
-    "$oid": "6981bc01a64d965461604b9c"
-  }
-}

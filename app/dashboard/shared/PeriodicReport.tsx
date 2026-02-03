@@ -406,6 +406,15 @@ function FilterContent({
 
 	const isStudent = user?.role === 'student';
 	const isSystemAdmin = user?.role === 'system_admin';
+	const getStudentClassIdForYear = useCallback(
+		(student: any, academicYear: string) => {
+			const yearEntry = Array.isArray(student?.academicYears)
+				? student.academicYears.find((ay: any) => ay.year === academicYear)
+				: null;
+			return yearEntry?.classId || student?.classId || '';
+		},
+		[],
+	);
 
 	// Determine available sessions from the new structure
 	const availableSessions = useMemo(
@@ -469,15 +478,23 @@ function FilterContent({
 					const cachedUsers = usersByAcademicYear?.[filters.academicYear];
 					if (cachedUsers?.students?.length) {
 						const filtered = cachedUsers.students.filter(
-							(student: any) => student.classId === filters.className,
+							(student: any) =>
+								getStudentClassIdForYear(student, filters.academicYear) ===
+								filters.className,
 						);
-						const mapped = filtered.map((student: any) => ({
-							id: student.studentId || student.id,
-							name: `${student.firstName} ${student.middleName || ''} ${
-								student.lastName
-							}`.trim(),
-							className: student.classId,
-						}));
+						const mapped = filtered.map((student: any) => {
+							const classId = getStudentClassIdForYear(
+								student,
+								filters.academicYear,
+							);
+							return {
+								id: student.studentId || student.id,
+								name: `${student.firstName} ${student.middleName || ''} ${
+									student.lastName
+								}`.trim(),
+								className: classId,
+							};
+						});
 						setStudents(mapped);
 						return;
 					}
@@ -530,6 +547,7 @@ function FilterContent({
 		isStudent,
 		usersByAcademicYear,
 		setUsersForYear,
+		getStudentClassIdForYear,
 	]);
 
 	// Set default academic year on component mount

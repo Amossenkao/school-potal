@@ -82,9 +82,19 @@ const useAuth = create<AuthState>((set, get) => {
 					useSchoolStore.getState().setSchool(data.school);
 				}
 				if (data.academicYear && data.users) {
-					useSchoolStore
-						.getState()
-						.setUsersForYear(data.academicYear, data.users);
+					const schoolState = useSchoolStore.getState();
+					const currentUsers = schoolState.usersByAcademicYear[data.academicYear];
+					const role = data.user?.role || get().user?.role;
+					const shouldReplace =
+						role === 'student' || role === 'teacher'
+							? !isEqual(currentUsers, data.users)
+							: false;
+
+					schoolState.setUsersForYear(
+						data.academicYear,
+						data.users,
+						shouldReplace ? { merge: false } : undefined,
+					);
 				}
 				if (data.academicYear && data.calendarEvents) {
 					useSchoolStore

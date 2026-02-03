@@ -102,6 +102,13 @@ const getClassMetaById = (classLevels: any, classId?: string) => {
 	return null;
 };
 
+const getStudentClassIdForYear = (student: any, academicYear: string) => {
+	const yearEntry = Array.isArray(student?.academicYears)
+		? student.academicYears.find((ay: any) => ay.year === academicYear)
+		: null;
+	return yearEntry?.classId || student?.classId || '';
+};
+
 // --- Student Multi-Select Component ---
 
 const StudentMultiSelect = React.memo(function StudentMultiSelect({
@@ -407,15 +414,23 @@ const FilterContent = React.memo(function FilterContent({
 					const cachedUsers = usersByAcademicYear?.[filters.academicYear];
 					if (cachedUsers?.students?.length) {
 						const filtered = cachedUsers.students.filter(
-							(student: any) => student.classId === filters.className,
+							(student: any) =>
+								getStudentClassIdForYear(student, filters.academicYear) ===
+								filters.className,
 						);
-						const mappedStudents = filtered.map((student: any) => ({
-							id: student.studentId || student.id,
-							name: `${student.firstName} ${
-								student.middleName ? student.middleName + ' ' : ''
-							}${student.lastName}`.trim(),
-							className: student.classId,
-						}));
+						const mappedStudents = filtered.map((student: any) => {
+							const classId = getStudentClassIdForYear(
+								student,
+								filters.academicYear,
+							);
+							return {
+								id: student.studentId || student.id,
+								name: `${student.firstName} ${
+									student.middleName ? student.middleName + ' ' : ''
+								}${student.lastName}`.trim(),
+								className: classId,
+							};
+						});
 						setStudents(mappedStudents);
 						return;
 					}
@@ -1538,7 +1553,11 @@ function ReportContent({
 						usersByAcademicYear?.[reportFilters.academicYear];
 					if (cachedUsers?.students?.length) {
 						const filtered = cachedUsers.students.filter(
-							(student: any) => student.classId === reportFilters.className,
+							(student: any) =>
+								getStudentClassIdForYear(
+									student,
+									reportFilters.academicYear,
+								) === reportFilters.className,
 						);
 						const mapped = filtered.map((student: any) => ({
 							studentId: student.studentId || student.id,
