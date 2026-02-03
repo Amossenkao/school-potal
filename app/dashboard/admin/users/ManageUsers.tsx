@@ -433,7 +433,10 @@ const UserManagementDashboard = () => {
 						.map(normalizeUser);
 					let nextUsers: any[] = [];
 					setUsers((currentUsers) => {
-						if (replace) return userList;
+						if (replace || page === 1) {
+							nextUsers = userList;
+							return userList;
+						}
 						const seen = new Set(
 							currentUsers.map((u) => u.id || u._id),
 						);
@@ -461,7 +464,7 @@ const UserManagementDashboard = () => {
 						setRoleCounts(data.meta.counts);
 					}
 					setClientCache(cacheKey, {
-						users: replace ? userList : nextUsers,
+						users: replace || page === 1 ? userList : nextUsers,
 						totalUsers: typeof nextTotal === 'number' ? nextTotal : null,
 						roleCounts: nextCounts,
 						serverPage: page,
@@ -472,7 +475,9 @@ const UserManagementDashboard = () => {
 						teachers: userList.filter((u) => u.role === 'teacher'),
 						administrators: userList.filter((u) => u.role === 'administrator'),
 					};
-					setUsersForYear(selectedAcademicYear, grouped, { merge: true });
+					setUsersForYear(selectedAcademicYear, grouped, {
+						merge: !(replace || page === 1),
+					});
 				} else if (replace) {
 					setUsers([]);
 				}
@@ -1157,8 +1162,8 @@ const UserManagementDashboard = () => {
 										</td>
 										<td className="px-6 py-4 text-sm text-muted-foreground">
 											{user.role === 'student' &&
-												user.classId &&
-												getClassDisplayName(user.classId)}
+												(user.className ||
+													(user.classId && getClassDisplayName(user.classId)))}
 											{user.role === 'teacher' &&
 												getTeacherSubjects(user).join(', ')}
 											{user.role === 'administrator' && user.position}
