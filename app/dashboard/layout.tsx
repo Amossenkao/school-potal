@@ -54,7 +54,7 @@ export default function AdminLayout({
 	return (
 		<ProtectedRoute>
 			<OfflineHandler>
-				<div className="min-h-screen flex bg-background relative">
+				<div className="min-h-screen flex bg-background relative overflow-x-hidden">
 					{/* Sidebar */}
 					<AppSidebar />
 
@@ -65,7 +65,9 @@ export default function AdminLayout({
 						{/* Header */}
 						<AppHeader />
 						{/* Page Content */}
-						<main className="py-4 md:py-6 px-0">{children}</main>
+						<main className="py-4 md:py-6 px-0 overflow-x-hidden">
+							{children}
+						</main>
 					</div>
 
 					{/* Mobile overlay */}
