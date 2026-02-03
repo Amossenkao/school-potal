@@ -9,6 +9,7 @@ import {
 	updateUserSessionNotifications,
 } from '@/utils/session';
 import { sendOTP, verifyOTP } from '@/utils/otp';
+import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
 import type {
 	UserRole,
 	User,
@@ -74,6 +75,7 @@ function buildUserResponse(
 		email: user.email,
 		bio: user.bio,
 		avatar: user.avatar,
+		defaultPassword: user.defaultPassword,
 		isActive: user.isActive,
 		mustChangePassword: user.mustChangePassword,
 		passwordChangedAt: user.passwordChangedAt || null,
@@ -2153,6 +2155,8 @@ export async function POST(request: NextRequest) {
 		};
 		delete responseData.defaultPassword;
 
+		await bumpUsersVersion(extractAcademicYears(newUser));
+
 		return NextResponse.json(
 			{
 				success: true,
@@ -2433,6 +2437,8 @@ export async function PUT(request: NextRequest) {
 					buildUserResponse(result.student.toObject()),
 				);
 
+				await bumpUsersVersion(extractAcademicYears(result.student));
+
 				return NextResponse.json({
 					success: true,
 					message: `Student promoted successfully`,
@@ -2611,6 +2617,8 @@ export async function PUT(request: NextRequest) {
 					buildUserResponse(result.student.toObject()),
 				);
 
+				await bumpUsersVersion(extractAcademicYears(result.student));
+
 				return NextResponse.json({
 					success: true,
 					message: `Student class changed successfully`,
@@ -2658,22 +2666,7 @@ export async function PUT(request: NextRequest) {
 			}
 
 			let defaultPassword: string;
-			switch (targetUser.role) {
-				case 'student':
-					defaultPassword = targetUser.studentId;
-					break;
-				case 'teacher':
-					defaultPassword = targetUser.username;
-					break;
-				case 'administrator':
-					defaultPassword = targetUser.adminId;
-					break;
-				case 'system_admin':
-					defaultPassword = targetUser.sysId;
-					break;
-				default:
-					defaultPassword = targetUser.username;
-			}
+			defaultPassword = targetUser.username;
 
 			if (!defaultPassword) {
 				return NextResponse.json(
@@ -2744,6 +2737,8 @@ export async function PUT(request: NextRequest) {
 				dismissed: false,
 				type: 'Security',
 			} as Notification);
+
+			await bumpUsersVersion(extractAcademicYears(updatedUser));
 
 			return NextResponse.json({
 				success: true,
@@ -3140,6 +3135,8 @@ export async function PUT(request: NextRequest) {
 			} as Notification);
 		}
 
+		await bumpUsersVersion(extractAcademicYears(updatedUser));
+
 		return NextResponse.json({
 			success: true,
 			message: 'User updated successfully',
@@ -3306,6 +3303,8 @@ export async function DELETE(request: NextRequest) {
 
 		// Delete the user
 		await models.User.deleteOne({ _id: targetUserId });
+
+		await bumpUsersVersion(extractAcademicYears(targetUser));
 
 		return NextResponse.json({
 			success: true,

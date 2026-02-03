@@ -237,6 +237,7 @@ function buildUserResponse(user: any) {
 		bio: user.bio,
 		avatar: user.avatar,
 		profilePictureUrl: user.profilePictureUrl,
+		defaultPassword: user.defaultPassword,
 		notifications: user.notifications || [],
 		chats: user.chats || [],
 	};

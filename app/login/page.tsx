@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
 	Eye,
 	EyeOff,
@@ -32,6 +32,7 @@ const LoginPage = () => {
 	const [isRedirecting, setIsRedirecting] = useState(false);
 	const currentSchool = useSchoolStore((state) => state.school);
 	const [loginDisabledError, setLoginDisabledError] = useState('');
+	const usernameInputRef = useRef<HTMLInputElement>(null);
 
 	const {
 		isLoading,
@@ -116,6 +117,22 @@ const LoginPage = () => {
 			}
 		}
 	}, [selectedRole, adminPosition, currentSchool, clearError]);
+
+	useEffect(() => {
+		if (!selectedRole) return;
+		if (selectedRole === 'administrator' && !adminPosition) return;
+		if (isAwaitingOtp) return;
+		if (isLoading || loginDisabledError) return;
+		requestAnimationFrame(() => {
+			usernameInputRef.current?.focus();
+		});
+	}, [
+		selectedRole,
+		adminPosition,
+		isAwaitingOtp,
+		isLoading,
+		loginDisabledError,
+	]);
 
 	if (
 		isInitializing ||
@@ -375,6 +392,7 @@ const LoginPage = () => {
 																	value={formData.username}
 																	onChange={handleInputChange}
 																	disabled={isLoading || !!loginDisabledError}
+																	ref={usernameInputRef}
 																	className="w-full pl-10 pr-4 py-3 border border-border rounded-lg bg-background focus:ring-2 focus:ring-primary outline-none disabled:opacity-50"
 																	placeholder="Enter your username"
 																	required

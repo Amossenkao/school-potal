@@ -11,6 +11,7 @@ type SchoolStore = {
 			administrators: any[];
 		}
 	>;
+	usersVersionByAcademicYear: Record<string, number>;
 	calendarByAcademicYear: Record<string, any[]>;
 	schedulesByAcademicYear: Record<
 		string,
@@ -30,6 +31,7 @@ type SchoolStore = {
 		},
 		options?: { merge?: boolean },
 	) => void;
+	setUsersVersionForYear: (academicYear: string, version: number) => void;
 	setCalendarForYear: (academicYear: string, events: any[]) => void;
 	setSchedulesForYear: (
 		academicYear: string,
@@ -44,6 +46,7 @@ let fetchPromise: Promise<void> | null = null;
 export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	school: null,
 	usersByAcademicYear: {},
+	usersVersionByAcademicYear: {},
 	calendarByAcademicYear: {},
 	schedulesByAcademicYear: {},
 
@@ -138,6 +141,16 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		});
 	},
 
+	setUsersVersionForYear: (academicYear, version) => {
+		if (!academicYear || typeof version !== 'number') return;
+		set((state) => ({
+			usersVersionByAcademicYear: {
+				...state.usersVersionByAcademicYear,
+				[academicYear]: version,
+			},
+		}));
+	},
+
 	setCalendarForYear: (academicYear, events) => {
 		if (!academicYear) return;
 		set((state) => ({
@@ -164,6 +177,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	clearCache: () => {
 		set({
 			usersByAcademicYear: {},
+			usersVersionByAcademicYear: {},
 			calendarByAcademicYear: {},
 			schedulesByAcademicYear: {},
 		});

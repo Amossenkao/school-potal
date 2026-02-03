@@ -1498,6 +1498,10 @@ function ReportContent({
 
 	const school = useSchoolStore((state) => state.school);
 	const currentSchool = useSchoolStore((state) => state.school);
+	const usersByAcademicYear = useSchoolStore(
+		(state) => state.usersByAcademicYear,
+	);
+	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
 	const { user } = useAuth();
 	const isStudent = user?.role === 'student';
 
@@ -1521,14 +1525,27 @@ function ReportContent({
 	]);
 
 	const classSubjects = useMemo(() => {
+		if (!currentSchool) return [];
+		const resolvedMeta =
+			reportFilters.session && reportFilters.classLevel
+				? { session: reportFilters.session, level: reportFilters.classLevel }
+				: getClassMetaById(
+						currentSchool.classLevels,
+						reportFilters.className,
+				  );
 		const subjects =
-			currentSchool?.classLevels?.[reportFilters.session]?.[
-				reportFilters.classLevel
+			currentSchool?.classLevels?.[resolvedMeta?.session || '']?.[
+				resolvedMeta?.level || ''
 			]?.subjects || [];
 		return subjects.map((subject: any) =>
 			typeof subject === 'string' ? subject : subject.name,
 		);
-	}, [currentSchool, reportFilters.session, reportFilters.classLevel]);
+	}, [
+		currentSchool,
+		reportFilters.session,
+		reportFilters.classLevel,
+		reportFilters.className,
+	]);
 
 	useEffect(() => {
 		const fetchStudentsData = async () => {
@@ -1572,8 +1589,6 @@ function ReportContent({
 						} else {
 							studentsToProcess = mapped;
 						}
-						setLoading(false);
-						return;
 					}
 					const cacheKey = `yearly:students:${reportFilters.academicYear}:${reportFilters.className}`;
 					const cached = getClientCache<any[]>(cacheKey);

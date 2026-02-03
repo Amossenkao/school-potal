@@ -69,6 +69,7 @@ export interface User {
 	gender: string;
 	dateOfBirth: string;
 	isActive: boolean;
+	defaultPassword?: string;
 	mustChangePassword: boolean;
 	passwordChangedAt?: Date | null;
 	phone: string;

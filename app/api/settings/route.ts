@@ -9,6 +9,8 @@ import {
 import SchoolProfileSchema from '@/models/profile/SchoolProfile';
 import { getTenantModels } from '@/models';
 import { updateAllUserSessions, destroyAllUserSessions } from '@/utils/session';
+import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
+import bcrypt from 'bcryptjs';
 import { redis } from '@/lib/redis';
 
 // Helper function to build a consistent user object for session data.
@@ -94,6 +96,7 @@ export async function POST(request: Request) {
 			teacherSettings,
 			administratorSettings,
 			bulkUserActions,
+			bulkPasswordResets,
 		} = body;
 
 		// Prepare update object
@@ -228,35 +231,131 @@ export async function POST(request: Request) {
 					return updateAllUserSessions(user._id.toString(), updatedSessionData);
 				});
 				await Promise.all(sessionUpdatePromises);
+
+				const affectedYears = usersToUpdate.flatMap((user: any) =>
+					extractAcademicYears(user),
+				);
+				await bumpUsersVersion(affectedYears);
+			};
+
+			const processBulkPasswordReset = async (
+				role: string,
+				Model: any,
+				commonPassword?: string,
+			) => {
+				const usersToUpdate = await Model.find({ role }).lean();
+				if (usersToUpdate.length === 0) return;
+
+				const trimmedCommon =
+					typeof commonPassword === 'string' ? commonPassword.trim() : '';
+
+				if (trimmedCommon) {
+					const hashedPassword = await bcrypt.hash(trimmedCommon, 12);
+					await Model.updateMany(
+						{ role },
+						{
+							$set: {
+								password: hashedPassword,
+								defaultPassword: trimmedCommon,
+								mustChangePassword: true,
+								updatedAt: new Date(),
+							},
+						},
+					);
+				} else {
+					const bulkUpdates = await Promise.all(
+						usersToUpdate.map(async (user: any) => {
+							const defaultPassword = String(user.username || '');
+							const hashedPassword = await bcrypt.hash(defaultPassword, 12);
+							return {
+								updateOne: {
+									filter: { _id: user._id },
+									update: {
+										$set: {
+											password: hashedPassword,
+											defaultPassword,
+											mustChangePassword: true,
+											updatedAt: new Date(),
+										},
+									},
+								},
+							};
+						}),
+					);
+
+					if (bulkUpdates.length > 0) {
+						await Model.bulkWrite(bulkUpdates);
+					}
+				}
+
+				const sessionDestructionPromises = usersToUpdate.map((user: any) =>
+					destroyAllUserSessions(user._id.toString()),
+				);
+				await Promise.all(sessionDestructionPromises);
+
+				const affectedYears = usersToUpdate.flatMap((user: any) =>
+					extractAcademicYears(user),
+				);
+				await bumpUsersVersion(affectedYears);
 			};
 
 			const actionsToRun = [];
 			if (bulkUserActions['all-students']) {
-				actionsToRun.push(
-					processBulkAction(
-						'student',
-						Student,
-						bulkUserActions['all-students'],
-					),
-				);
+				if (bulkUserActions['all-students'] === 'reset') {
+					actionsToRun.push(
+						processBulkPasswordReset(
+							'student',
+							Student,
+							bulkPasswordResets?.['all-students'],
+						),
+					);
+				} else {
+					actionsToRun.push(
+						processBulkAction(
+							'student',
+							Student,
+							bulkUserActions['all-students'],
+						),
+					);
+				}
 			}
 			if (bulkUserActions['all-teachers']) {
-				actionsToRun.push(
-					processBulkAction(
-						'teacher',
-						Teacher,
-						bulkUserActions['all-teachers'],
-					),
-				);
+				if (bulkUserActions['all-teachers'] === 'reset') {
+					actionsToRun.push(
+						processBulkPasswordReset(
+							'teacher',
+							Teacher,
+							bulkPasswordResets?.['all-teachers'],
+						),
+					);
+				} else {
+					actionsToRun.push(
+						processBulkAction(
+							'teacher',
+							Teacher,
+							bulkUserActions['all-teachers'],
+						),
+					);
+				}
 			}
 			if (bulkUserActions['all-administrators']) {
-				actionsToRun.push(
-					processBulkAction(
-						'administrator',
-						Administrator,
-						bulkUserActions['all-administrators'],
-					),
-				);
+				if (bulkUserActions['all-administrators'] === 'reset') {
+					actionsToRun.push(
+						processBulkPasswordReset(
+							'administrator',
+							Administrator,
+							bulkPasswordResets?.['all-administrators'],
+						),
+					);
+				} else {
+					actionsToRun.push(
+						processBulkAction(
+							'administrator',
+							Administrator,
+							bulkUserActions['all-administrators'],
+						),
+					);
+				}
 			}
 
 			await Promise.all(actionsToRun);

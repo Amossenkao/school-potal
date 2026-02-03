@@ -1,10 +1,11 @@
 import { getTenantModels } from '@/models';
 import { getSchoolProfile } from '@/lib/mongoose';
 import type { UserRole } from '@/types';
+import { getUsersVersion } from '@/utils/userSync';
 
 const MAX_BOOTSTRAP_USERS = 5000;
 
-const getAcademicYear = (schoolProfile: any) => {
+export const getAcademicYear = (schoolProfile: any) => {
 	const now = new Date();
 	if (schoolProfile?.currentAcademicYear) {
 		return schoolProfile.currentAcademicYear;
@@ -210,23 +211,32 @@ const fetchUsersForRole = async (currentUser: any, academicYear: string) => {
 	return { students: [], teachers: [], administrators: [] };
 };
 
-export const buildBootstrapPayload = async (currentUser: any) => {
+export const buildBootstrapPayload = async (
+	currentUser: any,
+	options: { includeUsers?: boolean; academicYear?: string; usersVersion?: number } = {},
+) => {
 	const schoolProfileRaw = await getSchoolProfile();
 	const schoolProfile =
 		typeof schoolProfileRaw === 'string'
 			? JSON.parse(schoolProfileRaw)
 			: schoolProfileRaw;
-	const academicYear = getAcademicYear(schoolProfile);
+	const academicYear = options.academicYear || getAcademicYear(schoolProfile);
+	const usersVersion =
+		typeof options.usersVersion === 'number'
+			? options.usersVersion
+			: await getUsersVersion(academicYear);
+	const includeUsers = options.includeUsers !== false;
 
 	const [users, calendarEvents, schedules] = await Promise.all([
-		fetchUsersForRole(currentUser, academicYear),
+		includeUsers ? fetchUsersForRole(currentUser, academicYear) : null,
 		fetchCalendarEvents(academicYear),
 		fetchSchedules(currentUser, academicYear),
 	]);
 
 	return {
 		academicYear,
-		users,
+		users: includeUsers ? users : null,
+		usersVersion,
 		calendarEvents,
 		schedules,
 	};

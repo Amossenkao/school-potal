@@ -81,6 +81,11 @@ const useAuth = create<AuthState>((set, get) => {
 				if (data.school !== undefined && data.school !== null) {
 					useSchoolStore.getState().setSchool(data.school);
 				}
+				if (data.academicYear && typeof data.usersVersion === 'number') {
+					useSchoolStore
+						.getState()
+						.setUsersVersionForYear(data.academicYear, data.usersVersion);
+				}
 				if (data.academicYear && data.users) {
 					const schoolState = useSchoolStore.getState();
 					const currentUsers = schoolState.usersByAcademicYear[data.academicYear];
@@ -160,10 +165,25 @@ const useAuth = create<AuthState>((set, get) => {
 				if (data.school !== undefined && data.school !== null) {
 					useSchoolStore.getState().setSchool(data.school);
 				}
-				if (data.academicYear && data.users) {
+				if (data.academicYear && typeof data.usersVersion === 'number') {
 					useSchoolStore
 						.getState()
-						.setUsersForYear(data.academicYear, data.users);
+						.setUsersVersionForYear(data.academicYear, data.usersVersion);
+				}
+				if (data.academicYear && data.users) {
+					const schoolState = useSchoolStore.getState();
+					const currentUsers = schoolState.usersByAcademicYear[data.academicYear];
+					const role = data.user?.role || get().user?.role;
+					const shouldReplace =
+						role === 'student' || role === 'teacher'
+							? !isEqual(currentUsers, data.users)
+							: false;
+
+					schoolState.setUsersForYear(
+						data.academicYear,
+						data.users,
+						shouldReplace ? { merge: false } : undefined,
+					);
 				}
 				if (data.academicYear && data.calendarEvents) {
 					useSchoolStore
@@ -272,7 +292,20 @@ const useAuth = create<AuthState>((set, get) => {
 			const { setAuthCheckFailed } = useNetworkStore.getState();
 
 			try {
-				const res = await fetch('/api/auth/me', {
+				const schoolState = useSchoolStore.getState();
+				const activeYear = schoolState.school?.currentAcademicYear;
+				const usersVersion =
+					activeYear != null
+						? schoolState.usersVersionByAcademicYear?.[activeYear]
+						: null;
+				const query = new URLSearchParams();
+				if (typeof usersVersion === 'number') {
+					query.set('usersVersion', String(usersVersion));
+				}
+				const url = query.toString()
+					? `/api/auth/me?${query.toString()}`
+					: '/api/auth/me';
+				const res = await fetch(url, {
 					method: 'GET',
 					credentials: 'include',
 				});
@@ -295,10 +328,25 @@ const useAuth = create<AuthState>((set, get) => {
 				) {
 					useSchoolStore.getState().setSchool(data.school);
 				}
-				if (data.academicYear && data.users) {
+				if (data.academicYear && typeof data.usersVersion === 'number') {
 					useSchoolStore
 						.getState()
-						.setUsersForYear(data.academicYear, data.users);
+						.setUsersVersionForYear(data.academicYear, data.usersVersion);
+				}
+				if (data.academicYear && data.users) {
+					const schoolState = useSchoolStore.getState();
+					const currentUsers = schoolState.usersByAcademicYear[data.academicYear];
+					const role = data.user?.role || get().user?.role;
+					const shouldReplace =
+						role === 'student' || role === 'teacher'
+							? !isEqual(currentUsers, data.users)
+							: false;
+
+					schoolState.setUsersForYear(
+						data.academicYear,
+						data.users,
+						shouldReplace ? { merge: false } : undefined,
+					);
 				}
 				if (data.academicYear && data.calendarEvents) {
 					useSchoolStore

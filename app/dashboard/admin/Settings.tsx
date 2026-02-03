@@ -13,6 +13,7 @@ import {
 	UserCheck,
 	UserX,
 	RotateCw,
+	KeyRound,
 	BookOpen,
 	UserCog,
 	ChevronDown,
@@ -315,8 +316,11 @@ const BulkActionItem = ({
 	description,
 	onActivate,
 	onDeactivate,
+	onReset,
 	pendingAction,
 	onClear,
+	passwordValue,
+	onPasswordChange,
 	disabled = false,
 }) => {
 	return (
@@ -337,7 +341,9 @@ const BulkActionItem = ({
 								className={`text-xs font-bold px-2 py-1 rounded-md ${
 									pendingAction === 'activate'
 										? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
-										: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
+										: pendingAction === 'deactivate'
+											? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
+											: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'
 								}`}
 							>
 								Pending:{' '}
@@ -369,7 +375,33 @@ const BulkActionItem = ({
 						<UserX className="h-4 w-4" />
 						<span>Deactivate All</span>
 					</button>
+					<button
+						onClick={onReset}
+						disabled={disabled || pendingAction === 'reset'}
+						className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs sm:text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed bg-amber-600 text-white hover:bg-amber-700 focus:ring-amber-500"
+					>
+						<KeyRound className="h-4 w-4" />
+						<span>Reset Passwords</span>
+					</button>
 				</div>
+				{pendingAction === 'reset' && (
+					<div className="space-y-2">
+						<label className="block text-xs sm:text-sm font-medium text-foreground">
+							Common Password (optional)
+						</label>
+						<input
+							type="text"
+							value={passwordValue || ''}
+							onChange={(e) => onPasswordChange?.(e.target.value)}
+							placeholder="Leave blank to reset to username"
+							className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs sm:text-sm text-foreground"
+							disabled={disabled}
+						/>
+						<p className="text-xs text-muted-foreground">
+							If empty, all passwords reset to each user&apos;s username.
+						</p>
+					</div>
+				)}
 			</div>
 		</div>
 	);
@@ -384,6 +416,7 @@ export default function Settings() {
 	const [teacherSettings, setTeacherSettings] = useState(null);
 	const [administratorSettings, setAdministratorSettings] = useState(null);
 	const [pendingBulkActions, setPendingBulkActions] = useState({});
+	const [bulkPasswordResets, setBulkPasswordResets] = useState({});
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSaving, setIsSaving] = useState(false);
 	const [feedback, setFeedback] = useState({ type: '', message: '' });
@@ -443,6 +476,11 @@ export default function Settings() {
 			delete newActions[category];
 			return newActions;
 		});
+		setBulkPasswordResets((prev) => {
+			const next = { ...prev };
+			delete next[category];
+			return next;
+		});
 	};
 
 	const handleSaveSettings = async () => {
@@ -455,6 +493,7 @@ export default function Settings() {
 			teacherSettings,
 			administratorSettings,
 			bulkUserActions: pendingBulkActions,
+			bulkPasswordResets,
 		};
 
 		try {
@@ -472,6 +511,7 @@ export default function Settings() {
 					message: 'Settings saved successfully! Changes have been applied.',
 				});
 				setPendingBulkActions({});
+				setBulkPasswordResets({});
 			} else {
 				setFeedback({
 					type: 'error',
@@ -598,8 +638,18 @@ export default function Settings() {
 								onDeactivate={() =>
 									handleQueueBulkAction('all-students', 'deactivate')
 								}
+								onReset={() =>
+									handleQueueBulkAction('all-students', 'reset')
+								}
 								pendingAction={pendingBulkActions['all-students']}
 								onClear={() => clearPendingBulkAction('all-students')}
+								passwordValue={bulkPasswordResets['all-students']}
+								onPasswordChange={(value) =>
+									setBulkPasswordResets((prev) => ({
+										...prev,
+										['all-students']: value,
+									}))
+								}
 								disabled={isSaving}
 							/>
 						</div>
@@ -721,8 +771,18 @@ export default function Settings() {
 								onDeactivate={() =>
 									handleQueueBulkAction('all-teachers', 'deactivate')
 								}
+								onReset={() =>
+									handleQueueBulkAction('all-teachers', 'reset')
+								}
 								pendingAction={pendingBulkActions['all-teachers']}
 								onClear={() => clearPendingBulkAction('all-teachers')}
+								passwordValue={bulkPasswordResets['all-teachers']}
+								onPasswordChange={(value) =>
+									setBulkPasswordResets((prev) => ({
+										...prev,
+										['all-teachers']: value,
+									}))
+								}
 								disabled={isSaving}
 							/>
 						</div>
@@ -754,8 +814,18 @@ export default function Settings() {
 								onDeactivate={() =>
 									handleQueueBulkAction('all-administrators', 'deactivate')
 								}
+								onReset={() =>
+									handleQueueBulkAction('all-administrators', 'reset')
+								}
 								pendingAction={pendingBulkActions['all-administrators']}
 								onClear={() => clearPendingBulkAction('all-administrators')}
+								passwordValue={bulkPasswordResets['all-administrators']}
+								onPasswordChange={(value) =>
+									setBulkPasswordResets((prev) => ({
+										...prev,
+										['all-administrators']: value,
+									}))
+								}
 								disabled={isSaving}
 							/>
 						</div>

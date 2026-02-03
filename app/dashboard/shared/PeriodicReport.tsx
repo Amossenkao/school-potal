@@ -1263,18 +1263,23 @@ function ReportContent({
 	const SUBJECTS = useMemo(() => {
 		if (!school) return [];
 		if (isStudent && user?.session && user?.classLevel) {
-			const subjects =
+			return (
 				school.classLevels?.[user.session]?.[user.classLevel]?.subjects?.map(
 					(s) => s.name,
-				) || [];
-			return subjects;
+				) || []
+			);
 		}
-		if (reportFilters.session && reportFilters.gradeLevel) {
-			const subjects =
-				school.classLevels?.[reportFilters.session]?.[
-					reportFilters.gradeLevel
-				]?.subjects?.map((s) => s.name) || [];
-			return subjects;
+
+		const resolvedMeta =
+			reportFilters.session && reportFilters.gradeLevel
+				? { session: reportFilters.session, level: reportFilters.gradeLevel }
+				: getClassMetaById(school.classLevels, reportFilters.className);
+
+		if (resolvedMeta?.session && resolvedMeta?.level) {
+			return (
+				school.classLevels?.[resolvedMeta.session]?.[resolvedMeta.level]
+					?.subjects?.map((s) => s.name) || []
+			);
 		}
 
 		return [];
@@ -1284,6 +1289,7 @@ function ReportContent({
 		school,
 		reportFilters.session,
 		reportFilters.gradeLevel,
+		reportFilters.className,
 	]);
 
 	// Get class name from school profile - memoized

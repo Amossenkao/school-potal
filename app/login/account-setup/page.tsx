@@ -13,6 +13,9 @@ import {
 	FileText,
 	Camera,
 	ArrowRight,
+	ArrowLeft,
+	LogOut,
+	Check,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import useAuth from '@/store/useAuth';
@@ -56,37 +59,11 @@ export default function AccountSetupPage() {
 
 	const handleNextStep = async () => {
 		if (step === 1 && needsProfileUpdate) {
-			if (!avatar && !nickname && !bio) {
-				setStep(2);
-				return;
-			}
-			setIsLoading(true);
 			setError('');
-			try {
-				const profileData = {
-					avatar,
-					nickName: nickname,
-					bio,
-				};
-				const response = await fetch('/api/users', {
-					method: 'PUT',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(profileData),
-				});
-				const data = await response.json();
-				if (!response.ok) {
-					throw new Error(data.message || 'Failed to update profile.');
-				}
-				setUser(data.data.user); // Update user in the store
-				setStep(2);
-			} catch (error: any) {
-				setError(error.message);
-			} finally {
-				setIsLoading(false);
-			}
-		} else {
-			await handleSubmitPassword();
+			setStep(2);
+			return;
 		}
+		await handleSubmitPassword();
 	};
 
 	const passwordsMatch =
@@ -102,12 +79,20 @@ export default function AccountSetupPage() {
 		setError('');
 		setSuccess('');
 		try {
+			const oldPassword =
+				user?.defaultPassword || user?.studentId || user?.username;
+			const profileData = {
+				avatar,
+				nickName: nickname,
+				bio,
+			};
 			const response = await fetch('/api/users', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					oldPassword: user.studentId || user.username,
+					oldPassword,
 					newPassword: password,
+					...profileData,
 				}),
 			});
 			const data = await response.json();
@@ -365,9 +350,20 @@ export default function AccountSetupPage() {
 								</div>
 							)}
 							{renderStepContent()}
-							<div className="mt-8 flex justify-between items-center">
+							<div className="mt-8 flex flex-wrap items-center gap-3">
+								<Button
+									variant="outline"
+									onClick={async () => {
+										await logout();
+										router.push('/login');
+									}}
+								>
+									<LogOut className="w-4 h-4 mr-2" />
+									Logout
+								</Button>
 								{step > 1 && (
 									<Button variant="outline" onClick={() => setStep(step - 1)}>
+										<ArrowLeft className="w-4 h-4 mr-2" />
 										Previous
 									</Button>
 								)}
@@ -381,7 +377,10 @@ export default function AccountSetupPage() {
 									{isLoading ? (
 										<Loader2 className="w-5 h-5 animate-spin" />
 									) : step === totalSteps ? (
-										'Finish Setup'
+										<>
+											<Check className="w-4 h-4 mr-2" />
+											Finish Setup
+										</>
 									) : (
 										<>
 											Next <ArrowRight className="w-4 h-4 ml-2" />

@@ -1,12 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/utils/session';
 import { getSchoolProfile } from '@/lib/mongoose';
-import { buildBootstrapPayload } from '@/app/api/auth/bootstrap';
+import { buildBootstrapPayload, getAcademicYear } from '@/app/api/auth/bootstrap';
+import { getUsersVersion } from '@/utils/userSync';
 
 export async function GET(request: NextRequest) {
 	try {
 		const sessionCookie = request.cookies.get('sessionId');
-		const schoolProfile = await getSchoolProfile();
+		const schoolProfileRaw = await getSchoolProfile();
+		const schoolProfile =
+			typeof schoolProfileRaw === 'string'
+				? JSON.parse(schoolProfileRaw)
+				: schoolProfileRaw;
+		const { searchParams } = new URL(request.url);
+		const clientUsersVersionParam = searchParams.get('usersVersion');
+		const clientUsersVersion = clientUsersVersionParam
+			? Number(clientUsersVersionParam)
+			: null;
+		const academicYear = getAcademicYear(schoolProfile);
+		const currentUsersVersion = await getUsersVersion(academicYear);
+		const includeUsers =
+			typeof clientUsersVersion === 'number' &&
+			!Number.isNaN(clientUsersVersion)
+				? clientUsersVersion !== currentUsersVersion
+				: true;
 
 		if (!sessionCookie) {
 			return NextResponse.json(
@@ -61,7 +78,11 @@ export async function GET(request: NextRequest) {
 		// Return the session data (which now uses 'id') and school profile
 		let bootstrapPayload: any = null;
 		try {
-			bootstrapPayload = await buildBootstrapPayload(session);
+			bootstrapPayload = await buildBootstrapPayload(session, {
+				includeUsers,
+				academicYear,
+				usersVersion: currentUsersVersion,
+			});
 		} catch (error) {
 			console.warn('Failed to build bootstrap payload:', error);
 		}

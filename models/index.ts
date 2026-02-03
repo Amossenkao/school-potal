@@ -6,6 +6,7 @@ import StudentSchema from './user/Student';
 import TeacherSchema from './user/Teacher';
 import AdministratorSchema from './user/Administrator';
 import SystemAdminSchema from './user/SystemAdmin';
+import UserSyncStateSchema from './user/UserSyncState';
 import GradeSchema from './grade/Grade';
 import GradeChangeRequestSchema from './grade/GradeChangeRequest';
 import ReportShareSchema from './reports/ReportShare';
@@ -72,6 +73,10 @@ export const getTenantModels = async () => {
 		'SchoolEvent',
 		SchoolEventSchema
 	);
+	const UserSyncStateModel = connection.model<Document>(
+		'UserSyncState',
+		UserSyncStateSchema
+	);
 	const models = {
 		User,
 		Student: StudentModel,
@@ -82,6 +87,7 @@ export const getTenantModels = async () => {
 		GradeChangeRequest: GradeChangeRequestModal,
 		ReportShare: ReportShareModel,
 		SchoolEvent: SchoolEventModel,
+		UserSyncState: UserSyncStateModel,
 	};
 
 	// --- Store the compiled models in the cache ---

@@ -300,9 +300,11 @@ export default function AvatarPicker({
 	useEffect(() => {
 		// Generate an initial avatar if none is provided
 		if (!initialAvatarUrl) {
-			setCurrentAvatar(getAvatarUrl(gender));
+			const generated = getAvatarUrl(gender);
+			setCurrentAvatar(generated);
+			onAvatarSelect(generated);
 		}
-	}, [initialAvatarUrl, gender]);
+	}, [initialAvatarUrl, gender, onAvatarSelect]);
 
 	const handleSelect = (url) => {
 		setCurrentAvatar(url);
