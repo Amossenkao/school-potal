@@ -2,7 +2,7 @@ import { getTenantModels } from '@/models';
 import { getSchoolProfile } from '@/lib/mongoose';
 import type { UserRole } from '@/types';
 
-const MAX_BOOTSTRAP_USERS = 2000;
+const MAX_BOOTSTRAP_USERS = 5000;
 
 const getAcademicYear = (schoolProfile: any) => {
 	const now = new Date();
