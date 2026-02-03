@@ -20,8 +20,13 @@ import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
-import Spinner from '@/components/ui/spinner';
 import AccessDenied from '@/components/AccessDenied';
+
+const InlineLoading = ({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) => (
+	<div className="-m-8">
+		<PageLoading fullScreen={false} variant="minimal" size={size} />
+	</div>
+);
 
 interface StudentInfo {
 	firstName: string;
@@ -868,12 +873,7 @@ function FilterContent({
 					<div className="mb-4">
 						{loadingStudents ? (
 							<div className="flex items-center justify-center py-8">
-								<div className="flex items-center gap-2">
-									<Spinner size="sm" />
-									<div className="text-sm text-muted-foreground">
-										Loading students...
-									</div>
-								</div>
+								<InlineLoading size="sm" />
 							</div>
 						) : (
 							<StudentMultiSelect
@@ -1547,7 +1547,7 @@ function ReportContent({
 	if (loading) {
 		return (
 			<div className="flex items-center justify-center min-h-[60vh]">
-				<PageLoading message="Generating Grade Sheet" fullScreen={false} />
+				<PageLoading fullScreen={false} variant="minimal" size="lg" />
 			</div>
 		);
 	}
@@ -1688,10 +1688,7 @@ function ReportContent({
 						className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm inline-flex items-center gap-2 disabled:opacity-50"
 					>
 						{pdfGenerating ? (
-							<>
-								<Spinner size="sm" />
-								<span>Preparing PDF...</span>
-							</>
+							<InlineLoading size="sm" />
 						) : (
 							<>
 								<svg
@@ -1894,17 +1891,11 @@ function ReportContent({
 								</>
 							) : !schoolData ? (
 								<>
-									<p className="text-muted-foreground mb-4">
-										Waiting for school data...
-									</p>
-									<Spinner size="lg" />
+									<InlineLoading size="lg" />
 								</>
 							) : (
 								<>
-									<p className="text-muted-foreground mb-4">
-										PDF document is being prepared...
-									</p>
-									<Spinner size="lg" />
+									<InlineLoading size="lg" />
 									<div className="mt-4 text-sm text-muted-foreground">
 										<p>Students: {studentsData.length}</p>
 										<p>Subjects: {SUBJECTS.length}</p>

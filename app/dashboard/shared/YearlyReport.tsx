@@ -6,7 +6,6 @@ import React, {
 	useMemo,
 	useCallback,
 } from 'react';
-import QRCode from 'qrcode';
 import { Document, Page, Text, View, Image, pdf } from '@react-pdf/renderer';
 import {
 	Facebook,
@@ -21,10 +20,15 @@ import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
-import Spinner from '@/components/ui/spinner';
 import AccessDenied from '@/components/AccessDenied';
 
 // --- Type Definitions ---
+
+const InlineLoading = ({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) => (
+	<div className="-m-8">
+		<PageLoading fullScreen={false} variant="minimal" size={size} />
+	</div>
+);
 
 function gradeStyle(score: string | number | null) {
 	if (score === null || Number.isNaN(score) || Number(score) < 70) {
@@ -53,7 +57,7 @@ interface StudentYearlyReport {
 	periodAverages: Record<string, number | null>;
 	yearlyAverage: number | null;
 	ranks: Record<string, number | null>;
-	qrCodeDataUrl: string;
+	qrCodeDataUrl?: string;
 }
 
 interface Student {
@@ -687,8 +691,7 @@ const FilterContent = React.memo(function FilterContent({
 					<div className="mb-4">
 						{loadingStudents ? (
 							<div className="text-center py-4">
-								Loading students
-								<Spinner />
+								<InlineLoading size="sm" />
 							</div>
 						) : (
 							<StudentMultiSelect
@@ -741,15 +744,18 @@ const FilterContent = React.memo(function FilterContent({
 	);
 });
 
-// --- QR Code Component ---
-
-function ReportQRCode({ qrDataUrl }: { qrDataUrl: string }) {
-	return qrDataUrl ? (
-		<Image src={qrDataUrl} style={{ width: '99%', height: '99%' }} />
-	) : (
-		<Text style={{ fontSize: 8, textAlign: 'center' }}>
-			QR Code Unavailable
-		</Text>
+// --- QR Code Placeholder ---
+function ReportQRCode() {
+	return (
+		<View
+			style={{
+				width: '99%',
+				height: '99%',
+				borderWidth: 1,
+				borderColor: '#e2e8f0',
+				borderStyle: 'dashed',
+			}}
+		/>
 	);
 }
 
@@ -1206,7 +1212,7 @@ const PDFDocument = React.memo(function PDFDocument({
 													height: 100,
 												}}
 											>
-												<ReportQRCode qrDataUrl={studentData.qrCodeDataUrl} />
+												<ReportQRCode />
 											</View>
 
 											<Text style={{ width: '100%', textAlign: 'left' }}>
@@ -1678,27 +1684,7 @@ function ReportContent({
 							(report: any) => report.studentId === studentId,
 						);
 
-						let qrCodeDataUrl = '';
-						if (typeof window !== 'undefined' && studentId) {
-							const origin = window.location.origin;
-							const verifyUrl = `${origin}/verify?id=${reportFilters.academicYear.replace(
-								'-',
-								studentId,
-							)}`;
-							try {
-								// QR Code generation is also synchronous and can take time, but less than PDF
-								qrCodeDataUrl = await QRCode.toDataURL(verifyUrl, {
-									errorCorrectionLevel: 'H',
-									width: 100,
-								});
-							} catch (error) {
-								console.error(
-									'Error generating QR code for student:',
-									studentId,
-									error,
-								);
-							}
-						}
+						const qrCodeDataUrl = '';
 
 						const periods: Record<
 							string,
@@ -1971,7 +1957,7 @@ function ReportContent({
 	}, [downloadUrl, className, reportFilters.academicYear]);
 
 	if (loading) {
-		return <PageLoading fullScreen={false} message="Generating Report Card" />;
+		return <PageLoading fullScreen={false} variant="minimal" size="lg" />;
 	}
 
 	if (error) {
@@ -2109,7 +2095,7 @@ function ReportContent({
 					disabled={downloading || pdfGenerating || !downloadUrl}
 				>
 					{pdfGenerating ? (
-						<span>Generating Report Card...</span>
+						<InlineLoading size="sm" />
 					) : downloading ? (
 						<span>Downloading...</span>
 					) : (
@@ -2298,9 +2284,7 @@ function ReportContent({
 					</div>
 				) : (
 					<div className="flex items-center justify-center h-full">
-						<div className="text-center text-muted-foreground">
-							Preparing PDF...
-						</div>
+						<InlineLoading size="lg" />
 					</div>
 				)}
 			</div>
