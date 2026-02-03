@@ -865,12 +865,29 @@ export function isValidAdministratorPosition(
 	schoolProfile: SchoolProfile,
 	position: string,
 ): boolean {
-	return (
-		!!schoolProfile.roleFeatureAccess?.administrator &&
-		Object.keys(schoolProfile.roleFeatureAccess.administrator).includes(
-			position,
-		)
+	return !!getAdministratorFeatureAccess(schoolProfile, position);
+}
+
+function normalizeAdministratorPosition(position: string): string {
+	return position.toLowerCase().trim().replace(/[\s-]+/g, '_');
+}
+
+function getAdministratorFeatureAccess(
+	schoolProfile: SchoolProfile,
+	adminPosition?: string,
+): FeatureKey[] | null {
+	if (!adminPosition) return null;
+	const adminAccessMap = schoolProfile.roleFeatureAccess?.administrator;
+	if (!adminAccessMap) return null;
+
+	const normalizedPosition = normalizeAdministratorPosition(adminPosition);
+	const directAccess = adminAccessMap[normalizedPosition];
+	if (directAccess) return directAccess;
+
+	const matchedKey = Object.keys(adminAccessMap).find(
+		(key) => normalizeAdministratorPosition(key) === normalizedPosition,
 	);
+	return matchedKey ? adminAccessMap[matchedKey] : null;
 }
 
 /**
@@ -888,11 +905,10 @@ function hasFeatureAccess(
 
 	// Handle administrator positions dynamically
 	if (userRole === 'administrator' && adminPosition) {
-		const adminAccess =
-			schoolProfile.roleFeatureAccess.administrator[
-				adminPosition.toLowerCase()
-			];
-
+		const adminAccess = getAdministratorFeatureAccess(
+			schoolProfile,
+			adminPosition,
+		);
 		return adminAccess ? adminAccess.includes(feature) : false;
 	}
 
@@ -1260,10 +1276,10 @@ export function getUserAccessibleFeatures(
 	adminPosition?: string,
 ): FeatureKey[] {
 	if (userRole === 'administrator' && adminPosition) {
-		const adminAccess =
-			schoolProfile.roleFeatureAccess.administrator[
-				adminPosition.toLowerCase()
-			];
+		const adminAccess = getAdministratorFeatureAccess(
+			schoolProfile,
+			adminPosition,
+		);
 		const features = adminAccess || [];
 
 		const uniqueFeatures = Array.from(new Set(features));

@@ -37,7 +37,7 @@ function validateAdministratorAccess(
 		if (
 			!isValidAdministratorPosition(
 				schoolProfile,
-				adminUser.position.toLowerCase()
+				adminUser.position
 			)
 		) {
 			console.warn(
