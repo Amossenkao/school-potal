@@ -50,6 +50,9 @@ const AppSidebar: React.FC = () => {
 	);
 	const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 	const sidebarRef = useRef<HTMLElement>(null);
+	const bodyScrollState = useRef<{ overflow: string; touchAction: string } | null>(
+		null
+	);
 	const [initialSetupDone, setInitialSetupDone] = useState(false);
 	const [navigationItems, setNavigationItems] = useState<NavItem[]>([]);
 	const [pendingSubmissionsCount, setPendingSubmissionsCount] = useState(0);
@@ -134,6 +137,35 @@ const AppSidebar: React.FC = () => {
 			closeMobileSidebar();
 		}
 	}, [pathname, closeMobileSidebar]);
+
+	// Prevent page scroll when mobile sidebar is open
+	useEffect(() => {
+		if (!isMobileOpen) {
+			if (bodyScrollState.current) {
+				document.body.style.overflow = bodyScrollState.current.overflow;
+				document.body.style.touchAction = bodyScrollState.current.touchAction;
+				bodyScrollState.current = null;
+			}
+			return;
+		}
+
+		if (!bodyScrollState.current) {
+			bodyScrollState.current = {
+				overflow: document.body.style.overflow,
+				touchAction: document.body.style.touchAction,
+			};
+		}
+		document.body.style.overflow = 'hidden';
+		document.body.style.touchAction = 'none';
+
+		return () => {
+			if (bodyScrollState.current) {
+				document.body.style.overflow = bodyScrollState.current.overflow;
+				document.body.style.touchAction = bodyScrollState.current.touchAction;
+				bodyScrollState.current = null;
+			}
+		};
+	}, [isMobileOpen]);
 
 	// Handle click outside to close mobile sidebar
 	useEffect(() => {
@@ -529,7 +561,7 @@ const AppSidebar: React.FC = () => {
 				</div>
 			</Link>
 
-			<div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar flex-1">
+			<div className="flex flex-col overflow-y-auto duration-300 ease-linear custom-scrollbar flex-1">
 				<nav className="flex-1">{renderMenuItems(navigationItems)}</nav>
 			</div>
 		</aside>
