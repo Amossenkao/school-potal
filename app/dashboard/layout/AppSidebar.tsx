@@ -53,6 +53,9 @@ const AppSidebar: React.FC = () => {
 	const bodyScrollState = useRef<{ overflow: string; touchAction: string } | null>(
 		null
 	);
+	const htmlScrollState = useRef<{ overflow: string; touchAction: string } | null>(
+		null
+	);
 	const [initialSetupDone, setInitialSetupDone] = useState(false);
 	const [navigationItems, setNavigationItems] = useState<NavItem[]>([]);
 	const [pendingSubmissionsCount, setPendingSubmissionsCount] = useState(0);
@@ -146,6 +149,13 @@ const AppSidebar: React.FC = () => {
 				document.body.style.touchAction = bodyScrollState.current.touchAction;
 				bodyScrollState.current = null;
 			}
+			if (htmlScrollState.current) {
+				document.documentElement.style.overflow =
+					htmlScrollState.current.overflow;
+				document.documentElement.style.touchAction =
+					htmlScrollState.current.touchAction;
+				htmlScrollState.current = null;
+			}
 			return;
 		}
 
@@ -155,14 +165,29 @@ const AppSidebar: React.FC = () => {
 				touchAction: document.body.style.touchAction,
 			};
 		}
+		if (!htmlScrollState.current) {
+			htmlScrollState.current = {
+				overflow: document.documentElement.style.overflow,
+				touchAction: document.documentElement.style.touchAction,
+			};
+		}
 		document.body.style.overflow = 'hidden';
 		document.body.style.touchAction = 'none';
+		document.documentElement.style.overflow = 'hidden';
+		document.documentElement.style.touchAction = 'none';
 
 		return () => {
 			if (bodyScrollState.current) {
 				document.body.style.overflow = bodyScrollState.current.overflow;
 				document.body.style.touchAction = bodyScrollState.current.touchAction;
 				bodyScrollState.current = null;
+			}
+			if (htmlScrollState.current) {
+				document.documentElement.style.overflow =
+					htmlScrollState.current.overflow;
+				document.documentElement.style.touchAction =
+					htmlScrollState.current.touchAction;
+				htmlScrollState.current = null;
 			}
 		};
 	}, [isMobileOpen]);
@@ -506,7 +531,7 @@ const AppSidebar: React.FC = () => {
 	return (
 		<aside
 			ref={sidebarRef}
-			className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 dark:text-gray-100 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 dark:border-gray-700 rounded-tr-2xl lg:rounded-tr-none ${
+			className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 dark:text-gray-100 h-dvh transition-all duration-300 ease-in-out z-50 border-r border-gray-200 dark:border-gray-700 rounded-tr-2xl lg:rounded-tr-none ${
 				isExpanded || isMobileOpen
 					? 'w-[260px] sm:w-[290px]'
 					: isHovered
@@ -561,7 +586,7 @@ const AppSidebar: React.FC = () => {
 				</div>
 			</Link>
 
-			<div className="flex flex-col overflow-y-auto duration-300 ease-linear custom-scrollbar flex-1">
+			<div className="flex flex-col overflow-y-auto overscroll-contain duration-300 ease-linear custom-scrollbar flex-1">
 				<nav className="flex-1">{renderMenuItems(navigationItems)}</nav>
 			</div>
 		</aside>
