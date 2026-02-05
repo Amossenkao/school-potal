@@ -105,6 +105,9 @@ const componentMappings: Record<string, any> = {
 	'yearly-reports': lazySection(
 		() => import('@/app/dashboard/shared/YearlyReport'),
 	),
+	'semester-report': lazySection(
+		() => import('@/app/dashboard/shared/SemesterReport'),
+	),
 	masters: lazySection(() => import('@/app/dashboard/shared/MasterGradeSheet')),
 
 	'grade-submissions': lazySection(
@@ -338,6 +341,12 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					href: '/yearly-reports',
 					icon: FileText,
 				},
+				{
+					key: 'semester-report',
+					title: 'Semester Report',
+					href: '/semester-report',
+					icon: FileText,
+				},
 			],
 			student: [
 				{
@@ -350,6 +359,12 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					key: 'yearly-grade',
 					title: 'Yearly Grades',
 					href: '/yearly-grade',
+					icon: FileText,
+				},
+				{
+					key: 'semester-report',
+					title: 'Semester Report',
+					href: '/semester-report',
 					icon: FileText,
 				},
 			],
@@ -1013,6 +1028,7 @@ function isSharedComponent(key: string): boolean {
 		'yearly-grade',
 		'periodic-reports',
 		'yearly-reports',
+		'semester-report',
 	];
 	return sharedComponents.includes(key);
 }
@@ -1181,6 +1197,7 @@ export function validateComponentAccess(
 		'yearly-grade': 'academic_reports',
 		'periodic-reports': 'academic_reports',
 		'yearly-reports': 'academic_reports',
+		'semester-report': 'academic_reports',
 	};
 	if (reportRouteFeatureMap[routeKey]) {
 		return hasFeatureAccess(
