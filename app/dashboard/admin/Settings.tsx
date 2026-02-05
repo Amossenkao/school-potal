@@ -78,6 +78,11 @@ const academicPeriodsMap = [
 	{ value: 'sixth_period_exam', label: 'Sixth Period Exam' },
 ];
 
+const semesterOptions = [
+	{ value: 'first', label: '1st Semester' },
+	{ value: 'second', label: '2nd Semester' },
+];
+
 const generateAcademicYears = (yearsAhead = 5) => {
 	const years = [];
 	const currentYear = new Date().getFullYear();
@@ -436,6 +441,7 @@ export default function Settings() {
 					loginAccess: true,
 					yearlyReportAccess: false,
 					reportAccessPeriods: [],
+					reportAccessSemesters: [],
 				},
 			);
 			setTeacherSettings(
@@ -622,6 +628,23 @@ export default function Settings() {
 									}))
 								}
 								label="Select periods students can view. Leave empty to disable."
+							/>
+						</div>
+
+						<div className="pt-3 sm:pt-4 border-t border-border space-y-3">
+							<h4 className="font-medium text-foreground text-sm sm:text-base">
+								Semester Report Access
+							</h4>
+							<MultiSelect
+								options={semesterOptions}
+								selected={studentSettings.reportAccessSemesters}
+								onChange={(selectedSemesters) =>
+									setStudentSettings((prev) => ({
+										...prev,
+										reportAccessSemesters: selectedSemesters,
+									}))
+								}
+								label="Select semesters students can view. Leave empty to disable."
 							/>
 						</div>
 

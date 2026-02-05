@@ -51,6 +51,7 @@ const StudentSettingsSchema = new Schema(
 		loginAccess: { type: Boolean, default: true },
 		yearlyReportAccess: { type: Boolean, default: false },
 		reportAccessPeriods: { type: [String], default: [] },
+		reportAccessSemesters: { type: [String], default: [] },
 	},
 	{ _id: false }
 );

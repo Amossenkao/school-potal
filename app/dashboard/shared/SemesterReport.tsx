@@ -508,10 +508,39 @@ const FilterContent = React.memo(function FilterContent({
 		filters.classLevel,
 	]);
 
-	if (
-		isStudent &&
-		!currentSchool?.settings?.studentSettings.yearlyReportAccess
-	) {
+	const allowedSemesters =
+		currentSchool?.settings?.studentSettings?.reportAccessSemesters || [];
+	const hasSemesterAccess = !isStudent || allowedSemesters.length > 0;
+	const filteredSemesterOptions =
+		isStudent && hasSemesterAccess
+			? semesterOptions.filter((option) =>
+					allowedSemesters.includes(option.value),
+			  )
+			: semesterOptions;
+
+	useEffect(() => {
+		if (!isStudent || !hasSemesterAccess) return;
+		if (filteredSemesterOptions.length === 1 && !filters.semester) {
+			setFilters((prev) => ({
+				...prev,
+				semester: filteredSemesterOptions[0]
+					.value as ReportFilters['semester'],
+			}));
+		} else if (
+			filters.semester &&
+			!filteredSemesterOptions.find((opt) => opt.value === filters.semester)
+		) {
+			setFilters((prev) => ({ ...prev, semester: '' }));
+		}
+	}, [
+		isStudent,
+		hasSemesterAccess,
+		filteredSemesterOptions,
+		filters.semester,
+		setFilters,
+	]);
+
+	if (isStudent && !hasSemesterAccess) {
 		return (
 			<AccessDenied
 				message="You are currently not allowed to view semester reports"
@@ -563,7 +592,7 @@ const FilterContent = React.memo(function FilterContent({
 							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
 						>
 							<option value="">Select Semester</option>
-							{semesterOptions.map((option) => (
+							{filteredSemesterOptions.map((option) => (
 								<option key={option.value} value={option.value}>
 									{option.label}
 								</option>
@@ -1288,6 +1317,9 @@ function ReportContent({
 					academicYear: reportFilters.academicYear,
 					session: reportFilters.session,
 				});
+				if (reportFilters.semester) {
+					params.append('semester', reportFilters.semester);
+				}
 
 				if (reportFilters.selectedStudents.length > 0) {
 					params.append('studentIds', reportFilters.selectedStudents.join(','));

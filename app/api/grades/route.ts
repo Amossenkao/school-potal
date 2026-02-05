@@ -724,6 +724,7 @@ export async function GET(request: NextRequest) {
 			searchParams.get('academicYear') || currentAcademicYear;
 		const classId = searchParams.get('classId');
 		const period = searchParams.get('period');
+		const semester = searchParams.get('semester');
 		const subject = searchParams.get('subject');
 		const status = searchParams.get('status');
 		const teacherUsername = searchParams.get('teacherUsername');
@@ -902,6 +903,18 @@ export async function GET(request: NextRequest) {
 						{
 							success: false,
 							message: 'You are not allowed to access grades for this period',
+						},
+						{ status: 403 },
+					);
+				}
+			} else if (semester) {
+				const allowedSemesters =
+					schoolProfile?.settings?.studentSettings?.reportAccessSemesters || [];
+				if (!allowedSemesters.includes(semester)) {
+					return NextResponse.json(
+						{
+							success: false,
+							message: 'You are not allowed to access grades for this semester',
 						},
 						{ status: 403 },
 					);

@@ -79,6 +79,7 @@ export interface StudentSettings {
 	loginAccess: boolean;
 	yearlyReportAccess: boolean;
 	reportAccessPeriods: string[];
+	reportAccessSemesters: string[];
 }
 
 export interface TeacherSettings {

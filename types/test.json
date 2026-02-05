@@ -92,7 +92,8 @@
 		"studentSettings": {
 			"loginAccess": true,
 			"yearlyReportAccess": true,
-			"reportAccessPeriods": ["first"]
+			"reportAccessPeriods": ["first"],
+			"reportAccessSemesters": ["first"]
 		},
 		"teacherSettings": {
 			"loginAccess": true,
