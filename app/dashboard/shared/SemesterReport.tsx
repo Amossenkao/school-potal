@@ -1234,6 +1234,7 @@ function ReportContent({
 	const [serverKey, setServerKey] = useState<string | null>(null);
 	const [inlineError, setInlineError] = useState(false);
 	const [viewLoading, setViewLoading] = useState(false);
+	const [forceInlineFallback, setForceInlineFallback] = useState(false);
 	const [shareModalOpen, setShareModalOpen] = useState(false);
 	const [shareLoading, setShareLoading] = useState(false);
 	const [shareInfo, setShareInfo] = useState<{
@@ -1646,6 +1647,19 @@ function ReportContent({
 			});
 	}, [pdfBlob, pdfGenerating, serverKey]);
 
+	useEffect(() => {
+		if (typeof window === 'undefined') return;
+		const media = window.matchMedia('(max-width: 768px)');
+		const apply = () => setForceInlineFallback(media.matches);
+		apply();
+		if (media.addEventListener) {
+			media.addEventListener('change', apply);
+			return () => media.removeEventListener('change', apply);
+		}
+		media.addListener(apply);
+		return () => media.removeListener(apply);
+	}, []);
+
 	const handleDownload = useCallback(async () => {
 		if (!downloadUrl) return;
 		setDownloading(true);
@@ -1713,7 +1727,7 @@ function ReportContent({
 				>
 					← Back to Filter
 				</button>
-				{isStudent && !inlineError && (
+				{isStudent && !inlineError && !forceInlineFallback && (
 					<button
 						type="button"
 						onClick={() => {
@@ -1820,7 +1834,7 @@ function ReportContent({
 			<div className="flex-1">
 				{pdfUrl ? (
 					<div className="w-full" style={{ height: '80vh' }}>
-						{inlineError ? (
+						{inlineError || forceInlineFallback ? (
 							<div className="flex items-center justify-center h-full">
 								<div className="flex flex-col items-center gap-3">
 									<button
