@@ -849,7 +849,7 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 					style={{ ...styles.page, padding: 20 }}
 					wrap={false}
 				>
-					<View style={{ flexDirection: 'row', gap: 12 }}>
+					<View style={{ flexDirection: 'row', gap: 18 }}>
 						{studentGroup.map((studentData, index) => {
 							const getGrade = (period: string, subject: string) =>
 								studentData.periods[period]?.find(
@@ -876,8 +876,10 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 									style={{
 										flex: 1,
 										borderWidth: 1,
-										borderColor: '#1f2937',
-										padding: 10,
+										borderColor: '#cbd5e1',
+										backgroundColor: '#f8fafc',
+										borderRadius: 8,
+										padding: 8,
 										position: 'relative',
 										minHeight: 360,
 									}}
@@ -1228,7 +1230,10 @@ function ReportContent({
 	const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 	const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
 	const [pdfGenerating, setPdfGenerating] = useState(false);
+	const [downloading, setDownloading] = useState(false);
 	const [serverKey, setServerKey] = useState<string | null>(null);
+	const [inlineError, setInlineError] = useState(false);
+	const [viewLoading, setViewLoading] = useState(false);
 	const [shareModalOpen, setShareModalOpen] = useState(false);
 	const [shareLoading, setShareLoading] = useState(false);
 	const [shareInfo, setShareInfo] = useState<{
@@ -1588,6 +1593,7 @@ function ReportContent({
 			setDownloadUrl(null);
 			setPdfBlob(null);
 			setServerKey(null);
+			setInlineError(false);
 			return;
 		}
 
@@ -1605,6 +1611,7 @@ function ReportContent({
 				setDownloadUrl(objectUrl);
 				setPdfBlob(blob);
 				setServerKey(null);
+				setInlineError(false);
 				setPdfUrl(objectUrl);
 			})
 			.catch((err) => {
@@ -1641,12 +1648,17 @@ function ReportContent({
 
 	const handleDownload = useCallback(async () => {
 		if (!downloadUrl) return;
-		const a = document.createElement('a');
-		a.href = downloadUrl;
-		a.download = `Semester_Report_${className}_${reportFilters.academicYear}_${reportFilters.semester}.pdf`;
-		document.body.appendChild(a);
-		a.click();
-		a.remove();
+		setDownloading(true);
+		try {
+			const a = document.createElement('a');
+			a.href = downloadUrl;
+			a.download = `Semester_Report_${className}_${reportFilters.academicYear}_${reportFilters.semester}.pdf`;
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+		} finally {
+			setDownloading(false);
+		}
 	}, [downloadUrl, className, reportFilters.academicYear, reportFilters.semester]);
 
 	if (loading) {
@@ -1701,7 +1713,7 @@ function ReportContent({
 				>
 					← Back to Filter
 				</button>
-				{isStudent && (
+				{isStudent && !inlineError && (
 					<button
 						type="button"
 						onClick={() => {
@@ -1794,20 +1806,179 @@ function ReportContent({
 					type="button"
 					onClick={handleDownload}
 					className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm flex items-center gap-2"
-					disabled={pdfGenerating || !downloadUrl}
+					disabled={downloading || pdfGenerating || !downloadUrl}
 				>
-					{pdfGenerating ? <InlineLoading size="sm" /> : 'Download Report'}
+					{pdfGenerating ? (
+						<InlineLoading size="sm" />
+					) : downloading ? (
+						<span>Downloading...</span>
+					) : (
+						'Download Report'
+					)}
 				</button>
 			</div>
 			<div className="flex-1">
 				{pdfUrl ? (
 					<div className="w-full" style={{ height: '80vh' }}>
-						<iframe
-							title="Semester Report PDF"
-							className="w-full h-full"
-							style={{ border: 'none' }}
-							src={pdfUrl}
-						/>
+						{inlineError ? (
+							<div className="flex items-center justify-center h-full">
+								<div className="flex flex-col items-center gap-3">
+									<button
+										type="button"
+										onClick={() => {
+											if (!pdfBlob || !downloadUrl) return;
+											const openWithKey = (key: string) => {
+												const url = `/api/reports/pdf?key=${encodeURIComponent(
+													key,
+												)}&fileName=${encodeURIComponent(
+													`Semester_Report_${className}_${reportFilters.academicYear}_${reportFilters.semester}.pdf`,
+												)}`;
+												window.open(url, '_blank', 'noopener,noreferrer');
+											};
+											if (serverKey) {
+												openWithKey(serverKey);
+												return;
+											}
+											setViewLoading(true);
+											fetch('/api/reports/pdf', {
+												method: 'POST',
+												headers: { 'Content-Type': 'application/pdf' },
+												body: pdfBlob,
+											})
+												.then((res) => res.json())
+												.then((data) => {
+													if (data?.cacheKey) {
+														setServerKey(data.cacheKey);
+														openWithKey(data.cacheKey);
+													} else {
+														window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+													}
+													setViewLoading(false);
+												})
+												.catch(() => {
+													window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+													setViewLoading(false);
+												});
+										}}
+										disabled={!downloadUrl || pdfGenerating || viewLoading}
+										className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm inline-flex items-center gap-2"
+									>
+										<svg
+											className="w-4 h-4"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+										>
+											<path
+												strokeLinecap="round"
+												strokeLinejoin="round"
+												strokeWidth={2}
+												d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"
+											/>
+											<circle cx="12" cy="12" r="3" />
+										</svg>
+										{viewLoading ? 'Opening...' : 'View Report'}
+									</button>
+									{isStudent && (
+										<button
+											type="button"
+											onClick={() => {
+												if (!pdfBlob || !downloadUrl) return;
+												const createShare = (cacheKey: string) =>
+													fetch('/api/reports/share', {
+														method: 'POST',
+														headers: { 'Content-Type': 'application/json' },
+														body: JSON.stringify({
+															cacheKey,
+															fileName: `Semester_Report_${className}_${reportFilters.academicYear}_${reportFilters.semester}.pdf`,
+															reportType: 'semester',
+															createdBy:
+																user?.id || user?._id || user?.studentId || '',
+														}),
+													}).then((res) => res.json());
+												const doShare = (cacheKey: string) => {
+													setShareLoading(true);
+													createShare(cacheKey).then((data) => {
+														if (!data?.shareUrl || !data?.pin) {
+															setShareLoading(false);
+															return;
+														}
+														setShareInfo({
+															url: data.shareUrl,
+															pin: data.pin,
+															expiresAt: data.expiresAt,
+														});
+														setShareModalOpen(true);
+														setCopiedLink(false);
+														setCopiedPin(false);
+														setShareLoading(false);
+													});
+												};
+												if (serverKey) {
+													doShare(serverKey);
+													return;
+												}
+												setShareLoading(true);
+												fetch('/api/reports/pdf', {
+													method: 'POST',
+													headers: { 'Content-Type': 'application/pdf' },
+													body: pdfBlob,
+												})
+													.then((res) => res.json())
+													.then((data) => {
+														if (data?.cacheKey) {
+															setServerKey(data.cacheKey);
+															doShare(data.cacheKey);
+														} else {
+															setShareLoading(false);
+														}
+													})
+													.catch(() => {
+														setShareLoading(false);
+													});
+											}}
+											disabled={!downloadUrl || pdfGenerating}
+											className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm inline-flex items-center gap-2"
+										>
+											<svg
+												className="w-4 h-4"
+												fill="none"
+												stroke="currentColor"
+												viewBox="0 0 24 24"
+											>
+												<path
+													strokeLinecap="round"
+													strokeLinejoin="round"
+													strokeWidth={2}
+													d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"
+												/>
+												<path
+													strokeLinecap="round"
+													strokeLinejoin="round"
+													strokeWidth={2}
+													d="M16 6l-4-4-4 4"
+												/>
+												<path
+													strokeLinecap="round"
+													strokeLinejoin="round"
+													strokeWidth={2}
+													d="M12 2v14"
+												/>
+											</svg>
+											{shareLoading ? 'Generating Link...' : 'Share Report'}
+										</button>
+									)}
+								</div>
+							</div>
+						) : (
+							<iframe
+								title="Semester Report PDF"
+								className="w-full h-full"
+								style={{ border: 'none' }}
+								src={pdfUrl}
+								onError={() => setInlineError(true)}
+							/>
+						)}
 					</div>
 				) : (
 					<div className="flex items-center justify-center h-full">
