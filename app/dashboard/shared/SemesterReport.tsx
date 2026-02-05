@@ -828,16 +828,16 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 	const isFirstSemester = reportFilters.semester === 'first';
 	const periodColumns = isFirstSemester
 		? [
-				{ key: 'first', label: '1st' },
-				{ key: 'second', label: '2nd' },
-				{ key: 'third', label: '3rd' },
-				{ key: 'third_period_exam', label: 'Exam' },
+				{ key: 'first', label: '1st Period' },
+				{ key: 'second', label: '2nd Period' },
+				{ key: 'third', label: '3rd Period' },
+				{ key: 'third_period_exam', label: '3rd Period Exam' },
 		  ]
 		: [
-				{ key: 'fourth', label: '4th' },
-				{ key: 'fifth', label: '5th' },
-				{ key: 'sixth', label: '6th' },
-				{ key: 'six_period_exam', label: 'Exam' },
+				{ key: 'fourth', label: '4th Period' },
+				{ key: 'fifth', label: '5th Period' },
+				{ key: 'sixth', label: '6th Period' },
+				{ key: 'six_period_exam', label: '6th Period Exam' },
 		  ];
 
 	return (
@@ -849,16 +849,32 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 					style={{ ...styles.page, padding: 20 }}
 					wrap={false}
 				>
-					<View style={{ flexDirection: 'column', gap: 12 }}>
-						{studentGroup.map((studentData) => {
+					<View style={{ flexDirection: 'row', gap: 12 }}>
+						{studentGroup.map((studentData, index) => {
 							const getGrade = (period: string, subject: string) =>
 								studentData.periods[period]?.find(
 									(s) => s.subject === subject,
 								)?.grade ?? null;
+							const rankMap = isFirstSemester
+								? {
+										first: studentData.ranks.first,
+										second: studentData.ranks.second,
+										third: studentData.ranks.third,
+										third_period_exam: studentData.ranks.third_period_exam,
+										semester: studentData.ranks.firstSemesterAverage,
+								  }
+								: {
+										fourth: studentData.ranks.fourth,
+										fifth: studentData.ranks.fifth,
+										sixth: studentData.ranks.sixth,
+										six_period_exam: studentData.ranks.six_period_exam,
+										semester: studentData.ranks.secondSemesterAverage,
+								  };
 							return (
 								<View
 									key={studentData.studentId}
 									style={{
+										flex: 1,
 										borderWidth: 1,
 										borderColor: '#1f2937',
 										padding: 10,
@@ -988,7 +1004,7 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 												style={{
 													flex: 2,
 													padding: 2,
-													fontSize: 8,
+													fontSize: 7,
 													fontWeight: 'bold',
 													borderRightWidth: 0.5,
 													borderRightColor: '#000',
@@ -1003,7 +1019,7 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 													style={{
 														flex: 1,
 														padding: 2,
-														fontSize: 8,
+														fontSize: 7,
 														fontWeight: 'bold',
 														borderRightWidth: 0.5,
 														borderRightColor: '#000',
@@ -1017,7 +1033,7 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 												style={{
 													flex: 1,
 													padding: 2,
-													fontSize: 8,
+													fontSize: 7,
 													fontWeight: 'bold',
 													textAlign: 'center',
 												}}
@@ -1138,10 +1154,59 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 													  ) ?? '-'}
 											</Text>
 										</View>
+										<View
+											style={{
+												flexDirection: 'row',
+												backgroundColor: '#f0f8ff',
+												borderTopWidth: 0.5,
+												borderTopColor: '#000',
+											}}
+										>
+											<Text
+												style={{
+													flex: 2,
+													padding: 2,
+													fontSize: 8,
+													fontWeight: 'bold',
+													borderRightWidth: 0.5,
+													borderRightColor: '#000',
+												}}
+											>
+												Rank
+											</Text>
+											{periodColumns.map((col) => (
+												<Text
+													key={`rank-${col.key}`}
+													style={{
+														flex: 1,
+														padding: 2,
+														fontSize: 7,
+														textAlign: 'center',
+														borderRightWidth: 0.5,
+														borderRightColor: '#000',
+													}}
+												>
+													{(rankMap as any)[col.key] ?? '-'}
+												</Text>
+											))}
+											<Text
+												style={{
+													flex: 1,
+													padding: 2,
+													fontSize: 7,
+													textAlign: 'center',
+												}}
+											>
+												{(rankMap as any).semester ?? '-'}
+											</Text>
+										</View>
 									</View>
 								</View>
 							);
 						})}
+						{studentGroup.length === 1 && (
+							<View style={{ flex: 1 }} />
+						)}
 					</View>
 				</Page>
 			))}

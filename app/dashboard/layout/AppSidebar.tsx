@@ -572,8 +572,10 @@ const AppSidebar: React.FC = () => {
 				</div>
 			</Link>
 
-			<div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain duration-300 ease-linear custom-scrollbar flex-1 pb-6">
-				<nav className="flex-1">{renderMenuItems(navigationItems)}</nav>
+			<div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain duration-300 ease-linear left-scrollbar flex-1 pb-6">
+				<div className="direction-ltr">
+					<nav className="flex-1">{renderMenuItems(navigationItems)}</nav>
+				</div>
 			</div>
 		</aside>
 	);

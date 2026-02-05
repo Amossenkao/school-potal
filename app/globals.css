@@ -275,6 +275,31 @@
 	background-color: #344054;
 }
 
+@utility left-scrollbar {
+	direction: rtl;
+	&::-webkit-scrollbar {
+		@apply w-2;
+	}
+	&::-webkit-scrollbar-track {
+		@apply rounded-full bg-gray-100/80 dark:bg-gray-800/70;
+	}
+	&::-webkit-scrollbar-thumb {
+		background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
+		@apply rounded-full;
+	}
+	&:hover::-webkit-scrollbar-thumb {
+		background: linear-gradient(180deg, #93c5fd 0%, #3b82f6 100%);
+	}
+}
+
+.dark .left-scrollbar::-webkit-scrollbar-thumb {
+	background: linear-gradient(180deg, #1d4ed8 0%, #2563eb 100%);
+}
+
+.direction-ltr {
+	direction: ltr;
+}
+
 @layer utilities {
 	/* For Remove Date Icon */
 	input[type='date']::-webkit-inner-spin-button,
