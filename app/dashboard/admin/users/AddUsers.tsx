@@ -535,7 +535,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	};
 
 	return (
-		<div className="w-full max-w-6xl mx-auto">
+		<div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
 			<ConflictModal
 				isOpen={showConflictModal}
 				onClose={() => setShowConflictModal(false)}

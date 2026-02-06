@@ -21,7 +21,7 @@ export default function DashboardPage() {
 
 	// 5. Once all data is ready, render the main dashboard component.
 	return (
-		<div className="dashboard-page">
+		<div className="dashboard-page px-4 sm:px-6 lg:px-8">
 			<DashboardHome user={user} schoolProfile={school} />
 		</div>
 	);
