@@ -28,9 +28,9 @@ const getCurrentAcademicYear = () => {
 	const currentMonth = now.getMonth() + 1;
 
 	if (currentMonth >= 8) {
-		return `${currentYear}/${currentYear + 1}`;
+		return `${currentYear}-${currentYear + 1}`;
 	} else {
-		return `${currentYear - 1}/${currentYear}`;
+		return `${currentYear - 1}-${currentYear}`;
 	}
 };
 
@@ -73,23 +73,72 @@ const AppSidebar: React.FC = () => {
 			if (user) {
 				try {
 					// Fetch pending grade submissions
-					const submissionsRes = await fetch(
-						`/api/grades?reportType=gradeSubmission&teacherUsername=${
-							user.username
-						}&academicYear=${getCurrentAcademicYear()}`
-					);
-					if (submissionsRes.ok) {
-						const submissionsData = await submissionsRes.json();
-						const submissions =
-							submissionsData?.data?.report?.submissions ?? [];
-						const pendingSubmissions = submissions.filter(
-							(sub: any) =>
-								sub.status === 'Pending' ||
-								sub.status === 'Partially Approved'
-						).length;
-						setPendingSubmissionsCount(pendingSubmissions);
+					if (user.role === 'system_admin') {
+						const submissionsRes = await fetch(
+							`/api/grades?academicYear=${getCurrentAcademicYear()}`
+						);
+						if (submissionsRes.ok) {
+							const submissionsData = await submissionsRes.json();
+							const grades =
+								submissionsData?.data?.report?.grades ??
+								submissionsData?.data?.grades ??
+								[];
+							const statusesBySubmission = new Map<string, Set<string>>();
+							grades.forEach((grade: any) => {
+								if (!grade?.submissionId) return;
+								if (!statusesBySubmission.has(grade.submissionId)) {
+									statusesBySubmission.set(grade.submissionId, new Set());
+								}
+								statusesBySubmission
+									.get(grade.submissionId)
+									?.add(grade.status);
+							});
+
+							const getSubmissionStatus = (statuses: Set<string>) => {
+								if (statuses.size === 1) {
+									return Array.from(statuses)[0];
+								}
+								const hasPending = statuses.has('Pending');
+								const hasApproved = statuses.has('Approved');
+								const hasRejected = statuses.has('Rejected');
+								if (hasPending || (hasApproved && hasRejected)) {
+									return 'Partially Approved';
+								}
+								if (hasApproved) return 'Approved';
+								if (hasRejected) return 'Rejected';
+								return 'Pending';
+							};
+
+							const pendingSubmissions = Array.from(
+								statusesBySubmission.values()
+							).filter((statuses) => {
+								const status = getSubmissionStatus(statuses);
+								return status === 'Pending' || status === 'Partially Approved';
+							}).length;
+
+							setPendingSubmissionsCount(pendingSubmissions);
+						} else {
+							setPendingSubmissionsCount(0);
+						}
 					} else {
-						setPendingSubmissionsCount(0);
+						const submissionsRes = await fetch(
+							`/api/grades?reportType=gradeSubmission&teacherUsername=${
+								user.username
+							}&academicYear=${getCurrentAcademicYear()}`
+						);
+						if (submissionsRes.ok) {
+							const submissionsData = await submissionsRes.json();
+							const submissions =
+								submissionsData?.data?.report?.submissions ?? [];
+							const pendingSubmissions = submissions.filter(
+								(sub: any) =>
+									sub.status === 'Pending' ||
+									sub.status === 'Partially Approved'
+							).length;
+							setPendingSubmissionsCount(pendingSubmissions);
+						} else {
+							setPendingSubmissionsCount(0);
+						}
 					}
 
 					// Fetch pending grade change requests
