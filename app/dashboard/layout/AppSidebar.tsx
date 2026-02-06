@@ -524,9 +524,11 @@ const AppSidebar: React.FC = () => {
 														}`}
 													/>
 												)}
-												<span>{sub.name}</span>
+												<span className="flex-1 min-w-0 truncate whitespace-nowrap">
+													{sub.name}
+												</span>
 												{sub.badgeCount && sub.badgeCount > 0 && (
-													<span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+													<span className="ml-auto flex-shrink-0 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
 														{sub.badgeCount}
 													</span>
 												)}
