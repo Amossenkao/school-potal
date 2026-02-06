@@ -83,6 +83,8 @@ const semesterOptions = [
 	{ value: 'second', label: '2nd Semester' },
 ];
 
+const ensureArray = (value) => (Array.isArray(value) ? value : []);
+
 const generateAcademicYears = (yearsAhead = 5) => {
 	const years = [];
 	const currentYear = new Date().getFullYear();
@@ -96,14 +98,16 @@ const generateAcademicYears = (yearsAhead = 5) => {
 // Improved MultiSelect with better mobile responsiveness
 const MultiSelect = ({ options, selected, onChange, label }) => {
 	const [isOpen, setIsOpen] = useState(false);
+	const safeOptions = Array.isArray(options) ? options : [];
+	const safeSelected = ensureArray(selected);
 
 	const handleDeselect = (optionValue) => {
-		onChange(selected.filter((item) => item !== optionValue));
+		onChange(safeSelected.filter((item) => item !== optionValue));
 	};
 
 	const handleSelect = (optionValue) => {
-		if (!selected.includes(optionValue)) {
-			onChange([...selected, optionValue]);
+		if (!safeSelected.includes(optionValue)) {
+			onChange([...safeSelected, optionValue]);
 		}
 	};
 
@@ -114,9 +118,10 @@ const MultiSelect = ({ options, selected, onChange, label }) => {
 			</label>
 			<div className="w-full rounded-lg border border-border bg-background p-2 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
 				<div className="flex flex-wrap gap-1.5 items-center min-h-[32px]">
-					{selected.map((itemValue) => {
+					{safeSelected.map((itemValue) => {
 						const itemLabel =
-							options.find((o) => o.value === itemValue)?.label || itemValue;
+							safeOptions.find((o) => o.value === itemValue)?.label ||
+							itemValue;
 						return (
 							<div
 								key={itemValue}
@@ -142,7 +147,7 @@ const MultiSelect = ({ options, selected, onChange, label }) => {
 							className="w-full text-left bg-transparent focus:outline-none flex justify-between items-center gap-2 text-sm"
 						>
 							<span className="text-muted-foreground truncate">
-								{selected.length === 0 ? 'Select...' : 'Add...'}
+								{safeSelected.length === 0 ? 'Select...' : 'Add...'}
 							</span>
 							<ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
 						</button>
@@ -154,8 +159,8 @@ const MultiSelect = ({ options, selected, onChange, label }) => {
 								/>
 								<div className="absolute z-20 mt-1 w-full sm:w-auto sm:min-w-[200px] rounded-md bg-card shadow-lg border border-border max-h-60 overflow-auto">
 									<ul className="py-1">
-										{options
-											.filter((o) => !selected.includes(o.value))
+										{safeOptions
+											.filter((o) => !safeSelected.includes(o.value))
 											.map((option) => (
 												<li
 													key={option.value}
@@ -168,7 +173,7 @@ const MultiSelect = ({ options, selected, onChange, label }) => {
 													{option.label}
 												</li>
 											))}
-										{options.filter((o) => !selected.includes(o.value))
+										{safeOptions.filter((o) => !safeSelected.includes(o.value))
 											.length === 0 && (
 											<li className="text-muted-foreground px-3 py-2 text-sm">
 												All selected
@@ -436,30 +441,65 @@ export default function Settings() {
 				school.currentAcademicYear || getCurrentAcademicYear();
 
 			setCurrentAcademicYear(baseAcademicYear);
-			setStudentSettings(
-				school.settings.studentSettings || {
-					loginAccess: true,
-					yearlyReportAccess: false,
-					reportAccessPeriods: [],
-					reportAccessSemesters: [],
-				},
+			const studentDefaults = {
+				loginAccess: true,
+				yearlyReportAccess: false,
+				reportAccessPeriods: [],
+				reportAccessSemesters: [],
+			};
+			const teacherDefaults = {
+				loginAccess: true,
+				gradeSubmissionPeriods: [],
+				gradeSubmissionAcademicYears: [baseAcademicYear],
+				viewMastersAcademicYears: [baseAcademicYear],
+				viewGradeSubmissionsAcademicYears: [baseAcademicYear],
+				gradeChangeRequestAcademicYears: [baseAcademicYear],
+				gradeChangeRequestPeriods: [],
+			};
+			const administratorDefaults = {
+				loginAccess: true,
+			};
+
+			const nextStudentSettings = {
+				...studentDefaults,
+				...(school.settings.studentSettings || {}),
+			};
+			nextStudentSettings.reportAccessPeriods = ensureArray(
+				nextStudentSettings.reportAccessPeriods,
 			);
-			setTeacherSettings(
-				school.settings.teacherSettings || {
-					loginAccess: true,
-					gradeSubmissionPeriods: [],
-					gradeSubmissionAcademicYears: [baseAcademicYear],
-					viewMastersAcademicYears: [baseAcademicYear],
-					viewGradeSubmissionsAcademicYears: [baseAcademicYear],
-					gradeChangeRequestAcademicYears: [baseAcademicYear],
-					gradeChangeRequestPeriods: [],
-				},
+			nextStudentSettings.reportAccessSemesters = ensureArray(
+				nextStudentSettings.reportAccessSemesters,
 			);
-			setAdministratorSettings(
-				school.settings.administratorSettings || {
-					loginAccess: true,
-				},
+
+			const nextTeacherSettings = {
+				...teacherDefaults,
+				...(school.settings.teacherSettings || {}),
+			};
+			nextTeacherSettings.gradeSubmissionPeriods = ensureArray(
+				nextTeacherSettings.gradeSubmissionPeriods,
 			);
+			nextTeacherSettings.gradeSubmissionAcademicYears = ensureArray(
+				nextTeacherSettings.gradeSubmissionAcademicYears,
+			);
+			nextTeacherSettings.viewMastersAcademicYears = ensureArray(
+				nextTeacherSettings.viewMastersAcademicYears,
+			);
+			nextTeacherSettings.viewGradeSubmissionsAcademicYears = ensureArray(
+				nextTeacherSettings.viewGradeSubmissionsAcademicYears,
+			);
+			nextTeacherSettings.gradeChangeRequestAcademicYears = ensureArray(
+				nextTeacherSettings.gradeChangeRequestAcademicYears,
+			);
+			nextTeacherSettings.gradeChangeRequestPeriods = ensureArray(
+				nextTeacherSettings.gradeChangeRequestPeriods,
+			);
+
+			setStudentSettings(nextStudentSettings);
+			setTeacherSettings(nextTeacherSettings);
+			setAdministratorSettings({
+				...administratorDefaults,
+				...(school.settings.administratorSettings || {}),
+			});
 			setIsLoading(false);
 		}
 	}, [school]);
@@ -554,7 +594,7 @@ export default function Settings() {
 	}
 
 	return (
-		<div className="min-h-screen bg-background p-3 sm:p-6">
+		<div className="min-h-screen bg-background p-3 sm:p-6 pb-24 sm:pb-28">
 			{feedback.message && (
 				<FeedbackToast
 					type={feedback.type}
@@ -856,7 +896,7 @@ export default function Settings() {
 				</div>
 
 				{/* Save Button - Sticky across all viewports */}
-				<div className="sticky bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur border-t border-border pt-4 pb-6 sm:pb-6">
+				<div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur border-t border-border pt-4 pb-6 sm:pb-6">
 					<div className="flex justify-center px-3">
 						<button
 							onClick={handleSaveSettings}

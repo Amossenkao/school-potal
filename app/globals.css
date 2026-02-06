@@ -278,7 +278,7 @@
 @utility left-scrollbar {
 	direction: rtl;
 	&::-webkit-scrollbar {
-		@apply w-2;
+		@apply w-1.5;
 	}
 	&::-webkit-scrollbar-track {
 		@apply rounded-full bg-gray-100/80 dark:bg-gray-800/70;

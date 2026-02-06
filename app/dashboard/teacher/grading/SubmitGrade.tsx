@@ -853,7 +853,7 @@ const SubmitGrade: React.FC = () => {
 	}
 
 	return (
-		<div className="min-h-screen bg-background py-3 sm:py-4 md:py-6 px-0">
+		<div className="min-h-screen bg-background py-3 sm:py-4 md:py-6 px-0 pb-24 sm:pb-28">
 			<FeedbackToast />
 			<div className="w-full">
 				<div className="mb-4 sm:mb-6 md:mb-8">
@@ -1233,7 +1233,7 @@ const SubmitGrade: React.FC = () => {
 								</div>
 							</div>
 
-							<div className="p-4 sm:p-6 border-t border-border sticky bottom-0 bg-card">
+							<div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur border-t border-border p-4 sm:p-6">
 								<button
 									onClick={handleSubmitGrades}
 									className="w-full sm:w-auto sm:ml-auto flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-base font-medium text-primary-foreground shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"

@@ -448,12 +448,12 @@ const AppSidebar: React.FC = () => {
 											: '0px',
 								}}
 							>
-								<ul className="mt-2 space-y-1 ml-8 pl-4 border-l border-gray-200 dark:border-gray-700">
+								<ul className="mt-2 space-y-1 ml-5 pl-2 border-l border-gray-200 dark:border-gray-700">
 									{subItems.map((sub, index) => (
 										<li key={`${sub.href || sub.name}-${index}`}>
 											<Link
 												href={sub.href!}
-												className={`menu-dropdown-item flex items-center gap-3 py-2 px-3 rounded-md text-sm transition-colors duration-150 ${
+												className={`menu-dropdown-item flex items-center gap-3 py-2 px-2 sm:px-3 rounded-md text-sm transition-colors duration-150 ${
 													isActive(sub.href!)
 														? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
 														: 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'

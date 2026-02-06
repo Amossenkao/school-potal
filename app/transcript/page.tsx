@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { Suspense, useMemo, useState } from 'react';
 import {
 	Document,
 	Page,
@@ -730,6 +730,11 @@ export default function DocumentPortal() {
 	}
 
 	if (showPDF) {
+		const pdfDocument = useMemo(
+			() => <MultiDocument students={students} />,
+			[students]
+		);
+
 		return (
 			<div className="h-screen w-full flex flex-col">
 				<div className="p-4 bg-gradient-to-r from-gray-800 to-gray-900 text-white flex justify-between items-center shadow-lg">
@@ -750,9 +755,17 @@ export default function DocumentPortal() {
 						Logout
 					</button>
 				</div>
-				<PDFViewer width="100%" height="100%">
-					<MultiDocument students={students} />
-				</PDFViewer>
+				<Suspense
+					fallback={
+						<div className="flex-1 flex items-center justify-center text-gray-700">
+							Loading document preview...
+						</div>
+					}
+				>
+					<PDFViewer width="100%" height="100%">
+						{pdfDocument}
+					</PDFViewer>
+				</Suspense>
 			</div>
 		);
 	}
