@@ -8,20 +8,6 @@ import { getSchoolProfile } from '@/lib/mongoose';
 import { UserRole } from '@/types';
 import { buildBootstrapPayload } from '@/app/api/auth/bootstrap';
 
-async function addLoginNotification(user: any) {
-	if (!user) return;
-	user.notifications = user.notifications || [];
-	user.notifications.push({
-		title: 'Login',
-		message: 'A new login to your account was detected.',
-		timestamp: new Date(),
-		read: false,
-		dismissed: false,
-		type: 'Security',
-	});
-	await user.save();
-}
-
 export async function POST(request: NextRequest) {
 	const host = request.headers.get('host');
 	if (!host) {
@@ -77,7 +63,6 @@ export async function POST(request: NextRequest) {
 				);
 
 				if (verificationResult.success) {
-					await addLoginNotification(user);
 					const loginSessionId = await createSession({
 						tenantId: host,
 						purpose: 'login',

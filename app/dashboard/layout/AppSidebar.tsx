@@ -255,6 +255,10 @@ const AppSidebar: React.FC = () => {
 						const totalPending = pendingSubmissionsCount + pendingRequestsCount;
 						newItem.badgeCount = totalPending > 0 ? totalPending : undefined;
 					}
+					if (item.name === 'Grading System') {
+						const totalPending = pendingSubmissionsCount + pendingRequestsCount;
+						newItem.badgeCount = totalPending > 0 ? totalPending : undefined;
+					}
 					return newItem;
 				});
 

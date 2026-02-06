@@ -1119,22 +1119,44 @@ export async function POST(request: NextRequest) {
 		}));
 		const result = await Grade.insertMany(gradeDocuments);
 
-		// Notify admins
+		// Notify admins per submissionId (one notification per batch/period)
+		const submissionSummary = new Map<
+			string,
+			{ count: number; period: string }
+		>();
+		for (const doc of gradeDocuments) {
+			const existing = submissionSummary.get(doc.submissionId);
+			if (existing) {
+				existing.count += 1;
+			} else {
+				submissionSummary.set(doc.submissionId, {
+					count: 1,
+					period: doc.period,
+				});
+			}
+		}
+
 		const admins = await User.find({ role: 'system_admin' })
 			.select('_id')
 			.lean();
-		const notification = {
-			_id: crypto.randomUUID(),
-			title: 'New Grade Submission',
-			message: `${teacher.firstName} ${teacher.lastName} submitted grades for ${subject} in ${classId}.`,
-			timestamp: new Date(),
-			read: false,
-			type: 'Grades',
-		};
-
-		const notificationPromises = admins.map((admin: any) =>
-			addNotificationToUser(User, admin._id.toString(), notification),
-		);
+		const notificationPromises = [];
+		for (const [submissionId, summary] of submissionSummary.entries()) {
+			const notification = {
+				_id: crypto.randomUUID(),
+				title: 'New Grade Submission',
+				message: `${teacher.firstName} ${teacher.lastName} submitted ${summary.count} grade${
+					summary.count === 1 ? '' : 's'
+				} for ${subject} (${summary.period}) in ${classId} for ${resolvedAcademicYear}. Submission ID: ${submissionId}.`,
+				timestamp: new Date(),
+				read: false,
+				type: 'Grades',
+			};
+			for (const admin of admins) {
+				notificationPromises.push(
+					addNotificationToUser(User, admin._id.toString(), notification)
+				);
+			}
+		}
 		await Promise.allSettled(notificationPromises);
 
 		return NextResponse.json({ success: true, data: result }, { status: 201 });
@@ -1248,26 +1270,6 @@ async function updateGradeStatus(
 		};
 	}
 
-	// Notify the teacher
-	const teacher = await User.findOne({ username: result.teacherUsername })
-		.select('_id')
-		.lean();
-	if (teacher) {
-		const notification = {
-			_id: crypto.randomUUID(),
-			title: `Grades ${status}`,
-			message: `Your grade for ${result.studentName} in ${
-				result.subject
-			} has been ${status.toLowerCase()}.${
-				rejectionReason ? ` Reason: ${rejectionReason}` : ''
-			}`,
-			timestamp: new Date(),
-			read: false,
-			type: 'Grades',
-		};
-		await addNotificationToUser(User, teacher._id.toString(), notification);
-	}
-
 	return { success: true, data: result, status: 200 };
 }
 
@@ -1281,6 +1283,7 @@ export async function PATCH(request: NextRequest) {
 			);
 		}
 
+		const { User } = await getTenantModels();
 		const body = await request.json();
 		const updates = Array.isArray(body) ? body : [body];
 
@@ -1316,6 +1319,61 @@ export async function PATCH(request: NextRequest) {
 
 		const successfulUpdates = results.filter((result) => result.success);
 		const failedUpdates = results.filter((result) => !result.success);
+
+		if (successfulUpdates.length > 0) {
+			const teacherSummary = new Map<
+				string,
+				{
+					count: number;
+					status: string;
+					subject: string;
+					classId: string;
+					period: string;
+				}
+			>();
+
+			for (const update of successfulUpdates) {
+				const data = update.data;
+				if (!data?.teacherUsername) continue;
+				const key = `${data.teacherUsername}|${data.submissionId}|${data.status}`;
+				const existing = teacherSummary.get(key);
+				if (existing) {
+					existing.count += 1;
+				} else {
+					teacherSummary.set(key, {
+						count: 1,
+						status: data.status,
+						subject: data.subject,
+						classId: data.classId,
+						period: data.period,
+					});
+				}
+			}
+
+			const notificationPromises = Array.from(teacherSummary.entries()).map(
+				async ([key, summary]) => {
+					const teacherUsername = key.split('|')[0];
+					const teacher = await User.findOne({ username: teacherUsername })
+						.select('_id')
+						.lean();
+					if (!teacher) return;
+					const notification = {
+						_id: crypto.randomUUID(),
+						title: `Grades ${summary.status}`,
+						message: `Your ${summary.count} grade${
+							summary.count === 1 ? '' : 's'
+						} for ${summary.subject} (${summary.period}) in ${
+							summary.classId
+						} have been ${summary.status.toLowerCase()}.`,
+						timestamp: new Date(),
+						read: false,
+						type: 'Grades',
+					};
+					await addNotificationToUser(User, teacher._id.toString(), notification);
+				},
+			);
+			await Promise.allSettled(notificationPromises);
+		}
 
 		return NextResponse.json({
 			success: true,
