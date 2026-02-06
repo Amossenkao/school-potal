@@ -570,6 +570,7 @@ const SubmitGrade: React.FC = () => {
 				throw new Error(errorData.message || 'Failed to submit grades');
 			}
 
+			window.dispatchEvent(new CustomEvent('grading:counts:refresh'));
 			showNotification(
 				'success',
 				`Successfully submitted ${gradesToSubmit.length} grades!`

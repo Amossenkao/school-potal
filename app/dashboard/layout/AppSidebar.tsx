@@ -68,102 +68,92 @@ const AppSidebar: React.FC = () => {
 			? (user as Administrator).position
 			: undefined;
 
-	useEffect(() => {
-		const fetchPendingCounts = async () => {
-			if (user) {
-				try {
-					// Fetch pending grade submissions
-					if (user.role === 'system_admin') {
-						const submissionsRes = await fetch(
-							`/api/grades?academicYear=${getCurrentAcademicYear()}`
-						);
-						if (submissionsRes.ok) {
-							const submissionsData = await submissionsRes.json();
-							const grades =
-								submissionsData?.data?.report?.grades ??
-								submissionsData?.data?.grades ??
-								[];
-							const statusesBySubmission = new Map<string, Set<string>>();
-							grades.forEach((grade: any) => {
-								if (!grade?.submissionId) return;
-								if (!statusesBySubmission.has(grade.submissionId)) {
-									statusesBySubmission.set(grade.submissionId, new Set());
-								}
-								statusesBySubmission
-									.get(grade.submissionId)
-									?.add(grade.status);
-							});
-
-							const getSubmissionStatus = (statuses: Set<string>) => {
-								if (statuses.size === 1) {
-									return Array.from(statuses)[0];
-								}
-								const hasPending = statuses.has('Pending');
-								const hasApproved = statuses.has('Approved');
-								const hasRejected = statuses.has('Rejected');
-								if (hasPending || (hasApproved && hasRejected)) {
-									return 'Partially Approved';
-								}
-								if (hasApproved) return 'Approved';
-								if (hasRejected) return 'Rejected';
-								return 'Pending';
-							};
-
-							const pendingSubmissions = Array.from(
-								statusesBySubmission.values()
-							).filter((statuses) => {
-								const status = getSubmissionStatus(statuses);
-								return status === 'Pending' || status === 'Partially Approved';
-							}).length;
-
-							setPendingSubmissionsCount(pendingSubmissions);
-						} else {
-							setPendingSubmissionsCount(0);
+	const fetchPendingCounts = useCallback(async () => {
+		if (!user) return;
+		try {
+			// Fetch pending grade submissions
+			if (user.role === 'system_admin' || user.role === 'teacher') {
+				const submissionsRes = await fetch(
+					`/api/grades?academicYear=${getCurrentAcademicYear()}`
+				);
+				if (submissionsRes.ok) {
+					const submissionsData = await submissionsRes.json();
+					const grades =
+						submissionsData?.data?.report?.grades ??
+						submissionsData?.data?.grades ??
+						[];
+					const statusesBySubmission = new Map<string, Set<string>>();
+					grades.forEach((grade: any) => {
+						if (!grade?.submissionId) return;
+						if (!statusesBySubmission.has(grade.submissionId)) {
+							statusesBySubmission.set(grade.submissionId, new Set());
 						}
-					} else {
-						const submissionsRes = await fetch(
-							`/api/grades?reportType=gradeSubmission&teacherUsername=${
-								user.username
-							}&academicYear=${getCurrentAcademicYear()}`
-						);
-						if (submissionsRes.ok) {
-							const submissionsData = await submissionsRes.json();
-							const submissions =
-								submissionsData?.data?.report?.submissions ?? [];
-							const pendingSubmissions = submissions.filter(
-								(sub: any) =>
-									sub.status === 'Pending' ||
-									sub.status === 'Partially Approved'
-							).length;
-							setPendingSubmissionsCount(pendingSubmissions);
-						} else {
-							setPendingSubmissionsCount(0);
-						}
-					}
+						statusesBySubmission.get(grade.submissionId)?.add(grade.status);
+					});
 
-					// Fetch pending grade change requests
-					const requestsRes = await fetch(
-						`/api/grades/requests?academicYear=${getCurrentAcademicYear()}`
-					);
-					if (requestsRes.ok) {
-						const requestsData = await requestsRes.json();
-						const requests = requestsData?.data?.report ?? [];
-						const pendingRequests = requests.filter(
-							(req: any) =>
-								req.status === 'Pending' || req.status === 'Partially Approved'
-						).length;
-						setPendingRequestsCount(pendingRequests);
-					} else {
-						setPendingRequestsCount(0);
-					}
-				} catch (error) {
-					console.error('Failed to fetch pending counts:', error);
+					const getSubmissionStatus = (statuses: Set<string>) => {
+						if (statuses.size === 1) {
+							return Array.from(statuses)[0];
+						}
+						const hasPending = statuses.has('Pending');
+						const hasApproved = statuses.has('Approved');
+						const hasRejected = statuses.has('Rejected');
+						if (hasPending || (hasApproved && hasRejected)) {
+							return 'Partially Approved';
+						}
+						if (hasApproved) return 'Approved';
+						if (hasRejected) return 'Rejected';
+						return 'Pending';
+					};
+
+					const pendingSubmissions = Array.from(
+						statusesBySubmission.values()
+					).filter((statuses) => {
+						const status = getSubmissionStatus(statuses);
+						return status === 'Pending' || status === 'Partially Approved';
+					}).length;
+
+					setPendingSubmissionsCount(pendingSubmissions);
+				} else {
+					setPendingSubmissionsCount(0);
 				}
+			} else {
+				setPendingSubmissionsCount(0);
 			}
-		};
 
-		fetchPendingCounts();
+			// Fetch pending grade change requests
+			const requestsRes = await fetch(
+				`/api/grades/requests?academicYear=${getCurrentAcademicYear()}`
+			);
+			if (requestsRes.ok) {
+				const requestsData = await requestsRes.json();
+				const requests = requestsData?.data?.report ?? [];
+				const pendingRequests = requests.filter(
+					(req: any) =>
+						req.status === 'Pending' || req.status === 'Partially Approved'
+				).length;
+				setPendingRequestsCount(pendingRequests);
+			} else {
+				setPendingRequestsCount(0);
+			}
+		} catch (error) {
+			console.error('Failed to fetch pending counts:', error);
+		}
 	}, [user]);
+
+	useEffect(() => {
+		fetchPendingCounts();
+	}, [fetchPendingCounts]);
+
+	useEffect(() => {
+		const handleRefresh = () => {
+			fetchPendingCounts();
+		};
+		window.addEventListener('grading:counts:refresh', handleRefresh);
+		return () => {
+			window.removeEventListener('grading:counts:refresh', handleRefresh);
+		};
+	}, [fetchPendingCounts]);
 
 	const prependDashboard = (href: string) => {
 		if (!href) return href;
@@ -509,7 +499,7 @@ const AppSidebar: React.FC = () => {
 										<li key={`${sub.href || sub.name}-${index}`}>
 											<Link
 												href={sub.href!}
-												className={`menu-dropdown-item relative flex items-center gap-3 py-2 px-2 pr-8 sm:px-3 rounded-md text-sm transition-colors duration-150 ${
+												className={`menu-dropdown-item relative flex items-center gap-3 py-2 px-2 pr-8 sm:px-3 rounded-md text-sm transition-colors duration-150 overflow-visible ${
 													isActive(sub.href!)
 														? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
 														: 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
@@ -524,7 +514,9 @@ const AppSidebar: React.FC = () => {
 														}`}
 													/>
 												)}
-												<span className="flex-1">{sub.name}</span>
+												<span className="flex-1 whitespace-nowrap">
+													{sub.name}
+												</span>
 												{sub.badgeCount && sub.badgeCount > 0 && (
 													<span className="absolute right-2 top-1/2 -translate-y-1/2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
 														{sub.badgeCount}

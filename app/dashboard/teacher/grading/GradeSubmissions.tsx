@@ -685,6 +685,7 @@ const GradeSubmissions = () => {
 				} else {
 					showNotification('success', result.message);
 				}
+				window.dispatchEvent(new CustomEvent('grading:counts:refresh'));
 			} else {
 				throw new Error(result.message || 'An unknown error occurred.');
 			}

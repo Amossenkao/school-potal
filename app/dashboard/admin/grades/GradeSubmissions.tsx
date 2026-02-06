@@ -466,6 +466,7 @@ const AdminGradeManagement: React.FC = () => {
 				throw new Error('API request failed');
 			}
 			await fetchGrades(); // Refresh data on success
+			window.dispatchEvent(new CustomEvent('grading:counts:refresh'));
 		} catch (error) {
 			console.error('Error updating grade status:', error);
 			// You might want to show an error toast to the user here
