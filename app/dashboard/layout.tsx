@@ -54,7 +54,7 @@ export default function AdminLayout({
 	return (
 		<ProtectedRoute>
 			<OfflineHandler>
-				<div className="min-h-screen flex bg-background relative overflow-x-hidden">
+				<div className="min-h-screen flex bg-background relative">
 					{/* Sidebar */}
 					<AppSidebar />
 
