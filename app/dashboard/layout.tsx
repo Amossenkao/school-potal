@@ -65,7 +65,7 @@ export default function AdminLayout({
 						{/* Header */}
 						<AppHeader />
 						{/* Page Content */}
-						<main className="py-4 md:py-6 px-0 overflow-x-hidden">
+						<main className="pt-20 md:pt-24 pb-4 md:pb-6 px-0 overflow-x-hidden">
 							{children}
 						</main>
 					</div>
