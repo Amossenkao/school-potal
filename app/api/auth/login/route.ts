@@ -175,7 +175,6 @@ async function handleLogin(user: any, password: string, host: string) {
 			{ status: sendResult.status },
 		);
 	} else {
-		await addLoginNotification(user);
 		const sessionId = await createSession(sessionData);
 		let bootstrapPayload: any = null;
 		try {
