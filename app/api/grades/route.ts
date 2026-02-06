@@ -1364,7 +1364,9 @@ export async function PATCH(request: NextRequest) {
 							summary.count === 1 ? '' : 's'
 						} for ${summary.subject} (${summary.period}) in ${
 							summary.classId
-						} have been ${summary.status.toLowerCase()}.`,
+						} have been ${summary.status.toLowerCase()}. (${summary.count} student${
+							summary.count === 1 ? '' : 's'
+						})`,
 						timestamp: new Date(),
 						read: false,
 						type: 'Grades',
