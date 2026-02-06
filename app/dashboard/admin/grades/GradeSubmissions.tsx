@@ -846,16 +846,16 @@ const AdminGradeManagement: React.FC = () => {
 					{['Pending', 'Partially Approved'].includes(
 						selectedSubmission.status
 					) && (
-						<div className="p-6 border-t bg-muted flex justify-between items-center">
+						<div className="p-6 border-t bg-muted flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 							<div className="text-sm text-muted-foreground">
 								{selectedStudents.size > 0
 									? `${selectedStudents.size} pending student(s) selected`
 									: 'Actions will apply to all pending students'}
 							</div>
-							<div className="flex gap-3">
+							<div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
 								<button
 									onClick={() => setShowDetailsModal(false)}
-									className="px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted"
+									className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto"
 								>
 									Cancel
 								</button>
@@ -866,7 +866,7 @@ const AdminGradeManagement: React.FC = () => {
 										);
 										setShowRejectModal(true);
 									}}
-									className="px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 flex items-center gap-2"
+									className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 flex items-center justify-center gap-2 sm:w-auto"
 								>
 									<XCircle className="h-4 w-4" /> Reject{' '}
 									{selectedStudents.size > 0 ? 'Selected' : 'All Pending'}
@@ -874,7 +874,7 @@ const AdminGradeManagement: React.FC = () => {
 								<button
 									onClick={handleApprove}
 									disabled={isProcessing}
-									className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+									className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto"
 								>
 									{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}{' '}
 									<Check className="h-4 w-4" /> Approve{' '}
@@ -917,17 +917,17 @@ const AdminGradeManagement: React.FC = () => {
 						className="w-full rounded-md border-input bg-background shadow-sm focus:ring-destructive focus:border-destructive"
 					/>
 				</div>
-				<div className="p-6 border-t bg-muted flex justify-end gap-3">
+				<div className="p-6 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
 					<button
 						onClick={() => setShowRejectModal(false)}
-						className="px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted"
+						className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto"
 					>
 						Cancel
 					</button>
 					<button
 						onClick={handleReject}
 						disabled={isProcessing || !rejectionReason.trim()}
-						className="px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center gap-2"
+						className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto"
 					>
 						{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
 						<XCircle className="h-4 w-4" /> Reject
@@ -966,17 +966,17 @@ const AdminGradeManagement: React.FC = () => {
 						className="w-full rounded-md border-input bg-background shadow-sm focus:ring-destructive focus:border-destructive"
 					/>
 				</div>
-				<div className="p-6 border-t bg-muted flex justify-end gap-3">
+				<div className="p-6 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
 					<button
 						onClick={() => setShowBulkRejectModal(false)}
-						className="px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted"
+						className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto"
 					>
 						Cancel
 					</button>
 					<button
 						onClick={handleBulkReject}
 						disabled={isProcessing || !bulkRejectionReason.trim()}
-						className="px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center gap-2"
+						className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto"
 					>
 						{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
 						<XCircle className="h-4 w-4" /> Reject {selectedSubmissions.size}{' '}
@@ -992,7 +992,7 @@ const AdminGradeManagement: React.FC = () => {
 		<div className="space-y-6 bg-background text-foreground p-4 md:p-6">
 			<div className="bg-card border rounded-lg">
 				<div className="p-6">
-					<div className="flex justify-between items-start mb-4">
+					<div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start mb-4">
 						<div>
 							<h2 className="text-2xl font-bold">
 								Grade Submissions Management
@@ -1004,7 +1004,7 @@ const AdminGradeManagement: React.FC = () => {
 						<button
 							onClick={fetchGrades}
 							disabled={loading}
-							className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+							className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 sm:w-auto"
 						>
 							{loading && <Loader2 className="h-4 w-4 animate-spin" />} Refresh
 						</button>
@@ -1102,28 +1102,28 @@ const AdminGradeManagement: React.FC = () => {
 				{/* Bulk Actions Bar */}
 				{selectedSubmissions.size > 0 && (
 					<div className="bg-primary/10 border-t border-primary/20 p-4">
-						<div className="flex items-center justify-between">
+						<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 							<span className="text-sm font-medium text-primary">
 								{selectedSubmissions.size} submission(s) selected
 							</span>
-							<div className="flex gap-2">
+							<div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
 								<button
 									onClick={handleBulkApprove}
 									disabled={isProcessing}
-									className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
+									className="w-full px-3 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-1 sm:w-auto"
 								>
 									{isProcessing && <Loader2 className="h-3 w-3 animate-spin" />}
 									<Check className="h-3 w-3" /> Approve All Pending
 								</button>
 								<button
 									onClick={() => setShowBulkRejectModal(true)}
-									className="px-3 py-1.5 bg-destructive text-destructive-foreground text-sm rounded-md hover:bg-destructive/90 flex items-center gap-1"
+									className="w-full px-3 py-2 bg-destructive text-destructive-foreground text-sm rounded-md hover:bg-destructive/90 flex items-center justify-center gap-1 sm:w-auto"
 								>
 									<XCircle className="h-3 w-3" /> Reject All Pending
 								</button>
 								<button
 									onClick={() => setSelectedSubmissions(new Set())}
-									className="px-3 py-1.5 bg-secondary text-secondary-foreground text-sm rounded-md hover:bg-secondary/80"
+									className="w-full px-3 py-2 bg-secondary text-secondary-foreground text-sm rounded-md hover:bg-secondary/80 sm:w-auto"
 								>
 									Clear Selection
 								</button>
@@ -1259,7 +1259,7 @@ const AdminGradeManagement: React.FC = () => {
 									</tbody>
 								</table>
 							</div>
-							<div className="flex items-center justify-between p-4">
+							<div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
 								<div className="text-sm text-muted-foreground">
 									Showing{' '}
 									<strong>{(currentPageSafe - 1) * rowsPerPage + 1}</strong>–
@@ -1272,9 +1272,9 @@ const AdminGradeManagement: React.FC = () => {
 									of <strong>{filteredAndSortedSubmissions.length}</strong>{' '}
 									submissions
 								</div>
-								<div className="flex items-center space-x-2">
+								<div className="flex items-center justify-between gap-2 sm:justify-start">
 									<button
-										className="px-2 py-1 text-sm border rounded-md disabled:opacity-50"
+										className="w-full px-2 py-2 text-sm border rounded-md disabled:opacity-50 sm:w-auto"
 										onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
 										disabled={currentPageSafe === 1}
 									>
@@ -1284,7 +1284,7 @@ const AdminGradeManagement: React.FC = () => {
 										Page {currentPageSafe} of {totalPages}
 									</div>
 									<button
-										className="px-2 py-1 text-sm border rounded-md disabled:opacity-50"
+										className="w-full px-2 py-2 text-sm border rounded-md disabled:opacity-50 sm:w-auto"
 										onClick={() =>
 											setCurrentPage((p) => Math.min(p + 1, totalPages))
 										}
