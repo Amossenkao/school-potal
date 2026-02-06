@@ -70,9 +70,14 @@ const AppSidebar: React.FC = () => {
 
 	const fetchPendingCounts = useCallback(async () => {
 		if (!user) return;
+		if (user.role !== 'system_admin') {
+			setPendingSubmissionsCount(0);
+			setPendingRequestsCount(0);
+			return;
+		}
 		try {
 			// Fetch pending grade submissions
-			if (user.role === 'system_admin' || user.role === 'teacher') {
+			if (user.role === 'system_admin') {
 				const submissionsRes = await fetch(
 					`/api/grades?academicYear=${getCurrentAcademicYear()}`
 				);
@@ -117,8 +122,6 @@ const AppSidebar: React.FC = () => {
 				} else {
 					setPendingSubmissionsCount(0);
 				}
-			} else {
-				setPendingSubmissionsCount(0);
 			}
 
 			// Fetch pending grade change requests
@@ -294,7 +297,7 @@ const AppSidebar: React.FC = () => {
 						const totalPending = pendingSubmissionsCount + pendingRequestsCount;
 						newItem.badgeCount = totalPending > 0 ? totalPending : undefined;
 					}
-					if (role === 'system_admin' || role === 'teacher') {
+					if (role === 'system_admin') {
 						if (item.name === 'Grading' || item.name === 'Grading System') {
 							const totalPending =
 								pendingSubmissionsCount + pendingRequestsCount;
@@ -409,7 +412,7 @@ const AppSidebar: React.FC = () => {
 									<item.icon className="w-5 h-5" />
 								</span>
 								{(isExpanded || isHovered || isMobileOpen) && (
-									<span className="menu-item-text flex-1 text-left">
+									<span className="menu-item-text flex-1 text-left whitespace-nowrap">
 										{item.name}
 									</span>
 								)}
@@ -467,7 +470,9 @@ const AppSidebar: React.FC = () => {
 										<item.icon className="w-5 h-5" />
 									</span>
 									{(isExpanded || isHovered || isMobileOpen) && (
-										<span className="menu-item-text flex-1">{item.name}</span>
+										<span className="menu-item-text flex-1 whitespace-nowrap">
+											{item.name}
+										</span>
 									)}
 									{(isExpanded || isHovered || isMobileOpen) &&
 										item.badgeCount &&
@@ -499,7 +504,7 @@ const AppSidebar: React.FC = () => {
 										<li key={`${sub.href || sub.name}-${index}`}>
 											<Link
 												href={sub.href!}
-												className={`menu-dropdown-item relative flex items-center gap-3 py-2 px-2 pr-8 sm:px-3 rounded-md text-sm transition-colors duration-150 overflow-visible ${
+												className={`menu-dropdown-item relative flex items-center gap-3 py-2 px-2 pr-8 sm:px-3 rounded-md text-sm transition-colors duration-150 overflow-visible whitespace-nowrap ${
 													isActive(sub.href!)
 														? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
 														: 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'

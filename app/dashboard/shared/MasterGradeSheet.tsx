@@ -187,8 +187,14 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		return schoolYears.filter((year) => teacherYears.includes(year));
 	}, [currentSchool, effectiveUser]);
 
-	const [selectedAcademicYear, setSelectedAcademicYear] =
-		useState(currentAcademicYear);
+	const normalizeAcademicYear = (value?: string) => {
+		if (!value) return '';
+		return value.replace('/', '-');
+	};
+
+	const [selectedAcademicYear, setSelectedAcademicYear] = useState(
+		normalizeAcademicYear(currentAcademicYear)
+	);
 	const [selectedSession, setSelectedSession] = useState('');
 	const [selectedLevel, setSelectedLevel] = useState('');
 	const [selectedClass, setSelectedClass] = useState('');
@@ -236,9 +242,15 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	// --- Auto-select and hide filter logic (per role) ---
 	useEffect(() => {
 		if (availableAcademicYears.length === 1)
-			setSelectedAcademicYear(availableAcademicYears[0]);
-		else if (!availableAcademicYears.includes(selectedAcademicYear))
-			setSelectedAcademicYear(availableAcademicYears[0] || '');
+			setSelectedAcademicYear(normalizeAcademicYear(availableAcademicYears[0]));
+		else if (
+			!availableAcademicYears.some(
+				(year) =>
+					normalizeAcademicYear(year) ===
+					normalizeAcademicYear(selectedAcademicYear)
+			)
+		)
+			setSelectedAcademicYear(normalizeAcademicYear(availableAcademicYears[0]) || '');
 	}, [availableAcademicYears, selectedAcademicYear]);
 
 	useEffect(() => {
@@ -261,7 +273,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 	// Reset logic when parent filter changes
 	const handleAcademicYearChange = (v: string) => {
-		setSelectedAcademicYear(v);
+		setSelectedAcademicYear(normalizeAcademicYear(v));
 		setSelectedSession('');
 		setSelectedLevel('');
 		setSelectedClass('');
@@ -331,7 +343,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				setError((prev) => ({ ...prev, students: '' }));
 				try {
 					const res = await fetch(
-						`/api/users?role=student&academicYear=${selectedAcademicYear}&classId=${selectedClass}`
+						`/api/users?role=student&academicYear=${normalizeAcademicYear(
+							selectedAcademicYear
+						)}&classId=${selectedClass}`
 					);
 					if (!res.ok) {
 						throw new Error('Failed to fetch students');
@@ -370,7 +384,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				setError((prev) => ({ ...prev, grades: '' }));
 				try {
 					const res = await fetch(
-						`/api/grades?academicYear=${selectedAcademicYear}&classId=${selectedClass}&subject=${selectedSubject}`
+						`/api/grades?academicYear=${normalizeAcademicYear(
+							selectedAcademicYear
+						)}&classId=${selectedClass}&subject=${selectedSubject}`
 					);
 					if (!res.ok) {
 						throw new Error('Failed to fetch grades');
