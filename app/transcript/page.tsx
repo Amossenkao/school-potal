@@ -663,6 +663,10 @@ export default function DocumentPortal() {
 		year11: '2023-2024',
 		year12: '2024-2025',
 	});
+	const pdfDocument = useMemo(
+		() => <MultiDocument students={students} />,
+		[students]
+	);
 
 	const handleAddStudent = () => {
 		if (!formData.name.trim()) {
@@ -730,11 +734,6 @@ export default function DocumentPortal() {
 	}
 
 	if (showPDF) {
-		const pdfDocument = useMemo(
-			() => <MultiDocument students={students} />,
-			[students]
-		);
-
 		return (
 			<div className="h-screen w-full flex flex-col">
 				<div className="p-4 bg-gradient-to-r from-gray-800 to-gray-900 text-white flex justify-between items-center shadow-lg">
