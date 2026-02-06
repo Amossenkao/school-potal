@@ -304,7 +304,7 @@ const AppSidebar: React.FC = () => {
 						const totalPending = pendingSubmissionsCount + pendingRequestsCount;
 						newItem.badgeCount = totalPending > 0 ? totalPending : undefined;
 					}
-					if (role === 'system_admin') {
+					if (role === 'system_admin' || role === 'teacher') {
 						if (item.name === 'Grading' || item.name === 'Grading System') {
 							const totalPending =
 								pendingSubmissionsCount + pendingRequestsCount;
@@ -509,7 +509,7 @@ const AppSidebar: React.FC = () => {
 										<li key={`${sub.href || sub.name}-${index}`}>
 											<Link
 												href={sub.href!}
-												className={`menu-dropdown-item flex items-center gap-3 py-2 px-2 sm:px-3 rounded-md text-sm transition-colors duration-150 ${
+												className={`menu-dropdown-item relative flex items-center gap-3 py-2 px-2 pr-8 sm:px-3 rounded-md text-sm transition-colors duration-150 ${
 													isActive(sub.href!)
 														? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
 														: 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
@@ -524,11 +524,9 @@ const AppSidebar: React.FC = () => {
 														}`}
 													/>
 												)}
-												<span className="flex-1 min-w-0 truncate whitespace-nowrap">
-													{sub.name}
-												</span>
+												<span className="flex-1">{sub.name}</span>
 												{sub.badgeCount && sub.badgeCount > 0 && (
-													<span className="ml-auto flex-shrink-0 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+													<span className="absolute right-2 top-1/2 -translate-y-1/2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
 														{sub.badgeCount}
 													</span>
 												)}
