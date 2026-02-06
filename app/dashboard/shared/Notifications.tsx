@@ -52,8 +52,14 @@ const NotificationModal = ({
 	};
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-			<div className="bg-background rounded-2xl shadow-2xl p-8 w-full max-w-lg border animate-in fade-in zoom-in duration-300">
+		<div
+			className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+			onClick={onClose}
+		>
+			<div
+				className="bg-background rounded-2xl shadow-2xl p-8 w-full max-w-lg border animate-in fade-in zoom-in duration-300"
+				onClick={(e) => e.stopPropagation()}
+			>
 				<div className="flex items-center justify-between mb-6">
 					<div className="flex items-center space-x-4">
 						{getIcon(notification.type)}
@@ -247,6 +253,9 @@ const Notifications: React.FC = () => {
 		useState<Notification | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
 	const [searchQuery, setSearchQuery] = useState('');
+	const [transitionDirection, setTransitionDirection] = useState<'left' | 'right'>(
+		'left'
+	);
 	const touchStartX = useRef<number | null>(null);
 	const touchStartY = useRef<number | null>(null);
 
@@ -331,6 +340,7 @@ const Notifications: React.FC = () => {
 		);
 		const nextTab = tabs[nextIndex];
 		if (nextTab !== activeTab) {
+			setTransitionDirection(direction > 0 ? 'left' : 'right');
 			setActiveTab(nextTab);
 		}
 	};
@@ -385,8 +395,8 @@ const Notifications: React.FC = () => {
 					/>
 				)}
 
-				<div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-					<div className="rounded-3xl border border-foreground/5 bg-white/90 p-6 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.35)] backdrop-blur dark:border-white/5 dark:bg-slate-900/80">
+				<div className="flex flex-col gap-6">
+					<div className="rounded-3xl border border-foreground/5 bg-white/90 p-6 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.35)] backdrop-blur transition-all duration-300 dark:border-white/5 dark:bg-slate-900/80">
 						<div className="flex flex-wrap items-center justify-between gap-4">
 							<div>
 								<p className="text-xs uppercase tracking-[0.32em] text-muted-foreground">
@@ -449,54 +459,6 @@ const Notifications: React.FC = () => {
 							)}
 						</div>
 					</div>
-
-					<div className="rounded-3xl border border-foreground/5 bg-white/80 p-6 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.35)] dark:border-white/5 dark:bg-slate-900/70">
-						<div className="flex items-center justify-between">
-							<h2 className="text-lg font-semibold">Tab overview</h2>
-							<span className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-								Smart cues
-							</span>
-						</div>
-						<div className="mt-4 space-y-3">
-							{tabs.map((tab) => (
-								<button
-									key={tab}
-									onClick={() => setActiveTab(tab)}
-									className={`group flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left transition-all ${
-										activeTab === tab
-											? 'border-emerald-500/60 bg-emerald-500/10 text-foreground shadow-[0_12px_30px_-20px_rgba(16,185,129,0.7)]'
-											: 'border-foreground/10 bg-white hover:border-foreground/20 dark:border-white/10 dark:bg-slate-900/70 dark:hover:border-white/20'
-									}`}
-								>
-									<div className="flex items-center gap-3">
-										<span className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/70 text-foreground dark:bg-slate-800">
-											{getTabIcon(tab)}
-										</span>
-										<div>
-											<p className="text-sm font-semibold">{tab}</p>
-											<p className="text-xs text-muted-foreground">
-												{tab === 'All'
-													? 'Everything in one place'
-													: `Latest ${tab.toLowerCase()} updates`}
-											</p>
-										</div>
-									</div>
-									{tab !== 'All' &&
-										user?.notifications?.filter(
-											(n) => n.type === tab && !n.read
-										).length > 0 && (
-											<span className="rounded-full bg-rose-500 px-2.5 py-0.5 text-xs font-semibold text-white">
-												{
-													user.notifications.filter(
-														(n) => n.type === tab && !n.read
-													).length
-												}
-											</span>
-										)}
-								</button>
-							))}
-						</div>
-					</div>
 				</div>
 
 				<div className="mt-8 rounded-3xl border border-foreground/10 bg-white/90 p-4 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.4)] dark:border-white/10 dark:bg-slate-900/80">
@@ -506,7 +468,11 @@ const Notifications: React.FC = () => {
 						{tabs.map((tab, index) => (
 							<button
 								key={tab}
-								onClick={() => setActiveTab(tab)}
+								onClick={() => {
+									const direction = index > activeIndex ? 'left' : 'right';
+									setTransitionDirection(direction);
+									setActiveTab(tab);
+								}}
 								className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-all ${
 									activeTab === tab
 										? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-700'
@@ -524,7 +490,14 @@ const Notifications: React.FC = () => {
 					</nav>
 				</div>
 
-				<div className="mt-8 space-y-6">
+				<div
+					key={activeTab}
+					className={`mt-8 space-y-6 animate-in fade-in duration-300 ${
+						transitionDirection === 'left'
+							? 'slide-in-from-right-2'
+							: 'slide-in-from-left-2'
+					}`}
+				>
 					{filteredNotifications.length > 0 ? (
 						filteredNotifications.map((notification) => (
 							<NotificationItem
