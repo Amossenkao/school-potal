@@ -15,6 +15,8 @@ export default function OfflineHandler({
 	const { isOnline, authCheckFailed } = useNetworkStore();
 	const currentPathRef = useRef(pathname);
 	const [showOfflineGate, setShowOfflineGate] = useState(false);
+	const OFFLINE_ERROR_MESSAGE =
+		'You are offline. Please connect to the internet and try again.';
 
 	// Update current path reference
 	useEffect(() => {
@@ -45,13 +47,14 @@ export default function OfflineHandler({
 			const { isOnline: onlineState } = useNetworkStore.getState();
 			if (!onlineState) {
 				window.dispatchEvent(new CustomEvent('offline:fetch'));
-				return Promise.reject(new Error('OFFLINE'));
+				return Promise.reject(new Error(OFFLINE_ERROR_MESSAGE));
 			}
 			try {
 				return await originalFetch(...args);
 			} catch (error) {
 				if (!navigator.onLine) {
 					window.dispatchEvent(new CustomEvent('offline:fetch'));
+					throw new Error(OFFLINE_ERROR_MESSAGE);
 				}
 				throw error;
 			}
