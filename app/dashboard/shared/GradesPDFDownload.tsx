@@ -27,6 +27,7 @@ interface GradesPDFProps {
 	subject: string;
 	academicYear: string;
 	disabled?: boolean;
+	onReadyChange?: (ready: boolean) => void;
 }
 
 const periods = [
@@ -509,6 +510,7 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 	subject,
 	academicYear,
 	disabled = false,
+	onReadyChange,
 }) => {
 	const school = useSchoolStore((state) => state.school);
 	const [generationNonce, setGenerationNonce] = useState(0);
@@ -568,6 +570,9 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 	}, [doc, updateInstance]);
 
 	const isReady = Boolean(instance.url) && !instance.loading;
+	useEffect(() => {
+		onReadyChange?.(isReady);
+	}, [isReady, onReadyChange]);
 
 	return (
 		<a

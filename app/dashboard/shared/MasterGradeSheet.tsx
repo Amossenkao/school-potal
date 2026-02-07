@@ -303,6 +303,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const [gradesData, setGradesData] = useState<any[]>([]);
 	const [combinedData, setCombinedData] = useState<Student[]>([]);
 	const [pdfKey, setPdfKey] = useState(0);
+	const [pdfReady, setPdfReady] = useState(false);
 	const [loading, setLoading] = useState({
 		students: false,
 		grades: false,
@@ -424,14 +425,17 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				);
 			setCombinedData(combined);
 			setPdfKey((prev) => prev + 1);
+			setPdfReady(false);
 		} else {
 			setCombinedData([]);
 			setPdfKey((prev) => prev + 1);
+			setPdfReady(false);
 		}
 	}, [studentsData, gradesData]);
 
 	useEffect(() => {
 		setPdfKey((prev) => prev + 1);
+		setPdfReady(false);
 	}, [selectedClass, selectedSubject]);
 
 	const getGradeColor = (grade: number | null) => {
@@ -499,9 +503,12 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		{ label: 'Class Average', key: 'classAverage', className: '' },
 	];
 
-	const isLoading = loading.students || loading.grades || loading.subjects;
 	const hasError = error.students || error.grades || error.subjects;
 	const errorMessage = error.students || error.grades || error.subjects;
+	const isLoadingData = loading.students || loading.grades || loading.subjects;
+	const shouldWaitForPdf =
+		!!selectedClass && !!selectedSubject && !isLoadingData && !hasError;
+	const isLoading = isLoadingData || (shouldWaitForPdf && !pdfReady);
 
 	if (parentLoading) return <PageLoading fullScreen={false} />;
 	if (parentError)
@@ -738,6 +745,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 									classLevel={selectedLevel}
 									subject={selectedSubject}
 									academicYear={selectedAcademicYear}
+									onReadyChange={setPdfReady}
 								/>
 							)}
 						</div>
@@ -808,11 +816,11 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 										<tr key={row.key}>
 											<th
 												scope="row"
-												className="sticky left-0 z-10 bg-muted px-3 sm:px-6 py-3 text-left font-semibold text-foreground border-r border-border text-sm"
+												colSpan={2}
+												className="sticky left-0 z-10 bg-muted px-3 sm:px-6 py-3 text-left font-semibold text-foreground border-r border-border text-sm whitespace-nowrap"
 											>
 												{row.label}
 											</th>
-											<td className="sticky left-[80px] sm:left-[100px] z-10 bg-muted px-3 sm:px-6 py-3 border-r border-border text-sm" />
 											{periods.map((p) => {
 												const statValue = stats[p.value]?.[row.key];
 												return (
