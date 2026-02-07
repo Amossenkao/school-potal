@@ -32,7 +32,6 @@ export default function AdminLayout({
 				clearOfflinePath();
 				router.replace(window.location.pathname);
 			}
-			router.refresh();
 		}
 		previousOnline.current = isOnline;
 	}, [isOnline, router, offlinePath, clearOfflinePath]);

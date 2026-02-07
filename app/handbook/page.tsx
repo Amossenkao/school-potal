@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
 	Document,
 	Page,
@@ -729,6 +729,16 @@ const CodeOfConductDocument = () => {
 };
 
 const CodeOfConductPage = () => {
+	const [isMounted, setIsMounted] = useState(false);
+
+	useEffect(() => {
+		setIsMounted(true);
+	}, []);
+
+	if (!isMounted) {
+		return null;
+	}
+
 	return (
 		<div style={{ width: '100%', height: '100vh' }}>
 			<PDFViewer width="100%" height="100%">
