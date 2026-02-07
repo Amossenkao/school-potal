@@ -437,8 +437,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const getGradeColor = (grade: number | null) => {
 		if (grade == null) return 'text-muted-foreground';
 		return grade >= (currentSchool?.settings?.gradingSettings?.passMark ?? 70)
-			? 'text-primary font-semibold'
-			: 'text-destructive font-semibold';
+			? 'text-blue-600 font-semibold'
+			: 'text-red-600 font-semibold';
 	};
 
 	const getGradeStats = () => {
@@ -484,12 +484,12 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		{
 			label: 'Number of Passes',
 			key: 'passes',
-			className: 'font-semibold text-primary',
+			className: 'font-semibold text-blue-600',
 		},
 		{
 			label: 'Number of Fails',
 			key: 'fails',
-			className: 'font-semibold text-destructive',
+			className: 'font-semibold text-red-600',
 		},
 		{
 			label: 'Number of Incompletes',
@@ -756,7 +756,13 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 									<tr>
 										<th
 											scope="col"
-											className="sticky top-0 left-0 z-30 bg-muted px-3 sm:px-6 py-3 text-left font-medium text-muted-foreground uppercase tracking-wider border-r border-border text-xs w-[140px] sm:w-[200px]"
+											className="sticky top-0 left-0 z-30 bg-muted px-3 sm:px-6 py-3 text-left font-medium text-muted-foreground uppercase tracking-wider border-r border-border text-xs w-[80px] sm:w-[100px]"
+										>
+											No.
+										</th>
+										<th
+											scope="col"
+											className="sticky top-0 left-[80px] sm:left-[100px] z-30 bg-muted px-3 sm:px-6 py-3 text-left font-medium text-muted-foreground uppercase tracking-wider border-r border-border text-xs w-[140px] sm:w-[200px]"
 										>
 											Student Name
 										</th>
@@ -772,9 +778,12 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-border bg-background">
-									{combinedData.map((student) => (
+									{combinedData.map((student, index) => (
 										<tr key={student.studentId}>
 											<td className="sticky left-0 z-10 bg-card px-3 sm:px-6 py-4 font-medium text-foreground whitespace-nowrap border-r border-border text-sm">
+												{index + 1}
+											</td>
+											<td className="sticky left-[80px] sm:left-[100px] z-10 bg-card px-3 sm:px-6 py-4 font-medium text-foreground whitespace-nowrap border-r border-border text-sm">
 												{student.studentName}
 											</td>
 											{periods.map((p) => {
@@ -803,6 +812,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 											>
 												{row.label}
 											</th>
+											<td className="sticky left-[80px] sm:left-[100px] z-10 bg-muted px-3 sm:px-6 py-3 border-r border-border text-sm" />
 											{periods.map((p) => {
 												const statValue = stats[p.value]?.[row.key];
 												return (

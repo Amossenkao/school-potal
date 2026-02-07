@@ -511,7 +511,6 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 	disabled = false,
 }) => {
 	const school = useSchoolStore((state) => state.school);
-	const [shouldGenerate, setShouldGenerate] = useState(false);
 	const [generationNonce, setGenerationNonce] = useState(0);
 	const [instance, updateInstance] = usePDF({ document: null });
 
@@ -556,44 +555,37 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 	);
 
 	useEffect(() => {
-		if (!shouldGenerate) return;
+		setGenerationNonce((prev) => prev + 1);
+	}, [gradeData, className, classLevel, subject, academicYear]);
+
+	useEffect(() => {
 		const run = () => updateInstance(doc);
 		if (typeof (window as any).requestIdleCallback === 'function') {
 			(window as any).requestIdleCallback(run, { timeout: 1000 });
 		} else {
 			setTimeout(run, 0);
 		}
-	}, [shouldGenerate, doc, updateInstance]);
+	}, [doc, updateInstance]);
 
-	useEffect(() => {
-		setShouldGenerate(false);
-	}, [gradeData, className, classLevel, subject, academicYear]);
-
-	const handleGenerate = () => {
-		setGenerationNonce((prev) => prev + 1);
-		setShouldGenerate(true);
-	};
+	const isReady = Boolean(instance.url) && !instance.loading;
 
 	return (
-		<div className="flex items-center gap-3">
-			<button
-				disabled={disabled || instance.loading}
-				onClick={handleGenerate}
-				className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-			>
-				<Download className="w-4 h-4" />
-				{instance.loading ? 'Generating PDF...' : 'Generate PDF'}
-			</button>
-			{instance.url && !instance.loading && (
-				<a
-					href={instance.url}
-					download={fileName}
-					className="px-4 py-2 bg-muted text-foreground rounded-md hover:bg-muted/80 transition-colors"
-				>
-					Download PDF
-				</a>
-			)}
-		</div>
+		<a
+			href={isReady ? instance.url! : undefined}
+			download={isReady ? fileName : undefined}
+			className={`px-4 py-2 rounded-md transition-colors inline-flex items-center gap-2 ${
+				disabled || !isReady
+					? 'bg-muted text-muted-foreground cursor-not-allowed'
+					: 'bg-primary text-primary-foreground hover:bg-primary/90'
+			}`}
+			aria-disabled={disabled || !isReady}
+			onClick={(event) => {
+				if (disabled || !isReady) event.preventDefault();
+			}}
+		>
+			<Download className="w-4 h-4" />
+			{instance.loading ? 'Generating PDF...' : 'Download PDF'}
+		</a>
 	);
 };
 
