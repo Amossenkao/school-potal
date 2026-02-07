@@ -725,10 +725,11 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 											),
 										})),
 									}}
-									classLevel={
+									className={
 										classes.find((cls: any) => cls.classId === selectedClass)
 											?.name || selectedClass
 									}
+									classLevel={selectedLevel}
 									subject={selectedSubject}
 									academicYear={selectedAcademicYear}
 								/>
