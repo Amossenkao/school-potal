@@ -101,43 +101,114 @@ const styles = StyleSheet.create({
 		marginBottom: 8,
 		marginTop: 8,
 	},
-	coverTitle: {
-		fontSize: 20,
+	coverPage: {
+		flexDirection: 'column',
+		backgroundColor: '#f8fafc',
+		paddingTop: 36,
+		paddingRight: 36,
+		paddingBottom: 36,
+		paddingLeft: 86,
+		position: 'relative',
+	},
+	coverAccentBar: {
+		position: 'absolute',
+		left: 0,
+		top: 0,
+		bottom: 0,
+		width: 44,
+		backgroundColor: '#0f172a',
+	},
+	coverAccentStripe: {
+		position: 'absolute',
+		left: 44,
+		top: 0,
+		bottom: 0,
+		width: 6,
+		backgroundColor: '#38bdf8',
+	},
+	coverHeader: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+	},
+	coverLogoBox: {
+		width: 64,
+		height: 64,
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	coverSchoolBlock: {
+		flex: 1,
+		alignItems: 'center',
+		paddingHorizontal: 12,
+	},
+	coverSchoolName: {
+		fontSize: 22,
 		fontWeight: 'bold',
-		textAlign: 'center',
-		letterSpacing: 1.2,
 		color: '#0f172a',
-		marginTop: 30,
-		marginBottom: 10,
+		textAlign: 'center',
+	},
+	coverSchoolAddress: {
+		fontSize: 11,
+		color: '#475569',
+		textAlign: 'center',
+		marginTop: 4,
+	},
+	coverDivider: {
+		height: 2,
+		backgroundColor: '#e2e8f0',
+		marginTop: 18,
+		marginBottom: 18,
+	},
+	coverTitleBlock: {
+		marginTop: 12,
+		marginBottom: 18,
+	},
+	coverKicker: {
+		fontSize: 11,
+		textTransform: 'uppercase',
+		letterSpacing: 2,
+		color: '#0f172a',
+		marginBottom: 6,
+	},
+	coverTitleLarge: {
+		fontSize: 28,
+		fontWeight: 'bold',
+		color: '#0f172a',
 	},
 	coverSubtitle: {
 		fontSize: 12,
-		textAlign: 'center',
-		color: '#334155',
-		marginBottom: 24,
+		color: '#64748b',
+		marginTop: 8,
 	},
-	coverInfo: {
-		marginTop: 18,
+	coverMetaCard: {
 		borderWidth: 1,
 		borderColor: '#e2e8f0',
-		borderRadius: 8,
-		paddingVertical: 14,
-		paddingHorizontal: 16,
-		backgroundColor: '#f8fafc',
+		borderRadius: 10,
+		paddingVertical: 16,
+		paddingHorizontal: 18,
+		backgroundColor: '#ffffff',
 	},
-	coverInfoRow: {
+	coverMetaRow: {
 		flexDirection: 'row',
-		justifyContent: 'space-between',
-		marginBottom: 8,
+		alignItems: 'baseline',
+		marginBottom: 10,
 	},
-	coverLabel: {
+	coverMetaLabel: {
+		width: 140,
 		fontSize: 10,
 		color: '#64748b',
 	},
-	coverValue: {
-		fontSize: 11,
+	coverMetaValue: {
+		flex: 1,
+		fontSize: 12,
 		color: '#0f172a',
 		fontWeight: 'bold',
+	},
+	coverFooter: {
+		marginTop: 18,
+		fontSize: 9,
+		color: '#94a3b8',
 	},
 
 	infoSection: {
@@ -265,18 +336,21 @@ const CoverPage: React.FC<{
 	subject: string;
 	teacherName: string;
 }> = ({ school, academicYear, classLevel, className, subject, teacherName }) => (
-	<Page size="A4" orientation="landscape" style={styles.page}>
-		<View style={styles.headerRow}>
-			<View>
+	<Page size="A4" orientation="landscape" style={styles.coverPage}>
+		<View style={styles.coverAccentBar} />
+		<View style={styles.coverAccentStripe} />
+
+		<View style={styles.coverHeader}>
+			<View style={styles.coverLogoBox}>
 				{typeof school.logoUrl2 === 'string' && school.logoUrl2.trim().length > 0 ? (
 					<Image src={school.logoUrl2} style={styles.logo} />
 				) : (
 					<View style={styles.logo} />
 				)}
 			</View>
-			<View style={styles.headerContent}>
-				<Text style={styles.schoolName}>{school.name || 'School'}</Text>
-				<Text style={styles.schoolAddress}>
+			<View style={styles.coverSchoolBlock}>
+				<Text style={styles.coverSchoolName}>{school.name || 'School'}</Text>
+				<Text style={styles.coverSchoolAddress}>
 					{(Array.isArray(school.address)
 						? school.address
 						: school.address
@@ -287,7 +361,7 @@ const CoverPage: React.FC<{
 						.join('\n')}
 				</Text>
 			</View>
-			<View>
+			<View style={styles.coverLogoBox}>
 				{typeof school.logoUrl === 'string' && school.logoUrl.trim().length > 0 ? (
 					<Image src={school.logoUrl} style={styles.logo} />
 				) : (
@@ -295,38 +369,42 @@ const CoverPage: React.FC<{
 				)}
 			</View>
 		</View>
-		<View style={styles.coverWatermark}>
-			{typeof school.logoUrl === 'string' && school.logoUrl.trim().length > 0 ? (
-				<Image src={school.logoUrl} style={styles.coverWatermarkImage} />
-			) : (
-				<View style={styles.coverWatermarkImage} />
-			)}
+
+		<View style={styles.coverDivider} />
+
+		<View style={styles.coverTitleBlock}>
+			<Text style={styles.coverKicker}>Master Grade Sheets</Text>
+			<Text style={styles.coverTitleLarge}>Academic Record Book</Text>
+			<Text style={styles.coverSubtitle}>
+				Official compilation for academic reporting and archival.
+			</Text>
 		</View>
-		<Text style={styles.coverTitle}>MASTER GRADE SHEETS</Text>
-		<Text style={styles.coverSubtitle}>
-			Academic Records Compilation
-		</Text>
-		<View style={styles.coverInfo}>
-			<View style={styles.coverInfoRow}>
-				<Text style={styles.coverLabel}>Academic Year</Text>
-				<Text style={styles.coverValue}>{academicYear}</Text>
+
+		<View style={styles.coverMetaCard}>
+			<View style={styles.coverMetaRow}>
+				<Text style={styles.coverMetaLabel}>Academic Year</Text>
+				<Text style={styles.coverMetaValue}>{academicYear}</Text>
 			</View>
-			<View style={styles.coverInfoRow}>
-				<Text style={styles.coverLabel}>Class Level</Text>
-				<Text style={styles.coverValue}>{classLevel || '—'}</Text>
+			<View style={styles.coverMetaRow}>
+				<Text style={styles.coverMetaLabel}>Class Level</Text>
+				<Text style={styles.coverMetaValue}>{classLevel || '-'}</Text>
 			</View>
-			<View style={styles.coverInfoRow}>
-				<Text style={styles.coverLabel}>Class</Text>
-				<Text style={styles.coverValue}>{className}</Text>
+			<View style={styles.coverMetaRow}>
+				<Text style={styles.coverMetaLabel}>Class</Text>
+				<Text style={styles.coverMetaValue}>{className}</Text>
 			</View>
-			<View style={styles.coverInfoRow}>
-				<Text style={styles.coverLabel}>Subject</Text>
-				<Text style={styles.coverValue}>{subject}</Text>
+			<View style={styles.coverMetaRow}>
+				<Text style={styles.coverMetaLabel}>Subject</Text>
+				<Text style={styles.coverMetaValue}>{subject}</Text>
 			</View>
-			<View style={styles.coverInfoRow}>
-				<Text style={styles.coverLabel}>Teacher</Text>
-				<Text style={styles.coverValue}>{teacherName}</Text>
+			<View style={styles.coverMetaRow}>
+				<Text style={styles.coverMetaLabel}>Teacher</Text>
+				<Text style={styles.coverMetaValue}>{teacherName}</Text>
 			</View>
+		</View>
+
+		<View style={styles.coverFooter}>
+			<Text>Confidential • For official use only</Text>
 		</View>
 	</Page>
 );
