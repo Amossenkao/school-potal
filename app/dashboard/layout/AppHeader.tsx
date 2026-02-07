@@ -347,7 +347,7 @@ const NotificationsDropdown = () => {
 	return (
 		<div className="relative" ref={dropdownRef}>
 			{selectedNotification && (
-				<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+				<div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
 					<div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 w-full max-w-md border border-gray-200 dark:border-gray-800">
 						<div className="flex items-start justify-between gap-4 mb-4">
 							<div>
@@ -615,7 +615,7 @@ const AppHeader: React.FC = () => {
 
 	return (
 		<header
-			className={`${headerPositionClasses} flex w-full bg-white border-gray-200 z-[55] dark:border-gray-800 dark:bg-gray-900 lg:border-b`}
+			className={`${headerPositionClasses} flex w-full bg-white border-gray-200 z-40 dark:border-gray-800 dark:bg-gray-900 lg:border-b`}
 		>
 			<div className="flex flex-col items-center justify-between grow lg:flex-row lg:px-6">
 				<div className="flex items-center justify-between w-full gap-2 px-3 py-3 border-b border-gray-200 dark:border-gray-800 sm:gap-4 lg:justify-normal lg:border-b-0 lg:px-0 lg:py-4">
