@@ -512,7 +512,7 @@ const AppSidebar: React.FC = () => {
 											>
 												{sub.icon && (
 													<sub.icon
-														className={`w-4 h-4 ${
+														className={`w-5 h-5 sm:w-4 sm:h-4 ${
 															isActive(sub.href!)
 																? 'text-blue-600 dark:text-blue-400'
 																: 'text-gray-400 dark:text-gray-500'
