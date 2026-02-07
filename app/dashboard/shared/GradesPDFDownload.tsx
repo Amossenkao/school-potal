@@ -272,7 +272,9 @@ const CoverPage: React.FC<{
 			</View>
 			<View style={styles.headerContent}>
 				<Text style={styles.schoolName}>{school.name}</Text>
-				<Text style={styles.schoolAddress}>{school.address.join('\n')}</Text>
+				<Text style={styles.schoolAddress}>
+					{(school.address ?? []).join('\n')}
+				</Text>
 			</View>
 			<View>
 				{school.logoUrl && <Image src={school.logoUrl} style={styles.logo} />}
@@ -385,7 +387,18 @@ const GradesPDF: React.FC<{
 		`${teacherInfo?.firstName || ''} ${teacherInfo?.lastName || ''}`.trim() ||
 		'___________________________';
 
-	const sortedStudents = (gradeData?.students || [])
+	const normalizedStudents = (Array.isArray(gradeData?.students)
+		? gradeData.students
+		: []
+	)
+		.filter(Boolean)
+		.map((student: any) => ({
+			studentId: student.studentId ?? student.id ?? student._id ?? '',
+			studentName: student.studentName ?? '',
+			periods: student.periods ?? {},
+		}));
+
+	const sortedStudents = normalizedStudents
 		.slice()
 		.sort((a: any, b: any) =>
 			(a.studentName || '').localeCompare(b.studentName || '', undefined, {
@@ -531,6 +544,18 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 		new Date().toISOString().split('T')[0]
 	}.pdf`;
 
+	if (!school) {
+		return (
+			<button
+				disabled={true}
+				className="px-4 py-2 bg-muted text-muted-foreground rounded-md cursor-not-allowed flex items-center gap-2"
+			>
+				<Download className="w-4 h-4" />
+				Preparing PDF...
+			</button>
+		);
+	}
+
 	if (!gradeData || !gradeData.students) {
 		return (
 			<button
@@ -543,8 +568,9 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 		);
 	}
 
-	const doc = useMemo(
-		() => (
+	const doc = useMemo(() => {
+		if (!school) return null;
+		return (
 			<GradesPDF
 				teacherInfo={teacherInfo}
 				gradeData={gradeData}
@@ -554,24 +580,24 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 				academicYear={academicYear}
 				school={school}
 			/>
-		),
-		[
-			teacherInfo,
-			gradeData,
-			className,
-			classLevel,
-			subject,
-			academicYear,
-			school,
-			generationNonce,
-		]
-	);
+		);
+	}, [
+		teacherInfo,
+		gradeData,
+		className,
+		classLevel,
+		subject,
+		academicYear,
+		school,
+		generationNonce,
+	]);
 
 	useEffect(() => {
 		setGenerationNonce((prev) => prev + 1);
 	}, [gradeData, className, classLevel, subject, academicYear]);
 
 	useEffect(() => {
+		if (!doc) return;
 		const run = () => updateInstance(doc);
 		if (typeof (window as any).requestIdleCallback === 'function') {
 			(window as any).requestIdleCallback(run, { timeout: 1000 });
