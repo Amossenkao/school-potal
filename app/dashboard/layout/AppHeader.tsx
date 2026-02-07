@@ -639,7 +639,7 @@ const AppHeader: React.FC = () => {
 					</button>
 
 					{!isOnline && (
-						<div className="flex flex-1 justify-center px-2">
+						<div className="hidden sm:flex flex-1 justify-center px-2">
 							<div className="inline-flex max-w-xs sm:max-w-md w-full items-center justify-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100 sm:w-auto sm:px-4 sm:text-sm">
 								<span className="h-2 w-2 rounded-full bg-amber-500" />
 								<span>You&apos;re offline. Some actions will be unavailable.</span>
@@ -657,6 +657,14 @@ const AppHeader: React.FC = () => {
 						<UserDropdown />
 					</div>
 				</div>
+				{!isOnline && (
+					<div className="sm:hidden w-full px-3 pb-3">
+						<div className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
+							<span className="h-2 w-2 rounded-full bg-amber-500" />
+							<span>You&apos;re offline. Some actions will be unavailable.</span>
+						</div>
+					</div>
+				)}
 				<div
 					className={`${
 						isApplicationMenuOpen ? 'flex' : 'hidden'
