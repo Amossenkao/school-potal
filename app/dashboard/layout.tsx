@@ -101,7 +101,7 @@ export default function AdminLayout({
 
 				{/* Mobile overlay */}
 				{isMobileOpen && (
-					<div className="fixed inset-0 bg-black/20 z-40 lg:hidden" />
+					<div className="fixed inset-x-0 bottom-0 top-16 bg-black/20 z-30 lg:hidden" />
 				)}
 			</div>
 		</ProtectedRoute>
