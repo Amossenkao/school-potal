@@ -315,6 +315,21 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		subjects: '',
 	});
 
+	const pdfGradeData = useMemo(
+		() => ({
+			grades: gradesData,
+			students: combinedData.map((student) => ({
+				...student,
+				periods: Object.fromEntries(
+					Object.entries(student.periods || {}).map(
+						([key, value]: [string, any]) => [key, getGradeValue(value)]
+					)
+				),
+			})),
+		}),
+		[gradesData, combinedData]
+	);
+
 	const combineStudentsAndGrades = (
 		students: Student[],
 		grades: any[]
@@ -724,20 +739,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 									key={pdfKey}
 									disabled={isLoading}
 									teacherInfo={effectiveUser}
-									gradeData={{
-										grades: gradesData,
-										students: combinedData.map((student) => ({
-											...student,
-											periods: Object.fromEntries(
-												Object.entries(student.periods || {}).map(
-													([key, value]: [string, any]) => [
-														key,
-														getGradeValue(value),
-													]
-												)
-											),
-										})),
-									}}
+									gradeData={pdfGradeData}
 									className={
 										classes.find((cls: any) => cls.classId === selectedClass)
 											?.name || selectedClass

@@ -268,21 +268,38 @@ const CoverPage: React.FC<{
 	<Page size="A4" orientation="landscape" style={styles.page}>
 		<View style={styles.headerRow}>
 			<View>
-				{school.logoUrl2 && <Image src={school.logoUrl2} style={styles.logo} />}
+				{typeof school.logoUrl2 === 'string' && school.logoUrl2.trim().length > 0 ? (
+					<Image src={school.logoUrl2} style={styles.logo} />
+				) : (
+					<View style={styles.logo} />
+				)}
 			</View>
 			<View style={styles.headerContent}>
-				<Text style={styles.schoolName}>{school.name}</Text>
+				<Text style={styles.schoolName}>{school.name || 'School'}</Text>
 				<Text style={styles.schoolAddress}>
-					{(school.address ?? []).join('\n')}
+					{(Array.isArray(school.address)
+						? school.address
+						: school.address
+						? [school.address]
+						: []
+					)
+						.filter(Boolean)
+						.join('\n')}
 				</Text>
 			</View>
 			<View>
-				{school.logoUrl && <Image src={school.logoUrl} style={styles.logo} />}
+				{typeof school.logoUrl === 'string' && school.logoUrl.trim().length > 0 ? (
+					<Image src={school.logoUrl} style={styles.logo} />
+				) : (
+					<View style={styles.logo} />
+				)}
 			</View>
 		</View>
 		<View style={styles.coverWatermark}>
-			{school.logoUrl && (
+			{typeof school.logoUrl === 'string' && school.logoUrl.trim().length > 0 ? (
 				<Image src={school.logoUrl} style={styles.coverWatermarkImage} />
+			) : (
+				<View style={styles.coverWatermarkImage} />
 			)}
 		</View>
 		<Text style={styles.coverTitle}>MASTER GRADE SHEETS</Text>
@@ -460,8 +477,10 @@ const GradesPDF: React.FC<{
 					style={styles.page}
 				>
 					<View style={styles.watermark}>
-						{school.logoUrl && (
+						{typeof school.logoUrl === 'string' && school.logoUrl.trim().length > 0 ? (
 							<Image src={school.logoUrl} style={styles.watermarkImage} />
+						) : (
+							<View style={styles.watermarkImage} />
 						)}
 					</View>
 
@@ -537,7 +556,6 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 	onReadyChange,
 }) => {
 	const school = useSchoolStore((state) => state.school);
-	const [generationNonce, setGenerationNonce] = useState(0);
 	const [instance, updateInstance] = usePDF({ document: null });
 
 	const fileName = `${classLevel}_${subject}_Grades_${
@@ -581,20 +599,7 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 				school={school}
 			/>
 		);
-	}, [
-		teacherInfo,
-		gradeData,
-		className,
-		classLevel,
-		subject,
-		academicYear,
-		school,
-		generationNonce,
-	]);
-
-	useEffect(() => {
-		setGenerationNonce((prev) => prev + 1);
-	}, [gradeData, className, classLevel, subject, academicYear]);
+	}, [teacherInfo, gradeData, className, classLevel, subject, academicYear, school]);
 
 	useEffect(() => {
 		if (!doc) return;
