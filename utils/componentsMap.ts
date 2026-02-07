@@ -43,6 +43,8 @@ interface FeatureConfig {
 	};
 }
 
+type ComponentImporter = () => Promise<any>;
+
 const DashboardSectionLoading = () =>
 	React.createElement(
 		'div',
@@ -58,67 +60,48 @@ const DashboardSectionLoading = () =>
 		),
 	);
 
-const lazySection = (importer: () => Promise<any>) =>
-	dynamic(importer, {
-		loading: () => React.createElement(DashboardSectionLoading),
-	});
+const lazySection = (key: string, importer: ComponentImporter) =>
+	dynamic(
+		() =>
+			importer().catch((error) => {
+				console.warn(`Chunk load failed for key: ${key}`, error);
+				return import('@/components/OfflineDashboardFallback');
+			}),
+		{
+			loading: () => React.createElement(DashboardSectionLoading),
+		},
+	);
 
-// Component mappings - centralized component imports
-const componentMappings: Record<string, any> = {
+const componentImporters: Record<string, ComponentImporter> = {
+	dashboard: () => import('@/components/DashboardHomePage'),
 	// User Management
-	'add-users': lazySection(
-		() => import('@/app/dashboard/admin/users/AddUsers'),
-	),
-	'manage-users': lazySection(
-		() => import('@/app/dashboard/admin/users/ManageUsers'),
-	),
+	'add-users': () => import('@/app/dashboard/admin/users/AddUsers'),
+	'manage-users': () => import('@/app/dashboard/admin/users/ManageUsers'),
 
 	// Grading
-	submissions: lazySection(
-		() => import('@/app/dashboard/admin/grades/GradeSubmissions'),
-	),
-	requests: lazySection(
-		() => import('@/app/dashboard/admin/grades/GradeRequests'),
-	),
-	grading: lazySection(
-		() => import('@/app/dashboard/teacher/grading/GradeManagement'),
-	),
-	'periodic-grade': lazySection(
-		() => import('@/app/dashboard/shared/PeriodicReport'),
-	),
-	'yearly-grade': lazySection(
-		() => import('@/app/dashboard/shared/YearlyReport'),
-	),
+	submissions: () => import('@/app/dashboard/admin/grades/GradeSubmissions'),
+	requests: () => import('@/app/dashboard/admin/grades/GradeRequests'),
+	grading: () => import('@/app/dashboard/teacher/grading/GradeManagement'),
+	'periodic-grade': () => import('@/app/dashboard/shared/PeriodicReport'),
+	'yearly-grade': () => import('@/app/dashboard/shared/YearlyReport'),
 
 	// Classes
-	'classes-overview': lazySection(
-		() => import('@/app/dashboard/admin/classes/ClassOverview'),
-	),
-	'manage-class': lazySection(
-		() => import('@/app/dashboard/admin/classes/ManageClass'),
-	),
+	'classes-overview': () =>
+		import('@/app/dashboard/admin/classes/ClassOverview'),
+	'manage-class': () => import('@/app/dashboard/admin/classes/ManageClass'),
 
 	// Academic Reports
-	'periodic-reports': lazySection(
-		() => import('@/app/dashboard/shared/PeriodicReport'),
-	),
-	'yearly-reports': lazySection(
-		() => import('@/app/dashboard/shared/YearlyReport'),
-	),
-	'semester-report': lazySection(
-		() => import('@/app/dashboard/shared/SemesterReport'),
-	),
-	masters: lazySection(() => import('@/app/dashboard/shared/MasterGradeSheet')),
+	'periodic-reports': () => import('@/app/dashboard/shared/PeriodicReport'),
+	'yearly-reports': () => import('@/app/dashboard/shared/YearlyReport'),
+	'semester-report': () => import('@/app/dashboard/shared/SemesterReport'),
+	masters: () => import('@/app/dashboard/shared/MasterGradeSheet'),
 
-	'grade-submissions': lazySection(
-		() => import('@/app/dashboard/teacher/grading/GradeSubmissions'),
-	),
-	'submit-grades': lazySection(
-		() => import('@/app/dashboard/teacher/grading/SubmitGrade'),
-	),
-	'grade-requests': lazySection(
-		() => import('@/app/dashboard/teacher/grading/GradeRequests'),
-	),
+	'grade-submissions': () =>
+		import('@/app/dashboard/teacher/grading/GradeSubmissions'),
+	'submit-grades': () =>
+		import('@/app/dashboard/teacher/grading/SubmitGrade'),
+	'grade-requests': () =>
+		import('@/app/dashboard/teacher/grading/GradeRequests'),
 
 	// Lesson Planning
 	// 'view-lessonplans': dynamic(
@@ -138,10 +121,8 @@ const componentMappings: Record<string, any> = {
 	// ),
 
 	// // Calendar
-	'calendar-academic': lazySection(
-		() => import('@/app/dashboard/shared/AcademicCalendar'),
-	),
-	schedules: lazySection(() => import('@/app/dashboard/shared/Schedules')),
+	'calendar-academic': () => import('@/app/dashboard/shared/AcademicCalendar'),
+	schedules: () => import('@/app/dashboard/shared/Schedules'),
 
 	// Academic Resources
 	// 'resources/view': dynamic(
@@ -159,10 +140,9 @@ const componentMappings: Record<string, any> = {
 	// ),
 
 	// Fees Payment
-	pay: lazySection(() => import('@/app/dashboard/student/fees/PayFees')),
-	'payment-history': lazySection(
-		() => import('@/app/dashboard/student/fees/PaymentHistory'),
-	),
+	pay: () => import('@/app/dashboard/student/fees/PayFees'),
+	'payment-history': () =>
+		import('@/app/dashboard/student/fees/PaymentHistory'),
 
 	// Salary
 	// 'salary/advance': dynamic(
@@ -177,18 +157,16 @@ const componentMappings: Record<string, any> = {
 	// ),
 
 	// Events Log
-	notifications: lazySection(
-		() => import('@/app/dashboard/shared/Notifications'),
-	),
+	notifications: () => import('@/app/dashboard/shared/Notifications'),
 
 	// Settings & Support
-	settings: lazySection(() => import('@/app/dashboard/admin/Settings')),
-	support: lazySection(() => import('@/app/dashboard/admin/Support')),
+	settings: () => import('@/app/dashboard/admin/Settings'),
+	support: () => import('@/app/dashboard/admin/Support'),
 
 	// Shared components
-	profile: lazySection(() => import('@/app/dashboard/shared/UserProfile')),
-	chat: lazySection(() => import('@/app/dashboard/shared/Chat')),
-	community: lazySection(() => import('@/app/dashboard/shared/Community')),
+	profile: () => import('@/app/dashboard/shared/UserProfile'),
+	chat: () => import('@/app/dashboard/shared/Chat'),
+	community: () => import('@/app/dashboard/shared/Community'),
 
 	// Dynamic Administrator pages (to be defined in school profile)
 	// 'financial-reports': dynamic(
@@ -202,6 +180,71 @@ const componentMappings: Record<string, any> = {
 	// 	() => import('@/app/dashboard/admin/SchoolProfile')
 	// ),
 };
+
+// Component mappings - centralized component imports
+const componentMappings: Record<string, any> = Object.fromEntries(
+	Object.entries(componentImporters).map(([key, importer]) => [
+		key,
+		lazySection(key, importer),
+	]),
+);
+
+function getAccessibleRouteKeys(
+	schoolProfile: SchoolProfile,
+	userRole: string,
+	adminPosition?: string,
+): string[] {
+	const routeKeys: string[] = [];
+	const userFeatures = getUserAccessibleFeatures(
+		schoolProfile,
+		userRole,
+		adminPosition,
+	);
+
+	userFeatures.forEach((feature) => {
+		if (!schoolProfile.enabledFeatures.includes(feature)) return;
+		const featureConfig = featureConfigurations[feature];
+		if (!featureConfig) return;
+
+		let routes = featureConfig.routes[userRole];
+		if (!routes && userRole === 'administrator') {
+			return;
+		}
+		if (!routes) return;
+
+		routes.forEach((route) => {
+			routeKeys.push(route.key);
+		});
+	});
+
+	return routeKeys;
+}
+
+export function preloadComponentsForUser(
+	schoolProfile: SchoolProfile,
+	userRole: string,
+	adminPosition?: string,
+): void {
+	const routeKeys = getAccessibleRouteKeys(
+		schoolProfile,
+		userRole,
+		adminPosition,
+	);
+	const uniqueKeys = Array.from(new Set(routeKeys));
+
+	const preloadPromises = uniqueKeys.map((key) => {
+		const importer = componentImporters[key];
+		if (!importer) {
+			console.warn(`Component importer not found for key: ${key}`);
+			return Promise.resolve();
+		}
+		return importer().catch((error) => {
+			console.warn(`Preload failed for key: ${key}`, error);
+		});
+	});
+
+	void Promise.allSettled(preloadPromises);
+}
 
 // Feature configurations with navigation structure
 const featureConfigurations: Record<FeatureKey, FeatureConfig> = {

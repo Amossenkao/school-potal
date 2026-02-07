@@ -9,6 +9,7 @@ import ProtectedRoute from '@/components/ProtectedRoutes';
 import { useNetworkStore } from '@/store/networkStore';
 import { useOfflineNavigationStore } from '@/store/offlineNavigationStore';
 import OfflineRouteRenderer from '@/components/OfflineRouteRenderer';
+import PrefetchDashboardChunks from '@/components/PrefetchDashboardChunks';
 
 export default function AdminLayout({
 	children,
@@ -78,6 +79,7 @@ export default function AdminLayout({
 	return (
 		<ProtectedRoute>
 			<div className="min-h-screen flex bg-background relative">
+				<PrefetchDashboardChunks />
 				{/* Sidebar */}
 				<AppSidebar />
 
@@ -86,16 +88,16 @@ export default function AdminLayout({
 					className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${mainContentMargin}`}
 				>
 					{/* Header */}
-						<AppHeader />
-						{/* Page Content */}
-						<main className="py-4 md:py-6 px-0 overflow-x-hidden">
-							{!isOnline && offlinePath ? (
-								<OfflineRouteRenderer path={offlinePath} />
-							) : (
-								children
-							)}
-						</main>
-					</div>
+					<AppHeader />
+					{/* Page Content */}
+					<main className="py-4 md:py-6 px-0 overflow-x-hidden">
+						{!isOnline && offlinePath ? (
+							<OfflineRouteRenderer path={offlinePath} />
+						) : (
+							children
+						)}
+					</main>
+				</div>
 
 				{/* Mobile overlay */}
 				{isMobileOpen && (
