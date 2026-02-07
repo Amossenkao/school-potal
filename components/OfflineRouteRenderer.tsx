@@ -7,6 +7,7 @@ import {
 	isValidAdministratorPosition,
 } from '@/utils/componentsMap';
 import { PageLoading } from '@/components/loading';
+import DashboardHome from '@/components/DashboardHome';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import type { SchoolProfile } from '@/types/schoolProfile';
@@ -88,6 +89,14 @@ export default function OfflineRouteRenderer({ path }: { path: string }) {
 				fullScreen={false}
 				message="Access denied."
 			/>
+		);
+	}
+
+	if (pageKey === 'dashboard') {
+		return (
+			<div className="dashboard-page px-4 sm:px-6 lg:px-8">
+				<DashboardHome user={user} schoolProfile={school} />
+			</div>
 		);
 	}
 
