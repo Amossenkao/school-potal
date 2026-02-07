@@ -466,7 +466,11 @@ const GradesPDF: React.FC<{
 						{pageStudents.length > 0 ? (
 							pageStudents.map((student: any, rowIndex: number) => (
 								<StudentRow
-									key={student.studentId || `${index}-${rowIndex}`}
+									key={
+										student?.studentId
+											? String(student.studentId)
+											: `empty-${index}-${rowIndex}`
+									}
 									student={student}
 									index={index * STUDENTS_PER_PAGE + rowIndex + 1}
 								/>
