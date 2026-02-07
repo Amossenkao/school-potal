@@ -651,16 +651,6 @@ const AppSidebar: React.FC = () => {
 					)}
 				</div>
 			</Link>
-			{!isOnline && (
-				<div
-					className={`mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100 ${
-						isExpanded || isHovered || isMobileOpen ? 'block' : 'hidden'
-					}`}
-				>
-					Offline mode: some actions are disabled.
-				</div>
-			)}
-
 			<div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain duration-300 ease-linear left-scrollbar flex-1 pb-6">
 				<div className="direction-ltr">
 					<nav className="flex-1">{renderMenuItems(navigationItems)}</nav>
