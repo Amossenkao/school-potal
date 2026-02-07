@@ -455,7 +455,7 @@ const CodeOfConductDocument = () => {
 					'Pursuing continuous professional development to enhance the effectiveness of our profession.',
 					'Honoring all contracts until fulfillment or official release.',
 					'Welcoming constructive supervision and performance evaluation.',
-					'Creating a safe, secure, and challenging learning environment that respects each student's voice and individual learning style.',
+					"Creating a safe, secure, and challenging learning environment that respects each student's voice and individual learning style.",
 					'Fostering strong, collaborative relationships with students and their parents to ensure every child\'s progress.',
 				]}
 			/>
