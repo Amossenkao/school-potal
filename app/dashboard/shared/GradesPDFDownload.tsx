@@ -30,26 +30,26 @@ interface GradesPDFProps {
 }
 
 const periods = [
-	{ id: 'first', label: '1st Period', value: 'first' },
-	{ id: 'second', label: '2nd Period', value: 'second' },
-	{ id: 'third', label: '3rd Period', value: 'third' },
+	{ id: 'first', label: '1st Pd', value: 'first' },
+	{ id: 'second', label: '2nd Pd', value: 'second' },
+	{ id: 'third', label: '3rd Pd', value: 'third' },
 	{
 		id: 'third_period_exam',
-		label: '3rd Period Exam',
+		label: '3rd Pd Exam',
 		value: 'third_period_exam',
 	},
-	{ id: 'fourth', label: '4th Period', value: 'fourth' },
-	{ id: 'fifth', label: '5th Period', value: 'fifth' },
-	{ id: 'sixth', label: '6th Period', value: 'sixth' },
+	{ id: 'fourth', label: '4th Pd', value: 'fourth' },
+	{ id: 'fifth', label: '5th Pd', value: 'fifth' },
+	{ id: 'sixth', label: '6th Pd', value: 'sixth' },
 	{
 		id: 'sixth_period_exam',
-		label: '6th Period Exam',
+		label: '6th Pd Exam',
 		value: 'sixth_period_exam',
 	},
 ];
 
 // Constants for pagination
-const STUDENTS_PER_PAGE = 28;
+const STUDENTS_PER_PAGE = 22;
 
 const SEMESTER_ONE_PERIODS = [
 	'first',
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
 		paddingTop: 24,
 		paddingRight: 22,
 		paddingBottom: 28,
-		paddingLeft: 52, // extra binding margin
+		paddingLeft: 70, // extra binding margin
 		fontSize: 9,
 	},
 	header: {
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
 		borderTopWidth: 0,
 	},
 	tableCellName: {
-		flex: 2.2,
+		flex: 2.3,
 		padding: 5,
 		fontSize: 8,
 		textAlign: 'left',
@@ -254,6 +254,17 @@ const styles = StyleSheet.create({
 	coverWatermarkImage: {
 		width: 260,
 		height: 260,
+	},
+	tableCellNo: {
+		flex: 0.5,
+		padding: 5,
+		fontSize: 8,
+		textAlign: 'center',
+		borderStyle: 'solid',
+		borderWidth: 1,
+		borderColor: '#000',
+		borderLeftWidth: 0,
+		borderTopWidth: 0,
 	},
 });
 
@@ -380,19 +391,27 @@ const CoverPage: React.FC<{
 // Table Header Component
 const TableHeader: React.FC = () => (
 	<View style={[styles.tableRow, styles.tableHeader]} fixed>
+		<Text style={styles.tableCellNo}>No.</Text>
 		<Text style={styles.tableCellName}>Student Name</Text>
-		{periods.map((period) => (
-			<Text key={period.value} style={styles.tableCell}>
-				{period.label}
-			</Text>
-		))}
+		<Text style={styles.tableCell}>1st Pd</Text>
+		<Text style={styles.tableCell}>2nd Pd</Text>
+		<Text style={styles.tableCell}>3rd Pd</Text>
+		<Text style={styles.tableCell}>3rd Pd Exam</Text>
 		<Text style={styles.tableCell}>1st Sem Avg</Text>
+		<Text style={styles.tableCell}>4th Pd</Text>
+		<Text style={styles.tableCell}>5th Pd</Text>
+		<Text style={styles.tableCell}>6th Pd</Text>
+		<Text style={styles.tableCell}>6th Pd Exam</Text>
 		<Text style={styles.tableCell}>2nd Sem Avg</Text>
+		<Text style={styles.tableCell}>Yearly Avg</Text>
 	</View>
 );
 
 // Student Row Component
-const StudentRow: React.FC<{ student: any }> = ({ student }) => {
+const StudentRow: React.FC<{ student: any; index: number }> = ({
+	student,
+	index,
+}) => {
 	const getAverage = (periodKeys: string[]) => {
 		let total = 0;
 		let count = 0;
@@ -409,11 +428,19 @@ const StudentRow: React.FC<{ student: any }> = ({ student }) => {
 
 	const semesterOneAvg = getAverage(SEMESTER_ONE_PERIODS);
 	const semesterTwoAvg = getAverage(SEMESTER_TWO_PERIODS);
+	const yearlyAvg =
+		semesterOneAvg && semesterTwoAvg
+			? (
+					(Number(semesterOneAvg) + Number(semesterTwoAvg)) /
+					2
+			  ).toFixed(1)
+			: semesterOneAvg || semesterTwoAvg;
 
 	return (
 		<View style={styles.tableRow}>
+			<Text style={styles.tableCellNo}>{index}</Text>
 			<Text style={styles.tableCellName}>{student.studentName}</Text>
-			{periods.map((period) => {
+			{periods.slice(0, 4).map((period) => {
 				const grade = student.periods?.[period.value];
 				return (
 					<Text
@@ -436,7 +463,30 @@ const StudentRow: React.FC<{ student: any }> = ({ student }) => {
 				);
 			})}
 			<Text style={styles.tableCell}>{semesterOneAvg}</Text>
+			{periods.slice(4).map((period) => {
+				const grade = student.periods?.[period.value];
+				return (
+					<Text
+						key={period.value}
+						style={[
+							styles.tableCell,
+							grade >= 70
+								? styles.passGrade
+								: grade < 70 && grade !== null && grade !== undefined
+								? styles.failGrade
+								: {},
+						]}
+					>
+						{grade !== null && grade !== undefined
+							? typeof grade === 'number'
+								? grade.toFixed(0)
+								: grade
+							: ''}
+					</Text>
+				);
+			})}
 			<Text style={styles.tableCell}>{semesterTwoAvg}</Text>
+			<Text style={styles.tableCell}>{yearlyAvg}</Text>
 		</View>
 	);
 };
@@ -498,16 +548,6 @@ const GradesPDF: React.FC<{
 						)}
 					</View>
 
-					<SchoolHeader
-						teacherName={teacherName}
-						className={className}
-						subject={subject}
-						academicYear={academicYear}
-						totalStudents={students.length}
-						isFirstPage={false}
-						school={school}
-					/>
-
 					<View style={styles.infoSection}>
 						<Text style={styles.infoText}>
 							<Text style={{ fontWeight: 'bold' }}>Academic Year:</Text>{' '}
@@ -535,6 +575,7 @@ const GradesPDF: React.FC<{
 								<StudentRow
 									key={student.studentId || `${index}-${rowIndex}`}
 									student={student}
+									index={index * STUDENTS_PER_PAGE + rowIndex + 1}
 								/>
 							))
 						) : (
