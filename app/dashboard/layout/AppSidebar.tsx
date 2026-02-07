@@ -570,7 +570,7 @@ const AppSidebar: React.FC = () => {
 	if (user === undefined || !currentSchool) {
 		return (
 		<aside
-			className={`fixed top-16 lg:top-0 flex flex-col px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-[calc(100dvh-4rem)] lg:h-dvh transition-all duration-300 ease-in-out z-50 border-r border-gray-200 w-[260px] sm:w-[290px] rounded-tr-2xl lg:rounded-tr-none`}
+			className={`fixed top-16 lg:top-0 flex flex-col px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-[calc(100dvh-4rem)] lg:h-dvh transition-all duration-300 ease-in-out z-50 border-r border-gray-200 w-[260px] sm:w-[290px] rounded-tr-lg rounded-br-lg lg:rounded-tr-none lg:rounded-br-none`}
 		>
 				<div className="flex items-center gap-3 cursor-pointer">
 					{/* Logo placeholder */}
@@ -597,7 +597,7 @@ const AppSidebar: React.FC = () => {
 	return (
 		<aside
 			ref={sidebarRef}
-			className={`fixed top-16 lg:top-0 flex flex-col px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 dark:text-gray-100 h-[calc(100dvh-4rem)] lg:h-dvh transition-all duration-300 ease-in-out z-50 border-r border-gray-200 dark:border-gray-700 rounded-tr-2xl lg:rounded-tr-none ${
+			className={`fixed top-16 lg:top-0 flex flex-col px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 dark:text-gray-100 h-[calc(100dvh-4rem)] lg:h-dvh transition-all duration-300 ease-in-out z-50 border-r border-gray-200 dark:border-gray-700 rounded-tr-lg rounded-br-lg lg:rounded-tr-none lg:rounded-br-none ${
 				isExpanded || isMobileOpen
 					? 'w-[260px] sm:w-[290px]'
 					: isHovered
