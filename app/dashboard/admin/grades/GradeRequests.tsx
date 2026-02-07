@@ -15,7 +15,10 @@ import {
 	Eye,
 	Search,
 	ArrowRight,
+	WifiOff,
 } from 'lucide-react';
+
+import { useNetworkStore } from '@/store/networkStore';
 
 // Mocked school store
 const upstairs = {
@@ -89,6 +92,7 @@ const GradeRequests: React.FC = () => {
 	const [bulkRequests, setBulkRequests] = useState<BulkGradeRequest[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState('');
+	const { isOnline } = useNetworkStore();
 
 	// Modal states
 	const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -664,7 +668,18 @@ const GradeRequests: React.FC = () => {
 					{loading ? (
 						<PageLoading fullScreen={false} />
 					) : error ? (
-						<div className="p-6 text-center text-destructive">{error}</div>
+						<div className="p-6 text-center text-destructive">
+							{!isOnline ? (
+								<div className="flex flex-col items-center gap-2 text-muted-foreground">
+									<div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+										<WifiOff className="h-6 w-6" />
+									</div>
+									<p className="text-sm">You&apos;re offline.</p>
+								</div>
+							) : (
+								error
+							)}
+						</div>
 					) : filteredRequests.length === 0 ? (
 						<div className="p-6 text-center text-muted-foreground">
 							No grade change requests found.

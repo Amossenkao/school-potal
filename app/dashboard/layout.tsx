@@ -4,10 +4,11 @@ import { useSidebar } from '@/context/SidebarContext';
 import AppHeader from './layout/AppHeader';
 import AppSidebar from './layout/AppSidebar';
 import React, { useEffect, useState, useRef } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoutes';
 import { useNetworkStore } from '@/store/networkStore';
-import OfflineHandler from '@/components/OfflineHandler';
+import { useOfflineNavigationStore } from '@/store/offlineNavigationStore';
+import OfflineRouteRenderer from '@/components/OfflineRouteRenderer';
 
 export default function AdminLayout({
 	children,
@@ -18,17 +19,41 @@ export default function AdminLayout({
 	const [loading, setLoading] = useState(true);
 	const [navigationLoading, setNavigationLoading] = useState(false);
 	const pathname = usePathname();
+	const router = useRouter();
 	const previousPathname = useRef(pathname);
 	const { isOnline, authCheckFailed } = useNetworkStore();
+	const { offlinePath, clearOfflinePath, setOfflinePath } =
+		useOfflineNavigationStore();
+	const previousOnline = useRef(isOnline);
 
 	useEffect(() => {
-		// Don't update loading state if offline
-		if (!isOnline && authCheckFailed) {
-			setLoading(false);
-			setNavigationLoading(false);
-			return;
+		if (previousOnline.current === false && isOnline) {
+			if (offlinePath) {
+				clearOfflinePath();
+				router.replace(window.location.pathname);
+			}
+			router.refresh();
 		}
+		previousOnline.current = isOnline;
+	}, [isOnline, router, offlinePath, clearOfflinePath]);
 
+	useEffect(() => {
+		if (!isOnline && !offlinePath) {
+			setOfflinePath(pathname);
+		}
+	}, [isOnline, offlinePath, pathname, setOfflinePath]);
+
+	useEffect(() => {
+		if (!isOnline) {
+			const handlePopState = () => {
+				setOfflinePath(window.location.pathname);
+			};
+			window.addEventListener('popstate', handlePopState);
+			return () => window.removeEventListener('popstate', handlePopState);
+		}
+	}, [isOnline, setOfflinePath]);
+
+	useEffect(() => {
 		// Handle route navigation loading
 		if (previousPathname.current !== pathname) {
 			setNavigationLoading(true);
@@ -53,29 +78,31 @@ export default function AdminLayout({
 
 	return (
 		<ProtectedRoute>
-			<OfflineHandler>
-				<div className="min-h-screen flex bg-background relative">
-					{/* Sidebar */}
-					<AppSidebar />
+			<div className="min-h-screen flex bg-background relative">
+				{/* Sidebar */}
+				<AppSidebar />
 
-					{/* Main content */}
-					<div
-						className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${mainContentMargin}`}
-					>
-						{/* Header */}
+				{/* Main content */}
+				<div
+					className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${mainContentMargin}`}
+				>
+					{/* Header */}
 						<AppHeader />
 						{/* Page Content */}
 						<main className="py-4 md:py-6 px-0 overflow-x-hidden">
-							{children}
+							{!isOnline && offlinePath ? (
+								<OfflineRouteRenderer path={offlinePath} />
+							) : (
+								children
+							)}
 						</main>
 					</div>
 
-					{/* Mobile overlay */}
-					{isMobileOpen && (
-						<div className="fixed inset-0 bg-black/20 z-40 lg:hidden" />
-					)}
-				</div>
-			</OfflineHandler>
+				{/* Mobile overlay */}
+				{isMobileOpen && (
+					<div className="fixed inset-0 bg-black/20 z-40 lg:hidden" />
+				)}
+			</div>
 		</ProtectedRoute>
 	);
 }

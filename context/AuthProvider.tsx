@@ -21,6 +21,11 @@ export default function AuthProvider({
 		let mounted = true;
 
 		const runAuthCheck = async () => {
+			if (typeof navigator !== 'undefined' && !navigator.onLine) {
+				setIsOnline(false);
+				setAuthCheckFailed(true);
+				return;
+			}
 			try {
 				await checkAuthStatus(); // ✅ Ping /api/auth/me
 				if (mounted) {

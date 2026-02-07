@@ -35,6 +35,7 @@ import FilterUsersModal from '@/components/modals/FilterUsersModal';
 import EditUserModal from '@/components/modals/EditUserModal';
 import DeactivateUserModal from '@/components/modals/DeactivateUserModal';
 import { useSchoolStore } from '@/store/schoolStore';
+import { useNetworkStore } from '@/store/networkStore';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 
 const API_URL = '/api/users';
@@ -269,6 +270,7 @@ const UserManagementDashboard = () => {
 	const router = useRouter();
 	const schoolProfile = useSchoolStore((state: any) => state.school);
 	const fetchSchool = useSchoolStore((state: any) => state.fetchSchool);
+	const { isOnline } = useNetworkStore();
 	const usersByAcademicYear = useSchoolStore(
 		(state: any) => state.usersByAcademicYear,
 	);
@@ -844,6 +846,15 @@ const UserManagementDashboard = () => {
 	};
 
 	const handleAction = (actionType: string, user: any) => {
+		if (
+			!isOnline &&
+			(actionType === 'reset-password' ||
+				actionType === 'toggle-status' ||
+				actionType === 'delete')
+		) {
+			window.dispatchEvent(new CustomEvent('offline:fetch'));
+			return;
+		}
 		switch (actionType) {
 			case 'view':
 				setViewingUser(user);

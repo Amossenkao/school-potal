@@ -26,6 +26,7 @@ import {
 	Shield,
 	Star,
 	Wifi,
+	WifiOff,
 	Eye,
 	Search,
 } from 'lucide-react';
@@ -223,6 +224,8 @@ const upstairs = {
 	},
 };
 
+import { useNetworkStore } from '@/store/networkStore';
+
 const useSchoolStore = (selector: (state: any) => any) => {
 	const state = {
 		school: upstairs,
@@ -309,6 +312,7 @@ const AdminGradeManagement: React.FC = () => {
 	const [submissions, setSubmissions] = useState<GradeSubmission[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState('');
+	const { isOnline } = useNetworkStore();
 
 	// Modal states
 	const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -1137,7 +1141,18 @@ const AdminGradeManagement: React.FC = () => {
 					{loading ? (
 						<PageLoading fullScreen={false} />
 					) : error ? (
-						<div className="p-6 text-center text-destructive">{error}</div>
+						<div className="p-6 text-center text-destructive">
+							{!isOnline ? (
+								<div className="flex flex-col items-center gap-2 text-muted-foreground">
+									<div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+										<WifiOff className="h-6 w-6" />
+									</div>
+									<p className="text-sm">You&apos;re offline.</p>
+								</div>
+							) : (
+								error
+							)}
+						</div>
 					) : filteredAndSortedSubmissions.length === 0 ? (
 						<div className="p-6 text-center text-muted-foreground">
 							No grade submissions found.

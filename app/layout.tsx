@@ -9,6 +9,7 @@ import { PageLoading } from '@/components/loading';
 import Inactive from '../components/inactive';
 import AuthProvider from '@/context/AuthProvider';
 import VercelUpgrade from '@/components/uca-inactive';
+import OfflineHandler from '@/components/OfflineHandler';
 
 export default function RootLayout({
 	children,
@@ -42,12 +43,14 @@ export default function RootLayout({
 				<AuthProvider>
 					<ThemeProvider>
 						<SidebarProvider>
-							{school.isActive ? (
-								children
-							) : (
-								// <Inactive schoolName={school.name} />
-								<VercelUpgrade />
-							)}
+							<OfflineHandler>
+								{school.isActive ? (
+									children
+								) : (
+									// <Inactive schoolName={school.name} />
+									<VercelUpgrade />
+								)}
+							</OfflineHandler>
 						</SidebarProvider>
 					</ThemeProvider>
 				</AuthProvider>

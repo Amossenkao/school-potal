@@ -19,6 +19,7 @@ import Input from '@/components/form/input/InputField';
 import Label from '@/components/form/Label';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
+import { useNetworkStore } from '@/store/networkStore';
 
 // --- Types ---
 interface Notification {
@@ -47,12 +48,17 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
 	const [error, setError] = useState('');
 	const [success, setSuccess] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
+	const { isOnline } = useNetworkStore();
 
 	const handleSubmit = async (e) => {
 		e.preventDefault();
 		setError('');
 		setSuccess('');
 
+		if (!isOnline) {
+			window.dispatchEvent(new CustomEvent('offline:fetch'));
+			return;
+		}
 		if (newPassword !== confirmPassword) {
 			setError("New passwords don't match.");
 			return;
@@ -582,6 +588,7 @@ const AppHeader: React.FC = () => {
 	const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
 	const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
 	const inputRef = useRef<HTMLInputElement>(null);
+	const { isOnline } = useNetworkStore();
 
 	const handleToggle = () => {
 		if (window.innerWidth >= 1024) {
@@ -630,6 +637,15 @@ const AppHeader: React.FC = () => {
 							</svg>
 						)}
 					</button>
+
+					{!isOnline && (
+						<div className="flex flex-1 justify-center px-2">
+							<div className="inline-flex max-w-xs sm:max-w-md w-full items-center justify-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100 sm:w-auto sm:px-4 sm:text-sm">
+								<span className="h-2 w-2 rounded-full bg-amber-500" />
+								<span>You&apos;re offline. Some actions will be unavailable.</span>
+							</div>
+						</div>
+					)}
 
 					<div className="lg:hidden">
 						<Logo />

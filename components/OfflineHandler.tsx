@@ -12,7 +12,7 @@ export default function OfflineHandler({
 	children: React.ReactNode;
 }) {
 	const pathname = usePathname();
-	const { isOnline, authCheckFailed } = useNetworkStore();
+	const { isOnline } = useNetworkStore();
 	const currentPathRef = useRef(pathname);
 	const [showOfflineGate, setShowOfflineGate] = useState(false);
 	const OFFLINE_ERROR_MESSAGE =
@@ -20,11 +20,11 @@ export default function OfflineHandler({
 
 	// Update current path reference
 	useEffect(() => {
-		if (isOnline || !authCheckFailed) {
+		if (isOnline) {
 			currentPathRef.current = pathname;
 			if (showOfflineGate) setShowOfflineGate(false);
 		}
-	}, [pathname, isOnline, authCheckFailed, showOfflineGate]);
+	}, [pathname, isOnline, showOfflineGate]);
 
 	useEffect(() => {
 		const handleOfflineFetch = () => {
@@ -43,17 +43,44 @@ export default function OfflineHandler({
 		const originalFetch = window.fetch.bind(window);
 		(window as any).__offlineFetchWrapped = true;
 
+		const getRequestMeta = (input: RequestInfo | URL, init?: RequestInit) => {
+			if (input instanceof Request) {
+				return {
+					url: input.url,
+					method: input.method || 'GET',
+				};
+			}
+			return {
+				url: typeof input === 'string' ? input : input.toString(),
+				method: init?.method || 'GET',
+			};
+		};
+
+		const shouldShowOfflineModal = (url: string, method: string) => {
+			const normalizedMethod = method.toUpperCase();
+			// Only surface the offline modal for mutating API actions.
+			if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(normalizedMethod)) {
+				return false;
+			}
+			return url.includes('/api/');
+		};
+
 		window.fetch = async (...args: Parameters<typeof fetch>) => {
 			const { isOnline: onlineState } = useNetworkStore.getState();
+			const { url, method } = getRequestMeta(args[0], args[1]);
 			if (!onlineState) {
-				window.dispatchEvent(new CustomEvent('offline:fetch'));
+				if (shouldShowOfflineModal(url, method)) {
+					window.dispatchEvent(new CustomEvent('offline:fetch'));
+				}
 				return Promise.reject(new Error(OFFLINE_ERROR_MESSAGE));
 			}
 			try {
 				return await originalFetch(...args);
 			} catch (error) {
 				if (!navigator.onLine) {
-					window.dispatchEvent(new CustomEvent('offline:fetch'));
+					if (shouldShowOfflineModal(url, method)) {
+						window.dispatchEvent(new CustomEvent('offline:fetch'));
+					}
 					throw new Error(OFFLINE_ERROR_MESSAGE);
 				}
 				throw error;

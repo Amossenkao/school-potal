@@ -9,6 +9,8 @@ import { ChevronDown, LogOut } from 'lucide-react';
 import useAuth from '@/store/useAuth';
 import { generateNavigationItems } from '@/utils/componentsMap';
 import { useSchoolStore } from '@/store/schoolStore';
+import { useNetworkStore } from '@/store/networkStore';
+import { useOfflineNavigationStore } from '@/store/offlineNavigationStore';
 import type { SchoolProfile } from '@/types/schoolProfile';
 import type { Administrator } from '@/types/user';
 
@@ -56,6 +58,8 @@ const AppSidebar: React.FC = () => {
 	const [navigationItems, setNavigationItems] = useState<NavItem[]>([]);
 	const [pendingSubmissionsCount, setPendingSubmissionsCount] = useState(0);
 	const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+	const { isOnline } = useNetworkStore();
+	const { setOfflinePath } = useOfflineNavigationStore();
 
 	// Get current school profile
 	const currentSchool = useSchoolStore(
@@ -69,6 +73,7 @@ const AppSidebar: React.FC = () => {
 			: undefined;
 
 	const fetchPendingCounts = useCallback(async () => {
+		if (!isOnline) return;
 		if (!user) return;
 		if (user.role !== 'system_admin') {
 			setPendingSubmissionsCount(0);
@@ -142,7 +147,7 @@ const AppSidebar: React.FC = () => {
 		} catch (error) {
 			console.error('Failed to fetch pending counts:', error);
 		}
-	}, [user]);
+	}, [user, isOnline]);
 
 	useEffect(() => {
 		fetchPendingCounts();
@@ -377,6 +382,16 @@ const AppSidebar: React.FC = () => {
 		}
 	};
 
+	const handleOfflineNavigate = (href: string) => {
+		setOfflinePath(href);
+		if (typeof window !== 'undefined') {
+			window.history.pushState(null, '', href);
+		}
+		if (isMobileOpen) {
+			closeMobileSidebar();
+		}
+	};
+
 	const renderMenuItems = (items: NavItem[]) => (
 		<ul className="flex flex-col gap-2">
 			{items.map((item) => {
@@ -452,6 +467,12 @@ const AppSidebar: React.FC = () => {
 							) : (
 								<Link
 									href={item.href}
+									onClick={(event) => {
+										if (!isOnline) {
+											event.preventDefault();
+											handleOfflineNavigate(item.href!);
+										}
+									}}
 									className={`menu-item group ${
 										isItemActive ? 'menu-item-active' : 'menu-item-inactive'
 									} ${
@@ -504,6 +525,12 @@ const AppSidebar: React.FC = () => {
 										<li key={`${sub.href || sub.name}-${index}`}>
 											<Link
 												href={sub.href!}
+												onClick={(event) => {
+													if (!isOnline) {
+														event.preventDefault();
+														handleOfflineNavigate(sub.href!);
+													}
+												}}
 												className={`menu-dropdown-item relative flex items-center gap-3 py-2 px-2 pr-8 sm:px-3 rounded-md text-sm transition-colors duration-150 overflow-visible whitespace-nowrap ${
 													isActive(sub.href!)
 														? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
@@ -624,6 +651,15 @@ const AppSidebar: React.FC = () => {
 					)}
 				</div>
 			</Link>
+			{!isOnline && (
+				<div
+					className={`mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100 ${
+						isExpanded || isHovered || isMobileOpen ? 'block' : 'hidden'
+					}`}
+				>
+					Offline mode: some actions are disabled.
+				</div>
+			)}
 
 			<div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain duration-300 ease-linear left-scrollbar flex-1 pb-6">
 				<div className="direction-ltr">
