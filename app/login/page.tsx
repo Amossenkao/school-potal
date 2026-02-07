@@ -19,6 +19,7 @@ import { useRouter } from 'next/navigation';
 import useAuth from '@/store/useAuth';
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
+import { useNetworkStore } from '@/store/networkStore';
 import Link from 'next/link';
 import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
 
@@ -32,7 +33,9 @@ const LoginPage = () => {
 	const [isRedirecting, setIsRedirecting] = useState(false);
 	const currentSchool = useSchoolStore((state) => state.school);
 	const [loginDisabledError, setLoginDisabledError] = useState('');
+	const [offlineError, setOfflineError] = useState('');
 	const usernameInputRef = useRef<HTMLInputElement>(null);
+	const { isOnline } = useNetworkStore();
 
 	const {
 		isLoading,
@@ -176,11 +179,18 @@ const LoginPage = () => {
 		// Clear errors immediately when user starts fixing their input
 		if (error) clearError();
 		if (loginDisabledError) setLoginDisabledError('');
+		if (offlineError) setOfflineError('');
 	};
 
 	const handleLoginSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (loginDisabledError) return;
+		if (!isOnline) {
+			setOfflineError(
+				"You are offline. Please connect to the internet and try again."
+			);
+			return;
+		}
 
 		const loginData = {
 			role: selectedRole,
@@ -327,6 +337,14 @@ const LoginPage = () => {
 												<AlertCircle className="h-5 w-5 text-destructive" />
 												<p className="text-sm text-destructive font-semibold">
 													{error}
+												</p>
+											</div>
+										)}
+										{offlineError && (
+											<div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-center gap-3 animate-in shake-1">
+												<AlertCircle className="h-5 w-5 text-amber-600" />
+												<p className="text-sm text-amber-700 font-semibold">
+													{offlineError}
 												</p>
 											</div>
 										)}

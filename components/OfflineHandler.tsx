@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { WifiOff } from 'lucide-react';
 import { useNetworkStore } from '@/store/networkStore';
 
@@ -11,7 +11,6 @@ export default function OfflineHandler({
 }: {
 	children: React.ReactNode;
 }) {
-	const router = useRouter();
 	const pathname = usePathname();
 	const { isOnline, authCheckFailed } = useNetworkStore();
 	const currentPathRef = useRef(pathname);
@@ -26,57 +25,43 @@ export default function OfflineHandler({
 	}, [pathname, isOnline, authCheckFailed, showOfflineGate]);
 
 	useEffect(() => {
-		// Prevent navigation when offline by intercepting clicks
-		const handleClickCapture = (e: MouseEvent) => {
-			if (!isOnline && authCheckFailed) {
-				const target = e.target as HTMLElement;
+		const handleOfflineFetch = () => {
+			setShowOfflineGate(true);
+		};
+		window.addEventListener('offline:fetch', handleOfflineFetch);
+		return () => {
+			window.removeEventListener('offline:fetch', handleOfflineFetch);
+		};
+	}, []);
 
-				// Find if the click was on a link or inside a link
-				const link = target.closest('a');
+	useEffect(() => {
+		if (typeof window === 'undefined') return;
+		if ((window as any).__offlineFetchWrapped) return;
 
-				if (link) {
-					const href = link.getAttribute('href');
+		const originalFetch = window.fetch.bind(window);
+		(window as any).__offlineFetchWrapped = true;
 
-					// Block internal dashboard navigation
-					if (
-						href &&
-						(href.startsWith('/dashboard') || href.startsWith('/admin'))
-					) {
-						e.preventDefault();
-						e.stopPropagation();
-						e.stopImmediatePropagation();
-
-						console.log(
-							'[OfflineHandler] Navigation blocked - you are offline'
-						);
-						setShowOfflineGate(true);
-
-						// Optional: Show toast notification
-						// toast.warning('You are offline. Navigation is disabled.');
-
-						return false;
-					}
+		window.fetch = async (...args: Parameters<typeof fetch>) => {
+			const { isOnline: onlineState } = useNetworkStore.getState();
+			if (!onlineState) {
+				window.dispatchEvent(new CustomEvent('offline:fetch'));
+				return Promise.reject(new Error('OFFLINE'));
+			}
+			try {
+				return await originalFetch(...args);
+			} catch (error) {
+				if (!navigator.onLine) {
+					window.dispatchEvent(new CustomEvent('offline:fetch'));
 				}
+				throw error;
 			}
 		};
 
-		// Use capture phase to catch events before they bubble
-		document.addEventListener('click', handleClickCapture, true);
-
 		return () => {
-			document.removeEventListener('click', handleClickCapture, true);
+			window.fetch = originalFetch;
+			(window as any).__offlineFetchWrapped = false;
 		};
-	}, [isOnline, authCheckFailed]);
-
-	// Prevent programmatic navigation when offline
-	useEffect(() => {
-		if (!isOnline && authCheckFailed && pathname !== currentPathRef.current) {
-			// User tried to navigate while offline, stay on current page
-			console.log('[OfflineHandler] Programmatic navigation blocked - offline');
-			setShowOfflineGate(true);
-			router.replace(currentPathRef.current);
-		}
-	}, [pathname, isOnline, authCheckFailed, router]);
+	}, []);
 
 	return (
 		<>
