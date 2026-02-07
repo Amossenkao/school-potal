@@ -326,7 +326,7 @@ const TableHeader: React.FC = () => (
 );
 
 // Student Row Component
-const StudentRow: React.FC<{ student: any | null; index: number }> = ({
+const StudentRow: React.FC<{ student: any; index: number }> = ({
 	student,
 	index,
 }) => {
@@ -407,14 +407,25 @@ const GradesPDF: React.FC<{
 	const remainingSlots = STUDENTS_PER_PAGE - lastPageCount;
 	const shouldAddExtraPage = remainingSlots === 0 || remainingSlots < 8;
 
+	const buildEmptyRows = (count: number, prefix: string) =>
+		Array.from({ length: count }, (_, i) => ({
+			studentId: `${prefix}-${i + 1}`,
+			studentName: '',
+			periods: {},
+			__empty: true,
+		}));
+
 	if (remainingSlots > 0) {
 		basePages[basePages.length - 1] = basePages[basePages.length - 1].concat(
-			Array.from({ length: remainingSlots }, () => null)
+			buildEmptyRows(remainingSlots, `empty-fill-${basePages.length - 1}`)
 		);
 	}
 
 	const pages = shouldAddExtraPage
-		? [...basePages, Array.from({ length: STUDENTS_PER_PAGE }, () => null)]
+		? [
+				...basePages,
+				buildEmptyRows(STUDENTS_PER_PAGE, `empty-page-${basePages.length}`),
+		  ]
 		: basePages;
 
 	return (
@@ -466,11 +477,7 @@ const GradesPDF: React.FC<{
 						{pageStudents.length > 0 ? (
 							pageStudents.map((student: any, rowIndex: number) => (
 								<StudentRow
-									key={
-										student?.studentId
-											? String(student.studentId)
-											: `empty-${index}-${rowIndex}`
-									}
+									key={String(student?.studentId || `${index}-${rowIndex}`)}
 									student={student}
 									index={index * STUDENTS_PER_PAGE + rowIndex + 1}
 								/>
