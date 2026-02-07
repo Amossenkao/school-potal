@@ -51,18 +51,6 @@ const periods = [
 // Constants for pagination
 const STUDENTS_PER_PAGE = 22;
 
-const SEMESTER_ONE_PERIODS = [
-	'first',
-	'second',
-	'third',
-	'third_period_exam',
-];
-const SEMESTER_TWO_PERIODS = [
-	'fourth',
-	'fifth',
-	'sixth',
-	'sixth_period_exam',
-];
 
 // PDF Styles
 const styles = StyleSheet.create({
@@ -268,71 +256,6 @@ const styles = StyleSheet.create({
 	},
 });
 
-// School Header Component
-const SchoolHeader: React.FC<{
-	teacherName: string;
-	className: string;
-	subject: string;
-	academicYear: string;
-	totalStudents: number;
-	isFirstPage: boolean;
-	school: any;
-}> = ({
-	teacherName,
-	className,
-	subject,
-	academicYear,
-	totalStudents,
-	isFirstPage,
-	school,
-}) => (
-	<View style={styles.header}>
-		<View style={styles.headerRow}>
-			<View>
-				{school.logoUrl2 && <Image src={school.logoUrl2} style={styles.logo} />}
-			</View>
-			<View style={styles.headerContent}>
-				<Text style={styles.schoolName}>{school.name}</Text>
-				<Text style={styles.schoolAddress}>{school.address.join('\n')}</Text>
-			</View>
-			<View>
-				{school.logoUrl && <Image src={school.logoUrl} style={styles.logo} />}
-			</View>
-		</View>
-		<Text style={styles.reportTitle}>MASTER GRADE SHEET</Text>
-		{isFirstPage && (
-			<View style={styles.infoSection}>
-				<Text style={styles.infoText}>
-					<Text style={{ fontWeight: 'bold' }}>Teacher:</Text>
-					<Text> {teacherName}</Text>
-				</Text>
-				<Text style={styles.infoDivider}>|</Text>
-				<Text style={styles.infoText}>
-					<Text style={{ fontWeight: 'bold' }}>Class:</Text> {className}
-				</Text>
-				<Text style={styles.infoDivider}>|</Text>
-				<Text style={styles.infoText}>
-					<Text style={{ fontWeight: 'bold' }}>Subject:</Text> {subject}
-				</Text>
-				<Text style={styles.infoDivider}>|</Text>
-				<Text style={styles.infoText}>
-					<Text style={{ fontWeight: 'bold' }}>Academic Year:</Text>{' '}
-					{academicYear}
-				</Text>
-				<Text style={styles.infoDivider}>|</Text>
-				<Text style={styles.infoText}>
-					<Text style={{ fontWeight: 'bold' }}>Students:</Text> {totalStudents}
-				</Text>
-				<Text style={styles.infoDivider}>|</Text>
-				{/* <Text style={styles.infoText}>
-					<Text style={{ fontWeight: 'bold' }}>Date:</Text>{' '}
-					{new Date().toLocaleDateString()}
-				</Text> */}
-			</View>
-		)}
-	</View>
-);
-
 const CoverPage: React.FC<{
 	school: any;
 	academicYear: string;
@@ -393,55 +316,27 @@ const TableHeader: React.FC = () => (
 	<View style={[styles.tableRow, styles.tableHeader]} fixed>
 		<Text style={styles.tableCellNo}>No.</Text>
 		<Text style={styles.tableCellName}>Student Name</Text>
-		<Text style={styles.tableCell}>1st Pd</Text>
-		<Text style={styles.tableCell}>2nd Pd</Text>
-		<Text style={styles.tableCell}>3rd Pd</Text>
-		<Text style={styles.tableCell}>3rd Pd Exam</Text>
-		<Text style={styles.tableCell}>1st Sem Avg</Text>
-		<Text style={styles.tableCell}>4th Pd</Text>
-		<Text style={styles.tableCell}>5th Pd</Text>
-		<Text style={styles.tableCell}>6th Pd</Text>
-		<Text style={styles.tableCell}>6th Pd Exam</Text>
-		<Text style={styles.tableCell}>2nd Sem Avg</Text>
-		<Text style={styles.tableCell}>Yearly Avg</Text>
+		{periods.map((period) => (
+			<Text key={period.value} style={styles.tableCell}>
+				{period.label}
+			</Text>
+		))}
 	</View>
 );
 
 // Student Row Component
-const StudentRow: React.FC<{ student: any; index: number }> = ({
+const StudentRow: React.FC<{ student: any | null; index: number }> = ({
 	student,
 	index,
 }) => {
-	const getAverage = (periodKeys: string[]) => {
-		let total = 0;
-		let count = 0;
-		periodKeys.forEach((key) => {
-			const grade = student.periods?.[key];
-			if (typeof grade === 'number') {
-				total += grade;
-				count += 1;
-			}
-		});
-		if (!count) return '';
-		return (total / count).toFixed(1);
-	};
-
-	const semesterOneAvg = getAverage(SEMESTER_ONE_PERIODS);
-	const semesterTwoAvg = getAverage(SEMESTER_TWO_PERIODS);
-	const yearlyAvg =
-		semesterOneAvg && semesterTwoAvg
-			? (
-					(Number(semesterOneAvg) + Number(semesterTwoAvg)) /
-					2
-			  ).toFixed(1)
-			: semesterOneAvg || semesterTwoAvg;
-
 	return (
 		<View style={styles.tableRow}>
 			<Text style={styles.tableCellNo}>{index}</Text>
-			<Text style={styles.tableCellName}>{student.studentName}</Text>
-			{periods.slice(0, 4).map((period) => {
-				const grade = student.periods?.[period.value];
+			<Text style={styles.tableCellName}>
+				{student?.studentName || ''}
+			</Text>
+			{periods.map((period) => {
+				const grade = student?.periods?.[period.value];
 				return (
 					<Text
 						key={period.value}
@@ -462,31 +357,6 @@ const StudentRow: React.FC<{ student: any; index: number }> = ({
 					</Text>
 				);
 			})}
-			<Text style={styles.tableCell}>{semesterOneAvg}</Text>
-			{periods.slice(4).map((period) => {
-				const grade = student.periods?.[period.value];
-				return (
-					<Text
-						key={period.value}
-						style={[
-							styles.tableCell,
-							grade >= 70
-								? styles.passGrade
-								: grade < 70 && grade !== null && grade !== undefined
-								? styles.failGrade
-								: {},
-						]}
-					>
-						{grade !== null && grade !== undefined
-							? typeof grade === 'number'
-								? grade.toFixed(0)
-								: grade
-							: ''}
-					</Text>
-				);
-			})}
-			<Text style={styles.tableCell}>{semesterTwoAvg}</Text>
-			<Text style={styles.tableCell}>{yearlyAvg}</Text>
 		</View>
 	);
 };
@@ -514,15 +384,37 @@ const GradesPDF: React.FC<{
 		`${teacherInfo?.firstName || ''} ${teacherInfo?.lastName || ''}`.trim() ||
 		'___________________________';
 
-	const students = gradeData?.students || [];
-	const pages = Array.from(
-		{ length: Math.ceil(students.length / STUDENTS_PER_PAGE) },
+	const sortedStudents = (gradeData?.students || [])
+		.slice()
+		.sort((a: any, b: any) =>
+			(a.studentName || '').localeCompare(b.studentName || '', undefined, {
+				sensitivity: 'base',
+			})
+		);
+
+	const basePages = Array.from(
+		{ length: Math.ceil(sortedStudents.length / STUDENTS_PER_PAGE) || 1 },
 		(_, index) =>
-			students.slice(
+			sortedStudents.slice(
 				index * STUDENTS_PER_PAGE,
 				(index + 1) * STUDENTS_PER_PAGE
 			)
 	);
+
+	const lastPageCount =
+		basePages.length > 0 ? basePages[basePages.length - 1].length : 0;
+	const remainingSlots = STUDENTS_PER_PAGE - lastPageCount;
+	const shouldAddExtraPage = remainingSlots === 0 || remainingSlots < 8;
+
+	if (remainingSlots > 0) {
+		basePages[basePages.length - 1] = basePages[basePages.length - 1].concat(
+			Array.from({ length: remainingSlots }, () => null)
+		);
+	}
+
+	const pages = shouldAddExtraPage
+		? [...basePages, Array.from({ length: STUDENTS_PER_PAGE }, () => null)]
+		: basePages;
 
 	return (
 		<Document>

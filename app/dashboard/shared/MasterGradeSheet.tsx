@@ -36,14 +36,14 @@ interface GradeMasterProps {
 }
 
 const periods = [
-	{ id: 'first', label: '1st Period', value: 'first' },
-	{ id: 'second', label: '2nd Period', value: 'second' },
-	{ id: 'third', label: '3rd Period', value: 'third' },
-	{ id: 'third_exam', label: '3rd Period Exam', value: 'third_period_exam' },
-	{ id: 'fourth', label: '4th Period', value: 'fourth' },
-	{ id: 'fifth', label: '5th Period', value: 'fifth' },
-	{ id: 'sixth', label: '6th Period', value: 'sixth' },
-	{ id: 'sixth_exam', label: '6th Period Exam', value: 'sixth_period_exam' },
+	{ id: 'first', label: '1st Pd', value: 'first' },
+	{ id: 'second', label: '2nd Pd', value: 'second' },
+	{ id: 'third', label: '3rd Pd', value: 'third' },
+	{ id: 'third_exam', label: '3rd Pd Exam', value: 'third_period_exam' },
+	{ id: 'fourth', label: '4th Pd', value: 'fourth' },
+	{ id: 'fifth', label: '5th Pd', value: 'fifth' },
+	{ id: 'sixth', label: '6th Pd', value: 'sixth' },
+	{ id: 'sixth_exam', label: '6th Pd Exam', value: 'sixth_period_exam' },
 ];
 
 const PageLoading = ({ fullScreen = true }: { fullScreen?: boolean }) => (
@@ -415,7 +415,13 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 	useEffect(() => {
 		if (studentsData.length > 0) {
-			const combined = combineStudentsAndGrades(studentsData, gradesData || []);
+			const combined = combineStudentsAndGrades(studentsData, gradesData || [])
+				.slice()
+				.sort((a, b) =>
+					(a.studentName || '').localeCompare(b.studentName || '', undefined, {
+						sensitivity: 'base',
+					})
+				);
 			setCombinedData(combined);
 			setPdfKey((prev) => prev + 1);
 		} else {
