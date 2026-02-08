@@ -13,6 +13,11 @@ export default function PrefetchDashboardChunks() {
 
 	useEffect(() => {
 		if (!school || !user || !isOnline) return;
+		if (typeof navigator !== 'undefined') {
+			const connection = (navigator as any).connection;
+			if (connection?.saveData) return;
+			if (['slow-2g', '2g'].includes(connection?.effectiveType)) return;
+		}
 		const adminPosition =
 			user.role === 'administrator' ? (user as any).position : undefined;
 		preloadComponentsForUser(school, user.role, adminPosition);

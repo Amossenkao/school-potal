@@ -55,6 +55,10 @@ const ProtectedRoute = ({
 			return; // User was authenticated before going offline
 		}
 
+		if (authCheckFailed) {
+			return;
+		}
+
 		if (
 			initialCheckComplete &&
 			!authCheckInProgress &&
@@ -125,12 +129,33 @@ const ProtectedRoute = ({
 
 	// Show full loading screen only during the very first authentication check
 	if (isLoading || !initialCheckComplete || authCheckInProgress) {
+		if (user) {
+			return <>{children}</>;
+		}
+		if (authCheckFailed) {
+			return (
+				<PageLoading
+					variant="school"
+					fullScreen={true}
+					message="Connection issue. Retrying..."
+				/>
+			);
+		}
 		return <PageLoading variant="school" fullScreen={true} />;
 	}
 
-	// ✅ If offline and auth check failed, don't redirect - let AdminLayout handle the UI
-	if (authCheckFailed && !isOnline) {
-		return <>{children}</>;
+	// ✅ If auth check failed, don't redirect - let AdminLayout handle the UI
+	if (authCheckFailed) {
+		if (user) {
+			return <>{children}</>;
+		}
+		return (
+			<PageLoading
+				variant="school"
+				fullScreen={true}
+				message="Connection issue. Retrying..."
+			/>
+		);
 	}
 
 	// If not logged in and no auth check error, show login page

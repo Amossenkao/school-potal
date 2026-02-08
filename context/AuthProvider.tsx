@@ -1,7 +1,7 @@
 // app/providers/AuthProvider.tsx
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
 import { useNetworkStore } from '@/store/networkStore';
@@ -16,28 +16,30 @@ export default function AuthProvider({
 	const setAuthCheckFailed = useNetworkStore(
 		(state) => state.setAuthCheckFailed
 	);
+	const authCheckInFlight = useRef(false);
 
 	useEffect(() => {
 		let mounted = true;
 
 		const runAuthCheck = async () => {
-			if (typeof navigator !== 'undefined' && !navigator.onLine) {
-				setIsOnline(false);
+			if (authCheckInFlight.current) return;
+			authCheckInFlight.current = true;
+			const navigatorOnline =
+				typeof navigator !== 'undefined' ? navigator.onLine : true;
+			setIsOnline(navigatorOnline);
+			if (!navigatorOnline) {
 				setAuthCheckFailed(true);
+				authCheckInFlight.current = false;
 				return;
 			}
+
 			try {
 				await checkAuthStatus(); // ✅ Ping /api/auth/me
-				if (mounted) {
-					setIsOnline(true);
-					setAuthCheckFailed(false); // Auth check succeeded
-				}
 			} catch (err) {
-				if (mounted) {
-					setIsOnline(false); // ❌ Network or server issue
-					setAuthCheckFailed(true); // Mark that auth check failed
-				}
 				console.error('[AuthProvider] Failed to reach /api/auth/me:', err);
+				setAuthCheckFailed(true);
+			} finally {
+				authCheckInFlight.current = false;
 			}
 
 			if (mounted) {
