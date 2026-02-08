@@ -588,6 +588,7 @@ const AppHeader: React.FC = () => {
 	const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
 	const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
 	const inputRef = useRef<HTMLInputElement>(null);
+	const headerRef = useRef<HTMLElement>(null);
 	const { isOnline } = useNetworkStore();
 
 	const handleToggle = () => {
@@ -609,12 +610,42 @@ const AppHeader: React.FC = () => {
 		return () => document.removeEventListener('keydown', handleKeyDown);
 	}, []);
 
+	useEffect(() => {
+		const headerEl = headerRef.current;
+		if (!headerEl) return;
+
+		const updateHeaderHeight = () => {
+			const height = headerEl.getBoundingClientRect().height;
+			document.documentElement.style.setProperty(
+				'--app-header-height',
+				`${height}px`
+			);
+		};
+
+		updateHeaderHeight();
+
+		let resizeObserver: ResizeObserver | null = null;
+		if (typeof ResizeObserver !== 'undefined') {
+			resizeObserver = new ResizeObserver(updateHeaderHeight);
+			resizeObserver.observe(headerEl);
+		}
+
+		window.addEventListener('resize', updateHeaderHeight);
+		return () => {
+			window.removeEventListener('resize', updateHeaderHeight);
+			if (resizeObserver) {
+				resizeObserver.disconnect();
+			}
+		};
+	}, []);
+
 	const headerPositionClasses = isMobileOpen
 		? 'fixed inset-x-0 top-0'
 		: 'sticky top-0';
 
 	return (
 		<header
+			ref={headerRef}
 			className={`${headerPositionClasses} flex w-full bg-white border-gray-200 z-40 dark:border-gray-800 dark:bg-gray-900 lg:border-b`}
 		>
 			<div className="flex flex-col items-center justify-between grow lg:flex-row lg:px-6">
