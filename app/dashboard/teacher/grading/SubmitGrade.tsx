@@ -1071,8 +1071,8 @@ const SubmitGrade: React.FC = () => {
 							)}
 
 							<div className="p-3 sm:p-4">
-								<div className="overflow-x-auto overflow-y-auto max-h-[60vh] pb-28">
-									<table className="w-full min-w-max border border-border table-auto">
+								<div className="overflow-auto max-h-[60vh] pb-24">
+									<table className="w-full min-w-[460px] md:min-w-[560px] xl:min-w-[720px] border border-border table-auto xl:w-auto">
 										<thead className="bg-muted/60 sticky top-0 z-20">
 											<tr>
 												<th className="sticky left-0 top-0 z-30 bg-muted/60 border-b border-r border-border px-2 sm:px-4 py-3 text-left text-xs font-semibold uppercase text-muted-foreground w-44 sm:w-56 xl:w-72">
