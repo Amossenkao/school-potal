@@ -52,7 +52,6 @@ const periods = [
 // Constants for pagination
 const STUDENTS_PER_PAGE = 22;
 
-
 // PDF Styles
 const styles = StyleSheet.create({
 	page: {
@@ -104,9 +103,9 @@ const styles = StyleSheet.create({
 	coverPage: {
 		flexDirection: 'column',
 		backgroundColor: '#f8fafc',
-		paddingTop: 36,
-		paddingRight: 36,
-		paddingBottom: 36,
+		paddingTop: 34,
+		paddingRight: 34,
+		paddingBottom: 30,
 		paddingLeft: 86,
 		position: 'relative',
 	},
@@ -115,16 +114,55 @@ const styles = StyleSheet.create({
 		left: 0,
 		top: 0,
 		bottom: 0,
-		width: 44,
-		backgroundColor: '#0f172a',
+		width: 52,
+		backgroundColor: '#e2e8f0',
 	},
 	coverAccentStripe: {
 		position: 'absolute',
-		left: 44,
+		left: 52,
 		top: 0,
 		bottom: 0,
-		width: 6,
+		width: 8,
 		backgroundColor: '#38bdf8',
+	},
+	coverBackdrop: {
+		position: 'absolute',
+		right: -90,
+		top: -60,
+		width: 420,
+		height: 420,
+		borderRadius: 210,
+		backgroundColor: '#e0f2fe',
+		opacity: 0.8,
+	},
+	coverGlow: {
+		position: 'absolute',
+		right: 10,
+		bottom: -110,
+		width: 360,
+		height: 360,
+		borderRadius: 180,
+		backgroundColor: '#bae6fd',
+		opacity: 0.35,
+	},
+	coverRibbon: {
+		position: 'absolute',
+		right: -30,
+		top: 90,
+		width: 300,
+		height: 96,
+		backgroundColor: '#ffffff',
+		transform: 'rotate(-12deg)',
+		opacity: 0.9,
+	},
+	coverRibbonEdge: {
+		position: 'absolute',
+		right: -22,
+		top: 106,
+		width: 300,
+		height: 6,
+		backgroundColor: '#0ea5e9',
+		transform: 'rotate(-12deg)',
 	},
 	coverHeader: {
 		flexDirection: 'row',
@@ -132,10 +170,14 @@ const styles = StyleSheet.create({
 		justifyContent: 'space-between',
 	},
 	coverLogoBox: {
-		width: 64,
-		height: 64,
+		width: 72,
+		height: 72,
 		alignItems: 'center',
 		justifyContent: 'center',
+		backgroundColor: '#ffffff',
+		borderRadius: 10,
+		borderWidth: 1,
+		borderColor: '#e2e8f0',
 	},
 	coverSchoolBlock: {
 		flex: 1,
@@ -143,48 +185,48 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 12,
 	},
 	coverSchoolName: {
-		fontSize: 22,
+		fontSize: 24,
 		fontWeight: 'bold',
 		color: '#0f172a',
 		textAlign: 'center',
 	},
 	coverSchoolAddress: {
 		fontSize: 11,
-		color: '#475569',
+		color: '#64748b',
 		textAlign: 'center',
 		marginTop: 4,
 	},
 	coverDivider: {
-		height: 2,
+		height: 1,
 		backgroundColor: '#e2e8f0',
-		marginTop: 18,
-		marginBottom: 18,
+		marginTop: 16,
+		marginBottom: 16,
 	},
 	coverTitleBlock: {
-		marginTop: 12,
-		marginBottom: 18,
+		marginTop: 6,
+		marginBottom: 16,
 	},
 	coverKicker: {
-		fontSize: 11,
+		fontSize: 10,
 		textTransform: 'uppercase',
-		letterSpacing: 2,
-		color: '#0f172a',
-		marginBottom: 6,
+		letterSpacing: 3,
+		color: '#0ea5e9',
+		marginBottom: 8,
 	},
 	coverTitleLarge: {
-		fontSize: 28,
+		fontSize: 30,
 		fontWeight: 'bold',
 		color: '#0f172a',
 	},
 	coverSubtitle: {
-		fontSize: 12,
-		color: '#64748b',
+		fontSize: 11,
+		color: '#475569',
 		marginTop: 8,
 	},
 	coverMetaCard: {
 		borderWidth: 1,
 		borderColor: '#e2e8f0',
-		borderRadius: 10,
+		borderRadius: 14,
 		paddingVertical: 16,
 		paddingHorizontal: 18,
 		backgroundColor: '#ffffff',
@@ -209,6 +251,67 @@ const styles = StyleSheet.create({
 		marginTop: 18,
 		fontSize: 9,
 		color: '#94a3b8',
+	},
+	coverBadge: {
+		position: 'absolute',
+		right: 40,
+		bottom: 36,
+		width: 110,
+		height: 110,
+		borderRadius: 55,
+		backgroundColor: '#ffffff',
+		borderWidth: 2,
+		borderColor: '#0ea5e9',
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	coverBadgeText: {
+		fontSize: 9,
+		color: '#0ea5e9',
+		letterSpacing: 1.4,
+		textTransform: 'uppercase',
+		textAlign: 'center',
+	},
+	coverBadgeYear: {
+		fontSize: 16,
+		color: '#0f172a',
+		fontWeight: 'bold',
+		marginTop: 6,
+	},
+	coverMetaGrid: {
+		marginTop: 10,
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+	},
+	coverMetaChip: {
+		width: '48%',
+		borderWidth: 1,
+		borderColor: '#e2e8f0',
+		borderRadius: 10,
+		paddingVertical: 10,
+		paddingHorizontal: 12,
+		marginBottom: 10,
+		marginRight: '4%',
+		backgroundColor: '#f8fafc',
+	},
+	coverMetaChipRight: {
+		marginRight: 0,
+	},
+	coverMetaChipWide: {
+		width: '100%',
+		marginRight: 0,
+	},
+	coverMetaChipLabel: {
+		fontSize: 9,
+		color: '#64748b',
+		textTransform: 'uppercase',
+		letterSpacing: 1,
+	},
+	coverMetaChipValue: {
+		fontSize: 12,
+		color: '#0f172a',
+		fontWeight: 'bold',
+		marginTop: 6,
 	},
 
 	infoSection: {
@@ -335,14 +438,26 @@ const CoverPage: React.FC<{
 	className: string;
 	subject: string;
 	teacherName: string;
-}> = ({ school, academicYear, classLevel, className, subject, teacherName }) => (
-	<Page size="A4" orientation="landscape" style={styles.coverPage}>
-		<View style={styles.coverAccentBar} />
-		<View style={styles.coverAccentStripe} />
+}> = ({
+	school,
+	academicYear,
+	classLevel,
+	className,
+	subject,
+	teacherName,
+}) => (
+	<Page size="A4" orientation="landscape" style={styles.coverPage} wrap={false}>
+		<View style={styles.coverAccentBar} fixed />
+		<View style={styles.coverAccentStripe} fixed />
+		<View style={styles.coverBackdrop} fixed />
+		<View style={styles.coverGlow} fixed />
+		<View style={styles.coverRibbon} fixed />
+		<View style={styles.coverRibbonEdge} fixed />
 
 		<View style={styles.coverHeader}>
 			<View style={styles.coverLogoBox}>
-				{typeof school.logoUrl2 === 'string' && school.logoUrl2.trim().length > 0 ? (
+				{typeof school.logoUrl2 === 'string' &&
+				school.logoUrl2.trim().length > 0 ? (
 					<Image src={school.logoUrl2} style={styles.logo} />
 				) : (
 					<View style={styles.logo} />
@@ -354,15 +469,16 @@ const CoverPage: React.FC<{
 					{(Array.isArray(school.address)
 						? school.address
 						: school.address
-						? [school.address]
-						: []
+							? [school.address]
+							: []
 					)
 						.filter(Boolean)
 						.join('\n')}
 				</Text>
 			</View>
 			<View style={styles.coverLogoBox}>
-				{typeof school.logoUrl === 'string' && school.logoUrl.trim().length > 0 ? (
+				{typeof school.logoUrl === 'string' &&
+				school.logoUrl.trim().length > 0 ? (
 					<Image src={school.logoUrl} style={styles.logo} />
 				) : (
 					<View style={styles.logo} />
@@ -375,8 +491,9 @@ const CoverPage: React.FC<{
 		<View style={styles.coverTitleBlock}>
 			<Text style={styles.coverKicker}>Master Grade Sheets</Text>
 			<Text style={styles.coverTitleLarge}>Academic Record Book</Text>
+			{/* <Text style={styles.coverTitleLarge}>Book</Text> */}
 			<Text style={styles.coverSubtitle}>
-				Official compilation for academic reporting and archival.
+				Official compilation for academic reporting, auditing, and archival.
 			</Text>
 		</View>
 
@@ -385,26 +502,33 @@ const CoverPage: React.FC<{
 				<Text style={styles.coverMetaLabel}>Academic Year</Text>
 				<Text style={styles.coverMetaValue}>{academicYear}</Text>
 			</View>
-			<View style={styles.coverMetaRow}>
-				<Text style={styles.coverMetaLabel}>Class Level</Text>
-				<Text style={styles.coverMetaValue}>{classLevel || '-'}</Text>
-			</View>
-			<View style={styles.coverMetaRow}>
-				<Text style={styles.coverMetaLabel}>Class</Text>
-				<Text style={styles.coverMetaValue}>{className}</Text>
-			</View>
-			<View style={styles.coverMetaRow}>
-				<Text style={styles.coverMetaLabel}>Subject</Text>
-				<Text style={styles.coverMetaValue}>{subject}</Text>
-			</View>
-			<View style={styles.coverMetaRow}>
-				<Text style={styles.coverMetaLabel}>Teacher</Text>
-				<Text style={styles.coverMetaValue}>{teacherName}</Text>
+			<View style={styles.coverMetaGrid}>
+				<View style={styles.coverMetaChip}>
+					<Text style={styles.coverMetaChipLabel}>Division</Text>
+					<Text style={styles.coverMetaChipValue}>{classLevel || '-'}</Text>
+				</View>
+				<View style={[styles.coverMetaChip, styles.coverMetaChipRight]}>
+					<Text style={styles.coverMetaChipLabel}>Class</Text>
+					<Text style={styles.coverMetaChipValue}>{className}</Text>
+				</View>
+				<View style={[styles.coverMetaChip, styles.coverMetaChipWide]}>
+					<Text style={styles.coverMetaChipLabel}>Subject</Text>
+					<Text style={styles.coverMetaChipValue}>{subject}</Text>
+				</View>
+				<View style={[styles.coverMetaChip, styles.coverMetaChipWide]}>
+					<Text style={styles.coverMetaChipLabel}>Teacher</Text>
+					<Text style={styles.coverMetaChipValue}>{teacherName}</Text>
+				</View>
 			</View>
 		</View>
 
 		<View style={styles.coverFooter}>
 			<Text>Confidential • For official use only</Text>
+		</View>
+
+		<View style={styles.coverBadge} fixed>
+			<Text style={styles.coverBadgeText}>Issued</Text>
+			<Text style={styles.coverBadgeYear}>{academicYear}</Text>
 		</View>
 	</Page>
 );
@@ -430,9 +554,7 @@ const StudentRow: React.FC<{ student: any; index: number }> = ({
 	return (
 		<View style={styles.tableRow}>
 			<Text style={styles.tableCellNo}>{index}</Text>
-			<Text style={styles.tableCellName}>
-				{student?.studentName || ''}
-			</Text>
+			<Text style={styles.tableCellName}>{student?.studentName || ''}</Text>
 			{periods.map((period) => {
 				const grade = student?.periods?.[period.value];
 				return (
@@ -443,8 +565,8 @@ const StudentRow: React.FC<{ student: any; index: number }> = ({
 							grade >= 70
 								? styles.passGrade
 								: grade < 70 && grade !== null && grade !== undefined
-								? styles.failGrade
-								: {},
+									? styles.failGrade
+									: {},
 						]}
 					>
 						{grade !== null && grade !== undefined
@@ -482,9 +604,8 @@ const GradesPDF: React.FC<{
 		`${teacherInfo?.firstName || ''} ${teacherInfo?.lastName || ''}`.trim() ||
 		'___________________________';
 
-	const normalizedStudents = (Array.isArray(gradeData?.students)
-		? gradeData.students
-		: []
+	const normalizedStudents = (
+		Array.isArray(gradeData?.students) ? gradeData.students : []
 	)
 		.filter(Boolean)
 		.map((student: any) => ({
@@ -493,21 +614,19 @@ const GradesPDF: React.FC<{
 			periods: student.periods ?? {},
 		}));
 
-	const sortedStudents = normalizedStudents
-		.slice()
-		.sort((a: any, b: any) =>
-			(a.studentName || '').localeCompare(b.studentName || '', undefined, {
-				sensitivity: 'base',
-			})
-		);
+	const sortedStudents = normalizedStudents.slice().sort((a: any, b: any) =>
+		(a.studentName || '').localeCompare(b.studentName || '', undefined, {
+			sensitivity: 'base',
+		}),
+	);
 
 	const basePages = Array.from(
 		{ length: Math.ceil(sortedStudents.length / STUDENTS_PER_PAGE) || 1 },
 		(_, index) =>
 			sortedStudents.slice(
 				index * STUDENTS_PER_PAGE,
-				(index + 1) * STUDENTS_PER_PAGE
-			)
+				(index + 1) * STUDENTS_PER_PAGE,
+			),
 	);
 
 	const lastPageCount =
@@ -525,7 +644,7 @@ const GradesPDF: React.FC<{
 
 	if (remainingSlots > 0) {
 		basePages[basePages.length - 1] = basePages[basePages.length - 1].concat(
-			buildEmptyRows(remainingSlots, `empty-fill-${basePages.length - 1}`)
+			buildEmptyRows(remainingSlots, `empty-fill-${basePages.length - 1}`),
 		);
 	}
 
@@ -533,7 +652,7 @@ const GradesPDF: React.FC<{
 		? [
 				...basePages,
 				buildEmptyRows(STUDENTS_PER_PAGE, `empty-page-${basePages.length}`),
-		  ]
+			]
 		: basePages;
 
 	return (
@@ -555,7 +674,8 @@ const GradesPDF: React.FC<{
 					style={styles.page}
 				>
 					<View style={styles.watermark}>
-						{typeof school.logoUrl === 'string' && school.logoUrl.trim().length > 0 ? (
+						{typeof school.logoUrl === 'string' &&
+						school.logoUrl.trim().length > 0 ? (
 							<Image src={school.logoUrl} style={styles.watermarkImage} />
 						) : (
 							<View style={styles.watermarkImage} />
@@ -577,8 +697,7 @@ const GradesPDF: React.FC<{
 						</Text>
 						<Text style={styles.infoDivider}>|</Text>
 						<Text style={styles.infoText}>
-							<Text style={{ fontWeight: 'bold' }}>Teacher:</Text>{' '}
-							{teacherName}
+							<Text style={{ fontWeight: 'bold' }}>Teacher:</Text> {teacherName}
 						</Text>
 					</View>
 
@@ -677,7 +796,15 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 				school={school}
 			/>
 		);
-	}, [teacherInfo, gradeData, className, classLevel, subject, academicYear, school]);
+	}, [
+		teacherInfo,
+		gradeData,
+		className,
+		classLevel,
+		subject,
+		academicYear,
+		school,
+	]);
 
 	useEffect(() => {
 		if (!doc) return;
