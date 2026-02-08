@@ -877,168 +877,173 @@ const SubmitGrade: React.FC = () => {
 
 				<div className="space-y-4 sm:space-y-6">
 					<div className="p-4 sm:p-6 bg-card border border-border rounded-lg shadow-sm">
-						<h3 className="text-lg sm:text-xl font-semibold mb-1 sm:mb-2 text-foreground">
-							Submit New Grades
-						</h3>
-						<p className="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6">
-							Follow the steps to select your class and subject.
-						</p>
+						<details open className="group">
+							<summary className="flex items-center justify-between cursor-pointer list-none text-sm sm:text-base font-semibold text-foreground">
+								<span>Filters & Periods</span>
+								<span className="text-muted-foreground text-xs sm:text-sm group-open:hidden">
+									Expand
+								</span>
+								<span className="text-muted-foreground text-xs sm:text-sm hidden group-open:inline">
+									Collapse
+								</span>
+							</summary>
 
-						<div className="space-y-3 sm:space-y-4">
-							{showAcademicYearFilter && (
-								<div>
-									<label className="block text-sm font-medium text-foreground mb-1.5">
-										Academic Year
-									</label>
-									<select
-										value={selectedAcademicYear}
-										onChange={(e) => setSelectedAcademicYear(e.target.value)}
-										className="block w-full rounded-lg border border-input bg-background py-2.5 px-3 text-foreground focus:border-ring focus:ring-2 focus:ring-ring text-sm sm:text-base"
-									>
-										<option value="">Select Year</option>
-										{availableAcademicYears.map((year, index) => (
-											<option key={`year-${year}-${index}`} value={year}>
-												{year}
-											</option>
-										))}
-									</select>
-								</div>
-							)}
-
-							{showSessionSelect && (
-								<div>
-									<label className="block text-sm font-medium text-foreground mb-1.5">
-										Session
-									</label>
-									<select
-										value={selectedSession}
-										onChange={(e) => handleSessionChange(e.target.value)}
-										className="block w-full rounded-lg border border-input bg-background py-2.5 px-3 text-foreground focus:border-ring focus:ring-2 focus:ring-ring text-sm sm:text-base"
-									>
-										<option value="">Select Session</option>
-										{availableSessions.map((session, index) => (
-											<option
-												key={`session-${session}-${index}`}
-												value={session}
-											>
-												{session}
-											</option>
-										))}
-									</select>
-								</div>
-							)}
-
-							{showLevelSelect && selectedSession && (
-								<div>
-									<label className="block text-sm font-medium text-foreground mb-1.5">
-										Class Level
-									</label>
-									<select
-										value={selectedClassLevel}
-										onChange={(e) => handleClassLevelChange(e.target.value)}
-										className="block w-full rounded-lg border border-input bg-background py-2.5 px-3 text-foreground focus:border-ring focus:ring-2 focus:ring-ring text-sm sm:text-base"
-									>
-										<option value="">Select Level</option>
-										{availableLevels.map((level, index) => (
-											<option key={`level-${level}-${index}`} value={level}>
-												{level}
-											</option>
-										))}
-									</select>
-								</div>
-							)}
-
-							{showClassSelect && selectedClassLevel && (
-								<div>
-									<label className="block text-sm font-medium text-foreground mb-1.5">
-										Class
-									</label>
-									<select
-										value={selectedClassId}
-										onChange={(e) => handleClassChange(e.target.value)}
-										className="block w-full rounded-lg border border-input bg-background py-2.5 px-3 text-foreground focus:border-ring focus:ring-2 focus:ring-ring text-sm sm:text-base"
-									>
-										<option value="">Select Class</option>
-										{availableClasses.map((cls, index) => (
-											<option
-												key={`class-${cls.classId}-${index}`}
-												value={cls.classId}
-											>
-												{cls.name}
-											</option>
-										))}
-									</select>
-								</div>
-							)}
-
-							{isSelfContainedTeacher && (
-								<div>
-									<label className="block text-sm font-medium text-foreground mb-1.5">
-										Class
-									</label>
-									<div className="block w-full rounded-lg border border-input bg-muted py-2.5 px-3 text-muted-foreground text-sm sm:text-base">
-										{availableClasses[0]?.name || 'Sponsor Class'}
-									</div>
-								</div>
-							)}
-
-							{showSubjectSelect && selectedClassId && (
-								<div>
-									<label className="block text-sm font-medium text-foreground mb-1.5">
-										Subject
-									</label>
-									<select
-										value={selectedSubject}
-										onChange={(e) => setSelectedSubject(e.target.value)}
-										className="block w-full rounded-lg border border-input bg-background py-2.5 px-3 text-foreground focus:border-ring focus:ring-2 focus:ring-ring text-sm sm:text-base"
-									>
-										<option value="">Select Subject</option>
-										{availableSubjects.map((subject, index) => (
-											<option
-												key={`subject-${subject}-${index}`}
-												value={subject}
-											>
-												{subject}
-											</option>
-										))}
-									</select>
-								</div>
-							)}
-						</div>
-
-						{loading.studentsForGrading && (
-							<div className="mt-6">
-								<PageLoading message="Loading Students..." fullScreen={false} />
-							</div>
-						)}
-
-						{studentsForGrading.length > 0 && (
-							<div className="mt-4 sm:mt-6">
-								<label className="block text-sm font-medium text-foreground mb-2 sm:mb-3">
-									Select Periods to Grade
-								</label>
-								<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-									{periods.map((p) => (
-										<label
-											key={`period-${p.id}`}
-											className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent cursor-pointer transition-colors"
-										>
-											<input
-												type="checkbox"
-												className="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring"
-												checked={selectedPeriods.includes(p.value)}
-												onChange={(e) =>
-													handlePeriodToggle(p.value, e.target.checked)
-												}
-											/>
-											<span className="text-sm font-medium text-foreground">
-												{p.label}
-											</span>
+							<div className="mt-4 sm:mt-6 space-y-3 sm:space-y-4">
+								{showAcademicYearFilter && (
+									<div>
+										<label className="block text-sm font-medium text-foreground mb-1.5">
+											Academic Year
 										</label>
-									))}
-								</div>
+										<select
+											value={selectedAcademicYear}
+											onChange={(e) => setSelectedAcademicYear(e.target.value)}
+											className="block w-full rounded-lg border border-input bg-background py-2.5 px-3 text-foreground focus:border-ring focus:ring-2 focus:ring-ring text-sm sm:text-base"
+										>
+											<option value="">Select Year</option>
+											{availableAcademicYears.map((year, index) => (
+												<option key={`year-${year}-${index}`} value={year}>
+													{year}
+												</option>
+											))}
+										</select>
+									</div>
+								)}
+
+								{showSessionSelect && (
+									<div>
+										<label className="block text-sm font-medium text-foreground mb-1.5">
+											Session
+										</label>
+										<select
+											value={selectedSession}
+											onChange={(e) => handleSessionChange(e.target.value)}
+											className="block w-full rounded-lg border border-input bg-background py-2.5 px-3 text-foreground focus:border-ring focus:ring-2 focus:ring-ring text-sm sm:text-base"
+										>
+											<option value="">Select Session</option>
+											{availableSessions.map((session, index) => (
+												<option
+													key={`session-${session}-${index}`}
+													value={session}
+												>
+													{session}
+												</option>
+											))}
+										</select>
+									</div>
+								)}
+
+								{showLevelSelect && selectedSession && (
+									<div>
+										<label className="block text-sm font-medium text-foreground mb-1.5">
+											Class Level
+										</label>
+										<select
+											value={selectedClassLevel}
+											onChange={(e) => handleClassLevelChange(e.target.value)}
+											className="block w-full rounded-lg border border-input bg-background py-2.5 px-3 text-foreground focus:border-ring focus:ring-2 focus:ring-ring text-sm sm:text-base"
+										>
+											<option value="">Select Level</option>
+											{availableLevels.map((level, index) => (
+												<option key={`level-${level}-${index}`} value={level}>
+													{level}
+												</option>
+											))}
+										</select>
+									</div>
+								)}
+
+								{showClassSelect && selectedClassLevel && (
+									<div>
+										<label className="block text-sm font-medium text-foreground mb-1.5">
+											Class
+										</label>
+										<select
+											value={selectedClassId}
+											onChange={(e) => handleClassChange(e.target.value)}
+											className="block w-full rounded-lg border border-input bg-background py-2.5 px-3 text-foreground focus:border-ring focus:ring-2 focus:ring-ring text-sm sm:text-base"
+										>
+											<option value="">Select Class</option>
+											{availableClasses.map((cls, index) => (
+												<option
+													key={`class-${cls.classId}-${index}`}
+													value={cls.classId}
+												>
+													{cls.name}
+												</option>
+											))}
+										</select>
+									</div>
+								)}
+
+								{isSelfContainedTeacher && (
+									<div>
+										<label className="block text-sm font-medium text-foreground mb-1.5">
+											Class
+										</label>
+										<div className="block w-full rounded-lg border border-input bg-muted py-2.5 px-3 text-muted-foreground text-sm sm:text-base">
+											{availableClasses[0]?.name || 'Sponsor Class'}
+										</div>
+									</div>
+								)}
+
+								{showSubjectSelect && selectedClassId && (
+									<div>
+										<label className="block text-sm font-medium text-foreground mb-1.5">
+											Subject
+										</label>
+										<select
+											value={selectedSubject}
+											onChange={(e) => setSelectedSubject(e.target.value)}
+											className="block w-full rounded-lg border border-input bg-background py-2.5 px-3 text-foreground focus:border-ring focus:ring-2 focus:ring-ring text-sm sm:text-base"
+										>
+											<option value="">Select Subject</option>
+											{availableSubjects.map((subject, index) => (
+												<option
+													key={`subject-${subject}-${index}`}
+													value={subject}
+												>
+													{subject}
+												</option>
+											))}
+										</select>
+									</div>
+								)}
+
+								{loading.studentsForGrading && (
+									<div className="mt-2">
+										<PageLoading message="Loading Students..." fullScreen={false} />
+									</div>
+								)}
+
+								{studentsForGrading.length > 0 && (
+									<div className="mt-4">
+										<label className="block text-sm font-medium text-foreground mb-2 sm:mb-3">
+											Select Periods to Grade
+										</label>
+										<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+											{periods.map((p) => (
+												<label
+													key={`period-${p.id}`}
+													className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent cursor-pointer transition-colors"
+												>
+													<input
+														type="checkbox"
+														className="h-4 w-4 rounded border-input text-primary focus:ring-2 focus:ring-ring"
+														checked={selectedPeriods.includes(p.value)}
+														onChange={(e) =>
+															handlePeriodToggle(p.value, e.target.checked)
+														}
+													/>
+													<span className="text-sm font-medium text-foreground">
+														{p.label}
+													</span>
+												</label>
+											))}
+										</div>
+									</div>
+								)}
 							</div>
-						)}
+						</details>
 					</div>
 
 					{studentsForGrading.length === 0 &&
