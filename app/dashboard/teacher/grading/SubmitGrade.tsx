@@ -1061,7 +1061,7 @@ const SubmitGrade: React.FC = () => {
 									<table className="w-full min-w-[460px] md:min-w-[560px] xl:min-w-[720px] border border-border table-auto xl:w-auto">
 										<thead className="bg-muted sticky top-0 z-20">
 											<tr>
-												<th className="sticky left-0 top-0 z-30 bg-muted border-b border-r border-border px-1.5 sm:px-4 py-3 text-left text-xs font-semibold uppercase text-muted-foreground w-36 sm:w-56 xl:w-72">
+												<th className="sticky left-0 top-0 z-30 bg-muted border-b border-r border-border px-1 py-2.5 sm:px-4 sm:py-3 text-left text-xs font-semibold uppercase text-muted-foreground w-28 sm:w-56 xl:w-72">
 													Student
 												</th>
 												{orderedSelectedPeriods.map((period) => {
@@ -1069,7 +1069,7 @@ const SubmitGrade: React.FC = () => {
 													return (
 														<th
 															key={period}
-															className="border-b border-r border-border px-1 sm:px-2.5 md:px-3 xl:px-5 py-3 text-left text-xs font-semibold uppercase text-muted-foreground whitespace-nowrap"
+															className="border-b border-r border-border px-1 sm:px-2.5 md:px-3 xl:px-5 py-2.5 sm:py-3 text-left text-[11px] sm:text-xs font-semibold uppercase text-muted-foreground whitespace-nowrap"
 														>
 															{periodLabel}
 														</th>
@@ -1089,27 +1089,27 @@ const SubmitGrade: React.FC = () => {
 														className="border-b border-border hover:bg-muted/10"
 													>
 														<td
-															className="sticky left-0 z-10 bg-background border-r border-border px-1.5 sm:px-4 py-3 w-36 sm:w-56 xl:w-72"
+															className="sticky left-0 z-10 bg-background border-r border-border px-1 sm:px-4 py-2.5 sm:py-3 w-28 sm:w-56 xl:w-72"
 														>
-															<div className="flex items-center gap-2 sm:gap-3">
-																<div
-																	className={`p-1.5 rounded-full ${
-																		isActive ? 'bg-primary/20' : 'bg-primary/10'
-																	}`}
-																>
+																	<div className="flex items-center gap-1.5 sm:gap-3">
+																		<div
+																			className={`p-1.5 rounded-full ${
+																				isActive ? 'bg-primary/20' : 'bg-primary/10'
+																			}`}
+																		>
 																	<User
 																		className={`w-4 h-4 ${
 																			isActive ? 'text-primary' : 'text-primary'
 																		}`}
 																	/>
 																</div>
-																<span
-																	className={`font-medium text-sm truncate max-w-[120px] sm:max-w-none xl:max-w-[260px] ${
-																		isActive ? 'text-foreground' : 'text-foreground'
-																	}`}
-																>
-																	{student.name}
-																</span>
+																		<span
+																			className={`font-medium text-[11px] sm:text-sm truncate max-w-[90px] sm:max-w-none xl:max-w-[260px] ${
+																				isActive ? 'text-foreground' : 'text-foreground'
+																			}`}
+																		>
+																			{student.name}
+																		</span>
 																{isActive && (
 																	<ChevronLeft className="h-4 w-4 text-primary" />
 																)}
@@ -1126,7 +1126,7 @@ const SubmitGrade: React.FC = () => {
 																gradeValue !== '';
 
 															return (
-																<td key={period} className="border-r border-border px-1 sm:px-2.5 md:px-3 xl:px-5 py-3">
+																<td key={period} className="border-r border-border px-1 sm:px-2.5 md:px-3 xl:px-5 py-2.5 sm:py-3">
 																	<div className="flex flex-col gap-1">
 																		{isExisting ? (
 																			<div className="flex items-center gap-2">
@@ -1164,7 +1164,7 @@ const SubmitGrade: React.FC = () => {
 																					)
 																				}
 																				placeholder="0"
-																				className={`w-12 sm:w-16 md:w-20 xl:w-28 h-10 rounded-lg border-2 text-center text-base font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors ${getGradeDisplayColor(
+																				className={`w-10 sm:w-16 md:w-20 xl:w-28 h-9 sm:h-10 rounded-md sm:rounded-lg border-2 text-center text-[12px] sm:text-base font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors ${getGradeDisplayColor(
 																					gradeValue
 																				)} ${
 																					isInvalid
