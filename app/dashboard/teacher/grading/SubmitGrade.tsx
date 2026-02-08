@@ -1069,7 +1069,7 @@ const SubmitGrade: React.FC = () => {
 													return (
 														<th
 															key={period}
-															className="border-b border-r border-border px-0.5 sm:px-2.5 md:px-3 xl:px-5 py-2 sm:py-3 text-left text-[11px] sm:text-xs font-semibold uppercase text-muted-foreground whitespace-nowrap"
+															className="border-b border-r border-border px-1 sm:px-2.5 md:px-3 xl:px-5 py-2 sm:py-3 text-left text-[11px] sm:text-xs font-semibold uppercase text-muted-foreground whitespace-nowrap"
 														>
 															{periodLabel}
 														</th>
@@ -1126,7 +1126,7 @@ const SubmitGrade: React.FC = () => {
 																gradeValue !== '';
 
 															return (
-																<td key={period} className="border-r border-border px-0.5 sm:px-2.5 md:px-3 xl:px-5 py-2 sm:py-3">
+																<td key={period} className="border-r border-border px-1 sm:px-2.5 md:px-3 xl:px-5 py-2 sm:py-3">
 																	<div className="flex flex-col gap-1">
 																		{isExisting ? (
 																			<div className="flex items-center gap-2">
