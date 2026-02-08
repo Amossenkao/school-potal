@@ -301,7 +301,6 @@ export async function POST(request: NextRequest) {
 				.select('_id')
 				.lean();
 			const notification = {
-				_id: crypto.randomUUID(),
 				title: 'New Grade Change Request',
 				message: `${teacher.firstName} ${teacher.lastName} submitted ${createdRequests.length} grade change request(s) for ${subject} in ${classId}.`,
 				timestamp: new Date(),
@@ -379,7 +378,6 @@ export async function PATCH(request: NextRequest) {
 
 				// Prepare notification for teacher
 				const notification = {
-					_id: crypto.randomUUID(),
 					title: 'Grade Change Approved',
 					message: `Your request to change ${gradeRequest.studentName}'s grade in ${gradeRequest.subject} has been approved.`,
 					timestamp: new Date(),
@@ -402,7 +400,6 @@ export async function PATCH(request: NextRequest) {
 
 				// Prepare notification for teacher
 				const notification = {
-					_id: crypto.randomUUID(),
 					title: 'Grade Change Rejected',
 					message: `Your request to change ${gradeRequest.studentName}'s grade in ${gradeRequest.subject} has been rejected. Reason: ${adminRejectionReason}`,
 					timestamp: new Date(),

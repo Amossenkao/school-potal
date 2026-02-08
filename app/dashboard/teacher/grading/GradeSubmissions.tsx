@@ -101,6 +101,8 @@ const GradeSubmissions = () => {
 	const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
 	const [submittedGrades, setSubmittedGrades] = useState<GradeSubmission[]>([]);
 	const [academicYear, setAcademicYear] = useState<string>('');
+	const [currentPage, setCurrentPage] = useState(1);
+	const [rowsPerPage, setRowsPerPage] = useState(10);
 
 	const [loading, setLoading] = useState({
 		teacherInfo: true,
@@ -390,6 +392,8 @@ const GradeSubmissions = () => {
 			return true;
 		});
 	}, [assignedClasses, filters.session, filters.gradeLevel, filters.subject, yearAssignment]);
+
+	const showClassFilter = assignedClasses.length > 1;
 
 	const showNotification = (
 		type: 'success' | 'error' | 'info',
@@ -763,6 +767,20 @@ const GradeSubmissions = () => {
 		[submittedGrades, filters, sortConfig, availableClasses]
 	);
 
+	useEffect(() => {
+		setCurrentPage(1);
+	}, [filters, sortConfig, rowsPerPage, submittedGrades]);
+
+	const totalPages = Math.max(
+		1,
+		Math.ceil(filteredAndSortedGrades.length / rowsPerPage)
+	);
+	const currentPageSafe = Math.min(currentPage, totalPages);
+	const currentSlice = filteredAndSortedGrades.slice(
+		(currentPageSafe - 1) * rowsPerPage,
+		currentPageSafe * rowsPerPage
+	);
+
 	const renderConfirmationErrorModal = () => {
 		if (!confirmationModal.isOpen) return null;
 
@@ -1124,7 +1142,7 @@ const GradeSubmissions = () => {
 							</select>
 						)}
 
-						{filters.gradeLevel && availableClasses.length > 1 && (
+						{showClassFilter && availableClasses.length > 0 && (
 							<select
 								value={filters.classId}
 								onChange={(e) =>
@@ -1169,6 +1187,23 @@ const GradeSubmissions = () => {
 							/>
 							Refresh
 						</Button>
+
+						<div className="flex items-center gap-2">
+							<span className="text-sm text-muted-foreground">Rows:</span>
+							<select
+								value={rowsPerPage}
+								onChange={(e) => {
+									setRowsPerPage(Number(e.target.value));
+									setCurrentPage(1);
+								}}
+								className="w-[80px] rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
+							>
+								<option value="5">5</option>
+								<option value="10">10</option>
+								<option value="25">25</option>
+								<option value="50">50</option>
+							</select>
+						</div>
 					</div>
 
 					<div className="bg-background border border-border rounded-lg overflow-hidden shadow-sm">
@@ -1193,9 +1228,14 @@ const GradeSubmissions = () => {
 							<div className="p-6 text-center text-muted-foreground">
 								No grades have been submitted yet.
 							</div>
+						) : filteredAndSortedGrades.length === 0 ? (
+							<div className="p-6 text-center text-muted-foreground">
+								No submissions match your filters.
+							</div>
 						) : (
-							<div className="overflow-x-auto">
-								<table className="w-full">
+							<>
+								<div className="overflow-x-auto">
+									<table className="w-full">
 									<thead className="bg-muted/50">
 										<tr>
 											{[
@@ -1228,7 +1268,7 @@ const GradeSubmissions = () => {
 										</tr>
 									</thead>
 									<tbody className="divide-y divide-border bg-background">
-										{filteredAndSortedGrades.map((grade) => (
+										{currentSlice.map((grade) => (
 											<tr
 												key={grade.submissionId}
 												className="hover:bg-muted/70 transition-colors"
@@ -1266,8 +1306,44 @@ const GradeSubmissions = () => {
 											</tr>
 										))}
 									</tbody>
-								</table>
-							</div>
+									</table>
+								</div>
+								<div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-t border-border">
+									<div className="text-sm text-muted-foreground">
+										Showing{' '}
+										<strong>{(currentPageSafe - 1) * rowsPerPage + 1}</strong>–
+										<strong>
+											{Math.min(
+												currentPageSafe * rowsPerPage,
+												filteredAndSortedGrades.length
+											)}
+										</strong>{' '}
+										of <strong>{filteredAndSortedGrades.length}</strong>{' '}
+										submissions
+									</div>
+									<div className="flex items-center justify-between gap-2 sm:justify-start">
+										<button
+											className="w-full px-2 py-2 text-sm border rounded-md disabled:opacity-50 sm:w-auto"
+											onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+											disabled={currentPageSafe === 1}
+										>
+											Previous
+										</button>
+										<div className="text-sm">
+											Page {currentPageSafe} of {totalPages}
+										</div>
+										<button
+											className="w-full px-2 py-2 text-sm border rounded-md disabled:opacity-50 sm:w-auto"
+											onClick={() =>
+												setCurrentPage((p) => Math.min(p + 1, totalPages))
+											}
+											disabled={currentPageSafe === totalPages}
+										>
+											Next
+										</button>
+									</div>
+								</div>
+							</>
 						)}
 					</div>
 				</div>

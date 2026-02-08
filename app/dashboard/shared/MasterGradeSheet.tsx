@@ -85,6 +85,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 }) => {
 	const { user: userInfo } = useAuth();
 	const currentSchool = useSchoolStore((state) => state.school);
+	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
 	const effectiveUser = teacherInfo || userInfo;
 
 	const getClassMetaById = (classId: string) => {
@@ -199,6 +200,39 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const [selectedLevel, setSelectedLevel] = useState('');
 	const [selectedClass, setSelectedClass] = useState('');
 	const [selectedSubject, setSelectedSubject] = useState('');
+
+	const resolvedTeacher = useMemo(() => {
+		if (!selectedClass || !selectedSubject) return effectiveUser;
+		const yearKey = selectedAcademicYear;
+		const fallbackYearKey = currentAcademicYear;
+		const yearTeachers =
+			usersByAcademicYear?.[yearKey]?.teachers ||
+			usersByAcademicYear?.[fallbackYearKey]?.teachers ||
+			[];
+		const matchesYear = (year?: string) =>
+			normalizeAcademicYear(year) === selectedAcademicYear ||
+			year === selectedAcademicYear;
+		const match = yearTeachers.find((teacher: any) =>
+			(teacher?.subjects || []).some(
+				(s: any) =>
+					matchesYear(s?.year) &&
+					(s?.classes || []).some(
+						(c: any) =>
+							c?.classId === selectedClass &&
+							Array.isArray(c?.subjects) &&
+							c.subjects.includes(selectedSubject)
+					)
+			)
+		);
+		return match || effectiveUser;
+	}, [
+		usersByAcademicYear,
+		selectedAcademicYear,
+		currentAcademicYear,
+		selectedClass,
+		selectedSubject,
+		effectiveUser,
+	]);
 
 	// --- Available options for each filter (dynamic per role) ---
 	const sessions = useMemo(
@@ -738,7 +772,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 								<GradesPDFDownload
 									key={pdfKey}
 									disabled={isLoading}
-									teacherInfo={effectiveUser}
+									teacherInfo={resolvedTeacher}
 									gradeData={pdfGradeData}
 									className={
 										classes.find((cls: any) => cls.classId === selectedClass)

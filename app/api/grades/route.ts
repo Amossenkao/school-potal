@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantModels } from '@/models';
 import { authorizeUser } from '@/proxy';
 import { updateUserSessionNotifications } from '@/utils/session';
-import crypto from 'crypto';
 import { getSchoolProfile } from '@/lib/mongoose';
 
 // Helper function to add notification to user and update their session
@@ -1142,7 +1141,6 @@ export async function POST(request: NextRequest) {
 		const notificationPromises = [];
 		for (const [submissionId, summary] of submissionSummary.entries()) {
 			const notification = {
-				_id: crypto.randomUUID(),
 				title: 'New Grade Submission',
 				message: `${teacher.firstName} ${teacher.lastName} submitted ${summary.count} grade${
 					summary.count === 1 ? '' : 's'
@@ -1355,15 +1353,14 @@ export async function PATCH(request: NextRequest) {
 					const teacherUsername = key.split('|')[0];
 					const teacher = await User.findOne({ username: teacherUsername })
 						.select('_id')
-						.lean();
-					if (!teacher) return;
-					const notification = {
-						_id: crypto.randomUUID(),
-						title: `Grades ${summary.status}`,
-						message: `Your ${summary.count} grade${
-							summary.count === 1 ? '' : 's'
-						} for ${summary.subject} (${summary.period}) in ${
-							summary.classId
+					.lean();
+				if (!teacher) return;
+				const notification = {
+					title: `Grades ${summary.status}`,
+					message: `Your ${summary.count} grade${
+						summary.count === 1 ? '' : 's'
+					} for ${summary.subject} (${summary.period}) in ${
+						summary.classId
 						} have been ${summary.status.toLowerCase()}. (${summary.count} student${
 							summary.count === 1 ? '' : 's'
 						})`,

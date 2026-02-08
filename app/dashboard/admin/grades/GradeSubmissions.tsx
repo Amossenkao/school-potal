@@ -29,209 +29,10 @@ import {
 	WifiOff,
 	Eye,
 	Search,
+	RefreshCw,
 } from 'lucide-react';
-
-// In your actual application, you would import this from your store.
-// For this example, we're mocking the store and its data.
-const upstairs = {
-	name: 'Upstairs Christian Academy',
-	slogan: 'Excellence in Education',
-	classLevels: {
-		Morning: {
-			'Self Contained': {
-				subjects: [
-					'Math',
-					'General Science',
-					'English',
-					'French',
-					'Social Studies',
-					'Health Science',
-					'Physical Education',
-					'Computer',
-					'Reading',
-					'Writing',
-					'Spelling',
-					'Phonics',
-					'Bible',
-				],
-				classes: [
-					{ classId: 'Morning-Daycare', name: 'Daycare' },
-					{ classId: 'Morning-Nursery', name: 'Nursery' },
-					{ classId: 'Morning-kOne', name: 'K-I' },
-					{ classId: 'Morning-kTwo', name: 'K-II' },
-					{ classId: 'Morning-GradeOne', name: 'Grade 1' },
-					{ classId: 'Morning-GradeTwo', name: 'Grade 2' },
-					{ classId: 'Morning-GradeThree', name: 'Grade 3' },
-				],
-			},
-			Elementary: {
-				subjects: [
-					'Math',
-					'General Science',
-					'English',
-					'French',
-					'Social Studies',
-					'Health Science',
-					'Physical Education',
-					'Computer',
-					'Reading',
-					'Writing',
-					'Spelling',
-					'Phonics',
-					'Bible',
-				],
-				classes: [
-					{ classId: 'Morning-GradeFour', name: 'Grade 4' },
-					{ classId: 'Morning-GradeFive', name: 'Grade 5' },
-					{ classId: 'Morning-GradeSix', name: 'Grade 6' },
-				],
-			},
-			'Junior High': {
-				subjects: [
-					'Math',
-					'General Science',
-					'English',
-					'French',
-					'Geography',
-					'Health Science',
-					'Physical Education',
-					'Computer',
-					'History',
-					'Civics',
-					'Vocabulary',
-					'Phonics',
-					'Bible',
-					'Agriculture',
-					'Literature',
-				],
-				classes: [
-					{ classId: 'Morning-GradeSeven', name: 'Grade 7' },
-					{ classId: 'Morning-GradeEight', name: 'Grade 8' },
-					{ classId: 'Morning-GradeNine', name: 'Grade 9' },
-				],
-			},
-			'Senior High': {
-				subjects: [
-					'Math',
-					'Biology',
-					'English',
-					'Physics',
-					'Chemistry',
-					'Computer',
-					'Economics',
-					'Government',
-					'Geography',
-					'History',
-					'Literature',
-					'Accounting',
-					'Bible',
-					'French',
-					'Agriculture',
-				],
-				classes: [
-					{ classId: 'Morning-GradeTenA', name: 'Grade 10-A' },
-					{ classId: 'Morning-GradeTenB', name: 'Grade 10-B' },
-					{ classId: 'Morning-GradeElevenA', name: 'Grade 11-A' },
-					{ classId: 'Morning-GradeElevenB', name: 'Grade 11-B' },
-					{ classId: 'Morning-GradeTwelveA', name: 'Grade 12-A' },
-					{ classId: 'Morning-GradeTwelveB', name: 'Grade 12-B' },
-				],
-			},
-		},
-		Night: {
-			'Self Contained': {
-				subjects: ['Math', 'Science', 'English', 'Arts', 'Social Studies'],
-				classes: [
-					{ classId: 'Night-Nursery', name: 'Nursery' },
-					{ classId: 'Night-kOne', name: 'K-I' },
-					{ classId: 'Night-kTwo', name: 'K-II' },
-					{ classId: 'Night-GradeOne', name: 'Grade 1' },
-					{ classId: 'Night-GradeTwo', name: 'Grade 2' },
-					{ classId: 'Night-GradeThree', name: 'Grade 3' },
-				],
-			},
-			Elementary: {
-				subjects: [
-					'Math',
-					'General Science',
-					'English',
-					'French',
-					'Social Studies',
-					'Health Science',
-					'Physical Education',
-					'Computer',
-					'Reading',
-					'Writing',
-					'Spelling',
-					'Phonics',
-					'Bible',
-				],
-				classes: [
-					{ classId: 'Night-GradeFour', name: 'Grade 4' },
-					{ classId: 'Night-GradeFive', name: 'Grade 5' },
-					{ classId: 'Night-GradeSix', name: 'Grade 6' },
-				],
-			},
-			'Junior High': {
-				subjects: [
-					'Math',
-					'General Science',
-					'English',
-					'French',
-					'Geography',
-					'Health Science',
-					'Physical Education',
-					'Computer',
-					'History',
-					'Civics',
-					'Vocabulary',
-					'Phonics',
-					'Bible',
-					'Agriculture',
-					'Literature',
-				],
-				classes: [
-					{ classId: 'Night-GradeSeven', name: 'Grade 7' },
-					{ classId: 'Night-GradeEight', name: 'Grade 8' },
-					{ classId: 'Night-GradeNine', name: 'Grade 9' },
-				],
-			},
-			'Senior High': {
-				subjects: [
-					'Math',
-					'Biology',
-					'English',
-					'Physics',
-					'Chemistry',
-					'Computer',
-					'Economics',
-					'Government',
-					'Geography',
-					'History',
-					'Literature',
-					'Accounting',
-					'Bible',
-					'French',
-					'Agriculture',
-				],
-				classes: [
-					{ classId: 'Night-GradeTen', name: 'Grade 10' },
-					{ classId: 'Night-GradeEleven', name: 'Grade 11' },
-					{ classId: 'Night-GradeTwelve', name: 'Grade 12' },
-				],
-			},
-		},
-	},
-};
-
 import { useNetworkStore } from '@/store/networkStore';
-
-const useSchoolStore = (selector: (state: any) => any) => {
-	const state = {
-		school: upstairs,
-	};
-	return selector(state);
-};
+import { useSchoolStore } from '@/store/schoolStore';
 
 // Types
 interface StudentGrade {
@@ -251,7 +52,6 @@ interface GradeSubmission {
 	subject: string;
 	teacherUsername: string;
 	teacherName: string;
-	submittedAt: string;
 	lastUpdated: string;
 	grades: StudentGrade[];
 	status: 'Approved' | 'Rejected' | 'Pending' | 'Partially Approved';
@@ -279,21 +79,30 @@ interface RawGradeData {
 	grade: number | null;
 	status: 'Approved' | 'Rejected' | 'Pending';
 	rejectionReason?: string;
-	submittedAt: string;
 	lastUpdated: string;
 }
 
-// Mock data for periods, replace with your actual data source if needed
 const periods = [
-	{ id: 'first', label: 'First Period', value: 'firstPeriod' },
-	{ id: 'second', label: 'Second Period', value: 'secondPeriod' },
-	{ id: 'third', label: 'Third Period', value: 'thirdPeriod' },
-	{ id: 'third_exam', label: 'Third Period Exam', value: 'thirdPeriodExam' },
-	{ id: 'fourth', label: 'Fourth Period', value: 'fourthPeriod' },
-	{ id: 'fifth', label: 'Fifth Period', value: 'fifthPeriod' },
-	{ id: 'sixth', label: 'Sixth Period', value: 'sixthPeriod' },
-	{ id: 'sixth_exam', label: 'Sixth Period Exam', value: 'sixthPeriodExam' },
+	{ id: 'first', label: '1st Pd', value: 'first' },
+	{ id: 'second', label: '2nd Pd', value: 'second' },
+	{ id: 'third', label: '3rd Pd', value: 'third' },
+	{
+		id: 'third_period_exam',
+		label: '3rd Pd Exam',
+		value: 'third_period_exam',
+	},
+	{ id: 'fourth', label: '4th Pd', value: 'fourth' },
+	{ id: 'fifth', label: '5th Pd', value: 'fifth' },
+	{ id: 'sixth', label: '6th Pd', value: 'sixth' },
+	{
+		id: 'sixth_period_exam',
+		label: '6th Pd Exam',
+		value: 'sixth_period_exam',
+	},
 ];
+
+const normalizeAcademicYear = (value?: string) =>
+	value ? value.replace('/', '-') : '';
 
 // A simple loading component
 const PageLoading = ({ fullScreen = true }: { fullScreen?: boolean }) => (
@@ -308,6 +117,7 @@ const PageLoading = ({ fullScreen = true }: { fullScreen?: boolean }) => (
 
 const AdminGradeManagement: React.FC = () => {
 	const currentSchool = useSchoolStore((state) => state.school);
+	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
 	// Data states
 	const [submissions, setSubmissions] = useState<GradeSubmission[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -343,8 +153,43 @@ const AdminGradeManagement: React.FC = () => {
 		subject: '',
 		classId: '',
 		period: '',
-		status: 'Pending',
+		status: 'All',
 	});
+
+	const getTeacherDisplayName = (teacher: any) => {
+		if (!teacher) return '';
+		const fullName = `${teacher.firstName || ''} ${teacher.lastName || ''}`
+			.trim();
+		return teacher.name || fullName || teacher.username || teacher.userId || '';
+	};
+
+	const teacherNameByYearAndUsername = useMemo(() => {
+		const map = new Map<string, string>();
+		Object.entries(usersByAcademicYear || {}).forEach(([year, users]) => {
+			(users?.teachers || []).forEach((teacher: any) => {
+				const username =
+					teacher?.username || teacher?.userId || teacher?.id || teacher?._id;
+				const name = getTeacherDisplayName(teacher);
+				if (!username || !name) return;
+				map.set(`${normalizeAcademicYear(year)}:${username}`, name);
+			});
+		});
+		return map;
+	}, [usersByAcademicYear]);
+
+	const teacherNameByUsername = useMemo(() => {
+		const map = new Map<string, string>();
+		Object.values(usersByAcademicYear || {}).forEach((users: any) => {
+			(users?.teachers || []).forEach((teacher: any) => {
+				const username =
+					teacher?.username || teacher?.userId || teacher?.id || teacher?._id;
+				const name = getTeacherDisplayName(teacher);
+				if (!username || !name) return;
+				map.set(username, name);
+			});
+		});
+		return map;
+	}, [usersByAcademicYear]);
 
 	const classMap = useMemo(() => {
 		if (!currentSchool?.classLevels) return new Map();
@@ -358,6 +203,42 @@ const AdminGradeManagement: React.FC = () => {
 		});
 		return map;
 	}, [currentSchool]);
+
+	const resolveTeacherName = (
+		username?: string,
+		academicYear?: string,
+		fallback?: string
+	) => {
+		const normalizedYear = normalizeAcademicYear(academicYear);
+		const fromYear =
+			username && normalizedYear
+				? teacherNameByYearAndUsername.get(`${normalizedYear}:${username}`)
+				: undefined;
+		const fromAny = username ? teacherNameByUsername.get(username) : undefined;
+		return (
+			fromYear ||
+			fromAny ||
+			fallback ||
+			username ||
+			'Unknown'
+		);
+	};
+
+	const parseDate = (value?: string) => {
+		if (!value) return null;
+		const parsed = new Date(value);
+		const ts = parsed.getTime();
+		return Number.isFinite(ts) ? ts : null;
+	};
+
+	const formatDate = (dateString?: string) => {
+		const timestamp = parseDate(dateString);
+		if (!timestamp) return '—';
+		return new Date(timestamp).toLocaleString([], {
+			dateStyle: 'short',
+			timeStyle: 'short',
+		});
+	};
 
 	// Fetch and process grade data
 	const fetchGrades = async () => {
@@ -386,6 +267,17 @@ const AdminGradeManagement: React.FC = () => {
 				groupedGrades
 			).map((grades) => {
 				const firstGrade = grades[0];
+				const resolvedTeacherName = resolveTeacherName(
+					firstGrade.teacherUsername,
+					firstGrade.academicYear,
+					firstGrade.teacherName
+				);
+				const latestUpdated =
+					grades.reduce<string | null>((latest, grade) => {
+						if (!grade?.lastUpdated) return latest;
+						if (!latest) return grade.lastUpdated;
+						return grade.lastUpdated > latest ? grade.lastUpdated : latest;
+					}, null) || firstGrade.lastUpdated;
 				const validGrades = grades
 					.map((g) => g.grade)
 					.filter((g): g is number => g !== null);
@@ -412,9 +304,8 @@ const AdminGradeManagement: React.FC = () => {
 					classId: firstGrade.classId,
 					subject: firstGrade.subject,
 					teacherUsername: firstGrade.teacherUsername,
-					teacherName: firstGrade.teacherName,
-					submittedAt: firstGrade.submittedAt,
-					lastUpdated: firstGrade.lastUpdated,
+					teacherName: resolvedTeacherName,
+					lastUpdated: latestUpdated,
 					grades: grades.map((g) => ({
 						studentId: g.studentId,
 						name: g.studentName,
@@ -632,8 +523,22 @@ const AdminGradeManagement: React.FC = () => {
 			return true;
 		});
 
-		return filtered;
-	}, [submissions, filters, searchQuery, classMap]);
+		const statusPriority: Record<GradeSubmission['status'], number> = {
+			Pending: 0,
+			'Partially Approved': 1,
+			Rejected: 1,
+			Approved: 2,
+		};
+
+		return filtered.sort((a, b) => {
+			const statusDelta =
+				(statusPriority[a.status] ?? 3) - (statusPriority[b.status] ?? 3);
+			if (statusDelta !== 0) return statusDelta;
+			const aDate = parseDate(a.lastUpdated) || 0;
+			const bDate = parseDate(b.lastUpdated) || 0;
+			return bDate - aDate;
+		});
+	}, [submissions, filters, searchQuery, classMap, parseDate]);
 
 	const totalPages = Math.max(
 		1,
@@ -684,12 +589,6 @@ const AdminGradeManagement: React.FC = () => {
 			? 'text-blue-600 dark:text-green-400 font-semibold'
 			: 'text-red-600 dark:text-red-400 font-semibold';
 	};
-	const formatDate = (dateString: string) =>
-		new Date(dateString).toLocaleString([], {
-			dateStyle: 'short',
-			timeStyle: 'short',
-		});
-
 	// Selection toggles
 	const toggleSubmissionSelection = (submissionId: string) => {
 		setSelectedSubmissions((prev) => {
@@ -749,7 +648,7 @@ const AdminGradeManagement: React.FC = () => {
 											}
 										</span>
 										<span>
-											Submitted: {formatDate(selectedSubmission.submittedAt)}
+											Last updated: {formatDate(selectedSubmission.lastUpdated)}
 										</span>
 									</div>
 								</div>
@@ -1010,7 +909,12 @@ const AdminGradeManagement: React.FC = () => {
 							disabled={loading}
 							className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 sm:w-auto"
 						>
-							{loading && <Loader2 className="h-4 w-4 animate-spin" />} Refresh
+							{loading ? (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							) : (
+								<RefreshCw className="h-4 w-4" />
+							)}{' '}
+							Refresh
 						</button>
 					</div>
 					{/* Filters */}
@@ -1038,9 +942,9 @@ const AdminGradeManagement: React.FC = () => {
 						>
 							<option value="All">All Statuses</option>
 							<option value="Pending">Pending</option>
-							<option value="Approved">Approved</option>
-							<option value="Rejected">Rejected</option>
 							<option value="Partially Approved">Partially Approved</option>
+							<option value="Rejected">Rejected</option>
+							<option value="Approved">Approved</option>
 						</select>
 						<select
 							value={filters.classId}
@@ -1201,8 +1105,8 @@ const AdminGradeManagement: React.FC = () => {
 												Status
 											</th>
 											<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-												Submitted At
-											</th>
+											Last Updated
+										</th>
 											<th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
 												Actions
 											</th>
@@ -1255,7 +1159,7 @@ const AdminGradeManagement: React.FC = () => {
 													</span>
 												</td>
 												<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-													{formatDate(submission.submittedAt)}
+													{formatDate(submission.lastUpdated)}
 												</td>
 												<td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
 													<button
