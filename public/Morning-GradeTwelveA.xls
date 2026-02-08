@@ -1,0 +1,1193 @@
+<html xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+ <head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="ProgId" content="Excel.Sheet">
+  <meta name="Generator" content="WPS Office ET">
+  <!--[if gte mso 9]>
+   <xml>
+    <o:DocumentProperties>
+     <o:Created>2026-02-08T14:55:39</o:Created>
+     <o:LastAuthor>senkao</o:LastAuthor>
+     <o:LastSaved>2026-02-08T14:58:34</o:LastSaved>
+    </o:DocumentProperties>
+    <o:CustomDocumentProperties>
+     <o:ICV dt:dt="string"></o:ICV>
+     <o:KSOProductBuildVer dt:dt="string">1033-11.1.0.11723</o:KSOProductBuildVer>
+    </o:CustomDocumentProperties>
+   </xml>
+  <![endif]-->
+  <style>
+<!-- @page
+	{margin:1.00in 0.75in 1.00in 0.75in;
+	mso-header-margin:0.50in;
+	mso-footer-margin:0.50in;}
+tr
+	{mso-height-source:auto;
+	mso-ruby-visibility:none;}
+col
+	{mso-width-source:auto;
+	mso-ruby-visibility:none;}
+br
+	{mso-data-placement:same-cell;}
+.font0
+	{color:#000000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:134;}
+.font1
+	{color:#0000FF;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:underline;
+	text-underline-style:single;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:134;}
+.font2
+	{color:#FFFFFF;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:0;}
+.font3
+	{color:#000000;
+	font-size:11.0pt;
+	font-weight:700;
+	font-style:normal;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:0;}
+.font4
+	{color:#000000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:0;}
+.font5
+	{color:#800080;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:underline;
+	text-underline-style:single;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:134;}
+.font6
+	{color:#44546A;
+	font-size:18.0pt;
+	font-weight:700;
+	font-style:normal;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:134;}
+.font7
+	{color:#44546A;
+	font-size:15.0pt;
+	font-weight:700;
+	font-style:normal;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:134;}
+.font8
+	{color:#7F7F7F;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:italic;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:0;}
+.font9
+	{color:#44546A;
+	font-size:11.0pt;
+	font-weight:700;
+	font-style:normal;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:134;}
+.font10
+	{color:#006100;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:0;}
+.font11
+	{color:#FA7D00;
+	font-size:11.0pt;
+	font-weight:700;
+	font-style:normal;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:0;}
+.font12
+	{color:#FF0000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:0;}
+.font13
+	{color:#3F3F3F;
+	font-size:11.0pt;
+	font-weight:700;
+	font-style:normal;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:0;}
+.font14
+	{color:#3F3F76;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:0;}
+.font15
+	{color:#9C6500;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:0;}
+.font16
+	{color:#44546A;
+	font-size:13.0pt;
+	font-weight:700;
+	font-style:normal;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:134;}
+.font17
+	{color:#9C0006;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:0;}
+.font18
+	{color:#FA7D00;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:0;}
+.font19
+	{color:#FFFFFF;
+	font-size:11.0pt;
+	font-weight:700;
+	font-style:normal;
+	text-decoration:none;
+	font-family:"Calibri";
+	mso-generic-font-family:auto;
+	mso-font-charset:0;}
+.style0
+	{mso-number-format:"General";
+	text-align:general;
+	vertical-align:middle;
+	white-space:nowrap;
+	mso-rotate:0;
+	mso-pattern:auto;
+	mso-background-source:auto;
+	color:#000000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:134;
+	border:none;
+	mso-protection:locked visible;
+	mso-style-name:"Normal";
+	mso-style-id:0;}
+.style16
+	{mso-pattern:auto none;
+	background:#A9D08E;
+	color:#FFFFFF;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"60% - Accent6";}
+.style17
+	{mso-pattern:auto none;
+	background:#C6E0B4;
+	color:#000000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"40% - Accent6";}
+.style18
+	{mso-pattern:auto none;
+	background:#8EA9DB;
+	color:#FFFFFF;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"60% - Accent5";}
+.style19
+	{mso-pattern:auto none;
+	background:#70AD47;
+	color:#FFFFFF;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"Accent6";}
+.style20
+	{mso-pattern:auto none;
+	background:#B4C6E7;
+	color:#000000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"40% - Accent5";}
+.style21
+	{mso-pattern:auto none;
+	background:#D9E1F2;
+	color:#000000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"20% - Accent5";}
+.style22
+	{mso-pattern:auto none;
+	background:#FFD966;
+	color:#FFFFFF;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"60% - Accent4";}
+.style23
+	{mso-pattern:auto none;
+	background:#4472C4;
+	color:#FFFFFF;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"Accent5";}
+.style24
+	{mso-pattern:auto none;
+	background:#FFE699;
+	color:#000000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"40% - Accent4";}
+.style25
+	{mso-pattern:auto none;
+	background:#FFC000;
+	color:#FFFFFF;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"Accent4";}
+.style26
+	{color:#FA7D00;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	border-bottom:2.0pt double #FF8001;
+	mso-style-name:"Linked Cell";}
+.style27
+	{mso-pattern:auto none;
+	background:#DBDBDB;
+	color:#000000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"40% - Accent3";}
+.style28
+	{mso-pattern:auto none;
+	background:#F4B084;
+	color:#FFFFFF;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"60% - Accent2";}
+.style29
+	{mso-pattern:auto none;
+	background:#A5A5A5;
+	color:#FFFFFF;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"Accent3";}
+.style30
+	{mso-pattern:auto none;
+	background:#F8CBAD;
+	color:#000000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"40% - Accent2";}
+.style31
+	{mso-pattern:auto none;
+	background:#FCE4D6;
+	color:#000000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"20% - Accent2";}
+.style32
+	{mso-pattern:auto none;
+	background:#ED7D31;
+	color:#FFFFFF;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"Accent2";}
+.style33
+	{mso-pattern:auto none;
+	background:#BDD7EE;
+	color:#000000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"40% - Accent1";}
+.style34
+	{mso-pattern:auto none;
+	background:#DDEBF7;
+	color:#000000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"20% - Accent1";}
+.style35
+	{mso-pattern:auto none;
+	background:#5B9BD5;
+	color:#FFFFFF;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"Accent1";}
+.style36
+	{mso-pattern:auto none;
+	background:#FFEB9C;
+	color:#9C6500;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"Neutral";}
+.style37
+	{mso-pattern:auto none;
+	background:#9BC2E6;
+	color:#FFFFFF;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"60% - Accent1";}
+.style38
+	{mso-pattern:auto none;
+	background:#FFC7CE;
+	color:#9C0006;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"Bad";}
+.style39
+	{mso-pattern:auto none;
+	background:#FFF2CC;
+	color:#000000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"20% - Accent4";}
+.style40
+	{color:#000000;
+	font-size:11.0pt;
+	font-weight:700;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	border-top:.5pt solid #5B9BD5;
+	border-bottom:2.0pt double #5B9BD5;
+	mso-style-name:"Total";}
+.style41
+	{mso-pattern:auto none;
+	background:#F2F2F2;
+	color:#3F3F3F;
+	font-size:11.0pt;
+	font-weight:700;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	border:.5pt solid #3F3F3F;
+	mso-style-name:"Output";}
+.style42
+	{mso-number-format:"_\(\\$* \#\,\#\#0\.00_\)\;_\(\\$* \\\(\#\,\#\#0\.00\\\)\;_\(\\$* \0022-\0022??_\)\;_\(\@_\)";
+	mso-style-name:"Currency";
+	mso-style-id:4;}
+.style43
+	{mso-pattern:auto none;
+	background:#EDEDED;
+	color:#000000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"20% - Accent3";}
+.style44
+	{mso-pattern:auto none;
+	background:#FFFFCC;
+	border:.5pt solid #B2B2B2;
+	mso-style-name:"Note";}
+.style45
+	{mso-pattern:auto none;
+	background:#FFCC99;
+	color:#3F3F76;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	border:.5pt solid #7F7F7F;
+	mso-style-name:"Input";}
+.style46
+	{color:#44546A;
+	font-size:11.0pt;
+	font-weight:700;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:134;
+	mso-style-name:"Heading 4";}
+.style47
+	{mso-pattern:auto none;
+	background:#F2F2F2;
+	color:#FA7D00;
+	font-size:11.0pt;
+	font-weight:700;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	border:.5pt solid #7F7F7F;
+	mso-style-name:"Calculation";}
+.style48
+	{mso-pattern:auto none;
+	background:#C6EFCE;
+	color:#006100;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"Good";}
+.style49
+	{color:#44546A;
+	font-size:11.0pt;
+	font-weight:700;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:134;
+	border-bottom:1.0pt solid #ACCCEA;
+	mso-style-name:"Heading 3";}
+.style50
+	{color:#7F7F7F;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:italic;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"CExplanatory Text";}
+.style51
+	{color:#44546A;
+	font-size:15.0pt;
+	font-weight:700;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:134;
+	border-bottom:1.0pt solid #5B9BD5;
+	mso-style-name:"Heading 1";}
+.style52
+	{mso-number-format:"_ * \#\,\#\#0_ \;_ * \\-\#\,\#\#0_ \;_ * \0022-\0022_ \;_ \@_ ";
+	mso-style-name:"Comma [0]";
+	mso-style-id:6;}
+.style53
+	{mso-pattern:auto none;
+	background:#E2EFDA;
+	color:#000000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"20% - Accent6";}
+.style54
+	{color:#44546A;
+	font-size:18.0pt;
+	font-weight:700;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:134;
+	mso-style-name:"Title";}
+.style55
+	{mso-number-format:"_\(\\$* \#\,\#\#0_\)\;_\(\\$* \\\(\#\,\#\#0\\\)\;_\(\\$* \0022-\0022_\)\;_\(\@_\)";
+	mso-style-name:"Currency [0]";
+	mso-style-id:7;}
+.style56
+	{color:#FF0000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"Warning Text";}
+.style57
+	{color:#800080;
+	font-size:11.0pt;
+	text-decoration:underline;
+	text-underline-style:single;
+	font-family:Calibri;
+	mso-style-name:"Followed Hyperlink";
+	mso-style-id:9;}
+.style58
+	{color:#44546A;
+	font-size:13.0pt;
+	font-weight:700;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:134;
+	border-bottom:1.0pt solid #5B9BD5;
+	mso-style-name:"Heading 2";}
+.style59
+	{mso-number-format:"_ * \#\,\#\#0\.00_ \;_ * \\-\#\,\#\#0\.00_ \;_ * \0022-\0022??_ \;_ \@_ ";
+	mso-style-name:"Comma";
+	mso-style-id:3;}
+.style60
+	{mso-pattern:auto none;
+	background:#A5A5A5;
+	color:#FFFFFF;
+	font-size:11.0pt;
+	font-weight:700;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	border:2.0pt double #3F3F3F;
+	mso-style-name:"Check Cell";}
+.style61
+	{mso-pattern:auto none;
+	background:#C9C9C9;
+	color:#FFFFFF;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:0;
+	mso-style-name:"60% - Accent3";}
+.style62
+	{mso-number-format:"0%";
+	mso-style-name:"Percent";
+	mso-style-id:5;}
+.style63
+	{color:#0000FF;
+	font-size:11.0pt;
+	text-decoration:underline;
+	text-underline-style:single;
+	font-family:Calibri;
+	mso-style-name:"Hyperlink";
+	mso-style-id:8;}
+td
+	{mso-style-parent:style0;
+	padding-top:1px;
+	padding-right:1px;
+	padding-left:1px;
+	mso-ignore:padding;
+	mso-number-format:"General";
+	text-align:general;
+	vertical-align:middle;
+	white-space:nowrap;
+	mso-rotate:0;
+	mso-pattern:auto;
+	mso-background-source:auto;
+	color:#000000;
+	font-size:11.0pt;
+	font-weight:400;
+	font-style:normal;
+	text-decoration:none;
+	font-family:Calibri;
+	mso-generic-font-family:auto;
+	mso-font-charset:134;
+	border:none;
+	mso-protection:locked visible;}
+.xl65
+	{mso-style-parent:style0;
+	white-space:normal;
+	mso-font-charset:134;}
+ -->  </style>
+  <!--[if gte mso 9]>
+   <xml>
+    <x:ExcelWorkbook>
+     <x:ExcelWorksheets>
+      <x:ExcelWorksheet>
+       <x:Name>{worksheet}</x:Name>
+       <x:WorksheetOptions>
+        <x:DefaultRowHeight>285</x:DefaultRowHeight>
+        <x:Selected/>
+        <x:TopRowVisible>52</x:TopRowVisible>
+        <x:Panes>
+         <x:Pane>
+          <x:Number>3</x:Number>
+          <x:ActiveCol>0</x:ActiveCol>
+          <x:ActiveRow>31</x:ActiveRow>
+          <x:RangeSelection>A32</x:RangeSelection>
+         </x:Pane>
+        </x:Panes>
+        <x:ProtectContents>False</x:ProtectContents>
+        <x:ProtectObjects>True</x:ProtectObjects>
+        <x:ProtectScenarios>True</x:ProtectScenarios>
+        <x:PageBreakZoom>100</x:PageBreakZoom>
+        <x:Print>
+         <x:PaperSizeIndex>9</x:PaperSizeIndex>
+        </x:Print>
+       </x:WorksheetOptions>
+      </x:ExcelWorksheet>
+     </x:ExcelWorksheets>
+     <x:ProtectStructure>False</x:ProtectStructure>
+     <x:ProtectWindows>False</x:ProtectWindows>
+     <x:WindowHeight>11910</x:WindowHeight>
+     <x:WindowWidth>28800</x:WindowWidth>
+    </x:ExcelWorkbook>
+   </xml>
+  <![endif]-->
+ </head>
+ <body link="blue" vlink="purple">
+  <table width="648" border="0" cellpadding="0" cellspacing="0" style='width:486.00pt;border-collapse:collapse;table-layout:fixed;'>
+   <col width="217" style='mso-width-source:userset;mso-width-alt:6944;'/>
+   <col width="110" style='mso-width-source:userset;mso-width-alt:3520;'/>
+   <col width="215" style='mso-width-source:userset;mso-width-alt:6880;'/>
+   <col width="106" style='mso-width-source:userset;mso-width-alt:3392;'/>
+   <tr height="38" style='height:28.50pt;'>
+    <td class="xl65" height="38" width="217" style='height:28.50pt;width:162.75pt;' x:str>Name</td>
+    <td class="xl65" width="110" style='width:82.50pt;' x:str>username</td>
+    <td class="xl65" width="215" style='width:161.25pt;' x:str>ClassId</td>
+    <td class="xl65" width="106" style='width:79.50pt;' x:str>Class Name</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Jessica B. Kwamini</td>
+    <td class="xl65" x:str>UCA2026006</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Gafi Kamara</td>
+    <td class="xl65" x:str>UCA2026007</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Momo Yallah</td>
+    <td class="xl65" x:str>UCA2026010</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Janet M Dweh</td>
+    <td class="xl65" x:str>UCA2026012</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Isaiah G. Joe Jr.</td>
+    <td class="xl65" x:str>UCA2026013</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Dormowoh Morlu</td>
+    <td class="xl65" x:str>UCA2026015</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Secret Karbah</td>
+    <td class="xl65" x:str>UCA20247642</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Delight A Davor</td>
+    <td class="xl65" x:str>UCA2024008</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Christina G. Schtopine</td>
+    <td class="xl65" x:str>UCA2022701</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Abraham T. jeffery</td>
+    <td class="xl65" x:str>UCA20242003</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Priscilla Olivia Brown</td>
+    <td class="xl65" x:str>UCA2024156</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Moses Saye Walaka</td>
+    <td class="xl65" x:str>UCA2023354</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Jackuline Mybest Giddings</td>
+    <td class="xl65" x:str>UCA2024014</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Sarafina R. Sana</td>
+    <td class="xl65" x:str>UCA2022121</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Marthaline Bedell</td>
+    <td class="xl65" x:str>UCA2024185</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Marnayee K.M Uray</td>
+    <td class="xl65" x:str>UCA2023131</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Judy Miller</td>
+    <td class="xl65" x:str>UCA2022114</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Daniel K. Kollie Jr</td>
+    <td class="xl65" x:str>UCA2023067</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Richard Gboffua</td>
+    <td class="xl65" x:str>UCA2024846</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Sensee Deco Vonziah</td>
+    <td class="xl65" x:str>UCA2024169</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Favor Y. Togbah</td>
+    <td class="xl65" x:str>UCA2022005</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Lovetee W. Kornuah</td>
+    <td class="xl65" x:str>UCA2022213</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Victoria Brisbane</td>
+    <td class="xl65" x:str>UCA2023145</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Elizabeth B. Davies</td>
+    <td class="xl65" x:str>UCA2022331</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Naomi S. Cooper</td>
+    <td class="xl65" x:str>UCA2022307</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Sarah M. Parker</td>
+    <td class="xl65" x:str>UCA2024222</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Abraham B. Morais III</td>
+    <td class="xl65" x:str>UCA2024872</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Julie E. Sakor</td>
+    <td class="xl65" x:str>UCA2022367</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Lawrence Suah</td>
+    <td class="xl65" x:str>UCA2023351</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Eugene T. Wyne Jr.</td>
+    <td class="xl65" x:str>UCA2024215</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Zeogai Reeves</td>
+    <td class="xl65" x:str>UCA2022822</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Melvin Kollie</td>
+    <td class="xl65" x:str>UCA2023201</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Yatta S Fokoe</td>
+    <td class="xl65" x:str>UCA2022212</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Andrew Sam Doekpah</td>
+    <td class="xl65" x:str>UCA2024999</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Martin K. Gaye</td>
+    <td class="xl65" x:str>UCA2022089</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Rebecca Krubo Harris</td>
+    <td class="xl65" x:str>UCA2022051</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Vicesther Siaffa</td>
+    <td class="xl65" x:str>UCA2024176</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Alice Baby Gono</td>
+    <td class="xl65" x:str>UCA2024223</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Sandra K. Gertee</td>
+    <td class="xl65" x:str>UCA2022292</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Ericline P. Yancy</td>
+    <td class="xl65" x:str>UCA2022291</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Princess S. M. Kamara</td>
+    <td class="xl65" x:str>UCA2026018</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Arthurlyn S. Karbah</td>
+    <td class="xl65" x:str>UCA2026022</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Joseph Karmon</td>
+    <td class="xl65" x:str>UCA2026023</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Linda M. Gaye</td>
+    <td class="xl65" x:str>UCA2026024</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Esther Korpo Flomo</td>
+    <td class="xl65" x:str>UCA2026026</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>J. Ebenezer Bless William Jr.</td>
+    <td class="xl65" x:str>UCA2024155</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Abel Robinho Wobil</td>
+    <td class="xl65" x:str>UCA2022702</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Darius N. Kpee</td>
+    <td class="xl65" x:str>UCA2023410</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Christian L. Tamba</td>
+    <td class="xl65" x:str>UCA2023068</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Abraham Kromah</td>
+    <td class="xl65" x:str>UCA2022813</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Rodell T. Talah</td>
+    <td class="xl65" x:str>UCA2024227</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Alex S. Gondo</td>
+    <td class="xl65" x:str>UCA2023316</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Rodel T. Talah</td>
+    <td class="xl65" x:str>UCA2026033</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Charlesline Charles</td>
+    <td class="xl65" x:str>UCA2026034</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Ade Cooper</td>
+    <td class="xl65" x:str>UCA2026035</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Matengbeh Sheriff</td>
+    <td class="xl65" x:str>UCA2026036</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Philip Saah Korfeh</td>
+    <td class="xl65" x:str>UCA2026037</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Peter Bondo</td>
+    <td class="xl65" x:str>UCA2026038</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Lusu Mansuo</td>
+    <td class="xl65" x:str>UCA2026039</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <tr height="57" style='height:42.75pt;'>
+    <td class="xl65" height="57" style='height:42.75pt;' x:str>Blessing M. Kerbay</td>
+    <td class="xl65" x:str>UCA2026040</td>
+    <td class="xl65" x:str>Morning-GradeTwelveA</td>
+    <td class="xl65" x:str>Grade 12-A</td>
+   </tr>
+   <![if supportMisalignedColumns]>
+    <tr width="0" style='display:none;'>
+     <td width="217" style='width:163;'></td>
+     <td width="110" style='width:83;'></td>
+     <td width="215" style='width:161;'></td>
+     <td width="106" style='width:80;'></td>
+    </tr>
+   <![endif]>
+  </table>
+ </body>
+</html>
