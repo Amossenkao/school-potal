@@ -12,6 +12,7 @@ import {
 	GraduationCap,
 	Clock,
 	ChevronLeft,
+	ChevronDown,
 } from 'lucide-react';
 import { useSchoolStore } from '@/store/schoolStore';
 import { PageLoading } from '@/components/loading';
@@ -876,16 +877,11 @@ const SubmitGrade: React.FC = () => {
 				<PopupNotification />
 
 				<div className="space-y-4 sm:space-y-6">
-					<div className="p-4 sm:p-6 bg-card border border-border rounded-lg shadow-sm">
+					<div className="p-4 sm:p-6 bg-card border border-border rounded-lg shadow-sm sticky top-0 z-30">
 						<details open className="group">
-							<summary className="flex items-center justify-between cursor-pointer list-none text-sm sm:text-base font-semibold text-foreground">
+							<summary className="flex items-center justify-between cursor-pointer list-none text-sm sm:text-base font-semibold text-foreground sticky top-0 z-40 bg-card py-2 border-b border-border">
 								<span>Filters & Periods</span>
-								<span className="text-muted-foreground text-xs sm:text-sm group-open:hidden">
-									Expand
-								</span>
-								<span className="text-muted-foreground text-xs sm:text-sm hidden group-open:inline">
-									Collapse
-								</span>
+								<ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
 							</summary>
 
 							<div className="mt-4 sm:mt-6 space-y-3 sm:space-y-4">
@@ -1054,21 +1050,6 @@ const SubmitGrade: React.FC = () => {
 
 					{studentsForGrading.length > 0 && selectedPeriods.length > 0 && (
 						<div className="bg-card border border-border rounded-lg shadow-sm">
-							<div className="p-4 sm:p-6 border-b border-border">
-								<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-									<div>
-										<h3 className="text-lg sm:text-xl font-semibold text-foreground">
-											Grade Students
-										</h3>
-										{newGradesCount > 0 && (
-											<p className="text-xs sm:text-sm text-green-600 dark:text-green-400 mt-1">
-												{newGradesCount} new grades ready to submit
-											</p>
-										)}
-									</div>
-								</div>
-							</div>
-
 							{error.studentsForGrading && (
 								<div className="m-4 text-destructive p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm">
 									{error.studentsForGrading}
@@ -1078,9 +1059,9 @@ const SubmitGrade: React.FC = () => {
 							<div className="p-3 sm:p-4">
 								<div className="overflow-auto max-h-[60vh] pb-24">
 									<table className="w-full min-w-[460px] md:min-w-[560px] xl:min-w-[720px] border border-border table-auto xl:w-auto">
-										<thead className="bg-muted/60 sticky top-0 z-20">
+										<thead className="bg-muted sticky top-0 z-20">
 											<tr>
-												<th className="sticky left-0 top-0 z-30 bg-muted/60 border-b border-r border-border px-2 sm:px-4 py-3 text-left text-xs font-semibold uppercase text-muted-foreground w-44 sm:w-56 xl:w-72">
+												<th className="sticky left-0 top-0 z-30 bg-muted border-b border-r border-border px-2 sm:px-4 py-3 text-left text-xs font-semibold uppercase text-muted-foreground w-44 sm:w-56 xl:w-72">
 													Student
 												</th>
 												{orderedSelectedPeriods.map((period) => {
