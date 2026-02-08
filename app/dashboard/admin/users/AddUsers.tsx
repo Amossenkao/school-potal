@@ -535,7 +535,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	};
 
 	return (
-		<div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+		<div className="w-full max-w-6xl mr-auto px-4 sm:px-6 lg:px-6">
 			<ConflictModal
 				isOpen={showConflictModal}
 				onClose={() => setShowConflictModal(false)}
@@ -567,7 +567,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 					</div>
 
 					{/* Progress Bar */}
-					<div className="bg-card rounded-lg border border-border p-6">
+					<div className="bg-card rounded-lg border border-border p-4 sm:p-6">
 						<div className="flex items-center space-x-2">
 							{Array.from({ length: getTotalSteps() }, (_, i) => (
 								<div key={i} className="flex items-center">
@@ -582,7 +582,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 									</div>
 									{i < getTotalSteps() - 1 && (
 										<div
-											className={`w-12 h-1 mx-2 transition-colors ${
+											className={`w-6 sm:w-12 h-1 mx-1 sm:mx-2 transition-colors ${
 												i + 1 < currentStep ? 'bg-primary' : 'bg-muted'
 											}`}
 										/>
