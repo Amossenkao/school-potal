@@ -33,15 +33,15 @@ const ConflictModal = ({
 	};
 
 	return (
-		<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-			<div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl border border-border">
-				<div className="p-6">
-					<div className="flex">
+		<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
+			<div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl border border-border max-h-[90dvh] overflow-hidden">
+				<div className="p-4 sm:p-6">
+					<div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
 						<div className="flex-shrink-0">
-							<AlertTriangle className="h-8 w-8 text-amber-500" />
+							<AlertTriangle className="h-7 w-7 sm:h-8 sm:w-8 text-amber-500" />
 						</div>
-						<div className="ml-4 flex-1">
-							<h3 className="text-xl font-semibold text-foreground mb-2">
+						<div className="flex-1">
+							<h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">
 								Assignment Conflicts Detected
 							</h3>
 							<div className="text-sm text-muted-foreground mb-4">
@@ -52,10 +52,10 @@ const ConflictModal = ({
 								</p>
 							</div>
 
-							<div className="max-h-[40vh] overflow-y-auto pr-2 space-y-4">
+							<div className="max-h-[35dvh] sm:max-h-[40vh] overflow-y-auto pr-1 sm:pr-2 space-y-4">
 								{conflictSummary.sponsorshipConflicts > 0 && (
 									<div>
-										<h4 className="font-medium flex items-center mb-2 text-foreground">
+										<h4 className="font-medium flex items-center mb-2 text-foreground text-sm sm:text-base">
 											<User className="h-4 w-4 mr-2" />
 											Class Sponsorship Conflicts (
 											{conflictSummary.sponsorshipConflicts})
@@ -64,7 +64,7 @@ const ConflictModal = ({
 											{sponsorshipConflicts.map((conflict, i) => (
 												<div
 													key={i}
-													className="bg-muted/50 p-3 rounded-lg text-xs"
+													className="bg-muted/50 p-3 rounded-lg text-xs sm:text-sm"
 												>
 													<p className="font-semibold text-foreground">
 														Class: {conflict.sponsorClass}
@@ -81,7 +81,7 @@ const ConflictModal = ({
 
 								{conflictSummary.subjectConflicts > 0 && (
 									<div>
-										<h4 className="font-medium flex items-center mb-2 text-foreground">
+										<h4 className="font-medium flex items-center mb-2 text-foreground text-sm sm:text-base">
 											<BookOpen className="h-4 w-4 mr-2" />
 											Subject Assignment Conflicts (
 											{conflictSummary.subjectConflicts})
@@ -90,7 +90,7 @@ const ConflictModal = ({
 											{subjectConflicts.map((conflict, i) => (
 												<div
 													key={i}
-													className="bg-muted/50 p-3 rounded-lg text-xs"
+													className="bg-muted/50 p-3 rounded-lg text-xs sm:text-sm"
 												>
 													<p className="font-semibold text-foreground">
 														Year: {conflict.assignment.year} · Class:{' '}
@@ -113,7 +113,7 @@ const ConflictModal = ({
 							</div>
 
 							<div className="bg-amber-50 border border-amber-200 p-3 rounded-lg mt-4">
-								<h4 className="font-semibold text-amber-900 mb-1">
+								<h4 className="font-semibold text-amber-900 mb-1 text-sm sm:text-base">
 									⚠️ Warning
 								</h4>
 								<p className="text-sm text-amber-800">
@@ -124,11 +124,11 @@ const ConflictModal = ({
 								</p>
 							</div>
 
-							<div className="flex justify-end gap-4 mt-6">
+							<div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-4 mt-6">
 								<button
 									type="button"
 									onClick={onClose}
-									className="px-6 py-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80"
+									className="w-full sm:w-auto px-6 py-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80"
 								>
 									Cancel
 								</button>
@@ -136,7 +136,7 @@ const ConflictModal = ({
 									type="button"
 									onClick={onConfirm}
 									disabled={isLoading}
-									className="px-6 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:bg-amber-400 disabled:cursor-not-allowed font-medium flex items-center"
+									className="w-full sm:w-auto px-6 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:bg-amber-400 disabled:cursor-not-allowed font-medium flex items-center justify-center"
 								>
 									{isLoading && (
 										<Loader2 className="h-4 w-4 animate-spin mr-2" />
