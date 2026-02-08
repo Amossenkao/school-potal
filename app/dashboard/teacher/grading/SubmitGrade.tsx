@@ -1071,11 +1071,11 @@ const SubmitGrade: React.FC = () => {
 							)}
 
 							<div className="p-3 sm:p-4">
-								<div className="overflow-x-auto">
-									<table className="w-full min-w-[460px] md:min-w-[560px] xl:min-w-[720px] border-separate border-spacing-0 table-auto xl:w-auto">
-										<thead className="bg-muted/60">
+								<div className="overflow-x-auto overflow-y-auto max-h-[60vh] pb-28">
+									<table className="w-full min-w-max border border-border table-auto">
+										<thead className="bg-muted/60 sticky top-0 z-20">
 											<tr>
-												<th className="sticky left-0 bg-muted/60 px-2 sm:px-4 py-3 text-left text-xs font-semibold uppercase text-muted-foreground w-44 sm:w-56 xl:w-72">
+												<th className="sticky left-0 top-0 z-30 bg-muted/60 border-b border-r border-border px-2 sm:px-4 py-3 text-left text-xs font-semibold uppercase text-muted-foreground w-44 sm:w-56 xl:w-72">
 													Student
 												</th>
 												{orderedSelectedPeriods.map((period) => {
@@ -1083,7 +1083,7 @@ const SubmitGrade: React.FC = () => {
 													return (
 														<th
 															key={period}
-															className="px-1.5 sm:px-2.5 md:px-3 xl:px-5 py-3 text-left text-xs font-semibold uppercase text-muted-foreground whitespace-nowrap"
+															className="border-b border-r border-border px-1.5 sm:px-2.5 md:px-3 xl:px-5 py-3 text-left text-xs font-semibold uppercase text-muted-foreground whitespace-nowrap"
 														>
 															{periodLabel}
 														</th>
@@ -1091,48 +1091,35 @@ const SubmitGrade: React.FC = () => {
 												})}
 											</tr>
 										</thead>
-										<tbody className="divide-y divide-border/60">
+										<tbody>
 											{studentsForGrading
 												.slice()
 												.sort((a, b) => a.name.localeCompare(b.name))
 												.map((student, index) => {
-													const rowBg = 'bg-background';
 													const isActive = activeStudentId === student.studentId;
 													return (
 													<tr
 														key={student.studentId}
-														className={`border-b border-border/60 ${rowBg} ${
-															isActive
-																? 'bg-primary/10 ring-1 ring-primary/40 shadow-[inset_6px_0_0_0_rgba(59,130,246,0.7)]'
-																: 'hover:bg-muted/20'
-														}`}
+														className="border-b border-border hover:bg-muted/10"
 													>
 														<td
-															className={`sticky left-0 px-2 sm:px-4 py-3 ${rowBg} ${
-																isActive ? 'bg-primary/10' : ''
-															} w-44 sm:w-56 xl:w-72`}
+															className="sticky left-0 z-10 bg-background border-r border-border px-2 sm:px-4 py-3 w-44 sm:w-56 xl:w-72"
 														>
 															<div className="flex items-center gap-2 sm:gap-3">
 																<div
 																	className={`p-1.5 rounded-full ${
-																		isActive
-																			? 'bg-primary/20'
-																			: 'bg-primary/10'
+																		isActive ? 'bg-primary/20' : 'bg-primary/10'
 																	}`}
 																>
 																	<User
 																		className={`w-4 h-4 ${
-																			isActive
-																				? 'text-primary'
-																				: 'text-primary'
+																			isActive ? 'text-primary' : 'text-primary'
 																		}`}
 																	/>
 																</div>
 																<span
 																	className={`font-medium text-sm truncate max-w-[120px] sm:max-w-none xl:max-w-[260px] ${
-																		isActive
-																			? 'text-primary font-semibold -translate-x-1'
-																			: 'text-foreground'
+																		isActive ? 'text-foreground' : 'text-foreground'
 																	}`}
 																>
 																	{student.name}
@@ -1153,7 +1140,7 @@ const SubmitGrade: React.FC = () => {
 																gradeValue !== '';
 
 															return (
-																<td key={period} className="px-1.5 sm:px-2.5 md:px-3 xl:px-5 py-3">
+																<td key={period} className="border-r border-border px-1.5 sm:px-2.5 md:px-3 xl:px-5 py-3">
 																	<div className="flex flex-col gap-1">
 																		{isExisting ? (
 																			<div className="flex items-center gap-2">
@@ -1234,10 +1221,10 @@ const SubmitGrade: React.FC = () => {
 								</div>
 							</div>
 
-							<div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur border-t border-border p-4 sm:p-6">
+							<div className="fixed bottom-4 right-4 z-40">
 								<button
 									onClick={handleSubmitGrades}
-									className="w-full sm:w-auto sm:ml-auto flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-base font-medium text-primary-foreground shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+									className="w-auto flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-base font-medium text-primary-foreground shadow-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 									disabled={
 										loading.submittingGrades ||
 										studentsForGrading.length === 0 ||
