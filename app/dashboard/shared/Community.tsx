@@ -349,36 +349,36 @@ const Community = () => {
 					</div>
 				</div>
 				<div className="max-h-[70vh] overflow-auto">
-					<table className="w-full">
+					<table className="w-full border-collapse">
 						<thead className="bg-muted sticky top-0 z-10 shadow-sm">
 							<tr>
-								<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-14">
+								<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-14 border border-border">
 									No.
 								</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-[180px]">
+								<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-[220px] border border-border">
 									Name
 								</th>
 								{roleFilter === 'student' && (
 									<>
-										<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+										<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-[180px] border border-border">
 											Class
 										</th>
-										<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+										<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider border border-border">
 											Gender
 										</th>
 									</>
 								)}
 								{roleFilter === 'teacher' && (
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider border border-border">
 										Subjects
 									</th>
 								)}
 								{roleFilter === 'administrator' && (
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider border border-border">
 										Position
 									</th>
 								)}
-								<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+								<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-[170px] border border-border">
 									Phone
 								</th>
 							</tr>
@@ -386,7 +386,7 @@ const Community = () => {
 						<tbody className="divide-y divide-border">
 							{loading && (
 								<tr>
-									<td colSpan={columnCount} className="px-6 py-10">
+									<td colSpan={columnCount} className="px-6 py-10 border border-border">
 										<div className="flex flex-col items-center gap-3 text-muted-foreground text-sm">
 											<Loader2 className="h-6 w-6 animate-spin" />
 											<span>{getLoadingMessage()}</span>
@@ -398,7 +398,7 @@ const Community = () => {
 								<tr>
 									<td
 										colSpan={columnCount}
-										className="px-6 py-10 text-center text-sm text-red-600"
+										className="px-6 py-10 text-center text-sm text-red-600 border border-border"
 									>
 										{error}
 									</td>
@@ -408,7 +408,7 @@ const Community = () => {
 								<tr>
 									<td
 										colSpan={columnCount}
-										className="px-6 py-10 text-center text-sm text-muted-foreground"
+										className="px-6 py-10 text-center text-sm text-muted-foreground border border-border"
 									>
 										No users found.
 									</td>
@@ -418,10 +418,10 @@ const Community = () => {
 								!error &&
 								paginatedUsers.map((u, index) => (
 									<tr key={u.id || u._id} className="hover:bg-muted/20">
-										<td className="px-4 py-4 text-sm text-muted-foreground">
+										<td className="px-4 py-4 text-sm text-muted-foreground border border-border">
 											{startIndex + index + 1}
 										</td>
-										<td className="px-4 py-4">
+										<td className="px-4 py-4 border border-border">
 											<div className="flex items-center gap-3">
 												<img
 													src={
@@ -446,25 +446,25 @@ const Community = () => {
 										</td>
 										{roleFilter === 'student' && (
 											<>
-												<td className="px-4 py-4 text-sm text-muted-foreground">
+												<td className="px-4 py-4 text-sm text-muted-foreground border border-border">
 													{getClassLabel(u)}
 												</td>
-												<td className="px-4 py-4 text-sm text-muted-foreground capitalize">
+												<td className="px-4 py-4 text-sm text-muted-foreground capitalize border border-border">
 													{u.gender || ''}
 												</td>
 											</>
 										)}
 										{roleFilter === 'teacher' && (
-											<td className="px-4 py-4 text-sm text-muted-foreground">
+											<td className="px-4 py-4 text-sm text-muted-foreground border border-border">
 												{getTeacherSubjectsLabel(u)}
 											</td>
 										)}
 										{roleFilter === 'administrator' && (
-											<td className="px-4 py-4 text-sm text-muted-foreground">
+											<td className="px-4 py-4 text-sm text-muted-foreground border border-border">
 												{u.position || 'Administrator'}
 											</td>
 										)}
-										<td className="px-4 py-4 text-sm text-muted-foreground">
+										<td className="px-4 py-4 text-sm text-muted-foreground border border-border">
 											{u.phone || ''}
 										</td>
 									</tr>
