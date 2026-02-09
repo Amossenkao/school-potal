@@ -571,6 +571,19 @@ const SubmitGrade: React.FC = () => {
 				throw new Error(errorData.message || 'Failed to submit grades');
 			}
 
+			const data = await res.json().catch(() => ({}));
+			if (data?.queued) {
+				showNotification(
+					'info',
+					'You are offline. Grades were queued and will sync when you reconnect.'
+				);
+				setSelectedClassId('');
+				setSelectedSubject('');
+				setSelectedPeriods([]);
+				setStudentsForGrading([]);
+				return;
+			}
+
 			window.dispatchEvent(new CustomEvent('grading:counts:refresh'));
 			showNotification(
 				'success',
