@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
 import { Loader2, Search } from 'lucide-react';
@@ -34,6 +34,11 @@ const Community = () => {
 	const [itemsPerPage, setItemsPerPage] = useState(10);
 	const [viewingUser, setViewingUser] = useState<any>(null);
 	const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+	const [isViewLoading, setIsViewLoading] = useState(false);
+	const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+	const tabOrder = ['student', 'teacher', 'administrator'] as const;
+	const tabIndex = tabOrder.indexOf(roleFilter);
 
 	const getClassNameFromId = (id?: string) => {
 		if (!id || !schoolProfile?.classLevels) return id || '';
@@ -169,9 +174,18 @@ const Community = () => {
 		return filteredUsers.slice(startIndex, startIndex + itemsPerPage);
 	}, [filteredUsers, currentPage, itemsPerPage]);
 
-const handleOpenUser = async (target: any) => {
-		setViewingUser(target);
+	const handleOpenUser = async (target: any) => {
+		setViewingUser({
+			id: target.id || target._id,
+			firstName: target.firstName,
+			lastName: target.lastName,
+			role: target.role,
+			avatar: target.avatar,
+			profilePictureUrl: target.profilePictureUrl,
+			isActive: target.isActive,
+		});
 		setIsViewModalOpen(true);
+		setIsViewLoading(true);
 		try {
 			const params = new URLSearchParams();
 			if (academicYear) params.set('academicYear', academicYear);
@@ -183,35 +197,9 @@ const handleOpenUser = async (target: any) => {
 			}
 		} catch {
 		} finally {
+			setIsViewLoading(false);
 		}
 	};
-
-	const getDetails = (u: any) => {
-		if (u.role === 'student') {
-			return u.className || getClassNameFromId(u.classId) || u.classId || '';
-		}
-		if (u.role === 'teacher') {
-			if (Array.isArray(u.subjects) && u.subjects.length > 0) {
-				const subjectNames = u.subjects
-					.map((s: any) => (typeof s === 'string' ? s : s?.subject))
-					.filter(Boolean);
-				return subjectNames.length > 0 ? subjectNames.join(', ') : 'Assigned';
-			}
-			const yearData = (u.subjects || []).find((s: any) => s.year === academicYear);
-			const classes = yearData?.classes || [];
-			const subjectList = classes.flatMap((c: any) => c.subjects || []);
-			return subjectList.length > 0 ? subjectList.join(', ') : 'Assigned';
-		}
-		if (u.role === 'administrator') {
-			return u.position || 'Administrator';
-		}
-		return '';
-	};
-
-	const getStatusColor = (isActive: boolean) =>
-		isActive
-			? 'bg-green-100 text-green-700'
-			: 'bg-red-100 text-red-700';
 
 	const subtitle =
 		user?.role === 'student'
@@ -227,6 +215,48 @@ const handleOpenUser = async (target: any) => {
 		}
 		return 'Loading administrators...';
 	};
+
+	const getClassLabel = (u: any) =>
+		u.className || getClassNameFromId(u.classId) || u.classId || '';
+
+	const getTeacherSubjectsLabel = (u: any) => {
+		if (Array.isArray(u.subjects) && u.subjects.length > 0) {
+			const subjectNames = u.subjects
+				.map((s: any) => (typeof s === 'string' ? s : s?.subject))
+				.filter(Boolean);
+			return subjectNames.length > 0 ? subjectNames.join(', ') : 'Assigned';
+		}
+		const yearData = (u.subjects || []).find((s: any) => s.year === academicYear);
+		const classes = yearData?.classes || [];
+		const subjectList = classes.flatMap((c: any) => c.subjects || []);
+		return subjectList.length > 0 ? subjectList.join(', ') : 'Assigned';
+	};
+
+	const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+		if (event.touches.length !== 1) return;
+		const touch = event.touches[0];
+		touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+	};
+
+	const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+		const start = touchStartRef.current;
+		if (!start) return;
+		const touch = event.changedTouches[0];
+		const deltaX = touch.clientX - start.x;
+		const deltaY = touch.clientY - start.y;
+		touchStartRef.current = null;
+		if (Math.abs(deltaX) < 60 || Math.abs(deltaX) < Math.abs(deltaY) * 1.5) {
+			return;
+		}
+		const direction = deltaX < 0 ? 1 : -1;
+		const nextIndex = Math.min(tabOrder.length - 1, Math.max(0, tabIndex + direction));
+		if (nextIndex !== tabIndex) {
+			setRoleFilter(tabOrder[nextIndex]);
+		}
+	};
+
+	const startIndex = (currentPage - 1) * itemsPerPage;
+	const columnCount = roleFilter === 'student' ? 5 : 4;
 
 	return (
 		<div className="space-y-6 px-4 sm:px-6 lg:px-8">
@@ -274,21 +304,32 @@ const handleOpenUser = async (target: any) => {
 				</div>
 			</div>
 
-			<div className="flex flex-wrap gap-2">
-				{(['student', 'teacher', 'administrator'] as const).map((role) => (
-					<button
-						key={role}
-						type="button"
-						onClick={() => setRoleFilter(role)}
-						className={`px-4 py-2 rounded-full text-xs font-medium transition ${
-							roleFilter === role
-								? 'bg-primary text-primary-foreground'
-								: 'bg-muted text-muted-foreground hover:text-foreground'
-						}`}
-					>
-						{role === 'administrator' ? 'Administrators' : `${role}s`}
-					</button>
-				))}
+			<div
+				onTouchStart={handleTouchStart}
+				onTouchEnd={handleTouchEnd}
+				className="rounded-2xl border border-border bg-muted/40 p-1 shadow-sm"
+			>
+				<div className="relative grid grid-cols-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+					<span
+						className="absolute inset-y-0 left-0 z-0 w-1/3 rounded-xl bg-card shadow-sm transition-transform duration-300"
+						style={{ transform: `translateX(${tabIndex * 100}%)` }}
+					/>
+					{tabOrder.map((role) => (
+						<button
+							key={role}
+							type="button"
+							onClick={() => setRoleFilter(role)}
+							className={`relative z-10 px-4 py-2.5 text-center transition-colors ${
+								roleFilter === role ? 'text-foreground' : 'hover:text-foreground'
+							}`}
+						>
+							{role === 'administrator' ? 'Administrators' : `${role}s`}
+						</button>
+					))}
+				</div>
+				<p className="mt-2 text-[11px] text-muted-foreground">
+					Swipe left or right to switch tabs.
+				</p>
 			</div>
 
 			<div className="rounded-lg border border-border bg-card">
@@ -296,24 +337,41 @@ const handleOpenUser = async (target: any) => {
 					<table className="w-full">
 						<thead className="bg-muted/50">
 							<tr>
-								<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-									User
+								<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-14">
+									No.
 								</th>
-								<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-									Type
+								<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-[220px]">
+									Name
 								</th>
-								<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-									Details
-								</th>
-								<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-									Status
+								{roleFilter === 'student' && (
+									<>
+										<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+											Class
+										</th>
+										<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+											Gender
+										</th>
+									</>
+								)}
+								{roleFilter === 'teacher' && (
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+										Subjects
+									</th>
+								)}
+								{roleFilter === 'administrator' && (
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+										Position
+									</th>
+								)}
+								<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+									Phone
 								</th>
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-border">
 							{loading && (
 								<tr>
-									<td colSpan={4} className="px-6 py-10">
+									<td colSpan={columnCount} className="px-6 py-10">
 										<div className="flex flex-col items-center gap-3 text-muted-foreground text-sm">
 											<Loader2 className="h-6 w-6 animate-spin" />
 											<span>{getLoadingMessage()}</span>
@@ -323,23 +381,32 @@ const handleOpenUser = async (target: any) => {
 							)}
 							{!loading && error && (
 								<tr>
-									<td colSpan={4} className="px-6 py-10 text-center text-sm text-red-600">
+									<td
+										colSpan={columnCount}
+										className="px-6 py-10 text-center text-sm text-red-600"
+									>
 										{error}
 									</td>
 								</tr>
 							)}
 							{!loading && !error && filteredUsers.length === 0 && (
 								<tr>
-									<td colSpan={4} className="px-6 py-10 text-center text-sm text-muted-foreground">
+									<td
+										colSpan={columnCount}
+										className="px-6 py-10 text-center text-sm text-muted-foreground"
+									>
 										No users found.
 									</td>
 								</tr>
 							)}
 							{!loading &&
 								!error &&
-								paginatedUsers.map((u) => (
+								paginatedUsers.map((u, index) => (
 									<tr key={u.id || u._id} className="hover:bg-muted/20">
-										<td className="px-6 py-4">
+										<td className="px-4 py-4 text-sm text-muted-foreground">
+											{startIndex + index + 1}
+										</td>
+										<td className="px-4 py-4">
 											<div className="flex items-center gap-3">
 												<img
 													src={
@@ -351,48 +418,39 @@ const handleOpenUser = async (target: any) => {
 													className="h-9 w-9 rounded-full object-cover cursor-pointer"
 													onClick={() => handleOpenUser(u)}
 												/>
-												<div>
-													<div className="text-sm font-medium text-foreground">
-														<button
-															type="button"
-															onClick={() => handleOpenUser(u)}
-															className="text-left hover:underline"
-														>
-															{getFullName(u)}
-														</button>
-													</div>
-													<div className="text-xs text-muted-foreground">
-														{u.email || u.phone ? (
-															<button
-																type="button"
-																onClick={() => handleOpenUser(u)}
-																className="hover:underline"
-															>
-																{u.email || u.phone}
-															</button>
-														) : (
-															''
-														)}
-													</div>
+												<div className="min-w-0">
+													<button
+														type="button"
+														onClick={() => handleOpenUser(u)}
+														className="text-left hover:underline text-sm font-medium text-foreground whitespace-nowrap"
+													>
+														{getFullName(u)}
+													</button>
 												</div>
 											</div>
 										</td>
-										<td className="px-6 py-4 text-xs">
-											<span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">
-												{u.role}
-											</span>
-										</td>
-										<td className="px-6 py-4 text-sm text-muted-foreground">
-											{getDetails(u)}
-										</td>
-										<td className="px-6 py-4">
-											<span
-												className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-													u.isActive ?? true,
-												)}`}
-											>
-												{u.isActive ?? true ? 'Active' : 'Inactive'}
-											</span>
+										{roleFilter === 'student' && (
+											<>
+												<td className="px-4 py-4 text-sm text-muted-foreground">
+													{getClassLabel(u)}
+												</td>
+												<td className="px-4 py-4 text-sm text-muted-foreground capitalize">
+													{u.gender || ''}
+												</td>
+											</>
+										)}
+										{roleFilter === 'teacher' && (
+											<td className="px-4 py-4 text-sm text-muted-foreground">
+												{getTeacherSubjectsLabel(u)}
+											</td>
+										)}
+										{roleFilter === 'administrator' && (
+											<td className="px-4 py-4 text-sm text-muted-foreground">
+												{u.position || 'Administrator'}
+											</td>
+										)}
+										<td className="px-4 py-4 text-sm text-muted-foreground">
+											{u.phone || ''}
 										</td>
 									</tr>
 								))}
@@ -445,8 +503,10 @@ const handleOpenUser = async (target: any) => {
 					onClose={() => {
 						setIsViewModalOpen(false);
 						setViewingUser(null);
+						setIsViewLoading(false);
 					}}
 					viewingUser={viewingUser}
+					isLoading={isViewLoading}
 					schoolProfile={schoolProfile}
 				/>
 			)}

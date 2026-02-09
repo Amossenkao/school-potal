@@ -1,7 +1,24 @@
-import React from 'react';
-import { X } from 'lucide-react';
+'use client';
 
-const ViewUserModal = ({ isOpen, onClose, viewingUser, schoolProfile }) => {
+import React, { useEffect } from 'react';
+import { Loader2, X } from 'lucide-react';
+
+const ViewUserModal = ({
+	isOpen,
+	onClose,
+	viewingUser,
+	schoolProfile,
+	isLoading,
+}) => {
+	useEffect(() => {
+		if (!isOpen) return undefined;
+		const originalOverflow = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+		return () => {
+			document.body.style.overflow = originalOverflow;
+		};
+	}, [isOpen]);
+
 	if (!isOpen || !viewingUser) return null;
 
 	const getFullName = (user) => {
@@ -72,6 +89,7 @@ const ViewUserModal = ({ isOpen, onClose, viewingUser, schoolProfile }) => {
 		const date = new Date(value);
 		return Number.isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString();
 	};
+	const showDetails = !isLoading;
 
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -123,202 +141,219 @@ const ViewUserModal = ({ isOpen, onClose, viewingUser, schoolProfile }) => {
 
 						{/* Right Column: Detailed Info */}
 						<div className="col-span-1 md:col-span-2 space-y-6">
-							<div>
-								<h5 className="font-semibold mb-3 text-lg border-b pb-2">
-									Personal Information
-								</h5>
-								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-									<InfoField label="Email Address" value={viewingUser.email} />
-									<InfoField label="Phone Number" value={viewingUser.phone} />
-									<InfoField label="Gender" value={viewingUser.gender} />
-									<InfoField
-										label="Date of Birth"
-										value={safeDate(viewingUser.dateOfBirth)}
-									/>
-									<div className="sm:col-span-2">
-										<InfoField label="Address" value={viewingUser.address} />
-									</div>
+							{!showDetails && (
+								<div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+									<Loader2 className="h-4 w-4 animate-spin" />
+									<span>Loading profile details...</span>
 								</div>
-							</div>
+							)}
 
-							{viewingUser.role === 'student' && (
+							{showDetails && (
 								<>
 									<div>
 										<h5 className="font-semibold mb-3 text-lg border-b pb-2">
-											Academic Information
+											Personal Information
 										</h5>
 										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+											<InfoField label="Email Address" value={viewingUser.email} />
+											<InfoField label="Phone Number" value={viewingUser.phone} />
+											<InfoField label="Gender" value={viewingUser.gender} />
 											<InfoField
-												label="Student ID"
-												value={viewingUser.studentId}
+												label="Date of Birth"
+												value={safeDate(viewingUser.dateOfBirth)}
 											/>
-											<InfoField
-												label="Current Class"
-												value={
-													viewingUser.className ||
-													getClassNameFromId(viewingUser.classId)
-												}
-											/>
-											<InfoField
-												label="Years with Institution"
-												value={getYearsSpent(viewingUser)}
-											/>
-										</div>
-									</div>
-									<div>
-										<h5 className="font-semibold mb-3 text-lg border-b pb-2">
-											Academic Year History
-										</h5>
-										<div className="space-y-3">
-											{getAcademicYearTimeline(viewingUser).length === 0 && (
-												<p className="text-sm text-muted-foreground">
-													No academic history available.
-												</p>
-											)}
-									{getAcademicYearTimeline(viewingUser).map((entry, idx) => (
-												<div
-													key={`${entry.year}-${idx}`}
-													className="flex items-start justify-between rounded-lg border border-border bg-muted/40 p-3"
-												>
-													<div>
-														<p className="text-sm font-medium text-foreground">
-															{entry.year || 'Unknown Year'}
-														</p>
-														<p className="text-xs text-muted-foreground">
-															Class:{' '}
-															{entry.className ||
-																getClassNameFromId(entry.classId) ||
-																'N/A'}
-														</p>
-													</div>
-												</div>
-											))}
-										</div>
-									</div>
-									{viewingUser.guardian && (
-										<div>
-											<h5 className="font-semibold mb-3 text-lg border-b pb-2">
-												Guardian Information
-											</h5>
-											<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-												<InfoField
-													label="Guardian Name"
-													value={
-														viewingUser.guardian.firstName +
-														' ' +
-														(viewingUser.guardian.middleName || '') +
-														' ' +
-														viewingUser.guardian.lastName
-													}
-												/>
-												<InfoField
-													label="Guardian Phone"
-													value={viewingUser.guardian.phone}
-												/>
-												<InfoField
-													label="Guardian Email"
-													value={viewingUser.guardian.email}
-												/>
+											<div className="sm:col-span-2">
+												<InfoField label="Address" value={viewingUser.address} />
 											</div>
 										</div>
-									)}
-								</>
-							)}
+									</div>
 
-							{viewingUser.role === 'teacher' && (
-								<div>
-									<h5 className="font-semibold mb-3 text-lg border-b pb-2">
-										Teaching Information
-									</h5>
-									<div className="space-y-4">
-										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-											<InfoField
-												label="Username"
-												value={viewingUser.username}
-											/>
-											<InfoField
-												label="Sponsor Class"
-												value={viewingUser.sponsorClass}
-											/>
-											<InfoField
-												label="Years with Institution"
-												value={getYearsSpent(viewingUser)}
-											/>
-										</div>
-										<div>
-											<p className="text-sm text-muted-foreground">
-												Current Subjects & Classes
-											</p>
-											{getTeacherCurrentYearData(viewingUser) ? (
-												<div className="mt-2 space-y-2">
-													{getTeacherCurrentYearData(viewingUser).classes?.map(
-														(cls, idx) => (
+									{viewingUser.role === 'student' && (
+										<>
+											<div>
+												<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+													Academic Information
+												</h5>
+												<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+													<InfoField
+														label="Student ID"
+														value={viewingUser.studentId}
+													/>
+													<InfoField
+														label="Current Class"
+														value={
+															viewingUser.className ||
+															getClassNameFromId(viewingUser.classId)
+														}
+													/>
+													<InfoField
+														label="Years with Institution"
+														value={getYearsSpent(viewingUser)}
+													/>
+												</div>
+											</div>
+											<div>
+												<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+													Academic Year History
+												</h5>
+												<div className="space-y-3">
+													{getAcademicYearTimeline(viewingUser).length === 0 && (
+														<p className="text-sm text-muted-foreground">
+															No academic history available.
+														</p>
+													)}
+													{getAcademicYearTimeline(viewingUser).map(
+														(entry, idx) => (
 															<div
-																key={`${cls.classId}-${idx}`}
-																className="rounded-lg border border-border bg-muted/40 p-3"
+																key={`${entry.year}-${idx}`}
+																className="flex items-start justify-between rounded-lg border border-border bg-muted/40 p-3"
 															>
-																<p className="text-sm font-medium text-foreground">
-																	Class:{' '}
-																	{cls.className ||
-																		getClassNameFromId(cls.classId) ||
-																		cls.classId}
-																</p>
-																<p className="text-xs text-muted-foreground">
-																	Subjects: {(cls.subjects || []).join(', ') || 'N/A'}
-																</p>
+																<div>
+																	<p className="text-sm font-medium text-foreground">
+																		{entry.year || 'Unknown Year'}
+																	</p>
+																	<p className="text-xs text-muted-foreground">
+																		Class:{' '}
+																		{entry.className ||
+																			getClassNameFromId(entry.classId) ||
+																			'N/A'}
+																	</p>
+																</div>
 															</div>
 														),
 													)}
 												</div>
-											) : (
-												<p className="text-sm text-muted-foreground mt-1">
-													No current assignments available.
-												</p>
-											)}
-										</div>
-									</div>
-								</div>
-							)}
-
-							{viewingUser.role === 'administrator' && (
-								<div>
-									<h5 className="font-semibold mb-3 text-lg border-b pb-2">
-										Administrative Information
-									</h5>
-									<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-										<InfoField label="Admin ID" value={viewingUser.adminId} />
-										<InfoField label="Position" value={viewingUser.position} />
-										<InfoField
-											label="Years with Institution"
-											value={getYearsSpent(viewingUser)}
-										/>
-									</div>
-									<div className="mt-4">
-										<p className="text-sm text-muted-foreground mb-2">
-											Position Timeline
-										</p>
-										<div className="space-y-2">
-											{getAdminTimeline(viewingUser).length === 0 && (
-												<p className="text-sm text-muted-foreground">
-													No administrative history available.
-												</p>
-											)}
-											{getAdminTimeline(viewingUser).map((entry, idx) => (
-												<div
-													key={`${entry.year}-${idx}`}
-													className="rounded-lg border border-border bg-muted/40 p-3"
-												>
-													<p className="text-sm font-medium text-foreground">
-														{entry.year || 'Unknown Year'}
-													</p>
-													<p className="text-xs text-muted-foreground">
-														Position: {entry.position || 'N/A'}
-													</p>
+											</div>
+											{viewingUser.guardian && (
+												<div>
+													<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+														Guardian Information
+													</h5>
+													<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+														<InfoField
+															label="Guardian Name"
+															value={
+																viewingUser.guardian.firstName +
+																' ' +
+																(viewingUser.guardian.middleName || '') +
+																' ' +
+																viewingUser.guardian.lastName
+															}
+														/>
+														<InfoField
+															label="Guardian Phone"
+															value={viewingUser.guardian.phone}
+														/>
+														<InfoField
+															label="Guardian Email"
+															value={viewingUser.guardian.email}
+														/>
+													</div>
 												</div>
-											))}
+											)}
+										</>
+									)}
+
+									{viewingUser.role === 'teacher' && (
+										<div>
+											<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+												Teaching Information
+											</h5>
+											<div className="space-y-4">
+												<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+													<InfoField
+														label="Username"
+														value={viewingUser.username}
+													/>
+													<InfoField
+														label="Sponsor Class"
+														value={viewingUser.sponsorClass}
+													/>
+													<InfoField
+														label="Years with Institution"
+														value={getYearsSpent(viewingUser)}
+													/>
+												</div>
+												<div>
+													<p className="text-sm text-muted-foreground">
+														Current Subjects & Classes
+													</p>
+													{getTeacherCurrentYearData(viewingUser) ? (
+														<div className="mt-2 space-y-2">
+															{getTeacherCurrentYearData(viewingUser).classes?.map(
+																(cls, idx) => (
+																	<div
+																		key={`${cls.classId}-${idx}`}
+																		className="rounded-lg border border-border bg-muted/40 p-3"
+																	>
+																		<p className="text-sm font-medium text-foreground">
+																			Class:{' '}
+																			{cls.className ||
+																				getClassNameFromId(cls.classId) ||
+																				cls.classId}
+																		</p>
+																		<p className="text-xs text-muted-foreground">
+																			Subjects:{' '}
+																			{(cls.subjects || []).join(', ') || 'N/A'}
+																		</p>
+																	</div>
+																),
+															)}
+														</div>
+													) : (
+														<p className="text-sm text-muted-foreground mt-1">
+															No current assignments available.
+														</p>
+													)}
+												</div>
+											</div>
 										</div>
-									</div>
-								</div>
+									)}
+
+									{viewingUser.role === 'administrator' && (
+										<div>
+											<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+												Administrative Information
+											</h5>
+											<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+												<InfoField label="Admin ID" value={viewingUser.adminId} />
+												<InfoField
+													label="Position"
+													value={viewingUser.position}
+												/>
+												<InfoField
+													label="Years with Institution"
+													value={getYearsSpent(viewingUser)}
+												/>
+											</div>
+											<div className="mt-4">
+												<p className="text-sm text-muted-foreground mb-2">
+													Position Timeline
+												</p>
+												<div className="space-y-2">
+													{getAdminTimeline(viewingUser).length === 0 && (
+														<p className="text-sm text-muted-foreground">
+															No administrative history available.
+														</p>
+													)}
+													{getAdminTimeline(viewingUser).map((entry, idx) => (
+														<div
+															key={`${entry.year}-${idx}`}
+															className="rounded-lg border border-border bg-muted/40 p-3"
+														>
+															<p className="text-sm font-medium text-foreground">
+																{entry.year || 'Unknown Year'}
+															</p>
+															<p className="text-xs text-muted-foreground">
+																Position: {entry.position || 'N/A'}
+															</p>
+														</div>
+													))}
+												</div>
+											</div>
+										</div>
+									)}
+								</>
 							)}
 						</div>
 					</div>
