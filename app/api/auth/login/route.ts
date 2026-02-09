@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
 async function handleLogin(user: any, password: string, host: string) {
 	if (!user || !password) {
 		return NextResponse.json(
-			{ message: 'Incorrect credentials' },
+			{ message: 'Incorrect username or password' },
 			{ status: 401 },
 		);
 	}
