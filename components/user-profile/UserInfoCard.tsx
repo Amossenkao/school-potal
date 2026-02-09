@@ -7,6 +7,7 @@ import Input from '../form/input/InputField';
 import Label from '../form/Label';
 import useAuth from '@/store/useAuth';
 import Spinner from '../ui/spinner';
+import { Switch } from '@/components/ui/switch';
 
 const InfoField = ({ label, value }: any) => (
 	<div>
@@ -31,6 +32,7 @@ export default function UserInfoCard() {
 		phone: '',
 		bio: '',
 		password: '',
+		shareContactWithClassmates: false,
 	});
 	const [isLoading, setIsLoading] = useState(false);
 	const [errors, setErrors] = useState<any>({});
@@ -49,6 +51,7 @@ export default function UserInfoCard() {
 			phone: user?.phone || '',
 			bio: user?.bio || '',
 			password: '', // Always start with empty password
+			shareContactWithClassmates: Boolean(user?.shareContactWithClassmates),
 		});
 		setErrors({});
 		setShowPassword(false);
@@ -56,7 +59,7 @@ export default function UserInfoCard() {
 	};
 
 	// Handle form input changes
-	const handleInputChange = (field: string, value: string) => {
+	const handleInputChange = (field: string, value: string | boolean) => {
 		setFormData((prev) => ({
 			...prev,
 			[field]: value,
@@ -68,6 +71,13 @@ export default function UserInfoCard() {
 				[field]: undefined,
 			}));
 		}
+	};
+
+	const handleToggleChange = (field: string, value: boolean) => {
+		setFormData((prev) => ({
+			...prev,
+			[field]: value,
+		}));
 	};
 
 	// Validate form data
@@ -336,6 +346,28 @@ export default function UserInfoCard() {
 											</p>
 										)}
 									</div>
+									{user?.role === 'student' && (
+										<div className="col-span-2 flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-800 px-4 py-3">
+											<div>
+												<p className="text-sm font-medium text-gray-800 dark:text-white/90">
+													Share phone with classmates
+												</p>
+												<p className="text-xs text-gray-500 dark:text-gray-400">
+													Allow classmates to see your phone number in the
+													community list.
+												</p>
+											</div>
+											<Switch
+												checked={formData.shareContactWithClassmates}
+												onCheckedChange={(checked) =>
+													handleToggleChange(
+														'shareContactWithClassmates',
+														checked,
+													)
+												}
+											/>
+										</div>
+									)}
 									<div className="col-span-2">
 										<Label>Bio</Label>
 										<Input

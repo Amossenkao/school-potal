@@ -94,6 +94,7 @@ function buildUserResponse(
 				enrollmentStatus: user.enrollmentStatus,
 				classId: user.classId,
 				className: user.className,
+				shareContactWithClassmates: user.shareContactWithClassmates ?? false,
 				academicYears: user.academicYears || [],
 				guardian: user.guardian,
 				financialProfile: user.financialProfile || {
@@ -291,6 +292,8 @@ async function buildUserData(
 				enrollmentStatus: 'enrolled',
 				classId: userData.classId,
 				className: userData.className,
+				shareContactWithClassmates:
+					userData.shareContactWithClassmates ?? false,
 				academicYears: [
 					{
 						year: academicYear,
@@ -1177,6 +1180,7 @@ export async function GET(request: NextRequest) {
 		};
 
 		const applyStudentPhonePrivacy = (user: any, queryYear: string) => {
+			if (currentUser.role !== 'student') return user;
 			if (!user || user.role !== 'student') return user;
 			const isCurrentYear = queryYear === currentAcademicYear;
 			return formatStudentData(user, queryYear, isCurrentYear);
@@ -2819,6 +2823,7 @@ export async function PUT(request: NextRequest) {
 							'guardian',
 							'enrollmentStatus',
 							'financialProfile',
+							'shareContactWithClassmates',
 						];
 						break;
 					case 'teacher':
@@ -2843,6 +2848,9 @@ export async function PUT(request: NextRequest) {
 				'newPassword',
 				'avatar',
 			];
+			if (currentUser.role === 'student') {
+				allowedFields.push('shareContactWithClassmates');
+			}
 		} else {
 			return NextResponse.json(
 				{

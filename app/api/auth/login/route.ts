@@ -236,6 +236,7 @@ function buildUserResponse(user: any) {
 				enrollmentStatus: user.enrollmentStatus,
 				classId: user.classId,
 				className: user.className,
+				shareContactWithClassmates: user.shareContactWithClassmates ?? false,
 				academicYears: user.academicYears || [],
 				guardian: user.guardian,
 				financialProfile: user.financialProfile,

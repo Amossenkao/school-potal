@@ -236,16 +236,24 @@ const Community = () => {
 		u.className || getClassNameFromId(u.classId) || u.classId || '';
 
 	const getTeacherSubjectsLabel = (u: any) => {
+		let subjects: string[] = [];
 		if (Array.isArray(u.subjects) && u.subjects.length > 0) {
-			const subjectNames = u.subjects
+			subjects = u.subjects
 				.map((s: any) => (typeof s === 'string' ? s : s?.subject))
 				.filter(Boolean);
-			if (subjectNames.length > 0) return subjectNames.join(', ');
 		}
-		const yearData = (u.subjects || []).find((s: any) => s.year === academicYear);
-		const classes = yearData?.classes || [];
-		const subjectList = classes.flatMap((c: any) => c.subjects || []);
-		return subjectList.length > 0 ? subjectList.join(', ') : 'Assigned';
+		if (
+			subjects.length === 0 &&
+			!(user?.role === 'student' && roleFilter === 'teacher')
+		) {
+			const yearData = (u.subjects || []).find((s: any) => s.year === academicYear);
+			const classes = yearData?.classes || [];
+			subjects = classes.flatMap((c: any) => c.subjects || []);
+		}
+		const uniqueSubjects = Array.from(
+			new Set(subjects.map((s) => s.trim()).filter(Boolean)),
+		);
+		return uniqueSubjects.length > 0 ? uniqueSubjects.join(', ') : 'Assigned';
 	};
 
 	const startIndex = (currentPage - 1) * itemsPerPage;

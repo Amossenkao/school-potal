@@ -33,6 +33,7 @@ function buildUserResponse(user: any) {
 				className: user.className,
 				classLevel: user.classLevel,
 				session: user.session,
+				shareContactWithClassmates: user.shareContactWithClassmates ?? false,
 			};
 		case 'teacher':
 			return {

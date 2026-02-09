@@ -90,6 +90,7 @@ export interface Student extends User {
 	enrollmentStatus: 'enrolled' | 'graduated' | 'transferred' | 'dropped';
 	classId: string;
 	className: string;
+	shareContactWithClassmates: boolean;
 	academicYears: { year: string; classId: string; className?: string }[];
 	guardian: {
 		firstName: string;
