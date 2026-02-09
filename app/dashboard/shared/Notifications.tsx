@@ -27,7 +27,91 @@ interface Notification {
 	timestamp: string;
 	read: boolean;
 	type: NotificationType;
+	details?: string | Record<string, any>;
 }
+
+interface GradeDetails {
+	teacherName?: string;
+	className?: string;
+	period?: string;
+	subject?: string;
+	studentsGraded?: number;
+	passes?: number;
+	fails?: number;
+	academicYear?: string;
+	submissionId?: string;
+}
+
+const parseGradeDetails = (notification: Notification): GradeDetails | null => {
+	if (notification.type !== 'Grades' || !notification.details) return null;
+	const raw = notification.details;
+	let parsed: any = raw;
+	if (typeof raw === 'string') {
+		try {
+			parsed = JSON.parse(raw);
+		} catch {
+			return null;
+		}
+	}
+	if (!parsed || typeof parsed !== 'object') return null;
+	return {
+		teacherName: parsed.teacherName,
+		className: parsed.className,
+		period: parsed.period,
+		subject: parsed.subject,
+		studentsGraded:
+			typeof parsed.studentsGraded === 'number'
+				? parsed.studentsGraded
+				: undefined,
+		passes: typeof parsed.passes === 'number' ? parsed.passes : undefined,
+		fails: typeof parsed.fails === 'number' ? parsed.fails : undefined,
+		academicYear: parsed.academicYear,
+		submissionId: parsed.submissionId,
+	};
+};
+
+const GradeDetailCard = ({ details }: { details: GradeDetails }) => (
+	<div className="mt-4 grid grid-cols-2 gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-foreground">
+		<div>
+			<p className="text-xs uppercase tracking-wide text-muted-foreground">
+				Teacher
+			</p>
+			<p className="font-semibold">{details.teacherName || 'N/A'}</p>
+		</div>
+		<div>
+			<p className="text-xs uppercase tracking-wide text-muted-foreground">
+				Class
+			</p>
+			<p className="font-semibold">{details.className || 'N/A'}</p>
+		</div>
+		<div>
+			<p className="text-xs uppercase tracking-wide text-muted-foreground">
+				Period
+			</p>
+			<p className="font-semibold">{details.period || 'N/A'}</p>
+		</div>
+		<div>
+			<p className="text-xs uppercase tracking-wide text-muted-foreground">
+				Subject
+			</p>
+			<p className="font-semibold">{details.subject || 'N/A'}</p>
+		</div>
+		<div>
+			<p className="text-xs uppercase tracking-wide text-muted-foreground">
+				Students Graded
+			</p>
+			<p className="font-semibold">{details.studentsGraded ?? 'N/A'}</p>
+		</div>
+		<div>
+			<p className="text-xs uppercase tracking-wide text-muted-foreground">
+				Pass / Fail
+			</p>
+			<p className="font-semibold">
+				{details.passes ?? 'N/A'} / {details.fails ?? 'N/A'}
+			</p>
+		</div>
+	</div>
+);
 
 const NotificationModal = ({
 	notification,
@@ -36,6 +120,7 @@ const NotificationModal = ({
 	notification: Notification;
 	onClose: () => void;
 }) => {
+	const gradeDetails = parseGradeDetails(notification);
 	const getIcon = (type: NotificationType) => {
 		switch (type) {
 			case 'Grades':
@@ -83,6 +168,7 @@ const NotificationModal = ({
 					<p className="text-foreground leading-relaxed">
 						{notification.message}
 					</p>
+					{gradeDetails && <GradeDetailCard details={gradeDetails} />}
 				</div>
 				<div className="flex items-center justify-between text-sm text-muted-foreground">
 					<div className="flex items-center space-x-2">
@@ -121,6 +207,7 @@ const NotificationItem = ({
 	onDelete: (id: string) => void;
 	onView: (notification: Notification) => void;
 }) => {
+	const gradeDetails = parseGradeDetails(notification);
 	const getIcon = (type: NotificationType) => {
 		switch (type) {
 			case 'Grades':
@@ -213,6 +300,7 @@ const NotificationItem = ({
 						<p className="text-muted-foreground mb-4 line-clamp-2">
 							{notification.message}
 						</p>
+						{gradeDetails && <GradeDetailCard details={gradeDetails} />}
 						<div className="flex items-center gap-3">
 							{!notification.read && (
 								<button
@@ -300,10 +388,17 @@ const Notifications: React.FC = () => {
 		user?.notifications
 			?.filter((n) => {
 				const matchesTab = activeTab === 'All' || n.type === activeTab;
+				const detailsText =
+					typeof n.details === 'string'
+						? n.details
+						: n.details
+							? JSON.stringify(n.details)
+							: '';
 				const matchesSearch =
 					searchQuery.trim() === '' ||
 					n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-					n.message.toLowerCase().includes(searchQuery.toLowerCase());
+					n.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
+					detailsText.toLowerCase().includes(searchQuery.toLowerCase());
 				return matchesTab && matchesSearch;
 			})
 			.sort(

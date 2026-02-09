@@ -195,6 +195,34 @@ function getTeacherClassData(
 	);
 }
 
+function getClassNameFromId(schoolProfile: any, id?: string) {
+	if (!id || !schoolProfile?.classLevels) return id || '';
+	for (const session of Object.values(schoolProfile.classLevels)) {
+		if (!session || typeof session !== 'object') continue;
+		for (const level of Object.values(session)) {
+			if (!level?.classes || !Array.isArray(level.classes)) continue;
+			const found = level.classes.find((cls: any) => cls.classId === id);
+			if (found) return found.name || id;
+		}
+	}
+	return id || '';
+}
+
+const PERIOD_LABELS: Record<string, string> = {
+	first: '1st Period',
+	second: '2nd Period',
+	third: '3rd Period',
+	third_period_exam: '3rd Period Exam',
+	fourth: '4th Period',
+	fifth: '5th Period',
+	sixth: '6th Period',
+	sixth_period_exam: '6th Period Exam',
+};
+
+function formatPeriodLabel(period: string) {
+	return PERIOD_LABELS[period] || period;
+}
+
 function validateGrades(grades: any[]): { isValid: boolean; message?: string } {
 	if (!Array.isArray(grades)) {
 		return { isValid: false, message: 'Grades must be an array.' };
@@ -981,6 +1009,8 @@ export async function POST(request: NextRequest) {
 
 		// Fetch school settings to check if grade submission is allowed
 		const schoolProfile = await getSchoolProfile();
+		const className = getClassNameFromId(schoolProfile, classId) || classId;
+		const passMark = schoolProfile?.settings?.gradingSettings?.passMark ?? 60;
 
 		if (schoolProfile?.settings?.teacherSettings) {
 			const { gradeSubmissionAcademicYears = [], gradeSubmissionPeriods = [] } =
@@ -1121,16 +1151,34 @@ export async function POST(request: NextRequest) {
 		// Notify admins per submissionId (one notification per batch/period)
 		const submissionSummary = new Map<
 			string,
-			{ count: number; period: string }
+			{
+				count: number;
+				period: string;
+				gradedCount: number;
+				passes: number;
+				fails: number;
+			}
 		>();
 		for (const doc of gradeDocuments) {
+			const isNumeric = typeof doc.grade === 'number' && !isNaN(doc.grade);
 			const existing = submissionSummary.get(doc.submissionId);
 			if (existing) {
 				existing.count += 1;
+				if (isNumeric) {
+					existing.gradedCount += 1;
+					if (doc.grade >= passMark) {
+						existing.passes += 1;
+					} else {
+						existing.fails += 1;
+					}
+				}
 			} else {
 				submissionSummary.set(doc.submissionId, {
 					count: 1,
 					period: doc.period,
+					gradedCount: isNumeric ? 1 : 0,
+					passes: isNumeric && doc.grade >= passMark ? 1 : 0,
+					fails: isNumeric && doc.grade < passMark ? 1 : 0,
 				});
 			}
 		}
@@ -1140,11 +1188,21 @@ export async function POST(request: NextRequest) {
 			.lean();
 		const notificationPromises = [];
 		for (const [submissionId, summary] of submissionSummary.entries()) {
+			const details = {
+				teacherName: `${teacher.firstName} ${teacher.lastName}`.trim(),
+				className,
+				period: formatPeriodLabel(summary.period),
+				subject,
+				studentsGraded: summary.gradedCount,
+				passes: summary.passes,
+				fails: summary.fails,
+				academicYear: resolvedAcademicYear,
+				submissionId,
+			};
 			const notification = {
 				title: 'New Grade Submission',
-				message: `${teacher.firstName} ${teacher.lastName} submitted ${summary.count} grade${
-					summary.count === 1 ? '' : 's'
-				} for ${subject} (${summary.period}) in ${classId} for ${resolvedAcademicYear}. Submission ID: ${submissionId}.`,
+				message: `${details.teacherName} submitted grades for ${details.className} • ${details.subject} • ${details.period}. ${details.studentsGraded} graded (${details.passes} pass, ${details.fails} fail).`,
+				details: JSON.stringify(details),
 				timestamp: new Date(),
 				read: false,
 				type: 'Grades',

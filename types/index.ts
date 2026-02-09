@@ -132,7 +132,7 @@ export interface AIChatMessage {
 export interface Notification {
 	title: string;
 	message: string;
-	details?: string;
+	details?: string | Record<string, any>;
 	timestamp: Date;
 	read: boolean;
 	dismissed: boolean;

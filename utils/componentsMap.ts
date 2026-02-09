@@ -1355,6 +1355,13 @@ export function getUserAccessibleFeatures(
 
 	const features = Array.isArray(roleAccess) ? roleAccess : [];
 	const uniqueFeatures = Array.from(new Set(features));
+	if (
+		userRole === 'student' &&
+		schoolProfile.enabledFeatures.includes('notifications') &&
+		!uniqueFeatures.includes('notifications')
+	) {
+		uniqueFeatures.push('notifications');
+	}
 
 	return uniqueFeatures.filter((feature) =>
 		schoolProfile.enabledFeatures.includes(feature),
