@@ -8,6 +8,7 @@ import Label from '../form/Label';
 import useAuth from '@/store/useAuth';
 import Spinner from '../ui/spinner';
 import Switch from '@/components/form/switch/Switch';
+import { Pencil } from 'lucide-react';
 
 const InfoField = ({ label, value }: any) => (
 	<div>
@@ -26,17 +27,27 @@ export default function UserInfoCard() {
 
 	// State for form data
 	const [formData, setFormData] = useState({
-		firstName: '',
-		lastName: '',
 		email: '',
 		phone: '',
 		bio: '',
-		password: '',
+		nickName: '',
 		shareContactWithClassmates: false,
+	});
+	const [initialFormData, setInitialFormData] = useState({
+		email: '',
+		phone: '',
+		bio: '',
+		nickName: '',
+		shareContactWithClassmates: false,
+	});
+	const [editableFields, setEditableFields] = useState({
+		email: true,
+		phone: true,
+		bio: true,
+		nickName: true,
 	});
 	const [isLoading, setIsLoading] = useState(false);
 	const [errors, setErrors] = useState<any>({});
-	const [showPassword, setShowPassword] = useState(false);
 
 	if (!user) {
 		return <Spinner />;
@@ -44,17 +55,22 @@ export default function UserInfoCard() {
 
 	// Initialize form data when modal opens
 	const handleOpenModal = () => {
-		setFormData({
-			firstName: user?.firstName || '',
-			lastName: user?.lastName || '',
+		const nextData = {
 			email: user?.email || '',
 			phone: user?.phone || '',
 			bio: user?.bio || '',
-			password: '', // Always start with empty password
+			nickName: user?.nickName || '',
 			shareContactWithClassmates: Boolean(user?.shareContactWithClassmates),
+		};
+		setFormData(nextData);
+		setInitialFormData(nextData);
+		setEditableFields({
+			email: !nextData.email,
+			phone: !nextData.phone,
+			bio: !nextData.bio,
+			nickName: !nextData.nickName,
 		});
 		setErrors({});
-		setShowPassword(false);
 		openModal();
 	};
 
@@ -73,32 +89,18 @@ export default function UserInfoCard() {
 		}
 	};
 
-	const handleToggleChange = (field: string, value: boolean) => {
-		setFormData((prev) => ({
-			...prev,
-			[field]: value,
-		}));
-	};
-
-	// Validate form data
-	const validateForm = () => {
+	// Validate form data (only changed fields)
+	const validateForm = (payload: Record<string, any>) => {
 		const newErrors: any = {};
 
-		// Email validation
-		if (!formData.email.trim()) {
-			newErrors.email = 'Email is required';
-		} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+		// Email validation (only if provided)
+		if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
 			newErrors.email = 'Please enter a valid email address';
 		}
 
 		// Phone validation (optional but must be valid if provided)
-		if (formData.phone && !/^\+?[\d\s-()]+$/.test(formData.phone)) {
+		if (payload.phone && !/^\+?[\d\s-()]+$/.test(payload.phone)) {
 			newErrors.phone = 'Please enter a valid phone number';
-		}
-
-		// Password validation (optional but must be valid if provided)
-		if (formData.password && formData.password.length < 8) {
-			newErrors.password = 'Password must be at least 8 characters long';
 		}
 
 		setErrors(newErrors);
@@ -107,15 +109,24 @@ export default function UserInfoCard() {
 
 	// Implement the save functionality here
 	const handleSave = async () => {
-		if (!validateForm()) {
+		const updatePayload: Record<string, any> = {};
+		(Object.keys(formData) as Array<keyof typeof formData>).forEach((key) => {
+			if (formData[key] !== initialFormData[key]) {
+				updatePayload[key] = formData[key];
+			}
+		});
+
+		if (Object.keys(updatePayload).length === 0) {
+			closeModal();
+			return;
+		}
+
+		if (!validateForm(updatePayload)) {
 			return;
 		}
 
 		setIsLoading(true);
 		try {
-			// Only send editable fields (exclude firstName and lastName)
-			const { firstName, lastName, ...editableData } = formData;
-
 			// API call to update user profile (no ID needed for self-update)
 			const response = await fetch(`/api/users`, {
 				method: 'PUT',
@@ -123,7 +134,7 @@ export default function UserInfoCard() {
 					'Content-Type': 'application/json',
 				},
 				credentials: 'include',
-				body: JSON.stringify(editableData),
+				body: JSON.stringify(updatePayload),
 			});
 
 			const result = await response.json();
@@ -151,6 +162,10 @@ export default function UserInfoCard() {
 		} finally {
 			setIsLoading(false);
 		}
+	};
+
+	const enableField = (field: keyof typeof editableFields) => {
+		setEditableFields((prev) => ({ ...prev, [field]: true }));
 	};
 
 	return (
@@ -286,12 +301,24 @@ export default function UserInfoCard() {
 										<Label>First Name</Label>
 										<Input
 											type="text"
-											value={formData.firstName}
-											onChange={(e) =>
-												handleInputChange('firstName', e.target.value)
-											}
+											value={user?.firstName || ''}
+											readOnly
 											disabled
 											placeholder={user?.firstName || 'Not provided'}
+											className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400"
+										/>
+										<p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+											This field cannot be modified
+										</p>
+									</div>
+									<div className="col-span-2 lg:col-span-1">
+										<Label>Middle Name</Label>
+										<Input
+											type="text"
+											value={user?.middleName || ''}
+											readOnly
+											disabled
+											placeholder={user?.middleName || 'Not provided'}
 											className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400"
 										/>
 										<p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
@@ -302,10 +329,8 @@ export default function UserInfoCard() {
 										<Label>Last Name</Label>
 										<Input
 											type="text"
-											value={formData.lastName}
-											onChange={(e) =>
-												handleInputChange('lastName', e.target.value)
-											}
+											value={user?.lastName || ''}
+											readOnly
 											disabled
 											placeholder={user?.lastName || 'Not provided'}
 											className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400"
@@ -315,13 +340,26 @@ export default function UserInfoCard() {
 										</p>
 									</div>
 									<div className="col-span-2 lg:col-span-1">
-										<Label>Email Address</Label>
+										<div className="flex items-center justify-between">
+											<Label>Email Address</Label>
+											{initialFormData.email && !editableFields.email && (
+												<button
+													type="button"
+													onClick={() => enableField('email')}
+													className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+													aria-label="Edit email"
+												>
+													<Pencil className="h-4 w-4" />
+												</button>
+											)}
+										</div>
 										<Input
 											type="email"
 											value={formData.email}
 											onChange={(e) =>
 												handleInputChange('email', e.target.value)
 											}
+											disabled={!editableFields.email}
 											className={errors.email ? 'border-red-500' : ''}
 										/>
 										{errors.email && (
@@ -331,13 +369,26 @@ export default function UserInfoCard() {
 										)}
 									</div>
 									<div className="col-span-2 lg:col-span-1">
-										<Label>Phone</Label>
+										<div className="flex items-center justify-between">
+											<Label>Phone</Label>
+											{initialFormData.phone && !editableFields.phone && (
+												<button
+													type="button"
+													onClick={() => enableField('phone')}
+													className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+													aria-label="Edit phone"
+												>
+													<Pencil className="h-4 w-4" />
+												</button>
+											)}
+										</div>
 										<Input
 											type="tel"
 											value={formData.phone}
 											onChange={(e) =>
 												handleInputChange('phone', e.target.value)
 											}
+											disabled={!editableFields.phone}
 											className={errors.phone ? 'border-red-500' : ''}
 										/>
 										{errors.phone && (
@@ -345,6 +396,30 @@ export default function UserInfoCard() {
 												{errors.phone}
 											</p>
 										)}
+									</div>
+									<div className="col-span-2 lg:col-span-1">
+										<div className="flex items-center justify-between">
+											<Label>Nickname</Label>
+											{initialFormData.nickName &&
+												!editableFields.nickName && (
+													<button
+														type="button"
+														onClick={() => enableField('nickName')}
+														className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+														aria-label="Edit nickname"
+													>
+														<Pencil className="h-4 w-4" />
+													</button>
+												)}
+										</div>
+										<Input
+											type="text"
+											value={formData.nickName}
+											onChange={(e) =>
+												handleInputChange('nickName', e.target.value)
+											}
+											disabled={!editableFields.nickName}
+										/>
 									</div>
 									{user?.role === 'student' && (
 										<div className="col-span-2 flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-800 px-4 py-3">
@@ -360,7 +435,7 @@ export default function UserInfoCard() {
 											<Switch
 												checked={formData.shareContactWithClassmates}
 												onChange={(checked) =>
-													handleToggleChange(
+													handleInputChange(
 														'shareContactWithClassmates',
 														checked,
 													)
@@ -369,76 +444,25 @@ export default function UserInfoCard() {
 										</div>
 									)}
 									<div className="col-span-2">
-										<Label>Bio</Label>
+										<div className="flex items-center justify-between">
+											<Label>Bio</Label>
+											{initialFormData.bio && !editableFields.bio && (
+												<button
+													type="button"
+													onClick={() => enableField('bio')}
+													className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+													aria-label="Edit bio"
+												>
+													<Pencil className="h-4 w-4" />
+												</button>
+											)}
+										</div>
 										<Input
 											type="text"
 											value={formData.bio}
 											onChange={(e) => handleInputChange('bio', e.target.value)}
+											disabled={!editableFields.bio}
 										/>
-									</div>
-									<div className="col-span-2">
-										<Label>Change Password (Optional)</Label>
-										<div className="relative">
-											<Input
-												type={showPassword ? 'text' : 'password'}
-												value={formData.password}
-												onChange={(e) =>
-													handleInputChange('password', e.target.value)
-												}
-												placeholder="Leave empty to keep current password"
-												className={errors.password ? 'border-red-500' : ''}
-											/>
-											<button
-												type="button"
-												onClick={() => setShowPassword(!showPassword)}
-												className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
-											>
-												{showPassword ? (
-													<svg
-														className="w-5 h-5"
-														fill="none"
-														stroke="currentColor"
-														viewBox="0 0 24 24"
-													>
-														<path
-															strokeLinecap="round"
-															strokeLinejoin="round"
-															strokeWidth={2}
-															d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L8.464 8.464M14.12 14.12l1.415 1.415M14.12 14.12L9.88 9.88"
-														/>
-													</svg>
-												) : (
-													<svg
-														className="w-5 h-5"
-														fill="none"
-														stroke="currentColor"
-														viewBox="0 0 24 24"
-													>
-														<path
-															strokeLinecap="round"
-															strokeLinejoin="round"
-															strokeWidth={2}
-															d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-														/>
-														<path
-															strokeLinecap="round"
-															strokeLinejoin="round"
-															strokeWidth={2}
-															d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.543 7-1.275 4.057-5.065 7-9.543 7-4.477 0-8.268-2.943-9.542-7z"
-														/>
-													</svg>
-												)}
-											</button>
-										</div>
-										{errors.password && (
-											<p className="mt-1 text-xs text-red-500">
-												{errors.password}
-											</p>
-										)}
-										<p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-											Minimum 8 characters. Leave empty to keep current
-											password.
-										</p>
 									</div>
 								</div>
 							</div>

@@ -1141,7 +1141,11 @@ export async function GET(request: NextRequest) {
 				firstName: student.firstName,
 				lastName: student.lastName,
 				email: student.email,
-				phone: student.shareContactWithClassmates ? student.phone : undefined,
+				phone:
+					student.shareContactWithClassmates === true
+						? student.phone
+						: undefined,
+				shareContactWithClassmates: student.shareContactWithClassmates ?? false,
 				avatar: student.avatar || student.profilePictureUrl,
 				bio: student.bio,
 				nickName: student.nickName,
