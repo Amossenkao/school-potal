@@ -167,17 +167,16 @@ const Community = () => {
 		return list
 			.filter((u) => {
 				const name = getFullName(u).toLowerCase();
-				const phone =
-					roleFilter === 'student' && user?.role === 'student'
-						? u.shareContactWithClassmates === true
-							? (u.phone || '').toLowerCase()
-							: ''
-						: (u.phone || '').toLowerCase();
+				const phone = String(u.phone || '').toLowerCase();
 				const subjects =
-					roleFilter === 'teacher' ? getTeacherSubjectsLabel(u).toLowerCase() : '';
+					roleFilter === 'teacher'
+						? String(getTeacherSubjectsLabel(u)).toLowerCase()
+						: '';
 				const classLabel =
-					roleFilter === 'student' ? getClassLabel(u).toLowerCase() : '';
-				const position = (u.position || '').toLowerCase();
+					roleFilter === 'student'
+						? String(getClassLabel(u)).toLowerCase()
+						: '';
+				const position = String(u.position || '').toLowerCase();
 				return (
 					name.includes(lowered) ||
 					phone.includes(lowered) ||
@@ -256,7 +255,11 @@ const Community = () => {
 			subjects = classes.flatMap((c: any) => c.subjects || []);
 		}
 		const uniqueSubjects = Array.from(
-			new Set(subjects.map((s) => s.trim()).filter(Boolean)),
+			new Set(
+				subjects
+					.map((s) => String(s).trim())
+					.filter((value) => value.length > 0),
+			),
 		);
 		return uniqueSubjects.length > 0 ? uniqueSubjects.join(', ') : 'Assigned';
 	};
@@ -478,11 +481,7 @@ const Community = () => {
 											</td>
 										)}
 										<td className="px-4 py-4 text-sm text-muted-foreground border border-border">
-											{roleFilter === 'student' && user?.role === 'student'
-												? u.shareContactWithClassmates === true
-													? u.phone || ''
-													: ''
-												: u.phone || ''}
+											{u.phone || ''}
 										</td>
 									</tr>
 								))}

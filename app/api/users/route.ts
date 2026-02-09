@@ -1184,7 +1184,6 @@ export async function GET(request: NextRequest) {
 		};
 
 		const applyStudentPhonePrivacy = (user: any, queryYear: string) => {
-			if (currentUser.role !== 'student') return user;
 			if (!user || user.role !== 'student') return user;
 			const isCurrentYear = queryYear === currentAcademicYear;
 			return formatStudentData(user, queryYear, isCurrentYear);

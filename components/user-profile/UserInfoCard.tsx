@@ -359,8 +359,10 @@ export default function UserInfoCard() {
 											onChange={(e) =>
 												handleInputChange('email', e.target.value)
 											}
-											disabled={!editableFields.email}
-											className={errors.email ? 'border-red-500' : ''}
+											readOnly={!editableFields.email}
+											className={`${!editableFields.email ? 'bg-gray-50 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300' : ''} ${
+												errors.email ? 'border-red-500' : ''
+											}`}
 										/>
 										{errors.email && (
 											<p className="mt-1 text-xs text-red-500">
@@ -388,8 +390,10 @@ export default function UserInfoCard() {
 											onChange={(e) =>
 												handleInputChange('phone', e.target.value)
 											}
-											disabled={!editableFields.phone}
-											className={errors.phone ? 'border-red-500' : ''}
+											readOnly={!editableFields.phone}
+											className={`${!editableFields.phone ? 'bg-gray-50 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300' : ''} ${
+												errors.phone ? 'border-red-500' : ''
+											}`}
 										/>
 										{errors.phone && (
 											<p className="mt-1 text-xs text-red-500">
@@ -418,7 +422,12 @@ export default function UserInfoCard() {
 											onChange={(e) =>
 												handleInputChange('nickName', e.target.value)
 											}
-											disabled={!editableFields.nickName}
+											readOnly={!editableFields.nickName}
+											className={
+												!editableFields.nickName
+													? 'bg-gray-50 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300'
+													: ''
+											}
 										/>
 									</div>
 									{user?.role === 'student' && (
@@ -461,7 +470,12 @@ export default function UserInfoCard() {
 											type="text"
 											value={formData.bio}
 											onChange={(e) => handleInputChange('bio', e.target.value)}
-											disabled={!editableFields.bio}
+											readOnly={!editableFields.bio}
+											className={
+												!editableFields.bio
+													? 'bg-gray-50 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300'
+													: ''
+											}
 										/>
 									</div>
 								</div>
