@@ -157,15 +157,39 @@ const Community = () => {
 			list = list.filter((u: any) => u.classId === classId);
 		}
 
-		if (!query.trim()) return list;
-		const lowered = query.toLowerCase();
-		return list.filter((u) => {
-			const name = getFullName(u).toLowerCase();
-			const email = (u.email || '').toLowerCase();
-			const phone = (u.phone || '').toLowerCase();
-			return name.includes(lowered) || email.includes(lowered) || phone.includes(lowered);
+		const normalized = list.map((u) => {
+			if (roleFilter === 'student' && user?.role === 'student') {
+				return { ...u, phone: undefined };
+			}
+			return u;
 		});
-	}, [communityData, roleFilter, classId, query]);
+
+		if (!query.trim()) {
+			return normalized
+				.slice()
+				.sort((a, b) => getFullName(a).localeCompare(getFullName(b)));
+		}
+
+		const lowered = query.toLowerCase();
+		return normalized
+			.filter((u) => {
+				const name = getFullName(u).toLowerCase();
+				const phone = (u.phone || '').toLowerCase();
+				const subjects =
+					roleFilter === 'teacher' ? getTeacherSubjectsLabel(u).toLowerCase() : '';
+				const classLabel =
+					roleFilter === 'student' ? getClassLabel(u).toLowerCase() : '';
+				const position = (u.position || '').toLowerCase();
+				return (
+					name.includes(lowered) ||
+					phone.includes(lowered) ||
+					subjects.includes(lowered) ||
+					classLabel.includes(lowered) ||
+					position.includes(lowered)
+				);
+			})
+			.sort((a, b) => getFullName(a).localeCompare(getFullName(b)));
+	}, [communityData, roleFilter, classId, query, user?.role, academicYear]);
 
 	const totalPages = Math.max(1, Math.ceil(filteredUsers.length / itemsPerPage));
 	const paginatedUsers = useMemo(() => {
@@ -286,20 +310,24 @@ const Community = () => {
 						className="absolute inset-y-0 left-0 z-0 w-1/3 rounded-xl bg-card shadow-sm transition-transform duration-300 ring-1 ring-border"
 						style={{ transform: `translateX(${tabIndex * 100}%)` }}
 					/>
-					{tabOrder.map((role) => (
-						<button
-							key={role}
-							type="button"
-							onClick={() => setRoleFilter(role)}
-							className={`relative z-10 px-4 py-2.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
-								roleFilter === role
-									? 'text-foreground'
-									: 'text-muted-foreground hover:text-foreground'
-							}`}
-						>
-							{role === 'administrator' ? 'Administrators' : `${role}s`}
-						</button>
-					))}
+							{tabOrder.map((role) => (
+								<button
+									key={role}
+									type="button"
+									onClick={() => setRoleFilter(role)}
+									className={`relative z-10 px-4 py-2.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+										roleFilter === role
+											? 'text-foreground'
+											: 'text-muted-foreground hover:text-foreground'
+									}`}
+								>
+									{role === 'administrator'
+										? 'Administrators'
+										: role === 'student' && user?.role === 'student'
+											? 'Classmates'
+											: `${role}s`}
+								</button>
+							))}
 				</div>
 			</div>
 
