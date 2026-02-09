@@ -23,6 +23,9 @@ export default function RootLayout({
 }) {
 	return (
 		<html lang="en">
+			<head>
+				<link rel="manifest" href="/manifest.webmanifest" />
+			</head>
 			<body>
 				<RootProviders>{children}</RootProviders>
 			</body>
