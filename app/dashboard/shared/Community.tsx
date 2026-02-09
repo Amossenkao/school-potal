@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
 import { Loader2, Search } from 'lucide-react';
@@ -35,7 +35,6 @@ const Community = () => {
 	const [viewingUser, setViewingUser] = useState<any>(null);
 	const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 	const [isViewLoading, setIsViewLoading] = useState(false);
-	const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
 	const tabOrder = ['student', 'teacher', 'administrator'] as const;
 	const tabIndex = tabOrder.indexOf(roleFilter);
@@ -232,29 +231,6 @@ const Community = () => {
 		return subjectList.length > 0 ? subjectList.join(', ') : 'Assigned';
 	};
 
-	const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-		if (event.touches.length !== 1) return;
-		const touch = event.touches[0];
-		touchStartRef.current = { x: touch.clientX, y: touch.clientY };
-	};
-
-	const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
-		const start = touchStartRef.current;
-		if (!start) return;
-		const touch = event.changedTouches[0];
-		const deltaX = touch.clientX - start.x;
-		const deltaY = touch.clientY - start.y;
-		touchStartRef.current = null;
-		if (Math.abs(deltaX) < 60 || Math.abs(deltaX) < Math.abs(deltaY) * 1.5) {
-			return;
-		}
-		const direction = deltaX < 0 ? 1 : -1;
-		const nextIndex = Math.min(tabOrder.length - 1, Math.max(0, tabIndex + direction));
-		if (nextIndex !== tabIndex) {
-			setRoleFilter(tabOrder[nextIndex]);
-		}
-	};
-
 	const startIndex = (currentPage - 1) * itemsPerPage;
 	const columnCount = roleFilter === 'student' ? 5 : 4;
 
@@ -304,14 +280,10 @@ const Community = () => {
 				</div>
 			</div>
 
-			<div
-				onTouchStart={handleTouchStart}
-				onTouchEnd={handleTouchEnd}
-				className="rounded-2xl border border-border bg-muted/40 p-1 shadow-sm"
-			>
+			<div className="rounded-2xl border border-border bg-muted/40 p-1 shadow-sm">
 				<div className="relative grid grid-cols-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 					<span
-						className="absolute inset-y-0 left-0 z-0 w-1/3 rounded-xl bg-card shadow-sm transition-transform duration-300"
+						className="absolute inset-y-0 left-0 z-0 w-1/3 rounded-xl bg-card shadow-sm transition-transform duration-300 ring-1 ring-border"
 						style={{ transform: `translateX(${tabIndex * 100}%)` }}
 					/>
 					{tabOrder.map((role) => (
@@ -319,28 +291,27 @@ const Community = () => {
 							key={role}
 							type="button"
 							onClick={() => setRoleFilter(role)}
-							className={`relative z-10 px-4 py-2.5 text-center transition-colors ${
-								roleFilter === role ? 'text-foreground' : 'hover:text-foreground'
+							className={`relative z-10 px-4 py-2.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+								roleFilter === role
+									? 'text-foreground'
+									: 'text-muted-foreground hover:text-foreground'
 							}`}
 						>
 							{role === 'administrator' ? 'Administrators' : `${role}s`}
 						</button>
 					))}
 				</div>
-				<p className="mt-2 text-[11px] text-muted-foreground">
-					Swipe left or right to switch tabs.
-				</p>
 			</div>
 
 			<div className="rounded-lg border border-border bg-card">
-				<div className="overflow-x-auto">
+				<div className="max-h-[70vh] overflow-auto">
 					<table className="w-full">
-						<thead className="bg-muted/50">
+						<thead className="bg-muted/50 sticky top-0 z-10">
 							<tr>
 								<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-14">
 									No.
 								</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-[220px]">
+								<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-[180px]">
 									Name
 								</th>
 								{roleFilter === 'student' && (
@@ -422,7 +393,7 @@ const Community = () => {
 													<button
 														type="button"
 														onClick={() => handleOpenUser(u)}
-														className="text-left hover:underline text-sm font-medium text-foreground whitespace-nowrap"
+														className="text-left hover:underline text-sm font-medium text-foreground whitespace-nowrap max-w-[200px] truncate block"
 													>
 														{getFullName(u)}
 													</button>

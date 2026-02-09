@@ -70,6 +70,20 @@ const ViewUserModal = ({
 		return (user.subjects || []).find((s) => s.year === currentYear) || null;
 	};
 
+	const getTeacherSubjects = (user) => {
+		if (Array.isArray(user.subjects)) {
+			if (user.subjects.length === 0) return '';
+			if (typeof user.subjects[0] === 'string') {
+				return user.subjects.filter(Boolean).join(', ');
+			}
+			const currentYear = getTeacherCurrentYearData(user);
+			const subjects =
+				currentYear?.classes?.flatMap((cls) => cls.subjects || []) || [];
+			return subjects.filter(Boolean).join(', ');
+		}
+		return '';
+	};
+
 	const getAcademicYearTimeline = (user) => {
 		if (user.role !== 'student') return [];
 		return (user.academicYears || [])
@@ -128,15 +142,6 @@ const ViewUserModal = ({
 							<p className="text-md text-muted-foreground capitalize">
 								{viewingUser.role}
 							</p>
-							<span
-								className={`mt-2 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-									viewingUser.isActive
-										? 'bg-green-100 text-green-800'
-										: 'bg-red-100 text-red-800'
-								}`}
-							>
-								{viewingUser.isActive ? 'Active' : 'Inactive'}
-							</span>
 						</div>
 
 						{/* Right Column: Detailed Info */}
@@ -268,6 +273,10 @@ const ViewUserModal = ({
 													<InfoField
 														label="Sponsor Class"
 														value={viewingUser.sponsorClass}
+													/>
+													<InfoField
+														label="Subjects"
+														value={getTeacherSubjects(viewingUser)}
 													/>
 													<InfoField
 														label="Years with Institution"
