@@ -157,21 +157,14 @@ const Community = () => {
 			list = list.filter((u: any) => u.classId === classId);
 		}
 
-		const normalized = list.map((u) => {
-			if (roleFilter === 'student' && user?.role === 'student') {
-				return { ...u, phone: undefined };
-			}
-			return u;
-		});
-
 		if (!query.trim()) {
-			return normalized
+			return list
 				.slice()
 				.sort((a, b) => getFullName(a).localeCompare(getFullName(b)));
 		}
 
 		const lowered = query.toLowerCase();
-		return normalized
+		return list
 			.filter((u) => {
 				const name = getFullName(u).toLowerCase();
 				const phone = (u.phone || '').toLowerCase();
@@ -247,7 +240,7 @@ const Community = () => {
 			const subjectNames = u.subjects
 				.map((s: any) => (typeof s === 'string' ? s : s?.subject))
 				.filter(Boolean);
-			return subjectNames.length > 0 ? subjectNames.join(', ') : 'Assigned';
+			if (subjectNames.length > 0) return subjectNames.join(', ');
 		}
 		const yearData = (u.subjects || []).find((s: any) => s.year === academicYear);
 		const classes = yearData?.classes || [];
@@ -332,9 +325,32 @@ const Community = () => {
 			</div>
 
 			<div className="rounded-lg border border-border bg-card">
+				<div className="flex flex-col gap-3 p-4 border-b border-border">
+					<div className="flex items-center justify-between gap-3">
+						<p className="text-sm text-muted-foreground">
+							Showing {filteredUsers.length} result
+							{filteredUsers.length === 1 ? '' : 's'}
+						</p>
+						<div className="flex items-center gap-2">
+							<span className="text-sm text-muted-foreground">Show</span>
+							<select
+								value={itemsPerPage}
+								onChange={(e) => {
+									setItemsPerPage(Number(e.target.value));
+									setCurrentPage(1);
+								}}
+								className="bg-background border border-border rounded px-2 py-1 text-sm"
+							>
+								<option value={5}>5</option>
+								<option value={10}>10</option>
+								<option value={20}>20</option>
+							</select>
+						</div>
+					</div>
+				</div>
 				<div className="max-h-[70vh] overflow-auto">
 					<table className="w-full">
-						<thead className="bg-muted/50 sticky top-0 z-10">
+						<thead className="bg-muted sticky top-0 z-10 shadow-sm">
 							<tr>
 								<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-14">
 									No.
@@ -457,21 +473,6 @@ const Community = () => {
 					</table>
 				</div>
 				<div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-border">
-					<div className="flex items-center gap-2">
-						<span className="text-sm text-muted-foreground">Show</span>
-						<select
-							value={itemsPerPage}
-							onChange={(e) => {
-								setItemsPerPage(Number(e.target.value));
-								setCurrentPage(1);
-							}}
-							className="bg-background border border-border rounded px-2 py-1 text-sm"
-						>
-							<option value={5}>5</option>
-							<option value={10}>10</option>
-							<option value={20}>20</option>
-						</select>
-					</div>
 					<div className="text-sm text-muted-foreground">
 						Page {currentPage} of {totalPages}
 					</div>

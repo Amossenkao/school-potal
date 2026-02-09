@@ -1176,6 +1176,12 @@ export async function GET(request: NextRequest) {
 			}
 		};
 
+		const applyStudentPhonePrivacy = (user: any, queryYear: string) => {
+			if (!user || user.role !== 'student') return user;
+			const isCurrentYear = queryYear === currentAcademicYear;
+			return formatStudentData(user, queryYear, isCurrentYear);
+		};
+
 		// ========================================================================
 		// HELPER FUNCTION: Validate Academic Year Access
 		// ========================================================================
@@ -1877,6 +1883,10 @@ export async function GET(request: NextRequest) {
 				.select('-password -defaultPassword')
 				.lean();
 
+			responseData = Array.isArray(responseData)
+				? responseData.map((u: any) => applyStudentPhonePrivacy(u, academicYear))
+				: applyStudentPhonePrivacy(responseData, academicYear);
+
 			let meta;
 			if (includeCounts) {
 				const [total, counts] = await Promise.all([
@@ -1960,6 +1970,10 @@ export async function GET(request: NextRequest) {
 				.limit(limit)
 				.select('-password -defaultPassword')
 				.lean();
+
+			responseData = Array.isArray(responseData)
+				? responseData.map((u: any) => applyStudentPhonePrivacy(u, academicYear))
+				: applyStudentPhonePrivacy(responseData, academicYear);
 
 			let meta;
 			if (includeCounts) {
