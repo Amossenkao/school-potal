@@ -59,7 +59,8 @@ const AppSidebar: React.FC = () => {
 	const [pendingSubmissionsCount, setPendingSubmissionsCount] = useState(0);
 	const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 	const { isOnline } = useNetworkStore();
-	const { setOfflinePath } = useOfflineNavigationStore();
+	const { setOfflinePath, offlinePath } = useOfflineNavigationStore();
+	const activePath = offlinePath || pathname;
 
 	// Get current school profile
 	const currentSchool = useSchoolStore(
@@ -172,9 +173,9 @@ const AppSidebar: React.FC = () => {
 	const isActive = useCallback(
 		(href: string) => {
 			const fullHref = prependDashboard(href);
-			return fullHref === pathname;
+			return fullHref === activePath;
 		},
-		[pathname]
+		[activePath]
 	);
 
 	// Close mobile sidebar when pathname changes (navigation occurs)

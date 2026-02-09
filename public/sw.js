@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
 const API_CACHE = `api-${CACHE_VERSION}`;
@@ -7,6 +7,9 @@ const STATIC_ASSETS = ['/', '/dashboard', '/offline', '/manifest.webmanifest'];
 const API_ALLOWLIST = [
 	'/api/users',
 	'/api/grades',
+	'/api/calendar',
+	'/api/schedules',
+	'/api/school',
 	'/api/notifications',
 	'/api/settings',
 ];

@@ -38,10 +38,38 @@ type SchoolStore = {
 		payload: { classSchedules?: any[]; testSchedules?: any[] },
 	) => void;
 	clearCache: () => void;
+	hydrateCache: () => void;
 };
 
 // Prevent multiple simultaneous fetches
 let fetchPromise: Promise<void> | null = null;
+
+const SCHOOL_CACHE_KEY = 'school-cache-v1';
+
+const readSchoolCache = () => {
+	if (typeof window === 'undefined') return null;
+	try {
+		const raw = localStorage.getItem(SCHOOL_CACHE_KEY);
+		return raw ? JSON.parse(raw) : null;
+	} catch (error) {
+		console.warn('Failed to read school cache:', error);
+		return null;
+	}
+};
+
+const writeSchoolCache = (payload: {
+	usersByAcademicYear: Record<string, any>;
+	usersVersionByAcademicYear: Record<string, number>;
+	calendarByAcademicYear: Record<string, any[]>;
+	schedulesByAcademicYear: Record<string, any>;
+}) => {
+	if (typeof window === 'undefined') return;
+	try {
+		localStorage.setItem(SCHOOL_CACHE_KEY, JSON.stringify(payload));
+	} catch (error) {
+		console.warn('Failed to persist school cache:', error);
+	}
+};
 
 export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	school: null,
@@ -132,46 +160,74 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				administrators: mergeById(existing.administrators, nextAdmins),
 			};
 
-			return {
-				usersByAcademicYear: {
-					...state.usersByAcademicYear,
-					[academicYear]: updated,
-				},
+			const usersByAcademicYear = {
+				...state.usersByAcademicYear,
+				[academicYear]: updated,
 			};
+			writeSchoolCache({
+				usersByAcademicYear,
+				usersVersionByAcademicYear: state.usersVersionByAcademicYear,
+				calendarByAcademicYear: state.calendarByAcademicYear,
+				schedulesByAcademicYear: state.schedulesByAcademicYear,
+			});
+			return { usersByAcademicYear };
 		});
 	},
 
 	setUsersVersionForYear: (academicYear, version) => {
 		if (!academicYear || typeof version !== 'number') return;
 		set((state) => ({
-			usersVersionByAcademicYear: {
-				...state.usersVersionByAcademicYear,
-				[academicYear]: version,
-			},
+			usersVersionByAcademicYear: (() => {
+				const usersVersionByAcademicYear = {
+					...state.usersVersionByAcademicYear,
+					[academicYear]: version,
+				};
+				writeSchoolCache({
+					usersByAcademicYear: state.usersByAcademicYear,
+					usersVersionByAcademicYear,
+					calendarByAcademicYear: state.calendarByAcademicYear,
+					schedulesByAcademicYear: state.schedulesByAcademicYear,
+				});
+				return usersVersionByAcademicYear;
+			})(),
 		}));
 	},
 
 	setCalendarForYear: (academicYear, events) => {
 		if (!academicYear) return;
-		set((state) => ({
-			calendarByAcademicYear: {
+		set((state) => {
+			const calendarByAcademicYear = {
 				...state.calendarByAcademicYear,
 				[academicYear]: Array.isArray(events) ? events : [],
-			},
-		}));
+			};
+			writeSchoolCache({
+				usersByAcademicYear: state.usersByAcademicYear,
+				usersVersionByAcademicYear: state.usersVersionByAcademicYear,
+				calendarByAcademicYear,
+				schedulesByAcademicYear: state.schedulesByAcademicYear,
+			});
+			return { calendarByAcademicYear };
+		});
 	},
 
 	setSchedulesForYear: (academicYear, payload) => {
 		if (!academicYear) return;
-		set((state) => ({
-			schedulesByAcademicYear: {
+		set((state) => {
+			const schedulesByAcademicYear = {
 				...state.schedulesByAcademicYear,
 				[academicYear]: {
 					classSchedules: payload.classSchedules || [],
 					testSchedules: payload.testSchedules || [],
 				},
-			},
-		}));
+			};
+			writeSchoolCache({
+				usersByAcademicYear: state.usersByAcademicYear,
+				usersVersionByAcademicYear: state.usersVersionByAcademicYear,
+				calendarByAcademicYear: state.calendarByAcademicYear,
+				schedulesByAcademicYear,
+			});
+			return { schedulesByAcademicYear };
+		});
 	},
 
 	clearCache: () => {
@@ -181,5 +237,25 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			calendarByAcademicYear: {},
 			schedulesByAcademicYear: {},
 		});
+		if (typeof window !== 'undefined') {
+			try {
+				localStorage.removeItem(SCHOOL_CACHE_KEY);
+			} catch (error) {
+				console.warn('Failed to clear school cache:', error);
+			}
+		}
+	},
+	hydrateCache: () => {
+		const cached = readSchoolCache();
+		if (!cached) return;
+		set((state) => ({
+			usersByAcademicYear: cached.usersByAcademicYear || state.usersByAcademicYear,
+			usersVersionByAcademicYear:
+				cached.usersVersionByAcademicYear || state.usersVersionByAcademicYear,
+			calendarByAcademicYear:
+				cached.calendarByAcademicYear || state.calendarByAcademicYear,
+			schedulesByAcademicYear:
+				cached.schedulesByAcademicYear || state.schedulesByAcademicYear,
+		}));
 	},
 }));

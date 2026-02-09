@@ -65,19 +65,82 @@ export default function OfflineHandler({
 			return url.includes('/api/');
 		};
 
+		const CACHEABLE_GET_PATHS = [
+			'/api/users',
+			'/api/grades',
+			'/api/calendar',
+			'/api/schedules',
+			'/api/settings',
+			'/api/notifications',
+			'/api/school',
+		];
+
+		const shouldCacheGet = (url: string, method: string) => {
+			if (method.toUpperCase() !== 'GET') return false;
+			try {
+				const parsed = new URL(url, window.location.origin);
+				if (parsed.origin !== window.location.origin) return false;
+				return CACHEABLE_GET_PATHS.some((path) =>
+					parsed.pathname.startsWith(path)
+				);
+			} catch (error) {
+				return false;
+			}
+		};
+
+		const readCachedResponse = async (request: Request) => {
+			if (!('caches' in window)) return null;
+			try {
+				return await caches.match(request);
+			} catch (error) {
+				return null;
+			}
+		};
+
+		const writeCachedResponse = async (request: Request, response: Response) => {
+			if (!('caches' in window)) return;
+			try {
+				const cache = await caches.open('api-runtime-v1');
+				await cache.put(request, response);
+			} catch (error) {
+				console.warn('Failed to cache API response:', error);
+			}
+		};
+
 		window.fetch = async (...args: Parameters<typeof fetch>) => {
 			const { isOnline: onlineState } = useNetworkStore.getState();
 			const { url, method } = getRequestMeta(args[0], args[1]);
+			const cacheableGet = shouldCacheGet(url, method);
+			const request = cacheableGet
+				? args[0] instanceof Request
+					? args[0]
+					: new Request(url, args[1])
+				: null;
 			if (!onlineState) {
+				if (method.toUpperCase() === 'GET') {
+					if (cacheableGet) {
+						const cached = request ? await readCachedResponse(request) : null;
+						if (cached) return cached;
+					}
+					return Promise.reject(new Error(OFFLINE_ERROR_MESSAGE));
+				}
 				if (shouldShowOfflineModal(url, method)) {
 					window.dispatchEvent(new CustomEvent('offline:fetch'));
 				}
 				return Promise.reject(new Error(OFFLINE_ERROR_MESSAGE));
 			}
 			try {
-				return await originalFetch(...args);
+				const response = await originalFetch(...args);
+				if (cacheableGet && response.ok && request) {
+					void writeCachedResponse(request, response.clone());
+				}
+				return response;
 			} catch (error) {
 				if (!navigator.onLine) {
+					if (method.toUpperCase() === 'GET' && cacheableGet) {
+						const cached = request ? await readCachedResponse(request) : null;
+						if (cached) return cached;
+					}
 					if (shouldShowOfflineModal(url, method)) {
 						window.dispatchEvent(new CustomEvent('offline:fetch'));
 					}

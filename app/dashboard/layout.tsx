@@ -12,7 +12,7 @@ import OfflineRouteRenderer from '@/components/OfflineRouteRenderer';
 import PrefetchDashboardChunks from '@/components/PrefetchDashboardChunks';
 
 export default function AdminLayout({
-	children,
+	children: _children,
 }: {
 	children: React.ReactNode;
 }) {
@@ -26,6 +26,7 @@ export default function AdminLayout({
 	const { offlinePath, clearOfflinePath, setOfflinePath } =
 		useOfflineNavigationStore();
 	const previousOnline = useRef(isOnline);
+	const activePath = offlinePath || pathname;
 
 	useEffect(() => {
 		if (previousOnline.current === false && isOnline) {
@@ -91,11 +92,7 @@ export default function AdminLayout({
 					<AppHeader />
 					{/* Page Content */}
 					<main className="py-4 md:py-6 px-0 overflow-x-hidden">
-						{!isOnline && offlinePath ? (
-							<OfflineRouteRenderer path={offlinePath} />
-						) : (
-							children
-						)}
+						<OfflineRouteRenderer path={activePath} />
 					</main>
 				</div>
 

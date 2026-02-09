@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useSchoolStore } from '@/store/schoolStore';
+import useAuth from '@/store/useAuth';
 import { SidebarProvider } from '@/context/SidebarContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { PageLoading } from '@/components/loading';
@@ -15,11 +16,14 @@ export default function RootProviders({
 }: {
 	children: React.ReactNode;
 }) {
-	const { school, fetchSchool } = useSchoolStore();
+	const { school, fetchSchool, hydrateCache } = useSchoolStore();
+	const { hydrateFromCache } = useAuth();
 
 	useEffect(() => {
+		hydrateCache();
+		hydrateFromCache();
 		fetchSchool();
-	}, [fetchSchool]);
+	}, [fetchSchool, hydrateCache, hydrateFromCache]);
 
 	useEffect(() => {
 		if (process.env.NODE_ENV !== 'production') return;
@@ -48,7 +52,10 @@ export default function RootProviders({
 		return () => window.removeEventListener('online', flushQueue);
 	}, []);
 
-	if (!school) {
+	const isOffline =
+		typeof navigator !== 'undefined' ? !navigator.onLine : false;
+
+	if (!school && !isOffline) {
 		return (
 			<ThemeProvider>
 				<PageLoading variant="pulse" message="" />

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import useAuth from '@/store/useAuth';
 import LoginPage from '@/app/login/page';
+import SchoolHomepage from '@/app/page';
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import { useNetworkStore } from '@/store/networkStore';
@@ -137,6 +138,9 @@ const ProtectedRoute = ({
 		if (user) {
 			return <>{children}</>;
 		}
+		if (!isOnline) {
+			return <SchoolHomepage />;
+		}
 		if (authCheckFailed) {
 			return (
 				<PageLoading
@@ -154,13 +158,7 @@ const ProtectedRoute = ({
 		if (user) {
 			return <>{children}</>;
 		}
-		return (
-			<PageLoading
-				variant="school"
-				fullScreen={true}
-				message="Connection issue. Retrying..."
-			/>
-		);
+		return <SchoolHomepage />;
 	}
 
 	// If not logged in and no auth check error, show login page

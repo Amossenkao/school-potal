@@ -382,11 +382,21 @@ const useAuth = create<AuthState>((set, get) => {
 					} else if (!get().isLoggedIn) {
 						set({ isLoggedIn: true });
 					}
+					try {
+						localStorage.setItem('auth-user', JSON.stringify(data.user));
+					} catch (error) {
+						console.warn('Failed to cache auth user:', error);
+					}
 
 				} else {
 					// Server explicitly says the user is NOT logged in (e.g., 401/200 with null user)
 					if (get().isLoggedIn) {
 						set({ user: null, isLoggedIn: false });
+					}
+					try {
+						localStorage.removeItem('auth-user');
+					} catch (error) {
+						console.warn('Failed to clear auth user cache:', error);
 					}
 				}
 			} catch (error) {
@@ -413,6 +423,15 @@ const useAuth = create<AuthState>((set, get) => {
 			const currentUser = get().user;
 			if (!isEqual(currentUser, user)) {
 				set({ user });
+				try {
+					if (user) {
+						localStorage.setItem('auth-user', JSON.stringify(user));
+					} else {
+						localStorage.removeItem('auth-user');
+					}
+				} catch (error) {
+					console.warn('Failed to sync auth user cache:', error);
+				}
 			}
 		},
 		hydrateFromCache: () => {
