@@ -11,7 +11,7 @@ export default function AuthProvider({
 }: {
 	children: React.ReactNode;
 }) {
-	const { checkAuthStatus } = useAuth();
+	const { checkAuthStatus, hydrateFromCache, user } = useAuth();
 	const setIsOnline = useNetworkStore((state) => state.setIsOnline);
 	const setAuthCheckFailed = useNetworkStore(
 		(state) => state.setAuthCheckFailed
@@ -28,6 +28,9 @@ export default function AuthProvider({
 				typeof navigator !== 'undefined' ? navigator.onLine : true;
 			setIsOnline(navigatorOnline);
 			if (!navigatorOnline) {
+				if (!user) {
+					hydrateFromCache();
+				}
 				setAuthCheckFailed(true);
 				authCheckInFlight.current = false;
 				return;
@@ -81,6 +84,13 @@ export default function AuthProvider({
 			window.removeEventListener('offline', handleOffline);
 		};
 	}, [checkAuthStatus, setIsOnline, setAuthCheckFailed]);
+
+	useEffect(() => {
+		if (typeof navigator === 'undefined') return;
+		if (!navigator.onLine && !user) {
+			hydrateFromCache();
+		}
+	}, [hydrateFromCache, user]);
 
 	return <>{children}</>;
 }

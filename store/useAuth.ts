@@ -32,6 +32,7 @@ interface AuthState {
 	clearError: () => void;
 	resetOtpState: () => void;
 	setUser: (user: User | null) => void;
+	hydrateFromCache: () => void;
 }
 
 const useAuth = create<AuthState>((set, get) => {
@@ -122,6 +123,11 @@ const useAuth = create<AuthState>((set, get) => {
 					userId: null,
 					error: null,
 				});
+				try {
+					localStorage.setItem('auth-user', JSON.stringify(data.user));
+				} catch (error) {
+					console.warn('Failed to cache auth user:', error);
+				}
 
 				return data.user;
 			} catch (error: any) {
@@ -206,6 +212,11 @@ const useAuth = create<AuthState>((set, get) => {
 					userId: null,
 					error: null,
 				});
+				try {
+					localStorage.setItem('auth-user', JSON.stringify(data.user));
+				} catch (error) {
+					console.warn('Failed to cache auth user:', error);
+				}
 
 				return true;
 			} catch (error: any) {
@@ -282,6 +293,11 @@ const useAuth = create<AuthState>((set, get) => {
 				otpContact: null,
 				userId: null,
 			});
+			try {
+				localStorage.removeItem('auth-user');
+			} catch (error) {
+				console.warn('Failed to clear auth user cache:', error);
+			}
 			useSchoolStore.getState().clearCache();
 			useBootstrapStore.getState().clearBootstrap();
 		},
@@ -397,6 +413,18 @@ const useAuth = create<AuthState>((set, get) => {
 			const currentUser = get().user;
 			if (!isEqual(currentUser, user)) {
 				set({ user });
+			}
+		},
+		hydrateFromCache: () => {
+			try {
+				const cached = localStorage.getItem('auth-user');
+				if (!cached) return;
+				const parsed = JSON.parse(cached) as User;
+				if (parsed) {
+					set({ user: parsed, isLoggedIn: true });
+				}
+			} catch (error) {
+				console.warn('Failed to hydrate auth user:', error);
 			}
 		},
 	};

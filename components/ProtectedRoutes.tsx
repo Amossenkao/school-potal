@@ -35,13 +35,18 @@ const ProtectedRoute = ({
 	useEffect(() => {
 		const initializeAuth = async () => {
 			setAuthCheckInProgress(true);
+			if (!navigator.onLine || !isOnline) {
+				setInitialCheckComplete(true);
+				setAuthCheckInProgress(false);
+				return;
+			}
 			await checkAuthStatus();
 			setInitialCheckComplete(true);
 			setAuthCheckInProgress(false);
 		};
 
 		initializeAuth();
-	}, [checkAuthStatus]);
+	}, [checkAuthStatus, isOnline]);
 
 	// Handle initial redirect for unauthenticated users
 	useEffect(() => {
