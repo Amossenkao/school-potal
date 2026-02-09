@@ -53,7 +53,7 @@ export default function RootProviders({
 	}, []);
 
 	const isOffline =
-		typeof navigator !== 'undefined' ? !navigator.onLine : false;
+		typeof navigator !== 'undefined' && navigator.onLine === false;
 
 	if (!school && !isOffline) {
 		return (
@@ -68,7 +68,7 @@ export default function RootProviders({
 			<ThemeProvider>
 				<SidebarProvider>
 					<OfflineHandler>
-						{school.isActive ? children : <VercelUpgrade />}
+						{school ? (school.isActive ? children : <VercelUpgrade />) : children}
 					</OfflineHandler>
 				</SidebarProvider>
 				<Toaster position="top-right" />
