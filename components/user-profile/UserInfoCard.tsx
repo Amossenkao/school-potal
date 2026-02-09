@@ -7,7 +7,7 @@ import Input from '../form/input/InputField';
 import Label from '../form/Label';
 import useAuth from '@/store/useAuth';
 import Spinner from '../ui/spinner';
-import { Switch } from '@/components/ui/switch';
+import Switch from '@/components/form/switch/Switch';
 
 const InfoField = ({ label, value }: any) => (
 	<div>
@@ -359,7 +359,7 @@ export default function UserInfoCard() {
 											</div>
 											<Switch
 												checked={formData.shareContactWithClassmates}
-												onCheckedChange={(checked) =>
+												onChange={(checked) =>
 													handleToggleChange(
 														'shareContactWithClassmates',
 														checked,
