@@ -167,7 +167,12 @@ const Community = () => {
 		return list
 			.filter((u) => {
 				const name = getFullName(u).toLowerCase();
-				const phone = String(u.phone || '').toLowerCase();
+				const phone =
+					u.role === 'student'
+						? u.shareContactWithClassmates === true
+							? String(u.phone || '').toLowerCase()
+							: ''
+						: String(u.phone || '').toLowerCase();
 				const subjects =
 					roleFilter === 'teacher'
 						? String(getTeacherSubjectsLabel(u)).toLowerCase()
@@ -481,7 +486,11 @@ const Community = () => {
 											</td>
 										)}
 										<td className="px-4 py-4 text-sm text-muted-foreground border border-border">
-											{u.phone || ''}
+											{u.role === 'student'
+												? u.shareContactWithClassmates === true
+													? u.phone || ''
+													: ''
+												: u.phone || ''}
 										</td>
 									</tr>
 								))}

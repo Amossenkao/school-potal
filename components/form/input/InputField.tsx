@@ -14,6 +14,8 @@ interface InputProps {
   step?: number;
   disabled?: boolean;
   readOnly?: boolean;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  pattern?: string;
   success?: boolean;
   error?: boolean;
   hint?: string; // Optional hint text
@@ -33,6 +35,8 @@ const Input: FC<InputProps> = ({
   step,
   disabled = false,
   readOnly = false,
+  inputMode,
+  pattern,
   success = false,
   error = false,
   hint,
@@ -66,6 +70,8 @@ const Input: FC<InputProps> = ({
         step={step}
         disabled={disabled}
         readOnly={readOnly}
+        inputMode={inputMode}
+        pattern={pattern}
         className={inputClasses}
       />
 

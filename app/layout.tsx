@@ -10,6 +10,7 @@ import Inactive from '../components/inactive';
 import AuthProvider from '@/context/AuthProvider';
 import VercelUpgrade from '@/components/uca-inactive';
 import OfflineHandler from '@/components/OfflineHandler';
+import { Toaster } from 'react-hot-toast';
 
 export default function RootLayout({
 	children,
@@ -65,6 +66,7 @@ export default function RootLayout({
 								)}
 							</OfflineHandler>
 						</SidebarProvider>
+						<Toaster position="top-right" />
 					</ThemeProvider>
 				</AuthProvider>
 			</body>

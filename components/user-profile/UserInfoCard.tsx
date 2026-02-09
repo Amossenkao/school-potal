@@ -9,6 +9,7 @@ import useAuth from '@/store/useAuth';
 import Spinner from '../ui/spinner';
 import Switch from '@/components/form/switch/Switch';
 import { Pencil } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 const InfoField = ({ label, value }: any) => (
 	<div>
@@ -40,11 +41,17 @@ export default function UserInfoCard() {
 		nickName: '',
 		shareContactWithClassmates: false,
 	});
-	const [editableFields, setEditableFields] = useState({
-		email: true,
-		phone: true,
-		bio: true,
-		nickName: true,
+	const [draftValues, setDraftValues] = useState({
+		email: '',
+		phone: '',
+		bio: '',
+		nickName: '',
+	});
+	const [editingFields, setEditingFields] = useState({
+		email: false,
+		phone: false,
+		bio: false,
+		nickName: false,
 	});
 	const [isLoading, setIsLoading] = useState(false);
 	const [errors, setErrors] = useState<any>({});
@@ -64,7 +71,13 @@ export default function UserInfoCard() {
 		};
 		setFormData(nextData);
 		setInitialFormData(nextData);
-		setEditableFields({
+		setDraftValues({
+			email: nextData.email,
+			phone: nextData.phone,
+			bio: nextData.bio,
+			nickName: nextData.nickName,
+		});
+		setEditingFields({
 			email: !nextData.email,
 			phone: !nextData.phone,
 			bio: !nextData.bio,
@@ -80,7 +93,6 @@ export default function UserInfoCard() {
 			...prev,
 			[field]: value,
 		}));
-		// Clear error for this field when user starts typing
 		if (errors[field as keyof typeof errors]) {
 			setErrors((prev) => ({
 				...prev,
@@ -89,19 +101,94 @@ export default function UserInfoCard() {
 		}
 	};
 
+	const handleDraftChange = (field: 'email' | 'phone' | 'bio' | 'nickName', value: string) => {
+		const nextValue =
+			field === 'phone' ? value.replace(/\D+/g, '') : value;
+		setDraftValues((prev) => ({
+			...prev,
+			[field]: nextValue,
+		}));
+		if (errors[field as keyof typeof errors]) {
+			setErrors((prev) => ({
+				...prev,
+				[field]: undefined,
+			}));
+		}
+	};
+
+	const startEditing = (field: 'email' | 'phone' | 'bio' | 'nickName') => {
+		setEditingFields((prev) => ({ ...prev, [field]: true }));
+		setDraftValues((prev) => ({ ...prev, [field]: '' }));
+		if (errors[field as keyof typeof errors]) {
+			setErrors((prev) => ({ ...prev, [field]: undefined }));
+		}
+		if (typeof window !== 'undefined') {
+			setTimeout(() => {
+				const input = document.getElementById(`edit-${field}`) as HTMLInputElement | null;
+				input?.focus();
+			}, 0);
+		}
+	};
+
+	const validateField = (field: 'email' | 'phone' | 'bio' | 'nickName', value: string) => {
+		if (field === 'email') {
+			if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+				return 'Invalid email format';
+			}
+		}
+		if (field === 'phone') {
+			if (value && (!/^\d+$/.test(value) || value.length < 10)) {
+				return 'Invalid phone format';
+			}
+		}
+		return undefined;
+	};
+
+	const commitField = (field: 'email' | 'phone' | 'bio' | 'nickName') => {
+		const rawValue = draftValues[field] ?? '';
+		const noWhitespace = rawValue.replace(/\s+/g, '');
+		if (!noWhitespace) {
+			setDraftValues((prev) => ({ ...prev, [field]: formData[field] }));
+			setEditingFields((prev) => ({
+				...prev,
+				[field]: !formData[field],
+			}));
+			if (errors[field as keyof typeof errors]) {
+				setErrors((prev) => ({ ...prev, [field]: undefined }));
+			}
+			return;
+		}
+
+		let nextValue = rawValue.trim();
+		if (field === 'email') {
+			nextValue = rawValue.replace(/\s+/g, '');
+		}
+		if (field === 'phone') {
+			nextValue = rawValue.replace(/\D+/g, '');
+		}
+
+		setFormData((prev) => ({ ...prev, [field]: nextValue }));
+		setDraftValues((prev) => ({ ...prev, [field]: nextValue }));
+		const errorMessage = validateField(field, nextValue);
+		setErrors((prev) => ({
+			...prev,
+			[field]: errorMessage,
+		}));
+		setEditingFields((prev) => ({ ...prev, [field]: false }));
+	};
+
 	// Validate form data (only changed fields)
 	const validateForm = (payload: Record<string, any>) => {
 		const newErrors: any = {};
 
-		// Email validation (only if provided)
-		if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
-			newErrors.email = 'Please enter a valid email address';
-		}
-
-		// Phone validation (optional but must be valid if provided)
-		if (payload.phone && !/^\+?[\d\s-()]+$/.test(payload.phone)) {
-			newErrors.phone = 'Please enter a valid phone number';
-		}
+		(['email', 'phone'] as const).forEach((field) => {
+			if (payload[field]) {
+				const errorMessage = validateField(field, payload[field]);
+				if (errorMessage) {
+					newErrors[field] = errorMessage;
+				}
+			}
+		});
 
 		setErrors(newErrors);
 		return Object.keys(newErrors).length === 0;
@@ -140,7 +227,9 @@ export default function UserInfoCard() {
 			const result = await response.json();
 
 			if (!response.ok) {
-				throw new Error(result.message || 'Failed to update profile');
+				const message = result.message || 'Failed to update profile';
+				toast.error(message);
+				throw new Error(message);
 			}
 
 			// Update user in the auth store with data from API response
@@ -148,10 +237,13 @@ export default function UserInfoCard() {
 				setUser(result.data.user);
 			}
 
-			console.log('Profile updated successfully!');
+			toast.success(result.message || 'Profile updated successfully');
 			closeModal();
 		} catch (error) {
 			console.error('Error updating profile:', error);
+			if (error instanceof Error) {
+				toast.error(error.message);
+			}
 			// Set error state to show user-friendly error message
 			setErrors({
 				general:
@@ -162,10 +254,6 @@ export default function UserInfoCard() {
 		} finally {
 			setIsLoading(false);
 		}
-	};
-
-	const enableField = (field: keyof typeof editableFields) => {
-		setEditableFields((prev) => ({ ...prev, [field]: true }));
 	};
 
 	return (
@@ -342,10 +430,10 @@ export default function UserInfoCard() {
 									<div className="col-span-2 lg:col-span-1">
 										<div className="flex items-center justify-between">
 											<Label>Email Address</Label>
-											{initialFormData.email && !editableFields.email && (
+											{formData.email && !editingFields.email && (
 												<button
 													type="button"
-													onClick={() => enableField('email')}
+													onClick={() => startEditing('email')}
 													className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
 													aria-label="Edit email"
 												>
@@ -354,13 +442,21 @@ export default function UserInfoCard() {
 											)}
 										</div>
 										<Input
+											id="edit-email"
 											type="email"
-											value={formData.email}
-											onChange={(e) =>
-												handleInputChange('email', e.target.value)
+											value={
+												editingFields.email
+													? draftValues.email
+													: formData.email
 											}
-											readOnly={!editableFields.email}
-											className={`${!editableFields.email ? 'bg-gray-50 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300' : ''} ${
+											onChange={(e) =>
+												handleDraftChange('email', e.target.value)
+											}
+											onBlur={() =>
+												editingFields.email && commitField('email')
+											}
+											readOnly={!editingFields.email}
+											className={`${!editingFields.email ? 'bg-gray-50 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300' : ''} ${
 												errors.email ? 'border-red-500' : ''
 											}`}
 										/>
@@ -373,10 +469,10 @@ export default function UserInfoCard() {
 									<div className="col-span-2 lg:col-span-1">
 										<div className="flex items-center justify-between">
 											<Label>Phone</Label>
-											{initialFormData.phone && !editableFields.phone && (
+											{formData.phone && !editingFields.phone && (
 												<button
 													type="button"
-													onClick={() => enableField('phone')}
+													onClick={() => startEditing('phone')}
 													className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
 													aria-label="Edit phone"
 												>
@@ -385,13 +481,23 @@ export default function UserInfoCard() {
 											)}
 										</div>
 										<Input
-											type="tel"
-											value={formData.phone}
-											onChange={(e) =>
-												handleInputChange('phone', e.target.value)
+											id="edit-phone"
+											type="text"
+											inputMode="numeric"
+											pattern="[0-9]*"
+											value={
+												editingFields.phone
+													? draftValues.phone
+													: formData.phone
 											}
-											readOnly={!editableFields.phone}
-											className={`${!editableFields.phone ? 'bg-gray-50 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300' : ''} ${
+											onChange={(e) =>
+												handleDraftChange('phone', e.target.value)
+											}
+											onBlur={() =>
+												editingFields.phone && commitField('phone')
+											}
+											readOnly={!editingFields.phone}
+											className={`${!editingFields.phone ? 'bg-gray-50 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300' : ''} ${
 												errors.phone ? 'border-red-500' : ''
 											}`}
 										/>
@@ -404,11 +510,10 @@ export default function UserInfoCard() {
 									<div className="col-span-2 lg:col-span-1">
 										<div className="flex items-center justify-between">
 											<Label>Nickname</Label>
-											{initialFormData.nickName &&
-												!editableFields.nickName && (
+											{formData.nickName && !editingFields.nickName && (
 													<button
 														type="button"
-														onClick={() => enableField('nickName')}
+														onClick={() => startEditing('nickName')}
 														className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
 														aria-label="Edit nickname"
 													>
@@ -417,18 +522,31 @@ export default function UserInfoCard() {
 												)}
 										</div>
 										<Input
+											id="edit-nickName"
 											type="text"
-											value={formData.nickName}
-											onChange={(e) =>
-												handleInputChange('nickName', e.target.value)
+											value={
+												editingFields.nickName
+													? draftValues.nickName
+													: formData.nickName
 											}
-											readOnly={!editableFields.nickName}
+											onChange={(e) =>
+												handleDraftChange('nickName', e.target.value)
+											}
+											onBlur={() =>
+												editingFields.nickName && commitField('nickName')
+											}
+											readOnly={!editingFields.nickName}
 											className={
-												!editableFields.nickName
+												!editingFields.nickName
 													? 'bg-gray-50 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300'
 													: ''
 											}
 										/>
+										{errors.nickName && (
+											<p className="mt-1 text-xs text-red-500">
+												{errors.nickName}
+											</p>
+										)}
 									</div>
 									{user?.role === 'student' && (
 										<div className="col-span-2 flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-800 px-4 py-3">
@@ -455,10 +573,10 @@ export default function UserInfoCard() {
 									<div className="col-span-2">
 										<div className="flex items-center justify-between">
 											<Label>Bio</Label>
-											{initialFormData.bio && !editableFields.bio && (
+											{formData.bio && !editingFields.bio && (
 												<button
 													type="button"
-													onClick={() => enableField('bio')}
+													onClick={() => startEditing('bio')}
 													className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
 													aria-label="Edit bio"
 												>
@@ -467,16 +585,31 @@ export default function UserInfoCard() {
 											)}
 										</div>
 										<Input
+											id="edit-bio"
 											type="text"
-											value={formData.bio}
-											onChange={(e) => handleInputChange('bio', e.target.value)}
-											readOnly={!editableFields.bio}
+											value={
+												editingFields.bio
+													? draftValues.bio
+													: formData.bio
+											}
+											onChange={(e) =>
+												handleDraftChange('bio', e.target.value)
+											}
+											onBlur={() =>
+												editingFields.bio && commitField('bio')
+											}
+											readOnly={!editingFields.bio}
 											className={
-												!editableFields.bio
+												!editingFields.bio
 													? 'bg-gray-50 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300'
 													: ''
 											}
 										/>
+										{errors.bio && (
+											<p className="mt-1 text-xs text-red-500">
+												{errors.bio}
+											</p>
+										)}
 									</div>
 								</div>
 							</div>
