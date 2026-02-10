@@ -83,24 +83,26 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	schedulesByAcademicYear: {},
 
 	fetchSchool: async () => {
-		// 1. If we already have the correct school, no need to fetch
-		if (get().school) return;
-
-		// 2. Load from local storage
-		try {
-			const storedSchool = localStorage.getItem('school-profile');
-			if (storedSchool) {
-				set({ school: JSON.parse(storedSchool) });
-				return;
+		// 1. Load from local storage for immediate hydration if needed
+		if (!get().school) {
+			try {
+				const storedSchool = localStorage.getItem('school-profile');
+				if (storedSchool) {
+					set({ school: JSON.parse(storedSchool) });
+				}
+			} catch (error) {
+				console.error('Failed to load school profile from local storage:', error);
 			}
-		} catch (error) {
-			console.error('Failed to load school profile from local storage:', error);
 		}
 
-		// 3. If fetch is already in progress, wait for it
+		const isOffline =
+			typeof navigator !== 'undefined' && navigator.onLine === false;
+		if (isOffline) return;
+
+		// 2. If fetch is already in progress, wait for it
 		if (fetchPromise) return fetchPromise;
 
-		// 4. Otherwise, fetch from API
+		// 3. Otherwise, fetch from API (revalidate cached profile)
 		fetchPromise = (async () => {
 			try {
 				const response = await fetch(`/api/school`);

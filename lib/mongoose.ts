@@ -101,7 +101,9 @@ export const getTenantConnection = async (): Promise<Connection | null> => {
  * Retrieves a school's profile from the central 'tenants' database, with Redis caching.
  * @returns The profile document, or null if not found or an error occurs.
  */
-export const getSchoolProfile = async (): Promise<any> => {
+export const getSchoolProfile = async (
+	options: { bypassCache?: boolean } = {},
+): Promise<any> => {
 	const hostHeader = await headers();
 	let host = hostHeader.get('host') || undefined;
 	host = host?.split(':')[0];
@@ -115,15 +117,17 @@ export const getSchoolProfile = async (): Promise<any> => {
 
 	try {
 		// 1. Try to get the profile from Redis cache
-		const cachedProfile = await redis.get(cacheKey);
-		if (cachedProfile) {
-			try {
-				return typeof cachedProfile === 'string'
-					? JSON.parse(cachedProfile)
-					: cachedProfile;
-			} catch (error) {
-				console.warn('Failed to parse cached school profile:', error);
-				return cachedProfile;
+		if (!options.bypassCache) {
+			const cachedProfile = await redis.get(cacheKey);
+			if (cachedProfile) {
+				try {
+					return typeof cachedProfile === 'string'
+						? JSON.parse(cachedProfile)
+						: cachedProfile;
+				} catch (error) {
+					console.warn('Failed to parse cached school profile:', error);
+					return cachedProfile;
+				}
 			}
 		}
 
