@@ -341,7 +341,6 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const [studentsData, setStudentsData] = useState<Student[]>([]);
 	const [gradesData, setGradesData] = useState<any[]>([]);
 	const [combinedData, setCombinedData] = useState<Student[]>([]);
-	const [pdfKey, setPdfKey] = useState(0);
 	const [pdfReady, setPdfReady] = useState(false);
 	const [loading, setLoading] = useState({
 		students: false,
@@ -574,19 +573,17 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					})
 				);
 			setCombinedData(combined);
-			setPdfKey((prev) => prev + 1);
-			setPdfReady(false);
 		} else {
 			setCombinedData([]);
-			setPdfKey((prev) => prev + 1);
-			setPdfReady(false);
 		}
 	}, [studentsData, gradesData]);
 
 	useEffect(() => {
-		setPdfKey((prev) => prev + 1);
-		setPdfReady(false);
+		if (selectedClass && selectedSubject) {
+			setPdfReady(false);
+		}
 	}, [selectedClass, selectedSubject]);
+
 
 	const getGradeColor = (grade: number | null) => {
 		if (grade == null) return 'text-muted-foreground';
@@ -871,7 +868,6 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 						<div className="mt-2 sm:mt-0">
 							{combinedData.length > 0 && (
 								<GradesPDFDownload
-									key={pdfKey}
 									disabled={isLoading}
 									teacherInfo={resolvedTeacher}
 									gradeData={pdfGradeData}

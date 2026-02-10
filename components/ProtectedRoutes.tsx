@@ -19,7 +19,7 @@ const ProtectedRoute = ({
 	requiredRole,
 	allowedRoles,
 }: ProtectedRouteProps) => {
-	const { user, isLoading, checkAuthStatus } = useAuth();
+	const { user, isLoading, checkAuthStatus, hydrateFromCache } = useAuth();
 	const { school } = useSchoolStore();
 	const { isOnline, authCheckFailed } = useNetworkStore();
 	const router = useRouter();
@@ -37,6 +37,7 @@ const ProtectedRoute = ({
 		const initializeAuth = async () => {
 			setAuthCheckInProgress(true);
 			if (!navigator.onLine || !isOnline) {
+				hydrateFromCache();
 				setInitialCheckComplete(true);
 				setAuthCheckInProgress(false);
 				return;
@@ -47,7 +48,7 @@ const ProtectedRoute = ({
 		};
 
 		initializeAuth();
-	}, [checkAuthStatus, isOnline]);
+	}, [checkAuthStatus, hydrateFromCache, isOnline]);
 
 	// Handle initial redirect for unauthenticated users
 	useEffect(() => {
@@ -63,6 +64,18 @@ const ProtectedRoute = ({
 
 		if (authCheckFailed) {
 			return;
+		}
+
+		if (!isOnline && !user) {
+			try {
+				const cached = localStorage.getItem('auth-user');
+				if (cached) {
+					hydrateFromCache();
+					return;
+				}
+			} catch (error) {
+				// ignore cache errors
+			}
 		}
 
 		if (
@@ -85,6 +98,7 @@ const ProtectedRoute = ({
 		isOnline,
 		user,
 		pathname,
+		hydrateFromCache,
 	]);
 
 	// Role-based access control check
@@ -163,6 +177,9 @@ const ProtectedRoute = ({
 
 	// If not logged in and no auth check error, show login page
 	if (!user) {
+		if (!isOnline) {
+			return <SchoolHomepage />;
+		}
 		return <LoginPage />;
 	}
 

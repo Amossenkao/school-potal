@@ -15,9 +15,9 @@ export default function DashboardPage() {
 	const { user, isLoading: isUserLoading, error: userError } = useAuth();
 
 	// 3. Show a loading indicator while waiting for either the school or user data.
-	if (!school || isUserLoading) {
-		return <PageLoading message="Loading..." />;
-	}
+	// if (!school || isUserLoading) {
+	// 	return <PageLoading message="Loading..." />;
+	// }
 
 	// 5. Once all data is ready, render the main dashboard component.
 	return (

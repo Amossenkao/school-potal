@@ -36,6 +36,7 @@ const LoginPage = () => {
 	const [offlineError, setOfflineError] = useState('');
 	const usernameInputRef = useRef<HTMLInputElement>(null);
 	const { isOnline } = useNetworkStore();
+	const previousOnline = useRef(isOnline);
 
 	const {
 		isLoading,
@@ -71,6 +72,14 @@ const LoginPage = () => {
 			cancelled = true;
 		};
 	}, [checkAuthStatus]);
+
+	// Re-check auth when coming back online
+	useEffect(() => {
+		if (!previousOnline.current && isOnline) {
+			checkAuthStatus();
+		}
+		previousOnline.current = isOnline;
+	}, [isOnline, checkAuthStatus]);
 
 	// Redirect if logged in
 	useEffect(() => {
