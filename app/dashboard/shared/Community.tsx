@@ -145,6 +145,36 @@ const Community = () => {
 		communityData.administrators.length,
 	]);
 
+	const getClassLabel = (u: any) =>
+		u.className || getClassNameFromId(u.classId) || u.classId || '';
+
+	const getTeacherSubjectsLabel = (u: any) => {
+		let subjects: string[] = [];
+		if (Array.isArray(u.subjects) && u.subjects.length > 0) {
+			subjects = u.subjects
+				.map((s: any) => (typeof s === 'string' ? s : s?.subject))
+				.filter(Boolean);
+		}
+		if (
+			subjects.length === 0 &&
+			!(user?.role === 'student' && roleFilter === 'teacher')
+		) {
+			const yearData = (u.subjects || []).find(
+				(s: any) => s.year === academicYear,
+			);
+			const classes = yearData?.classes || [];
+			subjects = classes.flatMap((c: any) => c.subjects || []);
+		}
+		const uniqueSubjects = Array.from(
+			new Set(
+				subjects
+					.map((s) => String(s).trim())
+					.filter((value) => value.length > 0),
+			),
+		);
+		return uniqueSubjects.length > 0 ? uniqueSubjects.join(', ') : 'Assigned';
+	};
+
 	const filteredUsers = useMemo(() => {
 		let list =
 			roleFilter === 'student'
@@ -234,34 +264,6 @@ const Community = () => {
 			return 'Loading teachers...';
 		}
 		return 'Loading administrators...';
-	};
-
-	const getClassLabel = (u: any) =>
-		u.className || getClassNameFromId(u.classId) || u.classId || '';
-
-	const getTeacherSubjectsLabel = (u: any) => {
-		let subjects: string[] = [];
-		if (Array.isArray(u.subjects) && u.subjects.length > 0) {
-			subjects = u.subjects
-				.map((s: any) => (typeof s === 'string' ? s : s?.subject))
-				.filter(Boolean);
-		}
-		if (
-			subjects.length === 0 &&
-			!(user?.role === 'student' && roleFilter === 'teacher')
-		) {
-			const yearData = (u.subjects || []).find((s: any) => s.year === academicYear);
-			const classes = yearData?.classes || [];
-			subjects = classes.flatMap((c: any) => c.subjects || []);
-		}
-		const uniqueSubjects = Array.from(
-			new Set(
-				subjects
-					.map((s) => String(s).trim())
-					.filter((value) => value.length > 0),
-			),
-		);
-		return uniqueSubjects.length > 0 ? uniqueSubjects.join(', ') : 'Assigned';
 	};
 
 	const startIndex = (currentPage - 1) * itemsPerPage;

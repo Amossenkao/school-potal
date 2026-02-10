@@ -299,7 +299,6 @@ const useAuth = create<AuthState>((set, get) => {
 				console.warn('Failed to clear auth user cache:', error);
 			}
 			useSchoolStore.getState().clearCache();
-			useBootstrapStore.getState().clearBootstrap();
 		},
 
 		// MODIFIED: Only clear user state if the server explicitly returns no user,
