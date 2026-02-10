@@ -6,7 +6,6 @@ import React, {
 	useMemo,
 	useCallback,
 } from 'react';
-import { Document, Page, Text, View, Image, pdf } from '@react-pdf/renderer';
 import {
 	Facebook,
 	Mail,
@@ -15,11 +14,15 @@ import {
 	Send,
 	Twitter,
 } from 'lucide-react';
-import styles from './styles'; // Assuming styles is defined elsewhere
+import { PDFDocument, PDFTextField, StandardFonts } from 'pdf-lib';
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
+import {
+	consumeQueuedShareRequests,
+	enqueueShareRequest,
+} from '@/utils/shareQueue';
 import AccessDenied from '@/components/AccessDenied';
 
 // --- Type Definitions ---
@@ -29,24 +32,6 @@ const InlineLoading = ({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) => (
 		<PageLoading fullScreen={false} variant="minimal" size={size} />
 	</div>
 );
-
-function gradeStyle(score: string | number | null) {
-	if (score === null || Number.isNaN(score) || Number(score) < 70) {
-		return {
-			...styles.tableCell,
-			color: 'red',
-			fontSize: 10,
-			fontWeight: 'bold',
-		};
-	} else {
-		return {
-			...styles.tableCell,
-			color: 'blue',
-			fontSize: 10,
-			fontWeight: 'bold',
-		};
-	}
-}
 
 interface StudentYearlyReport {
 	studentId: string;
@@ -744,29 +729,243 @@ const FilterContent = React.memo(function FilterContent({
 	);
 });
 
-// --- QR Code Placeholder ---
-function ReportQRCode() {
-	return (
-		<View
-			style={{
-				width: '99%',
-				height: '99%',
-				borderWidth: 1,
-				borderColor: '#e2e8f0',
-				borderStyle: 'dashed',
-			}}
-		/>
-	);
-}
+// --- PDF Template Helpers ---
+const TEMPLATE_URL = '/pdf_template_form.pdf';
+let templateBytesPromise: Promise<ArrayBuffer> | null = null;
+let missingFieldLogged = false;
 
-// --- Watermark Style ---
-const watermarkStyle = {
-	position: 'absolute',
-	opacity: 0.1, // Low transparency
-	// Watermark image size and centering will be determined by the parent View
+const loadTemplateBytes = async () => {
+	if (!templateBytesPromise) {
+		templateBytesPromise = fetch(TEMPLATE_URL)
+			.then((res) => {
+				if (!res.ok) {
+					throw new Error('Failed to load PDF template');
+				}
+				return res.arrayBuffer();
+			})
+			.catch((err) => {
+				templateBytesPromise = null;
+				throw err;
+			});
+	}
+	return templateBytesPromise;
 };
 
-const PDFDocument = React.memo(function PDFDocument({
+const padRowIndex = (index: number) => String(index + 1).padStart(2, '0');
+
+const formatNumber = (value: number | null | undefined, decimals = 0) => {
+	if (value === null || value === undefined || Number.isNaN(value)) {
+		return '-';
+	}
+	return value.toFixed(decimals);
+};
+
+// Field naming contract for pdf_template_form.pdf:
+// Header: student_name, student_id, class_name, academic_year, sponsor_name
+// Row fields (1-based, zero-padded): subject_01, p1_01, p2_01, p3_01, exam1_01, avg1_01,
+// p4_01, p5_01, p6_01, exam2_01, avg2_01, year_01 (repeat for each subject row)
+// Summary: avg_p1, avg_p2, avg_p3, avg_exam1, avg_sem1, rank_p1, rank_p2, rank_p3,
+// rank_exam1, rank_sem1, avg_p4, avg_p5, avg_p6, avg_exam2, avg_sem2, avg_year,
+// rank_p4, rank_p5, rank_p6, rank_exam2, rank_sem2, rank_year
+// Promotion: promotion_student_name, promotion_from_grade, promotion_to_grade, promotion_year
+const buildYearlyFieldMap = ({
+	studentData,
+	className,
+	classSubjects,
+	reportFilters,
+	school,
+	classSponsor,
+}: {
+	studentData: StudentYearlyReport;
+	className: string;
+	classSubjects: string[];
+	reportFilters: ReportFilters;
+	school: any;
+	classSponsor: string | undefined;
+}) => {
+	const sponsorToDisplay = reportFilters.sponsorName.trim()
+		? reportFilters.sponsorName.trim()
+		: classSponsor || '';
+	const classDisplayName = className.split('-')[0] || className;
+	const reportTitle = reportFilters.classLevel
+		? `${reportFilters.classLevel.toUpperCase()} PROGRESS REPORT`
+		: '';
+	const address = Array.isArray(school?.address)
+		? school.address.join('\n')
+		: typeof school?.address === 'string'
+			? school.address
+			: '';
+
+	const fields: Record<string, string> = {
+		student_name: studentData.studentName,
+		student_id: studentData.studentId,
+		class_name: classDisplayName,
+		academic_year: reportFilters.academicYear,
+		sponsor_name: sponsorToDisplay,
+		school_name: school?.name || '',
+		school_address: address,
+		report_title: reportTitle,
+		class_level: reportFilters.classLevel?.toUpperCase() || '',
+	};
+
+	const getGrade = (period: string, subject: string) =>
+		studentData.periods[period]?.find((s) => s.subject === subject)?.grade ??
+		null;
+	const getOverallSubjectAverage = (subject: string) => {
+		const sem1Avg = studentData.firstSemesterAverage[subject];
+		const sem2Avg = studentData.secondSemesterAverage[subject];
+		if (sem1Avg != null && sem2Avg != null) {
+			return Math.round((sem1Avg + sem2Avg) / 2);
+		}
+		return null;
+	};
+
+	classSubjects.forEach((subject, index) => {
+		const row = padRowIndex(index);
+		fields[`subject_${row}`] = subject;
+		fields[`p1_${row}`] = formatNumber(getGrade('first', subject), 0);
+		fields[`p2_${row}`] = formatNumber(getGrade('second', subject), 0);
+		fields[`p3_${row}`] = formatNumber(getGrade('third', subject), 0);
+		fields[`exam1_${row}`] = formatNumber(
+			getGrade('third_period_exam', subject),
+			0,
+		);
+		fields[`avg1_${row}`] = formatNumber(
+			studentData.firstSemesterAverage[subject],
+			0,
+		);
+		fields[`p4_${row}`] = formatNumber(getGrade('fourth', subject), 0);
+		fields[`p5_${row}`] = formatNumber(getGrade('fifth', subject), 0);
+		fields[`p6_${row}`] = formatNumber(getGrade('sixth', subject), 0);
+		fields[`exam2_${row}`] = formatNumber(
+			getGrade('six_period_exam', subject),
+			0,
+		);
+		fields[`avg2_${row}`] = formatNumber(
+			studentData.secondSemesterAverage[subject],
+			0,
+		);
+		fields[`year_${row}`] = formatNumber(
+			getOverallSubjectAverage(subject),
+			0,
+		);
+	});
+
+	fields.avg_p1 = formatNumber(studentData.periodAverages.first, 1);
+	fields.avg_p2 = formatNumber(studentData.periodAverages.second, 1);
+	fields.avg_p3 = formatNumber(studentData.periodAverages.third, 1);
+	fields.avg_exam1 = formatNumber(
+		studentData.periodAverages.third_period_exam,
+		1,
+	);
+	fields.avg_sem1 = formatNumber(
+		studentData.periodAverages.firstSemesterAverage,
+		1,
+	);
+	fields.rank_p1 = formatNumber(studentData.ranks.first, 0);
+	fields.rank_p2 = formatNumber(studentData.ranks.second, 0);
+	fields.rank_p3 = formatNumber(studentData.ranks.third, 0);
+	fields.rank_exam1 = formatNumber(studentData.ranks.third_period_exam, 0);
+	fields.rank_sem1 = formatNumber(studentData.ranks.firstSemesterAverage, 0);
+
+	fields.avg_p4 = formatNumber(studentData.periodAverages.fourth, 1);
+	fields.avg_p5 = formatNumber(studentData.periodAverages.fifth, 1);
+	fields.avg_p6 = formatNumber(studentData.periodAverages.sixth, 1);
+	fields.avg_exam2 = formatNumber(
+		studentData.periodAverages.six_period_exam,
+		1,
+	);
+	fields.avg_sem2 = formatNumber(
+		studentData.periodAverages.secondSemesterAverage,
+		1,
+	);
+	fields.avg_year = formatNumber(studentData.yearlyAverage, 1);
+	fields.rank_p4 = formatNumber(studentData.ranks.fourth, 0);
+	fields.rank_p5 = formatNumber(studentData.ranks.fifth, 0);
+	fields.rank_p6 = formatNumber(studentData.ranks.sixth, 0);
+	fields.rank_exam2 = formatNumber(studentData.ranks.six_period_exam, 0);
+	fields.rank_sem2 = formatNumber(studentData.ranks.secondSemesterAverage, 0);
+	fields.rank_year = formatNumber(studentData.ranks.yearly, 0);
+
+	const nextGrade = classDisplayName === 'Grade 10'
+		? 'Grade 11'
+		: classDisplayName === 'Grade 11'
+			? 'Grade 12'
+			: '';
+	fields.promotion_student_name = studentData.studentName;
+	fields.promotion_from_grade = classDisplayName;
+	fields.promotion_to_grade = nextGrade;
+	fields.promotion_year = reportFilters.academicYear;
+
+	return fields;
+};
+
+const applyFieldMap = (
+	form: ReturnType<PDFDocument['getForm']>,
+	fields: Record<string, string>,
+) => {
+	const formFields = form.getFields();
+	const fieldLookup = new Map(
+		formFields.map((field) => [field.getName(), field]),
+	);
+	const missingFields: string[] = [];
+
+	Object.entries(fields).forEach(([name, value]) => {
+		const field = fieldLookup.get(name);
+		if (!field) {
+			if (value !== '' && value !== '-') {
+				missingFields.push(name);
+			}
+			return;
+		}
+		if (field instanceof PDFTextField) {
+			field.setText(value ?? '');
+		}
+	});
+
+	if (!missingFieldLogged && missingFields.length > 0) {
+		missingFieldLogged = true;
+		if (process.env.NODE_ENV !== 'production') {
+			console.warn('Missing PDF form fields:', missingFields);
+		}
+	}
+};
+
+const fillTemplateForStudent = async ({
+	studentData,
+	className,
+	classSubjects,
+	reportFilters,
+	school,
+	classSponsor,
+	templateBytes,
+}: {
+	studentData: StudentYearlyReport;
+	className: string;
+	classSubjects: string[];
+	reportFilters: ReportFilters;
+	school: any;
+	classSponsor: string | undefined;
+	templateBytes: ArrayBuffer;
+}) => {
+	const filledDoc = await PDFDocument.load(templateBytes);
+	const form = filledDoc.getForm();
+	const fieldMap = buildYearlyFieldMap({
+		studentData,
+		className,
+		classSubjects,
+		reportFilters,
+		school,
+		classSponsor,
+	});
+	applyFieldMap(form, fieldMap);
+	const font = await filledDoc.embedFont(StandardFonts.Helvetica);
+	form.updateFieldAppearances(font);
+	form.flatten();
+	return filledDoc;
+};
+
+const generateYearlyReportPdf = async ({
 	studentsData,
 	className,
 	classSubjects,
@@ -777,694 +976,32 @@ const PDFDocument = React.memo(function PDFDocument({
 	studentsData: StudentYearlyReport[];
 	className: string;
 	classSubjects: string[];
-	reportFilters: ReportFilters; // Use updated interface
+	reportFilters: ReportFilters;
 	school: any;
 	classSponsor: string | undefined;
-}) {
-	// Logic to determine the sponsor name to display
-	const sponsorToDisplay = useMemo(() => {
-		// 1. First priority: Sponsor name from the filter override
-		if (reportFilters.sponsorName.trim()) {
-			return reportFilters.sponsorName.trim();
-		}
-		// 2. Second priority: Sponsor name from the server data (classSponsor)
-		if (classSponsor) {
-			return classSponsor;
-		}
-		// 3. Fallback: No sponsor name will be displayed
-		return null;
-	}, [reportFilters.sponsorName, classSponsor]);
+}) => {
+	const templateBytes = await loadTemplateBytes();
+	const outDoc = await PDFDocument.create();
 
-	return (
-		<Document
-			title={`Report Card for ${className} - ${reportFilters.academicYear}`}
-		>
-			{studentsData.flatMap((studentData) => {
-				const subjects = classSubjects;
-				const getGrade = (period: string, subject: string) =>
-					studentData.periods[period]?.find((s) => s.subject === subject)
-						?.grade ?? null;
-				const getOverallSubjectAverage = (subject: string) => {
-					const sem1Avg = studentData.firstSemesterAverage[subject];
-					const sem2Avg = studentData.secondSemesterAverage[subject];
-					if (sem1Avg != null && sem2Avg != null) {
-						return Math.round((sem1Avg + sem2Avg) / 2);
-					}
-					return null;
-				};
+	for (const studentData of studentsData) {
+		const filledDoc = await fillTemplateForStudent({
+			studentData,
+			className,
+			classSubjects,
+			reportFilters,
+			school,
+			classSponsor,
+			templateBytes,
+		});
+		const pages = await outDoc.copyPages(
+			filledDoc,
+			filledDoc.getPageIndices(),
+		);
+		pages.forEach((page) => outDoc.addPage(page));
+	}
 
-				return [
-					<Page
-						key={`${studentData.studentId}-grades`}
-						size="A4"
-						orientation="landscape"
-						style={styles.page}
-					>
-						<View style={styles.topRow}>
-							<View style={styles.headerLeft}>
-								<Text style={{ fontWeight: 'bold' }}>
-									Name: {studentData.studentName}
-								</Text>
-								<Text>Class: {className.split('-')[0]}</Text>
-								<Text>ID: {studentData.studentId}</Text>
-							</View>
-							<View style={styles.headerRight}>
-								<Text style={{ fontWeight: 'bold' }}>
-									Academic Year: {reportFilters.academicYear}
-								</Text>
-							</View>
-						</View>
-						<View style={styles.gradesContainer}>
-							<View style={styles.semester}>
-								{/* WATERMARK 1: First Semester Table */}
-								{school?.logoUrl && (
-									<Image
-										src={school.logoUrl}
-										style={{
-											...watermarkStyle,
-											width: '40%', // Adjust size
-											// height: '50%', // Adjust size
-											top: '25%', // Center vertically
-											left: '35%', // Center horizontally
-										}}
-									/>
-								)}
-								<Text style={styles.semesterHeader}>First Semester</Text>
-								<View style={styles.tableHeader}>
-									<Text style={styles.subjectCell}>Subject</Text>
-									<Text style={styles.tableCell}>1st Period</Text>
-									<Text style={styles.tableCell}>2nd Period</Text>
-									<Text style={styles.tableCell}>3rd Period</Text>
-									<Text style={styles.tableCell}>Exam</Text>
-									<Text style={styles.tableCell}>Average</Text>
-								</View>
-								{subjects.map((subject, index) => (
-									<View key={index} style={styles.tableRow}>
-										<Text style={styles.subjectCell}>{subject}</Text>
-										<Text style={gradeStyle(getGrade('first', subject))}>
-											{getGrade('first', subject) ?? '-'}
-										</Text>
-										<Text style={gradeStyle(getGrade('second', subject))}>
-											{getGrade('second', subject) ?? '-'}
-										</Text>
-										<Text style={gradeStyle(getGrade('third', subject))}>
-											{getGrade('third', subject) ?? '-'}
-										</Text>
-										<Text
-											style={gradeStyle(getGrade('third_period_exam', subject))}
-										>
-											{getGrade('third_period_exam', subject) ?? '-'}
-										</Text>
-										<Text
-											style={gradeStyle(
-												studentData.firstSemesterAverage[subject],
-											)}
-										>
-											{studentData.firstSemesterAverage[subject]?.toFixed(0) ??
-												'-'}
-										</Text>
-									</View>
-								))}
-								<View
-									style={{
-										...styles.tableRow,
-										backgroundColor: '#f0f8ff',
-									}}
-								>
-									<Text style={{ ...styles.subjectCell, fontWeight: 'bold' }}>
-										Average
-									</Text>
-									<Text style={gradeStyle(studentData.periodAverages.first)}>
-										{studentData.periodAverages.first?.toFixed(1) ?? '-'}
-									</Text>
-									<Text style={gradeStyle(studentData.periodAverages.second)}>
-										{studentData.periodAverages.second?.toFixed(1) ?? '-'}
-									</Text>
-									<Text style={gradeStyle(studentData.periodAverages.third)}>
-										{studentData.periodAverages.third?.toFixed(1) ?? '-'}
-									</Text>
-									<Text
-										style={gradeStyle(
-											studentData.periodAverages.third_period_exam,
-										)}
-									>
-										{studentData.periodAverages.third_period_exam?.toFixed(1) ??
-											'-'}
-									</Text>
-									<Text
-										style={gradeStyle(
-											studentData.periodAverages.firstSemesterAverage,
-										)}
-									>
-										{studentData.periodAverages.firstSemesterAverage?.toFixed(
-											1,
-										) ?? '-'}
-									</Text>
-								</View>
-								<View
-									style={{
-										...styles.tableRow,
-										backgroundColor: '#f0f8ff',
-									}}
-								>
-									<Text style={{ ...styles.subjectCell, fontWeight: 'bold' }}>
-										Rank
-									</Text>
-									<Text style={styles.tableCell}>
-										{studentData.ranks.first ?? '-'}
-									</Text>
-									<Text style={styles.tableCell}>
-										{studentData.ranks.second ?? '-'}
-									</Text>
-									<Text style={styles.tableCell}>
-										{studentData.ranks.third ?? '-'}
-									</Text>
-									<Text style={styles.tableCell}>
-										{studentData.ranks.third_period_exam ?? '-'}
-									</Text>
-									<Text style={styles.tableCell}>
-										{studentData.ranks.firstSemesterAverage ?? '-'}
-									</Text>
-								</View>
-							</View>
-							<View style={styles.lastSemester}>
-								{/* WATERMARK 2: Second Semester Table */}
-								{school?.logoUrl && (
-									<Image
-										src={school.logoUrl}
-										style={{
-											...watermarkStyle,
-											width: '40%', // Adjust size
-											// height: '50%', // Adjust size
-											top: '25%', // Center vertically
-											left: '25%', // Center horizontally
-										}}
-									/>
-								)}
-								<Text style={styles.semesterHeader}>Second Semester</Text>
-								<View style={styles.tableHeader}>
-									<Text style={styles.tableCell}>4th Period</Text>
-									<Text style={styles.tableCell}>5th Period</Text>
-									<Text style={styles.tableCell}>6th Period</Text>
-									<Text style={styles.tableCell}>Exam</Text>
-									<Text style={styles.tableCell}>Average</Text>
-									<Text style={styles.lastCell}>Yearly Average</Text>
-								</View>
-								{subjects.map((subject, index) => (
-									<View key={index} style={styles.tableRow}>
-										<Text style={gradeStyle(getGrade('fourth', subject))}>
-											{getGrade('fourth', subject) ?? '-'}
-										</Text>
-										<Text style={gradeStyle(getGrade('fifth', subject))}>
-											{getGrade('fifth', subject) ?? '-'}
-										</Text>
-										<Text style={gradeStyle(getGrade('sixth', subject))}>
-											{getGrade('sixth', subject) ?? '-'}
-										</Text>
-										<Text
-											style={gradeStyle(getGrade('six_period_exam', subject))}
-										>
-											{getGrade('six_period_exam', subject) ?? '-'}
-										</Text>
-										<Text
-											style={gradeStyle(
-												studentData.secondSemesterAverage[subject],
-											)}
-										>
-											{studentData.secondSemesterAverage[subject]?.toFixed(0) ??
-												'-'}
-										</Text>
-										<Text style={gradeStyle(getOverallSubjectAverage(subject))}>
-											{getOverallSubjectAverage(subject) ?? '-'}
-										</Text>
-									</View>
-								))}
-								<View
-									style={{
-										...styles.tableRow,
-										backgroundColor: '#f0f8ff',
-									}}
-								>
-									<Text style={gradeStyle(studentData.periodAverages.fourth)}>
-										{studentData.periodAverages.fourth?.toFixed(1) ?? '-'}
-									</Text>
-									<Text style={gradeStyle(studentData.periodAverages.fifth)}>
-										{studentData.periodAverages.fifth?.toFixed(1) ?? '-'}
-									</Text>
-									<Text style={gradeStyle(studentData.periodAverages.sixth)}>
-										{studentData.periodAverages.sixth?.toFixed(1) ?? '-'}
-									</Text>
-									<Text
-										style={gradeStyle(
-											studentData.periodAverages.six_period_exam,
-										)}
-									>
-										{studentData.periodAverages.six_period_exam?.toFixed(1) ??
-											'-'}
-									</Text>
-									<Text
-										style={gradeStyle(
-											studentData.periodAverages.secondSemesterAverage,
-										)}
-									>
-										{studentData.periodAverages.secondSemesterAverage?.toFixed(
-											1,
-										) ?? '-'}
-									</Text>
-									<Text style={gradeStyle(studentData.yearlyAverage)}>
-										{studentData.yearlyAverage?.toFixed(1) ?? '-'}
-									</Text>
-								</View>
-								<View
-									style={{
-										...styles.tableRow,
-										backgroundColor: '#f0f8ff',
-									}}
-								>
-									<Text style={styles.tableCell}>
-										{studentData.ranks.fourth ?? '-'}
-									</Text>
-									<Text style={styles.tableCell}>
-										{studentData.ranks.fifth ?? '-'}
-									</Text>
-									<Text style={styles.tableCell}>
-										{studentData.ranks.sixth ?? '-'}
-									</Text>
-									<Text style={styles.tableCell}>
-										{studentData.ranks.six_period_exam ?? '-'}
-									</Text>
-									<Text style={styles.tableCell}>
-										{studentData.ranks.secondSemesterAverage ?? '-'}
-									</Text>
-									<Text style={styles.lastCell}>
-										{studentData.ranks.yearly ?? '-'}
-									</Text>
-								</View>
-							</View>
-						</View>
-						<View style={styles.bottomSection}>
-							<View style={styles.leftBottom}>
-								<View style={styles.gradingMethod}>
-									<Text style={styles.gradingTitle}>METHOD OF GRADING</Text>
-									<Text style={styles.gradingText}>A = 90 - 100 Excellent</Text>
-									<Text style={styles.gradingText}>B = 80 - 89 Very Good</Text>
-									<Text style={styles.gradingText}>C = 75 - 79 Good</Text>
-									<Text style={styles.gradingText}>D = 70 - 74 Fair</Text>
-									<Text style={styles.gradingText}>F = Below 70 Fail</Text>
-								</View>
-							</View>
-							<View style={styles.rightBottom}>
-								<Text style={styles.promotionText}>
-									Yearly Average below 70 will not be eligible for promotion.
-								</Text>
-								{/* UPDATED SPONSOR SECTION LOGIC - WATERMARK 3 REMOVED FROM HERE */}
-								<View style={styles.signatureSection}>
-									<Text>Teachers Remark: ____________________________</Text>
-									<View style={{ marginTop: 15, alignItems: 'center' }}>
-										<Text>Signed: _________________________</Text>
-										<Text style={{ marginTop: 3 }}>
-											{sponsorToDisplay ? `${sponsorToDisplay}, ` : ''}Class
-											Sponsor
-										</Text>
-									</View>
-								</View>
-							</View>
-						</View>
-					</Page>,
-					<Page
-						key={`${studentData.studentId}-info`}
-						size="A4"
-						orientation="landscape"
-						style={styles.page}
-					>
-						<View style={styles.pageTwoContainer}>
-							<View
-								style={{
-									flex: 1,
-									marginRight: 10,
-									borderWidth: 1,
-									borderColor: '#000',
-									padding: 10,
-									position: 'relative', // Set relative positioning to contain watermark
-								}}
-							>
-								{/* WATERMARK 3: Corrected position on Page 2 (Left Column) */}
-								{(school?.logoUrl2 || school?.logoUrl) && (
-									<Image
-										src={school?.logoUrl2 || school?.logoUrl}
-										style={{
-											...watermarkStyle,
-											width: '45%', // Adjust size
-											// height: '30%', // Adjust size
-											top: '40%', // Positioned near the Date/Principal area, above QR
-											left: '25%', // Center horizontally
-										}}
-									/>
-								)}
-								<Text style={styles.parentsSectionTitle}>
-									TO OUR PARENTS & GUARDIANS
-								</Text>
-								<Text
-									style={{
-										fontSize: 10,
-										marginTop: 20,
-										marginBottom: 30,
-										textAlign: 'justify',
-										lineHeight: 1.7,
-									}}
-								>
-									This report is provided periodically to help you monitor your
-									child’s progress. It highlights areas such as study habits and
-									attendance that may need improvement. Parent-teacher
-									conferences are encouraged to ensure your child’s continued
-									success.
-								</Text>
-								<Text
-									style={{
-										fontSize: 12,
-										fontWeight: 'bold',
-										marginBottom: 30,
-										textAlign: 'center',
-									}}
-								>
-									Promotion Statement
-								</Text>
-								<Text
-									style={{
-										fontSize: 11,
-										marginBottom: 15,
-										fontStyle: 'italic',
-										color: 'royalblue',
-									}}
-								>
-									This is to certify that{' '}
-									<Text style={{ textDecoration: 'underline' }}>
-										{studentData.studentName}
-									</Text>{' '}
-									has satisfactorily completed the work of{' '}
-									<Text style={{ textDecoration: 'underline' }}>
-										{className.split('-')[0]}
-									</Text>{' '}
-									and is promoted to{' '}
-									<Text style={{ textDecoration: 'underline' }}>
-										{className.split('-')[0] === 'Grade 10'
-											? 'Grade 11'
-											: 'Grade 12'}
-									</Text>{' '}
-									for Academic Year {reportFilters.academicYear}.
-								</Text>
-								<View
-									style={{
-										flexDirection: 'row',
-										justifyContent: 'space-between',
-										marginBottom: 20,
-										marginTop: 40,
-									}}
-								>
-									<Text>Date: ____________________</Text>
-									<Text>Principal: __________________</Text>
-
-									<View
-										style={{
-											position: 'absolute',
-											left: 15,
-											top: 100,
-											textAlign: 'center',
-											width: '100%',
-										}}
-									>
-										<View
-											style={{
-												display: 'flex',
-												gap: 10,
-												justifyContent: 'center',
-												width: '100%',
-												fontSize: 12,
-											}}
-										>
-											<View
-												style={{
-													borderWidth: 1,
-													borderColor: '#000',
-													borderStyle: 'dashed',
-													borderRadius: 5,
-													width: 100,
-													height: 100,
-												}}
-											>
-												<ReportQRCode />
-											</View>
-
-											<Text style={{ width: '100%', textAlign: 'left' }}>
-												Scan the QR Code to verify the authenticity of this
-												report.
-											</Text>
-										</View>
-									</View>
-								</View>
-							</View>
-							<View
-								style={{
-									flex: 1,
-									marginLeft: 10,
-									borderWidth: 1,
-									borderColor: '#000',
-									padding: 10,
-								}}
-							>
-								<View style={styles.schoolHeader}>
-									<Text style={styles.schoolName}>{school?.name}</Text>
-									<View>
-										<View
-											style={{
-												alignSelf: 'center',
-												marginBottom: 10,
-												justifyContent: 'center',
-												alignItems: 'center',
-												left: -145,
-												bottom: school.name.toLowerCase().includes('kolleh')
-													? -10
-													: -18,
-											}}
-										>
-											<Image
-												src={school?.logoUrl2 || school?.logoUrl}
-												style={{ width: 60 }}
-											/>
-										</View>
-										<Text style={styles.schoolDetails}>
-											{school?.address.join('\n')}
-										</Text>
-										<View
-											style={{
-												alignSelf: 'center',
-												marginBottom: 10,
-												justifyContent: 'center',
-												alignItems: 'center',
-												top: -95,
-												right: -145,
-											}}
-										>
-											<Image src={school?.logoUrl} style={{ width: 60 }} />
-										</View>
-									</View>
-									<Text style={styles.reportTitle}>
-										{reportFilters.classLevel?.toUpperCase()} PROGRESS REPORT
-									</Text>
-								</View>
-								<View
-									style={{
-										flexDirection: 'row',
-										justifyContent: 'space-between',
-										marginBottom: 10,
-									}}
-								>
-									<View style={{ flexDirection: 'column' }}>
-										<Text>
-											Name:{' '}
-											<Text style={{ fontWeight: 'bold' }}>
-												{studentData.studentName}
-											</Text>
-										</Text>
-										<Text>
-											Class:{' '}
-											<Text style={{ fontWeight: 'bold' }}>
-												{className.split('-')[0]}
-											</Text>
-										</Text>
-									</View>
-									<View
-										style={{
-											flexDirection: 'column',
-											alignItems: 'flex-start',
-										}}
-									>
-										<Text>
-											ID:{' '}
-											<Text style={{ fontWeight: 'bold' }}>
-												{studentData.studentId}
-											</Text>
-										</Text>
-										<Text>
-											Academic Year:{' '}
-											<Text style={{ fontWeight: 'bold' }}>
-												{reportFilters.academicYear}
-											</Text>
-										</Text>
-									</View>
-								</View>
-								<Text
-									style={{
-										fontSize: 12,
-										fontWeight: 'bold',
-										marginBottom: 10,
-										textAlign: 'center',
-										marginTop: 15,
-									}}
-								>
-									PARENTS OR GUARDIANS
-								</Text>
-								<Text
-									style={{
-										fontSize: 10,
-										marginBottom: 12,
-										textAlign: 'justify',
-										fontStyle: 'italic',
-									}}
-								>
-									Please sign below as evidence that you have examined this
-									report with possible recommendation or invitation to your
-									son(s) or daughter(s) as this instrument could shape your
-									child's destiny.
-								</Text>
-								<View
-									style={{
-										borderWidth: 1,
-										borderColor: '#000',
-										marginBottom: 6,
-									}}
-								>
-									<View
-										style={{
-											flexDirection: 'row',
-											backgroundColor: '#f0f0f0',
-											fontSize: 14,
-											fontWeight: 'bold',
-										}}
-									>
-										<Text
-											style={{
-												flex: 2,
-												padding: 3,
-												borderRight: 0.5,
-												borderRightColor: '#000',
-												textAlign: 'center',
-												fontSize: 8,
-											}}
-										>
-											Period
-										</Text>
-										<Text
-											style={{
-												flex: 3,
-												padding: 3,
-												borderRight: 0.5,
-												borderRightColor: '#000',
-												textAlign: 'center',
-												fontSize: 8,
-											}}
-										>
-											Class Teacher
-										</Text>
-										<Text
-											style={{
-												flex: 3,
-												padding: 3,
-												textAlign: 'center',
-												fontSize: 8,
-											}}
-										>
-											Parent/Guardian
-										</Text>
-									</View>
-									{['1st ', '2nd ', '3rd ', '4th ', '5th ', '6th '].map(
-										(row) => (
-											<View
-												key={row}
-												style={{ flexDirection: 'row', minHeight: 15 }}
-											>
-												<Text
-													style={{
-														flex: 2,
-														padding: 3,
-														borderRight: 0.5,
-														borderRightColor: '#000',
-														borderTop: 0.5,
-														borderTopColor: '#000',
-														textAlign: 'center',
-														fontSize: 10,
-														color: 'royalblue',
-													}}
-												>
-													{row} Period
-												</Text>
-												<Text
-													style={{
-														flex: 3,
-														padding: 3,
-														borderRight: 0.5,
-														borderRightColor: '#000',
-														borderTop: 0.5,
-														borderTopColor: '#000',
-													}}
-												></Text>
-												<Text
-													style={{
-														flex: 3,
-														padding: 3,
-														borderTop: 0.5,
-														borderTopColor: '#000',
-													}}
-												></Text>
-											</View>
-										),
-									)}
-								</View>
-								<View style={styles.noteSection}>
-									<Text
-										style={{
-											fontWeight: 'bold',
-											marginBottom: 5,
-											fontSize: 12,
-											textAlign: 'center',
-										}}
-									>
-										Note:
-									</Text>
-									<Text
-										style={{
-											textAlign: 'justify',
-											fontSize: 10,
-											fontStyle: 'italic',
-										}}
-									>
-										When a student mark is 69 or below in any subject the parent
-										or guardian should give special attention to see that the
-										student does well in all the work required by the teacher,
-										otherwise the student will probably{' '}
-										<Text style={{ fontWeight: 'bold' }}>
-											REPEAT THE CLASS.
-										</Text>
-									</Text>
-								</View>
-							</View>
-						</View>
-					</Page>,
-				];
-			})}
-		</Document>
-	);
-});
+	return outDoc.save();
+};
 
 // --- Main Report Content Component (Blank Screen Fix Implemented) ---
 
@@ -1488,6 +1025,7 @@ function ReportContent({
 	const [serverKey, setServerKey] = useState<string | null>(null);
 	const [pdfGenerating, setPdfGenerating] = useState(false);
 	const [inlineError, setInlineError] = useState(false);
+	const [inlineDisabled, setInlineDisabled] = useState(false);
 	const pdfUrlRef = useRef<string | null>(null);
 	const [shareModalOpen, setShareModalOpen] = useState(false);
 	const [shareInfo, setShareInfo] = useState<{
@@ -1501,6 +1039,15 @@ function ReportContent({
 	const [copiedPin, setCopiedPin] = useState(false);
 	const [viewLoading, setViewLoading] = useState(false);
 	const resetCopiedTimeoutRef = useRef<number | null>(null);
+	const showShareNotice = useCallback((message: string, timeoutMs = 4000) => {
+		setShareNotice(message);
+		if (resetCopiedTimeoutRef.current) {
+			window.clearTimeout(resetCopiedTimeoutRef.current);
+		}
+		resetCopiedTimeoutRef.current = window.setTimeout(() => {
+			setShareNotice('');
+		}, timeoutMs);
+	}, [setShareNotice]);
 
 	const school = useSchoolStore((state) => state.school);
 	const currentSchool = useSchoolStore((state) => state.school);
@@ -1510,6 +1057,10 @@ function ReportContent({
 	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
 	const { user } = useAuth();
 	const isStudent = user?.role === 'student';
+	const createdBy = useMemo(
+		() => user?.id || user?._id || user?.studentId || '',
+		[user],
+	);
 
 	const className = useMemo(() => {
 		const classInfo = currentSchool?.classLevels?.[reportFilters.session]?.[
@@ -1529,6 +1080,10 @@ function ReportContent({
 		reportFilters.classLevel,
 		reportFilters.className,
 	]);
+	const reportFileName = useMemo(
+		() => `Yearly_Report_${className}_${reportFilters.academicYear}.pdf`,
+		[className, reportFilters.academicYear],
+	);
 
 	const classSubjects = useMemo(() => {
 		if (!currentSchool) return [];
@@ -1552,6 +1107,168 @@ function ReportContent({
 		reportFilters.classLevel,
 		reportFilters.className,
 	]);
+
+	useEffect(() => {
+		if (typeof window === 'undefined') return;
+		const checkInlineSupport = () => {
+			const isSmallScreen = window.innerWidth < 1024;
+			const isMobileUA =
+				typeof navigator !== 'undefined' &&
+				/Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(
+					navigator.userAgent,
+				);
+			setInlineDisabled(isSmallScreen || isMobileUA);
+		};
+		checkInlineSupport();
+		window.addEventListener('resize', checkInlineSupport);
+		return () => window.removeEventListener('resize', checkInlineSupport);
+	}, []);
+
+	const uploadPdfToCache = useCallback(async (blob: Blob) => {
+		const response = await fetch('/api/reports/pdf', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/pdf' },
+			body: blob,
+		});
+		if (!response.ok) return null;
+		const data = await response.json();
+		return data?.cacheKey ?? null;
+	}, []);
+
+	const createShareLink = useCallback(
+		async ({
+			cacheKey,
+			fileName,
+			reportType,
+			createdBy,
+		}: {
+			cacheKey: string;
+			fileName: string;
+			reportType: string;
+			createdBy: string;
+		}) => {
+			const response = await fetch('/api/reports/share', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					cacheKey,
+					fileName,
+					reportType,
+					createdBy,
+				}),
+			});
+			if (!response.ok) return null;
+			const data = await response.json();
+			if (!data?.shareUrl || !data?.pin) return null;
+			return {
+				url: data.shareUrl as string,
+				pin: data.pin as string,
+				expiresAt: data.expiresAt as string,
+			};
+		},
+		[],
+	);
+
+	const openShareModal = useCallback(
+		(data: { url: string; pin: string; expiresAt: string }) => {
+			setShareInfo(data);
+			setShareModalOpen(true);
+			setCopiedLink(false);
+			setCopiedPin(false);
+			setShareNotice('');
+		},
+		[setShareNotice],
+	);
+
+	const queueShare = useCallback(async () => {
+		if (!pdfBlob) return false;
+		const queuedId = await enqueueShareRequest({
+			blob: pdfBlob,
+			fileName: reportFileName,
+			reportType: 'yearly',
+			createdBy,
+		});
+		if (queuedId) {
+			showShareNotice(
+				'You are offline. Share queued and will sync once you are back online.',
+			);
+			return true;
+		}
+		showShareNotice('Unable to queue share on this device.');
+		return false;
+	}, [pdfBlob, reportFileName, createdBy, showShareNotice]);
+
+	const handleShare = useCallback(async () => {
+		if (!pdfBlob || !downloadUrl) return;
+		if (typeof navigator !== 'undefined' && !navigator.onLine) {
+			await queueShare();
+			return;
+		}
+		setShareLoading(true);
+		try {
+			let cacheKey = serverKey;
+			if (!cacheKey) {
+				cacheKey = await uploadPdfToCache(pdfBlob);
+				if (cacheKey) setServerKey(cacheKey);
+			}
+			if (!cacheKey) {
+				showShareNotice('Failed to cache PDF for sharing.');
+				return;
+			}
+			const data = await createShareLink({
+				cacheKey,
+				fileName: reportFileName,
+				reportType: 'yearly',
+				createdBy,
+			});
+			if (!data) {
+				showShareNotice('Failed to create share link.');
+				return;
+			}
+			openShareModal(data);
+		} catch (err) {
+			console.error('Failed to create share link', err);
+			showShareNotice('Failed to create share link.');
+		} finally {
+			setShareLoading(false);
+		}
+	}, [
+		pdfBlob,
+		downloadUrl,
+		serverKey,
+		uploadPdfToCache,
+		createShareLink,
+		reportFileName,
+		createdBy,
+		queueShare,
+		openShareModal,
+		showShareNotice,
+	]);
+
+	const syncQueuedShares = useCallback(async () => {
+		await consumeQueuedShareRequests(async (item, blob) => {
+			const cacheKey = await uploadPdfToCache(blob);
+			if (!cacheKey) return false;
+			const data = await createShareLink({
+				cacheKey,
+				fileName: item.fileName,
+				reportType: item.reportType,
+				createdBy: item.createdBy,
+			});
+			return Boolean(data);
+		});
+	}, [uploadPdfToCache, createShareLink]);
+
+	useEffect(() => {
+		if (typeof window === 'undefined') return;
+		const trySync = () => {
+			if (!navigator.onLine) return;
+			syncQueuedShares();
+		};
+		trySync();
+		window.addEventListener('online', trySync);
+		return () => window.removeEventListener('online', trySync);
+	}, [syncQueuedShares]);
 
 	useEffect(() => {
 		const fetchStudentsData = async () => {
@@ -1804,7 +1521,7 @@ function ReportContent({
 				);
 
 				setStudentsData(reportData);
-				// ONLY stop data loading here. The PDF generation (useMemo) will take over.
+				// ONLY stop data loading here. The PDF generation will take over.
 				setLoading(false);
 			} catch (err: any) {
 				console.error('Error fetching report data:', err);
@@ -1823,39 +1540,9 @@ function ReportContent({
 		setUsersForYear,
 	]);
 
-	// Memoize the PDF document - This is the blocking operation
-	const pdfDocument = useMemo(() => {
-		// Only proceed if data is loaded and no error
-		if (!studentsData.length || loading || error) {
-			return null;
-		}
-
-		// The expensive, synchronous PDF component creation happens here.
-		const component = (
-			<PDFDocument
-				studentsData={studentsData}
-				className={className}
-				classSubjects={classSubjects}
-				reportFilters={reportFilters}
-				school={school}
-				classSponsor={classSponsor}
-			/>
-		);
-
-		return component;
-	}, [
-		studentsData,
-		className,
-		classSubjects,
-		reportFilters,
-		school,
-		loading, // Keep loading here to re-evaluate after data fetch
-		error,
-		classSponsor,
-	]);
-
+	// Generate the PDF using the fillable template
 	useEffect(() => {
-		if (!pdfDocument) {
+		if (!studentsData.length || loading || error) {
 			if (pdfUrlRef.current) {
 				URL.revokeObjectURL(pdfUrlRef.current);
 				pdfUrlRef.current = null;
@@ -1877,10 +1564,18 @@ function ReportContent({
 		const isIOS =
 			typeof navigator !== 'undefined' &&
 			/iPad|iPhone|iPod/.test(navigator.userAgent);
-		pdf(pdfDocument)
-			.toBlob()
-			.then((blob) => {
+
+		generateYearlyReportPdf({
+			studentsData,
+			className,
+			classSubjects,
+			reportFilters,
+			school,
+			classSponsor,
+		})
+			.then((pdfBytes) => {
 				if (cancelled) return;
+				const blob = new Blob([pdfBytes], { type: 'application/pdf' });
 				if (pdfUrlRef.current) {
 					URL.revokeObjectURL(pdfUrlRef.current);
 				}
@@ -1902,16 +1597,13 @@ function ReportContent({
 				} else {
 					setPdfUrl(objectUrl);
 				}
-				const isMobile =
-					typeof navigator !== 'undefined' &&
-					/Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(
-						navigator.userAgent,
-					);
-				if (isMobile) setInlineError(true);
-			})
+		})
 			.catch((err) => {
 				console.error('Failed to generate PDF blob', err);
-				if (!cancelled) setPdfUrl(null);
+				if (!cancelled) {
+					setPdfUrl(null);
+					setError('Failed to generate PDF. Please verify the template.');
+				}
 			})
 			.finally(() => {
 				if (!cancelled) setPdfGenerating(false);
@@ -1920,7 +1612,17 @@ function ReportContent({
 		return () => {
 			cancelled = true;
 		};
-	}, [pdfDocument]);
+	}, [
+		studentsData,
+		className,
+		classSubjects,
+		reportFilters,
+		school,
+		classSponsor,
+		loading,
+		error,
+	]);
+
 
 	useEffect(() => {
 		if (!pdfBlob || pdfGenerating || serverKey) return;
@@ -1947,14 +1649,14 @@ function ReportContent({
 		try {
 			const a = document.createElement('a');
 			a.href = downloadUrl;
-			a.download = `Yearly_Report_${className}_${reportFilters.academicYear}.pdf`;
+			a.download = reportFileName;
 			document.body.appendChild(a);
 			a.click();
 			a.remove();
 		} finally {
 			setDownloading(false);
 		}
-	}, [downloadUrl, className, reportFilters.academicYear]);
+	}, [downloadUrl, reportFileName]);
 
 	if (loading) {
 		return <PageLoading fullScreen={false} variant="minimal" size="lg" />;
@@ -2008,56 +1710,11 @@ function ReportContent({
 				>
 					← Back to Filter
 				</button>
-				{isStudent && !inlineError && (
+				{isStudent && !inlineError && !inlineDisabled && (
 					<button
 						type="button"
-						onClick={() => {
-							if (!pdfBlob || !downloadUrl) return;
-							const createShare = (cacheKey: string) =>
-								fetch('/api/reports/share', {
-									method: 'POST',
-									headers: { 'Content-Type': 'application/json' },
-									body: JSON.stringify({
-										cacheKey,
-										fileName: `Yearly_Report_${className}_${reportFilters.academicYear}.pdf`,
-										reportType: 'yearly',
-										createdBy: user?.id || user?._id || user?.studentId || '',
-									}),
-								}).then((res) => res.json());
-							const doShare = (cacheKey: string) => {
-								setShareLoading(true);
-								createShare(cacheKey).then((data) => {
-									if (!data?.shareUrl || !data?.pin) return;
-									setShareInfo({
-										url: data.shareUrl,
-										pin: data.pin,
-										expiresAt: data.expiresAt,
-									});
-									setShareModalOpen(true);
-									setCopiedLink(false);
-									setCopiedPin(false);
-									setShareNotice('');
-									setShareLoading(false);
-								});
-							};
-							if (serverKey) {
-								doShare(serverKey);
-								return;
-							}
-							fetch('/api/reports/pdf', {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/pdf' },
-								body: pdfBlob,
-							})
-								.then((res) => res.json())
-								.then((data) => {
-									if (data?.cacheKey) {
-										setServerKey(data.cacheKey);
-										doShare(data.cacheKey);
-									}
-								});
-						}}
-						disabled={!downloadUrl || pdfGenerating}
+						onClick={handleShare}
+						disabled={!downloadUrl || pdfGenerating || shareLoading}
 						className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm inline-flex items-center gap-2"
 					>
 						<svg
@@ -2085,7 +1742,7 @@ function ReportContent({
 								d="M12 2v14"
 							/>
 						</svg>
-						Share Report Card
+						{shareLoading ? 'Generating Link...' : 'Share Report Card'}
 					</button>
 				)}
 				<button
@@ -2118,10 +1775,15 @@ function ReportContent({
 					)}
 				</button>
 			</div>
+			{shareNotice && !shareModalOpen && (
+				<div className="px-8 pb-2 text-xs text-muted-foreground">
+					{shareNotice}
+				</div>
+			)}
 			<div className="flex-1">
 				{pdfUrl ? (
 					<div className="w-full" style={{ height: '80vh' }}>
-						{inlineError ? (
+						{inlineError || inlineDisabled ? (
 							<div className="flex items-center justify-center h-full">
 								<div className="flex flex-col items-center gap-3">
 									<button
@@ -2132,7 +1794,7 @@ function ReportContent({
 												const url = `/api/reports/pdf?key=${encodeURIComponent(
 													key,
 												)}&fileName=${encodeURIComponent(
-													`Yearly_Report_${className}_${reportFilters.academicYear}.pdf`,
+													reportFileName,
 												)}`;
 												window.open(url, '_blank', 'noopener,noreferrer');
 											};
@@ -2191,53 +1853,8 @@ function ReportContent({
 									{isStudent && (
 										<button
 											type="button"
-											onClick={() => {
-												if (!pdfBlob || !downloadUrl) return;
-												const createShare = (cacheKey: string) =>
-													fetch('/api/reports/share', {
-														method: 'POST',
-														headers: { 'Content-Type': 'application/json' },
-														body: JSON.stringify({
-															cacheKey,
-															fileName: `Yearly_Report_${className}_${reportFilters.academicYear}.pdf`,
-															reportType: 'yearly',
-															createdBy:
-																user?.id || user?._id || user?.studentId || '',
-														}),
-													}).then((res) => res.json());
-												const doShare = (cacheKey: string) => {
-													setShareLoading(true);
-													createShare(cacheKey).then((data) => {
-														if (!data?.shareUrl || !data?.pin) return;
-														setShareInfo({
-															url: data.shareUrl,
-															pin: data.pin,
-															expiresAt: data.expiresAt,
-														});
-														setShareModalOpen(true);
-														setCopiedLink(false);
-														setCopiedPin(false);
-														setShareLoading(false);
-													});
-												};
-												if (serverKey) {
-													doShare(serverKey);
-													return;
-												}
-												fetch('/api/reports/pdf', {
-													method: 'POST',
-													headers: { 'Content-Type': 'application/pdf' },
-													body: pdfBlob,
-												})
-													.then((res) => res.json())
-													.then((data) => {
-														if (data?.cacheKey) {
-															setServerKey(data.cacheKey);
-															doShare(data.cacheKey);
-														}
-													});
-											}}
-											disabled={!downloadUrl || pdfGenerating}
+											onClick={handleShare}
+											disabled={!downloadUrl || pdfGenerating || shareLoading}
 											className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm inline-flex items-center gap-2"
 										>
 											<svg
