@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import GradesPDFDownload from './GradesPDFDownload';
 import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
+import { useNetworkStore } from '@/store/networkStore';
 
 // Types
 interface Student {
@@ -86,6 +87,10 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const { user: userInfo } = useAuth();
 	const currentSchool = useSchoolStore((state) => state.school);
 	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
+	const gradesByAcademicYear = useSchoolStore(
+		(state) => state.gradesByAcademicYear
+	);
+	const { isOnline } = useNetworkStore();
 	const effectiveUser = teacherInfo || userInfo;
 
 	const getClassMetaById = (classId: string) => {
@@ -386,16 +391,47 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		}));
 	};
 
+	const getStudentClassIdForYear = (student: any, academicYear: string) => {
+		const yearEntry = Array.isArray(student?.academicYears)
+			? student.academicYears.find((ay: any) => ay.year === academicYear)
+			: null;
+		return yearEntry?.classId || student?.classId || '';
+	};
+
 	useEffect(() => {
 		if (selectedClass) {
 			const fetchStudents = async () => {
 				setLoading((prev) => ({ ...prev, students: true }));
 				setError((prev) => ({ ...prev, students: '' }));
 				try {
+					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
+					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
+					const cachedUsers =
+						usersByAcademicYear?.[normalizedYear]?.students ||
+						usersByAcademicYear?.[fallbackYear]?.students ||
+						[];
+
+					if (!isOnline) {
+						if (cachedUsers.length > 0) {
+							const students = cachedUsers
+								.filter(
+									(student: any) =>
+										getStudentClassIdForYear(student, normalizedYear) ===
+										selectedClass
+								)
+								.map((student: any) => ({
+									studentId: student.studentId || student.id || student._id,
+									studentName: `${student.firstName} ${student.lastName}`.trim(),
+								}));
+							setStudentsData(students);
+						} else {
+							setStudentsData([]);
+						}
+						return;
+					}
+
 					const res = await fetch(
-						`/api/users?role=student&academicYear=${normalizeAcademicYear(
-							selectedAcademicYear
-						)}&classId=${selectedClass}`
+						`/api/users?role=student&academicYear=${normalizedYear}&classId=${selectedClass}`
 					);
 					if (!res.ok) {
 						throw new Error('Failed to fetch students');
@@ -411,6 +447,27 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 						throw new Error(data.message || 'Failed to fetch students');
 					}
 				} catch (err) {
+					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
+					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
+					const cachedUsers =
+						usersByAcademicYear?.[normalizedYear]?.students ||
+						usersByAcademicYear?.[fallbackYear]?.students ||
+						[];
+					if (!isOnline && cachedUsers.length > 0) {
+						const students = cachedUsers
+							.filter(
+								(student: any) =>
+									getStudentClassIdForYear(student, normalizedYear) ===
+									selectedClass
+							)
+							.map((student: any) => ({
+								studentId: student.studentId || student.id || student._id,
+								studentName: `${student.firstName} ${student.lastName}`.trim(),
+							}));
+						setStudentsData(students);
+						setError((prev) => ({ ...prev, students: '' }));
+						return;
+					}
 					setError((prev) => ({
 						...prev,
 						students: 'Failed to load students.',
@@ -425,7 +482,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		} else {
 			setStudentsData([]);
 		}
-	}, [selectedAcademicYear, selectedClass]);
+	}, [selectedAcademicYear, selectedClass, isOnline, usersByAcademicYear, currentAcademicYear]);
 
 	useEffect(() => {
 		if (selectedClass && selectedSubject) {
@@ -433,10 +490,30 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				setLoading((prev) => ({ ...prev, grades: true }));
 				setError((prev) => ({ ...prev, grades: '' }));
 				try {
+					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
+					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
+					const cachedGrades =
+						gradesByAcademicYear?.[normalizedYear] ||
+						gradesByAcademicYear?.[fallbackYear] ||
+						[];
+
+					if (!isOnline) {
+						if (cachedGrades.length > 0) {
+							const filtered = cachedGrades.filter(
+								(grade: any) =>
+									grade?.classId === selectedClass &&
+									grade?.subject === selectedSubject &&
+									normalizeAcademicYear(grade?.academicYear) === normalizedYear
+							);
+							setGradesData(filtered);
+						} else {
+							setGradesData([]);
+						}
+						return;
+					}
+
 					const res = await fetch(
-						`/api/grades?academicYear=${normalizeAcademicYear(
-							selectedAcademicYear
-						)}&classId=${selectedClass}&subject=${selectedSubject}`
+						`/api/grades?academicYear=${normalizedYear}&classId=${selectedClass}&subject=${selectedSubject}`
 					);
 					if (!res.ok) {
 						throw new Error('Failed to fetch grades');
@@ -450,6 +527,23 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 						throw new Error('API returned unsuccessful response');
 					}
 				} catch (err) {
+					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
+					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
+					const cachedGrades =
+						gradesByAcademicYear?.[normalizedYear] ||
+						gradesByAcademicYear?.[fallbackYear] ||
+						[];
+					if (!isOnline && cachedGrades.length > 0) {
+						const filtered = cachedGrades.filter(
+							(grade: any) =>
+								grade?.classId === selectedClass &&
+								grade?.subject === selectedSubject &&
+								normalizeAcademicYear(grade?.academicYear) === normalizedYear
+						);
+						setGradesData(filtered);
+						setError((prev) => ({ ...prev, grades: '' }));
+						return;
+					}
 					setError((prev) => ({ ...prev, grades: 'Failed to load grades.' }));
 					console.error('Error fetching grades:', err);
 					setGradesData([]);
@@ -461,7 +555,14 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		} else {
 			setGradesData([]);
 		}
-	}, [selectedAcademicYear, selectedClass, selectedSubject]);
+	}, [
+		selectedAcademicYear,
+		selectedClass,
+		selectedSubject,
+		isOnline,
+		gradesByAcademicYear,
+		currentAcademicYear,
+	]);
 
 	useEffect(() => {
 		if (studentsData.length > 0) {
@@ -800,13 +901,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 									<tr>
 										<th
 											scope="col"
-											className="sticky top-0 left-0 z-30 bg-muted px-3 sm:px-6 py-3 text-left font-medium text-muted-foreground uppercase tracking-wider border-r border-border text-xs w-[80px] sm:w-[100px]"
-										>
-											No.
-										</th>
-										<th
-											scope="col"
-											className="sticky top-0 left-[80px] sm:left-[100px] z-30 bg-muted px-3 sm:px-6 py-3 text-left font-medium text-muted-foreground uppercase tracking-wider border-r border-border text-xs w-[140px] sm:w-[200px]"
+											className="sticky top-0 left-0 z-30 bg-muted px-3 sm:px-6 py-3 text-left font-medium text-muted-foreground uppercase tracking-wider border-r border-border text-xs w-[180px] sm:w-[240px]"
 										>
 											Student Name
 										</th>
@@ -822,12 +917,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-border bg-background">
-									{combinedData.map((student, index) => (
+									{combinedData.map((student) => (
 										<tr key={student.studentId}>
 											<td className="sticky left-0 z-10 bg-card px-3 sm:px-6 py-4 font-medium text-foreground whitespace-nowrap border-r border-border text-sm">
-												{index + 1}
-											</td>
-											<td className="sticky left-[80px] sm:left-[100px] z-10 bg-card px-3 sm:px-6 py-4 font-medium text-foreground whitespace-nowrap border-r border-border text-sm">
 												{student.studentName}
 											</td>
 											{periods.map((p) => {
@@ -852,7 +944,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 										<tr key={row.key}>
 											<th
 												scope="row"
-												colSpan={2}
+												colSpan={1}
 												className="sticky left-0 z-10 bg-muted px-3 sm:px-6 py-3 text-left font-semibold text-foreground border-r border-border text-sm whitespace-nowrap"
 											>
 												{row.label}
