@@ -117,7 +117,14 @@ export const getSchoolProfile = async (): Promise<any> => {
 		// 1. Try to get the profile from Redis cache
 		const cachedProfile = await redis.get(cacheKey);
 		if (cachedProfile) {
-			return cachedProfile;
+			try {
+				return typeof cachedProfile === 'string'
+					? JSON.parse(cachedProfile)
+					: cachedProfile;
+			} catch (error) {
+				console.warn('Failed to parse cached school profile:', error);
+				return cachedProfile;
+			}
 		}
 
 		// 2. If not in cache, fetch from DB

@@ -1,8 +1,12 @@
 import type { MetadataRoute } from 'next';
 import { getSchoolProfile } from '@/lib/mongoose';
 
+export const dynamic = 'force-dynamic';
+
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
-	const profile = await getSchoolProfile();
+	const profileRaw = await getSchoolProfile();
+	const profile =
+		typeof profileRaw === 'string' ? JSON.parse(profileRaw) : profileRaw;
 	const name = profile?.name?.[0] || profile?.shortName || 'School Portal';
 	const shortName = profile?.shortName || profile?.initials || name;
 	const logoUrl = profile?.logoUrl || '/favicon.ico';

@@ -4,7 +4,9 @@ import RootProviders from '@/components/RootProviders';
 import { getSchoolProfile } from '@/lib/mongoose';
 
 export async function generateMetadata(): Promise<Metadata> {
-	const profile = await getSchoolProfile();
+	const profileRaw = await getSchoolProfile();
+	const profile =
+		typeof profileRaw === 'string' ? JSON.parse(profileRaw) : profileRaw;
 	const logoUrl = profile?.logoUrl || '/favicon.ico';
 	const hasApps = profile?.enabledFeatures?.includes('apps');
 	return {
@@ -17,13 +19,20 @@ export async function generateMetadata(): Promise<Metadata> {
 	};
 }
 
-export default function RootLayout({
+export default async function RootLayout({
 	children,
 }: {
 	children: React.ReactNode;
 }) {
+	const profileRaw = await getSchoolProfile();
+	const profile =
+		typeof profileRaw === 'string' ? JSON.parse(profileRaw) : profileRaw;
+	const hasApps = profile?.enabledFeatures?.includes('apps');
 	return (
 		<html lang="en">
+			<head>
+				{hasApps && <link rel="manifest" href="/manifest.webmanifest" />}
+			</head>
 			<body>
 				<RootProviders>{children}</RootProviders>
 			</body>
