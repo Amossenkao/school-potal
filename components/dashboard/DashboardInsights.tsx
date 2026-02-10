@@ -20,7 +20,10 @@ import {
 	ChartTooltipContent,
 } from '@/components/ui/chart';
 import type { SchoolProfile } from '@/types/schoolProfile';
-import { buildAcademicYearOptions } from '@/components/dashboard/academicYear';
+import {
+	buildAcademicYearOptions,
+	getClassLevelLabel,
+} from '@/components/dashboard/academicYear';
 
 type DashboardInsightsProps = {
 	schoolProfile: SchoolProfile;
@@ -71,6 +74,8 @@ const ageBuckets = [
 	{ key: '16-18', min: 16, max: 18 },
 	{ key: '19+', min: 19, max: 99 },
 ];
+const BAR_CHART_CLASS = 'h-[240px] sm:h-[280px] w-full aspect-auto';
+const PIE_CHART_CLASS = 'h-[220px] sm:h-[260px] w-full aspect-auto';
 
 const normalizeGender = (value?: string) => {
 	if (!value) return 'Unknown';
@@ -99,6 +104,12 @@ const getStudentClassLabel = (student: StudentRecord) =>
 	student.className ||
 	student.currentClass?.className ||
 	'Unknown';
+
+const getStudentClassId = (student: StudentRecord) =>
+	student.historicalClass?.classId ||
+	student.classId ||
+	student.currentClass?.classId ||
+	'';
 
 export default function DashboardInsights({
 	schoolProfile,
@@ -310,18 +321,47 @@ export default function DashboardInsights({
 
 	const totalStudents = filteredStudents.length;
 	const classBreakdown = useMemo(() => {
-		const counts: Record<string, number> = {};
+		const counts = new Map<
+			string,
+			{ classId: string; className: string; students: number }
+		>();
 		filteredStudents.forEach((student) => {
+			const classId = getStudentClassId(student);
 			const label = getStudentClassLabel(student);
-			counts[label] = (counts[label] || 0) + 1;
+			const key = classId || label;
+			if (!counts.has(key)) {
+				counts.set(key, { classId, className: label, students: 0 });
+			}
+			counts.get(key)!.students += 1;
 		});
-		return Object.entries(counts)
-			.map(([className, studentsCount]) => ({
-				className,
-				students: studentsCount,
-			}))
-			.sort((a, b) => b.students - a.students);
+		return Array.from(counts.values()).sort(
+			(a, b) => b.students - a.students,
+		);
 	}, [filteredStudents]);
+
+	const classLevels = useMemo(() => {
+		const grouped = new Map<
+			string,
+			{ levelLabel: string; classes: { className: string; students: number }[] }
+		>();
+		classBreakdown.forEach((entry) => {
+			const levelLabel =
+				getClassLevelLabel(schoolProfile, entry.classId) || 'Other';
+			if (!grouped.has(levelLabel)) {
+				grouped.set(levelLabel, { levelLabel, classes: [] });
+			}
+			grouped.get(levelLabel)!.classes.push({
+				className: entry.className,
+				students: entry.students,
+			});
+		});
+		return Array.from(grouped.values()).map((entry) => ({
+			...entry,
+			classes: entry.classes.sort((a, b) =>
+				a.className.localeCompare(b.className),
+			),
+		}));
+	}, [classBreakdown, schoolProfile]);
 
 	const genderData = useMemo(() => {
 		const counts: Record<string, number> = {};
@@ -362,6 +402,9 @@ export default function DashboardInsights({
 			? 'All classes'
 			: classOptions.find((option) => option.value === selectedClassId)?.label ||
 			  'Selected class';
+
+	const formatAxisLabel = (value: string) =>
+		value.length > 12 ? `${value.slice(0, 12)}…` : value;
 
 	return (
 		<div className="space-y-6">
@@ -479,31 +522,68 @@ export default function DashboardInsights({
 			</div>
 
 			<div className="grid gap-6 lg:grid-cols-2">
-				<Card>
-					<CardHeader>
-						<CardTitle>Breakdown by Class</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<ChartContainer
-							config={{
-								students: { label: 'Students', color: 'hsl(217, 91%, 60%)' },
-							}}
-							className="h-[260px]"
-						>
-							<BarChart data={classBreakdown}>
-								<CartesianGrid vertical={false} strokeDasharray="3 3" />
-								<XAxis dataKey="className" tickLine={false} axisLine={false} />
-								<YAxis tickLine={false} axisLine={false} width={30} />
-								<ChartTooltip content={<ChartTooltipContent />} />
-								<Bar
-									dataKey="students"
-									fill="var(--color-students)"
-									radius={[6, 6, 0, 0]}
-								/>
-							</BarChart>
-						</ChartContainer>
-					</CardContent>
-				</Card>
+				<div className="space-y-3">
+					<div>
+						<h3 className="text-sm font-semibold text-foreground">
+							Breakdown by Class Level
+						</h3>
+						<p className="text-xs text-muted-foreground">
+							Grouped by level for easier viewing on mobile.
+						</p>
+					</div>
+					{classLevels.length === 0 ? (
+						<p className="text-sm text-muted-foreground">No data.</p>
+					) : (
+						<div className="grid gap-4 sm:grid-cols-2">
+							{classLevels.map((group) => (
+								<Card key={group.levelLabel}>
+									<CardHeader>
+										<CardTitle className="text-sm">
+											{group.levelLabel}
+										</CardTitle>
+									</CardHeader>
+									<CardContent>
+										<ChartContainer
+											config={{
+												students: {
+													label: 'Students',
+													color: 'hsl(217, 91%, 60%)',
+												},
+											}}
+											className={BAR_CHART_CLASS}
+										>
+											<BarChart
+												data={group.classes}
+												margin={{ top: 8, right: 12, left: 0, bottom: 24 }}
+											>
+												<CartesianGrid vertical={false} strokeDasharray="3 3" />
+												<XAxis
+													dataKey="className"
+													tickLine={false}
+													axisLine={false}
+													interval="preserveStartEnd"
+													minTickGap={8}
+													angle={-25}
+													textAnchor="end"
+													height={48}
+													tick={{ fontSize: 12 }}
+													tickFormatter={formatAxisLabel}
+												/>
+												<YAxis tickLine={false} axisLine={false} width={30} />
+												<ChartTooltip content={<ChartTooltipContent />} />
+												<Bar
+													dataKey="students"
+													fill="var(--color-students)"
+													radius={[6, 6, 0, 0]}
+												/>
+											</BarChart>
+										</ChartContainer>
+									</CardContent>
+								</Card>
+							))}
+						</div>
+					)}
+				</div>
 
 				<Card>
 					<CardHeader>
@@ -517,7 +597,7 @@ export default function DashboardInsights({
 								Other: { label: 'Other', color: 'hsl(45, 90%, 55%)' },
 								Unknown: { label: 'Unknown', color: 'hsl(220, 9%, 65%)' },
 							}}
-							className="h-[260px]"
+							className={PIE_CHART_CLASS}
 						>
 							<PieChart>
 								<ChartTooltip content={<ChartTooltipContent nameKey="label" />} />
@@ -525,8 +605,8 @@ export default function DashboardInsights({
 									data={genderData}
 									dataKey="value"
 									nameKey="label"
-									innerRadius={60}
-									outerRadius={90}
+									innerRadius={50}
+									outerRadius={82}
 									stroke="transparent"
 								>
 									{genderData.map((item) => (
@@ -537,7 +617,9 @@ export default function DashboardInsights({
 									))}
 								</Pie>
 								<ChartLegend
-									content={<ChartLegendContent nameKey="label" />}
+									content={
+										<ChartLegendContent nameKey="label" className="flex-wrap" />
+									}
 									verticalAlign="bottom"
 								/>
 							</PieChart>
@@ -555,11 +637,24 @@ export default function DashboardInsights({
 						config={{
 							students: { label: 'Students', color: 'hsl(142, 70%, 45%)' },
 						}}
-						className="h-[260px]"
+						className={BAR_CHART_CLASS}
 					>
-						<BarChart data={ageGroups}>
+						<BarChart
+							data={ageGroups}
+							margin={{ top: 8, right: 12, left: 0, bottom: 24 }}
+						>
 							<CartesianGrid vertical={false} strokeDasharray="3 3" />
-							<XAxis dataKey="group" tickLine={false} axisLine={false} />
+							<XAxis
+								dataKey="group"
+								tickLine={false}
+								axisLine={false}
+								interval="preserveStartEnd"
+								minTickGap={8}
+								angle={-20}
+								textAnchor="end"
+								height={40}
+								tick={{ fontSize: 12 }}
+							/>
 							<YAxis tickLine={false} axisLine={false} width={30} />
 							<ChartTooltip content={<ChartTooltipContent />} />
 							<Bar

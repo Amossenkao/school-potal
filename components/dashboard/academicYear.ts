@@ -46,3 +46,25 @@ export const getClassNameById = (
 	}
 	return classId;
 };
+
+export const getClassLevelLabel = (
+	schoolProfile: SchoolProfile,
+	classId?: string,
+) => {
+	if (!classId) return '';
+	const levels = schoolProfile.classLevels || {};
+	const sessionNames = Object.keys(levels).filter(Boolean);
+	const includeSession = sessionNames.length > 1;
+	for (const [sessionName, session] of Object.entries(levels)) {
+		if (!session || typeof session !== 'object') continue;
+		for (const [levelName, level] of Object.entries(session as any)) {
+			if (!level || typeof level !== 'object') continue;
+			const classes = (level as any).classes || [];
+			const match = classes.find((klass: any) => klass.classId === classId);
+			if (match) {
+				return includeSession ? `${sessionName} - ${levelName}` : levelName;
+			}
+		}
+	}
+	return '';
+};

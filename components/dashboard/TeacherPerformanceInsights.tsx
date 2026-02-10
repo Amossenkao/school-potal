@@ -11,14 +11,45 @@ import {
 	ChartTooltipContent,
 } from '@/components/ui/chart';
 import type { SchoolProfile } from '@/types/schoolProfile';
-import { buildAcademicYearOptions, getClassNameById } from '@/components/dashboard/academicYear';
+import {
+	buildAcademicYearOptions,
+	getClassLevelLabel,
+	getClassNameById,
+} from '@/components/dashboard/academicYear';
 
 const PASS_MARK = 70;
+const ALL_PERIODS = [
+	'first',
+	'second',
+	'third',
+	'third_period_exam',
+	'fourth',
+	'fifth',
+	'sixth',
+	'sixth_period_exam',
+];
+const PERIOD_LABELS: Record<string, string> = {
+	first: '1st Period',
+	second: '2nd Period',
+	third: '3rd Period',
+	third_period_exam: '3rd Period Exam',
+	fourth: '4th Period',
+	fifth: '5th Period',
+	sixth: '6th Period',
+	sixth_period_exam: '6th Period Exam',
+};
+const SEMESTER_PERIODS: Record<string, string[]> = {
+	first: ['first', 'second', 'third', 'third_period_exam'],
+	second: ['fourth', 'fifth', 'sixth', 'sixth_period_exam'],
+};
+const BAR_CHART_CLASS = 'h-[240px] sm:h-[280px] w-full aspect-auto';
+const PIE_CHART_CLASS = 'h-[220px] sm:h-[260px] w-full aspect-auto';
 
 type GradeItem = {
 	grade?: number;
 	subject?: string;
 	classId?: string;
+	period?: string;
 	status?: string;
 };
 
@@ -43,6 +74,8 @@ export default function TeacherPerformanceInsights({
 	);
 	const [selectedClassId, setSelectedClassId] = useState('all');
 	const [selectedSubject, setSelectedSubject] = useState('all');
+	const [selectedPeriod, setSelectedPeriod] = useState('all');
+	const [selectedSemester, setSelectedSemester] = useState('all');
 	const [grades, setGrades] = useState<GradeItem[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [errorMessage, setErrorMessage] = useState('');
@@ -97,6 +130,18 @@ export default function TeacherPerformanceInsights({
 	}, [selectedClassId, selectedSubject, subjectOptions]);
 
 	useEffect(() => {
+		if (selectedSemester !== 'all') {
+			setSelectedPeriod('all');
+		}
+	}, [selectedSemester]);
+
+	useEffect(() => {
+		if (selectedPeriod !== 'all') {
+			setSelectedSemester('all');
+		}
+	}, [selectedPeriod]);
+
+	useEffect(() => {
 		if (!selectedYear) return;
 		const controller = new AbortController();
 
@@ -110,6 +155,9 @@ export default function TeacherPerformanceInsights({
 					if (selectedSubject !== 'all') {
 						url += `&subject=${encodeURIComponent(selectedSubject)}`;
 					}
+				}
+				if (selectedSemester === 'all' && selectedPeriod !== 'all') {
+					url += `&period=${encodeURIComponent(selectedPeriod)}`;
 				}
 				const response = await fetch(url, { signal: controller.signal });
 				const payload = await response.json();
@@ -130,30 +178,62 @@ export default function TeacherPerformanceInsights({
 
 		fetchGrades();
 		return () => controller.abort();
-	}, [selectedYear, selectedClassId, selectedSubject]);
+	}, [selectedYear, selectedClassId, selectedSubject, selectedPeriod, selectedSemester]);
+
+	const periodOptions = useMemo(() => {
+		const allowed =
+			schoolProfile.settings?.teacherSettings?.gradeSubmissionPeriods;
+		const list = Array.isArray(allowed) && allowed.length > 0 ? allowed : ALL_PERIODS;
+		return list.map((value) => ({
+			value,
+			label: PERIOD_LABELS[value] || value,
+		}));
+	}, [schoolProfile]);
 
 	const numericGrades = useMemo(
 		() => grades.filter((item) => typeof item.grade === 'number'),
 		[grades],
 	);
 
+	const filteredGrades = useMemo(() => {
+		if (selectedSemester !== 'all') {
+			const periods = SEMESTER_PERIODS[selectedSemester] || [];
+			return numericGrades.filter(
+				(item) => item.period && periods.includes(item.period),
+			);
+		}
+		if (selectedPeriod !== 'all') {
+			return numericGrades.filter((item) => item.period === selectedPeriod);
+		}
+		return numericGrades;
+	}, [numericGrades, selectedSemester, selectedPeriod]);
+
+	const activeFilterLabel = useMemo(() => {
+		if (selectedSemester === 'first') return '1st Semester';
+		if (selectedSemester === 'second') return '2nd Semester';
+		if (selectedPeriod !== 'all') {
+			return PERIOD_LABELS[selectedPeriod] || selectedPeriod;
+		}
+		return 'All periods';
+	}, [selectedSemester, selectedPeriod]);
+
 	const averageGrade = useMemo(() => {
-		if (numericGrades.length === 0) return 0;
-		const total = numericGrades.reduce(
+		if (filteredGrades.length === 0) return 0;
+		const total = filteredGrades.reduce(
 			(sum, item) => sum + (item.grade as number),
 			0,
 		);
-		return Number((total / numericGrades.length).toFixed(1));
-	}, [numericGrades]);
+		return Number((total / filteredGrades.length).toFixed(1));
+	}, [filteredGrades]);
 
-	const passCount = numericGrades.filter(
+	const passCount = filteredGrades.filter(
 		(item) => (item.grade as number) >= PASS_MARK,
 	).length;
-	const failCount = numericGrades.length - passCount;
+	const failCount = filteredGrades.length - passCount;
 
 	const subjectAverages = useMemo(() => {
 		const map = new Map<string, number[]>();
-		numericGrades.forEach((item) => {
+		filteredGrades.forEach((item) => {
 			const subject = item.subject || 'Unknown';
 			if (!map.has(subject)) map.set(subject, []);
 			map.get(subject)!.push(item.grade as number);
@@ -164,27 +244,55 @@ export default function TeacherPerformanceInsights({
 				(values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1),
 			),
 		}));
-	}, [numericGrades]);
+	}, [filteredGrades]);
 
 	const classAverages = useMemo(() => {
 		const map = new Map<string, number[]>();
-		numericGrades.forEach((item) => {
+		filteredGrades.forEach((item) => {
 			const classId = item.classId || 'Unknown';
 			if (!map.has(classId)) map.set(classId, []);
 			map.get(classId)!.push(item.grade as number);
 		});
 		return Array.from(map.entries()).map(([classId, values]) => ({
+			classId,
 			className: getClassNameById(schoolProfile, classId),
 			average: Number(
 				(values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1),
 			),
 		}));
-	}, [numericGrades, schoolProfile]);
+	}, [filteredGrades, schoolProfile]);
+
+	const classLevels = useMemo(() => {
+		const grouped = new Map<
+			string,
+			{ levelLabel: string; classes: { className: string; average: number }[] }
+		>();
+		classAverages.forEach((item) => {
+			const levelLabel =
+				getClassLevelLabel(schoolProfile, item.classId) || 'Other';
+			if (!grouped.has(levelLabel)) {
+				grouped.set(levelLabel, { levelLabel, classes: [] });
+			}
+			grouped.get(levelLabel)!.classes.push({
+				className: item.className,
+				average: item.average,
+			});
+		});
+		return Array.from(grouped.values()).map((entry) => ({
+			...entry,
+			classes: entry.classes.sort((a, b) =>
+				a.className.localeCompare(b.className),
+			),
+		}));
+	}, [classAverages, schoolProfile]);
 
 	const passFailData = [
 		{ label: 'Pass', value: passCount },
 		{ label: 'Fail', value: failCount },
 	];
+
+	const formatAxisLabel = (value: string) =>
+		value.length > 12 ? `${value.slice(0, 12)}…` : value;
 
 	return (
 		<div className="space-y-6">
@@ -193,7 +301,7 @@ export default function TeacherPerformanceInsights({
 					<div>
 						<CardTitle>Class Performance</CardTitle>
 						<p className="text-sm text-muted-foreground">
-							Academic year: {selectedYear || 'N/A'}
+							Academic year: {selectedYear || 'N/A'} | {activeFilterLabel}
 						</p>
 					</div>
 					<div className="flex flex-wrap gap-3">
@@ -242,6 +350,35 @@ export default function TeacherPerformanceInsights({
 								))}
 							</select>
 						</div>
+						<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+							Period
+							<select
+								className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+								value={selectedPeriod}
+								onChange={(event) => setSelectedPeriod(event.target.value)}
+								disabled={selectedSemester !== 'all'}
+							>
+								<option value="all">All periods</option>
+								{periodOptions.map((option) => (
+									<option key={option.value} value={option.value}>
+										{option.label}
+									</option>
+								))}
+							</select>
+						</div>
+						<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+							Semester
+							<select
+								className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+								value={selectedSemester}
+								onChange={(event) => setSelectedSemester(event.target.value)}
+								disabled={selectedPeriod !== 'all'}
+							>
+								<option value="all">All semesters</option>
+								<option value="first">1st Semester</option>
+								<option value="second">2nd Semester</option>
+							</select>
+						</div>
 					</div>
 				</CardHeader>
 				<CardContent>
@@ -283,11 +420,25 @@ export default function TeacherPerformanceInsights({
 								config={{
 									average: { label: 'Average', color: 'hsl(221, 83%, 53%)' },
 								}}
-								className="h-[260px]"
+								className={BAR_CHART_CLASS}
 							>
-								<BarChart data={subjectAverages}>
+								<BarChart
+									data={subjectAverages}
+									margin={{ top: 8, right: 12, left: 0, bottom: 24 }}
+								>
 									<CartesianGrid vertical={false} strokeDasharray="3 3" />
-									<XAxis dataKey="subject" tickLine={false} axisLine={false} />
+									<XAxis
+										dataKey="subject"
+										tickLine={false}
+										axisLine={false}
+										interval="preserveStartEnd"
+										minTickGap={8}
+										angle={-25}
+										textAnchor="end"
+										height={48}
+										tick={{ fontSize: 12 }}
+										tickFormatter={formatAxisLabel}
+									/>
 									<YAxis tickLine={false} axisLine={false} width={30} />
 									<ChartTooltip content={<ChartTooltipContent />} />
 									<Bar
@@ -301,37 +452,70 @@ export default function TeacherPerformanceInsights({
 					</CardContent>
 				</Card>
 
-				<Card>
-					<CardHeader>
-						<CardTitle>Average by Class</CardTitle>
-					</CardHeader>
-					<CardContent>
-						{classAverages.length === 0 ? (
-							<p className="text-sm text-muted-foreground">
-								No grades available.
-							</p>
-						) : (
-							<ChartContainer
-								config={{
-									average: { label: 'Average', color: 'hsl(142, 70%, 45%)' },
-								}}
-								className="h-[260px]"
-							>
-								<BarChart data={classAverages}>
-									<CartesianGrid vertical={false} strokeDasharray="3 3" />
-									<XAxis dataKey="className" tickLine={false} axisLine={false} />
-									<YAxis tickLine={false} axisLine={false} width={30} />
-									<ChartTooltip content={<ChartTooltipContent />} />
-									<Bar
-										dataKey="average"
-										fill="var(--color-average)"
-										radius={[6, 6, 0, 0]}
-									/>
-								</BarChart>
-							</ChartContainer>
-						)}
-					</CardContent>
-				</Card>
+				<div className="space-y-3">
+					<div>
+						<h3 className="text-sm font-semibold text-foreground">
+							Average by Class Level
+						</h3>
+						<p className="text-xs text-muted-foreground">
+							Grouped by level for easier viewing on mobile.
+						</p>
+					</div>
+					{classLevels.length === 0 ? (
+						<p className="text-sm text-muted-foreground">
+							No grades available.
+						</p>
+					) : (
+						<div className="grid gap-4 sm:grid-cols-2">
+							{classLevels.map((group) => (
+								<Card key={group.levelLabel}>
+									<CardHeader>
+										<CardTitle className="text-sm">
+											{group.levelLabel}
+										</CardTitle>
+									</CardHeader>
+									<CardContent>
+										<ChartContainer
+											config={{
+												average: {
+													label: 'Average',
+													color: 'hsl(142, 70%, 45%)',
+												},
+											}}
+											className={BAR_CHART_CLASS}
+										>
+											<BarChart
+												data={group.classes}
+												margin={{ top: 8, right: 12, left: 0, bottom: 24 }}
+											>
+												<CartesianGrid vertical={false} strokeDasharray="3 3" />
+												<XAxis
+													dataKey="className"
+													tickLine={false}
+													axisLine={false}
+													interval="preserveStartEnd"
+													minTickGap={8}
+													angle={-25}
+													textAnchor="end"
+													height={48}
+													tick={{ fontSize: 12 }}
+													tickFormatter={formatAxisLabel}
+												/>
+												<YAxis tickLine={false} axisLine={false} width={30} />
+												<ChartTooltip content={<ChartTooltipContent />} />
+												<Bar
+													dataKey="average"
+													fill="var(--color-average)"
+													radius={[6, 6, 0, 0]}
+												/>
+											</BarChart>
+										</ChartContainer>
+									</CardContent>
+								</Card>
+							))}
+						</div>
+					)}
+				</div>
 			</div>
 
 			<Card>
@@ -344,7 +528,7 @@ export default function TeacherPerformanceInsights({
 							Pass: { label: 'Pass', color: 'hsl(142, 70%, 45%)' },
 							Fail: { label: 'Fail', color: 'hsl(0, 84%, 60%)' },
 						}}
-						className="h-[260px]"
+						className={PIE_CHART_CLASS}
 					>
 						<PieChart>
 							<ChartTooltip content={<ChartTooltipContent nameKey="label" />} />
@@ -352,8 +536,8 @@ export default function TeacherPerformanceInsights({
 								data={passFailData}
 								dataKey="value"
 								nameKey="label"
-								innerRadius={60}
-								outerRadius={90}
+								innerRadius={50}
+								outerRadius={82}
 								stroke="transparent"
 							>
 								{passFailData.map((item) => (
@@ -361,7 +545,9 @@ export default function TeacherPerformanceInsights({
 								))}
 							</Pie>
 							<ChartLegend
-								content={<ChartLegendContent nameKey="label" />}
+								content={
+									<ChartLegendContent nameKey="label" className="flex-wrap" />
+								}
 								verticalAlign="bottom"
 							/>
 						</PieChart>

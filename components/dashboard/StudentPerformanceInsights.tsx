@@ -14,6 +14,8 @@ import type { SchoolProfile } from '@/types/schoolProfile';
 import { buildAcademicYearOptions } from '@/components/dashboard/academicYear';
 
 const PASS_MARK = 70;
+const BAR_CHART_CLASS = 'h-[240px] sm:h-[280px] w-full aspect-auto';
+const PIE_CHART_CLASS = 'h-[220px] sm:h-[260px] w-full aspect-auto';
 
 type GradeItem = {
 	grade?: number;
@@ -125,6 +127,9 @@ export default function StudentPerformanceInsights({
 		{ label: 'Fail', value: failCount },
 	];
 
+	const formatAxisLabel = (value: string) =>
+		value.length > 12 ? `${value.slice(0, 12)}…` : value;
+
 	return (
 		<div className="space-y-6">
 			<Card>
@@ -191,11 +196,25 @@ export default function StudentPerformanceInsights({
 								config={{
 									average: { label: 'Average', color: 'hsl(221, 83%, 53%)' },
 								}}
-								className="h-[260px]"
+								className={BAR_CHART_CLASS}
 							>
-								<BarChart data={subjectAverages}>
+								<BarChart
+									data={subjectAverages}
+									margin={{ top: 8, right: 12, left: 0, bottom: 24 }}
+								>
 									<CartesianGrid vertical={false} strokeDasharray="3 3" />
-									<XAxis dataKey="subject" tickLine={false} axisLine={false} />
+									<XAxis
+										dataKey="subject"
+										tickLine={false}
+										axisLine={false}
+										interval="preserveStartEnd"
+										minTickGap={8}
+										angle={-25}
+										textAnchor="end"
+										height={48}
+										tick={{ fontSize: 12 }}
+										tickFormatter={formatAxisLabel}
+									/>
 									<YAxis tickLine={false} axisLine={false} width={30} />
 									<ChartTooltip content={<ChartTooltipContent />} />
 									<Bar
@@ -219,7 +238,7 @@ export default function StudentPerformanceInsights({
 								Pass: { label: 'Pass', color: 'hsl(142, 70%, 45%)' },
 								Fail: { label: 'Fail', color: 'hsl(0, 84%, 60%)' },
 							}}
-							className="h-[260px]"
+							className={PIE_CHART_CLASS}
 						>
 							<PieChart>
 								<ChartTooltip content={<ChartTooltipContent nameKey="label" />} />
@@ -227,8 +246,8 @@ export default function StudentPerformanceInsights({
 									data={passFailData}
 									dataKey="value"
 									nameKey="label"
-									innerRadius={60}
-									outerRadius={90}
+									innerRadius={50}
+									outerRadius={82}
 									stroke="transparent"
 								>
 									{passFailData.map((item) => (
@@ -236,7 +255,9 @@ export default function StudentPerformanceInsights({
 									))}
 								</Pie>
 								<ChartLegend
-									content={<ChartLegendContent nameKey="label" />}
+									content={
+										<ChartLegendContent nameKey="label" className="flex-wrap" />
+									}
 									verticalAlign="bottom"
 								/>
 							</PieChart>
