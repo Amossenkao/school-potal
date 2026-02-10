@@ -67,6 +67,9 @@ export default function OfflineHandler({
 			if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(normalizedMethod)) {
 				return false;
 			}
+			if (normalizedMethod === 'POST' && url.includes('/api/grades')) {
+				return false;
+			}
 			return url.includes('/api/');
 		};
 
@@ -116,6 +119,34 @@ export default function OfflineHandler({
 			}
 		};
 
+		const buildStorageKey = (url: string) => {
+			return `api-json:${getCacheUserKey()}:${url}`;
+		};
+
+		const readStoredJson = (url: string) => {
+			if (typeof window === 'undefined') return null;
+			try {
+				const raw = localStorage.getItem(buildStorageKey(url));
+				return raw ? JSON.parse(raw) : null;
+			} catch (error) {
+				return null;
+			}
+		};
+
+		const writeStoredJson = (url: string, data: unknown) => {
+			if (typeof window === 'undefined') return;
+			try {
+				localStorage.setItem(buildStorageKey(url), JSON.stringify(data));
+			} catch (error) {
+				console.warn('Failed to persist API cache:', error);
+			}
+		};
+
+		const shouldAllowOffline = (url: string, method: string) => {
+			const normalizedMethod = method.toUpperCase();
+			return normalizedMethod === 'POST' && url.includes('/api/grades');
+		};
+
 		const buildCacheRequest = (
 			input: RequestInfo | URL,
 			init?: RequestInit,
@@ -143,10 +174,20 @@ export default function OfflineHandler({
 			const request = cacheableGet ? buildCacheRequest(args[0], args[1]) : null;
 			const fetchArgs = cacheableGet && request ? [request] : args;
 			if (!onlineState) {
+				if (shouldAllowOffline(url, method)) {
+					return originalFetch(...(args as Parameters<typeof fetch>));
+				}
 				if (method.toUpperCase() === 'GET') {
 					if (cacheableGet) {
 						const cached = request ? await readCachedResponse(request) : null;
 						if (cached) return cached;
+						const stored = readStoredJson(url);
+						if (stored) {
+							return new Response(JSON.stringify(stored), {
+								status: 200,
+								headers: { 'Content-Type': 'application/json' },
+							});
+						}
 					}
 					return Promise.reject(new Error(OFFLINE_ERROR_MESSAGE));
 				}
@@ -161,6 +202,11 @@ export default function OfflineHandler({
 				);
 				if (cacheableGet && response.ok && request) {
 					void writeCachedResponse(request, response.clone());
+					response
+						.clone()
+						.json()
+						.then((data) => writeStoredJson(url, data))
+						.catch(() => null);
 				}
 				return response;
 			} catch (error) {
@@ -168,6 +214,13 @@ export default function OfflineHandler({
 					if (method.toUpperCase() === 'GET' && cacheableGet) {
 						const cached = request ? await readCachedResponse(request) : null;
 						if (cached) return cached;
+						const stored = readStoredJson(url);
+						if (stored) {
+							return new Response(JSON.stringify(stored), {
+								status: 200,
+								headers: { 'Content-Type': 'application/json' },
+							});
+						}
 					}
 					if (shouldShowOfflineModal(url, method)) {
 						window.dispatchEvent(new CustomEvent('offline:fetch'));

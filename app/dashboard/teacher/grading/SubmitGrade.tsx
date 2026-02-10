@@ -17,6 +17,7 @@ import {
 import { useSchoolStore } from '@/store/schoolStore';
 import { PageLoading } from '@/components/loading';
 import useAuth from '@/store/useAuth';
+import { useNetworkStore } from '@/store/networkStore';
 
 // Types
 interface TeacherInfo {
@@ -61,7 +62,11 @@ const allPeriods = [
 
 const SubmitGrade: React.FC = () => {
 	const school = useSchoolStore((state) => state.school);
+	const usersByAcademicYear = useSchoolStore(
+		(state) => state.usersByAcademicYear,
+	);
 	const { user } = useAuth();
+	const { isOnline } = useNetworkStore();
 	const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
 	const [selectedPeriods, setSelectedPeriods] = useState<string[]>([]);
 	const [selectedSubject, setSelectedSubject] = useState('');
@@ -115,6 +120,16 @@ const SubmitGrade: React.FC = () => {
 			return null;
 		},
 		[school],
+	);
+
+	const getStudentClassIdForYear = useCallback(
+		(student: any, academicYear: string) => {
+			const yearEntry = Array.isArray(student?.academicYears)
+				? student.academicYears.find((ay: any) => ay.year === academicYear)
+				: null;
+			return yearEntry?.classId || student?.classId || '';
+		},
+		[],
 	);
 
 	const periods = useMemo(() => {
@@ -314,28 +329,43 @@ const SubmitGrade: React.FC = () => {
 		setNotification(null);
 
 		try {
-			const studentsRes = await fetch(
-				`/api/users?role=student&academicYear=${selectedAcademicYear}&classId=${selectedClassId}`
-			);
-			if (!studentsRes.ok)
-				throw new Error('Failed to fetch students for class');
-			const studentsData = await studentsRes.json();
-			const studentsList = studentsData.data;
+			let studentsList: any[] = [];
+			const cachedUsers = usersByAcademicYear?.[selectedAcademicYear];
+			if (!isOnline && cachedUsers?.students?.length) {
+				studentsList = cachedUsers.students.filter(
+					(student: any) =>
+						getStudentClassIdForYear(student, selectedAcademicYear) ===
+						selectedClassId,
+				);
+			} else {
+				const studentsRes = await fetch(
+					`/api/users?role=student&academicYear=${selectedAcademicYear}&classId=${selectedClassId}`
+				);
+				if (!studentsRes.ok)
+					throw new Error('Failed to fetch students for class');
+				const studentsData = await studentsRes.json();
+				studentsList = studentsData.data;
+			}
 
 			if (!studentsList || studentsList.length === 0) {
 				setStudentsForGrading([]);
 				return;
 			}
 
-			const existingGradesRes = await fetch(
-				`/api/grades?academicYear=${selectedAcademicYear}&classId=${selectedClassId}&subject=${selectedSubject}`
-			);
-			if (!existingGradesRes.ok)
-				throw new Error('Failed to fetch existing grades');
-			const existingGradesData = await existingGradesRes.json();
+			let existingGradesData: any = null;
+			try {
+				const existingGradesRes = await fetch(
+					`/api/grades?academicYear=${selectedAcademicYear}&classId=${selectedClassId}&subject=${selectedSubject}`
+				);
+				if (existingGradesRes.ok) {
+					existingGradesData = await existingGradesRes.json();
+				}
+			} catch (error) {
+				existingGradesData = null;
+			}
 
 			const reportStudentsMap = new Map();
-			if (Array.isArray(existingGradesData.data?.grades)) {
+			if (Array.isArray(existingGradesData?.data?.grades)) {
 				existingGradesData.data.grades.forEach((grade: any) => {
 					if (!reportStudentsMap.has(grade.studentId)) {
 						reportStudentsMap.set(grade.studentId, {});
@@ -378,7 +408,7 @@ const SubmitGrade: React.FC = () => {
 
 				return {
 					studentId: student.studentId || student.id || student._id,
-					name: `${student.firstName} ${student.lastName}`,
+					name: `${student.firstName || ''} ${student.lastName || ''}`.trim(),
 					grades,
 				};
 			});
@@ -399,6 +429,9 @@ const SubmitGrade: React.FC = () => {
 		selectedSubject,
 		selectedSession,
 		periods,
+		isOnline,
+		usersByAcademicYear,
+		getStudentClassIdForYear,
 	]);
 
 	useEffect(() => {
@@ -418,6 +451,7 @@ const SubmitGrade: React.FC = () => {
 		selectedClassId,
 		selectedSubject,
 		selectedAcademicYear,
+		loadStudentsForGrading,
 	]);
 
 	const handlePeriodToggle = (periodValue: string, checked: boolean) => {
