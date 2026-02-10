@@ -884,6 +884,7 @@ export async function GET(request: NextRequest) {
 				academicYear,
 				classId: { $in: allowedClassIds },
 			};
+			query.teacherUsername = currentUser.username;
 			if (subject) query.subject = subject;
 			if (period) query.period = period;
 			if (status) query.status = status;

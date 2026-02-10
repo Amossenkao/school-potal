@@ -64,10 +64,23 @@ export default function TeacherPerformanceInsights({
 	schoolProfile,
 	user,
 }: TeacherPerformanceInsightsProps) {
-	const academicYearOptions = useMemo(
-		() => buildAcademicYearOptions(schoolProfile),
-		[schoolProfile],
-	);
+	const teacherYears = useMemo(() => {
+		return (user.subjects || []).map((entry) => entry.year).filter(Boolean);
+	}, [user.subjects]);
+	const academicYearOptions = useMemo(() => {
+		const base = buildAcademicYearOptions(schoolProfile);
+		if (teacherYears.length === 0) return base;
+		const teacherSet = new Set(teacherYears);
+		const filtered = base.filter((option) => teacherSet.has(option.value));
+		if (filtered.length > 0) return filtered;
+		const parseStart = (value: string) => {
+			const match = value.match(/^(\d{4})/);
+			return match ? Number(match[1]) : 0;
+		};
+		return Array.from(teacherSet)
+			.sort((a, b) => parseStart(b) - parseStart(a))
+			.map((year) => ({ value: year, label: year }));
+	}, [schoolProfile, teacherYears]);
 	const currentAcademicYear = schoolProfile.currentAcademicYear || '';
 	const [selectedYear, setSelectedYear] = useState(
 		currentAcademicYear || academicYearOptions[0]?.value || '',
@@ -83,6 +96,18 @@ export default function TeacherPerformanceInsights({
 	useEffect(() => {
 		if (!selectedYear && academicYearOptions.length > 0) {
 			setSelectedYear(currentAcademicYear || academicYearOptions[0].value);
+			return;
+		}
+		if (
+			selectedYear &&
+			academicYearOptions.length > 0 &&
+			!academicYearOptions.some((option) => option.value === selectedYear)
+		) {
+			const fallback =
+				academicYearOptions.find(
+					(option) => option.value === currentAcademicYear,
+				)?.value || academicYearOptions[0].value;
+			setSelectedYear(fallback);
 		}
 	}, [academicYearOptions, currentAcademicYear, selectedYear]);
 
@@ -114,8 +139,18 @@ export default function TeacherPerformanceInsights({
 	}, [classOptions, selectedClassId]);
 
 	useEffect(() => {
-		if (selectedClassId !== 'all' && !classOptions.some((c) => c.value === selectedClassId)) {
-			setSelectedClassId(classOptions[0]?.value || 'all');
+		if (classOptions.length === 1) {
+			const onlyClass = classOptions[0]?.value || 'all';
+			if (selectedClassId !== onlyClass) {
+				setSelectedClassId(onlyClass);
+			}
+			return;
+		}
+		if (
+			selectedClassId !== 'all' &&
+			!classOptions.some((c) => c.value === selectedClassId)
+		) {
+			setSelectedClassId('all');
 		}
 	}, [classOptions, selectedClassId]);
 
@@ -124,7 +159,17 @@ export default function TeacherPerformanceInsights({
 			setSelectedSubject('all');
 			return;
 		}
-		if (selectedSubject !== 'all' && !subjectOptions.includes(selectedSubject)) {
+		if (subjectOptions.length === 1) {
+			const onlySubject = subjectOptions[0] || 'all';
+			if (selectedSubject !== onlySubject) {
+				setSelectedSubject(onlySubject);
+			}
+			return;
+		}
+		if (
+			selectedSubject !== 'all' &&
+			!subjectOptions.includes(selectedSubject)
+		) {
 			setSelectedSubject('all');
 		}
 	}, [selectedClassId, selectedSubject, subjectOptions]);
@@ -294,6 +339,13 @@ export default function TeacherPerformanceInsights({
 	const formatAxisLabel = (value: string) =>
 		value.length > 12 ? `${value.slice(0, 12)}…` : value;
 
+	const showYearSelect = academicYearOptions.length > 1;
+	const showClassSelect = classOptions.length > 1;
+	const showSubjectSelect =
+		selectedClassId !== 'all' && subjectOptions.length > 1;
+	const showPeriodSelect = periodOptions.length > 1;
+	const showSemesterSelect = true;
+
 	return (
 		<div className="space-y-6">
 			<Card>
@@ -305,80 +357,89 @@ export default function TeacherPerformanceInsights({
 						</p>
 					</div>
 					<div className="flex flex-wrap gap-3">
-						<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-							Academic Year
-							<select
-								className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-								value={selectedYear}
-								onChange={(event) => setSelectedYear(event.target.value)}
-							>
-								{academicYearOptions.map((option) => (
-									<option key={option.value} value={option.value}>
-										{option.label}
-									</option>
-								))}
-							</select>
-						</div>
-						<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-							Class
-							<select
-								className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-								value={selectedClassId}
-								onChange={(event) => setSelectedClassId(event.target.value)}
-							>
-								<option value="all">All classes</option>
-								{classOptions.map((option) => (
-									<option key={option.value} value={option.value}>
-										{option.label}
-									</option>
-								))}
-							</select>
-						</div>
-						<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-							Subject
-							<select
-								className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-								value={selectedSubject}
-								onChange={(event) => setSelectedSubject(event.target.value)}
-								disabled={selectedClassId === 'all'}
-							>
-								<option value="all">All subjects</option>
-								{subjectOptions.map((subject) => (
-									<option key={subject} value={subject}>
-										{subject}
-									</option>
-								))}
-							</select>
-						</div>
-						<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-							Period
-							<select
-								className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-								value={selectedPeriod}
-								onChange={(event) => setSelectedPeriod(event.target.value)}
-								disabled={selectedSemester !== 'all'}
-							>
-								<option value="all">All periods</option>
-								{periodOptions.map((option) => (
-									<option key={option.value} value={option.value}>
-										{option.label}
-									</option>
-								))}
-							</select>
-						</div>
-						<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-							Semester
-							<select
-								className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-								value={selectedSemester}
-								onChange={(event) => setSelectedSemester(event.target.value)}
-								disabled={selectedPeriod !== 'all'}
-							>
-								<option value="all">All semesters</option>
-								<option value="first">1st Semester</option>
-								<option value="second">2nd Semester</option>
-							</select>
-						</div>
+						{showYearSelect ? (
+							<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+								Academic Year
+								<select
+									className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+									value={selectedYear}
+									onChange={(event) => setSelectedYear(event.target.value)}
+								>
+									{academicYearOptions.map((option) => (
+										<option key={option.value} value={option.value}>
+											{option.label}
+										</option>
+									))}
+								</select>
+							</div>
+						) : null}
+						{showClassSelect ? (
+							<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+								Class
+								<select
+									className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+									value={selectedClassId}
+									onChange={(event) => setSelectedClassId(event.target.value)}
+								>
+									<option value="all">All classes</option>
+									{classOptions.map((option) => (
+										<option key={option.value} value={option.value}>
+											{option.label}
+										</option>
+									))}
+								</select>
+							</div>
+						) : null}
+						{showSubjectSelect ? (
+							<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+								Subject
+								<select
+									className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+									value={selectedSubject}
+									onChange={(event) => setSelectedSubject(event.target.value)}
+								>
+									<option value="all">All subjects</option>
+									{subjectOptions.map((subject) => (
+										<option key={subject} value={subject}>
+											{subject}
+										</option>
+									))}
+								</select>
+							</div>
+						) : null}
+						{showPeriodSelect ? (
+							<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+								Period
+								<select
+									className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+									value={selectedPeriod}
+									onChange={(event) => setSelectedPeriod(event.target.value)}
+									disabled={selectedSemester !== 'all'}
+								>
+									<option value="all">All periods</option>
+									{periodOptions.map((option) => (
+										<option key={option.value} value={option.value}>
+											{option.label}
+										</option>
+									))}
+								</select>
+							</div>
+						) : null}
+						{showSemesterSelect ? (
+							<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+								Semester
+								<select
+									className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+									value={selectedSemester}
+									onChange={(event) => setSelectedSemester(event.target.value)}
+									disabled={selectedPeriod !== 'all'}
+								>
+									<option value="all">All semesters</option>
+									<option value="first">1st Semester</option>
+									<option value="second">2nd Semester</option>
+								</select>
+							</div>
+						) : null}
 					</div>
 				</CardHeader>
 				<CardContent>

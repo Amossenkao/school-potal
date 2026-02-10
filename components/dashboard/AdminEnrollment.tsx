@@ -21,6 +21,7 @@ type StudentRow = {
 	firstName?: string;
 	lastName?: string;
 	classId?: string;
+	isActive?: boolean;
 };
 
 export default function AdminEnrollment({
@@ -39,11 +40,15 @@ export default function AdminEnrollment({
 	const [selectedLevel, setSelectedLevel] = useState('');
 	const [selectedClassId, setSelectedClassId] = useState('');
 	const [students, setStudents] = useState<StudentRow[]>([]);
+	const [searchTerm, setSearchTerm] = useState('');
+	const [pageSize, setPageSize] = useState(10);
+	const [pageIndex, setPageIndex] = useState(0);
 	const [isLoading, setIsLoading] = useState(false);
 	const [errorMessage, setErrorMessage] = useState('');
 
 	useEffect(() => {
-		if (!selectedSession && sessions.length > 0) {
+		if (sessions.length === 0) return;
+		if (!selectedSession || !sessions.includes(selectedSession)) {
 			setSelectedSession(sessions[0]);
 		}
 	}, [sessions, selectedSession]);
@@ -57,7 +62,8 @@ export default function AdminEnrollment({
 	}, [schoolProfile, selectedSession]);
 
 	useEffect(() => {
-		if (!selectedLevel && levelOptions.length > 0) {
+		if (levelOptions.length === 0) return;
+		if (!selectedLevel || !levelOptions.includes(selectedLevel)) {
 			setSelectedLevel(levelOptions[0]);
 		}
 	}, [levelOptions, selectedLevel]);
@@ -74,7 +80,9 @@ export default function AdminEnrollment({
 	}, [schoolProfile, selectedSession, selectedLevel]);
 
 	useEffect(() => {
-		if (!selectedClassId && classOptions.length > 0) {
+		if (classOptions.length === 0) return;
+		const values = classOptions.map((klass) => klass.value);
+		if (!selectedClassId || !values.includes(selectedClassId)) {
 			setSelectedClassId(classOptions[0].value);
 		}
 	}, [classOptions, selectedClassId]);
@@ -113,16 +121,58 @@ export default function AdminEnrollment({
 		return () => controller.abort();
 	}, [selectedYear, selectedClassId]);
 
-	const downloadCsv = () => {
-		if (students.length === 0) return;
-		const header = ['Student Name', 'Student ID', 'Username', 'Class'];
-		const rows = students.map((student) => {
+	useEffect(() => {
+		setPageIndex(0);
+	}, [searchTerm, pageSize, selectedClassId, selectedYear]);
+
+	const normalizedStudents = useMemo(() => {
+		return students.map((student) => {
 			const name = `${student.firstName || ''} ${student.lastName || ''}`.trim();
-			const studentId = student.studentId || student.username || student.id || '';
-			const username = student.username || '';
-			const className = getClassNameById(schoolProfile, selectedClassId);
-			return [name, studentId, username, className];
+			const username =
+				student.studentId || student.username || student.id || '';
+			const classId = student.classId || selectedClassId;
+			const className = getClassNameById(schoolProfile, classId) || '—';
+			const status = student.isActive === false ? 'Inactive' : 'Active';
+			return {
+				key: student.id || student.studentId || student.username || name,
+				name: name || '—',
+				username: username || '—',
+				className,
+				status,
+			};
 		});
+	}, [students, selectedClassId, schoolProfile]);
+
+	const filteredStudents = useMemo(() => {
+		const query = searchTerm.trim().toLowerCase();
+		if (!query) return normalizedStudents;
+		return normalizedStudents.filter((student) =>
+			student.name.toLowerCase().includes(query),
+		);
+	}, [normalizedStudents, searchTerm]);
+
+	const totalPages = Math.max(1, Math.ceil(filteredStudents.length / pageSize));
+	const safePageIndex = Math.min(pageIndex, totalPages - 1);
+	const pagedStudents = filteredStudents.slice(
+		safePageIndex * pageSize,
+		safePageIndex * pageSize + pageSize,
+	);
+
+	useEffect(() => {
+		if (pageIndex !== safePageIndex) {
+			setPageIndex(safePageIndex);
+		}
+	}, [pageIndex, safePageIndex]);
+
+	const downloadCsv = () => {
+		if (filteredStudents.length === 0) return;
+		const header = ['No', 'Name', 'Class', 'Username'];
+		const rows = filteredStudents.map((student, index) => [
+			index + 1,
+			student.name,
+			student.className,
+			student.username,
+		]);
 
 		const csv = [header, ...rows]
 			.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','))
@@ -149,7 +199,7 @@ export default function AdminEnrollment({
 							Select a class to view enrolled students for {selectedYear || 'N/A'}.
 						</p>
 					</div>
-					<Button variant="outline" onClick={downloadCsv} disabled={students.length === 0}>
+					<Button variant="outline" onClick={downloadCsv} disabled={filteredStudents.length === 0}>
 						Download CSV
 					</Button>
 				</CardHeader>
@@ -175,69 +225,141 @@ export default function AdminEnrollment({
 								</select>
 							</div>
 						) : null}
-						<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-							Level
-							<select
-								className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-								value={selectedLevel}
-								onChange={(event) => {
-									setSelectedLevel(event.target.value);
-									setSelectedClassId('');
-								}}
-							>
-								{levelOptions.map((level) => (
-									<option key={level} value={level}>
-										{level}
-									</option>
-								))}
-							</select>
-						</div>
-						<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-							Class
-							<select
-								className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-								value={selectedClassId}
-								onChange={(event) => setSelectedClassId(event.target.value)}
-							>
-								{classOptions.map((klass) => (
-									<option key={klass.value} value={klass.value}>
-										{klass.label}
-									</option>
-								))}
-							</select>
-						</div>
+						{levelOptions.length > 1 ? (
+							<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+								Level
+								<select
+									className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+									value={selectedLevel}
+									onChange={(event) => {
+										setSelectedLevel(event.target.value);
+										setSelectedClassId('');
+									}}
+								>
+									{levelOptions.map((level) => (
+										<option key={level} value={level}>
+											{level}
+										</option>
+									))}
+								</select>
+							</div>
+						) : null}
+						{classOptions.length > 1 ? (
+							<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+								Class
+								<select
+									className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+									value={selectedClassId}
+									onChange={(event) => setSelectedClassId(event.target.value)}
+								>
+									{classOptions.map((klass) => (
+										<option key={klass.value} value={klass.value}>
+											{klass.label}
+										</option>
+									))}
+								</select>
+							</div>
+						) : null}
 					</div>
 
 					{isLoading ? (
 						<p className="text-sm text-muted-foreground">Loading students…</p>
 					) : errorMessage ? (
 						<p className="text-sm text-red-500">{errorMessage}</p>
-					) : students.length === 0 ? (
+					) : filteredStudents.length === 0 ? (
 						<p className="text-sm text-muted-foreground">No students found.</p>
 					) : (
-						<div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-							<table className="min-w-full text-sm">
+						<div className="space-y-4">
+							<div className="flex flex-wrap items-end justify-between gap-3">
+								<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+									Search
+									<input
+										type="search"
+										value={searchTerm}
+										onChange={(event) => setSearchTerm(event.target.value)}
+										placeholder="Search by name"
+										className="h-9 w-64 max-w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+									/>
+								</div>
+								<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+									Rows
+									<select
+										className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+										value={pageSize}
+										onChange={(event) => setPageSize(Number(event.target.value))}
+									>
+										<option value={10}>10</option>
+										<option value={20}>20</option>
+										<option value={50}>50</option>
+										<option value={100}>100</option>
+									</select>
+								</div>
+							</div>
+							<div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
+								<table className="min-w-full text-sm">
 								<thead className="bg-gray-50 dark:bg-gray-900">
 									<tr className="text-left text-gray-600 dark:text-gray-400">
-										<th className="px-4 py-3">Student</th>
-										<th className="px-4 py-3">Student ID</th>
+										<th className="px-4 py-3">No</th>
+										<th className="px-4 py-3">Name</th>
 										<th className="px-4 py-3">Username</th>
+										<th className="px-4 py-3">Class</th>
+										<th className="px-4 py-3">Status</th>
 									</tr>
 								</thead>
 								<tbody>
-									{students.map((student, index) => (
-										<tr key={student.id || student.studentId || index} className="border-t">
+									{pagedStudents.map((student, index) => (
+										<tr key={student.key || index} className="border-t">
 											<td className="px-4 py-3">
-												{`${student.firstName || ''} ${student.lastName || ''}`.trim() || '—'}
+												{safePageIndex * pageSize + index + 1}
 											</td>
 											<td className="px-4 py-3">
-												{student.studentId || student.username || student.id || '—'}
+												{student.name}
 											</td>
-											<td className="px-4 py-3">{student.username || '—'}</td>
+											<td className="px-4 py-3">{student.username}</td>
+											<td className="px-4 py-3">{student.className}</td>
+											<td className="px-4 py-3">
+												<span
+													className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+														student.status === 'Active'
+															? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200'
+															: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200'
+													}`}
+												>
+													{student.status}
+												</span>
+											</td>
 										</tr>
 									))}
 								</tbody>
 							</table>
+							</div>
+							<div className="flex flex-wrap items-center justify-between gap-3">
+								<p className="text-xs text-muted-foreground">
+									Page {safePageIndex + 1} of {totalPages} • {filteredStudents.length} students
+								</p>
+								<div className="flex items-center gap-2">
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => setPageIndex((prev) => Math.max(prev - 1, 0))}
+										disabled={safePageIndex === 0}
+									>
+										Previous
+									</Button>
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() =>
+											setPageIndex((prev) =>
+												Math.min(prev + 1, totalPages - 1),
+											)
+										}
+										disabled={safePageIndex >= totalPages - 1}
+									>
+										Next
+									</Button>
+								</div>
+							</div>
 						</div>
 					)}
 				</CardContent>

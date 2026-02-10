@@ -102,6 +102,30 @@ export default function OfflineHandler({
 			}
 		};
 
+		const getCacheUserKey = () => {
+			try {
+				const raw = localStorage.getItem('auth-user');
+				if (!raw) return 'guest';
+				const parsed = JSON.parse(raw);
+				const id =
+					parsed?.id || parsed?._id || parsed?.username || parsed?.email;
+				const role = parsed?.role || 'user';
+				return `${role}:${id || 'unknown'}`;
+			} catch (error) {
+				return 'guest';
+			}
+		};
+
+		const buildCacheRequest = (
+			input: RequestInfo | URL,
+			init?: RequestInit,
+		) => {
+			const base = input instanceof Request ? input : new Request(input, init);
+			const headers = new Headers(base.headers);
+			headers.set('x-cache-user', getCacheUserKey());
+			return new Request(base, { headers });
+		};
+
 		const writeCachedResponse = async (request: Request, response: Response) => {
 			if (!('caches' in window)) return;
 			try {
@@ -116,11 +140,8 @@ export default function OfflineHandler({
 			const { isOnline: onlineState } = useNetworkStore.getState();
 			const { url, method } = getRequestMeta(args[0], args[1]);
 			const cacheableGet = shouldCacheGet(url, method);
-			const request = cacheableGet
-				? args[0] instanceof Request
-					? args[0]
-					: new Request(url, args[1])
-				: null;
+			const request = cacheableGet ? buildCacheRequest(args[0], args[1]) : null;
+			const fetchArgs = cacheableGet && request ? [request] : args;
 			if (!onlineState) {
 				if (method.toUpperCase() === 'GET') {
 					if (cacheableGet) {
@@ -135,7 +156,9 @@ export default function OfflineHandler({
 				return Promise.reject(new Error(OFFLINE_ERROR_MESSAGE));
 			}
 			try {
-				const response = await originalFetch(...args);
+				const response = await originalFetch(
+					...(fetchArgs as Parameters<typeof fetch>),
+				);
 				if (cacheableGet && response.ok && request) {
 					void writeCachedResponse(request, response.clone());
 				}
