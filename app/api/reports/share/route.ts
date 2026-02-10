@@ -27,12 +27,18 @@ const parseSharePayload = async (request: NextRequest) => {
 		let fileName = String(form.get('fileName') || '');
 		const reportType = String(form.get('reportType') || '');
 		const createdBy = String(form.get('createdBy') || '');
+		const isFileLike =
+			pdf &&
+			typeof pdf === 'object' &&
+			'arrayBuffer' in pdf &&
+			typeof (pdf as File).arrayBuffer === 'function';
 		const contentTypeValue =
-			pdf instanceof File && pdf.type ? pdf.type : 'application/pdf';
-		if (pdf instanceof File) {
-			pdfBuffer = Buffer.from(await pdf.arrayBuffer());
+			isFileLike && (pdf as File).type ? (pdf as File).type : 'application/pdf';
+		if (isFileLike) {
+			const fileLike = pdf as File;
+			pdfBuffer = Buffer.from(await fileLike.arrayBuffer());
 			if (!fileName) {
-				fileName = pdf.name || fileName;
+				fileName = fileLike.name || fileName;
 			}
 		}
 		return {
@@ -220,8 +226,44 @@ export async function GET(request: NextRequest) {
 			});
 		}
 
-		if (share.pdfData && share.pdfData.length) {
-			return new NextResponse(share.pdfData, {
+		const resolvePdfData = () => {
+			if (!share.pdfData) return null;
+			if (Buffer.isBuffer(share.pdfData)) return share.pdfData;
+			if (
+				typeof share.pdfData === 'object' &&
+				share.pdfData.buffer &&
+				typeof share.pdfData.byteLength === 'number'
+			) {
+				const byteOffset =
+					typeof share.pdfData.byteOffset === 'number'
+						? share.pdfData.byteOffset
+						: 0;
+				return Buffer.from(
+					share.pdfData.buffer,
+					byteOffset,
+					share.pdfData.byteLength,
+				);
+			}
+			if (share.pdfData.buffer) {
+				try {
+					return Buffer.from(share.pdfData.buffer);
+				} catch {
+					return null;
+				}
+			}
+			if (share.pdfData.data) {
+				try {
+					return Buffer.from(share.pdfData.data);
+				} catch {
+					return null;
+				}
+			}
+			return null;
+		};
+
+		const embeddedPdf = resolvePdfData();
+		if (embeddedPdf && embeddedPdf.length) {
+			return new NextResponse(embeddedPdf, {
 				status: 200,
 				headers: {
 					'Content-Type': share.contentType || 'application/pdf',
