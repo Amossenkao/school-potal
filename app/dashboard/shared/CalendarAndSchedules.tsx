@@ -719,12 +719,25 @@ export default function CalendarAndSchedules({
 		return map;
 	}, [classScheduleSource]);
 
-	const [classVisibleDays, setClassVisibleDays] =
-		useState<string[]>(DAYS_OF_WEEK);
-	const [testVisibleDays, setTestVisibleDays] =
-		useState<string[]>(DAYS_OF_WEEK);
-	const classDaysStorageKey = 'schedule:class:visibleDays';
-	const testDaysStorageKey = 'schedule:test:visibleDays';
+	const getDefaultVisibleDays = () => {
+		const today = new Date();
+		const dayIndex = today.getDay(); // 0=Sunday, 6=Saturday
+		const fallback = 'Monday';
+		const dayName =
+			dayIndex === 0 || dayIndex === 6
+				? fallback
+				: DAYS_OF_WEEK[dayIndex - 1] || fallback;
+		return [dayName];
+	};
+
+	const [classVisibleDays, setClassVisibleDays] = useState<string[]>(
+		getDefaultVisibleDays,
+	);
+	const [testVisibleDays, setTestVisibleDays] = useState<string[]>(
+		getDefaultVisibleDays,
+	);
+	const classDaysStorageKey = `schedule:class:visibleDays:${activeLevelKey || 'all'}`;
+	const testDaysStorageKey = `schedule:test:visibleDays:${activeLevelKey || 'all'}`;
 
 	useEffect(() => {
 		if (typeof window === 'undefined') return;
@@ -743,9 +756,17 @@ export default function CalendarAndSchedules({
 		};
 		const storedClassDays = loadDays(classDaysStorageKey);
 		const storedTestDays = loadDays(testDaysStorageKey);
-		if (storedClassDays) setClassVisibleDays(storedClassDays);
-		if (storedTestDays) setTestVisibleDays(storedTestDays);
-	}, []);
+		if (storedClassDays) {
+			setClassVisibleDays(storedClassDays);
+		} else {
+			setClassVisibleDays(getDefaultVisibleDays());
+		}
+		if (storedTestDays) {
+			setTestVisibleDays(storedTestDays);
+		} else {
+			setTestVisibleDays(getDefaultVisibleDays());
+		}
+	}, [classDaysStorageKey, testDaysStorageKey]);
 
 	useEffect(() => {
 		if (typeof window === 'undefined') return;
@@ -1134,7 +1155,7 @@ export default function CalendarAndSchedules({
 										value={activeScheduleTab}
 										onValueChange={setActiveScheduleTab}
 									>
-										<TabsList className="w-full flex-wrap justify-start gap-2 overflow-x-auto">
+										<TabsList className="w-full flex-nowrap justify-start gap-2">
 											{levelKeysForSession.map((key) => (
 												<TabsTrigger key={key} value={key}>
 													{levelLabel(key).replace(`${selectedSession} - `, '')}

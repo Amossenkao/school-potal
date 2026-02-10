@@ -15,6 +15,7 @@ export default function OfflineHandler({
 	const { isOnline } = useNetworkStore();
 	const currentPathRef = useRef(pathname);
 	const [showOfflineGate, setShowOfflineGate] = useState(false);
+	const isInitialLoad = useRef(true);
 	const OFFLINE_ERROR_MESSAGE =
 		'You are offline. Please connect to the internet and try again.';
 
@@ -28,12 +29,16 @@ export default function OfflineHandler({
 
 	useEffect(() => {
 		const handleOfflineFetch = () => {
+			if (!isOnline && isInitialLoad.current) return;
 			setShowOfflineGate(true);
 		};
 		window.addEventListener('offline:fetch', handleOfflineFetch);
 		return () => {
 			window.removeEventListener('offline:fetch', handleOfflineFetch);
 		};
+	}, []);
+	useEffect(() => {
+		isInitialLoad.current = false;
 	}, []);
 
 	useEffect(() => {
