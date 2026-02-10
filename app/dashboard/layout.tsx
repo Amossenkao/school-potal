@@ -3,10 +3,9 @@
 import { useSidebar } from '@/context/SidebarContext';
 import AppHeader from './layout/AppHeader';
 import AppSidebar from './layout/AppSidebar';
-import React, { useEffect, useState, useRef } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import React, { useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoutes';
-import { useNetworkStore } from '@/store/networkStore';
 import { useOfflineNavigationStore } from '@/store/offlineNavigationStore';
 import OfflineRouteRenderer from '@/components/OfflineRouteRenderer';
 import PrefetchDashboardChunks from '@/components/PrefetchDashboardChunks';
@@ -17,59 +16,54 @@ export default function AdminLayout({
 	children: React.ReactNode;
 }) {
 	const { isExpanded, isHovered, isMobileOpen } = useSidebar();
-	const [loading, setLoading] = useState(true);
-	const [navigationLoading, setNavigationLoading] = useState(false);
 	const pathname = usePathname();
-	const router = useRouter();
 	const previousPathname = useRef(pathname);
-	const { isOnline, authCheckFailed } = useNetworkStore();
-	const { offlinePath, clearOfflinePath, setOfflinePath } =
-		useOfflineNavigationStore();
-	const previousOnline = useRef(isOnline);
+	const { offlinePath, setOfflinePath } = useOfflineNavigationStore();
 	const activePath = offlinePath || pathname;
 
 	useEffect(() => {
-		if (previousOnline.current === false && isOnline) {
-			if (offlinePath) {
-				clearOfflinePath();
-				router.replace(window.location.pathname);
-			}
-		}
-		previousOnline.current = isOnline;
-	}, [isOnline, router, offlinePath, clearOfflinePath]);
-
-	useEffect(() => {
-		if (!isOnline && !offlinePath) {
+		if (!offlinePath) {
 			setOfflinePath(pathname);
 		}
-	}, [isOnline, offlinePath, pathname, setOfflinePath]);
+	}, [offlinePath, pathname, setOfflinePath]);
 
 	useEffect(() => {
-		if (!isOnline) {
-			const handlePopState = () => {
-				setOfflinePath(window.location.pathname);
-			};
-			window.addEventListener('popstate', handlePopState);
-			return () => window.removeEventListener('popstate', handlePopState);
-		}
-	}, [isOnline, setOfflinePath]);
-
-	useEffect(() => {
-		// Handle route navigation loading
 		if (previousPathname.current !== pathname) {
-			setNavigationLoading(true);
+			setOfflinePath(pathname);
 			previousPathname.current = pathname;
 		}
+	}, [pathname, setOfflinePath]);
 
-		// Simulate short loading delay
-		setLoading(true);
-		const timeout = setTimeout(() => {
-			setLoading(false);
-			setNavigationLoading(false);
-		}, 40);
+	useEffect(() => {
+		const handlePopState = () => {
+			setOfflinePath(window.location.pathname);
+		};
+		window.addEventListener('popstate', handlePopState);
+		return () => window.removeEventListener('popstate', handlePopState);
+	}, [setOfflinePath]);
 
-		return () => clearTimeout(timeout);
-	}, [pathname, isOnline, authCheckFailed]);
+	useEffect(() => {
+		const handleLinkClick = (event: MouseEvent) => {
+			if (event.defaultPrevented) return;
+			if (event.button !== 0) return;
+			if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+				return;
+			}
+			const target = event.target as HTMLElement | null;
+			const anchor = target?.closest('a');
+			if (!anchor) return;
+			if (anchor.hasAttribute('download')) return;
+			const href = anchor.getAttribute('href');
+			if (!href || !href.startsWith('/dashboard')) return;
+			if (anchor.target && anchor.target !== '_self') return;
+			event.preventDefault();
+			setOfflinePath(href);
+			window.history.pushState(null, '', href);
+		};
+		document.addEventListener('click', handleLinkClick);
+		return () => document.removeEventListener('click', handleLinkClick);
+	}, [setOfflinePath]);
+
 
 	const mainContentMargin = isMobileOpen
 		? 'ml-0'

@@ -383,7 +383,16 @@ const AppSidebar: React.FC = () => {
 		}
 	};
 
-	const handleOfflineNavigate = (href: string) => {
+	const shouldHandleClientNavigation = (event: React.MouseEvent) => {
+		if (event.defaultPrevented) return false;
+		if (event.button !== 0) return false;
+		if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+			return false;
+		}
+		return true;
+	};
+
+	const handleClientNavigate = (href: string) => {
 		setOfflinePath(href);
 		if (typeof window !== 'undefined') {
 			window.history.pushState(null, '', href);
@@ -469,10 +478,9 @@ const AppSidebar: React.FC = () => {
 								<Link
 									href={item.href}
 									onClick={(event) => {
-										if (!isOnline) {
-											event.preventDefault();
-											handleOfflineNavigate(item.href!);
-										}
+										if (!shouldHandleClientNavigation(event)) return;
+										event.preventDefault();
+										handleClientNavigate(item.href!);
 									}}
 									className={`menu-item group ${
 										isItemActive ? 'menu-item-active' : 'menu-item-inactive'
@@ -527,10 +535,9 @@ const AppSidebar: React.FC = () => {
 											<Link
 												href={sub.href!}
 												onClick={(event) => {
-													if (!isOnline) {
-														event.preventDefault();
-														handleOfflineNavigate(sub.href!);
-													}
+													if (!shouldHandleClientNavigation(event)) return;
+													event.preventDefault();
+													handleClientNavigate(sub.href!);
 												}}
 												className={`menu-dropdown-item relative flex items-center gap-3 py-2 px-2 pr-8 sm:px-3 rounded-md text-sm transition-colors duration-150 overflow-visible whitespace-nowrap ${
 													isActive(sub.href!)

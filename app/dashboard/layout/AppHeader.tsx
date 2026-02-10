@@ -20,6 +20,7 @@ import Label from '@/components/form/Label';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { useNetworkStore } from '@/store/networkStore';
+import { useOfflineNavigationStore } from '@/store/offlineNavigationStore';
 
 // --- Types ---
 interface Notification {
@@ -31,6 +32,15 @@ interface Notification {
 	dismissed?: boolean;
 	type: 'Login' | 'Grades' | 'Security' | 'Profile' | 'Others';
 }
+
+const shouldHandleClientNavigation = (event: React.MouseEvent) => {
+	if (event.defaultPrevented) return false;
+	if (event.button !== 0) return false;
+	if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+		return false;
+	}
+	return true;
+};
 
 // --- Custom Hook for Modal State ---
 const useModal = () => {
@@ -158,6 +168,7 @@ const NotificationsDropdown = () => {
 	const [selectedNotification, setSelectedNotification] =
 		useState<Notification | null>(null);
 	const dropdownRef = useRef<HTMLDivElement>(null);
+	const { setOfflinePath } = useOfflineNavigationStore();
 
 	// Filter and sort notifications from the user object
 	const notifications = useMemo(() => {
@@ -477,7 +488,16 @@ const NotificationsDropdown = () => {
 							<Link
 								href="/dashboard/notifications"
 								className="block w-full text-center text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-								onClick={() => setIsOpen(false)}
+								onClick={(event) => {
+									if (!shouldHandleClientNavigation(event)) return;
+									event.preventDefault();
+									const href = '/dashboard/notifications';
+									setOfflinePath(href);
+									if (typeof window !== 'undefined') {
+										window.history.pushState(null, '', href);
+									}
+									setIsOpen(false);
+								}}
 							>
 								View all notifications
 							</Link>
@@ -494,6 +514,7 @@ const UserDropdown = () => {
 	const { user, logout } = useAuth();
 	const [isOpen, setIsOpen] = useState(false);
 	const dropdownRef = useRef<HTMLDivElement>(null);
+	const { setOfflinePath } = useOfflineNavigationStore();
 	const {
 		isOpen: isPasswordModalOpen,
 		openModal: openPasswordModal,
@@ -548,7 +569,16 @@ const UserDropdown = () => {
 							<Link
 								href="/dashboard/profile"
 								className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-								onClick={() => setIsOpen(false)}
+								onClick={(event) => {
+									if (!shouldHandleClientNavigation(event)) return;
+									event.preventDefault();
+									const href = '/dashboard/profile';
+									setOfflinePath(href);
+									if (typeof window !== 'undefined') {
+										window.history.pushState(null, '', href);
+									}
+									setIsOpen(false);
+								}}
 							>
 								<User className="h-4 w-4" />
 								My Profile
