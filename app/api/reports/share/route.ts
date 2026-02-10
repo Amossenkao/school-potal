@@ -17,6 +17,47 @@ const buildOrigin = (request: NextRequest) => {
 	return `${proto}://${host}`;
 };
 
+const parseSharePayload = async (request: NextRequest) => {
+	const contentType = request.headers.get('content-type') || '';
+	if (contentType.includes('multipart/form-data')) {
+		const form = await request.formData();
+		const pdf = form.get('pdf');
+		const cacheKey = form.get('cacheKey');
+		let pdfBuffer: Buffer | null = null;
+		let fileName = String(form.get('fileName') || '');
+		const reportType = String(form.get('reportType') || '');
+		const createdBy = String(form.get('createdBy') || '');
+		const contentTypeValue =
+			pdf instanceof File && pdf.type ? pdf.type : 'application/pdf';
+		if (pdf instanceof File) {
+			pdfBuffer = Buffer.from(await pdf.arrayBuffer());
+			if (!fileName) {
+				fileName = pdf.name || fileName;
+			}
+		}
+		return {
+			cacheKey: cacheKey ? String(cacheKey) : '',
+			fileName,
+			reportType,
+			createdBy,
+			pdfBuffer,
+			contentType: contentTypeValue,
+		};
+	}
+
+	const body = await request.json();
+	const pdfBase64 = body?.pdfBase64 as string | undefined;
+	const pdfBuffer = pdfBase64 ? Buffer.from(pdfBase64, 'base64') : null;
+	return {
+		cacheKey: body?.cacheKey || '',
+		fileName: body?.fileName || '',
+		reportType: body?.reportType || '',
+		createdBy: body?.createdBy || '',
+		pdfBuffer,
+		contentType: 'application/pdf',
+	};
+};
+
 const renderPinForm = (token: string, errorMessage?: string) => `<!doctype html>
 <html lang="en">
 <head>
@@ -50,9 +91,9 @@ const renderPinForm = (token: string, errorMessage?: string) => `<!doctype html>
 
 export async function POST(request: NextRequest) {
 	try {
-		const body = await request.json();
-		const { cacheKey, fileName, reportType, createdBy } = body || {};
-		if (!cacheKey || !fileName || !reportType) {
+		const { cacheKey, fileName, reportType, createdBy, pdfBuffer, contentType } =
+			await parseSharePayload(request);
+		if (!fileName || !reportType) {
 			return NextResponse.json(
 				{ success: false, message: 'Missing required fields.' },
 				{ status: 400 },
@@ -62,6 +103,41 @@ export async function POST(request: NextRequest) {
 		const models = await getTenantModels();
 		const { ReportShare } = models;
 
+		let resolvedCacheKey = cacheKey;
+		let resolvedBuffer = pdfBuffer;
+		if (!resolvedCacheKey && !resolvedBuffer) {
+			return NextResponse.json(
+				{ success: false, message: 'Missing report payload.' },
+				{ status: 400 },
+			);
+		}
+		if (resolvedBuffer && !resolvedBuffer.length) {
+			return NextResponse.json(
+				{ success: false, message: 'Empty PDF payload.' },
+				{ status: 400 },
+			);
+		}
+		if (!resolvedBuffer && resolvedCacheKey) {
+			const pdfPath = path.join(CACHE_DIR, `${resolvedCacheKey}.pdf`);
+			try {
+				resolvedBuffer = await fs.readFile(pdfPath);
+			} catch {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'Cached report not available for sharing.',
+					},
+					{ status: 404 },
+				);
+			}
+		}
+		if (!resolvedCacheKey && resolvedBuffer) {
+			resolvedCacheKey = crypto
+				.createHash('sha256')
+				.update(resolvedBuffer)
+				.digest('hex');
+		}
+
 		const token = crypto.randomBytes(16).toString('hex');
 		const pin = `${Math.floor(1000 + Math.random() * 9000)}`;
 		const pinHash = await bcrypt.hash(pin, 10);
@@ -69,7 +145,10 @@ export async function POST(request: NextRequest) {
 
 		await ReportShare.create({
 			token,
-			cacheKey,
+			cacheKey: resolvedCacheKey,
+			pdfData: resolvedBuffer,
+			pdfSize: resolvedBuffer?.length || 0,
+			contentType: contentType || 'application/pdf',
 			pinHash,
 			fileName,
 			reportType,
@@ -85,6 +164,7 @@ export async function POST(request: NextRequest) {
 			shareUrl,
 			pin,
 			expiresAt,
+			cacheKey: resolvedCacheKey,
 		});
 	} catch (error) {
 		console.error('Error creating report share link:', error);
@@ -140,8 +220,27 @@ export async function GET(request: NextRequest) {
 			});
 		}
 
+		if (share.pdfData && share.pdfData.length) {
+			return new NextResponse(share.pdfData, {
+				status: 200,
+				headers: {
+					'Content-Type': share.contentType || 'application/pdf',
+					'Content-Disposition': `inline; filename="${share.fileName}"`,
+					'Cache-Control': 'public, max-age=3600',
+				},
+			});
+		}
+
 		const pdfPath = path.join(CACHE_DIR, `${share.cacheKey}.pdf`);
-		const cached = await fs.readFile(pdfPath);
+		let cached: Buffer;
+		try {
+			cached = await fs.readFile(pdfPath);
+		} catch {
+			return NextResponse.json(
+				{ success: false, message: 'Report not available.' },
+				{ status: 404 },
+			);
+		}
 		return new NextResponse(cached, {
 			status: 200,
 			headers: {

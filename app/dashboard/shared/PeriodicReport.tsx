@@ -1255,6 +1255,10 @@ function ReportContent({
 	const school = useSchoolStore((state) => state.school);
 	const { user } = useAuth();
 	const isStudent = user?.role === 'student';
+	const createdBy = useMemo(
+		() => user?.id || user?._id || user?.studentId || '',
+		[user],
+	);
 
 	// Memoize school data to prevent unnecessary re-renders
 	const schoolData = useMemo(() => school, [school]);
@@ -1333,6 +1337,44 @@ function ReportContent({
 			'_',
 		)}_${selectedPeriodLabel.replace(/\s+/g, '_')}_${timestamp}.pdf`;
 	}, [studentsData, className, selectedPeriodLabel]);
+
+	const handleShare = useCallback(async () => {
+		if (!pdfBlob || !downloadUrl) return;
+		setShareLoading(true);
+		try {
+			const formData = new FormData();
+			formData.append('fileName', fileName);
+			formData.append('reportType', 'periodic');
+			if (createdBy) {
+				formData.append('createdBy', createdBy);
+			}
+			if (serverKey) {
+				formData.append('cacheKey', serverKey);
+			}
+			formData.append('pdf', pdfBlob, fileName);
+			const response = await fetch('/api/reports/share', {
+				method: 'POST',
+				body: formData,
+			});
+			if (!response.ok) return;
+			const data = await response.json();
+			if (!data?.shareUrl || !data?.pin) return;
+			if (data.cacheKey && data.cacheKey !== serverKey) {
+				setServerKey(data.cacheKey);
+			}
+			setShareInfo({
+				url: data.shareUrl,
+				pin: data.pin,
+				expiresAt: data.expiresAt,
+			});
+			setShareModalOpen(true);
+			setCopiedLink(false);
+			setCopiedPin(false);
+			setShareNotice('');
+		} finally {
+			setShareLoading(false);
+		}
+	}, [pdfBlob, downloadUrl, fileName, createdBy, serverKey]);
 
 	// Memoize the PDF document to prevent re-rendering
 	const pdfDocument = useMemo(() => {
@@ -1596,53 +1638,8 @@ function ReportContent({
 					{isStudent && !inlineError && (
 						<button
 							type="button"
-							onClick={() => {
-								if (!pdfBlob || !downloadUrl) return;
-								const createShare = (cacheKey: string) =>
-									fetch('/api/reports/share', {
-										method: 'POST',
-										headers: { 'Content-Type': 'application/json' },
-										body: JSON.stringify({
-											cacheKey,
-											fileName,
-											reportType: 'periodic',
-											createdBy: user?.id || user?._id || user?.studentId || '',
-										}),
-									}).then((res) => res.json());
-								const doShare = (cacheKey: string) => {
-									setShareLoading(true);
-									createShare(cacheKey).then((data) => {
-										if (!data?.shareUrl || !data?.pin) return;
-										setShareInfo({
-											url: data.shareUrl,
-											pin: data.pin,
-											expiresAt: data.expiresAt,
-										});
-										setShareModalOpen(true);
-										setCopiedLink(false);
-										setCopiedPin(false);
-										setShareNotice('');
-										setShareLoading(false);
-									});
-								};
-								if (serverKey) {
-									doShare(serverKey);
-									return;
-								}
-								fetch('/api/reports/pdf', {
-									method: 'POST',
-									headers: { 'Content-Type': 'application/pdf' },
-									body: pdfBlob,
-								})
-									.then((res) => res.json())
-									.then((data) => {
-										if (data?.cacheKey) {
-											setServerKey(data.cacheKey);
-											doShare(data.cacheKey);
-										}
-									});
-							}}
-							disabled={!downloadUrl || pdfGenerating}
+							onClick={handleShare}
+							disabled={!downloadUrl || pdfGenerating || shareLoading}
 							className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm inline-flex items-center gap-2 disabled:opacity-50"
 						>
 							<svg
@@ -1670,7 +1667,7 @@ function ReportContent({
 									d="M12 2v14"
 								/>
 							</svg>
-							Share Grade Sheet
+							{shareLoading ? 'Generating Link...' : 'Share Grade Sheet'}
 						</button>
 					)}
 					<button
@@ -1782,53 +1779,8 @@ function ReportContent({
 									{isStudent && (
 										<button
 											type="button"
-											onClick={() => {
-												if (!pdfBlob || !downloadUrl) return;
-												const createShare = (cacheKey: string) =>
-													fetch('/api/reports/share', {
-														method: 'POST',
-														headers: { 'Content-Type': 'application/json' },
-														body: JSON.stringify({
-															cacheKey,
-															fileName,
-															reportType: 'periodic',
-															createdBy:
-																user?.id || user?._id || user?.studentId || '',
-														}),
-													}).then((res) => res.json());
-												const doShare = (cacheKey: string) => {
-													setShareLoading(true);
-													createShare(cacheKey).then((data) => {
-														if (!data?.shareUrl || !data?.pin) return;
-														setShareInfo({
-															url: data.shareUrl,
-															pin: data.pin,
-															expiresAt: data.expiresAt,
-														});
-														setShareModalOpen(true);
-														setCopiedLink(false);
-														setCopiedPin(false);
-														setShareLoading(false);
-													});
-												};
-												if (serverKey) {
-													doShare(serverKey);
-													return;
-												}
-												fetch('/api/reports/pdf', {
-													method: 'POST',
-													headers: { 'Content-Type': 'application/pdf' },
-													body: pdfBlob,
-												})
-													.then((res) => res.json())
-													.then((data) => {
-														if (data?.cacheKey) {
-															setServerKey(data.cacheKey);
-															doShare(data.cacheKey);
-														}
-													});
-											}}
-											disabled={!downloadUrl || pdfGenerating}
+											onClick={handleShare}
+											disabled={!downloadUrl || pdfGenerating || shareLoading}
 											className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm inline-flex items-center gap-2"
 										>
 											<svg

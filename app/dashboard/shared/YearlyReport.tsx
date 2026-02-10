@@ -1211,21 +1211,29 @@ function ReportContent({
 			fileName,
 			reportType,
 			createdBy,
+			pdfBlob,
 		}: {
 			cacheKey: string;
 			fileName: string;
 			reportType: string;
 			createdBy: string;
+			pdfBlob?: Blob | null;
 		}) => {
+			const formData = new FormData();
+			formData.append('fileName', fileName);
+			formData.append('reportType', reportType);
+			if (createdBy) {
+				formData.append('createdBy', createdBy);
+			}
+			if (cacheKey) {
+				formData.append('cacheKey', cacheKey);
+			}
+			if (pdfBlob) {
+				formData.append('pdf', pdfBlob, fileName);
+			}
 			const response = await fetch('/api/reports/share', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					cacheKey,
-					fileName,
-					reportType,
-					createdBy,
-				}),
+				body: formData,
 			});
 			if (!response.ok) return null;
 			const data = await response.json();
@@ -1234,6 +1242,7 @@ function ReportContent({
 				url: data.shareUrl as string,
 				pin: data.pin as string,
 				expiresAt: data.expiresAt as string,
+				cacheKey: data.cacheKey as string | undefined,
 			};
 		},
 		[],
@@ -1327,24 +1336,27 @@ function ReportContent({
 		}
 		setShareLoading(true);
 		try {
-			let cacheKey = serverKey;
+			let cacheKey = serverKey || '';
 			if (!cacheKey) {
-				cacheKey = await uploadPdfToCache(pdfBlob);
-				if (cacheKey) setServerKey(cacheKey);
-			}
-			if (!cacheKey) {
-				showShareNotice('Failed to cache PDF for sharing.');
-				return;
+				const uploadedKey = await uploadPdfToCache(pdfBlob);
+				if (uploadedKey) {
+					cacheKey = uploadedKey;
+					setServerKey(uploadedKey);
+				}
 			}
 			const data = await createShareLink({
 				cacheKey,
 				fileName: reportFileName,
 				reportType: 'yearly',
 				createdBy,
+				pdfBlob,
 			});
 			if (!data) {
 				showShareNotice('Failed to create share link.');
 				return;
+			}
+			if (data.cacheKey && data.cacheKey !== serverKey) {
+				setServerKey(data.cacheKey);
 			}
 			openShareModal(data);
 		} catch (err) {
@@ -1368,17 +1380,16 @@ function ReportContent({
 
 	const syncQueuedShares = useCallback(async () => {
 		await consumeQueuedShareRequests(async (item, blob) => {
-			const cacheKey = await uploadPdfToCache(blob);
-			if (!cacheKey) return false;
 			const data = await createShareLink({
-				cacheKey,
+				cacheKey: '',
 				fileName: item.fileName,
 				reportType: item.reportType,
 				createdBy: item.createdBy,
+				pdfBlob: blob,
 			});
-			return Boolean(data);
+			return Boolean(data?.shareUrl);
 		});
-	}, [uploadPdfToCache, createShareLink]);
+	}, [createShareLink]);
 
 	useEffect(() => {
 		if (typeof window === 'undefined') return;

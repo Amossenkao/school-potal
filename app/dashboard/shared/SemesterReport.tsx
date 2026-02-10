@@ -1256,6 +1256,10 @@ function ReportContent({
 	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
 	const { user } = useAuth();
 	const isStudent = user?.role === 'student';
+	const createdBy = useMemo(
+		() => user?.id || user?._id || user?.studentId || '',
+		[user],
+	);
 
 	const className = useMemo(() => {
 		const classInfo = currentSchool?.classLevels?.[reportFilters.session]?.[
@@ -1268,6 +1272,50 @@ function ReportContent({
 		reportFilters.classLevel,
 		reportFilters.className,
 	]);
+
+	const reportFileName = useMemo(
+		() =>
+			`Semester_Report_${className}_${reportFilters.academicYear}_${reportFilters.semester}.pdf`,
+		[className, reportFilters.academicYear, reportFilters.semester],
+	);
+
+	const handleShare = useCallback(async () => {
+		if (!pdfBlob || !downloadUrl) return;
+		setShareLoading(true);
+		try {
+			const formData = new FormData();
+			formData.append('fileName', reportFileName);
+			formData.append('reportType', 'semester');
+			if (createdBy) {
+				formData.append('createdBy', createdBy);
+			}
+			if (serverKey) {
+				formData.append('cacheKey', serverKey);
+			}
+			formData.append('pdf', pdfBlob, reportFileName);
+			const response = await fetch('/api/reports/share', {
+				method: 'POST',
+				body: formData,
+			});
+			if (!response.ok) return;
+			const data = await response.json();
+			if (!data?.shareUrl || !data?.pin) return;
+			if (data.cacheKey && data.cacheKey !== serverKey) {
+				setServerKey(data.cacheKey);
+			}
+			setShareInfo({
+				url: data.shareUrl,
+				pin: data.pin,
+				expiresAt: data.expiresAt,
+			});
+			setShareModalOpen(true);
+			setCopiedLink(false);
+			setCopiedPin(false);
+			setShareNotice('');
+		} finally {
+			setShareLoading(false);
+		}
+	}, [pdfBlob, downloadUrl, reportFileName, createdBy, serverKey]);
 
 	const classSubjects = useMemo(() => {
 		if (!currentSchool) return [];
@@ -1666,14 +1714,14 @@ function ReportContent({
 		try {
 			const a = document.createElement('a');
 			a.href = downloadUrl;
-			a.download = `Semester_Report_${className}_${reportFilters.academicYear}_${reportFilters.semester}.pdf`;
+			a.download = reportFileName;
 			document.body.appendChild(a);
 			a.click();
 			a.remove();
 		} finally {
 			setDownloading(false);
 		}
-	}, [downloadUrl, className, reportFilters.academicYear, reportFilters.semester]);
+	}, [downloadUrl, reportFileName]);
 
 	if (loading) {
 		return <PageLoading fullScreen={false} variant="minimal" size="lg" />;
@@ -1730,62 +1778,8 @@ function ReportContent({
 				{isStudent && !inlineError && !forceInlineFallback && (
 					<button
 						type="button"
-						onClick={() => {
-							if (!pdfBlob || !downloadUrl) return;
-							const createShare = (cacheKey: string) =>
-								fetch('/api/reports/share', {
-									method: 'POST',
-									headers: { 'Content-Type': 'application/json' },
-									body: JSON.stringify({
-										cacheKey,
-										fileName: `Semester_Report_${className}_${reportFilters.academicYear}_${reportFilters.semester}.pdf`,
-										reportType: 'semester',
-										createdBy: user?.id || user?._id || user?.studentId || '',
-									}),
-								}).then((res) => res.json());
-							const doShare = (cacheKey: string) => {
-								setShareLoading(true);
-								createShare(cacheKey).then((data) => {
-									if (!data?.shareUrl || !data?.pin) {
-										setShareLoading(false);
-										return;
-									}
-									setShareInfo({
-										url: data.shareUrl,
-										pin: data.pin,
-										expiresAt: data.expiresAt,
-									});
-									setShareModalOpen(true);
-									setCopiedLink(false);
-									setCopiedPin(false);
-									setShareNotice('');
-									setShareLoading(false);
-								});
-							};
-							if (serverKey) {
-								doShare(serverKey);
-								return;
-							}
-							setShareLoading(true);
-							fetch('/api/reports/pdf', {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/pdf' },
-								body: pdfBlob,
-							})
-								.then((res) => res.json())
-								.then((data) => {
-									if (data?.cacheKey) {
-										setServerKey(data.cacheKey);
-										doShare(data.cacheKey);
-									} else {
-										setShareLoading(false);
-									}
-								})
-								.catch(() => {
-									setShareLoading(false);
-								});
-						}}
-						disabled={!downloadUrl || pdfGenerating}
+						onClick={handleShare}
+						disabled={!downloadUrl || pdfGenerating || shareLoading}
 						className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm inline-flex items-center gap-2"
 					>
 						<svg
@@ -1845,7 +1839,7 @@ function ReportContent({
 												const url = `/api/reports/pdf?key=${encodeURIComponent(
 													key,
 												)}&fileName=${encodeURIComponent(
-													`Semester_Report_${className}_${reportFilters.academicYear}_${reportFilters.semester}.pdf`,
+													reportFileName,
 												)}`;
 												window.open(url, '_blank', 'noopener,noreferrer');
 											};
@@ -1896,62 +1890,8 @@ function ReportContent({
 									{isStudent && (
 										<button
 											type="button"
-											onClick={() => {
-												if (!pdfBlob || !downloadUrl) return;
-												const createShare = (cacheKey: string) =>
-													fetch('/api/reports/share', {
-														method: 'POST',
-														headers: { 'Content-Type': 'application/json' },
-														body: JSON.stringify({
-															cacheKey,
-															fileName: `Semester_Report_${className}_${reportFilters.academicYear}_${reportFilters.semester}.pdf`,
-															reportType: 'semester',
-															createdBy:
-																user?.id || user?._id || user?.studentId || '',
-														}),
-													}).then((res) => res.json());
-												const doShare = (cacheKey: string) => {
-													setShareLoading(true);
-													createShare(cacheKey).then((data) => {
-														if (!data?.shareUrl || !data?.pin) {
-															setShareLoading(false);
-															return;
-														}
-														setShareInfo({
-															url: data.shareUrl,
-															pin: data.pin,
-															expiresAt: data.expiresAt,
-														});
-														setShareModalOpen(true);
-														setCopiedLink(false);
-														setCopiedPin(false);
-														setShareLoading(false);
-													});
-												};
-												if (serverKey) {
-													doShare(serverKey);
-													return;
-												}
-												setShareLoading(true);
-												fetch('/api/reports/pdf', {
-													method: 'POST',
-													headers: { 'Content-Type': 'application/pdf' },
-													body: pdfBlob,
-												})
-													.then((res) => res.json())
-													.then((data) => {
-														if (data?.cacheKey) {
-															setServerKey(data.cacheKey);
-															doShare(data.cacheKey);
-														} else {
-															setShareLoading(false);
-														}
-													})
-													.catch(() => {
-														setShareLoading(false);
-													});
-											}}
-											disabled={!downloadUrl || pdfGenerating}
+											onClick={handleShare}
+											disabled={!downloadUrl || pdfGenerating || shareLoading}
 											className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm inline-flex items-center gap-2"
 										>
 											<svg
