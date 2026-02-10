@@ -19,11 +19,7 @@ export async function GET(request: NextRequest) {
 			: null;
 		const academicYear = getAcademicYear(schoolProfile);
 		const currentUsersVersion = await getUsersVersion(academicYear);
-		const includeUsers =
-			typeof clientUsersVersion === 'number' &&
-			!Number.isNaN(clientUsersVersion)
-				? clientUsersVersion !== currentUsersVersion
-				: true;
+		const includeUsers = true;
 
 		if (!sessionCookie) {
 			return NextResponse.json(
@@ -82,13 +78,13 @@ export async function GET(request: NextRequest) {
 				includeUsers,
 				academicYear,
 				usersVersion: currentUsersVersion,
+				schoolProfile,
 			});
 		} catch (error) {
 			console.warn('Failed to build bootstrap payload:', error);
 		}
 		return NextResponse.json({
 			user: session,
-			school: schoolProfile || null,
 			message: 'Session valid',
 			...(bootstrapPayload || {}),
 		});

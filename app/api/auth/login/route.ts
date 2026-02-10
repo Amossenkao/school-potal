@@ -178,7 +178,9 @@ async function handleLogin(user: any, password: string, host: string) {
 		const sessionId = await createSession(sessionData);
 		let bootstrapPayload: any = null;
 		try {
-			bootstrapPayload = await buildBootstrapPayload(userData);
+			bootstrapPayload = await buildBootstrapPayload(userData, {
+				schoolProfile,
+			});
 		} catch (error) {
 			console.warn('Failed to build bootstrap payload:', error);
 		}

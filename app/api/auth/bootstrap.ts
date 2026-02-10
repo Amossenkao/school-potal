@@ -19,6 +19,8 @@ export const getAcademicYear = (schoolProfile: any) => {
 
 const normalizeUser = (user: any) => {
 	const id = user?.id || user?._id?.toString();
+	const isStudent = user?.role === 'student';
+	const shareContact = user?.shareContactWithClassmates === true;
 	const baseUser = {
 		id,
 		_id: id,
@@ -33,7 +35,7 @@ const normalizeUser = (user: any) => {
 		isActive: user.isActive,
 		mustChangePassword: user.mustChangePassword,
 		passwordChangedAt: user.passwordChangedAt,
-		phone: user.phone,
+		phone: isStudent ? (shareContact ? user.phone : undefined) : user.phone,
 		email: user.email,
 		address: user.address,
 		bio: user.bio,
@@ -55,6 +57,7 @@ const normalizeUser = (user: any) => {
 				enrollmentStatus: user.enrollmentStatus,
 				classId: user.classId,
 				className: user.className,
+				shareContactWithClassmates: user.shareContactWithClassmates ?? false,
 				academicYears: user.academicYears || [],
 				guardian: user.guardian,
 				financialProfile: user.financialProfile,
@@ -154,12 +157,18 @@ const fetchUsersForRole = async (currentUser: any, academicYear: string) => {
 
 	if (currentUser.role === 'student') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
+		if (!classId) {
+			return { students: [], teachers: [], administrators: [] };
+		}
 		const [students, teachers, administrators] = await Promise.all([
 			models.Student.find({
 				academicYears: { $elemMatch: { year: academicYear, classId } },
-			})
-				.lean(),
-			models.Teacher.find({ 'subjects.year': academicYear }).lean(),
+			}).lean(),
+			models.Teacher.find({
+				subjects: {
+					$elemMatch: { year: academicYear, 'classes.classId': classId },
+				},
+			}).lean(),
 			models.Administrator.find({ 'academicYears.year': academicYear }).lean(),
 		]);
 
@@ -172,13 +181,14 @@ const fetchUsersForRole = async (currentUser: any, academicYear: string) => {
 
 	if (currentUser.role === 'teacher') {
 		const classIds = getTeacherClassIdsForYear(currentUser, academicYear);
-		const studentQuery = classIds.length
-			? {
-					academicYears: {
-						$elemMatch: { year: academicYear, classId: { $in: classIds } },
-					},
-			  }
-			: { academicYears: { $elemMatch: { year: academicYear } } };
+		if (classIds.length === 0) {
+			return { students: [], teachers: [], administrators: [] };
+		}
+		const studentQuery = {
+			academicYears: {
+				$elemMatch: { year: academicYear, classId: { $in: classIds } },
+			},
+		};
 		const [students, teachers, administrators] = await Promise.all([
 			models.Student.find(studentQuery).lean(),
 			models.Teacher.find({ 'subjects.year': academicYear }).lean(),
@@ -213,9 +223,14 @@ const fetchUsersForRole = async (currentUser: any, academicYear: string) => {
 
 export const buildBootstrapPayload = async (
 	currentUser: any,
-	options: { includeUsers?: boolean; academicYear?: string; usersVersion?: number } = {},
+	options: {
+		includeUsers?: boolean;
+		academicYear?: string;
+		usersVersion?: number;
+		schoolProfile?: any;
+	} = {},
 ) => {
-	const schoolProfileRaw = await getSchoolProfile();
+	const schoolProfileRaw = options.schoolProfile ?? (await getSchoolProfile());
 	const schoolProfile =
 		typeof schoolProfileRaw === 'string'
 			? JSON.parse(schoolProfileRaw)
@@ -234,6 +249,7 @@ export const buildBootstrapPayload = async (
 	]);
 
 	return {
+		school: schoolProfile,
 		academicYear,
 		users: includeUsers ? users : null,
 		usersVersion,

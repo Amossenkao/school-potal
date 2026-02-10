@@ -32,7 +32,9 @@ export default function AdminEnrollment({
 		const levels = schoolProfile.classLevels || {};
 		return Object.keys(levels).filter((session) => {
 			const sessionLevels = levels[session] || {};
-			return Object.keys(sessionLevels).some((level) => level !== 'Self Contained');
+			return Object.keys(sessionLevels).some(
+				(level) => level !== 'Self Contained',
+			);
 		});
 	}, [schoolProfile]);
 
@@ -127,7 +129,8 @@ export default function AdminEnrollment({
 
 	const normalizedStudents = useMemo(() => {
 		return students.map((student) => {
-			const name = `${student.firstName || ''} ${student.lastName || ''}`.trim();
+			const name =
+				`${student.firstName || ''} ${student.lastName || ''}`.trim();
 			const username =
 				student.studentId || student.username || student.id || '';
 			const classId = student.classId || selectedClassId;
@@ -175,7 +178,9 @@ export default function AdminEnrollment({
 		]);
 
 		const csv = [header, ...rows]
-			.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','))
+			.map((row) =>
+				row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','),
+			)
 			.join('\n');
 
 		const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -196,11 +201,16 @@ export default function AdminEnrollment({
 					<div>
 						<CardTitle>Enrollment</CardTitle>
 						<p className="text-sm text-muted-foreground">
-							Select a class to view enrolled students for {selectedYear || 'N/A'}.
+							Select a class to view enrolled students for{' '}
+							{selectedYear || 'N/A'}.
 						</p>
 					</div>
-					<Button variant="outline" onClick={downloadCsv} disabled={filteredStudents.length === 0}>
-						Download CSV
+					<Button
+						variant="outline"
+						onClick={downloadCsv}
+						disabled={filteredStudents.length === 0}
+					>
+						Download Data
 					</Button>
 				</CardHeader>
 				<CardContent className="space-y-4">
@@ -286,7 +296,9 @@ export default function AdminEnrollment({
 									<select
 										className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
 										value={pageSize}
-										onChange={(event) => setPageSize(Number(event.target.value))}
+										onChange={(event) =>
+											setPageSize(Number(event.target.value))
+										}
 									>
 										<option value={10}>10</option>
 										<option value={20}>20</option>
@@ -297,51 +309,52 @@ export default function AdminEnrollment({
 							</div>
 							<div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
 								<table className="min-w-full text-sm">
-								<thead className="bg-gray-50 dark:bg-gray-900">
-									<tr className="text-left text-gray-600 dark:text-gray-400">
-										<th className="px-4 py-3">No</th>
-										<th className="px-4 py-3">Name</th>
-										<th className="px-4 py-3">Username</th>
-										<th className="px-4 py-3">Class</th>
-										<th className="px-4 py-3">Status</th>
-									</tr>
-								</thead>
-								<tbody>
-									{pagedStudents.map((student, index) => (
-										<tr key={student.key || index} className="border-t">
-											<td className="px-4 py-3">
-												{safePageIndex * pageSize + index + 1}
-											</td>
-											<td className="px-4 py-3">
-												{student.name}
-											</td>
-											<td className="px-4 py-3">{student.username}</td>
-											<td className="px-4 py-3">{student.className}</td>
-											<td className="px-4 py-3">
-												<span
-													className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-														student.status === 'Active'
-															? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200'
-															: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200'
-													}`}
-												>
-													{student.status}
-												</span>
-											</td>
+									<thead className="bg-gray-50 dark:bg-gray-900">
+										<tr className="text-left text-gray-600 dark:text-gray-400">
+											<th className="px-4 py-3">No</th>
+											<th className="px-4 py-3">Name</th>
+											<th className="px-4 py-3">Username</th>
+											<th className="px-4 py-3">Class</th>
+											<th className="px-4 py-3">Status</th>
 										</tr>
-									))}
-								</tbody>
-							</table>
+									</thead>
+									<tbody>
+										{pagedStudents.map((student, index) => (
+											<tr key={student.key || index} className="border-t">
+												<td className="px-4 py-3">
+													{safePageIndex * pageSize + index + 1}
+												</td>
+												<td className="px-4 py-3">{student.name}</td>
+												<td className="px-4 py-3">{student.username}</td>
+												<td className="px-4 py-3">{student.className}</td>
+												<td className="px-4 py-3">
+													<span
+														className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+															student.status === 'Active'
+																? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200'
+																: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200'
+														}`}
+													>
+														{student.status}
+													</span>
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
 							</div>
 							<div className="flex flex-wrap items-center justify-between gap-3">
 								<p className="text-xs text-muted-foreground">
-									Page {safePageIndex + 1} of {totalPages} • {filteredStudents.length} students
+									Page {safePageIndex + 1} of {totalPages} •{' '}
+									{filteredStudents.length} students
 								</p>
 								<div className="flex items-center gap-2">
 									<Button
 										variant="outline"
 										size="sm"
-										onClick={() => setPageIndex((prev) => Math.max(prev - 1, 0))}
+										onClick={() =>
+											setPageIndex((prev) => Math.max(prev - 1, 0))
+										}
 										disabled={safePageIndex === 0}
 									>
 										Previous
@@ -350,9 +363,7 @@ export default function AdminEnrollment({
 										variant="outline"
 										size="sm"
 										onClick={() =>
-											setPageIndex((prev) =>
-												Math.min(prev + 1, totalPages - 1),
-											)
+											setPageIndex((prev) => Math.min(prev + 1, totalPages - 1))
 										}
 										disabled={safePageIndex >= totalPages - 1}
 									>
