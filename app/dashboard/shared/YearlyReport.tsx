@@ -760,6 +760,70 @@ const formatNumber = (value: number | null | undefined, decimals = 0) => {
 	return value.toFixed(decimals);
 };
 
+const areNumberMapsEqual = (
+	a: Record<string, number | null>,
+	b: Record<string, number | null>,
+) => {
+	if (a === b) return true;
+	const aKeys = Object.keys(a);
+	const bKeys = Object.keys(b);
+	if (aKeys.length !== bKeys.length) return false;
+	for (const key of aKeys) {
+		if (a[key] !== b[key]) return false;
+	}
+	return true;
+};
+
+const arePeriodRowsEqual = (
+	a: Array<{ subject: string; grade: number | null }>,
+	b: Array<{ subject: string; grade: number | null }>,
+) => {
+	if (a === b) return true;
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i += 1) {
+		if (a[i].subject !== b[i].subject) return false;
+		if (a[i].grade !== b[i].grade) return false;
+	}
+	return true;
+};
+
+const arePeriodsEqual = (
+	a: StudentYearlyReport['periods'],
+	b: StudentYearlyReport['periods'],
+) => {
+	if (a === b) return true;
+	const aKeys = Object.keys(a);
+	const bKeys = Object.keys(b);
+	if (aKeys.length !== bKeys.length) return false;
+	for (const key of aKeys) {
+		if (!arePeriodRowsEqual(a[key] ?? [], b[key] ?? [])) return false;
+	}
+	return true;
+};
+
+const areReportsEqual = (
+	prev: StudentYearlyReport[],
+	next: StudentYearlyReport[],
+) => {
+	if (prev === next) return true;
+	if (prev.length !== next.length) return false;
+	for (let i = 0; i < prev.length; i += 1) {
+		const a = prev[i];
+		const b = next[i];
+		if (a.studentId !== b.studentId) return false;
+		if (a.studentName !== b.studentName) return false;
+		if (a.yearlyAverage !== b.yearlyAverage) return false;
+		if (!arePeriodsEqual(a.periods, b.periods)) return false;
+		if (!areNumberMapsEqual(a.firstSemesterAverage, b.firstSemesterAverage))
+			return false;
+		if (!areNumberMapsEqual(a.secondSemesterAverage, b.secondSemesterAverage))
+			return false;
+		if (!areNumberMapsEqual(a.periodAverages, b.periodAverages)) return false;
+		if (!areNumberMapsEqual(a.ranks, b.ranks)) return false;
+	}
+	return true;
+};
+
 // Field naming contract for pdf_template_form.pdf:
 // Header: student_name, student_id, class_name, academic_year, sponsor_name
 // Row fields (1-based, zero-padded): subject_01, p1_01, p2_01, p3_01, exam1_01, avg1_01,
@@ -1039,6 +1103,7 @@ function ReportContent({
 	const [copiedPin, setCopiedPin] = useState(false);
 	const [viewLoading, setViewLoading] = useState(false);
 	const resetCopiedTimeoutRef = useRef<number | null>(null);
+	const hasReportDataRef = useRef(false);
 	const showShareNotice = useCallback((message: string, timeoutMs = 4000) => {
 		setShareNotice(message);
 		if (resetCopiedTimeoutRef.current) {
@@ -1085,6 +1150,10 @@ function ReportContent({
 		[className, reportFilters.academicYear],
 	);
 
+	useEffect(() => {
+		hasReportDataRef.current = studentsData.length > 0;
+	}, [studentsData.length]);
+
 	const classSubjects = useMemo(() => {
 		if (!currentSchool) return [];
 		const resolvedMeta =
@@ -1124,11 +1193,12 @@ function ReportContent({
 		return () => window.removeEventListener('resize', checkInlineSupport);
 	}, []);
 
-	const uploadPdfToCache = useCallback(async (blob: Blob) => {
+	const uploadPdfToCache = useCallback(async (blob: Blob, signal?: AbortSignal) => {
 		const response = await fetch('/api/reports/pdf', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/pdf' },
 			body: blob,
+			signal,
 		});
 		if (!response.ok) return null;
 		const data = await response.json();
@@ -1179,6 +1249,57 @@ function ReportContent({
 		},
 		[setShareNotice],
 	);
+
+	const openWithKey = useCallback(
+		(key: string) => {
+			const url = `/api/reports/pdf?key=${encodeURIComponent(
+				key,
+			)}&fileName=${encodeURIComponent(reportFileName)}`;
+			window.open(url, '_blank', 'noopener,noreferrer');
+		},
+		[reportFileName],
+	);
+
+	const openWithBlob = useCallback(() => {
+		if (!downloadUrl) return;
+		window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+	}, [downloadUrl]);
+
+	const handleView = useCallback(async () => {
+		if (!pdfBlob || !downloadUrl) return;
+		if (typeof navigator !== 'undefined' && !navigator.onLine) {
+			openWithBlob();
+			return;
+		}
+		if (serverKey) {
+			openWithKey(serverKey);
+			return;
+		}
+		setViewLoading(true);
+		const controller = new AbortController();
+		const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+		try {
+			const cacheKey = await uploadPdfToCache(pdfBlob, controller.signal);
+			if (cacheKey) {
+				setServerKey(cacheKey);
+				openWithKey(cacheKey);
+			} else {
+				openWithBlob();
+			}
+		} catch {
+			openWithBlob();
+		} finally {
+			window.clearTimeout(timeoutId);
+			setViewLoading(false);
+		}
+	}, [
+		pdfBlob,
+		downloadUrl,
+		serverKey,
+		openWithKey,
+		openWithBlob,
+		uploadPdfToCache,
+	]);
 
 	const queueShare = useCallback(async () => {
 		if (!pdfBlob) return false;
@@ -1272,7 +1393,10 @@ function ReportContent({
 
 	useEffect(() => {
 		const fetchStudentsData = async () => {
-			setLoading(true);
+			const shouldShowLoading = !hasReportDataRef.current;
+			if (shouldShowLoading) {
+				setLoading(true);
+			}
 			setError(null);
 
 			try {
@@ -1520,7 +1644,9 @@ function ReportContent({
 					}),
 				);
 
-				setStudentsData(reportData);
+				setStudentsData((prev) =>
+					areReportsEqual(prev, reportData) ? prev : reportData,
+				);
 				// ONLY stop data loading here. The PDF generation will take over.
 				setLoading(false);
 			} catch (err: any) {
@@ -1788,49 +1914,7 @@ function ReportContent({
 								<div className="flex flex-col items-center gap-3">
 									<button
 										type="button"
-										onClick={() => {
-											if (!pdfBlob || !downloadUrl) return;
-											const openWithKey = (key: string) => {
-												const url = `/api/reports/pdf?key=${encodeURIComponent(
-													key,
-												)}&fileName=${encodeURIComponent(
-													reportFileName,
-												)}`;
-												window.open(url, '_blank', 'noopener,noreferrer');
-											};
-											if (serverKey) {
-												openWithKey(serverKey);
-												return;
-											}
-											setViewLoading(true);
-											fetch('/api/reports/pdf', {
-												method: 'POST',
-												headers: { 'Content-Type': 'application/pdf' },
-												body: pdfBlob,
-											})
-												.then((res) => res.json())
-												.then((data) => {
-													if (data?.cacheKey) {
-														setServerKey(data.cacheKey);
-														openWithKey(data.cacheKey);
-													} else {
-														window.open(
-															downloadUrl,
-															'_blank',
-															'noopener,noreferrer',
-														);
-													}
-													setViewLoading(false);
-												})
-												.catch(() => {
-													window.open(
-														downloadUrl,
-														'_blank',
-														'noopener,noreferrer',
-													);
-													setViewLoading(false);
-												});
-										}}
+										onClick={handleView}
 										disabled={!downloadUrl || pdfGenerating || viewLoading}
 										className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm inline-flex items-center gap-2"
 									>
