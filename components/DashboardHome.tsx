@@ -1,7 +1,9 @@
 // components/DashboardHome.tsx
 'use client';
 import type { SchoolProfile } from '@/types/schoolProfile';
-import DashboardInsights from '@/components/dashboard/DashboardInsights';
+import StudentPerformanceInsights from '@/components/dashboard/StudentPerformanceInsights';
+import TeacherPerformanceInsights from '@/components/dashboard/TeacherPerformanceInsights';
+import SystemAdminDashboard from '@/components/dashboard/SystemAdminDashboard';
 
 interface DashboardHomeProps {
 	user: any;
@@ -12,6 +14,8 @@ export default function DashboardHome({
 	user,
 	schoolProfile,
 }: DashboardHomeProps) {
+	const role = user?.role || 'student';
+	const isAdminRole = role === 'system_admin' || role === 'administrator';
 	return (
 		<div className="dashboard-home">
 			{/* Welcome Section */}
@@ -32,7 +36,19 @@ export default function DashboardHome({
 
 			{/* Dashboard Insights */}
 			<div className="mb-10">
-				<DashboardInsights schoolProfile={schoolProfile} user={user} />
+				{isAdminRole ? (
+					<SystemAdminDashboard schoolProfile={schoolProfile} user={user} />
+				) : role === 'teacher' ? (
+					<TeacherPerformanceInsights
+						schoolProfile={schoolProfile}
+						user={user}
+					/>
+				) : (
+					<StudentPerformanceInsights
+						schoolProfile={schoolProfile}
+						user={user}
+					/>
+				)}
 			</div>
 		</div>
 	);
