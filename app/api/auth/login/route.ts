@@ -18,7 +18,11 @@ export async function POST(request: NextRequest) {
 	}
 
 	const body = await request.json();
-	const { action, username, password, role, otp, sessionId, id } = body; // Changed userId to id
+	let { action, username, password, role, otp, sessionId, id } = body; // Changed userId to id
+
+	if (['student', 'teacher'].includes(role)) {
+		username = username.toUpperCase();
+	}
 
 	const User = await getUserModel(host);
 	let user: any = await (id
