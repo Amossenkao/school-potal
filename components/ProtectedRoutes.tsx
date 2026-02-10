@@ -52,6 +52,22 @@ const ProtectedRoute = ({
 
 	// Handle initial redirect for unauthenticated users
 	useEffect(() => {
+		const navigatorOnline =
+			typeof navigator !== 'undefined' ? navigator.onLine : true;
+		if (!isOnline || !navigatorOnline) {
+			if (!user) {
+				try {
+					const cached = localStorage.getItem('auth-user');
+					if (cached) {
+						hydrateFromCache();
+					}
+				} catch (error) {
+					// ignore cache errors
+				}
+			}
+			return;
+		}
+
 		// ✅ Don't redirect if user is offline and auth check failed
 		if (authCheckFailed && !isOnline) {
 			return; // Stay on the page, show offline message

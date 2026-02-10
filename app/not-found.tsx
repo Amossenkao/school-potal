@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import useAuth from '@/store/useAuth';
 import { PageLoading } from '@/components/loading';
+import { useNetworkStore } from '@/store/networkStore';
 
 export default function NotFound() {
 	const pathname = usePathname();
@@ -11,6 +12,7 @@ export default function NotFound() {
 	const [authChecked, setAuthChecked] = useState(false);
 	const isDashboardRoute = pathname.startsWith('/dashboard');
 	const router = useRouter();
+	const { isOnline } = useNetworkStore();
 
 	useEffect(() => {
 		const initAuth = async () => {
@@ -23,11 +25,11 @@ export default function NotFound() {
 	// Handle navigation after auth is checked
 	useEffect(() => {
 		if (authChecked && !isLoading) {
-			if (isDashboardRoute && !user) {
+			if (isDashboardRoute && !user && isOnline) {
 				router.replace('/login');
 			}
 		}
-	}, [authChecked, isLoading, isDashboardRoute, user, router]);
+	}, [authChecked, isLoading, isDashboardRoute, user, router, isOnline]);
 
 	// Show loading while checking auth
 	// if (!authChecked || isLoading) {
@@ -45,6 +47,17 @@ export default function NotFound() {
 
 	// If it's a dashboard route and user is not logged in, show loading while redirecting
 	if (isDashboardRoute && !user) {
+		if (!isOnline) {
+			return (
+				<div className="flex items-center justify-center h-screen">
+					<PageLoading
+						variant="dashboard-not-found"
+						fullScreen={false}
+						message="You're offline. Reconnect to verify access."
+					/>
+				</div>
+			);
+		}
 		return (
 			<div className="flex items-center justify-center h-screen">
 				<PageLoading

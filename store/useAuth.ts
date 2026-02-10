@@ -314,7 +314,20 @@ const useAuth = create<AuthState>((set, get) => {
 		// MODIFIED: Only clear user state if the server explicitly returns no user,
 		// or if a true network error occurs, set authCheckFailed flag.
 		checkAuthStatus: async () => {
-			const { setAuthCheckFailed } = useNetworkStore.getState();
+			const networkState = useNetworkStore.getState();
+			const { setAuthCheckFailed } = networkState;
+			const navigatorOnline =
+				typeof navigator !== 'undefined' ? navigator.onLine : true;
+			const isOnline = networkState.isOnline && navigatorOnline;
+
+			if (!isOnline) {
+				// Avoid clearing auth when offline; rely on cached user instead.
+				setAuthCheckFailed(true);
+				if (!get().user) {
+					get().hydrateFromCache();
+				}
+				return;
+			}
 
 			try {
 				const schoolState = useSchoolStore.getState();
@@ -343,6 +356,16 @@ const useAuth = create<AuthState>((set, get) => {
 				const data = await res.json().catch(() => ({}));
 
 				console.log('Auth status:', data);
+
+				const stillOnline =
+					(typeof navigator !== 'undefined' ? navigator.onLine : true) &&
+					useNetworkStore.getState().isOnline;
+
+				if (!stillOnline) {
+					// If we lost connectivity mid-flight, keep cached auth state.
+					setAuthCheckFailed(true);
+					return;
+				}
 
 				// Auth check succeeded, clear network failure flag
 				setAuthCheckFailed(false);
