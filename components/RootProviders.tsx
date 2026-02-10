@@ -18,6 +18,8 @@ export default function RootProviders({
 }) {
 	const { school, fetchSchool, hydrateCache } = useSchoolStore();
 	const { hydrateFromCache } = useAuth();
+	const hasAppsFeature = Boolean(school?.enabledFeatures?.includes('apps'));
+	const hasSchoolProfile = Boolean(school);
 
 	useEffect(() => {
 		hydrateCache();
@@ -26,19 +28,32 @@ export default function RootProviders({
 	}, [fetchSchool, hydrateCache, hydrateFromCache]);
 
 	useEffect(() => {
-		if (process.env.NODE_ENV !== 'production') return;
+		if (!hasSchoolProfile) return;
 		if (!('serviceWorker' in navigator)) return;
-		const register = async () => {
+		const manageServiceWorker = async () => {
+			if (!hasAppsFeature) {
+				try {
+					const registrations = await navigator.serviceWorker.getRegistrations();
+					await Promise.all(
+						registrations.map((registration) => registration.unregister())
+					);
+				} catch (error) {
+					console.warn('Service worker cleanup failed:', error);
+				}
+				return;
+			}
+			if (process.env.NODE_ENV !== 'production') return;
 			try {
 				await navigator.serviceWorker.register('/sw.js');
 			} catch (error) {
 				console.warn('Service worker registration failed:', error);
 			}
 		};
-		register();
-	}, []);
+		manageServiceWorker();
+	}, [hasAppsFeature, hasSchoolProfile]);
 
 	useEffect(() => {
+		if (!hasAppsFeature) return;
 		if (!('serviceWorker' in navigator)) return;
 		const flushQueue = () => {
 			if (navigator.serviceWorker.controller) {
@@ -50,7 +65,7 @@ export default function RootProviders({
 		window.addEventListener('online', flushQueue);
 		flushQueue();
 		return () => window.removeEventListener('online', flushQueue);
-	}, []);
+	}, [hasAppsFeature]);
 
 	const isOffline =
 		typeof navigator !== 'undefined' && navigator.onLine === false;
