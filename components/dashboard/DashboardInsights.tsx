@@ -23,6 +23,21 @@ import type { SchoolProfile } from '@/types/schoolProfile';
 
 type DashboardInsightsProps = {
 	schoolProfile: SchoolProfile;
+	user: {
+		id?: string;
+		_id?: string;
+		role?: string;
+		classId?: string;
+		className?: string;
+		historicalClass?: { classId?: string; className?: string };
+		currentClass?: { classId?: string; className?: string };
+		subjects?: {
+			year: string;
+			classes: { classId: string; subjects: string[] }[];
+		}[];
+		gender?: string;
+		dateOfBirth?: string;
+	};
 };
 
 type StudentRecord = {
@@ -83,24 +98,34 @@ const getStudentClassLabel = (student: StudentRecord) =>
 
 export default function DashboardInsights({
 	schoolProfile,
+	user,
 }: DashboardInsightsProps) {
 	const academicYearOptions = useMemo(() => {
-		const years = Object.keys(schoolProfile.classLevels || {});
-		if (years.length > 0) {
-			return years.sort().map((year) => ({ value: year, label: year }));
+		const current = schoolProfile.currentAcademicYear || '';
+		const first = schoolProfile.firstAcademicYear || '';
+		const parseStart = (value: string) => {
+			const match = value.match(/^(\d{4})/);
+			return match ? Number(match[1]) : null;
+		};
+		const startYear = parseStart(first);
+		const endYear = parseStart(current);
+		if (startYear && endYear && endYear >= startYear) {
+			const years: Option[] = [];
+			for (let year = endYear; year >= startYear; year -= 1) {
+				years.push({
+					value: `${year}-${year + 1}`,
+					label: `${year}-${year + 1}`,
+				});
+			}
+			return years;
 		}
-		if (schoolProfile.currentAcademicYear) {
-			return [
-				{
-					value: schoolProfile.currentAcademicYear,
-					label: schoolProfile.currentAcademicYear,
-				},
-			];
+		if (current) {
+			return [{ value: current, label: current }];
 		}
 		return [];
 	}, [schoolProfile]);
 
-	const classOptions = useMemo(() => {
+	const baseClassOptions = useMemo(() => {
 		const options: Option[] = [];
 		const seen = new Set<string>();
 		Object.values(schoolProfile.classLevels || {}).forEach((session) => {
@@ -118,8 +143,9 @@ export default function DashboardInsights({
 		return options;
 	}, [schoolProfile]);
 
+	const currentAcademicYear = schoolProfile.currentAcademicYear || '';
 	const [selectedYear, setSelectedYear] = useState(
-		academicYearOptions[0]?.value || ''
+		currentAcademicYear || academicYearOptions[0]?.value || ''
 	);
 	const [selectedClassId, setSelectedClassId] = useState('all');
 	const [selectedGender, setSelectedGender] = useState('all');
@@ -127,11 +153,65 @@ export default function DashboardInsights({
 	const [isLoading, setIsLoading] = useState(false);
 	const [errorMessage, setErrorMessage] = useState('');
 
+	const role = user?.role || 'student';
+	const teacherClassIds = useMemo(() => {
+		if (role !== 'teacher') return [];
+		const relevantSubjects = user?.subjects?.filter((subject) =>
+			selectedYear ? subject.year === selectedYear : true,
+		);
+		const classIds = (relevantSubjects || []).flatMap((subject) =>
+			subject.classes.map((klass) => klass.classId),
+		);
+		return Array.from(new Set(classIds));
+	}, [role, user?.subjects, selectedYear]);
+
+	const studentClassId =
+		user?.classId ||
+		user?.historicalClass?.classId ||
+		user?.currentClass?.classId ||
+		'';
+
+	const classOptions = useMemo(() => {
+		if (role === 'student') {
+			if (!studentClassId) return [];
+			const match = baseClassOptions.find(
+				(option) => option.value === studentClassId,
+			);
+			return match ? [match] : [];
+		}
+		if (role === 'teacher') {
+			return baseClassOptions.filter((option) =>
+				teacherClassIds.includes(option.value),
+			);
+		}
+		return baseClassOptions;
+	}, [role, baseClassOptions, teacherClassIds, studentClassId]);
+
 	useEffect(() => {
 		if (!selectedYear && academicYearOptions.length > 0) {
-			setSelectedYear(academicYearOptions[0].value);
+			const nextYear =
+				currentAcademicYear || academicYearOptions[0].value || '';
+			setSelectedYear(nextYear);
 		}
-	}, [academicYearOptions, selectedYear]);
+	}, [academicYearOptions, selectedYear, currentAcademicYear]);
+
+	useEffect(() => {
+		if (role === 'student') {
+			if (studentClassId) {
+				setSelectedClassId(studentClassId);
+			}
+			return;
+		}
+		if (role === 'teacher') {
+			if (teacherClassIds.length === 1) {
+				setSelectedClassId(teacherClassIds[0]);
+			} else {
+				setSelectedClassId('all');
+			}
+			return;
+		}
+		setSelectedClassId('all');
+	}, [role, studentClassId, teacherClassIds]);
 
 	useEffect(() => {
 		if (!selectedYear) return;
@@ -141,15 +221,70 @@ export default function DashboardInsights({
 			try {
 				setIsLoading(true);
 				setErrorMessage('');
+				if (role === 'student') {
+					setStudents([
+						{
+							id: user?.id || user?._id || 'me',
+							gender: user?.gender,
+							dateOfBirth: user?.dateOfBirth,
+							className:
+								user?.className ||
+								user?.historicalClass?.className ||
+								user?.currentClass?.className ||
+								'',
+							classId: studentClassId || '',
+							historicalClass: user?.historicalClass,
+							currentClass: user?.currentClass,
+						},
+					]);
+					return;
+				}
+
+				const fetchForClass = async (classId: string) => {
+					const response = await fetch(
+						`/api/users?role=student&academicYear=${encodeURIComponent(
+							selectedYear,
+						)}&classId=${encodeURIComponent(classId)}`,
+						{ signal: controller.signal },
+					);
+					const payload = await response.json();
+					if (!response.ok || !payload?.success) {
+						throw new Error(payload?.message || 'Failed to load student data.');
+					}
+					return Array.isArray(payload.data)
+						? payload.data
+						: payload.data?.students || [];
+				};
+
+				if (role === 'teacher') {
+					const targets =
+						selectedClassId !== 'all' ? [selectedClassId] : teacherClassIds;
+					if (targets.length === 0) {
+						setStudents([]);
+						return;
+					}
+					const results = await Promise.all(
+						targets.map((classId) => fetchForClass(classId)),
+					);
+					const merged = new Map<string, StudentRecord>();
+					results.flat().forEach((student: StudentRecord) => {
+						const key = student.id || (student as any)._id;
+						if (!key) return;
+						merged.set(key, student);
+					});
+					setStudents(Array.from(merged.values()));
+					return;
+				}
+
 				const classParam =
 					selectedClassId !== 'all'
 						? `&classId=${encodeURIComponent(selectedClassId)}`
 						: '';
 				const response = await fetch(
 					`/api/users?role=student&academicYear=${encodeURIComponent(
-						selectedYear
+						selectedYear,
 					)}${classParam}`,
-					{ signal: controller.signal }
+					{ signal: controller.signal },
 				);
 				const payload = await response.json();
 				if (!response.ok || !payload?.success) {
@@ -171,7 +306,7 @@ export default function DashboardInsights({
 
 		fetchStudents();
 		return () => controller.abort();
-	}, [selectedYear, selectedClassId]);
+	}, [selectedYear, selectedClassId, role, teacherClassIds, studentClassId, user]);
 
 	const filteredStudents = useMemo(() => {
 		if (selectedGender === 'all') return students;
@@ -260,21 +395,23 @@ export default function DashboardInsights({
 								))}
 							</select>
 						</div>
-						<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-							Class
-							<select
-								className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-								value={selectedClassId}
-								onChange={(event) => setSelectedClassId(event.target.value)}
-							>
-								<option value="all">All classes</option>
-								{classOptions.map((option) => (
-									<option key={option.value} value={option.value}>
-										{option.label}
-									</option>
-								))}
-							</select>
-						</div>
+						{role !== 'student' ? (
+							<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+								Class
+								<select
+									className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+									value={selectedClassId}
+									onChange={(event) => setSelectedClassId(event.target.value)}
+								>
+									<option value="all">All classes</option>
+									{classOptions.map((option) => (
+										<option key={option.value} value={option.value}>
+											{option.label}
+										</option>
+									))}
+								</select>
+							</div>
+						) : null}
 						<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
 							Gender
 							<select

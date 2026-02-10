@@ -32,7 +32,7 @@ export default function DashboardHome({
 
 			{/* Dashboard Insights */}
 			<div className="mb-10">
-				<DashboardInsights schoolProfile={schoolProfile} />
+				<DashboardInsights schoolProfile={schoolProfile} user={user} />
 			</div>
 		</div>
 	);
