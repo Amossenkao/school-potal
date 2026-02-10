@@ -13,6 +13,7 @@ type SchoolStore = {
 	>;
 	usersVersionByAcademicYear: Record<string, number>;
 	calendarByAcademicYear: Record<string, any[]>;
+	gradesByAcademicYear: Record<string, any[]>;
 	schedulesByAcademicYear: Record<
 		string,
 		{
@@ -33,6 +34,7 @@ type SchoolStore = {
 	) => void;
 	setUsersVersionForYear: (academicYear: string, version: number) => void;
 	setCalendarForYear: (academicYear: string, events: any[]) => void;
+	setGradesForYear: (academicYear: string, grades: any[]) => void;
 	setSchedulesForYear: (
 		academicYear: string,
 		payload: { classSchedules?: any[]; testSchedules?: any[] },
@@ -61,6 +63,7 @@ const writeSchoolCache = (payload: {
 	usersByAcademicYear: Record<string, any>;
 	usersVersionByAcademicYear: Record<string, number>;
 	calendarByAcademicYear: Record<string, any[]>;
+	gradesByAcademicYear: Record<string, any[]>;
 	schedulesByAcademicYear: Record<string, any>;
 }) => {
 	if (typeof window === 'undefined') return;
@@ -76,6 +79,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	usersByAcademicYear: {},
 	usersVersionByAcademicYear: {},
 	calendarByAcademicYear: {},
+	gradesByAcademicYear: {},
 	schedulesByAcademicYear: {},
 
 	fetchSchool: async () => {
@@ -168,6 +172,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				usersByAcademicYear,
 				usersVersionByAcademicYear: state.usersVersionByAcademicYear,
 				calendarByAcademicYear: state.calendarByAcademicYear,
+				gradesByAcademicYear: state.gradesByAcademicYear,
 				schedulesByAcademicYear: state.schedulesByAcademicYear,
 			});
 			return { usersByAcademicYear };
@@ -185,9 +190,10 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				writeSchoolCache({
 					usersByAcademicYear: state.usersByAcademicYear,
 					usersVersionByAcademicYear,
-					calendarByAcademicYear: state.calendarByAcademicYear,
-					schedulesByAcademicYear: state.schedulesByAcademicYear,
-				});
+				calendarByAcademicYear: state.calendarByAcademicYear,
+				gradesByAcademicYear: state.gradesByAcademicYear,
+				schedulesByAcademicYear: state.schedulesByAcademicYear,
+			});
 				return usersVersionByAcademicYear;
 			})(),
 		}));
@@ -204,9 +210,28 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				usersByAcademicYear: state.usersByAcademicYear,
 				usersVersionByAcademicYear: state.usersVersionByAcademicYear,
 				calendarByAcademicYear,
+				gradesByAcademicYear: state.gradesByAcademicYear,
 				schedulesByAcademicYear: state.schedulesByAcademicYear,
 			});
 			return { calendarByAcademicYear };
+		});
+	},
+
+	setGradesForYear: (academicYear, grades) => {
+		if (!academicYear) return;
+		set((state) => {
+			const gradesByAcademicYear = {
+				...state.gradesByAcademicYear,
+				[academicYear]: Array.isArray(grades) ? grades : [],
+			};
+			writeSchoolCache({
+				usersByAcademicYear: state.usersByAcademicYear,
+				usersVersionByAcademicYear: state.usersVersionByAcademicYear,
+				calendarByAcademicYear: state.calendarByAcademicYear,
+				gradesByAcademicYear,
+				schedulesByAcademicYear: state.schedulesByAcademicYear,
+			});
+			return { gradesByAcademicYear };
 		});
 	},
 
@@ -224,6 +249,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				usersByAcademicYear: state.usersByAcademicYear,
 				usersVersionByAcademicYear: state.usersVersionByAcademicYear,
 				calendarByAcademicYear: state.calendarByAcademicYear,
+				gradesByAcademicYear: state.gradesByAcademicYear,
 				schedulesByAcademicYear,
 			});
 			return { schedulesByAcademicYear };
@@ -234,9 +260,10 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		set({
 			usersByAcademicYear: {},
 			usersVersionByAcademicYear: {},
-			calendarByAcademicYear: {},
-			schedulesByAcademicYear: {},
-		});
+		calendarByAcademicYear: {},
+		gradesByAcademicYear: {},
+		schedulesByAcademicYear: {},
+	});
 		if (typeof window !== 'undefined') {
 			try {
 				localStorage.removeItem(SCHOOL_CACHE_KEY);
@@ -254,8 +281,10 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				cached.usersVersionByAcademicYear || state.usersVersionByAcademicYear,
 			calendarByAcademicYear:
 				cached.calendarByAcademicYear || state.calendarByAcademicYear,
-			schedulesByAcademicYear:
-				cached.schedulesByAcademicYear || state.schedulesByAcademicYear,
-		}));
+		schedulesByAcademicYear:
+			cached.schedulesByAcademicYear || state.schedulesByAcademicYear,
+		gradesByAcademicYear:
+			cached.gradesByAcademicYear || state.gradesByAcademicYear,
+	}));
 	},
 }));

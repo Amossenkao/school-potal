@@ -112,6 +112,11 @@ const useAuth = create<AuthState>((set, get) => {
 						.getState()
 						.setSchedulesForYear(data.academicYear, data.schedules);
 				}
+				if (data.academicYear && Array.isArray(data.grades)) {
+					useSchoolStore
+						.getState()
+						.setGradesForYear(data.academicYear, data.grades);
+				}
 
 				set({
 					user: data.user,
@@ -200,6 +205,11 @@ const useAuth = create<AuthState>((set, get) => {
 					useSchoolStore
 						.getState()
 						.setSchedulesForYear(data.academicYear, data.schedules);
+				}
+				if (data.academicYear && Array.isArray(data.grades)) {
+					useSchoolStore
+						.getState()
+						.setGradesForYear(data.academicYear, data.grades);
 				}
 
 				set({
@@ -372,6 +382,11 @@ const useAuth = create<AuthState>((set, get) => {
 					useSchoolStore
 						.getState()
 						.setSchedulesForYear(data.academicYear, data.schedules);
+				}
+				if (data.academicYear && Array.isArray(data.grades)) {
+					useSchoolStore
+						.getState()
+						.setGradesForYear(data.academicYear, data.grades);
 				}
 
 				if (data.user) {

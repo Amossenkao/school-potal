@@ -65,6 +65,9 @@ const SubmitGrade: React.FC = () => {
 	const usersByAcademicYear = useSchoolStore(
 		(state) => state.usersByAcademicYear,
 	);
+	const gradesByAcademicYear = useSchoolStore(
+		(state) => state.gradesByAcademicYear,
+	);
 	const { user } = useAuth();
 	const { isOnline } = useNetworkStore();
 	const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
@@ -353,15 +356,38 @@ const SubmitGrade: React.FC = () => {
 			}
 
 			let existingGradesData: any = null;
-			try {
-				const existingGradesRes = await fetch(
-					`/api/grades?academicYear=${selectedAcademicYear}&classId=${selectedClassId}&subject=${selectedSubject}`
+			const cachedGrades = Array.isArray(
+				gradesByAcademicYear?.[selectedAcademicYear],
+			)
+				? gradesByAcademicYear[selectedAcademicYear]
+				: [];
+			const useCachedGrades = () => {
+				if (!cachedGrades.length) return;
+				const filtered = cachedGrades.filter(
+					(grade: any) =>
+						grade?.classId === selectedClassId &&
+						grade?.subject === selectedSubject,
 				);
-				if (existingGradesRes.ok) {
-					existingGradesData = await existingGradesRes.json();
+				if (filtered.length > 0) {
+					existingGradesData = { data: { grades: filtered } };
 				}
-			} catch (error) {
-				existingGradesData = null;
+			};
+
+			if (!isOnline) {
+				useCachedGrades();
+			} else {
+				try {
+					const existingGradesRes = await fetch(
+						`/api/grades?academicYear=${selectedAcademicYear}&classId=${selectedClassId}&subject=${selectedSubject}`
+					);
+					if (existingGradesRes.ok) {
+						existingGradesData = await existingGradesRes.json();
+					} else {
+						useCachedGrades();
+					}
+				} catch (error) {
+					useCachedGrades();
+				}
 			}
 
 			const reportStudentsMap = new Map();
@@ -431,6 +457,7 @@ const SubmitGrade: React.FC = () => {
 		periods,
 		isOnline,
 		usersByAcademicYear,
+		gradesByAcademicYear,
 		getStudentClassIdForYear,
 	]);
 
@@ -574,6 +601,19 @@ const SubmitGrade: React.FC = () => {
 					period: period,
 				}))
 		);
+
+		const invalidGrades = gradesToSubmit.filter(
+			(grade) =>
+				Number.isNaN(grade.grade) || grade.grade < 60 || grade.grade > 100,
+		);
+		if (invalidGrades.length > 0) {
+			showNotification(
+				'error',
+				'Grades must be between 60 and 100 before submitting.',
+			);
+			setLoading((prev) => ({ ...prev, submittingGrades: false }));
+			return;
+		}
 
 		if (gradesToSubmit.length === 0) {
 			showNotification(

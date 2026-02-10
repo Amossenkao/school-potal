@@ -634,6 +634,19 @@ const GradeSubmissions = () => {
 			}));
 
 		if (changes.length === 0) return;
+		const invalidChanges = changes.filter(
+			(c) =>
+				Number.isNaN(c.requestedGrade) ||
+				c.requestedGrade < 60 ||
+				c.requestedGrade > 100
+		);
+		if (invalidChanges.length > 0) {
+			showNotification(
+				'error',
+				'Grades must be between 60 and 100 before submitting.'
+			);
+			return;
+		}
 
 		// Check if a reason is required and is missing
 		const requiresReason = changes.some((c) => {
@@ -677,6 +690,15 @@ const GradeSubmissions = () => {
 				throw new Error(
 					result.message || 'Failed to submit grade change request.'
 				);
+			}
+
+			if (result?.queued) {
+				showNotification(
+					'info',
+					'You are offline. Grade change requests were queued and will sync when you reconnect.'
+				);
+				setShowDetailsModal(false);
+				return;
 			}
 
 			if (result.success) {

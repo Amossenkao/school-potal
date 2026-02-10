@@ -114,7 +114,7 @@ self.addEventListener('fetch', (event) => {
 	const url = new URL(request.url);
 	const isSameOrigin = url.origin === self.location.origin;
 
-if (request.method === 'POST' && isSameOrigin && url.pathname === '/api/grades') {
+if (request.method === 'POST' && isSameOrigin && url.pathname.startsWith('/api/grades')) {
 	const isOffline =
 		typeof self.navigator === 'undefined' ? false : !self.navigator.onLine;
 	if (isOffline) {

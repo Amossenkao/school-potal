@@ -6,6 +6,7 @@ export type FeatureKey =
 	| 'ai_chat'
 	| 'homepage'
 	| 'enrollment_info'
+	| 'apps'
 
 	// Academic Features
 	| 'grading_system'

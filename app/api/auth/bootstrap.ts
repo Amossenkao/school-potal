@@ -152,6 +152,34 @@ const fetchSchedules = async (
 	return { classSchedules, testSchedules };
 };
 
+const fetchGradesForRole = async (currentUser: any, academicYear: string) => {
+	const models = await getTenantModels();
+	const { Grade } = models;
+	if (!Grade) return [];
+
+	if (currentUser?.role === 'student') {
+		const studentId = currentUser.studentId || currentUser.username;
+		if (!studentId) return [];
+		return Grade.find({ academicYear, studentId }).lean();
+	}
+
+	if (currentUser?.role === 'teacher') {
+		const classIds = getTeacherClassIdsForYear(currentUser, academicYear);
+		if (classIds.length === 0 || !currentUser.username) return [];
+		return Grade.find({
+			academicYear,
+			classId: { $in: classIds },
+			teacherUsername: currentUser.username,
+		}).lean();
+	}
+
+	if (currentUser?.role === 'system_admin') {
+		return Grade.find({ academicYear }).lean();
+	}
+
+	return [];
+};
+
 const fetchUsersForRole = async (currentUser: any, academicYear: string) => {
 	const models = await getTenantModels();
 
@@ -242,10 +270,11 @@ export const buildBootstrapPayload = async (
 			: await getUsersVersion(academicYear);
 	const includeUsers = options.includeUsers !== false;
 
-	const [users, calendarEvents, schedules] = await Promise.all([
+	const [users, calendarEvents, schedules, grades] = await Promise.all([
 		includeUsers ? fetchUsersForRole(currentUser, academicYear) : null,
 		fetchCalendarEvents(academicYear),
 		fetchSchedules(currentUser, academicYear),
+		fetchGradesForRole(currentUser, academicYear),
 	]);
 
 	return {
@@ -255,5 +284,6 @@ export const buildBootstrapPayload = async (
 		usersVersion,
 		calendarEvents,
 		schedules,
+		grades,
 	};
 };
