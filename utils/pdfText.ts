@@ -102,7 +102,12 @@ const resolveAlignedY = (
 	return placement.y - (placement.boxHeight + textHeight) / 2;
 };
 
-const drawDebugBox = (page: PDFPage, placement: TextPlacement) => {
+const drawDebugBox = (
+	page: PDFPage,
+	placement: TextPlacement,
+	label: string,
+	font: PDFFont,
+) => {
 	const width = placement.maxWidth ?? 2;
 	const height = placement.boxHeight ?? 2;
 	let x = placement.x;
@@ -120,6 +125,13 @@ const drawDebugBox = (page: PDFPage, placement: TextPlacement) => {
 		borderColor: rgb(1, 0, 0),
 		borderWidth: 0.5,
 		opacity: 0.15,
+	});
+	page.drawText(label, {
+		x,
+		y: y + height + 2,
+		size: 6,
+		font,
+		color: rgb(1, 0, 0),
 	});
 };
 
@@ -167,7 +179,8 @@ export const drawTextMap = ({
 			});
 
 			if (debug) {
-				drawDebugBox(page, placement);
+				const label = `${key} @ ${placement.x.toFixed(1)},${placement.y.toFixed(1)}`;
+				drawDebugBox(page, placement, label, fonts.normal);
 			}
 		}
 	});
