@@ -6,7 +6,13 @@ import React, {
 	useMemo,
 	useCallback,
 } from 'react';
-import { PDFDocument, StandardFonts } from 'pdf-lib';
+import {
+	PDFDocument,
+	StandardFonts,
+	rgb,
+	type PDFFont,
+	type PDFPage,
+} from 'pdf-lib';
 import {
 	Facebook,
 	Mail,
@@ -21,7 +27,7 @@ import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import AccessDenied from '@/components/AccessDenied';
 import { drawTextMap } from '@/utils/pdfText';
-import { buildReportPlacements } from '@/app/dashboard/shared/reportPdfLayout';
+import { buildSemesterCardPlacements } from '@/app/dashboard/shared/reportPdfLayout';
 import {
 	buildReportTemplateUrl,
 	DEFAULT_REPORT_TEMPLATE_URL,
@@ -99,6 +105,247 @@ const getStudentClassIdForYear = (student: any, academicYear: string) => {
 		? student.academicYears.find((ay: any) => ay.year === academicYear)
 		: null;
 	return yearEntry?.classId || student?.classId || '';
+};
+
+const normalizeStudentId = (...ids: Array<unknown>) => {
+	for (const id of ids) {
+		if (id === null || id === undefined) continue;
+		const normalized = String(id).trim();
+		if (normalized) return normalized;
+	}
+	return '';
+};
+
+const buildStudentFullName = (student: any) =>
+	[student?.firstName, student?.middleName, student?.lastName]
+		.map((part) => (typeof part === 'string' ? part.trim() : ''))
+		.filter(Boolean)
+		.join(' ');
+
+const resolveStudentDisplayName = (
+	student: any,
+	fallbackName = '',
+) => {
+	const fullName = buildStudentFullName(student);
+	if (fullName) return fullName;
+
+	const cachedName =
+		typeof student?.name === 'string' ? student.name.trim() : '';
+	if (cachedName) return cachedName;
+
+	const apiName =
+		typeof student?.studentName === 'string'
+			? student.studentName.trim()
+			: '';
+	if (apiName) return apiName;
+
+	return fallbackName;
+};
+
+const REPORT_PERIOD_KEYS = [
+	'first',
+	'second',
+	'third',
+	'third_period_exam',
+	'fourth',
+	'fifth',
+	'sixth',
+	'six_period_exam',
+] as const;
+
+type ReportPeriodKey = (typeof REPORT_PERIOD_KEYS)[number];
+
+const normalizeReportPeriodKey = (period: unknown): ReportPeriodKey | null => {
+	const normalized = String(period || '').trim();
+	if (normalized === 'sixth_period_exam') return 'six_period_exam';
+	if (REPORT_PERIOD_KEYS.includes(normalized as ReportPeriodKey)) {
+		return normalized as ReportPeriodKey;
+	}
+	return null;
+};
+
+const createPeriodBuckets = (subjects: string[]) =>
+	REPORT_PERIOD_KEYS.reduce(
+		(acc, period) => {
+			acc[period] = subjects.map((subject) => ({
+				subject,
+				grade: null as number | null,
+			}));
+			return acc;
+		},
+		{} as Record<
+			ReportPeriodKey,
+			Array<{ subject: string; grade: number | null }>
+		>,
+	);
+
+const averageNumbers = (values: Array<number | null | undefined>) => {
+	const numericValues = values.filter(
+		(value): value is number =>
+			typeof value === 'number' && Number.isFinite(value),
+	);
+	if (!numericValues.length) return null;
+	const sum = numericValues.reduce((total, value) => total + value, 0);
+	return Number((sum / numericValues.length).toFixed(1));
+};
+
+const buildReportsFromGradeRows = ({
+	grades,
+	classSubjects,
+	studentsToProcess,
+}: {
+	grades: any[];
+	classSubjects: string[];
+	studentsToProcess: any[];
+}) => {
+	const normalizedSubjects = classSubjects.map((subject) => String(subject));
+	const reportsByStudentId = new Map<string, StudentSemesterReport>();
+
+	const ensureStudentReport = (studentId: string, studentName = '') => {
+		const existingReport = reportsByStudentId.get(studentId);
+		if (existingReport) {
+			if (!existingReport.studentName && studentName) {
+				existingReport.studentName = studentName;
+			}
+			return existingReport;
+		}
+
+		const periods = createPeriodBuckets(normalizedSubjects);
+		const firstSemesterAverage: Record<string, number | null> = {};
+		const secondSemesterAverage: Record<string, number | null> = {};
+		normalizedSubjects.forEach((subject) => {
+			firstSemesterAverage[subject] = null;
+			secondSemesterAverage[subject] = null;
+		});
+
+		const report: StudentSemesterReport = {
+			studentId,
+			studentName,
+			periods,
+			firstSemesterAverage,
+			secondSemesterAverage,
+			periodAverages: {
+				first: null,
+				second: null,
+				third: null,
+				third_period_exam: null,
+				fourth: null,
+				fifth: null,
+				sixth: null,
+				six_period_exam: null,
+				firstSemesterAverage: null,
+				secondSemesterAverage: null,
+			},
+			yearlyAverage: null,
+			ranks: {
+				first: null,
+				second: null,
+				third: null,
+				third_period_exam: null,
+				fourth: null,
+				fifth: null,
+				sixth: null,
+				six_period_exam: null,
+				firstSemesterAverage: null,
+				secondSemesterAverage: null,
+				yearly: null,
+			},
+		};
+		reportsByStudentId.set(studentId, report);
+		return report;
+	};
+
+	const ensureSubject = (report: StudentSemesterReport, subject: string) => {
+		if (Object.prototype.hasOwnProperty.call(report.firstSemesterAverage, subject)) {
+			return;
+		}
+		REPORT_PERIOD_KEYS.forEach((periodKey) => {
+			report.periods[periodKey].push({ subject, grade: null });
+		});
+		report.firstSemesterAverage[subject] = null;
+		report.secondSemesterAverage[subject] = null;
+	};
+
+	studentsToProcess.forEach((student) => {
+		const studentId = normalizeStudentId(
+			student?.studentId,
+			student?.id,
+			student?._id,
+		);
+		if (!studentId) return;
+		const studentName = resolveStudentDisplayName(student);
+		ensureStudentReport(studentId, studentName);
+	});
+
+	grades.forEach((gradeRow) => {
+		const studentId = normalizeStudentId(
+			gradeRow?.studentId,
+			gradeRow?.id,
+			gradeRow?._id,
+		);
+		if (!studentId) return;
+		const period = normalizeReportPeriodKey(gradeRow?.period);
+		if (!period) return;
+
+		const subject = String(gradeRow?.subject || '').trim();
+		if (!subject) return;
+
+		const studentName =
+			typeof gradeRow?.studentName === 'string' ? gradeRow.studentName : '';
+		const report = ensureStudentReport(studentId, studentName);
+		ensureSubject(report, subject);
+
+		const subjectIndex = report.periods[period].findIndex(
+			(entry) => entry.subject === subject,
+		);
+		if (subjectIndex === -1) return;
+
+		const gradeValue =
+			typeof gradeRow?.grade === 'number' && Number.isFinite(gradeRow.grade)
+				? gradeRow.grade
+				: null;
+		report.periods[period][subjectIndex].grade = gradeValue;
+	});
+
+	reportsByStudentId.forEach((report) => {
+		const subjects = Object.keys(report.firstSemesterAverage);
+		subjects.forEach((subject) => {
+			const getSubjectGrade = (period: ReportPeriodKey) =>
+				report.periods[period].find((entry) => entry.subject === subject)?.grade ??
+				null;
+
+			report.firstSemesterAverage[subject] = averageNumbers([
+				getSubjectGrade('first'),
+				getSubjectGrade('second'),
+				getSubjectGrade('third'),
+				getSubjectGrade('third_period_exam'),
+			]);
+			report.secondSemesterAverage[subject] = averageNumbers([
+				getSubjectGrade('fourth'),
+				getSubjectGrade('fifth'),
+				getSubjectGrade('sixth'),
+				getSubjectGrade('six_period_exam'),
+			]);
+		});
+
+		REPORT_PERIOD_KEYS.forEach((periodKey) => {
+			report.periodAverages[periodKey] = averageNumbers(
+				report.periods[periodKey].map((entry) => entry.grade),
+			);
+		});
+		report.periodAverages.firstSemesterAverage = averageNumbers(
+			Object.values(report.firstSemesterAverage),
+		);
+		report.periodAverages.secondSemesterAverage = averageNumbers(
+			Object.values(report.secondSemesterAverage),
+		);
+		report.yearlyAverage = averageNumbers([
+			report.periodAverages.firstSemesterAverage,
+			report.periodAverages.secondSemesterAverage,
+		]);
+	});
+
+	return Array.from(reportsByStudentId.values());
 };
 
 const StudentMultiSelect = React.memo(function StudentMultiSelect({
@@ -312,13 +559,18 @@ const FilterContent = React.memo(function FilterContent({
 			currentSchool?.classLevels,
 			classIdForYear,
 		);
+		const currentStudentId = normalizeStudentId(
+			user?.studentId,
+			user?.id,
+			user?._id,
+		);
 
 		setFilters((prev) => ({
 			...prev,
 			session: classMeta?.session || prev.session,
 			classLevel: classMeta?.level || prev.classLevel,
 			className: classIdForYear || prev.className,
-			selectedStudents: [user.studentId || ''],
+			selectedStudents: currentStudentId ? [currentStudentId] : [],
 		}));
 	}, [isStudent, user, filters.academicYear, setFilters, currentSchool]);
 
@@ -414,10 +666,12 @@ const FilterContent = React.memo(function FilterContent({
 								filters.academicYear,
 							);
 							return {
-								id: student.studentId || student.id,
-								name: `${student.firstName} ${
-									student.middleName ? student.middleName + ' ' : ''
-								}${student.lastName}`.trim(),
+								id: normalizeStudentId(
+									student.studentId,
+									student.id,
+									student._id,
+								),
+								name: resolveStudentDisplayName(student),
 								className: classId,
 							};
 						});
@@ -445,10 +699,12 @@ const FilterContent = React.memo(function FilterContent({
 							{ merge: true },
 						);
 						const mappedStudents = responseData.data.map((student: any) => ({
-							id: student.studentId,
-							name: `${student.firstName} ${
-								student.middleName ? student.middleName + ' ' : ''
-							}${student.lastName}`.trim(),
+							id: normalizeStudentId(
+								student.studentId,
+								student.id,
+								student._id,
+							),
+							name: resolveStudentDisplayName(student),
 							className: student.classId,
 						}));
 						setStudents(mappedStudents);
@@ -804,12 +1060,23 @@ const buildSemesterFieldMap = ({
 	reportFilters: ReportFilters;
 }) => {
 	const classDisplayName = className.split('-')[0] || className;
+	const semesterLabel =
+		reportFilters.semester === 'first' ? '1ST SEMESTER' : '2ND SEMESTER';
+	const reportTitle = `${
+		(reportFilters.classLevel || '').toUpperCase()
+	} ${semesterLabel} REPORT`;
 
 	const fields: Record<string, string> = {
 		student_name: studentData.studentName,
 		student_id: studentData.studentId,
 		class_name: classDisplayName,
 		academic_year: reportFilters.academicYear,
+		report_title: reportTitle.trim(),
+		period_header_1: reportFilters.semester === 'first' ? '1st Pd' : '4th Pd',
+		period_header_2: reportFilters.semester === 'first' ? '2nd Pd' : '5th Pd',
+		period_header_3: reportFilters.semester === 'first' ? '3rd Pd' : '6th Pd',
+		period_header_4: 'Exam',
+		period_header_5: 'Average',
 	};
 
 	const getGrade = (period: string, subject: string) =>
@@ -822,17 +1089,17 @@ const buildSemesterFieldMap = ({
 	classSubjects.forEach((subject, index) => {
 		const row = padRowIndex(index);
 		fields[`subject_${row}`] = subject;
-		fields[`p1_${row}`] = '-';
-		fields[`p2_${row}`] = '-';
-		fields[`p3_${row}`] = '-';
-		fields[`exam1_${row}`] = '-';
-		fields[`avg1_${row}`] = '-';
-		fields[`p4_${row}`] = '-';
-		fields[`p5_${row}`] = '-';
-		fields[`p6_${row}`] = '-';
-		fields[`exam2_${row}`] = '-';
-		fields[`avg2_${row}`] = '-';
-		fields[`year_${row}`] = '-';
+		fields[`p1_${row}`] = '';
+		fields[`p2_${row}`] = '';
+		fields[`p3_${row}`] = '';
+		fields[`exam1_${row}`] = '';
+		fields[`avg1_${row}`] = '';
+		fields[`p4_${row}`] = '';
+		fields[`p5_${row}`] = '';
+		fields[`p6_${row}`] = '';
+		fields[`exam2_${row}`] = '';
+		fields[`avg2_${row}`] = '';
+		fields[`year_${row}`] = '';
 
 		if (isFirstSemester) {
 			fields[`p1_${row}`] = formatNumber(getGrade('first', subject), 0);
@@ -863,69 +1130,69 @@ const buildSemesterFieldMap = ({
 
 	fields.avg_p1 = isFirstSemester
 		? formatNumber(studentData.periodAverages.first, 1)
-		: '-';
+		: '';
 	fields.avg_p2 = isFirstSemester
 		? formatNumber(studentData.periodAverages.second, 1)
-		: '-';
+		: '';
 	fields.avg_p3 = isFirstSemester
 		? formatNumber(studentData.periodAverages.third, 1)
-		: '-';
+		: '';
 	fields.avg_exam1 = isFirstSemester
 		? formatNumber(studentData.periodAverages.third_period_exam, 1)
-		: '-';
+		: '';
 	fields.avg_sem1 = isFirstSemester
 		? formatNumber(studentData.periodAverages.firstSemesterAverage, 1)
-		: '-';
+		: '';
 
 	fields.avg_p4 = isSecondSemester
 		? formatNumber(studentData.periodAverages.fourth, 1)
-		: '-';
+		: '';
 	fields.avg_p5 = isSecondSemester
 		? formatNumber(studentData.periodAverages.fifth, 1)
-		: '-';
+		: '';
 	fields.avg_p6 = isSecondSemester
 		? formatNumber(studentData.periodAverages.sixth, 1)
-		: '-';
+		: '';
 	fields.avg_exam2 = isSecondSemester
 		? formatNumber(studentData.periodAverages.six_period_exam, 1)
-		: '-';
+		: '';
 	fields.avg_sem2 = isSecondSemester
 		? formatNumber(studentData.periodAverages.secondSemesterAverage, 1)
-		: '-';
-	fields.avg_year = '-';
+		: '';
+	fields.avg_year = '';
 
 	fields.rank_p1 = isFirstSemester
 		? formatNumber(studentData.ranks.first, 0)
-		: '-';
+		: '';
 	fields.rank_p2 = isFirstSemester
 		? formatNumber(studentData.ranks.second, 0)
-		: '-';
+		: '';
 	fields.rank_p3 = isFirstSemester
 		? formatNumber(studentData.ranks.third, 0)
-		: '-';
+		: '';
 	fields.rank_exam1 = isFirstSemester
 		? formatNumber(studentData.ranks.third_period_exam, 0)
-		: '-';
+		: '';
 	fields.rank_sem1 = isFirstSemester
 		? formatNumber(studentData.ranks.firstSemesterAverage, 0)
-		: '-';
+		: '';
 
 	fields.rank_p4 = isSecondSemester
 		? formatNumber(studentData.ranks.fourth, 0)
-		: '-';
+		: '';
 	fields.rank_p5 = isSecondSemester
 		? formatNumber(studentData.ranks.fifth, 0)
-		: '-';
+		: '';
 	fields.rank_p6 = isSecondSemester
 		? formatNumber(studentData.ranks.sixth, 0)
-		: '-';
+		: '';
 	fields.rank_exam2 = isSecondSemester
 		? formatNumber(studentData.ranks.six_period_exam, 0)
-		: '-';
+		: '';
 	fields.rank_sem2 = isSecondSemester
 		? formatNumber(studentData.ranks.secondSemesterAverage, 0)
-		: '-';
-	fields.rank_year = '-';
+		: '';
+	fields.rank_year = '';
 
 	fields.promotion_student_name = '';
 	fields.promotion_from_grade = '';
@@ -935,39 +1202,151 @@ const buildSemesterFieldMap = ({
 	return fields;
 };
 
-const fillTemplateForStudent = async ({
+const LOW_SCORE_COLOR = { r: 1, g: 0, b: 0 };
+const PASSING_SCORE_COLOR = { r: 0, g: 0, b: 1 };
+
+const isGradeFieldKey = (key: string) =>
+	/^(p[1-6]|exam[12]|avg[12]|year)_\d{2}$/.test(key);
+const isAverageFieldKey = (key: string) => key.startsWith('avg_');
+const isRankFieldKey = (key: string) => key.startsWith('rank_');
+
+const toNumberOrNull = (value: string | number | null | undefined) => {
+	if (value === null || value === undefined) return null;
+	const n = Number(value);
+	return Number.isNaN(n) ? null : n;
+};
+
+const getStyledPlacements = ({
+	basePlacements,
+	values,
+}: {
+	basePlacements: ReturnType<typeof buildSemesterCardPlacements>;
+	values: Record<string, string | number | null | undefined>;
+}) => {
+	const styled = Object.fromEntries(
+		Object.entries(basePlacements).map(([key, placementEntry]) => {
+			const entries = Array.isArray(placementEntry)
+				? placementEntry.map((placement) => ({ ...placement }))
+				: [{ ...placementEntry }];
+			const numeric = toNumberOrNull(values[key]);
+			const isGradeLike = isGradeFieldKey(key) || isAverageFieldKey(key);
+			const isRank = isRankFieldKey(key);
+
+			const result = entries.map((placement) => {
+				if (isGradeLike) {
+					const next = { ...placement, font: 'bold' as const };
+					if (numeric !== null) {
+						next.color = numeric < 70 ? LOW_SCORE_COLOR : PASSING_SCORE_COLOR;
+					}
+					return next;
+				}
+				if (isRank) {
+					return { ...placement, font: 'bold' as const };
+				}
+				return placement;
+			});
+
+			return [key, Array.isArray(placementEntry) ? result : result[0]];
+		}),
+	);
+
+	return styled as ReturnType<typeof buildSemesterCardPlacements>;
+};
+
+const drawStudentOnPage = ({
+	page,
 	studentData,
 	className,
 	classSubjects,
 	reportFilters,
-	templateBytes,
 	placements,
+	font,
+	boldFont,
 }: {
+	page: PDFPage;
 	studentData: StudentSemesterReport;
 	className: string;
 	classSubjects: string[];
 	reportFilters: ReportFilters;
-	templateBytes: ArrayBuffer;
-	placements: ReturnType<typeof buildReportPlacements>;
+	placements: ReturnType<typeof buildSemesterCardPlacements>;
+	font: PDFFont;
+	boldFont: PDFFont;
 }) => {
-	const filledDoc = await PDFDocument.load(templateBytes);
-	const [page] = filledDoc.getPages();
 	const fieldMap = buildSemesterFieldMap({
 		studentData,
 		className,
 		classSubjects,
 		reportFilters,
 	});
-	const font = await filledDoc.embedFont(StandardFonts.Helvetica);
-	const boldFont = await filledDoc.embedFont(StandardFonts.HelveticaBold);
+	const styledPlacements = getStyledPlacements({
+		basePlacements: placements,
+		values: fieldMap,
+	});
 	drawTextMap({
 		page,
 		values: fieldMap,
-		placements,
+		placements: styledPlacements,
 		fonts: { normal: font, bold: boldFont },
 		defaultSize: 9,
 		debug: DEBUG_COORDS,
 	});
+};
+
+const fillTemplateForStudentPair = async ({
+	leftStudentData,
+	rightStudentData,
+	className,
+	classSubjects,
+	reportFilters,
+	templateBytes,
+	leftPlacements,
+	rightPlacements,
+}: {
+	leftStudentData: StudentSemesterReport;
+	rightStudentData?: StudentSemesterReport;
+	className: string;
+	classSubjects: string[];
+	reportFilters: ReportFilters;
+	templateBytes: ArrayBuffer;
+	leftPlacements: ReturnType<typeof buildSemesterCardPlacements>;
+	rightPlacements: ReturnType<typeof buildSemesterCardPlacements>;
+}) => {
+	const filledDoc = await PDFDocument.load(templateBytes);
+	const [page] = filledDoc.getPages();
+	const font = await filledDoc.embedFont(StandardFonts.Helvetica);
+	const boldFont = await filledDoc.embedFont(StandardFonts.HelveticaBold);
+	drawStudentOnPage({
+		page,
+		studentData: leftStudentData,
+		className,
+		classSubjects,
+		reportFilters,
+		placements: leftPlacements,
+		font,
+		boldFont,
+	});
+	if (rightStudentData) {
+		drawStudentOnPage({
+			page,
+			studentData: rightStudentData,
+			className,
+			classSubjects,
+			reportFilters,
+			placements: rightPlacements,
+			font,
+			boldFont,
+		});
+	} else {
+		// If odd student count, hide the entire right template card so the
+		// last page looks like a single-student report card.
+		page.drawRectangle({
+			x: 296,
+			y: 0,
+			width: page.getWidth() - 296,
+			height: page.getHeight(),
+			color: rgb(1, 1, 1),
+		});
+	}
 	return filledDoc;
 };
 
@@ -976,59 +1355,52 @@ const generateSemesterReportPdf = async ({
 	className,
 	classSubjects,
 	reportFilters,
-	school,
+	schoolShortName,
 }: {
 	studentsData: StudentSemesterReport[];
 	className: string;
 	classSubjects: string[];
 	reportFilters: ReportFilters;
-	school: any;
+	schoolShortName?: string;
 }) => {
-	const templateUrlWithSemester = buildReportTemplateUrl({
-		schoolShortName: school?.shortName,
-		session: reportFilters.session,
-		classLevel: reportFilters.classLevel,
-		reportType: 'semester',
-		templateVariant: reportFilters.semester,
-	});
-	const baseTemplateUrl = buildReportTemplateUrl({
-		schoolShortName: school?.shortName,
+	const templateUrl = buildReportTemplateUrl({
+		schoolShortName,
 		session: reportFilters.session,
 		classLevel: reportFilters.classLevel,
 		reportType: 'semester',
 	});
-	let templateBytes: ArrayBuffer;
-	try {
-		// Prefer semester-specific templates:
-		// /{school}_{session}_{class}_semester_report_first.pdf
-		// /{school}_{session}_{class}_semester_report_second.pdf
-		templateBytes = await loadReportTemplateBytes(
-			templateUrlWithSemester,
-			baseTemplateUrl,
-		);
-	} catch {
-		templateBytes = await loadReportTemplateBytes(
-			baseTemplateUrl,
-			DEFAULT_REPORT_TEMPLATE_URL,
-		);
-	}
+	const templateBytes = await loadReportTemplateBytes(
+		templateUrl,
+		DEFAULT_REPORT_TEMPLATE_URL,
+	);
 	const templateDoc = await PDFDocument.load(templateBytes);
 	const [templatePage] = templateDoc.getPages();
-	const placements = buildReportPlacements({
+	const leftPlacements = buildSemesterCardPlacements({
 		pageWidth: templatePage.getWidth(),
 		pageHeight: templatePage.getHeight(),
 		subjectCount: classSubjects.length,
+		cardOffsetX: 0,
+	});
+	const rightPlacements = buildSemesterCardPlacements({
+		pageWidth: templatePage.getWidth(),
+		pageHeight: templatePage.getHeight(),
+		subjectCount: classSubjects.length,
+		cardOffsetX: 286.64,
 	});
 	const outDoc = await PDFDocument.create();
 
-	for (const studentData of studentsData) {
-		const filledDoc = await fillTemplateForStudent({
-			studentData,
+	for (let index = 0; index < studentsData.length; index += 2) {
+		const leftStudentData = studentsData[index];
+		const rightStudentData = studentsData[index + 1];
+		const filledDoc = await fillTemplateForStudentPair({
+			leftStudentData,
+			rightStudentData,
 			className,
 			classSubjects,
 			reportFilters,
 			templateBytes,
-			placements,
+			leftPlacements,
+			rightPlacements,
 		});
 		const pages = await outDoc.copyPages(
 			filledDoc,
@@ -1163,6 +1535,18 @@ function ReportContent({
 		reportFilters.classLevel,
 		reportFilters.className,
 	]);
+	const classSubjectsKey = useMemo(
+		() => classSubjects.join('||'),
+		[classSubjects],
+	);
+	const selectedStudentsKey = useMemo(
+		() =>
+			reportFilters.selectedStudents
+				.map((studentId) => normalizeStudentId(studentId))
+				.filter(Boolean)
+				.join(','),
+		[reportFilters.selectedStudents],
+	);
 
 	useEffect(() => {
 		const fetchStudentsData = async () => {
@@ -1171,11 +1555,18 @@ function ReportContent({
 
 			try {
 				let studentsToProcess: any[] = [];
+				const selectedStudentIds = reportFilters.selectedStudents
+					.map((studentId) => normalizeStudentId(studentId))
+					.filter(Boolean);
 
 				if (isStudent && user) {
 					studentsToProcess = [
 						{
-							studentId: user.studentId,
+							studentId: normalizeStudentId(
+								user.studentId,
+								user.id,
+								user._id,
+							),
 							firstName: user.firstName,
 							middleName: user.middleName,
 							lastName: user.lastName,
@@ -1193,14 +1584,19 @@ function ReportContent({
 								) === reportFilters.className,
 						);
 						const mapped = filtered.map((student: any) => ({
-							studentId: student.studentId || student.id,
+							studentId: normalizeStudentId(
+								student.studentId,
+								student.id,
+								student._id,
+							),
+							name: resolveStudentDisplayName(student),
 							firstName: student.firstName,
 							middleName: student.middleName,
 							lastName: student.lastName,
 						}));
-						if (reportFilters.selectedStudents.length > 0) {
+						if (selectedStudentIds.length > 0) {
 							studentsToProcess = mapped.filter((student: any) =>
-								reportFilters.selectedStudents.includes(student.studentId),
+								selectedStudentIds.includes(student.studentId),
 							);
 						} else {
 							studentsToProcess = mapped;
@@ -1209,12 +1605,21 @@ function ReportContent({
 					const cacheKey = `semester:students:${reportFilters.academicYear}:${reportFilters.className}`;
 					const cached = getClientCache<any[]>(cacheKey);
 					if (cached) {
-						if (reportFilters.selectedStudents.length > 0) {
-							studentsToProcess = cached.filter((student: any) =>
-								reportFilters.selectedStudents.includes(student.studentId),
+						const mappedCached = cached.map((student: any) => ({
+							...student,
+							studentId: normalizeStudentId(
+								student.studentId,
+								student.id,
+								student._id,
+							),
+							name: resolveStudentDisplayName(student),
+						}));
+						if (selectedStudentIds.length > 0) {
+							studentsToProcess = mappedCached.filter((student: any) =>
+								selectedStudentIds.includes(student.studentId),
 							);
 						} else {
-							studentsToProcess = cached;
+							studentsToProcess = mappedCached;
 						}
 					} else {
 						const studentsResponse = await fetch(
@@ -1238,16 +1643,21 @@ function ReportContent({
 						);
 
 						const mapped = studentsResult.data.map((student: any) => ({
-							studentId: student.studentId || student.id,
+							studentId: normalizeStudentId(
+								student.studentId,
+								student.id,
+								student._id,
+							),
+							name: resolveStudentDisplayName(student),
 							firstName: student.firstName,
 							middleName: student.middleName,
 							lastName: student.lastName,
 						}));
 						setClientCache(cacheKey, mapped);
 
-						if (reportFilters.selectedStudents.length > 0) {
+						if (selectedStudentIds.length > 0) {
 							studentsToProcess = mapped.filter((student: any) =>
-								reportFilters.selectedStudents.includes(student.studentId),
+								selectedStudentIds.includes(student.studentId),
 							);
 						} else {
 							studentsToProcess = mapped;
@@ -1264,8 +1674,8 @@ function ReportContent({
 					params.append('semester', reportFilters.semester);
 				}
 
-				if (reportFilters.selectedStudents.length > 0) {
-					params.append('studentIds', reportFilters.selectedStudents.join(','));
+				if (selectedStudentIds.length > 0) {
+					params.append('studentIds', selectedStudentIds.join(','));
 				}
 
 				let gradesData = { success: true, data: { report: [] } };
@@ -1285,16 +1695,34 @@ function ReportContent({
 					typeof gradesData.data.report === 'object'
 				) {
 					existingReports = [gradesData.data.report];
+				} else if (Array.isArray(gradesData.data?.grades)) {
+					existingReports = buildReportsFromGradeRows({
+						grades: gradesData.data.grades,
+						classSubjects,
+						studentsToProcess,
+					});
 				}
 
 				const reportData = await Promise.all(
 					studentsToProcess.map(async (student: any) => {
-						const studentId = student.studentId;
-						const studentName = `${student.firstName} ${
-							student.middleName ? student.middleName + ' ' : ''
-						}${student.lastName}`.trim();
+						const studentId = normalizeStudentId(
+							student.studentId,
+							student.id,
+							student._id,
+						);
 						const existingReport = existingReports.find(
-							(report: any) => report.studentId === studentId,
+							(report: any) =>
+								normalizeStudentId(
+									report.studentId,
+									report.id,
+									report._id,
+								) === studentId,
+						);
+						const studentName = resolveStudentDisplayName(
+							student,
+							typeof existingReport?.studentName === 'string'
+								? existingReport.studentName
+								: '',
 						);
 
 						const periods: Record<
@@ -1424,10 +1852,18 @@ function ReportContent({
 
 		fetchStudentsData();
 	}, [
-		reportFilters,
-		user,
-		classSubjects,
-		usersByAcademicYear,
+		reportFilters.academicYear,
+		reportFilters.className,
+		reportFilters.session,
+		reportFilters.semester,
+		selectedStudentsKey,
+		user?.studentId,
+		user?.id,
+		user?._id,
+		user?.firstName,
+		user?.middleName,
+		user?.lastName,
+		classSubjectsKey,
 		setUsersForYear,
 		isStudent,
 	]);
@@ -1457,7 +1893,7 @@ function ReportContent({
 			className,
 			classSubjects,
 			reportFilters,
-			school,
+			schoolShortName: school?.shortName,
 		})
 			.then((pdfBytes) => {
 				if (cancelled) return;
@@ -1503,9 +1939,9 @@ function ReportContent({
 	}, [
 		studentsData,
 		className,
-		classSubjects,
+		classSubjectsKey,
 		reportFilters,
-		school,
+		school?.shortName,
 		loading,
 		error,
 	]);

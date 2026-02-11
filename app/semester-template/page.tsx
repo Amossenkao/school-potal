@@ -327,28 +327,23 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 		return chunks;
 	}, [studentsData]);
 
-	const semesterLabel =
-		reportFilters.semester === 'first' ? '1st Semester' : '2nd Semester';
-
 	const title = useMemo(() => 'Semester Report Template', []);
 
 	const isFirstSemester = reportFilters.semester === 'first';
 	const periodColumns = isFirstSemester
 		? [
-				{ key: 'first', label: '1st Pd' },
-				{ key: 'second', label: '2nd Pd' },
-				{ key: 'third', label: '3rd Pd' },
-				{ key: 'third_period_exam', label: '3rd Pd Exam' },
+				{ key: 'first', label: '' },
+				{ key: 'second', label: '' },
+				{ key: 'third', label: '' },
+				{ key: 'third_period_exam', label: '' },
 			]
 		: [
-				{ key: 'fourth', label: '4th Pd' },
-				{ key: 'fifth', label: '5th Pd' },
-				{ key: 'sixth', label: '6th Pd' },
-				{ key: 'six_period_exam', label: '6th Pd Exam' },
+				{ key: 'fourth', label: '' },
+				{ key: 'fifth', label: '' },
+				{ key: 'sixth', label: '' },
+				{ key: 'six_period_exam', label: '' },
 			];
-	const reportHeading = `${
-		reportFilters.classLevel?.toUpperCase() || ''
-	} ${semesterLabel.toUpperCase()} REPORT`;
+	const reportHeading = ' ';
 
 	return (
 		<Document title={title}>
@@ -561,9 +556,7 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 													fontWeight: 'bold',
 													textAlign: 'center',
 												}}
-											>
-												Average
-											</Text>
+											></Text>
 										</View>
 
 										{classSubjects.map((subject) => {
@@ -802,8 +795,7 @@ export default function SemesterTemplatePage() {
 		);
 		const sessionSlug = slugify(resolvedSession || filters.session || 'session');
 		const classLevelSlug = slugify(filters.classLevel || 'class_level');
-		const semesterSlug = slugify(filters.semester || 'first');
-		return `${schoolSlug}_${sessionSlug}_${classLevelSlug}_semester_report_${semesterSlug}.pdf`;
+		return `${schoolSlug}_${sessionSlug}_${classLevelSlug}_semester_report.pdf`;
 	}, [
 		school?.shortName,
 		school?.host,
@@ -811,7 +803,6 @@ export default function SemesterTemplatePage() {
 		resolvedSession,
 		filters.session,
 		filters.classLevel,
-		filters.semester,
 	]);
 
 	useEffect(() => {

@@ -216,11 +216,17 @@ const PERIOD_LABELS: Record<string, string> = {
 	fourth: '4th Period',
 	fifth: '5th Period',
 	sixth: '6th Period',
+	six_period_exam: '6th Period Exam',
 	sixth_period_exam: '6th Period Exam',
 };
 
 function formatPeriodLabel(period: string) {
 	return PERIOD_LABELS[period] || period;
+}
+
+function normalizeYearlyPeriodKey(period: string) {
+	if (period === 'sixth_period_exam') return 'six_period_exam';
+	return period;
 }
 
 function validateGrades(grades: any[]): { isValid: boolean; message?: string } {
@@ -244,6 +250,18 @@ function validateGrades(grades: any[]): { isValid: boolean; message?: string } {
 		}
 	}
 	return { isValid: true };
+}
+
+function normalizeNamePart(value: unknown): string {
+	if (typeof value !== 'string') return '';
+	return value.trim().replace(/\s+/g, ' ');
+}
+
+function buildFullNameFromUser(user: any): string {
+	return [user?.firstName, user?.middleName, user?.lastName]
+		.map((part) => normalizeNamePart(part))
+		.filter(Boolean)
+		.join(' ');
 }
 
 function getStats(grades: Array<{ grade: number }>) {
@@ -580,10 +598,14 @@ function processClassYearlyReport(
 			}
 			subjectsSet.add(g.subject);
 			const student = studentsMap.get(g.studentId)!;
-			if (!student.periods[g.period]) {
-				student.periods[g.period] = [];
+			const normalizedPeriod = normalizeYearlyPeriodKey(g.period);
+			if (!student.periods[normalizedPeriod]) {
+				student.periods[normalizedPeriod] = [];
 			}
-			student.periods[g.period].push({ subject: g.subject, grade: g.grade });
+			student.periods[normalizedPeriod].push({
+				subject: g.subject,
+				grade: g.grade,
+			});
 		});
 
 	// Calculate all averages and ranks for ALL students
@@ -682,7 +704,9 @@ function processClassYearlyReport(
 	const studentsArray = Array.from(studentsMap.values());
 	const allPeriodsAndAverages = [
 		...new Set(
-			grades.filter((g) => g.classId === classId).map((g) => g.period),
+			grades
+				.filter((g) => g.classId === classId)
+				.map((g) => normalizeYearlyPeriodKey(g.period)),
 		),
 		'firstSemesterAverage',
 		'secondSemesterAverage',
@@ -690,11 +714,21 @@ function processClassYearlyReport(
 
 	// Calculate ranks for ALL students in the class
 	allPeriodsAndAverages.forEach((period) => {
-		const periodRanks = calculateRanks(
-			studentsArray.map((s) => ({
+		const rankCandidates = studentsArray
+			.map((s) => ({
 				studentId: s.studentId,
-				average: s.periodAverages[period] || 0,
-			})),
+				average: s.periodAverages[period],
+			}))
+			.filter(
+				(entry) =>
+					typeof entry.average === 'number' &&
+					!isNaN(entry.average) &&
+					entry.average > 0,
+			) as Array<{ studentId: string; average: number }>;
+		if (rankCandidates.length === 0) return;
+
+		const periodRanks = calculateRanks(
+			rankCandidates,
 		);
 		periodRanks.forEach((r) => {
 			const student = studentsMap.get(r.studentId);
@@ -702,16 +736,19 @@ function processClassYearlyReport(
 		});
 	});
 
-	const yearlyRanks = calculateRanks(
-		studentsArray.map((s) => ({
+	const yearlyRankCandidates = studentsArray
+		.map((s) => ({
 			studentId: s.studentId,
 			average: s.yearlyAverage,
-		})),
-	);
-	yearlyRanks.forEach((r) => {
-		const student = studentsMap.get(r.studentId);
-		if (student) student.ranks.yearly = (r as any).rank;
-	});
+		}))
+		.filter((entry) => entry.average > 0);
+	if (yearlyRankCandidates.length > 0) {
+		const yearlyRanks = calculateRanks(yearlyRankCandidates);
+		yearlyRanks.forEach((r) => {
+			const student = studentsMap.get(r.studentId);
+			if (student) student.ranks.yearly = (r as any).rank;
+		});
+	}
 
 	// Sort all students by yearly rank
 	let finalResult = studentsArray.sort(
@@ -964,10 +1001,44 @@ export async function GET(request: NextRequest) {
 				studentId: student.studentId,
 			};
 			if (period) query.period = period;
+			if (subject) query.subject = subject;
+			if (status) query.status = status;
 			const grades = (await Grade.find(query).lean()) as GradeRecord[];
+
+			const classReportQuery: any = {
+				academicYear,
+				classId: studentClassId,
+				status: status || 'Approved',
+			};
+			const classGrades = (await Grade.find(classReportQuery).lean()) as GradeRecord[];
+			const studentIds = [student.studentId];
+
+			let report: StudentYearlyReport[] | StudentPeriodicReport[] = [];
+			if (period) {
+				report = processClassPeriodicReport(
+					classGrades,
+					studentClassId,
+					period,
+					studentIds,
+				);
+			} else {
+				report = processClassYearlyReport(
+					classGrades,
+					studentClassId,
+					studentIds,
+				);
+			}
+
 			return NextResponse.json({
 				success: true,
-				data: { grades, academicYear, period },
+				data: {
+					grades,
+					report,
+					academicYear,
+					classId: studentClassId,
+					period,
+					semester: semester || null,
+				},
 			});
 		}
 
@@ -995,7 +1066,7 @@ export async function POST(request: NextRequest) {
 			);
 		}
 		const models = await getTenantModels();
-		const { Grade, User } = models;
+		const { Grade, User, Student } = models;
 		const body = await request.json();
 		const { classId, subject, period, grades, academicYear } = body;
 		const resolvedAcademicYear = academicYear || getCurrentAcademicYear();
@@ -1128,6 +1199,30 @@ export async function POST(request: NextRequest) {
 			});
 		}
 
+		const submittedStudentIds = Array.from(
+			new Set(
+				grades
+					.map((grade: any) => String(grade?.studentId || '').trim())
+					.filter(Boolean),
+			),
+		);
+		const studentNameById = new Map<string, string>();
+		if (submittedStudentIds.length > 0) {
+			const students = await Student.find({
+				studentId: { $in: submittedStudentIds },
+			})
+				.select('studentId firstName middleName lastName')
+				.lean();
+			students.forEach((student: any) => {
+				const studentId = String(student?.studentId || '').trim();
+				if (!studentId) return;
+				const fullName = buildFullNameFromUser(student);
+				if (fullName) {
+					studentNameById.set(studentId, fullName);
+				}
+			});
+		}
+
 		const lastUpdated = new Date();
 		const gradeDocuments = grades.map((grade: any) => ({
 			classId,
@@ -1135,8 +1230,10 @@ export async function POST(request: NextRequest) {
 			teacherUsername: teacher.username,
 			academicYear: resolvedAcademicYear,
 			period: grade.period,
-			studentId: grade.studentId,
-			studentName: grade.name,
+			studentId: String(grade.studentId || '').trim(),
+			studentName:
+				studentNameById.get(String(grade.studentId || '').trim()) ||
+				normalizeNamePart(grade.name),
 			grade: grade.grade,
 			status: 'Pending',
 			submissionId: getSubmissionId(
@@ -1235,7 +1332,7 @@ export async function PUT(request: NextRequest) {
 				{ status: 401 },
 			);
 		}
-		const { Grade } = await getTenantModels();
+		const { Grade, Student } = await getTenantModels();
 		const body = await request.json();
 		const { submissionId, grades } = body;
 		if (!submissionId || !grades) {
@@ -1271,11 +1368,36 @@ export async function PUT(request: NextRequest) {
 				{ status: 403 },
 			);
 		}
+		const submittedStudentIds = Array.from(
+			new Set(
+				grades
+					.map((grade: any) => String(grade?.studentId || '').trim())
+					.filter(Boolean),
+			),
+		);
+		const studentNameById = new Map<string, string>();
+		if (submittedStudentIds.length > 0) {
+			const students = await Student.find({
+				studentId: { $in: submittedStudentIds },
+			})
+				.select('studentId firstName middleName lastName')
+				.lean();
+			students.forEach((student: any) => {
+				const studentId = String(student?.studentId || '').trim();
+				if (!studentId) return;
+				const fullName = buildFullNameFromUser(student);
+				if (fullName) {
+					studentNameById.set(studentId, fullName);
+				}
+			});
+		}
 		await Grade.deleteMany({ submissionId });
 		const newGradeDocuments = grades.map((grade: any) => ({
 			...existingSubmission,
-			studentId: grade.studentId,
-			studentName: grade.name,
+			studentId: String(grade.studentId || '').trim(),
+			studentName:
+				studentNameById.get(String(grade.studentId || '').trim()) ||
+				normalizeNamePart(grade.name),
 			grade: grade.grade,
 			period: grade.period,
 			status: 'Pending',

@@ -11,6 +11,13 @@ type BuildPagePlacementsArgs = {
 	pageHeight: number;
 };
 
+type BuildSemesterCardPlacementsArgs = {
+	pageWidth: number;
+	pageHeight: number;
+	subjectCount: number;
+	cardOffsetX?: number;
+};
+
 export type RectPlacement = {
 	x: number;
 	y: number;
@@ -325,6 +332,308 @@ export const buildReportPlacements = ({
 		align: 'left',
 		maxWidth: 120 * scaleX,
 	};
+
+	return placements;
+};
+
+export const buildSemesterCardPlacements = ({
+	pageWidth,
+	pageHeight,
+	subjectCount,
+	cardOffsetX = 0,
+}: BuildSemesterCardPlacementsArgs): TextPlacementMap => {
+	const placements: TextPlacementMap = {};
+	const rows = Math.max(subjectCount, 1);
+	const rowHeight = 16;
+	const cellBoxHeight = rowHeight;
+	const summaryBoxHeight = rowHeight;
+	const rowStartY = 258;
+	// Shift header-to-table-heading overlay text down for better alignment.
+	const headerSectionShiftDown = 12;
+	const shiftDownY = (y: number) => y - headerSectionShiftDown;
+	// Fine-tune: keep subjects about two rows up, then nudge further down.
+	const subjectRowLift = 2 * rowHeight - 1;
+	// Keep value rows on the same baseline as subject labels.
+	const gradeRowLift = subjectRowLift;
+	// Tiny vertical centering nudge for subject rows (labels + per-row grades).
+	const rowCenterNudgeDown = 0;
+	// Extra nudge for per-row grade values only.
+	const gradeValueNudgeDown = 1;
+	// Match subject label baseline to grade baseline.
+	const subjectLabelNudgeUp = gradeValueNudgeDown;
+	// In PDF coordinates, increasing Y moves text up.
+	// Apply an upward correction so body-row text sits in the middle
+	// of the template cells (not on the bottom border).
+	const bodyTextNudgeUp = 6;
+	// Lift summary value rows so they align with template's Average/Rank lines.
+	const avgYOffset = -2;
+	const rankGap = 12;
+	// Keep averages as-is, but move rank values slightly down for centering.
+	const rankYOffset = -1;
+
+	const shiftX = (x: number) => x + cardOffsetX;
+
+	placements.student_name = {
+		x: shiftX(58),
+		y: shiftDownY(pageHeight - 128),
+		size: 8,
+		align: 'left',
+		maxWidth: 110,
+		font: 'bold',
+	};
+	placements.student_id = {
+		x: shiftX(44),
+		y: shiftDownY(pageHeight - 138),
+		size: 8,
+		align: 'left',
+		maxWidth: 120,
+	};
+	placements.class_name = {
+		x: shiftX(206),
+		y: shiftDownY(pageHeight - 128),
+		size: 8,
+		align: 'left',
+		maxWidth: 78,
+	};
+	placements.academic_year = {
+		x: shiftX(242),
+		y: shiftDownY(pageHeight - 138),
+		size: 8,
+		align: 'left',
+		maxWidth: 45,
+		font: 'bold',
+	};
+	placements.report_title = {
+		x: shiftX(153.145),
+		y: shiftDownY(pageHeight - 100),
+		size: 9,
+		align: 'center',
+		maxWidth: 205,
+		color: { r: 0.118, g: 0.227, b: 0.541 },
+		font: 'bold',
+	};
+
+	const columns = {
+		subject: shiftX(32),
+		p1: shiftX(116),
+		p2: shiftX(152),
+		p3: shiftX(188),
+		exam1: shiftX(224),
+		avg1: shiftX(260),
+		p4: shiftX(116),
+		p5: shiftX(152),
+		p6: shiftX(188),
+		exam2: shiftX(224),
+		avg2: shiftX(260),
+		year: shiftX(260),
+	};
+	const headerY = shiftDownY(pageHeight - 155);
+	placements.period_header_1 = {
+		x: columns.p1,
+		y: headerY,
+		size: 6.8,
+		align: 'center',
+		maxWidth: 28,
+		font: 'bold',
+		lineHeight: 7.4,
+	};
+	placements.period_header_2 = {
+		x: columns.p2,
+		y: headerY,
+		size: 6.8,
+		align: 'center',
+		maxWidth: 28,
+		font: 'bold',
+		lineHeight: 7.4,
+	};
+	placements.period_header_3 = {
+		x: columns.p3,
+		y: headerY,
+		size: 6.8,
+		align: 'center',
+		maxWidth: 28,
+		font: 'bold',
+		lineHeight: 7.4,
+	};
+	placements.period_header_4 = {
+		x: columns.exam1,
+		y: headerY,
+		size: 6.8,
+		align: 'center',
+		maxWidth: 30,
+		font: 'bold',
+		lineHeight: 7.4,
+	};
+	placements.period_header_5 = {
+		x: columns.avg1,
+		y: headerY,
+		size: 6.8,
+		align: 'center',
+		maxWidth: 32,
+		font: 'bold',
+	};
+
+	for (let index = 0; index < rows; index += 1) {
+		const row = String(index + 1).padStart(2, '0');
+		const y = rowStartY - index * rowHeight;
+		const rowTextY =
+			y + gradeRowLift + rowCenterNudgeDown + gradeValueNudgeDown + bodyTextNudgeUp;
+		placements[`subject_${row}`] = {
+			x: columns.subject,
+			y:
+				y +
+				subjectRowLift +
+				rowCenterNudgeDown +
+				bodyTextNudgeUp +
+				subjectLabelNudgeUp,
+			size: 7,
+			align: 'left',
+			valign: 'middle',
+			maxWidth: 66,
+			boxHeight: cellBoxHeight,
+			font: 'bold',
+		};
+		placements[`p1_${row}`] = {
+			x: columns.p1,
+			y: rowTextY,
+			size: 7,
+			align: 'center',
+			valign: 'middle',
+			maxWidth: 28,
+			boxHeight: cellBoxHeight,
+		};
+		placements[`p2_${row}`] = {
+			x: columns.p2,
+			y: rowTextY,
+			size: 7,
+			align: 'center',
+			valign: 'middle',
+			maxWidth: 28,
+			boxHeight: cellBoxHeight,
+		};
+		placements[`p3_${row}`] = {
+			x: columns.p3,
+			y: rowTextY,
+			size: 7,
+			align: 'center',
+			valign: 'middle',
+			maxWidth: 28,
+			boxHeight: cellBoxHeight,
+		};
+		placements[`exam1_${row}`] = {
+			x: columns.exam1,
+			y: rowTextY,
+			size: 7,
+			align: 'center',
+			valign: 'middle',
+			maxWidth: 28,
+			boxHeight: cellBoxHeight,
+		};
+		placements[`avg1_${row}`] = {
+			x: columns.avg1,
+			y: rowTextY,
+			size: 7,
+			align: 'center',
+			valign: 'middle',
+			maxWidth: 30,
+			boxHeight: cellBoxHeight,
+			font: 'bold',
+		};
+		placements[`p4_${row}`] = {
+			x: columns.p4,
+			y: rowTextY,
+			size: 7,
+			align: 'center',
+			valign: 'middle',
+			maxWidth: 28,
+			boxHeight: cellBoxHeight,
+		};
+		placements[`p5_${row}`] = {
+			x: columns.p5,
+			y: rowTextY,
+			size: 7,
+			align: 'center',
+			valign: 'middle',
+			maxWidth: 28,
+			boxHeight: cellBoxHeight,
+		};
+		placements[`p6_${row}`] = {
+			x: columns.p6,
+			y: rowTextY,
+			size: 7,
+			align: 'center',
+			valign: 'middle',
+			maxWidth: 28,
+			boxHeight: cellBoxHeight,
+		};
+		placements[`exam2_${row}`] = {
+			x: columns.exam2,
+			y: rowTextY,
+			size: 7,
+			align: 'center',
+			valign: 'middle',
+			maxWidth: 28,
+			boxHeight: cellBoxHeight,
+		};
+		placements[`avg2_${row}`] = {
+			x: columns.avg2,
+			y: rowTextY,
+			size: 7,
+			align: 'center',
+			valign: 'middle',
+			maxWidth: 30,
+			boxHeight: cellBoxHeight,
+			font: 'bold',
+		};
+		placements[`year_${row}`] = {
+			x: columns.year,
+			y: rowTextY,
+			size: 7,
+			align: 'center',
+			valign: 'middle',
+			maxWidth: 30,
+			boxHeight: cellBoxHeight,
+			font: 'bold',
+		};
+	}
+
+	const avgY = rowStartY - rows * rowHeight + gradeRowLift + avgYOffset;
+	const rankY = avgY - rankGap + rankYOffset;
+	const summary = (field: string, x: number, y: number, bold = false) => {
+		placements[field] = {
+			x,
+			y,
+			size: 7,
+			align: 'center',
+			maxWidth: 30,
+			boxHeight: summaryBoxHeight,
+			font: bold ? 'bold' : undefined,
+		};
+	};
+
+	summary('avg_p1', columns.p1, avgY, true);
+	summary('avg_p2', columns.p2, avgY, true);
+	summary('avg_p3', columns.p3, avgY, true);
+	summary('avg_exam1', columns.exam1, avgY, true);
+	summary('avg_sem1', columns.avg1, avgY, true);
+	summary('avg_p4', columns.p4, avgY, true);
+	summary('avg_p5', columns.p5, avgY, true);
+	summary('avg_p6', columns.p6, avgY, true);
+	summary('avg_exam2', columns.exam2, avgY, true);
+	summary('avg_sem2', columns.avg2, avgY, true);
+	summary('avg_year', columns.year, avgY, true);
+
+	summary('rank_p1', columns.p1, rankY, true);
+	summary('rank_p2', columns.p2, rankY, true);
+	summary('rank_p3', columns.p3, rankY, true);
+	summary('rank_exam1', columns.exam1, rankY, true);
+	summary('rank_sem1', columns.avg1, rankY, true);
+	summary('rank_p4', columns.p4, rankY, true);
+	summary('rank_p5', columns.p5, rankY, true);
+	summary('rank_p6', columns.p6, rankY, true);
+	summary('rank_exam2', columns.exam2, rankY, true);
+	summary('rank_sem2', columns.avg2, rankY, true);
+	summary('rank_year', columns.year, rankY, true);
 
 	return placements;
 };

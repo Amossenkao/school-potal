@@ -135,6 +135,22 @@ const SubmitGrade: React.FC = () => {
 		[],
 	);
 
+	const buildStudentFullName = useCallback((student: any) => {
+		const fullName = [student?.firstName, student?.middleName, student?.lastName]
+			.map((part) => (typeof part === 'string' ? part.trim() : ''))
+			.filter(Boolean)
+			.join(' ');
+		if (fullName) return fullName;
+
+		if (typeof student?.name === 'string' && student.name.trim()) {
+			return student.name.trim();
+		}
+		if (typeof student?.studentName === 'string' && student.studentName.trim()) {
+			return student.studentName.trim();
+		}
+		return '';
+	}, []);
+
 	const periods = useMemo(() => {
 		if (school?.settings?.teacherSettings?.gradeSubmissionPeriods) {
 			const allowedPeriods =
@@ -434,7 +450,7 @@ const SubmitGrade: React.FC = () => {
 
 				return {
 					studentId: student.studentId || student.id || student._id,
-					name: `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+					name: buildStudentFullName(student),
 					grades,
 				};
 			});
@@ -459,6 +475,7 @@ const SubmitGrade: React.FC = () => {
 		usersByAcademicYear,
 		gradesByAcademicYear,
 		getStudentClassIdForYear,
+		buildStudentFullName,
 	]);
 
 	useEffect(() => {
