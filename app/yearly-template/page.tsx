@@ -38,6 +38,13 @@ interface TemplateFilters {
 	className: string;
 }
 
+const slugify = (value: string) =>
+	value
+		.toLowerCase()
+		.trim()
+		.replace(/[^a-z0-9]+/g, '_')
+		.replace(/^_+|_+$/g, '');
+
 const BLANK_REPORT_FILTERS: ReportFilters = {
 	academicYear: '',
 	session: '',
@@ -1059,7 +1066,7 @@ export default function ReportCardPage() {
 		if (!school || reportStep === 0) return null;
 		const reportFilters: ReportFilters = {
 			...BLANK_REPORT_FILTERS,
-			session: filters.session,
+			session: resolvedSession,
 			classLevel: filters.classLevel,
 		};
 		return (
@@ -1085,6 +1092,21 @@ export default function ReportCardPage() {
 	const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 	const [pdfGenerating, setPdfGenerating] = useState(false);
 	const pdfUrlRef = useRef<string | null>(null);
+	const downloadFileName = useMemo(() => {
+		const schoolSlug = slugify(
+			school?.shortName || school?.host || filters.host || 'school',
+		);
+		const sessionSlug = slugify(resolvedSession || filters.session || 'session');
+		const classLevelSlug = slugify(filters.classLevel || 'class_level');
+		return `${schoolSlug}_${sessionSlug}_${classLevelSlug}_yearly_report.pdf`;
+	}, [
+		school?.shortName,
+		school?.host,
+		filters.host,
+		resolvedSession,
+		filters.session,
+		filters.classLevel,
+	]);
 
 	useEffect(() => {
 		if (!pdfDocument) {
@@ -1147,11 +1169,11 @@ export default function ReportCardPage() {
 		if (!downloadUrl) return;
 		const a = document.createElement('a');
 		a.href = downloadUrl;
-		a.download = 'Report_Card_Template.pdf';
+		a.download = downloadFileName;
 		document.body.appendChild(a);
 		a.click();
 		a.remove();
-	}, [downloadUrl]);
+	}, [downloadUrl, downloadFileName]);
 
 	const handleSubmitFilters = useCallback(() => {
 		setReportStep(1);

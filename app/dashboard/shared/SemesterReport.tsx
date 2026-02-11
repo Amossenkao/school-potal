@@ -984,16 +984,34 @@ const generateSemesterReportPdf = async ({
 	reportFilters: ReportFilters;
 	school: any;
 }) => {
-	const templateUrl = buildReportTemplateUrl({
+	const templateUrlWithSemester = buildReportTemplateUrl({
+		schoolShortName: school?.shortName,
+		session: reportFilters.session,
+		classLevel: reportFilters.classLevel,
+		reportType: 'semester',
+		templateVariant: reportFilters.semester,
+	});
+	const baseTemplateUrl = buildReportTemplateUrl({
 		schoolShortName: school?.shortName,
 		session: reportFilters.session,
 		classLevel: reportFilters.classLevel,
 		reportType: 'semester',
 	});
-	const templateBytes = await loadReportTemplateBytes(
-		templateUrl,
-		DEFAULT_REPORT_TEMPLATE_URL,
-	);
+	let templateBytes: ArrayBuffer;
+	try {
+		// Prefer semester-specific templates:
+		// /{school}_{session}_{class}_semester_report_first.pdf
+		// /{school}_{session}_{class}_semester_report_second.pdf
+		templateBytes = await loadReportTemplateBytes(
+			templateUrlWithSemester,
+			baseTemplateUrl,
+		);
+	} catch {
+		templateBytes = await loadReportTemplateBytes(
+			baseTemplateUrl,
+			DEFAULT_REPORT_TEMPLATE_URL,
+		);
+	}
 	const templateDoc = await PDFDocument.load(templateBytes);
 	const [templatePage] = templateDoc.getPages();
 	const placements = buildReportPlacements({

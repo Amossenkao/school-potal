@@ -34,11 +34,13 @@ export const buildReportTemplateUrl = ({
 	session,
 	classLevel,
 	reportType,
+	templateVariant,
 }: {
 	schoolShortName?: string;
 	session?: string;
 	classLevel?: string;
 	reportType: ReportTemplateType;
+	templateVariant?: string;
 }) => {
 	if (!schoolShortName || !session || !classLevel) {
 		return DEFAULT_REPORT_TEMPLATE_URL;
@@ -49,6 +51,9 @@ export const buildReportTemplateUrl = ({
 		slugify(classLevel),
 		`${reportType}_report`,
 	];
+	if (templateVariant) {
+		parts.push(slugify(templateVariant));
+	}
 	return `/${parts.join('_')}.pdf`;
 };
 
