@@ -26,6 +26,11 @@ import {
 import AccessDenied from '@/components/AccessDenied';
 import { drawTextMap } from '@/utils/pdfText';
 import { buildReportPlacements } from '@/app/dashboard/shared/reportPdfLayout';
+import {
+	buildReportTemplateUrl,
+	DEFAULT_REPORT_TEMPLATE_URL,
+	loadReportTemplateBytes,
+} from '@/utils/reportTemplate';
 
 // --- Type Definitions ---
 
@@ -732,26 +737,7 @@ const FilterContent = React.memo(function FilterContent({
 });
 
 // --- PDF Template Helpers ---
-const TEMPLATE_URL = '/pdf_template.pdf';
-let templateBytesPromise: Promise<ArrayBuffer> | null = null;
 const DEBUG_COORDS = process.env.NEXT_PUBLIC_PDF_DEBUG_COORDS === 'true';
-
-const loadTemplateBytes = async () => {
-	if (!templateBytesPromise) {
-		templateBytesPromise = fetch(TEMPLATE_URL)
-			.then((res) => {
-				if (!res.ok) {
-					throw new Error('Failed to load PDF template');
-				}
-				return res.arrayBuffer();
-			})
-			.catch((err) => {
-				templateBytesPromise = null;
-				throw err;
-			});
-	}
-	return templateBytesPromise;
-};
 
 const padRowIndex = (index: number) => String(index + 1).padStart(2, '0');
 
@@ -1023,7 +1009,16 @@ const generateYearlyReportPdf = async ({
 	school: any;
 	classSponsor: string | undefined;
 }) => {
-	const templateBytes = await loadTemplateBytes();
+	const templateUrl = buildReportTemplateUrl({
+		schoolShortName: school?.shortName,
+		session: reportFilters.session,
+		classLevel: reportFilters.classLevel,
+		reportType: 'yearly',
+	});
+	const templateBytes = await loadReportTemplateBytes(
+		templateUrl,
+		DEFAULT_REPORT_TEMPLATE_URL,
+	);
 	const templateDoc = await PDFDocument.load(templateBytes);
 	const [templatePage] = templateDoc.getPages();
 	const placements = buildReportPlacements({
