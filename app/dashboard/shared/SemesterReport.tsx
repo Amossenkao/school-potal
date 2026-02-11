@@ -797,42 +797,19 @@ const buildSemesterFieldMap = ({
 	className,
 	classSubjects,
 	reportFilters,
-	school,
 }: {
 	studentData: StudentSemesterReport;
 	className: string;
 	classSubjects: string[];
 	reportFilters: ReportFilters;
-	school: any;
 }) => {
 	const classDisplayName = className.split('-')[0] || className;
-	const semesterLabel =
-		reportFilters.semester === 'first'
-			? '1ST SEMESTER'
-			: reportFilters.semester === 'second'
-				? '2ND SEMESTER'
-				: '';
-	const reportTitle = reportFilters.classLevel
-		? `${reportFilters.classLevel.toUpperCase()}${
-				semesterLabel ? ` ${semesterLabel}` : ''
-			} SEMESTER REPORT`
-		: '';
-	const address = Array.isArray(school?.address)
-		? school.address.join('\n')
-		: typeof school?.address === 'string'
-			? school.address
-			: '';
 
 	const fields: Record<string, string> = {
 		student_name: studentData.studentName,
 		student_id: studentData.studentId,
 		class_name: classDisplayName,
 		academic_year: reportFilters.academicYear,
-		sponsor_name: '',
-		school_name: school?.name || '',
-		school_address: address,
-		report_title: reportTitle,
-		class_level: reportFilters.classLevel?.toUpperCase() || '',
 	};
 
 	const getGrade = (period: string, subject: string) =>
@@ -963,7 +940,6 @@ const fillTemplateForStudent = async ({
 	className,
 	classSubjects,
 	reportFilters,
-	school,
 	templateBytes,
 	placements,
 }: {
@@ -971,7 +947,6 @@ const fillTemplateForStudent = async ({
 	className: string;
 	classSubjects: string[];
 	reportFilters: ReportFilters;
-	school: any;
 	templateBytes: ArrayBuffer;
 	placements: ReturnType<typeof buildReportPlacements>;
 }) => {
@@ -982,7 +957,6 @@ const fillTemplateForStudent = async ({
 		className,
 		classSubjects,
 		reportFilters,
-		school,
 	});
 	const font = await filledDoc.embedFont(StandardFonts.Helvetica);
 	const boldFont = await filledDoc.embedFont(StandardFonts.HelveticaBold);
@@ -1035,7 +1009,6 @@ const generateSemesterReportPdf = async ({
 			className,
 			classSubjects,
 			reportFilters,
-			school,
 			templateBytes,
 			placements,
 		});
@@ -1617,7 +1590,7 @@ function ReportContent({
 				>
 					← Back to Filter
 				</button>
-				{isStudent && !inlineError && !forceInlineFallback && (
+				{isStudent && !inlineError && !forceInlineFallback && !pdfGenerating && (
 					<button
 						type="button"
 						onClick={handleShare}
@@ -1652,20 +1625,16 @@ function ReportContent({
 						{shareLoading ? 'Generating Link...' : 'Share Report'}
 					</button>
 				)}
-				<button
-					type="button"
-					onClick={handleDownload}
-					className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm flex items-center gap-2"
-					disabled={downloading || pdfGenerating || !downloadUrl}
-				>
-					{pdfGenerating ? (
-						<InlineLoading size="sm" />
-					) : downloading ? (
-						<span>Downloading...</span>
-					) : (
-						'Download Report'
-					)}
-				</button>
+				{!pdfGenerating && (
+					<button
+						type="button"
+						onClick={handleDownload}
+						className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm flex items-center gap-2"
+						disabled={downloading || pdfGenerating || !downloadUrl}
+					>
+						{downloading ? <span>Downloading...</span> : 'Download Report'}
+					</button>
+				)}
 			</div>
 			<div className="flex-1">
 				{pdfUrl ? (
@@ -1729,7 +1698,7 @@ function ReportContent({
 										</svg>
 										{viewLoading ? 'Opening...' : 'View Report'}
 									</button>
-									{isStudent && (
+									{isStudent && !pdfGenerating && (
 										<button
 											type="button"
 											onClick={handleShare}

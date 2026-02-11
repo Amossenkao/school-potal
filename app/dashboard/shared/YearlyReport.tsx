@@ -825,39 +825,19 @@ const buildYearlyFieldMap = ({
 	className,
 	classSubjects,
 	reportFilters,
-	school,
-	classSponsor,
 }: {
 	studentData: StudentYearlyReport;
 	className: string;
 	classSubjects: string[];
 	reportFilters: ReportFilters;
-	school: any;
-	classSponsor: string | undefined;
 }) => {
-	const sponsorToDisplay = reportFilters.sponsorName.trim()
-		? reportFilters.sponsorName.trim()
-		: classSponsor || '';
 	const classDisplayName = className.split('-')[0] || className;
-	const reportTitle = reportFilters.classLevel
-		? `${reportFilters.classLevel.toUpperCase()} PROGRESS REPORT`
-		: '';
-	const address = Array.isArray(school?.address)
-		? school.address.join('\n')
-		: typeof school?.address === 'string'
-			? school.address
-			: '';
 
 	const fields: Record<string, string> = {
 		student_name: studentData.studentName,
 		student_id: studentData.studentId,
 		class_name: classDisplayName,
 		academic_year: reportFilters.academicYear,
-		sponsor_name: sponsorToDisplay,
-		school_name: school?.name || '',
-		school_address: address,
-		report_title: reportTitle,
-		class_level: reportFilters.classLevel?.toUpperCase() || '',
 	};
 
 	const getGrade = (period: string, subject: string) =>
@@ -939,16 +919,6 @@ const buildYearlyFieldMap = ({
 	fields.rank_sem2 = formatNumber(studentData.ranks.secondSemesterAverage, 0);
 	fields.rank_year = formatNumber(studentData.ranks.yearly, 0);
 
-	const nextGrade = classDisplayName === 'Grade 10'
-		? 'Grade 11'
-		: classDisplayName === 'Grade 11'
-			? 'Grade 12'
-			: '';
-	fields.promotion_student_name = studentData.studentName;
-	fields.promotion_from_grade = classDisplayName;
-	fields.promotion_to_grade = nextGrade;
-	fields.promotion_year = reportFilters.academicYear;
-
 	return fields;
 };
 
@@ -957,8 +927,6 @@ const fillTemplateForStudent = async ({
 	className,
 	classSubjects,
 	reportFilters,
-	school,
-	classSponsor,
 	templateBytes,
 	placements,
 }: {
@@ -966,8 +934,6 @@ const fillTemplateForStudent = async ({
 	className: string;
 	classSubjects: string[];
 	reportFilters: ReportFilters;
-	school: any;
-	classSponsor: string | undefined;
 	templateBytes: ArrayBuffer;
 	placements: ReturnType<typeof buildReportPlacements>;
 }) => {
@@ -978,8 +944,6 @@ const fillTemplateForStudent = async ({
 		className,
 		classSubjects,
 		reportFilters,
-		school,
-		classSponsor,
 	});
 	const font = await filledDoc.embedFont(StandardFonts.Helvetica);
 	const boldFont = await filledDoc.embedFont(StandardFonts.HelveticaBold);
@@ -1000,14 +964,12 @@ const generateYearlyReportPdf = async ({
 	classSubjects,
 	reportFilters,
 	school,
-	classSponsor,
 }: {
 	studentsData: StudentYearlyReport[];
 	className: string;
 	classSubjects: string[];
 	reportFilters: ReportFilters;
 	school: any;
-	classSponsor: string | undefined;
 }) => {
 	const templateUrl = buildReportTemplateUrl({
 		schoolShortName: school?.shortName,
@@ -1034,8 +996,6 @@ const generateYearlyReportPdf = async ({
 			className,
 			classSubjects,
 			reportFilters,
-			school,
-			classSponsor,
 			templateBytes,
 			placements,
 		});
@@ -1062,9 +1022,6 @@ function ReportContent({
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [downloading, setDownloading] = useState(false);
-	const [classSponsor, setClassSponsor] = useState<string | undefined>(
-		undefined,
-	);
 	const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 	const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 	const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
@@ -1113,12 +1070,6 @@ function ReportContent({
 		const classInfo = currentSchool?.classLevels?.[reportFilters.session]?.[
 			reportFilters.classLevel
 		]?.classes.find((c: any) => c.classId === reportFilters.className);
-
-		if (classInfo && classInfo.classSponsor) {
-			setClassSponsor(classInfo.classSponsor);
-		} else {
-			setClassSponsor(undefined);
-		}
 
 		return classInfo?.name || reportFilters.className;
 	}, [
@@ -1690,7 +1641,6 @@ function ReportContent({
 			classSubjects,
 			reportFilters,
 			school,
-			classSponsor,
 		})
 			.then((pdfBytes) => {
 				if (cancelled) return;
@@ -1737,7 +1687,6 @@ function ReportContent({
 		classSubjects,
 		reportFilters,
 		school,
-		classSponsor,
 		loading,
 		error,
 	]);
@@ -1829,7 +1778,7 @@ function ReportContent({
 				>
 					← Back to Filter
 				</button>
-				{isStudent && !inlineError && !inlineDisabled && (
+				{isStudent && !inlineError && !inlineDisabled && !pdfGenerating && (
 					<button
 						type="button"
 						onClick={handleShare}
@@ -1864,35 +1813,35 @@ function ReportContent({
 						{shareLoading ? 'Generating Link...' : 'Share Report Card'}
 					</button>
 				)}
-				<button
-					type="button"
-					onClick={handleDownload}
-					className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm flex items-center gap-2"
-					disabled={downloading || pdfGenerating || !downloadUrl}
-				>
-					{pdfGenerating ? (
-						<InlineLoading size="sm" />
-					) : downloading ? (
-						<span>Downloading...</span>
-					) : (
-						<>
-							<svg
-								className="w-4 h-4"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-							>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth={2}
-									d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-								/>
-							</svg>
-							Download Report Card
-						</>
-					)}
-				</button>
+				{!pdfGenerating && (
+					<button
+						type="button"
+						onClick={handleDownload}
+						className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm flex items-center gap-2"
+						disabled={downloading || pdfGenerating || !downloadUrl}
+					>
+						{downloading ? (
+							<span>Downloading...</span>
+						) : (
+							<>
+								<svg
+									className="w-4 h-4"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+									/>
+								</svg>
+								Download Report Card
+							</>
+						)}
+					</button>
+				)}
 			</div>
 			{shareNotice && !shareModalOpen && (
 				<div className="px-8 pb-2 text-xs text-muted-foreground">
@@ -1927,7 +1876,7 @@ function ReportContent({
 										</svg>
 										{viewLoading ? 'Opening...' : 'View Report Card'}
 									</button>
-									{isStudent && (
+									{isStudent && !pdfGenerating && (
 										<button
 											type="button"
 											onClick={handleShare}
