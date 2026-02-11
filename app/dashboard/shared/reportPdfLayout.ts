@@ -12,7 +12,12 @@ const BASE_PAGE = {
 };
 
 const HEADER_RECTS = {
-	student_name: { x: 67.8988113, y: 543.9407349, width: 231.8035813, height: 20 },
+	student_name: {
+		x: 67.8988113,
+		y: 543.9407349,
+		width: 231.8035813,
+		height: 20,
+	},
 	student_id: { x: 67.8988113, y: 522.8097534, width: 150.9999924, height: 20 },
 	class_name: { x: 67.8988113, y: 500.7859497, width: 150.9999924, height: 20 },
 	academic_year: { x: 640.8154907, y: 500.7859497, width: 151, height: 20 },
