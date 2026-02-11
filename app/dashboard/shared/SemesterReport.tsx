@@ -6,7 +6,7 @@ import React, {
 	useMemo,
 	useCallback,
 } from 'react';
-import { Document, Page, Text, View, Image, pdf } from '@react-pdf/renderer';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
 import {
 	Facebook,
 	Mail,
@@ -15,33 +15,19 @@ import {
 	Send,
 	Twitter,
 } from 'lucide-react';
-import styles from './styles';
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import AccessDenied from '@/components/AccessDenied';
+import { drawTextMap } from '@/utils/pdfText';
+import { buildReportPlacements } from '@/app/dashboard/shared/reportPdfLayout';
 
 const InlineLoading = ({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) => (
 	<div className="-m-8">
 		<PageLoading fullScreen={false} variant="minimal" size={size} />
 	</div>
 );
-
-function gradeStyle(score: string | number | null, baseStyle: any) {
-	if (score === null || Number.isNaN(score) || Number(score) < 70) {
-		return {
-			...baseStyle,
-			color: 'red',
-			fontWeight: 'bold',
-		};
-	}
-	return {
-		...baseStyle,
-		color: 'blue',
-		fontWeight: 'bold',
-	};
-}
 
 interface StudentSemesterReport {
 	studentId: string;
@@ -789,12 +775,243 @@ const FilterContent = React.memo(function FilterContent({
 	);
 });
 
-const watermarkStyle = {
-	position: 'absolute',
-	opacity: 0.08,
+// --- PDF Template Helpers ---
+const TEMPLATE_URL = '/pdf_template.pdf';
+let templateBytesPromise: Promise<ArrayBuffer> | null = null;
+const DEBUG_COORDS = process.env.NEXT_PUBLIC_PDF_DEBUG_COORDS === 'true';
+
+const loadTemplateBytes = async () => {
+	if (!templateBytesPromise) {
+		templateBytesPromise = fetch(TEMPLATE_URL)
+			.then((res) => {
+				if (!res.ok) {
+					throw new Error('Failed to load PDF template');
+				}
+				return res.arrayBuffer();
+			})
+			.catch((err) => {
+				templateBytesPromise = null;
+				throw err;
+			});
+	}
+	return templateBytesPromise;
 };
 
-const SemesterReportDocument = React.memo(function SemesterReportDocument({
+const padRowIndex = (index: number) => String(index + 1).padStart(2, '0');
+
+const formatNumber = (value: number | null | undefined, decimals = 0) => {
+	if (value === null || value === undefined || Number.isNaN(value)) {
+		return '-';
+	}
+	return value.toFixed(decimals);
+};
+
+const buildSemesterFieldMap = ({
+	studentData,
+	className,
+	classSubjects,
+	reportFilters,
+	school,
+}: {
+	studentData: StudentSemesterReport;
+	className: string;
+	classSubjects: string[];
+	reportFilters: ReportFilters;
+	school: any;
+}) => {
+	const classDisplayName = className.split('-')[0] || className;
+	const semesterLabel =
+		reportFilters.semester === 'first'
+			? '1ST SEMESTER'
+			: reportFilters.semester === 'second'
+				? '2ND SEMESTER'
+				: '';
+	const reportTitle = reportFilters.classLevel
+		? `${reportFilters.classLevel.toUpperCase()}${
+				semesterLabel ? ` ${semesterLabel}` : ''
+			} SEMESTER REPORT`
+		: '';
+	const address = Array.isArray(school?.address)
+		? school.address.join('\n')
+		: typeof school?.address === 'string'
+			? school.address
+			: '';
+
+	const fields: Record<string, string> = {
+		student_name: studentData.studentName,
+		student_id: studentData.studentId,
+		class_name: classDisplayName,
+		academic_year: reportFilters.academicYear,
+		sponsor_name: '',
+		school_name: school?.name || '',
+		school_address: address,
+		report_title: reportTitle,
+		class_level: reportFilters.classLevel?.toUpperCase() || '',
+	};
+
+	const getGrade = (period: string, subject: string) =>
+		studentData.periods[period]?.find((s) => s.subject === subject)?.grade ??
+		null;
+
+	const isFirstSemester = reportFilters.semester === 'first';
+	const isSecondSemester = reportFilters.semester === 'second';
+
+	classSubjects.forEach((subject, index) => {
+		const row = padRowIndex(index);
+		fields[`subject_${row}`] = subject;
+		fields[`p1_${row}`] = '-';
+		fields[`p2_${row}`] = '-';
+		fields[`p3_${row}`] = '-';
+		fields[`exam1_${row}`] = '-';
+		fields[`avg1_${row}`] = '-';
+		fields[`p4_${row}`] = '-';
+		fields[`p5_${row}`] = '-';
+		fields[`p6_${row}`] = '-';
+		fields[`exam2_${row}`] = '-';
+		fields[`avg2_${row}`] = '-';
+		fields[`year_${row}`] = '-';
+
+		if (isFirstSemester) {
+			fields[`p1_${row}`] = formatNumber(getGrade('first', subject), 0);
+			fields[`p2_${row}`] = formatNumber(getGrade('second', subject), 0);
+			fields[`p3_${row}`] = formatNumber(getGrade('third', subject), 0);
+			fields[`exam1_${row}`] = formatNumber(
+				getGrade('third_period_exam', subject),
+				0,
+			);
+			fields[`avg1_${row}`] = formatNumber(
+				studentData.firstSemesterAverage[subject],
+				0,
+			);
+		} else if (isSecondSemester) {
+			fields[`p4_${row}`] = formatNumber(getGrade('fourth', subject), 0);
+			fields[`p5_${row}`] = formatNumber(getGrade('fifth', subject), 0);
+			fields[`p6_${row}`] = formatNumber(getGrade('sixth', subject), 0);
+			fields[`exam2_${row}`] = formatNumber(
+				getGrade('six_period_exam', subject),
+				0,
+			);
+			fields[`avg2_${row}`] = formatNumber(
+				studentData.secondSemesterAverage[subject],
+				0,
+			);
+		}
+	});
+
+	fields.avg_p1 = isFirstSemester
+		? formatNumber(studentData.periodAverages.first, 1)
+		: '-';
+	fields.avg_p2 = isFirstSemester
+		? formatNumber(studentData.periodAverages.second, 1)
+		: '-';
+	fields.avg_p3 = isFirstSemester
+		? formatNumber(studentData.periodAverages.third, 1)
+		: '-';
+	fields.avg_exam1 = isFirstSemester
+		? formatNumber(studentData.periodAverages.third_period_exam, 1)
+		: '-';
+	fields.avg_sem1 = isFirstSemester
+		? formatNumber(studentData.periodAverages.firstSemesterAverage, 1)
+		: '-';
+
+	fields.avg_p4 = isSecondSemester
+		? formatNumber(studentData.periodAverages.fourth, 1)
+		: '-';
+	fields.avg_p5 = isSecondSemester
+		? formatNumber(studentData.periodAverages.fifth, 1)
+		: '-';
+	fields.avg_p6 = isSecondSemester
+		? formatNumber(studentData.periodAverages.sixth, 1)
+		: '-';
+	fields.avg_exam2 = isSecondSemester
+		? formatNumber(studentData.periodAverages.six_period_exam, 1)
+		: '-';
+	fields.avg_sem2 = isSecondSemester
+		? formatNumber(studentData.periodAverages.secondSemesterAverage, 1)
+		: '-';
+	fields.avg_year = '-';
+
+	fields.rank_p1 = isFirstSemester
+		? formatNumber(studentData.ranks.first, 0)
+		: '-';
+	fields.rank_p2 = isFirstSemester
+		? formatNumber(studentData.ranks.second, 0)
+		: '-';
+	fields.rank_p3 = isFirstSemester
+		? formatNumber(studentData.ranks.third, 0)
+		: '-';
+	fields.rank_exam1 = isFirstSemester
+		? formatNumber(studentData.ranks.third_period_exam, 0)
+		: '-';
+	fields.rank_sem1 = isFirstSemester
+		? formatNumber(studentData.ranks.firstSemesterAverage, 0)
+		: '-';
+
+	fields.rank_p4 = isSecondSemester
+		? formatNumber(studentData.ranks.fourth, 0)
+		: '-';
+	fields.rank_p5 = isSecondSemester
+		? formatNumber(studentData.ranks.fifth, 0)
+		: '-';
+	fields.rank_p6 = isSecondSemester
+		? formatNumber(studentData.ranks.sixth, 0)
+		: '-';
+	fields.rank_exam2 = isSecondSemester
+		? formatNumber(studentData.ranks.six_period_exam, 0)
+		: '-';
+	fields.rank_sem2 = isSecondSemester
+		? formatNumber(studentData.ranks.secondSemesterAverage, 0)
+		: '-';
+	fields.rank_year = '-';
+
+	fields.promotion_student_name = '';
+	fields.promotion_from_grade = '';
+	fields.promotion_to_grade = '';
+	fields.promotion_year = '';
+
+	return fields;
+};
+
+const fillTemplateForStudent = async ({
+	studentData,
+	className,
+	classSubjects,
+	reportFilters,
+	school,
+	templateBytes,
+	placements,
+}: {
+	studentData: StudentSemesterReport;
+	className: string;
+	classSubjects: string[];
+	reportFilters: ReportFilters;
+	school: any;
+	templateBytes: ArrayBuffer;
+	placements: ReturnType<typeof buildReportPlacements>;
+}) => {
+	const filledDoc = await PDFDocument.load(templateBytes);
+	const [page] = filledDoc.getPages();
+	const fieldMap = buildSemesterFieldMap({
+		studentData,
+		className,
+		classSubjects,
+		reportFilters,
+		school,
+	});
+	const font = await filledDoc.embedFont(StandardFonts.Helvetica);
+	const boldFont = await filledDoc.embedFont(StandardFonts.HelveticaBold);
+	drawTextMap({
+		page,
+		values: fieldMap,
+		placements,
+		fonts: { normal: font, bold: boldFont },
+		defaultSize: 9,
+		debug: DEBUG_COORDS,
+	});
+	return filledDoc;
+};
+
+const generateSemesterReportPdf = async ({
 	studentsData,
 	className,
 	classSubjects,
@@ -806,415 +1023,36 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 	classSubjects: string[];
 	reportFilters: ReportFilters;
 	school: any;
-}) {
-	const pages = useMemo(() => {
-		const chunks: StudentSemesterReport[][] = [];
-		for (let i = 0; i < studentsData.length; i += 2) {
-			chunks.push(studentsData.slice(i, i + 2));
-		}
-		return chunks;
-	}, [studentsData]);
+}) => {
+	const templateBytes = await loadTemplateBytes();
+	const templateDoc = await PDFDocument.load(templateBytes);
+	const [templatePage] = templateDoc.getPages();
+	const placements = buildReportPlacements({
+		pageWidth: templatePage.getWidth(),
+		pageHeight: templatePage.getHeight(),
+		subjectCount: classSubjects.length,
+	});
+	const outDoc = await PDFDocument.create();
 
-	const semesterLabel =
-		reportFilters.semester === 'first' ? '1st Semester' : '2nd Semester';
+	for (const studentData of studentsData) {
+		const filledDoc = await fillTemplateForStudent({
+			studentData,
+			className,
+			classSubjects,
+			reportFilters,
+			school,
+			templateBytes,
+			placements,
+		});
+		const pages = await outDoc.copyPages(
+			filledDoc,
+			filledDoc.getPageIndices(),
+		);
+		pages.forEach((page) => outDoc.addPage(page));
+	}
 
-	const title = useMemo(() => {
-		if (studentsData.length === 1) {
-			return `Semester Report - ${studentsData[0].studentName}`;
-		}
-		return `Semester Report - ${className} - ${semesterLabel}`;
-	}, [studentsData, className, semesterLabel]);
-
-	const isFirstSemester = reportFilters.semester === 'first';
-	const periodColumns = isFirstSemester
-		? [
-				{ key: 'first', label: '1st Period' },
-				{ key: 'second', label: '2nd Period' },
-				{ key: 'third', label: '3rd Period' },
-				{ key: 'third_period_exam', label: '3rd Period Exam' },
-		  ]
-		: [
-				{ key: 'fourth', label: '4th Period' },
-				{ key: 'fifth', label: '5th Period' },
-				{ key: 'sixth', label: '6th Period' },
-				{ key: 'six_period_exam', label: '6th Period Exam' },
-		  ];
-
-	return (
-		<Document title={title}>
-			{pages.map((studentGroup, pageIndex) => (
-				<Page
-					key={`semester-page-${pageIndex}`}
-					size="A4"
-					style={{ ...styles.page, padding: 20 }}
-					wrap={false}
-				>
-					<View style={{ flexDirection: 'row', gap: 18 }}>
-						{studentGroup.map((studentData, index) => {
-							const getGrade = (period: string, subject: string) =>
-								studentData.periods[period]?.find(
-									(s) => s.subject === subject,
-								)?.grade ?? null;
-							const rankMap = isFirstSemester
-								? {
-										first: studentData.ranks.first,
-										second: studentData.ranks.second,
-										third: studentData.ranks.third,
-										third_period_exam: studentData.ranks.third_period_exam,
-										semester: studentData.ranks.firstSemesterAverage,
-								  }
-								: {
-										fourth: studentData.ranks.fourth,
-										fifth: studentData.ranks.fifth,
-										sixth: studentData.ranks.sixth,
-										six_period_exam: studentData.ranks.six_period_exam,
-										semester: studentData.ranks.secondSemesterAverage,
-								  };
-							return (
-								<View
-									key={studentData.studentId}
-									style={{
-										flex: 1,
-										borderWidth: 1,
-										borderColor: '#cbd5e1',
-										backgroundColor: '#f8fafc',
-										borderRadius: 8,
-										padding: 8,
-										position: 'relative',
-										minHeight: 360,
-									}}
-								>
-									{school?.logoUrl && (
-										<Image
-											src={school.logoUrl}
-											style={{
-												...watermarkStyle,
-												width: '35%',
-												top: '20%',
-												left: '32%',
-											}}
-										/>
-									)}
-
-									<View style={{ marginBottom: 6 }}>
-										<Text
-											style={{
-												fontSize: 12,
-												fontWeight: 'bold',
-												textAlign: 'center',
-											}}
-										>
-											{school?.name}
-										</Text>
-										<View
-											style={{
-												flexDirection: 'row',
-												alignItems: 'center',
-												marginBottom: 4,
-												gap: 2,
-											}}
-										>
-											<View>
-												{(school?.logoUrl2 || school?.logoUrl) && (
-													<Image
-														src={school?.logoUrl2 || school?.logoUrl}
-														style={{ width: 32 }}
-													/>
-												)}
-											</View>
-											<View style={{ flex: 1, alignItems: 'center' }}>
-												{school?.address && (
-													<Text
-														style={{
-															fontSize: 8,
-															textAlign: 'center',
-															marginBottom: 1,
-														}}
-													>
-														{school.address.join('\n')}
-													</Text>
-												)}
-											</View>
-											<View>
-												{school?.logoUrl && (
-													<Image src={school.logoUrl} style={{ width: 32 }} />
-												)}
-											</View>
-										</View>
-										<Text
-											style={{
-												fontWeight: 'bold',
-												fontSize: 9,
-												textAlign: 'center',
-												color: '#1a365d',
-												marginBottom: 2,
-											}}
-										>
-											{reportFilters.classLevel?.toUpperCase()} SEMESTER REPORT
-										</Text>
-										<Text style={{ fontSize: 8, textAlign: 'center' }}>
-											Academic Year: {reportFilters.academicYear} &nbsp;&nbsp;
-											Class: {className.split('-')[0]}
-										</Text>
-									</View>
-
-									<View
-										style={{
-											flexDirection: 'row',
-											justifyContent: 'space-between',
-											marginBottom: 6,
-											fontSize: 9,
-										}}
-									>
-										<View>
-											<Text>
-												Name:{' '}
-												<Text style={{ fontWeight: 'bold' }}>
-													{studentData.studentName}
-												</Text>
-											</Text>
-											<Text>
-												ID:{' '}
-												<Text style={{ fontWeight: 'bold' }}>
-													{studentData.studentId}
-												</Text>
-											</Text>
-										</View>
-										<View>
-											<Text>
-												Semester:{' '}
-												<Text style={{ fontWeight: 'bold' }}>{semesterLabel}</Text>
-											</Text>
-										</View>
-									</View>
-
-									<View
-										style={{
-											borderWidth: 1,
-											borderColor: '#000',
-										}}
-									>
-										<View
-											style={{
-												flexDirection: 'row',
-												backgroundColor: '#f0f0f0',
-												borderBottomWidth: 1,
-												borderBottomColor: '#000',
-											}}
-										>
-											<Text
-												style={{
-													flex: 2,
-													padding: 2,
-													fontSize: 7,
-													fontWeight: 'bold',
-													borderRightWidth: 0.5,
-													borderRightColor: '#000',
-													textAlign: 'left',
-												}}
-											>
-												Subject
-											</Text>
-											{periodColumns.map((col) => (
-												<Text
-													key={col.key}
-													style={{
-														flex: 1,
-														padding: 2,
-														fontSize: 7,
-														fontWeight: 'bold',
-														borderRightWidth: 0.5,
-														borderRightColor: '#000',
-														textAlign: 'center',
-													}}
-												>
-													{col.label}
-												</Text>
-											))}
-											<Text
-												style={{
-													flex: 1,
-													padding: 2,
-													fontSize: 7,
-													fontWeight: 'bold',
-													textAlign: 'center',
-												}}
-											>
-												Average
-											</Text>
-										</View>
-										{classSubjects.map((subject) => {
-											const average = isFirstSemester
-												? studentData.firstSemesterAverage[subject]
-												: studentData.secondSemesterAverage[subject];
-											return (
-												<View
-													key={subject}
-													style={{
-														flexDirection: 'row',
-														borderBottomWidth: 0.5,
-														borderBottomColor: '#000',
-													}}
-												>
-													<Text
-														style={{
-															flex: 2,
-															padding: 2,
-															fontSize: 7,
-															borderRightWidth: 0.5,
-															borderRightColor: '#000',
-														}}
-													>
-														{subject}
-													</Text>
-													{periodColumns.map((col) => (
-														<Text
-															key={`${subject}-${col.key}`}
-															style={gradeStyle(
-																getGrade(col.key, subject),
-																{
-																	flex: 1,
-																	padding: 2,
-																	fontSize: 7,
-																	textAlign: 'center',
-																	borderRightWidth: 0.5,
-																	borderRightColor: '#000',
-																},
-															)}
-														>
-															{getGrade(col.key, subject) ?? '-'}
-														</Text>
-													))}
-													<Text
-														style={gradeStyle(average, {
-															flex: 1,
-															padding: 2,
-															fontSize: 7,
-															textAlign: 'center',
-														})}
-													>
-														{average?.toFixed(0) ?? '-'}
-													</Text>
-												</View>
-											);
-										})}
-										<View
-											style={{
-												flexDirection: 'row',
-												backgroundColor: '#f0f8ff',
-											}}
-										>
-											<Text
-												style={{
-													flex: 2,
-													padding: 2,
-													fontSize: 8,
-													fontWeight: 'bold',
-													borderRightWidth: 0.5,
-													borderRightColor: '#000',
-												}}
-											>
-												Average
-											</Text>
-											{periodColumns.map((col) => {
-												const avg = studentData.periodAverages[col.key];
-												return (
-													<Text
-														key={`avg-${col.key}`}
-														style={gradeStyle(avg, {
-															flex: 1,
-															padding: 2,
-															fontSize: 7,
-															textAlign: 'center',
-															borderRightWidth: 0.5,
-															borderRightColor: '#000',
-														})}
-													>
-														{avg?.toFixed(1) ?? '-'}
-													</Text>
-												);
-											})}
-											<Text
-												style={gradeStyle(
-													isFirstSemester
-														? studentData.periodAverages.firstSemesterAverage
-														: studentData.periodAverages.secondSemesterAverage,
-													{
-														flex: 1,
-														padding: 2,
-														fontSize: 7,
-														textAlign: 'center',
-													},
-												)}
-											>
-												{isFirstSemester
-													? studentData.periodAverages.firstSemesterAverage?.toFixed(
-															1,
-													  ) ?? '-'
-													: studentData.periodAverages.secondSemesterAverage?.toFixed(
-															1,
-													  ) ?? '-'}
-											</Text>
-										</View>
-										<View
-											style={{
-												flexDirection: 'row',
-												backgroundColor: '#f0f8ff',
-												borderTopWidth: 0.5,
-												borderTopColor: '#000',
-											}}
-										>
-											<Text
-												style={{
-													flex: 2,
-													padding: 2,
-													fontSize: 8,
-													fontWeight: 'bold',
-													borderRightWidth: 0.5,
-													borderRightColor: '#000',
-												}}
-											>
-												Rank
-											</Text>
-											{periodColumns.map((col) => (
-												<Text
-													key={`rank-${col.key}`}
-													style={{
-														flex: 1,
-														padding: 2,
-														fontSize: 7,
-														textAlign: 'center',
-														borderRightWidth: 0.5,
-														borderRightColor: '#000',
-													}}
-												>
-													{(rankMap as any)[col.key] ?? '-'}
-												</Text>
-											))}
-											<Text
-												style={{
-													flex: 1,
-													padding: 2,
-													fontSize: 7,
-													textAlign: 'center',
-												}}
-											>
-												{(rankMap as any).semester ?? '-'}
-											</Text>
-										</View>
-									</View>
-								</View>
-							);
-						})}
-						{studentGroup.length === 1 && (
-							<View style={{ flex: 1 }} />
-						)}
-					</View>
-				</Page>
-			))}
-		</Document>
-	);
-});
+	return outDoc.save();
+};
 
 function ReportContent({
 	reportFilters,
@@ -1608,32 +1446,8 @@ function ReportContent({
 		isStudent,
 	]);
 
-	const pdfDocument = useMemo(() => {
-		if (!studentsData.length || loading || error) {
-			return null;
-		}
-
-		return (
-			<SemesterReportDocument
-				studentsData={studentsData}
-				className={className}
-				classSubjects={classSubjects}
-				reportFilters={reportFilters}
-				school={school}
-			/>
-		);
-	}, [
-		studentsData,
-		className,
-		classSubjects,
-		reportFilters,
-		school,
-		loading,
-		error,
-	]);
-
 	useEffect(() => {
-		if (!pdfDocument) {
+		if (!studentsData.length || loading || error) {
 			if (pdfUrlRef.current) {
 				URL.revokeObjectURL(pdfUrlRef.current);
 				pdfUrlRef.current = null;
@@ -1648,10 +1462,20 @@ function ReportContent({
 
 		let cancelled = false;
 		setPdfGenerating(true);
-		pdf(pdfDocument)
-			.toBlob()
-			.then((blob) => {
+		const isIOS =
+			typeof navigator !== 'undefined' &&
+			/iPad|iPhone|iPod/.test(navigator.userAgent);
+
+		generateSemesterReportPdf({
+			studentsData,
+			className,
+			classSubjects,
+			reportFilters,
+			school,
+		})
+			.then((pdfBytes) => {
 				if (cancelled) return;
+				const blob = new Blob([pdfBytes], { type: 'application/pdf' });
 				if (pdfUrlRef.current) {
 					URL.revokeObjectURL(pdfUrlRef.current);
 				}
@@ -1661,10 +1485,25 @@ function ReportContent({
 				setPdfBlob(blob);
 				setServerKey(null);
 				setInlineError(false);
-				setPdfUrl(objectUrl);
+				if (isIOS) {
+					const reader = new FileReader();
+					reader.onloadend = () => {
+						if (cancelled) return;
+						setPdfUrl(
+							typeof reader.result === 'string' ? reader.result : objectUrl,
+						);
+					};
+					reader.readAsDataURL(blob);
+				} else {
+					setPdfUrl(objectUrl);
+				}
 			})
 			.catch((err) => {
-				console.error('PDF generation error:', err);
+				console.error('Failed to generate PDF blob', err);
+				if (!cancelled) {
+					setPdfUrl(null);
+					setError('Failed to generate PDF. Please verify the template.');
+				}
 			})
 			.finally(() => {
 				if (!cancelled) {
@@ -1675,7 +1514,15 @@ function ReportContent({
 		return () => {
 			cancelled = true;
 		};
-	}, [pdfDocument]);
+	}, [
+		studentsData,
+		className,
+		classSubjects,
+		reportFilters,
+		school,
+		loading,
+		error,
+	]);
 
 	useEffect(() => {
 		if (!pdfBlob || pdfGenerating || serverKey) return;

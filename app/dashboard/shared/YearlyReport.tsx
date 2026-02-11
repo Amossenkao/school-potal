@@ -14,7 +14,7 @@ import {
 	Send,
 	Twitter,
 } from 'lucide-react';
-import { PDFDocument, PDFTextField, StandardFonts } from 'pdf-lib';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
@@ -24,6 +24,8 @@ import {
 	enqueueShareRequest,
 } from '@/utils/shareQueue';
 import AccessDenied from '@/components/AccessDenied';
+import { drawTextMap } from '@/utils/pdfText';
+import { buildReportPlacements } from '@/app/dashboard/shared/reportPdfLayout';
 
 // --- Type Definitions ---
 
@@ -730,9 +732,9 @@ const FilterContent = React.memo(function FilterContent({
 });
 
 // --- PDF Template Helpers ---
-const TEMPLATE_URL = '/pdf_template_form.pdf';
+const TEMPLATE_URL = '/pdf_template.pdf';
 let templateBytesPromise: Promise<ArrayBuffer> | null = null;
-let missingFieldLogged = false;
+const DEBUG_COORDS = process.env.NEXT_PUBLIC_PDF_DEBUG_COORDS === 'true';
 
 const loadTemplateBytes = async () => {
 	if (!templateBytesPromise) {
@@ -824,7 +826,7 @@ const areReportsEqual = (
 	return true;
 };
 
-// Field naming contract for pdf_template_form.pdf:
+// Field naming contract for the PDF template:
 // Header: student_name, student_id, class_name, academic_year, sponsor_name
 // Row fields (1-based, zero-padded): subject_01, p1_01, p2_01, p3_01, exam1_01, avg1_01,
 // p4_01, p5_01, p6_01, exam2_01, avg2_01, year_01 (repeat for each subject row)
@@ -964,37 +966,6 @@ const buildYearlyFieldMap = ({
 	return fields;
 };
 
-const applyFieldMap = (
-	form: ReturnType<PDFDocument['getForm']>,
-	fields: Record<string, string>,
-) => {
-	const formFields = form.getFields();
-	const fieldLookup = new Map(
-		formFields.map((field) => [field.getName(), field]),
-	);
-	const missingFields: string[] = [];
-
-	Object.entries(fields).forEach(([name, value]) => {
-		const field = fieldLookup.get(name);
-		if (!field) {
-			if (value !== '' && value !== '-') {
-				missingFields.push(name);
-			}
-			return;
-		}
-		if (field instanceof PDFTextField) {
-			field.setText(value ?? '');
-		}
-	});
-
-	if (!missingFieldLogged && missingFields.length > 0) {
-		missingFieldLogged = true;
-		if (process.env.NODE_ENV !== 'production') {
-			console.warn('Missing PDF form fields:', missingFields);
-		}
-	}
-};
-
 const fillTemplateForStudent = async ({
 	studentData,
 	className,
@@ -1003,6 +974,7 @@ const fillTemplateForStudent = async ({
 	school,
 	classSponsor,
 	templateBytes,
+	placements,
 }: {
 	studentData: StudentYearlyReport;
 	className: string;
@@ -1011,9 +983,10 @@ const fillTemplateForStudent = async ({
 	school: any;
 	classSponsor: string | undefined;
 	templateBytes: ArrayBuffer;
+	placements: ReturnType<typeof buildReportPlacements>;
 }) => {
 	const filledDoc = await PDFDocument.load(templateBytes);
-	const form = filledDoc.getForm();
+	const [page] = filledDoc.getPages();
 	const fieldMap = buildYearlyFieldMap({
 		studentData,
 		className,
@@ -1022,10 +995,16 @@ const fillTemplateForStudent = async ({
 		school,
 		classSponsor,
 	});
-	applyFieldMap(form, fieldMap);
 	const font = await filledDoc.embedFont(StandardFonts.Helvetica);
-	form.updateFieldAppearances(font);
-	form.flatten();
+	const boldFont = await filledDoc.embedFont(StandardFonts.HelveticaBold);
+	drawTextMap({
+		page,
+		values: fieldMap,
+		placements,
+		fonts: { normal: font, bold: boldFont },
+		defaultSize: 9,
+		debug: DEBUG_COORDS,
+	});
 	return filledDoc;
 };
 
@@ -1045,6 +1024,13 @@ const generateYearlyReportPdf = async ({
 	classSponsor: string | undefined;
 }) => {
 	const templateBytes = await loadTemplateBytes();
+	const templateDoc = await PDFDocument.load(templateBytes);
+	const [templatePage] = templateDoc.getPages();
+	const placements = buildReportPlacements({
+		pageWidth: templatePage.getWidth(),
+		pageHeight: templatePage.getHeight(),
+		subjectCount: classSubjects.length,
+	});
 	const outDoc = await PDFDocument.create();
 
 	for (const studentData of studentsData) {
@@ -1056,6 +1042,7 @@ const generateYearlyReportPdf = async ({
 			school,
 			classSponsor,
 			templateBytes,
+			placements,
 		});
 		const pages = await outDoc.copyPages(
 			filledDoc,
