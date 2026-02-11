@@ -24,7 +24,7 @@ import {
 	enqueueShareRequest,
 } from '@/utils/shareQueue';
 import AccessDenied from '@/components/AccessDenied';
-import { drawTextMap } from '@/utils/pdfText';
+import { drawTextMap, type TextPlacementMap } from '@/utils/pdfText';
 import { buildReportPlacements } from '@/app/dashboard/shared/reportPdfLayout';
 import {
 	buildReportTemplateUrl,
@@ -748,6 +748,47 @@ const formatNumber = (value: number | null | undefined, decimals = 0) => {
 	return value.toFixed(decimals);
 };
 
+const PASS_MARK = 70;
+const RED_TEXT = { r: 0.85, g: 0.1, b: 0.1 };
+const BLUE_TEXT = { r: 0.1, g: 0.25, b: 0.8 };
+
+const isGradeOrAverageField = (key: string) =>
+	/^(p[1-6]|exam[12]|avg[12]|year)_\d{2}$/.test(key) ||
+	/^avg_(p[1-6]|exam[12]|sem[12]|year)$/.test(key);
+
+const toNumeric = (value: string | number | null | undefined) => {
+	if (typeof value === 'number') return value;
+	if (typeof value !== 'string') return Number.NaN;
+	const parsed = Number.parseFloat(value);
+	return Number.isFinite(parsed) ? parsed : Number.NaN;
+};
+
+const buildConditionalColorPlacements = ({
+	basePlacements,
+	values,
+}: {
+	basePlacements: TextPlacementMap;
+	values: Record<string, string | number | null | undefined>;
+}): TextPlacementMap => {
+	const placements: TextPlacementMap = { ...basePlacements };
+
+	Object.entries(values).forEach(([key, rawValue]) => {
+		if (!isGradeOrAverageField(key)) return;
+		const score = toNumeric(rawValue);
+		if (Number.isNaN(score)) return;
+
+		const entry = basePlacements[key];
+		if (!entry) return;
+
+		const color = score < PASS_MARK ? RED_TEXT : BLUE_TEXT;
+		placements[key] = Array.isArray(entry)
+			? entry.map((p) => ({ ...p, color, font: 'bold' as const }))
+			: { ...entry, color, font: 'bold' as const };
+	});
+
+	return placements;
+};
+
 const areNumberMapsEqual = (
 	a: Record<string, number | null>,
 	b: Record<string, number | null>,
@@ -947,10 +988,14 @@ const fillTemplateForStudent = async ({
 	});
 	const font = await filledDoc.embedFont(StandardFonts.Helvetica);
 	const boldFont = await filledDoc.embedFont(StandardFonts.HelveticaBold);
+	const styledPlacements = buildConditionalColorPlacements({
+		basePlacements: placements,
+		values: fieldMap,
+	});
 	drawTextMap({
 		page,
 		values: fieldMap,
-		placements,
+		placements: styledPlacements,
 		fonts: { normal: font, bold: boldFont },
 		defaultSize: 9,
 		debug: DEBUG_COORDS,
