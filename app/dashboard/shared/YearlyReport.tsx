@@ -15,6 +15,7 @@ import {
 	Twitter,
 } from 'lucide-react';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
+import QRCode from 'qrcode';
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
@@ -25,7 +26,12 @@ import {
 } from '@/utils/shareQueue';
 import AccessDenied from '@/components/AccessDenied';
 import { drawTextMap, type TextPlacementMap } from '@/utils/pdfText';
-import { buildReportPlacements } from '@/app/dashboard/shared/reportPdfLayout';
+import {
+	buildReportPage2QrPlacement,
+	buildReportPage2Placements,
+	buildReportPlacements,
+	type RectPlacement,
+} from '@/app/dashboard/shared/reportPdfLayout';
 import {
 	buildReportTemplateUrl,
 	DEFAULT_REPORT_TEMPLATE_URL,
@@ -738,6 +744,7 @@ const FilterContent = React.memo(function FilterContent({
 
 // --- PDF Template Helpers ---
 const DEBUG_COORDS = process.env.NEXT_PUBLIC_PDF_DEBUG_COORDS === 'true';
+const OFFLINE_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 
 const padRowIndex = (index: number) => String(index + 1).padStart(2, '0');
 
@@ -788,6 +795,43 @@ const buildConditionalColorPlacements = ({
 
 	return placements;
 };
+
+const buildReportVerificationPayload = ({
+	studentId,
+	studentName,
+	className,
+	academicYear,
+	session,
+	schoolShortName,
+}: {
+	studentId: string;
+	studentName: string;
+	className: string;
+	academicYear: string;
+	session: string;
+	schoolShortName?: string;
+}) =>
+	JSON.stringify({
+		type: 'yearly_report',
+		studentId,
+		studentName,
+		className,
+		academicYear,
+		session,
+		school: schoolShortName ?? '',
+		generatedAt: new Date().toISOString(),
+	});
+
+const generateStudentQrCodeDataUrl = async (payload: string) =>
+	QRCode.toDataURL(payload, {
+		errorCorrectionLevel: 'M',
+		margin: 1,
+		width: 256,
+		color: {
+			dark: '#111111',
+			light: '#FFFFFF',
+		},
+	});
 
 const areNumberMapsEqual = (
 	a: Record<string, number | null>,
@@ -976,10 +1020,14 @@ const fillTemplateForStudent = async ({
 	classSubjects: string[];
 	reportFilters: ReportFilters;
 	templateBytes: ArrayBuffer;
-	placements: ReturnType<typeof buildReportPlacements>;
+	placements: {
+		page1: ReturnType<typeof buildReportPlacements>;
+		page2: TextPlacementMap;
+		page2Qr: RectPlacement | null;
+	};
 }) => {
 	const filledDoc = await PDFDocument.load(templateBytes);
-	const [page] = filledDoc.getPages();
+	const [page1, page2] = filledDoc.getPages();
 	const fieldMap = buildYearlyFieldMap({
 		studentData,
 		className,
@@ -988,18 +1036,44 @@ const fillTemplateForStudent = async ({
 	});
 	const font = await filledDoc.embedFont(StandardFonts.Helvetica);
 	const boldFont = await filledDoc.embedFont(StandardFonts.HelveticaBold);
-	const styledPlacements = buildConditionalColorPlacements({
-		basePlacements: placements,
+	const page1Placements = buildConditionalColorPlacements({
+		basePlacements: placements.page1,
 		values: fieldMap,
 	});
 	drawTextMap({
-		page,
+		page: page1,
 		values: fieldMap,
-		placements: styledPlacements,
+		placements: page1Placements,
 		fonts: { normal: font, bold: boldFont },
 		defaultSize: 9,
 		debug: DEBUG_COORDS,
 	});
+	if (page2) {
+		const page2Placements = buildConditionalColorPlacements({
+			basePlacements: placements.page2,
+			values: fieldMap,
+		});
+		drawTextMap({
+			page: page2,
+			values: fieldMap,
+			placements: page2Placements,
+			fonts: { normal: font, bold: boldFont },
+			defaultSize: 9,
+			debug: DEBUG_COORDS,
+		});
+		if (placements.page2Qr && studentData.qrCodeDataUrl) {
+			const qrBytes = await fetch(studentData.qrCodeDataUrl).then((res) =>
+				res.arrayBuffer(),
+			);
+			const qrImage = await filledDoc.embedPng(qrBytes);
+			page2.drawImage(qrImage, {
+				x: placements.page2Qr.x,
+				y: placements.page2Qr.y,
+				width: placements.page2Qr.width,
+				height: placements.page2Qr.height,
+			});
+		}
+	}
 	return filledDoc;
 };
 
@@ -1027,12 +1101,24 @@ const generateYearlyReportPdf = async ({
 		DEFAULT_REPORT_TEMPLATE_URL,
 	);
 	const templateDoc = await PDFDocument.load(templateBytes);
-	const [templatePage] = templateDoc.getPages();
-	const placements = buildReportPlacements({
-		pageWidth: templatePage.getWidth(),
-		pageHeight: templatePage.getHeight(),
+	const [templatePage1, templatePage2] = templateDoc.getPages();
+	const page1Placements = buildReportPlacements({
+		pageWidth: templatePage1.getWidth(),
+		pageHeight: templatePage1.getHeight(),
 		subjectCount: classSubjects.length,
 	});
+	const page2Placements = templatePage2
+		? buildReportPage2Placements({
+				pageWidth: templatePage2.getWidth(),
+				pageHeight: templatePage2.getHeight(),
+			})
+		: {};
+	const page2QrPlacement = templatePage2
+		? buildReportPage2QrPlacement({
+				pageWidth: templatePage2.getWidth(),
+				pageHeight: templatePage2.getHeight(),
+			})
+		: null;
 	const outDoc = await PDFDocument.create();
 
 	for (const studentData of studentsData) {
@@ -1042,7 +1128,11 @@ const generateYearlyReportPdf = async ({
 			classSubjects,
 			reportFilters,
 			templateBytes,
-			placements,
+			placements: {
+				page1: page1Placements,
+				page2: page2Placements,
+				page2Qr: page2QrPlacement,
+			},
 		});
 		const pages = await outDoc.copyPages(
 			filledDoc,
@@ -1463,7 +1553,7 @@ function ReportContent({
 							middleName: student.middleName,
 							lastName: student.lastName,
 						}));
-						setClientCache(cacheKey, mapped);
+						setClientCache(cacheKey, mapped, OFFLINE_CACHE_TTL_MS);
 
 						if (reportFilters.selectedStudents.length > 0) {
 							studentsToProcess = mapped.filter((student: any) =>
@@ -1485,13 +1575,55 @@ function ReportContent({
 					params.append('studentIds', reportFilters.selectedStudents.join(','));
 				}
 
+				const gradesCacheBaseKey = `yearly:grades:${reportFilters.academicYear}:${reportFilters.session}:${reportFilters.className}`;
+				const selectedIdsCacheKey =
+					reportFilters.selectedStudents.length > 0
+						? [...reportFilters.selectedStudents].sort().join(',')
+						: 'all';
+				const gradesCacheKey = `${gradesCacheBaseKey}:${selectedIdsCacheKey}`;
+				const cachedGrades =
+					getClientCache<any>(gradesCacheKey) ??
+					getClientCache<any>(`${gradesCacheBaseKey}:all`);
+
 				let gradesData = { success: true, data: { report: [] } };
-				const gradesResponse = await fetch(`/api/grades?${params.toString()}`);
-				if (gradesResponse.ok) {
-					gradesData = await gradesResponse.json();
+				const offline =
+					typeof navigator !== 'undefined' && navigator.onLine === false;
+
+				if (offline && cachedGrades) {
+					gradesData = cachedGrades;
+				} else if (offline && !cachedGrades) {
+					throw new Error(
+						'No cached grades found for offline yearly report generation.',
+					);
 				} else {
-					const errorData = await gradesResponse.json();
-					throw new Error(errorData.message || 'Failed to fetch grades');
+					try {
+						const gradesResponse = await fetch(`/api/grades?${params.toString()}`);
+						if (!gradesResponse.ok) {
+							let message = 'Failed to fetch grades';
+							try {
+								const errorData = await gradesResponse.json();
+								message = errorData?.message || message;
+							} catch {
+								// Keep default error message if response body is unavailable.
+							}
+							throw new Error(message);
+						}
+						gradesData = await gradesResponse.json();
+						setClientCache(gradesCacheKey, gradesData, OFFLINE_CACHE_TTL_MS);
+						if (selectedIdsCacheKey === 'all') {
+							setClientCache(
+								`${gradesCacheBaseKey}:all`,
+								gradesData,
+								OFFLINE_CACHE_TTL_MS,
+							);
+						}
+					} catch (fetchErr) {
+						if (cachedGrades) {
+							gradesData = cachedGrades;
+						} else {
+							throw fetchErr;
+						}
+					}
 				}
 
 				let existingReports: any[] = [];
@@ -1514,7 +1646,16 @@ function ReportContent({
 							(report: any) => report.studentId === studentId,
 						);
 
-						const qrCodeDataUrl = '';
+						const qrPayload = buildReportVerificationPayload({
+							studentId,
+							studentName,
+							className,
+							academicYear: reportFilters.academicYear,
+							session: reportFilters.session,
+							schoolShortName: school?.shortName,
+						});
+						const qrCodeDataUrl =
+							await generateStudentQrCodeDataUrl(qrPayload);
 
 						const periods: Record<
 							string,

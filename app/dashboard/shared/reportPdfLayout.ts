@@ -6,6 +6,18 @@ type BuildPlacementsArgs = {
 	subjectCount: number;
 };
 
+type BuildPagePlacementsArgs = {
+	pageWidth: number;
+	pageHeight: number;
+};
+
+export type RectPlacement = {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+};
+
 const BASE_PAGE = {
 	width: 841.89,
 	height: 595.28,
@@ -315,4 +327,108 @@ export const buildReportPlacements = ({
 	};
 
 	return placements;
+};
+
+export const buildReportPage2Placements = ({
+	pageWidth,
+	pageHeight,
+}: BuildPagePlacementsArgs): TextPlacementMap => {
+	const scaleX = pageWidth / BASE_PAGE.width;
+	const scaleY = pageHeight / BASE_PAGE.height;
+
+	const placements: TextPlacementMap = {};
+	// Calibrated from page-2 text anchors in upstairs_senior_high_yearly_report.pdf.
+	// These are in BASE_PAGE coordinates and then scaled.
+	const PAGE2_RECTS = {
+		student_name: { x: 496.5, y: 336.0, width: 165, height: 20 },
+		class_name: { x: 496.5, y: 322.8, width: 165, height: 20 },
+		student_id: { x: 708.2, y: 336.0, width: 98, height: 20 },
+		academic_year: { x: 750.5, y: 322.8, width: 56, height: 20 },
+	};
+
+	const studentNameRect = scaleRect(PAGE2_RECTS.student_name, scaleX, scaleY);
+	const studentIdRect = scaleRect(PAGE2_RECTS.student_id, scaleX, scaleY);
+	const classNameRect = scaleRect(PAGE2_RECTS.class_name, scaleX, scaleY);
+	const academicYearRect = scaleRect(PAGE2_RECTS.academic_year, scaleX, scaleY);
+
+	placements.student_name = rectToPlacement(studentNameRect, 1 * scaleX, {
+		size: 11 * scaleY,
+		align: 'left',
+		font: 'bold',
+	});
+	placements.student_id = rectToPlacement(studentIdRect, 1 * scaleX, {
+		size: 11 * scaleY,
+		align: 'left',
+	});
+	placements.class_name = rectToPlacement(classNameRect, 1 * scaleX, {
+		size: 11 * scaleY,
+		align: 'left',
+	});
+	placements.academic_year = rectToPlacement(academicYearRect, 1 * scaleX, {
+		size: 11 * scaleY,
+		align: 'left',
+		font: 'bold',
+	});
+
+	// Optional page-2 fields (add values in field map when ready).
+	placements.page2_date = {
+		x: 67.416 * scaleX,
+		y: 226.696 * scaleY,
+		boxHeight: 20 * scaleY,
+		valign: 'middle',
+		size: 10 * scaleY,
+		align: 'left',
+		maxWidth: 133.44 * scaleX,
+	};
+	placements.page2_principal = {
+		x: 267.349 * scaleX,
+		y: 226.696 * scaleY,
+		boxHeight: 20 * scaleY,
+		valign: 'middle',
+		size: 10 * scaleY,
+		align: 'left',
+		maxWidth: 120.096 * scaleX,
+	};
+
+	// Parent/guardian signature table on page 2.
+	const periodRowTop = [210.98, 193.48, 175.98, 158.48, 140.98, 123.48];
+	periodRowTop.forEach((rowTop, index) => {
+		const row = String(index + 1);
+		placements[`class_teacher_p${row}`] = {
+			x: 606 * scaleX,
+			y: rowTop * scaleY,
+			boxHeight: 17.5 * scaleY,
+			valign: 'middle',
+			size: 9 * scaleY,
+			align: 'center',
+			maxWidth: 120 * scaleX,
+		};
+		placements[`parent_guardian_p${row}`] = {
+			x: 744 * scaleX,
+			y: rowTop * scaleY,
+			boxHeight: 17.5 * scaleY,
+			valign: 'middle',
+			size: 9 * scaleY,
+			align: 'center',
+			maxWidth: 120 * scaleX,
+		};
+	});
+
+	return placements;
+};
+
+export const buildReportPage2QrPlacement = ({
+	pageWidth,
+	pageHeight,
+}: BuildPagePlacementsArgs): RectPlacement => {
+	const scaleX = pageWidth / BASE_PAGE.width;
+	const scaleY = pageHeight / BASE_PAGE.height;
+
+	// QR area on page 2 (bottom-left block near "Scan the QR Code...").
+	return {
+		x: 55 * scaleX,
+		y: 62 * scaleY,
+		width: 90 * scaleX,
+		height: 94 * scaleY,
+	};
 };
