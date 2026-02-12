@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import GradesPDFDownload from './GradesPDFDownload';
 import useAuth from '@/store/useAuth';
@@ -84,14 +84,24 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	error: parentError,
 	teacherInfo,
 }) => {
-	const { user: userInfo } = useAuth();
+	const userInfo = useAuth((state) => state.user);
 	const currentSchool = useSchoolStore((state) => state.school);
 	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
 	const gradesByAcademicYear = useSchoolStore(
 		(state) => state.gradesByAcademicYear
 	);
+	const usersByAcademicYearRef = useRef(usersByAcademicYear);
+	const gradesByAcademicYearRef = useRef(gradesByAcademicYear);
 	const { isOnline } = useNetworkStore();
 	const effectiveUser = teacherInfo || userInfo;
+
+	useEffect(() => {
+		usersByAcademicYearRef.current = usersByAcademicYear;
+	}, [usersByAcademicYear]);
+
+	useEffect(() => {
+		gradesByAcademicYearRef.current = gradesByAcademicYear;
+	}, [gradesByAcademicYear]);
 
 	const getClassMetaById = (classId: string) => {
 		if (!classId || !currentSchool?.classLevels) return null;
@@ -406,8 +416,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
 					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
 					const cachedUsers =
-						usersByAcademicYear?.[normalizedYear]?.students ||
-						usersByAcademicYear?.[fallbackYear]?.students ||
+						usersByAcademicYearRef.current?.[normalizedYear]?.students ||
+						usersByAcademicYearRef.current?.[fallbackYear]?.students ||
 						[];
 
 					if (!isOnline) {
@@ -449,8 +459,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
 					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
 					const cachedUsers =
-						usersByAcademicYear?.[normalizedYear]?.students ||
-						usersByAcademicYear?.[fallbackYear]?.students ||
+						usersByAcademicYearRef.current?.[normalizedYear]?.students ||
+						usersByAcademicYearRef.current?.[fallbackYear]?.students ||
 						[];
 					if (!isOnline && cachedUsers.length > 0) {
 						const students = cachedUsers
@@ -481,7 +491,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		} else {
 			setStudentsData([]);
 		}
-	}, [selectedAcademicYear, selectedClass, isOnline, usersByAcademicYear, currentAcademicYear]);
+	}, [selectedAcademicYear, selectedClass, isOnline, currentAcademicYear]);
 
 	useEffect(() => {
 		if (selectedClass && selectedSubject) {
@@ -492,8 +502,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
 					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
 					const cachedGrades =
-						gradesByAcademicYear?.[normalizedYear] ||
-						gradesByAcademicYear?.[fallbackYear] ||
+						gradesByAcademicYearRef.current?.[normalizedYear] ||
+						gradesByAcademicYearRef.current?.[fallbackYear] ||
 						[];
 
 					if (!isOnline) {
@@ -529,8 +539,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
 					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
 					const cachedGrades =
-						gradesByAcademicYear?.[normalizedYear] ||
-						gradesByAcademicYear?.[fallbackYear] ||
+						gradesByAcademicYearRef.current?.[normalizedYear] ||
+						gradesByAcademicYearRef.current?.[fallbackYear] ||
 						[];
 					if (!isOnline && cachedGrades.length > 0) {
 						const filtered = cachedGrades.filter(
@@ -559,7 +569,6 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		selectedClass,
 		selectedSubject,
 		isOnline,
-		gradesByAcademicYear,
 		currentAcademicYear,
 	]);
 

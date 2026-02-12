@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, {
+	useState,
+	useEffect,
+	useMemo,
+	useCallback,
+	useRef,
+} from 'react';
 import {
 	Loader2,
 	CheckCircle,
@@ -68,7 +74,7 @@ const SubmitGrade: React.FC = () => {
 	const gradesByAcademicYear = useSchoolStore(
 		(state) => state.gradesByAcademicYear,
 	);
-	const { user } = useAuth();
+	const user = useAuth((state) => state.user);
 	const { isOnline } = useNetworkStore();
 	const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
 	const [selectedPeriods, setSelectedPeriods] = useState<string[]>([]);
@@ -97,6 +103,16 @@ const SubmitGrade: React.FC = () => {
 		isVisible: boolean;
 	} | null>(null);
 	const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
+	const usersByAcademicYearRef = useRef(usersByAcademicYear);
+	const gradesByAcademicYearRef = useRef(gradesByAcademicYear);
+
+	useEffect(() => {
+		usersByAcademicYearRef.current = usersByAcademicYear;
+	}, [usersByAcademicYear]);
+
+	useEffect(() => {
+		gradesByAcademicYearRef.current = gradesByAcademicYear;
+	}, [gradesByAcademicYear]);
 
 	const getAcademicYear = () => {
 		const now = new Date();
@@ -349,7 +365,8 @@ const SubmitGrade: React.FC = () => {
 
 		try {
 			let studentsList: any[] = [];
-			const cachedUsers = usersByAcademicYear?.[selectedAcademicYear];
+			const cachedUsers =
+				usersByAcademicYearRef.current?.[selectedAcademicYear];
 			if (!isOnline && cachedUsers?.students?.length) {
 				studentsList = cachedUsers.students.filter(
 					(student: any) =>
@@ -373,9 +390,9 @@ const SubmitGrade: React.FC = () => {
 
 			let existingGradesData: any = null;
 			const cachedGrades = Array.isArray(
-				gradesByAcademicYear?.[selectedAcademicYear],
+				gradesByAcademicYearRef.current?.[selectedAcademicYear],
 			)
-				? gradesByAcademicYear[selectedAcademicYear]
+				? gradesByAcademicYearRef.current[selectedAcademicYear]
 				: [];
 			const useCachedGrades = () => {
 				if (!cachedGrades.length) return;
@@ -472,8 +489,6 @@ const SubmitGrade: React.FC = () => {
 		selectedSession,
 		periods,
 		isOnline,
-		usersByAcademicYear,
-		gradesByAcademicYear,
 		getStudentClassIdForYear,
 		buildStudentFullName,
 	]);
