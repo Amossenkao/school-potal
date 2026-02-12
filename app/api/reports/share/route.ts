@@ -78,13 +78,11 @@ const renderPinForm = ({
 	errorMessage,
 	schoolName,
 	logoUrl,
-	logoUrl2,
 }: {
 	token: string;
 	errorMessage?: string;
 	schoolName?: string;
 	logoUrl?: string;
-	logoUrl2?: string;
 }) => `<!doctype html>
 <html lang="en">
 <head>
@@ -97,9 +95,9 @@ const renderPinForm = ({
     .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; max-width: 360px; width: 100%; }
     h1 { font-size: 18px; margin: 0 0 12px; }
     p { font-size: 13px; margin: 0 0 16px; color: #475569; }
+    .portal-label { font-size: 11px; color: #1d4ed8; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-align: center; margin: 0 0 10px; }
     .school { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 12px; }
-    .logos { display: flex; align-items: center; justify-content: center; gap: 12px; }
-    .logos img { width: 44px; height: 44px; object-fit: contain; border-radius: 8px; background: #fff; border: 1px solid #e2e8f0; padding: 4px; }
+    .logo img { width: 50px; height: 50px; object-fit: contain; border-radius: 8px; background: #fff; border: 1px solid #e2e8f0; padding: 4px; }
     .school-name { font-size: 14px; font-weight: 700; text-align: center; color: #0f172a; margin: 0; }
     .error { color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; padding: 8px 10px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
     input { width: 100%; padding: 10px 12px; font-size: 16px; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 12px; }
@@ -109,22 +107,14 @@ const renderPinForm = ({
 <body>
   <div class="wrap">
     <form class="card" method="get" action="/api/reports/share">
+      <p class="portal-label">Report Sharing Portal</p>
       ${
-				schoolName || logoUrl || logoUrl2
+				schoolName || logoUrl
 					? `<div class="school">
           ${
-						logoUrl || logoUrl2
-							? `<div class="logos">
-            ${
-							logoUrl2
-								? `<img src="${escapeHtml(logoUrl2)}" alt="School Logo 2" />`
-								: ''
-						}
-            ${
-							logoUrl
-								? `<img src="${escapeHtml(logoUrl)}" alt="School Logo" />`
-								: ''
-						}
+						logoUrl
+							? `<div class="logo">
+            <img src="${escapeHtml(logoUrl)}" alt="School Logo" />
           </div>`
 							: ''
 					}
@@ -250,10 +240,13 @@ export async function GET(request: NextRequest) {
 		const school = await getSchoolProfile();
 		const schoolName =
 			typeof school?.name === 'string' ? school.name : undefined;
-		const logoUrl =
-			typeof school?.logoUrl === 'string' ? school.logoUrl : undefined;
-		const logoUrl2 =
-			typeof school?.logoUrl2 === 'string' ? school.logoUrl2 : undefined;
+		const logoUrl = (
+			typeof school?.logoUrl2 === 'string' && school.logoUrl2
+				? school.logoUrl2
+				: typeof school?.logoUrl === 'string'
+					? school.logoUrl
+					: undefined
+		);
 
 		const share = await ReportShare.findOne({ token }).lean();
 		if (!share) {
@@ -271,13 +264,10 @@ export async function GET(request: NextRequest) {
 		}
 
 		if (!pin) {
-			return new NextResponse(
-				renderPinForm({ token, schoolName, logoUrl, logoUrl2 }),
-				{
+			return new NextResponse(renderPinForm({ token, schoolName, logoUrl }), {
 				status: 200,
 				headers: { 'Content-Type': 'text/html; charset=utf-8' },
-				},
-			);
+			});
 		}
 
 		const pinOk = await bcrypt.compare(pin, share.pinHash);
@@ -288,7 +278,6 @@ export async function GET(request: NextRequest) {
 					errorMessage: 'Invalid PIN. Please try again.',
 					schoolName,
 					logoUrl,
-					logoUrl2,
 				}),
 				{
 					status: 401,
