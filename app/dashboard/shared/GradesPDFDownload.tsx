@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Download } from 'lucide-react';
 import {
 	Document,
@@ -754,6 +754,7 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 }) => {
 	const school = useSchoolStore((state) => state.school);
 	const [instance, updateInstance] = usePDF({ document: null });
+	const lastRenderKeyRef = useRef<string>('');
 
 	const fileName = `${classLevel}_${subject}_Grades_${
 		new Date().toISOString().split('T')[0]
@@ -806,15 +807,61 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 		school,
 	]);
 
+	const docRenderKey = useMemo(() => {
+		const teacherKey = [
+			teacherInfo?.username || '',
+			teacherInfo?.name || '',
+			teacherInfo?.firstName || '',
+			teacherInfo?.lastName || '',
+		].join('|');
+
+		const students = Array.isArray(gradeData?.students) ? gradeData.students : [];
+		const studentKey = students
+			.map((student: any) => {
+				const periodsSnapshot = periods
+					.map((period) => {
+						const v = student?.periods?.[period.value];
+						return `${period.value}:${v ?? ''}`;
+					})
+					.join(',');
+				return `${student?.studentId || ''}:${student?.studentName || ''}:${periodsSnapshot}`;
+			})
+			.join('|');
+
+		return [
+			school?.name || '',
+			academicYear || '',
+			classLevel || '',
+			className || '',
+			subject || '',
+			teacherKey,
+			studentKey,
+		].join('||');
+	}, [school?.name, academicYear, classLevel, className, subject, teacherInfo, gradeData]);
+
 	useEffect(() => {
-		if (!doc) return;
+		if (!doc || !docRenderKey) return;
+		if (lastRenderKeyRef.current === docRenderKey) return;
+		lastRenderKeyRef.current = docRenderKey;
+
+		let timeoutId: number | null = null;
+		let idleId: number | null = null;
 		const run = () => updateInstance(doc);
 		if (typeof (window as any).requestIdleCallback === 'function') {
-			(window as any).requestIdleCallback(run, { timeout: 1000 });
+			idleId = (window as any).requestIdleCallback(run, { timeout: 1000 });
 		} else {
-			setTimeout(run, 0);
+			timeoutId = window.setTimeout(run, 0);
 		}
-	}, [doc, updateInstance]);
+		return () => {
+			if (timeoutId !== null) window.clearTimeout(timeoutId);
+			if (
+				idleId !== null &&
+				typeof (window as any).cancelIdleCallback === 'function'
+			) {
+				(window as any).cancelIdleCallback(idleId);
+			}
+		};
+	}, [doc, docRenderKey, updateInstance]);
 
 	const isReady = Boolean(instance.url) && !instance.loading;
 	useEffect(() => {
