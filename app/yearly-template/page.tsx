@@ -654,12 +654,200 @@ const PDFDocument = React.memo(function PDFDocument({
 						<View style={styles.bottomSection}>
 							<View style={styles.leftBottom}>
 								<View style={styles.gradingMethod}>
-									<Text style={styles.gradingTitle}>METHOD OF GRADING</Text>
-									<Text style={styles.gradingText}>A = 90 - 100 Excellent</Text>
-									<Text style={styles.gradingText}>B = 80 - 89 Very Good</Text>
-									<Text style={styles.gradingText}>C = 75 - 79 Good</Text>
-									<Text style={styles.gradingText}>D = 70 - 74 Fair</Text>
-									<Text style={styles.gradingText}>F = Below 70 Fail</Text>
+									<View
+										style={{
+											backgroundColor: '#0f172a',
+											borderRadius: 4,
+											paddingVertical: 3,
+											paddingHorizontal: 7,
+											marginBottom: 4,
+										}}
+									>
+										<Text
+											style={{
+												...styles.gradingTitle,
+												color: '#f8fafc',
+												marginBottom: 0,
+												letterSpacing: 0.6,
+											}}
+										>
+											METHOD OF GRADING
+										</Text>
+									</View>
+									<View
+										style={{
+											flexDirection: 'row',
+											justifyContent: 'space-between',
+										}}
+									>
+										<View style={{ flex: 1, marginRight: 4 }}>
+											<View
+												style={{
+													flexDirection: 'row',
+													alignItems: 'center',
+													borderWidth: 1,
+													borderColor: '#93c5fd',
+													backgroundColor: '#eff6ff',
+													borderRadius: 4,
+													paddingVertical: 2,
+													paddingHorizontal: 4,
+													marginBottom: 2,
+												}}
+											>
+												<Text
+													style={{
+														fontSize: 10,
+														fontWeight: 'bold',
+														color: '#1d4ed8',
+														marginRight: 5,
+													}}
+												>
+													A
+												</Text>
+												<Text
+													style={{
+														...styles.gradingText,
+														color: '#1d4ed8',
+														marginBottom: 0,
+													}}
+												>
+													90 - 100 Excellent
+												</Text>
+											</View>
+											<View
+												style={{
+													flexDirection: 'row',
+													alignItems: 'center',
+													borderWidth: 1,
+													borderColor: '#93c5fd',
+													backgroundColor: '#eff6ff',
+													borderRadius: 4,
+													paddingVertical: 2,
+													paddingHorizontal: 4,
+													marginBottom: 2,
+												}}
+											>
+												<Text
+													style={{
+														fontSize: 10,
+														fontWeight: 'bold',
+														color: '#1d4ed8',
+														marginRight: 5,
+													}}
+												>
+													B
+												</Text>
+												<Text
+													style={{
+														...styles.gradingText,
+														color: '#1d4ed8',
+														marginBottom: 0,
+													}}
+												>
+													80 - 89 Very Good
+												</Text>
+											</View>
+											<View
+												style={{
+													flexDirection: 'row',
+													alignItems: 'center',
+													borderWidth: 1,
+													borderColor: '#93c5fd',
+													backgroundColor: '#eff6ff',
+													borderRadius: 4,
+													paddingVertical: 2,
+													paddingHorizontal: 4,
+												}}
+											>
+												<Text
+													style={{
+														fontSize: 10,
+														fontWeight: 'bold',
+														color: '#1d4ed8',
+														marginRight: 5,
+													}}
+												>
+													C
+												</Text>
+												<Text
+													style={{
+														...styles.gradingText,
+														color: '#1d4ed8',
+														marginBottom: 0,
+													}}
+												>
+													75 - 79 Good
+												</Text>
+											</View>
+										</View>
+										<View style={{ flex: 1, marginLeft: 4 }}>
+											<View
+												style={{
+													flexDirection: 'row',
+													alignItems: 'center',
+													borderWidth: 1,
+													borderColor: '#93c5fd',
+													backgroundColor: '#eff6ff',
+													borderRadius: 4,
+													paddingVertical: 2,
+													paddingHorizontal: 4,
+													marginBottom: 2,
+												}}
+											>
+												<Text
+													style={{
+														fontSize: 10,
+														fontWeight: 'bold',
+														color: '#1d4ed8',
+														marginRight: 5,
+													}}
+												>
+													D
+												</Text>
+												<Text
+													style={{
+														...styles.gradingText,
+														color: '#1d4ed8',
+														marginBottom: 0,
+													}}
+												>
+													70 - 74 Fair
+												</Text>
+											</View>
+											<View
+												style={{
+													flexDirection: 'row',
+													alignItems: 'center',
+													borderWidth: 1,
+													borderColor: '#fca5a5',
+													backgroundColor: '#fef2f2',
+													borderRadius: 4,
+													paddingVertical: 2,
+													paddingHorizontal: 4,
+												}}
+											>
+												<Text
+													style={{
+														fontSize: 10,
+														fontWeight: 'bold',
+														color: '#dc2626',
+														marginRight: 5,
+													}}
+												>
+													F
+												</Text>
+												<Text
+													style={{
+														...styles.gradingText,
+														color: '#dc2626',
+														marginBottom: 0,
+													}}
+												>
+													Below 70 Fail
+												</Text>
+											</View>
+										</View>
+									</View>
 								</View>
 							</View>
 							<View style={styles.rightBottom}>
@@ -667,13 +855,13 @@ const PDFDocument = React.memo(function PDFDocument({
 									Yearly Average below 70 will not be eligible for promotion.
 								</Text>
 								<View style={styles.signatureSection}>
-									<Text>Teachers Remark: ____________________________</Text>
-									<View style={{ marginTop: 15, alignItems: 'center' }}>
-										<Text>Signed: _________________________</Text>
-										<Text style={{ marginTop: 3, paddingLeft: 60 }}>
+									<Text>Teacher's Remark: ____________________________</Text>
+									<View style={{ marginTop: 12, alignItems: 'center' }}>
+										<Text>Signed: ____________________________</Text>
+										{/* <Text style={{ marginTop: 3, paddingLeft: 60 }}>
 											{sponsorToDisplay ? `${sponsorToDisplay}, ` : ''}Class
 											Sponsor
-										</Text>
+										</Text> */}
 									</View>
 								</View>
 							</View>
@@ -1096,7 +1284,9 @@ export default function ReportCardPage() {
 		const schoolSlug = slugify(
 			school?.shortName || school?.host || filters.host || 'school',
 		);
-		const sessionSlug = slugify(resolvedSession || filters.session || 'session');
+		const sessionSlug = slugify(
+			resolvedSession || filters.session || 'session',
+		);
 		const classLevelSlug = slugify(filters.classLevel || 'class_level');
 		return `${schoolSlug}_${sessionSlug}_${classLevelSlug}_yearly_report.pdf`;
 	}, [

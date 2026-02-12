@@ -129,10 +129,12 @@ const styles = StyleSheet.create({
 	},
 
 	gradingMethod: {
+		marginTop: -4,
 		marginBottom: 10,
-		padding: 5,
-		borderWidth: 1,
-		borderColor: '#000',
+		paddingTop: 5,
+		paddingRight: 5,
+		paddingLeft: 5,
+		paddingBottom: 0,
 	},
 
 	gradingTitle: {
