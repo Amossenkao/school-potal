@@ -2256,10 +2256,8 @@ function ReportContent({
 			<FullscreenPdfViewer
 				isOpen={fullScreenViewerOpen}
 				pdfUrl={pdfUrl}
-				title="Semester Report"
 				onClose={() => setFullScreenViewerOpen(false)}
 				downloadUrl={downloadUrl}
-				downloadFileName={reportFileName}
 			/>
 			{shareModalOpen && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
