@@ -148,23 +148,60 @@ const Community = () => {
 	const getClassLabel = (u: any) =>
 		u.className || getClassNameFromId(u.classId) || u.classId || '';
 
+	const getCurrentStudentClassIdForYear = () => {
+		if (user?.role !== 'student' || !academicYear) return '';
+		const yearEntry = Array.isArray(user.academicYears)
+			? user.academicYears.find((ay: any) => ay.year === academicYear)
+			: null;
+		return yearEntry?.classId || user?.classId || '';
+	};
+
 	const getTeacherSubjectsLabel = (u: any) => {
 		let subjects: string[] = [];
-		if (Array.isArray(u.subjects) && u.subjects.length > 0) {
-			subjects = u.subjects
-				.map((s: any) => (typeof s === 'string' ? s : s?.subject))
-				.filter(Boolean);
+		const rawSubjects = Array.isArray(u.subjects) ? u.subjects : [];
+		const hasStructuredSubjects = rawSubjects.some(
+			(s: any) =>
+				s &&
+				typeof s === 'object' &&
+				('year' in s || Array.isArray((s as any).classes)),
+		);
+
+		if (roleFilter === 'teacher' && user?.role === 'student') {
+			if (hasStructuredSubjects) {
+				const yearData = rawSubjects.find((s: any) => s.year === academicYear);
+				const currentStudentClassId = getCurrentStudentClassIdForYear();
+				const matchingClasses = (yearData?.classes || []).filter(
+					(c: any) => !currentStudentClassId || c.classId === currentStudentClassId,
+				);
+				subjects = matchingClasses.flatMap((c: any) => c.subjects || []);
+			} else {
+				// Student API can already return class-specific subjects as plain strings.
+				subjects = rawSubjects
+					.map((s: any) => (typeof s === 'string' ? s : s?.subject))
+					.filter(Boolean);
+			}
+		} else if (roleFilter === 'teacher' && user?.role === 'teacher') {
+			if (hasStructuredSubjects) {
+				const yearData = rawSubjects.find((s: any) => s.year === academicYear);
+				const classes = yearData?.classes || [];
+				subjects = classes.flatMap((c: any) => c.subjects || []);
+			} else {
+				subjects = rawSubjects
+					.map((s: any) => (typeof s === 'string' ? s : s?.subject))
+					.filter(Boolean);
+			}
+		} else {
+			if (hasStructuredSubjects) {
+				const yearData = rawSubjects.find((s: any) => s.year === academicYear);
+				const classes = yearData?.classes || [];
+				subjects = classes.flatMap((c: any) => c.subjects || []);
+			} else {
+				subjects = rawSubjects
+					.map((s: any) => (typeof s === 'string' ? s : s?.subject))
+					.filter(Boolean);
+			}
 		}
-		if (
-			subjects.length === 0 &&
-			!(user?.role === 'student' && roleFilter === 'teacher')
-		) {
-			const yearData = (u.subjects || []).find(
-				(s: any) => s.year === academicYear,
-			);
-			const classes = yearData?.classes || [];
-			subjects = classes.flatMap((c: any) => c.subjects || []);
-		}
+
 		const uniqueSubjects = Array.from(
 			new Set(
 				subjects
@@ -266,8 +303,7 @@ const Community = () => {
 		return 'Loading administrators...';
 	};
 
-	const startIndex = (currentPage - 1) * itemsPerPage;
-	const columnCount = roleFilter === 'student' ? 5 : 4;
+	const columnCount = roleFilter === 'student' ? 4 : 3;
 
 	return (
 		<div className="space-y-6 px-4 sm:px-6 lg:px-8">
@@ -370,9 +406,6 @@ const Community = () => {
 					<table className="w-full border-collapse">
 						<thead className="bg-muted sticky top-0 z-10 shadow-sm">
 							<tr>
-								<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-14 border border-border">
-									No.
-								</th>
 								<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider min-w-[220px] border border-border">
 									Name
 								</th>
@@ -434,11 +467,8 @@ const Community = () => {
 							)}
 							{!loading &&
 								!error &&
-								paginatedUsers.map((u, index) => (
+								paginatedUsers.map((u) => (
 									<tr key={u.id || u._id} className="hover:bg-muted/20">
-										<td className="px-4 py-4 text-sm text-muted-foreground border border-border">
-											{startIndex + index + 1}
-										</td>
 										<td className="px-4 py-4 border border-border">
 											<div className="flex items-center gap-3">
 												<img
