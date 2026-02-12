@@ -344,10 +344,14 @@ export const buildSemesterCardPlacements = ({
 }: BuildSemesterCardPlacementsArgs): TextPlacementMap => {
 	const placements: TextPlacementMap = {};
 	const rows = Math.max(subjectCount, 1);
+	// 15-subject templates are the calibrated baseline.
+	// For shorter/longer templates, shift the whole subject block so row 1
+	// starts on the correct printed line while keeping Average/Rank anchored.
+	const BASELINE_SUBJECT_ROWS = 15;
 	const rowHeight = 16;
 	const cellBoxHeight = rowHeight;
 	const summaryBoxHeight = rowHeight;
-	const rowStartY = 258;
+	const rowStartY = 258 + (rows - BASELINE_SUBJECT_ROWS) * rowHeight;
 	// Shift header-to-table-heading overlay text down for better alignment.
 	const headerSectionShiftDown = 12;
 	const shiftDownY = (y: number) => y - headerSectionShiftDown;
@@ -597,6 +601,8 @@ export const buildSemesterCardPlacements = ({
 		};
 	}
 
+	// `rowStartY` is normalized above, so summary rows stay template-aligned
+	// across different subject-count variants (13 / 15 / 17 ...).
 	const avgY = rowStartY - rows * rowHeight + gradeRowLift + avgYOffset;
 	const rankY = avgY - rankGap + rankYOffset;
 	const summary = (field: string, x: number, y: number, bold = false) => {

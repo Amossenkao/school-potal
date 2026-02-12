@@ -42,6 +42,35 @@ const normalizeText = (value: string | number | null | undefined) => {
 	return String(value);
 };
 
+const sanitizeTextForFont = (text: string, font: PDFFont) => {
+	let sanitized = '';
+	for (const char of text) {
+		if (char === '\n' || char === '\r') {
+			sanitized += char;
+			continue;
+		}
+		if (char === '\t') {
+			sanitized += ' ';
+			continue;
+		}
+		try {
+			font.encodeText(char);
+			sanitized += char;
+		} catch {
+			sanitized += '?';
+		}
+	}
+	return sanitized;
+};
+
+const safeWidthOfTextAtSize = (font: PDFFont, text: string, size: number) => {
+	try {
+		return font.widthOfTextAtSize(text, size);
+	} catch {
+		return font.widthOfTextAtSize(sanitizeTextForFont(text, font), size);
+	}
+};
+
 const wrapText = (
 	text: string,
 	maxWidth: number,
@@ -61,7 +90,7 @@ const wrapText = (
 		let line = '';
 		for (const word of words) {
 			const next = line ? `${line} ${word}` : word;
-			if (font.widthOfTextAtSize(next, size) <= maxWidth || !line) {
+			if (safeWidthOfTextAtSize(font, next, size) <= maxWidth || !line) {
 				line = next;
 			} else {
 				lines.push(line);
@@ -80,7 +109,7 @@ const resolveAlignedX = (
 	font: PDFFont,
 	size: number,
 ) => {
-	const width = font.widthOfTextAtSize(text, size);
+	const width = safeWidthOfTextAtSize(font, text, size);
 	if (placement.align === 'center') {
 		return placement.x - width / 2;
 	}
@@ -160,9 +189,10 @@ export const drawTextMap = ({
 				placement.font === 'bold' && fonts.bold ? fonts.bold : fonts.normal;
 			const color = toColor(placement.color ?? defaultColor);
 			const maxWidth = placement.maxWidth;
+			const safeText = sanitizeTextForFont(text, font);
 			const lines = maxWidth
-				? wrapText(text, maxWidth, font, size)
-				: text.split(/\r?\n/);
+				? wrapText(safeText, maxWidth, font, size)
+				: safeText.split(/\r?\n/);
 			const lineHeight = placement.lineHeight ?? size + 2;
 			let y = resolveAlignedY(placement, font, size);
 
