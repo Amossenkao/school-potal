@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useSchoolStore } from '@/store/schoolStore';
 import ConflictModal from '@/components/modals/ConflictModal';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -139,20 +139,35 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		);
 	};
 
-	const adminPositions = [
-		'Principal',
-		'Vice Principal',
-		'Academic Director',
-		'Dean of Students',
-		'Registrar',
-		'Finance Officer',
-		'IT Administrator',
-		'HR Manager',
-		'Guidance Counselor',
-		'Librarian',
-		'Secretary',
-		'Administrative Assistant',
-	];
+	const adminPositions = useMemo(() => {
+		const fromProfile = Array.isArray(school?.administrativePositions)
+			? school.administrativePositions
+					.map((item) => ({
+						key: String(item?.id || '').trim(),
+						name: String(item?.name || '').trim(),
+					}))
+					.filter((item) => item.key && item.name)
+			: [];
+
+		if (fromProfile.length > 0) return fromProfile;
+
+		const fallbackKeys = school?.roleFeatureAccess?.administrator
+			? Object.keys(school.roleFeatureAccess.administrator)
+			: [];
+		return fallbackKeys.map((key) => ({
+			key,
+			name: key
+				.replace(/_/g, ' ')
+				.replace(/\b\w/g, (char) => char.toUpperCase()),
+		}));
+	}, [school]);
+
+	const selectedAdminPosition = useMemo(() => {
+		return (
+			adminPositions.find((item) => item.key === formData.administrator.position) ||
+			null
+		);
+	}, [adminPositions, formData.administrator.position]);
 
 	const existingUsers = [
 		{ email: 'john@school.edu' },
@@ -1692,8 +1707,8 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 										>
 											<option value="">Select position</option>
 											{adminPositions.map((position) => (
-												<option key={position} value={position}>
-													{position}
+												<option key={position.key} value={position.key}>
+													{position.name} ({position.key})
 												</option>
 											))}
 										</select>
@@ -1858,7 +1873,9 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 														Position:
 													</span>
 													<span className="text-sm font-medium text-foreground">
-														{formData.administrator.position}
+														{selectedAdminPosition
+															? `${selectedAdminPosition.name} (${selectedAdminPosition.key})`
+															: formData.administrator.position}
 													</span>
 												</div>
 											</>

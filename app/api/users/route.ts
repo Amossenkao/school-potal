@@ -865,7 +865,14 @@ async function validateTeacherData(
 
 			if (yearData.classes && Array.isArray(yearData.classes)) {
 				for (const classData of yearData.classes) {
-					// Check if another teacher has this exact class assignment for this year
+					const requestedSubjects = Array.isArray(classData.subjects)
+						? classData.subjects
+								.map((subject: any) => String(subject || '').trim())
+								.filter(Boolean)
+						: [];
+					if (requestedSubjects.length === 0) continue;
+
+					// Check if another teacher has overlapping subject assignment for this class/year.
 					const assignmentExists = await models.Teacher.findOne({
 						...baseQuery,
 						role: 'teacher',
@@ -875,6 +882,7 @@ async function validateTeacherData(
 								classes: {
 									$elemMatch: {
 										classId: classData.classId,
+										subjects: { $in: requestedSubjects },
 									},
 								},
 							},
@@ -894,7 +902,7 @@ async function validateTeacherData(
 							assignment: {
 								year: year,
 								classId: classData.classId,
-								subjects: classData.subjects || [],
+								subjects: requestedSubjects,
 							},
 						};
 
