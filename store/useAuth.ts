@@ -113,9 +113,12 @@ const useAuth = create<AuthState>((set, get) => {
 						.setSchedulesForYear(data.academicYear, data.schedules);
 				}
 				if (data.academicYear && Array.isArray(data.grades)) {
-					useSchoolStore
-						.getState()
-						.setGradesForYear(data.academicYear, data.grades);
+					const schoolState = useSchoolStore.getState();
+					const currentGrades =
+						schoolState.gradesByAcademicYear?.[data.academicYear] || [];
+					if (!isEqual(currentGrades, data.grades)) {
+						schoolState.setGradesForYear(data.academicYear, data.grades);
+					}
 				}
 
 				set({
@@ -207,9 +210,12 @@ const useAuth = create<AuthState>((set, get) => {
 						.setSchedulesForYear(data.academicYear, data.schedules);
 				}
 				if (data.academicYear && Array.isArray(data.grades)) {
-					useSchoolStore
-						.getState()
-						.setGradesForYear(data.academicYear, data.grades);
+					const schoolState = useSchoolStore.getState();
+					const currentGrades =
+						schoolState.gradesByAcademicYear?.[data.academicYear] || [];
+					if (!isEqual(currentGrades, data.grades)) {
+						schoolState.setGradesForYear(data.academicYear, data.grades);
+					}
 				}
 
 				set({
@@ -407,9 +413,12 @@ const useAuth = create<AuthState>((set, get) => {
 						.setSchedulesForYear(data.academicYear, data.schedules);
 				}
 				if (data.academicYear && Array.isArray(data.grades)) {
-					useSchoolStore
-						.getState()
-						.setGradesForYear(data.academicYear, data.grades);
+					const schoolState = useSchoolStore.getState();
+					const currentGrades =
+						schoolState.gradesByAcademicYear?.[data.academicYear] || [];
+					if (!isEqual(currentGrades, data.grades)) {
+						schoolState.setGradesForYear(data.academicYear, data.grades);
+					}
 				}
 
 				if (data.user) {

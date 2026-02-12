@@ -410,7 +410,7 @@ function FilterContent({
 	setFilters: React.Dispatch<React.SetStateAction<typeof filters>>;
 	onSubmit: (students: Student[]) => void;
 }) {
-	const { user } = useAuth();
+	const user = useAuth((state) => state.user);
 	const school = useSchoolStore((state) => state.school);
 	const usersByAcademicYear = useSchoolStore(
 		(state) => state.usersByAcademicYear,
@@ -1266,7 +1266,7 @@ function ReportContent({
 	const [viewLoading, setViewLoading] = useState(false);
 	const resetCopiedTimeoutRef = useRef<number | null>(null);
 	const school = useSchoolStore((state) => state.school);
-	const { user } = useAuth();
+	const user = useAuth((state) => state.user);
 	const isStudent = user?.role === 'student';
 	const createdBy = useMemo(
 		() => user?.id || user?._id || user?.studentId || '',

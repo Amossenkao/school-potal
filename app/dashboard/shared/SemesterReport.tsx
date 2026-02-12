@@ -537,7 +537,7 @@ const FilterContent = React.memo(function FilterContent({
 		(state) => state.usersByAcademicYear,
 	);
 	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
-	const { user } = useAuth();
+	const user = useAuth((state) => state.user);
 	const [students, setStudents] = useState<Student[]>([]);
 	const [loadingStudents, setLoadingStudents] = useState(false);
 
@@ -1461,7 +1461,7 @@ function ReportContent({
 		(state) => state.usersByAcademicYear,
 	);
 	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
-	const { user } = useAuth();
+	const user = useAuth((state) => state.user);
 	const isStudent = user?.role === 'student';
 	const createdBy = useMemo(
 		() => user?.id || user?._id || user?.studentId || '',
