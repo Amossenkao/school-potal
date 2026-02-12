@@ -8,44 +8,29 @@ import {
 } from '@/types/schoolProfile';
 import SchoolProfileSchema from '@/models/profile/SchoolProfile';
 import { getTenantModels } from '@/models';
-import { updateAllUserSessions, destroyAllUserSessions } from '@/utils/session';
+import { destroyAllUserSessions } from '@/utils/session';
 import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
 import bcrypt from 'bcryptjs';
 import { redis } from '@/lib/redis';
 
-// Helper function to build a consistent user object for session data.
-function buildUserResponse(user: any) {
-	const baseUser = {
-		userId: user._id?.toString() ?? user.userId,
-		username: user.username,
-		firstName: user.firstName,
-		middleName: user.middleName,
-		lastName: user.lastName,
-		role: user.role,
-		isActive: user.isActive,
-	};
-	switch (user.role) {
-		case 'student':
-			return {
-				...baseUser,
-				studentId: user.studentId,
-				classId: user.classId,
-				className: user.className,
-				classLevel: user.classLevel,
-				session: user.session,
-				shareContactWithClassmates: user.shareContactWithClassmates ?? false,
-			};
-		case 'teacher':
-			return {
-				...baseUser,
-				subjects: user.subjects,
-				sponsorClass: user.sponsorClass,
-			};
-		case 'administrator':
-			return { ...baseUser, adminId: user.adminId, position: user.position };
-		default:
-			return baseUser;
-	}
+async function runWithConcurrency<T>(
+	items: T[],
+	worker: (item: T) => Promise<void>,
+	concurrency = 8,
+) {
+	if (!Array.isArray(items) || items.length === 0) return;
+	const maxConcurrency = Math.max(1, Math.min(concurrency, items.length));
+	let cursor = 0;
+
+	const runners = Array.from({ length: maxConcurrency }, async () => {
+		while (cursor < items.length) {
+			const index = cursor;
+			cursor += 1;
+			await worker(items[index]);
+		}
+	});
+
+	await Promise.all(runners);
 }
 
 /**
@@ -208,35 +193,46 @@ export async function POST(request: Request) {
 
 		// 3. Perform Bulk User Actions (Activate/Deactivate)
 		if (bulkUserActions && Object.keys(bulkUserActions).length > 0) {
+			const affectedYearsSet = new Set<string>();
+			const collectAffectedYears = (users: any[]) => {
+				users.forEach((user: any) => {
+					extractAcademicYears(user).forEach((year) => {
+						if (year) affectedYearsSet.add(year);
+					});
+				});
+			};
+
 			const processBulkAction = async (
 				role: string,
 				Model: any,
 				action: 'activate' | 'deactivate',
 			) => {
 				const isActive = action === 'activate';
-				const usersToUpdate = await Model.find({ role }).lean();
+				const usersToUpdate = await Model.find({
+					role,
+					isActive: { $ne: isActive },
+				})
+					.select('_id role studentId classId academicYears subjects')
+					.lean();
 				if (usersToUpdate.length === 0) return;
 
-				await Model.updateMany({ role }, { $set: { isActive } });
+				const targetIds = usersToUpdate.map((user: any) => user._id);
+				await Model.updateMany(
+					{ _id: { $in: targetIds } },
+					{ $set: { isActive } },
+				);
+				collectAffectedYears(usersToUpdate);
 
 				if (!isActive) {
-					const sessionDestructionPromises = usersToUpdate.map((user: any) =>
-						destroyAllUserSessions(user._id.toString()),
+					await runWithConcurrency(
+						usersToUpdate,
+						async (user: any) => destroyAllUserSessions(user._id.toString()),
+						25,
 					);
-					await Promise.all(sessionDestructionPromises);
 					return;
 				}
-
-				const sessionUpdatePromises = usersToUpdate.map((user: any) => {
-					const updatedSessionData = buildUserResponse({ ...user, isActive });
-					return updateAllUserSessions(user._id.toString(), updatedSessionData);
-				});
-				await Promise.all(sessionUpdatePromises);
-
-				const affectedYears = usersToUpdate.flatMap((user: any) =>
-					extractAcademicYears(user),
-				);
-				await bumpUsersVersion(affectedYears);
+				// Activation does not require mutating live sessions.
+				// Deactivated users already had active sessions destroyed.
 			};
 
 			const processBulkPasswordReset = async (
@@ -244,8 +240,11 @@ export async function POST(request: Request) {
 				Model: any,
 				commonPassword?: string,
 			) => {
-				const usersToUpdate = await Model.find({ role }).lean();
+				const usersToUpdate = await Model.find({ role })
+					.select('_id username role studentId classId academicYears subjects')
+					.lean();
 				if (usersToUpdate.length === 0) return;
+				collectAffectedYears(usersToUpdate);
 
 				const trimmedCommon =
 					typeof commonPassword === 'string' ? commonPassword.trim() : '';
@@ -264,11 +263,13 @@ export async function POST(request: Request) {
 						},
 					);
 				} else {
-					const bulkUpdates = await Promise.all(
-						usersToUpdate.map(async (user: any) => {
+					const bulkUpdates: any[] = [];
+					await runWithConcurrency(
+						usersToUpdate,
+						async (user: any) => {
 							const defaultPassword = String(user.username || '');
 							const hashedPassword = await bcrypt.hash(defaultPassword, 12);
-							return {
+							bulkUpdates.push({
 								updateOne: {
 									filter: { _id: user._id },
 									update: {
@@ -280,24 +281,21 @@ export async function POST(request: Request) {
 										},
 									},
 								},
-							};
-						}),
+							});
+						},
+						8,
 					);
 
 					if (bulkUpdates.length > 0) {
-						await Model.bulkWrite(bulkUpdates);
+						await Model.bulkWrite(bulkUpdates, { ordered: false });
 					}
 				}
 
-				const sessionDestructionPromises = usersToUpdate.map((user: any) =>
-					destroyAllUserSessions(user._id.toString()),
+				await runWithConcurrency(
+					usersToUpdate,
+					async (user: any) => destroyAllUserSessions(user._id.toString()),
+					25,
 				);
-				await Promise.all(sessionDestructionPromises);
-
-				const affectedYears = usersToUpdate.flatMap((user: any) =>
-					extractAcademicYears(user),
-				);
-				await bumpUsersVersion(affectedYears);
 			};
 
 			const actionsToRun = [];
@@ -360,6 +358,9 @@ export async function POST(request: Request) {
 			}
 
 			await Promise.all(actionsToRun);
+			if (affectedYearsSet.size > 0) {
+				await bumpUsersVersion(Array.from(affectedYearsSet));
+			}
 		}
 
 		return NextResponse.json({

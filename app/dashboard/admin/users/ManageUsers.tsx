@@ -1133,6 +1133,9 @@ const UserManagementDashboard = () => {
 									<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
 										Details
 									</th>
+									<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+										Username
+									</th>
 									<th
 										className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/70"
 										onClick={() => handleSort('isActive')}
@@ -1204,6 +1207,9 @@ const UserManagementDashboard = () => {
 											{user.role === 'teacher' &&
 												getTeacherSubjects(user).join(', ')}
 											{user.role === 'administrator' && user.position}
+										</td>
+										<td className="px-6 py-4 text-sm text-muted-foreground">
+											{user.username || '—'}
 										</td>
 										<td className="px-6 py-4">
 											<span
