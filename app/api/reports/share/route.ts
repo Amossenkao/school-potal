@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import path from 'path';
 import { promises as fs } from 'fs';
 import { getTenantModels } from '@/models';
+import { getSchoolProfile } from '@/lib/mongoose';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -64,7 +65,27 @@ const parseSharePayload = async (request: NextRequest) => {
 	};
 };
 
-const renderPinForm = (token: string, errorMessage?: string) => `<!doctype html>
+const escapeHtml = (value: string) =>
+	value
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+
+const renderPinForm = ({
+	token,
+	errorMessage,
+	schoolName,
+	logoUrl,
+	logoUrl2,
+}: {
+	token: string;
+	errorMessage?: string;
+	schoolName?: string;
+	logoUrl?: string;
+	logoUrl2?: string;
+}) => `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
@@ -76,6 +97,10 @@ const renderPinForm = (token: string, errorMessage?: string) => `<!doctype html>
     .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; max-width: 360px; width: 100%; }
     h1 { font-size: 18px; margin: 0 0 12px; }
     p { font-size: 13px; margin: 0 0 16px; color: #475569; }
+    .school { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .logos { display: flex; align-items: center; justify-content: center; gap: 12px; }
+    .logos img { width: 44px; height: 44px; object-fit: contain; border-radius: 8px; background: #fff; border: 1px solid #e2e8f0; padding: 4px; }
+    .school-name { font-size: 14px; font-weight: 700; text-align: center; color: #0f172a; margin: 0; }
     .error { color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; padding: 8px 10px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
     input { width: 100%; padding: 10px 12px; font-size: 16px; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 12px; }
     button { width: 100%; padding: 10px 12px; font-size: 14px; border: none; background: #2563eb; color: white; border-radius: 8px; cursor: pointer; }
@@ -84,10 +109,37 @@ const renderPinForm = (token: string, errorMessage?: string) => `<!doctype html>
 <body>
   <div class="wrap">
     <form class="card" method="get" action="/api/reports/share">
+      ${
+				schoolName || logoUrl || logoUrl2
+					? `<div class="school">
+          ${
+						logoUrl || logoUrl2
+							? `<div class="logos">
+            ${
+							logoUrl2
+								? `<img src="${escapeHtml(logoUrl2)}" alt="School Logo 2" />`
+								: ''
+						}
+            ${
+							logoUrl
+								? `<img src="${escapeHtml(logoUrl)}" alt="School Logo" />`
+								: ''
+						}
+          </div>`
+							: ''
+					}
+          ${
+						schoolName
+							? `<p class="school-name">${escapeHtml(schoolName)}</p>`
+							: ''
+					}
+        </div>`
+					: ''
+			}
       <h1>Enter 4-digit PIN</h1>
       <p>This report is protected. Ask the sender for the PIN.</p>
       ${errorMessage ? `<div class="error">${errorMessage}</div>` : ''}
-      <input type="hidden" name="token" value="${token}"/>
+      <input type="hidden" name="token" value="${escapeHtml(token)}"/>
       <input type="text" name="pin" inputmode="numeric" pattern="\\d{4}" maxlength="4" placeholder="PIN" required />
       <button type="submit">View Report</button>
     </form>
@@ -195,6 +247,13 @@ export async function GET(request: NextRequest) {
 
 		const models = await getTenantModels();
 		const { ReportShare } = models;
+		const school = await getSchoolProfile();
+		const schoolName =
+			typeof school?.name === 'string' ? school.name : undefined;
+		const logoUrl =
+			typeof school?.logoUrl === 'string' ? school.logoUrl : undefined;
+		const logoUrl2 =
+			typeof school?.logoUrl2 === 'string' ? school.logoUrl2 : undefined;
 
 		const share = await ReportShare.findOne({ token }).lean();
 		if (!share) {
@@ -212,18 +271,30 @@ export async function GET(request: NextRequest) {
 		}
 
 		if (!pin) {
-			return new NextResponse(renderPinForm(token), {
+			return new NextResponse(
+				renderPinForm({ token, schoolName, logoUrl, logoUrl2 }),
+				{
 				status: 200,
 				headers: { 'Content-Type': 'text/html; charset=utf-8' },
-			});
+				},
+			);
 		}
 
 		const pinOk = await bcrypt.compare(pin, share.pinHash);
 		if (!pinOk) {
-			return new NextResponse(renderPinForm(token, 'Invalid PIN. Please try again.'), {
-				status: 401,
-				headers: { 'Content-Type': 'text/html; charset=utf-8' },
-			});
+			return new NextResponse(
+				renderPinForm({
+					token,
+					errorMessage: 'Invalid PIN. Please try again.',
+					schoolName,
+					logoUrl,
+					logoUrl2,
+				}),
+				{
+					status: 401,
+					headers: { 'Content-Type': 'text/html; charset=utf-8' },
+				},
+			);
 		}
 
 		const resolvePdfData = () => {
