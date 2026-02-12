@@ -63,7 +63,7 @@ export default function StudentPerformanceInsights({
 				setErrorMessage('');
 				const response = await fetch(
 					`/api/grades?academicYear=${encodeURIComponent(selectedYear)}`,
-					{ signal: controller.signal },
+					{ signal: controller.signal, cache: 'no-store' },
 				);
 				const payload = await response.json();
 				if (!response.ok || !payload?.success) {

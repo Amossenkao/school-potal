@@ -84,3 +84,30 @@ export const clearClientCache = (key: string) => {
 		// Ignore storage errors.
 	}
 };
+
+export const clearClientCacheByPrefix = (prefix: string) => {
+	if (typeof window === 'undefined') return;
+	const normalizedPrefix = `${STORAGE_PREFIX}${prefix}`;
+
+	for (const key of Array.from(clientCache.keys())) {
+		if (key.startsWith(prefix)) {
+			clientCache.delete(key);
+		}
+	}
+
+	try {
+		for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
+			const storageKey = window.localStorage.key(i);
+			if (!storageKey) continue;
+			if (storageKey.startsWith(normalizedPrefix)) {
+				window.localStorage.removeItem(storageKey);
+			}
+		}
+	} catch {
+		// Ignore storage errors.
+	}
+};
+
+export const clearClientCacheByPrefixes = (prefixes: string[]) => {
+	prefixes.forEach((prefix) => clearClientCacheByPrefix(prefix));
+};

@@ -521,6 +521,7 @@ function FilterContent({
 					}
 					const response = await fetch(
 						`/api/users?classId=${filters.className}&role=student&academicYear=${filters.academicYear}`,
+						{ cache: 'no-store' },
 					);
 					if (!response.ok) throw new Error('Failed to fetch students');
 					const data = await response.json();
@@ -1528,15 +1529,25 @@ function ReportContent({
 			setLoading(true);
 			setError(null);
 
-			const cacheKey = `periodic:report:${reportFilters.academicYear}:${reportFilters.className}:${reportFilters.period}`;
+			const selectedStudentIds = reportFilters.selectedStudents
+				.map((studentId) => String(studentId || '').trim())
+				.filter(Boolean);
+			const selectedIdsCacheKey =
+				selectedStudentIds.length > 0
+					? [...selectedStudentIds].sort().join(',')
+					: 'all';
+			const userScopeKey = String(
+				user?.id || user?._id || user?.studentId || user?.username || 'guest',
+			);
+			const cacheKey = `periodic:report:${reportFilters.academicYear}:${reportFilters.session}:${reportFilters.className}:${reportFilters.period}:${selectedIdsCacheKey}:${userScopeKey}`;
 			const cachedReport = getClientCache<PeriodicStudentData[]>(cacheKey);
-			if (cachedReport) {
+			const offline =
+				typeof navigator !== 'undefined' && navigator.onLine === false;
+			if (cachedReport && offline) {
 				setStudentsData(cachedReport);
 				setLoading(false);
 				return;
 			}
-			const offline =
-				typeof navigator !== 'undefined' && navigator.onLine === false;
 			if (offline) {
 				throw new Error(
 					'No cached periodic report found for offline generation.',
@@ -1553,7 +1564,9 @@ function ReportContent({
 			// We fetch grades for the whole class to build rank, then filter locally
 			let data: any;
 			try {
-				const res = await fetch(`/api/grades?${params.toString()}`);
+				const res = await fetch(`/api/grades?${params.toString()}`, {
+					cache: 'no-store',
+				});
 				if (!res.ok) throw new Error('Failed to fetch periodic grades');
 				data = await res.json();
 			} catch (fetchError) {
@@ -1568,13 +1581,82 @@ function ReportContent({
 			if (!data.success) {
 				throw new Error(data.message || 'Invalid data format from server');
 			}
-			const gradeReports: PeriodicStudentData[] = Array.isArray(
-				data.data?.report,
-			)
-				? data.data.report
-				: data.data?.report
-					? [data.data.report]
-					: [];
+			const normalizedReport: PeriodicStudentData[] = (() => {
+				if (Array.isArray(data.data?.report)) return data.data.report;
+				if (data.data?.report) return [data.data.report];
+
+				// System-admin class+period API can return raw rows in data.grades.
+				const rawGrades = Array.isArray(data.data?.grades) ? data.data.grades : [];
+				if (!rawGrades.length) return [];
+
+				const reportByStudent = new Map<
+					string,
+					{
+						studentId: string;
+						studentName: string;
+						subjectsMap: Map<string, number>;
+						periodicAverage: number;
+						rank: number;
+					}
+				>();
+
+				rawGrades.forEach((gradeRow: any) => {
+					const studentId = String(gradeRow?.studentId || '').trim();
+					if (!studentId) return;
+					if (!reportByStudent.has(studentId)) {
+						reportByStudent.set(studentId, {
+							studentId,
+							studentName: String(gradeRow?.studentName || '').trim(),
+							subjectsMap: new Map<string, number>(),
+							periodicAverage: 0,
+							rank: 0,
+						});
+					}
+					const subject = String(gradeRow?.subject || '').trim();
+					const value = Number(gradeRow?.grade);
+					if (!subject || Number.isNaN(value)) return;
+					reportByStudent.get(studentId)?.subjectsMap.set(subject, value);
+				});
+
+				const reportRows = Array.from(reportByStudent.values()).map((row) => {
+					const subjects = Array.from(row.subjectsMap.entries()).map(
+						([subject, grade]) => ({ subject, grade }),
+					);
+					const avg =
+						subjects.length > 0
+							? Number(
+									(
+										subjects.reduce((sum, item) => sum + item.grade, 0) /
+										subjects.length
+									).toFixed(1),
+								)
+							: 0;
+					return {
+						studentId: row.studentId,
+						studentName: row.studentName,
+						subjects,
+						periodicAverage: avg,
+						rank: 0,
+					};
+				});
+
+				const ranked = [...reportRows].sort(
+					(a, b) => b.periodicAverage - a.periodicAverage,
+				);
+				let rank = 1;
+				ranked.forEach((row, index) => {
+					if (
+						index > 0 &&
+						row.periodicAverage < ranked[index - 1].periodicAverage
+					) {
+						rank = index + 1;
+					}
+					row.rank = rank;
+				});
+
+				return ranked;
+			})();
+			const gradeReports: PeriodicStudentData[] = normalizedReport;
 			const gradesMap = new Map<string, PeriodicStudentData>();
 
 			if (Array.isArray(gradeReports)) {
@@ -1619,6 +1701,11 @@ function ReportContent({
 		reportFilters.academicYear,
 		reportFilters.className,
 		reportFilters.session,
+		reportFilters.selectedStudents,
+		user?.id,
+		user?._id,
+		user?.studentId,
+		user?.username,
 	]);
 
 	// Only fetch data once on mount or when filters/students change

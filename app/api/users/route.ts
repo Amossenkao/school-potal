@@ -47,6 +47,67 @@ function validatePhone(phone: string): boolean {
 	return /^\+?[\d\s\-\(\)]{10,}$/.test(phone);
 }
 
+const PROFILE_FIELD_LABELS: Record<string, string> = {
+	firstName: 'first name',
+	middleName: 'middle name',
+	lastName: 'last name',
+	nickName: 'nickname',
+	email: 'email',
+	phone: 'phone number',
+	bio: 'bio',
+	address: 'address',
+	avatar: 'profile photo',
+	shareContactWithClassmates: 'phone sharing preference',
+	classId: 'class assignment',
+	className: 'class name',
+	position: 'position',
+	sponsorClass: 'sponsor class',
+	subjects: 'teaching assignments',
+	guardian: 'guardian information',
+	financialProfile: 'financial profile',
+	enrollmentStatus: 'enrollment status',
+	isActive: 'account status',
+	academicYears: 'academic year assignments',
+};
+
+const PROFILE_NOTIFICATION_EXCLUDED_FIELDS = new Set([
+	'oldPassword',
+	'newPassword',
+	'password',
+	'defaultPassword',
+	'mustChangePassword',
+	'passwordChangedAt',
+	'updatedBy',
+	'updatedAt',
+	'notifications',
+]);
+
+function getActorDisplayName(actor: any): string {
+	const fullName = [actor?.firstName, actor?.middleName, actor?.lastName]
+		.map((part) => (typeof part === 'string' ? part.trim() : ''))
+		.filter(Boolean)
+		.join(' ');
+	if (fullName) return fullName;
+	const fallback =
+		actor?.fullName || actor?.name || actor?.username || actor?.userId;
+	return typeof fallback === 'string' && fallback.trim()
+		? fallback.trim()
+		: 'an administrator';
+}
+
+function formatFieldList(fields: string[]): string {
+	if (fields.length === 0) return 'profile';
+	if (fields.length === 1) return fields[0];
+	if (fields.length === 2) return `${fields[0]} and ${fields[1]}`;
+	return `${fields.slice(0, -1).join(', ')}, and ${fields[fields.length - 1]}`;
+}
+
+function valuesDiffer(previousValue: any, nextValue: any): boolean {
+	return (
+		JSON.stringify(previousValue ?? null) !== JSON.stringify(nextValue ?? null)
+	);
+}
+
 function getAcademicYear(): string {
 	const now = new Date();
 	const currentYear = now.getFullYear();
@@ -224,7 +285,9 @@ async function generateIdByRole(models: any, role: string): Promise<string> {
 			nextNumber = parseInt(sequenceStr, 10) + 1;
 		}
 	} else if (lastUser?.username) {
-		const sequenceStr = lastUser.username.substring(prefix.length + year.length);
+		const sequenceStr = lastUser.username.substring(
+			prefix.length + year.length,
+		);
 		if (sequenceStr) {
 			nextNumber = parseInt(sequenceStr, 10) + 1;
 		}
@@ -879,8 +942,7 @@ async function validateUserData(
 		}
 	}
 	if (userData.guardian?.email !== undefined) {
-		const normalizedGuardianEmail =
-			userData.guardian.email?.toString().trim();
+		const normalizedGuardianEmail = userData.guardian.email?.toString().trim();
 		if (!normalizedGuardianEmail) {
 			delete userData.guardian.email;
 		} else {
@@ -888,8 +950,7 @@ async function validateUserData(
 		}
 	}
 	if (userData.guardian?.phone !== undefined) {
-		const normalizedGuardianPhone =
-			userData.guardian.phone?.toString().trim();
+		const normalizedGuardianPhone = userData.guardian.phone?.toString().trim();
 		if (!normalizedGuardianPhone) {
 			delete userData.guardian.phone;
 		} else {
@@ -1045,8 +1106,7 @@ async function handleForceReassignmentEnhanced(
 									return classData;
 								}
 
-								const subjectsToRemove =
-									conflict.assignment!.subjects || [];
+								const subjectsToRemove = conflict.assignment!.subjects || [];
 								if (subjectsToRemove.length === 0) {
 									return null;
 								}
@@ -1891,7 +1951,9 @@ export async function GET(request: NextRequest) {
 				.lean();
 
 			responseData = Array.isArray(responseData)
-				? responseData.map((u: any) => applyStudentPhonePrivacy(u, academicYear))
+				? responseData.map((u: any) =>
+						applyStudentPhonePrivacy(u, academicYear),
+					)
 				: applyStudentPhonePrivacy(responseData, academicYear);
 
 			let meta;
@@ -1979,7 +2041,9 @@ export async function GET(request: NextRequest) {
 				.lean();
 
 			responseData = Array.isArray(responseData)
-				? responseData.map((u: any) => applyStudentPhonePrivacy(u, academicYear))
+				? responseData.map((u: any) =>
+						applyStudentPhonePrivacy(u, academicYear),
+					)
 				: applyStudentPhonePrivacy(responseData, academicYear);
 
 			let meta;
@@ -2170,7 +2234,8 @@ export async function POST(request: NextRequest) {
 			...userResponse,
 			generatedCredentials: {
 				username: finalUserData.username,
-				defaultPassword: finalUserData.defaultPassword || finalUserData.username,
+				defaultPassword:
+					finalUserData.defaultPassword || finalUserData.username,
 				note: 'User must change password on first login',
 			},
 		};
@@ -2353,8 +2418,7 @@ export async function PUT(request: NextRequest) {
 					return NextResponse.json(
 						{
 							success: false,
-							message:
-								'Yearly promotions must use a future academic year.',
+							message: 'Yearly promotions must use a future academic year.',
 						},
 						{ status: 400 },
 					);
@@ -2748,11 +2812,11 @@ export async function PUT(request: NextRequest) {
 			}
 
 			await destroyAllUserSessions(actualTargetUserId);
+			const actorName = getActorDisplayName(currentUser);
 
 			await addNotificationToUser(models.User, actualTargetUserId, {
 				title: 'Password Reset',
-				message:
-					'Your password has been reset by an administrator. Please change it after logging in.',
+				message: `Your password was reset by ${actorName}. Please change it after logging in.`,
 				timestamp: new Date(),
 				read: false,
 				dismissed: false,
@@ -2972,6 +3036,16 @@ export async function PUT(request: NextRequest) {
 			updatedBy: currentUser.userId,
 			updatedAt: new Date(),
 		};
+		const changedProfileFields = Array.from(
+			new Set(
+				Object.keys(filteredUserData)
+					.filter((field) => !PROFILE_NOTIFICATION_EXCLUDED_FIELDS.has(field))
+					.filter((field) =>
+						valuesDiffer((targetUser as any)[field], filteredUserData[field]),
+					)
+					.map((field) => PROFILE_FIELD_LABELS[field] || field),
+			),
+		);
 
 		// Handle student class change (update academicYears + grades)
 		if (
@@ -3131,17 +3205,21 @@ export async function PUT(request: NextRequest) {
 			buildUserResponse(updatedUser.toObject()),
 		);
 
-		const profileUpdated =
-			Object.keys(filteredUserData || {}).length > 0 &&
-			!['notifications'].some((key) => key in filteredUserData);
+		const profileUpdated = changedProfileFields.length > 0;
 
 		if (profileUpdated) {
-			const updatedBySelf = currentUser.userId === actualTargetUserId;
+			const updatedBySelf = currentUser.id === actualTargetUserId;
+			const actorName = getActorDisplayName(currentUser);
+			const fieldList = formatFieldList(changedProfileFields);
+			const message = updatedBySelf
+				? `You updated your ${fieldList}.`
+				: `Your ${fieldList} ${
+						changedProfileFields.length === 1 ? 'was' : 'were'
+					} updated by ${actorName}.`;
+
 			await addNotificationToUser(models.User, actualTargetUserId, {
 				title: 'Profile Updated',
-				message: updatedBySelf
-					? 'Your profile information was updated successfully.'
-					: 'Your profile information was updated by an administrator.',
+				message,
 				timestamp: new Date(),
 				read: false,
 				dismissed: false,
@@ -3152,7 +3230,7 @@ export async function PUT(request: NextRequest) {
 		if (isSelfPasswordChange) {
 			await addNotificationToUser(models.User, actualTargetUserId, {
 				title: 'Password Changed',
-				message: 'Your password was changed successfully.',
+				message: 'You changed your password.',
 				timestamp: new Date(),
 				read: false,
 				dismissed: false,

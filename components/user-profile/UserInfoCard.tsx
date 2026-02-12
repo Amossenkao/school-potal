@@ -118,7 +118,7 @@ export default function UserInfoCard() {
 
 	const startEditing = (field: 'email' | 'phone' | 'bio' | 'nickName') => {
 		setEditingFields((prev) => ({ ...prev, [field]: true }));
-		setDraftValues((prev) => ({ ...prev, [field]: '' }));
+		setDraftValues((prev) => ({ ...prev, [field]: String(formData[field] || '') }));
 		if (errors[field as keyof typeof errors]) {
 			setErrors((prev) => ({ ...prev, [field]: undefined }));
 		}
@@ -177,6 +177,43 @@ export default function UserInfoCard() {
 		setEditingFields((prev) => ({ ...prev, [field]: false }));
 	};
 
+	const applyPendingEdits = () => {
+		const nextFormData = { ...formData };
+		const nextDraftValues = { ...draftValues };
+		const nextErrors: any = { ...errors };
+		const nextEditingFields = { ...editingFields };
+
+		(['email', 'phone', 'bio', 'nickName'] as const).forEach((field) => {
+			if (!nextEditingFields[field]) return;
+
+			const rawValue = String(nextDraftValues[field] ?? '');
+			const noWhitespace = rawValue.replace(/\s+/g, '');
+
+			if (!noWhitespace) {
+				nextDraftValues[field] = String(nextFormData[field] || '');
+				nextEditingFields[field] = !nextFormData[field];
+				nextErrors[field] = undefined;
+				return;
+			}
+
+			let normalized = rawValue.trim();
+			if (field === 'email') normalized = rawValue.replace(/\s+/g, '');
+			if (field === 'phone') normalized = rawValue.replace(/\D+/g, '');
+
+			nextFormData[field] = normalized;
+			nextDraftValues[field] = normalized;
+			nextErrors[field] = validateField(field, normalized);
+			nextEditingFields[field] = false;
+		});
+
+		setFormData(nextFormData);
+		setDraftValues(nextDraftValues);
+		setErrors(nextErrors);
+		setEditingFields(nextEditingFields);
+
+		return nextFormData;
+	};
+
 	// Validate form data (only changed fields)
 	const validateForm = (payload: Record<string, any>) => {
 		const newErrors: any = {};
@@ -196,10 +233,11 @@ export default function UserInfoCard() {
 
 	// Implement the save functionality here
 	const handleSave = async () => {
+		const committedFormData = applyPendingEdits() || formData;
 		const updatePayload: Record<string, any> = {};
-		(Object.keys(formData) as Array<keyof typeof formData>).forEach((key) => {
-			if (formData[key] !== initialFormData[key]) {
-				updatePayload[key] = formData[key];
+		(Object.keys(committedFormData) as Array<keyof typeof committedFormData>).forEach((key) => {
+			if (committedFormData[key] !== initialFormData[key]) {
+				updatePayload[key] = committedFormData[key];
 			}
 		});
 

@@ -686,6 +686,7 @@ const FilterContent = React.memo(function FilterContent({
 					}
 					const response = await fetch(
 						`/api/users?classId=${filters.className}&role=student&academicYear=${filters.academicYear}`,
+						{ cache: 'no-store' },
 					);
 					const responseData = await response.json();
 					if (responseData.success && responseData.data) {
@@ -1592,13 +1593,13 @@ function ReportContent({
 				const cachedReport = getClientCache<StudentSemesterReport[]>(
 					reportCacheKey,
 				);
-				if (cachedReport) {
+				const offline =
+					typeof navigator !== 'undefined' && navigator.onLine === false;
+				if (cachedReport && offline) {
 					setStudentsData(cachedReport);
 					setLoading(false);
 					return;
 				}
-				const offline =
-					typeof navigator !== 'undefined' && navigator.onLine === false;
 
 				if (isStudent && user) {
 					studentsToProcess = [
@@ -1670,6 +1671,7 @@ function ReportContent({
 						}
 						const studentsResponse = await fetch(
 							`/api/users?classId=${reportFilters.className}&role=student&academicYear=${reportFilters.academicYear}`,
+							{ cache: 'no-store' },
 						);
 						if (!studentsResponse.ok)
 							throw new Error('Failed to fetch students');
@@ -1739,7 +1741,10 @@ function ReportContent({
 					);
 				} else {
 					try {
-						const gradesResponse = await fetch(`/api/grades?${params.toString()}`);
+						const gradesResponse = await fetch(
+							`/api/grades?${params.toString()}`,
+							{ cache: 'no-store' },
+						);
 						if (gradesResponse.ok) {
 							gradesData = await gradesResponse.json();
 							setClientCache(

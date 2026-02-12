@@ -4,6 +4,8 @@ import { isEqual } from 'lodash';
 import { User } from '@/types';
 import { useSchoolStore } from './schoolStore';
 import { useNetworkStore } from './networkStore'; // NEW IMPORT
+import { clearClientCacheByPrefixes } from '@/utils/clientCache';
+import { useOfflineNavigationStore } from './offlineNavigationStore';
 
 interface LoginData {
 	role: string;
@@ -36,6 +38,21 @@ interface AuthState {
 }
 
 const useAuth = create<AuthState>((set, get) => {
+	const clearSessionScopedClientState = () => {
+		clearClientCacheByPrefixes(['periodic:', 'semester:', 'yearly:']);
+		useOfflineNavigationStore.getState().clearOfflinePath();
+	};
+
+	const setDashboardStartPath = () => {
+		useOfflineNavigationStore.getState().setOfflinePath('/dashboard');
+	};
+
+	const resolveIdentity = (user: User | null | undefined) => {
+		if (!user) return '';
+		const extraFields = user as User & { _id?: string; studentId?: string };
+		return String(user.id || extraFields._id || extraFields.studentId || '');
+	};
+
 	return {
 		user: null,
 		isLoggedIn: false,
@@ -131,6 +148,8 @@ const useAuth = create<AuthState>((set, get) => {
 					userId: null,
 					error: null,
 				});
+				clearSessionScopedClientState();
+				setDashboardStartPath();
 				try {
 					localStorage.setItem('auth-user', JSON.stringify(data.user));
 				} catch (error) {
@@ -228,6 +247,8 @@ const useAuth = create<AuthState>((set, get) => {
 					userId: null,
 					error: null,
 				});
+				clearSessionScopedClientState();
+				setDashboardStartPath();
 				try {
 					localStorage.setItem('auth-user', JSON.stringify(data.user));
 				} catch (error) {
@@ -315,6 +336,7 @@ const useAuth = create<AuthState>((set, get) => {
 				console.warn('Failed to clear auth user cache:', error);
 			}
 			useSchoolStore.getState().clearCache();
+			clearSessionScopedClientState();
 		},
 
 		// MODIFIED: Only clear user state if the server explicitly returns no user,
@@ -423,6 +445,16 @@ const useAuth = create<AuthState>((set, get) => {
 
 				if (data.user) {
 					// Server confirms user is logged in
+					const previousIdentity = resolveIdentity(get().user);
+					const nextIdentity = resolveIdentity(data.user as User);
+					if (
+						previousIdentity &&
+						nextIdentity &&
+						previousIdentity !== nextIdentity
+					) {
+						clearSessionScopedClientState();
+						setDashboardStartPath();
+					}
 					if (!isEqual(data.user, get().user)) {
 						set({ user: data.user, isLoggedIn: true });
 					} else if (!get().isLoggedIn) {
@@ -444,6 +476,7 @@ const useAuth = create<AuthState>((set, get) => {
 					} catch (error) {
 						console.warn('Failed to clear auth user cache:', error);
 					}
+					clearSessionScopedClientState();
 				}
 			} catch (error) {
 				// CATCH: Network error (e.g., fetch failed) or non-401 server error
