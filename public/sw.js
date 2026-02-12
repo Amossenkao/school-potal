@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
 const API_CACHE = `api-${CACHE_VERSION}`;
@@ -170,16 +170,19 @@ if (request.method === 'POST' && isSameOrigin && url.pathname.startsWith('/api/g
 	if (isSameOrigin && API_ALLOWLIST.some((path) => url.pathname.startsWith(path))) {
 		event.respondWith(
 			caches.open(API_CACHE).then(async (cache) => {
-				const cached = await cache.match(request);
-				const fetchPromise = fetch(request)
-					.then((response) => {
-						if (response.ok) {
-							cache.put(request, response.clone());
-						}
-						return response;
-					})
-					.catch(() => cached);
-				return cached || fetchPromise;
+				try {
+					// Network-first prevents stale cross-session API payloads
+					// (e.g., previous user's dashboard data) from being shown online.
+					const response = await fetch(request);
+					if (response.ok) {
+						cache.put(request, response.clone());
+					}
+					return response;
+				} catch (error) {
+					const cached = await cache.match(request);
+					if (cached) return cached;
+					throw error;
+				}
 			})
 		);
 		return;
