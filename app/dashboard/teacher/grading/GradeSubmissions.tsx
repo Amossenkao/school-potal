@@ -20,7 +20,11 @@ import { Button } from '@/components/ui/button';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import { PageLoading } from '@/components/loading';
-import { getClientCache, setClientCache } from '@/utils/clientCache';
+import {
+	getClientCache,
+	setClientCache,
+	clearClientCache,
+} from '@/utils/clientCache';
 
 // Types
 interface StudentGrade {
@@ -164,24 +168,8 @@ const GradeSubmissions = () => {
 			: `${currentYear - 1}-${currentYear}`;
 	};
 
-	const fetchSubmittedGrades = useCallback(async () => {
-		if (!teacherInfo) return;
-
-		setLoading((prev) => ({ ...prev, submittedGrades: true }));
-		try {
-			const cacheKey = `submittedGrades:${teacherInfo.username}:${academicYear}`;
-			const cached = getClientCache<any[]>(cacheKey);
-			let grades: any[] = [];
-			if (cached) {
-				grades = cached;
-			} else {
-				const res = await fetch(`/api/grades?academicYear=${academicYear}`);
-				if (!res.ok) throw new Error('Failed to fetch submitted grades');
-				const data = await res.json();
-				grades = Array.isArray(data.data?.grades) ? data.data.grades : [];
-				setClientCache(cacheKey, grades);
-			}
-
+	const processSubmittedGrades = useCallback(
+		(grades: any[]) => {
 			const submissionsMap = new Map<string, any>();
 			grades.forEach((grade: any) => {
 				if (!submissionsMap.has(grade.submissionId)) {
@@ -191,7 +179,7 @@ const GradeSubmissions = () => {
 						period: grade.period,
 						gradeLevel: grade.classId,
 						subject: grade.subject,
-						teacherUsername: grade.teacherUsername || teacherInfo.username,
+						teacherUsername: grade.teacherUsername || teacherInfo?.username,
 						lastUpdated: grade.lastUpdated,
 						grades: [],
 					});
@@ -259,8 +247,49 @@ const GradeSubmissions = () => {
 			);
 
 			setSubmittedGrades(processedSubmissions);
+		},
+		[teacherInfo?.username]
+	);
+
+	const fetchSubmittedGrades = useCallback(
+		async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
+		if (!teacherInfo) return;
+
+		setLoading((prev) => ({ ...prev, submittedGrades: true }));
+		try {
+			const cacheKey = `submittedGrades:${teacherInfo.username}:${academicYear}`;
+			const cached = getClientCache<any[]>(cacheKey);
+
+			if (cached && !forceRefresh) {
+				processSubmittedGrades(cached);
+			}
+
+			const res = await fetch(`/api/grades?academicYear=${academicYear}`, {
+				cache: 'no-store',
+			});
+			if (!res.ok) throw new Error('Failed to fetch submitted grades');
+			const data = await res.json();
+			const grades = Array.isArray(data.data?.grades)
+				? data.data.grades
+				: Array.isArray(data.data?.report?.grades)
+					? data.data.report.grades
+					: [];
+
+			if (forceRefresh) {
+				clearClientCache(cacheKey);
+			}
+			setClientCache(cacheKey, grades);
+			processSubmittedGrades(grades);
 			setError((prev) => ({ ...prev, submittedGrades: '' }));
 		} catch (err) {
+			if (!forceRefresh) {
+				// Cached list was already rendered above; keep it and avoid replacing with error state.
+				const cacheKey = `submittedGrades:${teacherInfo.username}:${academicYear}`;
+				if (getClientCache<any[]>(cacheKey)) {
+					setLoading((prev) => ({ ...prev, submittedGrades: false }));
+					return;
+				}
+			}
 			setError((prev) => ({
 				...prev,
 				submittedGrades: 'Failed to load submitted grades.',
@@ -269,7 +298,8 @@ const GradeSubmissions = () => {
 		} finally {
 			setLoading((prev) => ({ ...prev, submittedGrades: false }));
 		}
-	}, [academicYear, teacherInfo]);
+	},
+	[academicYear, teacherInfo, processSubmittedGrades]);
 
 	useEffect(() => {
 		setLoading((prev) => ({ ...prev, teacherInfo: true }));
@@ -292,7 +322,7 @@ const GradeSubmissions = () => {
 
 	useEffect(() => {
 		if (teacherInfo) {
-			fetchSubmittedGrades();
+			fetchSubmittedGrades({ forceRefresh: true });
 		}
 	}, [teacherInfo, fetchSubmittedGrades]);
 
@@ -523,14 +553,20 @@ const GradeSubmissions = () => {
 	const openDetailsModal = (submission: GradeSubmission) => {
 		setSelectedGrade(submission);
 		setGradeChangeStudents(
-			submission.grades.map((g) => ({
-				studentId: g.studentId,
-				name: g.name,
-				currentGrade: g.grade,
-				newGrade: '',
-				selected: false,
-				status: g.status,
-			}))
+			[...submission.grades]
+				.sort((a, b) =>
+					(a.name || '').localeCompare(b.name || '', undefined, {
+						sensitivity: 'base',
+					})
+				)
+				.map((g) => ({
+					studentId: g.studentId,
+					name: g.name,
+					currentGrade: g.grade,
+					newGrade: '',
+					selected: false,
+					status: g.status,
+				}))
 		);
 		setShowDetailsModal(true);
 		// Reset modal state on open
@@ -717,7 +753,7 @@ const GradeSubmissions = () => {
 			}
 
 			setShowDetailsModal(false);
-			fetchSubmittedGrades(); // Refresh the list
+			fetchSubmittedGrades({ forceRefresh: true }); // Refresh the list from server
 		} catch (err: any) {
 			showNotification('error', `Error: ${err.message}`);
 		} finally {
@@ -1197,7 +1233,7 @@ const GradeSubmissions = () => {
 						</select>
 
 						<Button
-							onClick={fetchSubmittedGrades}
+							onClick={() => fetchSubmittedGrades({ forceRefresh: true })}
 							disabled={loading.submittedGrades}
 							className="flex items-center gap-2"
 							variant="outline"
