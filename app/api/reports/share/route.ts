@@ -97,8 +97,8 @@ const renderPinForm = ({
     p { font-size: 13px; margin: 0 0 16px; color: #475569; }
     .portal-label { font-size: 11px; color: #1d4ed8; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-align: center; margin: 0 0 10px; }
     .school { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 12px; }
-    .logo img { width: 50px; height: 50px; object-fit: contain; border-radius: 8px; background: #fff; border: 1px solid #e2e8f0; padding: 4px; }
-    .school-name { font-size: 14px; font-weight: 700; text-align: center; color: #0f172a; margin: 0; }
+    .logo img { width: 72px; height: 72px; object-fit: contain; border-radius: 10px; background: #fff; border: 1px solid #e2e8f0; padding: 6px; }
+    .school-name { font-size: 18px; font-weight: 800; text-align: center; color: #0f172a; margin: 0; }
     .error { color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; padding: 8px 10px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
     input { width: 100%; padding: 10px 12px; font-size: 16px; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 12px; }
     button { width: 100%; padding: 10px 12px; font-size: 14px; border: none; background: #2563eb; color: white; border-radius: 8px; cursor: pointer; }
