@@ -4,6 +4,7 @@ export type ShareQueueItem = {
 	reportType: string;
 	createdBy: string;
 	createdAt: string;
+	linkValidity: string;
 };
 
 const DB_NAME = 'school-portal';
@@ -83,17 +84,26 @@ export const enqueueShareRequest = async ({
 	fileName,
 	reportType,
 	createdBy,
+	linkValidity,
 }: {
 	blob: Blob;
 	fileName: string;
 	reportType: string;
 	createdBy: string;
+	linkValidity?: string;
 }) => {
 	if (!isIndexedDbAvailable()) return null;
 	const id = generateId();
 	const createdAt = new Date().toISOString();
 	await putItem(BLOB_STORE, blob, id);
-	await putItem(QUEUE_STORE, { id, fileName, reportType, createdBy, createdAt });
+	await putItem(QUEUE_STORE, {
+		id,
+		fileName,
+		reportType,
+		createdBy,
+		createdAt,
+		linkValidity: linkValidity || '1d',
+	});
 	return id;
 };
 

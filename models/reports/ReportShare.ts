@@ -11,6 +11,11 @@ const ReportShareSchema = new Schema(
 		fileName: { type: String, required: true },
 		reportType: { type: String, required: true },
 		createdBy: { type: String },
+		linkValidity: {
+			type: String,
+			enum: ['1d', '2d', '3d', '1w', '1m'],
+			default: '1d',
+		},
 		expiresAt: { type: Date, required: true, index: true },
 	},
 	{ timestamps: true }

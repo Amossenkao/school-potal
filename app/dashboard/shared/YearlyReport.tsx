@@ -979,6 +979,15 @@ const FilterContent = React.memo(function FilterContent({
 // --- PDF Template Helpers ---
 const DEBUG_COORDS = process.env.NEXT_PUBLIC_PDF_DEBUG_COORDS === 'true';
 const OFFLINE_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
+type LinkValidityOption = '1d' | '2d' | '3d' | '1w' | '1m';
+const LINK_VALIDITY_OPTIONS: Array<{ value: LinkValidityOption; label: string }> =
+	[
+		{ value: '1d', label: '1 day (Default)' },
+		{ value: '2d', label: '2 days' },
+		{ value: '3d', label: '3 days' },
+		{ value: '1w', label: '1 week' },
+		{ value: '1m', label: '1 month' },
+	];
 
 const padRowIndex = (index: number) => String(index + 1).padStart(2, '0');
 
@@ -1411,6 +1420,7 @@ function ReportContent({
 	} | null>(null);
 	const [shareNotice, setShareNotice] = useState('');
 	const [shareLoading, setShareLoading] = useState(false);
+	const [linkValidity, setLinkValidity] = useState<LinkValidityOption>('1d');
 	const [copiedLink, setCopiedLink] = useState(false);
 	const [copiedPin, setCopiedPin] = useState(false);
 	const [viewLoading, setViewLoading] = useState(false);
@@ -1517,17 +1527,20 @@ function ReportContent({
 			fileName,
 			reportType,
 			createdBy,
+			linkValidity,
 			pdfBlob,
 		}: {
 			cacheKey: string;
 			fileName: string;
 			reportType: string;
 			createdBy: string;
+			linkValidity: LinkValidityOption;
 			pdfBlob?: Blob | null;
 		}) => {
 			const formData = new FormData();
 			formData.append('fileName', fileName);
 			formData.append('reportType', reportType);
+			formData.append('linkValidity', linkValidity);
 			if (createdBy) {
 				formData.append('createdBy', createdBy);
 			}
@@ -1623,6 +1636,7 @@ function ReportContent({
 			fileName: reportFileName,
 			reportType: 'yearly',
 			createdBy,
+			linkValidity,
 		});
 		if (queuedId) {
 			showShareNotice(
@@ -1632,9 +1646,15 @@ function ReportContent({
 		}
 		showShareNotice('Unable to queue share on this device.');
 		return false;
-	}, [pdfBlob, reportFileName, createdBy, showShareNotice]);
+	}, [pdfBlob, reportFileName, createdBy, linkValidity, showShareNotice]);
 
 	const handleShare = useCallback(async () => {
+		if (!shareModalOpen) {
+			setShareModalOpen(true);
+			setShareInfo(null);
+			setShareNotice('');
+			return;
+		}
 		if (!pdfBlob || !downloadUrl) return;
 		if (typeof navigator !== 'undefined' && !navigator.onLine) {
 			await queueShare();
@@ -1655,6 +1675,7 @@ function ReportContent({
 				fileName: reportFileName,
 				reportType: 'yearly',
 				createdBy,
+				linkValidity,
 				pdfBlob,
 			});
 			if (!data) {
@@ -1674,11 +1695,13 @@ function ReportContent({
 	}, [
 		pdfBlob,
 		downloadUrl,
+		shareModalOpen,
 		serverKey,
 		uploadPdfToCache,
 		createShareLink,
 		reportFileName,
 		createdBy,
+		linkValidity,
 		queueShare,
 		openShareModal,
 		showShareNotice,
@@ -1691,9 +1714,10 @@ function ReportContent({
 				fileName: item.fileName,
 				reportType: item.reportType,
 				createdBy: item.createdBy,
+				linkValidity: (item.linkValidity || '1d') as LinkValidityOption,
 				pdfBlob: blob,
 			});
-			return Boolean(data?.shareUrl);
+			return Boolean(data?.url);
 		});
 	}, [createShareLink]);
 
@@ -2391,7 +2415,7 @@ function ReportContent({
 					</div>
 				)}
 			</div>
-			{shareModalOpen && shareInfo && (
+			{shareModalOpen && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
 					<div className="bg-card w-full max-w-md rounded-xl border border-border shadow-xl">
 						<div className="flex items-center justify-between p-4 border-b border-border">
@@ -2419,12 +2443,32 @@ function ReportContent({
 							</button>
 						</div>
 						<div className="p-4 space-y-4">
-							<div>
-								<p className="text-sm text-muted-foreground">
-									This link expires in 24 hours.
-								</p>
-							</div>
 							<div className="rounded-lg border border-border bg-muted/40 p-3">
+								<p className="text-xs text-muted-foreground mb-1">
+									Link validity
+								</p>
+								<select
+									value={linkValidity}
+									onChange={(e) =>
+										setLinkValidity(e.target.value as LinkValidityOption)
+									}
+									className="w-full border border-border px-2 py-2 rounded bg-background text-foreground text-sm"
+								>
+									{LINK_VALIDITY_OPTIONS.map((option) => (
+										<option key={option.value} value={option.value}>
+											{option.label}
+										</option>
+									))}
+								</select>
+							</div>
+							{shareInfo && (
+								<>
+									<div>
+										<p className="text-sm text-muted-foreground">
+											Expires on {new Date(shareInfo.expiresAt).toLocaleString()}.
+										</p>
+									</div>
+									<div className="rounded-lg border border-border bg-muted/40 p-3">
 								<p className="text-xs text-muted-foreground mb-1">Share Link</p>
 								<p className="text-sm break-all">{shareInfo.url}</p>
 								<button
@@ -2456,8 +2500,8 @@ function ReportContent({
 										'Copy Link'
 									)}
 								</button>
-							</div>
-							<div className="rounded-lg border border-border bg-muted/40 p-3">
+									</div>
+									<div className="rounded-lg border border-border bg-muted/40 p-3">
 								<p className="text-xs text-muted-foreground mb-1">PIN</p>
 								<p className="text-2xl font-semibold tracking-widest">
 									{shareInfo.pin}
@@ -2491,11 +2535,11 @@ function ReportContent({
 										'Copy PIN'
 									)}
 								</button>
-							</div>
-							{shareNotice && (
-								<p className="text-xs text-muted-foreground">{shareNotice}</p>
-							)}
-							<div className="rounded-lg border border-border bg-muted/30 p-3">
+									</div>
+									{shareNotice && (
+										<p className="text-xs text-muted-foreground">{shareNotice}</p>
+									)}
+									<div className="rounded-lg border border-border bg-muted/30 p-3">
 								<div className="flex items-center justify-between mb-2">
 									<p className="text-xs text-muted-foreground">
 										Share on social media
@@ -2582,25 +2626,38 @@ function ReportContent({
 											</span>
 											{item.label}
 										</button>
-									))}
-								</div>
-							</div>
+										))}
+									</div>
+									</div>
+								</>
+							)}
 							<div className="flex justify-end gap-2">
-								<button
-									type="button"
-									onClick={() => {
-										if (navigator.share) {
-											navigator.share({
-												title: 'Report Card',
-												text: `PIN: ${shareInfo.pin}`,
-												url: shareInfo.url,
-											});
-										}
-									}}
-									className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm"
-								>
-									Share
-								</button>
+								{!shareInfo ? (
+									<button
+										type="button"
+										onClick={handleShare}
+										disabled={shareLoading || !downloadUrl || pdfGenerating}
+										className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm disabled:opacity-50"
+									>
+										{shareLoading ? 'Generating Link...' : 'Generate'}
+									</button>
+								) : (
+									<button
+										type="button"
+										onClick={() => {
+											if (navigator.share) {
+												navigator.share({
+													title: 'Report Card',
+													text: `PIN: ${shareInfo.pin}`,
+													url: shareInfo.url,
+												});
+											}
+										}}
+										className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm"
+									>
+										Share
+									</button>
+								)}
 								<button
 									type="button"
 									onClick={() => setShareModalOpen(false)}

@@ -10,7 +10,27 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const CACHE_DIR = '/tmp/report-cache';
-const SHARE_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
+const LINK_VALIDITY_MAP = {
+	'1d': 1000 * 60 * 60 * 24,
+	'2d': 1000 * 60 * 60 * 24 * 2,
+	'3d': 1000 * 60 * 60 * 24 * 3,
+	'1w': 1000 * 60 * 60 * 24 * 7,
+	'1m': 1000 * 60 * 60 * 24 * 30,
+} as const;
+
+type LinkValidityOption = keyof typeof LINK_VALIDITY_MAP;
+
+const resolveShareTtl = (value: string | undefined) => {
+	const normalized = (value || '').trim() as LinkValidityOption;
+	return LINK_VALIDITY_MAP[normalized] || LINK_VALIDITY_MAP['1d'];
+};
+
+const resolveLinkValidityOption = (
+	value: string | undefined,
+): LinkValidityOption => {
+	const normalized = (value || '').trim() as LinkValidityOption;
+	return LINK_VALIDITY_MAP[normalized] ? normalized : '1d';
+};
 
 const buildOrigin = (request: NextRequest) => {
 	const proto = request.headers.get('x-forwarded-proto') || 'https';
@@ -28,6 +48,7 @@ const parseSharePayload = async (request: NextRequest) => {
 		let fileName = String(form.get('fileName') || '');
 		const reportType = String(form.get('reportType') || '');
 		const createdBy = String(form.get('createdBy') || '');
+		const linkValidity = String(form.get('linkValidity') || '');
 		const isFileLike =
 			pdf &&
 			typeof pdf === 'object' &&
@@ -47,6 +68,7 @@ const parseSharePayload = async (request: NextRequest) => {
 			fileName,
 			reportType,
 			createdBy,
+			linkValidity,
 			pdfBuffer,
 			contentType: contentTypeValue,
 		};
@@ -60,6 +82,7 @@ const parseSharePayload = async (request: NextRequest) => {
 		fileName: body?.fileName || '',
 		reportType: body?.reportType || '',
 		createdBy: body?.createdBy || '',
+		linkValidity: body?.linkValidity || '',
 		pdfBuffer,
 		contentType: 'application/pdf',
 	};
@@ -95,8 +118,8 @@ const renderPinForm = ({
     .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; max-width: 360px; width: 100%; }
     h1 { font-size: 18px; margin: 0 0 12px; }
     p { font-size: 13px; margin: 0 0 16px; color: #475569; }
-    .portal-label { font-size: 11px; color: #1d4ed8; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-align: center; margin: 0 0 10px; }
-    .school { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .portal-label { font-size: 11px; color: #1d4ed8; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-align: center; margin: 0 0 14px; }
+    .school { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 20px; }
     .logo img { width: 72px; height: 72px; object-fit: contain; border-radius: 10px; background: #fff; border: 1px solid #e2e8f0; padding: 6px; }
     .school-name { font-size: 18px; font-weight: 800; text-align: center; color: #0f172a; margin: 0; }
     .error { color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; padding: 8px 10px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
@@ -137,9 +160,76 @@ const renderPinForm = ({
 </body>
 </html>`;
 
+const renderStatusPage = ({
+	title,
+	message,
+	schoolName,
+	logoUrl,
+}: {
+	title: string;
+	message: string;
+	schoolName?: string;
+	logoUrl?: string;
+}) => `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>${escapeHtml(title)}</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f8fafc; color: #0f172a; margin: 0; }
+    .wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; max-width: 360px; width: 100%; }
+    .portal-label { font-size: 11px; color: #1d4ed8; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-align: center; margin: 0 0 14px; }
+    .school { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 20px; }
+    .logo img { width: 72px; height: 72px; object-fit: contain; border-radius: 10px; background: #fff; border: 1px solid #e2e8f0; padding: 6px; }
+    .school-name { font-size: 18px; font-weight: 800; text-align: center; color: #0f172a; margin: 0; }
+    h1 { font-size: 18px; margin: 0 0 10px; }
+    p { font-size: 13px; margin: 0; color: #475569; line-height: 1.5; }
+    .status { color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; padding: 10px 12px; border-radius: 8px; font-size: 12px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <p class="portal-label">Report Sharing Portal</p>
+      ${
+				schoolName || logoUrl
+					? `<div class="school">
+          ${
+						logoUrl
+							? `<div class="logo">
+            <img src="${escapeHtml(logoUrl)}" alt="School Logo" />
+          </div>`
+							: ''
+					}
+          ${
+						schoolName
+							? `<p class="school-name">${escapeHtml(schoolName)}</p>`
+							: ''
+					}
+        </div>`
+					: ''
+			}
+      <h1>${escapeHtml(title)}</h1>
+      <p>${escapeHtml(message)}</p>
+      <div class="status">If this link was shared recently, request a new share link from the sender.</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
 export async function POST(request: NextRequest) {
 	try {
-		const { cacheKey, fileName, reportType, createdBy, pdfBuffer, contentType } =
+		const {
+			cacheKey,
+			fileName,
+			reportType,
+			createdBy,
+			linkValidity,
+			pdfBuffer,
+			contentType,
+		} =
 			await parseSharePayload(request);
 		if (!fileName || !reportType) {
 			return NextResponse.json(
@@ -189,7 +279,9 @@ export async function POST(request: NextRequest) {
 		const token = crypto.randomBytes(16).toString('hex');
 		const pin = `${Math.floor(1000 + Math.random() * 9000)}`;
 		const pinHash = await bcrypt.hash(pin, 10);
-		const expiresAt = new Date(Date.now() + SHARE_TTL_MS);
+		const resolvedLinkValidity = resolveLinkValidityOption(linkValidity);
+		const shareTtlMs = resolveShareTtl(resolvedLinkValidity);
+		const expiresAt = new Date(Date.now() + shareTtlMs);
 
 		await ReportShare.create({
 			token,
@@ -201,6 +293,7 @@ export async function POST(request: NextRequest) {
 			fileName,
 			reportType,
 			createdBy,
+			linkValidity: resolvedLinkValidity,
 			expiresAt,
 		});
 
@@ -213,6 +306,7 @@ export async function POST(request: NextRequest) {
 			pin,
 			expiresAt,
 			cacheKey: resolvedCacheKey,
+			linkValidity: resolvedLinkValidity,
 		});
 	} catch (error) {
 		console.error('Error creating report share link:', error);
@@ -228,15 +322,7 @@ export async function GET(request: NextRequest) {
 		const { searchParams } = new URL(request.url);
 		const token = searchParams.get('token');
 		const pin = searchParams.get('pin');
-		if (!token) {
-			return NextResponse.json(
-				{ success: false, message: 'Missing share token.' },
-				{ status: 400 },
-			);
-		}
 
-		const models = await getTenantModels();
-		const { ReportShare } = models;
 		const school = await getSchoolProfile();
 		const schoolName =
 			typeof school?.name === 'string' ? school.name : undefined;
@@ -248,18 +334,53 @@ export async function GET(request: NextRequest) {
 					: undefined
 		);
 
+		if (!token) {
+			return new NextResponse(
+				renderStatusPage({
+					title: 'Invalid Share Link',
+					message: 'This link is missing the required token.',
+					schoolName,
+					logoUrl,
+				}),
+				{
+					status: 400,
+					headers: { 'Content-Type': 'text/html; charset=utf-8' },
+				},
+			);
+		}
+
+		const models = await getTenantModels();
+		const { ReportShare } = models;
+
 		const share = await ReportShare.findOne({ token }).lean();
 		if (!share) {
-			return NextResponse.json(
-				{ success: false, message: 'Share link not found.' },
-				{ status: 404 },
+			return new NextResponse(
+				renderStatusPage({
+					title: 'Link Not Found',
+					message: 'This report share link does not exist or has been removed.',
+					schoolName,
+					logoUrl,
+				}),
+				{
+					status: 404,
+					headers: { 'Content-Type': 'text/html; charset=utf-8' },
+				},
 			);
 		}
 		if (share.expiresAt && new Date(share.expiresAt).getTime() < Date.now()) {
 			await ReportShare.deleteOne({ token });
-			return NextResponse.json(
-				{ success: false, message: 'Share link expired.' },
-				{ status: 410 },
+			return new NextResponse(
+				renderStatusPage({
+					title: 'Link Expired',
+					message:
+						'This report share link has expired and can no longer be accessed.',
+					schoolName,
+					logoUrl,
+				}),
+				{
+					status: 410,
+					headers: { 'Content-Type': 'text/html; charset=utf-8' },
+				},
 			);
 		}
 
@@ -338,9 +459,18 @@ export async function GET(request: NextRequest) {
 		try {
 			cached = await fs.readFile(pdfPath);
 		} catch {
-			return NextResponse.json(
-				{ success: false, message: 'Report not available.' },
-				{ status: 404 },
+			return new NextResponse(
+				renderStatusPage({
+					title: 'Report Not Available',
+					message:
+						'The report file is currently unavailable. Please ask for a new share link.',
+					schoolName,
+					logoUrl,
+				}),
+				{
+					status: 404,
+					headers: { 'Content-Type': 'text/html; charset=utf-8' },
+				},
 			);
 		}
 		return new NextResponse(cached, {
@@ -353,9 +483,16 @@ export async function GET(request: NextRequest) {
 		});
 	} catch (error) {
 		console.error('Error serving shared report:', error);
-		return NextResponse.json(
-			{ success: false, message: 'Unable to serve report.' },
-			{ status: 500 },
+		return new NextResponse(
+			renderStatusPage({
+				title: 'Unable To Open Report',
+				message:
+					'An unexpected error occurred while opening this shared report. Please try again later.',
+			}),
+			{
+				status: 500,
+				headers: { 'Content-Type': 'text/html; charset=utf-8' },
+			},
 		);
 	}
 }
