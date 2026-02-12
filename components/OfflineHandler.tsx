@@ -15,9 +15,12 @@ export default function OfflineHandler({
 	const { isOnline } = useNetworkStore();
 	const currentPathRef = useRef(pathname);
 	const [showOfflineGate, setShowOfflineGate] = useState(false);
+	const [offlineGateMessage, setOfflineGateMessage] = useState('');
 	const isInitialLoad = useRef(true);
 	const OFFLINE_ERROR_MESSAGE =
 		'You are offline. Please connect to the internet and try again.';
+	const DEFAULT_OFFLINE_GATE_MESSAGE =
+		"You're currently offline, so this page can't be loaded. Go back to your previous view and try again when you're connected.";
 
 	// Update current path reference
 	useEffect(() => {
@@ -28,15 +31,19 @@ export default function OfflineHandler({
 	}, [pathname, isOnline, showOfflineGate]);
 
 	useEffect(() => {
-		const handleOfflineFetch = () => {
+		const handleOfflineFetchWithDetail = (event: Event) => {
+			const customEvent = event as CustomEvent<{ message?: string }>;
+			const nextMessage =
+				customEvent.detail?.message || DEFAULT_OFFLINE_GATE_MESSAGE;
+			setOfflineGateMessage(nextMessage);
 			if (!isOnline && isInitialLoad.current) return;
 			setShowOfflineGate(true);
 		};
-		window.addEventListener('offline:fetch', handleOfflineFetch);
+		window.addEventListener('offline:fetch', handleOfflineFetchWithDetail);
 		return () => {
-			window.removeEventListener('offline:fetch', handleOfflineFetch);
+			window.removeEventListener('offline:fetch', handleOfflineFetchWithDetail);
 		};
-	}, []);
+	}, [DEFAULT_OFFLINE_GATE_MESSAGE, isOnline]);
 	useEffect(() => {
 		isInitialLoad.current = false;
 	}, []);
@@ -192,7 +199,7 @@ export default function OfflineHandler({
 					return Promise.reject(new Error(OFFLINE_ERROR_MESSAGE));
 				}
 				if (shouldShowOfflineModal(url, method)) {
-					window.dispatchEvent(new CustomEvent('offline:fetch'));
+					// Keep modal triggering explicit to avoid blocking offline refresh UX.
 				}
 				return Promise.reject(new Error(OFFLINE_ERROR_MESSAGE));
 			}
@@ -223,7 +230,7 @@ export default function OfflineHandler({
 						}
 					}
 					if (shouldShowOfflineModal(url, method)) {
-						window.dispatchEvent(new CustomEvent('offline:fetch'));
+						// Keep modal triggering explicit to avoid blocking offline refresh UX.
 					}
 					throw new Error(OFFLINE_ERROR_MESSAGE);
 				}
@@ -250,8 +257,7 @@ export default function OfflineHandler({
 							You're Offline
 						</h2>
 						<p className="mt-2 text-center text-sm text-muted-foreground">
-							You're currently offline, so this page can't be loaded. Go back to
-							your previous view and try again when you're connected.
+							{offlineGateMessage || DEFAULT_OFFLINE_GATE_MESSAGE}
 						</p>
 						<div className="mt-6 flex justify-center">
 							<button

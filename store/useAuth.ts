@@ -38,6 +38,30 @@ interface AuthState {
 }
 
 const useAuth = create<AuthState>((set, get) => {
+	const OFFLINE_REQUESTS_KEY = 'school_portal_offline_requests';
+
+	const enqueueOfflineRequest = (entry: {
+		url: string;
+		method: string;
+		credentials?: RequestCredentials;
+		headers?: Record<string, string>;
+		body?: string;
+	}) => {
+		if (typeof window === 'undefined') return;
+		try {
+			const raw = window.localStorage.getItem(OFFLINE_REQUESTS_KEY);
+			const queue = raw ? JSON.parse(raw) : [];
+			queue.push({
+				...entry,
+				id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+				createdAt: Date.now(),
+			});
+			window.localStorage.setItem(OFFLINE_REQUESTS_KEY, JSON.stringify(queue));
+		} catch (error) {
+			console.warn('Failed to enqueue offline request:', error);
+		}
+	};
+
 	const clearSessionScopedClientState = () => {
 		clearClientCacheByPrefixes(['periodic:', 'semester:', 'yearly:']);
 		useOfflineNavigationStore.getState().clearOfflinePath();
@@ -310,11 +334,33 @@ const useAuth = create<AuthState>((set, get) => {
 
 		logout: async () => {
 			set({ isLoading: true });
+			const networkState = useNetworkStore.getState();
+			const navigatorOnline =
+				typeof navigator !== 'undefined' ? navigator.onLine : true;
+			const isOnline = networkState.isOnline && navigatorOnline;
 			try {
-				await fetch('/api/auth/login', {
-					method: 'DELETE',
-					credentials: 'include',
-				});
+				if (isOnline) {
+					await fetch('/api/auth/login', {
+						method: 'DELETE',
+						credentials: 'include',
+					});
+				} else {
+					enqueueOfflineRequest({
+						url: '/api/auth/login',
+						method: 'DELETE',
+						credentials: 'include',
+					});
+					if (typeof window !== 'undefined') {
+						window.dispatchEvent(
+							new CustomEvent('offline:fetch', {
+								detail: {
+									message:
+										'You are offline. Logout request was queued and will sync when you reconnect.',
+								},
+							}),
+						);
+					}
+				}
 			} catch (error) {
 				console.warn('Logout request failed:', error);
 			}

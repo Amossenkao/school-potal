@@ -11,6 +11,8 @@ import AuthProvider from '@/context/AuthProvider';
 import OfflineHandler from '@/components/OfflineHandler';
 import { Toaster } from 'react-hot-toast';
 
+const OFFLINE_REQUESTS_KEY = 'school_portal_offline_requests';
+
 export default function RootProviders({
 	children,
 }: {
@@ -53,10 +55,48 @@ export default function RootProviders({
 	}, [hasAppsFeature, hasSchoolProfile]);
 
 	useEffect(() => {
-		if (!hasAppsFeature) return;
-		if (!('serviceWorker' in navigator)) return;
+		const flushOfflineRequests = async () => {
+			if (!navigator.onLine) return;
+			try {
+				const raw = localStorage.getItem(OFFLINE_REQUESTS_KEY);
+				if (!raw) return;
+				const queued = JSON.parse(raw);
+				if (!Array.isArray(queued) || queued.length === 0) return;
+				const remaining: any[] = [];
+
+				for (const item of queued) {
+					try {
+						const res = await fetch(item.url, {
+							method: item.method || 'GET',
+							headers: item.headers || {},
+							body: item.body,
+							credentials: item.credentials || 'include',
+						});
+						if (!res.ok) {
+							remaining.push(item);
+						}
+					} catch {
+						remaining.push(item);
+					}
+				}
+
+				if (remaining.length > 0) {
+					localStorage.setItem(OFFLINE_REQUESTS_KEY, JSON.stringify(remaining));
+				} else {
+					localStorage.removeItem(OFFLINE_REQUESTS_KEY);
+				}
+			} catch (error) {
+				console.warn('Failed to flush offline requests:', error);
+			}
+		};
+
 		const flushQueue = () => {
-			if (navigator.serviceWorker.controller) {
+			void flushOfflineRequests();
+			if (
+				hasAppsFeature &&
+				'serviceWorker' in navigator &&
+				navigator.serviceWorker.controller
+			) {
 				navigator.serviceWorker.controller.postMessage({
 					type: 'flush-grade-queue',
 				});
