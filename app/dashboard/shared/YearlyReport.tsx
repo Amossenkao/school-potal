@@ -37,6 +37,7 @@ import {
 	DEFAULT_REPORT_TEMPLATE_URL,
 	loadReportTemplateBytes,
 } from '@/utils/reportTemplate';
+import FullscreenPdfViewer from '@/components/reports/FullscreenPdfViewer';
 
 // --- Type Definitions ---
 
@@ -1424,6 +1425,7 @@ function ReportContent({
 	const [copiedLink, setCopiedLink] = useState(false);
 	const [copiedPin, setCopiedPin] = useState(false);
 	const [viewLoading, setViewLoading] = useState(false);
+	const [fullScreenViewerOpen, setFullScreenViewerOpen] = useState(false);
 	const resetCopiedTimeoutRef = useRef<number | null>(null);
 	const hasReportDataRef = useRef(false);
 	const showShareNotice = useCallback((message: string, timeoutMs = 4000) => {
@@ -1566,22 +1568,15 @@ function ReportContent({
 		[setShareNotice],
 	);
 
-	const openWithBlob = useCallback(() => {
-		if (!downloadUrl) return;
-		window.open(downloadUrl, '_blank', 'noopener,noreferrer');
-	}, [downloadUrl]);
-
 	const handleView = useCallback(async () => {
-		if (!pdfBlob || !downloadUrl) return;
+		if (!pdfUrl || !downloadUrl) return;
 		setViewLoading(true);
 		try {
-			openWithBlob();
-		} catch {
-			openWithBlob();
+			setFullScreenViewerOpen(true);
 		} finally {
 			setViewLoading(false);
 		}
-	}, [pdfBlob, downloadUrl, openWithBlob]);
+	}, [downloadUrl, pdfUrl]);
 
 	const queueShare = useCallback(async () => {
 		if (!pdfBlob) return false;
@@ -2051,6 +2046,7 @@ function ReportContent({
 			setPdfBlob(null);
 			setServerKey(null);
 			setInlineError(false);
+			setFullScreenViewerOpen(false);
 			if (resetCopiedTimeoutRef.current) {
 				window.clearTimeout(resetCopiedTimeoutRef.current);
 				resetCopiedTimeoutRef.current = null;
@@ -2119,6 +2115,12 @@ function ReportContent({
 		loading,
 		error,
 	]);
+
+	useEffect(() => {
+		if (!pdfUrl && fullScreenViewerOpen) {
+			setFullScreenViewerOpen(false);
+		}
+	}, [fullScreenViewerOpen, pdfUrl]);
 
 
 	// Download handler
@@ -2342,6 +2344,14 @@ function ReportContent({
 					</div>
 				)}
 			</div>
+			<FullscreenPdfViewer
+				isOpen={fullScreenViewerOpen}
+				pdfUrl={pdfUrl}
+				title="Yearly Report Card"
+				onClose={() => setFullScreenViewerOpen(false)}
+				downloadUrl={downloadUrl}
+				downloadFileName={reportFileName}
+			/>
 			{shareModalOpen && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
 					<div className="bg-card w-full max-w-md rounded-xl border border-border shadow-xl">

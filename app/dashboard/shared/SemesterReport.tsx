@@ -28,6 +28,7 @@ import { getClientCache, setClientCache } from '@/utils/clientCache';
 import AccessDenied from '@/components/AccessDenied';
 import { drawTextMap } from '@/utils/pdfText';
 import { buildSemesterCardPlacements } from '@/app/dashboard/shared/reportPdfLayout';
+import FullscreenPdfViewer from '@/components/reports/FullscreenPdfViewer';
 import {
 	buildReportTemplateUrl,
 	DEFAULT_REPORT_TEMPLATE_URL,
@@ -1442,6 +1443,7 @@ function ReportContent({
 	const [inlineError, setInlineError] = useState(false);
 	const [viewLoading, setViewLoading] = useState(false);
 	const [forceInlineFallback, setForceInlineFallback] = useState(false);
+	const [fullScreenViewerOpen, setFullScreenViewerOpen] = useState(false);
 	const [shareModalOpen, setShareModalOpen] = useState(false);
 	const [shareLoading, setShareLoading] = useState(false);
 	const [linkValidity, setLinkValidity] = useState<LinkValidityOption>('1d');
@@ -1965,6 +1967,7 @@ function ReportContent({
 			setPdfBlob(null);
 			setServerKey(null);
 			setInlineError(false);
+			setFullScreenViewerOpen(false);
 			return;
 		}
 
@@ -2044,6 +2047,12 @@ function ReportContent({
 		media.addListener(apply);
 		return () => media.removeListener(apply);
 	}, []);
+
+	useEffect(() => {
+		if (!pdfUrl && fullScreenViewerOpen) {
+			setFullScreenViewerOpen(false);
+		}
+	}, [fullScreenViewerOpen, pdfUrl]);
 
 	const handleDownload = useCallback(async () => {
 		if (!downloadUrl) return;
@@ -2167,9 +2176,9 @@ function ReportContent({
 									<button
 										type="button"
 										onClick={() => {
-											if (!pdfBlob || !downloadUrl) return;
+											if (!pdfUrl || !downloadUrl) return;
 											setViewLoading(true);
-											window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+											setFullScreenViewerOpen(true);
 											setViewLoading(false);
 										}}
 										disabled={!downloadUrl || pdfGenerating || viewLoading}
@@ -2244,6 +2253,14 @@ function ReportContent({
 					</div>
 				)}
 			</div>
+			<FullscreenPdfViewer
+				isOpen={fullScreenViewerOpen}
+				pdfUrl={pdfUrl}
+				title="Semester Report"
+				onClose={() => setFullScreenViewerOpen(false)}
+				downloadUrl={downloadUrl}
+				downloadFileName={reportFileName}
+			/>
 			{shareModalOpen && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
 					<div className="bg-card w-full max-w-md rounded-xl border border-border shadow-xl">
