@@ -1630,6 +1630,7 @@ function ReportContent({
 	const handleBack = useCallback(() => {
 		onBack();
 	}, [onBack]);
+	const isReportReady = Boolean(pdfUrl && downloadUrl && !pdfGenerating);
 
 	if (loading) {
 		return (
@@ -1669,23 +1670,66 @@ function ReportContent({
 
 	return (
 		<div className="w-full h-screen bg-background flex flex-col">
-			<div className="flex justify-between items-center px-4 sm:px-8 py-4 bg-background border-b border-border">
+			<div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-3 sm:px-8 py-3 sm:py-4 bg-background border-b border-border">
 				<button
 					type="button"
 					onClick={handleBack}
-					className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm"
+					className="w-full sm:w-auto min-h-11 px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm inline-flex items-center justify-center"
 				>
 					← Back to Filter
 				</button>
 
 				{/* Download Button */}
-				<div className="flex items-center gap-2">
-					{isStudent && !inlineError && (
+				{isReportReady && (
+					<div className="w-full sm:w-auto flex items-center gap-2">
+						{isStudent && !inlineError && (
+							<button
+								type="button"
+								onClick={handleShare}
+								disabled={!isReportReady || shareLoading}
+								className="flex-1 sm:flex-none min-h-11 px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm inline-flex items-center justify-center gap-2 disabled:opacity-50"
+							>
+								<svg
+									className="w-4 h-4"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"
+									/>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M16 6l-4-4-4 4"
+									/>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M12 2v14"
+									/>
+								</svg>
+								{shareLoading ? 'Generating Link...' : 'Share Grade Sheet'}
+							</button>
+						)}
 						<button
 							type="button"
-							onClick={handleShare}
-							disabled={!downloadUrl || pdfGenerating || shareLoading}
-							className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm inline-flex items-center gap-2 disabled:opacity-50"
+							onClick={() => {
+								if (!downloadUrl) return;
+								const link = document.createElement('a');
+								link.href = downloadUrl;
+								link.download = fileName;
+								document.body.appendChild(link);
+								link.click();
+								link.remove();
+							}}
+							disabled={!isReportReady}
+							className="flex-1 sm:flex-none min-h-11 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm inline-flex items-center justify-center gap-2 disabled:opacity-50"
 						>
 							<svg
 								className="w-4 h-4"
@@ -1697,60 +1741,13 @@ function ReportContent({
 									strokeLinecap="round"
 									strokeLinejoin="round"
 									strokeWidth={2}
-									d="M4 12v7a1 1 0 001 1h14a1 1 0 001-1v-7"
-								/>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth={2}
-									d="M16 6l-4-4-4 4"
-								/>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth={2}
-									d="M12 2v14"
+									d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
 								/>
 							</svg>
-							{shareLoading ? 'Generating Link...' : 'Share Grade Sheet'}
+							<span>Download Grade Sheet</span>
 						</button>
-					)}
-					<button
-						type="button"
-						onClick={() => {
-							if (!downloadUrl) return;
-							const link = document.createElement('a');
-							link.href = downloadUrl;
-							link.download = fileName;
-							document.body.appendChild(link);
-							link.click();
-							link.remove();
-						}}
-						disabled={!downloadUrl || pdfGenerating}
-						className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm inline-flex items-center gap-2 disabled:opacity-50"
-					>
-						{pdfGenerating ? (
-							<InlineLoading size="sm" />
-						) : (
-							<>
-								<svg
-									className="w-4 h-4"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-									/>
-								</svg>
-								<span>Download Grade Sheet</span>
-							</>
-						)}
-					</button>
-				</div>
+					</div>
+				)}
 			</div>
 
 			<div className="flex-1 bg-gray-100">
@@ -1825,7 +1822,7 @@ function ReportContent({
 										<button
 											type="button"
 											onClick={handleShare}
-											disabled={!downloadUrl || pdfGenerating || shareLoading}
+											disabled={!isReportReady || shareLoading}
 											className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border text-sm inline-flex items-center gap-2"
 										>
 											<svg
@@ -1872,35 +1869,7 @@ function ReportContent({
 					</div>
 				) : (
 					<div className="flex items-center justify-center h-full">
-						<div className="text-center">
-							{studentsData.length === 0 ? (
-								<>
-									<p className="text-muted-foreground mb-4">
-										No student data available for PDF generation
-									</p>
-									<button
-										type="button"
-										onClick={handleBack}
-										className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
-									>
-										← Back to Filter
-									</button>
-								</>
-							) : !schoolData ? (
-								<>
-									<InlineLoading size="lg" />
-								</>
-							) : (
-								<>
-									<InlineLoading size="lg" />
-									<div className="mt-4 text-sm text-muted-foreground">
-										<p>Students: {studentsData.length}</p>
-										<p>Subjects: {SUBJECTS.length}</p>
-										<p>Class: {className}</p>
-									</div>
-								</>
-							)}
-						</div>
+						<InlineLoading size="lg" />
 					</div>
 				)}
 			</div>
