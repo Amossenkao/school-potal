@@ -652,6 +652,32 @@ const UserManagementDashboard = () => {
 		return Array.from(subjects);
 	};
 
+	const syncUsersSnapshot = useCallback(
+		(
+			nextUsers: any[],
+			nextTotal: number | null = totalUsersRef.current,
+			nextRoleCounts: Record<string, number> = roleCountsRef.current,
+		) => {
+			const cacheKey = `manageUsers:${selectedAcademicYear}`;
+			setClientCache(cacheKey, {
+				users: nextUsers,
+				totalUsers: typeof nextTotal === 'number' ? nextTotal : null,
+				roleCounts: nextRoleCounts,
+				serverPage,
+			});
+			setUsersForYear(
+				selectedAcademicYear,
+				{
+					students: nextUsers.filter((u) => u.role === 'student'),
+					teachers: nextUsers.filter((u) => u.role === 'teacher'),
+					administrators: nextUsers.filter((u) => u.role === 'administrator'),
+				},
+				{ merge: false },
+			);
+		},
+		[selectedAcademicYear, serverPage, setUsersForYear],
+	);
+
 	const filteredAndSortedUsers = useMemo(() => {
 		const filtered = users.filter((user) => {
 			const fullName = getFullName(user).toLowerCase();
@@ -886,43 +912,37 @@ const UserManagementDashboard = () => {
 			const deletedUser = currentUsers.find(
 				(u) => (u.id || u._id) === deletedUserId,
 			);
+			const currentTotal =
+				typeof totalUsersRef.current === 'number'
+					? totalUsersRef.current
+					: currentUsers.length;
+			const currentCounts = roleCountsRef.current || {};
 			if (deletedUser) {
-				if (totalUsers !== null) {
-					setTotalUsers((prev) =>
-						prev !== null ? Math.max(0, prev - 1) : prev,
-					);
-				}
+				const nextTotal = Math.max(0, currentTotal - 1);
+				setTotalUsers(nextTotal);
 				if (deletedUser.role) {
-					setRoleCounts((prev) => ({
-						...prev,
+					const nextRoleCounts = {
+						...currentCounts,
 						[deletedUser.role]: Math.max(
 							0,
-							(prev[deletedUser.role] || 0) - 1,
+							(currentCounts[deletedUser.role] || 0) - 1,
 						),
-					}));
+					};
+					setRoleCounts(nextRoleCounts);
+					roleCountsRef.current = nextRoleCounts;
+					totalUsersRef.current = nextTotal;
+				} else {
+					totalUsersRef.current = nextTotal;
 				}
 			}
 			const nextUsers = currentUsers.filter(
 				(u) => (u.id || u._id) !== deletedUserId,
 			);
-			const cacheKey = `manageUsers:${selectedAcademicYear}`;
-			setClientCache(cacheKey, {
-				users: nextUsers,
-				totalUsers:
-					typeof totalUsers === 'number'
-						? Math.max(0, totalUsers - 1)
-						: totalUsers,
-				roleCounts: deletedUser?.role
-					? {
-							...roleCounts,
-							[deletedUser.role]: Math.max(
-								0,
-								(roleCounts[deletedUser.role] || 0) - 1,
-							),
-					  }
-					: roleCounts,
-				serverPage,
-			});
+			syncUsersSnapshot(
+				nextUsers,
+				totalUsersRef.current,
+				roleCountsRef.current,
+			);
 			return nextUsers;
 		});
 	};
@@ -935,13 +955,19 @@ const UserManagementDashboard = () => {
 	};
 
 	const handleDeactivateSuccess = (updatedUser: any) => {
-		setUsers((currentUsers) =>
-			currentUsers.map((u) =>
+		setUsers((currentUsers) => {
+			const nextUsers = currentUsers.map((u) =>
 				(u.id || u._id) === (updatedUser.id || updatedUser._id)
 					? normalizeUser(updatedUser)
 					: u,
-			),
-		);
+			);
+			syncUsersSnapshot(
+				nextUsers,
+				totalUsersRef.current,
+				roleCountsRef.current,
+			);
+			return nextUsers;
+		});
 		setFeedback({
 			type: 'success',
 			message: `User ${
@@ -1365,12 +1391,18 @@ const UserManagementDashboard = () => {
 								normalizeUser(u),
 							]),
 						);
-						setUsers((current) =>
-							current.map((u) => {
+						setUsers((current) => {
+							const nextUsers = current.map((u) => {
 								const key = (u.id || u._id)?.toString();
 								return updateMap.has(key) ? updateMap.get(key) : u;
-							}),
-						);
+							});
+							syncUsersSnapshot(
+								nextUsers,
+								totalUsersRef.current,
+								roleCountsRef.current,
+							);
+							return nextUsers;
+						});
 						setShowEditModal(false);
 						setEditingUser(null);
 						setFeedback({
