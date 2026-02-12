@@ -698,7 +698,7 @@ const FilterContent = React.memo(function FilterContent({
 							className: student.classId,
 						}));
 						setStudents(mappedStudents);
-						setClientCache(cacheKey, mappedStudents);
+						setClientCache(cacheKey, mappedStudents, OFFLINE_CACHE_TTL_MS);
 					} else {
 						setStudents([]);
 					}
@@ -1296,16 +1296,20 @@ const fillTemplateForStudent = async ({
 			debug: DEBUG_COORDS,
 		});
 		if (placements.page2Qr && studentData.qrCodeDataUrl) {
-			const qrBytes = await fetch(studentData.qrCodeDataUrl).then((res) =>
-				res.arrayBuffer(),
-			);
-			const qrImage = await filledDoc.embedPng(qrBytes);
-			page2.drawImage(qrImage, {
-				x: placements.page2Qr.x,
-				y: placements.page2Qr.y,
-				width: placements.page2Qr.width,
-				height: placements.page2Qr.height,
-			});
+			try {
+				const qrBytes = await fetch(studentData.qrCodeDataUrl).then((res) =>
+					res.arrayBuffer(),
+				);
+				const qrImage = await filledDoc.embedPng(qrBytes);
+				page2.drawImage(qrImage, {
+					x: placements.page2Qr.x,
+					y: placements.page2Qr.y,
+					width: placements.page2Qr.width,
+					height: placements.page2Qr.height,
+				});
+			} catch {
+				// QR image is optional; don't fail report generation when offline.
+			}
 		}
 	}
 	return filledDoc;

@@ -708,7 +708,7 @@ const FilterContent = React.memo(function FilterContent({
 							className: student.classId,
 						}));
 						setStudents(mappedStudents);
-						setClientCache(cacheKey, mappedStudents);
+						setClientCache(cacheKey, mappedStudents, OFFLINE_CACHE_TTL_MS);
 					} else {
 						setStudents([]);
 					}
@@ -1038,6 +1038,7 @@ const FilterContent = React.memo(function FilterContent({
 
 // --- PDF Template Helpers ---
 const DEBUG_COORDS = process.env.NEXT_PUBLIC_PDF_DEBUG_COORDS === 'true';
+const OFFLINE_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 
 const padRowIndex = (index: number) => String(index + 1).padStart(2, '0');
 
@@ -1558,6 +1559,21 @@ function ReportContent({
 				const selectedStudentIds = reportFilters.selectedStudents
 					.map((studentId) => normalizeStudentId(studentId))
 					.filter(Boolean);
+				const selectedIdsCacheKey =
+					selectedStudentIds.length > 0
+						? [...selectedStudentIds].sort().join(',')
+						: 'all';
+				const reportCacheKey = `semester:report:${reportFilters.academicYear}:${reportFilters.session}:${reportFilters.className}:${reportFilters.semester}:${selectedIdsCacheKey}`;
+				const cachedReport = getClientCache<StudentSemesterReport[]>(
+					reportCacheKey,
+				);
+				if (cachedReport) {
+					setStudentsData(cachedReport);
+					setLoading(false);
+					return;
+				}
+				const offline =
+					typeof navigator !== 'undefined' && navigator.onLine === false;
 
 				if (isStudent && user) {
 					studentsToProcess = [
@@ -1622,6 +1638,11 @@ function ReportContent({
 							studentsToProcess = mappedCached;
 						}
 					} else {
+						if (offline) {
+							throw new Error(
+								'No cached student roster found for offline semester report generation.',
+							);
+						}
 						const studentsResponse = await fetch(
 							`/api/users?classId=${reportFilters.className}&role=student&academicYear=${reportFilters.academicYear}`,
 						);
@@ -1653,7 +1674,7 @@ function ReportContent({
 							middleName: student.middleName,
 							lastName: student.lastName,
 						}));
-						setClientCache(cacheKey, mapped);
+						setClientCache(cacheKey, mapped, OFFLINE_CACHE_TTL_MS);
 
 						if (selectedStudentIds.length > 0) {
 							studentsToProcess = mapped.filter((student: any) =>
@@ -1679,12 +1700,46 @@ function ReportContent({
 				}
 
 				let gradesData = { success: true, data: { report: [] } };
-				const gradesResponse = await fetch(`/api/grades?${params.toString()}`);
-				if (gradesResponse.ok) {
-					gradesData = await gradesResponse.json();
+				const gradesCacheBaseKey = `semester:grades:${reportFilters.academicYear}:${reportFilters.session}:${reportFilters.className}:${reportFilters.semester}`;
+				const gradesCacheKey = `${gradesCacheBaseKey}:${selectedIdsCacheKey}`;
+				const cachedGrades =
+					getClientCache<any>(gradesCacheKey) ??
+					getClientCache<any>(`${gradesCacheBaseKey}:all`);
+
+				if (offline && cachedGrades) {
+					gradesData = cachedGrades;
+				} else if (offline && !cachedGrades) {
+					throw new Error(
+						'No cached grades found for offline semester report generation.',
+					);
 				} else {
-					const errorData = await gradesResponse.json();
-					throw new Error(errorData.message || 'Failed to fetch grades');
+					try {
+						const gradesResponse = await fetch(`/api/grades?${params.toString()}`);
+						if (gradesResponse.ok) {
+							gradesData = await gradesResponse.json();
+							setClientCache(
+								gradesCacheKey,
+								gradesData,
+								OFFLINE_CACHE_TTL_MS,
+							);
+							if (selectedIdsCacheKey === 'all') {
+								setClientCache(
+									`${gradesCacheBaseKey}:all`,
+									gradesData,
+									OFFLINE_CACHE_TTL_MS,
+								);
+							}
+						} else {
+							const errorData = await gradesResponse.json();
+							throw new Error(errorData.message || 'Failed to fetch grades');
+						}
+					} catch (fetchErr) {
+						if (cachedGrades) {
+							gradesData = cachedGrades;
+						} else {
+							throw fetchErr;
+						}
+					}
 				}
 
 				let existingReports: any[] = [];
@@ -1842,6 +1897,7 @@ function ReportContent({
 				);
 
 				setStudentsData(reportData);
+				setClientCache(reportCacheKey, reportData, OFFLINE_CACHE_TTL_MS);
 				setLoading(false);
 			} catch (err: any) {
 				console.error('Error fetching report data:', err);

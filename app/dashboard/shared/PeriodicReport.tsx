@@ -82,6 +82,7 @@ const academicYearOptions = [
 	'2023-2024',
 	'2022-2023',
 ];
+const OFFLINE_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 
 const getCurrentAcademicYear = () => {
 	const currentDate = new Date();
@@ -528,13 +529,15 @@ function FilterContent({
 							className: student.classId,
 						}));
 						setStudents(mapped);
-						setClientCache(cacheKey, mapped);
+						setClientCache(cacheKey, mapped, OFFLINE_CACHE_TTL_MS);
 					} else {
 						setStudents([]);
 					}
 				} catch (error) {
 					console.error('Error fetching students:', error);
-					setStudents([]);
+					const cacheKey = `periodic:students:${filters.academicYear}:${filters.className}`;
+					const cached = getClientCache<Student[]>(cacheKey);
+					setStudents(cached || []);
 				} finally {
 					setLoadingStudents(false);
 				}
@@ -1507,6 +1510,13 @@ function ReportContent({
 				setLoading(false);
 				return;
 			}
+			const offline =
+				typeof navigator !== 'undefined' && navigator.onLine === false;
+			if (offline) {
+				throw new Error(
+					'No cached periodic report found for offline generation.',
+				);
+			}
 
 			const params = new URLSearchParams({
 				period: reportFilters.period,
@@ -1516,9 +1526,19 @@ function ReportContent({
 			});
 
 			// We fetch grades for the whole class to build rank, then filter locally
-			const res = await fetch(`/api/grades?${params.toString()}`);
-			if (!res.ok) throw new Error('Failed to fetch periodic grades');
-			const data = await res.json();
+			let data: any;
+			try {
+				const res = await fetch(`/api/grades?${params.toString()}`);
+				if (!res.ok) throw new Error('Failed to fetch periodic grades');
+				data = await res.json();
+			} catch (fetchError) {
+				if (cachedReport) {
+					setStudentsData(cachedReport);
+					setLoading(false);
+					return;
+				}
+				throw fetchError;
+			}
 
 			if (!data.success) {
 				throw new Error(data.message || 'Invalid data format from server');
@@ -1559,7 +1579,7 @@ function ReportContent({
 			});
 
 			setStudentsData(finalReportData);
-			setClientCache(cacheKey, finalReportData);
+			setClientCache(cacheKey, finalReportData, OFFLINE_CACHE_TTL_MS);
 		} catch (err) {
 			console.error('Error fetching and merging grades:', err);
 			setError(
