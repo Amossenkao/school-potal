@@ -2033,24 +2033,6 @@ function ReportContent({
 	]);
 
 	useEffect(() => {
-		if (!pdfBlob || pdfGenerating || serverKey) return;
-		fetch('/api/reports/pdf', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/pdf' },
-			body: pdfBlob,
-		})
-			.then((res) => res.json())
-			.then((data) => {
-				if (data?.cacheKey) {
-					setServerKey(data.cacheKey);
-				}
-			})
-			.catch(() => {
-				// Ignore caching errors; fallback will still open via blob.
-			});
-	}, [pdfBlob, pdfGenerating, serverKey]);
-
-	useEffect(() => {
 		if (typeof window === 'undefined') return;
 		const media = window.matchMedia('(max-width: 768px)');
 		const apply = () => setForceInlineFallback(media.matches);
@@ -2186,38 +2168,9 @@ function ReportContent({
 										type="button"
 										onClick={() => {
 											if (!pdfBlob || !downloadUrl) return;
-											const openWithKey = (key: string) => {
-												const url = `/api/reports/pdf?key=${encodeURIComponent(
-													key,
-												)}&fileName=${encodeURIComponent(
-													reportFileName,
-												)}`;
-												window.open(url, '_blank', 'noopener,noreferrer');
-											};
-											if (serverKey) {
-												openWithKey(serverKey);
-												return;
-											}
 											setViewLoading(true);
-											fetch('/api/reports/pdf', {
-												method: 'POST',
-												headers: { 'Content-Type': 'application/pdf' },
-												body: pdfBlob,
-											})
-												.then((res) => res.json())
-												.then((data) => {
-													if (data?.cacheKey) {
-														setServerKey(data.cacheKey);
-														openWithKey(data.cacheKey);
-													} else {
-														window.open(downloadUrl, '_blank', 'noopener,noreferrer');
-													}
-													setViewLoading(false);
-												})
-												.catch(() => {
-													window.open(downloadUrl, '_blank', 'noopener,noreferrer');
-													setViewLoading(false);
-												});
+											window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+											setViewLoading(false);
 										}}
 										disabled={!downloadUrl || pdfGenerating || viewLoading}
 										className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm inline-flex items-center gap-2"

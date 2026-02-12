@@ -1509,18 +1509,6 @@ function ReportContent({
 		return () => window.removeEventListener('resize', checkInlineSupport);
 	}, []);
 
-	const uploadPdfToCache = useCallback(async (blob: Blob, signal?: AbortSignal) => {
-		const response = await fetch('/api/reports/pdf', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/pdf' },
-			body: blob,
-			signal,
-		});
-		if (!response.ok) return null;
-		const data = await response.json();
-		return data?.cacheKey ?? null;
-	}, []);
-
 	const createShareLink = useCallback(
 		async ({
 			cacheKey,
@@ -1578,16 +1566,6 @@ function ReportContent({
 		[setShareNotice],
 	);
 
-	const openWithKey = useCallback(
-		(key: string) => {
-			const url = `/api/reports/pdf?key=${encodeURIComponent(
-				key,
-			)}&fileName=${encodeURIComponent(reportFileName)}`;
-			window.open(url, '_blank', 'noopener,noreferrer');
-		},
-		[reportFileName],
-	);
-
 	const openWithBlob = useCallback(() => {
 		if (!downloadUrl) return;
 		window.open(downloadUrl, '_blank', 'noopener,noreferrer');
@@ -1595,39 +1573,15 @@ function ReportContent({
 
 	const handleView = useCallback(async () => {
 		if (!pdfBlob || !downloadUrl) return;
-		if (typeof navigator !== 'undefined' && !navigator.onLine) {
-			openWithBlob();
-			return;
-		}
-		if (serverKey) {
-			openWithKey(serverKey);
-			return;
-		}
 		setViewLoading(true);
-		const controller = new AbortController();
-		const timeoutId = window.setTimeout(() => controller.abort(), 8000);
 		try {
-			const cacheKey = await uploadPdfToCache(pdfBlob, controller.signal);
-			if (cacheKey) {
-				setServerKey(cacheKey);
-				openWithKey(cacheKey);
-			} else {
-				openWithBlob();
-			}
+			openWithBlob();
 		} catch {
 			openWithBlob();
 		} finally {
-			window.clearTimeout(timeoutId);
 			setViewLoading(false);
 		}
-	}, [
-		pdfBlob,
-		downloadUrl,
-		serverKey,
-		openWithKey,
-		openWithBlob,
-		uploadPdfToCache,
-	]);
+	}, [pdfBlob, downloadUrl, openWithBlob]);
 
 	const queueShare = useCallback(async () => {
 		if (!pdfBlob) return false;
@@ -1662,16 +1616,8 @@ function ReportContent({
 		}
 		setShareLoading(true);
 		try {
-			let cacheKey = serverKey || '';
-			if (!cacheKey) {
-				const uploadedKey = await uploadPdfToCache(pdfBlob);
-				if (uploadedKey) {
-					cacheKey = uploadedKey;
-					setServerKey(uploadedKey);
-				}
-			}
 			const data = await createShareLink({
-				cacheKey,
+				cacheKey: '',
 				fileName: reportFileName,
 				reportType: 'yearly',
 				createdBy,
@@ -1697,7 +1643,6 @@ function ReportContent({
 		downloadUrl,
 		shareModalOpen,
 		serverKey,
-		uploadPdfToCache,
 		createShareLink,
 		reportFileName,
 		createdBy,
@@ -2175,24 +2120,6 @@ function ReportContent({
 		error,
 	]);
 
-
-	useEffect(() => {
-		if (!pdfBlob || pdfGenerating || serverKey) return;
-		fetch('/api/reports/pdf', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/pdf' },
-			body: pdfBlob,
-		})
-			.then((res) => res.json())
-			.then((data) => {
-				if (data?.cacheKey) {
-					setServerKey(data.cacheKey);
-				}
-			})
-			.catch(() => {
-				// Ignore caching errors; fallback will still open via blob.
-			});
-	}, [pdfBlob, pdfGenerating, serverKey]);
 
 	// Download handler
 	const handleDownload = useCallback(async () => {
