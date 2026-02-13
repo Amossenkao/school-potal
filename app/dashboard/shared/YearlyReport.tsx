@@ -33,6 +33,7 @@ import {
 	type RectPlacement,
 } from '@/app/dashboard/shared/reportPdfLayout';
 import {
+	buildReportTemplateCandidates,
 	buildReportTemplateUrl,
 	DEFAULT_REPORT_TEMPLATE_URL,
 	loadReportTemplateBytes,
@@ -1350,9 +1351,15 @@ const generateYearlyReportPdf = async ({
 		classLevel: reportFilters.classLevel,
 		reportType: 'yearly',
 	});
+	const templateCandidates = buildReportTemplateCandidates({
+		schoolShortName: school?.shortName,
+		session: reportFilters.session,
+		classLevel: reportFilters.classLevel,
+		reportType: 'yearly',
+	});
 	const templateBytes = await loadReportTemplateBytes(
 		templateUrl,
-		DEFAULT_REPORT_TEMPLATE_URL,
+		[...templateCandidates, DEFAULT_REPORT_TEMPLATE_URL],
 	);
 	const templateDoc = await PDFDocument.load(templateBytes);
 	const [templatePage1, templatePage2] = templateDoc.getPages();

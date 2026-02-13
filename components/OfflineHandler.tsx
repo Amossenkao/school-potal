@@ -12,6 +12,7 @@ export default function OfflineHandler({
 	children: React.ReactNode;
 }) {
 	const pathname = usePathname();
+	const isDashboardHomePath = pathname === '/dashboard' || pathname === '/dashboard/';
 	const { isOnline } = useNetworkStore();
 	const currentPathRef = useRef(pathname);
 	const [showOfflineGate, setShowOfflineGate] = useState(false);
@@ -31,19 +32,28 @@ export default function OfflineHandler({
 	}, [pathname, isOnline, showOfflineGate]);
 
 	useEffect(() => {
+		if (!isDashboardHomePath && showOfflineGate) {
+			setShowOfflineGate(false);
+		}
+	}, [isDashboardHomePath, showOfflineGate]);
+
+	useEffect(() => {
 		const handleOfflineFetchWithDetail = (event: Event) => {
+			if (!isDashboardHomePath) return;
 			const customEvent = event as CustomEvent<{ message?: string }>;
 			const nextMessage =
 				customEvent.detail?.message || DEFAULT_OFFLINE_GATE_MESSAGE;
 			setOfflineGateMessage(nextMessage);
-			if (!isOnline && isInitialLoad.current) return;
+			const navigatorOnline =
+				typeof navigator !== 'undefined' ? navigator.onLine : isOnline;
+			if (!navigatorOnline && isInitialLoad.current) return;
 			setShowOfflineGate(true);
 		};
 		window.addEventListener('offline:fetch', handleOfflineFetchWithDetail);
 		return () => {
 			window.removeEventListener('offline:fetch', handleOfflineFetchWithDetail);
 		};
-	}, [DEFAULT_OFFLINE_GATE_MESSAGE, isOnline]);
+	}, [DEFAULT_OFFLINE_GATE_MESSAGE, isDashboardHomePath, isOnline]);
 	useEffect(() => {
 		isInitialLoad.current = false;
 	}, []);
@@ -196,8 +206,10 @@ export default function OfflineHandler({
 								headers: { 'Content-Type': 'application/json' },
 							});
 						}
+						return Promise.reject(new Error(OFFLINE_ERROR_MESSAGE));
 					}
-					return Promise.reject(new Error(OFFLINE_ERROR_MESSAGE));
+					// Allow static/non-API GET assets to resolve from browser/service-worker cache.
+					return originalFetch(...(args as Parameters<typeof fetch>));
 				}
 				if (shouldShowOfflineModal(url, method)) {
 					// Keep modal triggering explicit to avoid blocking offline refresh UX.
@@ -248,7 +260,7 @@ export default function OfflineHandler({
 	return (
 		<>
 			{children}
-			{showOfflineGate && (
+			{isDashboardHomePath && showOfflineGate && (
 				<div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
 					<div className="bg-card w-full max-w-md rounded-2xl border border-border p-6 shadow-2xl">
 						<div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-muted">

@@ -30,6 +30,7 @@ import { drawTextMap } from '@/utils/pdfText';
 import { buildSemesterCardPlacements } from '@/app/dashboard/shared/reportPdfLayout';
 import FullscreenPdfViewer from '@/components/reports/FullscreenPdfViewer';
 import {
+	buildReportTemplateCandidates,
 	buildReportTemplateUrl,
 	DEFAULT_REPORT_TEMPLATE_URL,
 	loadReportTemplateBytes,
@@ -1381,9 +1382,15 @@ const generateSemesterReportPdf = async ({
 		classLevel: reportFilters.classLevel,
 		reportType: 'semester',
 	});
+	const templateCandidates = buildReportTemplateCandidates({
+		schoolShortName,
+		session: reportFilters.session,
+		classLevel: reportFilters.classLevel,
+		reportType: 'semester',
+	});
 	const templateBytes = await loadReportTemplateBytes(
 		templateUrl,
-		DEFAULT_REPORT_TEMPLATE_URL,
+		[...templateCandidates, DEFAULT_REPORT_TEMPLATE_URL],
 	);
 	const templateDoc = await PDFDocument.load(templateBytes);
 	const [templatePage] = templateDoc.getPages();
