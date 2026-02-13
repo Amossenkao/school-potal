@@ -1,11 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import { SidebarProvider } from '@/context/SidebarContext';
 import { ThemeProvider } from '@/context/ThemeContext';
-import { PageLoading } from '@/components/loading';
 import VercelUpgrade from '@/components/uca-inactive';
 import AuthProvider from '@/context/AuthProvider';
 import OfflineHandler from '@/components/OfflineHandler';
@@ -22,7 +21,6 @@ export default function RootProviders({
 	const { hydrateFromCache } = useAuth();
 	const hasAppsFeature = Boolean(school?.enabledFeatures?.includes('apps'));
 	const hasSchoolProfile = Boolean(school);
-	const [bootstrapTimedOut, setBootstrapTimedOut] = useState(false);
 
 	useEffect(() => {
 		hydrateCache();
@@ -107,69 +105,6 @@ export default function RootProviders({
 		flushQueue();
 		return () => window.removeEventListener('online', flushQueue);
 	}, [hasAppsFeature]);
-
-	const isOffline =
-		typeof navigator !== 'undefined' && navigator.onLine === false;
-	const waitingForSchoolProfile = !school && !isOffline;
-
-	useEffect(() => {
-		if (!waitingForSchoolProfile) {
-			setBootstrapTimedOut(false);
-			return;
-		}
-		const timer = window.setTimeout(() => {
-			setBootstrapTimedOut(true);
-		}, 8000);
-		return () => window.clearTimeout(timer);
-	}, [waitingForSchoolProfile]);
-
-	const retryBootstrap = useCallback(() => {
-		setBootstrapTimedOut(false);
-		hydrateCache();
-		hydrateFromCache();
-		void fetchSchool();
-	}, [fetchSchool, hydrateCache, hydrateFromCache]);
-
-	if (waitingForSchoolProfile && !bootstrapTimedOut) {
-		return (
-			<ThemeProvider>
-				<PageLoading variant="pulse" message="Loading portal..." />
-			</ThemeProvider>
-		);
-	}
-
-	if (waitingForSchoolProfile && bootstrapTimedOut) {
-		return (
-			<ThemeProvider>
-				<div className="min-h-screen bg-background flex items-center justify-center p-6">
-					<div className="w-full max-w-md rounded-lg border border-border bg-card p-6 text-center shadow-sm">
-						<h2 className="text-lg font-semibold text-foreground">
-							App startup is taking too long
-						</h2>
-						<p className="mt-2 text-sm text-muted-foreground">
-							School profile data could not be restored in time.
-						</p>
-						<div className="mt-5 flex justify-center gap-3">
-							<button
-								type="button"
-								onClick={retryBootstrap}
-								className="rounded-lg bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
-							>
-								Retry
-							</button>
-							<button
-								type="button"
-								onClick={() => window.location.reload()}
-								className="rounded-lg border border-border px-4 py-2 text-foreground hover:bg-accent"
-							>
-								Reload
-							</button>
-						</div>
-					</div>
-				</div>
-			</ThemeProvider>
-		);
-	}
 
 	return (
 		<AuthProvider>

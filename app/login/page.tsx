@@ -63,7 +63,12 @@ const LoginPage = () => {
 		let cancelled = false;
 		const init = async () => {
 			try {
-				await checkAuthStatus();
+					await Promise.race([
+						checkAuthStatus().catch(() => undefined),
+						new Promise<void>((resolve) => {
+							window.setTimeout(resolve, 1200);
+						}),
+					]);
 			} finally {
 				if (!cancelled) setIsInitializing(false);
 			}

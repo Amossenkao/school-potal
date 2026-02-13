@@ -147,17 +147,17 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	gradeRequestsVersionByAcademicYear: {},
 	schedulesVersionByAcademicYear: {},
 
-	fetchSchool: async () => {
-		if (!get().school) {
-			try {
-				const storedSchool = localStorage.getItem('school-profile');
-				if (storedSchool) {
-					set({ school: JSON.parse(storedSchool) });
+		fetchSchool: async () => {
+			if (!get().school) {
+				try {
+					const storedSchool = localStorage.getItem('school-profile');
+					if (storedSchool) {
+						set({ school: JSON.parse(storedSchool) });
+					}
+				} catch (error) {
+					console.error('Failed to load school profile from local storage:', error);
 				}
-			} catch (error) {
-				console.error('Failed to load school profile from local storage:', error);
 			}
-		}
 
 		// Cache-first: if school exists in memory or local storage, skip network fetch.
 		if (get().school) return;
@@ -166,14 +166,24 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			typeof navigator !== 'undefined' && navigator.onLine === false;
 		if (isOffline) return;
 
-		if (fetchPromise) return fetchPromise;
+			if (fetchPromise) return fetchPromise;
 
-		fetchPromise = (async () => {
-			try {
-				const response = await fetch(`/api/school`);
-				if (!response.ok) {
-					throw new Error(`Failed to fetch: ${response.statusText}`);
-				}
+			fetchPromise = (async () => {
+				try {
+					const controller = new AbortController();
+					const timeoutId = window.setTimeout(() => controller.abort(), 5000);
+					const response = await (async () => {
+						try {
+							return await fetch(`/api/school`, {
+								signal: controller.signal,
+							});
+						} finally {
+							window.clearTimeout(timeoutId);
+						}
+					})();
+					if (!response.ok) {
+						throw new Error(`Failed to fetch: ${response.statusText}`);
+					}
 				const schoolProfile: SchoolProfile = await response.json();
 				set({ school: schoolProfile });
 
