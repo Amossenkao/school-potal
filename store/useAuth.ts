@@ -55,6 +55,30 @@ let lastAuthCheckCompletedAt = 0;
 const AUTH_REQUEST_TIMEOUT_MS = 4500;
 const AUTH_CHECK_DEDUP_MS = 1200;
 
+const createTimeoutAbortReason = (requestName: string) => {
+	try {
+		return new DOMException(`${requestName} timed out`, 'TimeoutError');
+	} catch {
+		return new Error(`${requestName} timed out`);
+	}
+};
+
+const isAbortLikeError = (error: unknown) => {
+	if (!error) return false;
+	if (error instanceof DOMException) {
+		return error.name === 'AbortError' || error.name === 'TimeoutError';
+	}
+	if (typeof error === 'object') {
+		const candidate = error as { name?: unknown; message?: unknown };
+		const name = typeof candidate.name === 'string' ? candidate.name : '';
+		if (name === 'AbortError' || name === 'TimeoutError') return true;
+		const message =
+			typeof candidate.message === 'string' ? candidate.message : '';
+		if (/signal is aborted/i.test(message)) return true;
+	}
+	return false;
+};
+
 const useAuth = create<AuthState>((set, get) => {
 	const OFFLINE_REQUESTS_KEY = 'school_portal_offline_requests';
 
@@ -363,7 +387,7 @@ const useAuth = create<AuthState>((set, get) => {
 				if (isOnline) {
 					const controller = new AbortController();
 					const timeoutId = window.setTimeout(
-						() => controller.abort(),
+						() => controller.abort(createTimeoutAbortReason('Logout request')),
 						AUTH_REQUEST_TIMEOUT_MS,
 					);
 					try {
@@ -393,7 +417,9 @@ const useAuth = create<AuthState>((set, get) => {
 					}
 				}
 			} catch (error) {
-				console.warn('Logout request failed:', error);
+				if (!isAbortLikeError(error)) {
+					console.warn('Logout request failed:', error);
+				}
 			}
 
 			set({
@@ -495,7 +521,10 @@ const useAuth = create<AuthState>((set, get) => {
 						: '/api/auth/me';
 					const controller = new AbortController();
 					const timeoutId = window.setTimeout(
-						() => controller.abort(),
+						() =>
+							controller.abort(
+								createTimeoutAbortReason('Auth status check request'),
+							),
 						AUTH_REQUEST_TIMEOUT_MS,
 					);
 					const res = await (async () => {
@@ -563,7 +592,9 @@ const useAuth = create<AuthState>((set, get) => {
 						await clearSessionSensitiveStorage();
 					}
 				} catch (error) {
-					console.error('Auth check failed (network/server error):', error);
+					if (!isAbortLikeError(error)) {
+						console.error('Auth check failed (network/server error):', error);
+					}
 					setAuthCheckFailed(true);
 				}
 			})()

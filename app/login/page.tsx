@@ -59,12 +59,6 @@ const LoginPage = () => {
 		otp: '',
 	});
 
-	const { show: showInitOverlay } = useLoadingGate({
-		active: isInitializing && !isRedirecting,
-		delayMs: LOADING_POLICY.routeSpinnerDelayMs,
-		timeoutMs: LOADING_POLICY.loginBootstrapTimeoutMs + 600,
-	});
-
 	const { show: showRedirectOverlay } = useLoadingGate({
 		active: isRedirecting,
 		delayMs: LOADING_POLICY.spinnerDelayMs,
@@ -243,11 +237,13 @@ const LoginPage = () => {
 		}
 	};
 
+	const isBootstrappingSession = isInitializing && !isRedirecting;
+	if (isBootstrappingSession) {
+		return <PageLoading variant="school" message="Restoring session..." />;
+	}
+
 	return (
 		<>
-			{showInitOverlay && (
-				<PageLoading variant="school" message="Restoring session..." />
-			)}
 			{showRedirectOverlay && (
 				<PageLoading variant="school" message="Opening dashboard..." />
 			)}

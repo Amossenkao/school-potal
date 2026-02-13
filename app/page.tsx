@@ -1,14 +1,42 @@
 'use client';
+import { useEffect, useState } from 'react';
 import { GraduationCap, MapPin, Phone, Mail, ArrowRight } from 'lucide-react';
 import { useSchoolStore } from '@/store/schoolStore';
 import NavBar from '@/components/sections/NavBar';
 import LoginPage from './login/page';
-import Inactive from '../components/inactive';
+import { PageLoading } from '@/components/loading';
 
 export default function SchoolHomepage() {
 	const school = useSchoolStore((state) => state.school);
+	const fetchSchool = useSchoolStore((state) => state.fetchSchool);
+	const [hasResolvedSchoolBootstrap, setHasResolvedSchoolBootstrap] = useState(
+		() => Boolean(school),
+	);
+
+	useEffect(() => {
+		if (school) {
+			setHasResolvedSchoolBootstrap(true);
+			return;
+		}
+
+		let cancelled = false;
+		setHasResolvedSchoolBootstrap(false);
+		void fetchSchool().finally(() => {
+			if (!cancelled) {
+				setHasResolvedSchoolBootstrap(true);
+			}
+		});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [school, fetchSchool]);
 
 	if (!school) {
+		if (!hasResolvedSchoolBootstrap) {
+			return <PageLoading variant="school" message="Restoring session..." />;
+		}
+
 		return (
 			<div className="min-h-screen bg-gray-50 flex items-center justify-center">
 				<div className="text-center">
