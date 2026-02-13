@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
 	generateDynamicComponentsMap,
 	validateComponentAccess,
@@ -57,13 +57,57 @@ function validateAdministratorAccess(
 }
 
 export default function OfflineRouteRenderer({ path }: { path: string }) {
-	const { school } = useSchoolStore();
-	const { user, isLoading } = useAuth();
+	const { school, fetchSchool } = useSchoolStore();
+	const { user, isLoading, checkAuthStatus } = useAuth();
+	const [loadingTimedOut, setLoadingTimedOut] = useState(false);
 
 	const pageKey = useMemo(() => resolvePageKey(path), [path]);
+	const showLoading = !school || isLoading;
 
-	if (!school || isLoading) {
+	useEffect(() => {
+		if (!showLoading) {
+			setLoadingTimedOut(false);
+			return;
+		}
+		const timer = window.setTimeout(() => {
+			setLoadingTimedOut(true);
+		}, 8000);
+		return () => window.clearTimeout(timer);
+	}, [showLoading]);
+
+	const handleRetryLoading = useCallback(async () => {
+		setLoadingTimedOut(false);
+		await Promise.allSettled([fetchSchool(), checkAuthStatus()]);
+	}, [checkAuthStatus, fetchSchool]);
+
+	if (showLoading && !loadingTimedOut) {
 		return <PageLoading message="Loading..." />;
+	}
+
+	if (showLoading && loadingTimedOut) {
+		return (
+			<div className="min-h-[60vh] flex items-center justify-center px-4">
+				<div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
+					<h2 className="text-xl font-semibold text-foreground">
+						Dashboard is taking too long to load
+					</h2>
+					<p className="mt-2 text-sm text-muted-foreground">
+						School or session data could not be restored in time.
+					</p>
+					<div className="mt-5 flex justify-center">
+						<button
+							type="button"
+							onClick={() => {
+								void handleRetryLoading();
+							}}
+							className="rounded-lg bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
+						>
+							Retry
+						</button>
+					</div>
+				</div>
+			</div>
+		);
 	}
 
 	if (!user) {

@@ -31,6 +31,7 @@ const LoginPage = () => {
 	const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
 	const [isInitializing, setIsInitializing] = useState(true);
 	const [isRedirecting, setIsRedirecting] = useState(false);
+	const [redirectTimedOut, setRedirectTimedOut] = useState(false);
 	const currentSchool = useSchoolStore((state) => state.school);
 	const [loginDisabledError, setLoginDisabledError] = useState('');
 	const [offlineError, setOfflineError] = useState('');
@@ -104,6 +105,19 @@ const LoginPage = () => {
 		isRedirecting,
 	]);
 
+	// Prevent redirect loading from hanging forever if navigation stalls.
+	useEffect(() => {
+		if (!isRedirecting) {
+			setRedirectTimedOut(false);
+			return;
+		}
+		const timer = window.setTimeout(() => {
+			setRedirectTimedOut(true);
+			setIsRedirecting(false);
+		}, 8000);
+		return () => window.clearTimeout(timer);
+	}, [isRedirecting]);
+
 	/**
 	 * Reset credentials only when login context changes (role/position).
 	 * Do not tie this to school-profile updates; auth polling can update
@@ -143,11 +157,7 @@ const LoginPage = () => {
 		loginDisabledError,
 	]);
 
-	if (
-		isInitializing ||
-		isRedirecting ||
-		(isLoggedIn && user?.isActive && !isAwaitingOtp)
-	) {
+	if (isInitializing || isRedirecting) {
 		return <PageLoading variant="school" message="Loading..." />;
 	}
 
@@ -247,8 +257,29 @@ const LoginPage = () => {
 						</p>
 					</div>
 
-					<div className="max-w-4xl mx-auto">
-						{!selectedRole ? (
+						<div className="max-w-4xl mx-auto">
+							{redirectTimedOut && (
+								<div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+									Login redirect took too long. You can continue here or try
+									again.
+									<button
+										type="button"
+										onClick={() => {
+											setRedirectTimedOut(false);
+											if (user?.isActive && isLoggedIn && !isAwaitingOtp) {
+												setIsRedirecting(true);
+												router.push('/dashboard');
+											} else {
+												void checkAuthStatus();
+											}
+										}}
+										className="ml-3 rounded border border-amber-500 px-3 py-1 text-sm font-medium hover:bg-amber-100"
+									>
+										Retry
+									</button>
+								</div>
+							)}
+							{!selectedRole ? (
 							/* Step 1: Role Selection */
 							<div className="bg-card rounded-2xl shadow-lg border border-border p-8 animate-in fade-in duration-500">
 								<h2 className="text-2xl font-semibold text-center mb-8">
