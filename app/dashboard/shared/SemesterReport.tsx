@@ -655,6 +655,8 @@ const FilterContent = React.memo(function FilterContent({
 			const fetchStudents = async () => {
 				setLoadingStudents(true);
 				try {
+					const offline =
+						typeof navigator !== 'undefined' && navigator.onLine === false;
 					const cachedUsers = usersByAcademicYear?.[filters.academicYear];
 					if (cachedUsers?.students?.length) {
 						const filtered = cachedUsers.students.filter(
@@ -686,10 +688,17 @@ const FilterContent = React.memo(function FilterContent({
 						setStudents(cached);
 						return;
 					}
+					if (offline) {
+						setStudents([]);
+						return;
+					}
 					const response = await fetch(
 						`/api/users?classId=${filters.className}&role=student&academicYear=${filters.academicYear}`,
 						{ cache: 'no-store' },
 					);
+					if (!response.ok) {
+						throw new Error('Failed to fetch students');
+					}
 					const responseData = await response.json();
 					if (responseData.success && responseData.data) {
 						setUsersForYear(
@@ -1369,21 +1378,28 @@ const generateSemesterReportPdf = async ({
 	classSubjects,
 	reportFilters,
 	schoolShortName,
+	school,
 }: {
 	studentsData: StudentSemesterReport[];
 	className: string;
 	classSubjects: string[];
 	reportFilters: ReportFilters;
 	schoolShortName?: string;
+	school?: any;
 }) => {
+	const schoolName = Array.isArray(school?.name)
+		? school.name.filter(Boolean).join(' ')
+		: typeof school?.name === 'string'
+			? school.name
+			: '';
 	const templateUrl = buildReportTemplateUrl({
-		schoolShortName,
+		schoolShortName: schoolShortName || school?.shortName,
 		session: reportFilters.session,
 		classLevel: reportFilters.classLevel,
 		reportType: 'semester',
 	});
 	const templateCandidates = buildReportTemplateCandidates({
-		schoolShortName,
+		schoolShortName: schoolShortName || school?.shortName,
 		session: reportFilters.session,
 		classLevel: reportFilters.classLevel,
 		reportType: 'semester',
@@ -1391,6 +1407,21 @@ const generateSemesterReportPdf = async ({
 	const templateBytes = await loadReportTemplateBytes(
 		templateUrl,
 		[...templateCandidates, DEFAULT_REPORT_TEMPLATE_URL],
+		{
+			reportType: 'semester',
+			school: {
+				shortName: schoolShortName || school?.shortName,
+				host: school?.host,
+				name: schoolName,
+				logoUrl: school?.logoUrl,
+				logoUrl2: school?.logoUrl2,
+				address: Array.isArray(school?.address) ? school.address : [],
+			},
+			session: reportFilters.session,
+			classLevel: reportFilters.classLevel,
+			classSubjects,
+			semester: reportFilters.semester === 'second' ? 'second' : 'first',
+		},
 	);
 	const templateDoc = await PDFDocument.load(templateBytes);
 	const [templatePage] = templateDoc.getPages();
@@ -2057,6 +2088,7 @@ function ReportContent({
 			classSubjects,
 			reportFilters,
 			schoolShortName: school?.shortName,
+			school,
 		})
 			.then((pdfBytes) => {
 				if (cancelled) return;
@@ -2087,7 +2119,11 @@ function ReportContent({
 				console.error('Failed to generate PDF blob', err);
 				if (!cancelled) {
 					setPdfUrl(null);
-					setError('Failed to generate PDF. Please verify the template.');
+					setError(
+						err instanceof Error && err.message
+							? err.message
+							: 'Failed to generate PDF. Please verify the template.',
+					);
 				}
 			})
 			.finally(() => {
@@ -2104,6 +2140,7 @@ function ReportContent({
 		className,
 		classSubjectsKey,
 		reportFilters,
+		school,
 		school?.shortName,
 		loading,
 		error,

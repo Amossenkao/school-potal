@@ -1,4 +1,21 @@
 export type ReportTemplateType = 'yearly' | 'semester';
+type TemplateSemesterKey = 'first' | 'second';
+
+export type ReportTemplateFallbackRequest = {
+	reportType: ReportTemplateType;
+	school: {
+		shortName?: string;
+		host?: string;
+		name?: string;
+		logoUrl?: string;
+		logoUrl2?: string;
+		address?: string[];
+	};
+	session?: string;
+	classLevel?: string;
+	classSubjects: string[];
+	semester?: TemplateSemesterKey;
+};
 
 export const DEFAULT_REPORT_TEMPLATE_URL = '/pdf_template.pdf';
 const TEMPLATE_CACHE_NAME = 'report-template-bytes-v1';
@@ -40,7 +57,7 @@ const getStoredSchoolShortName = () => {
 
 const fetchTemplateBytes = (url: string) => {
 	if (!templateBytesCache.has(url)) {
-		const promise = fetch(url, { cache: 'no-store' })
+		const promise = fetch(url, { cache: 'force-cache' })
 			.then(async (res) => {
 				if (!res.ok) {
 					throw new Error(`Failed to load PDF template: ${url}`);
@@ -177,9 +194,36 @@ export const buildReportTemplateCandidates = ({
 	return candidates;
 };
 
+const generateTemplateBytesFromFallback = async (
+	request: ReportTemplateFallbackRequest,
+) => {
+	const normalizeLogo = (value?: string) => {
+		if (!value || typeof value !== 'string') return undefined;
+		const normalized = value.trim();
+		if (!normalized) return undefined;
+		if (normalized.startsWith('/') || normalized.startsWith('data:')) {
+			return normalized;
+		}
+		return undefined;
+	};
+	const safeRequest: ReportTemplateFallbackRequest = {
+		...request,
+		school: {
+			...request.school,
+			logoUrl: normalizeLogo(request.school.logoUrl),
+			logoUrl2: normalizeLogo(request.school.logoUrl2),
+		},
+	};
+	const { generateDynamicTemplateBytes } = await import(
+		'@/utils/reportTemplateGenerator'
+	);
+	return generateDynamicTemplateBytes(safeRequest);
+};
+
 export const loadReportTemplateBytes = async (
 	primaryUrl: string,
 	fallbackUrl: string | string[] = DEFAULT_REPORT_TEMPLATE_URL,
+	fallbackRequest?: ReportTemplateFallbackRequest,
 ) => {
 	const fallbackList = Array.isArray(fallbackUrl) ? fallbackUrl : [fallbackUrl];
 	const urls = [primaryUrl, ...fallbackList].filter(Boolean);
@@ -189,6 +233,18 @@ export const loadReportTemplateBytes = async (
 	for (const url of uniqueUrls) {
 		try {
 			return await loadTemplateBytesWithOfflineSupport(url);
+		} catch (err) {
+			lastError = err;
+		}
+	}
+
+	if (fallbackRequest) {
+		try {
+			const generatedBytes = await generateTemplateBytesFromFallback(
+				fallbackRequest,
+			);
+			await persistTemplateBytes(primaryUrl, generatedBytes);
+			return generatedBytes;
 		} catch (err) {
 			lastError = err;
 		}

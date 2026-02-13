@@ -8,8 +8,13 @@ interface NetworkState {
 	setAuthCheckFailed: (status: boolean) => void;
 }
 
+const getInitialOnlineState = () => {
+	if (typeof navigator === 'undefined') return true;
+	return navigator.onLine;
+};
+
 export const useNetworkStore = create<NetworkState>((set) => ({
-	isOnline: true,
+	isOnline: getInitialOnlineState(),
 	authCheckFailed: false,
 	setIsOnline: (status) => set({ isOnline: status }),
 	setAuthCheckFailed: (status) => set({ authCheckFailed: status }),

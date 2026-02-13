@@ -186,7 +186,10 @@ export default function OfflineHandler({
 		};
 
 		window.fetch = async (...args: Parameters<typeof fetch>) => {
-			const { isOnline: onlineState } = useNetworkStore.getState();
+			const { isOnline: storeOnlineState } = useNetworkStore.getState();
+			const navigatorOnline =
+				typeof navigator !== 'undefined' ? navigator.onLine : storeOnlineState;
+			const onlineState = storeOnlineState && navigatorOnline;
 			const { url, method } = getRequestMeta(args[0], args[1]);
 			const cacheableGet = shouldCacheGet(url, method);
 			const request = cacheableGet ? buildCacheRequest(args[0], args[1]) : null;
