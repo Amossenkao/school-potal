@@ -20,6 +20,7 @@ import {
 
 import { useNetworkStore } from '@/store/networkStore';
 import { useSchoolStore } from '@/store/schoolStore';
+import { PageLoading } from '@/components/loading';
 
 // --- TYPES ---
 interface GradeChangeRequest {
@@ -55,16 +56,6 @@ const periods = [
 	{ id: 'first', label: 'First Period', value: 'firstPeriod' },
 	{ id: 'second', label: 'Second Period', value: 'secondPeriod' },
 ];
-
-const PageLoading = ({ fullScreen = true }: { fullScreen?: boolean }) => (
-	<div
-		className={`flex justify-center items-center ${
-			fullScreen ? 'min-h-screen' : 'py-8'
-		}`}
-	>
-		<Loader2 className="h-8 w-8 animate-spin text-primary" />
-	</div>
-);
 
 const GradeRequests: React.FC = () => {
 	const currentSchool = useSchoolStore((state) => state.school);

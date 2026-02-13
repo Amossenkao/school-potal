@@ -22,6 +22,7 @@ import { useSchoolStore } from '@/store/schoolStore';
 import { useNetworkStore } from '@/store/networkStore';
 import Link from 'next/link';
 import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
+import { LOADING_POLICY, useLoadingGate } from '@/hooks/useLoadingGate';
 
 const LoginPage = () => {
 	const router = useRouter();
@@ -58,6 +59,18 @@ const LoginPage = () => {
 		otp: '',
 	});
 
+	const { show: showInitOverlay } = useLoadingGate({
+		active: isInitializing && !isRedirecting,
+		delayMs: LOADING_POLICY.routeSpinnerDelayMs,
+		timeoutMs: LOADING_POLICY.loginBootstrapTimeoutMs + 600,
+	});
+
+	const { show: showRedirectOverlay } = useLoadingGate({
+		active: isRedirecting,
+		delayMs: LOADING_POLICY.spinnerDelayMs,
+		timeoutMs: LOADING_POLICY.redirectTimeoutMs,
+	});
+
 	// Check auth status on mount
 	useEffect(() => {
 		let cancelled = false;
@@ -66,7 +79,7 @@ const LoginPage = () => {
 					await Promise.race([
 						checkAuthStatus().catch(() => undefined),
 						new Promise<void>((resolve) => {
-							window.setTimeout(resolve, 1200);
+							window.setTimeout(resolve, LOADING_POLICY.loginBootstrapTimeoutMs);
 						}),
 					]);
 			} finally {
@@ -162,10 +175,6 @@ const LoginPage = () => {
 		loginDisabledError,
 	]);
 
-	if (isInitializing || isRedirecting) {
-		return <PageLoading variant="school" message="Loading..." />;
-	}
-
 	const roles = [
 		{
 			value: 'student',
@@ -236,6 +245,12 @@ const LoginPage = () => {
 
 	return (
 		<>
+			{showInitOverlay && (
+				<PageLoading variant="school" message="Restoring session..." />
+			)}
+			{showRedirectOverlay && (
+				<PageLoading variant="school" message="Opening dashboard..." />
+			)}
 			<div className="absolute top-3 right-5">
 				<ThemeToggleButton />
 			</div>

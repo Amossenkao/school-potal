@@ -190,7 +190,17 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				localStorage.setItem('school-profile', JSON.stringify(schoolProfile));
 			} catch (error) {
 				console.error('Failed to fetch school profile:', error);
-				set({ school: null });
+				// Keep existing cached school data if available instead of blanking UI.
+				if (!get().school) {
+					try {
+						const storedSchool = localStorage.getItem('school-profile');
+						if (storedSchool) {
+							set({ school: JSON.parse(storedSchool) });
+						}
+					} catch (cacheError) {
+						console.warn('Failed to restore cached school profile:', cacheError);
+					}
+				}
 			} finally {
 				fetchPromise = null;
 			}

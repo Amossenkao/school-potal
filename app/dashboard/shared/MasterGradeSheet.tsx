@@ -1,10 +1,10 @@
 'use client';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Loader2 } from 'lucide-react';
 import GradesPDFDownload from './GradesPDFDownload';
 import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
 import { useNetworkStore } from '@/store/networkStore';
+import { PageLoading } from '@/components/loading';
 
 // Types
 interface Student {
@@ -46,16 +46,6 @@ const periods = [
 	{ id: 'sixth', label: '6th Pd', value: 'sixth' },
 	{ id: 'sixth_exam', label: '6th Pd Exam', value: 'sixth_period_exam' },
 ];
-
-const PageLoading = ({ fullScreen = true }: { fullScreen?: boolean }) => (
-	<div
-		className={`flex justify-center items-center ${
-			fullScreen ? 'min-h-screen' : 'py-8'
-		}`}
-	>
-		<Loader2 className="h-8 w-8 animate-spin text-primary" />
-	</div>
-);
 
 // Helper function to extract grade value from grade object if it's "Approved"
 const getGradeValue = (grade: any): number | null => {

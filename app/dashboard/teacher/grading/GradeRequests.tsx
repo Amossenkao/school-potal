@@ -210,7 +210,7 @@ const TeacherGradeChangeRequests = ({
 	if (loading) {
 		return (
 			<div className="text-center p-8 flex items-center justify-center min-h-[60vh]">
-				<PageLoading fullScreen={false} message="Loading..." />
+				<PageLoading fullScreen={false} message="Loading grade requests..." />
 			</div>
 		);
 	}

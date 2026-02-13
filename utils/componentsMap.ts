@@ -48,15 +48,30 @@ type ComponentImporter = () => Promise<any>;
 const DashboardSectionLoading = () =>
 	React.createElement(
 		'div',
-		{ className: 'flex items-center justify-center min-h-[40vh]' },
+		{ className: 'flex min-h-[40vh] items-center justify-center px-4' },
 		React.createElement(
 			'div',
-			{ className: 'flex flex-col items-center gap-3 text-muted-foreground' },
-			React.createElement('div', {
+			{
 				className:
-					'h-6 w-6 rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground animate-spin',
-			}),
-			React.createElement('span', { className: 'text-sm' }, 'Loading...'),
+					'flex flex-col items-center gap-4 rounded-2xl border border-border/70 bg-card/90 px-6 py-6',
+			},
+			React.createElement(
+				'div',
+				{ className: 'loader-shell h-14 w-14' },
+				React.createElement('div', { className: 'loader-ring loader-ring-outer' }),
+				React.createElement('div', { className: 'loader-ring loader-ring-middle' }),
+				React.createElement('div', { className: 'loader-ring loader-ring-inner' }),
+				React.createElement(
+					'div',
+					{ className: 'loader-center' },
+					React.createElement(GraduationCap, { className: 'h-5 w-5 text-primary' }),
+				),
+			),
+			React.createElement(
+				'span',
+				{ className: 'text-sm text-muted-foreground' },
+				'Opening section...',
+			),
 		),
 	);
 

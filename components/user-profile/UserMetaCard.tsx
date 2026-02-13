@@ -1,7 +1,6 @@
 'use client';
 import React, { useState } from 'react';
 import useAuth from '@/store/useAuth';
-import { PageLoading } from '../loading';
 import AvatarPicker from '@/components/avatarPicker';
 
 export default function UserMetaCard() {
@@ -44,7 +43,15 @@ export default function UserMetaCard() {
 	};
 
 	if (!user) {
-		return <PageLoading />;
+		return (
+			<div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
+				<div className="animate-pulse space-y-4">
+					<div className="h-5 w-40 rounded bg-muted" />
+					<div className="h-4 w-64 rounded bg-muted" />
+					<div className="h-28 rounded-xl bg-muted" />
+				</div>
+			</div>
+		);
 	}
 
 	return (

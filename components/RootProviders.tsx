@@ -25,7 +25,10 @@ export default function RootProviders({
 	useEffect(() => {
 		hydrateCache();
 		hydrateFromCache();
-		fetchSchool();
+		const taskId = window.setTimeout(() => {
+			void fetchSchool();
+		}, 0);
+		return () => window.clearTimeout(taskId);
 	}, [fetchSchool, hydrateCache, hydrateFromCache]);
 
 	useEffect(() => {

@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { BarChart3, Loader2 } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import GradeSubmissions from './GradeSubmissions';
 import SubmitGrade from './SubmitGrade';
 import MasterGradeSheet from '../../shared/MasterGradeSheet';
 import TeacherGradeChangeRequests from './GradeRequests';
 import useAuth from '@/store/useAuth';
+import { PageLoading } from '@/components/loading';
 
 interface TeacherInfo {
 	name: string;
@@ -15,16 +16,6 @@ interface TeacherInfo {
 	role: 'teacher';
 	subjects: { year: string; classes: { classId: string; subjects: string[] }[] }[];
 }
-
-const PageLoading = ({ fullScreen = true }: { fullScreen?: boolean }) => (
-	<div
-		className={`flex justify-center items-center ${
-			fullScreen ? 'min-h-screen' : 'py-8'
-		}`}
-	>
-		<Loader2 className="h-8 w-8 animate-spin text-primary" />
-	</div>
-);
 
 const GradeManagement = () => {
 	const [activeTab, setActiveTab] = useState('overview');

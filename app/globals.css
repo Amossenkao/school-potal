@@ -927,3 +927,146 @@ span.flatpickr-weekday,
 		opacity: 0.4;
 	}
 }
+
+/* Lightweight loading system tuned for low-end devices */
+.loader-shell {
+	position: relative;
+	display: grid;
+	place-items: center;
+}
+
+.loader-ring {
+	position: absolute;
+	inset: 0;
+	border-radius: 9999px;
+	transform-origin: center;
+	will-change: transform, opacity;
+}
+
+.loader-ring-outer {
+	border: 2px solid rgba(70, 95, 255, 0.26);
+	border: 2px solid color-mix(in oklab, var(--primary) 28%, transparent);
+	border-top-color: rgba(70, 95, 255, 0.9);
+	border-top-color: var(--primary);
+	animation: loader-spin 1.15s linear infinite;
+}
+
+.loader-ring-middle {
+	inset: 10%;
+	border: 2px dashed rgba(70, 95, 255, 0.28);
+	border: 2px dashed color-mix(in oklab, var(--primary) 36%, transparent);
+	animation: loader-spin-reverse 1.65s linear infinite;
+}
+
+.loader-ring-inner {
+	inset: 23%;
+	background: radial-gradient(
+		circle at 30% 30%,
+		color-mix(in oklab, var(--primary) 20%, transparent) 0%,
+		transparent 70%
+	);
+	animation: loader-breathe 1.8s ease-in-out infinite;
+}
+
+.loader-center {
+	z-index: 2;
+	display: grid;
+	height: 44%;
+	width: 44%;
+	place-items: center;
+	border-radius: 9999px;
+	border: 1px solid rgba(70, 95, 255, 0.18);
+	border: 1px solid color-mix(in oklab, var(--primary) 20%, transparent);
+	background: #ffffff;
+	background: color-mix(in oklab, var(--card) 90%, var(--primary) 10%);
+	box-shadow: inset 0 0 0 1px rgba(70, 95, 255, 0.12);
+	box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary) 14%, transparent);
+}
+
+.loader-dot {
+	height: 0.5rem;
+	width: 0.5rem;
+	border-radius: 9999px;
+	background: var(--primary);
+	opacity: 0.45;
+	animation: loader-dot-pop 0.9s ease-in-out infinite;
+}
+
+.loader-dot-delay-1 {
+	animation-delay: 0.14s;
+}
+
+.loader-dot-delay-2 {
+	animation-delay: 0.28s;
+}
+
+.loader-pulse {
+	height: 3.5rem;
+	width: 3.5rem;
+	border-radius: 9999px;
+	border: 2px solid rgba(70, 95, 255, 0.32);
+	border: 2px solid color-mix(in oklab, var(--primary) 40%, transparent);
+	box-shadow:
+		0 0 0 0 color-mix(in oklab, var(--primary) 25%, transparent),
+		0 0 0 14px transparent;
+	animation: loader-pulse-ring 1.4s ease-out infinite;
+}
+
+@keyframes loader-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes loader-spin-reverse {
+	to {
+		transform: rotate(-360deg);
+	}
+}
+
+@keyframes loader-breathe {
+	0%,
+	100% {
+		opacity: 0.45;
+		transform: scale(0.96);
+	}
+	50% {
+		opacity: 0.85;
+		transform: scale(1);
+	}
+}
+
+@keyframes loader-dot-pop {
+	0%,
+	100% {
+		opacity: 0.4;
+		transform: translateY(0);
+	}
+	50% {
+		opacity: 1;
+		transform: translateY(-3px);
+	}
+}
+
+@keyframes loader-pulse-ring {
+	0% {
+		box-shadow:
+			0 0 0 0 color-mix(in oklab, var(--primary) 26%, transparent),
+			0 0 0 0 color-mix(in oklab, var(--primary) 12%, transparent);
+	}
+	100% {
+		box-shadow:
+			0 0 0 12px transparent,
+			0 0 0 24px transparent;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.loader-ring-outer,
+	.loader-ring-middle,
+	.loader-ring-inner,
+	.loader-dot,
+	.loader-pulse {
+		animation: none !important;
+	}
+}

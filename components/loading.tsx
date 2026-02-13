@@ -1,10 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Loader2, GraduationCap, Home, ArrowLeft } from 'lucide-react';
+import { AlertCircle, ArrowLeft, GraduationCap, Home } from 'lucide-react';
 import { useSchoolStore } from '@/store/schoolStore';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 
 interface PageLoadingProps {
 	message?: string;
@@ -27,197 +26,164 @@ export const PageLoading = ({
 	size = 'md',
 }: PageLoadingProps) => {
 	const sizeClasses = {
-		sm: 'w-6 h-6',
-		md: 'w-8 h-8',
-		lg: 'w-12 h-12',
+		sm: 'h-12 w-12',
+		md: 'h-16 w-16',
+		lg: 'h-20 w-20',
 	};
 	const currentSchool = useSchoolStore((state) => state.school);
-	const pathname = usePathname();
 
 	const containerClasses = fullScreen
-		? 'fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50'
-		: 'flex items-center justify-center p-8';
+		? 'fixed inset-0 z-50 flex items-center justify-center bg-background/92 px-4'
+		: 'flex items-center justify-center p-6';
 
-	const renderSpinner = () => {
-		switch (variant) {
-			case 'minimal':
-				return (
-					<div className="flex flex-col items-center space-y-4">
-						<Loader2
-							className={`${sizeClasses[size]} animate-spin text-primary`}
-						/>
-						{message && (
-							<p className="text-sm text-muted-foreground font-medium">
-								{message}
-							</p>
+	const SpinnerCore = ({
+		showSchoolBrand = false,
+		compact = false,
+	}: {
+		showSchoolBrand?: boolean;
+		compact?: boolean;
+	}) => {
+		const logo = currentSchool?.logoUrl;
+		const schoolShortName = currentSchool?.shortName || 'School';
+		const initials =
+			schoolShortName
+				.split(' ')
+				.map((chunk) => chunk[0] || '')
+				.join('')
+				.slice(0, 2)
+				.toUpperCase() || 'SC';
+
+		return (
+			<div className="flex flex-col items-center gap-4">
+				<div className={`loader-shell ${sizeClasses[size]}`}>
+					<div className="loader-ring loader-ring-outer" />
+					<div className="loader-ring loader-ring-middle" />
+					<div className="loader-ring loader-ring-inner" />
+					<div className="loader-center">
+						{logo ? (
+							<div className="relative h-7 w-7">
+								<img
+									src={logo}
+									alt={`${schoolShortName} logo`}
+									className="h-7 w-7 rounded-full object-cover"
+									loading="eager"
+									decoding="async"
+									onError={(event) => {
+										event.currentTarget.style.display = 'none';
+										const fallback = event.currentTarget
+											.nextElementSibling as HTMLElement | null;
+										if (fallback) {
+											fallback.style.display = 'grid';
+										}
+									}}
+								/>
+								<span className="hidden h-7 w-7 place-items-center rounded-full bg-primary/10 text-[11px] font-bold tracking-wide text-primary">
+									{initials}
+								</span>
+							</div>
+						) : (
+							<span className="text-[11px] font-bold tracking-wide text-primary">
+								{initials}
+							</span>
 						)}
 					</div>
-				);
+				</div>
+				{showSchoolBrand && !compact && (
+					<p className="text-sm font-semibold tracking-wide text-foreground">
+						{schoolShortName} e-Portal
+					</p>
+				)}
+				{message && (
+					<p className="max-w-xs text-center text-sm text-muted-foreground">
+						{message}
+					</p>
+				)}
+			</div>
+		);
+	};
+
+	const renderContent = () => {
+		switch (variant) {
+			case 'minimal':
+				return <SpinnerCore compact />;
 
 			case 'dots':
 				return (
-					<div className="flex flex-col items-center space-y-6">
-						<div className="flex space-x-2">
-							<div className="w-3 h-3 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-							<div className="w-3 h-3 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-							<div className="w-3 h-3 bg-primary rounded-full animate-bounce"></div>
+					<div className="flex flex-col items-center gap-5">
+						<div className="flex items-center gap-2">
+							<span className="loader-dot" />
+							<span className="loader-dot loader-dot-delay-1" />
+							<span className="loader-dot loader-dot-delay-2" />
 						</div>
-						{message && (
-							<p className="text-sm text-muted-foreground font-medium">
-								{message}
-							</p>
-						)}
+						{message && <p className="text-sm text-muted-foreground">{message}</p>}
 					</div>
 				);
 
 			case 'pulse':
 				return (
-					<div className="flex flex-col items-center space-y-6">
-						<div className="relative">
-							<div className="w-16 h-16 bg-primary rounded-full animate-pulse"></div>
-							<div className="absolute inset-0 w-16 h-16 bg-primary rounded-full animate-ping opacity-25"></div>
-						</div>
-						{message && (
-							<p className="text-sm text-muted-foreground font-medium">
-								{message}
-							</p>
-						)}
+					<div className="flex flex-col items-center gap-4">
+						<div className="loader-pulse" />
+						{message && <p className="text-sm text-muted-foreground">{message}</p>}
 					</div>
 				);
 
-			case 'school': {
-				const isUpstairs =
-					currentSchool &&
-					(currentSchool.name?.toLowerCase().includes('upstairs') ||
-						currentSchool.shortName?.toLowerCase().includes('upstairs'));
-
+			case 'school':
 				return (
-					<div className="flex flex-col items-center space-y-6">
-						<div className="relative">
-							<div className="w-35 h-35 bg-primary/10 rounded-full flex items-center justify-center">
-								{isUpstairs ? (
-									<GraduationCap className="w-20 h-20 text-primary animate-pulse" />
-								) : currentSchool?.logoUrl ? (
-									<>
-										<img
-											src={currentSchool.logoUrl}
-											alt={`${currentSchool.name || 'School'} Logo`}
-											className="w-25  object-contain rounded-full"
-											onError={(e) => {
-												// Hide image and show graduation cap on error
-												e.currentTarget.style.display = 'none';
-												const fallback = e.currentTarget
-													.nextElementSibling as HTMLElement;
-												if (fallback) {
-													fallback.classList.remove('hidden');
-												}
-											}}
-										/>
-										<GraduationCap className="w-20 h-20 text-primary animate-pulse hidden" />
-									</>
-								) : (
-									<GraduationCap className="w-20 h-20 text-primary animate-pulse" />
-								)}
-							</div>
-							<div className="absolute inset-0 w-35 h-35 border-4 border-primary/20 rounded-full animate-spin border-t-primary"></div>
-						</div>
-						<div className="text-center">
-							<p className="text-lg font-semibold text-foreground mb-1">
-								{currentSchool?.shortName || 'School'} e-Portal System
-							</p>
-							{message && (
-								<p className="text-sm text-muted-foreground">{message}</p>
-							)}
-						</div>
+					<div className="w-full max-w-sm rounded-3xl border border-border/70 bg-card/95 px-6 py-7 text-center shadow-sm">
+						<SpinnerCore showSchoolBrand />
 					</div>
 				);
-			}
 
 			case 'not-found':
 				return (
-					<div className="flex flex-col items-center space-y-8 max-w-md mx-auto">
-						<div className="relative">
-							<div className="w-32 h-32 bg-destructive/10 rounded-full flex items-center justify-center">
-								<span className="text-6xl font-bold text-destructive animate-pulse">
-									404
-								</span>
-							</div>
-							<div className="absolute inset-0 w-32 h-32 border-4 border-destructive/20 rounded-full animate-spin border-t-destructive"></div>
+					<div className="mx-auto flex w-full max-w-md flex-col items-center gap-5 rounded-3xl border border-border bg-card p-8 text-center shadow-sm">
+						<div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-destructive/10">
+							<AlertCircle className="h-8 w-8 text-destructive" />
 						</div>
-						<div className="text-center space-y-4">
-							<h1 className="text-3xl font-bold text-foreground">
-								Page Not Found
-							</h1>
-							<p className="text-muted-foreground">
-								{message || 'The page you are looking for does not exist.'}
-							</p>
-							<div className="pt-4">
-								<Link
-									href="/"
-									className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-								>
-									<Home className="w-4 h-4" />
-									Go Home
-								</Link>
-							</div>
-						</div>
+						<h1 className="text-2xl font-semibold text-foreground">Page Not Found</h1>
+						<p className="text-sm text-muted-foreground">
+							{message || 'The page you requested is unavailable.'}
+						</p>
+						<Link
+							href="/"
+							className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+						>
+							<Home className="h-4 w-4" />
+							Go Home
+						</Link>
 					</div>
 				);
 
 			case 'dashboard-not-found':
 				return (
-					<div className="flex flex-col items-center space-y-8 max-w-md mx-auto">
-						<div className="relative">
-							<div className="w-32 h-32 bg-destructive/10 rounded-full flex items-center justify-center">
-								<span className="text-6xl font-bold text-destructive animate-pulse">
-									404
-								</span>
-							</div>
-							<div className="absolute inset-0 w-32 h-32 border-4 border-destructive/20 rounded-full animate-spin border-t-destructive"></div>
+					<div className="mx-auto flex w-full max-w-md flex-col items-center gap-5 rounded-3xl border border-border bg-card p-8 text-center shadow-sm">
+						<div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+							<GraduationCap className="h-8 w-8 text-primary" />
 						</div>
-						<div className="text-center space-y-4">
-							<h1 className="text-3xl font-bold text-foreground">
-								Dashboard Page Not Found
-							</h1>
-							<p className="text-muted-foreground mb-2">
-								{message ||
-									'The dashboard page you are looking for does not exist.'}
-							</p>
-							<div className="flex flex-col sm:flex-row gap-3 pt-4">
-								<Link
-									href={'/dashboard'}
-									className="inline-flex items-center gap-2 px-6 py-3 border border-border text-foreground rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
-								>
-									<ArrowLeft className="w-4 h-4" />
-									Go Back
-								</Link>
-							</div>
-						</div>
+						<h1 className="text-2xl font-semibold text-foreground">
+							Dashboard Page Not Found
+						</h1>
+						<p className="text-sm text-muted-foreground">
+							{message || 'This dashboard section is unavailable for your account.'}
+						</p>
+						<Link
+							href="/dashboard"
+							className="inline-flex items-center gap-2 rounded-lg border border-border px-5 py-2.5 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
+						>
+							<ArrowLeft className="h-4 w-4" />
+							Back to Dashboard
+						</Link>
 					</div>
 				);
 
 			default:
-				return (
-					<div className="flex flex-col items-center space-y-6">
-						<div className="relative">
-							<div className="w-16 h-16 border-4 border-border rounded-full"></div>
-							<div className="absolute inset-0 w-16 h-16 border-4 border-primary rounded-full animate-spin border-t-transparent"></div>
-						</div>
-						<div className="text-center space-y-2">
-							<div className="flex items-center space-x-2">
-								<div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-								<p className="text-lg font-medium text-foreground">{message}</p>
-								<div className="w-2 h-2 bg-primary rounded-full animate-pulse [animation-delay:0.5s]"></div>
-							</div>
-						</div>
-					</div>
-				);
+				return <SpinnerCore compact={variant !== 'school'} />;
 		}
 	};
 
 	return (
-		<div className={containerClasses}>
-			<div className="text-center">{renderSpinner()}</div>
+		<div className={containerClasses} role="status" aria-live="polite">
+			<div className="text-center">{renderContent()}</div>
 		</div>
 	);
 };

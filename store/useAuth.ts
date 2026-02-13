@@ -49,6 +49,12 @@ interface AuthState {
 	hydrateFromCache: () => void;
 }
 
+let authCheckPromise: Promise<void> | null = null;
+let lastAuthCheckCompletedAt = 0;
+
+const AUTH_REQUEST_TIMEOUT_MS = 4500;
+const AUTH_CHECK_DEDUP_MS = 1200;
+
 const useAuth = create<AuthState>((set, get) => {
 	const OFFLINE_REQUESTS_KEY = 'school_portal_offline_requests';
 
@@ -356,7 +362,10 @@ const useAuth = create<AuthState>((set, get) => {
 			try {
 				if (isOnline) {
 					const controller = new AbortController();
-					const timeoutId = window.setTimeout(() => controller.abort(), 7000);
+					const timeoutId = window.setTimeout(
+						() => controller.abort(),
+						AUTH_REQUEST_TIMEOUT_MS,
+					);
 					try {
 						await fetch('/api/auth/login', {
 							method: 'DELETE',
@@ -409,6 +418,14 @@ const useAuth = create<AuthState>((set, get) => {
 		},
 
 		checkAuthStatus: async () => {
+			const now = Date.now();
+			if (authCheckPromise) {
+				return authCheckPromise;
+			}
+			if (now - lastAuthCheckCompletedAt < AUTH_CHECK_DEDUP_MS) {
+				return;
+			}
+
 			const networkState = useNetworkStore.getState();
 			const { setAuthCheckFailed } = networkState;
 			const navigatorOnline =
@@ -420,130 +437,142 @@ const useAuth = create<AuthState>((set, get) => {
 				if (!get().user) {
 					get().hydrateFromCache();
 				}
+				lastAuthCheckCompletedAt = Date.now();
 				return;
 			}
 
-			try {
-				const schoolState = useSchoolStore.getState();
-				const activeYear = schoolState.school?.currentAcademicYear;
-				const query = new URLSearchParams();
-				const usersVersion =
-					activeYear != null
-						? schoolState.usersVersionByAcademicYear?.[activeYear]
-						: null;
-				const gradesVersion =
-					activeYear != null
-						? schoolState.gradesVersionByAcademicYear?.[activeYear]
-						: null;
-				const calendarVersion =
-					activeYear != null
-						? schoolState.calendarVersionByAcademicYear?.[activeYear]
-						: null;
-				const schedulesVersion =
-					activeYear != null
-						? schoolState.schedulesVersionByAcademicYear?.[activeYear]
-						: null;
-				const gradeRequestsVersion =
-					activeYear != null
-						? schoolState.gradeRequestsVersionByAcademicYear?.[activeYear]
-						: null;
+			authCheckPromise = (async () => {
+				try {
+					const schoolState = useSchoolStore.getState();
+					const activeYear = schoolState.school?.currentAcademicYear;
+					const query = new URLSearchParams();
+					const usersVersion =
+						activeYear != null
+							? schoolState.usersVersionByAcademicYear?.[activeYear]
+							: null;
+					const gradesVersion =
+						activeYear != null
+							? schoolState.gradesVersionByAcademicYear?.[activeYear]
+							: null;
+					const calendarVersion =
+						activeYear != null
+							? schoolState.calendarVersionByAcademicYear?.[activeYear]
+							: null;
+					const schedulesVersion =
+						activeYear != null
+							? schoolState.schedulesVersionByAcademicYear?.[activeYear]
+							: null;
+					const gradeRequestsVersion =
+						activeYear != null
+							? schoolState.gradeRequestsVersionByAcademicYear?.[activeYear]
+							: null;
 
-				if (typeof usersVersion === 'string') {
-					query.set('v_users', String(usersVersion));
-					query.set('usersVersion', String(usersVersion));
-				}
-				if (typeof gradesVersion === 'string') {
-					query.set('v_grades', gradesVersion);
-				}
-				if (typeof calendarVersion === 'string') {
-					query.set('v_calendar', calendarVersion);
-				}
-				if (typeof schedulesVersion === 'string') {
-					query.set('v_schedules', schedulesVersion);
-				}
-				if (typeof gradeRequestsVersion === 'string') {
-					query.set('v_grade_requests', gradeRequestsVersion);
-				}
-				if (typeof schoolState.schoolVersion === 'string') {
-					query.set('v_school', schoolState.schoolVersion);
-				}
-				if (typeof get().userVersion === 'string') {
-					query.set('v_user', get().userVersion as string);
-				}
-
-				const url = query.toString()
-					? `/api/auth/me?${query.toString()}`
-					: '/api/auth/me';
-				const controller = new AbortController();
-				const timeoutId = window.setTimeout(() => controller.abort(), 7000);
-				const res = await (async () => {
-					try {
-						return await fetch(url, {
-							method: 'GET',
-							credentials: 'include',
-							signal: controller.signal,
-						});
-					} finally {
-						window.clearTimeout(timeoutId);
+					if (typeof usersVersion === 'string') {
+						query.set('v_users', String(usersVersion));
+						query.set('usersVersion', String(usersVersion));
 					}
-				})();
+					if (typeof gradesVersion === 'string') {
+						query.set('v_grades', gradesVersion);
+					}
+					if (typeof calendarVersion === 'string') {
+						query.set('v_calendar', calendarVersion);
+					}
+					if (typeof schedulesVersion === 'string') {
+						query.set('v_schedules', schedulesVersion);
+					}
+					if (typeof gradeRequestsVersion === 'string') {
+						query.set('v_grade_requests', gradeRequestsVersion);
+					}
+					if (typeof schoolState.schoolVersion === 'string') {
+						query.set('v_school', schoolState.schoolVersion);
+					}
+					if (typeof get().userVersion === 'string') {
+						query.set('v_user', get().userVersion as string);
+					}
 
-				if (!res.ok && res.status !== 401) {
-					throw new Error(`Server status ${res.status}`);
-				}
+					const url = query.toString()
+						? `/api/auth/me?${query.toString()}`
+						: '/api/auth/me';
+					const controller = new AbortController();
+					const timeoutId = window.setTimeout(
+						() => controller.abort(),
+						AUTH_REQUEST_TIMEOUT_MS,
+					);
+					const res = await (async () => {
+						try {
+							return await fetch(url, {
+								method: 'GET',
+								credentials: 'include',
+								signal: controller.signal,
+							});
+						} finally {
+							window.clearTimeout(timeoutId);
+						}
+					})();
 
-				const data = await res.json().catch(() => ({}));
+					if (!res.ok && res.status !== 401) {
+						throw new Error(`Server status ${res.status}`);
+					}
 
-				const stillOnline =
-					(typeof navigator !== 'undefined' ? navigator.onLine : true) &&
-					useNetworkStore.getState().isOnline;
+					const data = await res.json().catch(() => ({}));
 
-				if (!stillOnline) {
-					setAuthCheckFailed(true);
-					return;
-				}
+					const stillOnline =
+						(typeof navigator !== 'undefined' ? navigator.onLine : true) &&
+						useNetworkStore.getState().isOnline;
 
-				setAuthCheckFailed(false);
-				applyBootstrapPayload(data);
+					if (!stillOnline) {
+						setAuthCheckFailed(true);
+						return;
+					}
 
-				if (Object.prototype.hasOwnProperty.call(data, 'user') && data.user) {
-					const previousIdentity = resolveIdentity(get().user);
-					const nextIdentity = resolveIdentity(data.user as User);
-					if (
-						previousIdentity &&
-						nextIdentity &&
-						previousIdentity !== nextIdentity
-					) {
+					setAuthCheckFailed(false);
+					applyBootstrapPayload(data);
+
+					if (Object.prototype.hasOwnProperty.call(data, 'user') && data.user) {
+						const previousIdentity = resolveIdentity(get().user);
+						const nextIdentity = resolveIdentity(data.user as User);
+						if (
+							previousIdentity &&
+							nextIdentity &&
+							previousIdentity !== nextIdentity
+						) {
+							clearSessionScopedClientState();
+							await clearSessionSensitiveStorage();
+							setDashboardStartPath();
+						}
+						if (!isEqual(data.user, get().user)) {
+							set({ user: data.user, isLoggedIn: true });
+						} else if (!get().isLoggedIn) {
+							set({ isLoggedIn: true });
+						}
+						try {
+							localStorage.setItem('auth-user', JSON.stringify(data.user));
+						} catch (error) {
+							console.warn('Failed to cache auth user:', error);
+						}
+					} else if (Object.prototype.hasOwnProperty.call(data, 'user')) {
+						if (get().isLoggedIn) {
+							set({ user: null, isLoggedIn: false, userVersion: null });
+						}
+						try {
+							localStorage.removeItem('auth-user');
+						} catch (error) {
+							console.warn('Failed to clear auth user cache:', error);
+						}
 						clearSessionScopedClientState();
 						await clearSessionSensitiveStorage();
-						setDashboardStartPath();
 					}
-					if (!isEqual(data.user, get().user)) {
-						set({ user: data.user, isLoggedIn: true });
-					} else if (!get().isLoggedIn) {
-						set({ isLoggedIn: true });
-					}
-					try {
-						localStorage.setItem('auth-user', JSON.stringify(data.user));
-					} catch (error) {
-						console.warn('Failed to cache auth user:', error);
-					}
-				} else if (Object.prototype.hasOwnProperty.call(data, 'user')) {
-					if (get().isLoggedIn) {
-						set({ user: null, isLoggedIn: false, userVersion: null });
-					}
-					try {
-						localStorage.removeItem('auth-user');
-					} catch (error) {
-						console.warn('Failed to clear auth user cache:', error);
-					}
-					clearSessionScopedClientState();
-					await clearSessionSensitiveStorage();
+				} catch (error) {
+					console.error('Auth check failed (network/server error):', error);
+					setAuthCheckFailed(true);
 				}
-			} catch (error) {
-				console.error('Auth check failed (network/server error):', error);
-				setAuthCheckFailed(true);
-			}
+			})()
+				.finally(() => {
+					lastAuthCheckCompletedAt = Date.now();
+					authCheckPromise = null;
+				});
+
+			await authCheckPromise;
 		},
 
 		clearError: () => set({ error: null }),

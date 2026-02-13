@@ -60,8 +60,8 @@ export default function AuthProvider({
 		// Initial check
 		runAuthCheck();
 
-		// Periodic check
-		const interval = setInterval(runAuthCheck, 15000);
+		// Periodic check: keep lightweight for low-end devices and slow links.
+		const interval = setInterval(runAuthCheck, 30000);
 
 		// Listen for browser online/offline events
 		const handleOnline = () => {

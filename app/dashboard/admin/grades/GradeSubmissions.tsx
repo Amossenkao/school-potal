@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useNetworkStore } from '@/store/networkStore';
 import { useSchoolStore } from '@/store/schoolStore';
+import { PageLoading } from '@/components/loading';
 
 // Types
 interface StudentGrade {
@@ -103,17 +104,6 @@ const periods = [
 
 const normalizeAcademicYear = (value?: string) =>
 	value ? value.replace('/', '-') : '';
-
-// A simple loading component
-const PageLoading = ({ fullScreen = true }: { fullScreen?: boolean }) => (
-	<div
-		className={`flex justify-center items-center ${
-			fullScreen ? 'min-h-screen' : 'py-8'
-		}`}
-	>
-		<Loader2 className="h-8 w-8 animate-spin text-primary" />
-	</div>
-);
 
 const AdminGradeManagement: React.FC = () => {
 	const currentSchool = useSchoolStore((state) => state.school);

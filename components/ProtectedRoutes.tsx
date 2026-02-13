@@ -1,11 +1,12 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import useAuth from '@/store/useAuth';
 import LoginPage from '@/app/login/page';
 import SchoolHomepage from '@/app/page';
 import { PageLoading } from '@/components/loading';
 import { useNetworkStore } from '@/store/networkStore';
+import { LOADING_POLICY, useLoadingGate } from '@/hooks/useLoadingGate';
 
 interface ProtectedRouteProps {
 	children: React.ReactNode;
@@ -22,118 +23,101 @@ const ProtectedRoute = ({
 	const { isOnline, authCheckFailed } = useNetworkStore();
 	const router = useRouter();
 	const pathname = usePathname();
-	const [initialCheckComplete, setInitialCheckComplete] = useState(false);
-	const [hasUnauthorizedAccess, setHasUnauthorizedAccess] = useState(false);
-	const [authCheckInProgress, setAuthCheckInProgress] = useState(true);
-	const [bootstrapTimedOut, setBootstrapTimedOut] = useState(false);
+	const [authResolved, setAuthResolved] = useState(false);
 
 	// Check if this route has role requirements
-	const hasRoleRequirements =
-		requiredRole || (allowedRoles && allowedRoles.length > 0);
+	const hasRoleRequirements = useMemo(
+		() => Boolean(requiredRole || (allowedRoles && allowedRoles.length > 0)),
+		[requiredRole, allowedRoles],
+	);
+	const hasUnauthorizedAccess = useMemo(() => {
+		if (!user) return false;
+		if (requiredRole && user.role !== requiredRole) return true;
+		if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+			return true;
+		}
+		return false;
+	}, [allowedRoles, requiredRole, user]);
 
-	const initializeAuth = useCallback(async () => {
-		setAuthCheckInProgress(true);
-		try {
-			if (!navigator.onLine || !isOnline) {
-				hydrateFromCache();
-				setInitialCheckComplete(true);
+	useEffect(() => {
+		hydrateFromCache();
+	}, [hydrateFromCache]);
+
+	useEffect(() => {
+		let cancelled = false;
+		const runAuthBootstrap = async () => {
+			if (!user) {
+				setAuthResolved(false);
+			}
+
+			const navigatorOnline =
+				typeof navigator !== 'undefined' ? navigator.onLine : true;
+			if (!navigatorOnline || !isOnline) {
+				if (!user) {
+					hydrateFromCache();
+				}
+				if (!cancelled) {
+					setAuthResolved(true);
+				}
 				return;
 			}
-			await (async () => {
-				let timeoutId: ReturnType<typeof setTimeout> | null = null;
-				try {
-					await Promise.race([
-						checkAuthStatus(),
-						new Promise((_, reject) => {
-							timeoutId = setTimeout(
-								() => reject(new Error('Auth check timeout')),
-								7000,
-							);
-						}),
-					]);
-				} finally {
-					if (timeoutId) {
-						clearTimeout(timeoutId);
-					}
+
+			let timeoutId: ReturnType<typeof setTimeout> | null = null;
+			try {
+				await Promise.race([
+					checkAuthStatus(),
+					new Promise<void>((_, reject) => {
+						timeoutId = window.setTimeout(
+							() => reject(new Error('Auth check timeout')),
+							LOADING_POLICY.authTimeoutMs,
+						);
+					}),
+				]);
+			} catch (error) {
+				console.warn('Auth bootstrap ended early:', error);
+			} finally {
+				if (timeoutId) {
+					window.clearTimeout(timeoutId);
 				}
-			})().catch((error) => {
-				console.warn('Auth initialization timed out:', error);
-			});
-			setInitialCheckComplete(true);
-		} finally {
-			setAuthCheckInProgress(false);
-		}
-	}, [checkAuthStatus, hydrateFromCache, isOnline]);
+				if (!cancelled) {
+					setAuthResolved(true);
+				}
+			}
+		};
 
-	// Initial auth check
+		void runAuthBootstrap();
+		return () => {
+			cancelled = true;
+		};
+	}, [checkAuthStatus, hydrateFromCache, isOnline, user]);
+
+	const waitingForSession = !authResolved && !user && isOnline && !authCheckFailed;
+	const { show: showSessionLoader, timedOut: sessionTimedOut } = useLoadingGate({
+		active: waitingForSession,
+		delayMs: LOADING_POLICY.routeSpinnerDelayMs,
+		timeoutMs: LOADING_POLICY.authTimeoutMs + 400,
+	});
+
 	useEffect(() => {
-		void initializeAuth();
-	}, [initializeAuth]);
-
-	const showingInitialLoading =
-		(isLoading || !initialCheckComplete || authCheckInProgress) &&
-		!user &&
-		isOnline &&
-		!authCheckFailed;
-
-	useEffect(() => {
-		if (!showingInitialLoading) {
-			setBootstrapTimedOut(false);
-			return;
+		if (sessionTimedOut) {
+			setAuthResolved(true);
 		}
-		const timer = window.setTimeout(() => {
-			setBootstrapTimedOut(true);
-		}, 8000);
-		return () => window.clearTimeout(timer);
-	}, [showingInitialLoading]);
+	}, [sessionTimedOut]);
 
 	// Handle initial redirect for unauthenticated users
 	useEffect(() => {
 		const navigatorOnline =
 			typeof navigator !== 'undefined' ? navigator.onLine : true;
 		if (!isOnline || !navigatorOnline) {
-			if (!user) {
-				try {
-					const cached = localStorage.getItem('auth-user');
-					if (cached) {
-						hydrateFromCache();
-					}
-				} catch (error) {
-					// ignore cache errors
-				}
-			}
 			return;
 		}
 
-		// ✅ Don't redirect if user is offline and auth check failed
-		if (authCheckFailed && !isOnline) {
-			return; // Stay on the page, show offline message
-		}
-
-		// Also check if we have user data in memory - if yes, stay on page even if auth check failed temporarily
-		if (user && authCheckFailed && !isOnline) {
-			return; // User was authenticated before going offline
-		}
-
-		if (authCheckFailed) {
+		if (!authResolved || authCheckFailed) {
 			return;
-		}
-
-		if (!isOnline && !user) {
-			try {
-				const cached = localStorage.getItem('auth-user');
-				if (cached) {
-					hydrateFromCache();
-					return;
-				}
-			} catch (error) {
-				// ignore cache errors
-			}
 		}
 
 		if (
-			initialCheckComplete &&
-			!authCheckInProgress &&
+			authResolved &&
 			!isLoading &&
 			(!user || !user?.isActive)
 		) {
@@ -142,8 +126,7 @@ const ProtectedRoute = ({
 			}
 		}
 	}, [
-		initialCheckComplete,
-		authCheckInProgress,
+		authResolved,
 		isLoading,
 		router,
 		user?.isActive,
@@ -151,132 +134,64 @@ const ProtectedRoute = ({
 		isOnline,
 		user,
 		pathname,
-		hydrateFromCache,
 	]);
 
-	// Role-based access control check
 	useEffect(() => {
-		// Check for unauthorized access after user data is loaded
-		if (initialCheckComplete && !isLoading && user) {
-			let unauthorized = false;
-
-			// **NEW:** Check if user must change password
-			if (
-				user.role !== 'system_admin' &&
-				user.mustChangePassword &&
-				pathname !== '/login/account-setup'
-			) {
-				router.replace('/login/account-setup');
-				return; // Stop further execution
-			}
-
-			// Check for specific required role
-			if (requiredRole && user.role !== requiredRole) {
-				unauthorized = true;
-			}
-
-			// Check for allowed roles (if specified)
-			if (
-				allowedRoles &&
-				allowedRoles.length > 0 &&
-				!allowedRoles.includes(user.role)
-			) {
-				unauthorized = true;
-			}
-
-			if (unauthorized) {
-				setHasUnauthorizedAccess(true);
-			} else {
-				setHasUnauthorizedAccess(false);
-			}
+		if (
+			authResolved &&
+			user &&
+			user.role !== 'system_admin' &&
+			user.mustChangePassword &&
+			pathname !== '/login/account-setup'
+		) {
+			router.replace('/login/account-setup');
 		}
-	}, [
-		initialCheckComplete,
-		isLoading,
-		user,
-		requiredRole,
-		allowedRoles,
-		router,
-		pathname,
-	]);
+	}, [authResolved, pathname, router, user]);
 
-	// Show full loading screen only during the very first authentication check
-	if (isLoading || !initialCheckComplete || authCheckInProgress) {
-		if (user) {
-			return <>{children}</>;
+	if (user) {
+		if (
+			user.role !== 'system_admin' &&
+			user.mustChangePassword &&
+			pathname !== '/login/account-setup'
+		) {
+			return (
+				<PageLoading
+					variant="school"
+					fullScreen={true}
+					message="Preparing account setup..."
+				/>
+			);
 		}
-		if (!isOnline) {
-			return <SchoolHomepage />;
+		if (hasRoleRequirements && hasUnauthorizedAccess) {
+			return (
+				<PageLoading
+					variant="dashboard-not-found"
+					message="You do not have permission to access this section."
+					fullScreen={false}
+				/>
+			);
 		}
-			if (authCheckFailed) {
-				return (
-					<PageLoading
-						variant="school"
-						fullScreen={true}
-						message="Connection issue. Retrying..."
-					/>
-				);
-			}
-			if (bootstrapTimedOut) {
-				return <LoginPage />;
-			}
+		return <>{children}</>;
+	}
+
+	if (!isOnline) {
+		return <SchoolHomepage />;
+	}
+
+	if (!authResolved) {
+		if (!showSessionLoader) {
+			return <div className="min-h-screen bg-background" />;
+		}
 		return (
 			<PageLoading
 				variant="school"
 				fullScreen={true}
-				message="Checking session..."
+				message="Restoring your session..."
 			/>
 		);
 	}
 
-	// ✅ If auth check failed, don't redirect - let AdminLayout handle the UI
-	if (authCheckFailed) {
-		if (user) {
-			return <>{children}</>;
-		}
-		if (!isOnline) {
-			return <SchoolHomepage />;
-		}
-		return <LoginPage />;
-	}
-
-	// If not logged in and no auth check error, show login page
-	if (!user) {
-		if (!isOnline) {
-			return <SchoolHomepage />;
-		}
-		return <LoginPage />;
-	}
-
-	// If the user must change their password, show a loading screen while redirecting
-	if (
-		user?.role !== 'system_admin' &&
-		user?.mustChangePassword &&
-		pathname !== '/login/account-setup'
-	) {
-		return (
-			<PageLoading
-				variant="school"
-				fullScreen={true}
-				message="Redirecting to account setup..."
-			/>
-		);
-	}
-
-	// Check role-based access if user is logged in
-	if (user && hasUnauthorizedAccess) {
-		// Show access denied message and stay on page
-		return (
-			<PageLoading
-				variant="dashboard-not-found"
-				message=""
-				fullScreen={false}
-			/>
-		);
-	}
-
-	// User is authenticated and has proper permissions
-	return <>{children}</>;
+	return <LoginPage />;
 };
 
 export default ProtectedRoute;

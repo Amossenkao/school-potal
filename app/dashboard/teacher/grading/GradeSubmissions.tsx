@@ -1126,7 +1126,10 @@ const GradeSubmissions = () => {
 	if (loading.teacherInfo) {
 		return (
 			<div className="flex items-center justify-center min-h-[60vh]">
-				<PageLoading message="Loading..." fullScreen={false}></PageLoading>
+				<PageLoading
+					message="Loading grade submissions..."
+					fullScreen={false}
+				></PageLoading>
 			</div>
 		);
 	}

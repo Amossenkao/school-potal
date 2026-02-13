@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
 	generateDynamicComponentsMap,
 	validateComponentAccess,
@@ -12,6 +12,7 @@ import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import type { SchoolProfile } from '@/types/schoolProfile';
 import type { Administrator, User } from '@/types';
+import { LOADING_POLICY, useLoadingGate } from '@/hooks/useLoadingGate';
 
 const getCookieValue = (name: string) => {
 	if (typeof document === 'undefined') return undefined;
@@ -59,40 +60,33 @@ function validateAdministratorAccess(
 export default function OfflineRouteRenderer({ path }: { path: string }) {
 	const { school, fetchSchool } = useSchoolStore();
 	const { user, isLoading, checkAuthStatus } = useAuth();
-	const [loadingTimedOut, setLoadingTimedOut] = useState(false);
 
 	const pageKey = useMemo(() => resolvePageKey(path), [path]);
-	const showLoading = !school || isLoading;
-
-	useEffect(() => {
-		if (!showLoading) {
-			setLoadingTimedOut(false);
-			return;
-		}
-		const timer = window.setTimeout(() => {
-			setLoadingTimedOut(true);
-		}, 8000);
-		return () => window.clearTimeout(timer);
-	}, [showLoading]);
+	const waitingForRouteBootstrap = !school || (!user && isLoading);
+	const { show: showLoader, timedOut } = useLoadingGate({
+		active: waitingForRouteBootstrap,
+		delayMs: LOADING_POLICY.routeSpinnerDelayMs,
+		timeoutMs: LOADING_POLICY.offlineRestoreTimeoutMs,
+	});
 
 	const handleRetryLoading = useCallback(async () => {
-		setLoadingTimedOut(false);
 		await Promise.allSettled([fetchSchool(), checkAuthStatus()]);
 	}, [checkAuthStatus, fetchSchool]);
 
-	if (showLoading && !loadingTimedOut) {
-		return <PageLoading message="Loading..." />;
+	if (waitingForRouteBootstrap && !showLoader) {
+		return <div className="min-h-[50vh]" />;
 	}
 
-	if (showLoading && loadingTimedOut) {
+	if (waitingForRouteBootstrap && timedOut) {
 		return (
 			<div className="min-h-[60vh] flex items-center justify-center px-4">
 				<div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
 					<h2 className="text-xl font-semibold text-foreground">
-						Dashboard is taking too long to load
+						This page is taking too long to restore
 					</h2>
 					<p className="mt-2 text-sm text-muted-foreground">
-						School or session data could not be restored in time.
+						The app could not recover school or session data in time. You can
+						retry now.
 					</p>
 					<div className="mt-5 flex justify-center">
 						<button
@@ -110,12 +104,16 @@ export default function OfflineRouteRenderer({ path }: { path: string }) {
 		);
 	}
 
+	if (waitingForRouteBootstrap) {
+		return <PageLoading variant="school" message="Restoring dashboard..." />;
+	}
+
 	if (!user) {
 		return (
 			<PageLoading
 				variant="dashboard-not-found"
 				fullScreen={false}
-				message="User session not available."
+				message="Session unavailable. Please sign in again."
 			/>
 		);
 	}

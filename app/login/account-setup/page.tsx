@@ -22,6 +22,7 @@ import useAuth from '@/store/useAuth';
 import { PageLoading } from '@/components/loading';
 import AvatarPicker from '@/components/avatarPicker';
 import { Button } from '@/components/ui/button';
+import { LOADING_POLICY, useLoadingGate } from '@/hooks/useLoadingGate';
 
 export default function AccountSetupPage() {
 	const router = useRouter();
@@ -42,6 +43,11 @@ export default function AccountSetupPage() {
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState('');
 	const [success, setSuccess] = useState('');
+	const { show: showSetupLoader } = useLoadingGate({
+		active: isInitializing || authLoading,
+		delayMs: LOADING_POLICY.routeSpinnerDelayMs,
+		timeoutMs: LOADING_POLICY.authTimeoutMs + 600,
+	});
 
 	useEffect(() => {
 		if (!authLoading) {
@@ -112,12 +118,15 @@ export default function AccountSetupPage() {
 	};
 
 	if (isInitializing || authLoading) {
+		if (!showSetupLoader) {
+			return <div className="min-h-screen bg-background" />;
+		}
 		return (
 			<div className="min-h-screen flex items-center justify-center bg-background">
 				<PageLoading
 					fullScreen
 					variant="school"
-					message="loading from account setup"
+					message="Preparing account setup..."
 				/>
 			</div>
 		);
