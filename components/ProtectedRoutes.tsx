@@ -5,7 +5,6 @@ import useAuth from '@/store/useAuth';
 import LoginPage from '@/app/login/page';
 import SchoolHomepage from '@/app/page';
 import { PageLoading } from '@/components/loading';
-import { useSchoolStore } from '@/store/schoolStore';
 import { useNetworkStore } from '@/store/networkStore';
 
 interface ProtectedRouteProps {
@@ -20,7 +19,6 @@ const ProtectedRoute = ({
 	allowedRoles,
 }: ProtectedRouteProps) => {
 	const { user, isLoading, checkAuthStatus, hydrateFromCache } = useAuth();
-	const { school } = useSchoolStore();
 	const { isOnline, authCheckFailed } = useNetworkStore();
 	const router = useRouter();
 	const pathname = usePathname();
@@ -41,7 +39,26 @@ const ProtectedRoute = ({
 				setInitialCheckComplete(true);
 				return;
 			}
-			await checkAuthStatus();
+			await (async () => {
+				let timeoutId: ReturnType<typeof setTimeout> | null = null;
+				try {
+					await Promise.race([
+						checkAuthStatus(),
+						new Promise((_, reject) => {
+							timeoutId = setTimeout(
+								() => reject(new Error('Auth check timeout')),
+								7000,
+							);
+						}),
+					]);
+				} finally {
+					if (timeoutId) {
+						clearTimeout(timeoutId);
+					}
+				}
+			})().catch((error) => {
+				console.warn('Auth initialization timed out:', error);
+			});
 			setInitialCheckComplete(true);
 		} finally {
 			setAuthCheckInProgress(false);
@@ -191,48 +208,18 @@ const ProtectedRoute = ({
 		if (!isOnline) {
 			return <SchoolHomepage />;
 		}
-		if (authCheckFailed) {
-			return (
-				<PageLoading
-					variant="school"
-					fullScreen={true}
-					message="Connection issue. Retrying..."
-				/>
-			);
-		}
-		if (bootstrapTimedOut) {
-			return (
-				<div className="min-h-screen bg-background flex items-center justify-center p-6">
-					<div className="w-full max-w-md rounded-lg border border-border bg-card p-6 text-center shadow-sm">
-						<h2 className="text-lg font-semibold text-foreground">
-							Session check is taking too long
-						</h2>
-						<p className="mt-2 text-sm text-muted-foreground">
-							Authentication data could not be restored in time.
-						</p>
-						<div className="mt-5 flex justify-center gap-3">
-							<button
-								type="button"
-								onClick={() => {
-									setBootstrapTimedOut(false);
-									void initializeAuth();
-								}}
-								className="rounded-lg bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
-							>
-								Retry
-							</button>
-							<button
-								type="button"
-								onClick={() => router.replace('/login')}
-								className="rounded-lg border border-border px-4 py-2 text-foreground hover:bg-accent"
-							>
-								Go to login
-							</button>
-						</div>
-					</div>
-				</div>
-			);
-		}
+			if (authCheckFailed) {
+				return (
+					<PageLoading
+						variant="school"
+						fullScreen={true}
+						message="Connection issue. Retrying..."
+					/>
+				);
+			}
+			if (bootstrapTimedOut) {
+				return <LoginPage />;
+			}
 		return (
 			<PageLoading
 				variant="school"
@@ -247,7 +234,10 @@ const ProtectedRoute = ({
 		if (user) {
 			return <>{children}</>;
 		}
-		return <SchoolHomepage />;
+		if (!isOnline) {
+			return <SchoolHomepage />;
+		}
+		return <LoginPage />;
 	}
 
 	// If not logged in and no auth check error, show login page

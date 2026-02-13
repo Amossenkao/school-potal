@@ -355,10 +355,17 @@ const useAuth = create<AuthState>((set, get) => {
 			const isOnline = networkState.isOnline && navigatorOnline;
 			try {
 				if (isOnline) {
-					await fetch('/api/auth/login', {
-						method: 'DELETE',
-						credentials: 'include',
-					});
+					const controller = new AbortController();
+					const timeoutId = window.setTimeout(() => controller.abort(), 7000);
+					try {
+						await fetch('/api/auth/login', {
+							method: 'DELETE',
+							credentials: 'include',
+							signal: controller.signal,
+						});
+					} finally {
+						window.clearTimeout(timeoutId);
+					}
 				} else {
 					enqueueOfflineRequest({
 						url: '/api/auth/login',
@@ -467,10 +474,19 @@ const useAuth = create<AuthState>((set, get) => {
 				const url = query.toString()
 					? `/api/auth/me?${query.toString()}`
 					: '/api/auth/me';
-				const res = await fetch(url, {
-					method: 'GET',
-					credentials: 'include',
-				});
+				const controller = new AbortController();
+				const timeoutId = window.setTimeout(() => controller.abort(), 7000);
+				const res = await (async () => {
+					try {
+						return await fetch(url, {
+							method: 'GET',
+							credentials: 'include',
+							signal: controller.signal,
+						});
+					} finally {
+						window.clearTimeout(timeoutId);
+					}
+				})();
 
 				if (!res.ok && res.status !== 401) {
 					throw new Error(`Server status ${res.status}`);
