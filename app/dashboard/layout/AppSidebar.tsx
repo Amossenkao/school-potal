@@ -9,7 +9,6 @@ import { ChevronDown, LogOut } from 'lucide-react';
 import useAuth from '@/store/useAuth';
 import { generateNavigationItems } from '@/utils/componentsMap';
 import { useSchoolStore } from '@/store/schoolStore';
-import { useNetworkStore } from '@/store/networkStore';
 import { useOfflineNavigationStore } from '@/store/offlineNavigationStore';
 import type { SchoolProfile } from '@/types/schoolProfile';
 import type { Administrator } from '@/types/user';
@@ -36,6 +35,31 @@ const getCurrentAcademicYear = () => {
 	}
 };
 
+const normalizeAcademicYear = (value?: string | null) =>
+	String(value || '')
+		.replace(/\//g, '-')
+		.trim();
+
+const getAcademicYearCandidates = (value?: string | null) => {
+	const normalized = normalizeAcademicYear(value);
+	if (!normalized) return [];
+	const slashVariant = normalized.replace(/-/g, '/');
+	return slashVariant === normalized ? [normalized] : [normalized, slashVariant];
+};
+
+const getScopedYearArray = (
+	byYear: Record<string, any[]>,
+	academicYear: string,
+): any[] | null => {
+	const candidates = getAcademicYearCandidates(academicYear);
+	for (const candidate of candidates) {
+		if (Object.prototype.hasOwnProperty.call(byYear, candidate)) {
+			return Array.isArray(byYear[candidate]) ? byYear[candidate] : [];
+		}
+	}
+	return null;
+};
+
 const AppSidebar: React.FC = () => {
 	const { user, logout } = useAuth();
 	const {
@@ -58,7 +82,6 @@ const AppSidebar: React.FC = () => {
 	const [navigationItems, setNavigationItems] = useState<NavItem[]>([]);
 	const [pendingSubmissionsCount, setPendingSubmissionsCount] = useState(0);
 	const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
-	const { isOnline } = useNetworkStore();
 	const { setOfflinePath, offlinePath } = useOfflineNavigationStore();
 	const activePath = offlinePath || pathname;
 
@@ -66,6 +89,10 @@ const AppSidebar: React.FC = () => {
 	const currentSchool = useSchoolStore(
 		(state) => state.school
 	) as SchoolProfile;
+	const gradesByAcademicYear = useSchoolStore((state) => state.gradesByAcademicYear);
+	const gradeRequestsByAcademicYear = useSchoolStore(
+		(state) => state.gradeRequestsByAcademicYear
+	);
 
 	const role = user?.role;
 	const adminPosition =
@@ -73,96 +100,84 @@ const AppSidebar: React.FC = () => {
 			? (user as Administrator).position
 			: undefined;
 
-	const fetchPendingCounts = useCallback(async () => {
-		if (!isOnline) return;
-		if (!user) return;
-		if (user.role !== 'system_admin') {
+	const refreshPendingCounts = useCallback(() => {
+		if (!user || user.role !== 'system_admin') {
 			setPendingSubmissionsCount(0);
 			setPendingRequestsCount(0);
 			return;
 		}
-		try {
-			// Fetch pending grade submissions
-			if (user.role === 'system_admin') {
-				const submissionsRes = await fetch(
-					`/api/grades?academicYear=${getCurrentAcademicYear()}`
-				);
-				if (submissionsRes.ok) {
-					const submissionsData = await submissionsRes.json();
-					const grades =
-						submissionsData?.data?.report?.grades ??
-						submissionsData?.data?.grades ??
-						[];
-					const statusesBySubmission = new Map<string, Set<string>>();
-					grades.forEach((grade: any) => {
-						if (!grade?.submissionId) return;
-						if (!statusesBySubmission.has(grade.submissionId)) {
-							statusesBySubmission.set(grade.submissionId, new Set());
-						}
-						statusesBySubmission.get(grade.submissionId)?.add(grade.status);
-					});
 
-					const getSubmissionStatus = (statuses: Set<string>) => {
-						if (statuses.size === 1) {
-							return Array.from(statuses)[0];
-						}
-						const hasPending = statuses.has('Pending');
-						const hasApproved = statuses.has('Approved');
-						const hasRejected = statuses.has('Rejected');
-						if (hasPending || (hasApproved && hasRejected)) {
-							return 'Partially Approved';
-						}
-						if (hasApproved) return 'Approved';
-						if (hasRejected) return 'Rejected';
-						return 'Pending';
-					};
-
-					const pendingSubmissions = Array.from(
-						statusesBySubmission.values()
-					).filter((statuses) => {
-						const status = getSubmissionStatus(statuses);
-						return status === 'Pending' || status === 'Partially Approved';
-					}).length;
-
-					setPendingSubmissionsCount(pendingSubmissions);
-				} else {
-					setPendingSubmissionsCount(0);
-				}
-			}
-
-			// Fetch pending grade change requests
-			const requestsRes = await fetch(
-				`/api/grades/requests?academicYear=${getCurrentAcademicYear()}`
-			);
-			if (requestsRes.ok) {
-				const requestsData = await requestsRes.json();
-				const requests = requestsData?.data?.report ?? [];
-				const pendingRequests = requests.filter(
-					(req: any) =>
-						req.status === 'Pending' || req.status === 'Partially Approved'
-				).length;
-				setPendingRequestsCount(pendingRequests);
-			} else {
-				setPendingRequestsCount(0);
-			}
-		} catch (error) {
-			console.error('Failed to fetch pending counts:', error);
+		const academicYear = normalizeAcademicYear(
+			currentSchool?.currentAcademicYear || getCurrentAcademicYear()
+		);
+		if (!academicYear) {
+			setPendingSubmissionsCount(0);
+			setPendingRequestsCount(0);
+			return;
 		}
-	}, [user, isOnline]);
+
+		const scopedGrades =
+			getScopedYearArray(gradesByAcademicYear, academicYear) || [];
+		const scopedRequests =
+			getScopedYearArray(gradeRequestsByAcademicYear, academicYear) || [];
+
+		const statusesBySubmission = new Map<string, Set<string>>();
+		scopedGrades.forEach((grade: any) => {
+			if (!grade?.submissionId) return;
+			if (!statusesBySubmission.has(grade.submissionId)) {
+				statusesBySubmission.set(grade.submissionId, new Set());
+			}
+			statusesBySubmission.get(grade.submissionId)?.add(grade.status);
+		});
+
+		const getSubmissionStatus = (statuses: Set<string>) => {
+			if (statuses.size === 1) {
+				return Array.from(statuses)[0];
+			}
+			const hasPending = statuses.has('Pending');
+			const hasApproved = statuses.has('Approved');
+			const hasRejected = statuses.has('Rejected');
+			if (hasPending || (hasApproved && hasRejected)) {
+				return 'Partially Approved';
+			}
+			if (hasApproved) return 'Approved';
+			if (hasRejected) return 'Rejected';
+			return 'Pending';
+		};
+
+		const pendingSubmissions = Array.from(statusesBySubmission.values()).filter(
+			(statuses) => {
+				const status = getSubmissionStatus(statuses);
+				return status === 'Pending' || status === 'Partially Approved';
+			}
+		).length;
+		const pendingRequests = scopedRequests.filter(
+			(req: any) =>
+				req?.status === 'Pending' || req?.status === 'Partially Approved'
+		).length;
+
+		setPendingSubmissionsCount(pendingSubmissions);
+		setPendingRequestsCount(pendingRequests);
+	}, [
+		user,
+		currentSchool?.currentAcademicYear,
+		gradesByAcademicYear,
+		gradeRequestsByAcademicYear,
+	]);
 
 	useEffect(() => {
-		fetchPendingCounts();
-	}, [fetchPendingCounts]);
+		refreshPendingCounts();
+	}, [refreshPendingCounts]);
 
 	useEffect(() => {
 		const handleRefresh = () => {
-			fetchPendingCounts();
+			refreshPendingCounts();
 		};
 		window.addEventListener('grading:counts:refresh', handleRefresh);
 		return () => {
 			window.removeEventListener('grading:counts:refresh', handleRefresh);
 		};
-	}, [fetchPendingCounts]);
+	}, [refreshPendingCounts]);
 
 	const prependDashboard = (href: string) => {
 		if (!href) return href;

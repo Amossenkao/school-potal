@@ -12,6 +12,48 @@ type DomainVersions = {
 	gradeRequests: string;
 };
 
+type BootstrapUsers = {
+	students: any[];
+	teachers: any[];
+	administrators: any[];
+};
+
+const USER_BOOTSTRAP_SELECT = {
+	_id: 1,
+	username: 1,
+	role: 1,
+	firstName: 1,
+	middleName: 1,
+	lastName: 1,
+	nickName: 1,
+	gender: 1,
+	dateOfBirth: 1,
+	isActive: 1,
+	mustChangePassword: 1,
+	passwordChangedAt: 1,
+	phone: 1,
+	email: 1,
+	address: 1,
+	bio: 1,
+	avatar: 1,
+	profilePictureUrl: 1,
+	createdAt: 1,
+	updatedAt: 1,
+	studentId: 1,
+	enrollmentYear: 1,
+	enrollmentSemester: 1,
+	enrollmentStatus: 1,
+	classId: 1,
+	className: 1,
+	shareContactWithClassmates: 1,
+	academicYears: 1,
+	guardian: 1,
+	financialProfile: 1,
+	subjects: 1,
+	sponsorClass: 1,
+	position: 1,
+} as const;
+
 export const getAcademicYear = (schoolProfile: any) => {
 	const now = new Date();
 	if (schoolProfile?.currentAcademicYear) {
@@ -48,8 +90,6 @@ const normalizeUser = (user: any) => {
 		bio: user.bio,
 		avatar: user.avatar,
 		profilePictureUrl: user.profilePictureUrl,
-		notifications: user.notifications || [],
-		chats: user.chats || [],
 		createdAt: user.createdAt,
 		updatedAt: user.updatedAt,
 	};
@@ -203,15 +243,103 @@ const groupUsersByRole = (users: any[]) => ({
 	administrators: users.filter((u) => u.role === 'administrator'),
 });
 
+const getDocTimestamp = (doc: any) => {
+	if (!doc) return 0;
+	const candidates = [
+		doc.updatedAt,
+		doc.lastUpdated,
+		doc.submittedAt,
+		doc.timestamp,
+		doc.createdAt,
+	];
+	for (const value of candidates) {
+		if (!value) continue;
+		const parsed = new Date(value).getTime();
+		if (Number.isFinite(parsed) && parsed > 0) return parsed;
+	}
+	return 0;
+};
+
 const getLatestDocToken = (doc: any) => {
 	if (!doc) return '0';
-	const updatedAtValue = doc?.updatedAt ? new Date(doc.updatedAt).getTime() : 0;
+	const updatedAtValue = getDocTimestamp(doc);
 	const idValue = doc?._id?.toString?.() || '';
 	return `${updatedAtValue}:${idValue}`;
 };
 
-const fetchCalendarEvents = async (academicYear: string) => {
-	const models = await getTenantModels();
+const getDocsStats = (docs: any[]) => {
+	let latestTimestamp = 0;
+	let latestId = '';
+	for (const doc of docs) {
+		const timestamp = getDocTimestamp(doc);
+		const id = doc?._id?.toString?.() || doc?.id?.toString?.() || '';
+		if (
+			timestamp > latestTimestamp ||
+			(timestamp === latestTimestamp && id > latestId)
+		) {
+			latestTimestamp = timestamp;
+			latestId = id;
+		}
+	}
+	return {
+		count: docs.length,
+		latestTimestamp,
+		latestId,
+	};
+};
+
+const getUsersVersionFromPayload = (users?: BootstrapUsers) => {
+	if (!users) return '0:0';
+	const allUsers = [
+		...(Array.isArray(users.students) ? users.students : []),
+		...(Array.isArray(users.teachers) ? users.teachers : []),
+		...(Array.isArray(users.administrators) ? users.administrators : []),
+	];
+	const { count, latestTimestamp, latestId } = getDocsStats(allUsers);
+	return `${count}:${latestTimestamp}:${latestId}`;
+};
+
+export const getDomainVersionsFromBootstrapPayload = (payload: {
+	users?: BootstrapUsers;
+	usersVersion?: string;
+	calendarEvents?: any[];
+	schedules?: { classSchedules?: any[]; testSchedules?: any[] };
+	grades?: any[];
+	gradeRequests?: any[];
+}): DomainVersions => {
+	const calendarEvents = Array.isArray(payload.calendarEvents)
+		? payload.calendarEvents
+		: [];
+	const grades = Array.isArray(payload.grades) ? payload.grades : [];
+	const gradeRequests = Array.isArray(payload.gradeRequests)
+		? payload.gradeRequests
+		: [];
+	const classSchedules = Array.isArray(payload.schedules?.classSchedules)
+		? payload.schedules?.classSchedules
+		: [];
+	const testSchedules = Array.isArray(payload.schedules?.testSchedules)
+		? payload.schedules?.testSchedules
+		: [];
+
+	const calendarStats = getDocsStats(calendarEvents);
+	const gradesStats = getDocsStats(grades);
+	const gradeRequestsStats = getDocsStats(gradeRequests);
+	const classScheduleStats = getDocsStats(classSchedules);
+	const testScheduleStats = getDocsStats(testSchedules);
+
+	return {
+		users:
+			typeof payload.usersVersion === 'string'
+				? payload.usersVersion
+				: getUsersVersionFromPayload(payload.users),
+		calendar: `${calendarStats.count}:${calendarStats.latestTimestamp}:${calendarStats.latestId}`,
+		schedules: `c${classScheduleStats.count}:${classScheduleStats.latestTimestamp}:${classScheduleStats.latestId}|t${testScheduleStats.count}:${testScheduleStats.latestTimestamp}:${testScheduleStats.latestId}`,
+		grades: `${gradesStats.count}:${gradesStats.latestTimestamp}:${gradesStats.latestId}`,
+		gradeRequests: `${gradeRequestsStats.count}:${gradeRequestsStats.latestTimestamp}:${gradeRequestsStats.latestId}`,
+	};
+};
+
+const fetchCalendarEvents = async (models: any, academicYear: string) => {
 	return models.SchoolEvent.find({
 		eventType: 'academic_calendar',
 		academicYear,
@@ -221,10 +349,10 @@ const fetchCalendarEvents = async (academicYear: string) => {
 };
 
 const fetchSchedules = async (
+	models: any,
 	currentUser: any,
 	academicYear: string,
 ): Promise<{ classSchedules: any[]; testSchedules: any[] }> => {
-	const models = await getTenantModels();
 	const classFilter = getRoleClassFilter(currentUser, academicYear);
 	const baseQuery = { academicYear, ...classFilter };
 
@@ -246,8 +374,11 @@ const fetchSchedules = async (
 	return { classSchedules, testSchedules };
 };
 
-const fetchGradesForRole = async (currentUser: any, academicYear: string) => {
-	const models = await getTenantModels();
+const fetchGradesForRole = async (
+	models: any,
+	currentUser: any,
+	academicYear: string,
+) => {
 	const { Grade } = models;
 	if (!Grade) return [];
 
@@ -257,10 +388,10 @@ const fetchGradesForRole = async (currentUser: any, academicYear: string) => {
 };
 
 const fetchGradeRequestsForRole = async (
+	models: any,
 	currentUser: any,
 	academicYear: string,
 ) => {
-	const models = await getTenantModels();
 	const GradeChangeRequest = models.GradeChangeRequest;
 	if (!GradeChangeRequest) return [];
 	const query = getRoleGradeRequestsQuery(currentUser, academicYear);
@@ -270,9 +401,11 @@ const fetchGradeRequestsForRole = async (
 		.lean();
 };
 
-const fetchUsersForRole = async (currentUser: any, academicYear: string) => {
-	const models = await getTenantModels();
-
+const fetchUsersForRole = async (
+	models: any,
+	currentUser: any,
+	academicYear: string,
+) => {
 	if (currentUser.role === 'student') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
 		if (!classId) {
@@ -281,13 +414,19 @@ const fetchUsersForRole = async (currentUser: any, academicYear: string) => {
 		const [students, teachers, administrators] = await Promise.all([
 			models.Student.find({
 				academicYears: { $elemMatch: { year: academicYear, classId } },
-			}).lean(),
+			})
+				.select(USER_BOOTSTRAP_SELECT)
+				.lean(),
 			models.Teacher.find({
 				subjects: {
 					$elemMatch: { year: academicYear, 'classes.classId': classId },
 				},
-			}).lean(),
-			models.Administrator.find({ 'academicYears.year': academicYear }).lean(),
+			})
+				.select(USER_BOOTSTRAP_SELECT)
+				.lean(),
+			models.Administrator.find({ 'academicYears.year': academicYear })
+				.select(USER_BOOTSTRAP_SELECT)
+				.lean(),
 		]);
 
 		return {
@@ -308,9 +447,13 @@ const fetchUsersForRole = async (currentUser: any, academicYear: string) => {
 			},
 		};
 		const [students, teachers, administrators] = await Promise.all([
-			models.Student.find(studentQuery).lean(),
-			models.Teacher.find({ 'subjects.year': academicYear }).lean(),
-			models.Administrator.find({ 'academicYears.year': academicYear }).lean(),
+			models.Student.find(studentQuery).select(USER_BOOTSTRAP_SELECT).lean(),
+			models.Teacher.find({ 'subjects.year': academicYear })
+				.select(USER_BOOTSTRAP_SELECT)
+				.lean(),
+			models.Administrator.find({ 'academicYears.year': academicYear })
+				.select(USER_BOOTSTRAP_SELECT)
+				.lean(),
 		]);
 
 		return {
@@ -321,13 +464,12 @@ const fetchUsersForRole = async (currentUser: any, academicYear: string) => {
 	}
 
 	if (currentUser.role === 'administrator' || currentUser.role === 'system_admin') {
-		const users = await models.User.find({
-			$or: [
-				{ role: 'student', 'academicYears.year': academicYear },
-				{ role: 'teacher', 'subjects.year': academicYear },
-				{ role: 'administrator', 'academicYears.year': academicYear },
-			],
-		})
+		const usersQuery = getRoleUsersQuery(currentUser, academicYear);
+		if (!usersQuery) {
+			return { students: [], teachers: [], administrators: [] };
+		}
+		const users = await models.User.find(usersQuery)
+			.select(USER_BOOTSTRAP_SELECT)
 			.sort({ _id: 1 })
 			.limit(MAX_BOOTSTRAP_USERS)
 			.lean();
@@ -416,8 +558,8 @@ export const getDomainVersions = async (
 		canQueryGrades ? Grade.countDocuments(gradesQuery) : 0,
 		canQueryGrades
 			? Grade.findOne(gradesQuery)
-					.sort({ updatedAt: -1, _id: -1 })
-					.select({ _id: 1, updatedAt: 1 })
+					.sort({ lastUpdated: -1, _id: -1 })
+					.select({ _id: 1, lastUpdated: 1, updatedAt: 1 })
 					.lean()
 			: null,
 		canQueryGradeRequests
@@ -425,8 +567,8 @@ export const getDomainVersions = async (
 			: 0,
 		canQueryGradeRequests
 			? GradeChangeRequest.findOne(gradeRequestsQuery)
-					.sort({ updatedAt: -1, _id: -1 })
-					.select({ _id: 1, updatedAt: 1 })
+					.sort({ lastUpdated: -1, submittedAt: -1, _id: -1 })
+					.select({ _id: 1, lastUpdated: 1, submittedAt: 1, updatedAt: 1 })
 					.lean()
 			: null,
 	]);
@@ -469,8 +611,6 @@ export const buildBootstrapPayload = async (
 			? JSON.parse(schoolProfileRaw)
 			: schoolProfileRaw;
 	const academicYear = options.academicYear || getAcademicYear(schoolProfile);
-	const usersVersion =
-		typeof options.usersVersion === 'string' ? options.usersVersion : '0:0';
 	const include = {
 		school: options.include?.school !== false,
 		users: options.include?.users !== false,
@@ -479,28 +619,35 @@ export const buildBootstrapPayload = async (
 		grades: options.include?.grades !== false,
 		gradeRequests: options.include?.gradeRequests !== false,
 	};
+	const models = await getTenantModels();
 
 	const [users, calendarEvents, schedules, grades, gradeRequests] =
 		await Promise.all([
-		include.users ? fetchUsersForRole(currentUser, academicYear) : Promise.resolve(undefined),
+		include.users
+			? fetchUsersForRole(models, currentUser, academicYear)
+			: Promise.resolve(undefined),
 		include.calendar
-			? fetchCalendarEvents(academicYear)
+			? fetchCalendarEvents(models, academicYear)
 			: Promise.resolve(undefined),
 		include.schedules
-			? fetchSchedules(currentUser, academicYear)
+			? fetchSchedules(models, currentUser, academicYear)
 			: Promise.resolve(undefined),
 		include.grades
-			? fetchGradesForRole(currentUser, academicYear)
+			? fetchGradesForRole(models, currentUser, academicYear)
 			: Promise.resolve(undefined),
 		include.gradeRequests
-			? fetchGradeRequestsForRole(currentUser, academicYear)
+			? fetchGradeRequestsForRole(models, currentUser, academicYear)
 			: Promise.resolve(undefined),
 		]);
+	const resolvedUsersVersion =
+		typeof options.usersVersion === 'string'
+			? options.usersVersion
+			: getUsersVersionFromPayload(users as BootstrapUsers);
 
 	return {
 		academicYear,
 		...(include.school ? { school: schoolProfile } : {}),
-		...(include.users ? { users, usersVersion } : {}),
+		...(include.users ? { users, usersVersion: resolvedUsersVersion } : {}),
 		...(include.calendar ? { calendarEvents } : {}),
 		...(include.schedules ? { schedules } : {}),
 		...(include.grades ? { grades } : {}),

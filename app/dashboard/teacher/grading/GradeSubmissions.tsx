@@ -101,9 +101,8 @@ const periods = [
 
 const GradeSubmissions = () => {
 	const school = useSchoolStore((state) => state.school);
-	const gradesByAcademicYear = useSchoolStore((state) => state.gradesByAcademicYear);
-	const gradesVersionByAcademicYear = useSchoolStore(
-		(state) => state.gradesVersionByAcademicYear,
+	const schoolAcademicYear = useSchoolStore(
+		(state) => state.school?.currentAcademicYear
 	);
 	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 	const { user } = useAuth();
@@ -256,81 +255,72 @@ const GradeSubmissions = () => {
 		[teacherInfo?.username]
 	);
 
-		const fetchSubmittedGrades = useCallback(
-			async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
+	const fetchSubmittedGrades = useCallback(
+		async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
 			if (!teacherInfo) return;
+
+			const schoolState = useSchoolStore.getState();
+			const gradesByYear = schoolState.gradesByAcademicYear || {};
+			const hasYearSnapshot =
+				Boolean(academicYear) &&
+				Object.prototype.hasOwnProperty.call(gradesByYear, academicYear);
+			const storeGrades =
+				academicYear && Array.isArray(gradesByYear[academicYear])
+					? gradesByYear[academicYear]
+					: [];
+			const cacheKey = `submittedGrades:${teacherInfo.username}:${academicYear}`;
+
+			if (!forceRefresh && hasYearSnapshot) {
+				processSubmittedGrades(storeGrades);
+				setError((prev) => ({ ...prev, submittedGrades: '' }));
+				setLoading((prev) => ({ ...prev, submittedGrades: false }));
+				return;
+			}
+
+			if (!forceRefresh) {
+				const cached = getClientCache<any[]>(cacheKey);
+				if (cached) {
+					processSubmittedGrades(cached);
+					setError((prev) => ({ ...prev, submittedGrades: '' }));
+					setLoading((prev) => ({ ...prev, submittedGrades: false }));
+					return;
+				}
+			}
 
 			setLoading((prev) => ({ ...prev, submittedGrades: true }));
 			try {
-				const storeGrades = academicYear
-					? gradesByAcademicYear?.[academicYear] || []
-					: [];
-				const hasScopedGradesSnapshot =
-					academicYear &&
-					typeof gradesVersionByAcademicYear?.[academicYear] === 'string';
-				if (
-					!forceRefresh &&
-					hasScopedGradesSnapshot &&
-					Array.isArray(storeGrades)
-				) {
-					processSubmittedGrades(storeGrades);
-					setError((prev) => ({ ...prev, submittedGrades: '' }));
-					return;
-				}
-
-				const cacheKey = `submittedGrades:${teacherInfo.username}:${academicYear}`;
-				const cached = getClientCache<any[]>(cacheKey);
-
-			if (cached && !forceRefresh) {
-				processSubmittedGrades(cached);
-			}
-
-			const res = await fetch(`/api/grades?academicYear=${academicYear}`, {
-				cache: 'no-store',
-			});
-			if (!res.ok) throw new Error('Failed to fetch submitted grades');
-			const data = await res.json();
-			const grades = Array.isArray(data.data?.grades)
-				? data.data.grades
-				: Array.isArray(data.data?.report?.grades)
-					? data.data.report.grades
-					: [];
-
 				if (forceRefresh) {
 					clearClientCache(cacheKey);
 				}
+
+				const res = await fetch(`/api/grades?academicYear=${academicYear}`, {
+					cache: 'no-store',
+				});
+				if (!res.ok) throw new Error('Failed to fetch submitted grades');
+				const data = await res.json();
+				const grades = Array.isArray(data.data?.grades)
+					? data.data.grades
+					: Array.isArray(data.data?.report?.grades)
+						? data.data.report.grades
+						: [];
+
 				setClientCache(cacheKey, grades);
 				if (academicYear) {
 					setGradesForYear(academicYear, grades);
 				}
 				processSubmittedGrades(grades);
 				setError((prev) => ({ ...prev, submittedGrades: '' }));
-		} catch (err) {
-			if (!forceRefresh) {
-				// Cached list was already rendered above; keep it and avoid replacing with error state.
-				const cacheKey = `submittedGrades:${teacherInfo.username}:${academicYear}`;
-				if (getClientCache<any[]>(cacheKey)) {
-					setLoading((prev) => ({ ...prev, submittedGrades: false }));
-					return;
-				}
+			} catch (err) {
+				setError((prev) => ({
+					...prev,
+					submittedGrades: 'Failed to load submitted grades.',
+				}));
+				console.error('Error fetching submitted grades:', err);
+			} finally {
+				setLoading((prev) => ({ ...prev, submittedGrades: false }));
 			}
-			setError((prev) => ({
-				...prev,
-				submittedGrades: 'Failed to load submitted grades.',
-			}));
-			console.error('Error fetching submitted grades:', err);
-		} finally {
-			setLoading((prev) => ({ ...prev, submittedGrades: false }));
-		}
-	},
-		[
-			academicYear,
-			teacherInfo,
-			processSubmittedGrades,
-			gradesByAcademicYear,
-			gradesVersionByAcademicYear,
-			setGradesForYear,
-		],
+		},
+		[academicYear, teacherInfo, processSubmittedGrades, setGradesForYear],
 	);
 
 	useEffect(() => {
@@ -339,7 +329,7 @@ const GradeSubmissions = () => {
 			if (user && user.role === 'teacher') {
 				setTeacherInfo(user as TeacherInfo);
 			}
-			setAcademicYear(getAcademicYear());
+			setAcademicYear(schoolAcademicYear || getAcademicYear());
 			setError((prev) => ({ ...prev, teacherInfo: '' }));
 		} catch (err) {
 			setError((prev) => ({
@@ -350,13 +340,12 @@ const GradeSubmissions = () => {
 		} finally {
 			setLoading((prev) => ({ ...prev, teacherInfo: false }));
 		}
-	}, [user]);
+	}, [user, schoolAcademicYear]);
 
 	useEffect(() => {
-		if (teacherInfo) {
-			fetchSubmittedGrades();
-		}
-	}, [teacherInfo, fetchSubmittedGrades]);
+		if (!teacherInfo || !academicYear) return;
+		void fetchSubmittedGrades();
+	}, [teacherInfo, academicYear, fetchSubmittedGrades]);
 
 	const classMap = useMemo(() => {
 		if (!school?.classLevels) return new Map();

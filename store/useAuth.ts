@@ -117,10 +117,51 @@ const useAuth = create<AuthState>((set, get) => {
 		useOfflineNavigationStore.getState().setOfflinePath('/dashboard');
 	};
 
+	const cacheAuthUser = (user: User | null) => {
+		try {
+			if (user) {
+				localStorage.setItem('auth-user', JSON.stringify(user));
+			} else {
+				localStorage.removeItem('auth-user');
+			}
+		} catch (error) {
+			console.warn('Failed to cache auth user:', error);
+		}
+	};
+
 	const resolveIdentity = (user: User | null | undefined) => {
 		if (!user) return '';
 		const extraFields = user as User & { _id?: string; studentId?: string };
 		return String(user.id || extraFields._id || extraFields.studentId || '');
+	};
+
+	const getScopedVersion = (
+		versionMap: Record<string, string> | undefined,
+		preferredYear?: string | null,
+	) => {
+		if (!versionMap || typeof versionMap !== 'object') return null;
+
+		const candidateYears: string[] = [];
+		if (preferredYear) {
+			candidateYears.push(preferredYear);
+			if (preferredYear.includes('/')) {
+				candidateYears.push(preferredYear.replace(/\//g, '-'));
+			}
+			if (preferredYear.includes('-')) {
+				candidateYears.push(preferredYear.replace(/-/g, '/'));
+			}
+		}
+
+		for (const year of candidateYears) {
+			const version = versionMap[year];
+			if (typeof version === 'string') return version;
+		}
+
+		for (const version of Object.values(versionMap)) {
+			if (typeof version === 'string') return version;
+		}
+
+		return null;
 	};
 
 	const applyBootstrapPayload = (data: any) => {
@@ -159,17 +200,8 @@ const useAuth = create<AuthState>((set, get) => {
 		}
 
 		if (academicYear && data?.users) {
-			const currentUsers = schoolStore.usersByAcademicYear[academicYear];
-			const role = data?.user?.role || get().user?.role;
-			const shouldReplace =
-				role === 'student' || role === 'teacher'
-					? !isEqual(currentUsers, data.users)
-					: false;
-			schoolStore.setUsersForYear(
-				academicYear,
-				data.users,
-				shouldReplace ? { merge: false } : undefined,
-			);
+			// Bootstrap payload is authoritative for the current year; avoid expensive deep merge/compare.
+			schoolStore.setUsersForYear(academicYear, data.users, { merge: false });
 		}
 
 		if (academicYear && Array.isArray(data?.calendarEvents)) {
@@ -185,10 +217,7 @@ const useAuth = create<AuthState>((set, get) => {
 		}
 
 		if (academicYear && Array.isArray(data?.grades)) {
-			const currentGrades = schoolStore.gradesByAcademicYear?.[academicYear] || [];
-			if (!isEqual(currentGrades, data.grades)) {
-				schoolStore.setGradesForYear(academicYear, data.grades);
-			}
+			schoolStore.setGradesForYear(academicYear, data.grades);
 		}
 
 		if (academicYear && Array.isArray(data?.gradeRequests)) {
@@ -198,6 +227,25 @@ const useAuth = create<AuthState>((set, get) => {
 		if (typeof versions.user === 'string') {
 			set({ userVersion: versions.user });
 		}
+	};
+
+	const runDeferredPostLoginBootstrap = (data: any) => {
+		if (typeof window === 'undefined') return;
+		window.setTimeout(() => {
+			void (async () => {
+				try {
+					clearSessionScopedClientState();
+					await clearSessionSensitiveStorage();
+					applyBootstrapPayload(data);
+					setDashboardStartPath();
+					if (data?.user) {
+						cacheAuthUser(data.user as User);
+					}
+				} catch (error) {
+					console.warn('Deferred login bootstrap hydration failed:', error);
+				}
+			})();
+		}, 0);
 	};
 
 	return {
@@ -243,9 +291,6 @@ const useAuth = create<AuthState>((set, get) => {
 					return null;
 				}
 
-				await clearSessionSensitiveStorage();
-				applyBootstrapPayload(data);
-
 				set({
 					user: data.user,
 					isLoggedIn: true,
@@ -256,13 +301,10 @@ const useAuth = create<AuthState>((set, get) => {
 					userId: null,
 					error: null,
 				});
-				clearSessionScopedClientState();
+				applyBootstrapPayload(data);
 				setDashboardStartPath();
-				try {
-					localStorage.setItem('auth-user', JSON.stringify(data.user));
-				} catch (error) {
-					console.warn('Failed to cache auth user:', error);
-				}
+				cacheAuthUser(data.user as User);
+				runDeferredPostLoginBootstrap(data);
 
 				return data.user;
 			} catch (error: any) {
@@ -303,9 +345,6 @@ const useAuth = create<AuthState>((set, get) => {
 					return false;
 				}
 
-				await clearSessionSensitiveStorage();
-				applyBootstrapPayload(data);
-
 				set({
 					user: data.user,
 					isLoggedIn: true,
@@ -316,13 +355,10 @@ const useAuth = create<AuthState>((set, get) => {
 					userId: null,
 					error: null,
 				});
-				clearSessionScopedClientState();
+				applyBootstrapPayload(data);
 				setDashboardStartPath();
-				try {
-					localStorage.setItem('auth-user', JSON.stringify(data.user));
-				} catch (error) {
-					console.warn('Failed to cache auth user:', error);
-				}
+				cacheAuthUser(data.user as User);
+				runDeferredPostLoginBootstrap(data);
 
 				return true;
 			} catch (error: any) {
@@ -470,28 +506,28 @@ const useAuth = create<AuthState>((set, get) => {
 			authCheckPromise = (async () => {
 				try {
 					const schoolState = useSchoolStore.getState();
-					const activeYear = schoolState.school?.currentAcademicYear;
+					const preferredYear = schoolState.school?.currentAcademicYear;
 					const query = new URLSearchParams();
-					const usersVersion =
-						activeYear != null
-							? schoolState.usersVersionByAcademicYear?.[activeYear]
-							: null;
-					const gradesVersion =
-						activeYear != null
-							? schoolState.gradesVersionByAcademicYear?.[activeYear]
-							: null;
-					const calendarVersion =
-						activeYear != null
-							? schoolState.calendarVersionByAcademicYear?.[activeYear]
-							: null;
-					const schedulesVersion =
-						activeYear != null
-							? schoolState.schedulesVersionByAcademicYear?.[activeYear]
-							: null;
-					const gradeRequestsVersion =
-						activeYear != null
-							? schoolState.gradeRequestsVersionByAcademicYear?.[activeYear]
-							: null;
+					const usersVersion = getScopedVersion(
+						schoolState.usersVersionByAcademicYear,
+						preferredYear,
+					);
+					const gradesVersion = getScopedVersion(
+						schoolState.gradesVersionByAcademicYear,
+						preferredYear,
+					);
+					const calendarVersion = getScopedVersion(
+						schoolState.calendarVersionByAcademicYear,
+						preferredYear,
+					);
+					const schedulesVersion = getScopedVersion(
+						schoolState.schedulesVersionByAcademicYear,
+						preferredYear,
+					);
+					const gradeRequestsVersion = getScopedVersion(
+						schoolState.gradeRequestsVersionByAcademicYear,
+						preferredYear,
+					);
 
 					if (typeof usersVersion === 'string') {
 						query.set('v_users', String(usersVersion));

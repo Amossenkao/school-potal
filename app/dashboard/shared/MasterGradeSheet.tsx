@@ -77,14 +77,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const userInfo = useAuth((state) => state.user);
 	const currentSchool = useSchoolStore((state) => state.school);
 	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
-	const usersVersionByAcademicYear = useSchoolStore(
-		(state) => state.usersVersionByAcademicYear
-	);
 	const gradesByAcademicYear = useSchoolStore(
 		(state) => state.gradesByAcademicYear
-	);
-	const gradesVersionByAcademicYear = useSchoolStore(
-		(state) => state.gradesVersionByAcademicYear
 	);
 	const usersByAcademicYearRef = useRef(usersByAcademicYear);
 	const gradesByAcademicYearRef = useRef(gradesByAcademicYear);
@@ -406,51 +400,48 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	useEffect(() => {
 		if (selectedClass) {
 			const fetchStudents = async () => {
-				setLoading((prev) => ({ ...prev, students: true }));
 				setError((prev) => ({ ...prev, students: '' }));
 				try {
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
 					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
-						const cachedUsers =
-							usersByAcademicYearRef.current?.[normalizedYear]?.students ||
-							usersByAcademicYearRef.current?.[fallbackYear]?.students ||
-							[];
-						const hasScopedUsersVersion =
-							typeof usersVersionByAcademicYear?.[normalizedYear] === 'string';
-						if (cachedUsers.length > 0 && hasScopedUsersVersion) {
-							const students = cachedUsers
-								.filter(
-									(student: any) =>
-										getStudentClassIdForYear(student, normalizedYear) ===
-										selectedClass
-								)
-								.map((student: any) => ({
-									studentId: student.studentId || student.id || student._id,
-									studentName: `${student.firstName} ${student.lastName}`.trim(),
-								}));
-							setStudentsData(students);
-							return;
-						}
+					const usersByYear = usersByAcademicYearRef.current || {};
+					const hasScopedUsersSnapshot = Object.prototype.hasOwnProperty.call(
+						usersByYear,
+						normalizedYear
+					);
+					const hasFallbackUsersSnapshot = Object.prototype.hasOwnProperty.call(
+						usersByYear,
+						fallbackYear
+					);
+					const cachedUsers = hasScopedUsersSnapshot
+						? usersByYear?.[normalizedYear]?.students || []
+						: hasFallbackUsersSnapshot
+							? usersByYear?.[fallbackYear]?.students || []
+							: [];
 
-						if (!isOnline) {
-						if (cachedUsers.length > 0) {
-							const students = cachedUsers
-								.filter(
-									(student: any) =>
-										getStudentClassIdForYear(student, normalizedYear) ===
-										selectedClass
-								)
-								.map((student: any) => ({
-									studentId: student.studentId || student.id || student._id,
-									studentName: `${student.firstName} ${student.lastName}`.trim(),
-								}));
-							setStudentsData(students);
-						} else {
-							setStudentsData([]);
-						}
+					if (hasScopedUsersSnapshot || hasFallbackUsersSnapshot) {
+						const students = cachedUsers
+							.filter(
+								(student: any) =>
+									getStudentClassIdForYear(student, normalizedYear) ===
+									selectedClass
+							)
+							.map((student: any) => ({
+								studentId: student.studentId || student.id || student._id,
+								studentName: `${student.firstName} ${student.lastName}`.trim(),
+							}));
+						setStudentsData(students);
+						setLoading((prev) => ({ ...prev, students: false }));
 						return;
 					}
 
+					if (!isOnline) {
+						setStudentsData([]);
+						setLoading((prev) => ({ ...prev, students: false }));
+						return;
+					}
+
+					setLoading((prev) => ({ ...prev, students: true }));
 					const res = await fetch(
 						`/api/users?role=student&academicYear=${normalizedYear}&classId=${selectedClass}`
 					);
@@ -470,11 +461,21 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				} catch (err) {
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
 					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
-					const cachedUsers =
-						usersByAcademicYearRef.current?.[normalizedYear]?.students ||
-						usersByAcademicYearRef.current?.[fallbackYear]?.students ||
-						[];
-					if (!isOnline && cachedUsers.length > 0) {
+					const usersByYear = usersByAcademicYearRef.current || {};
+					const hasScopedUsersSnapshot = Object.prototype.hasOwnProperty.call(
+						usersByYear,
+						normalizedYear
+					);
+					const hasFallbackUsersSnapshot = Object.prototype.hasOwnProperty.call(
+						usersByYear,
+						fallbackYear
+					);
+					const cachedUsers = hasScopedUsersSnapshot
+						? usersByYear?.[normalizedYear]?.students || []
+						: hasFallbackUsersSnapshot
+							? usersByYear?.[fallbackYear]?.students || []
+							: [];
+					if (cachedUsers.length > 0) {
 						const students = cachedUsers
 							.filter(
 								(student: any) =>
@@ -487,6 +488,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 							}));
 						setStudentsData(students);
 						setError((prev) => ({ ...prev, students: '' }));
+						setLoading((prev) => ({ ...prev, students: false }));
 						return;
 					}
 					setError((prev) => ({
@@ -503,54 +505,55 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		} else {
 			setStudentsData([]);
 		}
-		}, [
-			selectedAcademicYear,
-			selectedClass,
-			isOnline,
-			currentAcademicYear,
-			usersVersionByAcademicYear,
-		]);
+	}, [
+		selectedAcademicYear,
+		selectedClass,
+		isOnline,
+		currentAcademicYear,
+		usersByAcademicYear,
+	]);
 
 	useEffect(() => {
 		if (selectedClass && selectedSubject) {
 			const fetchGrades = async () => {
-				setLoading((prev) => ({ ...prev, grades: true }));
 				setError((prev) => ({ ...prev, grades: '' }));
 				try {
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
 					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
-						const cachedGrades =
-							gradesByAcademicYearRef.current?.[normalizedYear] ||
-							gradesByAcademicYearRef.current?.[fallbackYear] ||
-							[];
-						const hasScopedGradesVersion =
-							typeof gradesVersionByAcademicYear?.[normalizedYear] === 'string';
-						if (cachedGrades.length > 0 && hasScopedGradesVersion) {
-							const filtered = cachedGrades.filter(
-								(grade: any) =>
-									grade?.classId === selectedClass &&
-									grade?.subject === selectedSubject &&
-									normalizeAcademicYear(grade?.academicYear) === normalizedYear
-							);
-							setGradesData(filtered);
-							return;
-						}
+					const gradesByYear = gradesByAcademicYearRef.current || {};
+					const hasScopedGradesSnapshot = Object.prototype.hasOwnProperty.call(
+						gradesByYear,
+						normalizedYear
+					);
+					const hasFallbackGradesSnapshot = Object.prototype.hasOwnProperty.call(
+						gradesByYear,
+						fallbackYear
+					);
+					const cachedGrades = hasScopedGradesSnapshot
+						? gradesByYear?.[normalizedYear] || []
+						: hasFallbackGradesSnapshot
+							? gradesByYear?.[fallbackYear] || []
+							: [];
 
-						if (!isOnline) {
-						if (cachedGrades.length > 0) {
-							const filtered = cachedGrades.filter(
-								(grade: any) =>
-									grade?.classId === selectedClass &&
-									grade?.subject === selectedSubject &&
-									normalizeAcademicYear(grade?.academicYear) === normalizedYear
-							);
-							setGradesData(filtered);
-						} else {
-							setGradesData([]);
-						}
+					if (hasScopedGradesSnapshot || hasFallbackGradesSnapshot) {
+						const filtered = cachedGrades.filter(
+							(grade: any) =>
+								grade?.classId === selectedClass &&
+								grade?.subject === selectedSubject &&
+								normalizeAcademicYear(grade?.academicYear) === normalizedYear
+						);
+						setGradesData(filtered);
+						setLoading((prev) => ({ ...prev, grades: false }));
 						return;
 					}
 
+					if (!isOnline) {
+						setGradesData([]);
+						setLoading((prev) => ({ ...prev, grades: false }));
+						return;
+					}
+
+					setLoading((prev) => ({ ...prev, grades: true }));
 					const res = await fetch(
 						`/api/grades?academicYear=${normalizedYear}&classId=${selectedClass}&subject=${selectedSubject}`
 					);
@@ -568,11 +571,21 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				} catch (err) {
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
 					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
-					const cachedGrades =
-						gradesByAcademicYearRef.current?.[normalizedYear] ||
-						gradesByAcademicYearRef.current?.[fallbackYear] ||
-						[];
-					if (!isOnline && cachedGrades.length > 0) {
+					const gradesByYear = gradesByAcademicYearRef.current || {};
+					const hasScopedGradesSnapshot = Object.prototype.hasOwnProperty.call(
+						gradesByYear,
+						normalizedYear
+					);
+					const hasFallbackGradesSnapshot = Object.prototype.hasOwnProperty.call(
+						gradesByYear,
+						fallbackYear
+					);
+					const cachedGrades = hasScopedGradesSnapshot
+						? gradesByYear?.[normalizedYear] || []
+						: hasFallbackGradesSnapshot
+							? gradesByYear?.[fallbackYear] || []
+							: [];
+					if (cachedGrades.length > 0) {
 						const filtered = cachedGrades.filter(
 							(grade: any) =>
 								grade?.classId === selectedClass &&
@@ -581,6 +594,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 						);
 						setGradesData(filtered);
 						setError((prev) => ({ ...prev, grades: '' }));
+						setLoading((prev) => ({ ...prev, grades: false }));
 						return;
 					}
 					setError((prev) => ({ ...prev, grades: 'Failed to load grades.' }));
@@ -594,14 +608,14 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		} else {
 			setGradesData([]);
 		}
-		}, [
-			selectedAcademicYear,
-			selectedClass,
-			selectedSubject,
-			isOnline,
-			currentAcademicYear,
-			gradesVersionByAcademicYear,
-		]);
+	}, [
+		selectedAcademicYear,
+		selectedClass,
+		selectedSubject,
+		isOnline,
+		currentAcademicYear,
+		gradesByAcademicYear,
+	]);
 
 	useEffect(() => {
 		if (studentsData.length > 0) {

@@ -193,11 +193,8 @@ export default function CalendarAndSchedules({
 	>([]);
 	const [slotEditingIds, setSlotEditingIds] = useState<string[]>([]);
 	const academicYear = schoolProfile.currentAcademicYear || '';
-	const schedulesByAcademicYear = useSchoolStore(
-		(state) => state.schedulesByAcademicYear,
-	);
-	const schedulesVersionByAcademicYear = useSchoolStore(
-		(state) => state.schedulesVersionByAcademicYear,
+	const scopedSchedules = useSchoolStore((state) =>
+		academicYear ? state.schedulesByAcademicYear?.[academicYear] : undefined,
 	);
 	const setSchedulesForYear = useSchoolStore((state) => state.setSchedulesForYear);
 
@@ -205,19 +202,20 @@ export default function CalendarAndSchedules({
 		if (!showSchedules) return;
 
 		const fetchSchedules = async () => {
-			setIsLoadingSchedules(true);
 			setScheduleError('');
 
 			try {
-				const scopedSchedules = academicYear
-					? schedulesByAcademicYear?.[academicYear]
-					: null;
-				const hasScopedSchedulesVersion =
+				const schoolState = useSchoolStore.getState();
+				const hasScopedSchedulesSnapshot = Boolean(
 					academicYear &&
-					typeof schedulesVersionByAcademicYear?.[academicYear] === 'string';
-				if (hasScopedSchedulesVersion && scopedSchedules) {
+						Object.prototype.hasOwnProperty.call(
+							schoolState.schedulesByAcademicYear || {},
+							academicYear,
+						),
+				);
+				if (hasScopedSchedulesSnapshot) {
 					const mappedClass: ClassScheduleItem[] = (
-						scopedSchedules.classSchedules || []
+						scopedSchedules?.classSchedules || []
 					).map((item: any) => {
 						const meta = item.classId ? classOptionsById.get(item.classId) : null;
 						return {
@@ -234,7 +232,7 @@ export default function CalendarAndSchedules({
 						};
 					});
 					const mappedTest: TestScheduleItem[] = (
-						scopedSchedules.testSchedules || []
+						scopedSchedules?.testSchedules || []
 					).map((item: any) => {
 						const meta = item.classId ? classOptionsById.get(item.classId) : null;
 						return {
@@ -251,8 +249,10 @@ export default function CalendarAndSchedules({
 					});
 					setClassSchedules(mappedClass);
 					setTestSchedules(mappedTest);
+					setIsLoadingSchedules(false);
 					return;
 				}
+				setIsLoadingSchedules(true);
 
 				const levelKeys: string[] = [];
 
@@ -418,18 +418,17 @@ export default function CalendarAndSchedules({
 		};
 
 		fetchSchedules();
-		}, [
-			academicYear,
-			showSchedules,
-			user?.classId,
-			userRole,
-			user?.subjects,
-			classOptionsById,
-			levelOptions,
-			schedulesByAcademicYear,
-			schedulesVersionByAcademicYear,
-			setSchedulesForYear,
-		]);
+	}, [
+		academicYear,
+		showSchedules,
+		user?.classId,
+		userRole,
+		user?.subjects,
+		classOptionsById,
+		levelOptions,
+		scopedSchedules,
+		setSchedulesForYear,
+	]);
 
 	const filteredClassSchedules = useMemo(() => {
 		return classSchedules;

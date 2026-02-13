@@ -9,7 +9,7 @@ import { UserRole } from '@/types';
 import {
 	buildBootstrapPayload,
 	getAcademicYear,
-	getDomainVersions,
+	getDomainVersionsFromBootstrapPayload,
 } from '@/app/api/auth/bootstrap';
 import { checkRateLimit, getRequestIp } from '@/utils/rateLimit';
 
@@ -36,6 +36,49 @@ const toSchoolVersion = (schoolProfile: any) => {
 	return toHash(schoolProfile);
 };
 
+const normalizeSchoolProfile = (schoolProfileRaw: any) =>
+	typeof schoolProfileRaw === 'string'
+		? JSON.parse(schoolProfileRaw)
+		: schoolProfileRaw;
+
+const buildLoginBootstrapPayload = async (
+	currentUser: any,
+	schoolProfileInput?: any,
+) => {
+	const schoolProfileRaw = schoolProfileInput ?? (await getSchoolProfile());
+	const schoolProfile = normalizeSchoolProfile(schoolProfileRaw);
+	const academicYear = getAcademicYear(schoolProfile);
+	const payload = await buildBootstrapPayload(currentUser, {
+		include: {
+			school: true,
+			users: true,
+			calendar: true,
+			schedules: true,
+			grades: true,
+			gradeRequests: true,
+		},
+		academicYear,
+		schoolProfile,
+	});
+	const domainVersions = getDomainVersionsFromBootstrapPayload({
+		users: payload?.users,
+		usersVersion: payload?.usersVersion,
+		calendarEvents: payload?.calendarEvents,
+		schedules: payload?.schedules,
+		grades: payload?.grades,
+		gradeRequests: payload?.gradeRequests,
+	});
+
+	return {
+		...(payload || {}),
+		versions: {
+			user: toHash(currentUser),
+			school: toSchoolVersion(schoolProfile),
+			...domainVersions,
+		},
+	};
+};
+
 export async function POST(request: NextRequest) {
 	const host = request.headers.get('host');
 	if (!host) {
@@ -46,7 +89,8 @@ export async function POST(request: NextRequest) {
 	}
 
 	const body = await request.json();
-	let { action, username, password, role, otp, sessionId, id } = body; // Changed userId to id
+	let { action, username, password, role, otp, sessionId, id, userId } = body;
+	const resolvedUserId = id || userId;
 	const ip = getRequestIp(request.headers);
 
 	if (['student', 'teacher'].includes(role)) {
@@ -54,8 +98,8 @@ export async function POST(request: NextRequest) {
 	}
 
 	const User = await getUserModel(host);
-	let user: any = await (id
-		? User.findById(id)
+	let user: any = await (resolvedUserId
+		? User.findById(resolvedUserId)
 		: User.findOne({ username, role }));
 
 	try {
@@ -82,7 +126,7 @@ export async function POST(request: NextRequest) {
 			case 'verify_otp':
 				{
 					const otpLimiter = await checkRateLimit(
-						`rl:otp_verify:${host}:${ip}:${String(id || '')}`,
+						`rl:otp_verify:${host}:${ip}:${String(resolvedUserId || '')}`,
 						8,
 						300,
 					);
@@ -101,41 +145,34 @@ export async function POST(request: NextRequest) {
 					sessionId,
 					otp,
 					host,
-					id, // Changed userId to id
+					resolvedUserId,
 				);
 
 				const verifiedUser = verificationResult.success
 					? buildUserResponse(user)
 					: null;
-					let bootstrapPayload: any = null;
-					if (verificationResult.success && verifiedUser) {
+				let bootstrapPayload: any = null;
+				if (verificationResult.success && verifiedUser) {
+					try {
+						bootstrapPayload = await buildLoginBootstrapPayload(verifiedUser);
+					} catch (error) {
+						console.warn('Failed to build bootstrap payload:', error);
 						try {
 							const schoolProfileRaw = await getSchoolProfile();
-							const schoolProfile =
-								typeof schoolProfileRaw === 'string'
-									? JSON.parse(schoolProfileRaw)
-									: schoolProfileRaw;
+							const schoolProfile = normalizeSchoolProfile(schoolProfileRaw);
 							const academicYear = getAcademicYear(schoolProfile);
-							const versions = await getDomainVersions(verifiedUser, academicYear);
 							bootstrapPayload = {
-								...(await buildBootstrapPayload(verifiedUser, {
-									academicYear,
-									usersVersion: versions.users,
-									schoolProfile,
-								})),
+								academicYear,
+								school: schoolProfile,
 								versions: {
 									user: toHash(verifiedUser),
 									school: toSchoolVersion(schoolProfile),
-									users: versions.users,
-									calendar: versions.calendar,
-									schedules: versions.schedules,
-									grades: versions.grades,
-									gradeRequests: versions.gradeRequests,
 								},
 							};
-						} catch (error) {
-							console.warn('Failed to build bootstrap payload:', error);
+						} catch (fallbackError) {
+							console.warn('Failed to build fallback login payload:', fallbackError);
 						}
+					}
 				}
 
 				const response = NextResponse.json(
@@ -165,7 +202,7 @@ export async function POST(request: NextRequest) {
 			case 'resend_otp':
 				{
 					const resendLimiter = await checkRateLimit(
-						`rl:otp_resend:${host}:${ip}:${String(id || '')}`,
+						`rl:otp_resend:${host}:${ip}:${String(resolvedUserId || '')}`,
 						5,
 						300,
 					);
@@ -213,10 +250,7 @@ async function handleLogin(user: any, password: string, host: string) {
 
 	let schoolProfile: any = null;
 	try {
-		schoolProfile = await getSchoolProfile();
-		if (typeof schoolProfile === 'string') {
-			schoolProfile = JSON.parse(schoolProfile);
-		}
+		schoolProfile = normalizeSchoolProfile(await getSchoolProfile());
 	} catch (e) {
 		console.error('Failed to fetch school profile:', e);
 	}
@@ -294,26 +328,18 @@ async function handleLogin(user: any, password: string, host: string) {
 		const sessionId = await createSession(sessionData);
 		let bootstrapPayload: any = null;
 		try {
+			bootstrapPayload = await buildLoginBootstrapPayload(userData, schoolProfile);
+		} catch (error) {
+			console.warn('Failed to build login bootstrap payload:', error);
 			const academicYear = getAcademicYear(schoolProfile);
-			const versions = await getDomainVersions(userData, academicYear);
 			bootstrapPayload = {
-				...(await buildBootstrapPayload(userData, {
-					academicYear,
-					usersVersion: versions.users,
-					schoolProfile,
-				})),
+				academicYear,
+				school: schoolProfile,
 				versions: {
 					user: toHash(userData),
 					school: toSchoolVersion(schoolProfile),
-					users: versions.users,
-					calendar: versions.calendar,
-					schedules: versions.schedules,
-					grades: versions.grades,
-					gradeRequests: versions.gradeRequests,
 				},
 			};
-		} catch (error) {
-			console.warn('Failed to build bootstrap payload:', error);
 		}
 		const response = NextResponse.json(
 			{ message: 'Login successful', user: userData, ...bootstrapPayload },

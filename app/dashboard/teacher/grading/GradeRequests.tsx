@@ -63,11 +63,8 @@ const TeacherGradeChangeRequests = ({
 }: {
 	teacherInfo: TeacherInfo;
 }) => {
-	const gradeRequestsByAcademicYear = useSchoolStore(
-		(state) => state.gradeRequestsByAcademicYear,
-	);
-	const gradeRequestsVersionByAcademicYear = useSchoolStore(
-		(state) => state.gradeRequestsVersionByAcademicYear,
+	const schoolAcademicYear = useSchoolStore(
+		(state) => state.school?.currentAcademicYear,
 	);
 	const setGradeRequestsForYear = useSchoolStore(
 		(state) => state.setGradeRequestsForYear,
@@ -89,33 +86,43 @@ const TeacherGradeChangeRequests = ({
 	const [itemsPerPage, setItemsPerPage] = useState(5);
 
 	const fetchRequests = async (skipCache = false) => {
-		setLoading(true);
-		setError('');
+		if (!teacherInfo?.username) {
+			setLoading(false);
+			return;
+		}
 		try {
-			const academicYear = getCurrentAcademicYear();
-			const scopedStoreRequests =
-				gradeRequestsByAcademicYear?.[academicYear] || [];
-			const hasScopedStoreVersion =
-				typeof gradeRequestsVersionByAcademicYear?.[academicYear] === 'string';
-			if (
-				!skipCache &&
-				hasScopedStoreVersion &&
-				Array.isArray(scopedStoreRequests)
-			) {
+			const academicYear = schoolAcademicYear || getCurrentAcademicYear();
+			const storeState = useSchoolStore.getState();
+			const cachedByYear = storeState.gradeRequestsByAcademicYear || {};
+			const hasYearSnapshot = Object.prototype.hasOwnProperty.call(
+				cachedByYear,
+				academicYear,
+			);
+			const scopedStoreRequests = Array.isArray(cachedByYear?.[academicYear])
+				? cachedByYear[academicYear]
+				: [];
+			const cacheKey = `gradeRequests:${academicYear}:${
+				teacherInfo?.username || 'teacher'
+			}`;
+			if (!skipCache && hasYearSnapshot) {
 				setRequests(scopedStoreRequests as BatchRequest[]);
+				setError('');
+				setLoading(false);
 				return;
 			}
 
-			const cacheKey = `gradeRequests:${getCurrentAcademicYear()}:${
-				teacherInfo?.username || 'teacher'
-			}`;
 			if (!skipCache) {
 				const cached = getClientCache<BatchRequest[]>(cacheKey);
 				if (cached) {
 					setRequests(cached);
+					setError('');
+					setLoading(false);
 					return;
 				}
 			}
+
+			setLoading(true);
+			setError('');
 			const res = await fetch(
 				`/api/grades/requests?academicYear=${academicYear}`
 			);
@@ -135,8 +142,9 @@ const TeacherGradeChangeRequests = ({
 	};
 
 	useEffect(() => {
-		fetchRequests();
-	}, []);
+		if (!teacherInfo?.username) return;
+		void fetchRequests();
+	}, [teacherInfo?.username, schoolAcademicYear]);
 
 	// Pagination Logic
 	const paginatedRequests = useMemo(() => {
@@ -193,7 +201,7 @@ const TeacherGradeChangeRequests = ({
 				throw new Error('Failed to update request.');
 			}
 
-			await fetchRequests();
+			await fetchRequests(true);
 			setEditModal({
 				isOpen: false,
 				requestId: '',

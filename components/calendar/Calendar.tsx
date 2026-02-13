@@ -45,11 +45,8 @@ const Calendar: React.FC<CalendarProps> = ({
   const { isOpen, openModal, closeModal } = useModal();
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [isSavingEvent, setIsSavingEvent] = useState(false);
-  const calendarByAcademicYear = useSchoolStore(
-    (state) => state.calendarByAcademicYear
-  );
-  const calendarVersionByAcademicYear = useSchoolStore(
-    (state) => state.calendarVersionByAcademicYear
+  const scopedCalendarEvents = useSchoolStore((state) =>
+    academicYear ? state.calendarByAcademicYear?.[academicYear] : undefined
   );
   const setCalendarForYear = useSchoolStore((state) => state.setCalendarForYear);
 
@@ -69,15 +66,16 @@ const Calendar: React.FC<CalendarProps> = ({
     const fetchEvents = async () => {
       setIsLoadingEvents(true);
       try {
-        const scopedStoreEvents =
-          academicYear && calendarByAcademicYear?.[academicYear]
-            ? calendarByAcademicYear[academicYear]
-            : null;
-        const hasScopedCalendarVersion =
+        const schoolState = useSchoolStore.getState();
+        const hasScopedCalendarSnapshot = Boolean(
           academicYear &&
-          typeof calendarVersionByAcademicYear?.[academicYear] === "string";
-        if (hasScopedCalendarVersion && Array.isArray(scopedStoreEvents)) {
-          const mapped = scopedStoreEvents.map((event: any) => ({
+            Object.prototype.hasOwnProperty.call(
+              schoolState.calendarByAcademicYear || {},
+              academicYear
+            )
+        );
+        if (hasScopedCalendarSnapshot && Array.isArray(scopedCalendarEvents)) {
+          const mapped = scopedCalendarEvents.map((event: any) => ({
             id: event._id || event.id,
             title: event.title,
             start: event.startDate || event.start,
@@ -135,8 +133,7 @@ const Calendar: React.FC<CalendarProps> = ({
   }, [
     initialEvents,
     academicYear,
-    calendarByAcademicYear,
-    calendarVersionByAcademicYear,
+    scopedCalendarEvents,
     setCalendarForYear,
   ]);
 

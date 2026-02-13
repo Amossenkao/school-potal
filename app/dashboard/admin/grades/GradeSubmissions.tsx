@@ -107,12 +107,12 @@ const normalizeAcademicYear = (value?: string) =>
 
 const AdminGradeManagement: React.FC = () => {
 	const currentSchool = useSchoolStore((state) => state.school);
+	const currentAcademicYear = currentSchool?.currentAcademicYear || '';
 	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
-	const gradesByAcademicYear = useSchoolStore((state) => state.gradesByAcademicYear);
-	const gradesVersionByAcademicYear = useSchoolStore(
-		(state) => state.gradesVersionByAcademicYear
-	);
 	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
+	const scopedGrades = useSchoolStore(
+		(state) => state.gradesByAcademicYear?.[currentAcademicYear]
+	);
 	// Data states
 	const [submissions, setSubmissions] = useState<GradeSubmission[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -313,41 +313,63 @@ const AdminGradeManagement: React.FC = () => {
 
 	// Fetch and process grade data
 	const fetchGrades = async (forceRefresh = false) => {
+		if (!currentAcademicYear) {
+			setSubmissions([]);
+			setLoading(false);
+			return;
+		}
+		const schoolState = useSchoolStore.getState();
+		const cachedByYear = schoolState.gradesByAcademicYear || {};
+		const hasYearSnapshot = Object.prototype.hasOwnProperty.call(
+			cachedByYear,
+			currentAcademicYear
+		);
+		const cachedGrades = Array.isArray(cachedByYear[currentAcademicYear])
+			? cachedByYear[currentAcademicYear]
+			: [];
+
 		try {
-			setLoading(true);
-			setError('');
-			const academicYear = currentSchool?.currentAcademicYear || '2025-2026';
-			const cachedGrades = gradesByAcademicYear?.[academicYear];
-			const hasScopedVersion =
-				typeof gradesVersionByAcademicYear?.[academicYear] === 'string';
-			if (
-				!forceRefresh &&
-				Array.isArray(cachedGrades) &&
-				cachedGrades.length > 0 &&
-				hasScopedVersion
-			) {
+			if (!forceRefresh && hasYearSnapshot) {
 				setSubmissions(transformRawGrades(cachedGrades as RawGradeData[]));
+				setError('');
+				setLoading(false);
 				return;
 			}
-			const response = await fetch(`/api/grades?academicYear=${academicYear}`);
+			setLoading(true);
+			setError('');
+			const response = await fetch(`/api/grades?academicYear=${currentAcademicYear}`);
 			if (!response.ok) {
 				throw new Error(`HTTP error! status: ${response.status}`);
 			}
 			const data = await response.json();
-			const rawGrades: RawGradeData[] = data.data.report.grades;
+			const rawGrades: RawGradeData[] = Array.isArray(data?.data?.report?.grades)
+				? data.data.report.grades
+				: Array.isArray(data?.data?.grades)
+					? data.data.grades
+					: [];
 			setSubmissions(transformRawGrades(rawGrades));
-			setGradesForYear(academicYear, rawGrades);
+			setGradesForYear(currentAcademicYear, rawGrades);
 		} catch (err) {
 			console.error('Error fetching grades:', err);
-			setError('Failed to fetch grade submissions. Please try again.');
+			if (submissions.length === 0) {
+				setError('Failed to fetch grade submissions. Please try again.');
+			}
 		} finally {
 			setLoading(false);
 		}
 	};
 
 	useEffect(() => {
-		fetchGrades();
-	}, [gradesByAcademicYear, gradesVersionByAcademicYear, currentSchool]);
+		void fetchGrades();
+		// Fetch on academic-year context change; store updates should not retrigger.
+	}, [currentAcademicYear]);
+
+	useEffect(() => {
+		if (!Array.isArray(scopedGrades)) return;
+		setSubmissions(transformRawGrades(scopedGrades as RawGradeData[]));
+		setLoading(false);
+		setError('');
+	}, [scopedGrades]);
 
 	// API interaction handlers
 	const updateGradesStatus = async (
@@ -367,7 +389,7 @@ const AdminGradeManagement: React.FC = () => {
 			if (!response.ok) {
 				throw new Error('API request failed');
 			}
-			await fetchGrades(); // Refresh data on success
+			await fetchGrades(true); // Refresh data on success
 			window.dispatchEvent(new CustomEvent('grading:counts:refresh'));
 		} catch (error) {
 			console.error('Error updating grade status:', error);

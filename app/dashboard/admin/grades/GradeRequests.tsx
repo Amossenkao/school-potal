@@ -59,14 +59,12 @@ const periods = [
 
 const GradeRequests: React.FC = () => {
 	const currentSchool = useSchoolStore((state) => state.school);
-	const gradeRequestsByAcademicYear = useSchoolStore(
-		(state) => state.gradeRequestsByAcademicYear
-	);
-	const gradeRequestsVersionByAcademicYear = useSchoolStore(
-		(state) => state.gradeRequestsVersionByAcademicYear
-	);
+	const currentAcademicYear = currentSchool?.currentAcademicYear || '';
 	const setGradeRequestsForYear = useSchoolStore(
 		(state) => state.setGradeRequestsForYear
+	);
+	const scopedGradeRequests = useSchoolStore(
+		(state) => state.gradeRequestsByAcademicYear?.[currentAcademicYear]
 	);
 	// Data states
 	const [bulkRequests, setBulkRequests] = useState<BulkGradeRequest[]>([]);
@@ -113,24 +111,37 @@ const GradeRequests: React.FC = () => {
 
 	// --- DATA FETCHING & PROCESSING ---
 	const fetchRequests = async (forceRefresh = false) => {
+		if (!currentAcademicYear) {
+			setBulkRequests([]);
+			setLoading(false);
+			return;
+		}
+		const schoolState = useSchoolStore.getState();
+		const cachedByYear = schoolState.gradeRequestsByAcademicYear || {};
+		const hasYearSnapshot = Object.prototype.hasOwnProperty.call(
+			cachedByYear,
+			currentAcademicYear
+		);
+		const cachedRequests = Array.isArray(cachedByYear[currentAcademicYear])
+			? cachedByYear[currentAcademicYear]
+			: [];
+
 		try {
-			setLoading(true);
-			setError('');
-			const academicYear = currentSchool?.currentAcademicYear || '2025-2026';
-			const cachedRequests = gradeRequestsByAcademicYear?.[academicYear];
-			const hasScopedVersion =
-				typeof gradeRequestsVersionByAcademicYear?.[academicYear] === 'string';
-			if (
-				!forceRefresh &&
-				Array.isArray(cachedRequests) &&
-				cachedRequests.length > 0 &&
-				hasScopedVersion
-			) {
+			if (!forceRefresh && hasYearSnapshot) {
 				setBulkRequests(cachedRequests as BulkGradeRequest[]);
+				setError('');
+				setLoading(false);
 				return;
 			}
+
+			if (!forceRefresh && bulkRequests.length > 0) {
+				setError('');
+			} else {
+				setLoading(true);
+			}
+			setError('');
 			const response = await fetch(
-				`/api/grades/requests?academicYear=${academicYear}`
+				`/api/grades/requests?academicYear=${currentAcademicYear}`
 			);
 			if (!response.ok) {
 				throw new Error('Failed to fetch grade change requests');
@@ -138,18 +149,28 @@ const GradeRequests: React.FC = () => {
 			const data = await response.json();
 			const report = Array.isArray(data?.data?.report) ? data.data.report : [];
 			setBulkRequests(report);
-			setGradeRequestsForYear(academicYear, report);
+			setGradeRequestsForYear(currentAcademicYear, report);
 		} catch (err) {
 			console.error('Error fetching grade change requests:', err);
-			setError('Failed to fetch requests. Please try again.');
+			if (bulkRequests.length === 0) {
+				setError('Failed to fetch requests. Please try again.');
+			}
 		} finally {
 			setLoading(false);
 		}
 	};
 
 	useEffect(() => {
-		fetchRequests();
-	}, [currentSchool, gradeRequestsByAcademicYear, gradeRequestsVersionByAcademicYear]);
+		void fetchRequests();
+		// Cache refresh should follow academic year changes only.
+	}, [currentAcademicYear]);
+
+	useEffect(() => {
+		if (!Array.isArray(scopedGradeRequests)) return;
+		setBulkRequests(scopedGradeRequests as BulkGradeRequest[]);
+		setLoading(false);
+		setError('');
+	}, [scopedGradeRequests]);
 
 	// API interaction simulation
 	const updateRequestStatus = async (payload: {
@@ -167,7 +188,7 @@ const GradeRequests: React.FC = () => {
 			if (!response.ok) {
 				throw new Error('API request failed');
 			}
-			await fetchRequests(); // Refresh data on success
+			await fetchRequests(true); // Refresh data on success
 			window.dispatchEvent(new CustomEvent('grading:counts:refresh'));
 		} catch (error) {
 			console.error('Error updating grade status:', error);
