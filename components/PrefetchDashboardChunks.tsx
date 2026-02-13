@@ -13,14 +13,24 @@ export default function PrefetchDashboardChunks() {
 
 	useEffect(() => {
 		if (!school || !user || !isOnline) return;
-		if (typeof navigator !== 'undefined') {
-			const connection = (navigator as any).connection;
-			if (connection?.saveData) return;
-			if (['slow-2g', '2g'].includes(connection?.effectiveType)) return;
+
+		const runPrefetch = () => {
+			const adminPosition =
+				user.role === 'administrator' ? (user as any).position : undefined;
+			preloadComponentsForUser(school, user.role, adminPosition);
+		};
+
+		if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+			const idleId = (window as any).requestIdleCallback(runPrefetch, {
+				timeout: 2000,
+			});
+			return () => {
+				(window as any).cancelIdleCallback?.(idleId);
+			};
 		}
-		const adminPosition =
-			user.role === 'administrator' ? (user as any).position : undefined;
-		preloadComponentsForUser(school, user.role, adminPosition);
+
+		const timeoutId = window.setTimeout(runPrefetch, 150);
+		return () => window.clearTimeout(timeoutId);
 	}, [school, user, isOnline]);
 
 	return null;

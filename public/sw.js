@@ -1,9 +1,15 @@
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
 const API_CACHE = `api-${CACHE_VERSION}`;
 
-const STATIC_ASSETS = ['/', '/dashboard', '/offline', '/manifest.webmanifest'];
+const STATIC_ASSETS = [
+	'/',
+	'/dashboard',
+	'/dashboard/',
+	'/offline',
+	'/manifest.webmanifest',
+];
 const API_ALLOWLIST = [
 	'/api/users',
 	'/api/grades',
@@ -92,10 +98,17 @@ const flushQueue = async () => {
 
 self.addEventListener('install', (event) => {
 	event.waitUntil(
-		caches
-			.open(STATIC_CACHE)
-			.then((cache) => cache.addAll(STATIC_ASSETS))
-			.then(() => self.skipWaiting()),
+		(async () => {
+			const cache = await caches.open(STATIC_CACHE);
+			await Promise.allSettled(
+				STATIC_ASSETS.map((asset) =>
+					cache.add(asset).catch((error) => {
+						console.warn('Failed to pre-cache static asset:', asset, error);
+					}),
+				),
+			);
+			await self.skipWaiting();
+		})(),
 	);
 });
 
@@ -127,6 +140,22 @@ self.addEventListener('message', (event) => {
 				caches.delete(RUNTIME_CACHE),
 				clearQueue().catch(() => undefined),
 			]),
+		);
+	}
+	if (event?.data?.type === 'cache-dashboard-shell') {
+		const path = String(event?.data?.path || '');
+		if (!path.startsWith('/dashboard')) return;
+		event.waitUntil(
+			(async () => {
+				const runtimeCache = await caches.open(RUNTIME_CACHE);
+				const shell =
+					(await caches.match('/dashboard')) ||
+					(await caches.match('/dashboard/'));
+				if (!shell) return;
+				const normalized = path.startsWith('/') ? path : `/${path}`;
+				const request = new Request(normalized, { method: 'GET' });
+				await runtimeCache.put(request, shell.clone());
+			})(),
 		);
 	}
 });
@@ -180,14 +209,26 @@ self.addEventListener('fetch', (event) => {
 			fetch(request)
 				.then((response) => {
 					const copy = response.clone();
-					caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+					if (response.ok) {
+						caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+					}
 					return response;
 				})
-				.catch(() =>
-					caches
-						.match(request)
-						.then((cached) => cached || caches.match('/offline')),
-				),
+				.catch(async () => {
+					const cached = await caches.match(request);
+					if (cached) return cached;
+
+					// Dashboard uses a client-side route shell. If a deep dashboard URL
+					// was never fetched directly, fall back to cached /dashboard shell.
+					if (isSameOrigin && url.pathname.startsWith('/dashboard')) {
+						const dashboardShell =
+							(await caches.match('/dashboard')) ||
+							(await caches.match('/dashboard/'));
+						if (dashboardShell) return dashboardShell;
+					}
+
+					return caches.match('/offline');
+				}),
 		);
 		return;
 	}

@@ -96,7 +96,7 @@ const ChunkLoadFallback = () =>
 			React.createElement(
 				'p',
 				{ className: 'mt-2 text-sm text-muted-foreground' },
-				'This dashboard section could not be loaded right now. Reconnect and try again.',
+				'This dashboard section is not cached for offline use yet. Open it once while online, then try again offline.',
 			),
 		),
 	);

@@ -46,7 +46,6 @@ export default function RootProviders({
 				}
 				return;
 			}
-			if (process.env.NODE_ENV !== 'production') return;
 			try {
 				await navigator.serviceWorker.register('/sw.js');
 			} catch (error) {

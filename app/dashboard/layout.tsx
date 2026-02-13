@@ -7,6 +7,7 @@ import React, { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoutes';
 import { useOfflineNavigationStore } from '@/store/offlineNavigationStore';
+import { useNetworkStore } from '@/store/networkStore';
 import OfflineRouteRenderer from '@/components/OfflineRouteRenderer';
 import PrefetchDashboardChunks from '@/components/PrefetchDashboardChunks';
 
@@ -19,6 +20,7 @@ export default function AdminLayout({
 	const pathname = usePathname();
 	const previousPathname = useRef(pathname);
 	const { offlinePath, setOfflinePath } = useOfflineNavigationStore();
+	const { isOnline } = useNetworkStore();
 	const activePath = offlinePath || pathname;
 
 	useEffect(() => {
@@ -33,6 +35,16 @@ export default function AdminLayout({
 			previousPathname.current = pathname;
 		}
 	}, [pathname, setOfflinePath]);
+
+	useEffect(() => {
+		if (!isOnline) return;
+		if (!('serviceWorker' in navigator)) return;
+		if (!navigator.serviceWorker.controller) return;
+		navigator.serviceWorker.controller.postMessage({
+			type: 'cache-dashboard-shell',
+			path: pathname,
+		});
+	}, [isOnline, pathname]);
 
 	useEffect(() => {
 		const handlePopState = () => {
