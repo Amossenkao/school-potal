@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import useAuth from '@/store/useAuth';
 import LoginPage from '@/app/login/page';
@@ -27,28 +27,48 @@ const ProtectedRoute = ({
 	const [initialCheckComplete, setInitialCheckComplete] = useState(false);
 	const [hasUnauthorizedAccess, setHasUnauthorizedAccess] = useState(false);
 	const [authCheckInProgress, setAuthCheckInProgress] = useState(true);
+	const [bootstrapTimedOut, setBootstrapTimedOut] = useState(false);
 
 	// Check if this route has role requirements
 	const hasRoleRequirements =
 		requiredRole || (allowedRoles && allowedRoles.length > 0);
 
-	// Initial auth check
-	useEffect(() => {
-		const initializeAuth = async () => {
-			setAuthCheckInProgress(true);
+	const initializeAuth = useCallback(async () => {
+		setAuthCheckInProgress(true);
+		try {
 			if (!navigator.onLine || !isOnline) {
 				hydrateFromCache();
 				setInitialCheckComplete(true);
-				setAuthCheckInProgress(false);
 				return;
 			}
 			await checkAuthStatus();
 			setInitialCheckComplete(true);
+		} finally {
 			setAuthCheckInProgress(false);
-		};
-
-		initializeAuth();
+		}
 	}, [checkAuthStatus, hydrateFromCache, isOnline]);
+
+	// Initial auth check
+	useEffect(() => {
+		void initializeAuth();
+	}, [initializeAuth]);
+
+	const showingInitialLoading =
+		(isLoading || !initialCheckComplete || authCheckInProgress) &&
+		!user &&
+		isOnline &&
+		!authCheckFailed;
+
+	useEffect(() => {
+		if (!showingInitialLoading) {
+			setBootstrapTimedOut(false);
+			return;
+		}
+		const timer = window.setTimeout(() => {
+			setBootstrapTimedOut(true);
+		}, 8000);
+		return () => window.clearTimeout(timer);
+	}, [showingInitialLoading]);
 
 	// Handle initial redirect for unauthenticated users
 	useEffect(() => {
@@ -180,7 +200,46 @@ const ProtectedRoute = ({
 				/>
 			);
 		}
-		return <PageLoading variant="school" fullScreen={true} />;
+		if (bootstrapTimedOut) {
+			return (
+				<div className="min-h-screen bg-background flex items-center justify-center p-6">
+					<div className="w-full max-w-md rounded-lg border border-border bg-card p-6 text-center shadow-sm">
+						<h2 className="text-lg font-semibold text-foreground">
+							Session check is taking too long
+						</h2>
+						<p className="mt-2 text-sm text-muted-foreground">
+							Authentication data could not be restored in time.
+						</p>
+						<div className="mt-5 flex justify-center gap-3">
+							<button
+								type="button"
+								onClick={() => {
+									setBootstrapTimedOut(false);
+									void initializeAuth();
+								}}
+								className="rounded-lg bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
+							>
+								Retry
+							</button>
+							<button
+								type="button"
+								onClick={() => router.replace('/login')}
+								className="rounded-lg border border-border px-4 py-2 text-foreground hover:bg-accent"
+							>
+								Go to login
+							</button>
+						</div>
+					</div>
+				</div>
+			);
+		}
+		return (
+			<PageLoading
+				variant="school"
+				fullScreen={true}
+				message="Checking session..."
+			/>
+		);
 	}
 
 	// ✅ If auth check failed, don't redirect - let AdminLayout handle the UI
@@ -205,7 +264,13 @@ const ProtectedRoute = ({
 		user?.mustChangePassword &&
 		pathname !== '/login/account-setup'
 	) {
-		return <PageLoading variant="school" fullScreen={true} />;
+		return (
+			<PageLoading
+				variant="school"
+				fullScreen={true}
+				message="Redirecting to account setup..."
+			/>
+		);
 	}
 
 	// Check role-based access if user is logged in
