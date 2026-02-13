@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/utils/session';
 import { getSchoolProfile } from '@/lib/mongoose';
+import { getTenantModels } from '@/models';
 import {
 	buildBootstrapPayload,
 	getAcademicYear,
@@ -82,6 +83,40 @@ export async function GET(request: NextRequest) {
 				path: '/',
 			});
 
+			return response;
+		}
+
+		if (schoolProfile?.isActive === false) {
+			return NextResponse.json(
+				{
+					user: null,
+					school: schoolProfile || null,
+					message: 'School is inactive',
+				},
+				{ status: 403 },
+			);
+		}
+
+		const models = await getTenantModels();
+		const currentUser = await models.User.findById(session.id)
+			.select('isActive')
+			.lean();
+		if (!currentUser || currentUser.isActive === false) {
+			const response = NextResponse.json(
+				{
+					user: null,
+					school: schoolProfile || null,
+					message: 'Account is deactivated',
+				},
+				{ status: 403 },
+			);
+			response.cookies.set('sessionId', '', {
+				httpOnly: true,
+				secure: process.env.NODE_ENV === 'production',
+				sameSite: 'lax',
+				expires: new Date(0),
+				path: '/',
+			});
 			return response;
 		}
 

@@ -1510,13 +1510,6 @@ function ReportContent({
 
 	// Fetch data only once when component mounts - use useCallback to prevent recreation
 	const fetchAndMergeGrades = useCallback(async () => {
-		// If there are no active students to display, don't fetch grades.
-		if (!activeStudents || activeStudents.length === 0) {
-			setStudentsData([]);
-			setLoading(false);
-			return;
-		}
-
 		try {
 			setLoading(true);
 			setError(null);
@@ -1533,17 +1526,17 @@ function ReportContent({
 			);
 			const cacheKey = `periodic:report:${reportFilters.academicYear}:${reportFilters.session}:${reportFilters.className}:${reportFilters.period}:${selectedIdsCacheKey}:${userScopeKey}`;
 			const cachedReport = getClientCache<PeriodicStudentData[]>(cacheKey);
+			const gradesCacheBaseKey = `periodic:grades:${reportFilters.academicYear}:${reportFilters.session}:${reportFilters.className}:${reportFilters.period}`;
+			const gradesCacheKey = `${gradesCacheBaseKey}:${selectedIdsCacheKey}`;
+			const cachedGrades =
+				getClientCache<any>(gradesCacheKey) ??
+				getClientCache<any>(`${gradesCacheBaseKey}:all`);
 			const offline =
 				typeof navigator !== 'undefined' && navigator.onLine === false;
 			if (cachedReport && offline) {
 				setStudentsData(cachedReport);
 				setLoading(false);
 				return;
-			}
-			if (offline) {
-				throw new Error(
-					'No cached periodic report found for offline generation.',
-				);
 			}
 
 			const params = new URLSearchParams({
@@ -1559,10 +1552,12 @@ function ReportContent({
 				const hasScopedGradesVersion =
 					typeof gradesVersionByAcademicYear?.[reportFilters.academicYear] ===
 					'string';
-				if (
+				const canUseScopedGrades =
 					Array.isArray(scopedGrades) &&
 					scopedGrades.length > 0 &&
-					hasScopedGradesVersion
+					(offline || hasScopedGradesVersion);
+				if (
+					canUseScopedGrades
 				) {
 					const selectedIdsSet =
 						selectedStudentIds.length > 0 ? new Set(selectedStudentIds) : null;
@@ -1580,6 +1575,12 @@ function ReportContent({
 						success: true,
 						data: { grades: filteredStoreGrades },
 					};
+				} else if (offline && cachedGrades) {
+					data = cachedGrades;
+				} else if (offline && !cachedGrades) {
+					throw new Error(
+						'No cached grades found for offline periodic report generation.',
+					);
 				} else {
 					try {
 						const res = await fetch(`/api/grades?${params.toString()}`, {
@@ -1590,13 +1591,23 @@ function ReportContent({
 						if (Array.isArray(data?.data?.grades)) {
 							setGradesForYear(reportFilters.academicYear, data.data.grades);
 						}
+						setClientCache(gradesCacheKey, data, OFFLINE_CACHE_TTL_MS);
+						if (selectedIdsCacheKey === 'all') {
+							setClientCache(
+								`${gradesCacheBaseKey}:all`,
+								data,
+								OFFLINE_CACHE_TTL_MS,
+							);
+						}
 					} catch (fetchError) {
-						if (cachedReport) {
+						if (cachedGrades) {
+							data = cachedGrades;
+						} else if (cachedReport) {
 							setStudentsData(cachedReport);
 							setLoading(false);
 							return;
 						}
-						throw fetchError;
+						if (!data) throw fetchError;
 					}
 				}
 
@@ -1689,8 +1700,28 @@ function ReportContent({
 				});
 			}
 
-			// The final data is based on the activeStudents list
-			const finalReportData = activeStudents.map((activeStudent) => {
+			const fallbackStudentsFromGrades: Student[] = gradeReports.map((report) => ({
+				id: String(report.studentId || '').trim(),
+				name:
+					(typeof report.studentName === 'string' &&
+					report.studentName.trim().length > 0
+						? report.studentName
+						: String(report.studentId || '')
+					).trim(),
+				className: reportFilters.className,
+			}));
+			const dedupedFallbackStudents = Array.from(
+				new Map(
+					fallbackStudentsFromGrades.map((student) => [student.id, student]),
+				).values(),
+			).filter((student) => student.id);
+			const studentsForReport =
+				activeStudents && activeStudents.length > 0
+					? activeStudents
+					: dedupedFallbackStudents;
+
+			// The final data is based on selected students if available; otherwise use grade-derived students.
+			const finalReportData = studentsForReport.map((activeStudent) => {
 				const gradeData = gradesMap.get(activeStudent.id);
 				if (gradeData) {
 					// Student has grades, use the data from the API (including rank from backend)
@@ -1707,6 +1738,11 @@ function ReportContent({
 				}
 			});
 
+			if (finalReportData.length === 0 && gradeReports.length > 0) {
+				setStudentsData(gradeReports);
+				setClientCache(cacheKey, gradeReports, OFFLINE_CACHE_TTL_MS);
+				return;
+			}
 			setStudentsData(finalReportData);
 			setClientCache(cacheKey, finalReportData, OFFLINE_CACHE_TTL_MS);
 		} catch (err) {

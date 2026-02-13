@@ -3207,11 +3207,19 @@ export async function PUT(request: NextRequest) {
 			);
 		}
 
+		const wasActive = targetUser.isActive !== false;
+		const deactivatedNow = wasActive && filteredUserData.isActive === false;
+		if (deactivatedNow) {
+			await destroyAllUserSessions(actualTargetUserId);
+		}
+
 		// Update sessions
-		await updateAllUserSessions(
-			actualTargetUserId,
-			buildUserResponse(updatedUser.toObject()),
-		);
+		if (!deactivatedNow) {
+			await updateAllUserSessions(
+				actualTargetUserId,
+				buildUserResponse(updatedUser.toObject()),
+			);
+		}
 
 		const profileUpdated = changedProfileFields.length > 0;
 

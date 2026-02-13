@@ -122,10 +122,16 @@ const normalizeStudentId = (...ids: Array<unknown>) => {
 };
 
 const buildStudentFullName = (student: any) =>
-	[student?.firstName, student?.middleName, student?.lastName]
+	[
+		student?.firstName,
+		student?.middleName,
+		student?.lastName,
+	]
 		.map((part) => (typeof part === 'string' ? part.trim() : ''))
 		.filter(Boolean)
-		.join(' ');
+		.join(' ')
+		.trim() ||
+	(typeof student?.name === 'string' ? student.name.trim() : '');
 
 const REPORT_PERIOD_KEYS = [
 	'first',
@@ -1693,6 +1699,8 @@ function ReportContent({
 				const selectedStudentIds = reportFilters.selectedStudents
 					.map((studentId) => normalizeStudentId(studentId))
 					.filter(Boolean);
+				const offline =
+					typeof navigator !== 'undefined' && navigator.onLine === false;
 
 				if (isStudent && user) {
 					studentsToProcess = [
@@ -1755,7 +1763,7 @@ function ReportContent({
 								} else {
 									studentsToProcess = mappedCached;
 								}
-							} else {
+							} else if (!offline) {
 								const studentsResponse = await fetch(
 									`/api/users?classId=${reportFilters.className}&role=student&academicYear=${reportFilters.academicYear}`,
 								);
@@ -1822,15 +1830,15 @@ function ReportContent({
 					const hasScopedGradesVersion =
 						typeof gradesVersionByAcademicYear?.[reportFilters.academicYear] ===
 						'string';
-
-					let gradesData: any = { success: true, data: { report: [] } };
-					const offline =
-						typeof navigator !== 'undefined' && navigator.onLine === false;
-
-					if (
+					const canUseScopedGrades =
 						Array.isArray(scopedGrades) &&
 						scopedGrades.length > 0 &&
-						hasScopedGradesVersion
+						(offline || hasScopedGradesVersion);
+
+					let gradesData: any = { success: true, data: { report: [] } };
+
+					if (
+						canUseScopedGrades
 					) {
 						const selectedIdsSet =
 							selectedStudentIds.length > 0 ? new Set(selectedStudentIds) : null;
@@ -1898,13 +1906,37 @@ function ReportContent({
 					typeof gradesData.data.report === 'object'
 				) {
 					existingReports = [gradesData.data.report];
-				} else if (Array.isArray(gradesData.data?.grades)) {
-					existingReports = buildReportsFromGradeRows({
-						grades: gradesData.data.grades,
-						classSubjects,
-						studentsToProcess,
-					});
-				}
+					} else if (Array.isArray(gradesData.data?.grades)) {
+						existingReports = buildReportsFromGradeRows({
+							grades: gradesData.data.grades,
+							classSubjects,
+							studentsToProcess,
+						});
+					}
+
+					if (studentsToProcess.length === 0 && existingReports.length > 0) {
+						studentsToProcess = existingReports
+							.map((report: any) => {
+								const studentId = normalizeStudentId(
+									report?.studentId,
+									report?.id,
+									report?._id,
+								);
+								if (!studentId) return null;
+								const studentName =
+									typeof report?.studentName === 'string'
+										? report.studentName.trim()
+										: '';
+								return {
+									studentId,
+									name: studentName || studentId,
+									firstName: studentName || studentId,
+									middleName: '',
+									lastName: '',
+								};
+							})
+							.filter(Boolean) as any[];
+					}
 
 				const reportData = await Promise.all(
 					studentsToProcess.map(async (student: any) => {

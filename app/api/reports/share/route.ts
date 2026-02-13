@@ -5,6 +5,8 @@ import path from 'path';
 import { promises as fs } from 'fs';
 import { getTenantModels } from '@/models';
 import { getSchoolProfile } from '@/lib/mongoose';
+import { authorizeUser } from '@/proxy';
+import { checkRateLimit, getRequestIp } from '@/utils/rateLimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -221,6 +223,31 @@ const renderStatusPage = ({
 
 export async function POST(request: NextRequest) {
 	try {
+		const currentUser = await authorizeUser(request);
+		if (!currentUser) {
+			return NextResponse.json(
+				{ success: false, message: 'Unauthorized' },
+				{ status: 401 },
+			);
+		}
+
+		const ip = getRequestIp(request.headers);
+		const createLimiter = await checkRateLimit(
+			`rl:reports_share_post:${currentUser.id}:${ip}`,
+			15,
+			60,
+		);
+		if (!createLimiter.allowed) {
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'Too many share-link requests. Please try again later.',
+					retryAfter: createLimiter.retryAfter,
+				},
+				{ status: 429 },
+			);
+		}
+
 		const {
 			cacheKey,
 			fileName,
@@ -389,6 +416,27 @@ export async function GET(request: NextRequest) {
 				status: 200,
 				headers: { 'Content-Type': 'text/html; charset=utf-8' },
 			});
+		}
+
+		const ip = getRequestIp(request.headers);
+		const pinLimiter = await checkRateLimit(
+			`rl:reports_share_pin:${token}:${ip}`,
+			10,
+			300,
+		);
+		if (!pinLimiter.allowed) {
+			return new NextResponse(
+				renderPinForm({
+					token,
+					errorMessage: 'Too many PIN attempts. Please wait and try again.',
+					schoolName,
+					logoUrl,
+				}),
+				{
+					status: 429,
+					headers: { 'Content-Type': 'text/html; charset=utf-8' },
+				},
+			);
 		}
 
 		const pinOk = await bcrypt.compare(pin, share.pinHash);

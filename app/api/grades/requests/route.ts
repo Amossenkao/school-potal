@@ -16,6 +16,43 @@ function getCurrentAcademicYear() {
 	return month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
 }
 
+function getTeacherYearData(
+	teacher: any,
+	academicYear: string,
+	currentAcademicYear: string,
+) {
+	if (!teacher || !Array.isArray(teacher.subjects)) return null;
+	return (
+		teacher.subjects.find(
+			(yearData: any) =>
+				(yearData.year || currentAcademicYear) === academicYear,
+		) || null
+	);
+}
+
+function getTeacherClassData(teacherYearData: any, classId: string): any | null {
+	if (!teacherYearData?.classes || !classId) return null;
+	return (
+		teacherYearData.classes.find((c: any) => c.classId === classId) || null
+	);
+}
+
+function isGradeChangeWindowOpen(
+	schoolProfile: any,
+	academicYear: string,
+	period: string,
+): boolean {
+	const settings = schoolProfile?.settings?.teacherSettings;
+	if (!settings) return false;
+	const years = Array.isArray(settings.gradeChangeRequestAcademicYears)
+		? settings.gradeChangeRequestAcademicYears
+		: [];
+	const periods = Array.isArray(settings.gradeChangeRequestPeriods)
+		? settings.gradeChangeRequestPeriods
+		: [];
+	return years.includes(academicYear) && periods.includes(period);
+}
+
 // Helper function to safely prepare user data for session updates
 function prepareUserDataForSession(userDoc: any) {
 	// Convert Mongoose document to plain object if needed
@@ -204,30 +241,61 @@ export async function POST(request: NextRequest) {
 
 		// Fetch school settings to check if grade change requests are allowed
 		const schoolProfile = await getSchoolProfile();
-		if (schoolProfile?.settings?.teacherSettings) {
-			const {
-				gradeChangeRequestAcademicYears = [],
-				gradeChangeRequestPeriods = [],
-			} = schoolProfile.settings.teacherSettings;
+		const currentAcademicYear = getCurrentAcademicYear();
 
-			const currentAcademicYear = getCurrentAcademicYear();
-
-			if (
-				!gradeChangeRequestAcademicYears.includes(currentAcademicYear) ||
-				!gradeChangeRequestPeriods.includes(period)
-			) {
-				return NextResponse.json(
-					{
-						success: false,
-						message:
-							'Grade change requests are not currently open for this academic year or period.',
-					},
-					{ status: 403 }
-				);
-			}
+		if (!isGradeChangeWindowOpen(schoolProfile, currentAcademicYear, period)) {
+			return NextResponse.json(
+				{
+					success: false,
+					message:
+						'Grade change requests are not currently open for this academic year or period.',
+				},
+				{ status: 403 }
+			);
 		}
 
-		const academicYear = getCurrentAcademicYear();
+		const teacherRecord = await User.findById(teacher.id)
+			.select('subjects')
+			.lean();
+		const teacherYearData = getTeacherYearData(
+			teacherRecord,
+			currentAcademicYear,
+			currentAcademicYear,
+		);
+		if (!teacherYearData) {
+			return NextResponse.json(
+				{
+					success: false,
+					message:
+						'You are not assigned to this academic year for grade changes.',
+				},
+				{ status: 403 }
+			);
+		}
+
+		const classData = getTeacherClassData(teacherYearData, classId);
+		if (!classData) {
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'You are not assigned to this class for this year.',
+				},
+				{ status: 403 }
+			);
+		}
+
+		const allowedSubjects = classData.subjects || [];
+		if (!allowedSubjects.includes(subject)) {
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'You are not assigned to this subject for this class.',
+				},
+				{ status: 403 }
+			);
+		}
+
+		const academicYear = currentAcademicYear;
 		const batchId = `BCR-${crypto.randomUUID()}`;
 		const createdRequests: any[] = [];
 		const updatedGrades: any[] = [];
@@ -500,6 +568,23 @@ export async function PUT(request: NextRequest) {
 			);
 		}
 
+		const schoolProfile = await getSchoolProfile();
+		if (
+			!isGradeChangeWindowOpen(
+				schoolProfile,
+				String(requestToUpdate.academicYear || getCurrentAcademicYear()),
+				String(requestToUpdate.period || ''),
+			)
+		) {
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'Grade change requests are currently closed.',
+				},
+				{ status: 403 }
+			);
+		}
+
 		const updatedRequest = await GradeChangeRequest.findByIdAndUpdate(
 			requestId,
 			{
@@ -573,6 +658,23 @@ export async function DELETE(request: NextRequest) {
 			return NextResponse.json(
 				{ message: 'Cannot withdraw a request that is not pending' },
 				{ status: 400 }
+			);
+		}
+
+		const schoolProfile = await getSchoolProfile();
+		if (
+			!isGradeChangeWindowOpen(
+				schoolProfile,
+				String(requestToDelete.academicYear || getCurrentAcademicYear()),
+				String(requestToDelete.period || ''),
+			)
+		) {
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'Grade change requests are currently closed.',
+				},
+				{ status: 403 }
 			);
 		}
 

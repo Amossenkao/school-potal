@@ -1,6 +1,6 @@
 // app/api/settings/route.ts
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import mongoose, { Document } from 'mongoose';
 import {
 	SchoolSettings,
@@ -12,6 +12,7 @@ import { destroyAllUserSessions } from '@/utils/session';
 import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
 import bcrypt from 'bcryptjs';
 import { redis } from '@/lib/redis';
+import { authorizeUser } from '@/proxy';
 
 async function runWithConcurrency<T>(
 	items: T[],
@@ -37,8 +38,16 @@ async function runWithConcurrency<T>(
  * Handles updating school settings and performing bulk user actions.
  * @param request The incoming Next.js request object.
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
 	try {
+		const currentUser = await authorizeUser(request, 'system_admin');
+		if (!currentUser) {
+			return NextResponse.json(
+				{ success: false, message: 'Unauthorized' },
+				{ status: 401 },
+			);
+		}
+
 		const host = request.headers.get('host');
 		if (!host) {
 			return NextResponse.json(
@@ -389,8 +398,16 @@ export async function POST(request: Request) {
 /**
  * GET endpoint to fetch current school settings
  */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
 	try {
+		const currentUser = await authorizeUser(request, 'system_admin');
+		if (!currentUser) {
+			return NextResponse.json(
+				{ success: false, message: 'Unauthorized' },
+				{ status: 401 },
+			);
+		}
+
 		const host = request.headers.get('host');
 		if (!host) {
 			return NextResponse.json(

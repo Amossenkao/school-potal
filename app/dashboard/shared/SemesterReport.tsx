@@ -1653,9 +1653,9 @@ function ReportContent({
 							studentsToProcess = mapped;
 						}
 					}
-						if (studentsToProcess.length === 0) {
-							const cacheKey = `semester:students:${reportFilters.academicYear}:${reportFilters.className}`;
-							const cached = getClientCache<any[]>(cacheKey);
+							if (studentsToProcess.length === 0) {
+								const cacheKey = `semester:students:${reportFilters.academicYear}:${reportFilters.className}`;
+								const cached = getClientCache<any[]>(cacheKey);
 							if (cached) {
 								const mappedCached = cached.map((student: any) => ({
 									...student,
@@ -1673,15 +1673,13 @@ function ReportContent({
 								} else {
 									studentsToProcess = mappedCached;
 								}
-							} else {
-								if (offline) {
-									throw new Error(
-										'No cached student roster found for offline semester report generation.',
-									);
-								}
-								const studentsResponse = await fetch(
-									`/api/users?classId=${reportFilters.className}&role=student&academicYear=${reportFilters.academicYear}`,
-									{ cache: 'no-store' },
+								} else {
+									if (offline) {
+										// Continue. We'll derive student roster from cached grades below.
+									} else {
+									const studentsResponse = await fetch(
+										`/api/users?classId=${reportFilters.className}&role=student&academicYear=${reportFilters.academicYear}`,
+										{ cache: 'no-store' },
 								);
 								if (!studentsResponse.ok)
 									throw new Error('Failed to fetch students');
@@ -1713,16 +1711,17 @@ function ReportContent({
 								}));
 								setClientCache(cacheKey, mapped, OFFLINE_CACHE_TTL_MS);
 
-								if (selectedStudentIds.length > 0) {
-									studentsToProcess = mapped.filter((student: any) =>
-										selectedStudentIds.includes(student.studentId),
-									);
-								} else {
-									studentsToProcess = mapped;
+									if (selectedStudentIds.length > 0) {
+										studentsToProcess = mapped.filter((student: any) =>
+											selectedStudentIds.includes(student.studentId),
+										);
+									} else {
+										studentsToProcess = mapped;
+									}
+									}
 								}
 							}
-						}
-				}
+					}
 
 				const params = new URLSearchParams({
 					classId: reportFilters.className,
@@ -1744,15 +1743,17 @@ function ReportContent({
 						getClientCache<any>(gradesCacheKey) ??
 						getClientCache<any>(`${gradesCacheBaseKey}:all`);
 					const scopedGrades = gradesByAcademicYear?.[reportFilters.academicYear];
-					const hasScopedGradesVersion =
-						typeof gradesVersionByAcademicYear?.[reportFilters.academicYear] ===
-						'string';
+						const hasScopedGradesVersion =
+							typeof gradesVersionByAcademicYear?.[reportFilters.academicYear] ===
+							'string';
+						const canUseScopedGrades =
+							Array.isArray(scopedGrades) &&
+							scopedGrades.length > 0 &&
+							(offline || hasScopedGradesVersion);
 
-					if (
-						Array.isArray(scopedGrades) &&
-						scopedGrades.length > 0 &&
-						hasScopedGradesVersion
-					) {
+						if (
+							canUseScopedGrades
+						) {
 						const selectedIdsSet =
 							selectedStudentIds.length > 0 ? new Set(selectedStudentIds) : null;
 						const filteredStoreGrades = scopedGrades.filter((grade: any) => {
@@ -1821,13 +1822,37 @@ function ReportContent({
 					typeof gradesData.data.report === 'object'
 				) {
 					existingReports = [gradesData.data.report];
-				} else if (Array.isArray(gradesData.data?.grades)) {
-					existingReports = buildReportsFromGradeRows({
-						grades: gradesData.data.grades,
-						classSubjects,
-						studentsToProcess,
-					});
-				}
+					} else if (Array.isArray(gradesData.data?.grades)) {
+						existingReports = buildReportsFromGradeRows({
+							grades: gradesData.data.grades,
+							classSubjects,
+							studentsToProcess,
+						});
+					}
+
+					if (studentsToProcess.length === 0 && existingReports.length > 0) {
+						studentsToProcess = existingReports
+							.map((report: any) => {
+								const studentId = normalizeStudentId(
+									report?.studentId,
+									report?.id,
+									report?._id,
+								);
+								if (!studentId) return null;
+								const studentName =
+									typeof report?.studentName === 'string'
+										? report.studentName.trim()
+										: '';
+								return {
+									studentId,
+									name: studentName || studentId,
+									firstName: studentName || studentId,
+									middleName: '',
+									lastName: '',
+								};
+							})
+							.filter(Boolean) as any[];
+					}
 
 				const reportData = await Promise.all(
 					studentsToProcess.map(async (student: any) => {

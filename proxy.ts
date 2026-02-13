@@ -1,6 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { getSession } from '@/utils/session';
 import { UserRole } from './types';
+import { getTenantModels } from '@/models';
+import { getSchoolProfile } from '@/lib/mongoose';
 
 export default function proxy() {}
 
@@ -30,9 +32,26 @@ export async function authenticateRequest(
 		throw new Error('Invalid or expired session');
 	}
 
-	const requestHost = request.headers.get('host');
-	if (session.tenantId && session.tenantId !== requestHost) {
+	const requestHost = request.headers.get('host')?.split(':')[0];
+	const sessionHost =
+		typeof session.tenantId === 'string'
+			? session.tenantId.split(':')[0]
+			: session.tenantId;
+	if (sessionHost && sessionHost !== requestHost) {
 		throw new Error('Invalid tenant access');
+	}
+
+	const schoolProfile = await getSchoolProfile();
+	if (schoolProfile?.isActive === false) {
+		throw new Error('School is inactive');
+	}
+
+	const models = await getTenantModels();
+	const currentUser = await models.User.findById(session.id)
+		.select('isActive role')
+		.lean();
+	if (!currentUser || currentUser.isActive === false) {
+		throw new Error('User account is inactive');
 	}
 
 	// 4. Return session data as authenticated user

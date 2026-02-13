@@ -159,6 +159,9 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			}
 		}
 
+		// Cache-first: if school exists in memory or local storage, skip network fetch.
+		if (get().school) return;
+
 		const isOffline =
 			typeof navigator !== 'undefined' && navigator.onLine === false;
 		if (isOffline) return;

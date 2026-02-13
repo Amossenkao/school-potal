@@ -11,6 +11,7 @@ import {
 	getAcademicYear,
 	getDomainVersions,
 } from '@/app/api/auth/bootstrap';
+import { checkRateLimit, getRequestIp } from '@/utils/rateLimit';
 
 const toHash = (value: unknown) => {
 	try {
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
 
 	const body = await request.json();
 	let { action, username, password, role, otp, sessionId, id } = body; // Changed userId to id
+	const ip = getRequestIp(request.headers);
 
 	if (['student', 'teacher'].includes(role)) {
 		username = username.toUpperCase();
@@ -59,8 +61,42 @@ export async function POST(request: NextRequest) {
 	try {
 		switch (action) {
 			case 'login':
+				{
+					const loginIdentifier = String(username || '').trim().toLowerCase();
+					const limiter = await checkRateLimit(
+						`rl:login:${host}:${ip}:${loginIdentifier}`,
+						10,
+						60,
+					);
+					if (!limiter.allowed) {
+						return NextResponse.json(
+							{
+								message: 'Too many login attempts. Please try again shortly.',
+								retryAfter: limiter.retryAfter,
+							},
+							{ status: 429 },
+						);
+					}
+				}
 				return await handleLogin(user, password, host);
 			case 'verify_otp':
+				{
+					const otpLimiter = await checkRateLimit(
+						`rl:otp_verify:${host}:${ip}:${String(id || '')}`,
+						8,
+						300,
+					);
+					if (!otpLimiter.allowed) {
+						return NextResponse.json(
+							{
+								success: false,
+								message: 'Too many OTP verification attempts. Try again later.',
+								retryAfter: otpLimiter.retryAfter,
+							},
+							{ status: 429 },
+						);
+					}
+				}
 				const verificationResult = await verifyOTP(
 					sessionId,
 					otp,
@@ -127,6 +163,23 @@ export async function POST(request: NextRequest) {
 				return response;
 
 			case 'resend_otp':
+				{
+					const resendLimiter = await checkRateLimit(
+						`rl:otp_resend:${host}:${ip}:${String(id || '')}`,
+						5,
+						300,
+					);
+					if (!resendLimiter.allowed) {
+						return NextResponse.json(
+							{
+								success: false,
+								message: 'Too many OTP resend requests. Try again later.',
+								retryAfter: resendLimiter.retryAfter,
+							},
+							{ status: 429 },
+						);
+					}
+				}
 				const sendResult = await sendOTP(user._id.toString(), host);
 				return NextResponse.json(
 					{
@@ -169,6 +222,13 @@ async function handleLogin(user: any, password: string, host: string) {
 	}
 
 	let loginAllowed = true;
+	if (schoolProfile?.isActive === false) {
+		return NextResponse.json(
+			{ message: 'School access is currently disabled' },
+			{ status: 403 },
+		);
+	}
+
 	if (schoolProfile?.settings) {
 		const role = user.role as UserRole;
 		switch (role) {

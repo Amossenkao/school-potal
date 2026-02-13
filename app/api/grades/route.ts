@@ -229,7 +229,11 @@ function normalizeYearlyPeriodKey(period: string) {
 	return period;
 }
 
-function validateGrades(grades: any[]): { isValid: boolean; message?: string } {
+function validateGrades(
+	grades: any[],
+	gradeMin = 0,
+	gradeMax = 100,
+): { isValid: boolean; message?: string } {
 	if (!Array.isArray(grades)) {
 		return { isValid: false, message: 'Grades must be an array.' };
 	}
@@ -238,10 +242,10 @@ function validateGrades(grades: any[]): { isValid: boolean; message?: string } {
 			!grade.studentId ||
 			!grade.name ||
 			!grade.period ||
-			(grade.grade &&
-				(typeof grade.grade !== 'number' ||
-					grade.grade < 60 ||
-					grade.grade > 100))
+			typeof grade.grade !== 'number' ||
+			!Number.isFinite(grade.grade) ||
+			grade.grade < gradeMin ||
+			grade.grade > gradeMax
 		) {
 			return {
 				isValid: false,
@@ -1083,6 +1087,9 @@ export async function POST(request: NextRequest) {
 		const schoolProfile = await getSchoolProfile();
 		const className = getClassNameFromId(schoolProfile, classId) || classId;
 		const passMark = schoolProfile?.settings?.gradingSettings?.passMark ?? 60;
+		const gradeMin = schoolProfile?.settings?.gradingSettings?.gradeScale?.min ?? 0;
+		const gradeMax =
+			schoolProfile?.settings?.gradingSettings?.gradeScale?.max ?? 100;
 
 		if (schoolProfile?.settings?.teacherSettings) {
 			const { gradeSubmissionAcademicYears = [], gradeSubmissionPeriods = [] } =
@@ -1143,7 +1150,7 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const validation = validateGrades(grades);
+		const validation = validateGrades(grades, gradeMin, gradeMax);
 		if (!validation.isValid) {
 			return NextResponse.json(
 				{ success: false, message: validation.message },
@@ -1206,21 +1213,63 @@ export async function POST(request: NextRequest) {
 					.filter(Boolean),
 			),
 		);
+		const duplicateStudentPeriodKeys = new Set<string>();
+		for (const grade of grades) {
+			const key = `${String(grade?.studentId || '').trim()}::${String(
+				grade?.period || '',
+			).trim()}`;
+			if (duplicateStudentPeriodKeys.has(key)) {
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							'Duplicate grade entries detected for the same student and period.',
+					},
+					{ status: 400 },
+				);
+			}
+			duplicateStudentPeriodKeys.add(key);
+		}
+
 		const studentNameById = new Map<string, string>();
 		if (submittedStudentIds.length > 0) {
 			const students = await Student.find({
 				studentId: { $in: submittedStudentIds },
 			})
-				.select('studentId firstName middleName lastName')
+				.select('studentId firstName middleName lastName classId academicYears')
 				.lean();
+
+			const validStudentIds = new Set<string>();
 			students.forEach((student: any) => {
 				const studentId = String(student?.studentId || '').trim();
 				if (!studentId) return;
+				const studentClassId = getStudentClassIdForYear(
+					student,
+					resolvedAcademicYear,
+					currentAcademicYear,
+				);
+				if (studentClassId !== classId) return;
+				validStudentIds.add(studentId);
 				const fullName = buildFullNameFromUser(student);
 				if (fullName) {
 					studentNameById.set(studentId, fullName);
 				}
 			});
+
+			const invalidStudents = submittedStudentIds.filter(
+				(studentId) => !validStudentIds.has(studentId),
+			);
+			if (invalidStudents.length > 0) {
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							'Some students are not enrolled in this class for the selected academic year.',
+						invalidStudentIds: invalidStudents,
+					},
+					{ status: 400 },
+				);
+			}
 		}
 
 		const lastUpdated = new Date();
@@ -1341,13 +1390,6 @@ export async function PUT(request: NextRequest) {
 				{ status: 400 },
 			);
 		}
-		const validation = validateGrades(grades);
-		if (!validation.isValid) {
-			return NextResponse.json(
-				{ success: false, message: validation.message },
-				{ status: 400 },
-			);
-		}
 		const existingSubmission = await Grade.findOne({ submissionId }).lean();
 		if (
 			!existingSubmission ||
@@ -1368,6 +1410,53 @@ export async function PUT(request: NextRequest) {
 				{ status: 403 },
 			);
 		}
+
+		const schoolProfile = await getSchoolProfile();
+		const teacherSettings = schoolProfile?.settings?.teacherSettings;
+		const submissionAcademicYear = String(existingSubmission.academicYear || '');
+		const submissionPeriods = Array.from(
+			new Set(
+				(grades || []).map((grade: any) => String(grade?.period || '').trim()),
+			),
+		).filter(Boolean);
+		const allowedSubmissionYears = Array.isArray(
+			teacherSettings?.gradeSubmissionAcademicYears,
+		)
+			? teacherSettings.gradeSubmissionAcademicYears
+			: [];
+		const allowedSubmissionPeriods = Array.isArray(
+			teacherSettings?.gradeSubmissionPeriods,
+		)
+			? teacherSettings.gradeSubmissionPeriods
+			: [];
+		if (
+			!allowedSubmissionYears.includes(submissionAcademicYear) ||
+			submissionPeriods.some(
+				(periodValue) => !allowedSubmissionPeriods.includes(periodValue),
+			)
+		) {
+			return NextResponse.json(
+				{
+					success: false,
+					message:
+						'Grade submission is not currently open for this academic year or period.',
+				},
+				{ status: 403 },
+			);
+		}
+
+		const gradeMin = schoolProfile?.settings?.gradingSettings?.gradeScale?.min ?? 0;
+		const gradeMax =
+			schoolProfile?.settings?.gradingSettings?.gradeScale?.max ?? 100;
+		const validation = validateGrades(grades, gradeMin, gradeMax);
+		if (!validation.isValid) {
+			return NextResponse.json(
+				{ success: false, message: validation.message },
+				{ status: 400 },
+			);
+		}
+
+		const currentAcademicYear = getCurrentAcademicYear();
 		const submittedStudentIds = Array.from(
 			new Set(
 				grades
@@ -1375,21 +1464,61 @@ export async function PUT(request: NextRequest) {
 					.filter(Boolean),
 			),
 		);
+		const duplicateStudentPeriodKeys = new Set<string>();
+		for (const grade of grades) {
+			const key = `${String(grade?.studentId || '').trim()}::${String(
+				grade?.period || '',
+			).trim()}`;
+			if (duplicateStudentPeriodKeys.has(key)) {
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							'Duplicate grade entries detected for the same student and period.',
+					},
+					{ status: 400 },
+				);
+			}
+			duplicateStudentPeriodKeys.add(key);
+		}
+
 		const studentNameById = new Map<string, string>();
 		if (submittedStudentIds.length > 0) {
 			const students = await Student.find({
 				studentId: { $in: submittedStudentIds },
 			})
-				.select('studentId firstName middleName lastName')
+				.select('studentId firstName middleName lastName classId academicYears')
 				.lean();
+			const validStudentIds = new Set<string>();
 			students.forEach((student: any) => {
 				const studentId = String(student?.studentId || '').trim();
 				if (!studentId) return;
+				const studentClassId = getStudentClassIdForYear(
+					student,
+					submissionAcademicYear,
+					currentAcademicYear,
+				);
+				if (studentClassId !== existingSubmission.classId) return;
+				validStudentIds.add(studentId);
 				const fullName = buildFullNameFromUser(student);
 				if (fullName) {
 					studentNameById.set(studentId, fullName);
 				}
 			});
+			const invalidStudents = submittedStudentIds.filter(
+				(studentId) => !validStudentIds.has(studentId),
+			);
+			if (invalidStudents.length > 0) {
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							'Some students are not enrolled in this class for the submission academic year.',
+						invalidStudentIds: invalidStudents,
+					},
+					{ status: 400 },
+				);
+			}
 		}
 		await Grade.deleteMany({ submissionId });
 		const newGradeDocuments = grades.map((grade: any) => ({

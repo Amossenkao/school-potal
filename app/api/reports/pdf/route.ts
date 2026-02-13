@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import path from 'path';
 import { promises as fs } from 'fs';
+import { authorizeUser } from '@/proxy';
+import { checkRateLimit, getRequestIp } from '@/utils/rateLimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,6 +13,31 @@ const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 
 export async function POST(request: NextRequest) {
 	try {
+		const currentUser = await authorizeUser(request);
+		if (!currentUser) {
+			return NextResponse.json(
+				{ success: false, message: 'Unauthorized' },
+				{ status: 401 },
+			);
+		}
+
+		const ip = getRequestIp(request.headers);
+		const limiter = await checkRateLimit(
+			`rl:reports_pdf_post:${currentUser.id}:${ip}`,
+			20,
+			60,
+		);
+		if (!limiter.allowed) {
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'Too many uploads. Please wait and try again.',
+					retryAfter: limiter.retryAfter,
+				},
+				{ status: 429 },
+			);
+		}
+
 		const contentType = request.headers.get('content-type') || '';
 		if (!contentType.includes('application/pdf')) {
 			return NextResponse.json(
@@ -24,6 +51,12 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json(
 				{ success: false, message: 'Empty PDF payload.' },
 				{ status: 400 },
+			);
+		}
+		if (buffer.length > 15 * 1024 * 1024) {
+			return NextResponse.json(
+				{ success: false, message: 'PDF payload too large.' },
+				{ status: 413 },
 			);
 		}
 
