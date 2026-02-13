@@ -60,12 +60,38 @@ const DashboardSectionLoading = () =>
 		),
 	);
 
+const ChunkLoadFallback = () =>
+	React.createElement(
+		'div',
+		{
+			className:
+				'min-h-[60vh] flex items-center justify-center px-4',
+		},
+		React.createElement(
+			'div',
+			{
+				className:
+					'w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center shadow-sm',
+			},
+			React.createElement(
+				'h2',
+				{ className: 'text-xl font-semibold text-foreground' },
+				"You're Offline",
+			),
+			React.createElement(
+				'p',
+				{ className: 'mt-2 text-sm text-muted-foreground' },
+				'This dashboard section could not be loaded right now. Reconnect and try again.',
+			),
+		),
+	);
+
 const lazySection = (key: string, importer: ComponentImporter) =>
 	dynamic(
 		() =>
 			importer().catch((error) => {
 				console.warn(`Chunk load failed for key: ${key}`, error);
-				return import('@/components/OfflineDashboardFallback');
+				return { default: ChunkLoadFallback };
 			}),
 		{
 			loading: () => React.createElement(DashboardSectionLoading),

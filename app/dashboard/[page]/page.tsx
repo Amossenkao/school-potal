@@ -203,6 +203,13 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 			</>
 		);
 	} catch (error) {
+		const digest =
+			error && typeof error === 'object' && 'digest' in error
+				? String((error as any).digest || '')
+				: '';
+		if (digest.startsWith('NEXT_REDIRECT')) {
+			throw error;
+		}
 		console.error('Error in DynamicDashboardPage:', error);
 
 		return (
