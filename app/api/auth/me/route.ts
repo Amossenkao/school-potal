@@ -1,8 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/utils/session';
 import { getSchoolProfile } from '@/lib/mongoose';
-import { buildBootstrapPayload, getAcademicYear } from '@/app/api/auth/bootstrap';
-import { getUsersVersion } from '@/utils/userSync';
+import {
+	buildBootstrapPayload,
+	getAcademicYear,
+	getDomainVersions,
+} from '@/app/api/auth/bootstrap';
+
+const toHash = (value: unknown) => {
+	try {
+		const raw = JSON.stringify(value) || '';
+		let hash = 0;
+		for (let i = 0; i < raw.length; i += 1) {
+			hash = (hash * 31 + raw.charCodeAt(i)) >>> 0;
+		}
+		return String(hash);
+	} catch {
+		return '0';
+	}
+};
+
+const toSchoolVersion = (schoolProfile: any) => {
+	if (!schoolProfile) return '0';
+	const updatedAt = schoolProfile?.updatedAt
+		? new Date(schoolProfile.updatedAt).getTime()
+		: 0;
+	const id = schoolProfile?._id?.toString?.() || '';
+	if (updatedAt || id) return `${updatedAt}:${id}`;
+	return toHash(schoolProfile);
+};
 
 export async function GET(request: NextRequest) {
 	try {
@@ -12,14 +38,7 @@ export async function GET(request: NextRequest) {
 			typeof schoolProfileRaw === 'string'
 				? JSON.parse(schoolProfileRaw)
 				: schoolProfileRaw;
-		const { searchParams } = new URL(request.url);
-		const clientUsersVersionParam = searchParams.get('usersVersion');
-		const clientUsersVersion = clientUsersVersionParam
-			? Number(clientUsersVersionParam)
-			: null;
-		const academicYear = getAcademicYear(schoolProfile);
-		const currentUsersVersion = await getUsersVersion(academicYear);
-		const includeUsers = true;
+		const schoolVersion = toSchoolVersion(schoolProfile);
 
 		if (!sessionCookie) {
 			return NextResponse.json(
@@ -33,8 +52,6 @@ export async function GET(request: NextRequest) {
 		}
 
 		const sessionId = sessionCookie.value;
-
-		// Basic format check
 		if (!sessionId || sessionId.length < 10) {
 			return NextResponse.json(
 				{
@@ -47,8 +64,6 @@ export async function GET(request: NextRequest) {
 		}
 
 		const session = await getSession(sessionId);
-
-		// Update: Checking for 'id' instead of 'userId' per your new types
 		if (!session || !session.id) {
 			const response = NextResponse.json(
 				{
@@ -59,7 +74,6 @@ export async function GET(request: NextRequest) {
 				{ status: 401 },
 			);
 
-			// Clear the invalid session cookie
 			response.cookies.set('sessionId', '', {
 				httpOnly: true,
 				secure: process.env.NODE_ENV === 'production',
@@ -71,22 +85,58 @@ export async function GET(request: NextRequest) {
 			return response;
 		}
 
-		// Return the session data (which now uses 'id') and school profile
+		const { searchParams } = new URL(request.url);
+		const clientUsersVersion =
+			searchParams.get('v_users') || searchParams.get('usersVersion');
+		const clientGradesVersion = searchParams.get('v_grades');
+		const clientCalendarVersion = searchParams.get('v_calendar');
+		const clientSchedulesVersion = searchParams.get('v_schedules');
+		const clientGradeRequestsVersion = searchParams.get('v_grade_requests');
+		const clientSchoolVersion = searchParams.get('v_school');
+		const clientUserVersion = searchParams.get('v_user');
+
+		const academicYear = getAcademicYear(schoolProfile);
+		const versions = await getDomainVersions(session, academicYear);
+		const userVersion = toHash(session);
+
+		const include = {
+			school: clientSchoolVersion !== schoolVersion,
+			users:
+				typeof clientUsersVersion === 'string'
+					? clientUsersVersion !== versions.users
+					: true,
+			calendar: clientCalendarVersion !== versions.calendar,
+			schedules: clientSchedulesVersion !== versions.schedules,
+			grades: clientGradesVersion !== versions.grades,
+			gradeRequests: clientGradeRequestsVersion !== versions.gradeRequests,
+		};
+		const includeUser = clientUserVersion !== userVersion;
+
 		let bootstrapPayload: any = null;
 		try {
 			bootstrapPayload = await buildBootstrapPayload(session, {
-				includeUsers,
+				include,
 				academicYear,
-				usersVersion: currentUsersVersion,
+				usersVersion: versions.users,
 				schoolProfile,
 			});
 		} catch (error) {
 			console.warn('Failed to build bootstrap payload:', error);
 		}
+
 		return NextResponse.json({
-			user: session,
 			message: 'Session valid',
+			...(includeUser ? { user: session } : {}),
 			...(bootstrapPayload || {}),
+			versions: {
+				user: userVersion,
+				school: schoolVersion,
+				users: versions.users,
+				calendar: versions.calendar,
+				schedules: versions.schedules,
+				grades: versions.grades,
+				gradeRequests: versions.gradeRequests,
+			},
 		});
 	} catch (error) {
 		console.error('Session validation error:', error);

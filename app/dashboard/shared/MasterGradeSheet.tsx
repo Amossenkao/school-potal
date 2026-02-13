@@ -87,8 +87,14 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const userInfo = useAuth((state) => state.user);
 	const currentSchool = useSchoolStore((state) => state.school);
 	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
+	const usersVersionByAcademicYear = useSchoolStore(
+		(state) => state.usersVersionByAcademicYear
+	);
 	const gradesByAcademicYear = useSchoolStore(
 		(state) => state.gradesByAcademicYear
+	);
+	const gradesVersionByAcademicYear = useSchoolStore(
+		(state) => state.gradesVersionByAcademicYear
 	);
 	const usersByAcademicYearRef = useRef(usersByAcademicYear);
 	const gradesByAcademicYearRef = useRef(gradesByAcademicYear);
@@ -415,12 +421,28 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				try {
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
 					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
-					const cachedUsers =
-						usersByAcademicYearRef.current?.[normalizedYear]?.students ||
-						usersByAcademicYearRef.current?.[fallbackYear]?.students ||
-						[];
+						const cachedUsers =
+							usersByAcademicYearRef.current?.[normalizedYear]?.students ||
+							usersByAcademicYearRef.current?.[fallbackYear]?.students ||
+							[];
+						const hasScopedUsersVersion =
+							typeof usersVersionByAcademicYear?.[normalizedYear] === 'string';
+						if (cachedUsers.length > 0 && hasScopedUsersVersion) {
+							const students = cachedUsers
+								.filter(
+									(student: any) =>
+										getStudentClassIdForYear(student, normalizedYear) ===
+										selectedClass
+								)
+								.map((student: any) => ({
+									studentId: student.studentId || student.id || student._id,
+									studentName: `${student.firstName} ${student.lastName}`.trim(),
+								}));
+							setStudentsData(students);
+							return;
+						}
 
-					if (!isOnline) {
+						if (!isOnline) {
 						if (cachedUsers.length > 0) {
 							const students = cachedUsers
 								.filter(
@@ -491,7 +513,13 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		} else {
 			setStudentsData([]);
 		}
-	}, [selectedAcademicYear, selectedClass, isOnline, currentAcademicYear]);
+		}, [
+			selectedAcademicYear,
+			selectedClass,
+			isOnline,
+			currentAcademicYear,
+			usersVersionByAcademicYear,
+		]);
 
 	useEffect(() => {
 		if (selectedClass && selectedSubject) {
@@ -501,12 +529,24 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				try {
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
 					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
-					const cachedGrades =
-						gradesByAcademicYearRef.current?.[normalizedYear] ||
-						gradesByAcademicYearRef.current?.[fallbackYear] ||
-						[];
+						const cachedGrades =
+							gradesByAcademicYearRef.current?.[normalizedYear] ||
+							gradesByAcademicYearRef.current?.[fallbackYear] ||
+							[];
+						const hasScopedGradesVersion =
+							typeof gradesVersionByAcademicYear?.[normalizedYear] === 'string';
+						if (cachedGrades.length > 0 && hasScopedGradesVersion) {
+							const filtered = cachedGrades.filter(
+								(grade: any) =>
+									grade?.classId === selectedClass &&
+									grade?.subject === selectedSubject &&
+									normalizeAcademicYear(grade?.academicYear) === normalizedYear
+							);
+							setGradesData(filtered);
+							return;
+						}
 
-					if (!isOnline) {
+						if (!isOnline) {
 						if (cachedGrades.length > 0) {
 							const filtered = cachedGrades.filter(
 								(grade: any) =>
@@ -564,13 +604,14 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		} else {
 			setGradesData([]);
 		}
-	}, [
-		selectedAcademicYear,
-		selectedClass,
-		selectedSubject,
-		isOnline,
-		currentAcademicYear,
-	]);
+		}, [
+			selectedAcademicYear,
+			selectedClass,
+			selectedSubject,
+			isOnline,
+			currentAcademicYear,
+			gradesVersionByAcademicYear,
+		]);
 
 	useEffect(() => {
 		if (studentsData.length > 0) {

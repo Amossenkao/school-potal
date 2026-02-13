@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { PageLoading } from '@/components/loading';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
+import { useSchoolStore } from '@/store/schoolStore';
 
 // --- TYPES ---
 interface TeacherInfo {
@@ -62,6 +63,15 @@ const TeacherGradeChangeRequests = ({
 }: {
 	teacherInfo: TeacherInfo;
 }) => {
+	const gradeRequestsByAcademicYear = useSchoolStore(
+		(state) => state.gradeRequestsByAcademicYear,
+	);
+	const gradeRequestsVersionByAcademicYear = useSchoolStore(
+		(state) => state.gradeRequestsVersionByAcademicYear,
+	);
+	const setGradeRequestsForYear = useSchoolStore(
+		(state) => state.setGradeRequestsForYear,
+	);
 	const [requests, setRequests] = useState<BatchRequest[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState('');
@@ -82,6 +92,20 @@ const TeacherGradeChangeRequests = ({
 		setLoading(true);
 		setError('');
 		try {
+			const academicYear = getCurrentAcademicYear();
+			const scopedStoreRequests =
+				gradeRequestsByAcademicYear?.[academicYear] || [];
+			const hasScopedStoreVersion =
+				typeof gradeRequestsVersionByAcademicYear?.[academicYear] === 'string';
+			if (
+				!skipCache &&
+				hasScopedStoreVersion &&
+				Array.isArray(scopedStoreRequests)
+			) {
+				setRequests(scopedStoreRequests as BatchRequest[]);
+				return;
+			}
+
 			const cacheKey = `gradeRequests:${getCurrentAcademicYear()}:${
 				teacherInfo?.username || 'teacher'
 			}`;
@@ -93,12 +117,13 @@ const TeacherGradeChangeRequests = ({
 				}
 			}
 			const res = await fetch(
-				`/api/grades/requests?academicYear=${getCurrentAcademicYear()}`
+				`/api/grades/requests?academicYear=${academicYear}`
 			);
 			if (!res.ok)
 				throw new Error('Failed to fetch your grade change requests.');
 			const data = await res.json();
 			setRequests(data.data.report);
+			setGradeRequestsForYear(academicYear, data.data.report || []);
 			setClientCache(cacheKey, data.data.report);
 		} catch (err) {
 			setError(

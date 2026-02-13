@@ -15,6 +15,7 @@ import {
 	getClassLevelLabel,
 	getClassNameById,
 } from '@/components/dashboard/academicYear';
+import { useSchoolStore } from '@/store/schoolStore';
 
 const PASS_MARK = 70;
 const ALL_PERIODS = [
@@ -65,6 +66,10 @@ export default function AdminPerformance({
 	const [selectedSemester, setSelectedSemester] = useState('all');
 	const [isLoading, setIsLoading] = useState(false);
 	const [errorMessage, setErrorMessage] = useState('');
+	const gradesByAcademicYear = useSchoolStore(
+		(state) => state.gradesByAcademicYear
+	);
+	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 
 	useEffect(() => {
 		if (!selectedYear) return;
@@ -74,6 +79,21 @@ export default function AdminPerformance({
 			try {
 				setIsLoading(true);
 				setErrorMessage('');
+				const storeGrades = gradesByAcademicYear?.[selectedYear];
+				if (Array.isArray(storeGrades)) {
+					const filteredStoreGrades = storeGrades.filter(
+						(grade: GradeItem & { academicYear?: string }) => {
+							const gradeYear = String(grade?.academicYear || '').trim();
+							if (gradeYear && gradeYear !== selectedYear) return false;
+							if (selectedSemester === 'all' && selectedPeriod !== 'all') {
+								return grade.period === selectedPeriod;
+							}
+							return true;
+						},
+					);
+					setGrades(filteredStoreGrades);
+					return;
+				}
 				let url = `/api/grades?academicYear=${encodeURIComponent(selectedYear)}`;
 				if (selectedSemester === 'all' && selectedPeriod !== 'all') {
 					url += `&period=${encodeURIComponent(selectedPeriod)}`;
@@ -83,9 +103,11 @@ export default function AdminPerformance({
 				if (!response.ok || !payload?.success) {
 					throw new Error(payload?.message || 'Failed to load performance data.');
 				}
-				const data =
-					payload?.data?.report?.grades || payload?.data?.grades || [];
+				const data = payload?.data?.report?.grades || payload?.data?.grades || [];
 				setGrades(Array.isArray(data) ? data : []);
+				if (Array.isArray(data)) {
+					setGradesForYear(selectedYear, data);
+				}
 			} catch (error) {
 				if ((error as Error).name === 'AbortError') return;
 				setErrorMessage(
@@ -98,7 +120,13 @@ export default function AdminPerformance({
 
 		fetchGrades();
 		return () => controller.abort();
-	}, [selectedYear, selectedPeriod, selectedSemester]);
+	}, [
+		selectedYear,
+		selectedPeriod,
+		selectedSemester,
+		gradesByAcademicYear,
+		setGradesForYear,
+	]);
 
 	useEffect(() => {
 		if (selectedSemester !== 'all') {

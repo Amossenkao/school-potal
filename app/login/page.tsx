@@ -105,30 +105,27 @@ const LoginPage = () => {
 	]);
 
 	/**
-	 * FIX: Reset all error states when switching roles or positions.
-	 * This ensures an error from a "System Admin" attempt doesn't
-	 * show up when you switch to "Teacher".
+	 * Reset credentials only when login context changes (role/position).
+	 * Do not tie this to school-profile updates; auth polling can update
+	 * school payloads on 401 and should not wipe typed form values.
 	 */
 	useEffect(() => {
-		// Clear UI errors and credentials on context change
 		clearError();
 		setLoginDisabledError('');
 		setFormData({ username: '', password: '', otp: '' });
+	}, [selectedRole, adminPosition, clearError]);
 
+	// Evaluate school-configured login access without resetting credentials.
+	useEffect(() => {
+		setLoginDisabledError('');
 		if (!selectedRole || selectedRole === 'system_admin') return;
-
-		// Check school-specific login toggle
-		if (currentSchool?.settings) {
-			const roleSettingsKey = `${selectedRole}Settings`;
-			const roleSettings = (currentSchool.settings as any)[roleSettingsKey];
-
-			if (roleSettings && roleSettings.loginAccess === false) {
-				setLoginDisabledError(
-					`Login is currently disabled for ${selectedRole}s.`,
-				);
-			}
+		if (!currentSchool?.settings) return;
+		const roleSettingsKey = `${selectedRole}Settings`;
+		const roleSettings = (currentSchool.settings as any)[roleSettingsKey];
+		if (roleSettings && roleSettings.loginAccess === false) {
+			setLoginDisabledError(`Login is currently disabled for ${selectedRole}s.`);
 		}
-	}, [selectedRole, adminPosition, currentSchool, clearError]);
+	}, [selectedRole, currentSchool]);
 
 	useEffect(() => {
 		if (!selectedRole) return;

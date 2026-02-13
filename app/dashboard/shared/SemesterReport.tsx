@@ -1463,7 +1463,14 @@ function ReportContent({
 	const usersByAcademicYear = useSchoolStore(
 		(state) => state.usersByAcademicYear,
 	);
+	const gradesByAcademicYear = useSchoolStore(
+		(state) => state.gradesByAcademicYear,
+	);
+	const gradesVersionByAcademicYear = useSchoolStore(
+		(state) => state.gradesVersionByAcademicYear,
+	);
 	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
+	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 	const user = useAuth((state) => state.user);
 	const isStudent = user?.role === 'student';
 	const createdBy = useMemo(
@@ -1646,73 +1653,75 @@ function ReportContent({
 							studentsToProcess = mapped;
 						}
 					}
-					const cacheKey = `semester:students:${reportFilters.academicYear}:${reportFilters.className}`;
-					const cached = getClientCache<any[]>(cacheKey);
-					if (cached) {
-						const mappedCached = cached.map((student: any) => ({
-							...student,
-							studentId: normalizeStudentId(
-								student.studentId,
-								student.id,
-								student._id,
-							),
-							name: resolveStudentDisplayName(student),
-						}));
-						if (selectedStudentIds.length > 0) {
-							studentsToProcess = mappedCached.filter((student: any) =>
-								selectedStudentIds.includes(student.studentId),
-							);
-						} else {
-							studentsToProcess = mappedCached;
-						}
-					} else {
-						if (offline) {
-							throw new Error(
-								'No cached student roster found for offline semester report generation.',
-							);
-						}
-						const studentsResponse = await fetch(
-							`/api/users?classId=${reportFilters.className}&role=student&academicYear=${reportFilters.academicYear}`,
-							{ cache: 'no-store' },
-						);
-						if (!studentsResponse.ok)
-							throw new Error('Failed to fetch students');
-						const studentsResult = await studentsResponse.json();
-						if (!studentsResult.success || !studentsResult.data) {
-							throw new Error('Invalid student data format');
-						}
+						if (studentsToProcess.length === 0) {
+							const cacheKey = `semester:students:${reportFilters.academicYear}:${reportFilters.className}`;
+							const cached = getClientCache<any[]>(cacheKey);
+							if (cached) {
+								const mappedCached = cached.map((student: any) => ({
+									...student,
+									studentId: normalizeStudentId(
+										student.studentId,
+										student.id,
+										student._id,
+									),
+									name: resolveStudentDisplayName(student),
+								}));
+								if (selectedStudentIds.length > 0) {
+									studentsToProcess = mappedCached.filter((student: any) =>
+										selectedStudentIds.includes(student.studentId),
+									);
+								} else {
+									studentsToProcess = mappedCached;
+								}
+							} else {
+								if (offline) {
+									throw new Error(
+										'No cached student roster found for offline semester report generation.',
+									);
+								}
+								const studentsResponse = await fetch(
+									`/api/users?classId=${reportFilters.className}&role=student&academicYear=${reportFilters.academicYear}`,
+									{ cache: 'no-store' },
+								);
+								if (!studentsResponse.ok)
+									throw new Error('Failed to fetch students');
+								const studentsResult = await studentsResponse.json();
+								if (!studentsResult.success || !studentsResult.data) {
+									throw new Error('Invalid student data format');
+								}
 
-						setUsersForYear(
-							reportFilters.academicYear,
-							{
-								students: Array.isArray(studentsResult.data)
-									? studentsResult.data
-									: [],
-							},
-							{ merge: true },
-						);
+								setUsersForYear(
+									reportFilters.academicYear,
+									{
+										students: Array.isArray(studentsResult.data)
+											? studentsResult.data
+											: [],
+									},
+									{ merge: true },
+								);
 
-						const mapped = studentsResult.data.map((student: any) => ({
-							studentId: normalizeStudentId(
-								student.studentId,
-								student.id,
-								student._id,
-							),
-							name: resolveStudentDisplayName(student),
-							firstName: student.firstName,
-							middleName: student.middleName,
-							lastName: student.lastName,
-						}));
-						setClientCache(cacheKey, mapped, OFFLINE_CACHE_TTL_MS);
+								const mapped = studentsResult.data.map((student: any) => ({
+									studentId: normalizeStudentId(
+										student.studentId,
+										student.id,
+										student._id,
+									),
+									name: resolveStudentDisplayName(student),
+									firstName: student.firstName,
+									middleName: student.middleName,
+									lastName: student.lastName,
+								}));
+								setClientCache(cacheKey, mapped, OFFLINE_CACHE_TTL_MS);
 
-						if (selectedStudentIds.length > 0) {
-							studentsToProcess = mapped.filter((student: any) =>
-								selectedStudentIds.includes(student.studentId),
-							);
-						} else {
-							studentsToProcess = mapped;
+								if (selectedStudentIds.length > 0) {
+									studentsToProcess = mapped.filter((student: any) =>
+										selectedStudentIds.includes(student.studentId),
+									);
+								} else {
+									studentsToProcess = mapped;
+								}
+							}
 						}
-					}
 				}
 
 				const params = new URLSearchParams({
@@ -1728,30 +1737,60 @@ function ReportContent({
 					params.append('studentIds', selectedStudentIds.join(','));
 				}
 
-				let gradesData = { success: true, data: { report: [] } };
-				const gradesCacheBaseKey = `semester:grades:${reportFilters.academicYear}:${reportFilters.session}:${reportFilters.className}:${reportFilters.semester}`;
-				const gradesCacheKey = `${gradesCacheBaseKey}:${selectedIdsCacheKey}`;
-				const cachedGrades =
-					getClientCache<any>(gradesCacheKey) ??
-					getClientCache<any>(`${gradesCacheBaseKey}:all`);
+					let gradesData: any = { success: true, data: { report: [] } };
+					const gradesCacheBaseKey = `semester:grades:${reportFilters.academicYear}:${reportFilters.session}:${reportFilters.className}:${reportFilters.semester}`;
+					const gradesCacheKey = `${gradesCacheBaseKey}:${selectedIdsCacheKey}`;
+					const cachedGrades =
+						getClientCache<any>(gradesCacheKey) ??
+						getClientCache<any>(`${gradesCacheBaseKey}:all`);
+					const scopedGrades = gradesByAcademicYear?.[reportFilters.academicYear];
+					const hasScopedGradesVersion =
+						typeof gradesVersionByAcademicYear?.[reportFilters.academicYear] ===
+						'string';
 
-				if (offline && cachedGrades) {
-					gradesData = cachedGrades;
-				} else if (offline && !cachedGrades) {
-					throw new Error(
-						'No cached grades found for offline semester report generation.',
-					);
+					if (
+						Array.isArray(scopedGrades) &&
+						scopedGrades.length > 0 &&
+						hasScopedGradesVersion
+					) {
+						const selectedIdsSet =
+							selectedStudentIds.length > 0 ? new Set(selectedStudentIds) : null;
+						const filteredStoreGrades = scopedGrades.filter((grade: any) => {
+							const gradeYear = String(grade?.academicYear || '').trim();
+							const gradeStudentId = normalizeStudentId(grade?.studentId);
+							return (
+								grade?.classId === reportFilters.className &&
+								gradeYear === reportFilters.academicYear &&
+								(!selectedIdsSet || selectedIdsSet.has(gradeStudentId))
+							);
+						});
+						gradesData = {
+							success: true,
+							data: { grades: filteredStoreGrades },
+						};
+					} else if (offline && cachedGrades) {
+						gradesData = cachedGrades;
+					} else if (offline && !cachedGrades) {
+						throw new Error(
+							'No cached grades found for offline semester report generation.',
+						);
 				} else {
 					try {
 						const gradesResponse = await fetch(
 							`/api/grades?${params.toString()}`,
 							{ cache: 'no-store' },
 						);
-						if (gradesResponse.ok) {
-							gradesData = await gradesResponse.json();
-							setClientCache(
-								gradesCacheKey,
-								gradesData,
+							if (gradesResponse.ok) {
+								gradesData = await gradesResponse.json();
+								if (Array.isArray(gradesData?.data?.grades)) {
+									setGradesForYear(
+										reportFilters.academicYear,
+										gradesData.data.grades,
+									);
+								}
+								setClientCache(
+									gradesCacheKey,
+									gradesData,
 								OFFLINE_CACHE_TTL_MS,
 							);
 							if (selectedIdsCacheKey === 'all') {
@@ -1950,11 +1989,14 @@ function ReportContent({
 		user?._id,
 		user?.firstName,
 		user?.middleName,
-		user?.lastName,
-		classSubjectsKey,
-		setUsersForYear,
-		isStudent,
-	]);
+			user?.lastName,
+			classSubjectsKey,
+			setUsersForYear,
+			setGradesForYear,
+			gradesByAcademicYear,
+			gradesVersionByAcademicYear,
+			isStudent,
+		]);
 
 	useEffect(() => {
 		if (!studentsData.length || loading || error) {

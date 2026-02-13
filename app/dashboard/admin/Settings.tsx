@@ -432,8 +432,10 @@ export default function Settings() {
 	const [feedback, setFeedback] = useState({ type: '', message: '' });
 
 	useEffect(() => {
-		fetchSchool();
-	}, [fetchSchool]);
+		if (!school) {
+			fetchSchool();
+		}
+	}, [school, fetchSchool]);
 
 	useEffect(() => {
 		if (school && school.settings) {

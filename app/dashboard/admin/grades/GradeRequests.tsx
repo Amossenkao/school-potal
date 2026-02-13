@@ -19,27 +19,7 @@ import {
 } from 'lucide-react';
 
 import { useNetworkStore } from '@/store/networkStore';
-
-// Mocked school store
-const upstairs = {
-	name: 'Upstairs Christian Academy',
-	classLevels: {
-		Morning: {
-			'Senior High': {
-				subjects: ['Math', 'Biology', 'English', 'Physics', 'Chemistry'],
-				classes: [
-					{ classId: 'Morning-GradeTenA', name: 'Grade 10-A' },
-					{ classId: 'Morning-GradeElevenA', name: 'Grade 11-A' },
-				],
-			},
-		},
-	},
-};
-
-const useSchoolStore = (selector: (state: any) => any) => {
-	const state = { school: upstairs };
-	return selector(state);
-};
+import { useSchoolStore } from '@/store/schoolStore';
 
 // --- TYPES ---
 interface GradeChangeRequest {
@@ -88,6 +68,15 @@ const PageLoading = ({ fullScreen = true }: { fullScreen?: boolean }) => (
 
 const GradeRequests: React.FC = () => {
 	const currentSchool = useSchoolStore((state) => state.school);
+	const gradeRequestsByAcademicYear = useSchoolStore(
+		(state) => state.gradeRequestsByAcademicYear
+	);
+	const gradeRequestsVersionByAcademicYear = useSchoolStore(
+		(state) => state.gradeRequestsVersionByAcademicYear
+	);
+	const setGradeRequestsForYear = useSchoolStore(
+		(state) => state.setGradeRequestsForYear
+	);
 	// Data states
 	const [bulkRequests, setBulkRequests] = useState<BulkGradeRequest[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -132,16 +121,33 @@ const GradeRequests: React.FC = () => {
 	}, [currentSchool]);
 
 	// --- DATA FETCHING & PROCESSING ---
-	const fetchRequests = async () => {
+	const fetchRequests = async (forceRefresh = false) => {
 		try {
 			setLoading(true);
 			setError('');
-			const response = await fetch('/api/grades/requests');
+			const academicYear = currentSchool?.currentAcademicYear || '2025-2026';
+			const cachedRequests = gradeRequestsByAcademicYear?.[academicYear];
+			const hasScopedVersion =
+				typeof gradeRequestsVersionByAcademicYear?.[academicYear] === 'string';
+			if (
+				!forceRefresh &&
+				Array.isArray(cachedRequests) &&
+				cachedRequests.length > 0 &&
+				hasScopedVersion
+			) {
+				setBulkRequests(cachedRequests as BulkGradeRequest[]);
+				return;
+			}
+			const response = await fetch(
+				`/api/grades/requests?academicYear=${academicYear}`
+			);
 			if (!response.ok) {
 				throw new Error('Failed to fetch grade change requests');
 			}
 			const data = await response.json();
-			setBulkRequests(data.data.report);
+			const report = Array.isArray(data?.data?.report) ? data.data.report : [];
+			setBulkRequests(report);
+			setGradeRequestsForYear(academicYear, report);
 		} catch (err) {
 			console.error('Error fetching grade change requests:', err);
 			setError('Failed to fetch requests. Please try again.');
@@ -152,7 +158,7 @@ const GradeRequests: React.FC = () => {
 
 	useEffect(() => {
 		fetchRequests();
-	}, []);
+	}, [currentSchool, gradeRequestsByAcademicYear, gradeRequestsVersionByAcademicYear]);
 
 	// API interaction simulation
 	const updateRequestStatus = async (payload: {
@@ -598,11 +604,11 @@ const GradeRequests: React.FC = () => {
 								grades.
 							</p>
 						</div>
-						<button
-							onClick={fetchRequests}
-							disabled={loading}
-							className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
-						>
+							<button
+								onClick={() => fetchRequests(true)}
+								disabled={loading}
+								className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+							>
 							{loading && <Loader2 className="h-4 w-4 animate-spin" />} Refresh
 						</button>
 					</div>

@@ -80,10 +80,11 @@ export default function OfflineHandler({
 			return url.includes('/api/');
 		};
 
-		const CACHEABLE_GET_PATHS = [
-			'/api/users',
-			'/api/grades',
-			'/api/calendar',
+			const CACHEABLE_GET_PATHS = [
+				'/api/users',
+				'/api/grades',
+				'/api/grades/requests',
+				'/api/calendar',
 			'/api/schedules',
 			'/api/settings',
 			'/api/notifications',

@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/chart';
 import type { SchoolProfile } from '@/types/schoolProfile';
 import { buildAcademicYearOptions } from '@/components/dashboard/academicYear';
+import { useSchoolStore } from '@/store/schoolStore';
 
 const PASS_MARK = 70;
 const BAR_CHART_CLASS = 'h-[240px] sm:h-[280px] w-full aspect-auto';
@@ -46,6 +47,10 @@ export default function StudentPerformanceInsights({
 	const [grades, setGrades] = useState<GradeItem[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [errorMessage, setErrorMessage] = useState('');
+	const gradesByAcademicYear = useSchoolStore(
+		(state) => state.gradesByAcademicYear
+	);
+	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 
 	useEffect(() => {
 		if (!selectedYear && academicYearOptions.length > 0) {
@@ -61,6 +66,11 @@ export default function StudentPerformanceInsights({
 			try {
 				setIsLoading(true);
 				setErrorMessage('');
+				const storeGrades = gradesByAcademicYear?.[selectedYear];
+				if (Array.isArray(storeGrades)) {
+					setGrades(storeGrades as GradeItem[]);
+					return;
+				}
 				const response = await fetch(
 					`/api/grades?academicYear=${encodeURIComponent(selectedYear)}`,
 					{ signal: controller.signal, cache: 'no-store' },
@@ -71,6 +81,9 @@ export default function StudentPerformanceInsights({
 				}
 				const data = payload?.data?.grades || payload?.data?.report?.grades || [];
 				setGrades(Array.isArray(data) ? data : []);
+				if (Array.isArray(data)) {
+					setGradesForYear(selectedYear, data);
+				}
 			} catch (error) {
 				if ((error as Error).name === 'AbortError') return;
 				setErrorMessage(
@@ -83,7 +96,7 @@ export default function StudentPerformanceInsights({
 
 		fetchGrades();
 		return () => controller.abort();
-	}, [selectedYear]);
+	}, [selectedYear, gradesByAcademicYear, setGradesForYear]);
 
 	const numericGrades = useMemo(
 		() => grades.filter((item) => typeof item.grade === 'number'),

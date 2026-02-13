@@ -16,6 +16,7 @@ import {
 	getClassLevelLabel,
 	getClassNameById,
 } from '@/components/dashboard/academicYear';
+import { useSchoolStore } from '@/store/schoolStore';
 
 const PASS_MARK = 70;
 const ALL_PERIODS = [
@@ -92,6 +93,10 @@ export default function TeacherPerformanceInsights({
 	const [grades, setGrades] = useState<GradeItem[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [errorMessage, setErrorMessage] = useState('');
+	const gradesByAcademicYear = useSchoolStore(
+		(state) => state.gradesByAcademicYear
+	);
+	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 
 	useEffect(() => {
 		if (!selectedYear && academicYearOptions.length > 0) {
@@ -194,6 +199,27 @@ export default function TeacherPerformanceInsights({
 			try {
 				setIsLoading(true);
 				setErrorMessage('');
+				const storeGrades = gradesByAcademicYear?.[selectedYear];
+				if (Array.isArray(storeGrades)) {
+					const filteredStoreGrades = storeGrades.filter(
+						(grade: GradeItem & { academicYear?: string }) => {
+							const gradeYear = String(grade?.academicYear || '').trim();
+							if (gradeYear && gradeYear !== selectedYear) return false;
+							if (selectedClassId !== 'all' && grade.classId !== selectedClassId) {
+								return false;
+							}
+							if (selectedSubject !== 'all' && grade.subject !== selectedSubject) {
+								return false;
+							}
+							if (selectedSemester === 'all' && selectedPeriod !== 'all') {
+								return grade.period === selectedPeriod;
+							}
+							return true;
+						},
+					);
+					setGrades(filteredStoreGrades);
+					return;
+				}
 				let url = `/api/grades?academicYear=${encodeURIComponent(selectedYear)}`;
 				if (selectedClassId !== 'all') {
 					url += `&classId=${encodeURIComponent(selectedClassId)}`;
@@ -211,6 +237,9 @@ export default function TeacherPerformanceInsights({
 				}
 				const data = payload?.data?.grades || payload?.data?.report?.grades || [];
 				setGrades(Array.isArray(data) ? data : []);
+				if (Array.isArray(data)) {
+					setGradesForYear(selectedYear, data);
+				}
 			} catch (error) {
 				if ((error as Error).name === 'AbortError') return;
 				setErrorMessage(
@@ -223,7 +252,15 @@ export default function TeacherPerformanceInsights({
 
 		fetchGrades();
 		return () => controller.abort();
-	}, [selectedYear, selectedClassId, selectedSubject, selectedPeriod, selectedSemester]);
+	}, [
+		selectedYear,
+		selectedClassId,
+		selectedSubject,
+		selectedPeriod,
+		selectedSemester,
+		gradesByAcademicYear,
+		setGradesForYear,
+	]);
 
 	const periodOptions = useMemo(() => {
 		const allowed =

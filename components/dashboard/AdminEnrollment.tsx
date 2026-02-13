@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import type { SchoolProfile } from '@/types/schoolProfile';
 import { getClassNameById } from '@/components/dashboard/academicYear';
+import { useSchoolStore } from '@/store/schoolStore';
 
 const normalizeLevelName = (level: string) =>
 	level && level !== 'Self Contained' ? level : '';
@@ -47,6 +48,8 @@ export default function AdminEnrollment({
 	const [pageIndex, setPageIndex] = useState(0);
 	const [isLoading, setIsLoading] = useState(false);
 	const [errorMessage, setErrorMessage] = useState('');
+	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
+	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
 
 	useEffect(() => {
 		if (sessions.length === 0) return;
@@ -97,6 +100,15 @@ export default function AdminEnrollment({
 			try {
 				setIsLoading(true);
 				setErrorMessage('');
+				const storeStudents = usersByAcademicYear?.[selectedYear]?.students;
+				if (Array.isArray(storeStudents)) {
+					const filtered = storeStudents.filter(
+						(student: StudentRow) => student.classId === selectedClassId,
+					);
+					setStudents(filtered);
+					return;
+				}
+
 				const response = await fetch(
 					`/api/users?role=student&academicYear=${encodeURIComponent(
 						selectedYear,
@@ -107,10 +119,14 @@ export default function AdminEnrollment({
 				if (!response.ok || !payload?.success) {
 					throw new Error(payload?.message || 'Failed to load students.');
 				}
+
 				const data = Array.isArray(payload.data)
 					? payload.data
 					: payload.data?.students || [];
 				setStudents(Array.isArray(data) ? data : []);
+				if (Array.isArray(data)) {
+					setUsersForYear(selectedYear, { students: data }, { merge: true });
+				}
 			} catch (error) {
 				if ((error as Error).name === 'AbortError') return;
 				setErrorMessage((error as Error).message || 'Unable to load students.');
@@ -121,7 +137,7 @@ export default function AdminEnrollment({
 
 		fetchStudents();
 		return () => controller.abort();
-	}, [selectedYear, selectedClassId]);
+	}, [selectedYear, selectedClassId, usersByAcademicYear, setUsersForYear]);
 
 	useEffect(() => {
 		setPageIndex(0);

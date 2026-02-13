@@ -496,8 +496,10 @@ const UserManagementDashboard = () => {
 	);
 
 	useEffect(() => {
-		fetchSchool();
-	}, [fetchSchool]);
+		if (!schoolProfile) {
+			fetchSchool();
+		}
+	}, [schoolProfile, fetchSchool]);
 
 	useEffect(() => {
 		totalUsersRef.current = totalUsers;

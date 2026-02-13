@@ -6,7 +6,34 @@ import { createSession, destroySession } from '@/utils/session';
 import { verifyOTP, sendOTP } from '@/utils/otp';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { UserRole } from '@/types';
-import { buildBootstrapPayload } from '@/app/api/auth/bootstrap';
+import {
+	buildBootstrapPayload,
+	getAcademicYear,
+	getDomainVersions,
+} from '@/app/api/auth/bootstrap';
+
+const toHash = (value: unknown) => {
+	try {
+		const raw = JSON.stringify(value) || '';
+		let hash = 0;
+		for (let i = 0; i < raw.length; i += 1) {
+			hash = (hash * 31 + raw.charCodeAt(i)) >>> 0;
+		}
+		return String(hash);
+	} catch {
+		return '0';
+	}
+};
+
+const toSchoolVersion = (schoolProfile: any) => {
+	if (!schoolProfile) return '0';
+	const updatedAt = schoolProfile?.updatedAt
+		? new Date(schoolProfile.updatedAt).getTime()
+		: 0;
+	const id = schoolProfile?._id?.toString?.() || '';
+	if (updatedAt || id) return `${updatedAt}:${id}`;
+	return toHash(schoolProfile);
+};
 
 export async function POST(request: NextRequest) {
 	const host = request.headers.get('host');
@@ -44,13 +71,35 @@ export async function POST(request: NextRequest) {
 				const verifiedUser = verificationResult.success
 					? buildUserResponse(user)
 					: null;
-				let bootstrapPayload: any = null;
-				if (verificationResult.success && verifiedUser) {
-					try {
-						bootstrapPayload = await buildBootstrapPayload(verifiedUser);
-					} catch (error) {
-						console.warn('Failed to build bootstrap payload:', error);
-					}
+					let bootstrapPayload: any = null;
+					if (verificationResult.success && verifiedUser) {
+						try {
+							const schoolProfileRaw = await getSchoolProfile();
+							const schoolProfile =
+								typeof schoolProfileRaw === 'string'
+									? JSON.parse(schoolProfileRaw)
+									: schoolProfileRaw;
+							const academicYear = getAcademicYear(schoolProfile);
+							const versions = await getDomainVersions(verifiedUser, academicYear);
+							bootstrapPayload = {
+								...(await buildBootstrapPayload(verifiedUser, {
+									academicYear,
+									usersVersion: versions.users,
+									schoolProfile,
+								})),
+								versions: {
+									user: toHash(verifiedUser),
+									school: toSchoolVersion(schoolProfile),
+									users: versions.users,
+									calendar: versions.calendar,
+									schedules: versions.schedules,
+									grades: versions.grades,
+									gradeRequests: versions.gradeRequests,
+								},
+							};
+						} catch (error) {
+							console.warn('Failed to build bootstrap payload:', error);
+						}
 				}
 
 				const response = NextResponse.json(
@@ -112,6 +161,9 @@ async function handleLogin(user: any, password: string, host: string) {
 	let schoolProfile: any = null;
 	try {
 		schoolProfile = await getSchoolProfile();
+		if (typeof schoolProfile === 'string') {
+			schoolProfile = JSON.parse(schoolProfile);
+		}
 	} catch (e) {
 		console.error('Failed to fetch school profile:', e);
 	}
@@ -182,9 +234,24 @@ async function handleLogin(user: any, password: string, host: string) {
 		const sessionId = await createSession(sessionData);
 		let bootstrapPayload: any = null;
 		try {
-			bootstrapPayload = await buildBootstrapPayload(userData, {
-				schoolProfile,
-			});
+			const academicYear = getAcademicYear(schoolProfile);
+			const versions = await getDomainVersions(userData, academicYear);
+			bootstrapPayload = {
+				...(await buildBootstrapPayload(userData, {
+					academicYear,
+					usersVersion: versions.users,
+					schoolProfile,
+				})),
+				versions: {
+					user: toHash(userData),
+					school: toSchoolVersion(schoolProfile),
+					users: versions.users,
+					calendar: versions.calendar,
+					schedules: versions.schedules,
+					grades: versions.grades,
+					gradeRequests: versions.gradeRequests,
+				},
+			};
 		} catch (error) {
 			console.warn('Failed to build bootstrap payload:', error);
 		}

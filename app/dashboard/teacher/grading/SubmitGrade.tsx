@@ -23,7 +23,6 @@ import {
 import { useSchoolStore } from '@/store/schoolStore';
 import { PageLoading } from '@/components/loading';
 import useAuth from '@/store/useAuth';
-import { useNetworkStore } from '@/store/networkStore';
 
 // Types
 interface TeacherInfo {
@@ -71,11 +70,12 @@ const SubmitGrade: React.FC = () => {
 	const usersByAcademicYear = useSchoolStore(
 		(state) => state.usersByAcademicYear,
 	);
+	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
 	const gradesByAcademicYear = useSchoolStore(
 		(state) => state.gradesByAcademicYear,
 	);
+	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 	const user = useAuth((state) => state.user);
-	const { isOnline } = useNetworkStore();
 	const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
 	const [selectedPeriods, setSelectedPeriods] = useState<string[]>([]);
 	const [selectedSubject, setSelectedSubject] = useState('');
@@ -365,9 +365,8 @@ const SubmitGrade: React.FC = () => {
 
 		try {
 			let studentsList: any[] = [];
-			const cachedUsers =
-				usersByAcademicYearRef.current?.[selectedAcademicYear];
-			if (!isOnline && cachedUsers?.students?.length) {
+			const cachedUsers = usersByAcademicYearRef.current?.[selectedAcademicYear];
+			if (Array.isArray(cachedUsers?.students)) {
 				studentsList = cachedUsers.students.filter(
 					(student: any) =>
 						getStudentClassIdForYear(student, selectedAcademicYear) ===
@@ -380,7 +379,16 @@ const SubmitGrade: React.FC = () => {
 				if (!studentsRes.ok)
 					throw new Error('Failed to fetch students for class');
 				const studentsData = await studentsRes.json();
-				studentsList = studentsData.data;
+				studentsList = Array.isArray(studentsData?.data)
+					? studentsData.data
+					: Array.isArray(studentsData?.data?.students)
+						? studentsData.data.students
+						: [];
+				setUsersForYear(
+					selectedAcademicYear,
+					{ students: studentsList },
+					{ merge: true },
+				);
 			}
 
 			if (!studentsList || studentsList.length === 0) {
@@ -389,25 +397,18 @@ const SubmitGrade: React.FC = () => {
 			}
 
 			let existingGradesData: any = null;
-			const cachedGrades = Array.isArray(
-				gradesByAcademicYearRef.current?.[selectedAcademicYear],
-			)
-				? gradesByAcademicYearRef.current[selectedAcademicYear]
-				: [];
-			const useCachedGrades = () => {
-				if (!cachedGrades.length) return;
-				const filtered = cachedGrades.filter(
+			const cachedGradesForYear = gradesByAcademicYearRef.current?.[selectedAcademicYear];
+			const useCachedGrades = (source: any[]) => {
+				const filtered = source.filter(
 					(grade: any) =>
 						grade?.classId === selectedClassId &&
 						grade?.subject === selectedSubject,
 				);
-				if (filtered.length > 0) {
-					existingGradesData = { data: { grades: filtered } };
-				}
+				existingGradesData = { data: { grades: filtered } };
 			};
 
-			if (!isOnline) {
-				useCachedGrades();
+			if (Array.isArray(cachedGradesForYear)) {
+				useCachedGrades(cachedGradesForYear);
 			} else {
 				try {
 					const existingGradesRes = await fetch(
@@ -415,11 +416,17 @@ const SubmitGrade: React.FC = () => {
 					);
 					if (existingGradesRes.ok) {
 						existingGradesData = await existingGradesRes.json();
+						const incomingGrades = Array.isArray(existingGradesData?.data?.grades)
+							? existingGradesData.data.grades
+							: Array.isArray(existingGradesData?.data?.report?.grades)
+								? existingGradesData.data.report.grades
+								: [];
+						setGradesForYear(selectedAcademicYear, incomingGrades);
 					} else {
-						useCachedGrades();
+						useCachedGrades([]);
 					}
 				} catch (error) {
-					useCachedGrades();
+					useCachedGrades([]);
 				}
 			}
 
@@ -488,7 +495,8 @@ const SubmitGrade: React.FC = () => {
 		selectedSubject,
 		selectedSession,
 		periods,
-		isOnline,
+		setUsersForYear,
+		setGradesForYear,
 		getStudentClassIdForYear,
 		buildStudentFullName,
 	]);

@@ -3,9 +3,10 @@ import { create } from 'zustand';
 import { isEqual } from 'lodash';
 import { User } from '@/types';
 import { useSchoolStore } from './schoolStore';
-import { useNetworkStore } from './networkStore'; // NEW IMPORT
+import { useNetworkStore } from './networkStore';
 import { clearClientCacheByPrefixes } from '@/utils/clientCache';
 import { useOfflineNavigationStore } from './offlineNavigationStore';
+import { clearUserSessionDataCaches } from '@/utils/sessionPrivacy';
 
 interface LoginData {
 	role: string;
@@ -14,11 +15,22 @@ interface LoginData {
 	position?: string;
 }
 
+type SyncVersions = {
+	user?: string;
+	school?: string;
+	users?: string;
+	calendar?: string;
+	schedules?: string;
+	grades?: string;
+	gradeRequests?: string;
+};
+
 interface AuthState {
 	user: User | null;
 	isLoggedIn: boolean;
 	error: string | null;
 	isLoading: boolean;
+	userVersion: string | null;
 
 	sessionId: string | null;
 	isAwaitingOtp: boolean;
@@ -67,6 +79,10 @@ const useAuth = create<AuthState>((set, get) => {
 		useOfflineNavigationStore.getState().clearOfflinePath();
 	};
 
+	const clearSessionSensitiveStorage = async () => {
+		await clearUserSessionDataCaches();
+	};
+
 	const setDashboardStartPath = () => {
 		useOfflineNavigationStore.getState().setOfflinePath('/dashboard');
 	};
@@ -77,11 +93,89 @@ const useAuth = create<AuthState>((set, get) => {
 		return String(user.id || extraFields._id || extraFields.studentId || '');
 	};
 
+	const applyBootstrapPayload = (data: any) => {
+		const schoolStore = useSchoolStore.getState();
+		const versions: SyncVersions =
+			data?.versions && typeof data.versions === 'object' ? data.versions : {};
+		const academicYear = data?.academicYear;
+
+		if (data?.school !== undefined && data?.school !== null) {
+			schoolStore.setSchool(data.school);
+		}
+		if (typeof versions.school === 'string') {
+			schoolStore.setSchoolVersion(versions.school);
+		}
+
+		if (academicYear && versions) {
+			schoolStore.setDomainVersionsForYear(academicYear, {
+				users:
+					typeof versions.users === 'string'
+						? versions.users
+						: typeof data?.usersVersion === 'string'
+							? data.usersVersion
+							: undefined,
+				calendar:
+					typeof versions.calendar === 'string' ? versions.calendar : undefined,
+				grades: typeof versions.grades === 'string' ? versions.grades : undefined,
+				gradeRequests:
+					typeof versions.gradeRequests === 'string'
+						? versions.gradeRequests
+						: undefined,
+				schedules:
+					typeof versions.schedules === 'string'
+						? versions.schedules
+						: undefined,
+			});
+		}
+
+		if (academicYear && data?.users) {
+			const currentUsers = schoolStore.usersByAcademicYear[academicYear];
+			const role = data?.user?.role || get().user?.role;
+			const shouldReplace =
+				role === 'student' || role === 'teacher'
+					? !isEqual(currentUsers, data.users)
+					: false;
+			schoolStore.setUsersForYear(
+				academicYear,
+				data.users,
+				shouldReplace ? { merge: false } : undefined,
+			);
+		}
+
+		if (academicYear && Array.isArray(data?.calendarEvents)) {
+			schoolStore.setCalendarForYear(academicYear, data.calendarEvents);
+		}
+
+		if (
+			academicYear &&
+			data?.schedules &&
+			typeof data.schedules === 'object'
+		) {
+			schoolStore.setSchedulesForYear(academicYear, data.schedules);
+		}
+
+		if (academicYear && Array.isArray(data?.grades)) {
+			const currentGrades = schoolStore.gradesByAcademicYear?.[academicYear] || [];
+			if (!isEqual(currentGrades, data.grades)) {
+				schoolStore.setGradesForYear(academicYear, data.grades);
+			}
+		}
+
+		if (academicYear && Array.isArray(data?.gradeRequests)) {
+			schoolStore.setGradeRequestsForYear(academicYear, data.gradeRequests);
+		}
+
+		if (typeof versions.user === 'string') {
+			set({ userVersion: versions.user });
+		}
+	};
+
 	return {
 		user: null,
 		isLoggedIn: false,
 		error: null,
 		isLoading: false,
+		userVersion: null,
 
 		sessionId: null,
 		isAwaitingOtp: false,
@@ -119,48 +213,8 @@ const useAuth = create<AuthState>((set, get) => {
 					return null;
 				}
 
-				// If API returns a school, set it
-				if (data.school !== undefined && data.school !== null) {
-					useSchoolStore.getState().setSchool(data.school);
-				}
-				if (data.academicYear && typeof data.usersVersion === 'number') {
-					useSchoolStore
-						.getState()
-						.setUsersVersionForYear(data.academicYear, data.usersVersion);
-				}
-				if (data.academicYear && data.users) {
-					const schoolState = useSchoolStore.getState();
-					const currentUsers = schoolState.usersByAcademicYear[data.academicYear];
-					const role = data.user?.role || get().user?.role;
-					const shouldReplace =
-						role === 'student' || role === 'teacher'
-							? !isEqual(currentUsers, data.users)
-							: false;
-
-					schoolState.setUsersForYear(
-						data.academicYear,
-						data.users,
-						shouldReplace ? { merge: false } : undefined,
-					);
-				}
-				if (data.academicYear && data.calendarEvents) {
-					useSchoolStore
-						.getState()
-						.setCalendarForYear(data.academicYear, data.calendarEvents);
-				}
-				if (data.academicYear && data.schedules) {
-					useSchoolStore
-						.getState()
-						.setSchedulesForYear(data.academicYear, data.schedules);
-				}
-				if (data.academicYear && Array.isArray(data.grades)) {
-					const schoolState = useSchoolStore.getState();
-					const currentGrades =
-						schoolState.gradesByAcademicYear?.[data.academicYear] || [];
-					if (!isEqual(currentGrades, data.grades)) {
-						schoolState.setGradesForYear(data.academicYear, data.grades);
-					}
-				}
+				await clearSessionSensitiveStorage();
+				applyBootstrapPayload(data);
 
 				set({
 					user: data.user,
@@ -219,47 +273,8 @@ const useAuth = create<AuthState>((set, get) => {
 					return false;
 				}
 
-				if (data.school !== undefined && data.school !== null) {
-					useSchoolStore.getState().setSchool(data.school);
-				}
-				if (data.academicYear && typeof data.usersVersion === 'number') {
-					useSchoolStore
-						.getState()
-						.setUsersVersionForYear(data.academicYear, data.usersVersion);
-				}
-				if (data.academicYear && data.users) {
-					const schoolState = useSchoolStore.getState();
-					const currentUsers = schoolState.usersByAcademicYear[data.academicYear];
-					const role = data.user?.role || get().user?.role;
-					const shouldReplace =
-						role === 'student' || role === 'teacher'
-							? !isEqual(currentUsers, data.users)
-							: false;
-
-					schoolState.setUsersForYear(
-						data.academicYear,
-						data.users,
-						shouldReplace ? { merge: false } : undefined,
-					);
-				}
-				if (data.academicYear && data.calendarEvents) {
-					useSchoolStore
-						.getState()
-						.setCalendarForYear(data.academicYear, data.calendarEvents);
-				}
-				if (data.academicYear && data.schedules) {
-					useSchoolStore
-						.getState()
-						.setSchedulesForYear(data.academicYear, data.schedules);
-				}
-				if (data.academicYear && Array.isArray(data.grades)) {
-					const schoolState = useSchoolStore.getState();
-					const currentGrades =
-						schoolState.gradesByAcademicYear?.[data.academicYear] || [];
-					if (!isEqual(currentGrades, data.grades)) {
-						schoolState.setGradesForYear(data.academicYear, data.grades);
-					}
-				}
+				await clearSessionSensitiveStorage();
+				applyBootstrapPayload(data);
 
 				set({
 					user: data.user,
@@ -365,7 +380,6 @@ const useAuth = create<AuthState>((set, get) => {
 				console.warn('Logout request failed:', error);
 			}
 
-			// Clear client state and clear school explicitly on logout
 			set({
 				user: null,
 				isLoggedIn: false,
@@ -375,6 +389,7 @@ const useAuth = create<AuthState>((set, get) => {
 				isAwaitingOtp: false,
 				otpContact: null,
 				userId: null,
+				userVersion: null,
 			});
 			try {
 				localStorage.removeItem('auth-user');
@@ -383,10 +398,9 @@ const useAuth = create<AuthState>((set, get) => {
 			}
 			useSchoolStore.getState().clearCache();
 			clearSessionScopedClientState();
+			await clearSessionSensitiveStorage();
 		},
 
-		// MODIFIED: Only clear user state if the server explicitly returns no user,
-		// or if a true network error occurs, set authCheckFailed flag.
 		checkAuthStatus: async () => {
 			const networkState = useNetworkStore.getState();
 			const { setAuthCheckFailed } = networkState;
@@ -395,7 +409,6 @@ const useAuth = create<AuthState>((set, get) => {
 			const isOnline = networkState.isOnline && navigatorOnline;
 
 			if (!isOnline) {
-				// Avoid clearing auth when offline; rely on cached user instead.
 				setAuthCheckFailed(true);
 				if (!get().user) {
 					get().hydrateFromCache();
@@ -406,14 +419,51 @@ const useAuth = create<AuthState>((set, get) => {
 			try {
 				const schoolState = useSchoolStore.getState();
 				const activeYear = schoolState.school?.currentAcademicYear;
+				const query = new URLSearchParams();
 				const usersVersion =
 					activeYear != null
 						? schoolState.usersVersionByAcademicYear?.[activeYear]
 						: null;
-				const query = new URLSearchParams();
-				if (typeof usersVersion === 'number') {
+				const gradesVersion =
+					activeYear != null
+						? schoolState.gradesVersionByAcademicYear?.[activeYear]
+						: null;
+				const calendarVersion =
+					activeYear != null
+						? schoolState.calendarVersionByAcademicYear?.[activeYear]
+						: null;
+				const schedulesVersion =
+					activeYear != null
+						? schoolState.schedulesVersionByAcademicYear?.[activeYear]
+						: null;
+				const gradeRequestsVersion =
+					activeYear != null
+						? schoolState.gradeRequestsVersionByAcademicYear?.[activeYear]
+						: null;
+
+				if (typeof usersVersion === 'string') {
+					query.set('v_users', String(usersVersion));
 					query.set('usersVersion', String(usersVersion));
 				}
+				if (typeof gradesVersion === 'string') {
+					query.set('v_grades', gradesVersion);
+				}
+				if (typeof calendarVersion === 'string') {
+					query.set('v_calendar', calendarVersion);
+				}
+				if (typeof schedulesVersion === 'string') {
+					query.set('v_schedules', schedulesVersion);
+				}
+				if (typeof gradeRequestsVersion === 'string') {
+					query.set('v_grade_requests', gradeRequestsVersion);
+				}
+				if (typeof schoolState.schoolVersion === 'string') {
+					query.set('v_school', schoolState.schoolVersion);
+				}
+				if (typeof get().userVersion === 'string') {
+					query.set('v_user', get().userVersion as string);
+				}
+
 				const url = query.toString()
 					? `/api/auth/me?${query.toString()}`
 					: '/api/auth/me';
@@ -422,75 +472,25 @@ const useAuth = create<AuthState>((set, get) => {
 					credentials: 'include',
 				});
 
-				// We throw here for a non-401/200, but rely on the subsequent logic for a 401 (logged out)
 				if (!res.ok && res.status !== 401) {
 					throw new Error(`Server status ${res.status}`);
 				}
 
 				const data = await res.json().catch(() => ({}));
 
-				console.log('Auth status:', data);
-
 				const stillOnline =
 					(typeof navigator !== 'undefined' ? navigator.onLine : true) &&
 					useNetworkStore.getState().isOnline;
 
 				if (!stillOnline) {
-					// If we lost connectivity mid-flight, keep cached auth state.
 					setAuthCheckFailed(true);
 					return;
 				}
 
-				// Auth check succeeded, clear network failure flag
 				setAuthCheckFailed(false);
+				applyBootstrapPayload(data);
 
-				if (
-					data.school &&
-					!isEqual(data.school, useSchoolStore.getState().school)
-				) {
-					useSchoolStore.getState().setSchool(data.school);
-				}
-				if (data.academicYear && typeof data.usersVersion === 'number') {
-					useSchoolStore
-						.getState()
-						.setUsersVersionForYear(data.academicYear, data.usersVersion);
-				}
-				if (data.academicYear && data.users) {
-					const schoolState = useSchoolStore.getState();
-					const currentUsers = schoolState.usersByAcademicYear[data.academicYear];
-					const role = data.user?.role || get().user?.role;
-					const shouldReplace =
-						role === 'student' || role === 'teacher'
-							? !isEqual(currentUsers, data.users)
-							: false;
-
-					schoolState.setUsersForYear(
-						data.academicYear,
-						data.users,
-						shouldReplace ? { merge: false } : undefined,
-					);
-				}
-				if (data.academicYear && data.calendarEvents) {
-					useSchoolStore
-						.getState()
-						.setCalendarForYear(data.academicYear, data.calendarEvents);
-				}
-				if (data.academicYear && data.schedules) {
-					useSchoolStore
-						.getState()
-						.setSchedulesForYear(data.academicYear, data.schedules);
-				}
-				if (data.academicYear && Array.isArray(data.grades)) {
-					const schoolState = useSchoolStore.getState();
-					const currentGrades =
-						schoolState.gradesByAcademicYear?.[data.academicYear] || [];
-					if (!isEqual(currentGrades, data.grades)) {
-						schoolState.setGradesForYear(data.academicYear, data.grades);
-					}
-				}
-
-				if (data.user) {
-					// Server confirms user is logged in
+				if (Object.prototype.hasOwnProperty.call(data, 'user') && data.user) {
 					const previousIdentity = resolveIdentity(get().user);
 					const nextIdentity = resolveIdentity(data.user as User);
 					if (
@@ -499,6 +499,7 @@ const useAuth = create<AuthState>((set, get) => {
 						previousIdentity !== nextIdentity
 					) {
 						clearSessionScopedClientState();
+						await clearSessionSensitiveStorage();
 						setDashboardStartPath();
 					}
 					if (!isEqual(data.user, get().user)) {
@@ -511,11 +512,9 @@ const useAuth = create<AuthState>((set, get) => {
 					} catch (error) {
 						console.warn('Failed to cache auth user:', error);
 					}
-
-				} else {
-					// Server explicitly says the user is NOT logged in (e.g., 401/200 with null user)
+				} else if (Object.prototype.hasOwnProperty.call(data, 'user')) {
 					if (get().isLoggedIn) {
-						set({ user: null, isLoggedIn: false });
+						set({ user: null, isLoggedIn: false, userVersion: null });
 					}
 					try {
 						localStorage.removeItem('auth-user');
@@ -523,12 +522,10 @@ const useAuth = create<AuthState>((set, get) => {
 						console.warn('Failed to clear auth user cache:', error);
 					}
 					clearSessionScopedClientState();
+					await clearSessionSensitiveStorage();
 				}
 			} catch (error) {
-				// CATCH: Network error (e.g., fetch failed) or non-401 server error
 				console.error('Auth check failed (network/server error):', error);
-
-				// Keep current user state, but set the flag to signal the network issue
 				setAuthCheckFailed(true);
 			}
 		},
@@ -553,6 +550,7 @@ const useAuth = create<AuthState>((set, get) => {
 						localStorage.setItem('auth-user', JSON.stringify(user));
 					} else {
 						localStorage.removeItem('auth-user');
+						set({ userVersion: null });
 					}
 				} catch (error) {
 					console.warn('Failed to sync auth user cache:', error);

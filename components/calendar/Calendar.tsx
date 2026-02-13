@@ -14,6 +14,7 @@ import { useModal } from "@/hooks/useModal";
 import { Modal } from "@/components/ui/modal";
 import { getClientCache, setClientCache } from "@/utils/clientCache";
 import CalendarSkeleton from "@/components/calendar/CalendarSkeleton";
+import { useSchoolStore } from "@/store/schoolStore";
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
@@ -44,6 +45,13 @@ const Calendar: React.FC<CalendarProps> = ({
   const { isOpen, openModal, closeModal } = useModal();
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [isSavingEvent, setIsSavingEvent] = useState(false);
+  const calendarByAcademicYear = useSchoolStore(
+    (state) => state.calendarByAcademicYear
+  );
+  const calendarVersionByAcademicYear = useSchoolStore(
+    (state) => state.calendarVersionByAcademicYear
+  );
+  const setCalendarForYear = useSchoolStore((state) => state.setCalendarForYear);
 
   const calendarsEvents = {
     Danger: "danger",
@@ -61,6 +69,29 @@ const Calendar: React.FC<CalendarProps> = ({
     const fetchEvents = async () => {
       setIsLoadingEvents(true);
       try {
+        const scopedStoreEvents =
+          academicYear && calendarByAcademicYear?.[academicYear]
+            ? calendarByAcademicYear[academicYear]
+            : null;
+        const hasScopedCalendarVersion =
+          academicYear &&
+          typeof calendarVersionByAcademicYear?.[academicYear] === "string";
+        if (hasScopedCalendarVersion && Array.isArray(scopedStoreEvents)) {
+          const mapped = scopedStoreEvents.map((event: any) => ({
+            id: event._id || event.id,
+            title: event.title,
+            start: event.startDate || event.start,
+            end: event.endDate || event.end || event.startDate || event.start,
+            allDay: true,
+            extendedProps: {
+              calendar: event.colorTag || event.extendedProps?.calendar || "Primary",
+            },
+          }));
+          setEvents(mapped as CalendarEvent[]);
+          setIsLoadingEvents(false);
+          return;
+        }
+
         const cacheKey = `calendar:${academicYear || "current"}`;
         const cached = getClientCache<CalendarEvent[]>(cacheKey);
         if (cached) {
@@ -90,6 +121,9 @@ const Calendar: React.FC<CalendarProps> = ({
         }));
         setEvents(mapped);
         setClientCache(cacheKey, mapped);
+        if (academicYear) {
+          setCalendarForYear(academicYear, payload.data || []);
+        }
       } catch (error) {
         console.error("Failed to load calendar events:", error);
       } finally {
@@ -98,7 +132,13 @@ const Calendar: React.FC<CalendarProps> = ({
     };
 
     fetchEvents();
-  }, [initialEvents, academicYear]);
+  }, [
+    initialEvents,
+    academicYear,
+    calendarByAcademicYear,
+    calendarVersionByAcademicYear,
+    setCalendarForYear,
+  ]);
 
   const handleAddOrUpdateEvent = async () => {
     setIsSavingEvent(true);

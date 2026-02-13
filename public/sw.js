@@ -7,6 +7,7 @@ const STATIC_ASSETS = ['/', '/dashboard', '/offline', '/manifest.webmanifest'];
 const API_ALLOWLIST = [
 	'/api/users',
 	'/api/grades',
+	'/api/grades/requests',
 	'/api/calendar',
 	'/api/schedules',
 	'/api/school',
@@ -60,6 +61,16 @@ const clearQueueItem = async (id) => {
 	});
 };
 
+const clearQueue = async () => {
+	const db = await openQueueDb();
+	return new Promise((resolve, reject) => {
+		const tx = db.transaction(DB_STORE, 'readwrite');
+		tx.objectStore(DB_STORE).clear();
+		tx.oncomplete = () => resolve();
+		tx.onerror = () => reject(tx.error);
+	});
+};
+
 const flushQueue = async () => {
 	const entries = await readQueue();
 	for (const entry of entries) {
@@ -84,19 +95,23 @@ self.addEventListener('install', (event) => {
 		caches
 			.open(STATIC_CACHE)
 			.then((cache) => cache.addAll(STATIC_ASSETS))
-			.then(() => self.skipWaiting())
+			.then(() => self.skipWaiting()),
 	);
 });
 
 self.addEventListener('activate', (event) => {
 	event.waitUntil(
-		caches.keys().then((keys) =>
-			Promise.all(
-				keys
-					.filter((key) => ![STATIC_CACHE, RUNTIME_CACHE, API_CACHE].includes(key))
-					.map((key) => caches.delete(key))
-			)
-		)
+		caches
+			.keys()
+			.then((keys) =>
+				Promise.all(
+					keys
+						.filter(
+							(key) => ![STATIC_CACHE, RUNTIME_CACHE, API_CACHE].includes(key),
+						)
+						.map((key) => caches.delete(key)),
+				),
+			),
 	);
 	self.clients.claim();
 });
@@ -104,6 +119,15 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
 	if (event?.data?.type === 'flush-grade-queue') {
 		event.waitUntil(flushQueue());
+	}
+	if (event?.data?.type === 'clear-session-data') {
+		event.waitUntil(
+			Promise.all([
+				caches.delete(API_CACHE),
+				caches.delete(RUNTIME_CACHE),
+				clearQueue().catch(() => undefined),
+			]),
+		);
 	}
 });
 
@@ -114,10 +138,14 @@ self.addEventListener('fetch', (event) => {
 	const url = new URL(request.url);
 	const isSameOrigin = url.origin === self.location.origin;
 
-if (request.method === 'POST' && isSameOrigin && url.pathname.startsWith('/api/grades')) {
-	const isOffline =
-		typeof self.navigator === 'undefined' ? false : !self.navigator.onLine;
-	if (isOffline) {
+	if (
+		request.method === 'POST' &&
+		isSameOrigin &&
+		url.pathname.startsWith('/api/grades')
+	) {
+		const isOffline =
+			typeof self.navigator === 'undefined' ? false : !self.navigator.onLine;
+		if (isOffline) {
 			event.respondWith(
 				(async () => {
 					const cloned = request.clone();
@@ -135,14 +163,11 @@ if (request.method === 'POST' && isSameOrigin && url.pathname.startsWith('/api/g
 						timestamp: Date.now(),
 					};
 					await enqueueRequest(entry);
-					return new Response(
-						JSON.stringify({ queued: true }),
-						{
-							status: 202,
-							headers: { 'Content-Type': 'application/json' },
-						}
-					);
-				})()
+					return new Response(JSON.stringify({ queued: true }), {
+						status: 202,
+						headers: { 'Content-Type': 'application/json' },
+					});
+				})(),
 			);
 		}
 		return;
@@ -161,13 +186,16 @@ if (request.method === 'POST' && isSameOrigin && url.pathname.startsWith('/api/g
 				.catch(() =>
 					caches
 						.match(request)
-						.then((cached) => cached || caches.match('/offline'))
-				)
+						.then((cached) => cached || caches.match('/offline')),
+				),
 		);
 		return;
 	}
 
-	if (isSameOrigin && API_ALLOWLIST.some((path) => url.pathname.startsWith(path))) {
+	if (
+		isSameOrigin &&
+		API_ALLOWLIST.some((path) => url.pathname.startsWith(path))
+	) {
 		event.respondWith(
 			caches.open(API_CACHE).then(async (cache) => {
 				try {
@@ -183,7 +211,7 @@ if (request.method === 'POST' && isSameOrigin && url.pathname.startsWith('/api/g
 					if (cached) return cached;
 					throw error;
 				}
-			})
+			}),
 		);
 		return;
 	}
@@ -202,11 +230,13 @@ if (request.method === 'POST' && isSameOrigin && url.pathname.startsWith('/api/g
 				return fetch(request)
 					.then((response) => {
 						const copy = response.clone();
-						caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+						caches
+							.open(RUNTIME_CACHE)
+							.then((cache) => cache.put(request, copy));
 						return response;
 					})
 					.catch(() => cached);
-			})
+			}),
 		);
 	}
 });

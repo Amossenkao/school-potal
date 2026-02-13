@@ -101,6 +101,11 @@ const periods = [
 
 const GradeSubmissions = () => {
 	const school = useSchoolStore((state) => state.school);
+	const gradesByAcademicYear = useSchoolStore((state) => state.gradesByAcademicYear);
+	const gradesVersionByAcademicYear = useSchoolStore(
+		(state) => state.gradesVersionByAcademicYear,
+	);
+	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 	const { user } = useAuth();
 	const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
 	const [submittedGrades, setSubmittedGrades] = useState<GradeSubmission[]>([]);
@@ -251,14 +256,30 @@ const GradeSubmissions = () => {
 		[teacherInfo?.username]
 	);
 
-	const fetchSubmittedGrades = useCallback(
-		async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
-		if (!teacherInfo) return;
+		const fetchSubmittedGrades = useCallback(
+			async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
+			if (!teacherInfo) return;
 
-		setLoading((prev) => ({ ...prev, submittedGrades: true }));
-		try {
-			const cacheKey = `submittedGrades:${teacherInfo.username}:${academicYear}`;
-			const cached = getClientCache<any[]>(cacheKey);
+			setLoading((prev) => ({ ...prev, submittedGrades: true }));
+			try {
+				const storeGrades = academicYear
+					? gradesByAcademicYear?.[academicYear] || []
+					: [];
+				const hasScopedGradesSnapshot =
+					academicYear &&
+					typeof gradesVersionByAcademicYear?.[academicYear] === 'string';
+				if (
+					!forceRefresh &&
+					hasScopedGradesSnapshot &&
+					Array.isArray(storeGrades)
+				) {
+					processSubmittedGrades(storeGrades);
+					setError((prev) => ({ ...prev, submittedGrades: '' }));
+					return;
+				}
+
+				const cacheKey = `submittedGrades:${teacherInfo.username}:${academicYear}`;
+				const cached = getClientCache<any[]>(cacheKey);
 
 			if (cached && !forceRefresh) {
 				processSubmittedGrades(cached);
@@ -275,12 +296,15 @@ const GradeSubmissions = () => {
 					? data.data.report.grades
 					: [];
 
-			if (forceRefresh) {
-				clearClientCache(cacheKey);
-			}
-			setClientCache(cacheKey, grades);
-			processSubmittedGrades(grades);
-			setError((prev) => ({ ...prev, submittedGrades: '' }));
+				if (forceRefresh) {
+					clearClientCache(cacheKey);
+				}
+				setClientCache(cacheKey, grades);
+				if (academicYear) {
+					setGradesForYear(academicYear, grades);
+				}
+				processSubmittedGrades(grades);
+				setError((prev) => ({ ...prev, submittedGrades: '' }));
 		} catch (err) {
 			if (!forceRefresh) {
 				// Cached list was already rendered above; keep it and avoid replacing with error state.
@@ -299,7 +323,15 @@ const GradeSubmissions = () => {
 			setLoading((prev) => ({ ...prev, submittedGrades: false }));
 		}
 	},
-	[academicYear, teacherInfo, processSubmittedGrades]);
+		[
+			academicYear,
+			teacherInfo,
+			processSubmittedGrades,
+			gradesByAcademicYear,
+			gradesVersionByAcademicYear,
+			setGradesForYear,
+		],
+	);
 
 	useEffect(() => {
 		setLoading((prev) => ({ ...prev, teacherInfo: true }));
@@ -322,7 +354,7 @@ const GradeSubmissions = () => {
 
 	useEffect(() => {
 		if (teacherInfo) {
-			fetchSubmittedGrades({ forceRefresh: true });
+			fetchSubmittedGrades();
 		}
 	}, [teacherInfo, fetchSubmittedGrades]);
 

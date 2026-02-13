@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import type { SchoolProfile } from '@/types/schoolProfile';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
+import { useSchoolStore } from '@/store/schoolStore';
 
 type ClassScheduleItem = {
 	id: string;
@@ -192,6 +193,13 @@ export default function CalendarAndSchedules({
 	>([]);
 	const [slotEditingIds, setSlotEditingIds] = useState<string[]>([]);
 	const academicYear = schoolProfile.currentAcademicYear || '';
+	const schedulesByAcademicYear = useSchoolStore(
+		(state) => state.schedulesByAcademicYear,
+	);
+	const schedulesVersionByAcademicYear = useSchoolStore(
+		(state) => state.schedulesVersionByAcademicYear,
+	);
+	const setSchedulesForYear = useSchoolStore((state) => state.setSchedulesForYear);
 
 	useEffect(() => {
 		if (!showSchedules) return;
@@ -201,6 +209,51 @@ export default function CalendarAndSchedules({
 			setScheduleError('');
 
 			try {
+				const scopedSchedules = academicYear
+					? schedulesByAcademicYear?.[academicYear]
+					: null;
+				const hasScopedSchedulesVersion =
+					academicYear &&
+					typeof schedulesVersionByAcademicYear?.[academicYear] === 'string';
+				if (hasScopedSchedulesVersion && scopedSchedules) {
+					const mappedClass: ClassScheduleItem[] = (
+						scopedSchedules.classSchedules || []
+					).map((item: any) => {
+						const meta = item.classId ? classOptionsById.get(item.classId) : null;
+						return {
+							id: String(item._id || item.id || ''),
+							classId: item.classId || meta?.classId || '',
+							className: item.className || meta?.className || '',
+							level: item.level || meta?.level || '',
+							session: item.session || meta?.session || '',
+							subject: item.subject || '',
+							isRecess: item.isRecess || false,
+							dayOfWeek: item.dayOfWeek || '',
+							startTime: item.startTime || '',
+							endTime: item.endTime || '',
+						};
+					});
+					const mappedTest: TestScheduleItem[] = (
+						scopedSchedules.testSchedules || []
+					).map((item: any) => {
+						const meta = item.classId ? classOptionsById.get(item.classId) : null;
+						return {
+							id: String(item._id || item.id || ''),
+							level: item.level || meta?.level || '',
+							session: item.session || meta?.session || '',
+							title: item.title || '',
+							subject: item.subject || '',
+							date: item.startDate || item.date || '',
+							startTime: item.startTime || '',
+							endTime: item.endTime || '',
+							venue: item.venue || item.location || '',
+						};
+					});
+					setClassSchedules(mappedClass);
+					setTestSchedules(mappedTest);
+					return;
+				}
+
 				const levelKeys: string[] = [];
 
 				if (userRole === 'student' && user?.classId) {
@@ -350,6 +403,12 @@ export default function CalendarAndSchedules({
 
 				setClassSchedules(classResults);
 				setTestSchedules(testResults);
+				if (academicYear) {
+					setSchedulesForYear(academicYear, {
+						classSchedules: classResults,
+						testSchedules: testResults,
+					});
+				}
 			} catch (error) {
 				console.error('Failed to fetch schedules:', error);
 				setScheduleError('Failed to load schedules.');
@@ -359,15 +418,18 @@ export default function CalendarAndSchedules({
 		};
 
 		fetchSchedules();
-	}, [
-		academicYear,
-		showSchedules,
-		user?.classId,
-		userRole,
-		user?.subjects,
-		classOptionsById,
-		levelOptions,
-	]);
+		}, [
+			academicYear,
+			showSchedules,
+			user?.classId,
+			userRole,
+			user?.subjects,
+			classOptionsById,
+			levelOptions,
+			schedulesByAcademicYear,
+			schedulesVersionByAcademicYear,
+			setSchedulesForYear,
+		]);
 
 	const filteredClassSchedules = useMemo(() => {
 		return classSchedules;
@@ -430,14 +492,16 @@ export default function CalendarAndSchedules({
 					venue: item.venue || item.location || '',
 				});
 
-				const created = Array.isArray(result.data)
-					? result.data.map(normalize)
-					: [normalize(result.data)];
+					const created: TestScheduleItem[] = Array.isArray(result.data)
+						? (result.data as any[]).map((entry) => normalize(entry))
+						: [normalize(result.data)];
 
 				let next: TestScheduleItem[];
 				if (testForm.id) {
-					const updateMap = new Map(created.map((item) => [item.id, item]));
-					next = prev.map((item) => updateMap.get(item.id) || item);
+						const updateMap = new Map<string, TestScheduleItem>(
+							created.map((item) => [item.id, item]),
+						);
+						next = prev.map((item) => updateMap.get(item.id) || item);
 				} else {
 					next = [...created, ...prev];
 				}

@@ -24,6 +24,7 @@ import {
 	buildAcademicYearOptions,
 	getClassLevelLabel,
 } from '@/components/dashboard/academicYear';
+import { useSchoolStore } from '@/store/schoolStore';
 
 type DashboardInsightsProps = {
 	schoolProfile: SchoolProfile;
@@ -155,6 +156,8 @@ export default function DashboardInsights({
 	const [students, setStudents] = useState<StudentRecord[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [errorMessage, setErrorMessage] = useState('');
+	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
+	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
 
 	const role = user?.role || 'student';
 	const teacherClassIds = useMemo(() => {
@@ -225,6 +228,30 @@ export default function DashboardInsights({
 			try {
 				setIsLoading(true);
 				setErrorMessage('');
+				const storeStudents = usersByAcademicYear?.[selectedYear]?.students;
+				if (Array.isArray(storeStudents)) {
+					if (role === 'teacher') {
+						const targets =
+							selectedClassId !== 'all' ? [selectedClassId] : teacherClassIds;
+						const filtered = storeStudents.filter((student: StudentRecord) => {
+							if (targets.length === 0) return false;
+							const classId = getStudentClassId(student);
+							return targets.includes(classId);
+						});
+						setStudents(filtered);
+						return;
+					}
+					if (selectedClassId !== 'all') {
+						const filtered = storeStudents.filter(
+							(student: StudentRecord) =>
+								getStudentClassId(student) === selectedClassId,
+						);
+						setStudents(filtered);
+						return;
+					}
+					setStudents(storeStudents as StudentRecord[]);
+					return;
+				}
 				if (role === 'student') {
 					setStudents([
 						{
@@ -276,7 +303,13 @@ export default function DashboardInsights({
 						if (!key) return;
 						merged.set(key, student);
 					});
-					setStudents(Array.from(merged.values()));
+					const mergedStudents = Array.from(merged.values());
+					setStudents(mergedStudents);
+					setUsersForYear(
+						selectedYear,
+						{ students: mergedStudents as any[] },
+						{ merge: true },
+					);
 					return;
 				}
 
@@ -298,10 +331,15 @@ export default function DashboardInsights({
 					? payload.data
 					: payload.data?.students || [];
 				setStudents(data);
+				setUsersForYear(
+					selectedYear,
+					{ students: Array.isArray(data) ? data : [] },
+					{ merge: true },
+				);
 			} catch (error) {
 				if ((error as Error).name === 'AbortError') return;
 				setErrorMessage(
-					(error as Error).message || 'Unable to load student insights.'
+					(error as Error).message || 'Unable to load student insights.',
 				);
 			} finally {
 				setIsLoading(false);
@@ -310,7 +348,16 @@ export default function DashboardInsights({
 
 		fetchStudents();
 		return () => controller.abort();
-	}, [selectedYear, selectedClassId, role, teacherClassIds, studentClassId, user]);
+	}, [
+		selectedYear,
+		selectedClassId,
+		role,
+		teacherClassIds,
+		studentClassId,
+		user,
+		usersByAcademicYear,
+		setUsersForYear,
+	]);
 
 	const filteredStudents = useMemo(() => {
 		if (selectedGender === 'all') return students;

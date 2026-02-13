@@ -118,6 +118,11 @@ const PageLoading = ({ fullScreen = true }: { fullScreen?: boolean }) => (
 const AdminGradeManagement: React.FC = () => {
 	const currentSchool = useSchoolStore((state) => state.school);
 	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
+	const gradesByAcademicYear = useSchoolStore((state) => state.gradesByAcademicYear);
+	const gradesVersionByAcademicYear = useSchoolStore(
+		(state) => state.gradesVersionByAcademicYear
+	);
+	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 	// Data states
 	const [submissions, setSubmissions] = useState<GradeSubmission[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -240,96 +245,108 @@ const AdminGradeManagement: React.FC = () => {
 		});
 	};
 
+	const transformRawGrades = (rawGrades: RawGradeData[]) => {
+		const groupedGrades = rawGrades.reduce((acc, grade) => {
+			if (!acc[grade.submissionId]) {
+				acc[grade.submissionId] = [];
+			}
+			acc[grade.submissionId].push(grade);
+			return acc;
+		}, {} as Record<string, RawGradeData[]>);
+
+		return Object.values(groupedGrades).map((grades) => {
+			const firstGrade = grades[0];
+			const resolvedTeacherName = resolveTeacherName(
+				firstGrade.teacherUsername,
+				firstGrade.academicYear,
+				firstGrade.teacherName
+			);
+			const latestUpdated =
+				grades.reduce<string | null>((latest, grade) => {
+					if (!grade?.lastUpdated) return latest;
+					if (!latest) return grade.lastUpdated;
+					return grade.lastUpdated > latest ? grade.lastUpdated : latest;
+				}, null) || firstGrade.lastUpdated;
+			const validGrades = grades
+				.map((g) => g.grade)
+				.filter((g): g is number => g !== null);
+
+				const statuses = new Set(grades.map((g) => g.status));
+				let submissionStatus: GradeSubmission['status'] = 'Pending';
+				if (statuses.size === 1) {
+					const onlyStatus = statuses.values().next().value as
+						| GradeSubmission['status']
+						| undefined;
+					submissionStatus = onlyStatus || 'Pending';
+				} else if (
+				statuses.has('Pending') ||
+				(statuses.has('Approved') && statuses.has('Rejected'))
+			) {
+				submissionStatus = 'Partially Approved';
+			} else if (statuses.has('Approved')) {
+				submissionStatus = 'Approved';
+			} else if (statuses.has('Rejected')) {
+				submissionStatus = 'Rejected';
+			}
+
+			return {
+				submissionId: firstGrade.submissionId,
+				academicYear: firstGrade.academicYear,
+				period: firstGrade.period,
+				classId: firstGrade.classId,
+				subject: firstGrade.subject,
+				teacherUsername: firstGrade.teacherUsername,
+				teacherName: resolvedTeacherName,
+				lastUpdated: latestUpdated,
+				grades: grades.map((g) => ({
+					studentId: g.studentId,
+					name: g.studentName,
+					grade: g.grade,
+					status: g.status,
+					rejectionReason: g.rejectionReason,
+				})),
+				status: submissionStatus,
+				rejectionReason: grades.find((g) => g.rejectionReason)?.rejectionReason,
+				stats: {
+					totalStudents: grades.length,
+					passes: validGrades.filter((g) => g >= 70).length,
+					fails: validGrades.filter((g) => g < 70).length,
+					incompletes: grades.length - validGrades.length,
+					average:
+						validGrades.length > 0
+							? validGrades.reduce((a, b) => a + b, 0) / validGrades.length
+							: 0,
+				},
+			};
+		});
+	};
+
 	// Fetch and process grade data
-	const fetchGrades = async () => {
+	const fetchGrades = async (forceRefresh = false) => {
 		try {
 			setLoading(true);
 			setError('');
-			// Replace with your actual API endpoint
-			const response = await fetch('/api/grades?academicYear=2025-2026');
+			const academicYear = currentSchool?.currentAcademicYear || '2025-2026';
+			const cachedGrades = gradesByAcademicYear?.[academicYear];
+			const hasScopedVersion =
+				typeof gradesVersionByAcademicYear?.[academicYear] === 'string';
+			if (
+				!forceRefresh &&
+				Array.isArray(cachedGrades) &&
+				cachedGrades.length > 0 &&
+				hasScopedVersion
+			) {
+				setSubmissions(transformRawGrades(cachedGrades as RawGradeData[]));
+				return;
+			}
+			const response = await fetch(`/api/grades?academicYear=${academicYear}`);
 			if (!response.ok) {
 				throw new Error(`HTTP error! status: ${response.status}`);
 			}
 			const data = await response.json();
 			const rawGrades: RawGradeData[] = data.data.report.grades;
-
-			// Group grades by submissionId to form submissions
-			const groupedGrades = rawGrades.reduce((acc, grade) => {
-				if (!acc[grade.submissionId]) {
-					acc[grade.submissionId] = [];
-				}
-				acc[grade.submissionId].push(grade);
-				return acc;
-			}, {} as Record<string, RawGradeData[]>);
-
-			// Transform grouped data into a more usable format
-			const transformedSubmissions: GradeSubmission[] = Object.values(
-				groupedGrades
-			).map((grades) => {
-				const firstGrade = grades[0];
-				const resolvedTeacherName = resolveTeacherName(
-					firstGrade.teacherUsername,
-					firstGrade.academicYear,
-					firstGrade.teacherName
-				);
-				const latestUpdated =
-					grades.reduce<string | null>((latest, grade) => {
-						if (!grade?.lastUpdated) return latest;
-						if (!latest) return grade.lastUpdated;
-						return grade.lastUpdated > latest ? grade.lastUpdated : latest;
-					}, null) || firstGrade.lastUpdated;
-				const validGrades = grades
-					.map((g) => g.grade)
-					.filter((g): g is number => g !== null);
-
-				const statuses = new Set(grades.map((g) => g.status));
-				let submissionStatus: GradeSubmission['status'] = 'Pending';
-				if (statuses.size === 1) {
-					submissionStatus = statuses.values().next().value;
-				} else if (
-					statuses.has('Pending') ||
-					(statuses.has('Approved') && statuses.has('Rejected'))
-				) {
-					submissionStatus = 'Partially Approved';
-				} else if (statuses.has('Approved')) {
-					submissionStatus = 'Approved';
-				} else if (statuses.has('Rejected')) {
-					submissionStatus = 'Rejected';
-				}
-
-				return {
-					submissionId: firstGrade.submissionId,
-					academicYear: firstGrade.academicYear,
-					period: firstGrade.period,
-					classId: firstGrade.classId,
-					subject: firstGrade.subject,
-					teacherUsername: firstGrade.teacherUsername,
-					teacherName: resolvedTeacherName,
-					lastUpdated: latestUpdated,
-					grades: grades.map((g) => ({
-						studentId: g.studentId,
-						name: g.studentName,
-						grade: g.grade,
-						status: g.status,
-						rejectionReason: g.rejectionReason,
-					})),
-					status: submissionStatus,
-					rejectionReason: grades.find((g) => g.rejectionReason)
-						?.rejectionReason,
-					stats: {
-						totalStudents: grades.length,
-						passes: validGrades.filter((g) => g >= 70).length,
-						fails: validGrades.filter((g) => g < 70).length,
-						incompletes: grades.length - validGrades.length,
-						average:
-							validGrades.length > 0
-								? validGrades.reduce((a, b) => a + b, 0) / validGrades.length
-								: 0,
-					},
-				};
-			});
-
-			setSubmissions(transformedSubmissions);
+			setSubmissions(transformRawGrades(rawGrades));
+			setGradesForYear(academicYear, rawGrades);
 		} catch (err) {
 			console.error('Error fetching grades:', err);
 			setError('Failed to fetch grade submissions. Please try again.');
@@ -340,7 +357,7 @@ const AdminGradeManagement: React.FC = () => {
 
 	useEffect(() => {
 		fetchGrades();
-	}, []);
+	}, [gradesByAcademicYear, gradesVersionByAcademicYear, currentSchool]);
 
 	// API interaction handlers
 	const updateGradesStatus = async (
@@ -904,11 +921,11 @@ const AdminGradeManagement: React.FC = () => {
 								Review and manage grade submissions from all teachers
 							</p>
 						</div>
-						<button
-							onClick={fetchGrades}
-							disabled={loading}
-							className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 sm:w-auto"
-						>
+							<button
+								onClick={() => fetchGrades(true)}
+								disabled={loading}
+								className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 sm:w-auto"
+							>
 							{loading ? (
 								<Loader2 className="h-4 w-4 animate-spin" />
 							) : (

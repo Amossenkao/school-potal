@@ -1269,6 +1269,13 @@ function ReportContent({
 	const [fullScreenViewerOpen, setFullScreenViewerOpen] = useState(false);
 	const resetCopiedTimeoutRef = useRef<number | null>(null);
 	const school = useSchoolStore((state) => state.school);
+	const gradesByAcademicYear = useSchoolStore(
+		(state) => state.gradesByAcademicYear
+	);
+	const gradesVersionByAcademicYear = useSchoolStore(
+		(state) => state.gradesVersionByAcademicYear
+	);
+	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 	const user = useAuth((state) => state.user);
 	const isStudent = user?.role === 'student';
 	const createdBy = useMemo(
@@ -1546,22 +1553,52 @@ function ReportContent({
 				session: reportFilters.session,
 			});
 
-			// We fetch grades for the whole class to build rank, then filter locally
-			let data: any;
-			try {
-				const res = await fetch(`/api/grades?${params.toString()}`, {
-					cache: 'no-store',
-				});
-				if (!res.ok) throw new Error('Failed to fetch periodic grades');
-				data = await res.json();
-			} catch (fetchError) {
-				if (cachedReport) {
-					setStudentsData(cachedReport);
-					setLoading(false);
-					return;
+				// We fetch grades for the whole class to build rank, then filter locally.
+				let data: any;
+				const scopedGrades = gradesByAcademicYear?.[reportFilters.academicYear];
+				const hasScopedGradesVersion =
+					typeof gradesVersionByAcademicYear?.[reportFilters.academicYear] ===
+					'string';
+				if (
+					Array.isArray(scopedGrades) &&
+					scopedGrades.length > 0 &&
+					hasScopedGradesVersion
+				) {
+					const selectedIdsSet =
+						selectedStudentIds.length > 0 ? new Set(selectedStudentIds) : null;
+					const filteredStoreGrades = scopedGrades.filter((grade: any) => {
+						const gradeYear = String(grade?.academicYear || '').trim();
+						const gradeStudentId = String(grade?.studentId || '').trim();
+						return (
+							grade?.classId === reportFilters.className &&
+							grade?.period === reportFilters.period &&
+							gradeYear === reportFilters.academicYear &&
+							(!selectedIdsSet || selectedIdsSet.has(gradeStudentId))
+						);
+					});
+					data = {
+						success: true,
+						data: { grades: filteredStoreGrades },
+					};
+				} else {
+					try {
+						const res = await fetch(`/api/grades?${params.toString()}`, {
+							cache: 'no-store',
+						});
+						if (!res.ok) throw new Error('Failed to fetch periodic grades');
+						data = await res.json();
+						if (Array.isArray(data?.data?.grades)) {
+							setGradesForYear(reportFilters.academicYear, data.data.grades);
+						}
+					} catch (fetchError) {
+						if (cachedReport) {
+							setStudentsData(cachedReport);
+							setLoading(false);
+							return;
+						}
+						throw fetchError;
+					}
 				}
-				throw fetchError;
-			}
 
 			if (!data.success) {
 				throw new Error(data.message || 'Invalid data format from server');
@@ -1687,11 +1724,14 @@ function ReportContent({
 		reportFilters.className,
 		reportFilters.session,
 		reportFilters.selectedStudents,
-		user?.id,
-		user?._id,
-		user?.studentId,
-		user?.username,
-	]);
+			user?.id,
+			user?._id,
+			user?.studentId,
+			user?.username,
+			gradesByAcademicYear,
+			gradesVersionByAcademicYear,
+			setGradesForYear,
+		]);
 
 	// Only fetch data once on mount or when filters/students change
 	useEffect(() => {
