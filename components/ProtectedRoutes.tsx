@@ -62,7 +62,7 @@ const ProtectedRoute = ({
 				return;
 			}
 
-			let timeoutId: ReturnType<typeof setTimeout> | null = null;
+				let timeoutId: number | null = null;
 			try {
 				await Promise.race([
 					checkAuthStatus(),
@@ -92,7 +92,7 @@ const ProtectedRoute = ({
 	}, [checkAuthStatus, hydrateFromCache, isOnline, user]);
 
 	const waitingForSession = !authResolved && !user && isOnline && !authCheckFailed;
-	const { show: showSessionLoader, timedOut: sessionTimedOut } = useLoadingGate({
+	const { timedOut: sessionTimedOut } = useLoadingGate({
 		active: waitingForSession,
 		delayMs: LOADING_POLICY.routeSpinnerDelayMs,
 		timeoutMs: LOADING_POLICY.authTimeoutMs + 400,
@@ -179,9 +179,6 @@ const ProtectedRoute = ({
 	}
 
 	if (!authResolved) {
-		if (!showSessionLoader) {
-			return <div className="min-h-screen bg-background" />;
-		}
 		return (
 			<PageLoading
 				variant="school"

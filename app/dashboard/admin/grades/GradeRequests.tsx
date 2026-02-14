@@ -16,6 +16,7 @@ import {
 	Search,
 	ArrowRight,
 	WifiOff,
+	RefreshCw,
 } from 'lucide-react';
 
 import { useNetworkStore } from '@/store/networkStore';
@@ -51,6 +52,209 @@ interface BulkGradeRequest {
 		totalRequests: number;
 	};
 }
+
+type UnknownRecord = Record<string, unknown>;
+type NormalizedStatus = GradeChangeRequest['status'] | BulkGradeRequest['status'];
+
+const isObjectRecord = (value: unknown): value is UnknownRecord =>
+	typeof value === 'object' && value !== null;
+
+const toStringSafe = (value: unknown, fallback = ''): string => {
+	if (typeof value === 'string') return value;
+	if (value === null || value === undefined) return fallback;
+	return String(value);
+};
+
+const toNumberSafe = (value: unknown, fallback = 0): number => {
+	if (typeof value === 'number' && Number.isFinite(value)) return value;
+	if (typeof value === 'string' && value.trim() !== '') {
+		const parsed = Number(value);
+		if (Number.isFinite(parsed)) return parsed;
+	}
+	return fallback;
+};
+
+const normalizeRequestStatus = (status: unknown): GradeChangeRequest['status'] => {
+	if (status === 'Approved' || status === 'Rejected') return status;
+	return 'Pending';
+};
+
+const inferBatchStatus = (
+	requests: GradeChangeRequest[]
+): BulkGradeRequest['status'] => {
+	const statuses = new Set(requests.map((request) => request.status));
+	if (statuses.size === 1) {
+		return statuses.values().next().value as BulkGradeRequest['status'];
+	}
+	if (statuses.has('Pending') || (statuses.has('Approved') && statuses.has('Rejected'))) {
+		return 'Partially Approved';
+	}
+	if (statuses.has('Approved')) return 'Approved';
+	if (statuses.has('Rejected')) return 'Rejected';
+	return 'Pending';
+};
+
+const normalizeBatchStatus = (
+	status: unknown,
+	requests: GradeChangeRequest[]
+): BulkGradeRequest['status'] => {
+	if (
+		status === 'Pending' ||
+		status === 'Approved' ||
+		status === 'Rejected' ||
+		status === 'Partially Approved'
+	) {
+		return status;
+	}
+	return inferBatchStatus(requests);
+};
+
+const normalizeGradeRequest = (
+	request: unknown,
+	defaultBatchId: string,
+	requestIndex: number
+): GradeChangeRequest => {
+	const source = isObjectRecord(request) ? request : {};
+	const fallbackRequestId = `${defaultBatchId}-request-${requestIndex}`;
+	const requestedGradeValue = toNumberSafe(source.requestedGrade, 0);
+	const originalGradeRaw = source.originalGrade;
+	const originalGradeValue =
+		originalGradeRaw === null
+			? null
+			: toNumberSafe(originalGradeRaw, Number.NaN);
+
+	return {
+		requestId: toStringSafe(
+			source.requestId ?? source._id,
+			fallbackRequestId
+		),
+		batchId: toStringSafe(source.batchId, defaultBatchId),
+		studentId: toStringSafe(source.studentId),
+		studentName: toStringSafe(source.studentName, 'Unknown Student'),
+		originalGrade: Number.isNaN(originalGradeValue) ? null : originalGradeValue,
+		requestedGrade: requestedGradeValue,
+		reasonForChange: toStringSafe(source.reasonForChange),
+		status: normalizeRequestStatus(source.status),
+		adminRejectionReason:
+			typeof source.adminRejectionReason === 'string'
+				? source.adminRejectionReason
+				: undefined,
+	};
+};
+
+const normalizeBulkRequests = (input: unknown): BulkGradeRequest[] => {
+	if (!Array.isArray(input)) return [];
+
+	type BatchAccumulator = {
+		batchId: string;
+		academicYear: string;
+		period: string;
+		classId: string;
+		subject: string;
+		teacherUsername: string;
+		teacherName: string;
+		submittedAt: string;
+		lastUpdated: string;
+		requests: GradeChangeRequest[];
+		status?: NormalizedStatus;
+		statsTotalRequests?: unknown;
+	};
+
+	const batchesById = new Map<string, BatchAccumulator>();
+
+	const getAccumulator = (batchId: string): BatchAccumulator => {
+		const existing = batchesById.get(batchId);
+		if (existing) return existing;
+		const created: BatchAccumulator = {
+			batchId,
+			academicYear: '',
+			period: '',
+			classId: '',
+			subject: '',
+			teacherUsername: '',
+			teacherName: '',
+			submittedAt: '',
+			lastUpdated: '',
+			requests: [],
+		};
+		batchesById.set(batchId, created);
+		return created;
+	};
+
+	const firstNonEmpty = (current: string, candidate: unknown): string =>
+		current || toStringSafe(candidate);
+
+	input.forEach((item, itemIndex) => {
+		if (!isObjectRecord(item)) return;
+		const fallbackBatchId = `batch-${itemIndex + 1}`;
+		const batchId = toStringSafe(item.batchId, fallbackBatchId);
+		const accumulator = getAccumulator(batchId);
+
+		accumulator.academicYear = firstNonEmpty(
+			accumulator.academicYear,
+			item.academicYear
+		);
+		accumulator.period = firstNonEmpty(accumulator.period, item.period);
+		accumulator.classId = firstNonEmpty(accumulator.classId, item.classId);
+		accumulator.subject = firstNonEmpty(accumulator.subject, item.subject);
+		accumulator.teacherUsername = firstNonEmpty(
+			accumulator.teacherUsername,
+			item.teacherUsername
+		);
+		accumulator.teacherName = firstNonEmpty(accumulator.teacherName, item.teacherName);
+		accumulator.submittedAt = firstNonEmpty(
+			accumulator.submittedAt,
+			item.submittedAt
+		);
+		accumulator.lastUpdated = firstNonEmpty(
+			accumulator.lastUpdated,
+			item.lastUpdated ?? item.submittedAt
+		);
+
+		if (accumulator.status === undefined && typeof item.status === 'string') {
+			accumulator.status = item.status as NormalizedStatus;
+		}
+
+		if (accumulator.statsTotalRequests === undefined && isObjectRecord(item.stats)) {
+			accumulator.statsTotalRequests = item.stats.totalRequests;
+		}
+
+		const rawRequests = Array.isArray(item.requests) ? item.requests : [item];
+		const requestStartIndex = accumulator.requests.length;
+		rawRequests.forEach((request, requestIndex) => {
+			accumulator.requests.push(
+				normalizeGradeRequest(
+					request,
+					batchId,
+					requestStartIndex + requestIndex + 1
+				)
+			);
+		});
+	});
+
+	return Array.from(batchesById.values()).map((batch) => {
+		const normalizedStatus = normalizeBatchStatus(batch.status, batch.requests);
+		const statsTotal = toNumberSafe(batch.statsTotalRequests, Number.NaN);
+		return {
+			batchId: batch.batchId,
+			academicYear: batch.academicYear,
+			period: batch.period,
+			classId: batch.classId,
+			subject: batch.subject,
+			teacherUsername: batch.teacherUsername,
+			teacherName: batch.teacherName,
+			submittedAt: batch.submittedAt,
+			lastUpdated: batch.lastUpdated || batch.submittedAt,
+			requests: batch.requests,
+			status: normalizedStatus,
+			stats: {
+				totalRequests: Number.isNaN(statsTotal)
+					? batch.requests.length
+					: statsTotal,
+			},
+		};
+	});
+};
 
 const periods = [
 	{ id: 'first', label: 'First Period', value: 'firstPeriod' },
@@ -94,7 +298,7 @@ const GradeRequests: React.FC = () => {
 	const [searchQuery, setSearchQuery] = useState('');
 	const [currentPage, setCurrentPage] = useState<number>(1);
 	const [rowsPerPage, setRowsPerPage] = useState<number>(5);
-	const [filters, setFilters] = useState({ status: 'Pending' });
+	const [filters, setFilters] = useState({ status: 'All' });
 
 	const classMap = useMemo(() => {
 		if (!currentSchool?.classLevels) return new Map();
@@ -128,7 +332,7 @@ const GradeRequests: React.FC = () => {
 
 		try {
 			if (!forceRefresh && hasYearSnapshot) {
-				setBulkRequests(cachedRequests as BulkGradeRequest[]);
+				setBulkRequests(normalizeBulkRequests(cachedRequests));
 				setError('');
 				setLoading(false);
 				return;
@@ -148,8 +352,9 @@ const GradeRequests: React.FC = () => {
 			}
 			const data = await response.json();
 			const report = Array.isArray(data?.data?.report) ? data.data.report : [];
-			setBulkRequests(report);
-			setGradeRequestsForYear(currentAcademicYear, report);
+			const normalizedReport = normalizeBulkRequests(report);
+			setBulkRequests(normalizedReport);
+			setGradeRequestsForYear(currentAcademicYear, normalizedReport);
 		} catch (err) {
 			console.error('Error fetching grade change requests:', err);
 			if (bulkRequests.length === 0) {
@@ -167,7 +372,7 @@ const GradeRequests: React.FC = () => {
 
 	useEffect(() => {
 		if (!Array.isArray(scopedGradeRequests)) return;
-		setBulkRequests(scopedGradeRequests as BulkGradeRequest[]);
+		setBulkRequests(normalizeBulkRequests(scopedGradeRequests));
 		setLoading(false);
 		setError('');
 	}, [scopedGradeRequests]);
@@ -275,6 +480,13 @@ const GradeRequests: React.FC = () => {
 
 	// --- FILTERING & PAGINATION ---
 	const filteredRequests = useMemo(() => {
+		const statusPriority: Record<BulkGradeRequest['status'], number> = {
+			Pending: 0,
+			'Partially Approved': 1,
+			Rejected: 2,
+			Approved: 3,
+		};
+
 		return bulkRequests
 			.filter((req) => {
 				if (filters.status && filters.status !== 'All') {
@@ -296,20 +508,29 @@ const GradeRequests: React.FC = () => {
 						req.subject.toLowerCase().includes(query) ||
 						(classMap.get(req.classId) || '').toLowerCase().includes(query)
 					);
-				}
-				return true;
-			})
-			.sort(
-				(a, b) =>
-					new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
-			);
+					}
+					return true;
+				})
+				.sort((a, b) => {
+					const statusDelta =
+						(statusPriority[a.status] ?? 3) - (statusPriority[b.status] ?? 3);
+					if (statusDelta !== 0) return statusDelta;
+					const aTime = new Date(a.lastUpdated || a.submittedAt).getTime();
+					const bTime = new Date(b.lastUpdated || b.submittedAt).getTime();
+					return bTime - aTime;
+				});
 	}, [bulkRequests, filters, searchQuery, classMap]);
 
-	const totalPages = Math.ceil(filteredRequests.length / rowsPerPage);
+	const totalPages = Math.max(1, Math.ceil(filteredRequests.length / rowsPerPage));
+	const currentPageSafe = Math.min(currentPage, totalPages);
 	const currentSlice = filteredRequests.slice(
-		(currentPage - 1) * rowsPerPage,
-		currentPage * rowsPerPage
+		(currentPageSafe - 1) * rowsPerPage,
+		currentPageSafe * rowsPerPage
 	);
+
+	useEffect(() => {
+		setCurrentPage(1);
+	}, [filters.status, searchQuery, rowsPerPage]);
 
 	// --- SELECTION TOGGLES ---
 	const toggleRequestSelection = (batchId: string) => {
@@ -419,8 +640,9 @@ const GradeRequests: React.FC = () => {
 						</div>
 					</div>
 					{/* Modal Body */}
-					<div className="p-6 overflow-y-auto flex-grow">
-						<table className="min-w-full divide-y divide-border">
+						<div className="p-6 overflow-y-auto flex-grow">
+							<div className="overflow-x-auto">
+								<table className="min-w-full divide-y divide-border">
 							<thead className="bg-muted/50">
 								<tr>
 									<th className="p-3 text-left">
@@ -506,36 +728,37 @@ const GradeRequests: React.FC = () => {
 										</td>
 									</tr>
 								))}
-							</tbody>
-						</table>
-					</div>
-					{/* Modal Footer */}
-					{['Pending', 'Partially Approved'].includes(
-						selectedBulkRequest.status
-					) && (
-						<div className="p-6 border-t bg-muted flex justify-between items-center">
-							<div className="text-sm text-muted-foreground">
-								{selectedIndividualRequests.size > 0
-									? `${selectedIndividualRequests.size} pending request(s) selected`
-									: 'Actions apply to all pending requests'}
+								</tbody>
+								</table>
 							</div>
-							<div className="flex gap-3">
-								<button
-									onClick={() => setShowRejectModal(true)}
-									className="px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 flex items-center gap-2"
-								>
-									<XCircle className="h-4 w-4" /> Reject{' '}
+						</div>
+						{/* Modal Footer */}
+						{['Pending', 'Partially Approved'].includes(
+							selectedBulkRequest.status
+						) && (
+							<div className="p-6 border-t bg-muted flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+								<div className="text-sm text-muted-foreground">
 									{selectedIndividualRequests.size > 0
+										? `${selectedIndividualRequests.size} pending request(s) selected`
+										: 'Actions apply to all pending requests'}
+								</div>
+								<div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+									<button
+										onClick={() => setShowRejectModal(true)}
+										className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 flex items-center justify-center gap-2 sm:w-auto"
+									>
+										<XCircle className="h-4 w-4" /> Reject{' '}
+										{selectedIndividualRequests.size > 0
 										? 'Selected'
 										: 'All Pending'}
 								</button>
-								<button
-									onClick={handleModalApprove}
-									disabled={isProcessing}
-									className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
-								>
-									{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}{' '}
-									<Check className="h-4 w-4" /> Approve{' '}
+									<button
+										onClick={handleModalApprove}
+										disabled={isProcessing}
+										className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto"
+									>
+										{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}{' '}
+										<Check className="h-4 w-4" /> Approve{' '}
 									{selectedIndividualRequests.size > 0
 										? 'Selected'
 										: 'All Pending'}
@@ -582,17 +805,25 @@ const GradeRequests: React.FC = () => {
 						className="w-full rounded-md border-input bg-background shadow-sm focus:ring-destructive focus:border-destructive"
 					/>
 				</div>
-				<div className="p-6 border-t bg-muted flex justify-end gap-3">
-					<button
-						onClick={isBulk ? handleBulkReject : handleModalReject}
-						disabled={
-							isProcessing ||
-							!(isBulk ? bulkRejectionReason : rejectionReason).trim()
-						}
-						className="px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center gap-2"
-					>
-						{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}{' '}
-						<XCircle className="h-4 w-4" />{' '}
+					<div className="p-6 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+						<button
+							onClick={() =>
+								isBulk ? setShowBulkRejectModal(false) : setShowRejectModal(false)
+							}
+							className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto"
+						>
+							Cancel
+						</button>
+						<button
+							onClick={isBulk ? handleBulkReject : handleModalReject}
+							disabled={
+								isProcessing ||
+								!(isBulk ? bulkRejectionReason : rejectionReason).trim()
+							}
+							className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto"
+						>
+							{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}{' '}
+							<XCircle className="h-4 w-4" />{' '}
 						{isBulk
 							? `Reject ${selectedBulkRequests.size} Batches`
 							: 'Confirm Rejection'}
@@ -605,13 +836,13 @@ const GradeRequests: React.FC = () => {
 	// --- MAIN COMPONENT RENDER ---
 	return (
 		<div className="space-y-6 bg-background text-foreground p-4 md:p-6">
-			<div className="bg-card border rounded-lg">
-				{/* Header & Filters */}
-				<div className="p-6">
-					<div className="flex justify-between items-start mb-4">
-						<div>
-							<h2 className="text-2xl font-bold">Grade Change Requests</h2>
-							<p className="text-muted-foreground mt-1">
+				<div className="bg-card border rounded-lg">
+					{/* Header & Filters */}
+					<div className="p-6">
+						<div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start mb-4">
+							<div>
+								<h2 className="text-2xl font-bold">Grade Change Requests</h2>
+								<p className="text-muted-foreground mt-1">
 								Review, approve, or reject teacher requests to change student
 								grades.
 							</p>
@@ -619,12 +850,17 @@ const GradeRequests: React.FC = () => {
 							<button
 								onClick={() => fetchRequests(true)}
 								disabled={loading}
-								className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+								className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 sm:w-auto"
 							>
-							{loading && <Loader2 className="h-4 w-4 animate-spin" />} Refresh
-						</button>
-					</div>
-					<div className="flex flex-wrap gap-4 items-center">
+								{loading ? (
+									<Loader2 className="h-4 w-4 animate-spin" />
+								) : (
+									<RefreshCw className="h-4 w-4" />
+								)}{' '}
+								Refresh
+							</button>
+						</div>
+						<div className="flex flex-wrap gap-4 items-center">
 						<div className="relative w-full sm:w-auto flex-grow">
 							<Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
 							<input
@@ -635,51 +871,67 @@ const GradeRequests: React.FC = () => {
 								className="pl-8 w-full rounded-md border-input bg-background shadow-sm p-2 text-sm"
 							/>
 						</div>
-						<select
-							value={filters.status}
-							onChange={(e) =>
-								setFilters((f) => ({ ...f, status: e.target.value }))
-							}
-							className="w-full sm:w-auto rounded-md border-input bg-background shadow-sm p-2 text-sm"
-						>
-							<option value="Pending">Pending</option>
-							<option value="All">All Statuses</option>
-							<option value="Approved">Approved</option>
-							<option value="Rejected">Rejected</option>
-						</select>
-					</div>
-				</div>
-
-				{/* Bulk Actions Bar */}
-				{selectedBulkRequests.size > 0 && (
-					<div className="bg-primary/10 border-t border-primary/20 p-4 flex items-center justify-between">
-						<span className="text-sm font-medium text-primary">
-							{selectedBulkRequests.size} batch(es) selected
-						</span>
-						<div className="flex gap-2">
-							<button
-								onClick={handleBulkApprove}
-								disabled={isProcessing}
-								className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
+							<select
+								value={filters.status}
+								onChange={(e) =>
+									setFilters((f) => ({ ...f, status: e.target.value }))
+								}
+								className="w-full sm:w-auto rounded-md border-input bg-background shadow-sm p-2 text-sm"
 							>
-								{isProcessing && <Loader2 className="h-3 w-3 animate-spin" />}{' '}
-								<Check className="h-3 w-3" /> Approve All Pending
-							</button>
-							<button
-								onClick={() => setShowBulkRejectModal(true)}
-								className="px-3 py-1.5 bg-destructive text-destructive-foreground text-sm rounded-md hover:bg-destructive/90 flex items-center gap-1"
-							>
-								<XCircle className="h-3 w-3" /> Reject All Pending
-							</button>
-							<button
-								onClick={() => setSelectedBulkRequests(new Set())}
-								className="px-3 py-1.5 bg-secondary text-secondary-foreground text-sm rounded-md hover:bg-secondary/80"
-							>
-								Clear Selection
-							</button>
+								<option value="All">All Statuses</option>
+								<option value="Pending">Pending</option>
+								<option value="Partially Approved">Partially Approved</option>
+								<option value="Approved">Approved</option>
+								<option value="Rejected">Rejected</option>
+							</select>
+							<div className="flex items-center space-x-2">
+								<span className="text-sm text-muted-foreground">Rows:</span>
+								<select
+									value={rowsPerPage}
+									onChange={(e) => setRowsPerPage(Number(e.target.value))}
+									className="w-[80px] rounded-md border-input bg-background p-2 text-sm"
+								>
+									<option value="5">5</option>
+									<option value="10">10</option>
+									<option value="25">25</option>
+									<option value="50">50</option>
+								</select>
+							</div>
 						</div>
 					</div>
-				)}
+
+				{/* Bulk Actions Bar */}
+					{selectedBulkRequests.size > 0 && (
+						<div className="bg-primary/10 border-t border-primary/20 p-4">
+							<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+							<span className="text-sm font-medium text-primary">
+								{selectedBulkRequests.size} batch(es) selected
+							</span>
+								<div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+								<button
+									onClick={handleBulkApprove}
+									disabled={isProcessing}
+										className="w-full px-3 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-1 sm:w-auto"
+								>
+									{isProcessing && <Loader2 className="h-3 w-3 animate-spin" />}{' '}
+									<Check className="h-3 w-3" /> Approve All Pending
+								</button>
+								<button
+									onClick={() => setShowBulkRejectModal(true)}
+										className="w-full px-3 py-2 bg-destructive text-destructive-foreground text-sm rounded-md hover:bg-destructive/90 flex items-center justify-center gap-1 sm:w-auto"
+								>
+									<XCircle className="h-3 w-3" /> Reject All Pending
+								</button>
+								<button
+									onClick={() => setSelectedBulkRequests(new Set())}
+										className="w-full px-3 py-2 bg-secondary text-secondary-foreground text-sm rounded-md hover:bg-secondary/80 sm:w-auto"
+								>
+									Clear Selection
+								</button>
+							</div>
+							</div>
+						</div>
+					)}
 
 				{/* Main Table */}
 				<div className="border-t">
@@ -778,7 +1030,7 @@ const GradeRequests: React.FC = () => {
 													{classMap.get(batch.classId)}
 												</td>
 												<td className="px-6 py-4 whitespace-nowrap text-sm text-center text-muted-foreground">
-													{batch.stats.totalRequests}
+													{batch.stats?.totalRequests ?? batch.requests.length}
 												</td>
 												<td className="px-6 py-4 whitespace-nowrap text-sm">
 													<span
@@ -809,39 +1061,39 @@ const GradeRequests: React.FC = () => {
 									</tbody>
 								</table>
 							</div>
-							{/* Pagination */}
-							<div className="flex items-center justify-between p-4">
-								<div className="text-sm text-muted-foreground">
-									Showing <strong>{(currentPage - 1) * rowsPerPage + 1}</strong>
-									–
-									<strong>
-										{Math.min(
-											currentPage * rowsPerPage,
-											filteredRequests.length
-										)}
-									</strong>{' '}
-									of <strong>{filteredRequests.length}</strong> batches
-								</div>
-								<div className="flex items-center space-x-2">
-									<button
-										className="px-2 py-1 text-sm border rounded-md disabled:opacity-50"
-										onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-										disabled={currentPage === 1}
-									>
-										Previous
-									</button>
-									<div className="text-sm">
-										Page {currentPage} of {totalPages}
+								{/* Pagination */}
+								<div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+									<div className="text-sm text-muted-foreground">
+										Showing <strong>{(currentPageSafe - 1) * rowsPerPage + 1}</strong>
+										–
+										<strong>
+											{Math.min(
+												currentPageSafe * rowsPerPage,
+												filteredRequests.length
+											)}
+										</strong>{' '}
+										of <strong>{filteredRequests.length}</strong> batches
 									</div>
-									<button
-										className="px-2 py-1 text-sm border rounded-md disabled:opacity-50"
-										onClick={() =>
-											setCurrentPage((p) => Math.min(p + 1, totalPages))
-										}
-										disabled={currentPage === totalPages}
-									>
-										Next
-									</button>
+									<div className="flex items-center justify-between gap-2 sm:justify-start">
+										<button
+											className="w-full px-2 py-2 text-sm border rounded-md disabled:opacity-50 sm:w-auto"
+											onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+											disabled={currentPageSafe === 1}
+										>
+											Previous
+										</button>
+										<div className="text-sm">
+											Page {currentPageSafe} of {totalPages}
+										</div>
+										<button
+											className="w-full px-2 py-2 text-sm border rounded-md disabled:opacity-50 sm:w-auto"
+											onClick={() =>
+												setCurrentPage((p) => Math.min(p + 1, totalPages))
+											}
+											disabled={currentPageSafe === totalPages}
+										>
+											Next
+										</button>
 								</div>
 							</div>
 						</>
