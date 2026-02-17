@@ -748,6 +748,15 @@ export default function CalendarAndSchedules({
 	}, [testScheduleSource]);
 
 	const displayClasses = useMemo(() => {
+		if (userRole === 'student') {
+			const ownClass = classesForLevel.find(
+				(klass) => klass.classId === user?.classId,
+			);
+			if (ownClass) {
+				return [ownClass];
+			}
+		}
+
 		const list = [...classesForLevel];
 		const hasGeneral = classScheduleSource.some((item) => !item.classId);
 		if (hasGeneral) {
@@ -757,7 +766,7 @@ export default function CalendarAndSchedules({
 			list.push({ classId: '__none__', className: 'No classes' });
 		}
 		return list;
-	}, [classesForLevel, classScheduleSource]);
+	}, [classesForLevel, classScheduleSource, userRole, user?.classId]);
 
 	const scheduleMatrix = useMemo(() => {
 		const map: Record<
@@ -1357,6 +1366,17 @@ export default function CalendarAndSchedules({
 																		scheduleMatrix[slot]?.[day]?.[
 																			klass.classId
 																		] || [];
+																	const generalItems =
+																		userRole === 'student' &&
+																		klass.classId !== '__all__'
+																			? scheduleMatrix[slot]?.[day]?.[
+																					'__all__'
+																				] || []
+																			: [];
+																	const mergedItems = [
+																		...items,
+																		...generalItems,
+																	];
 																	return (
 																		<td
 																			key={`${slot}-${day}-${klass.classId}`}
@@ -1371,12 +1391,12 @@ export default function CalendarAndSchedules({
 																			}
 																		>
 																			<div className="space-y-1">
-																				{items.length === 0 ? (
+																				{mergedItems.length === 0 ? (
 																					<span className="text-xs text-muted-foreground">
 																						—
 																					</span>
 																				) : (
-																					items.map((item) => (
+																					mergedItems.map((item) => (
 																						<div
 																							key={item.id}
 																							className={`text-xs ${

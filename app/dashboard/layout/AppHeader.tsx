@@ -14,6 +14,7 @@ import {
 	Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Spinner from '@/components/ui/spinner';
 import Input from '@/components/form/input/InputField';
 import Label from '@/components/form/Label';
@@ -21,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { useNetworkStore } from '@/store/networkStore';
 import { useOfflineNavigationStore } from '@/store/offlineNavigationStore';
+import { PageLoading } from '@/components/loading';
 
 // --- Types ---
 interface Notification {
@@ -513,6 +515,8 @@ const NotificationsDropdown = () => {
 const UserDropdown = () => {
 	const { user, logout } = useAuth();
 	const [isOpen, setIsOpen] = useState(false);
+	const [isLoggingOut, setIsLoggingOut] = useState(false);
+	const router = useRouter();
 	const dropdownRef = useRef<HTMLDivElement>(null);
 	const { setOfflinePath } = useOfflineNavigationStore();
 	const {
@@ -534,12 +538,31 @@ const UserDropdown = () => {
 		return () => document.removeEventListener('mousedown', handleClickOutside);
 	}, []);
 
+	const handleLogout = async () => {
+		setIsOpen(false);
+		setIsLoggingOut(true);
+		try {
+			await logout();
+			router.replace('/login');
+		} catch (error) {
+			console.error('Logout failed:', error);
+			setIsLoggingOut(false);
+		}
+	};
+
+	if (!user && isLoggingOut) {
+		return <PageLoading variant="school" message="Logging out..." />;
+	}
+
 	if (!user) {
 		return <Spinner />;
 	}
 
 	return (
 		<>
+			{isLoggingOut && (
+				<PageLoading variant="school" message="Logging out..." />
+			)}
 			<div className="relative" ref={dropdownRef}>
 				<button
 					onClick={() => setIsOpen(!isOpen)}
@@ -595,11 +618,12 @@ const UserDropdown = () => {
 							</button>
 							<div className="border-t border-gray-200 dark:border-gray-700 my-1" />
 							<button
-								onClick={logout}
+								onClick={handleLogout}
+								disabled={isLoggingOut}
 								className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
 							>
 								<LogOut className="h-4 w-4" />
-								Logout
+								{isLoggingOut ? 'Logging out...' : 'Logout'}
 							</button>
 						</div>
 					</div>
@@ -619,7 +643,6 @@ const AppHeader: React.FC = () => {
 	const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
 	const inputRef = useRef<HTMLInputElement>(null);
 	const headerRef = useRef<HTMLElement>(null);
-	const { isOnline } = useNetworkStore();
 
 	const handleToggle = () => {
 		if (window.innerWidth >= 1024) {
@@ -705,17 +728,10 @@ const AppHeader: React.FC = () => {
 						)}
 					</button>
 
-					{!isOnline && (
-						<div className="hidden sm:flex flex-1 justify-center px-2">
-							<div className="inline-flex max-w-xs sm:max-w-md w-full items-center justify-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100 sm:w-auto sm:px-4 sm:text-sm">
-								<span className="h-2 w-2 rounded-full bg-amber-500" />
-								<span>You&apos;re offline. Some actions will be unavailable.</span>
-							</div>
-						</div>
-					)}
-
 					<div className="lg:hidden">
-						<Logo />
+						<Link href="/" aria-label="Go to homepage">
+							<Logo />
+						</Link>
 					</div>
 
 					<div className="ml-auto flex items-center gap-2 lg:hidden">
@@ -724,14 +740,6 @@ const AppHeader: React.FC = () => {
 						<UserDropdown />
 					</div>
 				</div>
-				{!isOnline && (
-					<div className="sm:hidden w-full px-3 pb-3">
-						<div className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
-							<span className="h-2 w-2 rounded-full bg-amber-500" />
-							<span>You&apos;re offline. Some actions will be unavailable.</span>
-						</div>
-					</div>
-				)}
 				<div
 					className={`${
 						isApplicationMenuOpen ? 'flex' : 'hidden'

@@ -4,6 +4,7 @@ import React, {
 	useContext,
 	useState,
 	useEffect,
+	useLayoutEffect,
 	useCallback,
 } from 'react';
 
@@ -22,6 +23,8 @@ type SidebarContextType = {
 };
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
+const useIsomorphicLayoutEffect =
+	typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 export const useSidebar = () => {
 	const context = useContext(SidebarContext);
@@ -41,7 +44,7 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({
 	const [activeItem, setActiveItem] = useState<string | null>(null);
 	const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
 
-	useEffect(() => {
+	useIsomorphicLayoutEffect(() => {
 		const handleResize = () => {
 			const mobile = window.innerWidth < 768;
 			setIsMobile(mobile);

@@ -2,7 +2,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import useAuth from '@/store/useAuth';
-import LoginPage from '@/app/login/page';
 import SchoolHomepage from '@/app/page';
 import { PageLoading } from '@/components/loading';
 import { useNetworkStore } from '@/store/networkStore';
@@ -112,7 +111,7 @@ const ProtectedRoute = ({
 			return;
 		}
 
-		if (!authResolved || authCheckFailed) {
+		if (!authResolved) {
 			return;
 		}
 
@@ -130,7 +129,6 @@ const ProtectedRoute = ({
 		isLoading,
 		router,
 		user?.isActive,
-		authCheckFailed,
 		isOnline,
 		user,
 		pathname,
@@ -188,7 +186,13 @@ const ProtectedRoute = ({
 		);
 	}
 
-	return <LoginPage />;
+	return (
+		<PageLoading
+			variant="school"
+			fullScreen={true}
+			message="Redirecting to login..."
+		/>
+	);
 };
 
 export default ProtectedRoute;

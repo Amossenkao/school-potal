@@ -2,7 +2,7 @@
 'use client';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useSidebar } from '@/context/SidebarContext';
 
 import { ChevronDown, LogOut } from 'lucide-react';
@@ -12,6 +12,7 @@ import { useSchoolStore } from '@/store/schoolStore';
 import { useOfflineNavigationStore } from '@/store/offlineNavigationStore';
 import type { SchoolProfile } from '@/types/schoolProfile';
 import type { Administrator } from '@/types/user';
+import { PageLoading } from '@/components/loading';
 
 interface NavItem {
 	name: string;
@@ -62,6 +63,7 @@ const getScopedYearArray = (
 
 const AppSidebar: React.FC = () => {
 	const { user, logout } = useAuth();
+	const router = useRouter();
 	const {
 		isExpanded,
 		isMobileOpen,
@@ -82,6 +84,7 @@ const AppSidebar: React.FC = () => {
 	const [navigationItems, setNavigationItems] = useState<NavItem[]>([]);
 	const [pendingSubmissionsCount, setPendingSubmissionsCount] = useState(0);
 	const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+	const [isLoggingOut, setIsLoggingOut] = useState(false);
 	const { setOfflinePath, offlinePath } = useOfflineNavigationStore();
 	const activePath = offlinePath || pathname;
 
@@ -390,11 +393,13 @@ const AppSidebar: React.FC = () => {
 	}, [openSubmenu]);
 
 	const handleLogout = async () => {
+		setIsLoggingOut(true);
 		try {
 			await logout();
-			window.location.href = '/';
+			router.replace('/login');
 		} catch (error) {
 			console.error('Logout error:', error);
+			setIsLoggingOut(false);
 		}
 	};
 
@@ -590,11 +595,15 @@ const AppSidebar: React.FC = () => {
 	);
 
 	// Show loading state if user or school is being fetched
+	if (isLoggingOut) {
+		return <PageLoading variant="school" message="Logging out..." />;
+	}
+
 	if (user === undefined || !currentSchool) {
 		return (
-		<aside
-			className={`fixed top-[var(--app-header-height,4rem)] lg:top-0 flex flex-col px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-[calc(100dvh-var(--app-header-height,4rem))] lg:h-dvh transition-all duration-300 ease-in-out z-50 border-r border-gray-200 w-[260px] sm:w-[290px] rounded-tr-lg rounded-br-lg lg:rounded-tr-none lg:rounded-br-none`}
-		>
+			<aside
+				className={`fixed top-[var(--app-header-height,4rem)] lg:top-0 flex flex-col px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-[calc(100dvh-var(--app-header-height,4rem))] lg:h-dvh transition-all duration-300 ease-in-out z-50 border-r border-gray-200 w-[260px] sm:w-[290px] rounded-tr-lg rounded-br-lg lg:rounded-tr-none lg:rounded-br-none`}
+			>
 				<div className="flex items-center gap-3 cursor-pointer">
 					{/* Logo placeholder */}
 					<div className="w-12 h-12 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded animate-pulse">
@@ -632,7 +641,7 @@ const AppSidebar: React.FC = () => {
 			onMouseEnter={() => !isExpanded && setIsHovered(true)}
 			onMouseLeave={() => setIsHovered(false)}
 		>
-			<Link className="flex items-center gap-3 cursor-pointer my-6" href={'/'}>
+			<Link className="hidden lg:flex items-center gap-3 cursor-pointer my-6" href={'/'}>
 				{/* Logo */}
 				<div
 					className={`flex items-center justify-center transition-all duration-300
@@ -674,7 +683,7 @@ const AppSidebar: React.FC = () => {
 					)}
 				</div>
 			</Link>
-			<div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain duration-300 ease-linear left-scrollbar flex-1 pb-6">
+			<div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain duration-300 ease-linear left-scrollbar flex-1 pb-6 pt-6 lg:pt-0">
 				<div className="direction-ltr">
 					<nav className="flex-1">{renderMenuItems(navigationItems)}</nav>
 				</div>
