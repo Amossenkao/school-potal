@@ -1,17 +1,18 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Public_Sans, Sora } from 'next/font/google';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
 	ArrowRight,
 	BarChart3,
 	BellRing,
 	Building2,
-	CalendarDays,
+	CalendarClock,
 	CheckCircle2,
+	ChevronRight,
 	Cloud,
 	Database,
 	Globe,
@@ -47,68 +48,104 @@ const navItems = [
 	{ label: 'Contact', href: '#contact' },
 ];
 
+const heroSlides = [
+	{
+		image:
+			'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=1800&q=80',
+		title: 'School operations, simplified.',
+		subtitle: 'One platform connecting students, teachers, and administrators.',
+	},
+	{
+		image:
+			'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1800&q=80',
+		title: 'Built for multi-tenant growth.',
+		subtitle: 'Independent school spaces with shared control and speed.',
+	},
+	{
+		image:
+			'https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=1800&q=80',
+		title: 'Modern learning, backed by data.',
+		subtitle: 'Real-time reporting, communication, and academic workflows.',
+	},
+];
+
 const statItems = [
 	{ label: 'Schools Onboarded', value: '20+' },
 	{ label: 'Active Users', value: '15,000+' },
-	{ label: 'Data Uptime', value: '99.9%' },
+	{ label: 'Platform Uptime', value: '99.9%' },
 ];
 
 const roleFeatures = [
 	{
 		title: 'Students',
-		description:
-			'Track classes, results, fees, and announcements from one simple dashboard.',
+		description: 'Track classes, grades, reports, and school notices in one dashboard.',
 		icon: GraduationCap,
 		items: [
-			'View schedules, grades, and school notices in real-time.',
-			'Submit requests and access reports from any device.',
-			'Receive reminders for fees, classes, and deadlines.',
+			'View schedules and performance instantly.',
+			'Access reports and request records online.',
+			'Receive reminders for key deadlines.',
 		],
 	},
 	{
 		title: 'Teachers',
-		description:
-			'Run teaching workflows faster with digital grading and lesson planning.',
+		description: 'Run classroom workflows faster with digital planning and grading.',
 		icon: NotebookPen,
 		items: [
-			'Manage lesson plans and submit grades securely.',
-			'Coordinate classes, attendance, and assessments.',
-			'Collaborate with administrators through shared tools.',
+			'Submit lesson plans and grades securely.',
+			'Manage attendance, tests, and class updates.',
+			'Coordinate with administration in real-time.',
 		],
 	},
 	{
 		title: 'System Admin',
-		description:
-			'Control each tenant safely with centralized oversight and flexible permissions.',
+		description: 'Manage every school tenant with centralized visibility and controls.',
 		icon: ShieldCheck,
 		items: [
-			'Configure users, roles, and school-level feature access.',
-			'Monitor health, usage, and audit-ready records.',
-			'Scale multiple school tenants from one platform core.',
+			'Configure users, roles, and feature permissions.',
+			'Monitor usage, activity, and system health.',
+			'Scale school operations from one platform core.',
 		],
 	},
 ];
 
 const platformHighlights = [
 	{
-		title: 'Multi-Tenant Architecture',
-		body: 'Separate school data with strong tenant boundaries and centralized governance.',
+		title: 'Tenant-Safe Data Layer',
+		body: 'Each school remains isolated while admins maintain unified governance.',
 		icon: Database,
 	},
 	{
-		title: 'Cloud Reliability',
-		body: 'Built for consistent availability with secure data handling and backups.',
+		title: 'Cloud Availability',
+		body: 'Reliable cloud workflows for daily school operations and reporting.',
 		icon: Cloud,
 	},
 	{
-		title: 'Operational Analytics',
-		body: 'Understand engagement, academic trends, and admin performance quickly.',
+		title: 'Operational Intelligence',
+		body: 'See adoption, academic patterns, and school performance in one view.',
 		icon: BarChart3,
 	},
 	{
-		title: 'Configurable Workflows',
-		body: 'Adapt grading, schedules, and approval flows to each school context.',
+		title: 'Adaptive Configuration',
+		body: 'Match schedules, grading, and approvals to each school context.',
 		icon: Settings,
+	},
+];
+
+const workflowSteps = [
+	{
+		title: 'Launch',
+		text: 'Onboard schools quickly with tenant setup and data migration.',
+		icon: Building2,
+	},
+	{
+		title: 'Operate',
+		text: 'Run teaching, reporting, and communication from one digital core.',
+		icon: LayoutDashboard,
+	},
+	{
+		title: 'Improve',
+		text: 'Use analytics and audit trails to drive better outcomes each term.',
+		icon: CalendarClock,
 	},
 ];
 
@@ -120,6 +157,8 @@ const partnerSchools = [
 	{ name: 'Harper Community Academy', location: 'Maryland', users: '780 users' },
 	{ name: 'Paynesville STEM College', location: 'Montserrado', users: '1,350 users' },
 ];
+
+const partnerLoop = [...partnerSchools, ...partnerSchools];
 
 type FadeInProps = {
 	children: ReactNode;
@@ -144,20 +183,26 @@ function FadeIn({ children, className, delay = 0 }: FadeInProps) {
 export default function SchoolMeshLandingPage() {
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [currentSlide, setCurrentSlide] = useState(0);
+
+	useEffect(() => {
+		const timer = window.setInterval(() => {
+			setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
+		}, 5200);
+		return () => window.clearInterval(timer);
+	}, []);
 
 	return (
 		<div className={`${publicSans.className} scroll-smooth bg-[#F7FAFF] text-[#1F2937]`}>
-			<header className="sticky top-0 z-50 border-b border-[#0B3A6E]/10 bg-[#F7FAFF]/90 backdrop-blur-xl">
+			<header className="sticky top-0 z-50 border-b border-white/15 bg-[#071D39]/80 backdrop-blur-xl">
 				<nav className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
 					<Link href="#home" className="flex items-center gap-3" aria-label="SchoolMesh Home">
-						<div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0B3A6E] shadow-lg shadow-[#0B3A6E]/30">
+						<div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0B3A6E] shadow-lg shadow-[#0B3A6E]/40">
 							<Globe className="h-5 w-5 text-white" />
 						</div>
 						<div>
-							<p className={`${sora.className} text-lg font-semibold tracking-tight text-[#0B3A6E]`}>
-								SchoolMesh
-							</p>
-							<p className="text-xs font-medium text-[#1F2937]/70">Connecting Schools. Empowering Learning.</p>
+							<p className={`${sora.className} text-lg font-semibold tracking-tight text-white`}>SchoolMesh</p>
+							<p className="text-xs font-medium text-white/70">Connecting Schools. Empowering Learning.</p>
 						</div>
 					</Link>
 
@@ -166,14 +211,14 @@ export default function SchoolMeshLandingPage() {
 							<a
 								key={item.href}
 								href={item.href}
-								className="text-sm font-semibold text-[#1F2937]/80 transition-colors hover:text-[#0B3A6E]"
+								className="text-sm font-semibold text-white/85 transition-colors hover:text-white"
 							>
 								{item.label}
 							</a>
 						))}
 						<Link
 							href="/login"
-							className="inline-flex items-center rounded-full bg-[#0B3A6E] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#0B3A6E]/25 transition-all hover:bg-[#0B3A6E]/90"
+							className="inline-flex items-center rounded-full bg-[#F4C542] px-5 py-2.5 text-sm font-semibold text-[#071D39] shadow-lg shadow-[#F4C542]/35 transition-all hover:bg-[#F8CE5D]"
 						>
 							Admin Login
 						</Link>
@@ -182,7 +227,7 @@ export default function SchoolMeshLandingPage() {
 					<button
 						type="button"
 						onClick={() => setIsMenuOpen((open) => !open)}
-						className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#0B3A6E]/20 text-[#0B3A6E] md:hidden"
+						className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/30 text-white md:hidden"
 						aria-label="Toggle navigation"
 					>
 						{isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -190,14 +235,14 @@ export default function SchoolMeshLandingPage() {
 				</nav>
 
 				{isMenuOpen && (
-					<div className="border-t border-[#0B3A6E]/10 bg-[#F7FAFF] px-4 py-4 md:hidden">
+					<div className="border-t border-white/15 bg-[#071D39] px-4 py-4 md:hidden">
 						<div className="mx-auto flex max-w-7xl flex-col gap-3">
 							{navItems.map((item) => (
 								<a
 									key={item.href}
 									href={item.href}
 									onClick={() => setIsMenuOpen(false)}
-									className="rounded-lg px-3 py-2 text-sm font-semibold text-[#1F2937] hover:bg-[#0B3A6E]/5"
+									className="rounded-lg px-3 py-2 text-sm font-semibold text-white/90 hover:bg-white/10"
 								>
 									{item.label}
 								</a>
@@ -205,7 +250,7 @@ export default function SchoolMeshLandingPage() {
 							<Link
 								href="/login"
 								onClick={() => setIsMenuOpen(false)}
-								className="mt-1 inline-flex items-center justify-center rounded-lg bg-[#0B3A6E] px-4 py-2.5 text-sm font-semibold text-white"
+								className="mt-1 inline-flex items-center justify-center rounded-lg bg-[#F4C542] px-4 py-2.5 text-sm font-semibold text-[#071D39]"
 							>
 								Admin Login
 							</Link>
@@ -215,116 +260,214 @@ export default function SchoolMeshLandingPage() {
 			</header>
 
 			<main id="home" className="overflow-hidden">
-				<section className="relative isolate">
-					<div className="absolute inset-0 -z-10 overflow-hidden">
-						<motion.div
-							className="absolute -left-24 top-8 h-80 w-80 rounded-full bg-[#0B3A6E]/20 blur-3xl"
-							animate={{ x: [0, 30, 0], y: [0, 40, 0] }}
-							transition={{ duration: 13, repeat: Infinity, ease: 'easeInOut' }}
-						/>
-						<motion.div
-							className="absolute -right-20 top-24 h-72 w-72 rounded-full bg-[#D62828]/20 blur-3xl"
-							animate={{ x: [0, -35, 0], y: [0, -28, 0] }}
-							transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
-						/>
-						<motion.div
-							className="absolute bottom-[-10rem] left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-[#F4C542]/25 blur-3xl"
-							animate={{ y: [0, -20, 0] }}
-							transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut' }}
-						/>
+				<section className="relative min-h-[92vh] overflow-hidden bg-[#071D39]">
+					<div className="absolute inset-0 z-0">
+						<AnimatePresence mode="wait">
+							<motion.img
+								key={currentSlide}
+								src={heroSlides[currentSlide].image}
+								alt="SchoolMesh hero background"
+								className="h-full w-full object-cover"
+								initial={{ opacity: 0, scale: 1.06 }}
+								animate={{ opacity: 1, scale: 1 }}
+								exit={{ opacity: 0, scale: 1.05 }}
+								transition={{ duration: 0.9, ease: 'easeOut' }}
+							/>
+						</AnimatePresence>
+						<div className="absolute inset-0 bg-gradient-to-br from-[#06132A]/90 via-[#0B3A6E]/75 to-[#D62828]/35" />
+						<div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(244,197,66,0.22),transparent_40%),radial-gradient(circle_at_80%_25%,rgba(11,58,110,0.30),transparent_42%),radial-gradient(circle_at_50%_80%,rgba(214,40,40,0.20),transparent_38%)]" />
 					</div>
 
-					<div className="mx-auto max-w-7xl px-4 pb-20 pt-16 sm:px-6 md:pt-20 lg:px-8 lg:pb-28">
-						<FadeIn className="mx-auto max-w-4xl text-center">
-							<p className="mb-4 inline-flex items-center rounded-full border border-[#0B3A6E]/20 bg-white/80 px-4 py-1.5 text-xs font-semibold tracking-wide text-[#0B3A6E] sm:text-sm">
-								Built for Multi-Tenant School Operations in Liberia
-							</p>
-							<h1 className={`${sora.className} text-4xl font-bold leading-tight text-[#0B3A6E] sm:text-5xl lg:text-6xl`}>
-								SchoolMesh connects schools, staff, students, and systems in one platform.
-							</h1>
-							<p className="mx-auto mt-6 max-w-2xl text-base text-[#1F2937]/80 sm:text-lg">
-								From admissions to reporting, SchoolMesh gives every school a clear digital operating model with strong tenant separation and modern UX.
-							</p>
-							<div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+					<motion.div
+						className="absolute -left-20 top-28 h-64 w-64 rounded-full bg-[#F4C542]/30 blur-3xl"
+						animate={{ x: [0, 36, 0], y: [0, -26, 0] }}
+						transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut' }}
+					/>
+					<motion.div
+						className="absolute -right-24 bottom-16 h-72 w-72 rounded-full bg-[#D62828]/30 blur-3xl"
+						animate={{ x: [0, -28, 0], y: [0, 28, 0] }}
+						transition={{ duration: 13, repeat: Infinity, ease: 'easeInOut' }}
+					/>
+
+					<div className="relative z-10 mx-auto grid min-h-[92vh] w-full max-w-7xl items-center gap-12 px-4 pb-16 pt-12 sm:px-6 lg:grid-cols-[1fr_0.95fr] lg:px-8">
+						<div>
+							<motion.p
+								initial={{ opacity: 0, y: 16 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{ duration: 0.5 }}
+								className="mb-6 inline-flex rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-semibold tracking-[0.12em] text-white/90 sm:text-sm"
+							>
+								MULTI-TENANT SCHOOL MANAGEMENT
+							</motion.p>
+
+							<AnimatePresence mode="wait">
+								<motion.div
+									key={currentSlide}
+									initial={{ opacity: 0, y: 18 }}
+									animate={{ opacity: 1, y: 0 }}
+									exit={{ opacity: 0, y: -18 }}
+									transition={{ duration: 0.45, ease: 'easeOut' }}
+								>
+									<h1 className={`${sora.className} text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl`}>
+										{heroSlides[currentSlide].title}
+									</h1>
+									<p className="mt-5 max-w-xl text-base text-white/85 sm:text-lg">
+										{heroSlides[currentSlide].subtitle}
+									</p>
+								</motion.div>
+							</AnimatePresence>
+
+							<div className="mt-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
 								<a
 									href="#contact"
-									className="inline-flex items-center justify-center rounded-full bg-[#0B3A6E] px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-[#0B3A6E]/30 transition-all hover:translate-y-[-2px] hover:bg-[#0A315D]"
+									className="group inline-flex items-center justify-center rounded-xl bg-[#F4C542] px-7 py-3 text-sm font-semibold text-[#071D39] shadow-2xl shadow-[#F4C542]/30 transition-all hover:-translate-y-1"
 								>
 									Request a Demo
-									<ArrowRight className="ml-2 h-4 w-4" />
+									<ChevronRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
 								</a>
 								<a
 									href="#features"
-									className="inline-flex items-center justify-center rounded-full border border-[#0B3A6E]/25 bg-white/85 px-7 py-3 text-sm font-semibold text-[#0B3A6E] transition-all hover:border-[#0B3A6E]/45"
+									className="group inline-flex items-center justify-center rounded-xl border border-white/35 bg-white/10 px-7 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:bg-white hover:text-[#0B3A6E]"
 								>
 									Explore Features
+									<ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
 								</a>
 							</div>
-						</FadeIn>
 
-						<FadeIn delay={0.15} className="mt-12 grid gap-4 sm:grid-cols-3">
-							{statItems.map((item) => (
-								<div
-									key={item.label}
-									className="rounded-2xl border border-white/80 bg-white/80 p-5 text-center shadow-lg shadow-[#0B3A6E]/10"
-								>
-									<p className={`${sora.className} text-2xl font-bold text-[#0B3A6E]`}>{item.value}</p>
-									<p className="mt-1 text-sm text-[#1F2937]/70">{item.label}</p>
-								</div>
-							))}
-						</FadeIn>
+							<div className="mt-10 grid w-full max-w-xl gap-3 sm:grid-cols-3">
+								{statItems.map((item, index) => (
+									<motion.div
+										key={item.label}
+										initial={{ opacity: 0, y: 12 }}
+										animate={{ opacity: 1, y: 0 }}
+										transition={{ duration: 0.5, delay: 0.22 + index * 0.08 }}
+										className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur"
+									>
+										<p className={`${sora.className} text-2xl font-bold text-white`}>{item.value}</p>
+										<p className="text-xs text-white/80">{item.label}</p>
+									</motion.div>
+								))}
+							</div>
+
+							<div className="mt-8 flex items-center gap-2">
+								{heroSlides.map((_, index) => (
+									<button
+										key={index}
+										onClick={() => setCurrentSlide(index)}
+										className="group p-1"
+										aria-label={`Go to hero slide ${index + 1}`}
+									>
+										<div
+											className={`rounded-full transition-all duration-300 ${
+												index === currentSlide
+													? 'h-2.5 w-10 bg-white'
+													: 'h-2.5 w-2.5 bg-white/45 group-hover:bg-white/70'
+											}`}
+										/>
+									</button>
+								))}
+							</div>
+
+							<div className="mt-8 grid grid-cols-3 gap-3 lg:hidden">
+								{heroSlides.map((slide, index) => (
+									<button
+										key={slide.image}
+										onClick={() => setCurrentSlide(index)}
+										className={`overflow-hidden rounded-xl border transition-all ${
+											index === currentSlide
+												? 'border-[#F4C542] shadow-lg shadow-[#F4C542]/35'
+												: 'border-white/20'
+										}`}
+									>
+										<img src={slide.image} alt={slide.title} className="h-24 w-full object-cover" />
+									</button>
+								))}
+							</div>
+						</div>
+
+						<div className="relative hidden lg:block">
+							<div className="grid grid-cols-2 gap-4">
+								{heroSlides.map((slide, index) => (
+									<motion.button
+										type="button"
+										key={slide.image}
+										onClick={() => setCurrentSlide(index)}
+										whileHover={{ y: -5 }}
+										animate={{ y: index === 0 ? [0, -10, 0] : index === 1 ? [0, -7, 0] : [0, -11, 0] }}
+										transition={{ duration: 5 + index, repeat: Infinity, ease: 'easeInOut' }}
+										className={`relative overflow-hidden rounded-3xl border text-left shadow-2xl transition-all ${
+											index === 0 ? 'col-span-2 h-64' : 'h-44'
+										} ${
+											index === currentSlide
+												? 'border-[#F4C542] shadow-[#F4C542]/40'
+												: 'border-white/25 shadow-black/20'
+										}`}
+									>
+										<img src={slide.image} alt={slide.title} className="h-full w-full object-cover" />
+										<div className="absolute inset-0 bg-gradient-to-t from-[#071D39]/70 to-transparent" />
+										<p className="absolute bottom-4 left-4 pr-6 text-sm font-semibold text-white">
+											{slide.title}
+										</p>
+									</motion.button>
+								))}
+							</div>
+						</div>
 					</div>
 				</section>
 
 				<section id="about" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-					<div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+					<div className="grid gap-10 lg:grid-cols-[1fr_0.95fr] lg:items-center">
 						<FadeIn>
-							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-[#D62828]">About Us</p>
+							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#D62828]">About SchoolMesh</p>
 							<h2 className={`${sora.className} text-3xl font-bold text-[#0B3A6E] sm:text-4xl`}>
-								Modern school operations for growing institutions.
+								A modern backbone for school systems in Liberia.
 							</h2>
 							<p className="mt-5 text-base leading-relaxed text-[#1F2937]/80">
-								SchoolMesh helps schools in Liberia operate with clarity and consistency. We combine academic, administrative, and communication tools in one secure platform so each tenant can move faster without losing control.
+								SchoolMesh unifies academic operations, communication, and administration into one secure platform. Each school runs independently, while network leaders gain clean visibility and better control.
 							</p>
-							<div className="mt-6 space-y-3">
+							<div className="mt-8 space-y-3">
 								<div className="flex items-start gap-3">
 									<CheckCircle2 className="mt-0.5 h-5 w-5 text-[#22A06B]" />
-									<p className="text-sm text-[#1F2937]/80">Tenant-aware architecture for independent school environments.</p>
+									<p className="text-sm text-[#1F2937]/80">Fast onboarding and secure tenant separation for every school.</p>
 								</div>
 								<div className="flex items-start gap-3">
 									<CheckCircle2 className="mt-0.5 h-5 w-5 text-[#22A06B]" />
-									<p className="text-sm text-[#1F2937]/80">Role-specific workflows for students, teachers, and system administrators.</p>
+									<p className="text-sm text-[#1F2937]/80">Role-aware experiences for students, teachers, and administrators.</p>
 								</div>
 								<div className="flex items-start gap-3">
 									<CheckCircle2 className="mt-0.5 h-5 w-5 text-[#22A06B]" />
-									<p className="text-sm text-[#1F2937]/80">Data-backed decisions through analytics, reports, and live operational visibility.</p>
+									<p className="text-sm text-[#1F2937]/80">Clear insights with reporting, notifications, and activity tracking.</p>
 								</div>
 							</div>
 						</FadeIn>
 
-						<FadeIn delay={0.1}>
+						<FadeIn delay={0.08}>
 							<div className="rounded-3xl border border-[#0B3A6E]/10 bg-white p-6 shadow-xl shadow-[#0B3A6E]/10 sm:p-8">
-								<div className="grid gap-4 sm:grid-cols-2">
-									<div className="rounded-2xl bg-[#0B3A6E]/6 p-4">
-										<Users className="h-6 w-6 text-[#0B3A6E]" />
-										<p className="mt-3 text-sm font-semibold text-[#0B3A6E]">Unified Users</p>
-										<p className="mt-1 text-xs text-[#1F2937]/70">Manage students, teachers, admins, and guardians in one system.</p>
-									</div>
-									<div className="rounded-2xl bg-[#D62828]/8 p-4">
-										<LayoutDashboard className="h-6 w-6 text-[#D62828]" />
-										<p className="mt-3 text-sm font-semibold text-[#0B3A6E]">Operational Dashboards</p>
-										<p className="mt-1 text-xs text-[#1F2937]/70">See attendance, performance, and engagement in real-time.</p>
-									</div>
-									<div className="rounded-2xl bg-[#F4C542]/20 p-4">
-										<CalendarDays className="h-6 w-6 text-[#0B3A6E]" />
-										<p className="mt-3 text-sm font-semibold text-[#0B3A6E]">Academic Calendar</p>
-										<p className="mt-1 text-xs text-[#1F2937]/70">Coordinate events, exams, and school timelines efficiently.</p>
-									</div>
-									<div className="rounded-2xl bg-[#22A06B]/12 p-4">
-										<BellRing className="h-6 w-6 text-[#22A06B]" />
-										<p className="mt-3 text-sm font-semibold text-[#0B3A6E]">Smart Alerts</p>
-										<p className="mt-1 text-xs text-[#1F2937]/70">Deliver important reminders instantly to the right audience.</p>
-									</div>
+								<p className={`${sora.className} text-xl font-semibold text-[#0B3A6E]`}>How It Works</p>
+								<div className="mt-6 space-y-4">
+									{workflowSteps.map((step, index) => {
+										const Icon = step.icon;
+										return (
+											<motion.div
+												key={step.title}
+												initial={{ opacity: 0, x: 20 }}
+												whileInView={{ opacity: 1, x: 0 }}
+												viewport={{ once: true }}
+												transition={{ duration: 0.45, delay: 0.08 * index }}
+												className="rounded-2xl bg-[#F7FAFF] p-4"
+											>
+												<div className="flex items-center gap-3">
+													<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0B3A6E] text-white">
+														<Icon className="h-5 w-5" />
+													</div>
+													<div>
+														<p className="text-sm font-semibold text-[#0B3A6E]">{step.title}</p>
+														<p className="text-sm text-[#1F2937]/75">{step.text}</p>
+													</div>
+												</div>
+											</motion.div>
+										);
+									})}
 								</div>
 							</div>
 						</FadeIn>
@@ -334,12 +477,12 @@ export default function SchoolMeshLandingPage() {
 				<section id="features" className="bg-white py-20">
 					<div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 						<FadeIn className="text-center">
-							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-[#D62828]">Features</p>
+							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#D62828]">Features</p>
 							<h2 className={`${sora.className} text-3xl font-bold text-[#0B3A6E] sm:text-4xl`}>
-								Purpose-built tools for every role.
+								Purpose-built modules for every role.
 							</h2>
 							<p className="mx-auto mt-4 max-w-2xl text-base text-[#1F2937]/75">
-								Each module is designed for daily school operations with clear role boundaries and reliable data flow.
+								Everything is designed around real school workflows, from classroom updates to tenant-wide governance.
 							</p>
 						</FadeIn>
 
@@ -347,23 +490,29 @@ export default function SchoolMeshLandingPage() {
 							{roleFeatures.map((group, index) => {
 								const Icon = group.icon;
 								return (
-									<FadeIn key={group.title} delay={index * 0.1}>
-										<div className="h-full rounded-3xl border border-[#0B3A6E]/10 bg-[#F7FAFF] p-6 shadow-lg shadow-[#0B3A6E]/10 transition-transform hover:-translate-y-1">
-											<div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0B3A6E] text-white">
-												<Icon className="h-5 w-5" />
-											</div>
-											<h3 className={`${sora.className} text-xl font-semibold text-[#0B3A6E]`}>{group.title}</h3>
-											<p className="mt-2 text-sm text-[#1F2937]/75">{group.description}</p>
-											<ul className="mt-5 space-y-2">
-												{group.items.map((item) => (
-													<li key={item} className="flex items-start gap-2 text-sm text-[#1F2937]/80">
-														<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#22A06B]" />
-														<span>{item}</span>
-													</li>
-												))}
-											</ul>
+									<motion.div
+										key={group.title}
+										initial={{ opacity: 0, y: 24 }}
+										whileInView={{ opacity: 1, y: 0 }}
+										viewport={{ once: true, amount: 0.2 }}
+										transition={{ duration: 0.55, delay: index * 0.08 }}
+										whileHover={{ y: -8 }}
+										className="h-full rounded-3xl border border-[#0B3A6E]/10 bg-[#F7FAFF] p-6 shadow-lg shadow-[#0B3A6E]/10"
+									>
+										<div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0B3A6E] text-white">
+											<Icon className="h-5 w-5" />
 										</div>
-									</FadeIn>
+										<h3 className={`${sora.className} text-xl font-semibold text-[#0B3A6E]`}>{group.title}</h3>
+										<p className="mt-2 text-sm text-[#1F2937]/75">{group.description}</p>
+										<ul className="mt-5 space-y-2.5">
+											{group.items.map((item) => (
+												<li key={item} className="flex items-start gap-2 text-sm text-[#1F2937]/80">
+													<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#22A06B]" />
+													<span>{item}</span>
+												</li>
+											))}
+										</ul>
+									</motion.div>
 								);
 							})}
 						</div>
@@ -373,7 +522,7 @@ export default function SchoolMeshLandingPage() {
 								const Icon = feature.icon;
 								return (
 									<FadeIn key={feature.title} delay={0.05 * index}>
-										<div className="rounded-2xl border border-[#0B3A6E]/10 bg-white p-5">
+										<div className="rounded-2xl border border-[#0B3A6E]/10 bg-white p-5 shadow-sm transition hover:shadow-md">
 											<Icon className="h-5 w-5 text-[#D62828]" />
 											<p className="mt-3 text-sm font-semibold text-[#0B3A6E]">{feature.title}</p>
 											<p className="mt-2 text-sm text-[#1F2937]/75">{feature.body}</p>
@@ -388,34 +537,38 @@ export default function SchoolMeshLandingPage() {
 				<section id="partners" className="py-20">
 					<div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 						<FadeIn className="text-center">
-							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-[#D62828]">Current Partners</p>
+							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#D62828]">Current Partners</p>
 							<h2 className={`${sora.className} text-3xl font-bold text-[#0B3A6E] sm:text-4xl`}>
 								Schools currently running SchoolMesh.
 							</h2>
 							<p className="mx-auto mt-4 max-w-2xl text-base text-[#1F2937]/75">
-								Our network keeps expanding across Liberia as institutions modernize records, communication, and academic workflows.
+								Our network is expanding across Liberia as schools adopt a cleaner, faster operating model.
 							</p>
 						</FadeIn>
 
-						<div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-							{partnerSchools.map((partner, index) => (
-								<FadeIn key={partner.name} delay={index * 0.06}>
-									<div className="rounded-2xl border border-[#0B3A6E]/10 bg-white p-5 shadow-sm">
+						<div className="mt-10 overflow-hidden rounded-3xl border border-[#0B3A6E]/10 bg-white p-4 shadow-lg shadow-[#0B3A6E]/8">
+							<motion.div
+								className="flex w-max gap-4"
+								animate={{ x: ['0%', '-50%'] }}
+								transition={{ duration: 28, repeat: Infinity, ease: 'linear' }}
+							>
+								{partnerLoop.map((partner, index) => (
+									<div key={`${partner.name}-${index}`} className="w-[280px] rounded-2xl border border-[#0B3A6E]/10 bg-[#F7FAFF] p-4">
 										<div className="flex items-start justify-between gap-3">
 											<div>
-												<p className={`${sora.className} text-lg font-semibold text-[#0B3A6E]`}>{partner.name}</p>
+												<p className={`${sora.className} text-base font-semibold text-[#0B3A6E]`}>{partner.name}</p>
 												<p className="mt-1 text-sm text-[#1F2937]/70">{partner.location}, Liberia</p>
 											</div>
-											<div className="rounded-full bg-[#0B3A6E]/7 p-2">
+											<div className="rounded-full bg-[#0B3A6E]/8 p-2">
 												<Building2 className="h-4 w-4 text-[#0B3A6E]" />
 											</div>
 										</div>
-										<p className="mt-4 inline-flex items-center rounded-full bg-[#22A06B]/12 px-3 py-1 text-xs font-semibold text-[#0E7A4C]">
+										<p className="mt-3 inline-flex items-center rounded-full bg-[#22A06B]/12 px-3 py-1 text-xs font-semibold text-[#0E7A4C]">
 											{partner.users}
 										</p>
 									</div>
-								</FadeIn>
-							))}
+								))}
+							</motion.div>
 						</div>
 					</div>
 				</section>
@@ -423,12 +576,12 @@ export default function SchoolMeshLandingPage() {
 				<section id="contact" className="bg-[#0B3A6E] py-20 text-white">
 					<div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[1fr_1fr] lg:px-8">
 						<FadeIn>
-							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-[#F4C542]">Contact Us</p>
+							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#F4C542]">Contact Us</p>
 							<h2 className={`${sora.className} text-3xl font-bold sm:text-4xl`}>
 								Talk with the SchoolMesh team.
 							</h2>
 							<p className="mt-4 max-w-lg text-sm text-white/80 sm:text-base">
-								Planning a rollout for one school or a full school group? We will help you map onboarding, migration, and admin setup.
+								Planning rollout for one school or a full school network? We can map onboarding, migration, and admin setup.
 							</p>
 							<div className="mt-8 space-y-4">
 								<div className="flex items-center gap-3 text-sm text-white/85">
