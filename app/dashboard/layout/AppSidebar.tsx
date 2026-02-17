@@ -85,6 +85,7 @@ const AppSidebar: React.FC = () => {
 	const [pendingSubmissionsCount, setPendingSubmissionsCount] = useState(0);
 	const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 	const [isLoggingOut, setIsLoggingOut] = useState(false);
+	const [sidebarTransitionsReady, setSidebarTransitionsReady] = useState(false);
 	const { setOfflinePath, offlinePath } = useOfflineNavigationStore();
 	const activePath = offlinePath || pathname;
 
@@ -171,6 +172,13 @@ const AppSidebar: React.FC = () => {
 	useEffect(() => {
 		refreshPendingCounts();
 	}, [refreshPendingCounts]);
+
+	useEffect(() => {
+		const frameId = window.requestAnimationFrame(() => {
+			setSidebarTransitionsReady(true);
+		});
+		return () => window.cancelAnimationFrame(frameId);
+	}, []);
 
 	useEffect(() => {
 		const handleRefresh = () => {
@@ -602,7 +610,17 @@ const AppSidebar: React.FC = () => {
 	if (user === undefined || !currentSchool) {
 		return (
 			<aside
-				className={`fixed top-[var(--app-header-height,4rem)] lg:top-0 flex flex-col px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-[calc(100dvh-var(--app-header-height,4rem))] lg:h-dvh transition-all duration-300 ease-in-out z-50 border-r border-gray-200 w-[260px] sm:w-[290px] rounded-tr-lg rounded-br-lg lg:rounded-tr-none lg:rounded-br-none`}
+				className={`fixed top-[var(--app-header-height,4rem)] lg:top-0 flex flex-col px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-[calc(100dvh-var(--app-header-height,4rem))] lg:h-dvh ${
+					sidebarTransitionsReady
+						? 'transition-all duration-300 ease-in-out'
+						: 'transition-none'
+				} z-50 border-r border-gray-200 rounded-tr-lg rounded-br-lg lg:rounded-tr-none lg:rounded-br-none ${
+					isExpanded || isMobileOpen
+						? 'w-[260px] sm:w-[290px]'
+						: isHovered
+						? 'w-[260px] sm:w-[290px]'
+						: 'w-[90px]'
+				} ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
 			>
 				<div className="flex items-center gap-3 cursor-pointer">
 					{/* Logo placeholder */}
@@ -629,7 +647,11 @@ const AppSidebar: React.FC = () => {
 	return (
 		<aside
 			ref={sidebarRef}
-			className={`fixed top-[var(--app-header-height,4rem)] lg:top-0 flex flex-col px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 dark:text-gray-100 h-[calc(100dvh-var(--app-header-height,4rem))] lg:h-dvh transition-all duration-300 ease-in-out z-50 border-r border-gray-200 dark:border-gray-700 rounded-tr-lg rounded-br-lg lg:rounded-tr-none lg:rounded-br-none ${
+			className={`fixed top-[var(--app-header-height,4rem)] lg:top-0 flex flex-col px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 dark:text-gray-100 h-[calc(100dvh-var(--app-header-height,4rem))] lg:h-dvh ${
+				sidebarTransitionsReady
+					? 'transition-all duration-300 ease-in-out'
+					: 'transition-none'
+			} z-50 border-r border-gray-200 dark:border-gray-700 rounded-tr-lg rounded-br-lg lg:rounded-tr-none lg:rounded-br-none ${
 				isExpanded || isMobileOpen
 					? 'w-[260px] sm:w-[290px]'
 					: isHovered
@@ -644,7 +666,11 @@ const AppSidebar: React.FC = () => {
 			<Link className="hidden lg:flex items-center gap-3 cursor-pointer my-6" href={'/'}>
 				{/* Logo */}
 				<div
-					className={`flex items-center justify-center transition-all duration-300
+					className={`flex items-center justify-center ${
+						sidebarTransitionsReady
+							? 'transition-all duration-300'
+							: 'transition-none'
+					}
 			${
 				isExpanded && typeof window !== 'undefined' && window.innerWidth >= 1024
 					? 'h-12 w-12'

@@ -1,9 +1,7 @@
 // components/OfflineHandler.tsx
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { usePathname } from 'next/navigation';
-import { WifiOff } from 'lucide-react';
+import { useEffect } from 'react';
 import { useNetworkStore } from '@/store/networkStore';
 
 export default function OfflineHandler({
@@ -11,52 +9,8 @@ export default function OfflineHandler({
 }: {
 	children: React.ReactNode;
 }) {
-	const pathname = usePathname();
-	const isDashboardHomePath = pathname === '/dashboard' || pathname === '/dashboard/';
-	const { isOnline } = useNetworkStore();
-	const currentPathRef = useRef(pathname);
-	const [showOfflineGate, setShowOfflineGate] = useState(false);
-	const [offlineGateMessage, setOfflineGateMessage] = useState('');
-	const isInitialLoad = useRef(true);
 	const OFFLINE_ERROR_MESSAGE =
 		'You are offline. Please connect to the internet and try again.';
-	const DEFAULT_OFFLINE_GATE_MESSAGE =
-		"You're currently offline, so this page can't be loaded. Go back to your previous view and try again when you're connected.";
-
-	// Update current path reference
-	useEffect(() => {
-		if (isOnline) {
-			currentPathRef.current = pathname;
-			if (showOfflineGate) setShowOfflineGate(false);
-		}
-	}, [pathname, isOnline, showOfflineGate]);
-
-	useEffect(() => {
-		if (!isDashboardHomePath && showOfflineGate) {
-			setShowOfflineGate(false);
-		}
-	}, [isDashboardHomePath, showOfflineGate]);
-
-	useEffect(() => {
-		const handleOfflineFetchWithDetail = (event: Event) => {
-			if (!isDashboardHomePath) return;
-			const customEvent = event as CustomEvent<{ message?: string }>;
-			const nextMessage =
-				customEvent.detail?.message || DEFAULT_OFFLINE_GATE_MESSAGE;
-			setOfflineGateMessage(nextMessage);
-			const navigatorOnline =
-				typeof navigator !== 'undefined' ? navigator.onLine : isOnline;
-			if (!navigatorOnline && isInitialLoad.current) return;
-			setShowOfflineGate(true);
-		};
-		window.addEventListener('offline:fetch', handleOfflineFetchWithDetail);
-		return () => {
-			window.removeEventListener('offline:fetch', handleOfflineFetchWithDetail);
-		};
-	}, [DEFAULT_OFFLINE_GATE_MESSAGE, isDashboardHomePath, isOnline]);
-	useEffect(() => {
-		isInitialLoad.current = false;
-	}, []);
 
 	useEffect(() => {
 		if (typeof window === 'undefined') return;
@@ -78,23 +32,11 @@ export default function OfflineHandler({
 			};
 		};
 
-		const shouldShowOfflineModal = (url: string, method: string) => {
-			const normalizedMethod = method.toUpperCase();
-			// Only surface the offline modal for mutating API actions.
-			if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(normalizedMethod)) {
-				return false;
-			}
-			if (normalizedMethod === 'POST' && url.includes('/api/grades')) {
-				return false;
-			}
-			return url.includes('/api/');
-		};
-
-			const CACHEABLE_GET_PATHS = [
-				'/api/users',
-				'/api/grades',
-				'/api/grades/requests',
-				'/api/calendar',
+		const CACHEABLE_GET_PATHS = [
+			'/api/users',
+			'/api/grades',
+			'/api/grades/requests',
+			'/api/calendar',
 			'/api/schedules',
 			'/api/settings',
 			'/api/notifications',
@@ -214,9 +156,6 @@ export default function OfflineHandler({
 					// Allow static/non-API GET assets to resolve from browser/service-worker cache.
 					return originalFetch(...(args as Parameters<typeof fetch>));
 				}
-				if (shouldShowOfflineModal(url, method)) {
-					// Keep modal triggering explicit to avoid blocking offline refresh UX.
-				}
 				return Promise.reject(new Error(OFFLINE_ERROR_MESSAGE));
 			}
 			try {
@@ -245,9 +184,6 @@ export default function OfflineHandler({
 							});
 						}
 					}
-					if (shouldShowOfflineModal(url, method)) {
-						// Keep modal triggering explicit to avoid blocking offline refresh UX.
-					}
 					throw new Error(OFFLINE_ERROR_MESSAGE);
 				}
 				throw error;
@@ -260,33 +196,5 @@ export default function OfflineHandler({
 		};
 	}, []);
 
-	return (
-		<>
-			{children}
-			{isDashboardHomePath && showOfflineGate && (
-				<div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-					<div className="bg-card w-full max-w-md rounded-2xl border border-border p-6 shadow-2xl">
-						<div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-							<WifiOff className="h-7 w-7 text-muted-foreground" />
-						</div>
-						<h2 className="mt-4 text-center text-xl font-semibold text-foreground">
-							You're Offline
-						</h2>
-						<p className="mt-2 text-center text-sm text-muted-foreground">
-							{offlineGateMessage || DEFAULT_OFFLINE_GATE_MESSAGE}
-						</p>
-						<div className="mt-6 flex justify-center">
-							<button
-								type="button"
-								onClick={() => setShowOfflineGate(false)}
-								className="px-6 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
-							>
-								Back
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
-		</>
-	);
+	return <>{children}</>;
 }

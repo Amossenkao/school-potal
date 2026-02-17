@@ -21,11 +21,18 @@ export default function FullscreenPdfViewer({
 		if (!isOpen || !resolvedPdfUrl) return;
 		if (typeof window === 'undefined') return;
 		try {
-			window.location.assign(resolvedPdfUrl);
+			const popup = window.open(
+				resolvedPdfUrl,
+				'_blank',
+				'noopener,noreferrer',
+			);
+			if (!popup) {
+				window.location.assign(resolvedPdfUrl);
+			}
 		} catch (error) {
 			console.error('Failed to open PDF in current tab:', error);
-			onClose();
 		}
+		onClose();
 	}, [isOpen, onClose, resolvedPdfUrl]);
 
 	return null;

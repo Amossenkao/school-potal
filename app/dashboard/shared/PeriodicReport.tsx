@@ -21,7 +21,6 @@ import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import AccessDenied from '@/components/AccessDenied';
-import FullscreenPdfViewer from '@/components/reports/FullscreenPdfViewer';
 
 const InlineLoading = ({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) => (
 	<div className="-m-8">
@@ -1266,7 +1265,6 @@ function ReportContent({
 	const [copiedLink, setCopiedLink] = useState(false);
 	const [copiedPin, setCopiedPin] = useState(false);
 	const [viewLoading, setViewLoading] = useState(false);
-	const [fullScreenViewerOpen, setFullScreenViewerOpen] = useState(false);
 	const resetCopiedTimeoutRef = useRef<number | null>(null);
 	const school = useSchoolStore((state) => state.school);
 	const gradesByAcademicYear = useSchoolStore(
@@ -1448,7 +1446,6 @@ function ReportContent({
 			setPdfBlob(null);
 			setServerKey(null);
 			setInlineError(false);
-			setFullScreenViewerOpen(false);
 			if (resetCopiedTimeoutRef.current) {
 				window.clearTimeout(resetCopiedTimeoutRef.current);
 				resetCopiedTimeoutRef.current = null;
@@ -1786,11 +1783,19 @@ function ReportContent({
 		fetchAndMergeGrades();
 	}, [fetchAndMergeGrades]);
 
-	useEffect(() => {
-		if (!pdfUrl && fullScreenViewerOpen) {
-			setFullScreenViewerOpen(false);
+	const handleView = useCallback(() => {
+		const targetUrl = downloadUrl || pdfUrl;
+		if (!targetUrl) return;
+		setViewLoading(true);
+		try {
+			const popup = window.open(targetUrl, '_blank', 'noopener,noreferrer');
+			if (!popup) {
+				window.location.assign(targetUrl);
+			}
+		} finally {
+			setViewLoading(false);
 		}
-	}, [fullScreenViewerOpen, pdfUrl]);
+	}, [downloadUrl, pdfUrl]);
 
 	// Stable back handler
 	const handleBack = useCallback(() => {
@@ -1924,12 +1929,7 @@ function ReportContent({
 								<div className="flex flex-col items-center gap-3">
 									<button
 										type="button"
-										onClick={() => {
-											if (!pdfUrl || !downloadUrl) return;
-											setViewLoading(true);
-											setFullScreenViewerOpen(true);
-											setViewLoading(false);
-										}}
+										onClick={handleView}
 										disabled={!downloadUrl || pdfGenerating || viewLoading}
 										className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm inline-flex items-center gap-2"
 									>
@@ -2004,12 +2004,6 @@ function ReportContent({
 					</div>
 				)}
 			</div>
-			<FullscreenPdfViewer
-				isOpen={fullScreenViewerOpen}
-				pdfUrl={pdfUrl}
-				onClose={() => setFullScreenViewerOpen(false)}
-				downloadUrl={downloadUrl}
-			/>
 			{shareModalOpen && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
 					<div className="bg-card w-full max-w-md rounded-xl border border-border shadow-xl">

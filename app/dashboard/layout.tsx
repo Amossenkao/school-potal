@@ -3,7 +3,7 @@
 import { useSidebar } from '@/context/SidebarContext';
 import AppHeader from './layout/AppHeader';
 import AppSidebar from './layout/AppSidebar';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoutes';
 import { useOfflineNavigationStore } from '@/store/offlineNavigationStore';
@@ -19,6 +19,7 @@ export default function AdminLayout({
 	const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 	const pathname = usePathname();
 	const previousPathname = useRef(pathname);
+	const [layoutTransitionsReady, setLayoutTransitionsReady] = useState(false);
 	const { offlinePath, setOfflinePath } = useOfflineNavigationStore();
 	const { isOnline } = useNetworkStore();
 	const activePath = offlinePath || pathname;
@@ -76,6 +77,13 @@ export default function AdminLayout({
 		return () => document.removeEventListener('click', handleLinkClick);
 	}, [setOfflinePath]);
 
+	useEffect(() => {
+		const frameId = window.requestAnimationFrame(() => {
+			setLayoutTransitionsReady(true);
+		});
+		return () => window.cancelAnimationFrame(frameId);
+	}, []);
+
 
 	const mainContentMargin = isMobileOpen
 		? 'ml-0'
@@ -92,7 +100,11 @@ export default function AdminLayout({
 
 				{/* Main content */}
 				<div
-					className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${mainContentMargin}`}
+					className={`flex-1 min-w-0 ${
+						layoutTransitionsReady
+							? 'transition-all duration-300 ease-in-out'
+							: 'transition-none'
+					} ${mainContentMargin}`}
 				>
 					{/* Header */}
 					<AppHeader />
