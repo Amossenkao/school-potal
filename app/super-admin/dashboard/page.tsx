@@ -195,7 +195,7 @@ const parseOptionalJson = (label: string, value: string) => {
 
 const toStringArray = (value: string) =>
 	value
-		.split(/\n|,/) 
+		.split(/\n|,/)
 		.map((entry) => entry.trim())
 		.filter(Boolean);
 

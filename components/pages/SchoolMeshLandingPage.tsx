@@ -18,6 +18,7 @@ import {
 	Globe,
 	GraduationCap,
 	LayoutDashboard,
+	Monitor,
 	Mail,
 	MapPin,
 	Menu,
@@ -25,6 +26,7 @@ import {
 	Phone,
 	Settings,
 	ShieldCheck,
+	Smartphone,
 	Users,
 	X,
 } from 'lucide-react';
@@ -44,6 +46,8 @@ const publicSans = Public_Sans({
 const navItems = [
 	{ label: 'About', href: '#about' },
 	{ label: 'Features', href: '#features' },
+	{ label: 'Platforms', href: '#platforms' },
+	{ label: 'Pricing', href: '#pricing' },
 	{ label: 'Partners', href: '#partners' },
 	{ label: 'Contact', href: '#contact' },
 ];
@@ -128,6 +132,41 @@ const platformHighlights = [
 		title: 'Adaptive Configuration',
 		body: 'Match schedules, grading, and approvals to each school context.',
 		icon: Settings,
+	},
+];
+
+const accessPlatforms = [
+	{
+		name: 'Web Platform',
+		description: 'Use SchoolMesh from any modern browser with no installation required.',
+		icon: Globe,
+	},
+	{
+		name: 'Mobile App',
+		description: 'Manage school operations and updates on the go from your phone.',
+		icon: Smartphone,
+	},
+	{
+		name: 'Desktop App',
+		description: 'Run a full desktop experience for school offices and admin teams.',
+		icon: Monitor,
+	},
+];
+
+const pricingPlans = [
+	{
+		name: 'Standard Plan',
+		coverage: 'Web platform only',
+		price: 'L$700',
+		period: 'per student per year',
+		features: ['Web access', 'Core school management tools', 'Role-based dashboards'],
+	},
+	{
+		name: 'Premium Plan',
+		coverage: 'Web + Desktop + Mobile apps',
+		price: 'L$100',
+		period: 'per student per year',
+		features: ['All Standard features', 'Mobile app access', 'Desktop app access'],
 	},
 ];
 
@@ -530,6 +569,104 @@ export default function SchoolMeshLandingPage() {
 									</FadeIn>
 								);
 							})}
+						</div>
+					</div>
+				</section>
+
+				<section id="platforms" className="py-20">
+					<div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+						<FadeIn className="text-center">
+							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#D62828]">Platforms</p>
+							<h2 className={`${sora.className} text-3xl font-bold text-[#0B3A6E] sm:text-4xl`}>
+								Access SchoolMesh on web, mobile, and desktop.
+							</h2>
+							<p className="mx-auto mt-4 max-w-2xl text-base text-[#1F2937]/75">
+								Choose the delivery channels that match how your school teams and families work every day.
+							</p>
+						</FadeIn>
+
+						<div className="mt-10 grid gap-5 md:grid-cols-3">
+							{accessPlatforms.map((platform, index) => {
+								const Icon = platform.icon;
+								return (
+									<motion.div
+										key={platform.name}
+										initial={{ opacity: 0, y: 22 }}
+										whileInView={{ opacity: 1, y: 0 }}
+										viewport={{ once: true, amount: 0.2 }}
+										transition={{ duration: 0.5, delay: index * 0.08 }}
+										whileHover={{ y: -8 }}
+										className="rounded-3xl border border-[#0B3A6E]/10 bg-white p-6 shadow-lg shadow-[#0B3A6E]/10"
+									>
+										<div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0B3A6E] text-white">
+											<Icon className="h-5 w-5" />
+										</div>
+										<h3 className={`${sora.className} text-xl font-semibold text-[#0B3A6E]`}>{platform.name}</h3>
+										<p className="mt-2 text-sm text-[#1F2937]/75">{platform.description}</p>
+									</motion.div>
+								);
+							})}
+						</div>
+					</div>
+				</section>
+
+				<section id="pricing" className="bg-white py-20">
+					<div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+						<FadeIn className="text-center">
+							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#D62828]">Plans and Pricing</p>
+							<h2 className={`${sora.className} text-3xl font-bold text-[#0B3A6E] sm:text-4xl`}>
+								Super affordable pricing per student, per year.
+							</h2>
+							<p className="mx-auto mt-4 max-w-2xl text-base text-[#1F2937]/75">
+								Pay annually based on active students. Pick the plan that fits your deployment model.
+							</p>
+						</FadeIn>
+
+						<div className="mt-12 grid gap-5 lg:grid-cols-2">
+							{pricingPlans.map((plan, index) => (
+								<motion.div
+									key={plan.name}
+									initial={{ opacity: 0, y: 20 }}
+									whileInView={{ opacity: 1, y: 0 }}
+									viewport={{ once: true, amount: 0.2 }}
+									transition={{ duration: 0.55, delay: index * 0.08 }}
+									className={`rounded-3xl border p-7 shadow-lg ${
+										plan.name === 'Premium Plan'
+											? 'border-[#D62828]/30 bg-[#FFF6F4] shadow-[#D62828]/10'
+											: 'border-[#0B3A6E]/12 bg-[#F7FAFF] shadow-[#0B3A6E]/10'
+									}`}
+								>
+									<div className="flex items-start justify-between gap-3">
+										<div>
+											<h3 className={`${sora.className} text-2xl font-semibold text-[#0B3A6E]`}>{plan.name}</h3>
+											<p className="mt-1 text-sm font-medium text-[#1F2937]/70">{plan.coverage}</p>
+										</div>
+										<span
+											className={`rounded-full px-3 py-1 text-xs font-semibold ${
+												plan.name === 'Premium Plan'
+													? 'bg-[#D62828]/12 text-[#A61C1C]'
+													: 'bg-[#0B3A6E]/10 text-[#0B3A6E]'
+											}`}
+										>
+											{plan.name === 'Premium Plan' ? 'Full App Access' : 'Web Only'}
+										</span>
+									</div>
+
+									<div className="mt-6">
+										<p className={`${sora.className} text-4xl font-bold text-[#0B3A6E]`}>{plan.price}</p>
+										<p className="mt-1 text-sm text-[#1F2937]/70">{plan.period}</p>
+									</div>
+
+									<ul className="mt-6 space-y-2.5">
+										{plan.features.map((item) => (
+											<li key={item} className="flex items-start gap-2 text-sm text-[#1F2937]/80">
+												<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#22A06B]" />
+												<span>{item}</span>
+											</li>
+										))}
+									</ul>
+								</motion.div>
+							))}
 						</div>
 					</div>
 				</section>
