@@ -217,7 +217,7 @@ export default function SchoolMeshLandingPage() {
 							</a>
 						))}
 						<Link
-							href="/login"
+							href="/super-admin/login"
 							className="inline-flex items-center rounded-full bg-[#F4C542] px-5 py-2.5 text-sm font-semibold text-[#071D39] shadow-lg shadow-[#F4C542]/35 transition-all hover:bg-[#F8CE5D]"
 						>
 							Admin Login
@@ -248,7 +248,7 @@ export default function SchoolMeshLandingPage() {
 								</a>
 							))}
 							<Link
-								href="/login"
+								href="/super-admin/login"
 								onClick={() => setIsMenuOpen(false)}
 								className="mt-1 inline-flex items-center justify-center rounded-lg bg-[#F4C542] px-4 py-2.5 text-sm font-semibold text-[#071D39]"
 							>
@@ -678,7 +678,7 @@ export default function SchoolMeshLandingPage() {
 								{item.label}
 							</a>
 						))}
-						<Link href="/login" className="font-semibold text-[#F4C542]">
+						<Link href="/super-admin/login" className="font-semibold text-[#F4C542]">
 							Admin Login
 						</Link>
 					</div>

@@ -49,9 +49,53 @@ export const connectToTenantsDb = async (): Promise<Connection> => {
 	}
 };
 
+const getOrCreateTenantConnectionByDbName = async (
+	dbName: string,
+): Promise<Connection> => {
+	if (!dbName) {
+		throw new Error('A tenant database name is required.');
+	}
+
+	if (connections.has(dbName)) {
+		const existingConnection = connections.get(dbName)!;
+		if (existingConnection.readyState === 1) {
+			return existingConnection;
+		}
+	}
+
+	const connection = mongoose.createConnection(MONGODB_URI, {
+		dbName,
+	});
+
+	await new Promise<void>((resolve, reject) => {
+		connection.once('connected', () => {
+			console.log(`Connected to database: ${dbName}`);
+			resolve();
+		});
+		connection.once('error', reject);
+	});
+
+	connections.set(dbName, connection);
+	return connection;
+};
+
 /**
- * Establishes a connection to an individual tenant's database.
- * @param host The hostname used to look up the tenant's database name.
+ * Establishes a connection to an individual tenant's database by dbName.
+ * @returns A Mongoose Connection object for the specific tenant database.
+ */
+export const getTenantConnectionByDbName = async (
+	dbName: string,
+): Promise<Connection | null> => {
+	try {
+		return await getOrCreateTenantConnectionByDbName(dbName);
+	} catch (err) {
+		console.error(`MongoDB connection error for ${dbName}:`, err);
+		return null;
+	}
+};
+
+/**
+ * Establishes a connection to an individual tenant's database based on request host.
  * @returns A Mongoose Connection object for the specific tenant database.
  */
 export const getTenantConnection = async (): Promise<Connection | null> => {
@@ -64,37 +108,7 @@ export const getTenantConnection = async (): Promise<Connection | null> => {
 		return null;
 	}
 
-	// Check if we already have a connection for this tenant
-	if (connections.has(school.dbName)) {
-		const existingConnection = connections.get(school.dbName)!;
-		if (existingConnection.readyState === 1) {
-			// 1 = connected
-			return existingConnection;
-		}
-	}
-
-	try {
-		// Create new connection for this tenant
-		const connection = mongoose.createConnection(MONGODB_URI, {
-			dbName: school.dbName,
-		});
-
-		// Wait for connection to be established
-		await new Promise<void>((resolve, reject) => {
-			connection.once('connected', () => {
-				console.log(`Connected to database: ${school.dbName}`);
-				resolve();
-			});
-			connection.once('error', reject);
-		});
-
-		// Store the connection
-		connections.set(school.dbName, connection);
-		return connection;
-	} catch (err) {
-		console.error(`MongoDB connection error for ${school.dbName}:`, err);
-		throw err;
-	}
+	return getTenantConnectionByDbName(school.dbName);
 };
 
 /**
