@@ -5,6 +5,21 @@ import {
 } from '@/types/tenantTheme';
 
 type ThemeVariables = Record<string, string>;
+type ThemeMode = 'light' | 'dark';
+type ColorScaleStop =
+	| '25'
+	| '50'
+	| '100'
+	| '200'
+	| '300'
+	| '400'
+	| '500'
+	| '600'
+	| '700'
+	| '800'
+	| '900'
+	| '950';
+type ColorScale = Record<ColorScaleStop, string>;
 
 type TenantThemeDefinition = {
 	name: TenantThemeName;
@@ -12,6 +27,262 @@ type TenantThemeDefinition = {
 	themeColor: string;
 	light: ThemeVariables;
 	dark: ThemeVariables;
+};
+
+const COLOR_SCALE_STOPS: readonly ColorScaleStop[] = [
+	'25',
+	'50',
+	'100',
+	'200',
+	'300',
+	'400',
+	'500',
+	'600',
+	'700',
+	'800',
+	'900',
+	'950',
+];
+
+const LIGHT_TONE_MAP: Record<ColorScaleStop, number> = {
+	'25': 0.95,
+	'50': 0.9,
+	'100': 0.82,
+	'200': 0.68,
+	'300': 0.5,
+	'400': 0.25,
+	'500': 0,
+	'600': -0.12,
+	'700': -0.24,
+	'800': -0.38,
+	'900': -0.52,
+	'950': -0.68,
+};
+
+const DARK_TONE_MAP: Record<ColorScaleStop, number> = {
+	'25': 0.94,
+	'50': 0.88,
+	'100': 0.78,
+	'200': 0.62,
+	'300': 0.44,
+	'400': 0.2,
+	'500': -0.02,
+	'600': -0.16,
+	'700': -0.3,
+	'800': -0.44,
+	'900': -0.58,
+	'950': -0.74,
+};
+
+const COLOR_FAMILIES = {
+	info: [
+		'brand',
+		'blue-light',
+		'blue',
+		'sky',
+		'cyan',
+		'teal',
+		'indigo',
+		'violet',
+		'purple',
+	] as const,
+	success: ['success', 'green', 'emerald', 'lime'] as const,
+	warning: ['warning', 'orange', 'amber', 'yellow'] as const,
+	danger: ['error', 'red', 'rose', 'pink'] as const,
+	neutral: ['gray', 'slate', 'zinc', 'neutral', 'stone'] as const,
+};
+
+const clamp = (value: number, min = 0, max = 255): number =>
+	Math.min(max, Math.max(min, value));
+
+const normalizeHexColor = (value: string): string => {
+	const raw = value.trim();
+	if (/^#[0-9a-fA-F]{6}$/.test(raw)) {
+		return raw.toLowerCase();
+	}
+	if (/^#[0-9a-fA-F]{3}$/.test(raw)) {
+		const [, r, g, b] = raw;
+		return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+	}
+	return '#2563eb';
+};
+
+const hexToRgb = (hex: string) => {
+	const normalized = normalizeHexColor(hex);
+	return {
+		r: Number.parseInt(normalized.slice(1, 3), 16),
+		g: Number.parseInt(normalized.slice(3, 5), 16),
+		b: Number.parseInt(normalized.slice(5, 7), 16),
+	};
+};
+
+const rgbToHex = (r: number, g: number, b: number): string =>
+	`#${[r, g, b]
+		.map((channel) => clamp(Math.round(channel)).toString(16).padStart(2, '0'))
+		.join('')}`;
+
+const mixHexColors = (base: string, target: string, ratio: number): string => {
+	const clampedRatio = Math.min(1, Math.max(0, ratio));
+	const baseRgb = hexToRgb(base);
+	const targetRgb = hexToRgb(target);
+	return rgbToHex(
+		baseRgb.r + (targetRgb.r - baseRgb.r) * clampedRatio,
+		baseRgb.g + (targetRgb.g - baseRgb.g) * clampedRatio,
+		baseRgb.b + (targetRgb.b - baseRgb.b) * clampedRatio
+	);
+};
+
+const hexToHsl = (hex: string) => {
+	const { r, g, b } = hexToRgb(hex);
+	const rNorm = r / 255;
+	const gNorm = g / 255;
+	const bNorm = b / 255;
+	const max = Math.max(rNorm, gNorm, bNorm);
+	const min = Math.min(rNorm, gNorm, bNorm);
+	const delta = max - min;
+	let h = 0;
+	let s = 0;
+	const l = (max + min) / 2;
+	if (delta !== 0) {
+		s = delta / (1 - Math.abs(2 * l - 1));
+		switch (max) {
+			case rNorm:
+				h = 60 * (((gNorm - bNorm) / delta) % 6);
+				break;
+			case gNorm:
+				h = 60 * ((bNorm - rNorm) / delta + 2);
+				break;
+			default:
+				h = 60 * ((rNorm - gNorm) / delta + 4);
+				break;
+		}
+	}
+	if (h < 0) h += 360;
+	return { h, s, l };
+};
+
+const hslToHex = (h: number, s: number, l: number): string => {
+	if (s === 0) {
+		const value = l * 255;
+		return rgbToHex(value, value, value);
+	}
+	const chroma = (1 - Math.abs(2 * l - 1)) * s;
+	const hPrime = h / 60;
+	const x = chroma * (1 - Math.abs((hPrime % 2) - 1));
+	let r1 = 0;
+	let g1 = 0;
+	let b1 = 0;
+	if (hPrime >= 0 && hPrime < 1) {
+		r1 = chroma;
+		g1 = x;
+	} else if (hPrime >= 1 && hPrime < 2) {
+		r1 = x;
+		g1 = chroma;
+	} else if (hPrime >= 2 && hPrime < 3) {
+		g1 = chroma;
+		b1 = x;
+	} else if (hPrime >= 3 && hPrime < 4) {
+		g1 = x;
+		b1 = chroma;
+	} else if (hPrime >= 4 && hPrime < 5) {
+		r1 = x;
+		b1 = chroma;
+	} else {
+		r1 = chroma;
+		b1 = x;
+	}
+	const match = l - chroma / 2;
+	return rgbToHex((r1 + match) * 255, (g1 + match) * 255, (b1 + match) * 255);
+};
+
+const shiftHue = (hex: string, degrees: number): string => {
+	const { h, s, l } = hexToHsl(hex);
+	const shifted = (h + degrees + 360) % 360;
+	return hslToHex(shifted, s, l);
+};
+
+const applyTone = (baseColor: string, tone: number): string =>
+	tone >= 0
+		? mixHexColors(baseColor, '#ffffff', tone)
+		: mixHexColors(baseColor, '#000000', Math.abs(tone));
+
+const buildColorScale = (baseColor: string, mode: ThemeMode): ColorScale => {
+	const normalizedBase = normalizeHexColor(baseColor);
+	const toneMap = mode === 'dark' ? DARK_TONE_MAP : LIGHT_TONE_MAP;
+	const activeBase =
+		mode === 'dark'
+			? mixHexColors(normalizedBase, '#ffffff', 0.08)
+			: normalizedBase;
+	return COLOR_SCALE_STOPS.reduce(
+		(acc, stop) => {
+			acc[stop] = applyTone(activeBase, toneMap[stop]);
+			return acc;
+		},
+		{} as ColorScale
+	);
+};
+
+const scaleToVariables = (
+	families: readonly string[],
+	scale: ColorScale
+): ThemeVariables =>
+	families.reduce((acc, family) => {
+		COLOR_SCALE_STOPS.forEach((stop) => {
+			acc[`--color-${family}-${stop}`] = scale[stop];
+		});
+		return acc;
+	}, {} as ThemeVariables);
+
+const buildDerivedThemeVariables = (
+	theme: TenantThemeDefinition,
+	mode: ThemeMode
+): ThemeVariables => {
+	const fallbackBrand =
+		theme.light['--color-brand-500'] ||
+		theme.dark['--color-brand-500'] ||
+		theme.themeColor;
+	const infoSeed =
+		mode === 'dark'
+			? theme.dark['--color-brand-500'] || fallbackBrand
+			: theme.light['--color-brand-500'] || fallbackBrand;
+	const successSeed = shiftHue(infoSeed, 105);
+	const warningSeed = shiftHue(infoSeed, 55);
+	const dangerSeed = shiftHue(infoSeed, -115);
+	const neutralSeed = mixHexColors(
+		mode === 'dark' ? '#8b95a7' : '#667085',
+		infoSeed,
+		mode === 'dark' ? 0.26 : 0.18
+	);
+
+	const infoScale = buildColorScale(infoSeed, mode);
+	const successScale = buildColorScale(successSeed, mode);
+	const warningScale = buildColorScale(warningSeed, mode);
+	const dangerScale = buildColorScale(dangerSeed, mode);
+	const neutralScale = buildColorScale(neutralSeed, mode);
+
+	return {
+		...scaleToVariables(COLOR_FAMILIES.info, infoScale),
+		...scaleToVariables(COLOR_FAMILIES.success, successScale),
+		...scaleToVariables(COLOR_FAMILIES.warning, warningScale),
+		...scaleToVariables(COLOR_FAMILIES.danger, dangerScale),
+		...scaleToVariables(COLOR_FAMILIES.neutral, neutralScale),
+		'--color-gray-dark': mode === 'dark' ? neutralScale['950'] : neutralScale['900'],
+		'--color-theme-pink-500': dangerScale['500'],
+		'--color-theme-purple-500': infoScale['500'],
+		'--color-black': neutralScale['950'],
+		'--destructive': mode === 'dark' ? dangerScale['400'] : dangerScale['600'],
+		'--ring': mode === 'dark' ? infoScale['300'] : infoScale['400'],
+		'--primary': mode === 'dark' ? infoScale['400'] : infoScale['600'],
+		'--primary-foreground': mode === 'dark' ? neutralScale['950'] : '#ffffff',
+		'--accent': mode === 'dark' ? infoScale['900'] : infoScale['50'],
+		'--accent-foreground': mode === 'dark' ? neutralScale['50'] : neutralScale['900'],
+		'--sidebar-ring': mode === 'dark' ? infoScale['300'] : infoScale['400'],
+		'--chart-1': infoScale['500'],
+		'--chart-2': successScale['500'],
+		'--chart-3': warningScale['500'],
+		'--chart-4': dangerScale['500'],
+		'--chart-5': infoScale['700'],
+	};
 };
 
 const BASE_LIGHT_THEME_VARIABLES: ThemeVariables = {
@@ -29,6 +300,23 @@ const BASE_LIGHT_THEME_VARIABLES: ThemeVariables = {
 	'--border': '#e4e7ec',
 	'--input': '#e4e7ec',
 	'--accent': '#ecf3ff',
+	'--primary': '#1d4ed8',
+	'--primary-foreground': '#ffffff',
+	'--accent-foreground': '#1d2939',
+	'--ring': '#3b82f6',
+	'--sidebar': '#f8fafc',
+	'--sidebar-foreground': '#101828',
+	'--sidebar-primary': '#1d4ed8',
+	'--sidebar-primary-foreground': '#ffffff',
+	'--sidebar-accent': '#e2e8f0',
+	'--sidebar-accent-foreground': '#1d2939',
+	'--sidebar-border': '#cbd5e1',
+	'--sidebar-ring': '#3b82f6',
+	'--chart-1': '#2563eb',
+	'--chart-2': '#16a34a',
+	'--chart-3': '#d97706',
+	'--chart-4': '#dc2626',
+	'--chart-5': '#4f46e5',
 };
 
 const BASE_DARK_THEME_VARIABLES: ThemeVariables = {
@@ -46,19 +334,42 @@ const BASE_DARK_THEME_VARIABLES: ThemeVariables = {
 	'--border': '#344054',
 	'--input': '#344054',
 	'--accent': '#1f2937',
+	'--primary': '#60a5fa',
+	'--primary-foreground': '#0f172a',
+	'--accent-foreground': '#f9fafb',
+	'--ring': '#60a5fa',
+	'--sidebar': '#0f172a',
+	'--sidebar-foreground': '#e2e8f0',
+	'--sidebar-primary': '#60a5fa',
+	'--sidebar-primary-foreground': '#0f172a',
+	'--sidebar-accent': '#1f2937',
+	'--sidebar-accent-foreground': '#e2e8f0',
+	'--sidebar-border': '#334155',
+	'--sidebar-ring': '#60a5fa',
+	'--chart-1': '#60a5fa',
+	'--chart-2': '#4ade80',
+	'--chart-3': '#fbbf24',
+	'--chart-4': '#fb7185',
+	'--chart-5': '#818cf8',
 };
 
-const defineTheme = (theme: TenantThemeDefinition): TenantThemeDefinition => ({
-	...theme,
-	light: {
-		...BASE_LIGHT_THEME_VARIABLES,
-		...theme.light,
-	},
-	dark: {
-		...BASE_DARK_THEME_VARIABLES,
-		...theme.dark,
-	},
-});
+const defineTheme = (theme: TenantThemeDefinition): TenantThemeDefinition => {
+	const derivedLightVariables = buildDerivedThemeVariables(theme, 'light');
+	const derivedDarkVariables = buildDerivedThemeVariables(theme, 'dark');
+	return {
+		...theme,
+		light: {
+			...BASE_LIGHT_THEME_VARIABLES,
+			...derivedLightVariables,
+			...theme.light,
+		},
+		dark: {
+			...BASE_DARK_THEME_VARIABLES,
+			...derivedDarkVariables,
+			...theme.dark,
+		},
+	};
+};
 
 export const TENANT_THEMES: Record<TenantThemeName, TenantThemeDefinition> = {
 	horizon: defineTheme({

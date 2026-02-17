@@ -183,8 +183,14 @@ const GENDER_DISTRIBUTION = [
 ];
 
 // COLORS
-const COLORS = ['#3b82f6', '#8b5cf6', '#ef4444', '#10b981', '#f59e0b'];
-const GENDER_COLORS = ['#3b82f6', '#ec4899'];
+const COLORS = [
+	'var(--color-blue-500)',
+	'var(--color-purple-500)',
+	'var(--color-rose-500)',
+	'var(--color-emerald-500)',
+	'var(--color-amber-500)',
+];
+const GENDER_COLORS = ['var(--color-blue-500)', 'var(--color-pink-500)'];
 
 export default function ClassesOverview() {
 	const [searchQuery, setSearchQuery] = useState('');
@@ -502,7 +508,7 @@ export default function ClassesOverview() {
 											<Tooltip />
 											<Bar
 												dataKey="averagePerformance"
-												fill="#3b82f6"
+												fill="var(--color-blue-500)"
 												name="Performance Score"
 											/>
 										</BarChart>
@@ -541,7 +547,7 @@ export default function ClassesOverview() {
 											<Tooltip />
 											<Bar
 												dataKey="performance"
-												fill="#8b5cf6"
+												fill="var(--color-purple-500)"
 												name="Average Score"
 											>
 												{SUBJECT_PERFORMANCE.map((entry, index) => (
@@ -584,7 +590,7 @@ export default function ClassesOverview() {
 											<Tooltip />
 											<Bar
 												dataKey="attendance"
-												fill="#10b981"
+												fill="var(--color-emerald-500)"
 												name="Attendance Rate"
 											/>
 										</BarChart>
@@ -673,7 +679,7 @@ export default function ClassesOverview() {
 												cx="50%"
 												cy="50%"
 												outerRadius={80}
-												fill="#8884d8"
+												fill="var(--color-indigo-500)"
 												dataKey="value"
 												nameKey="name"
 												label={({ name, value }) => `${name}: ${value}`}
@@ -725,7 +731,7 @@ export default function ClassesOverview() {
 												cx="50%"
 												cy="50%"
 												outerRadius={80}
-												fill="#8884d8"
+												fill="var(--color-indigo-500)"
 												dataKey="value"
 												nameKey="name"
 												label={({ name, value, percent }) =>

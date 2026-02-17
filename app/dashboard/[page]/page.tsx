@@ -9,6 +9,7 @@ import { PageLoading } from '@/components/loading';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { getSchoolProfile } from '@/lib/mongoose';
+import { resolveTenantThemeColor } from '@/lib/tenantTheme';
 import { User, Administrator, UserRole } from '@/types';
 import { SchoolProfile } from '@/types/schoolProfile';
 
@@ -258,7 +259,7 @@ export async function generateMetadata({ params }: PageProps) {
 					: ''
 			}`,
 			...(theme === 'dark' && {
-				themeColor: '#000000',
+				themeColor: resolveTenantThemeColor(schoolProfile?.themeName),
 			}),
 		};
 	} catch (error) {

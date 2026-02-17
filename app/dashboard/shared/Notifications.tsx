@@ -473,7 +473,7 @@ const Notifications: React.FC = () => {
 
 	return (
 		<div
-			className="min-h-screen bg-[#f8fafc] text-foreground dark:bg-slate-950"
+			className="min-h-screen bg-background text-foreground"
 			onTouchStart={handleTouchStart}
 			onTouchEnd={handleTouchEnd}
 		>
