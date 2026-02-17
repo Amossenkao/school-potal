@@ -551,7 +551,7 @@ const UserDropdown = () => {
 	};
 
 	if (!user && isLoggingOut) {
-		return <PageLoading variant="school" message="Logging out..." />;
+		return <PageLoading variant="school" message="Signing out..." />;
 	}
 
 	if (!user) {
@@ -561,7 +561,7 @@ const UserDropdown = () => {
 	return (
 		<>
 			{isLoggingOut && (
-				<PageLoading variant="school" message="Logging out..." />
+				<PageLoading variant="school" message="Signing out..." />
 			)}
 			<div className="relative" ref={dropdownRef}>
 				<button
@@ -623,7 +623,7 @@ const UserDropdown = () => {
 								className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
 							>
 								<LogOut className="h-4 w-4" />
-								{isLoggingOut ? 'Logging out...' : 'Logout'}
+								{isLoggingOut ? 'Signing out...' : 'Logout'}
 							</button>
 						</div>
 					</div>

@@ -34,7 +34,7 @@ export default function SchoolHomepage() {
 
 	if (!school) {
 		if (!hasResolvedSchoolBootstrap) {
-			return <PageLoading variant="school" message="Restoring session..." />;
+			return <PageLoading variant="school" message="Loading..." />;
 		}
 
 		return (

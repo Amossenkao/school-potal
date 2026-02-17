@@ -22,7 +22,16 @@ import { useSchoolStore } from '@/store/schoolStore';
 import { useNetworkStore } from '@/store/networkStore';
 import Link from 'next/link';
 import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
-import { LOADING_POLICY, useLoadingGate } from '@/hooks/useLoadingGate';
+
+const hasCachedAuthUser = () => {
+	if (typeof window === 'undefined') return false;
+	try {
+		return Boolean(localStorage.getItem('auth-user'));
+	} catch (error) {
+		console.warn('Unable to read auth cache:', error);
+		return false;
+	}
+};
 
 const LoginPage = () => {
 	const router = useRouter();
@@ -51,6 +60,7 @@ const LoginPage = () => {
 		verifyOtp,
 		clearError,
 		checkAuthStatus,
+		hydrateFromCache,
 	} = useAuth();
 
 	const [formData, setFormData] = useState({
@@ -59,32 +69,30 @@ const LoginPage = () => {
 		otp: '',
 	});
 
-	const { show: showRedirectOverlay } = useLoadingGate({
-		active: isRedirecting,
-		delayMs: LOADING_POLICY.spinnerDelayMs,
-		timeoutMs: LOADING_POLICY.redirectTimeoutMs,
-	});
-
-	// Check auth status on mount
+	// Bootstrap from local storage first, then verify session in background.
 	useEffect(() => {
 		let cancelled = false;
-		const init = async () => {
+
+		if (hasCachedAuthUser()) {
+			hydrateFromCache();
+		}
+		if (!cancelled) {
+			setIsInitializing(false);
+		}
+
+		const runBackgroundAuthCheck = async () => {
 			try {
-					await Promise.race([
-						checkAuthStatus().catch(() => undefined),
-						new Promise<void>((resolve) => {
-							window.setTimeout(resolve, LOADING_POLICY.loginBootstrapTimeoutMs);
-						}),
-					]);
-			} finally {
-				if (!cancelled) setIsInitializing(false);
+				await checkAuthStatus();
+			} catch (error) {
+				console.warn('Background auth verification failed:', error);
 			}
 		};
-		init();
+		void runBackgroundAuthCheck();
+
 		return () => {
 			cancelled = true;
 		};
-	}, [checkAuthStatus]);
+	}, [checkAuthStatus, hydrateFromCache]);
 
 	// Re-check auth when coming back online
 	useEffect(() => {
@@ -239,12 +247,12 @@ const LoginPage = () => {
 
 	const isBootstrappingSession = isInitializing && !isRedirecting;
 	if (isBootstrappingSession) {
-		return <PageLoading variant="school" message="Restoring session..." />;
+		return <PageLoading variant="school" message="Loading..." />;
 	}
 
 	return (
 		<>
-			{showRedirectOverlay && (
+			{isRedirecting && (
 				<PageLoading variant="school" message="Opening dashboard..." />
 			)}
 			<div className="absolute top-3 right-5">

@@ -617,7 +617,7 @@ const AppSidebar: React.FC = () => {
 
 	// Show loading state if user or school is being fetched
 	if (isLoggingOut) {
-		return <PageLoading variant="school" message="Logging out..." />;
+		return <PageLoading variant="school" message="Signing out..." />;
 	}
 
 	if (user === undefined || !currentSchool) {

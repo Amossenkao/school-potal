@@ -263,7 +263,7 @@ export default function NavBar({ skipStorageLoad = false }) {
 					{isLoggingOut ? (
 						<>
 							<Loader2 className="h-4 w-4 animate-spin mr-2" />
-							Logging out...
+							Signing out...
 						</>
 					) : (
 						'Logout'

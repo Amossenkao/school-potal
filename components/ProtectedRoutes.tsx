@@ -1,11 +1,9 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import useAuth from '@/store/useAuth';
-import SchoolHomepage from '@/app/page';
 import { PageLoading } from '@/components/loading';
 import { useNetworkStore } from '@/store/networkStore';
-import { LOADING_POLICY, useLoadingGate } from '@/hooks/useLoadingGate';
 
 interface ProtectedRouteProps {
 	children: React.ReactNode;
@@ -13,16 +11,28 @@ interface ProtectedRouteProps {
 	allowedRoles?: string[];
 }
 
+const hasCachedAuthUser = () => {
+	if (typeof window === 'undefined') return false;
+	try {
+		return Boolean(localStorage.getItem('auth-user'));
+	} catch (error) {
+		console.warn('Unable to read auth cache:', error);
+		return false;
+	}
+};
+
 const ProtectedRoute = ({
 	children,
 	requiredRole,
 	allowedRoles,
 }: ProtectedRouteProps) => {
-	const { user, isLoading, checkAuthStatus, hydrateFromCache } = useAuth();
-	const { isOnline, authCheckFailed } = useNetworkStore();
+	const { user, checkAuthStatus, hydrateFromCache } = useAuth();
+	const { isOnline } = useNetworkStore();
 	const router = useRouter();
 	const pathname = usePathname();
-	const [authResolved, setAuthResolved] = useState(false);
+	const [isBootstrapping, setIsBootstrapping] = useState(true);
+	const [isSigningOut, setIsSigningOut] = useState(false);
+	const hasSeenAuthenticatedUser = useRef(false);
 
 	// Check if this route has role requirements
 	const hasRoleRequirements = useMemo(
@@ -39,91 +49,56 @@ const ProtectedRoute = ({
 	}, [allowedRoles, requiredRole, user]);
 
 	useEffect(() => {
-		hydrateFromCache();
-	}, [hydrateFromCache]);
-
-	useEffect(() => {
 		let cancelled = false;
-		const runAuthBootstrap = async () => {
-			if (!user) {
-				setAuthResolved(false);
-			}
 
+		if (hasCachedAuthUser()) {
+			hydrateFromCache();
+		}
+		if (!cancelled) {
+			setIsBootstrapping(false);
+		}
+
+		const runBackgroundAuthCheck = async () => {
 			const navigatorOnline =
 				typeof navigator !== 'undefined' ? navigator.onLine : true;
-			if (!navigatorOnline || !isOnline) {
-				if (!user) {
-					hydrateFromCache();
-				}
-				if (!cancelled) {
-					setAuthResolved(true);
-				}
-				return;
-			}
-
+			if (!navigatorOnline || !isOnline) return;
 			try {
 				await checkAuthStatus();
 			} catch (error) {
-				console.warn('Auth bootstrap ended early:', error);
-			} finally {
-				if (!cancelled) {
-					setAuthResolved(true);
-				}
+				console.warn('Initial auth verification failed:', error);
 			}
 		};
+		void runBackgroundAuthCheck();
 
-		void runAuthBootstrap();
 		return () => {
 			cancelled = true;
 		};
-	}, [checkAuthStatus, hydrateFromCache, isOnline, user]);
+	}, [checkAuthStatus, hydrateFromCache, isOnline]);
 
-	const waitingForSession = !authResolved && !user && isOnline && !authCheckFailed;
-	const { timedOut: sessionTimedOut } = useLoadingGate({
-		active: waitingForSession,
-		delayMs: LOADING_POLICY.routeSpinnerDelayMs,
-		timeoutMs: LOADING_POLICY.authTimeoutMs + 400,
-	});
-
-	// Handle initial redirect for unauthenticated users
 	useEffect(() => {
-		const navigatorOnline =
-			typeof navigator !== 'undefined' ? navigator.onLine : true;
-		if (!isOnline || !navigatorOnline) {
-			return;
+		if (user?.isActive) {
+			hasSeenAuthenticatedUser.current = true;
+			setIsSigningOut(false);
+		}
+	}, [user?.isActive]);
+
+	useEffect(() => {
+		if (isBootstrapping) return;
+
+		if (user?.isActive) return;
+
+		if (hasSeenAuthenticatedUser.current) {
+			setIsSigningOut(true);
 		}
 
-		if (!authResolved) {
-			return;
+		if (pathname !== '/login') {
+			router.replace('/login');
 		}
-
-		if (authCheckFailed) {
-			return;
-		}
-
-		if (
-			authResolved &&
-			!isLoading &&
-			(!user || !user?.isActive)
-		) {
-			if (pathname !== '/login') {
-				router.replace('/login');
-			}
-		}
-	}, [
-		authResolved,
-		isLoading,
-		router,
-		user?.isActive,
-		isOnline,
-		authCheckFailed,
-		user,
-		pathname,
-	]);
+	}, [isBootstrapping, pathname, router, user?.isActive]);
 
 	useEffect(() => {
 		if (
-			authResolved &&
+			!isBootstrapping &&
 			user &&
 			user.role !== 'system_admin' &&
 			user.mustChangePassword &&
@@ -131,7 +106,17 @@ const ProtectedRoute = ({
 		) {
 			router.replace('/login/account-setup');
 		}
-	}, [authResolved, pathname, router, user]);
+	}, [isBootstrapping, pathname, router, user]);
+
+	if (isSigningOut) {
+		return (
+			<PageLoading
+				variant="school"
+				fullScreen={true}
+				message="Signing out..."
+			/>
+		);
+	}
 
 	if (user) {
 		if (
@@ -159,70 +144,13 @@ const ProtectedRoute = ({
 		return <>{children}</>;
 	}
 
-	if (!isOnline) {
-		return <SchoolHomepage />;
-	}
-
-	if (!authResolved) {
-		if (sessionTimedOut) {
-			return (
-				<div className="min-h-[60vh] flex items-center justify-center px-4">
-					<div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
-						<h2 className="text-xl font-semibold text-foreground">
-							Session restore is taking longer than expected
-						</h2>
-						<p className="mt-2 text-sm text-muted-foreground">
-							We could not confirm your session in time. Retry to continue.
-						</p>
-						<div className="mt-5 flex justify-center">
-							<button
-								type="button"
-								onClick={() => {
-									setAuthResolved(false);
-									void checkAuthStatus();
-								}}
-								className="rounded-lg bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
-							>
-								Retry Session Check
-							</button>
-						</div>
-					</div>
-				</div>
-			);
-		}
+	if (isBootstrapping) {
 		return (
 			<PageLoading
 				variant="school"
 				fullScreen={true}
-				message="Restoring your session..."
+				message="Loading..."
 			/>
-		);
-	}
-
-	if (authCheckFailed && !user) {
-		return (
-			<div className="min-h-[60vh] flex items-center justify-center px-4">
-				<div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
-					<h2 className="text-xl font-semibold text-foreground">
-						Unable to verify session right now
-					</h2>
-					<p className="mt-2 text-sm text-muted-foreground">
-						This is usually temporary. Retry before signing in again.
-					</p>
-					<div className="mt-5 flex justify-center">
-						<button
-							type="button"
-							onClick={() => {
-								setAuthResolved(false);
-								void checkAuthStatus();
-							}}
-							className="rounded-lg bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
-						>
-							Retry Session Check
-						</button>
-					</div>
-				</div>
-			</div>
 		);
 	}
 
@@ -230,7 +158,7 @@ const ProtectedRoute = ({
 		<PageLoading
 			variant="school"
 			fullScreen={true}
-			message="Redirecting to login..."
+			message="Loading..."
 		/>
 	);
 };
