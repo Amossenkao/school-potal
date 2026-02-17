@@ -3,6 +3,7 @@ import { getTenantModels } from '@/models';
 import { authorizeUser } from '@/proxy';
 import { updateUserSessionNotifications } from '@/utils/session';
 import { getSchoolProfile } from '@/lib/mongoose';
+import { attachRanksToGrades } from '@/utils/gradeRanks';
 
 // Helper function to add notification to user and update their session
 async function addNotificationToUser(
@@ -131,6 +132,9 @@ interface AllGradesReport {
 		grade: number;
 		status: string;
 		lastUpdated: Date;
+		rank?: number | null;
+		yearlyRank?: number | null;
+		ranks?: Record<string, number | null>;
 	}>;
 }
 
@@ -338,7 +342,13 @@ function removeDuplicateSubjects(
 // -----------------------------------------------------------------------------
 
 function processAllGradesReport(
-	grades: GradeRecord[],
+	grades: Array<
+		GradeRecord & {
+			rank?: number | null;
+			yearlyRank?: number | null;
+			ranks?: Record<string, number | null>;
+		}
+	>,
 	academicYear: string,
 ): AllGradesReport {
 	return {
@@ -353,10 +363,22 @@ function processAllGradesReport(
 			teacherUsername: grade.teacherUsername,
 			studentId: grade.studentId,
 			studentName: grade.studentName,
-			grade: grade.grade,
-			status: grade.status,
-			lastUpdated: grade.lastUpdated,
-		})),
+				grade: grade.grade,
+				status: grade.status,
+				lastUpdated: grade.lastUpdated,
+				rank:
+					typeof grade.rank === 'number' && Number.isFinite(grade.rank)
+						? grade.rank
+						: undefined,
+				yearlyRank:
+					typeof grade.yearlyRank === 'number' && Number.isFinite(grade.yearlyRank)
+						? grade.yearlyRank
+						: undefined,
+				ranks:
+					grade.ranks && typeof grade.ranks === 'object'
+						? grade.ranks
+						: undefined,
+			})),
 	};
 }
 
@@ -797,46 +819,64 @@ export async function GET(request: NextRequest) {
 		const status = searchParams.get('status');
 		const teacherUsername = searchParams.get('teacherUsername');
 
-		// --- System Admin ---
-		if (currentUser.role === 'system_admin') {
-			if (academicYear && classId && teacherUsername && subject) {
-				const query: any = { academicYear, classId, teacherUsername, subject };
-				if (period) query.period = period;
-				if (status) query.status = status;
-				const grades = (await Grade.find(query).lean()) as GradeRecord[];
-				return NextResponse.json({
-					success: true,
-					data: {
-						grades,
-						academicYear,
-						classId,
-						teacherUsername,
-						subject,
+			// --- System Admin ---
+			if (currentUser.role === 'system_admin') {
+				if (academicYear && classId && teacherUsername && subject) {
+					const query: any = { academicYear, classId, teacherUsername, subject };
+					if (period) query.period = period;
+					if (status) query.status = status;
+					const rankingQuery: any = { academicYear, classId };
+					if (status) rankingQuery.status = status;
+					const [grades, rankingSource] = (await Promise.all([
+						Grade.find(query).lean(),
+						Grade.find(rankingQuery).lean(),
+					])) as [GradeRecord[], GradeRecord[]];
+					const rankedGrades = attachRanksToGrades(grades, rankingSource);
+					return NextResponse.json({
+						success: true,
+						data: {
+							grades: rankedGrades,
+							academicYear,
+							classId,
+							teacherUsername,
+							subject,
 						period,
 					},
 				});
 			}
 
-			if (academicYear && classId && subject) {
-				const query: any = { academicYear, classId, subject };
-				if (period) query.period = period;
-				if (status) query.status = status;
-				const grades = (await Grade.find(query).lean()) as GradeRecord[];
-				return NextResponse.json({
-					success: true,
-					data: { grades, academicYear, classId, subject, period },
-				});
-			}
+				if (academicYear && classId && subject) {
+					const query: any = { academicYear, classId, subject };
+					if (period) query.period = period;
+					if (status) query.status = status;
+					const rankingQuery: any = { academicYear, classId };
+					if (status) rankingQuery.status = status;
+					const [grades, rankingSource] = (await Promise.all([
+						Grade.find(query).lean(),
+						Grade.find(rankingQuery).lean(),
+					])) as [GradeRecord[], GradeRecord[]];
+					const rankedGrades = attachRanksToGrades(grades, rankingSource);
+					return NextResponse.json({
+						success: true,
+						data: { grades: rankedGrades, academicYear, classId, subject, period },
+					});
+				}
 
-			if (academicYear && classId && period) {
-				const query: any = { academicYear, classId, period };
-				if (status) query.status = status;
-				const grades = (await Grade.find(query).lean()) as GradeRecord[];
-				return NextResponse.json({
-					success: true,
-					data: { grades, academicYear, classId, period },
-				});
-			}
+				if (academicYear && classId && period) {
+					const query: any = { academicYear, classId, period };
+					if (status) query.status = status;
+					const rankingQuery: any = { academicYear, classId };
+					if (status) rankingQuery.status = status;
+					const [grades, rankingSource] = (await Promise.all([
+						Grade.find(query).lean(),
+						Grade.find(rankingQuery).lean(),
+					])) as [GradeRecord[], GradeRecord[]];
+					const rankedGrades = attachRanksToGrades(grades, rankingSource);
+					return NextResponse.json({
+						success: true,
+						data: { grades: rankedGrades, academicYear, classId, period },
+					});
+				}
 
 			if (academicYear && classId) {
 				const query: any = {
@@ -852,15 +892,16 @@ export async function GET(request: NextRequest) {
 				});
 			}
 
-			if (academicYear) {
-				const query: any = { academicYear };
-				if (status) query.status = status;
-				const allGrades = (await Grade.find(query).lean()) as GradeRecord[];
-				const report = processAllGradesReport(allGrades, academicYear);
-				return NextResponse.json({
-					success: true,
-					data: { report, academicYear },
-				});
+				if (academicYear) {
+					const query: any = { academicYear };
+					if (status) query.status = status;
+					const allGrades = (await Grade.find(query).lean()) as GradeRecord[];
+					const rankedAllGrades = attachRanksToGrades(allGrades, allGrades);
+					const report = processAllGradesReport(rankedAllGrades, academicYear);
+					return NextResponse.json({
+						success: true,
+						data: { report, academicYear },
+					});
 			}
 		}
 
@@ -1000,22 +1041,25 @@ export async function GET(request: NextRequest) {
 				);
 			}
 
-			const query: any = {
-				academicYear,
-				studentId: student.studentId,
-			};
-			if (period) query.period = period;
-			if (subject) query.subject = subject;
-			if (status) query.status = status;
-			const grades = (await Grade.find(query).lean()) as GradeRecord[];
+				const query: any = {
+					academicYear,
+					studentId: student.studentId,
+				};
+				if (period) query.period = period;
+				if (subject) query.subject = subject;
+				if (status) query.status = status;
 
-			const classReportQuery: any = {
-				academicYear,
-				classId: studentClassId,
-				status: status || 'Approved',
-			};
-			const classGrades = (await Grade.find(classReportQuery).lean()) as GradeRecord[];
-			const studentIds = [student.studentId];
+				const classReportQuery: any = {
+					academicYear,
+					classId: studentClassId,
+					status: status || 'Approved',
+				};
+				const [grades, classGrades] = (await Promise.all([
+					Grade.find(query).lean(),
+					Grade.find(classReportQuery).lean(),
+				])) as [GradeRecord[], GradeRecord[]];
+				const rankedGrades = attachRanksToGrades(grades, classGrades);
+				const studentIds = [student.studentId];
 
 			let report: StudentYearlyReport[] | StudentPeriodicReport[] = [];
 			if (period) {
@@ -1033,14 +1077,14 @@ export async function GET(request: NextRequest) {
 				);
 			}
 
-			return NextResponse.json({
-				success: true,
-				data: {
-					grades,
-					report,
-					academicYear,
-					classId: studentClassId,
-					period,
+				return NextResponse.json({
+					success: true,
+					data: {
+						grades: rankedGrades,
+						report,
+						academicYear,
+						classId: studentClassId,
+						period,
 					semester: semester || null,
 				},
 			});

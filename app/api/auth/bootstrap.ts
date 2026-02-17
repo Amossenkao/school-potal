@@ -1,6 +1,7 @@
 import { getTenantModels } from '@/models';
 import { getSchoolProfile } from '@/lib/mongoose';
 import type { UserRole } from '@/types';
+import { attachRanksToGrades } from '@/utils/gradeRanks';
 
 const MAX_BOOTSTRAP_USERS = 5000;
 
@@ -384,7 +385,24 @@ const fetchGradesForRole = async (
 
 	const query = getRoleGradesQuery(currentUser, academicYear);
 	if (!query) return [];
-	return Grade.find(query).lean();
+	const grades = await Grade.find(query).lean();
+
+	if (currentUser?.role === 'teacher') {
+		return grades;
+	}
+
+	if (currentUser?.role === 'student') {
+		const classId = getStudentClassIdForYear(currentUser, academicYear);
+		if (!classId) return grades;
+		const classGrades = await Grade.find({ academicYear, classId }).lean();
+		return attachRanksToGrades(grades, classGrades);
+	}
+
+	if (currentUser?.role === 'system_admin') {
+		return attachRanksToGrades(grades, grades);
+	}
+
+	return grades;
 };
 
 const fetchGradeRequestsForRole = async (

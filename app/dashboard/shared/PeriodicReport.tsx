@@ -1622,34 +1622,39 @@ function ReportContent({
 				const rawGrades = Array.isArray(data.data?.grades) ? data.data.grades : [];
 				if (!rawGrades.length) return [];
 
-				const reportByStudent = new Map<
-					string,
-					{
-						studentId: string;
-						studentName: string;
-						subjectsMap: Map<string, number>;
-						periodicAverage: number;
-						rank: number;
-					}
-				>();
+					const reportByStudent = new Map<
+						string,
+						{
+							studentId: string;
+							studentName: string;
+							subjectsMap: Map<string, number>;
+							periodicAverage: number;
+							rank: number | null;
+						}
+					>();
 
 				rawGrades.forEach((gradeRow: any) => {
 					const studentId = String(gradeRow?.studentId || '').trim();
 					if (!studentId) return;
-					if (!reportByStudent.has(studentId)) {
-						reportByStudent.set(studentId, {
-							studentId,
-							studentName: String(gradeRow?.studentName || '').trim(),
-							subjectsMap: new Map<string, number>(),
-							periodicAverage: 0,
-							rank: 0,
-						});
-					}
-					const subject = String(gradeRow?.subject || '').trim();
-					const value = Number(gradeRow?.grade);
-					if (!subject || Number.isNaN(value)) return;
-					reportByStudent.get(studentId)?.subjectsMap.set(subject, value);
-				});
+						if (!reportByStudent.has(studentId)) {
+							reportByStudent.set(studentId, {
+								studentId,
+								studentName: String(gradeRow?.studentName || '').trim(),
+								subjectsMap: new Map<string, number>(),
+								periodicAverage: 0,
+								rank: null,
+							});
+						}
+						const row = reportByStudent.get(studentId);
+						const rankValue = Number(gradeRow?.rank);
+						if (Number.isFinite(rankValue) && rankValue > 0 && row) {
+							row.rank = row.rank ? Math.min(row.rank, rankValue) : rankValue;
+						}
+						const subject = String(gradeRow?.subject || '').trim();
+						const value = Number(gradeRow?.grade);
+						if (!subject || Number.isNaN(value)) return;
+						row?.subjectsMap.set(subject, value);
+					});
 
 				const reportRows = Array.from(reportByStudent.values()).map((row) => {
 					const subjects = Array.from(row.subjectsMap.entries()).map(
@@ -1667,28 +1672,35 @@ function ReportContent({
 					return {
 						studentId: row.studentId,
 						studentName: row.studentName,
-						subjects,
-						periodicAverage: avg,
-						rank: 0,
-					};
-				});
+							subjects,
+							periodicAverage: avg,
+							rank: row.rank ?? 0,
+						};
+					});
 
-				const ranked = [...reportRows].sort(
-					(a, b) => b.periodicAverage - a.periodicAverage,
-				);
-				let rank = 1;
-				ranked.forEach((row, index) => {
-					if (
-						index > 0 &&
-						row.periodicAverage < ranked[index - 1].periodicAverage
-					) {
-						rank = index + 1;
+					const hasServerRanks = reportRows.some(
+						(row) => typeof row.rank === 'number' && Number.isFinite(row.rank) && row.rank > 0,
+					);
+					if (hasServerRanks) {
+						return [...reportRows].sort((a, b) => {
+							const aRank = a.rank > 0 ? a.rank : Infinity;
+							const bRank = b.rank > 0 ? b.rank : Infinity;
+							if (aRank !== bRank) return aRank - bRank;
+							return b.periodicAverage - a.periodicAverage;
+						});
 					}
-					row.rank = rank;
-				});
 
-				return ranked;
-			})();
+					const ranked = [...reportRows].sort((a, b) => b.periodicAverage - a.periodicAverage);
+					let rank = 1;
+					ranked.forEach((row, index) => {
+						if (index > 0 && row.periodicAverage < ranked[index - 1].periodicAverage) {
+							rank = index + 1;
+						}
+						row.rank = rank;
+					});
+
+					return ranked;
+				})();
 			const gradeReports: PeriodicStudentData[] = normalizedReport;
 			const gradesMap = new Map<string, PeriodicStudentData>();
 

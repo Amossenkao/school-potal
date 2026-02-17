@@ -292,14 +292,42 @@ const buildReportsFromGradeRows = ({
 		const subject = String(gradeRow?.subject || '').trim();
 		if (!subject) return;
 
-		const studentName =
-			typeof gradeRow?.studentName === 'string' ? gradeRow.studentName : '';
-		const report = ensureStudentReport(studentId, studentName);
-		ensureSubject(report, subject);
+			const studentName =
+				typeof gradeRow?.studentName === 'string' ? gradeRow.studentName : '';
+			const report = ensureStudentReport(studentId, studentName);
+			ensureSubject(report, subject);
+			if (gradeRow?.ranks && typeof gradeRow.ranks === 'object') {
+				Object.entries(gradeRow.ranks).forEach(([rankKey, rankValue]) => {
+					if (!Object.prototype.hasOwnProperty.call(report.ranks, rankKey)) return;
+					const parsedRank = Number(rankValue);
+					if (!Number.isFinite(parsedRank) || parsedRank <= 0) return;
+					const currentRank = report.ranks[rankKey];
+					report.ranks[rankKey] =
+						typeof currentRank === 'number' && Number.isFinite(currentRank)
+							? Math.min(currentRank, parsedRank)
+							: parsedRank;
+				});
+			}
+			const periodRank = Number(gradeRow?.rank);
+			if (Number.isFinite(periodRank) && periodRank > 0) {
+				const currentRank = report.ranks[period];
+				report.ranks[period] =
+					typeof currentRank === 'number' && Number.isFinite(currentRank)
+						? Math.min(currentRank, periodRank)
+						: periodRank;
+			}
+			const yearlyRank = Number(gradeRow?.yearlyRank);
+			if (Number.isFinite(yearlyRank) && yearlyRank > 0) {
+				const currentRank = report.ranks.yearly;
+				report.ranks.yearly =
+					typeof currentRank === 'number' && Number.isFinite(currentRank)
+						? Math.min(currentRank, yearlyRank)
+						: yearlyRank;
+			}
 
-		const subjectIndex = report.periods[period].findIndex(
-			(entry) => entry.subject === subject,
-		);
+			const subjectIndex = report.periods[period].findIndex(
+				(entry) => entry.subject === subject,
+			);
 		if (subjectIndex === -1) return;
 
 		const gradeValue =
