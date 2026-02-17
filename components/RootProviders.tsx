@@ -9,6 +9,7 @@ import VercelUpgrade from '@/components/uca-inactive';
 import AuthProvider from '@/context/AuthProvider';
 import OfflineHandler from '@/components/OfflineHandler';
 import { Toaster } from 'react-hot-toast';
+import { buildTenantThemeCss, resolveTenantThemeColor } from '@/lib/tenantTheme';
 
 const OFFLINE_REQUESTS_KEY = 'school_portal_offline_requests';
 
@@ -107,6 +108,30 @@ export default function RootProviders({
 		flushQueue();
 		return () => window.removeEventListener('online', flushQueue);
 	}, [hasAppsFeature]);
+
+	useEffect(() => {
+		const css = buildTenantThemeCss(school?.themeName);
+		let tenantThemeStyle = document.getElementById(
+			'tenant-theme'
+		) as HTMLStyleElement | null;
+		if (!tenantThemeStyle) {
+			tenantThemeStyle = document.createElement('style');
+			tenantThemeStyle.id = 'tenant-theme';
+			document.head.appendChild(tenantThemeStyle);
+		}
+		tenantThemeStyle.innerHTML = css;
+
+		const themeColor = resolveTenantThemeColor(school?.themeName);
+		let themeColorMeta = document.querySelector(
+			'meta[name="theme-color"]'
+		) as HTMLMetaElement | null;
+		if (!themeColorMeta) {
+			themeColorMeta = document.createElement('meta');
+			themeColorMeta.setAttribute('name', 'theme-color');
+			document.head.appendChild(themeColorMeta);
+		}
+		themeColorMeta.setAttribute('content', themeColor);
+	}, [school?.themeName]);
 
 	return (
 		<AuthProvider>

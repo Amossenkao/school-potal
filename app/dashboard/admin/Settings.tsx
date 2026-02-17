@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSchoolStore } from '@/store/schoolStore';
 import {
 	Shield,
@@ -445,6 +445,32 @@ export default function Settings() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSaving, setIsSaving] = useState(false);
 	const [feedback, setFeedback] = useState({ type: '', message: '' });
+	const persistedThemeNameRef = useRef<TenantThemeName>(DEFAULT_TENANT_THEME_NAME);
+
+	const applyThemePreview = (nextThemeName: TenantThemeName) => {
+		const tenantThemeStyle = document.getElementById(
+			'tenant-theme'
+		) as HTMLStyleElement | null;
+		const css = buildTenantThemeCss(nextThemeName);
+		if (tenantThemeStyle) {
+			tenantThemeStyle.innerHTML = css;
+		} else {
+			const styleTag = document.createElement('style');
+			styleTag.id = 'tenant-theme';
+			styleTag.innerHTML = css;
+			document.head.appendChild(styleTag);
+		}
+
+		let themeColorMeta = document.querySelector(
+			'meta[name="theme-color"]'
+		) as HTMLMetaElement | null;
+		if (!themeColorMeta) {
+			themeColorMeta = document.createElement('meta');
+			themeColorMeta.setAttribute('name', 'theme-color');
+			document.head.appendChild(themeColorMeta);
+		}
+		themeColorMeta.setAttribute('content', resolveTenantThemeColor(nextThemeName));
+	};
 
 	useEffect(() => {
 		if (!school) {
@@ -526,6 +552,24 @@ export default function Settings() {
 		}
 	}, [school]);
 
+	useEffect(() => {
+		persistedThemeNameRef.current = TENANT_THEME_NAMES.includes(
+			school?.themeName as TenantThemeName
+		)
+			? (school?.themeName as TenantThemeName)
+			: DEFAULT_TENANT_THEME_NAME;
+	}, [school?.themeName]);
+
+	useEffect(() => {
+		applyThemePreview(themeName);
+	}, [themeName]);
+
+	useEffect(() => {
+		return () => {
+			applyThemePreview(persistedThemeNameRef.current);
+		};
+	}, []);
+
 	const toggleStudentSetting = (setting) =>
 		setStudentSettings((prev) => ({ ...prev, [setting]: !prev[setting] }));
 	const toggleTeacherSetting = (setting) =>
@@ -576,26 +620,7 @@ export default function Settings() {
 
 			if (data.success) {
 				const nextThemeName = (data?.data?.themeName as TenantThemeName) || themeName;
-				const tenantThemeStyle = document.getElementById(
-					'tenant-theme'
-				) as HTMLStyleElement | null;
-				const css = buildTenantThemeCss(nextThemeName);
-				if (tenantThemeStyle) {
-					tenantThemeStyle.innerHTML = css;
-				} else {
-					const styleTag = document.createElement('style');
-					styleTag.id = 'tenant-theme';
-					styleTag.innerHTML = css;
-					document.head.appendChild(styleTag);
-				}
-
-				const themeColorMeta = document.querySelector(
-					'meta[name="theme-color"]'
-				) as HTMLMetaElement | null;
-				const nextThemeColor = resolveTenantThemeColor(nextThemeName);
-				if (themeColorMeta) {
-					themeColorMeta.setAttribute('content', nextThemeColor);
-				}
+				setThemeName(nextThemeName);
 
 				if (school) {
 					setSchool({
@@ -712,7 +737,8 @@ export default function Settings() {
 								label="School Theme"
 							/>
 							<p className="text-xs text-muted-foreground">
-								This updates the global school theme for all users.
+								Selecting a theme previews it instantly. Click Save to apply it
+								system-wide for all users.
 							</p>
 						</div>
 					</SettingsSection>
