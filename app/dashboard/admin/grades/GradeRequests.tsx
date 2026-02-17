@@ -22,6 +22,7 @@ import {
 import { useNetworkStore } from '@/store/networkStore';
 import { useSchoolStore } from '@/store/schoolStore';
 import { PageLoading } from '@/components/loading';
+import { getScopedAcademicYearValue } from '@/utils/academicYear';
 
 // --- TYPES ---
 interface GradeChangeRequest {
@@ -268,7 +269,11 @@ const GradeRequests: React.FC = () => {
 		(state) => state.setGradeRequestsForYear
 	);
 	const scopedGradeRequests = useSchoolStore(
-		(state) => state.gradeRequestsByAcademicYear?.[currentAcademicYear]
+		(state) =>
+			getScopedAcademicYearValue(
+				state.gradeRequestsByAcademicYear,
+				currentAcademicYear,
+			).value
 	);
 	// Data states
 	const [bulkRequests, setBulkRequests] = useState<BulkGradeRequest[]>([]);
@@ -322,12 +327,13 @@ const GradeRequests: React.FC = () => {
 		}
 		const schoolState = useSchoolStore.getState();
 		const cachedByYear = schoolState.gradeRequestsByAcademicYear || {};
-		const hasYearSnapshot = Object.prototype.hasOwnProperty.call(
+		const scopedStoreSnapshot = getScopedAcademicYearValue(
 			cachedByYear,
-			currentAcademicYear
+			currentAcademicYear,
 		);
-		const cachedRequests = Array.isArray(cachedByYear[currentAcademicYear])
-			? cachedByYear[currentAcademicYear]
+		const hasYearSnapshot = Boolean(scopedStoreSnapshot.key);
+		const cachedRequests = Array.isArray(scopedStoreSnapshot.value)
+			? scopedStoreSnapshot.value
 			: [];
 
 		try {

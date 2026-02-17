@@ -133,6 +133,72 @@ const persistDomainSnapshot = (
 	});
 };
 
+const normalizeAcademicYearKey = (value?: string | null) => {
+	if (!value) return '';
+	return String(value)
+		.trim()
+		.replace(/[–—]/g, '-')
+		.replace(/\s+/g, '')
+		.replace(/\//g, '-');
+};
+
+const buildAcademicYearKeyVariants = (academicYear: string) => {
+	const raw = String(academicYear || '').trim();
+	if (!raw) return [] as string[];
+	const normalized = normalizeAcademicYearKey(raw);
+	const slash = normalized ? normalized.replace(/-/g, '/') : '';
+	return Array.from(
+		new Set([raw, normalized, slash].filter((value): value is string => Boolean(value))),
+	);
+};
+
+const getAcademicYearPrimaryKey = (academicYear: string) => {
+	const variants = buildAcademicYearKeyVariants(academicYear);
+	return variants.find((value) => value.includes('-')) || variants[0] || academicYear;
+};
+
+const resolveAcademicYearRecord = <T,>(
+	map: Record<string, T> | undefined,
+	academicYear: string,
+): T | undefined => {
+	if (!map) return undefined;
+	const variants = buildAcademicYearKeyVariants(academicYear);
+	for (const key of variants) {
+		if (Object.prototype.hasOwnProperty.call(map, key)) {
+			return map[key];
+		}
+	}
+	const normalized = normalizeAcademicYearKey(academicYear);
+	if (!normalized) return undefined;
+	const matchedKey = Object.keys(map).find(
+		(key) => normalizeAcademicYearKey(key) === normalized,
+	);
+	return matchedKey ? map[matchedKey] : undefined;
+};
+
+const assignAcademicYearRecord = <T,>(
+	map: Record<string, T>,
+	academicYear: string,
+	value: T,
+) => {
+	const next = { ...map };
+	buildAcademicYearKeyVariants(academicYear).forEach((key) => {
+		next[key] = value;
+	});
+	return next;
+};
+
+const expandAcademicYearRecordMap = <T,>(map?: Record<string, T> | null) => {
+	const expanded: Record<string, T> = {};
+	if (!map || typeof map !== 'object') return expanded;
+	Object.entries(map).forEach(([academicYear, value]) => {
+		buildAcademicYearKeyVariants(academicYear).forEach((key) => {
+			expanded[key] = value as T;
+		});
+	});
+	return expanded;
+};
+
 export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	school: null,
 	schoolVersion: null,
@@ -230,7 +296,10 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		if (!academicYear) return;
 		const merge = options.merge !== false;
 		set((state) => {
-			const existing = state.usersByAcademicYear[academicYear] || {
+			const existing = resolveAcademicYearRecord(
+				state.usersByAcademicYear,
+				academicYear,
+			) || {
 				students: [],
 				teachers: [],
 				administrators: [],
@@ -259,12 +328,13 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				administrators: mergeById(existing.administrators, nextAdmins),
 			};
 
-			const usersByAcademicYear = {
-				...state.usersByAcademicYear,
-				[academicYear]: updated,
-			};
+			const usersByAcademicYear = assignAcademicYearRecord(
+				state.usersByAcademicYear,
+				academicYear,
+				updated,
+			);
 
-			persistDomainSnapshot('users', academicYear, updated);
+			persistDomainSnapshot('users', getAcademicYearPrimaryKey(academicYear), updated);
 			persistMeta(state);
 
 			return { usersByAcademicYear };
@@ -274,10 +344,11 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	setUsersVersionForYear: (academicYear, version) => {
 		if (!academicYear || typeof version !== 'string') return;
 		set((state) => {
-			const usersVersionByAcademicYear = {
-				...state.usersVersionByAcademicYear,
-				[academicYear]: version,
-			};
+			const usersVersionByAcademicYear = assignAcademicYearRecord(
+				state.usersVersionByAcademicYear,
+				academicYear,
+				version,
+			);
 			const next = { ...state, usersVersionByAcademicYear };
 			persistMeta(next);
 			return { usersVersionByAcademicYear };
@@ -287,11 +358,13 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	setCalendarForYear: (academicYear, events) => {
 		if (!academicYear) return;
 		set((state) => {
-			const calendarByAcademicYear = {
-				...state.calendarByAcademicYear,
-				[academicYear]: Array.isArray(events) ? events : [],
-			};
-			persistDomainSnapshot('calendar', academicYear, calendarByAcademicYear[academicYear]);
+			const value = Array.isArray(events) ? events : [];
+			const calendarByAcademicYear = assignAcademicYearRecord(
+				state.calendarByAcademicYear,
+				academicYear,
+				value,
+			);
+			persistDomainSnapshot('calendar', getAcademicYearPrimaryKey(academicYear), value);
 			persistMeta(state);
 			return { calendarByAcademicYear };
 		});
@@ -300,11 +373,13 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	setGradesForYear: (academicYear, grades) => {
 		if (!academicYear) return;
 		set((state) => {
-			const gradesByAcademicYear = {
-				...state.gradesByAcademicYear,
-				[academicYear]: Array.isArray(grades) ? grades : [],
-			};
-			persistDomainSnapshot('grades', academicYear, gradesByAcademicYear[academicYear]);
+			const value = Array.isArray(grades) ? grades : [];
+			const gradesByAcademicYear = assignAcademicYearRecord(
+				state.gradesByAcademicYear,
+				academicYear,
+				value,
+			);
+			persistDomainSnapshot('grades', getAcademicYearPrimaryKey(academicYear), value);
 			persistMeta(state);
 			return { gradesByAcademicYear };
 		});
@@ -313,14 +388,16 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	setGradeRequestsForYear: (academicYear, requests) => {
 		if (!academicYear) return;
 		set((state) => {
-			const gradeRequestsByAcademicYear = {
-				...state.gradeRequestsByAcademicYear,
-				[academicYear]: Array.isArray(requests) ? requests : [],
-			};
+			const value = Array.isArray(requests) ? requests : [];
+			const gradeRequestsByAcademicYear = assignAcademicYearRecord(
+				state.gradeRequestsByAcademicYear,
+				academicYear,
+				value,
+			);
 			persistDomainSnapshot(
 				'gradeRequests',
-				academicYear,
-				gradeRequestsByAcademicYear[academicYear],
+				getAcademicYearPrimaryKey(academicYear),
+				value,
 			);
 			persistMeta(state);
 			return { gradeRequestsByAcademicYear };
@@ -330,17 +407,19 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	setSchedulesForYear: (academicYear, payload) => {
 		if (!academicYear) return;
 		set((state) => {
-			const schedulesByAcademicYear = {
-				...state.schedulesByAcademicYear,
-				[academicYear]: {
-					classSchedules: payload.classSchedules || [],
-					testSchedules: payload.testSchedules || [],
-				},
+			const value = {
+				classSchedules: payload.classSchedules || [],
+				testSchedules: payload.testSchedules || [],
 			};
+			const schedulesByAcademicYear = assignAcademicYearRecord(
+				state.schedulesByAcademicYear,
+				academicYear,
+				value,
+			);
 			persistDomainSnapshot(
 				'schedules',
-				academicYear,
-				schedulesByAcademicYear[academicYear],
+				getAcademicYearPrimaryKey(academicYear),
+				value,
 			);
 			persistMeta(state);
 			return { schedulesByAcademicYear };
@@ -352,38 +431,43 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		set((state) => {
 			const usersVersionByAcademicYear =
 				typeof versions.users === 'string'
-					? {
-						...state.usersVersionByAcademicYear,
-						[academicYear]: versions.users,
-					}
+					? assignAcademicYearRecord(
+						state.usersVersionByAcademicYear,
+						academicYear,
+						versions.users,
+					)
 					: state.usersVersionByAcademicYear;
 			const calendarVersionByAcademicYear =
 				typeof versions.calendar === 'string'
-					? {
-						...state.calendarVersionByAcademicYear,
-						[academicYear]: versions.calendar,
-					}
+					? assignAcademicYearRecord(
+						state.calendarVersionByAcademicYear,
+						academicYear,
+						versions.calendar,
+					)
 					: state.calendarVersionByAcademicYear;
 			const gradesVersionByAcademicYear =
 				typeof versions.grades === 'string'
-					? {
-						...state.gradesVersionByAcademicYear,
-						[academicYear]: versions.grades,
-					}
+					? assignAcademicYearRecord(
+						state.gradesVersionByAcademicYear,
+						academicYear,
+						versions.grades,
+					)
 					: state.gradesVersionByAcademicYear;
 			const gradeRequestsVersionByAcademicYear =
 				typeof versions.gradeRequests === 'string'
-					? {
-						...state.gradeRequestsVersionByAcademicYear,
-						[academicYear]: versions.gradeRequests,
-					}
+					? assignAcademicYearRecord(
+						state.gradeRequestsVersionByAcademicYear,
+						academicYear,
+						versions.gradeRequests,
+					)
 					: state.gradeRequestsVersionByAcademicYear;
 			const schedulesVersionByAcademicYear =
 				typeof versions.schedules === 'string'
-					? {
-						...state.schedulesVersionByAcademicYear,
-						[academicYear]: versions.schedules,
-					}
+					? assignAcademicYearRecord(
+						state.schedulesVersionByAcademicYear,
+						academicYear,
+						versions.schedules,
+					)
 					: state.schedulesVersionByAcademicYear;
 			const next = {
 				...state,
@@ -433,20 +517,42 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	hydrateCache: () => {
 		const cachedMeta = readMetaCache();
 		if (cachedMeta) {
+			const usersVersions = expandAcademicYearRecordMap(
+				cachedMeta.usersVersionByAcademicYear,
+			);
+			const calendarVersions = expandAcademicYearRecordMap(
+				cachedMeta.calendarVersionByAcademicYear,
+			);
+			const gradesVersions = expandAcademicYearRecordMap(
+				cachedMeta.gradesVersionByAcademicYear,
+			);
+			const gradeRequestsVersions = expandAcademicYearRecordMap(
+				cachedMeta.gradeRequestsVersionByAcademicYear,
+			);
+			const schedulesVersions = expandAcademicYearRecordMap(
+				cachedMeta.schedulesVersionByAcademicYear,
+			);
 			set((state) => ({
 				usersVersionByAcademicYear:
-					cachedMeta.usersVersionByAcademicYear || state.usersVersionByAcademicYear,
+					Object.keys(usersVersions).length > 0
+						? usersVersions
+						: state.usersVersionByAcademicYear,
 				calendarVersionByAcademicYear:
-					cachedMeta.calendarVersionByAcademicYear ||
-					state.calendarVersionByAcademicYear,
+					Object.keys(calendarVersions).length > 0
+						? calendarVersions
+						: state.calendarVersionByAcademicYear,
 				gradesVersionByAcademicYear:
-					cachedMeta.gradesVersionByAcademicYear || state.gradesVersionByAcademicYear,
+					Object.keys(gradesVersions).length > 0
+						? gradesVersions
+						: state.gradesVersionByAcademicYear,
 				gradeRequestsVersionByAcademicYear:
-					cachedMeta.gradeRequestsVersionByAcademicYear ||
-					state.gradeRequestsVersionByAcademicYear,
+					Object.keys(gradeRequestsVersions).length > 0
+						? gradeRequestsVersions
+						: state.gradeRequestsVersionByAcademicYear,
 				schedulesVersionByAcademicYear:
-					cachedMeta.schedulesVersionByAcademicYear ||
-					state.schedulesVersionByAcademicYear,
+					Object.keys(schedulesVersions).length > 0
+						? schedulesVersions
+						: state.schedulesVersionByAcademicYear,
 				schoolVersion:
 					typeof cachedMeta.schoolVersion === 'string'
 						? cachedMeta.schoolVersion
@@ -472,27 +578,45 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 						if (!year) return;
 						if (snapshot.domain === 'users') {
 							const users = snapshot.value as UsersPayload;
-							usersByAcademicYear[year] = {
+							const value = {
 								students: Array.isArray(users?.students) ? users.students : [],
 								teachers: Array.isArray(users?.teachers) ? users.teachers : [],
 								administrators: Array.isArray(users?.administrators)
 									? users.administrators
 									: [],
 							};
+							const nextUsers = assignAcademicYearRecord(
+								usersByAcademicYear,
+								year,
+								value,
+							);
+							Object.assign(usersByAcademicYear, nextUsers);
 						}
 						if (snapshot.domain === 'grades') {
-							gradesByAcademicYear[year] = Array.isArray(snapshot.value)
+							const value = Array.isArray(snapshot.value)
 								? (snapshot.value as any[])
 								: [];
+							const nextGrades = assignAcademicYearRecord(
+								gradesByAcademicYear,
+								year,
+								value,
+							);
+							Object.assign(gradesByAcademicYear, nextGrades);
 						}
 						if (snapshot.domain === 'calendar') {
-							calendarByAcademicYear[year] = Array.isArray(snapshot.value)
+							const value = Array.isArray(snapshot.value)
 								? (snapshot.value as any[])
 								: [];
+							const nextCalendar = assignAcademicYearRecord(
+								calendarByAcademicYear,
+								year,
+								value,
+							);
+							Object.assign(calendarByAcademicYear, nextCalendar);
 						}
 						if (snapshot.domain === 'schedules') {
 							const payload = (snapshot.value || {}) as SchedulesPayload;
-							schedulesByAcademicYear[year] = {
+							const value = {
 								classSchedules: Array.isArray(payload.classSchedules)
 									? payload.classSchedules
 									: [],
@@ -500,11 +624,23 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 									? payload.testSchedules
 									: [],
 							};
+							const nextSchedules = assignAcademicYearRecord(
+								schedulesByAcademicYear,
+								year,
+								value,
+							);
+							Object.assign(schedulesByAcademicYear, nextSchedules);
 						}
 						if (snapshot.domain === 'gradeRequests') {
-							gradeRequestsByAcademicYear[year] = Array.isArray(snapshot.value)
+							const value = Array.isArray(snapshot.value)
 								? (snapshot.value as any[])
 								: [];
+							const nextGradeRequests = assignAcademicYearRecord(
+								gradeRequestsByAcademicYear,
+								year,
+								value,
+							);
+							Object.assign(gradeRequestsByAcademicYear, nextGradeRequests);
 						}
 					});
 

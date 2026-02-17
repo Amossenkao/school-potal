@@ -25,6 +25,10 @@ import {
 	enqueueShareRequest,
 } from '@/utils/shareQueue';
 import AccessDenied from '@/components/AccessDenied';
+import {
+	areAcademicYearsEqual,
+	getScopedAcademicYearValue,
+} from '@/utils/academicYear';
 import { drawTextMap, type TextPlacementMap } from '@/utils/pdfText';
 import {
 	buildReportPage2QrPlacement,
@@ -107,7 +111,9 @@ const getClassMetaById = (classLevels: any, classId?: string) => {
 
 const getStudentClassIdForYear = (student: any, academicYear: string) => {
 	const yearEntry = Array.isArray(student?.academicYears)
-		? student.academicYears.find((ay: any) => ay.year === academicYear)
+		? student.academicYears.find((ay: any) =>
+				areAcademicYearsEqual(ay.year, academicYear),
+		  )
 		: null;
 	return yearEntry?.classId || student?.classId || '';
 };
@@ -573,11 +579,13 @@ const FilterContent = React.memo(function FilterContent({
 	useEffect(() => {
 		if (!isStudent || !user) return;
 		const yearEntry = Array.isArray(user.academicYears)
-			? user.academicYears.find((ay: any) => ay.year === filters.academicYear)
+			? user.academicYears.find((ay: any) =>
+					areAcademicYearsEqual(ay.year, filters.academicYear),
+			  )
 			: null;
 		const classIdForYear =
 			yearEntry?.classId ||
-			(filters.academicYear === getCurrentAcademicYear()
+			(areAcademicYearsEqual(filters.academicYear, getCurrentAcademicYear())
 				? user.classId || ''
 				: '');
 		const classMeta = getClassMetaById(
@@ -680,7 +688,10 @@ const FilterContent = React.memo(function FilterContent({
 				try {
 					const offline =
 						typeof navigator !== 'undefined' && navigator.onLine === false;
-					const cachedUsers = usersByAcademicYear?.[filters.academicYear];
+					const cachedUsers = getScopedAcademicYearValue(
+						usersByAcademicYear,
+						filters.academicYear,
+					).value;
 					if (cachedUsers?.students?.length) {
 						const filtered = cachedUsers.students.filter(
 							(student: any) =>
@@ -1781,8 +1792,10 @@ function ReportContent({
 						},
 					];
 				} else {
-					const cachedUsers =
-						usersByAcademicYear?.[reportFilters.academicYear];
+					const cachedUsers = getScopedAcademicYearValue(
+						usersByAcademicYear,
+						reportFilters.academicYear,
+					).value;
 					if (cachedUsers?.students?.length) {
 						const filtered = cachedUsers.students.filter(
 							(student: any) =>
@@ -1891,10 +1904,15 @@ function ReportContent({
 					const cachedGrades =
 						getClientCache<any>(gradesCacheKey) ??
 						getClientCache<any>(`${gradesCacheBaseKey}:all`);
-					const scopedGrades = gradesByAcademicYear?.[reportFilters.academicYear];
+					const scopedGrades = getScopedAcademicYearValue(
+						gradesByAcademicYear,
+						reportFilters.academicYear,
+					).value;
 					const hasScopedGradesVersion =
-						typeof gradesVersionByAcademicYear?.[reportFilters.academicYear] ===
-						'string';
+						typeof getScopedAcademicYearValue(
+							gradesVersionByAcademicYear,
+							reportFilters.academicYear,
+						).value === 'string';
 					const canUseScopedGrades =
 						Array.isArray(scopedGrades) &&
 						scopedGrades.length > 0 &&
@@ -1912,7 +1930,7 @@ function ReportContent({
 							const gradeStudentId = normalizeStudentId(grade?.studentId);
 							return (
 								grade?.classId === reportFilters.className &&
-								gradeYear === reportFilters.academicYear &&
+								areAcademicYearsEqual(gradeYear, reportFilters.academicYear) &&
 								(!selectedIdsSet || selectedIdsSet.has(gradeStudentId))
 							);
 						});

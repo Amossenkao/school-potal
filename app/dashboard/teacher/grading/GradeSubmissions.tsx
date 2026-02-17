@@ -25,6 +25,7 @@ import {
 	setClientCache,
 	clearClientCache,
 } from '@/utils/clientCache';
+import { getScopedAcademicYearValue } from '@/utils/academicYear';
 
 // Types
 interface StudentGrade {
@@ -261,12 +262,15 @@ const GradeSubmissions = () => {
 
 			const schoolState = useSchoolStore.getState();
 			const gradesByYear = schoolState.gradesByAcademicYear || {};
+			const scopedStoreSnapshot = getScopedAcademicYearValue(
+				gradesByYear,
+				academicYear,
+			);
 			const hasYearSnapshot =
-				Boolean(academicYear) &&
-				Object.prototype.hasOwnProperty.call(gradesByYear, academicYear);
+				Boolean(academicYear) && Boolean(scopedStoreSnapshot.key);
 			const storeGrades =
-				academicYear && Array.isArray(gradesByYear[academicYear])
-					? gradesByYear[academicYear]
+				academicYear && Array.isArray(scopedStoreSnapshot.value)
+					? scopedStoreSnapshot.value
 					: [];
 			const cacheKey = `submittedGrades:${teacherInfo.username}:${academicYear}`;
 

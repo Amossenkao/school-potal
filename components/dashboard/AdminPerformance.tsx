@@ -16,6 +16,10 @@ import {
 	getClassNameById,
 } from '@/components/dashboard/academicYear';
 import { useSchoolStore } from '@/store/schoolStore';
+import {
+	areAcademicYearsEqual,
+	getScopedAcademicYearValue,
+} from '@/utils/academicYear';
 
 const PASS_MARK = 70;
 const ALL_PERIODS = [
@@ -79,12 +83,17 @@ export default function AdminPerformance({
 			try {
 				setIsLoading(true);
 				setErrorMessage('');
-				const storeGrades = gradesByAcademicYear?.[selectedYear];
+				const storeGrades = getScopedAcademicYearValue(
+					gradesByAcademicYear,
+					selectedYear,
+				).value;
 				if (Array.isArray(storeGrades)) {
 					const filteredStoreGrades = storeGrades.filter(
 						(grade: GradeItem & { academicYear?: string }) => {
 							const gradeYear = String(grade?.academicYear || '').trim();
-							if (gradeYear && gradeYear !== selectedYear) return false;
+							if (gradeYear && !areAcademicYearsEqual(gradeYear, selectedYear)) {
+								return false;
+							}
 							if (selectedSemester === 'all' && selectedPeriod !== 'all') {
 								return grade.period === selectedPeriod;
 							}

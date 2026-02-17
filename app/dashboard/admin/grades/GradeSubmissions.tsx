@@ -34,6 +34,7 @@ import {
 import { useNetworkStore } from '@/store/networkStore';
 import { useSchoolStore } from '@/store/schoolStore';
 import { PageLoading } from '@/components/loading';
+import { getScopedAcademicYearValue } from '@/utils/academicYear';
 
 // Types
 interface StudentGrade {
@@ -111,7 +112,11 @@ const AdminGradeManagement: React.FC = () => {
 	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
 	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 	const scopedGrades = useSchoolStore(
-		(state) => state.gradesByAcademicYear?.[currentAcademicYear]
+		(state) =>
+			getScopedAcademicYearValue(
+				state.gradesByAcademicYear,
+				currentAcademicYear,
+			).value
 	);
 	// Data states
 	const [submissions, setSubmissions] = useState<GradeSubmission[]>([]);
@@ -320,12 +325,13 @@ const AdminGradeManagement: React.FC = () => {
 		}
 		const schoolState = useSchoolStore.getState();
 		const cachedByYear = schoolState.gradesByAcademicYear || {};
-		const hasYearSnapshot = Object.prototype.hasOwnProperty.call(
+		const scopedStoreSnapshot = getScopedAcademicYearValue(
 			cachedByYear,
-			currentAcademicYear
+			currentAcademicYear,
 		);
-		const cachedGrades = Array.isArray(cachedByYear[currentAcademicYear])
-			? cachedByYear[currentAcademicYear]
+		const hasYearSnapshot = Boolean(scopedStoreSnapshot.key);
+		const cachedGrades = Array.isArray(scopedStoreSnapshot.value)
+			? scopedStoreSnapshot.value
 			: [];
 
 		try {

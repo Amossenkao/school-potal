@@ -13,6 +13,7 @@ import {
 import type { SchoolProfile } from '@/types/schoolProfile';
 import { buildAcademicYearOptions } from '@/components/dashboard/academicYear';
 import { useSchoolStore } from '@/store/schoolStore';
+import { getScopedAcademicYearValue } from '@/utils/academicYear';
 
 const PASS_MARK = 70;
 const BAR_CHART_CLASS = 'h-[240px] sm:h-[280px] w-full aspect-auto';
@@ -66,7 +67,10 @@ export default function StudentPerformanceInsights({
 			try {
 				setIsLoading(true);
 				setErrorMessage('');
-				const storeGrades = gradesByAcademicYear?.[selectedYear];
+				const storeGrades = getScopedAcademicYearValue(
+					gradesByAcademicYear,
+					selectedYear,
+				).value;
 				if (Array.isArray(storeGrades)) {
 					setGrades(storeGrades as GradeItem[]);
 					return;

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import type { SchoolProfile } from '@/types/schoolProfile';
 import { getClassNameById } from '@/components/dashboard/academicYear';
 import { useSchoolStore } from '@/store/schoolStore';
+import { getScopedAcademicYearValue } from '@/utils/academicYear';
 
 const normalizeLevelName = (level: string) =>
 	level && level !== 'Self Contained' ? level : '';
@@ -100,7 +101,10 @@ export default function AdminEnrollment({
 			try {
 				setIsLoading(true);
 				setErrorMessage('');
-				const storeStudents = usersByAcademicYear?.[selectedYear]?.students;
+				const storeStudents = getScopedAcademicYearValue(
+					usersByAcademicYear,
+					selectedYear,
+				).value?.students;
 				if (Array.isArray(storeStudents)) {
 					const filtered = storeStudents.filter(
 						(student: StudentRow) => student.classId === selectedClassId,

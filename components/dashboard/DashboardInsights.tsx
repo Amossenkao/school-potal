@@ -25,6 +25,10 @@ import {
 	getClassLevelLabel,
 } from '@/components/dashboard/academicYear';
 import { useSchoolStore } from '@/store/schoolStore';
+import {
+	areAcademicYearsEqual,
+	getScopedAcademicYearValue,
+} from '@/utils/academicYear';
 
 type DashboardInsightsProps = {
 	schoolProfile: SchoolProfile;
@@ -163,7 +167,7 @@ export default function DashboardInsights({
 	const teacherClassIds = useMemo(() => {
 		if (role !== 'teacher') return [];
 		const relevantSubjects = user?.subjects?.filter((subject) =>
-			selectedYear ? subject.year === selectedYear : true,
+			selectedYear ? areAcademicYearsEqual(subject.year, selectedYear) : true,
 		);
 		const classIds = (relevantSubjects || []).flatMap((subject) =>
 			subject.classes.map((klass) => klass.classId),
@@ -228,7 +232,11 @@ export default function DashboardInsights({
 			try {
 				setIsLoading(true);
 				setErrorMessage('');
-				const storeStudents = usersByAcademicYear?.[selectedYear]?.students;
+				const scopedUsers = getScopedAcademicYearValue(
+					usersByAcademicYear,
+					selectedYear,
+				).value;
+				const storeStudents = scopedUsers?.students;
 				if (Array.isArray(storeStudents)) {
 					if (role === 'teacher') {
 						const targets =

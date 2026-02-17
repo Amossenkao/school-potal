@@ -15,6 +15,7 @@ import {
 import { PageLoading } from '@/components/loading';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import { useSchoolStore } from '@/store/schoolStore';
+import { getScopedAcademicYearValue } from '@/utils/academicYear';
 
 // --- TYPES ---
 interface TeacherInfo {
@@ -94,12 +95,13 @@ const TeacherGradeChangeRequests = ({
 			const academicYear = schoolAcademicYear || getCurrentAcademicYear();
 			const storeState = useSchoolStore.getState();
 			const cachedByYear = storeState.gradeRequestsByAcademicYear || {};
-			const hasYearSnapshot = Object.prototype.hasOwnProperty.call(
+			const scopedStoreSnapshot = getScopedAcademicYearValue(
 				cachedByYear,
 				academicYear,
 			);
-			const scopedStoreRequests = Array.isArray(cachedByYear?.[academicYear])
-				? cachedByYear[academicYear]
+			const hasYearSnapshot = Boolean(scopedStoreSnapshot.key);
+			const scopedStoreRequests = Array.isArray(scopedStoreSnapshot.value)
+				? scopedStoreSnapshot.value
 				: [];
 			const cacheKey = `gradeRequests:${academicYear}:${
 				teacherInfo?.username || 'teacher'

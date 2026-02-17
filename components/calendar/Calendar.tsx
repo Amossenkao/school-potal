@@ -15,6 +15,7 @@ import { Modal } from "@/components/ui/modal";
 import { getClientCache, setClientCache } from "@/utils/clientCache";
 import CalendarSkeleton from "@/components/calendar/CalendarSkeleton";
 import { useSchoolStore } from "@/store/schoolStore";
+import { getScopedAcademicYearValue } from "@/utils/academicYear";
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
@@ -46,7 +47,7 @@ const Calendar: React.FC<CalendarProps> = ({
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [isSavingEvent, setIsSavingEvent] = useState(false);
   const scopedCalendarEvents = useSchoolStore((state) =>
-    academicYear ? state.calendarByAcademicYear?.[academicYear] : undefined
+    getScopedAcademicYearValue(state.calendarByAcademicYear, academicYear).value
   );
   const setCalendarForYear = useSchoolStore((state) => state.setCalendarForYear);
 
@@ -67,15 +68,12 @@ const Calendar: React.FC<CalendarProps> = ({
       setIsLoadingEvents(true);
       try {
         const schoolState = useSchoolStore.getState();
-        const hasScopedCalendarSnapshot = Boolean(
-          academicYear &&
-            Object.prototype.hasOwnProperty.call(
-              schoolState.calendarByAcademicYear || {},
-              academicYear
-            )
-        );
-        if (hasScopedCalendarSnapshot && Array.isArray(scopedCalendarEvents)) {
-          const mapped = scopedCalendarEvents.map((event: any) => ({
+        const scopedCalendarSnapshot = getScopedAcademicYearValue(
+          schoolState.calendarByAcademicYear,
+          academicYear
+        ).value;
+        if (Array.isArray(scopedCalendarSnapshot) && scopedCalendarSnapshot.length > 0) {
+          const mapped = scopedCalendarSnapshot.map((event: any) => ({
             id: event._id || event.id,
             title: event.title,
             start: event.startDate || event.start,

@@ -17,6 +17,10 @@ import {
 	getClassNameById,
 } from '@/components/dashboard/academicYear';
 import { useSchoolStore } from '@/store/schoolStore';
+import {
+	areAcademicYearsEqual,
+	getScopedAcademicYearValue,
+} from '@/utils/academicYear';
 
 const PASS_MARK = 70;
 const ALL_PERIODS = [
@@ -117,7 +121,9 @@ export default function TeacherPerformanceInsights({
 	}, [academicYearOptions, currentAcademicYear, selectedYear]);
 
 	const yearData = useMemo(() => {
-		return user.subjects?.find((entry) => entry.year === selectedYear);
+		return user.subjects?.find((entry) =>
+			areAcademicYearsEqual(entry.year, selectedYear),
+		);
 	}, [user.subjects, selectedYear]);
 
 	const classOptions = useMemo(() => {
@@ -199,12 +205,17 @@ export default function TeacherPerformanceInsights({
 			try {
 				setIsLoading(true);
 				setErrorMessage('');
-				const storeGrades = gradesByAcademicYear?.[selectedYear];
+				const storeGrades = getScopedAcademicYearValue(
+					gradesByAcademicYear,
+					selectedYear,
+				).value;
 				if (Array.isArray(storeGrades)) {
 					const filteredStoreGrades = storeGrades.filter(
 						(grade: GradeItem & { academicYear?: string }) => {
 							const gradeYear = String(grade?.academicYear || '').trim();
-							if (gradeYear && gradeYear !== selectedYear) return false;
+							if (gradeYear && !areAcademicYearsEqual(gradeYear, selectedYear)) {
+								return false;
+							}
 							if (selectedClassId !== 'all' && grade.classId !== selectedClassId) {
 								return false;
 							}

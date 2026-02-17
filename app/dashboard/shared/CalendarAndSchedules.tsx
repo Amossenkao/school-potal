@@ -16,6 +16,10 @@ import {
 import type { SchoolProfile } from '@/types/schoolProfile';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import { useSchoolStore } from '@/store/schoolStore';
+import {
+	areAcademicYearsEqual,
+	getScopedAcademicYearValue,
+} from '@/utils/academicYear';
 
 type ClassScheduleItem = {
 	id: string;
@@ -194,7 +198,7 @@ export default function CalendarAndSchedules({
 	const [slotEditingIds, setSlotEditingIds] = useState<string[]>([]);
 	const academicYear = schoolProfile.currentAcademicYear || '';
 	const scopedSchedules = useSchoolStore((state) =>
-		academicYear ? state.schedulesByAcademicYear?.[academicYear] : undefined,
+		getScopedAcademicYearValue(state.schedulesByAcademicYear, academicYear).value,
 	);
 	const setSchedulesForYear = useSchoolStore((state) => state.setSchedulesForYear);
 
@@ -206,16 +210,15 @@ export default function CalendarAndSchedules({
 
 			try {
 				const schoolState = useSchoolStore.getState();
-				const hasScopedSchedulesSnapshot = Boolean(
-					academicYear &&
-						Object.prototype.hasOwnProperty.call(
-							schoolState.schedulesByAcademicYear || {},
-							academicYear,
-						),
+				const scopedSchedulesSnapshot = getScopedAcademicYearValue(
+					schoolState.schedulesByAcademicYear,
+					academicYear,
 				);
-				if (hasScopedSchedulesSnapshot) {
+				if (scopedSchedulesSnapshot.key) {
+					const sourceSchedules =
+						scopedSchedulesSnapshot.value || scopedSchedules || {};
 					const mappedClass: ClassScheduleItem[] = (
-						scopedSchedules?.classSchedules || []
+						sourceSchedules?.classSchedules || []
 					).map((item: any) => {
 						const meta = item.classId ? classOptionsById.get(item.classId) : null;
 						return {
@@ -232,7 +235,7 @@ export default function CalendarAndSchedules({
 						};
 					});
 					const mappedTest: TestScheduleItem[] = (
-						scopedSchedules?.testSchedules || []
+						sourceSchedules?.testSchedules || []
 					).map((item: any) => {
 						const meta = item.classId ? classOptionsById.get(item.classId) : null;
 						return {
@@ -263,7 +266,9 @@ export default function CalendarAndSchedules({
 					}
 				} else if (userRole === 'teacher' && user?.subjects) {
 					const relevantSubjects = academicYear
-						? user.subjects.filter((subject) => subject.year === academicYear)
+						? user.subjects.filter((subject) =>
+								areAcademicYearsEqual(subject.year, academicYear),
+							)
 						: user.subjects;
 					const classIds = relevantSubjects.flatMap((subject) =>
 						subject.classes.map((klass) => klass.classId),
@@ -575,7 +580,9 @@ export default function CalendarAndSchedules({
 
 		if (userRole === 'teacher' && user?.subjects) {
 			const relevantSubjects = academicYear
-				? user.subjects.filter((subject) => subject.year === academicYear)
+				? user.subjects.filter((subject) =>
+						areAcademicYearsEqual(subject.year, academicYear),
+					)
 				: user.subjects;
 			const classIds = relevantSubjects.flatMap((subject) =>
 				subject.classes.map((klass) => klass.classId),

@@ -21,6 +21,10 @@ import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import AccessDenied from '@/components/AccessDenied';
+import {
+	areAcademicYearsEqual,
+	getScopedAcademicYearValue,
+} from '@/utils/academicYear';
 
 const InlineLoading = ({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) => (
 	<div className="-m-8">
@@ -424,7 +428,9 @@ function FilterContent({
 	const getStudentClassIdForYear = useCallback(
 		(student: any, academicYear: string) => {
 			const yearEntry = Array.isArray(student?.academicYears)
-				? student.academicYears.find((ay: any) => ay.year === academicYear)
+				? student.academicYears.find((ay: any) =>
+						areAcademicYearsEqual(ay.year, academicYear),
+				  )
 				: null;
 			return yearEntry?.classId || student?.classId || '';
 		},
@@ -490,7 +496,10 @@ function FilterContent({
 			if (filters.className) {
 				setLoadingStudents(true);
 				try {
-					const cachedUsers = usersByAcademicYear?.[filters.academicYear];
+					const cachedUsers = getScopedAcademicYearValue(
+						usersByAcademicYear,
+						filters.academicYear,
+					).value;
 					if (cachedUsers?.students?.length) {
 						const filtered = cachedUsers.students.filter(
 							(student: any) =>
@@ -582,11 +591,13 @@ function FilterContent({
 	useEffect(() => {
 		if (!isStudent || !user) return;
 		const yearEntry = Array.isArray(user.academicYears)
-			? user.academicYears.find((ay: any) => ay.year === filters.academicYear)
+			? user.academicYears.find((ay: any) =>
+					areAcademicYearsEqual(ay.year, filters.academicYear),
+			  )
 			: null;
 		const classIdForYear =
 			yearEntry?.classId ||
-			(filters.academicYear === getCurrentAcademicYear()
+			(areAcademicYearsEqual(filters.academicYear, getCurrentAcademicYear())
 				? user.classId || ''
 				: '');
 		const classMeta = getClassMetaById(school?.classLevels, classIdForYear);
@@ -1545,10 +1556,15 @@ function ReportContent({
 
 				// We fetch grades for the whole class to build rank, then filter locally.
 				let data: any;
-				const scopedGrades = gradesByAcademicYear?.[reportFilters.academicYear];
-				const hasScopedGradesVersion =
-					typeof gradesVersionByAcademicYear?.[reportFilters.academicYear] ===
-					'string';
+				const scopedGrades = getScopedAcademicYearValue(
+					gradesByAcademicYear,
+					reportFilters.academicYear,
+				).value;
+				const scopedGradesVersion = getScopedAcademicYearValue(
+					gradesVersionByAcademicYear,
+					reportFilters.academicYear,
+				).value;
+				const hasScopedGradesVersion = typeof scopedGradesVersion === 'string';
 				const canUseScopedGrades =
 					Array.isArray(scopedGrades) &&
 					scopedGrades.length > 0 &&
@@ -1564,7 +1580,7 @@ function ReportContent({
 						return (
 							grade?.classId === reportFilters.className &&
 							grade?.period === reportFilters.period &&
-							gradeYear === reportFilters.academicYear &&
+							areAcademicYearsEqual(gradeYear, reportFilters.academicYear) &&
 							(!selectedIdsSet || selectedIdsSet.has(gradeStudentId))
 						);
 					});

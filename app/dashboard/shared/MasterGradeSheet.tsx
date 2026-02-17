@@ -5,6 +5,11 @@ import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
 import { useNetworkStore } from '@/store/networkStore';
 import { PageLoading } from '@/components/loading';
+import {
+	areAcademicYearsEqual,
+	getScopedAcademicYearValue,
+	normalizeAcademicYear as normalizeAcademicYearValue,
+} from '@/utils/academicYear';
 
 // Types
 interface Student {
@@ -113,7 +118,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		currentSchool?.classLevels ? Object.keys(currentSchool.classLevels) : [];
 	const getTeacherSessions = () => {
 		const yearData = (effectiveUser?.subjects || []).find(
-			(s) => s.year === selectedAcademicYear
+			(s) => areAcademicYearsEqual(s.year, selectedAcademicYear)
 		);
 		if (!yearData?.classes) return [];
 		const sessions = yearData.classes
@@ -128,7 +133,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	};
 	const getTeacherClassLevels = (session: string) => {
 		const yearData = (effectiveUser?.subjects || []).find(
-			(s) => s.year === selectedAcademicYear
+			(s) => areAcademicYearsEqual(s.year, selectedAcademicYear)
 		);
 		if (!yearData?.classes) return [];
 		const levels = yearData.classes
@@ -144,7 +149,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	};
 	const getTeacherClasses = (session: string, level: string) => {
 		const yearData = (effectiveUser?.subjects || []).find(
-			(s) => s.year === selectedAcademicYear
+			(s) => areAcademicYearsEqual(s.year, selectedAcademicYear)
 		);
 		if (!yearData?.classes) return [];
 		const classIds = yearData.classes
@@ -167,7 +172,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	};
 	const getTeacherSubjects = (session: string, level: string) => {
 		const yearData = (effectiveUser?.subjects || []).find(
-			(s) => s.year === selectedAcademicYear
+			(s) => areAcademicYearsEqual(s.year, selectedAcademicYear)
 		);
 		if (!yearData?.classes) return [];
 		const subjects = new Set<string>();
@@ -190,12 +195,15 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		if (effectiveUser?.role !== 'teacher') return schoolYears;
 		const teacherYears =
 			effectiveUser?.subjects?.map((s) => s.year).filter(Boolean) || [];
-		return schoolYears.filter((year) => teacherYears.includes(year));
+		return schoolYears.filter((year) =>
+			teacherYears.some((teacherYear) =>
+				areAcademicYearsEqual(teacherYear, year),
+			),
+		);
 	}, [currentSchool, effectiveUser]);
 
 	const normalizeAcademicYear = (value?: string) => {
-		if (!value) return '';
-		return value.replace('/', '-');
+		return normalizeAcademicYearValue(value);
 	};
 
 	const [selectedAcademicYear, setSelectedAcademicYear] = useState(
@@ -210,13 +218,17 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		if (!selectedClass || !selectedSubject) return effectiveUser;
 		const yearKey = selectedAcademicYear;
 		const fallbackYearKey = currentAcademicYear;
-		const yearTeachers =
-			usersByAcademicYear?.[yearKey]?.teachers ||
-			usersByAcademicYear?.[fallbackYearKey]?.teachers ||
-			[];
+		const scopedUsers = getScopedAcademicYearValue(
+			usersByAcademicYear,
+			yearKey,
+		).value;
+		const fallbackUsers = getScopedAcademicYearValue(
+			usersByAcademicYear,
+			fallbackYearKey,
+		).value;
+		const yearTeachers = scopedUsers?.teachers || fallbackUsers?.teachers || [];
 		const matchesYear = (year?: string) =>
-			normalizeAcademicYear(year) === selectedAcademicYear ||
-			year === selectedAcademicYear;
+			areAcademicYearsEqual(year, selectedAcademicYear);
 		const match = yearTeachers.find((teacher: any) =>
 			(teacher?.subjects || []).some(
 				(s: any) =>
@@ -392,7 +404,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 	const getStudentClassIdForYear = (student: any, academicYear: string) => {
 		const yearEntry = Array.isArray(student?.academicYears)
-			? student.academicYears.find((ay: any) => ay.year === academicYear)
+			? student.academicYears.find((ay: any) =>
+					areAcademicYearsEqual(ay.year, academicYear),
+			  )
 			: null;
 		return yearEntry?.classId || student?.classId || '';
 	};
@@ -405,21 +419,21 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
 					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
 					const usersByYear = usersByAcademicYearRef.current || {};
-					const hasScopedUsersSnapshot = Object.prototype.hasOwnProperty.call(
+					const scopedUsers = getScopedAcademicYearValue(
 						usersByYear,
-						normalizedYear
-					);
-					const hasFallbackUsersSnapshot = Object.prototype.hasOwnProperty.call(
+						normalizedYear,
+					).value;
+					const fallbackUsers = getScopedAcademicYearValue(
 						usersByYear,
-						fallbackYear
-					);
-					const cachedUsers = hasScopedUsersSnapshot
-						? usersByYear?.[normalizedYear]?.students || []
-						: hasFallbackUsersSnapshot
-							? usersByYear?.[fallbackYear]?.students || []
+						fallbackYear,
+					).value;
+					const cachedUsers = Array.isArray(scopedUsers?.students)
+						? scopedUsers.students
+						: Array.isArray(fallbackUsers?.students)
+							? fallbackUsers.students
 							: [];
 
-					if (hasScopedUsersSnapshot || hasFallbackUsersSnapshot) {
+					if (cachedUsers.length > 0) {
 						const students = cachedUsers
 							.filter(
 								(student: any) =>
@@ -450,11 +464,12 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					}
 					const data = await res.json();
 					if (data.success) {
-						const students = data.data.map((student: any) => ({
-							studentId: student.studentId || student.id || student._id,
-							studentName: `${student.firstName} ${student.lastName}`.trim(),
-						}));
-						setStudentsData(students);
+						const mappedStudents = (Array.isArray(data.data) ? data.data : [])
+							.map((student: any) => ({
+								studentId: student.studentId || student.id || student._id,
+								studentName: `${student.firstName} ${student.lastName}`.trim(),
+							}));
+						setStudentsData(mappedStudents);
 					} else {
 						throw new Error(data.message || 'Failed to fetch students');
 					}
@@ -462,18 +477,18 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
 					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
 					const usersByYear = usersByAcademicYearRef.current || {};
-					const hasScopedUsersSnapshot = Object.prototype.hasOwnProperty.call(
+					const scopedUsers = getScopedAcademicYearValue(
 						usersByYear,
-						normalizedYear
-					);
-					const hasFallbackUsersSnapshot = Object.prototype.hasOwnProperty.call(
+						normalizedYear,
+					).value;
+					const fallbackUsers = getScopedAcademicYearValue(
 						usersByYear,
-						fallbackYear
-					);
-					const cachedUsers = hasScopedUsersSnapshot
-						? usersByYear?.[normalizedYear]?.students || []
-						: hasFallbackUsersSnapshot
-							? usersByYear?.[fallbackYear]?.students || []
+						fallbackYear,
+					).value;
+					const cachedUsers = Array.isArray(scopedUsers?.students)
+						? scopedUsers.students
+						: Array.isArray(fallbackUsers?.students)
+							? fallbackUsers.students
 							: [];
 					if (cachedUsers.length > 0) {
 						const students = cachedUsers
@@ -521,26 +536,26 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
 					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
 					const gradesByYear = gradesByAcademicYearRef.current || {};
-					const hasScopedGradesSnapshot = Object.prototype.hasOwnProperty.call(
+					const scopedGrades = getScopedAcademicYearValue(
 						gradesByYear,
-						normalizedYear
-					);
-					const hasFallbackGradesSnapshot = Object.prototype.hasOwnProperty.call(
+						normalizedYear,
+					).value;
+					const fallbackGrades = getScopedAcademicYearValue(
 						gradesByYear,
-						fallbackYear
-					);
-					const cachedGrades = hasScopedGradesSnapshot
-						? gradesByYear?.[normalizedYear] || []
-						: hasFallbackGradesSnapshot
-							? gradesByYear?.[fallbackYear] || []
+						fallbackYear,
+					).value;
+					const cachedGrades = Array.isArray(scopedGrades)
+						? scopedGrades
+						: Array.isArray(fallbackGrades)
+							? fallbackGrades
 							: [];
 
-					if (hasScopedGradesSnapshot || hasFallbackGradesSnapshot) {
+					if (cachedGrades.length > 0) {
 						const filtered = cachedGrades.filter(
 							(grade: any) =>
 								grade?.classId === selectedClass &&
 								grade?.subject === selectedSubject &&
-								normalizeAcademicYear(grade?.academicYear) === normalizedYear
+								areAcademicYearsEqual(grade?.academicYear, normalizedYear)
 						);
 						setGradesData(filtered);
 						setLoading((prev) => ({ ...prev, grades: false }));
@@ -572,25 +587,25 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
 					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
 					const gradesByYear = gradesByAcademicYearRef.current || {};
-					const hasScopedGradesSnapshot = Object.prototype.hasOwnProperty.call(
+					const scopedGrades = getScopedAcademicYearValue(
 						gradesByYear,
-						normalizedYear
-					);
-					const hasFallbackGradesSnapshot = Object.prototype.hasOwnProperty.call(
+						normalizedYear,
+					).value;
+					const fallbackGrades = getScopedAcademicYearValue(
 						gradesByYear,
-						fallbackYear
-					);
-					const cachedGrades = hasScopedGradesSnapshot
-						? gradesByYear?.[normalizedYear] || []
-						: hasFallbackGradesSnapshot
-							? gradesByYear?.[fallbackYear] || []
+						fallbackYear,
+					).value;
+					const cachedGrades = Array.isArray(scopedGrades)
+						? scopedGrades
+						: Array.isArray(fallbackGrades)
+							? fallbackGrades
 							: [];
 					if (cachedGrades.length > 0) {
 						const filtered = cachedGrades.filter(
 							(grade: any) =>
 								grade?.classId === selectedClass &&
 								grade?.subject === selectedSubject &&
-								normalizeAcademicYear(grade?.academicYear) === normalizedYear
+								areAcademicYearsEqual(grade?.academicYear, normalizedYear)
 						);
 						setGradesData(filtered);
 						setError((prev) => ({ ...prev, grades: '' }));
