@@ -1,3 +1,5 @@
+import type { TenantThemeName } from '@/types/tenantTheme';
+
 export type FeatureKey =
 	// Core Features
 	| 'dashboard'
@@ -148,6 +150,7 @@ export interface SchoolProfile {
 
 	// School Settings
 	settings: SchoolSettings;
+	themeName?: TenantThemeName;
 
 	// Additional properties
 	whyChoose: any;

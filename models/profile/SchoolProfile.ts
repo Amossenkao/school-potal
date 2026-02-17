@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { SchoolProfile, FeatureKey } from '@/types/schoolProfile';
+import { TENANT_THEME_NAMES } from '@/types/tenantTheme';
 
 // --- Enums and Constants ---
 const featureKeys: FeatureKey[] = [
@@ -227,6 +228,11 @@ const SchoolProfileSchema = new Schema<SchoolProfile & Document>(
 
 		// School-wide settings
 		settings: { type: SchoolSettingsSchema, required: true },
+		themeName: {
+			type: String,
+			enum: TENANT_THEME_NAMES,
+			default: 'horizon',
+		},
 
 		// Website/Profile content (using Mixed for flexibility)
 		whyChoose: { type: Schema.Types.Mixed, default: [] },

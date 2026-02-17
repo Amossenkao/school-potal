@@ -443,20 +443,22 @@ const AppSidebar: React.FC = () => {
 				);
 				const isSubmenuOpen = openSubmenu === item.name;
 				const isPrimaryActive = isItemActive || hasActiveSubItem || isSubmenuOpen;
-				const primaryItemClass = `group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl border px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+				const primaryItemClass = `group relative flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-theme-sm font-medium transition-all duration-200 ${
 					isPrimaryActive
-						? 'border-sky-200/80 bg-white text-slate-900 shadow-[0_12px_28px_-18px_rgba(14,165,233,0.75)] dark:border-sky-500/45 dark:bg-slate-900/80 dark:text-slate-100'
-						: 'border-transparent text-slate-600 hover:border-white/85 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-800/75 dark:hover:text-white'
+						? 'border-brand-200 bg-brand-50 text-brand-700 shadow-theme-xs dark:border-brand-500/35 dark:bg-brand-500/15 dark:text-brand-300'
+						: 'border-transparent text-gray-700 hover:border-brand-100 hover:bg-brand-25 hover:text-gray-900 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:bg-white/5 dark:hover:text-white'
 				} ${
-					!shouldShowLabels ? 'lg:justify-center lg:px-0 lg:py-3' : 'lg:justify-start'
+					!shouldShowLabels
+						? 'lg:justify-center lg:px-2 lg:py-3'
+						: 'lg:justify-start'
 				}`;
-				const iconClass = `grid size-9 shrink-0 place-items-center rounded-xl border transition-colors duration-200 ${
+				const iconClass = `grid size-8 shrink-0 place-items-center rounded-lg border transition-colors duration-200 ${
 					isPrimaryActive
-						? 'border-sky-200 bg-sky-100/80 text-sky-700 dark:border-sky-500/45 dark:bg-sky-500/15 dark:text-sky-300'
-						: 'border-slate-200/70 bg-white/75 text-slate-500 group-hover:border-sky-100 group-hover:text-slate-800 dark:border-slate-700/80 dark:bg-slate-800/70 dark:text-slate-300 dark:group-hover:border-slate-600 dark:group-hover:text-white'
+						? 'border-brand-200 bg-brand-100 text-brand-600 dark:border-brand-500/35 dark:bg-brand-500/15 dark:text-brand-300'
+						: 'border-gray-200 bg-white text-gray-500 group-hover:border-brand-100 group-hover:text-brand-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:group-hover:border-brand-500/35 dark:group-hover:text-brand-300'
 				}`;
 				const badgeClass =
-					'ml-auto inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-rose-200 bg-rose-500 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm dark:border-rose-400/40 dark:bg-rose-500';
+					'ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-brand-300 bg-brand-500 px-1.5 text-[10px] font-semibold leading-none text-white shadow-sm dark:border-brand-400/50 dark:bg-brand-500';
 
 				return (
 					<li key={item.name}>
@@ -466,13 +468,13 @@ const AppSidebar: React.FC = () => {
 								className={primaryItemClass}
 							>
 								{isPrimaryActive && (
-									<span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-sky-500/80 dark:bg-sky-400" />
+									<span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-brand-500 dark:bg-brand-400" />
 								)}
 								<span className={iconClass}>
 									<item.icon className="w-5 h-5" />
 								</span>
 								{shouldShowLabels && (
-									<span className="flex-1 text-left whitespace-nowrap truncate tracking-[0.01em]">
+									<span className="flex-1 text-left leading-5">
 										{item.name}
 									</span>
 								)}
@@ -481,8 +483,10 @@ const AppSidebar: React.FC = () => {
 								)}
 								{shouldShowLabels && (
 									<ChevronDown
-										className={`ml-2 h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 ${
-											isSubmenuOpen ? 'rotate-180 text-sky-600 dark:text-sky-300' : ''
+										className={`ml-2 h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 ${
+											isSubmenuOpen
+												? 'rotate-180 text-brand-600 dark:text-brand-300'
+												: ''
 										}`}
 									/>
 								)}
@@ -491,16 +495,18 @@ const AppSidebar: React.FC = () => {
 							item.isLogout ? (
 								<button
 									onClick={handleLogout}
-									className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl border border-transparent px-3 py-2.5 text-left text-sm font-medium text-rose-600 transition-all duration-200 hover:border-rose-200/70 hover:bg-rose-50 dark:text-rose-300 dark:hover:border-rose-500/35 dark:hover:bg-rose-500/15 ${
+									className={`group relative flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left text-theme-sm font-medium text-error-600 transition-all duration-200 hover:border-error-200 hover:bg-error-50 dark:text-error-400 dark:hover:border-error-500/35 dark:hover:bg-error-500/15 ${
 										!shouldShowLabels
 											? 'lg:justify-center lg:px-0 lg:py-3'
 											: 'lg:justify-start'
 									}`}
 								>
-									<span className="grid size-9 shrink-0 place-items-center rounded-xl border border-rose-200/70 bg-rose-50 text-rose-500 dark:border-rose-500/35 dark:bg-rose-500/15 dark:text-rose-300">
+									<span className="grid size-8 shrink-0 place-items-center rounded-lg border border-error-200 bg-error-50 text-error-500 dark:border-error-500/35 dark:bg-error-500/15 dark:text-error-400">
 										<item.icon className="w-5 h-5" />
 									</span>
-									{shouldShowLabels && <span className="truncate">{item.name}</span>}
+									{shouldShowLabels && (
+										<span className="flex-1 text-left leading-5">{item.name}</span>
+									)}
 								</button>
 							) : (
 								<Link
@@ -513,13 +519,13 @@ const AppSidebar: React.FC = () => {
 									className={primaryItemClass}
 								>
 									{isPrimaryActive && (
-										<span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-sky-500/80 dark:bg-sky-400" />
+										<span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-brand-500 dark:bg-brand-400" />
 									)}
 									<span className={iconClass}>
 										<item.icon className="w-5 h-5" />
 									</span>
 									{shouldShowLabels && (
-										<span className="flex-1 whitespace-nowrap truncate tracking-[0.01em]">
+										<span className="flex-1 text-left leading-5">
 											{item.name}
 										</span>
 									)}
@@ -544,7 +550,7 @@ const AppSidebar: React.FC = () => {
 										: '0px',
 								}}
 							>
-								<div className="mt-2 ml-4 rounded-2xl border border-white/70 bg-white/60 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-sm dark:border-slate-700/90 dark:bg-slate-900/65">
+								<div className="mt-2 ml-4 rounded-xl border border-brand-100 bg-brand-25/80 p-2 dark:border-gray-700 dark:bg-gray-900/65">
 									<ul className="space-y-1">
 										{subItems.map((sub, index) => (
 											<li key={`${sub.href || sub.name}-${index}`}>
@@ -555,26 +561,26 @@ const AppSidebar: React.FC = () => {
 														event.preventDefault();
 														handleClientNavigate(sub.href!);
 													}}
-													className={`relative flex items-center gap-3 rounded-xl px-2.5 py-2 pr-8 text-sm transition-all duration-200 overflow-visible whitespace-nowrap ${
+													className={`relative flex items-center gap-3 rounded-lg px-2.5 py-2 pr-8 text-theme-sm transition-all duration-200 overflow-visible ${
 														isActive(sub.href!)
-															? 'bg-sky-100/90 text-sky-900 shadow-[0_8px_24px_-18px_rgba(14,165,233,0.9)] dark:bg-sky-500/15 dark:text-sky-200'
-															: 'text-slate-600 hover:bg-white/90 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/85 dark:hover:text-white'
+															? 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300'
+															: 'text-gray-600 hover:bg-white hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white'
 													}`}
 												>
 													{sub.icon && (
 														<sub.icon
 															className={`h-4 w-4 shrink-0 ${
 																isActive(sub.href!)
-																	? 'text-sky-600 dark:text-sky-300'
-																	: 'text-slate-400 dark:text-slate-500'
+																	? 'text-brand-600 dark:text-brand-300'
+																	: 'text-gray-400 dark:text-gray-500'
 															}`}
 														/>
 													)}
-													<span className="flex-1 whitespace-nowrap truncate">
+													<span className="flex-1 leading-5">
 														{sub.name}
 													</span>
 													{sub.badgeCount && sub.badgeCount > 0 && (
-														<span className="absolute right-2 top-1/2 inline-flex h-5 min-w-5 -translate-y-1/2 items-center justify-center rounded-full border border-rose-200 bg-rose-500 px-1 text-[10px] font-semibold leading-none text-white shadow-sm dark:border-rose-400/40 dark:bg-rose-500">
+														<span className="absolute right-2 top-1/2 inline-flex h-5 min-w-5 -translate-y-1/2 items-center justify-center rounded-full border border-brand-300 bg-brand-500 px-1 text-[10px] font-semibold leading-none text-white shadow-sm dark:border-brand-400/50 dark:bg-brand-500">
 															{sub.badgeCount}
 														</span>
 													)}
@@ -612,28 +618,28 @@ const AppSidebar: React.FC = () => {
 	if (user === undefined || !currentSchool) {
 		return (
 			<aside
-				className={`fixed top-[var(--app-header-height,4rem)] left-0 z-50 h-[calc(100dvh-var(--app-header-height,4rem))] lg:top-0 lg:h-dvh overflow-hidden border-r border-white/60 bg-gradient-to-b from-white via-slate-50 to-sky-50/60 text-slate-900 shadow-[0_0_0_1px_rgba(255,255,255,0.5),0_26px_52px_-28px_rgba(15,23,42,0.55)] dark:border-white/10 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 dark:text-slate-100 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_26px_52px_-28px_rgba(0,0,0,0.85)] rounded-tr-3xl rounded-br-3xl lg:rounded-tr-none lg:rounded-br-none ${sidebarTransitionClass} ${sidebarWidthClass} ${sidebarTranslateClass} lg:translate-x-0`}
+				className={`fixed top-[var(--app-header-height,4rem)] left-0 z-50 h-[calc(100dvh-var(--app-header-height,4rem))] lg:top-0 lg:h-dvh overflow-hidden border-r border-gray-200 bg-gradient-to-b from-white via-brand-25/40 to-white text-gray-900 shadow-theme-lg dark:border-gray-800 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950 dark:text-gray-100 rounded-tr-2xl rounded-br-2xl lg:rounded-tr-none lg:rounded-br-none ${sidebarTransitionClass} ${sidebarWidthClass} ${sidebarTranslateClass} lg:translate-x-0`}
 			>
 				<div
 					aria-hidden="true"
-					className="pointer-events-none absolute -top-20 -left-16 h-44 w-44 rounded-full bg-sky-300/35 blur-3xl dark:bg-sky-500/20"
+					className="pointer-events-none absolute -top-20 -left-16 h-44 w-44 rounded-full bg-brand-200/35 blur-3xl dark:bg-brand-500/20"
 				/>
 				<div
 					aria-hidden="true"
-					className="pointer-events-none absolute bottom-[-5.5rem] right-[-3rem] h-40 w-40 rounded-full bg-cyan-200/45 blur-3xl dark:bg-cyan-500/15"
+					className="pointer-events-none absolute bottom-[-5.5rem] right-[-3rem] h-40 w-40 rounded-full bg-brand-100/55 blur-3xl dark:bg-brand-500/10"
 				/>
 				<div className="relative z-10 flex h-full flex-col px-4 sm:px-5 py-5">
-					<div className="hidden lg:flex items-center gap-3 rounded-2xl border border-white/70 bg-white/60 p-3 shadow-sm backdrop-blur-sm dark:border-slate-700/85 dark:bg-slate-900/60">
-						<div className="h-12 w-12 rounded-xl bg-slate-200 dark:bg-slate-700 animate-pulse">
-							<div className="h-full w-full rounded-xl bg-slate-300/60 dark:bg-slate-600/60" />
+					<div className="hidden lg:flex items-center gap-3 rounded-xl border border-brand-100 bg-white/90 p-3 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900/70">
+						<div className="h-12 w-12 rounded-lg bg-gray-200 dark:bg-gray-700 animate-pulse">
+							<div className="h-full w-full rounded-lg bg-gray-300/60 dark:bg-gray-600/60" />
 						</div>
 						<div className="flex-1">
-							<div className="mb-2 h-4 w-24 rounded bg-slate-200 dark:bg-slate-700 animate-pulse" />
-							<div className="h-3 w-28 rounded bg-slate-200 dark:bg-slate-700 animate-pulse" />
+							<div className="mb-2 h-4 w-24 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+							<div className="h-3 w-28 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
 						</div>
 					</div>
 					<div className="flex flex-1 items-center justify-center">
-						<div className="animate-pulse rounded-2xl border border-white/70 bg-white/70 px-4 py-2 text-sm font-medium text-slate-500 shadow-sm dark:border-slate-700/80 dark:bg-slate-900/65 dark:text-slate-400">
+						<div className="animate-pulse rounded-xl border border-brand-100 bg-white/90 px-4 py-2 text-theme-sm font-medium text-gray-500 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900/70 dark:text-gray-400">
 							Loading navigation...
 						</div>
 					</div>
@@ -645,22 +651,22 @@ const AppSidebar: React.FC = () => {
 	return (
 		<aside
 			ref={sidebarRef}
-			className={`fixed top-[var(--app-header-height,4rem)] left-0 z-50 h-[calc(100dvh-var(--app-header-height,4rem))] lg:top-0 lg:h-dvh overflow-hidden border-r border-white/60 bg-gradient-to-b from-white via-slate-50 to-sky-50/60 text-slate-900 shadow-[0_0_0_1px_rgba(255,255,255,0.5),0_26px_52px_-28px_rgba(15,23,42,0.55)] dark:border-white/10 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 dark:text-slate-100 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_26px_52px_-28px_rgba(0,0,0,0.85)] rounded-tr-3xl rounded-br-3xl lg:rounded-tr-none lg:rounded-br-none ${sidebarTransitionClass} ${sidebarWidthClass} ${sidebarTranslateClass} lg:translate-x-0`}
+			className={`fixed top-[var(--app-header-height,4rem)] left-0 z-50 h-[calc(100dvh-var(--app-header-height,4rem))] lg:top-0 lg:h-dvh overflow-hidden border-r border-gray-200 bg-gradient-to-b from-white via-brand-25/40 to-white text-gray-900 shadow-theme-lg dark:border-gray-800 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950 dark:text-gray-100 rounded-tr-2xl rounded-br-2xl lg:rounded-tr-none lg:rounded-br-none ${sidebarTransitionClass} ${sidebarWidthClass} ${sidebarTranslateClass} lg:translate-x-0`}
 			onMouseEnter={() => !isExpanded && setIsHovered(true)}
 			onMouseLeave={() => setIsHovered(false)}
 		>
 			<div
 				aria-hidden="true"
-				className="pointer-events-none absolute -top-20 -left-16 h-44 w-44 rounded-full bg-sky-300/35 blur-3xl dark:bg-sky-500/20"
+				className="pointer-events-none absolute -top-20 -left-16 h-44 w-44 rounded-full bg-brand-200/35 blur-3xl dark:bg-brand-500/20"
 			/>
 			<div
 				aria-hidden="true"
-				className="pointer-events-none absolute bottom-[-5.5rem] right-[-3rem] h-40 w-40 rounded-full bg-cyan-200/45 blur-3xl dark:bg-cyan-500/15"
+				className="pointer-events-none absolute bottom-[-5.5rem] right-[-3rem] h-40 w-40 rounded-full bg-brand-100/55 blur-3xl dark:bg-brand-500/10"
 			/>
 
 			<div className="relative z-10 flex h-full flex-col px-4 sm:px-5 pb-5 pt-4">
 				<Link
-					className={`hidden lg:flex items-center rounded-2xl border border-white/70 bg-white/60 shadow-sm backdrop-blur-sm dark:border-slate-700/85 dark:bg-slate-900/60 ${
+					className={`hidden lg:flex items-center rounded-xl border border-brand-100 bg-white/90 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900/70 ${
 						shouldShowLabels
 							? 'mb-5 gap-3 px-3 py-3 justify-start'
 							: 'mb-5 justify-center px-2.5 py-2.5'
@@ -668,7 +674,7 @@ const AppSidebar: React.FC = () => {
 					href="/"
 				>
 					<div
-						className={`grid place-items-center rounded-2xl border border-white/70 bg-white/90 shadow-[0_8px_24px_-20px_rgba(14,165,233,0.85)] dark:border-slate-700/80 dark:bg-slate-900 ${
+						className={`grid place-items-center rounded-xl border border-brand-100 bg-white shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 ${
 							sidebarTransitionsReady
 								? 'transition-all duration-300'
 								: 'transition-none'
@@ -681,11 +687,11 @@ const AppSidebar: React.FC = () => {
 						/>
 					</div>
 					{shouldShowLabels && (
-						<div className="min-w-0">
-							<h1 className="truncate text-base font-bold tracking-[0.02em] text-slate-900 dark:text-slate-100">
+						<div>
+							<h1 className="text-base font-bold tracking-[0.02em] text-gray-900 dark:text-gray-100">
 								{currentSchool.shortName}
 							</h1>
-							<p className="truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">
+							<p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
 								{currentSchool?.slogan || 'Excellence in Education'}
 							</p>
 						</div>

@@ -13,6 +13,7 @@ import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
 import bcrypt from 'bcryptjs';
 import { redis } from '@/lib/redis';
 import { authorizeUser } from '@/proxy';
+import { isTenantThemeName } from '@/types/tenantTheme';
 
 async function runWithConcurrency<T>(
 	items: T[],
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
 			studentSettings,
 			teacherSettings,
 			administratorSettings,
+			themeName,
 			bulkUserActions,
 			bulkPasswordResets,
 		} = body;
@@ -110,6 +112,20 @@ export async function POST(request: NextRequest) {
 				administratorSettings,
 			};
 			updateObject.settings = newSettings;
+		}
+
+		// 3. Update Tenant Theme Name
+		if (themeName !== undefined) {
+			if (!isTenantThemeName(themeName)) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: `Invalid themeName. Expected one of: horizon, ocean, emerald, sunset, midnight, coral, forest, copper, rose, slate.`,
+					},
+					{ status: 400 },
+				);
+			}
+			updateObject.themeName = themeName;
 		}
 
 		// Update the school profile
@@ -139,6 +155,7 @@ export async function POST(request: NextRequest) {
 			JSON.stringify({
 				currentAcademicYear: updatedSchoolProfile.currentAcademicYear,
 				settings: updatedSchoolProfile.settings,
+				themeName: updatedSchoolProfile.themeName,
 			}),
 			{
 				ex: 60 * 5, // 5 minutes for quick access
@@ -378,6 +395,7 @@ export async function POST(request: NextRequest) {
 			data: {
 				currentAcademicYear: updatedSchoolProfile.currentAcademicYear,
 				settings: updatedSchoolProfile.settings,
+				themeName: updatedSchoolProfile.themeName,
 			},
 		});
 	} catch (error) {
@@ -442,7 +460,7 @@ export async function GET(request: NextRequest) {
 			);
 
 		const school = await SchoolProfile.findOne({ host: cleanHost })
-			.select('currentAcademicYear settings')
+			.select('currentAcademicYear settings themeName')
 			.lean();
 
 		if (!school) {
@@ -458,6 +476,7 @@ export async function GET(request: NextRequest) {
 			JSON.stringify({
 				currentAcademicYear: school.currentAcademicYear,
 				settings: school.settings,
+				themeName: school.themeName,
 			}),
 			{
 				ex: 60 * 5, // 5 minutes
@@ -469,6 +488,7 @@ export async function GET(request: NextRequest) {
 			data: {
 				currentAcademicYear: school.currentAcademicYear,
 				settings: school.settings,
+				themeName: school.themeName,
 			},
 			source: 'database',
 		});
