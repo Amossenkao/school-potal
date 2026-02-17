@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSuperAdminClaimsFromRequest } from '@/lib/superAdminAuth';
-import { deleteSchool, updateSchoolProfile } from '@/lib/superAdminSchools';
+import {
+	deleteSchool,
+	getSchoolDetailById,
+	updateSchoolProfile,
+} from '@/lib/superAdminSchools';
 
 const unauthorized = () =>
 	NextResponse.json(
@@ -33,6 +37,30 @@ export async function PUT(
 			);
 		}
 		const message = error?.message || 'Failed to update school.';
+		const status = message === 'School not found.' ? 404 : 400;
+		return NextResponse.json({ success: false, message }, { status });
+	}
+}
+
+export async function GET(
+	request: NextRequest,
+	{ params }: { params: Promise<{ id: string }> },
+) {
+	const claims = getSuperAdminClaimsFromRequest(request);
+	if (!claims) return unauthorized();
+
+	try {
+		const { id } = await params;
+		const { searchParams } = new URL(request.url);
+		const academicYear = searchParams.get('academicYear') || undefined;
+		const details = await getSchoolDetailById(id, academicYear);
+		return NextResponse.json({
+			success: true,
+			...details,
+		});
+	} catch (error: any) {
+		console.error('[superadmin/schools/:id] GET failed:', error);
+		const message = error?.message || 'Failed to load school details.';
 		const status = message === 'School not found.' ? 404 : 400;
 		return NextResponse.json({ success: false, message }, { status });
 	}

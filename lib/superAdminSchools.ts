@@ -8,6 +8,7 @@ import {
 import SchoolProfileSchema from '@/models/profile/SchoolProfile';
 import UserSchema from '@/models/user/User';
 import type SchoolProfile, { FeatureKey } from '@/types/schoolProfile';
+import { addSuperAdminNotification } from '@/lib/superAdminNotifications';
 
 export interface SchoolSummary {
 	id: string;
@@ -15,6 +16,7 @@ export interface SchoolSummary {
 	dbName: string;
 	shortName: string;
 	displayName: string;
+	logoUrl?: string;
 	tagline: string;
 	description: string;
 	isActive: boolean;
@@ -53,6 +55,36 @@ export interface AdminInput {
 	isActive?: boolean;
 }
 
+export interface ActiveUserItem {
+	id: string;
+	name: string;
+	username: string;
+	phone?: string;
+	email?: string;
+	isActive: boolean;
+	role: 'student' | 'teacher' | 'administrator' | 'system_admin';
+	details?: Record<string, any>;
+}
+
+export interface SchoolDetailResult {
+	school: SchoolSummary;
+	profile: Record<string, any>;
+	academicYears: string[];
+	selectedAcademicYear: string;
+	activeUsers: {
+		students: ActiveUserItem[];
+		teachers: ActiveUserItem[];
+		administrators: ActiveUserItem[];
+		systemAdmins: ActiveUserItem[];
+	};
+	activeUserCounts: {
+		students: number;
+		teachers: number;
+		administrators: number;
+		systemAdmins: number;
+	};
+}
+
 const DEFAULT_ENABLED_FEATURES: FeatureKey[] = [
 	'dashboard',
 	'user_management',
@@ -73,6 +105,21 @@ const DEFAULT_ENABLED_FEATURES: FeatureKey[] = [
 const DEFAULT_ADMIN_ROLE_ACCESS: Record<string, FeatureKey[]> = {
 	principal: DEFAULT_ENABLED_FEATURES,
 };
+
+const EXCLUDED_PROFILE_KEYS = new Set([
+	'_id',
+	'__v',
+	'settings',
+	'whyChoose',
+	'facilities',
+	'team',
+	'quickLinks',
+	'academicLinks',
+	'footerLinks',
+	'heroImageUrl',
+	'createdAt',
+	'updatedAt',
+]);
 
 const normalizeHost = (value: string) =>
 	String(value || '')
@@ -101,6 +148,24 @@ const splitName = (input?: string, fallback = 'System Admin') => {
 		lastName: rest.join(' ') || 'Admin',
 	};
 };
+
+const asString = (value: unknown, fallback = '') =>
+	typeof value === 'string' ? value.trim() : fallback;
+
+const parseStringArray = (value: unknown): string[] => {
+	if (Array.isArray(value)) {
+		return value.map((entry) => String(entry).trim()).filter(Boolean);
+	}
+	if (typeof value === 'string') {
+		return value
+			.split(',')
+			.map((entry) => entry.trim())
+			.filter(Boolean);
+	}
+	return [];
+};
+
+const toPlain = (value: any) => JSON.parse(JSON.stringify(value || {}));
 
 const getProfileModel = async () => {
 	const connection = await connectToTenantsDb();
@@ -154,6 +219,7 @@ const toSummary = async (profile: any): Promise<SchoolSummary> => ({
 	dbName: String(profile.dbName || ''),
 	shortName: String(profile.shortName || ''),
 	displayName: schoolDisplayName(profile),
+	logoUrl: profile.logoUrl ? String(profile.logoUrl) : undefined,
 	tagline: String(profile.tagline || ''),
 	description: String(profile.description || ''),
 	isActive: Boolean(profile.isActive),
@@ -170,6 +236,153 @@ const toSummary = async (profile: any): Promise<SchoolSummary> => ({
 	createdAt: profile.createdAt ? new Date(profile.createdAt).toISOString() : undefined,
 	updatedAt: profile.updatedAt ? new Date(profile.updatedAt).toISOString() : undefined,
 });
+
+const sanitizeSchoolProfileForSuperAdmin = (profile: any) => {
+	const plain = toPlain(profile);
+	const sanitized: Record<string, any> = {
+		id: String(profile?._id || ''),
+	};
+
+	Object.entries(plain).forEach(([key, value]) => {
+		if (EXCLUDED_PROFILE_KEYS.has(key)) return;
+		sanitized[key] = value;
+	});
+
+	return sanitized;
+};
+
+const toActiveUser = (raw: any, role: ActiveUserItem['role']): ActiveUserItem => ({
+	id: String(raw?._id || ''),
+	name: `${raw?.firstName || ''} ${raw?.lastName || ''}`.trim() || raw?.username,
+	username: String(raw?.username || ''),
+	phone: raw?.phone ? String(raw.phone) : undefined,
+	email: raw?.email ? String(raw.email) : undefined,
+	isActive: Boolean(raw?.isActive),
+	role,
+	details:
+		role === 'student'
+			? {
+				studentId: raw?.studentId,
+				className: raw?.className,
+			}
+			: role === 'teacher'
+				? {
+					sponsorClass: raw?.sponsorClass || null,
+				}
+				: role === 'administrator'
+					? {
+						position: raw?.position,
+					}
+					: undefined,
+});
+
+const academicYearSort = (a: string, b: string) => {
+	const aStart = Number.parseInt(String(a).split(/[-/]/)[0], 10);
+	const bStart = Number.parseInt(String(b).split(/[-/]/)[0], 10);
+	if (!Number.isNaN(aStart) && !Number.isNaN(bStart) && aStart !== bStart) {
+		return bStart - aStart;
+	}
+	return String(b).localeCompare(String(a));
+};
+
+const resolveAcademicYears = async (User: any, profile: any) => {
+	const years = new Set<string>();
+
+	if (profile?.currentAcademicYear) {
+		years.add(String(profile.currentAcademicYear));
+	}
+	if (profile?.firstAcademicYear) {
+		years.add(String(profile.firstAcademicYear));
+	}
+	if (profile?.classLevels && typeof profile.classLevels === 'object') {
+		Object.keys(profile.classLevels).forEach((year) => {
+			if (year) years.add(String(year));
+		});
+	}
+
+	const [studentYears, teacherYears, administratorYears] = await Promise.all([
+		User.distinct('academicYears.year', { role: 'student' }),
+		User.distinct('subjects.year', { role: 'teacher' }),
+		User.distinct('academicYears.year', { role: 'administrator' }),
+	]);
+
+	[studentYears, teacherYears, administratorYears]
+		.flat()
+		.filter(Boolean)
+		.forEach((year) => years.add(String(year)));
+
+	if (years.size === 0) {
+		years.add(getAcademicYear());
+	}
+
+	return Array.from(years).sort(academicYearSort);
+};
+
+const loadActiveUsersByAcademicYear = async (
+	User: any,
+	academicYear: string,
+) => {
+	const [studentsRaw, teachersRaw, administratorsRaw, systemAdminsRaw] =
+		await Promise.all([
+			User.find({
+				role: 'student',
+				isActive: true,
+				'academicYears.year': academicYear,
+			})
+				.select('firstName lastName username phone email isActive studentId className')
+				.lean(),
+			User.find({
+				role: 'teacher',
+				isActive: true,
+				$or: [
+					{ 'subjects.year': academicYear },
+					{ subjects: { $exists: false } },
+					{ subjects: { $size: 0 } },
+				],
+			})
+				.select('firstName lastName username phone email isActive sponsorClass')
+				.lean(),
+			User.find({
+				role: 'administrator',
+				isActive: true,
+				$or: [
+					{ 'academicYears.year': academicYear },
+					{ academicYears: { $exists: false } },
+					{ academicYears: { $size: 0 } },
+				],
+			})
+				.select('firstName lastName username phone email isActive position')
+				.lean(),
+			User.find({
+				role: 'system_admin',
+				isActive: true,
+			})
+				.select('firstName lastName username phone email isActive')
+				.lean(),
+		]);
+
+	const students = studentsRaw.map((entry: any) => toActiveUser(entry, 'student'));
+	const teachers = teachersRaw.map((entry: any) => toActiveUser(entry, 'teacher'));
+	const administrators = administratorsRaw.map((entry: any) =>
+		toActiveUser(entry, 'administrator'),
+	);
+	const systemAdmins = systemAdminsRaw.map((entry: any) =>
+		toActiveUser(entry, 'system_admin'),
+	);
+
+	return {
+		students,
+		teachers,
+		administrators,
+		systemAdmins,
+		counts: {
+			students: students.length,
+			teachers: teachers.length,
+			administrators: administrators.length,
+			systemAdmins: systemAdmins.length,
+		},
+	};
+};
 
 export const clearSchoolProfileCache = async (host?: string) => {
 	if (!host) return;
@@ -198,6 +411,43 @@ const getAcademicYear = () => {
 	return `${year}-${year + 1}`;
 };
 
+export const getSchoolDetailById = async (
+	schoolId: string,
+	requestedAcademicYear?: string,
+): Promise<SchoolDetailResult> => {
+	const school = await getSchoolById(schoolId);
+	if (!school) {
+		throw new Error('School not found.');
+	}
+
+	const User = await getTenantUserModel(String(school.dbName));
+	if (!User) {
+		throw new Error('Unable to connect to the tenant database.');
+	}
+
+	const academicYears = await resolveAcademicYears(User, school);
+	const selectedAcademicYear =
+		requestedAcademicYear && academicYears.includes(requestedAcademicYear)
+			? requestedAcademicYear
+			: String(school.currentAcademicYear || academicYears[0] || getAcademicYear());
+
+	const activeUsers = await loadActiveUsersByAcademicYear(User, selectedAcademicYear);
+
+	return {
+		school: await toSummary(school.toObject()),
+		profile: sanitizeSchoolProfileForSuperAdmin(school.toObject()),
+		academicYears,
+		selectedAcademicYear,
+		activeUsers: {
+			students: activeUsers.students,
+			teachers: activeUsers.teachers,
+			administrators: activeUsers.administrators,
+			systemAdmins: activeUsers.systemAdmins,
+		},
+		activeUserCounts: activeUsers.counts,
+	};
+};
+
 export const buildNewSchoolProfilePayload = (input: Record<string, any>) => {
 	const host = normalizeHost(String(input.host || ''));
 	const displayName = String(
@@ -205,21 +455,45 @@ export const buildNewSchoolProfilePayload = (input: Record<string, any>) => {
 	).trim();
 	const shortName = String(input.shortName || displayName || host).trim();
 	const dbName = String(input.dbName || inferDbNameFromHost(host || shortName));
-	const initials = inferInitials(shortName);
+	const initials = String(input.initials || inferInitials(shortName));
 	const academicYear = String(input.currentAcademicYear || getAcademicYear());
 	const firstAcademicYear = String(input.firstAcademicYear || academicYear);
-	const sysAdminName = String(input.sysAdminName || 'System Admin');
-	const sysAdminPhone = String(input.sysAdminPhone || '0000000000');
-	const sysAdminEmail = input.sysAdminEmail
-		? String(input.sysAdminEmail)
-		: undefined;
-	const sysAdminOffice = String(input.sysAdminOffice || 'Main Office');
+
+	const sysAdminSource =
+		input.sysAdmin && typeof input.sysAdmin === 'object' ? input.sysAdmin : {};
+	const sysAdminName = String(
+		sysAdminSource.name || input.sysAdminName || 'System Admin',
+	);
+	const sysAdminPhone = String(
+		sysAdminSource.phone || input.sysAdminPhone || '0000000000',
+	);
+	const sysAdminEmail =
+		sysAdminSource.email || input.sysAdminEmail
+			? String(sysAdminSource.email || input.sysAdminEmail)
+			: undefined;
+	const sysAdminOffice = String(
+		sysAdminSource.office || input.sysAdminOffice || 'Main Office',
+	);
+
+	const enabledFeatures = Array.isArray(input.enabledFeatures)
+		? input.enabledFeatures
+		: DEFAULT_ENABLED_FEATURES;
+
+	const roleFeatureAccess =
+		input.roleFeatureAccess && typeof input.roleFeatureAccess === 'object'
+			? input.roleFeatureAccess
+			: {
+					student: [],
+					teacher: [],
+					system_admin: DEFAULT_ENABLED_FEATURES,
+					administrator: DEFAULT_ADMIN_ROLE_ACCESS,
+				};
 
 	return {
 		isActive: input.isActive !== false,
 		host,
 		dbName,
-		name: [displayName],
+		name: Array.isArray(input.name) ? input.name : [displayName],
 		slogan: String(input.slogan || `${shortName} Excellence in Education`),
 		shortName,
 		initials,
@@ -252,16 +526,12 @@ export const buildNewSchoolProfilePayload = (input: Record<string, any>) => {
 			email: sysAdminEmail,
 			office: sysAdminOffice,
 		},
-		enabledFeatures: Array.isArray(input.enabledFeatures)
-			? input.enabledFeatures
-			: DEFAULT_ENABLED_FEATURES,
-		roleFeatureAccess: {
-			student: [],
-			teacher: [],
-			system_admin: DEFAULT_ENABLED_FEATURES,
-			administrator: DEFAULT_ADMIN_ROLE_ACCESS,
-		},
-		financialProfile: input.financialProfile || {},
+		enabledFeatures,
+		roleFeatureAccess,
+		financialProfile:
+			input.financialProfile && typeof input.financialProfile === 'object'
+				? input.financialProfile
+				: {},
 		settings: input.settings || {
 			studentSettings: {
 				loginAccess: true,
@@ -289,17 +559,21 @@ export const buildNewSchoolProfilePayload = (input: Record<string, any>) => {
 				givesDemotion: false,
 			},
 		},
-		whyChoose: [],
-		facilities: [],
-		team: [],
-		address: [],
-		phones: [],
-		emails: [],
-		hours: [],
-		quickLinks: [],
-		academicLinks: [],
-		footerLinks: [],
-		classLevels: {},
+		themeName: input.themeName ? String(input.themeName) : 'horizon',
+		whyChoose: Array.isArray(input.whyChoose) ? input.whyChoose : [],
+		facilities: Array.isArray(input.facilities) ? input.facilities : [],
+		team: Array.isArray(input.team) ? input.team : [],
+		address: parseStringArray(input.address),
+		phones: parseStringArray(input.phones),
+		emails: parseStringArray(input.emails),
+		hours: parseStringArray(input.hours),
+		quickLinks: Array.isArray(input.quickLinks) ? input.quickLinks : [],
+		academicLinks: Array.isArray(input.academicLinks) ? input.academicLinks : [],
+		footerLinks: Array.isArray(input.footerLinks) ? input.footerLinks : [],
+		classLevels:
+			input.classLevels && typeof input.classLevels === 'object'
+				? input.classLevels
+				: {},
 	};
 };
 
@@ -322,6 +596,15 @@ export const createSchool = async (payload: Record<string, any>) => {
 
 	const created = await Profile.create(document);
 	await clearSchoolProfileCache(document.host);
+	await addSuperAdminNotification({
+		title: 'School Created',
+		message: `${created.shortName} (${created.host}) was onboarded.`,
+		type: 'success',
+		metadata: {
+			schoolId: String(created._id),
+			host: created.host,
+		},
+	});
 	return toSummary(created.toObject());
 };
 
@@ -335,6 +618,7 @@ export const updateSchoolProfile = async (
 	}
 
 	const previousHost = String(school.host || '');
+	const previousShortName = String(school.shortName || '');
 
 	if (typeof payload.host === 'string' && payload.host.trim()) {
 		school.host = normalizeHost(payload.host);
@@ -348,6 +632,9 @@ export const updateSchoolProfile = async (
 	if (typeof payload.displayName === 'string' && payload.displayName.trim()) {
 		school.name = [payload.displayName.trim()];
 	}
+	if (typeof payload.slogan === 'string') {
+		school.slogan = payload.slogan;
+	}
 	if (typeof payload.tagline === 'string') {
 		school.tagline = payload.tagline;
 	}
@@ -357,12 +644,43 @@ export const updateSchoolProfile = async (
 	if (typeof payload.logoUrl === 'string') {
 		school.logoUrl = payload.logoUrl;
 	}
+	if (typeof payload.logoUrl2 === 'string') {
+		school.logoUrl2 = payload.logoUrl2;
+	}
+	if (typeof payload.studentIdPrefix === 'string') {
+		school.studentIdPrefix = payload.studentIdPrefix;
+	}
+	if (typeof payload.currentAcademicYear === 'string') {
+		school.currentAcademicYear = payload.currentAcademicYear;
+	}
+	if (typeof payload.firstAcademicYear === 'string') {
+		school.firstAcademicYear = payload.firstAcademicYear;
+	}
+	if (typeof payload.yearFounded === 'number' && Number.isFinite(payload.yearFounded)) {
+		school.yearFounded = payload.yearFounded;
+	}
 	if (typeof payload.themeName === 'string') {
 		school.themeName = payload.themeName;
 	}
 	if (typeof payload.isActive === 'boolean') {
 		school.isActive = payload.isActive;
 	}
+	if (payload.enabledFeatures && Array.isArray(payload.enabledFeatures)) {
+		school.enabledFeatures = payload.enabledFeatures;
+	}
+	if (payload.roleFeatureAccess && typeof payload.roleFeatureAccess === 'object') {
+		school.roleFeatureAccess = payload.roleFeatureAccess;
+	}
+	if (payload.administrativePositions && Array.isArray(payload.administrativePositions)) {
+		school.administrativePositions = payload.administrativePositions;
+	}
+	if (payload.classLevels && typeof payload.classLevels === 'object') {
+		school.classLevels = payload.classLevels;
+	}
+	if ('address' in payload) school.address = parseStringArray(payload.address);
+	if ('phones' in payload) school.phones = parseStringArray(payload.phones);
+	if ('emails' in payload) school.emails = parseStringArray(payload.emails);
+	if ('hours' in payload) school.hours = parseStringArray(payload.hours);
 
 	if (payload.sysAdmin && typeof payload.sysAdmin === 'object') {
 		school.sysAdmin = {
@@ -385,6 +703,15 @@ export const updateSchoolProfile = async (
 	await school.save();
 	await clearSchoolProfileCache(previousHost);
 	await clearSchoolProfileCache(String(school.host || ''));
+	await addSuperAdminNotification({
+		title: 'School Updated',
+		message: `${previousShortName || school.shortName} profile was updated.`,
+		type: 'info',
+		metadata: {
+			schoolId,
+			host: school.host,
+		},
+	});
 	return toSummary(school.toObject());
 };
 
@@ -395,8 +722,18 @@ export const deleteSchool = async (schoolId: string) => {
 	}
 
 	const host = String(school.host || '');
+	const shortName = String(school.shortName || host);
 	await school.deleteOne();
 	await clearSchoolProfileCache(host);
+	await addSuperAdminNotification({
+		title: 'School Deleted',
+		message: `${shortName} (${host}) was removed.`,
+		type: 'warning',
+		metadata: {
+			schoolId,
+			host,
+		},
+	});
 };
 
 export const createSchoolSystemAdmin = async (
@@ -450,6 +787,15 @@ export const createSchoolSystemAdmin = async (
 	};
 	await school.save();
 	await clearSchoolProfileCache(String(school.host || ''));
+	await addSuperAdminNotification({
+		title: 'System Admin Created',
+		message: `System admin account created for ${school.shortName}.`,
+		type: 'success',
+		metadata: {
+			schoolId,
+			username: createdAdmin.username,
+		},
+	});
 
 	return toSummary(school.toObject());
 };
@@ -507,6 +853,15 @@ export const updateSchoolSystemAdmin = async (
 	};
 	await school.save();
 	await clearSchoolProfileCache(String(school.host || ''));
+	await addSuperAdminNotification({
+		title: 'System Admin Updated',
+		message: `System admin account updated for ${school.shortName}.`,
+		type: 'info',
+		metadata: {
+			schoolId,
+			username: existing.username,
+		},
+	});
 
 	return toSummary(school.toObject());
 };
