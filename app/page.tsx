@@ -5,13 +5,53 @@ import { useSchoolStore } from '@/store/schoolStore';
 import NavBar from '@/components/sections/NavBar';
 import LoginPage from './login/page';
 import { PageLoading } from '@/components/loading';
+import useAuth from '@/store/useAuth';
+import { useNetworkStore } from '@/store/networkStore';
+import { useRouter } from 'next/navigation';
+
+const hasCachedAuthUser = () => {
+	if (typeof window === 'undefined') return false;
+	try {
+		return Boolean(localStorage.getItem('auth-user'));
+	} catch (error) {
+		console.warn('Unable to read auth cache:', error);
+		return false;
+	}
+};
 
 export default function SchoolHomepage() {
+	const router = useRouter();
 	const school = useSchoolStore((state) => state.school);
 	const fetchSchool = useSchoolStore((state) => state.fetchSchool);
+	const { user, hydrateFromCache } = useAuth();
+	const { isOnline } = useNetworkStore();
+	const isOffline = !isOnline;
 	const [hasResolvedSchoolBootstrap, setHasResolvedSchoolBootstrap] = useState(
 		() => Boolean(school),
 	);
+	const [hasResolvedOfflineAuthBootstrap, setHasResolvedOfflineAuthBootstrap] =
+		useState(false);
+
+	useEffect(() => {
+		if (!isOffline) {
+			setHasResolvedOfflineAuthBootstrap(true);
+			return;
+		}
+
+		setHasResolvedOfflineAuthBootstrap(false);
+		if (hasCachedAuthUser()) {
+			hydrateFromCache();
+		}
+		setHasResolvedOfflineAuthBootstrap(true);
+	}, [hydrateFromCache, isOffline]);
+
+	useEffect(() => {
+		if (!isOffline) return;
+		if (!hasResolvedOfflineAuthBootstrap) return;
+		if (user?.isActive) {
+			router.replace('/dashboard');
+		}
+	}, [hasResolvedOfflineAuthBootstrap, isOffline, router, user?.isActive]);
 
 	useEffect(() => {
 		if (school) {
@@ -31,6 +71,16 @@ export default function SchoolHomepage() {
 			cancelled = true;
 		};
 	}, [school, fetchSchool]);
+
+	if (isOffline) {
+		if (!hasResolvedOfflineAuthBootstrap) {
+			return <PageLoading variant="school" message="Loading..." />;
+		}
+		if (user?.isActive) {
+			return <PageLoading variant="school" message="Opening dashboard..." />;
+		}
+		return <LoginPage />;
+	}
 
 	if (!school) {
 		if (!hasResolvedSchoolBootstrap) {

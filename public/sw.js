@@ -1,10 +1,11 @@
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v7';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
 const API_CACHE = `api-${CACHE_VERSION}`;
 
 const STATIC_ASSETS = [
 	'/',
+	'/login',
 	'/dashboard',
 	'/dashboard/',
 	'/offline',
@@ -148,13 +149,20 @@ self.addEventListener('message', (event) => {
 		event.waitUntil(
 			(async () => {
 				const runtimeCache = await caches.open(RUNTIME_CACHE);
-				const shell =
-					(await caches.match('/dashboard')) ||
-					(await caches.match('/dashboard/'));
-				if (!shell) return;
 				const normalized = path.startsWith('/') ? path : `/${path}`;
-				const request = new Request(normalized, { method: 'GET' });
-				await runtimeCache.put(request, shell.clone());
+				try {
+					const response = await fetch(normalized, {
+						method: 'GET',
+						credentials: 'include',
+						cache: 'no-store',
+					});
+					if (!response.ok) return;
+					await runtimeCache.put(new Request(normalized), response.clone());
+					await runtimeCache.put(new Request('/dashboard'), response.clone());
+					await runtimeCache.put(new Request('/dashboard/'), response.clone());
+				} catch (error) {
+					console.warn('Failed to refresh dashboard shell cache:', error);
+				}
 			})(),
 		);
 	}
@@ -208,9 +216,14 @@ self.addEventListener('fetch', (event) => {
 		event.respondWith(
 			fetch(request)
 				.then((response) => {
-					const copy = response.clone();
 					if (response.ok) {
-						caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+						caches.open(RUNTIME_CACHE).then(async (cache) => {
+							await cache.put(request, response.clone());
+							if (isSameOrigin && url.pathname.startsWith('/dashboard')) {
+								await cache.put(new Request('/dashboard'), response.clone());
+								await cache.put(new Request('/dashboard/'), response.clone());
+							}
+						});
 					}
 					return response;
 				})
@@ -226,6 +239,13 @@ self.addEventListener('fetch', (event) => {
 							(await caches.match('/dashboard/'));
 						if (dashboardShell) return dashboardShell;
 					}
+
+					const appShell =
+						(await caches.match('/')) ||
+						(await caches.match('/login')) ||
+						(await caches.match('/dashboard')) ||
+						(await caches.match('/dashboard/'));
+					if (appShell) return appShell;
 
 					return caches.match('/offline');
 				}),

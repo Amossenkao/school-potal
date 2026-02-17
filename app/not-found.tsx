@@ -5,6 +5,16 @@ import useAuth from '@/store/useAuth';
 import { PageLoading } from '@/components/loading';
 import { useNetworkStore } from '@/store/networkStore';
 
+const hasCachedAuthUser = () => {
+	if (typeof window === 'undefined') return false;
+	try {
+		return Boolean(localStorage.getItem('auth-user'));
+	} catch (error) {
+		console.warn('Unable to read auth cache:', error);
+		return false;
+	}
+};
+
 export default function NotFound() {
 	const pathname = usePathname();
 	const { user } = useAuth();
@@ -13,22 +23,23 @@ export default function NotFound() {
 	const { isOnline } = useNetworkStore();
 
 	useEffect(() => {
-		if (isDashboardRoute && !user && isOnline) {
+		if (!isDashboardRoute || user) return;
+
+		if (isOnline) {
 			router.replace('/login');
+			return;
 		}
+
+		if (hasCachedAuthUser()) {
+			router.replace('/dashboard');
+			return;
+		}
+
+		router.replace('/login');
 	}, [isDashboardRoute, user, isOnline, router]);
 
 	if (isDashboardRoute && !user) {
-		if (!isOnline) {
-			return (
-				<PageLoading
-					variant="dashboard-not-found"
-					fullScreen={false}
-					message="You're offline. Reconnect to verify access."
-				/>
-			);
-		}
-		return <PageLoading variant="school" message="Redirecting to login..." />;
+		return <PageLoading variant="school" message="Loading..." />;
 	}
 
 	if (isDashboardRoute && user) {
