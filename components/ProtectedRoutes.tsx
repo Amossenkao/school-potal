@@ -61,23 +61,11 @@ const ProtectedRoute = ({
 				return;
 			}
 
-				let timeoutId: number | null = null;
 			try {
-				await Promise.race([
-					checkAuthStatus(),
-					new Promise<void>((_, reject) => {
-						timeoutId = window.setTimeout(
-							() => reject(new Error('Auth check timeout')),
-							LOADING_POLICY.authTimeoutMs,
-						);
-					}),
-				]);
+				await checkAuthStatus();
 			} catch (error) {
 				console.warn('Auth bootstrap ended early:', error);
 			} finally {
-				if (timeoutId) {
-					window.clearTimeout(timeoutId);
-				}
 				if (!cancelled) {
 					setAuthResolved(true);
 				}
@@ -97,12 +85,6 @@ const ProtectedRoute = ({
 		timeoutMs: LOADING_POLICY.authTimeoutMs + 400,
 	});
 
-	useEffect(() => {
-		if (sessionTimedOut) {
-			setAuthResolved(true);
-		}
-	}, [sessionTimedOut]);
-
 	// Handle initial redirect for unauthenticated users
 	useEffect(() => {
 		const navigatorOnline =
@@ -112,6 +94,10 @@ const ProtectedRoute = ({
 		}
 
 		if (!authResolved) {
+			return;
+		}
+
+		if (authCheckFailed) {
 			return;
 		}
 
@@ -130,6 +116,7 @@ const ProtectedRoute = ({
 		router,
 		user?.isActive,
 		isOnline,
+		authCheckFailed,
 		user,
 		pathname,
 	]);
@@ -177,12 +164,65 @@ const ProtectedRoute = ({
 	}
 
 	if (!authResolved) {
+		if (sessionTimedOut) {
+			return (
+				<div className="min-h-[60vh] flex items-center justify-center px-4">
+					<div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
+						<h2 className="text-xl font-semibold text-foreground">
+							Session restore is taking longer than expected
+						</h2>
+						<p className="mt-2 text-sm text-muted-foreground">
+							We could not confirm your session in time. Retry to continue.
+						</p>
+						<div className="mt-5 flex justify-center">
+							<button
+								type="button"
+								onClick={() => {
+									setAuthResolved(false);
+									void checkAuthStatus();
+								}}
+								className="rounded-lg bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
+							>
+								Retry Session Check
+							</button>
+						</div>
+					</div>
+				</div>
+			);
+		}
 		return (
 			<PageLoading
 				variant="school"
 				fullScreen={true}
 				message="Restoring your session..."
 			/>
+		);
+	}
+
+	if (authCheckFailed && !user) {
+		return (
+			<div className="min-h-[60vh] flex items-center justify-center px-4">
+				<div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
+					<h2 className="text-xl font-semibold text-foreground">
+						Unable to verify session right now
+					</h2>
+					<p className="mt-2 text-sm text-muted-foreground">
+						This is usually temporary. Retry before signing in again.
+					</p>
+					<div className="mt-5 flex justify-center">
+						<button
+							type="button"
+							onClick={() => {
+								setAuthResolved(false);
+								void checkAuthStatus();
+							}}
+							className="rounded-lg bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
+						>
+							Retry Session Check
+						</button>
+					</div>
+				</div>
+			</div>
 		);
 	}
 
