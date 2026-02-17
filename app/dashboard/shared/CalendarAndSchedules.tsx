@@ -435,9 +435,66 @@ export default function CalendarAndSchedules({
 		setSchedulesForYear,
 	]);
 
+	const teacherClassSubjectAssignments = useMemo(() => {
+		const map = new Map<string, Set<string>>();
+		if (userRole !== 'teacher' || !Array.isArray(user?.subjects)) {
+			return map;
+		}
+
+		const relevantSubjects = academicYear
+			? user.subjects.filter((subject) =>
+					areAcademicYearsEqual(subject.year, academicYear),
+				)
+			: user.subjects;
+
+		relevantSubjects.forEach((subjectEntry) => {
+			(subjectEntry.classes || []).forEach((klass) => {
+				const classId = (klass.classId || '').trim();
+				if (!classId) return;
+				if (!map.has(classId)) {
+					map.set(classId, new Set<string>());
+				}
+				const assignedSubjects = map.get(classId)!;
+				(klass.subjects || []).forEach((subject) => {
+					const normalized = String(subject || '').trim().toLowerCase();
+					if (normalized) {
+						assignedSubjects.add(normalized);
+					}
+				});
+			});
+		});
+
+		return map;
+	}, [userRole, user?.subjects, academicYear]);
+
+	const teacherAssignedClassIds = useMemo(
+		() => new Set(Array.from(teacherClassSubjectAssignments.keys())),
+		[teacherClassSubjectAssignments],
+	);
+
 	const filteredClassSchedules = useMemo(() => {
-		return classSchedules;
-	}, [classSchedules]);
+		if (userRole !== 'teacher') {
+			return classSchedules;
+		}
+		if (teacherClassSubjectAssignments.size === 0) {
+			return [];
+		}
+
+		return classSchedules.filter((item) => {
+			const classId = (item.classId || '').trim();
+			if (!classId) return false;
+
+			const assignedSubjects = teacherClassSubjectAssignments.get(classId);
+			if (!assignedSubjects) return false;
+
+			if (item.isRecess) {
+				return true;
+			}
+
+			const normalizedSubject = String(item.subject || '').trim().toLowerCase();
+			return normalizedSubject ? assignedSubjects.has(normalizedSubject) : false;
+		});
+	}, [classSchedules, userRole, teacherClassSubjectAssignments]);
 
 	const filteredTestSchedules = useMemo(() => {
 		return testSchedules;
@@ -763,6 +820,15 @@ export default function CalendarAndSchedules({
 				return [ownClass];
 			}
 		}
+		if (userRole === 'teacher') {
+			const assignedClasses = classesForLevel.filter((klass) =>
+				teacherAssignedClassIds.has(klass.classId),
+			);
+			if (assignedClasses.length > 0) {
+				return assignedClasses;
+			}
+			return [{ classId: '__none__', className: 'No assigned classes' }];
+		}
 
 		const list = [...classesForLevel];
 		const hasGeneral = classScheduleSource.some((item) => !item.classId);
@@ -773,7 +839,13 @@ export default function CalendarAndSchedules({
 			list.push({ classId: '__none__', className: 'No classes' });
 		}
 		return list;
-	}, [classesForLevel, classScheduleSource, userRole, user?.classId]);
+	}, [
+		classesForLevel,
+		classScheduleSource,
+		userRole,
+		user?.classId,
+		teacherAssignedClassIds,
+	]);
 
 	const scheduleMatrix = useMemo(() => {
 		const map: Record<
@@ -1415,7 +1487,13 @@ export default function CalendarAndSchedules({
 																							<p className="font-semibold">
 																								{item.isRecess
 																									? 'Recess'
-																									: item.subject}
+																									: userRole === 'teacher'
+																										? item.className ||
+																											(classOptionsById.get(
+																												item.classId || '',
+																											)?.className ??
+																												'Assigned Class')
+																										: item.subject}
 																							</p>
 																							{item.isRecess ? null : null}
 																						</div>
