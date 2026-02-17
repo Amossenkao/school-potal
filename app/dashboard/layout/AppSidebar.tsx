@@ -443,13 +443,13 @@ const AppSidebar: React.FC = () => {
 				);
 				const isSubmenuOpen = openSubmenu === item.name;
 				const isPrimaryActive = isItemActive || hasActiveSubItem || isSubmenuOpen;
-				const primaryItemClass = `group relative flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-theme-sm font-medium transition-all duration-200 ${
+				const primaryItemClass = `group relative flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2.5 text-theme-sm font-medium transition-all duration-200 ${
 					isPrimaryActive
 						? 'border-brand-200 bg-brand-50 text-brand-700 shadow-theme-xs dark:border-brand-500/35 dark:bg-brand-500/15 dark:text-brand-300'
 						: 'border-transparent text-gray-700 hover:border-brand-100 hover:bg-brand-25 hover:text-gray-900 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:bg-white/5 dark:hover:text-white'
 				} ${
 					!shouldShowLabels
-						? 'lg:justify-center lg:px-2 lg:py-3'
+						? 'lg:justify-center lg:px-1.5 lg:py-3'
 						: 'lg:justify-start'
 				}`;
 				const iconClass = `grid size-8 shrink-0 place-items-center rounded-lg border transition-colors duration-200 ${
@@ -474,7 +474,7 @@ const AppSidebar: React.FC = () => {
 									<item.icon className="w-5 h-5" />
 								</span>
 								{shouldShowLabels && (
-									<span className="flex-1 text-left leading-5">
+									<span className="min-w-0 flex-1 text-left leading-5 break-words">
 										{item.name}
 									</span>
 								)}
@@ -505,7 +505,9 @@ const AppSidebar: React.FC = () => {
 										<item.icon className="w-5 h-5" />
 									</span>
 									{shouldShowLabels && (
-										<span className="flex-1 text-left leading-5">{item.name}</span>
+										<span className="min-w-0 flex-1 text-left leading-5 break-words">
+											{item.name}
+										</span>
 									)}
 								</button>
 							) : (
@@ -525,7 +527,7 @@ const AppSidebar: React.FC = () => {
 										<item.icon className="w-5 h-5" />
 									</span>
 									{shouldShowLabels && (
-										<span className="flex-1 text-left leading-5">
+										<span className="min-w-0 flex-1 text-left leading-5 break-words">
 											{item.name}
 										</span>
 									)}
@@ -550,7 +552,7 @@ const AppSidebar: React.FC = () => {
 										: '0px',
 								}}
 							>
-								<div className="mt-2 ml-4 rounded-xl border border-brand-100 bg-brand-25/80 p-2 dark:border-gray-700 dark:bg-gray-900/65">
+								<div className="mt-2 rounded-xl border border-brand-100 bg-brand-25/80 p-2 dark:border-gray-700 dark:bg-gray-900/65">
 									<ul className="space-y-1">
 										{subItems.map((sub, index) => (
 											<li key={`${sub.href || sub.name}-${index}`}>
@@ -561,7 +563,7 @@ const AppSidebar: React.FC = () => {
 														event.preventDefault();
 														handleClientNavigate(sub.href!);
 													}}
-													className={`relative flex items-center gap-3 rounded-lg px-2.5 py-2 pr-8 text-theme-sm transition-all duration-200 overflow-visible ${
+													className={`relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 pr-8 text-theme-sm transition-all duration-200 overflow-visible ${
 														isActive(sub.href!)
 															? 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300'
 															: 'text-gray-600 hover:bg-white hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white'
@@ -576,7 +578,7 @@ const AppSidebar: React.FC = () => {
 															}`}
 														/>
 													)}
-													<span className="flex-1 leading-5">
+													<span className="min-w-0 flex-1 leading-5 break-words">
 														{sub.name}
 													</span>
 													{sub.badgeCount && sub.badgeCount > 0 && (
@@ -609,6 +611,9 @@ const AppSidebar: React.FC = () => {
 	const sidebarTranslateClass = isMobileOpen
 		? 'translate-x-0'
 		: '-translate-x-full';
+	const sidebarSurfaceClass = isMobileOpen
+		? 'bg-white dark:bg-gray-900'
+		: 'bg-gradient-to-b from-white via-brand-25/40 to-white dark:from-gray-900 dark:via-gray-900 dark:to-gray-950';
 
 	// Show loading state if user or school is being fetched
 	if (isLoggingOut) {
@@ -618,15 +623,15 @@ const AppSidebar: React.FC = () => {
 	if (user === undefined || !currentSchool) {
 		return (
 			<aside
-				className={`fixed top-[var(--app-header-height,4rem)] left-0 z-50 h-[calc(100dvh-var(--app-header-height,4rem))] lg:top-0 lg:h-dvh overflow-hidden border-r border-gray-200 bg-gradient-to-b from-white via-brand-25/40 to-white text-gray-900 shadow-theme-lg dark:border-gray-800 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950 dark:text-gray-100 rounded-tr-2xl rounded-br-2xl lg:rounded-tr-none lg:rounded-br-none ${sidebarTransitionClass} ${sidebarWidthClass} ${sidebarTranslateClass} lg:translate-x-0`}
+				className={`fixed top-[var(--app-header-height,4rem)] left-0 z-50 h-[calc(100dvh-var(--app-header-height,4rem))] lg:top-0 lg:h-dvh overflow-hidden border-r border-gray-200 text-gray-900 shadow-theme-lg dark:border-gray-800 dark:text-gray-100 rounded-tr-2xl rounded-br-2xl lg:rounded-tr-none lg:rounded-br-none ${sidebarSurfaceClass} ${sidebarTransitionClass} ${sidebarWidthClass} ${sidebarTranslateClass} lg:translate-x-0`}
 			>
 				<div
 					aria-hidden="true"
-					className="pointer-events-none absolute -top-20 -left-16 h-44 w-44 rounded-full bg-brand-200/35 blur-3xl dark:bg-brand-500/20"
+					className="pointer-events-none absolute -top-20 -left-16 hidden h-44 w-44 rounded-full bg-brand-200/35 blur-3xl dark:bg-brand-500/20 lg:block"
 				/>
 				<div
 					aria-hidden="true"
-					className="pointer-events-none absolute bottom-[-5.5rem] right-[-3rem] h-40 w-40 rounded-full bg-brand-100/55 blur-3xl dark:bg-brand-500/10"
+					className="pointer-events-none absolute bottom-[-5.5rem] right-[-3rem] hidden h-40 w-40 rounded-full bg-brand-100/55 blur-3xl dark:bg-brand-500/10 lg:block"
 				/>
 				<div className="relative z-10 flex h-full flex-col px-4 sm:px-5 py-5">
 					<div className="hidden lg:flex items-center gap-3 rounded-xl border border-brand-100 bg-white/90 p-3 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900/70">
@@ -651,17 +656,17 @@ const AppSidebar: React.FC = () => {
 	return (
 		<aside
 			ref={sidebarRef}
-			className={`fixed top-[var(--app-header-height,4rem)] left-0 z-50 h-[calc(100dvh-var(--app-header-height,4rem))] lg:top-0 lg:h-dvh overflow-hidden border-r border-gray-200 bg-gradient-to-b from-white via-brand-25/40 to-white text-gray-900 shadow-theme-lg dark:border-gray-800 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950 dark:text-gray-100 rounded-tr-2xl rounded-br-2xl lg:rounded-tr-none lg:rounded-br-none ${sidebarTransitionClass} ${sidebarWidthClass} ${sidebarTranslateClass} lg:translate-x-0`}
+			className={`fixed top-[var(--app-header-height,4rem)] left-0 z-50 h-[calc(100dvh-var(--app-header-height,4rem))] lg:top-0 lg:h-dvh overflow-hidden border-r border-gray-200 text-gray-900 shadow-theme-lg dark:border-gray-800 dark:text-gray-100 rounded-tr-2xl rounded-br-2xl lg:rounded-tr-none lg:rounded-br-none ${sidebarSurfaceClass} ${sidebarTransitionClass} ${sidebarWidthClass} ${sidebarTranslateClass} lg:translate-x-0`}
 			onMouseEnter={() => !isExpanded && setIsHovered(true)}
 			onMouseLeave={() => setIsHovered(false)}
 		>
 			<div
 				aria-hidden="true"
-				className="pointer-events-none absolute -top-20 -left-16 h-44 w-44 rounded-full bg-brand-200/35 blur-3xl dark:bg-brand-500/20"
+				className="pointer-events-none absolute -top-20 -left-16 hidden h-44 w-44 rounded-full bg-brand-200/35 blur-3xl dark:bg-brand-500/20 lg:block"
 			/>
 			<div
 				aria-hidden="true"
-				className="pointer-events-none absolute bottom-[-5.5rem] right-[-3rem] h-40 w-40 rounded-full bg-brand-100/55 blur-3xl dark:bg-brand-500/10"
+				className="pointer-events-none absolute bottom-[-5.5rem] right-[-3rem] hidden h-40 w-40 rounded-full bg-brand-100/55 blur-3xl dark:bg-brand-500/10 lg:block"
 			/>
 
 			<div className="relative z-10 flex h-full flex-col px-4 sm:px-5 pb-5 pt-4">
@@ -697,9 +702,9 @@ const AppSidebar: React.FC = () => {
 						</div>
 					)}
 				</Link>
-				<div className="left-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pr-1">
+				<div className="left-scrollbar flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain">
 					<div className="direction-ltr">
-						<nav className="flex-1">{renderMenuItems(navigationItems)}</nav>
+						<nav className="flex-1 min-w-0">{renderMenuItems(navigationItems)}</nav>
 					</div>
 				</div>
 			</div>

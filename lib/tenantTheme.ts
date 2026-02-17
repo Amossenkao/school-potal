@@ -14,8 +14,51 @@ type TenantThemeDefinition = {
 	dark: ThemeVariables;
 };
 
-const defineTheme = (theme: TenantThemeDefinition): TenantThemeDefinition =>
-	theme;
+const BASE_LIGHT_THEME_VARIABLES: ThemeVariables = {
+	'--background': '#ffffff',
+	'--foreground': '#101828',
+	'--card': '#ffffff',
+	'--card-foreground': '#101828',
+	'--popover': '#ffffff',
+	'--popover-foreground': '#101828',
+	'--muted': '#f2f4f7',
+	'--muted-foreground': '#667085',
+	'--secondary': '#f2f4f7',
+	'--secondary-foreground': '#1d2939',
+	'--destructive': '#d92d20',
+	'--border': '#e4e7ec',
+	'--input': '#e4e7ec',
+	'--accent': '#ecf3ff',
+};
+
+const BASE_DARK_THEME_VARIABLES: ThemeVariables = {
+	'--background': '#0c111d',
+	'--foreground': '#f9fafb',
+	'--card': '#111827',
+	'--card-foreground': '#f9fafb',
+	'--popover': '#111827',
+	'--popover-foreground': '#f9fafb',
+	'--muted': '#1f2937',
+	'--muted-foreground': '#98a2b3',
+	'--secondary': '#1f2937',
+	'--secondary-foreground': '#f9fafb',
+	'--destructive': '#f04438',
+	'--border': '#344054',
+	'--input': '#344054',
+	'--accent': '#1f2937',
+};
+
+const defineTheme = (theme: TenantThemeDefinition): TenantThemeDefinition => ({
+	...theme,
+	light: {
+		...BASE_LIGHT_THEME_VARIABLES,
+		...theme.light,
+	},
+	dark: {
+		...BASE_DARK_THEME_VARIABLES,
+		...theme.dark,
+	},
+});
 
 export const TENANT_THEMES: Record<TenantThemeName, TenantThemeDefinition> = {
 	horizon: defineTheme({
