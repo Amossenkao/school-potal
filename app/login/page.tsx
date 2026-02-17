@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
 	Eye,
 	EyeOff,
@@ -69,6 +69,13 @@ const LoginPage = () => {
 		otp: '',
 	});
 
+	const navigateToDashboardWithSpinner = useCallback(() => {
+		setIsRedirecting(true);
+		window.requestAnimationFrame(() => {
+			router.push('/dashboard');
+		});
+	}, [router]);
+
 	// Bootstrap from local storage first, then verify session in background.
 	useEffect(() => {
 		let cancelled = false;
@@ -112,8 +119,7 @@ const LoginPage = () => {
 			!isAwaitingOtp &&
 			!isRedirecting
 		) {
-			setIsRedirecting(true);
-			router.push('/dashboard');
+			navigateToDashboardWithSpinner();
 		}
 	}, [
 		isInitializing,
@@ -121,8 +127,8 @@ const LoginPage = () => {
 		user,
 		isLoggedIn,
 		isAwaitingOtp,
-		router,
 		isRedirecting,
+		navigateToDashboardWithSpinner,
 	]);
 
 	// Prevent redirect loading from hanging forever if navigation stalls.
@@ -239,8 +245,7 @@ const LoginPage = () => {
 			) {
 				router.push('/login/account-setup');
 			} else {
-				setIsRedirecting(true);
-				router.push('/dashboard');
+				navigateToDashboardWithSpinner();
 			}
 		}
 	};
@@ -291,8 +296,7 @@ const LoginPage = () => {
 										onClick={() => {
 											setRedirectTimedOut(false);
 											if (user?.isActive && isLoggedIn && !isAwaitingOtp) {
-												setIsRedirecting(true);
-												router.push('/dashboard');
+												navigateToDashboardWithSpinner();
 											} else {
 												void checkAuthStatus();
 											}

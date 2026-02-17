@@ -89,12 +89,26 @@ const ProtectedRoute = ({
 
 		if (hasSeenAuthenticatedUser.current) {
 			setIsSigningOut(true);
+			return;
 		}
 
 		if (pathname !== '/login') {
 			router.replace('/login');
 		}
 	}, [isBootstrapping, pathname, router, user?.isActive]);
+
+	useEffect(() => {
+		if (!isSigningOut) return;
+		if (pathname === '/login') return;
+
+		const timer = window.setTimeout(() => {
+			router.replace('/login');
+		}, 140);
+
+		return () => {
+			window.clearTimeout(timer);
+		};
+	}, [isSigningOut, pathname, router]);
 
 	useEffect(() => {
 		if (
