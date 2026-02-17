@@ -9,6 +9,16 @@ export const TENANT_THEME_NAMES = [
 	'copper',
 	'rose',
 	'slate',
+	'aurora',
+	'amethyst',
+	'ruby',
+	'glacier',
+	'citrus',
+	'espresso',
+	'lagoon',
+	'ember',
+	'orchid',
+	'gilded',
 ] as const;
 
 export type TenantThemeName = (typeof TENANT_THEME_NAMES)[number];

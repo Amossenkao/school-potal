@@ -13,7 +13,7 @@ import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
 import bcrypt from 'bcryptjs';
 import { redis } from '@/lib/redis';
 import { authorizeUser } from '@/proxy';
-import { isTenantThemeName } from '@/types/tenantTheme';
+import { TENANT_THEME_NAMES, isTenantThemeName } from '@/types/tenantTheme';
 
 async function runWithConcurrency<T>(
 	items: T[],
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
 				return NextResponse.json(
 					{
 						success: false,
-						message: `Invalid themeName. Expected one of: horizon, ocean, emerald, sunset, midnight, coral, forest, copper, rose, slate.`,
+						message: `Invalid themeName. Expected one of: ${TENANT_THEME_NAMES.join(', ')}.`,
 					},
 					{ status: 400 },
 				);
