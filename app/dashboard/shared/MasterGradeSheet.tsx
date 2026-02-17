@@ -73,6 +73,8 @@ const formatGrade = (grade: any): string => {
 	return gradeValue.toFixed(0);
 };
 
+const PASS_MARK = 70;
+
 const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	academicYear: currentAcademicYear,
 	loading: parentLoading,
@@ -656,7 +658,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 	const getGradeColor = (grade: number | null) => {
 		if (grade == null) return 'text-muted-foreground';
-		return grade >= (currentSchool?.settings?.gradingSettings?.passMark ?? 70)
+		return grade >= PASS_MARK
 			? 'text-blue-600 font-semibold'
 			: 'text-red-600 font-semibold';
 	};
@@ -682,7 +684,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				if (grade != null) {
 					total++;
 					sum += grade;
-					grade >= (currentSchool?.settings?.gradingSettings?.passMark ?? 70)
+					grade >= PASS_MARK
 						? passes++
 						: fails++;
 				} else {

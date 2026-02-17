@@ -754,11 +754,11 @@ const SubmitGrade: React.FC = () => {
 		grade: number | '',
 		isExisting: boolean = false
 	) => {
-		if (grade === '' || Number(grade) < 60)
-			return isExisting ? 'text-muted-foreground' : 'text-foreground';
+		if (grade === '') return isExisting ? 'text-muted-foreground' : 'text-foreground';
 		const num = Number(grade);
-		if (num < 70) return 'text-red-600 dark:text-red-400';
-		return 'text-blue-600 dark:text-blue-400';
+		if (Number.isNaN(num)) return isExisting ? 'text-muted-foreground' : 'text-foreground';
+		if (num < 70) return 'text-red-600';
+		return 'text-blue-600';
 	};
 
 	const showSessionSelect = availableSessions.length > 1;
@@ -1313,8 +1313,8 @@ const SubmitGrade: React.FC = () => {
 																				<span
 																					className={`text-xs font-medium ${
 																						Number(gradeValue) >= 70
-																							? 'text-blue-600 dark:text-blue-400'
-																							: 'text-red-600 dark:text-red-400'
+																							? 'text-blue-600'
+																							: 'text-red-600'
 																					}`}
 																				>
 																					{Number(gradeValue) >= 70

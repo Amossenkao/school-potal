@@ -476,8 +476,8 @@ const GradeSubmissions = () => {
 
 	const getModalGradeColor = (grade: number | null) => {
 		if (grade === null || grade === undefined) return 'text-muted-foreground';
-		if (grade >= 70) return 'text-sky-500 font-semibold';
-		return 'text-destructive font-semibold';
+		if (grade >= 70) return 'text-blue-600 font-semibold';
+		return 'text-red-600 font-semibold';
 	};
 
 	const getGradeValidationStatus = (gradeValue: string) => {

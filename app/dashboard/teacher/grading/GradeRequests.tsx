@@ -59,6 +59,13 @@ function getCurrentAcademicYear() {
 	}
 }
 
+const getGradeColor = (grade: number | null | undefined) => {
+	if (grade === null || grade === undefined || Number.isNaN(Number(grade))) {
+		return 'text-muted-foreground';
+	}
+	return Number(grade) >= 70 ? 'text-blue-600 font-semibold' : 'text-red-600 font-semibold';
+};
+
 const TeacherGradeChangeRequests = ({
 	teacherInfo,
 }: {
@@ -88,6 +95,7 @@ const TeacherGradeChangeRequests = ({
 
 	const fetchRequests = async (skipCache = false) => {
 		if (!teacherInfo?.username) {
+			setRequests([]);
 			setLoading(false);
 			return;
 		}
@@ -115,7 +123,7 @@ const TeacherGradeChangeRequests = ({
 
 			if (!skipCache) {
 				const cached = getClientCache<BatchRequest[]>(cacheKey);
-				if (cached) {
+				if (cached !== null) {
 					setRequests(cached);
 					setError('');
 					setLoading(false);
@@ -131,9 +139,10 @@ const TeacherGradeChangeRequests = ({
 			if (!res.ok)
 				throw new Error('Failed to fetch your grade change requests.');
 			const data = await res.json();
-			setRequests(data.data.report);
-			setGradeRequestsForYear(academicYear, data.data.report || []);
-			setClientCache(cacheKey, data.data.report);
+			const report = Array.isArray(data?.data?.report) ? data.data.report : [];
+			setRequests(report);
+			setGradeRequestsForYear(academicYear, report);
+			setClientCache(cacheKey, report);
 		} catch (err) {
 			setError(
 				'Could not load your grade change requests. Please try again later.'
@@ -144,7 +153,11 @@ const TeacherGradeChangeRequests = ({
 	};
 
 	useEffect(() => {
-		if (!teacherInfo?.username) return;
+		if (!teacherInfo?.username) {
+			setRequests([]);
+			setLoading(false);
+			return;
+		}
 		void fetchRequests();
 	}, [teacherInfo?.username, schoolAcademicYear]);
 
@@ -258,7 +271,9 @@ const TeacherGradeChangeRequests = ({
 									type="text"
 									value={editModal.originalGrade}
 									disabled
-									className="p-2 border rounded-md w-2/3 bg-muted"
+									className={`p-2 border rounded-md w-2/3 bg-muted ${getGradeColor(
+										editModal.originalGrade,
+									)}`}
 								/>
 							</div>
 							<div className="flex items-center gap-4">
@@ -272,7 +287,11 @@ const TeacherGradeChangeRequests = ({
 											requestedGrade: e.target.value,
 										}))
 									}
-									className="p-2 border rounded-md w-2/3"
+									className={`p-2 border rounded-md w-2/3 ${getGradeColor(
+										editModal.requestedGrade === ''
+											? null
+											: Number(editModal.requestedGrade),
+									)}`}
 								/>
 							</div>
 							<div>
@@ -337,11 +356,11 @@ const TeacherGradeChangeRequests = ({
 												</p>
 											</div>
 											<div className="flex items-center justify-center gap-2 font-semibold">
-												<span className="text-red-500">
+												<span className={getGradeColor(req.originalGrade)}>
 													{req.originalGrade}
 												</span>
 												<ArrowRight className="h-4 w-4 text-muted-foreground" />
-												<span className="text-green-500">
+												<span className={getGradeColor(req.requestedGrade)}>
 													{req.requestedGrade}
 												</span>
 											</div>

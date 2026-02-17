@@ -127,7 +127,14 @@ const getClassMetaById = (classLevels: any, classId?: string) => {
 };
 
 function gradeStyle(score: number | null) {
-	if (score === null || Number.isNaN(score) || score < 70) {
+	if (score === null || Number.isNaN(score)) {
+		return {
+			...styles.tableCell,
+			fontSize: 10,
+			fontWeight: 'bold',
+		};
+	}
+	if (score < 70) {
 		return {
 			...styles.tableCell,
 			color: 'red',
@@ -1173,8 +1180,7 @@ const PeriodicReportDocument = React.memo(
 													</Text>
 													<Text
 														style={{
-															...styles.tableCell,
-															fontWeight: 'bold',
+															...gradeStyle(studentData.periodicAverage),
 															width: '40%',
 															textAlign: 'center',
 															fontSize: 9,

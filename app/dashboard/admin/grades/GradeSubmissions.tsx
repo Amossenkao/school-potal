@@ -620,9 +620,7 @@ const AdminGradeManagement: React.FC = () => {
 	};
 	const getGradeColor = (grade: number | null) => {
 		if (grade === null) return 'text-muted-foreground';
-		return grade >= 70
-			? 'text-blue-600 dark:text-green-400 font-semibold'
-			: 'text-red-600 dark:text-red-400 font-semibold';
+		return grade >= 70 ? 'text-blue-600 font-semibold' : 'text-red-600 font-semibold';
 	};
 	// Selection toggles
 	const toggleSubmissionSelection = (submissionId: string) => {
