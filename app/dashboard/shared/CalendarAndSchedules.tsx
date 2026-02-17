@@ -825,7 +825,7 @@ export default function CalendarAndSchedules({
 				teacherAssignedClassIds.has(klass.classId),
 			);
 			if (assignedClasses.length > 0) {
-				return assignedClasses;
+				return [{ classId: '__teacher__', className: 'Assigned Class' }];
 			}
 			return [{ classId: '__none__', className: 'No assigned classes' }];
 		}
@@ -1441,10 +1441,22 @@ export default function CalendarAndSchedules({
 															</td>
 															{classVisibleDays.map((day) =>
 																displayClasses.map((klass) => {
+																	const slotDayMatrix =
+																		scheduleMatrix[slot]?.[day] || {};
 																	const items =
-																		scheduleMatrix[slot]?.[day]?.[
-																			klass.classId
-																		] || [];
+																		userRole === 'teacher' &&
+																		klass.classId === '__teacher__'
+																			? [
+																					...Object.entries(slotDayMatrix)
+																						.filter(
+																							([classKey]) =>
+																								classKey !== '__all__' &&
+																								teacherAssignedClassIds.has(classKey),
+																						)
+																						.flatMap(([, value]) => value || []),
+																					...(slotDayMatrix['__all__'] || []),
+																				]
+																			: slotDayMatrix[klass.classId] || [];
 																	const generalItems =
 																		userRole === 'student' &&
 																		klass.classId !== '__all__'

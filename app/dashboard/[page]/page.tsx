@@ -66,9 +66,9 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 		const cookieStore = await cookies();
 
 		// Get specific cookies
-		const sessionToken = await cookieStore.get('sessionId')?.value;
-		const userPreferences = await cookieStore.get('user-preferences')?.value;
-		const theme = (await cookieStore.get('theme')?.value) || 'light';
+		const sessionToken = cookieStore.get('sessionId')?.value;
+		const userPreferences = cookieStore.get('user-preferences')?.value;
+		const theme = cookieStore.get('theme')?.value || 'light';
 
 		// Get current user and school profile
 		const user: User = await getCurrentUser();
@@ -226,7 +226,7 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 // Generate metadata for the page with flexible administrator support
 export async function generateMetadata({ params }: PageProps) {
 	try {
-		const cookieStore = cookies();
+		const cookieStore = await cookies();
 		const theme = cookieStore.get('theme')?.value || 'light';
 
 		const user = await getCurrentUser();

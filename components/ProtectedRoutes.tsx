@@ -54,24 +54,37 @@ const ProtectedRoute = ({
 		if (hasCachedAuthUser()) {
 			hydrateFromCache();
 		}
-		if (!cancelled) {
-			setIsBootstrapping(false);
-		}
 
-		const runBackgroundAuthCheck = async () => {
+		const finishBootstrap = () => {
+			if (!cancelled) {
+				setIsBootstrapping(false);
+			}
+		};
+
+		const runInitialAuthCheck = async () => {
 			const navigatorOnline =
 				typeof navigator !== 'undefined' ? navigator.onLine : true;
-			if (!navigatorOnline || !isOnline) return;
+			if (!navigatorOnline || !isOnline) {
+				finishBootstrap();
+				return;
+			}
 			try {
 				await checkAuthStatus();
 			} catch (error) {
 				console.warn('Initial auth verification failed:', error);
+			} finally {
+				finishBootstrap();
 			}
 		};
-		void runBackgroundAuthCheck();
+		void runInitialAuthCheck();
+
+		const bootstrapTimeout = window.setTimeout(() => {
+			finishBootstrap();
+		}, 5000);
 
 		return () => {
 			cancelled = true;
+			window.clearTimeout(bootstrapTimeout);
 		};
 	}, [checkAuthStatus, hydrateFromCache, isOnline]);
 

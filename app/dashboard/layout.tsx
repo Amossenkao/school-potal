@@ -22,7 +22,7 @@ export default function AdminLayout({
 	const [layoutTransitionsReady, setLayoutTransitionsReady] = useState(false);
 	const { offlinePath, setOfflinePath } = useOfflineNavigationStore();
 	const { isOnline } = useNetworkStore();
-	const activePath = offlinePath || pathname;
+	const activePath = isOnline ? pathname : offlinePath || pathname;
 
 	useEffect(() => {
 		if (!offlinePath) {
@@ -56,6 +56,7 @@ export default function AdminLayout({
 	}, [setOfflinePath]);
 
 	useEffect(() => {
+		if (isOnline) return;
 		const handleLinkClick = (event: MouseEvent) => {
 			if (event.defaultPrevented) return;
 			if (event.button !== 0) return;
@@ -75,7 +76,7 @@ export default function AdminLayout({
 		};
 		document.addEventListener('click', handleLinkClick);
 		return () => document.removeEventListener('click', handleLinkClick);
-	}, [setOfflinePath]);
+	}, [setOfflinePath, isOnline]);
 
 	useEffect(() => {
 		const frameId = window.requestAnimationFrame(() => {
