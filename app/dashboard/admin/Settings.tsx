@@ -29,8 +29,7 @@ import {
 } from '@/types/tenantTheme';
 import {
 	TENANT_THEME_OPTIONS,
-	buildTenantThemeCss,
-	resolveTenantThemeColor,
+	applyTenantThemeToDocument,
 } from '@/lib/tenantTheme';
 
 // --- Reusable Feedback Toast Component ---
@@ -448,28 +447,7 @@ export default function Settings() {
 	const persistedThemeNameRef = useRef<TenantThemeName>(DEFAULT_TENANT_THEME_NAME);
 
 	const applyThemePreview = (nextThemeName: TenantThemeName) => {
-		const tenantThemeStyle = document.getElementById(
-			'tenant-theme'
-		) as HTMLStyleElement | null;
-		const css = buildTenantThemeCss(nextThemeName);
-		if (tenantThemeStyle) {
-			tenantThemeStyle.innerHTML = css;
-		} else {
-			const styleTag = document.createElement('style');
-			styleTag.id = 'tenant-theme';
-			styleTag.innerHTML = css;
-			document.head.appendChild(styleTag);
-		}
-
-		let themeColorMeta = document.querySelector(
-			'meta[name="theme-color"]'
-		) as HTMLMetaElement | null;
-		if (!themeColorMeta) {
-			themeColorMeta = document.createElement('meta');
-			themeColorMeta.setAttribute('name', 'theme-color');
-			document.head.appendChild(themeColorMeta);
-		}
-		themeColorMeta.setAttribute('content', resolveTenantThemeColor(nextThemeName));
+		applyTenantThemeToDocument(nextThemeName);
 	};
 
 	useEffect(() => {

@@ -741,6 +741,33 @@ export const buildTenantThemeCss = (themeName?: string | null): string => {
 export const resolveTenantThemeColor = (themeName?: string | null): string =>
 	getTenantTheme(themeName).themeColor;
 
+export const applyTenantThemeToDocument = (themeName?: string | null): void => {
+	if (typeof document === 'undefined') return;
+
+	const resolvedTheme = getTenantTheme(themeName);
+	const css = buildTenantThemeCss(resolvedTheme.name);
+
+	let tenantThemeStyle = document.getElementById(
+		'tenant-theme'
+	) as HTMLStyleElement | null;
+	if (!tenantThemeStyle) {
+		tenantThemeStyle = document.createElement('style');
+		tenantThemeStyle.id = 'tenant-theme';
+	}
+	tenantThemeStyle.textContent = css;
+	document.head.appendChild(tenantThemeStyle);
+
+	let themeColorMeta = document.querySelector(
+		'meta[name="theme-color"]'
+	) as HTMLMetaElement | null;
+	if (!themeColorMeta) {
+		themeColorMeta = document.createElement('meta');
+		themeColorMeta.setAttribute('name', 'theme-color');
+	}
+	themeColorMeta.setAttribute('content', resolvedTheme.themeColor);
+	document.head.appendChild(themeColorMeta);
+};
+
 export const TENANT_THEME_OPTIONS = TENANT_THEME_NAMES.map((name) => ({
 	name,
 	label: TENANT_THEMES[name].label,
