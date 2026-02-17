@@ -8,6 +8,4 @@ const UserSyncStateSchema = new Schema(
 	{ timestamps: true },
 );
 
-UserSyncStateSchema.index({ academicYear: 1 }, { unique: true });
-
 export default UserSyncStateSchema;

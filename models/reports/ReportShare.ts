@@ -18,9 +18,7 @@ const ReportShareSchema = new Schema(
 		},
 		expiresAt: { type: Date, required: true, index: true },
 	},
-	{ timestamps: true }
+	{ timestamps: true },
 );
-
-ReportShareSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export default ReportShareSchema;
