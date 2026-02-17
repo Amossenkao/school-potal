@@ -434,7 +434,7 @@ const AppSidebar: React.FC = () => {
 	const shouldShowLabels = isExpanded || isHovered || isMobileOpen;
 
 	const renderMenuItems = (items: NavItem[]) => (
-		<ul className="flex flex-col gap-1.5">
+		<ul className="flex flex-col gap-1">
 			{items.map((item) => {
 				const subItems = item.subItems;
 				const isItemActive = item.href ? isActive(item.href) : false;
@@ -443,13 +443,13 @@ const AppSidebar: React.FC = () => {
 				);
 				const isSubmenuOpen = openSubmenu === item.name;
 				const isPrimaryActive = isItemActive || hasActiveSubItem || isSubmenuOpen;
-				const primaryItemClass = `group relative flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2.5 text-theme-sm font-medium transition-all duration-200 ${
+				const primaryItemClass = `group relative flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-theme-sm font-medium transition-all duration-200 ${
 					isPrimaryActive
 						? 'border-brand-200 bg-brand-50 text-brand-700 shadow-theme-xs dark:border-brand-500/35 dark:bg-brand-500/15 dark:text-brand-300'
 						: 'border-transparent text-gray-700 hover:border-brand-100 hover:bg-brand-25 hover:text-gray-900 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:bg-white/5 dark:hover:text-white'
 				} ${
 					!shouldShowLabels
-						? 'lg:justify-center lg:px-1.5 lg:py-3'
+						? 'lg:justify-center lg:px-1.5 lg:py-2.5'
 						: 'lg:justify-start'
 				}`;
 				const iconClass = `grid size-8 shrink-0 place-items-center rounded-lg border transition-colors duration-200 ${
@@ -495,9 +495,9 @@ const AppSidebar: React.FC = () => {
 							item.isLogout ? (
 								<button
 									onClick={handleLogout}
-									className={`group relative flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-left text-theme-sm font-medium text-error-600 transition-all duration-200 hover:border-error-200 hover:bg-error-50 dark:text-error-400 dark:hover:border-error-500/35 dark:hover:bg-error-500/15 ${
+									className={`group relative flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-left text-theme-sm font-medium text-error-600 transition-all duration-200 hover:border-error-200 hover:bg-error-50 dark:text-error-400 dark:hover:border-error-500/35 dark:hover:bg-error-500/15 ${
 										!shouldShowLabels
-											? 'lg:justify-center lg:px-0 lg:py-3'
+											? 'lg:justify-center lg:px-0 lg:py-2.5'
 											: 'lg:justify-start'
 									}`}
 								>

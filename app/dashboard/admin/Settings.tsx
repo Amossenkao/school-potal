@@ -16,11 +16,22 @@ import {
 	KeyRound,
 	BookOpen,
 	UserCog,
+	Palette,
 	ChevronDown,
 	X,
 	Loader2,
 	XCircle,
 } from 'lucide-react';
+import {
+	DEFAULT_TENANT_THEME_NAME,
+	TENANT_THEME_NAMES,
+	type TenantThemeName,
+} from '@/types/tenantTheme';
+import {
+	TENANT_THEME_OPTIONS,
+	buildTenantThemeCss,
+	resolveTenantThemeColor,
+} from '@/lib/tenantTheme';
 
 // --- Reusable Feedback Toast Component ---
 const FeedbackToast = ({ type, message, onClose }) => {
@@ -420,11 +431,15 @@ const BulkActionItem = ({
 export default function Settings() {
 	const school = useSchoolStore((state) => state.school);
 	const fetchSchool = useSchoolStore((state) => state.fetchSchool);
+	const setSchool = useSchoolStore((state) => state.setSchool);
 
 	const [currentAcademicYear, setCurrentAcademicYear] = useState('');
 	const [studentSettings, setStudentSettings] = useState(null);
 	const [teacherSettings, setTeacherSettings] = useState(null);
 	const [administratorSettings, setAdministratorSettings] = useState(null);
+	const [themeName, setThemeName] = useState<TenantThemeName>(
+		DEFAULT_TENANT_THEME_NAME
+	);
 	const [pendingBulkActions, setPendingBulkActions] = useState({});
 	const [bulkPasswordResets, setBulkPasswordResets] = useState({});
 	const [isLoading, setIsLoading] = useState(true);
@@ -502,6 +517,11 @@ export default function Settings() {
 				...administratorDefaults,
 				...(school.settings.administratorSettings || {}),
 			});
+			setThemeName(
+				TENANT_THEME_NAMES.includes(school.themeName as TenantThemeName)
+					? (school.themeName as TenantThemeName)
+					: DEFAULT_TENANT_THEME_NAME
+			);
 			setIsLoading(false);
 		}
 	}, [school]);
@@ -540,6 +560,7 @@ export default function Settings() {
 			studentSettings,
 			teacherSettings,
 			administratorSettings,
+			themeName,
 			bulkUserActions: pendingBulkActions,
 			bulkPasswordResets,
 		};
@@ -554,9 +575,46 @@ export default function Settings() {
 			const data = await response.json();
 
 			if (data.success) {
+				const nextThemeName = (data?.data?.themeName as TenantThemeName) || themeName;
+				const tenantThemeStyle = document.getElementById(
+					'tenant-theme'
+				) as HTMLStyleElement | null;
+				const css = buildTenantThemeCss(nextThemeName);
+				if (tenantThemeStyle) {
+					tenantThemeStyle.innerHTML = css;
+				} else {
+					const styleTag = document.createElement('style');
+					styleTag.id = 'tenant-theme';
+					styleTag.innerHTML = css;
+					document.head.appendChild(styleTag);
+				}
+
+				const themeColorMeta = document.querySelector(
+					'meta[name="theme-color"]'
+				) as HTMLMetaElement | null;
+				const nextThemeColor = resolveTenantThemeColor(nextThemeName);
+				if (themeColorMeta) {
+					themeColorMeta.setAttribute('content', nextThemeColor);
+				}
+
+				if (school) {
+					setSchool({
+						...school,
+						currentAcademicYear,
+						settings: {
+							...school.settings,
+							studentSettings,
+							teacherSettings,
+							administratorSettings,
+						},
+						themeName: nextThemeName,
+					});
+				}
+
 				setFeedback({
 					type: 'success',
-					message: 'Settings saved successfully! Changes have been applied.',
+					message:
+						'Settings saved successfully! Theme and system settings are now active.',
 				});
 				setPendingBulkActions({});
 				setBulkPasswordResets({});
@@ -580,6 +638,10 @@ export default function Settings() {
 	const academicYearOptions = academicYears.map((year) => ({
 		value: year,
 		label: year,
+	}));
+	const themeOptions = TENANT_THEME_OPTIONS.map((theme) => ({
+		value: theme.name,
+		label: theme.label,
 	}));
 
 	if (
@@ -634,6 +696,24 @@ export default function Settings() {
 								onChange={setCurrentAcademicYear}
 								label="Current Academic Year"
 							/>
+						</div>
+					</SettingsSection>
+
+					<SettingsSection
+						icon={Palette}
+						title="System Theme"
+						description="Choose the default tenant-wide theme used across the portal in light and dark modes"
+					>
+						<div className="space-y-3">
+							<SingleSelect
+								options={themeOptions}
+								selected={themeName}
+								onChange={(value) => setThemeName(value as TenantThemeName)}
+								label="School Theme"
+							/>
+							<p className="text-xs text-muted-foreground">
+								This updates the global school theme for all users.
+							</p>
 						</div>
 					</SettingsSection>
 

@@ -105,18 +105,26 @@ export async function POST(request: NextRequest) {
 		}
 
 		// 2. Update School Settings
-		if (studentSettings && teacherSettings && administratorSettings) {
-			const newSettings: SchoolSettings = {
-				studentSettings,
-				teacherSettings,
-				administratorSettings,
-			};
-			updateObject.settings = newSettings;
+		const hasSettingsPatch =
+			studentSettings !== undefined ||
+			teacherSettings !== undefined ||
+			administratorSettings !== undefined;
+
+		if (hasSettingsPatch) {
+			const existingSettings = currentSchool?.settings || {};
+			updateObject.settings = {
+				...existingSettings,
+				...(studentSettings !== undefined ? { studentSettings } : {}),
+				...(teacherSettings !== undefined ? { teacherSettings } : {}),
+				...(administratorSettings !== undefined
+					? { administratorSettings }
+					: {}),
+			} as SchoolSettings;
 		}
 
 		// 3. Update Tenant Theme Name
 		if (themeName !== undefined) {
-			if (!isTenantThemeName(themeName)) {
+			if (typeof themeName !== 'string' || !isTenantThemeName(themeName)) {
 				return NextResponse.json(
 					{
 						success: false,
