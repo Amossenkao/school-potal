@@ -43,6 +43,8 @@ import {
 } from '@/utils/academicYearOptions';
 
 const API_URL = '/api/users';
+const getManageUsersCacheKey = (academicYear: string) =>
+	`manageUsers:v2:${academicYear}`;
 
 // --- Portal Component for escaping containers ---
 const Portal = ({ children }: { children: React.ReactNode }) => {
@@ -256,9 +258,6 @@ const UserManagementDashboard = () => {
 	const schoolProfile = useSchoolStore((state: any) => state.school);
 	const fetchSchool = useSchoolStore((state: any) => state.fetchSchool);
 	const { isOnline } = useNetworkStore();
-	const usersByAcademicYear = useSchoolStore(
-		(state: any) => state.usersByAcademicYear,
-	);
 	const setUsersForYear = useSchoolStore(
 		(state: any) => state.setUsersForYear,
 	);
@@ -397,7 +396,7 @@ const UserManagementDashboard = () => {
 			}
 
 			try {
-				const cacheKey = `manageUsers:${selectedAcademicYear}`;
+				const cacheKey = getManageUsersCacheKey(selectedAcademicYear);
 				const params = new URLSearchParams();
 				params.set('academicYear', selectedAcademicYear);
 				params.set('limit', String(serverPageSize));
@@ -508,24 +507,7 @@ const UserManagementDashboard = () => {
 		setTotalUsers(null);
 		setRoleCounts({});
 		setUsers([]);
-		const cachedUsers = usersByAcademicYear?.[selectedAcademicYear];
-		if (cachedUsers) {
-			const mergedUsers = [
-				...(cachedUsers.students || []),
-				...(cachedUsers.teachers || []),
-				...(cachedUsers.administrators || []),
-			];
-			setUsers(mergedUsers);
-			setRoleCounts({
-				student: cachedUsers.students?.length || 0,
-				teacher: cachedUsers.teachers?.length || 0,
-				administrator: cachedUsers.administrators?.length || 0,
-			});
-			setTotalUsers(mergedUsers.length);
-			setLoading(false);
-			return;
-		}
-		const cacheKey = `manageUsers:${selectedAcademicYear}`;
+		const cacheKey = getManageUsersCacheKey(selectedAcademicYear);
 		const cached = getClientCache<{
 			users: any[];
 			totalUsers: number | null;
@@ -547,7 +529,6 @@ const UserManagementDashboard = () => {
 		schoolProfile,
 		selectedAcademicYear,
 		fetchUsers,
-		usersByAcademicYear,
 	]);
 
 	const userTypes = useMemo(() => {
@@ -645,7 +626,7 @@ const UserManagementDashboard = () => {
 			nextTotal: number | null = totalUsersRef.current,
 			nextRoleCounts: Record<string, number> = roleCountsRef.current,
 		) => {
-			const cacheKey = `manageUsers:${selectedAcademicYear}`;
+			const cacheKey = getManageUsersCacheKey(selectedAcademicYear);
 			setClientCache(cacheKey, {
 				users: nextUsers,
 				totalUsers: typeof nextTotal === 'number' ? nextTotal : null,
@@ -776,6 +757,12 @@ const UserManagementDashboard = () => {
 	);
 	const canGoNext = currentPage < totalPages || hasMoreServer;
 	const startIndex = (currentPage - 1) * itemsPerPage;
+	const pageStart =
+		filteredAndSortedUsers.length === 0 ? 0 : startIndex + 1;
+	const pageEnd = Math.min(
+		startIndex + itemsPerPage,
+		filteredAndSortedUsers.length,
+	);
 	const paginatedUsers = filteredAndSortedUsers.slice(
 		startIndex,
 		startIndex + itemsPerPage,
@@ -1070,6 +1057,20 @@ const UserManagementDashboard = () => {
 					</div>
 					<div className="flex flex-wrap gap-2">
 						<select
+							value={itemsPerPage}
+							onChange={(e) => {
+								setItemsPerPage(Number(e.target.value));
+								setCurrentPage(1);
+							}}
+							className="bg-card border border-border rounded-lg px-3 py-2 text-sm"
+						>
+							<option value={5}>5 rows</option>
+							<option value={10}>10 rows</option>
+							<option value={20}>20 rows</option>
+							<option value={50}>50 rows</option>
+							<option value={100}>100 rows</option>
+						</select>
+						<select
 							value={selectedAcademicYear}
 							onChange={(e) => {
 								setSelectedAcademicYear(e.target.value);
@@ -1218,22 +1219,8 @@ const UserManagementDashboard = () => {
 
 					<div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-border">
 						<div className="flex items-center gap-2">
-							<span className="text-sm text-muted-foreground">Show</span>
-							<select
-								value={itemsPerPage}
-								onChange={(e) => {
-									setItemsPerPage(Number(e.target.value));
-									setCurrentPage(1);
-								}}
-								className="bg-background border border-border rounded px-2 py-1 text-sm"
-							>
-								<option value={5}>5</option>
-								<option value={10}>10</option>
-								<option value={20}>20</option>
-								<option value={50}>50</option>
-							</select>
 							<span className="text-sm text-muted-foreground">
-								of {displayTotalResults} results
+								Showing {pageStart}-{pageEnd} of {displayTotalResults} results
 							</span>
 						</div>
 

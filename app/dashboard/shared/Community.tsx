@@ -6,12 +6,19 @@ import { useSchoolStore } from '@/store/schoolStore';
 import { Loader2, Search } from 'lucide-react';
 import ViewUserModal from '@/components/modals/ViewUserModal';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
+import { areAcademicYearsEqual, getScopedAcademicYearValue } from '@/utils/academicYear';
+import {
+	buildSchoolAcademicYearRange,
+	pickMostRecentAcademicYear,
+	sortAcademicYearsDesc,
+} from '@/utils/academicYearOptions';
 
 const getFullName = (user: any) =>
 	`${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User';
 
 const Community = () => {
 	const { user } = useAuth();
+	const sessionUser = user as any;
 	const schoolProfile = useSchoolStore((state) => state.school);
 	const usersByAcademicYear = useSchoolStore(
 		(state) => state.usersByAcademicYear,
@@ -53,21 +60,66 @@ const Community = () => {
 	};
 
 	const availableYears = useMemo(() => {
-		if (!user) return [];
-		if (user.role === 'student') {
-			return (user.academicYears || []).map((ay: any) => ay.year).filter(Boolean);
+		if (!sessionUser) return [];
+		if (
+			Array.isArray(sessionUser.allowedAcademicYears) &&
+			sessionUser.allowedAcademicYears.length > 0
+		) {
+			return sortAcademicYearsDesc(sessionUser.allowedAcademicYears);
 		}
-		if (user.role === 'teacher') {
-			return (user.subjects || []).map((s: any) => s.year).filter(Boolean);
+		if (sessionUser.role === 'student') {
+			return sortAcademicYearsDesc(
+				(sessionUser.academicYears || []).map((ay: any) => ay.year),
+			);
 		}
-		return [];
-	}, [user]);
+		if (sessionUser.role === 'teacher') {
+			return sortAcademicYearsDesc(
+				(sessionUser.subjects || []).map((s: any) => s.year),
+			);
+		}
+		if (sessionUser.role === 'administrator') {
+			return sortAcademicYearsDesc(
+				(sessionUser.academicYears || []).map((ay: any) => ay.year),
+			);
+		}
+		if (sessionUser.role === 'system_admin') {
+			return buildSchoolAcademicYearRange(schoolProfile || undefined);
+		}
+		return sortAcademicYearsDesc([]);
+	}, [sessionUser, schoolProfile]);
+
+	const defaultAcademicYear = useMemo(() => {
+		const schoolCurrentAcademicYear = String(
+			schoolProfile?.currentAcademicYear || '',
+		).trim();
+		if (sessionUser?.role === 'system_admin') {
+			return (
+				schoolCurrentAcademicYear ||
+				pickMostRecentAcademicYear(availableYears, schoolCurrentAcademicYear) ||
+				''
+			);
+		}
+		return (
+			pickMostRecentAcademicYear(availableYears, null) ||
+			''
+		);
+	}, [availableYears, schoolProfile?.currentAcademicYear, sessionUser?.role]);
 
 	const availableClasses = useMemo(() => {
-		if (!user || user.role !== 'teacher' || !academicYear) return [];
-		const yearData = (user.subjects || []).find((s: any) => s.year === academicYear);
+		if (!sessionUser || sessionUser.role !== 'teacher' || !academicYear) return [];
+		const yearData = (sessionUser.subjects || []).find((s: any) =>
+			areAcademicYearsEqual(s.year, academicYear),
+		);
 		return (yearData?.classes || []).map((c: any) => c.classId);
-	}, [user, academicYear]);
+	}, [sessionUser, academicYear]);
+
+	useEffect(() => {
+		if (sessionUser?.role !== 'teacher') return;
+		if (!classId) return;
+		if (!availableClasses.includes(classId)) {
+			setClassId('');
+		}
+	}, [sessionUser?.role, availableClasses, classId]);
 
 	useEffect(() => {
 		if (user?.role === 'student') {
@@ -76,15 +128,21 @@ const Community = () => {
 	}, [user?.role]);
 
 	useEffect(() => {
-		if (!academicYear && availableYears.length > 0) {
-			setAcademicYear(availableYears[0]);
+		const selectedIsAvailable = availableYears.some((year) =>
+			areAcademicYearsEqual(year, academicYear),
+		);
+		if (!academicYear || !selectedIsAvailable) {
+			setAcademicYear(defaultAcademicYear);
 		}
-	}, [academicYear, availableYears]);
+	}, [academicYear, availableYears, defaultAcademicYear]);
 
 	useEffect(() => {
 		const fetchCommunity = async () => {
 			if (!academicYear) return;
-			const cachedUsers = usersByAcademicYear?.[academicYear];
+			const cachedUsers = getScopedAcademicYearValue(
+				usersByAcademicYear,
+				academicYear,
+			).value;
 			if (cachedUsers) {
 				setCommunityData({
 					students: cachedUsers.students || [],
@@ -149,11 +207,13 @@ const Community = () => {
 		u.className || getClassNameFromId(u.classId) || u.classId || '';
 
 	const getCurrentStudentClassIdForYear = () => {
-		if (user?.role !== 'student' || !academicYear) return '';
-		const yearEntry = Array.isArray(user.academicYears)
-			? user.academicYears.find((ay: any) => ay.year === academicYear)
+		if (sessionUser?.role !== 'student' || !academicYear) return '';
+		const yearEntry = Array.isArray(sessionUser.academicYears)
+			? sessionUser.academicYears.find((ay: any) =>
+					areAcademicYearsEqual(ay.year, academicYear),
+				)
 			: null;
-		return yearEntry?.classId || user?.classId || '';
+		return yearEntry?.classId || sessionUser?.classId || '';
 	};
 
 	const getTeacherSubjectsLabel = (u: any) => {
@@ -168,7 +228,9 @@ const Community = () => {
 
 		if (roleFilter === 'teacher' && user?.role === 'student') {
 			if (hasStructuredSubjects) {
-				const yearData = rawSubjects.find((s: any) => s.year === academicYear);
+				const yearData = rawSubjects.find((s: any) =>
+					areAcademicYearsEqual(s.year, academicYear),
+				);
 				const currentStudentClassId = getCurrentStudentClassIdForYear();
 				const matchingClasses = (yearData?.classes || []).filter(
 					(c: any) => !currentStudentClassId || c.classId === currentStudentClassId,
@@ -182,7 +244,9 @@ const Community = () => {
 			}
 		} else if (roleFilter === 'teacher' && user?.role === 'teacher') {
 			if (hasStructuredSubjects) {
-				const yearData = rawSubjects.find((s: any) => s.year === academicYear);
+				const yearData = rawSubjects.find((s: any) =>
+					areAcademicYearsEqual(s.year, academicYear),
+				);
 				const classes = yearData?.classes || [];
 				subjects = classes.flatMap((c: any) => c.subjects || []);
 			} else {
@@ -192,7 +256,9 @@ const Community = () => {
 			}
 		} else {
 			if (hasStructuredSubjects) {
-				const yearData = rawSubjects.find((s: any) => s.year === academicYear);
+				const yearData = rawSubjects.find((s: any) =>
+					areAcademicYearsEqual(s.year, academicYear),
+				);
 				const classes = yearData?.classes || [];
 				subjects = classes.flatMap((c: any) => c.subjects || []);
 			} else {
@@ -323,17 +389,19 @@ const Community = () => {
 							className="w-full sm:w-64 rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm"
 						/>
 					</div>
-					<select
-						value={academicYear}
-						onChange={(e) => setAcademicYear(e.target.value)}
-						className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-					>
-						{availableYears.map((year) => (
-							<option key={year} value={year}>
-								{year}
-							</option>
-						))}
-					</select>
+					{availableYears.length > 1 ? (
+						<select
+							value={academicYear}
+							onChange={(e) => setAcademicYear(e.target.value)}
+							className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+						>
+							{availableYears.map((year) => (
+								<option key={year} value={year}>
+									{year}
+								</option>
+							))}
+						</select>
+					) : null}
 					{user?.role === 'teacher' && roleFilter === 'student' && (
 						<select
 							value={classId}
@@ -341,7 +409,7 @@ const Community = () => {
 							className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
 						>
 							<option value="">All Classes</option>
-							{availableClasses.map((id) => (
+							{availableClasses.map((id: string) => (
 								<option key={id} value={id}>
 									{getClassNameFromId(id)}
 								</option>

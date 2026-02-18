@@ -20,6 +20,11 @@ import {
 	areAcademicYearsEqual,
 	getScopedAcademicYearValue,
 } from '@/utils/academicYear';
+import { getStudentClassIdForAcademicYear } from '@/utils/academicYearAccess';
+import {
+	pickMostRecentAcademicYear,
+	sortAcademicYearsDesc,
+} from '@/utils/academicYearOptions';
 
 type ClassScheduleItem = {
 	id: string;
@@ -57,6 +62,8 @@ type CalendarAndSchedulesProps = {
 		firstName?: string;
 		className?: string;
 		classId?: string;
+		allowedAcademicYears?: string[];
+		academicYears?: { year?: string; classId?: string; className?: string }[];
 		subjects?: {
 			year: string;
 			classes: { classId: string; subjects: string[] }[];
@@ -196,7 +203,74 @@ export default function CalendarAndSchedules({
 		}[]
 	>([]);
 	const [slotEditingIds, setSlotEditingIds] = useState<string[]>([]);
-	const academicYear = schoolProfile.currentAcademicYear || '';
+	const schoolCurrentAcademicYear = String(
+		schoolProfile.currentAcademicYear || '',
+	).trim();
+	const availableAcademicYears = useMemo(() => {
+		const allowedYears = Array.isArray(user?.allowedAcademicYears)
+			? user.allowedAcademicYears
+			: [];
+		if (allowedYears.length > 0) {
+			return sortAcademicYearsDesc(allowedYears);
+		}
+		if (!user) return [];
+		if (userRole === 'student' || userRole === 'administrator') {
+			return sortAcademicYearsDesc(
+				Array.isArray(user.academicYears)
+					? user.academicYears.map((entry) => entry?.year)
+					: [],
+			);
+		}
+		if (userRole === 'teacher') {
+			return sortAcademicYearsDesc(
+				Array.isArray(user.subjects)
+					? user.subjects.map((entry) => entry?.year)
+					: [],
+			);
+		}
+		return sortAcademicYearsDesc([schoolCurrentAcademicYear]);
+	}, [user, userRole, schoolCurrentAcademicYear]);
+	const academicYear = useMemo(() => {
+		if (isSystemAdmin) {
+			return (
+				schoolCurrentAcademicYear ||
+				pickMostRecentAcademicYear(availableAcademicYears, '') ||
+				''
+			);
+		}
+		return pickMostRecentAcademicYear(availableAcademicYears, '') || '';
+	}, [isSystemAdmin, schoolCurrentAcademicYear, availableAcademicYears]);
+	const canUseAcademicYear = useMemo(() => {
+		if (!academicYear) return false;
+		if (isSystemAdmin) {
+			return (
+				!schoolCurrentAcademicYear ||
+				areAcademicYearsEqual(academicYear, schoolCurrentAcademicYear)
+			);
+		}
+		return availableAcademicYears.some((year) =>
+			areAcademicYearsEqual(year, academicYear),
+		);
+	}, [
+		academicYear,
+		isSystemAdmin,
+		schoolCurrentAcademicYear,
+		availableAcademicYears,
+	]);
+	const studentClassIdForAcademicYear = useMemo(() => {
+		if (userRole !== 'student' || !academicYear) return '';
+		return getStudentClassIdForAcademicYear(user as any, academicYear, {
+			allowCurrentClassFallback: true,
+			currentAcademicYear: schoolCurrentAcademicYear,
+			schoolProfile,
+		});
+	}, [
+		userRole,
+		user,
+		academicYear,
+		schoolCurrentAcademicYear,
+		schoolProfile,
+	]);
 	const scopedSchedules = useSchoolStore((state) =>
 		getScopedAcademicYearValue(state.schedulesByAcademicYear, academicYear).value,
 	);
@@ -204,6 +278,13 @@ export default function CalendarAndSchedules({
 
 	useEffect(() => {
 		if (!showSchedules) return;
+		if (!canUseAcademicYear) {
+			setClassSchedules([]);
+			setTestSchedules([]);
+			setScheduleError('');
+			setIsLoadingSchedules(false);
+			return;
+		}
 
 		const fetchSchedules = async () => {
 			setScheduleError('');
@@ -215,8 +296,10 @@ export default function CalendarAndSchedules({
 					academicYear,
 				);
 				if (scopedSchedulesSnapshot.key) {
-					const sourceSchedules =
-						scopedSchedulesSnapshot.value || scopedSchedules || {};
+					const sourceSchedules: {
+						classSchedules?: any[];
+						testSchedules?: any[];
+					} = (scopedSchedulesSnapshot.value || scopedSchedules || {}) as any;
 					const mappedClass: ClassScheduleItem[] = (
 						sourceSchedules?.classSchedules || []
 					).map((item: any) => {
@@ -259,8 +342,8 @@ export default function CalendarAndSchedules({
 
 				const levelKeys: string[] = [];
 
-				if (userRole === 'student' && user?.classId) {
-					const meta = classOptionsById.get(user.classId);
+				if (userRole === 'student' && studentClassIdForAcademicYear) {
+					const meta = classOptionsById.get(studentClassIdForAcademicYear);
 					if (meta) {
 						levelKeys.push(`${meta.session}::${meta.level}`);
 					}
@@ -425,8 +508,9 @@ export default function CalendarAndSchedules({
 		fetchSchedules();
 	}, [
 		academicYear,
+		canUseAcademicYear,
 		showSchedules,
-		user?.classId,
+		studentClassIdForAcademicYear,
 		userRole,
 		user?.subjects,
 		classOptionsById,
@@ -630,8 +714,8 @@ export default function CalendarAndSchedules({
 		: [];
 
 	const visibleLevelKeys = useMemo(() => {
-		if (userRole === 'student' && user?.classId) {
-			const meta = classOptionsById.get(user.classId);
+		if (userRole === 'student' && studentClassIdForAcademicYear) {
+			const meta = classOptionsById.get(studentClassIdForAcademicYear);
 			return meta ? [`${meta.session}::${meta.level}`] : [];
 		}
 
@@ -663,7 +747,7 @@ export default function CalendarAndSchedules({
 		return levelOptions.map((option) => option.key);
 	}, [
 		userRole,
-		user?.classId,
+		studentClassIdForAcademicYear,
 		user?.subjects,
 		classOptionsById,
 		levelOptions,
@@ -814,7 +898,7 @@ export default function CalendarAndSchedules({
 	const displayClasses = useMemo(() => {
 		if (userRole === 'student') {
 			const ownClass = classesForLevel.find(
-				(klass) => klass.classId === user?.classId,
+				(klass) => klass.classId === studentClassIdForAcademicYear,
 			);
 			if (ownClass) {
 				return [ownClass];
@@ -843,7 +927,7 @@ export default function CalendarAndSchedules({
 		classesForLevel,
 		classScheduleSource,
 		userRole,
-		user?.classId,
+		studentClassIdForAcademicYear,
 		teacherAssignedClassIds,
 	]);
 
@@ -1252,7 +1336,7 @@ export default function CalendarAndSchedules({
 					<CardContent>
 						<Calendar
 							canEdit={isSystemAdmin}
-							academicYear={academicYear}
+							academicYear={canUseAcademicYear ? academicYear : ''}
 						/>
 						{!isSystemAdmin ? (
 							<p className="mt-4 text-sm text-muted-foreground"></p>

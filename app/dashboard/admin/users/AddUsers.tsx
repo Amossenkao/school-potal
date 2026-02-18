@@ -1,8 +1,12 @@
 'use client';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSchoolStore } from '@/store/schoolStore';
 import ConflictModal from '@/components/modals/ConflictModal';
 import { AnimatePresence, motion } from 'framer-motion';
+import {
+	buildSchoolAcademicYearRange,
+	getCurrentAcademicYearLabel,
+} from '@/utils/academicYearOptions';
 import {
 	ChevronDown,
 	ChevronLeft,
@@ -32,6 +36,23 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	const [pendingUserData, setPendingUserData] = useState(null);
 
 	const school = useSchoolStore((state) => state.school);
+	const defaultEnrollmentSemester = '1st Semester';
+	const currentAcademicYear = String(
+		school?.currentAcademicYear || getCurrentAcademicYearLabel(),
+	).trim();
+	const enrollmentYearOptions = useMemo(() => {
+		const years = buildSchoolAcademicYearRange(school || undefined);
+		if (years.length > 0) {
+			return years;
+		}
+		return currentAcademicYear ? [currentAcademicYear] : [];
+	}, [school, currentAcademicYear]);
+	const defaultEnrollmentYear = useMemo(() => {
+		if (enrollmentYearOptions.includes(currentAcademicYear)) {
+			return currentAcademicYear;
+		}
+		return enrollmentYearOptions[0] || currentAcademicYear || '';
+	}, [enrollmentYearOptions, currentAcademicYear]);
 
 	const [formData, setFormData] = useState({
 		firstName: '',
@@ -48,8 +69,8 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		student: {
 			session: '',
 			classId: '',
-			enrollmentYear: '',
-			enrollmentSemester: '',
+			enrollmentYear: defaultEnrollmentYear,
+			enrollmentSemester: defaultEnrollmentSemester,
 			guardian: {
 				firstName: '',
 				middleName: '',
@@ -75,23 +96,39 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		teacherSessions: {},
 	});
 
-	const generateAcademicYears = () => {
-		const currentYear = new Date().getFullYear();
-		const years = [];
-		for (let i = 0; i < 5; i++) {
-			years.push(`${currentYear - i}-${currentYear - i + 1}`);
-		}
-		return years;
-	};
+	useEffect(() => {
+		if (!defaultEnrollmentYear) return;
+		setFormData((prev) => {
+			const selectedYear = String(prev.student.enrollmentYear || '').trim();
+			const isSelectedYearValid = enrollmentYearOptions.includes(selectedYear);
+			const nextEnrollmentYear = isSelectedYearValid
+				? selectedYear
+				: defaultEnrollmentYear;
+			const nextEnrollmentSemester =
+				String(prev.student.enrollmentSemester || '').trim() ||
+				defaultEnrollmentSemester;
 
-	const getCurrentAcademicYear = () => {
-		const currentDate = new Date();
-		const currentYear = currentDate.getFullYear();
-		const currentMonth = currentDate.getMonth() + 1;
-		return currentMonth >= 8
-			? `${currentYear}-${currentYear + 1}`
-			: `${currentYear - 1}-${currentYear}`;
-	};
+			if (
+				nextEnrollmentYear === prev.student.enrollmentYear &&
+				nextEnrollmentSemester === prev.student.enrollmentSemester
+			) {
+				return prev;
+			}
+
+			return {
+				...prev,
+				student: {
+					...prev.student,
+					enrollmentYear: nextEnrollmentYear,
+					enrollmentSemester: nextEnrollmentSemester,
+				},
+			};
+		});
+	}, [
+		defaultEnrollmentYear,
+		enrollmentYearOptions,
+		defaultEnrollmentSemester,
+	]);
 
 	const toggleAccordion = (name) => {
 		setExpandedAccordions((prev) => ({
@@ -336,8 +373,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		});
 	};
 	const buildTeacherSubjectsPayload = () => {
-		const academicYear =
-			school?.currentAcademicYear || getCurrentAcademicYear();
+		const academicYear = currentAcademicYear;
 		const classMap = new Map();
 
 		const selections = formData.teacher.subjects || [];
@@ -509,8 +545,8 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			student: {
 				session: '',
 				classId: '',
-				enrollmentYear: '',
-				enrollmentSemester: '',
+				enrollmentYear: defaultEnrollmentYear,
+				enrollmentSemester: defaultEnrollmentSemester,
 				guardian: {
 					firstName: '',
 					middleName: '',
@@ -1146,8 +1182,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																		: 'border-border'
 																}`}
 															>
-																<option value="">Select year</option>
-																{generateAcademicYears().map((year) => (
+																{enrollmentYearOptions.map((year) => (
 																	<option key={year} value={year}>
 																		{year}
 																	</option>

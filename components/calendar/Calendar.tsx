@@ -63,6 +63,11 @@ const Calendar: React.FC<CalendarProps> = ({
       setEvents(initialEvents);
       return;
     }
+    if (!academicYear) {
+      setEvents([]);
+      setIsLoadingEvents(false);
+      return;
+    }
 
     const fetchEvents = async () => {
       setIsLoadingEvents(true);
@@ -88,7 +93,7 @@ const Calendar: React.FC<CalendarProps> = ({
           return;
         }
 
-        const cacheKey = `calendar:${academicYear || "current"}`;
+        const cacheKey = `calendar:${academicYear}`;
         const cached = getClientCache<CalendarEvent[]>(cacheKey);
         if (cached) {
           setEvents(cached);
@@ -96,9 +101,7 @@ const Calendar: React.FC<CalendarProps> = ({
           return;
         }
 
-        const yearParam = academicYear
-          ? `?academicYear=${encodeURIComponent(academicYear)}`
-          : "";
+        const yearParam = `?academicYear=${encodeURIComponent(academicYear)}`;
         const response = await fetch(`/api/calendar${yearParam}`);
         const payload = await response.json();
         if (!response.ok || !payload?.success) {
@@ -165,7 +168,7 @@ const Calendar: React.FC<CalendarProps> = ({
                 }
               : event
           );
-          setClientCache(`calendar:${academicYear || "current"}`, next);
+          setClientCache(`calendar:${academicYear}`, next);
           return next;
         });
       } else {
@@ -193,7 +196,7 @@ const Calendar: React.FC<CalendarProps> = ({
         };
         setEvents((prevEvents) => {
           const next = [...prevEvents, newEvent];
-          setClientCache(`calendar:${academicYear || "current"}`, next);
+          setClientCache(`calendar:${academicYear}`, next);
           return next;
         });
       }
@@ -220,7 +223,7 @@ const Calendar: React.FC<CalendarProps> = ({
         const next = prevEvents.filter(
           (event) => event.id !== selectedEvent.id
         );
-        setClientCache(`calendar:${academicYear || "current"}`, next);
+        setClientCache(`calendar:${academicYear}`, next);
         return next;
       });
     } catch (error) {

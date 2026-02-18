@@ -568,13 +568,14 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	};
 
 	const handlePromotion = () => {
+		const defaultPromotionYear = getCurrentAcademicYear();
 		setActionError('');
 		setPromotionForm((prev) => ({
 			...prev,
 			type: allowsDoublePromotion ? prev.type : 'yearlyPromotion',
 			classId: '',
 			className: '',
-			academicYear: '',
+			academicYear: defaultPromotionYear,
 		}));
 		setShowPromotionModal(true);
 	};
@@ -599,12 +600,11 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	};
 
 	const getPromotionAcademicYearOptions = () => {
-		const currentStart = getAcademicYearStart(getCurrentAcademicYear());
-		if (!currentStart) return [];
-		return getAcademicYearOptions().filter((year) => {
-			const start = getAcademicYearStart(year);
-			return start !== null && start > currentStart;
-		});
+		const currentYear = getCurrentAcademicYear();
+		const currentStart = getAcademicYearStart(currentYear);
+		if (!currentYear || currentStart === null) return [];
+		const nextYear = `${currentStart + 1}-${currentStart + 2}`;
+		return Array.from(new Set([currentYear, nextYear]));
 	};
 
 	const buildTeacherSubjectsPayload = () => {
@@ -682,7 +682,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			)
 		) {
 			setActionError(
-				'Yearly promotions must use a future academic year.',
+				'Yearly promotions must use the current or next academic year.',
 			);
 			return;
 		}
@@ -1357,12 +1357,18 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 													</label>
 													<Select
 														value={promotionForm.type}
-														onValueChange={(value) =>
+														onValueChange={(value) => {
+															const defaultPromotionYear =
+																getCurrentAcademicYear();
 															setPromotionForm((prev) => ({
 																...prev,
 																type: value,
-															}))
-														}
+																academicYear:
+																	value === 'yearlyPromotion'
+																		? prev.academicYear || defaultPromotionYear
+																		: prev.academicYear,
+															}));
+														}}
 													>
 														<SelectTrigger className={selectTriggerClass}>
 															<SelectValue placeholder="Select type" />
@@ -1442,7 +1448,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 													))}
 													{getPromotionAcademicYearOptions().length === 0 && (
 														<div className="px-2 py-1.5 text-sm text-muted-foreground">
-															No future academic years available.
+															No academic year options available.
 														</div>
 													)}
 												</SelectContent>

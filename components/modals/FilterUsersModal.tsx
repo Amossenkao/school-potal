@@ -16,11 +16,11 @@ const FilterUsersModal = ({
 	resetFilters,
 	onApply,
 	schoolProfile,
-}) => {
-	const [sessions, setSessions] = useState([]);
-	const [classLevels, setClassLevels] = useState([]);
-	const [classes, setClasses] = useState([]);
-	const [subjects, setSubjects] = useState([]);
+}: any) => {
+	const [sessions, setSessions] = useState<string[]>([]);
+	const [classLevels, setClassLevels] = useState<string[]>([]);
+	const [classes, setClasses] = useState<any[]>([]);
+	const [subjects, setSubjects] = useState<string[]>([]);
 
 	useEffect(() => {
 		if (schoolProfile?.classLevels) {
@@ -48,8 +48,14 @@ const FilterUsersModal = ({
 				schoolProfile.classLevels[sessionFilter][classLevelFilter].classes || []
 			);
 			setSubjects(
-				schoolProfile.classLevels[sessionFilter][classLevelFilter].subjects ||
+				(
+					schoolProfile.classLevels[sessionFilter][classLevelFilter].subjects ||
 					[]
+				)
+					.map((subject: any) =>
+						typeof subject === 'string' ? subject : subject?.name,
+					)
+					.filter(Boolean)
 			);
 		} else {
 			setClasses([]);
@@ -128,7 +134,7 @@ const FilterUsersModal = ({
 								className="w-full p-2 border border-border rounded-lg bg-background"
 							>
 								<option value="all">All</option>
-								{classes.map((c) => (
+								{classes.map((c: any) => (
 									<option key={c.classId} value={c.classId}>
 										{c.name}
 									</option>

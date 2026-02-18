@@ -1254,7 +1254,17 @@ export async function GET(request: NextRequest) {
 		const applyStudentPhonePrivacy = (user: any, queryYear: string) => {
 			if (!user || user.role !== 'student') return user;
 			const isCurrentYear = queryYear === currentAcademicYear;
-			return formatStudentData(user, queryYear, isCurrentYear);
+			const formatted = formatStudentData(user, queryYear, isCurrentYear);
+			if (
+				currentUser.role === 'system_admin' ||
+				currentUser.role === 'administrator'
+			) {
+				return {
+					...formatted,
+					username: user.username,
+				};
+			}
+			return formatted;
 		};
 
 		// ========================================================================
