@@ -44,7 +44,7 @@ import {
 
 const API_URL = '/api/users';
 const getManageUsersCacheKey = (academicYear: string) =>
-	`manageUsers:v2:${academicYear}`;
+	`manageUsers:v3:${academicYear}`;
 
 // --- Portal Component for escaping containers ---
 const Portal = ({ children }: { children: React.ReactNode }) => {

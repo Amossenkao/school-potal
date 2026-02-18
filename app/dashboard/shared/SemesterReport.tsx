@@ -110,7 +110,29 @@ const getStudentClassIdForYear = (student: any, academicYear: string) => {
 				areAcademicYearsEqual(ay.year, academicYear),
 		  )
 		: null;
-	return yearEntry?.classId || student?.classId || '';
+	if (yearEntry?.classId) return yearEntry.classId;
+
+	const historicalClassId = String(
+		student?.historicalClass?.classId || '',
+	).trim();
+	const historicalAcademicYear = String(
+		student?.historicalClass?.academicYear || '',
+	).trim();
+	if (
+		historicalClassId &&
+		(!historicalAcademicYear ||
+			areAcademicYearsEqual(historicalAcademicYear, academicYear))
+	) {
+		return historicalClassId;
+	}
+
+	const directClassId = String(student?.classId || '').trim();
+	if (directClassId) return directClassId;
+
+	const currentClassId = String(student?.currentClass?.classId || '').trim();
+	if (currentClassId) return currentClassId;
+
+	return '';
 };
 
 const normalizeStudentId = (...ids: Array<unknown>) => {
@@ -857,7 +879,10 @@ const FilterContent = React.memo(function FilterContent({
 								student._id,
 							),
 							name: resolveStudentDisplayName(student),
-							className: student.classId,
+							className: getStudentClassIdForYear(
+								student,
+								filters.academicYear,
+							),
 						}));
 						setStudents(mappedStudents);
 						setClientCache(cacheKey, mappedStudents, OFFLINE_CACHE_TTL_MS);

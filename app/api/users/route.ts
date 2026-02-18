@@ -1251,20 +1251,34 @@ export async function GET(request: NextRequest) {
 			}
 		};
 
-		const applyStudentPhonePrivacy = (user: any, queryYear: string) => {
+		const applyStudentPhonePrivacy = (
+			user: any,
+			queryYear: string,
+			includeUsername = false,
+		) => {
 			if (!user || user.role !== 'student') return user;
 			const isCurrentYear = queryYear === currentAcademicYear;
 			const formatted = formatStudentData(user, queryYear, isCurrentYear);
-			if (
-				currentUser.role === 'system_admin' ||
-				currentUser.role === 'administrator'
-			) {
+			if (includeUsername) {
 				return {
 					...formatted,
-					username: user.username,
+					username: user.username || user.studentId,
 				};
 			}
 			return formatted;
+		};
+
+		const buildStudentAcademicYearClassFilter = (
+			year: string,
+			classScope?: string | string[],
+		) => {
+			const elemMatch: Record<string, any> = { year };
+			if (Array.isArray(classScope) && classScope.length > 0) {
+				elemMatch.classId = { $in: classScope };
+			} else if (typeof classScope === 'string' && classScope.trim()) {
+				elemMatch.classId = classScope.trim();
+			}
+			return { academicYears: { $elemMatch: elemMatch } };
 		};
 
 		// ========================================================================
@@ -1700,7 +1714,6 @@ export async function GET(request: NextRequest) {
 				// Build filters for students the teacher can access
 				const filters: Record<string, any> = {
 					role: 'student',
-					'academicYears.year': academicYear,
 				};
 
 				// If specific student ID requested
@@ -1710,7 +1723,6 @@ export async function GET(request: NextRequest) {
 
 				// If specific class requested
 				if (classId) {
-					filters.classId = classId;
 					// Verify teacher taught this class in the requested year
 					if (!teacherClassIds.includes(classId)) {
 						return NextResponse.json({
@@ -1719,9 +1731,16 @@ export async function GET(request: NextRequest) {
 							data: [],
 						});
 					}
+					Object.assign(
+						filters,
+						buildStudentAcademicYearClassFilter(academicYear, classId),
+					);
 				} else {
 					// Otherwise, only show students from classes the teacher taught
-					filters.classId = { $in: teacherClassIds };
+					Object.assign(
+						filters,
+						buildStudentAcademicYearClassFilter(academicYear, teacherClassIds),
+					);
 				}
 
 				const students = await models.User.find(filters)
@@ -1798,8 +1817,10 @@ export async function GET(request: NextRequest) {
 						// Students from classes they taught in this year
 						{
 							role: 'student',
-							classId: { $in: teacherClassIds },
-							'academicYears.year': academicYear,
+							...buildStudentAcademicYearClassFilter(
+								academicYear,
+								teacherClassIds,
+							),
 						},
 						// Other teachers who taught in this year
 						{
@@ -1844,8 +1865,7 @@ export async function GET(request: NextRequest) {
 			// --- FETCH ALL (STUDENTS, TEACHERS, ADMINS) ---
 			const students = await models.User.find({
 				role: 'student',
-				classId: { $in: teacherClassIds },
-				'academicYears.year': academicYear,
+				...buildStudentAcademicYearClassFilter(academicYear, teacherClassIds),
 			})
 				.limit(limit)
 				.select('-password -defaultPassword')
@@ -1929,8 +1949,9 @@ export async function GET(request: NextRequest) {
 				filters.role = role;
 			}
 
-			// Apply class filter if provided
-			if (classId) {
+			// Apply class filter if provided.
+			// For students we scope through academicYears in the role-specific filter below.
+			if (classId && role !== 'student') {
 				filters.classId = classId;
 			}
 
@@ -1943,6 +1964,11 @@ export async function GET(request: NextRequest) {
 			if (role) {
 				if (role === 'teacher') {
 					filters['subjects.year'] = academicYear;
+				} else if (role === 'student') {
+					Object.assign(
+						filters,
+						buildStudentAcademicYearClassFilter(academicYear, classId || undefined),
+					);
 				} else {
 					filters['academicYears.year'] = academicYear;
 				}
@@ -1970,9 +1996,9 @@ export async function GET(request: NextRequest) {
 
 			responseData = Array.isArray(responseData)
 				? responseData.map((u: any) =>
-						applyStudentPhonePrivacy(u, academicYear),
+						applyStudentPhonePrivacy(u, academicYear, true),
 					)
-				: applyStudentPhonePrivacy(responseData, academicYear);
+				: applyStudentPhonePrivacy(responseData, academicYear, true);
 
 			let meta;
 			if (includeCounts) {
@@ -2019,8 +2045,9 @@ export async function GET(request: NextRequest) {
 				filters.role = role;
 			}
 
-			// Apply class filter if provided
-			if (classId) {
+			// Apply class filter if provided.
+			// For students we scope through academicYears in the role-specific filter below.
+			if (classId && role !== 'student') {
 				filters.classId = classId;
 			}
 
@@ -2033,6 +2060,11 @@ export async function GET(request: NextRequest) {
 			if (role) {
 				if (role === 'teacher') {
 					filters['subjects.year'] = academicYear;
+				} else if (role === 'student') {
+					Object.assign(
+						filters,
+						buildStudentAcademicYearClassFilter(academicYear, classId || undefined),
+					);
 				} else {
 					filters['academicYears.year'] = academicYear;
 				}
@@ -2060,9 +2092,9 @@ export async function GET(request: NextRequest) {
 
 			responseData = Array.isArray(responseData)
 				? responseData.map((u: any) =>
-						applyStudentPhonePrivacy(u, academicYear),
+						applyStudentPhonePrivacy(u, academicYear, true),
 					)
-				: applyStudentPhonePrivacy(responseData, academicYear);
+				: applyStudentPhonePrivacy(responseData, academicYear, true);
 
 			let meta;
 			if (includeCounts) {

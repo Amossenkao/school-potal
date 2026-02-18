@@ -454,7 +454,29 @@ function FilterContent({
 						areAcademicYearsEqual(ay.year, academicYear),
 				  )
 				: null;
-			return yearEntry?.classId || student?.classId || '';
+			if (yearEntry?.classId) return yearEntry.classId;
+
+			const historicalClassId = String(
+				student?.historicalClass?.classId || '',
+			).trim();
+			const historicalAcademicYear = String(
+				student?.historicalClass?.academicYear || '',
+			).trim();
+			if (
+				historicalClassId &&
+				(!historicalAcademicYear ||
+					areAcademicYearsEqual(historicalAcademicYear, academicYear))
+			) {
+				return historicalClassId;
+			}
+
+			const directClassId = String(student?.classId || '').trim();
+			if (directClassId) return directClassId;
+
+			const currentClassId = String(student?.currentClass?.classId || '').trim();
+			if (currentClassId) return currentClassId;
+
+			return '';
 		},
 		[],
 	);
@@ -601,11 +623,14 @@ function FilterContent({
 							{ merge: true },
 						);
 						const mapped = data.data.map((student: any) => ({
-							id: student.studentId,
+							id: String(student.studentId || student.id || student._id || ''),
 							name: `${student.firstName} ${student.middleName || ''} ${
 								student.lastName
 							}`.trim(),
-							className: student.classId,
+							className: getStudentClassIdForYear(
+								student,
+								filters.academicYear,
+							),
 						}));
 						setStudents(mapped);
 						setClientCache(cacheKey, mapped, OFFLINE_CACHE_TTL_MS);
