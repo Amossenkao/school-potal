@@ -13,7 +13,14 @@ import {
 import type { SchoolProfile } from '@/types/schoolProfile';
 import { buildAcademicYearOptions } from '@/components/dashboard/academicYear';
 import { useSchoolStore } from '@/store/schoolStore';
-import { getScopedAcademicYearValue } from '@/utils/academicYear';
+import {
+	areAcademicYearsEqual,
+	getScopedAcademicYearValue,
+} from '@/utils/academicYear';
+import {
+	getStudentAcademicYears,
+	pickMostRecentAcademicYear,
+} from '@/utils/academicYearOptions';
 
 const PASS_MARK = 70;
 const BAR_CHART_CLASS = 'h-[240px] sm:h-[280px] w-full aspect-auto';
@@ -30,6 +37,7 @@ type StudentPerformanceInsightsProps = {
 	user: {
 		role?: string;
 		studentId?: string;
+		academicYears?: { year?: string | null }[];
 	};
 };
 
@@ -37,13 +45,25 @@ export default function StudentPerformanceInsights({
 	schoolProfile,
 	user,
 }: StudentPerformanceInsightsProps) {
-	const academicYearOptions = useMemo(
-		() => buildAcademicYearOptions(schoolProfile),
-		[schoolProfile],
-	);
+	const academicYearOptions = useMemo(() => {
+		const studentYears = getStudentAcademicYears(user);
+		const schoolYears = buildAcademicYearOptions(schoolProfile).map(
+			(option) => option.value,
+		);
+		const years = studentYears.length > 0 ? studentYears : schoolYears;
+		return years.map((year) => ({ value: year, label: year }));
+	}, [schoolProfile, user]);
 	const currentAcademicYear = schoolProfile.currentAcademicYear || '';
+	const defaultAcademicYear = useMemo(
+		() =>
+			pickMostRecentAcademicYear(
+				academicYearOptions.map((option) => option.value),
+				currentAcademicYear,
+			) || '',
+		[academicYearOptions, currentAcademicYear],
+	);
 	const [selectedYear, setSelectedYear] = useState(
-		currentAcademicYear || academicYearOptions[0]?.value || '',
+		defaultAcademicYear,
 	);
 	const [grades, setGrades] = useState<GradeItem[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
@@ -54,10 +74,13 @@ export default function StudentPerformanceInsights({
 	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 
 	useEffect(() => {
-		if (!selectedYear && academicYearOptions.length > 0) {
-			setSelectedYear(currentAcademicYear || academicYearOptions[0].value);
+		const selectedIsAvailable = academicYearOptions.some((option) =>
+			areAcademicYearsEqual(option.value, selectedYear),
+		);
+		if (!selectedYear || !selectedIsAvailable) {
+			setSelectedYear(defaultAcademicYear);
 		}
-	}, [academicYearOptions, currentAcademicYear, selectedYear]);
+	}, [academicYearOptions, defaultAcademicYear, selectedYear]);
 
 	useEffect(() => {
 		if (!selectedYear) return;
@@ -157,20 +180,22 @@ export default function StudentPerformanceInsights({
 							Academic year: {selectedYear || 'N/A'}
 						</p>
 					</div>
-					<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-						Academic Year
-						<select
-							className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-							value={selectedYear}
-							onChange={(event) => setSelectedYear(event.target.value)}
-						>
-							{academicYearOptions.map((option) => (
-								<option key={option.value} value={option.value}>
-									{option.label}
-								</option>
-							))}
-						</select>
-					</div>
+					{academicYearOptions.length > 1 ? (
+						<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+							Academic Year
+							<select
+								className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+								value={selectedYear}
+								onChange={(event) => setSelectedYear(event.target.value)}
+							>
+								{academicYearOptions.map((option) => (
+									<option key={option.value} value={option.value}>
+										{option.label}
+									</option>
+								))}
+							</select>
+						</div>
+					) : null}
 				</CardHeader>
 				<CardContent>
 					{isLoading ? (

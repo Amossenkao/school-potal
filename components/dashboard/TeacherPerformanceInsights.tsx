@@ -21,6 +21,11 @@ import {
 	areAcademicYearsEqual,
 	getScopedAcademicYearValue,
 } from '@/utils/academicYear';
+import {
+	filterAcademicYearsByAllowed,
+	getTeacherAcademicYears,
+	pickMostRecentAcademicYear,
+} from '@/utils/academicYearOptions';
 
 const PASS_MARK = 70;
 const ALL_PERIODS = [
@@ -69,26 +74,29 @@ export default function TeacherPerformanceInsights({
 	schoolProfile,
 	user,
 }: TeacherPerformanceInsightsProps) {
-	const teacherYears = useMemo(() => {
-		return (user.subjects || []).map((entry) => entry.year).filter(Boolean);
-	}, [user.subjects]);
+	const teacherYears = useMemo(() => getTeacherAcademicYears(user), [user]);
 	const academicYearOptions = useMemo(() => {
-		const base = buildAcademicYearOptions(schoolProfile);
-		if (teacherYears.length === 0) return base;
-		const teacherSet = new Set(teacherYears);
-		const filtered = base.filter((option) => teacherSet.has(option.value));
-		if (filtered.length > 0) return filtered;
-		const parseStart = (value: string) => {
-			const match = value.match(/^(\d{4})/);
-			return match ? Number(match[1]) : 0;
-		};
-		return Array.from(teacherSet)
-			.sort((a, b) => parseStart(b) - parseStart(a))
-			.map((year) => ({ value: year, label: year }));
+		const baseYears = buildAcademicYearOptions(schoolProfile).map(
+			(option) => option.value,
+		);
+		if (teacherYears.length === 0) {
+			return baseYears.map((year) => ({ value: year, label: year }));
+		}
+		const scopedYears = filterAcademicYearsByAllowed(teacherYears, baseYears);
+		const years = scopedYears.length > 0 ? scopedYears : teacherYears;
+		return years.map((year) => ({ value: year, label: year }));
 	}, [schoolProfile, teacherYears]);
 	const currentAcademicYear = schoolProfile.currentAcademicYear || '';
+	const defaultAcademicYear = useMemo(
+		() =>
+			pickMostRecentAcademicYear(
+				academicYearOptions.map((option) => option.value),
+				currentAcademicYear,
+			) || '',
+		[academicYearOptions, currentAcademicYear],
+	);
 	const [selectedYear, setSelectedYear] = useState(
-		currentAcademicYear || academicYearOptions[0]?.value || '',
+		defaultAcademicYear,
 	);
 	const [selectedClassId, setSelectedClassId] = useState('all');
 	const [selectedSubject, setSelectedSubject] = useState('all');
@@ -103,22 +111,13 @@ export default function TeacherPerformanceInsights({
 	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 
 	useEffect(() => {
-		if (!selectedYear && academicYearOptions.length > 0) {
-			setSelectedYear(currentAcademicYear || academicYearOptions[0].value);
-			return;
+		const selectedIsAvailable = academicYearOptions.some((option) =>
+			areAcademicYearsEqual(option.value, selectedYear),
+		);
+		if (!selectedYear || !selectedIsAvailable) {
+			setSelectedYear(defaultAcademicYear);
 		}
-		if (
-			selectedYear &&
-			academicYearOptions.length > 0 &&
-			!academicYearOptions.some((option) => option.value === selectedYear)
-		) {
-			const fallback =
-				academicYearOptions.find(
-					(option) => option.value === currentAcademicYear,
-				)?.value || academicYearOptions[0].value;
-			setSelectedYear(fallback);
-		}
-	}, [academicYearOptions, currentAcademicYear, selectedYear]);
+	}, [academicYearOptions, defaultAcademicYear, selectedYear]);
 
 	const yearData = useMemo(() => {
 		return user.subjects?.find((entry) =>

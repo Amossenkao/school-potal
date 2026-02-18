@@ -25,7 +25,16 @@ import {
 	setClientCache,
 	clearClientCache,
 } from '@/utils/clientCache';
-import { getScopedAcademicYearValue } from '@/utils/academicYear';
+import {
+	areAcademicYearsEqual,
+	getScopedAcademicYearValue,
+} from '@/utils/academicYear';
+import {
+	filterAcademicYearsByAllowed,
+	getTeacherAcademicYears,
+	pickMostRecentAcademicYear,
+	sortAcademicYearsDesc,
+} from '@/utils/academicYearOptions';
 
 // Types
 interface StudentGrade {
@@ -216,6 +225,22 @@ const GradeSubmissions = () => {
 			: `${currentYear - 1}-${currentYear}`;
 	};
 
+	const teacherYears = useMemo(
+		() => getTeacherAcademicYears(teacherInfo),
+		[teacherInfo],
+	);
+
+	const availableAcademicYears = useMemo(() => {
+		const allowed = sortAcademicYearsDesc(
+			school?.settings?.teacherSettings?.gradeSubmissionAcademicYears || [
+				schoolAcademicYear || getAcademicYear(),
+			],
+		);
+		if (teacherYears.length === 0) return allowed;
+		const scopedYears = filterAcademicYearsByAllowed(teacherYears, allowed);
+		return scopedYears.length > 0 ? scopedYears : teacherYears;
+	}, [school, schoolAcademicYear, teacherYears]);
+
 	const processSubmittedGrades = useCallback(
 		(grades: any[]) => {
 			const submissionsMap = new Map<string, any>();
@@ -376,7 +401,6 @@ const GradeSubmissions = () => {
 			if (user && user.role === 'teacher') {
 				setTeacherInfo(user as TeacherInfo);
 			}
-			setAcademicYear(schoolAcademicYear || getAcademicYear());
 			setError((prev) => ({ ...prev, teacherInfo: '' }));
 		} catch (err) {
 			setError((prev) => ({
@@ -387,7 +411,22 @@ const GradeSubmissions = () => {
 		} finally {
 			setLoading((prev) => ({ ...prev, teacherInfo: false }));
 		}
-	}, [user, schoolAcademicYear]);
+	}, [user]);
+
+	useEffect(() => {
+		if (!teacherInfo) return;
+		const defaultAcademicYear =
+			pickMostRecentAcademicYear(
+				availableAcademicYears,
+				schoolAcademicYear || getAcademicYear(),
+			) || '';
+		const selectedIsAvailable = availableAcademicYears.some((year) =>
+			areAcademicYearsEqual(year, academicYear),
+		);
+		if (!academicYear || !selectedIsAvailable) {
+			setAcademicYear(defaultAcademicYear);
+		}
+	}, [teacherInfo, availableAcademicYears, schoolAcademicYear, academicYear]);
 
 	useEffect(() => {
 		if (!teacherInfo || !academicYear) return;
@@ -427,7 +466,7 @@ const GradeSubmissions = () => {
 
 	const yearAssignment = useMemo(() => {
 		return (teacherInfo?.subjects || []).find(
-			(entry) => entry.year === academicYear
+			(entry) => areAcademicYearsEqual(entry.year, academicYear)
 		);
 	}, [teacherInfo, academicYear]);
 
@@ -491,6 +530,7 @@ const GradeSubmissions = () => {
 		});
 	}, [assignedClasses, filters.session, filters.gradeLevel, filters.subject, yearAssignment]);
 
+	const showAcademicYearFilter = availableAcademicYears.length > 1;
 	const showClassFilter = assignedClasses.length > 1;
 
 	const showNotification = (
@@ -1457,6 +1497,20 @@ const GradeSubmissions = () => {
 							<Plus className="h-4 w-4" />
 							Submit New Grades
 						</Button>
+
+						{showAcademicYearFilter && (
+							<select
+								value={academicYear}
+								onChange={(e) => setAcademicYear(e.target.value)}
+								className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
+							>
+								{availableAcademicYears.map((year) => (
+									<option key={year} value={year}>
+										{year}
+									</option>
+								))}
+							</select>
+						)}
 
 						{availableSessions.length > 1 && (
 							<select

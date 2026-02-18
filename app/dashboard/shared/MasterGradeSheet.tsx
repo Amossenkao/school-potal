@@ -10,6 +10,12 @@ import {
 	getScopedAcademicYearValue,
 	normalizeAcademicYear as normalizeAcademicYearValue,
 } from '@/utils/academicYear';
+import {
+	buildSchoolAcademicYearRange,
+	getTeacherAcademicYears,
+	pickCurrentOrMostRecentAcademicYear,
+	pickMostRecentAcademicYear,
+} from '@/utils/academicYearOptions';
 
 // Types
 interface Student {
@@ -93,6 +99,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const gradesByAcademicYearRef = useRef(gradesByAcademicYear);
 	const { isOnline } = useNetworkStore();
 	const effectiveUser = teacherInfo || userInfo;
+	const schoolCurrentAcademicYear =
+		currentSchool?.currentAcademicYear || currentAcademicYear;
 
 	useEffect(() => {
 		usersByAcademicYearRef.current = usersByAcademicYear;
@@ -191,27 +199,38 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 	// -- Academic Years --
 	const availableAcademicYears = useMemo(() => {
-		const schoolYears =
-			currentSchool?.settings?.teacherSettings?.viewMastersAcademicYears ||
-			(currentSchool?.firstAcademicYear
-				? [currentSchool.firstAcademicYear]
-				: []);
+		const schoolYears = buildSchoolAcademicYearRange(currentSchool);
 		if (effectiveUser?.role !== 'teacher') return schoolYears;
-		const teacherYears =
-			effectiveUser?.subjects?.map((s) => s.year).filter(Boolean) || [];
-		return schoolYears.filter((year) =>
-			teacherYears.some((teacherYear) =>
-				areAcademicYearsEqual(teacherYear, year),
-			),
+		const teacherYears = getTeacherAcademicYears(effectiveUser);
+		const scopedYears = teacherYears.filter((year) =>
+			schoolYears.some((schoolYear) => areAcademicYearsEqual(schoolYear, year)),
 		);
+		return scopedYears.length > 0 ? scopedYears : teacherYears;
 	}, [currentSchool, effectiveUser]);
 
 	const normalizeAcademicYear = (value?: string) => {
 		return normalizeAcademicYearValue(value);
 	};
 
+	const defaultAcademicYear = useMemo(() => {
+		if (effectiveUser?.role === 'teacher') {
+			return (
+				pickMostRecentAcademicYear(
+					availableAcademicYears,
+					schoolCurrentAcademicYear,
+				) || ''
+			);
+		}
+		return (
+			pickCurrentOrMostRecentAcademicYear(
+				availableAcademicYears,
+				schoolCurrentAcademicYear,
+			) || ''
+		);
+	}, [availableAcademicYears, schoolCurrentAcademicYear, effectiveUser?.role]);
+
 	const [selectedAcademicYear, setSelectedAcademicYear] = useState(
-		normalizeAcademicYear(currentAcademicYear)
+		normalizeAcademicYear(defaultAcademicYear)
 	);
 	const [selectedSession, setSelectedSession] = useState('');
 	const [selectedLevel, setSelectedLevel] = useState('');
@@ -221,16 +240,11 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const resolvedTeacher = useMemo(() => {
 		if (!selectedClass || !selectedSubject) return effectiveUser;
 		const yearKey = selectedAcademicYear;
-		const fallbackYearKey = currentAcademicYear;
 		const scopedUsers = getScopedAcademicYearValue(
 			usersByAcademicYear,
 			yearKey,
 		).value;
-		const fallbackUsers = getScopedAcademicYearValue(
-			usersByAcademicYear,
-			fallbackYearKey,
-		).value;
-		const yearTeachers = scopedUsers?.teachers || fallbackUsers?.teachers || [];
+		const yearTeachers = scopedUsers?.teachers || [];
 		const matchesYear = (year?: string) =>
 			areAcademicYearsEqual(year, selectedAcademicYear);
 		const match = yearTeachers.find((teacher: any) =>
@@ -249,7 +263,6 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	}, [
 		usersByAcademicYear,
 		selectedAcademicYear,
-		currentAcademicYear,
 		selectedClass,
 		selectedSubject,
 		effectiveUser,
@@ -296,17 +309,13 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 	// --- Auto-select and hide filter logic (per role) ---
 	useEffect(() => {
-		if (availableAcademicYears.length === 1)
-			setSelectedAcademicYear(normalizeAcademicYear(availableAcademicYears[0]));
-		else if (
-			!availableAcademicYears.some(
-				(year) =>
-					normalizeAcademicYear(year) ===
-					normalizeAcademicYear(selectedAcademicYear)
-			)
-		)
-			setSelectedAcademicYear(normalizeAcademicYear(availableAcademicYears[0]) || '');
-	}, [availableAcademicYears, selectedAcademicYear]);
+		const isSelectedYearAvailable = availableAcademicYears.some((year) =>
+			areAcademicYearsEqual(year, selectedAcademicYear),
+		);
+		if (!selectedAcademicYear || !isSelectedYearAvailable) {
+			setSelectedAcademicYear(normalizeAcademicYear(defaultAcademicYear));
+		}
+	}, [availableAcademicYears, defaultAcademicYear, selectedAcademicYear]);
 
 	useEffect(() => {
 		if (sessions.length === 1) setSelectedSession(sessions[0]);
@@ -421,21 +430,14 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				setError((prev) => ({ ...prev, students: '' }));
 				try {
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
-					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
 					const usersByYear = usersByAcademicYearRef.current || {};
 					const scopedUsers = getScopedAcademicYearValue(
 						usersByYear,
 						normalizedYear,
 					).value;
-					const fallbackUsers = getScopedAcademicYearValue(
-						usersByYear,
-						fallbackYear,
-					).value;
 					const cachedUsers = Array.isArray(scopedUsers?.students)
 						? scopedUsers.students
-						: Array.isArray(fallbackUsers?.students)
-							? fallbackUsers.students
-							: [];
+						: [];
 
 					if (cachedUsers.length > 0) {
 						const students = cachedUsers
@@ -479,21 +481,14 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					}
 				} catch (err) {
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
-					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
 					const usersByYear = usersByAcademicYearRef.current || {};
 					const scopedUsers = getScopedAcademicYearValue(
 						usersByYear,
 						normalizedYear,
 					).value;
-					const fallbackUsers = getScopedAcademicYearValue(
-						usersByYear,
-						fallbackYear,
-					).value;
 					const cachedUsers = Array.isArray(scopedUsers?.students)
 						? scopedUsers.students
-						: Array.isArray(fallbackUsers?.students)
-							? fallbackUsers.students
-							: [];
+						: [];
 					if (cachedUsers.length > 0) {
 						const students = cachedUsers
 							.filter(
@@ -528,7 +523,6 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		selectedAcademicYear,
 		selectedClass,
 		isOnline,
-		currentAcademicYear,
 		usersByAcademicYear,
 	]);
 
@@ -538,21 +532,14 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				setError((prev) => ({ ...prev, grades: '' }));
 				try {
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
-					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
 					const gradesByYear = gradesByAcademicYearRef.current || {};
 					const scopedGrades = getScopedAcademicYearValue(
 						gradesByYear,
 						normalizedYear,
 					).value;
-					const fallbackGrades = getScopedAcademicYearValue(
-						gradesByYear,
-						fallbackYear,
-					).value;
 					const cachedGrades = Array.isArray(scopedGrades)
 						? scopedGrades
-						: Array.isArray(fallbackGrades)
-							? fallbackGrades
-							: [];
+						: [];
 
 					if (cachedGrades.length > 0) {
 						const filtered = cachedGrades.filter(
@@ -589,21 +576,14 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					}
 				} catch (err) {
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
-					const fallbackYear = normalizeAcademicYear(currentAcademicYear);
 					const gradesByYear = gradesByAcademicYearRef.current || {};
 					const scopedGrades = getScopedAcademicYearValue(
 						gradesByYear,
 						normalizedYear,
 					).value;
-					const fallbackGrades = getScopedAcademicYearValue(
-						gradesByYear,
-						fallbackYear,
-					).value;
 					const cachedGrades = Array.isArray(scopedGrades)
 						? scopedGrades
-						: Array.isArray(fallbackGrades)
-							? fallbackGrades
-							: [];
+						: [];
 					if (cachedGrades.length > 0) {
 						const filtered = cachedGrades.filter(
 							(grade: any) =>
@@ -632,7 +612,6 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		selectedClass,
 		selectedSubject,
 		isOnline,
-		currentAcademicYear,
 		gradesByAcademicYear,
 	]);
 
@@ -811,7 +790,6 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 								onChange={(e) => handleAcademicYearChange(e.target.value)}
 								className="mt-1 block w-full rounded-md border-input bg-background py-2 pl-3 pr-10 text-base focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
 							>
-								<option value="">Select Year</option>
 								{availableAcademicYears.map((year) => (
 									<option key={year} value={year}>
 										{year}

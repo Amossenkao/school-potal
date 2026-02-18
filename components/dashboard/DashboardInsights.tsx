@@ -21,7 +21,6 @@ import {
 } from '@/components/ui/chart';
 import type { SchoolProfile } from '@/types/schoolProfile';
 import {
-	buildAcademicYearOptions,
 	getClassLevelLabel,
 } from '@/components/dashboard/academicYear';
 import { useSchoolStore } from '@/store/schoolStore';
@@ -29,6 +28,13 @@ import {
 	areAcademicYearsEqual,
 	getScopedAcademicYearValue,
 } from '@/utils/academicYear';
+import {
+	buildSchoolAcademicYearRange,
+	getStudentAcademicYears,
+	getTeacherAcademicYears,
+	pickCurrentOrMostRecentAcademicYear,
+	pickMostRecentAcademicYear,
+} from '@/utils/academicYearOptions';
 
 type DashboardInsightsProps = {
 	schoolProfile: SchoolProfile;
@@ -40,6 +46,7 @@ type DashboardInsightsProps = {
 		className?: string;
 		historicalClass?: { classId?: string; className?: string };
 		currentClass?: { classId?: string; className?: string };
+		academicYears?: { year?: string | null }[];
 		subjects?: {
 			year: string;
 			classes: { classId: string; subjects: string[] }[];
@@ -123,10 +130,29 @@ export default function DashboardInsights({
 	onYearChange,
 	showYearSelector = true,
 }: DashboardInsightsProps) {
-	const academicYearOptions = useMemo(
-		() => buildAcademicYearOptions(schoolProfile),
-		[schoolProfile],
-	);
+	const role = user?.role || 'student';
+	const academicYearOptions = useMemo(() => {
+		const schoolYears = buildSchoolAcademicYearRange(schoolProfile);
+		if (role === 'student') {
+			const studentYears = getStudentAcademicYears(user);
+			const years = studentYears.length > 0 ? studentYears : schoolYears;
+			return years.map((year) => ({ value: year, label: year }));
+		}
+		if (role === 'teacher') {
+			const teacherYears = getTeacherAcademicYears(user);
+			const scopedYears = teacherYears.filter((year) =>
+				schoolYears.some((schoolYear) => areAcademicYearsEqual(schoolYear, year)),
+			);
+			const years =
+				scopedYears.length > 0
+					? scopedYears
+					: teacherYears.length > 0
+						? teacherYears
+						: schoolYears;
+			return years.map((year) => ({ value: year, label: year }));
+		}
+		return schoolYears.map((year) => ({ value: year, label: year }));
+	}, [schoolProfile, user, role]);
 
 	const baseClassOptions = useMemo(() => {
 		const options: Option[] = [];
@@ -147,9 +173,18 @@ export default function DashboardInsights({
 	}, [schoolProfile]);
 
 	const currentAcademicYear = schoolProfile.currentAcademicYear || '';
+	const defaultAcademicYear = useMemo(() => {
+		const years = academicYearOptions.map((option) => option.value);
+		if (role === 'student' || role === 'teacher') {
+			return pickMostRecentAcademicYear(years, currentAcademicYear) || '';
+		}
+		return (
+			pickCurrentOrMostRecentAcademicYear(years, currentAcademicYear) || ''
+		);
+	}, [academicYearOptions, currentAcademicYear, role]);
 	const isYearControlled = typeof selectedYearProp === 'string';
 	const [internalYear, setInternalYear] = useState(
-		currentAcademicYear || academicYearOptions[0]?.value || '',
+		defaultAcademicYear,
 	);
 	const selectedYear = isYearControlled ? selectedYearProp || '' : internalYear;
 	const setSelectedYear = isYearControlled
@@ -162,8 +197,6 @@ export default function DashboardInsights({
 	const [errorMessage, setErrorMessage] = useState('');
 	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
 	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
-
-	const role = user?.role || 'student';
 	const teacherClassIds = useMemo(() => {
 		if (role !== 'teacher') return [];
 		const relevantSubjects = user?.subjects?.filter((subject) =>
@@ -199,12 +232,13 @@ export default function DashboardInsights({
 
 	useEffect(() => {
 		if (isYearControlled) return;
-		if (!internalYear && academicYearOptions.length > 0) {
-			const nextYear =
-				currentAcademicYear || academicYearOptions[0].value || '';
-			setInternalYear(nextYear);
+		const selectedIsAvailable = academicYearOptions.some((option) =>
+			areAcademicYearsEqual(option.value, internalYear),
+		);
+		if (!internalYear || !selectedIsAvailable) {
+			setInternalYear(defaultAcademicYear);
 		}
-	}, [academicYearOptions, internalYear, currentAcademicYear, isYearControlled]);
+	}, [academicYearOptions, internalYear, defaultAcademicYear, isYearControlled]);
 
 	useEffect(() => {
 		if (role === 'student') {
@@ -472,7 +506,7 @@ export default function DashboardInsights({
 						</p>
 					</div>
 					<div className="flex flex-wrap gap-3">
-						{showYearSelector ? (
+						{showYearSelector && academicYearOptions.length > 1 ? (
 							<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
 								Academic Year
 								<select

@@ -25,6 +25,13 @@ import {
 	areAcademicYearsEqual,
 	getScopedAcademicYearValue,
 } from '@/utils/academicYear';
+import {
+	buildSchoolAcademicYearRange,
+	getStudentAcademicYears,
+	getTeacherAcademicYears,
+	pickCurrentOrMostRecentAcademicYear,
+	pickMostRecentAcademicYear,
+} from '@/utils/academicYearOptions';
 
 const InlineLoading = ({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) => (
 	<div className="-m-8">
@@ -80,12 +87,6 @@ const periodOptions = [
 	},
 ];
 
-const academicYearOptions = [
-	'2025-2026',
-	'2024-2025',
-	'2023-2024',
-	'2022-2023',
-];
 const OFFLINE_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 type LinkValidityOption = '1d' | '2d' | '3d' | '1w' | '1m';
 const LINK_VALIDITY_OPTIONS: Array<{ value: LinkValidityOption; label: string }> =
@@ -432,6 +433,7 @@ function FilterContent({
 
 	const isStudent = user?.role === 'student';
 	const isSystemAdmin = user?.role === 'system_admin';
+	const isAdministrator = user?.role === 'administrator';
 	const getStudentClassIdForYear = useCallback(
 		(student: any, academicYear: string) => {
 			const yearEntry = Array.isArray(student?.academicYears)
@@ -443,6 +445,44 @@ function FilterContent({
 		},
 		[],
 	);
+	const academicYearOptions = useMemo(() => {
+		const schoolYears = buildSchoolAcademicYearRange(school);
+		if (isStudent) {
+			const studentYears = getStudentAcademicYears(user);
+			return studentYears.length > 0 ? studentYears : schoolYears;
+		}
+		if (isSystemAdmin || isAdministrator) {
+			return schoolYears;
+		}
+		if (user?.role === 'teacher') {
+			const teacherYears = getTeacherAcademicYears(user);
+			const scopedYears = teacherYears.filter((year) =>
+				schoolYears.some((schoolYear) =>
+					areAcademicYearsEqual(schoolYear, year),
+				),
+			);
+			return scopedYears.length > 0 ? scopedYears : teacherYears;
+		}
+		return schoolYears;
+	}, [school, isStudent, isSystemAdmin, isAdministrator, user]);
+	const defaultAcademicYear = useMemo(() => {
+		const schoolCurrentAcademicYear =
+			school?.currentAcademicYear || getCurrentAcademicYear();
+		if (isStudent) {
+			return (
+				pickMostRecentAcademicYear(
+					academicYearOptions,
+					schoolCurrentAcademicYear,
+				) || schoolCurrentAcademicYear
+			);
+		}
+		return (
+			pickCurrentOrMostRecentAcademicYear(
+				academicYearOptions,
+				schoolCurrentAcademicYear,
+			) || schoolCurrentAcademicYear
+		);
+	}, [academicYearOptions, isStudent, school?.currentAcademicYear]);
 
 	// Determine available sessions from the new structure
 	const availableSessions = useMemo(
@@ -584,15 +624,18 @@ function FilterContent({
 		getStudentClassIdForYear,
 	]);
 
-	// Set default academic year on component mount
+	// Keep selected year valid and default by role.
 	useEffect(() => {
-		if (!filters.academicYear) {
+		const isSelectedYearAvailable = academicYearOptions.some((year) =>
+			areAcademicYearsEqual(year, filters.academicYear),
+		);
+		if (!filters.academicYear || !isSelectedYearAvailable) {
 			setFilters((prev) => ({
 				...prev,
-				academicYear: getCurrentAcademicYear(),
+				academicYear: defaultAcademicYear,
 			}));
 		}
-	}, [filters.academicYear, setFilters]);
+	}, [filters.academicYear, academicYearOptions, defaultAcademicYear, setFilters]);
 
 	// Auto-populate student's information if user is a student
 	useEffect(() => {
@@ -604,7 +647,10 @@ function FilterContent({
 			: null;
 		const classIdForYear =
 			yearEntry?.classId ||
-			(areAcademicYearsEqual(filters.academicYear, getCurrentAcademicYear())
+			(areAcademicYearsEqual(
+				filters.academicYear,
+				school?.currentAcademicYear || getCurrentAcademicYear(),
+			)
 				? user.classId || ''
 				: '');
 		const classMeta = getClassMetaById(school?.classLevels, classIdForYear);
@@ -685,30 +731,31 @@ function FilterContent({
 		return (
 			<div className="flex flex-col items-center justify-center min-h-[60vh] py-10 bg-background text-foreground">
 				<div className="bg-card rounded-lg shadow border border-border w-full max-w-md p-6">
-					{/* Academic Year - Always shown */}
-					<div className="mb-4">
-						<label className="block text-sm font-medium mb-1">
-							Academic Year
-						</label>
-						<select
-							value={filters.academicYear}
-							onChange={(e) =>
-								setFilters((f) => ({
-									...f,
-									academicYear: e.target.value,
-									period: '', // Reset period when year changes
-								}))
-							}
-							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-						>
-							<option value="">Select Academic Year</option>
-							{academicYearOptions.map((year) => (
-								<option key={year} value={year}>
-									{year}
-								</option>
-							))}
-						</select>
-					</div>
+					{academicYearOptions.length > 1 && (
+						<div className="mb-4">
+							<label className="block text-sm font-medium mb-1">
+								Academic Year
+							</label>
+							<select
+								value={filters.academicYear}
+								onChange={(e) =>
+									setFilters((f) => ({
+										...f,
+										academicYear: e.target.value,
+										period: '', // Reset period when year changes
+									}))
+								}
+								className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+							>
+								<option value="">Select Academic Year</option>
+								{academicYearOptions.map((year) => (
+									<option key={year} value={year}>
+										{year}
+									</option>
+								))}
+							</select>
+						</div>
+					)}
 
 					{/* Period - Always shown */}
 					<div className="mb-4">
@@ -736,7 +783,7 @@ function FilterContent({
 								if (isStudent && user) {
 									// For students, reset but keep auto-populated info
 									setFilters({
-										academicYear: getCurrentAcademicYear(),
+										academicYear: defaultAcademicYear,
 										period: '',
 										session: user.session || '',
 										gradeLevel: user.gradeLevel || '',
@@ -766,33 +813,34 @@ function FilterContent({
 	return (
 		<div className="flex flex-col items-center justify-center min-h-[60vh] py-10 bg-background text-foreground">
 			<div className="bg-card rounded-lg shadow border border-border w-full max-w-md p-6">
-				{/* Academic Year - Always shown */}
-				<div className="mb-4">
-					<label className="block text-sm font-medium mb-1">
-						Academic Year
-					</label>
-					<select
-						value={filters.academicYear}
-						onChange={(e) =>
-							setFilters((f) => ({
-								...f,
-								academicYear: e.target.value,
-								session: '',
-								gradeLevel: '',
-								className: '',
-								selectedStudents: [],
-							}))
-						}
-						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-					>
-						<option value="">Select Academic Year</option>
-						{academicYearOptions.map((year) => (
-							<option key={year} value={year}>
-								{year}
-							</option>
-						))}
-					</select>
-				</div>
+				{academicYearOptions.length > 1 && (
+					<div className="mb-4">
+						<label className="block text-sm font-medium mb-1">
+							Academic Year
+						</label>
+						<select
+							value={filters.academicYear}
+							onChange={(e) =>
+								setFilters((f) => ({
+									...f,
+									academicYear: e.target.value,
+									session: '',
+									gradeLevel: '',
+									className: '',
+									selectedStudents: [],
+								}))
+							}
+							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+						>
+							<option value="">Select Academic Year</option>
+							{academicYearOptions.map((year) => (
+								<option key={year} value={year}>
+									{year}
+								</option>
+							))}
+						</select>
+					</div>
+				)}
 
 				{/* Period - Always shown */}
 				<div className="mb-4">
@@ -927,7 +975,7 @@ function FilterContent({
 						onClick={() => {
 							// For system_admin, reset everything
 							setFilters({
-								academicYear: getCurrentAcademicYear(),
+								academicYear: defaultAcademicYear,
 								period: '',
 								session: '',
 								gradeLevel: '',

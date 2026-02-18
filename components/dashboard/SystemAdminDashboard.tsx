@@ -7,6 +7,8 @@ import { buildAcademicYearOptions } from '@/components/dashboard/academicYear';
 import DashboardInsights from '@/components/dashboard/DashboardInsights';
 import AdminPerformance from '@/components/dashboard/AdminPerformance';
 import AdminEnrollment from '@/components/dashboard/AdminEnrollment';
+import { areAcademicYearsEqual } from '@/utils/academicYear';
+import { pickCurrentOrMostRecentAcademicYear } from '@/utils/academicYearOptions';
 
 interface SystemAdminDashboardProps {
 	schoolProfile: SchoolProfile;
@@ -22,15 +24,27 @@ export default function SystemAdminDashboard({
 		[schoolProfile],
 	);
 	const currentAcademicYear = schoolProfile.currentAcademicYear || '';
-	const [selectedYear, setSelectedYear] = useState(
-		currentAcademicYear || academicYearOptions[0]?.value || '',
+	const defaultAcademicYear = useMemo(
+		() =>
+			pickCurrentOrMostRecentAcademicYear(
+				academicYearOptions.map((option) => option.value),
+				currentAcademicYear,
+			) || '',
+		[academicYearOptions, currentAcademicYear],
 	);
+	const [selectedYear, setSelectedYear] = useState(
+		defaultAcademicYear,
+	);
+	const showAcademicYearSelector = academicYearOptions.length > 1;
 
 	useEffect(() => {
-		if (!selectedYear && academicYearOptions.length > 0) {
-			setSelectedYear(currentAcademicYear || academicYearOptions[0].value);
+		const selectedIsAvailable = academicYearOptions.some((option) =>
+			areAcademicYearsEqual(option.value, selectedYear),
+		);
+		if (!selectedYear || !selectedIsAvailable) {
+			setSelectedYear(defaultAcademicYear);
 		}
-	}, [academicYearOptions, currentAcademicYear, selectedYear]);
+	}, [academicYearOptions, defaultAcademicYear, selectedYear]);
 
 	return (
 		<div className="space-y-6">
@@ -41,20 +55,22 @@ export default function SystemAdminDashboard({
 						Academic year: {selectedYear || 'N/A'}
 					</p>
 				</div>
-				<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-					Academic Year
-					<select
-						className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-						value={selectedYear}
-						onChange={(event) => setSelectedYear(event.target.value)}
-					>
-						{academicYearOptions.map((option) => (
-							<option key={option.value} value={option.value}>
-								{option.label}
-							</option>
-						))}
-					</select>
-				</div>
+				{showAcademicYearSelector ? (
+					<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+						Academic Year
+						<select
+							className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+							value={selectedYear}
+							onChange={(event) => setSelectedYear(event.target.value)}
+						>
+							{academicYearOptions.map((option) => (
+								<option key={option.value} value={option.value}>
+									{option.label}
+								</option>
+							))}
+						</select>
+					</div>
+				) : null}
 			</div>
 
 			<Tabs defaultValue="insights" className="w-full">

@@ -35,6 +35,10 @@ import { useNetworkStore } from '@/store/networkStore';
 import { useSchoolStore } from '@/store/schoolStore';
 import { PageLoading } from '@/components/loading';
 import { getScopedAcademicYearValue } from '@/utils/academicYear';
+import {
+	buildSchoolAcademicYearRange,
+	pickCurrentOrMostRecentAcademicYear,
+} from '@/utils/academicYearOptions';
 
 // Types
 interface StudentGrade {
@@ -109,13 +113,20 @@ const normalizeAcademicYear = (value?: string) =>
 const AdminGradeManagement: React.FC = () => {
 	const currentSchool = useSchoolStore((state) => state.school);
 	const currentAcademicYear = currentSchool?.currentAcademicYear || '';
+	const academicYearOptions = useMemo(
+		() => buildSchoolAcademicYearRange(currentSchool),
+		[currentSchool],
+	);
 	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
 	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
+	const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>(
+		currentAcademicYear || academicYearOptions[0] || '',
+	);
 	const scopedGrades = useSchoolStore(
 		(state) =>
 			getScopedAcademicYearValue(
 				state.gradesByAcademicYear,
-				currentAcademicYear,
+				selectedAcademicYear,
 			).value
 	);
 	// Data states
@@ -159,6 +170,20 @@ const AdminGradeManagement: React.FC = () => {
 		period: '',
 		status: 'All',
 	});
+
+	useEffect(() => {
+		const defaultAcademicYear =
+			pickCurrentOrMostRecentAcademicYear(
+				academicYearOptions,
+				currentAcademicYear,
+			) || '';
+		const selectedIsAvailable = academicYearOptions.some(
+			(year) => normalizeAcademicYear(year) === normalizeAcademicYear(selectedAcademicYear),
+		);
+		if (!selectedAcademicYear || !selectedIsAvailable) {
+			setSelectedAcademicYear(defaultAcademicYear);
+		}
+	}, [academicYearOptions, currentAcademicYear, selectedAcademicYear]);
 
 	const getTeacherDisplayName = (teacher: any) => {
 		if (!teacher) return '';
@@ -322,7 +347,7 @@ const AdminGradeManagement: React.FC = () => {
 
 	// Fetch and process grade data
 	const fetchGrades = async (forceRefresh = false) => {
-		if (!currentAcademicYear) {
+		if (!selectedAcademicYear) {
 			setSubmissions([]);
 			setLoading(false);
 			return;
@@ -331,7 +356,7 @@ const AdminGradeManagement: React.FC = () => {
 		const cachedByYear = schoolState.gradesByAcademicYear || {};
 		const scopedStoreSnapshot = getScopedAcademicYearValue(
 			cachedByYear,
-			currentAcademicYear,
+			selectedAcademicYear,
 		);
 		const hasYearSnapshot = Boolean(scopedStoreSnapshot.key);
 		const cachedGrades = Array.isArray(scopedStoreSnapshot.value)
@@ -347,7 +372,9 @@ const AdminGradeManagement: React.FC = () => {
 			}
 			setLoading(true);
 			setError('');
-			const response = await fetch(`/api/grades?academicYear=${currentAcademicYear}`);
+			const response = await fetch(
+				`/api/grades?academicYear=${selectedAcademicYear}`,
+			);
 			if (!response.ok) {
 				throw new Error(`HTTP error! status: ${response.status}`);
 			}
@@ -358,7 +385,7 @@ const AdminGradeManagement: React.FC = () => {
 					? data.data.grades
 					: [];
 			setSubmissions(transformRawGrades(rawGrades));
-			setGradesForYear(currentAcademicYear, rawGrades);
+			setGradesForYear(selectedAcademicYear, rawGrades);
 		} catch (err) {
 			console.error('Error fetching grades:', err);
 			if (submissions.length === 0) {
@@ -372,7 +399,7 @@ const AdminGradeManagement: React.FC = () => {
 	useEffect(() => {
 		void fetchGrades();
 		// Fetch on academic-year context change; store updates should not retrigger.
-	}, [currentAcademicYear]);
+	}, [selectedAcademicYear]);
 
 	useEffect(() => {
 		if (!Array.isArray(scopedGrades)) return;
@@ -380,6 +407,13 @@ const AdminGradeManagement: React.FC = () => {
 		setLoading(false);
 		setError('');
 	}, [scopedGrades]);
+
+	useEffect(() => {
+		setSelectedSubmissions(new Set());
+		setSelectedStudents(new Set());
+		setSelectedSubmission(null);
+		setCurrentPage(1);
+	}, [selectedAcademicYear]);
 
 	const inferSubmissionStatus = (
 		grades: StudentGrade[]
@@ -457,11 +491,11 @@ const AdminGradeManagement: React.FC = () => {
 			}
 		}
 
-		if (!currentAcademicYear) return;
+		if (!selectedAcademicYear) return;
 		const schoolState = useSchoolStore.getState();
 		const scopedStoreSnapshot = getScopedAcademicYearValue(
 			schoolState.gradesByAcademicYear || {},
-			currentAcademicYear,
+			selectedAcademicYear,
 		);
 		const rawGrades = Array.isArray(scopedStoreSnapshot.value)
 			? (scopedStoreSnapshot.value as RawGradeData[])
@@ -479,7 +513,7 @@ const AdminGradeManagement: React.FC = () => {
 				lastUpdated: nowIso,
 			};
 		});
-		setGradesForYear(currentAcademicYear, nextRawGrades);
+		setGradesForYear(selectedAcademicYear, nextRawGrades);
 	};
 
 	// API interaction handlers
@@ -1056,7 +1090,8 @@ const AdminGradeManagement: React.FC = () => {
 								Grade Submissions Management
 							</h2>
 							<p className="text-muted-foreground mt-1">
-								Review and manage grade submissions from all teachers
+								Review and manage grade submissions from all teachers.
+								{selectedAcademicYear ? ` Academic year: ${selectedAcademicYear}` : ''}
 							</p>
 						</div>
 							<button
@@ -1095,6 +1130,19 @@ const AdminGradeManagement: React.FC = () => {
 								className="pl-8 w-full rounded-md border-input bg-background shadow-sm focus:ring-primary focus:border-primary p-2 text-sm"
 							/>
 						</div>
+						{academicYearOptions.length > 1 && (
+							<select
+								value={selectedAcademicYear}
+								onChange={(e) => setSelectedAcademicYear(e.target.value)}
+								className="w-full sm:w-auto rounded-md border-input bg-background shadow-sm focus:ring-primary focus:border-primary p-2 text-sm"
+							>
+								{academicYearOptions.map((year) => (
+									<option key={year} value={year}>
+										{year}
+									</option>
+								))}
+							</select>
+						)}
 						<select
 							value={filters.status}
 							onChange={(e) =>

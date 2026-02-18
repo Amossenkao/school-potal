@@ -33,6 +33,13 @@ import {
 	getScopedAcademicYearValue,
 } from '@/utils/academicYear';
 import {
+	buildSchoolAcademicYearRange,
+	getStudentAcademicYears,
+	getTeacherAcademicYears,
+	pickCurrentOrMostRecentAcademicYear,
+	pickMostRecentAcademicYear,
+} from '@/utils/academicYearOptions';
+import {
 	buildReportTemplateCandidates,
 	buildReportTemplateUrl,
 	DEFAULT_REPORT_TEMPLATE_URL,
@@ -62,15 +69,6 @@ interface Student {
 	name: string;
 	className: string;
 }
-
-const academicYearOptions = [
-	'2025-2026',
-	'2024-2025',
-	'2023-2024',
-	'2022-2023',
-	'2021-2022',
-	'2019-2020',
-];
 
 const semesterOptions = [
 	{ value: 'first', label: '1st Semester' },
@@ -578,7 +576,46 @@ const FilterContent = React.memo(function FilterContent({
 
 	const userRole = user?.role || 'student';
 	const isSystemAdmin = userRole === 'system_admin';
+	const isAdministrator = userRole === 'administrator';
 	const isStudent = userRole === 'student';
+	const academicYearOptions = useMemo(() => {
+		const schoolYears = buildSchoolAcademicYearRange(currentSchool);
+		if (isStudent) {
+			const studentYears = getStudentAcademicYears(user);
+			return studentYears.length > 0 ? studentYears : schoolYears;
+		}
+		if (isSystemAdmin || isAdministrator) {
+			return schoolYears;
+		}
+		if (userRole === 'teacher') {
+			const teacherYears = getTeacherAcademicYears(user);
+			const scopedYears = teacherYears.filter((year) =>
+				schoolYears.some((schoolYear) =>
+					areAcademicYearsEqual(schoolYear, year),
+				),
+			);
+			return scopedYears.length > 0 ? scopedYears : teacherYears;
+		}
+		return schoolYears;
+	}, [currentSchool, isStudent, isSystemAdmin, isAdministrator, userRole, user]);
+	const defaultAcademicYear = useMemo(() => {
+		const schoolCurrentAcademicYear =
+			currentSchool?.currentAcademicYear || getCurrentAcademicYear();
+		if (isStudent) {
+			return (
+				pickMostRecentAcademicYear(
+					academicYearOptions,
+					schoolCurrentAcademicYear,
+				) || schoolCurrentAcademicYear
+			);
+		}
+		return (
+			pickCurrentOrMostRecentAcademicYear(
+				academicYearOptions,
+				schoolCurrentAcademicYear,
+			) || schoolCurrentAcademicYear
+		);
+	}, [academicYearOptions, isStudent, currentSchool?.currentAcademicYear]);
 
 	useEffect(() => {
 		if (!isStudent || !user) return;
@@ -589,7 +626,10 @@ const FilterContent = React.memo(function FilterContent({
 			: null;
 		const classIdForYear =
 			yearEntry?.classId ||
-			(areAcademicYearsEqual(filters.academicYear, getCurrentAcademicYear())
+			(areAcademicYearsEqual(
+				filters.academicYear,
+				currentSchool?.currentAcademicYear || getCurrentAcademicYear(),
+			)
 				? user.classId || ''
 				: '');
 		const classMeta = getClassMetaById(
@@ -643,10 +683,13 @@ const FilterContent = React.memo(function FilterContent({
 	);
 
 	useEffect(() => {
-		if (!filters.academicYear) {
+		const isSelectedYearAvailable = academicYearOptions.some((year) =>
+			areAcademicYearsEqual(year, filters.academicYear),
+		);
+		if (!filters.academicYear || !isSelectedYearAvailable) {
 			setFilters((prev) => ({
 				...prev,
-				academicYear: getCurrentAcademicYear(),
+				academicYear: defaultAcademicYear,
 			}));
 		}
 
@@ -678,6 +721,8 @@ const FilterContent = React.memo(function FilterContent({
 		filters.academicYear,
 		filters.session,
 		filters.classLevel,
+		academicYearOptions,
+		defaultAcademicYear,
 		userAvailableSessions,
 		availableGradeLevels,
 		availableClasses,
@@ -858,24 +903,26 @@ const FilterContent = React.memo(function FilterContent({
 					<h2 className="text-lg font-semibold mb-4 text-center">
 						My Semester Report
 					</h2>
-					<div className="mb-4">
-						<label className="block text-sm font-medium mb-1">
-							Academic Year
-						</label>
-						<select
-							value={filters.academicYear}
-							onChange={(e) =>
-								setFilters((f) => ({ ...f, academicYear: e.target.value }))
-							}
-							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-						>
-							{academicYearOptions.map((year) => (
-								<option key={year} value={year}>
-									{year}
-								</option>
-							))}
-						</select>
-					</div>
+					{academicYearOptions.length > 1 && (
+						<div className="mb-4">
+							<label className="block text-sm font-medium mb-1">
+								Academic Year
+							</label>
+							<select
+								value={filters.academicYear}
+								onChange={(e) =>
+									setFilters((f) => ({ ...f, academicYear: e.target.value }))
+								}
+								className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+							>
+								{academicYearOptions.map((year) => (
+									<option key={year} value={year}>
+										{year}
+									</option>
+								))}
+							</select>
+						</div>
+					)}
 					<div className="mb-4">
 						<label className="block text-sm font-medium mb-1">Semester</label>
 						<select
@@ -919,35 +966,37 @@ const FilterContent = React.memo(function FilterContent({
 
 	return (
 		<div className="flex flex-col items-center justify-center min-h-[60vh] py-10">
-			<div className="bg-card rounded-lg shadow border border-border w-full max-w-md p-6">
-				<h2 className="text-lg font-semibold mb-4 text-center">
-					Filter Semester Report
-				</h2>
-				<div className="mb-4">
-					<label className="block text-sm font-medium mb-1">
-						Academic Year
-					</label>
-					<select
-						value={filters.academicYear}
-						onChange={(e) =>
-							setFilters((f) => ({
-								...f,
-								academicYear: e.target.value,
-								session: '',
-								classLevel: '',
-								className: '',
-								selectedStudents: [],
-							}))
-						}
-						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-					>
-						{academicYearOptions.map((year) => (
-							<option key={year} value={year}>
-								{year}
-							</option>
-						))}
-					</select>
-				</div>
+				<div className="bg-card rounded-lg shadow border border-border w-full max-w-md p-6">
+					<h2 className="text-lg font-semibold mb-4 text-center">
+						Filter Semester Report
+					</h2>
+				{academicYearOptions.length > 1 && (
+					<div className="mb-4">
+						<label className="block text-sm font-medium mb-1">
+							Academic Year
+						</label>
+						<select
+							value={filters.academicYear}
+							onChange={(e) =>
+								setFilters((f) => ({
+									...f,
+									academicYear: e.target.value,
+									session: '',
+									classLevel: '',
+									className: '',
+									selectedStudents: [],
+								}))
+							}
+							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+						>
+							{academicYearOptions.map((year) => (
+								<option key={year} value={year}>
+									{year}
+								</option>
+							))}
+						</select>
+					</div>
+				)}
 
 				{userAvailableSessions.length > 1 && (
 					<div className="mb-4">

@@ -23,6 +23,16 @@ import {
 import { useSchoolStore } from '@/store/schoolStore';
 import { PageLoading } from '@/components/loading';
 import useAuth from '@/store/useAuth';
+import {
+	areAcademicYearsEqual,
+	getScopedAcademicYearValue,
+} from '@/utils/academicYear';
+import {
+	filterAcademicYearsByAllowed,
+	getTeacherAcademicYears,
+	pickMostRecentAcademicYear,
+	sortAcademicYearsDesc,
+} from '@/utils/academicYearOptions';
 
 // Types
 interface TeacherInfo {
@@ -147,7 +157,9 @@ const SubmitGrade: React.FC = () => {
 	const getStudentClassIdForYear = useCallback(
 		(student: any, academicYear: string) => {
 			const yearEntry = Array.isArray(student?.academicYears)
-				? student.academicYears.find((ay: any) => ay.year === academicYear)
+				? student.academicYears.find((ay: any) =>
+						areAcademicYearsEqual(ay.year, academicYear),
+				  )
 				: null;
 			return yearEntry?.classId || student?.classId || '';
 		},
@@ -179,31 +191,35 @@ const SubmitGrade: React.FC = () => {
 		return allPeriods;
 	}, [school]);
 
-	const teacherYears = useMemo(() => {
-		return (teacherInfo?.subjects || [])
-			.map((s) => s.year)
-			.filter(Boolean);
-	}, [teacherInfo]);
+	const teacherYears = useMemo(
+		() => getTeacherAcademicYears(teacherInfo),
+		[teacherInfo],
+	);
 
 	const availableAcademicYears = useMemo(() => {
-		const allowed =
+		const allowed = sortAcademicYearsDesc(
 			school?.settings?.teacherSettings?.gradeSubmissionAcademicYears || [
-				getAcademicYear(),
-			];
-		return teacherYears.length > 0
-			? allowed.filter((year) => teacherYears.includes(year))
-			: allowed;
+				school?.currentAcademicYear || getAcademicYear(),
+			],
+		);
+		if (teacherYears.length === 0) return allowed;
+		const scopedYears = filterAcademicYearsByAllowed(teacherYears, allowed);
+		return scopedYears.length > 0 ? scopedYears : teacherYears;
 	}, [school, teacherYears]);
 
 	useEffect(() => {
-		if (availableAcademicYears.length === 1) {
-			setSelectedAcademicYear(availableAcademicYears[0]);
-		} else if (availableAcademicYears.includes(getAcademicYear())) {
-			setSelectedAcademicYear(getAcademicYear());
-		} else {
-			setSelectedAcademicYear('');
+		const defaultAcademicYear =
+			pickMostRecentAcademicYear(
+				availableAcademicYears,
+				school?.currentAcademicYear || getAcademicYear(),
+			) || '';
+		const selectedIsAvailable = availableAcademicYears.some((year) =>
+			areAcademicYearsEqual(year, selectedAcademicYear),
+		);
+		if (!selectedAcademicYear || !selectedIsAvailable) {
+			setSelectedAcademicYear(defaultAcademicYear);
 		}
-	}, [availableAcademicYears]);
+	}, [availableAcademicYears, selectedAcademicYear, school?.currentAcademicYear]);
 
 	useEffect(() => {
 		setSelectedSession('');
@@ -255,7 +271,7 @@ const SubmitGrade: React.FC = () => {
 
 	const yearAssignment = useMemo(() => {
 		return (teacherInfo?.subjects || []).find(
-			(entry) => entry.year === selectedAcademicYear
+			(entry) => areAcademicYearsEqual(entry.year, selectedAcademicYear)
 		);
 	}, [teacherInfo, selectedAcademicYear]);
 
@@ -368,7 +384,10 @@ const SubmitGrade: React.FC = () => {
 
 		try {
 			let studentsList: any[] = [];
-			const cachedUsers = usersByAcademicYearRef.current?.[selectedAcademicYear];
+			const cachedUsers = getScopedAcademicYearValue(
+				usersByAcademicYearRef.current,
+				selectedAcademicYear,
+			).value;
 			if (Array.isArray(cachedUsers?.students)) {
 				studentsList = cachedUsers.students.filter(
 					(student: any) =>
@@ -400,7 +419,10 @@ const SubmitGrade: React.FC = () => {
 			}
 
 			let existingGradesData: any = null;
-			const cachedGradesForYear = gradesByAcademicYearRef.current?.[selectedAcademicYear];
+			const cachedGradesForYear = getScopedAcademicYearValue(
+				gradesByAcademicYearRef.current,
+				selectedAcademicYear,
+			).value;
 			const useCachedGrades = (source: any[]) => {
 				const filtered = source.filter(
 					(grade: any) =>
@@ -1025,7 +1047,6 @@ const SubmitGrade: React.FC = () => {
 											onChange={(e) => setSelectedAcademicYear(e.target.value)}
 											className="block w-full rounded-lg border border-input bg-background py-2.5 px-3 text-foreground focus:border-ring focus:ring-2 focus:ring-ring text-sm sm:text-base"
 										>
-											<option value="">Select Year</option>
 											{availableAcademicYears.map((year, index) => (
 												<option key={`year-${year}-${index}`} value={year}>
 													{year}
