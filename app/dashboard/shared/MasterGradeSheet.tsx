@@ -704,7 +704,11 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const errorMessage = error.students || error.grades || error.subjects;
 	const isLoadingData = loading.students || loading.grades || loading.subjects;
 	const shouldWaitForPdf =
-		!!selectedClass && !!selectedSubject && !isLoadingData && !hasError;
+		!!selectedClass &&
+		!!selectedSubject &&
+		combinedData.length > 0 &&
+		!isLoadingData &&
+		!hasError;
 	const isLoading = isLoadingData || (shouldWaitForPdf && !pdfReady);
 
 	if (parentLoading) return <PageLoading fullScreen={false} />;

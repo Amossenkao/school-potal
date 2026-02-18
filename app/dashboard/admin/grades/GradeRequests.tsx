@@ -22,7 +22,14 @@ import {
 import { useNetworkStore } from '@/store/networkStore';
 import { useSchoolStore } from '@/store/schoolStore';
 import { PageLoading } from '@/components/loading';
-import { getScopedAcademicYearValue } from '@/utils/academicYear';
+import {
+	areAcademicYearsEqual,
+	getScopedAcademicYearValue,
+} from '@/utils/academicYear';
+import {
+	buildSchoolAcademicYearRange,
+	pickCurrentOrMostRecentAcademicYear,
+} from '@/utils/academicYearOptions';
 
 // --- TYPES ---
 interface GradeChangeRequest {
@@ -265,6 +272,13 @@ const periods = [
 const GradeRequests: React.FC = () => {
 	const currentSchool = useSchoolStore((state) => state.school);
 	const currentAcademicYear = currentSchool?.currentAcademicYear || '';
+	const academicYearOptions = useMemo(
+		() => buildSchoolAcademicYearRange(currentSchool),
+		[currentSchool],
+	);
+	const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>(
+		currentAcademicYear || academicYearOptions[0] || '',
+	);
 	const setGradeRequestsForYear = useSchoolStore(
 		(state) => state.setGradeRequestsForYear
 	);
@@ -272,7 +286,7 @@ const GradeRequests: React.FC = () => {
 		(state) =>
 			getScopedAcademicYearValue(
 				state.gradeRequestsByAcademicYear,
-				currentAcademicYear,
+				selectedAcademicYear,
 			).value
 	);
 	// Data states
@@ -322,9 +336,23 @@ const GradeRequests: React.FC = () => {
 		return map;
 	}, [currentSchool]);
 
+	useEffect(() => {
+		const defaultAcademicYear =
+			pickCurrentOrMostRecentAcademicYear(
+				academicYearOptions,
+				currentAcademicYear,
+			) || '';
+		const selectedIsAvailable = academicYearOptions.some((year) =>
+			areAcademicYearsEqual(year, selectedAcademicYear),
+		);
+		if (!selectedAcademicYear || !selectedIsAvailable) {
+			setSelectedAcademicYear(defaultAcademicYear);
+		}
+	}, [academicYearOptions, currentAcademicYear, selectedAcademicYear]);
+
 	// --- DATA FETCHING & PROCESSING ---
 	const fetchRequests = async (forceRefresh = false) => {
-		if (!currentAcademicYear) {
+		if (!selectedAcademicYear) {
 			setBulkRequests([]);
 			setLoading(false);
 			return;
@@ -333,7 +361,7 @@ const GradeRequests: React.FC = () => {
 		const cachedByYear = schoolState.gradeRequestsByAcademicYear || {};
 		const scopedStoreSnapshot = getScopedAcademicYearValue(
 			cachedByYear,
-			currentAcademicYear,
+			selectedAcademicYear,
 		);
 		const hasYearSnapshot = Boolean(scopedStoreSnapshot.key);
 		const cachedRequests = Array.isArray(scopedStoreSnapshot.value)
@@ -355,7 +383,7 @@ const GradeRequests: React.FC = () => {
 			}
 			setError('');
 			const response = await fetch(
-				`/api/grades/requests?academicYear=${currentAcademicYear}`
+				`/api/grades/requests?academicYear=${selectedAcademicYear}`
 			);
 			if (!response.ok) {
 				throw new Error('Failed to fetch grade change requests');
@@ -364,7 +392,7 @@ const GradeRequests: React.FC = () => {
 			const report = Array.isArray(data?.data?.report) ? data.data.report : [];
 			const normalizedReport = normalizeBulkRequests(report);
 			setBulkRequests(normalizedReport);
-			setGradeRequestsForYear(currentAcademicYear, normalizedReport);
+			setGradeRequestsForYear(selectedAcademicYear, normalizedReport);
 		} catch (err) {
 			console.error('Error fetching grade change requests:', err);
 			if (bulkRequests.length === 0) {
@@ -378,7 +406,7 @@ const GradeRequests: React.FC = () => {
 	useEffect(() => {
 		void fetchRequests();
 		// Cache refresh should follow academic year changes only.
-	}, [currentAcademicYear]);
+	}, [selectedAcademicYear]);
 
 	useEffect(() => {
 		if (!Array.isArray(scopedGradeRequests)) return;
@@ -424,8 +452,8 @@ const GradeRequests: React.FC = () => {
 		});
 
 		setBulkRequests(nextRequests);
-		if (currentAcademicYear) {
-			setGradeRequestsForYear(currentAcademicYear, nextRequests);
+		if (selectedAcademicYear) {
+			setGradeRequestsForYear(selectedAcademicYear, nextRequests);
 		}
 		if (selectedBulkRequest) {
 			const refreshedSelected = nextRequests.find(
@@ -606,6 +634,13 @@ const GradeRequests: React.FC = () => {
 	useEffect(() => {
 		setCurrentPage(1);
 	}, [filters.status, searchQuery, rowsPerPage]);
+
+	useEffect(() => {
+		setSelectedBulkRequests(new Set());
+		setSelectedIndividualRequests(new Set());
+		setSelectedBulkRequest(null);
+		setCurrentPage(1);
+	}, [selectedAcademicYear]);
 
 	// --- SELECTION TOGGLES ---
 	const toggleRequestSelection = (batchId: string) => {
@@ -922,6 +957,9 @@ const GradeRequests: React.FC = () => {
 								<p className="text-muted-foreground mt-1">
 								Review, approve, or reject teacher requests to change student
 								grades.
+								{selectedAcademicYear
+									? ` Academic year: ${selectedAcademicYear}`
+									: ''}
 							</p>
 						</div>
 							<button
@@ -959,6 +997,19 @@ const GradeRequests: React.FC = () => {
 								className="pl-8 w-full rounded-md border-input bg-background shadow-sm p-2 text-sm"
 							/>
 						</div>
+							{academicYearOptions.length > 1 && (
+								<select
+									value={selectedAcademicYear}
+									onChange={(e) => setSelectedAcademicYear(e.target.value)}
+									className="w-full sm:w-auto rounded-md border-input bg-background shadow-sm p-2 text-sm"
+								>
+									{academicYearOptions.map((year) => (
+										<option key={year} value={year}>
+											{year}
+										</option>
+									))}
+								</select>
+							)}
 							<select
 								value={filters.status}
 								onChange={(e) =>

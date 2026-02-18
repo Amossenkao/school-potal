@@ -15,12 +15,20 @@ import {
 import { PageLoading } from '@/components/loading';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import { useSchoolStore } from '@/store/schoolStore';
-import { getScopedAcademicYearValue } from '@/utils/academicYear';
+import {
+	areAcademicYearsEqual,
+	getScopedAcademicYearValue,
+} from '@/utils/academicYear';
+import {
+	getTeacherAcademicYears,
+	pickMostRecentAcademicYear,
+} from '@/utils/academicYearOptions';
 
 // --- TYPES ---
 interface TeacherInfo {
 	username: string;
 	name: string;
+	subjects?: { year: string }[];
 }
 interface GradeChangeRequest {
 	_id: string;
@@ -49,16 +57,6 @@ interface EditModalState {
 	reasonForChange: string;
 }
 
-function getCurrentAcademicYear() {
-	const now = new Date();
-	const currentYear = now.getFullYear();
-	if (now.getMonth() + 1 >= 8) {
-		return `${currentYear}-${currentYear + 1}`;
-	} else {
-		return `${currentYear - 1}-${currentYear}`;
-	}
-}
-
 const getGradeColor = (grade: number | null | undefined) => {
 	if (grade === null || grade === undefined || Number.isNaN(Number(grade))) {
 		return 'text-muted-foreground';
@@ -73,17 +71,23 @@ const TeacherGradeChangeRequests = ({
 }: {
 	teacherInfo: TeacherInfo;
 }) => {
-	const schoolAcademicYear = useSchoolStore(
-		(state) => state.school?.currentAcademicYear,
+	const teacherAcademicYears = useMemo(
+		() => getTeacherAcademicYears(teacherInfo),
+		[teacherInfo],
 	);
+	const availableAcademicYears = useMemo(
+		() => teacherAcademicYears,
+		[teacherAcademicYears],
+	);
+	const [selectedAcademicYear, setSelectedAcademicYear] = useState('');
 	const setGradeRequestsForYear = useSchoolStore(
 		(state) => state.setGradeRequestsForYear,
 	);
 	const scopedGradeRequests = useSchoolStore((state) => {
-		const academicYear = schoolAcademicYear || getCurrentAcademicYear();
+		if (!selectedAcademicYear) return undefined;
 		return getScopedAcademicYearValue(
 			state.gradeRequestsByAcademicYear,
-			academicYear,
+			selectedAcademicYear,
 		).value;
 	});
 	const [requests, setRequests] = useState<BatchRequest[]>([]);
@@ -102,15 +106,26 @@ const TeacherGradeChangeRequests = ({
 	const [currentPage, setCurrentPage] = useState(1);
 	const [itemsPerPage, setItemsPerPage] = useState(5);
 
+	useEffect(() => {
+		const defaultAcademicYear =
+			pickMostRecentAcademicYear(availableAcademicYears) || '';
+		const selectedIsAvailable = availableAcademicYears.some((year) =>
+			areAcademicYearsEqual(year, selectedAcademicYear),
+		);
+		if (!selectedAcademicYear || !selectedIsAvailable) {
+			setSelectedAcademicYear(defaultAcademicYear);
+		}
+	}, [availableAcademicYears, selectedAcademicYear]);
+
 	const fetchRequests = useCallback(
 		async (skipCache = false) => {
-			if (!teacherInfo?.username) {
+			if (!teacherInfo?.username || !selectedAcademicYear) {
 				setRequests([]);
 				setLoading(false);
 				return;
 			}
 			try {
-				const academicYear = schoolAcademicYear || getCurrentAcademicYear();
+				const academicYear = selectedAcademicYear;
 				const storeState = useSchoolStore.getState();
 				const cachedByYear = storeState.gradeRequestsByAcademicYear || {};
 				const scopedStoreSnapshot = getScopedAcademicYearValue(
@@ -161,24 +176,30 @@ const TeacherGradeChangeRequests = ({
 				setLoading(false);
 			}
 		},
-		[teacherInfo?.username, schoolAcademicYear, setGradeRequestsForYear]
+		[teacherInfo?.username, selectedAcademicYear, setGradeRequestsForYear]
 	);
 
 	useEffect(() => {
-		if (!teacherInfo?.username) {
+		if (!teacherInfo?.username || !selectedAcademicYear) {
 			setRequests([]);
 			setLoading(false);
 			return;
 		}
 		void fetchRequests();
-	}, [teacherInfo?.username, schoolAcademicYear, fetchRequests]);
+	}, [teacherInfo?.username, selectedAcademicYear, fetchRequests]);
 
 	useEffect(() => {
-		if (!teacherInfo?.username || !Array.isArray(scopedGradeRequests)) return;
+		if (
+			!teacherInfo?.username ||
+			!selectedAcademicYear ||
+			!Array.isArray(scopedGradeRequests)
+		) {
+			return;
+		}
 		setRequests(scopedGradeRequests as BatchRequest[]);
 		setError('');
 		setLoading(false);
-	}, [teacherInfo?.username, scopedGradeRequests]);
+	}, [teacherInfo?.username, selectedAcademicYear, scopedGradeRequests]);
 
 	useEffect(() => {
 		const handleRequestUpdate = (
@@ -186,9 +207,10 @@ const TeacherGradeChangeRequests = ({
 		) => {
 			const eventYear = event.detail?.academicYear;
 			const eventTeacher = event.detail?.teacherUsername;
-			const activeYear = schoolAcademicYear || getCurrentAcademicYear();
+			const activeYear = selectedAcademicYear;
+			if (!activeYear) return;
 			if (eventTeacher && eventTeacher !== teacherInfo?.username) return;
-			if (eventYear && eventYear !== activeYear) return;
+			if (eventYear && !areAcademicYearsEqual(eventYear, activeYear)) return;
 			void fetchRequests();
 		};
 
@@ -202,7 +224,11 @@ const TeacherGradeChangeRequests = ({
 				handleRequestUpdate as EventListener
 			);
 		};
-	}, [teacherInfo?.username, schoolAcademicYear, fetchRequests]);
+	}, [teacherInfo?.username, selectedAcademicYear, fetchRequests]);
+
+	useEffect(() => {
+		setCurrentPage(1);
+	}, [selectedAcademicYear]);
 
 	// Pagination Logic
 	const paginatedRequests = useMemo(() => {
@@ -377,6 +403,24 @@ const TeacherGradeChangeRequests = ({
 							</button>
 						</div>
 					</div>
+				</div>
+			)}
+			{availableAcademicYears.length > 1 && (
+				<div className="bg-card border rounded-lg p-4">
+					<label className="block text-sm font-medium text-foreground mb-1">
+						Academic Year
+					</label>
+					<select
+						value={selectedAcademicYear}
+						onChange={(e) => setSelectedAcademicYear(e.target.value)}
+						className="w-full sm:w-auto rounded-md border-input bg-background shadow-sm p-2 text-sm"
+					>
+						{availableAcademicYears.map((year) => (
+							<option key={year} value={year}>
+								{year}
+							</option>
+						))}
+					</select>
 				</div>
 			)}
 

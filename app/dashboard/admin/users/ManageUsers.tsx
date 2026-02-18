@@ -37,27 +37,12 @@ import DeactivateUserModal from '@/components/modals/DeactivateUserModal';
 import { useSchoolStore } from '@/store/schoolStore';
 import { useNetworkStore } from '@/store/networkStore';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
+import {
+	buildSchoolAcademicYearRange,
+	pickCurrentOrMostRecentAcademicYear,
+} from '@/utils/academicYearOptions';
 
 const API_URL = '/api/users';
-
-const getAcademicYear = () => {
-	const now = new Date();
-	const currentYear = now.getFullYear();
-	const currentMonth = now.getMonth();
-	return currentMonth >= 7
-		? `${currentYear}-${currentYear + 1}`
-		: `${currentYear - 1}-${currentYear}`;
-};
-
-const generateAcademicYears = (yearsAhead = 5) => {
-	const years = [];
-	const currentYear = new Date().getFullYear();
-	for (let i = 0; i < yearsAhead + 3; i++) {
-		const year = currentYear - 2 + i;
-		years.push(`${year}-${year + 1}`);
-	}
-	return years;
-};
 
 // --- Portal Component for escaping containers ---
 const Portal = ({ children }: { children: React.ReactNode }) => {
@@ -277,10 +262,11 @@ const UserManagementDashboard = () => {
 	const setUsersForYear = useSchoolStore(
 		(state: any) => state.setUsersForYear,
 	);
-	const activeAcademicYear =
-		schoolProfile?.currentAcademicYear || getAcademicYear();
-	const [selectedAcademicYear, setSelectedAcademicYear] =
-		useState(activeAcademicYear);
+	const academicYearOptions = useMemo(
+		() => buildSchoolAcademicYearRange(schoolProfile),
+		[schoolProfile],
+	);
+	const [selectedAcademicYear, setSelectedAcademicYear] = useState('');
 
 	// Fixed availableClasses
 	const availableClasses = useMemo(() => {
@@ -359,21 +345,6 @@ const UserManagementDashboard = () => {
 		return Array.from(subjects).sort();
 	}, [schoolProfile]);
 
-	const academicYearOptions = useMemo(() => {
-		const years = new Set(generateAcademicYears());
-		if (schoolProfile?.currentAcademicYear) {
-			years.add(schoolProfile.currentAcademicYear);
-		}
-		const profileYears = schoolProfile?.academicYears;
-		if (Array.isArray(profileYears)) {
-			profileYears.forEach((year: any) => {
-				if (typeof year === 'string') years.add(year);
-				else if (year?.year) years.add(year.year);
-			});
-		}
-		return Array.from(years).sort((a, b) => b.localeCompare(a));
-	}, [schoolProfile]);
-
 	const normalizeUsers = (data: any) => {
 		if (!data) return [];
 		if (Array.isArray(data)) return data;
@@ -412,6 +383,12 @@ const UserManagementDashboard = () => {
 
 	const fetchUsers = useCallback(
 		async (page = 1, replace = false) => {
+			if (!selectedAcademicYear) {
+				setUsers([]);
+				setLoading(false);
+				setIsFetchingMore(false);
+				return;
+			}
 			const isInitialLoad = page === 1;
 			if (isInitialLoad) {
 				setLoading(true);
@@ -511,13 +488,21 @@ const UserManagementDashboard = () => {
 
 	useEffect(() => {
 		if (!schoolProfile) return;
-		setSelectedAcademicYear(
-			schoolProfile.currentAcademicYear || getAcademicYear(),
-		);
-	}, [schoolProfile]);
+		const defaultAcademicYear =
+			pickCurrentOrMostRecentAcademicYear(
+				academicYearOptions,
+				schoolProfile.currentAcademicYear,
+			) || '';
+		if (
+			!selectedAcademicYear ||
+			!academicYearOptions.includes(selectedAcademicYear)
+		) {
+			setSelectedAcademicYear(defaultAcademicYear);
+		}
+	}, [schoolProfile, academicYearOptions, selectedAcademicYear]);
 
 	useEffect(() => {
-		if (!schoolProfile) return;
+		if (!schoolProfile || !selectedAcademicYear) return;
 		setCurrentPage(1);
 		setServerPage(1);
 		setTotalUsers(null);
