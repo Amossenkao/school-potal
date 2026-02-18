@@ -32,6 +32,7 @@ import {
 	pickCurrentOrMostRecentAcademicYear,
 	pickMostRecentAcademicYear,
 } from '@/utils/academicYearOptions';
+import { areGradeRowsEquivalent } from '@/utils/gradeRows';
 
 const InlineLoading = ({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) => (
 	<div className="-m-8">
@@ -125,6 +126,18 @@ const getClassMetaById = (classLevels: any, classId?: string) => {
 		}
 	}
 	return null;
+};
+
+const mergeSubjectNames = (subjects: Array<unknown>) => {
+	const result: string[] = [];
+	const seen = new Set<string>();
+	subjects.forEach((value) => {
+		const subject = String(value || '').trim();
+		if (!subject || seen.has(subject)) return;
+		seen.add(subject);
+		result.push(subject);
+	});
+	return result;
 };
 
 function gradeStyle(score: number | null) {
@@ -654,15 +667,29 @@ function FilterContent({
 				? user.classId || ''
 				: '');
 		const classMeta = getClassMetaById(school?.classLevels, classIdForYear);
+		const nextSelectedStudents = [user.studentId || user.id];
 
 		setFilters((prev) => {
 			const next = {
 				...prev,
-				session: classMeta?.session || prev.session,
-				gradeLevel: classMeta?.level || prev.gradeLevel,
-				className: classIdForYear || prev.className,
-				selectedStudents: [user.studentId || user.id],
+				session: classMeta?.session || '',
+				gradeLevel: classMeta?.level || '',
+				className: classIdForYear || '',
+				selectedStudents: nextSelectedStudents,
 			};
+			const isSameSelection =
+				prev.selectedStudents.length === nextSelectedStudents.length &&
+				prev.selectedStudents.every(
+					(studentId, index) => studentId === nextSelectedStudents[index],
+				);
+			if (
+				prev.session === next.session &&
+				prev.gradeLevel === next.gradeLevel &&
+				prev.className === next.className &&
+				isSameSelection
+			) {
+				return prev;
+			}
 			return next;
 		});
 	}, [isStudent, user, filters.academicYear, setFilters, school]);
@@ -686,7 +713,7 @@ function FilterContent({
 					name: `${user.firstName || ''} ${user.middleName || ''} ${
 						user.lastName || ''
 					}`.trim(),
-					className: user.classId || '',
+					className: filters.className || user.classId || '',
 				},
 			];
 			onSubmit(studentAsList);
@@ -1349,38 +1376,42 @@ function ReportContent({
 	// Memoize school data to prevent unnecessary re-renders
 	const schoolData = useMemo(() => school, [school]);
 
-	// Get subjects from school profile based on session, grade level - memoized
-	const SUBJECTS = useMemo(() => {
+	const schoolSubjects = useMemo(() => {
 		if (!school) return [];
-		if (isStudent && user?.session && user?.classLevel) {
-			return (
-				school.classLevels?.[user.session]?.[user.classLevel]?.subjects?.map(
-					(s) => s.name,
-				) || []
-			);
-		}
-
+		const classMeta = getClassMetaById(school.classLevels, reportFilters.className);
 		const resolvedMeta =
-			reportFilters.session && reportFilters.gradeLevel
+			classMeta ||
+			(!reportFilters.className &&
+			reportFilters.session &&
+			reportFilters.gradeLevel
 				? { session: reportFilters.session, level: reportFilters.gradeLevel }
-				: getClassMetaById(school.classLevels, reportFilters.className);
-
-		if (resolvedMeta?.session && resolvedMeta?.level) {
-			return (
-				school.classLevels?.[resolvedMeta.session]?.[resolvedMeta.level]
-					?.subjects?.map((s) => s.name) || []
-			);
-		}
-
-		return [];
+				: null);
+		if (!resolvedMeta?.session || !resolvedMeta?.level) return [];
+		const subjects =
+			school.classLevels?.[resolvedMeta.session]?.[resolvedMeta.level]?.subjects ||
+			[];
+		return mergeSubjectNames(
+			subjects.map((subject: any) =>
+				typeof subject === 'string' ? subject : subject?.name,
+			),
+		);
 	}, [
-		user,
-		isStudent,
 		school,
+		reportFilters.className,
 		reportFilters.session,
 		reportFilters.gradeLevel,
-		reportFilters.className,
 	]);
+
+	const reportSubjects = useMemo(() => {
+		if (schoolSubjects.length > 0) return schoolSubjects;
+		return mergeSubjectNames(
+			studentsData.flatMap((student) =>
+				Array.isArray(student?.subjects)
+					? student.subjects.map((entry) => entry?.subject)
+					: [],
+			),
+		);
+	}, [schoolSubjects, studentsData]);
 
 	// Get class name from school profile - memoized
 	const className = useMemo(() => {
@@ -1485,7 +1516,7 @@ function ReportContent({
 			<PeriodicReportDocument
 				studentsData={studentsData}
 				reportFilters={reportFilters}
-				subjects={SUBJECTS}
+				subjects={reportSubjects}
 				className={className}
 				selectedPeriodLabel={selectedPeriodLabel}
 				schoolData={schoolData}
@@ -1494,7 +1525,7 @@ function ReportContent({
 	}, [
 		studentsData,
 		reportFilters,
-		SUBJECTS,
+		reportSubjects,
 		className,
 		selectedPeriodLabel,
 		schoolData,
@@ -1656,7 +1687,18 @@ function ReportContent({
 						if (!res.ok) throw new Error('Failed to fetch periodic grades');
 						data = await res.json();
 						if (Array.isArray(data?.data?.grades)) {
-							setGradesForYear(reportFilters.academicYear, data.data.grades);
+							const existingScopedGrades = getScopedAcademicYearValue(
+								gradesByAcademicYear,
+								reportFilters.academicYear,
+							).value;
+							if (
+								!areGradeRowsEquivalent(
+									existingScopedGrades,
+									data.data.grades,
+								)
+							) {
+								setGradesForYear(reportFilters.academicYear, data.data.grades);
+							}
 						}
 						setClientCache(gradesCacheKey, data, OFFLINE_CACHE_TTL_MS);
 						if (selectedIdsCacheKey === 'all') {
@@ -1843,8 +1885,6 @@ function ReportContent({
 			user?._id,
 			user?.studentId,
 			user?.username,
-			gradesByAcademicYear,
-			gradesVersionByAcademicYear,
 			setGradesForYear,
 		]);
 
@@ -2337,7 +2377,7 @@ export default function PeriodicReportWrapper() {
 		className: string;
 		selectedStudents: string[];
 	}>({
-		academicYear: getCurrentAcademicYear(),
+		academicYear: '',
 		period: '',
 		session: '',
 		gradeLevel: '',

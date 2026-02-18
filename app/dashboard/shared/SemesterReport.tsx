@@ -45,6 +45,7 @@ import {
 	DEFAULT_REPORT_TEMPLATE_URL,
 	loadReportTemplateBytes,
 } from '@/utils/reportTemplate';
+import { areGradeRowsEquivalent } from '@/utils/gradeRows';
 
 const InlineLoading = ({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) => (
 	<div className="-m-8">
@@ -145,6 +146,43 @@ const resolveStudentDisplayName = (
 	if (apiName) return apiName;
 
 	return fallbackName;
+};
+
+const mergeSubjectNames = (subjects: Array<unknown>) => {
+	const result: string[] = [];
+	const seen = new Set<string>();
+	subjects.forEach((value) => {
+		const normalized = String(value || '').trim();
+		if (!normalized || seen.has(normalized)) return;
+		seen.add(normalized);
+		result.push(normalized);
+	});
+	return result;
+};
+
+const collectSemesterReportSubjects = (reports: any[]) => {
+	if (!Array.isArray(reports)) return [] as string[];
+	const subjects: Array<unknown> = [];
+	reports.forEach((report) => {
+		if (report?.periods && typeof report.periods === 'object') {
+			Object.values(report.periods).forEach((entries: any) => {
+				if (!Array.isArray(entries)) return;
+				entries.forEach((entry: any) => {
+					subjects.push(entry?.subject);
+				});
+			});
+		}
+		if (report?.firstSemesterAverage && typeof report.firstSemesterAverage === 'object') {
+			subjects.push(...Object.keys(report.firstSemesterAverage));
+		}
+		if (
+			report?.secondSemesterAverage &&
+			typeof report.secondSemesterAverage === 'object'
+		) {
+			subjects.push(...Object.keys(report.secondSemesterAverage));
+		}
+	});
+	return mergeSubjectNames(subjects);
 };
 
 const REPORT_PERIOD_KEYS = [
@@ -642,13 +680,32 @@ const FilterContent = React.memo(function FilterContent({
 			user?._id,
 		);
 
-		setFilters((prev) => ({
-			...prev,
-			session: classMeta?.session || prev.session,
-			classLevel: classMeta?.level || prev.classLevel,
-			className: classIdForYear || prev.className,
-			selectedStudents: currentStudentId ? [currentStudentId] : [],
-		}));
+		setFilters((prev) => {
+			const nextSession = classMeta?.session || '';
+			const nextClassLevel = classMeta?.level || '';
+			const nextClassName = classIdForYear || '';
+			const nextSelectedStudents = currentStudentId ? [currentStudentId] : [];
+			const isSameSelection =
+				prev.selectedStudents.length === nextSelectedStudents.length &&
+				prev.selectedStudents.every(
+					(studentId, index) => studentId === nextSelectedStudents[index],
+				);
+			if (
+				prev.session === nextSession &&
+				prev.classLevel === nextClassLevel &&
+				prev.className === nextClassName &&
+				isSameSelection
+			) {
+				return prev;
+			}
+			return {
+				...prev,
+				session: nextSession,
+				classLevel: nextClassLevel,
+				className: nextClassName,
+				selectedStudents: nextSelectedStudents,
+			};
+		});
 	}, [isStudent, user, filters.academicYear, setFilters, currentSchool]);
 
 	const availableSessions = useMemo(
@@ -818,7 +875,11 @@ const FilterContent = React.memo(function FilterContent({
 		} else {
 			setStudents([]);
 			if (!isStudent) {
-				setFilters((prev) => ({ ...prev, selectedStudents: [] }));
+				setFilters((prev) =>
+					prev.selectedStudents.length === 0
+						? prev
+						: { ...prev, selectedStudents: [] },
+				);
 			}
 		}
 	}, [
@@ -832,13 +893,7 @@ const FilterContent = React.memo(function FilterContent({
 
 	const canSubmit = useMemo(() => {
 		if (isStudent) {
-			return !!(
-				filters.academicYear &&
-				filters.semester &&
-				filters.session &&
-				filters.classLevel &&
-				filters.className
-			);
+			return !!(filters.academicYear && filters.semester && filters.className);
 		}
 		return !!(filters.academicYear && filters.className && filters.semester);
 	}, [
@@ -892,11 +947,7 @@ const FilterContent = React.memo(function FilterContent({
 	}
 
 	if (isStudent) {
-		const isStudentInfoComplete = !!(
-			filters.session &&
-			filters.classLevel &&
-			filters.className
-		);
+		const isStudentInfoComplete = !!filters.className;
 		return (
 			<div className="flex flex-col items-center justify-center min-h-[60vh] py-10 bg-background text-foreground">
 				<div className="bg-card rounded-lg shadow border border-border w-full max-w-md p-6">
@@ -1579,6 +1630,7 @@ function ReportContent({
 	const [copiedLink, setCopiedLink] = useState(false);
 	const [copiedPin, setCopiedPin] = useState(false);
 	const [shareNotice, setShareNotice] = useState('');
+	const [resolvedSubjects, setResolvedSubjects] = useState<string[]>([]);
 	const pdfUrlRef = useRef<string | null>(null);
 	const resetCopiedTimeoutRef = useRef<number | null>(null);
 
@@ -1673,21 +1725,27 @@ function ReportContent({
 		serverKey,
 	]);
 
-	const classSubjects = useMemo(() => {
+	const schoolSubjects = useMemo(() => {
 		if (!currentSchool) return [];
+		const classMeta = getClassMetaById(
+			currentSchool.classLevels,
+			reportFilters.className,
+		);
 		const resolvedMeta =
-			reportFilters.session && reportFilters.classLevel
+			classMeta ||
+			(!reportFilters.className &&
+			reportFilters.session &&
+			reportFilters.classLevel
 				? { session: reportFilters.session, level: reportFilters.classLevel }
-				: getClassMetaById(
-						currentSchool.classLevels,
-						reportFilters.className,
-				  );
+				: null);
 		const subjects =
 			currentSchool?.classLevels?.[resolvedMeta?.session || '']?.[
 				resolvedMeta?.level || ''
 			]?.subjects || [];
-		return subjects.map((subject: any) =>
-			typeof subject === 'string' ? subject : subject.name,
+		return mergeSubjectNames(
+			subjects.map((subject: any) =>
+				typeof subject === 'string' ? subject : subject?.name,
+			),
 		);
 	}, [
 		currentSchool,
@@ -1695,10 +1753,11 @@ function ReportContent({
 		reportFilters.classLevel,
 		reportFilters.className,
 	]);
-	const classSubjectsKey = useMemo(
-		() => classSubjects.join('||'),
-		[classSubjects],
+	const classSubjects = useMemo(
+		() => mergeSubjectNames([...schoolSubjects, ...resolvedSubjects]),
+		[schoolSubjects, resolvedSubjects],
 	);
+	const classSubjectsKey = useMemo(() => classSubjects.join('||'), [classSubjects]);
 	const selectedStudentsKey = useMemo(
 		() =>
 			reportFilters.selectedStudents
@@ -1730,6 +1789,13 @@ function ReportContent({
 					typeof navigator !== 'undefined' && navigator.onLine === false;
 				if (cachedReport && offline) {
 					setStudentsData(cachedReport);
+					const cachedSubjects = mergeSubjectNames([
+						...schoolSubjects,
+						...collectSemesterReportSubjects(cachedReport),
+					]);
+					setResolvedSubjects((prev) =>
+						prev.join('||') === cachedSubjects.join('||') ? prev : cachedSubjects,
+					);
 					setLoading(false);
 					return;
 				}
@@ -1914,12 +1980,23 @@ function ReportContent({
 						);
 							if (gradesResponse.ok) {
 								gradesData = await gradesResponse.json();
-								if (Array.isArray(gradesData?.data?.grades)) {
+							if (Array.isArray(gradesData?.data?.grades)) {
+								const existingScopedGrades = getScopedAcademicYearValue(
+									gradesByAcademicYear,
+									reportFilters.academicYear,
+								).value;
+								if (
+									!areGradeRowsEquivalent(
+										existingScopedGrades,
+										gradesData.data.grades,
+									)
+								) {
 									setGradesForYear(
 										reportFilters.academicYear,
 										gradesData.data.grades,
 									);
 								}
+							}
 								setClientCache(
 									gradesCacheKey,
 									gradesData,
@@ -1956,10 +2033,21 @@ function ReportContent({
 					} else if (Array.isArray(gradesData.data?.grades)) {
 						existingReports = buildReportsFromGradeRows({
 							grades: gradesData.data.grades,
-							classSubjects,
+							classSubjects: schoolSubjects,
 							studentsToProcess,
 						});
 					}
+				const fetchedSubjects = mergeSubjectNames([
+					...schoolSubjects,
+					...collectSemesterReportSubjects(existingReports),
+				]);
+				const subjectsForReport =
+					fetchedSubjects.length > 0 ? fetchedSubjects : schoolSubjects;
+				setResolvedSubjects((prev) =>
+					prev.join('||') === fetchedSubjects.join('||')
+						? prev
+						: fetchedSubjects,
+				);
 
 					if (studentsToProcess.length === 0 && existingReports.length > 0) {
 						studentsToProcess = existingReports
@@ -2011,36 +2099,36 @@ function ReportContent({
 							string,
 							Array<{ subject: string; grade: number | null }>
 						> = {
-							first: classSubjects.map((subject) => ({
-								subject: typeof subject === 'string' ? subject : subject.name,
+							first: subjectsForReport.map((subject) => ({
+								subject,
 								grade: null,
 							})),
-							second: classSubjects.map((subject) => ({
-								subject: typeof subject === 'string' ? subject : subject.name,
+							second: subjectsForReport.map((subject) => ({
+								subject,
 								grade: null,
 							})),
-							third: classSubjects.map((subject) => ({
-								subject: typeof subject === 'string' ? subject : subject.name,
+							third: subjectsForReport.map((subject) => ({
+								subject,
 								grade: null,
 							})),
-							third_period_exam: classSubjects.map((subject) => ({
-								subject: typeof subject === 'string' ? subject : subject.name,
+							third_period_exam: subjectsForReport.map((subject) => ({
+								subject,
 								grade: null,
 							})),
-							fourth: classSubjects.map((subject) => ({
-								subject: typeof subject === 'string' ? subject : subject.name,
+							fourth: subjectsForReport.map((subject) => ({
+								subject,
 								grade: null,
 							})),
-							fifth: classSubjects.map((subject) => ({
-								subject: typeof subject === 'string' ? subject : subject.name,
+							fifth: subjectsForReport.map((subject) => ({
+								subject,
 								grade: null,
 							})),
-							sixth: classSubjects.map((subject) => ({
-								subject: typeof subject === 'string' ? subject : subject.name,
+							sixth: subjectsForReport.map((subject) => ({
+								subject,
 								grade: null,
 							})),
-							six_period_exam: classSubjects.map((subject) => ({
-								subject: typeof subject === 'string' ? subject : subject.name,
+							six_period_exam: subjectsForReport.map((subject) => ({
+								subject,
 								grade: null,
 							})),
 						};
@@ -2073,9 +2161,8 @@ function ReportContent({
 							yearly: null,
 						};
 
-						classSubjects.forEach((subject) => {
-							const subjectName =
-								typeof subject === 'string' ? subject : subject.name;
+						subjectsForReport.forEach((subject) => {
+							const subjectName = subject;
 							firstSemesterAverage[subjectName] = null;
 							secondSemesterAverage[subjectName] = null;
 						});
@@ -2145,14 +2232,12 @@ function ReportContent({
 		user?._id,
 		user?.firstName,
 		user?.middleName,
-			user?.lastName,
-			classSubjectsKey,
-			setUsersForYear,
-			setGradesForYear,
-			gradesByAcademicYear,
-			gradesVersionByAcademicYear,
-			isStudent,
-		]);
+		user?.lastName,
+		schoolSubjects,
+		setUsersForYear,
+		setGradesForYear,
+		isStudent,
+	]);
 
 	useEffect(() => {
 		if (!studentsData.length || loading || error) {
@@ -2720,7 +2805,7 @@ function ReportContent({
 
 export default function SemesterReport() {
 	const [filters, setFilters] = useState<ReportFilters>({
-		academicYear: getCurrentAcademicYear(),
+		academicYear: '',
 		session: '',
 		classLevel: '',
 		className: '',
