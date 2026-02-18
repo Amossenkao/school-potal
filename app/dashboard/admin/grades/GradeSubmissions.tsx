@@ -122,6 +122,10 @@ const AdminGradeManagement: React.FC = () => {
 	const [submissions, setSubmissions] = useState<GradeSubmission[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState('');
+	const [actionNotice, setActionNotice] = useState<{
+		type: 'info' | 'error';
+		message: string;
+	} | null>(null);
 	const { isOnline } = useNetworkStore();
 
 	// Modal states
@@ -377,6 +381,107 @@ const AdminGradeManagement: React.FC = () => {
 		setError('');
 	}, [scopedGrades]);
 
+	const inferSubmissionStatus = (
+		grades: StudentGrade[]
+	): GradeSubmission['status'] => {
+		const statuses = new Set(grades.map((grade) => grade.status));
+		if (statuses.size === 1) {
+			return statuses.values().next().value as GradeSubmission['status'];
+		}
+		if (statuses.has('Pending') || (statuses.has('Approved') && statuses.has('Rejected'))) {
+			return 'Partially Approved';
+		}
+		if (statuses.has('Approved')) return 'Approved';
+		if (statuses.has('Rejected')) return 'Rejected';
+		return 'Pending';
+	};
+
+	const applySubmissionStatusLocally = (
+		payload: {
+			submissionId: string;
+			studentId: string;
+			status: 'Approved' | 'Rejected';
+			rejectionReason?: string;
+		}[]
+	) => {
+		if (payload.length === 0) return;
+		const nowIso = new Date().toISOString();
+		const updateMap = new Map<
+			string,
+			{ status: 'Approved' | 'Rejected'; rejectionReason?: string }
+		>();
+
+		payload.forEach((update) => {
+			if (!update?.submissionId || !update?.studentId) return;
+			updateMap.set(`${update.submissionId}:${update.studentId}`, {
+				status: update.status,
+				rejectionReason: update.rejectionReason,
+			});
+		});
+		if (updateMap.size === 0) return;
+
+		const nextSubmissions = submissions.map((submission) => {
+			let changed = false;
+			const nextGrades = submission.grades.map((student) => {
+				const update = updateMap.get(
+					`${submission.submissionId}:${student.studentId}`
+				);
+				if (!update || student.status !== 'Pending') return student;
+				changed = true;
+				return {
+					...student,
+					status: update.status,
+					rejectionReason:
+						update.status === 'Rejected' ? update.rejectionReason : undefined,
+				};
+			});
+
+			if (!changed) return submission;
+			return {
+				...submission,
+				grades: nextGrades,
+				status: inferSubmissionStatus(nextGrades),
+				lastUpdated: nowIso,
+				rejectionReason: nextGrades.find((grade) => grade.rejectionReason)
+					?.rejectionReason,
+			};
+		});
+
+		setSubmissions(nextSubmissions);
+		if (selectedSubmission) {
+			const refreshedSelection = nextSubmissions.find(
+				(item) => item.submissionId === selectedSubmission.submissionId
+			);
+			if (refreshedSelection) {
+				setSelectedSubmission(refreshedSelection);
+			}
+		}
+
+		if (!currentAcademicYear) return;
+		const schoolState = useSchoolStore.getState();
+		const scopedStoreSnapshot = getScopedAcademicYearValue(
+			schoolState.gradesByAcademicYear || {},
+			currentAcademicYear,
+		);
+		const rawGrades = Array.isArray(scopedStoreSnapshot.value)
+			? (scopedStoreSnapshot.value as RawGradeData[])
+			: [];
+		if (rawGrades.length === 0) return;
+
+		const nextRawGrades = rawGrades.map((grade) => {
+			const update = updateMap.get(`${grade.submissionId}:${grade.studentId}`);
+			if (!update || grade.status !== 'Pending') return grade;
+			return {
+				...grade,
+				status: update.status,
+				rejectionReason:
+					update.status === 'Rejected' ? update.rejectionReason : undefined,
+				lastUpdated: nowIso,
+			};
+		});
+		setGradesForYear(currentAcademicYear, nextRawGrades);
+	};
+
 	// API interaction handlers
 	const updateGradesStatus = async (
 		payload: {
@@ -387,19 +492,34 @@ const AdminGradeManagement: React.FC = () => {
 		}[]
 	) => {
 		try {
+			setActionNotice(null);
 			const response = await fetch('/api/grades', {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload),
 			});
+			const result = await response.json().catch(() => ({}));
 			if (!response.ok) {
-				throw new Error('API request failed');
+				throw new Error(result.message || 'API request failed');
 			}
-			await fetchGrades(true); // Refresh data on success
+			if (result?.queued) {
+				applySubmissionStatusLocally(payload);
+				setActionNotice({
+					type: 'info',
+					message:
+						'You are offline. Approval/rejection was queued and will sync when you reconnect.',
+				});
+				return;
+			}
+			applySubmissionStatusLocally(payload);
 			window.dispatchEvent(new CustomEvent('grading:counts:refresh'));
+			void fetchGrades(true);
 		} catch (error) {
 			console.error('Error updating grade status:', error);
-			// You might want to show an error toast to the user here
+			setActionNotice({
+				type: 'error',
+				message: 'Could not update grade status. Please try again.',
+			});
 		}
 	};
 
@@ -620,7 +740,9 @@ const AdminGradeManagement: React.FC = () => {
 	};
 	const getGradeColor = (grade: number | null) => {
 		if (grade === null) return 'text-muted-foreground';
-		return grade >= 70 ? 'text-blue-600 font-semibold' : 'text-red-600 font-semibold';
+		return grade >= 70
+			? 'text-[var(--grade-pass)] font-semibold'
+			: 'text-[var(--grade-fail)] font-semibold';
 	};
 	// Selection toggles
 	const toggleSubmissionSelection = (submissionId: string) => {
@@ -950,6 +1072,17 @@ const AdminGradeManagement: React.FC = () => {
 							Refresh
 						</button>
 					</div>
+					{actionNotice && (
+						<div
+							className={`mb-4 rounded-md border px-4 py-2 text-sm ${
+								actionNotice.type === 'error'
+									? 'bg-destructive/10 border-destructive/20 text-destructive'
+									: 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300'
+							}`}
+						>
+							{actionNotice.message}
+						</div>
+					)}
 					{/* Filters */}
 					<div className="flex flex-wrap gap-4 items-center">
 						<div className="relative w-full sm:w-auto flex-grow">

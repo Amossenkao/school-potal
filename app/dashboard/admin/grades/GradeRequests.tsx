@@ -279,6 +279,10 @@ const GradeRequests: React.FC = () => {
 	const [bulkRequests, setBulkRequests] = useState<BulkGradeRequest[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState('');
+	const [actionNotice, setActionNotice] = useState<{
+		type: 'info' | 'error';
+		message: string;
+	} | null>(null);
 	const { isOnline } = useNetworkStore();
 
 	// Modal states
@@ -383,6 +387,56 @@ const GradeRequests: React.FC = () => {
 		setError('');
 	}, [scopedGradeRequests]);
 
+	const applyRequestStatusLocally = (payload: {
+		requestIds: string[];
+		status: 'Approved' | 'Rejected';
+		adminRejectionReason?: string;
+	}) => {
+		if (payload.requestIds.length === 0) return;
+		const targetIds = new Set(payload.requestIds);
+		const nowIso = new Date().toISOString();
+
+		const nextRequests = bulkRequests.map((batch) => {
+			let changed = false;
+			const nextBatchRequests = batch.requests.map((request) => {
+				if (!targetIds.has(request.requestId) || request.status !== 'Pending') {
+					return request;
+				}
+				changed = true;
+				return {
+					...request,
+					status: payload.status,
+					adminRejectionReason:
+						payload.status === 'Rejected'
+							? payload.adminRejectionReason
+							: undefined,
+				};
+			});
+
+			if (!changed) return batch;
+			return {
+				...batch,
+				requests: nextBatchRequests,
+				status: inferBatchStatus(nextBatchRequests),
+				lastUpdated: nowIso,
+				stats: { totalRequests: nextBatchRequests.length },
+			};
+		});
+
+		setBulkRequests(nextRequests);
+		if (currentAcademicYear) {
+			setGradeRequestsForYear(currentAcademicYear, nextRequests);
+		}
+		if (selectedBulkRequest) {
+			const refreshedSelected = nextRequests.find(
+				(batch) => batch.batchId === selectedBulkRequest.batchId
+			);
+			if (refreshedSelected) {
+				setSelectedBulkRequest(refreshedSelected);
+			}
+		}
+	};
+
 	// API interaction simulation
 	const updateRequestStatus = async (payload: {
 		requestIds: string[];
@@ -391,19 +445,34 @@ const GradeRequests: React.FC = () => {
 	}) => {
 		setIsProcessing(true);
 		try {
+			setActionNotice(null);
 			const response = await fetch('/api/grades/requests', {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload),
 			});
+			const result = await response.json().catch(() => ({}));
 			if (!response.ok) {
-				throw new Error('API request failed');
+				throw new Error(result.message || 'API request failed');
 			}
-			await fetchRequests(true); // Refresh data on success
+			if (result?.queued) {
+				applyRequestStatusLocally(payload);
+				setActionNotice({
+					type: 'info',
+					message:
+						'You are offline. Request approval/rejection was queued and will sync when you reconnect.',
+				});
+				return;
+			}
+			applyRequestStatusLocally(payload);
 			window.dispatchEvent(new CustomEvent('grading:counts:refresh'));
+			void fetchRequests(true);
 		} catch (error) {
 			console.error('Error updating grade status:', error);
-			// You might want to show an error toast to the user here
+			setActionNotice({
+				type: 'error',
+				message: 'Could not update request status. Please try again.',
+			});
 		} finally {
 			setIsProcessing(false);
 		}
@@ -593,7 +662,9 @@ const GradeRequests: React.FC = () => {
 	};
 	const getGradeColor = (grade: number | null) => {
 		if (grade === null) return 'text-muted-foreground';
-		return grade >= 70 ? 'text-blue-600' : 'text-red-600';
+		return grade >= 70
+			? 'text-[var(--grade-pass)]'
+			: 'text-[var(--grade-fail)]';
 	};
 	const formatDate = (dateString: string) =>
 		new Date(dateString).toLocaleString([], {
@@ -866,6 +937,17 @@ const GradeRequests: React.FC = () => {
 								Refresh
 							</button>
 						</div>
+						{actionNotice && (
+							<div
+								className={`mb-4 rounded-md border px-4 py-2 text-sm ${
+									actionNotice.type === 'error'
+										? 'bg-destructive/10 border-destructive/20 text-destructive'
+										: 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300'
+								}`}
+							>
+								{actionNotice.message}
+							</div>
+						)}
 						<div className="flex flex-wrap gap-4 items-center">
 						<div className="relative w-full sm:w-auto flex-grow">
 							<Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />

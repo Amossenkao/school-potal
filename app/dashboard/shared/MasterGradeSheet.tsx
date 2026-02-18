@@ -74,6 +74,8 @@ const formatGrade = (grade: any): string => {
 };
 
 const PASS_MARK = 70;
+const PASS_GRADE_CLASS = 'text-[var(--grade-pass)] font-semibold';
+const FAIL_GRADE_CLASS = 'text-[var(--grade-fail)] font-semibold';
 
 const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	academicYear: currentAcademicYear,
@@ -658,9 +660,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 	const getGradeColor = (grade: number | null) => {
 		if (grade == null) return 'text-muted-foreground';
-		return grade >= PASS_MARK
-			? 'text-blue-600 font-semibold'
-			: 'text-red-600 font-semibold';
+		return grade >= PASS_MARK ? PASS_GRADE_CLASS : FAIL_GRADE_CLASS;
 	};
 
 	const getGradeStats = () => {
@@ -706,12 +706,12 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		{
 			label: 'Number of Passes',
 			key: 'passes',
-			className: 'font-semibold text-blue-600',
+			className: PASS_GRADE_CLASS,
 		},
 		{
 			label: 'Number of Fails',
 			key: 'fails',
-			className: 'font-semibold text-red-600',
+			className: FAIL_GRADE_CLASS,
 		},
 		{
 			label: 'Number of Incompletes',

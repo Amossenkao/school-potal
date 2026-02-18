@@ -167,6 +167,36 @@ const parseStringArray = (value: unknown): string[] => {
 
 const toPlain = (value: any) => JSON.parse(JSON.stringify(value || {}));
 
+const SUPERADMIN_LIST_CONCURRENCY = (() => {
+	const parsed = Number.parseInt(
+		process.env.SUPERADMIN_LIST_SCHOOL_CONCURRENCY || '4',
+		10,
+	);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : 4;
+})();
+
+const mapWithConcurrency = async <T, R>(
+	items: T[],
+	worker: (item: T) => Promise<R>,
+	concurrency: number,
+): Promise<R[]> => {
+	if (!Array.isArray(items) || items.length === 0) return [];
+	const maxConcurrency = Math.max(1, Math.min(concurrency, items.length));
+	const output: R[] = new Array(items.length);
+	let cursor = 0;
+
+	const runners = Array.from({ length: maxConcurrency }, async () => {
+		while (cursor < items.length) {
+			const currentIndex = cursor;
+			cursor += 1;
+			output[currentIndex] = await worker(items[currentIndex]);
+		}
+	});
+
+	await Promise.all(runners);
+	return output;
+};
+
 const getProfileModel = async () => {
 	const connection = await connectToTenantsDb();
 	return (
@@ -396,7 +426,11 @@ export const clearSchoolProfileCache = async (host?: string) => {
 export const listSchools = async (): Promise<SchoolSummary[]> => {
 	const Profile = await getProfileModel();
 	const schools = await Profile.find({}).sort({ createdAt: -1 }).lean();
-	return Promise.all(schools.map((profile: any) => toSummary(profile)));
+	return mapWithConcurrency(
+		schools,
+		(profile: any) => toSummary(profile),
+		SUPERADMIN_LIST_CONCURRENCY,
+	);
 };
 
 export const getSchoolById = async (id: string): Promise<any | null> => {

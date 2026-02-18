@@ -64,6 +64,9 @@ const allPeriods = [
 		value: 'sixth_period_exam',
 	},
 ];
+const PASS_MARK = 70;
+const PASS_GRADE_CLASS = 'text-[var(--grade-pass)]';
+const FAIL_GRADE_CLASS = 'text-[var(--grade-fail)]';
 
 const SubmitGrade: React.FC = () => {
 	const school = useSchoolStore((state) => state.school);
@@ -757,8 +760,8 @@ const SubmitGrade: React.FC = () => {
 		if (grade === '') return isExisting ? 'text-muted-foreground' : 'text-foreground';
 		const num = Number(grade);
 		if (Number.isNaN(num)) return isExisting ? 'text-muted-foreground' : 'text-foreground';
-		if (num < 70) return 'text-red-600';
-		return 'text-blue-600';
+		if (num < PASS_MARK) return FAIL_GRADE_CLASS;
+		return PASS_GRADE_CLASS;
 	};
 
 	const showSessionSelect = availableSessions.length > 1;
@@ -1312,12 +1315,12 @@ const SubmitGrade: React.FC = () => {
 																			!isExisting && (
 																				<span
 																					className={`text-xs font-medium ${
-																						Number(gradeValue) >= 70
-																							? 'text-blue-600'
-																							: 'text-red-600'
+																						Number(gradeValue) >= PASS_MARK
+																							? PASS_GRADE_CLASS
+																							: FAIL_GRADE_CLASS
 																					}`}
 																				>
-																					{Number(gradeValue) >= 70
+																					{Number(gradeValue) >= PASS_MARK
 																						? 'Pass'
 																						: 'Fail'}
 																				</span>

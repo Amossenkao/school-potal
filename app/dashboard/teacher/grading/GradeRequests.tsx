@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
 	Loader2,
 	Clock,
@@ -63,7 +63,9 @@ const getGradeColor = (grade: number | null | undefined) => {
 	if (grade === null || grade === undefined || Number.isNaN(Number(grade))) {
 		return 'text-muted-foreground';
 	}
-	return Number(grade) >= 70 ? 'text-blue-600 font-semibold' : 'text-red-600 font-semibold';
+	return Number(grade) >= 70
+		? 'text-[var(--grade-pass)] font-semibold'
+		: 'text-[var(--grade-fail)] font-semibold';
 };
 
 const TeacherGradeChangeRequests = ({
@@ -77,6 +79,13 @@ const TeacherGradeChangeRequests = ({
 	const setGradeRequestsForYear = useSchoolStore(
 		(state) => state.setGradeRequestsForYear,
 	);
+	const scopedGradeRequests = useSchoolStore((state) => {
+		const academicYear = schoolAcademicYear || getCurrentAcademicYear();
+		return getScopedAcademicYearValue(
+			state.gradeRequestsByAcademicYear,
+			academicYear,
+		).value;
+	});
 	const [requests, setRequests] = useState<BatchRequest[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState('');
@@ -93,64 +102,67 @@ const TeacherGradeChangeRequests = ({
 	const [currentPage, setCurrentPage] = useState(1);
 	const [itemsPerPage, setItemsPerPage] = useState(5);
 
-	const fetchRequests = async (skipCache = false) => {
-		if (!teacherInfo?.username) {
-			setRequests([]);
-			setLoading(false);
-			return;
-		}
-		try {
-			const academicYear = schoolAcademicYear || getCurrentAcademicYear();
-			const storeState = useSchoolStore.getState();
-			const cachedByYear = storeState.gradeRequestsByAcademicYear || {};
-			const scopedStoreSnapshot = getScopedAcademicYearValue(
-				cachedByYear,
-				academicYear,
-			);
-			const hasYearSnapshot = Boolean(scopedStoreSnapshot.key);
-			const scopedStoreRequests = Array.isArray(scopedStoreSnapshot.value)
-				? scopedStoreSnapshot.value
-				: [];
-			const cacheKey = `gradeRequests:${academicYear}:${
-				teacherInfo?.username || 'teacher'
-			}`;
-			if (!skipCache && hasYearSnapshot) {
-				setRequests(scopedStoreRequests as BatchRequest[]);
-				setError('');
+	const fetchRequests = useCallback(
+		async (skipCache = false) => {
+			if (!teacherInfo?.username) {
+				setRequests([]);
 				setLoading(false);
 				return;
 			}
-
-			if (!skipCache) {
-				const cached = getClientCache<BatchRequest[]>(cacheKey);
-				if (cached !== null) {
-					setRequests(cached);
+			try {
+				const academicYear = schoolAcademicYear || getCurrentAcademicYear();
+				const storeState = useSchoolStore.getState();
+				const cachedByYear = storeState.gradeRequestsByAcademicYear || {};
+				const scopedStoreSnapshot = getScopedAcademicYearValue(
+					cachedByYear,
+					academicYear,
+				);
+				const hasYearSnapshot = Boolean(scopedStoreSnapshot.key);
+				const scopedStoreRequests = Array.isArray(scopedStoreSnapshot.value)
+					? scopedStoreSnapshot.value
+					: [];
+				const cacheKey = `gradeRequests:${academicYear}:${
+					teacherInfo?.username || 'teacher'
+				}`;
+				if (!skipCache && hasYearSnapshot) {
+					setRequests(scopedStoreRequests as BatchRequest[]);
 					setError('');
 					setLoading(false);
 					return;
 				}
-			}
 
-			setLoading(true);
-			setError('');
-			const res = await fetch(
-				`/api/grades/requests?academicYear=${academicYear}`
-			);
-			if (!res.ok)
-				throw new Error('Failed to fetch your grade change requests.');
-			const data = await res.json();
-			const report = Array.isArray(data?.data?.report) ? data.data.report : [];
-			setRequests(report);
-			setGradeRequestsForYear(academicYear, report);
-			setClientCache(cacheKey, report);
-		} catch (err) {
-			setError(
-				'Could not load your grade change requests. Please try again later.'
-			);
-		} finally {
-			setLoading(false);
-		}
-	};
+				if (!skipCache) {
+					const cached = getClientCache<BatchRequest[]>(cacheKey);
+					if (cached !== null) {
+						setRequests(cached);
+						setError('');
+						setLoading(false);
+						return;
+					}
+				}
+
+				setLoading(true);
+				setError('');
+				const res = await fetch(
+					`/api/grades/requests?academicYear=${academicYear}`
+				);
+				if (!res.ok)
+					throw new Error('Failed to fetch your grade change requests.');
+				const data = await res.json();
+				const report = Array.isArray(data?.data?.report) ? data.data.report : [];
+				setRequests(report);
+				setGradeRequestsForYear(academicYear, report);
+				setClientCache(cacheKey, report);
+			} catch (err) {
+				setError(
+					'Could not load your grade change requests. Please try again later.'
+				);
+			} finally {
+				setLoading(false);
+			}
+		},
+		[teacherInfo?.username, schoolAcademicYear, setGradeRequestsForYear]
+	);
 
 	useEffect(() => {
 		if (!teacherInfo?.username) {
@@ -159,7 +171,38 @@ const TeacherGradeChangeRequests = ({
 			return;
 		}
 		void fetchRequests();
-	}, [teacherInfo?.username, schoolAcademicYear]);
+	}, [teacherInfo?.username, schoolAcademicYear, fetchRequests]);
+
+	useEffect(() => {
+		if (!teacherInfo?.username || !Array.isArray(scopedGradeRequests)) return;
+		setRequests(scopedGradeRequests as BatchRequest[]);
+		setError('');
+		setLoading(false);
+	}, [teacherInfo?.username, scopedGradeRequests]);
+
+	useEffect(() => {
+		const handleRequestUpdate = (
+			event: CustomEvent<{ academicYear?: string; teacherUsername?: string }>
+		) => {
+			const eventYear = event.detail?.academicYear;
+			const eventTeacher = event.detail?.teacherUsername;
+			const activeYear = schoolAcademicYear || getCurrentAcademicYear();
+			if (eventTeacher && eventTeacher !== teacherInfo?.username) return;
+			if (eventYear && eventYear !== activeYear) return;
+			void fetchRequests();
+		};
+
+		window.addEventListener(
+			'grading:requests:updated',
+			handleRequestUpdate as EventListener
+		);
+		return () => {
+			window.removeEventListener(
+				'grading:requests:updated',
+				handleRequestUpdate as EventListener
+			);
+		};
+	}, [teacherInfo?.username, schoolAcademicYear, fetchRequests]);
 
 	// Pagination Logic
 	const paginatedRequests = useMemo(() => {
@@ -176,10 +219,17 @@ const TeacherGradeChangeRequests = ({
 			const res = await fetch(`/api/grades/requests?requestId=${requestId}`, {
 				method: 'DELETE',
 			});
+			const result = await res.json().catch(() => ({}));
 
 			if (!res.ok) {
-				const errorData = await res.json();
-				throw new Error(errorData.message || 'Failed to withdraw request.');
+				throw new Error(result.message || 'Failed to withdraw request.');
+			}
+
+			if (result?.queued) {
+				alert(
+					'You are offline. Request withdrawal was queued and will sync when you reconnect.'
+				);
+				return;
 			}
 			await fetchRequests(true);
 		} catch (err: any) {
@@ -211,9 +261,18 @@ const TeacherGradeChangeRequests = ({
 					reasonForChange,
 				}),
 			});
+			const result = await res.json().catch(() => ({}));
 
 			if (!res.ok) {
-				throw new Error('Failed to update request.');
+				throw new Error(result.message || 'Failed to update request.');
+			}
+
+			if (result?.queued) {
+				alert(
+					'You are offline. Request update was queued and will sync when you reconnect.'
+				);
+				setEditModal((prev) => ({ ...prev, isOpen: false }));
+				return;
 			}
 
 			await fetchRequests(true);

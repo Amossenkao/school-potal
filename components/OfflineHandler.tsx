@@ -104,7 +104,19 @@ export default function OfflineHandler({
 
 		const shouldAllowOffline = (url: string, method: string) => {
 			const normalizedMethod = method.toUpperCase();
-			return normalizedMethod === 'POST' && url.includes('/api/grades');
+			const isGradeMutationMethod = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(
+				normalizedMethod,
+			);
+			if (!isGradeMutationMethod) return false;
+			try {
+				const parsed = new URL(url, window.location.origin);
+				return (
+					parsed.origin === window.location.origin &&
+					parsed.pathname.startsWith('/api/grades')
+				);
+			} catch (error) {
+				return url.includes('/api/grades');
+			}
 		};
 
 		const buildCacheRequest = (

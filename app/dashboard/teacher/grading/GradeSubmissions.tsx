@@ -81,6 +81,43 @@ interface ConfirmationModalState {
 	errorMessage?: string;
 }
 
+interface RawSubmittedGrade {
+	submissionId: string;
+	studentId: string;
+	grade: number | null;
+	status: 'Approved' | 'Rejected' | 'Pending';
+	lastUpdated?: string;
+}
+
+interface GradeRequestBatchRequest {
+	_id: string;
+	requestId?: string;
+	studentId: string;
+	studentName: string;
+	originalGrade: number | null;
+	requestedGrade: number;
+	reasonForChange: string;
+	status: 'Pending' | 'Approved' | 'Rejected';
+	adminRejectionReason?: string;
+	[key: string]: any;
+}
+
+interface GradeRequestBatchEntry {
+	batchId: string;
+	subject: string;
+	classId: string;
+	period: string;
+	submittedAt: string;
+	lastUpdated?: string;
+	academicYear?: string;
+	teacherUsername?: string;
+	teacherName?: string;
+	status: 'Pending' | 'Approved' | 'Rejected' | 'Partially Approved';
+	requests: GradeRequestBatchRequest[];
+	stats?: { totalRequests: number };
+	[key: string]: any;
+}
+
 const periods = [
 	{ id: 'first', label: '1st Period', value: 'first' },
 	{ id: 'second', label: '2nd Period', value: 'second' },
@@ -99,6 +136,9 @@ const periods = [
 		value: 'sixth_period_exam',
 	},
 ];
+const PASS_MARK = 70;
+const PASS_GRADE_CLASS = 'text-[var(--grade-pass)] font-semibold';
+const FAIL_GRADE_CLASS = 'text-[var(--grade-fail)] font-semibold';
 
 const GradeSubmissions = () => {
 	const school = useSchoolStore((state) => state.school);
@@ -106,6 +146,9 @@ const GradeSubmissions = () => {
 		(state) => state.school?.currentAcademicYear
 	);
 	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
+	const setGradeRequestsForYear = useSchoolStore(
+		(state) => state.setGradeRequestsForYear
+	);
 	const { user } = useAuth();
 	const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
 	const [submittedGrades, setSubmittedGrades] = useState<GradeSubmission[]>([]);
@@ -474,10 +517,246 @@ const GradeSubmissions = () => {
 		return 'Pending';
 	};
 
+	const calculateSubmissionStats = (
+		grades: Array<{ grade: number | null }>
+	): GradeSubmission['stats'] => {
+		const validGrades = grades
+			.map((entry) => entry.grade)
+			.filter((grade): grade is number => grade !== null);
+		const totalStudents = grades.length;
+		const passes = validGrades.filter((grade) => grade >= PASS_MARK).length;
+		const fails = validGrades.length - passes;
+		const incompletes = totalStudents - validGrades.length;
+		const average =
+			validGrades.length > 0
+				? validGrades.reduce((sum, grade) => sum + grade, 0) / validGrades.length
+				: 0;
+
+		return {
+			totalStudents,
+			passes,
+			fails,
+			incompletes,
+			average: parseFloat(average.toFixed(1)),
+		};
+	};
+
+	const deriveBatchStatus = (
+		requests: GradeRequestBatchRequest[]
+	): GradeRequestBatchEntry['status'] => {
+		const statuses = new Set(requests.map((request) => request.status));
+		if (statuses.size === 1) {
+			return statuses.values().next().value as GradeRequestBatchEntry['status'];
+		}
+		if (statuses.has('Pending') || (statuses.has('Approved') && statuses.has('Rejected'))) {
+			return 'Partially Approved';
+		}
+		if (statuses.has('Approved')) return 'Approved';
+		if (statuses.has('Rejected')) return 'Rejected';
+		return 'Pending';
+	};
+
+	const applyLocalSubmittedGradeUpdates = (updatedGrades: RawSubmittedGrade[]) => {
+		if (!teacherInfo?.username || !academicYear || updatedGrades.length === 0) {
+			return;
+		}
+
+		const updateMap = new Map<string, RawSubmittedGrade>();
+		updatedGrades.forEach((grade) => {
+			if (!grade?.submissionId || !grade?.studentId) return;
+			updateMap.set(`${grade.submissionId}:${grade.studentId}`, grade);
+		});
+		if (updateMap.size === 0) return;
+
+		const nowIso = new Date().toISOString();
+		setSubmittedGrades((previous) =>
+			previous.map((submission) => {
+				let changed = false;
+				const nextGrades = submission.grades.map((student) => {
+					const updated = updateMap.get(
+						`${submission.submissionId}:${student.studentId}`
+					);
+					if (!updated) return student;
+					changed = true;
+					return {
+						...student,
+						grade:
+							typeof updated.grade === 'number' || updated.grade === null
+								? updated.grade
+								: student.grade,
+						status:
+							updated.status === 'Approved' ||
+							updated.status === 'Rejected' ||
+							updated.status === 'Pending'
+								? updated.status
+								: student.status,
+					};
+				});
+
+				if (!changed) return submission;
+
+				const nextSubmission = {
+					...submission,
+					grades: nextGrades,
+					lastUpdated: nowIso,
+				};
+
+				return {
+					...nextSubmission,
+					status: deriveSubmissionStatus(nextSubmission),
+					stats: calculateSubmissionStats(nextGrades),
+				};
+			})
+		);
+
+		const submittedGradesCacheKey = `submittedGrades:${teacherInfo.username}:${academicYear}`;
+		const schoolState = useSchoolStore.getState();
+		const scopedStoreSnapshot = getScopedAcademicYearValue(
+			schoolState.gradesByAcademicYear || {},
+			academicYear
+		);
+		const sourceGrades = Array.isArray(scopedStoreSnapshot.value)
+			? (scopedStoreSnapshot.value as RawSubmittedGrade[])
+			: getClientCache<RawSubmittedGrade[]>(submittedGradesCacheKey) || [];
+		if (!Array.isArray(sourceGrades) || sourceGrades.length === 0) return;
+
+		const nextRawGrades = sourceGrades.map((grade) => {
+			const updated = updateMap.get(`${grade.submissionId}:${grade.studentId}`);
+			if (!updated) return grade;
+			return {
+				...grade,
+				grade:
+					typeof updated.grade === 'number' || updated.grade === null
+						? updated.grade
+						: grade.grade,
+				status:
+					updated.status === 'Approved' ||
+					updated.status === 'Rejected' ||
+					updated.status === 'Pending'
+						? updated.status
+						: grade.status,
+				lastUpdated: updated.lastUpdated || nowIso,
+			};
+		});
+
+		setGradesForYear(academicYear, nextRawGrades);
+		setClientCache(submittedGradesCacheKey, nextRawGrades);
+	};
+
+	const syncCreatedGradeRequestsLocally = (createdRequests: any[]) => {
+		if (!teacherInfo?.username || !academicYear || createdRequests.length === 0) {
+			return;
+		}
+
+		const requestCacheKey = `gradeRequests:${academicYear}:${teacherInfo.username}`;
+		const schoolState = useSchoolStore.getState();
+		const scopedStoreSnapshot = getScopedAcademicYearValue(
+			schoolState.gradeRequestsByAcademicYear || {},
+			academicYear
+		);
+		const sourceBatches = Array.isArray(scopedStoreSnapshot.value)
+			? (scopedStoreSnapshot.value as GradeRequestBatchEntry[])
+			: getClientCache<GradeRequestBatchEntry[]>(requestCacheKey) || [];
+
+		const batchesById = new Map<string, GradeRequestBatchEntry>();
+		sourceBatches.forEach((batch) => {
+			const batchId = String(batch?.batchId || '');
+			if (!batchId) return;
+			batchesById.set(batchId, {
+				...batch,
+				batchId,
+				requests: Array.isArray(batch?.requests) ? batch.requests : [],
+			});
+		});
+
+		const nowIso = new Date().toISOString();
+		createdRequests.forEach((request, index) => {
+			const batchId = String(request?.batchId || `batch-${index + 1}`);
+			const requestIdValue = request?._id || request?.requestId || request?.id;
+			const requestId = String(
+				requestIdValue || `${batchId}-${request?.studentId || index + 1}`
+			);
+			const normalizedStatus =
+				request?.status === 'Approved' || request?.status === 'Rejected'
+					? request.status
+					: 'Pending';
+			const normalizedRequest: GradeRequestBatchRequest = {
+				...request,
+				_id: requestId,
+				requestId,
+				batchId,
+				studentId: String(request?.studentId || ''),
+				studentName: String(request?.studentName || request?.name || 'Unknown Student'),
+				originalGrade:
+					typeof request?.originalGrade === 'number' || request?.originalGrade === null
+						? request.originalGrade
+						: null,
+				requestedGrade:
+					typeof request?.requestedGrade === 'number'
+						? request.requestedGrade
+						: Number(request?.requestedGrade || 0),
+				reasonForChange: String(request?.reasonForChange || request?.reason || ''),
+				status: normalizedStatus,
+			};
+
+			const existingBatch = batchesById.get(batchId);
+			if (!existingBatch) {
+				const nextBatch: GradeRequestBatchEntry = {
+					batchId,
+					academicYear: String(request?.academicYear || academicYear),
+					period: String(request?.period || selectedGrade?.period || ''),
+					classId: String(request?.classId || selectedGrade?.gradeLevel || ''),
+					subject: String(request?.subject || selectedGrade?.subject || ''),
+					teacherUsername: String(request?.teacherUsername || teacherInfo.username),
+					teacherName: String(request?.teacherName || teacherInfo.name || ''),
+					submittedAt: String(request?.submittedAt || nowIso),
+					lastUpdated: String(request?.lastUpdated || request?.submittedAt || nowIso),
+					status: 'Pending',
+					requests: [normalizedRequest],
+					stats: { totalRequests: 1 },
+				};
+				batchesById.set(batchId, nextBatch);
+				return;
+			}
+
+			const existingIndex = existingBatch.requests.findIndex((entry) => {
+				const entryId = String(entry?.requestId || entry?._id || '');
+				return entryId === requestId;
+			});
+			if (existingIndex >= 0) {
+				existingBatch.requests[existingIndex] = {
+					...existingBatch.requests[existingIndex],
+					...normalizedRequest,
+				};
+			} else {
+				existingBatch.requests = [normalizedRequest, ...existingBatch.requests];
+			}
+			existingBatch.status = deriveBatchStatus(existingBatch.requests);
+			existingBatch.lastUpdated = String(
+				request?.lastUpdated || request?.submittedAt || nowIso
+			);
+			existingBatch.stats = { totalRequests: existingBatch.requests.length };
+		});
+
+		const nextBatches = Array.from(batchesById.values()).sort((a, b) => {
+			const aDate = new Date(a.lastUpdated || a.submittedAt).getTime();
+			const bDate = new Date(b.lastUpdated || b.submittedAt).getTime();
+			return bDate - aDate;
+		});
+
+		setGradeRequestsForYear(academicYear, nextBatches);
+		setClientCache(requestCacheKey, nextBatches);
+		window.dispatchEvent(
+			new CustomEvent('grading:requests:updated', {
+				detail: { academicYear, teacherUsername: teacherInfo.username },
+			})
+		);
+	};
+
 	const getModalGradeColor = (grade: number | null) => {
 		if (grade === null || grade === undefined) return 'text-muted-foreground';
-		if (grade >= 70) return 'text-blue-600 font-semibold';
-		return 'text-red-600 font-semibold';
+		if (grade >= PASS_MARK) return PASS_GRADE_CLASS;
+		return FAIL_GRADE_CLASS;
 	};
 
 	const getGradeValidationStatus = (gradeValue: string) => {
@@ -763,7 +1042,12 @@ const GradeSubmissions = () => {
 			}
 
 			if (result.success) {
-				const { createdRequests, updatedGrades } = result.data;
+				const createdRequests = Array.isArray(result?.data?.createdRequests)
+					? result.data.createdRequests
+					: [];
+				const updatedGrades = Array.isArray(result?.data?.updatedGrades)
+					? (result.data.updatedGrades as RawSubmittedGrade[])
+					: [];
 				if (createdRequests.length === 0 && updatedGrades.length === 0) {
 					showNotification(
 						'info',
@@ -772,13 +1056,19 @@ const GradeSubmissions = () => {
 				} else {
 					showNotification('success', result.message);
 				}
+				if (updatedGrades.length > 0) {
+					applyLocalSubmittedGradeUpdates(updatedGrades);
+				}
+				if (createdRequests.length > 0) {
+					syncCreatedGradeRequestsLocally(createdRequests);
+				}
 				window.dispatchEvent(new CustomEvent('grading:counts:refresh'));
 			} else {
 				throw new Error(result.message || 'An unknown error occurred.');
 			}
 
 			setShowDetailsModal(false);
-			fetchSubmittedGrades({ forceRefresh: true }); // Refresh the list from server
+			void fetchSubmittedGrades({ forceRefresh: true }); // Reconcile with server data
 		} catch (err: any) {
 			showNotification('error', `Error: ${err.message}`);
 		} finally {

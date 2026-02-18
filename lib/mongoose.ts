@@ -13,8 +13,23 @@ if (!MONGODB_URI) {
 
 // Store connections for individual tenants
 const connections: Map<string, Connection> = new Map();
+const connectionPromises: Map<string, Promise<Connection>> = new Map();
 // A dedicated connection for the central 'tenants' database
 let tenantsDbConnection: Connection | null = null;
+let tenantsDbConnectionPromise: Promise<Connection> | null = null;
+
+const parsePoolSize = (value: string | undefined, fallback: number) => {
+	if (!value) return fallback;
+	const parsed = Number.parseInt(value, 10);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const MAX_POOL_SIZE = parsePoolSize(process.env.MONGODB_MAX_POOL_SIZE, 5);
+const SERVER_SELECTION_TIMEOUT_MS = parsePoolSize(
+	process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS,
+	5000
+);
+const MAX_IDLE_TIME_MS = parsePoolSize(process.env.MONGODB_MAX_IDLE_TIME_MS, 30000);
 
 /**
  * Establishes and caches a connection to the central 'tenants' database.
@@ -26,26 +41,58 @@ export const connectToTenantsDb = async (): Promise<Connection> => {
 	if (tenantsDbConnection && tenantsDbConnection.readyState === 1) {
 		return tenantsDbConnection;
 	}
+	if (tenantsDbConnectionPromise) {
+		return tenantsDbConnectionPromise;
+	}
+
+	if (tenantsDbConnection && tenantsDbConnection.readyState === 2) {
+		tenantsDbConnectionPromise = tenantsDbConnection
+			.asPromise()
+			.then(() => tenantsDbConnection as Connection)
+			.finally(() => {
+				tenantsDbConnectionPromise = null;
+			});
+		return tenantsDbConnectionPromise;
+	}
+
 	try {
-		tenantsDbConnection = mongoose.createConnection(MONGODB_URI, {
-			dbName: 'tenants',
-		});
-
-		await new Promise<void>((resolve, reject) => {
-			tenantsDbConnection!.once('connected', () => {
-				console.log("✅ Successfully connected to central 'tenants' database.");
-				resolve();
+		tenantsDbConnectionPromise = (async () => {
+			tenantsDbConnection = mongoose.createConnection(MONGODB_URI, {
+				dbName: 'tenants',
+				maxPoolSize: MAX_POOL_SIZE,
+				minPoolSize: 0,
+				maxIdleTimeMS: MAX_IDLE_TIME_MS,
+				serverSelectionTimeoutMS: SERVER_SELECTION_TIMEOUT_MS,
 			});
-			tenantsDbConnection!.once('error', (err) => {
-				console.error("❌ Error connecting to 'tenants' database:", err);
-				reject(err);
-			});
-		});
 
-		return tenantsDbConnection;
+			await new Promise<void>((resolve, reject) => {
+				tenantsDbConnection!.once('connected', () => {
+					console.log("✅ Successfully connected to central 'tenants' database.");
+					resolve();
+				});
+				tenantsDbConnection!.once('error', (err) => {
+					console.error("❌ Error connecting to 'tenants' database:", err);
+					reject(err);
+				});
+			});
+
+			return tenantsDbConnection as Connection;
+		})();
+
+		return await tenantsDbConnectionPromise;
 	} catch (err) {
 		console.error("MongoDB connection error for 'tenants' database:", err);
+		if (tenantsDbConnection) {
+			try {
+				await tenantsDbConnection.close();
+			} catch {
+				// Ignore close errors during failed connection bootstrap.
+			}
+		}
+		tenantsDbConnection = null;
 		throw err;
+	} finally {
+		tenantsDbConnectionPromise = null;
 	}
 };
 
@@ -56,27 +103,64 @@ const getOrCreateTenantConnectionByDbName = async (
 		throw new Error('A tenant database name is required.');
 	}
 
-	if (connections.has(dbName)) {
-		const existingConnection = connections.get(dbName)!;
+	const existingConnection = connections.get(dbName);
+	if (existingConnection) {
 		if (existingConnection.readyState === 1) {
 			return existingConnection;
 		}
+		if (existingConnection.readyState === 2) {
+			return existingConnection.asPromise().then(() => existingConnection);
+		}
+		if (existingConnection.readyState === 0 || existingConnection.readyState === 3) {
+			connections.delete(dbName);
+		}
 	}
 
-	const connection = mongoose.createConnection(MONGODB_URI, {
-		dbName,
-	});
+	const inFlightConnection = connectionPromises.get(dbName);
+	if (inFlightConnection) {
+		return inFlightConnection;
+	}
 
-	await new Promise<void>((resolve, reject) => {
-		connection.once('connected', () => {
-			console.log(`Connected to database: ${dbName}`);
-			resolve();
+	let createdConnection: Connection | null = null;
+	const connectionPromise = (async () => {
+		const connection = mongoose.createConnection(MONGODB_URI, {
+			dbName,
+			maxPoolSize: MAX_POOL_SIZE,
+			minPoolSize: 0,
+			maxIdleTimeMS: MAX_IDLE_TIME_MS,
+			serverSelectionTimeoutMS: SERVER_SELECTION_TIMEOUT_MS,
 		});
-		connection.once('error', reject);
-	});
+		createdConnection = connection;
 
-	connections.set(dbName, connection);
-	return connection;
+		await new Promise<void>((resolve, reject) => {
+			connection.once('connected', () => {
+				console.log(`Connected to database: ${dbName}`);
+				resolve();
+			});
+			connection.once('error', reject);
+		});
+
+		connections.set(dbName, connection);
+		return connection;
+	})();
+
+	connectionPromises.set(dbName, connectionPromise);
+
+	try {
+		return await connectionPromise;
+	} catch (error) {
+		if (createdConnection) {
+			try {
+				await createdConnection.close();
+			} catch {
+				// Ignore close errors during failed connection bootstrap.
+			}
+		}
+		connections.delete(dbName);
+		throw error;
+	} finally {
+		connectionPromises.delete(dbName);
+	}
 };
 
 /**
@@ -185,6 +269,8 @@ export const closeAllConnections = async () => {
 
 	await Promise.all(allPromises);
 	connections.clear();
+	connectionPromises.clear();
 	tenantsDbConnection = null;
+	tenantsDbConnectionPromise = null;
 	console.log('All MongoDB connections closed.');
 };

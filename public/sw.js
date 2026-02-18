@@ -24,6 +24,7 @@ const API_ALLOWLIST = [
 
 const DB_NAME = 'pwa-queue';
 const DB_STORE = 'grade-submissions';
+const MUTATION_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
 const openQueueDb = () =>
 	new Promise((resolve, reject) => {
@@ -170,13 +171,14 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('fetch', (event) => {
 	const { request } = event;
-	if (request.method !== 'GET' && request.method !== 'POST') return;
+	const isMutationRequest = MUTATION_METHODS.includes(request.method);
+	if (request.method !== 'GET' && !isMutationRequest) return;
 
 	const url = new URL(request.url);
 	const isSameOrigin = url.origin === self.location.origin;
 
 	if (
-		request.method === 'POST' &&
+		isMutationRequest &&
 		isSameOrigin &&
 		url.pathname.startsWith('/api/grades')
 	) {

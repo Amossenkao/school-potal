@@ -14,7 +14,7 @@ export default function AuthProvider({
 	const { checkAuthStatus, hydrateFromCache, user } = useAuth();
 	const setIsOnline = useNetworkStore((state) => state.setIsOnline);
 	const setAuthCheckFailed = useNetworkStore(
-		(state) => state.setAuthCheckFailed
+		(state) => state.setAuthCheckFailed,
 	);
 	const authCheckInFlight = useRef(false);
 
@@ -61,7 +61,7 @@ export default function AuthProvider({
 		runAuthCheck();
 
 		// Periodic check: keep lightweight for low-end devices and slow links.
-		const interval = setInterval(runAuthCheck, 30000);
+		const interval = setInterval(runAuthCheck, 10000);
 
 		// Listen for browser online/offline events
 		const handleOnline = () => {

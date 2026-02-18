@@ -1,13 +1,14 @@
 // app/api/settings/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import mongoose, { Document } from 'mongoose';
+import { Document } from 'mongoose';
 import {
 	SchoolSettings,
 	SchoolProfile as SchoolProfileType,
 } from '@/types/schoolProfile';
 import SchoolProfileSchema from '@/models/profile/SchoolProfile';
 import { getTenantModels } from '@/models';
+import { connectToTenantsDb } from '@/lib/mongoose';
 import { destroyAllUserSessions } from '@/utils/session';
 import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
 import bcrypt from 'bcryptjs';
@@ -60,13 +61,11 @@ export async function POST(request: NextRequest) {
 
 		const { Student, Teacher, Administrator } = await getTenantModels();
 
-		await mongoose.connect(process.env.MONGODB_URI || '', {
-			dbName: 'tenants',
-		});
+		const tenantsConnection = await connectToTenantsDb();
 
 		const SchoolProfile =
-			mongoose.models.Profile ||
-			mongoose.model<SchoolProfileType & Document>(
+			tenantsConnection.models.Profile ||
+			tenantsConnection.model<SchoolProfileType & Document>(
 				'Profile',
 				SchoolProfileSchema,
 			);
@@ -456,13 +455,11 @@ export async function GET(request: NextRequest) {
 		}
 
 		// If not in cache, fetch from database
-		await mongoose.connect(process.env.MONGODB_URI || '', {
-			dbName: 'tenants',
-		});
+		const tenantsConnection = await connectToTenantsDb();
 
 		const SchoolProfile =
-			mongoose.models.Profile ||
-			mongoose.model<SchoolProfileType & Document>(
+			tenantsConnection.models.Profile ||
+			tenantsConnection.model<SchoolProfileType & Document>(
 				'Profile',
 				SchoolProfileSchema,
 			);

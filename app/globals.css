@@ -814,6 +814,8 @@ span.flatpickr-weekday,
 
 :root {
 	--radius: 0.625rem;
+	--grade-pass: #2563eb;
+	--grade-fail: #dc2626;
 }
 
 @layer base {
