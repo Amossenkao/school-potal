@@ -166,13 +166,29 @@ function getStudentClassIdForYear(
 	currentAcademicYear: string,
 ) {
 	if (!student) return null;
-	if (academicYear === currentAcademicYear && student.classId) {
+	const normalizeAcademicYear = (value: unknown) =>
+		String(value || '')
+			.trim()
+			.replace(/[–—]/g, '-')
+			.replace(/\s+/g, '')
+			.replace(/\//g, '-');
+	const isSameAcademicYear = (left: unknown, right: unknown) => {
+		const normalizedLeft = normalizeAcademicYear(left);
+		const normalizedRight = normalizeAcademicYear(right);
+		return Boolean(normalizedLeft && normalizedRight && normalizedLeft === normalizedRight);
+	};
+	const yearEntry = Array.isArray(student.academicYears)
+		? student.academicYears.find((ay: any) =>
+				isSameAcademicYear(ay?.year, academicYear),
+		  )
+		: null;
+	if (yearEntry?.classId) {
+		return yearEntry.classId;
+	}
+	if (isSameAcademicYear(academicYear, currentAcademicYear) && student.classId) {
 		return student.classId;
 	}
-	const yearEntry = Array.isArray(student.academicYears)
-		? student.academicYears.find((ay: any) => ay.year === academicYear)
-		: null;
-	return yearEntry?.classId || null;
+	return null;
 }
 
 function getTeacherYearData(
@@ -1049,15 +1065,40 @@ export async function GET(request: NextRequest) {
 				if (subject) query.subject = subject;
 				if (status) query.status = status;
 
+				const grades = (await Grade.find(query).lean()) as GradeRecord[];
+				let classContextId = studentClassId;
+				const gradeClassIds = Array.from(
+					new Set(
+						grades
+							.map((grade) => String(grade?.classId || '').trim())
+							.filter(Boolean),
+					),
+				);
+				if (
+					classContextId &&
+					gradeClassIds.length > 0 &&
+					!gradeClassIds.includes(classContextId)
+				) {
+					classContextId = gradeClassIds[0];
+				}
+				if (!classContextId && gradeClassIds.length > 0) {
+					classContextId = gradeClassIds[0];
+				}
+				if (!classContextId) {
+					return NextResponse.json(
+						{
+							success: false,
+							message: 'No class context found for the requested academic year.',
+						},
+						{ status: 403 },
+					);
+				}
 				const classReportQuery: any = {
 					academicYear,
-					classId: studentClassId,
+					classId: classContextId,
 					status: status || 'Approved',
 				};
-				const [grades, classGrades] = (await Promise.all([
-					Grade.find(query).lean(),
-					Grade.find(classReportQuery).lean(),
-				])) as [GradeRecord[], GradeRecord[]];
+				const classGrades = (await Grade.find(classReportQuery).lean()) as GradeRecord[];
 				const rankedGrades = attachRanksToGrades(grades, classGrades);
 				const studentIds = [student.studentId];
 
@@ -1065,14 +1106,14 @@ export async function GET(request: NextRequest) {
 			if (period) {
 				report = processClassPeriodicReport(
 					classGrades,
-					studentClassId,
+					classContextId,
 					period,
 					studentIds,
 				);
 			} else {
 				report = processClassYearlyReport(
 					classGrades,
-					studentClassId,
+					classContextId,
 					studentIds,
 				);
 			}
@@ -1083,7 +1124,7 @@ export async function GET(request: NextRequest) {
 						grades: rankedGrades,
 						report,
 						academicYear,
-						classId: studentClassId,
+						classId: classContextId,
 						period,
 					semester: semester || null,
 				},
