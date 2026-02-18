@@ -2,40 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantModels } from '@/models';
 import { authorizeUser } from '@/proxy';
 import {
-	updateAllUserSessions,
 	updateUserSessionNotifications,
 } from '@/utils/session';
 import crypto from 'crypto';
 import { getSchoolProfile } from '@/lib/mongoose';
-
-// Helper function to get the current academic year
-function getCurrentAcademicYear() {
-	const date = new Date();
-	const month = date.getMonth() + 1;
-	const year = date.getFullYear();
-	return month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
-}
-
-function getTeacherYearData(
-	teacher: any,
-	academicYear: string,
-	currentAcademicYear: string,
-) {
-	if (!teacher || !Array.isArray(teacher.subjects)) return null;
-	return (
-		teacher.subjects.find(
-			(yearData: any) =>
-				(yearData.year || currentAcademicYear) === academicYear,
-		) || null
-	);
-}
-
-function getTeacherClassData(teacherYearData: any, classId: string): any | null {
-	if (!teacherYearData?.classes || !classId) return null;
-	return (
-		teacherYearData.classes.find((c: any) => c.classId === classId) || null
-	);
-}
+import {
+	getAcademicYearFilterValue,
+	getCurrentAcademicYearFromSchoolProfile,
+	getTeacherClassAssignmentForAcademicYear,
+	getTeacherYearAssignment,
+	resolveAcademicYearAccessContext,
+} from '@/utils/academicYearAccess';
 
 function isGradeChangeWindowOpen(
 	schoolProfile: any,
@@ -51,34 +28,6 @@ function isGradeChangeWindowOpen(
 		? settings.gradeChangeRequestPeriods
 		: [];
 	return years.includes(academicYear) && periods.includes(period);
-}
-
-// Helper function to safely prepare user data for session updates
-function prepareUserDataForSession(userDoc: any) {
-	// Convert Mongoose document to plain object if needed
-	const plainDoc = userDoc.toObject ? userDoc.toObject() : userDoc;
-
-	// Extract only the necessary fields and avoid Mongoose document methods
-	const userData = {
-		userId: plainDoc._id?.toString() || plainDoc.userId,
-		username: plainDoc.username,
-		email: plainDoc.email,
-		firstName: plainDoc.firstName,
-		lastName: plainDoc.lastName,
-		role: plainDoc.role,
-		isActive: plainDoc.isActive,
-		teacherUsername: plainDoc.username,
-		notifications: plainDoc.notifications || [],
-		// Add any other essential fields your session needs
-		lastLogin: plainDoc.lastLogin,
-		createdAt: plainDoc.createdAt,
-		updatedAt: plainDoc.updatedAt,
-	};
-
-	// Remove undefined values to keep session clean
-	return Object.fromEntries(
-		Object.entries(userData).filter(([_, value]) => value !== undefined)
-	);
 }
 
 // Helper function to safely update user session with new notification
@@ -137,12 +86,46 @@ export async function GET(request: NextRequest) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}
 
-		const { GradeChangeRequest } = await getTenantModels();
+		const models = await getTenantModels();
+		const { GradeChangeRequest } = models;
+		const schoolProfileRaw = await getSchoolProfile();
+		const schoolProfile =
+			typeof schoolProfileRaw === 'string'
+				? JSON.parse(schoolProfileRaw)
+				: schoolProfileRaw;
 		const { searchParams } = new URL(request.url);
-		const academicYear =
-			searchParams.get('academicYear') || getCurrentAcademicYear();
+		const requestedAcademicYear = searchParams.get('academicYear');
+		const accessUser =
+			currentUser.role === 'teacher'
+				? await models.Teacher.findById(currentUser.id)
+						.select('role subjects username')
+						.lean()
+				: currentUser;
+		if (!accessUser) {
+			return NextResponse.json(
+				{ success: false, message: 'Profile not found' },
+				{ status: 404 },
+			);
+		}
+		const yearAccess = resolveAcademicYearAccessContext({
+			user: accessUser,
+			schoolProfile,
+			requestedAcademicYear,
+		});
+		if (yearAccess.requestedAcademicYear && !yearAccess.hasAccess) {
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'You do not have access to this academic year.',
+					defaultAcademicYear: yearAccess.defaultAcademicYear,
+					allowedAcademicYears: yearAccess.allowedAcademicYears,
+				},
+				{ status: 403 },
+			);
+		}
+		const academicYear = yearAccess.academicYear;
 
-		const query: any = { academicYear };
+		const query: any = { academicYear: getAcademicYearFilterValue(academicYear) };
 
 		// If the user is a teacher, only fetch their requests
 		if (currentUser.role === 'teacher') {
@@ -152,7 +135,8 @@ export async function GET(request: NextRequest) {
 		const allRequests = await GradeChangeRequest.find(query).lean();
 
 		// Group requests by their batchId for the UI
-		const groupedByBatch = allRequests.reduce((acc, request) => {
+		const groupedByBatch = allRequests.reduce(
+			(acc: Record<string, any>, request: any) => {
 			const batchId = request.batchId;
 			if (!acc[batchId]) {
 				acc[batchId] = {
@@ -172,13 +156,18 @@ export async function GET(request: NextRequest) {
 				requestId: request._id.toString(),
 			});
 			return acc;
-		}, {} as Record<string, any>);
+			},
+			{} as Record<string, any>,
+		);
 
-		const report = Object.values(groupedByBatch).map((batch) => {
+		const report = (Object.values(groupedByBatch) as any[]).map((batch: any) => {
 			const statuses = new Set(batch.requests.map((r: any) => r.status));
 			let status: string = 'Pending';
 			if (statuses.size === 1) {
-				status = statuses.values().next().value;
+				const singleStatus = statuses.values().next().value as
+					| string
+					| undefined;
+				if (singleStatus) status = singleStatus;
 			} else if (
 				statuses.has('Pending') ||
 				(statuses.has('Approved') && statuses.has('Rejected'))
@@ -202,7 +191,13 @@ export async function GET(request: NextRequest) {
 				new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
 		);
 
-		return NextResponse.json({ success: true, data: { report } });
+		return NextResponse.json({
+			success: true,
+			data: { report },
+			academicYear,
+			defaultAcademicYear: yearAccess.defaultAcademicYear,
+			allowedAcademicYears: yearAccess.allowedAcademicYears,
+		});
 	} catch (error) {
 		console.error('Error fetching grade change requests:', error);
 		return NextResponse.json(
@@ -222,9 +217,15 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}
 
-		const { Grade, GradeChangeRequest, User } = await getTenantModels();
+		const { Grade, GradeChangeRequest, User, Teacher } = await getTenantModels();
 		const body = await request.json();
-		const { classId, subject, period, requests } = body;
+		const {
+			classId,
+			subject,
+			period,
+			requests,
+			academicYear: requestedAcademicYear,
+		} = body;
 
 		if (
 			!classId ||
@@ -240,10 +241,39 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Fetch school settings to check if grade change requests are allowed
-		const schoolProfile = await getSchoolProfile();
-		const currentAcademicYear = getCurrentAcademicYear();
+		const schoolProfileRaw = await getSchoolProfile();
+		const schoolProfile =
+			typeof schoolProfileRaw === 'string'
+				? JSON.parse(schoolProfileRaw)
+				: schoolProfileRaw;
+		const teacherRecord = await Teacher.findById(teacher.id)
+			.select('role subjects username')
+			.lean();
+		if (!teacherRecord) {
+			return NextResponse.json(
+				{ success: false, message: 'Teacher profile not found.' },
+				{ status: 404 }
+			);
+		}
+		const yearAccess = resolveAcademicYearAccessContext({
+			user: teacherRecord,
+			schoolProfile,
+			requestedAcademicYear: requestedAcademicYear || null,
+		});
+		if (yearAccess.requestedAcademicYear && !yearAccess.hasAccess) {
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'You do not have access to this academic year.',
+					defaultAcademicYear: yearAccess.defaultAcademicYear,
+					allowedAcademicYears: yearAccess.allowedAcademicYears,
+				},
+				{ status: 403 }
+			);
+		}
+		const academicYear = yearAccess.academicYear;
 
-		if (!isGradeChangeWindowOpen(schoolProfile, currentAcademicYear, period)) {
+		if (!isGradeChangeWindowOpen(schoolProfile, academicYear, period)) {
 			return NextResponse.json(
 				{
 					success: false,
@@ -254,13 +284,10 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const teacherRecord = await User.findById(teacher.id)
-			.select('subjects')
-			.lean();
-		const teacherYearData = getTeacherYearData(
+		const teacherYearData = getTeacherYearAssignment(
 			teacherRecord,
-			currentAcademicYear,
-			currentAcademicYear,
+			academicYear,
+			{ schoolProfile }
 		);
 		if (!teacherYearData) {
 			return NextResponse.json(
@@ -273,7 +300,12 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const classData = getTeacherClassData(teacherYearData, classId);
+		const classData = getTeacherClassAssignmentForAcademicYear(
+			teacherRecord,
+			academicYear,
+			classId,
+			{ schoolProfile }
+		);
 		if (!classData) {
 			return NextResponse.json(
 				{
@@ -284,7 +316,7 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const allowedSubjects = classData.subjects || [];
+		const allowedSubjects = classData?.subjects || [];
 		if (!allowedSubjects.includes(subject)) {
 			return NextResponse.json(
 				{
@@ -295,7 +327,6 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const academicYear = currentAcademicYear;
 		const batchId = `BCR-${crypto.randomUUID()}`;
 		const createdRequests: any[] = [];
 		const updatedGrades: any[] = [];
@@ -306,7 +337,7 @@ export async function POST(request: NextRequest) {
 				classId,
 				subject,
 				period,
-				academicYear,
+				academicYear: getAcademicYearFilterValue(academicYear),
 			}); // Use full Mongoose doc here
 
 			if (!originalGradeDoc) {
@@ -572,7 +603,10 @@ export async function PUT(request: NextRequest) {
 		if (
 			!isGradeChangeWindowOpen(
 				schoolProfile,
-				String(requestToUpdate.academicYear || getCurrentAcademicYear()),
+				String(
+					requestToUpdate.academicYear ||
+						getCurrentAcademicYearFromSchoolProfile(schoolProfile),
+				),
 				String(requestToUpdate.period || ''),
 			)
 		) {
@@ -665,7 +699,10 @@ export async function DELETE(request: NextRequest) {
 		if (
 			!isGradeChangeWindowOpen(
 				schoolProfile,
-				String(requestToDelete.academicYear || getCurrentAcademicYear()),
+				String(
+					requestToDelete.academicYear ||
+						getCurrentAcademicYearFromSchoolProfile(schoolProfile),
+				),
 				String(requestToDelete.period || ''),
 			)
 		) {

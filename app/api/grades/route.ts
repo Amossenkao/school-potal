@@ -4,6 +4,13 @@ import { authorizeUser } from '@/proxy';
 import { updateUserSessionNotifications } from '@/utils/session';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { attachRanksToGrades } from '@/utils/gradeRanks';
+import {
+	getAcademicYearFilterValue,
+	getCurrentAcademicYearFromSchoolProfile,
+	getStudentClassIdForAcademicYear,
+	getTeacherYearAssignment,
+	resolveAcademicYearAccessContext,
+} from '@/utils/academicYearAccess';
 
 // Helper function to add notification to user and update their session
 async function addNotificationToUser(
@@ -143,10 +150,7 @@ interface AllGradesReport {
 // -----------------------------------------------------------------------------
 
 function getCurrentAcademicYear() {
-	const date = new Date();
-	const month = date.getMonth() + 1;
-	const year = date.getFullYear();
-	return month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+	return getCurrentAcademicYearFromSchoolProfile();
 }
 
 function getSubmissionId(
@@ -165,30 +169,12 @@ function getStudentClassIdForYear(
 	academicYear: string,
 	currentAcademicYear: string,
 ) {
-	if (!student) return null;
-	const normalizeAcademicYear = (value: unknown) =>
-		String(value || '')
-			.trim()
-			.replace(/[–—]/g, '-')
-			.replace(/\s+/g, '')
-			.replace(/\//g, '-');
-	const isSameAcademicYear = (left: unknown, right: unknown) => {
-		const normalizedLeft = normalizeAcademicYear(left);
-		const normalizedRight = normalizeAcademicYear(right);
-		return Boolean(normalizedLeft && normalizedRight && normalizedLeft === normalizedRight);
-	};
-	const yearEntry = Array.isArray(student.academicYears)
-		? student.academicYears.find((ay: any) =>
-				isSameAcademicYear(ay?.year, academicYear),
-		  )
-		: null;
-	if (yearEntry?.classId) {
-		return yearEntry.classId;
-	}
-	if (isSameAcademicYear(academicYear, currentAcademicYear) && student.classId) {
-		return student.classId;
-	}
-	return null;
+	return (
+		getStudentClassIdForAcademicYear(student, academicYear, {
+			allowCurrentClassFallback: true,
+			currentAcademicYear,
+		}) || null
+	);
 }
 
 function getTeacherYearData(
@@ -196,12 +182,10 @@ function getTeacherYearData(
 	academicYear: string,
 	currentAcademicYear: string,
 ) {
-	if (!teacher || !Array.isArray(teacher.subjects)) return null;
 	return (
-		teacher.subjects.find(
-			(yearData: any) =>
-				(yearData.year || currentAcademicYear) === academicYear,
-		) || null
+		getTeacherYearAssignment(teacher, academicYear, {
+			currentAcademicYear,
+		}) || null
 	);
 }
 
@@ -824,10 +808,48 @@ export async function GET(request: NextRequest) {
 		const models = await getTenantModels();
 		const { Grade } = models;
 		const { searchParams } = new URL(request.url);
-
-		const currentAcademicYear = getCurrentAcademicYear();
-		const academicYear =
-			searchParams.get('academicYear') || currentAcademicYear;
+		const schoolProfileRaw = await getSchoolProfile();
+		const schoolProfile =
+			typeof schoolProfileRaw === 'string'
+				? JSON.parse(schoolProfileRaw)
+				: schoolProfileRaw;
+		const currentAcademicYear =
+			getCurrentAcademicYearFromSchoolProfile(schoolProfile);
+		const requestedAcademicYear = searchParams.get('academicYear');
+		const roleProfile =
+			currentUser.role === 'student'
+				? await models.Student.findById(currentUser.id)
+						.select('role studentId academicYears classId')
+						.lean()
+				: currentUser.role === 'teacher'
+					? await models.Teacher.findById(currentUser.id)
+							.select('role username subjects')
+							.lean()
+					: currentUser;
+		if (!roleProfile) {
+			return NextResponse.json(
+				{ success: false, message: 'Profile not found' },
+				{ status: 404 },
+			);
+		}
+		const yearAccess = resolveAcademicYearAccessContext({
+			user: roleProfile,
+			schoolProfile,
+			requestedAcademicYear,
+		});
+		if (yearAccess.requestedAcademicYear && !yearAccess.hasAccess) {
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'You do not have access to this academic year.',
+					defaultAcademicYear: yearAccess.defaultAcademicYear,
+					allowedAcademicYears: yearAccess.allowedAcademicYears,
+				},
+				{ status: 403 },
+			);
+		}
+		const academicYear = yearAccess.academicYear;
+		const academicYearFilter = getAcademicYearFilterValue(academicYear);
 		const classId = searchParams.get('classId');
 		const period = searchParams.get('period');
 		const semester = searchParams.get('semester');
@@ -838,10 +860,15 @@ export async function GET(request: NextRequest) {
 			// --- System Admin ---
 			if (currentUser.role === 'system_admin') {
 				if (academicYear && classId && teacherUsername && subject) {
-					const query: any = { academicYear, classId, teacherUsername, subject };
+					const query: any = {
+						academicYear: academicYearFilter,
+						classId,
+						teacherUsername,
+						subject,
+					};
 					if (period) query.period = period;
 					if (status) query.status = status;
-					const rankingQuery: any = { academicYear, classId };
+					const rankingQuery: any = { academicYear: academicYearFilter, classId };
 					if (status) rankingQuery.status = status;
 					const [grades, rankingSource] = (await Promise.all([
 						Grade.find(query).lean(),
@@ -862,10 +889,10 @@ export async function GET(request: NextRequest) {
 			}
 
 				if (academicYear && classId && subject) {
-					const query: any = { academicYear, classId, subject };
+					const query: any = { academicYear: academicYearFilter, classId, subject };
 					if (period) query.period = period;
 					if (status) query.status = status;
-					const rankingQuery: any = { academicYear, classId };
+					const rankingQuery: any = { academicYear: academicYearFilter, classId };
 					if (status) rankingQuery.status = status;
 					const [grades, rankingSource] = (await Promise.all([
 						Grade.find(query).lean(),
@@ -879,9 +906,9 @@ export async function GET(request: NextRequest) {
 				}
 
 				if (academicYear && classId && period) {
-					const query: any = { academicYear, classId, period };
+					const query: any = { academicYear: academicYearFilter, classId, period };
 					if (status) query.status = status;
-					const rankingQuery: any = { academicYear, classId };
+					const rankingQuery: any = { academicYear: academicYearFilter, classId };
 					if (status) rankingQuery.status = status;
 					const [grades, rankingSource] = (await Promise.all([
 						Grade.find(query).lean(),
@@ -896,7 +923,7 @@ export async function GET(request: NextRequest) {
 
 			if (academicYear && classId) {
 				const query: any = {
-					academicYear,
+					academicYear: academicYearFilter,
 					classId,
 					status: status || 'Approved',
 				};
@@ -909,7 +936,7 @@ export async function GET(request: NextRequest) {
 			}
 
 				if (academicYear) {
-					const query: any = { academicYear };
+					const query: any = { academicYear: academicYearFilter };
 					if (status) query.status = status;
 					const allGrades = (await Grade.find(query).lean()) as GradeRecord[];
 					const rankedAllGrades = attachRanksToGrades(allGrades, allGrades);
@@ -923,9 +950,7 @@ export async function GET(request: NextRequest) {
 
 		// --- Teacher ---
 		if (currentUser.role === 'teacher') {
-			const teacher = await models.Teacher.findById(currentUser.id)
-				.select('subjects')
-				.lean();
+			const teacher = roleProfile;
 			const yearData = getTeacherYearData(
 				teacher,
 				academicYear,
@@ -979,7 +1004,7 @@ export async function GET(request: NextRequest) {
 			}
 
 			const query: any = {
-				academicYear,
+				academicYear: academicYearFilter,
 				classId: { $in: allowedClassIds },
 			};
 			query.teacherUsername = currentUser.username;
@@ -1002,9 +1027,7 @@ export async function GET(request: NextRequest) {
 
 		// --- Student ---
 		if (currentUser.role === 'student') {
-			const student = await models.Student.findById(currentUser.id)
-				.select('studentId academicYears classId')
-				.lean();
+			const student = roleProfile;
 			const studentClassId = getStudentClassIdForYear(
 				student,
 				academicYear,
@@ -1019,8 +1042,16 @@ export async function GET(request: NextRequest) {
 					{ status: 403 },
 				);
 			}
-
-			const schoolProfile = await getSchoolProfile();
+			if (classId && classId !== studentClassId) {
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							'You can only access grades for your assigned class in the requested academic year.',
+					},
+					{ status: 403 },
+				);
+			}
 			if (period) {
 				const allowedPeriods =
 					schoolProfile?.settings?.studentSettings?.reportAccessPeriods || [];
@@ -1058,9 +1089,10 @@ export async function GET(request: NextRequest) {
 			}
 
 				const query: any = {
-					academicYear,
+					academicYear: academicYearFilter,
 					studentId: student.studentId,
 				};
+				if (classId) query.classId = classId;
 				if (period) query.period = period;
 				if (subject) query.subject = subject;
 				if (status) query.status = status;
@@ -1094,7 +1126,7 @@ export async function GET(request: NextRequest) {
 					);
 				}
 				const classReportQuery: any = {
-					academicYear,
+					academicYear: academicYearFilter,
 					classId: classContextId,
 					status: status || 'Approved',
 				};
@@ -1291,7 +1323,7 @@ export async function POST(request: NextRequest) {
 			});
 		}
 
-		const submittedStudentIds = Array.from(
+		const submittedStudentIds: string[] = Array.from(
 			new Set(
 				grades
 					.map((grade: any) => String(grade?.studentId || '').trim())
@@ -1542,7 +1574,7 @@ export async function PUT(request: NextRequest) {
 		}
 
 		const currentAcademicYear = getCurrentAcademicYear();
-		const submittedStudentIds = Array.from(
+		const submittedStudentIds: string[] = Array.from(
 			new Set(
 				grades
 					.map((grade: any) => String(grade?.studentId || '').trim())

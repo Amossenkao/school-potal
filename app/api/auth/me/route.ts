@@ -4,9 +4,9 @@ import { getSchoolProfile } from '@/lib/mongoose';
 import { getTenantModels } from '@/models';
 import {
 	buildBootstrapPayload,
-	getAcademicYear,
 	getDomainVersions,
 } from '@/app/api/auth/bootstrap';
+import { resolveAcademicYearAccessContext } from '@/utils/academicYearAccess';
 
 const toHash = (value: unknown) => {
 	try {
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
 
 		const models = await getTenantModels();
 		const currentUser = await models.User.findById(session.id)
-			.select('isActive')
+			.select('isActive role username studentId classId academicYears subjects')
 			.lean();
 		if (!currentUser || currentUser.isActive === false) {
 			const response = NextResponse.json(
@@ -129,9 +129,45 @@ export async function GET(request: NextRequest) {
 		const clientGradeRequestsVersion = searchParams.get('v_grade_requests');
 		const clientSchoolVersion = searchParams.get('v_school');
 		const clientUserVersion = searchParams.get('v_user');
+		const requestedAcademicYear = searchParams.get('academicYear');
 
-		const academicYear = getAcademicYear(schoolProfile);
-		const versions = await getDomainVersions(session, academicYear);
+		const roleProfile =
+			currentUser.role === 'student'
+				? await models.Student.findById(session.id)
+						.select('role username studentId classId academicYears')
+						.lean()
+				: currentUser.role === 'teacher'
+					? await models.Teacher.findById(session.id)
+							.select('role username subjects')
+							.lean()
+					: currentUser.role === 'administrator'
+						? await models.Administrator.findById(session.id)
+								.select('role username academicYears')
+								.lean()
+						: currentUser;
+		const resolvedSessionUser = {
+			...session,
+			...(roleProfile || currentUser),
+			id: session.id,
+		};
+		const yearAccess = resolveAcademicYearAccessContext({
+			user: resolvedSessionUser,
+			schoolProfile,
+			requestedAcademicYear,
+		});
+		if (yearAccess.requestedAcademicYear && !yearAccess.hasAccess) {
+			return NextResponse.json(
+				{
+					message: 'You do not have access to this academic year.',
+					defaultAcademicYear: yearAccess.defaultAcademicYear,
+					allowedAcademicYears: yearAccess.allowedAcademicYears,
+				},
+				{ status: 403 },
+			);
+		}
+
+		const academicYear = yearAccess.academicYear;
+		const versions = await getDomainVersions(resolvedSessionUser, academicYear);
 		const userVersion = toHash(session);
 
 		const include = {
@@ -149,7 +185,7 @@ export async function GET(request: NextRequest) {
 
 		let bootstrapPayload: any = null;
 		try {
-			bootstrapPayload = await buildBootstrapPayload(session, {
+			bootstrapPayload = await buildBootstrapPayload(resolvedSessionUser, {
 				include,
 				academicYear,
 				usersVersion: versions.users,
@@ -163,6 +199,13 @@ export async function GET(request: NextRequest) {
 			message: 'Session valid',
 			...(includeUser ? { user: session } : {}),
 			...(bootstrapPayload || {}),
+			...(!bootstrapPayload
+				? {
+						academicYear,
+						defaultAcademicYear: yearAccess.defaultAcademicYear,
+						allowedAcademicYears: yearAccess.allowedAcademicYears,
+					}
+				: {}),
 			versions: {
 				user: userVersion,
 				school: schoolVersion,

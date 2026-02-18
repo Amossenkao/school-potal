@@ -3,6 +3,11 @@ import { authorizeUser } from '@/proxy';
 import { getTenantModels } from '@/models';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { redis } from '@/lib/redis';
+import {
+	getAcademicYearFilterValue,
+	getCurrentAcademicYearFromSchoolProfile,
+	resolveAcademicYearAccessContext,
+} from '@/utils/academicYearAccess';
 
 const CACHE_TTL_SECONDS = 60 * 5;
 
@@ -17,18 +22,6 @@ const parseCachedJson = (cached: unknown) => {
 		console.warn('Failed to parse cached calendar JSON.', error);
 		return null;
 	}
-};
-
-const getAcademicYear = (schoolProfile: any) => {
-	const now = new Date();
-	if (schoolProfile?.currentAcademicYear) {
-		return schoolProfile.currentAcademicYear;
-	}
-	const currentYear = now.getFullYear();
-	const currentMonth = now.getMonth();
-	return currentMonth >= 7
-		? `${currentYear}-${currentYear + 1}`
-		: `${currentYear - 1}-${currentYear}`;
 };
 
 export async function GET(request: NextRequest) {
@@ -46,9 +39,46 @@ export async function GET(request: NextRequest) {
 			typeof schoolProfileRaw === 'string'
 				? JSON.parse(schoolProfileRaw)
 				: schoolProfileRaw;
-		const academicYear =
-			new URL(request.url).searchParams.get('academicYear') ||
-			getAcademicYear(schoolProfile);
+		const { searchParams } = new URL(request.url);
+		const requestedAcademicYear = searchParams.get('academicYear');
+		const models = await getTenantModels();
+		const accessUser =
+			currentUser.role === 'student'
+				? await models.Student.findById(currentUser.id)
+						.select('role classId academicYears studentId username')
+						.lean()
+				: currentUser.role === 'teacher'
+					? await models.Teacher.findById(currentUser.id)
+							.select('role subjects username')
+							.lean()
+					: currentUser.role === 'administrator'
+						? await models.Administrator.findById(currentUser.id)
+								.select('role academicYears username')
+								.lean()
+						: currentUser;
+		if (!accessUser) {
+			return NextResponse.json(
+				{ success: false, message: 'Profile not found' },
+				{ status: 404 }
+			);
+		}
+		const yearAccess = resolveAcademicYearAccessContext({
+			user: accessUser,
+			schoolProfile,
+			requestedAcademicYear,
+		});
+		if (yearAccess.requestedAcademicYear && !yearAccess.hasAccess) {
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'You do not have access to this academic year.',
+					defaultAcademicYear: yearAccess.defaultAcademicYear,
+					allowedAcademicYears: yearAccess.allowedAcademicYears,
+				},
+				{ status: 403 }
+			);
+		}
+		const academicYear = yearAccess.academicYear;
 
 		const cacheKey = `school_events:${schoolProfile?.dbName}:academic:${academicYear}`;
 		const cached = await redis.get(cacheKey);
@@ -63,10 +93,9 @@ export async function GET(request: NextRequest) {
 			}
 			await redis.del(cacheKey);
 		}
-		const models = await getTenantModels();
 		const events = await models.SchoolEvent.find({
 			eventType: 'academic_calendar',
-			academicYear,
+			academicYear: getAcademicYearFilterValue(academicYear),
 		})
 			.sort({ startDate: 1 })
 			.lean();
@@ -78,6 +107,9 @@ export async function GET(request: NextRequest) {
 		return NextResponse.json({
 			success: true,
 			source: 'database',
+			academicYear,
+			defaultAcademicYear: yearAccess.defaultAcademicYear,
+			allowedAcademicYears: yearAccess.allowedAcademicYears,
 			data: events,
 		});
 	} catch (error) {
@@ -105,7 +137,9 @@ export async function POST(request: NextRequest) {
 			typeof schoolProfileRaw === 'string'
 				? JSON.parse(schoolProfileRaw)
 				: schoolProfileRaw;
-		const academicYear = payload.academicYear || getAcademicYear(schoolProfile);
+		const academicYear =
+			payload.academicYear ||
+			getCurrentAcademicYearFromSchoolProfile(schoolProfile);
 
 		if (!payload.title || !payload.startDate) {
 			return NextResponse.json(
@@ -182,7 +216,9 @@ export async function PATCH(request: NextRequest) {
 			typeof schoolProfileRaw === 'string'
 				? JSON.parse(schoolProfileRaw)
 				: schoolProfileRaw;
-		const academicYear = updated?.academicYear || getAcademicYear(schoolProfile);
+		const academicYear =
+			updated?.academicYear ||
+			getCurrentAcademicYearFromSchoolProfile(schoolProfile);
 		const cacheKey = `school_events:${schoolProfile?.dbName}:academic:${academicYear}`;
 		await redis.del(cacheKey);
 
@@ -222,7 +258,9 @@ export async function DELETE(request: NextRequest) {
 			typeof schoolProfileRaw === 'string'
 				? JSON.parse(schoolProfileRaw)
 				: schoolProfileRaw;
-		const academicYear = deleted?.academicYear || getAcademicYear(schoolProfile);
+		const academicYear =
+			deleted?.academicYear ||
+			getCurrentAcademicYearFromSchoolProfile(schoolProfile);
 		const cacheKey = `school_events:${schoolProfile?.dbName}:academic:${academicYear}`;
 		await redis.del(cacheKey);
 

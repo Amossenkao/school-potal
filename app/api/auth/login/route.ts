@@ -8,10 +8,10 @@ import { getSchoolProfile } from '@/lib/mongoose';
 import { UserRole } from '@/types';
 import {
 	buildBootstrapPayload,
-	getAcademicYear,
 	getDomainVersionsFromBootstrapPayload,
 } from '@/app/api/auth/bootstrap';
 import { checkRateLimit, getRequestIp } from '@/utils/rateLimit';
+import { resolveAcademicYearAccessContext } from '@/utils/academicYearAccess';
 
 const toHash = (value: unknown) => {
 	try {
@@ -47,7 +47,6 @@ const buildLoginBootstrapPayload = async (
 ) => {
 	const schoolProfileRaw = schoolProfileInput ?? (await getSchoolProfile());
 	const schoolProfile = normalizeSchoolProfile(schoolProfileRaw);
-	const academicYear = getAcademicYear(schoolProfile);
 	const payload = await buildBootstrapPayload(currentUser, {
 		include: {
 			school: true,
@@ -57,7 +56,6 @@ const buildLoginBootstrapPayload = async (
 			grades: true,
 			gradeRequests: true,
 		},
-		academicYear,
 		schoolProfile,
 	});
 	const domainVersions = getDomainVersionsFromBootstrapPayload({
@@ -160,9 +158,14 @@ export async function POST(request: NextRequest) {
 						try {
 							const schoolProfileRaw = await getSchoolProfile();
 							const schoolProfile = normalizeSchoolProfile(schoolProfileRaw);
-							const academicYear = getAcademicYear(schoolProfile);
+							const yearAccess = resolveAcademicYearAccessContext({
+								user: verifiedUser,
+								schoolProfile,
+							});
 							bootstrapPayload = {
-								academicYear,
+								academicYear: yearAccess.academicYear,
+								defaultAcademicYear: yearAccess.defaultAcademicYear,
+								allowedAcademicYears: yearAccess.allowedAcademicYears,
 								school: schoolProfile,
 								versions: {
 									user: toHash(verifiedUser),
@@ -331,9 +334,14 @@ async function handleLogin(user: any, password: string, host: string) {
 			bootstrapPayload = await buildLoginBootstrapPayload(userData, schoolProfile);
 		} catch (error) {
 			console.warn('Failed to build login bootstrap payload:', error);
-			const academicYear = getAcademicYear(schoolProfile);
+			const yearAccess = resolveAcademicYearAccessContext({
+				user: userData,
+				schoolProfile,
+			});
 			bootstrapPayload = {
-				academicYear,
+				academicYear: yearAccess.academicYear,
+				defaultAcademicYear: yearAccess.defaultAcademicYear,
+				allowedAcademicYears: yearAccess.allowedAcademicYears,
 				school: schoolProfile,
 				versions: {
 					user: toHash(userData),

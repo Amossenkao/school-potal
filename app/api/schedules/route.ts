@@ -3,6 +3,13 @@ import { authorizeUser } from '@/proxy';
 import { getTenantModels } from '@/models';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { redis } from '@/lib/redis';
+import {
+	getAcademicYearFilterValue,
+	getCurrentAcademicYearFromSchoolProfile,
+	getStudentClassIdForAcademicYear,
+	getTeacherClassIdsForAcademicYear,
+	resolveAcademicYearAccessContext,
+} from '@/utils/academicYearAccess';
 
 const CACHE_TTL_SECONDS = 60 * 5;
 
@@ -17,18 +24,6 @@ const parseCachedJson = (cached: unknown) => {
 		console.warn('Failed to parse cached schedules JSON.', error);
 		return null;
 	}
-};
-
-const getAcademicYear = (schoolProfile: any) => {
-	const now = new Date();
-	if (schoolProfile?.currentAcademicYear) {
-		return schoolProfile.currentAcademicYear;
-	}
-	const currentYear = now.getFullYear();
-	const currentMonth = now.getMonth();
-	return currentMonth >= 7
-		? `${currentYear}-${currentYear + 1}`
-		: `${currentYear - 1}-${currentYear}`;
 };
 
 const scheduleTypeMap: Record<string, string> = {
@@ -95,34 +90,131 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
-		const academicYear =
-			searchParams.get('academicYear') || getAcademicYear(schoolProfile);
 		let classId = searchParams.get('classId') || '';
 		let level = searchParams.get('level') || '';
 		let session = searchParams.get('session') || '';
+		const requestedAcademicYear = searchParams.get('academicYear');
 
 		const models = await getTenantModels();
+		const accessUser =
+			currentUser.role === 'student'
+				? await models.Student.findById(currentUser.id)
+						.select('role classId academicYears studentId username')
+						.lean()
+				: currentUser.role === 'teacher'
+					? await models.Teacher.findById(currentUser.id)
+							.select('role subjects username')
+							.lean()
+					: currentUser.role === 'administrator'
+						? await models.Administrator.findById(currentUser.id)
+								.select('role academicYears username')
+								.lean()
+						: currentUser;
+		if (!accessUser) {
+			return NextResponse.json(
+				{ success: false, message: 'Profile not found.' },
+				{ status: 404 }
+			);
+		}
+
+		const yearAccess = resolveAcademicYearAccessContext({
+			user: accessUser,
+			schoolProfile,
+			requestedAcademicYear,
+		});
+		if (yearAccess.requestedAcademicYear && !yearAccess.hasAccess) {
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'You do not have access to this academic year.',
+					defaultAcademicYear: yearAccess.defaultAcademicYear,
+					allowedAcademicYears: yearAccess.allowedAcademicYears,
+				},
+				{ status: 403 }
+			);
+		}
+
+		const academicYear = yearAccess.academicYear;
+		let classScope: string[] = [];
 
 		if (currentUser.role === 'student') {
-			const student = await models.Student.findById(currentUser.id)
-				.select('classId className')
-				.lean();
-			classId = student?.classId || classId;
+			const studentClassId = getStudentClassIdForAcademicYear(
+				accessUser,
+				academicYear,
+				{
+					allowCurrentClassFallback: true,
+					schoolProfile,
+				}
+			);
+			if (!studentClassId) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'No class assigned for the requested academic year.',
+					},
+					{ status: 403 }
+				);
+			}
+			if (classId && classId !== studentClassId) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'You can only access schedules for your assigned class.',
+					},
+					{ status: 403 }
+				);
+			}
+			classId = studentClassId;
+			classScope = [studentClassId];
 			const meta = getClassMetaById(schoolProfile?.classLevels, classId);
 			level = meta?.level || level;
 			session = meta?.session || session;
 		}
+
+		if (currentUser.role === 'teacher') {
+			const assignedClassIds = getTeacherClassIdsForAcademicYear(
+				accessUser,
+				academicYear,
+				{ schoolProfile }
+			);
+			if (assignedClassIds.length === 0) {
+				return NextResponse.json({
+					success: true,
+					source: 'database',
+					academicYear,
+					defaultAcademicYear: yearAccess.defaultAcademicYear,
+					allowedAcademicYears: yearAccess.allowedAcademicYears,
+					data: [],
+				});
+			}
+			if (classId && !assignedClassIds.includes(classId)) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'You are not assigned to this class for this academic year.',
+					},
+					{ status: 403 }
+				);
+			}
+			classScope = classId ? [classId] : assignedClassIds;
+		}
+
 		if (level === 'Self Contained') {
 			return NextResponse.json({
 				success: true,
 				source: 'database',
+				academicYear,
+				defaultAcademicYear: yearAccess.defaultAcademicYear,
+				allowedAcademicYears: yearAccess.allowedAcademicYears,
 				data: [],
 			});
 		}
 
+		const classScopeKey =
+			classScope.length > 0 ? classScope.slice().sort().join(',') : classId || 'all';
 		const cacheKey = `school_events:${schoolProfile?.dbName}:${eventType}:${academicYear}:${
 			session || 'all'
-		}:${level || 'all'}`;
+		}:${level || 'all'}:${classScopeKey}`;
 		const cached = await redis.get(cacheKey);
 		if (cached) {
 			const parsed = parseCachedJson(cached);
@@ -137,10 +229,13 @@ export async function GET(request: NextRequest) {
 		}
 		const query: Record<string, any> = {
 			eventType,
-			academicYear,
+			academicYear: getAcademicYearFilterValue(academicYear),
 		};
 		if (level) query.level = level;
 		if (session) query.session = session;
+		if (classScope.length > 0) {
+			query.classId = classScope.length === 1 ? classScope[0] : { $in: classScope };
+		}
 		query.level = query.level
 			? query.level
 			: { $ne: 'Self Contained' };
@@ -156,6 +251,9 @@ export async function GET(request: NextRequest) {
 		return NextResponse.json({
 			success: true,
 			source: 'database',
+			academicYear,
+			defaultAcademicYear: yearAccess.defaultAcademicYear,
+			allowedAcademicYears: yearAccess.allowedAcademicYears,
 			data: schedules,
 		});
 	} catch (error) {
@@ -183,7 +281,9 @@ export async function POST(request: NextRequest) {
 			typeof schoolProfileRaw === 'string'
 				? JSON.parse(schoolProfileRaw)
 				: schoolProfileRaw;
-		const academicYear = payload.academicYear || getAcademicYear(schoolProfile);
+		const academicYear =
+			payload.academicYear ||
+			getCurrentAcademicYearFromSchoolProfile(schoolProfile);
 		const eventType = scheduleTypeMap[payload.type];
 
 		if (!eventType) {
@@ -259,7 +359,7 @@ export async function POST(request: NextRequest) {
 		if (eventType === 'class_schedule') {
 			const conflictQuery: Record<string, any> = {
 				eventType: 'class_schedule',
-				academicYear,
+				academicYear: getAcademicYearFilterValue(academicYear),
 				level: payload.level,
 				session: payload.session,
 				dayOfWeek: payload.dayOfWeek,
@@ -354,9 +454,12 @@ export async function POST(request: NextRequest) {
 		}
 
 		if (payload.type === 'class') {
+			const conflictAcademicYear =
+				payload.academicYear ||
+				getCurrentAcademicYearFromSchoolProfile(schoolProfile);
 			const conflictQuery: Record<string, any> = {
 				eventType: 'class_schedule',
-				academicYear: payload.academicYear || getAcademicYear(schoolProfile),
+				academicYear: getAcademicYearFilterValue(conflictAcademicYear),
 				level: payload.level,
 				session: payload.session,
 				dayOfWeek: payload.dayOfWeek,
@@ -414,7 +517,9 @@ export async function POST(request: NextRequest) {
 			{ new: true }
 		);
 
-		const academicYear = updated?.academicYear || getAcademicYear(schoolProfile);
+		const academicYear =
+			updated?.academicYear ||
+			getCurrentAcademicYearFromSchoolProfile(schoolProfile);
 		const eventType = updated?.eventType || scheduleTypeMap[payload.type] || '';
 		const level = updated?.level || payload.level || 'all';
 		const session = updated?.session || payload.session || 'all';
@@ -468,7 +573,9 @@ export async function DELETE(request: NextRequest) {
 			typeof schoolProfileRaw === 'string'
 				? JSON.parse(schoolProfileRaw)
 				: schoolProfileRaw;
-		const academicYear = deleted?.academicYear || getAcademicYear(schoolProfile);
+		const academicYear =
+			deleted?.academicYear ||
+			getCurrentAcademicYearFromSchoolProfile(schoolProfile);
 		const eventType = deleted?.eventType || scheduleTypeMap[payload.type] || '';
 		const level = deleted?.level || payload.level || 'all';
 		const session = deleted?.session || payload.session || 'all';

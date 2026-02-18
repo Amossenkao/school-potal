@@ -2,6 +2,13 @@ import { getTenantModels } from '@/models';
 import { getSchoolProfile } from '@/lib/mongoose';
 import type { UserRole } from '@/types';
 import { attachRanksToGrades } from '@/utils/gradeRanks';
+import {
+	getAcademicYearFilterValue,
+	getCurrentAcademicYearFromSchoolProfile,
+	getStudentClassIdForAcademicYear,
+	getTeacherClassIdsForAcademicYear,
+	resolveAcademicYearAccessContext,
+} from '@/utils/academicYearAccess';
 
 const MAX_BOOTSTRAP_USERS = 5000;
 
@@ -56,15 +63,7 @@ const USER_BOOTSTRAP_SELECT = {
 } as const;
 
 export const getAcademicYear = (schoolProfile: any) => {
-	const now = new Date();
-	if (schoolProfile?.currentAcademicYear) {
-		return schoolProfile.currentAcademicYear;
-	}
-	const currentYear = now.getFullYear();
-	const currentMonth = now.getMonth();
-	return currentMonth >= 7
-		? `${currentYear}-${currentYear + 1}`
-		: `${currentYear - 1}-${currentYear}`;
+	return getCurrentAcademicYearFromSchoolProfile(schoolProfile);
 };
 
 const normalizeUser = (user: any) => {
@@ -130,18 +129,17 @@ const normalizeUser = (user: any) => {
 };
 
 const getStudentClassIdForYear = (student: any, academicYear: string) => {
-	const yearEntry = Array.isArray(student?.academicYears)
-		? student.academicYears.find((ay: any) => ay.year === academicYear)
-		: null;
-	return yearEntry?.classId || student?.classId || '';
+	return getStudentClassIdForAcademicYear(student, academicYear, {
+		allowCurrentClassFallback: true,
+	});
 };
 
 const getTeacherClassIdsForYear = (teacher: any, academicYear: string) => {
-	if (!Array.isArray(teacher?.subjects)) return [];
-	const yearData = teacher.subjects.find((s: any) => s.year === academicYear);
-	if (!yearData?.classes) return [];
-	return yearData.classes.map((c: any) => c.classId).filter(Boolean);
+	return getTeacherClassIdsForAcademicYear(teacher, academicYear);
 };
+
+const getAcademicYearMatch = (academicYear: string) =>
+	getAcademicYearFilterValue(academicYear);
 
 const getRoleClassFilter = (currentUser: any, academicYear: string) => {
 	if (currentUser.role === 'student') {
@@ -156,54 +154,60 @@ const getRoleClassFilter = (currentUser: any, academicYear: string) => {
 };
 
 const getRoleGradesQuery = (currentUser: any, academicYear: string) => {
+	const academicYearMatch = getAcademicYearMatch(academicYear);
 	if (currentUser?.role === 'student') {
 		const studentId = currentUser.studentId || currentUser.username;
 		if (!studentId) return null;
-		return { academicYear, studentId };
+		return { academicYear: academicYearMatch, studentId };
 	}
 
 	if (currentUser?.role === 'teacher') {
 		const classIds = getTeacherClassIdsForYear(currentUser, academicYear);
 		if (classIds.length === 0 || !currentUser.username) return null;
 		return {
-			academicYear,
+			academicYear: academicYearMatch,
 			classId: { $in: classIds },
 			teacherUsername: currentUser.username,
 		};
 	}
 
 	if (currentUser?.role === 'system_admin') {
-		return { academicYear };
+		return { academicYear: academicYearMatch };
 	}
 
 	return null;
 };
 
 const getRoleGradeRequestsQuery = (currentUser: any, academicYear: string) => {
+	const academicYearMatch = getAcademicYearMatch(academicYear);
 	if (currentUser?.role === 'teacher') {
 		if (!currentUser.username) return null;
-		return { academicYear, teacherUsername: currentUser.username };
+		return { academicYear: academicYearMatch, teacherUsername: currentUser.username };
 	}
 	if (currentUser?.role === 'system_admin') {
-		return { academicYear };
+		return { academicYear: academicYearMatch };
 	}
 	return null;
 };
 
 const getRoleUsersQuery = (currentUser: any, academicYear: string) => {
+	const academicYearMatch = getAcademicYearMatch(academicYear);
 	if (currentUser.role === 'student') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
 		if (!classId) return null;
 		return {
 			$or: [
-				{ role: 'student', academicYears: { $elemMatch: { year: academicYear, classId } } },
+				{
+					role: 'student',
+					academicYears: { $elemMatch: { year: academicYearMatch, classId } },
+				},
 				{
 					role: 'teacher',
 					subjects: {
-						$elemMatch: { year: academicYear, 'classes.classId': classId },
+						$elemMatch: { year: academicYearMatch, 'classes.classId': classId },
 					},
 				},
-				{ role: 'administrator', 'academicYears.year': academicYear },
+				{ role: 'administrator', 'academicYears.year': academicYearMatch },
 			],
 		};
 	}
@@ -216,11 +220,14 @@ const getRoleUsersQuery = (currentUser: any, academicYear: string) => {
 				{
 					role: 'student',
 					academicYears: {
-						$elemMatch: { year: academicYear, classId: { $in: classIds } },
+						$elemMatch: {
+							year: academicYearMatch,
+							classId: { $in: classIds },
+						},
 					},
 				},
-				{ role: 'teacher', 'subjects.year': academicYear },
-				{ role: 'administrator', 'academicYears.year': academicYear },
+				{ role: 'teacher', 'subjects.year': academicYearMatch },
+				{ role: 'administrator', 'academicYears.year': academicYearMatch },
 			],
 		};
 	}
@@ -228,9 +235,9 @@ const getRoleUsersQuery = (currentUser: any, academicYear: string) => {
 	if (currentUser.role === 'administrator' || currentUser.role === 'system_admin') {
 		return {
 			$or: [
-				{ role: 'student', 'academicYears.year': academicYear },
-				{ role: 'teacher', 'subjects.year': academicYear },
-				{ role: 'administrator', 'academicYears.year': academicYear },
+				{ role: 'student', 'academicYears.year': academicYearMatch },
+				{ role: 'teacher', 'subjects.year': academicYearMatch },
+				{ role: 'administrator', 'academicYears.year': academicYearMatch },
 			],
 		};
 	}
@@ -341,9 +348,10 @@ export const getDomainVersionsFromBootstrapPayload = (payload: {
 };
 
 const fetchCalendarEvents = async (models: any, academicYear: string) => {
+	const academicYearMatch = getAcademicYearMatch(academicYear);
 	return models.SchoolEvent.find({
 		eventType: 'academic_calendar',
-		academicYear,
+		academicYear: academicYearMatch,
 	})
 		.sort({ startDate: 1 })
 		.lean();
@@ -355,7 +363,8 @@ const fetchSchedules = async (
 	academicYear: string,
 ): Promise<{ classSchedules: any[]; testSchedules: any[] }> => {
 	const classFilter = getRoleClassFilter(currentUser, academicYear);
-	const baseQuery = { academicYear, ...classFilter };
+	const academicYearMatch = getAcademicYearMatch(academicYear);
+	const baseQuery = { academicYear: academicYearMatch, ...classFilter };
 
 	const [classSchedules, testSchedules] = await Promise.all([
 		models.SchoolEvent.find({
@@ -394,7 +403,10 @@ const fetchGradesForRole = async (
 	if (currentUser?.role === 'student') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
 		if (!classId) return grades;
-		const classGrades = await Grade.find({ academicYear, classId }).lean();
+		const classGrades = await Grade.find({
+			academicYear: getAcademicYearMatch(academicYear),
+			classId,
+		}).lean();
 		return attachRanksToGrades(grades, classGrades);
 	}
 
@@ -424,6 +436,7 @@ const fetchUsersForRole = async (
 	currentUser: any,
 	academicYear: string,
 ) => {
+	const academicYearMatch = getAcademicYearMatch(academicYear);
 	if (currentUser.role === 'student') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
 		if (!classId) {
@@ -431,18 +444,18 @@ const fetchUsersForRole = async (
 		}
 		const [students, teachers, administrators] = await Promise.all([
 			models.Student.find({
-				academicYears: { $elemMatch: { year: academicYear, classId } },
+				academicYears: { $elemMatch: { year: academicYearMatch, classId } },
 			})
 				.select(USER_BOOTSTRAP_SELECT)
 				.lean(),
 			models.Teacher.find({
 				subjects: {
-					$elemMatch: { year: academicYear, 'classes.classId': classId },
+					$elemMatch: { year: academicYearMatch, 'classes.classId': classId },
 				},
 			})
 				.select(USER_BOOTSTRAP_SELECT)
 				.lean(),
-			models.Administrator.find({ 'academicYears.year': academicYear })
+			models.Administrator.find({ 'academicYears.year': academicYearMatch })
 				.select(USER_BOOTSTRAP_SELECT)
 				.lean(),
 		]);
@@ -461,15 +474,15 @@ const fetchUsersForRole = async (
 		}
 		const studentQuery = {
 			academicYears: {
-				$elemMatch: { year: academicYear, classId: { $in: classIds } },
+				$elemMatch: { year: academicYearMatch, classId: { $in: classIds } },
 			},
 		};
 		const [students, teachers, administrators] = await Promise.all([
 			models.Student.find(studentQuery).select(USER_BOOTSTRAP_SELECT).lean(),
-			models.Teacher.find({ 'subjects.year': academicYear })
+			models.Teacher.find({ 'subjects.year': academicYearMatch })
 				.select(USER_BOOTSTRAP_SELECT)
 				.lean(),
-			models.Administrator.find({ 'academicYears.year': academicYear })
+			models.Administrator.find({ 'academicYears.year': academicYearMatch })
 				.select(USER_BOOTSTRAP_SELECT)
 				.lean(),
 		]);
@@ -505,6 +518,7 @@ export const getDomainVersions = async (
 	usersVersion?: string,
 ): Promise<DomainVersions> => {
 	const models = await getTenantModels();
+	const academicYearMatch = getAcademicYearMatch(academicYear);
 	const User = models.User;
 	const Grade = models.Grade;
 	const GradeChangeRequest = models.GradeChangeRequest;
@@ -538,23 +552,23 @@ export const getDomainVersions = async (
 			: null,
 		models.SchoolEvent.countDocuments({
 			eventType: 'academic_calendar',
-			academicYear,
+			academicYear: academicYearMatch,
 		}),
 		models.SchoolEvent.findOne({
 			eventType: 'academic_calendar',
-			academicYear,
+			academicYear: academicYearMatch,
 		})
 			.sort({ updatedAt: -1, _id: -1 })
 			.select({ _id: 1, updatedAt: 1 })
 			.lean(),
 		models.SchoolEvent.countDocuments({
 			eventType: 'class_schedule',
-			academicYear,
+			academicYear: academicYearMatch,
 			...classFilter,
 		}),
 		models.SchoolEvent.findOne({
 			eventType: 'class_schedule',
-			academicYear,
+			academicYear: academicYearMatch,
 			...classFilter,
 		})
 			.sort({ updatedAt: -1, _id: -1 })
@@ -562,12 +576,12 @@ export const getDomainVersions = async (
 			.lean(),
 		models.SchoolEvent.countDocuments({
 			eventType: 'test_schedule',
-			academicYear,
+			academicYear: academicYearMatch,
 			...classFilter,
 		}),
 		models.SchoolEvent.findOne({
 			eventType: 'test_schedule',
-			academicYear,
+			academicYear: academicYearMatch,
 			...classFilter,
 		})
 			.sort({ updatedAt: -1, _id: -1 })
@@ -628,7 +642,15 @@ export const buildBootstrapPayload = async (
 		typeof schoolProfileRaw === 'string'
 			? JSON.parse(schoolProfileRaw)
 			: schoolProfileRaw;
-	const academicYear = options.academicYear || getAcademicYear(schoolProfile);
+	const yearAccess = resolveAcademicYearAccessContext({
+		user: currentUser,
+		schoolProfile,
+		requestedAcademicYear: options.academicYear,
+	});
+	if (yearAccess.requestedAcademicYear && !yearAccess.hasAccess) {
+		throw new Error('Requested academic year is not accessible for this user.');
+	}
+	const academicYear = yearAccess.academicYear || getAcademicYear(schoolProfile);
 	const include = {
 		school: options.include?.school !== false,
 		users: options.include?.users !== false,
@@ -664,6 +686,8 @@ export const buildBootstrapPayload = async (
 
 	return {
 		academicYear,
+		defaultAcademicYear: yearAccess.defaultAcademicYear,
+		allowedAcademicYears: yearAccess.allowedAcademicYears,
 		...(include.school ? { school: schoolProfile } : {}),
 		...(include.users ? { users, usersVersion: resolvedUsersVersion } : {}),
 		...(include.calendar ? { calendarEvents } : {}),
