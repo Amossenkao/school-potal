@@ -401,7 +401,7 @@ const PDFDocument = React.memo(function PDFDocument({
 					const sem1Avg = studentData.firstSemesterAverage[subject];
 					const sem2Avg = studentData.secondSemesterAverage[subject];
 					if (sem1Avg != null && sem2Avg != null) {
-						return Math.round((sem1Avg + sem2Avg) / 2);
+						return Number(((sem1Avg + sem2Avg) / 2).toFixed(1));
 					}
 					return null;
 				};
@@ -471,7 +471,7 @@ const PDFDocument = React.memo(function PDFDocument({
 												studentData.firstSemesterAverage[subject],
 											)}
 										>
-											{studentData.firstSemesterAverage[subject]?.toFixed(0) ??
+											{studentData.firstSemesterAverage[subject]?.toFixed(1) ??
 												''}
 										</Text>
 									</View>
@@ -580,11 +580,11 @@ const PDFDocument = React.memo(function PDFDocument({
 												studentData.secondSemesterAverage[subject],
 											)}
 										>
-											{studentData.secondSemesterAverage[subject]?.toFixed(0) ??
+											{studentData.secondSemesterAverage[subject]?.toFixed(1) ??
 												''}
 										</Text>
 										<Text style={gradeStyle(getOverallSubjectAverage(subject))}>
-											{getOverallSubjectAverage(subject) ?? ''}
+											{getOverallSubjectAverage(subject)?.toFixed(1) ?? ''}
 										</Text>
 									</View>
 								))}

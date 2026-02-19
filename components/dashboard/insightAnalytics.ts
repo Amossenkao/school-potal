@@ -152,6 +152,72 @@ const computeAverage = (values: number[]) => {
 	);
 };
 
+const computeAverageOrNull = (values: number[]) => {
+	if (values.length === 0) return null;
+	return Number(
+		(values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(1),
+	);
+};
+
+type TopPerformerGradeEntry = {
+	subject: string;
+	period: string;
+	grade: number;
+};
+
+const buildSubjectPeriodMap = (entries: TopPerformerGradeEntry[]) => {
+	const map = new Map<string, Map<string, number>>();
+	entries.forEach((entry) => {
+		if (!entry.subject || !entry.period) return;
+		if (!map.has(entry.subject)) {
+			map.set(entry.subject, new Map<string, number>());
+		}
+		map.get(entry.subject)!.set(entry.period, entry.grade);
+	});
+	return map;
+};
+
+const computeSemesterOverallFromEntries = (
+	entries: TopPerformerGradeEntry[],
+	semesterPeriods: string[],
+) => {
+	const subjectPeriodMap = buildSubjectPeriodMap(entries);
+	const subjectAverages: number[] = [];
+
+	subjectPeriodMap.forEach((periodGrades) => {
+		const periodValues = semesterPeriods
+			.map((period) => periodGrades.get(period))
+			.filter((value): value is number => typeof value === 'number');
+		const subjectAverage = computeAverageOrNull(periodValues);
+		if (subjectAverage !== null) {
+			subjectAverages.push(subjectAverage);
+		}
+	});
+
+	return computeAverageOrNull(subjectAverages);
+};
+
+const computeReportAlignedOverallAverage = (entries: TopPerformerGradeEntry[]) => {
+	const hasFirstSemester = entries.some((entry) =>
+		SEMESTER_PERIODS.first.includes(entry.period),
+	);
+	const hasSecondSemester = entries.some((entry) =>
+		SEMESTER_PERIODS.second.includes(entry.period),
+	);
+
+	const firstSemesterAverage = hasFirstSemester
+		? computeSemesterOverallFromEntries(entries, SEMESTER_PERIODS.first)
+		: null;
+	const secondSemesterAverage = hasSecondSemester
+		? computeSemesterOverallFromEntries(entries, SEMESTER_PERIODS.second)
+		: null;
+
+	const yearlySource = [firstSemesterAverage, secondSemesterAverage].filter(
+		(value): value is number => typeof value === 'number',
+	);
+	return computeAverageOrNull(yearlySource) ?? 0;
+};
+
 export const buildAverageByDimension = (
 	grades: NumericGradeRecord[],
 	getLabel: (grade: NumericGradeRecord) => string,
@@ -261,7 +327,7 @@ export const buildTopPerformerRows = (
 			scopeLabel: string;
 			studentId: string;
 			studentName: string;
-			values: number[];
+			entries: TopPerformerGradeEntry[];
 			classCounts: Map<string, number>;
 		}
 	>();
@@ -305,12 +371,16 @@ export const buildTopPerformerRows = (
 				scopeLabel,
 				studentId,
 				studentName,
-				values: [],
+				entries: [],
 				classCounts: new Map<string, number>(),
 			});
 		}
 		const entry = grouped.get(groupingKey)!;
-		entry.values.push(grade.grade);
+		entry.entries.push({
+			subject: grade.subject,
+			period: grade.period,
+			grade: grade.grade,
+		});
 		entry.classCounts.set(classLabel, (entry.classCounts.get(classLabel) || 0) + 1);
 	});
 
@@ -326,8 +396,11 @@ export const buildTopPerformerRows = (
 			scopeLabel: entry.scopeLabel,
 			studentId: entry.studentId,
 			studentName: entry.studentName,
-			average: computeAverage(entry.values),
-			count: entry.values.length,
+			average:
+				options.scope === 'subject' || options.scope === 'period'
+					? computeAverage(entry.entries.map((item) => item.grade))
+					: computeReportAlignedOverallAverage(entry.entries),
+			count: entry.entries.length,
 		}))
 		.sort(
 			(left, right) =>

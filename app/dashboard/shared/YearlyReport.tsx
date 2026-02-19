@@ -1403,7 +1403,7 @@ const buildYearlyFieldMap = ({
 		const sem1Avg = studentData.firstSemesterAverage[subject];
 		const sem2Avg = studentData.secondSemesterAverage[subject];
 		if (sem1Avg != null && sem2Avg != null) {
-			return Math.round((sem1Avg + sem2Avg) / 2);
+			return Number(((sem1Avg + sem2Avg) / 2).toFixed(1));
 		}
 		return null;
 	};
@@ -1420,7 +1420,7 @@ const buildYearlyFieldMap = ({
 		);
 		fields[`avg1_${row}`] = formatNumber(
 			studentData.firstSemesterAverage[subject],
-			0,
+			1,
 		);
 		fields[`p4_${row}`] = formatNumber(getGrade('fourth', subject), 0);
 		fields[`p5_${row}`] = formatNumber(getGrade('fifth', subject), 0);
@@ -1431,11 +1431,11 @@ const buildYearlyFieldMap = ({
 		);
 		fields[`avg2_${row}`] = formatNumber(
 			studentData.secondSemesterAverage[subject],
-			0,
+			1,
 		);
 		fields[`year_${row}`] = formatNumber(
 			getOverallSubjectAverage(subject),
-			0,
+			1,
 		);
 	});
 
