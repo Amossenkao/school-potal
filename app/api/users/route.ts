@@ -1189,9 +1189,10 @@ export async function GET(request: NextRequest) {
 		const role = searchParams.get('role') as UserRole | null;
 		const classId = searchParams.get('classId');
 		const targetId = searchParams.get('id');
-		const currentAcademicYear = getAcademicYear();
-		const academicYear =
-			searchParams.get('academicYear') || currentAcademicYear;
+		const schoolProfile = await getSchoolProfile();
+		const currentAcademicYear =
+			schoolProfile?.currentAcademicYear || getAcademicYear();
+		const academicYear = searchParams.get('academicYear') || currentAcademicYear;
 		const limit = parseInt(searchParams.get('limit') || '50000', 10);
 		const page = Math.max(parseInt(searchParams.get('page') || '1', 10), 1);
 		const includeCounts =
@@ -2910,7 +2911,9 @@ export async function PUT(request: NextRequest) {
 				);
 			}
 
-			const { newAcademicYear } = await request.json();
+			const carryOverPayload = await request.json();
+			const { newAcademicYear, classes, sponsorClass, position } =
+				carryOverPayload || {};
 			if (!newAcademicYear || typeof newAcademicYear !== 'string') {
 				return NextResponse.json(
 					{
@@ -2933,6 +2936,58 @@ export async function PUT(request: NextRequest) {
 			}
 
 			const schoolProfile = await getSchoolProfile();
+			const normalizeSubjectList = (values: unknown[]) =>
+				Array.from(
+					new Set(
+						(Array.isArray(values) ? values : [])
+							.map((value) =>
+								typeof value === 'string'
+									? value.trim()
+									: typeof (value as any)?.subject === 'string'
+										? (value as any).subject.trim()
+										: typeof (value as any)?.name === 'string'
+											? (value as any).name.trim()
+											: '',
+							)
+							.filter(Boolean),
+					),
+				);
+			const normalizeTeacherClasses = (entries: unknown[]) => {
+				const classMap = new Map<
+					string,
+					{ classId: string; className?: string; subjects: Set<string> }
+				>();
+				(Array.isArray(entries) ? entries : []).forEach((entry: any) => {
+					const classId = String(entry?.classId || '').trim();
+					if (!classId) return;
+					const className =
+						typeof entry?.className === 'string' && entry.className.trim()
+							? entry.className.trim()
+							: undefined;
+					if (!classMap.has(classId)) {
+						classMap.set(classId, {
+							classId,
+							...(className ? { className } : {}),
+							subjects: new Set<string>(),
+						});
+					}
+					const target = classMap.get(classId)!;
+					if (!target.className && className) target.className = className;
+					normalizeSubjectList(entry?.subjects || []).forEach((subject) =>
+						target.subjects.add(subject),
+					);
+				});
+				return Array.from(classMap.values())
+					.map((entry) => ({
+						classId: entry.classId,
+						...(entry.className ? { className: entry.className } : {}),
+						subjects: Array.from(entry.subjects),
+					}))
+					.filter((entry) => entry.subjects.length > 0)
+					.sort((a, b) => a.classId.localeCompare(b.classId));
+			};
+			const hasPayloadProp = (key: string) =>
+				Object.prototype.hasOwnProperty.call(carryOverPayload || {}, key);
 
 			if (targetRoleUser.role === 'teacher') {
 				const existingSubjects = Array.isArray(targetRoleUser.subjects)
@@ -2977,15 +3032,28 @@ export async function PUT(request: NextRequest) {
 							(getAcademicYearStart(b.year) ?? -1) -
 							(getAcademicYearStart(a.year) ?? -1),
 					)[0];
-				const clonedClasses = Array.isArray(latestYearEntry?.classes)
-					? latestYearEntry.classes.map((classData: any) => ({
-							classId: classData?.classId,
-							className: classData?.className,
-							subjects: Array.isArray(classData?.subjects)
-								? classData.subjects
-								: [],
-						}))
-					: [];
+				const clonedClasses = normalizeTeacherClasses(latestYearEntry?.classes || []);
+				const requestedClasses = normalizeTeacherClasses(classes || []);
+				const classesForNewYear = hasPayloadProp('classes')
+					? requestedClasses
+					: clonedClasses;
+
+				if (!Array.isArray(classesForNewYear) || classesForNewYear.length === 0) {
+					return NextResponse.json(
+						{
+							success: false,
+							message:
+								'At least one class/subject assignment is required for teacher carry-over.',
+						},
+						{ status: 400 },
+					);
+				}
+
+				const sponsorClassForNewYear = hasPayloadProp('sponsorClass')
+					? typeof sponsorClass === 'string' && sponsorClass.trim()
+						? sponsorClass.trim()
+						: null
+					: targetRoleUser.sponsorClass || null;
 
 				const updatedTeacher = await models.Teacher.findByIdAndUpdate(
 					targetUserId,
@@ -2993,10 +3061,11 @@ export async function PUT(request: NextRequest) {
 						$push: {
 							subjects: {
 								year: newAcademicYear,
-								classes: clonedClasses,
+								classes: classesForNewYear,
 							},
 						},
 						$set: {
+							sponsorClass: sponsorClassForNewYear,
 							updatedBy: currentUser.userId,
 							updatedAt: new Date(),
 						},
@@ -3068,7 +3137,9 @@ export async function PUT(request: NextRequest) {
 						(getAcademicYearStart(a.year) ?? -1),
 				)[0];
 			const positionForNewYear =
-				latestYearEntry?.position || targetRoleUser.position || null;
+				typeof position === 'string' && position.trim()
+					? position.trim()
+					: latestYearEntry?.position || targetRoleUser.position || null;
 
 			const updatedAdministrator = await models.Administrator.findByIdAndUpdate(
 				targetUserId,

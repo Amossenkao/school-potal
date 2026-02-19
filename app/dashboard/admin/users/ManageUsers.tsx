@@ -45,6 +45,7 @@ import {
 	buildSchoolAcademicYearRange,
 	pickCurrentOrMostRecentAcademicYear,
 } from '@/utils/academicYearOptions';
+import { areAcademicYearsEqual } from '@/utils/academicYear';
 
 const API_URL = '/api/users';
 const getManageUsersCacheKey = (academicYear: string) =>
@@ -363,15 +364,31 @@ const UserManagementDashboard = () => {
 
 	const normalizeUser = (user: any) => {
 		const id = user.id || user._id;
+		const studentYearEntry = Array.isArray(user.academicYears)
+			? user.academicYears.find((entry: any) =>
+					areAcademicYearsEqual(entry?.year, selectedAcademicYear),
+				)
+			: null;
 		const currentClass = user.currentClass || {};
 		const historicalClass = user.historicalClass || {};
 		const classId =
-			user.classId || currentClass.classId || historicalClass.classId || null;
+			studentYearEntry?.classId ||
+			historicalClass.classId ||
+			user.classId ||
+			currentClass.classId ||
+			null;
 		const className =
+			studentYearEntry?.className ||
+			historicalClass.className ||
 			user.className ||
 			currentClass.className ||
-			historicalClass.className ||
 			null;
+		const adminYearEntry = Array.isArray(user.academicYears)
+			? user.academicYears.find((entry: any) =>
+					areAcademicYearsEqual(entry?.year, selectedAcademicYear),
+				)
+			: null;
+		const position = adminYearEntry?.position || user.position || null;
 
 		return {
 			...user,
@@ -379,6 +396,7 @@ const UserManagementDashboard = () => {
 			_id: id,
 			classId,
 			className,
+			position,
 			isActive: user.isActive ?? true,
 			createdAt: user.createdAt ?? null,
 		};
@@ -580,6 +598,45 @@ const UserManagementDashboard = () => {
 		return names.join(' ');
 	};
 
+	const getStudentYearEntry = (student: any) => {
+		if (!selectedAcademicYear || !Array.isArray(student?.academicYears)) return null;
+		return (
+			student.academicYears.find((entry: any) =>
+				areAcademicYearsEqual(entry?.year, selectedAcademicYear),
+			) || null
+		);
+	};
+
+	const getStudentClassIdForYear = (student: any) => {
+		const yearEntry = getStudentYearEntry(student);
+		return (
+			yearEntry?.classId ||
+			student?.historicalClass?.classId ||
+			student?.classId ||
+			''
+		);
+	};
+
+	const getStudentClassNameForYear = (student: any) => {
+		const yearEntry = getStudentYearEntry(student);
+		return (
+			yearEntry?.className ||
+			student?.historicalClass?.className ||
+			student?.className ||
+			''
+		);
+	};
+
+	const getAdministratorPositionForYear = (administrator: any) => {
+		if (!selectedAcademicYear || !Array.isArray(administrator?.academicYears)) {
+			return administrator?.position || '';
+		}
+		const yearEntry = administrator.academicYears.find((entry: any) =>
+			areAcademicYearsEqual(entry?.year, selectedAcademicYear),
+		);
+		return yearEntry?.position || administrator?.position || '';
+	};
+
 	const getClassDisplayName = (classId: any) => {
 		if (!classId || !schoolProfile?.classLevels) return classId;
 		const foundClass = availableClasses.find((cls) => cls.classId === classId);
@@ -602,7 +659,11 @@ const UserManagementDashboard = () => {
 		if (!teacher?.subjects) return [];
 		const classIds: string[] = [];
 		teacher.subjects.forEach((yearData: any) => {
-			if (yearData?.year && yearData.year !== selectedAcademicYear) return;
+			if (
+				yearData?.year &&
+				!areAcademicYearsEqual(yearData.year, selectedAcademicYear)
+			)
+				return;
 			if (!yearData?.classes) return;
 			yearData.classes.forEach((classData: any) => {
 				if (classData?.classId) classIds.push(classData.classId);
@@ -615,7 +676,11 @@ const UserManagementDashboard = () => {
 		if (!teacher?.subjects) return [];
 		const subjects = new Set<string>();
 		teacher.subjects.forEach((yearData: any) => {
-			if (yearData?.year && yearData.year !== selectedAcademicYear) return;
+			if (
+				yearData?.year &&
+				!areAcademicYearsEqual(yearData.year, selectedAcademicYear)
+			)
+				return;
 			if (!yearData?.classes) return;
 			yearData.classes.forEach((classData: any) => {
 				(classData?.subjects || []).forEach((subject: any) => {
@@ -669,7 +734,7 @@ const UserManagementDashboard = () => {
 			const matchesSession =
 				sessionFilter === 'all' ||
 				(user.role === 'student' &&
-					getSessionFromId(user.classId) === sessionFilter) ||
+					getSessionFromId(getStudentClassIdForYear(user)) === sessionFilter) ||
 				(user.role === 'teacher' &&
 					getTeacherClassIds(user).some(
 						(classId) => getSessionFromId(classId) === sessionFilter,
@@ -677,14 +742,15 @@ const UserManagementDashboard = () => {
 			const matchesClassLevel =
 				classLevelFilter === 'all' ||
 				(user.role === 'student' &&
-					getClassLevelFromId(user.classId) === classLevelFilter) ||
+					getClassLevelFromId(getStudentClassIdForYear(user)) === classLevelFilter) ||
 				(user.role === 'teacher' &&
 					getTeacherClassIds(user).some(
 						(classId) => getClassLevelFromId(classId) === classLevelFilter,
 					));
 			const matchesClass =
 				classFilter === 'all' ||
-				(user.role === 'student' && user.classId === classFilter) ||
+				(user.role === 'student' &&
+					getStudentClassIdForYear(user) === classFilter) ||
 				(user.role === 'teacher' &&
 					getTeacherClassIds(user).includes(classFilter));
 			const matchesSubject =
@@ -1207,11 +1273,13 @@ const UserManagementDashboard = () => {
 										</td>
 										<td className="px-6 py-4 text-sm text-muted-foreground">
 											{user.role === 'student' &&
-												(user.className ||
-													(user.classId && getClassDisplayName(user.classId)))}
+												(getStudentClassNameForYear(user) ||
+													(getStudentClassIdForYear(user) &&
+														getClassDisplayName(getStudentClassIdForYear(user))))}
 											{user.role === 'teacher' &&
 												getTeacherSubjects(user).join(', ')}
-											{user.role === 'administrator' && user.position}
+											{user.role === 'administrator' &&
+												getAdministratorPositionForYear(user)}
 										</td>
 										<td className="px-6 py-4 text-sm text-muted-foreground">
 											{user.username || '—'}

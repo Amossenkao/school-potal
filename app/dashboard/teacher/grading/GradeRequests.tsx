@@ -15,6 +15,7 @@ import {
 import { PageLoading } from '@/components/loading';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import { useSchoolStore } from '@/store/schoolStore';
+import useAuth from '@/store/useAuth';
 import {
 	areAcademicYearsEqual,
 	getScopedAcademicYearValue,
@@ -72,15 +73,26 @@ const TeacherGradeChangeRequests = ({
 }: {
 	teacherInfo: TeacherInfo;
 }) => {
+	const authUser = useAuth((state) => state.user) as any;
+	const school = useSchoolStore((state) => state.school);
 	const teacherAcademicYears = useMemo(
 		() => getTeacherAcademicYears(teacherInfo),
 		[teacherInfo],
 	);
-	const availableAcademicYears = useMemo(
-		() => teacherAcademicYears,
-		[teacherAcademicYears],
-	);
-	const school = useSchoolStore((state) => state.school);
+	const fallbackAcademicYears = useMemo(() => {
+		const allowedYears = Array.isArray(authUser?.allowedAcademicYears)
+			? authUser.allowedAcademicYears
+			: [];
+		const subjectYears = Array.isArray(authUser?.subjects)
+			? authUser.subjects.map((entry: any) => entry?.year).filter(Boolean)
+			: [];
+		return sortAcademicYearsDesc([...allowedYears, ...subjectYears]);
+	}, [authUser]);
+	const availableAcademicYears = useMemo(() => {
+		if (teacherAcademicYears.length > 0) return teacherAcademicYears;
+		if (fallbackAcademicYears.length > 0) return fallbackAcademicYears;
+		return sortAcademicYearsDesc([school?.currentAcademicYear].filter(Boolean));
+	}, [teacherAcademicYears, fallbackAcademicYears, school?.currentAcademicYear]);
 	const allowedAcademicYears = useMemo(
 		() =>
 			sortAcademicYearsDesc(

@@ -59,6 +59,40 @@ const Community = () => {
 		return id || '';
 	};
 
+	const getStudentYearEntry = (student: any) => {
+		if (!academicYear || !Array.isArray(student?.academicYears)) return null;
+		return (
+			student.academicYears.find((entry: any) =>
+				areAcademicYearsEqual(entry?.year, academicYear),
+			) || null
+		);
+	};
+
+	const getStudentClassForYear = (student: any) => {
+		const yearEntry = getStudentYearEntry(student);
+		const classId =
+			yearEntry?.classId ||
+			student?.historicalClass?.classId ||
+			student?.classId ||
+			'';
+		const className =
+			yearEntry?.className ||
+			student?.historicalClass?.className ||
+			student?.className ||
+			getClassNameFromId(classId);
+		return { classId, className };
+	};
+
+	const getAdministratorPositionForYear = (administrator: any) => {
+		if (academicYear && Array.isArray(administrator?.academicYears)) {
+			const yearEntry = administrator.academicYears.find((entry: any) =>
+				areAcademicYearsEqual(entry?.year, academicYear),
+			);
+			if (yearEntry?.position) return yearEntry.position;
+		}
+		return administrator?.position || 'Administrator';
+	};
+
 	const availableYears = useMemo(() => {
 		if (!sessionUser) return [];
 		if (
@@ -203,8 +237,10 @@ const Community = () => {
 		communityData.administrators.length,
 	]);
 
-	const getClassLabel = (u: any) =>
-		u.className || getClassNameFromId(u.classId) || u.classId || '';
+	const getClassLabel = (u: any) => {
+		const { className, classId } = getStudentClassForYear(u);
+		return className || getClassNameFromId(classId) || classId || '';
+	};
 
 	const getCurrentStudentClassIdForYear = () => {
 		if (sessionUser?.role !== 'student' || !academicYear) return '';
@@ -287,7 +323,7 @@ const Community = () => {
 					: communityData.administrators;
 
 		if (roleFilter === 'student' && classId) {
-			list = list.filter((u: any) => u.classId === classId);
+			list = list.filter((u: any) => getStudentClassForYear(u).classId === classId);
 		}
 
 		if (!query.trim()) {
@@ -310,12 +346,18 @@ const Community = () => {
 						? String(getClassLabel(u)).toLowerCase()
 						: '';
 				const position = String(u.position || '').toLowerCase();
+				const adminPosition = String(
+					roleFilter === 'administrator'
+						? getAdministratorPositionForYear(u)
+						: '',
+				).toLowerCase();
 				return (
 					name.includes(lowered) ||
 					phone.includes(lowered) ||
 					subjects.includes(lowered) ||
 					classLabel.includes(lowered) ||
-					position.includes(lowered)
+					position.includes(lowered) ||
+					adminPosition.includes(lowered)
 				);
 			})
 			.sort((a, b) => getFullName(a).localeCompare(getFullName(b)));
@@ -577,7 +619,7 @@ const Community = () => {
 										)}
 										{roleFilter === 'administrator' && (
 											<td className="px-4 py-4 text-sm text-muted-foreground border border-border">
-												{u.position || 'Administrator'}
+												{getAdministratorPositionForYear(u)}
 											</td>
 										)}
 										<td className="px-4 py-4 text-sm text-muted-foreground border border-border">
