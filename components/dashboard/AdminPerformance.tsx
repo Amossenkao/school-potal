@@ -228,6 +228,7 @@ export default function AdminPerformance({
 				average: entry.average,
 				scopeLabel: entry.scopeLabel,
 				classLabel: entry.classLabel,
+				studentName: entry.studentName,
 				records: entry.count,
 			})),
 		[topRows, topScope],
@@ -537,6 +538,19 @@ export default function AdminPerformance({
 										yLabel="Average Grade"
 										color="hsl(275, 84%, 60%)"
 										xTickFormatter={(value) => formatAxisLabel(value, 12)}
+										tooltipFormatter={(value, _name, _item, _index, payload) => (
+											<div className="grid gap-0.5 text-xs">
+												<span className="font-medium text-foreground">
+													{payload.studentName || 'Unknown Student'}
+												</span>
+												<span className="text-muted-foreground">
+													Class: {payload.classLabel || 'Unknown Class'}
+												</span>
+												<span className="font-mono tabular-nums text-foreground">
+													Average: {Number(value).toFixed(1)}
+												</span>
+											</div>
+										)}
 									/>
 									<div className="overflow-x-auto rounded-lg border border-border">
 										<table className="min-w-full text-sm">
