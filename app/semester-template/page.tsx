@@ -605,7 +605,7 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 															textAlign: 'center',
 														})}
 													>
-														{average?.toFixed(0) ?? ''}
+														{average?.toFixed(1) ?? ''}
 													</Text>
 												</View>
 											);

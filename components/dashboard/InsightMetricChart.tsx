@@ -1,6 +1,5 @@
 'use client';
 
-import type { ReactNode } from 'react';
 import {
 	Bar,
 	BarChart,
@@ -26,13 +25,6 @@ type InsightMetricChartProps<T extends Record<string, string | number>> = {
 	color: string;
 	className?: string;
 	xTickFormatter?: (value: string) => string;
-	tooltipFormatter?: (
-		value: number | string,
-		name: string,
-		item: unknown,
-		index: number,
-		payload: T,
-	) => ReactNode;
 };
 
 export default function InsightMetricChart<T extends Record<string, string | number>>({
@@ -44,7 +36,6 @@ export default function InsightMetricChart<T extends Record<string, string | num
 	color,
 	className = 'h-[240px] sm:h-[290px] w-full aspect-auto',
 	xTickFormatter,
-	tooltipFormatter,
 }: InsightMetricChartProps<T>) {
 	return (
 		<ChartContainer
@@ -72,10 +63,7 @@ export default function InsightMetricChart<T extends Record<string, string | num
 						tickFormatter={xTickFormatter}
 					/>
 					<YAxis tickLine={false} axisLine={false} width={32} />
-					<ChartTooltip
-						content={<ChartTooltipContent />}
-						formatter={tooltipFormatter as any}
-					/>
+					<ChartTooltip content={<ChartTooltipContent />} />
 					<Line
 						type="monotone"
 						dataKey={yKey}
@@ -104,10 +92,7 @@ export default function InsightMetricChart<T extends Record<string, string | num
 						tick={{ fontSize: 12 }}
 						tickFormatter={xTickFormatter}
 					/>
-					<ChartTooltip
-						content={<ChartTooltipContent />}
-						formatter={tooltipFormatter as any}
-					/>
+					<ChartTooltip content={<ChartTooltipContent />} />
 					<Bar
 						dataKey={yKey}
 						fill={`var(--color-${yKey})`}
@@ -132,10 +117,7 @@ export default function InsightMetricChart<T extends Record<string, string | num
 						tickFormatter={xTickFormatter}
 					/>
 					<YAxis tickLine={false} axisLine={false} width={32} />
-					<ChartTooltip
-						content={<ChartTooltipContent />}
-						formatter={tooltipFormatter as any}
-					/>
+					<ChartTooltip content={<ChartTooltipContent />} />
 					<Bar
 						dataKey={yKey}
 						fill={`var(--color-${yKey})`}

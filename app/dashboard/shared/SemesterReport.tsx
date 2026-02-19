@@ -1336,7 +1336,7 @@ const buildSemesterFieldMap = ({
 			);
 			fields[`avg1_${row}`] = formatNumber(
 				studentData.firstSemesterAverage[subject],
-				0,
+				1,
 			);
 		} else if (isSecondSemester) {
 			fields[`p4_${row}`] = formatNumber(getGrade('fourth', subject), 0);
@@ -1348,7 +1348,7 @@ const buildSemesterFieldMap = ({
 			);
 			fields[`avg2_${row}`] = formatNumber(
 				studentData.secondSemesterAverage[subject],
-				0,
+				1,
 			);
 		}
 	});
