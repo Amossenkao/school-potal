@@ -76,7 +76,7 @@ export default function SystemAdminDashboard({
 			<Tabs defaultValue="insights" className="w-full">
 				<TabsList className="w-full justify-start">
 					<TabsTrigger value="insights">Insights</TabsTrigger>
-					<TabsTrigger value="performance">Performance</TabsTrigger>
+					<TabsTrigger value="performance">Performance Lab</TabsTrigger>
 					<TabsTrigger value="enrollment">Enrollment</TabsTrigger>
 				</TabsList>
 
