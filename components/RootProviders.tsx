@@ -10,8 +10,11 @@ import AuthProvider from '@/context/AuthProvider';
 import OfflineHandler from '@/components/OfflineHandler';
 import { Toaster } from 'react-hot-toast';
 import { applyTenantThemeToDocument } from '@/lib/tenantTheme';
+import { clearAllClientCache } from '@/utils/clientCache';
+import { clearUserSessionDataCaches } from '@/utils/sessionPrivacy';
 
 const OFFLINE_REQUESTS_KEY = 'school_portal_offline_requests';
+const LOGOUT_ENDPOINT = '/api/auth/login';
 
 export default function RootProviders({
 	children,
@@ -35,6 +38,19 @@ export default function RootProviders({
 	useEffect(() => {
 		if (!hasSchoolProfile) return;
 		if (!('serviceWorker' in navigator)) return;
+
+		let hasReloadedForNewWorker = false;
+		const handleControllerChange = () => {
+			if (hasReloadedForNewWorker) return;
+			hasReloadedForNewWorker = true;
+			window.location.reload();
+		};
+
+		const requestSkipWaiting = (registration: ServiceWorkerRegistration) => {
+			if (!registration.waiting) return;
+			registration.waiting.postMessage({ type: 'skip-waiting' });
+		};
+
 		const manageServiceWorker = async () => {
 			if (!hasAppsFeature) {
 				try {
@@ -48,12 +64,37 @@ export default function RootProviders({
 				return;
 			}
 			try {
-				await navigator.serviceWorker.register('/sw.js');
+				const registration = await navigator.serviceWorker.register('/sw.js');
+				await registration.update().catch(() => undefined);
+				requestSkipWaiting(registration);
+				registration.addEventListener('updatefound', () => {
+					const installing = registration.installing;
+					if (!installing) return;
+					installing.addEventListener('statechange', () => {
+						if (
+							installing.state === 'installed' &&
+							navigator.serviceWorker.controller
+						) {
+							requestSkipWaiting(registration);
+						}
+					});
+				});
 			} catch (error) {
 				console.warn('Service worker registration failed:', error);
 			}
 		};
+
+		navigator.serviceWorker.addEventListener(
+			'controllerchange',
+			handleControllerChange,
+		);
 		manageServiceWorker();
+		return () => {
+			navigator.serviceWorker.removeEventListener(
+				'controllerchange',
+				handleControllerChange,
+			);
+		};
 	}, [hasAppsFeature, hasSchoolProfile]);
 
 	useEffect(() => {
@@ -65,6 +106,7 @@ export default function RootProviders({
 				const queued = JSON.parse(raw);
 				if (!Array.isArray(queued) || queued.length === 0) return;
 				const remaining: any[] = [];
+				let queuedLogoutResolved = false;
 
 				for (const item of queued) {
 					try {
@@ -74,12 +116,42 @@ export default function RootProviders({
 							body: item.body,
 							credentials: item.credentials || 'include',
 						});
+						const method = String(item?.method || 'GET').toUpperCase();
+						const url = String(item?.url || '');
+						const isLogoutRequest =
+							method === 'DELETE' &&
+							(url === LOGOUT_ENDPOINT || url.endsWith(LOGOUT_ENDPOINT));
+						const logoutResolved =
+							isLogoutRequest && (res.ok || res.status === 401);
+						if (logoutResolved) {
+							queuedLogoutResolved = true;
+							continue;
+						}
 						if (!res.ok) {
 							remaining.push(item);
 						}
 					} catch {
 						remaining.push(item);
 					}
+				}
+
+				if (queuedLogoutResolved) {
+					localStorage.removeItem(OFFLINE_REQUESTS_KEY);
+					useAuth.setState({
+						user: null,
+						isLoggedIn: false,
+						error: null,
+						isLoading: false,
+						sessionId: null,
+						isAwaitingOtp: false,
+						otpContact: null,
+						userId: null,
+						userVersion: null,
+					});
+					useSchoolStore.getState().clearCache();
+					clearAllClientCache();
+					await clearUserSessionDataCaches({ mode: 'logout' });
+					return;
 				}
 
 				if (remaining.length > 0) {

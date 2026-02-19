@@ -111,3 +111,19 @@ export const clearClientCacheByPrefix = (prefix: string) => {
 export const clearClientCacheByPrefixes = (prefixes: string[]) => {
 	prefixes.forEach((prefix) => clearClientCacheByPrefix(prefix));
 };
+
+export const clearAllClientCache = () => {
+	if (typeof window === 'undefined') return;
+	clientCache.clear();
+	try {
+		for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
+			const storageKey = window.localStorage.key(i);
+			if (!storageKey) continue;
+			if (storageKey.startsWith(STORAGE_PREFIX)) {
+				window.localStorage.removeItem(storageKey);
+			}
+		}
+	} catch {
+		// Ignore storage errors.
+	}
+};

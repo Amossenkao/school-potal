@@ -79,6 +79,23 @@ const clearQueue = async () => {
 	});
 };
 
+const clearSessionCaches = async () => {
+	await Promise.all([
+		caches.delete(API_CACHE),
+		caches.delete(RUNTIME_CACHE),
+		caches.delete('api-runtime-v1'),
+		clearQueue().catch(() => undefined),
+	]);
+};
+
+const clearAllCachesAndQueues = async () => {
+	const keys = await caches.keys();
+	await Promise.all([
+		...keys.map((key) => caches.delete(key)),
+		clearQueue().catch(() => undefined),
+	]);
+};
+
 const flushQueue = async () => {
 	const entries = await readQueue();
 	for (const entry of entries) {
@@ -132,17 +149,17 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('message', (event) => {
+	if (event?.data?.type === 'skip-waiting') {
+		event.waitUntil(self.skipWaiting());
+	}
 	if (event?.data?.type === 'flush-grade-queue') {
 		event.waitUntil(flushQueue());
 	}
 	if (event?.data?.type === 'clear-session-data') {
-		event.waitUntil(
-			Promise.all([
-				caches.delete(API_CACHE),
-				caches.delete(RUNTIME_CACHE),
-				clearQueue().catch(() => undefined),
-			]),
-		);
+		event.waitUntil(clearSessionCaches());
+	}
+	if (event?.data?.type === 'clear-all-data') {
+		event.waitUntil(clearAllCachesAndQueues());
 	}
 	if (event?.data?.type === 'cache-dashboard-shell') {
 		const path = String(event?.data?.path || '');

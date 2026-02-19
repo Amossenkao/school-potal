@@ -4,9 +4,12 @@ import { isEqual } from 'lodash';
 import { User } from '@/types';
 import { useSchoolStore } from './schoolStore';
 import { useNetworkStore } from './networkStore';
-import { clearClientCacheByPrefixes } from '@/utils/clientCache';
+import { clearAllClientCache } from '@/utils/clientCache';
 import { useOfflineNavigationStore } from './offlineNavigationStore';
-import { clearUserSessionDataCaches } from '@/utils/sessionPrivacy';
+import {
+	clearUserSessionDataCaches,
+	type ClearUserSessionDataOptions,
+} from '@/utils/sessionPrivacy';
 
 interface LoginData {
 	role: string;
@@ -81,6 +84,7 @@ const isAbortLikeError = (error: unknown) => {
 
 const useAuth = create<AuthState>((set, get) => {
 	const OFFLINE_REQUESTS_KEY = 'school_portal_offline_requests';
+	const LOGOUT_ENDPOINT = '/api/auth/login';
 
 	const enqueueOfflineRequest = (entry: {
 		url: string;
@@ -104,13 +108,36 @@ const useAuth = create<AuthState>((set, get) => {
 		}
 	};
 
+	const hasQueuedLogoutRequest = () => {
+		if (typeof window === 'undefined') return false;
+		try {
+			const raw = window.localStorage.getItem(OFFLINE_REQUESTS_KEY);
+			if (!raw) return false;
+			const queued = JSON.parse(raw);
+			if (!Array.isArray(queued)) return false;
+			return queued.some((item) => {
+				const method = String(item?.method || 'GET').toUpperCase();
+				const url = String(item?.url || '');
+				return (
+					method === 'DELETE' &&
+					(url === LOGOUT_ENDPOINT || url.endsWith(LOGOUT_ENDPOINT))
+				);
+			});
+		} catch {
+			return false;
+		}
+	};
+
 	const clearSessionScopedClientState = () => {
-		clearClientCacheByPrefixes(['periodic:', 'semester:', 'yearly:']);
+		clearAllClientCache();
 		useOfflineNavigationStore.getState().clearOfflinePath();
 	};
 
-	const clearSessionSensitiveStorage = async () => {
-		await clearUserSessionDataCaches();
+	const clearSessionSensitiveStorage = async (
+		mode: 'session' | 'logout' = 'session',
+		options: Omit<ClearUserSessionDataOptions, 'mode'> = {},
+	) => {
+		await clearUserSessionDataCaches({ mode, ...options });
 	};
 
 	const setDashboardStartPath = () => {
@@ -419,6 +446,7 @@ const useAuth = create<AuthState>((set, get) => {
 			const navigatorOnline =
 				typeof navigator !== 'undefined' ? navigator.onLine : true;
 			const isOnline = networkState.isOnline && navigatorOnline;
+			let queuedOfflineLogout = false;
 			try {
 				if (isOnline) {
 					const controller = new AbortController();
@@ -441,6 +469,7 @@ const useAuth = create<AuthState>((set, get) => {
 						method: 'DELETE',
 						credentials: 'include',
 					});
+					queuedOfflineLogout = true;
 					if (typeof window !== 'undefined') {
 						window.dispatchEvent(
 							new CustomEvent('offline:fetch', {
@@ -476,7 +505,12 @@ const useAuth = create<AuthState>((set, get) => {
 			}
 			useSchoolStore.getState().clearCache();
 			clearSessionScopedClientState();
-			await clearSessionSensitiveStorage();
+			await clearSessionSensitiveStorage(
+				'logout',
+				queuedOfflineLogout
+					? { preserveLocalStorageKeys: [OFFLINE_REQUESTS_KEY] }
+					: {},
+			);
 		},
 
 		checkAuthStatus: async () => {
@@ -493,6 +527,17 @@ const useAuth = create<AuthState>((set, get) => {
 			const navigatorOnline =
 				typeof navigator !== 'undefined' ? navigator.onLine : true;
 			const isOnline = networkState.isOnline && navigatorOnline;
+
+			if (hasQueuedLogoutRequest()) {
+				set({
+					user: null,
+					isLoggedIn: false,
+					userVersion: null,
+				});
+				setAuthCheckFailed(false);
+				lastAuthCheckCompletedAt = Date.now();
+				return;
+			}
 
 			if (!isOnline) {
 				setAuthCheckFailed(true);
@@ -625,7 +670,7 @@ const useAuth = create<AuthState>((set, get) => {
 							console.warn('Failed to clear auth user cache:', error);
 						}
 						clearSessionScopedClientState();
-						await clearSessionSensitiveStorage();
+						await clearSessionSensitiveStorage('logout');
 					}
 				} catch (error) {
 					if (!isAbortLikeError(error)) {

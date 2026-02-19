@@ -418,10 +418,38 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const getStudentClassIdForYear = (student: any, academicYear: string) => {
 		const yearEntry = Array.isArray(student?.academicYears)
 			? student.academicYears.find((ay: any) =>
-					areAcademicYearsEqual(ay.year, academicYear),
+					areAcademicYearsEqual(ay?.year, academicYear),
 			  )
 			: null;
-		return yearEntry?.classId || student?.classId || '';
+		return (
+			yearEntry?.classId ||
+			student?.historicalClass?.classId ||
+			student?.classId ||
+			''
+		);
+	};
+
+	const mapStudentRecord = (student: any): Student | null => {
+		const studentId =
+			student?.studentId || student?.id || student?._id || student?.username || '';
+		if (!studentId) return null;
+		const studentName =
+			student?.studentName ||
+			`${student?.firstName || ''} ${student?.lastName || ''}`.trim() ||
+			student?.username ||
+			student?.studentId ||
+			String(studentId);
+		return {
+			studentId: String(studentId),
+			studentName: String(studentName),
+		};
+	};
+
+	const extractStudentsPayload = (data: any) => {
+		if (Array.isArray(data?.data)) return data.data;
+		if (Array.isArray(data?.data?.students)) return data.data.students;
+		if (Array.isArray(data?.students)) return data.students;
+		return [];
 	};
 
 	useEffect(() => {
@@ -438,43 +466,38 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					const cachedUsers = Array.isArray(scopedUsers?.students)
 						? scopedUsers.students
 						: [];
+					const filteredCachedStudents = cachedUsers
+						.filter(
+							(student: any) =>
+								getStudentClassIdForYear(student, normalizedYear) === selectedClass
+						)
+						.map(mapStudentRecord)
+						.filter(Boolean) as Student[];
 
-					if (cachedUsers.length > 0) {
-						const students = cachedUsers
-							.filter(
-								(student: any) =>
-									getStudentClassIdForYear(student, normalizedYear) ===
-									selectedClass
-							)
-							.map((student: any) => ({
-								studentId: student.studentId || student.id || student._id,
-								studentName: `${student.firstName} ${student.lastName}`.trim(),
-							}));
-						setStudentsData(students);
+					if (filteredCachedStudents.length > 0) {
+						setStudentsData(filteredCachedStudents);
 						setLoading((prev) => ({ ...prev, students: false }));
 						return;
 					}
 
 					if (!isOnline) {
-						setStudentsData([]);
+						setStudentsData(filteredCachedStudents);
 						setLoading((prev) => ({ ...prev, students: false }));
 						return;
 					}
 
 					setLoading((prev) => ({ ...prev, students: true }));
 					const res = await fetch(
-						`/api/users?role=student&academicYear=${normalizedYear}&classId=${selectedClass}`
+						`/api/users?role=student&academicYear=${normalizedYear}&classId=${selectedClass}&limit=50000`
 					);
 					if (!res.ok) {
 						throw new Error('Failed to fetch students');
 					}
 					const data = await res.json();
 					if (data.success) {
-						const mappedStudents = (Array.isArray(data.data) ? data.data : [])
-							.map((student: any) => ({
-								studentId: student.studentId || student.id || student._id,
-								studentName: `${student.firstName} ${student.lastName}`.trim(),
-							}));
+						const mappedStudents = extractStudentsPayload(data)
+							.map(mapStudentRecord)
+							.filter(Boolean) as Student[];
 						setStudentsData(mappedStudents);
 					} else {
 						throw new Error(data.message || 'Failed to fetch students');
@@ -489,18 +512,15 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					const cachedUsers = Array.isArray(scopedUsers?.students)
 						? scopedUsers.students
 						: [];
-					if (cachedUsers.length > 0) {
-						const students = cachedUsers
-							.filter(
-								(student: any) =>
-									getStudentClassIdForYear(student, normalizedYear) ===
-									selectedClass
-							)
-							.map((student: any) => ({
-								studentId: student.studentId || student.id || student._id,
-								studentName: `${student.firstName} ${student.lastName}`.trim(),
-							}));
-						setStudentsData(students);
+					const filteredCachedStudents = cachedUsers
+						.filter(
+							(student: any) =>
+								getStudentClassIdForYear(student, normalizedYear) === selectedClass
+						)
+						.map(mapStudentRecord)
+						.filter(Boolean) as Student[];
+					if (filteredCachedStudents.length > 0) {
+						setStudentsData(filteredCachedStudents);
 						setError((prev) => ({ ...prev, students: '' }));
 						setLoading((prev) => ({ ...prev, students: false }));
 						return;
@@ -540,21 +560,21 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					const cachedGrades = Array.isArray(scopedGrades)
 						? scopedGrades
 						: [];
+					const filteredCachedGrades = cachedGrades.filter(
+						(grade: any) =>
+							grade?.classId === selectedClass &&
+							grade?.subject === selectedSubject &&
+							areAcademicYearsEqual(grade?.academicYear, normalizedYear)
+					);
 
-					if (cachedGrades.length > 0) {
-						const filtered = cachedGrades.filter(
-							(grade: any) =>
-								grade?.classId === selectedClass &&
-								grade?.subject === selectedSubject &&
-								areAcademicYearsEqual(grade?.academicYear, normalizedYear)
-						);
-						setGradesData(filtered);
+					if (filteredCachedGrades.length > 0) {
+						setGradesData(filteredCachedGrades);
 						setLoading((prev) => ({ ...prev, grades: false }));
 						return;
 					}
 
 					if (!isOnline) {
-						setGradesData([]);
+						setGradesData(filteredCachedGrades);
 						setLoading((prev) => ({ ...prev, grades: false }));
 						return;
 					}
@@ -584,14 +604,14 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					const cachedGrades = Array.isArray(scopedGrades)
 						? scopedGrades
 						: [];
-					if (cachedGrades.length > 0) {
-						const filtered = cachedGrades.filter(
-							(grade: any) =>
-								grade?.classId === selectedClass &&
-								grade?.subject === selectedSubject &&
-								areAcademicYearsEqual(grade?.academicYear, normalizedYear)
-						);
-						setGradesData(filtered);
+					const filteredCachedGrades = cachedGrades.filter(
+						(grade: any) =>
+							grade?.classId === selectedClass &&
+							grade?.subject === selectedSubject &&
+							areAcademicYearsEqual(grade?.academicYear, normalizedYear)
+					);
+					if (filteredCachedGrades.length > 0) {
+						setGradesData(filteredCachedGrades);
 						setError((prev) => ({ ...prev, grades: '' }));
 						setLoading((prev) => ({ ...prev, grades: false }));
 						return;
@@ -618,6 +638,28 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	useEffect(() => {
 		if (studentsData.length > 0) {
 			const combined = combineStudentsAndGrades(studentsData, gradesData || [])
+				.slice()
+				.sort((a, b) =>
+					(a.studentName || '').localeCompare(b.studentName || '', undefined, {
+						sensitivity: 'base',
+					})
+				);
+			setCombinedData(combined);
+		} else if (gradesData.length > 0) {
+			const derivedStudents = Array.from(
+				new Map(
+					gradesData.map((grade: any) => [
+						String(grade?.studentId || ''),
+						{
+							studentId: String(grade?.studentId || ''),
+							studentName: String(
+								grade?.studentName || grade?.studentId || 'Unknown Student'
+							),
+						},
+					]),
+				).values(),
+			).filter((student) => student.studentId) as Student[];
+			const combined = combineStudentsAndGrades(derivedStudents, gradesData || [])
 				.slice()
 				.sort((a, b) =>
 					(a.studentName || '').localeCompare(b.studentName || '', undefined, {
