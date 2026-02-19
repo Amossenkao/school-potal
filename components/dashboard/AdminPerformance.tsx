@@ -75,11 +75,11 @@ export default function AdminPerformance({
 	const [selectedPeriod, setSelectedPeriod] = useState('all');
 	const [selectedSemester, setSelectedSemester] = useState('all');
 	const [overviewChartType, setOverviewChartType] = useState<ChartType>('column');
-	const [topChartType, setTopChartType] = useState<ChartType>('bar');
-	const [trendChartType, setTrendChartType] = useState<ChartType>('line');
+	const [topChartType, setTopChartType] = useState<ChartType>('column');
+	const [trendChartType, setTrendChartType] = useState<ChartType>('column');
 	const [trendView, setTrendView] = useState<'period' | 'semester'>('period');
 	const [topScope, setTopScope] = useState<TopPerformerScope>('subject');
-	const [topLimit, setTopLimit] = useState(10);
+	const [topLimit, setTopLimit] = useState(1);
 	const [isLoading, setIsLoading] = useState(false);
 	const [errorMessage, setErrorMessage] = useState('');
 	const gradesByAcademicYear = useSchoolStore((state) => state.gradesByAcademicYear);
@@ -220,14 +220,17 @@ export default function AdminPerformance({
 		() =>
 			topRows.map((entry) => ({
 				label:
-					entry.studentName.length > 18
-						? `${entry.studentName.slice(0, 18)}…`
-						: entry.studentName,
+					topScope === 'class'
+						? entry.scopeLabel
+						: entry.studentName.length > 18
+							? `${entry.studentName.slice(0, 18)}…`
+							: entry.studentName,
 				average: entry.average,
 				scopeLabel: entry.scopeLabel,
+				classLabel: entry.classLabel,
 				records: entry.count,
 			})),
-		[topRows],
+		[topRows, topScope],
 	);
 
 	const averageGrade = useMemo(
@@ -505,10 +508,11 @@ export default function AdminPerformance({
 										value={String(topLimit)}
 										onChange={(event) => setTopLimit(Number(event.target.value))}
 									>
+										<option value="1">Top 1</option>
+										<option value="2">Top 2</option>
+										<option value="3">Top 3</option>
+										<option value="4">Top 4</option>
 										<option value="5">Top 5</option>
-										<option value="10">Top 10</option>
-										<option value="20">Top 20</option>
-										<option value="50">Top 50</option>
 									</select>
 								</div>
 								<InsightChartTypeSelect
@@ -540,6 +544,7 @@ export default function AdminPerformance({
 												<tr className="text-left text-muted-foreground">
 													<th className="px-4 py-3">Scope</th>
 													<th className="px-4 py-3">Student</th>
+													<th className="px-4 py-3">Class</th>
 													<th className="px-4 py-3">Student ID</th>
 													<th className="px-4 py-3">Average</th>
 													<th className="px-4 py-3">Records</th>
@@ -550,6 +555,7 @@ export default function AdminPerformance({
 													<tr key={entry.key} className="border-t border-border/70">
 														<td className="px-4 py-3">{entry.scopeLabel}</td>
 														<td className="px-4 py-3 font-medium">{entry.studentName}</td>
+														<td className="px-4 py-3">{entry.classLabel || '—'}</td>
 														<td className="px-4 py-3">{entry.studentId || '—'}</td>
 														<td className="px-4 py-3">{entry.average.toFixed(1)}</td>
 														<td className="px-4 py-3">{entry.count}</td>

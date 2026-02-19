@@ -241,6 +241,7 @@ export type TopPerformerRow = {
 	scopeLabel: string;
 	studentId: string;
 	studentName: string;
+	classLabel: string;
 	average: number;
 	count: number;
 };
@@ -261,8 +262,14 @@ export const buildTopPerformerRows = (
 			studentId: string;
 			studentName: string;
 			values: number[];
+			classCounts: Map<string, number>;
 		}
 	>();
+
+	const resolveClassLabel = (grade: NumericGradeRecord) => {
+		const classLabel = options.resolveClassLabel?.(grade.classId || '') || '';
+		return classLabel || grade.classId || 'Unknown Class';
+	};
 
 	const resolveScopeLabel = (grade: NumericGradeRecord) => {
 		switch (options.scope) {
@@ -288,6 +295,7 @@ export const buildTopPerformerRows = (
 
 	grades.forEach((grade, index) => {
 		const scopeLabel = resolveScopeLabel(grade);
+		const classLabel = resolveClassLabel(grade);
 		const studentId = grade.studentId || `student-${index}`;
 		const studentName = grade.studentName || 'Unknown Student';
 		const groupingKey = `${scopeLabel}::${studentId}`;
@@ -298,13 +306,22 @@ export const buildTopPerformerRows = (
 				studentId,
 				studentName,
 				values: [],
+				classCounts: new Map<string, number>(),
 			});
 		}
-		grouped.get(groupingKey)!.values.push(grade.grade);
+		const entry = grouped.get(groupingKey)!;
+		entry.values.push(grade.grade);
+		entry.classCounts.set(classLabel, (entry.classCounts.get(classLabel) || 0) + 1);
 	});
 
 	const rows: TopPerformerRow[] = Array.from(grouped.values())
 		.map((entry) => ({
+			classLabel:
+				options.scope === 'class'
+					? entry.scopeLabel
+					: Array.from(entry.classCounts.entries()).sort(
+							(left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
+					  )[0]?.[0] || 'Unknown Class',
 			key: `${entry.scopeLabel}::${entry.studentId}`,
 			scopeLabel: entry.scopeLabel,
 			studentId: entry.studentId,

@@ -98,7 +98,7 @@ export default function StudentPerformanceInsights({
 	const [selectedSemester, setSelectedSemester] = useState('all');
 	const [selectedSubject, setSelectedSubject] = useState('all');
 	const [subjectChartType, setSubjectChartType] = useState<ChartType>('column');
-	const [trendChartType, setTrendChartType] = useState<ChartType>('line');
+	const [trendChartType, setTrendChartType] = useState<ChartType>('column');
 	const [trendView, setTrendView] = useState<'period' | 'semester'>('period');
 	const [grades, setGrades] = useState<GradeItem[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
