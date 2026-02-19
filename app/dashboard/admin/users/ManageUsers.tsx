@@ -44,7 +44,7 @@ import {
 
 const API_URL = '/api/users';
 const getManageUsersCacheKey = (academicYear: string) =>
-	`manageUsers:v3:${academicYear}`;
+	`manageUsers:v4:${academicYear}`;
 
 // --- Portal Component for escaping containers ---
 const Portal = ({ children }: { children: React.ReactNode }) => {
@@ -242,7 +242,7 @@ const UserManagementDashboard = () => {
 	const [totalUsers, setTotalUsers] = useState<number | null>(null);
 	const [roleCounts, setRoleCounts] = useState<Record<string, number>>({});
 	const [isFetchingMore, setIsFetchingMore] = useState(false);
-	const serverPageSize = 100;
+	const serverPageSize = 5000;
 	// Sorting state
 	const [sortField, setSortField] = useState('fullName');
 	const [sortDirection, setSortDirection] = useState('asc');
@@ -753,20 +753,19 @@ const UserManagementDashboard = () => {
 
 	const totalPages = Math.max(
 		1,
-		Math.ceil(filteredAndSortedUsers.length / itemsPerPage),
+		Math.ceil(displayTotalResults / itemsPerPage),
 	);
-	const canGoNext = currentPage < totalPages || hasMoreServer;
+	const canGoNext = currentPage < totalPages;
 	const startIndex = (currentPage - 1) * itemsPerPage;
-	const pageStart =
-		filteredAndSortedUsers.length === 0 ? 0 : startIndex + 1;
-	const pageEnd = Math.min(
-		startIndex + itemsPerPage,
-		filteredAndSortedUsers.length,
-	);
 	const paginatedUsers = filteredAndSortedUsers.slice(
 		startIndex,
 		startIndex + itemsPerPage,
 	);
+	const pageStart = paginatedUsers.length > 0 ? startIndex + 1 : 0;
+	const pageEnd =
+		paginatedUsers.length > 0
+			? Math.min(startIndex + itemsPerPage, filteredAndSortedUsers.length)
+			: 0;
 
 	const handleSort = (field: any) => {
 		if (sortField === field) {
@@ -777,23 +776,33 @@ const UserManagementDashboard = () => {
 		}
 	};
 
-	const handleNextPage = useCallback(async () => {
+	const handleNextPage = useCallback(() => {
 		if (isFetchingMore) return;
-		if (currentPage < totalPages) {
-			setCurrentPage(currentPage + 1);
-			return;
-		}
-		if (hasMoreServer) {
-			await fetchUsers(serverPage + 1, false);
-			setCurrentPage((prev) => prev + 1);
-		}
+		if (currentPage >= totalPages) return;
+		setCurrentPage((prev) => prev + 1);
 	}, [
 		currentPage,
 		totalPages,
+		isFetchingMore,
+	]);
+
+	useEffect(() => {
+		if (loading || isFetchingMore) return;
+		if (isAdditionalFilterActive) return;
+		if (!hasMoreServer) return;
+		if (paginatedUsers.length > 0) return;
+		if (startIndex < filteredAndSortedUsers.length) return;
+		void fetchUsers(serverPage + 1, false);
+	}, [
+		loading,
+		isFetchingMore,
+		isAdditionalFilterActive,
 		hasMoreServer,
+		paginatedUsers.length,
+		startIndex,
+		filteredAndSortedUsers.length,
 		fetchUsers,
 		serverPage,
-		isFetchingMore,
 	]);
 
 	const getSortIcon = (field: any) => {
