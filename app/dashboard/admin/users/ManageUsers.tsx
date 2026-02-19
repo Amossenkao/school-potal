@@ -51,6 +51,23 @@ const API_URL = '/api/users';
 const getManageUsersCacheKey = (academicYear: string) =>
 	`manageUsers:v4:${academicYear}`;
 
+const resolveRecordForAcademicYear = <T,>(
+	map: Record<string, T> | undefined,
+	academicYear: string,
+): T | undefined => {
+	if (!map || !academicYear) return undefined;
+	if (Object.prototype.hasOwnProperty.call(map, academicYear)) {
+		return map[academicYear];
+	}
+	const normalizedYear = String(academicYear || '').trim();
+	for (const [key, value] of Object.entries(map)) {
+		if (areAcademicYearsEqual(key, normalizedYear)) {
+			return value as T;
+		}
+	}
+	return undefined;
+};
+
 // --- Portal Component for escaping containers ---
 const Portal = ({ children }: { children: React.ReactNode }) => {
 	const [mounted, setMounted] = useState(false);
@@ -266,6 +283,24 @@ const UserManagementDashboard = () => {
 	const setUsersForYear = useSchoolStore(
 		(state: any) => state.setUsersForYear,
 	);
+	const getUsersVersionForYear = useCallback((academicYear: string) => {
+		const state = useSchoolStore.getState();
+		const version = resolveRecordForAcademicYear<string>(
+			state.usersVersionByAcademicYear,
+			academicYear,
+		);
+		return typeof version === 'string' ? version : null;
+	}, []);
+	const getUsersPayloadForYear = useCallback((academicYear: string) => {
+		const state = useSchoolStore.getState();
+		return (
+			resolveRecordForAcademicYear<{
+				students?: any[];
+				teachers?: any[];
+				administrators?: any[];
+			}>(state.usersByAcademicYear, academicYear) || null
+		);
+	}, []);
 	const academicYearOptions = useMemo(
 		() => buildSchoolAcademicYearRange(schoolProfile),
 		[schoolProfile],
@@ -419,6 +454,7 @@ const UserManagementDashboard = () => {
 
 			try {
 				const cacheKey = getManageUsersCacheKey(selectedAcademicYear);
+				const usersVersion = getUsersVersionForYear(selectedAcademicYear);
 				const params = new URLSearchParams();
 				params.set('academicYear', selectedAcademicYear);
 				params.set('limit', String(serverPageSize));
@@ -468,6 +504,7 @@ const UserManagementDashboard = () => {
 						totalUsers: typeof nextTotal === 'number' ? nextTotal : null,
 						roleCounts: nextCounts,
 						serverPage: page,
+						usersVersion,
 					});
 
 					const grouped = {
@@ -490,7 +527,12 @@ const UserManagementDashboard = () => {
 				setIsFetchingMore(false);
 			}
 		},
-		[selectedAcademicYear, serverPageSize],
+		[
+			selectedAcademicYear,
+			serverPageSize,
+			getUsersVersionForYear,
+			setUsersForYear,
+		],
 	);
 
 	useEffect(() => {
@@ -535,7 +577,53 @@ const UserManagementDashboard = () => {
 			totalUsers: number | null;
 			roleCounts: Record<string, number>;
 			serverPage: number;
+			usersVersion?: string | null;
 		}>(cacheKey);
+		const usersVersion = getUsersVersionForYear(selectedAcademicYear);
+		const shouldUseCacheWithoutRefetch =
+			Boolean(cached) &&
+			(
+				!usersVersion ||
+				(cached?.usersVersion && cached.usersVersion === usersVersion)
+			);
+
+		if (cached && shouldUseCacheWithoutRefetch) {
+			setUsers(cached.users || []);
+			setTotalUsers(
+				typeof cached.totalUsers === 'number' ? cached.totalUsers : null,
+			);
+			setRoleCounts(cached.roleCounts || {});
+			setServerPage(cached.serverPage || 1);
+			setLoading(false);
+			return;
+		}
+
+		const storeUsersPayload = getUsersPayloadForYear(selectedAcademicYear);
+		if (storeUsersPayload) {
+			const usersFromStore = normalizeUsers(storeUsersPayload)
+				.filter(Boolean)
+				.map(normalizeUser);
+			const computedRoleCounts = {
+				student: usersFromStore.filter((u) => u.role === 'student').length,
+				teacher: usersFromStore.filter((u) => u.role === 'teacher').length,
+				administrator: usersFromStore.filter((u) => u.role === 'administrator')
+					.length,
+			};
+			setUsers(usersFromStore);
+			setTotalUsers(usersFromStore.length);
+			setRoleCounts(computedRoleCounts);
+			setServerPage(1);
+			setLoading(false);
+			setClientCache(cacheKey, {
+				users: usersFromStore,
+				totalUsers: usersFromStore.length,
+				roleCounts: computedRoleCounts,
+				serverPage: 1,
+				usersVersion,
+			});
+			return;
+		}
+
 		if (cached) {
 			setUsers(cached.users || []);
 			setTotalUsers(
@@ -555,6 +643,8 @@ const UserManagementDashboard = () => {
 		selectedAcademicYear,
 		fetchUsers,
 		isOnline,
+		getUsersVersionForYear,
+		getUsersPayloadForYear,
 	]);
 
 	const userTypes = useMemo(() => {
@@ -700,11 +790,13 @@ const UserManagementDashboard = () => {
 			nextRoleCounts: Record<string, number> = roleCountsRef.current,
 		) => {
 			const cacheKey = getManageUsersCacheKey(selectedAcademicYear);
+			const usersVersion = getUsersVersionForYear(selectedAcademicYear);
 			setClientCache(cacheKey, {
 				users: nextUsers,
 				totalUsers: typeof nextTotal === 'number' ? nextTotal : null,
 				roleCounts: nextRoleCounts,
 				serverPage,
+				usersVersion,
 			});
 			setUsersForYear(
 				selectedAcademicYear,
@@ -716,7 +808,12 @@ const UserManagementDashboard = () => {
 				{ merge: false },
 			);
 		},
-		[selectedAcademicYear, serverPage, setUsersForYear],
+		[
+			selectedAcademicYear,
+			serverPage,
+			setUsersForYear,
+			getUsersVersionForYear,
+		],
 	);
 
 	const filteredAndSortedUsers = useMemo(() => {
