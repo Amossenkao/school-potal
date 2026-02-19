@@ -1949,12 +1949,6 @@ export async function GET(request: NextRequest) {
 				filters.role = role;
 			}
 
-			// Apply class filter if provided.
-			// For students we scope through academicYears in the role-specific filter below.
-			if (classId && role !== 'student') {
-				filters.classId = classId;
-			}
-
 			// Apply target ID filter if provided
 			if (targetId) {
 				filters._id = targetId;
@@ -1963,7 +1957,16 @@ export async function GET(request: NextRequest) {
 			// Filter by academic year based on role
 			if (role) {
 				if (role === 'teacher') {
-					filters['subjects.year'] = academicYear;
+					if (classId) {
+						filters.subjects = {
+							$elemMatch: {
+								year: academicYear,
+								'classes.classId': classId,
+							},
+						};
+					} else {
+						filters['subjects.year'] = academicYear;
+					}
 				} else if (role === 'student') {
 					Object.assign(
 						filters,
@@ -1973,18 +1976,36 @@ export async function GET(request: NextRequest) {
 					filters['academicYears.year'] = academicYear;
 				}
 			} else {
-				filters.$or = [
-					// Students and administrators
-					{
-						role: { $in: ['student', 'administrator'] },
-						'academicYears.year': academicYear,
-					},
-					// Teachers
-					{
-						role: 'teacher',
-						'subjects.year': academicYear,
-					},
-				];
+				if (classId) {
+					filters.$or = [
+						{
+							role: 'student',
+							...buildStudentAcademicYearClassFilter(academicYear, classId),
+						},
+						{
+							role: 'teacher',
+							subjects: {
+								$elemMatch: {
+									year: academicYear,
+									'classes.classId': classId,
+								},
+							},
+						},
+					];
+				} else {
+					filters.$or = [
+						// Students and administrators
+						{
+							role: { $in: ['student', 'administrator'] },
+							'academicYears.year': academicYear,
+						},
+						// Teachers
+						{
+							role: 'teacher',
+							'subjects.year': academicYear,
+						},
+					];
+				}
 			}
 
 			responseData = await models.User.find(filters)
@@ -2045,12 +2066,6 @@ export async function GET(request: NextRequest) {
 				filters.role = role;
 			}
 
-			// Apply class filter if provided.
-			// For students we scope through academicYears in the role-specific filter below.
-			if (classId && role !== 'student') {
-				filters.classId = classId;
-			}
-
 			// Apply target ID filter if provided
 			if (targetId) {
 				filters._id = targetId;
@@ -2059,7 +2074,16 @@ export async function GET(request: NextRequest) {
 			// Filter by academic year based on role
 			if (role) {
 				if (role === 'teacher') {
-					filters['subjects.year'] = academicYear;
+					if (classId) {
+						filters.subjects = {
+							$elemMatch: {
+								year: academicYear,
+								'classes.classId': classId,
+							},
+						};
+					} else {
+						filters['subjects.year'] = academicYear;
+					}
 				} else if (role === 'student') {
 					Object.assign(
 						filters,
@@ -2069,18 +2093,36 @@ export async function GET(request: NextRequest) {
 					filters['academicYears.year'] = academicYear;
 				}
 			} else {
-				filters.$or = [
-					// Students and administrators
-					{
-						role: { $in: ['student', 'administrator'] },
-						'academicYears.year': academicYear,
-					},
-					// Teachers
-					{
-						role: 'teacher',
-						'subjects.year': academicYear,
-					},
-				];
+				if (classId) {
+					filters.$or = [
+						{
+							role: 'student',
+							...buildStudentAcademicYearClassFilter(academicYear, classId),
+						},
+						{
+							role: 'teacher',
+							subjects: {
+								$elemMatch: {
+									year: academicYear,
+									'classes.classId': classId,
+								},
+							},
+						},
+					];
+				} else {
+					filters.$or = [
+						// Students and administrators
+						{
+							role: { $in: ['student', 'administrator'] },
+							'academicYears.year': academicYear,
+						},
+						// Teachers
+						{
+							role: 'teacher',
+							'subjects.year': academicYear,
+						},
+					];
+				}
 			}
 
 			responseData = await models.User.find(filters)
