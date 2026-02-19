@@ -28,7 +28,6 @@ import {
 	getScopedAcademicYearValue,
 } from '@/utils/academicYear';
 import {
-	filterAcademicYearsByAllowed,
 	getTeacherAcademicYears,
 	pickMostRecentAcademicYear,
 	sortAcademicYearsDesc,
@@ -127,15 +126,6 @@ const SubmitGrade: React.FC = () => {
 		gradesByAcademicYearRef.current = gradesByAcademicYear;
 	}, [gradesByAcademicYear]);
 
-	const getAcademicYear = () => {
-		const now = new Date();
-		const currentYear = now.getFullYear();
-		const currentMonth = now.getMonth() + 1;
-		return currentMonth >= 8
-			? `${currentYear}-${currentYear + 1}`
-			: `${currentYear - 1}-${currentYear}`;
-	};
-
 	const getClassMetaById = useCallback(
 		(classId: string) => {
 			if (!classId || !school?.classLevels) return null;
@@ -197,29 +187,34 @@ const SubmitGrade: React.FC = () => {
 	);
 
 	const availableAcademicYears = useMemo(() => {
-		const allowed = sortAcademicYearsDesc(
-			school?.settings?.teacherSettings?.gradeSubmissionAcademicYears || [
-				school?.currentAcademicYear || getAcademicYear(),
-			],
+		return teacherYears;
+	}, [teacherYears]);
+
+	const allowedAcademicYears = useMemo(
+		() =>
+			sortAcademicYearsDesc(
+				school?.settings?.teacherSettings?.gradeSubmissionAcademicYears || [],
+			),
+		[school],
+	);
+
+	const isSelectedAcademicYearAllowed = useMemo(() => {
+		if (!selectedAcademicYear) return false;
+		return allowedAcademicYears.some((year) =>
+			areAcademicYearsEqual(year, selectedAcademicYear),
 		);
-		if (teacherYears.length === 0) return allowed;
-		const scopedYears = filterAcademicYearsByAllowed(teacherYears, allowed);
-		return scopedYears.length > 0 ? scopedYears : teacherYears;
-	}, [school, teacherYears]);
+	}, [allowedAcademicYears, selectedAcademicYear]);
 
 	useEffect(() => {
 		const defaultAcademicYear =
-			pickMostRecentAcademicYear(
-				availableAcademicYears,
-				school?.currentAcademicYear || getAcademicYear(),
-			) || '';
+			pickMostRecentAcademicYear(availableAcademicYears) || '';
 		const selectedIsAvailable = availableAcademicYears.some((year) =>
 			areAcademicYearsEqual(year, selectedAcademicYear),
 		);
 		if (!selectedAcademicYear || !selectedIsAvailable) {
 			setSelectedAcademicYear(defaultAcademicYear);
 		}
-	}, [availableAcademicYears, selectedAcademicYear, school?.currentAcademicYear]);
+	}, [availableAcademicYears, selectedAcademicYear]);
 
 	useEffect(() => {
 		setSelectedSession('');
@@ -376,6 +371,12 @@ const SubmitGrade: React.FC = () => {
 			!selectedAcademicYear
 		)
 			return;
+		if (!isSelectedAcademicYearAllowed) {
+			setStudentsForGrading([]);
+			setError((prev) => ({ ...prev, studentsForGrading: '' }));
+			setLoading((prev) => ({ ...prev, studentsForGrading: false }));
+			return;
+		}
 
 		setLoading((prev) => ({ ...prev, studentsForGrading: true }));
 		setError((prev) => ({ ...prev, studentsForGrading: '' }));
@@ -519,6 +520,7 @@ const SubmitGrade: React.FC = () => {
 		selectedClassId,
 		selectedSubject,
 		selectedSession,
+		isSelectedAcademicYearAllowed,
 		periods,
 		setUsersForYear,
 		setGradesForYear,
@@ -527,6 +529,11 @@ const SubmitGrade: React.FC = () => {
 	]);
 
 	useEffect(() => {
+		if (!isSelectedAcademicYearAllowed) {
+			setStudentsForGrading([]);
+			setLoading((prev) => ({ ...prev, studentsForGrading: false }));
+			return;
+		}
 		if (
 			selectedSession &&
 			selectedClassLevel &&
@@ -543,6 +550,7 @@ const SubmitGrade: React.FC = () => {
 		selectedClassId,
 		selectedSubject,
 		selectedAcademicYear,
+		isSelectedAcademicYearAllowed,
 		loadStudentsForGrading,
 	]);
 
@@ -640,6 +648,13 @@ const SubmitGrade: React.FC = () => {
 	};
 
 	const handleSubmitGrades = async () => {
+		if (!isSelectedAcademicYearAllowed) {
+			showNotification(
+				'error',
+				`Grade submission is not allowed for academic year ${selectedAcademicYear}.`,
+			);
+			return;
+		}
 		if (selectedPeriods.length === 0) {
 			showNotification(
 				'error',
@@ -791,7 +806,7 @@ const SubmitGrade: React.FC = () => {
 	const showClassSelect =
 		!isSelfContainedTeacher && availableClasses.length > 1;
 	const showSubjectSelect = availableSubjects.length > 1;
-	const showAcademicYearFilter = availableAcademicYears.length > 1;
+	const showAcademicYearFilter = availableAcademicYears.length > 0;
 
 	const FeedbackToast = () => {
 		if (!notification || notification.type === 'error') return null;
@@ -1056,7 +1071,15 @@ const SubmitGrade: React.FC = () => {
 									</div>
 								)}
 
-								{showSessionSelect && (
+								{selectedAcademicYear && !isSelectedAcademicYearAllowed && (
+									<div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+										Grade submission is not allowed for academic year{' '}
+										<strong>{selectedAcademicYear}</strong>. Please choose an
+										allowed academic year.
+									</div>
+								)}
+
+								{isSelectedAcademicYearAllowed && showSessionSelect && (
 									<div>
 										<label className="block text-sm font-medium text-foreground mb-1.5">
 											Session
@@ -1079,7 +1102,9 @@ const SubmitGrade: React.FC = () => {
 									</div>
 								)}
 
-								{showLevelSelect && selectedSession && (
+								{isSelectedAcademicYearAllowed &&
+									showLevelSelect &&
+									selectedSession && (
 									<div>
 										<label className="block text-sm font-medium text-foreground mb-1.5">
 											Class Level
@@ -1099,7 +1124,9 @@ const SubmitGrade: React.FC = () => {
 									</div>
 								)}
 
-								{showClassSelect && selectedClassLevel && (
+								{isSelectedAcademicYearAllowed &&
+									showClassSelect &&
+									selectedClassLevel && (
 									<div>
 										<label className="block text-sm font-medium text-foreground mb-1.5">
 											Class
@@ -1122,7 +1149,7 @@ const SubmitGrade: React.FC = () => {
 									</div>
 								)}
 
-								{isSelfContainedTeacher && (
+								{isSelectedAcademicYearAllowed && isSelfContainedTeacher && (
 									<div>
 										<label className="block text-sm font-medium text-foreground mb-1.5">
 											Class
@@ -1133,7 +1160,9 @@ const SubmitGrade: React.FC = () => {
 									</div>
 								)}
 
-								{showSubjectSelect && selectedClassId && (
+								{isSelectedAcademicYearAllowed &&
+									showSubjectSelect &&
+									selectedClassId && (
 									<div>
 										<label className="block text-sm font-medium text-foreground mb-1.5">
 											Subject
@@ -1156,13 +1185,15 @@ const SubmitGrade: React.FC = () => {
 									</div>
 								)}
 
-								{loading.studentsForGrading && (
+								{isSelectedAcademicYearAllowed &&
+									loading.studentsForGrading && (
 									<div className="mt-2">
 										<PageLoading message="Loading Students..." fullScreen={false} />
 									</div>
 								)}
 
-								{studentsForGrading.length > 0 && (
+								{isSelectedAcademicYearAllowed &&
+									studentsForGrading.length > 0 && (
 									<div className="mt-4">
 										<label className="block text-sm font-medium text-foreground mb-2 sm:mb-3">
 											Select Periods to Grade
@@ -1193,13 +1224,16 @@ const SubmitGrade: React.FC = () => {
 						</details>
 					</div>
 
-					{studentsForGrading.length === 0 &&
+					{isSelectedAcademicYearAllowed &&
+						studentsForGrading.length === 0 &&
 						selectedSession &&
 						selectedClassLevel &&
 						selectedClassId &&
 						selectedSubject && <EmptyStudentsState />}
 
-					{studentsForGrading.length > 0 && selectedPeriods.length > 0 && (
+					{isSelectedAcademicYearAllowed &&
+						studentsForGrading.length > 0 &&
+						selectedPeriods.length > 0 && (
 						<div className="bg-card border border-border rounded-lg shadow-sm">
 							{error.studentsForGrading && (
 								<div className="m-4 text-destructive p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm">

@@ -22,6 +22,7 @@ import {
 import {
 	getTeacherAcademicYears,
 	pickMostRecentAcademicYear,
+	sortAcademicYearsDesc,
 } from '@/utils/academicYearOptions';
 
 // --- TYPES ---
@@ -79,7 +80,21 @@ const TeacherGradeChangeRequests = ({
 		() => teacherAcademicYears,
 		[teacherAcademicYears],
 	);
+	const school = useSchoolStore((state) => state.school);
+	const allowedAcademicYears = useMemo(
+		() =>
+			sortAcademicYearsDesc(
+				school?.settings?.teacherSettings?.gradeChangeRequestAcademicYears || [],
+			),
+		[school],
+	);
 	const [selectedAcademicYear, setSelectedAcademicYear] = useState('');
+	const isSelectedAcademicYearAllowed = useMemo(() => {
+		if (!selectedAcademicYear) return false;
+		return allowedAcademicYears.some((year) =>
+			areAcademicYearsEqual(year, selectedAcademicYear),
+		);
+	}, [allowedAcademicYears, selectedAcademicYear]);
 	const setGradeRequestsForYear = useSchoolStore(
 		(state) => state.setGradeRequestsForYear,
 	);
@@ -121,6 +136,12 @@ const TeacherGradeChangeRequests = ({
 		async (skipCache = false) => {
 			if (!teacherInfo?.username || !selectedAcademicYear) {
 				setRequests([]);
+				setLoading(false);
+				return;
+			}
+			if (!isSelectedAcademicYearAllowed) {
+				setRequests([]);
+				setError('');
 				setLoading(false);
 				return;
 			}
@@ -176,17 +197,31 @@ const TeacherGradeChangeRequests = ({
 				setLoading(false);
 			}
 		},
-		[teacherInfo?.username, selectedAcademicYear, setGradeRequestsForYear]
+		[
+			teacherInfo?.username,
+			selectedAcademicYear,
+			setGradeRequestsForYear,
+			isSelectedAcademicYearAllowed,
+		]
 	);
 
 	useEffect(() => {
-		if (!teacherInfo?.username || !selectedAcademicYear) {
+		if (
+			!teacherInfo?.username ||
+			!selectedAcademicYear ||
+			!isSelectedAcademicYearAllowed
+		) {
 			setRequests([]);
 			setLoading(false);
 			return;
 		}
 		void fetchRequests();
-	}, [teacherInfo?.username, selectedAcademicYear, fetchRequests]);
+	}, [
+		teacherInfo?.username,
+		selectedAcademicYear,
+		fetchRequests,
+		isSelectedAcademicYearAllowed,
+	]);
 
 	useEffect(() => {
 		if (
@@ -405,30 +440,36 @@ const TeacherGradeChangeRequests = ({
 					</div>
 				</div>
 			)}
-			{availableAcademicYears.length > 1 && (
-				<div className="bg-card border rounded-lg p-4">
-					<label className="block text-sm font-medium text-foreground mb-1">
-						Academic Year
-					</label>
-					<select
-						value={selectedAcademicYear}
-						onChange={(e) => setSelectedAcademicYear(e.target.value)}
-						className="w-full sm:w-auto rounded-md border-input bg-background shadow-sm p-2 text-sm"
-					>
-						{availableAcademicYears.map((year) => (
-							<option key={year} value={year}>
-								{year}
-							</option>
-						))}
-					</select>
+			<div className="bg-card border rounded-lg p-4">
+				<label className="block text-sm font-medium text-foreground mb-1">
+					Academic Year
+				</label>
+				<select
+					value={selectedAcademicYear}
+					onChange={(e) => setSelectedAcademicYear(e.target.value)}
+					className="w-full sm:w-auto rounded-md border-input bg-background shadow-sm p-2 text-sm"
+				>
+					{availableAcademicYears.map((year) => (
+						<option key={year} value={year}>
+							{year}
+						</option>
+					))}
+				</select>
+			</div>
+			{selectedAcademicYear && !isSelectedAcademicYearAllowed ? (
+				<div className="text-center text-amber-700 p-8 bg-amber-50 border border-amber-200 rounded-lg">
+					<p>
+						Grade requests are not allowed for academic year{' '}
+						<strong>{selectedAcademicYear}</strong>. Please select an allowed
+						academic year.
+					</p>
 				</div>
-			)}
-
-			{requests.length === 0 ? (
+			) : null}
+			{selectedAcademicYear && isSelectedAcademicYearAllowed && requests.length === 0 ? (
 				<div className="text-center text-muted-foreground p-8 bg-card border rounded-lg">
 					<p>You have not submitted any grade change requests.</p>
 				</div>
-			) : (
+			) : selectedAcademicYear && isSelectedAcademicYearAllowed ? (
 				<>
 					<div className="space-y-4">
 						{paginatedRequests.map((batch) => (
@@ -529,7 +570,7 @@ const TeacherGradeChangeRequests = ({
 						</div>
 					</div>
 				</>
-			)}
+			) : null}
 		</div>
 	);
 };

@@ -15,6 +15,7 @@ import {
 	getTeacherAcademicYears,
 	pickCurrentOrMostRecentAcademicYear,
 	pickMostRecentAcademicYear,
+	sortAcademicYearsDesc,
 } from '@/utils/academicYearOptions';
 
 // Types
@@ -201,12 +202,16 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const availableAcademicYears = useMemo(() => {
 		const schoolYears = buildSchoolAcademicYearRange(currentSchool);
 		if (effectiveUser?.role !== 'teacher') return schoolYears;
-		const teacherYears = getTeacherAcademicYears(effectiveUser);
-		const scopedYears = teacherYears.filter((year) =>
-			schoolYears.some((schoolYear) => areAcademicYearsEqual(schoolYear, year)),
-		);
-		return scopedYears.length > 0 ? scopedYears : teacherYears;
+		return getTeacherAcademicYears(effectiveUser);
 	}, [currentSchool, effectiveUser]);
+
+	const allowedAcademicYears = useMemo(
+		() =>
+			sortAcademicYearsDesc(
+				currentSchool?.settings?.teacherSettings?.viewMastersAcademicYears || [],
+			),
+		[currentSchool],
+	);
 
 	const normalizeAcademicYear = (value?: string) => {
 		return normalizeAcademicYearValue(value);
@@ -214,12 +219,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 	const defaultAcademicYear = useMemo(() => {
 		if (effectiveUser?.role === 'teacher') {
-			return (
-				pickMostRecentAcademicYear(
-					availableAcademicYears,
-					schoolCurrentAcademicYear,
-				) || ''
-			);
+			return pickMostRecentAcademicYear(availableAcademicYears) || '';
 		}
 		return (
 			pickCurrentOrMostRecentAcademicYear(
@@ -236,6 +236,17 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const [selectedLevel, setSelectedLevel] = useState('');
 	const [selectedClass, setSelectedClass] = useState('');
 	const [selectedSubject, setSelectedSubject] = useState('');
+	const isSelectedAcademicYearAllowed = useMemo(() => {
+		if (effectiveUser?.role !== 'teacher') return true;
+		if (!selectedAcademicYear) return false;
+		return allowedAcademicYears.some((year) =>
+			areAcademicYearsEqual(year, selectedAcademicYear),
+		);
+	}, [
+		effectiveUser?.role,
+		selectedAcademicYear,
+		allowedAcademicYears,
+	]);
 
 	const resolvedTeacher = useMemo(() => {
 		if (!selectedClass || !selectedSubject) return effectiveUser;
@@ -453,6 +464,12 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	};
 
 	useEffect(() => {
+		if (effectiveUser?.role === 'teacher' && !isSelectedAcademicYearAllowed) {
+			setStudentsData([]);
+			setLoading((prev) => ({ ...prev, students: false }));
+			setError((prev) => ({ ...prev, students: '' }));
+			return;
+		}
 		if (selectedClass) {
 			const fetchStudents = async () => {
 				setError((prev) => ({ ...prev, students: '' }));
@@ -544,9 +561,17 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		selectedClass,
 		isOnline,
 		usersByAcademicYear,
+		effectiveUser?.role,
+		isSelectedAcademicYearAllowed,
 	]);
 
 	useEffect(() => {
+		if (effectiveUser?.role === 'teacher' && !isSelectedAcademicYearAllowed) {
+			setGradesData([]);
+			setLoading((prev) => ({ ...prev, grades: false }));
+			setError((prev) => ({ ...prev, grades: '' }));
+			return;
+		}
 		if (selectedClass && selectedSubject) {
 			const fetchGrades = async () => {
 				setError((prev) => ({ ...prev, grades: '' }));
@@ -633,6 +658,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		selectedSubject,
 		isOnline,
 		gradesByAcademicYear,
+		effectiveUser?.role,
+		isSelectedAcademicYearAllowed,
 	]);
 
 	useEffect(() => {
@@ -785,11 +812,11 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	}
 
 	// --- Filter visibility ---
-	const showAcademicYearFilter = availableAcademicYears.length > 1;
-	const showSessionFilter = sessions.length > 1;
-	const showLevelFilter = classLevels.length > 1;
-	const showClassFilter = classes.length > 1;
-	const showSubjectFilter = subjects.length > 1;
+	const showAcademicYearFilter = availableAcademicYears.length > 0;
+	const showSessionFilter = isSelectedAcademicYearAllowed && sessions.length > 1;
+	const showLevelFilter = isSelectedAcademicYearAllowed && classLevels.length > 1;
+	const showClassFilter = isSelectedAcademicYearAllowed && classes.length > 1;
+	const showSubjectFilter = isSelectedAcademicYearAllowed && subjects.length > 1;
 
 	return (
 		<div className="space-y-6">
@@ -948,7 +975,14 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					)}
 				</div>
 			</div>
-			{selectedClass && selectedSubject && (
+			{effectiveUser?.role === 'teacher' && !isSelectedAcademicYearAllowed && (
+				<div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
+					Viewing master grade sheets is not allowed for academic year{' '}
+					<strong>{selectedAcademicYear}</strong>. Please select an allowed
+					academic year.
+				</div>
+			)}
+			{selectedClass && selectedSubject && isSelectedAcademicYearAllowed && (
 				<div className="bg-card border rounded-lg p-4 sm:p-6 shadow-sm min-w-0">
 					<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
 						<h3 className="text-lg sm:text-xl font-semibold text-card-foreground">

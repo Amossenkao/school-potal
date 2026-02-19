@@ -30,7 +30,6 @@ import {
 	getScopedAcademicYearValue,
 } from '@/utils/academicYear';
 import {
-	filterAcademicYearsByAllowed,
 	getTeacherAcademicYears,
 	pickMostRecentAcademicYear,
 	sortAcademicYearsDesc,
@@ -151,9 +150,6 @@ const FAIL_GRADE_CLASS = 'text-[var(--grade-fail)] font-semibold';
 
 const GradeSubmissions = () => {
 	const school = useSchoolStore((state) => state.school);
-	const schoolAcademicYear = useSchoolStore(
-		(state) => state.school?.currentAcademicYear
-	);
 	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 	const setGradeRequestsForYear = useSchoolStore(
 		(state) => state.setGradeRequestsForYear
@@ -216,30 +212,29 @@ const GradeSubmissions = () => {
 		direction: 'asc' | 'desc';
 	}>({ key: 'lastUpdated', direction: 'desc' });
 
-	const getAcademicYear = () => {
-		const now = new Date();
-		const currentYear = now.getFullYear();
-		const currentMonth = now.getMonth() + 1;
-		return currentMonth >= 8
-			? `${currentYear}-${currentYear + 1}`
-			: `${currentYear - 1}-${currentYear}`;
-	};
-
 	const teacherYears = useMemo(
 		() => getTeacherAcademicYears(teacherInfo),
 		[teacherInfo],
 	);
 
 	const availableAcademicYears = useMemo(() => {
-		const allowed = sortAcademicYearsDesc(
-			school?.settings?.teacherSettings?.gradeSubmissionAcademicYears || [
-				schoolAcademicYear || getAcademicYear(),
-			],
+		return teacherYears;
+	}, [teacherYears]);
+
+	const allowedAcademicYears = useMemo(
+		() =>
+			sortAcademicYearsDesc(
+				school?.settings?.teacherSettings?.viewGradeSubmissionsAcademicYears || [],
+			),
+		[school],
+	);
+
+	const isSelectedAcademicYearAllowed = useMemo(() => {
+		if (!academicYear) return false;
+		return allowedAcademicYears.some((year) =>
+			areAcademicYearsEqual(year, academicYear),
 		);
-		if (teacherYears.length === 0) return allowed;
-		const scopedYears = filterAcademicYearsByAllowed(teacherYears, allowed);
-		return scopedYears.length > 0 ? scopedYears : teacherYears;
-	}, [school, schoolAcademicYear, teacherYears]);
+	}, [academicYear, allowedAcademicYears]);
 
 	const processSubmittedGrades = useCallback(
 		(grades: any[]) => {
@@ -327,6 +322,12 @@ const GradeSubmissions = () => {
 	const fetchSubmittedGrades = useCallback(
 		async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
 			if (!teacherInfo) return;
+			if (!academicYear || !isSelectedAcademicYearAllowed) {
+				setSubmittedGrades([]);
+				setError((prev) => ({ ...prev, submittedGrades: '' }));
+				setLoading((prev) => ({ ...prev, submittedGrades: false }));
+				return;
+			}
 
 			const schoolState = useSchoolStore.getState();
 			const gradesByYear = schoolState.gradesByAcademicYear || {};
@@ -392,7 +393,13 @@ const GradeSubmissions = () => {
 				setLoading((prev) => ({ ...prev, submittedGrades: false }));
 			}
 		},
-		[academicYear, teacherInfo, processSubmittedGrades, setGradesForYear],
+		[
+			academicYear,
+			teacherInfo,
+			processSubmittedGrades,
+			setGradesForYear,
+			isSelectedAcademicYearAllowed,
+		],
 	);
 
 	useEffect(() => {
@@ -416,22 +423,23 @@ const GradeSubmissions = () => {
 	useEffect(() => {
 		if (!teacherInfo) return;
 		const defaultAcademicYear =
-			pickMostRecentAcademicYear(
-				availableAcademicYears,
-				schoolAcademicYear || getAcademicYear(),
-			) || '';
+			pickMostRecentAcademicYear(availableAcademicYears) || '';
 		const selectedIsAvailable = availableAcademicYears.some((year) =>
 			areAcademicYearsEqual(year, academicYear),
 		);
 		if (!academicYear || !selectedIsAvailable) {
 			setAcademicYear(defaultAcademicYear);
 		}
-	}, [teacherInfo, availableAcademicYears, schoolAcademicYear, academicYear]);
+	}, [teacherInfo, availableAcademicYears, academicYear]);
 
 	useEffect(() => {
-		if (!teacherInfo || !academicYear) return;
+		if (!teacherInfo || !academicYear || !isSelectedAcademicYearAllowed) {
+			setSubmittedGrades([]);
+			setLoading((prev) => ({ ...prev, submittedGrades: false }));
+			return;
+		}
 		void fetchSubmittedGrades();
-	}, [teacherInfo, academicYear, fetchSubmittedGrades]);
+	}, [teacherInfo, academicYear, fetchSubmittedGrades, isSelectedAcademicYearAllowed]);
 
 	const classMap = useMemo(() => {
 		if (!school?.classLevels) return new Map();
@@ -530,8 +538,10 @@ const GradeSubmissions = () => {
 		});
 	}, [assignedClasses, filters.session, filters.gradeLevel, filters.subject, yearAssignment]);
 
-	const showAcademicYearFilter = availableAcademicYears.length > 1;
+	const showAcademicYearFilter = availableAcademicYears.length > 0;
 	const showClassFilter = assignedClasses.length > 1;
+	const canAccessSelectedAcademicYear =
+		Boolean(academicYear) && isSelectedAcademicYearAllowed;
 
 	const showNotification = (
 		type: 'success' | 'error' | 'info',
@@ -1512,7 +1522,7 @@ const GradeSubmissions = () => {
 							</select>
 						)}
 
-						{availableSessions.length > 1 && (
+						{canAccessSelectedAcademicYear && availableSessions.length > 1 && (
 							<select
 								value={filters.session}
 								onChange={(e) =>
@@ -1534,7 +1544,7 @@ const GradeSubmissions = () => {
 							</select>
 						)}
 
-						{availableSubjects.length > 1 && (
+						{canAccessSelectedAcademicYear && availableSubjects.length > 1 && (
 							<select
 								value={filters.subject}
 								onChange={(e) =>
@@ -1551,7 +1561,7 @@ const GradeSubmissions = () => {
 							</select>
 						)}
 
-						{availableLevels.length > 1 && (
+						{canAccessSelectedAcademicYear && availableLevels.length > 1 && (
 							<select
 								value={filters.gradeLevel}
 								onChange={(e) =>
@@ -1572,7 +1582,9 @@ const GradeSubmissions = () => {
 							</select>
 						)}
 
-						{showClassFilter && availableClasses.length > 0 && (
+						{canAccessSelectedAcademicYear &&
+							showClassFilter &&
+							availableClasses.length > 0 && (
 							<select
 								value={filters.classId}
 								onChange={(e) =>
@@ -1589,193 +1601,215 @@ const GradeSubmissions = () => {
 							</select>
 						)}
 
-						<select
-							value={filters.period}
-							onChange={(e) =>
-								setFilters({ ...filters, period: e.target.value })
-							}
-							className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
-						>
-							<option value="">All Periods</option>
-							{periods.map((p) => (
-								<option key={p.value} value={p.value}>
-									{p.label}
-								</option>
-							))}
-						</select>
-
-						<Button
-							onClick={() => fetchSubmittedGrades({ forceRefresh: true })}
-							disabled={loading.submittedGrades}
-							className="flex items-center gap-2"
-							variant="outline"
-						>
-							<RefreshCw
-								className={`h-4 w-4 ${
-									loading.submittedGrades ? 'animate-spin' : ''
-								}`}
-							/>
-							Refresh
-						</Button>
-
-						<div className="flex items-center gap-2">
-							<span className="text-sm text-muted-foreground">Rows:</span>
-							<select
-								value={rowsPerPage}
-								onChange={(e) => {
-									setRowsPerPage(Number(e.target.value));
-									setCurrentPage(1);
-								}}
-								className="w-[80px] rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
-							>
-								<option value="5">5</option>
-								<option value="10">10</option>
-								<option value="25">25</option>
-								<option value="50">50</option>
-							</select>
-						</div>
-					</div>
-
-					<div className="bg-background border border-border rounded-lg overflow-hidden shadow-sm">
-						<div className="p-6 border-b border-border">
-							<h3 className="text-lg font-semibold text-foreground">
-								Recent Grade Submissions
-							</h3>
-							<p className="text-muted-foreground text-sm">
-								Track your submitted and pending grade submissions.
-							</p>
-						</div>
-						{loading.submittedGrades ? (
-							<PageLoading
-								fullScreen={false}
-								message="Loading Submissions..."
-							/>
-						) : error.submittedGrades ? (
-							<div className="p-6 text-center text-destructive">
-								{error.submittedGrades}
-							</div>
-						) : submittedGrades?.length === 0 ? (
-							<div className="p-6 text-center text-muted-foreground">
-								No grades have been submitted yet.
-							</div>
-						) : filteredAndSortedGrades.length === 0 ? (
-							<div className="p-6 text-center text-muted-foreground">
-								No submissions match your filters.
-							</div>
-						) : (
+						{canAccessSelectedAcademicYear && (
 							<>
-								<div className="overflow-x-auto">
-									<table className="w-full">
-									<thead className="bg-muted/50">
-										<tr>
-											{[
-												'subject',
-												'classId',
-												'period',
-												'status',
-												'lastUpdated',
-											].map((key) => (
-												<th
-													key={key}
-													className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted"
-													onClick={() =>
-														handleSort(key as keyof GradeSubmission)
-													}
-												>
-													<div className="flex items-center gap-2">
-														{key === 'classId'
-															? 'Class'
-															: key
-																	.replace(/([A-Z])/g, ' $1')
-																	.replace(/^./, (str) => str.toUpperCase())}
-														{getSortIcon(key as keyof GradeSubmission)}
-													</div>
-												</th>
-											))}
-											<th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-												Actions
-											</th>
-										</tr>
-									</thead>
-									<tbody className="divide-y divide-border bg-background">
-										{currentSlice.map((grade) => (
-											<tr
-												key={grade.submissionId}
-												className="hover:bg-muted/70 transition-colors"
-											>
-												<td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
-													{grade.subject}
-												</td>
-												<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-													{classMap.get(grade.gradeLevel) || grade.gradeLevel}
-												</td>
-												<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-													{periods.find((p) => p.value === grade.period)?.label}
-												</td>
-												<td className="px-6 py-4 whitespace-nowrap text-sm">
-													<span
-														className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
-															grade.status
-														)}`}
-													>
-														{getStatusIcon(grade.status)} {grade.status}
-													</span>
-												</td>
-												<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-													{formatLastUpdated(grade.lastUpdated)}
-												</td>
-												<td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-													<Button
-														variant="outline"
-														size="sm"
-														onClick={() => openDetailsModal(grade)}
-													>
-														Details & Change Grade
-													</Button>
-												</td>
-											</tr>
-										))}
-									</tbody>
-									</table>
-								</div>
-								<div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-t border-border">
-									<div className="text-sm text-muted-foreground">
-										Showing{' '}
-										<strong>{(currentPageSafe - 1) * rowsPerPage + 1}</strong>–
-										<strong>
-											{Math.min(
-												currentPageSafe * rowsPerPage,
-												filteredAndSortedGrades.length
-											)}
-										</strong>{' '}
-										of <strong>{filteredAndSortedGrades.length}</strong>{' '}
-										submissions
-									</div>
-									<div className="flex items-center justify-between gap-2 sm:justify-start">
-										<button
-											className="w-full px-2 py-2 text-sm border rounded-md disabled:opacity-50 sm:w-auto"
-											onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-											disabled={currentPageSafe === 1}
-										>
-											Previous
-										</button>
-										<div className="text-sm">
-											Page {currentPageSafe} of {totalPages}
-										</div>
-										<button
-											className="w-full px-2 py-2 text-sm border rounded-md disabled:opacity-50 sm:w-auto"
-											onClick={() =>
-												setCurrentPage((p) => Math.min(p + 1, totalPages))
-											}
-											disabled={currentPageSafe === totalPages}
-										>
-											Next
-										</button>
-									</div>
+								<select
+									value={filters.period}
+									onChange={(e) =>
+										setFilters({ ...filters, period: e.target.value })
+									}
+									className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
+								>
+									<option value="">All Periods</option>
+									{periods.map((p) => (
+										<option key={p.value} value={p.value}>
+											{p.label}
+										</option>
+									))}
+								</select>
+
+								<Button
+									onClick={() => fetchSubmittedGrades({ forceRefresh: true })}
+									disabled={loading.submittedGrades}
+									className="flex items-center gap-2"
+									variant="outline"
+								>
+									<RefreshCw
+										className={`h-4 w-4 ${
+											loading.submittedGrades ? 'animate-spin' : ''
+										}`}
+									/>
+									Refresh
+								</Button>
+
+								<div className="flex items-center gap-2">
+									<span className="text-sm text-muted-foreground">Rows:</span>
+									<select
+										value={rowsPerPage}
+										onChange={(e) => {
+											setRowsPerPage(Number(e.target.value));
+											setCurrentPage(1);
+										}}
+										className="w-[80px] rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
+									>
+										<option value="5">5</option>
+										<option value="10">10</option>
+										<option value="25">25</option>
+										<option value="50">50</option>
+									</select>
 								</div>
 							</>
 						)}
 					</div>
+
+					{academicYear && !isSelectedAcademicYearAllowed && (
+						<div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
+							Grade submission review is not allowed for academic year{' '}
+							<strong>{academicYear}</strong>. Please select an allowed
+							academic year.
+						</div>
+					)}
+
+					{canAccessSelectedAcademicYear && (
+						<div className="bg-background border border-border rounded-lg overflow-hidden shadow-sm">
+							<div className="p-6 border-b border-border">
+								<h3 className="text-lg font-semibold text-foreground">
+									Recent Grade Submissions
+								</h3>
+								<p className="text-muted-foreground text-sm">
+									Track your submitted and pending grade submissions.
+								</p>
+							</div>
+							{loading.submittedGrades ? (
+								<PageLoading
+									fullScreen={false}
+									message="Loading Submissions..."
+								/>
+							) : error.submittedGrades ? (
+								<div className="p-6 text-center text-destructive">
+									{error.submittedGrades}
+								</div>
+							) : submittedGrades?.length === 0 ? (
+								<div className="p-6 text-center text-muted-foreground">
+									No grades have been submitted yet.
+								</div>
+							) : filteredAndSortedGrades.length === 0 ? (
+								<div className="p-6 text-center text-muted-foreground">
+									No submissions match your filters.
+								</div>
+							) : (
+								<>
+									<div className="overflow-x-auto">
+										<table className="w-full">
+											<thead className="bg-muted/50">
+												<tr>
+													{[
+														'subject',
+														'classId',
+														'period',
+														'status',
+														'lastUpdated',
+													].map((key) => (
+														<th
+															key={key}
+															className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted"
+															onClick={() =>
+																handleSort(key as keyof GradeSubmission)
+															}
+														>
+															<div className="flex items-center gap-2">
+																{key === 'classId'
+																	? 'Class'
+																	: key
+																			.replace(/([A-Z])/g, ' $1')
+																			.replace(/^./, (str) =>
+																				str.toUpperCase(),
+																			)}
+																{getSortIcon(key as keyof GradeSubmission)}
+															</div>
+														</th>
+													))}
+													<th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+														Actions
+													</th>
+												</tr>
+											</thead>
+											<tbody className="divide-y divide-border bg-background">
+												{currentSlice.map((grade) => (
+													<tr
+														key={grade.submissionId}
+														className="hover:bg-muted/70 transition-colors"
+													>
+														<td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+															{grade.subject}
+														</td>
+														<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+															{classMap.get(grade.gradeLevel) || grade.gradeLevel}
+														</td>
+														<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+															{
+																periods.find((p) => p.value === grade.period)
+																	?.label
+															}
+														</td>
+														<td className="px-6 py-4 whitespace-nowrap text-sm">
+															<span
+																className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
+																	grade.status,
+																)}`}
+															>
+																{getStatusIcon(grade.status)} {grade.status}
+															</span>
+														</td>
+														<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+															{formatLastUpdated(grade.lastUpdated)}
+														</td>
+														<td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+															<Button
+																variant="outline"
+																size="sm"
+																onClick={() => openDetailsModal(grade)}
+															>
+																Details & Change Grade
+															</Button>
+														</td>
+													</tr>
+												))}
+											</tbody>
+										</table>
+									</div>
+									<div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-t border-border">
+										<div className="text-sm text-muted-foreground">
+											Showing{' '}
+											<strong>{(currentPageSafe - 1) * rowsPerPage + 1}</strong>
+											–
+											<strong>
+												{Math.min(
+													currentPageSafe * rowsPerPage,
+													filteredAndSortedGrades.length
+												)}
+											</strong>{' '}
+											of <strong>{filteredAndSortedGrades.length}</strong>{' '}
+											submissions
+										</div>
+										<div className="flex items-center justify-between gap-2 sm:justify-start">
+											<button
+												className="w-full px-2 py-2 text-sm border rounded-md disabled:opacity-50 sm:w-auto"
+												onClick={() =>
+													setCurrentPage((p) => Math.max(p - 1, 1))
+												}
+												disabled={currentPageSafe === 1}
+											>
+												Previous
+											</button>
+											<div className="text-sm">
+												Page {currentPageSafe} of {totalPages}
+											</div>
+											<button
+												className="w-full px-2 py-2 text-sm border rounded-md disabled:opacity-50 sm:w-auto"
+												onClick={() =>
+													setCurrentPage((p) => Math.min(p + 1, totalPages))
+												}
+												disabled={currentPageSafe === totalPages}
+											>
+												Next
+											</button>
+										</div>
+									</div>
+								</>
+							)}
+						</div>
+					)}
 				</div>
 			</div>
 			{showDetailsModal && renderDetailsModal()}
