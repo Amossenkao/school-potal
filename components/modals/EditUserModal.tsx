@@ -58,6 +58,8 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		null,
 	);
 	const [carryOverPosition, setCarryOverPosition] = useState('');
+	const [carryOverAssignmentsExpanded, setCarryOverAssignmentsExpanded] =
+		useState(false);
 	const [carryOverExpandedAccordions, setCarryOverExpandedAccordions] = useState(
 		{} as Record<string, boolean>,
 	);
@@ -338,6 +340,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			setCarryOverSubjects([]);
 			setCarryOverSponsorClass(null);
 			setCarryOverPosition(userData.position || '');
+			setCarryOverAssignmentsExpanded(false);
 			setCarryOverExpandedAccordions({});
 		}
 	}, [user, schoolProfile]);
@@ -736,6 +739,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		const options = getCarryOverAcademicYearOptions();
 		const latestStart = getLatestAcademicYearStartForUser(user);
 		setActionError('');
+		setCarryOverAssignmentsExpanded(false);
 		const defaultYear =
 			options.find((year) => {
 				const start = getAcademicYearStart(year);
@@ -747,21 +751,16 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		if (user?.role === 'teacher') {
 			const latestYearEntry = getTeacherLatestYearEntry(user);
 			const defaultSelections = mapYearEntryToTeacherSelections(latestYearEntry);
-			const defaultExpandedAccordions = {};
-			defaultSelections.forEach((selection) => {
-				if (selection?.session) {
-					defaultExpandedAccordions[selection.session] = true;
-				}
-			});
 			setCarryOverSubjects(defaultSelections);
 			setCarryOverSponsorClass(user?.sponsorClass || null);
-			setCarryOverExpandedAccordions(defaultExpandedAccordions);
+			setCarryOverExpandedAccordions({});
 		}
 		if (user?.role === 'administrator') {
 			const latestAdminYear = getAdminTimeline(user)[0];
 			setCarryOverPosition(
 				latestAdminYear?.position || user?.position || adminPositions[0],
 			);
+			setCarryOverExpandedAccordions({});
 		}
 		setShowCarryOverModal(true);
 	};
@@ -1941,12 +1940,17 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 					)}
 
 					{showCarryOverModal && (
-						<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-							<div className="bg-card w-full max-w-lg rounded-xl border border-border shadow-xl">
+						<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4">
+							<div className="bg-card w-full max-w-3xl max-h-[92vh] rounded-xl border border-border shadow-xl flex flex-col">
 								<div className="flex items-center justify-between p-4 border-b border-border">
-									<h5 className="text-lg font-semibold text-foreground">
-										Bring To New Academic Year
-									</h5>
+									<div>
+										<h5 className="text-lg font-semibold text-foreground">
+											Bring To New Academic Year
+										</h5>
+										<p className="text-xs text-muted-foreground mt-0.5">
+											Current assignments are preselected by default.
+										</p>
+									</div>
 									<button
 										type="button"
 										onClick={() => setShowCarryOverModal(false)}
@@ -1955,7 +1959,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 										<X className="h-4 w-4" />
 									</button>
 								</div>
-								<div className="p-4 space-y-4">
+								<div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
 									{actionError && (
 										<p className="text-sm text-red-600">{actionError}</p>
 									)}
@@ -1993,155 +1997,254 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 											</SelectContent>
 										</Select>
 									</div>
-									{user?.role === 'administrator' && (
-										<div>
-											<label className="block text-sm font-medium text-foreground mb-1">
-												Position For New Year
-											</label>
-											<Select
-												value={carryOverPosition}
-												onValueChange={(value) => setCarryOverPosition(value)}
-											>
-												<SelectTrigger className={selectTriggerClass}>
-													<SelectValue placeholder="Select Position" />
-												</SelectTrigger>
-												<SelectContent>
-													{adminPositions.map((pos) => (
-														<SelectItem key={pos} value={pos}>
-															{pos}
-														</SelectItem>
-													))}
-												</SelectContent>
-											</Select>
+
+									{user?.role === 'teacher' && (
+										<div className="rounded-lg border border-border bg-muted/30 p-3">
+											<p className="text-sm font-medium text-foreground">
+												Default Teacher Assignments
+											</p>
+											<p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+												{(carryOverSubjects || []).length} subject selections
+												preloaded across{' '}
+												{
+													new Set(
+														(carryOverSubjects || [])
+															.map((entry) => entry?.session)
+															.filter(Boolean),
+													).size
+												}{' '}
+												session(s). Sponsor class:{' '}
+												{carryOverSponsorClass
+													? getClassNameFromId(carryOverSponsorClass)
+													: 'None'}
+												.
+											</p>
 										</div>
 									)}
-									{user?.role === 'teacher' && (
-										<div className="space-y-4">
-											<div>
-												<label className="block text-sm font-medium text-foreground mb-1">
-													Sponsor Class
-												</label>
-												<Select
-													value={carryOverSponsorClass || '__none__'}
-													onValueChange={handleCarryOverSponsorClassChange}
-												>
-													<SelectTrigger className={selectTriggerClass}>
-														<SelectValue placeholder="No sponsorship" />
-													</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="__none__">
-															No sponsorship
-														</SelectItem>
-														{getSessions().flatMap((session) =>
-															getAllClassesForSession(session).map((cls) => (
-																<SelectItem key={cls.classId} value={cls.classId}>
-																	{cls.name}
-																</SelectItem>
-															)),
-														)}
-													</SelectContent>
-												</Select>
-											</div>
-											<div className="space-y-3">
-												<p className="text-sm font-medium text-foreground">
-													Subject Assignments For New Year
-												</p>
-												{getSessions().map((session) => (
-													<div
-														key={`carry-over-${session}`}
-														className="border border-border rounded-lg"
+
+									{user?.role === 'administrator' && (
+										<div className="rounded-lg border border-border bg-muted/30 p-3">
+											<p className="text-sm font-medium text-foreground">
+												Default Administrator Assignment
+											</p>
+											<p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+												Position preselected: {carryOverPosition || 'N/A'}.
+											</p>
+										</div>
+									)}
+
+									{['teacher', 'administrator'].includes(user?.role) && (
+										<div className="border border-border rounded-lg overflow-hidden">
+											<button
+												type="button"
+												onClick={() =>
+													setCarryOverAssignmentsExpanded((prev) => !prev)
+												}
+												className="flex justify-between items-center w-full p-3 text-left bg-muted/50 hover:bg-muted/80 transition-colors"
+											>
+												<div>
+													<p className="text-sm font-medium text-foreground">
+														{user?.role === 'teacher'
+															? 'Subject/Class Settings'
+															: 'Position Settings'}
+													</p>
+													<p className="text-xs text-muted-foreground">
+														Collapsed by default. Expand to review or change.
+													</p>
+												</div>
+												<ChevronDown
+													className={`w-5 h-5 transition-transform ${
+														carryOverAssignmentsExpanded ? 'rotate-180' : ''
+													}`}
+												/>
+											</button>
+											<AnimatePresence>
+												{carryOverAssignmentsExpanded && (
+													<motion.div
+														initial={{ opacity: 0, height: 0 }}
+														animate={{ opacity: 1, height: 'auto' }}
+														exit={{ opacity: 0, height: 0 }}
+														className="p-3 sm:p-4 space-y-4 border-t border-border"
 													>
-														<button
-															type="button"
-															onClick={() => toggleCarryOverAccordion(session)}
-															className="flex justify-between items-center w-full p-3 font-medium text-left bg-muted/50 hover:bg-muted/80 rounded-t-lg"
-														>
-															<span>{session} Session</span>
-															<ChevronDown
-																className={`w-5 h-5 transition-transform ${
-																	carryOverExpandedAccordions[session]
-																		? 'rotate-180'
-																		: ''
-																}`}
-															/>
-														</button>
-														<AnimatePresence>
-															{carryOverExpandedAccordions[session] && (
-																<motion.div
-																	initial={{ opacity: 0, height: 0 }}
-																	animate={{ opacity: 1, height: 'auto' }}
-																	exit={{ opacity: 0, height: 0 }}
-																	className="p-4 space-y-4 border-t border-border"
+														{user?.role === 'administrator' && (
+															<div>
+																<label className="block text-sm font-medium text-foreground mb-1">
+																	Position For New Year
+																</label>
+																<Select
+																	value={carryOverPosition}
+																	onValueChange={(value) =>
+																		setCarryOverPosition(value)
+																	}
 																>
-																	{getClassLevels(session).map((level) => (
-																		<div key={`carry-over-${session}-${level}`}>
-																			<h6 className="font-medium text-foreground mb-2">
-																				{level}
-																			</h6>
-																			<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-																				{getSubjectsBySessionAndLevel(
-																					session,
-																					level,
-																				).map((subject) => {
-																					const subjectName =
-																						typeof subject === 'string'
-																							? subject
-																							: subject?.name;
-																					if (!subjectName) return null;
-																					const isChecked = (
-																						carryOverSubjects || []
-																					).some(
-																						(selection) =>
-																							selection.subject === subjectName &&
-																							selection.level === level &&
-																							selection.session === session,
-																					);
-																					return (
-																						<motion.label
-																							key={`carry-over-${subjectName}-${level}-${session}`}
-																							whileHover={{ scale: 1.03 }}
-																							className={`relative flex items-center rounded-lg border p-2 cursor-pointer transition-all text-sm ${
-																								isChecked
-																									? 'border-primary bg-primary/10 shadow-sm'
-																									: 'border-muted hover:border-primary/40 hover:bg-accent/5'
-																							}`}
+																	<SelectTrigger
+																		className={selectTriggerClass}
+																	>
+																		<SelectValue placeholder="Select Position" />
+																	</SelectTrigger>
+																	<SelectContent>
+																		{adminPositions.map((pos) => (
+																			<SelectItem key={pos} value={pos}>
+																				{pos}
+																			</SelectItem>
+																		))}
+																	</SelectContent>
+																</Select>
+															</div>
+														)}
+
+														{user?.role === 'teacher' && (
+															<div className="space-y-4">
+																<div>
+																	<label className="block text-sm font-medium text-foreground mb-1">
+																		Sponsor Class
+																	</label>
+																	<Select
+																		value={carryOverSponsorClass || '__none__'}
+																		onValueChange={
+																			handleCarryOverSponsorClassChange
+																		}
+																	>
+																		<SelectTrigger
+																			className={selectTriggerClass}
+																		>
+																			<SelectValue placeholder="No sponsorship" />
+																		</SelectTrigger>
+																		<SelectContent>
+																			<SelectItem value="__none__">
+																				No sponsorship
+																			</SelectItem>
+																			{getSessions().flatMap((session) =>
+																				getAllClassesForSession(session).map(
+																					(cls) => (
+																						<SelectItem
+																							key={cls.classId}
+																							value={cls.classId}
 																						>
-																							<input
-																								type="checkbox"
-																								checked={isChecked}
-																								onChange={(e) =>
-																									handleCarryOverSubjectChange(
-																										subjectName,
-																										level,
+																							{cls.name}
+																						</SelectItem>
+																					),
+																				),
+																			)}
+																		</SelectContent>
+																	</Select>
+																</div>
+																<div className="space-y-3">
+																	<p className="text-sm font-medium text-foreground">
+																		Subject Assignments
+																	</p>
+																	{getSessions().map((session) => (
+																		<div
+																			key={`carry-over-${session}`}
+																			className="border border-border rounded-lg overflow-hidden"
+																		>
+																			<button
+																				type="button"
+																				onClick={() =>
+																					toggleCarryOverAccordion(session)
+																				}
+																				className="flex justify-between items-center w-full p-3 font-medium text-left bg-muted/40 hover:bg-muted/70"
+																			>
+																				<span className="text-sm">
+																					{session} Session
+																				</span>
+																				<ChevronDown
+																					className={`w-5 h-5 transition-transform ${
+																						carryOverExpandedAccordions[session]
+																							? 'rotate-180'
+																							: ''
+																					}`}
+																				/>
+																			</button>
+																			<AnimatePresence>
+																				{carryOverExpandedAccordions[session] && (
+																					<motion.div
+																						initial={{ opacity: 0, height: 0 }}
+																						animate={{ opacity: 1, height: 'auto' }}
+																						exit={{ opacity: 0, height: 0 }}
+																						className="p-3 sm:p-4 space-y-4 border-t border-border"
+																					>
+																						{getClassLevels(session).map((level) => (
+																							<div
+																								key={`carry-over-${session}-${level}`}
+																							>
+																								<h6 className="font-medium text-foreground mb-2 text-sm">
+																									{level}
+																								</h6>
+																								<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+																									{getSubjectsBySessionAndLevel(
 																										session,
-																										e.target.checked,
-																									)
-																								}
-																								className="absolute opacity-0"
-																							/>
-																							<span className="ml-1 text-foreground">
-																								{subjectName}
-																							</span>
-																						</motion.label>
-																					);
-																				})}
-																			</div>
+																										level,
+																									).map((subject) => {
+																										const subjectName =
+																											typeof subject ===
+																											'string'
+																												? subject
+																												: subject?.name;
+																										if (!subjectName)
+																											return null;
+																										const isChecked = (
+																											carryOverSubjects || []
+																										).some(
+																											(selection) =>
+																												selection.subject ===
+																													subjectName &&
+																												selection.level ===
+																													level &&
+																												selection.session ===
+																													session,
+																										);
+																										return (
+																											<motion.label
+																												key={`carry-over-${subjectName}-${level}-${session}`}
+																												whileHover={{ scale: 1.02 }}
+																												className={`relative flex items-center rounded-lg border p-2 cursor-pointer transition-all text-sm ${
+																													isChecked
+																														? 'border-primary bg-primary/10 shadow-sm'
+																														: 'border-muted hover:border-primary/40 hover:bg-accent/5'
+																												}`}
+																											>
+																												<input
+																													type="checkbox"
+																													checked={isChecked}
+																													onChange={(e) =>
+																														handleCarryOverSubjectChange(
+																															subjectName,
+																															level,
+																															session,
+																															e.target.checked,
+																														)
+																													}
+																													className="absolute opacity-0"
+																												/>
+																												<span className="ml-1 text-foreground">
+																													{subjectName}
+																												</span>
+																											</motion.label>
+																										);
+																									})}
+																								</div>
+																							</div>
+																						))}
+																					</motion.div>
+																				)}
+																			</AnimatePresence>
 																		</div>
 																	))}
-																</motion.div>
-															)}
-														</AnimatePresence>
-													</div>
-												))}
-											</div>
+																</div>
+															</div>
+														)}
+													</motion.div>
+												)}
+											</AnimatePresence>
 										</div>
 									)}
 								</div>
-								<div className="p-4 border-t border-border flex justify-end gap-2">
+								<div className="p-4 border-t border-border flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
 									<button
 										type="button"
 										onClick={() => setShowCarryOverModal(false)}
-										className="px-4 py-2 rounded-lg hover:bg-muted/80"
+										className="w-full sm:w-auto px-4 py-2 rounded-lg hover:bg-muted/80"
 									>
 										Cancel
 									</button>
@@ -2156,7 +2259,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 												user,
 											)
 										}
-										className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+										className="w-full sm:w-auto px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
 									>
 										{actionLoading ? 'Saving...' : 'Confirm'}
 									</button>

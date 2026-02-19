@@ -43,4 +43,9 @@ const GradeChangeRequestSchema = new Schema({
 	lastUpdated: { type: Date, required: true },
 });
 
+GradeChangeRequestSchema.index({ academicYear: 1, teacherUsername: 1, status: 1 });
+GradeChangeRequestSchema.index({ academicYear: 1, classId: 1, period: 1, status: 1 });
+GradeChangeRequestSchema.index({ academicYear: 1, submittedAt: -1 });
+GradeChangeRequestSchema.index({ academicYear: 1, lastUpdated: -1 });
+
 export default GradeChangeRequestSchema;

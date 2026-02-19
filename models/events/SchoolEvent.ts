@@ -31,4 +31,13 @@ const SchoolEventSchema = new Schema(
 	{ timestamps: true }
 );
 
+SchoolEventSchema.index({
+	eventType: 1,
+	academicYear: 1,
+	session: 1,
+	level: 1,
+	classId: 1,
+});
+SchoolEventSchema.index({ eventType: 1, academicYear: 1, startDate: 1 });
+
 export default SchoolEventSchema;

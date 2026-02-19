@@ -51,4 +51,11 @@ const UserSchema = new Schema<User & Document>(
 	},
 );
 
+UserSchema.index({ role: 1 });
+UserSchema.index({ role: 1, classId: 1 });
+UserSchema.index({ role: 1, 'academicYears.year': 1 });
+UserSchema.index({ role: 1, 'academicYears.year': 1, 'academicYears.classId': 1 });
+UserSchema.index({ role: 1, 'subjects.year': 1 });
+UserSchema.index({ role: 1, 'subjects.classes.classId': 1 });
+
 export default UserSchema;

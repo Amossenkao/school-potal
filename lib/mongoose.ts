@@ -24,12 +24,15 @@ const parsePoolSize = (value: string | undefined, fallback: number) => {
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
-const MAX_POOL_SIZE = parsePoolSize(process.env.MONGODB_MAX_POOL_SIZE, 5);
+const MAX_POOL_SIZE = parsePoolSize(process.env.MONGODB_MAX_POOL_SIZE, 8);
 const SERVER_SELECTION_TIMEOUT_MS = parsePoolSize(
 	process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS,
-	5000
+	2500,
 );
-const MAX_IDLE_TIME_MS = parsePoolSize(process.env.MONGODB_MAX_IDLE_TIME_MS, 30000);
+const MAX_IDLE_TIME_MS = parsePoolSize(
+	process.env.MONGODB_MAX_IDLE_TIME_MS,
+	10000,
+);
 
 /**
  * Establishes and caches a connection to the central 'tenants' database.

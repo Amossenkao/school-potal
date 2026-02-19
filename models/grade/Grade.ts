@@ -15,5 +15,17 @@ const GradeSchema = new mongoose.Schema({
 	lastUpdated: { type: Date, required: true },
 });
 
+GradeSchema.index({ academicYear: 1, classId: 1, period: 1, status: 1 });
+GradeSchema.index({ academicYear: 1, studentId: 1, classId: 1 });
+GradeSchema.index({
+	academicYear: 1,
+	teacherUsername: 1,
+	classId: 1,
+	subject: 1,
+	period: 1,
+});
+GradeSchema.index({ academicYear: 1, classId: 1, status: 1 });
+GradeSchema.index({ lastUpdated: -1 });
+
 // Check if the model is already defined before defining it
 export default GradeSchema;
