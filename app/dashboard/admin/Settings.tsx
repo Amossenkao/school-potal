@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSchoolStore } from '@/store/schoolStore';
 import {
 	Shield,
@@ -95,12 +95,37 @@ const semesterOptions = [
 
 const ensureArray = (value) => (Array.isArray(value) ? value : []);
 
-const generateAcademicYears = (yearsAhead = 5) => {
+const parseAcademicYearStart = (value) => {
+	if (!value || typeof value !== 'string') return null;
+	const normalized = value.trim().replace(/[–—]/g, '-').replace(/\//g, '-');
+	const match = normalized.match(/^(\d{4})-(\d{4})$/);
+	if (!match) return null;
+	const startYear = Number.parseInt(match[1], 10);
+	return Number.isFinite(startYear) ? startYear : null;
+};
+
+const formatAcademicYear = (startYear) => `${startYear}-${startYear + 1}`;
+
+const shiftAcademicYear = (yearLabel, delta) => {
+	const start = parseAcademicYearStart(yearLabel);
+	if (start === null) return null;
+	return formatAcademicYear(start + delta);
+};
+
+const buildAcademicYearRange = (startYearLabel, endYearLabel) => {
+	let start = parseAcademicYearStart(startYearLabel);
+	let end = parseAcademicYearStart(endYearLabel);
+
+	if (start === null && end === null) return [];
+	if (start === null) start = end;
+	if (end === null) end = start;
+	if (start === null || end === null) return [];
+
+	const lower = Math.min(start, end);
+	const upper = Math.max(start, end);
 	const years = [];
-	const currentYear = new Date().getFullYear();
-	for (let i = 0; i < yearsAhead + 3; i++) {
-		const year = currentYear - 2 + i;
-		years.push(`${year}-${year + 1}`);
+	for (let year = lower; year <= upper; year += 1) {
+		years.push(formatAcademicYear(year));
 	}
 	return years;
 };
@@ -548,6 +573,118 @@ export default function Settings() {
 		};
 	}, []);
 
+	const baseCurrentAcademicYear =
+		school?.currentAcademicYear || getCurrentAcademicYear();
+	const firstAcademicYear =
+		school?.firstAcademicYear ||
+		school?.currentAcademicYear ||
+		currentAcademicYear ||
+		getCurrentAcademicYear();
+	const maxCurrentAcademicYearOption =
+		shiftAcademicYear(baseCurrentAcademicYear, 5) || baseCurrentAcademicYear;
+
+	const currentAcademicYearValues = useMemo(
+		() =>
+			buildAcademicYearRange(
+				firstAcademicYear,
+				maxCurrentAcademicYearOption,
+			),
+		[firstAcademicYear, maxCurrentAcademicYearOption],
+	);
+	const settingsAcademicYearValues = useMemo(
+		() =>
+			buildAcademicYearRange(
+				firstAcademicYear,
+				currentAcademicYear || baseCurrentAcademicYear,
+			),
+		[firstAcademicYear, currentAcademicYear, baseCurrentAcademicYear],
+	);
+
+	const currentAcademicYearOptions = useMemo(() => {
+		const values =
+			currentAcademicYearValues.length > 0
+				? currentAcademicYearValues
+				: [baseCurrentAcademicYear];
+		return values.map((year) => ({
+			value: year,
+			label: year,
+		}));
+	}, [currentAcademicYearValues, baseCurrentAcademicYear]);
+
+	const academicYearOptions = useMemo(() => {
+		const fallbackYear = currentAcademicYear || baseCurrentAcademicYear;
+		const values =
+			settingsAcademicYearValues.length > 0
+				? settingsAcademicYearValues
+				: [fallbackYear];
+		return values.map((year) => ({
+			value: year,
+			label: year,
+		}));
+	}, [settingsAcademicYearValues, currentAcademicYear, baseCurrentAcademicYear]);
+
+	useEffect(() => {
+		if (!currentAcademicYearOptions.length) return;
+		const hasCurrentOption = currentAcademicYearOptions.some(
+			(option) => option.value === currentAcademicYear,
+		);
+		if (hasCurrentOption) return;
+
+		const schoolCurrent = school?.currentAcademicYear;
+		const fallbackValue =
+			(schoolCurrent &&
+				currentAcademicYearOptions.find((option) => option.value === schoolCurrent)
+					?.value) ||
+			currentAcademicYearOptions[currentAcademicYearOptions.length - 1]?.value ||
+			currentAcademicYearOptions[0]?.value ||
+			'';
+		if (fallbackValue && fallbackValue !== currentAcademicYear) {
+			setCurrentAcademicYear(fallbackValue);
+		}
+	}, [currentAcademicYear, currentAcademicYearOptions, school?.currentAcademicYear]);
+
+	useEffect(() => {
+		if (!teacherSettings) return;
+		const allowedAcademicYears = new Set(
+			academicYearOptions.map((option) => option.value),
+		);
+		const sanitize = (years) =>
+			ensureArray(years).filter((year) => allowedAcademicYears.has(year));
+
+		setTeacherSettings((prev) => {
+			if (!prev) return prev;
+			const nextGradeSubmissionYears = sanitize(prev.gradeSubmissionAcademicYears);
+			const nextViewMastersYears = sanitize(prev.viewMastersAcademicYears);
+			const nextViewSubmissionsYears = sanitize(
+				prev.viewGradeSubmissionsAcademicYears,
+			);
+			const nextGradeRequestYears = sanitize(
+				prev.gradeChangeRequestAcademicYears,
+			);
+
+			const unchanged =
+				JSON.stringify(nextGradeSubmissionYears) ===
+					JSON.stringify(ensureArray(prev.gradeSubmissionAcademicYears)) &&
+				JSON.stringify(nextViewMastersYears) ===
+					JSON.stringify(ensureArray(prev.viewMastersAcademicYears)) &&
+				JSON.stringify(nextViewSubmissionsYears) ===
+					JSON.stringify(
+						ensureArray(prev.viewGradeSubmissionsAcademicYears),
+					) &&
+				JSON.stringify(nextGradeRequestYears) ===
+					JSON.stringify(ensureArray(prev.gradeChangeRequestAcademicYears));
+
+			if (unchanged) return prev;
+			return {
+				...prev,
+				gradeSubmissionAcademicYears: nextGradeSubmissionYears,
+				viewMastersAcademicYears: nextViewMastersYears,
+				viewGradeSubmissionsAcademicYears: nextViewSubmissionsYears,
+				gradeChangeRequestAcademicYears: nextGradeRequestYears,
+			};
+		});
+	}, [teacherSettings, academicYearOptions]);
+
 	const toggleStudentSetting = (setting) =>
 		setStudentSettings((prev) => ({ ...prev, [setting]: !prev[setting] }));
 	const toggleTeacherSetting = (setting) =>
@@ -637,11 +774,6 @@ export default function Settings() {
 		}
 	};
 
-	const academicYears = generateAcademicYears();
-	const academicYearOptions = academicYears.map((year) => ({
-		value: year,
-		label: year,
-	}));
 	const themeOptions = TENANT_THEME_OPTIONS.map((theme) => ({
 		value: theme.name,
 		label: theme.label,
@@ -694,7 +826,7 @@ export default function Settings() {
 					>
 						<div className="space-y-3">
 							<SingleSelect
-								options={academicYearOptions}
+								options={currentAcademicYearOptions}
 								selected={currentAcademicYear}
 								onChange={setCurrentAcademicYear}
 								label="Current Academic Year"
