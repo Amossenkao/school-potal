@@ -71,15 +71,34 @@ const ViewUserModal = ({
 	};
 
 	const getTeacherSubjects = (user) => {
+		const toUniqueSubjectList = (items) => {
+			const seen = new Set();
+			const ordered = [];
+			(items || []).forEach((item) => {
+				let subjectName = '';
+				if (typeof item === 'string') {
+					subjectName = item.trim();
+				} else if (item && typeof item === 'object') {
+					subjectName = String(item.subject || item.name || '').trim();
+				}
+				if (!subjectName) return;
+				const key = subjectName.toLowerCase();
+				if (seen.has(key)) return;
+				seen.add(key);
+				ordered.push(subjectName);
+			});
+			return ordered;
+		};
+
 		if (Array.isArray(user.subjects)) {
 			if (user.subjects.length === 0) return '';
 			if (typeof user.subjects[0] === 'string') {
-				return user.subjects.filter(Boolean).join(', ');
+				return toUniqueSubjectList(user.subjects).join(', ');
 			}
 			const currentYear = getTeacherCurrentYearData(user);
 			const subjects =
 				currentYear?.classes?.flatMap((cls) => cls.subjects || []) || [];
-			return subjects.filter(Boolean).join(', ');
+			return toUniqueSubjectList(subjects).join(', ');
 		}
 		return '';
 	};

@@ -221,36 +221,45 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	const getCurrentAcademicYear = () =>
 		schoolProfile?.currentAcademicYear || getAcademicYear();
 
-	const getLatestAcademicYearForUser = (profile) => {
-		if (!profile) return getCurrentAcademicYear();
-		let years = [];
-
-		if (profile.role === 'student') {
-			years = (profile.academicYears || []).map((entry) => entry?.year);
-		} else if (profile.role === 'teacher') {
-			years = (profile.subjects || []).map((entry) => entry?.year);
-		} else if (profile.role === 'administrator') {
-			years = (profile.academicYears || []).map((entry) => entry?.year);
-		}
-
-		const validYears = years.filter(Boolean);
-		if (validYears.length === 0) return getCurrentAcademicYear();
-
-		const sorted = validYears.sort(
-			(a, b) => (getAcademicYearStart(b) ?? -1) - (getAcademicYearStart(a) ?? -1),
-		);
-		return sorted[0] || getCurrentAcademicYear();
+	const getCurrentAndNextAcademicYears = () => {
+		const currentYear = getCurrentAcademicYear();
+		const currentStart = getAcademicYearStart(currentYear);
+		if (!currentYear || currentStart === null) return [];
+		const nextYear = `${currentStart + 1}-${currentStart + 2}`;
+		return Array.from(new Set([currentYear, nextYear]));
 	};
 
-	const getFutureAcademicYearOptions = (latestYear, yearsAhead = 6) => {
-		const latestStart = getAcademicYearStart(latestYear);
-		if (latestStart === null) return [];
-		const years = [];
-		for (let offset = 1; offset <= yearsAhead; offset++) {
-			const start = latestStart + offset;
-			years.push(`${start}-${start + 1}`);
+	const getLatestAcademicYearStartForUser = (profile) => {
+		if (!profile) return null;
+		let years = [];
+		if (profile.role === 'student') {
+			years = Array.isArray(profile.academicYears)
+				? profile.academicYears.map((entry) => entry?.year)
+				: [];
+		} else if (profile.role === 'teacher') {
+			years = Array.isArray(profile.subjects)
+				? profile.subjects.map((entry) => entry?.year)
+				: [];
+		} else if (profile.role === 'administrator') {
+			years = Array.isArray(profile.academicYears)
+				? profile.academicYears.map((entry) => entry?.year)
+				: [];
 		}
-		return years;
+		const starts = years
+			.map((year) => getAcademicYearStart(year))
+			.filter((start) => start !== null);
+		if (starts.length === 0) return null;
+		return Math.max(...starts);
+	};
+
+	const hasYearOptionLaterThanUser = (options, profile = user) => {
+		if (!Array.isArray(options) || options.length === 0) return false;
+		const latestStart = getLatestAcademicYearStartForUser(profile);
+		if (latestStart === null) return options.length > 0;
+		return options.some((year) => {
+			const start = getAcademicYearStart(year);
+			return start !== null && start > latestStart;
+		});
 	};
 
 	useEffect(() => {
@@ -604,7 +613,14 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 	const handlePromotion = () => {
 		const promotionYearOptions = getPromotionAcademicYearOptions();
-		const defaultPromotionYear = promotionYearOptions[0] || '';
+		const latestStart = getLatestAcademicYearStartForUser(user);
+		const defaultPromotionYear =
+			promotionYearOptions.find((year) => {
+				const start = getAcademicYearStart(year);
+				return start !== null && latestStart !== null && start > latestStart;
+			}) ||
+			promotionYearOptions[0] ||
+			'';
 		setActionError('');
 		setPromotionForm((prev) => ({
 			...prev,
@@ -629,8 +645,16 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 	const handleCarryOver = () => {
 		const options = getCarryOverAcademicYearOptions();
+		const latestStart = getLatestAcademicYearStartForUser(user);
 		setActionError('');
-		setCarryOverAcademicYear(options[0] || '');
+		const defaultYear =
+			options.find((year) => {
+				const start = getAcademicYearStart(year);
+				return start !== null && latestStart !== null && start > latestStart;
+			}) ||
+			options[0] ||
+			'';
+		setCarryOverAcademicYear(defaultYear);
 		setShowCarryOverModal(true);
 	};
 
@@ -643,14 +667,12 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	};
 
 	const getPromotionAcademicYearOptions = () => {
-		const latestStudentYear = getLatestAcademicYearForUser(user);
-		return getFutureAcademicYearOptions(latestStudentYear, 8);
+		return getCurrentAndNextAcademicYears();
 	};
 
 	const getCarryOverAcademicYearOptions = () => {
 		if (!user || !['teacher', 'administrator'].includes(user.role)) return [];
-		const latestYear = getLatestAcademicYearForUser(user);
-		return getFutureAcademicYearOptions(latestYear, 8);
+		return getCurrentAndNextAcademicYears();
 	};
 
 	const buildTeacherSubjectsPayload = () => {
@@ -704,6 +726,16 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 	const handlePromotionSubmit = async () => {
 		setActionError('');
+		const promotionYearOptions = getPromotionAcademicYearOptions();
+		if (
+			promotionForm.type === 'yearlyPromotion' &&
+			!hasYearOptionLaterThanUser(promotionYearOptions, user)
+		) {
+			setActionError(
+				'No eligible promotion year is available from the current options.',
+			);
+			return;
+		}
 		if (isAtHighestClass()) {
 			setActionError(
 				'Cannot promote this student because they are already in the highest possible class.',
@@ -723,14 +755,26 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		}
 		if (
 			promotionForm.type === 'yearlyPromotion' &&
-			!getPromotionAcademicYearOptions().includes(
-				promotionForm.academicYear,
-			)
+			!promotionYearOptions.includes(promotionForm.academicYear)
 		) {
 			setActionError(
-				"Yearly promotions must use an academic year later than the student's latest academic year.",
+				'Yearly promotions must use the current academic year or the next academic year.',
 			);
 			return;
+		}
+		if (promotionForm.type === 'yearlyPromotion') {
+			const latestStart = getLatestAcademicYearStartForUser(user);
+			const selectedStart = getAcademicYearStart(promotionForm.academicYear);
+			if (
+				latestStart !== null &&
+				selectedStart !== null &&
+				selectedStart <= latestStart
+			) {
+				setActionError(
+					"The selected year must be later than the student's latest academic year.",
+				);
+				return;
+			}
 		}
 
 		setActionLoading(true);
@@ -811,13 +855,31 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	const handleCarryOverSubmit = async () => {
 		setActionError('');
 		const options = getCarryOverAcademicYearOptions();
+		if (!hasYearOptionLaterThanUser(options, user)) {
+			setActionError(
+				'No eligible academic year is available from the current options.',
+			);
+			return;
+		}
 		if (!carryOverAcademicYear) {
 			setActionError('Please select a new academic year.');
 			return;
 		}
 		if (!options.includes(carryOverAcademicYear)) {
 			setActionError(
-				'The selected academic year must be later than the user\'s latest academic year.',
+				'Please select either the current academic year or the next academic year.',
+			);
+			return;
+		}
+		const latestStart = getLatestAcademicYearStartForUser(user);
+		const selectedStart = getAcademicYearStart(carryOverAcademicYear);
+		if (
+			latestStart !== null &&
+			selectedStart !== null &&
+			selectedStart <= latestStart
+		) {
+			setActionError(
+				'The selected year must be later than the user\'s latest academic year.',
 			);
 			return;
 		}
@@ -1452,8 +1514,19 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 														onValueChange={(value) => {
 															const promotionYearOptions =
 																getPromotionAcademicYearOptions();
+															const latestStart =
+																getLatestAcademicYearStartForUser(user);
 															const defaultPromotionYear =
-																promotionYearOptions[0] || '';
+																promotionYearOptions.find((year) => {
+																	const start = getAcademicYearStart(year);
+																	return (
+																		start !== null &&
+																		latestStart !== null &&
+																		start > latestStart
+																	);
+																}) ||
+																promotionYearOptions[0] ||
+																'';
 															setPromotionForm((prev) => ({
 																...prev,
 																type: value,
@@ -1547,6 +1620,15 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 															No academic year options available.
 														</div>
 													)}
+													{getPromotionAcademicYearOptions().length > 0 &&
+														!hasYearOptionLaterThanUser(
+															getPromotionAcademicYearOptions(),
+															user,
+														) && (
+															<div className="px-2 py-1.5 text-sm text-muted-foreground">
+																No selectable year is later than the student&apos;s latest year.
+															</div>
+														)}
 												</SelectContent>
 											</Select>
 										</div>
@@ -1566,7 +1648,14 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 										<button
 											type="button"
 											onClick={handlePromotionSubmit}
-											disabled={actionLoading}
+											disabled={
+												actionLoading ||
+												(promotionForm.type === 'yearlyPromotion' &&
+													!hasYearOptionLaterThanUser(
+														getPromotionAcademicYearOptions(),
+														user,
+													))
+											}
 											className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
 										>
 											{actionLoading ? 'Saving...' : 'Confirm Promotion'}
@@ -1746,6 +1835,15 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 														No eligible academic year options available.
 													</div>
 												)}
+												{getCarryOverAcademicYearOptions().length > 0 &&
+													!hasYearOptionLaterThanUser(
+														getCarryOverAcademicYearOptions(),
+														user,
+													) && (
+														<div className="px-2 py-1.5 text-sm text-muted-foreground">
+															No selectable year is later than the user&apos;s latest year.
+														</div>
+													)}
 											</SelectContent>
 										</Select>
 									</div>
@@ -1763,7 +1861,11 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 										onClick={handleCarryOverSubmit}
 										disabled={
 											actionLoading ||
-											getCarryOverAcademicYearOptions().length === 0
+											getCarryOverAcademicYearOptions().length === 0 ||
+											!hasYearOptionLaterThanUser(
+												getCarryOverAcademicYearOptions(),
+												user,
+											)
 										}
 										className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
 									>

@@ -36,7 +36,11 @@ import EditUserModal from '@/components/modals/EditUserModal';
 import DeactivateUserModal from '@/components/modals/DeactivateUserModal';
 import { useSchoolStore } from '@/store/schoolStore';
 import { useNetworkStore } from '@/store/networkStore';
-import { getClientCache, setClientCache } from '@/utils/clientCache';
+import {
+	clearClientCacheByPrefix,
+	getClientCache,
+	setClientCache,
+} from '@/utils/clientCache';
 import {
 	buildSchoolAcademicYearRange,
 	pickCurrentOrMostRecentAcademicYear,
@@ -522,6 +526,9 @@ const UserManagementDashboard = () => {
 			setRoleCounts(cached.roleCounts || {});
 			setServerPage(cached.serverPage || 1);
 			setLoading(false);
+			if (isOnline) {
+				fetchUsers(1, true);
+			}
 			return;
 		}
 		fetchUsers(1, true);
@@ -529,6 +536,7 @@ const UserManagementDashboard = () => {
 		schoolProfile,
 		selectedAcademicYear,
 		fetchUsers,
+		isOnline,
 	]);
 
 	const userTypes = useMemo(() => {
@@ -1380,6 +1388,7 @@ const UserManagementDashboard = () => {
 								normalizeUser(u),
 							]),
 						);
+						clearClientCacheByPrefix('manageUsers:v4:');
 						setUsers((current) => {
 							const nextUsers = current.map((u) => {
 								const key = (u.id || u._id)?.toString();
@@ -1392,6 +1401,9 @@ const UserManagementDashboard = () => {
 							);
 							return nextUsers;
 						});
+						if (isOnline) {
+							fetchUsers(1, true);
+						}
 						setShowEditModal(false);
 						setEditingUser(null);
 						setFeedback({
