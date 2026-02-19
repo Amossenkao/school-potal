@@ -547,29 +547,42 @@ function FilterContent({
 	// Auto-select session if only one is available
 	useEffect(() => {
 		if (!isStudent && availableSessions.length === 1) {
-			setFilters((prev) => ({
-				...prev,
-				session: availableSessions[0],
-			}));
+			setFilters((prev) => {
+				const nextSession = availableSessions[0];
+				if (prev.session === nextSession) return prev;
+				return {
+					...prev,
+					session: nextSession,
+					gradeLevel: '',
+					className: '',
+					selectedStudents: [],
+				};
+			});
 		}
 	}, [isStudent, availableSessions, setFilters]);
 
 	// Auto-select grade level if only one is available for the selected session
 	useEffect(() => {
 		// Only run if a session is selected and no grade level is set
-		if (!isStudent && filters.session && !filters.gradeLevel) {
-			// Recalculate inside the effect to avoid unstable dependency
-			const currentAvailableGradeLevels = filters.session
-				? Object.keys(school?.classLevels?.[filters.session] || {})
-				: [];
+			if (!isStudent && filters.session && !filters.gradeLevel) {
+				// Recalculate inside the effect to avoid unstable dependency
+				const currentAvailableGradeLevels = filters.session
+					? Object.keys(school?.classLevels?.[filters.session] || {})
+					: [];
 
-			if (currentAvailableGradeLevels.length === 1) {
-				setFilters((prev) => ({
-					...prev,
-					gradeLevel: currentAvailableGradeLevels[0],
-				}));
+				if (currentAvailableGradeLevels.length === 1) {
+					setFilters((prev) => {
+						const nextGradeLevel = currentAvailableGradeLevels[0];
+						if (prev.gradeLevel === nextGradeLevel) return prev;
+						return {
+							...prev,
+							gradeLevel: nextGradeLevel,
+							className: '',
+							selectedStudents: [],
+						};
+					});
+				}
 			}
-		}
 	}, [isStudent, filters.session, filters.gradeLevel, setFilters, school]);
 
 	// Fetch students for the selected class
@@ -588,21 +601,25 @@ function FilterContent({
 								getStudentClassIdForYear(student, filters.academicYear) ===
 								filters.className,
 						);
-						const mapped = filtered.map((student: any) => {
-							const classId = getStudentClassIdForYear(
-								student,
-								filters.academicYear,
-							);
-							return {
-								id: student.studentId || student.id,
-								name: `${student.firstName} ${student.middleName || ''} ${
-									student.lastName
-								}`.trim(),
-								className: classId,
-							};
-						});
-						setStudents(mapped);
-						return;
+						if (filtered.length > 0) {
+							const mapped = filtered.map((student: any) => {
+								const classId = getStudentClassIdForYear(
+									student,
+									filters.academicYear,
+								);
+								return {
+									id: String(
+										student.studentId || student.id || student._id || '',
+									),
+									name: `${student.firstName} ${student.middleName || ''} ${
+										student.lastName
+									}`.trim(),
+									className: classId,
+								};
+							});
+							setStudents(mapped);
+							return;
+						}
 					}
 					const cacheKey = `periodic:students:${filters.academicYear}:${filters.className}`;
 					const cached = getClientCache<Student[]>(cacheKey);
@@ -661,6 +678,24 @@ function FilterContent({
 		setUsersForYear,
 		getStudentClassIdForYear,
 	]);
+
+	useEffect(() => {
+		if (isStudent) return;
+		const allowedIds = new Set(students.map((student) => String(student.id)));
+		setFilters((prev) => {
+			if (!prev.selectedStudents.length) return prev;
+			const nextSelected = prev.selectedStudents.filter((studentId) =>
+				allowedIds.has(String(studentId)),
+			);
+			if (nextSelected.length === prev.selectedStudents.length) {
+				return prev;
+			}
+			return {
+				...prev,
+				selectedStudents: nextSelected,
+			};
+		});
+	}, [students, isStudent, setFilters]);
 
 	// Keep selected year valid and default by role.
 	useEffect(() => {

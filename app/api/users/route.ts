@@ -1254,18 +1254,37 @@ export async function GET(request: NextRequest) {
 		const applyStudentPhonePrivacy = (
 			user: any,
 			queryYear: string,
-			includeUsername = false,
+			options: {
+				includeUsername?: boolean;
+				restrictPhone?: boolean;
+			} = {},
 		) => {
 			if (!user || user.role !== 'student') return user;
+			const includeUsername = options.includeUsername === true;
+			const restrictPhone = options.restrictPhone !== false;
 			const isCurrentYear = queryYear === currentAcademicYear;
 			const formatted = formatStudentData(user, queryYear, isCurrentYear);
-			if (includeUsername) {
-				return {
-					...formatted,
-					username: user.username || user.studentId,
-				};
+			const merged = {
+				...user,
+				...formatted,
+			};
+			if (!isCurrentYear) {
+				const historicalClass = (formatted as any)?.historicalClass;
+				const historicalClassId = String(historicalClass?.classId || '').trim();
+				if (historicalClassId) {
+					merged.classId = historicalClassId;
+					if (historicalClass?.className) {
+						merged.className = historicalClass.className;
+					}
+				}
 			}
-			return formatted;
+			if (!restrictPhone) {
+				merged.phone = user.phone;
+			}
+			if (includeUsername) {
+				merged.username = user.username || user.studentId;
+			}
+			return merged;
 		};
 
 		const buildStudentAcademicYearClassFilter = (
@@ -2017,9 +2036,15 @@ export async function GET(request: NextRequest) {
 
 			responseData = Array.isArray(responseData)
 				? responseData.map((u: any) =>
-						applyStudentPhonePrivacy(u, academicYear, true),
+						applyStudentPhonePrivacy(u, academicYear, {
+							includeUsername: true,
+							restrictPhone: false,
+						}),
 					)
-				: applyStudentPhonePrivacy(responseData, academicYear, true);
+				: applyStudentPhonePrivacy(responseData, academicYear, {
+						includeUsername: true,
+						restrictPhone: false,
+					});
 
 			let meta;
 			if (includeCounts) {
@@ -2134,9 +2159,15 @@ export async function GET(request: NextRequest) {
 
 			responseData = Array.isArray(responseData)
 				? responseData.map((u: any) =>
-						applyStudentPhonePrivacy(u, academicYear, true),
+						applyStudentPhonePrivacy(u, academicYear, {
+							includeUsername: true,
+							restrictPhone: false,
+						}),
 					)
-				: applyStudentPhonePrivacy(responseData, academicYear, true);
+				: applyStudentPhonePrivacy(responseData, academicYear, {
+						includeUsername: true,
+						restrictPhone: false,
+					});
 
 			let meta;
 			if (includeCounts) {

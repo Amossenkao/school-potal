@@ -773,7 +773,17 @@ const FilterContent = React.memo(function FilterContent({
 		}
 
 		if (userAvailableSessions.length === 1 && !filters.session && !isStudent) {
-			setFilters((prev) => ({ ...prev, session: userAvailableSessions[0] }));
+			setFilters((prev) => {
+				const nextSession = userAvailableSessions[0];
+				if (prev.session === nextSession) return prev;
+				return {
+					...prev,
+					session: nextSession,
+					classLevel: '',
+					className: '',
+					selectedStudents: [],
+				};
+			});
 		}
 
 		if (
@@ -782,7 +792,16 @@ const FilterContent = React.memo(function FilterContent({
 			!filters.classLevel &&
 			!isStudent
 		) {
-			setFilters((prev) => ({ ...prev, classLevel: availableGradeLevels[0] }));
+			setFilters((prev) => {
+				const nextClassLevel = availableGradeLevels[0];
+				if (prev.classLevel === nextClassLevel) return prev;
+				return {
+					...prev,
+					classLevel: nextClassLevel,
+					className: '',
+					selectedStudents: [],
+				};
+			});
 		}
 
 		if (
@@ -794,6 +813,7 @@ const FilterContent = React.memo(function FilterContent({
 			setFilters((prev) => ({
 				...prev,
 				className: availableClasses[0].classId,
+				selectedStudents: [],
 			}));
 		}
 	}, [
@@ -826,23 +846,25 @@ const FilterContent = React.memo(function FilterContent({
 								getStudentClassIdForYear(student, filters.academicYear) ===
 								filters.className,
 						);
-						const mappedStudents = filtered.map((student: any) => {
-							const classId = getStudentClassIdForYear(
-								student,
-								filters.academicYear,
-							);
-							return {
-								id: normalizeStudentId(
-									student.studentId,
-									student.id,
-									student._id,
-								),
-								name: resolveStudentDisplayName(student),
-								className: classId,
-							};
-						});
-						setStudents(mappedStudents);
-						return;
+						if (filtered.length > 0) {
+							const mappedStudents = filtered.map((student: any) => {
+								const classId = getStudentClassIdForYear(
+									student,
+									filters.academicYear,
+								);
+								return {
+									id: normalizeStudentId(
+										student.studentId,
+										student.id,
+										student._id,
+									),
+									name: resolveStudentDisplayName(student),
+									className: classId,
+								};
+							});
+							setStudents(mappedStudents);
+							return;
+						}
 					}
 					const cacheKey = `semester:students:${filters.academicYear}:${filters.className}`;
 					const cached = getClientCache<Student[]>(cacheKey);
@@ -915,6 +937,24 @@ const FilterContent = React.memo(function FilterContent({
 		usersByAcademicYear,
 		setUsersForYear,
 	]);
+
+	useEffect(() => {
+		if (isStudent) return;
+		const allowedIds = new Set(students.map((student) => student.id));
+		setFilters((prev) => {
+			if (!prev.selectedStudents.length) return prev;
+			const nextSelected = prev.selectedStudents.filter((studentId) =>
+				allowedIds.has(normalizeStudentId(studentId)),
+			);
+			if (nextSelected.length === prev.selectedStudents.length) {
+				return prev;
+			}
+			return {
+				...prev,
+				selectedStudents: nextSelected,
+			};
+		});
+	}, [students, isStudent, setFilters]);
 
 	const canSubmit = useMemo(() => {
 		if (isStudent) {
