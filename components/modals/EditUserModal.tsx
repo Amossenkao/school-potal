@@ -39,6 +39,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	const [expandedAccordions, setExpandedAccordions] = useState({});
 	const [showPromotionModal, setShowPromotionModal] = useState(false);
 	const [showDemotionModal, setShowDemotionModal] = useState(false);
+	const [showCarryOverModal, setShowCarryOverModal] = useState(false);
 	const [promotionForm, setPromotionForm] = useState({
 		type: 'yearlyPromotion',
 		classId: '',
@@ -51,6 +52,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		className: '',
 		academicYear: '',
 	});
+	const [carryOverAcademicYear, setCarryOverAcademicYear] = useState('');
 	const [actionError, setActionError] = useState('');
 	const [actionLoading, setActionLoading] = useState(false);
 
@@ -219,6 +221,38 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	const getCurrentAcademicYear = () =>
 		schoolProfile?.currentAcademicYear || getAcademicYear();
 
+	const getLatestAcademicYearForUser = (profile) => {
+		if (!profile) return getCurrentAcademicYear();
+		let years = [];
+
+		if (profile.role === 'student') {
+			years = (profile.academicYears || []).map((entry) => entry?.year);
+		} else if (profile.role === 'teacher') {
+			years = (profile.subjects || []).map((entry) => entry?.year);
+		} else if (profile.role === 'administrator') {
+			years = (profile.academicYears || []).map((entry) => entry?.year);
+		}
+
+		const validYears = years.filter(Boolean);
+		if (validYears.length === 0) return getCurrentAcademicYear();
+
+		const sorted = validYears.sort(
+			(a, b) => (getAcademicYearStart(b) ?? -1) - (getAcademicYearStart(a) ?? -1),
+		);
+		return sorted[0] || getCurrentAcademicYear();
+	};
+
+	const getFutureAcademicYearOptions = (latestYear, yearsAhead = 6) => {
+		const latestStart = getAcademicYearStart(latestYear);
+		if (latestStart === null) return [];
+		const years = [];
+		for (let offset = 1; offset <= yearsAhead; offset++) {
+			const start = latestStart + offset;
+			years.push(`${start}-${start + 1}`);
+		}
+		return years;
+	};
+
 	useEffect(() => {
 		if (user) {
 			const userData = JSON.parse(JSON.stringify(user));
@@ -283,6 +317,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				className: '',
 				academicYear: '',
 			});
+			setCarryOverAcademicYear('');
 		}
 	}, [user, schoolProfile]);
 
@@ -568,7 +603,8 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	};
 
 	const handlePromotion = () => {
-		const defaultPromotionYear = getCurrentAcademicYear();
+		const promotionYearOptions = getPromotionAcademicYearOptions();
+		const defaultPromotionYear = promotionYearOptions[0] || '';
 		setActionError('');
 		setPromotionForm((prev) => ({
 			...prev,
@@ -591,6 +627,13 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		setShowDemotionModal(true);
 	};
 
+	const handleCarryOver = () => {
+		const options = getCarryOverAcademicYearOptions();
+		setActionError('');
+		setCarryOverAcademicYear(options[0] || '');
+		setShowCarryOverModal(true);
+	};
+
 	const getAcademicYearOptions = () => {
 		const years = new Set(generateAcademicYears());
 		if (schoolProfile?.currentAcademicYear) {
@@ -600,11 +643,14 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	};
 
 	const getPromotionAcademicYearOptions = () => {
-		const currentYear = getCurrentAcademicYear();
-		const currentStart = getAcademicYearStart(currentYear);
-		if (!currentYear || currentStart === null) return [];
-		const nextYear = `${currentStart + 1}-${currentStart + 2}`;
-		return Array.from(new Set([currentYear, nextYear]));
+		const latestStudentYear = getLatestAcademicYearForUser(user);
+		return getFutureAcademicYearOptions(latestStudentYear, 8);
+	};
+
+	const getCarryOverAcademicYearOptions = () => {
+		if (!user || !['teacher', 'administrator'].includes(user.role)) return [];
+		const latestYear = getLatestAcademicYearForUser(user);
+		return getFutureAcademicYearOptions(latestYear, 8);
 	};
 
 	const buildTeacherSubjectsPayload = () => {
@@ -682,7 +728,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			)
 		) {
 			setActionError(
-				'Yearly promotions must use the current or next academic year.',
+				"Yearly promotions must use an academic year later than the student's latest academic year.",
 			);
 			return;
 		}
@@ -756,6 +802,43 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			setShowDemotionModal(false);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'Demotion failed.';
+			setActionError(message);
+		} finally {
+			setActionLoading(false);
+		}
+	};
+
+	const handleCarryOverSubmit = async () => {
+		setActionError('');
+		const options = getCarryOverAcademicYearOptions();
+		if (!carryOverAcademicYear) {
+			setActionError('Please select a new academic year.');
+			return;
+		}
+		if (!options.includes(carryOverAcademicYear)) {
+			setActionError(
+				'The selected academic year must be later than the user\'s latest academic year.',
+			);
+			return;
+		}
+
+		setActionLoading(true);
+		try {
+			const res = await fetch(`/api/users?id=${user._id}&action=addAcademicYear`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ newAcademicYear: carryOverAcademicYear }),
+			});
+			const data = await res.json();
+			if (!res.ok || !data.success) {
+				throw new Error(data.message || 'Failed to add academic year.');
+			}
+			onSave(data.data?.user || data.data);
+			setFeedback({ type: 'success', message: data.message });
+			setShowCarryOverModal(false);
+		} catch (err) {
+			const message =
+				err instanceof Error ? err.message : 'Failed to add academic year.';
 			setActionError(message);
 		} finally {
 			setActionLoading(false);
@@ -1304,6 +1387,15 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 									)}
 								</div>
 							)}
+							{(user.role === 'teacher' || user.role === 'administrator') && (
+								<button
+									type="button"
+									onClick={handleCarryOver}
+									className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+								>
+									Bring To New Academic Year
+								</button>
+							)}
 						</div>
 						<div className="w-full sm:w-auto flex flex-col sm:flex-row sm:justify-end gap-2">
 							<button
@@ -1358,14 +1450,18 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 													<Select
 														value={promotionForm.type}
 														onValueChange={(value) => {
+															const promotionYearOptions =
+																getPromotionAcademicYearOptions();
 															const defaultPromotionYear =
-																getCurrentAcademicYear();
+																promotionYearOptions[0] || '';
 															setPromotionForm((prev) => ({
 																...prev,
 																type: value,
 																academicYear:
 																	value === 'yearlyPromotion'
-																		? prev.academicYear || defaultPromotionYear
+																		? promotionYearOptions.includes(prev.academicYear)
+																			? prev.academicYear
+																			: defaultPromotionYear
 																		: prev.academicYear,
 															}));
 														}}
@@ -1603,6 +1699,75 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 										className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
 									>
 										{actionLoading ? 'Saving...' : 'Confirm Demotion'}
+									</button>
+								</div>
+							</div>
+						</div>
+					)}
+
+					{showCarryOverModal && (
+						<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+							<div className="bg-card w-full max-w-lg rounded-xl border border-border shadow-xl">
+								<div className="flex items-center justify-between p-4 border-b border-border">
+									<h5 className="text-lg font-semibold text-foreground">
+										Bring To New Academic Year
+									</h5>
+									<button
+										type="button"
+										onClick={() => setShowCarryOverModal(false)}
+										className="p-2 rounded-full hover:bg-muted transition-colors"
+									>
+										<X className="h-4 w-4" />
+									</button>
+								</div>
+								<div className="p-4 space-y-4">
+									{actionError && (
+										<p className="text-sm text-red-600">{actionError}</p>
+									)}
+									<div>
+										<label className="block text-sm font-medium text-foreground mb-1">
+											New Academic Year
+										</label>
+										<Select
+											value={carryOverAcademicYear}
+											onValueChange={(value) => setCarryOverAcademicYear(value)}
+										>
+											<SelectTrigger className={selectTriggerClass}>
+												<SelectValue placeholder="Select Academic Year" />
+											</SelectTrigger>
+											<SelectContent>
+												{getCarryOverAcademicYearOptions().map((year) => (
+													<SelectItem key={year} value={year}>
+														{year}
+													</SelectItem>
+												))}
+												{getCarryOverAcademicYearOptions().length === 0 && (
+													<div className="px-2 py-1.5 text-sm text-muted-foreground">
+														No eligible academic year options available.
+													</div>
+												)}
+											</SelectContent>
+										</Select>
+									</div>
+								</div>
+								<div className="p-4 border-t border-border flex justify-end gap-2">
+									<button
+										type="button"
+										onClick={() => setShowCarryOverModal(false)}
+										className="px-4 py-2 rounded-lg hover:bg-muted/80"
+									>
+										Cancel
+									</button>
+									<button
+										type="button"
+										onClick={handleCarryOverSubmit}
+										disabled={
+											actionLoading ||
+											getCarryOverAcademicYearOptions().length === 0
+										}
+										className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+									>
+										{actionLoading ? 'Saving...' : 'Confirm'}
 									</button>
 								</div>
 							</div>

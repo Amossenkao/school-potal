@@ -463,6 +463,25 @@ function getAcademicYearStart(year?: string): number | null {
 	return Number.isFinite(start) ? start : null;
 }
 
+function getLatestAcademicYearFromValues(
+	years: Array<string | null | undefined>,
+): string | null {
+	let latestYear: string | null = null;
+	let latestStart: number | null = null;
+
+	for (const year of years) {
+		if (!year) continue;
+		const start = getAcademicYearStart(year);
+		if (start === null) continue;
+		if (latestStart === null || start > latestStart) {
+			latestStart = start;
+			latestYear = year;
+		}
+	}
+
+	return latestYear;
+}
+
 function getClassMetaById(classLevels: any, classId: string) {
 	if (!classLevels || !classId) return null;
 	for (const [sessionName, session] of Object.entries(classLevels)) {
@@ -2533,15 +2552,21 @@ export async function PUT(request: NextRequest) {
 
 			const schoolProfile = await getSchoolProfile();
 			if (promotionType === 'yearlyPromotion') {
-				const currentAcademicYear =
-					schoolProfile?.currentAcademicYear || getAcademicYear();
-				const currentStart = getAcademicYearStart(currentAcademicYear);
+				const studentLatestAcademicYear =
+					getLatestAcademicYearFromValues(
+						(student.academicYears || []).map((ay: any) => ay?.year),
+					) ||
+					student.enrollmentYear ||
+					schoolProfile?.currentAcademicYear ||
+					getAcademicYear();
+				const latestStart = getAcademicYearStart(studentLatestAcademicYear);
 				const newStart = getAcademicYearStart(newAcademicYear);
-				if (!currentStart || !newStart || newStart <= currentStart) {
+				if (latestStart === null || newStart === null || newStart <= latestStart) {
 					return NextResponse.json(
 						{
 							success: false,
-							message: 'Yearly promotions must use a future academic year.',
+							message:
+								"Yearly promotions must use an academic year later than the student's latest academic year.",
 						},
 						{ status: 400 },
 					);
@@ -2838,6 +2863,251 @@ export async function PUT(request: NextRequest) {
 					{ status: 400 },
 				);
 			}
+		}
+
+		// --- Handle Academic Year Carry-over (Teacher/Administrator) ---
+		if (action === 'addAcademicYear') {
+			if (currentUser.role !== 'system_admin') {
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							'Unauthorized: Only system administrators can add academic year assignments',
+					},
+					{ status: 403 },
+				);
+			}
+
+			if (!targetUserId) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'User ID is required',
+					},
+					{ status: 400 },
+				);
+			}
+
+			const targetRoleUser = await models.User.findById(targetUserId);
+			if (!targetRoleUser) {
+				return NextResponse.json(
+					{ success: false, message: 'User not found' },
+					{ status: 404 },
+				);
+			}
+
+			if (
+				targetRoleUser.role !== 'teacher' &&
+				targetRoleUser.role !== 'administrator'
+			) {
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							'Academic year carry-over is only supported for teachers and administrators.',
+					},
+					{ status: 400 },
+				);
+			}
+
+			const { newAcademicYear } = await request.json();
+			if (!newAcademicYear || typeof newAcademicYear !== 'string') {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'New academic year is required.',
+					},
+					{ status: 400 },
+				);
+			}
+
+			const newStart = getAcademicYearStart(newAcademicYear);
+			if (newStart === null) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'Invalid academic year format.',
+					},
+					{ status: 400 },
+				);
+			}
+
+			const schoolProfile = await getSchoolProfile();
+
+			if (targetRoleUser.role === 'teacher') {
+				const existingSubjects = Array.isArray(targetRoleUser.subjects)
+					? targetRoleUser.subjects
+					: [];
+				const latestAcademicYear =
+					getLatestAcademicYearFromValues(
+						existingSubjects.map((entry: any) => entry?.year),
+					) ||
+					schoolProfile?.currentAcademicYear ||
+					getAcademicYear();
+				const latestStart = getAcademicYearStart(latestAcademicYear);
+
+				if (latestStart === null || newStart <= latestStart) {
+					return NextResponse.json(
+						{
+							success: false,
+							message:
+								'New academic year must be later than the teacher\'s latest academic year.',
+						},
+						{ status: 400 },
+					);
+				}
+
+				const alreadyAssigned = existingSubjects.some(
+					(entry: any) => entry?.year === newAcademicYear,
+				);
+				if (alreadyAssigned) {
+					return NextResponse.json(
+						{
+							success: false,
+							message: 'Teacher is already assigned to that academic year.',
+						},
+						{ status: 400 },
+					);
+				}
+
+				const latestYearEntry = existingSubjects
+					.filter((entry: any) => entry?.year)
+					.sort(
+						(a: any, b: any) =>
+							(getAcademicYearStart(b.year) ?? -1) -
+							(getAcademicYearStart(a.year) ?? -1),
+					)[0];
+				const clonedClasses = Array.isArray(latestYearEntry?.classes)
+					? latestYearEntry.classes.map((classData: any) => ({
+							classId: classData?.classId,
+							className: classData?.className,
+							subjects: Array.isArray(classData?.subjects)
+								? classData.subjects
+								: [],
+						}))
+					: [];
+
+				const updatedTeacher = await models.Teacher.findByIdAndUpdate(
+					targetUserId,
+					{
+						$push: {
+							subjects: {
+								year: newAcademicYear,
+								classes: clonedClasses,
+							},
+						},
+						$set: {
+							updatedBy: currentUser.userId,
+							updatedAt: new Date(),
+						},
+					},
+					{ new: true, runValidators: true },
+				).select('-password -defaultPassword');
+
+				if (!updatedTeacher) {
+					return NextResponse.json(
+						{ success: false, message: 'User not found after update' },
+						{ status: 404 },
+					);
+				}
+
+				await updateAllUserSessions(
+					targetUserId,
+					buildUserResponse(updatedTeacher.toObject()),
+				);
+
+				await bumpUsersVersion(extractAcademicYears(updatedTeacher));
+
+				return NextResponse.json({
+					success: true,
+					message: 'Teacher carried over to new academic year successfully.',
+					data: { user: updatedTeacher },
+				});
+			}
+
+			const existingAcademicYears = Array.isArray(targetRoleUser.academicYears)
+				? targetRoleUser.academicYears
+				: [];
+			const latestAcademicYear =
+				getLatestAcademicYearFromValues(
+					existingAcademicYears.map((entry: any) => entry?.year),
+				) ||
+				schoolProfile?.currentAcademicYear ||
+				getAcademicYear();
+			const latestStart = getAcademicYearStart(latestAcademicYear);
+
+			if (latestStart === null || newStart <= latestStart) {
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							"New academic year must be later than the administrator's latest academic year.",
+					},
+					{ status: 400 },
+				);
+			}
+
+			const alreadyAssigned = existingAcademicYears.some(
+				(entry: any) => entry?.year === newAcademicYear,
+			);
+			if (alreadyAssigned) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'Administrator is already assigned to that academic year.',
+					},
+					{ status: 400 },
+				);
+			}
+
+			const latestYearEntry = existingAcademicYears
+				.filter((entry: any) => entry?.year)
+				.sort(
+					(a: any, b: any) =>
+						(getAcademicYearStart(b.year) ?? -1) -
+						(getAcademicYearStart(a.year) ?? -1),
+				)[0];
+			const positionForNewYear =
+				latestYearEntry?.position || targetRoleUser.position || null;
+
+			const updatedAdministrator = await models.Administrator.findByIdAndUpdate(
+				targetUserId,
+				{
+					$push: {
+						academicYears: {
+							year: newAcademicYear,
+							position: positionForNewYear,
+						},
+					},
+					$set: {
+						...(positionForNewYear ? { position: positionForNewYear } : {}),
+						updatedBy: currentUser.userId,
+						updatedAt: new Date(),
+					},
+				},
+				{ new: true, runValidators: true },
+			).select('-password -defaultPassword');
+
+			if (!updatedAdministrator) {
+				return NextResponse.json(
+					{ success: false, message: 'User not found after update' },
+					{ status: 404 },
+				);
+			}
+
+			await updateAllUserSessions(
+				targetUserId,
+				buildUserResponse(updatedAdministrator.toObject()),
+			);
+
+			await bumpUsersVersion(extractAcademicYears(updatedAdministrator));
+
+			return NextResponse.json({
+				success: true,
+				message:
+					'Administrator carried over to new academic year successfully.',
+				data: { user: updatedAdministrator },
+			});
 		}
 
 		// --- Find target user ---
