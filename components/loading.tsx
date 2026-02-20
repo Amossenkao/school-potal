@@ -45,13 +45,6 @@ export const PageLoading = ({
 	}) => {
 		const logo = currentSchool?.logoUrl;
 		const schoolShortName = currentSchool?.shortName || 'School';
-		const initials =
-			schoolShortName
-				.split(' ')
-				.map((chunk) => chunk[0] || '')
-				.join('')
-				.slice(0, 2)
-				.toUpperCase() || 'SC';
 
 		return (
 			<div className="flex flex-col items-center gap-4">
@@ -77,13 +70,13 @@ export const PageLoading = ({
 										}
 									}}
 								/>
-								<span className="hidden h-7 w-7 place-items-center rounded-full bg-primary/10 text-[11px] font-bold tracking-wide text-primary">
-									{initials}
+								<span className="hidden h-7 w-7 place-items-center rounded-full bg-primary/10 text-primary">
+									<GraduationCap className="h-4 w-4" />
 								</span>
 							</div>
 						) : (
-							<span className="text-[11px] font-bold tracking-wide text-primary">
-								{initials}
+							<span className="grid h-7 w-7 place-items-center rounded-full bg-primary/10 text-primary">
+								<GraduationCap className="h-4 w-4" />
 							</span>
 						)}
 					</div>

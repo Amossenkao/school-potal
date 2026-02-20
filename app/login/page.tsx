@@ -415,6 +415,12 @@ const LoginPage = () => {
 		setFormData({ username: '', password: '', otp: '' });
 	}, [selectedRole, adminPosition, clearError]);
 
+	useEffect(() => {
+		if (selectedRole !== 'administrator' && adminPosition) {
+			setAdminPosition('');
+		}
+	}, [selectedRole, adminPosition]);
+
 	// Evaluate school-configured login access without resetting credentials.
 	useEffect(() => {
 		setLoginDisabledError('');
