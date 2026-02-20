@@ -156,7 +156,7 @@ const LoginPage = () => {
 		const widgetId = window.turnstile.render(turnstileContainerRef.current, {
 			sitekey: turnstileSiteKey,
 			theme: 'auto',
-			size: 'normal',
+			size: 'flexible',
 			execution: 'execute',
 			appearance: 'execute',
 			callback: (token: string) => {
@@ -198,10 +198,6 @@ const LoginPage = () => {
 	]);
 
 	const executeTurnstileVerification = useCallback(async () => {
-		if (!isTurnstileReady) {
-			throw new Error('Security verification is loading. Please wait a moment.');
-		}
-
 		const widgetId = ensureTurnstileWidget();
 		setIsVerifyingTurnstile(true);
 
@@ -217,7 +213,7 @@ const LoginPage = () => {
 				reject(error instanceof Error ? error : new Error('Verification failed.'));
 			}
 		});
-	}, [ensureTurnstileWidget, isTurnstileReady]);
+	}, [ensureTurnstileWidget]);
 
 	// Bootstrap from local storage first, then verify session in background.
 	useEffect(() => {
@@ -251,6 +247,24 @@ const LoginPage = () => {
 		}
 		previousOnline.current = isOnline;
 	}, [isOnline, checkAuthStatus]);
+
+	useEffect(() => {
+		if (typeof window === 'undefined') return;
+		if (window.turnstile) {
+			setIsTurnstileReady(true);
+			setOfflineError('');
+			return;
+		}
+
+		const intervalId = window.setInterval(() => {
+			if (!window.turnstile) return;
+			setIsTurnstileReady(true);
+			setOfflineError('');
+			window.clearInterval(intervalId);
+		}, 250);
+
+		return () => window.clearInterval(intervalId);
+	}, []);
 
 	useEffect(() => {
 		const canShowLoginForm =
@@ -725,6 +739,19 @@ const LoginPage = () => {
 															</div>
 														</div>
 													</div>
+													<div
+														className={`transition-all duration-300 ${
+															isVerifyingTurnstile
+																? 'max-h-[420px] opacity-100'
+																: 'max-h-0 opacity-0 pointer-events-none'
+														} overflow-hidden`}
+													>
+														<div className="pb-1">
+															<div className="mx-auto w-full max-w-[360px]">
+																<div ref={turnstileContainerRef} />
+															</div>
+														</div>
+													</div>
 													<button
 														type="submit"
 														disabled={
@@ -747,17 +774,6 @@ const LoginPage = () => {
 															'Access e-Portal'
 														)}
 													</button>
-													<div
-														className={`overflow-hidden transition-all duration-300 ${
-															isVerifyingTurnstile
-																? 'max-h-24 opacity-100'
-																: 'max-h-0 opacity-0'
-														}`}
-													>
-														<div className="pt-3 flex justify-center">
-															<div ref={turnstileContainerRef} />
-														</div>
-													</div>
 													<div className="text-center">
 														<button
 															type="button"
