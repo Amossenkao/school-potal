@@ -700,7 +700,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 		};
 	}, []);
 
-	const headerPositionClasses = 'sticky top-0';
+	const headerPositionClasses = 'fixed inset-x-0 top-0 lg:sticky lg:top-0';
 
 	return (
 		<header

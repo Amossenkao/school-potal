@@ -134,7 +134,7 @@ export default function AdminLayout({
 				<div
 					className={`flex-1 min-w-0 ${
 						layoutTransitionsReady
-							? 'transition-transform duration-300 ease-in-out will-change-transform motion-reduce:transition-none'
+							? 'transition-transform duration-300 ease-in-out motion-reduce:transition-none'
 							: 'transition-none'
 					} ${mainContentMargin}`}
 					style={
@@ -150,7 +150,7 @@ export default function AdminLayout({
 						onToggleMobileSidebar={toggleMobileSidebar}
 					/>
 					{/* Page Content */}
-					<main className="py-4 md:py-6 px-0 overflow-x-hidden">
+					<main className="px-0 overflow-x-hidden pb-4 md:pb-6 pt-[calc(var(--app-header-height,4rem)+1rem)] lg:pt-4">
 						<OfflineRouteRenderer path={activePath} />
 					</main>
 				</div>
