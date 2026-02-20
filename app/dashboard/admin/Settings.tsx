@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useSchoolStore } from '@/store/schoolStore';
 import {
 	Shield,
@@ -469,11 +470,16 @@ export default function Settings() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSaving, setIsSaving] = useState(false);
 	const [feedback, setFeedback] = useState({ type: '', message: '' });
+	const [isClientReady, setIsClientReady] = useState(false);
 	const persistedThemeNameRef = useRef<TenantThemeName>(DEFAULT_TENANT_THEME_NAME);
 
 	const applyThemePreview = (nextThemeName: TenantThemeName) => {
 		applyTenantThemeToDocument(nextThemeName);
 	};
+
+	useEffect(() => {
+		setIsClientReady(true);
+	}, []);
 
 	useEffect(() => {
 		if (!school) {
@@ -792,47 +798,76 @@ export default function Settings() {
 		);
 	}
 
-	return (
-		<div className="min-h-screen bg-background p-3 sm:p-6 pb-24 sm:pb-28">
-			{feedback.message && (
-				<FeedbackToast
-					type={feedback.type}
-					message={feedback.message}
-					onClose={() => setFeedback({ type: '', message: '' })}
-				/>
-			)}
-			<div className="max-w-none space-y-4 sm:space-y-8">
-				{/* Header */}
-				<div className="text-center space-y-2 px-2">
-					<div className="inline-flex items-center justify-center rounded-full bg-primary/10 p-2 sm:p-3 mb-2 sm:mb-4">
-						<Cog className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
-					</div>
-					<h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-						System Settings
-					</h1>
-					<p className="text-xs sm:text-sm text-muted-foreground max-w-3xl mx-auto">
-						Configure access controls, permissions, user management, and system
-						behavior for your e-Portal.
-					</p>
-				</div>
+	const saveActionBar = (
+		<div className="fixed inset-x-0 bottom-0 z-[70] border-t border-border bg-background/95 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 backdrop-blur">
+			<div className="flex justify-center px-3">
+				<button
+					onClick={handleSaveSettings}
+					disabled={isSaving}
+					className={`inline-flex w-full items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-medium shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 sm:w-auto sm:px-8 sm:shadow-sm ${
+						isSaving
+							? 'cursor-not-allowed bg-muted text-muted-foreground'
+							: 'bg-primary text-primary-foreground hover:bg-primary/90'
+					}`}
+				>
+					{isSaving ? (
+						<>
+							<div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+							Saving...
+						</>
+					) : (
+						<>
+							<Save className="h-4 w-4" />
+							Save Settings
+						</>
+					)}
+				</button>
+			</div>
+		</div>
+	);
 
-				{/* Settings Sections */}
-				<div className="space-y-4 sm:space-y-6">
-					{/* General Settings */}
-					<SettingsSection
-						icon={Calendar}
-						title="General Settings"
-						description="Configure academic year and system-wide settings"
-					>
-						<div className="space-y-3">
-							<SingleSelect
-								options={currentAcademicYearOptions}
-								selected={currentAcademicYear}
-								onChange={setCurrentAcademicYear}
-								label="Current Academic Year"
-							/>
+	return (
+		<>
+			<div className="min-h-screen bg-background p-3 pb-24 sm:p-6 sm:pb-28">
+				{feedback.message && (
+					<FeedbackToast
+						type={feedback.type}
+						message={feedback.message}
+						onClose={() => setFeedback({ type: '', message: '' })}
+					/>
+				)}
+				<div className="max-w-none space-y-4 sm:space-y-8">
+					{/* Header */}
+					<div className="space-y-2 px-2 text-center">
+						<div className="mb-2 inline-flex items-center justify-center rounded-full bg-primary/10 p-2 sm:mb-4 sm:p-3">
+							<Cog className="h-6 w-6 text-primary sm:h-8 sm:w-8" />
 						</div>
-					</SettingsSection>
+						<h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+							System Settings
+						</h1>
+						<p className="text-xs sm:text-sm text-muted-foreground max-w-3xl mx-auto">
+							Configure access controls, permissions, user management, and system
+							behavior for your e-Portal.
+						</p>
+					</div>
+
+					{/* Settings Sections */}
+					<div className="space-y-4 sm:space-y-6">
+						{/* General Settings */}
+						<SettingsSection
+							icon={Calendar}
+							title="General Settings"
+							description="Configure academic year and system-wide settings"
+						>
+							<div className="space-y-3">
+								<SingleSelect
+									options={currentAcademicYearOptions}
+									selected={currentAcademicYear}
+									onChange={setCurrentAcademicYear}
+									label="Current Academic Year"
+								/>
+							</div>
+						</SettingsSection>
 
 					<SettingsSection
 						icon={Palette}
@@ -1111,35 +1146,10 @@ export default function Settings() {
 							/>
 						</div>
 					</SettingsSection>
-				</div>
-
-				{/* Save Button - Sticky across all viewports */}
-				<div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur border-t border-border pt-4 pb-6 sm:pb-6">
-					<div className="flex justify-center px-3">
-						<button
-							onClick={handleSaveSettings}
-							disabled={isSaving}
-							className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg px-6 sm:px-8 py-3 text-sm font-medium shadow-lg sm:shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-								isSaving
-									? 'bg-muted text-muted-foreground cursor-not-allowed'
-									: 'bg-primary text-primary-foreground hover:bg-primary/90'
-							}`}
-						>
-							{isSaving ? (
-								<>
-									<div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent"></div>
-									Saving...
-								</>
-							) : (
-								<>
-									<Save className="h-4 w-4" />
-									Save Settings
-								</>
-							)}
-						</button>
 					</div>
 				</div>
 			</div>
-		</div>
+			{isClientReady ? createPortal(saveActionBar, document.body) : null}
+		</>
 	);
 }
