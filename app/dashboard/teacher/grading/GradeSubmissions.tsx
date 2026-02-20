@@ -1167,8 +1167,9 @@ const GradeSubmissions = () => {
 				  };
 		const Icon = tone.icon;
 		return (
-			<div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[1000]">
-				<div className="bg-card rounded-lg border shadow-xl w-full max-w-md">
+			<div className="fixed inset-0 z-[1000] bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
+				<div className="flex min-h-full items-center justify-center">
+					<div className="bg-card rounded-lg border shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
 					<div className={`p-6 rounded-lg border ${tone.bg}`}>
 						<div className="flex items-start gap-3">
 							<Icon className="h-5 w-5 flex-shrink-0" />
@@ -1188,6 +1189,7 @@ const GradeSubmissions = () => {
 						>
 							Close
 						</Button>
+					</div>
 					</div>
 				</div>
 			</div>
@@ -1219,8 +1221,9 @@ const GradeSubmissions = () => {
 		if (confirmationModal.isError) {
 			// Renders the error modal
 			return (
-				<div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000] backdrop-blur-sm">
-					<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md border border-destructive/50">
+				<div className="fixed inset-0 z-[1000] bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
+					<div className="flex min-h-full items-center justify-center">
+						<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border border-destructive/50">
 						<div className="flex items-center gap-3 mb-4">
 							<XCircle className="h-6 w-6 text-destructive flex-shrink-0" />
 							<h3 className="text-xl font-bold text-destructive">
@@ -1241,6 +1244,7 @@ const GradeSubmissions = () => {
 								Close
 							</Button>
 						</div>
+						</div>
 					</div>
 				</div>
 			);
@@ -1248,8 +1252,9 @@ const GradeSubmissions = () => {
 
 		// Renders the standard confirmation/reason modal
 		return (
-			<div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000] backdrop-blur-sm">
-				<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md border">
+			<div className="fixed inset-0 z-[1000] bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
+				<div className="flex min-h-full items-center justify-center">
+					<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border">
 					<h3 className="text-lg font-semibold mb-2">
 						Reason for Grade Change Request
 					</h3>
@@ -1290,6 +1295,7 @@ const GradeSubmissions = () => {
 							)}
 						</Button>
 					</div>
+					</div>
 				</div>
 			</div>
 		);
@@ -1297,8 +1303,9 @@ const GradeSubmissions = () => {
 
 	const renderDetailsModal = () =>
 		selectedGrade && (
-			<div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-				<div className="bg-background rounded-lg border shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+			<div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
+				<div className="flex min-h-full items-center justify-center">
+					<div className="bg-background rounded-lg border shadow-xl w-full max-w-5xl max-h-[calc(100dvh-2rem)] flex flex-col">
 					<div className="p-6 border-b">
 						<div className="flex justify-between items-center">
 							<h3 className="text-xl font-semibold text-foreground">
@@ -1460,6 +1467,7 @@ const GradeSubmissions = () => {
 							{isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
 							Submit Request
 						</Button>
+					</div>
 					</div>
 				</div>
 			</div>

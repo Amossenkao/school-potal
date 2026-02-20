@@ -388,8 +388,9 @@ const TeacherGradeChangeRequests = ({
 	return (
 		<div className="space-y-4">
 			{editModal.isOpen && (
-				<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-					<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md max-h-[90dvh] overflow-y-auto overscroll-contain">
+				<div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
+					<div className="flex min-h-full items-center justify-center">
+						<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
 						<div className="flex justify-between items-center mb-4">
 							<h3 className="text-lg font-semibold">
 								Edit Grade Change Request
@@ -455,6 +456,7 @@ const TeacherGradeChangeRequests = ({
 							>
 								Save Changes
 							</button>
+						</div>
 						</div>
 					</div>
 				</div>

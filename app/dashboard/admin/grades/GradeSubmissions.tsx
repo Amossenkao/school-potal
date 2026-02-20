@@ -814,8 +814,9 @@ const AdminGradeManagement: React.FC = () => {
 		);
 
 		return (
-			<div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-				<div className="bg-card rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col border">
+			<div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
+				<div className="flex min-h-full items-center justify-center">
+					<div className="bg-card rounded-lg shadow-xl w-full max-w-6xl max-h-[calc(100dvh-2rem)] flex flex-col border">
 					<div className="p-6 border-b">
 						<div className="flex justify-between items-center">
 							<div>
@@ -984,14 +985,16 @@ const AdminGradeManagement: React.FC = () => {
 							</div>
 						</div>
 					)}
+					</div>
 				</div>
 			</div>
 		);
 	};
 
 	const renderRejectModal = () => (
-		<div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-			<div className="bg-card rounded-lg shadow-xl w-full max-w-md border">
+		<div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
+			<div className="flex min-h-full items-center justify-center">
+				<div className="bg-card rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border">
 				<div className="p-6 border-b">
 					<div className="flex justify-between items-center">
 						<h3 className="text-lg font-semibold text-destructive">
@@ -1034,13 +1037,15 @@ const AdminGradeManagement: React.FC = () => {
 						<XCircle className="h-4 w-4" /> Reject
 					</button>
 				</div>
+				</div>
 			</div>
 		</div>
 	);
 
 	const renderBulkRejectModal = () => (
-		<div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-			<div className="bg-card rounded-lg shadow-xl w-full max-w-md border">
+		<div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
+			<div className="flex min-h-full items-center justify-center">
+				<div className="bg-card rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border">
 				<div className="p-6 border-b">
 					<div className="flex justify-between items-center">
 						<h3 className="text-lg font-semibold text-destructive">
@@ -1083,6 +1088,7 @@ const AdminGradeManagement: React.FC = () => {
 						<XCircle className="h-4 w-4" /> Reject {selectedSubmissions.size}{' '}
 						Submissions
 					</button>
+				</div>
 				</div>
 			</div>
 		</div>
