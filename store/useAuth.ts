@@ -16,6 +16,7 @@ interface LoginData {
 	username: string;
 	password: string;
 	position?: string;
+	turnstileToken?: string;
 }
 
 type SyncVersions = {
