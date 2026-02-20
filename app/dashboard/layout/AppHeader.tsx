@@ -700,9 +700,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 		};
 	}, []);
 
-	const headerPositionClasses = isMobileOpen
-		? 'fixed inset-x-0 top-0'
-		: 'sticky top-0';
+	const headerPositionClasses = 'sticky top-0';
 
 	return (
 		<header

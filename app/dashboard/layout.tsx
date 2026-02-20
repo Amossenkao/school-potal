@@ -134,12 +134,14 @@ export default function AdminLayout({
 				<div
 					className={`flex-1 min-w-0 ${
 						layoutTransitionsReady
-							? 'transform-gpu transition-transform duration-300 ease-in-out will-change-transform motion-reduce:transition-none'
+							? 'transition-transform duration-300 ease-in-out will-change-transform motion-reduce:transition-none'
 							: 'transition-none'
 					} ${mainContentMargin}`}
-					style={{
-						transform: `translate3d(${contentSlideOffset}px, 0, 0)`,
-					}}
+					style={
+						contentSlideOffset !== 0
+							? { transform: `translate3d(${contentSlideOffset}px, 0, 0)` }
+							: undefined
+					}
 				>
 					{/* Header */}
 					<AppHeader
