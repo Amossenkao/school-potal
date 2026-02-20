@@ -8,6 +8,7 @@ import { useSidebar } from '@/context/SidebarContext';
 import { ChevronDown, LogOut } from 'lucide-react';
 import useAuth from '@/store/useAuth';
 import { generateNavigationItems } from '@/utils/componentsMap';
+import { lockBodyScroll } from '@/utils/scrollLock';
 import { useSchoolStore } from '@/store/schoolStore';
 import { useOfflineNavigationStore } from '@/store/offlineNavigationStore';
 import type { SchoolProfile } from '@/types/schoolProfile';
@@ -78,8 +79,7 @@ const AppSidebar: React.FC = () => {
 	);
 	const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 	const sidebarRef = useRef<HTMLElement>(null);
-	const bodyScrollState = useRef<{ overflow: string } | null>(null);
-	const htmlScrollState = useRef<{ overflow: string } | null>(null);
+	const releaseBodyScrollLock = useRef<(() => void) | null>(null);
 	const [initialSetupDone, setInitialSetupDone] = useState(false);
 	const [navigationItems, setNavigationItems] = useState<NavItem[]>([]);
 	const [pendingSubmissionsCount, setPendingSubmissionsCount] = useState(0);
@@ -214,41 +214,16 @@ const AppSidebar: React.FC = () => {
 	// Prevent page scroll when mobile sidebar is open
 	useEffect(() => {
 		if (!isMobileOpen) {
-			if (bodyScrollState.current) {
-				document.body.style.overflow = bodyScrollState.current.overflow;
-				bodyScrollState.current = null;
-			}
-			if (htmlScrollState.current) {
-				document.documentElement.style.overflow =
-					htmlScrollState.current.overflow;
-				htmlScrollState.current = null;
-			}
+			releaseBodyScrollLock.current?.();
+			releaseBodyScrollLock.current = null;
 			return;
 		}
 
-		if (!bodyScrollState.current) {
-			bodyScrollState.current = {
-				overflow: document.body.style.overflow,
-			};
-		}
-		if (!htmlScrollState.current) {
-			htmlScrollState.current = {
-				overflow: document.documentElement.style.overflow,
-			};
-		}
-		document.body.style.overflow = 'hidden';
-		document.documentElement.style.overflow = 'hidden';
+		releaseBodyScrollLock.current = lockBodyScroll();
 
 		return () => {
-			if (bodyScrollState.current) {
-				document.body.style.overflow = bodyScrollState.current.overflow;
-				bodyScrollState.current = null;
-			}
-			if (htmlScrollState.current) {
-				document.documentElement.style.overflow =
-					htmlScrollState.current.overflow;
-				htmlScrollState.current = null;
-			}
+			releaseBodyScrollLock.current?.();
+			releaseBodyScrollLock.current = null;
 		};
 	}, [isMobileOpen]);
 

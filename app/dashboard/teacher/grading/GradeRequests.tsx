@@ -16,6 +16,7 @@ import { PageLoading } from '@/components/loading';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
+import { lockBodyScroll } from '@/utils/scrollLock';
 import {
 	areAcademicYearsEqual,
 	getScopedAcademicYearValue,
@@ -128,6 +129,12 @@ const TeacherGradeChangeRequests = ({
 		requestedGrade: '',
 		reasonForChange: '',
 	});
+
+	useEffect(() => {
+		if (!editModal.isOpen) return;
+
+		return lockBodyScroll();
+	}, [editModal.isOpen]);
 
 	// Pagination state
 	const [currentPage, setCurrentPage] = useState(1);
@@ -382,7 +389,7 @@ const TeacherGradeChangeRequests = ({
 		<div className="space-y-4">
 			{editModal.isOpen && (
 				<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-					<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md">
+					<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md max-h-[90dvh] overflow-y-auto overscroll-contain">
 						<div className="flex justify-between items-center mb-4">
 							<h3 className="text-lg font-semibold">
 								Edit Grade Change Request

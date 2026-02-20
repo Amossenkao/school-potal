@@ -2,7 +2,10 @@ import './globals.css';
 import type { Metadata } from 'next';
 import RootProviders from '@/components/RootProviders';
 import { getSchoolProfile } from '@/lib/mongoose';
-import { buildTenantThemeCss, resolveTenantThemeColor } from '@/lib/tenantTheme';
+import {
+	buildTenantThemeCss,
+	resolveTenantThemeColor,
+} from '@/lib/tenantTheme';
 
 export async function generateMetadata(): Promise<Metadata> {
 	const profileRaw = await getSchoolProfile();
@@ -44,6 +47,11 @@ export default async function RootLayout({
 			</head>
 			<body>
 				<RootProviders>{children}</RootProviders>
+				<script
+					defer
+					src="https://static.cloudflareinsights.com/beacon.min.js"
+					data-cf-beacon='{"token": "2641db84ad4c444485ac6fdccee7de50"}'
+				></script>
 			</body>
 		</html>
 	);

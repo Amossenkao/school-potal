@@ -35,6 +35,7 @@ import { useNetworkStore } from '@/store/networkStore';
 import { useSchoolStore } from '@/store/schoolStore';
 import { PageLoading } from '@/components/loading';
 import { getScopedAcademicYearValue } from '@/utils/academicYear';
+import { lockBodyScroll } from '@/utils/scrollLock';
 import {
 	buildSchoolAcademicYearRange,
 	pickCurrentOrMostRecentAcademicYear,
@@ -143,6 +144,8 @@ const AdminGradeManagement: React.FC = () => {
 	const [showDetailsModal, setShowDetailsModal] = useState(false);
 	const [showRejectModal, setShowRejectModal] = useState(false);
 	const [showBulkRejectModal, setShowBulkRejectModal] = useState(false);
+	const isAnyModalOpen =
+		showDetailsModal || showRejectModal || showBulkRejectModal;
 
 	// Selection and action states
 	const [selectedSubmission, setSelectedSubmission] =
@@ -170,6 +173,12 @@ const AdminGradeManagement: React.FC = () => {
 		period: '',
 		status: 'All',
 	});
+
+	useEffect(() => {
+		if (!isAnyModalOpen) return;
+
+		return lockBodyScroll();
+	}, [isAnyModalOpen]);
 
 	useEffect(() => {
 		const defaultAcademicYear =
@@ -851,7 +860,7 @@ const AdminGradeManagement: React.FC = () => {
 						</div>
 					</div>
 
-					<div className="p-6 overflow-y-auto flex-grow">
+					<div className="p-6 overflow-y-auto overscroll-contain flex-grow">
 						<div className="overflow-x-auto">
 							<table className="min-w-full divide-y divide-border">
 								<thead className="bg-muted/50">

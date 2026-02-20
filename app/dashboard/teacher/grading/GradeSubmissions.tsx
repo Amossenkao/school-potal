@@ -34,6 +34,7 @@ import {
 	pickMostRecentAcademicYear,
 	sortAcademicYearsDesc,
 } from '@/utils/academicYearOptions';
+import { lockBodyScroll } from '@/utils/scrollLock';
 
 // Types
 interface StudentGrade {
@@ -189,6 +190,8 @@ const GradeSubmissions = () => {
 		message: string;
 	} | null>(null);
 	const [resultModalOpen, setResultModalOpen] = useState(false);
+	const isAnyModalOpen =
+		showDetailsModal || confirmationModal.isOpen || resultModalOpen;
 
 	useEffect(() => {
 		if (!resultModalOpen) return;
@@ -198,6 +201,12 @@ const GradeSubmissions = () => {
 		}, 3500);
 		return () => clearTimeout(timer);
 	}, [resultModalOpen]);
+
+	useEffect(() => {
+		if (!isAnyModalOpen) return;
+
+		return lockBodyScroll();
+	}, [isAnyModalOpen]);
 
 	const [filters, setFilters] = useState({
 		subject: '',
@@ -1313,7 +1322,7 @@ const GradeSubmissions = () => {
 					{/* Renders EITHER the confirmation or the error modal */}
 					{renderConfirmationErrorModal()}
 
-					<div className="p-6 overflow-y-auto flex-grow">
+					<div className="p-6 overflow-y-auto overscroll-contain flex-grow">
 						<div className="overflow-x-auto">
 							<table className="min-w-full divide-y divide-border">
 								<thead className="bg-muted/50">
