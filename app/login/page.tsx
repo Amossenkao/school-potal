@@ -76,9 +76,11 @@ const LoginPage = () => {
 	const [offlineError, setOfflineError] = useState('');
 	const usernameInputRef = useRef<HTMLInputElement>(null);
 	const turnstileContainerRef = useRef<HTMLDivElement>(null);
+	const turnstileContainerHostRef = useRef<HTMLDivElement | null>(null);
 	const turnstileWidgetIdRef = useRef<string | null>(null);
 	const turnstileResolveRef = useRef<((token: string) => void) | null>(null);
 	const turnstileRejectRef = useRef<((error: Error) => void) | null>(null);
+	const turnstileTimeoutRef = useRef<number | null>(null);
 	const [isTurnstileReady, setIsTurnstileReady] = useState(false);
 	const [isVerifyingTurnstile, setIsVerifyingTurnstile] = useState(false);
 	const turnstileSiteKey =
@@ -123,19 +125,47 @@ const LoginPage = () => {
 		});
 	}, [router, dismissKeyboardFocus]);
 
+	const clearTurnstileTimeout = useCallback(() => {
+		if (typeof window === 'undefined') return;
+		if (turnstileTimeoutRef.current !== null) {
+			window.clearTimeout(turnstileTimeoutRef.current);
+			turnstileTimeoutRef.current = null;
+		}
+	}, []);
+
 	const rejectPendingTurnstile = useCallback((message: string) => {
+		clearTurnstileTimeout();
 		if (turnstileRejectRef.current) {
 			turnstileRejectRef.current(new Error(message));
 		}
 		turnstileResolveRef.current = null;
 		turnstileRejectRef.current = null;
+	}, [clearTurnstileTimeout]);
+
+	const destroyTurnstileWidget = useCallback(() => {
+		const widgetId = turnstileWidgetIdRef.current;
+		if (!widgetId) return;
+		if (typeof window !== 'undefined' && window.turnstile) {
+			try {
+				window.turnstile.remove(widgetId);
+			} catch (error) {
+				console.warn('Failed to remove Turnstile widget:', error);
+			}
+		}
+		turnstileWidgetIdRef.current = null;
+		turnstileContainerHostRef.current = null;
 	}, []);
 
 	const resetTurnstileWidget = useCallback(() => {
 		const widgetId = turnstileWidgetIdRef.current;
 		if (!widgetId || typeof window === 'undefined' || !window.turnstile) return;
-		window.turnstile.reset(widgetId);
-	}, []);
+		try {
+			window.turnstile.reset(widgetId);
+		} catch (error) {
+			console.warn('Failed to reset Turnstile widget; recreating:', error);
+			destroyTurnstileWidget();
+		}
+	}, [destroyTurnstileWidget]);
 
 	const ensureTurnstileWidget = useCallback(() => {
 		if (!turnstileSiteKey) {
@@ -146,20 +176,29 @@ const LoginPage = () => {
 		if (typeof window === 'undefined' || !window.turnstile) {
 			throw new Error('Security verification is still loading. Please retry.');
 		}
-		if (!turnstileContainerRef.current) {
+		const container = turnstileContainerRef.current;
+		if (!container) {
 			throw new Error('Verification widget is not ready yet. Please retry.');
+		}
+		if (
+			turnstileWidgetIdRef.current &&
+			turnstileContainerHostRef.current &&
+			turnstileContainerHostRef.current !== container
+		) {
+			destroyTurnstileWidget();
 		}
 		if (turnstileWidgetIdRef.current) {
 			return turnstileWidgetIdRef.current;
 		}
 
-		const widgetId = window.turnstile.render(turnstileContainerRef.current, {
+		const widgetId = window.turnstile.render(container, {
 			sitekey: turnstileSiteKey,
 			theme: 'auto',
 			size: 'flexible',
 			execution: 'execute',
 			appearance: 'execute',
 			callback: (token: string) => {
+				clearTurnstileTimeout();
 				const resolve = turnstileResolveRef.current;
 				turnstileResolveRef.current = null;
 				turnstileRejectRef.current = null;
@@ -169,11 +208,13 @@ const LoginPage = () => {
 				}
 			},
 			'error-callback': () => {
+				clearTurnstileTimeout();
 				setIsVerifyingTurnstile(false);
 				rejectPendingTurnstile('Security verification failed. Please try again.');
 				resetTurnstileWidget();
 			},
 			'expired-callback': () => {
+				clearTurnstileTimeout();
 				setIsVerifyingTurnstile(false);
 				rejectPendingTurnstile(
 					'Security verification expired. Please verify again.',
@@ -181,6 +222,7 @@ const LoginPage = () => {
 				resetTurnstileWidget();
 			},
 			'timeout-callback': () => {
+				clearTurnstileTimeout();
 				setIsVerifyingTurnstile(false);
 				rejectPendingTurnstile(
 					'Security verification timed out. Please verify again.',
@@ -190,8 +232,11 @@ const LoginPage = () => {
 		});
 
 		turnstileWidgetIdRef.current = widgetId;
+		turnstileContainerHostRef.current = container;
 		return widgetId;
 	}, [
+		clearTurnstileTimeout,
+		destroyTurnstileWidget,
 		rejectPendingTurnstile,
 		resetTurnstileWidget,
 		turnstileSiteKey,
@@ -202,18 +247,32 @@ const LoginPage = () => {
 		setIsVerifyingTurnstile(true);
 
 		return await new Promise<string>((resolve, reject) => {
+			clearTurnstileTimeout();
+			turnstileTimeoutRef.current = window.setTimeout(() => {
+				turnstileTimeoutRef.current = null;
+				setIsVerifyingTurnstile(false);
+				turnstileResolveRef.current = null;
+				turnstileRejectRef.current = null;
+				resetTurnstileWidget();
+				reject(
+					new Error(
+						'Security verification timed out. Please try again.',
+					),
+				);
+			}, 20000);
 			turnstileResolveRef.current = resolve;
 			turnstileRejectRef.current = reject;
 			try {
 				window.turnstile?.execute(widgetId);
 			} catch (error) {
+				clearTurnstileTimeout();
 				setIsVerifyingTurnstile(false);
 				turnstileResolveRef.current = null;
 				turnstileRejectRef.current = null;
 				reject(error instanceof Error ? error : new Error('Verification failed.'));
 			}
 		});
-	}, [ensureTurnstileWidget]);
+	}, [clearTurnstileTimeout, ensureTurnstileWidget, resetTurnstileWidget]);
 
 	// Bootstrap from local storage first, then verify session in background.
 	useEffect(() => {
@@ -287,18 +346,28 @@ const LoginPage = () => {
 	]);
 
 	useEffect(() => {
+		const canShowLoginForm =
+			selectedRole &&
+			(selectedRole !== 'administrator' || Boolean(adminPosition)) &&
+			!isAwaitingOtp;
+		if (canShowLoginForm) return;
+		rejectPendingTurnstile('Security verification was cancelled.');
+		setIsVerifyingTurnstile(false);
+		destroyTurnstileWidget();
+	}, [
+		selectedRole,
+		adminPosition,
+		isAwaitingOtp,
+		rejectPendingTurnstile,
+		destroyTurnstileWidget,
+	]);
+
+	useEffect(() => {
 		return () => {
 			rejectPendingTurnstile('Security verification was cancelled.');
-			if (
-				typeof window !== 'undefined' &&
-				window.turnstile &&
-				turnstileWidgetIdRef.current
-			) {
-				window.turnstile.remove(turnstileWidgetIdRef.current);
-			}
-			turnstileWidgetIdRef.current = null;
+			destroyTurnstileWidget();
 		};
-	}, [rejectPendingTurnstile]);
+	}, [destroyTurnstileWidget, rejectPendingTurnstile]);
 
 	// Redirect if logged in
 	useEffect(() => {
@@ -470,14 +539,18 @@ const LoginPage = () => {
 
 	return (
 		<>
-			<Script
-				src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
-				strategy="afterInteractive"
-				onLoad={() => {
-					setIsTurnstileReady(true);
-					setOfflineError('');
-				}}
-				onError={() => {
+				<Script
+					src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+					strategy="afterInteractive"
+					onLoad={() => {
+						setIsTurnstileReady(true);
+						setOfflineError('');
+					}}
+					onError={() => {
+						if (typeof window !== 'undefined' && window.turnstile) {
+							setIsTurnstileReady(true);
+						return;
+					}
 					setIsTurnstileReady(false);
 					setOfflineError(
 						'Security verification failed to load. Refresh and try again.',
