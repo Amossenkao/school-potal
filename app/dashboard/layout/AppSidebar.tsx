@@ -11,7 +11,7 @@ import { generateNavigationItems } from '@/utils/componentsMap';
 import { useSchoolStore } from '@/store/schoolStore';
 import { useOfflineNavigationStore } from '@/store/offlineNavigationStore';
 import type { SchoolProfile } from '@/types/schoolProfile';
-import type { Administrator } from '@/types/user';
+import type { Administrator } from '@/types';
 import { PageLoading } from '@/components/loading';
 
 interface NavItem {
@@ -606,7 +606,7 @@ const AppSidebar: React.FC = () => {
 			? 'w-[260px] sm:w-[290px]'
 			: 'w-[90px]';
 	const sidebarTransitionClass = sidebarTransitionsReady
-		? 'transition-all duration-300 ease-in-out'
+		? 'transform-gpu transition-[width,transform] duration-300 ease-in-out will-change-[width,transform] motion-reduce:transition-none'
 		: 'transition-none';
 	const sidebarTranslateClass = isMobileOpen
 		? 'translate-x-0'

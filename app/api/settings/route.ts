@@ -15,6 +15,7 @@ import bcrypt from 'bcryptjs';
 import { redis } from '@/lib/redis';
 import { authorizeUser } from '@/proxy';
 import { TENANT_THEME_NAMES, isTenantThemeName } from '@/types/tenantTheme';
+import { normalizeHost } from '@/utils/host';
 
 async function runWithConcurrency<T>(
 	items: T[],
@@ -57,7 +58,13 @@ export async function POST(request: NextRequest) {
 				{ status: 400 },
 			);
 		}
-		const cleanHost = host.split(':')[0];
+		const cleanHost = normalizeHost(host);
+		if (!cleanHost) {
+			return NextResponse.json(
+				{ success: false, message: 'Unable to resolve tenant host.' },
+				{ status: 400 },
+			);
+		}
 
 		const { Student, Teacher, Administrator } = await getTenantModels();
 
@@ -440,7 +447,13 @@ export async function GET(request: NextRequest) {
 				{ status: 400 },
 			);
 		}
-		const cleanHost = host.split(':')[0];
+		const cleanHost = normalizeHost(host);
+		if (!cleanHost) {
+			return NextResponse.json(
+				{ success: false, message: 'Unable to resolve tenant host.' },
+				{ status: 400 },
+			);
+		}
 
 		// Try to get from cache first
 		const quickCacheKey = `school_settings:${cleanHost}`;

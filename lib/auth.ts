@@ -1,6 +1,7 @@
 'use server';
 import { cookies, headers } from 'next/headers';
 import { getSession } from '@/utils/session';
+import { normalizeHost } from '@/utils/host';
 
 export async function getCurrentUser() {
 	try {
@@ -10,11 +11,12 @@ export async function getCurrentUser() {
 		const currentUser = await getSession(sessionId);
 		if (!currentUser?.id) return null;
 
-		const requestHost = (await headers()).get('host')?.split(':')[0];
-		const sessionHost =
+		const requestHost = normalizeHost((await headers()).get('host'));
+		const sessionHost = normalizeHost(
 			typeof currentUser.tenantId === 'string'
-				? currentUser.tenantId.split(':')[0]
-				: currentUser.tenantId;
+				? currentUser.tenantId
+				: String(currentUser.tenantId || ''),
+		);
 		if (requestHost && sessionHost && requestHost !== sessionHost) {
 			return null;
 		}

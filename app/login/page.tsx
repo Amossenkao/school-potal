@@ -69,12 +69,22 @@ const LoginPage = () => {
 		otp: '',
 	});
 
+	const dismissKeyboardFocus = useCallback(() => {
+		if (typeof document === 'undefined') return;
+		const activeElement = document.activeElement as HTMLElement | null;
+		if (!activeElement) return;
+		if (typeof activeElement.blur === 'function') {
+			activeElement.blur();
+		}
+	}, []);
+
 	const navigateToDashboardWithSpinner = useCallback(() => {
+		dismissKeyboardFocus();
 		setIsRedirecting(true);
 		window.requestAnimationFrame(() => {
 			router.push('/dashboard');
 		});
-	}, [router]);
+	}, [router, dismissKeyboardFocus]);
 
 	// Bootstrap from local storage first, then verify session in background.
 	useEffect(() => {
@@ -171,6 +181,8 @@ const LoginPage = () => {
 		if (!selectedRole) return;
 		if (selectedRole === 'administrator' && !adminPosition) return;
 		if (isAwaitingOtp) return;
+		if (isRedirecting) return;
+		if (user?.isActive && isLoggedIn) return;
 		if (isLoading || loginDisabledError) return;
 		requestAnimationFrame(() => {
 			usernameInputRef.current?.focus();
@@ -179,8 +191,11 @@ const LoginPage = () => {
 		selectedRole,
 		adminPosition,
 		isAwaitingOtp,
+		isRedirecting,
 		isLoading,
 		loginDisabledError,
+		user,
+		isLoggedIn,
 	]);
 
 	const roles = [
@@ -243,6 +258,7 @@ const LoginPage = () => {
 				loggedInUser.role !== 'system_admin' &&
 				loggedInUser.mustChangePassword
 			) {
+				dismissKeyboardFocus();
 				router.push('/login/account-setup');
 			} else {
 				navigateToDashboardWithSpinner();

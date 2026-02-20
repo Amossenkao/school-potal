@@ -12,6 +12,7 @@ import {
 } from '@/app/api/auth/bootstrap';
 import { checkRateLimit, getRequestIp } from '@/utils/rateLimit';
 import { resolveAcademicYearAccessContext } from '@/utils/academicYearAccess';
+import { normalizeHost } from '@/utils/host';
 
 const toHash = (value: unknown) => {
 	try {
@@ -78,7 +79,7 @@ const buildLoginBootstrapPayload = async (
 };
 
 export async function POST(request: NextRequest) {
-	const host = request.headers.get('host');
+	const host = normalizeHost(request.headers.get('host'));
 	if (!host) {
 		return NextResponse.json(
 			{ message: 'Host header is required' },

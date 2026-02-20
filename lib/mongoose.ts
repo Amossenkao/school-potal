@@ -4,6 +4,7 @@ import SchoolProfileSchema from '@/models/profile/SchoolProfile';
 import SchoolProfile from '@/types/schoolProfile';
 import { headers } from 'next/headers';
 import { redis } from '@/lib/redis';
+import { isLocalHost, normalizeHost } from '@/utils/host';
 
 const MONGODB_URI = process.env.MONGODB_URI || '';
 
@@ -152,9 +153,10 @@ const getOrCreateTenantConnectionByDbName = async (
 	try {
 		return await connectionPromise;
 	} catch (error) {
-		if (createdConnection) {
+		const connectionToClose = createdConnection;
+		if (connectionToClose) {
 			try {
-				await createdConnection.close();
+				await connectionToClose.close();
 			} catch {
 				// Ignore close errors during failed connection bootstrap.
 			}
@@ -185,11 +187,12 @@ export const getTenantConnectionByDbName = async (
  * Establishes a connection to an individual tenant's database based on request host.
  * @returns A Mongoose Connection object for the specific tenant database.
  */
-export const getTenantConnection = async (): Promise<Connection | null> => {
-	let host = (await headers()).get('host') || undefined;
-	host = host?.split(':')[0];
-
-	const school = await getSchoolProfile();
+export const getTenantConnection = async (
+	hostOverride?: string | null,
+): Promise<Connection | null> => {
+	const host =
+		normalizeHost(hostOverride) || normalizeHost((await headers()).get('host'));
+	const school = await getSchoolProfile({ host });
 	if (!school?.dbName) {
 		console.log('School not found for host:', host);
 		return null;
@@ -203,11 +206,11 @@ export const getTenantConnection = async (): Promise<Connection | null> => {
  * @returns The profile document, or null if not found or an error occurs.
  */
 export const getSchoolProfile = async (
-	options: { bypassCache?: boolean } = {},
+	options: { bypassCache?: boolean; host?: string | null } = {},
 ): Promise<any> => {
-	const hostHeader = await headers();
-	let host = hostHeader.get('host') || undefined;
-	host = host?.split(':')[0];
+	const host =
+		normalizeHost(options.host) ||
+		normalizeHost((await headers()).get('host'));
 
 	if (!host) {
 		console.error('Host is undefined, cannot fetch school profile.');
@@ -239,7 +242,30 @@ export const getSchoolProfile = async (
 			connection.models.Profile ||
 			connection.model<SchoolProfile>('Profile', SchoolProfileSchema);
 
-		const profile = await ProfileModel.findOne({ host }).lean().exec();
+		let profile = await ProfileModel.findOne({ host }).lean().exec();
+		if (!profile && process.env.NODE_ENV !== 'production') {
+			const devTenantHost = normalizeHost(process.env.DEV_TENANT_HOST);
+			const devTenantDbName = String(process.env.DEV_TENANT_DB_NAME || '').trim();
+
+			if (devTenantHost) {
+				profile = await ProfileModel.findOne({ host: devTenantHost }).lean().exec();
+			}
+			if (!profile && devTenantDbName) {
+				profile = await ProfileModel.findOne({ dbName: devTenantDbName })
+					.lean()
+					.exec();
+			}
+			if (!profile && isLocalHost(host)) {
+				const tenantProfiles = await ProfileModel.find({}).limit(2).lean().exec();
+				if (tenantProfiles.length === 1) {
+					profile = tenantProfiles[0];
+				} else if (tenantProfiles.length > 1) {
+					console.warn(
+						`[dev] Multiple tenant profiles found for local host "${host}". Set DEV_TENANT_HOST or DEV_TENANT_DB_NAME.`,
+					);
+				}
+			}
+		}
 
 		if (profile) {
 			// 3. Store in Redis cache for future requests (e.g., for 24 hours)

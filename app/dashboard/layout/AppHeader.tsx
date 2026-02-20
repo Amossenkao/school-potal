@@ -1,8 +1,7 @@
 'use client';
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { memo, useState, useEffect, useRef, useMemo } from 'react';
 import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
 import Logo from '@/components/Logo';
-import { useSidebar } from '@/context/SidebarContext';
 import useAuth from '@/store/useAuth';
 import {
 	KeyRound,
@@ -163,7 +162,7 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
 };
 
 // --- Notifications Dropdown Component ---
-const NotificationsDropdown = () => {
+const NotificationsDropdown = memo(function NotificationsDropdown() {
 	const { user, setUser } = useAuth(); // Assumes setUser updates the auth store
 	const [isOpen, setIsOpen] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
@@ -509,10 +508,10 @@ const NotificationsDropdown = () => {
 			)}
 		</div>
 	);
-};
+});
 
 // --- User Dropdown Component ---
-const UserDropdown = () => {
+const UserDropdown = memo(function UserDropdown() {
 	const { user, logout } = useAuth();
 	const [isOpen, setIsOpen] = useState(false);
 	const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -635,20 +634,29 @@ const UserDropdown = () => {
 			/>
 		</>
 	);
-};
+});
 
 // --- Main AppHeader Component ---
-const AppHeader: React.FC = () => {
+type AppHeaderProps = {
+	isMobileOpen: boolean;
+	onToggleSidebar: () => void;
+	onToggleMobileSidebar: () => void;
+};
+
+const AppHeader: React.FC<AppHeaderProps> = ({
+	isMobileOpen,
+	onToggleSidebar,
+	onToggleMobileSidebar,
+}) => {
 	const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
-	const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
 	const inputRef = useRef<HTMLInputElement>(null);
 	const headerRef = useRef<HTMLElement>(null);
 
 	const handleToggle = () => {
 		if (window.innerWidth >= 1024) {
-			toggleSidebar();
+			onToggleSidebar();
 		} else {
-			toggleMobileSidebar();
+			onToggleMobileSidebar();
 		}
 	};
 
@@ -758,4 +766,4 @@ const AppHeader: React.FC = () => {
 	);
 };
 
-export default AppHeader;
+export default memo(AppHeader);

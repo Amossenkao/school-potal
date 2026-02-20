@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import {
 	generateDynamicComponentsMap,
 	validateComponentAccess,
@@ -57,7 +57,7 @@ function validateAdministratorAccess(
 	return validateComponentAccess(schoolProfile, user.role, routeKey);
 }
 
-export default function OfflineRouteRenderer({ path }: { path: string }) {
+function OfflineRouteRenderer({ path }: { path: string }) {
 	const { school, fetchSchool } = useSchoolStore();
 	const { user, isLoading, checkAuthStatus } = useAuth();
 
@@ -193,3 +193,5 @@ export default function OfflineRouteRenderer({ path }: { path: string }) {
 		/>
 	);
 }
+
+export default memo(OfflineRouteRenderer);

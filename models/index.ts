@@ -24,8 +24,8 @@ import type {
 // Store models per tenant to avoid recompilation
 const modelCache = new Map<Connection, any>();
 
-export const getTenantModels = async () => {
-	const connection = await getTenantConnection();
+export const getTenantModels = async (host?: string | null) => {
+	const connection = await getTenantConnection(host);
 	if (!connection) {
 		throw new Error('Could not establish DB connection for tenant');
 	}
@@ -97,15 +97,15 @@ export const getTenantModels = async () => {
 };
 
 // Convenience getters remain the same
-export const getUserModel = async (host: string | null) =>
+export const getUserModel = async (host?: string | null) =>
 	(await getTenantModels(host)).User;
-export const getStudentModel = async (host: string | null) =>
+export const getStudentModel = async (host?: string | null) =>
 	(await getTenantModels(host)).Student;
-export const getTeacherModel = async (host: string | null) =>
+export const getTeacherModel = async (host?: string | null) =>
 	(await getTenantModels(host)).Teacher;
-export const getAdministratorModel = async (host: string | null) =>
+export const getAdministratorModel = async (host?: string | null) =>
 	(await getTenantModels(host)).Administrator;
-export const getSystemAdminModel = async (host: string | null) =>
+export const getSystemAdminModel = async (host?: string | null) =>
 	(await getTenantModels(host)).SystemAdmin;
-export const getGradeModel = async (host: string | null) =>
+export const getGradeModel = async (host?: string | null) =>
 	(await getTenantModels(host)).Grade;

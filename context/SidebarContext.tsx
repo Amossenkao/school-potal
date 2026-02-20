@@ -6,6 +6,7 @@ import React, {
 	useEffect,
 	useLayoutEffect,
 	useCallback,
+	useMemo,
 } from 'react';
 
 type SidebarContextType = {
@@ -65,9 +66,9 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({
 		};
 	}, []);
 
-	const toggleSidebar = () => {
+	const toggleSidebar = useCallback(() => {
 		setIsExpanded((prev) => !prev);
-	};
+	}, []);
 
 	const toggleMobileSidebar = useCallback(() => {
 		setIsMobileOpen((prev) => !prev);
@@ -77,26 +78,40 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({
 		setIsMobileOpen(false);
 	}, []);
 
-	const toggleSubmenu = (item: string) => {
+	const toggleSubmenu = useCallback((item: string) => {
 		setOpenSubmenu((prev) => (prev === item ? null : item));
-	};
+	}, []);
+
+	const contextValue = useMemo(
+		() => ({
+			isExpanded: isMobile ? false : isExpanded,
+			isMobileOpen,
+			isHovered,
+			activeItem,
+			openSubmenu,
+			toggleSidebar,
+			toggleMobileSidebar,
+			setIsHovered,
+			setActiveItem,
+			toggleSubmenu,
+			closeMobileSidebar,
+		}),
+		[
+			isMobile,
+			isExpanded,
+			isMobileOpen,
+			isHovered,
+			activeItem,
+			openSubmenu,
+			toggleSidebar,
+			toggleMobileSidebar,
+			toggleSubmenu,
+			closeMobileSidebar,
+		],
+	);
 
 	return (
-		<SidebarContext.Provider
-			value={{
-				isExpanded: isMobile ? false : isExpanded,
-				isMobileOpen,
-				isHovered,
-				activeItem,
-				openSubmenu,
-				toggleSidebar,
-				toggleMobileSidebar,
-				setIsHovered,
-				setActiveItem,
-				toggleSubmenu,
-				closeMobileSidebar,
-			}}
-		>
+		<SidebarContext.Provider value={contextValue}>
 			{children}
 		</SidebarContext.Provider>
 	);

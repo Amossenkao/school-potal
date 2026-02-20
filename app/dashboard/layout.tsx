@@ -16,10 +16,18 @@ export default function AdminLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	const { isExpanded, isHovered, isMobileOpen } = useSidebar();
+	const {
+		isExpanded,
+		isHovered,
+		isMobileOpen,
+		toggleSidebar,
+		toggleMobileSidebar,
+	} = useSidebar();
 	const pathname = usePathname();
 	const previousPathname = useRef(pathname);
+	const previousDesktopMarginRef = useRef(290);
 	const [layoutTransitionsReady, setLayoutTransitionsReady] = useState(false);
+	const [contentSlideOffset, setContentSlideOffset] = useState(0);
 	const { offlinePath, setOfflinePath } = useOfflineNavigationStore();
 	const { isOnline } = useNetworkStore();
 	const activePath = isOnline ? pathname : offlinePath || pathname;
@@ -85,6 +93,29 @@ export default function AdminLayout({
 		return () => window.cancelAnimationFrame(frameId);
 	}, []);
 
+	useEffect(() => {
+		if (!layoutTransitionsReady) return;
+		if (typeof window === 'undefined') return;
+
+		const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
+		const nextDesktopMargin =
+			isMobileOpen || !isDesktop ? 0 : isExpanded || isHovered ? 290 : 90;
+		const previousDesktopMargin = previousDesktopMarginRef.current;
+		previousDesktopMarginRef.current = nextDesktopMargin;
+
+		if (!isDesktop || isMobileOpen || previousDesktopMargin === nextDesktopMargin) {
+			setContentSlideOffset(0);
+			return;
+		}
+
+		setContentSlideOffset(previousDesktopMargin - nextDesktopMargin);
+		const frameId = window.requestAnimationFrame(() => {
+			setContentSlideOffset(0);
+		});
+
+		return () => window.cancelAnimationFrame(frameId);
+	}, [isExpanded, isHovered, isMobileOpen, layoutTransitionsReady]);
+
 
 	const mainContentMargin = isMobileOpen
 		? 'ml-0'
@@ -103,12 +134,19 @@ export default function AdminLayout({
 				<div
 					className={`flex-1 min-w-0 ${
 						layoutTransitionsReady
-							? 'transition-all duration-300 ease-in-out'
+							? 'transform-gpu transition-transform duration-300 ease-in-out will-change-transform motion-reduce:transition-none'
 							: 'transition-none'
 					} ${mainContentMargin}`}
+					style={{
+						transform: `translate3d(${contentSlideOffset}px, 0, 0)`,
+					}}
 				>
 					{/* Header */}
-					<AppHeader />
+					<AppHeader
+						isMobileOpen={isMobileOpen}
+						onToggleSidebar={toggleSidebar}
+						onToggleMobileSidebar={toggleMobileSidebar}
+					/>
 					{/* Page Content */}
 					<main className="py-4 md:py-6 px-0 overflow-x-hidden">
 						<OfflineRouteRenderer path={activePath} />

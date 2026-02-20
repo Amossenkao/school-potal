@@ -1,5 +1,5 @@
 'use client';
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
 	Card,
@@ -24,8 +24,8 @@ import {
 	Text,
 	View,
 	StyleSheet,
-	PDFDownloadLink,
 	Image,
+	pdf,
 } from '@react-pdf/renderer';
 import {
 	CheckCircle,
@@ -199,12 +199,14 @@ export default function PaymentHistory() {
 
 	// Component states
 	const [payments, setPayments] = useState<any[]>([]);
-	const [filteredPayments, setFilteredPayments] = useState<any[]>([]);
 	const [isLoadingPayments, setIsLoadingPayments] = useState(false);
 	const [error, setError] = useState('');
+	const [downloadingReceiptId, setDownloadingReceiptId] = useState<string | null>(
+		null,
+	);
 	const school = useSchoolStore((state) => state.school);
 
-	const getPaymentTypeLabel = (type) => {
+	const getPaymentTypeLabel = (type: string) => {
 		switch (type) {
 			case 'tuition':
 				return 'Tuition Fees';
@@ -224,11 +226,11 @@ export default function PaymentHistory() {
 	const [dateFilter, setDateFilter] = useState('all');
 
 	// Modal states
-	const [selectedPayment, setSelectedPayment] = useState(null);
+	const [selectedPayment, setSelectedPayment] = useState<any | null>(null);
 	const [showModal, setShowModal] = useState(false);
 
 	const normalizePayments = useMemo(() => {
-		const records = user?.financialProfile?.paymentRecords || [];
+		const records = (user as any)?.financialProfile?.paymentRecords || [];
 		return records.map((record: any) => ({
 			id: record.id,
 			type: record.feeType,
@@ -246,8 +248,8 @@ export default function PaymentHistory() {
 	}, [user]);
 
 	const refreshPayments = () => {
+		setError('');
 		setPayments(normalizePayments);
-		setFilteredPayments(normalizePayments);
 	};
 
 	// Fetch payment history
@@ -257,7 +259,6 @@ export default function PaymentHistory() {
 		setError('');
 		try {
 			setPayments(normalizePayments);
-			setFilteredPayments(normalizePayments);
 		} catch (error) {
 			console.error('Error fetching payment history:', error);
 			setError('Failed to load payment history');
@@ -266,8 +267,8 @@ export default function PaymentHistory() {
 		}
 	}, [user, normalizePayments]);
 
-	// Filter payments based on search and filters
-	useEffect(() => {
+	// Filter payments based on search and selected filters
+	const filteredPayments = useMemo(() => {
 		let filtered = [...payments];
 
 		// Search filter
@@ -312,10 +313,10 @@ export default function PaymentHistory() {
 			});
 		}
 
-		setFilteredPayments(filtered);
+		return filtered;
 	}, [payments, searchTerm, statusFilter, typeFilter, dateFilter]);
 
-	const getPaymentTypeIcon = (type) => {
+	const getPaymentTypeIcon = (type: string) => {
 		switch (type) {
 			case 'tuition':
 				return BookOpen;
@@ -328,7 +329,7 @@ export default function PaymentHistory() {
 		}
 	};
 
-	const getStatusBadge = (status) => {
+	const getStatusBadge = (status: string) => {
 		const baseClasses =
 			'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium';
 		switch (status) {
@@ -370,7 +371,7 @@ export default function PaymentHistory() {
 		}
 	};
 
-	const formatDate = (dateString) => {
+	const formatDate = (dateString?: string | null) => {
 		if (!dateString) return 'N/A';
 		const date = new Date(dateString);
 		return date.toLocaleDateString('en-US', {
@@ -382,7 +383,7 @@ export default function PaymentHistory() {
 		});
 	};
 
-	const viewPaymentDetails = (payment) => {
+	const viewPaymentDetails = (payment: any) => {
 		setSelectedPayment(payment);
 		setShowModal(true);
 	};
@@ -391,6 +392,31 @@ export default function PaymentHistory() {
 		setShowModal(false);
 		setSelectedPayment(null);
 	};
+
+	const handleDownloadReceipt = useCallback(
+		async (paymentRecord: any, receiptId: string) => {
+			if (!school) return;
+			try {
+				setDownloadingReceiptId(receiptId);
+				const blob = await pdf(
+					<ReceiptDocument payment={paymentRecord} school={school} />,
+				).toBlob();
+				const url = URL.createObjectURL(blob);
+				const link = document.createElement('a');
+				link.href = url;
+				link.download = `receipt-${receiptId}.pdf`;
+				document.body.appendChild(link);
+				link.click();
+				document.body.removeChild(link);
+				URL.revokeObjectURL(url);
+			} catch (downloadError) {
+				console.error('Failed to download receipt:', downloadError);
+			} finally {
+				setDownloadingReceiptId((prev) => (prev === receiptId ? null : prev));
+			}
+		},
+		[school],
+	);
 
 	// Show loading state while user data is being fetched
 	if (isLoading) {
@@ -427,13 +453,13 @@ export default function PaymentHistory() {
 	return (
 		<div className="min-h-screen bg-background">
 			{/* Main Content */}
-			<div className="w-full px-4 sm:px-6 lg:px-8 py-8">
+			<div className="w-full px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
 				{/* Header */}
-				<div className="mb-8">
-					<h1 className="text-3xl sm:text-4xl font-bold mb-2">
+				<div className="mb-6 sm:mb-8">
+					<h1 className="mb-2 text-2xl font-bold sm:text-4xl">
 						Payment History
 					</h1>
-					<p className="text-lg text-muted-foreground">
+					<p className="text-sm text-muted-foreground sm:text-base lg:text-lg">
 						View all your payment transactions and download receipts
 					</p>
 				</div>
@@ -447,8 +473,8 @@ export default function PaymentHistory() {
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<div className="flex gap-4 items-start border p-4 rounded-lg bg-muted/50">
-							<Avatar className="w-12 h-12">
+						<div className="flex flex-col items-start gap-4 rounded-lg border bg-muted/50 p-4 sm:flex-row">
+							<Avatar className="h-12 w-12">
 								<AvatarImage
 									src={
 										user.profilePictureUrl ||
@@ -462,15 +488,15 @@ export default function PaymentHistory() {
 									{user.lastName?.[0]}
 								</AvatarFallback>
 							</Avatar>
-							<div className="flex-1">
+							<div className="min-w-0 flex-1">
 								<h3 className="text-lg font-semibold">
 									{user.firstName} {user.lastName}
 								</h3>
 								<p className="text-sm text-muted-foreground">
-									Student ID: {user.studentId || user.id}
+									Student ID: {(user as any).studentId || user.id}
 								</p>
 								<p className="text-sm text-muted-foreground">
-									Class: {user.className || 'Grade 9'}
+									Class: {(user as any).className || 'Grade 9'}
 								</p>
 							</div>
 						</div>
@@ -514,7 +540,7 @@ export default function PaymentHistory() {
 						</CardDescription>
 					</CardHeader>
 					<CardContent>
-						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
 							{/* Search */}
 							<div>
 								<label className="block text-sm font-medium mb-2">Search</label>
@@ -626,23 +652,23 @@ export default function PaymentHistory() {
 											key={payment.id}
 											className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
 										>
-											<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-												<div className="flex items-start gap-4">
-													<div className="p-2 rounded-lg bg-primary/10">
+											<div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+												<div className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:gap-4">
+													<div className="rounded-lg bg-primary/10 p-2">
 														<TypeIcon className="h-5 w-5 text-primary" />
 													</div>
-													<div className="flex-1">
-														<div className="flex items-center gap-2 mb-1">
+													<div className="min-w-0 flex-1">
+														<div className="mb-1 flex flex-wrap items-center gap-2">
 															<h4 className="font-semibold">
 																{payment.description}
 															</h4>
 															{getStatusBadge(payment.status)}
 														</div>
-														<p className="text-sm text-muted-foreground mb-2">
+														<p className="mb-2 break-words text-sm text-muted-foreground">
 															Payment ID: {payment.id} • Transaction:{' '}
 															{payment.transactionId}
 														</p>
-														<div className="flex items-center gap-4 text-sm text-muted-foreground">
+														<div className="grid gap-1.5 text-xs text-muted-foreground sm:grid-cols-2 sm:text-sm lg:flex lg:flex-wrap lg:items-center lg:gap-4">
 															<div className="flex items-center gap-1">
 																<Calendar className="h-4 w-4" />
 																{formatDate(payment.date)}
@@ -660,8 +686,8 @@ export default function PaymentHistory() {
 														</div>
 													</div>
 												</div>
-												<div className="flex items-center gap-4">
-													<div className="text-right">
+												<div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end sm:gap-4">
+													<div className="text-left sm:text-right">
 														<p className="text-lg font-semibold">
 															LRD {Number(payment.amount).toFixed(2)}
 														</p>
@@ -669,27 +695,25 @@ export default function PaymentHistory() {
 															{getPaymentTypeLabel(payment.type)}
 														</p>
 													</div>
-													<div className="flex gap-2">
+													<div className="flex shrink-0 gap-2">
 														{school ? (
-															<PDFDownloadLink
-																document={
-																	<ReceiptDocument
-																		payment={payment.raw}
-																		school={school}
-																	/>
+															<Button
+																variant="outline"
+																size="sm"
+																onClick={() =>
+																	handleDownloadReceipt(
+																		payment.raw,
+																		payment.id,
+																	)
 																}
-																fileName={`receipt-${payment.id}.pdf`}
+																disabled={downloadingReceiptId === payment.id}
 															>
-																{({ loading }) => (
-																	<Button variant="outline" size="sm">
-																		{loading ? (
-																			<Loader2 className="h-4 w-4 animate-spin" />
-																		) : (
-																			<Download className="h-4 w-4" />
-																		)}
-																	</Button>
+																{downloadingReceiptId === payment.id ? (
+																	<Loader2 className="h-4 w-4 animate-spin" />
+																) : (
+																	<Download className="h-4 w-4" />
 																)}
-															</PDFDownloadLink>
+															</Button>
 														) : (
 															<Button variant="outline" size="sm" disabled>
 																<Download className="h-4 w-4" />
@@ -715,7 +739,7 @@ export default function PaymentHistory() {
 			</div>
 
 			<Dialog open={showModal} onOpenChange={(open) => setShowModal(open)}>
-				<DialogContent className="max-w-lg">
+				<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
 					<DialogHeader>
 						<DialogTitle>Payment Details</DialogTitle>
 					</DialogHeader>
@@ -779,7 +803,7 @@ export default function PaymentHistory() {
 								<div>
 									<p className="text-muted-foreground">Student ID</p>
 									<p className="font-semibold">
-										{user?.studentId || user?.id}
+										{(user as any)?.studentId || user?.id}
 									</p>
 								</div>
 								<div>
@@ -793,25 +817,27 @@ export default function PaymentHistory() {
 					) : null}
 					<DialogFooter className="flex flex-wrap gap-2 sm:justify-between">
 						{selectedPayment && school ? (
-							<PDFDownloadLink
-								document={
-									<ReceiptDocument payment={selectedPayment.raw} school={school} />
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								onClick={() =>
+									handleDownloadReceipt(selectedPayment.raw, selectedPayment.id)
 								}
-								fileName={`receipt-${selectedPayment.id}.pdf`}
+								disabled={downloadingReceiptId === selectedPayment.id}
 							>
-								{({ loading }) => (
-									<Button type="button" variant="outline" size="sm">
-										{loading ? (
-											<Loader2 className="h-4 w-4 animate-spin" />
-										) : (
-											<>
-												<Download className="h-4 w-4 mr-2" />
-												Download Receipt
-											</>
-										)}
-									</Button>
+								{downloadingReceiptId === selectedPayment.id ? (
+									<>
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										Downloading...
+									</>
+								) : (
+									<>
+										<Download className="mr-2 h-4 w-4" />
+										Download Receipt
+									</>
 								)}
-							</PDFDownloadLink>
+							</Button>
 						) : (
 							<Button type="button" variant="outline" size="sm" disabled>
 								<Download className="h-4 w-4 mr-2" />
