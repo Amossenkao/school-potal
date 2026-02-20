@@ -188,8 +188,8 @@ export default function CalendarAndSchedules({
 	const [isSavingClass, setIsSavingClass] = useState(false);
 	const [isSavingTest, setIsSavingTest] = useState(false);
 	const [activeScheduleTab, setActiveScheduleTab] = useState('');
-	const [testViewTab, setTestViewTab] = useState('schedule');
 	const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+	const [isTestModalOpen, setIsTestModalOpen] = useState(false);
 	const [slotDay, setSlotDay] = useState('Monday');
 	const [slotStartTime, setSlotStartTime] = useState('');
 	const [slotEndTime, setSlotEndTime] = useState('');
@@ -595,6 +595,7 @@ export default function CalendarAndSchedules({
 			!testForm.startTime ||
 			!testForm.endTime
 		) {
+			setScheduleError('Please complete all required fields.');
 			return;
 		}
 		const saveSchedule = async () => {
@@ -637,16 +638,16 @@ export default function CalendarAndSchedules({
 					venue: item.venue || item.location || '',
 				});
 
-					const created: TestScheduleItem[] = Array.isArray(result.data)
-						? (result.data as any[]).map((entry) => normalize(entry))
-						: [normalize(result.data)];
+				const created: TestScheduleItem[] = Array.isArray(result.data)
+					? (result.data as any[]).map((entry) => normalize(entry))
+					: [normalize(result.data)];
 
 				let next: TestScheduleItem[];
 				if (testForm.id) {
-						const updateMap = new Map<string, TestScheduleItem>(
-							created.map((item) => [item.id, item]),
-						);
-						next = prev.map((item) => updateMap.get(item.id) || item);
+					const updateMap = new Map<string, TestScheduleItem>(
+						created.map((item) => [item.id, item]),
+					);
+					next = prev.map((item) => updateMap.get(item.id) || item);
 				} else {
 					next = [...created, ...prev];
 				}
@@ -656,6 +657,7 @@ export default function CalendarAndSchedules({
 				);
 				return next;
 			});
+			setIsTestModalOpen(false);
 			resetTestForm();
 		};
 
@@ -667,14 +669,18 @@ export default function CalendarAndSchedules({
 			.finally(() => setIsSavingTest(false));
 	};
 
-	const handleEditTest = (item: TestScheduleItem) => {
+	const openEditTestModal = (item: TestScheduleItem) => {
+		setScheduleError('');
 		setTestForm({
 			...item,
 		});
+		setIsTestModalOpen(true);
 	};
 
 	const handleDeleteTest = (item: TestScheduleItem) => {
+		setScheduleError('');
 		const removeSchedule = async () => {
+			setIsSavingTest(true);
 			const response = await fetch('/api/schedules', {
 				method: 'DELETE',
 				headers: { 'Content-Type': 'application/json' },
@@ -697,12 +703,16 @@ export default function CalendarAndSchedules({
 				);
 				return next;
 			});
+			if (testForm.id === item.id) {
+				setIsTestModalOpen(false);
+				resetTestForm();
+			}
 		};
 
 		removeSchedule().catch((error) => {
 			console.error(error);
 			setScheduleError('Failed to delete test schedule.');
-		});
+		}).finally(() => setIsSavingTest(false));
 	};
 
 	const testSubjectOptions = testForm.level
@@ -801,13 +811,13 @@ export default function CalendarAndSchedules({
 	useEffect(() => {
 		if (!activeLevelKey) return;
 		const [session, level] = activeLevelKey.split('::');
-		setTestForm((prev) => ({
-			...prev,
+		setTestForm({
+			...emptyTestForm,
 			session,
 			level,
-		}));
-		setTestViewTab('schedule');
+		});
 		setIsClassModalOpen(false);
+		setIsTestModalOpen(false);
 		setSlotEntries([]);
 		setSlotEditingIds([]);
 	}, [activeLevelKey]);
@@ -858,8 +868,7 @@ export default function CalendarAndSchedules({
 	}, [filteredTestSchedules, activeLevelKey]);
 
 	const canEditSchedules = userRole === 'system_admin';
-	const canEditTestSchedules =
-		userRole === 'system_admin' && testViewTab === 'manage';
+	const canEditTestSchedules = userRole === 'system_admin';
 
 	const levelLabel = (key: string) => {
 		const match = levelOptions.find((option) => option.key === key);
@@ -873,6 +882,13 @@ export default function CalendarAndSchedules({
 			session: session || '',
 			level: level || '',
 		});
+	};
+
+	const openAddTestModal = () => {
+		if (!activeSessionLevel) return;
+		setScheduleError('');
+		resetTestForm();
+		setIsTestModalOpen(true);
 	};
 
 	const classTimeSlots = useMemo(() => {
@@ -1385,40 +1401,47 @@ export default function CalendarAndSchedules({
 										</div>
 									</div>
 								) : null}
-								{levelKeysForSession.length > 1 ? (
-									<Tabs
-										value={activeScheduleTab}
-										onValueChange={setActiveScheduleTab}
-									>
-										<TabsList className="w-full flex-nowrap justify-start gap-2">
-											{levelKeysForSession.map((key) => (
-												<TabsTrigger key={key} value={key}>
-													{levelLabel(key).replace(`${selectedSession} - `, '')}
-												</TabsTrigger>
-											))}
-										</TabsList>
-									</Tabs>
-								) : levelKeysForSession.length === 1 ? (
-									<p className="text-xs text-muted-foreground">
-										Level:{' '}
-										{levelLabel(levelKeysForSession[0]).replace(
-											`${selectedSession} - `,
-											'',
-										)}
-									</p>
-								) : null}
-
-								{canEditSchedules ? (
-									<div className="flex flex-wrap items-center justify-end gap-3">
-										<Button
-											type="button"
-											onClick={openAddSlotModal}
-											disabled={
-												!activeSessionLevel || classesForLevel.length === 0
-											}
-										>
-											Add schedule
-										</Button>
+								{levelKeysForSession.length > 0 || canEditSchedules ? (
+									<div className="flex flex-wrap items-start justify-between gap-3">
+										<div className="min-w-0 flex-1">
+											{levelKeysForSession.length > 1 ? (
+												<Tabs
+													value={activeScheduleTab}
+													onValueChange={setActiveScheduleTab}
+												>
+													<TabsList className="w-full flex-nowrap justify-start gap-2 overflow-x-auto">
+														{levelKeysForSession.map((key) => (
+															<TabsTrigger key={key} value={key}>
+																{levelLabel(key).replace(
+																	`${selectedSession} - `,
+																	'',
+																)}
+															</TabsTrigger>
+														))}
+													</TabsList>
+												</Tabs>
+											) : levelKeysForSession.length === 1 ? (
+												<p className="text-xs text-muted-foreground">
+													Level:{' '}
+													{levelLabel(levelKeysForSession[0]).replace(
+														`${selectedSession} - `,
+														'',
+													)}
+												</p>
+											) : null}
+										</div>
+										{canEditSchedules ? (
+											<Button
+												type="button"
+												onClick={openAddSlotModal}
+												disabled={
+													!activeSessionLevel || classesForLevel.length === 0
+												}
+												className="shrink-0"
+											>
+												Add schedule
+											</Button>
+										) : null}
 									</div>
 								) : null}
 
@@ -1611,7 +1634,7 @@ export default function CalendarAndSchedules({
 									open={isClassModalOpen}
 									onOpenChange={(open) => setIsClassModalOpen(open)}
 								>
-									<DialogContent className="max-w-3xl">
+									<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
 										<DialogHeader>
 											<DialogTitle>Schedule slot</DialogTitle>
 										</DialogHeader>
@@ -1792,134 +1815,46 @@ export default function CalendarAndSchedules({
 										</div>
 									</div>
 								) : null}
-								{levelKeysForSession.length > 1 ? (
-									<Tabs
-										value={activeScheduleTab}
-										onValueChange={setActiveScheduleTab}
-									>
-										<TabsList className="w-full flex-wrap justify-start gap-2 overflow-x-auto">
-											{levelKeysForSession.map((key) => (
-												<TabsTrigger key={key} value={key}>
-													{levelLabel(key).replace(`${selectedSession} - `, '')}
-												</TabsTrigger>
-											))}
-										</TabsList>
-									</Tabs>
-								) : levelKeysForSession.length === 1 ? (
-									<p className="text-xs text-muted-foreground">
-										Level:{' '}
-										{levelLabel(levelKeysForSession[0]).replace(
-											`${selectedSession} - `,
-											'',
-										)}
-									</p>
-								) : null}
-								{userRole === 'system_admin' ? (
-									<Tabs value={testViewTab} onValueChange={setTestViewTab}>
-										<TabsList className="w-full justify-start">
-											<TabsTrigger value="schedule">Schedule</TabsTrigger>
-											<TabsTrigger value="manage">Manage</TabsTrigger>
-										</TabsList>
-										<TabsContent value="manage" className="mt-4">
-											<form
-												onSubmit={handleTestSubmit}
-												className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-											>
-												<Input
-													placeholder="Title (e.g., 1st Period Test)"
-													value={testForm.title}
-													onChange={(event) =>
-														setTestForm({
-															...testForm,
-															title: event.target.value,
-														})
-													}
-												/>
-												<select
-													className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-													value={testForm.subject}
-													onChange={(event) =>
-														setTestForm({
-															...testForm,
-															subject: event.target.value,
-														})
-													}
-													disabled={!testForm.level}
+								{levelKeysForSession.length > 0 || canEditTestSchedules ? (
+									<div className="flex flex-wrap items-start justify-between gap-3">
+										<div className="min-w-0 flex-1">
+											{levelKeysForSession.length > 1 ? (
+												<Tabs
+													value={activeScheduleTab}
+													onValueChange={setActiveScheduleTab}
 												>
-													<option value="">
-														{testForm.level
-															? 'Select subject'
-															: 'Select level first'}
-													</option>
-													{testSubjectOptions.map((subject) => (
-														<option key={subject} value={subject}>
-															{subject}
-														</option>
-													))}
-												</select>
-												<Input
-													type="date"
-													placeholder="Date"
-													value={testForm.date}
-													onChange={(event) =>
-														setTestForm({
-															...testForm,
-															date: event.target.value,
-														})
-													}
-												/>
-												<Input
-													type="time"
-													placeholder="Start time"
-													value={testForm.startTime}
-													onChange={(event) =>
-														setTestForm({
-															...testForm,
-															startTime: event.target.value,
-														})
-													}
-												/>
-												<Input
-													type="time"
-													placeholder="End time"
-													value={testForm.endTime}
-													onChange={(event) =>
-														setTestForm({
-															...testForm,
-															endTime: event.target.value,
-														})
-													}
-												/>
-												<Input
-													placeholder="Venue"
-													value={testForm.venue}
-													onChange={(event) =>
-														setTestForm({
-															...testForm,
-															venue: event.target.value,
-														})
-													}
-												/>
-												<div className="flex flex-wrap gap-2 md:col-span-2 lg:col-span-3">
-													<Button type="submit" disabled={isSavingTest}>
-														{isSavingTest
-															? 'Saving...'
-															: testForm.id
-																? 'Update Test'
-																: 'Add Test'}
-													</Button>
-													<Button
-														type="button"
-														variant="outline"
-														onClick={resetTestForm}
-													>
-														Clear
-													</Button>
-												</div>
-											</form>
-										</TabsContent>
-										<TabsContent value="schedule" className="mt-4" />
-									</Tabs>
+													<TabsList className="w-full flex-nowrap justify-start gap-2 overflow-x-auto">
+														{levelKeysForSession.map((key) => (
+															<TabsTrigger key={key} value={key}>
+																{levelLabel(key).replace(
+																	`${selectedSession} - `,
+																	'',
+																)}
+															</TabsTrigger>
+														))}
+													</TabsList>
+												</Tabs>
+											) : levelKeysForSession.length === 1 ? (
+												<p className="text-xs text-muted-foreground">
+													Level:{' '}
+													{levelLabel(levelKeysForSession[0]).replace(
+														`${selectedSession} - `,
+														'',
+													)}
+												</p>
+											) : null}
+										</div>
+										{canEditTestSchedules ? (
+											<Button
+												type="button"
+												onClick={openAddTestModal}
+												disabled={!activeSessionLevel}
+												className="shrink-0"
+											>
+												Add schedule
+											</Button>
+										) : null}
+									</div>
 								) : null}
 
 								<div className="flex flex-wrap items-center gap-3">
@@ -2011,7 +1946,34 @@ export default function CalendarAndSchedules({
 																			(item) => (
 																				<div
 																					key={item.id}
-																					className="rounded-md border border-gray-200 p-2 dark:border-gray-800"
+																					role={
+																						canEditTestSchedules
+																							? 'button'
+																							: undefined
+																					}
+																					tabIndex={
+																						canEditTestSchedules ? 0 : undefined
+																					}
+																					onClick={() =>
+																						canEditTestSchedules &&
+																						openEditTestModal(item)
+																					}
+																					onKeyDown={(event) => {
+																						if (!canEditTestSchedules) return;
+																						if (
+																							event.key !== 'Enter' &&
+																							event.key !== ' '
+																						) {
+																							return;
+																						}
+																						event.preventDefault();
+																						openEditTestModal(item);
+																					}}
+																					className={`rounded-md border border-gray-200 p-2 dark:border-gray-800 ${
+																						canEditTestSchedules
+																							? 'cursor-pointer transition hover:bg-muted/40'
+																							: ''
+																					}`}
 																				>
 																					{item.title ? (
 																						<p className="text-xs font-medium text-muted-foreground">
@@ -2024,29 +1986,10 @@ export default function CalendarAndSchedules({
 																					<p className="text-xs text-muted-foreground">
 																						{item.session} - {item.level}
 																					</p>
-																					{canEditTestSchedules ? (
-																						<div className="mt-2 flex flex-wrap gap-2">
-																							<Button
-																								type="button"
-																								variant="outline"
-																								size="sm"
-																								onClick={() =>
-																									handleEditTest(item)
-																								}
-																							>
-																								Edit
-																							</Button>
-																							<Button
-																								type="button"
-																								variant="destructive"
-																								size="sm"
-																								onClick={() =>
-																									handleDeleteTest(item)
-																								}
-																							>
-																								Delete
-																							</Button>
-																						</div>
+																					{item.venue ? (
+																						<p className="text-xs text-muted-foreground">
+																							Venue: {item.venue}
+																						</p>
 																					) : null}
 																				</div>
 																			),
@@ -2061,6 +2004,148 @@ export default function CalendarAndSchedules({
 										</table>
 									)}
 								</div>
+								<Dialog
+									open={isTestModalOpen}
+									onOpenChange={(open) => {
+										setIsTestModalOpen(open);
+										if (!open) {
+											setScheduleError('');
+											resetTestForm();
+										}
+									}}
+								>
+									<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+										<DialogHeader>
+											<DialogTitle>
+												{testForm.id
+													? 'Edit test schedule'
+													: 'Add test schedule'}
+											</DialogTitle>
+										</DialogHeader>
+										{testForm.session && testForm.level ? (
+											<p className="text-xs text-muted-foreground">
+												{testForm.session} - {testForm.level}
+											</p>
+										) : null}
+										<form
+											onSubmit={handleTestSubmit}
+											className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+										>
+											<Input
+												placeholder="Title (e.g., 1st Period Test)"
+												value={testForm.title}
+												onChange={(event) =>
+													setTestForm({
+														...testForm,
+														title: event.target.value,
+													})
+												}
+											/>
+											<select
+												className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+												value={testForm.subject}
+												onChange={(event) =>
+													setTestForm({
+														...testForm,
+														subject: event.target.value,
+													})
+												}
+												disabled={!testForm.level}
+											>
+												<option value="">
+													{testForm.level
+														? 'Select subject'
+														: 'Select level first'}
+												</option>
+												{testSubjectOptions.map((subject) => (
+													<option key={subject} value={subject}>
+														{subject}
+													</option>
+												))}
+											</select>
+											<Input
+												type="date"
+												placeholder="Date"
+												value={testForm.date}
+												onChange={(event) =>
+													setTestForm({
+														...testForm,
+														date: event.target.value,
+													})
+												}
+											/>
+											<Input
+												type="time"
+												placeholder="Start time"
+												value={testForm.startTime}
+												onChange={(event) =>
+													setTestForm({
+														...testForm,
+														startTime: event.target.value,
+													})
+												}
+											/>
+											<Input
+												type="time"
+												placeholder="End time"
+												value={testForm.endTime}
+												onChange={(event) =>
+													setTestForm({
+														...testForm,
+														endTime: event.target.value,
+													})
+												}
+											/>
+											<Input
+												placeholder="Venue"
+												value={testForm.venue}
+												onChange={(event) =>
+													setTestForm({
+														...testForm,
+														venue: event.target.value,
+													})
+												}
+											/>
+											{scheduleError ? (
+												<p className="text-sm text-red-500 sm:col-span-2 lg:col-span-3">
+													{scheduleError}
+												</p>
+											) : null}
+											<DialogFooter className="flex flex-wrap items-center justify-between gap-2 sm:col-span-2 sm:justify-between lg:col-span-3">
+												<div className="flex flex-wrap gap-2">
+													<Button type="submit" disabled={isSavingTest}>
+														{isSavingTest
+															? 'Saving...'
+															: testForm.id
+																? 'Update schedule'
+																: 'Add schedule'}
+													</Button>
+													<Button
+														type="button"
+														variant="outline"
+														onClick={() => {
+															setIsTestModalOpen(false);
+															setScheduleError('');
+															resetTestForm();
+														}}
+													>
+														Cancel
+													</Button>
+												</div>
+												{testForm.id ? (
+													<Button
+														type="button"
+														variant="destructive"
+														onClick={() => handleDeleteTest(testForm)}
+														disabled={isSavingTest}
+													>
+														Delete schedule
+													</Button>
+												) : null}
+											</DialogFooter>
+										</form>
+									</DialogContent>
+								</Dialog>
 							</CardContent>
 						</Card>
 					</TabsContent>
