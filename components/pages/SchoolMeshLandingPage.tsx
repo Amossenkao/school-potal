@@ -255,12 +255,6 @@ export default function SchoolMeshLandingPage() {
 								{item.label}
 							</a>
 						))}
-						<Link
-							href="/super-admin/login"
-							className="inline-flex items-center rounded-full bg-[#F4C542] px-5 py-2.5 text-sm font-semibold text-[#071D39] shadow-lg shadow-[#F4C542]/35 transition-all hover:bg-[#F8CE5D]"
-						>
-							Admin Login
-						</Link>
 					</div>
 
 					<button
@@ -286,13 +280,6 @@ export default function SchoolMeshLandingPage() {
 									{item.label}
 								</a>
 							))}
-							<Link
-								href="/super-admin/login"
-								onClick={() => setIsMenuOpen(false)}
-								className="mt-1 inline-flex items-center justify-center rounded-lg bg-[#F4C542] px-4 py-2.5 text-sm font-semibold text-[#071D39]"
-							>
-								Admin Login
-							</Link>
 						</div>
 					</div>
 				)}
@@ -815,9 +802,6 @@ export default function SchoolMeshLandingPage() {
 								{item.label}
 							</a>
 						))}
-						<Link href="/super-admin/login" className="font-semibold text-[#F4C542]">
-							Admin Login
-						</Link>
 					</div>
 				</div>
 				<div className="mx-auto mt-6 max-w-7xl border-t border-white/10 px-4 pt-6 text-xs text-white/65 sm:px-6 lg:px-8">
