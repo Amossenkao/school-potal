@@ -238,19 +238,8 @@ export async function generateMetadata({ params }: PageProps) {
 			.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
 			.join(' ');
 
-		// Enhanced title generation for administrators with flexible positions
-		let titleSuffix = schoolProfile?.shortName || 'School Management System';
-
-		if (user?.role === 'administrator') {
-			const adminUser = user as Administrator;
-			const positionName = adminUser.position
-				.replace(/_/g, ' ')
-				.replace(/\b\w/g, (l) => l.toUpperCase());
-			titleSuffix = `${positionName} Dashboard - ${titleSuffix}`;
-		}
-
 		return {
-			title: `${pageTitle} - ${titleSuffix}`,
+			title: pageTitle,
 			description: `${pageTitle} page for ${
 				schoolProfile?.name || 'school management'
 			}${

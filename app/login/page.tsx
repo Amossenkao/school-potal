@@ -133,14 +133,17 @@ const LoginPage = () => {
 		}
 	}, []);
 
-	const rejectPendingTurnstile = useCallback((message: string) => {
-		clearTurnstileTimeout();
-		if (turnstileRejectRef.current) {
-			turnstileRejectRef.current(new Error(message));
-		}
-		turnstileResolveRef.current = null;
-		turnstileRejectRef.current = null;
-	}, [clearTurnstileTimeout]);
+	const rejectPendingTurnstile = useCallback(
+		(message: string) => {
+			clearTurnstileTimeout();
+			if (turnstileRejectRef.current) {
+				turnstileRejectRef.current(new Error(message));
+			}
+			turnstileResolveRef.current = null;
+			turnstileRejectRef.current = null;
+		},
+		[clearTurnstileTimeout],
+	);
 
 	const destroyTurnstileWidget = useCallback(() => {
 		const widgetId = turnstileWidgetIdRef.current;
@@ -210,7 +213,9 @@ const LoginPage = () => {
 			'error-callback': () => {
 				clearTurnstileTimeout();
 				setIsVerifyingTurnstile(false);
-				rejectPendingTurnstile('Security verification failed. Please try again.');
+				rejectPendingTurnstile(
+					'Security verification failed. Please try again.',
+				);
 				resetTurnstileWidget();
 			},
 			'expired-callback': () => {
@@ -254,11 +259,7 @@ const LoginPage = () => {
 				turnstileResolveRef.current = null;
 				turnstileRejectRef.current = null;
 				resetTurnstileWidget();
-				reject(
-					new Error(
-						'Security verification timed out. Please try again.',
-					),
-				);
+				reject(new Error('Security verification timed out. Please try again.'));
 			}, 20000);
 			turnstileResolveRef.current = resolve;
 			turnstileRejectRef.current = reject;
@@ -269,7 +270,9 @@ const LoginPage = () => {
 				setIsVerifyingTurnstile(false);
 				turnstileResolveRef.current = null;
 				turnstileRejectRef.current = null;
-				reject(error instanceof Error ? error : new Error('Verification failed.'));
+				reject(
+					error instanceof Error ? error : new Error('Verification failed.'),
+				);
 			}
 		});
 	}, [clearTurnstileTimeout, ensureTurnstileWidget, resetTurnstileWidget]);
@@ -429,7 +432,9 @@ const LoginPage = () => {
 		const roleSettingsKey = `${selectedRole}Settings`;
 		const roleSettings = (currentSchool.settings as any)[roleSettingsKey];
 		if (roleSettings && roleSettings.loginAccess === false) {
-			setLoginDisabledError(`Login is currently disabled for ${selectedRole}s.`);
+			setLoginDisabledError(
+				`Login is currently disabled for ${selectedRole}s.`,
+			);
 		}
 	}, [selectedRole, currentSchool]);
 
@@ -496,7 +501,7 @@ const LoginPage = () => {
 		if (loginDisabledError) return;
 		if (!isOnline) {
 			setOfflineError(
-				"You are offline. Please connect to the internet and try again."
+				'You are offline. Please connect to the internet and try again.',
 			);
 			return;
 		}
@@ -545,16 +550,16 @@ const LoginPage = () => {
 
 	return (
 		<>
-				<Script
-					src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
-					strategy="afterInteractive"
-					onLoad={() => {
+			<Script
+				src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+				strategy="afterInteractive"
+				onLoad={() => {
+					setIsTurnstileReady(true);
+					setOfflineError('');
+				}}
+				onError={() => {
+					if (typeof window !== 'undefined' && window.turnstile) {
 						setIsTurnstileReady(true);
-						setOfflineError('');
-					}}
-					onError={() => {
-						if (typeof window !== 'undefined' && window.turnstile) {
-							setIsTurnstileReady(true);
 						return;
 					}
 					setIsTurnstileReady(false);
@@ -592,28 +597,28 @@ const LoginPage = () => {
 						</p>
 					</div>
 
-						<div className="max-w-4xl mx-auto">
-							{redirectTimedOut && (
-								<div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
-									Login redirect took too long. You can continue here or try
-									again.
-									<button
-										type="button"
-										onClick={() => {
-											setRedirectTimedOut(false);
-											if (user?.isActive && isLoggedIn && !isAwaitingOtp) {
-												navigateToDashboardWithSpinner();
-											} else {
-												void checkAuthStatus();
-											}
-										}}
-										className="ml-3 rounded border border-amber-500 px-3 py-1 text-sm font-medium hover:bg-amber-100"
-									>
-										Retry
-									</button>
-								</div>
-							)}
-							{!selectedRole ? (
+					<div className="max-w-4xl mx-auto">
+						{redirectTimedOut && (
+							<div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+								Login redirect took too long. You can continue here or try
+								again.
+								<button
+									type="button"
+									onClick={() => {
+										setRedirectTimedOut(false);
+										if (user?.isActive && isLoggedIn && !isAwaitingOtp) {
+											navigateToDashboardWithSpinner();
+										} else {
+											void checkAuthStatus();
+										}
+									}}
+									className="ml-3 rounded border border-amber-500 px-3 py-1 text-sm font-medium hover:bg-amber-100"
+								>
+									Retry
+								</button>
+							</div>
+						)}
+						{!selectedRole ? (
 							/* Step 1: Role Selection */
 							<div className="bg-card rounded-2xl shadow-lg border border-border p-8 animate-in fade-in duration-500">
 								<h2 className="text-2xl font-semibold text-center mb-8">
@@ -880,7 +885,8 @@ const LoginPage = () => {
 							Reserved.
 						</p>
 						<p className="text-[10px] text-muted-foreground/60 mt-1">
-							Powered by SMS e-Portal v2.4.0
+							Powered by{' '}
+							<a href="https://school-mesh.vercel.app">School Mesh</a> v2.4.0
 						</p>
 					</div>
 				</footer>
