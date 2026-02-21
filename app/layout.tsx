@@ -11,12 +11,13 @@ export async function generateMetadata(): Promise<Metadata> {
 	const profileRaw = await getSchoolProfile();
 	const profile =
 		typeof profileRaw === 'string' ? JSON.parse(profileRaw) : profileRaw;
-	const logoUrl = profile?.logoUrl || '/favicon.ico';
+	const logoUrl = profile?.logoUrl || profile?.logoUrl2;
 	const hasApps = profile?.enabledFeatures?.includes('apps');
 	const tenantThemeColor = resolveTenantThemeColor(profile?.themeName);
 	return {
 		manifest: hasApps ? '/manifest.webmanifest' : undefined,
 		themeColor: hasApps ? tenantThemeColor : undefined,
+		title: profile?.shortName,
 		icons: {
 			icon: logoUrl,
 			apple: logoUrl,
