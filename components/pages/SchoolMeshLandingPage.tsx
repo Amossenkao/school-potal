@@ -82,7 +82,8 @@ const statItems = [
 const roleFeatures = [
 	{
 		title: 'Students',
-		description: 'Track classes, grades, reports, and school notices in one dashboard.',
+		description:
+			'Track classes, grades, reports, and school notices in one dashboard.',
 		icon: GraduationCap,
 		items: [
 			'View schedules and performance instantly.',
@@ -92,7 +93,8 @@ const roleFeatures = [
 	},
 	{
 		title: 'Teachers',
-		description: 'Run classroom workflows faster with digital planning and grading.',
+		description:
+			'Run classroom workflows faster with digital planning and grading.',
 		icon: NotebookPen,
 		items: [
 			'Submit lesson plans and grades securely.',
@@ -102,7 +104,8 @@ const roleFeatures = [
 	},
 	{
 		title: 'System Admin',
-		description: 'Manage every school tenant with centralized visibility and controls.',
+		description:
+			'Manage every school tenant with centralized visibility and controls.',
 		icon: ShieldCheck,
 		items: [
 			'Configure users, roles, and feature permissions.',
@@ -138,17 +141,20 @@ const platformHighlights = [
 const accessPlatforms = [
 	{
 		name: 'Web Platform',
-		description: 'Use SchoolMesh from any modern browser with no installation required.',
+		description:
+			'Use SchoolMesh from any modern browser with no installation required.',
 		icon: Globe,
 	},
 	{
 		name: 'Mobile App',
-		description: 'Manage school operations and updates on the go from your phone.',
+		description:
+			'Manage school operations and updates on the go from your phone.',
 		icon: Smartphone,
 	},
 	{
 		name: 'Desktop App',
-		description: 'Run a full desktop experience for school offices and admin teams.',
+		description:
+			'Run a full desktop experience for school offices and admin teams.',
 		icon: Monitor,
 	},
 ];
@@ -159,14 +165,22 @@ const pricingPlans = [
 		coverage: 'Web platform only',
 		price: 'L$700',
 		period: 'per student per year',
-		features: ['Web access', 'Core school management tools', 'Role-based dashboards'],
+		features: [
+			'Web access',
+			'Core school management tools',
+			'Role-based dashboards',
+		],
 	},
 	{
 		name: 'Premium Plan',
 		coverage: 'Web + Desktop + Mobile apps',
-		price: 'L$100',
+		price: 'L$1,000',
 		period: 'per student per year',
-		features: ['All Standard features', 'Mobile app access', 'Desktop app access'],
+		features: [
+			'All Standard features',
+			'Mobile app access',
+			'Desktop app access',
+		],
 	},
 ];
 
@@ -189,12 +203,32 @@ const workflowSteps = [
 ];
 
 const partnerSchools = [
-	{ name: 'Monrovia Excellence Academy', location: 'Monrovia', users: '2,400 users' },
-	{ name: 'Buchanan Scholars Institute', location: 'Grand Bassa', users: '1,750 users' },
-	{ name: 'Kakata Future Leaders School', location: 'Margibi', users: '1,100 users' },
+	{
+		name: 'Upstaris Christian Academy',
+		location: 'Johnsonville, Montserrado County',
+		users: '2,400 users',
+	},
+	{
+		name: 'Buchanan Scholars Institute',
+		location: 'Grand Bassa',
+		users: '1,750 users',
+	},
+	{
+		name: 'Kakata Future Leaders School',
+		location: 'Margibi',
+		users: '1,100 users',
+	},
 	{ name: 'Gbarnga Learning Center', location: 'Bong', users: '900 users' },
-	{ name: 'Harper Community Academy', location: 'Maryland', users: '780 users' },
-	{ name: 'Paynesville STEM College', location: 'Montserrado', users: '1,350 users' },
+	{
+		name: 'Harper Community Academy',
+		location: 'Maryland',
+		users: '780 users',
+	},
+	{
+		name: 'Paynesville STEM College',
+		location: 'Montserrado',
+		users: '1,350 users',
+	},
 ];
 
 const partnerLoop = [...partnerSchools, ...partnerSchools];
@@ -232,16 +266,28 @@ export default function SchoolMeshLandingPage() {
 	}, []);
 
 	return (
-		<div className={`${publicSans.className} scroll-smooth bg-[#F7FAFF] text-[#1F2937]`}>
+		<div
+			className={`${publicSans.className} scroll-smooth bg-[#F7FAFF] text-[#1F2937]`}
+		>
 			<header className="sticky top-0 z-50 border-b border-white/15 bg-[#071D39]/80 backdrop-blur-xl">
 				<nav className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-					<Link href="#home" className="flex items-center gap-3" aria-label="SchoolMesh Home">
+					<Link
+						href="#home"
+						className="flex items-center gap-3"
+						aria-label="SchoolMesh Home"
+					>
 						<div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0B3A6E] shadow-lg shadow-[#0B3A6E]/40">
 							<Globe className="h-5 w-5 text-white" />
 						</div>
 						<div>
-							<p className={`${sora.className} text-lg font-semibold tracking-tight text-white`}>SchoolMesh</p>
-							<p className="text-xs font-medium text-white/70">Connecting Schools. Empowering Learning.</p>
+							<p
+								className={`${sora.className} text-lg font-semibold tracking-tight text-white`}
+							>
+								SchoolMesh
+							</p>
+							<p className="text-xs font-medium text-white/70">
+								Connecting Schools. Empowering Learning.
+							</p>
 						</div>
 					</Link>
 
@@ -263,7 +309,11 @@ export default function SchoolMeshLandingPage() {
 						className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/30 text-white md:hidden"
 						aria-label="Toggle navigation"
 					>
-						{isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+						{isMenuOpen ? (
+							<X className="h-5 w-5" />
+						) : (
+							<Menu className="h-5 w-5" />
+						)}
 					</button>
 				</nav>
 
@@ -334,7 +384,9 @@ export default function SchoolMeshLandingPage() {
 									exit={{ opacity: 0, y: -18 }}
 									transition={{ duration: 0.45, ease: 'easeOut' }}
 								>
-									<h1 className={`${sora.className} text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl`}>
+									<h1
+										className={`${sora.className} text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl`}
+									>
 										{heroSlides[currentSlide].title}
 									</h1>
 									<p className="mt-5 max-w-xl text-base text-white/85 sm:text-lg">
@@ -369,7 +421,11 @@ export default function SchoolMeshLandingPage() {
 										transition={{ duration: 0.5, delay: 0.22 + index * 0.08 }}
 										className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur"
 									>
-										<p className={`${sora.className} text-2xl font-bold text-white`}>{item.value}</p>
+										<p
+											className={`${sora.className} text-2xl font-bold text-white`}
+										>
+											{item.value}
+										</p>
 										<p className="text-xs text-white/80">{item.label}</p>
 									</motion.div>
 								))}
@@ -405,7 +461,11 @@ export default function SchoolMeshLandingPage() {
 												: 'border-white/20'
 										}`}
 									>
-										<img src={slide.image} alt={slide.title} className="h-24 w-full object-cover" />
+										<img
+											src={slide.image}
+											alt={slide.title}
+											className="h-24 w-full object-cover"
+										/>
 									</button>
 								))}
 							</div>
@@ -419,8 +479,19 @@ export default function SchoolMeshLandingPage() {
 										key={slide.image}
 										onClick={() => setCurrentSlide(index)}
 										whileHover={{ y: -5 }}
-										animate={{ y: index === 0 ? [0, -10, 0] : index === 1 ? [0, -7, 0] : [0, -11, 0] }}
-										transition={{ duration: 5 + index, repeat: Infinity, ease: 'easeInOut' }}
+										animate={{
+											y:
+												index === 0
+													? [0, -10, 0]
+													: index === 1
+														? [0, -7, 0]
+														: [0, -11, 0],
+										}}
+										transition={{
+											duration: 5 + index,
+											repeat: Infinity,
+											ease: 'easeInOut',
+										}}
 										className={`relative overflow-hidden rounded-3xl border text-left shadow-2xl transition-all ${
 											index === 0 ? 'col-span-2 h-64' : 'h-44'
 										} ${
@@ -429,7 +500,11 @@ export default function SchoolMeshLandingPage() {
 												: 'border-white/25 shadow-black/20'
 										}`}
 									>
-										<img src={slide.image} alt={slide.title} className="h-full w-full object-cover" />
+										<img
+											src={slide.image}
+											alt={slide.title}
+											className="h-full w-full object-cover"
+										/>
 										<div className="absolute inset-0 bg-gradient-to-t from-[#071D39]/70 to-transparent" />
 										<p className="absolute bottom-4 left-4 pr-6 text-sm font-semibold text-white">
 											{slide.title}
@@ -441,35 +516,58 @@ export default function SchoolMeshLandingPage() {
 					</div>
 				</section>
 
-				<section id="about" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+				<section
+					id="about"
+					className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8"
+				>
 					<div className="grid gap-10 lg:grid-cols-[1fr_0.95fr] lg:items-center">
 						<FadeIn>
-							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#D62828]">About SchoolMesh</p>
-							<h2 className={`${sora.className} text-3xl font-bold text-[#0B3A6E] sm:text-4xl`}>
+							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#D62828]">
+								About SchoolMesh
+							</p>
+							<h2
+								className={`${sora.className} text-3xl font-bold text-[#0B3A6E] sm:text-4xl`}
+							>
 								A modern backbone for school systems in Liberia.
 							</h2>
 							<p className="mt-5 text-base leading-relaxed text-[#1F2937]/80">
-								SchoolMesh unifies academic operations, communication, and administration into one secure platform. Each school runs independently, while network leaders gain clean visibility and better control.
+								SchoolMesh unifies academic operations, communication, and
+								administration into one secure platform. Each school runs
+								independently, while network leaders gain clean visibility and
+								better control.
 							</p>
 							<div className="mt-8 space-y-3">
 								<div className="flex items-start gap-3">
 									<CheckCircle2 className="mt-0.5 h-5 w-5 text-[#22A06B]" />
-									<p className="text-sm text-[#1F2937]/80">Fast onboarding and secure tenant separation for every school.</p>
+									<p className="text-sm text-[#1F2937]/80">
+										Fast onboarding and secure tenant separation for every
+										school.
+									</p>
 								</div>
 								<div className="flex items-start gap-3">
 									<CheckCircle2 className="mt-0.5 h-5 w-5 text-[#22A06B]" />
-									<p className="text-sm text-[#1F2937]/80">Role-aware experiences for students, teachers, and administrators.</p>
+									<p className="text-sm text-[#1F2937]/80">
+										Role-aware experiences for students, teachers, and
+										administrators.
+									</p>
 								</div>
 								<div className="flex items-start gap-3">
 									<CheckCircle2 className="mt-0.5 h-5 w-5 text-[#22A06B]" />
-									<p className="text-sm text-[#1F2937]/80">Clear insights with reporting, notifications, and activity tracking.</p>
+									<p className="text-sm text-[#1F2937]/80">
+										Clear insights with reporting, notifications, and activity
+										tracking.
+									</p>
 								</div>
 							</div>
 						</FadeIn>
 
 						<FadeIn delay={0.08}>
 							<div className="rounded-3xl border border-[#0B3A6E]/10 bg-white p-6 shadow-xl shadow-[#0B3A6E]/10 sm:p-8">
-								<p className={`${sora.className} text-xl font-semibold text-[#0B3A6E]`}>How It Works</p>
+								<p
+									className={`${sora.className} text-xl font-semibold text-[#0B3A6E]`}
+								>
+									How It Works
+								</p>
 								<div className="mt-6 space-y-4">
 									{workflowSteps.map((step, index) => {
 										const Icon = step.icon;
@@ -487,8 +585,12 @@ export default function SchoolMeshLandingPage() {
 														<Icon className="h-5 w-5" />
 													</div>
 													<div>
-														<p className="text-sm font-semibold text-[#0B3A6E]">{step.title}</p>
-														<p className="text-sm text-[#1F2937]/75">{step.text}</p>
+														<p className="text-sm font-semibold text-[#0B3A6E]">
+															{step.title}
+														</p>
+														<p className="text-sm text-[#1F2937]/75">
+															{step.text}
+														</p>
 													</div>
 												</div>
 											</motion.div>
@@ -503,12 +605,17 @@ export default function SchoolMeshLandingPage() {
 				<section id="features" className="bg-white py-20">
 					<div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 						<FadeIn className="text-center">
-							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#D62828]">Features</p>
-							<h2 className={`${sora.className} text-3xl font-bold text-[#0B3A6E] sm:text-4xl`}>
+							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#D62828]">
+								Features
+							</p>
+							<h2
+								className={`${sora.className} text-3xl font-bold text-[#0B3A6E] sm:text-4xl`}
+							>
 								Purpose-built modules for every role.
 							</h2>
 							<p className="mx-auto mt-4 max-w-2xl text-base text-[#1F2937]/75">
-								Everything is designed around real school workflows, from classroom updates to tenant-wide governance.
+								Everything is designed around real school workflows, from
+								classroom updates to tenant-wide governance.
 							</p>
 						</FadeIn>
 
@@ -528,11 +635,20 @@ export default function SchoolMeshLandingPage() {
 										<div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0B3A6E] text-white">
 											<Icon className="h-5 w-5" />
 										</div>
-										<h3 className={`${sora.className} text-xl font-semibold text-[#0B3A6E]`}>{group.title}</h3>
-										<p className="mt-2 text-sm text-[#1F2937]/75">{group.description}</p>
+										<h3
+											className={`${sora.className} text-xl font-semibold text-[#0B3A6E]`}
+										>
+											{group.title}
+										</h3>
+										<p className="mt-2 text-sm text-[#1F2937]/75">
+											{group.description}
+										</p>
 										<ul className="mt-5 space-y-2.5">
 											{group.items.map((item) => (
-												<li key={item} className="flex items-start gap-2 text-sm text-[#1F2937]/80">
+												<li
+													key={item}
+													className="flex items-start gap-2 text-sm text-[#1F2937]/80"
+												>
 													<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#22A06B]" />
 													<span>{item}</span>
 												</li>
@@ -550,8 +666,12 @@ export default function SchoolMeshLandingPage() {
 									<FadeIn key={feature.title} delay={0.05 * index}>
 										<div className="rounded-2xl border border-[#0B3A6E]/10 bg-white p-5 shadow-sm transition hover:shadow-md">
 											<Icon className="h-5 w-5 text-[#D62828]" />
-											<p className="mt-3 text-sm font-semibold text-[#0B3A6E]">{feature.title}</p>
-											<p className="mt-2 text-sm text-[#1F2937]/75">{feature.body}</p>
+											<p className="mt-3 text-sm font-semibold text-[#0B3A6E]">
+												{feature.title}
+											</p>
+											<p className="mt-2 text-sm text-[#1F2937]/75">
+												{feature.body}
+											</p>
 										</div>
 									</FadeIn>
 								);
@@ -563,12 +683,17 @@ export default function SchoolMeshLandingPage() {
 				<section id="platforms" className="py-20">
 					<div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 						<FadeIn className="text-center">
-							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#D62828]">Platforms</p>
-							<h2 className={`${sora.className} text-3xl font-bold text-[#0B3A6E] sm:text-4xl`}>
+							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#D62828]">
+								Platforms
+							</p>
+							<h2
+								className={`${sora.className} text-3xl font-bold text-[#0B3A6E] sm:text-4xl`}
+							>
 								Access SchoolMesh on web, mobile, and desktop.
 							</h2>
 							<p className="mx-auto mt-4 max-w-2xl text-base text-[#1F2937]/75">
-								Choose the delivery channels that match how your school teams and families work every day.
+								Choose the delivery channels that match how your school teams
+								and families work every day.
 							</p>
 						</FadeIn>
 
@@ -588,8 +713,14 @@ export default function SchoolMeshLandingPage() {
 										<div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0B3A6E] text-white">
 											<Icon className="h-5 w-5" />
 										</div>
-										<h3 className={`${sora.className} text-xl font-semibold text-[#0B3A6E]`}>{platform.name}</h3>
-										<p className="mt-2 text-sm text-[#1F2937]/75">{platform.description}</p>
+										<h3
+											className={`${sora.className} text-xl font-semibold text-[#0B3A6E]`}
+										>
+											{platform.name}
+										</h3>
+										<p className="mt-2 text-sm text-[#1F2937]/75">
+											{platform.description}
+										</p>
 									</motion.div>
 								);
 							})}
@@ -600,12 +731,17 @@ export default function SchoolMeshLandingPage() {
 				<section id="pricing" className="bg-white py-20">
 					<div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 						<FadeIn className="text-center">
-							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#D62828]">Plans and Pricing</p>
-							<h2 className={`${sora.className} text-3xl font-bold text-[#0B3A6E] sm:text-4xl`}>
+							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#D62828]">
+								Plans and Pricing
+							</p>
+							<h2
+								className={`${sora.className} text-3xl font-bold text-[#0B3A6E] sm:text-4xl`}
+							>
 								Super affordable pricing per student, per year.
 							</h2>
 							<p className="mx-auto mt-4 max-w-2xl text-base text-[#1F2937]/75">
-								Pay annually based on active students. Pick the plan that fits your deployment model.
+								Pay annually based on active students. Pick the plan that fits
+								your deployment model.
 							</p>
 						</FadeIn>
 
@@ -625,8 +761,14 @@ export default function SchoolMeshLandingPage() {
 								>
 									<div className="flex items-start justify-between gap-3">
 										<div>
-											<h3 className={`${sora.className} text-2xl font-semibold text-[#0B3A6E]`}>{plan.name}</h3>
-											<p className="mt-1 text-sm font-medium text-[#1F2937]/70">{plan.coverage}</p>
+											<h3
+												className={`${sora.className} text-2xl font-semibold text-[#0B3A6E]`}
+											>
+												{plan.name}
+											</h3>
+											<p className="mt-1 text-sm font-medium text-[#1F2937]/70">
+												{plan.coverage}
+											</p>
 										</div>
 										<span
 											className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -635,18 +777,29 @@ export default function SchoolMeshLandingPage() {
 													: 'bg-[#0B3A6E]/10 text-[#0B3A6E]'
 											}`}
 										>
-											{plan.name === 'Premium Plan' ? 'Full App Access' : 'Web Only'}
+											{plan.name === 'Premium Plan'
+												? 'Full App Access'
+												: 'Web Only'}
 										</span>
 									</div>
 
 									<div className="mt-6">
-										<p className={`${sora.className} text-4xl font-bold text-[#0B3A6E]`}>{plan.price}</p>
-										<p className="mt-1 text-sm text-[#1F2937]/70">{plan.period}</p>
+										<p
+											className={`${sora.className} text-4xl font-bold text-[#0B3A6E]`}
+										>
+											{plan.price}
+										</p>
+										<p className="mt-1 text-sm text-[#1F2937]/70">
+											{plan.period}
+										</p>
 									</div>
 
 									<ul className="mt-6 space-y-2.5">
 										{plan.features.map((item) => (
-											<li key={item} className="flex items-start gap-2 text-sm text-[#1F2937]/80">
+											<li
+												key={item}
+												className="flex items-start gap-2 text-sm text-[#1F2937]/80"
+											>
 												<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#22A06B]" />
 												<span>{item}</span>
 											</li>
@@ -661,12 +814,17 @@ export default function SchoolMeshLandingPage() {
 				<section id="partners" className="py-20">
 					<div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 						<FadeIn className="text-center">
-							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#D62828]">Current Partners</p>
-							<h2 className={`${sora.className} text-3xl font-bold text-[#0B3A6E] sm:text-4xl`}>
+							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#D62828]">
+								Current Partners
+							</p>
+							<h2
+								className={`${sora.className} text-3xl font-bold text-[#0B3A6E] sm:text-4xl`}
+							>
 								Schools currently running SchoolMesh.
 							</h2>
 							<p className="mx-auto mt-4 max-w-2xl text-base text-[#1F2937]/75">
-								Our network is expanding across Liberia as schools adopt a cleaner, faster operating model.
+								Our network is expanding across Liberia as schools adopt a
+								cleaner, faster operating model.
 							</p>
 						</FadeIn>
 
@@ -677,11 +835,20 @@ export default function SchoolMeshLandingPage() {
 								transition={{ duration: 28, repeat: Infinity, ease: 'linear' }}
 							>
 								{partnerLoop.map((partner, index) => (
-									<div key={`${partner.name}-${index}`} className="w-[280px] rounded-2xl border border-[#0B3A6E]/10 bg-[#F7FAFF] p-4">
+									<div
+										key={`${partner.name}-${index}`}
+										className="w-[280px] rounded-2xl border border-[#0B3A6E]/10 bg-[#F7FAFF] p-4"
+									>
 										<div className="flex items-start justify-between gap-3">
 											<div>
-												<p className={`${sora.className} text-base font-semibold text-[#0B3A6E]`}>{partner.name}</p>
-												<p className="mt-1 text-sm text-[#1F2937]/70">{partner.location}, Liberia</p>
+												<p
+													className={`${sora.className} text-base font-semibold text-[#0B3A6E]`}
+												>
+													{partner.name}
+												</p>
+												<p className="mt-1 text-sm text-[#1F2937]/70">
+													{partner.location}, Liberia
+												</p>
 											</div>
 											<div className="rounded-full bg-[#0B3A6E]/8 p-2">
 												<Building2 className="h-4 w-4 text-[#0B3A6E]" />
@@ -700,12 +867,17 @@ export default function SchoolMeshLandingPage() {
 				<section id="contact" className="bg-[#0B3A6E] py-20 text-white">
 					<div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[1fr_1fr] lg:px-8">
 						<FadeIn>
-							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#F4C542]">Contact Us</p>
-							<h2 className={`${sora.className} text-3xl font-bold sm:text-4xl`}>
+							<p className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#F4C542]">
+								Contact Us
+							</p>
+							<h2
+								className={`${sora.className} text-3xl font-bold sm:text-4xl`}
+							>
 								Talk with the SchoolMesh team.
 							</h2>
 							<p className="mt-4 max-w-lg text-sm text-white/80 sm:text-base">
-								Planning rollout for one school or a full school network? We can map onboarding, migration, and admin setup.
+								Planning rollout for one school or a full school network? We can
+								map onboarding, migration, and admin setup.
 							</p>
 							<div className="mt-8 space-y-4">
 								<div className="flex items-center gap-3 text-sm text-white/85">
@@ -732,11 +904,22 @@ export default function SchoolMeshLandingPage() {
 									window.setTimeout(() => setIsSubmitting(false), 900);
 								}}
 							>
-								<p className={`${sora.className} text-xl font-semibold text-[#0B3A6E]`}>Request a Demo</p>
-								<p className="mt-2 text-sm text-[#1F2937]/70">We will reach out with setup options for your school network.</p>
+								<p
+									className={`${sora.className} text-xl font-semibold text-[#0B3A6E]`}
+								>
+									Request a Demo
+								</p>
+								<p className="mt-2 text-sm text-[#1F2937]/70">
+									We will reach out with setup options for your school network.
+								</p>
 								<div className="mt-6 space-y-4">
 									<div>
-										<label htmlFor="fullName" className="text-sm font-semibold text-[#0B3A6E]">Full Name</label>
+										<label
+											htmlFor="fullName"
+											className="text-sm font-semibold text-[#0B3A6E]"
+										>
+											Full Name
+										</label>
 										<input
 											id="fullName"
 											type="text"
@@ -747,7 +930,12 @@ export default function SchoolMeshLandingPage() {
 									</div>
 									<div className="grid gap-4 sm:grid-cols-2">
 										<div>
-											<label htmlFor="email" className="text-sm font-semibold text-[#0B3A6E]">Email</label>
+											<label
+												htmlFor="email"
+												className="text-sm font-semibold text-[#0B3A6E]"
+											>
+												Email
+											</label>
 											<input
 												id="email"
 												type="email"
@@ -757,7 +945,12 @@ export default function SchoolMeshLandingPage() {
 											/>
 										</div>
 										<div>
-											<label htmlFor="organization" className="text-sm font-semibold text-[#0B3A6E]">School / Group</label>
+											<label
+												htmlFor="organization"
+												className="text-sm font-semibold text-[#0B3A6E]"
+											>
+												School / Group
+											</label>
 											<input
 												id="organization"
 												type="text"
@@ -768,7 +961,12 @@ export default function SchoolMeshLandingPage() {
 										</div>
 									</div>
 									<div>
-										<label htmlFor="message" className="text-sm font-semibold text-[#0B3A6E]">Message</label>
+										<label
+											htmlFor="message"
+											className="text-sm font-semibold text-[#0B3A6E]"
+										>
+											Message
+										</label>
 										<textarea
 											id="message"
 											required
@@ -793,12 +991,20 @@ export default function SchoolMeshLandingPage() {
 			<footer className="bg-[#071D39] py-10 text-white/80">
 				<div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
 					<div>
-						<p className={`${sora.className} text-lg font-semibold text-white`}>SchoolMesh</p>
-						<p className="mt-1 text-sm">Connecting Schools. Empowering Learning.</p>
+						<p className={`${sora.className} text-lg font-semibold text-white`}>
+							SchoolMesh
+						</p>
+						<p className="mt-1 text-sm">
+							Connecting Schools. Empowering Learning.
+						</p>
 					</div>
 					<div className="flex flex-wrap items-center gap-5 text-sm">
 						{navItems.map((item) => (
-							<a key={item.href} href={item.href} className="transition-colors hover:text-white">
+							<a
+								key={item.href}
+								href={item.href}
+								className="transition-colors hover:text-white"
+							>
 								{item.label}
 							</a>
 						))}

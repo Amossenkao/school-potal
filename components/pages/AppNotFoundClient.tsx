@@ -3,40 +3,28 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import useAuth from '@/store/useAuth';
 import { PageLoading } from '@/components/loading';
-import { useNetworkStore } from '@/store/networkStore';
-
-const hasCachedAuthUser = () => {
-	if (typeof window === 'undefined') return false;
-	try {
-		return Boolean(localStorage.getItem('auth-user'));
-	} catch (error) {
-		console.warn('Unable to read auth cache:', error);
-		return false;
-	}
-};
 
 export default function AppNotFoundClient() {
 	const pathname = usePathname();
-	const { user } = useAuth();
+	const { user, bootstrapAuth, hasBootstrapped, isBootstrapping } = useAuth();
 	const isDashboardRoute = pathname.startsWith('/dashboard');
 	const router = useRouter();
-	const { isOnline } = useNetworkStore();
 
 	useEffect(() => {
-		if (!isDashboardRoute || user) return;
+		if (!isDashboardRoute) return;
+		void bootstrapAuth();
+	}, [bootstrapAuth, isDashboardRoute]);
 
-		if (isOnline) {
-			router.replace('/login');
-			return;
-		}
-
-		if (hasCachedAuthUser()) {
-			router.replace('/dashboard');
-			return;
-		}
-
+	useEffect(() => {
+		if (!isDashboardRoute) return;
+		if (!hasBootstrapped || isBootstrapping) return;
+		if (user) return;
 		router.replace('/login');
-	}, [isDashboardRoute, user, isOnline, router]);
+	}, [isDashboardRoute, hasBootstrapped, isBootstrapping, user, router]);
+
+	if (isDashboardRoute && (!hasBootstrapped || isBootstrapping)) {
+		return <PageLoading variant="school" message="Loading..." />;
+	}
 
 	if (isDashboardRoute && !user) {
 		return <PageLoading variant="school" message="Loading..." />;

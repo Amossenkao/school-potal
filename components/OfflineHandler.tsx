@@ -139,12 +139,38 @@ export default function OfflineHandler({
 			}
 		};
 
+		const isConnectivityProbe = (url: string) => {
+			try {
+				const parsed = new URL(url, window.location.origin);
+				return (
+					parsed.origin === window.location.origin && parsed.pathname === '/api/ping'
+				);
+			} catch {
+				return url.includes('/api/ping');
+			}
+		};
+
+		const isLikelyNetworkError = (error: unknown) => {
+			if (error instanceof DOMException) {
+				return error.name === 'AbortError' || error.name === 'TimeoutError';
+			}
+			if (error instanceof TypeError) return true;
+			if (typeof error === 'object' && error) {
+				const candidate = error as { message?: unknown };
+				const message =
+					typeof candidate.message === 'string' ? candidate.message : '';
+				return /network.?error/i.test(message) || /failed to fetch/i.test(message);
+			}
+			return false;
+		};
+
 		window.fetch = async (...args: Parameters<typeof fetch>) => {
-			const { isOnline: storeOnlineState } = useNetworkStore.getState();
-			const navigatorOnline =
-				typeof navigator !== 'undefined' ? navigator.onLine : storeOnlineState;
-			const onlineState = storeOnlineState && navigatorOnline;
 			const { url, method } = getRequestMeta(args[0], args[1]);
+			if (isConnectivityProbe(url)) {
+				return originalFetch(...(args as Parameters<typeof fetch>));
+			}
+
+			const { isOnline: onlineState } = useNetworkStore.getState();
 			const cacheableGet = shouldCacheGet(url, method);
 			const request = cacheableGet ? buildCacheRequest(args[0], args[1]) : null;
 			const fetchArgs = cacheableGet && request ? [request] : args;
@@ -184,7 +210,8 @@ export default function OfflineHandler({
 				}
 				return response;
 			} catch (error) {
-				if (!navigator.onLine) {
+				if (isLikelyNetworkError(error)) {
+					useNetworkStore.getState().markOffline('fetch-request-failed');
 					if (method.toUpperCase() === 'GET' && cacheableGet) {
 						const cached = request ? await readCachedResponse(request) : null;
 						if (cached) return cached;

@@ -5,6 +5,7 @@ import {
 	getAllDomainSnapshots,
 	setDomainSnapshot,
 } from '@/utils/domainSyncCache';
+import { useNetworkStore } from './networkStore';
 
 type UsersPayload = {
 	students?: any[];
@@ -228,9 +229,11 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		// Cache-first: if school exists in memory or local storage, skip network fetch.
 		if (get().school) return;
 
-		const isOffline =
-			typeof navigator !== 'undefined' && navigator.onLine === false;
-		if (isOffline) return;
+		const isOnline = await useNetworkStore.getState().refreshConnectivity({
+			timeoutMs: 2500,
+			reason: 'school-fetch',
+		});
+		if (!isOnline) return;
 
 			if (fetchPromise) return fetchPromise;
 
@@ -517,19 +520,19 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	hydrateCache: () => {
 		const cachedMeta = readMetaCache();
 		if (cachedMeta) {
-			const usersVersions = expandAcademicYearRecordMap(
+			const usersVersions = expandAcademicYearRecordMap<string>(
 				cachedMeta.usersVersionByAcademicYear,
 			);
-			const calendarVersions = expandAcademicYearRecordMap(
+			const calendarVersions = expandAcademicYearRecordMap<string>(
 				cachedMeta.calendarVersionByAcademicYear,
 			);
-			const gradesVersions = expandAcademicYearRecordMap(
+			const gradesVersions = expandAcademicYearRecordMap<string>(
 				cachedMeta.gradesVersionByAcademicYear,
 			);
-			const gradeRequestsVersions = expandAcademicYearRecordMap(
+			const gradeRequestsVersions = expandAcademicYearRecordMap<string>(
 				cachedMeta.gradeRequestsVersionByAcademicYear,
 			);
-			const schedulesVersions = expandAcademicYearRecordMap(
+			const schedulesVersions = expandAcademicYearRecordMap<string>(
 				cachedMeta.schedulesVersionByAcademicYear,
 			);
 			set((state) => ({

@@ -47,7 +47,9 @@ export default function NavBar({ skipStorageLoad = false }) {
 		user,
 		isLoading: authLoading,
 		logout,
-		checkAuthStatus,
+		bootstrapAuth,
+		hasBootstrapped,
+		isBootstrapping,
 	} = useAuth();
 
 	const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -75,9 +77,9 @@ export default function NavBar({ skipStorageLoad = false }) {
 
 		// Skip if explicitly told to (e.g., during OTP flow)
 		if (!skipStorageLoad) {
-			checkAuthStatus();
+			void bootstrapAuth();
 		}
-	}, [skipStorageLoad, checkAuthStatus]);
+	}, [skipStorageLoad, bootstrapAuth]);
 
 	const handleMobileSubmenuToggle = (menuName: string) => {
 		setOpenMobileSubmenu((prev) => (prev === menuName ? null : menuName));
@@ -129,7 +131,7 @@ export default function NavBar({ skipStorageLoad = false }) {
 		setIsSidebarOpen(false);
 	};
 
-	const handleNavClick = async (href) => {
+	const handleNavClick = async (href: string) => {
 		if (href.startsWith('#')) {
 			const sectionName = href.substring(1);
 			setIsNavigatingToSection(sectionName);
@@ -159,7 +161,7 @@ export default function NavBar({ skipStorageLoad = false }) {
 		closeSidebar();
 	};
 
-	const isSectionLoading = (sectionName) => {
+	const isSectionLoading = (sectionName: string) => {
 		return isNavigatingToSection === sectionName;
 	};
 
@@ -169,8 +171,15 @@ export default function NavBar({ skipStorageLoad = false }) {
 
 	const isLoginPage = path === '/login' || path === '/home/login';
 	const isHomePage = path === '/' || path === '/home';
+	const schoolShortName = currentSchool?.shortName || 'School';
 
-	const LoadingIcon = ({ isLoading, defaultIcon: DefaultIcon }) => {
+	const LoadingIcon = ({
+		isLoading,
+		defaultIcon: DefaultIcon,
+	}: {
+		isLoading: boolean;
+		defaultIcon: React.ComponentType<{ className?: string }>;
+	}) => {
 		return isLoading ? (
 			<Loader2 className="h-4 w-4 animate-spin" />
 		) : (
@@ -182,7 +191,7 @@ export default function NavBar({ skipStorageLoad = false }) {
 	const AuthButtons = ({ className = '', isMobile = false }) => {
 		if (isLoginPage) return null;
 
-		if (authLoading) {
+		if (isBootstrapping || !hasBootstrapped) {
 			return (
 				<div className={`flex items-center gap-2 ${className}`}>
 					<Button disabled variant="ghost" size={isMobile ? 'default' : 'sm'}>
@@ -208,8 +217,6 @@ export default function NavBar({ skipStorageLoad = false }) {
 				</Button>
 			);
 		}
-
-		console.log(user);
 
 		// User is logged in
 		const getDashboardButtonState = () => {
@@ -256,7 +263,7 @@ export default function NavBar({ skipStorageLoad = false }) {
 				<Button
 					variant="outline"
 					onClick={handleLogout}
-					disabled={isLoggingOut}
+					disabled={isLoggingOut || authLoading}
 					className={isMobile ? 'w-full' : ''}
 					size="sm"
 				>
@@ -352,7 +359,7 @@ export default function NavBar({ skipStorageLoad = false }) {
 												defaultIcon={Info}
 											/>
 											<span className="font-medium">
-												About {currentSchool.shortName}
+												About {schoolShortName}
 											</span>
 										</button>
 									</li>
@@ -621,7 +628,7 @@ export default function NavBar({ skipStorageLoad = false }) {
 										isLoading={isSectionLoading('about')}
 										defaultIcon={Info}
 									/>
-									About {currentSchool.shortName}
+									About {schoolShortName}
 								</button>
 							)}
 

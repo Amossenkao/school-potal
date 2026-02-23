@@ -12,6 +12,7 @@ import { Toaster } from 'react-hot-toast';
 import { applyTenantThemeToDocument } from '@/lib/tenantTheme';
 import { clearAllClientCache } from '@/utils/clientCache';
 import { clearUserSessionDataCaches } from '@/utils/sessionPrivacy';
+import { useNetworkStore } from '@/store/networkStore';
 
 const OFFLINE_REQUESTS_KEY = 'school_portal_offline_requests';
 const LOGOUT_ENDPOINT = '/api/auth/login';
@@ -99,7 +100,12 @@ export default function RootProviders({
 
 	useEffect(() => {
 		const flushOfflineRequests = async () => {
-			if (!navigator.onLine) return;
+			const isOnline = await useNetworkStore.getState().refreshConnectivity({
+				timeoutMs: 2200,
+				force: true,
+				reason: 'flush-offline-requests',
+			});
+			if (!isOnline) return;
 			try {
 				const raw = localStorage.getItem(OFFLINE_REQUESTS_KEY);
 				if (!raw) return;

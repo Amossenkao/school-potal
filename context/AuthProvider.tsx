@@ -1,4 +1,3 @@
-// app/providers/AuthProvider.tsx
 'use client';
 
 import { useEffect, useRef } from 'react';
@@ -6,91 +5,124 @@ import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
 import { useNetworkStore } from '@/store/networkStore';
 
+const AUTH_REFRESH_INTERVAL_MS = 8000;
+
 export default function AuthProvider({
 	children,
 }: {
 	children: React.ReactNode;
 }) {
-	const { checkAuthStatus, hydrateFromCache, user } = useAuth();
-	const setIsOnline = useNetworkStore((state) => state.setIsOnline);
+	const bootstrapAuth = useAuth((state) => state.bootstrapAuth);
+	const checkAuthStatus = useAuth((state) => state.checkAuthStatus);
+	const user = useAuth((state) => state.user);
+
+	const setBrowserOnline = useNetworkStore((state) => state.setBrowserOnline);
+	const markOffline = useNetworkStore((state) => state.markOffline);
 	const setAuthCheckFailed = useNetworkStore(
 		(state) => state.setAuthCheckFailed,
 	);
-	const authCheckInFlight = useRef(false);
+	const refreshConnectivity = useNetworkStore(
+		(state) => state.refreshConnectivity,
+	);
+
+	const authRefreshInFlight = useRef(false);
 
 	useEffect(() => {
 		let mounted = true;
 
-		const runAuthCheck = async () => {
-			if (authCheckInFlight.current) return;
-			authCheckInFlight.current = true;
-			const navigatorOnline =
-				typeof navigator !== 'undefined' ? navigator.onLine : true;
-			setIsOnline(navigatorOnline);
-			if (!navigatorOnline) {
-				if (!user) {
-					hydrateFromCache();
-				}
-				setAuthCheckFailed(true);
-				authCheckInFlight.current = false;
-				return;
-			}
-
+		const ensureSchoolProfile = async () => {
+			if (!mounted) return;
+			const currentSchool = useSchoolStore.getState().school;
+			if (currentSchool) return;
 			try {
-				await checkAuthStatus(); // ✅ Ping /api/auth/me
-			} catch (err) {
-				console.error('[AuthProvider] Failed to reach /api/auth/me:', err);
+				await useSchoolStore.getState().fetchSchool();
+			} catch (error) {
+				console.error('[AuthProvider] Failed to fetch school profile:', error);
+			}
+		};
+
+		const runPeriodicAuthRefresh = async (forceConnectivity = false) => {
+			if (authRefreshInFlight.current) return;
+			authRefreshInFlight.current = true;
+			try {
+				const online = await refreshConnectivity({
+					force: forceConnectivity,
+					timeoutMs: 2800,
+					reason: 'auth-provider-refresh',
+				});
+				if (!online) {
+					setAuthCheckFailed(true);
+					return;
+				}
+				await checkAuthStatus();
+				await ensureSchoolProfile();
+			} catch (error) {
+				console.error('[AuthProvider] Periodic auth refresh failed:', error);
 				setAuthCheckFailed(true);
 			} finally {
-				authCheckInFlight.current = false;
-			}
-
-			if (mounted) {
-				const currentSchool = useSchoolStore.getState().school;
-				if (!currentSchool) {
-					try {
-						await useSchoolStore.getState().fetchSchool();
-					} catch (err) {
-						console.error('[AuthProvider] Failed to fetch school:', err);
-					}
-				}
+				authRefreshInFlight.current = false;
 			}
 		};
 
-		// Initial check
-		runAuthCheck();
+		const runInitialBootstrap = async () => {
+			try {
+				await bootstrapAuth({ force: true });
+				await ensureSchoolProfile();
+			} catch (error) {
+				console.error('[AuthProvider] Initial auth bootstrap failed:', error);
+			}
+		};
+		void runInitialBootstrap();
 
-		// Periodic check: keep lightweight for low-end devices and slow links.
-		const interval = setInterval(runAuthCheck, 10000);
+		const interval = window.setInterval(() => {
+			void runPeriodicAuthRefresh(false);
+		}, AUTH_REFRESH_INTERVAL_MS);
 
-		// Listen for browser online/offline events
 		const handleOnline = () => {
-			setIsOnline(true);
-			// When back online, recheck auth immediately
-			runAuthCheck();
+			setBrowserOnline(true);
+			void runPeriodicAuthRefresh(true);
 		};
 		const handleOffline = () => {
-			setIsOnline(false);
+			markOffline('browser-offline');
 			setAuthCheckFailed(true);
 		};
 
 		window.addEventListener('online', handleOnline);
 		window.addEventListener('offline', handleOffline);
 
+		const connection =
+			typeof navigator !== 'undefined'
+				? (navigator as Navigator & {
+						connection?: EventTarget;
+				  }).connection
+				: undefined;
+		const handleConnectionChange = () => {
+			void runPeriodicAuthRefresh(true);
+		};
+		connection?.addEventListener?.('change', handleConnectionChange);
+
 		return () => {
 			mounted = false;
-			clearInterval(interval);
+			window.clearInterval(interval);
 			window.removeEventListener('online', handleOnline);
 			window.removeEventListener('offline', handleOffline);
+			connection?.removeEventListener?.('change', handleConnectionChange);
 		};
-	}, [checkAuthStatus, setIsOnline, setAuthCheckFailed]);
+	}, [
+		bootstrapAuth,
+		checkAuthStatus,
+		refreshConnectivity,
+		setAuthCheckFailed,
+		setBrowserOnline,
+		markOffline,
+	]);
 
 	useEffect(() => {
 		if (typeof navigator === 'undefined') return;
 		if (!navigator.onLine && !user) {
-			hydrateFromCache();
+			markOffline('browser-offline');
 		}
-	}, [hydrateFromCache, user]);
+	}, [markOffline, user]);
 
 	return <>{children}</>;
 }

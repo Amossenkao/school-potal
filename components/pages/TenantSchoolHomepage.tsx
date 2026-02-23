@@ -9,49 +9,28 @@ import useAuth from '@/store/useAuth';
 import { useNetworkStore } from '@/store/networkStore';
 import { useRouter } from 'next/navigation';
 
-const hasCachedAuthUser = () => {
-	if (typeof window === 'undefined') return false;
-	try {
-		return Boolean(localStorage.getItem('auth-user'));
-	} catch (error) {
-		console.warn('Unable to read auth cache:', error);
-		return false;
-	}
-};
-
 export default function TenantSchoolHomepage() {
 	const router = useRouter();
 	const school = useSchoolStore((state) => state.school);
 	const fetchSchool = useSchoolStore((state) => state.fetchSchool);
-	const { user, hydrateFromCache } = useAuth();
+	const { user, bootstrapAuth, hasBootstrapped, isBootstrapping } = useAuth();
 	const { isOnline } = useNetworkStore();
 	const isOffline = !isOnline;
 	const [hasResolvedSchoolBootstrap, setHasResolvedSchoolBootstrap] = useState(
 		() => Boolean(school),
 	);
-	const [hasResolvedOfflineAuthBootstrap, setHasResolvedOfflineAuthBootstrap] =
-		useState(false);
 
 	useEffect(() => {
-		if (!isOffline) {
-			setHasResolvedOfflineAuthBootstrap(true);
-			return;
-		}
-
-		setHasResolvedOfflineAuthBootstrap(false);
-		if (hasCachedAuthUser()) {
-			hydrateFromCache();
-		}
-		setHasResolvedOfflineAuthBootstrap(true);
-	}, [hydrateFromCache, isOffline]);
+		void bootstrapAuth();
+	}, [bootstrapAuth]);
 
 	useEffect(() => {
 		if (!isOffline) return;
-		if (!hasResolvedOfflineAuthBootstrap) return;
+		if (!hasBootstrapped || isBootstrapping) return;
 		if (user?.isActive) {
 			router.replace('/dashboard');
 		}
-	}, [hasResolvedOfflineAuthBootstrap, isOffline, router, user?.isActive]);
+	}, [hasBootstrapped, isBootstrapping, isOffline, router, user?.isActive]);
 
 	useEffect(() => {
 		if (school) {
@@ -73,7 +52,7 @@ export default function TenantSchoolHomepage() {
 	}, [school, fetchSchool]);
 
 	if (isOffline) {
-		if (!hasResolvedOfflineAuthBootstrap) {
+		if (!hasBootstrapped || isBootstrapping) {
 			return <PageLoading variant="school" message="Loading..." />;
 		}
 		if (user?.isActive) {
@@ -103,6 +82,10 @@ export default function TenantSchoolHomepage() {
 	}
 
 	if (!school.enabledFeatures.includes('homepage')) return <LoginPage />;
+
+	const schoolDisplayName = Array.isArray(school.name)
+		? school.name[0] || 'School'
+		: school.name;
 
 	return (
 		<div className="min-h-screen bg-white">
@@ -239,7 +222,7 @@ export default function TenantSchoolHomepage() {
 											<div className="w-full h-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-lg">
 												{member.name
 													.split(' ')
-													.map((n) => n[0])
+													.map((n: string) => n[0])
 													.join('')
 													.slice(0, 2)}
 											</div>
@@ -282,7 +265,7 @@ export default function TenantSchoolHomepage() {
 								{school.logoUrl ? (
 									<img
 										src={school.logoUrl}
-										alt={school.name}
+										alt={schoolDisplayName}
 										className="h-10 w-10 rounded-lg object-cover"
 									/>
 								) : (
@@ -291,7 +274,7 @@ export default function TenantSchoolHomepage() {
 									</div>
 								)}
 								<div>
-									<h3 className="text-lg font-bold">{school.name}</h3>
+									<h3 className="text-lg font-bold">{schoolDisplayName}</h3>
 									<p className="text-sm text-gray-400">
 										Excellence in Education
 									</p>
@@ -389,7 +372,7 @@ export default function TenantSchoolHomepage() {
 					{/* Bottom Footer */}
 					<div className="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
 						<p className="text-gray-400 text-sm">
-							© {new Date().getFullYear()} {school.name}. All rights reserved.
+							© {new Date().getFullYear()} {schoolDisplayName}. All rights reserved.
 						</p>
 						<div className="flex gap-6 mt-4 md:mt-0">
 							{school.footerLinks?.map((link: any) => (

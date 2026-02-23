@@ -35,6 +35,8 @@ interface AuthState {
 	error: string | null;
 	isLoading: boolean;
 	userVersion: string | null;
+	isBootstrapping: boolean;
+	hasBootstrapped: boolean;
 
 	sessionId: string | null;
 	isAwaitingOtp: boolean;
@@ -46,6 +48,7 @@ interface AuthState {
 	resendOtp: () => Promise<boolean>;
 	logout: () => Promise<void>;
 	checkAuthStatus: () => Promise<void>;
+	bootstrapAuth: (options?: { force?: boolean }) => Promise<void>;
 
 	clearError: () => void;
 	resetOtpState: () => void;
@@ -54,10 +57,13 @@ interface AuthState {
 }
 
 let authCheckPromise: Promise<void> | null = null;
+let authBootstrapPromise: Promise<void> | null = null;
 let lastAuthCheckCompletedAt = 0;
 
 const AUTH_REQUEST_TIMEOUT_MS = 4500;
 const AUTH_CHECK_DEDUP_MS = 1200;
+const OFFLINE_REQUEST_MESSAGE =
+	'You are offline. Please connect to the internet and try again.';
 
 const createTimeoutAbortReason = (requestName: string) => {
 	try {
@@ -79,6 +85,24 @@ const isAbortLikeError = (error: unknown) => {
 		const message =
 			typeof candidate.message === 'string' ? candidate.message : '';
 		if (/signal is aborted/i.test(message)) return true;
+	}
+	return false;
+};
+
+const isLikelyNetworkError = (error: unknown) => {
+	if (isAbortLikeError(error)) return true;
+	if (error instanceof TypeError) return true;
+	if (typeof error === 'object' && error) {
+		const candidate = error as { message?: unknown };
+		const message =
+			typeof candidate.message === 'string' ? candidate.message : '';
+		if (
+			/network.?error/i.test(message) ||
+			/failed to fetch/i.test(message) ||
+			/load failed/i.test(message)
+		) {
+			return true;
+		}
 	}
 	return false;
 };
@@ -282,6 +306,8 @@ const useAuth = create<AuthState>((set, get) => {
 		error: null,
 		isLoading: false,
 		userVersion: null,
+		isBootstrapping: true,
+		hasBootstrapped: false,
 
 		sessionId: null,
 		isAwaitingOtp: false,
@@ -291,14 +317,26 @@ const useAuth = create<AuthState>((set, get) => {
 		login: async (loginData: LoginData): Promise<User | null> => {
 			set({ isLoading: true, error: null });
 			try {
-				const res = await fetch('/api/auth/login', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					credentials: 'include',
-					body: JSON.stringify({ ...loginData, action: 'login' }),
-				});
+				const controller = new AbortController();
+				const timeoutId = window.setTimeout(
+					() => controller.abort(createTimeoutAbortReason('Login request')),
+					AUTH_REQUEST_TIMEOUT_MS,
+				);
+				const res = await (async () => {
+					try {
+						return await fetch('/api/auth/login', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							credentials: 'include',
+							body: JSON.stringify({ ...loginData, action: 'login' }),
+							signal: controller.signal,
+						});
+					} finally {
+						window.clearTimeout(timeoutId);
+					}
+				})();
 
-				const data = await res.json();
+				const data = await res.json().catch(() => ({}));
 
 				if (!res.ok) {
 					set({
@@ -315,6 +353,8 @@ const useAuth = create<AuthState>((set, get) => {
 						otpContact: data.contact,
 						userId: data.userId,
 						isLoading: false,
+						hasBootstrapped: true,
+						isBootstrapping: false,
 					});
 					return null;
 				}
@@ -328,7 +368,10 @@ const useAuth = create<AuthState>((set, get) => {
 					otpContact: null,
 					userId: null,
 					error: null,
+					hasBootstrapped: true,
+					isBootstrapping: false,
 				});
+				useNetworkStore.getState().setAuthCheckFailed(false);
 				applyBootstrapPayload(data);
 				setDashboardStartPath();
 				cacheAuthUser(data.user as User);
@@ -336,6 +379,11 @@ const useAuth = create<AuthState>((set, get) => {
 
 				return data.user;
 			} catch (error: any) {
+				if (isLikelyNetworkError(error)) {
+					useNetworkStore.getState().markOffline('login-request-failed');
+					set({ error: OFFLINE_REQUEST_MESSAGE, isLoading: false });
+					return null;
+				}
 				set({ error: error.message || 'Network error', isLoading: false });
 				return null;
 			}
@@ -354,19 +402,32 @@ const useAuth = create<AuthState>((set, get) => {
 
 			set({ isLoading: true, error: null });
 			try {
-				const res = await fetch('/api/auth/login', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					credentials: 'include',
-					body: JSON.stringify({
-						sessionId,
-						otp,
-						action: 'verify_otp',
-						userId,
-					}),
-				});
+				const controller = new AbortController();
+				const timeoutId = window.setTimeout(
+					() =>
+						controller.abort(createTimeoutAbortReason('OTP verification request')),
+					AUTH_REQUEST_TIMEOUT_MS,
+				);
+				const res = await (async () => {
+					try {
+						return await fetch('/api/auth/login', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							credentials: 'include',
+							body: JSON.stringify({
+								sessionId,
+								otp,
+								action: 'verify_otp',
+								userId,
+							}),
+							signal: controller.signal,
+						});
+					} finally {
+						window.clearTimeout(timeoutId);
+					}
+				})();
 
-				const data = await res.json();
+				const data = await res.json().catch(() => ({}));
 
 				if (!res.ok) {
 					set({ error: data.message || 'Invalid OTP', isLoading: false });
@@ -382,7 +443,10 @@ const useAuth = create<AuthState>((set, get) => {
 					otpContact: null,
 					userId: null,
 					error: null,
+					hasBootstrapped: true,
+					isBootstrapping: false,
 				});
+				useNetworkStore.getState().setAuthCheckFailed(false);
 				applyBootstrapPayload(data);
 				setDashboardStartPath();
 				cacheAuthUser(data.user as User);
@@ -390,6 +454,14 @@ const useAuth = create<AuthState>((set, get) => {
 
 				return true;
 			} catch (error: any) {
+				if (isLikelyNetworkError(error)) {
+					useNetworkStore.getState().markOffline('otp-verification-failed');
+					set({
+						error: OFFLINE_REQUEST_MESSAGE,
+						isLoading: false,
+					});
+					return false;
+				}
 				set({
 					error: error.message || 'OTP verification failed',
 					isLoading: false,
@@ -407,14 +479,26 @@ const useAuth = create<AuthState>((set, get) => {
 			set({ isLoading: true, error: null });
 
 			try {
-				const res = await fetch('/api/auth/login', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					credentials: 'include',
-					body: JSON.stringify({ sessionId, action: 'resend_otp' }),
-				});
+				const controller = new AbortController();
+				const timeoutId = window.setTimeout(
+					() => controller.abort(createTimeoutAbortReason('OTP resend request')),
+					AUTH_REQUEST_TIMEOUT_MS,
+				);
+				const res = await (async () => {
+					try {
+						return await fetch('/api/auth/login', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							credentials: 'include',
+							body: JSON.stringify({ sessionId, action: 'resend_otp' }),
+							signal: controller.signal,
+						});
+					} finally {
+						window.clearTimeout(timeoutId);
+					}
+				})();
 
-				const data = await res.json();
+				const data = await res.json().catch(() => ({}));
 
 				if (!res.ok) {
 					set({
@@ -433,6 +517,14 @@ const useAuth = create<AuthState>((set, get) => {
 
 				return true;
 			} catch (error: any) {
+				if (isLikelyNetworkError(error)) {
+					useNetworkStore.getState().markOffline('otp-resend-failed');
+					set({
+						error: OFFLINE_REQUEST_MESSAGE,
+						isLoading: false,
+					});
+					return false;
+				}
 				set({
 					error: error.message || 'Failed to resend OTP',
 					isLoading: false,
@@ -443,12 +535,33 @@ const useAuth = create<AuthState>((set, get) => {
 
 		logout: async () => {
 			set({ isLoading: true });
-			const networkState = useNetworkStore.getState();
-			const navigatorOnline =
-				typeof navigator !== 'undefined' ? navigator.onLine : true;
-			const isOnline = networkState.isOnline && navigatorOnline;
 			let queuedOfflineLogout = false;
+			const queueOfflineLogout = () => {
+				if (queuedOfflineLogout) return;
+				enqueueOfflineRequest({
+					url: '/api/auth/login',
+					method: 'DELETE',
+					credentials: 'include',
+				});
+				queuedOfflineLogout = true;
+				if (typeof window !== 'undefined') {
+					window.dispatchEvent(
+						new CustomEvent('offline:fetch', {
+							detail: {
+								message:
+									'You are offline. Logout request was queued and will sync when you reconnect.',
+							},
+						}),
+					);
+				}
+			};
+
 			try {
+				const isOnline = await useNetworkStore.getState().refreshConnectivity({
+					force: true,
+					timeoutMs: 2500,
+					reason: 'logout',
+				});
 				if (isOnline) {
 					const controller = new AbortController();
 					const timeoutId = window.setTimeout(
@@ -465,24 +578,13 @@ const useAuth = create<AuthState>((set, get) => {
 						window.clearTimeout(timeoutId);
 					}
 				} else {
-					enqueueOfflineRequest({
-						url: '/api/auth/login',
-						method: 'DELETE',
-						credentials: 'include',
-					});
-					queuedOfflineLogout = true;
-					if (typeof window !== 'undefined') {
-						window.dispatchEvent(
-							new CustomEvent('offline:fetch', {
-								detail: {
-									message:
-										'You are offline. Logout request was queued and will sync when you reconnect.',
-								},
-							}),
-						);
-					}
+					queueOfflineLogout();
 				}
 			} catch (error) {
+				if (isLikelyNetworkError(error)) {
+					useNetworkStore.getState().markOffline('logout-request-failed');
+					queueOfflineLogout();
+				}
 				if (!isAbortLikeError(error)) {
 					console.warn('Logout request failed:', error);
 				}
@@ -498,6 +600,8 @@ const useAuth = create<AuthState>((set, get) => {
 				otpContact: null,
 				userId: null,
 				userVersion: null,
+				isBootstrapping: false,
+				hasBootstrapped: true,
 			});
 			try {
 				localStorage.removeItem('auth-user');
@@ -523,25 +627,25 @@ const useAuth = create<AuthState>((set, get) => {
 				return;
 			}
 
-			const networkState = useNetworkStore.getState();
-			const { setAuthCheckFailed } = networkState;
-			const navigatorOnline =
-				typeof navigator !== 'undefined' ? navigator.onLine : true;
-			const isOnline = networkState.isOnline && navigatorOnline;
-
 			if (hasQueuedLogoutRequest()) {
 				set({
 					user: null,
 					isLoggedIn: false,
 					userVersion: null,
 				});
-				setAuthCheckFailed(false);
+				useNetworkStore.getState().setAuthCheckFailed(false);
 				lastAuthCheckCompletedAt = Date.now();
 				return;
 			}
 
+			const networkState = useNetworkStore.getState();
+			const isOnline = await networkState.refreshConnectivity({
+				timeoutMs: 2800,
+				reason: 'auth-check',
+			});
+
 			if (!isOnline) {
-				setAuthCheckFailed(true);
+				useNetworkStore.getState().setAuthCheckFailed(true);
 				if (!get().user) {
 					get().hydrateFromCache();
 				}
@@ -626,17 +730,7 @@ const useAuth = create<AuthState>((set, get) => {
 					}
 
 					const data = await res.json().catch(() => ({}));
-
-					const stillOnline =
-						(typeof navigator !== 'undefined' ? navigator.onLine : true) &&
-						useNetworkStore.getState().isOnline;
-
-					if (!stillOnline) {
-						setAuthCheckFailed(true);
-						return;
-					}
-
-					setAuthCheckFailed(false);
+					useNetworkStore.getState().setAuthCheckFailed(false);
 					applyBootstrapPayload(data);
 
 					if (Object.prototype.hasOwnProperty.call(data, 'user') && data.user) {
@@ -674,10 +768,16 @@ const useAuth = create<AuthState>((set, get) => {
 						await clearSessionSensitiveStorage('logout');
 					}
 				} catch (error) {
+					if (isLikelyNetworkError(error)) {
+						useNetworkStore.getState().markOffline('auth-check-failed');
+						if (!get().user) {
+							get().hydrateFromCache();
+						}
+					}
 					if (!isAbortLikeError(error)) {
 						console.error('Auth check failed (network/server error):', error);
 					}
-					setAuthCheckFailed(true);
+					useNetworkStore.getState().setAuthCheckFailed(true);
 				}
 			})()
 				.finally(() => {
@@ -686,6 +786,45 @@ const useAuth = create<AuthState>((set, get) => {
 				});
 
 			await authCheckPromise;
+		},
+
+		bootstrapAuth: async ({ force = false } = {}) => {
+			if (authBootstrapPromise) {
+				return authBootstrapPromise;
+			}
+			if (get().hasBootstrapped && !force) {
+				return;
+			}
+
+			authBootstrapPromise = (async () => {
+				set({ isBootstrapping: true });
+
+				if (!get().user) {
+					get().hydrateFromCache();
+				}
+
+				const isOnline = await useNetworkStore.getState().refreshConnectivity({
+					timeoutMs: 2800,
+					force,
+					reason: 'auth-bootstrap',
+				});
+
+				if (!isOnline) {
+					useNetworkStore.getState().setAuthCheckFailed(true);
+					return;
+				}
+
+				await get().checkAuthStatus();
+			})()
+				.catch((error) => {
+					console.error('Auth bootstrap failed:', error);
+				})
+				.finally(() => {
+					set({ isBootstrapping: false, hasBootstrapped: true });
+					authBootstrapPromise = null;
+				});
+
+			await authBootstrapPromise;
 		},
 
 		clearError: () => set({ error: null }),
@@ -702,7 +841,7 @@ const useAuth = create<AuthState>((set, get) => {
 		setUser: (user: User | null) => {
 			const currentUser = get().user;
 			if (!isEqual(currentUser, user)) {
-				set({ user });
+				set({ user, isLoggedIn: Boolean(user?.isActive) });
 				try {
 					if (user) {
 						localStorage.setItem('auth-user', JSON.stringify(user));
@@ -721,7 +860,7 @@ const useAuth = create<AuthState>((set, get) => {
 				if (!cached) return;
 				const parsed = JSON.parse(cached) as User;
 				if (parsed) {
-					set({ user: parsed, isLoggedIn: true });
+					set({ user: parsed, isLoggedIn: Boolean(parsed?.isActive) });
 				}
 			} catch (error) {
 				console.warn('Failed to hydrate auth user:', error);

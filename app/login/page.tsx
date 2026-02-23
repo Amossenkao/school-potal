@@ -24,16 +24,6 @@ import Link from 'next/link';
 import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
 import Script from 'next/script';
 
-const hasCachedAuthUser = () => {
-	if (typeof window === 'undefined') return false;
-	try {
-		return Boolean(localStorage.getItem('auth-user'));
-	} catch (error) {
-		console.warn('Unable to read auth cache:', error);
-		return false;
-	}
-};
-
 type TurnstileRenderOptions = {
 	sitekey: string;
 	theme?: 'light' | 'dark' | 'auto';
@@ -68,7 +58,6 @@ const LoginPage = () => {
 	const [showPassword, setShowPassword] = useState(false);
 	const [adminPosition, setAdminPosition] = useState('');
 	const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
-	const [isInitializing, setIsInitializing] = useState(true);
 	const [isRedirecting, setIsRedirecting] = useState(false);
 	const [redirectTimedOut, setRedirectTimedOut] = useState(false);
 	const currentSchool = useSchoolStore((state) => state.school);
@@ -86,7 +75,6 @@ const LoginPage = () => {
 	const turnstileSiteKey =
 		process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
 	const { isOnline } = useNetworkStore();
-	const previousOnline = useRef(isOnline);
 
 	const {
 		isLoading,
@@ -98,8 +86,9 @@ const LoginPage = () => {
 		login,
 		verifyOtp,
 		clearError,
-		checkAuthStatus,
-		hydrateFromCache,
+		bootstrapAuth,
+		isBootstrapping,
+		hasBootstrapped,
 	} = useAuth();
 
 	const [formData, setFormData] = useState({
@@ -277,38 +266,9 @@ const LoginPage = () => {
 		});
 	}, [clearTurnstileTimeout, ensureTurnstileWidget, resetTurnstileWidget]);
 
-	// Bootstrap from local storage first, then verify session in background.
 	useEffect(() => {
-		let cancelled = false;
-
-		if (hasCachedAuthUser()) {
-			hydrateFromCache();
-		}
-		if (!cancelled) {
-			setIsInitializing(false);
-		}
-
-		const runBackgroundAuthCheck = async () => {
-			try {
-				await checkAuthStatus();
-			} catch (error) {
-				console.warn('Background auth verification failed:', error);
-			}
-		};
-		void runBackgroundAuthCheck();
-
-		return () => {
-			cancelled = true;
-		};
-	}, [checkAuthStatus, hydrateFromCache]);
-
-	// Re-check auth when coming back online
-	useEffect(() => {
-		if (!previousOnline.current && isOnline) {
-			checkAuthStatus();
-		}
-		previousOnline.current = isOnline;
-	}, [isOnline, checkAuthStatus]);
+		void bootstrapAuth();
+	}, [bootstrapAuth]);
 
 	useEffect(() => {
 		if (typeof window === 'undefined') return;
@@ -375,7 +335,8 @@ const LoginPage = () => {
 	// Redirect if logged in
 	useEffect(() => {
 		if (
-			!isInitializing &&
+			hasBootstrapped &&
+			!isBootstrapping &&
 			!isLoading &&
 			user?.isActive &&
 			isLoggedIn &&
@@ -385,7 +346,8 @@ const LoginPage = () => {
 			navigateToDashboardWithSpinner();
 		}
 	}, [
-		isInitializing,
+		hasBootstrapped,
+		isBootstrapping,
 		isLoading,
 		user,
 		isLoggedIn,
@@ -543,7 +505,8 @@ const LoginPage = () => {
 		}
 	};
 
-	const isBootstrappingSession = isInitializing && !isRedirecting;
+	const isBootstrappingSession =
+		(!hasBootstrapped || isBootstrapping) && !isRedirecting;
 	if (isBootstrappingSession) {
 		return <PageLoading variant="school" message="Loading..." />;
 	}
@@ -609,7 +572,7 @@ const LoginPage = () => {
 										if (user?.isActive && isLoggedIn && !isAwaitingOtp) {
 											navigateToDashboardWithSpinner();
 										} else {
-											void checkAuthStatus();
+											void bootstrapAuth({ force: true });
 										}
 									}}
 									className="ml-3 rounded border border-amber-500 px-3 py-1 text-sm font-medium hover:bg-amber-100"
