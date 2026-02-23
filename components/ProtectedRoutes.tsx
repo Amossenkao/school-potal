@@ -49,6 +49,12 @@ const ProtectedRoute = ({
 		if (isAuthenticated) return;
 		if (pathname !== '/login') {
 			router.replace('/login');
+			const fallbackTimer = window.setTimeout(() => {
+				if (window.location.pathname !== '/login') {
+					window.location.replace('/login');
+				}
+			}, 1200);
+			return () => window.clearTimeout(fallbackTimer);
 		}
 	}, [hasBootstrapped, isBootstrapping, isAuthenticated, pathname, router]);
 
@@ -81,7 +87,7 @@ const ProtectedRoute = ({
 			<PageLoading
 				variant="school"
 				fullScreen={true}
-				message="Loading..."
+				message="Redirecting to login..."
 			/>
 		);
 	}
