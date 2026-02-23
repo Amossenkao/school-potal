@@ -232,6 +232,24 @@ self.addEventListener('fetch', (event) => {
 	if (request.method !== 'GET') return;
 
 	if (request.mode === 'navigate') {
+		if (isSameOrigin && url.pathname.startsWith('/api/')) {
+			event.respondWith(
+				fetch(request).catch(
+					() =>
+						new Response(
+							JSON.stringify({
+								message: 'Request unavailable while offline.',
+							}),
+							{
+								status: 503,
+								headers: { 'Content-Type': 'application/json' },
+							},
+						),
+				),
+			);
+			return;
+		}
+
 		event.respondWith(
 			fetch(request)
 				.then((response) => {

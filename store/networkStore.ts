@@ -45,27 +45,45 @@ const probeInternetReachability = async (timeoutMs: number) => {
 	if (typeof window === 'undefined') return true;
 
 	const controller = new AbortController();
-	const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+	let timeoutTriggered = false;
+	let timeoutId: number | null = null;
 
-	try {
-		const response = await fetch(
-			`${CONNECTIVITY_ENDPOINT}?ts=${Date.now().toString(36)}`,
-			{
-				method: 'GET',
-				cache: 'no-store',
-				credentials: 'same-origin',
-				signal: controller.signal,
-				headers: {
-					'x-network-probe': '1',
+	const fetchAttempt = (async () => {
+		try {
+			const response = await fetch(
+				`${CONNECTIVITY_ENDPOINT}?ts=${Date.now().toString(36)}`,
+				{
+					method: 'GET',
+					cache: 'no-store',
+					credentials: 'same-origin',
+					signal: controller.signal,
+					headers: {
+						'x-network-probe': '1',
+					},
 				},
-			},
-		);
-		return Boolean(response);
-	} catch {
-		return false;
-	} finally {
+			);
+			return Boolean(response);
+		} catch {
+			return false;
+		}
+	})();
+
+	const timeoutGuard = new Promise<boolean>((resolve) => {
+		timeoutId = window.setTimeout(() => {
+			timeoutTriggered = true;
+			controller.abort();
+			resolve(false);
+		}, timeoutMs);
+	});
+
+	const result = await Promise.race([fetchAttempt, timeoutGuard]);
+	if (timeoutId !== null) {
 		window.clearTimeout(timeoutId);
 	}
+	if (timeoutTriggered) {
+		controller.abort();
+	}
+	return result;
 };
 
 export const useNetworkStore = create<NetworkState>((set, get) => ({

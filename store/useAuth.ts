@@ -62,6 +62,7 @@ let lastAuthCheckCompletedAt = 0;
 
 const AUTH_REQUEST_TIMEOUT_MS = 4500;
 const AUTH_CHECK_DEDUP_MS = 1200;
+const AUTH_BOOTSTRAP_TIMEOUT_MS = 7000;
 const OFFLINE_REQUEST_MESSAGE =
 	'You are offline. Please connect to the internet and try again.';
 
@@ -798,23 +799,41 @@ const useAuth = create<AuthState>((set, get) => {
 
 			authBootstrapPromise = (async () => {
 				set({ isBootstrapping: true });
+				let bootstrapTimedOut = false;
+				const bootstrapTimeoutId =
+					typeof window !== 'undefined'
+						? window.setTimeout(() => {
+								bootstrapTimedOut = true;
+								useNetworkStore.getState().setAuthCheckFailed(true);
+								useNetworkStore.getState().markOffline('auth-bootstrap-timeout');
+						  }, AUTH_BOOTSTRAP_TIMEOUT_MS)
+						: null;
 
-				if (!get().user) {
-					get().hydrateFromCache();
+				try {
+					if (!get().user) {
+						get().hydrateFromCache();
+					}
+
+					const isOnline = await useNetworkStore.getState().refreshConnectivity({
+						timeoutMs: 2800,
+						force,
+						reason: 'auth-bootstrap',
+					});
+
+					if (!isOnline) {
+						useNetworkStore.getState().setAuthCheckFailed(true);
+						return;
+					}
+
+					await get().checkAuthStatus();
+					if (bootstrapTimedOut) {
+						return;
+					}
+				} finally {
+					if (bootstrapTimeoutId !== null) {
+						window.clearTimeout(bootstrapTimeoutId);
+					}
 				}
-
-				const isOnline = await useNetworkStore.getState().refreshConnectivity({
-					timeoutMs: 2800,
-					force,
-					reason: 'auth-bootstrap',
-				});
-
-				if (!isOnline) {
-					useNetworkStore.getState().setAuthCheckFailed(true);
-					return;
-				}
-
-				await get().checkAuthStatus();
 			})()
 				.catch((error) => {
 					console.error('Auth bootstrap failed:', error);
