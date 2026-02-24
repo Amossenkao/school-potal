@@ -74,7 +74,9 @@ const LoginPage = () => {
 	const [isVerifyingTurnstile, setIsVerifyingTurnstile] = useState(false);
 	const turnstileSiteKey =
 		process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
-	const { isOnline } = useNetworkStore();
+	const refreshConnectivity = useNetworkStore(
+		(state) => state.refreshConnectivity,
+	);
 
 	const {
 		isLoading,
@@ -461,12 +463,18 @@ const LoginPage = () => {
 	const handleLoginSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (loginDisabledError) return;
-		if (!isOnline) {
+		if (typeof navigator !== 'undefined' && !navigator.onLine) {
 			setOfflineError(
 				'You are offline. Please connect to the internet and try again.',
 			);
 			return;
 		}
+
+		void refreshConnectivity({
+			force: true,
+			timeoutMs: 5200,
+			reason: 'login-submit',
+		});
 		setOfflineError('');
 
 		let turnstileToken = '';

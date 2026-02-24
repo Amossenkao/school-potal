@@ -60,11 +60,16 @@ let authCheckPromise: Promise<void> | null = null;
 let authBootstrapPromise: Promise<void> | null = null;
 let lastAuthCheckCompletedAt = 0;
 
-const AUTH_REQUEST_TIMEOUT_MS = 4500;
+const AUTH_REQUEST_TIMEOUT_MS = 7000;
+const AUTH_LOGIN_TIMEOUT_MS = 9000;
 const AUTH_CHECK_DEDUP_MS = 1200;
-const AUTH_BOOTSTRAP_TIMEOUT_MS = 7000;
+const AUTH_BOOTSTRAP_TIMEOUT_MS = 10000;
 const OFFLINE_REQUEST_MESSAGE =
 	'You are offline. Please connect to the internet and try again.';
+const REQUEST_TIMEOUT_MESSAGE =
+	'The request took too long. Please try again.';
+const LOGIN_TIMEOUT_MESSAGE =
+	'Login is taking longer than expected. Please try again.';
 
 const createTimeoutAbortReason = (requestName: string) => {
 	try {
@@ -91,7 +96,7 @@ const isAbortLikeError = (error: unknown) => {
 };
 
 const isLikelyNetworkError = (error: unknown) => {
-	if (isAbortLikeError(error)) return true;
+	if (isAbortLikeError(error)) return false;
 	if (error instanceof TypeError) return true;
 	if (typeof error === 'object' && error) {
 		const candidate = error as { message?: unknown };
@@ -321,7 +326,7 @@ const useAuth = create<AuthState>((set, get) => {
 				const controller = new AbortController();
 				const timeoutId = window.setTimeout(
 					() => controller.abort(createTimeoutAbortReason('Login request')),
-					AUTH_REQUEST_TIMEOUT_MS,
+					AUTH_LOGIN_TIMEOUT_MS,
 				);
 				const res = await (async () => {
 					try {
@@ -380,6 +385,10 @@ const useAuth = create<AuthState>((set, get) => {
 
 				return data.user;
 			} catch (error: any) {
+				if (isAbortLikeError(error)) {
+					set({ error: LOGIN_TIMEOUT_MESSAGE, isLoading: false });
+					return null;
+				}
 				if (isLikelyNetworkError(error)) {
 					useNetworkStore.getState().markOffline('login-request-failed');
 					set({ error: OFFLINE_REQUEST_MESSAGE, isLoading: false });
@@ -407,7 +416,7 @@ const useAuth = create<AuthState>((set, get) => {
 				const timeoutId = window.setTimeout(
 					() =>
 						controller.abort(createTimeoutAbortReason('OTP verification request')),
-					AUTH_REQUEST_TIMEOUT_MS,
+					AUTH_LOGIN_TIMEOUT_MS,
 				);
 				const res = await (async () => {
 					try {
@@ -455,6 +464,13 @@ const useAuth = create<AuthState>((set, get) => {
 
 				return true;
 			} catch (error: any) {
+				if (isAbortLikeError(error)) {
+					set({
+						error: REQUEST_TIMEOUT_MESSAGE,
+						isLoading: false,
+					});
+					return false;
+				}
 				if (isLikelyNetworkError(error)) {
 					useNetworkStore.getState().markOffline('otp-verification-failed');
 					set({
@@ -518,6 +534,13 @@ const useAuth = create<AuthState>((set, get) => {
 
 				return true;
 			} catch (error: any) {
+				if (isAbortLikeError(error)) {
+					set({
+						error: REQUEST_TIMEOUT_MESSAGE,
+						isLoading: false,
+					});
+					return false;
+				}
 				if (isLikelyNetworkError(error)) {
 					useNetworkStore.getState().markOffline('otp-resend-failed');
 					set({
@@ -582,7 +605,7 @@ const useAuth = create<AuthState>((set, get) => {
 					queueOfflineLogout();
 				}
 			} catch (error) {
-				if (isLikelyNetworkError(error)) {
+				if (isLikelyNetworkError(error) || isAbortLikeError(error)) {
 					useNetworkStore.getState().markOffline('logout-request-failed');
 					queueOfflineLogout();
 				}
@@ -805,7 +828,6 @@ const useAuth = create<AuthState>((set, get) => {
 						? window.setTimeout(() => {
 								bootstrapTimedOut = true;
 								useNetworkStore.getState().setAuthCheckFailed(true);
-								useNetworkStore.getState().markOffline('auth-bootstrap-timeout');
 						  }, AUTH_BOOTSTRAP_TIMEOUT_MS)
 						: null;
 

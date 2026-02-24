@@ -22,7 +22,7 @@ interface NetworkState {
 }
 
 const CONNECTIVITY_ENDPOINT = '/api/ping';
-const CONNECTIVITY_TIMEOUT_MS = 3200;
+const CONNECTIVITY_TIMEOUT_MS = 5200;
 const CONNECTIVITY_RECHECK_WINDOW_MS = 5000;
 
 let connectivityCheckPromise: Promise<boolean> | null = null;
@@ -53,7 +53,7 @@ const probeInternetReachability = async (timeoutMs: number) => {
 			const response = await fetch(
 				`${CONNECTIVITY_ENDPOINT}?ts=${Date.now().toString(36)}`,
 				{
-					method: 'GET',
+					method: 'HEAD',
 					cache: 'no-store',
 					credentials: 'same-origin',
 					signal: controller.signal,
@@ -84,6 +84,18 @@ const probeInternetReachability = async (timeoutMs: number) => {
 		controller.abort();
 	}
 	return result;
+};
+
+const probeInternetReachabilityWithRetry = async (timeoutMs: number) => {
+	const firstAttempt = await probeInternetReachability(timeoutMs);
+	if (firstAttempt) {
+		return true;
+	}
+	if (!getBrowserOnline()) {
+		return false;
+	}
+	const retryTimeoutMs = Math.max(2200, Math.floor(timeoutMs * 0.6));
+	return probeInternetReachability(retryTimeoutMs);
 };
 
 export const useNetworkStore = create<NetworkState>((set, get) => ({
@@ -151,7 +163,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 		set({ browserOnline: true, isCheckingConnectivity: true });
 
 		connectivityCheckPromise = (async () => {
-			const reachable = await probeInternetReachability(timeoutMs);
+			const reachable = await probeInternetReachabilityWithRetry(timeoutMs);
 			const latestBrowserOnline = getBrowserOnline();
 			set({
 				browserOnline: latestBrowserOnline,
