@@ -100,17 +100,20 @@ export default function RootProviders({
 
 	useEffect(() => {
 		const flushOfflineRequests = async () => {
-			const isOnline = await useNetworkStore.getState().refreshConnectivity({
-				timeoutMs: 2200,
-				force: true,
-				reason: 'flush-offline-requests',
-			});
-			if (!isOnline) return;
 			try {
 				const raw = localStorage.getItem(OFFLINE_REQUESTS_KEY);
 				if (!raw) return;
 				const queued = JSON.parse(raw);
-				if (!Array.isArray(queued) || queued.length === 0) return;
+				if (!Array.isArray(queued) || queued.length === 0) {
+					localStorage.removeItem(OFFLINE_REQUESTS_KEY);
+					return;
+				}
+				const isOnline = await useNetworkStore.getState().refreshConnectivity({
+					timeoutMs: 2200,
+					force: true,
+					reason: 'flush-offline-requests',
+				});
+				if (!isOnline) return;
 				const remaining: any[] = [];
 				let queuedLogoutResolved = false;
 

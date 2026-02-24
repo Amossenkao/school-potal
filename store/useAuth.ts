@@ -47,7 +47,9 @@ interface AuthState {
 	verifyOtp: (otp: string) => Promise<boolean>;
 	resendOtp: () => Promise<boolean>;
 	logout: () => Promise<void>;
-	checkAuthStatus: () => Promise<void>;
+	checkAuthStatus: (options?: {
+		skipConnectivityCheck?: boolean;
+	}) => Promise<void>;
 	bootstrapAuth: (options?: { force?: boolean }) => Promise<void>;
 
 	clearError: () => void;
@@ -642,8 +644,9 @@ const useAuth = create<AuthState>((set, get) => {
 			);
 		},
 
-		checkAuthStatus: async () => {
+		checkAuthStatus: async (options) => {
 			const now = Date.now();
+			const skipConnectivityCheck = options?.skipConnectivityCheck ?? false;
 			if (authCheckPromise) {
 				return authCheckPromise;
 			}
@@ -662,13 +665,23 @@ const useAuth = create<AuthState>((set, get) => {
 				return;
 			}
 
-			const networkState = useNetworkStore.getState();
-			const isOnline = await networkState.refreshConnectivity({
-				timeoutMs: 2800,
-				reason: 'auth-check',
-			});
+			if (!skipConnectivityCheck) {
+				const networkState = useNetworkStore.getState();
+				const isOnline = await networkState.refreshConnectivity({
+					timeoutMs: 2800,
+					reason: 'auth-check',
+				});
 
-			if (!isOnline) {
+				if (!isOnline) {
+					useNetworkStore.getState().setAuthCheckFailed(true);
+					if (!get().user) {
+						get().hydrateFromCache();
+					}
+					lastAuthCheckCompletedAt = Date.now();
+					return;
+				}
+			} else if (typeof navigator !== 'undefined' && !navigator.onLine) {
+				useNetworkStore.getState().markOffline('browser-offline');
 				useNetworkStore.getState().setAuthCheckFailed(true);
 				if (!get().user) {
 					get().hydrateFromCache();
@@ -836,18 +849,13 @@ const useAuth = create<AuthState>((set, get) => {
 						get().hydrateFromCache();
 					}
 
-					const isOnline = await useNetworkStore.getState().refreshConnectivity({
-						timeoutMs: 2800,
-						force,
-						reason: 'auth-bootstrap',
-					});
-
-					if (!isOnline) {
+					if (typeof navigator !== 'undefined' && !navigator.onLine) {
+						useNetworkStore.getState().markOffline('browser-offline');
 						useNetworkStore.getState().setAuthCheckFailed(true);
 						return;
 					}
 
-					await get().checkAuthStatus();
+					await get().checkAuthStatus({ skipConnectivityCheck: true });
 					if (bootstrapTimedOut) {
 						return;
 					}
