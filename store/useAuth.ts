@@ -65,7 +65,7 @@ let lastAuthCheckCompletedAt = 0;
 const AUTH_REQUEST_TIMEOUT_MS = 7000;
 const AUTH_LOGIN_TIMEOUT_MS = 9000;
 const AUTH_CHECK_DEDUP_MS = 1200;
-const AUTH_BOOTSTRAP_TIMEOUT_MS = 10000;
+const AUTH_BOOTSTRAP_TIMEOUT_MS = 4500;
 const OFFLINE_REQUEST_MESSAGE =
 	'You are offline. Please connect to the internet and try again.';
 const REQUEST_TIMEOUT_MESSAGE =
@@ -793,16 +793,17 @@ const useAuth = create<AuthState>((set, get) => {
 							console.warn('Failed to cache auth user:', error);
 						}
 					} else if (Object.prototype.hasOwnProperty.call(data, 'user')) {
-						if (get().isLoggedIn) {
+						const hasAuthenticatedState = Boolean(get().isLoggedIn || get().user);
+						if (hasAuthenticatedState) {
 							set({ user: null, isLoggedIn: false, userVersion: null });
+							try {
+								localStorage.removeItem('auth-user');
+							} catch (error) {
+								console.warn('Failed to clear auth user cache:', error);
+							}
+							clearSessionScopedClientState();
+							await clearSessionSensitiveStorage('logout');
 						}
-						try {
-							localStorage.removeItem('auth-user');
-						} catch (error) {
-							console.warn('Failed to clear auth user cache:', error);
-						}
-						clearSessionScopedClientState();
-						await clearSessionSensitiveStorage('logout');
 					}
 				} catch (error) {
 					if (isLikelyNetworkError(error)) {
@@ -835,34 +836,47 @@ const useAuth = create<AuthState>((set, get) => {
 
 			authBootstrapPromise = (async () => {
 				set({ isBootstrapping: true });
-				let bootstrapTimedOut = false;
-				const bootstrapTimeoutId =
-					typeof window !== 'undefined'
-						? window.setTimeout(() => {
-								bootstrapTimedOut = true;
-								useNetworkStore.getState().setAuthCheckFailed(true);
-						  }, AUTH_BOOTSTRAP_TIMEOUT_MS)
-						: null;
 
-				try {
-					if (!get().user) {
-						get().hydrateFromCache();
-					}
+				if (!get().user) {
+					get().hydrateFromCache();
+				}
 
-					if (typeof navigator !== 'undefined' && !navigator.onLine) {
-						useNetworkStore.getState().markOffline('browser-offline');
-						useNetworkStore.getState().setAuthCheckFailed(true);
-						return;
-					}
+				if (typeof navigator !== 'undefined' && !navigator.onLine) {
+					useNetworkStore.getState().markOffline('browser-offline');
+					useNetworkStore.getState().setAuthCheckFailed(true);
+					return;
+				}
 
-					await get().checkAuthStatus({ skipConnectivityCheck: true });
-					if (bootstrapTimedOut) {
-						return;
-					}
-				} finally {
-					if (bootstrapTimeoutId !== null) {
-						window.clearTimeout(bootstrapTimeoutId);
-					}
+				const authCheckTask = get().checkAuthStatus({
+					skipConnectivityCheck: true,
+				});
+				if (typeof window === 'undefined') {
+					await authCheckTask;
+					return;
+				}
+
+				let timeoutId: number | null = null;
+				const result = await Promise.race([
+					authCheckTask.then(() => 'done' as const),
+					new Promise<'timeout'>((resolve) => {
+						timeoutId = window.setTimeout(
+							() => resolve('timeout'),
+							AUTH_BOOTSTRAP_TIMEOUT_MS,
+						);
+					}),
+				]);
+				if (timeoutId !== null) {
+					window.clearTimeout(timeoutId);
+				}
+
+				if (result === 'timeout') {
+					useNetworkStore.getState().setAuthCheckFailed(true);
+					void authCheckTask.catch((error) => {
+						console.warn(
+							'Background auth check failed after bootstrap timeout:',
+							error,
+						);
+					});
 				}
 			})()
 				.catch((error) => {
