@@ -2309,7 +2309,13 @@ export async function POST(request: NextRequest) {
 		}
 
 		const host = request.headers.get('host');
+		const schoolProfileRaw = await getSchoolProfile();
+		const schoolProfile =
+			typeof schoolProfileRaw === 'string'
+				? JSON.parse(schoolProfileRaw)
+				: schoolProfileRaw;
 		const tenantKey = resolveTenantSyncKey({
+			schoolProfile,
 			tenantId: currentUser.tenantId,
 			host,
 		});
@@ -2517,7 +2523,13 @@ export async function PUT(request: NextRequest) {
 				{ status: 401 },
 			);
 		}
+		const schoolProfileRaw = await getSchoolProfile();
+		const schoolProfile =
+			typeof schoolProfileRaw === 'string'
+				? JSON.parse(schoolProfileRaw)
+				: schoolProfileRaw;
 		const tenantKey = resolveTenantSyncKey({
+			schoolProfile,
 			tenantId: currentUser.tenantId,
 			host: request.headers.get('host'),
 		});
@@ -4050,7 +4062,13 @@ export async function DELETE(request: NextRequest) {
 				{ status: 401 },
 			);
 		}
+		const schoolProfileRaw = await getSchoolProfile();
+		const schoolProfile =
+			typeof schoolProfileRaw === 'string'
+				? JSON.parse(schoolProfileRaw)
+				: schoolProfileRaw;
 		const tenantKey = resolveTenantSyncKey({
+			schoolProfile,
 			tenantId: currentUser.tenantId,
 			host: request.headers.get('host'),
 		});

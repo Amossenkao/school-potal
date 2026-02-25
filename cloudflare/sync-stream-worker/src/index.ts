@@ -320,18 +320,31 @@ export class SyncStreamHub extends DurableObject<Env> {
 	}
 
 	override async fetch(request: Request): Promise<Response> {
-		await this.initialized;
-		const url = new URL(request.url);
+		try {
+			await this.initialized;
+			const url = new URL(request.url);
 
-		if (request.method === 'OPTIONS') {
-			return new Response(null, { status: 204, headers: CORS_HEADERS });
+			if (request.method === 'OPTIONS') {
+				return new Response(null, { status: 204, headers: CORS_HEADERS });
+			}
+
+			if (url.pathname !== '/connect' || request.method !== 'GET') {
+				return jsonResponse({ success: false, message: 'Not found' }, 404);
+			}
+
+			return this.handleConnect(request, url);
+		} catch (error) {
+			this.warn('fetch', 'Durable Object fetch failed.', {
+				error: error instanceof Error ? error.message : String(error),
+			});
+			return jsonResponse(
+				{
+					success: false,
+					message: 'Sync stream hub failure.',
+				},
+				500,
+			);
 		}
-
-		if (url.pathname !== '/connect' || request.method !== 'GET') {
-			return jsonResponse({ success: false, message: 'Not found' }, 404);
-		}
-
-		return this.handleConnect(request, url);
 	}
 
 	private async hydrateReplayState() {
@@ -460,21 +473,30 @@ export class SyncStreamHub extends DurableObject<Env> {
 		}
 		this.startKeepAliveIfNeeded();
 
-		if (requestedLastEventId > 0) {
-			await this.replayMissedEvents(connection, requestedLastEventId);
-		}
+		const bootstrapClient = async () => {
+			if (requestedLastEventId > 0) {
+				await this.replayMissedEvents(connection, requestedLastEventId);
+			}
 
-		await this.sendSseEvent(
-			connection,
-			'ready',
-			{
-				tenantKey,
-				userId,
-				channels,
-				connectedAt: new Date().toISOString(),
-			},
-			this.lastSequence > 0 ? String(this.lastSequence) : undefined,
-		);
+			await this.sendSseEvent(
+				connection,
+				'ready',
+				{
+					tenantKey,
+					userId,
+					channels,
+					connectedAt: new Date().toISOString(),
+				},
+				this.lastSequence > 0 ? String(this.lastSequence) : undefined,
+			);
+		};
+		void bootstrapClient().catch((error) => {
+			this.warn('connect', 'Failed to bootstrap client stream.', {
+				clientId,
+				error: error instanceof Error ? error.message : String(error),
+			});
+			void this.disconnectClient(clientId);
+		});
 
 		request.signal.addEventListener(
 			'abort',
