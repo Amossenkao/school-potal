@@ -7,7 +7,6 @@ import {
 	X,
 	Archive,
 	Trash2,
-	Eye,
 	ShieldCheck,
 	User,
 	Bell,
@@ -40,6 +39,13 @@ interface GradeDetails {
 	fails?: number;
 	academicYear?: string;
 	submissionId?: string;
+	requestCount?: number;
+	requestStatus?: string;
+	studentName?: string;
+	originalGrade?: number;
+	requestedGrade?: number;
+	reasonForChange?: string;
+	adminRejectionReason?: string;
 }
 
 const parseGradeDetails = (notification: Notification): GradeDetails | null => {
@@ -56,7 +62,7 @@ const parseGradeDetails = (notification: Notification): GradeDetails | null => {
 	if (!parsed || typeof parsed !== 'object') return null;
 	return {
 		teacherName: parsed.teacherName,
-		className: parsed.className,
+		className: parsed.className || parsed.classId,
 		period: parsed.period,
 		subject: parsed.subject,
 		studentsGraded:
@@ -67,51 +73,95 @@ const parseGradeDetails = (notification: Notification): GradeDetails | null => {
 		fails: typeof parsed.fails === 'number' ? parsed.fails : undefined,
 		academicYear: parsed.academicYear,
 		submissionId: parsed.submissionId,
+		requestCount:
+			typeof parsed.requestCount === 'number' ? parsed.requestCount : undefined,
+		requestStatus: parsed.requestStatus,
+		studentName: parsed.studentName,
+		originalGrade:
+			typeof parsed.originalGrade === 'number' ? parsed.originalGrade : undefined,
+		requestedGrade:
+			typeof parsed.requestedGrade === 'number'
+				? parsed.requestedGrade
+				: undefined,
+		reasonForChange: parsed.reasonForChange,
+		adminRejectionReason: parsed.adminRejectionReason,
 	};
 };
 
-const GradeDetailCard = ({ details }: { details: GradeDetails }) => (
-	<div className="mt-4 grid grid-cols-2 gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-foreground">
-		<div>
-			<p className="text-xs uppercase tracking-wide text-muted-foreground">
-				Teacher
-			</p>
-			<p className="font-semibold">{details.teacherName || 'N/A'}</p>
+const GradeDetailCard = ({ details }: { details: GradeDetails }) => {
+	const gradeChangeSummary =
+		typeof details.originalGrade === 'number' &&
+		typeof details.requestedGrade === 'number'
+			? `${details.originalGrade} -> ${details.requestedGrade}`
+			: undefined;
+
+	const items = [
+		{ label: 'Teacher', value: details.teacherName },
+		{ label: 'Class', value: details.className },
+		{ label: 'Period', value: details.period },
+		{ label: 'Subject', value: details.subject },
+		{ label: 'Academic Year', value: details.academicYear },
+		{
+			label: 'Students Graded',
+			value:
+				typeof details.studentsGraded === 'number'
+					? String(details.studentsGraded)
+					: undefined,
+		},
+		{
+			label: 'Pass / Fail',
+			value:
+				typeof details.passes === 'number' && typeof details.fails === 'number'
+					? `${details.passes} / ${details.fails}`
+					: undefined,
+		},
+		{
+			label: 'Requests',
+			value:
+				typeof details.requestCount === 'number'
+					? String(details.requestCount)
+					: undefined,
+		},
+		{ label: 'Status', value: details.requestStatus },
+		{ label: 'Student', value: details.studentName },
+		{ label: 'Grade Change', value: gradeChangeSummary },
+	].filter((item) => item.value !== undefined && item.value !== '');
+
+	if (items.length === 0 && !details.reasonForChange && !details.adminRejectionReason) {
+		return null;
+	}
+
+	return (
+		<div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-foreground">
+			<div className="grid grid-cols-2 gap-3">
+				{items.map((item) => (
+					<div key={item.label}>
+						<p className="text-xs uppercase tracking-wide text-muted-foreground">
+							{item.label}
+						</p>
+						<p className="font-semibold">{item.value}</p>
+					</div>
+				))}
+			</div>
+			{details.reasonForChange && (
+				<div className="mt-3">
+					<p className="text-xs uppercase tracking-wide text-muted-foreground">
+						Reason
+					</p>
+					<p className="font-semibold">{details.reasonForChange}</p>
+				</div>
+			)}
+			{details.adminRejectionReason && (
+				<div className="mt-3">
+					<p className="text-xs uppercase tracking-wide text-muted-foreground">
+						Admin Reason
+					</p>
+					<p className="font-semibold">{details.adminRejectionReason}</p>
+				</div>
+			)}
 		</div>
-		<div>
-			<p className="text-xs uppercase tracking-wide text-muted-foreground">
-				Class
-			</p>
-			<p className="font-semibold">{details.className || 'N/A'}</p>
-		</div>
-		<div>
-			<p className="text-xs uppercase tracking-wide text-muted-foreground">
-				Period
-			</p>
-			<p className="font-semibold">{details.period || 'N/A'}</p>
-		</div>
-		<div>
-			<p className="text-xs uppercase tracking-wide text-muted-foreground">
-				Subject
-			</p>
-			<p className="font-semibold">{details.subject || 'N/A'}</p>
-		</div>
-		<div>
-			<p className="text-xs uppercase tracking-wide text-muted-foreground">
-				Students Graded
-			</p>
-			<p className="font-semibold">{details.studentsGraded ?? 'N/A'}</p>
-		</div>
-		<div>
-			<p className="text-xs uppercase tracking-wide text-muted-foreground">
-				Pass / Fail
-			</p>
-			<p className="font-semibold">
-				{details.passes ?? 'N/A'} / {details.fails ?? 'N/A'}
-			</p>
-		</div>
-	</div>
-);
+	);
+};
 
 const NotificationModal = ({
 	notification,
@@ -208,18 +258,23 @@ const NotificationItem = ({
 	onView: (notification: Notification) => void;
 }) => {
 	const gradeDetails = parseGradeDetails(notification);
+	const gradeSummary = gradeDetails
+		? [gradeDetails.subject, gradeDetails.className, gradeDetails.period]
+				.filter(Boolean)
+				.join(' • ')
+		: '';
 	const getIcon = (type: NotificationType) => {
 		switch (type) {
 			case 'Grades':
-				return <Star className="w-6 h-6 text-emerald-500" />;
+				return <Star className="w-5 h-5 text-emerald-500" />;
 			case 'Security':
-				return <ShieldCheck className="w-6 h-6 text-red-500" />;
+				return <ShieldCheck className="w-5 h-5 text-red-500" />;
 			case 'Profile':
-				return <User className="w-6 h-6 text-blue-500" />;
+				return <User className="w-5 h-5 text-blue-500" />;
 			case 'Others':
-				return <MessageSquare className="w-6 h-6 text-muted-foreground" />;
+				return <MessageSquare className="w-5 h-5 text-muted-foreground" />;
 			default:
-				return <Info className="w-6 h-6 text-muted-foreground" />;
+				return <Info className="w-5 h-5 text-muted-foreground" />;
 		}
 	};
 
@@ -253,7 +308,7 @@ const NotificationItem = ({
 	return (
 		<div
 			onClick={handleClick}
-			className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer ${
+			className={`group relative overflow-hidden rounded-xl border transition-all duration-200 hover:shadow-md cursor-pointer ${
 				notification.read
 					? 'bg-card/50'
 					: 'bg-primary/5 border-primary/20 shadow-md'
@@ -264,72 +319,79 @@ const NotificationItem = ({
 					notification.type
 				)}`}
 			/>
-			{!notification.read && (
-				<div className="absolute top-4 right-4">
-					<div className="w-3 h-3 bg-primary rounded-full animate-pulse shadow-lg" />
-				</div>
-			)}
-			<div className="p-6">
-				<div className="flex items-start space-x-4">
-					<div className="flex-shrink-0 p-2 rounded-xl bg-background shadow-sm">
+			<div className="p-3 sm:p-4">
+				<div className="flex items-start gap-3">
+					<div className="flex-shrink-0 p-2 rounded-lg bg-background shadow-sm">
 						{getIcon(notification.type)}
 					</div>
 					<div className="flex-1 min-w-0">
-						<div className="flex justify-between items-start mb-2">
-							<div>
-								<h4 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">
-									{notification.title}
-								</h4>
-								<span className="inline-block px-2 py-1 bg-muted text-muted-foreground rounded-lg text-xs font-medium mt-1">
-									{notification.type}
-								</span>
-							</div>
-							<div className="flex items-center space-x-2 text-sm text-muted-foreground">
-								<Clock className="w-4 h-4" />
+						<div className="flex items-start justify-between gap-2">
+							<h4 className="text-sm sm:text-base font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+								{notification.title}
+							</h4>
+							<div className="flex items-center space-x-1.5 text-xs text-muted-foreground shrink-0">
+								<Clock className="w-3.5 h-3.5" />
 								<span className="hidden sm:block">
-									{format(
-										parseISO(notification.timestamp),
-										'MMM d, yyyy h:mm a'
-									)}
+									{format(parseISO(notification.timestamp), 'MMM d, h:mm a')}
 								</span>
 								<span className="sm:hidden">
 									{format(parseISO(notification.timestamp), 'MMM d')}
 								</span>
 							</div>
 						</div>
-						<p className="text-muted-foreground mb-4 line-clamp-2">
-							{notification.message}
-						</p>
-						{gradeDetails && <GradeDetailCard details={gradeDetails} />}
-						<div className="flex items-center gap-3">
+						<div className="mt-1 flex items-center gap-2">
+							<span className="inline-flex items-center px-2 py-0.5 bg-muted text-muted-foreground rounded-md text-[11px] font-medium">
+								{notification.type}
+							</span>
 							{!notification.read && (
-								<button
-									onClick={(e) => {
-										e.stopPropagation();
-										onMarkAsRead(notification._id);
-									}}
-									className="flex items-center gap-2 px-4 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 rounded-lg text-sm font-medium transition-colors"
-								>
-									<CheckCircle className="w-4 h-4" />
-									Mark Read
-								</button>
-							)}
-							{isDeletable && (
-								<button
-									onClick={(e) => {
-										e.stopPropagation();
-										onDelete(notification._id);
-									}}
-									className="flex items-center gap-2 px-4 py-2 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg text-sm font-medium transition-colors"
-								>
-									<Trash2 className="w-4 h-4" />
-									Delete
-								</button>
+								<span className="inline-flex items-center px-2 py-0.5 bg-primary/10 text-primary rounded-md text-[11px] font-medium">
+									Unread
+								</span>
 							)}
 						</div>
+						{gradeSummary ? (
+							<p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300 line-clamp-1">
+								{gradeSummary}
+							</p>
+						) : (
+							<p className="mt-1 text-sm text-muted-foreground line-clamp-1">
+								{notification.message}
+							</p>
+						)}
+					</div>
+					<div className="flex items-center gap-1 shrink-0">
+						{!notification.read && (
+							<button
+								onClick={(e) => {
+									e.stopPropagation();
+									onMarkAsRead(notification._id);
+								}}
+								className="p-2 rounded-md bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 transition-colors"
+								title="Mark as read"
+								aria-label="Mark as read"
+							>
+								<CheckCircle className="w-4 h-4" />
+							</button>
+						)}
+						{isDeletable && (
+							<button
+								onClick={(e) => {
+									e.stopPropagation();
+									onDelete(notification._id);
+								}}
+								className="p-2 rounded-md bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors"
+								title="Delete notification"
+								aria-label="Delete notification"
+							>
+								<Trash2 className="w-4 h-4" />
+							</button>
+						)}
 					</div>
 				</div>
 			</div>
+			{!notification.read && (
+				<div className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary shadow-sm" />
+			)}
 		</div>
 	);
 };
@@ -587,7 +649,7 @@ const Notifications: React.FC = () => {
 
 				<div
 					key={activeTab}
-					className={`mt-8 space-y-6 animate-in fade-in duration-300 ${
+					className={`mt-8 space-y-3 animate-in fade-in duration-300 ${
 						transitionDirection === 'left'
 							? 'slide-in-from-right-2'
 							: 'slide-in-from-left-2'

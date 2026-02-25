@@ -315,14 +315,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			setValidationErrors([]);
 			setConflictState(null);
 			setActionError('');
-
-			if (user.role === 'teacher') {
-				const initialAccordions = {};
-				(userData.subjects || []).forEach((s) => {
-					if (s.session) initialAccordions[s.session] = true;
-				});
-				setExpandedAccordions(initialAccordions);
-			}
+			setExpandedAccordions({});
 
 			setPromotionForm({
 				type: 'yearlyPromotion',
@@ -351,6 +344,13 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		schoolProfile?.classLevels?.[session]
 			? Object.keys(schoolProfile.classLevels[session])
 			: [];
+	const getSubjectName = (subjectValue) => {
+		if (typeof subjectValue === 'string') return subjectValue;
+		if (subjectValue && typeof subjectValue === 'object') {
+			return subjectValue.name || subjectValue.subject || '';
+		}
+		return '';
+	};
 	const getSubjectsBySessionAndLevel = (session, level) =>
 		schoolProfile?.classLevels?.[session]?.[level]?.subjects || [];
 	const getAllClassesForSession = (session) => {
@@ -361,6 +361,10 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	};
 	const getClassesBySessionAndLevel = (session, level) =>
 		schoolProfile?.classLevels?.[session]?.[level]?.classes || [];
+	const getSelfContainedClasses = (session) => {
+		if (!session) return [];
+		return getClassesBySessionAndLevel(session, 'Self Contained');
+	};
 	const getAllClassesWithLevelsForSession = (session) => {
 		if (!schoolProfile?.classLevels?.[session]) return [];
 		const allClasses = [];
@@ -399,6 +403,44 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		'Secretary',
 		'Administrative Assistant',
 	];
+
+	const getLevelVisualStyle = (level = '') => {
+		const normalized = String(level).trim().toLowerCase();
+
+		if (
+			normalized.includes('elementary') ||
+			normalized.includes('primary') ||
+			normalized.includes('nursery')
+		) {
+			return {
+				section: 'border-sky-200/70 bg-sky-50/40',
+				badge: 'border-sky-300 bg-sky-100 text-sky-800',
+			};
+		}
+
+		if (
+			normalized.includes('junior') ||
+			normalized.includes('middle') ||
+			normalized.includes('jhs')
+		) {
+			return {
+				section: 'border-emerald-200/70 bg-emerald-50/40',
+				badge: 'border-emerald-300 bg-emerald-100 text-emerald-800',
+			};
+		}
+
+		if (normalized.includes('senior') || normalized.includes('shs')) {
+			return {
+				section: 'border-amber-200/70 bg-amber-50/40',
+				badge: 'border-amber-300 bg-amber-100 text-amber-900',
+			};
+		}
+
+		return {
+			section: 'border-border/70 bg-muted/20',
+			badge: 'border-border/80 bg-muted text-foreground',
+		};
+	};
 
 	const handleInputChange = (e) => {
 		const { name, value } = e.target;
@@ -483,34 +525,109 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		});
 	};
 
-	const handleSponsorClassChange = (value) => {
-		setFormData((prev) => ({
-			...prev,
-			sponsorClass: value === '__none__' ? null : value,
-		}));
+	const handleSelfContainedSelection = (classId, session, checked) => {
+		setFormData((prev) => {
+			const otherSubjectsInSession = (prev.subjects || []).filter(
+				(s) => s.session !== session,
+			);
+			const updatedSubjects = checked
+				? [
+						...otherSubjectsInSession,
+						...getSubjectsBySessionAndLevel(session, 'Self Contained')
+							.map((subjectValue) => getSubjectName(subjectValue))
+							.filter(Boolean)
+							.map((subjectName) => ({
+								subject: subjectName,
+								level: 'Self Contained',
+								session,
+							})),
+					]
+				: otherSubjectsInSession;
+
+			return {
+				...prev,
+				subjects: updatedSubjects,
+				sponsorClass: checked ? classId : null,
+			};
+		});
 	};
 
-	const handleCarryOverSponsorClassChange = (value) => {
-		setCarryOverSponsorClass(value === '__none__' ? null : value);
+	const handleSponsorClassChange = (session, value) => {
+		setFormData((prev) => {
+			const normalizedValue = value === '__none__' ? null : value;
+			const isSelfContained = (prev.subjects || []).some(
+				(s) => s.level === 'Self Contained' && s.session === session,
+			);
+			if (!isSelfContained) {
+				return {
+					...prev,
+					sponsorClass: normalizedValue,
+				};
+			}
+
+			const otherSubjects = (prev.subjects || []).filter(
+				(s) => s.session !== session,
+			);
+			return {
+				...prev,
+				subjects: otherSubjects,
+				sponsorClass: normalizedValue,
+			};
+		});
+	};
+
+	const handleCarryOverSelfContainedSelection = (classId, session, checked) => {
+		setCarryOverSubjects((prev) => {
+			const otherSubjectsInSession = (prev || []).filter(
+				(s) => s.session !== session,
+			);
+			const updatedSubjects = checked
+				? [
+						...otherSubjectsInSession,
+						...getSubjectsBySessionAndLevel(session, 'Self Contained')
+							.map((subjectValue) => getSubjectName(subjectValue))
+							.filter(Boolean)
+							.map((subjectName) => ({
+								subject: subjectName,
+								level: 'Self Contained',
+								session,
+							})),
+					]
+				: otherSubjectsInSession;
+			return updatedSubjects;
+		});
+		setCarryOverSponsorClass(checked ? classId : null);
+	};
+
+	const handleCarryOverSponsorClassChange = (session, value) => {
+		const normalizedValue = value === '__none__' ? null : value;
+		const isSelfContained = (carryOverSubjects || []).some(
+			(s) => s.level === 'Self Contained' && s.session === session,
+		);
+		if (isSelfContained) {
+			setCarryOverSubjects((prev) =>
+				(prev || []).filter((s) => s.session !== session),
+			);
+		}
+		setCarryOverSponsorClass(normalizedValue);
 	};
 
 	const handleCarryOverSubjectChange = (subject, level, session, checked) => {
-		setCarryOverSubjects((prev) => {
-			let existingSubjects = prev || [];
-			const selfContainedInSession = existingSubjects.some(
-				(s) => s.session === session && s.level === 'Self Contained',
+		let updatedSubjects = [...(carryOverSubjects || [])];
+		const selfContainedSubjectsInSession = updatedSubjects.filter(
+			(s) => s.session === session && s.level === 'Self Contained',
+		);
+
+		if (selfContainedSubjectsInSession.length > 0) {
+			updatedSubjects = updatedSubjects.filter(
+				(s) => s.session !== session || s.level !== 'Self Contained',
 			);
+		}
 
-			if (selfContainedInSession) {
-				existingSubjects = existingSubjects.filter(
-					(s) => s.session !== session || s.level !== 'Self Contained',
-				);
-			}
-
-			if (checked) {
-				return [...existingSubjects, { subject, level, session }];
-			}
-			return existingSubjects.filter(
+		if (checked) {
+			updatedSubjects.push({ subject, level, session });
+		} else {
+			updatedSubjects = updatedSubjects.filter(
 				(s) =>
 					!(
 						s.subject === subject &&
@@ -518,7 +635,19 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 						s.session === session
 					),
 			);
-		});
+		}
+
+		setCarryOverSubjects(updatedSubjects);
+		if (selfContainedSubjectsInSession.length > 0) {
+			const sponsorInSession =
+				carryOverSponsorClass &&
+				getAllClassesForSession(session).some(
+					(cls) => cls.classId === carryOverSponsorClass,
+				);
+			if (sponsorInSession) {
+				setCarryOverSponsorClass(null);
+			}
+		}
 	};
 
 	const toggleCarryOverAccordion = (session) => {
@@ -625,6 +754,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 						conflictSummary: data.conflictSummary || {},
 						errors: data.errors || [],
 						changedData,
+						mode: 'profile-update',
 					});
 				} else if (res.status === 400 && data.errors) {
 					setValidationErrors(data.errors);
@@ -658,11 +788,49 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	};
 
 	const handleConfirmReassignment = async () => {
-		if (!conflictState?.changedData) return;
+		if (!conflictState) return;
 		setIsLoading(true);
 		setValidationErrors([]);
+		setActionError('');
 
 		try {
+			if (conflictState.mode === 'carry-over') {
+				const res = await fetch(
+					`/api/users?id=${user._id}&action=addAcademicYear`,
+					{
+						method: 'PUT',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							...(conflictState.requestBody || {}),
+							confirmReassignments: true,
+						}),
+					},
+				);
+				const data = await res.json();
+
+				if (!res.ok || !data.success) {
+					throw new Error(
+						data.message || 'Failed to add academic year with reassignments.',
+					);
+				}
+
+				const updatedReassignedTeachers = await fetchReassignedTeachers(
+					data.reassignments,
+				);
+				if (data.reassignments?.performed) {
+					setFeedback({
+						type: 'success',
+						message: `Academic year added successfully. ${data.reassignments.count} assignment(s) were reassigned from other teachers.`,
+					});
+				} else {
+					setFeedback({ type: 'success', message: data.message });
+				}
+				onSave(data.data?.user || data.data, updatedReassignedTeachers);
+				setShowCarryOverModal(false);
+				return;
+			}
+
+			if (!conflictState.changedData) return;
 			const res = await fetch(`/api/users?id=${user._id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
@@ -692,7 +860,13 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			}
 			onSave(data.data.user, updatedReassignedTeachers);
 		} catch (err) {
-			setValidationErrors([{ message: err.message }]);
+			const message =
+				err instanceof Error ? err.message : 'Failed to confirm reassignments.';
+			if (conflictState.mode === 'carry-over') {
+				setActionError(message);
+			} else {
+				setValidationErrors([{ message }]);
+			}
 		} finally {
 			setIsLoading(false);
 			setConflictState(null);
@@ -972,6 +1146,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 	const handleCarryOverSubmit = async () => {
 		setActionError('');
+		setConflictState(null);
 		const options = getCarryOverAcademicYearOptions();
 		if (!hasYearOptionLaterThanUser(options, user)) {
 			setActionError(
@@ -1037,11 +1212,34 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				body: JSON.stringify(requestBody),
 			});
 			const data = await res.json();
-			if (!res.ok || !data.success) {
+			if (!res.ok) {
+				if (res.status === 409 && data.requiresConfirmation) {
+					setConflictState({
+						conflicts: data.conflicts || [],
+						conflictSummary: data.conflictSummary || {},
+						errors: data.errors || [],
+						mode: 'carry-over',
+						requestBody,
+					});
+					return;
+				}
 				throw new Error(data.message || 'Failed to add academic year.');
 			}
-			onSave(data.data?.user || data.data);
-			setFeedback({ type: 'success', message: data.message });
+			if (!data.success) {
+				throw new Error(data.message || 'Failed to add academic year.');
+			}
+			const updatedReassignedTeachers = await fetchReassignedTeachers(
+				data.reassignments,
+			);
+			if (data.reassignments?.performed) {
+				setFeedback({
+					type: 'success',
+					message: `Academic year added successfully. ${data.reassignments.count} assignment(s) were reassigned.`,
+				});
+			} else {
+				setFeedback({ type: 'success', message: data.message });
+			}
+			onSave(data.data?.user || data.data, updatedReassignedTeachers);
 			setShowCarryOverModal(false);
 		} catch (err) {
 			const message =
@@ -1330,25 +1528,30 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 											</SelectTrigger>
 											<SelectContent>
 												{formData.session &&
-													getClassLevels(formData.session).map((level) => (
-														<React.Fragment key={level}>
-															<div className="px-2 py-1.5 text-sm font-semibold">
-																{level}
-															</div>
-															{getAllClassesWithLevelsForSession(
-																formData.session,
-															)
-																.filter((cls) => cls.level === level)
-																.map((cls) => (
-																	<SelectItem
-																		key={cls.classId}
-																		value={cls.classId}
-																	>
-																		{cls.name}
-																	</SelectItem>
-																))}
-														</React.Fragment>
-													))}
+													getClassLevels(formData.session).map((level) => {
+														const levelStyle = getLevelVisualStyle(level);
+														return (
+															<React.Fragment key={level}>
+																<div
+																	className={`mx-1 mt-1 mb-1 inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${levelStyle.badge}`}
+																>
+																	{level}
+																</div>
+																{getAllClassesWithLevelsForSession(
+																	formData.session,
+																)
+																	.filter((cls) => cls.level === level)
+																	.map((cls) => (
+																		<SelectItem
+																			key={cls.classId}
+																			value={cls.classId}
+																		>
+																			{cls.name}
+																		</SelectItem>
+																	))}
+															</React.Fragment>
+														);
+													})}
 											</SelectContent>
 										</Select>
 									</div>
@@ -1468,13 +1671,147 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 														exit={{ opacity: 0, height: 0 }}
 														className="p-4 space-y-4 border-t border-border"
 													>
+														{getSelfContainedClasses(session).length > 0 && (
+															<div className="space-y-3">
+																<p className="text-sm text-muted-foreground">
+																	<span className="font-medium">
+																		Self-Contained Class Teacher
+																	</span>{' '}
+																	<span className="italic">
+																		(teaches all subjects)
+																	</span>
+																</p>
+																<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+																	{getSelfContainedClasses(session).map((cls) => {
+																		const isSelected =
+																			formData.sponsorClass === cls.classId &&
+																			(formData.subjects || []).some(
+																				(s) =>
+																					s.level === 'Self Contained' &&
+																					s.session === session,
+																			);
+																		return (
+																			<motion.label
+																				key={`${session}-self-${cls.classId}`}
+																				whileHover={{ scale: 1.02 }}
+																				className={`relative flex items-center justify-center rounded-xl border p-3 cursor-pointer transition-all duration-300 ${
+																					isSelected
+																						? 'border-primary bg-primary/10 shadow-md'
+																						: 'border-muted hover:border-primary/50 hover:bg-accent/10'
+																				}`}
+																			>
+																				<input
+																					type="radio"
+																					name={`edit-selfContainedClass-${session}`}
+																					checked={isSelected}
+																					onChange={(e) =>
+																						handleSelfContainedSelection(
+																							cls.classId,
+																							session,
+																							e.target.checked,
+																						)
+																					}
+																					className="absolute opacity-0"
+																				/>
+																				<span className="text-sm font-medium text-foreground">
+																					{cls.name}
+																				</span>
+																			</motion.label>
+																		);
+																	})}
+																</div>
+															</div>
+														)}
+														<div>
+															<label className="block text-sm font-medium text-foreground mb-2">
+																Subjects Taught
+															</label>
+															<div className="space-y-3">
+																{getClassLevels(session)
+																	.filter((level) => level !== 'Self Contained')
+																	.map((level) => {
+																		const levelStyle = getLevelVisualStyle(level);
+																		return (
+																			<div
+																				key={level}
+																				className={`rounded-lg border p-3 ${levelStyle.section}`}
+																			>
+																				<h6 className="mb-2">
+																					<span
+																						className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${levelStyle.badge}`}
+																					>
+																						{level}
+																					</span>
+																				</h6>
+																				<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+																					{getSubjectsBySessionAndLevel(
+																						session,
+																						level,
+																					).map((subject) => {
+																						const subjectName =
+																							getSubjectName(subject);
+																						if (!subjectName) return null;
+																						const isChecked = (
+																							formData.subjects || []
+																						).some(
+																							(s) =>
+																								s.subject === subjectName &&
+																								s.level === level &&
+																								s.session === session,
+																						);
+																						return (
+																							<motion.label
+																								key={`${subjectName}-${level}`}
+																								whileHover={{
+																									scale: 1.03,
+																								}}
+																								className={`relative flex items-center rounded-lg border p-2 cursor-pointer transition-all text-sm ${
+																									isChecked
+																										? 'border-primary bg-primary/10 shadow-sm'
+																										: 'border-muted hover:border-primary/40 hover:bg-accent/5'
+																								}`}
+																							>
+																								<input
+																									type="checkbox"
+																									checked={isChecked}
+																									onChange={(e) =>
+																										handleSubjectChange(
+																											subjectName,
+																											level,
+																											session,
+																											e.target.checked,
+																										)
+																									}
+																									className="absolute opacity-0"
+																								/>
+																								<span className="ml-1 text-foreground">
+																									{subjectName}
+																								</span>
+																							</motion.label>
+																						);
+																					})}
+																				</div>
+																			</div>
+																		);
+																	})}
+															</div>
+														</div>
 														<div>
 															<label className="block text-sm font-medium text-foreground mb-2">
 																Class Sponsorship
 															</label>
 															<Select
-																value={formData.sponsorClass || '__none__'}
-																onValueChange={handleSponsorClassChange}
+																value={
+																	formData.sponsorClass &&
+																	getAllClassesForSession(session).find(
+																		(cls) => cls.classId === formData.sponsorClass,
+																	)
+																		? formData.sponsorClass
+																		: '__none__'
+																}
+																onValueChange={(value) =>
+																	handleSponsorClassChange(session, value)
+																}
 															>
 																<SelectTrigger className={selectTriggerClass}>
 																	<SelectValue placeholder="No sponsorship" />
@@ -1483,84 +1820,27 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																	<SelectItem value="__none__">
 																		No sponsorship
 																	</SelectItem>
-																	{getAllClassesForSession(session).map(
-																		(cls) => (
+																	{getAllClassesWithLevelsForSession(session)
+																		.filter((cls) => cls.level !== 'Self Contained')
+																		.map((cls) => (
 																			<SelectItem
 																				key={cls.classId}
 																				value={cls.classId}
 																			>
 																				{cls.name}
 																			</SelectItem>
-																		),
-																	)}
+																		))}
 																</SelectContent>
 															</Select>
-															{formData.sponsorClass && (
-																<p className="text-xs text-green-600 mt-1">
-																	This teacher will be assigned as sponsor for
-																	the selected class
-																</p>
-															)}
-														</div>
-														<div>
-															<label className="block text-sm font-medium text-foreground mb-2">
-																Subjects Taught
-															</label>
-															<div className="space-y-3">
-																{getClassLevels(session).map((level) => (
-																	<div key={level}>
-																		<h6 className="font-medium text-foreground mb-2">
-																			{level}
-																		</h6>
-																		<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-																			{getSubjectsBySessionAndLevel(
-																				session,
-																				level,
-																			).map((subject) => {
-																				const isChecked = (
-																					formData.subjects || []
-																				).some(
-																					(s) =>
-																						s.subject === subject.name &&
-																						s.level === level &&
-																						s.session === session,
-																				);
-																				return (
-																					<motion.label
-																						key={`${subject.name}-${level}`}
-																						whileHover={{
-																							scale: 1.03,
-																						}}
-																						className={`relative flex items-center rounded-lg border p-2 cursor-pointer transition-all text-sm
-                                        ${
-																					isChecked
-																						? 'border-primary bg-primary/10 shadow-sm'
-																						: 'border-muted hover:border-primary/40 hover:bg-accent/5'
-																				}`}
-																					>
-																						<input
-																							type="checkbox"
-																							checked={isChecked}
-																							onChange={(e) =>
-																								handleSubjectChange(
-																									subject.name,
-																									level,
-																									session,
-																									e.target.checked,
-																								)
-																							}
-																							className="absolute opacity-0"
-																						/>
-																						<span className="ml-1 text-foreground">
-																							{subject.name}
-																						</span>
-																					</motion.label>
-																				);
-																			})}
-																		</div>
-																	</div>
-																))}
-															</div>
+															{formData.sponsorClass &&
+																getAllClassesForSession(session).some(
+																	(cls) => cls.classId === formData.sponsorClass,
+																) && (
+																	<p className="text-xs text-green-600 mt-1">
+																		This teacher will be assigned as sponsor for
+																		the selected class
+																	</p>
+																)}
 														</div>
 													</motion.div>
 												)}
@@ -2095,40 +2375,6 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 														{user?.role === 'teacher' && (
 															<div className="space-y-4">
-																<div>
-																	<label className="block text-sm font-medium text-foreground mb-1">
-																		Sponsor Class
-																	</label>
-																	<Select
-																		value={carryOverSponsorClass || '__none__'}
-																		onValueChange={
-																			handleCarryOverSponsorClassChange
-																		}
-																	>
-																		<SelectTrigger
-																			className={selectTriggerClass}
-																		>
-																			<SelectValue placeholder="No sponsorship" />
-																		</SelectTrigger>
-																		<SelectContent>
-																			<SelectItem value="__none__">
-																				No sponsorship
-																			</SelectItem>
-																			{getSessions().flatMap((session) =>
-																				getAllClassesForSession(session).map(
-																					(cls) => (
-																						<SelectItem
-																							key={cls.classId}
-																							value={cls.classId}
-																						>
-																							{cls.name}
-																						</SelectItem>
-																					),
-																				),
-																			)}
-																		</SelectContent>
-																	</Select>
-																</div>
 																<div className="space-y-3">
 																	<p className="text-sm font-medium text-foreground">
 																		Subject Assignments
@@ -2164,68 +2410,194 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																						exit={{ opacity: 0, height: 0 }}
 																						className="p-3 sm:p-4 space-y-4 border-t border-border"
 																					>
-																						{getClassLevels(session).map((level) => (
-																							<div
-																								key={`carry-over-${session}-${level}`}
-																							>
-																								<h6 className="font-medium text-foreground mb-2 text-sm">
-																									{level}
-																								</h6>
-																								<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-																									{getSubjectsBySessionAndLevel(
-																										session,
-																										level,
-																									).map((subject) => {
-																										const subjectName =
-																											typeof subject ===
-																											'string'
-																												? subject
-																												: subject?.name;
-																										if (!subjectName)
-																											return null;
-																										const isChecked = (
-																											carryOverSubjects || []
-																										).some(
-																											(selection) =>
-																												selection.subject ===
-																													subjectName &&
-																												selection.level ===
-																													level &&
-																												selection.session ===
-																													session,
-																										);
-																										return (
-																											<motion.label
-																												key={`carry-over-${subjectName}-${level}-${session}`}
-																												whileHover={{ scale: 1.02 }}
-																												className={`relative flex items-center rounded-lg border p-2 cursor-pointer transition-all text-sm ${
-																													isChecked
-																														? 'border-primary bg-primary/10 shadow-sm'
-																														: 'border-muted hover:border-primary/40 hover:bg-accent/5'
-																												}`}
-																											>
-																												<input
-																													type="checkbox"
-																													checked={isChecked}
-																													onChange={(e) =>
-																														handleCarryOverSubjectChange(
-																															subjectName,
-																															level,
+																						{getSelfContainedClasses(session).length > 0 && (
+																							<div className="space-y-3">
+																								<p className="text-sm text-muted-foreground">
+																									<span className="font-medium">
+																										Self-Contained Class Teacher
+																									</span>{' '}
+																									<span className="italic">
+																										(teaches all subjects)
+																									</span>
+																								</p>
+																								<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+																									{getSelfContainedClasses(session).map(
+																										(cls) => {
+																											const isSelected =
+																												carryOverSponsorClass ===
+																													cls.classId &&
+																												(carryOverSubjects || []).some(
+																													(selection) =>
+																														selection.level ===
+																															'Self Contained' &&
+																														selection.session ===
 																															session,
-																															e.target.checked,
-																														)
-																													}
-																													className="absolute opacity-0"
-																												/>
-																												<span className="ml-1 text-foreground">
-																													{subjectName}
-																												</span>
-																											</motion.label>
-																										);
-																									})}
+																												);
+																											return (
+																												<motion.label
+																													key={`carry-over-self-${session}-${cls.classId}`}
+																													whileHover={{ scale: 1.02 }}
+																													className={`relative flex items-center justify-center rounded-xl border p-3 cursor-pointer transition-all duration-300 ${
+																														isSelected
+																															? 'border-primary bg-primary/10 shadow-md'
+																															: 'border-muted hover:border-primary/50 hover:bg-accent/10'
+																													}`}
+																												>
+																													<input
+																														type="radio"
+																														name={`carry-over-selfContainedClass-${session}`}
+																														checked={isSelected}
+																														onChange={(e) =>
+																															handleCarryOverSelfContainedSelection(
+																																cls.classId,
+																																session,
+																																e.target.checked,
+																															)
+																														}
+																														className="absolute opacity-0"
+																													/>
+																													<span className="text-sm font-medium text-foreground">
+																														{cls.name}
+																													</span>
+																												</motion.label>
+																											);
+																										},
+																									)}
 																								</div>
 																							</div>
-																						))}
+																						)}
+																						<div className="space-y-3">
+																							{getClassLevels(session)
+																								.filter(
+																									(level) =>
+																										level !== 'Self Contained',
+																								)
+																								.map((level) => {
+																									const levelStyle =
+																										getLevelVisualStyle(level);
+																									return (
+																										<div
+																											key={`carry-over-${session}-${level}`}
+																											className={`rounded-lg border p-3 ${levelStyle.section}`}
+																										>
+																											<h6 className="mb-2">
+																												<span
+																													className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${levelStyle.badge}`}
+																												>
+																													{level}
+																												</span>
+																											</h6>
+																											<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+																												{getSubjectsBySessionAndLevel(
+																													session,
+																													level,
+																												).map((subject) => {
+																													const subjectName =
+																														getSubjectName(
+																															subject,
+																														);
+																													if (!subjectName)
+																														return null;
+																													const isChecked = (
+																														carryOverSubjects ||
+																														[]
+																													).some(
+																														(selection) =>
+																															selection.subject ===
+																																subjectName &&
+																															selection.level ===
+																																level &&
+																															selection.session ===
+																																session,
+																													);
+																													return (
+																														<motion.label
+																															key={`carry-over-${subjectName}-${level}-${session}`}
+																															whileHover={{
+																																scale: 1.02,
+																															}}
+																															className={`relative flex items-center rounded-lg border p-2 cursor-pointer transition-all text-sm ${
+																																isChecked
+																																	? 'border-primary bg-primary/10 shadow-sm'
+																																	: 'border-muted hover:border-primary/40 hover:bg-accent/5'
+																															}`}
+																														>
+																															<input
+																																type="checkbox"
+																																checked={isChecked}
+																																onChange={(e) =>
+																																	handleCarryOverSubjectChange(
+																																		subjectName,
+																																		level,
+																																		session,
+																																		e.target.checked,
+																																	)
+																																}
+																																className="absolute opacity-0"
+																															/>
+																															<span className="ml-1 text-foreground">
+																																{subjectName}
+																															</span>
+																														</motion.label>
+																													);
+																												})}
+																											</div>
+																										</div>
+																									);
+																								})}
+																						</div>
+																						<div>
+																							<label className="block text-sm font-medium text-foreground mb-1">
+																								Sponsor Class
+																							</label>
+																							<Select
+																								value={
+																									carryOverSponsorClass &&
+																									getAllClassesForSession(
+																										session,
+																									).some(
+																										(cls) =>
+																											cls.classId ===
+																											carryOverSponsorClass,
+																									)
+																										? carryOverSponsorClass
+																										: '__none__'
+																								}
+																								onValueChange={(value) =>
+																									handleCarryOverSponsorClassChange(
+																										session,
+																										value,
+																									)
+																								}
+																							>
+																								<SelectTrigger
+																									className={selectTriggerClass}
+																								>
+																									<SelectValue placeholder="No sponsorship" />
+																								</SelectTrigger>
+																								<SelectContent>
+																									<SelectItem value="__none__">
+																										No sponsorship
+																									</SelectItem>
+																									{getAllClassesWithLevelsForSession(
+																										session,
+																									)
+																										.filter(
+																											(cls) =>
+																												cls.level !==
+																												'Self Contained',
+																										)
+																										.map((cls) => (
+																											<SelectItem
+																												key={cls.classId}
+																												value={cls.classId}
+																											>
+																												{cls.name}
+																											</SelectItem>
+																										))}
+																								</SelectContent>
+																							</Select>
+																						</div>
 																					</motion.div>
 																				)}
 																			</AnimatePresence>

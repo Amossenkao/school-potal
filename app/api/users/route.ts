@@ -885,14 +885,18 @@ async function validateTeacherData(
 			if (yearData.classes && Array.isArray(yearData.classes)) {
 				for (const classData of yearData.classes) {
 					const requestedSubjects = Array.isArray(classData.subjects)
-						? classData.subjects
-								.map((subject: any) => String(subject || '').trim())
-								.filter(Boolean)
+						? Array.from(
+								new Set(
+									classData.subjects
+										.map((subject: any) => String(subject || '').trim())
+										.filter(Boolean),
+								),
+							)
 						: [];
 					if (requestedSubjects.length === 0) continue;
 
 					// Check if another teacher has overlapping subject assignment for this class/year.
-					const assignmentExists = await models.Teacher.findOne({
+					const assignmentExists = await models.Teacher.find({
 						...baseQuery,
 						role: 'teacher',
 						subjects: {
@@ -906,32 +910,57 @@ async function validateTeacherData(
 								},
 							},
 						},
-					}).lean();
+					})
+						.select('firstName lastName fullName username subjects')
+						.lean();
 
-					if (assignmentExists) {
+					for (const conflictingAssignment of assignmentExists) {
+						const yearEntry = Array.isArray(conflictingAssignment?.subjects)
+							? conflictingAssignment.subjects.find(
+									(entry: any) => entry?.year === year,
+								)
+							: null;
+						const classEntry = Array.isArray(yearEntry?.classes)
+							? yearEntry.classes.find(
+									(entry: any) => entry?.classId === classData.classId,
+								)
+							: null;
+						const conflictingSubjects = Array.isArray(classEntry?.subjects)
+							? Array.from(
+									new Set(
+										classEntry.subjects
+											.map((subject: any) => String(subject || '').trim())
+											.filter(
+												(subject: string) => requestedSubjects.includes(subject),
+											),
+									),
+								)
+							: [];
+						if (conflictingSubjects.length === 0) continue;
+
 						const conflict: ConflictDetails = {
 							type: 'subject',
 							conflictingTeacher: {
-								id: assignmentExists._id.toString(),
+								id: conflictingAssignment._id.toString(),
 								name:
-									assignmentExists.fullName ||
-									`${assignmentExists.firstName} ${assignmentExists.lastName}`,
-								teacherUsername: assignmentExists.username,
+									conflictingAssignment.fullName ||
+									`${conflictingAssignment.firstName} ${conflictingAssignment.lastName}`,
+								teacherUsername: conflictingAssignment.username,
 							},
 							assignment: {
 								year: year,
 								classId: classData.classId,
-								subjects: requestedSubjects,
+								subjects: conflictingSubjects,
 							},
 						};
 
 						errors.push({
 							field: 'subjects',
 							type: 'DUPLICATE_ENTRY',
-							message: `Class "${classData.classId}" for academic year ${year} is already assigned to ${conflict.conflictingTeacher.name} (${conflict.conflictingTeacher.teacherUsername}).`,
+							message: `Class "${classData.classId}" for academic year ${year} already has ${conflictingSubjects.join(', ')} assigned to ${conflict.conflictingTeacher.name} (${conflict.conflictingTeacher.teacherUsername}).`,
 							details: {
-								existingUserId: assignmentExists._id.toString(),
-								existingUserName: assignmentExists.fullName,
+								existingUserId: conflictingAssignment._id.toString(),
+								existingUserName: conflictingAssignment.fullName,
 							},
 							conflicts: [conflict],
 							requiresConfirmation: true,
@@ -2912,8 +2941,13 @@ export async function PUT(request: NextRequest) {
 			}
 
 			const carryOverPayload = await request.json();
-			const { newAcademicYear, classes, sponsorClass, position } =
-				carryOverPayload || {};
+			const {
+				newAcademicYear,
+				classes,
+				sponsorClass,
+				position,
+				confirmReassignments = false,
+			} = carryOverPayload || {};
 			if (!newAcademicYear || typeof newAcademicYear !== 'string') {
 				return NextResponse.json(
 					{
@@ -2988,6 +3022,12 @@ export async function PUT(request: NextRequest) {
 			};
 			const hasPayloadProp = (key: string) =>
 				Object.prototype.hasOwnProperty.call(carryOverPayload || {}, key);
+			const buildConflictSummary = (conflicts: ConflictDetails[]) => ({
+				sponsorshipConflicts: conflicts.filter((c) => c.type === 'sponsorship')
+					.length,
+				subjectConflicts: conflicts.filter((c) => c.type === 'subject').length,
+				totalConflicts: conflicts.length,
+			});
 
 			if (targetRoleUser.role === 'teacher') {
 				const existingSubjects = Array.isArray(targetRoleUser.subjects)
@@ -3055,6 +3095,78 @@ export async function PUT(request: NextRequest) {
 						: null
 					: targetRoleUser.sponsorClass || null;
 
+				const teacherCarryOverData = {
+					role: 'teacher',
+					sponsorClass: sponsorClassForNewYear,
+					subjects: [
+						{
+							year: newAcademicYear,
+							classes: classesForNewYear,
+						},
+					],
+				};
+				const carryOverValidationErrors: ValidationErrorWithConflicts[] = [];
+				await validateTeacherData(
+					teacherCarryOverData,
+					models,
+					{ isActive: true, _id: { $ne: targetUserId } },
+					carryOverValidationErrors,
+					targetUserId,
+				);
+
+				const conflictErrors = carryOverValidationErrors.filter(
+					(error) => error.requiresConfirmation,
+				);
+				if (conflictErrors.length > 0 && !confirmReassignments) {
+					const allConflicts = conflictErrors.reduce((acc, error) => {
+						if (error.conflicts) acc.push(...error.conflicts);
+						return acc;
+					}, [] as ConflictDetails[]);
+
+					return NextResponse.json(
+						{
+							success: false,
+							message:
+								'Assignment conflicts detected. Please confirm to reassign.',
+							requiresConfirmation: true,
+							errors: carryOverValidationErrors,
+							conflicts: allConflicts,
+							conflictSummary: buildConflictSummary(allConflicts),
+						},
+						{ status: 409 },
+					);
+				}
+
+				const nonConflictErrors = carryOverValidationErrors.filter(
+					(error) => !error.requiresConfirmation,
+				);
+				if (nonConflictErrors.length > 0) {
+					return NextResponse.json(
+						{
+							success: false,
+							message:
+								'Validation failed. Please correct the errors and try again.',
+							errors: nonConflictErrors,
+						},
+						{ status: 400 },
+					);
+				}
+
+				let conflictsToHandle: ConflictDetails[] = [];
+				if (confirmReassignments && conflictErrors.length > 0) {
+					conflictsToHandle = conflictErrors.reduce((acc, error) => {
+						if (error.conflicts) acc.push(...error.conflicts);
+						return acc;
+					}, [] as ConflictDetails[]);
+
+					await handleForceReassignmentEnhanced(
+						teacherCarryOverData,
+						models,
+						targetUserId,
+						conflictsToHandle,
+					);
+				}
+
 				const updatedTeacher = await models.Teacher.findByIdAndUpdate(
 					targetUserId,
 					{
@@ -3091,6 +3203,21 @@ export async function PUT(request: NextRequest) {
 					success: true,
 					message: 'Teacher carried over to new academic year successfully.',
 					data: { user: updatedTeacher },
+					reassignments:
+						conflictsToHandle.length > 0
+							? {
+									performed: true,
+									count: conflictsToHandle.length,
+									details: conflictsToHandle.map((conflict) => ({
+										type: conflict.type,
+										previousTeacher: conflict.conflictingTeacher,
+										reassignedFrom:
+											conflict.type === 'sponsorship'
+												? conflict.sponsorClass
+												: conflict.assignment,
+									})),
+								}
+							: null,
 				});
 			}
 
@@ -3140,6 +3267,41 @@ export async function PUT(request: NextRequest) {
 				typeof position === 'string' && position.trim()
 					? position.trim()
 					: latestYearEntry?.position || targetRoleUser.position || null;
+			if (positionForNewYear) {
+				const positionConflict = await models.User.findOne({
+					_id: { $ne: targetUserId },
+					isActive: true,
+					role: 'administrator',
+					academicYears: {
+						$elemMatch: {
+							year: newAcademicYear,
+							position: positionForNewYear,
+						},
+					},
+				})
+					.select('firstName middleName lastName fullName username')
+					.lean();
+
+				if (positionConflict) {
+					const conflictName =
+						positionConflict.fullName ||
+						[
+							positionConflict.firstName,
+							positionConflict.middleName,
+							positionConflict.lastName,
+						]
+							.filter((part: unknown) => typeof part === 'string' && part.trim())
+							.join(' ') ||
+						'another administrator';
+					return NextResponse.json(
+						{
+							success: false,
+							message: `Position "${positionForNewYear}" is already held by ${conflictName} (${positionConflict.username}) for academic year ${newAcademicYear}.`,
+						},
+						{ status: 409 },
+					);
+				}
+			}
 
 			const updatedAdministrator = await models.Administrator.findByIdAndUpdate(
 				targetUserId,

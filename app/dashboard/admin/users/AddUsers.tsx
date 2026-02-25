@@ -176,6 +176,44 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		);
 	};
 
+	const getLevelVisualStyle = (level = '') => {
+		const normalized = String(level).trim().toLowerCase();
+
+		if (
+			normalized.includes('elementary') ||
+			normalized.includes('primary') ||
+			normalized.includes('nursery')
+		) {
+			return {
+				section: 'border-sky-200/70 bg-sky-50/40',
+				badge: 'border-sky-300 bg-sky-100 text-sky-800',
+			};
+		}
+
+		if (
+			normalized.includes('junior') ||
+			normalized.includes('middle') ||
+			normalized.includes('jhs')
+		) {
+			return {
+				section: 'border-emerald-200/70 bg-emerald-50/40',
+				badge: 'border-emerald-300 bg-emerald-100 text-emerald-800',
+			};
+		}
+
+		if (normalized.includes('senior') || normalized.includes('shs')) {
+			return {
+				section: 'border-amber-200/70 bg-amber-50/40',
+				badge: 'border-amber-300 bg-amber-100 text-amber-900',
+			};
+		}
+
+		return {
+			section: 'border-border/70 bg-muted/20',
+			badge: 'border-border/80 bg-muted text-foreground',
+		};
+	};
+
 	const adminPositions = useMemo(() => {
 		const fromProfile = Array.isArray(school?.administrativePositions)
 			? school.administrativePositions
@@ -1296,8 +1334,13 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 															</label>
 
 															{getClassLevels(formData.student.session).map(
-																(level, levelIndex) => (
-																	<div key={level} className="space-y-3">
+																(level, levelIndex) => {
+																	const levelStyle = getLevelVisualStyle(level);
+																	return (
+																	<div
+																		key={level}
+																		className={`space-y-3 rounded-xl border p-3 ${levelStyle.section}`}
+																	>
 																		{/* Level Heading */}
 																		<motion.h4
 																			initial={{
@@ -1312,9 +1355,13 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																				duration: 0.3,
 																				delay: levelIndex * 0.1,
 																			}}
-																			className="text-md font-medium text-foreground/90"
+																			className="mb-1"
 																		>
-																			{level}
+																			<span
+																				className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${levelStyle.badge}`}
+																			>
+																				{level}
+																			</span>
 																		</motion.h4>
 
 																		{/* Class Grid */}
@@ -1380,7 +1427,8 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																			})}
 																		</div>
 																	</div>
-																),
+																	);
+																},
 															)}
 
 															{/* Error Message */}
@@ -1537,60 +1585,66 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																		.filter(
 																			(level) => level !== 'Self Contained',
 																		)
-																		.map((level) => (
-																			<div
-																				key={level}
-																				className="border-b border-border pb-4 last:border-b-0"
-																			>
-																				<h5 className="font-medium text-foreground mb-3">
-																					{level}
-																				</h5>
-																				<div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-																					{getSubjectsBySessionAndLevel(
-																						session,
-																						level,
-																					)?.map((subject, subjectIndex) => {
-																						const isChecked =
-																							formData.teacher.subjects.some(
-																								(s) =>
-																									s.subject === subject &&
-																									s.level === level &&
-																									s.session === session,
-																							);
+																		.map((level) => {
+																			const levelStyle = getLevelVisualStyle(level);
+																			return (
+																				<div
+																					key={level}
+																					className={`rounded-lg border p-3 ${levelStyle.section}`}
+																				>
+																					<h5 className="mb-3">
+																						<span
+																							className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${levelStyle.badge}`}
+																						>
+																							{level}
+																						</span>
+																					</h5>
+																					<div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+																						{getSubjectsBySessionAndLevel(
+																							session,
+																							level,
+																						)?.map((subject, subjectIndex) => {
+																							const isChecked =
+																								formData.teacher.subjects.some(
+																									(s) =>
+																										s.subject === subject &&
+																										s.level === level &&
+																										s.session === session,
+																								);
 
-																						return (
-																							<motion.label
-																								key={`subject-${subject}-${level}-${session}-${subjectIndex}`} // Fixed key
-																								whileHover={{ scale: 1.03 }}
-																								className={`relative flex items-center rounded-lg border p-2 cursor-pointer transition-all text-sm
-					${
-						isChecked
-							? 'border-primary bg-primary/10 shadow-sm'
-							: 'border-muted hover:border-primary/40 hover:bg-accent/5'
-					}`}
-																							>
-																								<input
-																									type="checkbox"
-																									checked={isChecked}
-																									onChange={(e) =>
-																										handleSubjectChange(
-																											subject,
-																											level,
-																											session,
-																											e.target.checked,
-																										)
-																									}
-																									className="absolute opacity-0"
-																								/>
-																								<span className="ml-1 text-foreground">
-																									{subject}
-																								</span>
-																							</motion.label>
-																						);
-																					})}
+																							return (
+																								<motion.label
+																									key={`subject-${subject}-${level}-${session}-${subjectIndex}`}
+																									whileHover={{ scale: 1.03 }}
+																									className={`relative flex items-center rounded-lg border p-2 cursor-pointer transition-all text-sm ${
+																										isChecked
+																											? 'border-primary bg-primary/10 shadow-sm'
+																											: 'border-muted hover:border-primary/40 hover:bg-accent/5'
+																									}`}
+																								>
+																									<input
+																										type="checkbox"
+																										checked={isChecked}
+																										onChange={(e) =>
+																											handleSubjectChange(
+																												subject,
+																												level,
+																												session,
+																												e.target.checked,
+																											)
+																										}
+																										className="absolute opacity-0"
+																									/>
+																									<span className="ml-1 text-foreground">
+																										{subject}
+																									</span>
+																								</motion.label>
+																							);
+																						})}
+																					</div>
 																				</div>
-																			</div>
-																		))}
+																			);
+																		})}
 																</div>
 															</div>
 

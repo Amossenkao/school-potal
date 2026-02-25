@@ -399,9 +399,19 @@ export async function POST(request: NextRequest) {
 			const admins = await User.find({ role: 'system_admin' })
 				.select('_id')
 				.lean();
+			const details = {
+				teacherName: `${teacher.firstName} ${teacher.lastName}`.trim(),
+				className: classId,
+				period,
+				subject,
+				academicYear,
+				requestCount: createdRequests.length,
+				requestStatus: 'Pending',
+			};
 			const notification = {
 				title: 'New Grade Change Request',
-				message: `${teacher.firstName} ${teacher.lastName} submitted ${createdRequests.length} grade change request(s) for ${subject} in ${classId}.`,
+				message: `${teacher.firstName} ${teacher.lastName} submitted ${createdRequests.length} grade change request(s) for ${subject} • ${classId} • ${period}.`,
+				details: JSON.stringify(details),
 				timestamp: new Date(),
 				read: false,
 				type: 'Grades',
@@ -479,6 +489,18 @@ export async function PATCH(request: NextRequest) {
 				const notification = {
 					title: 'Grade Change Approved',
 					message: `Your request to change ${gradeRequest.studentName}'s grade in ${gradeRequest.subject} has been approved.`,
+					details: JSON.stringify({
+						teacherName: gradeRequest.teacherName,
+						className: gradeRequest.classId,
+						period: gradeRequest.period,
+						subject: gradeRequest.subject,
+						academicYear: gradeRequest.academicYear,
+						studentName: gradeRequest.studentName,
+						originalGrade: gradeRequest.originalGrade,
+						requestedGrade: gradeRequest.requestedGrade,
+						requestStatus: 'Approved',
+						reasonForChange: gradeRequest.reasonForChange,
+					}),
 					timestamp: new Date(),
 					read: false,
 					type: 'Grades',
@@ -501,6 +523,19 @@ export async function PATCH(request: NextRequest) {
 				const notification = {
 					title: 'Grade Change Rejected',
 					message: `Your request to change ${gradeRequest.studentName}'s grade in ${gradeRequest.subject} has been rejected. Reason: ${adminRejectionReason}`,
+					details: JSON.stringify({
+						teacherName: gradeRequest.teacherName,
+						className: gradeRequest.classId,
+						period: gradeRequest.period,
+						subject: gradeRequest.subject,
+						academicYear: gradeRequest.academicYear,
+						studentName: gradeRequest.studentName,
+						originalGrade: gradeRequest.originalGrade,
+						requestedGrade: gradeRequest.requestedGrade,
+						requestStatus: 'Rejected',
+						reasonForChange: gradeRequest.reasonForChange,
+						adminRejectionReason,
+					}),
 					timestamp: new Date(),
 					read: false,
 					type: 'Grades',
