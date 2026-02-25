@@ -18,13 +18,17 @@ type SyncScope = {
 
 export type SyncEvent = {
 	eventId: string;
+	type: string;
+	version: 1;
 	schemaVersion: 1;
+	ts: number;
 	tenantKey: string;
 	domain: SyncDomain;
 	academicYear: string | null;
 	changedAt: string;
 	actorId: string | null;
 	reason: string;
+	targetUserIds?: string[];
 	scope?: SyncScope;
 };
 
@@ -121,17 +125,26 @@ export const publishSyncEvent = async (params: {
 }) => {
 	const tenantKey = toTenantCandidate(params.tenantKey);
 	if (!tenantKey) return;
+	const targetUserIds = toUniqueStrings(params.targetUserIds);
+	const timestamp = Date.now();
+	const reason = toTrimmedString(params.reason) || DEFAULT_REASON;
 
 	const event: SyncEvent = {
 		eventId: createEventId(),
+		type: `${params.domain}.${reason}`,
+		version: 1,
 		schemaVersion: 1,
+		ts: timestamp,
 		tenantKey,
 		domain: params.domain,
 		academicYear: toTrimmedString(params.academicYear) || null,
-		changedAt: new Date().toISOString(),
+		changedAt: new Date(timestamp).toISOString(),
 		actorId: toTrimmedString(params.actorId) || null,
-		reason: toTrimmedString(params.reason) || DEFAULT_REASON,
+		reason,
 	};
+	if (targetUserIds.length > 0) {
+		event.targetUserIds = targetUserIds;
+	}
 	const scope = toScope(params.scope);
 	if (scope) {
 		event.scope = scope;
@@ -139,7 +152,6 @@ export const publishSyncEvent = async (params: {
 
 	await redis.publish(getTenantSyncChannel(tenantKey), event);
 
-	const targetUserIds = toUniqueStrings(params.targetUserIds);
 	if (targetUserIds.length === 0) return;
 
 	await Promise.all(

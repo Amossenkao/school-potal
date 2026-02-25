@@ -5,8 +5,45 @@ import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
 import { useNetworkStore } from '@/store/networkStore';
 
-const SYNC_STREAM_ENDPOINT = '/api/sync/events';
+const FALLBACK_SYNC_STREAM_ENDPOINT = '/api/sync/events';
+const SYNC_STREAM_TOKEN_ENDPOINT = '/api/sync/stream-token';
+const CLOUD_STREAM_ENDPOINT =
+	typeof process !== 'undefined'
+		? String(process.env.NEXT_PUBLIC_SYNC_STREAM_URL || '').trim()
+		: '';
 const SYNC_REFRESH_DEBOUNCE_MS = 180;
+const STREAM_RETRY_BASE_MS = 1200;
+const STREAM_RETRY_MAX_MS = 12000;
+const SYNC_LAST_EVENT_ID_STORAGE_KEY = 'school_portal_sync_last_event_id';
+const SECURITY_SYNC_REASONS = new Set([
+	'account-deactivated',
+	'password-changed-session-revocation',
+	'password-reset',
+	'user-deleted',
+	'user-password-reset',
+]);
+
+type StreamEventPayload = {
+	eventId?: string;
+	reason?: string;
+	code?: string;
+	domain?: string;
+	targetUserIds?: string[];
+	[key: string]: unknown;
+};
+
+const parseStreamEventPayload = (raw: string): StreamEventPayload | null => {
+	try {
+		const parsed = JSON.parse(raw);
+		if (!parsed || typeof parsed !== 'object') return null;
+		if (parsed.event && typeof parsed.event === 'object') {
+			return parsed.event as StreamEventPayload;
+		}
+		return parsed as StreamEventPayload;
+	} catch {
+		return null;
+	}
+};
 
 export default function AuthProvider({
 	children,
@@ -26,6 +63,39 @@ export default function AuthProvider({
 	const authRefreshInFlight = useRef(false);
 	const syncEventDebounceRef = useRef<number | null>(null);
 	const syncEventSourceRef = useRef<EventSource | null>(null);
+	const syncReconnectTimerRef = useRef<number | null>(null);
+	const syncReconnectAttemptsRef = useRef(0);
+	const lastSyncEventIdRef = useRef<string>('');
+
+	const clearSyncReconnectTimer = useCallback(() => {
+		if (syncReconnectTimerRef.current !== null) {
+			window.clearTimeout(syncReconnectTimerRef.current);
+			syncReconnectTimerRef.current = null;
+		}
+	}, []);
+
+	const rememberLastSyncEventId = useCallback((eventId: string | undefined) => {
+		const normalized = String(eventId || '').trim();
+		if (!normalized) return;
+		lastSyncEventIdRef.current = normalized;
+		try {
+			localStorage.setItem(SYNC_LAST_EVENT_ID_STORAGE_KEY, normalized);
+		} catch {
+			// No-op.
+		}
+	}, []);
+
+	const readLastSyncEventId = useCallback(() => {
+		if (lastSyncEventIdRef.current) return lastSyncEventIdRef.current;
+		try {
+			const saved = localStorage.getItem(SYNC_LAST_EVENT_ID_STORAGE_KEY);
+			if (!saved) return '';
+			lastSyncEventIdRef.current = saved;
+			return saved;
+		} catch {
+			return '';
+		}
+	}, []);
 
 	const ensureSchoolProfile = useCallback(async () => {
 		const currentSchool = useSchoolStore.getState().school;
@@ -109,6 +179,7 @@ export default function AuthProvider({
 		if (!user?.isActive) {
 			syncEventSourceRef.current?.close();
 			syncEventSourceRef.current = null;
+			clearSyncReconnectTimer();
 			if (syncEventDebounceRef.current !== null) {
 				window.clearTimeout(syncEventDebounceRef.current);
 				syncEventDebounceRef.current = null;
@@ -126,40 +197,184 @@ export default function AuthProvider({
 			}, SYNC_REFRESH_DEBOUNCE_MS);
 		};
 
-		const source = new EventSource(SYNC_STREAM_ENDPOINT);
-		syncEventSourceRef.current = source;
-
-		const onReady = () => {
-			setAuthCheckFailed(false);
-		};
-		const onSync = () => {
-			scheduleRefresh();
-		};
-		const onError = () => {
-			if (typeof navigator !== 'undefined' && !navigator.onLine) {
-				markOffline('browser-offline');
-				setAuthCheckFailed(true);
-			}
-		};
-
-		source.addEventListener('ready', onReady as EventListener);
-		source.addEventListener('sync', onSync as EventListener);
-		source.addEventListener('error', onError as EventListener);
-
-		return () => {
-			source.removeEventListener('ready', onReady as EventListener);
-			source.removeEventListener('sync', onSync as EventListener);
-			source.removeEventListener('error', onError as EventListener);
-			source.close();
-			if (syncEventSourceRef.current === source) {
+		let disposed = false;
+		const closeSource = () => {
+			if (syncEventSourceRef.current) {
+				syncEventSourceRef.current.close();
 				syncEventSourceRef.current = null;
 			}
+		};
+
+		const scheduleReconnect = () => {
+			clearSyncReconnectTimer();
+			if (disposed) return;
+			const attempt = syncReconnectAttemptsRef.current;
+			const backoff = Math.min(
+				STREAM_RETRY_MAX_MS,
+				STREAM_RETRY_BASE_MS * 2 ** attempt,
+			);
+			const jitter = Math.floor(Math.random() * 250);
+			syncReconnectAttemptsRef.current = attempt + 1;
+			syncReconnectTimerRef.current = window.setTimeout(() => {
+				syncReconnectTimerRef.current = null;
+				void connectStream();
+			}, backoff + jitter);
+		};
+
+		const resolveCloudSyncUrl = (path: string) => {
+			const normalizedPath = String(path || '').trim() || '/sync/events';
+			if (!CLOUD_STREAM_ENDPOINT) return '';
+			try {
+				return new URL(normalizedPath, CLOUD_STREAM_ENDPOINT).toString();
+			} catch {
+				return CLOUD_STREAM_ENDPOINT;
+			}
+		};
+
+		const buildCloudStreamUrl = async () => {
+			const response = await fetch(SYNC_STREAM_TOKEN_ENDPOINT, {
+				method: 'GET',
+				credentials: 'include',
+				cache: 'no-store',
+			});
+			if (!response.ok) {
+				throw new Error(`stream_token_http_${response.status}`);
+			}
+			const body = (await response.json().catch(() => ({}))) as {
+				token?: string;
+				streamUrl?: string | null;
+			};
+			const token = String(body.token || '').trim();
+			if (!token) {
+				throw new Error('stream_token_missing');
+			}
+			const baseUrl = String(body.streamUrl || '').trim() || resolveCloudSyncUrl('/sync/events');
+			if (!baseUrl) {
+				throw new Error('stream_url_missing');
+			}
+			const streamUrl = new URL(baseUrl);
+			streamUrl.searchParams.set('token', token);
+			const replayFrom = readLastSyncEventId();
+			if (replayFrom) {
+				streamUrl.searchParams.set('lastEventId', replayFrom);
+			}
+			return streamUrl.toString();
+		};
+
+		const connectLocalStream = () => {
+			const source = new EventSource(FALLBACK_SYNC_STREAM_ENDPOINT);
+			syncEventSourceRef.current = source;
+			syncReconnectAttemptsRef.current = 0;
+			setAuthCheckFailed(false);
+
+			const onSync = () => {
+				scheduleRefresh();
+			};
+			const onError = () => {
+				if (typeof navigator !== 'undefined' && !navigator.onLine) {
+					markOffline('browser-offline');
+					setAuthCheckFailed(true);
+				}
+			};
+
+			source.addEventListener('sync', onSync as EventListener);
+			source.addEventListener('error', onError as EventListener);
+		};
+
+		const connectCloudStream = async () => {
+			const streamUrl = await buildCloudStreamUrl();
+			if (disposed) return;
+			const source = new EventSource(streamUrl);
+			syncEventSourceRef.current = source;
+
+			const onReady = (event: Event) => {
+				const messageEvent = event as MessageEvent;
+				const payload = parseStreamEventPayload(messageEvent.data || '');
+				rememberLastSyncEventId(messageEvent.lastEventId || payload?.eventId as string);
+				setAuthCheckFailed(false);
+				syncReconnectAttemptsRef.current = 0;
+			};
+
+			const onSync = (event: Event) => {
+				const messageEvent = event as MessageEvent;
+				const payload = parseStreamEventPayload(messageEvent.data || '');
+				rememberLastSyncEventId(
+					messageEvent.lastEventId || (payload?.eventId as string),
+				);
+				const reason = String(payload?.reason || '').trim();
+				if (SECURITY_SYNC_REASONS.has(reason)) {
+					void runAuthRefresh();
+					return;
+				}
+				scheduleRefresh();
+			};
+
+			const onStreamError = (event: Event) => {
+				const messageEvent = event as MessageEvent;
+				const payload = parseStreamEventPayload(messageEvent.data || '');
+				if (payload?.eventId) {
+					rememberLastSyncEventId(String(payload.eventId));
+				}
+				const code = String(payload?.code || '').trim();
+				if (code === 'replay_gap') {
+					void runAuthRefresh();
+				}
+			};
+
+			const onError = () => {
+				closeSource();
+				if (disposed) return;
+				if (typeof navigator !== 'undefined' && !navigator.onLine) {
+					markOffline('browser-offline');
+					setAuthCheckFailed(true);
+					scheduleReconnect();
+					return;
+				}
+				scheduleReconnect();
+			};
+
+			source.addEventListener('ready', onReady as EventListener);
+			source.addEventListener('sync', onSync as EventListener);
+			source.addEventListener('stream-error', onStreamError as EventListener);
+			source.addEventListener('error', onError as EventListener);
+		};
+
+		const connectStream = async () => {
+			closeSource();
+			if (disposed) return;
+			if (!CLOUD_STREAM_ENDPOINT) {
+				connectLocalStream();
+				return;
+			}
+			try {
+				await connectCloudStream();
+			} catch (error) {
+				console.warn('[AuthProvider] Failed to connect cloud sync stream:', error);
+				scheduleReconnect();
+			}
+		};
+
+		void connectStream();
+
+		return () => {
+			disposed = true;
+			clearSyncReconnectTimer();
+			closeSource();
 			if (syncEventDebounceRef.current !== null) {
 				window.clearTimeout(syncEventDebounceRef.current);
 				syncEventDebounceRef.current = null;
 			}
 		};
-	}, [markOffline, runAuthRefresh, setAuthCheckFailed, user?.id, user?.isActive]);
+	}, [
+		clearSyncReconnectTimer,
+		markOffline,
+		readLastSyncEventId,
+		rememberLastSyncEventId,
+		runAuthRefresh,
+		setAuthCheckFailed,
+		user?.id,
+		user?.isActive,
+	]);
 
 	useEffect(() => {
 		if (typeof navigator === 'undefined') return;

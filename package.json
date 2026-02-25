@@ -8,7 +8,10 @@
 		"start": "next start",
 		"lint": "next lint",
 		"sync:indexes": "node scripts/sync-indexes.mjs",
-		"sync:indexes:dry": "node scripts/sync-indexes.mjs --dry-run"
+		"sync:indexes:dry": "node scripts/sync-indexes.mjs --dry-run",
+		"stream:worker:dev": "npm --prefix cloudflare/sync-stream-worker run dev",
+		"stream:worker:deploy": "npm --prefix cloudflare/sync-stream-worker run deploy",
+		"stream:worker:check": "npm --prefix cloudflare/sync-stream-worker run check"
 	},
 	"dependencies": {
 		"@fullcalendar/core": "^6.1.20",
