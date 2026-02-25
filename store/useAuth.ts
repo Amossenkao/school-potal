@@ -49,6 +49,8 @@ interface AuthState {
 	logout: () => Promise<void>;
 	checkAuthStatus: (options?: {
 		skipConnectivityCheck?: boolean;
+		force?: boolean;
+		trigger?: string;
 	}) => Promise<void>;
 	bootstrapAuth: (options?: { force?: boolean }) => Promise<void>;
 
@@ -647,10 +649,13 @@ const useAuth = create<AuthState>((set, get) => {
 		checkAuthStatus: async (options) => {
 			const now = Date.now();
 			const skipConnectivityCheck = options?.skipConnectivityCheck ?? true;
+			const force = options?.force === true;
+			const trigger = String(options?.trigger || '').trim();
+
 			if (authCheckPromise) {
 				return authCheckPromise;
 			}
-			if (now - lastAuthCheckCompletedAt < AUTH_CHECK_DEDUP_MS) {
+			if (!force && now - lastAuthCheckCompletedAt < AUTH_CHECK_DEDUP_MS) {
 				return;
 			}
 
@@ -737,6 +742,9 @@ const useAuth = create<AuthState>((set, get) => {
 					}
 					if (typeof get().userVersion === 'string') {
 						query.set('v_user', get().userVersion as string);
+					}
+					if (trigger) {
+						query.set('sync_trigger', trigger);
 					}
 
 					const url = query.toString()

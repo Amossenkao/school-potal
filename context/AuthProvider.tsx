@@ -11,7 +11,7 @@ const CLOUD_STREAM_ENDPOINT =
 	typeof process !== 'undefined'
 		? String(process.env.NEXT_PUBLIC_SYNC_STREAM_URL || '').trim()
 		: '';
-const SYNC_REFRESH_DEBOUNCE_MS = 180;
+const SYNC_REFRESH_DEBOUNCE_MS = 60;
 const STREAM_RETRY_BASE_MS = 1200;
 const STREAM_RETRY_MAX_MS = 12000;
 const SYNC_LAST_EVENT_ID_STORAGE_KEY = 'school_portal_sync_last_event_id';
@@ -116,12 +116,14 @@ export default function AuthProvider({
 	}, []);
 
 	const runAuthRefresh = useCallback(
-		async () => {
+		async (options?: { force?: boolean; trigger?: string }) => {
 			if (authRefreshInFlight.current) return;
 			authRefreshInFlight.current = true;
 			try {
 				await checkAuthStatus({
 					skipConnectivityCheck: true,
+					force: options?.force === true,
+					trigger: options?.trigger,
 				});
 				await ensureSchoolProfile();
 			} catch (error) {
@@ -147,7 +149,7 @@ export default function AuthProvider({
 
 		const handleOnline = () => {
 			setBrowserOnline(true);
-			void runAuthRefresh();
+			void runAuthRefresh({ force: true, trigger: 'online' });
 		};
 		const handleOffline = () => {
 			markOffline('browser-offline');
@@ -157,21 +159,9 @@ export default function AuthProvider({
 		window.addEventListener('online', handleOnline);
 		window.addEventListener('offline', handleOffline);
 
-		const connection =
-			typeof navigator !== 'undefined'
-				? (navigator as Navigator & {
-						connection?: EventTarget;
-				  }).connection
-				: undefined;
-		const handleConnectionChange = () => {
-			void runAuthRefresh();
-		};
-		connection?.addEventListener?.('change', handleConnectionChange);
-
 		return () => {
 			window.removeEventListener('online', handleOnline);
 			window.removeEventListener('offline', handleOffline);
-			connection?.removeEventListener?.('change', handleConnectionChange);
 		};
 	}, [
 		bootstrapAuth,
@@ -195,13 +185,16 @@ export default function AuthProvider({
 			return;
 		}
 
-		const scheduleRefresh = () => {
+		const scheduleRefresh = (options?: { force?: boolean; trigger?: string }) => {
 			if (syncEventDebounceRef.current !== null) {
 				window.clearTimeout(syncEventDebounceRef.current);
 			}
 			syncEventDebounceRef.current = window.setTimeout(() => {
 				syncEventDebounceRef.current = null;
-				void runAuthRefresh();
+				void runAuthRefresh({
+					force: options?.force === true,
+					trigger: options?.trigger || 'stream-sync',
+				});
 			}, SYNC_REFRESH_DEBOUNCE_MS);
 		};
 
@@ -277,7 +270,7 @@ export default function AuthProvider({
 			setAuthCheckFailed(false);
 
 			const onSync = () => {
-				scheduleRefresh();
+				scheduleRefresh({ force: true, trigger: 'stream-sync' });
 			};
 			const onError = () => {
 				if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -312,10 +305,10 @@ export default function AuthProvider({
 				);
 				const reason = String(payload?.reason || '').trim();
 				if (SECURITY_SYNC_REASONS.has(reason)) {
-					void runAuthRefresh();
+					void runAuthRefresh({ force: true, trigger: `stream-security:${reason}` });
 					return;
 				}
-				scheduleRefresh();
+				scheduleRefresh({ force: true, trigger: 'stream-sync' });
 			};
 
 			const onStreamError = (event: Event) => {
@@ -326,7 +319,7 @@ export default function AuthProvider({
 				}
 				const code = String(payload?.code || '').trim();
 				if (code === 'replay_gap') {
-					void runAuthRefresh();
+					void runAuthRefresh({ force: true, trigger: 'stream-replay-gap' });
 				}
 			};
 
