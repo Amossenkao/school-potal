@@ -45,6 +45,14 @@ const parseStreamEventPayload = (raw: string): StreamEventPayload | null => {
 	}
 };
 
+const ensureSyncEventsPath = (rawUrl: string) => {
+	const url = new URL(rawUrl);
+	if (!url.pathname || url.pathname === '/') {
+		url.pathname = '/sync/events';
+	}
+	return url.toString();
+};
+
 export default function AuthProvider({
 	children,
 }: {
@@ -248,11 +256,12 @@ export default function AuthProvider({
 			if (!token) {
 				throw new Error('stream_token_missing');
 			}
-			const baseUrl = String(body.streamUrl || '').trim() || resolveCloudSyncUrl('/sync/events');
+			const baseUrl =
+				String(body.streamUrl || '').trim() || resolveCloudSyncUrl('/sync/events');
 			if (!baseUrl) {
 				throw new Error('stream_url_missing');
 			}
-			const streamUrl = new URL(baseUrl);
+			const streamUrl = new URL(ensureSyncEventsPath(baseUrl));
 			streamUrl.searchParams.set('token', token);
 			const replayFrom = readLastSyncEventId();
 			if (replayFrom) {

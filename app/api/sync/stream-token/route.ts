@@ -28,6 +28,21 @@ const noStoreJson = (payload: Record<string, unknown>, status = 200) =>
 		},
 	});
 
+const resolveStreamUrl = () => {
+	const raw = String(process.env.NEXT_PUBLIC_SYNC_STREAM_URL || '').trim();
+	if (!raw) return null;
+	try {
+		const url = new URL(raw);
+		if (!url.pathname || url.pathname === '/') {
+			url.pathname = '/sync/events';
+		}
+		return url.toString();
+	} catch {
+		console.warn('[sync-stream-token] Invalid NEXT_PUBLIC_SYNC_STREAM_URL value.');
+		return null;
+	}
+};
+
 export async function GET(request: NextRequest) {
 	try {
 		const currentUser = await authorizeUser(request);
@@ -108,7 +123,7 @@ export async function GET(request: NextRequest) {
 			success: true,
 			token,
 			expiresInSeconds: ttlSeconds,
-			streamUrl: String(process.env.NEXT_PUBLIC_SYNC_STREAM_URL || '').trim() || null,
+			streamUrl: resolveStreamUrl(),
 		});
 	} catch (error) {
 		console.error('[sync-stream-token] Failed to mint stream token:', error);
