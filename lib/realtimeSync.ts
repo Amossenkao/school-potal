@@ -90,10 +90,10 @@ export const resolveTenantSyncKey = (options: {
 	host?: string | null;
 }) => {
 	const candidates = [
-		options.schoolProfile?.dbName,
-		options.schoolProfile?.host,
 		options.tenantId,
 		options.host,
+		options.schoolProfile?.host,
+		options.schoolProfile?.dbName,
 	];
 	for (const candidate of candidates) {
 		const resolved = toTenantCandidate(candidate);

@@ -3905,6 +3905,13 @@ export async function PUT(request: NextRequest) {
 		const deactivatedNow = wasActive && filteredUserData.isActive === false;
 		if (deactivatedNow) {
 			await destroyAllUserSessions(actualTargetUserId);
+			await publishSyncEventSafe({
+				tenantKey,
+				domain: 'user',
+				actorId: currentUser.id,
+				reason: 'account-deactivated',
+				targetUserIds: [String(actualTargetUserId)],
+			});
 		}
 
 		// Update sessions

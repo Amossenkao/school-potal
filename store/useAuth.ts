@@ -762,7 +762,7 @@ const useAuth = create<AuthState>((set, get) => {
 						}
 					})();
 
-					if (!res.ok && res.status !== 401) {
+					if (!res.ok && res.status !== 401 && res.status !== 403) {
 						throw new Error(`Server status ${res.status}`);
 					}
 

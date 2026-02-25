@@ -147,7 +147,6 @@ export default function AuthProvider({
 
 		const onReady = () => {
 			setAuthCheckFailed(false);
-			scheduleRefresh('sync-stream-ready');
 		};
 		const onSync = () => {
 			scheduleRefresh('sync-event');
@@ -156,9 +155,7 @@ export default function AuthProvider({
 			if (typeof navigator !== 'undefined' && !navigator.onLine) {
 				markOffline('browser-offline');
 				setAuthCheckFailed(true);
-				return;
 			}
-			scheduleRefresh('sync-stream-error');
 		};
 
 		source.addEventListener('ready', onReady as EventListener);
