@@ -13,6 +13,11 @@ import { destroyAllUserSessions } from '@/utils/session';
 import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
 import bcrypt from 'bcryptjs';
 import { redis } from '@/lib/redis';
+import {
+	publishSyncEventSafe,
+	publishSyncEventsForAcademicYearsSafe,
+	resolveTenantSyncKey,
+} from '@/lib/realtimeSync';
 import { authorizeUser } from '@/proxy';
 import { TENANT_THEME_NAMES, isTenantThemeName } from '@/types/tenantTheme';
 import { normalizeHost } from '@/utils/host';
@@ -65,6 +70,7 @@ export async function POST(request: NextRequest) {
 				{ status: 400 },
 			);
 		}
+		const tenantKey = resolveTenantSyncKey({ host: cleanHost });
 
 		const { Student, Teacher, Administrator } = await getTenantModels();
 
@@ -400,8 +406,23 @@ export async function POST(request: NextRequest) {
 			await Promise.all(actionsToRun);
 			if (affectedYearsSet.size > 0) {
 				await bumpUsersVersion(Array.from(affectedYearsSet));
+				await publishSyncEventsForAcademicYearsSafe({
+					tenantKey,
+					domain: 'users',
+					academicYears: Array.from(affectedYearsSet),
+					actorId: currentUser.id,
+					reason: 'bulk-user-action',
+				});
 			}
 		}
+
+		await publishSyncEventSafe({
+			tenantKey,
+			domain: 'school',
+			academicYear: String(updatedSchoolProfile.currentAcademicYear || ''),
+			actorId: currentUser.id,
+			reason: 'school-settings-updated',
+		});
 
 		return NextResponse.json({
 			success: true,

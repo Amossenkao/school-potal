@@ -10,6 +10,11 @@ import {
 } from '@/utils/session';
 import { sendOTP, verifyOTP } from '@/utils/otp';
 import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
+import {
+	publishSyncEventSafe,
+	publishSyncEventsForAcademicYearsSafe,
+	resolveTenantSyncKey,
+} from '@/lib/realtimeSync';
 import type {
 	UserRole,
 	User,
@@ -28,6 +33,11 @@ async function addNotificationToUser(
 	UserModel: any,
 	userId: string,
 	notification: Notification,
+	options: {
+		tenantKey?: string;
+		actorId?: string | null;
+		reason?: string;
+	} = {},
 ) {
 	const updatedUser = await UserModel.findByIdAndUpdate(
 		userId,
@@ -36,6 +46,13 @@ async function addNotificationToUser(
 	);
 	if (updatedUser) {
 		await updateUserSessionNotifications(userId, updatedUser.notifications);
+		await publishSyncEventSafe({
+			tenantKey: options.tenantKey || '',
+			domain: 'user',
+			actorId: options.actorId || userId,
+			reason: options.reason || 'user-notification',
+			targetUserIds: [userId],
+		});
 	}
 }
 
@@ -1212,7 +1229,6 @@ export async function GET(request: NextRequest) {
 				{ status: 401 },
 			);
 		}
-
 		const models = await getTenantModels();
 		const { searchParams } = new URL(request.url);
 		const role = searchParams.get('role') as UserRole | null;
@@ -2293,6 +2309,10 @@ export async function POST(request: NextRequest) {
 		}
 
 		const host = request.headers.get('host');
+		const tenantKey = resolveTenantSyncKey({
+			tenantId: currentUser.tenantId,
+			host,
+		});
 
 		const models = await getTenantModels(host);
 		const {
@@ -2413,7 +2433,15 @@ export async function POST(request: NextRequest) {
 		};
 		delete responseData.defaultPassword;
 
-		await bumpUsersVersion(extractAcademicYears(newUser));
+		const createdUserYears = extractAcademicYears(newUser);
+		await bumpUsersVersion(createdUserYears);
+		await publishSyncEventsForAcademicYearsSafe({
+			tenantKey,
+			domain: 'users',
+			academicYears: createdUserYears,
+			actorId: currentUser.id,
+			reason: 'user-created',
+		});
 
 		return NextResponse.json(
 			{
@@ -2489,6 +2517,10 @@ export async function PUT(request: NextRequest) {
 				{ status: 401 },
 			);
 		}
+		const tenantKey = resolveTenantSyncKey({
+			tenantId: currentUser.tenantId,
+			host: request.headers.get('host'),
+		});
 
 		const models = await getTenantModels();
 		const { searchParams } = new URL(request.url);
@@ -2700,7 +2732,15 @@ export async function PUT(request: NextRequest) {
 					buildUserResponse(result.student.toObject()),
 				);
 
-				await bumpUsersVersion(extractAcademicYears(result.student));
+				const promotionYears = extractAcademicYears(result.student);
+				await bumpUsersVersion(promotionYears);
+				await publishSyncEventsForAcademicYearsSafe({
+					tenantKey,
+					domain: 'users',
+					academicYears: promotionYears,
+					actorId: currentUser.id,
+					reason: 'student-promoted',
+				});
 
 				return NextResponse.json({
 					success: true,
@@ -2880,7 +2920,15 @@ export async function PUT(request: NextRequest) {
 					buildUserResponse(result.student.toObject()),
 				);
 
-				await bumpUsersVersion(extractAcademicYears(result.student));
+				const demotionYears = extractAcademicYears(result.student);
+				await bumpUsersVersion(demotionYears);
+				await publishSyncEventsForAcademicYearsSafe({
+					tenantKey,
+					domain: 'users',
+					academicYears: demotionYears,
+					actorId: currentUser.id,
+					reason: 'student-demoted',
+				});
 
 				return NextResponse.json({
 					success: true,
@@ -3197,7 +3245,15 @@ export async function PUT(request: NextRequest) {
 					buildUserResponse(updatedTeacher.toObject()),
 				);
 
-				await bumpUsersVersion(extractAcademicYears(updatedTeacher));
+				const teacherCarryoverYears = extractAcademicYears(updatedTeacher);
+				await bumpUsersVersion(teacherCarryoverYears);
+				await publishSyncEventsForAcademicYearsSafe({
+					tenantKey,
+					domain: 'users',
+					academicYears: teacherCarryoverYears,
+					actorId: currentUser.id,
+					reason: 'teacher-academic-year-added',
+				});
 
 				return NextResponse.json({
 					success: true,
@@ -3333,7 +3389,15 @@ export async function PUT(request: NextRequest) {
 				buildUserResponse(updatedAdministrator.toObject()),
 			);
 
-			await bumpUsersVersion(extractAcademicYears(updatedAdministrator));
+			const adminCarryoverYears = extractAcademicYears(updatedAdministrator);
+			await bumpUsersVersion(adminCarryoverYears);
+			await publishSyncEventsForAcademicYearsSafe({
+				tenantKey,
+				domain: 'users',
+				academicYears: adminCarryoverYears,
+				actorId: currentUser.id,
+				reason: 'administrator-academic-year-added',
+			});
 
 			return NextResponse.json({
 				success: true,
@@ -3447,9 +3511,21 @@ export async function PUT(request: NextRequest) {
 				read: false,
 				dismissed: false,
 				type: 'Security',
-			} as Notification);
+			} as Notification, {
+				tenantKey,
+				actorId: currentUser.id,
+				reason: 'password-reset',
+			});
 
-			await bumpUsersVersion(extractAcademicYears(updatedUser));
+			const resetYears = extractAcademicYears(updatedUser);
+			await bumpUsersVersion(resetYears);
+			await publishSyncEventsForAcademicYearsSafe({
+				tenantKey,
+				domain: 'users',
+				academicYears: resetYears,
+				actorId: currentUser.id,
+				reason: 'user-password-reset',
+			});
 
 			return NextResponse.json({
 				success: true,
@@ -3858,7 +3934,11 @@ export async function PUT(request: NextRequest) {
 				read: false,
 				dismissed: false,
 				type: 'Profile',
-			} as Notification);
+			} as Notification, {
+				tenantKey,
+				actorId: currentUser.id,
+				reason: 'profile-updated',
+			});
 		}
 
 		if (isSelfPasswordChange) {
@@ -3869,10 +3949,22 @@ export async function PUT(request: NextRequest) {
 				read: false,
 				dismissed: false,
 				type: 'Security',
-			} as Notification);
+			} as Notification, {
+				tenantKey,
+				actorId: currentUser.id,
+				reason: 'password-changed',
+			});
 		}
 
-		await bumpUsersVersion(extractAcademicYears(updatedUser));
+		const updatedUserYears = extractAcademicYears(updatedUser);
+		await bumpUsersVersion(updatedUserYears);
+		await publishSyncEventsForAcademicYearsSafe({
+			tenantKey,
+			domain: 'users',
+			academicYears: updatedUserYears,
+			actorId: currentUser.id,
+			reason: 'user-updated',
+		});
 
 		return NextResponse.json({
 			success: true,
@@ -3922,6 +4014,10 @@ export async function DELETE(request: NextRequest) {
 				{ status: 401 },
 			);
 		}
+		const tenantKey = resolveTenantSyncKey({
+			tenantId: currentUser.tenantId,
+			host: request.headers.get('host'),
+		});
 
 		const models = await getTenantModels();
 		const body = await request.json();
@@ -4041,7 +4137,15 @@ export async function DELETE(request: NextRequest) {
 		// Delete the user
 		await models.User.deleteOne({ _id: targetUserId });
 
-		await bumpUsersVersion(extractAcademicYears(targetUser));
+		const deletedUserYears = extractAcademicYears(targetUser);
+		await bumpUsersVersion(deletedUserYears);
+		await publishSyncEventsForAcademicYearsSafe({
+			tenantKey,
+			domain: 'users',
+			academicYears: deletedUserYears,
+			actorId: currentUser.id,
+			reason: 'user-deleted',
+		});
 
 		return NextResponse.json({
 			success: true,

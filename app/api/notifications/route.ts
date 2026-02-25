@@ -3,6 +3,7 @@ import { authorizeUser } from '@/proxy';
 import { getTenantModels } from '@/models';
 import { updateUserSessionNotifications } from '@/utils/session';
 import { Notification } from '@/types';
+import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
 
 export async function PATCH(request: NextRequest) {
 	try {
@@ -128,6 +129,16 @@ export async function PATCH(request: NextRequest) {
 
 		await user.save();
 		await updateUserSessionNotifications(currentUserId, user.notifications);
+		await publishSyncEventSafe({
+			tenantKey: resolveTenantSyncKey({
+				tenantId: currentUser.tenantId,
+				host: request.headers.get('host'),
+			}),
+			domain: 'user',
+			actorId: currentUserId,
+			reason: `notifications-${String(action || 'update')}`,
+			targetUserIds: [String(currentUserId)],
+		});
 
 		return NextResponse.json({
 			success: true,

@@ -3,6 +3,7 @@ import { getTenantModels } from '@/models';
 import { authorizeUser } from '@/proxy';
 import { updateUserSessionNotifications } from '@/utils/session';
 import { getSchoolProfile } from '@/lib/mongoose';
+import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
 import { attachRanksToGrades } from '@/utils/gradeRanks';
 import {
 	getAcademicYearFilterValue,
@@ -17,6 +18,11 @@ async function addNotificationToUser(
 	User: any,
 	userId: string,
 	notification: any,
+	options: {
+		tenantKey?: string;
+		actorId?: string | null;
+		reason?: string;
+	} = {},
 ) {
 	try {
 		const updatedUser = await User.findByIdAndUpdate(
@@ -29,6 +35,13 @@ async function addNotificationToUser(
 
 		if (updatedUser) {
 			await updateUserSessionNotifications(userId, updatedUser.notifications);
+			await publishSyncEventSafe({
+				tenantKey: options.tenantKey || '',
+				domain: 'user',
+				actorId: options.actorId || userId,
+				reason: options.reason || 'user-notification',
+				targetUserIds: [userId],
+			});
 			return true;
 		}
 		return false;
@@ -1202,6 +1215,11 @@ export async function POST(request: NextRequest) {
 
 		// Fetch school settings to check if grade submission is allowed
 		const schoolProfile = await getSchoolProfile();
+		const tenantKey = resolveTenantSyncKey({
+			schoolProfile,
+			tenantId: teacher.tenantId,
+			host: request.headers.get('host'),
+		});
 		const className = getClassNameFromId(schoolProfile, classId) || classId;
 		const passMark = schoolProfile?.settings?.gradingSettings?.passMark ?? 60;
 		const gradeMin = schoolProfile?.settings?.gradingSettings?.gradeScale?.min ?? 0;
@@ -1473,11 +1491,25 @@ export async function POST(request: NextRequest) {
 			};
 			for (const admin of admins) {
 				notificationPromises.push(
-					addNotificationToUser(User, admin._id.toString(), notification)
+					addNotificationToUser(User, admin._id.toString(), notification, {
+						tenantKey,
+						actorId: teacher.id,
+						reason: 'grade-submission-notification',
+					}),
 				);
 			}
 		}
 		await Promise.allSettled(notificationPromises);
+		await publishSyncEventSafe({
+			tenantKey,
+			domain: 'grades',
+			academicYear: String(resolvedAcademicYear || ''),
+			actorId: teacher.id,
+			reason: 'grades-submitted',
+			scope: {
+				classIds: [String(classId)],
+			},
+		});
 
 		return NextResponse.json({ success: true, data: result }, { status: 201 });
 	} catch (error) {
@@ -1529,6 +1561,11 @@ export async function PUT(request: NextRequest) {
 		}
 
 		const schoolProfile = await getSchoolProfile();
+		const tenantKey = resolveTenantSyncKey({
+			schoolProfile,
+			tenantId: currentUser.tenantId,
+			host: request.headers.get('host'),
+		});
 		const teacherSettings = schoolProfile?.settings?.teacherSettings;
 		const submissionAcademicYear = String(existingSubmission.academicYear || '');
 		const submissionPeriods = Array.from(
@@ -1650,6 +1687,16 @@ export async function PUT(request: NextRequest) {
 			lastUpdated: new Date(),
 		}));
 		const result = await Grade.insertMany(newGradeDocuments);
+		await publishSyncEventSafe({
+			tenantKey,
+			domain: 'grades',
+			academicYear: String(submissionAcademicYear || ''),
+			actorId: currentUser.id,
+			reason: 'grades-updated',
+			scope: {
+				classIds: [String(existingSubmission.classId || '')].filter(Boolean),
+			},
+		});
 		return NextResponse.json({ success: true, data: result });
 	} catch (error) {
 		console.error('Error in grades PUT:', error);
@@ -1707,6 +1754,10 @@ export async function PATCH(request: NextRequest) {
 				{ status: 403 },
 			);
 		}
+		const tenantKey = resolveTenantSyncKey({
+			tenantId: currentUser.tenantId,
+			host: request.headers.get('host'),
+		});
 
 		const { User } = await getTenantModels();
 		const body = await request.json();
@@ -1795,10 +1846,48 @@ export async function PATCH(request: NextRequest) {
 						read: false,
 						type: 'Grades',
 					};
-					await addNotificationToUser(User, teacher._id.toString(), notification);
+					await addNotificationToUser(
+						User,
+						teacher._id.toString(),
+						notification,
+						{
+							tenantKey,
+							actorId: currentUser.id,
+							reason: 'grade-status-notification',
+						},
+					);
 				},
 			);
 			await Promise.allSettled(notificationPromises);
+		}
+
+		if (successfulUpdates.length > 0) {
+			const years = Array.from(
+				new Set(
+					successfulUpdates
+						.map((entry) => String(entry?.data?.academicYear || '').trim())
+						.filter(Boolean),
+				),
+			);
+			const classIds = Array.from(
+				new Set(
+					successfulUpdates
+						.map((entry) => String(entry?.data?.classId || '').trim())
+						.filter(Boolean),
+				),
+			);
+			await Promise.all(
+				(years.length > 0 ? years : ['']).map((academicYear) =>
+					publishSyncEventSafe({
+						tenantKey,
+						domain: 'grades',
+						academicYear: academicYear || null,
+						actorId: currentUser.id,
+						reason: 'grades-status-updated',
+						scope: { classIds },
+					}),
+				),
+			);
 		}
 
 		return NextResponse.json({

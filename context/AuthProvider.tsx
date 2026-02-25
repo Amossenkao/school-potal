@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
 import { useNetworkStore } from '@/store/networkStore';
 
-const AUTH_REFRESH_INTERVAL_MS = 8000;
+const SYNC_STREAM_ENDPOINT = '/api/sync/events';
+const SYNC_REFRESH_DEBOUNCE_MS = 180;
 
 export default function AuthProvider({
 	children,
@@ -26,29 +27,28 @@ export default function AuthProvider({
 	);
 
 	const authRefreshInFlight = useRef(false);
+	const syncEventDebounceRef = useRef<number | null>(null);
+	const syncEventSourceRef = useRef<EventSource | null>(null);
 
-	useEffect(() => {
-		let mounted = true;
+	const ensureSchoolProfile = useCallback(async () => {
+		const currentSchool = useSchoolStore.getState().school;
+		if (currentSchool) return;
+		try {
+			await useSchoolStore.getState().fetchSchool();
+		} catch (error) {
+			console.error('[AuthProvider] Failed to fetch school profile:', error);
+		}
+	}, []);
 
-		const ensureSchoolProfile = async () => {
-			if (!mounted) return;
-			const currentSchool = useSchoolStore.getState().school;
-			if (currentSchool) return;
-			try {
-				await useSchoolStore.getState().fetchSchool();
-			} catch (error) {
-				console.error('[AuthProvider] Failed to fetch school profile:', error);
-			}
-		};
-
-		const runPeriodicAuthRefresh = async (forceConnectivity = false) => {
+	const runAuthRefresh = useCallback(
+		async (options?: { forceConnectivity?: boolean; reason?: string }) => {
 			if (authRefreshInFlight.current) return;
 			authRefreshInFlight.current = true;
 			try {
 				const online = await refreshConnectivity({
-					force: forceConnectivity,
+					force: options?.forceConnectivity ?? false,
 					timeoutMs: 2800,
-					reason: 'auth-provider-refresh',
+					reason: options?.reason || 'auth-provider-refresh',
 				});
 				if (!online) {
 					setAuthCheckFailed(true);
@@ -57,13 +57,16 @@ export default function AuthProvider({
 				await checkAuthStatus();
 				await ensureSchoolProfile();
 			} catch (error) {
-				console.error('[AuthProvider] Periodic auth refresh failed:', error);
+				console.error('[AuthProvider] Auth refresh failed:', error);
 				setAuthCheckFailed(true);
 			} finally {
 				authRefreshInFlight.current = false;
 			}
-		};
+		},
+		[checkAuthStatus, ensureSchoolProfile, refreshConnectivity, setAuthCheckFailed],
+	);
 
+	useEffect(() => {
 		const runInitialBootstrap = async () => {
 			try {
 				await bootstrapAuth({ force: true });
@@ -74,13 +77,12 @@ export default function AuthProvider({
 		};
 		void runInitialBootstrap();
 
-		const interval = window.setInterval(() => {
-			void runPeriodicAuthRefresh(false);
-		}, AUTH_REFRESH_INTERVAL_MS);
-
 		const handleOnline = () => {
 			setBrowserOnline(true);
-			void runPeriodicAuthRefresh(true);
+			void runAuthRefresh({
+				forceConnectivity: true,
+				reason: 'auth-provider-online',
+			});
 		};
 		const handleOffline = () => {
 			markOffline('browser-offline');
@@ -97,25 +99,86 @@ export default function AuthProvider({
 				  }).connection
 				: undefined;
 		const handleConnectionChange = () => {
-			void runPeriodicAuthRefresh(true);
+			void runAuthRefresh({
+				forceConnectivity: true,
+				reason: 'auth-provider-connection-change',
+			});
 		};
 		connection?.addEventListener?.('change', handleConnectionChange);
 
 		return () => {
-			mounted = false;
-			window.clearInterval(interval);
 			window.removeEventListener('online', handleOnline);
 			window.removeEventListener('offline', handleOffline);
 			connection?.removeEventListener?.('change', handleConnectionChange);
 		};
 	}, [
 		bootstrapAuth,
-		checkAuthStatus,
-		refreshConnectivity,
+		ensureSchoolProfile,
+		markOffline,
+		runAuthRefresh,
 		setAuthCheckFailed,
 		setBrowserOnline,
-		markOffline,
 	]);
+
+	useEffect(() => {
+		if (typeof window === 'undefined') return;
+		if (!user?.isActive) {
+			syncEventSourceRef.current?.close();
+			syncEventSourceRef.current = null;
+			if (syncEventDebounceRef.current !== null) {
+				window.clearTimeout(syncEventDebounceRef.current);
+				syncEventDebounceRef.current = null;
+			}
+			return;
+		}
+
+		const scheduleRefresh = (reason: string) => {
+			if (syncEventDebounceRef.current !== null) {
+				window.clearTimeout(syncEventDebounceRef.current);
+			}
+			syncEventDebounceRef.current = window.setTimeout(() => {
+				syncEventDebounceRef.current = null;
+				void runAuthRefresh({ reason });
+			}, SYNC_REFRESH_DEBOUNCE_MS);
+		};
+
+		const source = new EventSource(SYNC_STREAM_ENDPOINT);
+		syncEventSourceRef.current = source;
+
+		const onReady = () => {
+			setAuthCheckFailed(false);
+			scheduleRefresh('sync-stream-ready');
+		};
+		const onSync = () => {
+			scheduleRefresh('sync-event');
+		};
+		const onError = () => {
+			if (typeof navigator !== 'undefined' && !navigator.onLine) {
+				markOffline('browser-offline');
+				setAuthCheckFailed(true);
+				return;
+			}
+			scheduleRefresh('sync-stream-error');
+		};
+
+		source.addEventListener('ready', onReady as EventListener);
+		source.addEventListener('sync', onSync as EventListener);
+		source.addEventListener('error', onError as EventListener);
+
+		return () => {
+			source.removeEventListener('ready', onReady as EventListener);
+			source.removeEventListener('sync', onSync as EventListener);
+			source.removeEventListener('error', onError as EventListener);
+			source.close();
+			if (syncEventSourceRef.current === source) {
+				syncEventSourceRef.current = null;
+			}
+			if (syncEventDebounceRef.current !== null) {
+				window.clearTimeout(syncEventDebounceRef.current);
+				syncEventDebounceRef.current = null;
+			}
+		};
+	}, [markOffline, runAuthRefresh, setAuthCheckFailed, user?.id, user?.isActive]);
 
 	useEffect(() => {
 		if (typeof navigator === 'undefined') return;

@@ -3,6 +3,7 @@ import { authorizeUser } from '@/proxy';
 import { getTenantModels } from '@/models';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { redis } from '@/lib/redis';
+import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
 import {
 	getAcademicYearFilterValue,
 	getCurrentAcademicYearFromSchoolProfile,
@@ -164,6 +165,16 @@ export async function POST(request: NextRequest) {
 
 		const cacheKey = `school_events:${schoolProfile?.dbName}:academic:${academicYear}`;
 		await redis.del(cacheKey);
+		await publishSyncEventSafe({
+			tenantKey: resolveTenantSyncKey({
+				schoolProfile,
+				host: request.headers.get('host'),
+			}),
+			domain: 'calendar',
+			academicYear: String(academicYear || ''),
+			actorId: currentUser.id,
+			reason: 'calendar-created',
+		});
 
 		return NextResponse.json({
 			success: true,
@@ -221,6 +232,16 @@ export async function PATCH(request: NextRequest) {
 			getCurrentAcademicYearFromSchoolProfile(schoolProfile);
 		const cacheKey = `school_events:${schoolProfile?.dbName}:academic:${academicYear}`;
 		await redis.del(cacheKey);
+		await publishSyncEventSafe({
+			tenantKey: resolveTenantSyncKey({
+				schoolProfile,
+				host: request.headers.get('host'),
+			}),
+			domain: 'calendar',
+			academicYear: String(academicYear || ''),
+			actorId: currentUser.id,
+			reason: 'calendar-updated',
+		});
 
 		return NextResponse.json({ success: true, data: updated });
 	} catch (error) {
@@ -263,6 +284,16 @@ export async function DELETE(request: NextRequest) {
 			getCurrentAcademicYearFromSchoolProfile(schoolProfile);
 		const cacheKey = `school_events:${schoolProfile?.dbName}:academic:${academicYear}`;
 		await redis.del(cacheKey);
+		await publishSyncEventSafe({
+			tenantKey: resolveTenantSyncKey({
+				schoolProfile,
+				host: request.headers.get('host'),
+			}),
+			domain: 'calendar',
+			academicYear: String(academicYear || ''),
+			actorId: currentUser.id,
+			reason: 'calendar-deleted',
+		});
 
 		return NextResponse.json({ success: true });
 	} catch (error) {

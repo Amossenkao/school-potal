@@ -3,6 +3,7 @@ import { authorizeUser } from '@/proxy';
 import { getTenantModels } from '@/models';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { redis } from '@/lib/redis';
+import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
 import {
 	getAcademicYearFilterValue,
 	getCurrentAcademicYearFromSchoolProfile,
@@ -401,6 +402,19 @@ export async function POST(request: NextRequest) {
 		await redis.del(
 			`school_events:${schoolProfile?.dbName}:${eventType}:${academicYear}:all:all`
 		);
+		await publishSyncEventSafe({
+			tenantKey: resolveTenantSyncKey({
+				schoolProfile,
+				host: request.headers.get('host'),
+			}),
+			domain: 'schedules',
+			academicYear: String(academicYear || ''),
+			actorId: currentUser.id,
+			reason: 'schedule-created',
+			scope: {
+				classIds: payload.classId ? [String(payload.classId)] : [],
+			},
+		});
 
 		return NextResponse.json({
 			success: true,
@@ -532,6 +546,21 @@ export async function POST(request: NextRequest) {
 		await redis.del(
 			`school_events:${schoolProfile?.dbName}:${eventType}:${academicYear}:all:all`
 		);
+		await publishSyncEventSafe({
+			tenantKey: resolveTenantSyncKey({
+				schoolProfile,
+				host: request.headers.get('host'),
+			}),
+			domain: 'schedules',
+			academicYear: String(academicYear || ''),
+			actorId: currentUser.id,
+			reason: 'schedule-updated',
+			scope: {
+				classIds: (updated?.classId || payload.classId)
+					? [String(updated?.classId || payload.classId)]
+					: [],
+			},
+		});
 
 		return NextResponse.json({
 			success: true,
@@ -588,6 +617,21 @@ export async function DELETE(request: NextRequest) {
 		await redis.del(
 			`school_events:${schoolProfile?.dbName}:${eventType}:${academicYear}:all:all`
 		);
+		await publishSyncEventSafe({
+			tenantKey: resolveTenantSyncKey({
+				schoolProfile,
+				host: request.headers.get('host'),
+			}),
+			domain: 'schedules',
+			academicYear: String(academicYear || ''),
+			actorId: currentUser.id,
+			reason: 'schedule-deleted',
+			scope: {
+				classIds: (deleted?.classId || payload.classId)
+					? [String(deleted?.classId || payload.classId)]
+					: [],
+			},
+		});
 
 		return NextResponse.json({ success: true, deletedCount });
 	} catch (error) {
