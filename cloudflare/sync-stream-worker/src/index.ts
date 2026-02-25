@@ -30,6 +30,7 @@ const KEEP_ALIVE_MS = 25_000;
 const DEFAULT_REPLAY_LIMIT = 300;
 const MIN_REPLAY_LIMIT = 50;
 const MAX_REPLAY_LIMIT = 2000;
+const STREAM_HUB_NAMESPACE_VERSION = 'v2';
 const DEBUG_TRUTHY_VALUES = new Set(['1', 'true', 'yes', 'on', 'debug']);
 
 const isWorkerDebugEnabled = (env: Env) =>
@@ -163,6 +164,14 @@ type ChannelSubscription = {
 	reconnectTimer: ReturnType<typeof setTimeout> | null;
 };
 
+const resolveHostFromUrl = (value: string) => {
+	try {
+		return new URL(value).host || null;
+	} catch {
+		return null;
+	}
+};
+
 export default {
 	async fetch(request, env): Promise<Response> {
 		const url = new URL(request.url);
@@ -243,7 +252,7 @@ export default {
 		}
 
 		const durableObjectId = env.SYNC_STREAM_HUB.idFromName(
-			`tenant:${payload.tenantKey}`,
+			`tenant:${STREAM_HUB_NAMESPACE_VERSION}:${payload.tenantKey}`,
 		);
 		const stub = env.SYNC_STREAM_HUB.get(durableObjectId);
 
@@ -610,7 +619,13 @@ export class SyncStreamHub extends DurableObject<Env> {
 			const controller = new AbortController();
 			subscription.abortController = controller;
 			try {
-				const subscribeUrl = `${this.env.UPSTASH_REDIS_REST_URL.replace(/\/+$/g, '')}/subscribe/${encodeURIComponent(channel)}`;
+				const upstashBaseUrl = this.env.UPSTASH_REDIS_REST_URL.replace(/\/+$/g, '');
+				const subscribeUrl = `${upstashBaseUrl}/subscribe/${encodeURIComponent(channel)}`;
+				this.log('upstash', 'Opening channel subscription.', {
+					channel,
+					attempt,
+					upstashHost: resolveHostFromUrl(upstashBaseUrl),
+				});
 				const response = await fetch(subscribeUrl, {
 					method: 'GET',
 					headers: {
