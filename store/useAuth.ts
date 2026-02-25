@@ -646,7 +646,7 @@ const useAuth = create<AuthState>((set, get) => {
 
 		checkAuthStatus: async (options) => {
 			const now = Date.now();
-			const skipConnectivityCheck = options?.skipConnectivityCheck ?? false;
+			const skipConnectivityCheck = options?.skipConnectivityCheck ?? true;
 			if (authCheckPromise) {
 				return authCheckPromise;
 			}

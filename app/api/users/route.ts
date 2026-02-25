@@ -2534,6 +2534,7 @@ export async function PUT(request: NextRequest) {
 			| 'semesterDemotion';
 
 		const actualTargetUserId = targetUserId || currentUser.id;
+		const currentSessionId = request.cookies.get('sessionId')?.value || '';
 
 		// --- Handle Promotion ---
 		if (action === 'promote') {
@@ -3910,6 +3911,24 @@ export async function PUT(request: NextRequest) {
 				domain: 'user',
 				actorId: currentUser.id,
 				reason: 'account-deactivated',
+				targetUserIds: [String(actualTargetUserId)],
+			});
+		}
+		const revokeOtherSessionsNow = Boolean(
+			isSelfPasswordChange &&
+			!deactivatedNow &&
+			isSelfUpdate,
+		);
+		if (revokeOtherSessionsNow) {
+			await destroyAllUserSessions(
+				actualTargetUserId,
+				currentSessionId || undefined,
+			);
+			await publishSyncEventSafe({
+				tenantKey,
+				domain: 'user',
+				actorId: currentUser.id,
+				reason: 'password-changed-session-revocation',
 				targetUserIds: [String(actualTargetUserId)],
 			});
 		}

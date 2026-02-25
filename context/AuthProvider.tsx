@@ -22,9 +22,6 @@ export default function AuthProvider({
 	const setAuthCheckFailed = useNetworkStore(
 		(state) => state.setAuthCheckFailed,
 	);
-	const refreshConnectivity = useNetworkStore(
-		(state) => state.refreshConnectivity,
-	);
 
 	const authRefreshInFlight = useRef(false);
 	const syncEventDebounceRef = useRef<number | null>(null);
@@ -41,20 +38,13 @@ export default function AuthProvider({
 	}, []);
 
 	const runAuthRefresh = useCallback(
-		async (options?: { forceConnectivity?: boolean; reason?: string }) => {
+		async () => {
 			if (authRefreshInFlight.current) return;
 			authRefreshInFlight.current = true;
 			try {
-				const online = await refreshConnectivity({
-					force: options?.forceConnectivity ?? false,
-					timeoutMs: 2800,
-					reason: options?.reason || 'auth-provider-refresh',
+				await checkAuthStatus({
+					skipConnectivityCheck: true,
 				});
-				if (!online) {
-					setAuthCheckFailed(true);
-					return;
-				}
-				await checkAuthStatus();
 				await ensureSchoolProfile();
 			} catch (error) {
 				console.error('[AuthProvider] Auth refresh failed:', error);
@@ -63,7 +53,7 @@ export default function AuthProvider({
 				authRefreshInFlight.current = false;
 			}
 		},
-		[checkAuthStatus, ensureSchoolProfile, refreshConnectivity, setAuthCheckFailed],
+		[checkAuthStatus, ensureSchoolProfile, setAuthCheckFailed],
 	);
 
 	useEffect(() => {
@@ -79,10 +69,7 @@ export default function AuthProvider({
 
 		const handleOnline = () => {
 			setBrowserOnline(true);
-			void runAuthRefresh({
-				forceConnectivity: true,
-				reason: 'auth-provider-online',
-			});
+			void runAuthRefresh();
 		};
 		const handleOffline = () => {
 			markOffline('browser-offline');
@@ -99,10 +86,7 @@ export default function AuthProvider({
 				  }).connection
 				: undefined;
 		const handleConnectionChange = () => {
-			void runAuthRefresh({
-				forceConnectivity: true,
-				reason: 'auth-provider-connection-change',
-			});
+			void runAuthRefresh();
 		};
 		connection?.addEventListener?.('change', handleConnectionChange);
 
@@ -132,13 +116,13 @@ export default function AuthProvider({
 			return;
 		}
 
-		const scheduleRefresh = (reason: string) => {
+		const scheduleRefresh = () => {
 			if (syncEventDebounceRef.current !== null) {
 				window.clearTimeout(syncEventDebounceRef.current);
 			}
 			syncEventDebounceRef.current = window.setTimeout(() => {
 				syncEventDebounceRef.current = null;
-				void runAuthRefresh({ reason });
+				void runAuthRefresh();
 			}, SYNC_REFRESH_DEBOUNCE_MS);
 		};
 
@@ -149,7 +133,7 @@ export default function AuthProvider({
 			setAuthCheckFailed(false);
 		};
 		const onSync = () => {
-			scheduleRefresh('sync-event');
+			scheduleRefresh();
 		};
 		const onError = () => {
 			if (typeof navigator !== 'undefined' && !navigator.onLine) {
