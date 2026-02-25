@@ -16,7 +16,6 @@ interface LoginData {
 	username: string;
 	password: string;
 	position?: string;
-	turnstileToken?: string;
 }
 
 type SyncVersions = {
@@ -72,8 +71,6 @@ const OFFLINE_REQUEST_MESSAGE =
 	'You are offline. Please connect to the internet and try again.';
 const REQUEST_TIMEOUT_MESSAGE =
 	'The request took too long. Please try again.';
-const LOGIN_TIMEOUT_MESSAGE =
-	'Login is taking longer than expected. Please try again.';
 
 const createTimeoutAbortReason = (requestName: string) => {
 	try {
@@ -327,24 +324,12 @@ const useAuth = create<AuthState>((set, get) => {
 		login: async (loginData: LoginData): Promise<User | null> => {
 			set({ isLoading: true, error: null });
 			try {
-				const controller = new AbortController();
-				const timeoutId = window.setTimeout(
-					() => controller.abort(createTimeoutAbortReason('Login request')),
-					AUTH_LOGIN_TIMEOUT_MS,
-				);
-				const res = await (async () => {
-					try {
-						return await fetch('/api/auth/login', {
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							credentials: 'include',
-							body: JSON.stringify({ ...loginData, action: 'login' }),
-							signal: controller.signal,
-						});
-					} finally {
-						window.clearTimeout(timeoutId);
-					}
-				})();
+				const res = await fetch('/api/auth/login', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					credentials: 'include',
+					body: JSON.stringify({ ...loginData, action: 'login' }),
+				});
 
 				const data = await res.json().catch(() => ({}));
 
@@ -390,7 +375,7 @@ const useAuth = create<AuthState>((set, get) => {
 				return data.user;
 			} catch (error: any) {
 				if (isAbortLikeError(error)) {
-					set({ error: LOGIN_TIMEOUT_MESSAGE, isLoading: false });
+					set({ error: REQUEST_TIMEOUT_MESSAGE, isLoading: false });
 					return null;
 				}
 				if (isLikelyNetworkError(error)) {

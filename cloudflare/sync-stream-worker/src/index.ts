@@ -119,6 +119,20 @@ const parseJsonRecord = (value: string) => {
 	return parsed as Record<string, unknown>;
 };
 
+const parseUpstashFrame = (value: string) => {
+	const firstComma = value.indexOf(',');
+	if (firstComma < 0) return null;
+	const secondComma = value.indexOf(',', firstComma + 1);
+	if (secondComma < 0) return null;
+
+	const kind = value.slice(0, firstComma).trim().toLowerCase();
+	const channel = normalizeChannelName(value.slice(firstComma + 1, secondComma));
+	const payload = value.slice(secondComma + 1);
+
+	if (!kind || !channel) return null;
+	return { kind, channel, payload };
+};
+
 const buildSyncPayload = (record: ReplayRecord) => ({
 	channel: record.channel,
 	event: record.event,
@@ -690,28 +704,44 @@ export class SyncStreamHub extends DurableObject<Env> {
 		data: string;
 	}) {
 		if (!params.data) return;
-		const parsedEnvelope = parseJsonRecord(params.data);
 		let channel = params.channel;
-		let messagePayload: unknown = parsedEnvelope;
+		let messagePayload: unknown = null;
 
-		if (
-			parsedEnvelope &&
-			Object.prototype.hasOwnProperty.call(parsedEnvelope, 'channel')
-		) {
-			channel = normalizeChannelName(parsedEnvelope.channel) || channel;
-		}
-		if (
-			parsedEnvelope &&
-			Object.prototype.hasOwnProperty.call(parsedEnvelope, 'message')
-		) {
-			messagePayload = parsedEnvelope.message;
+		const parsedFrame = parseUpstashFrame(params.data);
+		if (parsedFrame) {
+			channel = parsedFrame.channel || channel;
+			if (parsedFrame.kind !== 'message') {
+				// Ignore subscribe/unsubscribe/pong control frames.
+				return;
+			}
+			messagePayload = parsedFrame.payload;
+		} else {
+			const parsedEnvelope = parseJsonRecord(params.data);
+			messagePayload = parsedEnvelope;
+			if (
+				parsedEnvelope &&
+				Object.prototype.hasOwnProperty.call(parsedEnvelope, 'channel')
+			) {
+				channel = normalizeChannelName(parsedEnvelope.channel) || channel;
+			}
+			if (
+				parsedEnvelope &&
+				Object.prototype.hasOwnProperty.call(parsedEnvelope, 'message')
+			) {
+				messagePayload = parsedEnvelope.message;
+			}
 		}
 
 		if (typeof messagePayload === 'string') {
-			const nested = parseJsonRecord(messagePayload);
-			messagePayload = nested || messagePayload;
+			const nestedRecord = parseJsonRecord(messagePayload);
+			if (nestedRecord) {
+				messagePayload = nestedRecord;
+			} else {
+				const nestedValue = parseJsonValue(messagePayload);
+				messagePayload = nestedValue ?? messagePayload;
+			}
 		}
-		if (!messagePayload || typeof messagePayload !== 'object') {
+		if (!messagePayload || typeof messagePayload !== 'object' || Array.isArray(messagePayload)) {
 			return;
 		}
 

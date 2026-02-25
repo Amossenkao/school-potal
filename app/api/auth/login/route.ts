@@ -14,90 +14,6 @@ import { checkRateLimit, getRequestIp } from '@/utils/rateLimit';
 import { resolveAcademicYearAccessContext } from '@/utils/academicYearAccess';
 import { normalizeHost } from '@/utils/host';
 
-const TURNSTILE_VERIFY_URL =
-	'https://challenges.cloudflare.com/turnstile/v0/siteverify';
-
-type TurnstileVerifyResult = {
-	ok: boolean;
-	status?: number;
-	message?: string;
-	errorCodes?: string[];
-};
-
-const verifyTurnstileToken = async (
-	token: string,
-	remoteIp?: string,
-): Promise<TurnstileVerifyResult> => {
-	if (!token.trim()) {
-		return {
-			ok: false,
-			status: 400,
-			message: 'Security verification is required.',
-			errorCodes: ['missing-input-response'],
-		};
-	}
-
-	const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
-	if (!turnstileSecret) {
-		console.error('TURNSTILE_SECRET_KEY is not configured');
-		return {
-			ok: false,
-			status: 500,
-			message: 'Security verification is not configured.',
-		};
-	}
-
-	try {
-		const payload = new URLSearchParams();
-		payload.set('secret', turnstileSecret);
-		payload.set('response', token);
-		if (remoteIp) {
-			payload.set('remoteip', remoteIp);
-		}
-
-		const response = await fetch(TURNSTILE_VERIFY_URL, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded',
-			},
-			body: payload.toString(),
-		});
-
-		if (!response.ok) {
-			return {
-				ok: false,
-				status: 502,
-				message: 'Security verification service is unavailable.',
-			};
-		}
-
-		const result = (await response.json()) as {
-			success?: boolean;
-			'error-codes'?: string[];
-		};
-
-		if (!result?.success) {
-			return {
-				ok: false,
-				status: 403,
-				message: 'Security verification failed.',
-				errorCodes: Array.isArray(result?.['error-codes'])
-					? result['error-codes']
-					: undefined,
-			};
-		}
-
-		return { ok: true };
-	} catch (error) {
-		console.error('Turnstile verification request failed:', error);
-		return {
-			ok: false,
-			status: 502,
-			message: 'Security verification service is unavailable.',
-		};
-	}
-};
-
 const toHash = (value: unknown) => {
 	try {
 		const raw = JSON.stringify(value) || '';
@@ -181,7 +97,6 @@ export async function POST(request: NextRequest) {
 		sessionId,
 		id,
 		userId,
-		turnstileToken,
 	} = body;
 	const resolvedUserId = id || userId;
 	const ip = getRequestIp(request.headers);
@@ -212,22 +127,6 @@ export async function POST(request: NextRequest) {
 								retryAfter: limiter.retryAfter,
 							},
 							{ status: 429 },
-						);
-					}
-				}
-				{
-					const turnstileResult = await verifyTurnstileToken(
-						String(turnstileToken || ''),
-						ip,
-					);
-					if (!turnstileResult.ok) {
-						return NextResponse.json(
-							{
-								message:
-									turnstileResult.message || 'Security verification failed.',
-								errorCodes: turnstileResult.errorCodes,
-							},
-							{ status: turnstileResult.status || 403 },
 						);
 					}
 				}

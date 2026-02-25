@@ -22,35 +22,6 @@ import { useSchoolStore } from '@/store/schoolStore';
 import { useNetworkStore } from '@/store/networkStore';
 import Link from 'next/link';
 import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
-import Script from 'next/script';
-
-type TurnstileRenderOptions = {
-	sitekey: string;
-	theme?: 'light' | 'dark' | 'auto';
-	size?: 'normal' | 'compact' | 'flexible';
-	execution?: 'render' | 'execute';
-	appearance?: 'always' | 'execute' | 'interaction-only';
-	callback?: (token: string) => void;
-	'error-callback'?: () => void;
-	'expired-callback'?: () => void;
-	'timeout-callback'?: () => void;
-};
-
-type TurnstileApi = {
-	render: (
-		container: string | HTMLElement,
-		options: TurnstileRenderOptions,
-	) => string;
-	execute: (widgetId: string) => void;
-	reset: (widgetId: string) => void;
-	remove: (widgetId: string) => void;
-};
-
-declare global {
-	interface Window {
-		turnstile?: TurnstileApi;
-	}
-}
 
 const LoginPage = () => {
 	const router = useRouter();
@@ -64,16 +35,6 @@ const LoginPage = () => {
 	const [loginDisabledError, setLoginDisabledError] = useState('');
 	const [offlineError, setOfflineError] = useState('');
 	const usernameInputRef = useRef<HTMLInputElement>(null);
-	const turnstileContainerRef = useRef<HTMLDivElement>(null);
-	const turnstileContainerHostRef = useRef<HTMLDivElement | null>(null);
-	const turnstileWidgetIdRef = useRef<string | null>(null);
-	const turnstileResolveRef = useRef<((token: string) => void) | null>(null);
-	const turnstileRejectRef = useRef<((error: Error) => void) | null>(null);
-	const turnstileTimeoutRef = useRef<number | null>(null);
-	const [isTurnstileReady, setIsTurnstileReady] = useState(false);
-	const [isVerifyingTurnstile, setIsVerifyingTurnstile] = useState(false);
-	const turnstileSiteKey =
-		process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || '';
 	const refreshConnectivity = useNetworkStore(
 		(state) => state.refreshConnectivity,
 	);
@@ -116,223 +77,9 @@ const LoginPage = () => {
 		});
 	}, [router, dismissKeyboardFocus]);
 
-	const clearTurnstileTimeout = useCallback(() => {
-		if (typeof window === 'undefined') return;
-		if (turnstileTimeoutRef.current !== null) {
-			window.clearTimeout(turnstileTimeoutRef.current);
-			turnstileTimeoutRef.current = null;
-		}
-	}, []);
-
-	const rejectPendingTurnstile = useCallback(
-		(message: string) => {
-			clearTurnstileTimeout();
-			if (turnstileRejectRef.current) {
-				turnstileRejectRef.current(new Error(message));
-			}
-			turnstileResolveRef.current = null;
-			turnstileRejectRef.current = null;
-		},
-		[clearTurnstileTimeout],
-	);
-
-	const destroyTurnstileWidget = useCallback(() => {
-		const widgetId = turnstileWidgetIdRef.current;
-		if (!widgetId) return;
-		if (typeof window !== 'undefined' && window.turnstile) {
-			try {
-				window.turnstile.remove(widgetId);
-			} catch (error) {
-				console.warn('Failed to remove Turnstile widget:', error);
-			}
-		}
-		turnstileWidgetIdRef.current = null;
-		turnstileContainerHostRef.current = null;
-	}, []);
-
-	const resetTurnstileWidget = useCallback(() => {
-		const widgetId = turnstileWidgetIdRef.current;
-		if (!widgetId || typeof window === 'undefined' || !window.turnstile) return;
-		try {
-			window.turnstile.reset(widgetId);
-		} catch (error) {
-			console.warn('Failed to reset Turnstile widget; recreating:', error);
-			destroyTurnstileWidget();
-		}
-	}, [destroyTurnstileWidget]);
-
-	const ensureTurnstileWidget = useCallback(() => {
-		if (!turnstileSiteKey) {
-			throw new Error(
-				'Login security is not configured. Add NEXT_PUBLIC_TURNSTILE_SITE_KEY.',
-			);
-		}
-		if (typeof window === 'undefined' || !window.turnstile) {
-			throw new Error('Security verification is still loading. Please retry.');
-		}
-		const container = turnstileContainerRef.current;
-		if (!container) {
-			throw new Error('Verification widget is not ready yet. Please retry.');
-		}
-		if (
-			turnstileWidgetIdRef.current &&
-			turnstileContainerHostRef.current &&
-			turnstileContainerHostRef.current !== container
-		) {
-			destroyTurnstileWidget();
-		}
-		if (turnstileWidgetIdRef.current) {
-			return turnstileWidgetIdRef.current;
-		}
-
-		const widgetId = window.turnstile.render(container, {
-			sitekey: turnstileSiteKey,
-			theme: 'auto',
-			size: 'flexible',
-			execution: 'execute',
-			appearance: 'execute',
-			callback: (token: string) => {
-				clearTurnstileTimeout();
-				const resolve = turnstileResolveRef.current;
-				turnstileResolveRef.current = null;
-				turnstileRejectRef.current = null;
-				setIsVerifyingTurnstile(false);
-				if (resolve) {
-					resolve(token);
-				}
-			},
-			'error-callback': () => {
-				clearTurnstileTimeout();
-				setIsVerifyingTurnstile(false);
-				rejectPendingTurnstile(
-					'Security verification failed. Please try again.',
-				);
-				resetTurnstileWidget();
-			},
-			'expired-callback': () => {
-				clearTurnstileTimeout();
-				setIsVerifyingTurnstile(false);
-				rejectPendingTurnstile(
-					'Security verification expired. Please verify again.',
-				);
-				resetTurnstileWidget();
-			},
-			'timeout-callback': () => {
-				clearTurnstileTimeout();
-				setIsVerifyingTurnstile(false);
-				rejectPendingTurnstile(
-					'Security verification timed out. Please verify again.',
-				);
-				resetTurnstileWidget();
-			},
-		});
-
-		turnstileWidgetIdRef.current = widgetId;
-		turnstileContainerHostRef.current = container;
-		return widgetId;
-	}, [
-		clearTurnstileTimeout,
-		destroyTurnstileWidget,
-		rejectPendingTurnstile,
-		resetTurnstileWidget,
-		turnstileSiteKey,
-	]);
-
-	const executeTurnstileVerification = useCallback(async () => {
-		const widgetId = ensureTurnstileWidget();
-		setIsVerifyingTurnstile(true);
-
-		return await new Promise<string>((resolve, reject) => {
-			clearTurnstileTimeout();
-			turnstileTimeoutRef.current = window.setTimeout(() => {
-				turnstileTimeoutRef.current = null;
-				setIsVerifyingTurnstile(false);
-				turnstileResolveRef.current = null;
-				turnstileRejectRef.current = null;
-				resetTurnstileWidget();
-				reject(new Error('Security verification timed out. Please try again.'));
-			}, 20000);
-			turnstileResolveRef.current = resolve;
-			turnstileRejectRef.current = reject;
-			try {
-				window.turnstile?.execute(widgetId);
-			} catch (error) {
-				clearTurnstileTimeout();
-				setIsVerifyingTurnstile(false);
-				turnstileResolveRef.current = null;
-				turnstileRejectRef.current = null;
-				reject(
-					error instanceof Error ? error : new Error('Verification failed.'),
-				);
-			}
-		});
-	}, [clearTurnstileTimeout, ensureTurnstileWidget, resetTurnstileWidget]);
-
 	useEffect(() => {
 		void bootstrapAuth();
 	}, [bootstrapAuth]);
-
-	useEffect(() => {
-		if (typeof window === 'undefined') return;
-		if (window.turnstile) {
-			setIsTurnstileReady(true);
-			setOfflineError('');
-			return;
-		}
-
-		const intervalId = window.setInterval(() => {
-			if (!window.turnstile) return;
-			setIsTurnstileReady(true);
-			setOfflineError('');
-			window.clearInterval(intervalId);
-		}, 250);
-
-		return () => window.clearInterval(intervalId);
-	}, []);
-
-	useEffect(() => {
-		const canShowLoginForm =
-			selectedRole &&
-			(selectedRole !== 'administrator' || Boolean(adminPosition)) &&
-			!isAwaitingOtp;
-		if (!canShowLoginForm || !isTurnstileReady || !turnstileSiteKey) return;
-		try {
-			ensureTurnstileWidget();
-		} catch {
-			// Widget can still be created on submit retry.
-		}
-	}, [
-		selectedRole,
-		adminPosition,
-		isAwaitingOtp,
-		isTurnstileReady,
-		turnstileSiteKey,
-		ensureTurnstileWidget,
-	]);
-
-	useEffect(() => {
-		const canShowLoginForm =
-			selectedRole &&
-			(selectedRole !== 'administrator' || Boolean(adminPosition)) &&
-			!isAwaitingOtp;
-		if (canShowLoginForm) return;
-		rejectPendingTurnstile('Security verification was cancelled.');
-		setIsVerifyingTurnstile(false);
-		destroyTurnstileWidget();
-	}, [
-		selectedRole,
-		adminPosition,
-		isAwaitingOtp,
-		rejectPendingTurnstile,
-		destroyTurnstileWidget,
-	]);
-
-	useEffect(() => {
-		return () => {
-			rejectPendingTurnstile('Security verification was cancelled.');
-			destroyTurnstileWidget();
-		};
-	}, [destroyTurnstileWidget, rejectPendingTurnstile]);
 
 	// Redirect if logged in
 	useEffect(() => {
@@ -477,23 +224,10 @@ const LoginPage = () => {
 		});
 		setOfflineError('');
 
-		let turnstileToken = '';
-		try {
-			turnstileToken = await executeTurnstileVerification();
-		} catch (verificationError) {
-			const message =
-				verificationError instanceof Error
-					? verificationError.message
-					: 'Security verification failed. Please try again.';
-			setOfflineError(message);
-			return;
-		}
-
 		const loginData = {
 			role: selectedRole,
 			username: formData.username,
 			password: formData.password,
-			turnstileToken,
 			...(selectedRole === 'administrator' && { position: adminPosition }),
 		};
 
@@ -508,8 +242,6 @@ const LoginPage = () => {
 			} else {
 				navigateToDashboardWithSpinner();
 			}
-		} else {
-			resetTurnstileWidget();
 		}
 	};
 
@@ -521,24 +253,6 @@ const LoginPage = () => {
 
 	return (
 		<>
-			<Script
-				src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
-				strategy="afterInteractive"
-				onLoad={() => {
-					setIsTurnstileReady(true);
-					setOfflineError('');
-				}}
-				onError={() => {
-					if (typeof window !== 'undefined' && window.turnstile) {
-						setIsTurnstileReady(true);
-						return;
-					}
-					setIsTurnstileReady(false);
-					setOfflineError(
-						'Security verification failed to load. Refresh and try again.',
-					);
-				}}
-			/>
 			{isRedirecting && (
 				<PageLoading variant="school" message="Opening dashboard..." />
 			)}
@@ -794,36 +508,17 @@ const LoginPage = () => {
 															</div>
 														</div>
 													</div>
-													<div
-														className={`transition-all duration-300 ${
-															isVerifyingTurnstile
-																? 'max-h-[420px] opacity-100'
-																: 'max-h-0 opacity-0 pointer-events-none'
-														} overflow-hidden`}
-													>
-														<div className="pb-1">
-															<div className="mx-auto w-full max-w-[360px]">
-																<div ref={turnstileContainerRef} />
-															</div>
-														</div>
-													</div>
 													<button
 														type="submit"
 														disabled={
 															isLoading ||
-															isVerifyingTurnstile ||
 															!!loginDisabledError ||
 															!formData.username ||
 															!formData.password
 														}
 														className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-bold shadow-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
 													>
-														{isVerifyingTurnstile ? (
-															<>
-																<Loader2 className="w-5 h-5 animate-spin mr-2" />
-																Verifying...
-															</>
-														) : isLoading ? (
+														{isLoading ? (
 															<Loader2 className="w-5 h-5 animate-spin mr-2" />
 														) : (
 															'Access e-Portal'
