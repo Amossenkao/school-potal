@@ -3992,10 +3992,20 @@ export async function PUT(request: NextRequest) {
 			reason: 'user-updated',
 		});
 
+		const refreshedUser =
+			profileUpdated || isSelfPasswordChange
+				? await models.User.findById(actualTargetUserId)
+						.select('-password -defaultPassword')
+						.lean()
+				: null;
+		const responseUser = buildUserResponse(
+			refreshedUser || updatedUser.toObject(),
+		);
+
 		return NextResponse.json({
 			success: true,
 			message: 'User updated successfully',
-			data: { user: updatedUser },
+			data: { user: responseUser },
 			reassignments:
 				conflictsToHandle.length > 0
 					? {

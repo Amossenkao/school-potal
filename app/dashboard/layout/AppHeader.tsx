@@ -60,6 +60,7 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
 	const [success, setSuccess] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
 	const { isOnline } = useNetworkStore();
+	const setUser = useAuth((state) => state.setUser);
 
 	const handleSubmit = async (e) => {
 		e.preventDefault();
@@ -92,6 +93,9 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
 
 			if (!response.ok) {
 				throw new Error(data.message || 'Failed to reset password.');
+			}
+			if (data?.data?.user) {
+				setUser(data.data.user);
 			}
 
 			setSuccess('Password updated successfully!');
@@ -426,7 +430,7 @@ const NotificationsDropdown = memo(function NotificationsDropdown() {
 						) : (
 							notifications.map((notification) => (
 								<div
-									key={notification.timestamp.toString()}
+									key={notification._id || notification.timestamp.toString()}
 									className={`relative p-4 border-b border-gray-200 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
 										!notification.read
 											? 'bg-blue-50/50 dark:bg-blue-900/10'

@@ -298,13 +298,20 @@ export default function AvatarPicker({
 	const [currentAvatar, setCurrentAvatar] = useState(initialAvatarUrl);
 
 	useEffect(() => {
-		// Generate an initial avatar if none is provided
-		if (!initialAvatarUrl) {
+		// Generate an initial avatar only once when none exists.
+		if (!initialAvatarUrl && !currentAvatar) {
 			const generated = getAvatarUrl(gender);
 			setCurrentAvatar(generated);
 			onAvatarSelect(generated);
 		}
-	}, [initialAvatarUrl, gender, onAvatarSelect]);
+	}, [initialAvatarUrl, currentAvatar, gender, onAvatarSelect]);
+
+	useEffect(() => {
+		// Keep local preview in sync with external user updates.
+		if (initialAvatarUrl && initialAvatarUrl !== currentAvatar) {
+			setCurrentAvatar(initialAvatarUrl);
+		}
+	}, [initialAvatarUrl, currentAvatar]);
 
 	const handleSelect = (url) => {
 		setCurrentAvatar(url);
