@@ -98,10 +98,8 @@ export async function GET(request: NextRequest) {
 		}
 
 		const models = await getTenantModels();
-		const currentUser = await models.User.findById(session.id)
-			.select('isActive role username studentId classId academicYears subjects')
-			.lean();
-		if (!currentUser || currentUser.isActive === false) {
+		const freshUser = await models.User.findById(session.id).lean();
+		if (!freshUser || freshUser.isActive === false) {
 			const response = NextResponse.json(
 				{
 					user: null,
@@ -119,6 +117,12 @@ export async function GET(request: NextRequest) {
 			});
 			return response;
 		}
+		const resolvedUserId = freshUser?._id?.toString?.() || session.id;
+		const userPayload = {
+			...freshUser,
+			id: resolvedUserId,
+			_id: resolvedUserId,
+		};
 
 		const { searchParams } = new URL(request.url);
 		const clientUsersVersion =
@@ -131,24 +135,10 @@ export async function GET(request: NextRequest) {
 		const clientUserVersion = searchParams.get('v_user');
 		const requestedAcademicYear = searchParams.get('academicYear');
 
-		const roleProfile =
-			currentUser.role === 'student'
-				? await models.Student.findById(session.id)
-						.select('role username studentId classId academicYears')
-						.lean()
-				: currentUser.role === 'teacher'
-					? await models.Teacher.findById(session.id)
-							.select('role username subjects')
-							.lean()
-					: currentUser.role === 'administrator'
-						? await models.Administrator.findById(session.id)
-								.select('role username academicYears')
-								.lean()
-						: currentUser;
 		const resolvedSessionUser = {
 			...session,
-			...(roleProfile || currentUser),
-			id: session.id,
+			...userPayload,
+			id: resolvedUserId,
 		};
 		const yearAccess = resolveAcademicYearAccessContext({
 			user: resolvedSessionUser,
@@ -168,7 +158,7 @@ export async function GET(request: NextRequest) {
 
 		const academicYear = yearAccess.academicYear;
 		const versions = await getDomainVersions(resolvedSessionUser, academicYear);
-		const userVersion = toHash(session);
+		const userVersion = toHash(userPayload);
 
 		const include = {
 			school: clientSchoolVersion !== schoolVersion,
@@ -197,7 +187,7 @@ export async function GET(request: NextRequest) {
 
 		return NextResponse.json({
 			message: 'Session valid',
-			...(includeUser ? { user: session } : {}),
+			...(includeUser ? { user: userPayload } : {}),
 			...(bootstrapPayload || {}),
 			...(!bootstrapPayload
 				? {
