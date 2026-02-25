@@ -6,6 +6,7 @@ import Button from '../ui/button/Button';
 import Input from '../form/input/InputField';
 import Label from '../form/Label';
 import useAuth from '@/store/useAuth';
+import { useNetworkStore } from '@/store/networkStore';
 import Spinner from '../ui/spinner';
 import Switch from '@/components/form/switch/Switch';
 import { Pencil } from 'lucide-react';
@@ -25,6 +26,11 @@ const InfoField = ({ label, value }: any) => (
 export default function UserInfoCard() {
 	const { isOpen, openModal, closeModal } = useModal();
 	const { user, setUser } = useAuth();
+	const refreshConnectivity = useNetworkStore(
+		(state) => state.refreshConnectivity,
+	);
+	const OFFLINE_ERROR_MESSAGE =
+		'You are offline. Please connect to the internet and try again.';
 
 	// State for form data
 	const [formData, setFormData] = useState({
@@ -250,6 +256,23 @@ export default function UserInfoCard() {
 			return;
 		}
 
+		if (typeof navigator !== 'undefined' && !navigator.onLine) {
+			toast.error(OFFLINE_ERROR_MESSAGE);
+			setErrors({ general: OFFLINE_ERROR_MESSAGE });
+			return;
+		}
+
+		const isConnected = await refreshConnectivity({
+			force: true,
+			timeoutMs: 2600,
+			reason: 'profile-save',
+		});
+		if (!isConnected) {
+			toast.error(OFFLINE_ERROR_MESSAGE);
+			setErrors({ general: OFFLINE_ERROR_MESSAGE });
+			return;
+		}
+
 		setIsLoading(true);
 		try {
 			// API call to update user profile (no ID needed for self-update)
@@ -266,7 +289,6 @@ export default function UserInfoCard() {
 
 			if (!response.ok) {
 				const message = result.message || 'Failed to update profile';
-				toast.error(message);
 				throw new Error(message);
 			}
 

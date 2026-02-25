@@ -150,10 +150,36 @@ export default function OfflineHandler({
 			}
 		};
 
-		const isLikelyNetworkError = (error: unknown) => {
+		const isSameOriginApiRequest = (url: string) => {
+			try {
+				const parsed = new URL(url, window.location.origin);
+				return (
+					parsed.origin === window.location.origin &&
+					parsed.pathname.startsWith('/api/')
+				);
+			} catch {
+				return url.startsWith('/api/');
+			}
+		};
+
+		const isAbortLikeError = (error: unknown) => {
+			if (!error) return false;
 			if (error instanceof DOMException) {
 				return error.name === 'AbortError' || error.name === 'TimeoutError';
 			}
+			if (typeof error === 'object') {
+				const candidate = error as { name?: unknown; message?: unknown };
+				const name = typeof candidate.name === 'string' ? candidate.name : '';
+				if (name === 'AbortError' || name === 'TimeoutError') return true;
+				const message =
+					typeof candidate.message === 'string' ? candidate.message : '';
+				return /signal is aborted/i.test(message);
+			}
+			return false;
+		};
+
+		const isLikelyNetworkError = (error: unknown) => {
+			if (isAbortLikeError(error)) return false;
 			if (error instanceof TypeError) return true;
 			if (typeof error === 'object' && error) {
 				const candidate = error as { message?: unknown };
@@ -164,13 +190,32 @@ export default function OfflineHandler({
 			return false;
 		};
 
+		const verifyConnectivity = async (reason: string) => {
+			if (typeof navigator !== 'undefined' && !navigator.onLine) {
+				return false;
+			}
+			try {
+				return await useNetworkStore.getState().refreshConnectivity({
+					timeoutMs: 2200,
+					reason,
+				});
+			} catch {
+				return false;
+			}
+		};
+
 		window.fetch = async (...args: Parameters<typeof fetch>) => {
 			const { url, method } = getRequestMeta(args[0], args[1]);
 			if (isConnectivityProbe(url)) {
 				return originalFetch(...(args as Parameters<typeof fetch>));
 			}
 
-			const { isOnline: onlineState } = useNetworkStore.getState();
+			const apiRequest = isSameOriginApiRequest(url);
+			let { isOnline: onlineState } = useNetworkStore.getState();
+			if (!onlineState && apiRequest) {
+				onlineState = await verifyConnectivity('offline-fetch-guard');
+			}
+
 			const cacheableGet = shouldCacheGet(url, method);
 			const request = cacheableGet ? buildCacheRequest(args[0], args[1]) : null;
 			const fetchArgs = cacheableGet && request ? [request] : args;
@@ -200,6 +245,9 @@ export default function OfflineHandler({
 				const response = await originalFetch(
 					...(fetchArgs as Parameters<typeof fetch>),
 				);
+				if (apiRequest && !useNetworkStore.getState().isOnline) {
+					void verifyConnectivity('offline-fetch-recover');
+				}
 				if (cacheableGet && response.ok && request) {
 					void writeCachedResponse(request, response.clone());
 					response
@@ -211,6 +259,13 @@ export default function OfflineHandler({
 				return response;
 			} catch (error) {
 				if (isLikelyNetworkError(error)) {
+					if (!apiRequest) {
+						throw error;
+					}
+					const isOnline = await verifyConnectivity('fetch-request-failed');
+					if (isOnline) {
+						throw error;
+					}
 					useNetworkStore.getState().markOffline('fetch-request-failed');
 					if (method.toUpperCase() === 'GET' && cacheableGet) {
 						const cached = request ? await readCachedResponse(request) : null;
