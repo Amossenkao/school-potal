@@ -66,6 +66,19 @@ npm run stream:worker:dev
 
 Set `NEXT_PUBLIC_SYNC_STREAM_URL` in `.env.local` to your local Worker URL (for example `http://127.0.0.1:8787`).
 
+## Debug logging
+
+Enable verbose realtime logs:
+
+- Vercel/Next.js: set `SYNC_DEBUG_LOGS=true`
+- Cloudflare Worker: set `SYNC_STREAM_DEBUG_LOGS=true` in `wrangler.toml` or as an environment variable/secret
+
+Then tail worker logs:
+
+```bash
+npx wrangler tail --config cloudflare/sync-stream-worker/wrangler.toml
+```
+
 ## Health endpoint
 
 - `GET /health` returns basic liveness JSON.

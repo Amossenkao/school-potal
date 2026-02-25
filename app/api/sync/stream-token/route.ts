@@ -7,6 +7,7 @@ import {
 	resolveTenantSyncKey,
 } from '@/lib/realtimeSync';
 import { createStreamToken } from '@/lib/streamToken';
+import { syncDebugError, syncDebugLog, syncDebugWarn } from '@/lib/syncDebug';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -44,9 +45,21 @@ const resolveStreamUrl = () => {
 };
 
 export async function GET(request: NextRequest) {
+	const requestId = crypto.randomUUID();
+	const startedAt = Date.now();
 	try {
+		syncDebugLog('stream-token', 'Incoming token request.', {
+			requestId,
+			host: request.headers.get('host') || null,
+			userAgent: request.headers.get('user-agent') || null,
+		});
+
 		const currentUser = await authorizeUser(request);
 		if (!currentUser) {
+			syncDebugWarn('stream-token', 'Unauthorized token request.', {
+				requestId,
+				durationMs: Date.now() - startedAt,
+			});
 			return noStoreJson(
 				{
 					success: false,
@@ -61,6 +74,10 @@ export async function GET(request: NextRequest) {
 			console.error(
 				'[sync-stream-token] Missing SYNC_STREAM_JWT_SECRET environment variable.',
 			);
+			syncDebugError('stream-token', 'Missing signing secret.', {
+				requestId,
+				durationMs: Date.now() - startedAt,
+			});
 			return noStoreJson(
 				{
 					success: false,
@@ -81,6 +98,11 @@ export async function GET(request: NextRequest) {
 			host: request.headers.get('host'),
 		});
 		if (!tenantKey) {
+			syncDebugWarn('stream-token', 'Unable to resolve tenant key.', {
+				requestId,
+				userId: String(currentUser.userId || currentUser.id || ''),
+				durationMs: Date.now() - startedAt,
+			});
 			return noStoreJson(
 				{
 					success: false,
@@ -92,6 +114,11 @@ export async function GET(request: NextRequest) {
 
 		const userId = String(currentUser.userId || currentUser.id || '').trim();
 		if (!userId) {
+			syncDebugWarn('stream-token', 'Unable to resolve user id.', {
+				requestId,
+				tenantKey,
+				durationMs: Date.now() - startedAt,
+			});
 			return noStoreJson(
 				{
 					success: false,
@@ -118,15 +145,30 @@ export async function GET(request: NextRequest) {
 				expiresInSeconds: ttlSeconds,
 			},
 		);
+		const streamUrl = resolveStreamUrl();
+		syncDebugLog('stream-token', 'Issued stream token.', {
+			requestId,
+			userId,
+			tenantKey,
+			channels,
+			ttlSeconds,
+			streamUrl,
+			durationMs: Date.now() - startedAt,
+		});
 
 		return noStoreJson({
 			success: true,
 			token,
 			expiresInSeconds: ttlSeconds,
-			streamUrl: resolveStreamUrl(),
+			streamUrl,
 		});
 	} catch (error) {
 		console.error('[sync-stream-token] Failed to mint stream token:', error);
+		syncDebugError('stream-token', 'Unhandled token route failure.', {
+			requestId,
+			error: error instanceof Error ? error.message : String(error),
+			durationMs: Date.now() - startedAt,
+		});
 		return noStoreJson(
 			{
 				success: false,

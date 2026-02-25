@@ -1,5 +1,6 @@
 import { redis } from '@/lib/redis';
 import { normalizeHost } from '@/utils/host';
+import { syncDebugLog, syncDebugWarn } from '@/lib/syncDebug';
 
 export type SyncDomain =
 	| 'school'
@@ -93,11 +94,13 @@ export const resolveTenantSyncKey = (options: {
 	tenantId?: string | null;
 	host?: string | null;
 }) => {
+	// Prefer canonical tenant identity to avoid host alias splits
+	// (e.g. localhost vs LAN IP resulting in different channels).
 	const candidates = [
+		options.schoolProfile?.dbName,
+		options.schoolProfile?.host,
 		options.tenantId,
 		options.host,
-		options.schoolProfile?.host,
-		options.schoolProfile?.dbName,
 	];
 	for (const candidate of candidates) {
 		const resolved = toTenantCandidate(candidate);
@@ -151,6 +154,16 @@ export const publishSyncEvent = async (params: {
 	}
 
 	await redis.publish(getTenantSyncChannel(tenantKey), event);
+	syncDebugLog('publish', 'Published tenant sync event.', {
+		eventId: event.eventId,
+		type: event.type,
+		reason: event.reason,
+		domain: event.domain,
+		tenantKey,
+		academicYear: event.academicYear,
+		hasScope: Boolean(event.scope),
+		targetUserCount: targetUserIds.length,
+	});
 
 	if (targetUserIds.length === 0) return;
 
@@ -159,6 +172,11 @@ export const publishSyncEvent = async (params: {
 			redis.publish(getUserSyncChannel(tenantKey, userId), event),
 		),
 	);
+	syncDebugLog('publish', 'Published user-targeted sync events.', {
+		eventId: event.eventId,
+		tenantKey,
+		targetUserIds,
+	});
 };
 
 export const publishSyncEventSafe = async (params: {
@@ -174,6 +192,12 @@ export const publishSyncEventSafe = async (params: {
 		await publishSyncEvent(params);
 	} catch (error) {
 		console.warn('[realtime-sync] Failed to publish sync event:', error);
+		syncDebugWarn('publish', 'Failed to publish sync event.', {
+			error: error instanceof Error ? error.message : String(error),
+			tenantKey: params.tenantKey,
+			domain: params.domain,
+			reason: params.reason || DEFAULT_REASON,
+		});
 	}
 };
 

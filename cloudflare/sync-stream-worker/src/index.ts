@@ -7,6 +7,7 @@ export interface Env {
 	SYNC_STREAM_JWT_SECRET: string;
 	SYNC_STREAM_HUB: DurableObjectNamespace;
 	SYNC_STREAM_REPLAY_LIMIT?: string;
+	SYNC_STREAM_DEBUG_LOGS?: string;
 }
 
 const encoder = new TextEncoder();
@@ -29,6 +30,38 @@ const KEEP_ALIVE_MS = 25_000;
 const DEFAULT_REPLAY_LIMIT = 300;
 const MIN_REPLAY_LIMIT = 50;
 const MAX_REPLAY_LIMIT = 2000;
+const DEBUG_TRUTHY_VALUES = new Set(['1', 'true', 'yes', 'on', 'debug']);
+
+const isWorkerDebugEnabled = (env: Env) =>
+	DEBUG_TRUTHY_VALUES.has(String(env.SYNC_STREAM_DEBUG_LOGS || '').trim().toLowerCase());
+
+const workerDebugLog = (
+	env: Env,
+	scope: string,
+	message: string,
+	data?: Record<string, unknown>,
+) => {
+	if (!isWorkerDebugEnabled(env)) return;
+	if (data) {
+		console.log(`[sync-stream-worker][${scope}] ${message}`, data);
+		return;
+	}
+	console.log(`[sync-stream-worker][${scope}] ${message}`);
+};
+
+const workerDebugWarn = (
+	env: Env,
+	scope: string,
+	message: string,
+	data?: Record<string, unknown>,
+) => {
+	if (!isWorkerDebugEnabled(env)) return;
+	if (data) {
+		console.warn(`[sync-stream-worker][${scope}] ${message}`, data);
+		return;
+	}
+	console.warn(`[sync-stream-worker][${scope}] ${message}`);
+};
 
 const normalizePositiveInteger = (
 	value: string | number | undefined,
@@ -119,6 +152,10 @@ type ChannelSubscription = {
 export default {
 	async fetch(request, env): Promise<Response> {
 		const url = new URL(request.url);
+		workerDebugLog(env, 'http', 'Incoming request.', {
+			method: request.method,
+			path: url.pathname,
+		});
 		if (request.method === 'OPTIONS') {
 			return new Response(null, {
 				status: 204,
@@ -147,6 +184,7 @@ export default {
 
 		const token = toTokenFromRequest(request, url);
 		if (!token) {
+			workerDebugWarn(env, 'auth', 'Missing stream token.');
 			return jsonResponse(
 				{
 					success: false,
@@ -158,6 +196,9 @@ export default {
 
 		const verification = await verifyStreamToken(token, secret);
 		if (!verification.valid) {
+			workerDebugWarn(env, 'auth', 'Invalid stream token.', {
+				reason: verification.reason,
+			});
 			return jsonResponse(
 				{
 					success: false,
@@ -177,6 +218,7 @@ export default {
 			),
 		);
 		if (channels.length === 0) {
+			workerDebugWarn(env, 'auth', 'Token had no channels.');
 			return jsonResponse(
 				{
 					success: false,
@@ -206,6 +248,13 @@ export default {
 		if (lastEventIdHeader) {
 			headers.set('last-event-id', lastEventIdHeader);
 		}
+		workerDebugLog(env, 'connect', 'Proxying stream connect to Durable Object.', {
+			tenantKey: payload.tenantKey,
+			userId: payload.userId,
+			channelCount: channels.length,
+			lastEventIdFromQuery: lastEventIdFromQuery || null,
+			lastEventIdFromHeader: lastEventIdHeader || null,
+		});
 
 		return stub.fetch(
 			new Request(connectUrl.toString(), {
@@ -224,9 +273,11 @@ export class SyncStreamHub extends DurableObject<Env> {
 	private initialized: Promise<void>;
 	private lastSequence = 0;
 	private minSequence = 1;
+	private debugEnabled: boolean;
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
+		this.debugEnabled = isWorkerDebugEnabled(env);
 		this.replayLimit = normalizePositiveInteger(
 			env.SYNC_STREAM_REPLAY_LIMIT,
 			DEFAULT_REPLAY_LIMIT,
@@ -234,6 +285,24 @@ export class SyncStreamHub extends DurableObject<Env> {
 			MAX_REPLAY_LIMIT,
 		);
 		this.initialized = this.hydrateReplayState();
+	}
+
+	private log(scope: string, message: string, data?: Record<string, unknown>) {
+		if (!this.debugEnabled) return;
+		if (data) {
+			console.log(`[sync-stream-do][${scope}] ${message}`, data);
+			return;
+		}
+		console.log(`[sync-stream-do][${scope}] ${message}`);
+	}
+
+	private warn(scope: string, message: string, data?: Record<string, unknown>) {
+		if (!this.debugEnabled) return;
+		if (data) {
+			console.warn(`[sync-stream-do][${scope}] ${message}`, data);
+			return;
+		}
+		console.warn(`[sync-stream-do][${scope}] ${message}`);
 	}
 
 	override async fetch(request: Request): Promise<Response> {
@@ -262,6 +331,11 @@ export class SyncStreamHub extends DurableObject<Env> {
 		this.minSequence = Number.isFinite(storedMinSeq as number)
 			? Math.max(1, Number(storedMinSeq))
 			: Math.max(1, this.lastSequence - this.replayLimit + 1);
+		this.log('state', 'Hydrated replay state.', {
+			lastSequence: this.lastSequence,
+			minSequence: this.minSequence,
+			replayLimit: this.replayLimit,
+		});
 	}
 
 	private startKeepAliveIfNeeded() {
@@ -358,6 +432,14 @@ export class SyncStreamHub extends DurableObject<Env> {
 			closed: false,
 		};
 		this.clients.set(clientId, connection);
+		this.log('connect', 'Client connected.', {
+			clientId,
+			userId,
+			tenantKey,
+			channels,
+			requestedLastEventId,
+			clientCount: this.clients.size,
+		});
 
 		for (const channel of connection.channels) {
 			this.addClientToChannel(channel, clientId);
@@ -395,7 +477,19 @@ export class SyncStreamHub extends DurableObject<Env> {
 
 	private async replayMissedEvents(connection: ClientConnection, lastSeenId: number) {
 		if (this.lastSequence <= 0 || lastSeenId >= this.lastSequence) return;
+		this.log('replay', 'Replaying missed events.', {
+			clientId: connection.id,
+			lastSeenId,
+			lastSequence: this.lastSequence,
+			minSequence: this.minSequence,
+		});
 		if (lastSeenId < this.minSequence - 1) {
+			this.warn('replay', 'Replay gap detected.', {
+				clientId: connection.id,
+				lastSeenId,
+				minSequence: this.minSequence,
+				lastSequence: this.lastSequence,
+			});
 			await this.sendSseEvent(connection, 'stream-error', {
 				code: 'replay_gap',
 				message: 'Replay gap detected. Client should force a full sync.',
@@ -466,6 +560,10 @@ export class SyncStreamHub extends DurableObject<Env> {
 			// Stream already closed.
 		}
 		this.stopKeepAliveIfIdle();
+		this.log('connect', 'Client disconnected.', {
+			clientId,
+			remainingClients: this.clients.size,
+		});
 	}
 
 	private async runChannelSubscriptionLoop(channel: string) {
@@ -487,10 +585,15 @@ export class SyncStreamHub extends DurableObject<Env> {
 				if (!response.ok || !response.body) {
 					throw new Error(`upstash_subscribe_http_${response.status}`);
 				}
+				this.log('upstash', 'Subscribed to channel.', { channel });
 				attempt = 0;
 				await this.consumeUpstashSse(response.body, channel, controller.signal);
 			} catch (error) {
 				if (controller.signal.aborted) return;
+				this.warn('upstash', 'Subscription loop error.', {
+					channel,
+					error: error instanceof Error ? error.message : String(error),
+				});
 				await this.broadcastChannelError(channel, error);
 			} finally {
 				subscription.abortController = null;
@@ -503,6 +606,11 @@ export class SyncStreamHub extends DurableObject<Env> {
 			const jitter = Math.floor(Math.random() * 220);
 			const delay = backoff + jitter;
 			attempt += 1;
+			this.log('upstash', 'Scheduling channel resubscribe.', {
+				channel,
+				attempt,
+				delay,
+			});
 			await new Promise<void>((resolve) => {
 				activeSubscription.reconnectTimer = setTimeout(() => {
 					activeSubscription.reconnectTimer = null;
@@ -621,6 +729,13 @@ export class SyncStreamHub extends DurableObject<Env> {
 			event,
 			ts: Date.now(),
 		};
+		this.log('event', 'Received upstream event.', {
+			channel,
+			replayId: replayRecord.id,
+			eventId: String(event.eventId || ''),
+			type: String(event.type || ''),
+			reason: String(event.reason || ''),
+		});
 
 		await this.persistReplayRecord(replayRecord);
 		await this.broadcastToClients(

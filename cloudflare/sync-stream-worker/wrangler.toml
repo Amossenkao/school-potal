@@ -14,3 +14,4 @@ new_sqlite_classes = ["SyncStreamHub"]
 
 [vars]
 SYNC_STREAM_REPLAY_LIMIT = "300"
+SYNC_STREAM_DEBUG_LOGS = "false"

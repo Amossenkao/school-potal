@@ -69,6 +69,10 @@ export default function AuthProvider({
 	);
 
 	const authRefreshInFlight = useRef(false);
+	const pendingAuthRefreshRef = useRef<{
+		force?: boolean;
+		trigger?: string;
+	} | null>(null);
 	const syncEventDebounceRef = useRef<number | null>(null);
 	const syncEventSourceRef = useRef<EventSource | null>(null);
 	const syncReconnectTimerRef = useRef<number | null>(null);
@@ -117,7 +121,14 @@ export default function AuthProvider({
 
 	const runAuthRefresh = useCallback(
 		async (options?: { force?: boolean; trigger?: string }) => {
-			if (authRefreshInFlight.current) return;
+			if (authRefreshInFlight.current) {
+				const previous = pendingAuthRefreshRef.current;
+				pendingAuthRefreshRef.current = {
+					force: Boolean(previous?.force) || Boolean(options?.force),
+					trigger: options?.trigger || previous?.trigger,
+				};
+				return;
+			}
 			authRefreshInFlight.current = true;
 			try {
 				await checkAuthStatus({
@@ -131,6 +142,11 @@ export default function AuthProvider({
 				setAuthCheckFailed(true);
 			} finally {
 				authRefreshInFlight.current = false;
+				const pending = pendingAuthRefreshRef.current;
+				pendingAuthRefreshRef.current = null;
+				if (pending) {
+					void runAuthRefresh(pending);
+				}
 			}
 		},
 		[checkAuthStatus, ensureSchoolProfile, setAuthCheckFailed],
