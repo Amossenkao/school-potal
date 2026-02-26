@@ -58,25 +58,25 @@ export async function generateMetadata(): Promise<Metadata> {
 			? {
 					icon: [
 						{
-							url: '/api/pwa/icon?size=32&mode=avatar&format=png',
+							url: '/api/pwa/icon?size=32&mode=logo&format=png',
 							sizes: '32x32',
 							type: 'image/png',
 						},
 						{
-							url: '/api/pwa/icon?size=192&mode=avatar&format=png',
+							url: '/api/pwa/icon?size=192&mode=logo&format=png',
 							sizes: '192x192',
 							type: 'image/png',
 						},
 						{
-							url: '/api/pwa/icon?size=512&mode=avatar&format=png',
+							url: '/api/pwa/icon?size=512&mode=logo&format=png',
 							sizes: '512x512',
 							type: 'image/png',
 						},
 					],
-					shortcut: ['/api/pwa/icon?size=192&mode=avatar&format=png'],
+					shortcut: ['/api/pwa/icon?size=192&mode=logo&format=png'],
 					apple: [
 						{
-							url: '/api/pwa/icon?size=180&mode=avatar&format=png',
+							url: '/api/pwa/icon?size=180&mode=logo&format=png',
 							sizes: '180x180',
 							type: 'image/png',
 						},
@@ -99,7 +99,7 @@ export async function generateMetadata(): Promise<Metadata> {
 					'apple-mobile-web-app-capable': 'yes',
 					'msapplication-TileColor': tenantThemeColor,
 					'msapplication-TileImage':
-						'/api/pwa/icon?size=144&mode=avatar&format=png',
+						'/api/pwa/icon?size=144&mode=logo&format=png',
 				}
 			: undefined,
 	};

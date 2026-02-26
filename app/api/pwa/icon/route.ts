@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSchoolProfile } from '@/lib/mongoose';
+import sharp from 'sharp';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,7 +26,9 @@ const parseFormat = (input: string | null) => {
 
 const parseMode = (input: string | null) => {
 	const normalized = String(input || '').trim().toLowerCase();
-	return normalized === 'avatar' ? 'avatar' : 'auto';
+	if (normalized === 'avatar') return 'avatar';
+	if (normalized === 'logo') return 'logo';
+	return 'auto';
 };
 
 const toSchoolName = (profile: any) => {
@@ -90,6 +93,40 @@ const fetchAndReturnImage = async (url: string) => {
 	}
 };
 
+const fetchLogoBuffer = async (url: string) => {
+	try {
+		const response = await fetch(url, { cache: 'no-store' });
+		if (!response.ok) return null;
+		const contentType = String(response.headers.get('content-type') || '');
+		if (!contentType.startsWith('image/')) return null;
+		const arrayBuffer = await response.arrayBuffer();
+		if (!arrayBuffer.byteLength) return null;
+		return {
+			buffer: Buffer.from(arrayBuffer),
+			contentType,
+		};
+	} catch {
+		return null;
+	}
+};
+
+const logoBufferToPng = async (input: Buffer, size: number) => {
+	try {
+		return await sharp(input)
+			.resize(size, size, { fit: 'cover' })
+			.png()
+			.toBuffer();
+	} catch {
+		return null;
+	}
+};
+
+const logoBufferToSvg = (input: Buffer, contentType: string, size: number) => {
+	const base64 = input.toString('base64');
+	const dataUri = `data:${contentType};base64,${base64}`;
+	return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><rect width="${size}" height="${size}" fill="#0f172a"/><image href="${dataUri}" x="0" y="0" width="${size}" height="${size}" preserveAspectRatio="xMidYMid slice"/></svg>`;
+};
+
 export async function GET(request: NextRequest) {
 	const size = parseSize(request.nextUrl.searchParams.get('size'));
 	const format = parseFormat(request.nextUrl.searchParams.get('format'));
@@ -121,9 +158,33 @@ export async function GET(request: NextRequest) {
 					.map((value) => toAbsoluteHttpUrl(value, request.url))
 					.filter(Boolean);
 
-	for (const logoUrl of logoCandidates) {
-		const proxiedImage = await fetchAndReturnImage(logoUrl);
-		if (proxiedImage) return proxiedImage;
+	if (logoCandidates.length > 0) {
+		for (const logoUrl of logoCandidates) {
+			const logo = await fetchLogoBuffer(logoUrl);
+			if (!logo) continue;
+			if (format === 'svg') {
+				const svg = logoBufferToSvg(logo.buffer, logo.contentType, size);
+				return new NextResponse(svg, {
+					headers: {
+						'Content-Type': 'image/svg+xml; charset=utf-8',
+						...IMAGE_CACHE_HEADERS,
+					},
+				});
+			}
+			const png = await logoBufferToPng(logo.buffer, size);
+			if (png) {
+				return new NextResponse(png, {
+					headers: {
+						'Content-Type': 'image/png',
+						...IMAGE_CACHE_HEADERS,
+					},
+				});
+			}
+		}
+	}
+
+	if (mode === 'logo') {
+		return new NextResponse(null, { status: 404 });
 	}
 
 	const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(

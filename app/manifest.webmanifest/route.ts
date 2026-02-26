@@ -46,8 +46,8 @@ export async function GET() {
 	const fullName = toSchoolName(profile);
 	const shortName = toShortName(profile, fullName);
 	const themeColor = '#0f172a';
-	const icon192 = '/api/pwa/icon?size=192&mode=avatar&format=png';
-	const icon512 = '/api/pwa/icon?size=512&mode=avatar&format=png';
+	const icon192 = '/api/pwa/icon?size=192&mode=logo&format=png';
+	const icon512 = '/api/pwa/icon?size=512&mode=logo&format=png';
 
 	return NextResponse.json(
 		{
