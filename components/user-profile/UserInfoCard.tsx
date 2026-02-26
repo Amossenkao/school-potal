@@ -9,7 +9,7 @@ import useAuth from '@/store/useAuth';
 import { useNetworkStore } from '@/store/networkStore';
 import Spinner from '../ui/spinner';
 import Switch from '@/components/form/switch/Switch';
-import { Pencil } from 'lucide-react';
+import { Loader2, Pencil } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 const InfoField = ({ label, value }: any) => (
@@ -700,7 +700,14 @@ export default function UserInfoCard() {
 								Close
 							</Button>
 							<Button size="sm" onClick={handleSave} disabled={isLoading}>
-								{isLoading ? 'Saving...' : 'Save Changes'}
+								{isLoading ? (
+									<span className="inline-flex items-center">
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										Saving...
+									</span>
+								) : (
+									'Save Changes'
+								)}
 							</Button>
 						</div>
 					</form>

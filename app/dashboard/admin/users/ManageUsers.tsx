@@ -312,6 +312,7 @@ const UserManagementDashboard = () => {
 		() => buildSchoolAcademicYearRange(schoolProfile),
 		[schoolProfile],
 	);
+	const hasMultipleAcademicYears = academicYearOptions.length > 1;
 	const [selectedAcademicYear, setSelectedAcademicYear] = useState('');
 
 	// Fixed availableClasses
@@ -908,13 +909,14 @@ const UserManagementDashboard = () => {
 		sortDirection,
 	]);
 
-	const isAdditionalFilterActive =
-		searchTerm.trim().length > 0 ||
+	const hasAppliedModalFilters =
 		statusFilter !== 'all' ||
 		sessionFilter !== 'all' ||
 		classLevelFilter !== 'all' ||
 		classFilter !== 'all' ||
 		subjectFilter !== 'all';
+	const isAdditionalFilterActive =
+		searchTerm.trim().length > 0 || hasAppliedModalFilters;
 
 	const tabTotal =
 		activeTab === 'all'
@@ -998,6 +1000,14 @@ const UserManagementDashboard = () => {
 		setClassLevelFilter('all');
 		setClassFilter('all');
 		setSubjectFilter('all');
+	};
+
+	const handleQuickResetFilters = (
+		event: React.MouseEvent<HTMLButtonElement>,
+	) => {
+		event.stopPropagation();
+		resetFilters();
+		setCurrentPage(1);
 	};
 
 	useEffect(() => {
@@ -1282,29 +1292,44 @@ const UserManagementDashboard = () => {
 							<option value={50}>50 rows</option>
 							<option value={100}>100 rows</option>
 						</select>
-						<select
-							value={selectedAcademicYear}
-							onChange={(e) => {
-								setSelectedAcademicYear(e.target.value);
-								setCurrentPage(1);
-							}}
-							className="bg-card border border-border rounded-lg px-3 py-2 text-sm"
-						>
-							{academicYearOptions.map((year) => (
-								<option key={year} value={year}>
-									{year}
-								</option>
-							))}
-						</select>
+						{hasMultipleAcademicYears && (
+							<select
+								value={selectedAcademicYear}
+								onChange={(e) => {
+									setSelectedAcademicYear(e.target.value);
+									setCurrentPage(1);
+								}}
+								className="bg-card border border-border rounded-lg px-3 py-2 text-sm"
+							>
+								{academicYearOptions.map((year) => (
+									<option key={year} value={year}>
+										{year}
+									</option>
+								))}
+							</select>
+						)}
+						<div className="relative">
+							<button
+								onClick={() => setShowFilterModal(true)}
+								className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg hover:bg-card/80 transition-colors"
+							>
+								<Filter className="h-4 w-4" />
+								Filter
+							</button>
+							{hasAppliedModalFilters && (
+								<button
+									type="button"
+									onClick={handleQuickResetFilters}
+									className="absolute -right-2 -top-2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm hover:bg-muted"
+									title="Reset filters"
+									aria-label="Reset filters"
+								>
+									<X className="h-3 w-3" />
+								</button>
+							)}
+						</div>
 						<button
-							onClick={() => setShowFilterModal(true)}
-							className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg hover:bg-card/80 transition-colors"
-						>
-							<Filter className="h-4 w-4" />
-							Filter
-						</button>
-						<button
-							onClick={() => router.push('/dashboard/admin/users/AddUsers')}
+							onClick={() => router.push('/dashboard/add-users')}
 							className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
 						>
 							<Plus className="h-4 w-4" />

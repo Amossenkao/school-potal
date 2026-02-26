@@ -16,41 +16,78 @@ const FilterUsersModal = ({
 	resetFilters,
 	onApply,
 	schoolProfile,
+	availableSessions,
 }: any) => {
 	const [sessions, setSessions] = useState<string[]>([]);
 	const [classLevels, setClassLevels] = useState<string[]>([]);
 	const [classes, setClasses] = useState<any[]>([]);
 	const [subjects, setSubjects] = useState<string[]>([]);
+	const effectiveSession =
+		sessionFilter !== 'all'
+			? sessionFilter
+			: sessions.length === 1
+				? sessions[0]
+				: 'all';
+	const effectiveClassLevel =
+		classLevelFilter !== 'all'
+			? classLevelFilter
+			: classLevels.length === 1
+				? classLevels[0]
+				: 'all';
+	const showSessionFilter = sessions.length > 1;
+	const showClassLevelFilter = classLevels.length > 1;
 
 	useEffect(() => {
+		if (Array.isArray(availableSessions) && availableSessions.length > 0) {
+			setSessions(availableSessions);
+			return;
+		}
 		if (schoolProfile?.classLevels) {
 			setSessions(Object.keys(schoolProfile.classLevels));
+			return;
 		}
-	}, [schoolProfile]);
+		setSessions([]);
+	}, [schoolProfile, availableSessions]);
 
 	useEffect(() => {
-		if (sessionFilter !== 'all' && schoolProfile?.classLevels[sessionFilter]) {
-			setClassLevels(Object.keys(schoolProfile.classLevels[sessionFilter]));
+		if (sessions.length <= 1 && sessionFilter !== 'all') {
+			setSessionFilter('all');
+		}
+	}, [sessions, sessionFilter, setSessionFilter]);
+
+	useEffect(() => {
+		if (
+			effectiveSession !== 'all' &&
+			schoolProfile?.classLevels?.[effectiveSession]
+		) {
+			setClassLevels(Object.keys(schoolProfile.classLevels[effectiveSession]));
 		} else {
 			setClassLevels([]);
 		}
 		setClassFilter('all');
 		setSubjectFilter('all');
-	}, [sessionFilter, schoolProfile]);
+	}, [effectiveSession, schoolProfile, setClassFilter, setSubjectFilter]);
+
+	useEffect(() => {
+		if (classLevels.length <= 1 && classLevelFilter !== 'all') {
+			setClassLevelFilter('all');
+		}
+	}, [classLevels, classLevelFilter, setClassLevelFilter]);
 
 	useEffect(() => {
 		if (
-			sessionFilter !== 'all' &&
-			classLevelFilter !== 'all' &&
-			schoolProfile?.classLevels[sessionFilter]?.[classLevelFilter]
+			effectiveSession !== 'all' &&
+			effectiveClassLevel !== 'all' &&
+			schoolProfile?.classLevels?.[effectiveSession]?.[effectiveClassLevel]
 		) {
 			setClasses(
-				schoolProfile.classLevels[sessionFilter][classLevelFilter].classes || []
+				schoolProfile.classLevels[effectiveSession][effectiveClassLevel]
+					.classes || []
 			);
 			setSubjects(
 				(
-					schoolProfile.classLevels[sessionFilter][classLevelFilter].subjects ||
-					[]
+					schoolProfile.classLevels[effectiveSession][effectiveClassLevel]
+						.subjects || []
 				)
 					.map((subject: any) =>
 						typeof subject === 'string' ? subject : subject?.name,
@@ -63,7 +100,13 @@ const FilterUsersModal = ({
 		}
 		setClassFilter('all');
 		setSubjectFilter('all');
-	}, [sessionFilter, classLevelFilter, schoolProfile]);
+	}, [
+		effectiveSession,
+		effectiveClassLevel,
+		schoolProfile,
+		setClassFilter,
+		setSubjectFilter,
+	]);
 
 	if (!isOpen) return null;
 
@@ -86,24 +129,26 @@ const FilterUsersModal = ({
 						<option value="inactive">Inactive</option>
 					</select>
 				</div>
-				<div>
-					<label className="block text-sm font-medium text-foreground mb-2">
-						Session
-					</label>
-					<select
-						value={sessionFilter}
-						onChange={(e) => setSessionFilter(e.target.value)}
-						className="w-full p-2 border border-border rounded-lg bg-background"
-					>
-						<option value="all">All</option>
-						{sessions.map((session) => (
-							<option key={session} value={session}>
-								{session}
-							</option>
-						))}
-					</select>
-				</div>
-				{sessionFilter !== 'all' && (
+				{showSessionFilter && (
+					<div>
+						<label className="block text-sm font-medium text-foreground mb-2">
+							Session
+						</label>
+						<select
+							value={sessionFilter}
+							onChange={(e) => setSessionFilter(e.target.value)}
+							className="w-full p-2 border border-border rounded-lg bg-background"
+						>
+							<option value="all">All</option>
+							{sessions.map((session) => (
+								<option key={session} value={session}>
+									{session}
+								</option>
+							))}
+						</select>
+					</div>
+				)}
+				{effectiveSession !== 'all' && showClassLevelFilter && (
 					<div>
 						<label className="block text-sm font-medium text-foreground mb-2">
 							Class Level
@@ -122,7 +167,7 @@ const FilterUsersModal = ({
 						</select>
 					</div>
 				)}
-				{classLevelFilter !== 'all' && (
+				{effectiveClassLevel !== 'all' && (
 					<>
 						<div>
 							<label className="block text-sm font-medium text-foreground mb-2">

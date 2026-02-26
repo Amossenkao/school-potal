@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, ChevronDown, AlertTriangle } from 'lucide-react';
+import { X, ChevronDown, AlertTriangle, Loader2 } from 'lucide-react';
 import { useSchoolStore } from '@/store/schoolStore';
 import ConflictModal from './ConflictModal'; // Import the new modal
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,6 +30,9 @@ const getChangedFields = (originalUser, updatedFormData) => {
 
 	return changes;
 };
+
+const getUpdatedUserFromResponse = (data: any) =>
+	data?.data?.user || data?.data?.student || data?.data || null;
 
 const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	const [formData, setFormData] = useState(null);
@@ -779,6 +782,16 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			const updatedReassignedTeachers = await fetchReassignedTeachers(
 				data.reassignments,
 			);
+			const updatedUser = getUpdatedUserFromResponse(data);
+			if (!updatedUser) {
+				setFeedback({
+					type: 'success',
+					message: data?.message || 'No changes were made.',
+				});
+				setIsLoading(false);
+				onClose();
+				return;
+			}
 			if (data.reassignments?.performed) {
 				setFeedback({
 					type: 'success',
@@ -787,10 +800,12 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			} else {
 				setFeedback({ type: 'success', message: 'User updated successfully.' });
 			}
-			onSave(data.data.user, updatedReassignedTeachers);
+			onSave(updatedUser, updatedReassignedTeachers);
 		} catch (err) {
+			const message =
+				err instanceof Error ? err.message : 'A network error occurred.';
 			setValidationErrors([
-				{ message: err.message || 'A network error occurred.' },
+				{ message },
 			]);
 			setIsLoading(false);
 		}
@@ -834,7 +849,10 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				} else {
 					setFeedback({ type: 'success', message: data.message });
 				}
-				onSave(data.data?.user || data.data, updatedReassignedTeachers);
+				const updatedUser = getUpdatedUserFromResponse(data);
+				if (updatedUser) {
+					onSave(updatedUser, updatedReassignedTeachers);
+				}
 				setShowCarryOverModal(false);
 				return;
 			}
@@ -867,7 +885,11 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			} else {
 				setFeedback({ type: 'success', message: 'User updated successfully.' });
 			}
-			onSave(data.data.user, updatedReassignedTeachers);
+			const updatedUser = getUpdatedUserFromResponse(data);
+			if (!updatedUser) {
+				throw new Error('User update response did not include user data.');
+			}
+			onSave(updatedUser, updatedReassignedTeachers);
 		} catch (err) {
 			const message =
 				err instanceof Error ? err.message : 'Failed to confirm reassignments.';
@@ -1099,7 +1121,11 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			if (!res.ok || !data.success) {
 				throw new Error(data.message || 'Promotion failed.');
 			}
-			onSave(data.data?.student || data.data?.user || data.data);
+			const updatedUser = getUpdatedUserFromResponse(data);
+			if (!updatedUser) {
+				throw new Error('Promotion response did not include updated user data.');
+			}
+			onSave(updatedUser);
 			setFeedback({ type: 'success', message: data.message });
 			setShowPromotionModal(false);
 		} catch (err) {
@@ -1142,7 +1168,11 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			if (!res.ok || !data.success) {
 				throw new Error(data.message || 'Demotion failed.');
 			}
-			onSave(data.data?.student || data.data?.user || data.data);
+			const updatedUser = getUpdatedUserFromResponse(data);
+			if (!updatedUser) {
+				throw new Error('Demotion response did not include updated user data.');
+			}
+			onSave(updatedUser);
 			setFeedback({ type: 'success', message: data.message });
 			setShowDemotionModal(false);
 		} catch (err) {
@@ -1248,7 +1278,13 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			} else {
 				setFeedback({ type: 'success', message: data.message });
 			}
-			onSave(data.data?.user || data.data, updatedReassignedTeachers);
+			const updatedUser = getUpdatedUserFromResponse(data);
+			if (!updatedUser) {
+				throw new Error(
+					'Academic year response did not include updated user data.',
+				);
+			}
+			onSave(updatedUser, updatedReassignedTeachers);
 			setShowCarryOverModal(false);
 		} catch (err) {
 			const message =
@@ -1907,7 +1943,14 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 								disabled={isLoading || !!conflictState}
 								className="w-full sm:w-auto px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:bg-primary/50 disabled:cursor-not-allowed"
 							>
-								{isLoading ? 'Saving...' : 'Save Changes'}
+								{isLoading ? (
+									<span className="inline-flex items-center">
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										Saving...
+									</span>
+								) : (
+									'Save Changes'
+								)}
 							</button>
 						</div>
 					</footer>
