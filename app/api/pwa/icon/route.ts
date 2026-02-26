@@ -18,6 +18,16 @@ const parseSize = (input: string | null) => {
 	return Math.min(MAX_SIZE, Math.max(MIN_SIZE, Math.floor(parsed)));
 };
 
+const parseFormat = (input: string | null) => {
+	const normalized = String(input || '').trim().toLowerCase();
+	return normalized === 'svg' ? 'svg' : 'png';
+};
+
+const parseMode = (input: string | null) => {
+	const normalized = String(input || '').trim().toLowerCase();
+	return normalized === 'avatar' ? 'avatar' : 'auto';
+};
+
 const toSchoolName = (profile: any) => {
 	const rawName = profile?.name;
 	if (typeof rawName === 'string' && rawName.trim()) {
@@ -82,16 +92,34 @@ const fetchAndReturnImage = async (url: string) => {
 
 export async function GET(request: NextRequest) {
 	const size = parseSize(request.nextUrl.searchParams.get('size'));
+	const format = parseFormat(request.nextUrl.searchParams.get('format'));
+	const mode = parseMode(request.nextUrl.searchParams.get('mode'));
 	const profileRaw = await getSchoolProfile({ bypassCache: true });
 	const profile =
 		typeof profileRaw === 'string' ? JSON.parse(profileRaw) : profileRaw;
 	const schoolName = toSchoolName(profile);
+	const initials = toInitials(schoolName);
 
-	const logoCandidates = [profile?.logoUrl, profile?.logoUrl2]
-		.map((value: unknown) => String(value || '').trim())
-		.filter(Boolean)
-		.map((value) => toAbsoluteHttpUrl(value, request.url))
-		.filter(Boolean);
+	if (format === 'svg') {
+		const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><rect width="${size}" height="${size}" fill="#0f172a"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="${Math.round(
+			size * 0.34,
+		)}" font-weight="700">${initials}</text></svg>`;
+		return new NextResponse(svg, {
+			headers: {
+				'Content-Type': 'image/svg+xml; charset=utf-8',
+				...IMAGE_CACHE_HEADERS,
+			},
+		});
+	}
+
+	const logoCandidates =
+		mode === 'avatar'
+			? []
+			: [profile?.logoUrl, profile?.logoUrl2]
+					.map((value: unknown) => String(value || '').trim())
+					.filter(Boolean)
+					.map((value) => toAbsoluteHttpUrl(value, request.url))
+					.filter(Boolean);
 
 	for (const logoUrl of logoCandidates) {
 		const proxiedImage = await fetchAndReturnImage(logoUrl);
@@ -104,7 +132,6 @@ export async function GET(request: NextRequest) {
 	const avatarImage = await fetchAndReturnImage(avatarUrl);
 	if (avatarImage) return avatarImage;
 
-	const initials = toInitials(schoolName);
 	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><rect width="${size}" height="${size}" fill="#0f172a"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="${Math.round(
 		size * 0.34,
 	)}" font-weight="700">${initials}</text></svg>`;

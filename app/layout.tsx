@@ -57,14 +57,26 @@ export async function generateMetadata(): Promise<Metadata> {
 		icons: hasApps
 			? {
 					icon: [
-						{ url: '/api/pwa/icon?size=32', sizes: '32x32', type: 'image/png' },
-						{ url: '/api/pwa/icon?size=192', sizes: '192x192', type: 'image/png' },
-						{ url: '/api/pwa/icon?size=512', sizes: '512x512', type: 'image/png' },
+						{
+							url: '/api/pwa/icon?size=32&mode=avatar&format=png',
+							sizes: '32x32',
+							type: 'image/png',
+						},
+						{
+							url: '/api/pwa/icon?size=192&mode=avatar&format=png',
+							sizes: '192x192',
+							type: 'image/png',
+						},
+						{
+							url: '/api/pwa/icon?size=512&mode=avatar&format=png',
+							sizes: '512x512',
+							type: 'image/png',
+						},
 					],
-					shortcut: ['/api/pwa/icon?size=192'],
+					shortcut: ['/api/pwa/icon?size=192&mode=avatar&format=png'],
 					apple: [
 						{
-							url: '/api/pwa/icon?size=180',
+							url: '/api/pwa/icon?size=180&mode=avatar&format=png',
 							sizes: '180x180',
 							type: 'image/png',
 						},
@@ -86,7 +98,8 @@ export async function generateMetadata(): Promise<Metadata> {
 					'mobile-web-app-capable': 'yes',
 					'apple-mobile-web-app-capable': 'yes',
 					'msapplication-TileColor': tenantThemeColor,
-					'msapplication-TileImage': '/api/pwa/icon?size=144',
+					'msapplication-TileImage':
+						'/api/pwa/icon?size=144&mode=avatar&format=png',
 				}
 			: undefined,
 	};

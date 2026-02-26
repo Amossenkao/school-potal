@@ -46,8 +46,8 @@ export async function GET() {
 	const fullName = toSchoolName(profile);
 	const shortName = toShortName(profile, fullName);
 	const themeColor = '#0f172a';
-	const icon192 = '/api/pwa/icon?size=192';
-	const icon512 = '/api/pwa/icon?size=512';
+	const icon192 = '/api/pwa/icon?size=192&mode=avatar&format=png';
+	const icon512 = '/api/pwa/icon?size=512&mode=avatar&format=png';
 
 	return NextResponse.json(
 		{
@@ -65,16 +65,19 @@ export async function GET() {
 				{
 					src: icon192,
 					sizes: '192x192',
+					type: 'image/png',
 					purpose: 'any',
 				},
 				{
 					src: icon512,
 					sizes: '512x512',
+					type: 'image/png',
 					purpose: 'any',
 				},
 				{
 					src: icon512,
 					sizes: '512x512',
+					type: 'image/png',
 					purpose: 'maskable',
 				},
 			],
