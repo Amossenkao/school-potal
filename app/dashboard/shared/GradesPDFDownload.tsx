@@ -438,6 +438,7 @@ const CoverPage: React.FC<{
 	className: string;
 	subject: string;
 	teacherName: string;
+	includeClass?: boolean;
 }> = ({
 	school,
 	academicYear,
@@ -445,6 +446,7 @@ const CoverPage: React.FC<{
 	className,
 	subject,
 	teacherName,
+	includeClass = true,
 }) => (
 	<Page size="A4" orientation="landscape" style={styles.coverPage} wrap={false}>
 		<View style={styles.coverAccentBar} fixed />
@@ -507,10 +509,12 @@ const CoverPage: React.FC<{
 					<Text style={styles.coverMetaChipLabel}>Division</Text>
 					<Text style={styles.coverMetaChipValue}>{classLevel || '-'}</Text>
 				</View>
+			{includeClass && (
 				<View style={[styles.coverMetaChip, styles.coverMetaChipRight]}>
 					<Text style={styles.coverMetaChipLabel}>Class</Text>
 					<Text style={styles.coverMetaChipValue}>{className}</Text>
 				</View>
+			)}
 				<View style={[styles.coverMetaChip, styles.coverMetaChipWide]}>
 					<Text style={styles.coverMetaChipLabel}>Subject</Text>
 					<Text style={styles.coverMetaChipValue}>{subject}</Text>
@@ -604,6 +608,53 @@ const GradesPDF: React.FC<{
 		`${teacherInfo?.firstName || ''} ${teacherInfo?.lastName || ''}`.trim() ||
 		'___________________________';
 
+	const buildEmptyRows = (count: number, prefix: string) =>
+		Array.from({ length: count }, (_, i) => ({
+			studentId: `${prefix}-${i + 1}`,
+			studentName: '',
+			periods: {},
+			__empty: true,
+		}));
+
+	const buildPagesForStudents = (students: any[], pageKeyPrefix: string) => {
+		const sortedStudents = students.slice().sort((a: any, b: any) =>
+			(a.studentName || '').localeCompare(b.studentName || '', undefined, {
+				sensitivity: 'base',
+			}),
+		);
+
+		const basePages = Array.from(
+			{ length: Math.ceil(sortedStudents.length / STUDENTS_PER_PAGE) || 1 },
+			(_, index) =>
+				sortedStudents.slice(
+					index * STUDENTS_PER_PAGE,
+					(index + 1) * STUDENTS_PER_PAGE,
+				),
+		);
+
+		const lastPageCount =
+			basePages.length > 0 ? basePages[basePages.length - 1].length : 0;
+		const remainingSlots = STUDENTS_PER_PAGE - lastPageCount;
+		const shouldAddExtraPage = remainingSlots === 0 || remainingSlots < 8;
+
+		if (remainingSlots > 0) {
+			basePages[basePages.length - 1] = basePages[basePages.length - 1].concat(
+				buildEmptyRows(remainingSlots, `${pageKeyPrefix}-empty-fill`),
+			);
+		}
+
+		return shouldAddExtraPage
+			? [
+					...basePages,
+					buildEmptyRows(STUDENTS_PER_PAGE, `${pageKeyPrefix}-empty-page`),
+				]
+			: basePages;
+	};
+
+	const multiClass = Array.isArray(gradeData?.multiClass)
+		? gradeData.multiClass
+		: null;
+
 	const normalizedStudents = (
 		Array.isArray(gradeData?.students) ? gradeData.students : []
 	)
@@ -614,46 +665,9 @@ const GradesPDF: React.FC<{
 			periods: student.periods ?? {},
 		}));
 
-	const sortedStudents = normalizedStudents.slice().sort((a: any, b: any) =>
-		(a.studentName || '').localeCompare(b.studentName || '', undefined, {
-			sensitivity: 'base',
-		}),
-	);
-
-	const basePages = Array.from(
-		{ length: Math.ceil(sortedStudents.length / STUDENTS_PER_PAGE) || 1 },
-		(_, index) =>
-			sortedStudents.slice(
-				index * STUDENTS_PER_PAGE,
-				(index + 1) * STUDENTS_PER_PAGE,
-			),
-	);
-
-	const lastPageCount =
-		basePages.length > 0 ? basePages[basePages.length - 1].length : 0;
-	const remainingSlots = STUDENTS_PER_PAGE - lastPageCount;
-	const shouldAddExtraPage = remainingSlots === 0 || remainingSlots < 8;
-
-	const buildEmptyRows = (count: number, prefix: string) =>
-		Array.from({ length: count }, (_, i) => ({
-			studentId: `${prefix}-${i + 1}`,
-			studentName: '',
-			periods: {},
-			__empty: true,
-		}));
-
-	if (remainingSlots > 0) {
-		basePages[basePages.length - 1] = basePages[basePages.length - 1].concat(
-			buildEmptyRows(remainingSlots, `empty-fill-${basePages.length - 1}`),
-		);
-	}
-
-	const pages = shouldAddExtraPage
-		? [
-				...basePages,
-				buildEmptyRows(STUDENTS_PER_PAGE, `empty-page-${basePages.length}`),
-			]
-		: basePages;
+	const pages = multiClass
+		? []
+		: buildPagesForStudents(normalizedStudents, 'single');
 
 	return (
 		<Document>
@@ -664,79 +678,176 @@ const GradesPDF: React.FC<{
 				className={className}
 				subject={subject}
 				teacherName={teacherName}
+				includeClass={!multiClass}
 			/>
 
-			{pages.map((pageStudents, index) => (
-				<Page
-					key={`page-${index}`}
-					size="A4"
-					orientation="landscape"
-					style={styles.page}
-				>
-					<View style={styles.watermark}>
-						{typeof school.logoUrl === 'string' &&
-						school.logoUrl.trim().length > 0 ? (
-							<Image src={school.logoUrl} style={styles.watermarkImage} />
-						) : (
-							<View style={styles.watermarkImage} />
-						)}
-					</View>
+			{multiClass
+				? multiClass.flatMap((entry: any, classIndex: number) => {
+						const students = Array.isArray(entry?.students)
+							? entry.students
+							: [];
+						const normalized = students
+							.filter(Boolean)
+							.map((student: any) => ({
+								studentId: student.studentId ?? student.id ?? student._id ?? '',
+								studentName: student.studentName ?? '',
+								periods: student.periods ?? {},
+							}));
+						const classPages = buildPagesForStudents(
+							normalized,
+							`class-${classIndex}`,
+						);
+						return classPages.map((pageStudents, index) => (
+							<Page
+								key={`class-${classIndex}-page-${index}`}
+								size="A4"
+								orientation="landscape"
+								style={styles.page}
+							>
+								<View style={styles.watermark}>
+									{typeof school.logoUrl === 'string' &&
+									school.logoUrl.trim().length > 0 ? (
+										<Image src={school.logoUrl} style={styles.watermarkImage} />
+									) : (
+										<View style={styles.watermarkImage} />
+									)}
+								</View>
 
-					<View style={styles.infoSection}>
-						<Text style={styles.infoText}>
-							<Text style={{ fontWeight: 'bold' }}>Academic Year:</Text>{' '}
-							{academicYear}
-						</Text>
-						<Text style={styles.infoDivider}>|</Text>
-						<Text style={styles.infoText}>
-							<Text style={{ fontWeight: 'bold' }}>Class:</Text> {className}
-						</Text>
-						<Text style={styles.infoDivider}>|</Text>
-						<Text style={styles.infoText}>
-							<Text style={{ fontWeight: 'bold' }}>Subject:</Text> {subject}
-						</Text>
-						<Text style={styles.infoDivider}>|</Text>
-						<Text style={styles.infoText}>
-							<Text style={{ fontWeight: 'bold' }}>Teacher:</Text> {teacherName}
-						</Text>
-					</View>
+								<View style={styles.infoSection}>
+									<Text style={styles.infoText}>
+										<Text style={{ fontWeight: 'bold' }}>Academic Year:</Text>{' '}
+										{academicYear}
+									</Text>
+									<Text style={styles.infoDivider}>|</Text>
+									<Text style={styles.infoText}>
+										<Text style={{ fontWeight: 'bold' }}>Class:</Text>{' '}
+										{entry?.className || ''}
+									</Text>
+									<Text style={styles.infoDivider}>|</Text>
+									<Text style={styles.infoText}>
+										<Text style={{ fontWeight: 'bold' }}>Subject:</Text>{' '}
+										{subject}
+									</Text>
+									<Text style={styles.infoDivider}>|</Text>
+									<Text style={styles.infoText}>
+										<Text style={{ fontWeight: 'bold' }}>Teacher:</Text>{' '}
+										{teacherName}
+									</Text>
+								</View>
 
-					<View style={styles.table}>
-						<TableHeader />
-						{pageStudents.length > 0 ? (
-							pageStudents.map((student: any, rowIndex: number) => (
-								<StudentRow
-									key={String(student?.studentId || `${index}-${rowIndex}`)}
-									student={student}
-									index={index * STUDENTS_PER_PAGE + rowIndex + 1}
-								/>
-							))
-						) : (
-							<View style={styles.tableRow}>
+								<View style={styles.table}>
+									<TableHeader />
+									{pageStudents.length > 0 ? (
+										pageStudents.map((student: any, rowIndex: number) => (
+											<StudentRow
+												key={String(
+													student?.studentId ||
+														`${classIndex}-${index}-${rowIndex}`,
+												)}
+												student={student}
+												index={index * STUDENTS_PER_PAGE + rowIndex + 1}
+											/>
+										))
+									) : (
+										<View style={styles.tableRow}>
+											<Text
+												style={[
+													styles.tableCellName,
+													{ textAlign: 'center', flex: 12 },
+												]}
+											>
+												No students found for this class and subject.
+											</Text>
+										</View>
+									)}
+								</View>
+
 								<Text
-									style={[
-										styles.tableCellName,
-										{ textAlign: 'center', flex: 12 },
-									]}
-								>
-									No students found for this class and subject.
+									style={styles.pageNumber}
+									render={({ pageNumber, totalPages }) =>
+										`Page ${pageNumber} of ${totalPages}`
+									}
+									fixed
+								/>
+								<Text style={styles.footer} fixed>
+									Generated by {school.name} e-Potal System
+								</Text>
+							</Page>
+						));
+					})
+				: pages.map((pageStudents, index) => (
+						<Page
+							key={`page-${index}`}
+							size="A4"
+							orientation="landscape"
+							style={styles.page}
+						>
+							<View style={styles.watermark}>
+								{typeof school.logoUrl === 'string' &&
+								school.logoUrl.trim().length > 0 ? (
+									<Image src={school.logoUrl} style={styles.watermarkImage} />
+								) : (
+									<View style={styles.watermarkImage} />
+								)}
+							</View>
+
+							<View style={styles.infoSection}>
+								<Text style={styles.infoText}>
+									<Text style={{ fontWeight: 'bold' }}>Academic Year:</Text>{' '}
+									{academicYear}
+								</Text>
+								<Text style={styles.infoDivider}>|</Text>
+								<Text style={styles.infoText}>
+									<Text style={{ fontWeight: 'bold' }}>Class:</Text>{' '}
+									{className}
+								</Text>
+								<Text style={styles.infoDivider}>|</Text>
+								<Text style={styles.infoText}>
+									<Text style={{ fontWeight: 'bold' }}>Subject:</Text> {subject}
+								</Text>
+								<Text style={styles.infoDivider}>|</Text>
+								<Text style={styles.infoText}>
+									<Text style={{ fontWeight: 'bold' }}>Teacher:</Text>{' '}
+									{teacherName}
 								</Text>
 							</View>
-						)}
-					</View>
 
-					<Text
-						style={styles.pageNumber}
-						render={({ pageNumber, totalPages }) =>
-							`Page ${pageNumber} of ${totalPages}`
-						}
-						fixed
-					/>
-					<Text style={styles.footer} fixed>
-						Generated by {school.name} e-Potal System
-					</Text>
-				</Page>
-			))}
+							<View style={styles.table}>
+								<TableHeader />
+								{pageStudents.length > 0 ? (
+									pageStudents.map((student: any, rowIndex: number) => (
+										<StudentRow
+											key={String(student?.studentId || `${index}-${rowIndex}`)}
+											student={student}
+											index={index * STUDENTS_PER_PAGE + rowIndex + 1}
+										/>
+									))
+								) : (
+									<View style={styles.tableRow}>
+										<Text
+											style={[
+												styles.tableCellName,
+												{ textAlign: 'center', flex: 12 },
+											]}
+										>
+											No students found for this class and subject.
+										</Text>
+									</View>
+								)}
+							</View>
+
+							<Text
+								style={styles.pageNumber}
+								render={({ pageNumber, totalPages }) =>
+									`Page ${pageNumber} of ${totalPages}`
+								}
+								fixed
+							/>
+							<Text style={styles.footer} fixed>
+								Generated by {school.name} e-Potal System
+							</Text>
+						</Page>
+					))}
 		</Document>
 	);
 };
@@ -756,7 +867,7 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 	const [instance, updateInstance] = usePDF({ document: null });
 	const lastRenderKeyRef = useRef<string>('');
 
-	const fileName = `${classLevel}_${subject}_Grades_${
+	const fileName = `${classLevel}_${subject}_${className || 'Grades'}_${
 		new Date().toISOString().split('T')[0]
 	}.pdf`;
 
@@ -772,7 +883,7 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 		);
 	}
 
-	if (!gradeData || !gradeData.students) {
+	if (!gradeData || (!gradeData.students && !gradeData.multiClass)) {
 		return (
 			<button
 				disabled={true}
@@ -815,18 +926,37 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 			teacherInfo?.lastName || '',
 		].join('|');
 
-		const students = Array.isArray(gradeData?.students) ? gradeData.students : [];
-		const studentKey = students
-			.map((student: any) => {
-				const periodsSnapshot = periods
-					.map((period) => {
-						const v = student?.periods?.[period.value];
-						return `${period.value}:${v ?? ''}`;
+		const studentKey = Array.isArray(gradeData?.multiClass)
+			? gradeData.multiClass
+					.map((entry: any) => {
+						const students = Array.isArray(entry?.students)
+							? entry.students
+							: [];
+						const classKey = students
+							.map((student: any) => {
+								const periodsSnapshot = periods
+									.map((period) => {
+										const v = student?.periods?.[period.value];
+										return `${period.value}:${v ?? ''}`;
+									})
+									.join(',');
+								return `${student?.studentId || ''}:${student?.studentName || ''}:${periodsSnapshot}`;
+							})
+							.join('|');
+						return `${entry?.classId || ''}:${entry?.className || ''}:${classKey}`;
 					})
-					.join(',');
-				return `${student?.studentId || ''}:${student?.studentName || ''}:${periodsSnapshot}`;
-			})
-			.join('|');
+					.join('||')
+			: (Array.isArray(gradeData?.students) ? gradeData.students : [])
+					.map((student: any) => {
+						const periodsSnapshot = periods
+							.map((period) => {
+								const v = student?.periods?.[period.value];
+								return `${period.value}:${v ?? ''}`;
+							})
+							.join(',');
+						return `${student?.studentId || ''}:${student?.studentName || ''}:${periodsSnapshot}`;
+					})
+					.join('|');
 
 		return [
 			school?.name || '',

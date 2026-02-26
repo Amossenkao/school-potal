@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import GradesPDFDownload from './GradesPDFDownload';
 import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
@@ -83,6 +84,7 @@ const formatGrade = (grade: any): string => {
 const PASS_MARK = 70;
 const PASS_GRADE_CLASS = 'text-[var(--grade-pass)] font-semibold';
 const FAIL_GRADE_CLASS = 'text-[var(--grade-fail)] font-semibold';
+const ALL_CLASSES_VALUE = '__all_classes__';
 
 const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	academicYear: currentAcademicYear,
@@ -236,6 +238,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const [selectedLevel, setSelectedLevel] = useState('');
 	const [selectedClass, setSelectedClass] = useState('');
 	const [selectedSubject, setSelectedSubject] = useState('');
+	const [activeClassIndex, setActiveClassIndex] = useState(0);
 	const isSelectedAcademicYearAllowed = useMemo(() => {
 		if (effectiveUser?.role !== 'teacher') return true;
 		if (!selectedAcademicYear) return false;
@@ -246,37 +249,6 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		effectiveUser?.role,
 		selectedAcademicYear,
 		allowedAcademicYears,
-	]);
-
-	const resolvedTeacher = useMemo(() => {
-		if (!selectedClass || !selectedSubject) return effectiveUser;
-		const yearKey = selectedAcademicYear;
-		const scopedUsers = getScopedAcademicYearValue(
-			usersByAcademicYear,
-			yearKey,
-		).value;
-		const yearTeachers = scopedUsers?.teachers || [];
-		const matchesYear = (year?: string) =>
-			areAcademicYearsEqual(year, selectedAcademicYear);
-		const match = yearTeachers.find((teacher: any) =>
-			(teacher?.subjects || []).some(
-				(s: any) =>
-					matchesYear(s?.year) &&
-					(s?.classes || []).some(
-						(c: any) =>
-							c?.classId === selectedClass &&
-							Array.isArray(c?.subjects) &&
-							c.subjects.includes(selectedSubject)
-					)
-			)
-		);
-		return match || effectiveUser;
-	}, [
-		usersByAcademicYear,
-		selectedAcademicYear,
-		selectedClass,
-		selectedSubject,
-		effectiveUser,
 	]);
 
 	// --- Available options for each filter (dynamic per role) ---
@@ -318,6 +290,43 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		selectedAcademicYear,
 	]);
 
+	const resolvedTeacher = useMemo(() => {
+		const classId =
+			selectedClass === ALL_CLASSES_VALUE
+				? classes[activeClassIndex]?.classId
+				: selectedClass;
+		if (!classId || !selectedSubject) return effectiveUser;
+		const yearKey = selectedAcademicYear;
+		const scopedUsers = getScopedAcademicYearValue(
+			usersByAcademicYear,
+			yearKey,
+		).value;
+		const yearTeachers = scopedUsers?.teachers || [];
+		const matchesYear = (year?: string) =>
+			areAcademicYearsEqual(year, selectedAcademicYear);
+		const match = yearTeachers.find((teacher: any) =>
+			(teacher?.subjects || []).some(
+				(s: any) =>
+					matchesYear(s?.year) &&
+					(s?.classes || []).some(
+						(c: any) =>
+							c?.classId === classId &&
+							Array.isArray(c?.subjects) &&
+							c.subjects.includes(selectedSubject)
+					)
+			)
+		);
+		return match || effectiveUser;
+	}, [
+		usersByAcademicYear,
+		selectedAcademicYear,
+		selectedClass,
+		classes,
+		activeClassIndex,
+		selectedSubject,
+		effectiveUser,
+	]);
+
 	// --- Auto-select and hide filter logic (per role) ---
 	useEffect(() => {
 		const isSelectedYearAvailable = availableAcademicYears.some((year) =>
@@ -339,6 +348,25 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	useEffect(() => {
 		if (classes.length === 1) setSelectedClass(classes[0].classId);
 	}, [classes]);
+
+	useEffect(() => {
+		if (selectedClass === ALL_CLASSES_VALUE) {
+			setActiveClassIndex(0);
+			return;
+		}
+		setActiveClassIndex(0);
+	}, [selectedClass, selectedSession, selectedLevel, selectedAcademicYear]);
+
+	useEffect(() => {
+		if (selectedClass !== ALL_CLASSES_VALUE) return;
+		if (classes.length === 0) {
+			setActiveClassIndex(0);
+			return;
+		}
+		if (activeClassIndex >= classes.length) {
+			setActiveClassIndex(0);
+		}
+	}, [selectedClass, classes, activeClassIndex]);
 
 	// THIS FIX: if only one subject, auto-select it and reset if invalid!
 	useEffect(() => {
@@ -377,6 +405,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const [studentsData, setStudentsData] = useState<Student[]>([]);
 	const [gradesData, setGradesData] = useState<any[]>([]);
 	const [combinedData, setCombinedData] = useState<Student[]>([]);
+	const [allClassesData, setAllClassesData] = useState<
+		{ classId: string; className: string; students: Student[]; grades: any[] }[]
+	>([]);
 	const [pdfReady, setPdfReady] = useState(false);
 	const [loading, setLoading] = useState({
 		students: false,
@@ -389,8 +420,24 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		subjects: '',
 	});
 
-	const pdfGradeData = useMemo(
-		() => ({
+	const pdfGradeData = useMemo(() => {
+		if (selectedClass === ALL_CLASSES_VALUE) {
+			return {
+				multiClass: allClassesData.map((entry) => ({
+					classId: entry.classId,
+					className: entry.className,
+					students: entry.students.map((student) => ({
+						...student,
+						periods: Object.fromEntries(
+							Object.entries(student.periods || {}).map(
+								([key, value]: [string, any]) => [key, getGradeValue(value)]
+							)
+						),
+					})),
+				})),
+			};
+		}
+		return {
 			grades: gradesData,
 			students: combinedData.map((student) => ({
 				...student,
@@ -400,9 +447,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					)
 				),
 			})),
-		}),
-		[gradesData, combinedData]
-	);
+		};
+	}, [gradesData, combinedData, selectedClass, allClassesData]);
 
 	const combineStudentsAndGrades = (
 		students: Student[],
@@ -463,6 +509,42 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		return [];
 	};
 
+	const getCachedStudentsForClass = (
+		normalizedYear: string,
+		classId: string,
+	) => {
+		const usersByYear = usersByAcademicYearRef.current || {};
+		const scopedUsers = getScopedAcademicYearValue(usersByYear, normalizedYear)
+			.value;
+		const cachedUsers = Array.isArray(scopedUsers?.students)
+			? scopedUsers.students
+			: [];
+		return cachedUsers
+			.filter(
+				(student: any) =>
+					getStudentClassIdForYear(student, normalizedYear) === classId
+			)
+			.map(mapStudentRecord)
+			.filter(Boolean) as Student[];
+	};
+
+	const getCachedGradesForClass = (
+		normalizedYear: string,
+		classId: string,
+		subject: string,
+	) => {
+		const gradesByYear = gradesByAcademicYearRef.current || {};
+		const scopedGrades = getScopedAcademicYearValue(gradesByYear, normalizedYear)
+			.value;
+		const cachedGrades = Array.isArray(scopedGrades) ? scopedGrades : [];
+		return cachedGrades.filter(
+			(grade: any) =>
+				grade?.classId === classId &&
+				grade?.subject === subject &&
+				areAcademicYearsEqual(grade?.academicYear, normalizedYear),
+		);
+	};
+
 	useEffect(() => {
 		if (effectiveUser?.role === 'teacher' && !isSelectedAcademicYearAllowed) {
 			setStudentsData([]);
@@ -470,26 +552,19 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 			setError((prev) => ({ ...prev, students: '' }));
 			return;
 		}
-		if (selectedClass) {
+		const activeClassId =
+			selectedClass === ALL_CLASSES_VALUE
+				? classes[activeClassIndex]?.classId || ''
+				: selectedClass;
+		if (activeClassId) {
 			const fetchStudents = async () => {
 				setError((prev) => ({ ...prev, students: '' }));
 				try {
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
-					const usersByYear = usersByAcademicYearRef.current || {};
-					const scopedUsers = getScopedAcademicYearValue(
-						usersByYear,
+					const filteredCachedStudents = getCachedStudentsForClass(
 						normalizedYear,
-					).value;
-					const cachedUsers = Array.isArray(scopedUsers?.students)
-						? scopedUsers.students
-						: [];
-					const filteredCachedStudents = cachedUsers
-						.filter(
-							(student: any) =>
-								getStudentClassIdForYear(student, normalizedYear) === selectedClass
-						)
-						.map(mapStudentRecord)
-						.filter(Boolean) as Student[];
+						activeClassId,
+					);
 
 					if (filteredCachedStudents.length > 0) {
 						setStudentsData(filteredCachedStudents);
@@ -505,7 +580,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 					setLoading((prev) => ({ ...prev, students: true }));
 					const res = await fetch(
-						`/api/users?role=student&academicYear=${normalizedYear}&classId=${selectedClass}&limit=50000`
+						`/api/users?role=student&academicYear=${normalizedYear}&classId=${activeClassId}&limit=50000`
 					);
 					if (!res.ok) {
 						throw new Error('Failed to fetch students');
@@ -521,21 +596,10 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					}
 				} catch (err) {
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
-					const usersByYear = usersByAcademicYearRef.current || {};
-					const scopedUsers = getScopedAcademicYearValue(
-						usersByYear,
+					const filteredCachedStudents = getCachedStudentsForClass(
 						normalizedYear,
-					).value;
-					const cachedUsers = Array.isArray(scopedUsers?.students)
-						? scopedUsers.students
-						: [];
-					const filteredCachedStudents = cachedUsers
-						.filter(
-							(student: any) =>
-								getStudentClassIdForYear(student, normalizedYear) === selectedClass
-						)
-						.map(mapStudentRecord)
-						.filter(Boolean) as Student[];
+						activeClassId,
+					);
 					if (filteredCachedStudents.length > 0) {
 						setStudentsData(filteredCachedStudents);
 						setError((prev) => ({ ...prev, students: '' }));
@@ -559,6 +623,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	}, [
 		selectedAcademicYear,
 		selectedClass,
+		classes,
+		activeClassIndex,
 		isOnline,
 		usersByAcademicYear,
 		effectiveUser?.role,
@@ -572,24 +638,19 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 			setError((prev) => ({ ...prev, grades: '' }));
 			return;
 		}
-		if (selectedClass && selectedSubject) {
+		const activeClassId =
+			selectedClass === ALL_CLASSES_VALUE
+				? classes[activeClassIndex]?.classId || ''
+				: selectedClass;
+		if (activeClassId && selectedSubject) {
 			const fetchGrades = async () => {
 				setError((prev) => ({ ...prev, grades: '' }));
 				try {
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
-					const gradesByYear = gradesByAcademicYearRef.current || {};
-					const scopedGrades = getScopedAcademicYearValue(
-						gradesByYear,
+					const filteredCachedGrades = getCachedGradesForClass(
 						normalizedYear,
-					).value;
-					const cachedGrades = Array.isArray(scopedGrades)
-						? scopedGrades
-						: [];
-					const filteredCachedGrades = cachedGrades.filter(
-						(grade: any) =>
-							grade?.classId === selectedClass &&
-							grade?.subject === selectedSubject &&
-							areAcademicYearsEqual(grade?.academicYear, normalizedYear)
+						activeClassId,
+						selectedSubject,
 					);
 
 					if (filteredCachedGrades.length > 0) {
@@ -606,7 +667,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 					setLoading((prev) => ({ ...prev, grades: true }));
 					const res = await fetch(
-						`/api/grades?academicYear=${normalizedYear}&classId=${selectedClass}&subject=${selectedSubject}`
+						`/api/grades?academicYear=${normalizedYear}&classId=${activeClassId}&subject=${selectedSubject}`
 					);
 					if (!res.ok) {
 						throw new Error('Failed to fetch grades');
@@ -621,19 +682,10 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					}
 				} catch (err) {
 					const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
-					const gradesByYear = gradesByAcademicYearRef.current || {};
-					const scopedGrades = getScopedAcademicYearValue(
-						gradesByYear,
+					const filteredCachedGrades = getCachedGradesForClass(
 						normalizedYear,
-					).value;
-					const cachedGrades = Array.isArray(scopedGrades)
-						? scopedGrades
-						: [];
-					const filteredCachedGrades = cachedGrades.filter(
-						(grade: any) =>
-							grade?.classId === selectedClass &&
-							grade?.subject === selectedSubject &&
-							areAcademicYearsEqual(grade?.academicYear, normalizedYear)
+						activeClassId,
+						selectedSubject,
 					);
 					if (filteredCachedGrades.length > 0) {
 						setGradesData(filteredCachedGrades);
@@ -656,8 +708,110 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		selectedAcademicYear,
 		selectedClass,
 		selectedSubject,
+		classes,
+		activeClassIndex,
 		isOnline,
 		gradesByAcademicYear,
+		effectiveUser?.role,
+		isSelectedAcademicYearAllowed,
+	]);
+
+	useEffect(() => {
+		if (effectiveUser?.role === 'teacher' && !isSelectedAcademicYearAllowed) {
+			setAllClassesData([]);
+			setLoading((prev) => ({ ...prev, subjects: false }));
+			setError((prev) => ({ ...prev, subjects: '' }));
+			return;
+		}
+		if (
+			selectedClass !== ALL_CLASSES_VALUE ||
+			!selectedSubject ||
+			classes.length === 0
+		) {
+			setAllClassesData([]);
+			return;
+		}
+		const fetchAllClassesData = async () => {
+			setError((prev) => ({ ...prev, subjects: '' }));
+			try {
+				const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
+				setLoading((prev) => ({ ...prev, subjects: true }));
+				const results = await Promise.all(
+					classes.map(async (cls: any) => {
+						const classId = cls.classId;
+						const cachedStudents = getCachedStudentsForClass(
+							normalizedYear,
+							classId,
+						);
+						const cachedGrades = getCachedGradesForClass(
+							normalizedYear,
+							classId,
+							selectedSubject,
+						);
+						let students = cachedStudents;
+						let grades = cachedGrades;
+
+						if (students.length === 0 && isOnline) {
+							const res = await fetch(
+								`/api/users?role=student&academicYear=${normalizedYear}&classId=${classId}&limit=50000`,
+							);
+							if (res.ok) {
+								const data = await res.json();
+								if (data.success) {
+									students = extractStudentsPayload(data)
+										.map(mapStudentRecord)
+										.filter(Boolean) as Student[];
+								}
+							}
+						}
+
+						if (grades.length === 0 && isOnline) {
+							const res = await fetch(
+								`/api/grades?academicYear=${normalizedYear}&classId=${classId}&subject=${selectedSubject}`,
+							);
+							if (res.ok) {
+								const data = await res.json();
+								if (data.success) {
+									grades = Array.isArray(data.data?.grades)
+										? data.data.grades
+										: [];
+								}
+							}
+						}
+
+						const combined = combineStudentsAndGrades(students, grades)
+							.slice()
+							.sort((a, b) =>
+								(a.studentName || '').localeCompare(
+									b.studentName || '',
+									undefined,
+									{ sensitivity: 'base' },
+								),
+							);
+						return {
+							classId,
+							className: cls?.name || classId,
+							students: combined,
+							grades,
+						};
+					}),
+				);
+				setAllClassesData(results);
+			} catch (err) {
+				console.error('Error fetching all classes data:', err);
+				setError((prev) => ({ ...prev, subjects: 'Failed to load classes.' }));
+				setAllClassesData([]);
+			} finally {
+				setLoading((prev) => ({ ...prev, subjects: false }));
+			}
+		};
+		fetchAllClassesData();
+	}, [
+		selectedAcademicYear,
+		selectedClass,
+		selectedSubject,
+		classes,
+		isOnline,
 		effectiveUser?.role,
 		isSelectedAcademicYearAllowed,
 	]);
@@ -703,7 +857,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		if (selectedClass && selectedSubject) {
 			setPdfReady(false);
 		}
-	}, [selectedClass, selectedSubject]);
+	}, [selectedClass, selectedSubject, allClassesData]);
 
 
 	const getGradeColor = (grade: number | null) => {
@@ -775,7 +929,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const shouldWaitForPdf =
 		!!selectedClass &&
 		!!selectedSubject &&
-		combinedData.length > 0 &&
+		(selectedClass === ALL_CLASSES_VALUE
+			? allClassesData.length > 0
+			: combinedData.length > 0) &&
 		!isLoadingData &&
 		!hasError;
 	const isLoading = isLoadingData || (shouldWaitForPdf && !pdfReady);
@@ -815,7 +971,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const showAcademicYearFilter = availableAcademicYears.length > 0;
 	const showSessionFilter = isSelectedAcademicYearAllowed && sessions.length > 1;
 	const showLevelFilter = isSelectedAcademicYearAllowed && classLevels.length > 1;
-	const showClassFilter = isSelectedAcademicYearAllowed && classes.length > 1;
+	const showClassFilter = isSelectedAcademicYearAllowed && classes.length > 0;
 	const showSubjectFilter = isSelectedAcademicYearAllowed && subjects.length > 1;
 
 	return (
@@ -937,6 +1093,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 								}
 							>
 								<option value="">Select Class</option>
+								{classes.length > 1 && (
+									<option value={ALL_CLASSES_VALUE}>All Classes</option>
+								)}
 								{classes.map((cls: any) => (
 									<option key={cls.classId} value={cls.classId}>
 										{cls.name}
@@ -984,11 +1143,46 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 			)}
 			{selectedClass && selectedSubject && isSelectedAcademicYearAllowed && (
 				<div className="bg-card border rounded-lg p-4 sm:p-6 shadow-sm min-w-0">
+					{selectedClass === ALL_CLASSES_VALUE && classes.length > 1 && (
+						<div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+							<div className="text-sm text-muted-foreground">
+								Viewing class {activeClassIndex + 1} of {classes.length}
+							</div>
+							<div className="flex items-center gap-2">
+								<button
+									type="button"
+									onClick={() =>
+										setActiveClassIndex((prev) => Math.max(0, prev - 1))
+									}
+									disabled={activeClassIndex === 0}
+									className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1 text-sm text-foreground disabled:opacity-50"
+								>
+									<ChevronLeft className="h-4 w-4" />
+									Prev
+								</button>
+								<button
+									type="button"
+									onClick={() =>
+										setActiveClassIndex((prev) =>
+											Math.min(classes.length - 1, prev + 1),
+										)
+									}
+									disabled={activeClassIndex >= classes.length - 1}
+									className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1 text-sm text-foreground disabled:opacity-50"
+								>
+									Next
+									<ChevronRight className="h-4 w-4" />
+								</button>
+							</div>
+						</div>
+					)}
 					<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
 						<h3 className="text-lg sm:text-xl font-semibold text-card-foreground">
 							Sheet for{' '}
-							{classes.find((cls: any) => cls.classId === selectedClass)
-								?.name ||
+							{(selectedClass === ALL_CLASSES_VALUE
+								? classes[activeClassIndex]?.name
+								: classes.find((cls: any) => cls.classId === selectedClass)
+										?.name) ||
 								(studentsData.length > 0
 									? studentsData[0].studentName.split(' ').slice(0, 2).join(' ')
 									: selectedClass)}{' '}
@@ -1001,8 +1195,10 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 									teacherInfo={resolvedTeacher}
 									gradeData={pdfGradeData}
 									className={
-										classes.find((cls: any) => cls.classId === selectedClass)
-											?.name || selectedClass
+										selectedClass === ALL_CLASSES_VALUE
+											? 'All Classes'
+											: classes.find((cls: any) => cls.classId === selectedClass)
+													?.name || selectedClass
 									}
 									classLevel={selectedLevel}
 									subject={selectedSubject}
@@ -1112,6 +1308,37 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 							{loading.students
 								? 'Loading students...'
 								: 'No students found for the selected class.'}
+						</div>
+					)}
+					{selectedClass === ALL_CLASSES_VALUE && classes.length > 1 && (
+						<div className="mt-4 flex items-center justify-between">
+							<button
+								type="button"
+								onClick={() =>
+									setActiveClassIndex((prev) => Math.max(0, prev - 1))
+								}
+								disabled={activeClassIndex === 0}
+								className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1 text-sm text-foreground disabled:opacity-50"
+							>
+								<ChevronLeft className="h-4 w-4" />
+								Prev
+							</button>
+							<div className="text-sm text-muted-foreground">
+								Class {activeClassIndex + 1} of {classes.length}
+							</div>
+							<button
+								type="button"
+								onClick={() =>
+									setActiveClassIndex((prev) =>
+										Math.min(classes.length - 1, prev + 1),
+									)
+								}
+								disabled={activeClassIndex >= classes.length - 1}
+								className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1 text-sm text-foreground disabled:opacity-50"
+							>
+								Next
+								<ChevronRight className="h-4 w-4" />
+							</button>
 						</div>
 					)}
 				</div>
