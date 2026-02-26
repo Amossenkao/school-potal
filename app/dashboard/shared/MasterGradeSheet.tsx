@@ -408,6 +408,12 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const [allClassesData, setAllClassesData] = useState<
 		{ classId: string; className: string; students: Student[]; grades: any[] }[]
 	>([]);
+	const activeClassData = useMemo(() => {
+		if (selectedClass !== ALL_CLASSES_VALUE) return null;
+		if (!Array.isArray(allClassesData) || allClassesData.length === 0)
+			return null;
+		return allClassesData[activeClassIndex] || null;
+	}, [selectedClass, allClassesData, activeClassIndex]);
 	const [pdfReady, setPdfReady] = useState(false);
 	const [loading, setLoading] = useState({
 		students: false,
@@ -552,6 +558,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 			setError((prev) => ({ ...prev, students: '' }));
 			return;
 		}
+		if (selectedClass === ALL_CLASSES_VALUE) {
+			return;
+		}
 		const activeClassId =
 			selectedClass === ALL_CLASSES_VALUE
 				? classes[activeClassIndex]?.classId || ''
@@ -636,6 +645,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 			setGradesData([]);
 			setLoading((prev) => ({ ...prev, grades: false }));
 			setError((prev) => ({ ...prev, grades: '' }));
+			return;
+		}
+		if (selectedClass === ALL_CLASSES_VALUE) {
 			return;
 		}
 		const activeClassId =
@@ -817,6 +829,15 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	]);
 
 	useEffect(() => {
+		if (selectedClass === ALL_CLASSES_VALUE) {
+			const activeStudents = Array.isArray(activeClassData?.students)
+				? activeClassData?.students || []
+				: [];
+			setStudentsData(activeStudents);
+			setGradesData(activeClassData?.grades || []);
+			setCombinedData(activeStudents);
+			return;
+		}
 		if (studentsData.length > 0) {
 			const combined = combineStudentsAndGrades(studentsData, gradesData || [])
 				.slice()
@@ -851,7 +872,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		} else {
 			setCombinedData([]);
 		}
-	}, [studentsData, gradesData]);
+	}, [studentsData, gradesData, selectedClass, activeClassData]);
 
 	useEffect(() => {
 		if (selectedClass && selectedSubject) {
@@ -968,7 +989,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	}
 
 	// --- Filter visibility ---
-	const showAcademicYearFilter = availableAcademicYears.length > 0;
+	const showAcademicYearFilter = availableAcademicYears.length > 1;
 	const showSessionFilter = isSelectedAcademicYearAllowed && sessions.length > 1;
 	const showLevelFilter = isSelectedAcademicYearAllowed && classLevels.length > 1;
 	const showClassFilter = isSelectedAcademicYearAllowed && classes.length > 0;
