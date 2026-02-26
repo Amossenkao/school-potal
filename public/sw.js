@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v7';
+const CACHE_VERSION = 'v8';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
 const API_CACHE = `api-${CACHE_VERSION}`;
@@ -284,7 +284,12 @@ self.addEventListener('fetch', (event) => {
 						(await caches.match('/dashboard/'));
 					if (appShell) return appShell;
 
-					return caches.match('/offline');
+					const offlineFallback = await caches.match('/offline');
+					if (offlineFallback) return offlineFallback;
+					return new Response('Offline', {
+						status: 503,
+						headers: { 'Content-Type': 'text/plain' },
+					});
 				}),
 		);
 		return;
@@ -320,7 +325,8 @@ self.addEventListener('fetch', (event) => {
 			request.destination === 'script' ||
 			request.destination === 'style' ||
 			request.destination === 'font' ||
-			request.destination === 'image')
+			request.destination === 'image' ||
+			request.destination === 'manifest')
 	) {
 		event.respondWith(
 			caches.match(request).then((cached) => {
@@ -333,7 +339,10 @@ self.addEventListener('fetch', (event) => {
 							.then((cache) => cache.put(request, copy));
 						return response;
 					})
-					.catch(() => cached);
+					.catch(() => {
+						if (cached) return cached;
+						return Response.error();
+					});
 			}),
 		);
 	}
