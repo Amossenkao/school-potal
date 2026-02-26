@@ -70,8 +70,6 @@ export async function POST(request: NextRequest) {
 				{ status: 400 },
 			);
 		}
-		const tenantKey = resolveTenantSyncKey({ host: cleanHost });
-
 		const { Student, Teacher, Administrator } = await getTenantModels();
 
 		const tenantsConnection = await connectToTenantsDb();
@@ -94,6 +92,11 @@ export async function POST(request: NextRequest) {
 				{ status: 404 },
 			);
 		}
+		const tenantKey = resolveTenantSyncKey({
+			schoolProfile: currentSchool,
+			tenantId: currentUser.tenantId,
+			host: cleanHost,
+		});
 
 		const oldSettings = currentSchool?.settings;
 

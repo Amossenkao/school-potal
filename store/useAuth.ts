@@ -50,6 +50,7 @@ interface AuthState {
 		skipConnectivityCheck?: boolean;
 		force?: boolean;
 		trigger?: string;
+		academicYear?: string;
 	}) => Promise<void>;
 	bootstrapAuth: (options?: { force?: boolean }) => Promise<void>;
 
@@ -636,6 +637,7 @@ const useAuth = create<AuthState>((set, get) => {
 			const skipConnectivityCheck = options?.skipConnectivityCheck ?? true;
 			const force = options?.force === true;
 			const trigger = String(options?.trigger || '').trim();
+			const requestedAcademicYear = String(options?.academicYear || '').trim();
 
 			if (authCheckPromise) {
 				return authCheckPromise;
@@ -683,7 +685,8 @@ const useAuth = create<AuthState>((set, get) => {
 			authCheckPromise = (async () => {
 				try {
 					const schoolState = useSchoolStore.getState();
-					const preferredYear = schoolState.school?.currentAcademicYear;
+					const preferredYear =
+						requestedAcademicYear || schoolState.school?.currentAcademicYear;
 					const query = new URLSearchParams();
 					const usersVersion = getScopedVersion(
 						schoolState.usersVersionByAcademicYear,
@@ -727,6 +730,9 @@ const useAuth = create<AuthState>((set, get) => {
 					}
 					if (typeof get().userVersion === 'string') {
 						query.set('v_user', get().userVersion as string);
+					}
+					if (requestedAcademicYear) {
+						query.set('academicYear', requestedAcademicYear);
 					}
 					if (trigger) {
 						query.set('sync_trigger', trigger);

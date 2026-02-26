@@ -283,24 +283,28 @@ const UserManagementDashboard = () => {
 	const setUsersForYear = useSchoolStore(
 		(state: any) => state.setUsersForYear,
 	);
+	const usersVersionByAcademicYear = useSchoolStore(
+		(state: any) => state.usersVersionByAcademicYear,
+	);
+	const usersByAcademicYear = useSchoolStore(
+		(state: any) => state.usersByAcademicYear,
+	);
 	const getUsersVersionForYear = useCallback((academicYear: string) => {
-		const state = useSchoolStore.getState();
 		const version = resolveRecordForAcademicYear<string>(
-			state.usersVersionByAcademicYear,
+			usersVersionByAcademicYear,
 			academicYear,
 		);
 		return typeof version === 'string' ? version : null;
-	}, []);
+	}, [usersVersionByAcademicYear]);
 	const getUsersPayloadForYear = useCallback((academicYear: string) => {
-		const state = useSchoolStore.getState();
 		return (
 			resolveRecordForAcademicYear<{
 				students?: any[];
 				teachers?: any[];
 				administrators?: any[];
-			}>(state.usersByAcademicYear, academicYear) || null
+			}>(usersByAcademicYear, academicYear) || null
 		);
-	}, []);
+	}, [usersByAcademicYear]);
 	const academicYearOptions = useMemo(
 		() => buildSchoolAcademicYearRange(schoolProfile),
 		[schoolProfile],

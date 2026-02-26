@@ -72,6 +72,7 @@ export default function AuthProvider({
 	const pendingAuthRefreshRef = useRef<{
 		force?: boolean;
 		trigger?: string;
+		academicYear?: string;
 	} | null>(null);
 	const syncEventDebounceRef = useRef<number | null>(null);
 	const syncEventSourceRef = useRef<EventSource | null>(null);
@@ -120,12 +121,17 @@ export default function AuthProvider({
 	}, []);
 
 	const runAuthRefresh = useCallback(
-		async (options?: { force?: boolean; trigger?: string }) => {
+		async (options?: {
+			force?: boolean;
+			trigger?: string;
+			academicYear?: string;
+		}) => {
 			if (authRefreshInFlight.current) {
 				const previous = pendingAuthRefreshRef.current;
 				pendingAuthRefreshRef.current = {
 					force: Boolean(previous?.force) || Boolean(options?.force),
 					trigger: options?.trigger || previous?.trigger,
+					academicYear: options?.academicYear || previous?.academicYear,
 				};
 				return;
 			}
@@ -135,6 +141,7 @@ export default function AuthProvider({
 					skipConnectivityCheck: true,
 					force: options?.force === true,
 					trigger: options?.trigger,
+					academicYear: options?.academicYear,
 				});
 				await ensureSchoolProfile();
 			} catch (error) {
@@ -201,7 +208,11 @@ export default function AuthProvider({
 			return;
 		}
 
-		const scheduleRefresh = (options?: { force?: boolean; trigger?: string }) => {
+		const scheduleRefresh = (options?: {
+			force?: boolean;
+			trigger?: string;
+			academicYear?: string;
+		}) => {
 			if (syncEventDebounceRef.current !== null) {
 				window.clearTimeout(syncEventDebounceRef.current);
 			}
@@ -210,6 +221,7 @@ export default function AuthProvider({
 				void runAuthRefresh({
 					force: options?.force === true,
 					trigger: options?.trigger || 'stream-sync',
+					academicYear: options?.academicYear,
 				});
 			}, SYNC_REFRESH_DEBOUNCE_MS);
 		};
@@ -320,11 +332,20 @@ export default function AuthProvider({
 					messageEvent.lastEventId || (payload?.eventId as string),
 				);
 				const reason = String(payload?.reason || '').trim();
+				const academicYear = String(payload?.academicYear || '').trim();
 				if (SECURITY_SYNC_REASONS.has(reason)) {
-					void runAuthRefresh({ force: true, trigger: `stream-security:${reason}` });
+					void runAuthRefresh({
+						force: true,
+						trigger: `stream-security:${reason}`,
+						academicYear,
+					});
 					return;
 				}
-				scheduleRefresh({ force: true, trigger: 'stream-sync' });
+				scheduleRefresh({
+					force: true,
+					trigger: 'stream-sync',
+					academicYear,
+				});
 			};
 
 			const onStreamError = (event: Event) => {
