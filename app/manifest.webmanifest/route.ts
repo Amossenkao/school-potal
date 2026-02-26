@@ -3,6 +3,37 @@ import { getSchoolProfile } from '@/lib/mongoose';
 
 export const dynamic = 'force-dynamic';
 
+const toSchoolName = (profile: any) => {
+	const rawName = profile?.name;
+	if (typeof rawName === 'string' && rawName.trim()) {
+		return rawName.trim();
+	}
+	if (Array.isArray(rawName)) {
+		const firstNonEmpty = rawName.find(
+			(value: unknown) => typeof value === 'string' && value.trim(),
+		);
+		if (typeof firstNonEmpty === 'string') {
+			return firstNonEmpty.trim();
+		}
+	}
+	if (typeof profile?.shortName === 'string' && profile.shortName.trim()) {
+		return profile.shortName.trim();
+	}
+	return 'School Portal';
+};
+
+const toShortName = (profile: any, fallbackName: string) => {
+	const candidate =
+		(typeof profile?.shortName === 'string' ? profile.shortName : '') ||
+		(typeof profile?.initials === 'string' ? profile.initials : '') ||
+		fallbackName;
+	const normalized = String(candidate || '').trim();
+	if (normalized.length <= 1) {
+		return fallbackName;
+	}
+	return normalized;
+};
+
 export async function GET() {
 	const profileRaw = await getSchoolProfile({ bypassCache: true });
 	const profile =
@@ -12,43 +43,41 @@ export async function GET() {
 		return new NextResponse(null, { status: 404 });
 	}
 
-	const name = profile?.name?.[0] || profile?.shortName || 'School Portal';
-	const shortName = profile?.shortName || profile?.initials || name;
-	const logoUrl = profile?.logoUrl || '/favicon.ico';
-	const logoAltUrl = profile?.logoUrl2 || logoUrl;
-	const getType = (url: string) => {
-		const lowered = url.toLowerCase();
-		if (lowered.endsWith('.svg')) return 'image/svg+xml';
-		if (lowered.endsWith('.jpg') || lowered.endsWith('.jpeg')) return 'image/jpeg';
-		if (lowered.endsWith('.webp')) return 'image/webp';
-		return 'image/png';
-	};
+	const name = toSchoolName(profile);
+	const shortName = toShortName(profile, name);
+	const themeColor = '#0f172a';
+	const icon192 = '/api/pwa/icon?size=192';
+	const icon512 = '/api/pwa/icon?size=512';
 
 	return NextResponse.json(
 		{
 			name,
 			short_name: shortName,
 			description: profile?.description || 'School management portal',
+			id: '/dashboard',
 			start_url: '/dashboard',
 			scope: '/',
+			display_override: ['standalone', 'browser'],
 			display: 'standalone',
-			background_color: '#0f172a',
-			theme_color: '#0f172a',
+			background_color: themeColor,
+			theme_color: themeColor,
 			icons: [
 				{
-					src: logoUrl,
+					src: icon192,
 					sizes: '192x192',
-					type: getType(logoUrl),
+					type: 'image/png',
+					purpose: 'any',
 				},
 				{
-					src: logoAltUrl,
+					src: icon512,
 					sizes: '512x512',
-					type: getType(logoAltUrl),
+					type: 'image/png',
+					purpose: 'any',
 				},
 				{
-					src: logoAltUrl,
+					src: icon512,
 					sizes: '512x512',
-					type: getType(logoAltUrl),
+					type: 'image/png',
 					purpose: 'maskable',
 				},
 			],
