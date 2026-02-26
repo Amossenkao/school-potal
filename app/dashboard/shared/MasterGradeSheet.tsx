@@ -85,6 +85,7 @@ const PASS_MARK = 70;
 const PASS_GRADE_CLASS = 'text-[var(--grade-pass)] font-semibold';
 const FAIL_GRADE_CLASS = 'text-[var(--grade-fail)] font-semibold';
 const ALL_CLASSES_VALUE = '__all_classes__';
+const ALL_SUBJECTS_VALUE = '__all_subjects__';
 
 const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	academicYear: currentAcademicYear,
@@ -239,6 +240,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const [selectedClass, setSelectedClass] = useState('');
 	const [selectedSubject, setSelectedSubject] = useState('');
 	const [activeClassIndex, setActiveClassIndex] = useState(0);
+	const [activeSubjectIndex, setActiveSubjectIndex] = useState(0);
 	const isSelectedAcademicYearAllowed = useMemo(() => {
 		if (effectiveUser?.role !== 'teacher') return true;
 		if (!selectedAcademicYear) return false;
@@ -289,6 +291,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		currentSchool,
 		selectedAcademicYear,
 	]);
+
+	const isSelfContainedLevel =
+		String(selectedLevel || '').trim().toLowerCase() === 'self contained';
 
 	const resolvedTeacher = useMemo(() => {
 		const classId =
@@ -350,6 +355,12 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	}, [classes]);
 
 	useEffect(() => {
+		if (isSelfContainedLevel && selectedClass === ALL_CLASSES_VALUE) {
+			setSelectedClass('');
+		}
+	}, [isSelfContainedLevel, selectedClass]);
+
+	useEffect(() => {
 		if (selectedClass === ALL_CLASSES_VALUE) {
 			setActiveClassIndex(0);
 			return;
@@ -367,6 +378,25 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 			setActiveClassIndex(0);
 		}
 	}, [selectedClass, classes, activeClassIndex]);
+
+	useEffect(() => {
+		if (selectedSubject === ALL_SUBJECTS_VALUE) {
+			setActiveSubjectIndex(0);
+			return;
+		}
+		setActiveSubjectIndex(0);
+	}, [selectedSubject, selectedSession, selectedLevel, selectedClass]);
+
+	useEffect(() => {
+		if (selectedSubject !== ALL_SUBJECTS_VALUE) return;
+		if (subjects.length === 0) {
+			setActiveSubjectIndex(0);
+			return;
+		}
+		if (activeSubjectIndex >= subjects.length) {
+			setActiveSubjectIndex(0);
+		}
+	}, [selectedSubject, subjects, activeSubjectIndex]);
 
 	// THIS FIX: if only one subject, auto-select it and reset if invalid!
 	useEffect(() => {
@@ -408,6 +438,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const [allClassesData, setAllClassesData] = useState<
 		{ classId: string; className: string; students: Student[]; grades: any[] }[]
 	>([]);
+	const [allSubjectsData, setAllSubjectsData] = useState<
+		{ subject: string; students: Student[]; grades: any[] }[]
+	>([]);
 	const activeClassData = useMemo(() => {
 		if (selectedClass !== ALL_CLASSES_VALUE) return null;
 		if (!Array.isArray(allClassesData) || allClassesData.length === 0)
@@ -443,6 +476,21 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				})),
 			};
 		}
+		if (selectedSubject === ALL_SUBJECTS_VALUE) {
+			return {
+				multiSubject: allSubjectsData.map((entry) => ({
+					subject: entry.subject,
+					students: entry.students.map((student) => ({
+						...student,
+						periods: Object.fromEntries(
+							Object.entries(student.periods || {}).map(
+								([key, value]: [string, any]) => [key, getGradeValue(value)]
+							)
+						),
+					})),
+				})),
+			};
+		}
 		return {
 			grades: gradesData,
 			students: combinedData.map((student) => ({
@@ -454,7 +502,14 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				),
 			})),
 		};
-	}, [gradesData, combinedData, selectedClass, allClassesData]);
+	}, [
+		gradesData,
+		combinedData,
+		selectedClass,
+		selectedSubject,
+		allClassesData,
+		allSubjectsData,
+	]);
 
 	const combineStudentsAndGrades = (
 		students: Student[],
@@ -561,6 +616,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		if (selectedClass === ALL_CLASSES_VALUE) {
 			return;
 		}
+		if (selectedSubject === ALL_SUBJECTS_VALUE) {
+			return;
+		}
 		const activeClassId =
 			selectedClass === ALL_CLASSES_VALUE
 				? classes[activeClassIndex]?.classId || ''
@@ -650,6 +708,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		if (selectedClass === ALL_CLASSES_VALUE) {
 			return;
 		}
+		if (selectedSubject === ALL_SUBJECTS_VALUE) {
+			return;
+		}
 		const activeClassId =
 			selectedClass === ALL_CLASSES_VALUE
 				? classes[activeClassIndex]?.classId || ''
@@ -737,6 +798,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		}
 		if (
 			selectedClass !== ALL_CLASSES_VALUE ||
+			isSelfContainedLevel ||
 			!selectedSubject ||
 			classes.length === 0
 		) {
@@ -823,6 +885,104 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		selectedClass,
 		selectedSubject,
 		classes,
+		isSelfContainedLevel,
+		isOnline,
+		effectiveUser?.role,
+		isSelectedAcademicYearAllowed,
+	]);
+
+	useEffect(() => {
+		if (effectiveUser?.role === 'teacher' && !isSelectedAcademicYearAllowed) {
+			setAllSubjectsData([]);
+			setLoading((prev) => ({ ...prev, subjects: false }));
+			setError((prev) => ({ ...prev, subjects: '' }));
+			return;
+		}
+		if (
+			selectedSubject !== ALL_SUBJECTS_VALUE ||
+			!isSelfContainedLevel ||
+			!selectedClass ||
+			subjects.length === 0
+		) {
+			setAllSubjectsData([]);
+			return;
+		}
+		const fetchAllSubjectsData = async () => {
+			setError((prev) => ({ ...prev, subjects: '' }));
+			try {
+				const normalizedYear = normalizeAcademicYear(selectedAcademicYear);
+				setLoading((prev) => ({ ...prev, subjects: true }));
+				const baseStudents = getCachedStudentsForClass(
+					normalizedYear,
+					selectedClass,
+				);
+				let students = baseStudents;
+				if (students.length === 0 && isOnline) {
+					const res = await fetch(
+						`/api/users?role=student&academicYear=${normalizedYear}&classId=${selectedClass}&limit=50000`,
+					);
+					if (res.ok) {
+						const data = await res.json();
+						if (data.success) {
+							students = extractStudentsPayload(data)
+								.map(mapStudentRecord)
+								.filter(Boolean) as Student[];
+						}
+					}
+				}
+
+				const results = await Promise.all(
+					subjects.map(async (subject) => {
+						let grades = getCachedGradesForClass(
+							normalizedYear,
+							selectedClass,
+							subject,
+						);
+						if (grades.length === 0 && isOnline) {
+							const res = await fetch(
+								`/api/grades?academicYear=${normalizedYear}&classId=${selectedClass}&subject=${subject}`,
+							);
+							if (res.ok) {
+								const data = await res.json();
+								if (data.success) {
+									grades = Array.isArray(data.data?.grades)
+										? data.data.grades
+										: [];
+								}
+							}
+						}
+						const combined = combineStudentsAndGrades(students, grades)
+							.slice()
+							.sort((a, b) =>
+								(a.studentName || '').localeCompare(
+									b.studentName || '',
+									undefined,
+									{ sensitivity: 'base' },
+								),
+							);
+						return {
+							subject,
+							students: combined,
+							grades,
+						};
+					}),
+				);
+				setAllSubjectsData(results);
+			} catch (err) {
+				console.error('Error fetching all subjects data:', err);
+				setError((prev) => ({ ...prev, subjects: 'Failed to load subjects.' }));
+				setAllSubjectsData([]);
+			} finally {
+				setLoading((prev) => ({ ...prev, subjects: false }));
+			}
+		};
+		fetchAllSubjectsData();
+	}, [
+		selectedAcademicYear,
+		selectedClass,
+		selectedSubject,
+		subjects,
+		isSelfContainedLevel,
 		isOnline,
 		effectiveUser?.role,
 		isSelectedAcademicYearAllowed,
@@ -835,6 +995,16 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				: [];
 			setStudentsData(activeStudents);
 			setGradesData(activeClassData?.grades || []);
+			setCombinedData(activeStudents);
+			return;
+		}
+		if (selectedSubject === ALL_SUBJECTS_VALUE) {
+			const activeEntry = allSubjectsData[activeSubjectIndex] || null;
+			const activeStudents = Array.isArray(activeEntry?.students)
+				? activeEntry?.students || []
+				: [];
+			setStudentsData(activeStudents);
+			setGradesData(activeEntry?.grades || []);
 			setCombinedData(activeStudents);
 			return;
 		}
@@ -872,7 +1042,15 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		} else {
 			setCombinedData([]);
 		}
-	}, [studentsData, gradesData, selectedClass, activeClassData]);
+	}, [
+		studentsData,
+		gradesData,
+		selectedClass,
+		selectedSubject,
+		activeClassData,
+		allSubjectsData,
+		activeSubjectIndex,
+	]);
 
 	useEffect(() => {
 		if (selectedClass && selectedSubject) {
@@ -952,7 +1130,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		!!selectedSubject &&
 		(selectedClass === ALL_CLASSES_VALUE
 			? allClassesData.length > 0
-			: combinedData.length > 0) &&
+			: selectedSubject === ALL_SUBJECTS_VALUE
+				? allSubjectsData.length > 0
+				: combinedData.length > 0) &&
 		!isLoadingData &&
 		!hasError;
 	const isLoading = isLoadingData || (shouldWaitForPdf && !pdfReady);
@@ -1114,7 +1294,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 								}
 							>
 								<option value="">Select Class</option>
-								{classes.length > 1 && (
+								{classes.length > 1 && !isSelfContainedLevel && (
 									<option value={ALL_CLASSES_VALUE}>All Classes</option>
 								)}
 								{classes.map((cls: any) => (
@@ -1145,6 +1325,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 								}
 							>
 								<option value="">Select Subject</option>
+								{isSelfContainedLevel && subjects.length > 1 && (
+									<option value={ALL_SUBJECTS_VALUE}>All Subjects</option>
+								)}
 								{subjects.map((sub) => (
 									<option key={sub} value={sub}>
 										{sub}
@@ -1197,6 +1380,39 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 							</div>
 						</div>
 					)}
+					{selectedSubject === ALL_SUBJECTS_VALUE && subjects.length > 1 && (
+						<div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+							<div className="text-sm text-muted-foreground">
+								Viewing subject {activeSubjectIndex + 1} of {subjects.length}
+							</div>
+							<div className="flex items-center gap-2">
+								<button
+									type="button"
+									onClick={() =>
+										setActiveSubjectIndex((prev) => Math.max(0, prev - 1))
+									}
+									disabled={activeSubjectIndex === 0}
+									className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1 text-sm text-foreground disabled:opacity-50"
+								>
+									<ChevronLeft className="h-4 w-4" />
+									Prev
+								</button>
+								<button
+									type="button"
+									onClick={() =>
+										setActiveSubjectIndex((prev) =>
+											Math.min(subjects.length - 1, prev + 1),
+										)
+									}
+									disabled={activeSubjectIndex >= subjects.length - 1}
+									className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1 text-sm text-foreground disabled:opacity-50"
+								>
+									Next
+									<ChevronRight className="h-4 w-4" />
+								</button>
+							</div>
+						</div>
+					)}
 					<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
 						<h3 className="text-lg sm:text-xl font-semibold text-card-foreground">
 							Sheet for{' '}
@@ -1205,9 +1421,12 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 								: classes.find((cls: any) => cls.classId === selectedClass)
 										?.name) ||
 								(studentsData.length > 0
-									? studentsData[0].studentName.split(' ').slice(0, 2).join(' ')
-									: selectedClass)}{' '}
-							- {selectedSubject}
+								? studentsData[0].studentName.split(' ').slice(0, 2).join(' ')
+								: selectedClass)}{' '}
+							-{' '}
+							{selectedSubject === ALL_SUBJECTS_VALUE
+								? subjects[activeSubjectIndex] || 'All Subjects'
+								: selectedSubject}
 						</h3>
 						<div className="mt-2 sm:mt-0">
 							{combinedData.length > 0 && (
@@ -1222,7 +1441,11 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 													?.name || selectedClass
 									}
 									classLevel={selectedLevel}
-									subject={selectedSubject}
+									subject={
+										selectedSubject === ALL_SUBJECTS_VALUE
+											? 'All Subjects'
+											: selectedSubject
+									}
 									academicYear={selectedAcademicYear}
 									onReadyChange={setPdfReady}
 								/>
@@ -1355,6 +1578,37 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 									)
 								}
 								disabled={activeClassIndex >= classes.length - 1}
+								className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1 text-sm text-foreground disabled:opacity-50"
+							>
+								Next
+								<ChevronRight className="h-4 w-4" />
+							</button>
+						</div>
+					)}
+					{selectedSubject === ALL_SUBJECTS_VALUE && subjects.length > 1 && (
+						<div className="mt-4 flex items-center justify-between">
+							<button
+								type="button"
+								onClick={() =>
+									setActiveSubjectIndex((prev) => Math.max(0, prev - 1))
+								}
+								disabled={activeSubjectIndex === 0}
+								className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1 text-sm text-foreground disabled:opacity-50"
+							>
+								<ChevronLeft className="h-4 w-4" />
+								Prev
+							</button>
+							<div className="text-sm text-muted-foreground">
+								Subject {activeSubjectIndex + 1} of {subjects.length}
+							</div>
+							<button
+								type="button"
+								onClick={() =>
+									setActiveSubjectIndex((prev) =>
+										Math.min(subjects.length - 1, prev + 1),
+									)
+								}
+								disabled={activeSubjectIndex >= subjects.length - 1}
 								className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1 text-sm text-foreground disabled:opacity-50"
 							>
 								Next
