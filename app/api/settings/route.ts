@@ -15,6 +15,7 @@ import bcrypt from 'bcryptjs';
 import { redis } from '@/lib/redis';
 import {
 	publishSyncEventSafe,
+	publishPublicSyncEventSafe,
 	publishSyncEventsForAcademicYearsSafe,
 	resolveTenantSyncKey,
 } from '@/lib/realtimeSync';
@@ -420,6 +421,13 @@ export async function POST(request: NextRequest) {
 		}
 
 		await publishSyncEventSafe({
+			tenantKey,
+			domain: 'school',
+			academicYear: String(updatedSchoolProfile.currentAcademicYear || ''),
+			actorId: currentUser.id,
+			reason: 'school-settings-updated',
+		});
+		await publishPublicSyncEventSafe({
 			tenantKey,
 			domain: 'school',
 			academicYear: String(updatedSchoolProfile.currentAcademicYear || ''),

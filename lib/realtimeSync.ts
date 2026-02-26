@@ -117,6 +117,9 @@ export const getUserSyncChannel = (tenantKey: string, userId: string) =>
 		userId,
 	)}`;
 
+export const getTenantPublicSyncChannel = (tenantKey: string) =>
+	`sync:tenant-public:${sanitizeChannelSegment(tenantKey)}`;
+
 export const publishSyncEvent = async (params: {
 	tenantKey: string;
 	domain: SyncDomain;
@@ -179,6 +182,47 @@ export const publishSyncEvent = async (params: {
 	});
 };
 
+export const publishPublicSyncEvent = async (params: {
+	tenantKey: string;
+	domain: SyncDomain;
+	academicYear?: string | null;
+	actorId?: string | null;
+	reason?: string;
+	scope?: SyncScope;
+}) => {
+	const tenantKey = toTenantCandidate(params.tenantKey);
+	if (!tenantKey) return;
+	const timestamp = Date.now();
+	const reason = toTrimmedString(params.reason) || DEFAULT_REASON;
+	const event: SyncEvent = {
+		eventId: createEventId(),
+		type: `${params.domain}.${reason}`,
+		version: 1,
+		schemaVersion: 1,
+		ts: timestamp,
+		tenantKey,
+		domain: params.domain,
+		academicYear: toTrimmedString(params.academicYear) || null,
+		changedAt: new Date(timestamp).toISOString(),
+		actorId: toTrimmedString(params.actorId) || null,
+		reason,
+	};
+	const scope = toScope(params.scope);
+	if (scope) {
+		event.scope = scope;
+	}
+	await redis.publish(getTenantPublicSyncChannel(tenantKey), event);
+	syncDebugLog('publish', 'Published tenant public sync event.', {
+		eventId: event.eventId,
+		type: event.type,
+		reason: event.reason,
+		domain: event.domain,
+		tenantKey,
+		academicYear: event.academicYear,
+		hasScope: Boolean(event.scope),
+	});
+};
+
 export const publishSyncEventSafe = async (params: {
 	tenantKey: string;
 	domain: SyncDomain;
@@ -193,6 +237,27 @@ export const publishSyncEventSafe = async (params: {
 	} catch (error) {
 		console.warn('[realtime-sync] Failed to publish sync event:', error);
 		syncDebugWarn('publish', 'Failed to publish sync event.', {
+			error: error instanceof Error ? error.message : String(error),
+			tenantKey: params.tenantKey,
+			domain: params.domain,
+			reason: params.reason || DEFAULT_REASON,
+		});
+	}
+};
+
+export const publishPublicSyncEventSafe = async (params: {
+	tenantKey: string;
+	domain: SyncDomain;
+	academicYear?: string | null;
+	actorId?: string | null;
+	reason?: string;
+	scope?: SyncScope;
+}) => {
+	try {
+		await publishPublicSyncEvent(params);
+	} catch (error) {
+		console.warn('[realtime-sync] Failed to publish public sync event:', error);
+		syncDebugWarn('publish', 'Failed to publish public sync event.', {
 			error: error instanceof Error ? error.message : String(error),
 			tenantKey: params.tenantKey,
 			domain: params.domain,

@@ -22,6 +22,33 @@ import { useSchoolStore } from '@/store/schoolStore';
 import { useNetworkStore } from '@/store/networkStore';
 import Link from 'next/link';
 import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
+import type SchoolProfile from '@/types/schoolProfile';
+
+const PUBLIC_SYNC_STREAM_TOKEN_ENDPOINT = '/api/sync/public-stream-token';
+const PUBLIC_SYNC_REFRESH_DEBOUNCE_MS = 120;
+const PUBLIC_STREAM_RETRY_BASE_MS = 1200;
+const PUBLIC_STREAM_RETRY_MAX_MS = 12000;
+
+const ensureSyncEventsPath = (rawUrl: string, baseUrl: string) => {
+	const url = new URL(rawUrl, baseUrl);
+	if (!url.pathname || url.pathname === '/') {
+		url.pathname = '/sync/events';
+	}
+	return url.toString();
+};
+
+const resolveRoleLoginDisabledMessage = (
+	role: string,
+	school: any,
+): string => {
+	if (!role || role === 'system_admin') return '';
+	const roleSettingsKey = `${role}Settings`;
+	const roleSettings = school?.settings?.[roleSettingsKey];
+	if (roleSettings?.loginAccess === false) {
+		return `Login is currently disabled for ${role}s.`;
+	}
+	return '';
+};
 
 const LoginPage = () => {
 	const router = useRouter();
@@ -32,6 +59,7 @@ const LoginPage = () => {
 	const [isRedirecting, setIsRedirecting] = useState(false);
 	const [redirectTimedOut, setRedirectTimedOut] = useState(false);
 	const currentSchool = useSchoolStore((state) => state.school);
+	const setSchool = useSchoolStore((state) => state.setSchool);
 	const [loginDisabledError, setLoginDisabledError] = useState('');
 	const [offlineError, setOfflineError] = useState('');
 	const usernameInputRef = useRef<HTMLInputElement>(null);
@@ -118,6 +146,144 @@ const LoginPage = () => {
 		return () => window.clearTimeout(timer);
 	}, [isRedirecting]);
 
+	const refreshSchoolProfile = useCallback(async (): Promise<SchoolProfile | null> => {
+		try {
+			const response = await fetch('/api/school', {
+				cache: 'no-store',
+				headers: {
+					'Cache-Control': 'no-store',
+				},
+			});
+			if (!response.ok) return null;
+			const nextSchool = (await response.json()) as SchoolProfile;
+			setSchool(nextSchool);
+			return nextSchool;
+		} catch {
+			return null;
+		}
+	}, [setSchool]);
+
+	useEffect(() => {
+		let stopped = false;
+		let eventSource: EventSource | null = null;
+		let retryTimer: number | null = null;
+		let refreshTimer: number | null = null;
+		let retryAttempt = 0;
+
+		const cleanupEventSource = () => {
+			if (!eventSource) return;
+			eventSource.close();
+			eventSource = null;
+		};
+
+		const clearRetryTimer = () => {
+			if (!retryTimer) return;
+			window.clearTimeout(retryTimer);
+			retryTimer = null;
+		};
+
+		const clearRefreshTimer = () => {
+			if (!refreshTimer) return;
+			window.clearTimeout(refreshTimer);
+			refreshTimer = null;
+		};
+
+		const scheduleRefresh = () => {
+			clearRefreshTimer();
+			refreshTimer = window.setTimeout(() => {
+				refreshTimer = null;
+				void refreshSchoolProfile();
+			}, PUBLIC_SYNC_REFRESH_DEBOUNCE_MS);
+		};
+
+		const scheduleReconnect = () => {
+			if (stopped || retryTimer) return;
+			const delay = Math.min(
+				PUBLIC_STREAM_RETRY_MAX_MS,
+				PUBLIC_STREAM_RETRY_BASE_MS * 2 ** Math.min(retryAttempt, 5),
+			);
+			retryAttempt += 1;
+			retryTimer = window.setTimeout(() => {
+				retryTimer = null;
+				void connectStream();
+			}, delay);
+		};
+
+		const connectStream = async () => {
+			if (stopped) return;
+			clearRetryTimer();
+			cleanupEventSource();
+
+			try {
+				const tokenResponse = await fetch(PUBLIC_SYNC_STREAM_TOKEN_ENDPOINT, {
+					cache: 'no-store',
+					headers: {
+						'Cache-Control': 'no-store',
+					},
+				});
+				if (!tokenResponse.ok) {
+					throw new Error(`stream-token-${tokenResponse.status}`);
+				}
+				const payload = await tokenResponse.json();
+				const token = String(payload?.token || '').trim();
+				const streamUrlRaw = String(payload?.streamUrl || '').trim();
+				if (!token || !streamUrlRaw) {
+					throw new Error('missing-stream-token-or-url');
+				}
+
+				const streamUrl = ensureSyncEventsPath(
+					streamUrlRaw,
+					window.location.origin,
+				);
+				const urlWithToken = new URL(streamUrl);
+				urlWithToken.searchParams.set('token', token);
+
+				eventSource = new EventSource(urlWithToken.toString());
+				eventSource.addEventListener('ready', () => {
+					retryAttempt = 0;
+				});
+				eventSource.addEventListener('sync', () => {
+					scheduleRefresh();
+				});
+				eventSource.onerror = () => {
+					cleanupEventSource();
+					scheduleReconnect();
+				};
+			} catch {
+				scheduleReconnect();
+			}
+		};
+
+		const handleOnline = () => {
+			retryAttempt = 0;
+			scheduleRefresh();
+			void connectStream();
+		};
+
+		const handleVisibilityChange = () => {
+			if (document.visibilityState !== 'visible') return;
+			scheduleRefresh();
+			if (!eventSource) {
+				void connectStream();
+			}
+		};
+
+		window.addEventListener('online', handleOnline);
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+
+		scheduleRefresh();
+		void connectStream();
+
+		return () => {
+			stopped = true;
+			window.removeEventListener('online', handleOnline);
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+			clearRetryTimer();
+			clearRefreshTimer();
+			cleanupEventSource();
+		};
+	}, [refreshSchoolProfile]);
+
 	/**
 	 * Reset credentials only when login context changes (role/position).
 	 * Do not tie this to school-profile updates; auth polling can update
@@ -137,16 +303,9 @@ const LoginPage = () => {
 
 	// Evaluate school-configured login access without resetting credentials.
 	useEffect(() => {
-		setLoginDisabledError('');
-		if (!selectedRole || selectedRole === 'system_admin') return;
-		if (!currentSchool?.settings) return;
-		const roleSettingsKey = `${selectedRole}Settings`;
-		const roleSettings = (currentSchool.settings as any)[roleSettingsKey];
-		if (roleSettings && roleSettings.loginAccess === false) {
-			setLoginDisabledError(
-				`Login is currently disabled for ${selectedRole}s.`,
-			);
-		}
+		setLoginDisabledError(
+			resolveRoleLoginDisabledMessage(selectedRole, currentSchool),
+		);
 	}, [selectedRole, currentSchool]);
 
 	useEffect(() => {
@@ -203,13 +362,11 @@ const LoginPage = () => {
 		setFormData({ ...formData, [e.target.name]: e.target.value });
 		// Clear errors immediately when user starts fixing their input
 		if (error) clearError();
-		if (loginDisabledError) setLoginDisabledError('');
 		if (offlineError) setOfflineError('');
 	};
 
 	const handleLoginSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (loginDisabledError) return;
 		if (typeof navigator !== 'undefined' && !navigator.onLine) {
 			setOfflineError(
 				'You are offline. Please connect to the internet and try again.',
@@ -223,6 +380,18 @@ const LoginPage = () => {
 			reason: 'login-submit',
 		});
 		setOfflineError('');
+		const latestSchool = await refreshSchoolProfile();
+		const disabledMessage = resolveRoleLoginDisabledMessage(
+			selectedRole,
+			latestSchool || currentSchool,
+		);
+		if (disabledMessage) {
+			setLoginDisabledError(disabledMessage);
+			return;
+		}
+		if (loginDisabledError) {
+			setLoginDisabledError('');
+		}
 
 		const loginData = {
 			role: selectedRole,
