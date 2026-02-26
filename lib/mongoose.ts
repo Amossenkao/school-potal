@@ -25,7 +25,12 @@ type SchoolProfileCacheEntry = {
 };
 
 const schoolProfileInMemoryCache = new Map<string, SchoolProfileCacheEntry>();
-const SCHOOL_PROFILE_MEMORY_TTL_MS = 60_000;
+const SCHOOL_PROFILE_MEMORY_TTL_MS = (() => {
+	const raw = process.env.SCHOOL_PROFILE_MEMORY_TTL_MS;
+	if (!raw) return 10 * 60 * 1000; // 10 minutes default
+	const parsed = Number.parseInt(raw, 10);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : 10 * 60 * 1000;
+})();
 
 const readMemoryCachedSchoolProfile = (cacheKey: string) => {
 	const entry = schoolProfileInMemoryCache.get(cacheKey);
@@ -42,6 +47,31 @@ const writeMemoryCachedSchoolProfile = (cacheKey: string, value: any) => {
 		value,
 		expiresAt: Date.now() + SCHOOL_PROFILE_MEMORY_TTL_MS,
 	});
+};
+
+export const setSchoolProfileMemoryCache = (
+	host: string,
+	value: any,
+	options: { ttlMs?: number } = {},
+) => {
+	const cacheKey = `school_profile:${normalizeHost(host)}`;
+	const ttlMs =
+		typeof options.ttlMs === 'number' && options.ttlMs > 0
+			? options.ttlMs
+			: SCHOOL_PROFILE_MEMORY_TTL_MS;
+	schoolProfileInMemoryCache.set(cacheKey, {
+		value,
+		expiresAt: Date.now() + ttlMs,
+	});
+};
+
+export const clearSchoolProfileMemoryCache = (host?: string | null) => {
+	if (!host) {
+		schoolProfileInMemoryCache.clear();
+		return;
+	}
+	const cacheKey = `school_profile:${normalizeHost(host)}`;
+	schoolProfileInMemoryCache.delete(cacheKey);
 };
 
 const parsePoolSize = (value: string | undefined, fallback: number) => {

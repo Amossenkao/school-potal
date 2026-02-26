@@ -8,7 +8,7 @@ import {
 } from '@/types/schoolProfile';
 import SchoolProfileSchema from '@/models/profile/SchoolProfile';
 import { getTenantModels } from '@/models';
-import { connectToTenantsDb } from '@/lib/mongoose';
+import { connectToTenantsDb, setSchoolProfileMemoryCache } from '@/lib/mongoose';
 import { destroyAllUserSessions } from '@/utils/session';
 import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
 import bcrypt from 'bcryptjs';
@@ -171,6 +171,7 @@ export async function POST(request: NextRequest) {
 		await redis.set(cacheKey, JSON.stringify(updatedSchoolProfile), {
 			ex: 60 * 60 * 24 * 30, // 30 days
 		});
+		setSchoolProfileMemoryCache(cleanHost, updatedSchoolProfile);
 
 		// Also update a shorter TTL cache for frequently accessed data
 		const quickCacheKey = `school_settings:${cleanHost}`;
