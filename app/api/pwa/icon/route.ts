@@ -66,6 +66,7 @@ const fetchAndReturnImage = async (url: string) => {
 		if (!response.ok) return null;
 		const contentType = String(response.headers.get('content-type') || '');
 		if (!contentType.startsWith('image/')) return null;
+		if (contentType.includes('image/svg+xml')) return null;
 		const body = await response.arrayBuffer();
 		if (!body.byteLength) return null;
 		return new NextResponse(body, {

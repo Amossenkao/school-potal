@@ -47,7 +47,7 @@ export async function generateMetadata(): Promise<Metadata> {
 	const schoolShortName = toSchoolShortName(profile, schoolName);
 	const tenantThemeColor = resolveTenantThemeColor(profile?.themeName);
 	return {
-		applicationName: schoolName,
+		applicationName: schoolShortName,
 		title: {
 			default: `${schoolShortName} | Home`,
 			template: `${schoolShortName} | %s`,
