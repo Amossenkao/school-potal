@@ -63,6 +63,26 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
 	const { isOnline } = useNetworkStore();
 	const setUser = useAuth((state) => state.setUser);
 
+	const resetFormState = () => {
+		setOldPassword('');
+		setNewPassword('');
+		setConfirmPassword('');
+		setError('');
+		setSuccess('');
+		setIsLoading(false);
+	};
+
+	const handleClose = () => {
+		resetFormState();
+		onClose();
+	};
+
+	useEffect(() => {
+		if (!isOpen) {
+			resetFormState();
+		}
+	}, [isOpen]);
+
 	const handleSubmit = async (e) => {
 		e.preventDefault();
 		setError('');
@@ -100,19 +120,25 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
 			}
 
 			setSuccess('Password updated successfully!');
-			setTimeout(() => {
-				onClose();
-				setSuccess('');
+			window.setTimeout(() => {
+				handleClose();
 			}, 2000);
 		} catch (err) {
-			setError(err.message);
+			setError(
+				err instanceof Error ? err.message : 'Failed to reset password.',
+			);
 		} finally {
 			setIsLoading(false);
 		}
 	};
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} className="max-w-[500px] m-4">
+		<Modal
+			isOpen={isOpen}
+			onClose={handleClose}
+			overlayClassName="bg-background/60 backdrop-blur-sm"
+			className="max-w-[500px] m-4"
+		>
 			<div className="no-scrollbar relative w-full max-w-[500px] overflow-y-auto rounded-2xl bg-white p-6 dark:bg-gray-900 lg:p-8">
 				<h4 className="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">
 					Change Password
@@ -153,11 +179,24 @@ const ResetPasswordModal = ({ isOpen, onClose }) => {
 					{success && <p className="text-sm text-green-500">{success}</p>}
 
 					<div className="flex items-center gap-3 mt-4 justify-end">
-						<Button size="sm" variant="outline" type="button" onClick={onClose}>
+						<Button
+							size="sm"
+							variant="outline"
+							type="button"
+							onClick={handleClose}
+							disabled={isLoading}
+						>
 							Cancel
 						</Button>
 						<Button size="sm" type="submit" disabled={isLoading}>
-							{isLoading ? 'Saving...' : 'Save Changes'}
+							{isLoading ? (
+								<>
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									Saving...
+								</>
+							) : (
+								'Save Changes'
+							)}
 						</Button>
 					</div>
 				</form>
