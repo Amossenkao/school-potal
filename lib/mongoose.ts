@@ -19,6 +19,31 @@ const connectionPromises: Map<string, Promise<Connection>> = new Map();
 let tenantsDbConnection: Connection | null = null;
 let tenantsDbConnectionPromise: Promise<Connection> | null = null;
 
+type SchoolProfileCacheEntry = {
+	value: any;
+	expiresAt: number;
+};
+
+const schoolProfileInMemoryCache = new Map<string, SchoolProfileCacheEntry>();
+const SCHOOL_PROFILE_MEMORY_TTL_MS = 60_000;
+
+const readMemoryCachedSchoolProfile = (cacheKey: string) => {
+	const entry = schoolProfileInMemoryCache.get(cacheKey);
+	if (!entry) return null;
+	if (Date.now() > entry.expiresAt) {
+		schoolProfileInMemoryCache.delete(cacheKey);
+		return null;
+	}
+	return entry.value;
+};
+
+const writeMemoryCachedSchoolProfile = (cacheKey: string, value: any) => {
+	schoolProfileInMemoryCache.set(cacheKey, {
+		value,
+		expiresAt: Date.now() + SCHOOL_PROFILE_MEMORY_TTL_MS,
+	});
+};
+
 const parsePoolSize = (value: string | undefined, fallback: number) => {
 	if (!value) return fallback;
 	const parsed = Number.parseInt(value, 10);
@@ -220,22 +245,34 @@ export const getSchoolProfile = async (
 	const cacheKey = `school_profile:${host}`;
 
 	try {
-		// 1. Try to get the profile from Redis cache
+		// 1. Try in-memory cache first
+		if (!options.bypassCache) {
+			const memoryCached = readMemoryCachedSchoolProfile(cacheKey);
+			if (memoryCached) {
+				return memoryCached;
+			}
+		}
+
+		// 2. Try to get the profile from Redis cache
 		if (!options.bypassCache) {
 			const cachedProfile = await redis.get(cacheKey);
 			if (cachedProfile) {
 				try {
-					return typeof cachedProfile === 'string'
-						? JSON.parse(cachedProfile)
-						: cachedProfile;
+					const parsedProfile =
+						typeof cachedProfile === 'string'
+							? JSON.parse(cachedProfile)
+							: cachedProfile;
+					writeMemoryCachedSchoolProfile(cacheKey, parsedProfile);
+					return parsedProfile;
 				} catch (error) {
 					console.warn('Failed to parse cached school profile:', error);
+					writeMemoryCachedSchoolProfile(cacheKey, cachedProfile);
 					return cachedProfile;
 				}
 			}
 		}
 
-		// 2. If not in cache, fetch from DB
+		// 3. If not in cache, fetch from DB
 		const connection = await connectToTenantsDb();
 
 		const ProfileModel =
@@ -268,11 +305,12 @@ export const getSchoolProfile = async (
 		}
 
 		if (profile) {
-			// 3. Store in Redis cache for future requests (e.g., for 24 hours)
+			// 4. Store in Redis cache for future requests (e.g., for 24 hours)
 			await redis.set(cacheKey, JSON.stringify(profile), {
 				ex: 60 * 60 * 24 * 30,
 			});
 			console.log(`[Cache] SET for ${host}`);
+			writeMemoryCachedSchoolProfile(cacheKey, profile);
 		}
 
 		return profile;

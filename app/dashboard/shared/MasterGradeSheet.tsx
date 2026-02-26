@@ -401,7 +401,13 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	// THIS FIX: if only one subject, auto-select it and reset if invalid!
 	useEffect(() => {
 		if (subjects.length === 1) setSelectedSubject(subjects[0]);
-		else if (!subjects.includes(selectedSubject)) setSelectedSubject('');
+		else if (
+			selectedSubject &&
+			selectedSubject !== ALL_SUBJECTS_VALUE &&
+			!subjects.includes(selectedSubject)
+		) {
+			setSelectedSubject('');
+		}
 	}, [subjects, selectedSubject]);
 
 	// Reset logic when parent filter changes
@@ -803,6 +809,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 			classes.length === 0
 		) {
 			setAllClassesData([]);
+			setLoading((prev) => ({ ...prev, subjects: false }));
 			return;
 		}
 		const fetchAllClassesData = async () => {
@@ -905,6 +912,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 			subjects.length === 0
 		) {
 			setAllSubjectsData([]);
+			setLoading((prev) => ({ ...prev, subjects: false }));
 			return;
 		}
 		const fetchAllSubjectsData = async () => {
@@ -1135,7 +1143,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				: combinedData.length > 0) &&
 		!isLoadingData &&
 		!hasError;
-	const isLoading = isLoadingData || (shouldWaitForPdf && !pdfReady);
+	const isPdfPreparing = shouldWaitForPdf && !pdfReady;
+	const isLoading = isLoadingData;
 
 	if (parentLoading) return <PageLoading fullScreen={false} />;
 	if (parentError)
@@ -1431,7 +1440,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 						<div className="mt-2 sm:mt-0">
 							{combinedData.length > 0 && (
 								<GradesPDFDownload
-									disabled={isLoading}
+									disabled={isLoadingData || isPdfPreparing}
 									teacherInfo={resolvedTeacher}
 									gradeData={pdfGradeData}
 									className={

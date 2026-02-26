@@ -69,6 +69,179 @@ const getGradeColor = (grade: number | null | undefined) => {
 		: 'text-[var(--grade-fail)] font-semibold';
 };
 
+type UnknownRecord = Record<string, unknown>;
+
+const isObjectRecord = (value: unknown): value is UnknownRecord =>
+	typeof value === 'object' && value !== null;
+
+const toStringSafe = (value: unknown, fallback = ''): string => {
+	if (typeof value === 'string') return value;
+	if (value === null || value === undefined) return fallback;
+	return String(value);
+};
+
+const toNumberSafe = (value: unknown, fallback = 0): number => {
+	if (typeof value === 'number' && Number.isFinite(value)) return value;
+	if (typeof value === 'string' && value.trim() !== '') {
+		const parsed = Number(value);
+		if (Number.isFinite(parsed)) return parsed;
+	}
+	return fallback;
+};
+
+const normalizeRequestStatus = (
+	status: unknown
+): GradeChangeRequest['status'] => {
+	if (status === 'Approved' || status === 'Rejected') return status;
+	return 'Pending';
+};
+
+const inferBatchStatus = (
+	requests: GradeChangeRequest[]
+): BatchRequest['status'] => {
+	const statuses = new Set(requests.map((request) => request.status));
+	if (statuses.size === 1) {
+		return statuses.values().next().value as BatchRequest['status'];
+	}
+	if (
+		statuses.has('Pending') ||
+		(statuses.has('Approved') && statuses.has('Rejected'))
+	) {
+		return 'Partially Approved';
+	}
+	if (statuses.has('Approved')) return 'Approved';
+	if (statuses.has('Rejected')) return 'Rejected';
+	return 'Pending';
+};
+
+const normalizeBatchStatus = (
+	status: unknown,
+	requests: GradeChangeRequest[]
+): BatchRequest['status'] => {
+	if (
+		status === 'Pending' ||
+		status === 'Approved' ||
+		status === 'Rejected' ||
+		status === 'Partially Approved'
+	) {
+		return status;
+	}
+	return inferBatchStatus(requests);
+};
+
+const normalizeGradeRequest = (
+	request: unknown,
+	defaultBatchId: string,
+	requestIndex: number
+): GradeChangeRequest => {
+	const source = isObjectRecord(request) ? request : {};
+	const fallbackId = `${defaultBatchId}-request-${requestIndex}`;
+	const resolvedId = toStringSafe(source._id ?? source.requestId, fallbackId);
+	const originalGradeValue =
+		source.originalGrade === null
+			? Number.NaN
+			: toNumberSafe(source.originalGrade, Number.NaN);
+
+	return {
+		_id: resolvedId,
+		studentName: toStringSafe(source.studentName, 'Unknown Student'),
+		originalGrade: Number.isNaN(originalGradeValue) ? 0 : originalGradeValue,
+		requestedGrade: toNumberSafe(source.requestedGrade, 0),
+		reasonForChange: toStringSafe(source.reasonForChange),
+		status: normalizeRequestStatus(source.status),
+		adminRejectionReason:
+			typeof source.adminRejectionReason === 'string'
+				? source.adminRejectionReason
+				: undefined,
+	};
+};
+
+const normalizeBatchRequests = (input: unknown): BatchRequest[] => {
+	if (!Array.isArray(input)) return [];
+
+	type BatchAccumulator = {
+		batchId: string;
+		subject: string;
+		classId: string;
+		period: string;
+		submittedAt: string;
+		status?: BatchRequest['status'];
+		requests: GradeChangeRequest[];
+		source?: UnknownRecord;
+	};
+
+	const batchesById = new Map<string, BatchAccumulator>();
+
+	const getAccumulator = (batchId: string): BatchAccumulator => {
+		const existing = batchesById.get(batchId);
+		if (existing) return existing;
+		const created: BatchAccumulator = {
+			batchId,
+			subject: '',
+			classId: '',
+			period: '',
+			submittedAt: '',
+			requests: [],
+		};
+		batchesById.set(batchId, created);
+		return created;
+	};
+
+	const firstNonEmpty = (current: string, candidate: unknown): string =>
+		current || toStringSafe(candidate);
+
+	input.forEach((item, itemIndex) => {
+		if (!isObjectRecord(item)) return;
+		const fallbackBatchId = `batch-${itemIndex + 1}`;
+		const batchId = toStringSafe(item.batchId, fallbackBatchId);
+		const accumulator = getAccumulator(batchId);
+
+		accumulator.subject = firstNonEmpty(accumulator.subject, item.subject);
+		accumulator.classId = firstNonEmpty(accumulator.classId, item.classId);
+		accumulator.period = firstNonEmpty(accumulator.period, item.period);
+		accumulator.submittedAt = firstNonEmpty(
+			accumulator.submittedAt,
+			item.submittedAt
+		);
+
+		if (accumulator.status === undefined && typeof item.status === 'string') {
+			accumulator.status = item.status as BatchRequest['status'];
+		}
+
+		if (!accumulator.source) {
+			accumulator.source = item;
+		}
+
+		const rawRequests = Array.isArray(item.requests) ? item.requests : [item];
+		const requestStartIndex = accumulator.requests.length;
+		rawRequests.forEach((request, requestIndex) => {
+			accumulator.requests.push(
+				normalizeGradeRequest(
+					request,
+					batchId,
+					requestStartIndex + requestIndex + 1
+				)
+			);
+		});
+	});
+
+	return Array.from(batchesById.values()).map((batch) => {
+		const status = normalizeBatchStatus(batch.status, batch.requests);
+		const resolvedSubmittedAt =
+			batch.submittedAt || new Date().toISOString();
+		return {
+			...(batch.source || {}),
+			batchId: batch.batchId,
+			subject: batch.subject,
+			classId: batch.classId,
+			period: batch.period,
+			submittedAt: resolvedSubmittedAt,
+			status,
+			requests: batch.requests,
+		};
+	});
+};
+
 const TeacherGradeChangeRequests = ({
 	teacherInfo,
 }: {
@@ -180,7 +353,7 @@ const TeacherGradeChangeRequests = ({
 					teacherInfo?.username || 'teacher'
 				}`;
 				if (!skipCache && hasYearSnapshot) {
-					setRequests(scopedStoreRequests as BatchRequest[]);
+					setRequests(normalizeBatchRequests(scopedStoreRequests));
 					setError('');
 					setLoading(false);
 					return;
@@ -189,7 +362,7 @@ const TeacherGradeChangeRequests = ({
 				if (!skipCache) {
 					const cached = getClientCache<BatchRequest[]>(cacheKey);
 					if (cached !== null) {
-						setRequests(cached);
+						setRequests(normalizeBatchRequests(cached));
 						setError('');
 						setLoading(false);
 						return;
@@ -205,9 +378,10 @@ const TeacherGradeChangeRequests = ({
 					throw new Error('Failed to fetch your grade change requests.');
 				const data = await res.json();
 				const report = Array.isArray(data?.data?.report) ? data.data.report : [];
-				setRequests(report);
-				setGradeRequestsForYear(academicYear, report);
-				setClientCache(cacheKey, report);
+				const normalizedReport = normalizeBatchRequests(report);
+				setRequests(normalizedReport);
+				setGradeRequestsForYear(academicYear, normalizedReport);
+				setClientCache(cacheKey, normalizedReport);
 			} catch (err) {
 				setError(
 					'Could not load your grade change requests. Please try again later.'
@@ -250,7 +424,7 @@ const TeacherGradeChangeRequests = ({
 		) {
 			return;
 		}
-		setRequests(scopedGradeRequests as BatchRequest[]);
+		setRequests(normalizeBatchRequests(scopedGradeRequests));
 		setError('');
 		setLoading(false);
 	}, [teacherInfo?.username, selectedAcademicYear, scopedGradeRequests]);
