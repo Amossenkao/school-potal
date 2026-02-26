@@ -11,6 +11,7 @@ import {
 	Bell,
 	CheckCheck,
 	Trash2,
+	Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -170,21 +171,34 @@ const NotificationsDropdown = memo(function NotificationsDropdown() {
 	const { user, setUser } = useAuth(); // Assumes setUser updates the auth store
 	const [isOpen, setIsOpen] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
+	const [pendingReadIds, setPendingReadIds] = useState<Set<string>>(new Set());
+	const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(
+		new Set(),
+	);
 	const [selectedNotification, setSelectedNotification] =
 		useState<Notification | null>(null);
 	const dropdownRef = useRef<HTMLDivElement>(null);
 	const { setOfflinePath } = useOfflineNavigationStore();
+	const toNotificationId = (value: unknown) => String(value || '').trim();
 
 	// Filter and sort notifications from the user object
 	const notifications = useMemo(() => {
 		if (!user?.notifications) return [];
 		return user.notifications
-			.filter((n) => !n.read && !n.dismissed)
+			.filter((n) => {
+				const id = toNotificationId(n._id);
+				return (
+					!n.read &&
+					!n.dismissed &&
+					!pendingReadIds.has(id) &&
+					!pendingDeleteIds.has(id)
+				);
+			})
 			.sort(
 				(a, b) =>
 					new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
 			);
-	}, [user?.notifications]);
+	}, [user?.notifications, pendingDeleteIds, pendingReadIds]);
 
 	useEffect(() => {
 		const handleClickOutside = (event) => {
@@ -204,11 +218,17 @@ const NotificationsDropdown = memo(function NotificationsDropdown() {
 
 	const markAsReadAndDismiss = async (id: string) => {
 		if (!user) return;
+		const normalizedId = toNotificationId(id);
+		if (!normalizedId) return;
+		setPendingReadIds((prev) => new Set(prev).add(normalizedId));
 		// Optimistically update the UI
+		const previousUser = user;
 		const updatedUser = {
 			...user,
 			notifications: user.notifications.map((n) =>
-				n._id === id ? { ...n, read: true, dismissed: true } : n
+				toNotificationId(n._id) === normalizedId
+					? { ...n, read: true, dismissed: true }
+					: n
 			),
 		};
 		setUser(updatedUser);
@@ -219,25 +239,38 @@ const NotificationsDropdown = memo(function NotificationsDropdown() {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					action: 'markAsReadAndDismiss',
-					notificationId: id,
+					notificationId: normalizedId,
 				}),
 			});
 		} catch (error) {
 			console.error('Failed to mark notification as read:', error);
 			// Revert on failure
-			setUser(user);
+			setUser(previousUser);
+		} finally {
+			setPendingReadIds((prev) => {
+				const next = new Set(prev);
+				next.delete(normalizedId);
+				return next;
+			});
 		}
 	};
 
 	const markAllAsRead = async () => {
 		if (!user) return;
 		setIsLoading(true);
-		const unreadIds = notifications.map((n) => n._id);
+		const unreadIds = notifications.map((n) => toNotificationId(n._id));
+		const unreadSet = new Set(unreadIds);
+		setPendingReadIds((prev) => {
+			const next = new Set(prev);
+			unreadIds.forEach((id) => next.add(id));
+			return next;
+		});
 		// Optimistically update the UI
+		const previousUser = user;
 		const updatedUser = {
 			...user,
 			notifications: user.notifications.map((n) =>
-				unreadIds.includes(n._id) ? { ...n, read: true } : n
+				unreadSet.has(toNotificationId(n._id)) ? { ...n, read: true } : n
 			),
 		};
 		setUser(updatedUser);
@@ -250,17 +283,28 @@ const NotificationsDropdown = memo(function NotificationsDropdown() {
 			});
 		} catch (error) {
 			console.error('Failed to mark all as read:', error);
-			setUser(user); // Revert on failure
+			setUser(previousUser); // Revert on failure
 		} finally {
+			setPendingReadIds((prev) => {
+				const next = new Set(prev);
+				unreadIds.forEach((id) => next.delete(id));
+				return next;
+			});
 			setIsLoading(false);
 		}
 	};
 
 	const deleteNotification = async (id: string) => {
 		if (!user) return;
+		const normalizedId = toNotificationId(id);
+		if (!normalizedId) return;
+		setPendingDeleteIds((prev) => new Set(prev).add(normalizedId));
+		const previousUser = user;
 		const updatedUser = {
 			...user,
-			notifications: user.notifications.filter((n) => n._id !== id),
+			notifications: user.notifications.filter(
+				(n) => toNotificationId(n._id) !== normalizedId,
+			),
 		};
 		setUser(updatedUser);
 
@@ -268,11 +312,20 @@ const NotificationsDropdown = memo(function NotificationsDropdown() {
 			await fetch('/api/notifications', {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ action: 'delete', notificationId: id }),
+				body: JSON.stringify({
+					action: 'delete',
+					notificationId: normalizedId,
+				}),
 			});
 		} catch (error) {
 			console.error('Failed to delete notification:', error);
-			setUser(user);
+			setUser(previousUser);
+		} finally {
+			setPendingDeleteIds((prev) => {
+				const next = new Set(prev);
+				next.delete(normalizedId);
+				return next;
+			});
 		}
 	};
 
@@ -414,8 +467,12 @@ const NotificationsDropdown = memo(function NotificationsDropdown() {
 									disabled={isLoading}
 									className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 disabled:opacity-50"
 								>
-									<CheckCheck className="h-4 w-4" />
-									Mark all read
+									{isLoading ? (
+										<Loader2 className="h-4 w-4 animate-spin" />
+									) : (
+										<CheckCheck className="h-4 w-4" />
+									)}
+									{isLoading ? 'Working...' : 'Mark all read'}
 								</button>
 							)}
 						</div>
@@ -470,10 +527,19 @@ const NotificationsDropdown = memo(function NotificationsDropdown() {
 																e.stopPropagation();
 																deleteNotification(notification._id);
 															}}
-															className="p-1 text-gray-400 hover:text-red-500"
+															disabled={pendingDeleteIds.has(
+																toNotificationId(notification._id),
+															)}
+															className="p-1 text-gray-400 hover:text-red-500 disabled:opacity-60"
 															title="Delete notification"
 														>
-															<Trash2 className="h-3 w-3" />
+															{pendingDeleteIds.has(
+																toNotificationId(notification._id),
+															) ? (
+																<Loader2 className="h-3 w-3 animate-spin" />
+															) : (
+																<Trash2 className="h-3 w-3" />
+															)}
 														</button>
 													)}
 												</div>

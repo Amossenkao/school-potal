@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeUser } from '@/proxy';
 import { getTenantModels } from '@/models';
+import { getSchoolProfile } from '@/lib/mongoose';
 import { updateUserSessionNotifications } from '@/utils/session';
 import { Notification } from '@/types';
 import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
@@ -28,6 +29,16 @@ export async function PATCH(request: NextRequest) {
 				{ status: 404 }
 			);
 		}
+		const schoolProfileRaw = await getSchoolProfile();
+		const schoolProfile =
+			typeof schoolProfileRaw === 'string'
+				? JSON.parse(schoolProfileRaw)
+				: schoolProfileRaw;
+		const tenantKey = resolveTenantSyncKey({
+			schoolProfile,
+			tenantId: currentUser.tenantId,
+			host: request.headers.get('host'),
+		});
 
 		switch (action) {
 			// a. Mark a single notification as read
@@ -130,10 +141,7 @@ export async function PATCH(request: NextRequest) {
 		await user.save();
 		await updateUserSessionNotifications(currentUserId, user.notifications);
 		await publishSyncEventSafe({
-			tenantKey: resolveTenantSyncKey({
-				tenantId: currentUser.tenantId,
-				host: request.headers.get('host'),
-			}),
+			tenantKey,
 			domain: 'user',
 			actorId: currentUserId,
 			reason: `notifications-${String(action || 'update')}`,

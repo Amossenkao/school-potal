@@ -7,6 +7,7 @@ import {
 	X,
 	Archive,
 	Trash2,
+	Loader2,
 	ShieldCheck,
 	User,
 	Bell,
@@ -251,11 +252,15 @@ const NotificationItem = ({
 	onMarkAsRead,
 	onDelete,
 	onView,
+	isReadPending = false,
+	isDeletePending = false,
 }: {
 	notification: Notification;
 	onMarkAsRead: (id: string) => void;
 	onDelete: (id: string) => void;
 	onView: (notification: Notification) => void;
+	isReadPending?: boolean;
+	isDeletePending?: boolean;
 }) => {
 	const gradeDetails = parseGradeDetails(notification);
 	const gradeSummary = gradeDetails
@@ -366,11 +371,16 @@ const NotificationItem = ({
 									e.stopPropagation();
 									onMarkAsRead(notification._id);
 								}}
-								className="p-2 rounded-md bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 transition-colors"
+								disabled={isReadPending}
+								className="p-2 rounded-md bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 transition-colors disabled:opacity-60"
 								title="Mark as read"
 								aria-label="Mark as read"
 							>
-								<CheckCircle className="w-4 h-4" />
+								{isReadPending ? (
+									<Loader2 className="w-4 h-4 animate-spin" />
+								) : (
+									<CheckCircle className="w-4 h-4" />
+								)}
 							</button>
 						)}
 						{isDeletable && (
@@ -379,11 +389,16 @@ const NotificationItem = ({
 									e.stopPropagation();
 									onDelete(notification._id);
 								}}
-								className="p-2 rounded-md bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors"
+								disabled={isDeletePending}
+								className="p-2 rounded-md bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors disabled:opacity-60"
 								title="Delete notification"
 								aria-label="Delete notification"
 							>
-								<Trash2 className="w-4 h-4" />
+								{isDeletePending ? (
+									<Loader2 className="w-4 h-4 animate-spin" />
+								) : (
+									<Trash2 className="w-4 h-4" />
+								)}
 							</button>
 						)}
 					</div>
@@ -397,22 +412,71 @@ const NotificationItem = ({
 };
 
 const Notifications: React.FC = () => {
-	const { user, checkAuthStatus } = useAuth();
+	const { user, setUser } = useAuth();
 	const [activeTab, setActiveTab] = useState<NotificationType | 'All'>('All');
 	const [selectedNotification, setSelectedNotification] =
 		useState<Notification | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
+	const [pendingReadIds, setPendingReadIds] = useState<Set<string>>(new Set());
+	const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(
+		new Set(),
+	);
 	const [searchQuery, setSearchQuery] = useState('');
 	const [transitionDirection, setTransitionDirection] = useState<'left' | 'right'>(
 		'left'
 	);
 	const touchStartX = useRef<number | null>(null);
 	const touchStartY = useRef<number | null>(null);
+	const toNotificationId = (value: unknown) => String(value || '').trim();
 
 	const handleNotificationAction = async (
 		action: 'markAsRead' | 'delete' | 'markAllAsRead',
 		payload: { notificationId?: string; tab?: string }
 	) => {
+		if (!user) return;
+		const previousUser = user;
+		const normalizedId = toNotificationId(payload.notificationId);
+		let affectedIds: string[] = [];
+		if (action === 'markAsRead' && normalizedId) {
+			affectedIds = [normalizedId];
+			setPendingReadIds((prev) => new Set(prev).add(normalizedId));
+			setUser({
+				...user,
+				notifications: (user.notifications || []).map((n) =>
+					toNotificationId(n._id) === normalizedId ? { ...n, read: true } : n,
+				),
+			});
+		}
+		if (action === 'delete' && normalizedId) {
+			affectedIds = [normalizedId];
+			setPendingDeleteIds((prev) => new Set(prev).add(normalizedId));
+			setUser({
+				...user,
+				notifications: (user.notifications || []).filter(
+					(n) => toNotificationId(n._id) !== normalizedId,
+				),
+			});
+		}
+		if (action === 'markAllAsRead') {
+			const tabFilter = payload?.tab || 'All';
+			affectedIds = (user.notifications || [])
+				.filter((n) => !n.read && (tabFilter === 'All' || n.type === tabFilter))
+				.map((n) => toNotificationId(n._id))
+				.filter(Boolean);
+			setIsLoading(true);
+			setPendingReadIds((prev) => {
+				const next = new Set(prev);
+				affectedIds.forEach((id) => next.add(id));
+				return next;
+			});
+			const affectedSet = new Set(affectedIds);
+			setUser({
+				...user,
+				notifications: (user.notifications || []).map((n) =>
+					affectedSet.has(toNotificationId(n._id)) ? { ...n, read: true } : n,
+				),
+			});
+		}
 		try {
 			const response = await fetch('/api/notifications', {
 				method: 'PATCH',
@@ -420,9 +484,7 @@ const Notifications: React.FC = () => {
 				body: JSON.stringify({ action, ...payload }),
 			});
 
-			if (response.ok) {
-				await checkAuthStatus();
-			} else {
+			if (!response.ok) {
 				const errorData = await response.json();
 				throw new Error(
 					errorData.message || `Failed to perform action: ${action}`
@@ -430,6 +492,26 @@ const Notifications: React.FC = () => {
 			}
 		} catch (error) {
 			console.error(`Failed to perform action: ${action}`, error);
+			setUser(previousUser);
+		} finally {
+			if (affectedIds.length > 0) {
+				if (action === 'delete') {
+					setPendingDeleteIds((prev) => {
+						const next = new Set(prev);
+						affectedIds.forEach((id) => next.delete(id));
+						return next;
+					});
+				} else {
+					setPendingReadIds((prev) => {
+						const next = new Set(prev);
+						affectedIds.forEach((id) => next.delete(id));
+						return next;
+					});
+				}
+			}
+			if (action === 'markAllAsRead') {
+				setIsLoading(false);
+			}
 		}
 	};
 
@@ -449,6 +531,8 @@ const Notifications: React.FC = () => {
 	const filteredNotifications =
 		user?.notifications
 			?.filter((n) => {
+				const normalizedId = toNotificationId(n._id);
+				if (pendingDeleteIds.has(normalizedId)) return false;
 				const matchesTab = activeTab === 'All' || n.type === activeTab;
 				const detailsText =
 					typeof n.details === 'string'
@@ -609,9 +693,17 @@ const Notifications: React.FC = () => {
 											tab: activeTab,
 										})
 									}
-									className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:-translate-y-0.5 hover:bg-emerald-400"
+									disabled={isLoading}
+									className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 transition hover:-translate-y-0.5 hover:bg-emerald-400 disabled:opacity-60 disabled:cursor-not-allowed"
 								>
-									Mark All as Read
+									{isLoading ? (
+										<>
+											<Loader2 className="w-4 h-4 animate-spin" />
+											Working...
+										</>
+									) : (
+										'Mark All as Read'
+									)}
 								</button>
 							)}
 						</div>
@@ -667,6 +759,12 @@ const Notifications: React.FC = () => {
 									handleNotificationAction('delete', { notificationId: id })
 								}
 								onView={setSelectedNotification}
+								isReadPending={pendingReadIds.has(
+									toNotificationId(notification._id),
+								)}
+								isDeletePending={pendingDeleteIds.has(
+									toNotificationId(notification._id),
+								)}
 							/>
 						))
 					) : (
