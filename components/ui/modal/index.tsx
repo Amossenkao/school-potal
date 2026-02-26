@@ -9,6 +9,7 @@ interface ModalProps {
   children: React.ReactNode;
   showCloseButton?: boolean; // New prop to control close button visibility
   isFullscreen?: boolean; // Default to false for backwards compatibility
+  overlayClassName?: string;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -18,6 +19,7 @@ export const Modal: React.FC<ModalProps> = ({
   className,
   showCloseButton = true, // Default to true for backwards compatibility
   isFullscreen = false,
+  overlayClassName = "bg-background/80 backdrop-blur-sm",
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const [isMounted, setIsMounted] = useState(false);
@@ -64,7 +66,7 @@ export const Modal: React.FC<ModalProps> = ({
     <div className="fixed inset-0 z-[70]">
       {!isFullscreen && (
         <div
-          className="absolute inset-0 h-full w-full bg-background/80 backdrop-blur-sm"
+          className={`absolute inset-0 h-full w-full ${overlayClassName}`}
           onClick={onClose}
         ></div>
       )}

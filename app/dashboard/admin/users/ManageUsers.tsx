@@ -256,6 +256,9 @@ const UserManagementDashboard = () => {
 	const [viewingUser, setViewingUser] = useState(null);
 	const [resetPasswordUser, setResetPasswordUser] = useState(null);
 	const [deactivatingUser, setDeactivatingUser] = useState(null);
+	const resolveUserId = useCallback((value: any) => {
+		return String(value?.id || value?._id || '').trim();
+	}, []);
 
 	// Pagination state
 	const [currentPage, setCurrentPage] = useState(1);
@@ -1064,6 +1067,31 @@ const UserManagementDashboard = () => {
 				break;
 		}
 	};
+
+	useEffect(() => {
+		if (!Array.isArray(users) || users.length === 0) return;
+		const syncSelectedUser = (selected: any, setSelected: (value: any) => void) => {
+			const selectedId = resolveUserId(selected);
+			if (!selectedId) return;
+			const latest = users.find((candidate) => resolveUserId(candidate) === selectedId);
+			if (!latest || latest === selected) return;
+			setSelected(latest);
+		};
+
+		syncSelectedUser(viewingUser, setViewingUser);
+		syncSelectedUser(editingUser, setEditingUser);
+		syncSelectedUser(resetPasswordUser, setResetPasswordUser);
+		syncSelectedUser(deletingUser, setDeletingUser);
+		syncSelectedUser(deactivatingUser, setDeactivatingUser);
+	}, [
+		users,
+		viewingUser,
+		editingUser,
+		resetPasswordUser,
+		deletingUser,
+		deactivatingUser,
+		resolveUserId,
+	]);
 
 	const handleDeleteSuccess = (deletedUserId: string) => {
 		setUsers((currentUsers) => {

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useModal } from '../../hooks/useModal';
 import { Modal } from '../ui/modal';
 import Button from '../ui/button/Button';
@@ -62,19 +62,16 @@ export default function UserInfoCard() {
 	const [isLoading, setIsLoading] = useState(false);
 	const [errors, setErrors] = useState<any>({});
 
-	if (!user) {
-		return <Spinner />;
-	}
+	const buildProfileFormData = () => ({
+		email: user?.email || '',
+		phone: user?.phone || '',
+		bio: user?.bio || '',
+		nickName: user?.nickName || '',
+		shareContactWithClassmates: Boolean(user?.shareContactWithClassmates),
+	});
 
-	// Initialize form data when modal opens
-	const handleOpenModal = () => {
-		const nextData = {
-			email: user?.email || '',
-			phone: user?.phone || '',
-			bio: user?.bio || '',
-			nickName: user?.nickName || '',
-			shareContactWithClassmates: Boolean(user?.shareContactWithClassmates),
-		};
+	const syncProfileFormState = () => {
+		const nextData = buildProfileFormData();
 		setFormData(nextData);
 		setInitialFormData(nextData);
 		setDraftValues({
@@ -90,8 +87,18 @@ export default function UserInfoCard() {
 			nickName: !nextData.nickName,
 		});
 		setErrors({});
+	};
+
+	// Initialize form data when modal opens
+	const handleOpenModal = () => {
+		syncProfileFormState();
 		openModal();
 	};
+
+	useEffect(() => {
+		if (!isOpen) return;
+		syncProfileFormState();
+	}, [isOpen, user]);
 
 	// Handle form input changes
 	const handleInputChange = (field: string, value: string | boolean) => {
@@ -316,6 +323,10 @@ export default function UserInfoCard() {
 		}
 	};
 
+	if (!user) {
+		return <Spinner />;
+	}
+
 	return (
 		<div
 			className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6"
@@ -421,8 +432,13 @@ export default function UserInfoCard() {
 				</button>
 			</div>
 
-			<Modal isOpen={isOpen} onClose={closeModal} className="max-w-[700px] m-4">
-				<div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
+			<Modal
+				isOpen={isOpen}
+				onClose={closeModal}
+				className="max-w-[700px] m-4"
+				overlayClassName="bg-black/60 backdrop-blur-sm"
+			>
+				<div className="relative w-full max-w-[700px] rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
 					<div className="px-2 pr-14">
 						<h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
 							Edit Personal Information
@@ -432,7 +448,7 @@ export default function UserInfoCard() {
 						</p>
 					</div>
 					<form className="flex flex-col" onSubmit={(e) => e.preventDefault()}>
-						<div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
+						<div className="px-2 pb-3">
 							{/* Display general error if any */}
 							{errors.general && (
 								<div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">

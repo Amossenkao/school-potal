@@ -338,6 +338,15 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		}
 	}, [user, schoolProfile]);
 
+	useEffect(() => {
+		if (!isOpen) return undefined;
+		const originalOverflow = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+		return () => {
+			document.body.style.overflow = originalOverflow;
+		};
+	}, [isOpen]);
+
 	const getSessions = () =>
 		schoolProfile?.classLevels ? Object.keys(schoolProfile.classLevels) : [];
 	const getClassLevels = (session) =>

@@ -9,6 +9,7 @@ import {
 	getTeacherClassIdsForAcademicYear,
 	resolveAcademicYearAccessContext,
 } from '@/utils/academicYearAccess';
+import { getUsersVersion as getUsersSyncVersion } from '@/utils/userSync';
 
 const MAX_BOOTSTRAP_USERS = 5000;
 
@@ -530,6 +531,7 @@ export const getDomainVersions = async (
 	const canQueryGrades = Boolean(Grade && gradesQuery);
 	const canQueryGradeRequests = Boolean(GradeChangeRequest && gradeRequestsQuery);
 	const [
+		usersSyncVersion,
 		usersCount,
 		usersLatest,
 		calendarCount,
@@ -543,6 +545,7 @@ export const getDomainVersions = async (
 		gradeRequestsCount,
 		gradeRequestsLatest,
 	] = await Promise.all([
+		getUsersSyncVersion(academicYear).catch(() => 0),
 		canQueryUsers ? User.countDocuments(usersQuery) : 0,
 		canQueryUsers
 			? User.findOne(usersQuery)
@@ -609,7 +612,7 @@ export const getDomainVersions = async (
 	const schedules = `c${classScheduleCount}:${getLatestDocToken(classScheduleLatest)}|t${testScheduleCount}:${getLatestDocToken(testScheduleLatest)}`;
 	const grades = `${gradesCount}:${getLatestDocToken(gradesLatest)}`;
 	const gradeRequests = `${gradeRequestsCount}:${getLatestDocToken(gradeRequestsLatest)}`;
-	const computedUsersVersion = `${usersCount}:${getLatestDocToken(usersLatest)}`;
+	const computedUsersVersion = `sync:${Number.isFinite(usersSyncVersion) ? usersSyncVersion : 0}|${usersCount}:${getLatestDocToken(usersLatest)}`;
 
 	return {
 		users:
