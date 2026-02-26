@@ -627,10 +627,15 @@ export class SyncStreamHub extends DurableObject<Env> {
 					upstashHost: resolveHostFromUrl(upstashBaseUrl),
 				});
 				const response = await fetch(subscribeUrl, {
-					method: 'GET',
+					method: 'POST',
 					headers: {
 						Authorization: `Bearer ${this.env.UPSTASH_REDIS_REST_TOKEN}`,
+						Accept: 'text/event-stream',
+						'Cache-Control': 'no-cache',
+						Connection: 'keep-alive',
+						'Content-Type': 'application/json',
 					},
+					body: '[]',
 					signal: controller.signal,
 				});
 				if (!response.ok || !response.body) {
