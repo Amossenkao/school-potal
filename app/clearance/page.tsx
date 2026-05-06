@@ -350,7 +350,7 @@ const ClearanceCard = ({
 
 				<View style={s.titleBar}>
 					<Text style={s.titleText}>
-						{division} • {period} Period Test Clearance
+						{division} • {period == "Mock" ? period : `${period} Period Test`} Clearance
 					</Text>
 				</View>
 
