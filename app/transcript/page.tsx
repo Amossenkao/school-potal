@@ -1,5 +1,6 @@
 'use client';
 import React, { Suspense, useMemo, useState } from 'react';
+import VercelUpgrade from '@/components/uca-inactive';
 import {
 	Document,
 	Page,
@@ -644,6 +645,8 @@ const ManualGradeInput = ({ student, onUpdate, onCancel }) => {
 
 // --- MAIN COMPONENT ---
 export default function DocumentPortal() {
+
+	return (<VercelUpgrade> </VercelUpgrade>)
 	const [isAuthenticated, setIsAuthenticated] = useState(false);
 	const [students, setStudents] = useState([]);
 	const [showPDF, setShowPDF] = useState(false);
