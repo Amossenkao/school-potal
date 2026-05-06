@@ -42,8 +42,8 @@ type ClearanceDocumentProps = {
 };
 
 const CONFIG = {
-	periods: ['1st', '2nd', '3rd', '4th', '5th', '6th'],
-	installments: ['1st', '2nd', '3rd', '4th'],
+	periods: ['1st', '2nd', '3rd', '4th', '5th', '6th', 'Mock'],
+	installments: ['1st', '2nd', '3rd', 'Final'],
 	divisions: [
 		'Grade 12',
 		'Senior High',
@@ -378,9 +378,9 @@ const ClearanceCard = ({
 						) : (
 							<Text style={s.bold}>{studentName}</Text>
 						)}{' '}
-						has fully paid the <Text style={s.bold}>{installment} installment</Text>,
+						has fully paid the <Text style={s.bold}>{installment == "Final" ? "All required Payments" : `${installment} installment`} </Text>,
 						and is cleared to write the{' '}
-						<Text style={s.bold}>{period} period test</Text>.
+						<Text style={s.bold}>{period == "Mock" ? "Mock Exam" : `${period} test`}</Text>.
 					</Text>
 				</View>
 
