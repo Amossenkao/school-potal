@@ -350,7 +350,7 @@ const ClearanceCard = ({
 
 				<View style={s.titleBar}>
 					<Text style={s.titleText}>
-						{division} • {period == "Mock" ? period : `${period} Period Test`} Clearance
+						{division} • {period == "Mock" ? period : `${period} Period Exam`} Clearance
 					</Text>
 				</View>
 
@@ -380,7 +380,7 @@ const ClearanceCard = ({
 						)}{' '}
 						has fully paid the <Text style={s.bold}>{installment == "Final" ? "All required Payments" : `${installment} installment`} </Text>,
 						and is cleared to write the{' '}
-						<Text style={s.bold}>{period == "Mock" ? "Mock Exam" : `${period} test`}</Text>.
+						<Text style={s.bold}>{period == "Mock" ? "Mock Exam" : `${period} Periood Exam`}</Text>.
 					</Text>
 				</View>
 
