@@ -396,7 +396,10 @@ const AppSidebar: React.FC = () => {
 		return true;
 	};
 
-	const handleClientNavigate = (href: string) => {
+	const handleClientNavigate = (href: string, options?: { keepSubmenuOpen?: boolean }) => {
+		if (!options?.keepSubmenuOpen) {
+			setOpenSubmenu(null);
+		}
 		setOfflinePath(href);
 		if (typeof window !== 'undefined') {
 			window.history.pushState(null, '', href);
@@ -469,7 +472,10 @@ const AppSidebar: React.FC = () => {
 						) : item.href ? (
 							item.isLogout ? (
 								<button
-									onClick={handleLogout}
+									onClick={() => {
+										setOpenSubmenu(null);
+										void handleLogout();
+									}}
 									className={`group relative flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-left text-theme-sm font-medium text-error-600 transition-all duration-200 hover:border-error-200 hover:bg-error-50 dark:text-error-400 dark:hover:border-error-500/35 dark:hover:bg-error-500/15 ${
 										!shouldShowLabels
 											? 'lg:justify-center lg:px-0 lg:py-2.5'
@@ -536,7 +542,9 @@ const AppSidebar: React.FC = () => {
 													onClick={(event) => {
 														if (!shouldHandleClientNavigation(event)) return;
 														event.preventDefault();
-														handleClientNavigate(sub.href!);
+														handleClientNavigate(sub.href!, {
+															keepSubmenuOpen: true,
+														});
 													}}
 													className={`relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 pr-8 text-theme-sm transition-all duration-200 overflow-visible ${
 														isActive(sub.href!)
