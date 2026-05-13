@@ -252,3 +252,123 @@ export const loadReportTemplateBytes = async (
 
 	throw lastError || new Error('Failed to load PDF template.');
 };
+
+const normalizeString = (value: unknown) => String(value || '').trim();
+
+const collectSchoolTemplateRequests = (
+	school: ReportTemplateFallbackRequest['school'] & {
+		classLevels?: any;
+	},
+): Array<Pick<ReportTemplateFallbackRequest, 'session' | 'classLevel'>> => {
+	const classLevels = (school as any)?.classLevels;
+	if (!classLevels || typeof classLevels !== 'object') return [];
+
+	const requests: Array<Pick<ReportTemplateFallbackRequest, 'session' | 'classLevel'>> =
+		[];
+	Object.entries(classLevels).forEach(([session, levels]) => {
+		if (!levels || typeof levels !== 'object') return;
+		Object.keys(levels as any).forEach((level) => {
+			const resolvedSession = normalizeString(session);
+			const resolvedLevel = normalizeString(level);
+			if (!resolvedSession || !resolvedLevel) return;
+			requests.push({ session: resolvedSession, classLevel: resolvedLevel });
+		});
+	});
+	return requests;
+};
+
+/**
+ * Pre-caches report template bytes into Cache Storage (`report-template-bytes-v1`).
+ * Intended to run while online right after login / dashboard open.
+ */
+export const precacheReportTemplatesForSchool = async (
+	school: (ReportTemplateFallbackRequest['school'] & { classLevels?: any }) | null,
+	options?: {
+		reportTypes?: ReportTemplateType[];
+		concurrency?: number;
+	},
+) => {
+	if (typeof window === 'undefined') return;
+	if (!school) return;
+	if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+
+	const reportTypes: ReportTemplateType[] = Array.isArray(options?.reportTypes)
+		? options!.reportTypes!
+		: ['yearly', 'semester'];
+	const concurrency =
+		typeof options?.concurrency === 'number' && options.concurrency > 0
+			? Math.floor(options.concurrency)
+			: 2;
+
+	const schoolShortName = normalizeString((school as any)?.shortName);
+	const host = normalizeString((school as any)?.host);
+	const name = normalizeString((school as any)?.name);
+	const logoUrl = normalizeString((school as any)?.logoUrl);
+	const logoUrl2 = normalizeString((school as any)?.logoUrl2);
+	const address = Array.isArray((school as any)?.address) ? (school as any)?.address : [];
+
+	const levelPairs = collectSchoolTemplateRequests(school);
+	const tasks: Array<() => Promise<void>> = [];
+
+	// Always try the default template and built-in static fallbacks.
+	reportTypes.forEach((reportType) => {
+		const builtInCandidates = STATIC_TEMPLATE_DEFAULTS[reportType] || [];
+		const seedUrls = Array.from(
+			new Set([DEFAULT_REPORT_TEMPLATE_URL, ...builtInCandidates].filter(Boolean)),
+		);
+		seedUrls.forEach((url) => {
+			tasks.push(async () => {
+				await loadReportTemplateBytes(url, [], {
+					reportType,
+					school: { shortName: schoolShortName, host, name, logoUrl, logoUrl2, address },
+					classSubjects: [''],
+				});
+			});
+		});
+	});
+
+	// Try school/session/level-specific template URLs too (these are what the report pages request).
+	levelPairs.forEach(({ session, classLevel }) => {
+		reportTypes.forEach((reportType) => {
+			tasks.push(async () => {
+				const primaryUrl = buildReportTemplateUrl({
+					schoolShortName,
+					session,
+					classLevel,
+					reportType,
+				});
+				const candidates = buildReportTemplateCandidates({
+					schoolShortName,
+					session,
+					classLevel,
+					reportType,
+				});
+				await loadReportTemplateBytes(primaryUrl, candidates, {
+					reportType,
+					school: { shortName: schoolShortName, host, name, logoUrl, logoUrl2, address },
+					session,
+					classLevel,
+					classSubjects: [''],
+					semester: reportType === 'semester' ? 'first' : undefined,
+				});
+			});
+		});
+	});
+
+	// Simple concurrency limiter (avoid spiking network/CPU on dashboard load).
+	const queue = [...tasks];
+	const workers = Array.from({ length: Math.min(concurrency, queue.length) }).map(
+		async () => {
+			while (queue.length) {
+				const next = queue.shift();
+				if (!next) return;
+				try {
+					await next();
+				} catch {
+					// Ignore pre-cache failures; runtime generation will still work when online.
+				}
+			}
+		},
+	);
+	await Promise.allSettled(workers);
+};

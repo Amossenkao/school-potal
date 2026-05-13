@@ -10,6 +10,7 @@ import { useOfflineNavigationStore } from '@/store/offlineNavigationStore';
 import { useNetworkStore } from '@/store/networkStore';
 import OfflineRouteRenderer from '@/components/OfflineRouteRenderer';
 import PrefetchDashboardChunks from '@/components/PrefetchDashboardChunks';
+import PrecacheReportTemplates from '@/components/PrecacheReportTemplates';
 
 export default function AdminLayout({
 	children: _children,
@@ -127,6 +128,7 @@ export default function AdminLayout({
 		<ProtectedRoute>
 			<div className="min-h-screen flex bg-background relative">
 				<PrefetchDashboardChunks />
+				<PrecacheReportTemplates />
 				{/* Sidebar */}
 				<AppSidebar />
 
