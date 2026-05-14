@@ -1619,8 +1619,7 @@ export default function ReportCardPage() {
 			resolvedSession || filters.session || 'session',
 		);
 		const classLevelSlug = slugify(filters.classLevel || 'class_level');
-		const themeSlug = slugify(activeTheme.name);
-		return `${schoolSlug}_${sessionSlug}_${classLevelSlug}_${themeSlug}_yearly_report.pdf`;
+		return `${schoolSlug}_${sessionSlug}_${classLevelSlug}_yearly_report.pdf`;
 	}, [school, filters, resolvedSession, activeTheme]);
 
 	useEffect(() => {
