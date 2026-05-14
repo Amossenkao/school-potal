@@ -8,7 +8,7 @@ import React, {
 } from 'react';
 import { Document, Page, Text, View, Image, pdf } from '@react-pdf/renderer';
 import styles from './styles';
-import schools from '../yearly-template/schools.json';
+import { useSchoolStore } from '@/store/schoolStore';
 
 interface StudentSemesterReport {
 	studentId: string;
@@ -32,16 +32,9 @@ interface ReportFilters {
 }
 
 interface TemplateFilters {
-	host: string;
 	session: string;
 	classLevel: string;
-	semester: 'first' | 'second' | '';
 }
-
-const semesterOptions = [
-	{ value: 'first', label: '1st Semester' },
-	{ value: 'second', label: '2nd Semester' },
-];
 
 const slugify = (value: string) =>
 	value
@@ -137,37 +130,20 @@ const watermarkStyle = {
 };
 
 const FilterContent = React.memo(function FilterContent({
-	schoolsList,
+	school,
 	filters,
 	setFilters,
 	onSubmit,
 }: {
-	schoolsList: any[];
+	school: any;
 	filters: TemplateFilters;
 	setFilters: React.Dispatch<React.SetStateAction<TemplateFilters>>;
 	onSubmit: () => void;
 }) {
-	const availableHosts = useMemo(
-		() => schoolsList.map((entry) => entry.host),
-		[schoolsList],
-	);
-	const selectedSchool = useMemo(
-		() => schoolsList.find((entry) => entry.host === filters.host),
-		[schoolsList, filters.host],
-	);
 	const availableSessions = useMemo(
-		() =>
-			selectedSchool?.classLevels
-				? Object.keys(selectedSchool.classLevels)
-				: [],
-		[selectedSchool],
+		() => (school?.classLevels ? Object.keys(school.classLevels) : []),
+		[school],
 	);
-
-	useEffect(() => {
-		if (!filters.host && availableHosts.length === 1) {
-			setFilters((prev) => ({ ...prev, host: availableHosts[0] }));
-		}
-	}, [availableHosts, filters.host, setFilters]);
 
 	useEffect(() => {
 		if (!filters.session && availableSessions.length === 1) {
@@ -181,9 +157,9 @@ const FilterContent = React.memo(function FilterContent({
 
 	const availableGradeLevels = useMemo(() => {
 		if (!resolvedSession) return [];
-		const levels = selectedSchool?.classLevels?.[resolvedSession];
+		const levels = school?.classLevels?.[resolvedSession];
 		return levels ? Object.keys(levels) : [];
-	}, [selectedSchool, resolvedSession]);
+	}, [school, resolvedSession]);
 
 	useEffect(() => {
 		if (!filters.classLevel && availableGradeLevels.length === 1) {
@@ -191,12 +167,7 @@ const FilterContent = React.memo(function FilterContent({
 		}
 	}, [availableGradeLevels, filters.classLevel, setFilters]);
 
-	const canSubmit = !!(
-		filters.host &&
-		resolvedSession &&
-		filters.classLevel &&
-		filters.semester
-	);
+	const canSubmit = !!(resolvedSession && filters.classLevel);
 
 	return (
 		<div className="flex flex-col items-center justify-center min-h-[60vh] py-10">
@@ -204,29 +175,6 @@ const FilterContent = React.memo(function FilterContent({
 				<h2 className="text-lg font-semibold mb-4 text-center">
 					Template Filters
 				</h2>
-
-				<div className="mb-4">
-					<label className="block text-sm font-medium mb-1">Domain</label>
-					<select
-						value={filters.host}
-						onChange={(e) =>
-							setFilters((prev) => ({
-								...prev,
-								host: e.target.value,
-								session: '',
-								classLevel: '',
-							}))
-						}
-						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-					>
-						<option value="">Select Domain</option>
-						{availableHosts.map((hostOption) => (
-							<option key={hostOption} value={hostOption}>
-								{hostOption}
-							</option>
-						))}
-					</select>
-				</div>
 
 				<div className="mb-4">
 					<label className="block text-sm font-medium mb-1">Session</label>
@@ -240,7 +188,6 @@ const FilterContent = React.memo(function FilterContent({
 							}))
 						}
 						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-						disabled={!filters.host}
 					>
 						<option value="">Select Session</option>
 						{availableSessions.map((session) => (
@@ -265,27 +212,6 @@ const FilterContent = React.memo(function FilterContent({
 						{availableGradeLevels.map((level) => (
 							<option key={level} value={level}>
 								{level}
-							</option>
-						))}
-					</select>
-				</div>
-
-				<div className="mb-4">
-					<label className="block text-sm font-medium mb-1">Semester</label>
-					<select
-						value={filters.semester}
-						onChange={(e) =>
-							setFilters((prev) => ({
-								...prev,
-								semester: e.target.value as TemplateFilters['semester'],
-							}))
-						}
-						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-					>
-						<option value="">Select Semester</option>
-						{semesterOptions.map((option) => (
-							<option key={option.value} value={option.value}>
-								{option.label}
 							</option>
 						))}
 					</select>
@@ -329,20 +255,12 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 
 	const title = useMemo(() => 'Semester Report Template', []);
 
-	const isFirstSemester = reportFilters.semester === 'first';
-	const periodColumns = isFirstSemester
-		? [
-				{ key: 'first', label: '' },
-				{ key: 'second', label: '' },
-				{ key: 'third', label: '' },
-				{ key: 'third_period_exam', label: '' },
-			]
-		: [
-				{ key: 'fourth', label: '' },
-				{ key: 'fifth', label: '' },
-				{ key: 'sixth', label: '' },
-				{ key: 'six_period_exam', label: '' },
-			];
+	const periodColumns = [
+		{ key: 'first', label: '' },
+		{ key: 'second', label: '' },
+		{ key: 'third', label: '' },
+		{ key: 'third_period_exam', label: '' },
+	];
 	const reportHeading = ' ';
 
 	return (
@@ -359,21 +277,13 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 							const getGrade = (period: string, subject: string) =>
 								studentData.periods[period]?.find((s) => s.subject === subject)
 									?.grade ?? null;
-							const rankMap = isFirstSemester
-								? {
-										first: studentData.ranks.first,
-										second: studentData.ranks.second,
-										third: studentData.ranks.third,
-										third_period_exam: studentData.ranks.third_period_exam,
-										semester: studentData.ranks.firstSemesterAverage,
-									}
-								: {
-										fourth: studentData.ranks.fourth,
-										fifth: studentData.ranks.fifth,
-										sixth: studentData.ranks.sixth,
-										six_period_exam: studentData.ranks.six_period_exam,
-										semester: studentData.ranks.secondSemesterAverage,
-									};
+							const rankMap = {
+								first: studentData.ranks.first,
+								second: studentData.ranks.second,
+								third: studentData.ranks.third,
+								third_period_exam: studentData.ranks.third_period_exam,
+								semester: studentData.ranks.firstSemesterAverage,
+							};
 							return (
 								<View
 									key={`template-card-${pageIndex}-${cardIndex}`}
@@ -560,9 +470,7 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 										</View>
 
 										{classSubjects.map((subject) => {
-											const average = isFirstSemester
-												? studentData.firstSemesterAverage[subject]
-												: studentData.secondSemesterAverage[subject];
+											const average = studentData.firstSemesterAverage[subject];
 											return (
 												<View
 													key={subject}
@@ -648,9 +556,7 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 											})}
 											<Text
 												style={gradeStyle(
-													isFirstSemester
-														? studentData.periodAverages.firstSemesterAverage
-														: studentData.periodAverages.secondSemesterAverage,
+													studentData.periodAverages.firstSemesterAverage,
 													{
 														flex: 1,
 														padding: 2,
@@ -659,13 +565,9 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 													},
 												)}
 											>
-												{isFirstSemester
-													? (studentData.periodAverages.firstSemesterAverage?.toFixed(
-															1,
-														) ?? '')
-													: (studentData.periodAverages.secondSemesterAverage?.toFixed(
-															1,
-														) ?? '')}
+												{studentData.periodAverages.firstSemesterAverage?.toFixed(
+													1,
+												) ?? ''}
 											</Text>
 										</View>
 										<View
@@ -727,19 +629,12 @@ const SemesterReportDocument = React.memo(function SemesterReportDocument({
 });
 
 export default function SemesterTemplatePage() {
-	const schoolsList = useMemo(() => schools as any[], []);
+	const school = useSchoolStore((state) => state.school);
 	const [filters, setFilters] = useState<TemplateFilters>({
-		host: '',
 		session: '',
 		classLevel: '',
-		semester: '',
 	});
 	const [reportStep, setReportStep] = useState(0);
-
-	const school = useMemo(
-		() => schoolsList.find((entry) => entry.host === filters.host),
-		[schoolsList, filters.host],
-	);
 
 	const resolvedSession = useMemo(() => {
 		if (filters.session) return filters.session;
@@ -767,9 +662,9 @@ export default function SemesterTemplatePage() {
 			...BLANK_REPORT_FILTERS,
 			session: resolvedSession,
 			classLevel: filters.classLevel,
-			semester: (filters.semester || 'first') as ReportFilters['semester'],
+			semester: 'first',
 		}),
-		[resolvedSession, filters.classLevel, filters.semester],
+		[resolvedSession, filters.classLevel],
 	);
 
 	const pdfDocument = useMemo(() => {
@@ -790,16 +685,15 @@ export default function SemesterTemplatePage() {
 	const [pdfGenerating, setPdfGenerating] = useState(false);
 	const pdfUrlRef = useRef<string | null>(null);
 	const downloadFileName = useMemo(() => {
-		const schoolSlug = slugify(
-			school?.shortName || school?.host || filters.host || 'school',
+		const schoolSlug = slugify(school?.shortName || school?.host || 'school');
+		const sessionSlug = slugify(
+			resolvedSession || filters.session || 'session',
 		);
-		const sessionSlug = slugify(resolvedSession || filters.session || 'session');
 		const classLevelSlug = slugify(filters.classLevel || 'class_level');
 		return `${schoolSlug}_${sessionSlug}_${classLevelSlug}_semester_report.pdf`;
 	}, [
 		school?.shortName,
 		school?.host,
-		filters.host,
 		resolvedSession,
 		filters.session,
 		filters.classLevel,
@@ -880,10 +774,10 @@ export default function SemesterTemplatePage() {
 		setReportStep(0);
 	}, []);
 
-	if (filters.host && !school) {
+	if (!school) {
 		return (
 			<div className="p-6 text-sm text-muted-foreground">
-				No school found for domain: {filters.host}
+				No school data found in state.
 			</div>
 		);
 	}
@@ -892,7 +786,7 @@ export default function SemesterTemplatePage() {
 		<div className="p-4">
 			{reportStep === 0 ? (
 				<FilterContent
-					schoolsList={schoolsList}
+					school={school}
 					filters={filters}
 					setFilters={setFilters}
 					onSubmit={handleSubmitFilters}
