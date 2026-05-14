@@ -659,10 +659,10 @@ export const buildReportPage2Placements = ({
 	// Calibrated from page-2 text anchors in upstairs_senior_high_yearly_report.pdf.
 	// These are in BASE_PAGE coordinates and then scaled.
 	const PAGE2_RECTS = {
-		student_name: { x: 496.5, y: 336.0, width: 165, height: 20 },
-		class_name: { x: 496.5, y: 322.8, width: 165, height: 20 },
-		student_id: { x: 708.2, y: 336.0, width: 98, height: 20 },
-		academic_year: { x: 750.5, y: 322.8, width: 56, height: 20 },
+		student_name: { x: 505.5, y: 338.5, width: 165, height: 20 },
+		class_name: { x: 499.5, y: 308.8, width: 165, height: 20 },
+		student_id: { x: 675.2, y: 333.0, width: 98, height: 20 },
+		academic_year: { x: 738.5, y: 309.5, width: 56, height: 20 },
 	};
 
 	const studentNameRect = scaleRect(PAGE2_RECTS.student_name, scaleX, scaleY);
