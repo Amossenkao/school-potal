@@ -6,7 +6,6 @@ const styles = StyleSheet.create({
 		backgroundColor: '#ffffff',
 		margin: 0,
 		padding: 25,
-		// paddingBottom: 20,
 		fontSize: 12,
 	},
 
@@ -42,17 +41,21 @@ const styles = StyleSheet.create({
 		borderWidth: 1,
 		borderColor: '#000',
 		gap: 40,
+		borderTopRightRadius: 4,
+		borderTopLeftRadius: 4,
 	},
 
 	semester: {
 		flex: 1,
 		borderRight: 1,
 		borderRightColor: '#000',
+		borderTopLeftRadius: 4,
 	},
 
 	lastSemester: {
 		flex: 1,
 		borderLeft: 1,
+		borderTopRightRadius: 4,
 	},
 
 	semesterHeader: {

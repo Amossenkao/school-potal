@@ -8,7 +8,11 @@ import React, {
 } from 'react';
 import { Document, Page, Text, View, Image, pdf } from '@react-pdf/renderer';
 import styles from './styles';
-import schools from './schools.json';
+import { useSchoolStore } from '@/store/schoolStore';
+
+// ─────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────
 
 interface StudentYearlyReport {
 	studentId: string;
@@ -32,11 +36,233 @@ interface ReportFilters {
 }
 
 interface TemplateFilters {
-	host: string;
 	session: string;
 	classLevel: string;
-	className: string;
+	themeId: string;
 }
+
+interface ReportTheme {
+	id: string;
+	name: string;
+	emoji: string;
+	// Web UI preview
+	previewFrom: string;
+	previewTo: string;
+	previewText: string;
+	// PDF palette
+	headerBarBg: string;
+	headerBarText: string;
+	semesterHeaderBg: string;
+	semesterHeaderText: string;
+	tableHeaderBg: string;
+	tableHeaderText: string;
+	rowAltBg: string;
+	borderColor: string;
+	sectionTitleColor: string;
+	schoolNameColor: string;
+	accentColor: string;
+}
+
+// ─────────────────────────────────────────────
+// Theme Definitions
+// ─────────────────────────────────────────────
+
+const THEMES: ReportTheme[] = [
+	{
+		id: 'royalGold',
+		name: 'Royal Gold',
+		emoji: '👑',
+		previewFrom: '#1a1a4e',
+		previewTo: '#C5A028',
+		previewText: '#FFD700',
+		headerBarBg: '#1a1a4e',
+		headerBarText: '#FFD700',
+		semesterHeaderBg: '#2a2a6e',
+		semesterHeaderText: '#FFD700',
+		tableHeaderBg: '#1a1a4e',
+		tableHeaderText: '#FFD700',
+		rowAltBg: '#eeeef8',
+		borderColor: '#1a1a4e',
+		sectionTitleColor: '#1a1a4e',
+		schoolNameColor: '#1a1a4e',
+		accentColor: '#C5A028',
+	},
+	{
+		id: 'emeraldPrestige',
+		name: 'Emerald Prestige',
+		emoji: '💎',
+		previewFrom: '#0d4a2d',
+		previewTo: '#8fbc8f',
+		previewText: '#C5A028',
+		headerBarBg: '#0d4a2d',
+		headerBarText: '#C5A028',
+		semesterHeaderBg: '#1a6e42',
+		semesterHeaderText: '#ffffff',
+		tableHeaderBg: '#0d4a2d',
+		tableHeaderText: '#ffffff',
+		rowAltBg: '#e8f5ec',
+		borderColor: '#0d4a2d',
+		sectionTitleColor: '#0d4a2d',
+		schoolNameColor: '#0d4a2d',
+		accentColor: '#C5A028',
+	},
+	{
+		id: 'crimsonAcademy',
+		name: 'Crimson Academy',
+		emoji: '🎓',
+		previewFrom: '#7b0d1e',
+		previewTo: '#c84b4b',
+		previewText: '#f5e6c8',
+		headerBarBg: '#7b0d1e',
+		headerBarText: '#f5e6c8',
+		semesterHeaderBg: '#a01428',
+		semesterHeaderText: '#ffffff',
+		tableHeaderBg: '#7b0d1e',
+		tableHeaderText: '#ffffff',
+		rowAltBg: '#fdf0e8',
+		borderColor: '#7b0d1e',
+		sectionTitleColor: '#7b0d1e',
+		schoolNameColor: '#7b0d1e',
+		accentColor: '#c84b4b',
+	},
+	{
+		id: 'midnightSapphire',
+		name: 'Midnight Sapphire',
+		emoji: '🌌',
+		previewFrom: '#0f1c4d',
+		previewTo: '#3a5fcd',
+		previewText: '#c0d8ff',
+		headerBarBg: '#0f1c4d',
+		headerBarText: '#c0d8ff',
+		semesterHeaderBg: '#1e3a8a',
+		semesterHeaderText: '#ffffff',
+		tableHeaderBg: '#0f1c4d',
+		tableHeaderText: '#c0d8ff',
+		rowAltBg: '#e8ecf8',
+		borderColor: '#0f1c4d',
+		sectionTitleColor: '#1e3a8a',
+		schoolNameColor: '#0f1c4d',
+		accentColor: '#3a5fcd',
+	},
+	{
+		id: 'roseChampagne',
+		name: 'Rose Champagne',
+		emoji: '🌸',
+		previewFrom: '#8b3a52',
+		previewTo: '#e8a0b0',
+		previewText: '#f7e7ce',
+		headerBarBg: '#8b3a52',
+		headerBarText: '#f7e7ce',
+		semesterHeaderBg: '#b05070',
+		semesterHeaderText: '#ffffff',
+		tableHeaderBg: '#8b3a52',
+		tableHeaderText: '#f7e7ce',
+		rowAltBg: '#fdf0f5',
+		borderColor: '#8b3a52',
+		sectionTitleColor: '#8b3a52',
+		schoolNameColor: '#8b3a52',
+		accentColor: '#e8a0b0',
+	},
+	{
+		id: 'forestSage',
+		name: 'Forest Sage',
+		emoji: '🌿',
+		previewFrom: '#2d4a3e',
+		previewTo: '#7aaa8a',
+		previewText: '#e8f5e0',
+		headerBarBg: '#2d4a3e',
+		headerBarText: '#e8f5e0',
+		semesterHeaderBg: '#3d6b54',
+		semesterHeaderText: '#ffffff',
+		tableHeaderBg: '#2d4a3e',
+		tableHeaderText: '#e8f5e0',
+		rowAltBg: '#eef6f0',
+		borderColor: '#2d4a3e',
+		sectionTitleColor: '#2d4a3e',
+		schoolNameColor: '#2d4a3e',
+		accentColor: '#7aaa8a',
+	},
+	{
+		id: 'amberHarvest',
+		name: 'Amber Harvest',
+		emoji: '🍂',
+		previewFrom: '#7a3b00',
+		previewTo: '#e8a040',
+		previewText: '#fff8e8',
+		headerBarBg: '#7a3b00',
+		headerBarText: '#fff8e8',
+		semesterHeaderBg: '#a05010',
+		semesterHeaderText: '#ffffff',
+		tableHeaderBg: '#7a3b00',
+		tableHeaderText: '#fff8e8',
+		rowAltBg: '#fff8e8',
+		borderColor: '#7a3b00',
+		sectionTitleColor: '#7a3b00',
+		schoolNameColor: '#7a3b00',
+		accentColor: '#e8a040',
+	},
+	{
+		id: 'slateSteel',
+		name: 'Slate Steel',
+		emoji: '🔩',
+		previewFrom: '#2b3a4a',
+		previewTo: '#6b8fa8',
+		previewText: '#ddeeff',
+		headerBarBg: '#2b3a4a',
+		headerBarText: '#ddeeff',
+		semesterHeaderBg: '#3d5568',
+		semesterHeaderText: '#ffffff',
+		tableHeaderBg: '#2b3a4a',
+		tableHeaderText: '#ddeeff',
+		rowAltBg: '#edf2f7',
+		borderColor: '#2b3a4a',
+		sectionTitleColor: '#2b3a4a',
+		schoolNameColor: '#2b3a4a',
+		accentColor: '#6b8fa8',
+	},
+	{
+		id: 'violetDusk',
+		name: 'Violet Dusk',
+		emoji: '🌆',
+		previewFrom: '#3b1f6e',
+		previewTo: '#9b6bd4',
+		previewText: '#f0e6ff',
+		headerBarBg: '#3b1f6e',
+		headerBarText: '#f0e6ff',
+		semesterHeaderBg: '#5a3498',
+		semesterHeaderText: '#ffffff',
+		tableHeaderBg: '#3b1f6e',
+		tableHeaderText: '#f0e6ff',
+		rowAltBg: '#f3eeff',
+		borderColor: '#3b1f6e',
+		sectionTitleColor: '#3b1f6e',
+		schoolNameColor: '#3b1f6e',
+		accentColor: '#9b6bd4',
+	},
+	{
+		id: 'copperTeal',
+		name: 'Copper Teal',
+		emoji: '🦚',
+		previewFrom: '#0f4c4c',
+		previewTo: '#c87941',
+		previewText: '#e8f8f8',
+		headerBarBg: '#0f4c4c',
+		headerBarText: '#e8f8f8',
+		semesterHeaderBg: '#1a6e6e',
+		semesterHeaderText: '#ffffff',
+		tableHeaderBg: '#0f4c4c',
+		tableHeaderText: '#e8f8f8',
+		rowAltBg: '#e8f6f6',
+		borderColor: '#0f4c4c',
+		sectionTitleColor: '#0f4c4c',
+		schoolNameColor: '#0f4c4c',
+		accentColor: '#c87941',
+	},
+];
+
+// ─────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────
 
 const slugify = (value: string) =>
 	value
@@ -134,68 +360,177 @@ function gradeStyle(score: string | number | null) {
 	};
 }
 
-function ReportQRCode() {
-	return (
-		<View
-			style={{
-				width: '99%',
-				height: '99%',
-				borderWidth: 1,
-				borderColor: '#e2e8f0',
-				borderStyle: 'dashed',
-			}}
-		/>
-	);
-}
-
 const watermarkStyle = {
-	position: 'absolute',
+	position: 'absolute' as const,
 	opacity: 0.1,
 };
 
+// ─────────────────────────────────────────────
+// ThemedProgressReportHeader
+// A creatively styled component for the "PROGRESS REPORT" title block on Page 2.
+// Each theme gets its own distinct visual treatment.
+// ─────────────────────────────────────────────
+
+function ThemedProgressReportHeader({
+	theme,
+	classLevel,
+}: {
+	theme: ReportTheme;
+	classLevel: string;
+}) {
+	const label = `${(classLevel ?? '').toUpperCase()} PROGRESS REPORT`;
+	const cornerSize = 7;
+	const cornerThickness = 1.5;
+
+	return (
+		<View style={{ marginBottom: 10, alignItems: 'center' }}>
+			<View style={{ width: '90%' }}>
+				{/* Top-left bracket corner */}
+				<View style={{ position: 'absolute', top: 0, left: 0 }}>
+					<View
+						style={{
+							width: cornerSize,
+							height: cornerThickness,
+							backgroundColor: theme.accentColor,
+						}}
+					/>
+					<View
+						style={{
+							width: cornerThickness,
+							height: cornerSize,
+							backgroundColor: theme.accentColor,
+						}}
+					/>
+				</View>
+				{/* Top-right bracket corner */}
+				<View style={{ position: 'absolute', top: 0, right: 0 }}>
+					<View
+						style={{
+							width: cornerSize,
+							height: cornerThickness,
+							backgroundColor: theme.accentColor,
+						}}
+					/>
+					<View
+						style={{
+							width: cornerThickness,
+							height: cornerSize,
+							backgroundColor: theme.accentColor,
+							alignSelf: 'flex-end',
+						}}
+					/>
+				</View>
+
+				{/* Content */}
+				<View
+					style={{
+						paddingVertical: 8,
+						paddingHorizontal: 16,
+						backgroundColor: theme.headerBarBg,
+						marginHorizontal: 2,
+					}}
+				>
+					<Text
+						style={{
+							fontSize: 13,
+							fontWeight: 'bold',
+							color: theme.headerBarText,
+							letterSpacing: 2,
+							textAlign: 'center',
+						}}
+					>
+						{label}
+					</Text>
+				</View>
+
+				{/* Bottom-left bracket corner */}
+				<View style={{ position: 'absolute', bottom: 0, left: 0 }}>
+					<View
+						style={{
+							width: cornerThickness,
+							height: cornerSize,
+							backgroundColor: theme.accentColor,
+						}}
+					/>
+					<View
+						style={{
+							width: cornerSize,
+							height: cornerThickness,
+							backgroundColor: theme.accentColor,
+						}}
+					/>
+				</View>
+				{/* Bottom-right bracket corner */}
+				<View style={{ position: 'absolute', bottom: 0, right: 0 }}>
+					<View
+						style={{
+							width: cornerThickness,
+							height: cornerSize,
+							backgroundColor: theme.accentColor,
+							alignSelf: 'flex-end',
+						}}
+					/>
+					<View
+						style={{
+							width: cornerSize,
+							height: cornerThickness,
+							backgroundColor: theme.accentColor,
+						}}
+					/>
+				</View>
+			</View>
+		</View>
+	);
+}
+
+// ─────────────────────────────────────────────
+// PromotionStatement
+// ─────────────────────────────────────────────
+
+function PromotionStatement({ theme }: { theme: ReportTheme }) {
+	return (
+		<View style={{ marginBottom: 16 }}>
+			<Text
+				style={{
+					fontSize: 16,
+					fontWeight: 'bold',
+					textAlign: 'center',
+					color: theme.sectionTitleColor,
+					marginBottom: 12,
+					letterSpacing: 0.3,
+				}}
+			>
+				Promotion Statement
+			</Text>
+		</View>
+	);
+}
+
+// ─────────────────────────────────────────────
+// FilterContent
+// ─────────────────────────────────────────────
+
 const FilterContent = React.memo(function FilterContent({
-	schoolsList,
+	school,
 	filters,
 	setFilters,
 	onSubmit,
 }: {
-	schoolsList: any[];
+	school: any;
 	filters: TemplateFilters;
 	setFilters: React.Dispatch<React.SetStateAction<TemplateFilters>>;
 	onSubmit: () => void;
 }) {
-	const availableHosts = useMemo(
-		() => schoolsList.map((entry) => entry.host),
-		[schoolsList],
-	);
-	const selectedSchool = useMemo(
-		() => schoolsList.find((entry) => entry.host === filters.host),
-		[schoolsList, filters.host],
-	);
 	const availableSessions = useMemo(
-		() =>
-			selectedSchool?.classLevels
-				? Object.keys(selectedSchool.classLevels)
-				: [],
-		[selectedSchool],
+		() => (school?.classLevels ? Object.keys(school.classLevels) : []),
+		[school],
 	);
 	const hasMultipleSessions = availableSessions.length > 1;
 
-	useEffect(() => {
-		if (!filters.host && availableHosts.length === 1) {
-			setFilters((prev) => ({
-				...prev,
-				host: availableHosts[0],
-			}));
-		}
-	}, [availableHosts, filters.host, setFilters]);
-
+	// Auto-select when only one session
 	useEffect(() => {
 		if (!filters.session && availableSessions.length === 1) {
-			setFilters((prev) => ({
-				...prev,
-				session: availableSessions[0],
-			}));
+			setFilters((prev) => ({ ...prev, session: availableSessions[0] }));
 		}
 	}, [availableSessions, filters.session, setFilters]);
 
@@ -204,42 +539,21 @@ const FilterContent = React.memo(function FilterContent({
 		(availableSessions.length === 1 ? availableSessions[0] : '');
 
 	const availableGradeLevels = useMemo(() => {
-		if (!resolvedSession) return [];
-		const levels = selectedSchool?.classLevels?.[resolvedSession];
+		if (!resolvedSession || !school) return [];
+		const levels = school?.classLevels?.[resolvedSession];
 		return levels ? Object.keys(levels) : [];
-	}, [selectedSchool, resolvedSession]);
+	}, [school, resolvedSession]);
 
 	useEffect(() => {
 		if (!filters.classLevel && availableGradeLevels.length === 1) {
-			setFilters((prev) => ({
-				...prev,
-				classLevel: availableGradeLevels[0],
-			}));
+			setFilters((prev) => ({ ...prev, classLevel: availableGradeLevels[0] }));
 		}
 	}, [availableGradeLevels, filters.classLevel, setFilters]);
 
-	const availableClasses = useMemo(() => {
-		if (!resolvedSession || !filters.classLevel) return [];
-		const classes =
-			selectedSchool?.classLevels?.[resolvedSession]?.[filters.classLevel]
-				?.classes;
-		return Array.isArray(classes) ? classes : [];
-	}, [selectedSchool, resolvedSession, filters.classLevel]);
-
-	useEffect(() => {
-		if (!filters.className && availableClasses.length === 1) {
-			setFilters((prev) => ({
-				...prev,
-				className: availableClasses[0].classId,
-			}));
-		}
-	}, [availableClasses, filters.className, setFilters]);
-
 	const canSubmit = !!(
-		filters.host &&
 		resolvedSession &&
 		filters.classLevel &&
-		filters.className
+		filters.themeId
 	);
 
 	return (
@@ -249,30 +563,7 @@ const FilterContent = React.memo(function FilterContent({
 					Template Filters
 				</h2>
 
-				<div className="mb-4">
-					<label className="block text-sm font-medium mb-1">School Host</label>
-					<select
-						value={filters.host}
-						onChange={(e) =>
-							setFilters((prev) => ({
-								...prev,
-								host: e.target.value,
-								session: '',
-								classLevel: '',
-								className: '',
-							}))
-						}
-						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-					>
-						<option value="">Select Host</option>
-						{availableHosts.map((hostOption) => (
-							<option key={hostOption} value={hostOption}>
-								{hostOption}
-							</option>
-						))}
-					</select>
-				</div>
-
+				{/* Session (only shown when multiple exist) */}
 				{hasMultipleSessions && (
 					<div className="mb-4">
 						<label className="block text-sm font-medium mb-1">Session</label>
@@ -283,11 +574,9 @@ const FilterContent = React.memo(function FilterContent({
 									...prev,
 									session: e.target.value,
 									classLevel: '',
-									className: '',
 								}))
 							}
 							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-							disabled={!filters.host}
 						>
 							<option value="">Select Session</option>
 							{availableSessions.map((session) => (
@@ -299,16 +588,13 @@ const FilterContent = React.memo(function FilterContent({
 					</div>
 				)}
 
+				{/* Class Level */}
 				<div className="mb-4">
 					<label className="block text-sm font-medium mb-1">Class Level</label>
 					<select
 						value={filters.classLevel}
 						onChange={(e) =>
-							setFilters((prev) => ({
-								...prev,
-								classLevel: e.target.value,
-								className: '',
-							}))
+							setFilters((prev) => ({ ...prev, classLevel: e.target.value }))
 						}
 						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
 						disabled={!resolvedSession}
@@ -322,34 +608,40 @@ const FilterContent = React.memo(function FilterContent({
 					</select>
 				</div>
 
+				{/* Theme Selector */}
 				<div className="mb-4">
-					<label className="block text-sm font-medium mb-1">Class</label>
-					<select
-						value={filters.className}
-						onChange={(e) =>
-							setFilters((prev) => ({
-								...prev,
-								className: e.target.value,
-							}))
-						}
-						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-						disabled={!filters.classLevel}
-					>
-						<option value="">Select Class</option>
-						{availableClasses.map((classInfo: any) => (
-							<option key={classInfo.classId} value={classInfo.classId}>
-								{classInfo.name}
-							</option>
+					<label className="block text-sm font-medium mb-2">Theme</label>
+					<div className="grid grid-cols-4 gap-2">
+						{THEMES.map((theme) => (
+							<button
+								key={theme.id}
+								type="button"
+								onClick={() =>
+									setFilters((prev) => ({ ...prev, themeId: theme.id }))
+								}
+								className={`flex flex-col items-center gap-1 p-2 rounded border-2 transition-all text-xs font-medium ${
+									filters.themeId === theme.id
+										? 'border-primary ring-2 ring-primary/30 scale-105'
+										: 'border-transparent hover:border-muted-foreground'
+								}`}
+								style={{
+									background: `linear-gradient(135deg, ${theme.previewFrom}, ${theme.previewTo})`,
+									color: theme.previewText,
+								}}
+							>
+								<span className="text-lg leading-none">{theme.emoji}</span>
+								<span>{theme.name}</span>
+							</button>
 						))}
-					</select>
+					</div>
 				</div>
 
 				<div className="flex gap-2 mt-6">
 					<button
 						type="button"
 						onClick={onSubmit}
-						className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
 						disabled={!canSubmit}
+						className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
 					>
 						Generate Template
 					</button>
@@ -359,6 +651,10 @@ const FilterContent = React.memo(function FilterContent({
 	);
 });
 
+// ─────────────────────────────────────────────
+// PDFDocument
+// ─────────────────────────────────────────────
+
 const PDFDocument = React.memo(function PDFDocument({
 	studentsData,
 	className,
@@ -366,6 +662,7 @@ const PDFDocument = React.memo(function PDFDocument({
 	reportFilters,
 	school,
 	classSponsor,
+	activeTheme,
 }: {
 	studentsData: StudentYearlyReport[];
 	className: string;
@@ -373,22 +670,40 @@ const PDFDocument = React.memo(function PDFDocument({
 	reportFilters: ReportFilters;
 	school: any;
 	classSponsor: string | undefined;
+	activeTheme: ReportTheme;
 }) {
 	const sponsorToDisplay = useMemo(() => {
-		if (reportFilters.sponsorName.trim()) {
+		if (reportFilters.sponsorName.trim())
 			return reportFilters.sponsorName.trim();
-		}
-		if (classSponsor) {
-			return classSponsor;
-		}
+		if (classSponsor) return classSponsor;
 		return null;
 	}, [reportFilters.sponsorName, classSponsor]);
 
 	const classLabel = className ? className.split('-')[0] : '';
-	const schoolNameLower = school?.name ? school.name.toLowerCase() : '';
 	const schoolAddress = Array.isArray(school?.address)
 		? school.address.join('\n')
 		: '';
+
+	const accentLeft = {
+		borderLeftWidth: 3,
+		borderLeftColor: activeTheme.accentColor,
+		paddingLeft: 6,
+	};
+
+	const themedTHCell = {
+		...styles.tableCell,
+		color: activeTheme.tableHeaderText,
+		fontWeight: 'bold' as const,
+		fontSize: 9,
+		backgroundColor: activeTheme.tableHeaderBg,
+	};
+	const themedTHSubject = {
+		...styles.subjectCell,
+		backgroundColor: activeTheme.tableHeaderBg,
+		color: activeTheme.tableHeaderText,
+		fontWeight: 'bold' as const,
+		fontSize: 10,
+	};
 
 	return (
 		<Document title="Report Card Template">
@@ -407,11 +722,12 @@ const PDFDocument = React.memo(function PDFDocument({
 				};
 
 				return [
+					// ── Page 1: Grades ────────────────────────────
 					<Page
 						key={`${studentData.studentId}-grades`}
 						size="A4"
 						orientation="landscape"
-						style={styles.page}
+						style={{ ...styles.page, paddingTop: 5 }}
 					>
 						<View style={styles.topRow}>
 							<View style={styles.headerLeft}>
@@ -427,7 +743,9 @@ const PDFDocument = React.memo(function PDFDocument({
 								</Text>
 							</View>
 						</View>
+
 						<View style={styles.gradesContainer}>
+							{/* First Semester */}
 							<View style={styles.semester}>
 								{school?.logoUrl && (
 									<Image
@@ -440,14 +758,22 @@ const PDFDocument = React.memo(function PDFDocument({
 										}}
 									/>
 								)}
-								<Text style={styles.semesterHeader}>First Semester</Text>
+								<Text
+									style={{
+										...styles.semesterHeader,
+										backgroundColor: activeTheme.semesterHeaderBg,
+										color: activeTheme.semesterHeaderText,
+									}}
+								>
+									First Semester
+								</Text>
 								<View style={styles.tableHeader}>
-									<Text style={styles.subjectCell}>Subject</Text>
-									<Text style={styles.tableCell}>1st Period</Text>
-									<Text style={styles.tableCell}>2nd Period</Text>
-									<Text style={styles.tableCell}>3rd Period</Text>
-									<Text style={styles.tableCell}>Exam</Text>
-									<Text style={styles.tableCell}>Average</Text>
+									<Text style={themedTHSubject}>Subject</Text>
+									<Text style={themedTHCell}>1st Period</Text>
+									<Text style={themedTHCell}>2nd Period</Text>
+									<Text style={themedTHCell}>3rd Period</Text>
+									<Text style={themedTHCell}>Exam</Text>
+									<Text style={themedTHCell}>Average</Text>
 								</View>
 								{subjects.map((subject, index) => (
 									<View key={index} style={styles.tableRow}>
@@ -476,10 +802,11 @@ const PDFDocument = React.memo(function PDFDocument({
 										</Text>
 									</View>
 								))}
+								{/* Average row */}
 								<View
 									style={{
 										...styles.tableRow,
-										backgroundColor: '#f0f8ff',
+										backgroundColor: activeTheme.rowAltBg,
 									}}
 								>
 									<Text style={{ ...styles.subjectCell, fontWeight: 'bold' }}>
@@ -512,10 +839,11 @@ const PDFDocument = React.memo(function PDFDocument({
 										) ?? ''}
 									</Text>
 								</View>
+								{/* Rank row */}
 								<View
 									style={{
 										...styles.tableRow,
-										backgroundColor: '#f0f8ff',
+										backgroundColor: activeTheme.rowAltBg,
 									}}
 								>
 									<Text style={{ ...styles.subjectCell, fontWeight: 'bold' }}>
@@ -538,6 +866,8 @@ const PDFDocument = React.memo(function PDFDocument({
 									</Text>
 								</View>
 							</View>
+
+							{/* Second Semester */}
 							<View style={styles.lastSemester}>
 								{school?.logoUrl && (
 									<Image
@@ -550,14 +880,24 @@ const PDFDocument = React.memo(function PDFDocument({
 										}}
 									/>
 								)}
-								<Text style={styles.semesterHeader}>Second Semester</Text>
+								<Text
+									style={{
+										...styles.semesterHeader,
+										backgroundColor: activeTheme.semesterHeaderBg,
+										color: activeTheme.semesterHeaderText,
+									}}
+								>
+									Second Semester
+								</Text>
 								<View style={styles.tableHeader}>
-									<Text style={styles.tableCell}>4th Period</Text>
-									<Text style={styles.tableCell}>5th Period</Text>
-									<Text style={styles.tableCell}>6th Period</Text>
-									<Text style={styles.tableCell}>Exam</Text>
-									<Text style={styles.tableCell}>Average</Text>
-									<Text style={styles.lastCell}>Yearly Average</Text>
+									<Text style={{ ...themedTHCell, fontSize: 10 }}>
+										4th Period
+									</Text>
+									<Text style={themedTHCell}>5th Period</Text>
+									<Text style={themedTHCell}>6th Period</Text>
+									<Text style={themedTHCell}>Exam</Text>
+									<Text style={themedTHCell}>Average</Text>
+									<Text style={themedTHCell}>Yearly Ave</Text>
 								</View>
 								{subjects.map((subject, index) => (
 									<View key={index} style={styles.tableRow}>
@@ -588,10 +928,11 @@ const PDFDocument = React.memo(function PDFDocument({
 										</Text>
 									</View>
 								))}
+								{/* Average row */}
 								<View
 									style={{
 										...styles.tableRow,
-										backgroundColor: '#f0f8ff',
+										backgroundColor: activeTheme.rowAltBg,
 									}}
 								>
 									<Text style={gradeStyle(studentData.periodAverages.fourth)}>
@@ -624,10 +965,11 @@ const PDFDocument = React.memo(function PDFDocument({
 										{studentData.yearlyAverage?.toFixed(1) ?? ''}
 									</Text>
 								</View>
+								{/* Rank row */}
 								<View
 									style={{
 										...styles.tableRow,
-										backgroundColor: '#f0f8ff',
+										backgroundColor: activeTheme.rowAltBg,
 									}}
 								>
 									<Text style={styles.tableCell}>
@@ -651,12 +993,14 @@ const PDFDocument = React.memo(function PDFDocument({
 								</View>
 							</View>
 						</View>
+
+						{/* Bottom section */}
 						<View style={styles.bottomSection}>
 							<View style={styles.leftBottom}>
 								<View style={styles.gradingMethod}>
 									<View
 										style={{
-											backgroundColor: '#0f172a',
+											backgroundColor: activeTheme.headerBarBg,
 											borderRadius: 4,
 											paddingVertical: 3,
 											paddingHorizontal: 7,
@@ -666,7 +1010,7 @@ const PDFDocument = React.memo(function PDFDocument({
 										<Text
 											style={{
 												...styles.gradingTitle,
-												color: '#f8fafc',
+												color: activeTheme.semesterHeaderText,
 												marginBottom: 0,
 												letterSpacing: 0.6,
 											}}
@@ -681,104 +1025,46 @@ const PDFDocument = React.memo(function PDFDocument({
 										}}
 									>
 										<View style={{ flex: 1, marginRight: 4 }}>
-											<View
-												style={{
-													flexDirection: 'row',
-													alignItems: 'center',
-													borderWidth: 1,
-													borderColor: '#93c5fd',
-													backgroundColor: '#eff6ff',
-													borderRadius: 4,
-													paddingVertical: 2,
-													paddingHorizontal: 4,
-													marginBottom: 2,
-												}}
-											>
-												<Text
+											{[
+												{ grade: 'A', label: '90 - 100 Excellent' },
+												{ grade: 'B', label: '80 - 89 Very Good' },
+												{ grade: 'C', label: '75 - 79 Good' },
+											].map(({ grade, label }) => (
+												<View
+													key={grade}
 													style={{
-														fontSize: 10,
-														fontWeight: 'bold',
-														color: '#1d4ed8',
-														marginRight: 5,
+														flexDirection: 'row',
+														alignItems: 'center',
+														borderWidth: 1,
+														borderColor: '#93c5fd',
+														backgroundColor: '#eff6ff',
+														borderRadius: 4,
+														paddingVertical: 2,
+														paddingHorizontal: 4,
+														marginBottom: 2,
 													}}
 												>
-													A
-												</Text>
-												<Text
-													style={{
-														...styles.gradingText,
-														color: '#1d4ed8',
-														marginBottom: 0,
-													}}
-												>
-													90 - 100 Excellent
-												</Text>
-											</View>
-											<View
-												style={{
-													flexDirection: 'row',
-													alignItems: 'center',
-													borderWidth: 1,
-													borderColor: '#93c5fd',
-													backgroundColor: '#eff6ff',
-													borderRadius: 4,
-													paddingVertical: 2,
-													paddingHorizontal: 4,
-													marginBottom: 2,
-												}}
-											>
-												<Text
-													style={{
-														fontSize: 10,
-														fontWeight: 'bold',
-														color: '#1d4ed8',
-														marginRight: 5,
-													}}
-												>
-													B
-												</Text>
-												<Text
-													style={{
-														...styles.gradingText,
-														color: '#1d4ed8',
-														marginBottom: 0,
-													}}
-												>
-													80 - 89 Very Good
-												</Text>
-											</View>
-											<View
-												style={{
-													flexDirection: 'row',
-													alignItems: 'center',
-													borderWidth: 1,
-													borderColor: '#93c5fd',
-													backgroundColor: '#eff6ff',
-													borderRadius: 4,
-													paddingVertical: 2,
-													paddingHorizontal: 4,
-												}}
-											>
-												<Text
-													style={{
-														fontSize: 10,
-														fontWeight: 'bold',
-														color: '#1d4ed8',
-														marginRight: 5,
-													}}
-												>
-													C
-												</Text>
-												<Text
-													style={{
-														...styles.gradingText,
-														color: '#1d4ed8',
-														marginBottom: 0,
-													}}
-												>
-													75 - 79 Good
-												</Text>
-											</View>
+													<Text
+														style={{
+															fontSize: 10,
+															fontWeight: 'bold',
+															color: '#1d4ed8',
+															marginRight: 5,
+														}}
+													>
+														{grade}
+													</Text>
+													<Text
+														style={{
+															...styles.gradingText,
+															color: '#1d4ed8',
+															marginBottom: 0,
+														}}
+													>
+														{label}
+													</Text>
+												</View>
+											))}
 										</View>
 										<View style={{ flex: 1, marginLeft: 4 }}>
 											<View
@@ -851,232 +1137,262 @@ const PDFDocument = React.memo(function PDFDocument({
 								</View>
 							</View>
 							<View style={styles.rightBottom}>
-								<Text style={styles.promotionText}>
+								<Text
+									style={{
+										...styles.promotionText,
+										color: activeTheme.sectionTitleColor,
+										borderBottomWidth: 1,
+										borderBottomColor: activeTheme.accentColor,
+										paddingBottom: 4,
+									}}
+								>
 									Yearly Average below 70 will not be eligible for promotion.
 								</Text>
 								<View style={styles.signatureSection}>
-									<Text>Teacher's Remark: ____________________________</Text>
-									<View style={{ marginTop: 12, alignItems: 'center' }}>
-										<Text>Signed: ____________________________</Text>
-										{/* <Text style={{ marginTop: 3, paddingLeft: 60 }}>
-											{sponsorToDisplay ? `${sponsorToDisplay}, ` : ''}Class
-											Sponsor
-										</Text> */}
+									<Text>Teachers Remark: ____________________________</Text>
+									<View style={{ marginTop: 25, alignItems: 'center' }}>
+										<Text>Signed: _________________________</Text>
 									</View>
 								</View>
 							</View>
 						</View>
 					</Page>,
+
+					// ── Page 2: Info ──────────────────────────────
 					<Page
 						key={`${studentData.studentId}-info`}
 						size="A4"
 						orientation="landscape"
-						style={styles.page}
+						style={{ ...styles.page, backgroundColor: '#ffffff' }}
 					>
 						<View style={styles.pageTwoContainer}>
+							{/* ── LEFT PANEL ── */}
 							<View
 								style={{
 									flex: 1,
 									marginRight: 10,
-									borderWidth: 1,
-									borderColor: '#000',
-									padding: 10,
+									borderWidth: 2,
+									borderColor: activeTheme.borderColor,
+									borderRadius: 6,
+									padding: 12,
+									paddingTop: 17,
 									position: 'relative',
+									backgroundColor: '#ffffff',
+									overflow: 'hidden',
 								}}
 							>
-								{(school?.logoUrl2 || school?.logoUrl) && (
+								{school?.logoUrl2 || school?.logoUrl ? (
 									<Image
 										src={school?.logoUrl2 || school?.logoUrl}
 										style={{
 											...watermarkStyle,
 											width: '45%',
-											top: '40%',
+											top: '35%',
 											left: '25%',
 										}}
 									/>
-								)}
-								<Text style={styles.parentsSectionTitle}>
+								) : null}
+
+								<Text
+									style={{
+										...styles.parentsSectionTitle,
+										color: activeTheme.sectionTitleColor,
+										marginBottom: 6,
+									}}
+								>
 									TO OUR PARENTS & GUARDIANS
 								</Text>
 								<Text
 									style={{
-										fontSize: 10,
-										marginTop: 15,
+										fontSize: 9,
 										marginBottom: 12,
 										textAlign: 'justify',
-										lineHeight: 1.7,
+										lineHeight: 1.6,
 									}}
 								>
 									This report is provided periodically to help you monitor your
-									child’s progress. It highlights areas such as study habits and
+									child's progress. It highlights areas such as study habits and
 									attendance that may need improvement. Parent-teacher
-									conferences are encouraged to ensure your child’s continued
+									conferences are encouraged to ensure your child's continued
 									success.
 								</Text>
-								<Text
-									style={{
-										fontSize: 12,
-										fontWeight: 'bold',
-										marginBottom: 50,
-										textAlign: 'center',
-									}}
-								>
-									Promotion Statement
-								</Text>
-								<View style={{ height: 28 }} />
+
+								<PromotionStatement theme={activeTheme} />
+
 								<View
 									style={{
-										flexDirection: 'row',
-										justifyContent: 'space-between',
-										marginTop: 110,
+										position: 'absolute',
+										bottom: 14,
+										left: 12,
+										right: 12,
 									}}
 								>
-									<Text>Date: ____________________</Text>
-									<Text>Principal: __________________</Text>
-
 									<View
 										style={{
-											position: 'absolute',
-											left: 15,
-											top: 100,
-											textAlign: 'center',
-											width: '100%',
+											flexDirection: 'row',
+											justifyContent: 'space-between',
+											marginBottom: 10,
 										}}
 									>
-										<View
-											style={{
-												display: 'flex',
-												gap: 10,
-												justifyContent: 'center',
-												width: '100%',
-												fontSize: 12,
-											}}
-										>
-											<View
-												style={{
-													borderWidth: 1,
-													borderColor: '#000',
-													borderStyle: 'dashed',
-													borderRadius: 5,
-													width: 100,
-													height: 100,
-													marginTop: -30,
-												}}
-											>
-												<ReportQRCode />
-											</View>
-
-											<Text style={{ width: '100%', textAlign: 'left' }}>
-												Scan the QR Code to verify the authenticity of this
-												report.
-											</Text>
-										</View>
-									</View>
-								</View>
-							</View>
-							<View
-								style={{
-									flex: 1,
-									marginLeft: 10,
-									borderWidth: 1,
-									borderColor: '#000',
-									padding: 10,
-								}}
-							>
-								<View style={styles.schoolHeader}>
-									<Text style={styles.schoolName}>{school?.name}</Text>
-									<View>
-										<View
-											style={{
-												alignSelf: 'center',
-												marginBottom: 10,
-												justifyContent: 'center',
-												alignItems: 'center',
-												left: -145,
-												bottom: schoolNameLower.includes('kolleh') ? -10 : -18,
-											}}
-										>
-											<Image
-												src={school?.logoUrl2 || school?.logoUrl}
-												style={{ width: 60 }}
-											/>
-										</View>
-										<Text style={styles.schoolDetails}>{schoolAddress}</Text>
-										<View
-											style={{
-												alignSelf: 'center',
-												marginBottom: 10,
-												justifyContent: 'center',
-												alignItems: 'center',
-												top: -95,
-												right: -145,
-											}}
-										>
-											<Image src={school?.logoUrl} style={{ width: 60 }} />
-										</View>
-									</View>
-									<Text style={styles.reportTitle}>
-										{reportFilters.classLevel
-											? reportFilters.classLevel.toUpperCase()
-											: ''}{' '}
-										PROGRESS REPORT
-									</Text>
-								</View>
-								<View
-									style={{
-										flexDirection: 'row',
-										justifyContent: 'space-between',
-										marginBottom: 10,
-									}}
-								>
-									<View style={{ flexDirection: 'column' }}>
-										<Text>
-											Name:{' '}
-											<Text style={{ fontWeight: 'bold' }}>
-												{studentData.studentName}
-											</Text>
+										<Text style={{ fontSize: 9 }}>
+											Date: ____________________
 										</Text>
-										<Text>
-											Class:{' '}
-											<Text style={{ fontWeight: 'bold' }}>{classLabel}</Text>
+										<Text style={{ fontSize: 9 }}>
+											Principal: __________________
 										</Text>
 									</View>
 									<View
 										style={{
 											flexDirection: 'column',
 											alignItems: 'flex-start',
+											gap: 4,
+										}}
+									>
+										<View
+											style={{
+												borderWidth: 1,
+												borderColor: activeTheme.borderColor,
+												borderStyle: 'dashed',
+												borderRadius: 4,
+												width: 72,
+												height: 72,
+											}}
+										/>
+										<Text style={{ fontSize: 10, color: '#555' }}>
+											Scan to verify the authenticity of this report.
+										</Text>
+									</View>
+								</View>
+							</View>
+
+							{/* ── RIGHT PANEL ── */}
+							<View
+								style={{
+									flex: 1,
+									marginLeft: 10,
+									borderWidth: 2,
+									borderColor: activeTheme.borderColor,
+									borderRadius: 6,
+									padding: 12,
+									paddingTop: 17,
+									backgroundColor: '#ffffff',
+									overflow: 'hidden',
+								}}
+							>
+								{/* School name + logos — flex row: left logo | center text | right logo */}
+								<View
+									style={{
+										flexDirection: 'row',
+										alignItems: 'center',
+										marginBottom: 6,
+									}}
+								>
+									{/* Left logo */}
+									{school?.logoUrl2 || school?.logoUrl ? (
+										<Image
+											src={school?.logoUrl2 || school?.logoUrl}
+											style={{ width: 50, height: 50 }}
+										/>
+									) : (
+										<View style={{ width: 50, height: 50 }} />
+									)}
+
+									{/* Centered school name + address */}
+									<View
+										style={{
+											flex: 1,
+											alignItems: 'center',
+											paddingHorizontal: 4,
+										}}
+									>
+										<Text
+											style={{
+												...styles.schoolName,
+												color: activeTheme.schoolNameColor,
+												textAlign: 'center',
+												marginBottom: 2,
+											}}
+										>
+											{school?.name}
+										</Text>
+										<Text
+											style={{ ...styles.schoolDetails, textAlign: 'center' }}
+										>
+											{schoolAddress}
+										</Text>
+									</View>
+
+									{/* Right logo */}
+									{school?.logoUrl ? (
+										<Image
+											src={school?.logoUrl}
+											style={{ width: 50, height: 50 }}
+										/>
+									) : (
+										<View style={{ width: 50, height: 50 }} />
+									)}
+								</View>
+
+								{/* ── Themed Progress Report Header ── */}
+								<ThemedProgressReportHeader
+									theme={activeTheme}
+									classLevel={reportFilters.classLevel}
+								/>
+
+								{/* Student info box */}
+								<View
+									style={{
+										flexDirection: 'row',
+										justifyContent: 'space-between',
+										marginBottom: 5,
+										marginTop: 15,
+										paddingHorizontal: 10,
+										paddingVertical: 12,
+										backgroundColor: '#ffffff',
+										minHeight: 70,
+									}}
+								>
+									<View style={{ flexDirection: 'column', gap: 12 }}>
+										<Text style={{ fontSize: 11, color: '#000' }}>Name: </Text>
+										<Text style={{ fontSize: 11, color: '#000', marginTop: 5 }}>
+											'Class'
+										</Text>
+									</View>
+									<View
+										style={{
+											flexDirection: 'column',
+											gap: 12,
 											paddingRight: 55,
 										}}
 									>
-										<Text>
+										<Text style={{ fontSize: 11, color: '#000', marginTop: 5 }}>
 											ID:{' '}
 											<Text style={{ fontWeight: 'bold' }}>
 												{studentData.studentId}
 											</Text>
 										</Text>
-										<Text>
+										<Text style={{ fontSize: 11, color: '#000' }}>
 											Academic Year:{' '}
-											<Text style={{ fontWeight: 'bold' }}>
-												{reportFilters.academicYear}
-											</Text>
 										</Text>
 									</View>
 								</View>
+
+								{/* Parents section */}
 								<Text
 									style={{
-										fontSize: 12,
 										fontWeight: 'bold',
-										marginBottom: 10,
+										fontSize: 14,
+										color: activeTheme.sectionTitleColor,
 										textAlign: 'center',
-										marginTop: 15,
+										marginBottom: 4,
 									}}
 								>
 									PARENTS OR GUARDIANS
 								</Text>
 								<Text
 									style={{
-										fontSize: 10,
-										marginBottom: 12,
+										fontSize: 9,
+										marginBottom: 8,
 										textAlign: 'justify',
 										fontStyle: 'italic',
 									}}
@@ -1086,106 +1402,106 @@ const PDFDocument = React.memo(function PDFDocument({
 									son(s) or daughter(s) as this instrument could shape your
 									child's destiny.
 								</Text>
+
+								{/* Signature table */}
 								<View
 									style={{
 										borderWidth: 1,
-										borderColor: '#000',
+										borderColor: activeTheme.borderColor,
 										marginBottom: 6,
+										borderRadius: 4,
+										overflow: 'hidden',
 									}}
 								>
 									<View
 										style={{
 											flexDirection: 'row',
-											backgroundColor: '#f0f0f0',
-											fontSize: 14,
-											fontWeight: 'bold',
+											backgroundColor: activeTheme.tableHeaderBg,
 										}}
 									>
-										<Text
-											style={{
-												flex: 2,
-												padding: 3,
-												borderRight: 0.5,
-												borderRightColor: '#000',
-												textAlign: 'center',
-												fontSize: 8,
-											}}
-										>
-											Period
-										</Text>
-										<Text
-											style={{
-												flex: 3,
-												padding: 3,
-												borderRight: 0.5,
-												borderRightColor: '#000',
-												textAlign: 'center',
-												fontSize: 8,
-											}}
-										>
-											Class Teacher
-										</Text>
-										<Text
-											style={{
-												flex: 3,
-												padding: 3,
-												textAlign: 'center',
-												fontSize: 8,
-											}}
-										>
-											Parent/Guardian
-										</Text>
-									</View>
-									{['1st ', '2nd ', '3rd ', '4th ', '5th ', '6th '].map(
-										(row) => (
-											<View
-												key={row}
-												style={{ flexDirection: 'row', minHeight: 15 }}
-											>
+										{['Period', 'Class Teacher', 'Parent/Guardian'].map(
+											(hdr, i) => (
 												<Text
+													key={hdr}
 													style={{
-														flex: 2,
-														padding: 3,
-														borderRight: 0.5,
-														borderRightColor: '#000',
-														borderTop: 0.5,
-														borderTopColor: '#000',
+														flex: i === 0 ? 2 : 3,
+														padding: 4,
+														borderRight: i < 2 ? 0.5 : 0,
+														borderRightColor: activeTheme.borderColor,
 														textAlign: 'center',
-														fontSize: 10,
-														color: 'royalblue',
+														fontSize: 8,
+														color: activeTheme.tableHeaderText,
+														fontWeight: 'bold',
 													}}
 												>
-													{row} Period
+													{hdr}
 												</Text>
-												<Text
-													style={{
-														flex: 3,
-														padding: 3,
-														borderRight: 0.5,
-														borderRightColor: '#000',
-														borderTop: 0.5,
-														borderTopColor: '#000',
-													}}
-												></Text>
-												<Text
-													style={{
-														flex: 3,
-														padding: 3,
-														borderTop: 0.5,
-														borderTopColor: '#000',
-													}}
-												></Text>
-											</View>
-										),
-									)}
+											),
+										)}
+									</View>
+									{['1st', '2nd', '3rd', '4th', '5th', '6th'].map((row) => (
+										<View
+											key={row}
+											style={{
+												flexDirection: 'row',
+												minHeight: 14,
+												backgroundColor: '#ffffff',
+											}}
+										>
+											<Text
+												style={{
+													flex: 2,
+													padding: 3,
+													borderRight: 0.5,
+													borderRightColor: activeTheme.borderColor,
+													borderTop: 0.5,
+													borderTopColor: activeTheme.borderColor,
+													textAlign: 'center',
+													fontSize: 9,
+													color: activeTheme.sectionTitleColor,
+													fontWeight: 'bold',
+												}}
+											>
+												{row} Period
+											</Text>
+											<Text
+												style={{
+													flex: 3,
+													padding: 3,
+													borderRight: 0.5,
+													borderRightColor: activeTheme.borderColor,
+													borderTop: 0.5,
+													borderTopColor: activeTheme.borderColor,
+												}}
+											/>
+											<Text
+												style={{
+													flex: 3,
+													padding: 3,
+													borderTop: 0.5,
+													borderTopColor: activeTheme.borderColor,
+												}}
+											/>
+										</View>
+									))}
 								</View>
-								<View style={styles.noteSection}>
+
+								{/* Note */}
+								<View
+									style={{
+										...styles.noteSection,
+										...accentLeft,
+										backgroundColor: '#ffffff',
+										borderRadius: 4,
+										padding: 6,
+									}}
+								>
 									<Text
 										style={{
 											fontWeight: 'bold',
-											marginBottom: 5,
-											fontSize: 12,
-											textAlign: 'center',
+											marginBottom: 3,
+											fontSize: 10,
+											color: activeTheme.sectionTitleColor,
 										}}
 									>
 										Note:
@@ -1193,7 +1509,7 @@ const PDFDocument = React.memo(function PDFDocument({
 									<Text
 										style={{
 											textAlign: 'justify',
-											fontSize: 10,
+											fontSize: 9,
 											fontStyle: 'italic',
 										}}
 									>
@@ -1215,19 +1531,20 @@ const PDFDocument = React.memo(function PDFDocument({
 	);
 });
 
+// ─────────────────────────────────────────────
+// Page Component
+// ─────────────────────────────────────────────
+
 export default function ReportCardPage() {
-	const schoolsList = useMemo(() => schools as any[], []);
+	const school = useSchoolStore((state) => state.school);
+
 	const [filters, setFilters] = useState<TemplateFilters>({
-		host: '',
 		session: '',
 		classLevel: '',
-		className: '',
+		themeId: THEMES[0].id,
 	});
+
 	const [reportStep, setReportStep] = useState(0);
-	const school = useMemo(
-		() => schoolsList.find((entry) => entry.host === filters.host),
-		[schoolsList, filters.host],
-	);
 
 	const resolvedSession = useMemo(() => {
 		if (filters.session) return filters.session;
@@ -1235,12 +1552,18 @@ export default function ReportCardPage() {
 		return sessions.length === 1 ? sessions[0] : '';
 	}, [filters.session, school]);
 
+	const activeTheme = useMemo(
+		() => THEMES.find((t) => t.id === filters.themeId) ?? THEMES[0],
+		[filters.themeId],
+	);
+
 	const subjectCount = useMemo(() => {
 		if (!school) return 0;
 		const subjects =
 			school?.classLevels?.[resolvedSession]?.[filters.classLevel]?.subjects;
 		return Array.isArray(subjects) ? subjects.length : 0;
 	}, [school, resolvedSession, filters.classLevel]);
+
 	const subjectIds = useMemo(
 		() => buildSubjectIds(subjectCount),
 		[subjectCount],
@@ -1265,6 +1588,7 @@ export default function ReportCardPage() {
 				reportFilters={reportFilters}
 				school={school}
 				classSponsor={undefined}
+				activeTheme={activeTheme}
 			/>
 		);
 	}, [
@@ -1272,31 +1596,25 @@ export default function ReportCardPage() {
 		reportStep,
 		studentsData,
 		subjectIds,
-		filters.session,
+		resolvedSession,
 		filters.classLevel,
+		activeTheme,
 	]);
 
 	const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 	const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 	const [pdfGenerating, setPdfGenerating] = useState(false);
 	const pdfUrlRef = useRef<string | null>(null);
+
 	const downloadFileName = useMemo(() => {
-		const schoolSlug = slugify(
-			school?.shortName || school?.host || filters.host || 'school',
-		);
+		const schoolSlug = slugify(school?.shortName || school?.host || 'school');
 		const sessionSlug = slugify(
 			resolvedSession || filters.session || 'session',
 		);
 		const classLevelSlug = slugify(filters.classLevel || 'class_level');
-		return `${schoolSlug}_${sessionSlug}_${classLevelSlug}_yearly_report.pdf`;
-	}, [
-		school?.shortName,
-		school?.host,
-		filters.host,
-		resolvedSession,
-		filters.session,
-		filters.classLevel,
-	]);
+		const themeSlug = slugify(activeTheme.name);
+		return `${schoolSlug}_${sessionSlug}_${classLevelSlug}_${themeSlug}_yearly_report.pdf`;
+	}, [school, filters, resolvedSession, activeTheme]);
 
 	useEffect(() => {
 		if (!pdfDocument) {
@@ -1319,9 +1637,7 @@ export default function ReportCardPage() {
 			.toBlob()
 			.then((blob) => {
 				if (cancelled) return;
-				if (pdfUrlRef.current) {
-					URL.revokeObjectURL(pdfUrlRef.current);
-				}
+				if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
 				const objectUrl = URL.createObjectURL(blob);
 				pdfUrlRef.current = objectUrl;
 				setDownloadUrl(objectUrl);
@@ -1365,18 +1681,13 @@ export default function ReportCardPage() {
 		a.remove();
 	}, [downloadUrl, downloadFileName]);
 
-	const handleSubmitFilters = useCallback(() => {
-		setReportStep(1);
-	}, []);
+	const handleSubmitFilters = useCallback(() => setReportStep(1), []);
+	const handleBackToFilters = useCallback(() => setReportStep(0), []);
 
-	const handleBackToFilters = useCallback(() => {
-		setReportStep(0);
-	}, []);
-
-	if (filters.host && !school) {
+	if (!school) {
 		return (
 			<div className="p-6 text-sm text-muted-foreground">
-				No school found for host: {filters.host}
+				No school data available. Please ensure a school is selected.
 			</div>
 		);
 	}
@@ -1385,7 +1696,7 @@ export default function ReportCardPage() {
 		<div className="p-4">
 			{reportStep === 0 ? (
 				<FilterContent
-					schoolsList={schoolsList}
+					school={school}
 					filters={filters}
 					setFilters={setFilters}
 					onSubmit={handleSubmitFilters}
@@ -1400,13 +1711,22 @@ export default function ReportCardPage() {
 						>
 							← Back to Filters
 						</button>
+						<span
+							className="text-xs px-3 py-1 rounded-full font-medium"
+							style={{
+								background: `linear-gradient(135deg, ${activeTheme.previewFrom}, ${activeTheme.previewTo})`,
+								color: activeTheme.previewText,
+							}}
+						>
+							{activeTheme.emoji} {activeTheme.name}
+						</span>
 						<button
 							type="button"
 							onClick={handleDownload}
-							className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm"
 							disabled={!downloadUrl || pdfGenerating}
+							className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 border border-primary text-sm disabled:opacity-50"
 						>
-							{pdfGenerating ? 'Generating PDF...' : 'Download Template'}
+							{pdfGenerating ? 'Generating PDF…' : 'Download Template'}
 						</button>
 					</div>
 					<div className="flex-1">
@@ -1419,7 +1739,7 @@ export default function ReportCardPage() {
 							/>
 						) : (
 							<div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-								Generating PDF...
+								Generating PDF…
 							</div>
 						)}
 					</div>

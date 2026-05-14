@@ -1,7 +1,7 @@
 import React from 'react';
 import { Document, Page, Text, View, Image, pdf } from '@react-pdf/renderer';
-import semesterStyles from '@/app/semester-template/styles';
-import yearlyStyles from '@/app/yearly-template/styles';
+import semesterStyles from '@/app/templates/semester/styles';
+import yearlyStyles from '@/app/templates/yearly/styles';
 
 type ReportTemplateType = 'yearly' | 'semester';
 
@@ -497,19 +497,19 @@ function YearlyTemplateDocument({
 				</View>
 				<View style={yearlyStyles.gradesContainer}>
 					<View style={yearlyStyles.semester}>
-							{school?.logoUrl && (
-								<Image
-									src={school.logoUrl}
-									style={
-										{
-											...watermarkStyle,
-											width: '40%',
-											top: '25%',
-											left: '35%',
-										} as any
-									}
-								/>
-							)}
+						{school?.logoUrl && (
+							<Image
+								src={school.logoUrl}
+								style={
+									{
+										...watermarkStyle,
+										width: '40%',
+										top: '25%',
+										left: '35%',
+									} as any
+								}
+							/>
+						)}
 						<Text style={yearlyStyles.semesterHeader}>First Semester</Text>
 						<View style={yearlyStyles.tableHeader}>
 							<Text style={yearlyStyles.subjectCell}>Subject</Text>
@@ -561,19 +561,19 @@ function YearlyTemplateDocument({
 						</View>
 					</View>
 					<View style={yearlyStyles.lastSemester}>
-							{school?.logoUrl && (
-								<Image
-									src={school.logoUrl}
-									style={
-										{
-											...watermarkStyle,
-											width: '40%',
-											top: '25%',
-											left: '25%',
-										} as any
-									}
-								/>
-							)}
+						{school?.logoUrl && (
+							<Image
+								src={school.logoUrl}
+								style={
+									{
+										...watermarkStyle,
+										width: '40%',
+										top: '25%',
+										left: '25%',
+									} as any
+								}
+							/>
+						)}
 						<Text style={yearlyStyles.semesterHeader}>Second Semester</Text>
 						<View style={yearlyStyles.tableHeader}>
 							<Text style={yearlyStyles.tableCell}>4th Period</Text>
@@ -621,77 +621,75 @@ function YearlyTemplateDocument({
 						</View>
 					</View>
 				</View>
-					<View style={yearlyStyles.bottomSection}>
-						<View style={yearlyStyles.leftBottom}>
-							<View style={yearlyStyles.gradingMethod}>
-								<Text style={yearlyStyles.gradingTitle}>METHOD OF GRADING</Text>
-								<View style={yearlyStyles.gradingColumns}>
-									<View style={yearlyStyles.gradingColumnLeft}>
-											<Text
-												style={[
-													yearlyStyles.gradingText,
-													yearlyStyles.gradingScaleA,
-												]}
-											>
-												<Text style={yearlyStyles.gradingLetter}>A </Text>
-												= 90 - 100 Excellent
-											</Text>
-											<Text
-												style={[
-													yearlyStyles.gradingText,
-													yearlyStyles.gradingScaleB,
-												]}
-											>
-												<Text style={yearlyStyles.gradingLetter}>B </Text>
-												= 80 - 89 Very Good
-											</Text>
-											<Text
-												style={[
-													yearlyStyles.gradingText,
-													yearlyStyles.gradingScaleC,
-												]}
-											>
-												<Text style={yearlyStyles.gradingLetter}>C </Text>
-												= 75 - 79 Good
-											</Text>
-										</View>
-										<View style={yearlyStyles.gradingColumn}>
-											<Text
-												style={[
-													yearlyStyles.gradingText,
-													yearlyStyles.gradingScaleD,
-												]}
-											>
-												<Text style={yearlyStyles.gradingLetter}>D </Text>
-												= 70 - 74 Fair
-											</Text>
-											<Text
-												style={[
-													yearlyStyles.gradingText,
-													yearlyStyles.gradingScaleF,
-												]}
-											>
-												<Text style={yearlyStyles.gradingLetter}>F </Text>
-												= Below 70 Fail
-											</Text>
-									</View>
+				<View style={yearlyStyles.bottomSection}>
+					<View style={yearlyStyles.leftBottom}>
+						<View style={yearlyStyles.gradingMethod}>
+							<Text style={yearlyStyles.gradingTitle}>METHOD OF GRADING</Text>
+							<View style={yearlyStyles.gradingColumns}>
+								<View style={yearlyStyles.gradingColumnLeft}>
+									<Text
+										style={[
+											yearlyStyles.gradingText,
+											yearlyStyles.gradingScaleA,
+										]}
+									>
+										<Text style={yearlyStyles.gradingLetter}>A </Text>= 90 - 100
+										Excellent
+									</Text>
+									<Text
+										style={[
+											yearlyStyles.gradingText,
+											yearlyStyles.gradingScaleB,
+										]}
+									>
+										<Text style={yearlyStyles.gradingLetter}>B </Text>= 80 - 89
+										Very Good
+									</Text>
+									<Text
+										style={[
+											yearlyStyles.gradingText,
+											yearlyStyles.gradingScaleC,
+										]}
+									>
+										<Text style={yearlyStyles.gradingLetter}>C </Text>= 75 - 79
+										Good
+									</Text>
 								</View>
-							</View>
-						</View>
-						<View style={yearlyStyles.rightBottom}>
-							<Text style={yearlyStyles.promotionText}>
-								Yearly Average below 70 will not be eligible for promotion.
-							</Text>
-							<View style={yearlyStyles.signatureSection}>
-									<Text>Teachers Remark: ______________________</Text>
-									<View style={yearlyStyles.signatureInner}>
-										<Text>Signed: ____________________</Text>
-									<Text style={yearlyStyles.sponsorLabel}>
-										Class Sponsor
+								<View style={yearlyStyles.gradingColumn}>
+									<Text
+										style={[
+											yearlyStyles.gradingText,
+											yearlyStyles.gradingScaleD,
+										]}
+									>
+										<Text style={yearlyStyles.gradingLetter}>D </Text>= 70 - 74
+										Fair
+									</Text>
+									<Text
+										style={[
+											yearlyStyles.gradingText,
+											yearlyStyles.gradingScaleF,
+										]}
+									>
+										<Text style={yearlyStyles.gradingLetter}>F </Text>= Below 70
+										Fail
 									</Text>
 								</View>
 							</View>
 						</View>
+					</View>
+					<View style={yearlyStyles.rightBottom}>
+						<Text style={yearlyStyles.promotionText}>
+							Yearly Average below 70 will not be eligible for promotion.
+						</Text>
+						<View style={yearlyStyles.signatureSection}>
+							<Text>Teachers Remark: ______________________</Text>
+							<View style={yearlyStyles.signatureInner}>
+								<Text>Signed: ____________________</Text>
+								<Text style={yearlyStyles.sponsorLabel}>Class Sponsor</Text>
+							</View>
+						</View>
+					</View>
 				</View>
 			</Page>
 
@@ -712,19 +710,19 @@ function YearlyTemplateDocument({
 							position: 'relative',
 						}}
 					>
-							{(school?.logoUrl2 || school?.logoUrl) && (
-								<Image
-									src={school?.logoUrl2 || school?.logoUrl}
-									style={
-										{
-											...watermarkStyle,
-											width: '45%',
-											top: '40%',
-											left: '25%',
-										} as any
-									}
-								/>
-							)}
+						{(school?.logoUrl2 || school?.logoUrl) && (
+							<Image
+								src={school?.logoUrl2 || school?.logoUrl}
+								style={
+									{
+										...watermarkStyle,
+										width: '45%',
+										top: '40%',
+										left: '25%',
+									} as any
+								}
+							/>
+						)}
 						<Text style={yearlyStyles.parentsSectionTitle}>
 							TO OUR PARENTS & GUARDIANS
 						</Text>
@@ -1008,8 +1006,8 @@ function YearlyTemplateDocument({
 							>
 								When a student mark is 69 or below in any subject the parent or
 								guardian should give special attention to see that the student
-								does well in all the work required by the teacher, otherwise
-								the student will probably{' '}
+								does well in all the work required by the teacher, otherwise the
+								student will probably{' '}
 								<Text style={{ fontWeight: 'bold' }}>REPEAT THE CLASS.</Text>
 							</Text>
 						</View>
