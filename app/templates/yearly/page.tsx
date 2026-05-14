@@ -383,10 +383,10 @@ function ThemedProgressReportHeader({
 	const cornerThickness = 1.5;
 
 	return (
-		<View style={{ marginBottom: 10, alignItems: 'center' }}>
+		<View style={{ marginBottom: 10, alignItems: 'center', marginTop: 30 }}>
 			<View style={{ width: '90%' }}>
 				{/* Top-left bracket corner */}
-				<View style={{ position: 'absolute', top: 0, left: 0 }}>
+				<View style={{ position: 'absolute', left: 0 }}>
 					<View
 						style={{
 							width: cornerSize,
@@ -1279,68 +1279,59 @@ const PDFDocument = React.memo(function PDFDocument({
 									overflow: 'hidden',
 								}}
 							>
-								{/* School name + logos + progress report title — no box wrapper */}
-								<Text
-									style={{
-										...styles.schoolName,
-										color: activeTheme.schoolNameColor,
-										// left: '15%',
-										marginBottom: 10,
-										textAlign: 'center',
-									}}
-								>
-									{school?.name}
-								</Text>
-								<View>
+								{/* School header: logo | name+address | logo */}
+								{/* School header */}
+								<View style={{ alignItems: 'center', marginBottom: 6 }}>
+									{/* School name alone on its own line */}
+									<Text
+										style={{
+											...styles.schoolName,
+											color: activeTheme.schoolNameColor,
+											textAlign: 'center',
+											marginBottom: 4,
+											top: 0,
+										}}
+									>
+										{school?.name}
+									</Text>
+
+									{/* Logo 1 | Address | Logo 2 */}
 									<View
 										style={{
-											alignSelf: 'center',
-											marginBottom: 10,
-											justifyContent: 'center',
-											alignItems: 'center',
-											left: -145,
-											bottom: -18,
+											flexDirection: 'row',
+											alignItems: 'flex-start',
+											width: '105%',
+											justifyContent: 'space-between',
 										}}
 									>
 										<Image
 											src={school?.logoUrl2 || school?.logoUrl}
-											style={{ width: 60 }}
+											style={{ width: 60, height: 60 }}
+										/>
+										<view>
+											<Text
+												style={{
+													...styles.schoolDetails,
+													flex: 1,
+													textAlign: 'center',
+													top: 0,
+												}}
+											>
+												{schoolAddress}
+											</Text>
+										</view>
+										<Image
+											src={school?.logoUrl}
+											style={{ width: 60, height: 60 }}
 										/>
 									</View>
-									<Text
-										style={{ ...styles.schoolDetails, textAlign: 'center' }}
-									>
-										{schoolAddress}
-									</Text>
-									<View
-										style={{
-											alignSelf: 'center',
-											justifyContent: 'center',
-											alignItems: 'center',
-											top: -95,
-											right: -145,
-										}}
-									>
-										<Image src={school?.logoUrl} style={{ width: 60 }} />
-									</View>
 								</View>
-								<Text
-									style={{
-										...styles.reportTitle,
-										color: activeTheme.sectionTitleColor,
-										textAlign: 'center',
-										letterSpacing: 0.8,
-										fontWeight: 'bold',
-										marginBottom: 6,
-										// borderLeftWidth: 4,
-										// borderLeftColor: activeTheme.accentColor,
-										// paddingLeft: 8,
-										// ...accentLeft,
-									}}
-								>
-									{reportFilters.classLevel?.toUpperCase() ?? ''} PROGRESS
-									REPORT
-								</Text>
+
+								{/* Progress report title — pushed down */}
+								<ThemedProgressReportHeader
+									theme={activeTheme}
+									classLevel={reportFilters.classLevel ?? ''}
+								/>
 
 								{/* Student info box */}
 								<View
@@ -1365,7 +1356,7 @@ const PDFDocument = React.memo(function PDFDocument({
 												marginTop: 5,
 											}}
 										>
-											'Class'
+											Class:
 										</Text>
 									</View>
 									<View
