@@ -24,8 +24,6 @@ const STATIC_TEMPLATE_DEFAULTS: Record<ReportTemplateType, string[]> = {
 		'/upstairs_morning_elementary_yearly_report.pdf',
 		'/upstairs_morning_junior_high_yearly_report.pdf',
 		'/upstairs_morning_senior_high_yearly_report.pdf',
-		'/upstairs_morning_senior_high_yearly_report (1).pdf',
-		'/upstairs_morning_senior_high_yearly_report%20(1).pdf',
 	],
 	semester: [
 		'/upstairs_morning_elementary_semester_report.pdf',
@@ -214,9 +212,8 @@ const generateTemplateBytesFromFallback = async (
 			logoUrl2: normalizeLogo(request.school.logoUrl2),
 		},
 	};
-	const { generateDynamicTemplateBytes } = await import(
-		'@/utils/reportTemplateGenerator'
-	);
+	const { generateDynamicTemplateBytes } =
+		await import('@/utils/reportTemplateGenerator');
 	return generateDynamicTemplateBytes(safeRequest);
 };
 
@@ -240,9 +237,8 @@ export const loadReportTemplateBytes = async (
 
 	if (fallbackRequest) {
 		try {
-			const generatedBytes = await generateTemplateBytesFromFallback(
-				fallbackRequest,
-			);
+			const generatedBytes =
+				await generateTemplateBytesFromFallback(fallbackRequest);
 			await persistTemplateBytes(primaryUrl, generatedBytes);
 			return generatedBytes;
 		} catch (err) {
@@ -263,8 +259,9 @@ const collectSchoolTemplateRequests = (
 	const classLevels = (school as any)?.classLevels;
 	if (!classLevels || typeof classLevels !== 'object') return [];
 
-	const requests: Array<Pick<ReportTemplateFallbackRequest, 'session' | 'classLevel'>> =
-		[];
+	const requests: Array<
+		Pick<ReportTemplateFallbackRequest, 'session' | 'classLevel'>
+	> = [];
 	Object.entries(classLevels).forEach(([session, levels]) => {
 		if (!levels || typeof levels !== 'object') return;
 		Object.keys(levels as any).forEach((level) => {
@@ -282,7 +279,9 @@ const collectSchoolTemplateRequests = (
  * Intended to run while online right after login / dashboard open.
  */
 export const precacheReportTemplatesForSchool = async (
-	school: (ReportTemplateFallbackRequest['school'] & { classLevels?: any }) | null,
+	school:
+		| (ReportTemplateFallbackRequest['school'] & { classLevels?: any })
+		| null,
 	options?: {
 		reportTypes?: ReportTemplateType[];
 		concurrency?: number;
@@ -305,7 +304,9 @@ export const precacheReportTemplatesForSchool = async (
 	const name = normalizeString((school as any)?.name);
 	const logoUrl = normalizeString((school as any)?.logoUrl);
 	const logoUrl2 = normalizeString((school as any)?.logoUrl2);
-	const address = Array.isArray((school as any)?.address) ? (school as any)?.address : [];
+	const address = Array.isArray((school as any)?.address)
+		? (school as any)?.address
+		: [];
 
 	const levelPairs = collectSchoolTemplateRequests(school);
 	const tasks: Array<() => Promise<void>> = [];
@@ -314,13 +315,22 @@ export const precacheReportTemplatesForSchool = async (
 	reportTypes.forEach((reportType) => {
 		const builtInCandidates = STATIC_TEMPLATE_DEFAULTS[reportType] || [];
 		const seedUrls = Array.from(
-			new Set([DEFAULT_REPORT_TEMPLATE_URL, ...builtInCandidates].filter(Boolean)),
+			new Set(
+				[DEFAULT_REPORT_TEMPLATE_URL, ...builtInCandidates].filter(Boolean),
+			),
 		);
 		seedUrls.forEach((url) => {
 			tasks.push(async () => {
 				await loadReportTemplateBytes(url, [], {
 					reportType,
-					school: { shortName: schoolShortName, host, name, logoUrl, logoUrl2, address },
+					school: {
+						shortName: schoolShortName,
+						host,
+						name,
+						logoUrl,
+						logoUrl2,
+						address,
+					},
 					classSubjects: [''],
 				});
 			});
@@ -345,7 +355,14 @@ export const precacheReportTemplatesForSchool = async (
 				});
 				await loadReportTemplateBytes(primaryUrl, candidates, {
 					reportType,
-					school: { shortName: schoolShortName, host, name, logoUrl, logoUrl2, address },
+					school: {
+						shortName: schoolShortName,
+						host,
+						name,
+						logoUrl,
+						logoUrl2,
+						address,
+					},
 					session,
 					classLevel,
 					classSubjects: [''],
@@ -357,18 +374,18 @@ export const precacheReportTemplatesForSchool = async (
 
 	// Simple concurrency limiter (avoid spiking network/CPU on dashboard load).
 	const queue = [...tasks];
-	const workers = Array.from({ length: Math.min(concurrency, queue.length) }).map(
-		async () => {
-			while (queue.length) {
-				const next = queue.shift();
-				if (!next) return;
-				try {
-					await next();
-				} catch {
-					// Ignore pre-cache failures; runtime generation will still work when online.
-				}
+	const workers = Array.from({
+		length: Math.min(concurrency, queue.length),
+	}).map(async () => {
+		while (queue.length) {
+			const next = queue.shift();
+			if (!next) return;
+			try {
+				await next();
+			} catch {
+				// Ignore pre-cache failures; runtime generation will still work when online.
 			}
-		},
-	);
+		}
+	});
 	await Promise.allSettled(workers);
 };

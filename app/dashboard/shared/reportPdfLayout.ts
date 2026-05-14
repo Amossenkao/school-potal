@@ -33,13 +33,13 @@ const BASE_PAGE = {
 const HEADER_RECTS = {
 	student_name: {
 		x: 66.8988113,
-		y: 540.8097534,
+		y: 559.8097534,
 		width: 231.8035813,
 		height: 20,
 	},
-	class_name: { x: 67.8988113, y: 521.1, width: 150.9999924, height: 20 },
-	student_id: { x: 67.8988113, y: 502.5, width: 150.9999924, height: 20 },
-	academic_year: { x: 632.8154907, y: 500.7859497, width: 151, height: 20 },
+	class_name: { x: 67.8988113, y: 540.1, width: 150.9999924, height: 20 },
+	student_id: { x: 67.8988113, y: 521.5, width: 150.9999924, height: 20 },
+	academic_year: { x: 632.8154907, y: 521.7859497, width: 151, height: 20 },
 };
 
 const scaleRect = (
@@ -148,7 +148,7 @@ export const buildReportPlacements = ({
 	};
 
 	const tableLeft = 40 * scaleX;
-	const tableTop = 420 * scaleY;
+	const tableTop = 439 * scaleY;
 	const tableHeight = 240 * scaleY;
 	// Keep row height fixed across templates; only row count changes by subject list.
 	// Baseline is 13 subjects + 2 summary rows.
@@ -221,7 +221,7 @@ export const buildReportPlacements = ({
 					// Subject column in this template sits one row lower than other columns.
 					// Shift anchor up by exactly one row while keeping middle alignment.
 					// Add more lift to move it further toward the top.
-					y: rowTop + rowContentLift,
+					y: rowTop + rowContentLift - 2 * scaleY,
 					// Vertical centering happens via `valign: 'middle'` + `boxHeight`.
 					boxHeight: rowHeight,
 					valign: 'middle',
@@ -241,7 +241,7 @@ export const buildReportPlacements = ({
 						1.7 * colWidth +
 						(examAndAverageCols.has(col.key) ? examAndAverageRightNudge : 0),
 					// Match grade cells to subject row level.
-					y: rowTop + rowContentLift,
+					y: rowTop + rowContentLift - 2 * scaleY,
 					boxHeight: rowHeight,
 					valign: 'middle',
 					size: rowFontSize,
@@ -481,7 +481,11 @@ export const buildSemesterCardPlacements = ({
 		const row = String(index + 1).padStart(2, '0');
 		const y = rowStartY - index * rowHeight;
 		const rowTextY =
-			y + gradeRowLift + rowCenterNudgeDown + gradeValueNudgeDown + bodyTextNudgeUp;
+			y +
+			gradeRowLift +
+			rowCenterNudgeDown +
+			gradeValueNudgeDown +
+			bodyTextNudgeUp;
 		placements[`subject_${row}`] = {
 			x: columns.subject,
 			y:
@@ -741,9 +745,9 @@ export const buildReportPage2QrPlacement = ({
 
 	// QR area on page 2 (bottom-left block near "Scan the QR Code...").
 	return {
-		x: 55 * scaleX,
-		y: 62 * scaleY,
-		width: 90 * scaleX,
-		height: 94 * scaleY,
+		x: 42 * scaleX,
+		y: 59 * scaleY,
+		width: 65 * scaleX,
+		height: 68 * scaleY,
 	};
 };
