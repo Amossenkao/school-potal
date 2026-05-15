@@ -39,7 +39,10 @@ interface UserInfo {
 	phone?: string;
 	email?: string;
 	isActive?: boolean;
-	subjects?: { year: string; classes: { classId: string; subjects: string[] }[] }[];
+	subjects?: {
+		year: string;
+		classes: { classId: string; subjects: string[] }[];
+	}[];
 	sponsorClass?: string | null;
 }
 interface GradeMasterProps {
@@ -95,9 +98,11 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 }) => {
 	const userInfo = useAuth((state) => state.user);
 	const currentSchool = useSchoolStore((state) => state.school);
-	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
+	const usersByAcademicYear = useSchoolStore(
+		(state) => state.usersByAcademicYear,
+	);
 	const gradesByAcademicYear = useSchoolStore(
-		(state) => state.gradesByAcademicYear
+		(state) => state.gradesByAcademicYear,
 	);
 	const usersByAcademicYearRef = useRef(usersByAcademicYear);
 	const gradesByAcademicYearRef = useRef(gradesByAcademicYear);
@@ -121,7 +126,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 			for (const [level, levelData] of Object.entries(levels)) {
 				if (!levelData?.classes || !Array.isArray(levelData.classes)) continue;
 				const found = levelData.classes.find(
-					(cls: any) => cls.classId === classId
+					(cls: any) => cls.classId === classId,
 				);
 				if (found) return { ...found, session, level };
 			}
@@ -133,8 +138,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const getAllSessions = () =>
 		currentSchool?.classLevels ? Object.keys(currentSchool.classLevels) : [];
 	const getTeacherSessions = () => {
-		const yearData = (effectiveUser?.subjects || []).find(
-			(s) => areAcademicYearsEqual(s.year, selectedAcademicYear)
+		const yearData = (effectiveUser?.subjects || []).find((s) =>
+			areAcademicYearsEqual(s.year, selectedAcademicYear),
 		);
 		if (!yearData?.classes) return [];
 		const sessions = yearData.classes
@@ -148,8 +153,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		return Object.keys(currentSchool.classLevels[session]);
 	};
 	const getTeacherClassLevels = (session: string) => {
-		const yearData = (effectiveUser?.subjects || []).find(
-			(s) => areAcademicYearsEqual(s.year, selectedAcademicYear)
+		const yearData = (effectiveUser?.subjects || []).find((s) =>
+			areAcademicYearsEqual(s.year, selectedAcademicYear),
 		);
 		if (!yearData?.classes) return [];
 		const levels = yearData.classes
@@ -164,8 +169,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		return currentSchool?.classLevels?.[session]?.[level]?.classes || [];
 	};
 	const getTeacherClasses = (session: string, level: string) => {
-		const yearData = (effectiveUser?.subjects || []).find(
-			(s) => areAcademicYearsEqual(s.year, selectedAcademicYear)
+		const yearData = (effectiveUser?.subjects || []).find((s) =>
+			areAcademicYearsEqual(s.year, selectedAcademicYear),
 		);
 		if (!yearData?.classes) return [];
 		const classIds = yearData.classes
@@ -174,21 +179,19 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				const meta = getClassMetaById(id);
 				return meta?.session === session && meta?.level === level;
 			});
-		return classIds
-			.map((id) => getClassMetaById(id))
-			.filter(Boolean) as any[];
+		return classIds.map((id) => getClassMetaById(id)).filter(Boolean) as any[];
 	};
 
 	const getAllSubjects = (session: string, level: string) => {
 		return (
 			currentSchool?.classLevels?.[session]?.[level]?.subjects?.map(
-				(s: any) => s.name
+				(s: any) => s.name,
 			) || []
 		);
 	};
 	const getTeacherSubjects = (session: string, level: string) => {
-		const yearData = (effectiveUser?.subjects || []).find(
-			(s) => areAcademicYearsEqual(s.year, selectedAcademicYear)
+		const yearData = (effectiveUser?.subjects || []).find((s) =>
+			areAcademicYearsEqual(s.year, selectedAcademicYear),
 		);
 		if (!yearData?.classes) return [];
 		const subjects = new Set<string>();
@@ -211,7 +214,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const allowedAcademicYears = useMemo(
 		() =>
 			sortAcademicYearsDesc(
-				currentSchool?.settings?.teacherSettings?.viewMastersAcademicYears || [],
+				currentSchool?.settings?.teacherSettings?.viewMastersAcademicYears ||
+					[],
 			),
 		[currentSchool],
 	);
@@ -233,7 +237,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	}, [availableAcademicYears, schoolCurrentAcademicYear, effectiveUser?.role]);
 
 	const [selectedAcademicYear, setSelectedAcademicYear] = useState(
-		normalizeAcademicYear(defaultAcademicYear)
+		normalizeAcademicYear(defaultAcademicYear),
 	);
 	const [selectedSession, setSelectedSession] = useState('');
 	const [selectedLevel, setSelectedLevel] = useState('');
@@ -247,11 +251,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		return allowedAcademicYears.some((year) =>
 			areAcademicYearsEqual(year, selectedAcademicYear),
 		);
-	}, [
-		effectiveUser?.role,
-		selectedAcademicYear,
-		allowedAcademicYears,
-	]);
+	}, [effectiveUser?.role, selectedAcademicYear, allowedAcademicYears]);
 
 	// --- Available options for each filter (dynamic per role) ---
 	const sessions = useMemo(
@@ -259,7 +259,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 			effectiveUser?.role === 'system_admin'
 				? getAllSessions()
 				: getTeacherSessions(),
-		[effectiveUser, currentSchool, selectedAcademicYear]
+		[effectiveUser, currentSchool, selectedAcademicYear],
 	);
 	const classLevels = useMemo(() => {
 		if (!selectedSession) return [];
@@ -293,7 +293,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	]);
 
 	const isSelfContainedLevel =
-		String(selectedLevel || '').trim().toLowerCase() === 'self contained';
+		String(selectedLevel || '')
+			.trim()
+			.toLowerCase() === 'self contained';
 
 	const resolvedTeacher = useMemo(() => {
 		const classId =
@@ -317,9 +319,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 						(c: any) =>
 							c?.classId === classId &&
 							Array.isArray(c?.subjects) &&
-							c.subjects.includes(selectedSubject)
-					)
-			)
+							c.subjects.includes(selectedSubject),
+					),
+			),
 		);
 		return match || effectiveUser;
 	}, [
@@ -475,8 +477,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 						...student,
 						periods: Object.fromEntries(
 							Object.entries(student.periods || {}).map(
-								([key, value]: [string, any]) => [key, getGradeValue(value)]
-							)
+								([key, value]: [string, any]) => [key, getGradeValue(value)],
+							),
 						),
 					})),
 				})),
@@ -490,8 +492,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 						...student,
 						periods: Object.fromEntries(
 							Object.entries(student.periods || {}).map(
-								([key, value]: [string, any]) => [key, getGradeValue(value)]
-							)
+								([key, value]: [string, any]) => [key, getGradeValue(value)],
+							),
 						),
 					})),
 				})),
@@ -503,8 +505,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				...student,
 				periods: Object.fromEntries(
 					Object.entries(student.periods || {}).map(
-						([key, value]: [string, any]) => [key, getGradeValue(value)]
-					)
+						([key, value]: [string, any]) => [key, getGradeValue(value)],
+					),
 				),
 			})),
 		};
@@ -517,10 +519,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		allSubjectsData,
 	]);
 
-	const combineStudentsAndGrades = (
-		students: Student[],
-		grades: any[]
-	) => {
+	const combineStudentsAndGrades = (students: Student[], grades: any[]) => {
 		const gradesMap = new Map<string, Record<string, any>>();
 		if (Array.isArray(grades)) {
 			grades.forEach((grade) => {
@@ -543,7 +542,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		const yearEntry = Array.isArray(student?.academicYears)
 			? student.academicYears.find((ay: any) =>
 					areAcademicYearsEqual(ay?.year, academicYear),
-			  )
+				)
 			: null;
 		return (
 			yearEntry?.classId ||
@@ -555,7 +554,11 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 	const mapStudentRecord = (student: any): Student | null => {
 		const studentId =
-			student?.studentId || student?.id || student?._id || student?.username || '';
+			student?.studentId ||
+			student?.id ||
+			student?._id ||
+			student?.username ||
+			'';
 		if (!studentId) return null;
 		const studentName =
 			student?.studentName ||
@@ -581,15 +584,17 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		classId: string,
 	) => {
 		const usersByYear = usersByAcademicYearRef.current || {};
-		const scopedUsers = getScopedAcademicYearValue(usersByYear, normalizedYear)
-			.value;
+		const scopedUsers = getScopedAcademicYearValue(
+			usersByYear,
+			normalizedYear,
+		).value;
 		const cachedUsers = Array.isArray(scopedUsers?.students)
 			? scopedUsers.students
 			: [];
 		return cachedUsers
 			.filter(
 				(student: any) =>
-					getStudentClassIdForYear(student, normalizedYear) === classId
+					getStudentClassIdForYear(student, normalizedYear) === classId,
 			)
 			.map(mapStudentRecord)
 			.filter(Boolean) as Student[];
@@ -601,8 +606,10 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		subject: string,
 	) => {
 		const gradesByYear = gradesByAcademicYearRef.current || {};
-		const scopedGrades = getScopedAcademicYearValue(gradesByYear, normalizedYear)
-			.value;
+		const scopedGrades = getScopedAcademicYearValue(
+			gradesByYear,
+			normalizedYear,
+		).value;
 		const cachedGrades = Array.isArray(scopedGrades) ? scopedGrades : [];
 		return cachedGrades.filter(
 			(grade: any) =>
@@ -653,7 +660,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 					setLoading((prev) => ({ ...prev, students: true }));
 					const res = await fetch(
-						`/api/users?role=student&academicYear=${normalizedYear}&classId=${activeClassId}&limit=50000`
+						`/api/users?role=student&academicYear=${normalizedYear}&classId=${activeClassId}&limit=50000`,
 					);
 					if (!res.ok) {
 						throw new Error('Failed to fetch students');
@@ -746,7 +753,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 					setLoading((prev) => ({ ...prev, grades: true }));
 					const res = await fetch(
-						`/api/grades?academicYear=${normalizedYear}&classId=${activeClassId}&subject=${selectedSubject}`
+						`/api/grades?academicYear=${normalizedYear}&classId=${activeClassId}&subject=${selectedSubject}`,
 					);
 					if (!res.ok) {
 						throw new Error('Failed to fetch grades');
@@ -754,7 +761,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					const data = await res.json();
 					if (data.success) {
 						setGradesData(
-							Array.isArray(data.data?.grades) ? data.data.grades : []
+							Array.isArray(data.data?.grades) ? data.data.grades : [],
 						);
 					} else {
 						throw new Error('API returned unsuccessful response');
@@ -1022,7 +1029,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				.sort((a, b) =>
 					(a.studentName || '').localeCompare(b.studentName || '', undefined, {
 						sensitivity: 'base',
-					})
+					}),
 				);
 			setCombinedData(combined);
 		} else if (gradesData.length > 0) {
@@ -1033,18 +1040,21 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 						{
 							studentId: String(grade?.studentId || ''),
 							studentName: String(
-								grade?.studentName || grade?.studentId || 'Unknown Student'
+								grade?.studentName || grade?.studentId || 'Unknown Student',
 							),
 						},
 					]),
 				).values(),
 			).filter((student) => student.studentId) as Student[];
-			const combined = combineStudentsAndGrades(derivedStudents, gradesData || [])
+			const combined = combineStudentsAndGrades(
+				derivedStudents,
+				gradesData || [],
+			)
 				.slice()
 				.sort((a, b) =>
 					(a.studentName || '').localeCompare(b.studentName || '', undefined, {
 						sensitivity: 'base',
-					})
+					}),
 				);
 			setCombinedData(combined);
 		} else {
@@ -1065,7 +1075,6 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 			setPdfReady(false);
 		}
 	}, [selectedClass, selectedSubject, allClassesData]);
-
 
 	const getGradeColor = (grade: number | null) => {
 		if (grade == null) return 'text-muted-foreground';
@@ -1093,9 +1102,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				if (grade != null) {
 					total++;
 					sum += grade;
-					grade >= PASS_MARK
-						? passes++
-						: fails++;
+					grade >= PASS_MARK ? passes++ : fails++;
 				} else {
 					incompletes++;
 				}
@@ -1179,10 +1186,13 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 	// --- Filter visibility ---
 	const showAcademicYearFilter = availableAcademicYears.length > 1;
-	const showSessionFilter = isSelectedAcademicYearAllowed && sessions.length > 1;
-	const showLevelFilter = isSelectedAcademicYearAllowed && classLevels.length > 1;
+	const showSessionFilter =
+		isSelectedAcademicYearAllowed && sessions.length > 1;
+	const showLevelFilter =
+		isSelectedAcademicYearAllowed && classLevels.length > 1;
 	const showClassFilter = isSelectedAcademicYearAllowed && classes.length > 0;
-	const showSubjectFilter = isSelectedAcademicYearAllowed && subjects.length > 1;
+	const showSubjectFilter =
+		isSelectedAcademicYearAllowed && subjects.length > 1;
 
 	return (
 		<div className="space-y-6">
@@ -1430,8 +1440,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 								: classes.find((cls: any) => cls.classId === selectedClass)
 										?.name) ||
 								(studentsData.length > 0
-								? studentsData[0].studentName.split(' ').slice(0, 2).join(' ')
-								: selectedClass)}{' '}
+									? studentsData[0].studentName.split(' ').slice(0, 2).join(' ')
+									: selectedClass)}{' '}
 							-{' '}
 							{selectedSubject === ALL_SUBJECTS_VALUE
 								? subjects[activeSubjectIndex] || 'All Subjects'
@@ -1446,8 +1456,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 									className={
 										selectedClass === ALL_CLASSES_VALUE
 											? 'All Classes'
-											: classes.find((cls: any) => cls.classId === selectedClass)
-													?.name || selectedClass
+											: classes.find(
+													(cls: any) => cls.classId === selectedClass,
+												)?.name || selectedClass
 									}
 									classLevel={selectedLevel}
 									subject={
@@ -1541,7 +1552,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 																? statValue > 0
 																	? statValue.toFixed(1)
 																	: ''
-																: statValue ?? 0}
+																: (statValue ?? 0)}
 														</span>
 													</td>
 												);
