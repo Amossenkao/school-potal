@@ -150,8 +150,6 @@ export const buildReportPlacements = ({
 	const tableLeft = 40 * scaleX;
 	const tableTop = 439 * scaleY;
 	const tableHeight = 240 * scaleY;
-	// Keep row height fixed across templates; only row count changes by subject list.
-	// Baseline is 13 subjects + 2 summary rows.
 	const BASE_TOTAL_ROWS = 15;
 	const subjectRows = Math.max(subjectCount, 1);
 	const rowHeight = tableHeight / BASE_TOTAL_ROWS;
@@ -162,16 +160,10 @@ export const buildReportPlacements = ({
 		6 * scaleY,
 		Math.min(9 * scaleY, rowHeight - 4 * scaleY),
 	);
-	// Subject column style overrides (relative to other row cells).
 	const subjectRowFontSize = Math.min(10 * scaleY, rowFontSize + 0.25 * scaleY);
 	const subjectWidth = 180 * scaleX;
 	const colWidth = 50 * scaleX;
 
-	// Semester block spacing:
-	// first semester:  p1, p2, p3, exam1, avg1
-	// second semester: p4, p5, p6, exam2, avg2, year
-	// Normal inter-column distance is `colWidth`; this value is the special gap
-	// between `avg1` and `p4` to control semester gutter.
 	const semesterGutter = 0.75 * colWidth;
 	const firstSemesterStart = tableLeft + subjectWidth;
 	const secondSemesterStart =
@@ -216,31 +208,22 @@ export const buildReportPlacements = ({
 			const fieldKey = `${col.key}_${row}`;
 			if (col.key === 'subject') {
 				placements[fieldKey] = {
-					// Move subject text further left.
 					x: columns.subject - 10 * scaleX,
-					// Subject column in this template sits one row lower than other columns.
-					// Shift anchor up by exactly one row while keeping middle alignment.
-					// Add more lift to move it further toward the top.
 					y: rowTop + rowContentLift - 2 * scaleY,
-					// Vertical centering happens via `valign: 'middle'` + `boxHeight`.
 					boxHeight: rowHeight,
 					valign: 'middle',
 					size: subjectRowFontSize,
 					font: 'bold',
-					// Left-align subject labels with slight left padding on x.
 					align: col.align,
-					// Make subject text box even narrower.
 					maxWidth: col.width - 80 * scaleX,
 				};
 			} else {
 				placements[fieldKey] = {
-					// Shift grade cells left by slightly less than two columns.
 					x:
 						columns[col.key as keyof typeof columns] +
 						colWidth / 2 -
 						1.7 * colWidth +
 						(examAndAverageCols.has(col.key) ? examAndAverageRightNudge : 0),
-					// Match grade cells to subject row level.
 					y: rowTop + rowContentLift - 2 * scaleY,
 					boxHeight: rowHeight,
 					valign: 'middle',
@@ -258,13 +241,11 @@ export const buildReportPlacements = ({
 	const summaryRow = (rowTop: number, fieldMap: Record<string, string>) => {
 		Object.entries(fieldMap).forEach(([field, colKey]) => {
 			placements[field] = {
-				// Shift summary cells left by slightly less than two columns.
 				x:
 					columns[colKey as keyof typeof columns] +
 					colWidth / 2 -
 					1.7 * colWidth +
 					(examAndAverageCols.has(colKey) ? examAndAverageRightNudge : 0),
-				// Keep summary rows slightly higher than current position.
 				y: rowTop + summaryRowLift,
 				boxHeight: rowHeight,
 				valign: 'middle',
@@ -344,42 +325,31 @@ export const buildSemesterCardPlacements = ({
 }: BuildSemesterCardPlacementsArgs): TextPlacementMap => {
 	const placements: TextPlacementMap = {};
 	const rows = Math.max(subjectCount, 1);
-	// 15-subject templates are the calibrated baseline.
-	// For shorter/longer templates, shift the whole subject block so row 1
-	// starts on the correct printed line while keeping Average/Rank anchored.
+
 	const BASELINE_SUBJECT_ROWS = 15;
 	const rowHeight = 16;
 	const cellBoxHeight = rowHeight;
 	const summaryBoxHeight = rowHeight;
 	const rowStartY = 258 + (rows - BASELINE_SUBJECT_ROWS) * rowHeight;
-	// Shift header-to-table-heading overlay text down for better alignment.
-	const headerSectionShiftDown = 12;
-	const shiftDownY = (y: number) => y - headerSectionShiftDown;
-	// Fine-tune: keep subjects about two rows up, then nudge further down.
+
+	// FIX: Removed headerSectionShiftDown (was 12) — it was pushing all header
+	// placements (report title, student name/id/class, period headers) down by
+	// one row in PDF coordinates, causing visible misalignment.
 	const subjectRowLift = 2 * rowHeight - 1;
-	// Keep value rows on the same baseline as subject labels.
 	const gradeRowLift = subjectRowLift;
-	// Tiny vertical centering nudge for subject rows (labels + per-row grades).
 	const rowCenterNudgeDown = 0;
-	// Extra nudge for per-row grade values only.
 	const gradeValueNudgeDown = 1;
-	// Match subject label baseline to grade baseline.
 	const subjectLabelNudgeUp = gradeValueNudgeDown;
-	// In PDF coordinates, increasing Y moves text up.
-	// Apply an upward correction so body-row text sits in the middle
-	// of the template cells (not on the bottom border).
 	const bodyTextNudgeUp = 6;
-	// Lift summary value rows so they align with template's Average/Rank lines.
 	const avgYOffset = -2;
 	const rankGap = 12;
-	// Keep averages as-is, but move rank values slightly down for centering.
 	const rankYOffset = -1;
 
 	const shiftX = (x: number) => x + cardOffsetX;
 
 	placements.student_name = {
 		x: shiftX(58),
-		y: shiftDownY(pageHeight - 128),
+		y: pageHeight - 128, // FIX: was shiftDownY(pageHeight - 128)
 		size: 8,
 		align: 'left',
 		maxWidth: 110,
@@ -387,21 +357,21 @@ export const buildSemesterCardPlacements = ({
 	};
 	placements.student_id = {
 		x: shiftX(44),
-		y: shiftDownY(pageHeight - 138),
+		y: pageHeight - 138, // FIX: was shiftDownY(pageHeight - 138)
 		size: 8,
 		align: 'left',
 		maxWidth: 120,
 	};
 	placements.class_name = {
 		x: shiftX(206),
-		y: shiftDownY(pageHeight - 128),
+		y: pageHeight - 128, // FIX: was shiftDownY(pageHeight - 128)
 		size: 8,
 		align: 'left',
 		maxWidth: 78,
 	};
 	placements.academic_year = {
 		x: shiftX(242),
-		y: shiftDownY(pageHeight - 138),
+		y: pageHeight - 138, // FIX: was shiftDownY(pageHeight - 138)
 		size: 8,
 		align: 'left',
 		maxWidth: 45,
@@ -409,7 +379,7 @@ export const buildSemesterCardPlacements = ({
 	};
 	placements.report_title = {
 		x: shiftX(153.145),
-		y: shiftDownY(pageHeight - 100),
+		y: pageHeight - 100, // FIX: was shiftDownY(pageHeight - 100)
 		size: 9,
 		align: 'center',
 		maxWidth: 205,
@@ -431,7 +401,9 @@ export const buildSemesterCardPlacements = ({
 		avg2: shiftX(260),
 		year: shiftX(260),
 	};
-	const headerY = shiftDownY(pageHeight - 155);
+
+	// FIX: was shiftDownY(pageHeight - 155)
+	const headerY = pageHeight - 155;
 	placements.period_header_1 = {
 		x: columns.p1,
 		y: headerY,
@@ -605,8 +577,6 @@ export const buildSemesterCardPlacements = ({
 		};
 	}
 
-	// `rowStartY` is normalized above, so summary rows stay template-aligned
-	// across different subject-count variants (13 / 15 / 17 ...).
 	const avgY = rowStartY - rows * rowHeight + gradeRowLift + avgYOffset;
 	const rankY = avgY - rankGap + rankYOffset;
 	const summary = (field: string, x: number, y: number, bold = false) => {
@@ -656,8 +626,7 @@ export const buildReportPage2Placements = ({
 	const scaleY = pageHeight / BASE_PAGE.height;
 
 	const placements: TextPlacementMap = {};
-	// Calibrated from page-2 text anchors in upstairs_senior_high_yearly_report.pdf.
-	// These are in BASE_PAGE coordinates and then scaled.
+
 	const PAGE2_RECTS = {
 		student_name: { x: 505.5, y: 338.5, width: 165, height: 20 },
 		class_name: { x: 499.5, y: 308.8, width: 165, height: 20 },
@@ -689,7 +658,6 @@ export const buildReportPage2Placements = ({
 		font: 'bold',
 	});
 
-	// Optional page-2 fields (add values in field map when ready).
 	placements.page2_date = {
 		x: 67.416 * scaleX,
 		y: 226.696 * scaleY,
@@ -709,7 +677,6 @@ export const buildReportPage2Placements = ({
 		maxWidth: 120.096 * scaleX,
 	};
 
-	// Parent/guardian signature table on page 2.
 	const periodRowTop = [210.98, 193.48, 175.98, 158.48, 140.98, 123.48];
 	periodRowTop.forEach((rowTop, index) => {
 		const row = String(index + 1);
@@ -743,7 +710,6 @@ export const buildReportPage2QrPlacement = ({
 	const scaleX = pageWidth / BASE_PAGE.width;
 	const scaleY = pageHeight / BASE_PAGE.height;
 
-	// QR area on page 2 (bottom-left block near "Scan the QR Code...").
 	return {
 		x: 42 * scaleX,
 		y: 59 * scaleY,

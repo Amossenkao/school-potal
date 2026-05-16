@@ -1627,7 +1627,7 @@ const generateSemesterReportPdf = async ({
 		pageWidth: templatePage.getWidth(),
 		pageHeight: templatePage.getHeight(),
 		subjectCount: classSubjects.length,
-		cardOffsetX: 286.64,
+		cardOffsetX: templatePage.getWidth() / 2, // ✅ True midpoint of the page
 	});
 	const outDoc = await PDFDocument.create();
 
@@ -1649,6 +1649,19 @@ const generateSemesterReportPdf = async ({
 	}
 
 	return outDoc.save();
+};
+
+const fetchImageAsBase64 = async (url: string): Promise<string | null> => {
+	try {
+		const res = await fetch(url);
+		if (!res.ok) return null;
+		const buffer = await res.arrayBuffer();
+		const b64 = Buffer.from(buffer).toString('base64');
+		const contentType = res.headers.get('content-type') || 'image/png';
+		return `data:${contentType};base64,${b64}`;
+	} catch {
+		return null;
+	}
 };
 
 function ReportContent({
@@ -2301,14 +2314,28 @@ function ReportContent({
 			typeof navigator !== 'undefined' &&
 			/iPad|iPhone|iPod/.test(navigator.userAgent);
 
-		generateSemesterReportPdf({
-			studentsData,
-			className,
-			classSubjects,
-			reportFilters,
-			schoolShortName: school?.shortName,
-			school,
-		})
+		Promise.all([
+			school?.logoUrl
+				? fetchImageAsBase64(school.logoUrl)
+				: Promise.resolve(null),
+			school?.logoUrl2
+				? fetchImageAsBase64(school.logoUrl2)
+				: Promise.resolve(null),
+		])
+			.then(([logoUrl, logoUrl2]) =>
+				generateSemesterReportPdf({
+					studentsData,
+					className,
+					classSubjects,
+					reportFilters,
+					schoolShortName: school?.shortName,
+					school: {
+						...school,
+						logoUrl: logoUrl ?? undefined,
+						logoUrl2: logoUrl2 ?? undefined,
+					},
+				}),
+			)
 			.then((pdfBytes) => {
 				if (cancelled) return;
 				const blob = new Blob([pdfBytes], { type: 'application/pdf' });

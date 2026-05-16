@@ -1547,6 +1547,19 @@ const fillTemplateForStudent = async ({
 	return filledDoc;
 };
 
+const fetchImageAsBase64 = async (url: string): Promise<string | null> => {
+	try {
+		const res = await fetch(url);
+		if (!res.ok) return null;
+		const buffer = await res.arrayBuffer();
+		const b64 = Buffer.from(buffer).toString('base64');
+		const contentType = res.headers.get('content-type') || 'image/png';
+		return `data:${contentType};base64,${b64}`;
+	} catch {
+		return null;
+	}
+};
+
 const generateYearlyReportPdf = async ({
 	studentsData,
 	className,
@@ -2400,13 +2413,27 @@ function ReportContent({
 			typeof navigator !== 'undefined' &&
 			/iPad|iPhone|iPod/.test(navigator.userAgent);
 
-		generateYearlyReportPdf({
-			studentsData,
-			className,
-			classSubjects,
-			reportFilters,
-			school,
-		})
+		Promise.all([
+			school?.logoUrl
+				? fetchImageAsBase64(school.logoUrl)
+				: Promise.resolve(null),
+			school?.logoUrl2
+				? fetchImageAsBase64(school.logoUrl2)
+				: Promise.resolve(null),
+		])
+			.then(([logoUrl, logoUrl2]) =>
+				generateYearlyReportPdf({
+					studentsData,
+					className,
+					classSubjects,
+					reportFilters,
+					school: {
+						...school,
+						logoUrl: logoUrl ?? undefined,
+						logoUrl2: logoUrl2 ?? undefined,
+					},
+				}),
+			)
 			.then((pdfBytes) => {
 				if (cancelled) return;
 				const blob = new Blob([pdfBytes], { type: 'application/pdf' });

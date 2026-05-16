@@ -121,7 +121,10 @@ export const generateDynamicTemplateBytes = async (
 	const semester: SemesterKey = rawSemester === 'second' ? 'second' : 'first';
 	const blankStudent = buildBlankSemesterData(safeSubjects);
 	// Two placeholder cards so the template preview looks representative
-	const studentsData = [blankStudent];
+	const studentsData =
+		reportType === 'semester'
+			? [blankStudent, blankStudent] // ← needs 2 so both card regions render
+			: [blankStudent];
 	const activeTheme = resolveTheme(themeId);
 
 	const document =
