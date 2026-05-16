@@ -1,5 +1,4 @@
-'use client';
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Document, Page, Text, View, Image } from '@react-pdf/renderer';
 import styles from './styles';
 
@@ -55,15 +54,15 @@ export const SemesterReport = React.memo(function SemesterReportDocument({
 	reportFilters: ReportFilters;
 	school: any;
 }) {
-	const pages = useMemo(() => {
-		const chunks: StudentSemesterReport[][] = [];
-		for (let i = 0; i < studentsData.length; i += 2) {
-			chunks.push(studentsData.slice(i, i + 2));
-		}
-		return chunks;
-	}, [studentsData]);
+	// FIX 1: Removed 'use client' and useMemo — plain expressions are sufficient
+	// for static PDF rendering; there is no reactivity to maintain here.
+	const chunks: StudentSemesterReport[][] = [];
+	for (let i = 0; i < studentsData.length; i += 2) {
+		chunks.push(studentsData.slice(i, i + 2));
+	}
+	const pages = chunks;
 
-	const title = useMemo(() => 'Semester Report Template', []);
+	const title = 'Semester Report Template';
 
 	const periodColumns = [
 		{ key: 'first', label: '' },

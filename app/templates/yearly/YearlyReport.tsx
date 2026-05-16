@@ -1,5 +1,4 @@
-'use client';
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Document, Page, Text, View, Image } from '@react-pdf/renderer';
 import styles from './styles';
 
@@ -278,8 +277,6 @@ const watermarkStyle = {
 
 // ─────────────────────────────────────────────
 // ThemedProgressReportHeader
-// A creatively styled component for the "PROGRESS REPORT" title block on Page 2.
-// Each theme gets its own distinct visual treatment.
 // ─────────────────────────────────────────────
 
 function ThemedProgressReportHeader({
@@ -418,10 +415,6 @@ function PromotionStatement({ theme }: { theme: ReportTheme }) {
 }
 
 // ─────────────────────────────────────────────
-// FilterContent
-// ─────────────────────────────────────────────
-
-// ─────────────────────────────────────────────
 // PDFDocument
 // ─────────────────────────────────────────────
 
@@ -446,15 +439,8 @@ export const ReportCard = React.memo(function PDFDocument({
 	activeTheme: passedActiveTheme,
 	themeId,
 }: PDFDocumentProps) {
-	// Dynamically resolve theme if passed via themeId or fallback to activeTheme / default
 	const activeTheme =
 		passedActiveTheme || THEMES.find((t) => t.id === themeId) || THEMES[0];
-	const sponsorToDisplay = useMemo(() => {
-		if (reportFilters.sponsorName.trim())
-			return reportFilters.sponsorName.trim();
-		if (classSponsor) return classSponsor;
-		return null;
-	}, [reportFilters.sponsorName, classSponsor]);
 
 	const classLabel = className ? className.split('-')[0] : '';
 	const schoolAddress = Array.isArray(school?.address)
@@ -958,9 +944,10 @@ export const ReportCard = React.memo(function PDFDocument({
 									overflow: 'hidden',
 								}}
 							>
-								{school?.logoUrl2 || school?.logoUrl ? (
+								{/* FIX 3: null guard — only render watermark if a logo URL exists */}
+								{(school?.logoUrl2 || school?.logoUrl) && (
 									<Image
-										src={school?.logoUrl2 || school?.logoUrl}
+										src={school.logoUrl2 || school.logoUrl}
 										style={{
 											...watermarkStyle,
 											width: '45%',
@@ -968,7 +955,7 @@ export const ReportCard = React.memo(function PDFDocument({
 											left: '25%',
 										}}
 									/>
-								) : null}
+								)}
 
 								<Text
 									style={{
@@ -1056,10 +1043,9 @@ export const ReportCard = React.memo(function PDFDocument({
 									overflow: 'hidden',
 								}}
 							>
-								{/* School header: logo | name+address | logo */}
 								{/* School header */}
 								<View style={{ alignItems: 'center', marginBottom: 6 }}>
-									{/* School name alone on its own line */}
+									{/* School name */}
 									<Text
 										style={{
 											...styles.schoolName,
@@ -1081,30 +1067,38 @@ export const ReportCard = React.memo(function PDFDocument({
 											justifyContent: 'space-between',
 										}}
 									>
-										<Image
-											src={school?.logoUrl2 || school?.logoUrl}
-											style={{ width: 60, height: 60 }}
-										/>
-										<view>
+										{/* FIX 3: null guard on left logo */}
+										{(school?.logoUrl2 || school?.logoUrl) && (
+											<Image
+												src={school.logoUrl2 || school.logoUrl}
+												style={{ width: 60, height: 60 }}
+											/>
+										)}
+
+										{/* FIX 2: <view> → <View> */}
+										<View style={{ flex: 1 }}>
 											<Text
 												style={{
 													...styles.schoolDetails,
-													flex: 1,
 													textAlign: 'center',
 													top: 0,
 												}}
 											>
 												{schoolAddress}
 											</Text>
-										</view>
-										<Image
-											src={school?.logoUrl}
-											style={{ width: 60, height: 60 }}
-										/>
+										</View>
+
+										{/* FIX 3: null guard on right logo */}
+										{school?.logoUrl && (
+											<Image
+												src={school.logoUrl}
+												style={{ width: 60, height: 60 }}
+											/>
+										)}
 									</View>
 								</View>
 
-								{/* Progress report title — pushed down */}
+								{/* Progress report title */}
 								<ThemedProgressReportHeader
 									theme={activeTheme}
 									classLevel={reportFilters.classLevel ?? ''}
@@ -1117,7 +1111,6 @@ export const ReportCard = React.memo(function PDFDocument({
 										justifyContent: 'space-between',
 										marginBottom: 5,
 										marginTop: 15,
-
 										paddingHorizontal: 10,
 										paddingVertical: 12,
 										backgroundColor: '#ffffff',
@@ -1185,7 +1178,7 @@ export const ReportCard = React.memo(function PDFDocument({
 									child's destiny.
 								</Text>
 
-								{/* Signature table — all rows white */}
+								{/* Signature table */}
 								<View
 									style={{
 										borderWidth: 1,
@@ -1222,7 +1215,7 @@ export const ReportCard = React.memo(function PDFDocument({
 											),
 										)}
 									</View>
-									{/* Period rows — always white */}
+									{/* Period rows */}
 									{['1st', '2nd', '3rd', '4th', '5th', '6th'].map((row) => (
 										<View
 											key={row}
@@ -1270,7 +1263,7 @@ export const ReportCard = React.memo(function PDFDocument({
 									))}
 								</View>
 
-								{/* Note — white bg with accent left border */}
+								{/* Note */}
 								<View
 									style={{
 										...styles.noteSection,

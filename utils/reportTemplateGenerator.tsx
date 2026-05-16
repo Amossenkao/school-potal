@@ -121,7 +121,7 @@ export const generateDynamicTemplateBytes = async (
 	const semester: SemesterKey = rawSemester === 'second' ? 'second' : 'first';
 	const blankStudent = buildBlankSemesterData(safeSubjects);
 	// Two placeholder cards so the template preview looks representative
-	const studentsData = [blankStudent, blankStudent];
+	const studentsData = [blankStudent];
 	const activeTheme = resolveTheme(themeId);
 
 	const document =
@@ -136,7 +136,7 @@ export const generateDynamicTemplateBytes = async (
 		) : (
 			<ReportCard
 				studentsData={studentsData}
-				className={classLevel ?? ''}
+				className=""
 				classSubjects={safeSubjects}
 				reportFilters={buildReportFilters(semester)}
 				school={school}
@@ -145,7 +145,9 @@ export const generateDynamicTemplateBytes = async (
 				themeId={activeTheme.id}
 			/>
 		);
-
+	console.log('document element:', document);
+	console.log('SemesterReport:', SemesterReport);
+	console.log('ReportCard:', ReportCard);
 	const blob = await pdf(document).toBlob();
 	return blob.arrayBuffer();
 };
