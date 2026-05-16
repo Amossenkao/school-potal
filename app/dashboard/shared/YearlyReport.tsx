@@ -43,12 +43,7 @@ import {
 	buildReportPlacements,
 	type RectPlacement,
 } from '@/app/dashboard/shared/reportPdfLayout';
-import {
-	buildReportTemplateCandidates,
-	buildReportTemplateUrl,
-	DEFAULT_REPORT_TEMPLATE_URL,
-	loadReportTemplateBytes,
-} from '@/utils/reportTemplate';
+import { loadReportTemplateBytes } from '@/utils/reportTemplate';
 import { areGradeRowsEquivalent } from '@/utils/gradeRows';
 
 // --- Type Definitions ---
@@ -112,7 +107,7 @@ const getStudentClassIdForYear = (student: any, academicYear: string) => {
 	const yearEntry = Array.isArray(student?.academicYears)
 		? student.academicYears.find((ay: any) =>
 				areAcademicYearsEqual(ay.year, academicYear),
-		  )
+			)
 		: null;
 	if (yearEntry?.classId) return yearEntry.classId;
 
@@ -149,16 +144,11 @@ const normalizeStudentId = (...ids: Array<unknown>) => {
 };
 
 const buildStudentFullName = (student: any) =>
-	[
-		student?.firstName,
-		student?.middleName,
-		student?.lastName,
-	]
+	[student?.firstName, student?.middleName, student?.lastName]
 		.map((part) => (typeof part === 'string' ? part.trim() : ''))
 		.filter(Boolean)
-	.join(' ')
-	.trim() ||
-	(typeof student?.name === 'string' ? student.name.trim() : '');
+		.join(' ')
+		.trim() || (typeof student?.name === 'string' ? student.name.trim() : '');
 
 const mergeSubjectNames = (subjects: Array<unknown>) => {
 	const result: string[] = [];
@@ -184,7 +174,10 @@ const collectYearlyReportSubjects = (reports: any[]) => {
 				});
 			});
 		}
-		if (report?.firstSemesterAverage && typeof report.firstSemesterAverage === 'object') {
+		if (
+			report?.firstSemesterAverage &&
+			typeof report.firstSemesterAverage === 'object'
+		) {
 			subjects.push(...Object.keys(report.firstSemesterAverage));
 		}
 		if (
@@ -312,7 +305,9 @@ const buildReportsFromGradeRows = ({
 	};
 
 	const ensureSubject = (report: StudentYearlyReport, subject: string) => {
-		if (Object.prototype.hasOwnProperty.call(report.firstSemesterAverage, subject)) {
+		if (
+			Object.prototype.hasOwnProperty.call(report.firstSemesterAverage, subject)
+		) {
 			return;
 		}
 		REPORT_PERIOD_KEYS.forEach((periodKey) => {
@@ -348,42 +343,43 @@ const buildReportsFromGradeRows = ({
 		const subject = String(gradeRow?.subject || '').trim();
 		if (!subject) return;
 
-			const studentName =
-				typeof gradeRow?.studentName === 'string' ? gradeRow.studentName : '';
-			const report = ensureStudentReport(studentId, studentName);
-			ensureSubject(report, subject);
-			if (gradeRow?.ranks && typeof gradeRow.ranks === 'object') {
-				Object.entries(gradeRow.ranks).forEach(([rankKey, rankValue]) => {
-					if (!Object.prototype.hasOwnProperty.call(report.ranks, rankKey)) return;
-					const parsedRank = Number(rankValue);
-					if (!Number.isFinite(parsedRank) || parsedRank <= 0) return;
-					const currentRank = report.ranks[rankKey];
-					report.ranks[rankKey] =
-						typeof currentRank === 'number' && Number.isFinite(currentRank)
-							? Math.min(currentRank, parsedRank)
-							: parsedRank;
-				});
-			}
-			const periodRank = Number(gradeRow?.rank);
-			if (Number.isFinite(periodRank) && periodRank > 0) {
-				const currentRank = report.ranks[period];
-				report.ranks[period] =
+		const studentName =
+			typeof gradeRow?.studentName === 'string' ? gradeRow.studentName : '';
+		const report = ensureStudentReport(studentId, studentName);
+		ensureSubject(report, subject);
+		if (gradeRow?.ranks && typeof gradeRow.ranks === 'object') {
+			Object.entries(gradeRow.ranks).forEach(([rankKey, rankValue]) => {
+				if (!Object.prototype.hasOwnProperty.call(report.ranks, rankKey))
+					return;
+				const parsedRank = Number(rankValue);
+				if (!Number.isFinite(parsedRank) || parsedRank <= 0) return;
+				const currentRank = report.ranks[rankKey];
+				report.ranks[rankKey] =
 					typeof currentRank === 'number' && Number.isFinite(currentRank)
-						? Math.min(currentRank, periodRank)
-						: periodRank;
-			}
-			const yearlyRank = Number(gradeRow?.yearlyRank);
-			if (Number.isFinite(yearlyRank) && yearlyRank > 0) {
-				const currentRank = report.ranks.yearly;
-				report.ranks.yearly =
-					typeof currentRank === 'number' && Number.isFinite(currentRank)
-						? Math.min(currentRank, yearlyRank)
-						: yearlyRank;
-			}
+						? Math.min(currentRank, parsedRank)
+						: parsedRank;
+			});
+		}
+		const periodRank = Number(gradeRow?.rank);
+		if (Number.isFinite(periodRank) && periodRank > 0) {
+			const currentRank = report.ranks[period];
+			report.ranks[period] =
+				typeof currentRank === 'number' && Number.isFinite(currentRank)
+					? Math.min(currentRank, periodRank)
+					: periodRank;
+		}
+		const yearlyRank = Number(gradeRow?.yearlyRank);
+		if (Number.isFinite(yearlyRank) && yearlyRank > 0) {
+			const currentRank = report.ranks.yearly;
+			report.ranks.yearly =
+				typeof currentRank === 'number' && Number.isFinite(currentRank)
+					? Math.min(currentRank, yearlyRank)
+					: yearlyRank;
+		}
 
-			const subjectIndex = report.periods[period].findIndex(
-				(entry) => entry.subject === subject,
-			);
+		const subjectIndex = report.periods[period].findIndex(
+			(entry) => entry.subject === subject,
+		);
 		if (subjectIndex === -1) return;
 
 		const gradeValue =
@@ -397,8 +393,8 @@ const buildReportsFromGradeRows = ({
 		const subjects = Object.keys(report.firstSemesterAverage);
 		subjects.forEach((subject) => {
 			const getSubjectGrade = (period: ReportPeriodKey) =>
-				report.periods[period].find((entry) => entry.subject === subject)?.grade ??
-				null;
+				report.periods[period].find((entry) => entry.subject === subject)
+					?.grade ?? null;
 
 			report.firstSemesterAverage[subject] = averageNumbers([
 				getSubjectGrade('first'),
@@ -685,7 +681,7 @@ const FilterContent = React.memo(function FilterContent({
 		const yearEntry = Array.isArray(user.academicYears)
 			? user.academicYears.find((ay: any) =>
 					areAcademicYearsEqual(ay.year, filters.academicYear),
-			  )
+				)
 			: null;
 		const classIdForYear =
 			yearEntry?.classId ||
@@ -1208,14 +1204,16 @@ const FilterContent = React.memo(function FilterContent({
 const DEBUG_COORDS = process.env.NEXT_PUBLIC_PDF_DEBUG_COORDS === 'true';
 const OFFLINE_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 type LinkValidityOption = '1d' | '2d' | '3d' | '1w' | '1m';
-const LINK_VALIDITY_OPTIONS: Array<{ value: LinkValidityOption; label: string }> =
-	[
-		{ value: '1d', label: '1 day (Default)' },
-		{ value: '2d', label: '2 days' },
-		{ value: '3d', label: '3 days' },
-		{ value: '1w', label: '1 week' },
-		{ value: '1m', label: '1 month' },
-	];
+const LINK_VALIDITY_OPTIONS: Array<{
+	value: LinkValidityOption;
+	label: string;
+}> = [
+	{ value: '1d', label: '1 day (Default)' },
+	{ value: '2d', label: '2 days' },
+	{ value: '3d', label: '3 days' },
+	{ value: '1w', label: '1 week' },
+	{ value: '1m', label: '1 month' },
+];
 
 const padRowIndex = (index: number) => String(index + 1).padStart(2, '0');
 
@@ -1433,10 +1431,7 @@ const buildYearlyFieldMap = ({
 			studentData.secondSemesterAverage[subject],
 			1,
 		);
-		fields[`year_${row}`] = formatNumber(
-			getOverallSubjectAverage(subject),
-			1,
-		);
+		fields[`year_${row}`] = formatNumber(getOverallSubjectAverage(subject), 1);
 	});
 
 	fields.avg_p1 = formatNumber(studentData.periodAverages.first, 1);
@@ -1570,36 +1565,21 @@ const generateYearlyReportPdf = async ({
 		: typeof school?.name === 'string'
 			? school.name
 			: '';
-	const templateUrl = buildReportTemplateUrl({
-		schoolShortName: school?.shortName,
-		session: reportFilters.session,
-		classLevel: reportFilters.classLevel,
+
+	const templateBytes = await loadReportTemplateBytes({
 		reportType: 'yearly',
-	});
-	const templateCandidates = buildReportTemplateCandidates({
-		schoolShortName: school?.shortName,
-		session: reportFilters.session,
-		classLevel: reportFilters.classLevel,
-		reportType: 'yearly',
-	});
-	const templateBytes = await loadReportTemplateBytes(
-		templateUrl,
-		[...templateCandidates, DEFAULT_REPORT_TEMPLATE_URL],
-		{
-			reportType: 'yearly',
-			school: {
-				shortName: school?.shortName,
-				host: school?.host,
-				name: schoolName,
-				logoUrl: school?.logoUrl,
-				logoUrl2: school?.logoUrl2,
-				address: Array.isArray(school?.address) ? school.address : [],
-			},
-			session: reportFilters.session,
-			classLevel: reportFilters.classLevel,
-			classSubjects,
+		school: {
+			shortName: school?.shortName,
+			host: school?.host,
+			name: schoolName,
+			logoUrl: school?.logoUrl,
+			logoUrl2: school?.logoUrl2,
+			address: Array.isArray(school?.address) ? school.address : [],
 		},
-	);
+		session: reportFilters.session,
+		classLevel: reportFilters.classLevel,
+		classSubjects,
+	});
 	const templateDoc = await PDFDocument.load(templateBytes);
 	const [templatePage1, templatePage2] = templateDoc.getPages();
 	const page1Placements = buildReportPlacements({
@@ -1634,10 +1614,7 @@ const generateYearlyReportPdf = async ({
 				page2Qr: page2QrPlacement,
 			},
 		});
-		const pages = await outDoc.copyPages(
-			filledDoc,
-			filledDoc.getPageIndices(),
-		);
+		const pages = await outDoc.copyPages(filledDoc, filledDoc.getPageIndices());
 		pages.forEach((page) => outDoc.addPage(page));
 	}
 
@@ -1680,15 +1657,18 @@ function ReportContent({
 	const [resolvedSubjects, setResolvedSubjects] = useState<string[]>([]);
 	const resetCopiedTimeoutRef = useRef<number | null>(null);
 	const hasReportDataRef = useRef(false);
-	const showShareNotice = useCallback((message: string, timeoutMs = 4000) => {
-		setShareNotice(message);
-		if (resetCopiedTimeoutRef.current) {
-			window.clearTimeout(resetCopiedTimeoutRef.current);
-		}
-		resetCopiedTimeoutRef.current = window.setTimeout(() => {
-			setShareNotice('');
-		}, timeoutMs);
-	}, [setShareNotice]);
+	const showShareNotice = useCallback(
+		(message: string, timeoutMs = 4000) => {
+			setShareNotice(message);
+			if (resetCopiedTimeoutRef.current) {
+				window.clearTimeout(resetCopiedTimeoutRef.current);
+			}
+			resetCopiedTimeoutRef.current = window.setTimeout(() => {
+				setShareNotice('');
+			}, timeoutMs);
+		},
+		[setShareNotice],
+	);
 
 	const school = useSchoolStore((state) => state.school);
 	const currentSchool = useSchoolStore((state) => state.school);
@@ -1965,11 +1945,7 @@ function ReportContent({
 				if (isStudent && user) {
 					studentsToProcess = [
 						{
-							studentId: normalizeStudentId(
-								user.studentId,
-								user.id,
-								user._id,
-							),
+							studentId: normalizeStudentId(user.studentId, user.id, user._id),
 							firstName: user.firstName,
 							middleName: user.middleName,
 							lastName: user.lastName,
@@ -2006,67 +1982,67 @@ function ReportContent({
 							studentsToProcess = mapped;
 						}
 					}
-						if (studentsToProcess.length === 0) {
-							const cacheKey = `yearly:students:${reportFilters.academicYear}:${reportFilters.className}`;
-							const cached = getClientCache<any[]>(cacheKey);
-							if (cached) {
-								const mappedCached = cached.map((student: any) => ({
-									...student,
-									studentId: normalizeStudentId(
-										student.studentId,
-										student.id,
-										student._id,
-									),
-								}));
-								if (selectedStudentIds.length > 0) {
-									studentsToProcess = mappedCached.filter((student: any) =>
-										selectedStudentIds.includes(student.studentId),
-									);
-								} else {
-									studentsToProcess = mappedCached;
-								}
-							} else if (!offline) {
-								const studentsResponse = await fetch(
-									`/api/users?classId=${reportFilters.className}&role=student&academicYear=${reportFilters.academicYear}`,
+					if (studentsToProcess.length === 0) {
+						const cacheKey = `yearly:students:${reportFilters.academicYear}:${reportFilters.className}`;
+						const cached = getClientCache<any[]>(cacheKey);
+						if (cached) {
+							const mappedCached = cached.map((student: any) => ({
+								...student,
+								studentId: normalizeStudentId(
+									student.studentId,
+									student.id,
+									student._id,
+								),
+							}));
+							if (selectedStudentIds.length > 0) {
+								studentsToProcess = mappedCached.filter((student: any) =>
+									selectedStudentIds.includes(student.studentId),
 								);
-								if (!studentsResponse.ok)
-									throw new Error('Failed to fetch students');
-								const studentsResult = await studentsResponse.json();
-								if (!studentsResult.success || !studentsResult.data) {
-									throw new Error('Invalid student data format');
-								}
+							} else {
+								studentsToProcess = mappedCached;
+							}
+						} else if (!offline) {
+							const studentsResponse = await fetch(
+								`/api/users?classId=${reportFilters.className}&role=student&academicYear=${reportFilters.academicYear}`,
+							);
+							if (!studentsResponse.ok)
+								throw new Error('Failed to fetch students');
+							const studentsResult = await studentsResponse.json();
+							if (!studentsResult.success || !studentsResult.data) {
+								throw new Error('Invalid student data format');
+							}
 
-								setUsersForYear(
-									reportFilters.academicYear,
-									{
-										students: Array.isArray(studentsResult.data)
-											? studentsResult.data
-											: [],
-									},
-									{ merge: true },
+							setUsersForYear(
+								reportFilters.academicYear,
+								{
+									students: Array.isArray(studentsResult.data)
+										? studentsResult.data
+										: [],
+								},
+								{ merge: true },
+							);
+
+							const mapped = studentsResult.data.map((student: any) => ({
+								studentId: normalizeStudentId(
+									student.studentId,
+									student.id,
+									student._id,
+								),
+								firstName: student.firstName,
+								middleName: student.middleName,
+								lastName: student.lastName,
+							}));
+							setClientCache(cacheKey, mapped, OFFLINE_CACHE_TTL_MS);
+
+							if (selectedStudentIds.length > 0) {
+								studentsToProcess = mapped.filter((student: any) =>
+									selectedStudentIds.includes(student.studentId),
 								);
-
-								const mapped = studentsResult.data.map((student: any) => ({
-									studentId: normalizeStudentId(
-										student.studentId,
-										student.id,
-										student._id,
-									),
-									firstName: student.firstName,
-									middleName: student.middleName,
-									lastName: student.lastName,
-								}));
-								setClientCache(cacheKey, mapped, OFFLINE_CACHE_TTL_MS);
-
-								if (selectedStudentIds.length > 0) {
-									studentsToProcess = mapped.filter((student: any) =>
-										selectedStudentIds.includes(student.studentId),
-									);
-								} else {
-									studentsToProcess = mapped;
-								}
+							} else {
+								studentsToProcess = mapped;
 							}
 						}
+					}
 				}
 
 				const params = new URLSearchParams({
@@ -2084,53 +2060,53 @@ function ReportContent({
 					selectedStudentIds.length > 0
 						? [...selectedStudentIds].sort().join(',')
 						: 'all';
-					const gradesCacheKey = `${gradesCacheBaseKey}:${selectedIdsCacheKey}`;
-					const cachedGrades =
-						getClientCache<any>(gradesCacheKey) ??
-						getClientCache<any>(`${gradesCacheBaseKey}:all`);
-					const scopedGrades = getScopedAcademicYearValue(
-						gradesByAcademicYear,
+				const gradesCacheKey = `${gradesCacheBaseKey}:${selectedIdsCacheKey}`;
+				const cachedGrades =
+					getClientCache<any>(gradesCacheKey) ??
+					getClientCache<any>(`${gradesCacheBaseKey}:all`);
+				const scopedGrades = getScopedAcademicYearValue(
+					gradesByAcademicYear,
+					reportFilters.academicYear,
+				).value;
+				const hasScopedGradesVersion =
+					typeof getScopedAcademicYearValue(
+						gradesVersionByAcademicYear,
 						reportFilters.academicYear,
-					).value;
-					const hasScopedGradesVersion =
-						typeof getScopedAcademicYearValue(
-							gradesVersionByAcademicYear,
-							reportFilters.academicYear,
-						).value === 'string';
-					const canUseScopedGrades =
-						Array.isArray(scopedGrades) &&
-						scopedGrades.length > 0 &&
-						(offline || hasScopedGradesVersion);
+					).value === 'string';
+				const canUseScopedGrades =
+					Array.isArray(scopedGrades) &&
+					scopedGrades.length > 0 &&
+					(offline || hasScopedGradesVersion);
 
-					let gradesData: any = { success: true, data: { report: [] } };
+				let gradesData: any = { success: true, data: { report: [] } };
 
-					if (
-						canUseScopedGrades
-					) {
-						const selectedIdsSet =
-							selectedStudentIds.length > 0 ? new Set(selectedStudentIds) : null;
-						const filteredStoreGrades = scopedGrades.filter((grade: any) => {
-							const gradeYear = String(grade?.academicYear || '').trim();
-							const gradeStudentId = normalizeStudentId(grade?.studentId);
-							return (
-								grade?.classId === reportFilters.className &&
-								areAcademicYearsEqual(gradeYear, reportFilters.academicYear) &&
-								(!selectedIdsSet || selectedIdsSet.has(gradeStudentId))
-							);
-						});
-						gradesData = {
-							success: true,
-							data: { grades: filteredStoreGrades },
-						};
-					} else if (offline && cachedGrades) {
-						gradesData = cachedGrades;
-					} else if (offline && !cachedGrades) {
-						throw new Error(
-							'No cached grades found for offline yearly report generation.',
+				if (canUseScopedGrades) {
+					const selectedIdsSet =
+						selectedStudentIds.length > 0 ? new Set(selectedStudentIds) : null;
+					const filteredStoreGrades = scopedGrades.filter((grade: any) => {
+						const gradeYear = String(grade?.academicYear || '').trim();
+						const gradeStudentId = normalizeStudentId(grade?.studentId);
+						return (
+							grade?.classId === reportFilters.className &&
+							areAcademicYearsEqual(gradeYear, reportFilters.academicYear) &&
+							(!selectedIdsSet || selectedIdsSet.has(gradeStudentId))
 						);
+					});
+					gradesData = {
+						success: true,
+						data: { grades: filteredStoreGrades },
+					};
+				} else if (offline && cachedGrades) {
+					gradesData = cachedGrades;
+				} else if (offline && !cachedGrades) {
+					throw new Error(
+						'No cached grades found for offline yearly report generation.',
+					);
 				} else {
 					try {
-						const gradesResponse = await fetch(`/api/grades?${params.toString()}`);
+						const gradesResponse = await fetch(
+							`/api/grades?${params.toString()}`,
+						);
 						if (!gradesResponse.ok) {
 							let message = 'Failed to fetch grades';
 							try {
@@ -2140,27 +2116,27 @@ function ReportContent({
 								// Keep default error message if response body is unavailable.
 							}
 							throw new Error(message);
-							}
-							gradesData = await gradesResponse.json();
-							if (Array.isArray(gradesData?.data?.grades)) {
-								const existingScopedGrades = getScopedAcademicYearValue(
-									gradesByAcademicYear,
+						}
+						gradesData = await gradesResponse.json();
+						if (Array.isArray(gradesData?.data?.grades)) {
+							const existingScopedGrades = getScopedAcademicYearValue(
+								gradesByAcademicYear,
+								reportFilters.academicYear,
+							).value;
+							if (
+								!areGradeRowsEquivalent(
+									existingScopedGrades,
+									gradesData.data.grades,
+								)
+							) {
+								setGradesForYear(
 									reportFilters.academicYear,
-								).value;
-								if (
-									!areGradeRowsEquivalent(
-										existingScopedGrades,
-										gradesData.data.grades,
-									)
-								) {
-									setGradesForYear(
-										reportFilters.academicYear,
-										gradesData.data.grades,
-									);
-								}
+									gradesData.data.grades,
+								);
 							}
-							setClientCache(gradesCacheKey, gradesData, OFFLINE_CACHE_TTL_MS);
-							if (selectedIdsCacheKey === 'all') {
+						}
+						setClientCache(gradesCacheKey, gradesData, OFFLINE_CACHE_TTL_MS);
+						if (selectedIdsCacheKey === 'all') {
 							setClientCache(
 								`${gradesCacheBaseKey}:all`,
 								gradesData,
@@ -2184,13 +2160,13 @@ function ReportContent({
 					typeof gradesData.data.report === 'object'
 				) {
 					existingReports = [gradesData.data.report];
-					} else if (Array.isArray(gradesData.data?.grades)) {
-						existingReports = buildReportsFromGradeRows({
-							grades: gradesData.data.grades,
-							classSubjects: schoolSubjects,
-							studentsToProcess,
-						});
-					}
+				} else if (Array.isArray(gradesData.data?.grades)) {
+					existingReports = buildReportsFromGradeRows({
+						grades: gradesData.data.grades,
+						classSubjects: schoolSubjects,
+						studentsToProcess,
+					});
+				}
 				const fetchedSubjects = mergeSubjectNames([
 					...schoolSubjects,
 					...collectYearlyReportSubjects(existingReports),
@@ -2203,29 +2179,29 @@ function ReportContent({
 						: fetchedSubjects,
 				);
 
-					if (studentsToProcess.length === 0 && existingReports.length > 0) {
-						studentsToProcess = existingReports
-							.map((report: any) => {
-								const studentId = normalizeStudentId(
-									report?.studentId,
-									report?.id,
-									report?._id,
-								);
-								if (!studentId) return null;
-								const studentName =
-									typeof report?.studentName === 'string'
-										? report.studentName.trim()
-										: '';
-								return {
-									studentId,
-									name: studentName || studentId,
-									firstName: studentName || studentId,
-									middleName: '',
-									lastName: '',
-								};
-							})
-							.filter(Boolean) as any[];
-					}
+				if (studentsToProcess.length === 0 && existingReports.length > 0) {
+					studentsToProcess = existingReports
+						.map((report: any) => {
+							const studentId = normalizeStudentId(
+								report?.studentId,
+								report?.id,
+								report?._id,
+							);
+							if (!studentId) return null;
+							const studentName =
+								typeof report?.studentName === 'string'
+									? report.studentName.trim()
+									: '';
+							return {
+								studentId,
+								name: studentName || studentId,
+								firstName: studentName || studentId,
+								middleName: '',
+								lastName: '',
+							};
+						})
+						.filter(Boolean) as any[];
+				}
 
 				const reportData = await Promise.all(
 					studentsToProcess.map(async (student: any) => {
@@ -2237,11 +2213,8 @@ function ReportContent({
 						const studentName = buildStudentFullName(student);
 						const existingReport = existingReports.find(
 							(report: any) =>
-								normalizeStudentId(
-									report.studentId,
-									report.id,
-									report._id,
-								) === studentId,
+								normalizeStudentId(report.studentId, report.id, report._id) ===
+								studentId,
 						);
 
 						const qrPayload = buildReportVerificationPayload({
@@ -2252,8 +2225,7 @@ function ReportContent({
 							session: reportFilters.session,
 							schoolShortName: school?.shortName,
 						});
-						const qrCodeDataUrl =
-							await generateStudentQrCodeDataUrl(qrPayload);
+						const qrCodeDataUrl = await generateStudentQrCodeDataUrl(qrPayload);
 
 						const periods: Record<
 							string,
@@ -2459,9 +2431,9 @@ function ReportContent({
 				} else {
 					setPdfUrl(objectUrl);
 				}
-		})
+			})
 			.catch((err) => {
-				console.error('Failed to generate PDF blob', err);
+				console.error('Failed to generate PDF blob', err.message || err);
 				if (!cancelled) {
 					setPdfUrl(null);
 					setError(
@@ -2759,169 +2731,180 @@ function ReportContent({
 								<>
 									<div>
 										<p className="text-sm text-muted-foreground">
-											Expires on {new Date(shareInfo.expiresAt).toLocaleString()}.
+											Expires on{' '}
+											{new Date(shareInfo.expiresAt).toLocaleString()}.
 										</p>
 									</div>
 									<div className="rounded-lg border border-border bg-muted/40 p-3">
-								<p className="text-xs text-muted-foreground mb-1">Share Link</p>
-								<p className="text-sm break-all">{shareInfo.url}</p>
-								<button
-									type="button"
-									onClick={async () => {
-										try {
-											await navigator.clipboard.writeText(shareInfo.url);
-											setShareNotice('Link copied.');
-											setCopiedLink(true);
-											if (resetCopiedTimeoutRef.current) {
-												window.clearTimeout(resetCopiedTimeoutRef.current);
-											}
-											resetCopiedTimeoutRef.current = window.setTimeout(() => {
-												setCopiedLink(false);
-												setShareNotice('');
-											}, 2000);
-										} catch {
-											setShareNotice('Copy failed.');
-										}
-									}}
-									className="mt-2 px-3 py-1.5 text-xs rounded border border-border hover:bg-muted"
-								>
-									{copiedLink ? (
-										<span className="inline-flex items-center gap-1">
-											<span className="text-green-600">✓</span>
-											<span>Copied</span>
-										</span>
-									) : (
-										'Copy Link'
-									)}
-								</button>
+										<p className="text-xs text-muted-foreground mb-1">
+											Share Link
+										</p>
+										<p className="text-sm break-all">{shareInfo.url}</p>
+										<button
+											type="button"
+											onClick={async () => {
+												try {
+													await navigator.clipboard.writeText(shareInfo.url);
+													setShareNotice('Link copied.');
+													setCopiedLink(true);
+													if (resetCopiedTimeoutRef.current) {
+														window.clearTimeout(resetCopiedTimeoutRef.current);
+													}
+													resetCopiedTimeoutRef.current = window.setTimeout(
+														() => {
+															setCopiedLink(false);
+															setShareNotice('');
+														},
+														2000,
+													);
+												} catch {
+													setShareNotice('Copy failed.');
+												}
+											}}
+											className="mt-2 px-3 py-1.5 text-xs rounded border border-border hover:bg-muted"
+										>
+											{copiedLink ? (
+												<span className="inline-flex items-center gap-1">
+													<span className="text-green-600">✓</span>
+													<span>Copied</span>
+												</span>
+											) : (
+												'Copy Link'
+											)}
+										</button>
 									</div>
 									<div className="rounded-lg border border-border bg-muted/40 p-3">
-								<p className="text-xs text-muted-foreground mb-1">PIN</p>
-								<p className="text-2xl font-semibold tracking-widest">
-									{shareInfo.pin}
-								</p>
-								<button
-									type="button"
-									onClick={async () => {
-										try {
-											await navigator.clipboard.writeText(shareInfo.pin);
-											setShareNotice('PIN copied.');
-											setCopiedPin(true);
-											if (resetCopiedTimeoutRef.current) {
-												window.clearTimeout(resetCopiedTimeoutRef.current);
-											}
-											resetCopiedTimeoutRef.current = window.setTimeout(() => {
-												setCopiedPin(false);
-												setShareNotice('');
-											}, 2000);
-										} catch {
-											setShareNotice('Copy failed.');
-										}
-									}}
-									className="mt-2 px-3 py-1.5 text-xs rounded border border-border hover:bg-muted"
-								>
-									{copiedPin ? (
-										<span className="inline-flex items-center gap-1">
-											<span className="text-green-600">✓</span>
-											<span>Copied</span>
-										</span>
-									) : (
-										'Copy PIN'
-									)}
-								</button>
+										<p className="text-xs text-muted-foreground mb-1">PIN</p>
+										<p className="text-2xl font-semibold tracking-widest">
+											{shareInfo.pin}
+										</p>
+										<button
+											type="button"
+											onClick={async () => {
+												try {
+													await navigator.clipboard.writeText(shareInfo.pin);
+													setShareNotice('PIN copied.');
+													setCopiedPin(true);
+													if (resetCopiedTimeoutRef.current) {
+														window.clearTimeout(resetCopiedTimeoutRef.current);
+													}
+													resetCopiedTimeoutRef.current = window.setTimeout(
+														() => {
+															setCopiedPin(false);
+															setShareNotice('');
+														},
+														2000,
+													);
+												} catch {
+													setShareNotice('Copy failed.');
+												}
+											}}
+											className="mt-2 px-3 py-1.5 text-xs rounded border border-border hover:bg-muted"
+										>
+											{copiedPin ? (
+												<span className="inline-flex items-center gap-1">
+													<span className="text-green-600">✓</span>
+													<span>Copied</span>
+												</span>
+											) : (
+												'Copy PIN'
+											)}
+										</button>
 									</div>
 									{shareNotice && (
-										<p className="text-xs text-muted-foreground">{shareNotice}</p>
+										<p className="text-xs text-muted-foreground">
+											{shareNotice}
+										</p>
 									)}
 									<div className="rounded-lg border border-border bg-muted/30 p-3">
-								<div className="flex items-center justify-between mb-2">
-									<p className="text-xs text-muted-foreground">
-										Share on social media
-									</p>
-									<button
-										type="button"
-										onClick={() => {
-											if (navigator.share) {
-												navigator.share({
-													title: 'Report Card',
-													text: `PIN: ${shareInfo.pin}`,
-													url: shareInfo.url,
-												});
-											}
-										}}
-										className="px-2 py-1 text-[11px] rounded border border-border hover:bg-muted"
-									>
-										Share via
-									</button>
-								</div>
-								<div className="flex flex-wrap gap-2">
-									{[
-										{
-											label: 'WhatsApp',
-											Icon: MessageCircle,
-											build: () =>
-												`https://wa.me/?text=${encodeURIComponent(
-													`Report Card link: ${shareInfo.url} | PIN: ${shareInfo.pin}`,
-												)}`,
-										},
-										{
-											label: 'Facebook',
-											Icon: Facebook,
-											build: () =>
-												`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-													shareInfo.url,
-												)}&quote=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
-										},
-										{
-											label: 'Messenger',
-											Icon: MessagesSquare,
-											build: () =>
-												`fb-messenger://share/?link=${encodeURIComponent(
-													shareInfo.url,
-												)}&app_id=${encodeURIComponent(
-													process.env.NEXT_PUBLIC_FB_APP_ID || '',
-												)}&ref=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
-										},
-										{
-											label: 'X',
-											Icon: Twitter,
-											build: () =>
-												`https://twitter.com/intent/tweet?text=${encodeURIComponent(
-													`Report Card link: ${shareInfo.url} | PIN: ${shareInfo.pin}`,
-												)}`,
-										},
-										{
-											label: 'Telegram',
-											Icon: Send,
-											build: () =>
-												`https://t.me/share/url?url=${encodeURIComponent(
-													shareInfo.url,
-												)}&text=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
-										},
-										{
-											label: 'Email',
-											Icon: Mail,
-											build: () =>
-												`mailto:?subject=${encodeURIComponent(
-													'Report Card',
-												)}&body=${encodeURIComponent(
-													`Report Card link: ${shareInfo.url}\nPIN: ${shareInfo.pin}`,
-												)}`,
-										},
-									].map((item) => (
-										<button
-											key={item.label}
-											type="button"
-											onClick={() => window.open(item.build(), '_blank')}
-											className="px-3 py-1.5 text-xs rounded border border-border hover:bg-muted inline-flex items-center gap-2"
-										>
-											<span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted">
-												<item.Icon className="h-3.5 w-3.5 text-muted-foreground" />
-											</span>
-											{item.label}
-										</button>
-										))}
-									</div>
+										<div className="flex items-center justify-between mb-2">
+											<p className="text-xs text-muted-foreground">
+												Share on social media
+											</p>
+											<button
+												type="button"
+												onClick={() => {
+													if (navigator.share) {
+														navigator.share({
+															title: 'Report Card',
+															text: `PIN: ${shareInfo.pin}`,
+															url: shareInfo.url,
+														});
+													}
+												}}
+												className="px-2 py-1 text-[11px] rounded border border-border hover:bg-muted"
+											>
+												Share via
+											</button>
+										</div>
+										<div className="flex flex-wrap gap-2">
+											{[
+												{
+													label: 'WhatsApp',
+													Icon: MessageCircle,
+													build: () =>
+														`https://wa.me/?text=${encodeURIComponent(
+															`Report Card link: ${shareInfo.url} | PIN: ${shareInfo.pin}`,
+														)}`,
+												},
+												{
+													label: 'Facebook',
+													Icon: Facebook,
+													build: () =>
+														`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+															shareInfo.url,
+														)}&quote=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
+												},
+												{
+													label: 'Messenger',
+													Icon: MessagesSquare,
+													build: () =>
+														`fb-messenger://share/?link=${encodeURIComponent(
+															shareInfo.url,
+														)}&app_id=${encodeURIComponent(
+															process.env.NEXT_PUBLIC_FB_APP_ID || '',
+														)}&ref=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
+												},
+												{
+													label: 'X',
+													Icon: Twitter,
+													build: () =>
+														`https://twitter.com/intent/tweet?text=${encodeURIComponent(
+															`Report Card link: ${shareInfo.url} | PIN: ${shareInfo.pin}`,
+														)}`,
+												},
+												{
+													label: 'Telegram',
+													Icon: Send,
+													build: () =>
+														`https://t.me/share/url?url=${encodeURIComponent(
+															shareInfo.url,
+														)}&text=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
+												},
+												{
+													label: 'Email',
+													Icon: Mail,
+													build: () =>
+														`mailto:?subject=${encodeURIComponent(
+															'Report Card',
+														)}&body=${encodeURIComponent(
+															`Report Card link: ${shareInfo.url}\nPIN: ${shareInfo.pin}`,
+														)}`,
+												},
+											].map((item) => (
+												<button
+													key={item.label}
+													type="button"
+													onClick={() => window.open(item.build(), '_blank')}
+													className="px-3 py-1.5 text-xs rounded border border-border hover:bg-muted inline-flex items-center gap-2"
+												>
+													<span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted">
+														<item.Icon className="h-3.5 w-3.5 text-muted-foreground" />
+													</span>
+													{item.label}
+												</button>
+											))}
+										</div>
 									</div>
 								</>
 							)}
