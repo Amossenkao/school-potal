@@ -97,8 +97,9 @@ const resolveTheme = (themeId?: string) =>
 	THEMES.find((t) => t.id === (themeId ?? DEFAULT_THEME_ID)) ??
 	THEMES.find((t) => t.id === DEFAULT_THEME_ID)!;
 
-const buildReportFilters = (semester: SemesterKey) => ({
+const buildReportFilters = (semester: SemesterKey, classLevel?: string) => ({
 	semester,
+	classLevel,
 });
 
 // ---------------------------------------------------------------------------
@@ -141,7 +142,7 @@ export const generateDynamicTemplateBytes = async (
 				studentsData={studentsData}
 				className=""
 				classSubjects={safeSubjects}
-				reportFilters={buildReportFilters(semester)}
+				reportFilters={buildReportFilters(semester, classLevel)}
 				school={school}
 				classSponsor=""
 				activeTheme={activeTheme}

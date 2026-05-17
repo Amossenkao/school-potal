@@ -1627,7 +1627,7 @@ const generateSemesterReportPdf = async ({
 		pageWidth: templatePage.getWidth(),
 		pageHeight: templatePage.getHeight(),
 		subjectCount: classSubjects.length,
-		cardOffsetX: templatePage.getWidth() / 2, // ✅ True midpoint of the page
+		cardOffsetX: 286.64,
 	});
 	const outDoc = await PDFDocument.create();
 
