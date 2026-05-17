@@ -48,6 +48,7 @@ interface StudentInfo {
 	id: string;
 	academicYear: string;
 	grade: string;
+	period: string;
 }
 
 // Represents an active student from the /api/users endpoint
@@ -70,34 +71,36 @@ interface PeriodicStudentData {
 }
 
 const periodOptions = [
-	{ id: 'first', label: 'First Period', value: 'first' },
-	{ id: 'second', label: 'Second Period', value: 'second' },
-	{ id: 'third', label: 'Third Period', value: 'third' },
+	{ id: 'first', label: '1st Period', value: 'first' },
+	{ id: 'second', label: '2nd Period', value: 'second' },
+	{ id: 'third', label: '3rd Period', value: 'third' },
 	{
 		id: 'third_period_exam',
-		label: 'Third Period Exam',
+		label: '3rd Period Exam',
 		value: 'third_period_exam',
 	},
-	{ id: 'fourth', label: 'Fourth Period', value: 'fourth' },
-	{ id: 'fifth', label: 'Fifth Period', value: 'fifth' },
-	{ id: 'sixth', label: 'Sixth Period', value: 'sixth' },
+	{ id: 'fourth', label: '4th Period', value: 'fourth' },
+	{ id: 'fifth', label: '5th Period', value: 'fifth' },
+	{ id: 'sixth', label: '6th Period', value: 'sixth' },
 	{
 		id: 'sixth_period_exam',
-		label: 'Sixth Period Exam',
+		label: '6th Period Exam',
 		value: 'sixth_period_exam',
 	},
 ];
 
 const OFFLINE_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 type LinkValidityOption = '1d' | '2d' | '3d' | '1w' | '1m';
-const LINK_VALIDITY_OPTIONS: Array<{ value: LinkValidityOption; label: string }> =
-	[
-		{ value: '1d', label: '1 day (Default)' },
-		{ value: '2d', label: '2 days' },
-		{ value: '3d', label: '3 days' },
-		{ value: '1w', label: '1 week' },
-		{ value: '1m', label: '1 month' },
-	];
+const LINK_VALIDITY_OPTIONS: Array<{
+	value: LinkValidityOption;
+	label: string;
+}> = [
+	{ value: '1d', label: '1 day (Default)' },
+	{ value: '2d', label: '2 days' },
+	{ value: '3d', label: '3 days' },
+	{ value: '1w', label: '1 week' },
+	{ value: '1m', label: '1 month' },
+];
 
 const getCurrentAcademicYear = () => {
 	const currentDate = new Date();
@@ -187,7 +190,6 @@ function SchoolHeader({
 	schoolData: any;
 }) {
 	if (!schoolData) {
-		console.error('SchoolHeader: No school data provided');
 		return (
 			<View style={{ marginBottom: 7 }}>
 				<Text style={{ fontSize: 10, fontWeight: 'bold', textAlign: 'center' }}>
@@ -197,15 +199,13 @@ function SchoolHeader({
 		);
 	}
 
+	const periodLabel =
+		periodOptions.find((p) => p.value === student.period)?.label ||
+		student.period;
+
 	return (
 		<View style={{ marginBottom: 7 }}>
-			<Text
-				style={{
-					fontSize: 12,
-					fontWeight: 'bold',
-					textAlign: 'center',
-				}}
-			>
+			<Text style={{ fontSize: 12, fontWeight: 'bold', textAlign: 'center' }}>
 				{schoolData.name || 'School Name'}
 			</Text>
 			<View
@@ -237,20 +237,18 @@ function SchoolHeader({
 					)}
 				</View>
 			</View>
+
+			{/* 1. Heading: e.g. SENIOR HIGH 1ST PERIOD GRADE SHEET */}
 			<Text
 				style={{
 					fontWeight: 'bold',
 					fontSize: 9,
 					textAlign: 'center',
 					color: '#1a365d',
-					marginBottom: 2,
+					marginBottom: 4,
 				}}
 			>
-				{student.grade.toUpperCase()} PERIODIC REPORT
-			</Text>
-			<Text style={{ fontSize: 8, textAlign: 'center', marginBottom: 1 }}>
-				Academic Year: {student.academicYear} &nbsp;&nbsp; Class:{' '}
-				{student.class}
+				{student.grade.toUpperCase()} {periodLabel.toUpperCase()} GRADE SHEET
 			</Text>
 		</View>
 	);
@@ -452,7 +450,7 @@ function FilterContent({
 			const yearEntry = Array.isArray(student?.academicYears)
 				? student.academicYears.find((ay: any) =>
 						areAcademicYearsEqual(ay.year, academicYear),
-				  )
+					)
 				: null;
 			if (yearEntry?.classId) return yearEntry.classId;
 
@@ -473,7 +471,9 @@ function FilterContent({
 			const directClassId = String(student?.classId || '').trim();
 			if (directClassId) return directClassId;
 
-			const currentClassId = String(student?.currentClass?.classId || '').trim();
+			const currentClassId = String(
+				student?.currentClass?.classId || '',
+			).trim();
 			if (currentClassId) return currentClassId;
 
 			return '';
@@ -564,25 +564,25 @@ function FilterContent({
 	// Auto-select grade level if only one is available for the selected session
 	useEffect(() => {
 		// Only run if a session is selected and no grade level is set
-			if (!isStudent && filters.session && !filters.gradeLevel) {
-				// Recalculate inside the effect to avoid unstable dependency
-				const currentAvailableGradeLevels = filters.session
-					? Object.keys(school?.classLevels?.[filters.session] || {})
-					: [];
+		if (!isStudent && filters.session && !filters.gradeLevel) {
+			// Recalculate inside the effect to avoid unstable dependency
+			const currentAvailableGradeLevels = filters.session
+				? Object.keys(school?.classLevels?.[filters.session] || {})
+				: [];
 
-				if (currentAvailableGradeLevels.length === 1) {
-					setFilters((prev) => {
-						const nextGradeLevel = currentAvailableGradeLevels[0];
-						if (prev.gradeLevel === nextGradeLevel) return prev;
-						return {
-							...prev,
-							gradeLevel: nextGradeLevel,
-							className: '',
-							selectedStudents: [],
-						};
-					});
-				}
+			if (currentAvailableGradeLevels.length === 1) {
+				setFilters((prev) => {
+					const nextGradeLevel = currentAvailableGradeLevels[0];
+					if (prev.gradeLevel === nextGradeLevel) return prev;
+					return {
+						...prev,
+						gradeLevel: nextGradeLevel,
+						className: '',
+						selectedStudents: [],
+					};
+				});
 			}
+		}
 	}, [isStudent, filters.session, filters.gradeLevel, setFilters, school]);
 
 	// Fetch students for the selected class
@@ -708,7 +708,12 @@ function FilterContent({
 				academicYear: defaultAcademicYear,
 			}));
 		}
-	}, [filters.academicYear, academicYearOptions, defaultAcademicYear, setFilters]);
+	}, [
+		filters.academicYear,
+		academicYearOptions,
+		defaultAcademicYear,
+		setFilters,
+	]);
 
 	// Auto-populate student's information if user is a student
 	useEffect(() => {
@@ -716,7 +721,7 @@ function FilterContent({
 		const yearEntry = Array.isArray(user.academicYears)
 			? user.academicYears.find((ay: any) =>
 					areAcademicYearsEqual(ay.year, filters.academicYear),
-			  )
+				)
 			: null;
 		const classIdForYear =
 			yearEntry?.classId ||
@@ -1196,25 +1201,40 @@ const PeriodicReportDocument = React.memo(
 												id: studentData.studentId,
 												academicYear: reportFilters.academicYear,
 												grade: reportFilters.gradeLevel,
+												period: reportFilters.period,
 											}}
 											schoolData={schoolData}
 										/>
 
-										<View style={{ marginBottom: 8 }}>
-											<Text style={{ fontWeight: 'bold', fontSize: 10 }}>
-												{studentData.studentName}
-											</Text>
-											<Text style={{ fontSize: 9 }}>
-												ID: {studentData.studentId}
-											</Text>
-											<Text style={{ fontSize: 9 }}>
-												Period: {selectedPeriodLabel}
-											</Text>
-											{/* {reportFilters.session && (
-												<Text style={{ fontSize: 9 }}>
-													Session: {reportFilters.session}
+										{/* Replace the existing details block with this */}
+										<View
+											style={{
+												flexDirection: 'row',
+												justifyContent: 'space-between',
+												marginBottom: 8,
+											}}
+										>
+											<View style={{ flexDirection: 'column', gap: 5 }}>
+												<Text style={{ fontWeight: 'bold', fontSize: 10 }}>
+													{studentData.studentName}
 												</Text>
-											)} */}
+												<Text style={{ fontSize: 9 }}>
+													ID: {studentData.studentId}
+												</Text>
+											</View>
+											<View
+												style={{
+													flexDirection: 'column',
+													gap: 5,
+												}}
+											>
+												<Text style={{ fontSize: 10, fontWeight: 'bold' }}>
+													Class: {className}
+												</Text>
+												<Text style={{ fontSize: 9 }}>
+													Year: {reportFilters.academicYear}
+												</Text>
+											</View>
 										</View>
 
 										<View style={{ marginTop: 5, flex: 1 }}>
@@ -1420,10 +1440,10 @@ function ReportContent({
 	const resetCopiedTimeoutRef = useRef<number | null>(null);
 	const school = useSchoolStore((state) => state.school);
 	const gradesByAcademicYear = useSchoolStore(
-		(state) => state.gradesByAcademicYear
+		(state) => state.gradesByAcademicYear,
 	);
 	const gradesVersionByAcademicYear = useSchoolStore(
-		(state) => state.gradesVersionByAcademicYear
+		(state) => state.gradesVersionByAcademicYear,
 	);
 	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 	const user = useAuth((state) => state.user);
@@ -1438,7 +1458,10 @@ function ReportContent({
 
 	const schoolSubjects = useMemo(() => {
 		if (!school) return [];
-		const classMeta = getClassMetaById(school.classLevels, reportFilters.className);
+		const classMeta = getClassMetaById(
+			school.classLevels,
+			reportFilters.className,
+		);
 		const resolvedMeta =
 			classMeta ||
 			(!reportFilters.className &&
@@ -1448,8 +1471,8 @@ function ReportContent({
 				: null);
 		if (!resolvedMeta?.session || !resolvedMeta?.level) return [];
 		const subjects =
-			school.classLevels?.[resolvedMeta.session]?.[resolvedMeta.level]?.subjects ||
-			[];
+			school.classLevels?.[resolvedMeta.session]?.[resolvedMeta.level]
+				?.subjects || [];
 		return mergeSubjectNames(
 			subjects.map((subject: any) =>
 				typeof subject === 'string' ? subject : subject?.name,
@@ -1699,86 +1722,81 @@ function ReportContent({
 				session: reportFilters.session,
 			});
 
-				// We fetch grades for the whole class to build rank, then filter locally.
-				let data: any;
-				const scopedGrades = getScopedAcademicYearValue(
-					gradesByAcademicYear,
-					reportFilters.academicYear,
-				).value;
-				const scopedGradesVersion = getScopedAcademicYearValue(
-					gradesVersionByAcademicYear,
-					reportFilters.academicYear,
-				).value;
-				const hasScopedGradesVersion = typeof scopedGradesVersion === 'string';
-				const canUseScopedGrades =
-					Array.isArray(scopedGrades) &&
-					scopedGrades.length > 0 &&
-					(offline || hasScopedGradesVersion);
-				if (
-					canUseScopedGrades
-				) {
-					const selectedIdsSet =
-						selectedStudentIds.length > 0 ? new Set(selectedStudentIds) : null;
-					const filteredStoreGrades = scopedGrades.filter((grade: any) => {
-						const gradeYear = String(grade?.academicYear || '').trim();
-						const gradeStudentId = String(grade?.studentId || '').trim();
-						return (
-							grade?.classId === reportFilters.className &&
-							grade?.period === reportFilters.period &&
-							areAcademicYearsEqual(gradeYear, reportFilters.academicYear) &&
-							(!selectedIdsSet || selectedIdsSet.has(gradeStudentId))
-						);
-					});
-					data = {
-						success: true,
-						data: { grades: filteredStoreGrades },
-					};
-				} else if (offline && cachedGrades) {
-					data = cachedGrades;
-				} else if (offline && !cachedGrades) {
-					throw new Error(
-						'No cached grades found for offline periodic report generation.',
+			// We fetch grades for the whole class to build rank, then filter locally.
+			let data: any;
+			const scopedGrades = getScopedAcademicYearValue(
+				gradesByAcademicYear,
+				reportFilters.academicYear,
+			).value;
+			const scopedGradesVersion = getScopedAcademicYearValue(
+				gradesVersionByAcademicYear,
+				reportFilters.academicYear,
+			).value;
+			const hasScopedGradesVersion = typeof scopedGradesVersion === 'string';
+			const canUseScopedGrades =
+				Array.isArray(scopedGrades) &&
+				scopedGrades.length > 0 &&
+				(offline || hasScopedGradesVersion);
+			if (canUseScopedGrades) {
+				const selectedIdsSet =
+					selectedStudentIds.length > 0 ? new Set(selectedStudentIds) : null;
+				const filteredStoreGrades = scopedGrades.filter((grade: any) => {
+					const gradeYear = String(grade?.academicYear || '').trim();
+					const gradeStudentId = String(grade?.studentId || '').trim();
+					return (
+						grade?.classId === reportFilters.className &&
+						grade?.period === reportFilters.period &&
+						areAcademicYearsEqual(gradeYear, reportFilters.academicYear) &&
+						(!selectedIdsSet || selectedIdsSet.has(gradeStudentId))
 					);
-				} else {
-					try {
-						const res = await fetch(`/api/grades?${params.toString()}`, {
-							cache: 'no-store',
-						});
-						if (!res.ok) throw new Error('Failed to fetch periodic grades');
-						data = await res.json();
-						if (Array.isArray(data?.data?.grades)) {
-							const existingScopedGrades = getScopedAcademicYearValue(
-								gradesByAcademicYear,
-								reportFilters.academicYear,
-							).value;
-							if (
-								!areGradeRowsEquivalent(
-									existingScopedGrades,
-									data.data.grades,
-								)
-							) {
-								setGradesForYear(reportFilters.academicYear, data.data.grades);
-							}
+				});
+				data = {
+					success: true,
+					data: { grades: filteredStoreGrades },
+				};
+			} else if (offline && cachedGrades) {
+				data = cachedGrades;
+			} else if (offline && !cachedGrades) {
+				throw new Error(
+					'No cached grades found for offline periodic report generation.',
+				);
+			} else {
+				try {
+					const res = await fetch(`/api/grades?${params.toString()}`, {
+						cache: 'no-store',
+					});
+					if (!res.ok) throw new Error('Failed to fetch periodic grades');
+					data = await res.json();
+					if (Array.isArray(data?.data?.grades)) {
+						const existingScopedGrades = getScopedAcademicYearValue(
+							gradesByAcademicYear,
+							reportFilters.academicYear,
+						).value;
+						if (
+							!areGradeRowsEquivalent(existingScopedGrades, data.data.grades)
+						) {
+							setGradesForYear(reportFilters.academicYear, data.data.grades);
 						}
-						setClientCache(gradesCacheKey, data, OFFLINE_CACHE_TTL_MS);
-						if (selectedIdsCacheKey === 'all') {
-							setClientCache(
-								`${gradesCacheBaseKey}:all`,
-								data,
-								OFFLINE_CACHE_TTL_MS,
-							);
-						}
-					} catch (fetchError) {
-						if (cachedGrades) {
-							data = cachedGrades;
-						} else if (cachedReport) {
-							setStudentsData(cachedReport);
-							setLoading(false);
-							return;
-						}
-						if (!data) throw fetchError;
 					}
+					setClientCache(gradesCacheKey, data, OFFLINE_CACHE_TTL_MS);
+					if (selectedIdsCacheKey === 'all') {
+						setClientCache(
+							`${gradesCacheBaseKey}:all`,
+							data,
+							OFFLINE_CACHE_TTL_MS,
+						);
+					}
+				} catch (fetchError) {
+					if (cachedGrades) {
+						data = cachedGrades;
+					} else if (cachedReport) {
+						setStudentsData(cachedReport);
+						setLoading(false);
+						return;
+					}
+					if (!data) throw fetchError;
 				}
+			}
 
 			if (!data.success) {
 				throw new Error(data.message || 'Invalid data format from server');
@@ -1788,42 +1806,44 @@ function ReportContent({
 				if (data.data?.report) return [data.data.report];
 
 				// System-admin class+period API can return raw rows in data.grades.
-				const rawGrades = Array.isArray(data.data?.grades) ? data.data.grades : [];
+				const rawGrades = Array.isArray(data.data?.grades)
+					? data.data.grades
+					: [];
 				if (!rawGrades.length) return [];
 
-					const reportByStudent = new Map<
-						string,
-						{
-							studentId: string;
-							studentName: string;
-							subjectsMap: Map<string, number>;
-							periodicAverage: number;
-							rank: number | null;
-						}
-					>();
+				const reportByStudent = new Map<
+					string,
+					{
+						studentId: string;
+						studentName: string;
+						subjectsMap: Map<string, number>;
+						periodicAverage: number;
+						rank: number | null;
+					}
+				>();
 
 				rawGrades.forEach((gradeRow: any) => {
 					const studentId = String(gradeRow?.studentId || '').trim();
 					if (!studentId) return;
-						if (!reportByStudent.has(studentId)) {
-							reportByStudent.set(studentId, {
-								studentId,
-								studentName: String(gradeRow?.studentName || '').trim(),
-								subjectsMap: new Map<string, number>(),
-								periodicAverage: 0,
-								rank: null,
-							});
-						}
-						const row = reportByStudent.get(studentId);
-						const rankValue = Number(gradeRow?.rank);
-						if (Number.isFinite(rankValue) && rankValue > 0 && row) {
-							row.rank = row.rank ? Math.min(row.rank, rankValue) : rankValue;
-						}
-						const subject = String(gradeRow?.subject || '').trim();
-						const value = Number(gradeRow?.grade);
-						if (!subject || Number.isNaN(value)) return;
-						row?.subjectsMap.set(subject, value);
-					});
+					if (!reportByStudent.has(studentId)) {
+						reportByStudent.set(studentId, {
+							studentId,
+							studentName: String(gradeRow?.studentName || '').trim(),
+							subjectsMap: new Map<string, number>(),
+							periodicAverage: 0,
+							rank: null,
+						});
+					}
+					const row = reportByStudent.get(studentId);
+					const rankValue = Number(gradeRow?.rank);
+					if (Number.isFinite(rankValue) && rankValue > 0 && row) {
+						row.rank = row.rank ? Math.min(row.rank, rankValue) : rankValue;
+					}
+					const subject = String(gradeRow?.subject || '').trim();
+					const value = Number(gradeRow?.grade);
+					if (!subject || Number.isNaN(value)) return;
+					row?.subjectsMap.set(subject, value);
+				});
 
 				const reportRows = Array.from(reportByStudent.values()).map((row) => {
 					const subjects = Array.from(row.subjectsMap.entries()).map(
@@ -1841,35 +1861,43 @@ function ReportContent({
 					return {
 						studentId: row.studentId,
 						studentName: row.studentName,
-							subjects,
-							periodicAverage: avg,
-							rank: row.rank ?? 0,
-						};
-					});
+						subjects,
+						periodicAverage: avg,
+						rank: row.rank ?? 0,
+					};
+				});
 
-					const hasServerRanks = reportRows.some(
-						(row) => typeof row.rank === 'number' && Number.isFinite(row.rank) && row.rank > 0,
-					);
-					if (hasServerRanks) {
-						return [...reportRows].sort((a, b) => {
-							const aRank = a.rank > 0 ? a.rank : Infinity;
-							const bRank = b.rank > 0 ? b.rank : Infinity;
-							if (aRank !== bRank) return aRank - bRank;
-							return b.periodicAverage - a.periodicAverage;
-						});
+				const hasServerRanks = reportRows.some(
+					(row) =>
+						typeof row.rank === 'number' &&
+						Number.isFinite(row.rank) &&
+						row.rank > 0,
+				);
+				if (hasServerRanks) {
+					return [...reportRows].sort((a, b) => {
+						const aRank = a.rank > 0 ? a.rank : Infinity;
+						const bRank = b.rank > 0 ? b.rank : Infinity;
+						if (aRank !== bRank) return aRank - bRank;
+						return b.periodicAverage - a.periodicAverage;
+					});
+				}
+
+				const ranked = [...reportRows].sort(
+					(a, b) => b.periodicAverage - a.periodicAverage,
+				);
+				let rank = 1;
+				ranked.forEach((row, index) => {
+					if (
+						index > 0 &&
+						row.periodicAverage < ranked[index - 1].periodicAverage
+					) {
+						rank = index + 1;
 					}
+					row.rank = rank;
+				});
 
-					const ranked = [...reportRows].sort((a, b) => b.periodicAverage - a.periodicAverage);
-					let rank = 1;
-					ranked.forEach((row, index) => {
-						if (index > 0 && row.periodicAverage < ranked[index - 1].periodicAverage) {
-							rank = index + 1;
-						}
-						row.rank = rank;
-					});
-
-					return ranked;
-				})();
+				return ranked;
+			})();
 			const gradeReports: PeriodicStudentData[] = normalizedReport;
 			const gradesMap = new Map<string, PeriodicStudentData>();
 
@@ -1881,16 +1909,17 @@ function ReportContent({
 				});
 			}
 
-			const fallbackStudentsFromGrades: Student[] = gradeReports.map((report) => ({
-				id: String(report.studentId || '').trim(),
-				name:
-					(typeof report.studentName === 'string' &&
+			const fallbackStudentsFromGrades: Student[] = gradeReports.map(
+				(report) => ({
+					id: String(report.studentId || '').trim(),
+					name: (typeof report.studentName === 'string' &&
 					report.studentName.trim().length > 0
 						? report.studentName
 						: String(report.studentId || '')
 					).trim(),
-				className: reportFilters.className,
-			}));
+					className: reportFilters.className,
+				}),
+			);
 			const dedupedFallbackStudents = Array.from(
 				new Map(
 					fallbackStudentsFromGrades.map((student) => [student.id, student]),
@@ -1941,12 +1970,12 @@ function ReportContent({
 		reportFilters.className,
 		reportFilters.session,
 		reportFilters.selectedStudents,
-			user?.id,
-			user?._id,
-			user?.studentId,
-			user?.username,
-			setGradesForYear,
-		]);
+		user?.id,
+		user?._id,
+		user?.studentId,
+		user?.username,
+		setGradesForYear,
+	]);
 
 	// Only fetch data once on mount or when filters/students change
 	useEffect(() => {
@@ -2224,178 +2253,189 @@ function ReportContent({
 								<>
 									<div>
 										<p className="text-sm text-muted-foreground">
-											Expires on {new Date(shareInfo.expiresAt).toLocaleString()}.
+											Expires on{' '}
+											{new Date(shareInfo.expiresAt).toLocaleString()}.
 										</p>
 									</div>
 									<div className="rounded-lg border border-border bg-muted/40 p-3">
-								<p className="text-xs text-muted-foreground mb-1">Share Link</p>
-								<p className="text-sm break-all">{shareInfo.url}</p>
-								<button
-									type="button"
-									onClick={async () => {
-										try {
-											await navigator.clipboard.writeText(shareInfo.url);
-											setShareNotice('Link copied.');
-											setCopiedLink(true);
-											if (resetCopiedTimeoutRef.current) {
-												window.clearTimeout(resetCopiedTimeoutRef.current);
-											}
-											resetCopiedTimeoutRef.current = window.setTimeout(() => {
-												setCopiedLink(false);
-												setShareNotice('');
-											}, 2000);
-										} catch {
-											setShareNotice('Copy failed.');
-										}
-									}}
-									className="mt-2 px-3 py-1.5 text-xs rounded border border-border hover:bg-muted"
-								>
-									{copiedLink ? (
-										<span className="inline-flex items-center gap-1">
-											<svg
-												className="h-3.5 w-3.5 text-green-600"
-												fill="none"
-												stroke="currentColor"
-												viewBox="0 0 24 24"
-											>
-												<path
-													strokeLinecap="round"
-													strokeLinejoin="round"
-													strokeWidth={3}
-													d="M5 13l4 4L19 7"
-												/>
-											</svg>
-											Copied
-										</span>
-									) : (
-										'Copy Link'
-										)}
-									</button>
+										<p className="text-xs text-muted-foreground mb-1">
+											Share Link
+										</p>
+										<p className="text-sm break-all">{shareInfo.url}</p>
+										<button
+											type="button"
+											onClick={async () => {
+												try {
+													await navigator.clipboard.writeText(shareInfo.url);
+													setShareNotice('Link copied.');
+													setCopiedLink(true);
+													if (resetCopiedTimeoutRef.current) {
+														window.clearTimeout(resetCopiedTimeoutRef.current);
+													}
+													resetCopiedTimeoutRef.current = window.setTimeout(
+														() => {
+															setCopiedLink(false);
+															setShareNotice('');
+														},
+														2000,
+													);
+												} catch {
+													setShareNotice('Copy failed.');
+												}
+											}}
+											className="mt-2 px-3 py-1.5 text-xs rounded border border-border hover:bg-muted"
+										>
+											{copiedLink ? (
+												<span className="inline-flex items-center gap-1">
+													<svg
+														className="h-3.5 w-3.5 text-green-600"
+														fill="none"
+														stroke="currentColor"
+														viewBox="0 0 24 24"
+													>
+														<path
+															strokeLinecap="round"
+															strokeLinejoin="round"
+															strokeWidth={3}
+															d="M5 13l4 4L19 7"
+														/>
+													</svg>
+													Copied
+												</span>
+											) : (
+												'Copy Link'
+											)}
+										</button>
 									</div>
 									<div className="rounded-lg border border-border bg-muted/40 p-3">
-								<p className="text-xs text-muted-foreground mb-1">PIN</p>
-								<p className="text-2xl font-semibold tracking-widest">
-									{shareInfo.pin}
-								</p>
-								<button
-									type="button"
-									onClick={async () => {
-										try {
-											await navigator.clipboard.writeText(shareInfo.pin);
-											setShareNotice('PIN copied.');
-											setCopiedPin(true);
-											if (resetCopiedTimeoutRef.current) {
-												window.clearTimeout(resetCopiedTimeoutRef.current);
-											}
-											resetCopiedTimeoutRef.current = window.setTimeout(() => {
-												setCopiedPin(false);
-												setShareNotice('');
-											}, 2000);
-										} catch {
-											setShareNotice('Copy failed.');
-										}
-									}}
-									className="mt-2 px-3 py-1.5 text-xs rounded border border-border hover:bg-muted"
-								>
-									{copiedPin ? (
-										<span className="inline-flex items-center gap-1">
-											<svg
-												className="h-3.5 w-3.5 text-green-600"
-												fill="none"
-												stroke="currentColor"
-												viewBox="0 0 24 24"
-											>
-												<path
-													strokeLinecap="round"
-													strokeLinejoin="round"
-													strokeWidth={3}
-													d="M5 13l4 4L19 7"
-												/>
-											</svg>
-											Copied
-										</span>
-									) : (
-										'Copy PIN'
-										)}
-									</button>
+										<p className="text-xs text-muted-foreground mb-1">PIN</p>
+										<p className="text-2xl font-semibold tracking-widest">
+											{shareInfo.pin}
+										</p>
+										<button
+											type="button"
+											onClick={async () => {
+												try {
+													await navigator.clipboard.writeText(shareInfo.pin);
+													setShareNotice('PIN copied.');
+													setCopiedPin(true);
+													if (resetCopiedTimeoutRef.current) {
+														window.clearTimeout(resetCopiedTimeoutRef.current);
+													}
+													resetCopiedTimeoutRef.current = window.setTimeout(
+														() => {
+															setCopiedPin(false);
+															setShareNotice('');
+														},
+														2000,
+													);
+												} catch {
+													setShareNotice('Copy failed.');
+												}
+											}}
+											className="mt-2 px-3 py-1.5 text-xs rounded border border-border hover:bg-muted"
+										>
+											{copiedPin ? (
+												<span className="inline-flex items-center gap-1">
+													<svg
+														className="h-3.5 w-3.5 text-green-600"
+														fill="none"
+														stroke="currentColor"
+														viewBox="0 0 24 24"
+													>
+														<path
+															strokeLinecap="round"
+															strokeLinejoin="round"
+															strokeWidth={3}
+															d="M5 13l4 4L19 7"
+														/>
+													</svg>
+													Copied
+												</span>
+											) : (
+												'Copy PIN'
+											)}
+										</button>
 									</div>
 									{shareNotice && (
-										<p className="text-xs text-muted-foreground">{shareNotice}</p>
+										<p className="text-xs text-muted-foreground">
+											{shareNotice}
+										</p>
 									)}
 									<div className="rounded-lg border border-border bg-muted/30 p-3">
-								<div className="flex items-center justify-between mb-2">
-									<p className="text-xs text-muted-foreground">
-										Share on social media
-									</p>
-								</div>
-								<div className="flex flex-wrap gap-2">
-									{[
-										{
-											label: 'WhatsApp',
-											Icon: MessageCircle,
-											build: () =>
-												`https://wa.me/?text=${encodeURIComponent(
-													`Grade Sheet link: ${shareInfo.url} | PIN: ${shareInfo.pin}`,
-												)}`,
-										},
-										{
-											label: 'Facebook',
-											Icon: Facebook,
-											build: () =>
-												`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-													shareInfo.url,
-												)}&quote=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
-										},
-										{
-											label: 'Messenger',
-											Icon: MessagesSquare,
-											build: () =>
-												`fb-messenger://share/?link=${encodeURIComponent(
-													shareInfo.url,
-												)}&app_id=${encodeURIComponent(
-													process.env.NEXT_PUBLIC_FB_APP_ID || '',
-												)}&ref=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
-										},
-										{
-											label: 'X',
-											Icon: Twitter,
-											build: () =>
-												`https://twitter.com/intent/tweet?text=${encodeURIComponent(
-													`Grade Sheet link: ${shareInfo.url} | PIN: ${shareInfo.pin}`,
-												)}`,
-										},
-										{
-											label: 'Telegram',
-											Icon: Send,
-											build: () =>
-												`https://t.me/share/url?url=${encodeURIComponent(
-													shareInfo.url,
-												)}&text=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
-										},
-										{
-											label: 'Email',
-											Icon: Mail,
-											build: () =>
-												`mailto:?subject=${encodeURIComponent(
-													'Grade Sheet',
-												)}&body=${encodeURIComponent(
-													`Grade Sheet link: ${shareInfo.url}\nPIN: ${shareInfo.pin}`,
-												)}`,
-										},
-									].map((item) => (
-										<button
-											key={item.label}
-											type="button"
-											onClick={() => window.open(item.build(), '_blank')}
-											className="px-3 py-1.5 text-xs rounded border border-border hover:bg-muted inline-flex items-center gap-2"
-										>
-											<span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted">
-												<item.Icon className="h-3.5 w-3.5 text-muted-foreground" />
-											</span>
-											{item.label}
-										</button>
-										))}
-									</div>
+										<div className="flex items-center justify-between mb-2">
+											<p className="text-xs text-muted-foreground">
+												Share on social media
+											</p>
+										</div>
+										<div className="flex flex-wrap gap-2">
+											{[
+												{
+													label: 'WhatsApp',
+													Icon: MessageCircle,
+													build: () =>
+														`https://wa.me/?text=${encodeURIComponent(
+															`Grade Sheet link: ${shareInfo.url} | PIN: ${shareInfo.pin}`,
+														)}`,
+												},
+												{
+													label: 'Facebook',
+													Icon: Facebook,
+													build: () =>
+														`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+															shareInfo.url,
+														)}&quote=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
+												},
+												{
+													label: 'Messenger',
+													Icon: MessagesSquare,
+													build: () =>
+														`fb-messenger://share/?link=${encodeURIComponent(
+															shareInfo.url,
+														)}&app_id=${encodeURIComponent(
+															process.env.NEXT_PUBLIC_FB_APP_ID || '',
+														)}&ref=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
+												},
+												{
+													label: 'X',
+													Icon: Twitter,
+													build: () =>
+														`https://twitter.com/intent/tweet?text=${encodeURIComponent(
+															`Grade Sheet link: ${shareInfo.url} | PIN: ${shareInfo.pin}`,
+														)}`,
+												},
+												{
+													label: 'Telegram',
+													Icon: Send,
+													build: () =>
+														`https://t.me/share/url?url=${encodeURIComponent(
+															shareInfo.url,
+														)}&text=${encodeURIComponent(`PIN: ${shareInfo.pin}`)}`,
+												},
+												{
+													label: 'Email',
+													Icon: Mail,
+													build: () =>
+														`mailto:?subject=${encodeURIComponent(
+															'Grade Sheet',
+														)}&body=${encodeURIComponent(
+															`Grade Sheet link: ${shareInfo.url}\nPIN: ${shareInfo.pin}`,
+														)}`,
+												},
+											].map((item) => (
+												<button
+													key={item.label}
+													type="button"
+													onClick={() => window.open(item.build(), '_blank')}
+													className="px-3 py-1.5 text-xs rounded border border-border hover:bg-muted inline-flex items-center gap-2"
+												>
+													<span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted">
+														<item.Icon className="h-3.5 w-3.5 text-muted-foreground" />
+													</span>
+													{item.label}
+												</button>
+											))}
+										</div>
 									</div>
 								</>
 							)}
