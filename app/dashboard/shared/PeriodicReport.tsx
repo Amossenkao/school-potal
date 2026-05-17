@@ -1218,8 +1218,8 @@ const PeriodicReportDocument = React.memo(
 												<Text style={{ fontWeight: 'bold', fontSize: 10 }}>
 													{studentData.studentName}
 												</Text>
-												<Text style={{ fontSize: 9 }}>
-													ID: {studentData.studentId}
+												<Text style={{ fontSize: 10, fontWeight: 'bold' }}>
+													Class: {className}
 												</Text>
 											</View>
 											<View
@@ -1228,11 +1228,11 @@ const PeriodicReportDocument = React.memo(
 													gap: 5,
 												}}
 											>
-												<Text style={{ fontSize: 10, fontWeight: 'bold' }}>
-													Class: {className}
-												</Text>
-												<Text style={{ fontSize: 9 }}>
+												<Text style={{ fontSize: 10 }}>
 													Year: {reportFilters.academicYear}
+												</Text>
+												<Text style={{ fontSize: 10 }}>
+													ID: {studentData.studentId}
 												</Text>
 											</View>
 										</View>
