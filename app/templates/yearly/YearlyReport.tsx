@@ -1,6 +1,11 @@
 import React from 'react';
 import { Document, Page, Text, View, Image } from '@react-pdf/renderer';
 import styles from './styles';
+import {
+	REPORT_CARD_THEMES,
+	DEFAULT_REPORT_CARD_THEME,
+	ReportTheme,
+} from '@/types/reportCardTheme';
 
 // ─────────────────────────────────────────────
 // Types
@@ -26,225 +31,6 @@ export interface ReportFilters {
 	selectedStudents: string[];
 	sponsorName: string;
 }
-
-export interface ReportTheme {
-	id: string;
-	name: string;
-	emoji: string;
-	// Web UI preview
-	previewFrom: string;
-	previewTo: string;
-	previewText: string;
-	// PDF palette
-	headerBarBg: string;
-	headerBarText: string;
-	semesterHeaderBg: string;
-	semesterHeaderText: string;
-	tableHeaderBg: string;
-	tableHeaderText: string;
-	rowAltBg: string;
-	borderColor: string;
-	sectionTitleColor: string;
-	schoolNameColor: string;
-	accentColor: string;
-}
-
-// ─────────────────────────────────────────────
-// Theme Definitions
-// ─────────────────────────────────────────────
-
-export const THEMES: ReportTheme[] = [
-	{
-		id: 'royalGold',
-		name: 'Royal Gold',
-		emoji: '👑',
-		previewFrom: '#1a1a4e',
-		previewTo: '#C5A028',
-		previewText: '#FFD700',
-		headerBarBg: '#1a1a4e',
-		headerBarText: '#FFD700',
-		semesterHeaderBg: '#2a2a6e',
-		semesterHeaderText: '#FFD700',
-		tableHeaderBg: '#1a1a4e',
-		tableHeaderText: '#FFD700',
-		rowAltBg: '#eeeef8',
-		borderColor: '#1a1a4e',
-		sectionTitleColor: '#1a1a4e',
-		schoolNameColor: '#1a1a4e',
-		accentColor: '#C5A028',
-	},
-	{
-		id: 'emeraldPrestige',
-		name: 'Emerald Prestige',
-		emoji: '💎',
-		previewFrom: '#0d4a2d',
-		previewTo: '#8fbc8f',
-		previewText: '#C5A028',
-		headerBarBg: '#0d4a2d',
-		headerBarText: '#C5A028',
-		semesterHeaderBg: '#1a6e42',
-		semesterHeaderText: '#ffffff',
-		tableHeaderBg: '#0d4a2d',
-		tableHeaderText: '#ffffff',
-		rowAltBg: '#e8f5ec',
-		borderColor: '#0d4a2d',
-		sectionTitleColor: '#0d4a2d',
-		schoolNameColor: '#0d4a2d',
-		accentColor: '#C5A028',
-	},
-	{
-		id: 'crimsonAcademy',
-		name: 'Crimson Academy',
-		emoji: '🎓',
-		previewFrom: '#7b0d1e',
-		previewTo: '#c84b4b',
-		previewText: '#f5e6c8',
-		headerBarBg: '#7b0d1e',
-		headerBarText: '#f5e6c8',
-		semesterHeaderBg: '#a01428',
-		semesterHeaderText: '#ffffff',
-		tableHeaderBg: '#7b0d1e',
-		tableHeaderText: '#ffffff',
-		rowAltBg: '#fdf0e8',
-		borderColor: '#7b0d1e',
-		sectionTitleColor: '#7b0d1e',
-		schoolNameColor: '#7b0d1e',
-		accentColor: '#c84b4b',
-	},
-	{
-		id: 'midnightSapphire',
-		name: 'Midnight Sapphire',
-		emoji: '🌌',
-		previewFrom: '#0f1c4d',
-		previewTo: '#3a5fcd',
-		previewText: '#c0d8ff',
-		headerBarBg: '#0f1c4d',
-		headerBarText: '#c0d8ff',
-		semesterHeaderBg: '#1e3a8a',
-		semesterHeaderText: '#ffffff',
-		tableHeaderBg: '#0f1c4d',
-		tableHeaderText: '#c0d8ff',
-		rowAltBg: '#e8ecf8',
-		borderColor: '#0f1c4d',
-		sectionTitleColor: '#1e3a8a',
-		schoolNameColor: '#0f1c4d',
-		accentColor: '#3a5fcd',
-	},
-	{
-		id: 'roseChampagne',
-		name: 'Rose Champagne',
-		emoji: '🌸',
-		previewFrom: '#8b3a52',
-		previewTo: '#e8a0b0',
-		previewText: '#f7e7ce',
-		headerBarBg: '#8b3a52',
-		headerBarText: '#f7e7ce',
-		semesterHeaderBg: '#b05070',
-		semesterHeaderText: '#ffffff',
-		tableHeaderBg: '#8b3a52',
-		tableHeaderText: '#f7e7ce',
-		rowAltBg: '#fdf0f5',
-		borderColor: '#8b3a52',
-		sectionTitleColor: '#8b3a52',
-		schoolNameColor: '#8b3a52',
-		accentColor: '#e8a0b0',
-	},
-	{
-		id: 'forestSage',
-		name: 'Forest Sage',
-		emoji: '🌿',
-		previewFrom: '#2d4a3e',
-		previewTo: '#7aaa8a',
-		previewText: '#e8f5e0',
-		headerBarBg: '#2d4a3e',
-		headerBarText: '#e8f5e0',
-		semesterHeaderBg: '#3d6b54',
-		semesterHeaderText: '#ffffff',
-		tableHeaderBg: '#2d4a3e',
-		tableHeaderText: '#e8f5e0',
-		rowAltBg: '#eef6f0',
-		borderColor: '#2d4a3e',
-		sectionTitleColor: '#2d4a3e',
-		schoolNameColor: '#2d4a3e',
-		accentColor: '#7aaa8a',
-	},
-	{
-		id: 'amberHarvest',
-		name: 'Amber Harvest',
-		emoji: '🍂',
-		previewFrom: '#7a3b00',
-		previewTo: '#e8a040',
-		previewText: '#fff8e8',
-		headerBarBg: '#7a3b00',
-		headerBarText: '#fff8e8',
-		semesterHeaderBg: '#a05010',
-		semesterHeaderText: '#ffffff',
-		tableHeaderBg: '#7a3b00',
-		tableHeaderText: '#fff8e8',
-		rowAltBg: '#fff8e8',
-		borderColor: '#7a3b00',
-		sectionTitleColor: '#7a3b00',
-		schoolNameColor: '#7a3b00',
-		accentColor: '#e8a040',
-	},
-	{
-		id: 'slateSteel',
-		name: 'Slate Steel',
-		emoji: '🔩',
-		previewFrom: '#2b3a4a',
-		previewTo: '#6b8fa8',
-		previewText: '#ddeeff',
-		headerBarBg: '#2b3a4a',
-		headerBarText: '#ddeeff',
-		semesterHeaderBg: '#3d5568',
-		semesterHeaderText: '#ffffff',
-		tableHeaderBg: '#2b3a4a',
-		tableHeaderText: '#ddeeff',
-		rowAltBg: '#edf2f7',
-		borderColor: '#2b3a4a',
-		sectionTitleColor: '#2b3a4a',
-		schoolNameColor: '#2b3a4a',
-		accentColor: '#6b8fa8',
-	},
-	{
-		id: 'violetDusk',
-		name: 'Violet Dusk',
-		emoji: '🌆',
-		previewFrom: '#3b1f6e',
-		previewTo: '#9b6bd4',
-		previewText: '#f0e6ff',
-		headerBarBg: '#3b1f6e',
-		headerBarText: '#f0e6ff',
-		semesterHeaderBg: '#5a3498',
-		semesterHeaderText: '#ffffff',
-		tableHeaderBg: '#3b1f6e',
-		tableHeaderText: '#f0e6ff',
-		rowAltBg: '#f3eeff',
-		borderColor: '#3b1f6e',
-		sectionTitleColor: '#3b1f6e',
-		schoolNameColor: '#3b1f6e',
-		accentColor: '#9b6bd4',
-	},
-	{
-		id: 'copperTeal',
-		name: 'Copper Teal',
-		emoji: '🦚',
-		previewFrom: '#0f4c4c',
-		previewTo: '#c87941',
-		previewText: '#e8f8f8',
-		headerBarBg: '#0f4c4c',
-		headerBarText: '#e8f8f8',
-		semesterHeaderBg: '#1a6e6e',
-		semesterHeaderText: '#ffffff',
-		tableHeaderBg: '#0f4c4c',
-		tableHeaderText: '#e8f8f8',
-		rowAltBg: '#e8f6f6',
-		borderColor: '#0f4c4c',
-		sectionTitleColor: '#0f4c4c',
-		schoolNameColor: '#0f4c4c',
-		accentColor: '#c87941',
-	},
-];
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -440,7 +226,9 @@ export const ReportCard = React.memo(function PDFDocument({
 	themeId,
 }: PDFDocumentProps) {
 	const activeTheme =
-		passedActiveTheme || THEMES.find((t) => t.id === themeId) || THEMES[0];
+		passedActiveTheme ||
+		REPORT_CARD_THEMES.find((t) => t.id === themeId) ||
+		DEFAULT_REPORT_CARD_THEME;
 
 	const classLabel = className ? className.split('-')[0] : '';
 	const schoolAddress = Array.isArray(school?.address)

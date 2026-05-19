@@ -8,7 +8,10 @@ import {
 } from '@/types/schoolProfile';
 import SchoolProfileSchema from '@/models/profile/SchoolProfile';
 import { getTenantModels } from '@/models';
-import { connectToTenantsDb, setSchoolProfileMemoryCache } from '@/lib/mongoose';
+import {
+	connectToTenantsDb,
+	setSchoolProfileMemoryCache,
+} from '@/lib/mongoose';
 import { destroyAllUserSessions } from '@/utils/session';
 import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
 import bcrypt from 'bcryptjs';
@@ -45,7 +48,6 @@ async function runWithConcurrency<T>(
 
 /**
  * Handles updating school settings and performing bulk user actions.
- * @param request The incoming Next.js request object.
  */
 export async function POST(request: NextRequest) {
 	try {
@@ -71,10 +73,9 @@ export async function POST(request: NextRequest) {
 				{ status: 400 },
 			);
 		}
+
 		const { Student, Teacher, Administrator } = await getTenantModels();
-
 		const tenantsConnection = await connectToTenantsDb();
-
 		const SchoolProfile =
 			tenantsConnection.models.Profile ||
 			tenantsConnection.model<SchoolProfileType & Document>(
@@ -86,13 +87,13 @@ export async function POST(request: NextRequest) {
 		const currentSchool: any = await SchoolProfile.findOne({
 			host: cleanHost,
 		}).lean();
-
 		if (!currentSchool) {
 			return NextResponse.json(
 				{ success: false, message: 'School profile not found.' },
 				{ status: 404 },
 			);
 		}
+
 		const tenantKey = resolveTenantSyncKey({
 			schoolProfile: currentSchool,
 			tenantId: currentUser.tenantId,
@@ -107,24 +108,29 @@ export async function POST(request: NextRequest) {
 			studentSettings,
 			teacherSettings,
 			administratorSettings,
+			// FIX: destructure reportCardThemes from the request body
+			reportCardThemes,
 			themeName,
 			bulkUserActions,
 			bulkPasswordResets,
 		} = body;
 
-		// Prepare update object
+		// Build update object
 		const updateObject: any = {};
 
-		// 1. Update Current Academic Year if provided
+		// 1. Update Current Academic Year
 		if (currentAcademicYear) {
 			updateObject.currentAcademicYear = currentAcademicYear;
 		}
 
-		// 2. Update School Settings
+		// 2. Update School Settings (including reportCardThemes)
 		const hasSettingsPatch =
 			studentSettings !== undefined ||
 			teacherSettings !== undefined ||
-			administratorSettings !== undefined;
+			administratorSettings !== undefined ||
+			// FIX: include reportCardThemes in the patch check so a theme-only
+			// save still triggers the settings update block
+			reportCardThemes !== undefined;
 
 		if (hasSettingsPatch) {
 			const existingSettings = currentSchool?.settings || {};
@@ -135,10 +141,12 @@ export async function POST(request: NextRequest) {
 				...(administratorSettings !== undefined
 					? { administratorSettings }
 					: {}),
+				// FIX: persist reportCardThemes into the settings subdocument
+				...(reportCardThemes !== undefined ? { reportCardThemes } : {}),
 			} as SchoolSettings;
 		}
 
-		// 3. Update Tenant Theme Name
+		// 3. Update Tenant Theme Name (separate from reportCardThemes)
 		if (themeName !== undefined) {
 			if (typeof themeName !== 'string' || !isTenantThemeName(themeName)) {
 				return NextResponse.json(
@@ -152,7 +160,7 @@ export async function POST(request: NextRequest) {
 			updateObject.themeName = themeName;
 		}
 
-		// Update the school profile
+		// Apply update to DB
 		const updatedSchoolProfile = await SchoolProfile.findOneAndUpdate(
 			{ host: cleanHost },
 			{ $set: updateObject },
@@ -166,14 +174,14 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Update cache immediately
+		// Update long-lived cache
 		const cacheKey = `school_profile:${cleanHost}`;
 		await redis.set(cacheKey, JSON.stringify(updatedSchoolProfile), {
 			ex: 60 * 60 * 24 * 30, // 30 days
 		});
 		setSchoolProfileMemoryCache(cleanHost, updatedSchoolProfile);
 
-		// Also update a shorter TTL cache for frequently accessed data
+		// Update short-lived settings cache
 		const quickCacheKey = `school_settings:${cleanHost}`;
 		await redis.set(
 			quickCacheKey,
@@ -182,16 +190,13 @@ export async function POST(request: NextRequest) {
 				settings: updatedSchoolProfile.settings,
 				themeName: updatedSchoolProfile.themeName,
 			}),
-			{
-				ex: 60 * 5, // 5 minutes for quick access
-			},
+			{ ex: 60 * 5 }, // 5 minutes
 		);
 
-		// Check for login access changes and destroy sessions if needed
+		// Destroy sessions for roles whose login access was just revoked
 		if (oldSettings) {
 			const sessionDestructionPromises: Promise<void>[] = [];
 
-			// Check for Student login deactivation
 			if (
 				oldSettings.studentSettings?.loginAccess === true &&
 				studentSettings?.loginAccess === false
@@ -206,7 +211,6 @@ export async function POST(request: NextRequest) {
 				);
 			}
 
-			// Check for Teacher login deactivation
 			if (
 				oldSettings.teacherSettings?.loginAccess === true &&
 				teacherSettings?.loginAccess === false
@@ -221,7 +225,6 @@ export async function POST(request: NextRequest) {
 				);
 			}
 
-			// Check for Administrator login deactivation
 			if (
 				oldSettings.administratorSettings?.loginAccess === true &&
 				administratorSettings?.loginAccess === false
@@ -238,11 +241,10 @@ export async function POST(request: NextRequest) {
 				);
 			}
 
-			// Execute all session destructions concurrently
 			await Promise.all(sessionDestructionPromises);
 		}
 
-		// 3. Perform Bulk User Actions (Activate/Deactivate)
+		// Perform Bulk User Actions
 		if (bulkUserActions && Object.keys(bulkUserActions).length > 0) {
 			const affectedYearsSet = new Set<string>();
 			const collectAffectedYears = (users: any[]) => {
@@ -280,10 +282,7 @@ export async function POST(request: NextRequest) {
 						async (user: any) => destroyAllUserSessions(user._id.toString()),
 						25,
 					);
-					return;
 				}
-				// Activation does not require mutating live sessions.
-				// Deactivated users already had active sessions destroyed.
 			};
 
 			const processBulkPasswordReset = async (
@@ -409,6 +408,7 @@ export async function POST(request: NextRequest) {
 			}
 
 			await Promise.all(actionsToRun);
+
 			if (affectedYearsSet.size > 0) {
 				await bumpUsersVersion(Array.from(affectedYearsSet));
 				await publishSyncEventsForAcademicYearsSafe({
@@ -461,7 +461,7 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET endpoint to fetch current school settings
+ * GET endpoint to fetch current school settings.
  */
 export async function GET(request: NextRequest) {
 	try {
@@ -488,10 +488,9 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
-		// Try to get from cache first
+		// Try cache first
 		const quickCacheKey = `school_settings:${cleanHost}`;
 		const cachedData = await redis.get(quickCacheKey);
-
 		if (cachedData) {
 			return NextResponse.json({
 				success: true,
@@ -500,9 +499,8 @@ export async function GET(request: NextRequest) {
 			});
 		}
 
-		// If not in cache, fetch from database
+		// Fall back to DB
 		const tenantsConnection = await connectToTenantsDb();
-
 		const SchoolProfile =
 			tenantsConnection.models.Profile ||
 			tenantsConnection.model<SchoolProfileType & Document>(
@@ -521,26 +519,20 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
-		// Update cache
-		await redis.set(
-			quickCacheKey,
-			JSON.stringify({
-				currentAcademicYear: school.currentAcademicYear,
-				settings: school.settings,
-				themeName: school.themeName,
-			}),
-			{
-				ex: 60 * 5, // 5 minutes
-			},
-		);
+		const responseData = {
+			currentAcademicYear: school.currentAcademicYear,
+			settings: school.settings,
+			themeName: school.themeName,
+		};
+
+		// Refresh cache
+		await redis.set(quickCacheKey, JSON.stringify(responseData), {
+			ex: 60 * 5,
+		});
 
 		return NextResponse.json({
 			success: true,
-			data: {
-				currentAcademicYear: school.currentAcademicYear,
-				settings: school.settings,
-				themeName: school.themeName,
-			},
+			data: responseData,
 			source: 'database',
 		});
 	} catch (error) {

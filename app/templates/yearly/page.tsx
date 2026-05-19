@@ -11,10 +11,14 @@ import { useSchoolStore } from '@/store/schoolStore';
 // Import shared component, types, and constants
 import {
 	ReportCard,
-	THEMES,
 	type StudentYearlyReport,
 	type ReportFilters,
 } from './YearlyReport';
+
+import {
+	REPORT_CARD_THEMES,
+	DEFAULT_REPORT_CARD_THEME,
+} from '@/types/reportCardTheme';
 
 // ─────────────────────────────────────────────
 // Types
@@ -212,7 +216,7 @@ const FilterContent = React.memo(function FilterContent({
 				<div className="mb-4">
 					<label className="block text-sm font-medium mb-2">Theme</label>
 					<div className="grid grid-cols-4 gap-2">
-						{THEMES.map((theme) => (
+						{REPORT_CARD_THEMES.map((theme) => (
 							<button
 								key={theme.id}
 								type="button"
@@ -261,7 +265,7 @@ export default function ReportCardPage() {
 	const [filters, setFilters] = useState<TemplateFilters>({
 		session: '',
 		classLevel: '',
-		themeId: THEMES[0].id,
+		themeId: REPORT_CARD_THEMES[0].id,
 	});
 
 	const [reportStep, setReportStep] = useState(0);
@@ -273,7 +277,9 @@ export default function ReportCardPage() {
 	}, [filters.session, school]);
 
 	const activeTheme = useMemo(
-		() => THEMES.find((t) => t.id === filters.themeId) ?? THEMES[0],
+		() =>
+			REPORT_CARD_THEMES.find((t) => t.id === filters.themeId) ??
+			DEFAULT_REPORT_CARD_THEME,
 		[filters.themeId],
 	);
 

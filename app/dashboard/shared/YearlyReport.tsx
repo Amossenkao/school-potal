@@ -45,6 +45,7 @@ import {
 } from '@/app/dashboard/shared/reportPdfLayout';
 import { loadReportTemplateBytes } from '@/utils/reportTemplate';
 import { areGradeRowsEquivalent } from '@/utils/gradeRows';
+import { report } from 'process';
 
 // --- Type Definitions ---
 
@@ -1592,6 +1593,7 @@ const generateYearlyReportPdf = async ({
 		session: reportFilters.session,
 		classLevel: reportFilters.classLevel,
 		classSubjects,
+		themeId: school?.settings?.reportCardThemes?.[reportFilters.classLevel],
 	});
 	const templateDoc = await PDFDocument.load(templateBytes);
 	const [templatePage1, templatePage2] = templateDoc.getPages();

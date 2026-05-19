@@ -120,6 +120,11 @@ export interface SchoolSettings {
 	teacherSettings: TeacherSettings;
 	administratorSettings: AdministratorSettings;
 	gradingSettings: GradingSettings;
+	/**
+	 * Maps each class level name (e.g. "Elementary", "Junior High") to a
+	 * report-card theme id from the THEMES array in YearlyReport.tsx.
+	 */
+	reportCardThemes?: Record<string, string>;
 }
 
 export interface SchoolProfile {

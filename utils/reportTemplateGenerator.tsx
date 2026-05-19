@@ -2,7 +2,10 @@ import React from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { SemesterReport } from '@/app/templates/semester/SemesterReport';
 import { ReportCard } from '@/app/templates/yearly/YearlyReport';
-import { THEMES } from '@/app/templates/yearly/YearlyReport';
+import {
+	REPORT_CARD_THEMES,
+	DEFAULT_REPORT_CARD_THEME,
+} from '@/types/reportCardTheme';
 
 type ReportTemplateType = 'yearly' | 'semester';
 type SemesterKey = 'first' | 'second';
@@ -91,11 +94,10 @@ const buildBlankSemesterData = (subjects: string[]) => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const DEFAULT_THEME_ID = 'midnightSapphire';
-
 const resolveTheme = (themeId?: string) =>
-	THEMES.find((t) => t.id === (themeId ?? DEFAULT_THEME_ID)) ??
-	THEMES.find((t) => t.id === DEFAULT_THEME_ID)!;
+	REPORT_CARD_THEMES.find(
+		(t) => t.id === (themeId ?? DEFAULT_REPORT_CARD_THEME),
+	) ?? REPORT_CARD_THEMES.find((t) => t.id === DEFAULT_REPORT_CARD_THEME)!;
 
 const buildReportFilters = (semester: SemesterKey, classLevel?: string) => ({
 	semester,
