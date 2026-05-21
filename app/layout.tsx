@@ -8,6 +8,8 @@ import {
 	resolveTenantThemeColor,
 } from '@/lib/tenantTheme';
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 const toSchoolName = (profile: any) => {
 	const rawName = profile?.name;
 	if (typeof rawName === 'string' && rawName.trim()) {
@@ -36,6 +38,38 @@ const toSchoolShortName = (profile: any, fallbackName: string) => {
 	if (normalized.length <= 1) return fallbackName;
 	return normalized;
 };
+
+// ─── Blocking restore script ──────────────────────────────────────────────────
+// This runs synchronously before the first paint so there is no flash of the
+// wrong theme or colour-mode on hard refresh / SSR.
+// It mirrors exactly what applyTenantThemeToDocument() + ThemeToggleButton do
+// at runtime — the only source of truth is localStorage.
+const THEME_RESTORE_SCRIPT = `
+(function () {
+  try {
+    // ── 1. Dark / light mode ────────────────────────────────────────────────
+    // Adjust the localStorage key below if ThemeToggleButton uses a different one.
+    var mode = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var dark = mode === 'dark' || (mode !== 'light' && prefersDark);
+    document.documentElement.classList.toggle('dark', dark);
+
+    // ── 2. Tenant theme ─────────────────────────────────────────────────────
+    // Setting data-theme lets CSS selectors in globals.css restore variables
+    // instantly without waiting for the JS bundle.
+    // applyTenantThemeToDocument() must also call setAttribute('data-theme', name)
+    // so the attribute stays in sync whenever the user changes themes at runtime.
+    var theme = localStorage.getItem('user_theme_preference');
+    if (theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+  } catch (_) {
+    // localStorage unavailable (private browsing edge-cases) — silently skip.
+  }
+})();
+`.trim();
+
+// ─── Metadata ─────────────────────────────────────────────────────────────────
 
 export async function generateMetadata(): Promise<Metadata> {
 	const profileRaw = await getSchoolProfile();
@@ -105,6 +139,8 @@ export async function generateMetadata(): Promise<Metadata> {
 	};
 }
 
+// ─── Root layout ──────────────────────────────────────────────────────────────
+
 export default async function RootLayout({
 	children,
 }: {
@@ -118,9 +154,31 @@ export default async function RootLayout({
 	const schoolShortName = toSchoolShortName(profile, schoolName);
 	const tenantThemeColor = resolveTenantThemeColor(profile?.themeName);
 	const tenantThemeCss = buildTenantThemeCss(profile?.themeName);
+
 	return (
-		<html lang="en">
+		// Suppress hydration warning: the blocking script mutates classList and
+		// data-theme before React hydrates, so a mismatch is expected and harmless.
+		<html lang="en" suppressHydrationWarning>
 			<head>
+				{/*
+				 * ── Blocking theme-restore script ────────────────────────────────────
+				 * Must be the FIRST child of <head> so it runs before any stylesheet or
+				 * element is painted. Restores dark-mode class and data-theme attribute
+				 * from localStorage synchronously, eliminating flash on hard refresh.
+				 */}
+				<script dangerouslySetInnerHTML={{ __html: THEME_RESTORE_SCRIPT }} />
+
+				{/* Server-side tenant theme — used as the SSR baseline / fallback.
+				    At runtime applyTenantThemeToDocument() takes over and the
+				    data-theme attribute drives per-user overrides via CSS. */}
+				{tenantThemeCss && (
+					<style
+						id="tenant-theme"
+						dangerouslySetInnerHTML={{ __html: tenantThemeCss }}
+					/>
+				)}
+
+				{/* PWA / manifest tags */}
 				{hasApps && <link rel="manifest" href="/manifest.webmanifest" />}
 				{hasApps && (
 					<link
@@ -138,12 +196,6 @@ export default async function RootLayout({
 				{hasApps && (
 					<meta name="msapplication-TileColor" content={tenantThemeColor} />
 				)}
-				{tenantThemeCss && (
-					<style
-						id="tenant-theme"
-						dangerouslySetInnerHTML={{ __html: tenantThemeCss }}
-					/>
-				)}
 			</head>
 			<body>
 				<DynamicDocumentTitle fallbackSchoolShortName={schoolShortName} />
@@ -152,7 +204,7 @@ export default async function RootLayout({
 					defer
 					src="https://static.cloudflareinsights.com/beacon.min.js"
 					data-cf-beacon='{"token": "2641db84ad4c444485ac6fdccee7de50"}'
-				></script>
+				/>
 			</body>
 		</html>
 	);

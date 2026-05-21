@@ -7,7 +7,7 @@ export default function Loading() {
 			<div className="flex items-center justify-center min-h-[60vh]">
 				<PageLoading
 					variant="school"
-					message="Opening dashboard section..."
+					message="Opening Amos section..."
 					fullScreen={false}
 				/>
 			</div>

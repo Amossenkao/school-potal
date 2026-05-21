@@ -37,10 +37,7 @@ const ensureSyncEventsPath = (rawUrl: string, baseUrl: string) => {
 	return url.toString();
 };
 
-const resolveRoleLoginDisabledMessage = (
-	role: string,
-	school: any,
-): string => {
+const resolveRoleLoginDisabledMessage = (role: string, school: any): string => {
 	if (!role || role === 'system_admin') return '';
 	const roleSettingsKey = `${role}Settings`;
 	const roleSettings = school?.settings?.[roleSettingsKey];
@@ -146,22 +143,23 @@ const LoginPage = () => {
 		return () => window.clearTimeout(timer);
 	}, [isRedirecting]);
 
-	const refreshSchoolProfile = useCallback(async (): Promise<SchoolProfile | null> => {
-		try {
-			const response = await fetch('/api/school', {
-				cache: 'no-store',
-				headers: {
-					'Cache-Control': 'no-store',
-				},
-			});
-			if (!response.ok) return null;
-			const nextSchool = (await response.json()) as SchoolProfile;
-			setSchool(nextSchool);
-			return nextSchool;
-		} catch {
-			return null;
-		}
-	}, [setSchool]);
+	const refreshSchoolProfile =
+		useCallback(async (): Promise<SchoolProfile | null> => {
+			try {
+				const response = await fetch('/api/school', {
+					cache: 'no-store',
+					headers: {
+						'Cache-Control': 'no-store',
+					},
+				});
+				if (!response.ok) return null;
+				const nextSchool = (await response.json()) as SchoolProfile;
+				setSchool(nextSchool);
+				return nextSchool;
+			} catch {
+				return null;
+			}
+		}, [setSchool]);
 
 	useEffect(() => {
 		let stopped = false;

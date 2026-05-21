@@ -70,8 +70,7 @@ const AUTH_CHECK_DEDUP_MS = 1200;
 const AUTH_BOOTSTRAP_TIMEOUT_MS = 4500;
 const OFFLINE_REQUEST_MESSAGE =
 	'You are offline. Please connect to the internet and try again.';
-const REQUEST_TIMEOUT_MESSAGE =
-	'The request took too long. Please try again.';
+const REQUEST_TIMEOUT_MESSAGE = 'The request took too long. Please try again.';
 
 const createTimeoutAbortReason = (requestName: string) => {
 	try {
@@ -247,7 +246,8 @@ const useAuth = create<AuthState>((set, get) => {
 							: undefined,
 				calendar:
 					typeof versions.calendar === 'string' ? versions.calendar : undefined,
-				grades: typeof versions.grades === 'string' ? versions.grades : undefined,
+				grades:
+					typeof versions.grades === 'string' ? versions.grades : undefined,
 				gradeRequests:
 					typeof versions.gradeRequests === 'string'
 						? versions.gradeRequests
@@ -268,11 +268,7 @@ const useAuth = create<AuthState>((set, get) => {
 			schoolStore.setCalendarForYear(academicYear, data.calendarEvents);
 		}
 
-		if (
-			academicYear &&
-			data?.schedules &&
-			typeof data.schedules === 'object'
-		) {
+		if (academicYear && data?.schedules && typeof data.schedules === 'object') {
 			schoolStore.setSchedulesForYear(academicYear, data.schedules);
 		}
 
@@ -405,7 +401,9 @@ const useAuth = create<AuthState>((set, get) => {
 				const controller = new AbortController();
 				const timeoutId = window.setTimeout(
 					() =>
-						controller.abort(createTimeoutAbortReason('OTP verification request')),
+						controller.abort(
+							createTimeoutAbortReason('OTP verification request'),
+						),
 					AUTH_LOGIN_TIMEOUT_MS,
 				);
 				const res = await (async () => {
@@ -488,7 +486,8 @@ const useAuth = create<AuthState>((set, get) => {
 			try {
 				const controller = new AbortController();
 				const timeoutId = window.setTimeout(
-					() => controller.abort(createTimeoutAbortReason('OTP resend request')),
+					() =>
+						controller.abort(createTimeoutAbortReason('OTP resend request')),
 					AUTH_REQUEST_TIMEOUT_MS,
 				);
 				const res = await (async () => {
@@ -792,7 +791,9 @@ const useAuth = create<AuthState>((set, get) => {
 							console.warn('Failed to cache auth user:', error);
 						}
 					} else if (Object.prototype.hasOwnProperty.call(data, 'user')) {
-						const hasAuthenticatedState = Boolean(get().isLoggedIn || get().user);
+						const hasAuthenticatedState = Boolean(
+							get().isLoggedIn || get().user,
+						);
 						if (hasAuthenticatedState) {
 							set({ user: null, isLoggedIn: false, userVersion: null });
 							try {
@@ -816,11 +817,10 @@ const useAuth = create<AuthState>((set, get) => {
 					}
 					useNetworkStore.getState().setAuthCheckFailed(true);
 				}
-			})()
-				.finally(() => {
-					lastAuthCheckCompletedAt = Date.now();
-					authCheckPromise = null;
-				});
+			})().finally(() => {
+				lastAuthCheckCompletedAt = Date.now();
+				authCheckPromise = null;
+			});
 
 			await authCheckPromise;
 		},

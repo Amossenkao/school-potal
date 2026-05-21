@@ -81,10 +81,10 @@ const AdministratorSettingsSchema = new Schema(
 
 const GradingSettingsSchema = new Schema(
 	{
-		passMark: { type: Number, required: true, default: 60 },
+		passMark: { type: Number, required: true, default: 70 },
 
 		gradeScale: {
-			min: { type: Number, required: true, default: 0 },
+			min: { type: Number, required: true, default: 60 },
 			max: { type: Number, required: true, default: 100 },
 		},
 
@@ -246,6 +246,12 @@ const ClassSchema = new Schema(
 			type: String,
 			required: true,
 			trim: true,
+		},
+
+		isSelfContained: {
+			type: Boolean,
+			required: true,
+			default: false,
 		},
 
 		fees: {
