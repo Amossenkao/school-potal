@@ -1,7 +1,7 @@
 import React from 'react';
 import { pdf } from '@react-pdf/renderer';
-import { SemesterReport } from '@/app/templates/semester/SemesterReport';
-import { ReportCard } from '@/app/templates/yearly/YearlyReport';
+import { SemesterReport } from '@/components/templates/SemesterReport';
+import { ReportCard } from '@/components/templates/YearlyReport';
 import {
 	REPORT_CARD_THEMES,
 	DEFAULT_REPORT_CARD_THEME,

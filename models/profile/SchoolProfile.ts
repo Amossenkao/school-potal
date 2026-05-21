@@ -344,23 +344,6 @@ const SchoolProfileSchema = new Schema<SchoolProfile & Document>(
 			trim: true,
 		},
 
-		description: {
-			type: String,
-			required: true,
-			trim: true,
-		},
-
-		heroImageUrl: {
-			type: String,
-			trim: true,
-		},
-
-		tagline: {
-			type: String,
-			required: true,
-			trim: true,
-		},
-
 		yearFounded: {
 			type: Number,
 			required: true,
@@ -418,37 +401,6 @@ const SchoolProfileSchema = new Schema<SchoolProfile & Document>(
 			default: 'horizon',
 		},
 
-		// Website/Profile content
-		whyChoose: {
-			type: Schema.Types.Mixed,
-			default: [],
-		},
-
-		facilities: {
-			type: Schema.Types.Mixed,
-			default: [],
-		},
-
-		team: {
-			type: Schema.Types.Mixed,
-			default: [],
-		},
-
-		quickLinks: {
-			type: Schema.Types.Mixed,
-			default: [],
-		},
-
-		academicLinks: {
-			type: Schema.Types.Mixed,
-			default: [],
-		},
-
-		footerLinks: {
-			type: Schema.Types.Mixed,
-			default: [],
-		},
-
 		// Contact info
 		address: {
 			type: [String],
@@ -461,11 +413,6 @@ const SchoolProfileSchema = new Schema<SchoolProfile & Document>(
 		},
 
 		emails: {
-			type: [String],
-			default: [],
-		},
-
-		hours: {
 			type: [String],
 			default: [],
 		},

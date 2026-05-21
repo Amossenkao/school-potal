@@ -627,11 +627,14 @@ export const buildReportPage2Placements = ({
 
 	const placements: TextPlacementMap = {};
 
+	const top = 323.5;
+	const bottom = 300;
+
 	const PAGE2_RECTS = {
-		student_name: { x: 505.5, y: 338.5, width: 165, height: 20 },
-		class_name: { x: 499.5, y: 308.8, width: 165, height: 20 },
-		student_id: { x: 675.2, y: 333.0, width: 98, height: 20 },
-		academic_year: { x: 738.5, y: 309.5, width: 56, height: 20 },
+		student_name: { x: 492, y: top, width: 180, height: 20 },
+		class_name: { x: 492, y: bottom, width: 165, height: 20 },
+		student_id: { x: 738, y: top, width: 98, height: 20 },
+		academic_year: { x: 758, y: bottom, width: 56, height: 20 },
 	};
 
 	const studentNameRect = scaleRect(PAGE2_RECTS.student_name, scaleX, scaleY);

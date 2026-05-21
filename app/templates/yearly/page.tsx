@@ -13,7 +13,7 @@ import {
 	ReportCard,
 	type StudentYearlyReport,
 	type ReportFilters,
-} from './YearlyReport';
+} from '@/components/templates/YearlyReport';
 
 import {
 	REPORT_CARD_THEMES,

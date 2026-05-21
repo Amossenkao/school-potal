@@ -137,9 +137,6 @@ export interface SchoolProfile {
 	studentIdPrefix: string;
 	logoUrl: string;
 	logoUrl2?: string;
-	description: string;
-	heroImageUrl?: string;
-	tagline: string;
 	yearFounded: number;
 	firstAcademicYear: string;
 	currentAcademicYear: string;
@@ -155,16 +152,10 @@ export interface SchoolProfile {
 	themeName?: TenantThemeName;
 
 	// Additional properties
-	whyChoose: any;
-	facilities: any;
-	team: any;
+
 	address: string[];
 	phones: string[];
 	emails: string[];
-	hours: string[];
-	quickLinks: any;
-	academicLinks: any;
-	footerLinks: any;
 	classLevels: ClassLevels;
 }
 

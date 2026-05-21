@@ -1,6 +1,12 @@
 import React from 'react';
-import { Document, Page, Text, View, Image } from '@react-pdf/renderer';
-import styles from './styles';
+import {
+	Document,
+	Page,
+	Text,
+	View,
+	Image,
+	StyleSheet,
+} from '@react-pdf/renderer';
 import {
 	REPORT_CARD_THEMES,
 	DEFAULT_REPORT_CARD_THEME,
@@ -31,6 +37,241 @@ export interface ReportFilters {
 	selectedStudents: string[];
 	sponsorName: string;
 }
+
+// Sytling
+
+const styles = StyleSheet.create({
+	page: {
+		flexDirection: 'column',
+		backgroundColor: '#ffffff',
+		margin: 0,
+		padding: 25,
+		fontSize: 12,
+	},
+
+	// Header section
+	topRow: {
+		flexDirection: 'row',
+		marginTop: 15,
+		marginBottom: 20,
+		borderBottom: 1,
+		borderBottomColor: '#787',
+		overflow: 'hidden',
+	},
+
+	headerLeft: {
+		flexDirection: 'column',
+		width: 700,
+		gap: 6,
+		paddingBottom: 4,
+	},
+
+	headerRight: {
+		flexDirection: 'column',
+		justifyContent: 'flex-end',
+		width: 700,
+		paddingLeft: 120,
+		paddingBottom: 4,
+	},
+
+	// Main grades section
+	gradesContainer: {
+		flexDirection: 'row',
+		marginBottom: 10,
+		borderWidth: 1,
+		borderColor: '#000',
+		gap: 40,
+		borderTopRightRadius: 4,
+		borderTopLeftRadius: 4,
+	},
+
+	semester: {
+		flex: 1,
+		borderRight: 1,
+		borderRightColor: '#000',
+		borderTopLeftRadius: 4,
+	},
+
+	lastSemester: {
+		flex: 1,
+		borderLeft: 1,
+		borderTopRightRadius: 4,
+	},
+
+	semesterHeader: {
+		backgroundColor: '#f0f0f0',
+		padding: 5,
+		textAlign: 'center',
+		borderBottom: 1,
+		borderBottomColor: '#000',
+		fontWeight: 'bold',
+	},
+
+	// Table styles
+
+	subjectCell: {
+		flex: 2,
+		padding: 2,
+		borderRight: 0.5,
+		borderRightColor: '#000',
+		textAlign: 'left',
+		fontSize: 8,
+		fontWeight: 'bold',
+	},
+
+	tableHeader: {
+		flexDirection: 'row',
+		backgroundColor: '#f0f0f0',
+		borderBottom: 1,
+		borderBottomColor: '#000',
+		fontSize: 14,
+		fontWeight: 'bold',
+	},
+
+	tableRow: {
+		flexDirection: 'row',
+		borderBottom: 0.5,
+		borderBottomColor: '#000',
+		height: 16,
+		fontSize: 12,
+	},
+
+	tableCell: {
+		flex: 1,
+		padding: 2,
+		borderRight: 0.5,
+		borderRightColor: '#000',
+		textAlign: 'center',
+		fontSize: 8,
+	},
+
+	lastCell: {
+		flex: 1,
+		padding: 2,
+		textAlign: 'center',
+		fontSize: 8,
+		justifyContent: 'center',
+		alignContent: 'center',
+		alignItems: 'center',
+	},
+
+	// Bottom section
+	bottomSection: {
+		flexDirection: 'row',
+		marginTop: 10,
+		justifyContent: 'space-around',
+	},
+
+	leftBottom: {
+		flex: 1,
+		marginRight: 40,
+	},
+
+	rightBottom: {
+		flex: 1,
+	},
+
+	gradingMethod: {
+		marginTop: -4,
+		marginBottom: 10,
+		paddingTop: 5,
+		paddingRight: 5,
+		paddingLeft: 5,
+		paddingBottom: 0,
+	},
+
+	gradingTitle: {
+		fontWeight: 'bold',
+		marginBottom: 5,
+		textAlign: 'center',
+	},
+
+	gradingText: {
+		fontSize: 10,
+		marginBottom: 2,
+	},
+
+	promotionText: {
+		fontWeight: 'bold',
+		marginBottom: 10,
+		fontSize: 10,
+		paddingLeft: 50,
+	},
+
+	signatureSection: {
+		marginTop: 20,
+		paddingLeft: 50,
+	},
+
+	// Second page styles
+
+	pageTwoContainer: {
+		flexDirection: 'row',
+		height: '100%',
+		gap: 25,
+		borderTopWidth: 1,
+		borderBottomWidth: 1,
+	},
+	schoolHeader: {
+		textAlign: 'center',
+		marginBottom: 20,
+	},
+
+	schoolName: {
+		fontSize: 18,
+		fontWeight: 'bold',
+		marginBottom: 15,
+		marginTop: 10,
+	},
+
+	schoolDetails: {
+		fontSize: 10,
+		marginBottom: 2,
+		top: -75,
+	},
+
+	reportTitle: {
+		fontSize: 16,
+		fontWeight: 'bold',
+		fontFamily: 'Times-Bold',
+		letterSpacing: 1.2,
+		textTransform: 'uppercase',
+		color: '#1f2937',
+		backgroundColor: '#f7f1e3',
+		borderWidth: 1,
+		borderColor: '#b58900',
+		borderRadius: 2,
+		paddingVertical: 4,
+		paddingHorizontal: 10,
+		alignSelf: 'center',
+		marginTop: -70,
+	},
+
+	studentInfo: {
+		marginBottom: 15,
+		fontSize: 12,
+		gap: 4,
+		paddingLeft: 20,
+	},
+
+	parentsSection: {
+		marginTop: 20,
+		borderWidth: 1,
+		borderColor: '#000',
+	},
+
+	parentsSectionTitle: {
+		fontWeight: 'bold',
+		marginTop: 10,
+		marginBottom: 10,
+		textAlign: 'center',
+	},
+
+	noteSection: {
+		marginTop: 15,
+		fontSize: 8,
+	},
+});
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -76,9 +317,19 @@ function ThemedProgressReportHeader({
 	const cornerSize = 7;
 	const cornerThickness = 1.5;
 
+	const getLabelStyle = (length: number) => {
+		if (length <= 27) return { fontSize: 13, letterSpacing: 2, width: '90%' };
+		if (length <= 30) return { fontSize: 11, letterSpacing: 1.5, width: '92%' };
+		if (length <= 34)
+			return { fontSize: 12, letterSpacing: 1.25, width: '95%' };
+		return { fontSize: 9, letterSpacing: 0.5, width: '98%' };
+	};
+
+	const { fontSize, letterSpacing, width } = getLabelStyle(label.length);
+
 	return (
 		<View style={{ marginBottom: 10, alignItems: 'center', marginTop: 30 }}>
-			<View style={{ width: '90%' }}>
+			<View style={{ width }}>
 				{/* Top-left bracket corner */}
 				<View style={{ position: 'absolute', left: 0 }}>
 					<View
@@ -126,10 +377,10 @@ function ThemedProgressReportHeader({
 				>
 					<Text
 						style={{
-							fontSize: 13,
+							fontSize,
 							fontWeight: 'bold',
 							color: theme.headerBarText,
-							letterSpacing: 2,
+							letterSpacing,
 							textAlign: 'center',
 						}}
 					>
@@ -176,7 +427,6 @@ function ThemedProgressReportHeader({
 		</View>
 	);
 }
-
 // ─────────────────────────────────────────────
 // PromotionStatement
 // ─────────────────────────────────────────────
@@ -231,8 +481,14 @@ export const ReportCard = React.memo(function PDFDocument({
 		DEFAULT_REPORT_CARD_THEME;
 
 	const classLabel = className ? className.split('-')[0] : '';
+	const schoolAddressFirstLine = Array.isArray(school?.address)
+		? Array.isArray(school.address[0])
+			? school.address[0].join('\n')
+			: school.address[0] || ''
+		: '';
+
 	const schoolAddress = Array.isArray(school?.address)
-		? school.address.join('\n')
+		? school.address.slice(1).join('\n')
 		: '';
 
 	const accentLeft = {
@@ -839,12 +1095,15 @@ export const ReportCard = React.memo(function PDFDocument({
 											...styles.schoolName,
 											color: activeTheme.schoolNameColor,
 											textAlign: 'center',
-											marginBottom: 4,
+											marginBottom: 2,
 											top: 0,
 										}}
 									>
 										{school?.name}
 									</Text>
+									<View>
+										<Text>{schoolAddressFirstLine}</Text>
+									</View>
 
 									{/* Logo 1 | Address | Logo 2 */}
 									<View
@@ -859,7 +1118,11 @@ export const ReportCard = React.memo(function PDFDocument({
 										{(school?.logoUrl2 || school?.logoUrl) && (
 											<Image
 												src={school.logoUrl2 || school.logoUrl}
-												style={{ width: 60, height: 60 }}
+												style={{
+													width: 60,
+													height: 60,
+													alignSelf: 'flex-end',
+												}}
 											/>
 										)}
 
@@ -874,13 +1137,14 @@ export const ReportCard = React.memo(function PDFDocument({
 											>
 												{schoolAddress}
 											</Text>
+											<Text style={{ height: 40 }}></Text>
 										</View>
 
 										{/* FIX 3: null guard on right logo */}
 										{school?.logoUrl && (
 											<Image
 												src={school.logoUrl}
-												style={{ width: 60, height: 60 }}
+												style={{ width: 60, height: 60, alignSelf: 'flex-end' }}
 											/>
 										)}
 									</View>
@@ -899,7 +1163,7 @@ export const ReportCard = React.memo(function PDFDocument({
 										justifyContent: 'space-between',
 										marginBottom: 5,
 										marginTop: 15,
-										paddingHorizontal: 10,
+										width: '100%',
 										paddingVertical: 12,
 										backgroundColor: '#ffffff',
 										minHeight: 70,
@@ -907,28 +1171,18 @@ export const ReportCard = React.memo(function PDFDocument({
 								>
 									<View style={{ flexDirection: 'column', gap: 12 }}>
 										<Text style={{ fontSize: 11, color: '#000' }}>Name: </Text>
-										<Text
-											style={{
-												fontSize: 11,
-												color: '#000',
-												marginTop: 5,
-											}}
-										>
-											Class:
-										</Text>
+										<Text style={{ fontSize: 11, color: '#000' }}>Class:</Text>
 									</View>
 									<View
 										style={{
 											flexDirection: 'column',
 											gap: 12,
-											paddingRight: 55,
+											paddingRight: 45,
 										}}
 									>
 										<>
-											<Text
-												style={{ fontSize: 11, color: '#000', marginTop: 5 }}
-											>
-												ID:{' '}
+											<Text style={{ fontSize: 11, color: '#000' }}>
+												Student ID:{' '}
 												<Text style={{ fontWeight: 'bold' }}>
 													{studentData.studentId}
 												</Text>

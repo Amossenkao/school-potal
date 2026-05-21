@@ -12,7 +12,7 @@ import {
 	ReportFilters,
 	SemesterReport,
 	StudentSemesterReport,
-} from './SemesterReport';
+} from '@/components/templates/SemesterReport';
 import { PageLoading } from '@/components/loading';
 
 interface TemplateFilters {
