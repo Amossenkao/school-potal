@@ -332,9 +332,6 @@ export const buildSemesterCardPlacements = ({
 	const summaryBoxHeight = rowHeight;
 	const rowStartY = 258 + (rows - BASELINE_SUBJECT_ROWS) * rowHeight;
 
-	// FIX: Removed headerSectionShiftDown (was 12) — it was pushing all header
-	// placements (report title, student name/id/class, period headers) down by
-	// one row in PDF coordinates, causing visible misalignment.
 	const subjectRowLift = 2 * rowHeight - 1;
 	const gradeRowLift = subjectRowLift;
 	const rowCenterNudgeDown = 0;
@@ -347,31 +344,40 @@ export const buildSemesterCardPlacements = ({
 
 	const shiftX = (x: number) => x + cardOffsetX;
 
+	// Header section shifted down by one rowHeight (16px) relative to original values
 	placements.student_name = {
 		x: shiftX(58),
-		y: pageHeight - 128, // FIX: was shiftDownY(pageHeight - 128)
+		y: pageHeight - 140, // was -128
 		size: 8,
 		align: 'left',
-		maxWidth: 110,
+		maxWidth: 160,
 		font: 'bold',
 	};
-	placements.student_id = {
-		x: shiftX(44),
-		y: pageHeight - 138, // FIX: was shiftDownY(pageHeight - 138)
-		size: 8,
-		align: 'left',
-		maxWidth: 120,
-	};
 	placements.class_name = {
-		x: shiftX(206),
-		y: pageHeight - 128, // FIX: was shiftDownY(pageHeight - 128)
+		x: shiftX(58),
+		y: pageHeight - 157.5, // was -133
 		size: 8,
 		align: 'left',
 		maxWidth: 78,
 	};
+	placements.student_id = {
+		x: shiftX(77),
+		y: pageHeight - 173.8585, // was -138
+		size: 8,
+		align: 'left',
+		maxWidth: 120,
+	};
+	placements.semester = {
+		x: shiftX(212),
+		y: pageHeight - 157.5, // was -128
+		size: 8,
+		align: 'left',
+		maxWidth: 70,
+		font: 'bold',
+	};
 	placements.academic_year = {
-		x: shiftX(242),
-		y: pageHeight - 138, // FIX: was shiftDownY(pageHeight - 138)
+		x: shiftX(233),
+		y: pageHeight - 173.8585, // was -138
 		size: 8,
 		align: 'left',
 		maxWidth: 45,
@@ -379,7 +385,7 @@ export const buildSemesterCardPlacements = ({
 	};
 	placements.report_title = {
 		x: shiftX(153.145),
-		y: pageHeight - 100, // FIX: was shiftDownY(pageHeight - 100)
+		y: pageHeight - 113.5, // was -100
 		size: 9,
 		align: 'center',
 		maxWidth: 205,
@@ -402,8 +408,7 @@ export const buildSemesterCardPlacements = ({
 		year: shiftX(260),
 	};
 
-	// FIX: was shiftDownY(pageHeight - 155)
-	const headerY = pageHeight - 155;
+	const headerY = pageHeight - 191.75; // was -155
 	placements.period_header_1 = {
 		x: columns.p1,
 		y: headerY,

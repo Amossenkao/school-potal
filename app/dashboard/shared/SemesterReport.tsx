@@ -1288,7 +1288,6 @@ const buildSemesterFieldMap = ({
 	classSubjects: string[];
 	reportFilters: ReportFilters;
 }) => {
-	const classDisplayName = className.split('-')[0] || className;
 	const semesterLabel =
 		reportFilters.semester === 'first' ? '1ST SEMESTER' : '2ND SEMESTER';
 	const reportTitle = `${(
@@ -1298,9 +1297,11 @@ const buildSemesterFieldMap = ({
 	const fields: Record<string, string> = {
 		student_name: studentData.studentName,
 		student_id: studentData.studentId,
-		class_name: classDisplayName,
+		class_name: className || 'N/A',
 		academic_year: reportFilters.academicYear,
 		report_title: reportTitle.trim(),
+		semester: semesterLabel, // Added semesterLabel here
+		semesterLabel: semesterLabel, // Secondary camelCase option for template flexibility
 		period_header_1: reportFilters.semester === 'first' ? '1st Pd' : '4th Pd',
 		period_header_2: reportFilters.semester === 'first' ? '2nd Pd' : '5th Pd',
 		period_header_3: reportFilters.semester === 'first' ? '3rd Pd' : '6th Pd',

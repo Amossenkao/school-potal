@@ -36,8 +36,7 @@ const styles = StyleSheet.create({
 		flexDirection: 'column',
 		backgroundColor: '#ffffff',
 		margin: 0,
-		padding: 25,
-		// paddingBottom: 20,
+		padding: 5,
 		fontSize: 12,
 	},
 
@@ -289,6 +288,16 @@ export const SemesterReport = React.memo(function SemesterReportDocument({
 
 	const title = 'Semester Report Template';
 
+	const schoolAddressFirstLine = Array.isArray(school?.address)
+		? Array.isArray(school.address[0])
+			? school.address[0].join('\n')
+			: school.address[0] || ''
+		: '';
+
+	const schoolAddress = Array.isArray(school?.address)
+		? school.address.slice(1).join('\n')
+		: '';
+
 	const periodColumns = [
 		{ key: 'first', label: '' },
 		{ key: 'second', label: '' },
@@ -338,8 +347,8 @@ export const SemesterReport = React.memo(function SemesterReportDocument({
 											style={
 												{
 													...watermarkStyle,
-													width: '35%',
-													top: '20%',
+													width: '50%',
+													top: '50%',
 													left: '32%',
 												} as any
 											}
@@ -368,12 +377,16 @@ export const SemesterReport = React.memo(function SemesterReportDocument({
 										>
 											{school?.name}
 										</Text>
+										<Text style={{ fontSize: 8, textAlign: 'center' }}>
+											{schoolAddressFirstLine}
+										</Text>
 										<View
 											style={{
 												flexDirection: 'row',
 												alignItems: 'center',
 												marginBottom: 4,
 												gap: 2,
+												alignContent: 'flex-end',
 											}}
 										>
 											<View>
@@ -385,17 +398,10 @@ export const SemesterReport = React.memo(function SemesterReportDocument({
 												)}
 											</View>
 											<View style={{ flex: 1, alignItems: 'center' }}>
-												{school?.address && (
-													<Text
-														style={{
-															fontSize: 8,
-															textAlign: 'center',
-															marginBottom: 1,
-														}}
-													>
-														{school.address.join('\n')}
-													</Text>
-												)}
+												<Text style={{ fontSize: 8, textAlign: 'center' }}>
+													{schoolAddress}
+												</Text>
+												<Text style={{ height: 10 }}></Text>
 											</View>
 											<View>
 												{school?.logoUrl && (
@@ -430,27 +436,31 @@ export const SemesterReport = React.memo(function SemesterReportDocument({
 											fontSize: 9,
 										}}
 									>
-										<View>
+										<View
+											style={{
+												flexDirection: 'column',
+												gap: 7,
+												justifyContent: 'flex-end',
+											}}
+										>
 											<Text>
 												Name: <Text style={{ fontWeight: 'bold' }}></Text>
 											</Text>
+											<Text>Class:</Text>
 											<Text>
-												ID: <Text style={{ fontWeight: 'bold' }}></Text>
+												Student ID: <Text style={{ fontWeight: 'bold' }}></Text>
 											</Text>
 										</View>
-										<View>
-											<View
-												style={{ flexDirection: 'row', alignItems: 'center' }}
-											>
-												<Text>Class:</Text>
-												<View style={{ width: 40, height: 10 }} />
-											</View>
-											<View
-												style={{ flexDirection: 'row', alignItems: 'center' }}
-											>
-												<Text>Academic Year:</Text>
-												<View style={{ width: 40, height: 10 }} />
-											</View>
+										<View
+											style={{
+												flexDirection: 'column',
+												justifyContent: 'flex-end',
+												paddingRight: 50,
+												gap: 7,
+											}}
+										>
+											<Text>Semester:</Text>
+											<Text>Academic Year:</Text>
 										</View>
 									</View>
 

@@ -124,6 +124,16 @@ export interface SchoolSettings {
 	reportCardThemes?: Record<string, string>;
 }
 
+export interface Images {
+	logoUrl: string;
+	logoUrl2?: string;
+	pwaIcon?: string;
+	loadingSpinnerIcon?: string;
+	semesterReportWatermark?: string;
+	yearlyReportWatermark?: string;
+	yearlyReportWatermark2?: string;
+}
+
 export interface SchoolProfile {
 	// Basic school info
 	isActive: boolean;
@@ -137,6 +147,7 @@ export interface SchoolProfile {
 	studentIdPrefix: string;
 	logoUrl: string;
 	logoUrl2?: string;
+	images: Images;
 	yearFounded: number;
 	firstAcademicYear: string;
 	currentAcademicYear: string;
