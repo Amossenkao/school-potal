@@ -1291,9 +1291,9 @@ const buildSemesterFieldMap = ({
 	const semesterLabel =
 		semesterOptions.find((opt) => opt.value === reportFilters.semester)
 			?.label || '';
-	const reportTitle = `${(
+	const reportTitle = `${
 		reportFilters.classLevel || ''
-	).toUpperCase()} ${semesterLabel} REPORT`;
+	} ${semesterLabel} Report`.toLocaleUpperCase();
 
 	const fields: Record<string, string> = {
 		student_name: studentData.studentName,
