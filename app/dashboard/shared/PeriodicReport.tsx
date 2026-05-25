@@ -203,10 +203,23 @@ function SchoolHeader({
 		periodOptions.find((p) => p.value === student.period)?.label ||
 		student.period;
 
+	const schoolAddressFirstLine = Array.isArray(schoolData?.address)
+		? Array.isArray(schoolData.address[0])
+			? schoolData.address[0].join('\n')
+			: schoolData.address[0] || ''
+		: '';
+
+	const schoolAddress = Array.isArray(schoolData?.address)
+		? schoolData.address.slice(1).join('\n')
+		: '';
+
 	return (
 		<View style={{ marginBottom: 7 }}>
 			<Text style={{ fontSize: 12, fontWeight: 'bold', textAlign: 'center' }}>
 				{schoolData.name || 'School Name'}
+			</Text>
+			<Text style={{ fontSize: 8, textAlign: 'center' }}>
+				{schoolAddressFirstLine}
 			</Text>
 			<View
 				style={{
@@ -225,11 +238,9 @@ function SchoolHeader({
 					)}
 				</View>
 				<View style={{ flex: 1, alignItems: 'center' }}>
-					{schoolData.address && (
-						<Text style={{ fontSize: 8, textAlign: 'center', marginBottom: 1 }}>
-							{schoolData.address.join('\n')}
-						</Text>
-					)}
+					<Text style={{ fontSize: 8, textAlign: 'center' }}>
+						{schoolAddress}
+					</Text>
 				</View>
 				<View>
 					{schoolData.logoUrl && (
@@ -1131,6 +1142,10 @@ const PeriodicReportDocument = React.memo(
 			className,
 		]);
 
+		const periodLabel =
+			periodOptions.find((p) => p.value === reportFilters.period)?.label ||
+			reportFilters.period;
+
 		return (
 			<Document title={title}>
 				{pages
@@ -1212,27 +1227,33 @@ const PeriodicReportDocument = React.memo(
 												flexDirection: 'row',
 												justifyContent: 'space-between',
 												marginBottom: 8,
+												alignItems: 'flex-end',
 											}}
 										>
-											<View style={{ flexDirection: 'column', gap: 5 }}>
+											<View style={{ flexDirection: 'column', gap: 6 }}>
 												<Text style={{ fontWeight: 'bold', fontSize: 10 }}>
 													{studentData.studentName}
 												</Text>
 												<Text style={{ fontSize: 10, fontWeight: 'bold' }}>
 													Class: {className}
 												</Text>
+												<Text style={{ fontSize: 10, fontWeight: 'bold' }}>
+													Student ID: {studentData.studentId}
+												</Text>
 											</View>
 											<View
 												style={{
 													flexDirection: 'column',
-													gap: 5,
+													gap: 6,
+													alignItems: 'flex-start',
+													marginRight: 9,
 												}}
 											>
 												<Text style={{ fontSize: 10 }}>
-													Year: {reportFilters.academicYear}
+													Period: {periodLabel}
 												</Text>
 												<Text style={{ fontSize: 10 }}>
-													ID: {studentData.studentId}
+													Academic: {reportFilters.academicYear}
 												</Text>
 											</View>
 										</View>

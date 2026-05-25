@@ -23,7 +23,7 @@ interface PageProps {
 function validateAdministratorAccess(
 	schoolProfile: SchoolProfile,
 	user: User,
-	routeKey: string
+	routeKey: string,
 ): boolean {
 	// For system_admin, use standard validation
 	if (user.role === 'system_admin') {
@@ -35,14 +35,9 @@ function validateAdministratorAccess(
 		const adminUser = user as Administrator;
 
 		// Check if the position is valid for this school
-		if (
-			!isValidAdministratorPosition(
-				schoolProfile,
-				adminUser.position
-			)
-		) {
+		if (!isValidAdministratorPosition(schoolProfile, adminUser.position)) {
 			console.warn(
-				`Invalid administrator position: ${adminUser.position} for this school`
+				`Invalid administrator position: ${adminUser.position} for this school`,
 			);
 			return false;
 		}
@@ -52,7 +47,7 @@ function validateAdministratorAccess(
 			schoolProfile,
 			'administrator',
 			routeKey,
-			adminUser.position
+			adminUser.position,
 		);
 	}
 
@@ -90,7 +85,7 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 
 		// Convert the Mongoose document to a plain object
 		const plainSchoolProfile: SchoolProfile = JSON.parse(
-			JSON.stringify(schoolProfile)
+			JSON.stringify(schoolProfile),
 		);
 
 		const { page } = await params;
@@ -99,7 +94,7 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 		const hasAccess = validateAdministratorAccess(
 			plainSchoolProfile,
 			user,
-			page
+			page,
 		);
 
 		if (!hasAccess) {
@@ -108,7 +103,7 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 			if (user.role === 'administrator') {
 				const adminUser = user as Administrator;
 				const validPositions = Object.keys(
-					plainSchoolProfile.roleFeatureAccess.administrator
+					plainSchoolProfile.roleFeatureAccess.administrator,
 				);
 
 				if (
@@ -117,7 +112,7 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 					errorMessage += `Your position "${
 						adminUser.position
 					}" is not recognized for this school. Valid positions are: ${validPositions.join(
-						', '
+						', ',
 					)}.`;
 				} else {
 					errorMessage += `Your position "${adminUser.position}" does not have permission to access "${page}".`;
@@ -143,7 +138,7 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 		const componentsMap = generateDynamicComponentsMap(
 			plainSchoolProfile,
 			user.role,
-			adminPosition
+			adminPosition,
 		);
 
 		// Try to find the component in role-specific items first, then shared items

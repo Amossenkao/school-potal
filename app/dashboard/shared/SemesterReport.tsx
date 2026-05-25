@@ -1289,7 +1289,8 @@ const buildSemesterFieldMap = ({
 	reportFilters: ReportFilters;
 }) => {
 	const semesterLabel =
-		reportFilters.semester === 'first' ? '1ST SEMESTER' : '2ND SEMESTER';
+		semesterOptions.find((opt) => opt.value === reportFilters.semester)
+			?.label || '';
 	const reportTitle = `${(
 		reportFilters.classLevel || ''
 	).toUpperCase()} ${semesterLabel} REPORT`;
