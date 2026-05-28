@@ -114,9 +114,11 @@ export default function UserInfoCard() {
 		}
 	};
 
-	const handleDraftChange = (field: 'email' | 'phone' | 'bio' | 'nickName', value: string) => {
-		const nextValue =
-			field === 'phone' ? value.replace(/\D+/g, '') : value;
+	const handleDraftChange = (
+		field: 'email' | 'phone' | 'bio' | 'nickName',
+		value: string,
+	) => {
+		const nextValue = field === 'phone' ? value.replace(/\D+/g, '') : value;
 		setDraftValues((prev) => ({
 			...prev,
 			[field]: nextValue,
@@ -131,19 +133,27 @@ export default function UserInfoCard() {
 
 	const startEditing = (field: 'email' | 'phone' | 'bio' | 'nickName') => {
 		setEditingFields((prev) => ({ ...prev, [field]: true }));
-		setDraftValues((prev) => ({ ...prev, [field]: String(formData[field] || '') }));
+		setDraftValues((prev) => ({
+			...prev,
+			[field]: String(formData[field] || ''),
+		}));
 		if (errors[field as keyof typeof errors]) {
 			setErrors((prev) => ({ ...prev, [field]: undefined }));
 		}
 		if (typeof window !== 'undefined') {
 			setTimeout(() => {
-				const input = document.getElementById(`edit-${field}`) as HTMLInputElement | null;
+				const input = document.getElementById(
+					`edit-${field}`,
+				) as HTMLInputElement | null;
 				input?.focus();
 			}, 0);
 		}
 	};
 
-	const validateField = (field: 'email' | 'phone' | 'bio' | 'nickName', value: string) => {
+	const validateField = (
+		field: 'email' | 'phone' | 'bio' | 'nickName',
+		value: string,
+	) => {
 		if (field === 'email') {
 			if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
 				return 'Invalid email format';
@@ -248,7 +258,9 @@ export default function UserInfoCard() {
 	const handleSave = async () => {
 		const committedFormData = applyPendingEdits() || formData;
 		const updatePayload: Record<string, any> = {};
-		(Object.keys(committedFormData) as Array<keyof typeof committedFormData>).forEach((key) => {
+		(
+			Object.keys(committedFormData) as Array<keyof typeof committedFormData>
+		).forEach((key) => {
 			if (committedFormData[key] !== initialFormData[key]) {
 				updatePayload[key] = committedFormData[key];
 			}
@@ -328,10 +340,7 @@ export default function UserInfoCard() {
 	}
 
 	return (
-		<div
-			className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6"
-			data-theme="luxury"
-		>
+		<div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
 			<div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
 				<div className="w-full">
 					<h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-6">
@@ -521,16 +530,12 @@ export default function UserInfoCard() {
 											id="edit-email"
 											type="email"
 											value={
-												editingFields.email
-													? draftValues.email
-													: formData.email
+												editingFields.email ? draftValues.email : formData.email
 											}
 											onChange={(e) =>
 												handleDraftChange('email', e.target.value)
 											}
-											onBlur={() =>
-												editingFields.email && commitField('email')
-											}
+											onBlur={() => editingFields.email && commitField('email')}
 											readOnly={!editingFields.email}
 											className={`${!editingFields.email ? 'bg-gray-50 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300' : ''} ${
 												errors.email ? 'border-red-500' : ''
@@ -562,16 +567,12 @@ export default function UserInfoCard() {
 											inputMode="numeric"
 											pattern="[0-9]*"
 											value={
-												editingFields.phone
-													? draftValues.phone
-													: formData.phone
+												editingFields.phone ? draftValues.phone : formData.phone
 											}
 											onChange={(e) =>
 												handleDraftChange('phone', e.target.value)
 											}
-											onBlur={() =>
-												editingFields.phone && commitField('phone')
-											}
+											onBlur={() => editingFields.phone && commitField('phone')}
 											readOnly={!editingFields.phone}
 											className={`${!editingFields.phone ? 'bg-gray-50 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300' : ''} ${
 												errors.phone ? 'border-red-500' : ''
@@ -587,15 +588,15 @@ export default function UserInfoCard() {
 										<div className="flex items-center justify-between">
 											<Label>Nickname</Label>
 											{formData.nickName && !editingFields.nickName && (
-													<button
-														type="button"
-														onClick={() => startEditing('nickName')}
-														className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
-														aria-label="Edit nickname"
-													>
-														<Pencil className="h-4 w-4" />
-													</button>
-												)}
+												<button
+													type="button"
+													onClick={() => startEditing('nickName')}
+													className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+													aria-label="Edit nickname"
+												>
+													<Pencil className="h-4 w-4" />
+												</button>
+											)}
 										</div>
 										<Input
 											id="edit-nickName"
@@ -663,17 +664,9 @@ export default function UserInfoCard() {
 										<Input
 											id="edit-bio"
 											type="text"
-											value={
-												editingFields.bio
-													? draftValues.bio
-													: formData.bio
-											}
-											onChange={(e) =>
-												handleDraftChange('bio', e.target.value)
-											}
-											onBlur={() =>
-												editingFields.bio && commitField('bio')
-											}
+											value={editingFields.bio ? draftValues.bio : formData.bio}
+											onChange={(e) => handleDraftChange('bio', e.target.value)}
+											onBlur={() => editingFields.bio && commitField('bio')}
 											readOnly={!editingFields.bio}
 											className={
 												!editingFields.bio
@@ -682,9 +675,7 @@ export default function UserInfoCard() {
 											}
 										/>
 										{errors.bio && (
-											<p className="mt-1 text-xs text-red-500">
-												{errors.bio}
-											</p>
+											<p className="mt-1 text-xs text-red-500">{errors.bio}</p>
 										)}
 									</div>
 								</div>

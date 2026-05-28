@@ -55,9 +55,10 @@ export default function RootProviders({
 		const manageServiceWorker = async () => {
 			if (!hasAppsFeature) {
 				try {
-					const registrations = await navigator.serviceWorker.getRegistrations();
+					const registrations =
+						await navigator.serviceWorker.getRegistrations();
 					await Promise.all(
-						registrations.map((registration) => registration.unregister())
+						registrations.map((registration) => registration.unregister()),
 					);
 				} catch (error) {
 					console.warn('Service worker cleanup failed:', error);
@@ -191,15 +192,17 @@ export default function RootProviders({
 	}, [hasAppsFeature]);
 
 	useEffect(() => {
-		applyTenantThemeToDocument(school?.themeName);
-	}, [school?.themeName]);
+		applyTenantThemeToDocument(
+			localStorage.getItem('user_theme_preference') || school?.themeName,
+		);
+	}, [localStorage.getItem('user_theme_preference'), school?.themeName]);
 
 	return (
 		<AuthProvider>
 			<ThemeProvider>
 				<SidebarProvider>
 					<OfflineHandler>
-						{school ? (school.isActive ? children : <VercelUpgrade />) : children}
+						{school ? school.isActive ? children : <VercelUpgrade /> : children}
 					</OfflineHandler>
 				</SidebarProvider>
 				<Toaster position="top-right" />
