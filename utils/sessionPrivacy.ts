@@ -5,7 +5,11 @@ export type ClearUserSessionDataOptions = {
 	preserveLocalStorageKeys?: string[];
 };
 
-const LOCALSTORAGE_PRESERVED_KEYS = new Set(['school-profile']);
+const LOCALSTORAGE_PRESERVED_KEYS = new Set([
+	'school-profile',
+	'theme',
+	'user_theme_preference',
+]);
 
 const SENSITIVE_LOCALSTORAGE_KEYS = new Set([
 	'auth-user',
