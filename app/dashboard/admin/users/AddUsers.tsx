@@ -100,6 +100,9 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		teacherSessions: {},
 	});
 
+	// Track active teacher session tab
+	const [activeTeacherSession, setActiveTeacherSession] = useState<string>('');
+
 	useEffect(() => {
 		if (!defaultEnrollmentYear) return;
 		setFormData((prev) => {
@@ -272,32 +275,53 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		return selfContainedClasses;
 	};
 
+	// Updated to support multiple self-contained class selection
 	const handleSelfContainedSelection = (classId, session, level, checked) => {
-		const otherSubjectsInSession = formData.teacher.subjects.filter(
-			(s) => s.session !== session,
+		// Get subjects for this self-contained class
+		const classSubjects = getSubjectsBySessionAndLevel(session, level);
+
+		// Build new subjects: keep everything not from this specific class's self-contained subjects
+		const subjectsWithoutThisClass = formData.teacher.subjects.filter(
+			(s) =>
+				!(
+					s.session === session &&
+					s.level === level &&
+					isLevelSelfContained(session, s.level)
+				),
 		);
 
-		const updatedSubjects = checked
-			? [
-					...otherSubjectsInSession,
-					...getSubjectsBySessionAndLevel(session, level).map(
-						(subjectName) => ({
-							subject: subjectName,
-							level: level,
-							session: session,
-						}),
-					),
-				]
-			: otherSubjectsInSession;
+		let updatedSubjects;
+		let updatedSponsorClass = formData.teacher.sponsorClass;
+		let updatedIsSponsor = formData.teacher.isSponsor;
 
-		const updatedSponsorClass = checked ? classId : null;
+		if (checked) {
+			// Add subjects for this self-contained class
+			const newSubjects = classSubjects.map((subjectName) => ({
+				subject: subjectName,
+				level: level,
+				session: session,
+			}));
+			updatedSubjects = [...subjectsWithoutThisClass, ...newSubjects];
+			// If no sponsor class yet, assign this one
+			if (!updatedSponsorClass) {
+				updatedSponsorClass = classId;
+				updatedIsSponsor = true;
+			}
+		} else {
+			updatedSubjects = subjectsWithoutThisClass;
+			// If this was the sponsor class, clear it
+			if (formData.teacher.sponsorClass === classId) {
+				updatedSponsorClass = null;
+				updatedIsSponsor = false;
+			}
+		}
 
 		setFormData({
 			...formData,
 			teacher: {
 				...formData.teacher,
 				subjects: updatedSubjects,
-				isSponsor: checked,
+				isSponsor: updatedIsSponsor,
 				sponsorClass: updatedSponsorClass,
 			},
 		});
@@ -624,6 +648,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		});
 		setErrors({});
 		setCreatedUserInfo(null);
+		setActiveTeacherSession('');
 		setExpandedAccordions({
 			guardian: true,
 			class: false,
@@ -641,6 +666,26 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			});
 		}
 	};
+
+	// Helper: get count of subjects assigned in a given session
+	const getSessionSubjectCount = (session: string) =>
+		formData.teacher.subjects.filter((s) => s.session === session).length;
+
+	// Helper: check if a self-contained class is selected
+	const isSelfContainedClassSelected = (
+		classId: string,
+		session: string,
+		level: string,
+	) =>
+		formData.teacher.subjects.some(
+			(s) =>
+				s.session === session &&
+				s.level === level &&
+				isLevelSelfContained(session, s.level),
+		) &&
+		formData.teacher.subjects.some(
+			(s) => s.session === session && s.level === level,
+		);
 
 	return (
 		<div className="w-full max-w-6xl mr-auto px-4 sm:px-6 lg:px-6">
@@ -1359,16 +1404,9 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																			key={level}
 																			className={`space-y-3 rounded-xl border p-3 ${levelStyle.section}`}
 																		>
-																			{/* Level Heading */}
 																			<motion.h4
-																				initial={{
-																					opacity: 0,
-																					y: -5,
-																				}}
-																				animate={{
-																					opacity: 1,
-																					y: 0,
-																				}}
+																				initial={{ opacity: 0, y: -5 }}
+																				animate={{ opacity: 1, y: 0 }}
 																				transition={{
 																					duration: 0.3,
 																					delay: levelIndex * 0.1,
@@ -1382,7 +1420,6 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																				</span>
 																			</motion.h4>
 
-																			{/* Class Grid */}
 																			<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 																				{getClassesBySessionAndLevel(
 																					formData.student.session,
@@ -1405,10 +1442,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																								opacity: 0,
 																								scale: 0.95,
 																							}}
-																							animate={{
-																								opacity: 1,
-																								scale: 1,
-																							}}
+																							animate={{ opacity: 1, scale: 1 }}
 																							transition={{
 																								duration: 0.3,
 																								delay: idx * 0.05,
@@ -1448,15 +1482,10 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																},
 															)}
 
-															{/* Error Message */}
 															{errors.classId && (
 																<motion.p
-																	initial={{
-																		opacity: 0,
-																	}}
-																	animate={{
-																		opacity: 1,
-																	}}
+																	initial={{ opacity: 0 }}
+																	animate={{ opacity: 1 }}
 																	className="text-destructive text-sm mt-2"
 																>
 																	{errors.classId}
@@ -1471,176 +1500,305 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 								</>
 							)}
 
-							{/* Teacher specific fields */}
+							{/* ─────────────────────────────────────────────
+							    TEACHER STEP 3 — REDESIGNED LAYOUT
+							    ───────────────────────────────────────────── */}
 							{userType === 'teacher' && (
-								<div className="space-y-6">
-									<h4 className="text-lg font-semibold text-foreground tracking-wide">
-										Assign Subjects and Sponsorship
-									</h4>
+								<div className="flex flex-col gap-6">
+									{/* Top instruction bar */}
+									<p className="text-sm text-muted-foreground">
+										Select the sessions, levels, and subjects this teacher will
+										cover. Self-contained classes assign all configured subjects
+										at once.
+									</p>
 
-									{getSessions().map((session, sessionIdx) => {
-										const isExpanded =
-											expandedAccordions.teacherSessions[session];
-
-										return (
-											<motion.div
-												key={session}
-												initial={{ opacity: 0, y: 10 }}
-												animate={{ opacity: 1, y: 0 }}
-												transition={{ delay: sessionIdx * 0.1, duration: 0.3 }}
-												className="border border-border rounded-xl overflow-hidden shadow-sm"
-											>
-												{/* Accordion Header */}
-												<button
-													type="button"
-													onClick={() =>
-														setExpandedAccordions((prev) => ({
-															...prev,
-															teacherSessions: {
-																...prev.teacherSessions,
-																[session]: !isExpanded,
-															},
-														}))
-													}
-													className="flex justify-between items-center w-full p-4 font-medium text-left text-foreground bg-muted hover:bg-muted/80 transition-all"
-												>
-													<span className="flex items-center gap-2">
-														<BookOpen className="w-5 h-5 text-primary" />
-														{session} Session
-													</span>
-													<ChevronDown
-														className={`w-5 h-5 transition-transform ${
-															isExpanded ? 'rotate-180' : ''
+									{/* Two-column layout: session tab rail (left) + content panel (right) */}
+									<div className="flex gap-4 min-h-[520px]">
+										{/* ── Session Tab Rail ── */}
+										<div className="flex flex-col gap-1 w-44 shrink-0">
+											<p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 px-1">
+												Sessions
+											</p>
+											{getSessions().map((session) => {
+												const count = getSessionSubjectCount(session);
+												const isActive = activeTeacherSession === session;
+												return (
+													<button
+														key={session}
+														type="button"
+														onClick={() => setActiveTeacherSession(session)}
+														className={`relative flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-left transition-all duration-200 ${
+															isActive
+																? 'bg-primary text-primary-foreground shadow-sm'
+																: 'text-foreground hover:bg-muted'
 														}`}
-													/>
-												</button>
+													>
+														<span className="flex items-center gap-2 truncate">
+															<BookOpen className="w-3.5 h-3.5 shrink-0" />
+															{session}
+														</span>
+														{count > 0 && (
+															<span
+																className={`shrink-0 text-xs font-semibold rounded-full px-1.5 py-0.5 min-w-[20px] text-center leading-none ${
+																	isActive
+																		? 'bg-primary-foreground/20 text-primary-foreground'
+																		: 'bg-primary/10 text-primary'
+																}`}
+															>
+																{count}
+															</span>
+														)}
+													</button>
+												);
+											})}
 
-												{/* Accordion Content */}
-												<AnimatePresence initial={false}>
-													{isExpanded && (
-														<motion.div
-															initial={{ opacity: 0, height: 0 }}
-															animate={{ opacity: 1, height: 'auto' }}
-															exit={{ opacity: 0, height: 0 }}
-															transition={{ duration: 0.3 }}
-															className="p-5 space-y-6 bg-background"
-														>
-															{/* Dynamic Self Contained Class Selection */}
-															{getSelfContainedClasses(session).length > 0 && (
-																<div className="space-y-3">
-																	<p className="text-sm text-muted-foreground">
-																		<span className="font-medium">
-																			Self-Contained Class Teacher
-																		</span>{' '}
-																		<span className="italic">
-																			(teaches all subjects config-based)
-																		</span>
-																	</p>
-																	<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-																		{getSelfContainedClasses(session).map(
-																			(cls: any) => {
-																				const isSelected =
-																					formData.teacher.isSponsor &&
-																					formData.teacher.sponsorClass ===
-																						cls.classId;
-																				return (
-																					<motion.label
-																						key={cls.classId}
-																						whileHover={{
-																							scale: 1.03,
-																						}}
-																						className={`relative flex items-center justify-center rounded-xl border p-3 cursor-pointer transition-all duration-300
-                              ${
-																isSelected
-																	? 'border-primary bg-primary/10 shadow-md'
-																	: 'border-muted hover:border-primary/50 hover:bg-accent/10'
-															}`}
-																					>
-																						<input
-																							type="radio"
-																							name={`selfContainedClass-${session}`}
-																							checked={isSelected}
-																							onChange={(e) =>
-																								handleSelfContainedSelection(
-																									cls.classId,
-																									session,
-																									cls.level,
-																									e.target.checked,
-																								)
-																							}
-																							className="absolute opacity-0"
-																						/>
-																						<div className="flex items-center gap-2">
-																							{isSelected && (
-																								<CheckCircle2 className="w-5 h-5 text-primary" />
-																							)}
-																							<span className="text-sm font-medium text-foreground">
-																								{cls.name}
-																							</span>
-																						</div>
-																					</motion.label>
-																				);
-																			},
-																		)}
-																	</div>
+											{/* Divider + Teaching Summary in sidebar */}
+											{formData.teacher.subjects.length > 0 && (
+												<div className="mt-4 pt-4 border-t border-border space-y-2">
+													<p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest px-1">
+														Summary
+													</p>
+													<div className="rounded-lg bg-muted/60 border border-border px-3 py-2.5 space-y-1.5 text-xs text-foreground">
+														<div className="flex justify-between gap-1">
+															<span className="text-muted-foreground">
+																Subjects
+															</span>
+															<span className="font-semibold">
+																{formData.teacher.subjects.length}
+															</span>
+														</div>
+														<div className="flex justify-between gap-1">
+															<span className="text-muted-foreground">
+																Sessions
+															</span>
+															<span className="font-semibold">
+																{
+																	Array.from(
+																		new Set(
+																			formData.teacher.subjects.map(
+																				(s) => s.session,
+																			),
+																		),
+																	).length
+																}
+															</span>
+														</div>
+														{formData.teacher.isSponsor &&
+															formData.teacher.sponsorClass && (
+																<div className="pt-1 border-t border-border/50">
+																	<span className="text-muted-foreground block">
+																		Sponsor
+																	</span>
+																	<span className="font-semibold text-primary break-words">
+																		{getAllClassesForSession(
+																			formData.teacher.subjects[0]?.session,
+																		).find(
+																			(c) =>
+																				c.classId ===
+																				formData.teacher.sponsorClass,
+																		)?.name ?? '—'}
+																	</span>
 																</div>
 															)}
+													</div>
+												</div>
+											)}
+										</div>
 
-															{/* Subject Level Teaching (Renders regular levels only) */}
-															<div className="space-y-4">
-																<label className="block text-sm font-medium text-foreground">
-																	Subject & Level Teaching
-																</label>
-																<p className="text-sm text-muted-foreground">
-																	Select subjects and education levels you will
-																	teach in the{' '}
-																	<span className="font-medium">{session}</span>
-																	= session.
-																</p>
+										{/* ── Content Panel ── */}
+										<div className="flex-1 min-w-0">
+											{!activeTeacherSession ? (
+												/* Empty state */
+												<div className="h-full flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border text-center p-10 gap-3">
+													<BookOpen className="w-10 h-10 text-muted-foreground/40" />
+													<p className="text-sm font-medium text-muted-foreground">
+														Select a session to begin
+													</p>
+													<p className="text-xs text-muted-foreground/70">
+														Choose a session from the left to assign subjects
+														and classes.
+													</p>
+												</div>
+											) : (
+												<motion.div
+													key={activeTeacherSession}
+													initial={{ opacity: 0, x: 8 }}
+													animate={{ opacity: 1, x: 0 }}
+													transition={{ duration: 0.2 }}
+													className="space-y-5"
+												>
+													{/* ── Self-Contained Classes ── */}
+													{getSelfContainedClasses(activeTeacherSession)
+														.length > 0 && (
+														<div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+															<div className="flex items-start justify-between gap-2">
+																<div>
+																	<p className="text-sm font-semibold text-foreground">
+																		Self-Contained Classes
+																	</p>
+																	<p className="text-xs text-muted-foreground mt-0.5">
+																		Selecting a class assigns all its configured
+																		subjects automatically. Multiple classes can
+																		be selected.
+																	</p>
+																</div>
+															</div>
+															<div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+																{getSelfContainedClasses(
+																	activeTeacherSession,
+																).map((cls: any) => {
+																	const isChecked =
+																		formData.teacher.subjects.some(
+																			(s) =>
+																				s.session === activeTeacherSession &&
+																				s.level === cls.level &&
+																				isLevelSelfContained(
+																					activeTeacherSession,
+																					s.level,
+																				),
+																		);
+																	return (
+																		<motion.label
+																			key={cls.classId}
+																			whileHover={{ scale: 1.02 }}
+																			whileTap={{ scale: 0.98 }}
+																			className={`relative flex items-center gap-2.5 rounded-lg border p-3 cursor-pointer transition-all duration-200 ${
+																				isChecked
+																					? 'border-primary bg-primary/10 shadow-sm'
+																					: 'border-border hover:border-primary/50 hover:bg-accent/10'
+																			}`}
+																		>
+																			<input
+																				type="checkbox"
+																				checked={isChecked}
+																				onChange={(e) =>
+																					handleSelfContainedSelection(
+																						cls.classId,
+																						activeTeacherSession,
+																						cls.level,
+																						e.target.checked,
+																					)
+																				}
+																				className="absolute opacity-0"
+																			/>
+																			<div
+																				className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+																					isChecked
+																						? 'bg-primary border-primary'
+																						: 'border-border bg-background'
+																				}`}
+																			>
+																				{isChecked && (
+																					<svg
+																						className="w-2.5 h-2.5 text-primary-foreground"
+																						fill="none"
+																						viewBox="0 0 10 8"
+																					>
+																						<path
+																							d="M1 4l3 3 5-6"
+																							stroke="currentColor"
+																							strokeWidth="1.5"
+																							strokeLinecap="round"
+																							strokeLinejoin="round"
+																						/>
+																					</svg>
+																				)}
+																			</div>
+																			<div className="min-w-0">
+																				<span className="text-sm font-medium text-foreground block truncate">
+																					{cls.name}
+																				</span>
+																				<span className="text-xs text-muted-foreground truncate block">
+																					{cls.level}
+																				</span>
+																			</div>
+																		</motion.label>
+																	);
+																})}
+															</div>
+														</div>
+													)}
 
-																<div className="space-y-4 max-h-96 overflow-y-auto border border-border rounded-lg p-4 bg-background">
-																	{getClassLevels(session)
-																		.filter(
-																			(level) =>
-																				!isLevelSelfContained(session, level),
-																		)
-																		.map((level) => {
-																			const levelStyle =
-																				getLevelVisualStyle(level);
-																			return (
-																				<div
-																					key={level}
-																					className={`rounded-lg border p-3 ${levelStyle.section}`}
-																				>
-																					<h5 className="mb-3">
-																						<span
-																							className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${levelStyle.badge}`}
-																						>
-																							{level}
-																							nose font{' '}
+													{/* ── Subject Assignment by Level ── */}
+													{(() => {
+														const regularLevels = getClassLevels(
+															activeTeacherSession,
+														).filter(
+															(level) =>
+																!isLevelSelfContained(
+																	activeTeacherSession,
+																	level,
+																),
+														);
+														if (regularLevels.length === 0) return null;
+														return (
+															<div className="space-y-3">
+																<div>
+																	<p className="text-sm font-semibold text-foreground">
+																		Subjects by Level
+																	</p>
+																	<p className="text-xs text-muted-foreground mt-0.5">
+																		Check each subject this teacher will deliver
+																		across all classes in that level.
+																	</p>
+																</div>
+																<div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+																	{regularLevels.map((level) => {
+																		const levelStyle =
+																			getLevelVisualStyle(level);
+																		const subjects =
+																			getSubjectsBySessionAndLevel(
+																				activeTeacherSession,
+																				level,
+																			);
+																		const checkedCount = subjects.filter(
+																			(subject) =>
+																				formData.teacher.subjects.some(
+																					(s) =>
+																						s.subject === subject &&
+																						s.level === level &&
+																						s.session === activeTeacherSession,
+																				),
+																		).length;
+
+																		return (
+																			<div
+																				key={level}
+																				className={`rounded-lg border p-3 ${levelStyle.section}`}
+																			>
+																				<div className="flex items-center gap-2 mb-2.5">
+																					<span
+																						className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${levelStyle.badge}`}
+																					>
+																						{level}
+																					</span>
+																					{checkedCount > 0 && (
+																						<span className="text-xs text-muted-foreground">
+																							{checkedCount}/{subjects.length}{' '}
+																							selected
 																						</span>
-																					</h5>
-																					<div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-																						{getSubjectsBySessionAndLevel(
-																							session,
-																							level,
-																						)?.map((subject, subjectIndex) => {
+																					)}
+																				</div>
+																				<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+																					{subjects.map(
+																						(subject, subjectIndex) => {
 																							const isChecked =
 																								formData.teacher.subjects.some(
 																									(s) =>
 																										s.subject === subject &&
 																										s.level === level &&
-																										s.session === session,
+																										s.session ===
+																											activeTeacherSession,
 																								);
-
 																							return (
 																								<motion.label
-																									key={`subject-${subject}-${level}-${session}-${subjectIndex}`}
-																									whileHover={{ scale: 1.03 }}
-																									className={`relative flex items-center rounded-lg border p-2 cursor-pointer transition-all text-sm ${
+																									key={`subject-${subject}-${level}-${activeTeacherSession}-${subjectIndex}`}
+																									whileHover={{ scale: 1.02 }}
+																									whileTap={{ scale: 0.98 }}
+																									className={`relative flex items-center gap-2 rounded-md border px-2.5 py-2 cursor-pointer transition-all text-xs ${
 																										isChecked
 																											? 'border-primary bg-primary/10 shadow-sm'
-																											: 'border-muted hover:border-primary/40 hover:bg-accent/5'
+																											: 'border-border bg-background hover:border-primary/40 hover:bg-accent/5'
 																									}`}
 																								>
 																									<input
@@ -1650,153 +1808,145 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																											handleSubjectChange(
 																												subject,
 																												level,
-																												session,
+																												activeTeacherSession,
 																												e.target.checked,
 																											)
 																										}
 																										className="absolute opacity-0"
 																									/>
-																									<span className="ml-1 text-foreground">
+																									<div
+																										className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+																											isChecked
+																												? 'bg-primary border-primary'
+																												: 'border-border bg-background'
+																										}`}
+																									>
+																										{isChecked && (
+																											<svg
+																												className="w-2 h-2 text-primary-foreground"
+																												fill="none"
+																												viewBox="0 0 10 8"
+																											>
+																												<path
+																													d="M1 4l3 3 5-6"
+																													stroke="currentColor"
+																													strokeWidth="1.5"
+																													strokeLinecap="round"
+																													strokeLinejoin="round"
+																												/>
+																											</svg>
+																										)}
+																									</div>
+																									<span className="text-foreground leading-snug">
 																										{subject}
 																									</span>
 																								</motion.label>
 																							);
-																						})}
-																					</div>
+																						},
+																					)}
 																				</div>
-																			);
-																		})}
+																			</div>
+																		);
+																	})}
 																</div>
 															</div>
+														);
+													})()}
 
-															{/* Class Sponsorship for non-self-contained */}
-															<div className="space-y-2">
-																<label className="block text-sm font-medium text-foreground">
-																	Class Sponsorship (Optional)
-																</label>
-																<select
-																	value={
-																		formData.teacher.sponsorClass &&
-																		getAllClassesForSession(session).find(
-																			(cls) =>
-																				cls.classId ===
-																				formData.teacher.sponsorClass,
-																		)
-																			? formData.teacher.sponsorClass
-																			: ''
-																	}
-																	onChange={(e) => {
-																		const hasSelfContained =
-																			formData.teacher.subjects.some(
-																				(s) =>
-																					s.session === session &&
-																					isLevelSelfContained(
-																						session,
-																						s.level,
-																					),
-																			);
-																		if (hasSelfContained) {
-																			const otherSubjects =
-																				formData.teacher.subjects.filter(
-																					(s) => s.session !== session,
-																				);
-																			setFormData({
-																				...formData,
-																				teacher: {
-																					...formData.teacher,
-																					subjects: otherSubjects,
-																					sponsorClass: e.target.value || null,
-																					isSponsor: !!e.target.value,
-																				},
-																			});
-																		} else {
-																			setFormData({
-																				...formData,
-																				teacher: {
-																					...formData.teacher,
-																					sponsorClass: e.target.value || null,
-																					isSponsor: !!e.target.value,
-																				},
-																			});
-																		}
-																	}}
-																	className="w-full p-3 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
-																>
-																	<option value="">No class sponsorship</option>
-																	{getAllClassesForSession(session)
-																		.filter(
-																			(cls) =>
-																				!isLevelSelfContained(
-																					session,
-																					cls.level,
-																				),
-																		)
-																		.map((cls) => (
-																			<option
-																				key={cls.classId}
-																				value={cls.classId}
-																			>
-																				{cls.name} ({cls.level})
-																			</option>
-																		))}
-																</select>
-															</div>
-														</motion.div>
-													)}
-												</AnimatePresence>
-											</motion.div>
-										);
-									})}
+													{/* ── Class Sponsorship ── */}
+													<div className="rounded-xl border border-border bg-background p-4 space-y-2">
+														<div>
+															<p className="text-sm font-semibold text-foreground">
+																Class Sponsorship
+																<span className="ml-1 text-xs font-normal text-muted-foreground">
+																	(optional)
+																</span>
+															</p>
+															<p className="text-xs text-muted-foreground mt-0.5">
+																Designate this teacher as the homeroom sponsor
+																for one class in this session.
+															</p>
+														</div>
+														<select
+															value={
+																formData.teacher.sponsorClass &&
+																getAllClassesForSession(
+																	activeTeacherSession,
+																).find(
+																	(cls) =>
+																		cls.classId ===
+																		formData.teacher.sponsorClass,
+																)
+																	? formData.teacher.sponsorClass
+																	: ''
+															}
+															onChange={(e) => {
+																const hasSelfContained =
+																	formData.teacher.subjects.some(
+																		(s) =>
+																			s.session === activeTeacherSession &&
+																			isLevelSelfContained(
+																				activeTeacherSession,
+																				s.level,
+																			),
+																	);
+																if (hasSelfContained) {
+																	const otherSubjects =
+																		formData.teacher.subjects.filter(
+																			(s) => s.session !== activeTeacherSession,
+																		);
+																	setFormData({
+																		...formData,
+																		teacher: {
+																			...formData.teacher,
+																			subjects: otherSubjects,
+																			sponsorClass: e.target.value || null,
+																			isSponsor: !!e.target.value,
+																		},
+																	});
+																} else {
+																	setFormData({
+																		...formData,
+																		teacher: {
+																			...formData.teacher,
+																			sponsorClass: e.target.value || null,
+																			isSponsor: !!e.target.value,
+																		},
+																	});
+																}
+															}}
+															className="w-full p-2.5 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+														>
+															<option value="">No class sponsorship</option>
+															{getAllClassesForSession(activeTeacherSession)
+																.filter(
+																	(cls) =>
+																		!isLevelSelfContained(
+																			activeTeacherSession,
+																			cls.level,
+																		),
+																)
+																.map((cls) => (
+																	<option key={cls.classId} value={cls.classId}>
+																		{cls.name} ({cls.level})
+																	</option>
+																))}
+														</select>
+													</div>
+												</motion.div>
+											)}
+										</div>
+									</div>
 
-									{/* Validation Error */}
+									{/* Validation error */}
 									{errors.subjects && (
 										<motion.p
 											initial={{ opacity: 0 }}
 											animate={{ opacity: 1 }}
-											className="text-destructive text-sm mt-1"
+											className="text-destructive text-sm"
 										>
 											{errors.subjects}
 										</motion.p>
-									)}
-
-									{/* Teaching Summary */}
-									{formData.teacher.subjects.length > 0 && (
-										<motion.div
-											initial={{ opacity: 0, y: 10 }}
-											animate={{ opacity: 1, y: 0 }}
-											className="bg-muted border border-border rounded-xl p-5 mt-6 shadow-sm"
-										>
-											<h5 className="font-semibold text-foreground mb-3">
-												Teaching Summary
-											</h5>
-											<div className="space-y-2 text-sm">
-												<p>
-													<span className="font-medium">Total Subjects:</span>{' '}
-													{formData.teacher.subjects.length}
-												</p>
-												<p>
-													<span className="font-medium">Sessions:</span>{' '}
-													{Array.from(
-														new Set(
-															formData.teacher.subjects.map((s) => s.session),
-														),
-													).join(', ')}
-												</p>
-												{formData.teacher.isSponsor && (
-													<p>
-														<span className="font-medium">Class Sponsor:</span>{' '}
-														{
-															getAllClassesForSession(
-																formData.teacher.subjects[0]?.session,
-															).find(
-																(c) =>
-																	c.classId === formData.teacher.sponsorClass,
-															)?.name
-														}
-													</p>
-												)}
-											</div>
-										</motion.div>
 									)}
 								</div>
 							)}
