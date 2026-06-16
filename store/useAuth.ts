@@ -64,10 +64,10 @@ let authCheckPromise: Promise<void> | null = null;
 let authBootstrapPromise: Promise<void> | null = null;
 let lastAuthCheckCompletedAt = 0;
 
-const AUTH_REQUEST_TIMEOUT_MS = 7000;
-const AUTH_LOGIN_TIMEOUT_MS = 9000;
+const AUTH_REQUEST_TIMEOUT_MS = 15000;
+const AUTH_LOGIN_TIMEOUT_MS = 15000;
 const AUTH_CHECK_DEDUP_MS = 1200;
-const AUTH_BOOTSTRAP_TIMEOUT_MS = 4500;
+const AUTH_BOOTSTRAP_TIMEOUT_MS = 15000;
 const OFFLINE_REQUEST_MESSAGE =
 	'You are offline. Please connect to the internet and try again.';
 const REQUEST_TIMEOUT_MESSAGE = 'The request took too long. Please try again.';
@@ -659,7 +659,7 @@ const useAuth = create<AuthState>((set, get) => {
 			if (!skipConnectivityCheck) {
 				const networkState = useNetworkStore.getState();
 				const isOnline = await networkState.refreshConnectivity({
-					timeoutMs: 2800,
+					timeoutMs: 15000,
 					reason: 'auth-check',
 				});
 
@@ -843,6 +843,11 @@ const useAuth = create<AuthState>((set, get) => {
 				if (typeof navigator !== 'undefined' && !navigator.onLine) {
 					useNetworkStore.getState().markOffline('browser-offline');
 					useNetworkStore.getState().setAuthCheckFailed(true);
+					// Complete bootstrap with cached state - don't return early
+					const cachedUser = get().user;
+					if (cachedUser) {
+						set({ isBootstrapping: false, hasBootstrapped: true });
+					}
 					return;
 				}
 

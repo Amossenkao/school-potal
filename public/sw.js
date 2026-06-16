@@ -286,10 +286,20 @@ self.addEventListener('fetch', (event) => {
 
 					const offlineFallback = await caches.match('/offline');
 					if (offlineFallback) return offlineFallback;
-					return new Response('Offline', {
-						status: 503,
-						headers: { 'Content-Type': 'text/plain' },
-					});
+					// Try to find the offline page in any cache
+					for (const cacheName of [STATIC_CACHE, RUNTIME_CACHE, API_CACHE, 'api-runtime-v1']) {
+						const cache = await caches.open(cacheName);
+						const offlinePage = await cache.match('/offline');
+						if (offlinePage) return offlinePage;
+					}
+					// Fallback for truly uncached scenarios - serve offline page HTML directly
+					return new Response(
+						'<!DOCTYPE html><html><head><title>Offline</title><style>body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f3f4f6}.offline-container{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem}.offline-content{max-width:28rem;width:100%;background:#fff;border-radius:0.5rem;border:1px solid #e5e7eb;padding:1.5rem;text-align:center}.offline-title{font-size:1.25rem;font-weight:600;color:#111827;margin-bottom:0.5rem}.offline-message{font-size:0.875rem;color:#6b7280;line-height:1.5}</style></head><body><div class="offline-container"><div class="offline-content"><h1 class="offline-title">You are offline</h1><p class="offline-message">Some data is available from cache, but actions that require the server will be queued or blocked until you reconnect.</p><p class="offline-message" style="margin-top:0.5rem;font-size:0.75rem">Reconnect to sync pending changes.</p></div></div></body></html>',
+						{
+							status: 200,
+							headers: { 'Content-Type': 'text/html' },
+						},
+					);
 				}),
 		);
 		return;

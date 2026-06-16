@@ -1,7 +1,8 @@
 {
-	"_id": "68cfd367043b504888ee4674",
-
-	"host": "localhost",
+	"_id": {
+		"$oid": "6a30b9ee2a7c33d77b41161e"
+	},
+	"host": "ucaliberia.vercel.app",
 	"dbName": "uca",
 	"id": "68b2c47c7acabadf6a1bcfaf",
 	"name": "Upstairs Christian Academy",
@@ -147,7 +148,6 @@
 			"Senior High": "slateSteel"
 		}
 	},
-
 	"address": [
 		"Daycare, Nursery, Kindergarten, Elem, Junior & Senior High",
 		"Unity Town, Pipeline Road, Lower Johnsonville",
@@ -156,10 +156,10 @@
 	],
 	"phones": ["+231 770 123 456", "+231 880 789 012"],
 	"emails": ["info@unityca.edu.lr", "admissions@unityca.edu.lr"],
-
 	"classLevels": {
 		"Morning": {
 			"Daycare": {
+				"isSelfContained": true,
 				"classes": [
 					{
 						"classId": "Morning-Daycare",
@@ -172,27 +172,23 @@
 				],
 				"subjects": [
 					{
-						"name": "Math",
+						"name": "Hygine",
 						"weight": 1
 					},
 					{
-						"name": "General Science",
+						"name": "Social Skills",
 						"weight": 1
 					},
 					{
-						"name": "English",
+						"name": "Identifying Alphabets",
 						"weight": 1
 					},
 					{
-						"name": "French",
+						"name": "Identifying Numbers",
 						"weight": 1
 					},
 					{
-						"name": "Social Studies",
-						"weight": 1
-					},
-					{
-						"name": "Health Science",
+						"name": "Tracing Numbers",
 						"weight": 1
 					},
 					{
@@ -200,19 +196,11 @@
 						"weight": 1
 					},
 					{
-						"name": "Computer",
+						"name": "Idn. Shapes & Colors",
 						"weight": 1
 					},
 					{
-						"name": "Reading",
-						"weight": 1
-					},
-					{
-						"name": "Writing",
-						"weight": 1
-					},
-					{
-						"name": "Spelling",
+						"name": "Recognizing Words",
 						"weight": 1
 					},
 					{
@@ -225,15 +213,15 @@
 					}
 				]
 			},
-
 			"Lower Elementary": {
+				"isSelfContained": true,
 				"classes": [
 					{
-						"classId": "Morning-kOne",
+						"classId": "Morning-KOne",
 						"name": "K-I"
 					},
 					{
-						"classId": "Morning-kTwo",
+						"classId": "Morning-KTwo",
 						"name": "K-II"
 					},
 					{
@@ -263,10 +251,6 @@
 						"weight": 1
 					},
 					{
-						"name": "French",
-						"weight": 1
-					},
-					{
 						"name": "Social Studies",
 						"weight": 1
 					},
@@ -276,10 +260,6 @@
 					},
 					{
 						"name": "Physical Education",
-						"weight": 1
-					},
-					{
-						"name": "Computer",
 						"weight": 1
 					},
 					{
@@ -553,39 +533,36 @@
 		},
 		"Night": {
 			"Daycare": {
+				"isSelfContained": true,
 				"classes": [
 					{
-						"classId": "Morning-Daycare",
+						"classId": "Night-Daycare",
 						"name": "Daycare"
 					},
 					{
-						"classId": "Morning-Nursery",
+						"classId": "Night-Nursery",
 						"name": "Nursery"
 					}
 				],
 				"subjects": [
 					{
-						"name": "Math",
+						"name": "Hygine",
 						"weight": 1
 					},
 					{
-						"name": "General Science",
+						"name": "Social Skills",
 						"weight": 1
 					},
 					{
-						"name": "English",
+						"name": "Identifying Alphabets",
 						"weight": 1
 					},
 					{
-						"name": "French",
+						"name": "Identifying Numbers",
 						"weight": 1
 					},
 					{
-						"name": "Social Studies",
-						"weight": 1
-					},
-					{
-						"name": "Health Science",
+						"name": "Tracing Numbers",
 						"weight": 1
 					},
 					{
@@ -593,19 +570,11 @@
 						"weight": 1
 					},
 					{
-						"name": "Computer",
+						"name": "Idn. Shapes & Colors",
 						"weight": 1
 					},
 					{
-						"name": "Reading",
-						"weight": 1
-					},
-					{
-						"name": "Writing",
-						"weight": 1
-					},
-					{
-						"name": "Spelling",
+						"name": "Recognizing Words",
 						"weight": 1
 					},
 					{
@@ -618,28 +587,28 @@
 					}
 				]
 			},
-
 			"Lower Elementary": {
+				"isSelfContained": true,
 				"classes": [
 					{
-						"classId": "Morning-kOne",
+						"classId": "Night-kOne",
 						"name": "K-I"
 					},
 					{
-						"classId": "Morning-kTwo",
+						"classId": "Night-kTwo",
 						"name": "K-II"
 					},
 					{
-						"classId": "Morning-GradeOne",
-						"name": "Grade 1"
+						"classId": "Night-GradeOne",
+						"name": "Grade 1 PM"
 					},
 					{
-						"classId": "Morning-GradeTwo",
-						"name": "Grade 2"
+						"classId": "Night-GradeTwo",
+						"name": "Grade 2 PM"
 					},
 					{
-						"classId": "Morning-GradeThree",
-						"name": "Grade 3"
+						"classId": "Night-GradeThree",
+						"name": "Grade 3 PM"
 					}
 				],
 				"subjects": [
@@ -656,23 +625,11 @@
 						"weight": 1
 					},
 					{
-						"name": "French",
-						"weight": 1
-					},
-					{
 						"name": "Social Studies",
 						"weight": 1
 					},
 					{
 						"name": "Health Science",
-						"weight": 1
-					},
-					{
-						"name": "Physical Education",
-						"weight": 1
-					},
-					{
-						"name": "Computer",
 						"weight": 1
 					},
 					{
@@ -700,16 +657,16 @@
 			"Upper Elementary": {
 				"classes": [
 					{
-						"classId": "Morning-GradeFour",
-						"name": "Grade 4"
+						"classId": "Night-GradeFour",
+						"name": "Grade 4 PM"
 					},
 					{
-						"classId": "Morning-GradeFive",
-						"name": "Grade 5"
+						"classId": "Night-GradeFive",
+						"name": "Grade 5 PM"
 					},
 					{
-						"classId": "Morning-GradeSix",
-						"name": "Grade 6"
+						"classId": "Night-GradeSix",
+						"name": "Grade 6 PM"
 					}
 				],
 				"subjects": [
@@ -738,14 +695,6 @@
 						"weight": 1
 					},
 					{
-						"name": "Physical Education",
-						"weight": 1
-					},
-					{
-						"name": "Computer",
-						"weight": 1
-					},
-					{
 						"name": "Reading",
 						"weight": 1
 					},
@@ -770,16 +719,16 @@
 			"Junior High": {
 				"classes": [
 					{
-						"classId": "Morning-GradeSeven",
-						"name": "Grade 7"
+						"classId": "Night-GradeSeven",
+						"name": "Grade 7 PM"
 					},
 					{
-						"classId": "Morning-GradeEight",
-						"name": "Grade 8"
+						"classId": "Night-GradeEight",
+						"name": "Grade 8 PM"
 					},
 					{
-						"classId": "Morning-GradeNine",
-						"name": "Grade 9"
+						"classId": "Night-GradeNine",
+						"name": "Grade 9 PM"
 					}
 				],
 				"subjects": [
@@ -805,10 +754,6 @@
 					},
 					{
 						"name": "Health Science",
-						"weight": 1
-					},
-					{
-						"name": "Physical Education",
 						"weight": 1
 					},
 					{
@@ -848,28 +793,16 @@
 			"Senior High": {
 				"classes": [
 					{
-						"classId": "Morning-GradeTenA",
-						"name": "Grade 10-A"
+						"classId": "Night-GradeTen",
+						"name": "Grade 10 PM"
 					},
 					{
-						"classId": "Morning-GradeTenB",
-						"name": "Grade 10-B"
+						"classId": "Night-GradeEleven",
+						"name": "Grade 11 PM"
 					},
 					{
-						"classId": "Morning-GradeElevenA",
-						"name": "Grade 11-A"
-					},
-					{
-						"classId": "Morning-GradeElevenB",
-						"name": "Grade 11-B"
-					},
-					{
-						"classId": "Morning-GradeTwelveA",
-						"name": "Grade 12-A"
-					},
-					{
-						"classId": "Morning-GradeTwelveB",
-						"name": "Grade 12-B"
+						"classId": "Night-GradeTwelve",
+						"name": "Grade 12 PM"
 					}
 				],
 				"subjects": [
@@ -935,10 +868,6 @@
 					},
 					{
 						"name": "Practical",
-						"weight": 1
-					},
-					{
-						"name": "R.O.T.C",
 						"weight": 1
 					}
 				]

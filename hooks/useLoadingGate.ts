@@ -5,9 +5,9 @@ import { useEffect, useState } from 'react';
 export const LOADING_POLICY = {
 	spinnerDelayMs: 280,
 	routeSpinnerDelayMs: 320,
-	authTimeoutMs: 4500,
-	offlineRestoreTimeoutMs: 5000,
-	redirectTimeoutMs: 4500,
+	authTimeoutMs: 15000,
+	offlineRestoreTimeoutMs: 15000,
+	redirectTimeoutMs: 15000,
 	loginBootstrapTimeoutMs: 1400,
 } as const;
 

@@ -66,7 +66,7 @@ export interface Level {
 export interface Class {
 	classId: string;
 	name: string;
-	isSelfContained: boolean;
+	isSelfContained?: boolean;
 	fees: { feeType: string; category: string; requiredAmount: number }[];
 }
 

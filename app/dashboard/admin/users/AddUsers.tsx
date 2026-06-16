@@ -26,9 +26,9 @@ import {
 const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	const [currentStep, setCurrentStep] = useState(1);
 	const [userType, setUserType] = useState('');
-	const [errors, setErrors] = useState({});
+	const [errors, setErrors] = useState<any>({});
 	const [isValidating, setIsValidating] = useState(false);
-	const [createdUserInfo, setCreatedUserInfo] = useState(null);
+	const [createdUserInfo, setCreatedUserInfo] = useState<any>(null);
 	const [showErrorModal, setShowErrorModal] = useState(false);
 	const [errorMessage, setErrorMessage] = useState('');
 	const [conflictState, setConflictState] = useState(null);
@@ -81,16 +81,20 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			},
 		},
 		teacher: {
-			subjects: [],
+			subjects: [] as Array<{
+				subject: string;
+				level: string;
+				session: string;
+			}>,
 			isSponsor: false,
-			sponsorClass: null,
+			sponsorClass: null as string | null,
 		},
 		administrator: {
 			position: '',
 		},
 	});
 
-	const [expandedAccordions, setExpandedAccordions] = useState({
+	const [expandedAccordions, setExpandedAccordions] = useState<any>({
 		guardian: true,
 		class: false,
 		teacherSessions: {},
@@ -124,11 +128,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				},
 			};
 		});
-	}, [
-		defaultEnrollmentYear,
-		enrollmentYearOptions,
-		defaultEnrollmentSemester,
-	]);
+	}, [defaultEnrollmentYear, enrollmentYearOptions, defaultEnrollmentSemester]);
 
 	const toggleAccordion = (name) => {
 		setExpandedAccordions((prev) => ({
@@ -145,6 +145,11 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	const getClassLevels = (session) => {
 		if (!school?.classLevels?.[session]) return [];
 		return Object.keys(school.classLevels[session]);
+	};
+
+	const isLevelSelfContained = (session, level) => {
+		if (!school?.classLevels?.[session]?.[level]) return false;
+		return !!school.classLevels[session][level].isSelfContained;
 	};
 
 	const getClassesBySessionAndLevel = (session, level) => {
@@ -170,7 +175,6 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 
 	const getSubjectsBySessionAndLevel = (session, level) => {
 		if (!school?.classLevels?.[session]?.[level]?.subjects) return [];
-		// Extract just the subject names from the objects
 		return school.classLevels[session][level].subjects.map(
 			(subject) => subject.name,
 		);
@@ -239,8 +243,9 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 
 	const selectedAdminPosition = useMemo(() => {
 		return (
-			adminPositions.find((item) => item.key === formData.administrator.position) ||
-			null
+			adminPositions.find(
+				(item) => item.key === formData.administrator.position,
+			) || null
 		);
 	}, [adminPositions, formData.administrator.position]);
 
@@ -251,20 +256,34 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 
 	const getSelfContainedClasses = (session) => {
 		if (!session) return [];
-		return getClassesBySessionAndLevel(session, 'Self Contained');
+		const levels = getClassLevels(session);
+		const selfContainedClasses = [];
+		levels.forEach((level) => {
+			if (isLevelSelfContained(session, level)) {
+				const classes = getClassesBySessionAndLevel(session, level);
+				classes.forEach((cls) => {
+					selfContainedClasses.push({
+						...cls,
+						level: level,
+					});
+				});
+			}
+		});
+		return selfContainedClasses;
 	};
-	const handleSelfContainedSelection = (classId, session, checked) => {
+
+	const handleSelfContainedSelection = (classId, session, level, checked) => {
 		const otherSubjectsInSession = formData.teacher.subjects.filter(
 			(s) => s.session !== session,
 		);
+
 		const updatedSubjects = checked
 			? [
 					...otherSubjectsInSession,
-					// Fix: Extract subject names properly
-					...getSubjectsBySessionAndLevel(session, 'Self Contained').map(
+					...getSubjectsBySessionAndLevel(session, level).map(
 						(subjectName) => ({
-							subject: subjectName, // Now using the extracted name
-							level: 'Self Contained',
+							subject: subjectName,
+							level: level,
 							session: session,
 						}),
 					),
@@ -283,6 +302,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			},
 		});
 	};
+
 	const validateStep = async (step) => {
 		setIsValidating(true);
 		const newErrors = {};
@@ -313,36 +333,35 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			case 3:
 				if (userType === 'student') {
 					if (!formData.student.guardian.firstName.trim())
-						newErrors.guardianFirstName = 'Guardian first name is required';
+						newErrors['guardianFirstName'] = 'Guardian first name is required';
 					if (!formData.student.guardian.lastName.trim())
-						newErrors.guardianLastName = 'Guardian last name is required';
+						newErrors['guardianLastName'] = 'Guardian last name is required';
 					if (!formData.student.guardian.phone.trim())
-						newErrors.guardianPhone = 'Guardian phone is required';
+						newErrors['guardianPhone'] = 'Guardian phone is required';
 					if (!formData.student.guardian.address.trim())
-						newErrors.guardianAddress = 'Guardian address is required';
+						newErrors['guardianAddress'] = 'Guardian address is required';
 					if (!formData.student.session) {
-						newErrors.session = 'Session selection is required';
+						newErrors['session'] = 'Session selection is required';
 					} else if (!formData.student.classId) {
-						newErrors.classId = 'Class selection is required';
+						newErrors['classId'] = 'Class selection is required';
 					}
 					if (!formData.student.enrollmentYear)
-						newErrors.enrollmentYear = 'Enrollment year is required';
+						newErrors['enrollmentYear'] = 'Enrollment year is required';
 					if (!formData.student.enrollmentSemester)
-						newErrors.enrollmentSemester = 'Enrollment semester is required';
+						newErrors['enrollmentSemester'] = 'Enrollment semester is required';
 				} else if (userType === 'teacher') {
 					if (formData.teacher.subjects.length === 0) {
-						newErrors.subjects = 'At least one subject must be selected';
+						newErrors['subjects'] = 'At least one subject must be selected';
 					} else if (buildTeacherSubjectsPayload().length === 0) {
-						newErrors.subjects =
+						newErrors['subjects'] =
 							'Selected subjects did not map to any classes.';
 					}
 				} else if (userType === 'administrator') {
 					if (!formData.administrator.position)
-						newErrors.position = 'Position is required';
+						newErrors['position'] = 'Position is required';
 				}
 				break;
 			case 4:
-				// No validation for review step, just confirmation
 				break;
 		}
 
@@ -370,14 +389,13 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		let updatedSubjects = [...formData.teacher.subjects];
 		const subjectIdentifier = { subject, level, session };
 
-		// Clear self-contained selection for the session if a regular subject is selected
 		const selfContainedSubjectsInSession = updatedSubjects.filter(
-			(s) => s.session === session && s.level === 'Self Contained',
+			(s) => s.session === session && isLevelSelfContained(session, s.level),
 		);
 
 		if (selfContainedSubjectsInSession.length > 0) {
 			updatedSubjects = updatedSubjects.filter(
-				(s) => s.session !== session || s.level !== 'Self Contained',
+				(s) => s.session !== session || !isLevelSelfContained(session, s.level),
 			);
 		}
 
@@ -410,16 +428,17 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			},
 		});
 	};
+
 	const buildTeacherSubjectsPayload = () => {
 		const academicYear = currentAcademicYear;
 		const classMap = new Map();
 
 		const selections = formData.teacher.subjects || [];
-		const selfContainedSelections = selections.filter(
-			(s) => s.level === 'Self Contained',
+		const selfContainedSelections = selections.filter((s) =>
+			isLevelSelfContained(s.session, s.level),
 		);
 		const regularSelections = selections.filter(
-			(s) => s.level !== 'Self Contained',
+			(s) => !isLevelSelfContained(s.session, s.level),
 		);
 
 		regularSelections.forEach((selection) => {
@@ -445,7 +464,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		}
 
 		const classes = Array.from(classMap.entries()).map(
-			([classId, subjectsSet]) => ({
+			([classId, subjectsSet]: [string, any]) => ({
 				classId,
 				subjects: Array.from(subjectsSet),
 			}),
@@ -932,7 +951,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 										className={`w-full p-3 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary ${
 											errors.address ? 'border-red-500' : 'border-border'
 										}`}
-										rows="3"
+										rows={3}
 										placeholder="Enter full address"
 									/>
 									{errors.address && (
@@ -952,7 +971,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 											setFormData({ ...formData, bio: e.target.value })
 										}
 										className="w-full p-3 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-										rows="3"
+										rows={3}
 										placeholder="Enter a brief bio (optional)"
 									/>
 								</div>
@@ -1163,7 +1182,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																	? 'border-red-500'
 																	: 'border-border'
 															}`}
-															rows="3"
+															rows={3}
 															placeholder="Guardian full address"
 														/>
 														{errors.guardianAddress && (
@@ -1309,7 +1328,6 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																				duration: 0.2,
 																			}}
 																		>
-																			{/* Animated check icon */}
 																			{isSelected && (
 																				<CheckCircle2 className="w-5 h-5 text-primary transition-opacity duration-300" />
 																			)}
@@ -1337,96 +1355,95 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																(level, levelIndex) => {
 																	const levelStyle = getLevelVisualStyle(level);
 																	return (
-																	<div
-																		key={level}
-																		className={`space-y-3 rounded-xl border p-3 ${levelStyle.section}`}
-																	>
-																		{/* Level Heading */}
-																		<motion.h4
-																			initial={{
-																				opacity: 0,
-																				y: -5,
-																			}}
-																			animate={{
-																				opacity: 1,
-																				y: 0,
-																			}}
-																			transition={{
-																				duration: 0.3,
-																				delay: levelIndex * 0.1,
-																			}}
-																			className="mb-1"
+																		<div
+																			key={level}
+																			className={`space-y-3 rounded-xl border p-3 ${levelStyle.section}`}
 																		>
-																			<span
-																				className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${levelStyle.badge}`}
+																			{/* Level Heading */}
+																			<motion.h4
+																				initial={{
+																					opacity: 0,
+																					y: -5,
+																				}}
+																				animate={{
+																					opacity: 1,
+																					y: 0,
+																				}}
+																				transition={{
+																					duration: 0.3,
+																					delay: levelIndex * 0.1,
+																				}}
+																				className="mb-1"
 																			>
-																				{level}
-																			</span>
-																		</motion.h4>
+																				<span
+																					className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${levelStyle.badge}`}
+																				>
+																					{level}
+																				</span>
+																			</motion.h4>
 
-																		{/* Class Grid */}
-																		<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-																			{getClassesBySessionAndLevel(
-																				formData.student.session,
-																				level,
-																			).map((cls, idx) => {
-																				const isSelected =
-																					formData.student.classId ===
-																					cls.classId;
-																				return (
-																					<motion.label
-																						key={cls.classId}
-																						className={`relative flex items-center justify-center rounded-xl border p-4 cursor-pointer transition-all duration-300
+																			{/* Class Grid */}
+																			<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+																				{getClassesBySessionAndLevel(
+																					formData.student.session,
+																					level,
+																				).map((cls, idx) => {
+																					const isSelected =
+																						formData.student.classId ===
+																						cls.classId;
+																					return (
+																						<motion.label
+																							key={cls.classId}
+																							className={`relative flex items-center justify-center rounded-xl border p-4 cursor-pointer transition-all duration-300
                     ${
 											isSelected
 												? 'border-primary bg-primary/10 shadow-md'
 												: 'border-muted hover:border-primary/50 hover:bg-accent/10'
 										}
                   `}
-																						initial={{
-																							opacity: 0,
-																							scale: 0.95,
-																						}}
-																						animate={{
-																							opacity: 1,
-																							scale: 1,
-																						}}
-																						transition={{
-																							duration: 0.3,
-																							delay: idx * 0.05,
-																						}}
-																					>
-																						<input
-																							type="radio"
-																							name="studentClass"
-																							value={cls.classId}
-																							checked={isSelected}
-																							onChange={(e) =>
-																								setFormData({
-																									...formData,
-																									student: {
-																										...formData.student,
-																										classId: e.target.value,
-																									},
-																								})
-																							}
-																							className="absolute opacity-0"
-																						/>
+																							initial={{
+																								opacity: 0,
+																								scale: 0.95,
+																							}}
+																							animate={{
+																								opacity: 1,
+																								scale: 1,
+																							}}
+																							transition={{
+																								duration: 0.3,
+																								delay: idx * 0.05,
+																							}}
+																						>
+																							<input
+																								type="radio"
+																								name="studentClass"
+																								value={cls.classId}
+																								checked={isSelected}
+																								onChange={(e) =>
+																									setFormData({
+																										...formData,
+																										student: {
+																											...formData.student,
+																											classId: e.target.value,
+																										},
+																									})
+																								}
+																								className="absolute opacity-0"
+																							/>
 
-																						<div className="flex items-center gap-2">
-																							{/* Checkmark Icon */}
-																							{isSelected && (
-																								<CheckCircle2 className="w-5 h-5 text-primary transition-opacity duration-300" />
-																							)}
-																							<span className="text-sm font-medium text-foreground">
-																								{cls.name}
-																							</span>
-																						</div>
-																					</motion.label>
-																				);
-																			})}
+																							<div className="flex items-center gap-2">
+																								{isSelected && (
+																									<CheckCircle2 className="w-5 h-5 text-primary transition-opacity duration-300" />
+																								)}
+																								<span className="text-sm font-medium text-foreground">
+																									{cls.name}
+																								</span>
+																							</div>
+																						</motion.label>
+																					);
+																				})}
+																			</div>
 																		</div>
-																	</div>
 																	);
 																},
 															)}
@@ -1508,7 +1525,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 															transition={{ duration: 0.3 }}
 															className="p-5 space-y-6 bg-background"
 														>
-															{/* Self Contained Class Selection */}
+															{/* Dynamic Self Contained Class Selection */}
 															{getSelfContainedClasses(session).length > 0 && (
 																<div className="space-y-3">
 																	<p className="text-sm text-muted-foreground">
@@ -1516,12 +1533,12 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																			Self-Contained Class Teacher
 																		</span>{' '}
 																		<span className="italic">
-																			(teaches all subjects)
+																			(teaches all subjects config-based)
 																		</span>
 																	</p>
 																	<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 																		{getSelfContainedClasses(session).map(
-																			(cls) => {
+																			(cls: any) => {
 																				const isSelected =
 																					formData.teacher.isSponsor &&
 																					formData.teacher.sponsorClass ===
@@ -1547,6 +1564,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																								handleSelfContainedSelection(
 																									cls.classId,
 																									session,
+																									cls.level,
 																									e.target.checked,
 																								)
 																							}
@@ -1568,7 +1586,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																</div>
 															)}
 
-															{/* Subject Level Teaching */}
+															{/* Subject Level Teaching (Renders regular levels only) */}
 															<div className="space-y-4">
 																<label className="block text-sm font-medium text-foreground">
 																	Subject & Level Teaching
@@ -1576,17 +1594,19 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																<p className="text-sm text-muted-foreground">
 																	Select subjects and education levels you will
 																	teach in the{' '}
-																	<span className="font-medium">{session}</span>{' '}
-																	session.
+																	<span className="font-medium">{session}</span>
+																	= session.
 																</p>
 
 																<div className="space-y-4 max-h-96 overflow-y-auto border border-border rounded-lg p-4 bg-background">
 																	{getClassLevels(session)
 																		.filter(
-																			(level) => level !== 'Self Contained',
+																			(level) =>
+																				!isLevelSelfContained(session, level),
 																		)
 																		.map((level) => {
-																			const levelStyle = getLevelVisualStyle(level);
+																			const levelStyle =
+																				getLevelVisualStyle(level);
 																			return (
 																				<div
 																					key={level}
@@ -1597,6 +1617,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																							className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${levelStyle.badge}`}
 																						>
 																							{level}
+																							nose font{' '}
 																						</span>
 																					</h5>
 																					<div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -1665,13 +1686,16 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																			: ''
 																	}
 																	onChange={(e) => {
-																		const isSelfContained =
+																		const hasSelfContained =
 																			formData.teacher.subjects.some(
 																				(s) =>
-																					s.level === 'Self Contained' &&
-																					s.session === session,
+																					s.session === session &&
+																					isLevelSelfContained(
+																						session,
+																						s.level,
+																					),
 																			);
-																		if (isSelfContained) {
+																		if (hasSelfContained) {
 																			const otherSubjects =
 																				formData.teacher.subjects.filter(
 																					(s) => s.session !== session,
@@ -1701,7 +1725,11 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 																	<option value="">No class sponsorship</option>
 																	{getAllClassesForSession(session)
 																		.filter(
-																			(cls) => cls.level !== 'Self Contained',
+																			(cls) =>
+																				!isLevelSelfContained(
+																					session,
+																					cls.level,
+																				),
 																		)
 																		.map((cls) => (
 																			<option

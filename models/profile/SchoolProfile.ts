@@ -250,7 +250,7 @@ const ClassSchema = new Schema(
 
 		isSelfContained: {
 			type: Boolean,
-			required: true,
+			required: false,
 			default: false,
 		},
 

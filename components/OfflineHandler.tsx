@@ -196,7 +196,7 @@ export default function OfflineHandler({
 			}
 			try {
 				return await useNetworkStore.getState().refreshConnectivity({
-					timeoutMs: 2200,
+					timeoutMs: 15000,
 					reason,
 				});
 			} catch {

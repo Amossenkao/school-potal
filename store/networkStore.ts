@@ -22,7 +22,7 @@ interface NetworkState {
 }
 
 const CONNECTIVITY_ENDPOINT = '/api/ping';
-const CONNECTIVITY_TIMEOUT_MS = 5200;
+const CONNECTIVITY_TIMEOUT_MS = 15000;
 const CONNECTIVITY_RECHECK_WINDOW_MS = 5000;
 
 let connectivityCheckPromise: Promise<boolean> | null = null;
