@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v8';
+const CACHE_VERSION = 'v9';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
 const API_CACHE = `api-${CACHE_VERSION}`;
@@ -25,6 +25,7 @@ const API_ALLOWLIST = [
 const DB_NAME = 'pwa-queue';
 const DB_STORE = 'grade-submissions';
 const MUTATION_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
+const AUTH_LOGIN_PATH = '/api/auth/login';
 
 const openQueueDb = () =>
 	new Promise((resolve, reject) => {
@@ -46,6 +47,28 @@ const enqueueRequest = async (entry) => {
 		tx.objectStore(DB_STORE).put(entry);
 		tx.oncomplete = () => resolve();
 		tx.onerror = () => reject(tx.error);
+	});
+};
+
+const queueMutationRequest = async (request) => {
+	const cloned = request.clone();
+	const body = await cloned.text();
+	const headers = {};
+	cloned.headers.forEach((value, key) => {
+		headers[key] = value;
+	});
+	const entry = {
+		id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		url: request.url,
+		method: request.method,
+		headers,
+		body,
+		timestamp: Date.now(),
+	};
+	await enqueueRequest(entry);
+	return new Response(JSON.stringify({ queued: true }), {
+		status: 202,
+		headers: { 'Content-Type': 'application/json' },
 	});
 };
 
@@ -194,38 +217,47 @@ self.addEventListener('fetch', (event) => {
 	const url = new URL(request.url);
 	const isSameOrigin = url.origin === self.location.origin;
 
-	if (
-		isMutationRequest &&
-		isSameOrigin &&
-		url.pathname.startsWith('/api/grades')
-	) {
+	if (isMutationRequest && isSameOrigin && url.pathname.startsWith('/api/')) {
+		const isLoginCredentialRequest =
+			url.pathname === AUTH_LOGIN_PATH && request.method !== 'DELETE';
 		const isOffline =
 			typeof self.navigator === 'undefined' ? false : !self.navigator.onLine;
+		if (isOffline && !isLoginCredentialRequest) {
+			event.respondWith(queueMutationRequest(request));
+			return;
+		}
 		if (isOffline) {
 			event.respondWith(
-				(async () => {
-					const cloned = request.clone();
-					const body = await cloned.text();
-					const headers = {};
-					cloned.headers.forEach((value, key) => {
-						headers[key] = value;
-					});
-					const entry = {
-						id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-						url: request.url,
-						method: request.method,
-						headers,
-						body,
-						timestamp: Date.now(),
-					};
-					await enqueueRequest(entry);
-					return new Response(JSON.stringify({ queued: true }), {
-						status: 202,
+				new Response(
+					JSON.stringify({
+						message: 'Request unavailable while offline.',
+					}),
+					{
+						status: 503,
 						headers: { 'Content-Type': 'application/json' },
-					});
-				})(),
+					},
+				),
 			);
+			return;
 		}
+		const networkRequest = request.clone();
+		const queueRequest = request.clone();
+		event.respondWith(
+			fetch(networkRequest).catch(() => {
+				if (!isLoginCredentialRequest) {
+					return queueMutationRequest(queueRequest);
+				}
+				return new Response(
+					JSON.stringify({
+						message: 'Request unavailable while offline.',
+					}),
+					{
+						status: 503,
+						headers: { 'Content-Type': 'application/json' },
+					},
+				);
+			}),
+		);
 		return;
 	}
 
@@ -278,10 +310,10 @@ self.addEventListener('fetch', (event) => {
 					}
 
 					const appShell =
-						(await caches.match('/')) ||
 						(await caches.match('/login')) ||
 						(await caches.match('/dashboard')) ||
-						(await caches.match('/dashboard/'));
+						(await caches.match('/dashboard/')) ||
+						(await caches.match('/'));
 					if (appShell) return appShell;
 
 					const offlineFallback = await caches.match('/offline');

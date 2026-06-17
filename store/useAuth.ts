@@ -923,6 +923,11 @@ const useAuth = create<AuthState>((set, get) => {
 		},
 		hydrateFromCache: () => {
 			try {
+				if (hasQueuedLogoutRequest()) {
+					localStorage.removeItem('auth-user');
+					set({ user: null, isLoggedIn: false, userVersion: null });
+					return;
+				}
 				const cached = localStorage.getItem('auth-user');
 				if (!cached) return;
 				const parsed = JSON.parse(cached) as User;

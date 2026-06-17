@@ -102,20 +102,23 @@ export default function OfflineHandler({
 			}
 		};
 
-		const shouldAllowOffline = (url: string, method: string) => {
+		const shouldQueueOfflineMutation = (url: string, method: string) => {
 			const normalizedMethod = method.toUpperCase();
-			const isGradeMutationMethod = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(
+			const isMutationMethod = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(
 				normalizedMethod,
 			);
-			if (!isGradeMutationMethod) return false;
+			if (!isMutationMethod) return false;
 			try {
 				const parsed = new URL(url, window.location.origin);
+				const isLoginCredentialRequest =
+					parsed.pathname === '/api/auth/login' && normalizedMethod !== 'DELETE';
 				return (
 					parsed.origin === window.location.origin &&
-					parsed.pathname.startsWith('/api/grades')
+					parsed.pathname.startsWith('/api/') &&
+					!isLoginCredentialRequest
 				);
 			} catch (error) {
-				return url.includes('/api/grades');
+				return url.startsWith('/api/') && url !== '/api/auth/login';
 			}
 		};
 
@@ -220,7 +223,7 @@ export default function OfflineHandler({
 			const request = cacheableGet ? buildCacheRequest(args[0], args[1]) : null;
 			const fetchArgs = cacheableGet && request ? [request] : args;
 			if (!onlineState) {
-				if (shouldAllowOffline(url, method)) {
+				if (shouldQueueOfflineMutation(url, method)) {
 					return originalFetch(...(args as Parameters<typeof fetch>));
 				}
 				if (method.toUpperCase() === 'GET') {

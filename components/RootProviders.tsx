@@ -25,7 +25,6 @@ export default function RootProviders({
 	const { school, fetchSchool, hydrateCache } = useSchoolStore();
 	const { hydrateFromCache } = useAuth();
 	const hasAppsFeature = Boolean(school?.enabledFeatures?.includes('apps'));
-	const hasSchoolProfile = Boolean(school);
 
 	useEffect(() => {
 		hydrateCache();
@@ -37,7 +36,6 @@ export default function RootProviders({
 	}, [fetchSchool, hydrateCache, hydrateFromCache]);
 
 	useEffect(() => {
-		if (!hasSchoolProfile) return;
 		if (!('serviceWorker' in navigator)) return;
 
 		let hasReloadedForNewWorker = false;
@@ -53,18 +51,6 @@ export default function RootProviders({
 		};
 
 		const manageServiceWorker = async () => {
-			if (!hasAppsFeature) {
-				try {
-					const registrations =
-						await navigator.serviceWorker.getRegistrations();
-					await Promise.all(
-						registrations.map((registration) => registration.unregister()),
-					);
-				} catch (error) {
-					console.warn('Service worker cleanup failed:', error);
-				}
-				return;
-			}
 			try {
 				const registration = await navigator.serviceWorker.register('/sw.js');
 				await registration.update().catch(() => undefined);
@@ -97,7 +83,7 @@ export default function RootProviders({
 				handleControllerChange,
 			);
 		};
-	}, [hasAppsFeature, hasSchoolProfile]);
+	}, []);
 
 	useEffect(() => {
 		const flushOfflineRequests = async () => {
