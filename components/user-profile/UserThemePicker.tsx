@@ -8,6 +8,7 @@ import {
 } from '@/lib/tenantTheme';
 import {
 	DEFAULT_TENANT_THEME_NAME,
+	isTenantThemeName,
 	type TenantThemeName,
 } from '@/types/tenantTheme';
 
@@ -15,72 +16,50 @@ export const USER_THEME_STORAGE_KEY = 'user_theme_preference';
 
 export function applyStoredUserTheme() {
 	if (typeof window === 'undefined') return;
-	const stored = localStorage.getItem(
-		USER_THEME_STORAGE_KEY,
-	) as TenantThemeName | null;
-	if (stored) applyTenantThemeToDocument(stored);
+	const stored = localStorage.getItem(USER_THEME_STORAGE_KEY);
+	if (isTenantThemeName(stored)) applyTenantThemeToDocument(stored);
 }
 
 // ─── Category groupings ───────────────────────────────────────────────────────
 
-const CLASSIC_THEMES: TenantThemeName[] = [
-	'horizon',
-	'ocean',
-	'emerald',
-	'sunset',
-	'midnight',
-	'coral',
-	'forest',
-	'copper',
-	'rose',
-	'slate',
-	'aurora',
-	'amethyst',
-	'ruby',
-	'glacier',
-	'citrus',
-	'espresso',
-	'lagoon',
-	'ember',
-	'orchid',
-	'gilded',
+const SIGNATURE_THEMES: TenantThemeName[] = [
+	'auroraForge',
+	'blueprint',
+	'chromaticPop',
+	'cyberBloom',
+	'deepSignal',
+	'electricCitrus',
+	'emberMint',
+	'glassLagoon',
+	'goldCircuit',
+	'inkCoral',
 ];
 
-const BOLD_THEMES: TenantThemeName[] = [
-	'nebula',
-	'volcanic',
-	'sakura',
-	'void',
-	'neonoir',
-	'sandstorm',
-	'solstice',
-	'absinthe',
-	'ultraviolet',
-	'prism',
-	'thunderstorm',
-	'pharaoh',
-	'samurai',
-	'habanero',
-	'biodome',
-	'carnival',
-	'radioactive',
-	'quicksilver',
-	'catacomb',
-	'bioluminescent',
+const VIVID_THEMES: TenantThemeName[] = [
+	'jadePixel',
+	'lunarViolet',
+	'metroPulse',
+	'orchidVolt',
+	'polarSignal',
+	'roseQuartz',
+	'solarGraphite',
+	'tidalCopper',
+	'velvetAqua',
+	'zenithSky',
 ];
 
 // Curated stripe shown in the collapsed trigger
 const TRIGGER_STRIPE: TenantThemeName[] = [
-	'horizon',
-	'sunset',
-	'ocean',
-	'aurora',
-	'amethyst',
-	'ember',
-	'gilded',
-	'nebula',
-	'neonoir',
-	'bioluminescent',
+	'auroraForge',
+	'chromaticPop',
+	'cyberBloom',
+	'electricCitrus',
+	'inkCoral',
+	'jadePixel',
+	'metroPulse',
+	'orchidVolt',
+	'tidalCopper',
+	'zenithSky',
 ];
 
 // ─── Dual-tone swatch ─────────────────────────────────────────────────────────
@@ -190,12 +169,13 @@ export default function UserThemePicker() {
 
 	useEffect(() => {
 		if (typeof window === 'undefined') return;
-		const stored = localStorage.getItem(
-			USER_THEME_STORAGE_KEY,
-		) as TenantThemeName | null;
-		if (stored) {
+		const stored = localStorage.getItem(USER_THEME_STORAGE_KEY);
+		if (isTenantThemeName(stored)) {
 			setSelected(stored);
 			applyTenantThemeToDocument(stored);
+		} else if (stored) {
+			localStorage.removeItem(USER_THEME_STORAGE_KEY);
+			applyTenantThemeToDocument(DEFAULT_TENANT_THEME_NAME);
 		}
 	}, []);
 
@@ -298,8 +278,8 @@ export default function UserThemePicker() {
 				<div className="overflow-hidden">
 					<div className="space-y-4 border-t border-gray-100 px-4 pb-5 pt-4 dark:border-gray-800">
 						<ThemeSection
-							title="Reimagined Classics"
-							themes={CLASSIC_THEMES}
+							title="Signature"
+							themes={SIGNATURE_THEMES}
 							selected={selected}
 							onSelect={handleSelect}
 						/>
@@ -313,8 +293,8 @@ export default function UserThemePicker() {
 						/>
 
 						<ThemeSection
-							title="Bold & New"
-							themes={BOLD_THEMES}
+							title="Vivid"
+							themes={VIVID_THEMES}
 							selected={selected}
 							onSelect={handleSelect}
 						/>

@@ -14,7 +14,13 @@ import {
 	Send,
 	Twitter,
 } from 'lucide-react';
-import { PDFDocument, StandardFonts } from 'pdf-lib';
+import {
+	PDFDocument,
+	rgb,
+	StandardFonts,
+	type PDFFont,
+	type PDFPage,
+} from 'pdf-lib';
 import QRCode from 'qrcode';
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
@@ -36,7 +42,11 @@ import {
 	pickCurrentOrMostRecentAcademicYear,
 	pickMostRecentAcademicYear,
 } from '@/utils/academicYearOptions';
-import { drawTextMap, type TextPlacementMap } from '@/utils/pdfText';
+import {
+	drawTextMap,
+	type TextPlacement,
+	type TextPlacementMap,
+} from '@/utils/pdfText';
 import {
 	buildReportPage2QrPlacement,
 	buildReportPage2Placements,
@@ -85,6 +95,25 @@ const getCurrentAcademicYear = () => {
 	} else {
 		return `${currentYear - 1}-${currentYear}`;
 	}
+};
+
+const getDisplayClassName = (name: string) => {
+	// Keep kindergarten classes intact
+	if (['k-i', 'k-ii', 'k-1', 'k-2'].includes(name.toLocaleLowerCase())) {
+		return name;
+	}
+
+	// Remove AM/PM suffixes
+	if (name.endsWith(' AM') || name.endsWith(' PM')) {
+		return name.slice(0, -3);
+	}
+
+	// For classes like Grade 11-A, Grade 11-B, etc.
+	if (name.includes('-')) {
+		return name.split('-')[0];
+	}
+
+	return name;
 };
 
 const getClassMetaById = (classLevels: any, classId?: string) => {
@@ -1228,6 +1257,13 @@ const formatNumber = (value: number | null | undefined, decimals = 0) => {
 const PASS_MARK = 70;
 const RED_TEXT = { r: 0.85, g: 0.1, b: 0.1 };
 const BLUE_TEXT = { r: 0.1, g: 0.25, b: 0.8 };
+type PromotionDecision = 'promoted' | 'failed' | 'summer_school' | 'incomplete';
+const PROMOTION_COLORS = {
+	promoted: { r: 0.1, g: 0.25, b: 0.8 }, // Blue
+	failed: { r: 0.85, g: 0.1, b: 0.1 }, // Red
+	summer_school: { r: 0.9, g: 0.5, b: 0.1 }, // Orange/Amber
+	incomplete: { r: 0.35, g: 0.35, b: 0.35 }, // Gray
+};
 
 const isGradeOrAverageField = (key: string) =>
 	/^(p[1-6]|exam[12]|avg[12]|year)_\d{2}$/.test(key) ||
@@ -1238,6 +1274,36 @@ const toNumeric = (value: string | number | null | undefined) => {
 	if (typeof value !== 'string') return Number.NaN;
 	const parsed = Number.parseFloat(value);
 	return Number.isFinite(parsed) ? parsed : Number.NaN;
+};
+
+const resolvePromotionPassMark = (school: any) => {
+	const configuredPassMark = Number(
+		school?.settings?.gradingSettings?.passMark,
+	);
+	return Number.isFinite(configuredPassMark) && configuredPassMark > 0
+		? configuredPassMark
+		: PASS_MARK;
+};
+
+const sanitizeTextForPdfFont = (text: string, font: PDFFont) => {
+	let sanitized = '';
+	for (const char of text) {
+		if (char === '\n' || char === '\r') {
+			sanitized += char;
+			continue;
+		}
+		if (char === '\t') {
+			sanitized += ' ';
+			continue;
+		}
+		try {
+			font.encodeText(char);
+			sanitized += char;
+		} catch {
+			sanitized += '?';
+		}
+	}
+	return sanitized;
 };
 
 const buildConditionalColorPlacements = ({
@@ -1263,7 +1329,425 @@ const buildConditionalColorPlacements = ({
 			: { ...entry, color, font: 'bold' as const };
 	});
 
+	// Handle promotion statement styling based on decision
+	const promotionDecision = values.promotion_decision as string;
+	if (promotionDecision && basePlacements.promotion_statement) {
+		const promotionColor =
+			PROMOTION_COLORS[promotionDecision as keyof typeof PROMOTION_COLORS] ||
+			BLUE_TEXT;
+		placements.promotion_statement = {
+			...basePlacements.promotion_statement,
+			color: promotionColor,
+			font: 'bold',
+		};
+	}
+
 	return placements;
+};
+
+type PromotionStatementSegment = {
+	text: string;
+	font?: 'normal' | 'bold';
+	underline?: boolean;
+};
+
+const buildPromotionStatementLines = ({
+	studentName,
+	currentClass,
+	decision,
+	academicYear,
+	nextClass,
+}: {
+	studentName: string;
+	currentClass: string;
+	decision: PromotionDecision;
+	academicYear: string;
+	nextClass?: string;
+}): PromotionStatementSegment[][] => {
+	if (decision === 'incomplete') {
+		return [
+			[
+				{
+					text: 'Promotion statement cannot be generated because this report contains one or more incompletes.',
+				},
+			],
+		];
+	}
+
+	const hasOrHasNot = decision == 'promoted' ? ' HAS' : ' HAS NOT';
+
+	const actionText =
+		decision === 'promoted'
+			? 'Promoted to '
+			: decision === 'failed'
+				? 'Required to repeat '
+				: 'Required to attend summer school';
+
+	return [
+		[
+			{ text: 'This is to certify that ' },
+			{ text: studentName, font: 'bold' },
+			{ text: hasOrHasNot },
+		],
+		[
+			{ text: 'Satisfactorily completed the work of ' },
+			{ text: currentClass, font: 'bold' },
+			{ text: ' and is' },
+		],
+		[
+			{ text: actionText.toLocaleUpperCase(), font: 'bold' },
+			{
+				text:
+					decision == 'summer_school'
+						? ''
+						: decision === 'promoted'
+							? nextClass || ''
+							: currentClass,
+				font: 'bold',
+			},
+
+			{
+				text: decision != 'summer_school' ? ' for academic ' : '',
+				font: 'bold',
+			},
+			{
+				text: decision === 'summer_school' ? '' : academicYear,
+				font: 'bold',
+			},
+		],
+	];
+};
+
+const splitPromotionSegmentForWrap = (segment: PromotionStatementSegment) =>
+	segment.text.match(/\S+\s*|\s+/g)?.map((text) => ({ ...segment, text })) ?? [
+		segment,
+	];
+
+const drawPromotionStatement = ({
+	page,
+	basePlacement,
+	lines,
+	fonts,
+	color,
+}: {
+	page: PDFPage;
+	basePlacement: TextPlacement;
+	lines: PromotionStatementSegment[][];
+	fonts: { normal: PDFFont; bold: PDFFont };
+	color: { r: number; g: number; b: number };
+}) => {
+	const size = basePlacement.size ?? 12;
+	const lineHeight = basePlacement.lineHeight ?? size + 4;
+	const paragraphGap = lineHeight * 0.35;
+	const maxWidth = basePlacement.maxWidth ?? 330;
+	const pdfColor = rgb(color.r, color.g, color.b);
+	let y = basePlacement.y;
+
+	const widthOf = (segment: PromotionStatementSegment) => {
+		const font = segment.font === 'bold' ? fonts.bold : fonts.normal;
+		return font.widthOfTextAtSize(
+			sanitizeTextForPdfFont(segment.text, font),
+			size,
+		);
+	};
+
+	for (const logicalLine of lines) {
+		const wrappedLines: PromotionStatementSegment[][] = [[]];
+		let currentWidth = 0;
+
+		for (const segment of logicalLine.flatMap(splitPromotionSegmentForWrap)) {
+			const tokenWidth = widthOf(segment);
+			const currentLine = wrappedLines[wrappedLines.length - 1];
+			if (
+				currentLine.length > 0 &&
+				currentWidth + tokenWidth > maxWidth &&
+				segment.text.trim()
+			) {
+				wrappedLines.push([]);
+				currentWidth = 0;
+			}
+			wrappedLines[wrappedLines.length - 1].push(segment);
+			currentWidth += tokenWidth;
+		}
+
+		for (const visualLine of wrappedLines) {
+			let x = basePlacement.x;
+			for (const segment of visualLine) {
+				const font = segment.font === 'bold' ? fonts.bold : fonts.normal;
+				const text = sanitizeTextForPdfFont(segment.text, font);
+				if (!text) continue;
+				const textWidth = font.widthOfTextAtSize(text, size);
+				page.drawText(text, {
+					x,
+					y,
+					size,
+					font,
+					color: pdfColor,
+				});
+				if (segment.underline && text.trim()) {
+					const underlineStart =
+						x + font.widthOfTextAtSize(text.match(/^\s*/)?.[0] ?? '', size);
+					const underlineEnd =
+						x +
+						textWidth -
+						font.widthOfTextAtSize(text.match(/\s*$/)?.[0] ?? '', size);
+					page.drawLine({
+						start: { x: underlineStart, y: y - 2 },
+						end: { x: underlineEnd, y: y - 2 },
+						thickness: 0.5,
+						color: pdfColor,
+					});
+				}
+				x += textWidth;
+			}
+			y -= lineHeight;
+		}
+		y -= paragraphGap;
+	}
+};
+
+const normalizeClassNameForPromotion = (name?: string) => {
+	if (!name) return '';
+	return String(name)
+		.replace(/\s*-?\s*[A-D]$/i, '')
+		.trim();
+};
+
+const getClassMetaForPromotion = (classLevels: any, classId: string) => {
+	if (!classLevels || !classId) return null;
+	for (const [sessionName, session] of Object.entries(classLevels)) {
+		if (!session || typeof session !== 'object') continue;
+		for (const levelName of Object.keys(session as Record<string, unknown>)) {
+			const level: any = (session as any)[levelName];
+			if (!Array.isArray(level?.classes)) continue;
+			const found = level.classes.find(
+				(klass: any) => klass.classId === classId,
+			);
+			if (!found) continue;
+			return {
+				classId: String(found.classId || ''),
+				name: String(found.name || found.classId || ''),
+				session: String(sessionName),
+				level: String(levelName),
+				baseName: normalizeClassNameForPromotion(found.name || found.classId),
+			};
+		}
+	}
+	return null;
+};
+
+const getOrderedClassesForPromotionSession = (
+	classLevels: any,
+	sessionName: string,
+) => {
+	if (!classLevels?.[sessionName])
+		return [] as Array<{
+			classId: string;
+			name: string;
+			session: string;
+			level: string;
+			baseName: string;
+		}>;
+	const session = classLevels[sessionName];
+	const ordered: Array<{
+		classId: string;
+		name: string;
+		session: string;
+		level: string;
+		baseName: string;
+	}> = [];
+	for (const levelName of Object.keys(session)) {
+		const level = session[levelName];
+		if (!Array.isArray(level?.classes)) continue;
+		level.classes.forEach((klass: any) => {
+			const name = String(klass?.name || klass?.classId || '').trim();
+			const classId = String(klass?.classId || '').trim();
+			if (!classId && !name) return;
+			ordered.push({
+				classId,
+				name: name || classId,
+				session: sessionName,
+				level: String(levelName),
+				baseName: normalizeClassNameForPromotion(name || classId),
+			});
+		});
+	}
+	return ordered;
+};
+
+const resolveNextClassName = ({
+	school,
+	currentClassId,
+	currentClassName,
+}: {
+	school: any;
+	currentClassId: string;
+	currentClassName: string;
+}) => {
+	const classLevels = school?.classLevels;
+	const currentMeta = getClassMetaForPromotion(classLevels, currentClassId);
+
+	if (!currentMeta) {
+		return getDisplayClassName(currentClassName);
+	}
+
+	const ordered = getOrderedClassesForPromotionSession(
+		classLevels,
+		currentMeta.session,
+	);
+
+	const currentIndex = ordered.findIndex(
+		(klass) => klass.classId === currentMeta.classId,
+	);
+
+	if (currentIndex === -1) {
+		return getDisplayClassName(currentClassName);
+	}
+
+	const nextClass = ordered
+		.slice(currentIndex + 1)
+		.find((klass) => klass.baseName !== currentMeta.baseName);
+
+	return getDisplayClassName(nextClass?.name || currentClassName);
+};
+
+const isCoreMathSubject = (subject: string) => {
+	const normalized = subject.toLowerCase().replace(/[^a-z]/g, '');
+	return normalized === 'math' || normalized.includes('mathematics');
+};
+
+const isCoreEnglishSubject = (subject: string) => {
+	const normalized = subject.toLowerCase().replace(/[^a-z]/g, '');
+	return normalized === 'english' || normalized.includes('english');
+};
+
+const hasIncompleteYearlyReport = (
+	studentData: StudentYearlyReport,
+	classSubjects: string[],
+) => {
+	const subjects = classSubjects.length
+		? classSubjects
+		: mergeSubjectNames(
+				Object.values(studentData.periods).flatMap((entries) =>
+					Array.isArray(entries) ? entries.map((entry) => entry.subject) : [],
+				),
+			);
+
+	return subjects.some((subject) =>
+		REPORT_PERIOD_KEYS.some((period) => {
+			const entry = studentData.periods[period]?.find(
+				(row) => row.subject === subject,
+			);
+			return entry?.grade === null || entry?.grade === undefined;
+		}),
+	);
+};
+
+const getSubjectYearlyAverage = (
+	studentData: StudentYearlyReport,
+	subject: string,
+) => {
+	const sem1Avg = studentData.firstSemesterAverage[subject];
+	const sem2Avg = studentData.secondSemesterAverage[subject];
+	if (sem1Avg != null && sem2Avg != null) {
+		return Number(((sem1Avg + sem2Avg) / 2).toFixed(1));
+	}
+	return null;
+};
+
+type PromotionStatementResult = {
+	text: string;
+	decision: PromotionDecision;
+	studentName: string;
+	currentClass: string;
+	nextClass: string;
+};
+
+const buildPromotionStatement = ({
+	studentData,
+	className,
+	classSubjects,
+	reportFilters,
+	school,
+}: {
+	studentData: StudentYearlyReport;
+	className: string;
+	classSubjects: string[];
+	reportFilters: ReportFilters;
+	school: any;
+}): PromotionStatementResult => {
+	const currentClass = className || reportFilters.className;
+	const nextClass = resolveNextClassName({
+		school,
+		currentClassId: reportFilters.className,
+		currentClassName: currentClass,
+	});
+	const academicYear = reportFilters.academicYear;
+	const studentFullName = studentData.studentName;
+	const passMark = resolvePromotionPassMark(school);
+
+	if (hasIncompleteYearlyReport(studentData, classSubjects)) {
+		return {
+			text: 'Promotion statement cannot be generated because this report contains one or more incompletes.',
+			decision: 'incomplete',
+			studentName: studentFullName,
+			currentClass,
+			nextClass: '',
+		};
+	}
+
+	const failedSubjects = classSubjects.filter((subject) => {
+		const yearlyAverage = getSubjectYearlyAverage(studentData, subject);
+		return yearlyAverage !== null && yearlyAverage < passMark;
+	});
+	const failedMath = failedSubjects.some(isCoreMathSubject);
+	const failedEnglish = failedSubjects.some(isCoreEnglishSubject);
+	const failedOtherCount = failedSubjects.filter(
+		(subject) => !isCoreMathSubject(subject) && !isCoreEnglishSubject(subject),
+	).length;
+
+	let decision: Exclude<PromotionDecision, 'incomplete'> = 'promoted';
+	if (failedMath && failedEnglish) {
+		decision = 'failed';
+	} else if ((failedMath || failedEnglish) && failedOtherCount <= 1) {
+		decision = 'summer_school';
+	} else if ((failedMath || failedEnglish) && failedOtherCount >= 2) {
+		decision = 'failed';
+	} else if (failedOtherCount === 3) {
+		decision = 'summer_school';
+	} else if (failedOtherCount >= 4) {
+		decision = 'failed';
+	}
+
+	// let decision = reportFilters.sponsorName as PromotionDecision;
+
+	if (decision === 'failed') {
+		return {
+			text: `This is to certify that ${studentFullName} has not satisfactorily completed the work of ${currentClass} and is hereby required to repeat ${currentClass} for the ${academicYear} academic year.`,
+			decision: 'failed',
+			studentName: studentFullName,
+			currentClass,
+			nextClass: '',
+		};
+	}
+
+	if (decision === 'summer_school') {
+		return {
+			text: `This is to certify that ${studentFullName} has not satisfactorily completed the work of ${currentClass} but is eligible for summer school. The student is required to attend summer school and pass all required subjects in order to be promoted to ${nextClass} for the ${academicYear} academic year.`,
+			decision: 'summer_school',
+			studentName: studentFullName,
+			currentClass,
+			nextClass,
+		};
+	}
+
+	return {
+		text: `This is to certify that ${studentFullName} has satisfactorily completed the work of ${currentClass} and is hereby promoted to ${nextClass} for the ${academicYear} academic year.`,
+		decision: 'promoted',
+		studentName: studentFullName,
+		currentClass,
+		nextClass,
+	};
 };
 
 const buildReportVerificationPayload = ({
@@ -1367,33 +1851,37 @@ const areReportsEqual = (
 	return true;
 };
 
-// Field naming contract for the PDF template:
-// Header: student_name, student_id, class_name, academic_year, sponsor_name
-// Row fields (1-based, zero-padded): subject_01, p1_01, p2_01, p3_01, exam1_01, avg1_01,
-// p4_01, p5_01, p6_01, exam2_01, avg2_01, year_01 (repeat for each subject row)
-// Summary: avg_p1, avg_p2, avg_p3, avg_exam1, avg_sem1, rank_p1, rank_p2, rank_p3,
-// rank_exam1, rank_sem1, avg_p4, avg_p5, avg_p6, avg_exam2, avg_sem2, avg_year,
-// rank_p4, rank_p5, rank_p6, rank_exam2, rank_sem2, rank_year
-// Promotion: promotion_student_name, promotion_from_grade, promotion_to_grade, promotion_year
 const buildYearlyFieldMap = ({
 	studentData,
 	className,
 	classSubjects,
 	reportFilters,
+	school,
 }: {
 	studentData: StudentYearlyReport;
 	className: string;
 	classSubjects: string[];
 	reportFilters: ReportFilters;
+	school: any;
 }) => {
-	const classDisplayName = className.split('-')[0] || className;
+	const classDisplayName = getDisplayClassName(className || '');
 
 	const fields: Record<string, string> = {
 		student_name: studentData.studentName,
 		student_id: studentData.studentId,
 		class_name: classDisplayName,
 		academic_year: reportFilters.academicYear,
+		promotion_decision: '',
 	};
+	const promotionResult = buildPromotionStatement({
+		studentData,
+		className,
+		classSubjects,
+		reportFilters,
+		school,
+	});
+	fields.promotion_statement = promotionResult.text;
+	fields.promotion_decision = promotionResult.decision;
 
 	const getGrade = (period: string, subject: string) =>
 		studentData.periods[period]?.find((s) => s.subject === subject)?.grade ??
@@ -1481,12 +1969,14 @@ const fillTemplateForStudent = async ({
 	reportFilters,
 	templateBytes,
 	placements,
+	school,
 }: {
 	studentData: StudentYearlyReport;
 	className: string;
 	classSubjects: string[];
 	reportFilters: ReportFilters;
 	templateBytes: ArrayBuffer;
+	school: any;
 	placements: {
 		page1: ReturnType<typeof buildReportPlacements>;
 		page2: TextPlacementMap;
@@ -1500,6 +1990,7 @@ const fillTemplateForStudent = async ({
 		className,
 		classSubjects,
 		reportFilters,
+		school,
 	});
 	const font = await filledDoc.embedFont(StandardFonts.Helvetica);
 	const boldFont = await filledDoc.embedFont(StandardFonts.HelveticaBold);
@@ -1516,18 +2007,50 @@ const fillTemplateForStudent = async ({
 		debug: DEBUG_COORDS,
 	});
 	if (page2) {
+		// Handle promotion statement with custom styling (underlines and colors)
+		const promotionDecision = fieldMap.promotion_decision as string;
+		const basePromotionPlacement = placements.page2.promotion_statement;
+
+		if (basePromotionPlacement && promotionDecision) {
+			const promotionLines = buildPromotionStatementLines({
+				studentName: fieldMap.student_name,
+				currentClass: fieldMap.class_name,
+				decision: promotionDecision as PromotionDecision,
+				academicYear: reportFilters.academicYear,
+				nextClass: resolveNextClassName({
+					school,
+					currentClassId: reportFilters.className,
+					currentClassName: fieldMap.class_name,
+				}),
+			});
+			drawPromotionStatement({
+				page: page2,
+				basePlacement: basePromotionPlacement,
+				lines: promotionLines,
+				fonts: { normal: font, bold: boldFont },
+				color:
+					PROMOTION_COLORS[promotionDecision as PromotionDecision] ?? BLUE_TEXT,
+			});
+		}
+
+		// Draw other page2 fields normally (excluding promotion-related fields)
+		const otherFields = { ...fieldMap };
+		delete otherFields.promotion_statement;
+		delete otherFields.promotion_decision;
+
 		const page2Placements = buildConditionalColorPlacements({
 			basePlacements: placements.page2,
-			values: fieldMap,
+			values: otherFields,
 		});
 		drawTextMap({
 			page: page2,
-			values: fieldMap,
+			values: otherFields,
 			placements: page2Placements,
 			fonts: { normal: font, bold: boldFont },
 			defaultSize: 9,
 			debug: DEBUG_COORDS,
 		});
+
 		if (placements.page2Qr && studentData.qrCodeDataUrl) {
 			try {
 				const qrBytes = await fetch(studentData.qrCodeDataUrl).then((res) =>
@@ -1623,6 +2146,7 @@ const generateYearlyReportPdf = async ({
 			classSubjects,
 			reportFilters,
 			templateBytes,
+			school,
 			placements: {
 				page1: page1Placements,
 				page2: page2Placements,

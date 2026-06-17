@@ -57,15 +57,14 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	});
 	const [carryOverAcademicYear, setCarryOverAcademicYear] = useState('');
 	const [carryOverSubjects, setCarryOverSubjects] = useState<any[]>([]);
-	const [carryOverSponsorClass, setCarryOverSponsorClass] = useState<string | null>(
-		null,
-	);
+	const [carryOverSponsorClass, setCarryOverSponsorClass] = useState<
+		string | null
+	>(null);
 	const [carryOverPosition, setCarryOverPosition] = useState('');
 	const [carryOverAssignmentsExpanded, setCarryOverAssignmentsExpanded] =
 		useState(false);
-	const [carryOverExpandedAccordions, setCarryOverExpandedAccordions] = useState(
-		{} as Record<string, boolean>,
-	);
+	const [carryOverExpandedAccordions, setCarryOverExpandedAccordions] =
+		useState({} as Record<string, boolean>);
 	const [actionError, setActionError] = useState('');
 	const [actionLoading, setActionLoading] = useState(false);
 
@@ -392,10 +391,12 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 	const getFullName = (profile) => {
 		if (!profile) return 'User';
-		return [profile.firstName, profile.middleName, profile.lastName]
-			.filter(Boolean)
-			.join(' ')
-			.trim() || 'User';
+		return (
+			[profile.firstName, profile.middleName, profile.lastName]
+				.filter(Boolean)
+				.join(' ')
+				.trim() || 'User'
+		);
 	};
 
 	const selectTriggerClass =
@@ -804,9 +805,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		} catch (err) {
 			const message =
 				err instanceof Error ? err.message : 'A network error occurred.';
-			setValidationErrors([
-				{ message },
-			]);
+			setValidationErrors([{ message }]);
 			setIsLoading(false);
 		}
 	};
@@ -955,7 +954,8 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		setCarryOverAcademicYear(defaultYear);
 		if (user?.role === 'teacher') {
 			const latestYearEntry = getTeacherLatestYearEntry(user);
-			const defaultSelections = mapYearEntryToTeacherSelections(latestYearEntry);
+			const defaultSelections =
+				mapYearEntryToTeacherSelections(latestYearEntry);
 			setCarryOverSubjects(defaultSelections);
 			setCarryOverSponsorClass(user?.sponsorClass || null);
 			setCarryOverExpandedAccordions({});
@@ -1123,7 +1123,9 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			}
 			const updatedUser = getUpdatedUserFromResponse(data);
 			if (!updatedUser) {
-				throw new Error('Promotion response did not include updated user data.');
+				throw new Error(
+					'Promotion response did not include updated user data.',
+				);
 			}
 			onSave(updatedUser);
 			setFeedback({ type: 'success', message: data.message });
@@ -1211,7 +1213,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			selectedStart <= latestStart
 		) {
 			setActionError(
-				'The selected year must be later than the user\'s latest academic year.',
+				"The selected year must be later than the user's latest academic year.",
 			);
 			return;
 		}
@@ -1245,11 +1247,14 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 		setActionLoading(true);
 		try {
-			const res = await fetch(`/api/users?id=${user._id}&action=addAcademicYear`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(requestBody),
-			});
+			const res = await fetch(
+				`/api/users?id=${user._id}&action=addAcademicYear`,
+				{
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(requestBody),
+				},
+			);
 			const data = await res.json();
 			if (!res.ok) {
 				if (res.status === 409 && data.requiresConfirmation) {
@@ -1727,43 +1732,45 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																	</span>
 																</p>
 																<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-																	{getSelfContainedClasses(session).map((cls) => {
-																		const isSelected =
-																			formData.sponsorClass === cls.classId &&
-																			(formData.subjects || []).some(
-																				(s) =>
-																					s.level === 'Self Contained' &&
-																					s.session === session,
+																	{getSelfContainedClasses(session).map(
+																		(cls) => {
+																			const isSelected =
+																				formData.sponsorClass === cls.classId &&
+																				(formData.subjects || []).some(
+																					(s) =>
+																						s.level === 'Self Contained' &&
+																						s.session === session,
+																				);
+																			return (
+																				<motion.label
+																					key={`${session}-self-${cls.classId}`}
+																					whileHover={{ scale: 1.02 }}
+																					className={`relative flex items-center justify-center rounded-xl border p-3 cursor-pointer transition-all duration-300 ${
+																						isSelected
+																							? 'border-primary bg-primary/10 shadow-md'
+																							: 'border-muted hover:border-primary/50 hover:bg-accent/10'
+																					}`}
+																				>
+																					<input
+																						type="radio"
+																						name={`edit-selfContainedClass-${session}`}
+																						checked={isSelected}
+																						onChange={(e) =>
+																							handleSelfContainedSelection(
+																								cls.classId,
+																								session,
+																								e.target.checked,
+																							)
+																						}
+																						className="absolute opacity-0"
+																					/>
+																					<span className="text-sm font-medium text-foreground">
+																						{cls.name}
+																					</span>
+																				</motion.label>
 																			);
-																		return (
-																			<motion.label
-																				key={`${session}-self-${cls.classId}`}
-																				whileHover={{ scale: 1.02 }}
-																				className={`relative flex items-center justify-center rounded-xl border p-3 cursor-pointer transition-all duration-300 ${
-																					isSelected
-																						? 'border-primary bg-primary/10 shadow-md'
-																						: 'border-muted hover:border-primary/50 hover:bg-accent/10'
-																				}`}
-																			>
-																				<input
-																					type="radio"
-																					name={`edit-selfContainedClass-${session}`}
-																					checked={isSelected}
-																					onChange={(e) =>
-																						handleSelfContainedSelection(
-																							cls.classId,
-																							session,
-																							e.target.checked,
-																						)
-																					}
-																					className="absolute opacity-0"
-																				/>
-																				<span className="text-sm font-medium text-foreground">
-																					{cls.name}
-																				</span>
-																			</motion.label>
-																		);
-																	})}
+																		},
+																	)}
 																</div>
 															</div>
 														)}
@@ -1775,7 +1782,8 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																{getClassLevels(session)
 																	.filter((level) => level !== 'Self Contained')
 																	.map((level) => {
-																		const levelStyle = getLevelVisualStyle(level);
+																		const levelStyle =
+																			getLevelVisualStyle(level);
 																		return (
 																			<div
 																				key={level}
@@ -1849,7 +1857,8 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																value={
 																	formData.sponsorClass &&
 																	getAllClassesForSession(session).find(
-																		(cls) => cls.classId === formData.sponsorClass,
+																		(cls) =>
+																			cls.classId === formData.sponsorClass,
 																	)
 																		? formData.sponsorClass
 																		: '__none__'
@@ -1866,7 +1875,9 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																		No sponsorship
 																	</SelectItem>
 																	{getAllClassesWithLevelsForSession(session)
-																		.filter((cls) => cls.level !== 'Self Contained')
+																		.filter(
+																			(cls) => cls.level !== 'Self Contained',
+																		)
 																		.map((cls) => (
 																			<SelectItem
 																				key={cls.classId}
@@ -1879,7 +1890,8 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 															</Select>
 															{formData.sponsorClass &&
 																getAllClassesForSession(session).some(
-																	(cls) => cls.classId === formData.sponsorClass,
+																	(cls) =>
+																		cls.classId === formData.sponsorClass,
 																) && (
 																	<p className="text-xs text-green-600 mt-1">
 																		This teacher will be assigned as sponsor for
@@ -2009,7 +2021,9 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																type: value,
 																academicYear:
 																	value === 'yearlyPromotion'
-																		? promotionYearOptions.includes(prev.academicYear)
+																		? promotionYearOptions.includes(
+																				prev.academicYear,
+																			)
 																			? prev.academicYear
 																			: defaultPromotionYear
 																		: prev.academicYear,
@@ -2041,10 +2055,9 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 												<Select
 													value={promotionForm.classId}
 													onValueChange={(value) => {
-														const selected =
-															getPromotionClassOptions().find(
-																(cls) => cls.classId === value,
-															);
+														const selected = getPromotionClassOptions().find(
+															(cls) => cls.classId === value,
+														);
 														setPromotionForm((prev) => ({
 															...prev,
 															classId: value,
@@ -2069,47 +2082,49 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 													</SelectContent>
 												</Select>
 											</div>
-									{promotionForm.type === 'yearlyPromotion' && (
-										<div>
-											<label className="block text-sm font-medium text-foreground mb-1">
-												New Academic Year
-											</label>
-											<Select
-												value={promotionForm.academicYear}
-												onValueChange={(value) =>
-													setPromotionForm((prev) => ({
-														...prev,
-														academicYear: value,
-													}))
-												}
-											>
-												<SelectTrigger className={selectTriggerClass}>
-													<SelectValue placeholder="Select Academic Year" />
-												</SelectTrigger>
-												<SelectContent>
-													{getPromotionAcademicYearOptions().map((year) => (
-														<SelectItem key={year} value={year}>
-															{year}
-														</SelectItem>
-													))}
-													{getPromotionAcademicYearOptions().length === 0 && (
-														<div className="px-2 py-1.5 text-sm text-muted-foreground">
-															No academic year options available.
-														</div>
-													)}
-													{getPromotionAcademicYearOptions().length > 0 &&
-														!hasYearOptionLaterThanUser(
-															getPromotionAcademicYearOptions(),
-															user,
-														) && (
-															<div className="px-2 py-1.5 text-sm text-muted-foreground">
-																No selectable year is later than the student&apos;s latest year.
-															</div>
-														)}
-												</SelectContent>
-											</Select>
-										</div>
-									)}
+											{promotionForm.type === 'yearlyPromotion' && (
+												<div>
+													<label className="block text-sm font-medium text-foreground mb-1">
+														New Academic Year
+													</label>
+													<Select
+														value={promotionForm.academicYear}
+														onValueChange={(value) =>
+															setPromotionForm((prev) => ({
+																...prev,
+																academicYear: value,
+															}))
+														}
+													>
+														<SelectTrigger className={selectTriggerClass}>
+															<SelectValue placeholder="Select Academic Year" />
+														</SelectTrigger>
+														<SelectContent>
+															{getPromotionAcademicYearOptions().map((year) => (
+																<SelectItem key={year} value={year}>
+																	{year}
+																</SelectItem>
+															))}
+															{getPromotionAcademicYearOptions().length ===
+																0 && (
+																<div className="px-2 py-1.5 text-sm text-muted-foreground">
+																	No academic year options available.
+																</div>
+															)}
+															{getPromotionAcademicYearOptions().length > 0 &&
+																!hasYearOptionLaterThanUser(
+																	getPromotionAcademicYearOptions(),
+																	user,
+																) && (
+																	<div className="px-2 py-1.5 text-sm text-muted-foreground">
+																		No selectable year is later than the
+																		student&apos;s latest year.
+																	</div>
+																)}
+														</SelectContent>
+													</Select>
+												</div>
+											)}
 										</>
 									)}
 								</div>
@@ -2323,7 +2338,8 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 														user,
 													) && (
 														<div className="px-2 py-1.5 text-sm text-muted-foreground">
-															No selectable year is later than the user&apos;s latest year.
+															No selectable year is later than the user&apos;s
+															latest year.
 														</div>
 													)}
 											</SelectContent>
@@ -2409,9 +2425,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																		setCarryOverPosition(value)
 																	}
 																>
-																	<SelectTrigger
-																		className={selectTriggerClass}
-																	>
+																	<SelectTrigger className={selectTriggerClass}>
 																		<SelectValue placeholder="Select Position" />
 																	</SelectTrigger>
 																	<SelectContent>
@@ -2455,14 +2469,20 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																				/>
 																			</button>
 																			<AnimatePresence>
-																				{carryOverExpandedAccordions[session] && (
+																				{carryOverExpandedAccordions[
+																					session
+																				] && (
 																					<motion.div
 																						initial={{ opacity: 0, height: 0 }}
-																						animate={{ opacity: 1, height: 'auto' }}
+																						animate={{
+																							opacity: 1,
+																							height: 'auto',
+																						}}
 																						exit={{ opacity: 0, height: 0 }}
 																						className="p-3 sm:p-4 space-y-4 border-t border-border"
 																					>
-																						{getSelfContainedClasses(session).length > 0 && (
+																						{getSelfContainedClasses(session)
+																							.length > 0 && (
 																							<div className="space-y-3">
 																								<p className="text-sm text-muted-foreground">
 																									<span className="font-medium">
@@ -2473,48 +2493,52 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																									</span>
 																								</p>
 																								<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-																									{getSelfContainedClasses(session).map(
-																										(cls) => {
-																											const isSelected =
-																												carryOverSponsorClass ===
-																													cls.classId &&
-																												(carryOverSubjects || []).some(
-																													(selection) =>
-																														selection.level ===
-																															'Self Contained' &&
-																														selection.session ===
-																															session,
-																												);
-																											return (
-																												<motion.label
-																													key={`carry-over-self-${session}-${cls.classId}`}
-																													whileHover={{ scale: 1.02 }}
-																													className={`relative flex items-center justify-center rounded-xl border p-3 cursor-pointer transition-all duration-300 ${
-																														isSelected
-																															? 'border-primary bg-primary/10 shadow-md'
-																															: 'border-muted hover:border-primary/50 hover:bg-accent/10'
-																													}`}
-																												>
-																													<input
-																														type="radio"
-																														name={`carry-over-selfContainedClass-${session}`}
-																														checked={isSelected}
-																														onChange={(e) =>
-																															handleCarryOverSelfContainedSelection(
-																																cls.classId,
-																																session,
-																																e.target.checked,
-																															)
-																														}
-																														className="absolute opacity-0"
-																													/>
-																													<span className="text-sm font-medium text-foreground">
-																														{cls.name}
-																													</span>
-																												</motion.label>
+																									{getSelfContainedClasses(
+																										session,
+																									).map((cls) => {
+																										const isSelected =
+																											carryOverSponsorClass ===
+																												cls.classId &&
+																											(
+																												carryOverSubjects || []
+																											).some(
+																												(selection) =>
+																													selection.level ===
+																														'Self Contained' &&
+																													selection.session ===
+																														session,
 																											);
-																										},
-																									)}
+																										return (
+																											<motion.label
+																												key={`carry-over-self-${session}-${cls.classId}`}
+																												whileHover={{
+																													scale: 1.02,
+																												}}
+																												className={`relative flex items-center justify-center rounded-xl border p-3 cursor-pointer transition-all duration-300 ${
+																													isSelected
+																														? 'border-primary bg-primary/10 shadow-md'
+																														: 'border-muted hover:border-primary/50 hover:bg-accent/10'
+																												}`}
+																											>
+																												<input
+																													type="radio"
+																													name={`carry-over-selfContainedClass-${session}`}
+																													checked={isSelected}
+																													onChange={(e) =>
+																														handleCarryOverSelfContainedSelection(
+																															cls.classId,
+																															session,
+																															e.target.checked,
+																														)
+																													}
+																													className="absolute opacity-0"
+																												/>
+																												<span className="text-sm font-medium text-foreground">
+																													{cls.name}
+																												</span>
+																											</motion.label>
+																										);
+																									})}
 																								</div>
 																							</div>
 																						)}
@@ -2576,13 +2600,16 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																														>
 																															<input
 																																type="checkbox"
-																																checked={isChecked}
+																																checked={
+																																	isChecked
+																																}
 																																onChange={(e) =>
 																																	handleCarryOverSubjectChange(
 																																		subjectName,
 																																		level,
 																																		session,
-																																		e.target.checked,
+																																		e.target
+																																			.checked,
 																																	)
 																																}
 																																className="absolute opacity-0"
@@ -2711,10 +2738,10 @@ const InputField = ({ label, ...props }) => (
 		<label className="block text-sm font-medium text-foreground mb-1">
 			{label}
 		</label>
-	<input
-		{...props}
-		className="w-full p-2 border border-border/70 rounded-lg bg-gradient-to-br from-background to-muted/30 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-primary/30 hover:border-primary/40"
-	/>
+		<input
+			{...props}
+			className="w-full p-2 border border-border/70 rounded-lg bg-gradient-to-br from-background to-muted/30 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-primary/30 hover:border-primary/40"
+		/>
 	</div>
 );
 

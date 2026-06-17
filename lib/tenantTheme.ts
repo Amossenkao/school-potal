@@ -4,15 +4,6 @@ import {
 	type TenantThemeName,
 } from '@/types/tenantTheme';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// NOTE: Add the following 20 new theme names to TENANT_THEME_NAMES in
-// @/types/tenantTheme.ts:
-//   'nebula' | 'volcanic' | 'sakura' | 'void' | 'neonoir' | 'sandstorm' |
-//   'solstice' | 'absinthe' | 'ultraviolet' | 'prism' | 'thunderstorm' |
-//   'pharaoh' | 'samurai' | 'habanero' | 'biodome' | 'carnival' |
-//   'radioactive' | 'quicksilver' | 'catacomb' | 'bioluminescent'
-// ─────────────────────────────────────────────────────────────────────────────
-
 type ThemeVariables = Record<string, string>;
 type ThemeMode = 'light' | 'dark';
 type ColorScaleStop =
@@ -416,660 +407,236 @@ const getReadableForeground = (
 		: darkText;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 40 ULTRA-CREATIVE THEME PALETTES
-// Organized: 20 reimagined classics + 20 bold new themes
-// Each palette chosen for maximum visual impact in both light and dark mode
+// 20 modern tenant theme palettes
+// Each palette is chosen for a distinct visual identity in light and dark mode.
 // ─────────────────────────────────────────────────────────────────────────────
-
-const CONTRAST_THEME_PALETTES: Record<TenantThemeName, ContrastThemePalette> = {
-	// ── REIMAGINED CLASSICS ───────────────────────────────────────────────────
-
-	/**
-	 * HORIZON — Hyperspace violet tears through a solar gold corona.
-	 * Deep space launch energy: the moment before warp drive engages.
-	 */
-	horizon: {
-		label: 'Hyperspace Violet & Solar Gold',
-		primary: '#3b0764',
-		secondary: '#f59e0b',
-		lightAccent: '#fef9c3',
-		lightSidebar: '#1e0a38',
-		lightSidebarAccent: '#2d1254',
-		darkAccent: '#1a1000',
-		darkSidebar: '#0d0520',
-		darkSidebarAccent: '#1a0a38',
-	},
-
-	/**
-	 * OCEAN — Abyssal midnight navy fused with phosphorescent seafoam.
-	 * 4,000 meters down: pressure darkness broken by living light.
-	 */
-	ocean: {
-		label: 'Abyssal Midnight & Phosphor Foam',
-		primary: '#0c4a6e',
-		secondary: '#06d6a0',
-		lightAccent: '#ecfdf5',
-		lightSidebar: '#041018',
-		lightSidebarAccent: '#071e30',
-		darkAccent: '#021810',
-		darkSidebar: '#020810',
-		darkSidebarAccent: '#041520',
-	},
-
-	/**
-	 * EMERALD — Poison malachite green meets volcanic basalt black.
-	 * Primordial earth: mineral-rich, dense, and ancient.
-	 */
-	emerald: {
-		label: 'Poison Malachite & Volcanic Basalt',
-		primary: '#064e3b',
-		secondary: '#1c1917',
-		lightAccent: '#f0fdf4',
-		lightSidebar: '#0a2018',
-		lightSidebarAccent: '#0f3028',
-		darkAccent: '#040d06',
-		darkSidebar: '#020a06',
-		darkSidebarAccent: '#071a0e',
-	},
-
-	/**
-	 * SUNSET — Magenta dusk bleeds into cobalt night sky.
-	 * The exact moment the sun vanishes: chromatic and cinematic.
-	 */
-	sunset: {
-		label: 'Magenta Dusk & Cobalt Night',
-		primary: '#be185d',
-		secondary: '#1e40af',
-		lightAccent: '#fce7f3',
-		lightSidebar: '#fff0f8',
-		lightSidebarAccent: '#fad8ec',
-		darkAccent: '#0d0a2a',
-		darkSidebar: '#0a0520',
-		darkSidebarAccent: '#150a38',
-	},
-
-	/**
-	 * MIDNIGHT — Supernova plasma orange ignites against space-black void.
-	 * A star dying: furious orange light against absolute darkness.
-	 */
-	midnight: {
-		label: 'Supernova Plasma & Space Void',
-		primary: '#ea580c',
-		secondary: '#09090b',
-		lightAccent: '#fff7ed',
-		lightSidebar: '#0a0a0c',
-		lightSidebarAccent: '#18161a',
-		darkAccent: '#1c0800',
-		darkSidebar: '#050506',
-		darkSidebarAccent: '#100804',
-	},
-
-	/**
-	 * CORAL — Living reef scarlet pulses against abyssal cerulean deep.
-	 * The world's most biodiverse ecosystem: vivid and irreplaceable.
-	 */
-	coral: {
-		label: 'Living Reef Scarlet & Abyss Cerulean',
-		primary: '#e11d48',
-		secondary: '#0369a1',
-		lightAccent: '#fff1f2',
-		lightSidebar: '#fff5f6',
-		lightSidebarAccent: '#ffe4e8',
-		darkAccent: '#001828',
-		darkSidebar: '#040c18',
-		darkSidebarAccent: '#081828',
-	},
-
-	/**
-	 * FOREST — Ancient redwood bark red stands against lichen silver mist.
-	 * A 2,000-year-old tree: rust-dark core wrapped in cool silver fog.
-	 */
-	forest: {
-		label: 'Ancient Redwood & Lichen Silver',
-		primary: '#7c2d12',
-		secondary: '#64748b',
-		lightAccent: '#f8fafc',
-		lightSidebar: '#3d1208',
-		lightSidebarAccent: '#5a1f10',
-		darkAccent: '#0d0604',
-		darkSidebar: '#1a0804',
-		darkSidebarAccent: '#2a1008',
-	},
-
-	/**
-	 * COPPER — Verdigris oxidized teal fused with molten raw copper.
-	 * A bronze statue left to weather: the color of time itself.
-	 */
-	copper: {
-		label: 'Verdigris Patina & Molten Copper',
-		primary: '#0d9488',
-		secondary: '#c2410c',
-		lightAccent: '#fff7ed',
-		lightSidebar: '#041a18',
-		lightSidebarAccent: '#072e28',
-		darkAccent: '#1c0600',
-		darkSidebar: '#020e0c',
-		darkSidebarAccent: '#051a16',
-	},
-
-	/**
-	 * ROSE — Dried rose petal mauve against deep Prussian ink.
-	 * A pressed flower in an old letter: faded beauty, dark longing.
-	 */
-	rose: {
-		label: 'Dried Rose Mauve & Prussian Ink',
-		primary: '#9d174d',
-		secondary: '#1e3a5f',
-		lightAccent: '#fdf2f8',
-		lightSidebar: '#fff5fb',
-		lightSidebarAccent: '#fce7f3',
-		darkAccent: '#0d0818',
-		darkSidebar: '#080514',
-		darkSidebarAccent: '#120a24',
-	},
-
-	/**
-	 * SLATE — Raw graphite concrete wall slashed by laser crimson.
-	 * Brutalist architecture meets a fire alarm: industrial and urgent.
-	 */
-	slate: {
-		label: 'Raw Graphite & Laser Crimson',
-		primary: '#1e293b',
-		secondary: '#ef4444',
-		lightAccent: '#fef2f2',
-		lightSidebar: '#0f172a',
-		lightSidebarAccent: '#1e293b',
-		darkAccent: '#200000',
-		darkSidebar: '#080c14',
-		darkSidebarAccent: '#111827',
-	},
-
-	/**
-	 * AURORA — Polar aurora teal dances with geomagnetic solar crimson.
-	 * Charged particles colliding at the magnetic pole: nature's light show.
-	 */
-	aurora: {
-		label: 'Polar Aurora & Geomagnetic Crimson',
-		primary: '#0d9488',
-		secondary: '#dc2626',
-		lightAccent: '#f0fdfa',
-		lightSidebar: '#ecfdf5',
-		lightSidebarAccent: '#d1fae5',
-		darkAccent: '#140000',
-		darkSidebar: '#021a18',
-		darkSidebarAccent: '#043028',
-	},
-
-	/**
-	 * AMETHYST — Royal dark amethyst crystal facets catch solar gold.
-	 * A Victorian jewel box: rich purple shadows with gold fire inside.
-	 */
-	amethyst: {
-		label: 'Royal Amethyst Crystal & Solar Gold',
-		primary: '#581c87',
-		secondary: '#d97706',
-		lightAccent: '#fefce8',
-		lightSidebar: '#1a0840',
-		lightSidebarAccent: '#2a1260',
-		darkAccent: '#1a1000',
-		darkSidebar: '#0d0420',
-		darkSidebarAccent: '#180830',
-	},
-
-	/**
-	 * RUBY — Imperial blood ruby deep red against arctic platinum silver.
-	 * Crown jewels in a frozen vault: heat and cold in tension.
-	 */
-	ruby: {
-		label: 'Imperial Blood Ruby & Arctic Platinum',
-		primary: '#991b1b',
-		secondary: '#94a3b8',
-		lightAccent: '#f8fafc',
-		lightSidebar: '#f1f5f9',
-		lightSidebarAccent: '#e2e8f0',
-		darkAccent: '#0f0505',
-		darkSidebar: '#100606',
-		darkSidebarAccent: '#1c0a0a',
-	},
-
-	/**
-	 * GLACIER — Cracked glacier cobalt blue over subglacial volcanic orange.
-	 * Ice shelf above, magma chamber below: tectonic beauty.
-	 */
-	glacier: {
-		label: 'Cracked Glacier Blue & Subglacial Heat',
-		primary: '#0369a1',
-		secondary: '#ea580c',
-		lightAccent: '#fff7ed',
-		lightSidebar: '#e0f2fe',
-		lightSidebarAccent: '#bae6fd',
-		darkAccent: '#1c0600',
-		darkSidebar: '#041828',
-		darkSidebarAccent: '#082840',
-	},
-
-	/**
-	 * CITRUS — Blood orange scorched fire against shadow obsidian black.
-	 * The most vivid fruit split open in a dark room: all contrast, no apology.
-	 */
-	citrus: {
-		label: 'Blood Orange Blaze & Shadow Obsidian',
-		primary: '#c2410c',
-		secondary: '#1c1917',
-		lightAccent: '#fff7ed',
-		lightSidebar: '#1c0a04',
-		lightSidebarAccent: '#2a1208',
-		darkAccent: '#1a0400',
-		darkSidebar: '#0a0503',
-		darkSidebarAccent: '#180804',
-	},
-
-	/**
-	 * ESPRESSO — Triple-shot espresso roast with burnt caramel crema.
-	 * The entire coffee shop distilled into a UI: warm, dark, complex.
-	 */
-	espresso: {
-		label: 'Triple Roast Espresso & Burnt Caramel',
-		primary: '#7c3522',
-		secondary: '#d4a96a',
-		lightAccent: '#fef9f0',
-		lightSidebar: '#180a04',
-		lightSidebarAccent: '#2a1208',
-		darkAccent: '#1a0a00',
-		darkSidebar: '#0c0602',
-		darkSidebarAccent: '#1c0e06',
-	},
-
-	/**
-	 * LAGOON — Maldives crystal-clear turquoise over volcanic black sand.
-	 * The most beautiful beach on earth: impossible blue, impossible dark.
-	 */
-	lagoon: {
-		label: 'Maldives Turquoise & Black Sand Shore',
-		primary: '#0891b2',
-		secondary: '#1c1917',
-		lightAccent: '#ecfeff',
-		lightSidebar: '#ecfeff',
-		lightSidebarAccent: '#cffafe',
-		darkAccent: '#041010',
-		darkSidebar: '#040c10',
-		darkSidebarAccent: '#071820',
-	},
-
-	/**
-	 * EMBER — White-hot forge ember against carbon-black void.
-	 * Steel at 1,400°C: incandescent core, cold darkness surrounding it.
-	 */
-	ember: {
-		label: 'White-Hot Forge & Carbon Void',
-		primary: '#f97316',
-		secondary: '#0c0a09',
-		lightAccent: '#fff7ed',
-		lightSidebar: '#0c0a09',
-		lightSidebarAccent: '#1c1512',
-		darkAccent: '#1c0800',
-		darkSidebar: '#060504',
-		darkSidebarAccent: '#100a06',
-	},
-
-	/**
-	 * ORCHID — Black orchid deep violet blooms with rose gold petal dust.
-	 * The rarest flower in darkness: opulent, mysterious, warm.
-	 */
-	orchid: {
-		label: 'Black Orchid Violet & Rose Gold Dust',
-		primary: '#3b0764',
-		secondary: '#be9b7b',
-		lightAccent: '#fdf4ff',
-		lightSidebar: '#1a0430',
-		lightSidebarAccent: '#2a0850',
-		darkAccent: '#180a08',
-		darkSidebar: '#0a0218',
-		darkSidebarAccent: '#180630',
-	},
-
-	/**
-	 * GILDED — Imperial jade green throne inlaid with burnished brass gold.
-	 * A Qing dynasty imperial chamber: jade, brass, eternity.
-	 */
-	gilded: {
-		label: 'Imperial Jade & Burnished Brass Gold',
-		primary: '#065f46',
-		secondary: '#b45309',
-		lightAccent: '#fef3c7',
-		lightSidebar: '#022c22',
-		lightSidebarAccent: '#064e3b',
-		darkAccent: '#1a0e00',
-		darkSidebar: '#011a14',
-		darkSidebarAccent: '#033d2e',
-	},
-
-	// ── 20 BOLD NEW THEMES ────────────────────────────────────────────────────
-
-	/**
-	 * NEBULA — A star nursery pulses: nebula magenta gas clouds lit by
-	 * newborn stardust gold. The sidebar is the void between galaxies.
-	 */
-	nebula: {
-		label: 'Nebula Magenta & Stardust Gold',
-		primary: '#9d174d',
-		secondary: '#f59e0b',
-		lightAccent: '#fef9c3',
-		lightSidebar: '#1a0424',
-		lightSidebarAccent: '#2d0840',
-		darkAccent: '#1a1000',
-		darkSidebar: '#0d0214',
-		darkSidebarAccent: '#1e0628',
-	},
-
-	/**
-	 * VOLCANIC — Pyroclastic obsidian shell veined with magma orange rivers.
-	 * A stratovolcano cross-section: black crust, molten core bleeding through.
-	 */
-	volcanic: {
-		label: 'Pyroclastic Obsidian & Magma River',
-		primary: '#292524',
-		secondary: '#f97316',
-		lightAccent: '#fff7ed',
-		lightSidebar: '#0f0d0c',
-		lightSidebarAccent: '#1e1410',
-		darkAccent: '#1c1008',
-		darkSidebar: '#080605',
-		darkSidebarAccent: '#1a0e09',
-	},
-
-	/**
-	 * SAKURA — Cherry blossom silk pink brushed against matcha bamboo green.
-	 * A Japanese garden in April: soft petals, strong stems, fleeting beauty.
-	 */
-	sakura: {
-		label: 'Cherry Blossom Silk & Matcha Bamboo',
-		primary: '#db2777',
-		secondary: '#15803d',
-		lightAccent: '#f0fdf4',
-		lightSidebar: '#fff0f8',
-		lightSidebarAccent: '#fce7f3',
-		darkAccent: '#021408',
-		darkSidebar: '#0a0508',
-		darkSidebarAccent: '#1a0c14',
-	},
-
-	/**
-	 * VOID — An event horizon swallows all light; a single pulsar white
-	 * signal pierces through. Maximum negative space, maximum tension.
-	 */
-	void: {
-		label: 'Event Horizon & Pulsar Signal',
-		primary: '#09090b',
-		secondary: '#e4e4e7',
-		lightAccent: '#fafafa',
-		lightSidebar: '#fafafa',
-		lightSidebarAccent: '#f4f4f5',
-		darkAccent: '#18181b',
-		darkSidebar: '#030303',
-		darkSidebarAccent: '#0d0d0f',
-	},
-
-	/**
-	 * NEONOIR — Wet asphalt city slick, slashed by electric acid-lime neon.
-	 * A 3 AM detective story: dark streets, buzzing signs, rain-soaked chrome.
-	 */
-	neonoir: {
-		label: 'Wet Asphalt Noir & Acid Lime Neon',
-		primary: '#18181b',
-		secondary: '#84cc16',
-		lightAccent: '#f7ffe4',
-		lightSidebar: '#0a0a0b',
-		lightSidebarAccent: '#141416',
-		darkAccent: '#0e1a00',
-		darkSidebar: '#050506',
-		darkSidebarAccent: '#0f0f12',
-	},
-
-	/**
-	 * SANDSTORM — Saharan burnt terracotta dunes meet electric storm-petrel blue.
-	 * Desert and Atlantic collide: ancient heat, approaching tempest.
-	 */
-	sandstorm: {
-		label: 'Saharan Terracotta & Storm-Petrel Blue',
-		primary: '#b45309',
-		secondary: '#0369a1',
-		lightAccent: '#e0f2fe',
-		lightSidebar: '#fdf6ed',
-		lightSidebarAccent: '#f5e4c8',
-		darkAccent: '#001828',
-		darkSidebar: '#1e0c00',
-		darkSidebarAccent: '#2e1800',
-	},
-
-	/**
-	 * SOLSTICE — Midsummer vermilion sun bleeds into winter cosmos indigo.
-	 * The year's turning point: maximum fire against maximum cold.
-	 */
-	solstice: {
-		label: 'Midsummer Vermilion & Winter Cosmos',
-		primary: '#b91c1c',
-		secondary: '#312e81',
-		lightAccent: '#eef2ff',
-		lightSidebar: '#312e81',
-		lightSidebarAccent: '#3730a3',
-		darkAccent: '#0d0820',
-		darkSidebar: '#0f0e26',
-		darkSidebarAccent: '#1a1840',
-	},
-
-	/**
-	 * ABSINTHE — La Fée Verte's botanical chartreuse against laudanum violet.
-	 * Belle époque excess: the green fairy dances in a purple haze.
-	 */
-	absinthe: {
-		label: 'La Fée Verte & Laudanum Violet',
-		primary: '#4d7c0f',
-		secondary: '#4c1d95',
-		lightAccent: '#f3e8ff',
-		lightSidebar: '#0a1402',
-		lightSidebarAccent: '#1a2a10',
-		darkAccent: '#150a28',
-		darkSidebar: '#050a01',
-		darkSidebarAccent: '#100820',
-	},
-
-	/**
-	 * ULTRAVIOLET — A blacklight floods the room: UV deep indigo irradiates
-	 * reactor-core chartreuse. Beyond visible — scientific and strange.
-	 */
-	ultraviolet: {
-		label: 'Blacklight Indigo & Reactor Chartreuse',
-		primary: '#3b0764',
-		secondary: '#65a30d',
-		lightAccent: '#f7ffe4',
-		lightSidebar: '#180430',
-		lightSidebarAccent: '#240850',
-		darkAccent: '#081600',
-		darkSidebar: '#0c0220',
-		darkSidebarAccent: '#180c30',
-	},
-
-	/**
-	 * PRISM — Spectral hot magenta refracts into cool deep teal.
-	 * White light split by glass: two extremes of the visible spectrum.
-	 */
-	prism: {
-		label: 'Spectral Magenta & Refractive Teal',
-		primary: '#be185d',
-		secondary: '#0d9488',
-		lightAccent: '#f0fdfa',
-		lightSidebar: '#fff0f8',
-		lightSidebarAccent: '#fce7f3',
-		darkAccent: '#021a18',
-		darkSidebar: '#080515',
-		darkSidebarAccent: '#100a20',
-	},
-
-	/**
-	 * THUNDERSTORM — A cumulonimbus storm cell dark navy charged by
-	 * forked lightning arc yellow. The air tastes like ozone.
-	 */
-	thunderstorm: {
-		label: 'Cumulonimbus Navy & Lightning Arc',
-		primary: '#1e3a5f',
-		secondary: '#fbbf24',
-		lightAccent: '#fefce8',
-		lightSidebar: '#0c1828',
-		lightSidebarAccent: '#142240',
-		darkAccent: '#1c1400',
-		darkSidebar: '#080e18',
-		darkSidebarAccent: '#101c30',
-	},
-
-	/**
-	 * PHARAOH — Lapis lazuli tomb blue as deep as the Nile, with
-	 * solar falcon god gold. Divine power. Five thousand years of it.
-	 */
-	pharaoh: {
-		label: 'Lapis Lazuli Tomb & Solar Falcon Gold',
-		primary: '#1d4ed8',
-		secondary: '#ca8a04',
-		lightAccent: '#fef9c3',
-		lightSidebar: '#1e3a8a',
-		lightSidebarAccent: '#2563eb',
-		darkAccent: '#1a1200',
-		darkSidebar: '#0f1f4a',
-		darkSidebarAccent: '#1a2e6a',
-	},
-
-	/**
-	 * SAMURAI — Sumi ink black as a brushstroke, cut by dawn-light crimson.
-	 * A brushed calligraphy scroll, a sword's edge at first light.
-	 */
-	samurai: {
-		label: 'Sumi Ink Black & Dawn Crimson Edge',
-		primary: '#1c1917',
-		secondary: '#dc2626',
-		lightAccent: '#fff1f2',
-		lightSidebar: '#0f0e0d',
-		lightSidebarAccent: '#1c1917',
-		darkAccent: '#200000',
-		darkSidebar: '#080807',
-		darkSidebarAccent: '#141210',
-	},
-
-	/**
-	 * HABANERO — Inferno chili fire red vs. glacial blue water immersion.
-	 * The hottest pepper on earth dropped in an ice bath: pure sensation.
-	 */
-	habanero: {
-		label: 'Inferno Chili Red & Glacial Blue',
-		primary: '#b91c1c',
-		secondary: '#0369a1',
-		lightAccent: '#e0f2fe',
-		lightSidebar: '#180606',
-		lightSidebarAccent: '#280a0a',
-		darkAccent: '#001828',
-		darkSidebar: '#0a0303',
-		darkSidebarAccent: '#180606',
-	},
-
-	/**
-	 * BIODOME — Engineered viridian glass biosphere encased in carbon steel.
-	 * Solarpunk future: life thriving inside industrial architecture.
-	 */
-	biodome: {
-		label: 'Engineered Viridian & Carbon Steel',
-		primary: '#064e3b',
-		secondary: '#1f2937',
-		lightAccent: '#f0fdf4',
-		lightSidebar: '#020e08',
-		lightSidebarAccent: '#041a10',
-		darkAccent: '#040d06',
-		darkSidebar: '#010703',
-		darkSidebarAccent: '#0a1410',
-	},
-
-	/**
-	 * CARNIVAL — Mardi Gras deep violet crown with saffron marigold confetti.
-	 * Rio at peak carnival: the parade float, the feathers, the noise.
-	 */
-	carnival: {
-		label: 'Mardi Gras Violet & Saffron Confetti',
-		primary: '#7e22ce',
-		secondary: '#ca8a04',
-		lightAccent: '#fef9c3',
-		lightSidebar: '#fdf4ff',
-		lightSidebarAccent: '#f3e8ff',
-		darkAccent: '#1a1000',
-		darkSidebar: '#0e0418',
-		darkSidebarAccent: '#1a0a28',
-	},
-
-	/**
-	 * RADIOACTIVE — Uranium core yellow-green glows against fallout void black.
-	 * A nuclear warning sign: do not touch, do not look away.
-	 */
-	radioactive: {
-		label: 'Uranium Core & Fallout Void',
-		primary: '#3f6212',
-		secondary: '#09090b',
-		lightAccent: '#f7ffe4',
-		lightSidebar: '#080b03',
-		lightSidebarAccent: '#121908',
-		darkAccent: '#080a00',
-		darkSidebar: '#040505',
-		darkSidebarAccent: '#0a1204',
-	},
-
-	/**
-	 * QUICKSILVER — Liquid mercury silver flows against volcanic crimson heat.
-	 * Elemental alchemy: the unstable, reflective, reactive element #80.
-	 */
-	quicksilver: {
-		label: 'Liquid Mercury & Volcanic Crimson',
-		primary: '#475569',
-		secondary: '#b91c1c',
-		lightAccent: '#fff1f2',
-		lightSidebar: '#f1f5f9',
-		lightSidebarAccent: '#e2e8f0',
-		darkAccent: '#1a0000',
-		darkSidebar: '#090e14',
-		darkSidebarAccent: '#111c2a',
-	},
-
-	/**
-	 * CATACOMB — Ancient limestone gray against torchlight amber.
-	 * The Paris ossuary at 60 feet below: stone, silence, one flame.
-	 */
-	catacomb: {
-		label: 'Ancient Limestone & Torchlight Amber',
-		primary: '#44403c',
-		secondary: '#b45309',
-		lightAccent: '#fef3c7',
-		lightSidebar: '#fafaf9',
-		lightSidebarAccent: '#f5f5f4',
-		darkAccent: '#1c0e00',
-		darkSidebar: '#0d0c0b',
-		darkSidebarAccent: '#1c1a18',
-	},
-
-	/**
-	 * BIOLUMINESCENT — Mariana abyssal dark ocean with anglerfish phosphor glow.
-	 * 2km below the surface: absolute black, and something alive, glowing green.
-	 */
-	bioluminescent: {
-		label: 'Mariana Abyss & Anglerfish Phosphor',
-		primary: '#164e63',
-		secondary: '#4ade80',
-		lightAccent: '#f0fdf4',
-		lightSidebar: '#061018',
-		lightSidebarAccent: '#0c1f2e',
-		darkAccent: '#021008',
-		darkSidebar: '#030a10',
-		darkSidebarAccent: '#071520',
-	},
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Theme builder
 // ─────────────────────────────────────────────────────────────────────────────
+
+const CONTRAST_THEME_PALETTES: Record<TenantThemeName, ContrastThemePalette> = {
+	auroraForge: {
+		label: 'Aurora Forge',
+		primary: '#0f766e',
+		secondary: '#f97316',
+		lightAccent: '#fff7ed',
+		lightSidebar: '#ecfeff',
+		lightSidebarAccent: '#ccfbf1',
+		darkAccent: '#1c0800',
+		darkSidebar: '#041412',
+		darkSidebarAccent: '#08231f',
+	},
+	blueprint: {
+		label: 'Blueprint',
+		primary: '#1d4ed8',
+		secondary: '#38bdf8',
+		lightAccent: '#eff6ff',
+		lightSidebar: '#dbeafe',
+		lightSidebarAccent: '#bfdbfe',
+		darkAccent: '#06182f',
+		darkSidebar: '#07111f',
+		darkSidebarAccent: '#0b1d33',
+	},
+	chromaticPop: {
+		label: 'Chromatic Pop',
+		primary: '#db2777',
+		secondary: '#22c55e',
+		lightAccent: '#f0fdf4',
+		lightSidebar: '#fff1f2',
+		lightSidebarAccent: '#fce7f3',
+		darkAccent: '#031607',
+		darkSidebar: '#180613',
+		darkSidebarAccent: '#2a0a1f',
+	},
+	cyberBloom: {
+		label: 'Cyber Bloom',
+		primary: '#7c3aed',
+		secondary: '#06b6d4',
+		lightAccent: '#ecfeff',
+		lightSidebar: '#f5f3ff',
+		lightSidebarAccent: '#ede9fe',
+		darkAccent: '#021319',
+		darkSidebar: '#0b0620',
+		darkSidebarAccent: '#160c36',
+	},
+	deepSignal: {
+		label: 'Deep Signal',
+		primary: '#164e63',
+		secondary: '#a3e635',
+		lightAccent: '#f7fee7',
+		lightSidebar: '#ecfeff',
+		lightSidebarAccent: '#cffafe',
+		darkAccent: '#0c1800',
+		darkSidebar: '#031016',
+		darkSidebarAccent: '#062333',
+	},
+	electricCitrus: {
+		label: 'Electric Citrus',
+		primary: '#ca8a04',
+		secondary: '#2563eb',
+		lightAccent: '#eff6ff',
+		lightSidebar: '#fefce8',
+		lightSidebarAccent: '#fef3c7',
+		darkAccent: '#061332',
+		darkSidebar: '#171000',
+		darkSidebarAccent: '#281b00',
+	},
+	emberMint: {
+		label: 'Ember Mint',
+		primary: '#dc2626',
+		secondary: '#2dd4bf',
+		lightAccent: '#f0fdfa',
+		lightSidebar: '#fff1f2',
+		lightSidebarAccent: '#ffe4e6',
+		darkAccent: '#031b17',
+		darkSidebar: '#180303',
+		darkSidebarAccent: '#2a0707',
+	},
+	glassLagoon: {
+		label: 'Glass Lagoon',
+		primary: '#0891b2',
+		secondary: '#f0abfc',
+		lightAccent: '#fdf4ff',
+		lightSidebar: '#ecfeff',
+		lightSidebarAccent: '#cffafe',
+		darkAccent: '#1a0920',
+		darkSidebar: '#03141a',
+		darkSidebarAccent: '#062733',
+	},
+	goldCircuit: {
+		label: 'Gold Circuit',
+		primary: '#b45309',
+		secondary: '#111827',
+		lightAccent: '#fffbeb',
+		lightSidebar: '#f9fafb',
+		lightSidebarAccent: '#f3f4f6',
+		darkAccent: '#201200',
+		darkSidebar: '#05070b',
+		darkSidebarAccent: '#10151f',
+	},
+	inkCoral: {
+		label: 'Ink Coral',
+		primary: '#0f172a',
+		secondary: '#fb7185',
+		lightAccent: '#fff1f2',
+		lightSidebar: '#f8fafc',
+		lightSidebarAccent: '#e2e8f0',
+		darkAccent: '#24060c',
+		darkSidebar: '#050812',
+		darkSidebarAccent: '#0b1220',
+	},
+	jadePixel: {
+		label: 'Jade Pixel',
+		primary: '#047857',
+		secondary: '#a855f7',
+		lightAccent: '#faf5ff',
+		lightSidebar: '#ecfdf5',
+		lightSidebarAccent: '#d1fae5',
+		darkAccent: '#180824',
+		darkSidebar: '#02140d',
+		darkSidebarAccent: '#062319',
+	},
+	lunarViolet: {
+		label: 'Lunar Violet',
+		primary: '#4c1d95',
+		secondary: '#cbd5e1',
+		lightAccent: '#f8fafc',
+		lightSidebar: '#f5f3ff',
+		lightSidebarAccent: '#ede9fe',
+		darkAccent: '#14151a',
+		darkSidebar: '#09051a',
+		darkSidebarAccent: '#140b2e',
+	},
+	metroPulse: {
+		label: 'Metro Pulse',
+		primary: '#e11d48',
+		secondary: '#334155',
+		lightAccent: '#f8fafc',
+		lightSidebar: '#fff1f2',
+		lightSidebarAccent: '#ffe4e6',
+		darkAccent: '#141923',
+		darkSidebar: '#17030a',
+		darkSidebarAccent: '#2a0611',
+	},
+	orchidVolt: {
+		label: 'Orchid Volt',
+		primary: '#a21caf',
+		secondary: '#84cc16',
+		lightAccent: '#f7fee7',
+		lightSidebar: '#fdf4ff',
+		lightSidebarAccent: '#fae8ff',
+		darkAccent: '#0d1900',
+		darkSidebar: '#17031a',
+		darkSidebarAccent: '#2a0630',
+	},
+	polarSignal: {
+		label: 'Polar Signal',
+		primary: '#0284c7',
+		secondary: '#f43f5e',
+		lightAccent: '#fff1f2',
+		lightSidebar: '#f0f9ff',
+		lightSidebarAccent: '#e0f2fe',
+		darkAccent: '#23050d',
+		darkSidebar: '#031221',
+		darkSidebarAccent: '#06243a',
+	},
+	roseQuartz: {
+		label: 'Rose Quartz',
+		primary: '#be123c',
+		secondary: '#14b8a6',
+		lightAccent: '#f0fdfa',
+		lightSidebar: '#fff1f2',
+		lightSidebarAccent: '#ffe4e6',
+		darkAccent: '#021b18',
+		darkSidebar: '#160409',
+		darkSidebarAccent: '#270812',
+	},
+	solarGraphite: {
+		label: 'Solar Graphite',
+		primary: '#374151',
+		secondary: '#facc15',
+		lightAccent: '#fefce8',
+		lightSidebar: '#f9fafb',
+		lightSidebarAccent: '#e5e7eb',
+		darkAccent: '#1e1800',
+		darkSidebar: '#080b10',
+		darkSidebarAccent: '#111827',
+	},
+	tidalCopper: {
+		label: 'Tidal Copper',
+		primary: '#0e7490',
+		secondary: '#c2410c',
+		lightAccent: '#fff7ed',
+		lightSidebar: '#ecfeff',
+		lightSidebarAccent: '#cffafe',
+		darkAccent: '#1c0600',
+		darkSidebar: '#031217',
+		darkSidebarAccent: '#06242d',
+	},
+	velvetAqua: {
+		label: 'Velvet Aqua',
+		primary: '#6d28d9',
+		secondary: '#2dd4bf',
+		lightAccent: '#f0fdfa',
+		lightSidebar: '#f5f3ff',
+		lightSidebarAccent: '#ede9fe',
+		darkAccent: '#041916',
+		darkSidebar: '#0b061b',
+		darkSidebarAccent: '#170d32',
+	},
+	zenithSky: {
+		label: 'Zenith Sky',
+		primary: '#2563eb',
+		secondary: '#f97316',
+		lightAccent: '#fff7ed',
+		lightSidebar: '#eff6ff',
+		lightSidebarAccent: '#dbeafe',
+		darkAccent: '#1c0800',
+		darkSidebar: '#061225',
+		darkSidebarAccent: '#0a2142',
+	},
+};
 
 const buildContrastTheme = (
 	name: TenantThemeName,

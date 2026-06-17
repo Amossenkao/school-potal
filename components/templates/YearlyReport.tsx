@@ -480,7 +480,23 @@ export const ReportCard = React.memo(function PDFDocument({
 		REPORT_CARD_THEMES.find((t) => t.id === themeId) ||
 		DEFAULT_REPORT_CARD_THEME;
 
-	const classLabel = className ? className.split('-')[0] : '';
+	const getDisplayClassName = (name: string) => {
+		if (name === 'K-I' || name === 'K-II') {
+			return name;
+		}
+
+		if (name.endsWith(' AM') || name.endsWith(' PM')) {
+			return name.slice(0, -3);
+		}
+
+		if (name.includes('-')) {
+			return name.split('-')[0];
+		}
+
+		return name;
+	};
+
+	const classLabel = className ? getDisplayClassName(className) : '';
 	const schoolAddressFirstLine = Array.isArray(school?.address)
 		? Array.isArray(school.address[0])
 			? school.address[0].join('\n')

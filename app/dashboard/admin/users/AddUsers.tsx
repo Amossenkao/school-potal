@@ -33,6 +33,7 @@ import {
 	Briefcase,
 	ChevronDown,
 } from 'lucide-react';
+import { fail } from 'assert';
 
 /* ─────────────────────────────────────────────
    SHARED PRIMITIVES

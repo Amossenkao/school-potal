@@ -666,6 +666,16 @@ export const buildReportPage2Placements = ({
 		font: 'bold',
 	});
 
+	placements.promotion_statement = {
+		x: 40 * scaleX,
+		y: 400 * scaleY,
+		size: 12 * scaleY,
+		lineHeight: 25 * scaleY,
+		align: 'left',
+		maxWidth: 350 * scaleX,
+		font: 'bold',
+	};
+
 	placements.page2_date = {
 		x: 67.416 * scaleX,
 		y: 226.696 * scaleY,

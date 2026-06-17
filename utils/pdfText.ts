@@ -14,12 +14,11 @@ export type TextPlacement = {
 	boxHeight?: number;
 	color?: { r: number; g: number; b: number };
 	font?: 'normal' | 'bold';
+	underline?: boolean;
+	text: string;
 };
 
-export type TextPlacementMap = Record<
-	string,
-	TextPlacement | TextPlacement[]
->;
+export type TextPlacementMap = Record<string, TextPlacement | TextPlacement[]>;
 
 type DrawTextMapArgs = {
 	page: PDFPage;
@@ -145,7 +144,9 @@ const drawDebugBox = (
 	} else if (placement.align === 'right') {
 		x = placement.x - width;
 	}
-	const y = placement.boxHeight ? placement.y - placement.boxHeight : placement.y;
+	const y = placement.boxHeight
+		? placement.y - placement.boxHeight
+		: placement.y;
 	page.drawRectangle({
 		x,
 		y,
@@ -206,6 +207,16 @@ export const drawTextMap = ({
 					font,
 					color,
 				});
+				if (placement.underline) {
+					const textWidth = safeWidthOfTextAtSize(font, line, size);
+					const underlineY = lineY - 2;
+					page.drawLine({
+						start: { x, y: underlineY },
+						end: { x: x + textWidth, y: underlineY },
+						thickness: 0.5,
+						color,
+					});
+				}
 			});
 
 			if (debug) {
