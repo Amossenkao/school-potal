@@ -293,7 +293,7 @@ const SubmitGrade: React.FC = () => {
 					prev ? { ...prev, isVisible: false } : null,
 				);
 				setTimeout(() => setNotification(null), 300);
-			}, 5000);
+			}, 9000);
 			return () => clearTimeout(timer);
 		}
 	}, [notification?.isVisible]);
@@ -926,19 +926,19 @@ const SubmitGrade: React.FC = () => {
 
 		const config = {
 			success: {
-				bg: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
+				bg: 'bg-green-50/95 dark:bg-green-950/95 border-green-300 dark:border-green-700',
 				text: 'text-green-800 dark:text-green-200',
 				icon: CheckCircle,
 				iconColor: 'text-green-500',
 			},
 			error: {
-				bg: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
+				bg: 'bg-red-50/95 dark:bg-red-950/95 border-red-300 dark:border-red-700',
 				text: 'text-red-800 dark:text-red-200',
 				icon: AlertCircle,
 				iconColor: 'text-red-500',
 			},
 			info: {
-				bg: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+				bg: 'bg-blue-50/95 dark:bg-blue-950/95 border-blue-300 dark:border-blue-700',
 				text: 'text-blue-800 dark:text-blue-200',
 				icon: Info,
 				iconColor: 'text-blue-500',
@@ -951,14 +951,14 @@ const SubmitGrade: React.FC = () => {
 			return (
 				<>
 					<div
-						className={`fixed inset-0 bg-black/20 backdrop-blur-[2px] z-40 transition-opacity duration-300 ${notification.isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+						className={`fixed inset-0 bg-black/45 backdrop-blur-[2px] z-[80] transition-opacity duration-500 ${notification.isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
 						onClick={dismissNotification}
 					/>
 					<div
-						className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[90%] max-w-md transition-all duration-300 ${notification.isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'}`}
+						className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[90] w-[90%] max-w-md transition-all duration-500 ${notification.isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'}`}
 					>
 						<div
-							className={`${config.bg} ${config.text} border-2 rounded-xl shadow-2xl p-5 relative`}
+							className={`${config.bg} ${config.text} border-2 rounded-xl shadow-2xl p-5 relative backdrop-blur-sm`}
 						>
 							<div className="flex items-start gap-3">
 								<Icon
@@ -969,7 +969,7 @@ const SubmitGrade: React.FC = () => {
 										{notification.type.charAt(0).toUpperCase() +
 											notification.type.slice(1)}
 									</p>
-									<p className="text-sm mt-0.5 opacity-90">
+									<p className="text-sm mt-0.5 opacity-100">
 										{notification.message}
 									</p>
 								</div>
@@ -989,10 +989,10 @@ const SubmitGrade: React.FC = () => {
 
 		return (
 			<div
-				className={`fixed top-4 right-4 z-50 max-w-sm transition-all duration-300 ${notification.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}
+				className={`fixed top-4 right-4 z-[90] w-[calc(100%-2rem)] max-w-sm transition-all duration-500 ${notification.isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}
 			>
 				<div
-					className={`${config.bg} ${config.text} border rounded-xl shadow-lg px-4 py-3 flex items-start gap-3`}
+					className={`${config.bg} ${config.text} border-2 rounded-xl shadow-2xl px-4 py-3.5 flex items-start gap-3 backdrop-blur-sm`}
 				>
 					<Icon
 						className={`w-5 h-5 flex-shrink-0 mt-0.5 ${config.iconColor}`}
@@ -1001,7 +1001,7 @@ const SubmitGrade: React.FC = () => {
 						<p className="font-semibold text-sm capitalize">
 							{notification.type}
 						</p>
-						<p className="text-sm opacity-90">{notification.message}</p>
+						<p className="text-sm opacity-100">{notification.message}</p>
 					</div>
 					<button
 						onClick={dismissNotification}
@@ -1068,6 +1068,8 @@ const SubmitGrade: React.FC = () => {
 			className="flex flex-col overflow-hidden"
 			style={{ height: 'calc(94vh - var(--app-header-height, 4rem))' }}
 		>
+			<Notification />
+
 			{/* ── Filters + Periods ── */}
 			<div className="z-20 shrink-0 bg-background/95 backdrop-blur px-3 sm:px-4 pt-0 mt-0 pb-2 space-y-2 border-b border-border/50 shadow-sm">
 				{/* Compact filter toolbar */}
