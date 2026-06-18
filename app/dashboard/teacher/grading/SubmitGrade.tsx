@@ -25,6 +25,7 @@ import {
 	areAcademicYearsEqual,
 	getScopedAcademicYearValue,
 } from '@/utils/academicYear';
+import { getClientCache, setClientCache } from '@/utils/clientCache';
 import {
 	getTeacherAcademicYears,
 	pickMostRecentAcademicYear,
@@ -89,7 +90,7 @@ const SubmitGrade: React.FC = () => {
 	const gradesByAcademicYear = useSchoolStore(
 		(state) => state.gradesByAcademicYear,
 	);
-	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
+	const mergeGradesForYear = useSchoolStore((state) => state.mergeGradesForYear);
 	const user = useAuth((state) => state.user);
 
 	const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
@@ -236,6 +237,43 @@ const SubmitGrade: React.FC = () => {
 		return '';
 	}, []);
 
+	const getSubmissionId = useCallback(
+		(academicYear: string, classId: string, period: string, subject: string) =>
+			`${academicYear}-${classId}-${period}-${subject}`
+				.replaceAll(/[\/\s+]/gi, '')
+				.toLowerCase(),
+		[],
+	);
+
+	const mergeSubmittedGradesCache = useCallback(
+		(grades: any[]) => {
+			if (!teacherInfo?.username || !selectedAcademicYear || grades.length === 0)
+				return;
+			const cacheKey = `submittedGrades:${teacherInfo.username}:${selectedAcademicYear}`;
+			const cached = getClientCache<any[]>(cacheKey) || [];
+			const merged = new Map<string, any>();
+			const getKey = (grade: any) => {
+				const naturalKey = [
+					grade?.academicYear,
+					grade?.classId,
+					grade?.subject,
+					grade?.period,
+					grade?.studentId,
+					grade?.teacherUsername,
+				]
+					.map((part) => String(part || '').trim().toLowerCase())
+					.join('|');
+				if (naturalKey.replaceAll('|', '')) return naturalKey;
+				const id = grade?._id || grade?.id;
+				return id ? `id:${String(id)}` : '';
+			};
+			cached.forEach((grade) => merged.set(getKey(grade), grade));
+			grades.forEach((grade) => merged.set(getKey(grade), grade));
+			setClientCache(cacheKey, Array.from(merged.values()));
+		},
+		[teacherInfo?.username, selectedAcademicYear],
+	);
+
 	const periods = useMemo(() => {
 		if (school?.settings?.teacherSettings?.gradeSubmissionPeriods) {
 			const allowedPeriods =
@@ -313,7 +351,7 @@ const SubmitGrade: React.FC = () => {
 	useEffect(() => {
 		setLoading((prev) => ({ ...prev, teacherInfo: true }));
 		if (user && user.role === 'teacher') {
-			setTeacherInfo(user as TeacherInfo);
+			setTeacherInfo(user as unknown as TeacherInfo);
 			setError((prev) => ({ ...prev, teacherInfo: '' }));
 		} else {
 			setTeacherInfo(null);
@@ -507,7 +545,7 @@ const SubmitGrade: React.FC = () => {
 							: Array.isArray(existingGradesData?.data?.report?.grades)
 								? existingGradesData.data.report.grades
 								: [];
-						setGradesForYear(selectedAcademicYear, incomingGrades);
+						mergeGradesForYear(selectedAcademicYear, incomingGrades);
 					} else {
 						useCachedGrades([]);
 					}
@@ -579,7 +617,7 @@ const SubmitGrade: React.FC = () => {
 		isSelectedAcademicYearAllowed,
 		periods,
 		setUsersForYear,
-		setGradesForYear,
+		mergeGradesForYear,
 		getStudentClassIdForYear,
 		buildStudentFullName,
 	]);
@@ -804,6 +842,29 @@ const SubmitGrade: React.FC = () => {
 			}
 
 			const data = await res.json().catch(() => ({}));
+			const serverGrades = Array.isArray(data?.data) ? data.data : [];
+			const optimisticGrades = gradesToSubmit.map((grade) => ({
+				submissionId: getSubmissionId(
+					selectedAcademicYear,
+					selectedClassId,
+					grade.period,
+					selectedSubject,
+				),
+				academicYear: selectedAcademicYear,
+				period: grade.period,
+				classId: selectedClassId,
+				subject: selectedSubject,
+				teacherUsername: teacherInfo?.username || user?.username || '',
+				studentId: grade.studentId,
+				studentName: grade.name,
+				grade: grade.grade,
+				status: 'Pending',
+				lastUpdated: new Date().toISOString(),
+			}));
+			const gradesForCache = serverGrades.length > 0 ? serverGrades : optimisticGrades;
+			mergeGradesForYear(selectedAcademicYear, gradesForCache);
+			mergeSubmittedGradesCache(gradesForCache);
+
 			if (data?.queued) {
 				showNotification(
 					'info',

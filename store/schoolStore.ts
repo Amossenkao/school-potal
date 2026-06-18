@@ -53,6 +53,7 @@ type SchoolStore = {
 	setUsersVersionForYear: (academicYear: string, version: string) => void;
 	setCalendarForYear: (academicYear: string, events: any[]) => void;
 	setGradesForYear: (academicYear: string, grades: any[]) => void;
+	mergeGradesForYear: (academicYear: string, grades: any[]) => void;
 	setSchedulesForYear: (
 		academicYear: string,
 		payload: SchedulesPayload,
@@ -198,6 +199,22 @@ const expandAcademicYearRecordMap = <T,>(map?: Record<string, T> | null) => {
 		});
 	});
 	return expanded;
+};
+
+const getGradeIdentity = (grade: any) => {
+	const naturalKey = [
+		grade?.academicYear,
+		grade?.classId,
+		grade?.subject,
+		grade?.period,
+		grade?.studentId,
+		grade?.teacherUsername,
+	]
+		.map((part) => String(part || '').trim().toLowerCase())
+		.join('|');
+	if (naturalKey.replaceAll('|', '')) return naturalKey;
+	const id = grade?._id || grade?.id;
+	return id ? `id:${String(id)}` : '';
 };
 
 export const useSchoolStore = create<SchoolStore>((set, get) => ({
@@ -377,6 +394,33 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		if (!academicYear) return;
 		set((state) => {
 			const value = Array.isArray(grades) ? grades : [];
+			const gradesByAcademicYear = assignAcademicYearRecord(
+				state.gradesByAcademicYear,
+				academicYear,
+				value,
+			);
+			persistDomainSnapshot('grades', getAcademicYearPrimaryKey(academicYear), value);
+			persistMeta(state);
+			return { gradesByAcademicYear };
+		});
+	},
+
+	mergeGradesForYear: (academicYear, grades) => {
+		if (!academicYear || !Array.isArray(grades) || grades.length === 0) return;
+		set((state) => {
+			const existing =
+				resolveAcademicYearRecord(state.gradesByAcademicYear, academicYear) ||
+				[];
+			const merged = new Map<string, any>();
+			existing.forEach((grade) => {
+				const key = getGradeIdentity(grade);
+				if (key) merged.set(key, grade);
+			});
+			grades.forEach((grade) => {
+				const key = getGradeIdentity(grade);
+				if (key) merged.set(key, grade);
+			});
+			const value = Array.from(merged.values());
 			const gradesByAcademicYear = assignAcademicYearRecord(
 				state.gradesByAcademicYear,
 				academicYear,

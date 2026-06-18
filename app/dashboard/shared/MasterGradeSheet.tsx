@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import GradesPDFDownload from './GradesPDFDownload';
 import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
@@ -104,10 +104,11 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const gradesByAcademicYear = useSchoolStore(
 		(state) => state.gradesByAcademicYear,
 	);
+	const mergeGradesForYear = useSchoolStore((state) => state.mergeGradesForYear);
 	const usersByAcademicYearRef = useRef(usersByAcademicYear);
 	const gradesByAcademicYearRef = useRef(gradesByAcademicYear);
 	const { isOnline } = useNetworkStore();
-	const effectiveUser = teacherInfo || userInfo;
+	const effectiveUser = (teacherInfo || userInfo) as UserInfo | null;
 	const schoolCurrentAcademicYear =
 		currentSchool?.currentAcademicYear || currentAcademicYear;
 
@@ -760,9 +761,11 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					}
 					const data = await res.json();
 					if (data.success) {
-						setGradesData(
-							Array.isArray(data.data?.grades) ? data.data.grades : [],
-						);
+						const incomingGrades = Array.isArray(data.data?.grades)
+							? data.data.grades
+							: [];
+						setGradesData(incomingGrades);
+						mergeGradesForYear(normalizedYear, incomingGrades);
 					} else {
 						throw new Error('API returned unsuccessful response');
 					}
@@ -800,6 +803,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		gradesByAcademicYear,
 		effectiveUser?.role,
 		isSelectedAcademicYearAllowed,
+		mergeGradesForYear,
 	]);
 
 	useEffect(() => {
@@ -863,6 +867,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 									grades = Array.isArray(data.data?.grades)
 										? data.data.grades
 										: [];
+									mergeGradesForYear(normalizedYear, grades);
 								}
 							}
 						}
@@ -903,6 +908,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		isOnline,
 		effectiveUser?.role,
 		isSelectedAcademicYearAllowed,
+		mergeGradesForYear,
 	]);
 
 	useEffect(() => {
@@ -963,6 +969,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 									grades = Array.isArray(data.data?.grades)
 										? data.data.grades
 										: [];
+									mergeGradesForYear(normalizedYear, grades);
 								}
 							}
 						}
@@ -1001,6 +1008,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		isOnline,
 		effectiveUser?.role,
 		isSelectedAcademicYearAllowed,
+		mergeGradesForYear,
 	]);
 
 	useEffect(() => {
@@ -1190,169 +1198,86 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		isSelectedAcademicYearAllowed && sessions.length > 1;
 	const showLevelFilter =
 		isSelectedAcademicYearAllowed && classLevels.length > 1;
-	const showClassFilter = isSelectedAcademicYearAllowed && classes.length > 0;
+	const showClassFilter = isSelectedAcademicYearAllowed && classes.length > 1;
 	const showSubjectFilter =
 		isSelectedAcademicYearAllowed && subjects.length > 1;
 
 	return (
 		<div className="space-y-6">
-			<div className="p-6 bg-card border rounded-lg shadow-sm">
-				<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-					<h3 className="text-xl font-semibold text-card-foreground">
-						Master Grade Sheet
-						{effectiveUser?.role === 'system_admin' && (
-							<span className="ml-2 text-sm text-muted-foreground font-normal">
-								(Admin View - All Access)
-							</span>
-						)}
-					</h3>
-					<p className="text-sm text-muted-foreground mt-1 sm:mt-0">
-						{effectiveUser?.role === 'system_admin'
-							? 'View grades for any class and subject.'
-							: 'View all grades for your assigned classes and subjects.'}
-					</p>
-				</div>
-				<div
-					className={`grid grid-cols-1 gap-4 ${
-						[
-							showAcademicYearFilter,
-							showSessionFilter,
-							showLevelFilter,
-							showClassFilter,
-							showSubjectFilter,
-						].filter(Boolean).length > 2
-							? 'md:grid-cols-2 lg:grid-cols-4'
-							: 'md:grid-cols-2'
-					}`}
-				>
+			<div className="bg-card border border-border rounded-xl shadow-sm">
+				<div className="flex flex-wrap gap-2 p-2.5 sm:p-3 items-end">
 					{showAcademicYearFilter && (
-						<div>
-							<label
-								htmlFor="academic-year-select"
-								className="block text-sm font-medium text-card-foreground"
-							>
-								Academic Year
-							</label>
-							<select
-								id="academic-year-select"
-								value={selectedAcademicYear}
-								onChange={(e) => handleAcademicYearChange(e.target.value)}
-								className="mt-1 block w-full rounded-md border-input bg-background py-2 pl-3 pr-10 text-base focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
-							>
-								{availableAcademicYears.map((year) => (
-									<option key={year} value={year}>
-										{year}
-									</option>
-								))}
-							</select>
-						</div>
+						<FilterSelect
+							label="Year"
+							value={selectedAcademicYear}
+							onChange={handleAcademicYearChange}
+							options={availableAcademicYears.map((year) => ({
+								label: year,
+								value: year,
+							}))}
+						/>
 					)}
 					{showSessionFilter && (
-						<div>
-							<label
-								htmlFor="session-select"
-								className="block text-sm font-medium text-card-foreground"
-							>
-								Session
-							</label>
-							<select
-								id="session-select"
-								value={selectedSession}
-								onChange={(e) => handleSessionChange(e.target.value)}
-								className="mt-1 block w-full rounded-md border-input bg-background py-2 pl-3 pr-10 text-base focus:outline-none focus:ring-ring focus:border-ring sm:text-sm"
-							>
-								<option value="">Select Session</option>
-								{sessions.map((session) => (
-									<option key={session} value={session}>
-										{session}
-									</option>
-								))}
-							</select>
-						</div>
+						<FilterSelect
+							label="Session"
+							value={selectedSession}
+							onChange={handleSessionChange}
+							placeholder="Session"
+							options={sessions.map((session) => ({
+								label: session,
+								value: session,
+							}))}
+						/>
 					)}
-					{showLevelFilter && (
-						<div>
-							<label
-								htmlFor="master-class-level-select"
-								className="block text-sm font-medium text-card-foreground"
-							>
-								Class Level
-							</label>
-							<select
-								id="master-class-level-select"
-								value={selectedLevel}
-								onChange={(e) => handleLevelChange(e.target.value)}
-								className="mt-1 block w-full rounded-md border-input bg-background py-2 pl-3 pr-10 text-base focus:outline-none focus:ring-ring focus:border-ring sm:text-sm disabled:opacity-50"
-								disabled={showSessionFilter && !selectedSession}
-							>
-								<option value="">Select Level</option>
-								{classLevels.map((level) => (
-									<option key={level} value={level}>
-										{level}
-									</option>
-								))}
-							</select>
-						</div>
+					{showLevelFilter && selectedSession && (
+						<FilterSelect
+							label="Level"
+							value={selectedLevel}
+							onChange={handleLevelChange}
+							placeholder="Level"
+							options={classLevels.map((level) => ({
+								label: level,
+								value: level,
+							}))}
+						/>
 					)}
-					{showClassFilter && (
-						<div>
-							<label
-								htmlFor="master-class-select"
-								className="block text-sm font-medium text-card-foreground"
-							>
-								Class
-							</label>
-							<select
-								id="master-class-select"
-								value={selectedClass}
-								onChange={(e) => handleClassChange(e.target.value)}
-								className="mt-1 block w-full rounded-md border-input bg-background py-2 pl-3 pr-10 text-base focus:outline-none focus:ring-ring focus:border-ring sm:text-sm disabled:opacity-50"
-								disabled={
-									(showSessionFilter && !selectedSession) ||
-									(showLevelFilter && !selectedLevel)
-								}
-							>
-								<option value="">Select Class</option>
-								{classes.length > 1 && !isSelfContainedLevel && (
-									<option value={ALL_CLASSES_VALUE}>All Classes</option>
-								)}
-								{classes.map((cls: any) => (
-									<option key={cls.classId} value={cls.classId}>
-										{cls.name}
-									</option>
-								))}
-							</select>
-						</div>
+					{showClassFilter && selectedLevel && (
+						<FilterSelect
+							label="Class"
+							value={selectedClass}
+							onChange={handleClassChange}
+							placeholder="Class"
+							options={[
+								...(!isSelfContainedLevel
+									? [{ label: 'All Classes', value: ALL_CLASSES_VALUE }]
+									: []),
+								...classes.map((cls: any) => ({
+									label: cls.name,
+									value: cls.classId,
+								})),
+							]}
+						/>
 					)}
-					{showSubjectFilter && (
-						<div>
-							<label
-								htmlFor="master-subject-select"
-								className="block text-sm font-medium text-card-foreground"
-							>
-								Subject
-							</label>
-							<select
-								id="master-subject-select"
-								value={selectedSubject}
-								onChange={(e) => handleSubjectChange(e.target.value)}
-								className="mt-1 block w-full rounded-md border-input bg-background py-2 pl-3 pr-10 text-base focus:outline-none focus:ring-ring focus:border-ring sm:text-sm disabled:opacity-50"
-								disabled={
-									(showSessionFilter && !selectedSession) ||
-									(showLevelFilter && !selectedLevel) ||
-									(showClassFilter && !selectedClass)
-								}
-							>
-								<option value="">Select Subject</option>
-								{isSelfContainedLevel && subjects.length > 1 && (
-									<option value={ALL_SUBJECTS_VALUE}>All Subjects</option>
-								)}
-								{subjects.map((sub) => (
-									<option key={sub} value={sub}>
-										{sub}
-									</option>
-								))}
-							</select>
+					{showSubjectFilter && selectedClass && (
+						<FilterSelect
+							label="Subject"
+							value={selectedSubject}
+							onChange={handleSubjectChange}
+							placeholder="Subject"
+							options={[
+								...(isSelfContainedLevel
+									? [{ label: 'All Subjects', value: ALL_SUBJECTS_VALUE }]
+									: []),
+								...subjects.map((subject) => ({
+									label: subject,
+									value: subject,
+								})),
+							]}
+						/>
+					)}
+					{isLoadingData && (
+						<div className="flex items-end pb-1">
+							<Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
 						</div>
 					)}
 				</div>
@@ -1641,5 +1566,42 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		</div>
 	);
 };
+
+interface FilterSelectProps {
+	label: string;
+	value: string;
+	onChange: (v: string) => void;
+	options: { label: string; value: string }[];
+	placeholder?: string;
+}
+
+const FilterSelect: React.FC<FilterSelectProps> = ({
+	label,
+	value,
+	onChange,
+	options,
+	placeholder,
+}) => (
+	<div className="flex flex-col gap-0.5">
+		<span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-0.5">
+			{label}
+		</span>
+		<div className="relative">
+			<select
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				className="h-8 pl-3 pr-8 rounded-lg border border-input bg-background text-foreground text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring cursor-pointer hover:border-ring/50 transition-colors"
+			>
+				{placeholder && <option value="">{placeholder}</option>}
+				{options.map((option) => (
+					<option key={option.value} value={option.value}>
+						{option.label}
+					</option>
+				))}
+			</select>
+			<ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+		</div>
+	</div>
+);
 
 export default MasterGradeSheet;

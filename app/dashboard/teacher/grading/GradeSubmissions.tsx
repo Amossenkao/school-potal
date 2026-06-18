@@ -198,9 +198,9 @@ const GradeSubmissions = () => {
 		const timer = setTimeout(() => {
 			setResultModalOpen(false);
 			setNotification(null);
-		}, 3500);
+		}, 9000);
 		return () => clearTimeout(timer);
-	}, [resultModalOpen]);
+	}, [resultModalOpen, notification]);
 
 	useEffect(() => {
 		if (!isAnyModalOpen) return;
@@ -415,7 +415,7 @@ const GradeSubmissions = () => {
 		setLoading((prev) => ({ ...prev, teacherInfo: true }));
 		try {
 			if (user && user.role === 'teacher') {
-				setTeacherInfo(user as TeacherInfo);
+				setTeacherInfo(user as unknown as TeacherInfo);
 			}
 			setError((prev) => ({ ...prev, teacherInfo: '' }));
 		} catch (err) {
@@ -1142,10 +1142,39 @@ const GradeSubmissions = () => {
 		setGradeChangeStudents((prev) =>
 			prev.map((s) =>
 				s.studentId === studentId
-					? { ...s, newGrade, selected: newGrade !== '' }
+					? { ...s, newGrade, selected: newGrade !== '' ? true : s.selected }
 					: s
 			)
 		);
+	};
+
+	const focusNextSelectedGradeInput = (currentInput: HTMLInputElement) => {
+		const inputs = Array.from(
+			document.querySelectorAll<HTMLInputElement>(
+				'[data-grade-change-input="true"]:not(:disabled)'
+			)
+		);
+		if (inputs.length === 0) return;
+
+		const currentIndex = inputs.indexOf(currentInput);
+		const nextIndex =
+			currentIndex === -1 ? 0 : (currentIndex + 1) % inputs.length;
+		const nextInput = inputs[nextIndex];
+		nextInput.focus();
+		nextInput.select();
+		nextInput.scrollIntoView({
+			behavior: 'smooth',
+			block: 'nearest',
+			inline: 'nearest',
+		});
+	};
+
+	const handleGradeInputKeyDown = (
+		event: React.KeyboardEvent<HTMLInputElement>
+	) => {
+		if (event.key !== 'Enter' && event.key !== 'Tab') return;
+		event.preventDefault();
+		focusNextSelectedGradeInput(event.currentTarget);
 	};
 
 	const renderResultModal = () => {
@@ -1153,43 +1182,80 @@ const GradeSubmissions = () => {
 		const tone =
 			notification.type === 'success'
 				? {
-						bg: 'bg-green-50 border-green-200 text-green-800',
+						accent: 'bg-emerald-500',
+						border: 'border-emerald-200 dark:border-emerald-800',
+						iconWrap: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300',
+						title: 'Success',
 						icon: CheckCircle,
 				  }
 				: notification.type === 'error'
 				? {
-						bg: 'bg-red-50 border-red-200 text-red-800',
+						accent: 'bg-destructive',
+						border: 'border-destructive/30',
+						iconWrap: 'bg-destructive/10 text-destructive',
+						title: 'Something went wrong',
 						icon: XCircle,
 				  }
 				: {
-						bg: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+						accent: 'bg-amber-500',
+						border: 'border-amber-200 dark:border-amber-800',
+						iconWrap: 'bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300',
+						title: 'Heads up',
 						icon: Info,
 				  };
 		const Icon = tone.icon;
 		return (
-			<div className="fixed inset-0 z-[1000] bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
+			<div className="fixed inset-0 z-[1000] bg-black/35 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain">
 				<div className="flex min-h-full items-center justify-center">
-					<div className="bg-card rounded-lg border shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
-					<div className={`p-6 rounded-lg border ${tone.bg}`}>
-						<div className="flex items-start gap-3">
-							<Icon className="h-5 w-5 flex-shrink-0" />
-							<div>
-								<p className="font-semibold capitalize">{notification.type}</p>
-								<p className="text-sm mt-1">{notification.message}</p>
-							</div>
-						</div>
-					</div>
-					<div className="p-4 flex justify-end">
-						<Button
-							variant="outline"
+					<div
+						className={`relative bg-card rounded-xl border ${tone.border} shadow-2xl w-full max-w-md overflow-hidden`}
+						role="status"
+						aria-live="polite"
+					>
+						<div className={`h-1.5 w-full ${tone.accent}`} />
+						<button
+							type="button"
 							onClick={() => {
 								setResultModalOpen(false);
 								setNotification(null);
 							}}
+							className="absolute right-3 top-3 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+							aria-label="Close notification"
 						>
-							Close
-						</Button>
-					</div>
+							<X className="h-4 w-4" />
+						</button>
+						<div className="p-6 pr-12">
+							<div className="flex items-start gap-4">
+								<div
+									className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${tone.iconWrap}`}
+								>
+									<Icon className="h-5 w-5" />
+								</div>
+								<div className="min-w-0">
+									<p className="text-base font-semibold text-foreground">
+										{tone.title}
+									</p>
+									<p className="mt-1 text-sm leading-6 text-muted-foreground">
+										{notification.message}
+									</p>
+								</div>
+							</div>
+						</div>
+						<div className="flex items-center justify-between gap-3 border-t bg-muted/30 px-6 py-3">
+							<p className="text-xs text-muted-foreground">
+								This message will close automatically.
+							</p>
+							<Button
+								size="sm"
+								variant="outline"
+								onClick={() => {
+									setResultModalOpen(false);
+									setNotification(null);
+								}}
+							>
+								Dismiss
+							</Button>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -1337,6 +1403,7 @@ const GradeSubmissions = () => {
 										<th className="p-3 text-left">
 											<input
 												type="checkbox"
+												tabIndex={-1}
 												onChange={(e) =>
 													setGradeChangeStudents((prev) =>
 														prev.map((s) => ({
@@ -1371,6 +1438,7 @@ const GradeSubmissions = () => {
 											<td className="p-3">
 												<input
 													type="checkbox"
+													tabIndex={-1}
 													checked={student.selected}
 													onChange={() =>
 														setGradeChangeStudents((prev) =>
@@ -1406,12 +1474,14 @@ const GradeSubmissions = () => {
 														<input
 															type="text"
 															value={student.newGrade}
+															data-grade-change-input="true"
 															onChange={(e) =>
 																handleGradeInputChange(
 																	student.studentId,
 																	e.target.value
 																)
 															}
+															onKeyDown={handleGradeInputKeyDown}
 															disabled={!student.selected}
 															className={`w-20 h-10 rounded-lg border-2 text-center text-base font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors ${getModalGradeColor(
 																student.newGrade === ''
