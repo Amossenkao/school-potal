@@ -1,3 +1,4 @@
+// MasterGradeSheet.tsx
 'use client';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
@@ -63,7 +64,6 @@ const periods = [
 	{ id: 'sixth_exam', label: '6th Pd Exam', value: 'sixth_period_exam' },
 ];
 
-// Helper function to extract grade value from grade object if it's "Approved"
 const getGradeValue = (grade: any): number | null => {
 	if (
 		grade &&
@@ -77,7 +77,6 @@ const getGradeValue = (grade: any): number | null => {
 	return null;
 };
 
-// Helper function to format grade for display
 const formatGrade = (grade: any): string => {
 	const gradeValue = getGradeValue(grade);
 	if (gradeValue == null) return '';
@@ -104,7 +103,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const gradesByAcademicYear = useSchoolStore(
 		(state) => state.gradesByAcademicYear,
 	);
-	const mergeGradesForYear = useSchoolStore((state) => state.mergeGradesForYear);
+	const mergeGradesForYear = useSchoolStore(
+		(state) => state.mergeGradesForYear,
+	);
 	const usersByAcademicYearRef = useRef(usersByAcademicYear);
 	const gradesByAcademicYearRef = useRef(gradesByAcademicYear);
 	const { isOnline } = useNetworkStore();
@@ -135,7 +136,6 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		return null;
 	};
 
-	// Helper functions for options per role
 	const getAllSessions = () =>
 		currentSchool?.classLevels ? Object.keys(currentSchool.classLevels) : [];
 	const getTeacherSessions = () => {
@@ -205,7 +205,6 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		return Array.from(subjects);
 	};
 
-	// -- Academic Years --
 	const availableAcademicYears = useMemo(() => {
 		const schoolYears = buildSchoolAcademicYearRange(currentSchool);
 		if (effectiveUser?.role !== 'teacher') return schoolYears;
@@ -246,6 +245,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const [selectedSubject, setSelectedSubject] = useState('');
 	const [activeClassIndex, setActiveClassIndex] = useState(0);
 	const [activeSubjectIndex, setActiveSubjectIndex] = useState(0);
+
 	const isSelectedAcademicYearAllowed = useMemo(() => {
 		if (effectiveUser?.role !== 'teacher') return true;
 		if (!selectedAcademicYear) return false;
@@ -254,7 +254,6 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		);
 	}, [effectiveUser?.role, selectedAcademicYear, allowedAcademicYears]);
 
-	// --- Available options for each filter (dynamic per role) ---
 	const sessions = useMemo(
 		() =>
 			effectiveUser?.role === 'system_admin'
@@ -293,10 +292,13 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		selectedAcademicYear,
 	]);
 
-	const isSelfContainedLevel =
-		String(selectedLevel || '')
-			.trim()
-			.toLowerCase() === 'self contained';
+	const isSelfContainedLevel = useMemo(() => {
+		if (!selectedSession || !selectedLevel) return false;
+		if (String(selectedLevel).trim().toLowerCase() === 'self contained')
+			return true;
+		return !!currentSchool?.classLevels?.[selectedSession]?.[selectedLevel]
+			?.isSelfContained;
+	}, [selectedSession, selectedLevel, currentSchool]);
 
 	const resolvedTeacher = useMemo(() => {
 		const classId =
@@ -335,7 +337,6 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		effectiveUser,
 	]);
 
-	// --- Auto-select and hide filter logic (per role) ---
 	useEffect(() => {
 		const isSelectedYearAvailable = availableAcademicYears.some((year) =>
 			areAcademicYearsEqual(year, selectedAcademicYear),
@@ -401,7 +402,6 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		}
 	}, [selectedSubject, subjects, activeSubjectIndex]);
 
-	// THIS FIX: if only one subject, auto-select it and reset if invalid!
 	useEffect(() => {
 		if (subjects.length === 1) setSelectedSubject(subjects[0]);
 		else if (
@@ -413,7 +413,6 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		}
 	}, [subjects, selectedSubject]);
 
-	// Reset logic when parent filter changes
 	const handleAcademicYearChange = (v: string) => {
 		setSelectedAcademicYear(normalizeAcademicYear(v));
 		setSelectedSession('');
@@ -440,7 +439,6 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		setSelectedSubject(v);
 	};
 
-	// ----------- DATA FETCHING LOGIC -----------
 	const [studentsData, setStudentsData] = useState<Student[]>([]);
 	const [gradesData, setGradesData] = useState<any[]>([]);
 	const [combinedData, setCombinedData] = useState<Student[]>([]);
@@ -1192,7 +1190,6 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		);
 	}
 
-	// --- Filter visibility ---
 	const showAcademicYearFilter = availableAcademicYears.length > 1;
 	const showSessionFilter =
 		isSelectedAcademicYearAllowed && sessions.length > 1;

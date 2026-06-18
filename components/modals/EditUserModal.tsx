@@ -1,10 +1,18 @@
 // modals/EditUserModal.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { X, ChevronDown, AlertTriangle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+	X,
+	ChevronDown,
+	AlertTriangle,
+	Loader2,
+	Users,
+	BookOpen,
+	CheckCircle2,
+} from 'lucide-react';
 import { useSchoolStore } from '@/store/schoolStore';
-import ConflictModal from './ConflictModal'; // Import the new modal
+import ConflictModal from './ConflictModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
 	Select,
@@ -14,7 +22,164 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 
-// Helper function to find the differences between two objects
+// ─────────────────────────────────────────────
+// SHARED PRIMITIVES & HELPERS
+// ─────────────────────────────────────────────
+
+const ThemedCheckbox = ({ checked }: { checked: boolean }) => (
+	<div
+		className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
+			checked ? 'bg-primary border-primary' : 'border-border bg-background'
+		}`}
+	>
+		{checked && (
+			<svg
+				className="w-2.5 h-2.5 text-primary-foreground"
+				fill="none"
+				viewBox="0 0 10 8"
+			>
+				<path
+					d="M1 4l3 3 5-6"
+					stroke="currentColor"
+					strokeWidth="1.8"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				/>
+			</svg>
+		)}
+	</div>
+);
+
+const getLevelStyle = (level = '') => {
+	const n = String(level).trim().toLowerCase();
+	if (
+		n.includes('elementary') ||
+		n.includes('primary') ||
+		n.includes('nursery')
+	)
+		return {
+			section: 'border-border/60 bg-accent/20',
+			badge: 'border-border bg-accent text-accent-foreground',
+		};
+	if (n.includes('junior') || n.includes('middle') || n.includes('jhs'))
+		return {
+			section: 'border-border/60 bg-muted/60',
+			badge: 'border-border bg-muted text-foreground',
+		};
+	if (n.includes('senior') || n.includes('shs'))
+		return {
+			section: 'border-border/60 bg-secondary/30',
+			badge: 'border-border bg-secondary text-secondary-foreground',
+		};
+	return {
+		section: 'border-border/40 bg-card',
+		badge: 'border-border bg-card text-foreground',
+	};
+};
+
+const SectionCard = ({
+	title,
+	subtitle,
+	icon: Icon,
+	children,
+	className = '',
+}: {
+	title: string;
+	subtitle?: string;
+	icon?: any;
+	children: React.ReactNode;
+	className?: string;
+}) => (
+	<div
+		className={`rounded-xl border border-border bg-card overflow-hidden ${className}`}
+	>
+		<div className="flex items-start gap-3 px-4 py-3 sm:px-5 sm:py-4 border-b border-border bg-muted/40">
+			{Icon && (
+				<div className="mt-0.5 p-1.5 rounded-md bg-primary/10 text-primary shrink-0">
+					<Icon className="w-3.5 h-3.5" />
+				</div>
+			)}
+			<div className="min-w-0">
+				<p className="text-sm font-semibold text-foreground">{title}</p>
+				{subtitle && (
+					<p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+						{subtitle}
+					</p>
+				)}
+			</div>
+		</div>
+		<div className="p-4 sm:p-5">{children}</div>
+	</div>
+);
+
+const MobileTabStrip = ({
+	items,
+	activeId,
+	onSelect,
+}: {
+	items: Array<{
+		id: string;
+		label: string;
+		icon?: any;
+		badge?: React.ReactNode;
+	}>;
+	activeId: string;
+	onSelect: (id: string) => void;
+}) => (
+	<div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 sm:hidden">
+		{items.map((item) => {
+			const Icon = item.icon;
+			const isActive = activeId === item.id;
+			return (
+				<button
+					key={item.id}
+					type="button"
+					onClick={() => onSelect(item.id)}
+					className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all shrink-0 border ${
+						isActive
+							? 'bg-primary text-primary-foreground border-primary shadow-sm'
+							: 'bg-card text-muted-foreground border-border hover:border-primary/40'
+					}`}
+				>
+					{Icon && <Icon className="w-3 h-3 shrink-0" />}
+					{item.label}
+					{item.badge && <span className="ml-0.5">{item.badge}</span>}
+				</button>
+			);
+		})}
+	</div>
+);
+
+const SidebarItem = ({
+	label,
+	isActive,
+	badge,
+	icon: Icon,
+	onClick,
+}: {
+	label: string;
+	isActive: boolean;
+	badge?: React.ReactNode;
+	icon?: any;
+	onClick: () => void;
+}) => (
+	<button
+		type="button"
+		onClick={onClick}
+		className={`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-left transition-all duration-150 ${
+			isActive
+				? 'bg-primary text-primary-foreground shadow-sm'
+				: 'text-foreground hover:bg-muted'
+		}`}
+	>
+		<span className="flex items-center gap-2 truncate min-w-0">
+			{Icon && <Icon className="w-3.5 h-3.5 shrink-0 opacity-70" />}
+			<span className="truncate">{label}</span>
+		</span>
+		{badge}
+	</button>
+);
+
 const getChangedFields = (originalUser, updatedFormData) => {
 	const changes = {};
 	if (!originalUser || !updatedFormData) return changes;
@@ -35,14 +200,15 @@ const getUpdatedUserFromResponse = (data: any) =>
 	data?.data?.user || data?.data?.student || data?.data || null;
 
 const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
-	const [formData, setFormData] = useState(null);
+	const [formData, setFormData] = useState<any>(null);
 	const [isLoading, setIsLoading] = useState(false);
-	const [validationErrors, setValidationErrors] = useState([]);
-	const [conflictState, setConflictState] = useState(null);
-	const [expandedAccordions, setExpandedAccordions] = useState({});
+	const [validationErrors, setValidationErrors] = useState<any[]>([]);
+	const [conflictState, setConflictState] = useState<any>(null);
 	const [showPromotionModal, setShowPromotionModal] = useState(false);
 	const [showDemotionModal, setShowDemotionModal] = useState(false);
 	const [showCarryOverModal, setShowCarryOverModal] = useState(false);
+	const [activeTeacherSession, setActiveTeacherSession] = useState('');
+	const [carryOverActiveSession, setCarryOverActiveSession] = useState('');
 	const [promotionForm, setPromotionForm] = useState({
 		type: 'yearlyPromotion',
 		classId: '',
@@ -63,8 +229,6 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	const [carryOverPosition, setCarryOverPosition] = useState('');
 	const [carryOverAssignmentsExpanded, setCarryOverAssignmentsExpanded] =
 		useState(false);
-	const [carryOverExpandedAccordions, setCarryOverExpandedAccordions] =
-		useState({} as Record<string, boolean>);
 	const [actionError, setActionError] = useState('');
 	const [actionLoading, setActionLoading] = useState(false);
 
@@ -78,7 +242,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		if (!classId || !schoolProfile?.classLevels) return classId;
 		for (const session of Object.values(schoolProfile.classLevels)) {
 			if (!session || typeof session !== 'object') continue;
-			for (const level of Object.values(session)) {
+			for (const level of Object.values(session as Record<string, any>)) {
 				if (!level?.classes || !Array.isArray(level.classes)) continue;
 				const found = level.classes.find((cls) => cls.classId === classId);
 				if (found) return found.name || classId;
@@ -89,18 +253,15 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 	const getYearsSpent = (profile) => {
 		if (!profile) return 0;
-		if (profile.role === 'student') {
-			return profile.academicYears?.length || 0;
-		}
+		if (profile.role === 'student') return profile.academicYears?.length || 0;
 		if (profile.role === 'teacher') {
 			const years = new Set(
 				(profile.subjects || []).map((s) => s.year).filter(Boolean),
 			);
 			return years.size;
 		}
-		if (profile.role === 'administrator') {
+		if (profile.role === 'administrator')
 			return profile.academicYears?.length || 0;
-		}
 		return 0;
 	};
 
@@ -125,12 +286,16 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			.sort((a, b) => (b.year || '').localeCompare(a.year || ''));
 	};
 
+	const isLevelSelfContained = (session, level) =>
+		!!schoolProfile?.classLevels?.[session]?.[level]?.isSelfContained ||
+		level === 'Self Contained';
+
 	const getAllClassesWithSessionAndLevel = () => {
 		if (!schoolProfile?.classLevels) return [];
-		const all = [];
+		const all: any[] = [];
 		Object.entries(schoolProfile.classLevels).forEach(([session, levels]) => {
 			if (!levels || typeof levels !== 'object') return;
-			Object.entries(levels).forEach(([level, levelData]) => {
+			Object.entries(levels).forEach(([level, levelData]: [string, any]) => {
 				levelData.classes?.forEach((cls) => {
 					all.push({ ...cls, session, level });
 				});
@@ -143,7 +308,9 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		if (!classId || !schoolProfile?.classLevels) return null;
 		for (const [session, levels] of Object.entries(schoolProfile.classLevels)) {
 			if (!levels || typeof levels !== 'object') continue;
-			for (const [level, levelData] of Object.entries(levels)) {
+			for (const [level, levelData] of Object.entries(
+				levels as Record<string, any>,
+			)) {
 				if (!levelData?.classes || !Array.isArray(levelData.classes)) continue;
 				const found = levelData.classes.find((cls) => cls.classId === classId);
 				if (found) return { ...found, session, level };
@@ -159,9 +326,9 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 	const getOrderedClassesForSession = (session) => {
 		if (!session || !schoolProfile?.classLevels?.[session]) return [];
-		const ordered = [];
+		const ordered: any[] = [];
 		Object.entries(schoolProfile.classLevels[session]).forEach(
-			([level, levelData]) => {
+			([level, levelData]: [string, any]) => {
 				levelData.classes?.forEach((cls) => {
 					ordered.push({ ...cls, session, level });
 				});
@@ -206,7 +373,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	};
 
 	const generateAcademicYears = (yearsAhead = 5) => {
-		const years = [];
+		const years: string[] = [];
 		const currentYear = new Date().getFullYear();
 		for (let i = 0; i < yearsAhead + 3; i++) {
 			const year = currentYear - 2 + i;
@@ -243,7 +410,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 	const getLatestAcademicYearStartForUser = (profile) => {
 		if (!profile) return null;
-		let years = [];
+		let years: string[] = [];
 		if (profile.role === 'student') {
 			years = Array.isArray(profile.academicYears)
 				? profile.academicYears.map((entry) => entry?.year)
@@ -259,7 +426,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		}
 		const starts = years
 			.map((year) => getAcademicYearStart(year))
-			.filter((start) => start !== null);
+			.filter((start) => start !== null) as number[];
 		if (starts.length === 0) return null;
 		return Math.max(...starts);
 	};
@@ -295,29 +462,45 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 					(userData.subjects || [])
 						.slice()
 						.sort((a, b) => (b.year || '').localeCompare(a.year || ''))[0];
+
 				const selectionMap = new Map();
 				(yearData?.classes || []).forEach((classData) => {
 					const meta = getClassMetaById(classData.classId);
 					if (!meta) return;
-					(classData.subjects || []).forEach((subject) => {
-						const key = `${meta.session}|${meta.level}|${subject}`;
+					const isSC = isLevelSelfContained(meta.session, meta.level);
+					(classData.subjects || []).forEach((subjectValue) => {
+						const subjectName =
+							typeof subjectValue === 'string'
+								? subjectValue
+								: subjectValue?.subject || subjectValue?.name;
+						if (!subjectName) return;
+						const key = isSC
+							? `${meta.session}|${meta.level}|${classData.classId}|${subjectName}`
+							: `${meta.session}|${meta.level}|${subjectName}`;
+
 						if (!selectionMap.has(key)) {
 							selectionMap.set(key, {
-								subject,
+								subject: subjectName,
 								level: meta.level,
 								session: meta.session,
+								classId: isSC ? classData.classId : undefined,
 							});
 						}
 					});
 				});
 				userData.subjects = Array.from(selectionMap.values());
+
+				const firstSession = schoolProfile?.classLevels
+					? Object.keys(schoolProfile.classLevels)[0]
+					: '';
+				setActiveTeacherSession(firstSession);
+				setCarryOverActiveSession(firstSession);
 			}
 
 			setFormData(userData);
 			setValidationErrors([]);
 			setConflictState(null);
 			setActionError('');
-			setExpandedAccordions({});
 
 			setPromotionForm({
 				type: 'yearlyPromotion',
@@ -336,7 +519,6 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			setCarryOverSponsorClass(null);
 			setCarryOverPosition(userData.position || '');
 			setCarryOverAssignmentsExpanded(false);
-			setCarryOverExpandedAccordions({});
 		}
 	}, [user, schoolProfile]);
 
@@ -355,32 +537,45 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		schoolProfile?.classLevels?.[session]
 			? Object.keys(schoolProfile.classLevels[session])
 			: [];
+
 	const getSubjectName = (subjectValue) => {
 		if (typeof subjectValue === 'string') return subjectValue;
-		if (subjectValue && typeof subjectValue === 'object') {
+		if (subjectValue && typeof subjectValue === 'object')
 			return subjectValue.name || subjectValue.subject || '';
-		}
 		return '';
 	};
+
 	const getSubjectsBySessionAndLevel = (session, level) =>
 		schoolProfile?.classLevels?.[session]?.[level]?.subjects || [];
+
 	const getAllClassesForSession = (session) => {
 		if (!schoolProfile?.classLevels?.[session]) return [];
 		return Object.values(schoolProfile.classLevels[session]).flatMap(
-			(level) => level.classes || [],
+			(level: any) => level.classes || [],
 		);
 	};
+
 	const getClassesBySessionAndLevel = (session, level) =>
 		schoolProfile?.classLevels?.[session]?.[level]?.classes || [];
+
 	const getSelfContainedClasses = (session) => {
 		if (!session) return [];
-		return getClassesBySessionAndLevel(session, 'Self Contained');
+		const result: any[] = [];
+		getClassLevels(session).forEach((level) => {
+			if (isLevelSelfContained(session, level)) {
+				getClassesBySessionAndLevel(session, level).forEach((cls: any) =>
+					result.push({ ...cls, level }),
+				);
+			}
+		});
+		return result;
 	};
+
 	const getAllClassesWithLevelsForSession = (session) => {
 		if (!schoolProfile?.classLevels?.[session]) return [];
-		const allClasses = [];
+		const allClasses: any[] = [];
 		Object.entries(schoolProfile.classLevels[session]).forEach(
-			([level, levelData]) => {
+			([level, levelData]: [string, any]) => {
 				levelData.classes?.forEach((cls) => {
 					allClasses.push({ ...cls, level });
 				});
@@ -400,7 +595,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	};
 
 	const selectTriggerClass =
-		'bg-gradient-to-br from-background to-muted/30 border-border/70 hover:border-primary/40 focus:ring-2 focus:ring-primary/30 transition';
+		'bg-background border-input hover:border-primary/40 focus:ring-2 focus:ring-primary/30 transition';
 
 	const adminPositions = [
 		'Principal',
@@ -417,44 +612,6 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		'Administrative Assistant',
 	];
 
-	const getLevelVisualStyle = (level = '') => {
-		const normalized = String(level).trim().toLowerCase();
-
-		if (
-			normalized.includes('elementary') ||
-			normalized.includes('primary') ||
-			normalized.includes('nursery')
-		) {
-			return {
-				section: 'border-sky-200/70 bg-sky-50/40',
-				badge: 'border-sky-300 bg-sky-100 text-sky-800',
-			};
-		}
-
-		if (
-			normalized.includes('junior') ||
-			normalized.includes('middle') ||
-			normalized.includes('jhs')
-		) {
-			return {
-				section: 'border-emerald-200/70 bg-emerald-50/40',
-				badge: 'border-emerald-300 bg-emerald-100 text-emerald-800',
-			};
-		}
-
-		if (normalized.includes('senior') || normalized.includes('shs')) {
-			return {
-				section: 'border-amber-200/70 bg-amber-50/40',
-				badge: 'border-amber-300 bg-amber-100 text-amber-900',
-			};
-		}
-
-		return {
-			section: 'border-border/70 bg-muted/20',
-			badge: 'border-border/80 bg-muted text-foreground',
-		};
-	};
-
 	const handleInputChange = (e) => {
 		const { name, value } = e.target;
 		setFormData((prev) => ({ ...prev, [name]: value }));
@@ -464,10 +621,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		const { name, value } = e.target;
 		setFormData((prev) => ({
 			...prev,
-			guardian: {
-				...(prev.guardian || {}),
-				[name]: value,
-			},
+			guardian: { ...(prev.guardian || {}), [name]: value },
 		}));
 	};
 
@@ -503,64 +657,80 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		}
 	};
 
+	// Match logic from AddUser component exactly
 	const handleSubjectChange = (subject, level, session, checked) => {
 		setFormData((prev) => {
-			let existingSubjects = prev.subjects || [];
-			// Clear self-contained selection for the session if a regular subject is selected
-			const selfContainedInSession = existingSubjects.some(
-				(s) => s.session === session && s.level === 'Self Contained',
+			let updatedSubjects = [...(prev.subjects || [])];
+			const hasSCInSession = updatedSubjects.some(
+				(s) =>
+					s.session === session &&
+					s.classId &&
+					isLevelSelfContained(session, s.level),
 			);
 
-			if (selfContainedInSession) {
-				existingSubjects = existingSubjects.filter(
-					(s) => s.session !== session || s.level !== 'Self Contained',
+			if (hasSCInSession) {
+				updatedSubjects = updatedSubjects.filter(
+					(s) =>
+						!(
+							s.session === session &&
+							s.classId &&
+							isLevelSelfContained(session, s.level)
+						),
 				);
 			}
 
-			let updatedSubjects;
 			if (checked) {
-				updatedSubjects = [...existingSubjects, { subject, level, session }];
+				updatedSubjects.push({ subject, level, session });
 			} else {
-				updatedSubjects = existingSubjects.filter(
+				updatedSubjects = updatedSubjects.filter(
 					(s) =>
 						!(
 							s.subject === subject &&
 							s.level === level &&
-							s.session === session
+							s.session === session &&
+							!s.classId
 						),
 				);
 			}
+
 			return {
 				...prev,
 				subjects: updatedSubjects,
-				sponsorClass: selfContainedInSession ? null : prev.sponsorClass,
+				sponsorClass: hasSCInSession ? null : prev.sponsorClass,
 			};
 		});
 	};
 
-	const handleSelfContainedSelection = (classId, session, checked) => {
+	const handleSelfContainedSelection = (classId, session, level, checked) => {
 		setFormData((prev) => {
-			const otherSubjectsInSession = (prev.subjects || []).filter(
-				(s) => s.session !== session,
+			const existingSubjects = prev.subjects || [];
+			const withoutThis = existingSubjects.filter(
+				(s) =>
+					!(
+						s.classId === classId &&
+						s.session === session &&
+						s.level === level
+					),
 			);
-			const updatedSubjects = checked
-				? [
-						...otherSubjectsInSession,
-						...getSubjectsBySessionAndLevel(session, 'Self Contained')
-							.map((subjectValue) => getSubjectName(subjectValue))
-							.filter(Boolean)
-							.map((subjectName) => ({
-								subject: subjectName,
-								level: 'Self Contained',
-								session,
-							})),
-					]
-				: otherSubjectsInSession;
+
+			let updatedSubjects = withoutThis;
+			let updatedSponsor = prev.sponsorClass;
+
+			if (checked) {
+				const newSubjects = getSubjectsBySessionAndLevel(session, level)
+					.map((subjectValue) => getSubjectName(subjectValue))
+					.filter(Boolean)
+					.map((name) => ({ subject: name, level, session, classId }));
+				updatedSubjects = [...withoutThis, ...newSubjects];
+				if (!updatedSponsor) updatedSponsor = classId;
+			} else {
+				if (prev.sponsorClass === classId) updatedSponsor = null;
+			}
 
 			return {
 				...prev,
 				subjects: updatedSubjects,
-				sponsorClass: checked ? classId : null,
+				sponsorClass: updatedSponsor,
 			};
 		});
 	};
@@ -569,13 +739,14 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		setFormData((prev) => {
 			const normalizedValue = value === '__none__' ? null : value;
 			const isSelfContained = (prev.subjects || []).some(
-				(s) => s.level === 'Self Contained' && s.session === session,
+				(s) =>
+					s.session === session &&
+					s.classId &&
+					isLevelSelfContained(session, s.level),
 			);
+
 			if (!isSelfContained) {
-				return {
-					...prev,
-					sponsorClass: normalizedValue,
-				};
+				return { ...prev, sponsorClass: normalizedValue };
 			}
 
 			const otherSubjects = (prev.subjects || []).filter(
@@ -589,33 +760,44 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		});
 	};
 
-	const handleCarryOverSelfContainedSelection = (classId, session, checked) => {
+	// Handlers for carry over using the same logic paradigm
+	const handleCarryOverSelfContainedSelection = (
+		classId,
+		session,
+		level,
+		checked,
+	) => {
 		setCarryOverSubjects((prev) => {
-			const otherSubjectsInSession = (prev || []).filter(
-				(s) => s.session !== session,
+			const withoutThis = (prev || []).filter(
+				(s) =>
+					!(
+						s.classId === classId &&
+						s.session === session &&
+						s.level === level
+					),
 			);
-			const updatedSubjects = checked
-				? [
-						...otherSubjectsInSession,
-						...getSubjectsBySessionAndLevel(session, 'Self Contained')
-							.map((subjectValue) => getSubjectName(subjectValue))
-							.filter(Boolean)
-							.map((subjectName) => ({
-								subject: subjectName,
-								level: 'Self Contained',
-								session,
-							})),
-					]
-				: otherSubjectsInSession;
-			return updatedSubjects;
+			if (!checked) {
+				if (carryOverSponsorClass === classId) setCarryOverSponsorClass(null);
+				return withoutThis;
+			}
+
+			const newSubjects = getSubjectsBySessionAndLevel(session, level)
+				.map((subjectValue) => getSubjectName(subjectValue))
+				.filter(Boolean)
+				.map((name) => ({ subject: name, level, session, classId }));
+
+			if (!carryOverSponsorClass) setCarryOverSponsorClass(classId);
+			return [...withoutThis, ...newSubjects];
 		});
-		setCarryOverSponsorClass(checked ? classId : null);
 	};
 
 	const handleCarryOverSponsorClassChange = (session, value) => {
 		const normalizedValue = value === '__none__' ? null : value;
 		const isSelfContained = (carryOverSubjects || []).some(
-			(s) => s.level === 'Self Contained' && s.session === session,
+			(s) =>
+				s.session === session &&
+				s.classId &&
+				isLevelSelfContained(session, s.level),
 		);
 		if (isSelfContained) {
 			setCarryOverSubjects((prev) =>
@@ -627,14 +809,23 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 	const handleCarryOverSubjectChange = (subject, level, session, checked) => {
 		let updatedSubjects = [...(carryOverSubjects || [])];
-		const selfContainedSubjectsInSession = updatedSubjects.filter(
-			(s) => s.session === session && s.level === 'Self Contained',
+		const hasSCInSession = updatedSubjects.some(
+			(s) =>
+				s.session === session &&
+				s.classId &&
+				isLevelSelfContained(session, s.level),
 		);
 
-		if (selfContainedSubjectsInSession.length > 0) {
+		if (hasSCInSession) {
 			updatedSubjects = updatedSubjects.filter(
-				(s) => s.session !== session || s.level !== 'Self Contained',
+				(s) =>
+					!(
+						s.session === session &&
+						s.classId &&
+						isLevelSelfContained(session, s.level)
+					),
 			);
+			setCarryOverSponsorClass(null);
 		}
 
 		if (checked) {
@@ -645,29 +836,12 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 					!(
 						s.subject === subject &&
 						s.level === level &&
-						s.session === session
+						s.session === session &&
+						!s.classId
 					),
 			);
 		}
-
 		setCarryOverSubjects(updatedSubjects);
-		if (selfContainedSubjectsInSession.length > 0) {
-			const sponsorInSession =
-				carryOverSponsorClass &&
-				getAllClassesForSession(session).some(
-					(cls) => cls.classId === carryOverSponsorClass,
-				);
-			if (sponsorInSession) {
-				setCarryOverSponsorClass(null);
-			}
-		}
-	};
-
-	const toggleCarryOverAccordion = (session) => {
-		setCarryOverExpandedAccordions((prev) => ({
-			...prev,
-			[session]: !prev[session],
-		}));
 	};
 
 	const getTeacherLatestYearEntry = (profile) => {
@@ -690,18 +864,22 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		(yearEntry?.classes || []).forEach((classData) => {
 			const classMeta = getClassMetaById(classData?.classId);
 			if (!classMeta) return;
+			const isSC = isLevelSelfContained(classMeta.session, classMeta.level);
 			(classData?.subjects || []).forEach((subjectValue) => {
 				const subjectName =
 					typeof subjectValue === 'string'
 						? subjectValue
 						: subjectValue?.subject || subjectValue?.name;
 				if (!subjectName) return;
-				const key = `${classMeta.session}|${classMeta.level}|${subjectName}`;
+				const key = isSC
+					? `${classMeta.session}|${classMeta.level}|${classData.classId}|${subjectName}`
+					: `${classMeta.session}|${classMeta.level}|${subjectName}`;
 				if (!selectionMap.has(key)) {
 					selectionMap.set(key, {
 						subject: subjectName,
 						level: classMeta.level,
 						session: classMeta.session,
+						classId: isSC ? classData.classId : undefined,
 					});
 				}
 			});
@@ -716,7 +894,6 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 					.filter(Boolean)
 			: [];
 		if (reassignedTeacherIds.length === 0) return [];
-
 		const results = await Promise.all(
 			reassignedTeacherIds.map(async (id) => {
 				try {
@@ -729,7 +906,6 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				}
 			}),
 		);
-
 		return results.filter(Boolean);
 	};
 
@@ -830,12 +1006,10 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 					},
 				);
 				const data = await res.json();
-
-				if (!res.ok || !data.success) {
+				if (!res.ok || !data.success)
 					throw new Error(
 						data.message || 'Failed to add academic year with reassignments.',
 					);
-				}
 
 				const updatedReassignedTeachers = await fetchReassignedTeachers(
 					data.reassignments,
@@ -849,9 +1023,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 					setFeedback({ type: 'success', message: data.message });
 				}
 				const updatedUser = getUpdatedUserFromResponse(data);
-				if (updatedUser) {
-					onSave(updatedUser, updatedReassignedTeachers);
-				}
+				if (updatedUser) onSave(updatedUser, updatedReassignedTeachers);
 				setShowCarryOverModal(false);
 				return;
 			}
@@ -866,12 +1038,10 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				}),
 			});
 			const data = await res.json();
-
-			if (!res.ok) {
+			if (!res.ok)
 				throw new Error(
 					data.message || 'Failed to update user with reassignments.',
 				);
-			}
 
 			const updatedReassignedTeachers = await fetchReassignedTeachers(
 				data.reassignments,
@@ -885,26 +1055,19 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				setFeedback({ type: 'success', message: 'User updated successfully.' });
 			}
 			const updatedUser = getUpdatedUserFromResponse(data);
-			if (!updatedUser) {
+			if (!updatedUser)
 				throw new Error('User update response did not include user data.');
-			}
+
 			onSave(updatedUser, updatedReassignedTeachers);
 		} catch (err) {
 			const message =
 				err instanceof Error ? err.message : 'Failed to confirm reassignments.';
-			if (conflictState.mode === 'carry-over') {
-				setActionError(message);
-			} else {
-				setValidationErrors([{ message }]);
-			}
+			if (conflictState.mode === 'carry-over') setActionError(message);
+			else setValidationErrors([{ message }]);
 		} finally {
 			setIsLoading(false);
 			setConflictState(null);
 		}
-	};
-
-	const toggleAccordion = (session) => {
-		setExpandedAccordions((prev) => ({ ...prev, [session]: !prev[session] }));
 	};
 
 	const handlePromotion = () => {
@@ -917,6 +1080,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			}) ||
 			promotionYearOptions[0] ||
 			'';
+
 		setActionError('');
 		setPromotionForm((prev) => ({
 			...prev,
@@ -951,6 +1115,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			}) ||
 			options[0] ||
 			'';
+
 		setCarryOverAcademicYear(defaultYear);
 		if (user?.role === 'teacher') {
 			const latestYearEntry = getTeacherLatestYearEntry(user);
@@ -958,30 +1123,25 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				mapYearEntryToTeacherSelections(latestYearEntry);
 			setCarryOverSubjects(defaultSelections);
 			setCarryOverSponsorClass(user?.sponsorClass || null);
-			setCarryOverExpandedAccordions({});
 		}
 		if (user?.role === 'administrator') {
 			const latestAdminYear = getAdminTimeline(user)[0];
 			setCarryOverPosition(
 				latestAdminYear?.position || user?.position || adminPositions[0],
 			);
-			setCarryOverExpandedAccordions({});
 		}
 		setShowCarryOverModal(true);
 	};
 
 	const getAcademicYearOptions = () => {
 		const years = new Set(generateAcademicYears());
-		if (schoolProfile?.currentAcademicYear) {
+		if (schoolProfile?.currentAcademicYear)
 			years.add(schoolProfile.currentAcademicYear);
-		}
 		return Array.from(years).sort((a, b) => b.localeCompare(a));
 	};
 
-	const getPromotionAcademicYearOptions = () => {
-		return getCurrentAndNextAcademicYears();
-	};
-
+	const getPromotionAcademicYearOptions = () =>
+		getCurrentAndNextAcademicYears();
 	const getCarryOverAcademicYearOptions = () => {
 		if (!user || !['teacher', 'administrator'].includes(user.role)) return [];
 		return getCurrentAndNextAcademicYears();
@@ -993,39 +1153,28 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	) => {
 		const classMap = new Map();
 		const normalizedSelections = Array.isArray(selections) ? selections : [];
-		const selfContainedSelections = normalizedSelections.filter(
-			(s) => s.level === 'Self Contained',
-		);
-		const regularSelections = normalizedSelections.filter(
-			(s) => s.level !== 'Self Contained',
-		);
 
-		regularSelections.forEach((selection) => {
-			const classes = getClassesBySessionAndLevel(
-				selection.session,
-				selection.level,
-			);
-			classes.forEach((cls) => {
-				if (!classMap.has(cls.classId)) {
-					classMap.set(cls.classId, new Set());
-				}
-				classMap.get(cls.classId).add(selection.subject);
-			});
-		});
-
-		if (selfContainedSelections.length > 0 && sponsorClassValue) {
-			if (!classMap.has(sponsorClassValue)) {
-				classMap.set(sponsorClassValue, new Set());
+		normalizedSelections.forEach((selection) => {
+			if (selection.classId) {
+				if (!classMap.has(selection.classId))
+					classMap.set(selection.classId, new Set());
+				classMap.get(selection.classId).add(selection.subject);
+			} else {
+				const classes = getClassesBySessionAndLevel(
+					selection.session,
+					selection.level,
+				);
+				classes.forEach((cls) => {
+					if (!classMap.has(cls.classId)) classMap.set(cls.classId, new Set());
+					classMap.get(cls.classId).add(selection.subject);
+				});
 			}
-			selfContainedSelections.forEach((selection) => {
-				classMap.get(sponsorClassValue).add(selection.subject);
-			});
-		}
+		});
 
 		return Array.from(classMap.entries())
 			.map(([classId, subjectsSet]) => ({
 				classId,
-				subjects: Array.from(subjectsSet).sort(),
+				subjects: Array.from(subjectsSet as Set<string>).sort(),
 			}))
 			.filter((entry) => entry.subjects.length > 0)
 			.sort((a, b) => a.classId.localeCompare(b.classId));
@@ -1037,13 +1186,11 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			formData?.subjects || [],
 			formData?.sponsorClass,
 		);
-
 		const existingSubjects = Array.isArray(user?.subjects) ? user.subjects : [];
 		const otherYears = existingSubjects.filter(
 			(entry) => entry.year !== academicYear,
 		);
 		const currentYearEntry = { year: academicYear, classes };
-
 		return [...otherYears, currentYearEntry];
 	};
 
@@ -1118,21 +1265,20 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				},
 			);
 			const data = await res.json();
-			if (!res.ok || !data.success) {
+			if (!res.ok || !data.success)
 				throw new Error(data.message || 'Promotion failed.');
-			}
+
 			const updatedUser = getUpdatedUserFromResponse(data);
-			if (!updatedUser) {
+			if (!updatedUser)
 				throw new Error(
 					'Promotion response did not include updated user data.',
 				);
-			}
+
 			onSave(updatedUser);
 			setFeedback({ type: 'success', message: data.message });
 			setShowPromotionModal(false);
 		} catch (err) {
-			const message = err instanceof Error ? err.message : 'Promotion failed.';
-			setActionError(message);
+			setActionError(err instanceof Error ? err.message : 'Promotion failed.');
 		} finally {
 			setActionLoading(false);
 		}
@@ -1167,19 +1313,18 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				},
 			);
 			const data = await res.json();
-			if (!res.ok || !data.success) {
+			if (!res.ok || !data.success)
 				throw new Error(data.message || 'Demotion failed.');
-			}
+
 			const updatedUser = getUpdatedUserFromResponse(data);
-			if (!updatedUser) {
+			if (!updatedUser)
 				throw new Error('Demotion response did not include updated user data.');
-			}
+
 			onSave(updatedUser);
 			setFeedback({ type: 'success', message: data.message });
 			setShowDemotionModal(false);
 		} catch (err) {
-			const message = err instanceof Error ? err.message : 'Demotion failed.';
-			setActionError(message);
+			setActionError(err instanceof Error ? err.message : 'Demotion failed.');
 		} finally {
 			setActionLoading(false);
 		}
@@ -1189,6 +1334,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		setActionError('');
 		setConflictState(null);
 		const options = getCarryOverAcademicYearOptions();
+
 		if (!hasYearOptionLaterThanUser(options, user)) {
 			setActionError(
 				'No eligible academic year is available from the current options.',
@@ -1205,6 +1351,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			);
 			return;
 		}
+
 		const latestStart = getLatestAcademicYearStartForUser(user);
 		const selectedStart = getAcademicYearStart(carryOverAcademicYear);
 		if (
@@ -1218,9 +1365,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			return;
 		}
 
-		const requestBody: any = {
-			newAcademicYear: carryOverAcademicYear,
-		};
+		const requestBody: any = { newAcademicYear: carryOverAcademicYear };
 
 		if (user?.role === 'teacher') {
 			const classes = buildTeacherClassesPayloadFromSelections(
@@ -1269,9 +1414,9 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				}
 				throw new Error(data.message || 'Failed to add academic year.');
 			}
-			if (!data.success) {
+			if (!data.success)
 				throw new Error(data.message || 'Failed to add academic year.');
-			}
+
 			const updatedReassignedTeachers = await fetchReassignedTeachers(
 				data.reassignments,
 			);
@@ -1283,21 +1428,190 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			} else {
 				setFeedback({ type: 'success', message: data.message });
 			}
+
 			const updatedUser = getUpdatedUserFromResponse(data);
-			if (!updatedUser) {
+			if (!updatedUser)
 				throw new Error(
 					'Academic year response did not include updated user data.',
 				);
-			}
+
 			onSave(updatedUser, updatedReassignedTeachers);
 			setShowCarryOverModal(false);
 		} catch (err) {
-			const message =
-				err instanceof Error ? err.message : 'Failed to add academic year.';
-			setActionError(message);
+			setActionError(
+				err instanceof Error ? err.message : 'Failed to add academic year.',
+			);
 		} finally {
 			setActionLoading(false);
 		}
+	};
+
+	const renderTeacherSessionPanel = (
+		session,
+		subjects,
+		sponsorClass,
+		onSCChange,
+		onSubChange,
+		onSponsorChange,
+	) => {
+		const scClasses = getSelfContainedClasses(session);
+		const regularLevels = getClassLevels(session).filter(
+			(l: string) => !isLevelSelfContained(session, l),
+		);
+
+		return (
+			<div className="space-y-4">
+				{scClasses.length > 0 && (
+					<SectionCard
+						title="Self-Contained Classes"
+						subtitle="Each class covers all its configured subjects."
+						icon={CheckCircle2}
+					>
+						<div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+							{scClasses.map((cls) => {
+								const isChecked = subjects.some(
+									(s) =>
+										s.classId === cls.classId &&
+										s.session === session &&
+										s.level === cls.level,
+								);
+								return (
+									<motion.label
+										key={cls.classId}
+										whileTap={{ scale: 0.97 }}
+										className={`relative flex items-center gap-2.5 rounded-lg border p-3 cursor-pointer transition-all ${isChecked ? 'border-primary bg-primary/10 shadow-sm' : 'border-border hover:border-primary/40 bg-background'}`}
+									>
+										<input
+											type="checkbox"
+											checked={isChecked}
+											onChange={(e) =>
+												onSCChange(
+													cls.classId,
+													session,
+													cls.level,
+													e.target.checked,
+												)
+											}
+											className="absolute opacity-0 w-0 h-0"
+										/>
+										<ThemedCheckbox checked={isChecked} />
+										<div className="min-w-0">
+											<span className="text-sm font-medium text-foreground block truncate">
+												{cls.name}
+											</span>
+											<span className="text-[11px] text-muted-foreground">
+												{cls.level}
+											</span>
+										</div>
+									</motion.label>
+								);
+							})}
+						</div>
+					</SectionCard>
+				)}
+
+				{regularLevels.length > 0 && (
+					<SectionCard
+						title="Subjects by Level"
+						subtitle="Check subjects this teacher will deliver across all classes in that level."
+						icon={BookOpen}
+					>
+						<div className="space-y-3 max-h-[50vh] sm:max-h-64 overflow-y-auto pr-0.5">
+							{regularLevels.map((level: string) => {
+								const style = getLevelStyle(level);
+								const subjectsByLevel = getSubjectsBySessionAndLevel(
+									session,
+									level,
+								);
+								return (
+									<div
+										key={level}
+										className={`rounded-lg border p-3 ${style.section}`}
+									>
+										<div className="flex items-center gap-2 mb-2.5">
+											<span
+												className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${style.badge}`}
+											>
+												{level}
+											</span>
+										</div>
+										<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+											{subjectsByLevel.map((subject, idx) => {
+												const subjectName = getSubjectName(subject);
+												const isChecked = subjects.some(
+													(s) =>
+														s.subject === subjectName &&
+														s.level === level &&
+														s.session === session &&
+														!s.classId,
+												);
+												return (
+													<motion.label
+														key={`${subjectName}-${idx}`}
+														whileTap={{ scale: 0.96 }}
+														className={`relative flex items-center gap-2 rounded-md border px-2.5 py-2 cursor-pointer text-xs transition-all ${isChecked ? 'border-primary bg-primary/10 shadow-sm' : 'border-border bg-background hover:border-primary/40'}`}
+													>
+														<input
+															type="checkbox"
+															checked={isChecked}
+															onChange={(e) =>
+																onSubChange(
+																	subjectName,
+																	level,
+																	session,
+																	e.target.checked,
+																)
+															}
+															className="absolute opacity-0 w-0 h-0"
+														/>
+														<ThemedCheckbox checked={isChecked} />
+														<span className="text-foreground leading-snug">
+															{subjectName}
+														</span>
+													</motion.label>
+												);
+											})}
+										</div>
+									</div>
+								);
+							})}
+						</div>
+					</SectionCard>
+				)}
+
+				<SectionCard
+					title="Class Sponsorship"
+					subtitle="Assign this teacher as homeroom sponsor for one class (optional)."
+					icon={Users}
+				>
+					<Select
+						value={
+							sponsorClass &&
+							getAllClassesForSession(session).find(
+								(c: any) => c.classId === sponsorClass,
+							)
+								? sponsorClass
+								: '__none__'
+						}
+						onValueChange={(val) => onSponsorChange(session, val)}
+					>
+						<SelectTrigger className={selectTriggerClass}>
+							<SelectValue placeholder="No sponsorship" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="__none__">No sponsorship</SelectItem>
+							{getAllClassesForSession(session)
+								.filter((cls) => !isLevelSelfContained(session, cls.level))
+								.map((cls) => (
+									<SelectItem key={cls.classId} value={cls.classId}>
+										{cls.name} ({cls.level})
+									</SelectItem>
+								))}
+						</SelectContent>
+					</Select>
+				</SectionCard>
+			</div>
+		);
 	};
 
 	if (!isOpen || !formData) return null;
@@ -1312,9 +1626,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 								src={
 									formData?.avatar ||
 									user?.avatar ||
-									`https://ui-avatars.com/api/?name=${encodeURIComponent(
-										getFullName(user),
-									)}&background=random`
+									`https://ui-avatars.com/api/?name=${encodeURIComponent(getFullName(user))}&background=random`
 								}
 								alt={getFullName(user)}
 								className="h-10 w-10 rounded-full border-2 border-primary/20 object-cover"
@@ -1346,7 +1658,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 					<main className="overflow-y-auto flex-grow p-4 sm:p-8 space-y-6">
 						{validationErrors.length > 0 && (
-							<div className="text-sm text-red-600 bg-red-50 p-4 rounded-lg border border-red-200">
+							<div className="text-sm text-destructive bg-destructive/10 p-4 rounded-lg border border-destructive/20">
 								<p className="font-semibold flex items-center mb-2">
 									<AlertTriangle className="h-4 w-4 mr-2" />
 									Please fix the following issues:
@@ -1381,114 +1693,12 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 								<div>
 									<p className="text-sm text-muted-foreground">Status</p>
 									<span
-										className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-											user.isActive
-												? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-												: 'bg-destructive/10 text-destructive'
-										}`}
+										className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.isActive ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}
 									>
 										{user.isActive ? 'Active' : 'Inactive'}
 									</span>
 								</div>
 							</div>
-
-							{user.role === 'student' && (
-								<div className="mt-4 space-y-3">
-									<p className="text-sm text-muted-foreground">Current Class</p>
-									<p className="text-md font-medium text-foreground">
-										{user.className ||
-											getClassNameFromId(user.classId) ||
-											'N/A'}
-									</p>
-									<div className="mt-2 space-y-2">
-										<p className="text-sm text-muted-foreground">
-											Academic Year History
-										</p>
-										{getAcademicYearTimeline(user).length === 0 && (
-											<p className="text-sm text-muted-foreground">
-												No academic history available.
-											</p>
-										)}
-										{getAcademicYearTimeline(user).map((entry, idx) => (
-											<div
-												key={`${entry.year}-${idx}`}
-												className="rounded-lg border border-border bg-muted/40 p-3"
-											>
-												<p className="text-sm font-medium text-foreground">
-													{entry.year || 'Unknown Year'}
-												</p>
-												<p className="text-xs text-muted-foreground">
-													Class:{' '}
-													{entry.className ||
-														getClassNameFromId(entry.classId) ||
-														'N/A'}
-												</p>
-											</div>
-										))}
-									</div>
-								</div>
-							)}
-
-							{user.role === 'teacher' && (
-								<div className="mt-4 space-y-2">
-									<p className="text-sm text-muted-foreground">
-										Current Subjects & Classes
-									</p>
-									{getTeacherCurrentYearData(user) ? (
-										<div className="space-y-2">
-											{getTeacherCurrentYearData(user).classes?.map(
-												(cls, idx) => (
-													<div
-														key={`${cls.classId}-${idx}`}
-														className="rounded-lg border border-border bg-muted/40 p-3"
-													>
-														<p className="text-sm font-medium text-foreground">
-															Class:{' '}
-															{cls.className ||
-																getClassNameFromId(cls.classId) ||
-																cls.classId}
-														</p>
-														<p className="text-xs text-muted-foreground">
-															Subjects:{' '}
-															{(cls.subjects || []).join(', ') || 'N/A'}
-														</p>
-													</div>
-												),
-											)}
-										</div>
-									) : (
-										<p className="text-sm text-muted-foreground">
-											No current assignments available.
-										</p>
-									)}
-								</div>
-							)}
-
-							{user.role === 'administrator' && (
-								<div className="mt-4 space-y-2">
-									<p className="text-sm text-muted-foreground">
-										Position Timeline
-									</p>
-									{getAdminTimeline(user).length === 0 && (
-										<p className="text-sm text-muted-foreground">
-											No administrative history available.
-										</p>
-									)}
-									{getAdminTimeline(user).map((entry, idx) => (
-										<div
-											key={`${entry.year}-${idx}`}
-											className="rounded-lg border border-border bg-muted/40 p-3"
-										>
-											<p className="text-sm font-medium text-foreground">
-												{entry.year || 'Unknown Year'}
-											</p>
-											<p className="text-xs text-muted-foreground">
-												Position: {entry.position || 'N/A'}
-											</p>
-										</div>
-									))}
-								</div>
-							)}
 						</section>
 
 						<section>
@@ -1539,123 +1749,122 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 						</section>
 
 						{user.role === 'student' && (
-							<section>
-								<h5 className="font-semibold mb-3 text-lg border-b pb-2">
-									Academic Information
-								</h5>
-								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-									<div>
-										<label className="block text-sm font-medium text-foreground mb-1">
-											Session
-										</label>
-										<Select
-											value={formData.session || ''}
-											onValueChange={handleStudentSessionChange}
-										>
-											<SelectTrigger className={selectTriggerClass}>
-												<SelectValue placeholder="Select Session" />
-											</SelectTrigger>
-											<SelectContent>
-												{getSessions().map((session) => (
-													<SelectItem key={session} value={session}>
-														{session}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
+							<>
+								<section>
+									<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+										Academic Information
+									</h5>
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+										<div>
+											<label className="block text-sm font-medium text-foreground mb-1">
+												Session
+											</label>
+											<Select
+												value={formData.session || ''}
+												onValueChange={handleStudentSessionChange}
+											>
+												<SelectTrigger className={selectTriggerClass}>
+													<SelectValue placeholder="Select Session" />
+												</SelectTrigger>
+												<SelectContent>
+													{getSessions().map((session) => (
+														<SelectItem key={session} value={session}>
+															{session}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+										</div>
+										<div>
+											<label className="block text-sm font-medium text-foreground mb-1">
+												Class
+											</label>
+											<Select
+												value={formData.classId || ''}
+												onValueChange={handleStudentClassChange}
+												disabled={!formData.session}
+											>
+												<SelectTrigger className={selectTriggerClass}>
+													<SelectValue placeholder="Select Class" />
+												</SelectTrigger>
+												<SelectContent>
+													{formData.session &&
+														getClassLevels(formData.session).map((level) => {
+															const levelStyle = getLevelStyle(level);
+															return (
+																<React.Fragment key={level}>
+																	<div
+																		className={`mx-1 mt-1 mb-1 inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${levelStyle.badge}`}
+																	>
+																		{level}
+																	</div>
+																	{getAllClassesWithLevelsForSession(
+																		formData.session,
+																	)
+																		.filter((cls) => cls.level === level)
+																		.map((cls) => (
+																			<SelectItem
+																				key={cls.classId}
+																				value={cls.classId}
+																			>
+																				{cls.name}
+																			</SelectItem>
+																		))}
+																</React.Fragment>
+															);
+														})}
+												</SelectContent>
+											</Select>
+										</div>
 									</div>
-									<div>
-										<label className="block text-sm font-medium text-foreground mb-1">
-											Class
-										</label>
-										<Select
-											value={formData.classId || ''}
-											onValueChange={handleStudentClassChange}
-											disabled={!formData.session}
-										>
-											<SelectTrigger className={selectTriggerClass}>
-												<SelectValue placeholder="Select Class" />
-											</SelectTrigger>
-											<SelectContent>
-												{formData.session &&
-													getClassLevels(formData.session).map((level) => {
-														const levelStyle = getLevelVisualStyle(level);
-														return (
-															<React.Fragment key={level}>
-																<div
-																	className={`mx-1 mt-1 mb-1 inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${levelStyle.badge}`}
-																>
-																	{level}
-																</div>
-																{getAllClassesWithLevelsForSession(
-																	formData.session,
-																)
-																	.filter((cls) => cls.level === level)
-																	.map((cls) => (
-																		<SelectItem
-																			key={cls.classId}
-																			value={cls.classId}
-																		>
-																			{cls.name}
-																		</SelectItem>
-																	))}
-															</React.Fragment>
-														);
-													})}
-											</SelectContent>
-										</Select>
-									</div>
-								</div>
-							</section>
-						)}
-
-						{user.role === 'student' && (
-							<section>
-								<h5 className="font-semibold mb-3 text-lg border-b pb-2">
-									Guardian Information
-								</h5>
-								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-									<InputField
-										label="Guardian First Name"
-										name="firstName"
-										value={formData.guardian?.firstName}
-										onChange={handleGuardianInputChange}
-									/>
-									<InputField
-										label="Guardian Middle Name"
-										name="middleName"
-										value={formData.guardian?.middleName}
-										onChange={handleGuardianInputChange}
-									/>
-									<InputField
-										label="Guardian Last Name"
-										name="lastName"
-										value={formData.guardian?.lastName}
-										onChange={handleGuardianInputChange}
-									/>
-									<InputField
-										label="Guardian Email"
-										name="email"
-										type="email"
-										value={formData.guardian?.email}
-										onChange={handleGuardianInputChange}
-									/>
-									<InputField
-										label="Guardian Phone"
-										name="phone"
-										value={formData.guardian?.phone}
-										onChange={handleGuardianInputChange}
-									/>
-									<div className="sm:col-span-2">
+								</section>
+								<section>
+									<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+										Guardian Information
+									</h5>
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 										<InputField
-											label="Guardian Address"
-											name="address"
-											value={formData.guardian?.address}
+											label="Guardian First Name"
+											name="firstName"
+											value={formData.guardian?.firstName}
 											onChange={handleGuardianInputChange}
 										/>
+										<InputField
+											label="Guardian Middle Name"
+											name="middleName"
+											value={formData.guardian?.middleName}
+											onChange={handleGuardianInputChange}
+										/>
+										<InputField
+											label="Guardian Last Name"
+											name="lastName"
+											value={formData.guardian?.lastName}
+											onChange={handleGuardianInputChange}
+										/>
+										<InputField
+											label="Guardian Email"
+											name="email"
+											type="email"
+											value={formData.guardian?.email}
+											onChange={handleGuardianInputChange}
+										/>
+										<InputField
+											label="Guardian Phone"
+											name="phone"
+											value={formData.guardian?.phone}
+											onChange={handleGuardianInputChange}
+										/>
+										<div className="sm:col-span-2">
+											<InputField
+												label="Guardian Address"
+												name="address"
+												value={formData.guardian?.address}
+												onChange={handleGuardianInputChange}
+											/>
+										</div>
 									</div>
-								</div>
-							</section>
+								</section>
+							</>
 						)}
 
 						{user.role === 'administrator' && (
@@ -1670,9 +1879,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 									<Select
 										value={formData.position}
 										onValueChange={(value) =>
-											handleInputChange({
-												target: { name: 'position', value },
-											})
+											handleInputChange({ target: { name: 'position', value } })
 										}
 									>
 										<SelectTrigger className={selectTriggerClass}>
@@ -1692,218 +1899,59 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 						{user.role === 'teacher' && schoolProfile && (
 							<section>
-								<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+								<h5 className="font-semibold mb-4 text-lg border-b pb-2">
 									Teaching Assignments
 								</h5>
-								<div className="space-y-4">
-									{getSessions().map((session) => (
-										<div
-											key={session}
-											className="border border-border rounded-lg"
-										>
-											<button
-												type="button"
-												onClick={() => toggleAccordion(session)}
-												className="flex justify-between items-center w-full p-3 font-medium text-left bg-muted/50 hover:bg-muted/80 rounded-t-lg"
-											>
-												<span>{session} Session</span>
-												<ChevronDown
-													className={`w-5 h-5 transition-transform ${
-														expandedAccordions[session] ? 'rotate-180' : ''
-													}`}
+
+								{getSessions().length > 1 && (
+									<MobileTabStrip
+										items={getSessions().map((session) => ({
+											id: session,
+											label: session,
+											icon: BookOpen,
+										}))}
+										activeId={activeTeacherSession}
+										onSelect={setActiveTeacherSession}
+									/>
+								)}
+
+								<div className="flex gap-4">
+									{getSessions().length > 1 && (
+										<div className="hidden sm:flex flex-col gap-1 w-40 lg:w-44 shrink-0">
+											<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 px-1">
+												Sessions
+											</p>
+											{getSessions().map((session) => (
+												<SidebarItem
+													key={session}
+													label={session}
+													isActive={activeTeacherSession === session}
+													icon={BookOpen}
+													onClick={() => setActiveTeacherSession(session)}
 												/>
-											</button>
-											<AnimatePresence>
-												{expandedAccordions[session] && (
-													<motion.div
-														initial={{ opacity: 0, height: 0 }}
-														animate={{ opacity: 1, height: 'auto' }}
-														exit={{ opacity: 0, height: 0 }}
-														className="p-4 space-y-4 border-t border-border"
-													>
-														{getSelfContainedClasses(session).length > 0 && (
-															<div className="space-y-3">
-																<p className="text-sm text-muted-foreground">
-																	<span className="font-medium">
-																		Self-Contained Class Teacher
-																	</span>{' '}
-																	<span className="italic">
-																		(teaches all subjects)
-																	</span>
-																</p>
-																<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-																	{getSelfContainedClasses(session).map(
-																		(cls) => {
-																			const isSelected =
-																				formData.sponsorClass === cls.classId &&
-																				(formData.subjects || []).some(
-																					(s) =>
-																						s.level === 'Self Contained' &&
-																						s.session === session,
-																				);
-																			return (
-																				<motion.label
-																					key={`${session}-self-${cls.classId}`}
-																					whileHover={{ scale: 1.02 }}
-																					className={`relative flex items-center justify-center rounded-xl border p-3 cursor-pointer transition-all duration-300 ${
-																						isSelected
-																							? 'border-primary bg-primary/10 shadow-md'
-																							: 'border-muted hover:border-primary/50 hover:bg-accent/10'
-																					}`}
-																				>
-																					<input
-																						type="radio"
-																						name={`edit-selfContainedClass-${session}`}
-																						checked={isSelected}
-																						onChange={(e) =>
-																							handleSelfContainedSelection(
-																								cls.classId,
-																								session,
-																								e.target.checked,
-																							)
-																						}
-																						className="absolute opacity-0"
-																					/>
-																					<span className="text-sm font-medium text-foreground">
-																						{cls.name}
-																					</span>
-																				</motion.label>
-																			);
-																		},
-																	)}
-																</div>
-															</div>
-														)}
-														<div>
-															<label className="block text-sm font-medium text-foreground mb-2">
-																Subjects Taught
-															</label>
-															<div className="space-y-3">
-																{getClassLevels(session)
-																	.filter((level) => level !== 'Self Contained')
-																	.map((level) => {
-																		const levelStyle =
-																			getLevelVisualStyle(level);
-																		return (
-																			<div
-																				key={level}
-																				className={`rounded-lg border p-3 ${levelStyle.section}`}
-																			>
-																				<h6 className="mb-2">
-																					<span
-																						className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${levelStyle.badge}`}
-																					>
-																						{level}
-																					</span>
-																				</h6>
-																				<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-																					{getSubjectsBySessionAndLevel(
-																						session,
-																						level,
-																					).map((subject) => {
-																						const subjectName =
-																							getSubjectName(subject);
-																						if (!subjectName) return null;
-																						const isChecked = (
-																							formData.subjects || []
-																						).some(
-																							(s) =>
-																								s.subject === subjectName &&
-																								s.level === level &&
-																								s.session === session,
-																						);
-																						return (
-																							<motion.label
-																								key={`${subjectName}-${level}`}
-																								whileHover={{
-																									scale: 1.03,
-																								}}
-																								className={`relative flex items-center rounded-lg border p-2 cursor-pointer transition-all text-sm ${
-																									isChecked
-																										? 'border-primary bg-primary/10 shadow-sm'
-																										: 'border-muted hover:border-primary/40 hover:bg-accent/5'
-																								}`}
-																							>
-																								<input
-																									type="checkbox"
-																									checked={isChecked}
-																									onChange={(e) =>
-																										handleSubjectChange(
-																											subjectName,
-																											level,
-																											session,
-																											e.target.checked,
-																										)
-																									}
-																									className="absolute opacity-0"
-																								/>
-																								<span className="ml-1 text-foreground">
-																									{subjectName}
-																								</span>
-																							</motion.label>
-																						);
-																					})}
-																				</div>
-																			</div>
-																		);
-																	})}
-															</div>
-														</div>
-														<div>
-															<label className="block text-sm font-medium text-foreground mb-2">
-																Class Sponsorship
-															</label>
-															<Select
-																value={
-																	formData.sponsorClass &&
-																	getAllClassesForSession(session).find(
-																		(cls) =>
-																			cls.classId === formData.sponsorClass,
-																	)
-																		? formData.sponsorClass
-																		: '__none__'
-																}
-																onValueChange={(value) =>
-																	handleSponsorClassChange(session, value)
-																}
-															>
-																<SelectTrigger className={selectTriggerClass}>
-																	<SelectValue placeholder="No sponsorship" />
-																</SelectTrigger>
-																<SelectContent>
-																	<SelectItem value="__none__">
-																		No sponsorship
-																	</SelectItem>
-																	{getAllClassesWithLevelsForSession(session)
-																		.filter(
-																			(cls) => cls.level !== 'Self Contained',
-																		)
-																		.map((cls) => (
-																			<SelectItem
-																				key={cls.classId}
-																				value={cls.classId}
-																			>
-																				{cls.name}
-																			</SelectItem>
-																		))}
-																</SelectContent>
-															</Select>
-															{formData.sponsorClass &&
-																getAllClassesForSession(session).some(
-																	(cls) =>
-																		cls.classId === formData.sponsorClass,
-																) && (
-																	<p className="text-xs text-green-600 mt-1">
-																		This teacher will be assigned as sponsor for
-																		the selected class
-																	</p>
-																)}
-														</div>
-													</motion.div>
-												)}
-											</AnimatePresence>
+											))}
 										</div>
-									))}
+									)}
+
+									<div className="flex-1 min-w-0">
+										<AnimatePresence mode="wait">
+											<motion.div
+												key={activeTeacherSession}
+												initial={{ opacity: 0, x: 6 }}
+												animate={{ opacity: 1, x: 0 }}
+												transition={{ duration: 0.16 }}
+											>
+												{renderTeacherSessionPanel(
+													activeTeacherSession,
+													formData.subjects || [],
+													formData.sponsorClass,
+													handleSelfContainedSelection,
+													handleSubjectChange,
+													handleSponsorClassChange,
+												)}
+											</motion.div>
+										</AnimatePresence>
+									</div>
 								</div>
 							</section>
 						)}
@@ -1916,7 +1964,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 									<button
 										type="button"
 										onClick={handlePromotion}
-										className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+										className="w-full sm:w-auto px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
 									>
 										Promote Student
 									</button>
@@ -1924,7 +1972,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 										<button
 											type="button"
 											onClick={handleDemotion}
-											className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+											className="w-full sm:w-auto px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90"
 										>
 											Demote Student
 										</button>
@@ -1935,7 +1983,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 								<button
 									type="button"
 									onClick={handleCarryOver}
-									className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+									className="w-full sm:w-auto px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80"
 								>
 									Bring To New Academic Year
 								</button>
@@ -1945,7 +1993,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 							<button
 								type="button"
 								onClick={onClose}
-								className="w-full sm:w-auto px-6 py-2 rounded-lg hover:bg-muted/80"
+								className="w-full sm:w-auto px-6 py-2 rounded-lg hover:bg-muted/80 text-foreground"
 							>
 								Cancel
 							</button>
@@ -1967,6 +2015,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 						</div>
 					</footer>
 
+					{/* PROMOTION MODAL */}
 					{showPromotionModal && (
 						<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
 							<div className="bg-card w-full max-w-lg rounded-xl border border-border shadow-xl">
@@ -1984,7 +2033,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 								</div>
 								<div className="p-4 space-y-4">
 									{actionError && (
-										<p className="text-sm text-red-600">{actionError}</p>
+										<p className="text-sm text-destructive">{actionError}</p>
 									)}
 									{isAtHighestClass() ? (
 										<p className="text-sm text-muted-foreground">
@@ -2000,35 +2049,12 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 													</label>
 													<Select
 														value={promotionForm.type}
-														onValueChange={(value) => {
-															const promotionYearOptions =
-																getPromotionAcademicYearOptions();
-															const latestStart =
-																getLatestAcademicYearStartForUser(user);
-															const defaultPromotionYear =
-																promotionYearOptions.find((year) => {
-																	const start = getAcademicYearStart(year);
-																	return (
-																		start !== null &&
-																		latestStart !== null &&
-																		start > latestStart
-																	);
-																}) ||
-																promotionYearOptions[0] ||
-																'';
+														onValueChange={(val) =>
 															setPromotionForm((prev) => ({
 																...prev,
-																type: value,
-																academicYear:
-																	value === 'yearlyPromotion'
-																		? promotionYearOptions.includes(
-																				prev.academicYear,
-																			)
-																			? prev.academicYear
-																			: defaultPromotionYear
-																		: prev.academicYear,
-															}));
-														}}
+																type: val,
+															}))
+														}
 													>
 														<SelectTrigger className={selectTriggerClass}>
 															<SelectValue placeholder="Select type" />
@@ -2054,14 +2080,14 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 												</label>
 												<Select
 													value={promotionForm.classId}
-													onValueChange={(value) => {
-														const selected = getPromotionClassOptions().find(
-															(cls) => cls.classId === value,
+													onValueChange={(val) => {
+														const sel = getPromotionClassOptions().find(
+															(c) => c.classId === val,
 														);
-														setPromotionForm((prev) => ({
-															...prev,
-															classId: value,
-															className: selected?.name || '',
+														setPromotionForm((p) => ({
+															...p,
+															classId: val,
+															className: sel?.name || '',
 														}));
 													}}
 												>
@@ -2074,11 +2100,6 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																{cls.name} ({cls.level} - {cls.session})
 															</SelectItem>
 														))}
-														{getPromotionClassOptions().length === 0 && (
-															<div className="px-2 py-1.5 text-sm text-muted-foreground">
-																No higher classes available.
-															</div>
-														)}
 													</SelectContent>
 												</Select>
 											</div>
@@ -2089,10 +2110,10 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 													</label>
 													<Select
 														value={promotionForm.academicYear}
-														onValueChange={(value) =>
-															setPromotionForm((prev) => ({
-																...prev,
-																academicYear: value,
+														onValueChange={(val) =>
+															setPromotionForm((p) => ({
+																...p,
+																academicYear: val,
 															}))
 														}
 													>
@@ -2105,22 +2126,6 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																	{year}
 																</SelectItem>
 															))}
-															{getPromotionAcademicYearOptions().length ===
-																0 && (
-																<div className="px-2 py-1.5 text-sm text-muted-foreground">
-																	No academic year options available.
-																</div>
-															)}
-															{getPromotionAcademicYearOptions().length > 0 &&
-																!hasYearOptionLaterThanUser(
-																	getPromotionAcademicYearOptions(),
-																	user,
-																) && (
-																	<div className="px-2 py-1.5 text-sm text-muted-foreground">
-																		No selectable year is later than the
-																		student&apos;s latest year.
-																	</div>
-																)}
 														</SelectContent>
 													</Select>
 												</div>
@@ -2140,14 +2145,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 										<button
 											type="button"
 											onClick={handlePromotionSubmit}
-											disabled={
-												actionLoading ||
-												(promotionForm.type === 'yearlyPromotion' &&
-													!hasYearOptionLaterThanUser(
-														getPromotionAcademicYearOptions(),
-														user,
-													))
-											}
+											disabled={actionLoading}
 											className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
 										>
 											{actionLoading ? 'Saving...' : 'Confirm Promotion'}
@@ -2158,6 +2156,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 						</div>
 					)}
 
+					{/* DEMOTION MODAL */}
 					{showDemotionModal && (
 						<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
 							<div className="bg-card w-full max-w-lg rounded-xl border border-border shadow-xl">
@@ -2175,7 +2174,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 								</div>
 								<div className="p-4 space-y-4">
 									{actionError && (
-										<p className="text-sm text-red-600">{actionError}</p>
+										<p className="text-sm text-destructive">{actionError}</p>
 									)}
 									<div>
 										<label className="block text-sm font-medium text-foreground mb-1">
@@ -2183,11 +2182,8 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 										</label>
 										<Select
 											value={demotionForm.type}
-											onValueChange={(value) =>
-												setDemotionForm((prev) => ({
-													...prev,
-													type: value,
-												}))
+											onValueChange={(val) =>
+												setDemotionForm((p) => ({ ...p, type: val }))
 											}
 										>
 											<SelectTrigger className={selectTriggerClass}>
@@ -2209,14 +2205,14 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 										</label>
 										<Select
 											value={demotionForm.classId}
-											onValueChange={(value) => {
-												const selected = getDemotionClassOptions().find(
-													(cls) => cls.classId === value,
+											onValueChange={(val) => {
+												const sel = getDemotionClassOptions().find(
+													(c) => c.classId === val,
 												);
-												setDemotionForm((prev) => ({
-													...prev,
-													classId: value,
-													className: selected?.name || '',
+												setDemotionForm((p) => ({
+													...p,
+													classId: val,
+													className: sel?.name || '',
 												}));
 											}}
 										>
@@ -2229,11 +2225,6 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 														{cls.name} ({cls.level} - {cls.session})
 													</SelectItem>
 												))}
-												{getDemotionClassOptions().length === 0 && (
-													<div className="px-2 py-1.5 text-sm text-muted-foreground">
-														No lower classes available.
-													</div>
-												)}
 											</SelectContent>
 										</Select>
 									</div>
@@ -2244,11 +2235,8 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 											</label>
 											<Select
 												value={demotionForm.academicYear}
-												onValueChange={(value) =>
-													setDemotionForm((prev) => ({
-														...prev,
-														academicYear: value,
-													}))
+												onValueChange={(val) =>
+													setDemotionForm((p) => ({ ...p, academicYear: val }))
 												}
 											>
 												<SelectTrigger className={selectTriggerClass}>
@@ -2277,7 +2265,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 										type="button"
 										onClick={handleDemotionSubmit}
 										disabled={actionLoading}
-										className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+										className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 disabled:opacity-50"
 									>
 										{actionLoading ? 'Saving...' : 'Confirm Demotion'}
 									</button>
@@ -2286,9 +2274,10 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 						</div>
 					)}
 
+					{/* CARRY OVER MODAL */}
 					{showCarryOverModal && (
 						<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4">
-							<div className="bg-card w-full max-w-3xl max-h-[92vh] rounded-xl border border-border shadow-xl flex flex-col">
+							<div className="bg-card w-full max-w-4xl max-h-[92vh] rounded-xl border border-border shadow-xl flex flex-col">
 								<div className="flex items-center justify-between p-4 border-b border-border">
 									<div>
 										<h5 className="text-lg font-semibold text-foreground">
@@ -2308,7 +2297,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 								</div>
 								<div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
 									{actionError && (
-										<p className="text-sm text-red-600">{actionError}</p>
+										<p className="text-sm text-destructive">{actionError}</p>
 									)}
 									<div>
 										<label className="block text-sm font-medium text-foreground mb-1">
@@ -2316,7 +2305,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 										</label>
 										<Select
 											value={carryOverAcademicYear}
-											onValueChange={(value) => setCarryOverAcademicYear(value)}
+											onValueChange={setCarryOverAcademicYear}
 										>
 											<SelectTrigger className={selectTriggerClass}>
 												<SelectValue placeholder="Select Academic Year" />
@@ -2327,367 +2316,93 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 														{year}
 													</SelectItem>
 												))}
-												{getCarryOverAcademicYearOptions().length === 0 && (
-													<div className="px-2 py-1.5 text-sm text-muted-foreground">
-														No eligible academic year options available.
-													</div>
-												)}
-												{getCarryOverAcademicYearOptions().length > 0 &&
-													!hasYearOptionLaterThanUser(
-														getCarryOverAcademicYearOptions(),
-														user,
-													) && (
-														<div className="px-2 py-1.5 text-sm text-muted-foreground">
-															No selectable year is later than the user&apos;s
-															latest year.
-														</div>
-													)}
 											</SelectContent>
 										</Select>
 									</div>
 
-									{user?.role === 'teacher' && (
-										<div className="rounded-lg border border-border bg-muted/30 p-3">
-											<p className="text-sm font-medium text-foreground">
-												Default Teacher Assignments
-											</p>
-											<p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-												{(carryOverSubjects || []).length} subject selections
-												preloaded across{' '}
-												{
-													new Set(
-														(carryOverSubjects || [])
-															.map((entry) => entry?.session)
-															.filter(Boolean),
-													).size
-												}{' '}
-												session(s). Sponsor class:{' '}
-												{carryOverSponsorClass
-													? getClassNameFromId(carryOverSponsorClass)
-													: 'None'}
-												.
-											</p>
-										</div>
-									)}
-
 									{user?.role === 'administrator' && (
-										<div className="rounded-lg border border-border bg-muted/30 p-3">
-											<p className="text-sm font-medium text-foreground">
-												Default Administrator Assignment
-											</p>
-											<p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-												Position preselected: {carryOverPosition || 'N/A'}.
-											</p>
+										<div>
+											<label className="block text-sm font-medium text-foreground mb-1">
+												Position For New Year
+											</label>
+											<Select
+												value={carryOverPosition}
+												onValueChange={setCarryOverPosition}
+											>
+												<SelectTrigger className={selectTriggerClass}>
+													<SelectValue placeholder="Select Position" />
+												</SelectTrigger>
+												<SelectContent>
+													{adminPositions.map((pos) => (
+														<SelectItem key={pos} value={pos}>
+															{pos}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
 										</div>
 									)}
 
-									{['teacher', 'administrator'].includes(user?.role) && (
-										<div className="border border-border rounded-lg overflow-hidden">
-											<button
-												type="button"
-												onClick={() =>
-													setCarryOverAssignmentsExpanded((prev) => !prev)
-												}
-												className="flex justify-between items-center w-full p-3 text-left bg-muted/50 hover:bg-muted/80 transition-colors"
-											>
-												<div>
-													<p className="text-sm font-medium text-foreground">
-														{user?.role === 'teacher'
-															? 'Subject/Class Settings'
-															: 'Position Settings'}
-													</p>
-													<p className="text-xs text-muted-foreground">
-														Collapsed by default. Expand to review or change.
-													</p>
-												</div>
-												<ChevronDown
-													className={`w-5 h-5 transition-transform ${
-														carryOverAssignmentsExpanded ? 'rotate-180' : ''
-													}`}
-												/>
-											</button>
-											<AnimatePresence>
-												{carryOverAssignmentsExpanded && (
-													<motion.div
-														initial={{ opacity: 0, height: 0 }}
-														animate={{ opacity: 1, height: 'auto' }}
-														exit={{ opacity: 0, height: 0 }}
-														className="p-3 sm:p-4 space-y-4 border-t border-border"
-													>
-														{user?.role === 'administrator' && (
-															<div>
-																<label className="block text-sm font-medium text-foreground mb-1">
-																	Position For New Year
-																</label>
-																<Select
-																	value={carryOverPosition}
-																	onValueChange={(value) =>
-																		setCarryOverPosition(value)
-																	}
-																>
-																	<SelectTrigger className={selectTriggerClass}>
-																		<SelectValue placeholder="Select Position" />
-																	</SelectTrigger>
-																	<SelectContent>
-																		{adminPositions.map((pos) => (
-																			<SelectItem key={pos} value={pos}>
-																				{pos}
-																			</SelectItem>
-																		))}
-																	</SelectContent>
-																</Select>
-															</div>
-														)}
+									{user?.role === 'teacher' && (
+										<div className="space-y-4 mt-6">
+											<div className="border-b border-border pb-2 mb-2">
+												<h6 className="text-sm font-semibold text-foreground">
+													Review Subject Assignments
+												</h6>
+											</div>
 
-														{user?.role === 'teacher' && (
-															<div className="space-y-4">
-																<div className="space-y-3">
-																	<p className="text-sm font-medium text-foreground">
-																		Subject Assignments
-																	</p>
-																	{getSessions().map((session) => (
-																		<div
-																			key={`carry-over-${session}`}
-																			className="border border-border rounded-lg overflow-hidden"
-																		>
-																			<button
-																				type="button"
-																				onClick={() =>
-																					toggleCarryOverAccordion(session)
-																				}
-																				className="flex justify-between items-center w-full p-3 font-medium text-left bg-muted/40 hover:bg-muted/70"
-																			>
-																				<span className="text-sm">
-																					{session} Session
-																				</span>
-																				<ChevronDown
-																					className={`w-5 h-5 transition-transform ${
-																						carryOverExpandedAccordions[session]
-																							? 'rotate-180'
-																							: ''
-																					}`}
-																				/>
-																			</button>
-																			<AnimatePresence>
-																				{carryOverExpandedAccordions[
-																					session
-																				] && (
-																					<motion.div
-																						initial={{ opacity: 0, height: 0 }}
-																						animate={{
-																							opacity: 1,
-																							height: 'auto',
-																						}}
-																						exit={{ opacity: 0, height: 0 }}
-																						className="p-3 sm:p-4 space-y-4 border-t border-border"
-																					>
-																						{getSelfContainedClasses(session)
-																							.length > 0 && (
-																							<div className="space-y-3">
-																								<p className="text-sm text-muted-foreground">
-																									<span className="font-medium">
-																										Self-Contained Class Teacher
-																									</span>{' '}
-																									<span className="italic">
-																										(teaches all subjects)
-																									</span>
-																								</p>
-																								<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-																									{getSelfContainedClasses(
-																										session,
-																									).map((cls) => {
-																										const isSelected =
-																											carryOverSponsorClass ===
-																												cls.classId &&
-																											(
-																												carryOverSubjects || []
-																											).some(
-																												(selection) =>
-																													selection.level ===
-																														'Self Contained' &&
-																													selection.session ===
-																														session,
-																											);
-																										return (
-																											<motion.label
-																												key={`carry-over-self-${session}-${cls.classId}`}
-																												whileHover={{
-																													scale: 1.02,
-																												}}
-																												className={`relative flex items-center justify-center rounded-xl border p-3 cursor-pointer transition-all duration-300 ${
-																													isSelected
-																														? 'border-primary bg-primary/10 shadow-md'
-																														: 'border-muted hover:border-primary/50 hover:bg-accent/10'
-																												}`}
-																											>
-																												<input
-																													type="radio"
-																													name={`carry-over-selfContainedClass-${session}`}
-																													checked={isSelected}
-																													onChange={(e) =>
-																														handleCarryOverSelfContainedSelection(
-																															cls.classId,
-																															session,
-																															e.target.checked,
-																														)
-																													}
-																													className="absolute opacity-0"
-																												/>
-																												<span className="text-sm font-medium text-foreground">
-																													{cls.name}
-																												</span>
-																											</motion.label>
-																										);
-																									})}
-																								</div>
-																							</div>
-																						)}
-																						<div className="space-y-3">
-																							{getClassLevels(session)
-																								.filter(
-																									(level) =>
-																										level !== 'Self Contained',
-																								)
-																								.map((level) => {
-																									const levelStyle =
-																										getLevelVisualStyle(level);
-																									return (
-																										<div
-																											key={`carry-over-${session}-${level}`}
-																											className={`rounded-lg border p-3 ${levelStyle.section}`}
-																										>
-																											<h6 className="mb-2">
-																												<span
-																													className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${levelStyle.badge}`}
-																												>
-																													{level}
-																												</span>
-																											</h6>
-																											<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-																												{getSubjectsBySessionAndLevel(
-																													session,
-																													level,
-																												).map((subject) => {
-																													const subjectName =
-																														getSubjectName(
-																															subject,
-																														);
-																													if (!subjectName)
-																														return null;
-																													const isChecked = (
-																														carryOverSubjects ||
-																														[]
-																													).some(
-																														(selection) =>
-																															selection.subject ===
-																																subjectName &&
-																															selection.level ===
-																																level &&
-																															selection.session ===
-																																session,
-																													);
-																													return (
-																														<motion.label
-																															key={`carry-over-${subjectName}-${level}-${session}`}
-																															whileHover={{
-																																scale: 1.02,
-																															}}
-																															className={`relative flex items-center rounded-lg border p-2 cursor-pointer transition-all text-sm ${
-																																isChecked
-																																	? 'border-primary bg-primary/10 shadow-sm'
-																																	: 'border-muted hover:border-primary/40 hover:bg-accent/5'
-																															}`}
-																														>
-																															<input
-																																type="checkbox"
-																																checked={
-																																	isChecked
-																																}
-																																onChange={(e) =>
-																																	handleCarryOverSubjectChange(
-																																		subjectName,
-																																		level,
-																																		session,
-																																		e.target
-																																			.checked,
-																																	)
-																																}
-																																className="absolute opacity-0"
-																															/>
-																															<span className="ml-1 text-foreground">
-																																{subjectName}
-																															</span>
-																														</motion.label>
-																													);
-																												})}
-																											</div>
-																										</div>
-																									);
-																								})}
-																						</div>
-																						<div>
-																							<label className="block text-sm font-medium text-foreground mb-1">
-																								Sponsor Class
-																							</label>
-																							<Select
-																								value={
-																									carryOverSponsorClass &&
-																									getAllClassesForSession(
-																										session,
-																									).some(
-																										(cls) =>
-																											cls.classId ===
-																											carryOverSponsorClass,
-																									)
-																										? carryOverSponsorClass
-																										: '__none__'
-																								}
-																								onValueChange={(value) =>
-																									handleCarryOverSponsorClassChange(
-																										session,
-																										value,
-																									)
-																								}
-																							>
-																								<SelectTrigger
-																									className={selectTriggerClass}
-																								>
-																									<SelectValue placeholder="No sponsorship" />
-																								</SelectTrigger>
-																								<SelectContent>
-																									<SelectItem value="__none__">
-																										No sponsorship
-																									</SelectItem>
-																									{getAllClassesWithLevelsForSession(
-																										session,
-																									)
-																										.filter(
-																											(cls) =>
-																												cls.level !==
-																												'Self Contained',
-																										)
-																										.map((cls) => (
-																											<SelectItem
-																												key={cls.classId}
-																												value={cls.classId}
-																											>
-																												{cls.name}
-																											</SelectItem>
-																										))}
-																								</SelectContent>
-																							</Select>
-																						</div>
-																					</motion.div>
-																				)}
-																			</AnimatePresence>
-																		</div>
-																	))}
-																</div>
-															</div>
-														)}
-													</motion.div>
+											{getSessions().length > 1 && (
+												<MobileTabStrip
+													items={getSessions().map((session) => ({
+														id: session,
+														label: session,
+														icon: BookOpen,
+													}))}
+													activeId={carryOverActiveSession}
+													onSelect={setCarryOverActiveSession}
+												/>
+											)}
+
+											<div className="flex gap-4">
+												{getSessions().length > 1 && (
+													<div className="hidden sm:flex flex-col gap-1 w-40 lg:w-44 shrink-0">
+														<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 px-1">
+															Sessions
+														</p>
+														{getSessions().map((session) => (
+															<SidebarItem
+																key={session}
+																label={session}
+																isActive={carryOverActiveSession === session}
+																icon={BookOpen}
+																onClick={() =>
+																	setCarryOverActiveSession(session)
+																}
+															/>
+														))}
+													</div>
 												)}
-											</AnimatePresence>
+
+												<div className="flex-1 min-w-0">
+													<AnimatePresence mode="wait">
+														<motion.div
+															key={carryOverActiveSession}
+															initial={{ opacity: 0, x: 6 }}
+															animate={{ opacity: 1, x: 0 }}
+															transition={{ duration: 0.16 }}
+														>
+															{renderTeacherSessionPanel(
+																carryOverActiveSession,
+																carryOverSubjects,
+																carryOverSponsorClass,
+																handleCarryOverSelfContainedSelection,
+																handleCarryOverSubjectChange,
+																handleCarryOverSponsorClassChange,
+															)}
+														</motion.div>
+													</AnimatePresence>
+												</div>
+											</div>
 										</div>
 									)}
 								</div>
@@ -2704,11 +2419,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 										onClick={handleCarryOverSubmit}
 										disabled={
 											actionLoading ||
-											getCarryOverAcademicYearOptions().length === 0 ||
-											!hasYearOptionLaterThanUser(
-												getCarryOverAcademicYearOptions(),
-												user,
-											)
+											getCarryOverAcademicYearOptions().length === 0
 										}
 										className="w-full sm:w-auto px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
 									>
@@ -2740,7 +2451,7 @@ const InputField = ({ label, ...props }) => (
 		</label>
 		<input
 			{...props}
-			className="w-full p-2 border border-border/70 rounded-lg bg-gradient-to-br from-background to-muted/30 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-primary/30 hover:border-primary/40"
+			className="w-full p-2 border border-border/70 rounded-lg bg-background shadow-sm transition focus:outline-none focus:ring-2 focus:ring-primary/30 hover:border-primary/40 text-foreground"
 		/>
 	</div>
 );
