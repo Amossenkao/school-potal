@@ -1151,36 +1151,6 @@ const SubmitGrade: React.FC = () => {
 					studentsForGrading.length > 0 &&
 					selectedPeriods.length > 0 && (
 						<div className="rounded-lg border border-border bg-card shadow-sm">
-							{/* Table meta bar */}
-							<div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b border-border gap-2 flex-wrap">
-								<div className="flex items-center gap-2 text-xs text-muted-foreground">
-									<span className="font-medium text-foreground">
-										{studentsForGrading.length} students
-									</span>
-									<span>·</span>
-									<span>{selectedSubject}</span>
-									{selectedClassName && (
-										<>
-											<span>·</span>
-											<span>{selectedClassName}</span>
-										</>
-									)}
-								</div>
-								{totalGradableSlots > 0 && (
-									<div className="flex items-center gap-2">
-										<div className="w-24 h-1.5 bg-muted rounded-full overflow-hidden">
-											<div
-												className="h-full bg-primary rounded-full transition-all duration-300"
-												style={{ width: `${fillPercent}%` }}
-											/>
-										</div>
-										<span className="text-xs text-muted-foreground tabular-nums">
-											{filledCount}/{totalGradableSlots}
-										</span>
-									</div>
-								)}
-							</div>
-
 							{error.studentsForGrading && (
 								<div className="mx-4 mt-3 text-destructive p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm">
 									{error.studentsForGrading}
