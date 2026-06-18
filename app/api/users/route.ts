@@ -947,8 +947,8 @@ async function validateTeacherData(
 									new Set(
 										classEntry.subjects
 											.map((subject: any) => String(subject || '').trim())
-											.filter(
-												(subject: string) => requestedSubjects.includes(subject),
+											.filter((subject: string) =>
+												requestedSubjects.includes(subject),
 											),
 									),
 								)
@@ -1142,6 +1142,7 @@ async function handleForceReassignmentEnhanced(
 	models: any,
 	newUserId: string | null,
 	conflicts: ConflictDetails[],
+	newTeacherUsername?: string | null,
 ) {
 	// Handle sponsorship conflicts
 	const sponsorshipConflicts = conflicts.filter(
@@ -1159,6 +1160,7 @@ async function handleForceReassignmentEnhanced(
 
 	// Handle subject assignment conflicts
 	const subjectConflicts = conflicts.filter((c) => c.type === 'subject');
+	const gradeUpdatePromises: Promise<any>[] = [];
 	for (const conflict of subjectConflicts) {
 		if (conflict.assignment) {
 			// Remove only the reassigned subjects for the specific class/year
@@ -1215,8 +1217,31 @@ async function handleForceReassignmentEnhanced(
 						},
 					},
 				);
+
+				if (newTeacherUsername) {
+					gradeUpdatePromises.push(
+						models.Grade.updateMany(
+							{
+								academicYear: conflict.assignment!.year,
+								classId: conflict.assignment!.classId,
+								subject: { $in: conflict.assignment!.subjects || [] },
+								teacherUsername: conflict.conflictingTeacher.teacherUsername,
+							},
+							{
+								$set: {
+									teacherUsername: newTeacherUsername,
+									updatedAt: new Date(),
+								},
+							},
+						),
+					);
+				}
 			}
 		}
+	}
+
+	if (gradeUpdatePromises.length > 0) {
+		await Promise.all(gradeUpdatePromises);
 	}
 }
 
@@ -1237,7 +1262,8 @@ export async function GET(request: NextRequest) {
 		const schoolProfile = await getSchoolProfile();
 		const currentAcademicYear =
 			schoolProfile?.currentAcademicYear || getAcademicYear();
-		const academicYear = searchParams.get('academicYear') || currentAcademicYear;
+		const academicYear =
+			searchParams.get('academicYear') || currentAcademicYear;
 		const limit = parseInt(searchParams.get('limit') || '50000', 10);
 		const page = Math.max(parseInt(searchParams.get('page') || '1', 10), 1);
 		const includeCounts =
@@ -2054,7 +2080,10 @@ export async function GET(request: NextRequest) {
 				} else if (role === 'student') {
 					Object.assign(
 						filters,
-						buildStudentAcademicYearClassFilter(academicYear, classId || undefined),
+						buildStudentAcademicYearClassFilter(
+							academicYear,
+							classId || undefined,
+						),
 					);
 				} else {
 					filters['academicYears.year'] = academicYear;
@@ -2177,7 +2206,10 @@ export async function GET(request: NextRequest) {
 				} else if (role === 'student') {
 					Object.assign(
 						filters,
-						buildStudentAcademicYearClassFilter(academicYear, classId || undefined),
+						buildStudentAcademicYearClassFilter(
+							academicYear,
+							classId || undefined,
+						),
 					);
 				} else {
 					filters['academicYears.year'] = academicYear;
@@ -2400,6 +2432,7 @@ export async function POST(request: NextRequest) {
 				models,
 				null,
 				conflictsToHandle,
+				userData.username,
 			);
 		}
 
@@ -2636,7 +2669,11 @@ export async function PUT(request: NextRequest) {
 					getAcademicYear();
 				const latestStart = getAcademicYearStart(studentLatestAcademicYear);
 				const newStart = getAcademicYearStart(newAcademicYear);
-				if (latestStart === null || newStart === null || newStart <= latestStart) {
+				if (
+					latestStart === null ||
+					newStart === null ||
+					newStart <= latestStart
+				) {
 					return NextResponse.json(
 						{
 							success: false,
@@ -3107,7 +3144,7 @@ export async function PUT(request: NextRequest) {
 						{
 							success: false,
 							message:
-								'New academic year must be later than the teacher\'s latest academic year.',
+								"New academic year must be later than the teacher's latest academic year.",
 						},
 						{ status: 400 },
 					);
@@ -3133,13 +3170,18 @@ export async function PUT(request: NextRequest) {
 							(getAcademicYearStart(b.year) ?? -1) -
 							(getAcademicYearStart(a.year) ?? -1),
 					)[0];
-				const clonedClasses = normalizeTeacherClasses(latestYearEntry?.classes || []);
+				const clonedClasses = normalizeTeacherClasses(
+					latestYearEntry?.classes || [],
+				);
 				const requestedClasses = normalizeTeacherClasses(classes || []);
 				const classesForNewYear = hasPayloadProp('classes')
 					? requestedClasses
 					: clonedClasses;
 
-				if (!Array.isArray(classesForNewYear) || classesForNewYear.length === 0) {
+				if (
+					!Array.isArray(classesForNewYear) ||
+					classesForNewYear.length === 0
+				) {
 					return NextResponse.json(
 						{
 							success: false,
@@ -3225,6 +3267,7 @@ export async function PUT(request: NextRequest) {
 						models,
 						targetUserId,
 						conflictsToHandle,
+						targetUser.username,
 					);
 				}
 
@@ -3359,7 +3402,9 @@ export async function PUT(request: NextRequest) {
 							positionConflict.middleName,
 							positionConflict.lastName,
 						]
-							.filter((part: unknown) => typeof part === 'string' && part.trim())
+							.filter(
+								(part: unknown) => typeof part === 'string' && part.trim(),
+							)
 							.join(' ') ||
 						'another administrator';
 					return NextResponse.json(
@@ -3517,18 +3562,23 @@ export async function PUT(request: NextRequest) {
 			await destroyAllUserSessions(actualTargetUserId);
 			const actorName = getActorDisplayName(currentUser);
 
-			await addNotificationToUser(models.User, actualTargetUserId, {
-				title: 'Password Reset',
-				message: `Your password was reset by ${actorName}. Please change it after logging in.`,
-				timestamp: new Date(),
-				read: false,
-				dismissed: false,
-				type: 'Security',
-			} as Notification, {
-				tenantKey,
-				actorId: currentUser.id,
-				reason: 'password-reset',
-			});
+			await addNotificationToUser(
+				models.User,
+				actualTargetUserId,
+				{
+					title: 'Password Reset',
+					message: `Your password was reset by ${actorName}. Please change it after logging in.`,
+					timestamp: new Date(),
+					read: false,
+					dismissed: false,
+					type: 'Security',
+				} as Notification,
+				{
+					tenantKey,
+					actorId: currentUser.id,
+					reason: 'password-reset',
+				},
+			);
 
 			const resetYears = extractAcademicYears(updatedUser);
 			await bumpUsersVersion(resetYears);
@@ -3726,6 +3776,7 @@ export async function PUT(request: NextRequest) {
 				models,
 				actualTargetUserId,
 				conflictsToHandle,
+				targetUser.username,
 			);
 		}
 
@@ -3927,9 +3978,7 @@ export async function PUT(request: NextRequest) {
 			});
 		}
 		const revokeOtherSessionsNow = Boolean(
-			isSelfPasswordChange &&
-			!deactivatedNow &&
-			isSelfUpdate,
+			isSelfPasswordChange && !deactivatedNow && isSelfUpdate,
 		);
 		if (revokeOtherSessionsNow) {
 			await destroyAllUserSessions(
@@ -3965,33 +4014,43 @@ export async function PUT(request: NextRequest) {
 						changedProfileFields.length === 1 ? 'was' : 'were'
 					} updated by ${actorName}.`;
 
-			await addNotificationToUser(models.User, actualTargetUserId, {
-				title: 'Profile Updated',
-				message,
-				timestamp: new Date(),
-				read: false,
-				dismissed: false,
-				type: 'Profile',
-			} as Notification, {
-				tenantKey,
-				actorId: currentUser.id,
-				reason: 'profile-updated',
-			});
+			await addNotificationToUser(
+				models.User,
+				actualTargetUserId,
+				{
+					title: 'Profile Updated',
+					message,
+					timestamp: new Date(),
+					read: false,
+					dismissed: false,
+					type: 'Profile',
+				} as Notification,
+				{
+					tenantKey,
+					actorId: currentUser.id,
+					reason: 'profile-updated',
+				},
+			);
 		}
 
 		if (isSelfPasswordChange) {
-			await addNotificationToUser(models.User, actualTargetUserId, {
-				title: 'Password Changed',
-				message: 'You changed your password.',
-				timestamp: new Date(),
-				read: false,
-				dismissed: false,
-				type: 'Security',
-			} as Notification, {
-				tenantKey,
-				actorId: currentUser.id,
-				reason: 'password-changed',
-			});
+			await addNotificationToUser(
+				models.User,
+				actualTargetUserId,
+				{
+					title: 'Password Changed',
+					message: 'You changed your password.',
+					timestamp: new Date(),
+					read: false,
+					dismissed: false,
+					type: 'Security',
+				} as Notification,
+				{
+					tenantKey,
+					actorId: currentUser.id,
+					reason: 'password-changed',
+				},
+			);
 		}
 
 		const updatedUserYears = extractAcademicYears(updatedUser);
