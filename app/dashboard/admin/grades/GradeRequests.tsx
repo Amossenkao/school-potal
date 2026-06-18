@@ -17,6 +17,7 @@ import {
 	ArrowRight,
 	WifiOff,
 	RefreshCw,
+	ChevronDown,
 } from 'lucide-react';
 
 import { useNetworkStore } from '@/store/networkStore';
@@ -63,7 +64,9 @@ interface BulkGradeRequest {
 }
 
 type UnknownRecord = Record<string, unknown>;
-type NormalizedStatus = GradeChangeRequest['status'] | BulkGradeRequest['status'];
+type NormalizedStatus =
+	| GradeChangeRequest['status']
+	| BulkGradeRequest['status'];
 
 const isObjectRecord = (value: unknown): value is UnknownRecord =>
 	typeof value === 'object' && value !== null;
@@ -83,19 +86,24 @@ const toNumberSafe = (value: unknown, fallback = 0): number => {
 	return fallback;
 };
 
-const normalizeRequestStatus = (status: unknown): GradeChangeRequest['status'] => {
+const normalizeRequestStatus = (
+	status: unknown,
+): GradeChangeRequest['status'] => {
 	if (status === 'Approved' || status === 'Rejected') return status;
 	return 'Pending';
 };
 
 const inferBatchStatus = (
-	requests: GradeChangeRequest[]
+	requests: GradeChangeRequest[],
 ): BulkGradeRequest['status'] => {
 	const statuses = new Set(requests.map((request) => request.status));
 	if (statuses.size === 1) {
 		return statuses.values().next().value as BulkGradeRequest['status'];
 	}
-	if (statuses.has('Pending') || (statuses.has('Approved') && statuses.has('Rejected'))) {
+	if (
+		statuses.has('Pending') ||
+		(statuses.has('Approved') && statuses.has('Rejected'))
+	) {
 		return 'Partially Approved';
 	}
 	if (statuses.has('Approved')) return 'Approved';
@@ -105,7 +113,7 @@ const inferBatchStatus = (
 
 const normalizeBatchStatus = (
 	status: unknown,
-	requests: GradeChangeRequest[]
+	requests: GradeChangeRequest[],
 ): BulkGradeRequest['status'] => {
 	if (
 		status === 'Pending' ||
@@ -121,7 +129,7 @@ const normalizeBatchStatus = (
 const normalizeGradeRequest = (
 	request: unknown,
 	defaultBatchId: string,
-	requestIndex: number
+	requestIndex: number,
 ): GradeChangeRequest => {
 	const source = isObjectRecord(request) ? request : {};
 	const fallbackRequestId = `${defaultBatchId}-request-${requestIndex}`;
@@ -133,10 +141,7 @@ const normalizeGradeRequest = (
 			: toNumberSafe(originalGradeRaw, Number.NaN);
 
 	return {
-		requestId: toStringSafe(
-			source.requestId ?? source._id,
-			fallbackRequestId
-		),
+		requestId: toStringSafe(source.requestId ?? source._id, fallbackRequestId),
 		batchId: toStringSafe(source.batchId, defaultBatchId),
 		studentId: toStringSafe(source.studentId),
 		studentName: toStringSafe(source.studentName, 'Unknown Student'),
@@ -201,30 +206,36 @@ const normalizeBulkRequests = (input: unknown): BulkGradeRequest[] => {
 
 		accumulator.academicYear = firstNonEmpty(
 			accumulator.academicYear,
-			item.academicYear
+			item.academicYear,
 		);
 		accumulator.period = firstNonEmpty(accumulator.period, item.period);
 		accumulator.classId = firstNonEmpty(accumulator.classId, item.classId);
 		accumulator.subject = firstNonEmpty(accumulator.subject, item.subject);
 		accumulator.teacherUsername = firstNonEmpty(
 			accumulator.teacherUsername,
-			item.teacherUsername
+			item.teacherUsername,
 		);
-		accumulator.teacherName = firstNonEmpty(accumulator.teacherName, item.teacherName);
+		accumulator.teacherName = firstNonEmpty(
+			accumulator.teacherName,
+			item.teacherName,
+		);
 		accumulator.submittedAt = firstNonEmpty(
 			accumulator.submittedAt,
-			item.submittedAt
+			item.submittedAt,
 		);
 		accumulator.lastUpdated = firstNonEmpty(
 			accumulator.lastUpdated,
-			item.lastUpdated ?? item.submittedAt
+			item.lastUpdated ?? item.submittedAt,
 		);
 
 		if (accumulator.status === undefined && typeof item.status === 'string') {
 			accumulator.status = item.status as NormalizedStatus;
 		}
 
-		if (accumulator.statsTotalRequests === undefined && isObjectRecord(item.stats)) {
+		if (
+			accumulator.statsTotalRequests === undefined &&
+			isObjectRecord(item.stats)
+		) {
 			accumulator.statsTotalRequests = item.stats.totalRequests;
 		}
 
@@ -235,8 +246,8 @@ const normalizeBulkRequests = (input: unknown): BulkGradeRequest[] => {
 				normalizeGradeRequest(
 					request,
 					batchId,
-					requestStartIndex + requestIndex + 1
-				)
+					requestStartIndex + requestIndex + 1,
+				),
 			);
 		});
 	});
@@ -281,14 +292,14 @@ const GradeRequests: React.FC = () => {
 		currentAcademicYear || academicYearOptions[0] || '',
 	);
 	const setGradeRequestsForYear = useSchoolStore(
-		(state) => state.setGradeRequestsForYear
+		(state) => state.setGradeRequestsForYear,
 	);
 	const scopedGradeRequests = useSchoolStore(
 		(state) =>
 			getScopedAcademicYearValue(
 				state.gradeRequestsByAcademicYear,
 				selectedAcademicYear,
-			).value
+			).value,
 	);
 	// Data states
 	const [bulkRequests, setBulkRequests] = useState<BulkGradeRequest[]>([]);
@@ -311,7 +322,7 @@ const GradeRequests: React.FC = () => {
 	const [selectedBulkRequest, setSelectedBulkRequest] =
 		useState<BulkGradeRequest | null>(null);
 	const [selectedBulkRequests, setSelectedBulkRequests] = useState<Set<string>>(
-		new Set()
+		new Set(),
 	);
 	const [selectedIndividualRequests, setSelectedIndividualRequests] = useState<
 		Set<string>
@@ -392,7 +403,7 @@ const GradeRequests: React.FC = () => {
 			}
 			setError('');
 			const response = await fetch(
-				`/api/grades/requests?academicYear=${selectedAcademicYear}`
+				`/api/grades/requests?academicYear=${selectedAcademicYear}`,
 			);
 			if (!response.ok) {
 				throw new Error('Failed to fetch grade change requests');
@@ -466,7 +477,7 @@ const GradeRequests: React.FC = () => {
 		}
 		if (selectedBulkRequest) {
 			const refreshedSelected = nextRequests.find(
-				(batch) => batch.batchId === selectedBulkRequest.batchId
+				(batch) => batch.batchId === selectedBulkRequest.batchId,
 			);
 			if (refreshedSelected) {
 				setSelectedBulkRequest(refreshedSelected);
@@ -521,8 +532,8 @@ const GradeRequests: React.FC = () => {
 		const requestsToUpdate =
 			selectedIndividualRequests.size > 0
 				? selectedBulkRequest.requests.filter((r) =>
-						selectedIndividualRequests.has(r.requestId)
-				  )
+						selectedIndividualRequests.has(r.requestId),
+					)
 				: selectedBulkRequest.requests;
 
 		const payload = {
@@ -538,8 +549,8 @@ const GradeRequests: React.FC = () => {
 		const requestsToUpdate =
 			selectedIndividualRequests.size > 0
 				? selectedBulkRequest.requests.filter((r) =>
-						selectedIndividualRequests.has(r.requestId)
-				  )
+						selectedIndividualRequests.has(r.requestId),
+					)
 				: selectedBulkRequest.requests;
 
 		const payload = {
@@ -620,24 +631,27 @@ const GradeRequests: React.FC = () => {
 						req.subject.toLowerCase().includes(query) ||
 						(classMap.get(req.classId) || '').toLowerCase().includes(query)
 					);
-					}
-					return true;
-				})
-				.sort((a, b) => {
-					const statusDelta =
-						(statusPriority[a.status] ?? 3) - (statusPriority[b.status] ?? 3);
-					if (statusDelta !== 0) return statusDelta;
-					const aTime = new Date(a.lastUpdated || a.submittedAt).getTime();
-					const bTime = new Date(b.lastUpdated || b.submittedAt).getTime();
-					return bTime - aTime;
-				});
+				}
+				return true;
+			})
+			.sort((a, b) => {
+				const statusDelta =
+					(statusPriority[a.status] ?? 3) - (statusPriority[b.status] ?? 3);
+				if (statusDelta !== 0) return statusDelta;
+				const aTime = new Date(a.lastUpdated || a.submittedAt).getTime();
+				const bTime = new Date(b.lastUpdated || b.submittedAt).getTime();
+				return bTime - aTime;
+			});
 	}, [bulkRequests, filters, searchQuery, classMap]);
 
-	const totalPages = Math.max(1, Math.ceil(filteredRequests.length / rowsPerPage));
+	const totalPages = Math.max(
+		1,
+		Math.ceil(filteredRequests.length / rowsPerPage),
+	);
 	const currentPageSafe = Math.min(currentPage, totalPages);
 	const currentSlice = filteredRequests.slice(
 		(currentPageSafe - 1) * rowsPerPage,
-		currentPageSafe * rowsPerPage
+		currentPageSafe * rowsPerPage,
 	);
 
 	useEffect(() => {
@@ -673,7 +687,7 @@ const GradeRequests: React.FC = () => {
 
 	// --- UI HELPERS ---
 	const getStatusClasses = (
-		status: BulkGradeRequest['status'] | GradeChangeRequest['status']
+		status: BulkGradeRequest['status'] | GradeChangeRequest['status'],
 	) => {
 		switch (status) {
 			case 'Approved':
@@ -689,7 +703,7 @@ const GradeRequests: React.FC = () => {
 		}
 	};
 	const getStatusIcon = (
-		status: BulkGradeRequest['status'] | GradeChangeRequest['status']
+		status: BulkGradeRequest['status'] | GradeChangeRequest['status'],
 	) => {
 		switch (status) {
 			case 'Approved':
@@ -720,143 +734,149 @@ const GradeRequests: React.FC = () => {
 	const renderDetailsModal = () => {
 		if (!selectedBulkRequest) return null;
 		const selectableRequests = selectedBulkRequest.requests.filter(
-			(g) => g.status === 'Pending'
+			(g) => g.status === 'Pending',
 		);
 
 		return (
 			<div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
 				<div className="flex min-h-full items-center justify-center">
 					<div className="bg-card rounded-lg shadow-xl w-full max-w-6xl max-h-[calc(100dvh-2rem)] flex flex-col border">
-					{/* Modal Header */}
-					<div className="p-6 border-b">
-						<div className="flex justify-between items-start">
-							<div>
-								<h3 className="text-xl font-semibold">
-									Grade Change Request Batch
-								</h3>
-								<div className="text-sm text-muted-foreground mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
-									<span className="flex items-center gap-1.5">
-										<User className="h-4 w-4" />
-										{selectedBulkRequest.teacherName}
-									</span>
-									<span className="flex items-center gap-1.5">
-										<BookOpen className="h-4 w-4" />
-										{selectedBulkRequest.subject}
-									</span>
-									<span className="flex items-center gap-1.5">
-										<GraduationCap className="h-4 w-4" />
-										{classMap.get(selectedBulkRequest.classId)}
-									</span>
-									<span className="flex items-center gap-1.5">
-										<Calendar className="h-4 w-4" />
-										Submitted: {formatDate(selectedBulkRequest.submittedAt)}
-									</span>
+						{/* Modal Header */}
+						<div className="p-6 border-b">
+							<div className="flex justify-between items-start">
+								<div>
+									<h3 className="text-xl font-semibold">
+										Grade Change Request Batch
+									</h3>
+									<div className="text-sm text-muted-foreground mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+										<span className="flex items-center gap-1.5">
+											<User className="h-4 w-4" />
+											{selectedBulkRequest.teacherName}
+										</span>
+										<span className="flex items-center gap-1.5">
+											<BookOpen className="h-4 w-4" />
+											{selectedBulkRequest.subject}
+										</span>
+										<span className="flex items-center gap-1.5">
+											<GraduationCap className="h-4 w-4" />
+											{classMap.get(selectedBulkRequest.classId)}
+										</span>
+										<span className="flex items-center gap-1.5">
+											<Calendar className="h-4 w-4" />
+											Submitted: {formatDate(selectedBulkRequest.submittedAt)}
+										</span>
+									</div>
 								</div>
+								<button
+									onClick={() => setShowDetailsModal(false)}
+									className="text-muted-foreground hover:text-foreground"
+								>
+									<X className="h-5 w-5" />
+								</button>
 							</div>
-							<button
-								onClick={() => setShowDetailsModal(false)}
-								className="text-muted-foreground hover:text-foreground"
-							>
-								<X className="h-5 w-5" />
-							</button>
 						</div>
-					</div>
-					{/* Modal Body */}
+						{/* Modal Body */}
 						<div className="p-6 overflow-y-auto overscroll-contain flex-grow">
 							<div className="overflow-x-auto">
 								<table className="min-w-full divide-y divide-border">
-							<thead className="bg-muted/50">
-								<tr>
-									<th className="p-3 text-left">
-										<input
-											type="checkbox"
-											onChange={(e) => {
-												if (e.target.checked)
-													setSelectedIndividualRequests(
-														new Set(selectableRequests.map((g) => g.requestId))
-													);
-												else setSelectedIndividualRequests(new Set());
-											}}
-											checked={
-												selectableRequests.length > 0 &&
-												selectedIndividualRequests.size ===
-													selectableRequests.length
-											}
-											className="rounded border-input"
-										/>
-									</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-										Student
-									</th>
-									<th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
-										Grade Change
-									</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-										Teacher's Reason
-									</th>
-									<th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
-										Status
-									</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-border">
-								{selectedBulkRequest.requests.map((req) => (
-									<tr
-										key={req.requestId}
-										className={
-											selectedIndividualRequests.has(req.requestId)
-												? 'bg-primary/10'
-												: ''
-										}
-									>
-										<td className="p-3">
-											<input
-												type="checkbox"
-												disabled={req.status !== 'Pending'}
-												checked={selectedIndividualRequests.has(req.requestId)}
-												onChange={() => {
-													const newSet = new Set(selectedIndividualRequests);
-													if (newSet.has(req.requestId))
-														newSet.delete(req.requestId);
-													else newSet.add(req.requestId);
-													setSelectedIndividualRequests(newSet);
-												}}
-												className="rounded border-input disabled:opacity-50"
-											/>
-										</td>
-										<td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
-											{req.studentName}
-										</td>
-										<td className="px-4 py-4 whitespace-nowrap text-sm text-center font-semibold">
-											<span className={getGradeColor(req.originalGrade)}>
-												{req.originalGrade ?? 'N/A'}
-											</span>
-											<ArrowRight className="inline-block h-3 w-3 mx-1 text-muted-foreground" />
-											<span className={getGradeColor(req.requestedGrade)}>
-												{req.requestedGrade}
-											</span>
-										</td>
-										<td className="px-4 py-4 text-sm text-muted-foreground max-w-sm truncate">
-											{req.reasonForChange}
-										</td>
-										<td className="px-4 py-4 whitespace-nowrap text-sm text-center">
-											<span
-												className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
-													req.status
-												)}`}
+									<thead className="bg-muted/50">
+										<tr>
+											<th className="p-3 text-left">
+												<input
+													type="checkbox"
+													onChange={(e) => {
+														if (e.target.checked)
+															setSelectedIndividualRequests(
+																new Set(
+																	selectableRequests.map((g) => g.requestId),
+																),
+															);
+														else setSelectedIndividualRequests(new Set());
+													}}
+													checked={
+														selectableRequests.length > 0 &&
+														selectedIndividualRequests.size ===
+															selectableRequests.length
+													}
+													className="rounded border-input"
+												/>
+											</th>
+											<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+												Student
+											</th>
+											<th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+												Grade Change
+											</th>
+											<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+												Teacher's Reason
+											</th>
+											<th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+												Status
+											</th>
+										</tr>
+									</thead>
+									<tbody className="divide-y divide-border">
+										{selectedBulkRequest.requests.map((req) => (
+											<tr
+												key={req.requestId}
+												className={
+													selectedIndividualRequests.has(req.requestId)
+														? 'bg-primary/10'
+														: ''
+												}
 											>
-												{getStatusIcon(req.status)} {req.status}
-											</span>
-										</td>
-									</tr>
-								))}
-								</tbody>
+												<td className="p-3">
+													<input
+														type="checkbox"
+														disabled={req.status !== 'Pending'}
+														checked={selectedIndividualRequests.has(
+															req.requestId,
+														)}
+														onChange={() => {
+															const newSet = new Set(
+																selectedIndividualRequests,
+															);
+															if (newSet.has(req.requestId))
+																newSet.delete(req.requestId);
+															else newSet.add(req.requestId);
+															setSelectedIndividualRequests(newSet);
+														}}
+														className="rounded border-input disabled:opacity-50"
+													/>
+												</td>
+												<td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+													{req.studentName}
+												</td>
+												<td className="px-4 py-4 whitespace-nowrap text-sm text-center font-semibold">
+													<span className={getGradeColor(req.originalGrade)}>
+														{req.originalGrade ?? 'N/A'}
+													</span>
+													<ArrowRight className="inline-block h-3 w-3 mx-1 text-muted-foreground" />
+													<span className={getGradeColor(req.requestedGrade)}>
+														{req.requestedGrade}
+													</span>
+												</td>
+												<td className="px-4 py-4 text-sm text-muted-foreground max-w-sm truncate">
+													{req.reasonForChange}
+												</td>
+												<td className="px-4 py-4 whitespace-nowrap text-sm text-center">
+													<span
+														className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
+															req.status,
+														)}`}
+													>
+														{getStatusIcon(req.status)} {req.status}
+													</span>
+												</td>
+											</tr>
+										))}
+									</tbody>
 								</table>
 							</div>
 						</div>
 						{/* Modal Footer */}
 						{['Pending', 'Partially Approved'].includes(
-							selectedBulkRequest.status
+							selectedBulkRequest.status,
 						) && (
 							<div className="p-6 border-t bg-muted flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 								<div className="text-sm text-muted-foreground">
@@ -864,30 +884,32 @@ const GradeRequests: React.FC = () => {
 										? `${selectedIndividualRequests.size} pending request(s) selected`
 										: 'Actions apply to all pending requests'}
 								</div>
-							<div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+								<div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
 									<button
 										onClick={() => setShowRejectModal(true)}
 										className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 flex items-center justify-center gap-2 sm:w-auto"
 									>
 										<XCircle className="h-4 w-4" /> Reject{' '}
 										{selectedIndividualRequests.size > 0
-										? 'Selected'
-										: 'All Pending'}
-								</button>
+											? 'Selected'
+											: 'All Pending'}
+									</button>
 									<button
 										onClick={handleModalApprove}
 										disabled={isProcessing}
 										className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto"
 									>
-										{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}{' '}
+										{isProcessing && (
+											<Loader2 className="h-4 w-4 animate-spin" />
+										)}{' '}
 										<Check className="h-4 w-4" /> Approve{' '}
-									{selectedIndividualRequests.size > 0
-										? 'Selected'
-										: 'All Pending'}
-								</button>
+										{selectedIndividualRequests.size > 0
+											? 'Selected'
+											: 'All Pending'}
+									</button>
+								</div>
 							</div>
-						</div>
-					)}
+						)}
 					</div>
 				</div>
 			</div>
@@ -898,41 +920,45 @@ const GradeRequests: React.FC = () => {
 		<div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
 			<div className="flex min-h-full items-center justify-center">
 				<div className="bg-card rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border">
-				<div className="p-6 border-b flex justify-between items-center">
-					<h3 className="text-lg font-semibold text-destructive">
-						{isBulk ? 'Bulk Reject Requests' : 'Reject Request(s)'}
-					</h3>
-					<button
-						onClick={() =>
-							isBulk ? setShowBulkRejectModal(false) : setShowRejectModal(false)
-						}
-						className="text-muted-foreground hover:text-foreground"
-					>
-						<X className="h-5 w-5" />
-					</button>
-				</div>
-				<div className="p-6">
-					<p className="text-muted-foreground mb-4">
-						{isBulk
-							? `You are rejecting all pending requests in ${selectedBulkRequests.size} batch(es).`
-							: 'Provide a reason for rejection. This will be visible to the teacher.'}
-					</p>
-					<textarea
-						value={isBulk ? bulkRejectionReason : rejectionReason}
-						onChange={(e) =>
-							isBulk
-								? setBulkRejectionReason(e.target.value)
-								: setRejectionReason(e.target.value)
-						}
-						placeholder="Enter detailed reason for rejection..."
-						rows={4}
-						className="w-full rounded-md border-input bg-background shadow-sm focus:ring-destructive focus:border-destructive"
-					/>
-				</div>
+					<div className="p-6 border-b flex justify-between items-center">
+						<h3 className="text-lg font-semibold text-destructive">
+							{isBulk ? 'Bulk Reject Requests' : 'Reject Request(s)'}
+						</h3>
+						<button
+							onClick={() =>
+								isBulk
+									? setShowBulkRejectModal(false)
+									: setShowRejectModal(false)
+							}
+							className="text-muted-foreground hover:text-foreground"
+						>
+							<X className="h-5 w-5" />
+						</button>
+					</div>
+					<div className="p-6">
+						<p className="text-muted-foreground mb-4">
+							{isBulk
+								? `You are rejecting all pending requests in ${selectedBulkRequests.size} batch(es).`
+								: 'Provide a reason for rejection. This will be visible to the teacher.'}
+						</p>
+						<textarea
+							value={isBulk ? bulkRejectionReason : rejectionReason}
+							onChange={(e) =>
+								isBulk
+									? setBulkRejectionReason(e.target.value)
+									: setRejectionReason(e.target.value)
+							}
+							placeholder="Enter detailed reason for rejection..."
+							rows={4}
+							className="w-full rounded-md border-input bg-background shadow-sm focus:ring-destructive focus:border-destructive"
+						/>
+					</div>
 					<div className="p-6 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
 						<button
 							onClick={() =>
-								isBulk ? setShowBulkRejectModal(false) : setShowRejectModal(false)
+								isBulk
+									? setShowBulkRejectModal(false)
+									: setShowRejectModal(false)
 							}
 							className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto"
 						>
@@ -948,11 +974,11 @@ const GradeRequests: React.FC = () => {
 						>
 							{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}{' '}
 							<XCircle className="h-4 w-4" />{' '}
-						{isBulk
-							? `Reject ${selectedBulkRequests.size} Batches`
-							: 'Confirm Rejection'}
-					</button>
-				</div>
+							{isBulk
+								? `Reject ${selectedBulkRequests.size} Batches`
+								: 'Confirm Rejection'}
+						</button>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -961,13 +987,13 @@ const GradeRequests: React.FC = () => {
 	// --- MAIN COMPONENT RENDER ---
 	return (
 		<div className="space-y-6 bg-background text-foreground p-4 md:p-6">
-				<div className="bg-card border rounded-lg">
-					{/* Header & Filters */}
-					<div className="p-6">
-						<div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start mb-4">
-							<div>
-								<h2 className="text-2xl font-bold">Grade Change Requests</h2>
-								<p className="text-muted-foreground mt-1">
+			<div className="bg-card border rounded-lg">
+				{/* Header & Filters */}
+				<div className="p-6">
+					<div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start mb-4">
+						<div>
+							<h2 className="text-2xl font-bold">Grade Change Requests</h2>
+							<p className="text-muted-foreground mt-1">
 								Review, approve, or reject teacher requests to change student
 								grades.
 								{selectedAcademicYear
@@ -975,115 +1001,123 @@ const GradeRequests: React.FC = () => {
 									: ''}
 							</p>
 						</div>
-							<button
-								onClick={() => fetchRequests(true)}
-								disabled={loading}
-								className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 sm:w-auto"
-							>
-								{loading ? (
-									<Loader2 className="h-4 w-4 animate-spin" />
-								) : (
-									<RefreshCw className="h-4 w-4" />
-								)}{' '}
-								Refresh
-							</button>
+						<button
+							onClick={() => fetchRequests(true)}
+							disabled={loading}
+							className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 sm:w-auto"
+						>
+							{loading ? (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							) : (
+								<RefreshCw className="h-4 w-4" />
+							)}{' '}
+							Refresh
+						</button>
+					</div>
+					{actionNotice && (
+						<div
+							className={`mb-4 rounded-md border px-4 py-2 text-sm ${
+								actionNotice.type === 'error'
+									? 'bg-destructive/10 border-destructive/20 text-destructive'
+									: 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300'
+							}`}
+						>
+							{actionNotice.message}
 						</div>
-						{actionNotice && (
-							<div
-								className={`mb-4 rounded-md border px-4 py-2 text-sm ${
-									actionNotice.type === 'error'
-										? 'bg-destructive/10 border-destructive/20 text-destructive'
-										: 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300'
-								}`}
-							>
-								{actionNotice.message}
+					)}
+					<div className="bg-card border border-border rounded-xl shadow-sm">
+						<div className="flex flex-wrap gap-2 p-2.5 sm:p-3 items-end">
+							{academicYearOptions.length > 1 && (
+								<FilterSelect
+									label="Year"
+									value={selectedAcademicYear}
+									onChange={setSelectedAcademicYear}
+									options={academicYearOptions.map((year) => ({
+										label: year,
+										value: year,
+									}))}
+								/>
+							)}
+
+							<div className="flex flex-col gap-0.5 flex-1 min-w-[220px]">
+								<span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-0.5">
+									Search
+								</span>
+								<div className="relative">
+									<Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+									<input
+										type="text"
+										placeholder="Teacher, subject, or class"
+										value={searchQuery}
+										onChange={(e) => setSearchQuery(e.target.value)}
+										className="h-8 w-full pl-8 pr-3 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring hover:border-ring/50 transition-colors"
+									/>
+								</div>
 							</div>
-						)}
-						<div className="flex flex-wrap gap-4 items-center">
-						<div className="relative w-full sm:w-auto flex-grow">
-							<Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-							<input
-								type="text"
-								placeholder="Search by teacher, subject, class..."
-								value={searchQuery}
-								onChange={(e) => setSearchQuery(e.target.value)}
-								className="pl-8 w-full rounded-md border-input bg-background shadow-sm p-2 text-sm"
+
+							<FilterSelect
+								label="Status"
+								value={filters.status}
+								onChange={(status) => setFilters((f) => ({ ...f, status }))}
+								options={[
+									{ label: 'All Statuses', value: 'All' },
+									{ label: 'Pending', value: 'Pending' },
+									{
+										label: 'Partially Approved',
+										value: 'Partially Approved',
+									},
+									{ label: 'Approved', value: 'Approved' },
+									{ label: 'Rejected', value: 'Rejected' },
+								]}
+							/>
+
+							<FilterSelect
+								label="Rows"
+								value={String(rowsPerPage)}
+								onChange={(rows) => setRowsPerPage(Number(rows))}
+								options={[
+									{ label: '5', value: '5' },
+									{ label: '10', value: '10' },
+									{ label: '25', value: '25' },
+									{ label: '50', value: '50' },
+								]}
 							/>
 						</div>
-							{academicYearOptions.length > 1 && (
-								<select
-									value={selectedAcademicYear}
-									onChange={(e) => setSelectedAcademicYear(e.target.value)}
-									className="w-full sm:w-auto rounded-md border-input bg-background shadow-sm p-2 text-sm"
-								>
-									{academicYearOptions.map((year) => (
-										<option key={year} value={year}>
-											{year}
-										</option>
-									))}
-								</select>
-							)}
-							<select
-								value={filters.status}
-								onChange={(e) =>
-									setFilters((f) => ({ ...f, status: e.target.value }))
-								}
-								className="w-full sm:w-auto rounded-md border-input bg-background shadow-sm p-2 text-sm"
-							>
-								<option value="All">All Statuses</option>
-								<option value="Pending">Pending</option>
-								<option value="Partially Approved">Partially Approved</option>
-								<option value="Approved">Approved</option>
-								<option value="Rejected">Rejected</option>
-							</select>
-							<div className="flex items-center space-x-2">
-								<span className="text-sm text-muted-foreground">Rows:</span>
-								<select
-									value={rowsPerPage}
-									onChange={(e) => setRowsPerPage(Number(e.target.value))}
-									className="w-[80px] rounded-md border-input bg-background p-2 text-sm"
-								>
-									<option value="5">5</option>
-									<option value="10">10</option>
-									<option value="25">25</option>
-									<option value="50">50</option>
-								</select>
-							</div>
-						</div>
 					</div>
+				</div>
 
 				{/* Bulk Actions Bar */}
-					{selectedBulkRequests.size > 0 && (
-						<div className="bg-primary/10 border-t border-primary/20 p-4">
-							<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				{selectedBulkRequests.size > 0 && (
+					<div className="bg-primary/10 border-t border-primary/20 p-4">
+						<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 							<span className="text-sm font-medium text-primary">
 								{selectedBulkRequests.size} batch(es) selected
 							</span>
-								<div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+							<div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
 								<button
 									onClick={handleBulkApprove}
 									disabled={isProcessing}
-										className="w-full px-3 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-1 sm:w-auto"
+									className="w-full px-3 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-1 sm:w-auto"
 								>
 									{isProcessing && <Loader2 className="h-3 w-3 animate-spin" />}{' '}
 									<Check className="h-3 w-3" /> Approve All Pending
 								</button>
 								<button
 									onClick={() => setShowBulkRejectModal(true)}
-										className="w-full px-3 py-2 bg-destructive text-destructive-foreground text-sm rounded-md hover:bg-destructive/90 flex items-center justify-center gap-1 sm:w-auto"
+									className="w-full px-3 py-2 bg-destructive text-destructive-foreground text-sm rounded-md hover:bg-destructive/90 flex items-center justify-center gap-1 sm:w-auto"
 								>
 									<XCircle className="h-3 w-3" /> Reject All Pending
 								</button>
 								<button
 									onClick={() => setSelectedBulkRequests(new Set())}
-										className="w-full px-3 py-2 bg-secondary text-secondary-foreground text-sm rounded-md hover:bg-secondary/80 sm:w-auto"
+									className="w-full px-3 py-2 bg-secondary text-secondary-foreground text-sm rounded-md hover:bg-secondary/80 sm:w-auto"
 								>
 									Clear Selection
 								</button>
 							</div>
-							</div>
 						</div>
-					)}
+					</div>
+				)}
 
 				{/* Main Table */}
 				<div className="border-t">
@@ -1119,14 +1153,14 @@ const GradeRequests: React.FC = () => {
 													checked={
 														filteredRequests.filter((s) =>
 															['Pending', 'Partially Approved'].includes(
-																s.status
-															)
+																s.status,
+															),
 														).length > 0 &&
 														selectedBulkRequests.size ===
 															filteredRequests.filter((s) =>
 																['Pending', 'Partially Approved'].includes(
-																	s.status
-																)
+																	s.status,
+																),
 															).length
 													}
 													className="rounded border-input"
@@ -1164,7 +1198,7 @@ const GradeRequests: React.FC = () => {
 														}
 														disabled={
 															!['Pending', 'Partially Approved'].includes(
-																batch.status
+																batch.status,
 															)
 														}
 														className="rounded border-input disabled:opacity-50"
@@ -1187,7 +1221,7 @@ const GradeRequests: React.FC = () => {
 												<td className="px-6 py-4 whitespace-nowrap text-sm">
 													<span
 														className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
-															batch.status
+															batch.status,
 														)}`}
 													>
 														{getStatusIcon(batch.status)} {batch.status}
@@ -1213,39 +1247,39 @@ const GradeRequests: React.FC = () => {
 									</tbody>
 								</table>
 							</div>
-								{/* Pagination */}
-								<div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-									<div className="text-sm text-muted-foreground">
-										Showing <strong>{(currentPageSafe - 1) * rowsPerPage + 1}</strong>
-										–
-										<strong>
-											{Math.min(
-												currentPageSafe * rowsPerPage,
-												filteredRequests.length
-											)}
-										</strong>{' '}
-										of <strong>{filteredRequests.length}</strong> batches
+							{/* Pagination */}
+							<div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+								<div className="text-sm text-muted-foreground">
+									Showing{' '}
+									<strong>{(currentPageSafe - 1) * rowsPerPage + 1}</strong>–
+									<strong>
+										{Math.min(
+											currentPageSafe * rowsPerPage,
+											filteredRequests.length,
+										)}
+									</strong>{' '}
+									of <strong>{filteredRequests.length}</strong> batches
+								</div>
+								<div className="flex items-center justify-between gap-2 sm:justify-start">
+									<button
+										className="w-full px-2 py-2 text-sm border rounded-md disabled:opacity-50 sm:w-auto"
+										onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+										disabled={currentPageSafe === 1}
+									>
+										Previous
+									</button>
+									<div className="text-sm">
+										Page {currentPageSafe} of {totalPages}
 									</div>
-									<div className="flex items-center justify-between gap-2 sm:justify-start">
-										<button
-											className="w-full px-2 py-2 text-sm border rounded-md disabled:opacity-50 sm:w-auto"
-											onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-											disabled={currentPageSafe === 1}
-										>
-											Previous
-										</button>
-										<div className="text-sm">
-											Page {currentPageSafe} of {totalPages}
-										</div>
-										<button
-											className="w-full px-2 py-2 text-sm border rounded-md disabled:opacity-50 sm:w-auto"
-											onClick={() =>
-												setCurrentPage((p) => Math.min(p + 1, totalPages))
-											}
-											disabled={currentPageSafe === totalPages}
-										>
-											Next
-										</button>
+									<button
+										className="w-full px-2 py-2 text-sm border rounded-md disabled:opacity-50 sm:w-auto"
+										onClick={() =>
+											setCurrentPage((p) => Math.min(p + 1, totalPages))
+										}
+										disabled={currentPageSafe === totalPages}
+									>
+										Next
+									</button>
 								</div>
 							</div>
 						</>
@@ -1260,5 +1294,42 @@ const GradeRequests: React.FC = () => {
 		</div>
 	);
 };
+
+interface FilterSelectProps {
+	label: string;
+	value: string;
+	onChange: (value: string) => void;
+	options: { label: string; value: string }[];
+	placeholder?: string;
+}
+
+const FilterSelect: React.FC<FilterSelectProps> = ({
+	label,
+	value,
+	onChange,
+	options,
+	placeholder,
+}) => (
+	<div className="flex flex-col gap-0.5">
+		<span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-0.5">
+			{label}
+		</span>
+		<div className="relative">
+			<select
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				className="h-8 pl-3 pr-8 rounded-lg border border-input bg-background text-foreground text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring cursor-pointer hover:border-ring/50 transition-colors"
+			>
+				{placeholder && <option value="">{placeholder}</option>}
+				{options.map((option) => (
+					<option key={option.value} value={option.value}>
+						{option.label}
+					</option>
+				))}
+			</select>
+			<ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+		</div>
+	</div>
+);
 
 export default GradeRequests;
