@@ -6,7 +6,10 @@ import { useSchoolStore } from '@/store/schoolStore';
 import { Loader2, Search } from 'lucide-react';
 import ViewUserModal from '@/components/modals/ViewUserModal';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
-import { areAcademicYearsEqual, getScopedAcademicYearValue } from '@/utils/academicYear';
+import {
+	areAcademicYearsEqual,
+	getScopedAcademicYearValue,
+} from '@/utils/academicYear';
 import {
 	buildSchoolAcademicYearRange,
 	pickMostRecentAcademicYear,
@@ -24,9 +27,9 @@ const Community = () => {
 		(state) => state.usersByAcademicYear,
 	);
 	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
-	const [roleFilter, setRoleFilter] = useState<'student' | 'teacher' | 'administrator'>(
-		'student',
-	);
+	const [roleFilter, setRoleFilter] = useState<
+		'student' | 'teacher' | 'administrator'
+	>('student');
 	const [academicYear, setAcademicYear] = useState('');
 	const [classId, setClassId] = useState('');
 	const [query, setQuery] = useState('');
@@ -133,14 +136,12 @@ const Community = () => {
 				''
 			);
 		}
-		return (
-			pickMostRecentAcademicYear(availableYears, null) ||
-			''
-		);
+		return pickMostRecentAcademicYear(availableYears, null) || '';
 	}, [availableYears, schoolProfile?.currentAcademicYear, sessionUser?.role]);
 
 	const availableClasses = useMemo(() => {
-		if (!sessionUser || sessionUser.role !== 'teacher' || !academicYear) return [];
+		if (!sessionUser || sessionUser.role !== 'teacher' || !academicYear)
+			return [];
 		const yearData = (sessionUser.subjects || []).find((s: any) =>
 			areAcademicYearsEqual(s.year, academicYear),
 		);
@@ -206,8 +207,12 @@ const Community = () => {
 					throw new Error(data.message || 'Failed to load community.');
 				}
 				const payload = {
-					students: Array.isArray(data.data?.students) ? data.data.students : [],
-					teachers: Array.isArray(data.data?.teachers) ? data.data.teachers : [],
+					students: Array.isArray(data.data?.students)
+						? data.data.students
+						: [],
+					teachers: Array.isArray(data.data?.teachers)
+						? data.data.teachers
+						: [],
 					administrators: Array.isArray(data.data?.administrators)
 						? data.data.administrators
 						: [],
@@ -269,7 +274,8 @@ const Community = () => {
 				);
 				const currentStudentClassId = getCurrentStudentClassIdForYear();
 				const matchingClasses = (yearData?.classes || []).filter(
-					(c: any) => !currentStudentClassId || c.classId === currentStudentClassId,
+					(c: any) =>
+						!currentStudentClassId || c.classId === currentStudentClassId,
 				);
 				subjects = matchingClasses.flatMap((c: any) => c.subjects || []);
 			} else {
@@ -323,7 +329,9 @@ const Community = () => {
 					: communityData.administrators;
 
 		if (roleFilter === 'student' && classId) {
-			list = list.filter((u: any) => getStudentClassForYear(u).classId === classId);
+			list = list.filter(
+				(u: any) => getStudentClassForYear(u).classId === classId,
+			);
 		}
 
 		if (!query.trim()) {
@@ -363,7 +371,10 @@ const Community = () => {
 			.sort((a, b) => getFullName(a).localeCompare(getFullName(b)));
 	}, [communityData, roleFilter, classId, query, user?.role, academicYear]);
 
-	const totalPages = Math.max(1, Math.ceil(filteredUsers.length / itemsPerPage));
+	const totalPages = Math.max(
+		1,
+		Math.ceil(filteredUsers.length / itemsPerPage),
+	);
 	const paginatedUsers = useMemo(() => {
 		const startIndex = (currentPage - 1) * itemsPerPage;
 		return filteredUsers.slice(startIndex, startIndex + itemsPerPage);
@@ -403,7 +414,9 @@ const Community = () => {
 
 	const getLoadingMessage = () => {
 		if (roleFilter === 'student') {
-			return user?.role === 'student' ? 'Loading classmates...' : 'Loading students...';
+			return user?.role === 'student'
+				? 'Loading classmates...'
+				: 'Loading students...';
 		}
 		if (roleFilter === 'teacher') {
 			return 'Loading teachers...';
@@ -467,24 +480,24 @@ const Community = () => {
 						className="absolute inset-y-0 left-0 z-0 w-1/3 rounded-xl bg-card shadow-sm transition-transform duration-300 ring-1 ring-border"
 						style={{ transform: `translateX(${tabIndex * 100}%)` }}
 					/>
-							{tabOrder.map((role) => (
-								<button
-									key={role}
-									type="button"
-									onClick={() => setRoleFilter(role)}
-									className={`relative z-10 px-4 py-2.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
-										roleFilter === role
-											? 'text-foreground'
-											: 'text-muted-foreground hover:text-foreground'
-									}`}
-								>
-									{role === 'administrator'
-										? 'Administrators'
-										: role === 'student' && user?.role === 'student'
-											? 'Classmates'
-											: `${role}s`}
-								</button>
-							))}
+					{tabOrder.map((role) => (
+						<button
+							key={role}
+							type="button"
+							onClick={() => setRoleFilter(role)}
+							className={`relative z-10 px-4 py-2.5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+								roleFilter === role
+									? 'text-foreground'
+									: 'text-muted-foreground hover:text-foreground'
+							}`}
+						>
+							{role === 'administrator'
+								? 'Administrators'
+								: role === 'student' && user?.role === 'student'
+									? 'Classmates'
+									: `${role}s`}
+						</button>
+					))}
 				</div>
 			</div>
 
@@ -547,7 +560,10 @@ const Community = () => {
 						<tbody className="divide-y divide-border">
 							{loading && (
 								<tr>
-									<td colSpan={columnCount} className="px-6 py-10 border border-border">
+									<td
+										colSpan={columnCount}
+										className="px-6 py-10 border border-border"
+									>
 										<div className="flex flex-col items-center gap-3 text-muted-foreground text-sm">
 											<Loader2 className="h-6 w-6 animate-spin" />
 											<span>{getLoadingMessage()}</span>
