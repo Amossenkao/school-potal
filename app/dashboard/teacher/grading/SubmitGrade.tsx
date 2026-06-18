@@ -123,6 +123,63 @@ const SubmitGrade: React.FC = () => {
 	const usersByAcademicYearRef = useRef(usersByAcademicYear);
 	const gradesByAcademicYearRef = useRef(gradesByAcademicYear);
 
+	const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
+	const [genRange, setGenRange] = useState({ min: '', max: '' });
+
+	// Helper to generate random integer
+	const getRandomGrade = (min: number, max: number) =>
+		Math.floor(Math.random() * (max - min + 1)) + min;
+
+	const getNormalizedGenerationRange = () => {
+		const min = genRange.min === '' ? 60 : Number(genRange.min);
+		const max = genRange.max === '' ? 100 : Number(genRange.max);
+
+		if (
+			Number.isNaN(min) ||
+			Number.isNaN(max) ||
+			min < 60 ||
+			max > 100 ||
+			min > max
+		) {
+			return null;
+		}
+
+		return { min, max };
+	};
+
+	// Function to handle the generation
+	const handleGenerateGrades = () => {
+		const range = getNormalizedGenerationRange();
+		if (!range) {
+			showNotification('error', 'Generate grades between 60 and 100.');
+			return;
+		}
+
+		setStudentsForGrading((prev) =>
+			prev.map((student) => ({
+				...student,
+				grades: Object.fromEntries(
+					Object.entries(student.grades).map(([period, gradeInfo]) => {
+						if (
+							selectedPeriods.includes(period) &&
+							!gradeInfo.hasExistingGrade
+						) {
+							return [
+								period,
+								{
+									...gradeInfo,
+									grade: getRandomGrade(range.min, range.max),
+								},
+							];
+						}
+						return [period, gradeInfo];
+					}),
+				),
+			})),
+		);
+		setIsGenerateModalOpen(false);
+	};
+
 	useEffect(() => {
 		usersByAcademicYearRef.current = usersByAcademicYear;
 	}, [usersByAcademicYear]);
@@ -612,6 +669,36 @@ const SubmitGrade: React.FC = () => {
 			.map((period) => period.id);
 	}, [selectedPeriods, periods]);
 
+	const focusNextGradeInput = (currentInput: HTMLInputElement) => {
+		const inputs = Array.from(
+			document.querySelectorAll<HTMLInputElement>('[data-grade-input="true"]'),
+		);
+		const currentIndex = inputs.indexOf(currentInput);
+		if (currentIndex === -1 || inputs.length <= 1) return;
+
+		const wrappedInputs = [
+			...inputs.slice(currentIndex + 1),
+			...inputs.slice(0, currentIndex),
+		];
+		const nextInput =
+			wrappedInputs.find((input) => input.value.trim() === '') ||
+			wrappedInputs[0];
+
+		nextInput.scrollIntoView({
+			behavior: 'smooth',
+			block: 'nearest',
+			inline: 'nearest',
+		});
+		nextInput.focus();
+		nextInput.select();
+	};
+
+	const handleGradeKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+		if (event.key !== 'Enter') return;
+		event.preventDefault();
+		focusNextGradeInput(event.currentTarget);
+	};
+
 	const handleSubmitGrades = async () => {
 		if (!isSelectedAcademicYearAllowed) {
 			showNotification(
@@ -806,7 +893,7 @@ const SubmitGrade: React.FC = () => {
 	const showClassSelect =
 		!isSelfContainedTeacher && availableClasses.length > 1;
 	const showSubjectSelect = availableSubjects.length > 1;
-	const showAcademicYearFilter = availableAcademicYears.length > 0;
+	const showAcademicYearFilter = availableAcademicYears.length > 1;
 
 	const Notification = () => {
 		if (!notification) return null;
@@ -952,28 +1039,11 @@ const SubmitGrade: React.FC = () => {
 
 	return (
 		<div
-			className="flex flex-col pb-16"
-			style={{ height: 'calc(100vh - var(--app-header-height, 4rem))' }}
+			className="flex flex-col overflow-hidden"
+			style={{ height: 'calc(94vh - var(--app-header-height, 4rem))' }}
 		>
-			<Notification />
-
-			{/* ── Top: non-scrolling header + filters + periods ── */}
-			<div className="shrink-0 space-y-2 p-3 sm:p-4 bg-background">
-				{/* Page header */}
-				<div className="flex items-center gap-2">
-					<div className="p-1.5 bg-primary/10 rounded-lg">
-						<BarChart3 className="h-5 w-5 text-primary" />
-					</div>
-					<div>
-						<h1 className="text-lg sm:text-xl font-bold text-foreground leading-tight">
-							Submit Grades
-						</h1>
-						<p className="text-xs text-muted-foreground">
-							Submit grades for your classes
-						</p>
-					</div>
-				</div>
-
+			{/* ── Filters + Periods ── */}
+			<div className="z-20 shrink-0 bg-background/95 backdrop-blur px-3 sm:px-4 pt-0 mt-0 pb-2 space-y-2 border-b border-border/50 shadow-sm">
 				{/* Compact filter toolbar */}
 				<div className="bg-card border border-border rounded-xl shadow-sm">
 					<div className="flex flex-wrap gap-2 p-2.5 sm:p-3 items-end">
@@ -1107,10 +1177,9 @@ const SubmitGrade: React.FC = () => {
 					</div>
 				)}
 			</div>
-			{/* end shrink-0 top section */}
 
-			{/* ── Bottom: scrollable area — this is the ONE scroll container, thead sticky top-0 works here ── */}
-			<div className="flex-1 overflow-auto px-3 sm:px-4 pb-4 space-y-4">
+			{/* ── Bottom: scrollable main content area ── */}
+			<div className="flex min-h-0 flex-1 flex-col px-3 sm:px-4 pt-2 pb-1">
 				{/* ── Empty state ── */}
 				{isSelectedAcademicYearAllowed &&
 					studentsForGrading.length === 0 &&
@@ -1150,18 +1219,17 @@ const SubmitGrade: React.FC = () => {
 				{isSelectedAcademicYearAllowed &&
 					studentsForGrading.length > 0 &&
 					selectedPeriods.length > 0 && (
-						<div className="rounded-lg border border-border bg-card shadow-sm">
+						<div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-card shadow-sm">
 							{error.studentsForGrading && (
 								<div className="mx-4 mt-3 text-destructive p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm">
 									{error.studentsForGrading}
 								</div>
 							)}
 
-							{/* thead sticky top-0 sticks within the flex-1 overflow-auto parent above */}
 							<table className="min-w-max w-full border-collapse">
-								<thead className="bg-muted sticky top-0 z-10">
+								<thead className="bg-muted">
 									<tr>
-										<th className="sticky left-0 z-30 bg-muted border-b border-r border-border px-3 sm:px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap min-w-[140px] sm:min-w-[200px]">
+										<th className="sticky top-0 left-0 z-30 bg-muted border-b border-r border-border px-3 sm:px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap min-w-[140px] sm:min-w-[200px]">
 											Student
 										</th>
 										{orderedSelectedPeriods.map((period) => {
@@ -1170,10 +1238,10 @@ const SubmitGrade: React.FC = () => {
 											return (
 												<th
 													key={period}
-													className={`border-b border-r border-border px-3 sm:px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition-colors ${
+													className={`sticky top-0 z-20 border-b border-r border-border px-3 sm:px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition-colors ${
 														isActiveCol
 															? 'bg-primary text-primary-foreground'
-															: 'text-muted-foreground'
+															: 'bg-muted text-muted-foreground'
 													}`}
 												>
 													{p?.label || period}
@@ -1195,7 +1263,7 @@ const SubmitGrade: React.FC = () => {
 												>
 													{/* Name cell — active state mirrors the active column header style */}
 													<td
-														className={`sticky left-0 border-r border-border px-3 sm:px-4 py-2.5 whitespace-nowrap transition-colors ${
+														className={`sticky left-0 z-10 border-r border-border px-3 sm:px-4 py-2.5 whitespace-nowrap transition-colors ${
 															isActive ? 'bg-primary' : 'bg-card dark:bg-card'
 														}`}
 													>
@@ -1226,7 +1294,7 @@ const SubmitGrade: React.FC = () => {
 																className="border-r border-border px-3 sm:px-4 py-2"
 															>
 																{isExisting ? (
-																	<div className="flex items-center gap-1.5">
+																	<div className="flex items-center justify-center gap-1.5">
 																		<span
 																			className={`text-base font-semibold tabular-nums ${getGradeDisplayColor(gradeValue, true)}`}
 																		>
@@ -1242,9 +1310,12 @@ const SubmitGrade: React.FC = () => {
 																		)}
 																	</div>
 																) : (
-																	<div className="flex flex-col gap-0.5">
+																	<div className="flex flex-col items-center gap-0.5">
 																		<input
 																			type="text"
+																			data-grade-input="true"
+																			data-student-id={student.studentId}
+																			data-period={period}
 																			value={
 																				gradeValue === ''
 																					? ''
@@ -1265,6 +1336,7 @@ const SubmitGrade: React.FC = () => {
 																				setActiveStudentId(null);
 																				setActivePeriod(null);
 																			}}
+																			onKeyDown={handleGradeKeyDown}
 																			placeholder="–"
 																			inputMode="numeric"
 																			className={`w-16 sm:w-20 h-9 rounded-lg border-2 text-center text-sm font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors bg-background ${getGradeDisplayColor(gradeValue)} ${
@@ -1302,36 +1374,103 @@ const SubmitGrade: React.FC = () => {
 						</div>
 					)}
 
-				{/* ── Floating submit button ── */}
 				{isSelectedAcademicYearAllowed &&
 					studentsForGrading.length > 0 &&
 					selectedPeriods.length > 0 && (
-						<div className="fixed bottom-4 right-4 z-40">
-							<button
-								onClick={handleSubmitGrades}
-								disabled={loading.submittingGrades || newGradesCount === 0}
-								className="flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 active:scale-95"
-							>
-								{loading.submittingGrades ? (
-									<>
-										<Loader2 className="w-4 h-4 animate-spin" />
-										<span>Submitting…</span>
-									</>
-								) : (
-									<>
-										<Send className="w-4 h-4" />
-										<span>
-											{newGradesCount > 0
-												? `Submit ${newGradesCount} grade${newGradesCount !== 1 ? 's' : ''}`
-												: 'No new grades'}
-										</span>
-									</>
-								)}
-							</button>
+						<div className="shrink-0 pt-5">
+							<div className="flex items-center justify-between gap-2">
+								<button
+									onClick={() => setIsGenerateModalOpen(true)}
+									disabled={loading.submittingGrades}
+									className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-secondary px-3 py-3 text-sm font-semibold text-secondary-foreground shadow-lg transition-all hover:bg-secondary/80 active:scale-95 disabled:opacity-50 sm:flex-none sm:px-5"
+								>
+									<BarChart3 className="w-4 h-4" />
+									<span className="truncate">Generate Grades</span>
+								</button>
+
+								<button
+									onClick={handleSubmitGrades}
+									disabled={loading.submittingGrades || newGradesCount === 0}
+									className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-primary px-3 py-3 text-sm font-semibold text-primary-foreground shadow-lg transition-all duration-200 hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:px-5"
+								>
+									{loading.submittingGrades ? (
+										<>
+											<Loader2 className="w-4 h-4 animate-spin" />
+											<span className="truncate">Submitting…</span>
+										</>
+									) : (
+										<>
+											<Send className="w-4 h-4" />
+											<span className="truncate">
+												{newGradesCount > 0
+													? `Submit ${newGradesCount} grade${newGradesCount !== 1 ? 's' : ''}`
+													: 'No new grades'}
+											</span>
+										</>
+									)}
+								</button>
+							</div>
 						</div>
 					)}
 			</div>
-			{/* end flex-1 overflow-y-auto bottom section */}
+
+			{isGenerateModalOpen && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+					<div className="bg-card p-6 rounded-xl shadow-xl w-full max-w-xs border border-border">
+						<h3 className="font-semibold mb-4 text-foreground">
+							Generate Random Grades
+						</h3>
+						<div className="flex gap-4 mb-6">
+							<div className="flex-1">
+								<label className="text-xs font-medium text-muted-foreground block mb-1">
+									Min
+								</label>
+								<input
+									type="number"
+									min={60}
+									max={100}
+									placeholder="60"
+									value={genRange.min}
+									onChange={(e) =>
+										setGenRange((p) => ({ ...p, min: e.target.value }))
+									}
+									className="w-full h-9 rounded-lg border border-input bg-background text-center text-sm"
+								/>
+							</div>
+							<div className="flex-1">
+								<label className="text-xs font-medium text-muted-foreground block mb-1">
+									Max
+								</label>
+								<input
+									type="number"
+									min={60}
+									max={100}
+									placeholder="100"
+									value={genRange.max}
+									onChange={(e) =>
+										setGenRange((p) => ({ ...p, max: e.target.value }))
+									}
+									className="w-full h-9 rounded-lg border border-input bg-background text-center text-sm"
+								/>
+							</div>
+						</div>
+						<div className="flex gap-2">
+							<button
+								onClick={() => setIsGenerateModalOpen(false)}
+								className="flex-1 px-3 py-2 text-sm font-medium rounded-lg hover:bg-muted"
+							>
+								Cancel
+							</button>
+							<button
+								onClick={handleGenerateGrades}
+								className="flex-1 px-3 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground"
+							>
+								Generate
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 };
