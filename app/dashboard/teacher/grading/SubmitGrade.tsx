@@ -122,6 +122,7 @@ const SubmitGrade: React.FC = () => {
 
 	const usersByAcademicYearRef = useRef(usersByAcademicYear);
 	const gradesByAcademicYearRef = useRef(gradesByAcademicYear);
+	const tableScrollContainerRef = useRef<HTMLDivElement | null>(null);
 
 	const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
 	const [genRange, setGenRange] = useState({ min: '', max: '' });
@@ -683,12 +684,37 @@ const SubmitGrade: React.FC = () => {
 		const nextInput =
 			wrappedInputs.find((input) => input.value.trim() === '') ||
 			wrappedInputs[0];
+		const scrollContainer = tableScrollContainerRef.current;
 
 		nextInput.scrollIntoView({
 			behavior: 'smooth',
 			block: 'nearest',
 			inline: 'nearest',
 		});
+
+		if (scrollContainer) {
+			const containerRect = scrollContainer.getBoundingClientRect();
+			const inputRect = nextInput.getBoundingClientRect();
+			const frozenColumn = scrollContainer.querySelector<HTMLElement>(
+				'tbody td.sticky, thead th.sticky',
+			);
+			const frozenWidth = frozenColumn?.offsetWidth ?? 0;
+			const visibleLeft = containerRect.left + frozenWidth;
+			const visibleRight = containerRect.right;
+
+			if (inputRect.left < visibleLeft) {
+				scrollContainer.scrollBy({
+					left: inputRect.left - visibleLeft - 12,
+					behavior: 'smooth',
+				});
+			} else if (inputRect.right > visibleRight) {
+				scrollContainer.scrollBy({
+					left: inputRect.right - visibleRight + 12,
+					behavior: 'smooth',
+				});
+			}
+		}
+
 		nextInput.focus();
 		nextInput.select();
 	};
@@ -1219,7 +1245,10 @@ const SubmitGrade: React.FC = () => {
 				{isSelectedAcademicYearAllowed &&
 					studentsForGrading.length > 0 &&
 					selectedPeriods.length > 0 && (
-						<div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-card shadow-sm">
+						<div
+							ref={tableScrollContainerRef}
+							className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-card shadow-sm"
+						>
 							{error.studentsForGrading && (
 								<div className="mx-4 mt-3 text-destructive p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm">
 									{error.studentsForGrading}
