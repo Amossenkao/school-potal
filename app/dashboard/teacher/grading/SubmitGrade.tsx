@@ -90,7 +90,9 @@ const SubmitGrade: React.FC = () => {
 	const gradesByAcademicYear = useSchoolStore(
 		(state) => state.gradesByAcademicYear,
 	);
-	const mergeGradesForYear = useSchoolStore((state) => state.mergeGradesForYear);
+	const mergeGradesForYear = useSchoolStore(
+		(state) => state.mergeGradesForYear,
+	);
 	const user = useAuth((state) => state.user);
 
 	const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
@@ -247,7 +249,11 @@ const SubmitGrade: React.FC = () => {
 
 	const mergeSubmittedGradesCache = useCallback(
 		(grades: any[]) => {
-			if (!teacherInfo?.username || !selectedAcademicYear || grades.length === 0)
+			if (
+				!teacherInfo?.username ||
+				!selectedAcademicYear ||
+				grades.length === 0
+			)
 				return;
 			const cacheKey = `submittedGrades:${teacherInfo.username}:${selectedAcademicYear}`;
 			const cached = getClientCache<any[]>(cacheKey) || [];
@@ -261,7 +267,11 @@ const SubmitGrade: React.FC = () => {
 					grade?.studentId,
 					grade?.teacherUsername,
 				]
-					.map((part) => String(part || '').trim().toLowerCase())
+					.map((part) =>
+						String(part || '')
+							.trim()
+							.toLowerCase(),
+					)
 					.join('|');
 				if (naturalKey.replaceAll('|', '')) return naturalKey;
 				const id = grade?._id || grade?.id;
@@ -699,7 +709,15 @@ const SubmitGrade: React.FC = () => {
 
 	const handleClassChange = (classId: string) => {
 		setSelectedClassId(classId);
-		setSelectedSubject('');
+
+		const newClassData = yearAssignment?.classes.find(
+			(c) => c.classId === classId,
+		);
+		const newClassSubjects = newClassData?.subjects || [];
+
+		if (!newClassSubjects.includes(selectedSubject)) {
+			setSelectedSubject('');
+		}
 	};
 
 	const orderedSelectedPeriods = useMemo(() => {
@@ -861,7 +879,8 @@ const SubmitGrade: React.FC = () => {
 				status: 'Pending',
 				lastUpdated: new Date().toISOString(),
 			}));
-			const gradesForCache = serverGrades.length > 0 ? serverGrades : optimisticGrades;
+			const gradesForCache =
+				serverGrades.length > 0 ? serverGrades : optimisticGrades;
 			mergeGradesForYear(selectedAcademicYear, gradesForCache);
 			mergeSubmittedGradesCache(gradesForCache);
 
@@ -1473,8 +1492,10 @@ const SubmitGrade: React.FC = () => {
 							<div className="flex items-center justify-between gap-2">
 								<button
 									onClick={() => setIsGenerateModalOpen(true)}
-									disabled={loading.submittingGrades}
-									className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-secondary px-3 py-3 text-sm font-semibold text-secondary-foreground shadow-lg transition-all hover:bg-secondary/80 active:scale-95 disabled:opacity-50 sm:flex-none sm:px-5"
+									disabled={
+										loading.submittingGrades || totalGradableSlots === 0
+									}
+									className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-secondary px-3 py-3 text-sm font-semibold text-secondary-foreground shadow-lg transition-all hover:bg-secondary/80 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed sm:flex-none sm:px-5"
 								>
 									<BarChart3 className="w-4 h-4" />
 									<span className="truncate">Generate Grades</span>
