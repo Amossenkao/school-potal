@@ -716,59 +716,182 @@ const SubmitGrade: React.FC = () => {
 			.map((period) => period.id);
 	}, [selectedPeriods, periods]);
 
-	const focusNextGradeInput = (currentInput: HTMLInputElement) => {
+	// --- NEW AUTO-FOCUS LOGIC ---
+	const needsAutoFocusRef = useRef(false);
+
+	// 1. Flag when structural data changes
+	useEffect(() => {
+		needsAutoFocusRef.current = true;
+	}, [selectedAcademicYear, selectedClassId, selectedSubject, selectedPeriods]);
+
+	// 2. Perform the focus once the DOM renders the new students
+	useEffect(() => {
+		if (
+			needsAutoFocusRef.current &&
+			!loading.studentsForGrading &&
+			studentsForGrading.length > 0 &&
+			selectedPeriods.length > 0
+		) {
+			const timer = setTimeout(() => {
+				const inputs = Array.from(
+					document.querySelectorAll<HTMLInputElement>(
+						'[data-grade-input="true"]',
+					),
+				);
+				const firstEmpty = inputs.find((input) => input.value.trim() === '');
+
+				if (firstEmpty) {
+					firstEmpty.scrollIntoView({
+						behavior: 'smooth',
+						block: 'nearest',
+						inline: 'nearest',
+					});
+
+					const scrollContainer = tableScrollContainerRef.current;
+					if (scrollContainer) {
+						const containerRect = scrollContainer.getBoundingClientRect();
+						const inputRect = firstEmpty.getBoundingClientRect();
+						const frozenColumn = scrollContainer.querySelector<HTMLElement>(
+							'tbody td.sticky, thead th.sticky',
+						);
+						const frozenWidth = frozenColumn?.offsetWidth ?? 0;
+						const visibleLeft = containerRect.left + frozenWidth;
+						const visibleRight = containerRect.right;
+
+						if (inputRect.left < visibleLeft) {
+							scrollContainer.scrollBy({
+								left: inputRect.left - visibleLeft - 12,
+								behavior: 'smooth',
+							});
+						} else if (inputRect.right > visibleRight) {
+							scrollContainer.scrollBy({
+								left: inputRect.right - visibleRight + 12,
+								behavior: 'smooth',
+							});
+						}
+					}
+
+					firstEmpty.focus();
+					firstEmpty.select();
+				}
+				// Reset so we don't steal focus while typing
+				needsAutoFocusRef.current = false;
+			}, 50);
+
+			return () => clearTimeout(timer);
+		}
+	}, [loading.studentsForGrading, studentsForGrading, selectedPeriods]);
+	// --- END AUTO-FOCUS LOGIC ---
+
+	const handleGradeKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+		const { key } = event;
+
+		// Only listen to Enter and Arrow keys
+		if (
+			!['Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(
+				key,
+			)
+		)
+			return;
+
+		const currentInput = event.currentTarget;
 		const inputs = Array.from(
 			document.querySelectorAll<HTMLInputElement>('[data-grade-input="true"]'),
 		);
 		const currentIndex = inputs.indexOf(currentInput);
 		if (currentIndex === -1 || inputs.length <= 1) return;
 
-		const wrappedInputs = [
-			...inputs.slice(currentIndex + 1),
-			...inputs.slice(0, currentIndex),
-		];
-		const nextInput =
-			wrappedInputs.find((input) => input.value.trim() === '') ||
-			wrappedInputs[0];
-		const scrollContainer = tableScrollContainerRef.current;
+		let nextInput: HTMLInputElement | undefined;
 
-		nextInput.scrollIntoView({
-			behavior: 'smooth',
-			block: 'nearest',
-			inline: 'nearest',
-		});
+		// Navigation mapping
+		if (key === 'Enter' || key === 'ArrowRight') {
+			// Next editable box entirely
+			nextInput = inputs[currentIndex + 1] || inputs[0];
+		} else if (key === 'ArrowLeft') {
+			// Previous editable box entirely
+			nextInput = inputs[currentIndex - 1] || inputs[inputs.length - 1];
+		} else if (key === 'ArrowDown' || key === 'ArrowUp') {
+			// Get all unique row identifiers (student IDs) currently in the DOM that have at least one editable input
+			const currentRowId = currentInput.getAttribute('data-student-id');
+			const rowIds = [
+				...new Set(inputs.map((i) => i.getAttribute('data-student-id'))),
+			];
+			const currentRowIndex = rowIds.indexOf(currentRowId);
 
-		if (scrollContainer) {
-			const containerRect = scrollContainer.getBoundingClientRect();
-			const inputRect = nextInput.getBoundingClientRect();
-			const frozenColumn = scrollContainer.querySelector<HTMLElement>(
-				'tbody td.sticky, thead th.sticky',
-			);
-			const frozenWidth = frozenColumn?.offsetWidth ?? 0;
-			const visibleLeft = containerRect.left + frozenWidth;
-			const visibleRight = containerRect.right;
-
-			if (inputRect.left < visibleLeft) {
-				scrollContainer.scrollBy({
-					left: inputRect.left - visibleLeft - 12,
-					behavior: 'smooth',
-				});
-			} else if (inputRect.right > visibleRight) {
-				scrollContainer.scrollBy({
-					left: inputRect.right - visibleRight + 12,
-					behavior: 'smooth',
-				});
+			if (key === 'ArrowDown') {
+				// Next row with editable boxes (wraps to start)
+				const nextRowId = rowIds[currentRowIndex + 1] || rowIds[0];
+				// Find the *first* input that matches the next row
+				nextInput = inputs.find(
+					(i) => i.getAttribute('data-student-id') === nextRowId,
+				);
+			} else if (key === 'ArrowUp') {
+				// Previous row with editable boxes (wraps to end)
+				const prevRowId =
+					rowIds[currentRowIndex - 1] || rowIds[rowIds.length - 1];
+				// Find the *last* input that matches the previous row (by reversing the array)
+				nextInput = [...inputs]
+					.reverse()
+					.find((i) => i.getAttribute('data-student-id') === prevRowId);
 			}
 		}
 
-		nextInput.focus();
-		nextInput.select();
-	};
+		if (nextInput) {
+			event.preventDefault();
 
-	const handleGradeKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-		if (event.key !== 'Enter') return;
-		event.preventDefault();
-		focusNextGradeInput(event.currentTarget);
+			// Focus and select WITHOUT native scrolling to prevent jumping underneath sticky elements
+			nextInput.focus({ preventScroll: true });
+			nextInput.select();
+
+			// Smart 2D Scrolling: Accounts for both sticky header and sticky first column
+			const scrollContainer = tableScrollContainerRef.current;
+			if (scrollContainer) {
+				const containerRect = scrollContainer.getBoundingClientRect();
+				const inputRect = nextInput.getBoundingClientRect();
+
+				// Get sticky dimensions
+				const frozenColumn = scrollContainer.querySelector<HTMLElement>(
+					'tbody td.sticky, thead th.sticky',
+				);
+				const frozenWidth = frozenColumn?.offsetWidth ?? 0;
+
+				const frozenHeader =
+					scrollContainer.querySelector<HTMLElement>('thead th.sticky');
+				const frozenHeight = frozenHeader?.offsetHeight ?? 0;
+
+				// Calculate visible boundaries
+				const visibleLeft = containerRect.left + frozenWidth;
+				const visibleRight = containerRect.right;
+				const visibleTop = containerRect.top + frozenHeight;
+				const visibleBottom = containerRect.bottom;
+
+				let scrollDeltaX = 0;
+				let scrollDeltaY = 0;
+
+				// Horizontal overflow check
+				if (inputRect.left < visibleLeft) {
+					scrollDeltaX = inputRect.left - visibleLeft - 16;
+				} else if (inputRect.right > visibleRight) {
+					scrollDeltaX = inputRect.right - visibleRight + 16;
+				}
+
+				// Vertical overflow check
+				if (inputRect.top < visibleTop) {
+					scrollDeltaY = inputRect.top - visibleTop - 16;
+				} else if (inputRect.bottom > visibleBottom) {
+					scrollDeltaY = inputRect.bottom - visibleBottom + 16;
+				}
+
+				// Apply calculated scroll delta smoothly
+				if (scrollDeltaX !== 0 || scrollDeltaY !== 0) {
+					scrollContainer.scrollBy({
+						left: scrollDeltaX,
+						top: scrollDeltaY,
+						behavior: 'smooth',
+					});
+				}
+			}
+		}
 	};
 
 	const handleSubmitGrades = async () => {
