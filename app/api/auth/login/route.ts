@@ -401,6 +401,7 @@ function buildUserResponse(user: any) {
 		defaultPassword: user.defaultPassword,
 		notifications: user.notifications || [],
 		chats: user.chats || [],
+		chatSessions: user.chatSessions || [],
 	};
 
 	switch (user.role as UserRole) {

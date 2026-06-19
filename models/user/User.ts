@@ -1,5 +1,5 @@
 import { Schema, Document } from 'mongoose';
-import { User, Notification, AIChatMessage } from '@/types';
+import { User, Notification, AIChatMessage, AIChatSession } from '@/types';
 import { UserRoles } from '../constants';
 
 const NotificationSchema = new Schema<Notification & Document>({
@@ -20,6 +20,13 @@ const ChatSchema = new Schema<AIChatMessage & Document>({
 	sender: { type: String, enum: ['user', 'assistant'], required: true },
 	content: { type: String, required: true },
 	timestamp: { type: Date, required: true, default: Date.now },
+});
+
+const ChatSessionSchema = new Schema<AIChatSession & Document>({
+	id: { type: String, required: true },
+	title: { type: String, required: true, default: 'New conversation' },
+	createdAt: { type: Date, required: true, default: Date.now },
+	messages: { type: [ChatSchema], required: true, default: [] },
 });
 
 const UserSchema = new Schema<User & Document>(
@@ -46,6 +53,7 @@ const UserSchema = new Schema<User & Document>(
 		profilePictureUrl: String, // Added to align with User interface
 		notifications: { type: [NotificationSchema], required: true, default: [] },
 		chats: [ChatSchema],
+		chatSessions: { type: [ChatSessionSchema], required: true, default: [] },
 	},
 	{
 		discriminatorKey: 'role',

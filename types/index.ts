@@ -80,6 +80,7 @@ export interface User {
 	avatar?: string;
 	profilePictureUrl?: string;
 	chats: AIChatMessage[];
+	chatSessions?: AIChatSession[];
 	notifications: Notification[];
 }
 
@@ -128,6 +129,13 @@ export interface AIChatMessage {
 	sender: 'user' | 'assistant';
 	content: string;
 	timestamp: Date;
+}
+
+export interface AIChatSession {
+	id: string;
+	title: string;
+	createdAt: Date;
+	messages: AIChatMessage[];
 }
 
 export interface Notification {
