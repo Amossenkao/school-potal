@@ -20,7 +20,7 @@ const OPENROUTER_KEYS = [
 	process.env.OPENROUTER_API_KEY_3,
 ].filter(Boolean) as string[];
 
-const MODEL = 'openrouter/free';
+const MODEL = 'openai/gpt-oss-120b:free';
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
