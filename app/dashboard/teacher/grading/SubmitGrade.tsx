@@ -716,182 +716,59 @@ const SubmitGrade: React.FC = () => {
 			.map((period) => period.id);
 	}, [selectedPeriods, periods]);
 
-	// --- NEW AUTO-FOCUS LOGIC ---
-	const needsAutoFocusRef = useRef(false);
-
-	// 1. Flag when structural data changes
-	useEffect(() => {
-		needsAutoFocusRef.current = true;
-	}, [selectedAcademicYear, selectedClassId, selectedSubject, selectedPeriods]);
-
-	// 2. Perform the focus once the DOM renders the new students
-	useEffect(() => {
-		if (
-			needsAutoFocusRef.current &&
-			!loading.studentsForGrading &&
-			studentsForGrading.length > 0 &&
-			selectedPeriods.length > 0
-		) {
-			const timer = setTimeout(() => {
-				const inputs = Array.from(
-					document.querySelectorAll<HTMLInputElement>(
-						'[data-grade-input="true"]',
-					),
-				);
-				const firstEmpty = inputs.find((input) => input.value.trim() === '');
-
-				if (firstEmpty) {
-					firstEmpty.scrollIntoView({
-						behavior: 'smooth',
-						block: 'nearest',
-						inline: 'nearest',
-					});
-
-					const scrollContainer = tableScrollContainerRef.current;
-					if (scrollContainer) {
-						const containerRect = scrollContainer.getBoundingClientRect();
-						const inputRect = firstEmpty.getBoundingClientRect();
-						const frozenColumn = scrollContainer.querySelector<HTMLElement>(
-							'tbody td.sticky, thead th.sticky',
-						);
-						const frozenWidth = frozenColumn?.offsetWidth ?? 0;
-						const visibleLeft = containerRect.left + frozenWidth;
-						const visibleRight = containerRect.right;
-
-						if (inputRect.left < visibleLeft) {
-							scrollContainer.scrollBy({
-								left: inputRect.left - visibleLeft - 12,
-								behavior: 'smooth',
-							});
-						} else if (inputRect.right > visibleRight) {
-							scrollContainer.scrollBy({
-								left: inputRect.right - visibleRight + 12,
-								behavior: 'smooth',
-							});
-						}
-					}
-
-					firstEmpty.focus();
-					firstEmpty.select();
-				}
-				// Reset so we don't steal focus while typing
-				needsAutoFocusRef.current = false;
-			}, 50);
-
-			return () => clearTimeout(timer);
-		}
-	}, [loading.studentsForGrading, studentsForGrading, selectedPeriods]);
-	// --- END AUTO-FOCUS LOGIC ---
-
-	const handleGradeKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-		const { key } = event;
-
-		// Only listen to Enter and Arrow keys
-		if (
-			!['Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(
-				key,
-			)
-		)
-			return;
-
-		const currentInput = event.currentTarget;
+	const focusNextGradeInput = (currentInput: HTMLInputElement) => {
 		const inputs = Array.from(
 			document.querySelectorAll<HTMLInputElement>('[data-grade-input="true"]'),
 		);
 		const currentIndex = inputs.indexOf(currentInput);
 		if (currentIndex === -1 || inputs.length <= 1) return;
 
-		let nextInput: HTMLInputElement | undefined;
+		const wrappedInputs = [
+			...inputs.slice(currentIndex + 1),
+			...inputs.slice(0, currentIndex),
+		];
+		const nextInput =
+			wrappedInputs.find((input) => input.value.trim() === '') ||
+			wrappedInputs[0];
+		const scrollContainer = tableScrollContainerRef.current;
 
-		// Navigation mapping
-		if (key === 'Enter' || key === 'ArrowRight') {
-			// Next editable box entirely
-			nextInput = inputs[currentIndex + 1] || inputs[0];
-		} else if (key === 'ArrowLeft') {
-			// Previous editable box entirely
-			nextInput = inputs[currentIndex - 1] || inputs[inputs.length - 1];
-		} else if (key === 'ArrowDown' || key === 'ArrowUp') {
-			// Get all unique row identifiers (student IDs) currently in the DOM that have at least one editable input
-			const currentRowId = currentInput.getAttribute('data-student-id');
-			const rowIds = [
-				...new Set(inputs.map((i) => i.getAttribute('data-student-id'))),
-			];
-			const currentRowIndex = rowIds.indexOf(currentRowId);
+		nextInput.scrollIntoView({
+			behavior: 'smooth',
+			block: 'nearest',
+			inline: 'nearest',
+		});
 
-			if (key === 'ArrowDown') {
-				// Next row with editable boxes (wraps to start)
-				const nextRowId = rowIds[currentRowIndex + 1] || rowIds[0];
-				// Find the *first* input that matches the next row
-				nextInput = inputs.find(
-					(i) => i.getAttribute('data-student-id') === nextRowId,
-				);
-			} else if (key === 'ArrowUp') {
-				// Previous row with editable boxes (wraps to end)
-				const prevRowId =
-					rowIds[currentRowIndex - 1] || rowIds[rowIds.length - 1];
-				// Find the *first* input that matches the previous row (by reversing the array)
-				nextInput = [...inputs].find(
-					(i) => i.getAttribute('data-student-id') === prevRowId,
-				);
+		if (scrollContainer) {
+			const containerRect = scrollContainer.getBoundingClientRect();
+			const inputRect = nextInput.getBoundingClientRect();
+			const frozenColumn = scrollContainer.querySelector<HTMLElement>(
+				'tbody td.sticky, thead th.sticky',
+			);
+			const frozenWidth = frozenColumn?.offsetWidth ?? 0;
+			const visibleLeft = containerRect.left + frozenWidth;
+			const visibleRight = containerRect.right;
+
+			if (inputRect.left < visibleLeft) {
+				scrollContainer.scrollBy({
+					left: inputRect.left - visibleLeft - 12,
+					behavior: 'smooth',
+				});
+			} else if (inputRect.right > visibleRight) {
+				scrollContainer.scrollBy({
+					left: inputRect.right - visibleRight + 12,
+					behavior: 'smooth',
+				});
 			}
 		}
 
-		if (nextInput) {
-			event.preventDefault();
+		nextInput.focus();
+		nextInput.select();
+	};
 
-			// Focus and select WITHOUT native scrolling to prevent jumping underneath sticky elements
-			nextInput.focus({ preventScroll: true });
-			nextInput.select();
-
-			// Smart 2D Scrolling: Accounts for both sticky header and sticky first column
-			const scrollContainer = tableScrollContainerRef.current;
-			if (scrollContainer) {
-				const containerRect = scrollContainer.getBoundingClientRect();
-				const inputRect = nextInput.getBoundingClientRect();
-
-				// Get sticky dimensions
-				const frozenColumn = scrollContainer.querySelector<HTMLElement>(
-					'tbody td.sticky, thead th.sticky',
-				);
-				const frozenWidth = frozenColumn?.offsetWidth ?? 0;
-
-				const frozenHeader =
-					scrollContainer.querySelector<HTMLElement>('thead th.sticky');
-				const frozenHeight = frozenHeader?.offsetHeight ?? 0;
-
-				// Calculate visible boundaries
-				const visibleLeft = containerRect.left + frozenWidth;
-				const visibleRight = containerRect.right;
-				const visibleTop = containerRect.top + frozenHeight;
-				const visibleBottom = containerRect.bottom;
-
-				let scrollDeltaX = 0;
-				let scrollDeltaY = 0;
-
-				// Horizontal overflow check
-				if (inputRect.left < visibleLeft) {
-					scrollDeltaX = inputRect.left - visibleLeft - 16;
-				} else if (inputRect.right > visibleRight) {
-					scrollDeltaX = inputRect.right - visibleRight + 16;
-				}
-
-				// Vertical overflow check
-				if (inputRect.top < visibleTop) {
-					scrollDeltaY = inputRect.top - visibleTop - 16;
-				} else if (inputRect.bottom > visibleBottom) {
-					scrollDeltaY = inputRect.bottom - visibleBottom + 16;
-				}
-
-				// Apply calculated scroll delta smoothly
-				if (scrollDeltaX !== 0 || scrollDeltaY !== 0) {
-					scrollContainer.scrollBy({
-						left: scrollDeltaX,
-						top: scrollDeltaY,
-						behavior: 'smooth',
-					});
-				}
-			}
-		}
+	const handleGradeKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+		if (event.key !== 'Enter') return;
+		event.preventDefault();
+		focusNextGradeInput(event.currentTarget);
 	};
 
 	const handleSubmitGrades = async () => {
@@ -1002,7 +879,6 @@ const SubmitGrade: React.FC = () => {
 					'info',
 					'You are offline. Grades were queued and will sync when you reconnect.',
 				);
-				// ✅ Don't reset filters — just clear grade inputs for submitted periods
 				setStudentsForGrading((prev) =>
 					prev.map((student) => ({
 						...student,
@@ -1028,7 +904,6 @@ const SubmitGrade: React.FC = () => {
 				`Successfully submitted ${gradesToSubmit.length} grades!`,
 			);
 
-			// ✅ Mark submitted grades as existing (approved/pending) instead of wiping filters
 			setStudentsForGrading((prev) =>
 				prev.map((student) => ({
 					...student,
@@ -1107,11 +982,12 @@ const SubmitGrade: React.FC = () => {
 		return PASS_GRADE_CLASS;
 	};
 
-	const showSessionSelect = availableSessions.length > 1;
-	const showLevelSelect = availableLevels.length > 1;
+	const hasNoClasses = assignedClasses.length === 0;
+	const showSessionSelect = !hasNoClasses && availableSessions.length > 1;
+	const showLevelSelect = !hasNoClasses && availableLevels.length > 1;
 	const showClassSelect =
-		!isSelfContainedTeacher && availableClasses.length > 1;
-	const showSubjectSelect = availableSubjects.length > 1;
+		!hasNoClasses && !isSelfContainedTeacher && availableClasses.length > 0;
+	const showSubjectSelect = !hasNoClasses && availableSubjects.length > 0;
 	const showAcademicYearFilter = availableAcademicYears.length > 1;
 
 	const Notification = () => {
@@ -1264,439 +1140,505 @@ const SubmitGrade: React.FC = () => {
 			<Notification />
 
 			{/* ── Filters + Periods ── */}
-			<div className="z-20 shrink-0 bg-background/95 backdrop-blur px-3 sm:px-4 pt-0 mt-0 pb-2 space-y-2 border-b border-border/50 shadow-sm">
-				{/* Compact filter toolbar */}
-				<div className="bg-card border border-border rounded-xl shadow-sm">
-					<div className="flex flex-wrap gap-2 p-2.5 sm:p-3 items-end">
-						{showAcademicYearFilter && (
-							<FilterSelect
-								label="Year"
-								value={selectedAcademicYear}
-								onChange={(v) => setSelectedAcademicYear(v)}
-								options={availableAcademicYears.map((y) => ({
-									label: y,
-									value: y,
-								}))}
-							/>
-						)}
-
-						{isSelectedAcademicYearAllowed && showSessionSelect && (
-							<FilterSelect
-								label="Session"
-								value={selectedSession}
-								onChange={handleSessionChange}
-								placeholder="Session"
-								options={availableSessions.map((s) => ({ label: s, value: s }))}
-							/>
-						)}
-
-						{isSelectedAcademicYearAllowed &&
-							showLevelSelect &&
-							selectedSession && (
+			{(showAcademicYearFilter || !hasNoClasses) && (
+				<div className="z-20 shrink-0 bg-background/95 backdrop-blur px-3 sm:px-4 pt-0 mt-0 pb-2 space-y-2 border-b border-border/50 shadow-sm">
+					{/* Compact filter toolbar */}
+					<div className="bg-card border border-border rounded-xl shadow-sm">
+						<div className="flex flex-wrap gap-2 p-2.5 sm:p-3 items-end">
+							{showAcademicYearFilter && (
 								<FilterSelect
-									label="Level"
-									value={selectedClassLevel}
-									onChange={handleClassLevelChange}
-									placeholder="Level"
-									options={availableLevels.map((l) => ({ label: l, value: l }))}
-								/>
-							)}
-
-						{isSelectedAcademicYearAllowed &&
-							showClassSelect &&
-							selectedClassLevel && (
-								<FilterSelect
-									label="Class"
-									value={selectedClassId}
-									onChange={handleClassChange}
-									placeholder="Class"
-									options={availableClasses.map((c) => ({
-										label: c.name,
-										value: c.classId,
+									label="Year"
+									value={selectedAcademicYear}
+									onChange={(v) => setSelectedAcademicYear(v)}
+									options={availableAcademicYears.map((y) => ({
+										label: y,
+										value: y,
 									}))}
 								/>
 							)}
 
-						{isSelectedAcademicYearAllowed && isSelfContainedTeacher && (
-							<div className="flex flex-col gap-0.5">
-								<span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-0.5">
-									Class
-								</span>
-								<div className="h-8 px-3 rounded-lg border border-input bg-muted text-muted-foreground text-sm flex items-center whitespace-nowrap">
-									{availableClasses[0]?.name || 'Sponsor Class'}
-								</div>
-							</div>
-						)}
-
-						{isSelectedAcademicYearAllowed &&
-							showSubjectSelect &&
-							selectedClassId && (
+							{isSelectedAcademicYearAllowed && showSessionSelect && (
 								<FilterSelect
-									label="Subject"
-									value={selectedSubject}
-									onChange={(v) => setSelectedSubject(v)}
-									placeholder="Subject"
-									options={availableSubjects.map((s) => ({
+									label="Session"
+									value={selectedSession}
+									onChange={handleSessionChange}
+									placeholder="Session"
+									options={availableSessions.map((s) => ({
 										label: s,
 										value: s,
 									}))}
 								/>
 							)}
 
-						{/* loading indicator inline */}
-						{isSelectedAcademicYearAllowed && loading.studentsForGrading && (
-							<div className="flex items-end pb-1">
-								<Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+							{isSelectedAcademicYearAllowed &&
+								showLevelSelect &&
+								selectedSession && (
+									<FilterSelect
+										label="Level"
+										value={selectedClassLevel}
+										onChange={handleClassLevelChange}
+										placeholder="Level"
+										options={availableLevels.map((l) => ({
+											label: l,
+											value: l,
+										}))}
+									/>
+								)}
+
+							{isSelectedAcademicYearAllowed &&
+								showClassSelect &&
+								selectedClassLevel && (
+									<FilterSelect
+										label="Class"
+										value={selectedClassId}
+										onChange={handleClassChange}
+										placeholder="Class"
+										options={availableClasses.map((c) => ({
+											label: c.name,
+											value: c.classId,
+										}))}
+										disabled={availableClasses.length === 1}
+									/>
+								)}
+
+							{isSelectedAcademicYearAllowed &&
+								!hasNoClasses &&
+								isSelfContainedTeacher && (
+									<div className="flex flex-col gap-0.5">
+										<span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-0.5">
+											Class
+										</span>
+										<div className="h-8 px-3 rounded-lg border border-input bg-muted text-muted-foreground text-sm flex items-center whitespace-nowrap cursor-not-allowed opacity-80">
+											{availableClasses[0]?.name || 'Sponsor Class'}
+										</div>
+									</div>
+								)}
+
+							{isSelectedAcademicYearAllowed &&
+								showSubjectSelect &&
+								selectedClassId && (
+									<FilterSelect
+										label="Subject"
+										value={selectedSubject}
+										onChange={(v) => setSelectedSubject(v)}
+										placeholder="Subject"
+										options={availableSubjects.map((s) => ({
+											label: s,
+											value: s,
+										}))}
+										disabled={availableSubjects.length === 1}
+									/>
+								)}
+
+							{/* loading indicator inline */}
+							{isSelectedAcademicYearAllowed && loading.studentsForGrading && (
+								<div className="flex items-end pb-1">
+									<Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+								</div>
+							)}
+						</div>
+
+						{/* Not allowed warning */}
+						{selectedAcademicYear && !isSelectedAcademicYearAllowed && (
+							<div className="mx-3 mb-3 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+								Grade submission is not allowed for{' '}
+								<strong>{selectedAcademicYear}</strong>. Choose an allowed year.
 							</div>
 						)}
 					</div>
 
-					{/* Not allowed warning */}
-					{selectedAcademicYear && !isSelectedAcademicYearAllowed && (
-						<div className="mx-3 mb-3 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
-							Grade submission is not allowed for{' '}
-							<strong>{selectedAcademicYear}</strong>. Choose an allowed year.
-						</div>
-					)}
+					{/* ── Period chip strip ── */}
+					{isSelectedAcademicYearAllowed &&
+						!hasNoClasses &&
+						studentsForGrading.length > 0 && (
+							<div className="bg-card border border-border rounded-xl px-3 py-2.5 sm:px-4">
+								<div className="flex items-center gap-2 flex-wrap">
+									<span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap mr-1">
+										Periods
+									</span>
+									{periods.map((p) => {
+										const isSelected = selectedPeriods.includes(p.value);
+										const allGraded =
+											studentsForGrading.length > 0 &&
+											studentsForGrading.every(
+												(s) => s.grades[p.id]?.hasExistingGrade,
+											);
+
+										return (
+											<button
+												key={p.id}
+												onClick={() => handlePeriodToggle(p.value)}
+												className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-all duration-150 ${
+													isSelected
+														? 'bg-primary text-primary-foreground border-primary shadow-sm'
+														: allGraded
+															? 'bg-muted text-muted-foreground border-border opacity-60'
+															: 'bg-background text-foreground border-border hover:border-primary/50 hover:bg-accent'
+												}`}
+											>
+												{p.label}
+												{allGraded && !isSelected && (
+													<CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" />
+												)}
+											</button>
+										);
+									})}
+								</div>
+							</div>
+						)}
 				</div>
-
-				{/* ── Period chip strip ── */}
-				{isSelectedAcademicYearAllowed && studentsForGrading.length > 0 && (
-					<div className="bg-card border border-border rounded-xl px-3 py-2.5 sm:px-4">
-						<div className="flex items-center gap-2 flex-wrap">
-							<span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap mr-1">
-								Periods
-							</span>
-							{periods.map((p) => {
-								const isSelected = selectedPeriods.includes(p.value);
-								const allGraded =
-									studentsForGrading.length > 0 &&
-									studentsForGrading.every(
-										(s) => s.grades[p.id]?.hasExistingGrade,
-									);
-
-								return (
-									<button
-										key={p.id}
-										onClick={() => handlePeriodToggle(p.value)}
-										className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-all duration-150 ${
-											isSelected
-												? 'bg-primary text-primary-foreground border-primary shadow-sm'
-												: allGraded
-													? 'bg-muted text-muted-foreground border-border opacity-60'
-													: 'bg-background text-foreground border-border hover:border-primary/50 hover:bg-accent'
-										}`}
-									>
-										{p.label}
-										{allGraded && !isSelected && (
-											<CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" />
-										)}
-									</button>
-								);
-							})}
-						</div>
-					</div>
-				)}
-			</div>
+			)}
 
 			{/* ── Bottom: scrollable main content area ── */}
 			<div className="flex min-h-0 flex-1 flex-col px-3 sm:px-4 pt-2 pb-1">
-				{/* ── Empty state ── */}
-				{isSelectedAcademicYearAllowed &&
-					studentsForGrading.length === 0 &&
-					selectedSession &&
-					selectedClassLevel &&
-					selectedClassId &&
-					selectedSubject &&
-					!loading.studentsForGrading && (
-						<div className="bg-card border border-border rounded-xl p-8 text-center">
-							<div className="w-14 h-14 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
-								<svg
-									className="w-7 h-7 text-muted-foreground"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={1.5}
-										d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
-									/>
-								</svg>
+				{hasNoClasses ? (
+					<div className="flex-1 flex items-center justify-center p-6">
+						<div className="bg-card border border-border rounded-xl p-8 text-center max-w-sm shadow-sm">
+							<div className="w-14 h-14 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+								<AlertCircle className="w-7 h-7 text-muted-foreground" />
 							</div>
-							<h3 className="font-semibold text-foreground mb-1">
-								No Students Found
+							<h3 className="font-semibold text-foreground mb-1 text-base">
+								No Classes Assigned
 							</h3>
-							<p className="text-sm text-muted-foreground">
-								No students enrolled in{' '}
-								<span className="font-medium">{selectedClassName}</span> for{' '}
-								<span className="font-medium">{selectedSubject}</span>.
+							<p className="text-sm text-muted-foreground leading-relaxed">
+								You are currently not assigned to any classes or subjects for
+								grading in the{' '}
+								<span className="font-semibold text-foreground">
+									{selectedAcademicYear || 'selected'}
+								</span>{' '}
+								academic year.
+							</p>
+							<p className="text-xs text-muted-foreground/80 mt-3 border-t border-border/60 pt-3">
+								Please contact your school administrator to update your profile
+								assignments.
 							</p>
 						</div>
-					)}
-
-				{/* ── Grading table ── */}
-				{isSelectedAcademicYearAllowed &&
-					studentsForGrading.length > 0 &&
-					selectedPeriods.length > 0 && (
-						<div
-							ref={tableScrollContainerRef}
-							className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-card shadow-sm"
-						>
-							{error.studentsForGrading && (
-								<div className="mx-4 mt-3 text-destructive p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm">
-									{error.studentsForGrading}
+					</div>
+				) : (
+					<>
+						{/* ── Empty state ── */}
+						{isSelectedAcademicYearAllowed &&
+							studentsForGrading.length === 0 &&
+							selectedSession &&
+							selectedClassLevel &&
+							selectedClassId &&
+							selectedSubject &&
+							!loading.studentsForGrading && (
+								<div className="bg-card border border-border rounded-xl p-8 text-center">
+									<div className="w-14 h-14 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
+										<svg
+											className="w-7 h-7 text-muted-foreground"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+										>
+											<path
+												strokeLinecap="round"
+												strokeLinejoin="round"
+												strokeWidth={1.5}
+												d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
+											/>
+										</svg>
+									</div>
+									<h3 className="font-semibold text-foreground mb-1">
+										No Students Found
+									</h3>
+									<p className="text-sm text-muted-foreground">
+										No students enrolled in{' '}
+										<span className="font-medium">{selectedClassName}</span> for{' '}
+										<span className="font-medium">{selectedSubject}</span>.
+									</p>
 								</div>
 							)}
 
-							<table className="min-w-max w-full border-collapse">
-								<thead className="bg-muted">
-									<tr>
-										<th className="sticky top-0 left-0 z-30 bg-muted border-b border-r border-border px-3 sm:px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap min-w-[140px] sm:min-w-[200px]">
-											Student
-										</th>
-										{orderedSelectedPeriods.map((period) => {
-											const p = periods.find((x) => x.id === period);
-											const isActiveCol = activePeriod === period;
-											return (
-												<th
-													key={period}
-													className={`sticky top-0 z-20 border-b border-r border-border px-3 sm:px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition-colors ${
-														isActiveCol
-															? 'bg-primary text-primary-foreground'
-															: 'bg-muted text-muted-foreground'
-													}`}
-												>
-													{p?.label || period}
+						{/* ── Grading table ── */}
+						{isSelectedAcademicYearAllowed &&
+							studentsForGrading.length > 0 &&
+							selectedPeriods.length > 0 && (
+								<div
+									ref={tableScrollContainerRef}
+									className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-card shadow-sm"
+								>
+									{error.studentsForGrading && (
+										<div className="mx-4 mt-3 text-destructive p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm">
+											{error.studentsForGrading}
+										</div>
+									)}
+
+									<table className="min-w-max w-full border-collapse">
+										<thead className="bg-muted">
+											<tr>
+												<th className="sticky top-0 left-0 z-30 bg-muted border-b border-r border-border px-3 sm:px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap min-w-[140px] sm:min-w-[200px]">
+													Student
 												</th>
-											);
-										})}
-									</tr>
-								</thead>
-								<tbody className="divide-y divide-border">
-									{studentsForGrading
-										.slice()
-										.sort((a, b) => a.studentName.localeCompare(b.studentName))
-										.map((student) => {
-											const isActive = activeStudentId === student.studentId;
-											return (
-												<tr
-													key={student.studentId}
-													className="hover:bg-muted/30 transition-colors"
-												>
-													{/* Name cell — active state mirrors the active column header style */}
-													<td
-														className={`sticky left-0 z-10 border-r border-border px-3 sm:px-4 py-2.5 whitespace-nowrap transition-colors ${
-															isActive ? 'bg-primary' : 'bg-card dark:bg-card'
-														}`}
-													>
-														<span
-															className={`text-sm font-medium truncate max-w-[120px] sm:max-w-[200px] block ${
-																isActive
-																	? 'text-primary-foreground'
-																	: 'text-foreground'
+												{orderedSelectedPeriods.map((period) => {
+													const p = periods.find((x) => x.id === period);
+													const isActiveCol = activePeriod === period;
+													return (
+														<th
+															key={period}
+															className={`sticky top-0 z-20 border-b border-r border-border px-3 sm:px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition-colors ${
+																isActiveCol
+																	? 'bg-primary text-primary-foreground'
+																	: 'bg-muted text-muted-foreground'
 															}`}
 														>
-															{student.studentName}
-														</span>
-													</td>
-
-													{/* Grade cells */}
-													{orderedSelectedPeriods.map((period) => {
-														const gradeInfo = student.grades[period];
-														const isExisting = gradeInfo?.hasExistingGrade;
-														const gradeValue = gradeInfo?.grade;
-														const validation =
-															getGradeValidationStatus(gradeValue);
-														const isInvalid =
-															!validation.isValid && gradeValue !== '';
-
-														return (
+															{p?.label || period}
+														</th>
+													);
+												})}
+											</tr>
+										</thead>
+										<tbody className="divide-y divide-border">
+											{studentsForGrading
+												.slice()
+												.sort((a, b) =>
+													a.studentName.localeCompare(b.studentName),
+												)
+												.map((student) => {
+													const isActive =
+														activeStudentId === student.studentId;
+													return (
+														<tr
+															key={student.studentId}
+															className="hover:bg-muted/30 transition-colors"
+														>
+															{/* Name cell */}
 															<td
-																key={period}
-																className="border-r border-border px-3 sm:px-4 py-2"
+																className={`sticky left-0 z-10 border-r border-border px-3 sm:px-4 py-2.5 whitespace-nowrap transition-colors ${
+																	isActive
+																		? 'bg-primary'
+																		: 'bg-card dark:bg-card'
+																}`}
 															>
-																{isExisting ? (
-																	<div className="flex items-center justify-center gap-1.5">
-																		<span
-																			className={`text-base font-semibold tabular-nums ${getGradeDisplayColor(gradeValue, true)}`}
-																		>
-																			{gradeValue}
-																		</span>
-																		{gradeInfo.status?.toLowerCase() ===
-																			'approved' && (
-																			<CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
-																		)}
-																		{gradeInfo.status?.toLowerCase() ===
-																			'pending' && (
-																			<Clock className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
-																		)}
-																	</div>
-																) : (
-																	<div className="flex flex-col items-center gap-0.5">
-																		<input
-																			type="text"
-																			data-grade-input="true"
-																			data-student-id={student.studentId}
-																			data-period={period}
-																			value={
-																				gradeValue === ''
-																					? ''
-																					: String(gradeValue)
-																			}
-																			onChange={(e) =>
-																				handleGradeChange(
-																					student.studentId,
-																					period,
-																					e.target.value,
-																				)
-																			}
-																			onFocus={() => {
-																				setActiveStudentId(student.studentId);
-																				setActivePeriod(period);
-																			}}
-																			onBlur={() => {
-																				setActiveStudentId(null);
-																				setActivePeriod(null);
-																			}}
-																			onKeyDown={handleGradeKeyDown}
-																			placeholder="–"
-																			inputMode="numeric"
-																			className={`w-16 sm:w-20 h-9 rounded-lg border-2 text-center text-sm font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors bg-background ${getGradeDisplayColor(gradeValue)} ${
-																				isInvalid
-																					? 'border-red-400 focus:ring-red-400'
-																					: 'border-input hover:border-ring/50'
-																			}`}
-																		/>
-																		{isInvalid && (
-																			<span className="text-[10px] text-red-500 font-medium leading-none">
-																				{validation.message}
-																			</span>
-																		)}
-																		{validation.isValid &&
-																			gradeValue !== '' &&
-																			Number(gradeValue) >= 60 && (
-																				<span
-																					className={`text-[10px] font-medium leading-none ${Number(gradeValue) >= PASS_MARK ? PASS_GRADE_CLASS : FAIL_GRADE_CLASS}`}
-																				>
-																					{Number(gradeValue) >= PASS_MARK
-																						? 'Pass'
-																						: 'Fail'}
-																				</span>
-																			)}
-																	</div>
-																)}
+																<span
+																	className={`text-sm font-medium truncate max-w-[120px] sm:max-w-[200px] block ${
+																		isActive
+																			? 'text-primary-foreground'
+																			: 'text-foreground'
+																	}`}
+																>
+																	{student.studentName}
+																</span>
 															</td>
-														);
-													})}
-												</tr>
-											);
-										})}
-								</tbody>
-							</table>
-						</div>
-					)}
 
-				{isSelectedAcademicYearAllowed &&
-					studentsForGrading.length > 0 &&
-					selectedPeriods.length > 0 && (
-						<div className="shrink-0 pt-5">
-							<div className="flex items-center justify-between gap-2">
-								<button
-									onClick={() => setIsGenerateModalOpen(true)}
-									disabled={
-										loading.submittingGrades || totalGradableSlots === 0
-									}
-									className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-secondary px-3 py-3 text-sm font-semibold text-secondary-foreground shadow-lg transition-all hover:bg-secondary/80 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed sm:flex-none sm:px-5"
-								>
-									<BarChart3 className="w-4 h-4" />
-									<span className="truncate">Generate Grades</span>
-								</button>
+															{/* Grade cells */}
+															{orderedSelectedPeriods.map((period) => {
+																const gradeInfo = student.grades[period];
+																const isExisting = gradeInfo?.hasExistingGrade;
+																const gradeValue = gradeInfo?.grade;
+																const validation =
+																	getGradeValidationStatus(gradeValue);
+																const isInvalid =
+																	!validation.isValid && gradeValue !== '';
 
-								<button
-									onClick={handleSubmitGrades}
-									disabled={loading.submittingGrades || newGradesCount === 0}
-									className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-primary px-3 py-3 text-sm font-semibold text-primary-foreground shadow-lg transition-all duration-200 hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:px-5"
-								>
-									{loading.submittingGrades ? (
-										<>
-											<Loader2 className="w-4 h-4 animate-spin" />
-											<span className="truncate">Submitting…</span>
-										</>
-									) : (
-										<>
-											<Send className="w-4 h-4" />
-											<span className="truncate">
-												{newGradesCount > 0
-													? `Submit ${newGradesCount} grade${newGradesCount !== 1 ? 's' : ''}`
-													: 'No new grades'}
-											</span>
-										</>
-									)}
-								</button>
-							</div>
-						</div>
-					)}
+																return (
+																	<td
+																		key={period}
+																		className="border-r border-border px-3 sm:px-4 py-2"
+																	>
+																		{isExisting ? (
+																			<div className="flex items-center justify-center gap-1.5">
+																				<span
+																					className={`text-base font-semibold tabular-nums ${getGradeDisplayColor(gradeValue, true)}`}
+																				>
+																					{gradeValue}
+																				</span>
+																				{gradeInfo.status?.toLowerCase() ===
+																					'approved' && (
+																					<CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
+																				)}
+																				{gradeInfo.status?.toLowerCase() ===
+																					'pending' && (
+																					<Clock className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
+																				)}
+																			</div>
+																		) : (
+																			<div className="flex flex-col items-center gap-0.5">
+																				<input
+																					type="text"
+																					data-grade-input="true"
+																					data-student-id={student.studentId}
+																					data-period={period}
+																					value={
+																						gradeValue === ''
+																							? ''
+																							: String(gradeValue)
+																					}
+																					onChange={(e) =>
+																						handleGradeChange(
+																							student.studentId,
+																							period,
+																							e.target.value,
+																						)
+																					}
+																					onFocus={() => {
+																						setActiveStudentId(
+																							student.studentId,
+																						);
+																						setActivePeriod(period);
+																					}}
+																					onBlur={() => {
+																						setActiveStudentId(null);
+																						setActivePeriod(null);
+																					}}
+																					onKeyDown={handleGradeKeyDown}
+																					placeholder="–"
+																					inputMode="numeric"
+																					className={`w-16 sm:w-20 h-9 rounded-lg border-2 text-center text-sm font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors bg-background ${getGradeDisplayColor(gradeValue)} ${
+																						isInvalid
+																							? 'border-red-400 focus:ring-red-400'
+																							: 'border-input hover:border-ring/50'
+																					}`}
+																				/>
+																				{isInvalid && (
+																					<span className="text-[10px] text-red-500 font-medium leading-none">
+																						{validation.message}
+																					</span>
+																				)}
+																				{validation.isValid &&
+																					gradeValue !== '' &&
+																					Number(gradeValue) >= 60 && (
+																						<span
+																							className={`text-[10px] font-medium leading-none ${Number(gradeValue) >= PASS_MARK ? PASS_GRADE_CLASS : FAIL_GRADE_CLASS}`}
+																						>
+																							{Number(gradeValue) >= PASS_MARK
+																								? 'Pass'
+																								: 'Fail'}
+																						</span>
+																					)}
+																			</div>
+																		)}
+																	</td>
+																);
+															})}
+														</tr>
+													);
+												})}
+										</tbody>
+									</table>
+								</div>
+							)}
+
+						{isSelectedAcademicYearAllowed &&
+							studentsForGrading.length > 0 &&
+							selectedPeriods.length > 0 && (
+								<div className="shrink-0 pt-5">
+									<div className="flex items-center justify-between gap-2">
+										<button
+											onClick={() => setIsGenerateModalOpen(true)}
+											disabled={
+												loading.submittingGrades || totalGradableSlots === 0
+											}
+											className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-secondary px-3 py-3 text-sm font-semibold text-secondary-foreground shadow-lg transition-all hover:bg-secondary/80 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed sm:flex-none sm:px-5"
+										>
+											<BarChart3 className="w-4 h-4" />
+											<span className="truncate">Generate Grades</span>
+										</button>
+
+										<button
+											onClick={handleSubmitGrades}
+											disabled={
+												loading.submittingGrades || newGradesCount === 0
+											}
+											className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-primary px-3 py-3 text-sm font-semibold text-primary-foreground shadow-lg transition-all duration-200 hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:px-5"
+										>
+											{loading.submittingGrades ? (
+												<>
+													<Loader2 className="w-4 h-4 animate-spin" />
+													<span className="truncate">Submitting…</span>
+												</>
+											) : (
+												<>
+													<Send className="w-4 h-4" />
+													<span className="truncate">
+														{newGradesCount > 0
+															? `Submit ${newGradesCount} grade${newGradesCount !== 1 ? 's' : ''}`
+															: 'No new grades'}
+													</span>
+												</>
+											)}
+										</button>
+									</div>
+								</div>
+							)}
+					</>
+				)}
 			</div>
 
-			{isGenerateModalOpen && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-					<div className="bg-card p-6 rounded-xl shadow-xl w-full max-w-xs border border-border">
-						<h3 className="font-semibold mb-4 text-foreground">
-							Generate Random Grades
-						</h3>
-						<div className="flex gap-4 mb-6">
-							<div className="flex-1">
-								<label className="text-xs font-medium text-muted-foreground block mb-1">
-									Min
-								</label>
-								<input
-									type="number"
-									min={60}
-									max={100}
-									placeholder="60"
-									value={genRange.min}
-									onChange={(e) =>
-										setGenRange((p) => ({ ...p, min: e.target.value }))
-									}
-									className="w-full h-9 rounded-lg border border-input bg-background text-center text-sm"
-								/>
-							</div>
-							<div className="flex-1">
-								<label className="text-xs font-medium text-muted-foreground block mb-1">
-									Max
-								</label>
-								<input
-									type="number"
-									min={60}
-									max={100}
-									placeholder="100"
-									value={genRange.max}
-									onChange={(e) =>
-										setGenRange((p) => ({ ...p, max: e.target.value }))
-									}
-									className="w-full h-9 rounded-lg border border-input bg-background text-center text-sm"
-								/>
+			{isGenerateModalOpen &&
+				(() => {
+					const minVal = genRange.min === '' ? '' : Number(genRange.min);
+					const maxVal = genRange.max === '' ? '' : Number(genRange.max);
+					const isMinInvalid = minVal !== '' && (minVal < 60 || minVal > 100);
+					const isMaxInvalid = maxVal !== '' && (maxVal < 60 || maxVal > 100);
+
+					return (
+						<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+							<div className="bg-card p-6 rounded-xl shadow-xl w-full max-w-xs border border-border">
+								<h3 className="font-semibold mb-4 text-foreground">
+									Generate Random Grades
+								</h3>
+								<div className="flex gap-4 mb-6">
+									<div className="flex-1">
+										<label className="text-xs font-medium text-muted-foreground block mb-1">
+											Min
+										</label>
+										<input
+											type="number"
+											min={60}
+											max={100}
+											placeholder="60"
+											value={genRange.min}
+											onChange={(e) =>
+												setGenRange((p) => ({ ...p, min: e.target.value }))
+											}
+											className={`w-full h-9 rounded-lg border-2 text-center text-sm font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors bg-background ${getGradeDisplayColor(minVal)} ${
+												isMinInvalid
+													? 'border-red-400 focus:ring-red-400'
+													: 'border-input hover:border-ring/50'
+											}`}
+										/>
+									</div>
+									<div className="flex-1">
+										<label className="text-xs font-medium text-muted-foreground block mb-1">
+											Max
+										</label>
+										<input
+											type="number"
+											min={60}
+											max={100}
+											placeholder="100"
+											value={genRange.max}
+											onChange={(e) =>
+												setGenRange((p) => ({ ...p, max: e.target.value }))
+											}
+											className={`w-full h-9 rounded-lg border-2 text-center text-sm font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors bg-background ${getGradeDisplayColor(maxVal)} ${
+												isMaxInvalid
+													? 'border-red-400 focus:ring-red-400'
+													: 'border-input hover:border-ring/50'
+											}`}
+										/>
+									</div>
+								</div>
+								<div className="flex gap-2">
+									<button
+										onClick={() => setIsGenerateModalOpen(false)}
+										className="flex-1 px-3 py-2 text-sm font-medium rounded-lg hover:bg-muted"
+									>
+										Cancel
+									</button>
+									<button
+										onClick={handleGenerateGrades}
+										className="flex-1 px-3 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground"
+									>
+										Generate
+									</button>
+								</div>
 							</div>
 						</div>
-						<div className="flex gap-2">
-							<button
-								onClick={() => setIsGenerateModalOpen(false)}
-								className="flex-1 px-3 py-2 text-sm font-medium rounded-lg hover:bg-muted"
-							>
-								Cancel
-							</button>
-							<button
-								onClick={handleGenerateGrades}
-								className="flex-1 px-3 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground"
-							>
-								Generate
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
+					);
+				})()}
 		</div>
 	);
 };
@@ -1708,6 +1650,7 @@ interface FilterSelectProps {
 	onChange: (v: string) => void;
 	options: { label: string; value: string }[];
 	placeholder?: string;
+	disabled?: boolean;
 }
 
 const FilterSelect: React.FC<FilterSelectProps> = ({
@@ -1716,6 +1659,7 @@ const FilterSelect: React.FC<FilterSelectProps> = ({
 	onChange,
 	options,
 	placeholder,
+	disabled,
 }) => (
 	<div className="flex flex-col gap-0.5">
 		<span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-0.5">
@@ -1725,16 +1669,23 @@ const FilterSelect: React.FC<FilterSelectProps> = ({
 			<select
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
-				className="h-8 pl-3 pr-8 rounded-lg border border-input bg-background text-foreground text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring cursor-pointer hover:border-ring/50 transition-colors"
+				disabled={disabled}
+				className={`h-8 pl-3 pr-8 rounded-lg border text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors ${
+					disabled
+						? 'bg-muted text-muted-foreground cursor-not-allowed opacity-80 border-input'
+						: 'bg-background text-foreground cursor-pointer border-input hover:border-ring/50'
+				}`}
 			>
-				{placeholder && <option value="">{placeholder}</option>}
+				{placeholder && !disabled && <option value="">{placeholder}</option>}
 				{options.map((o) => (
 					<option key={o.value} value={o.value}>
 						{o.label}
 					</option>
 				))}
 			</select>
-			<ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+			{!disabled && (
+				<ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+			)}
 		</div>
 	</div>
 );
