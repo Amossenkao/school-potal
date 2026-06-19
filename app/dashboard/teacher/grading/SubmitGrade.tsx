@@ -52,7 +52,7 @@ interface GradeInputState {
 
 interface StudentForGrading {
 	studentId: string;
-	name: string;
+	studentName: string;
 	grades: { [period: string]: GradeInputState };
 }
 
@@ -594,7 +594,7 @@ const SubmitGrade: React.FC = () => {
 
 				return {
 					studentId: student.studentId || student.id || student._id,
-					name: buildStudentFullName(student),
+					studentName: buildStudentFullName(student),
 					grades,
 				};
 			});
@@ -800,7 +800,7 @@ const SubmitGrade: React.FC = () => {
 				})
 				.map((period) => ({
 					studentId: student.studentId,
-					name: student.name,
+					studentName: student.studentName,
 					grade: Number(student.grades[period].grade),
 					period,
 				})),
@@ -864,7 +864,7 @@ const SubmitGrade: React.FC = () => {
 				subject: selectedSubject,
 				teacherUsername: teacherInfo?.username || user?.username || '',
 				studentId: grade.studentId,
-				studentName: grade.name,
+				studentName: grade.studentName,
 				grade: grade.grade,
 				status: 'Pending',
 				lastUpdated: new Date().toISOString(),
@@ -1354,7 +1354,7 @@ const SubmitGrade: React.FC = () => {
 								<tbody className="divide-y divide-border">
 									{studentsForGrading
 										.slice()
-										.sort((a, b) => a.name.localeCompare(b.name))
+										.sort((a, b) => a.studentName.localeCompare(b.studentName))
 										.map((student) => {
 											const isActive = activeStudentId === student.studentId;
 											return (
@@ -1375,7 +1375,7 @@ const SubmitGrade: React.FC = () => {
 																	: 'text-foreground'
 															}`}
 														>
-															{student.name}
+															{student.studentName}
 														</span>
 													</td>
 
