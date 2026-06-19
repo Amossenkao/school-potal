@@ -829,10 +829,10 @@ const SubmitGrade: React.FC = () => {
 				// Previous row with editable boxes (wraps to end)
 				const prevRowId =
 					rowIds[currentRowIndex - 1] || rowIds[rowIds.length - 1];
-				// Find the *last* input that matches the previous row (by reversing the array)
-				nextInput = [...inputs]
-					.reverse()
-					.find((i) => i.getAttribute('data-student-id') === prevRowId);
+				// Find the *first* input that matches the previous row (by reversing the array)
+				nextInput = [...inputs].find(
+					(i) => i.getAttribute('data-student-id') === prevRowId,
+				);
 			}
 		}
 
