@@ -34,6 +34,7 @@ const USER_BOOTSTRAP_SELECT = {
 	firstName: 1,
 	middleName: 1,
 	lastName: 1,
+	fullName: 1,
 	nickName: 1,
 	gender: 1,
 	dateOfBirth: 1,
@@ -79,6 +80,7 @@ const normalizeUser = (user: any) => {
 		firstName: user.firstName,
 		middleName: user.middleName,
 		lastName: user.lastName,
+		fullName: user.fullName,
 		nickName: user.nickName,
 		gender: user.gender,
 		dateOfBirth: user.dateOfBirth,
@@ -183,7 +185,10 @@ const getRoleGradeRequestsQuery = (currentUser: any, academicYear: string) => {
 	const academicYearMatch = getAcademicYearMatch(academicYear);
 	if (currentUser?.role === 'teacher') {
 		if (!currentUser.username) return null;
-		return { academicYear: academicYearMatch, teacherUsername: currentUser.username };
+		return {
+			academicYear: academicYearMatch,
+			teacherUsername: currentUser.username,
+		};
 	}
 	if (currentUser?.role === 'system_admin') {
 		return { academicYear: academicYearMatch };
@@ -233,7 +238,10 @@ const getRoleUsersQuery = (currentUser: any, academicYear: string) => {
 		};
 	}
 
-	if (currentUser.role === 'administrator' || currentUser.role === 'system_admin') {
+	if (
+		currentUser.role === 'administrator' ||
+		currentUser.role === 'system_admin'
+	) {
 		return {
 			$or: [
 				{ role: 'student', 'academicYears.year': academicYearMatch },
@@ -495,7 +503,10 @@ const fetchUsersForRole = async (
 		};
 	}
 
-	if (currentUser.role === 'administrator' || currentUser.role === 'system_admin') {
+	if (
+		currentUser.role === 'administrator' ||
+		currentUser.role === 'system_admin'
+	) {
 		const usersQuery = getRoleUsersQuery(currentUser, academicYear);
 		if (!usersQuery) {
 			return { students: [], teachers: [], administrators: [] };
@@ -526,10 +537,15 @@ export const getDomainVersions = async (
 	const usersQuery = getRoleUsersQuery(currentUser, academicYear);
 	const classFilter = getRoleClassFilter(currentUser, academicYear);
 	const gradesQuery = getRoleGradesQuery(currentUser, academicYear);
-	const gradeRequestsQuery = getRoleGradeRequestsQuery(currentUser, academicYear);
+	const gradeRequestsQuery = getRoleGradeRequestsQuery(
+		currentUser,
+		academicYear,
+	);
 	const canQueryUsers = Boolean(User && usersQuery);
 	const canQueryGrades = Boolean(Grade && gradesQuery);
-	const canQueryGradeRequests = Boolean(GradeChangeRequest && gradeRequestsQuery);
+	const canQueryGradeRequests = Boolean(
+		GradeChangeRequest && gradeRequestsQuery,
+	);
 	const [
 		usersSyncVersion,
 		usersCount,
@@ -653,7 +669,8 @@ export const buildBootstrapPayload = async (
 	if (yearAccess.requestedAcademicYear && !yearAccess.hasAccess) {
 		throw new Error('Requested academic year is not accessible for this user.');
 	}
-	const academicYear = yearAccess.academicYear || getAcademicYear(schoolProfile);
+	const academicYear =
+		yearAccess.academicYear || getAcademicYear(schoolProfile);
 	const include = {
 		school: options.include?.school !== false,
 		users: options.include?.users !== false,
@@ -666,21 +683,21 @@ export const buildBootstrapPayload = async (
 
 	const [users, calendarEvents, schedules, grades, gradeRequests] =
 		await Promise.all([
-		include.users
-			? fetchUsersForRole(models, currentUser, academicYear)
-			: Promise.resolve(undefined),
-		include.calendar
-			? fetchCalendarEvents(models, academicYear)
-			: Promise.resolve(undefined),
-		include.schedules
-			? fetchSchedules(models, currentUser, academicYear)
-			: Promise.resolve(undefined),
-		include.grades
-			? fetchGradesForRole(models, currentUser, academicYear)
-			: Promise.resolve(undefined),
-		include.gradeRequests
-			? fetchGradeRequestsForRole(models, currentUser, academicYear)
-			: Promise.resolve(undefined),
+			include.users
+				? fetchUsersForRole(models, currentUser, academicYear)
+				: Promise.resolve(undefined),
+			include.calendar
+				? fetchCalendarEvents(models, academicYear)
+				: Promise.resolve(undefined),
+			include.schedules
+				? fetchSchedules(models, currentUser, academicYear)
+				: Promise.resolve(undefined),
+			include.grades
+				? fetchGradesForRole(models, currentUser, academicYear)
+				: Promise.resolve(undefined),
+			include.gradeRequests
+				? fetchGradeRequestsForRole(models, currentUser, academicYear)
+				: Promise.resolve(undefined),
 		]);
 	const resolvedUsersVersion =
 		typeof options.usersVersion === 'string'
