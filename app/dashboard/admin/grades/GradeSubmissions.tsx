@@ -118,7 +118,9 @@ const AdminGradeManagement: React.FC = () => {
 		() => buildSchoolAcademicYearRange(currentSchool),
 		[currentSchool],
 	);
-	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
+	const usersByAcademicYear = useSchoolStore(
+		(state) => state.usersByAcademicYear,
+	);
 	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 	const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>(
 		currentAcademicYear || academicYearOptions[0] || '',
@@ -128,7 +130,7 @@ const AdminGradeManagement: React.FC = () => {
 			getScopedAcademicYearValue(
 				state.gradesByAcademicYear,
 				selectedAcademicYear,
-			).value
+			).value,
 	);
 	// Data states
 	const [submissions, setSubmissions] = useState<GradeSubmission[]>([]);
@@ -151,16 +153,16 @@ const AdminGradeManagement: React.FC = () => {
 	const [selectedSubmission, setSelectedSubmission] =
 		useState<GradeSubmission | null>(null);
 	const [selectedSubmissions, setSelectedSubmissions] = useState<Set<string>>(
-		new Set()
+		new Set(),
 	);
 	const [selectedStudents, setSelectedStudents] = useState<Set<string>>(
-		new Set()
+		new Set(),
 	);
 	const [rejectionReason, setRejectionReason] = useState('');
 	const [bulkRejectionReason, setBulkRejectionReason] = useState('');
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [actionType, setActionType] = useState<'submission' | 'individual'>(
-		'submission'
+		'submission',
 	);
 	const [searchQuery, setSearchQuery] = useState('');
 	const [currentPage, setCurrentPage] = useState<number>(1);
@@ -187,7 +189,9 @@ const AdminGradeManagement: React.FC = () => {
 				currentAcademicYear,
 			) || '';
 		const selectedIsAvailable = academicYearOptions.some(
-			(year) => normalizeAcademicYear(year) === normalizeAcademicYear(selectedAcademicYear),
+			(year) =>
+				normalizeAcademicYear(year) ===
+				normalizeAcademicYear(selectedAcademicYear),
 		);
 		if (!selectedAcademicYear || !selectedIsAvailable) {
 			setSelectedAcademicYear(defaultAcademicYear);
@@ -196,9 +200,10 @@ const AdminGradeManagement: React.FC = () => {
 
 	const getTeacherDisplayName = (teacher: any) => {
 		if (!teacher) return '';
-		const fullName = `${teacher.firstName || ''} ${teacher.lastName || ''}`
-			.trim();
-		return teacher.name || fullName || teacher.username || teacher.userId || '';
+		return (
+			teacher.fullName ||
+			`${teacher.firstName || ''} ${teacher.lastName || ''}`.trim()
+		);
 	};
 
 	const teacherNameByYearAndUsername = useMemo(() => {
@@ -245,7 +250,7 @@ const AdminGradeManagement: React.FC = () => {
 	const resolveTeacherName = (
 		username?: string,
 		academicYear?: string,
-		fallback?: string
+		fallback?: string,
 	) => {
 		const normalizedYear = normalizeAcademicYear(academicYear);
 		const fromYear =
@@ -253,13 +258,7 @@ const AdminGradeManagement: React.FC = () => {
 				? teacherNameByYearAndUsername.get(`${normalizedYear}:${username}`)
 				: undefined;
 		const fromAny = username ? teacherNameByUsername.get(username) : undefined;
-		return (
-			fromYear ||
-			fromAny ||
-			fallback ||
-			username ||
-			'Unknown'
-		);
+		return fromYear || fromAny || fallback || username || 'Unknown';
 	};
 
 	const parseDate = (value?: string) => {
@@ -279,20 +278,23 @@ const AdminGradeManagement: React.FC = () => {
 	};
 
 	const transformRawGrades = (rawGrades: RawGradeData[]) => {
-		const groupedGrades = rawGrades.reduce((acc, grade) => {
-			if (!acc[grade.submissionId]) {
-				acc[grade.submissionId] = [];
-			}
-			acc[grade.submissionId].push(grade);
-			return acc;
-		}, {} as Record<string, RawGradeData[]>);
+		const groupedGrades = rawGrades.reduce(
+			(acc, grade) => {
+				if (!acc[grade.submissionId]) {
+					acc[grade.submissionId] = [];
+				}
+				acc[grade.submissionId].push(grade);
+				return acc;
+			},
+			{} as Record<string, RawGradeData[]>,
+		);
 
 		return Object.values(groupedGrades).map((grades) => {
 			const firstGrade = grades[0];
 			const resolvedTeacherName = resolveTeacherName(
 				firstGrade.teacherUsername,
 				firstGrade.academicYear,
-				firstGrade.teacherName
+				firstGrade.teacherName,
 			);
 			const latestUpdated =
 				grades.reduce<string | null>((latest, grade) => {
@@ -304,14 +306,14 @@ const AdminGradeManagement: React.FC = () => {
 				.map((g) => g.grade)
 				.filter((g): g is number => g !== null);
 
-				const statuses = new Set(grades.map((g) => g.status));
-				let submissionStatus: GradeSubmission['status'] = 'Pending';
-				if (statuses.size === 1) {
-					const onlyStatus = statuses.values().next().value as
-						| GradeSubmission['status']
-						| undefined;
-					submissionStatus = onlyStatus || 'Pending';
-				} else if (
+			const statuses = new Set(grades.map((g) => g.status));
+			let submissionStatus: GradeSubmission['status'] = 'Pending';
+			if (statuses.size === 1) {
+				const onlyStatus = statuses.values().next().value as
+					| GradeSubmission['status']
+					| undefined;
+				submissionStatus = onlyStatus || 'Pending';
+			} else if (
 				statuses.has('Pending') ||
 				(statuses.has('Approved') && statuses.has('Rejected'))
 			) {
@@ -388,7 +390,9 @@ const AdminGradeManagement: React.FC = () => {
 				throw new Error(`HTTP error! status: ${response.status}`);
 			}
 			const data = await response.json();
-			const rawGrades: RawGradeData[] = Array.isArray(data?.data?.report?.grades)
+			const rawGrades: RawGradeData[] = Array.isArray(
+				data?.data?.report?.grades,
+			)
 				? data.data.report.grades
 				: Array.isArray(data?.data?.grades)
 					? data.data.grades
@@ -425,13 +429,16 @@ const AdminGradeManagement: React.FC = () => {
 	}, [selectedAcademicYear]);
 
 	const inferSubmissionStatus = (
-		grades: StudentGrade[]
+		grades: StudentGrade[],
 	): GradeSubmission['status'] => {
 		const statuses = new Set(grades.map((grade) => grade.status));
 		if (statuses.size === 1) {
 			return statuses.values().next().value as GradeSubmission['status'];
 		}
-		if (statuses.has('Pending') || (statuses.has('Approved') && statuses.has('Rejected'))) {
+		if (
+			statuses.has('Pending') ||
+			(statuses.has('Approved') && statuses.has('Rejected'))
+		) {
 			return 'Partially Approved';
 		}
 		if (statuses.has('Approved')) return 'Approved';
@@ -445,7 +452,7 @@ const AdminGradeManagement: React.FC = () => {
 			studentId: string;
 			status: 'Approved' | 'Rejected';
 			rejectionReason?: string;
-		}[]
+		}[],
 	) => {
 		if (payload.length === 0) return;
 		const nowIso = new Date().toISOString();
@@ -467,7 +474,7 @@ const AdminGradeManagement: React.FC = () => {
 			let changed = false;
 			const nextGrades = submission.grades.map((student) => {
 				const update = updateMap.get(
-					`${submission.submissionId}:${student.studentId}`
+					`${submission.submissionId}:${student.studentId}`,
 				);
 				if (!update || student.status !== 'Pending') return student;
 				changed = true;
@@ -493,7 +500,7 @@ const AdminGradeManagement: React.FC = () => {
 		setSubmissions(nextSubmissions);
 		if (selectedSubmission) {
 			const refreshedSelection = nextSubmissions.find(
-				(item) => item.submissionId === selectedSubmission.submissionId
+				(item) => item.submissionId === selectedSubmission.submissionId,
 			);
 			if (refreshedSelection) {
 				setSelectedSubmission(refreshedSelection);
@@ -532,7 +539,7 @@ const AdminGradeManagement: React.FC = () => {
 			studentId: string;
 			status: 'Approved' | 'Rejected';
 			rejectionReason?: string;
-		}[]
+		}[],
 	) => {
 		try {
 			setActionNotice(null);
@@ -576,7 +583,7 @@ const AdminGradeManagement: React.FC = () => {
 				(student) =>
 					student.status === 'Pending' &&
 					(selectedStudents.size === 0 ||
-						selectedStudents.has(student.studentId))
+						selectedStudents.has(student.studentId)),
 			)
 			.map((student) => student.studentId);
 
@@ -602,7 +609,7 @@ const AdminGradeManagement: React.FC = () => {
 				(student) =>
 					student.status === 'Pending' &&
 					(selectedStudents.size === 0 ||
-						selectedStudents.has(student.studentId))
+						selectedStudents.has(student.studentId)),
 			)
 			.map((student) => student.studentId);
 
@@ -628,7 +635,7 @@ const AdminGradeManagement: React.FC = () => {
 
 		const payload = Array.from(selectedSubmissions).flatMap((submissionId) => {
 			const submission = submissions.find(
-				(s) => s.submissionId === submissionId
+				(s) => s.submissionId === submissionId,
 			);
 			return (
 				submission?.grades
@@ -655,7 +662,7 @@ const AdminGradeManagement: React.FC = () => {
 
 		const payload = Array.from(selectedSubmissions).flatMap((submissionId) => {
 			const submission = submissions.find(
-				(s) => s.submissionId === submissionId
+				(s) => s.submissionId === submissionId,
 			);
 			return (
 				submission?.grades
@@ -740,17 +747,17 @@ const AdminGradeManagement: React.FC = () => {
 
 	const totalPages = Math.max(
 		1,
-		Math.ceil(filteredAndSortedSubmissions.length / rowsPerPage)
+		Math.ceil(filteredAndSortedSubmissions.length / rowsPerPage),
 	);
 	const currentPageSafe = Math.min(currentPage, totalPages);
 	const currentSlice = filteredAndSortedSubmissions.slice(
 		(currentPageSafe - 1) * rowsPerPage,
-		currentPageSafe * rowsPerPage
+		currentPageSafe * rowsPerPage,
 	);
 
 	// UI helper functions
 	const getStatusClasses = (
-		status: StudentGrade['status'] | GradeSubmission['status']
+		status: StudentGrade['status'] | GradeSubmission['status'],
 	) => {
 		switch (status) {
 			case 'Approved':
@@ -766,7 +773,7 @@ const AdminGradeManagement: React.FC = () => {
 		}
 	};
 	const getStatusIcon = (
-		status: StudentGrade['status'] | GradeSubmission['status']
+		status: StudentGrade['status'] | GradeSubmission['status'],
 	) => {
 		switch (status) {
 			case 'Approved':
@@ -810,181 +817,184 @@ const AdminGradeManagement: React.FC = () => {
 	const renderDetailsModal = () => {
 		if (!selectedSubmission) return null;
 		const selectableStudents = selectedSubmission.grades.filter(
-			(g) => g.status === 'Pending'
+			(g) => g.status === 'Pending',
 		);
 
 		return (
 			<div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
 				<div className="flex min-h-full items-center justify-center">
 					<div className="bg-card rounded-lg shadow-xl w-full max-w-6xl max-h-[calc(100dvh-2rem)] flex flex-col border">
-					<div className="p-6 border-b">
-						<div className="flex justify-between items-center">
-							<div>
-								<h3 className="text-xl font-semibold">Submission Details</h3>
-								<div className="text-sm text-muted-foreground mt-1 space-y-1">
-									<div className="flex items-center gap-4">
-										<span className="flex items-center gap-1">
-											<User className="h-4 w-4" />
-											{selectedSubmission.teacherName}
-										</span>
-										<span className="flex items-center gap-1">
-											<BookOpen className="h-4 w-4" />
-											{selectedSubmission.subject}
-										</span>
-										<span className="flex items-center gap-1">
-											<GraduationCap className="h-4 w-4" />
-											{classMap.get(selectedSubmission.classId) ||
-												selectedSubmission.classId}
-										</span>
-									</div>
-									<div className="flex items-center gap-4">
-										<span className="flex items-center gap-1">
-											<Calendar className="h-4 w-4" />
-											{
-												periods.find(
-													(p) => p.value === selectedSubmission.period
-												)?.label
-											}
-										</span>
-										<span>
-											Last updated: {formatDate(selectedSubmission.lastUpdated)}
-										</span>
+						<div className="p-6 border-b">
+							<div className="flex justify-between items-center">
+								<div>
+									<h3 className="text-xl font-semibold">Submission Details</h3>
+									<div className="text-sm text-muted-foreground mt-1 space-y-1">
+										<div className="flex items-center gap-4">
+											<span className="flex items-center gap-1">
+												<User className="h-4 w-4" />
+												{selectedSubmission.teacherName}
+											</span>
+											<span className="flex items-center gap-1">
+												<BookOpen className="h-4 w-4" />
+												{selectedSubmission.subject}
+											</span>
+											<span className="flex items-center gap-1">
+												<GraduationCap className="h-4 w-4" />
+												{classMap.get(selectedSubmission.classId) ||
+													selectedSubmission.classId}
+											</span>
+										</div>
+										<div className="flex items-center gap-4">
+											<span className="flex items-center gap-1">
+												<Calendar className="h-4 w-4" />
+												{
+													periods.find(
+														(p) => p.value === selectedSubmission.period,
+													)?.label
+												}
+											</span>
+											<span>
+												Last updated:{' '}
+												{formatDate(selectedSubmission.lastUpdated)}
+											</span>
+										</div>
 									</div>
 								</div>
-							</div>
-							<button
-								onClick={() => setShowDetailsModal(false)}
-								className="text-muted-foreground hover:text-foreground"
-							>
-								<X className="h-5 w-5" />
-							</button>
-						</div>
-					</div>
-
-					<div className="p-6 overflow-y-auto overscroll-contain flex-grow">
-						<div className="overflow-x-auto">
-							<table className="min-w-full divide-y divide-border">
-								<thead className="bg-muted/50">
-									<tr>
-										<th className="p-3 text-left">
-											<input
-												type="checkbox"
-												onChange={(e) => {
-													if (e.target.checked)
-														setSelectedStudents(
-															new Set(
-																selectableStudents.map((g) => g.studentId)
-															)
-														);
-													else setSelectedStudents(new Set());
-												}}
-												checked={
-													selectableStudents.length > 0 &&
-													selectedStudents.size === selectableStudents.length
-												}
-												className="rounded border-input"
-											/>
-										</th>
-										<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-											Student Name
-										</th>
-										<th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
-											Grade
-										</th>
-										<th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
-											Status
-										</th>
-									</tr>
-								</thead>
-								<tbody className="divide-y divide-border">
-									{selectedSubmission.grades.map((student) => (
-										<tr
-											key={student.studentId}
-											className={
-												selectedStudents.has(student.studentId)
-													? 'bg-primary/10'
-													: ''
-											}
-										>
-											<td className="p-3">
-												<input
-													type="checkbox"
-													disabled={student.status !== 'Pending'}
-													checked={selectedStudents.has(student.studentId)}
-													onChange={() => {
-														const newSet = new Set(selectedStudents);
-														if (newSet.has(student.studentId))
-															newSet.delete(student.studentId);
-														else newSet.add(student.studentId);
-														setSelectedStudents(newSet);
-													}}
-													className="rounded border-input disabled:opacity-50"
-												/>
-											</td>
-											<td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
-												{student.name}
-											</td>
-											<td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-												<span className={getGradeColor(student.grade)}>
-													{student.grade ?? 'N/A'}
-												</span>
-											</td>
-											<td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-												<span
-													className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
-														student.status
-													)}`}
-												>
-													{getStatusIcon(student.status)} {student.status}
-												</span>
-											</td>
-										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
-					</div>
-
-					{['Pending', 'Partially Approved'].includes(
-						selectedSubmission.status
-					) && (
-						<div className="p-6 border-t bg-muted flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-							<div className="text-sm text-muted-foreground">
-								{selectedStudents.size > 0
-									? `${selectedStudents.size} pending student(s) selected`
-									: 'Actions will apply to all pending students'}
-							</div>
-							<div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
 								<button
 									onClick={() => setShowDetailsModal(false)}
-									className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto"
+									className="text-muted-foreground hover:text-foreground"
 								>
-									Cancel
-								</button>
-								<button
-									onClick={() => {
-										setActionType(
-											selectedStudents.size > 0 ? 'individual' : 'submission'
-										);
-										setShowRejectModal(true);
-									}}
-									className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 flex items-center justify-center gap-2 sm:w-auto"
-								>
-									<XCircle className="h-4 w-4" /> Reject{' '}
-									{selectedStudents.size > 0 ? 'Selected' : 'All Pending'}
-								</button>
-								<button
-									onClick={handleApprove}
-									disabled={isProcessing}
-									className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto"
-								>
-									{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}{' '}
-									<Check className="h-4 w-4" /> Approve{' '}
-									{selectedStudents.size > 0 ? 'Selected' : 'All Pending'}
+									<X className="h-5 w-5" />
 								</button>
 							</div>
 						</div>
-					)}
+
+						<div className="p-6 overflow-y-auto overscroll-contain flex-grow">
+							<div className="overflow-x-auto">
+								<table className="min-w-full divide-y divide-border">
+									<thead className="bg-muted/50">
+										<tr>
+											<th className="p-3 text-left">
+												<input
+													type="checkbox"
+													onChange={(e) => {
+														if (e.target.checked)
+															setSelectedStudents(
+																new Set(
+																	selectableStudents.map((g) => g.studentId),
+																),
+															);
+														else setSelectedStudents(new Set());
+													}}
+													checked={
+														selectableStudents.length > 0 &&
+														selectedStudents.size === selectableStudents.length
+													}
+													className="rounded border-input"
+												/>
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+												Student Name
+											</th>
+											<th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+												Grade
+											</th>
+											<th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+												Status
+											</th>
+										</tr>
+									</thead>
+									<tbody className="divide-y divide-border">
+										{selectedSubmission.grades.map((student) => (
+											<tr
+												key={student.studentId}
+												className={
+													selectedStudents.has(student.studentId)
+														? 'bg-primary/10'
+														: ''
+												}
+											>
+												<td className="p-3">
+													<input
+														type="checkbox"
+														disabled={student.status !== 'Pending'}
+														checked={selectedStudents.has(student.studentId)}
+														onChange={() => {
+															const newSet = new Set(selectedStudents);
+															if (newSet.has(student.studentId))
+																newSet.delete(student.studentId);
+															else newSet.add(student.studentId);
+															setSelectedStudents(newSet);
+														}}
+														className="rounded border-input disabled:opacity-50"
+													/>
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+													{student.name}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+													<span className={getGradeColor(student.grade)}>
+														{student.grade ?? 'N/A'}
+													</span>
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+													<span
+														className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
+															student.status,
+														)}`}
+													>
+														{getStatusIcon(student.status)} {student.status}
+													</span>
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						</div>
+
+						{['Pending', 'Partially Approved'].includes(
+							selectedSubmission.status,
+						) && (
+							<div className="p-6 border-t bg-muted flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+								<div className="text-sm text-muted-foreground">
+									{selectedStudents.size > 0
+										? `${selectedStudents.size} pending student(s) selected`
+										: 'Actions will apply to all pending students'}
+								</div>
+								<div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+									<button
+										onClick={() => setShowDetailsModal(false)}
+										className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto"
+									>
+										Cancel
+									</button>
+									<button
+										onClick={() => {
+											setActionType(
+												selectedStudents.size > 0 ? 'individual' : 'submission',
+											);
+											setShowRejectModal(true);
+										}}
+										className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 flex items-center justify-center gap-2 sm:w-auto"
+									>
+										<XCircle className="h-4 w-4" /> Reject{' '}
+										{selectedStudents.size > 0 ? 'Selected' : 'All Pending'}
+									</button>
+									<button
+										onClick={handleApprove}
+										disabled={isProcessing}
+										className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto"
+									>
+										{isProcessing && (
+											<Loader2 className="h-4 w-4 animate-spin" />
+										)}{' '}
+										<Check className="h-4 w-4" /> Approve{' '}
+										{selectedStudents.size > 0 ? 'Selected' : 'All Pending'}
+									</button>
+								</div>
+							</div>
+						)}
 					</div>
 				</div>
 			</div>
@@ -995,48 +1005,48 @@ const AdminGradeManagement: React.FC = () => {
 		<div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
 			<div className="flex min-h-full items-center justify-center">
 				<div className="bg-card rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border">
-				<div className="p-6 border-b">
-					<div className="flex justify-between items-center">
-						<h3 className="text-lg font-semibold text-destructive">
-							Reject Submission
-						</h3>
+					<div className="p-6 border-b">
+						<div className="flex justify-between items-center">
+							<h3 className="text-lg font-semibold text-destructive">
+								Reject Submission
+							</h3>
+							<button
+								onClick={() => setShowRejectModal(false)}
+								className="text-muted-foreground hover:text-foreground"
+							>
+								<X className="h-5 w-5" />
+							</button>
+						</div>
+					</div>
+					<div className="p-6">
+						<p className="text-muted-foreground mb-4">
+							Please provide a reason for rejecting this{' '}
+							{actionType === 'individual' ? 'student grade(s)' : 'submission'}:
+						</p>
+						<textarea
+							value={rejectionReason}
+							onChange={(e) => setRejectionReason(e.target.value)}
+							placeholder="Enter detailed reason for rejection..."
+							rows={4}
+							className="w-full rounded-md border-input bg-background shadow-sm focus:ring-destructive focus:border-destructive"
+						/>
+					</div>
+					<div className="p-6 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
 						<button
 							onClick={() => setShowRejectModal(false)}
-							className="text-muted-foreground hover:text-foreground"
+							className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto"
 						>
-							<X className="h-5 w-5" />
+							Cancel
+						</button>
+						<button
+							onClick={handleReject}
+							disabled={isProcessing || !rejectionReason.trim()}
+							className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto"
+						>
+							{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
+							<XCircle className="h-4 w-4" /> Reject
 						</button>
 					</div>
-				</div>
-				<div className="p-6">
-					<p className="text-muted-foreground mb-4">
-						Please provide a reason for rejecting this{' '}
-						{actionType === 'individual' ? 'student grade(s)' : 'submission'}:
-					</p>
-					<textarea
-						value={rejectionReason}
-						onChange={(e) => setRejectionReason(e.target.value)}
-						placeholder="Enter detailed reason for rejection..."
-						rows={4}
-						className="w-full rounded-md border-input bg-background shadow-sm focus:ring-destructive focus:border-destructive"
-					/>
-				</div>
-				<div className="p-6 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-					<button
-						onClick={() => setShowRejectModal(false)}
-						className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto"
-					>
-						Cancel
-					</button>
-					<button
-						onClick={handleReject}
-						disabled={isProcessing || !rejectionReason.trim()}
-						className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto"
-					>
-						{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
-						<XCircle className="h-4 w-4" /> Reject
-					</button>
-				</div>
 				</div>
 			</div>
 		</div>
@@ -1046,49 +1056,49 @@ const AdminGradeManagement: React.FC = () => {
 		<div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
 			<div className="flex min-h-full items-center justify-center">
 				<div className="bg-card rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border">
-				<div className="p-6 border-b">
-					<div className="flex justify-between items-center">
-						<h3 className="text-lg font-semibold text-destructive">
-							Bulk Reject Submissions
-						</h3>
+					<div className="p-6 border-b">
+						<div className="flex justify-between items-center">
+							<h3 className="text-lg font-semibold text-destructive">
+								Bulk Reject Submissions
+							</h3>
+							<button
+								onClick={() => setShowBulkRejectModal(false)}
+								className="text-muted-foreground hover:text-foreground"
+							>
+								<X className="h-5 w-5" />
+							</button>
+						</div>
+					</div>
+					<div className="p-6">
+						<p className="text-muted-foreground mb-4">
+							You are about to reject {selectedSubmissions.size} submission(s).
+							Please provide a reason:
+						</p>
+						<textarea
+							value={bulkRejectionReason}
+							onChange={(e) => setBulkRejectionReason(e.target.value)}
+							placeholder="Enter detailed reason for rejection..."
+							rows={4}
+							className="w-full rounded-md border-input bg-background shadow-sm focus:ring-destructive focus:border-destructive"
+						/>
+					</div>
+					<div className="p-6 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
 						<button
 							onClick={() => setShowBulkRejectModal(false)}
-							className="text-muted-foreground hover:text-foreground"
+							className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto"
 						>
-							<X className="h-5 w-5" />
+							Cancel
+						</button>
+						<button
+							onClick={handleBulkReject}
+							disabled={isProcessing || !bulkRejectionReason.trim()}
+							className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto"
+						>
+							{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
+							<XCircle className="h-4 w-4" /> Reject {selectedSubmissions.size}{' '}
+							Submissions
 						</button>
 					</div>
-				</div>
-				<div className="p-6">
-					<p className="text-muted-foreground mb-4">
-						You are about to reject {selectedSubmissions.size} submission(s).
-						Please provide a reason:
-					</p>
-					<textarea
-						value={bulkRejectionReason}
-						onChange={(e) => setBulkRejectionReason(e.target.value)}
-						placeholder="Enter detailed reason for rejection..."
-						rows={4}
-						className="w-full rounded-md border-input bg-background shadow-sm focus:ring-destructive focus:border-destructive"
-					/>
-				</div>
-				<div className="p-6 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-					<button
-						onClick={() => setShowBulkRejectModal(false)}
-						className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto"
-					>
-						Cancel
-					</button>
-					<button
-						onClick={handleBulkReject}
-						disabled={isProcessing || !bulkRejectionReason.trim()}
-						className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto"
-					>
-						{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
-						<XCircle className="h-4 w-4" /> Reject {selectedSubmissions.size}{' '}
-						Submissions
-					</button>
-				</div>
 				</div>
 			</div>
 		</div>
@@ -1106,14 +1116,16 @@ const AdminGradeManagement: React.FC = () => {
 							</h2>
 							<p className="text-muted-foreground mt-1">
 								Review and manage grade submissions from all teachers.
-								{selectedAcademicYear ? ` Academic year: ${selectedAcademicYear}` : ''}
+								{selectedAcademicYear
+									? ` Academic year: ${selectedAcademicYear}`
+									: ''}
 							</p>
 						</div>
-							<button
-								onClick={() => fetchGrades(true)}
-								disabled={loading}
-								className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 sm:w-auto"
-							>
+						<button
+							onClick={() => fetchGrades(true)}
+							disabled={loading}
+							className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 sm:w-auto"
+						>
 							{loading ? (
 								<Loader2 className="h-4 w-4 animate-spin" />
 							) : (
@@ -1305,14 +1317,14 @@ const AdminGradeManagement: React.FC = () => {
 													checked={
 														filteredAndSortedSubmissions.filter((s) =>
 															['Pending', 'Partially Approved'].includes(
-																s.status
-															)
+																s.status,
+															),
 														).length > 0 &&
 														selectedSubmissions.size ===
 															filteredAndSortedSubmissions.filter((s) =>
 																['Pending', 'Partially Approved'].includes(
-																	s.status
-																)
+																	s.status,
+																),
 															).length
 													}
 													className="rounded border-input"
@@ -1334,8 +1346,8 @@ const AdminGradeManagement: React.FC = () => {
 												Status
 											</th>
 											<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-											Last Updated
-										</th>
+												Last Updated
+											</th>
 											<th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
 												Actions
 											</th>
@@ -1348,14 +1360,14 @@ const AdminGradeManagement: React.FC = () => {
 													<input
 														type="checkbox"
 														checked={selectedSubmissions.has(
-															submission.submissionId
+															submission.submissionId,
 														)}
 														onChange={() =>
 															toggleSubmissionSelection(submission.submissionId)
 														}
 														disabled={
 															!['Pending', 'Partially Approved'].includes(
-																submission.status
+																submission.status,
 															)
 														}
 														className="rounded border-input disabled:opacity-50"
@@ -1380,7 +1392,7 @@ const AdminGradeManagement: React.FC = () => {
 												<td className="px-6 py-4 whitespace-nowrap text-sm">
 													<span
 														className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
-															submission.status
+															submission.status,
 														)}`}
 													>
 														{getStatusIcon(submission.status)}{' '}
@@ -1414,7 +1426,7 @@ const AdminGradeManagement: React.FC = () => {
 									<strong>
 										{Math.min(
 											currentPageSafe * rowsPerPage,
-											filteredAndSortedSubmissions.length
+											filteredAndSortedSubmissions.length,
 										)}
 									</strong>{' '}
 									of <strong>{filteredAndSortedSubmissions.length}</strong>{' '}

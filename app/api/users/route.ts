@@ -100,13 +100,7 @@ const PROFILE_NOTIFICATION_EXCLUDED_FIELDS = new Set([
 ]);
 
 function getActorDisplayName(actor: any): string {
-	const fullName = [actor?.firstName, actor?.middleName, actor?.lastName]
-		.map((part) => (typeof part === 'string' ? part.trim() : ''))
-		.filter(Boolean)
-		.join(' ');
-	if (fullName) return fullName;
-	const fallback =
-		actor?.fullName || actor?.name || actor?.username || actor?.userId;
+	const fallback = actor?.fullName || actor?.username;
 	return typeof fallback === 'string' && fallback.trim()
 		? fallback.trim()
 		: 'an administrator';
@@ -142,6 +136,7 @@ function buildUserResponse(
 		username: user.username,
 		firstName: user.firstName,
 		middleName: user.middleName,
+		fullName: user.fullName,
 		lastName: user.lastName,
 		role: user.role as UserRole,
 		password: user.password,
@@ -338,9 +333,7 @@ async function buildUserData(
 		firstName: userData.firstName.trim(),
 		middleName: userData.middleName?.trim(),
 		lastName: userData.lastName.trim(),
-		fullName: `${userData.firstName.trim()} ${
-			userData.middleName ? userData.middleName.trim() + ' ' : ''
-		}${userData.lastName.trim()}`,
+		fullName: userData.fullName?.trim(),
 		nickName: userData.nickName?.trim(),
 		gender: userData.gender,
 		username: credentials.username,
@@ -967,7 +960,7 @@ async function validateTeacherData(
 							assignment: {
 								year: year,
 								classId: classData.classId,
-								subjects: conflictingSubjects,
+								subjects: conflictingSubjects as string[],
 							},
 						};
 
@@ -1299,6 +1292,7 @@ export async function GET(request: NextRequest) {
 				studentId: student.studentId,
 				firstName: student.firstName,
 				lastName: student.lastName,
+				fullName: student.fullName,
 				email: student.email,
 				phone:
 					student.shareContactWithClassmates === true
@@ -1526,6 +1520,7 @@ export async function GET(request: NextRequest) {
 						id: t._id.toString(),
 						firstName: t.firstName,
 						lastName: t.lastName,
+						fullName: t.fullName,
 						email: t.email,
 						phone: t.phone,
 						avatar: t.avatar || t.profilePictureUrl,
@@ -1588,6 +1583,7 @@ export async function GET(request: NextRequest) {
 					id: a._id.toString(),
 					firstName: a.firstName,
 					lastName: a.lastName,
+					fullName: a.fullName,
 					email: a.email,
 					phone: a.phone,
 					avatar: a.avatar || a.profilePictureUrl,
@@ -1669,6 +1665,7 @@ export async function GET(request: NextRequest) {
 						id: user._id.toString(),
 						firstName: user.firstName,
 						lastName: user.lastName,
+						fullName: user.fullName,
 						email: user.email,
 						phone: user.phone,
 						avatar: user.avatar || user.profilePictureUrl,
@@ -1755,6 +1752,7 @@ export async function GET(request: NextRequest) {
 						id: t._id.toString(),
 						firstName: t.firstName,
 						lastName: t.lastName,
+						fullName: t.fullName,
 						email: t.email,
 						phone: t.phone,
 						avatar: t.avatar || t.profilePictureUrl,
@@ -1769,6 +1767,7 @@ export async function GET(request: NextRequest) {
 					id: a._id.toString(),
 					firstName: a.firstName,
 					lastName: a.lastName,
+					fullName: a.fullName,
 					email: a.email,
 					phone: a.phone,
 					avatar: a.avatar || a.profilePictureUrl,

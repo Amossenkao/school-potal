@@ -28,6 +28,7 @@ const UserSchema = new Schema<User & Document>(
 		firstName: { type: String, required: true },
 		middleName: String,
 		lastName: { type: String, required: true },
+		fullName: { type: String, required: true },
 		username: { type: String, required: true, unique: true },
 		password: { type: String },
 		nickName: String,
@@ -54,7 +55,11 @@ const UserSchema = new Schema<User & Document>(
 UserSchema.index({ role: 1 });
 UserSchema.index({ role: 1, classId: 1 });
 UserSchema.index({ role: 1, 'academicYears.year': 1 });
-UserSchema.index({ role: 1, 'academicYears.year': 1, 'academicYears.classId': 1 });
+UserSchema.index({
+	role: 1,
+	'academicYears.year': 1,
+	'academicYears.classId': 1,
+});
 UserSchema.index({ role: 1, 'subjects.year': 1 });
 UserSchema.index({ role: 1, 'subjects.classes.classId': 1 });
 

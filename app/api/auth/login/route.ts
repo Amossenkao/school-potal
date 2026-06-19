@@ -88,16 +88,7 @@ export async function POST(request: NextRequest) {
 	}
 
 	const body = await request.json();
-	let {
-		action,
-		username,
-		password,
-		role,
-		otp,
-		sessionId,
-		id,
-		userId,
-	} = body;
+	let { action, username, password, role, otp, sessionId, id, userId } = body;
 	const resolvedUserId = id || userId;
 	const ip = getRequestIp(request.headers);
 
@@ -114,7 +105,9 @@ export async function POST(request: NextRequest) {
 		switch (action) {
 			case 'login':
 				{
-					const loginIdentifier = String(username || '').trim().toLowerCase();
+					const loginIdentifier = String(username || '')
+						.trim()
+						.toLowerCase();
 					const limiter = await checkRateLimit(
 						`rl:login:${host}:${ip}:${loginIdentifier}`,
 						10,
@@ -183,7 +176,10 @@ export async function POST(request: NextRequest) {
 								},
 							};
 						} catch (fallbackError) {
-							console.warn('Failed to build fallback login payload:', fallbackError);
+							console.warn(
+								'Failed to build fallback login payload:',
+								fallbackError,
+							);
 						}
 					}
 				}
@@ -341,7 +337,10 @@ async function handleLogin(user: any, password: string, host: string) {
 		const sessionId = await createSession(sessionData);
 		let bootstrapPayload: any = null;
 		try {
-			bootstrapPayload = await buildLoginBootstrapPayload(userData, schoolProfile);
+			bootstrapPayload = await buildLoginBootstrapPayload(
+				userData,
+				schoolProfile,
+			);
 		} catch (error) {
 			console.warn('Failed to build login bootstrap payload:', error);
 			const yearAccess = resolveAcademicYearAccessContext({
@@ -386,6 +385,7 @@ function buildUserResponse(user: any) {
 		firstName: user.firstName,
 		middleName: user.middleName,
 		lastName: user.lastName,
+		fullName: user.fullName,
 		nickName: user.nickName,
 		gender: user.gender,
 		dateOfBirth: user.dateOfBirth,

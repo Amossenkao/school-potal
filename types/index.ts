@@ -64,6 +64,7 @@ export interface User {
 	firstName: string;
 	middleName?: string;
 	lastName: string;
+	fullName: string;
 	password: string;
 	nickName?: string;
 	gender: string;

@@ -786,9 +786,7 @@ function FilterContent({
 			const studentAsList: Student[] = [
 				{
 					id: user.studentId || user.id,
-					name: `${user.firstName || ''} ${user.middleName || ''} ${
-						user.lastName || ''
-					}`.trim(),
+					name: user.fullName,
 					className: filters.className || user.classId || '',
 				},
 			];

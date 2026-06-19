@@ -17,7 +17,7 @@ import {
 } from '@/utils/academicYearOptions';
 
 const getFullName = (user: any) =>
-	`${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User';
+	user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim();
 
 const Community = () => {
 	const { user } = useAuth();
@@ -385,6 +385,7 @@ const Community = () => {
 			id: target.id || target._id,
 			firstName: target.firstName,
 			lastName: target.lastName,
+			fullName: target.fullName,
 			role: target.role,
 			avatar: target.avatar,
 			profilePictureUrl: target.profilePictureUrl,

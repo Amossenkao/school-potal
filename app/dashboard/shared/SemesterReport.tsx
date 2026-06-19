@@ -140,10 +140,8 @@ const normalizeStudentId = (...ids: Array<unknown>) => {
 };
 
 const buildStudentFullName = (student: any) =>
-	[student?.firstName, student?.middleName, student?.lastName]
-		.map((part) => (typeof part === 'string' ? part.trim() : ''))
-		.filter(Boolean)
-		.join(' ');
+	student?.fullName ||
+	`${student?.firstName || ''} ${student?.lastName || ''}`.trim();
 
 const resolveStudentDisplayName = (student: any, fallbackName = '') => {
 	const fullName = buildStudentFullName(student);

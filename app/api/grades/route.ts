@@ -257,7 +257,7 @@ function validateGrades(
 	for (const grade of grades) {
 		if (
 			!grade.studentId ||
-			!grade.name ||
+			!grade.studentName ||
 			!grade.period ||
 			typeof grade.grade !== 'number' ||
 			!Number.isFinite(grade.grade) ||
@@ -266,7 +266,7 @@ function validateGrades(
 		) {
 			return {
 				isValid: false,
-				message: `Invalid grade entry for ${grade.name || 'a student'}.`,
+				message: `Invalid grade entry for ${grade.studentName || 'a student'}.`,
 			};
 		}
 	}
@@ -279,10 +279,7 @@ function normalizeNamePart(value: unknown): string {
 }
 
 function buildFullNameFromUser(user: any): string {
-	return [user?.firstName, user?.middleName, user?.lastName]
-		.map((part) => normalizeNamePart(part))
-		.filter(Boolean)
-		.join(' ');
+	return user.fullName;
 }
 
 function getStats(grades: Array<{ grade: number }>) {
@@ -1433,7 +1430,7 @@ export async function POST(request: NextRequest) {
 			studentId: String(grade.studentId || '').trim(),
 			studentName:
 				studentNameById.get(String(grade.studentId || '').trim()) ||
-				normalizeNamePart(grade.name),
+				normalizeNamePart(grade.studentName || ''),
 			grade: grade.grade,
 			status: 'Pending',
 			submissionId: getSubmissionId(
@@ -1487,7 +1484,7 @@ export async function POST(request: NextRequest) {
 		const notificationPromises = [];
 		for (const [submissionId, summary] of submissionSummary.entries()) {
 			const details = {
-				teacherName: `${teacher.firstName} ${teacher.lastName}`.trim(),
+				teacherName: teacher.fullName || teacher.username,
 				className,
 				period: formatPeriodLabel(summary.period),
 				subject,

@@ -16,6 +16,7 @@ interface TeacherInfo {
 	name?: string;
 	firstName?: string;
 	lastName?: string;
+	fullName?: string;
 	username: string;
 }
 
@@ -511,18 +512,18 @@ const CoverPage: React.FC<{
 					<Text style={styles.coverMetaChipLabel}>Division</Text>
 					<Text style={styles.coverMetaChipValue}>{classLevel || '-'}</Text>
 				</View>
-			{includeClass && (
-				<View style={[styles.coverMetaChip, styles.coverMetaChipRight]}>
-					<Text style={styles.coverMetaChipLabel}>Class</Text>
-					<Text style={styles.coverMetaChipValue}>{className}</Text>
-				</View>
-			)}
-			{includeSubject && (
-				<View style={[styles.coverMetaChip, styles.coverMetaChipWide]}>
-					<Text style={styles.coverMetaChipLabel}>Subject</Text>
-					<Text style={styles.coverMetaChipValue}>{subject}</Text>
-				</View>
-			)}
+				{includeClass && (
+					<View style={[styles.coverMetaChip, styles.coverMetaChipRight]}>
+						<Text style={styles.coverMetaChipLabel}>Class</Text>
+						<Text style={styles.coverMetaChipValue}>{className}</Text>
+					</View>
+				)}
+				{includeSubject && (
+					<View style={[styles.coverMetaChip, styles.coverMetaChipWide]}>
+						<Text style={styles.coverMetaChipLabel}>Subject</Text>
+						<Text style={styles.coverMetaChipValue}>{subject}</Text>
+					</View>
+				)}
 				<View style={[styles.coverMetaChip, styles.coverMetaChipWide]}>
 					<Text style={styles.coverMetaChipLabel}>Teacher</Text>
 					<Text style={styles.coverMetaChipValue}>{teacherName}</Text>
@@ -607,10 +608,7 @@ const GradesPDF: React.FC<{
 	academicYear,
 	school,
 }) => {
-	const teacherName =
-		teacherInfo?.name ||
-		`${teacherInfo?.firstName || ''} ${teacherInfo?.lastName || ''}`.trim() ||
-		'___________________________';
+	const teacherName = teacherInfo?.fullName || '___________________________';
 
 	const buildEmptyRows = (count: number, prefix: string) =>
 		Array.from({ length: count }, (_, i) => ({
@@ -672,9 +670,10 @@ const GradesPDF: React.FC<{
 			periods: student.periods ?? {},
 		}));
 
-	const pages = multiClass || multiSubject
-		? []
-		: buildPagesForStudents(normalizedStudents, 'single');
+	const pages =
+		multiClass || multiSubject
+			? []
+			: buildPagesForStudents(normalizedStudents, 'single');
 
 	return (
 		<Document>
@@ -694,13 +693,11 @@ const GradesPDF: React.FC<{
 						const students = Array.isArray(entry?.students)
 							? entry.students
 							: [];
-						const normalized = students
-							.filter(Boolean)
-							.map((student: any) => ({
-								studentId: student.studentId ?? student.id ?? student._id ?? '',
-								studentName: student.studentName ?? '',
-								periods: student.periods ?? {},
-							}));
+						const normalized = students.filter(Boolean).map((student: any) => ({
+							studentId: student.studentId ?? student.id ?? student._id ?? '',
+							studentName: student.studentName ?? '',
+							periods: student.periods ?? {},
+						}));
 						const classPages = buildPagesForStudents(
 							normalized,
 							`class-${classIndex}`,
@@ -791,7 +788,8 @@ const GradesPDF: React.FC<{
 							const normalized = students
 								.filter(Boolean)
 								.map((student: any) => ({
-									studentId: student.studentId ?? student.id ?? student._id ?? '',
+									studentId:
+										student.studentId ?? student.id ?? student._id ?? '',
 									studentName: student.studentName ?? '',
 									periods: student.periods ?? {},
 								}));
@@ -809,7 +807,10 @@ const GradesPDF: React.FC<{
 									<View style={styles.watermark}>
 										{typeof school.logoUrl === 'string' &&
 										school.logoUrl.trim().length > 0 ? (
-											<Image src={school.logoUrl} style={styles.watermarkImage} />
+											<Image
+												src={school.logoUrl}
+												style={styles.watermarkImage}
+											/>
 										) : (
 											<View style={styles.watermarkImage} />
 										)}
@@ -878,78 +879,81 @@ const GradesPDF: React.FC<{
 							));
 						})
 					: pages.map((pageStudents, index) => (
-						<Page
-							key={`page-${index}`}
-							size="A4"
-							orientation="landscape"
-							style={styles.page}
-						>
-							<View style={styles.watermark}>
-								{typeof school.logoUrl === 'string' &&
-								school.logoUrl.trim().length > 0 ? (
-									<Image src={school.logoUrl} style={styles.watermarkImage} />
-								) : (
-									<View style={styles.watermarkImage} />
-								)}
-							</View>
+							<Page
+								key={`page-${index}`}
+								size="A4"
+								orientation="landscape"
+								style={styles.page}
+							>
+								<View style={styles.watermark}>
+									{typeof school.logoUrl === 'string' &&
+									school.logoUrl.trim().length > 0 ? (
+										<Image src={school.logoUrl} style={styles.watermarkImage} />
+									) : (
+										<View style={styles.watermarkImage} />
+									)}
+								</View>
 
-							<View style={styles.infoSection}>
-								<Text style={styles.infoText}>
-									<Text style={{ fontWeight: 'bold' }}>Academic Year:</Text>{' '}
-									{academicYear}
-								</Text>
-								<Text style={styles.infoDivider}>|</Text>
-								<Text style={styles.infoText}>
-									<Text style={{ fontWeight: 'bold' }}>Class:</Text>{' '}
-									{className}
-								</Text>
-								<Text style={styles.infoDivider}>|</Text>
-								<Text style={styles.infoText}>
-									<Text style={{ fontWeight: 'bold' }}>Subject:</Text> {subject}
-								</Text>
-								<Text style={styles.infoDivider}>|</Text>
-								<Text style={styles.infoText}>
-									<Text style={{ fontWeight: 'bold' }}>Teacher:</Text>{' '}
-									{teacherName}
-								</Text>
-							</View>
+								<View style={styles.infoSection}>
+									<Text style={styles.infoText}>
+										<Text style={{ fontWeight: 'bold' }}>Academic Year:</Text>{' '}
+										{academicYear}
+									</Text>
+									<Text style={styles.infoDivider}>|</Text>
+									<Text style={styles.infoText}>
+										<Text style={{ fontWeight: 'bold' }}>Class:</Text>{' '}
+										{className}
+									</Text>
+									<Text style={styles.infoDivider}>|</Text>
+									<Text style={styles.infoText}>
+										<Text style={{ fontWeight: 'bold' }}>Subject:</Text>{' '}
+										{subject}
+									</Text>
+									<Text style={styles.infoDivider}>|</Text>
+									<Text style={styles.infoText}>
+										<Text style={{ fontWeight: 'bold' }}>Teacher:</Text>{' '}
+										{teacherName}
+									</Text>
+								</View>
 
-							<View style={styles.table}>
-								<TableHeader />
-								{pageStudents.length > 0 ? (
-									pageStudents.map((student: any, rowIndex: number) => (
-										<StudentRow
-											key={String(student?.studentId || `${index}-${rowIndex}`)}
-											student={student}
-											index={index * STUDENTS_PER_PAGE + rowIndex + 1}
-										/>
-									))
-								) : (
-									<View style={styles.tableRow}>
-										<Text
-											style={[
-												styles.tableCellName,
-												{ textAlign: 'center', flex: 12 },
-											]}
-										>
-											No students found for this class and subject.
-										</Text>
-									</View>
-								)}
-							</View>
+								<View style={styles.table}>
+									<TableHeader />
+									{pageStudents.length > 0 ? (
+										pageStudents.map((student: any, rowIndex: number) => (
+											<StudentRow
+												key={String(
+													student?.studentId || `${index}-${rowIndex}`,
+												)}
+												student={student}
+												index={index * STUDENTS_PER_PAGE + rowIndex + 1}
+											/>
+										))
+									) : (
+										<View style={styles.tableRow}>
+											<Text
+												style={[
+													styles.tableCellName,
+													{ textAlign: 'center', flex: 12 },
+												]}
+											>
+												No students found for this class and subject.
+											</Text>
+										</View>
+									)}
+								</View>
 
-							<Text
-								style={styles.pageNumber}
-								render={({ pageNumber, totalPages }) =>
-									`Page ${pageNumber} of ${totalPages}`
-								}
-								fixed
-							/>
-							<Text style={styles.footer} fixed>
-								Generated by {school.name} e-Potal System
-							</Text>
-						</Page>
-					))}
+								<Text
+									style={styles.pageNumber}
+									render={({ pageNumber, totalPages }) =>
+										`Page ${pageNumber} of ${totalPages}`
+									}
+									fixed
+								/>
+								<Text style={styles.footer} fixed>
+									Generated by {school.name} e-Potal System
+								</Text>
+							</Page>
+						))}
 		</Document>
 	);
 };
@@ -987,9 +991,7 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 
 	if (
 		!gradeData ||
-		(!gradeData.students &&
-			!gradeData.multiClass &&
-			!gradeData.multiSubject)
+		(!gradeData.students && !gradeData.multiClass && !gradeData.multiSubject)
 	) {
 		return (
 			<button
@@ -1031,6 +1033,7 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 			teacherInfo?.name || '',
 			teacherInfo?.firstName || '',
 			teacherInfo?.lastName || '',
+			teacherInfo?.fullName || '',
 		].join('|');
 
 		const studentKey = Array.isArray(gradeData?.multiClass)
@@ -1094,7 +1097,15 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 			teacherKey,
 			studentKey,
 		].join('||');
-	}, [school?.name, academicYear, classLevel, className, subject, teacherInfo, gradeData]);
+	}, [
+		school?.name,
+		academicYear,
+		classLevel,
+		className,
+		subject,
+		teacherInfo,
+		gradeData,
+	]);
 
 	useEffect(() => {
 		if (!doc || !docRenderKey) return;

@@ -35,6 +35,57 @@ import {
 } from 'lucide-react';
 import { fail } from 'assert';
 
+// Helper function to build full name
+
+const getFullName = (
+	firstName: string,
+	middleName?: string,
+	lastName?: string,
+) => {
+	const capitalizeWord = (word: string) =>
+		word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+
+	const normalizeFirstOrLast = (value: string = '') => {
+		return value
+			.trim()
+			.replace(/\s+/g, ' ')
+			.split(' ')
+			.filter(Boolean)
+			.map(capitalizeWord)
+			.join(' ');
+	};
+
+	const normalizeMiddleName = (value?: string) => {
+		if (!value) return undefined;
+
+		return value
+			.trim()
+			.replace(/\s+/g, ' ')
+			.split(' ')
+			.filter(Boolean)
+			.map((part) => {
+				const clean = part.replace(/\./g, '');
+				if (clean.length === 1) {
+					return clean.toUpperCase() + '.';
+				}
+
+				// normal word
+				return capitalizeWord(clean);
+			})
+			.join(' ');
+	};
+
+	const first = normalizeFirstOrLast(firstName);
+	const middle = normalizeMiddleName(middleName);
+	const last = normalizeFirstOrLast(lastName);
+
+	return [first, middle, last]
+		.filter(Boolean)
+		.join(' ')
+		.replace(/\s+/g, ' ')
+		.trim();
+};
+
 /* ─────────────────────────────────────────────
    SHARED PRIMITIVES
 ───────────────────────────────────────────── */
@@ -982,11 +1033,14 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	};
 
 	const handleSubmit = async () => {
+		const { firstName, middleName, lastName } = formData;
+		const fullName = getFullName(firstName, middleName, lastName);
 		const base = {
 			role: userType,
-			firstName: formData.firstName,
-			middleName: formData.middleName || undefined,
-			lastName: formData.lastName,
+			firstName,
+			middleName,
+			lastName,
+			fullName,
 			gender: formData.gender,
 			nickName: formData.nickName || undefined,
 			dateOfBirth: formData.dateOfBirth,
@@ -2332,7 +2386,11 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 										<ReviewRow label="Role" value={userType} capitalize />
 										<ReviewRow
 											label="Full Name"
-											value={`${formData.firstName}${formData.middleName ? ' ' + formData.middleName : ''} ${formData.lastName}`}
+											value={getFullName(
+												formData.firstName,
+												formData.middleName,
+												formData.lastName,
+											)}
 										/>
 										<ReviewRow label="Gender" value={formData.gender} />
 										<ReviewRow
@@ -2397,7 +2455,11 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 													</p>
 													<ReviewRow
 														label="Name"
-														value={`${formData.student.guardian.firstName}${formData.student.guardian.middleName ? ' ' + formData.student.guardian.middleName : ''} ${formData.student.guardian.lastName}`}
+														value={getFullName(
+															formData.student.guardian.firstName,
+															formData.student.guardian.middleName,
+															formData.student.guardian.lastName,
+														)}
 													/>
 													<ReviewRow
 														label="Phone"
@@ -2488,7 +2550,11 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 								</h2>
 								<p className="text-muted-foreground mt-1.5 text-sm">
 									<span className="font-semibold text-foreground">
-										{`${formData.firstName}${formData.middleName ? ' ' + formData.middleName : ''} ${formData.lastName} 's`}
+										{getFullName(
+											formData.firstName,
+											formData.middleName,
+											formData.lastName,
+										)}
 									</span>{' '}
 									account was successfully created.
 								</p>

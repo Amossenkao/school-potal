@@ -22,6 +22,7 @@ type StudentRow = {
 	username?: string;
 	firstName?: string;
 	lastName?: string;
+	fullName?: string;
 	classId?: string;
 	isActive?: boolean;
 };
@@ -49,7 +50,9 @@ export default function AdminEnrollment({
 	const [pageIndex, setPageIndex] = useState(0);
 	const [isLoading, setIsLoading] = useState(false);
 	const [errorMessage, setErrorMessage] = useState('');
-	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
+	const usersByAcademicYear = useSchoolStore(
+		(state) => state.usersByAcademicYear,
+	);
 	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
 
 	useEffect(() => {
@@ -150,7 +153,11 @@ export default function AdminEnrollment({
 	const normalizedStudents = useMemo(() => {
 		return students.map((student) => {
 			const name =
-				`${student.firstName || ''} ${student.lastName || ''}`.trim();
+				student.fullName ||
+				(student.firstName && student.lastName
+					? `${student.firstName} ${student.lastName}`
+					: student.firstName || student.lastName) ||
+				'—';
 			const username =
 				student.studentId || student.username || student.id || '';
 			const classId = student.classId || selectedClassId;

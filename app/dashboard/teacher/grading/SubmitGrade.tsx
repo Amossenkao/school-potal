@@ -223,20 +223,10 @@ const SubmitGrade: React.FC = () => {
 	);
 
 	const buildStudentFullName = useCallback((student: any) => {
-		const fullName = [
-			student?.firstName,
-			student?.middleName,
-			student?.lastName,
-		]
-			.map((part) => (typeof part === 'string' ? part.trim() : ''))
-			.filter(Boolean)
-			.join(' ');
-		if (fullName) return fullName;
-		if (typeof student?.name === 'string' && student.name.trim())
-			return student.name.trim();
-		if (typeof student?.studentName === 'string' && student.studentName.trim())
-			return student.studentName.trim();
-		return '';
+		return (
+			student?.fullName ||
+			`${student?.firstName || ''} ${student?.lastName || ''}`.trim()
+		);
 	}, []);
 
 	const getSubmissionId = useCallback(

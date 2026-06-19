@@ -174,11 +174,8 @@ const normalizeStudentId = (...ids: Array<unknown>) => {
 };
 
 const buildStudentFullName = (student: any) =>
-	[student?.firstName, student?.middleName, student?.lastName]
-		.map((part) => (typeof part === 'string' ? part.trim() : ''))
-		.filter(Boolean)
-		.join(' ')
-		.trim() || (typeof student?.name === 'string' ? student.name.trim() : '');
+	student?.fullName ||
+	`${student?.firstName || ''} ${student?.lastName || ''}`.trim();
 
 const mergeSubjectNames = (subjects: Array<unknown>) => {
 	const result: string[] = [];
