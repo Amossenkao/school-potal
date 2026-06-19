@@ -15,6 +15,7 @@ import {
 	XCircle,
 	RefreshCw,
 	BarChart3,
+	ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSchoolStore } from '@/store/schoolStore';
@@ -69,7 +70,10 @@ interface TeacherInfo {
 	userId: string;
 	username: string;
 	role: 'teacher';
-	subjects: { year: string; classes: { classId: string; subjects: string[] }[] }[];
+	subjects: {
+		year: string;
+		classes: { classId: string; subjects: string[] }[];
+	}[];
 }
 
 interface GradeChangeRequestStudent {
@@ -82,7 +86,6 @@ interface GradeChangeRequestStudent {
 	reason?: string;
 }
 
-// UPDATED: Added errorMessage to handle error state for the modal
 interface ConfirmationModalState {
 	isOpen: boolean;
 	reason: string;
@@ -153,7 +156,7 @@ const GradeSubmissions = () => {
 	const school = useSchoolStore((state) => state.school);
 	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 	const setGradeRequestsForYear = useSchoolStore(
-		(state) => state.setGradeRequestsForYear
+		(state) => state.setGradeRequestsForYear,
 	);
 	const { user } = useAuth();
 	const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
@@ -173,11 +176,14 @@ const GradeSubmissions = () => {
 
 	const [showDetailsModal, setShowDetailsModal] = useState(false);
 	const [selectedGrade, setSelectedGrade] = useState<GradeSubmission | null>(
-		null
+		null,
 	);
 	const [gradeChangeStudents, setGradeChangeStudents] = useState<
 		GradeChangeRequestStudent[]
 	>([]);
+	const [activeModalStudentId, setActiveModalStudentId] = useState<
+		string | null
+	>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [confirmationModal, setConfirmationModal] =
 		useState<ConfirmationModalState>({
@@ -204,7 +210,6 @@ const GradeSubmissions = () => {
 
 	useEffect(() => {
 		if (!isAnyModalOpen) return;
-
 		return lockBodyScroll();
 	}, [isAnyModalOpen]);
 
@@ -233,7 +238,8 @@ const GradeSubmissions = () => {
 	const allowedAcademicYears = useMemo(
 		() =>
 			sortAcademicYearsDesc(
-				school?.settings?.teacherSettings?.viewGradeSubmissionsAcademicYears || [],
+				school?.settings?.teacherSettings?.viewGradeSubmissionsAcademicYears ||
+					[],
 			),
 		[school],
 	);
@@ -274,11 +280,11 @@ const GradeSubmissions = () => {
 			});
 
 			const processedSubmissions: GradeSubmission[] = Array.from(
-				submissionsMap.values()
+				submissionsMap.values(),
 			).map((submission: any) => {
 				const gradeValues = submission.grades.map((g: any) => g.grade);
 				const validGrades = gradeValues.filter(
-					(g: number) => g !== null && g !== undefined
+					(g: number) => g !== null && g !== undefined,
 				) as number[];
 				const totalStudents = submission.grades.length;
 				const passes = validGrades.filter((g: number) => g >= 70).length;
@@ -287,7 +293,7 @@ const GradeSubmissions = () => {
 				const average =
 					validGrades.length > 0
 						? validGrades.reduce((sum: number, g: number) => sum + g, 0) /
-						  validGrades.length
+							validGrades.length
 						: 0;
 
 				const statuses = submission.grades.map((s: any) => s.status);
@@ -320,12 +326,12 @@ const GradeSubmissions = () => {
 
 			processedSubmissions.sort(
 				(a, b) =>
-					new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()
+					new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime(),
 			);
 
 			setSubmittedGrades(processedSubmissions);
 		},
-		[teacherInfo?.username]
+		[teacherInfo?.username],
 	);
 
 	const fetchSubmittedGrades = useCallback(
@@ -448,7 +454,12 @@ const GradeSubmissions = () => {
 			return;
 		}
 		void fetchSubmittedGrades();
-	}, [teacherInfo, academicYear, fetchSubmittedGrades, isSelectedAcademicYearAllowed]);
+	}, [
+		teacherInfo,
+		academicYear,
+		fetchSubmittedGrades,
+		isSelectedAcademicYearAllowed,
+	]);
 
 	const classMap = useMemo(() => {
 		if (!school?.classLevels) return new Map();
@@ -469,9 +480,10 @@ const GradeSubmissions = () => {
 			for (const [session, levels] of Object.entries(school.classLevels)) {
 				if (!levels || typeof levels !== 'object') continue;
 				for (const [level, levelData] of Object.entries(levels)) {
-					if (!levelData?.classes || !Array.isArray(levelData.classes)) continue;
+					if (!levelData?.classes || !Array.isArray(levelData.classes))
+						continue;
 					const found = levelData.classes.find(
-						(cls: any) => cls.classId === classId
+						(cls: any) => cls.classId === classId,
 					);
 					if (found) return { ...found, session, level };
 				}
@@ -482,8 +494,8 @@ const GradeSubmissions = () => {
 	);
 
 	const yearAssignment = useMemo(() => {
-		return (teacherInfo?.subjects || []).find(
-			(entry) => areAcademicYearsEqual(entry.year, academicYear)
+		return (teacherInfo?.subjects || []).find((entry) =>
+			areAcademicYearsEqual(entry.year, academicYear),
 		);
 	}, [teacherInfo, academicYear]);
 
@@ -508,8 +520,14 @@ const GradeSubmissions = () => {
 
 	const availableSubjects = useMemo(() => {
 		const classIds = assignedClasses
-			.filter((c) => !filters.session || c.session === filters.session)
+			.filter((c) => {
+				if (filters.session && c.session !== filters.session) return false;
+				if (filters.gradeLevel && c.level !== filters.gradeLevel) return false;
+				if (filters.classId && c.classId !== filters.classId) return false;
+				return true;
+			})
 			.map((c) => c.classId);
+
 		const subjectSet = new Set<string>();
 		(yearAssignment?.classes || []).forEach((c) => {
 			if (classIds.includes(c.classId)) {
@@ -517,7 +535,13 @@ const GradeSubmissions = () => {
 			}
 		});
 		return Array.from(subjectSet);
-	}, [assignedClasses, yearAssignment, filters.session]);
+	}, [
+		assignedClasses,
+		yearAssignment,
+		filters.session,
+		filters.gradeLevel,
+		filters.classId,
+	]);
 
 	const availableLevels = useMemo(() => {
 		const classIds = assignedClasses
@@ -525,7 +549,7 @@ const GradeSubmissions = () => {
 			.filter((c) => {
 				if (!filters.subject) return true;
 				const classData = yearAssignment?.classes?.find(
-					(entry) => entry.classId === c.classId
+					(entry) => entry.classId === c.classId,
 				);
 				return classData?.subjects?.includes(filters.subject);
 			})
@@ -539,29 +563,40 @@ const GradeSubmissions = () => {
 			if (filters.gradeLevel && c.level !== filters.gradeLevel) return false;
 			if (filters.subject) {
 				const classData = yearAssignment?.classes?.find(
-					(entry) => entry.classId === c.classId
+					(entry) => entry.classId === c.classId,
 				);
 				return classData?.subjects?.includes(filters.subject);
 			}
 			return true;
 		});
-	}, [assignedClasses, filters.session, filters.gradeLevel, filters.subject, yearAssignment]);
+	}, [
+		assignedClasses,
+		filters.session,
+		filters.gradeLevel,
+		filters.subject,
+		yearAssignment,
+	]);
 
-	const showAcademicYearFilter = availableAcademicYears.length > 0;
-	const showClassFilter = assignedClasses.length > 1;
+	const hasNoClasses = assignedClasses.length === 0;
+	const showAcademicYearFilter = availableAcademicYears.length > 1;
+	const showSessionFilter = !hasNoClasses && availableSessions.length > 1;
+	const showLevelFilter = !hasNoClasses && availableLevels.length > 1;
+	const showClassFilter = !hasNoClasses && availableClasses.length > 0;
+	const showSubjectFilter = !hasNoClasses && availableSubjects.length > 0;
+	const showPeriodFilter = !hasNoClasses && periods.length > 0;
 	const canAccessSelectedAcademicYear =
 		Boolean(academicYear) && isSelectedAcademicYearAllowed;
 
 	const showNotification = (
 		type: 'success' | 'error' | 'info',
-		message: string
+		message: string,
 	) => {
 		setNotification({ type, message });
 		setResultModalOpen(true);
 	};
 
 	const deriveSubmissionStatus = (
-		submission: GradeSubmission
+		submission: GradeSubmission,
 	): 'Approved' | 'Rejected' | 'Pending' | 'Partially Approved' => {
 		const gradeStatuses = submission.grades.map((g) => g.status);
 		if (gradeStatuses.length === 0) return 'Pending';
@@ -577,7 +612,7 @@ const GradeSubmissions = () => {
 	};
 
 	const calculateSubmissionStats = (
-		grades: Array<{ grade: number | null }>
+		grades: Array<{ grade: number | null }>,
 	): GradeSubmission['stats'] => {
 		const validGrades = grades
 			.map((entry) => entry.grade)
@@ -588,7 +623,8 @@ const GradeSubmissions = () => {
 		const incompletes = totalStudents - validGrades.length;
 		const average =
 			validGrades.length > 0
-				? validGrades.reduce((sum, grade) => sum + grade, 0) / validGrades.length
+				? validGrades.reduce((sum, grade) => sum + grade, 0) /
+					validGrades.length
 				: 0;
 
 		return {
@@ -601,13 +637,16 @@ const GradeSubmissions = () => {
 	};
 
 	const deriveBatchStatus = (
-		requests: GradeRequestBatchRequest[]
+		requests: GradeRequestBatchRequest[],
 	): GradeRequestBatchEntry['status'] => {
 		const statuses = new Set(requests.map((request) => request.status));
 		if (statuses.size === 1) {
 			return statuses.values().next().value as GradeRequestBatchEntry['status'];
 		}
-		if (statuses.has('Pending') || (statuses.has('Approved') && statuses.has('Rejected'))) {
+		if (
+			statuses.has('Pending') ||
+			(statuses.has('Approved') && statuses.has('Rejected'))
+		) {
 			return 'Partially Approved';
 		}
 		if (statuses.has('Approved')) return 'Approved';
@@ -615,7 +654,9 @@ const GradeSubmissions = () => {
 		return 'Pending';
 	};
 
-	const applyLocalSubmittedGradeUpdates = (updatedGrades: RawSubmittedGrade[]) => {
+	const applyLocalSubmittedGradeUpdates = (
+		updatedGrades: RawSubmittedGrade[],
+	) => {
 		if (!teacherInfo?.username || !academicYear || updatedGrades.length === 0) {
 			return;
 		}
@@ -633,7 +674,7 @@ const GradeSubmissions = () => {
 				let changed = false;
 				const nextGrades = submission.grades.map((student) => {
 					const updated = updateMap.get(
-						`${submission.submissionId}:${student.studentId}`
+						`${submission.submissionId}:${student.studentId}`,
 					);
 					if (!updated) return student;
 					changed = true;
@@ -665,14 +706,14 @@ const GradeSubmissions = () => {
 					status: deriveSubmissionStatus(nextSubmission),
 					stats: calculateSubmissionStats(nextGrades),
 				};
-			})
+			}),
 		);
 
 		const submittedGradesCacheKey = `submittedGrades:${teacherInfo.username}:${academicYear}`;
 		const schoolState = useSchoolStore.getState();
 		const scopedStoreSnapshot = getScopedAcademicYearValue(
 			schoolState.gradesByAcademicYear || {},
-			academicYear
+			academicYear,
 		);
 		const sourceGrades = Array.isArray(scopedStoreSnapshot.value)
 			? (scopedStoreSnapshot.value as RawSubmittedGrade[])
@@ -703,7 +744,11 @@ const GradeSubmissions = () => {
 	};
 
 	const syncCreatedGradeRequestsLocally = (createdRequests: any[]) => {
-		if (!teacherInfo?.username || !academicYear || createdRequests.length === 0) {
+		if (
+			!teacherInfo?.username ||
+			!academicYear ||
+			createdRequests.length === 0
+		) {
 			return;
 		}
 
@@ -711,7 +756,7 @@ const GradeSubmissions = () => {
 		const schoolState = useSchoolStore.getState();
 		const scopedStoreSnapshot = getScopedAcademicYearValue(
 			schoolState.gradeRequestsByAcademicYear || {},
-			academicYear
+			academicYear,
 		);
 		const sourceBatches = Array.isArray(scopedStoreSnapshot.value)
 			? (scopedStoreSnapshot.value as GradeRequestBatchEntry[])
@@ -733,7 +778,7 @@ const GradeSubmissions = () => {
 			const batchId = String(request?.batchId || `batch-${index + 1}`);
 			const requestIdValue = request?._id || request?.requestId || request?.id;
 			const requestId = String(
-				requestIdValue || `${batchId}-${request?.studentId || index + 1}`
+				requestIdValue || `${batchId}-${request?.studentId || index + 1}`,
 			);
 			const normalizedStatus =
 				request?.status === 'Approved' || request?.status === 'Rejected'
@@ -745,16 +790,21 @@ const GradeSubmissions = () => {
 				requestId,
 				batchId,
 				studentId: String(request?.studentId || ''),
-				studentName: String(request?.studentName || request?.name || 'Unknown Student'),
+				studentName: String(
+					request?.studentName || request?.name || 'Unknown Student',
+				),
 				originalGrade:
-					typeof request?.originalGrade === 'number' || request?.originalGrade === null
+					typeof request?.originalGrade === 'number' ||
+					request?.originalGrade === null
 						? request.originalGrade
 						: null,
 				requestedGrade:
 					typeof request?.requestedGrade === 'number'
 						? request.requestedGrade
 						: Number(request?.requestedGrade || 0),
-				reasonForChange: String(request?.reasonForChange || request?.reason || ''),
+				reasonForChange: String(
+					request?.reasonForChange || request?.reason || '',
+				),
 				status: normalizedStatus,
 			};
 
@@ -766,10 +816,14 @@ const GradeSubmissions = () => {
 					period: String(request?.period || selectedGrade?.period || ''),
 					classId: String(request?.classId || selectedGrade?.gradeLevel || ''),
 					subject: String(request?.subject || selectedGrade?.subject || ''),
-					teacherUsername: String(request?.teacherUsername || teacherInfo.username),
+					teacherUsername: String(
+						request?.teacherUsername || teacherInfo.username,
+					),
 					teacherName: String(request?.teacherName || teacherInfo.name || ''),
 					submittedAt: String(request?.submittedAt || nowIso),
-					lastUpdated: String(request?.lastUpdated || request?.submittedAt || nowIso),
+					lastUpdated: String(
+						request?.lastUpdated || request?.submittedAt || nowIso,
+					),
 					status: 'Pending',
 					requests: [normalizedRequest],
 					stats: { totalRequests: 1 },
@@ -792,7 +846,7 @@ const GradeSubmissions = () => {
 			}
 			existingBatch.status = deriveBatchStatus(existingBatch.requests);
 			existingBatch.lastUpdated = String(
-				request?.lastUpdated || request?.submittedAt || nowIso
+				request?.lastUpdated || request?.submittedAt || nowIso,
 			);
 			existingBatch.stats = { totalRequests: existingBatch.requests.length };
 		});
@@ -808,7 +862,7 @@ const GradeSubmissions = () => {
 		window.dispatchEvent(
 			new CustomEvent('grading:requests:updated', {
 				detail: { academicYear, teacherUsername: teacherInfo.username },
-			})
+			}),
 		);
 	};
 
@@ -877,7 +931,7 @@ const GradeSubmissions = () => {
 	};
 
 	const getStatusClasses = (
-		status: 'Approved' | 'Rejected' | 'Pending' | 'Partially Approved'
+		status: 'Approved' | 'Rejected' | 'Pending' | 'Partially Approved',
 	) => {
 		switch (status) {
 			case 'Approved':
@@ -893,7 +947,7 @@ const GradeSubmissions = () => {
 	};
 
 	const getStatusIcon = (
-		status: 'Approved' | 'Rejected' | 'Pending' | 'Partially Approved'
+		status: 'Approved' | 'Rejected' | 'Pending' | 'Partially Approved',
 	) => {
 		switch (status) {
 			case 'Approved':
@@ -920,7 +974,7 @@ const GradeSubmissions = () => {
 				.sort((a, b) =>
 					(a.name || '').localeCompare(b.name || '', undefined, {
 						sensitivity: 'base',
-					})
+					}),
 				)
 				.map((g) => ({
 					studentId: g.studentId,
@@ -929,10 +983,9 @@ const GradeSubmissions = () => {
 					newGrade: '',
 					selected: false,
 					status: g.status,
-				}))
+				})),
 		);
 		setShowDetailsModal(true);
-		// Reset modal state on open
 		setConfirmationModal({
 			isOpen: false,
 			reason: '',
@@ -941,17 +994,16 @@ const GradeSubmissions = () => {
 		});
 	};
 
-	// MODIFIED: Check school settings for grade change request period
 	const handleOpenConfirmationModal = () => {
 		const changes = gradeChangeStudents.filter(
 			(s) =>
-				s.selected && s.newGrade.trim() !== '' && !isNaN(Number(s.newGrade))
+				s.selected && s.newGrade.trim() !== '' && !isNaN(Number(s.newGrade)),
 		);
 
 		if (changes.length === 0) {
 			showNotification(
 				'info',
-				'Please select at least one student and provide a valid new grade.'
+				'Please select at least one student and provide a valid new grade.',
 			);
 			return;
 		}
@@ -960,19 +1012,15 @@ const GradeSubmissions = () => {
 
 		if (hasApprovedChange && selectedGrade) {
 			const periodValue = selectedGrade.period;
-			// Get the list of periods where grade change requests are allowed
 			const allowedPeriods =
 				school?.settings?.teacherSettings?.gradeChangeRequestPeriods || [];
-
-			// Check if the current submission period is in the allowed list
 			const isRequestAllowed = allowedPeriods.includes(periodValue);
 
 			if (!isRequestAllowed) {
-				// School settings do not allow grade change requests for this period's approved grades.
 				setConfirmationModal({
-					isOpen: true, // Open the modal
+					isOpen: true,
 					reason: '',
-					isError: true, // Set to error state
+					isError: true,
 					errorMessage: `Grade change requests for approved grades are not currently allowed for ${
 						periods.find((p) => p.value === periodValue)?.label || 'this period'
 					}. Please contact an administrator.`,
@@ -981,7 +1029,6 @@ const GradeSubmissions = () => {
 			}
 		}
 
-		// If no approved grades are being changed OR the period is allowed, show the reason modal
 		if (hasApprovedChange) {
 			setConfirmationModal({
 				isOpen: true,
@@ -990,7 +1037,6 @@ const GradeSubmissions = () => {
 				errorMessage: '',
 			});
 		} else {
-			// If only Pending or Rejected grades are being changed, submit directly without a reason
 			handleFinalSubmit();
 		}
 	};
@@ -998,19 +1044,17 @@ const GradeSubmissions = () => {
 	const handleFinalSubmit = async () => {
 		if (!selectedGrade) return;
 
-		// IMPORTANT: Re-check for an error state before submitting, especially if this function is called directly
 		if (confirmationModal.isError) {
-			// If it's an error modal, submission should be blocked
 			setConfirmationModal({
 				isOpen: false,
 				reason: '',
 				isError: false,
 				errorMessage: '',
-			}); // Close modal without submitting
+			});
 			showNotification(
 				'error',
 				confirmationModal.errorMessage ||
-					'Cannot submit request due to school settings error.'
+					'Cannot submit request due to school settings error.',
 			);
 			return;
 		}
@@ -1018,14 +1062,13 @@ const GradeSubmissions = () => {
 		const changes = gradeChangeStudents
 			.filter(
 				(s) =>
-					s.selected && s.newGrade.trim() !== '' && !isNaN(Number(s.newGrade))
+					s.selected && s.newGrade.trim() !== '' && !isNaN(Number(s.newGrade)),
 			)
 			.map((s) => ({
 				studentId: s.studentId,
 				name: s.name,
 				originalGrade: s.currentGrade,
 				requestedGrade: Number(s.newGrade),
-				// Use the reason from the modal if it was shown for an Approved grade change, otherwise a default for corrections
 				reason:
 					s.status === 'Approved'
 						? confirmationModal.reason
@@ -1037,20 +1080,19 @@ const GradeSubmissions = () => {
 			(c) =>
 				Number.isNaN(c.requestedGrade) ||
 				c.requestedGrade < 60 ||
-				c.requestedGrade > 100
+				c.requestedGrade > 100,
 		);
 		if (invalidChanges.length > 0) {
 			showNotification(
 				'error',
-				'Grades must be between 60 and 100 before submitting.'
+				'Grades must be between 60 and 100 before submitting.',
 			);
 			return;
 		}
 
-		// Check if a reason is required and is missing
 		const requiresReason = changes.some((c) => {
 			const student = gradeChangeStudents.find(
-				(s) => s.studentId === c.studentId
+				(s) => s.studentId === c.studentId,
 			);
 			return student?.status === 'Approved';
 		});
@@ -1062,7 +1104,7 @@ const GradeSubmissions = () => {
 		) {
 			showNotification(
 				'info',
-				'A reason is required for changing approved grades.'
+				'A reason is required for changing approved grades.',
 			);
 			return;
 		}
@@ -1087,14 +1129,14 @@ const GradeSubmissions = () => {
 			const result = await res.json();
 			if (!res.ok) {
 				throw new Error(
-					result.message || 'Failed to submit grade change request.'
+					result.message || 'Failed to submit grade change request.',
 				);
 			}
 
 			if (result?.queued) {
 				showNotification(
 					'info',
-					'You are offline. Grade change requests were queued and will sync when you reconnect.'
+					'You are offline. Grade change requests were queued and will sync when you reconnect.',
 				);
 				setShowDetailsModal(false);
 				return;
@@ -1110,7 +1152,7 @@ const GradeSubmissions = () => {
 				if (createdRequests.length === 0 && updatedGrades.length === 0) {
 					showNotification(
 						'info',
-						'No new requests were created. This may be because a pending request already exists for the selected grades.'
+						'No new requests were created. This may be because a pending request already exists for the selected grades.',
 					);
 				} else {
 					showNotification('success', result.message);
@@ -1127,7 +1169,7 @@ const GradeSubmissions = () => {
 			}
 
 			setShowDetailsModal(false);
-			void fetchSubmittedGrades({ forceRefresh: true }); // Reconcile with server data
+			void fetchSubmittedGrades({ forceRefresh: true });
 		} catch (err: any) {
 			showNotification('error', `Error: ${err.message}`);
 		} finally {
@@ -1136,45 +1178,62 @@ const GradeSubmissions = () => {
 	};
 
 	const handleGradeInputChange = (studentId: string, newGrade: string) => {
-		if (newGrade !== '' && (isNaN(Number(newGrade)) || !/^\d*\.?\d*$/.test(newGrade))) {
+		if (
+			newGrade !== '' &&
+			(isNaN(Number(newGrade)) || !/^\d*\.?\d*$/.test(newGrade))
+		) {
 			return;
 		}
 		setGradeChangeStudents((prev) =>
 			prev.map((s) =>
 				s.studentId === studentId
 					? { ...s, newGrade, selected: newGrade !== '' ? true : s.selected }
-					: s
-			)
+					: s,
+			),
 		);
 	};
 
-	const focusNextSelectedGradeInput = (currentInput: HTMLInputElement) => {
+	// Completely replaced modal navigation
+	const handleGradeInputKeyDown = (
+		event: React.KeyboardEvent<HTMLInputElement>,
+	) => {
+		const { key } = event;
+
+		if (
+			!['Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(
+				key,
+			)
+		)
+			return;
+
+		const currentInput = event.currentTarget;
 		const inputs = Array.from(
 			document.querySelectorAll<HTMLInputElement>(
-				'[data-grade-change-input="true"]:not(:disabled)'
-			)
+				'[data-grade-change-input="true"]:not(:disabled)',
+			),
 		);
-		if (inputs.length === 0) return;
-
 		const currentIndex = inputs.indexOf(currentInput);
-		const nextIndex =
-			currentIndex === -1 ? 0 : (currentIndex + 1) % inputs.length;
-		const nextInput = inputs[nextIndex];
-		nextInput.focus();
-		nextInput.select();
-		nextInput.scrollIntoView({
-			behavior: 'smooth',
-			block: 'nearest',
-			inline: 'nearest',
-		});
-	};
+		if (currentIndex === -1 || inputs.length <= 1) return;
 
-	const handleGradeInputKeyDown = (
-		event: React.KeyboardEvent<HTMLInputElement>
-	) => {
-		if (event.key !== 'Enter' && event.key !== 'Tab') return;
-		event.preventDefault();
-		focusNextSelectedGradeInput(event.currentTarget);
+		let nextInput: HTMLInputElement | undefined;
+
+		if (key === 'Enter' || key === 'ArrowRight' || key === 'ArrowDown') {
+			nextInput = inputs[currentIndex + 1] || inputs[0];
+		} else if (key === 'ArrowLeft' || key === 'ArrowUp') {
+			nextInput = inputs[currentIndex - 1] || inputs[inputs.length - 1];
+		}
+
+		if (nextInput) {
+			event.preventDefault();
+			nextInput.focus({ preventScroll: true });
+			nextInput.select();
+
+			// Smooth scroll into view
+			nextInput.scrollIntoView({
+				behavior: 'smooth',
+				block: 'nearest',
+			});
+		}
 	};
 
 	const renderResultModal = () => {
@@ -1184,25 +1243,27 @@ const GradeSubmissions = () => {
 				? {
 						accent: 'bg-emerald-500',
 						border: 'border-emerald-200 dark:border-emerald-800',
-						iconWrap: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300',
+						iconWrap:
+							'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300',
 						title: 'Success',
 						icon: CheckCircle,
-				  }
+					}
 				: notification.type === 'error'
-				? {
-						accent: 'bg-destructive',
-						border: 'border-destructive/30',
-						iconWrap: 'bg-destructive/10 text-destructive',
-						title: 'Something went wrong',
-						icon: XCircle,
-				  }
-				: {
-						accent: 'bg-amber-500',
-						border: 'border-amber-200 dark:border-amber-800',
-						iconWrap: 'bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300',
-						title: 'Heads up',
-						icon: Info,
-				  };
+					? {
+							accent: 'bg-destructive',
+							border: 'border-destructive/30',
+							iconWrap: 'bg-destructive/10 text-destructive',
+							title: 'Something went wrong',
+							icon: XCircle,
+						}
+					: {
+							accent: 'bg-amber-500',
+							border: 'border-amber-200 dark:border-amber-800',
+							iconWrap:
+								'bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300',
+							title: 'Heads up',
+							icon: Info,
+						};
 		const Icon = tone.icon;
 		return (
 			<div className="fixed inset-0 z-[1000] bg-black/35 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain">
@@ -1264,7 +1325,7 @@ const GradeSubmissions = () => {
 
 	const filteredAndSortedGrades = useMemo(
 		() => applySorting(applyFilters(submittedGrades)),
-		[submittedGrades, filters, sortConfig, availableClasses]
+		[submittedGrades, filters, sortConfig, availableClasses],
 	);
 
 	useEffect(() => {
@@ -1273,94 +1334,92 @@ const GradeSubmissions = () => {
 
 	const totalPages = Math.max(
 		1,
-		Math.ceil(filteredAndSortedGrades.length / rowsPerPage)
+		Math.ceil(filteredAndSortedGrades.length / rowsPerPage),
 	);
 	const currentPageSafe = Math.min(currentPage, totalPages);
 	const currentSlice = filteredAndSortedGrades.slice(
 		(currentPageSafe - 1) * rowsPerPage,
-		currentPageSafe * rowsPerPage
+		currentPageSafe * rowsPerPage,
 	);
 
 	const renderConfirmationErrorModal = () => {
 		if (!confirmationModal.isOpen) return null;
 
 		if (confirmationModal.isError) {
-			// Renders the error modal
 			return (
 				<div className="fixed inset-0 z-[1000] bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
 					<div className="flex min-h-full items-center justify-center">
 						<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border border-destructive/50">
-						<div className="flex items-center gap-3 mb-4">
-							<XCircle className="h-6 w-6 text-destructive flex-shrink-0" />
-							<h3 className="text-xl font-bold text-destructive">
-								Request Blocked
-							</h3>
-						</div>
-						<p className="text-sm text-foreground mb-6">
-							{confirmationModal.errorMessage ||
-								'An unexpected error occurred. You cannot submit this request.'}
-						</p>
-						<div className="mt-4 flex justify-end">
-							<Button
-								onClick={() =>
-									setConfirmationModal({ isOpen: false, reason: '' })
-								}
-								variant="destructive"
-							>
-								Close
-							</Button>
-						</div>
+							<div className="flex items-center gap-3 mb-4">
+								<XCircle className="h-6 w-6 text-destructive flex-shrink-0" />
+								<h3 className="text-xl font-bold text-destructive">
+									Request Blocked
+								</h3>
+							</div>
+							<p className="text-sm text-foreground mb-6">
+								{confirmationModal.errorMessage ||
+									'An unexpected error occurred. You cannot submit this request.'}
+							</p>
+							<div className="mt-4 flex justify-end">
+								<Button
+									onClick={() =>
+										setConfirmationModal({ isOpen: false, reason: '' })
+									}
+									variant="destructive"
+								>
+									Close
+								</Button>
+							</div>
 						</div>
 					</div>
 				</div>
 			);
 		}
 
-		// Renders the standard confirmation/reason modal
 		return (
 			<div className="fixed inset-0 z-[1000] bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
 				<div className="flex min-h-full items-center justify-center">
 					<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border">
-					<h3 className="text-lg font-semibold mb-2">
-						Reason for Grade Change Request
-					</h3>
-					<p className="text-sm text-muted-foreground mb-4">
-						You are editing one or more <strong>approved grades</strong>. Please
-						provide a reason for this change. This will be sent for
-						administrator review.
-					</p>
-					<textarea
-						value={confirmationModal.reason}
-						onChange={(e) =>
-							setConfirmationModal((prev) => ({
-								...prev,
-								reason: e.target.value,
-							}))
-						}
-						className="w-full rounded-md border border-input bg-background p-2"
-						rows={4}
-						placeholder="e.g., Correction of data entry error, re-evaluation of an assignment..."
-					/>
-					<div className="mt-4 flex justify-end gap-2">
-						<Button
-							onClick={() =>
-								setConfirmationModal({ isOpen: false, reason: '' })
+						<h3 className="text-lg font-semibold mb-2">
+							Reason for Grade Change Request
+						</h3>
+						<p className="text-sm text-muted-foreground mb-4">
+							You are editing one or more <strong>approved grades</strong>.
+							Please provide a reason for this change. This will be sent for
+							administrator review.
+						</p>
+						<textarea
+							value={confirmationModal.reason}
+							onChange={(e) =>
+								setConfirmationModal((prev) => ({
+									...prev,
+									reason: e.target.value,
+								}))
 							}
-							variant="outline"
-						>
-							Cancel
-						</Button>
-						<Button
-							onClick={handleFinalSubmit}
-							disabled={!confirmationModal.reason.trim() || isSubmitting}
-						>
-							{isSubmitting ? (
-								<Loader2 className="h-4 w-4 animate-spin" />
-							) : (
-								'Confirm & Submit'
-							)}
-						</Button>
-					</div>
+							className="w-full rounded-md border border-input bg-background p-2"
+							rows={4}
+							placeholder="e.g., Correction of data entry error, re-evaluation of an assignment..."
+						/>
+						<div className="mt-4 flex justify-end gap-2">
+							<Button
+								onClick={() =>
+									setConfirmationModal({ isOpen: false, reason: '' })
+								}
+								variant="outline"
+							>
+								Cancel
+							</Button>
+							<Button
+								onClick={handleFinalSubmit}
+								disabled={!confirmationModal.reason.trim() || isSubmitting}
+							>
+								{isSubmitting ? (
+									<Loader2 className="h-4 w-4 animate-spin" />
+								) : (
+									'Confirm & Submit'
+								)}
+							</Button>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -1372,172 +1431,188 @@ const GradeSubmissions = () => {
 			<div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
 				<div className="flex min-h-full items-center justify-center">
 					<div className="bg-background rounded-lg border shadow-xl w-full max-w-5xl max-h-[calc(100dvh-2rem)] flex flex-col">
-					<div className="p-6 border-b">
-						<div className="flex justify-between items-center">
-							<h3 className="text-xl font-semibold text-foreground">
-								Submission Details
-							</h3>
-							<button
-								onClick={() => setShowDetailsModal(false)}
-								className="text-muted-foreground hover:text-foreground"
-							>
-								<X className="h-5 w-5" />
-							</button>
+						<div className="p-6 border-b">
+							<div className="flex justify-between items-center">
+								<h3 className="text-xl font-semibold text-foreground">
+									Submission Details
+								</h3>
+								<button
+									onClick={() => setShowDetailsModal(false)}
+									className="text-muted-foreground hover:text-foreground"
+								>
+									<X className="h-5 w-5" />
+								</button>
+							</div>
+							<div className="text-sm text-muted-foreground mt-1">
+								{selectedGrade.subject} -{' '}
+								{classMap.get(selectedGrade.gradeLevel) ||
+									selectedGrade.gradeLevel}{' '}
+								({periods.find((p) => p.value === selectedGrade.period)?.label})
+							</div>
 						</div>
-						<div className="text-sm text-muted-foreground mt-1">
-							{selectedGrade.subject} -{' '}
-							{classMap.get(selectedGrade.gradeLevel) ||
-								selectedGrade.gradeLevel}{' '}
-							({periods.find((p) => p.value === selectedGrade.period)?.label})
-						</div>
-					</div>
 
-					{/* Renders EITHER the confirmation or the error modal */}
-					{renderConfirmationErrorModal()}
+						{renderConfirmationErrorModal()}
 
-					<div className="p-6 overflow-y-auto overscroll-contain flex-grow">
-						<div className="overflow-x-auto">
-							<table className="min-w-full divide-y divide-border">
-								<thead className="bg-muted/50">
-									<tr>
-										<th className="p-3 text-left">
-											<input
-												type="checkbox"
-												tabIndex={-1}
-												onChange={(e) =>
-													setGradeChangeStudents((prev) =>
-														prev.map((s) => ({
-															...s,
-															selected: e.target.checked,
-														}))
-													)
-												}
-												className="rounded border-border accent-primary"
-											/>
-										</th>
-										<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-											Student Name
-										</th>
-										<th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
-											Current Grade
-										</th>
-										<th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
-											New Grade
-										</th>
-										<th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
-											Status
-										</th>
-									</tr>
-								</thead>
-								<tbody className="divide-y divide-border bg-background">
-									{gradeChangeStudents.map((student) => (
-										<tr
-											key={student.studentId}
-											className={student.selected ? 'bg-primary/5' : ''}
-										>
-											<td className="p-3">
+						<div className="p-6 overflow-y-auto overscroll-contain flex-grow">
+							<div className="overflow-x-auto">
+								<table className="min-w-full divide-y divide-border">
+									<thead className="bg-muted/50">
+										<tr>
+											<th className="p-3 text-left">
 												<input
 													type="checkbox"
 													tabIndex={-1}
-													checked={student.selected}
-													onChange={() =>
+													onChange={(e) =>
 														setGradeChangeStudents((prev) =>
-															prev.map((s) =>
-																s.studentId === student.studentId
-																	? { ...s, selected: !s.selected }
-																	: s
-															)
+															prev.map((s) => ({
+																...s,
+																selected: e.target.checked,
+															})),
 														)
 													}
 													className="rounded border-border accent-primary"
 												/>
-											</td>
-											<td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
-												{student.name}
-											</td>
-											<td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-												<span
-													className={getModalGradeColor(student.currentGrade)}
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+												Student Name
+											</th>
+											<th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+												Current Grade
+											</th>
+											<th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+												New Grade
+											</th>
+											<th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+												Status
+											</th>
+										</tr>
+									</thead>
+									<tbody className="divide-y divide-border bg-background">
+										{gradeChangeStudents.map((student) => {
+											const isActive =
+												activeModalStudentId === student.studentId;
+											return (
+												<tr
+													key={student.studentId}
+													className={`${student.selected ? 'bg-primary/5' : ''} hover:bg-muted/30 transition-colors`}
 												>
-													{student.currentGrade ?? 'N/A'}
-												</span>
-											</td>
-										<td className="px-6 py-4">
-											{(() => {
-												const validation = getGradeValidationStatus(
-													student.newGrade
-												);
-												const isInvalid =
-													!validation.isValid && student.newGrade !== '';
-												return (
-													<div className="flex flex-col items-center gap-1">
+													<td className="p-3">
 														<input
-															type="text"
-															value={student.newGrade}
-															data-grade-change-input="true"
-															onChange={(e) =>
-																handleGradeInputChange(
-																	student.studentId,
-																	e.target.value
+															type="checkbox"
+															tabIndex={-1}
+															checked={student.selected}
+															onChange={() =>
+																setGradeChangeStudents((prev) =>
+																	prev.map((s) =>
+																		s.studentId === student.studentId
+																			? { ...s, selected: !s.selected }
+																			: s,
+																	),
 																)
 															}
-															onKeyDown={handleGradeInputKeyDown}
-															disabled={!student.selected}
-															className={`w-20 h-10 rounded-lg border-2 text-center text-base font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors ${getModalGradeColor(
-																student.newGrade === ''
-																	? null
-																	: Number(student.newGrade)
-															)} ${
-																isInvalid
-																	? 'bg-background border-red-500 focus:ring-red-500'
-																	: 'bg-background border-input hover:border-ring'
-															} disabled:bg-muted disabled:cursor-not-allowed`}
-															inputMode="numeric"
+															className="rounded border-border accent-primary"
 														/>
-														{isInvalid && (
-															<span className="text-xs text-red-500">
-																{validation.message}
-															</span>
-														)}
-													</div>
-												);
-											})()}
-										</td>
-										<td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-											<span
-												className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
-													student.status
-												)}`}
-											>
-												{getStatusIcon(student.status)}
-											</span>
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
-				</div>
+													</td>
+													{/* Highlighted Student Name Cell */}
+													<td
+														className={`px-6 py-4 whitespace-nowrap transition-colors ${isActive ? 'bg-primary' : ''}`}
+													>
+														<span
+															className={`text-sm font-medium ${isActive ? 'text-primary-foreground' : 'text-foreground'}`}
+														>
+															{student.name}
+														</span>
+													</td>
+													<td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+														<span
+															className={getModalGradeColor(
+																student.currentGrade,
+															)}
+														>
+															{student.currentGrade ?? 'N/A'}
+														</span>
+													</td>
+													<td className="px-6 py-4">
+														{(() => {
+															const validation = getGradeValidationStatus(
+																student.newGrade,
+															);
+															const isInvalid =
+																!validation.isValid && student.newGrade !== '';
+															return (
+																<div className="flex flex-col items-center gap-1">
+																	<input
+																		type="text"
+																		value={student.newGrade}
+																		data-grade-change-input="true"
+																		onChange={(e) =>
+																			handleGradeInputChange(
+																				student.studentId,
+																				e.target.value,
+																			)
+																		}
+																		onFocus={() =>
+																			setActiveModalStudentId(student.studentId)
+																		}
+																		onBlur={() => setActiveModalStudentId(null)}
+																		onKeyDown={handleGradeInputKeyDown}
+																		disabled={!student.selected}
+																		className={`w-20 h-10 rounded-lg border-2 text-center text-base font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors ${getModalGradeColor(
+																			student.newGrade === ''
+																				? null
+																				: Number(student.newGrade),
+																		)} ${
+																			isInvalid
+																				? 'bg-background border-red-500 focus:ring-red-500'
+																				: 'bg-background border-input hover:border-ring'
+																		} disabled:bg-muted disabled:cursor-not-allowed`}
+																		inputMode="numeric"
+																	/>
+																	{isInvalid && (
+																		<span className="text-xs text-red-500">
+																			{validation.message}
+																		</span>
+																	)}
+																</div>
+															);
+														})()}
+													</td>
+													<td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+														<span
+															className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
+																student.status,
+															)}`}
+														>
+															{getStatusIcon(student.status)}
+														</span>
+													</td>
+												</tr>
+											);
+										})}
+									</tbody>
+								</table>
+							</div>
+						</div>
 
-					<div className="p-6 border-t bg-muted/50 flex justify-end gap-3">
-						<Button
-							onClick={() => setShowDetailsModal(false)}
-							variant="outline"
-						>
-							Cancel
-						</Button>
-						<Button
-							onClick={handleOpenConfirmationModal}
-							disabled={
-								isSubmitting ||
-								gradeChangeStudents.filter((s) => s.selected).length === 0
-							}
-							className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
-						>
-							{isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-							Submit Request
-						</Button>
-					</div>
+						<div className="p-6 border-t bg-muted/50 flex justify-end gap-3">
+							<Button
+								onClick={() => setShowDetailsModal(false)}
+								variant="outline"
+							>
+								Cancel
+							</Button>
+							<Button
+								onClick={handleOpenConfirmationModal}
+								disabled={
+									isSubmitting ||
+									gradeChangeStudents.filter((s) => s.selected).length === 0
+								}
+								className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
+							>
+								{isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+								Submit Request
+							</Button>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -1563,10 +1638,10 @@ const GradeSubmissions = () => {
 	}
 
 	return (
-		<div className="min-h-screen bg-background p-6">
+		<div className="min-h-screen bg-background p-4 sm:p-6">
 			<div className="w-full">
-				<div className="mb-8">
-					<div className="flex items-center gap-3 mb-2">
+				<div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+					<div className="flex items-center gap-3">
 						<div className="p-2 bg-primary/10 rounded-lg">
 							<BarChart3 className="h-6 w-6 text-primary" />
 						</div>
@@ -1574,328 +1649,350 @@ const GradeSubmissions = () => {
 							<h1 className="text-2xl font-bold text-foreground">
 								Grade Submissions
 							</h1>
-							<p className="text-muted-foreground">
+							<p className="text-sm text-muted-foreground">
 								Track and manage your submitted grades
 							</p>
 						</div>
 					</div>
+					<Button
+						onClick={() => (window.location.href = '/dashboard/submit-grades')}
+						className="flex items-center gap-2"
+					>
+						<Plus className="h-4 w-4" />
+						Submit New Grades
+					</Button>
 				</div>
 
 				{renderResultModal()}
 
 				<div className="space-y-6">
-					<div className="flex flex-col sm:flex-row gap-4 flex-wrap">
-						<Button
-							onClick={() =>
-								(window.location.href = '/dashboard/submit-grades')
-							}
-							className="flex items-center gap-2"
-						>
-							<Plus className="h-4 w-4" />
-							Submit New Grades
-						</Button>
-
-						{showAcademicYearFilter && (
-							<select
-								value={academicYear}
-								onChange={(e) => setAcademicYear(e.target.value)}
-								className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
-							>
-								{availableAcademicYears.map((year) => (
-									<option key={year} value={year}>
-										{year}
-									</option>
-								))}
-							</select>
-						)}
-
-						{canAccessSelectedAcademicYear && availableSessions.length > 1 && (
-							<select
-								value={filters.session}
-								onChange={(e) =>
-									setFilters({
-										...filters,
-										session: e.target.value,
-										gradeLevel: '',
-										classId: '',
-									})
-								}
-								className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
-							>
-								<option value="">All Sessions</option>
-								{availableSessions.map((s, i) => (
-									<option key={`${s}-${i}`} value={s}>
-										{s}
-									</option>
-								))}
-							</select>
-						)}
-
-						{canAccessSelectedAcademicYear && availableSubjects.length > 1 && (
-							<select
-								value={filters.subject}
-								onChange={(e) =>
-									setFilters({ ...filters, subject: e.target.value })
-								}
-								className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
-							>
-								<option value="">All Subjects</option>
-								{availableSubjects.map((s, i) => (
-									<option key={`${s}-${i}`} value={s}>
-										{s}
-									</option>
-								))}
-							</select>
-						)}
-
-						{canAccessSelectedAcademicYear && availableLevels.length > 1 && (
-							<select
-								value={filters.gradeLevel}
-								onChange={(e) =>
-									setFilters({
-										...filters,
-										gradeLevel: e.target.value,
-										classId: '',
-									})
-								}
-								className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
-							>
-								<option value="">All Levels</option>
-								{availableLevels.map((l, i) => (
-									<option key={`${l}-${i}`} value={l}>
-										{l}
-									</option>
-								))}
-							</select>
-						)}
-
-						{canAccessSelectedAcademicYear &&
-							showClassFilter &&
-							availableClasses.length > 0 && (
-							<select
-								value={filters.classId}
-								onChange={(e) =>
-									setFilters({ ...filters, classId: e.target.value })
-								}
-								className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
-							>
-								<option value="">All Classes</option>
-								{availableClasses.map((c, i) => (
-									<option key={`${c.classId}-${i}`} value={c.classId}>
-										{c.name}
-									</option>
-								))}
-							</select>
-						)}
-
-						{canAccessSelectedAcademicYear && (
-							<>
-								<select
-									value={filters.period}
-									onChange={(e) =>
-										setFilters({ ...filters, period: e.target.value })
-									}
-									className="mt-1 block w-full sm:w-auto rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
-								>
-									<option value="">All Periods</option>
-									{periods.map((p) => (
-										<option key={p.value} value={p.value}>
-											{p.label}
-										</option>
-									))}
-								</select>
-
-								<Button
-									onClick={() => fetchSubmittedGrades({ forceRefresh: true })}
-									disabled={loading.submittedGrades}
-									className="flex items-center gap-2"
-									variant="outline"
-								>
-									<RefreshCw
-										className={`h-4 w-4 ${
-											loading.submittedGrades ? 'animate-spin' : ''
-										}`}
+					{/* Compact Filter Toolbar */}
+					{(showAcademicYearFilter || !hasNoClasses) && (
+						<div className="bg-card border border-border rounded-xl shadow-sm">
+							<div className="flex flex-wrap gap-2 p-2.5 sm:p-3 items-end">
+								{showAcademicYearFilter && (
+									<FilterSelect
+										label="Year"
+										value={academicYear}
+										onChange={(v) => setAcademicYear(v)}
+										options={availableAcademicYears.map((y) => ({
+											label: y,
+											value: y,
+										}))}
 									/>
-									Refresh
-								</Button>
+								)}
 
-								<div className="flex items-center gap-2">
-									<span className="text-sm text-muted-foreground">Rows:</span>
-									<select
-										value={rowsPerPage}
-										onChange={(e) => {
-											setRowsPerPage(Number(e.target.value));
-											setCurrentPage(1);
-										}}
-										className="w-[80px] rounded-md border-border bg-background text-foreground focus:ring-primary focus:border-primary"
-									>
-										<option value="5">5</option>
-										<option value="10">10</option>
-										<option value="25">25</option>
-										<option value="50">50</option>
-									</select>
-								</div>
-							</>
-						)}
-					</div>
+								{canAccessSelectedAcademicYear && showSessionFilter && (
+									<FilterSelect
+										label="Session"
+										value={filters.session}
+										onChange={(v) =>
+											setFilters({
+												...filters,
+												session: v,
+												gradeLevel: '',
+												classId: '',
+											})
+										}
+										placeholder="All Sessions"
+										options={availableSessions.map((s) => ({
+											label: s,
+											value: s,
+										}))}
+									/>
+								)}
+
+								{canAccessSelectedAcademicYear && showLevelFilter && (
+									<FilterSelect
+										label="Level"
+										value={filters.gradeLevel}
+										onChange={(v) =>
+											setFilters({ ...filters, gradeLevel: v, classId: '' })
+										}
+										placeholder="All Levels"
+										options={availableLevels.map((l) => ({
+											label: l,
+											value: l,
+										}))}
+									/>
+								)}
+
+								{canAccessSelectedAcademicYear && showClassFilter && (
+									<FilterSelect
+										label="Class"
+										value={filters.classId}
+										onChange={(v) => setFilters({ ...filters, classId: v })}
+										placeholder="All Classes"
+										options={availableClasses.map((c) => ({
+											label: c.name,
+											value: c.classId,
+										}))}
+										disabled={availableClasses.length === 1}
+									/>
+								)}
+
+								{canAccessSelectedAcademicYear && showSubjectFilter && (
+									<FilterSelect
+										label="Subject"
+										value={filters.subject}
+										onChange={(v) => setFilters({ ...filters, subject: v })}
+										placeholder="All Subjects"
+										options={availableSubjects.map((s) => ({
+											label: s,
+											value: s,
+										}))}
+										disabled={availableSubjects.length === 1}
+									/>
+								)}
+
+								{canAccessSelectedAcademicYear && showPeriodFilter && (
+									<FilterSelect
+										label="Period"
+										value={filters.period}
+										onChange={(v) => setFilters({ ...filters, period: v })}
+										placeholder="All Periods"
+										options={periods.map((p) => ({
+											label: p.label,
+											value: p.value,
+										}))}
+									/>
+								)}
+
+								{canAccessSelectedAcademicYear && (
+									<div className="flex items-center gap-2 ml-auto">
+										<Button
+											onClick={() =>
+												fetchSubmittedGrades({ forceRefresh: true })
+											}
+											disabled={loading.submittedGrades}
+											className="h-8 flex items-center gap-2 px-3 text-sm"
+											variant="outline"
+										>
+											<RefreshCw
+												className={`h-3.5 w-3.5 ${
+													loading.submittedGrades ? 'animate-spin' : ''
+												}`}
+											/>
+											Refresh
+										</Button>
+
+										<FilterSelect
+											label="Rows"
+											value={String(rowsPerPage)}
+											onChange={(v) => {
+												setRowsPerPage(Number(v));
+												setCurrentPage(1);
+											}}
+											options={[
+												{ label: '5', value: '5' },
+												{ label: '10', value: '10' },
+												{ label: '25', value: '25' },
+												{ label: '50', value: '50' },
+											]}
+										/>
+									</div>
+								)}
+							</div>
+						</div>
+					)}
 
 					{academicYear && !isSelectedAcademicYearAllowed && (
-						<div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
+						<div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800 text-sm shadow-sm">
 							Grade submission review is not allowed for academic year{' '}
-							<strong>{academicYear}</strong>. Please select an allowed
-							academic year.
+							<strong>{academicYear}</strong>. Please select an allowed academic
+							year.
 						</div>
 					)}
 
 					{canAccessSelectedAcademicYear && (
-						<div className="bg-background border border-border rounded-lg overflow-hidden shadow-sm">
-							<div className="p-6 border-b border-border">
-								<h3 className="text-lg font-semibold text-foreground">
-									Recent Grade Submissions
-								</h3>
-								<p className="text-muted-foreground text-sm">
-									Track your submitted and pending grade submissions.
-								</p>
-							</div>
-							{loading.submittedGrades ? (
-								<PageLoading
-									fullScreen={false}
-									message="Loading Submissions..."
-								/>
-							) : error.submittedGrades ? (
-								<div className="p-6 text-center text-destructive">
-									{error.submittedGrades}
-								</div>
-							) : submittedGrades?.length === 0 ? (
-								<div className="p-6 text-center text-muted-foreground">
-									No grades have been submitted yet.
-								</div>
-							) : filteredAndSortedGrades.length === 0 ? (
-								<div className="p-6 text-center text-muted-foreground">
-									No submissions match your filters.
+						<>
+							{hasNoClasses ? (
+								<div className="flex-1 flex items-center justify-center p-6">
+									<div className="bg-card border border-border rounded-xl p-8 text-center max-w-sm shadow-sm">
+										<div className="w-14 h-14 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+											<AlertCircle className="w-7 h-7 text-muted-foreground" />
+										</div>
+										<h3 className="font-semibold text-foreground mb-1 text-base">
+											No Classes Assigned
+										</h3>
+										<p className="text-sm text-muted-foreground leading-relaxed">
+											You are currently not assigned to any classes or subjects
+											for grading in the{' '}
+											<span className="font-semibold text-foreground">
+												{academicYear || 'selected'}
+											</span>{' '}
+											academic year.
+										</p>
+										<p className="text-xs text-muted-foreground/80 mt-3 border-t border-border/60 pt-3">
+											Please contact your school administrator to update your
+											profile assignments.
+										</p>
+									</div>
 								</div>
 							) : (
-								<>
-									<div className="overflow-x-auto">
-										<table className="w-full">
-											<thead className="bg-muted/50">
-												<tr>
-													{[
-														'subject',
-														'classId',
-														'period',
-														'status',
-														'lastUpdated',
-													].map((key) => (
-														<th
-															key={key}
-															className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted"
-															onClick={() =>
-																handleSort(key as keyof GradeSubmission)
-															}
-														>
-															<div className="flex items-center gap-2">
-																{key === 'classId'
-																	? 'Class'
-																	: key
-																			.replace(/([A-Z])/g, ' $1')
-																			.replace(/^./, (str) =>
-																				str.toUpperCase(),
-																			)}
-																{getSortIcon(key as keyof GradeSubmission)}
-															</div>
-														</th>
-													))}
-													<th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-														Actions
-													</th>
-												</tr>
-											</thead>
-											<tbody className="divide-y divide-border bg-background">
-												{currentSlice.map((grade) => (
-													<tr
-														key={grade.submissionId}
-														className="hover:bg-muted/70 transition-colors"
-													>
-														<td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
-															{grade.subject}
-														</td>
-														<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-															{classMap.get(grade.gradeLevel) || grade.gradeLevel}
-														</td>
-														<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-															{
-																periods.find((p) => p.value === grade.period)
-																	?.label
-															}
-														</td>
-														<td className="px-6 py-4 whitespace-nowrap text-sm">
-															<span
-																className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
-																	grade.status,
-																)}`}
-															>
-																{getStatusIcon(grade.status)} {grade.status}
-															</span>
-														</td>
-														<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-															{formatLastUpdated(grade.lastUpdated)}
-														</td>
-														<td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-															<Button
-																variant="outline"
-																size="sm"
-																onClick={() => openDetailsModal(grade)}
-															>
-																Details & Change Grade
-															</Button>
-														</td>
-													</tr>
-												))}
-											</tbody>
-										</table>
+								<div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+									<div className="p-4 sm:p-6 border-b border-border bg-muted/20">
+										<h3 className="text-lg font-semibold text-foreground">
+											Recent Grade Submissions
+										</h3>
+										<p className="text-muted-foreground text-sm">
+											View details or request changes to submitted grades.
+										</p>
 									</div>
-									<div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-t border-border">
-										<div className="text-sm text-muted-foreground">
-											Showing{' '}
-											<strong>{(currentPageSafe - 1) * rowsPerPage + 1}</strong>
-											–
-											<strong>
-												{Math.min(
-													currentPageSafe * rowsPerPage,
-													filteredAndSortedGrades.length
-												)}
-											</strong>{' '}
-											of <strong>{filteredAndSortedGrades.length}</strong>{' '}
-											submissions
+									{loading.submittedGrades ? (
+										<PageLoading
+											fullScreen={false}
+											message="Loading Submissions..."
+										/>
+									) : error.submittedGrades ? (
+										<div className="p-6 text-center text-destructive">
+											{error.submittedGrades}
 										</div>
-										<div className="flex items-center justify-between gap-2 sm:justify-start">
-											<button
-												className="w-full px-2 py-2 text-sm border rounded-md disabled:opacity-50 sm:w-auto"
-												onClick={() =>
-													setCurrentPage((p) => Math.max(p - 1, 1))
-												}
-												disabled={currentPageSafe === 1}
-											>
-												Previous
-											</button>
-											<div className="text-sm">
-												Page {currentPageSafe} of {totalPages}
+									) : submittedGrades?.length === 0 ? (
+										<div className="p-12 text-center text-muted-foreground">
+											<div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
+												<Clock className="w-6 h-6 text-muted-foreground/50" />
 											</div>
-											<button
-												className="w-full px-2 py-2 text-sm border rounded-md disabled:opacity-50 sm:w-auto"
-												onClick={() =>
-													setCurrentPage((p) => Math.min(p + 1, totalPages))
-												}
-												disabled={currentPageSafe === totalPages}
-											>
-												Next
-											</button>
+											<p>No grades have been submitted yet.</p>
 										</div>
-									</div>
-								</>
+									) : filteredAndSortedGrades.length === 0 ? (
+										<div className="p-12 text-center text-muted-foreground">
+											<div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
+												<Info className="w-6 h-6 text-muted-foreground/50" />
+											</div>
+											<p>No submissions match your filters.</p>
+										</div>
+									) : (
+										<>
+											<div className="overflow-x-auto">
+												<table className="w-full min-w-[800px]">
+													<thead className="bg-muted/50">
+														<tr>
+															{[
+																'subject',
+																'classId',
+																'period',
+																'status',
+																'lastUpdated',
+															].map((key) => (
+																<th
+																	key={key}
+																	className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted transition-colors"
+																	onClick={() =>
+																		handleSort(key as keyof GradeSubmission)
+																	}
+																>
+																	<div className="flex items-center gap-2">
+																		{key === 'classId'
+																			? 'Class'
+																			: key
+																					.replace(/([A-Z])/g, ' $1')
+																					.replace(/^./, (str) =>
+																						str.toUpperCase(),
+																					)}
+																		{getSortIcon(key as keyof GradeSubmission)}
+																	</div>
+																</th>
+															))}
+															<th className="px-6 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+																Actions
+															</th>
+														</tr>
+													</thead>
+													<tbody className="divide-y divide-border bg-background">
+														{currentSlice.map((grade) => (
+															<tr
+																key={grade.submissionId}
+																className="hover:bg-muted/50 transition-colors"
+															>
+																<td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+																	{grade.subject}
+																</td>
+																<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+																	{classMap.get(grade.gradeLevel) ||
+																		grade.gradeLevel}
+																</td>
+																<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+																	{
+																		periods.find(
+																			(p) => p.value === grade.period,
+																		)?.label
+																	}
+																</td>
+																<td className="px-6 py-4 whitespace-nowrap text-sm">
+																	<span
+																		className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${getStatusClasses(
+																			grade.status,
+																		)}`}
+																	>
+																		{getStatusIcon(grade.status)} {grade.status}
+																	</span>
+																</td>
+																<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+																	{formatLastUpdated(grade.lastUpdated)}
+																</td>
+																<td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+																	<Button
+																		variant="secondary"
+																		size="sm"
+																		onClick={() => openDetailsModal(grade)}
+																	>
+																		Details & Change Grade
+																	</Button>
+																</td>
+															</tr>
+														))}
+													</tbody>
+												</table>
+											</div>
+											<div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between border-t border-border bg-muted/20">
+												<div className="text-sm text-muted-foreground">
+													Showing{' '}
+													<strong className="text-foreground">
+														{(currentPageSafe - 1) * rowsPerPage + 1}
+													</strong>
+													–
+													<strong className="text-foreground">
+														{Math.min(
+															currentPageSafe * rowsPerPage,
+															filteredAndSortedGrades.length,
+														)}
+													</strong>{' '}
+													of{' '}
+													<strong className="text-foreground">
+														{filteredAndSortedGrades.length}
+													</strong>{' '}
+													submissions
+												</div>
+												<div className="flex items-center justify-between gap-2 sm:justify-start">
+													<button
+														className="w-full px-3 py-1.5 text-sm font-medium border bg-background text-foreground rounded-md hover:bg-muted disabled:opacity-50 sm:w-auto transition-colors"
+														onClick={() =>
+															setCurrentPage((p) => Math.max(p - 1, 1))
+														}
+														disabled={currentPageSafe === 1}
+													>
+														Previous
+													</button>
+													<div className="text-sm text-muted-foreground px-2">
+														Page {currentPageSafe} of {totalPages}
+													</div>
+													<button
+														className="w-full px-3 py-1.5 text-sm font-medium border bg-background text-foreground rounded-md hover:bg-muted disabled:opacity-50 sm:w-auto transition-colors"
+														onClick={() =>
+															setCurrentPage((p) => Math.min(p + 1, totalPages))
+														}
+														disabled={currentPageSafe === totalPages}
+													>
+														Next
+													</button>
+												</div>
+											</div>
+										</>
+									)}
+								</div>
 							)}
-						</div>
+						</>
 					)}
 				</div>
 			</div>
@@ -1903,5 +2000,52 @@ const GradeSubmissions = () => {
 		</div>
 	);
 };
+
+/* ── Reusable compact filter select ── */
+interface FilterSelectProps {
+	label: string;
+	value: string;
+	onChange: (v: string) => void;
+	options: { label: string; value: string }[];
+	placeholder?: string;
+	disabled?: boolean;
+}
+
+const FilterSelect: React.FC<FilterSelectProps> = ({
+	label,
+	value,
+	onChange,
+	options,
+	placeholder,
+	disabled,
+}) => (
+	<div className="flex flex-col gap-0.5 min-w-[120px]">
+		<span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-0.5">
+			{label}
+		</span>
+		<div className="relative">
+			<select
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				disabled={disabled}
+				className={`h-8 w-full pl-3 pr-8 rounded-lg border text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors ${
+					disabled
+						? 'bg-muted text-muted-foreground cursor-not-allowed opacity-80 border-input'
+						: 'bg-background text-foreground cursor-pointer border-input hover:border-ring/50'
+				}`}
+			>
+				{placeholder && !disabled && <option value="">{placeholder}</option>}
+				{options.map((o) => (
+					<option key={o.value} value={o.value}>
+						{o.label}
+					</option>
+				))}
+			</select>
+			{!disabled && (
+				<ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+			)}
+		</div>
+	</div>
+);
 
 export default GradeSubmissions;
