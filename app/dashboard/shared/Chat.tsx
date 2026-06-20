@@ -236,7 +236,7 @@ function MessageBubble({
 				}`}
 			>
 				<div
-					className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed overflow-hidden ${
+					className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed overflow-x-auto max-w-full ${
 						isUser
 							? 'bg-primary text-primary-foreground rounded-tr-sm'
 							: 'bg-muted/70 text-foreground rounded-tl-sm border border-border/50'
@@ -247,7 +247,10 @@ function MessageBubble({
 					) : (
 						<>
 							{/* 5. Attach the ref to the wrapper div right here! */}
-							<div className="w-full break-words" ref={contentRef}>
+							<div
+								className="w-full break-words overflow-x-auto"
+								ref={contentRef}
+							>
 								<SmartRenderer content={message.content} />
 							</div>
 
@@ -1023,7 +1026,7 @@ export default function SchoolMessages() {
 
 				{/* ── Main chat area ───────────────────────────────────────────── */}
 				<div
-					className={`flex flex-col flex-1 w-full h-full min-w-0 transition-all duration-300 ${
+					className={`flex flex-col flex-1 h-full min-w-0 transition-all duration-300 ${
 						sidebarOpen ? 'lg:pl-64' : 'pl-0'
 					}`}
 				>
@@ -1078,7 +1081,7 @@ export default function SchoolMessages() {
 					{/* Messages */}
 					<div
 						ref={scrollRef}
-						className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 flex flex-col gap-5 relative
+						className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 py-5 flex flex-col gap-5 relative
               [&::-webkit-scrollbar]:w-1
               [&::-webkit-scrollbar-track]:bg-transparent
               [&::-webkit-scrollbar-thumb]:bg-border
