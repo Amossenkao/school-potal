@@ -193,9 +193,21 @@ export default function AuthProvider({
 		const handleRealtimeEvent = (event: RealtimeEvent) => {
 			useSchoolStore.getState().applyRealtimeEvent(event);
 			useAuth.getState().applyRealtimeEvent(event);
+			const currentUserId = String(user?.id || '').trim();
+			const targetUserIds = Array.isArray(event.payload?.targetUserIds)
+				? event.payload.targetUserIds.map((value) => String(value || '').trim())
+				: [];
+			const eventUserId = String(event.payload?.userId || '').trim();
+			const impactsCurrentUser =
+				currentUserId &&
+				(Boolean(eventUserId && eventUserId === currentUserId) ||
+					targetUserIds.includes(currentUserId));
+			if (event.type === 'USER_DISABLED' && impactsCurrentUser) {
+				return;
+			}
 			const academicYear = String(event.payload?.academicYear || '').trim();
 			const reason = String(event.payload?.reason || '').trim();
-			if (event.type === 'USER_DISABLED' || SECURITY_SYNC_REASONS.has(reason)) {
+			if (SECURITY_SYNC_REASONS.has(reason)) {
 				void runAuthRefresh({
 					force: true,
 					trigger: `ably-security:${event.type}`,

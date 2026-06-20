@@ -305,11 +305,19 @@ const useAuth = create<AuthState>((set, get) => {
 
 		if (event.type === 'USER_DISABLED' && impactsCurrentUser) {
 			set((state) => ({
-				user: state.user ? { ...state.user, isActive: false } : state.user,
+				user: null,
 				isLoggedIn: false,
+				isLoading: false,
+				userVersion: null,
 				error: 'Your account has been disabled.',
+				sessionId: null,
+				isAwaitingOtp: false,
+				otpContact: null,
+				userId: null,
 			}));
 			cacheAuthUser(null);
+			clearSessionScopedClientState();
+			void clearSessionSensitiveStorage('logout');
 			return;
 		}
 

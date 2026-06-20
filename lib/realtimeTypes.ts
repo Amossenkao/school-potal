@@ -307,19 +307,23 @@ export const resolvePublishChannels = (event: RealtimeEvent) => {
 		case 'USER_CREATED':
 		case 'USER_UPDATED':
 		case 'USER_DISABLED':
+			addSchool();
 			addUserIds(
 				targetUserIds ||
 					(payload.userId ? [String(payload.userId)] : undefined),
 			);
+			addClassIds(classIds);
 			break;
 		case 'STUDENT_ADDED':
 		case 'STUDENT_REMOVED':
 		case 'CLASS_UPDATED':
+			addSchool();
 			addClassIds(classIds);
 			break;
 		case 'GRADE_CREATED':
 		case 'GRADE_UPDATED':
 		case 'GRADE_CHANGE_REQUESTED':
+			addSchool();
 			addClassIds(classIds);
 			addUserIds(
 				targetUserIds ||
