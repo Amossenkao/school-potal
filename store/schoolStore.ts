@@ -6,6 +6,7 @@ import {
 	setDomainSnapshot,
 } from '@/utils/domainSyncCache';
 import { useNetworkStore } from './networkStore';
+import type { RealtimeEvent } from '@/lib/realtimeTypes';
 
 type UsersPayload = {
 	students?: any[];
@@ -69,6 +70,7 @@ type SchoolStore = {
 			schedules?: string;
 		},
 	) => void;
+	applyRealtimeEvent: (event: RealtimeEvent) => void;
 	clearCache: () => void;
 	hydrateCache: () => void;
 };
@@ -105,15 +107,17 @@ const writeMetaCache = (payload: {
 	}
 };
 
-const persistMeta = (state: Pick<
-	SchoolStore,
-	| 'usersVersionByAcademicYear'
-	| 'calendarVersionByAcademicYear'
-	| 'gradesVersionByAcademicYear'
-	| 'gradeRequestsVersionByAcademicYear'
-	| 'schedulesVersionByAcademicYear'
-	| 'schoolVersion'
->) => {
+const persistMeta = (
+	state: Pick<
+		SchoolStore,
+		| 'usersVersionByAcademicYear'
+		| 'calendarVersionByAcademicYear'
+		| 'gradesVersionByAcademicYear'
+		| 'gradeRequestsVersionByAcademicYear'
+		| 'schedulesVersionByAcademicYear'
+		| 'schoolVersion'
+	>,
+) => {
 	writeMetaCache({
 		usersVersionByAcademicYear: state.usersVersionByAcademicYear,
 		calendarVersionByAcademicYear: state.calendarVersionByAcademicYear,
@@ -150,16 +154,22 @@ const buildAcademicYearKeyVariants = (academicYear: string) => {
 	const normalized = normalizeAcademicYearKey(raw);
 	const slash = normalized ? normalized.replace(/-/g, '/') : '';
 	return Array.from(
-		new Set([raw, normalized, slash].filter((value): value is string => Boolean(value))),
+		new Set(
+			[raw, normalized, slash].filter((value): value is string =>
+				Boolean(value),
+			),
+		),
 	);
 };
 
 const getAcademicYearPrimaryKey = (academicYear: string) => {
 	const variants = buildAcademicYearKeyVariants(academicYear);
-	return variants.find((value) => value.includes('-')) || variants[0] || academicYear;
+	return (
+		variants.find((value) => value.includes('-')) || variants[0] || academicYear
+	);
 };
 
-const resolveAcademicYearRecord = <T,>(
+const resolveAcademicYearRecord = <T>(
 	map: Record<string, T> | undefined,
 	academicYear: string,
 ): T | undefined => {
@@ -178,7 +188,7 @@ const resolveAcademicYearRecord = <T,>(
 	return matchedKey ? map[matchedKey] : undefined;
 };
 
-const assignAcademicYearRecord = <T,>(
+const assignAcademicYearRecord = <T>(
 	map: Record<string, T>,
 	academicYear: string,
 	value: T,
@@ -190,7 +200,7 @@ const assignAcademicYearRecord = <T,>(
 	return next;
 };
 
-const expandAcademicYearRecordMap = <T,>(map?: Record<string, T> | null) => {
+const expandAcademicYearRecordMap = <T>(map?: Record<string, T> | null) => {
 	const expanded: Record<string, T> = {};
 	if (!map || typeof map !== 'object') return expanded;
 	Object.entries(map).forEach(([academicYear, value]) => {
@@ -210,7 +220,11 @@ const getGradeIdentity = (grade: any) => {
 		grade?.studentId,
 		grade?.teacherUsername,
 	]
-		.map((part) => String(part || '').trim().toLowerCase())
+		.map((part) =>
+			String(part || '')
+				.trim()
+				.toLowerCase(),
+		)
 		.join('|');
 	if (naturalKey.replaceAll('|', '')) return naturalKey;
 	const id = grade?._id || grade?.id;
@@ -231,17 +245,20 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	gradeRequestsVersionByAcademicYear: {},
 	schedulesVersionByAcademicYear: {},
 
-		fetchSchool: async () => {
-			if (!get().school) {
-				try {
-					const storedSchool = localStorage.getItem('school-profile');
-					if (storedSchool) {
-						set({ school: JSON.parse(storedSchool) });
-					}
-				} catch (error) {
-					console.error('Failed to load school profile from local storage:', error);
+	fetchSchool: async () => {
+		if (!get().school) {
+			try {
+				const storedSchool = localStorage.getItem('school-profile');
+				if (storedSchool) {
+					set({ school: JSON.parse(storedSchool) });
 				}
+			} catch (error) {
+				console.error(
+					'Failed to load school profile from local storage:',
+					error,
+				);
 			}
+		}
 
 		// Cache-first: if school exists in memory or local storage, skip network fetch.
 		if (get().school) return;
@@ -252,24 +269,24 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		});
 		if (!isOnline) return;
 
-			if (fetchPromise) return fetchPromise;
+		if (fetchPromise) return fetchPromise;
 
-			fetchPromise = (async () => {
-				try {
-					const controller = new AbortController();
-					const timeoutId = window.setTimeout(() => controller.abort(), 5000);
-					const response = await (async () => {
-						try {
-							return await fetch(`/api/school`, {
-								signal: controller.signal,
-							});
-						} finally {
-							window.clearTimeout(timeoutId);
-						}
-					})();
-					if (!response.ok) {
-						throw new Error(`Failed to fetch: ${response.statusText}`);
+		fetchPromise = (async () => {
+			try {
+				const controller = new AbortController();
+				const timeoutId = window.setTimeout(() => controller.abort(), 5000);
+				const response = await (async () => {
+					try {
+						return await fetch(`/api/school`, {
+							signal: controller.signal,
+						});
+					} finally {
+						window.clearTimeout(timeoutId);
 					}
+				})();
+				if (!response.ok) {
+					throw new Error(`Failed to fetch: ${response.statusText}`);
+				}
 				const schoolProfile: SchoolProfile = await response.json();
 				set({ school: schoolProfile });
 
@@ -284,7 +301,10 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 							set({ school: JSON.parse(storedSchool) });
 						}
 					} catch (cacheError) {
-						console.warn('Failed to restore cached school profile:', cacheError);
+						console.warn(
+							'Failed to restore cached school profile:',
+							cacheError,
+						);
 					}
 				}
 			} finally {
@@ -354,7 +374,11 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				updated,
 			);
 
-			persistDomainSnapshot('users', getAcademicYearPrimaryKey(academicYear), updated);
+			persistDomainSnapshot(
+				'users',
+				getAcademicYearPrimaryKey(academicYear),
+				updated,
+			);
 			persistMeta(state);
 
 			return { usersByAcademicYear };
@@ -384,7 +408,11 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				academicYear,
 				value,
 			);
-			persistDomainSnapshot('calendar', getAcademicYearPrimaryKey(academicYear), value);
+			persistDomainSnapshot(
+				'calendar',
+				getAcademicYearPrimaryKey(academicYear),
+				value,
+			);
 			persistMeta(state);
 			return { calendarByAcademicYear };
 		});
@@ -399,7 +427,11 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				academicYear,
 				value,
 			);
-			persistDomainSnapshot('grades', getAcademicYearPrimaryKey(academicYear), value);
+			persistDomainSnapshot(
+				'grades',
+				getAcademicYearPrimaryKey(academicYear),
+				value,
+			);
 			persistMeta(state);
 			return { gradesByAcademicYear };
 		});
@@ -426,7 +458,11 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				academicYear,
 				value,
 			);
-			persistDomainSnapshot('grades', getAcademicYearPrimaryKey(academicYear), value);
+			persistDomainSnapshot(
+				'grades',
+				getAcademicYearPrimaryKey(academicYear),
+				value,
+			);
 			persistMeta(state);
 			return { gradesByAcademicYear };
 		});
@@ -479,42 +515,42 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			const usersVersionByAcademicYear =
 				typeof versions.users === 'string'
 					? assignAcademicYearRecord(
-						state.usersVersionByAcademicYear,
-						academicYear,
-						versions.users,
-					)
+							state.usersVersionByAcademicYear,
+							academicYear,
+							versions.users,
+						)
 					: state.usersVersionByAcademicYear;
 			const calendarVersionByAcademicYear =
 				typeof versions.calendar === 'string'
 					? assignAcademicYearRecord(
-						state.calendarVersionByAcademicYear,
-						academicYear,
-						versions.calendar,
-					)
+							state.calendarVersionByAcademicYear,
+							academicYear,
+							versions.calendar,
+						)
 					: state.calendarVersionByAcademicYear;
 			const gradesVersionByAcademicYear =
 				typeof versions.grades === 'string'
 					? assignAcademicYearRecord(
-						state.gradesVersionByAcademicYear,
-						academicYear,
-						versions.grades,
-					)
+							state.gradesVersionByAcademicYear,
+							academicYear,
+							versions.grades,
+						)
 					: state.gradesVersionByAcademicYear;
 			const gradeRequestsVersionByAcademicYear =
 				typeof versions.gradeRequests === 'string'
 					? assignAcademicYearRecord(
-						state.gradeRequestsVersionByAcademicYear,
-						academicYear,
-						versions.gradeRequests,
-					)
+							state.gradeRequestsVersionByAcademicYear,
+							academicYear,
+							versions.gradeRequests,
+						)
 					: state.gradeRequestsVersionByAcademicYear;
 			const schedulesVersionByAcademicYear =
 				typeof versions.schedules === 'string'
 					? assignAcademicYearRecord(
-						state.schedulesVersionByAcademicYear,
-						academicYear,
-						versions.schedules,
-					)
+							state.schedulesVersionByAcademicYear,
+							academicYear,
+							versions.schedules,
+						)
 					: state.schedulesVersionByAcademicYear;
 			const next = {
 				...state,
@@ -533,6 +569,155 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				schedulesVersionByAcademicYear,
 			};
 		});
+	},
+
+	applyRealtimeEvent: (event) => {
+		const payload = (event?.payload || {}) as Record<string, unknown>;
+		const academicYear = String(
+			payload.academicYear || payload.year || payload.schoolYear || '',
+		).trim();
+		const version = event.timestamp || new Date().toISOString();
+		const shouldTouchUsers = [
+			'USER_CREATED',
+			'USER_UPDATED',
+			'USER_DISABLED',
+			'STUDENT_ADDED',
+			'STUDENT_REMOVED',
+			'CLASS_UPDATED',
+		].includes(event.type);
+		const shouldTouchCalendar = [
+			'EVENT_CREATED',
+			'EVENT_UPDATED',
+			'EVENT_DELETED',
+			'ANNOUNCEMENT_CREATED',
+		].includes(event.type);
+		const shouldTouchGrades = [
+			'GRADE_CREATED',
+			'GRADE_UPDATED',
+			'GRADE_CHANGE_REQUESTED',
+		].includes(event.type);
+		const shouldTouchSchedules = ['CLASS_UPDATED'].includes(event.type);
+		const shouldTouchGradeRequests = event.type === 'GRADE_CHANGE_REQUESTED';
+
+		set((state) => {
+			if (academicYear) {
+				const nextVersions = {
+					users: shouldTouchUsers ? version : undefined,
+					calendar: shouldTouchCalendar ? version : undefined,
+					grades: shouldTouchGrades ? version : undefined,
+					gradeRequests: shouldTouchGradeRequests ? version : undefined,
+					schedules: shouldTouchSchedules ? version : undefined,
+				};
+				const touched = Object.values(nextVersions).some(
+					(value) => typeof value === 'string',
+				);
+				if (touched) {
+					const usersVersionByAcademicYear =
+						typeof nextVersions.users === 'string'
+							? assignAcademicYearRecord(
+									state.usersVersionByAcademicYear,
+									academicYear,
+									nextVersions.users,
+								)
+							: state.usersVersionByAcademicYear;
+					const calendarVersionByAcademicYear =
+						typeof nextVersions.calendar === 'string'
+							? assignAcademicYearRecord(
+									state.calendarVersionByAcademicYear,
+									academicYear,
+									nextVersions.calendar,
+								)
+							: state.calendarVersionByAcademicYear;
+					const gradesVersionByAcademicYear =
+						typeof nextVersions.grades === 'string'
+							? assignAcademicYearRecord(
+									state.gradesVersionByAcademicYear,
+									academicYear,
+									nextVersions.grades,
+								)
+							: state.gradesVersionByAcademicYear;
+					const gradeRequestsVersionByAcademicYear =
+						typeof nextVersions.gradeRequests === 'string'
+							? assignAcademicYearRecord(
+									state.gradeRequestsVersionByAcademicYear,
+									academicYear,
+									nextVersions.gradeRequests,
+								)
+							: state.gradeRequestsVersionByAcademicYear;
+					const schedulesVersionByAcademicYear =
+						typeof nextVersions.schedules === 'string'
+							? assignAcademicYearRecord(
+									state.schedulesVersionByAcademicYear,
+									academicYear,
+									nextVersions.schedules,
+								)
+							: state.schedulesVersionByAcademicYear;
+
+					const next = {
+						...state,
+						usersVersionByAcademicYear,
+						calendarVersionByAcademicYear,
+						gradesVersionByAcademicYear,
+						gradeRequestsVersionByAcademicYear,
+						schedulesVersionByAcademicYear,
+					};
+					persistMeta(next);
+					return {
+						usersVersionByAcademicYear,
+						calendarVersionByAcademicYear,
+						gradesVersionByAcademicYear,
+						gradeRequestsVersionByAcademicYear,
+						schedulesVersionByAcademicYear,
+					};
+				}
+			}
+			return {};
+		});
+
+		if (
+			academicYear &&
+			payload.users &&
+			Array.isArray((payload.users as any)?.students)
+		) {
+			set((state) => {
+				const usersByAcademicYear = assignAcademicYearRecord(
+					state.usersByAcademicYear,
+					academicYear,
+					{
+						students: Array.isArray((payload.users as any).students)
+							? (payload.users as any).students
+							: [],
+						teachers: Array.isArray((payload.users as any).teachers)
+							? (payload.users as any).teachers
+							: [],
+						administrators: Array.isArray((payload.users as any).administrators)
+							? (payload.users as any).administrators
+							: [],
+					},
+				);
+				return { usersByAcademicYear };
+			});
+		}
+
+		if (academicYear && Array.isArray(payload.grades)) {
+			get().setGradesForYear(academicYear, payload.grades as any[]);
+		}
+		if (academicYear && Array.isArray(payload.calendarEvents)) {
+			get().setCalendarForYear(academicYear, payload.calendarEvents as any[]);
+		}
+		if (
+			academicYear &&
+			payload.schedules &&
+			typeof payload.schedules === 'object'
+		) {
+			get().setSchedulesForYear(academicYear, payload.schedules as any);
+		}
+		if (academicYear && Array.isArray(payload.gradeRequests)) {
+			get().setGradeRequestsForYear(
+				academicYear,
+				payload.gradeRequests as any[],
+			);
+		}
 	},
 
 	clearCache: () => {

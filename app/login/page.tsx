@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Ably from 'ably';
 import {
 	Eye,
 	EyeOff,
@@ -23,19 +24,14 @@ import { useNetworkStore } from '@/store/networkStore';
 import Link from 'next/link';
 import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
 import type SchoolProfile from '@/types/schoolProfile';
+import {
+	getAuthorizedRealtimeChannels,
+	resolveTenantSyncKey,
+	type RealtimeEvent,
+} from '@/lib/realtimeTypes';
 
 const PUBLIC_SYNC_STREAM_TOKEN_ENDPOINT = '/api/sync/public-stream-token';
 const PUBLIC_SYNC_REFRESH_DEBOUNCE_MS = 120;
-const PUBLIC_STREAM_RETRY_BASE_MS = 1200;
-const PUBLIC_STREAM_RETRY_MAX_MS = 12000;
-
-const ensureSyncEventsPath = (rawUrl: string, baseUrl: string) => {
-	const url = new URL(rawUrl, baseUrl);
-	if (!url.pathname || url.pathname === '/') {
-		url.pathname = '/sync/events';
-	}
-	return url.toString();
-};
 
 const resolveRoleLoginDisabledMessage = (role: string, school: any): string => {
 	if (!role || role === 'system_admin') return '';
@@ -57,6 +53,9 @@ const LoginPage = () => {
 	const [redirectTimedOut, setRedirectTimedOut] = useState(false);
 	const currentSchool = useSchoolStore((state) => state.school);
 	const setSchool = useSchoolStore((state) => state.setSchool);
+	const applyRealtimeEvent = useSchoolStore(
+		(state) => state.applyRealtimeEvent,
+	);
 	const [loginDisabledError, setLoginDisabledError] = useState('');
 	const [offlineError, setOfflineError] = useState('');
 	const usernameInputRef = useRef<HTMLInputElement>(null);
@@ -162,28 +161,26 @@ const LoginPage = () => {
 		}, [setSchool]);
 
 	useEffect(() => {
-		let stopped = false;
-		let eventSource: EventSource | null = null;
-		let retryTimer: number | null = null;
+		let aborted = false;
+		let client: Ably.Realtime | null = null;
+		let unsubscribe: (() => void) | null = null;
 		let refreshTimer: number | null = null;
-		let retryAttempt = 0;
-
-		const cleanupEventSource = () => {
-			if (!eventSource) return;
-			eventSource.close();
-			eventSource = null;
-		};
-
-		const clearRetryTimer = () => {
-			if (!retryTimer) return;
-			window.clearTimeout(retryTimer);
-			retryTimer = null;
-		};
 
 		const clearRefreshTimer = () => {
 			if (!refreshTimer) return;
 			window.clearTimeout(refreshTimer);
 			refreshTimer = null;
+		};
+
+		const closeClient = () => {
+			if (unsubscribe) {
+				unsubscribe();
+				unsubscribe = null;
+			}
+			if (client) {
+				client.close();
+				client = null;
+			}
 		};
 
 		const scheduleRefresh = () => {
@@ -194,66 +191,43 @@ const LoginPage = () => {
 			}, PUBLIC_SYNC_REFRESH_DEBOUNCE_MS);
 		};
 
-		const scheduleReconnect = () => {
-			if (stopped || retryTimer) return;
-			const delay = Math.min(
-				PUBLIC_STREAM_RETRY_MAX_MS,
-				PUBLIC_STREAM_RETRY_BASE_MS * 2 ** Math.min(retryAttempt, 5),
-			);
-			retryAttempt += 1;
-			retryTimer = window.setTimeout(() => {
-				retryTimer = null;
-				void connectStream();
-			}, delay);
-		};
-
 		const connectStream = async () => {
-			if (stopped) return;
-			clearRetryTimer();
-			cleanupEventSource();
-
-			try {
-				const tokenResponse = await fetch(PUBLIC_SYNC_STREAM_TOKEN_ENDPOINT, {
-					cache: 'no-store',
-					headers: {
-						'Cache-Control': 'no-store',
-					},
-				});
-				if (!tokenResponse.ok) {
-					throw new Error(`stream-token-${tokenResponse.status}`);
-				}
-				const payload = await tokenResponse.json();
-				const token = String(payload?.token || '').trim();
-				const streamUrlRaw = String(payload?.streamUrl || '').trim();
-				if (!token || !streamUrlRaw) {
-					throw new Error('missing-stream-token-or-url');
-				}
-
-				const streamUrl = ensureSyncEventsPath(
-					streamUrlRaw,
-					window.location.origin,
-				);
-				const urlWithToken = new URL(streamUrl);
-				urlWithToken.searchParams.set('token', token);
-
-				eventSource = new EventSource(urlWithToken.toString());
-				eventSource.addEventListener('ready', () => {
-					retryAttempt = 0;
-				});
-				eventSource.addEventListener('sync', () => {
-					scheduleRefresh();
-				});
-				eventSource.onerror = () => {
-					cleanupEventSource();
-					scheduleReconnect();
-				};
-			} catch {
-				scheduleReconnect();
-			}
+			closeClient();
+			const tenantKey = resolveTenantSyncKey({
+				schoolProfile: currentSchool,
+				host: window.location.host,
+			});
+			if (!tenantKey) return;
+			const nextClient = new Ably.Realtime({
+				authUrl: PUBLIC_SYNC_STREAM_TOKEN_ENDPOINT,
+				authMethod: 'GET',
+				withCredentials: true,
+			});
+			client = nextClient;
+			const channels = getAuthorizedRealtimeChannels({
+				tenantId: tenantKey,
+				publicOnly: true,
+			});
+			const schoolChannel = channels[0];
+			if (!schoolChannel) return;
+			const channel = nextClient.channels.get(schoolChannel);
+			const listener = (message: any) => {
+				const event = message?.data as RealtimeEvent | undefined;
+				if (!event || event.tenantId !== tenantKey) return;
+				applyRealtimeEvent(event);
+				scheduleRefresh();
+			};
+			channel.subscribe(listener);
+			unsubscribe = () => channel.unsubscribe(listener);
+			nextClient.connection.on('connected', () => {
+				scheduleRefresh();
+			});
+			nextClient.connection.on('failed', () => {
+				scheduleRefresh();
+			});
 		};
 
 		const handleOnline = () => {
-			retryAttempt = 0;
 			scheduleRefresh();
 			void connectStream();
 		};
@@ -261,7 +235,7 @@ const LoginPage = () => {
 		const handleVisibilityChange = () => {
 			if (document.visibilityState !== 'visible') return;
 			scheduleRefresh();
-			if (!eventSource) {
+			if (!client) {
 				void connectStream();
 			}
 		};
@@ -273,14 +247,12 @@ const LoginPage = () => {
 		void connectStream();
 
 		return () => {
-			stopped = true;
 			window.removeEventListener('online', handleOnline);
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
-			clearRetryTimer();
+			closeClient();
 			clearRefreshTimer();
-			cleanupEventSource();
 		};
-	}, [refreshSchoolProfile]);
+	}, [applyRealtimeEvent, currentSchool, refreshSchoolProfile]);
 
 	/**
 	 * Reset credentials only when login context changes (role/position).

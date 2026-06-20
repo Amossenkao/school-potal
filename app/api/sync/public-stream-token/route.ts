@@ -1,23 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSchoolProfile } from '@/lib/mongoose';
 import {
-	getTenantPublicSyncChannel,
+	createAblyTokenRequest,
 	resolveTenantSyncKey,
 } from '@/lib/realtimeSync';
-import { createStreamToken } from '@/lib/streamToken';
 import { syncDebugError, syncDebugLog, syncDebugWarn } from '@/lib/syncDebug';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const DEFAULT_TOKEN_TTL_SECONDS = 90;
-const MAX_TOKEN_TTL_SECONDS = 600;
-
-const parseTtlSeconds = () => {
-	const raw = Number(process.env.SYNC_PUBLIC_STREAM_TOKEN_TTL_SECONDS);
-	if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_TOKEN_TTL_SECONDS;
-	return Math.min(MAX_TOKEN_TTL_SECONDS, Math.floor(raw));
-};
 
 const noStoreJson = (payload: Record<string, unknown>, status = 200) =>
 	NextResponse.json(payload, {
@@ -26,25 +16,6 @@ const noStoreJson = (payload: Record<string, unknown>, status = 200) =>
 			'Cache-Control': 'no-store, no-cache, must-revalidate',
 		},
 	});
-
-const resolveStreamUrl = (request: NextRequest) => {
-	const raw = String(process.env.NEXT_PUBLIC_SYNC_STREAM_URL || '').trim();
-	if (raw) {
-		try {
-			const url = new URL(raw);
-			if (!url.pathname || url.pathname === '/') {
-				url.pathname = '/sync/events';
-			}
-			return url.toString();
-		} catch {
-			console.warn(
-				'[sync-public-stream-token] Invalid NEXT_PUBLIC_SYNC_STREAM_URL value.',
-			);
-		}
-	}
-	const fallback = new URL('/api/sync/public-events', request.url);
-	return fallback.toString();
-};
 
 export async function GET(request: NextRequest) {
 	const requestId = crypto.randomUUID();
@@ -55,24 +26,6 @@ export async function GET(request: NextRequest) {
 			host: request.headers.get('host') || null,
 			userAgent: request.headers.get('user-agent') || null,
 		});
-
-		const secret = String(process.env.SYNC_STREAM_JWT_SECRET || '').trim();
-		if (!secret) {
-			console.error(
-				'[sync-public-stream-token] Missing SYNC_STREAM_JWT_SECRET environment variable.',
-			);
-			syncDebugError('public-stream-token', 'Missing signing secret.', {
-				requestId,
-				durationMs: Date.now() - startedAt,
-			});
-			return noStoreJson(
-				{
-					success: false,
-					message: 'Sync stream is not configured.',
-				},
-				500,
-			);
-		}
 
 		const schoolProfileRaw = await getSchoolProfile();
 		const schoolProfile =
@@ -97,36 +50,23 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
-		const channels = [getTenantPublicSyncChannel(tenantKey)];
-		const publicSubject = `public:${tenantKey}`;
-		const ttlSeconds = parseTtlSeconds();
-		const token = await createStreamToken(
-			{
-				sub: publicSubject,
-				userId: publicSubject,
-				tenantKey,
-				channels,
-			},
-			{
-				secret,
-				expiresInSeconds: ttlSeconds,
-			},
-		);
-		const streamUrl = resolveStreamUrl(request);
+		const tokenRequest = await createAblyTokenRequest({
+			tenantId: tenantKey,
+			publicOnly: true,
+			clientId: `public:${tenantKey}`,
+		});
 		syncDebugLog('public-stream-token', 'Issued public stream token.', {
 			requestId,
 			tenantKey,
-			channels,
-			ttlSeconds,
-			streamUrl,
+			channels: Object.keys(
+				JSON.parse(String(tokenRequest.capability || '{}')),
+			),
 			durationMs: Date.now() - startedAt,
 		});
 
 		return noStoreJson({
 			success: true,
-			token,
-			expiresInSeconds: ttlSeconds,
-			streamUrl,
+			...tokenRequest,
 		});
 	} catch (error) {
 		console.error(

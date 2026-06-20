@@ -1,25 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeUser } from '@/proxy';
+import { getTenantModels } from '@/models';
 import { getSchoolProfile } from '@/lib/mongoose';
 import {
-	getTenantSyncChannel,
-	getUserSyncChannel,
+	createAblyTokenRequest,
 	resolveTenantSyncKey,
 } from '@/lib/realtimeSync';
-import { createStreamToken } from '@/lib/streamToken';
 import { syncDebugError, syncDebugLog, syncDebugWarn } from '@/lib/syncDebug';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const DEFAULT_TOKEN_TTL_SECONDS = 120;
-const MAX_TOKEN_TTL_SECONDS = 600;
-
-const parseTtlSeconds = () => {
-	const raw = Number(process.env.SYNC_STREAM_TOKEN_TTL_SECONDS);
-	if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_TOKEN_TTL_SECONDS;
-	return Math.min(MAX_TOKEN_TTL_SECONDS, Math.floor(raw));
-};
 
 const noStoreJson = (payload: Record<string, unknown>, status = 200) =>
 	NextResponse.json(payload, {
@@ -28,21 +18,6 @@ const noStoreJson = (payload: Record<string, unknown>, status = 200) =>
 			'Cache-Control': 'no-store, no-cache, must-revalidate',
 		},
 	});
-
-const resolveStreamUrl = () => {
-	const raw = String(process.env.NEXT_PUBLIC_SYNC_STREAM_URL || '').trim();
-	if (!raw) return null;
-	try {
-		const url = new URL(raw);
-		if (!url.pathname || url.pathname === '/') {
-			url.pathname = '/sync/events';
-		}
-		return url.toString();
-	} catch {
-		console.warn('[sync-stream-token] Invalid NEXT_PUBLIC_SYNC_STREAM_URL value.');
-		return null;
-	}
-};
 
 export async function GET(request: NextRequest) {
 	const requestId = crypto.randomUUID();
@@ -66,24 +41,6 @@ export async function GET(request: NextRequest) {
 					message: 'Unauthorized',
 				},
 				401,
-			);
-		}
-
-		const secret = String(process.env.SYNC_STREAM_JWT_SECRET || '').trim();
-		if (!secret) {
-			console.error(
-				'[sync-stream-token] Missing SYNC_STREAM_JWT_SECRET environment variable.',
-			);
-			syncDebugError('stream-token', 'Missing signing secret.', {
-				requestId,
-				durationMs: Date.now() - startedAt,
-			});
-			return noStoreJson(
-				{
-					success: false,
-					message: 'Sync stream is not configured.',
-				},
-				500,
 			);
 		}
 
@@ -128,39 +85,49 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
-		const channels = Array.from(
-			new Set([getTenantSyncChannel(tenantKey), getUserSyncChannel(tenantKey, userId)]),
-		);
+		const models = await getTenantModels();
+		let realtimeUser: Record<string, any> | null = null;
+		switch (String(currentUser.role || '').toLowerCase()) {
+			case 'teacher':
+				realtimeUser = await models.Teacher.findById(currentUser.id)
+					.select('id role subjects sponsorClass')
+					.lean();
+				break;
+			case 'student':
+				realtimeUser = await models.Student.findById(currentUser.id)
+					.select('id role classId academicYears')
+					.lean();
+				break;
+			case 'administrator':
+				realtimeUser = await models.Administrator.findById(currentUser.id)
+					.select('id role academicYears position')
+					.lean();
+				break;
+			default:
+				realtimeUser = await models.User.findById(currentUser.id)
+					.select('id role')
+					.lean();
+		}
 
-		const ttlSeconds = parseTtlSeconds();
-		const token = await createStreamToken(
-			{
-				sub: userId,
-				userId,
-				tenantKey,
-				channels,
-			},
-			{
-				secret,
-				expiresInSeconds: ttlSeconds,
-			},
-		);
-		const streamUrl = resolveStreamUrl();
+		const tokenRequest = await createAblyTokenRequest({
+			tenantId: tenantKey,
+			user: realtimeUser,
+			role: currentUser.role,
+			clientId: userId,
+		});
 		syncDebugLog('stream-token', 'Issued stream token.', {
 			requestId,
 			userId,
 			tenantKey,
-			channels,
-			ttlSeconds,
-			streamUrl,
+			channels: Object.keys(
+				JSON.parse(String(tokenRequest.capability || '{}')),
+			),
 			durationMs: Date.now() - startedAt,
 		});
 
 		return noStoreJson({
 			success: true,
-			token,
-			expiresInSeconds: ttlSeconds,
-			streamUrl,
+			...tokenRequest,
 		});
 	} catch (error) {
 		console.error('[sync-stream-token] Failed to mint stream token:', error);

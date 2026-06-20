@@ -10,6 +10,7 @@ import {
 	clearUserSessionDataCaches,
 	type ClearUserSessionDataOptions,
 } from '@/utils/sessionPrivacy';
+import type { RealtimeEvent } from '@/lib/realtimeTypes';
 
 interface LoginData {
 	role: string;
@@ -58,6 +59,7 @@ interface AuthState {
 	resetOtpState: () => void;
 	setUser: (user: User | null) => void;
 	hydrateFromCache: () => void;
+	applyRealtimeEvent: (event: RealtimeEvent) => void;
 }
 
 let authCheckPromise: Promise<void> | null = null;
@@ -282,6 +284,52 @@ const useAuth = create<AuthState>((set, get) => {
 
 		if (typeof versions.user === 'string') {
 			set({ userVersion: versions.user });
+		}
+	};
+
+	const applyRealtimeEvent = (event: RealtimeEvent) => {
+		const payload = (event?.payload || {}) as Record<string, unknown>;
+		const affectedUserIds = new Set<string>(
+			Array.isArray(payload.targetUserIds)
+				? payload.targetUserIds
+						.map((value) => String(value || '').trim())
+						.filter(Boolean)
+				: [],
+		);
+		const payloadUserId = String(payload.userId || '').trim();
+		if (payloadUserId) affectedUserIds.add(payloadUserId);
+		const currentUserId = String(get().user?.id || '').trim();
+		const impactsCurrentUser =
+			affectedUserIds.size === 0 ||
+			(currentUserId && affectedUserIds.has(currentUserId));
+
+		if (event.type === 'USER_DISABLED' && impactsCurrentUser) {
+			set((state) => ({
+				user: state.user ? { ...state.user, isActive: false } : state.user,
+				isLoggedIn: false,
+				error: 'Your account has been disabled.',
+			}));
+			cacheAuthUser(null);
+			return;
+		}
+
+		if (event.type === 'USER_UPDATED' && impactsCurrentUser) {
+			const nextUser =
+				payload.user && typeof payload.user === 'object' ? payload.user : null;
+			if (nextUser) {
+				set((state) => ({
+					user: state.user
+						? ({ ...state.user, ...nextUser } as User)
+						: state.user,
+				}));
+			}
+			if (typeof payload.userVersion === 'string') {
+				set({ userVersion: payload.userVersion });
+			}
+		}
+
+		if (event.type === 'ANNOUNCEMENT_CREATED') {
+			useNetworkStore.getState().setAuthCheckFailed(false);
 		}
 	};
 
@@ -630,6 +678,8 @@ const useAuth = create<AuthState>((set, get) => {
 					: {},
 			);
 		},
+
+		applyRealtimeEvent,
 
 		checkAuthStatus: async (options) => {
 			const now = Date.now();
