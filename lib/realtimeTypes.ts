@@ -160,6 +160,7 @@ const LEGACY_REASON_TO_EVENT_TYPE: Record<string, string> = {
 	'user-password-reset': 'USER_UPDATED',
 	'account-deactivated': 'USER_DISABLED',
 	'password-changed-session-revocation': 'USER_DISABLED',
+	'user-deleted': 'USER_DISABLED',
 	'student-promoted': 'USER_UPDATED',
 	'student-demoted': 'USER_UPDATED',
 	'teacher-academic-year-added': 'USER_UPDATED',

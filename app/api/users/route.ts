@@ -204,6 +204,15 @@ function buildUserResponse(
 	}
 }
 
+function buildRealtimeUserPayload(user: any) {
+	const realtimeUser = buildUserResponse(user) as Record<string, unknown>;
+	delete realtimeUser.password;
+	delete realtimeUser.defaultPassword;
+	delete realtimeUser.notifications;
+	delete realtimeUser.chats;
+	return realtimeUser;
+}
+
 async function hashPassword(password: string): Promise<string> {
 	return bcrypt.hash(password, 12);
 }
@@ -2472,11 +2481,17 @@ export async function POST(request: NextRequest) {
 		delete responseData.defaultPassword;
 
 		const createdUserYears = extractAcademicYears(newUser);
+		const realtimeUser = buildRealtimeUserPayload(newUser.toObject());
 		await bumpUsersVersion(createdUserYears);
 		await publishSyncEventsForAcademicYearsSafe({
 			tenantKey,
 			domain: 'users',
 			academicYears: createdUserYears,
+			payload: {
+				user: realtimeUser,
+				userId: String(realtimeUser.id || ''),
+				targetUserIds: [String(realtimeUser.id || '')],
+			},
 			actorId: currentUser.id,
 			reason: 'user-created',
 		});
@@ -4053,11 +4068,19 @@ export async function PUT(request: NextRequest) {
 		}
 
 		const updatedUserYears = extractAcademicYears(updatedUser);
+		const realtimeUser = buildRealtimeUserPayload(
+			updatedUser.toObject() as any,
+		);
 		await bumpUsersVersion(updatedUserYears);
 		await publishSyncEventsForAcademicYearsSafe({
 			tenantKey,
 			domain: 'users',
 			academicYears: updatedUserYears,
+			payload: {
+				user: realtimeUser,
+				userId: String(realtimeUser.id || ''),
+				targetUserIds: [String(realtimeUser.id || '')],
+			},
 			actorId: currentUser.id,
 			reason: 'user-updated',
 		});
@@ -4255,6 +4278,11 @@ export async function DELETE(request: NextRequest) {
 			tenantKey,
 			domain: 'users',
 			academicYears: deletedUserYears,
+			payload: {
+				user: deletedUserInfo,
+				userId: targetUserId,
+				targetUserIds: [targetUserId],
+			},
 			actorId: currentUser.id,
 			reason: 'user-deleted',
 		});

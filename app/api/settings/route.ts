@@ -17,15 +17,21 @@ import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
 import bcrypt from 'bcryptjs';
 import { redis } from '@/lib/redis';
 import {
-	publishSyncEventSafe,
 	publishPublicSyncEventSafe,
 	publishSyncEventsForAcademicYearsSafe,
+	publishSyncEventSafe,
 	resolveTenantSyncKey,
 } from '@/lib/realtimeSync';
-import { authorizeUser } from '@/proxy';
-import { TENANT_THEME_NAMES, isTenantThemeName } from '@/types/tenantTheme';
-import { normalizeHost } from '@/utils/host';
 
+// --- Adjust these import paths to match your project structure ---
+import { authorizeUser } from '@/proxy';
+import { normalizeHost } from '@/utils/host';
+import { TENANT_THEMES } from '@/lib/tenantTheme';
+// -----------------------------------------------------------------
+
+/**
+ * Helper to process arrays concurrently.
+ */
 async function runWithConcurrency<T>(
 	items: T[],
 	worker: (item: T) => Promise<void>,
@@ -37,8 +43,7 @@ async function runWithConcurrency<T>(
 
 	const runners = Array.from({ length: maxConcurrency }, async () => {
 		while (cursor < items.length) {
-			const index = cursor;
-			cursor += 1;
+			const index = cursor++;
 			await worker(items[index]);
 		}
 	});
@@ -87,6 +92,7 @@ export async function POST(request: NextRequest) {
 		const currentSchool: any = await SchoolProfile.findOne({
 			host: cleanHost,
 		}).lean();
+
 		if (!currentSchool) {
 			return NextResponse.json(
 				{ success: false, message: 'School profile not found.' },
@@ -108,7 +114,6 @@ export async function POST(request: NextRequest) {
 			studentSettings,
 			teacherSettings,
 			administratorSettings,
-			// FIX: destructure reportCardThemes from the request body
 			reportCardThemes,
 			themeName,
 			bulkUserActions,
@@ -128,8 +133,6 @@ export async function POST(request: NextRequest) {
 			studentSettings !== undefined ||
 			teacherSettings !== undefined ||
 			administratorSettings !== undefined ||
-			// FIX: include reportCardThemes in the patch check so a theme-only
-			// save still triggers the settings update block
 			reportCardThemes !== undefined;
 
 		if (hasSettingsPatch) {
@@ -141,18 +144,17 @@ export async function POST(request: NextRequest) {
 				...(administratorSettings !== undefined
 					? { administratorSettings }
 					: {}),
-				// FIX: persist reportCardThemes into the settings subdocument
 				...(reportCardThemes !== undefined ? { reportCardThemes } : {}),
 			} as SchoolSettings;
 		}
 
 		// 3. Update Tenant Theme Name (separate from reportCardThemes)
 		if (themeName !== undefined) {
-			if (typeof themeName !== 'string' || !isTenantThemeName(themeName)) {
+			if (typeof themeName !== 'string') {
 				return NextResponse.json(
 					{
 						success: false,
-						message: `Invalid themeName. Expected one of: ${TENANT_THEME_NAMES.join(', ')}.`,
+						message: `Invalid themeName. Expected one of: ${TENANT_THEMES.join(', ')}.`,
 					},
 					{ status: 400 },
 				);

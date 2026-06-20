@@ -231,6 +231,63 @@ const getGradeIdentity = (grade: any) => {
 	return id ? `id:${String(id)}` : '';
 };
 
+const getUserIdentity = (user: any) =>
+	String(user?.id || user?._id || '').trim();
+
+const getUserYears = (user: any, fallbackAcademicYear?: string) => {
+	const years = new Set<string>();
+	const addYear = (year?: unknown) => {
+		const value = String(year || '').trim();
+		if (value) years.add(value);
+	};
+
+	if (Array.isArray(user?.academicYears)) {
+		user.academicYears.forEach((entry: any) => addYear(entry?.year));
+	}
+
+	if (Array.isArray(user?.subjects)) {
+		user.subjects.forEach((entry: any) => addYear(entry?.year));
+	}
+
+	addYear(fallbackAcademicYear);
+
+	return Array.from(years);
+};
+
+const removeUsersFromRoster = (roster: UsersPayload, userIds: string[]) => {
+	const ids = new Set(
+		userIds.map((value) => String(value || '').trim()).filter(Boolean),
+	);
+	if (ids.size === 0) return roster;
+	const filterUsers = (users?: any[]) =>
+		Array.isArray(users)
+			? users.filter((user) => !ids.has(getUserIdentity(user)))
+			: [];
+	return {
+		students: filterUsers(roster.students),
+		teachers: filterUsers(roster.teachers),
+		administrators: filterUsers(roster.administrators),
+	};
+};
+
+const upsertUserInRoster = (roster: UsersPayload, user: any) => {
+	const userId = getUserIdentity(user);
+	if (!userId) return roster;
+	const nextRoster = removeUsersFromRoster(roster, [userId]);
+	if (user?.isActive === false) return nextRoster;
+	const role = String(user?.role || '').trim();
+	const bucket =
+		role === 'teacher'
+			? 'teachers'
+			: role === 'administrator'
+				? 'administrators'
+				: 'students';
+	return {
+		...nextRoster,
+		[bucket]: [...(nextRoster[bucket] || []), user],
+	};
+};
+
 export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	school: null,
 	schoolVersion: null,
@@ -577,6 +634,32 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			payload.academicYear || payload.year || payload.schoolYear || '',
 		).trim();
 		const version = event.timestamp || new Date().toISOString();
+		const schoolPayload =
+			payload.school && typeof payload.school === 'object'
+				? (payload.school as SchoolProfile)
+				: null;
+		const payloadUser =
+			payload.user && typeof payload.user === 'object'
+				? (payload.user as any)
+				: null;
+		const payloadUsers =
+			payload.users && typeof payload.users === 'object'
+				? (payload.users as UsersPayload)
+				: null;
+		const affectedUserIds = new Set<string>(
+			Array.isArray(payload.targetUserIds)
+				? payload.targetUserIds
+						.map((value) => String(value || '').trim())
+						.filter(Boolean)
+				: [],
+		);
+		const payloadUserId = String(payload.userId || '').trim();
+		if (payloadUserId) affectedUserIds.add(payloadUserId);
+
+		if (schoolPayload) {
+			get().setSchool(schoolPayload);
+		}
+
 		const shouldTouchUsers = [
 			'USER_CREATED',
 			'USER_UPDATED',
@@ -673,6 +756,56 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			}
 			return {};
 		});
+
+		if (payloadUser && shouldTouchUsers) {
+			const yearsToTouch = getUserYears(payloadUser, academicYear);
+			const removeFromAllYears =
+				event.type === 'USER_DISABLED' || event.type === 'STUDENT_REMOVED';
+			const userIds = Array.from(affectedUserIds);
+
+			set((state) => {
+				let usersByAcademicYear = state.usersByAcademicYear;
+				let touched = false;
+
+				const updateRosterForYear = (year: string) => {
+					const existing = resolveAcademicYearRecord(
+						usersByAcademicYear,
+						year,
+					) || {
+						students: [],
+						teachers: [],
+						administrators: [],
+					};
+					const nextRoster = removeFromAllYears
+						? removeUsersFromRoster(existing, userIds)
+						: upsertUserInRoster(existing, payloadUser);
+					usersByAcademicYear = assignAcademicYearRecord(
+						usersByAcademicYear,
+						year,
+						nextRoster,
+					);
+					touched = true;
+				};
+
+				const targetYears =
+					yearsToTouch.length > 0
+						? yearsToTouch
+						: academicYear
+							? [academicYear]
+							: [];
+
+				if (removeFromAllYears && userIds.length > 0) {
+					Object.keys(usersByAcademicYear).forEach((year) => {
+						updateRosterForYear(year);
+					});
+				} else {
+					targetYears.forEach((year) => updateRosterForYear(year));
+				}
+
+				if (!touched) return {};
+				return { usersByAcademicYear };
+			});
+		}
 
 		if (
 			academicYear &&
