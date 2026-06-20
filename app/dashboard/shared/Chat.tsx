@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import {
 	Bot,
 	Send,
@@ -25,6 +26,7 @@ import {
 import { Button } from '@/components/ui/button';
 import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
+import SmartRenderer from '@/components/SmartRenderer'; // Added Import
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Message {
@@ -44,27 +46,6 @@ interface ChatSession {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const formatContent = (text: string) =>
-	text
-		.replace(/```[\s\S]*?```/g, (m) =>
-			m
-				.replace(/```\w*\n?/, '')
-				.replace(/```$/, '')
-				.trim(),
-		)
-		.replace(/`([^`]+)`/g, '$1')
-		.replace(/\*\*(.*?)\*\*/g, '$1')
-		.replace(/__(.*?)__/g, '$1')
-		.replace(/\*(.*?)\*/g, '$1')
-		.replace(/_(.*?)_/g, '$1')
-		.replace(/~~(.*?)~~/g, '$1')
-		.replace(/^#{1,6}\s+/gm, '')
-		.replace(/^[-*+]\s+/gm, '• ')
-		.replace(/^\d+\.\s+/gm, '')
-		.replace(/^>\s?/gm, '')
-		.replace(/\n{3,}/g, '\n\n')
-		.trim();
-
 const groupSessionsByDate = (sessions: ChatSession[]) => {
 	const now = new Date();
 	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -150,20 +131,66 @@ function ThinkingDots() {
 
 function MessageBubble({
 	message,
-	onCopy,
 	userAvatar,
 	userName,
 }: {
 	message: Message;
-	onCopy: (t: string) => void;
 	userAvatar?: string;
 	userName?: string;
 }) {
 	const [copied, setCopied] = useState(false);
+	const contentRef = useRef<HTMLDivElement>(null); // 👈 1. Create a ref
 	const isUser = message.role === 'user';
 
-	const handleCopy = () => {
-		onCopy(message.content);
+	const handleCopy = async () => {
+		try {
+			const text = message.content;
+
+			// 2. Clone the DOM node so we can safely edit it before copying
+			const clone = contentRef.current?.cloneNode(true) as HTMLDivElement;
+			if (clone) {
+				// Strip out any UI buttons (like the "Copy code" buttons) so they don't end up in Word
+				const buttons = clone.querySelectorAll('button');
+				buttons.forEach((btn) => btn.remove());
+			}
+
+			// 3. Grab the raw, perfectly formatted HTML
+			const rawHtml = clone?.innerHTML || '';
+
+			// 4. Wrap it in Word-friendly styles
+			const styledHtml = `
+				<!DOCTYPE html>
+				<html>
+				<head>
+					<style>
+						table { border-collapse: collapse; width: 100%; margin: 16px 0; font-family: sans-serif; font-size: 14px; }
+						th, td { border: 1px solid #d1d5db; padding: 8px 12px; text-align: left; }
+						th { background-color: #f3f4f6; font-weight: bold; }
+						pre { background-color: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 6px; font-family: monospace; }
+						code { font-family: monospace; background-color: #f3f4f6; padding: 2px 4px; border-radius: 4px; }
+						p { margin-bottom: 12px; font-family: sans-serif; line-height: 1.6; }
+					</style>
+				</head>
+				<body>
+					${rawHtml}
+				</body>
+				</html>
+			`;
+
+			const textBlob = new Blob([text], { type: 'text/plain' });
+			const htmlBlob = new Blob([styledHtml], { type: 'text/html' });
+
+			await navigator.clipboard.write([
+				new ClipboardItem({
+					'text/plain': textBlob,
+					'text/html': htmlBlob,
+				}),
+			]);
+		} catch (error) {
+			// Fallback for older browsers
+			navigator.clipboard.writeText(message.content).catch(console.error);
+		}
+
 		setCopied(true);
 		setTimeout(() => setCopied(false), 1500);
 	};
@@ -204,10 +231,12 @@ function MessageBubble({
 
 			{/* Content */}
 			<div
-				className={`flex flex-col gap-1.5 max-w-[85%] sm:max-w-[80%] ${isUser ? 'items-end' : 'items-start'}`}
+				className={`flex flex-col gap-1.5 w-full min-w-0 max-w-[85%] sm:max-w-[80%] ${
+					isUser ? 'items-end' : 'items-start'
+				}`}
 			>
 				<div
-					className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+					className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed overflow-hidden ${
 						isUser
 							? 'bg-primary text-primary-foreground rounded-tr-sm'
 							: 'bg-muted/70 text-foreground rounded-tl-sm border border-border/50'
@@ -217,9 +246,11 @@ function MessageBubble({
 						<ThinkingDots />
 					) : (
 						<>
-							<p className="whitespace-pre-wrap m-0 leading-relaxed break-words">
-								{formatContent(message.content)}
-							</p>
+							{/* 5. Attach the ref to the wrapper div right here! */}
+							<div className="w-full break-words" ref={contentRef}>
+								<SmartRenderer content={message.content} />
+							</div>
+
 							{message.isStreaming && (
 								<span
 									className="inline-block w-0.5 h-3.5 bg-current opacity-70 ml-0.5 align-middle animate-pulse"
@@ -232,7 +263,9 @@ function MessageBubble({
 
 				{/* Meta: time + copy */}
 				<div
-					className={`flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 ${isUser ? 'flex-row-reverse' : ''}`}
+					className={`flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 ${
+						isUser ? 'flex-row-reverse' : ''
+					}`}
 				>
 					<span className="text-[11px] text-muted-foreground">
 						{message.timestamp.toLocaleTimeString([], {
@@ -245,7 +278,7 @@ function MessageBubble({
 							type="button"
 							onClick={handleCopy}
 							aria-label="Copy message"
-							className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+							className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
 						>
 							{copied ? <Check size={10} /> : <Copy size={10} />}
 							{copied ? 'Copied' : 'Copy'}
@@ -410,10 +443,9 @@ export default function SchoolMessages() {
 								...session,
 								messages: nextMessages,
 								preview:
-									nextMessages.find((m) => m.role === 'user')?.content.slice(
-										0,
-										80,
-									) ?? session.preview,
+									nextMessages
+										.find((m) => m.role === 'user')
+										?.content.slice(0, 80) ?? session.preview,
 							}
 						: session,
 				);
@@ -539,9 +571,9 @@ export default function SchoolMessages() {
 		}
 
 		const cachedMessages =
-			getClientCache<Message[]>(chatMessagesCacheKey(uid, activeSessionId))
-				?.map((m, i) => normalizeMessage(m, `c-${i}-${activeSessionId}`)) ??
-			[];
+			getClientCache<Message[]>(
+				chatMessagesCacheKey(uid, activeSessionId),
+			)?.map((m, i) => normalizeMessage(m, `c-${i}-${activeSessionId}`)) ?? [];
 		if (cachedMessages.length > 0) {
 			setMessages(cachedMessages);
 			persistSessionMessages(activeSessionId, cachedMessages);
@@ -722,7 +754,12 @@ export default function SchoolMessages() {
 			if (finalSessionId) {
 				const finalMessages = [
 					...messages.filter((m) => !m.isStreaming),
-					{ id: userMsgId, role: 'user' as const, content: text, timestamp: new Date() },
+					{
+						id: userMsgId,
+						role: 'user' as const,
+						content: text,
+						timestamp: new Date(),
+					},
 					{
 						id: aiId,
 						role: 'assistant' as const,
@@ -733,7 +770,10 @@ export default function SchoolMessages() {
 				persistSessionMessages(finalSessionId, finalMessages);
 			}
 
-			if (createdSessionId && pendingNewSessionIdRef.current === createdSessionId) {
+			if (
+				createdSessionId &&
+				pendingNewSessionIdRef.current === createdSessionId
+			) {
 				pendingNewSessionIdRef.current = null;
 			}
 		} catch (err: any) {
@@ -1054,7 +1094,6 @@ export default function SchoolMessages() {
 									<MessageBubble
 										key={msg.id}
 										message={msg}
-										onCopy={handleCopy}
 										userAvatar={userAvatar}
 										userName={userName}
 									/>
