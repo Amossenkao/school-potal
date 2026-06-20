@@ -11,10 +11,14 @@ import {
 	GraduationCap,
 	Users,
 	Loader2,
-	ChevronLeft,
+	ChevronRight,
 	RefreshCcw,
 	Clock,
 	AlertCircle,
+	LogIn,
+	ArrowLeft,
+	School,
+	KeyRound,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import useAuth from '@/store/useAuth';
@@ -43,10 +47,629 @@ const resolveRoleLoginDisabledMessage = (role: string, school: any): string => {
 	return '';
 };
 
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+/** Left identity strip */
+const IdentityStrip = ({
+	school,
+	selectedRole,
+	adminPosition,
+	adminPositions,
+	roles,
+	onChangeRole,
+	onChangePosition,
+}: {
+	school: any;
+	selectedRole: string;
+	adminPosition: string;
+	adminPositions: { id: string; name: string }[];
+	roles: {
+		value: string;
+		label: string;
+		icon: React.ElementType;
+		colorClass: string;
+	}[];
+	onChangeRole: () => void;
+	onChangePosition: () => void;
+}) => {
+	const currentRole = roles.find((r) => r.value === selectedRole);
+	const currentPos = adminPositions.find((p) => p.id === adminPosition);
+
+	return (
+		<aside
+			className="
+			hidden lg:flex flex-col w-64 xl:w-72 flex-shrink-0
+			border-r border-border bg-muted/30
+			px-6 py-8 gap-6
+		"
+		>
+			{/* Logo + school name */}
+			<Link href="/" className="flex flex-col gap-4">
+				<div
+					className="
+					w-30 h-30 flex items-center justify-center
+				"
+				>
+					{school?.logoUrl ? (
+						<img
+							src={school.logoUrl}
+							alt={`${school.shortName || 'School'} logo`}
+							className="w-full h-full "
+						/>
+					) : (
+						<School className="w-8 h-8 text-muted-foreground" />
+					)}
+				</div>
+				<div>
+					<p className="text-base font-semibold text-foreground leading-snug">
+						{school?.shortName || 'School'} e-Portal
+					</p>
+					<p className="text-xs text-muted-foreground mt-1 leading-snug">
+						{school?.tagline || 'Excellence in Education'}
+					</p>
+				</div>
+			</Link>
+
+			<div className="h-px bg-border" />
+
+			{/* Active selection badges */}
+			{selectedRole && (
+				<div className="flex flex-col gap-2.5 animate-in fade-in slide-in-from-left-2 duration-200">
+					{/* Role badge */}
+					<div className="rounded-lg border border-border bg-background p-3 flex flex-col gap-1.5">
+						<p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+							Role
+						</p>
+						<div className="flex items-center gap-2">
+							{currentRole && (
+								<currentRole.icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+							)}
+							<p className="text-sm font-medium text-foreground truncate">
+								{currentRole?.label || selectedRole}
+							</p>
+						</div>
+					</div>
+
+					{/* Position badge (admin only) */}
+					{selectedRole === 'administrator' && currentPos && (
+						<div
+							className="
+							rounded-lg border border-border bg-background p-3
+							flex flex-col gap-1.5
+							animate-in fade-in slide-in-from-left-2 duration-200
+						"
+						>
+							<p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+								Position
+							</p>
+							<div className="flex items-center gap-2">
+								<Shield className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+								<p className="text-sm font-medium text-foreground truncate">
+									{currentPos.name}
+								</p>
+							</div>
+						</div>
+					)}
+
+					{/* Quick-action controls */}
+					<div className="flex flex-col gap-1.5 pt-1">
+						{selectedRole === 'administrator' && adminPosition && (
+							<button
+								onClick={onChangePosition}
+								className="
+									w-full flex items-center justify-center gap-1.5
+									text-[11px] text-muted-foreground
+									border border-border rounded-lg py-2
+									hover:bg-accent hover:text-foreground
+									transition-colors
+								"
+							>
+								<RefreshCcw className="w-3 h-3" />
+								Change position
+							</button>
+						)}
+						<button
+							onClick={onChangeRole}
+							className="
+								w-full flex items-center justify-center gap-1.5
+								text-[11px] text-muted-foreground
+								border border-border rounded-lg py-2
+								hover:bg-accent hover:text-foreground
+								transition-colors
+							"
+						>
+							<ArrowLeft className="w-3 h-3" />
+							Change role
+						</button>
+					</div>
+				</div>
+			)}
+
+			{/* Footer */}
+			<div className="mt-auto text-[10px] text-muted-foreground/60 leading-relaxed">
+				<p>
+					&copy; {new Date().getFullYear()}{' '}
+					{school?.name || 'Upstairs Christian Academy'}.
+					<br />
+					All Rights Reserved.
+				</p>
+				<p className="mt-1">
+					Powered by{' '}
+					<a
+						href="https://school-mesh.vercel.app"
+						className="underline underline-offset-2 hover:text-muted-foreground transition-colors"
+					>
+						School Mesh
+					</a>{' '}
+					v2.4.0
+				</p>
+			</div>
+		</aside>
+	);
+};
+
+/** Inline error banner */
+const ErrorBanner = ({
+	message,
+	icon: Icon = AlertCircle,
+	variant = 'error',
+}: {
+	message: string;
+	icon?: React.ElementType;
+	variant?: 'error' | 'warning' | 'info';
+}) => {
+	const styles = {
+		error: 'bg-destructive/10 border-destructive/20 text-destructive',
+		warning: 'bg-amber-500/10 border-amber-500/30 text-amber-700',
+		info: 'bg-primary/10 border-primary/20 text-primary',
+	}[variant];
+
+	return (
+		<div
+			className={`
+				flex items-start gap-3 p-3.5 rounded-xl border
+				animate-in fade-in duration-200
+				${styles}
+			`}
+		>
+			<Icon className="w-4 h-4 mt-0.5 flex-shrink-0" />
+			<p className="text-sm font-medium leading-snug">{message}</p>
+		</div>
+	);
+};
+
+/** Role selection cards */
+const RoleStep = ({
+	roles,
+	onSelect,
+}: {
+	roles: {
+		value: string;
+		label: string;
+		icon: React.ElementType;
+		colorClass: string;
+		description: string;
+	}[];
+	onSelect: (value: string) => void;
+}) => (
+	<div className="animate-in fade-in slide-in-from-right-4 duration-300">
+		<div className="mb-8">
+			<p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+				Step 1
+			</p>
+			<h2 className="text-2xl font-bold text-foreground">Who are you?</h2>
+			<p className="text-sm text-muted-foreground mt-1">
+				Select your role to access the portal.
+			</p>
+		</div>
+
+		<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+			{roles.map((role) => {
+				const Icon = role.icon;
+				return (
+					<button
+						key={role.value}
+						onClick={() => onSelect(role.value)}
+						className="
+							group relative text-left
+							flex items-center gap-5 p-5
+							rounded-2xl border border-border bg-card
+							hover:border-primary/40 hover:bg-accent
+							transition-all duration-150
+							focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none
+						"
+					>
+						<div
+							className={`
+								w-13 h-13 rounded-xl flex items-center justify-center flex-shrink-0
+								${role.colorClass}
+							`}
+							style={{ width: '3.25rem', height: '3.25rem' }}
+						>
+							<Icon className="w-6 h-6" />
+						</div>
+						<div className="min-w-0">
+							<p className="text-sm font-semibold text-foreground">
+								{role.label}
+							</p>
+							<p className="text-xs text-muted-foreground mt-1 leading-snug">
+								{role.description}
+							</p>
+						</div>
+						<ChevronRight
+							className="
+								w-4 h-4 text-muted-foreground/40
+								ml-auto flex-shrink-0
+								translate-x-0 group-hover:translate-x-0.5
+								transition-transform
+							"
+						/>
+					</button>
+				);
+			})}
+		</div>
+	</div>
+);
+
+/** Administrator position picker */
+const PositionStep = ({
+	positions,
+	onSelect,
+}: {
+	positions: { id: string; name: string }[];
+	onSelect: (id: string) => void;
+}) => (
+	<div className="animate-in fade-in slide-in-from-right-4 duration-300">
+		<div className="mb-8">
+			<p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+				Step 2
+			</p>
+			<h2 className="text-2xl font-bold text-foreground">
+				Identify your office
+			</h2>
+			<p className="text-sm text-muted-foreground mt-1">
+				Choose your administrative position to continue.
+			</p>
+		</div>
+
+		<div className="flex flex-col gap-2">
+			{positions.map((pos) => (
+				<button
+					key={pos.id}
+					onClick={() => onSelect(pos.id)}
+					className="
+						group flex items-center justify-between
+						px-4 py-3.5
+						rounded-xl border border-border bg-card
+						hover:border-primary/40 hover:bg-accent
+						text-left transition-all duration-150
+						focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none
+					"
+				>
+					<span className="text-sm font-medium text-foreground">
+						{pos.name}
+					</span>
+					<ChevronRight
+						className="
+							w-4 h-4 text-muted-foreground/40
+							translate-x-0 group-hover:translate-x-0.5
+							transition-transform
+						"
+					/>
+				</button>
+			))}
+		</div>
+	</div>
+);
+
+/** Sign-in form */
+const FormStep = ({
+	formData,
+	onChange,
+	onSubmit,
+	isLoading,
+	loginDisabledError,
+	error,
+	offlineError,
+	onForgotPassword,
+	inputRef,
+}: {
+	formData: { username: string; password: string };
+	onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+	onSubmit: (e: React.FormEvent) => void;
+	isLoading: boolean;
+	loginDisabledError: string;
+	error: string | null;
+	offlineError: string;
+	onForgotPassword: () => void;
+	inputRef: React.RefObject<HTMLInputElement>;
+}) => {
+	const [showPw, setShowPw] = useState(false);
+
+	return (
+		<div className="animate-in fade-in slide-in-from-right-4 duration-300">
+			<div className="mb-8">
+				<p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+					Sign in
+				</p>
+				<h2 className="text-2xl font-bold text-foreground">
+					Enter your credentials
+				</h2>
+				<p className="text-sm text-muted-foreground mt-1">
+					Use your portal username and password.
+				</p>
+			</div>
+
+			{/* Error banners */}
+			<div className="flex flex-col gap-2.5 mb-6 empty:hidden">
+				{error && <ErrorBanner message={error} />}
+				{offlineError && (
+					<ErrorBanner message={offlineError} variant="warning" />
+				)}
+				{loginDisabledError && (
+					<ErrorBanner message={loginDisabledError} icon={Shield} />
+				)}
+			</div>
+
+			<form onSubmit={onSubmit} className="flex flex-col gap-5">
+				{/* Username */}
+				<div className="flex flex-col gap-1.5">
+					<label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+						Username
+					</label>
+					<div className="relative">
+						<User
+							className="
+							absolute left-3 top-1/2 -translate-y-1/2
+							w-4 h-4 text-muted-foreground pointer-events-none
+						"
+						/>
+						<input
+							type="text"
+							name="username"
+							value={formData.username}
+							onChange={onChange}
+							disabled={isLoading || !!loginDisabledError}
+							ref={inputRef}
+							placeholder="Enter your username"
+							required
+							autoComplete="username"
+							className="
+								w-full pl-9 pr-4 py-2.5
+								text-sm text-foreground
+								bg-muted/40 border border-border rounded-xl
+								placeholder:text-muted-foreground/50
+								focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50
+								focus:bg-background
+								disabled:opacity-50 disabled:cursor-not-allowed
+								transition-all
+							"
+						/>
+					</div>
+				</div>
+
+				{/* Password */}
+				<div className="flex flex-col gap-1.5">
+					<label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+						Password
+					</label>
+					<div className="relative">
+						<Lock
+							className="
+							absolute left-3 top-1/2 -translate-y-1/2
+							w-4 h-4 text-muted-foreground pointer-events-none
+						"
+						/>
+						<input
+							type={showPw ? 'text' : 'password'}
+							name="password"
+							value={formData.password}
+							onChange={onChange}
+							disabled={isLoading || !!loginDisabledError}
+							placeholder="••••••••"
+							required
+							autoComplete="current-password"
+							className="
+								w-full pl-9 pr-11 py-2.5
+								text-sm text-foreground
+								bg-muted/40 border border-border rounded-xl
+								placeholder:text-muted-foreground/50
+								focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50
+								focus:bg-background
+								disabled:opacity-50 disabled:cursor-not-allowed
+								transition-all
+							"
+						/>
+						<button
+							type="button"
+							onClick={() => setShowPw((p) => !p)}
+							className="
+								absolute right-3 top-1/2 -translate-y-1/2
+								text-muted-foreground hover:text-foreground
+								transition-colors p-0.5
+							"
+							aria-label={showPw ? 'Hide password' : 'Show password'}
+						>
+							{showPw ? (
+								<EyeOff className="w-4 h-4" />
+							) : (
+								<Eye className="w-4 h-4" />
+							)}
+						</button>
+					</div>
+				</div>
+
+				{/* Submit */}
+				<button
+					type="submit"
+					disabled={
+						isLoading ||
+						!!loginDisabledError ||
+						!formData.username ||
+						!formData.password
+					}
+					className="
+						flex items-center justify-center gap-2
+						mt-1 px-6 py-3
+						rounded-xl
+						bg-primary text-primary-foreground
+						text-sm font-semibold
+						shadow-sm
+						hover:opacity-90 active:scale-[0.98]
+						disabled:opacity-40 disabled:cursor-not-allowed
+						transition-all duration-150
+						focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary
+					"
+				>
+					{isLoading ? (
+						<Loader2 className="w-4 h-4 animate-spin" />
+					) : (
+						<LogIn className="w-4 h-4" />
+					)}
+					{isLoading ? 'Signing in…' : 'Access e-Portal'}
+				</button>
+
+				{/* Forgot */}
+				<button
+					type="button"
+					onClick={onForgotPassword}
+					className="
+						text-xs text-muted-foreground
+						hover:text-foreground underline underline-offset-4
+						decoration-muted-foreground/30
+						transition-colors self-center
+					"
+				>
+					Forgot your credentials?
+				</button>
+			</form>
+		</div>
+	);
+};
+
+/** Forgot-password modal */
+const RecoveryModal = ({
+	selectedRole,
+	school,
+	onClose,
+}: {
+	selectedRole: string;
+	school: any;
+	onClose: () => void;
+}) => {
+	const isSysAdmin = selectedRole === 'system_admin';
+
+	return (
+		<div
+			className="
+				fixed inset-0 z-[100]
+				bg-background/70 backdrop-blur-sm
+				flex items-center justify-center p-4
+				animate-in fade-in duration-200
+			"
+			onClick={(e) => {
+				if (e.target === e.currentTarget) onClose();
+			}}
+		>
+			<div
+				className="
+					bg-card border border-border rounded-2xl shadow-xl
+					w-full max-w-sm p-7 relative
+					animate-in zoom-in-95 fade-in duration-200
+				"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="modal-title"
+			>
+				<button
+					onClick={onClose}
+					className="
+						absolute top-4 right-4
+						text-muted-foreground hover:text-foreground
+						transition-colors text-xl leading-none font-bold
+					"
+					aria-label="Close modal"
+				>
+					×
+				</button>
+
+				{/* Icon */}
+				<div
+					className="
+					w-12 h-12 rounded-2xl
+					bg-muted border border-border
+					flex items-center justify-center mx-auto mb-5
+				"
+				>
+					<KeyRound className="w-5 h-5 text-muted-foreground" />
+				</div>
+
+				<h3
+					id="modal-title"
+					className="text-lg font-bold text-center text-foreground mb-2"
+				>
+					Account Recovery
+				</h3>
+				<p className="text-sm text-muted-foreground text-center mb-5 leading-relaxed">
+					{isSysAdmin
+						? 'Please contact the system development team for root access recovery.'
+						: "Reach out to your school's administrator to initiate a password reset."}
+				</p>
+
+				{/* Contact block */}
+				<div
+					className="
+					bg-muted/50 rounded-xl border border-border
+					px-4 py-3.5 flex flex-col gap-2.5
+				"
+				>
+					<div className="flex justify-between items-center border-b border-border pb-2">
+						<span className="text-xs text-muted-foreground">
+							{isSysAdmin ? 'Developer' : 'Admin'}
+						</span>
+						<span className="text-sm font-semibold text-foreground">
+							{isSysAdmin
+								? 'Amos Senkao'
+								: school?.sysAdmin?.name || 'Amos Senkao'}
+						</span>
+					</div>
+					<div className="flex justify-between items-center">
+						<span className="text-xs text-muted-foreground">Phone</span>
+						<span className="text-sm font-semibold text-foreground">
+							{isSysAdmin
+								? '0776-949463'
+								: school?.sysAdmin?.phone || '0776 - 949463'}
+						</span>
+					</div>
+					{isSysAdmin && (
+						<div className="flex items-center gap-1.5 pt-1 text-[11px] text-muted-foreground border-t border-border mt-0.5">
+							<Clock className="w-3 h-3 flex-shrink-0" />
+							Support: 8:00 am – 5:00 pm (Mon – Fri)
+						</div>
+					)}
+				</div>
+
+				<button
+					onClick={onClose}
+					className="
+						w-full mt-5 py-2.5 rounded-xl
+						bg-muted border border-border
+						text-sm font-medium text-foreground
+						hover:bg-accent transition-colors
+					"
+				>
+					Close
+				</button>
+			</div>
+		</div>
+	);
+};
+
+// ─── Main page ─────────────────────────────────────────────────────────────────
+
 const LoginPage = () => {
 	const router = useRouter();
 	const [selectedRole, setSelectedRole] = useState('');
-	const [showPassword, setShowPassword] = useState(false);
 	const [adminPosition, setAdminPosition] = useState('');
 	const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
 	const [isRedirecting, setIsRedirecting] = useState(false);
@@ -67,7 +690,7 @@ const LoginPage = () => {
 		isLoading,
 		isLoggedIn,
 		user,
-		error, // Auth error (e.g., "Invalid username or password")
+		error,
 		isAwaitingOtp,
 		otpContact,
 		login,
@@ -88,9 +711,7 @@ const LoginPage = () => {
 		if (typeof document === 'undefined') return;
 		const activeElement = document.activeElement as HTMLElement | null;
 		if (!activeElement) return;
-		if (typeof activeElement.blur === 'function') {
-			activeElement.blur();
-		}
+		if (typeof activeElement.blur === 'function') activeElement.blur();
 	}, []);
 
 	const navigateToDashboardWithSpinner = useCallback(() => {
@@ -105,7 +726,6 @@ const LoginPage = () => {
 		void bootstrapAuth();
 	}, [bootstrapAuth]);
 
-	// Redirect if logged in
 	useEffect(() => {
 		if (
 			hasBootstrapped &&
@@ -129,7 +749,6 @@ const LoginPage = () => {
 		navigateToDashboardWithSpinner,
 	]);
 
-	// Prevent redirect loading from hanging forever if navigation stalls.
 	useEffect(() => {
 		if (!isRedirecting) {
 			setRedirectTimedOut(false);
@@ -147,9 +766,7 @@ const LoginPage = () => {
 			try {
 				const response = await fetch('/api/school', {
 					cache: 'no-store',
-					headers: {
-						'Cache-Control': 'no-store',
-					},
+					headers: { 'Cache-Control': 'no-store' },
 				});
 				if (!response.ok) return null;
 				const nextSchool = (await response.json()) as SchoolProfile;
@@ -219,30 +836,22 @@ const LoginPage = () => {
 			};
 			channel.subscribe(listener);
 			unsubscribe = () => channel.unsubscribe(listener);
-			nextClient.connection.on('connected', () => {
-				scheduleRefresh();
-			});
-			nextClient.connection.on('failed', () => {
-				scheduleRefresh();
-			});
+			nextClient.connection.on('connected', () => scheduleRefresh());
+			nextClient.connection.on('failed', () => scheduleRefresh());
 		};
 
 		const handleOnline = () => {
 			scheduleRefresh();
 			void connectStream();
 		};
-
 		const handleVisibilityChange = () => {
 			if (document.visibilityState !== 'visible') return;
 			scheduleRefresh();
-			if (!client) {
-				void connectStream();
-			}
+			if (!client) void connectStream();
 		};
 
 		window.addEventListener('online', handleOnline);
 		document.addEventListener('visibilitychange', handleVisibilityChange);
-
 		scheduleRefresh();
 		void connectStream();
 
@@ -254,11 +863,6 @@ const LoginPage = () => {
 		};
 	}, [applyRealtimeEvent, currentSchool, refreshSchoolProfile]);
 
-	/**
-	 * Reset credentials only when login context changes (role/position).
-	 * Do not tie this to school-profile updates; auth polling can update
-	 * school payloads on 401 and should not wipe typed form values.
-	 */
 	useEffect(() => {
 		clearError();
 		setLoginDisabledError('');
@@ -266,12 +870,9 @@ const LoginPage = () => {
 	}, [selectedRole, adminPosition, clearError]);
 
 	useEffect(() => {
-		if (selectedRole !== 'administrator' && adminPosition) {
-			setAdminPosition('');
-		}
+		if (selectedRole !== 'administrator' && adminPosition) setAdminPosition('');
 	}, [selectedRole, adminPosition]);
 
-	// Evaluate school-configured login access without resetting credentials.
 	useEffect(() => {
 		setLoginDisabledError(
 			resolveRoleLoginDisabledMessage(selectedRole, currentSchool),
@@ -302,27 +903,34 @@ const LoginPage = () => {
 	const roles = [
 		{
 			value: 'student',
-			label: 'Student/Parent',
+			label: 'Student',
 			icon: GraduationCap,
-			color: 'bg-blue-500',
+			colorClass:
+				'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+			description: 'Results, fees & notices',
 		},
 		{
 			value: 'teacher',
 			label: 'Teacher',
 			icon: BookOpen,
-			color: 'bg-green-500',
+			colorClass:
+				'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
+			description: 'Gradebooks & attendance',
 		},
 		{
 			value: 'administrator',
-			label: 'School Administrator',
+			label: 'Administrator',
 			icon: Users,
-			color: 'bg-purple-500',
+			colorClass:
+				'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300',
+			description: 'School management & oversight',
 		},
 		{
 			value: 'system_admin',
 			label: 'System Admin',
 			icon: Shield,
-			color: 'bg-red-500',
+			colorClass: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
+			description: 'Root access & configuration',
 		},
 	];
 
@@ -330,7 +938,6 @@ const LoginPage = () => {
 
 	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		setFormData({ ...formData, [e.target.name]: e.target.value });
-		// Clear errors immediately when user starts fixing their input
 		if (error) clearError();
 		if (offlineError) setOfflineError('');
 	};
@@ -343,7 +950,6 @@ const LoginPage = () => {
 			);
 			return;
 		}
-
 		void refreshConnectivity({
 			force: true,
 			timeoutMs: 5200,
@@ -359,9 +965,7 @@ const LoginPage = () => {
 			setLoginDisabledError(disabledMessage);
 			return;
 		}
-		if (loginDisabledError) {
-			setLoginDisabledError('');
-		}
+		if (loginDisabledError) setLoginDisabledError('');
 
 		const loginData = {
 			role: selectedRole,
@@ -386,381 +990,322 @@ const LoginPage = () => {
 
 	const isBootstrappingSession =
 		(!hasBootstrapped || isBootstrapping) && !isRedirecting;
-	if (isBootstrappingSession) {
-		return <PageLoading variant="school" message="Loading..." />;
-	}
+	if (isBootstrappingSession)
+		return <PageLoading variant="school" message="Loading…" />;
+
+	// Determine which main step to show
+	const showRoleStep = !selectedRole;
+	const showPosStep =
+		selectedRole === 'administrator' && !adminPosition && !loginDisabledError;
+	const showFormStep =
+		selectedRole &&
+		(selectedRole !== 'administrator' || !!adminPosition) &&
+		!isAwaitingOtp;
 
 	return (
 		<>
 			{isRedirecting && (
-				<PageLoading variant="school" message="Opening dashboard..." />
+				<PageLoading variant="school" message="Opening dashboard…" />
 			)}
-			<div className="absolute top-3 right-5">
+
+			{/* Theme toggle */}
+			<div className="fixed top-4 right-4 z-50">
 				<ThemeToggleButton />
 			</div>
+
 			<div className="min-h-screen bg-background flex flex-col">
-				<div className="flex-grow max-w-6xl mx-auto px-4 py-8 w-full">
-					{/* Header */}
-					<div className="text-center mb-12">
-						<Link href="/">
-							<div className="w-24 h-24 mx-auto mb-6">
-								{currentSchool?.logoUrl && (
-									<img
-										src={currentSchool.logoUrl}
-										alt="Logo"
-										className="w-full h-full object-contain"
+				<div className="flex-grow flex flex-col">
+					<div className="flex-grow flex items-center justify-center px-4 py-10">
+						{/* Card shell */}
+						<div
+							className="
+							w-full max-w-4xl
+							bg-card rounded-2xl
+							border border-border
+							shadow-sm overflow-hidden
+							flex flex-col lg:flex-row
+						"
+						>
+							{/* Mobile logo header — visible only on small screens */}
+							<div className="lg:hidden flex items-center gap-4 px-6 pt-6 pb-4 border-b border-border">
+								<Link href="/" className="flex items-center gap-3">
+									<div
+										className="
+										w-16 h-16 flex items-center justify-center overflow-hidden flex-shrink-0
+									"
+									>
+										{currentSchool?.logoUrl ? (
+											<img
+												src={currentSchool.logoUrl}
+												alt={`${currentSchool.shortName || 'School'} logo`}
+												className="w-full h-full"
+											/>
+										) : (
+											<School className="w-7 h-7 text-muted-foreground" />
+										)}
+									</div>
+									<div>
+										<p className="text-sm font-semibold text-foreground leading-snug">
+											{currentSchool?.shortName || 'School'} e-Portal
+										</p>
+										<p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+											{currentSchool?.tagline || 'Excellence in Education'}
+										</p>
+									</div>
+								</Link>
+							</div>
+
+							{/* Left identity strip (desktop only) */}
+							<IdentityStrip
+								school={currentSchool}
+								selectedRole={selectedRole}
+								adminPosition={adminPosition}
+								adminPositions={adminPositions}
+								roles={roles}
+								onChangeRole={() => {
+									setSelectedRole('');
+									setAdminPosition('');
+									clearError();
+									setLoginDisabledError('');
+									setFormData({ username: '', password: '', otp: '' });
+								}}
+								onChangePosition={() => {
+									setAdminPosition('');
+									clearError();
+									setLoginDisabledError('');
+									setFormData({ username: '', password: '', otp: '' });
+								}}
+							/>
+
+							{/* Right content area */}
+							<div className="flex-1 flex flex-col px-7 py-8 min-h-[520px]">
+								{/* Timed-out redirect notice */}
+								{redirectTimedOut && (
+									<div
+										className="
+										mb-5 rounded-xl border border-amber-300 bg-amber-50
+										px-4 py-3 text-sm text-amber-900
+										flex items-center gap-3
+									"
+									>
+										<AlertCircle className="w-4 h-4 flex-shrink-0" />
+										<span>Redirect took too long.</span>
+										<button
+											type="button"
+											onClick={() => {
+												setRedirectTimedOut(false);
+												if (user?.isActive && isLoggedIn && !isAwaitingOtp) {
+													navigateToDashboardWithSpinner();
+												} else {
+													void bootstrapAuth({ force: true });
+												}
+											}}
+											className="ml-auto text-xs font-semibold underline underline-offset-2 hover:no-underline"
+										>
+											Retry
+										</button>
+									</div>
+								)}
+
+								{/* ── Disabled error shown above steps ── */}
+								{loginDisabledError && !showRoleStep && (
+									<ErrorBanner
+										message={loginDisabledError}
+										icon={Shield}
+										variant="error"
 									/>
 								)}
-							</div>
-						</Link>
-						<h1 className="text-3xl font-bold text-foreground">
-							{currentSchool?.shortName || 'School'} e-Portal System
-						</h1>
-						<p className="text-muted-foreground mt-2">
-							{currentSchool?.tagline || 'Excellence in Education'}
-						</p>
-					</div>
 
-					<div className="max-w-4xl mx-auto">
-						{redirectTimedOut && (
-							<div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
-								Login redirect took too long. You can continue here or try
-								again.
-								<button
-									type="button"
-									onClick={() => {
-										setRedirectTimedOut(false);
-										if (user?.isActive && isLoggedIn && !isAwaitingOtp) {
-											navigateToDashboardWithSpinner();
-										} else {
-											void bootstrapAuth({ force: true });
-										}
-									}}
-									className="ml-3 rounded border border-amber-500 px-3 py-1 text-sm font-medium hover:bg-amber-100"
-								>
-									Retry
-								</button>
-							</div>
-						)}
-						{!selectedRole ? (
-							/* Step 1: Role Selection */
-							<div className="bg-card rounded-2xl shadow-lg border border-border p-8 animate-in fade-in duration-500">
-								<h2 className="text-2xl font-semibold text-center mb-8">
-									Choose Your Role
-								</h2>
-								<div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-									{roles.map((role) => (
-										<button
-											key={role.value}
-											onClick={() => setSelectedRole(role.value)}
-											className="p-6 border-2 border-border rounded-xl hover:border-primary hover:bg-accent transition-all flex flex-col items-center space-y-4 group"
+								{/* ── Step: role selection ── */}
+								{showRoleStep && (
+									<RoleStep
+										roles={roles}
+										onSelect={(value) => {
+											setSelectedRole(value);
+										}}
+									/>
+								)}
+
+								{/* ── Step: position picker ── */}
+								{!showRoleStep && showPosStep && (
+									<PositionStep
+										positions={adminPositions}
+										onSelect={(id) => setAdminPosition(id)}
+									/>
+								)}
+
+								{/* ── Step: sign-in form ── */}
+								{!showRoleStep && !showPosStep && showFormStep && (
+									<FormStep
+										formData={formData}
+										onChange={handleInputChange}
+										onSubmit={handleLoginSubmit}
+										isLoading={isLoading}
+										loginDisabledError={loginDisabledError}
+										error={error}
+										offlineError={offlineError}
+										onForgotPassword={() => setShowForgotPasswordModal(true)}
+										inputRef={usernameInputRef}
+									/>
+								)}
+
+								{/* ── Step: OTP ── */}
+								{isAwaitingOtp && (
+									<div className="animate-in fade-in slide-in-from-right-4 duration-300">
+										<div className="mb-8">
+											<p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+												Verification
+											</p>
+											<h2 className="text-2xl font-bold text-foreground">
+												Check your messages
+											</h2>
+											<p className="text-sm text-muted-foreground mt-1">
+												{otpContact
+													? `A code was sent to ${otpContact}.`
+													: 'A one-time code was sent to your registered contact.'}
+											</p>
+										</div>
+										<form
+											onSubmit={async (e) => {
+												e.preventDefault();
+												const verified = await verifyOtp(formData.otp);
+												if (verified) navigateToDashboardWithSpinner();
+											}}
+											className="flex flex-col gap-5"
 										>
-											<div
-												className={`w-16 h-16 ${role.color} rounded-xl flex items-center justify-center`}
-											>
-												<role.icon className="w-8 h-8 text-white" />
-											</div>
-											<span className="font-medium">{role.label}</span>
-										</button>
-									))}
-								</div>
-							</div>
-						) : (
-							<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-								{/* Left Sidebar */}
-								<div className="lg:col-span-1">
-									<div className="bg-card rounded-2xl shadow-lg border border-border p-6 sticky top-8 space-y-4">
-										<h3 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">
-											Your Selection
-										</h3>
-										<div className="space-y-3">
-											<div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-												{React.createElement(
-													roles.find((r) => r.value === selectedRole)?.icon ||
-														User,
-													{
-														className: `w-8 h-8 ${roles.find((r) => r.value === selectedRole)?.color} p-1.5 rounded-lg text-white`,
-													},
-												)}
-												<div>
-													<p className="text-[10px] uppercase text-muted-foreground">
-														Role
-													</p>
-													<p className="font-bold text-sm">
-														{roles.find((r) => r.value === selectedRole)?.label}
-													</p>
+											<div className="flex flex-col gap-1.5">
+												<label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+													One-time code
+												</label>
+												<div className="relative">
+													<KeyRound
+														className="
+														absolute left-3 top-1/2 -translate-y-1/2
+														w-4 h-4 text-muted-foreground pointer-events-none
+													"
+													/>
+													<input
+														type="text"
+														name="otp"
+														value={formData.otp}
+														onChange={handleInputChange}
+														placeholder="e.g. 123456"
+														inputMode="numeric"
+														maxLength={6}
+														required
+														className="
+															w-full pl-9 pr-4 py-2.5
+															text-sm text-foreground tracking-widest
+															bg-muted/40 border border-border rounded-xl
+															placeholder:text-muted-foreground/50 placeholder:tracking-normal
+															focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50
+															focus:bg-background
+															transition-all
+														"
+													/>
 												</div>
 											</div>
-											{selectedRole === 'administrator' && adminPosition && (
-												<div className="flex items-center gap-3 p-3 bg-primary/10 border border-primary/20 rounded-lg animate-in slide-in-from-left-2">
-													<Shield className="w-5 h-5 text-primary" />
-													<div>
-														<p className="text-[10px] uppercase text-primary font-bold">
-															Position
-														</p>
-														<p className="font-bold text-sm">
-															{
-																adminPositions.find(
-																	(p) => p.id === adminPosition,
-																)?.name
-															}
-														</p>
-													</div>
-												</div>
-											)}
-										</div>
-										<div className="pt-4 space-y-2 border-t border-border">
-											{selectedRole === 'administrator' && adminPosition && (
-												<button
-													onClick={() => setAdminPosition('')}
-													className="w-full flex items-center justify-center gap-2 text-xs py-2.5 rounded-lg bg-accent hover:bg-accent/80 transition-colors"
-												>
-													<RefreshCcw className="w-3 h-3" /> Change Position
-												</button>
-											)}
 											<button
-												onClick={() => setSelectedRole('')}
-												className="w-full flex items-center justify-center gap-2 text-xs py-2.5 rounded-lg border border-border hover:bg-accent transition-colors"
+												type="submit"
+												disabled={isLoading || !formData.otp}
+												className="
+													flex items-center justify-center gap-2
+													px-6 py-3 rounded-xl
+													bg-primary text-primary-foreground
+													text-sm font-semibold shadow-sm
+													hover:opacity-90 active:scale-[0.98]
+													disabled:opacity-40 disabled:cursor-not-allowed
+													transition-all duration-150
+												"
 											>
-												<ChevronLeft className="w-3 h-3" /> Switch Main Role
+												{isLoading ? (
+													<Loader2 className="w-4 h-4 animate-spin" />
+												) : null}
+												Verify &amp; sign in
 											</button>
-										</div>
+										</form>
 									</div>
-								</div>
+								)}
 
-								{/* Main Content Area */}
-								<div className="lg:col-span-2">
-									<div className="bg-card rounded-2xl shadow-lg border border-border p-8 min-h-[400px]">
-										{/* Authentication Error (Incorrect Credentials) */}
-										{error && (
-											<div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-3 animate-in shake-1">
-												<AlertCircle className="h-5 w-5 text-destructive" />
-												<p className="text-sm text-destructive font-semibold">
-													{error}
-												</p>
-											</div>
+								{/* Mobile-only role/position switcher */}
+								{selectedRole && (
+									<div
+										className="
+										mt-auto pt-6 border-t border-border
+										flex flex-wrap gap-2 lg:hidden
+									"
+									>
+										{selectedRole === 'administrator' && adminPosition && (
+											<button
+												onClick={() => {
+													setAdminPosition('');
+													clearError();
+													setLoginDisabledError('');
+													setFormData({ username: '', password: '', otp: '' });
+												}}
+												className="
+													flex items-center gap-1.5
+													text-xs text-muted-foreground
+													border border-border rounded-lg px-3 py-1.5
+													hover:bg-accent transition-colors
+												"
+											>
+												<RefreshCcw className="w-3 h-3" />
+												Change position
+											</button>
 										)}
-										{offlineError && (
-											<div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-center gap-3 animate-in shake-1">
-												<AlertCircle className="h-5 w-5 text-amber-600" />
-												<p className="text-sm text-amber-700 font-semibold">
-													{offlineError}
-												</p>
-											</div>
-										)}
-
-										{/* System/Role Disabled Error */}
-										{loginDisabledError && (
-											<div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-3 animate-in shake-1">
-												<Shield className="h-5 w-5 text-destructive" />
-												<p className="text-sm text-destructive font-semibold">
-													{loginDisabledError}
-												</p>
-											</div>
-										)}
-
-										{/* Step 2: Administrator Position Picker */}
-										{selectedRole === 'administrator' &&
-											!adminPosition &&
-											!loginDisabledError && (
-												<div className="animate-in fade-in slide-in-from-right-4">
-													<h3 className="text-xl font-bold mb-6">
-														Identify Your Office
-													</h3>
-													<div className="grid grid-cols-1 gap-3">
-														{adminPositions.map((pos) => (
-															<button
-																key={pos.id}
-																onClick={() => setAdminPosition(pos.id)}
-																className="text-left p-4 border border-border rounded-xl hover:border-primary hover:bg-primary/5 transition-all flex justify-between items-center group"
-															>
-																<span className="font-medium group-hover:text-primary">
-																	{pos.name}
-																</span>
-																<ChevronLeft className="w-4 h-4 rotate-180 opacity-0 group-hover:opacity-100 transition-opacity" />
-															</button>
-														))}
-													</div>
-												</div>
-											)}
-
-										{/* Step 3: Input Form */}
-										{(selectedRole !== 'administrator' || adminPosition) &&
-											!isAwaitingOtp && (
-												<form
-													onSubmit={handleLoginSubmit}
-													className="space-y-6 animate-in fade-in"
-												>
-													<div className="mb-2">
-														<h3 className="text-xl font-bold">Sign In</h3>
-														<p className="text-sm text-muted-foreground">
-															Enter your portal credentials below.
-														</p>
-													</div>
-													<div className="space-y-4">
-														<div className="space-y-1.5">
-															<label className="text-sm font-medium">
-																Username
-															</label>
-															<div className="relative">
-																<User className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-																<input
-																	type="text"
-																	name="username"
-																	value={formData.username}
-																	onChange={handleInputChange}
-																	disabled={isLoading || !!loginDisabledError}
-																	ref={usernameInputRef}
-																	className="w-full pl-10 pr-4 py-3 border border-border rounded-lg bg-background focus:ring-2 focus:ring-primary outline-none disabled:opacity-50"
-																	placeholder="Enter your username"
-																	required
-																/>
-															</div>
-														</div>
-														<div className="space-y-1.5">
-															<label className="text-sm font-medium">
-																Password
-															</label>
-															<div className="relative">
-																<Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-																<input
-																	type={showPassword ? 'text' : 'password'}
-																	name="password"
-																	value={formData.password}
-																	onChange={handleInputChange}
-																	disabled={isLoading || !!loginDisabledError}
-																	className="w-full pl-10 pr-12 py-3 border border-border rounded-lg bg-background focus:ring-2 focus:ring-primary outline-none disabled:opacity-50"
-																	placeholder="••••••••"
-																	required
-																/>
-																<button
-																	type="button"
-																	onClick={() => setShowPassword(!showPassword)}
-																	className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
-																>
-																	{showPassword ? (
-																		<EyeOff className="w-4 h-4" />
-																	) : (
-																		<Eye className="w-4 h-4" />
-																	)}
-																</button>
-															</div>
-														</div>
-													</div>
-													<button
-														type="submit"
-														disabled={
-															isLoading ||
-															!!loginDisabledError ||
-															!formData.username ||
-															!formData.password
-														}
-														className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-bold shadow-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-													>
-														{isLoading ? (
-															<Loader2 className="w-5 h-5 animate-spin mr-2" />
-														) : (
-															'Access e-Portal'
-														)}
-													</button>
-													<div className="text-center">
-														<button
-															type="button"
-															onClick={() => setShowForgotPasswordModal(true)}
-															className="text-sm text-primary font-medium hover:underline"
-														>
-															Forgot your credentials?
-														</button>
-													</div>
-												</form>
-											)}
+										<button
+											onClick={() => {
+												setSelectedRole('');
+												setAdminPosition('');
+												clearError();
+												setLoginDisabledError('');
+												setFormData({ username: '', password: '', otp: '' });
+											}}
+											className="
+												flex items-center gap-1.5
+												text-xs text-muted-foreground
+												border border-border rounded-lg px-3 py-1.5
+												hover:bg-accent transition-colors
+											"
+										>
+											<ArrowLeft className="w-3 h-3" />
+											Change role
+										</button>
 									</div>
-								</div>
+								)}
 							</div>
-						)}
+						</div>
 					</div>
-				</div>
 
-				{/* Footer */}
-				<footer className="w-full py-8 mt-auto border-t border-border bg-card/50">
-					<div className="max-w-6xl mx-auto px-4 text-center">
-						<p className="text-sm text-muted-foreground">
+					{/* Footer */}
+					<footer className="py-6 text-center border-t border-border bg-card/50">
+						<p className="text-xs text-muted-foreground">
 							&copy; {new Date().getFullYear()}{' '}
 							{currentSchool?.name || 'Upstairs Christian Academy'}. All Rights
 							Reserved.
 						</p>
-						<p className="text-[10px] text-muted-foreground/60 mt-1">
+						<p className="text-[10px] text-muted-foreground/50 mt-1">
 							Powered by{' '}
-							<a href="https://school-mesh.vercel.app">School Mesh</a> v2.4.0
+							<a
+								href="https://school-mesh.vercel.app"
+								className="underline underline-offset-2 hover:text-muted-foreground transition-colors"
+							>
+								School Mesh
+							</a>{' '}
+							v2.4.0
 						</p>
-					</div>
-				</footer>
+					</footer>
+				</div>
 			</div>
 
-			{/* Recovery Modal */}
+			{/* Recovery modal */}
 			{showForgotPasswordModal && (
-				<div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-in fade-in">
-					<div className="bg-card rounded-2xl shadow-2xl w-full max-w-md p-8 relative border border-border">
-						<button
-							onClick={() => setShowForgotPasswordModal(false)}
-							className="absolute top-4 right-4 text-muted-foreground hover:text-foreground text-2xl font-bold transition-colors"
-						>
-							×
-						</button>
-						<div className="text-center">
-							<div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-								<Shield className="w-8 h-8 text-primary" />
-							</div>
-							<h3 className="text-xl font-bold mb-4">Account Recovery</h3>
-							<p className="text-muted-foreground mb-6 text-sm">
-								{selectedRole === 'system_admin'
-									? 'Please contact the system development team for root access recovery.'
-									: "Please reach out to your school's administrator to initiate a password reset."}
-							</p>
-
-							<div className="bg-muted p-4 rounded-xl text-left text-sm space-y-2 border border-border">
-								{selectedRole === 'system_admin' ? (
-									<div className="flex flex-col gap-2">
-										<div className="flex justify-between border-b border-border/50 pb-2 text-foreground">
-											<span className="text-muted-foreground">Developer:</span>
-											<span className="font-semibold text-sm">Amos Senkao</span>
-										</div>
-										<div className="flex justify-between border-b border-border/50 pb-2 text-foreground">
-											<span className="text-muted-foreground">Phone:</span>
-											<span className="font-semibold text-sm">0776-949463</span>
-										</div>
-										<div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-1">
-											<Clock className="w-3 h-3" />
-											<span>Support: 8:00 am - 5:00 pm (Mon - Fri)</span>
-										</div>
-									</div>
-								) : (
-									<div className="flex flex-col gap-2">
-										<div className="flex justify-between border-b border-border/50 pb-2 text-foreground">
-											<span className="text-muted-foreground">Admin:</span>
-											<span className="font-semibold text-sm">
-												{currentSchool?.sysAdmin?.name || 'Amos Senkao'}
-											</span>
-										</div>
-										<div className="flex justify-between border-b border-border/50 pb-2 text-foreground">
-											<span className="text-muted-foreground">Phone:</span>
-											<span className="font-semibold text-sm">
-												{currentSchool?.sysAdmin?.phone || '0776 - 949463'}
-											</span>
-										</div>
-									</div>
-								)}
-							</div>
-
-							<button
-								onClick={() => setShowForgotPasswordModal(false)}
-								className="w-full mt-6 bg-primary text-primary-foreground py-3 rounded-lg font-bold"
-							>
-								Close
-							</button>
-						</div>
-					</div>
-				</div>
+				<RecoveryModal
+					selectedRole={selectedRole}
+					school={currentSchool}
+					onClose={() => setShowForgotPasswordModal(false)}
+				/>
 			)}
 		</>
 	);

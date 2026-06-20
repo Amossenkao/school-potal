@@ -447,6 +447,7 @@ export async function POST(request: NextRequest) {
 			await publishSyncEventSafe({
 				tenantKey,
 				domain: 'grades',
+				payload: { grades: updatedGrades },
 				academicYear: String(academicYear || ''),
 				actorId: teacher.id,
 				reason: 'grades-updated-directly',

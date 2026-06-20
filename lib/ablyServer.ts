@@ -43,14 +43,6 @@ export const createAblyTokenRequest = async (options: {
 	});
 };
 
-const toPublishPayload = (event: RealtimeEvent) => ({
-	...event.payload,
-	type: event.type,
-	tenantId: event.tenantId,
-	timestamp: event.timestamp,
-	source: event.source,
-});
-
 export const publishRealtimeEvent = async (params: {
 	tenantId: string;
 	type?: string;
@@ -82,7 +74,7 @@ export const publishRealtimeEvent = async (params: {
 	await Promise.all(
 		channels.map(async (channelName) => {
 			const channel = rest.channels.get(channelName);
-			await channel.publish(event.type, toPublishPayload(event));
+			await channel.publish(event.type, event);
 		}),
 	);
 	syncDebugLog('publish', 'Published Ably realtime event.', {

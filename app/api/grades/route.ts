@@ -1516,6 +1516,7 @@ export async function POST(request: NextRequest) {
 		await publishSyncEventSafe({
 			tenantKey,
 			domain: 'grades',
+			payload: { grades: gradeDocuments },
 			academicYear: String(resolvedAcademicYear || ''),
 			actorId: teacher.id,
 			reason: 'grades-submitted',
@@ -1706,6 +1707,7 @@ export async function PUT(request: NextRequest) {
 		await publishSyncEventSafe({
 			tenantKey,
 			domain: 'grades',
+			payload: { grades: newGradeDocuments },
 			academicYear: String(submissionAcademicYear || ''),
 			actorId: currentUser.id,
 			reason: 'grades-updated',
@@ -1893,16 +1895,20 @@ export async function PATCH(request: NextRequest) {
 				),
 			);
 			await Promise.all(
-				(years.length > 0 ? years : ['']).map((academicYear) =>
-					publishSyncEventSafe({
+				(years.length > 0 ? years : ['']).map((academicYear) => {
+					const gradesForYear = successfulUpdates
+						.filter(entry => String(entry?.data?.academicYear || '').trim() === academicYear)
+						.map(entry => entry.data);
+					return publishSyncEventSafe({
 						tenantKey,
 						domain: 'grades',
+						payload: { grades: gradesForYear },
 						academicYear: academicYear || null,
 						actorId: currentUser.id,
 						reason: 'grades-status-updated',
 						scope: { classIds },
-					}),
-				),
+					});
+				}),
 			);
 		}
 
