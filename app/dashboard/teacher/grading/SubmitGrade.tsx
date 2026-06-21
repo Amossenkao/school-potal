@@ -17,6 +17,7 @@ import {
 	Clock,
 	ChevronDown,
 	Send,
+	Save,
 } from 'lucide-react';
 import { useSchoolStore } from '@/store/schoolStore';
 import { PageLoading } from '@/components/loading';
@@ -48,6 +49,7 @@ interface GradeInputState {
 	grade: number | '';
 	hasExistingGrade: boolean;
 	status?: string;
+	isDraft?: boolean;
 }
 
 interface StudentForGrading {
@@ -106,6 +108,8 @@ const SubmitGrade: React.FC = () => {
 	>([]);
 	const [selectedAcademicYear, setSelectedAcademicYear] = useState('');
 
+	const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
+
 	const [loading, setLoading] = useState({
 		teacherInfo: true,
 		studentsForGrading: false,
@@ -130,7 +134,6 @@ const SubmitGrade: React.FC = () => {
 	const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
 	const [genRange, setGenRange] = useState({ min: '', max: '' });
 
-	// Helper to generate random integer
 	const getRandomGrade = (min: number, max: number) =>
 		Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -151,7 +154,6 @@ const SubmitGrade: React.FC = () => {
 		return { min, max };
 	};
 
-	// Function to handle the generation
 	const handleGenerateGrades = () => {
 		const range = getNormalizedGenerationRange();
 		if (!range) {
@@ -173,6 +175,7 @@ const SubmitGrade: React.FC = () => {
 								{
 									...gradeInfo,
 									grade: getRandomGrade(range.min, range.max),
+									isDraft: true,
 								},
 							];
 						}
@@ -567,6 +570,15 @@ const SubmitGrade: React.FC = () => {
 				});
 			}
 
+			// Load offline drafts
+			const draftKey = `draftGrades_${teacherInfo?.username}_${selectedAcademicYear}_${selectedClassId}_${selectedSubject}`;
+			let localDrafts: Record<string, number> = {};
+			try {
+				localDrafts = JSON.parse(localStorage.getItem(draftKey) || '{}');
+			} catch (e) {
+				console.error('Failed to parse draft grades from local storage', e);
+			}
+
 			const initialStudentsForGrading = studentsList.map((student: any) => {
 				const studentKey = student.studentId || student.id || student._id;
 				const studentExistingPeriods = reportStudentsMap.get(studentKey) || {};
@@ -587,13 +599,19 @@ const SubmitGrade: React.FC = () => {
 							hasExistingGrade: true,
 							status: existingGrade.status,
 						};
+					} else if (localDrafts[`${studentKey}-${id}`] !== undefined) {
+						grades[id] = {
+							grade: localDrafts[`${studentKey}-${id}`],
+							hasExistingGrade: false,
+							isDraft: true,
+						};
 					} else {
 						grades[id] = { grade: '', hasExistingGrade: false };
 					}
 				});
 
 				return {
-					studentId: student.studentId || student.id || student._id,
+					studentId: studentKey,
 					studentName: buildStudentFullName(student),
 					grades,
 				};
@@ -620,6 +638,7 @@ const SubmitGrade: React.FC = () => {
 		mergeGradesForYear,
 		getStudentClassIdForYear,
 		buildStudentFullName,
+		teacherInfo?.username,
 	]);
 
 	useEffect(() => {
@@ -676,12 +695,77 @@ const SubmitGrade: React.FC = () => {
 							...student,
 							grades: {
 								...student.grades,
-								[period]: { ...student.grades[period], grade: numericValue },
+								[period]: {
+									...student.grades[period],
+									grade: numericValue,
+									isDraft: false,
+								},
 							},
 						}
 					: student,
 			),
 		);
+	};
+
+	const handleGradeBlur = (
+		studentId: string,
+		period: string,
+		value: string,
+	) => {
+		setActiveStudentId(null);
+		setActivePeriod(null);
+
+		if (
+			!teacherInfo?.username ||
+			!selectedAcademicYear ||
+			!selectedClassId ||
+			!selectedSubject
+		)
+			return;
+
+		const draftKey = `draftGrades_${teacherInfo.username}_${selectedAcademicYear}_${selectedClassId}_${selectedSubject}`;
+		let drafts: Record<string, number> = {};
+		try {
+			drafts = JSON.parse(localStorage.getItem(draftKey) || '{}');
+		} catch (e) {
+			console.error('Error parsing drafts during blur save', e);
+		}
+
+		const mapKey = `${studentId}-${period}`;
+		const num = Number(value);
+		let updated = false;
+
+		if (value === '') {
+			if (drafts[mapKey] !== undefined) {
+				delete drafts[mapKey];
+				updated = true;
+			}
+		} else if (!Number.isNaN(num) && num >= 60 && num <= 100) {
+			if (drafts[mapKey] !== num) {
+				drafts[mapKey] = num;
+				updated = true;
+			}
+		}
+
+		if (updated) {
+			localStorage.setItem(draftKey, JSON.stringify(drafts));
+			setStudentsForGrading((prev) =>
+				prev.map((student) =>
+					student.studentId === studentId
+						? {
+								...student,
+								grades: {
+									...student.grades,
+									[period]: {
+										...student.grades[period],
+										isDraft: value !== '',
+									},
+								},
+							}
+						: student,
+				),
+			);
+		}
 	};
 
 	const handleSessionChange = (session: string) => {
@@ -716,7 +800,6 @@ const SubmitGrade: React.FC = () => {
 			.map((period) => period.id);
 	}, [selectedPeriods, periods]);
 
-	// --- RESTORED AUTO-FOCUS LOGIC ---
 	const needsAutoFocusRef = useRef(false);
 
 	useEffect(() => {
@@ -739,7 +822,6 @@ const SubmitGrade: React.FC = () => {
 				const firstEmpty = inputs.find((input) => input.value.trim() === '');
 
 				if (firstEmpty) {
-					// Focus without native scroll to avoid jumping under sticky headers
 					firstEmpty.focus({ preventScroll: true });
 					firstEmpty.select();
 
@@ -792,12 +874,10 @@ const SubmitGrade: React.FC = () => {
 			return () => clearTimeout(timer);
 		}
 	}, [loading.studentsForGrading, studentsForGrading, selectedPeriods]);
-	// --- END AUTO-FOCUS LOGIC ---
 
 	const handleGradeKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
 		const { key } = event;
 
-		// Listen to Enter and all Arrow keys
 		if (
 			!['Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(
 				key,
@@ -814,7 +894,6 @@ const SubmitGrade: React.FC = () => {
 
 		let nextInput: HTMLInputElement | undefined;
 
-		// Navigation mapping
 		if (key === 'Enter' || key === 'ArrowRight') {
 			nextInput = inputs[currentIndex + 1] || inputs[0];
 		} else if (key === 'ArrowLeft') {
@@ -843,11 +922,9 @@ const SubmitGrade: React.FC = () => {
 		if (nextInput) {
 			event.preventDefault();
 
-			// Focus and select WITHOUT native scrolling to prevent jumping underneath sticky elements
 			nextInput.focus({ preventScroll: true });
 			nextInput.select();
 
-			// Smart 2D Scrolling
 			const scrollContainer = tableScrollContainerRef.current;
 			if (scrollContainer) {
 				const containerRect = scrollContainer.getBoundingClientRect();
@@ -995,6 +1072,26 @@ const SubmitGrade: React.FC = () => {
 				serverGrades.length > 0 ? serverGrades : optimisticGrades;
 			mergeGradesForYear(selectedAcademicYear, gradesForCache);
 			mergeSubmittedGradesCache(gradesForCache);
+
+			// Clear successfully submitted drafts from local storage
+			const draftKey = `draftGrades_${teacherInfo?.username}_${selectedAcademicYear}_${selectedClassId}_${selectedSubject}`;
+			let drafts: Record<string, number> = {};
+			try {
+				drafts = JSON.parse(localStorage.getItem(draftKey) || '{}');
+				let modified = false;
+				gradesToSubmit.forEach((g) => {
+					const mapKey = `${g.studentId}-${g.period}`;
+					if (drafts[mapKey] !== undefined) {
+						delete drafts[mapKey];
+						modified = true;
+					}
+				});
+				if (modified) {
+					localStorage.setItem(draftKey, JSON.stringify(drafts));
+				}
+			} catch (e) {
+				console.error('Error clearing submitted drafts', e);
+			}
 
 			if (data?.queued) {
 				showNotification(
@@ -1248,11 +1345,6 @@ const SubmitGrade: React.FC = () => {
 	const selectedClassName = availableClasses.find(
 		(c) => c.classId === selectedClassId,
 	)?.name;
-	const filledCount = newGradesCount;
-	const fillPercent =
-		totalGradableSlots > 0
-			? Math.round((filledCount / totalGradableSlots) * 100)
-			: 0;
 
 	return (
 		<div
@@ -1261,153 +1353,188 @@ const SubmitGrade: React.FC = () => {
 		>
 			<Notification />
 
-			{/* ── Filters + Periods ── */}
+			{/* ── Accordion Toggle for Mobile ── */}
 			{(showAcademicYearFilter || !hasNoClasses) && (
 				<div className="z-20 shrink-0 bg-background/95 backdrop-blur px-3 sm:px-4 pt-0 mt-0 pb-2 space-y-2 border-b border-border/50 shadow-sm">
-					{/* Compact filter toolbar */}
-					<div className="bg-card border border-border rounded-xl shadow-sm">
-						<div className="flex flex-wrap gap-2 p-2.5 sm:p-3 items-end">
-							{showAcademicYearFilter && (
-								<FilterSelect
-									label="Year"
-									value={selectedAcademicYear}
-									onChange={(v) => setSelectedAcademicYear(v)}
-									options={availableAcademicYears.map((y) => ({
-										label: y,
-										value: y,
-									}))}
-								/>
+					{/* Mobile Summary Bar */}
+					<button
+						onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
+						className="md:hidden flex items-center justify-between w-full bg-card border border-border rounded-xl p-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors"
+					>
+						<div className="flex items-center gap-2 text-sm font-medium text-foreground overflow-hidden">
+							<span className="truncate">
+								{selectedAcademicYear || 'Year'}
+								{selectedClassName ? ` • ${selectedClassName}` : ''}
+								{selectedSubject ? ` • ${selectedSubject}` : ''}
+							</span>
+						</div>
+						<div className="flex items-center gap-2 shrink-0 pl-2">
+							{selectedPeriods.length > 0 && (
+								<span className="text-[10px] font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+									{selectedPeriods.length} Selected
+								</span>
 							)}
+							<ChevronDown
+								className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${isFiltersExpanded ? 'rotate-180' : ''}`}
+							/>
+						</div>
+					</button>
 
-							{isSelectedAcademicYearAllowed && showSessionSelect && (
-								<FilterSelect
-									label="Session"
-									value={selectedSession}
-									onChange={handleSessionChange}
-									placeholder="Session"
-									options={availableSessions.map((s) => ({
-										label: s,
-										value: s,
-									}))}
-								/>
-							)}
+					{/* Collapsible Content */}
+					<div
+						className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out md:grid-rows-[1fr] md:opacity-100 ${
+							isFiltersExpanded
+								? 'grid-rows-[1fr] opacity-100'
+								: 'grid-rows-[0fr] opacity-0'
+						}`}
+					>
+						<div className="overflow-hidden flex flex-col gap-2">
+							{/* Filters */}
+							<div className="bg-card border border-border rounded-xl shadow-sm">
+								<div className="flex flex-wrap gap-2 p-2.5 sm:p-3 items-end">
+									{showAcademicYearFilter && (
+										<FilterSelect
+											label="Year"
+											value={selectedAcademicYear}
+											onChange={(v) => setSelectedAcademicYear(v)}
+											options={availableAcademicYears.map((y) => ({
+												label: y,
+												value: y,
+											}))}
+										/>
+									)}
 
-							{isSelectedAcademicYearAllowed &&
-								showLevelSelect &&
-								selectedSession && (
-									<FilterSelect
-										label="Level"
-										value={selectedClassLevel}
-										onChange={handleClassLevelChange}
-										placeholder="Level"
-										options={availableLevels.map((l) => ({
-											label: l,
-											value: l,
-										}))}
-									/>
+									{isSelectedAcademicYearAllowed && showSessionSelect && (
+										<FilterSelect
+											label="Session"
+											value={selectedSession}
+											onChange={handleSessionChange}
+											placeholder="Session"
+											options={availableSessions.map((s) => ({
+												label: s,
+												value: s,
+											}))}
+										/>
+									)}
+
+									{isSelectedAcademicYearAllowed &&
+										showLevelSelect &&
+										selectedSession && (
+											<FilterSelect
+												label="Level"
+												value={selectedClassLevel}
+												onChange={handleClassLevelChange}
+												placeholder="Level"
+												options={availableLevels.map((l) => ({
+													label: l,
+													value: l,
+												}))}
+											/>
+										)}
+
+									{isSelectedAcademicYearAllowed &&
+										showClassSelect &&
+										selectedClassLevel && (
+											<FilterSelect
+												label="Class"
+												value={selectedClassId}
+												onChange={handleClassChange}
+												placeholder="Class"
+												options={availableClasses.map((c) => ({
+													label: c.name,
+													value: c.classId,
+												}))}
+												disabled={availableClasses.length === 1}
+											/>
+										)}
+
+									{isSelectedAcademicYearAllowed &&
+										!hasNoClasses &&
+										isSelfContainedTeacher && (
+											<div className="flex flex-col gap-0.5">
+												<span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-0.5">
+													Class
+												</span>
+												<div className="h-8 px-3 rounded-lg border border-input bg-muted text-muted-foreground text-sm flex items-center whitespace-nowrap cursor-not-allowed opacity-80">
+													{availableClasses[0]?.name || 'Sponsor Class'}
+												</div>
+											</div>
+										)}
+
+									{isSelectedAcademicYearAllowed &&
+										showSubjectSelect &&
+										selectedClassId && (
+											<FilterSelect
+												label="Subject"
+												value={selectedSubject}
+												onChange={(v) => setSelectedSubject(v)}
+												placeholder="Subject"
+												options={availableSubjects.map((s) => ({
+													label: s,
+													value: s,
+												}))}
+												disabled={availableSubjects.length === 1}
+											/>
+										)}
+
+									{isSelectedAcademicYearAllowed &&
+										loading.studentsForGrading && (
+											<div className="flex items-end pb-1">
+												<Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+											</div>
+										)}
+								</div>
+
+								{selectedAcademicYear && !isSelectedAcademicYearAllowed && (
+									<div className="mx-3 mb-3 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+										Grade submission is not allowed for{' '}
+										<strong>{selectedAcademicYear}</strong>. Choose an allowed
+										year.
+									</div>
 								)}
+							</div>
 
-							{isSelectedAcademicYearAllowed &&
-								showClassSelect &&
-								selectedClassLevel && (
-									<FilterSelect
-										label="Class"
-										value={selectedClassId}
-										onChange={handleClassChange}
-										placeholder="Class"
-										options={availableClasses.map((c) => ({
-											label: c.name,
-											value: c.classId,
-										}))}
-										disabled={availableClasses.length === 1}
-									/>
-								)}
-
+							{/* Period chip strip */}
 							{isSelectedAcademicYearAllowed &&
 								!hasNoClasses &&
-								isSelfContainedTeacher && (
-									<div className="flex flex-col gap-0.5">
-										<span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-0.5">
-											Class
-										</span>
-										<div className="h-8 px-3 rounded-lg border border-input bg-muted text-muted-foreground text-sm flex items-center whitespace-nowrap cursor-not-allowed opacity-80">
-											{availableClasses[0]?.name || 'Sponsor Class'}
+								studentsForGrading.length > 0 && (
+									<div className="bg-card border border-border rounded-xl px-3 py-2.5 sm:px-4">
+										<div className="flex items-center gap-2 flex-wrap">
+											<span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap mr-1">
+												Periods
+											</span>
+											{periods.map((p) => {
+												const isSelected = selectedPeriods.includes(p.value);
+												const allGraded =
+													studentsForGrading.length > 0 &&
+													studentsForGrading.every(
+														(s) => s.grades[p.id]?.hasExistingGrade,
+													);
+
+												return (
+													<button
+														key={p.id}
+														onClick={() => handlePeriodToggle(p.value)}
+														className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-all duration-150 ${
+															isSelected
+																? 'bg-primary text-primary-foreground border-primary shadow-sm'
+																: allGraded
+																	? 'bg-muted text-muted-foreground border-border opacity-60'
+																	: 'bg-background text-foreground border-border hover:border-primary/50 hover:bg-accent'
+														}`}
+													>
+														{p.label}
+														{allGraded && !isSelected && (
+															<CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" />
+														)}
+													</button>
+												);
+											})}
 										</div>
 									</div>
 								)}
-
-							{isSelectedAcademicYearAllowed &&
-								showSubjectSelect &&
-								selectedClassId && (
-									<FilterSelect
-										label="Subject"
-										value={selectedSubject}
-										onChange={(v) => setSelectedSubject(v)}
-										placeholder="Subject"
-										options={availableSubjects.map((s) => ({
-											label: s,
-											value: s,
-										}))}
-										disabled={availableSubjects.length === 1}
-									/>
-								)}
-
-							{/* loading indicator inline */}
-							{isSelectedAcademicYearAllowed && loading.studentsForGrading && (
-								<div className="flex items-end pb-1">
-									<Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-								</div>
-							)}
 						</div>
-
-						{/* Not allowed warning */}
-						{selectedAcademicYear && !isSelectedAcademicYearAllowed && (
-							<div className="mx-3 mb-3 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
-								Grade submission is not allowed for{' '}
-								<strong>{selectedAcademicYear}</strong>. Choose an allowed year.
-							</div>
-						)}
 					</div>
-
-					{/* ── Period chip strip ── */}
-					{isSelectedAcademicYearAllowed &&
-						!hasNoClasses &&
-						studentsForGrading.length > 0 && (
-							<div className="bg-card border border-border rounded-xl px-3 py-2.5 sm:px-4">
-								<div className="flex items-center gap-2 flex-wrap">
-									<span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap mr-1">
-										Periods
-									</span>
-									{periods.map((p) => {
-										const isSelected = selectedPeriods.includes(p.value);
-										const allGraded =
-											studentsForGrading.length > 0 &&
-											studentsForGrading.every(
-												(s) => s.grades[p.id]?.hasExistingGrade,
-											);
-
-										return (
-											<button
-												key={p.id}
-												onClick={() => handlePeriodToggle(p.value)}
-												className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-all duration-150 ${
-													isSelected
-														? 'bg-primary text-primary-foreground border-primary shadow-sm'
-														: allGraded
-															? 'bg-muted text-muted-foreground border-border opacity-60'
-															: 'bg-background text-foreground border-border hover:border-primary/50 hover:bg-accent'
-												}`}
-											>
-												{p.label}
-												{allGraded && !isSelected && (
-													<CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" />
-												)}
-											</button>
-										);
-									})}
-								</div>
-							</div>
-						)}
 				</div>
 			)}
 
@@ -1577,42 +1704,59 @@ const SubmitGrade: React.FC = () => {
 																			</div>
 																		) : (
 																			<div className="flex flex-col items-center gap-0.5">
-																				<input
-																					type="text"
-																					data-grade-input="true"
-																					data-student-id={student.studentId}
-																					data-period={period}
-																					value={
-																						gradeValue === ''
-																							? ''
-																							: String(gradeValue)
-																					}
-																					onChange={(e) =>
-																						handleGradeChange(
-																							student.studentId,
-																							period,
-																							e.target.value,
-																						)
-																					}
-																					onFocus={() => {
-																						setActiveStudentId(
-																							student.studentId,
-																						);
-																						setActivePeriod(period);
-																					}}
-																					onBlur={() => {
-																						setActiveStudentId(null);
-																						setActivePeriod(null);
-																					}}
-																					onKeyDown={handleGradeKeyDown}
-																					placeholder="–"
-																					inputMode="numeric"
-																					className={`w-16 sm:w-20 h-9 rounded-lg border-2 text-center text-sm font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors bg-background ${getGradeDisplayColor(gradeValue)} ${
-																						isInvalid
-																							? 'border-red-400 focus:ring-red-400'
-																							: 'border-input hover:border-ring/50'
-																					}`}
-																				/>
+																				<div className="relative">
+																					<input
+																						type="text"
+																						data-grade-input="true"
+																						data-student-id={student.studentId}
+																						data-period={period}
+																						value={
+																							gradeValue === ''
+																								? ''
+																								: String(gradeValue)
+																						}
+																						onChange={(e) =>
+																							handleGradeChange(
+																								student.studentId,
+																								period,
+																								e.target.value,
+																							)
+																						}
+																						onFocus={() => {
+																							setActiveStudentId(
+																								student.studentId,
+																							);
+																							setActivePeriod(period);
+																						}}
+																						onBlur={(e) =>
+																							handleGradeBlur(
+																								student.studentId,
+																								period,
+																								e.target.value,
+																							)
+																						}
+																						onKeyDown={handleGradeKeyDown}
+																						placeholder="–"
+																						inputMode="numeric"
+																						className={`w-16 sm:w-20 h-9 rounded-lg border-2 text-center text-sm font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors bg-background ${getGradeDisplayColor(gradeValue)} ${
+																							gradeInfo?.isDraft ? 'pr-4' : ''
+																						} ${
+																							isInvalid
+																								? 'border-red-400 focus:ring-red-400'
+																								: 'border-input hover:border-ring/50'
+																						}`}
+																					/>
+																					{gradeInfo?.isDraft &&
+																						gradeValue !== '' &&
+																						validation.isValid && (
+																							<div
+																								className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none"
+																								title="Unsubmitted Draft"
+																							>
+																								<Save className="w-3.5 h-3.5 text-primary/60" />
+																							</div>
+																						)}
+																				</div>
 																				{isInvalid && (
 																					<span className="text-[10px] text-red-500 font-medium leading-none">
 																						{validation.message}
