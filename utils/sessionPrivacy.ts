@@ -9,6 +9,7 @@ const LOCALSTORAGE_PRESERVED_KEYS = new Set([
 	'school-profile',
 	'theme',
 	'user_theme_preference',
+	'teacherGradeDrafts',
 ]);
 
 const SENSITIVE_LOCALSTORAGE_KEYS = new Set([

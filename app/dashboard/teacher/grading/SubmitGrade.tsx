@@ -82,6 +82,7 @@ const allPeriods = [
 const PASS_MARK = 70;
 const PASS_GRADE_CLASS = 'text-[var(--grade-pass)]';
 const FAIL_GRADE_CLASS = 'text-[var(--grade-fail)]';
+const TEACHER_GRADE_DRAFTS = 'teacherGradeDrafts';
 
 const SubmitGrade: React.FC = () => {
 	const school = useSchoolStore((state) => state.school);
@@ -571,10 +572,13 @@ const SubmitGrade: React.FC = () => {
 			}
 
 			// Load offline drafts
-			const draftKey = `draftGrades_${teacherInfo?.username}_${selectedAcademicYear}_${selectedClassId}_${selectedSubject}`;
+			const draftScopeKey = `${teacherInfo?.username}:${selectedAcademicYear}:${selectedClassId}:${selectedSubject}`;
 			let localDrafts: Record<string, number> = {};
 			try {
-				localDrafts = JSON.parse(localStorage.getItem(draftKey) || '{}');
+				const masterDrafts = JSON.parse(
+					localStorage.getItem(TEACHER_GRADE_DRAFTS) || '{}',
+				);
+				localDrafts = masterDrafts[draftScopeKey] || {};
 			} catch (e) {
 				console.error('Failed to parse draft grades from local storage', e);
 			}
@@ -723,13 +727,16 @@ const SubmitGrade: React.FC = () => {
 		)
 			return;
 
-		const draftKey = `draftGrades_${teacherInfo.username}_${selectedAcademicYear}_${selectedClassId}_${selectedSubject}`;
-		let drafts: Record<string, number> = {};
+		const draftScopeKey = `${teacherInfo.username}:${selectedAcademicYear}:${selectedClassId}:${selectedSubject}`;
+		let masterDrafts: Record<string, Record<string, number>> = {};
 		try {
-			drafts = JSON.parse(localStorage.getItem(draftKey) || '{}');
+			masterDrafts = JSON.parse(
+				localStorage.getItem(TEACHER_GRADE_DRAFTS) || '{}',
+			);
 		} catch (e) {
 			console.error('Error parsing drafts during blur save', e);
 		}
+		const drafts: Record<string, number> = masterDrafts[draftScopeKey] || {};
 
 		const mapKey = `${studentId}-${period}`;
 		const num = Number(value);
@@ -748,7 +755,19 @@ const SubmitGrade: React.FC = () => {
 		}
 
 		if (updated) {
-			localStorage.setItem(draftKey, JSON.stringify(drafts));
+			if (Object.keys(drafts).length === 0) {
+				delete masterDrafts[draftScopeKey];
+			} else {
+				masterDrafts[draftScopeKey] = drafts;
+			}
+			if (Object.keys(masterDrafts).length === 0) {
+				localStorage.removeItem(TEACHER_GRADE_DRAFTS);
+			} else {
+				localStorage.setItem(
+					TEACHER_GRADE_DRAFTS,
+					JSON.stringify(masterDrafts),
+				);
+			}
 			setStudentsForGrading((prev) =>
 				prev.map((student) =>
 					student.studentId === studentId
@@ -1074,10 +1093,13 @@ const SubmitGrade: React.FC = () => {
 			mergeSubmittedGradesCache(gradesForCache);
 
 			// Clear successfully submitted drafts from local storage
-			const draftKey = `draftGrades_${teacherInfo?.username}_${selectedAcademicYear}_${selectedClassId}_${selectedSubject}`;
-			let drafts: Record<string, number> = {};
+			const draftScopeKey = `${teacherInfo?.username}:${selectedAcademicYear}:${selectedClassId}:${selectedSubject}`;
 			try {
-				drafts = JSON.parse(localStorage.getItem(draftKey) || '{}');
+				const masterDrafts: Record<string, Record<string, number>> = JSON.parse(
+					localStorage.getItem(TEACHER_GRADE_DRAFTS) || '{}',
+				);
+				const drafts: Record<string, number> =
+					masterDrafts[draftScopeKey] || {};
 				let modified = false;
 				gradesToSubmit.forEach((g) => {
 					const mapKey = `${g.studentId}-${g.period}`;
@@ -1087,7 +1109,19 @@ const SubmitGrade: React.FC = () => {
 					}
 				});
 				if (modified) {
-					localStorage.setItem(draftKey, JSON.stringify(drafts));
+					if (Object.keys(drafts).length === 0) {
+						delete masterDrafts[draftScopeKey];
+					} else {
+						masterDrafts[draftScopeKey] = drafts;
+					}
+					if (Object.keys(masterDrafts).length === 0) {
+						localStorage.removeItem(TEACHER_GRADE_DRAFTS);
+					} else {
+						localStorage.setItem(
+							TEACHER_GRADE_DRAFTS,
+							JSON.stringify(masterDrafts),
+						);
+					}
 				}
 			} catch (e) {
 				console.error('Error clearing submitted drafts', e);
