@@ -56,6 +56,7 @@ const USER_BOOTSTRAP_SELECT = {
 	classId: 1,
 	className: 1,
 	shareContactWithClassmates: 1,
+	isLateRegistration: 1,
 	academicYears: 1,
 	guardian: 1,
 	financialProfile: 1,
@@ -96,6 +97,7 @@ const normalizeUser = (user: any) => {
 		createdAt: user.createdAt,
 		updatedAt: user.updatedAt,
 	};
+
 
 	switch (user.role as UserRole) {
 		case 'student':

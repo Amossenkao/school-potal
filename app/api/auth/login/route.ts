@@ -320,7 +320,7 @@ async function handleLogin(user: any, password: string, host: string) {
 	const sessionData = {
 		tenantId: host,
 		purpose: 'login',
-		...userData, // buildUserResponse now provides 'id'
+		...userData,
 	};
 
 	if (user.role === 'system_admins') {
@@ -378,31 +378,44 @@ function setSessionCookie(response: NextResponse, sessionId: string) {
 }
 
 function buildUserResponse(user: any) {
-	const baseUser = {
-		id: user._id.toString(), // Ensuring 'id' is used
-		username: user.username,
-		role: user.role as UserRole,
-		firstName: user.firstName,
-		middleName: user.middleName,
-		lastName: user.lastName,
-		fullName: user.fullName,
-		nickName: user.nickName,
-		gender: user.gender,
-		dateOfBirth: user.dateOfBirth,
-		isActive: user.isActive,
-		mustChangePassword: user.mustChangePassword,
-		passwordChangedAt: user.passwordChangedAt,
-		phone: user.phone,
-		email: user.email,
-		address: user.address,
-		bio: user.bio,
-		avatar: user.avatar,
-		profilePictureUrl: user.profilePictureUrl,
-		defaultPassword: user.defaultPassword,
-		notifications: user.notifications || [],
-		chats: user.chats || [],
-		chatSessions: user.chatSessions || [],
-	};
+
+	if (user.username == 'UCA2026504') {
+		console.log('User data for debugging:', {
+			id: user._id.toString(),
+			username: user.username,
+			role: user.role,
+			firstName: user.firstName,
+			middleName: user.middleName,
+			lastName: user.lastName,
+			fullName: user.fullName,
+			isLateRegistration: user.isLateRegistration,
+		});
+	}
+		const baseUser = {
+			id: user._id.toString(),
+			username: user.username,
+			role: user.role as UserRole,
+			firstName: user.firstName,
+			middleName: user.middleName,
+			lastName: user.lastName,
+			fullName: user.fullName,
+			nickName: user.nickName,
+			gender: user.gender,
+			dateOfBirth: user.dateOfBirth,
+			isActive: user.isActive,
+			mustChangePassword: user.mustChangePassword,
+			passwordChangedAt: user.passwordChangedAt,
+			phone: user.phone,
+			email: user.email,
+			address: user.address,
+			bio: user.bio,
+			avatar: user.avatar,
+			profilePictureUrl: user.profilePictureUrl,
+			defaultPassword: user.defaultPassword,
+			notifications: user.notifications || [],
+			chats: user.chats || [],
+			chatSessions: user.chatSessions || [],
+		};
 
 	switch (user.role as UserRole) {
 		case 'student':
