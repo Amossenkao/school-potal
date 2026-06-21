@@ -3816,6 +3816,35 @@ export async function PUT(request: NextRequest) {
 			updatedBy: currentUser.userId,
 			updatedAt: new Date(),
 		};
+
+		// Recompute fullName whenever any name part is being updated
+		const nameFields = ['firstName', 'middleName', 'lastName'] as const;
+		const isNameUpdate = nameFields.some((f) =>
+			Object.prototype.hasOwnProperty.call(filteredUserData, f),
+		);
+		if (isNameUpdate) {
+			const firstName = String(
+				filteredUserData.firstName ?? targetUser.firstName ?? '',
+			).trim();
+			const middleName = String(
+				filteredUserData.middleName ?? targetUser.middleName ?? '',
+			).trim();
+			const lastName = String(
+				filteredUserData.lastName ?? targetUser.lastName ?? '',
+			).trim();
+			updateData.fullName = [firstName, middleName, lastName]
+				.filter(Boolean)
+				.join(' ');
+
+			// Keep studentName in sync across all grade records for this student
+			if (targetUser.role === 'student' && targetUser.studentId) {
+				await models.Grade.updateMany(
+					{ studentId: targetUser.studentId },
+					{ $set: { studentName: updateData.fullName, updatedAt: new Date() } },
+				);
+			}
+		}
+
 		const changedProfileFields = Array.from(
 			new Set(
 				Object.keys(filteredUserData)

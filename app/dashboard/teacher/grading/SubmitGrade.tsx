@@ -585,9 +585,9 @@ const SubmitGrade: React.FC = () => {
 			}
 
 			const initialStudentsForGrading = studentsList.map((student: any) => {
-				const studentKey = student.studentId || student.id || student._id;
-				const studentExistingPeriods = reportStudentsMap.get(studentKey) || {};
-				const grades: { [period: string]: GradeInputState } = {};
+							const studentKey = student.studentId || student.id || student._id;
+							const studentExistingPeriods = reportStudentsMap.get(studentKey) || {};
+							const grades: { [period: string]: GradeInputState } = {};
 
 				periods.forEach(({ id }) => {
 					const existingGrade = studentExistingPeriods[id];
@@ -619,6 +619,7 @@ const SubmitGrade: React.FC = () => {
 					studentId: studentKey,
 					studentName: buildStudentFullName(student),
 					grades,
+					isLateRegistration: !!student.isLateRegistration,
 				};
 			});
 
