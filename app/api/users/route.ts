@@ -1303,6 +1303,7 @@ export async function GET(request: NextRequest) {
 				lastName: student.lastName,
 				fullName: student.fullName,
 				email: student.email,
+				isLateRegistration: student.isLateRegistration,
 				phone:
 					student.shareContactWithClassmates === true
 						? student.phone

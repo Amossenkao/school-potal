@@ -415,6 +415,7 @@ function buildUserResponse(user: any) {
 				classId: user.classId,
 				className: user.className,
 				shareContactWithClassmates: user.shareContactWithClassmates ?? false,
+				isLateRegistration: user.isLateRegistration ?? false,
 				academicYears: user.academicYears || [],
 				guardian: user.guardian,
 				financialProfile: user.financialProfile,
