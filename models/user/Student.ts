@@ -62,6 +62,7 @@ const StudentSchema = new Schema<Student & Document>({
 		enum: ['enrolled', 'graduated', 'transferred', 'dropped'],
 		required: true,
 	},
+	isLateRegistration: { type: Boolean, required: false, default: false },
 	guardian: { type: GuardianSchema, required: true },
 	academicYears: { type: [YearSchema], required: true },
 	financialProfile: { type: FinancialProfileSchema, required: true },

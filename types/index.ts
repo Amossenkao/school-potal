@@ -93,6 +93,7 @@ export interface Student extends User {
 	classId: string;
 	className: string;
 	shareContactWithClassmates: boolean;
+	isLateRegistration?: boolean;
 	academicYears: { year: string; classId: string; className?: string }[];
 	guardian: {
 		firstName: string;

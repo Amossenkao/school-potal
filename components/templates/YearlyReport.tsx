@@ -227,7 +227,6 @@ const styles = StyleSheet.create({
 	schoolDetails: {
 		fontSize: 10,
 		marginBottom: 2,
-		top: -75,
 	},
 
 	reportTitle: {
@@ -244,7 +243,6 @@ const styles = StyleSheet.create({
 		paddingVertical: 4,
 		paddingHorizontal: 10,
 		alignSelf: 'center',
-		marginTop: -70,
 	},
 
 	studentInfo: {
@@ -1104,7 +1102,9 @@ export const ReportCard = React.memo(function PDFDocument({
 								}}
 							>
 								{/* School header */}
-								<View style={{ alignItems: 'center', marginBottom: 6 }}>
+								<View
+									style={{ alignItems: 'center', marginBottom: 6, height: 120 }}
+								>
 									{/* School name */}
 									<Text
 										style={{
@@ -1112,7 +1112,6 @@ export const ReportCard = React.memo(function PDFDocument({
 											color: activeTheme.schoolNameColor,
 											textAlign: 'center',
 											marginBottom: 2,
-											top: 0,
 										}}
 									>
 										{school?.name}
@@ -1148,7 +1147,6 @@ export const ReportCard = React.memo(function PDFDocument({
 												style={{
 													...styles.schoolDetails,
 													textAlign: 'center',
-													top: 0,
 												}}
 											>
 												{schoolAddress}

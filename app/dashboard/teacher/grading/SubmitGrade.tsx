@@ -55,6 +55,7 @@ interface GradeInputState {
 interface StudentForGrading {
 	studentId: string;
 	studentName: string;
+	isLateRegistration?: boolean;
 	grades: { [period: string]: GradeInputState };
 }
 
@@ -1695,9 +1696,15 @@ const SubmitGrade: React.FC = () => {
 										<tbody className="divide-y divide-border">
 											{studentsForGrading
 												.slice()
-												.sort((a, b) =>
-													a.studentName.localeCompare(b.studentName),
-												)
+												.sort((a, b) => {
+													const aIsLate = !!a.isLateRegistration;
+													const bIsLate = !!b.isLateRegistration;
+
+													if (aIsLate && !bIsLate) return 1;
+													if (!aIsLate && bIsLate) return -1;
+
+													return a.studentName.localeCompare(b.studentName);
+												})
 												.map((student) => {
 													const isActive =
 														activeStudentId === student.studentId;
