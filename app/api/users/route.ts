@@ -3671,6 +3671,8 @@ export async function PUT(request: NextRequest) {
 							'enrollmentStatus',
 							'financialProfile',
 							'shareContactWithClassmates',
+							"isLatestAcademicYear",
+							"isLateRegistration",
 						];
 						break;
 					case 'teacher':
