@@ -1544,6 +1544,11 @@ const SubmitGrade: React.FC = () => {
 													studentsForGrading.every(
 														(s) => s.grades[p.id]?.hasExistingGrade,
 													);
+												const hasDrafts =
+													studentsForGrading.length > 0 &&
+													studentsForGrading.some(
+														(s) => s.grades[p.id]?.isDraft,
+													);
 
 												return (
 													<button
@@ -1558,8 +1563,23 @@ const SubmitGrade: React.FC = () => {
 														}`}
 													>
 														{p.label}
-														{allGraded && !isSelected && (
-															<CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" />
+														{allGraded && (
+															<CheckCircle
+																className={`w-3 h-3 flex-shrink-0 transition-colors ${
+																	isSelected
+																		? 'text-green-200 dark:text-green-300'
+																		: 'text-green-500 dark:text-green-400'
+																}`}
+															/>
+														)}
+														{hasDrafts && (
+															<Save
+																className={`w-3 h-3 flex-shrink-0 transition-colors ${
+																	isSelected
+																		? 'text-primary-foreground/80'
+																		: 'text-muted-foreground/80'
+																}`}
+															/>
 														)}
 													</button>
 												);
