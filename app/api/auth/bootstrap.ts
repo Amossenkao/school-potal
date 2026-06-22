@@ -396,37 +396,51 @@ const fetchSchedules = async (
 	return { classSchedules, testSchedules };
 };
 
-const fetchGradesForRole = async (
+
+const BOOTSTRAP_GRADE_LIMIT = 20000;
+
+const fetchGradesBootstrap = async (
 	models: any,
 	currentUser: any,
 	academicYear: string,
-) => {
+): Promise<{ grades: any[]; gradesCursor: string | null }> => {
 	const { Grade } = models;
-	if (!Grade) return [];
+	if (!Grade) return { grades: [], gradesCursor: null };
 
 	const query = getRoleGradesQuery(currentUser, academicYear);
-	if (!query) return [];
-	const grades = await Grade.find(query).lean();
+	if (!query) return { grades: [], gradesCursor: null };
 
-	if (currentUser?.role === 'teacher') {
-		return grades;
+	const grades = await Grade.find(query)
+		.sort({ lastUpdated: 1, _id: 1 })
+		.limit(BOOTSTRAP_GRADE_LIMIT)
+		.lean();
+
+	let gradesCursor: string | null = null;
+	if (grades.length === BOOTSTRAP_GRADE_LIMIT) {
+		const last = grades[grades.length - 1];
+		gradesCursor = JSON.stringify({
+			lastUpdated: last.lastUpdated,
+			_id: last._id,
+		});
 	}
 
+	// Attach ranks for student/system_admin just like fetchGradesForRole did
 	if (currentUser?.role === 'student') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
-		if (!classId) return grades;
-		const classGrades = await Grade.find({
-			academicYear: getAcademicYearMatch(academicYear),
-			classId,
-		}).lean();
-		return attachRanksToGrades(grades, classGrades);
+		if (classId) {
+			const classGrades = await Grade.find({
+				academicYear: getAcademicYearMatch(academicYear),
+				classId,
+			}).lean();
+			return { grades: attachRanksToGrades(grades, classGrades), gradesCursor };
+		}
 	}
 
 	if (currentUser?.role === 'system_admin') {
-		return attachRanksToGrades(grades, grades);
+		return { grades: attachRanksToGrades(grades, grades), gradesCursor };
 	}
 
-	return grades;
+	return { grades, gradesCursor };
 };
 
 const fetchGradeRequestsForRole = async (
@@ -684,7 +698,8 @@ export const buildBootstrapPayload = async (
 	};
 	const models = await getTenantModels();
 
-	const [users, calendarEvents, schedules, grades, gradeRequests] =
+	// In buildBootstrapPayload, replace the Promise.all block:
+	const [users, calendarEvents, schedules, gradesResult, gradeRequests] =
 		await Promise.all([
 			include.users
 				? fetchUsersForRole(models, currentUser, academicYear)
@@ -696,17 +711,22 @@ export const buildBootstrapPayload = async (
 				? fetchSchedules(models, currentUser, academicYear)
 				: Promise.resolve(undefined),
 			include.grades
-				? fetchGradesForRole(models, currentUser, academicYear)
+				? fetchGradesBootstrap(models, currentUser, academicYear)
 				: Promise.resolve(undefined),
 			include.gradeRequests
 				? fetchGradeRequestsForRole(models, currentUser, academicYear)
 				: Promise.resolve(undefined),
 		]);
+	
 	const resolvedUsersVersion =
 		typeof options.usersVersion === 'string'
 			? options.usersVersion
 			: getUsersVersionFromPayload(users as BootstrapUsers);
 
+	const grades = gradesResult?.grades;
+	const gradesCursor = gradesResult?.gradesCursor ?? null;
+
+	// Return shape — add gradesCursor alongside grades:
 	return {
 		academicYear,
 		defaultAcademicYear: yearAccess.defaultAcademicYear,
@@ -715,7 +735,7 @@ export const buildBootstrapPayload = async (
 		...(include.users ? { users, usersVersion: resolvedUsersVersion } : {}),
 		...(include.calendar ? { calendarEvents } : {}),
 		...(include.schedules ? { schedules } : {}),
-		...(include.grades ? { grades } : {}),
+		...(include.grades ? { grades, gradesCursor } : {}), // ← cursor travels with grades
 		...(include.gradeRequests ? { gradeRequests } : {}),
 	};
-};
+};;

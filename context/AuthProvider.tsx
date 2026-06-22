@@ -57,44 +57,59 @@ export default function AuthProvider({
 		}
 	}, []);
 
-	const runAuthRefresh = useCallback(
-		async (options?: {
-			force?: boolean;
-			trigger?: string;
-			academicYear?: string;
-		}) => {
-			if (authRefreshInFlight.current) {
-				const previous = pendingAuthRefreshRef.current;
-				pendingAuthRefreshRef.current = {
-					force: Boolean(previous?.force) || Boolean(options?.force),
-					trigger: options?.trigger || previous?.trigger,
-					academicYear: options?.academicYear || previous?.academicYear,
-				};
-				return;
-			}
-			authRefreshInFlight.current = true;
-			try {
-				await checkAuthStatus({
-					skipConnectivityCheck: true,
-					force: options?.force === true,
-					trigger: options?.trigger,
-					academicYear: options?.academicYear,
-				});
-				await ensureSchoolProfile();
-			} catch (error) {
-				console.error('[AuthProvider] Auth refresh failed:', error);
-				setAuthCheckFailed(true);
-			} finally {
-				authRefreshInFlight.current = false;
-				const pending = pendingAuthRefreshRef.current;
-				pendingAuthRefreshRef.current = null;
-				if (pending) {
-					void runAuthRefresh(pending);
+	
+const runAuthRefresh = useCallback(
+	async (options?: {
+		force?: boolean;
+		trigger?: string;
+		academicYear?: string;
+	}) => {
+		if (authRefreshInFlight.current) {
+			const previous = pendingAuthRefreshRef.current;
+			pendingAuthRefreshRef.current = {
+				force: Boolean(previous?.force) || Boolean(options?.force),
+				trigger: options?.trigger || previous?.trigger,
+				academicYear: options?.academicYear || previous?.academicYear,
+			};
+			return;
+		}
+		authRefreshInFlight.current = true;
+		try {
+			await checkAuthStatus({
+				skipConnectivityCheck: true,
+				force: options?.force === true,
+				trigger: options?.trigger,
+				academicYear: options?.academicYear,
+			});
+			await ensureSchoolProfile();
+
+			// Only run background grade sync if there's a cursor to resume from.
+			// If gradesCursor was null at bootstrap, all grades are already present
+			// and there's nothing for the background sync to do.
+			const activeYear =
+				options?.academicYear ||
+				useSchoolStore.getState().school?.currentAcademicYear;
+			if (activeYear) {
+				const CURSOR_KEY = `sync_cursor_grades_${activeYear}`;
+				const hasCursor = Boolean(localStorage.getItem(CURSOR_KEY));
+				if (hasCursor) {
+					useSchoolStore.getState().runBackgroundGradeSync(activeYear);
 				}
 			}
-		},
-		[checkAuthStatus, ensureSchoolProfile, setAuthCheckFailed],
-	);
+		} catch (error) {
+			console.error('[AuthProvider] Auth refresh failed:', error);
+			setAuthCheckFailed(true);
+		} finally {
+			authRefreshInFlight.current = false;
+			const pending = pendingAuthRefreshRef.current;
+			pendingAuthRefreshRef.current = null;
+			if (pending) {
+				void runAuthRefresh(pending);
+			}
+		}
+	},
+	[checkAuthStatus, ensureSchoolProfile, setAuthCheckFailed],
+);
 
 	const closeRealtimeClient = useCallback(() => {
 		realtimeSubscriptionsRef.current.forEach((unsubscribe) => unsubscribe());

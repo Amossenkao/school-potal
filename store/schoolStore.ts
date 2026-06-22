@@ -73,6 +73,7 @@ type SchoolStore = {
 	applyRealtimeEvent: (event: RealtimeEvent) => void;
 	clearCache: () => void;
 	hydrateCache: () => void;
+	runBackgroundGradeSync: (academicYear: string) => Promise<void>;
 };
 
 // Prevent multiple simultaneous fetches
@@ -301,6 +302,62 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	gradesVersionByAcademicYear: {},
 	gradeRequestsVersionByAcademicYear: {},
 	schedulesVersionByAcademicYear: {},
+
+	runBackgroundGradeSync: async (academicYear: string) => {
+		const { school, mergeGradesForYear } = get();
+		const networkStore = useNetworkStore.getState();
+
+		if (!school || !academicYear) return;
+
+		// Cursor is now a compound JSON string { lastUpdated, _id }.
+		// Store and restore it as-is — no parsing needed here since the
+		// API accepts it as a raw string via searchParams.
+		const CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
+		let cursor = localStorage.getItem(CURSOR_KEY) || null;
+		let hasMore = true;
+		let isSyncing = true;
+
+		while (hasMore && isSyncing) {
+			if (!networkStore.isOnline) {
+				console.warn('[Sync] Network dropped. Pausing grade sync.');
+				break;
+			}
+
+			try {
+				const params = new URLSearchParams({
+					academicYear,
+					limit: '10000',
+				});
+				if (cursor) params.append('cursor', cursor);
+
+				const response = await fetch(`/api/sync/grades?${params.toString()}`);
+				if (!response.ok) throw new Error('Failed to fetch grade chunk');
+
+				const result = await response.json();
+				const gradesChunk = result.data;
+
+				if (gradesChunk && gradesChunk.length > 0) {
+					mergeGradesForYear(academicYear, gradesChunk);
+				}
+
+				if (result.nextCursor) {
+					cursor = result.nextCursor;
+					localStorage.setItem(CURSOR_KEY, cursor);
+				} else {
+					// Sync complete — clear the stored cursor so the next full
+					// sync run starts from the beginning rather than a stale position.
+					hasMore = false;
+					localStorage.removeItem(CURSOR_KEY);
+					console.log('[Sync] Background grade sync complete.');
+				}
+			} catch (error) {
+				console.error('[Sync] Error fetching grade chunk:', error);
+				isSyncing = false;
+				// Cursor is intentionally left in localStorage so the next
+				// invocation can resume from where this one failed.
+			}
+		}
+	},
 
 	fetchSchool: async () => {
 		if (!get().school) {

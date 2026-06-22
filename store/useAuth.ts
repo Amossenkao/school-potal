@@ -225,67 +225,77 @@ const useAuth = create<AuthState>((set, get) => {
 		return null;
 	};
 
-	const applyBootstrapPayload = (data: any) => {
-		const schoolStore = useSchoolStore.getState();
-		const versions: SyncVersions =
-			data?.versions && typeof data.versions === 'object' ? data.versions : {};
-		const academicYear = data?.academicYear;
+	
+const applyBootstrapPayload = (data: any) => {
+	const schoolStore = useSchoolStore.getState();
+	const versions: SyncVersions =
+		data?.versions && typeof data.versions === 'object' ? data.versions : {};
+	const academicYear = data?.academicYear;
 
-		if (data?.school !== undefined && data?.school !== null) {
-			schoolStore.setSchool(data.school);
-		}
-		if (typeof versions.school === 'string') {
-			schoolStore.setSchoolVersion(versions.school);
-		}
+	if (data?.school !== undefined && data?.school !== null) {
+		schoolStore.setSchool(data.school);
+	}
+	if (typeof versions.school === 'string') {
+		schoolStore.setSchoolVersion(versions.school);
+	}
 
-		if (academicYear && versions) {
-			schoolStore.setDomainVersionsForYear(academicYear, {
-				users:
-					typeof versions.users === 'string'
-						? versions.users
-						: typeof data?.usersVersion === 'string'
-							? data.usersVersion
-							: undefined,
-				calendar:
-					typeof versions.calendar === 'string' ? versions.calendar : undefined,
-				grades:
-					typeof versions.grades === 'string' ? versions.grades : undefined,
-				gradeRequests:
-					typeof versions.gradeRequests === 'string'
-						? versions.gradeRequests
+	if (academicYear && versions) {
+		schoolStore.setDomainVersionsForYear(academicYear, {
+			users:
+				typeof versions.users === 'string'
+					? versions.users
+					: typeof data?.usersVersion === 'string'
+						? data.usersVersion
 						: undefined,
-				schedules:
-					typeof versions.schedules === 'string'
-						? versions.schedules
-						: undefined,
-			});
-		}
+			calendar:
+				typeof versions.calendar === 'string' ? versions.calendar : undefined,
+			grades: typeof versions.grades === 'string' ? versions.grades : undefined,
+			gradeRequests:
+				typeof versions.gradeRequests === 'string'
+					? versions.gradeRequests
+					: undefined,
+			schedules:
+				typeof versions.schedules === 'string' ? versions.schedules : undefined,
+		});
+	}
 
-		if (academicYear && data?.users) {
-			// Bootstrap payload is authoritative for the current year; avoid expensive deep merge/compare.
-			schoolStore.setUsersForYear(academicYear, data.users, { merge: false });
-		}
+	if (academicYear && data?.users) {
+		schoolStore.setUsersForYear(academicYear, data.users, { merge: false });
+	}
 
-		if (academicYear && Array.isArray(data?.calendarEvents)) {
-			schoolStore.setCalendarForYear(academicYear, data.calendarEvents);
-		}
+	if (academicYear && Array.isArray(data?.calendarEvents)) {
+		schoolStore.setCalendarForYear(academicYear, data.calendarEvents);
+	}
 
-		if (academicYear && data?.schedules && typeof data.schedules === 'object') {
-			schoolStore.setSchedulesForYear(academicYear, data.schedules);
-		}
+	if (academicYear && data?.schedules && typeof data.schedules === 'object') {
+		schoolStore.setSchedulesForYear(academicYear, data.schedules);
+	}
 
-		if (academicYear && Array.isArray(data?.grades)) {
-			schoolStore.setGradesForYear(academicYear, data.grades);
-		}
+	if (academicYear && Array.isArray(data?.grades)) {
+		schoolStore.setGradesForYear(academicYear, data.grades);
+	}
 
-		if (academicYear && Array.isArray(data?.gradeRequests)) {
-			schoolStore.setGradeRequestsForYear(academicYear, data.gradeRequests);
-		}
+	if (academicYear && Array.isArray(data?.gradeRequests)) {
+		schoolStore.setGradeRequestsForYear(academicYear, data.gradeRequests);
+	}
 
-		if (typeof versions.user === 'string') {
-			set({ userVersion: versions.user });
+	// Seed the background sync cursor so runBackgroundGradeSync resumes
+	// from exactly where the bootstrap left off (record 20,001+).
+	// If gradesCursor is null the bootstrap returned everything — remove
+	// any stale cursor so the next sync doesn't re-enter mid-stream.
+	if (academicYear && typeof window !== 'undefined') {
+		const CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
+		if (typeof data?.gradesCursor === 'string') {
+			localStorage.setItem(CURSOR_KEY, data.gradesCursor);
+		} else {
+			localStorage.removeItem(CURSOR_KEY);
 		}
-	};
+	}
+
+	if (typeof versions.user === 'string') {
+		set({ userVersion: versions.user });
+	}
+};
 
 	const applyRealtimeEvent = (event: RealtimeEvent) => {
 		const payload = (event?.payload || {}) as Record<string, unknown>;
