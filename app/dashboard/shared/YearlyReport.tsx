@@ -374,8 +374,7 @@ const buildReportsFromGradeRows = ({
 			typeof gradeRow?.studentName === 'string' ? gradeRow.studentName : '';
 		const report = ensureStudentReport(studentId, studentName);
 		ensureSubject(report, subject);
-<<<<<<< HEAD
-=======
+
 		if (gradeRow?.ranks && typeof gradeRow.ranks === 'object') {
 			Object.entries(gradeRow.ranks).forEach(([rankKey, rankValue]) => {
 				if (!Object.prototype.hasOwnProperty.call(report.ranks, rankKey))
@@ -405,7 +404,6 @@ const buildReportsFromGradeRows = ({
 					? Math.min(currentRank, yearlyRank)
 					: yearlyRank;
 		}
->>>>>>> 24df4db43ed9d6cc7d01e8fbb8fa0860f34253ef
 
 		const subjectIndex = report.periods[period].findIndex(
 			(entry) => entry.subject === subject,
@@ -458,7 +456,7 @@ const buildReportsFromGradeRows = ({
 		report.periodAverages.yearlyAverage = report.yearlyAverage;
 	});
 
-<<<<<<< HEAD
+
 	const finalReports = Array.from(reportsByStudentId.values());
 
 	// --- Rank Computation Logic ---
@@ -512,9 +510,7 @@ const buildReportsFromGradeRows = ({
 	});
 
 	return finalReports;
-=======
 	return Array.from(reportsByStudentId.values());
->>>>>>> 24df4db43ed9d6cc7d01e8fbb8fa0860f34253ef
 };
 
 // --- Student Multi-Select Component ---

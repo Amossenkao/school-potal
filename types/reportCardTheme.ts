@@ -19,7 +19,6 @@ export interface ReportTheme {
 	schoolNameColor: string;
 	accentColor: string;
 }
-<<<<<<< HEAD
 
 
 export const REPORT_CARD_THEMES: ReportTheme[] = [
@@ -119,10 +118,6 @@ export const REPORT_CARD_THEMES: ReportTheme[] = [
 		accentColor: '#8c6d53',
 	},
 	{
-=======
-export const REPORT_CARD_THEMES: ReportTheme[] = [
-	{
->>>>>>> 24df4db43ed9d6cc7d01e8fbb8fa0860f34253ef
 		id: 'royalGold',
 		name: 'Royal Gold',
 		emoji: '👑',
