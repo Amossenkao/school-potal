@@ -246,7 +246,7 @@ const TeacherGradeSubmissions = () => {
 		() =>
 			sortAcademicYearsDesc(
 				school?.settings?.teacherSettings
-					?.viewTeacherGradeSubmissionsAcademicYears || [],
+					?.viewGradeSubmissionsAcademicYears || [],
 			),
 		[school],
 	);
