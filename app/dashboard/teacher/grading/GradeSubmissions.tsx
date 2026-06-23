@@ -32,6 +32,7 @@ import {
 	sortAcademicYearsDesc,
 } from '@/utils/academicYearOptions';
 import { lockBodyScroll } from '@/utils/scrollLock';
+import router from 'next/router';
 
 // Types
 interface StudentGrade {
@@ -1688,7 +1689,7 @@ const TeacherGradeSubmissions = () => {
 						</div>
 					</div>
 					<Button
-						onClick={() => (window.location.href = '/dashboard/submit-grades')}
+						onClick={() => router.push("/dashboard/submit-grades")}
 						className="flex items-center gap-2"
 					>
 						<Plus className="h-4 w-4" />
