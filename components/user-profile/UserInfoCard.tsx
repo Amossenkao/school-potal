@@ -1,0 +1,709 @@
+'use client';
+import React, { useEffect, useState } from 'react';
+import { useModal } from '../../hooks/useModal';
+import { Modal } from '../ui/modal';
+import Button from '../ui/button/Button';
+import Input from '../form/input/InputField';
+import Label from '../form/Label';
+import useAuth from '@/store/useAuth';
+import { useNetworkStore } from '@/store/networkStore';
+import Spinner from '../ui/spinner';
+import Switch from '@/components/form/switch/Switch';
+import { Loader2, Pencil } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+
+const InfoField = ({ label, value }: any) => (
+	<div>
+		<p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+			{label}
+		</p>
+		<p className="text-sm font-medium text-gray-800 dark:text-white/90">
+			{value || 'N/A'}
+		</p>
+	</div>
+);
+
+export default function UserInfoCard() {
+	const { isOpen, openModal, closeModal } = useModal();
+	const { user, setUser } = useAuth();
+	const refreshConnectivity = useNetworkStore(
+		(state) => state.refreshConnectivity,
+	);
+	const OFFLINE_ERROR_MESSAGE =
+		'You are offline. Please connect to the internet and try again.';
+
+	// State for form data
+	const [formData, setFormData] = useState({
+		email: '',
+		phone: '',
+		bio: '',
+		nickName: '',
+		shareContactWithClassmates: false,
+	});
+	const [initialFormData, setInitialFormData] = useState({
+		email: '',
+		phone: '',
+		bio: '',
+		nickName: '',
+		shareContactWithClassmates: false,
+	});
+	const [draftValues, setDraftValues] = useState({
+		email: '',
+		phone: '',
+		bio: '',
+		nickName: '',
+	});
+	const [editingFields, setEditingFields] = useState({
+		email: false,
+		phone: false,
+		bio: false,
+		nickName: false,
+	});
+	const [isLoading, setIsLoading] = useState(false);
+	const [errors, setErrors] = useState<any>({});
+
+	const buildProfileFormData = () => ({
+		email: user?.email || '',
+		phone: user?.phone || '',
+		bio: user?.bio || '',
+		nickName: user?.nickName || '',
+		shareContactWithClassmates: Boolean(user?.shareContactWithClassmates),
+	});
+
+	const syncProfileFormState = () => {
+		const nextData = buildProfileFormData();
+		setFormData(nextData);
+		setInitialFormData(nextData);
+		setDraftValues({
+			email: nextData.email,
+			phone: nextData.phone,
+			bio: nextData.bio,
+			nickName: nextData.nickName,
+		});
+		setEditingFields({
+			email: !nextData.email,
+			phone: !nextData.phone,
+			bio: !nextData.bio,
+			nickName: !nextData.nickName,
+		});
+		setErrors({});
+	};
+
+	// Initialize form data when modal opens
+	const handleOpenModal = () => {
+		syncProfileFormState();
+		openModal();
+	};
+
+	useEffect(() => {
+		if (!isOpen) return;
+		syncProfileFormState();
+	}, [isOpen, user]);
+
+	// Handle form input changes
+	const handleInputChange = (field: string, value: string | boolean) => {
+		setFormData((prev) => ({
+			...prev,
+			[field]: value,
+		}));
+		if (errors[field as keyof typeof errors]) {
+			setErrors((prev) => ({
+				...prev,
+				[field]: undefined,
+			}));
+		}
+	};
+
+	const handleDraftChange = (
+		field: 'email' | 'phone' | 'bio' | 'nickName',
+		value: string,
+	) => {
+		const nextValue = field === 'phone' ? value.replace(/\D+/g, '') : value;
+		setDraftValues((prev) => ({
+			...prev,
+			[field]: nextValue,
+		}));
+		if (errors[field as keyof typeof errors]) {
+			setErrors((prev) => ({
+				...prev,
+				[field]: undefined,
+			}));
+		}
+	};
+
+	const startEditing = (field: 'email' | 'phone' | 'bio' | 'nickName') => {
+		setEditingFields((prev) => ({ ...prev, [field]: true }));
+		setDraftValues((prev) => ({
+			...prev,
+			[field]: String(formData[field] || ''),
+		}));
+		if (errors[field as keyof typeof errors]) {
+			setErrors((prev) => ({ ...prev, [field]: undefined }));
+		}
+		if (typeof window !== 'undefined') {
+			setTimeout(() => {
+				const input = document.getElementById(
+					`edit-${field}`,
+				) as HTMLInputElement | null;
+				input?.focus();
+			}, 0);
+		}
+	};
+
+	const validateField = (
+		field: 'email' | 'phone' | 'bio' | 'nickName',
+		value: string,
+	) => {
+		if (field === 'email') {
+			if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+				return 'Invalid email format';
+			}
+		}
+		if (field === 'phone') {
+			if (value && (!/^\d+$/.test(value) || value.length < 10)) {
+				return 'Invalid phone format';
+			}
+		}
+		return undefined;
+	};
+
+	const commitField = (field: 'email' | 'phone' | 'bio' | 'nickName') => {
+		const rawValue = draftValues[field] ?? '';
+		const noWhitespace = rawValue.replace(/\s+/g, '');
+		if (!noWhitespace) {
+			setDraftValues((prev) => ({ ...prev, [field]: formData[field] }));
+			setEditingFields((prev) => ({
+				...prev,
+				[field]: !formData[field],
+			}));
+			if (errors[field as keyof typeof errors]) {
+				setErrors((prev) => ({ ...prev, [field]: undefined }));
+			}
+			return;
+		}
+
+		let nextValue = rawValue.trim();
+		if (field === 'email') {
+			nextValue = rawValue.replace(/\s+/g, '');
+		}
+		if (field === 'phone') {
+			nextValue = rawValue.replace(/\D+/g, '');
+		}
+
+		setFormData((prev) => ({ ...prev, [field]: nextValue }));
+		setDraftValues((prev) => ({ ...prev, [field]: nextValue }));
+		const errorMessage = validateField(field, nextValue);
+		setErrors((prev) => ({
+			...prev,
+			[field]: errorMessage,
+		}));
+		setEditingFields((prev) => ({ ...prev, [field]: false }));
+	};
+
+	const applyPendingEdits = () => {
+		const nextFormData = { ...formData };
+		const nextDraftValues = { ...draftValues };
+		const nextErrors: any = { ...errors };
+		const nextEditingFields = { ...editingFields };
+
+		(['email', 'phone', 'bio', 'nickName'] as const).forEach((field) => {
+			if (!nextEditingFields[field]) return;
+
+			const rawValue = String(nextDraftValues[field] ?? '');
+			const noWhitespace = rawValue.replace(/\s+/g, '');
+
+			if (!noWhitespace) {
+				nextDraftValues[field] = String(nextFormData[field] || '');
+				nextEditingFields[field] = !nextFormData[field];
+				nextErrors[field] = undefined;
+				return;
+			}
+
+			let normalized = rawValue.trim();
+			if (field === 'email') normalized = rawValue.replace(/\s+/g, '');
+			if (field === 'phone') normalized = rawValue.replace(/\D+/g, '');
+
+			nextFormData[field] = normalized;
+			nextDraftValues[field] = normalized;
+			nextErrors[field] = validateField(field, normalized);
+			nextEditingFields[field] = false;
+		});
+
+		setFormData(nextFormData);
+		setDraftValues(nextDraftValues);
+		setErrors(nextErrors);
+		setEditingFields(nextEditingFields);
+
+		return nextFormData;
+	};
+
+	// Validate form data (only changed fields)
+	const validateForm = (payload: Record<string, any>) => {
+		const newErrors: any = {};
+
+		(['email', 'phone'] as const).forEach((field) => {
+			if (payload[field]) {
+				const errorMessage = validateField(field, payload[field]);
+				if (errorMessage) {
+					newErrors[field] = errorMessage;
+				}
+			}
+		});
+
+		setErrors(newErrors);
+		return Object.keys(newErrors).length === 0;
+	};
+
+	// Implement the save functionality here
+	const handleSave = async () => {
+		const committedFormData = applyPendingEdits() || formData;
+		const updatePayload: Record<string, any> = {};
+		(
+			Object.keys(committedFormData) as Array<keyof typeof committedFormData>
+		).forEach((key) => {
+			if (committedFormData[key] !== initialFormData[key]) {
+				updatePayload[key] = committedFormData[key];
+			}
+		});
+
+		if (Object.keys(updatePayload).length === 0) {
+			closeModal();
+			return;
+		}
+
+		if (!validateForm(updatePayload)) {
+			return;
+		}
+
+		if (typeof navigator !== 'undefined' && !navigator.onLine) {
+			toast.error(OFFLINE_ERROR_MESSAGE);
+			setErrors({ general: OFFLINE_ERROR_MESSAGE });
+			return;
+		}
+
+		const isConnected = await refreshConnectivity({
+			force: true,
+			timeoutMs: 2600,
+			reason: 'profile-save',
+		});
+		if (!isConnected) {
+			toast.error(OFFLINE_ERROR_MESSAGE);
+			setErrors({ general: OFFLINE_ERROR_MESSAGE });
+			return;
+		}
+
+		setIsLoading(true);
+		try {
+			// API call to update user profile (no ID needed for self-update)
+			const response = await fetch(`/api/users`, {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				credentials: 'include',
+				body: JSON.stringify(updatePayload),
+			});
+
+			const result = await response.json();
+
+			if (!response.ok) {
+				const message = result.message || 'Failed to update profile';
+				throw new Error(message);
+			}
+
+			// Update user in the auth store with data from API response
+			if (result.data && result.data.user) {
+				setUser(result.data.user);
+			}
+
+			toast.success(result.message || 'Profile updated successfully');
+			closeModal();
+		} catch (error) {
+			console.error('Error updating profile:', error);
+			if (error instanceof Error) {
+				toast.error(error.message);
+			}
+			// Set error state to show user-friendly error message
+			setErrors({
+				general:
+					error instanceof Error
+						? error.message
+						: 'Failed to update profile. Please try again.',
+			});
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	if (!user) {
+		return <Spinner />;
+	}
+
+	return (
+		<div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
+			<div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+				<div className="w-full">
+					<h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-6">
+						User Information
+					</h4>
+
+					{/* Personal Information */}
+					<div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
+						<InfoField label="First Name" value={user.firstName} />
+						<InfoField label="Last Name" value={user.lastName} />
+						<InfoField label="Email address" value={user.email} />
+						<InfoField label="Phone" value={user.phone} />
+						<div className="lg:col-span-2">
+							<InfoField label="Bio" value={user.bio} />
+						</div>
+					</div>
+
+					{/* Role-Specific Information */}
+					<div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+						{user.role === 'student' && (
+							<>
+								<h5 className="text-md font-semibold text-gray-800 dark:text-white/90 mb-4">
+									Academic Details
+								</h5>
+								<div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
+									<InfoField label="Student ID" value={user.studentId} />
+									<InfoField label="Session" value={user.session} />
+									<InfoField label="Class Level" value={user.classLevel} />
+									<InfoField label="Class Name" value={user.className} />
+								</div>
+							</>
+						)}
+
+						{user.role === 'teacher' && (
+							<>
+								<h5 className="text-md font-semibold text-gray-800 dark:text-white/90 mb-4">
+									Teaching Details
+								</h5>
+								<div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
+									<InfoField label="Username" value={user.username} />
+									<InfoField
+										label="Sponsor Class"
+										value={user.sponsorClass?.name || 'None'}
+									/>
+									<div className="lg:col-span-2">
+										<p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+											Subjects
+										</p>
+										<div className="flex flex-wrap gap-2">
+											{user.subjects?.map((s: any, i: number) => (
+												<span
+													key={i}
+													className="text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 px-2.5 py-1 rounded-full"
+												>
+													{s.subject} ({s.level}, {s.session})
+												</span>
+											))}
+										</div>
+									</div>
+								</div>
+							</>
+						)}
+
+						{user.role === 'administrator' && (
+							<>
+								<h5 className="text-md font-semibold text-gray-800 dark:text-white/90 mb-4">
+									Administrative Details
+								</h5>
+								<div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
+									<InfoField label="Admin ID" value={user.adminId} />
+									<InfoField label="Position" value={user.position} />
+								</div>
+							</>
+						)}
+					</div>
+				</div>
+
+				<button
+					onClick={handleOpenModal}
+					className="flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200 lg:inline-flex lg:w-auto flex-shrink-0"
+				>
+					<svg
+						className="fill-current"
+						width="18"
+						height="18"
+						viewBox="0 0 18 18"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<path
+							fillRule="evenodd"
+							clipRule="evenodd"
+							d="M15.0911 2.78206C14.2125 1.90338 12.7878 1.90338 11.9092 2.78206L4.57524 10.116C4.26682 10.4244 4.0547 10.8158 3.96468 11.2426L3.31231 14.3352C3.25997 14.5833 3.33653 14.841 3.51583 15.0203C3.69512 15.1996 3.95286 15.2761 4.20096 15.2238L7.29355 14.5714C7.72031 14.4814 8.11172 14.2693 8.42013 13.9609L15.7541 6.62695C16.6327 5.74827 16.6327 4.32365 15.7541 3.44497L15.0911 2.78206ZM12.9698 3.84272C13.2627 3.54982 13.7376 3.54982 14.0305 3.84272L14.6934 4.50563C14.9863 4.79852 14.9863 5.2734 14.6934 5.56629L14.044 6.21573L12.3204 4.49215L12.9698 3.84272ZM11.2597 5.55281L5.6359 11.1766C5.53309 11.2794 5.46238 11.4099 5.43238 11.5522L5.01758 13.5185L6.98394 13.1037C7.1262 13.0737 7.25666 13.003 7.35947 12.9002L12.9833 7.27639L11.2597 5.55281Z"
+							fill=""
+						/>
+					</svg>
+					Edit
+				</button>
+			</div>
+
+			<Modal
+				isOpen={isOpen}
+				onClose={closeModal}
+				className="max-w-[700px] m-4"
+				overlayClassName="bg-black/60 backdrop-blur-sm"
+			>
+				<div className="relative w-full max-w-[700px] rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
+					<div className="px-2 pr-14">
+						<h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
+							Edit Personal Information
+						</h4>
+						<p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
+							Update your details to keep your profile up-to-date.
+						</p>
+					</div>
+					<form className="flex flex-col" onSubmit={(e) => e.preventDefault()}>
+						<div className="px-2 pb-3">
+							{/* Display general error if any */}
+							{errors.general && (
+								<div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+									<p className="text-sm text-red-600">{errors.general}</p>
+								</div>
+							)}
+
+							<div className="mt-7">
+								<h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
+									Personal Information
+								</h5>
+								<div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
+									<div className="col-span-2 lg:col-span-1">
+										<Label>First Name</Label>
+										<Input
+											type="text"
+											value={user?.firstName || ''}
+											readOnly
+											disabled
+											placeholder={user?.firstName || 'Not provided'}
+											className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400"
+										/>
+										<p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+											This field cannot be modified
+										</p>
+									</div>
+									<div className="col-span-2 lg:col-span-1">
+										<Label>Middle Name</Label>
+										<Input
+											type="text"
+											value={user?.middleName || ''}
+											readOnly
+											disabled
+											placeholder={user?.middleName || 'Not provided'}
+											className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400"
+										/>
+										<p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+											This field cannot be modified
+										</p>
+									</div>
+									<div className="col-span-2 lg:col-span-1">
+										<Label>Last Name</Label>
+										<Input
+											type="text"
+											value={user?.lastName || ''}
+											readOnly
+											disabled
+											placeholder={user?.lastName || 'Not provided'}
+											className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400"
+										/>
+										<p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+											This field cannot be modified
+										</p>
+									</div>
+									<div className="col-span-2 lg:col-span-1">
+										<div className="flex items-center justify-between">
+											<Label>Email Address</Label>
+											{formData.email && !editingFields.email && (
+												<button
+													type="button"
+													onClick={() => startEditing('email')}
+													className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+													aria-label="Edit email"
+												>
+													<Pencil className="h-4 w-4" />
+												</button>
+											)}
+										</div>
+										<Input
+											id="edit-email"
+											type="email"
+											value={
+												editingFields.email ? draftValues.email : formData.email
+											}
+											onChange={(e) =>
+												handleDraftChange('email', e.target.value)
+											}
+											onBlur={() => editingFields.email && commitField('email')}
+											readOnly={!editingFields.email}
+											className={`${!editingFields.email ? 'bg-gray-50 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300' : ''} ${
+												errors.email ? 'border-red-500' : ''
+											}`}
+										/>
+										{errors.email && (
+											<p className="mt-1 text-xs text-red-500">
+												{errors.email}
+											</p>
+										)}
+									</div>
+									<div className="col-span-2 lg:col-span-1">
+										<div className="flex items-center justify-between">
+											<Label>Phone</Label>
+											{formData.phone && !editingFields.phone && (
+												<button
+													type="button"
+													onClick={() => startEditing('phone')}
+													className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+													aria-label="Edit phone"
+												>
+													<Pencil className="h-4 w-4" />
+												</button>
+											)}
+										</div>
+										<Input
+											id="edit-phone"
+											type="text"
+											inputMode="numeric"
+											pattern="[0-9]*"
+											value={
+												editingFields.phone ? draftValues.phone : formData.phone
+											}
+											onChange={(e) =>
+												handleDraftChange('phone', e.target.value)
+											}
+											onBlur={() => editingFields.phone && commitField('phone')}
+											readOnly={!editingFields.phone}
+											className={`${!editingFields.phone ? 'bg-gray-50 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300' : ''} ${
+												errors.phone ? 'border-red-500' : ''
+											}`}
+										/>
+										{errors.phone && (
+											<p className="mt-1 text-xs text-red-500">
+												{errors.phone}
+											</p>
+										)}
+									</div>
+									<div className="col-span-2 lg:col-span-1">
+										<div className="flex items-center justify-between">
+											<Label>Nickname</Label>
+											{formData.nickName && !editingFields.nickName && (
+												<button
+													type="button"
+													onClick={() => startEditing('nickName')}
+													className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+													aria-label="Edit nickname"
+												>
+													<Pencil className="h-4 w-4" />
+												</button>
+											)}
+										</div>
+										<Input
+											id="edit-nickName"
+											type="text"
+											value={
+												editingFields.nickName
+													? draftValues.nickName
+													: formData.nickName
+											}
+											onChange={(e) =>
+												handleDraftChange('nickName', e.target.value)
+											}
+											onBlur={() =>
+												editingFields.nickName && commitField('nickName')
+											}
+											readOnly={!editingFields.nickName}
+											className={
+												!editingFields.nickName
+													? 'bg-gray-50 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300'
+													: ''
+											}
+										/>
+										{errors.nickName && (
+											<p className="mt-1 text-xs text-red-500">
+												{errors.nickName}
+											</p>
+										)}
+									</div>
+									{user?.role === 'student' && (
+										<div className="col-span-2 flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-800 px-4 py-3">
+											<div>
+												<p className="text-sm font-medium text-gray-800 dark:text-white/90">
+													Share phone with classmates
+												</p>
+												<p className="text-xs text-gray-500 dark:text-gray-400">
+													Allow classmates to see your phone number in the
+													community list.
+												</p>
+											</div>
+											<Switch
+												checked={formData.shareContactWithClassmates}
+												onChange={(checked) =>
+													handleInputChange(
+														'shareContactWithClassmates',
+														checked,
+													)
+												}
+											/>
+										</div>
+									)}
+									<div className="col-span-2">
+										<div className="flex items-center justify-between">
+											<Label>Bio</Label>
+											{formData.bio && !editingFields.bio && (
+												<button
+													type="button"
+													onClick={() => startEditing('bio')}
+													className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+													aria-label="Edit bio"
+												>
+													<Pencil className="h-4 w-4" />
+												</button>
+											)}
+										</div>
+										<Input
+											id="edit-bio"
+											type="text"
+											value={editingFields.bio ? draftValues.bio : formData.bio}
+											onChange={(e) => handleDraftChange('bio', e.target.value)}
+											onBlur={() => editingFields.bio && commitField('bio')}
+											readOnly={!editingFields.bio}
+											className={
+												!editingFields.bio
+													? 'bg-gray-50 text-gray-700 dark:bg-gray-800/50 dark:text-gray-300'
+													: ''
+											}
+										/>
+										{errors.bio && (
+											<p className="mt-1 text-xs text-red-500">{errors.bio}</p>
+										)}
+									</div>
+								</div>
+							</div>
+						</div>
+						<div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
+							<Button
+								size="sm"
+								variant="outline"
+								onClick={closeModal}
+								disabled={isLoading}
+							>
+								Close
+							</Button>
+							<Button size="sm" onClick={handleSave} disabled={isLoading}>
+								{isLoading ? (
+									<span className="inline-flex items-center">
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										Saving...
+									</span>
+								) : (
+									'Save Changes'
+								)}
+							</Button>
+						</div>
+					</form>
+				</div>
+			</Modal>
+		</div>
+	);
+}

@@ -1,0 +1,553 @@
+// app/api/settings/route.ts
+
+import { NextRequest, NextResponse } from 'next/server';
+import { Document } from 'mongoose';
+import {
+	SchoolSettings,
+	SchoolProfile as SchoolProfileType,
+} from '@/types/schoolProfile';
+import SchoolProfileSchema from '@/models/profile/SchoolProfile';
+import { getTenantModels } from '@/models';
+import {
+	connectToTenantsDb,
+	setSchoolProfileMemoryCache,
+} from '@/lib/mongoose';
+import { destroyAllUserSessions } from '@/utils/session';
+import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
+import bcrypt from 'bcryptjs';
+import { redis } from '@/lib/redis';
+import {
+	publishPublicSyncEventSafe,
+	publishSyncEventsForAcademicYearsSafe,
+	publishSyncEventSafe,
+	resolveTenantSyncKey,
+} from '@/lib/realtimeSync';
+
+// --- Adjust these import paths to match your project structure ---
+import { authorizeUser } from '@/proxy';
+import { normalizeHost } from '@/utils/host';
+import { TENANT_THEMES } from '@/lib/tenantTheme';
+// -----------------------------------------------------------------
+
+/**
+ * Helper to process arrays concurrently.
+ */
+async function runWithConcurrency<T>(
+	items: T[],
+	worker: (item: T) => Promise<void>,
+	concurrency = 8,
+) {
+	if (!Array.isArray(items) || items.length === 0) return;
+	const maxConcurrency = Math.max(1, Math.min(concurrency, items.length));
+	let cursor = 0;
+
+	const runners = Array.from({ length: maxConcurrency }, async () => {
+		while (cursor < items.length) {
+			const index = cursor++;
+			await worker(items[index]);
+		}
+	});
+
+	await Promise.all(runners);
+}
+
+/**
+ * Handles updating school settings and performing bulk user actions.
+ */
+export async function POST(request: NextRequest) {
+	try {
+		const currentUser = await authorizeUser(request, 'system_admin');
+		if (!currentUser) {
+			return NextResponse.json(
+				{ success: false, message: 'Unauthorized' },
+				{ status: 401 },
+			);
+		}
+
+		const host = request.headers.get('host');
+		if (!host) {
+			return NextResponse.json(
+				{ success: false, message: 'Host header is missing.' },
+				{ status: 400 },
+			);
+		}
+		const cleanHost = normalizeHost(host);
+		if (!cleanHost) {
+			return NextResponse.json(
+				{ success: false, message: 'Unable to resolve tenant host.' },
+				{ status: 400 },
+			);
+		}
+
+		const { Student, Teacher, Administrator } = await getTenantModels();
+		const tenantsConnection = await connectToTenantsDb();
+		const SchoolProfile =
+			tenantsConnection.models.Profile ||
+			tenantsConnection.model<SchoolProfileType & Document>(
+				'Profile',
+				SchoolProfileSchema,
+			);
+
+		// Fetch current settings BEFORE updating
+		const currentSchool: any = await SchoolProfile.findOne({
+			host: cleanHost,
+		}).lean();
+
+		if (!currentSchool) {
+			return NextResponse.json(
+				{ success: false, message: 'School profile not found.' },
+				{ status: 404 },
+			);
+		}
+
+		const tenantKey = resolveTenantSyncKey({
+			schoolProfile: currentSchool,
+			tenantId: currentUser.tenantId,
+			host: cleanHost,
+		});
+
+		const oldSettings = currentSchool?.settings;
+
+		const body = await request.json();
+		const {
+			currentAcademicYear,
+			studentSettings,
+			teacherSettings,
+			administratorSettings,
+			reportCardThemes,
+			themeName,
+			bulkUserActions,
+			bulkPasswordResets,
+		} = body;
+
+		// Build update object
+		const updateObject: any = {};
+
+		// 1. Update Current Academic Year
+		if (currentAcademicYear) {
+			updateObject.currentAcademicYear = currentAcademicYear;
+		}
+
+		// 2. Update School Settings (including reportCardThemes)
+		const hasSettingsPatch =
+			studentSettings !== undefined ||
+			teacherSettings !== undefined ||
+			administratorSettings !== undefined ||
+			reportCardThemes !== undefined;
+
+		if (hasSettingsPatch) {
+			const existingSettings = currentSchool?.settings || {};
+			updateObject.settings = {
+				...existingSettings,
+				...(studentSettings !== undefined ? { studentSettings } : {}),
+				...(teacherSettings !== undefined ? { teacherSettings } : {}),
+				...(administratorSettings !== undefined
+					? { administratorSettings }
+					: {}),
+				...(reportCardThemes !== undefined ? { reportCardThemes } : {}),
+			} as SchoolSettings;
+		}
+
+		// 3. Update Tenant Theme Name (separate from reportCardThemes)
+		if (themeName !== undefined) {
+			if (typeof themeName !== 'string') {
+				return NextResponse.json(
+					{
+						success: false,
+						message: `Invalid themeName. Expected one of: ${TENANT_THEMES.join(', ')}.`,
+					},
+					{ status: 400 },
+				);
+			}
+			updateObject.themeName = themeName;
+		}
+
+		// Apply update to DB
+		const updatedSchoolProfile = await SchoolProfile.findOneAndUpdate(
+			{ host: cleanHost },
+			{ $set: updateObject },
+			{ new: true },
+		).lean();
+
+		if (!updatedSchoolProfile) {
+			return NextResponse.json(
+				{ success: false, message: 'Failed to update school profile.' },
+				{ status: 500 },
+			);
+		}
+
+		// Update long-lived cache
+		const cacheKey = `school_profile:${cleanHost}`;
+		await redis.set(cacheKey, JSON.stringify(updatedSchoolProfile), {
+			ex: 60 * 60 * 24 * 30, // 30 days
+		});
+		setSchoolProfileMemoryCache(cleanHost, updatedSchoolProfile);
+
+		// Update short-lived settings cache
+		const quickCacheKey = `school_settings:${cleanHost}`;
+		await redis.set(
+			quickCacheKey,
+			JSON.stringify({
+				currentAcademicYear: updatedSchoolProfile.currentAcademicYear,
+				settings: updatedSchoolProfile.settings,
+				themeName: updatedSchoolProfile.themeName,
+			}),
+			{ ex: 60 * 5 }, // 5 minutes
+		);
+
+		// Destroy sessions for roles whose login access was just revoked
+		if (oldSettings) {
+			const sessionDestructionPromises: Promise<void>[] = [];
+
+			if (
+				oldSettings.studentSettings?.loginAccess === true &&
+				studentSettings?.loginAccess === false
+			) {
+				const studentsToLogout = await Student.find({ role: 'student' })
+					.select('_id')
+					.lean();
+				studentsToLogout.forEach((student: any) =>
+					sessionDestructionPromises.push(
+						destroyAllUserSessions(student._id.toString()),
+					),
+				);
+			}
+
+			if (
+				oldSettings.teacherSettings?.loginAccess === true &&
+				teacherSettings?.loginAccess === false
+			) {
+				const teachersToLogout = await Teacher.find({ role: 'teacher' })
+					.select('_id')
+					.lean();
+				teachersToLogout.forEach((teacher: any) =>
+					sessionDestructionPromises.push(
+						destroyAllUserSessions(teacher._id.toString()),
+					),
+				);
+			}
+
+			if (
+				oldSettings.administratorSettings?.loginAccess === true &&
+				administratorSettings?.loginAccess === false
+			) {
+				const adminsToLogout = await Administrator.find({
+					role: 'administrator',
+				})
+					.select('_id')
+					.lean();
+				adminsToLogout.forEach((admin: any) =>
+					sessionDestructionPromises.push(
+						destroyAllUserSessions(admin._id.toString()),
+					),
+				);
+			}
+
+			await Promise.all(sessionDestructionPromises);
+		}
+
+		// Perform Bulk User Actions
+		if (bulkUserActions && Object.keys(bulkUserActions).length > 0) {
+			const affectedYearsSet = new Set<string>();
+			const collectAffectedYears = (users: any[]) => {
+				users.forEach((user: any) => {
+					extractAcademicYears(user).forEach((year) => {
+						if (year) affectedYearsSet.add(year);
+					});
+				});
+			};
+
+			const processBulkAction = async (
+				role: string,
+				Model: any,
+				action: 'activate' | 'deactivate',
+			) => {
+				const isActive = action === 'activate';
+				const usersToUpdate = await Model.find({
+					role,
+					isActive: { $ne: isActive },
+				})
+					.select('_id role studentId classId academicYears subjects')
+					.lean();
+				if (usersToUpdate.length === 0) return;
+
+				const targetIds = usersToUpdate.map((user: any) => user._id);
+				await Model.updateMany(
+					{ _id: { $in: targetIds } },
+					{ $set: { isActive } },
+				);
+				collectAffectedYears(usersToUpdate);
+
+				if (!isActive) {
+					await runWithConcurrency(
+						usersToUpdate,
+						async (user: any) => destroyAllUserSessions(user._id.toString()),
+						25,
+					);
+				}
+			};
+
+			const processBulkPasswordReset = async (
+				role: string,
+				Model: any,
+				commonPassword?: string,
+			) => {
+				const usersToUpdate = await Model.find({ role })
+					.select('_id username role studentId classId academicYears subjects')
+					.lean();
+				if (usersToUpdate.length === 0) return;
+				collectAffectedYears(usersToUpdate);
+
+				const trimmedCommon =
+					typeof commonPassword === 'string' ? commonPassword.trim() : '';
+
+				if (trimmedCommon) {
+					const hashedPassword = await bcrypt.hash(trimmedCommon, 12);
+					await Model.updateMany(
+						{ role },
+						{
+							$set: {
+								password: hashedPassword,
+								defaultPassword: trimmedCommon,
+								mustChangePassword: true,
+								updatedAt: new Date(),
+							},
+						},
+					);
+				} else {
+					const bulkUpdates: any[] = [];
+					await runWithConcurrency(
+						usersToUpdate,
+						async (user: any) => {
+							const defaultPassword = String(user.username || '');
+							const hashedPassword = await bcrypt.hash(defaultPassword, 12);
+							bulkUpdates.push({
+								updateOne: {
+									filter: { _id: user._id },
+									update: {
+										$set: {
+											password: hashedPassword,
+											defaultPassword,
+											mustChangePassword: true,
+											updatedAt: new Date(),
+										},
+									},
+								},
+							});
+						},
+						8,
+					);
+
+					if (bulkUpdates.length > 0) {
+						await Model.bulkWrite(bulkUpdates, { ordered: false });
+					}
+				}
+
+				await runWithConcurrency(
+					usersToUpdate,
+					async (user: any) => destroyAllUserSessions(user._id.toString()),
+					25,
+				);
+			};
+
+			const actionsToRun = [];
+			if (bulkUserActions['all-students']) {
+				if (bulkUserActions['all-students'] === 'reset') {
+					actionsToRun.push(
+						processBulkPasswordReset(
+							'student',
+							Student,
+							bulkPasswordResets?.['all-students'],
+						),
+					);
+				} else {
+					actionsToRun.push(
+						processBulkAction(
+							'student',
+							Student,
+							bulkUserActions['all-students'],
+						),
+					);
+				}
+			}
+			if (bulkUserActions['all-teachers']) {
+				if (bulkUserActions['all-teachers'] === 'reset') {
+					actionsToRun.push(
+						processBulkPasswordReset(
+							'teacher',
+							Teacher,
+							bulkPasswordResets?.['all-teachers'],
+						),
+					);
+				} else {
+					actionsToRun.push(
+						processBulkAction(
+							'teacher',
+							Teacher,
+							bulkUserActions['all-teachers'],
+						),
+					);
+				}
+			}
+			if (bulkUserActions['all-administrators']) {
+				if (bulkUserActions['all-administrators'] === 'reset') {
+					actionsToRun.push(
+						processBulkPasswordReset(
+							'administrator',
+							Administrator,
+							bulkPasswordResets?.['all-administrators'],
+						),
+					);
+				} else {
+					actionsToRun.push(
+						processBulkAction(
+							'administrator',
+							Administrator,
+							bulkUserActions['all-administrators'],
+						),
+					);
+				}
+			}
+
+			await Promise.all(actionsToRun);
+
+			if (affectedYearsSet.size > 0) {
+				await bumpUsersVersion(Array.from(affectedYearsSet));
+				await publishSyncEventsForAcademicYearsSafe({
+					tenantKey,
+					domain: 'users',
+					academicYears: Array.from(affectedYearsSet),
+					actorId: currentUser.id,
+					reason: 'bulk-user-action',
+				});
+			}
+		}
+
+		await publishSyncEventSafe({
+			tenantKey,
+			domain: 'school',
+			academicYear: String(updatedSchoolProfile.currentAcademicYear || ''),
+			actorId: currentUser.id,
+			reason: 'school-settings-updated',
+		});
+		await publishPublicSyncEventSafe({
+			tenantKey,
+			domain: 'school',
+			academicYear: String(updatedSchoolProfile.currentAcademicYear || ''),
+			actorId: currentUser.id,
+			reason: 'school-settings-updated',
+		});
+
+		return NextResponse.json({
+			success: true,
+			message: 'Settings and user actions applied successfully.',
+			data: {
+				currentAcademicYear: updatedSchoolProfile.currentAcademicYear,
+				settings: updatedSchoolProfile.settings,
+				themeName: updatedSchoolProfile.themeName,
+			},
+		});
+	} catch (error) {
+		console.error('Failed to update school settings:', error);
+		const errorMessage =
+			error instanceof Error ? error.message : 'An unknown error occurred';
+		return NextResponse.json(
+			{
+				success: false,
+				message: 'Failed to update school settings.',
+				error: errorMessage,
+			},
+			{ status: 500 },
+		);
+	}
+}
+
+/**
+ * GET endpoint to fetch current school settings.
+ */
+export async function GET(request: NextRequest) {
+	try {
+		const currentUser = await authorizeUser(request, 'system_admin');
+		if (!currentUser) {
+			return NextResponse.json(
+				{ success: false, message: 'Unauthorized' },
+				{ status: 401 },
+			);
+		}
+
+		const host = request.headers.get('host');
+		if (!host) {
+			return NextResponse.json(
+				{ success: false, message: 'Host header is missing.' },
+				{ status: 400 },
+			);
+		}
+		const cleanHost = normalizeHost(host);
+		if (!cleanHost) {
+			return NextResponse.json(
+				{ success: false, message: 'Unable to resolve tenant host.' },
+				{ status: 400 },
+			);
+		}
+
+		// Try cache first
+		const quickCacheKey = `school_settings:${cleanHost}`;
+		const cachedData = await redis.get(quickCacheKey);
+		if (cachedData) {
+			return NextResponse.json({
+				success: true,
+				data: JSON.parse(cachedData as string),
+				source: 'cache',
+			});
+		}
+
+		// Fall back to DB
+		const tenantsConnection = await connectToTenantsDb();
+		const SchoolProfile =
+			tenantsConnection.models.Profile ||
+			tenantsConnection.model<SchoolProfileType & Document>(
+				'Profile',
+				SchoolProfileSchema,
+			);
+
+		const school = await SchoolProfile.findOne({ host: cleanHost })
+			.select('currentAcademicYear settings themeName')
+			.lean();
+
+		if (!school) {
+			return NextResponse.json(
+				{ success: false, message: 'School profile not found.' },
+				{ status: 404 },
+			);
+		}
+
+		const responseData = {
+			currentAcademicYear: school.currentAcademicYear,
+			settings: school.settings,
+			themeName: school.themeName,
+		};
+
+		// Refresh cache
+		await redis.set(quickCacheKey, JSON.stringify(responseData), {
+			ex: 60 * 5,
+		});
+
+		return NextResponse.json({
+			success: true,
+			data: responseData,
+			source: 'database',
+		});
+	} catch (error) {
+		console.error('Failed to fetch school settings:', error);
+		const errorMessage =
+			error instanceof Error ? error.message : 'An unknown error occurred';
+		return NextResponse.json(
+			{
+				success: false,
+				message: 'Failed to fetch school settings.',
+				error: errorMessage,
+			},
+			{ status: 500 },
+		);
+	}
+}

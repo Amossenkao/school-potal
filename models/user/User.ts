@@ -1,0 +1,74 @@
+import { Schema, Document } from 'mongoose';
+import { User, Notification, AIChatMessage, AIChatSession } from '@/types';
+import { UserRoles } from '../constants';
+
+const NotificationSchema = new Schema<Notification & Document>({
+	title: { type: String, required: true },
+	message: { type: String, required: true },
+	details: String,
+	timestamp: { type: Date, default: Date.now },
+	read: { type: Boolean, default: false },
+	dismissed: { type: Boolean, default: false },
+	type: {
+		type: String,
+		enum: ['Grades', 'Security', 'Profile', 'Others'],
+		required: true,
+	},
+});
+
+const ChatSchema = new Schema<AIChatMessage & Document>({
+	sender: { type: String, enum: ['user', 'assistant'], required: true },
+	content: { type: String, required: true },
+	timestamp: { type: Date, required: true, default: Date.now },
+});
+
+const ChatSessionSchema = new Schema<AIChatSession & Document>({
+	id: { type: String, required: true },
+	title: { type: String, required: true, default: 'New conversation' },
+	createdAt: { type: Date, required: true, default: Date.now },
+	messages: { type: [ChatSchema], required: true, default: [] },
+});
+
+const UserSchema = new Schema<User & Document>(
+	{
+		role: { type: String, enum: UserRoles, required: true },
+		firstName: { type: String, required: true },
+		middleName: String,
+		lastName: { type: String, required: true },
+		fullName: { type: String, required: true },
+		username: { type: String, required: true, unique: true },
+		password: { type: String },
+		nickName: String,
+		gender: { type: String, required: true },
+		dateOfBirth: { type: String, required: true },
+		isActive: { type: Boolean, default: true },
+		defaultPassword: String,
+		mustChangePassword: { type: Boolean, default: false },
+		passwordChangedAt: { type: Date, default: null },
+		phone: { type: String, required: true, unique: true },
+		email: { type: String, unique: true, sparse: true },
+		address: { type: String, required: true },
+		bio: String,
+		avatar: String,
+		profilePictureUrl: String, // Added to align with User interface
+		notifications: { type: [NotificationSchema], required: true, default: [] },
+		chats: [ChatSchema],
+		chatSessions: { type: [ChatSessionSchema], required: true, default: [] },
+	},
+	{
+		discriminatorKey: 'role',
+	},
+);
+
+UserSchema.index({ role: 1 });
+UserSchema.index({ role: 1, classId: 1 });
+UserSchema.index({ role: 1, 'academicYears.year': 1 });
+UserSchema.index({
+	role: 1,
+	'academicYears.year': 1,
+	'academicYears.classId': 1,
+});
+UserSchema.index({ role: 1, 'subjects.year': 1 });
+UserSchema.index({ role: 1, 'subjects.classes.classId': 1 });
+
+export default UserSchema;

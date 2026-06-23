@@ -1,0 +1,24 @@
+import { Schema } from 'mongoose';
+
+const ReportShareSchema = new Schema(
+	{
+		token: { type: String, required: true, unique: true, index: true },
+		cacheKey: { type: String, required: true },
+		pdfData: { type: Buffer },
+		pdfSize: { type: Number },
+		contentType: { type: String, default: 'application/pdf' },
+		pinHash: { type: String, required: true },
+		fileName: { type: String, required: true },
+		reportType: { type: String, required: true },
+		createdBy: { type: String },
+		linkValidity: {
+			type: String,
+			enum: ['1d', '2d', '3d', '1w', '1m'],
+			default: '1d',
+		},
+		expiresAt: { type: Date, required: true, index: true },
+	},
+	{ timestamps: true },
+);
+
+export default ReportShareSchema;
