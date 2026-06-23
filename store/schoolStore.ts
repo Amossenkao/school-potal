@@ -289,6 +289,9 @@ const upsertUserInRoster = (roster: UsersPayload, user: any) => {
 	};
 };
 
+const gradeSyncInProgress = new Set<string>();
+
+
 export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	school: null,
 	schoolVersion: null,
@@ -303,61 +306,75 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	gradeRequestsVersionByAcademicYear: {},
 	schedulesVersionByAcademicYear: {},
 
-	runBackgroundGradeSync: async (academicYear: string) => {
-		const { school, mergeGradesForYear } = get();
-		const networkStore = useNetworkStore.getState();
+	// Module-level lock — lives outside the store so it persists across calls
 
-		if (!school || !academicYear) return;
+// Inside the store:
+runBackgroundGradeSync: async (academicYear: string) => {
+    const { school, mergeGradesForYear } = get();
+    const networkStore = useNetworkStore.getState();
 
-		// Cursor is now a compound JSON string { lastUpdated, _id }.
-		// Store and restore it as-is — no parsing needed here since the
-		// API accepts it as a raw string via searchParams.
-		const CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
-		let cursor = localStorage.getItem(CURSOR_KEY) || null;
-		let hasMore = true;
-		let isSyncing = true;
+    if (!school || !academicYear) return;
 
-		while (hasMore && isSyncing) {
-			if (!networkStore.isOnline) {
-				console.warn('[Sync] Network dropped. Pausing grade sync.');
-				break;
-			}
+    // Prevent concurrent sync loops for the same year
+    if (gradeSyncInProgress.has(academicYear)) {
+        console.log(`[Sync] Grade sync already in progress for ${academicYear}, skipping.`);
+        return;
+    }
 
-			try {
-				const params = new URLSearchParams({
-					academicYear,
-					limit: '10000',
-				});
-				if (cursor) params.append('cursor', cursor);
+    const CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
+    let cursor = localStorage.getItem(CURSOR_KEY) || null;
 
-				const response = await fetch(`/api/sync/grades?${params.toString()}`);
-				if (!response.ok) throw new Error('Failed to fetch grade chunk');
+    // Nothing to resume — bootstrap already fetched everything
+    if (!cursor) return;
 
-				const result = await response.json();
-				const gradesChunk = result.data;
+    gradeSyncInProgress.add(academicYear);
+    let hasMore = true;
+    let isSyncing = true;
 
-				if (gradesChunk && gradesChunk.length > 0) {
-					mergeGradesForYear(academicYear, gradesChunk);
-				}
+    try {
+        while (hasMore && isSyncing) {
+            if (!networkStore.isOnline) {
+                console.warn('[Sync] Network dropped. Pausing grade sync.');
+                break;
+            }
 
-				if (result.nextCursor) {
-					cursor = result.nextCursor;
-					localStorage.setItem(CURSOR_KEY, cursor);
-				} else {
-					// Sync complete — clear the stored cursor so the next full
-					// sync run starts from the beginning rather than a stale position.
-					hasMore = false;
-					localStorage.removeItem(CURSOR_KEY);
-					console.log('[Sync] Background grade sync complete.');
-				}
-			} catch (error) {
-				console.error('[Sync] Error fetching grade chunk:', error);
-				isSyncing = false;
-				// Cursor is intentionally left in localStorage so the next
-				// invocation can resume from where this one failed.
-			}
-		}
-	},
+            try {
+                const params = new URLSearchParams({
+                    academicYear,
+                    limit: '10000',
+                });
+                if (cursor) params.append('cursor', cursor);
+
+                const response = await fetch(`/api/sync/grades?${params.toString()}`);
+                if (!response.ok) throw new Error('Failed to fetch grade chunk');
+
+                const result = await response.json();
+                const gradesChunk = result.data;
+
+                if (gradesChunk && gradesChunk.length > 0) {
+                    mergeGradesForYear(academicYear, gradesChunk);
+                }
+
+                if (result.nextCursor) {
+                    cursor = result.nextCursor;
+                    localStorage.setItem(CURSOR_KEY, cursor);
+                } else {
+                    hasMore = false;
+                    localStorage.removeItem(CURSOR_KEY);
+                    console.log('[Sync] Background grade sync complete.');
+                }
+            } catch (error) {
+                console.error('[Sync] Error fetching grade chunk:', error);
+                isSyncing = false;
+                // Cursor stays in localStorage so next invocation can resume
+            }
+        }
+    } finally {
+        // Always release the lock, even if the loop throws
+        gradeSyncInProgress.delete(academicYear);
+    }
+},
+
 
 	fetchSchool: async () => {
 		if (!get().school) {

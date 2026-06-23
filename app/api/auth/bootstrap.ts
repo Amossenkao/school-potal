@@ -159,7 +159,7 @@ const getRoleClassFilter = (currentUser: any, academicYear: string) => {
 	return {};
 };
 
-const getRoleGradesQuery = (currentUser: any, academicYear: string) => {
+export const getRoleGradesQuery = (currentUser: any, academicYear: string) => {
 	const academicYearMatch = getAcademicYearMatch(academicYear);
 	if (currentUser?.role === 'student') {
 		const studentId = currentUser.studentId || currentUser.username;
