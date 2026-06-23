@@ -374,6 +374,38 @@ const buildReportsFromGradeRows = ({
 			typeof gradeRow?.studentName === 'string' ? gradeRow.studentName : '';
 		const report = ensureStudentReport(studentId, studentName);
 		ensureSubject(report, subject);
+<<<<<<< HEAD
+=======
+		if (gradeRow?.ranks && typeof gradeRow.ranks === 'object') {
+			Object.entries(gradeRow.ranks).forEach(([rankKey, rankValue]) => {
+				if (!Object.prototype.hasOwnProperty.call(report.ranks, rankKey))
+					return;
+				const parsedRank = Number(rankValue);
+				if (!Number.isFinite(parsedRank) || parsedRank <= 0) return;
+				const currentRank = report.ranks[rankKey];
+				report.ranks[rankKey] =
+					typeof currentRank === 'number' && Number.isFinite(currentRank)
+						? Math.min(currentRank, parsedRank)
+						: parsedRank;
+			});
+		}
+		const periodRank = Number(gradeRow?.rank);
+		if (Number.isFinite(periodRank) && periodRank > 0) {
+			const currentRank = report.ranks[period];
+			report.ranks[period] =
+				typeof currentRank === 'number' && Number.isFinite(currentRank)
+					? Math.min(currentRank, periodRank)
+					: periodRank;
+		}
+		const yearlyRank = Number(gradeRow?.yearlyRank);
+		if (Number.isFinite(yearlyRank) && yearlyRank > 0) {
+			const currentRank = report.ranks.yearly;
+			report.ranks.yearly =
+				typeof currentRank === 'number' && Number.isFinite(currentRank)
+					? Math.min(currentRank, yearlyRank)
+					: yearlyRank;
+		}
+>>>>>>> 24df4db43ed9d6cc7d01e8fbb8fa0860f34253ef
 
 		const subjectIndex = report.periods[period].findIndex(
 			(entry) => entry.subject === subject,
@@ -426,6 +458,7 @@ const buildReportsFromGradeRows = ({
 		report.periodAverages.yearlyAverage = report.yearlyAverage;
 	});
 
+<<<<<<< HEAD
 	const finalReports = Array.from(reportsByStudentId.values());
 
 	// --- Rank Computation Logic ---
@@ -479,6 +512,9 @@ const buildReportsFromGradeRows = ({
 	});
 
 	return finalReports;
+=======
+	return Array.from(reportsByStudentId.values());
+>>>>>>> 24df4db43ed9d6cc7d01e8fbb8fa0860f34253ef
 };
 
 // --- Student Multi-Select Component ---

@@ -973,7 +973,10 @@ export const ReportCard = React.memo(function PDFDocument({
 									<Text>Teachers Remark: ____________________________</Text>
 									<View style={{ marginTop: 25, alignItems: 'center' }}>
 										<Text>Signed: _________________________</Text>
+<<<<<<< HEAD
 										<Text style={{width: "100%", textAlign: "center"}}>Class Sponsor</Text>
+=======
+>>>>>>> 24df4db43ed9d6cc7d01e8fbb8fa0860f34253ef
 									</View>
 								</View>
 							</View>
