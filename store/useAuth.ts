@@ -279,18 +279,40 @@ const applyBootstrapPayload = (data: any) => {
 		schoolStore.setGradeRequestsForYear(academicYear, data.gradeRequests);
 	}
 
-	// Seed the background sync cursor so runBackgroundGradeSync resumes
-	// from exactly where the bootstrap left off (record 20,001+).
-	// If gradesCursor is null the bootstrap returned everything — remove
-	// any stale cursor so the next sync doesn't re-enter mid-stream.
-	if (academicYear && typeof window !== 'undefined') {
-		const CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
-		if (typeof data?.gradesCursor === 'string') {
-			localStorage.setItem(CURSOR_KEY, data.gradesCursor);
-		} else {
-			localStorage.removeItem(CURSOR_KEY);
+
+if (academicYear && typeof window !== 'undefined') {
+	const CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
+
+	if (typeof data?.gradesCursor === 'string') {
+		// Bootstrap hit the 20k cap — resume from where it stopped
+		localStorage.setItem(CURSOR_KEY, data.gradesCursor);
+	} else if (Array.isArray(data?.grades) && data.grades.length > 0) {
+		// Bootstrap returned all grades — write a resume cursor pointing
+		// to the most recent one so future refreshes only fetch new records
+		const grades = data.grades;
+		let latestGrade = grades[0];
+		for (const grade of grades) {
+			const gradeTime = new Date(grade.lastUpdated || 0).getTime();
+			const latestTime = new Date(latestGrade.lastUpdated || 0).getTime();
+			if (
+				gradeTime > latestTime ||
+				(gradeTime === latestTime &&
+					String(grade._id) > String(latestGrade._id))
+			) {
+				latestGrade = grade;
+			}
 		}
+		localStorage.setItem(
+			CURSOR_KEY,
+			JSON.stringify({
+				lastUpdated: latestGrade.lastUpdated,
+				_id: latestGrade._id,
+			}),
+		);
+	} else {
+		localStorage.removeItem(CURSOR_KEY);
 	}
+}
 
 	if (typeof versions.user === 'string') {
 		set({ userVersion: versions.user });

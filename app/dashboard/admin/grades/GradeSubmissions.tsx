@@ -132,9 +132,13 @@ const AdminGradeManagement: React.FC = () => {
 				selectedAcademicYear,
 			).value,
 	);
+
 	// Data states
 	const [submissions, setSubmissions] = useState<GradeSubmission[]>([]);
+	// loading = true only on initial load when there is nothing to show yet
 	const [loading, setLoading] = useState(true);
+	// isSyncing = true during cursor-aware refresh; table stays visible
+	const [isSyncing, setIsSyncing] = useState(false);
 	const [error, setError] = useState('');
 	const [actionNotice, setActionNotice] = useState<{
 		type: 'info' | 'error';
@@ -178,7 +182,6 @@ const AdminGradeManagement: React.FC = () => {
 
 	useEffect(() => {
 		if (!isAnyModalOpen) return;
-
 		return lockBodyScroll();
 	}, [isAnyModalOpen]);
 
@@ -356,17 +359,18 @@ const AdminGradeManagement: React.FC = () => {
 		});
 	};
 
-	// Fetch and process grade data
-	const fetchGrades = async (forceRefresh = false) => {
+	// Initial load — shows full-table spinner only when there is nothing to
+	// display yet. Called on mount and when selectedAcademicYear changes.
+	const loadGrades = async () => {
 		if (!selectedAcademicYear) {
 			setSubmissions([]);
 			setLoading(false);
 			return;
 		}
+
 		const schoolState = useSchoolStore.getState();
-		const cachedByYear = schoolState.gradesByAcademicYear || {};
 		const scopedStoreSnapshot = getScopedAcademicYearValue(
-			cachedByYear,
+			schoolState.gradesByAcademicYear || {},
 			selectedAcademicYear,
 		);
 		const hasYearSnapshot = Boolean(scopedStoreSnapshot.key);
@@ -374,21 +378,25 @@ const AdminGradeManagement: React.FC = () => {
 			? scopedStoreSnapshot.value
 			: [];
 
-		try {
-			if (!forceRefresh && hasYearSnapshot) {
-				setSubmissions(transformRawGrades(cachedGrades as RawGradeData[]));
-				setError('');
-				setLoading(false);
-				return;
-			}
+		if (hasYearSnapshot) {
+			setSubmissions(transformRawGrades(cachedGrades as RawGradeData[]));
+			setError('');
+			setLoading(false);
+			return;
+		}
+
+		// Only block the table with a spinner when there is nothing to show yet
+		if (submissions.length === 0) {
 			setLoading(true);
+		}
+
+		try {
 			setError('');
 			const response = await fetch(
 				`/api/grades?academicYear=${selectedAcademicYear}`,
 			);
-			if (!response.ok) {
+			if (!response.ok)
 				throw new Error(`HTTP error! status: ${response.status}`);
-			}
 			const data = await response.json();
 			const rawGrades: RawGradeData[] = Array.isArray(
 				data?.data?.report?.grades,
@@ -409,11 +417,60 @@ const AdminGradeManagement: React.FC = () => {
 		}
 	};
 
+	// Cursor-aware refresh — resumes the background sync from the watermark
+	// cursor so only grades newer than what the store already has are fetched.
+	// The table stays fully visible; only the button reflects the syncing state.
+	const handleRefresh = async () => {
+		if (!selectedAcademicYear || isSyncing) return;
+		setIsSyncing(true);
+		setActionNotice(null);
+
+		try {
+			const CURSOR_KEY = `sync_cursor_grades_${selectedAcademicYear}`;
+			const hasCursor = Boolean(localStorage.getItem(CURSOR_KEY));
+
+			if (hasCursor) {
+				// Resume background sync from the watermark cursor.
+				// Each chunk calls mergeGradesForYear, which triggers the
+				// scopedGrades selector below and re-renders the table
+				// progressively as new records arrive.
+				await useSchoolStore
+					.getState()
+					.runBackgroundGradeSync(selectedAcademicYear);
+			} else {
+				// No cursor means the store has never been populated for this year.
+				// Re-derive submissions from the current store state in case
+				// something changed via a realtime event.
+				const schoolState = useSchoolStore.getState();
+				const scopedStoreSnapshot = getScopedAcademicYearValue(
+					schoolState.gradesByAcademicYear || {},
+					selectedAcademicYear,
+				);
+				const cachedGrades = Array.isArray(scopedStoreSnapshot.value)
+					? scopedStoreSnapshot.value
+					: [];
+				setSubmissions(transformRawGrades(cachedGrades as RawGradeData[]));
+			}
+		} catch (err) {
+			console.error('Error refreshing grades:', err);
+			setActionNotice({
+				type: 'error',
+				message: 'Refresh failed. Please try again.',
+			});
+		} finally {
+			setIsSyncing(false);
+		}
+	};
+
+	// Triggered on academic-year context change; store updates flow in via
+	// the scopedGrades effect below and should not retrigger this.
 	useEffect(() => {
-		void fetchGrades();
-		// Fetch on academic-year context change; store updates should not retrigger.
+		void loadGrades();
 	}, [selectedAcademicYear]);
 
+	// When the store's gradesByAcademicYear is updated (by the background sync,
+	// realtime events, or applySubmissionStatusLocally) re-derive the table
+	// without touching the loading state.
 	useEffect(() => {
 		if (!Array.isArray(scopedGrades)) return;
 		setSubmissions(transformRawGrades(scopedGrades as RawGradeData[]));
@@ -563,7 +620,7 @@ const AdminGradeManagement: React.FC = () => {
 			}
 			applySubmissionStatusLocally(payload);
 			window.dispatchEvent(new CustomEvent('grading:counts:refresh'));
-			void fetchGrades(true);
+			void handleRefresh();
 		} catch (error) {
 			console.error('Error updating grade status:', error);
 			setActionNotice({
@@ -696,7 +753,7 @@ const AdminGradeManagement: React.FC = () => {
 			.sort((a, b) => a.name.localeCompare(b.name));
 	};
 
-	// Filtering and Sorting logic
+	// Filtering and sorting logic
 	const filteredAndSortedSubmissions = useMemo(() => {
 		let filtered = submissions.filter((sub) => {
 			if (filters.status && filters.status !== 'All') {
@@ -794,6 +851,7 @@ const AdminGradeManagement: React.FC = () => {
 			? 'text-[var(--grade-pass)] font-semibold'
 			: 'text-[var(--grade-fail)] font-semibold';
 	};
+
 	// Selection toggles
 	const toggleSubmissionSelection = (submissionId: string) => {
 		setSelectedSubmissions((prev) => {
@@ -1121,19 +1179,23 @@ const AdminGradeManagement: React.FC = () => {
 									: ''}
 							</p>
 						</div>
+						{/* Refresh button — isSyncing reflects cursor-aware refresh;
+						    loading reflects the initial empty-table load. Both disable
+						    the button but only isSyncing keeps the table visible. */}
 						<button
-							onClick={() => fetchGrades(true)}
-							disabled={loading}
+							onClick={handleRefresh}
+							disabled={loading || isSyncing}
 							className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 sm:w-auto"
 						>
-							{loading ? (
+							{isSyncing ? (
 								<Loader2 className="h-4 w-4 animate-spin" />
 							) : (
 								<RefreshCw className="h-4 w-4" />
-							)}{' '}
-							Refresh
+							)}
+							{isSyncing ? 'Syncing…' : 'Refresh'}
 						</button>
 					</div>
+
 					{actionNotice && (
 						<div
 							className={`mb-4 rounded-md border px-4 py-2 text-sm ${
@@ -1145,6 +1207,7 @@ const AdminGradeManagement: React.FC = () => {
 							{actionNotice.message}
 						</div>
 					)}
+
 					{/* Filters */}
 					<div className="flex flex-wrap gap-4 items-center">
 						<div className="relative w-full sm:w-auto flex-grow">
@@ -1281,9 +1344,12 @@ const AdminGradeManagement: React.FC = () => {
 					</div>
 				)}
 
-				{/* Main Submissions Table */}
+				{/* Main Submissions Table
+				    Full-table spinner only when loading AND there is nothing to show.
+				    During a cursor-aware refresh (isSyncing), the table stays visible
+				    and only the button reflects the in-progress state. */}
 				<div className="border-t">
-					{loading ? (
+					{loading && submissions.length === 0 ? (
 						<PageLoading fullScreen={false} />
 					) : error ? (
 						<div className="p-6 text-center text-destructive">
