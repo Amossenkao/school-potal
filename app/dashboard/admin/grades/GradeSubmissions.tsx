@@ -378,7 +378,8 @@ const AdminGradeManagement: React.FC = () => {
 			? scopedStoreSnapshot.value
 			: [];
 
-		if (hasYearSnapshot) {
+		// If we already have grades in the store, use them and exit
+		if (hasYearSnapshot && cachedGrades.length > 0) {
 			setSubmissions(transformRawGrades(cachedGrades as RawGradeData[]));
 			setError('');
 			setLoading(false);
@@ -392,27 +393,19 @@ const AdminGradeManagement: React.FC = () => {
 
 		try {
 			setError('');
-			const response = await fetch(
-				`/api/grades?academicYear=${selectedAcademicYear}`,
-			);
-			if (!response.ok)
-				throw new Error(`HTTP error! status: ${response.status}`);
-			const data = await response.json();
-			const rawGrades: RawGradeData[] = Array.isArray(
-				data?.data?.report?.grades,
-			)
-				? data.data.report.grades
-				: Array.isArray(data?.data?.grades)
-					? data.data.grades
-					: [];
-			setSubmissions(transformRawGrades(rawGrades));
-			setGradesForYear(selectedAcademicYear, rawGrades);
+			// Trigger the chunked background sync instead of fetching everything at once.
+			// As the store receives chunks, the `scopedGrades` useEffect will automatically
+			// update the submissions state and clear the loading spinner.
+			await useSchoolStore
+				.getState()
+				.runBackgroundGradeSync(selectedAcademicYear);
 		} catch (err) {
 			console.error('Error fetching grades:', err);
 			if (submissions.length === 0) {
 				setError('Failed to fetch grade submissions. Please try again.');
 			}
 		} finally {
+			// Ensure loading state turns off if the sync finishes or errors out entirely
 			setLoading(false);
 		}
 	};
@@ -1531,6 +1524,6 @@ const AdminGradeManagement: React.FC = () => {
 			{showBulkRejectModal && renderBulkRejectModal()}
 		</div>
 	);
-};
+};;
 
 export default AdminGradeManagement;
