@@ -15,17 +15,24 @@ const GradeSchema = new mongoose.Schema({
 	lastUpdated: { type: Date, required: true },
 });
 
+// --- Existing Highly-Specific Indices ---
+// Good for filtering a specific class period
 GradeSchema.index({ academicYear: 1, classId: 1, period: 1, status: 1 });
-GradeSchema.index({ academicYear: 1, studentId: 1, classId: 1 });
+
+
+// For Student fetching
+GradeSchema.index({ academicYear: 1, studentId: 1, lastUpdated: -1, _id: -1 });
+
+// For Teacher fetching
 GradeSchema.index({
 	academicYear: 1,
 	teacherUsername: 1,
 	classId: 1,
-	subject: 1,
-	period: 1,
+	lastUpdated: -1,
+	_id: -1,
 });
-GradeSchema.index({ academicYear: 1, classId: 1, status: 1 });
-GradeSchema.index({ lastUpdated: -1 });
 
-// Check if the model is already defined before defining it
+// For System Admin / Administrator fetching
+GradeSchema.index({ academicYear: 1, lastUpdated: -1, _id: -1 });
+
 export default GradeSchema;
