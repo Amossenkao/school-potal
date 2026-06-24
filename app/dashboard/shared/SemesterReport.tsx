@@ -394,43 +394,53 @@ const buildReportsFromGradeRows = ({
 		report.periods[period][subjectIndex].grade = gradeValue;
 	});
 
-	reportsByStudentId.forEach((report) => {
-		const subjects = Object.keys(report.firstSemesterAverage);
-		subjects.forEach((subject) => {
-			const getSubjectGrade = (period: ReportPeriodKey) =>
-				report.periods[period].find((entry) => entry.subject === subject)
-					?.grade ?? null;
+reportsByStudentId.forEach((report) => {
+	const subjects = Object.keys(report.firstSemesterAverage);
+	subjects.forEach((subject) => {
+		const getSubjectGrade = (period: ReportPeriodKey) =>
+			report.periods[period].find((entry) => entry.subject === subject)
+				?.grade ?? null;
 
-			report.firstSemesterAverage[subject] = averageNumbers([
-				getSubjectGrade('first'),
-				getSubjectGrade('second'),
-				getSubjectGrade('third'),
-				getSubjectGrade('third_period_exam'),
-			]);
-			report.secondSemesterAverage[subject] = averageNumbers([
-				getSubjectGrade('fourth'),
-				getSubjectGrade('fifth'),
-				getSubjectGrade('sixth'),
-				getSubjectGrade('six_period_exam'),
-			]);
-		});
+		const p1 = getSubjectGrade('first');
+		const p2 = getSubjectGrade('second');
+		const p3 = getSubjectGrade('third');
+		const exam1 = getSubjectGrade('third_period_exam');
 
-		REPORT_PERIOD_KEYS.forEach((periodKey) => {
-			report.periodAverages[periodKey] = averageNumbers(
-				report.periods[periodKey].map((entry) => entry.grade),
-			);
-		});
-		report.periodAverages.firstSemesterAverage = averageNumbers(
-			Object.values(report.firstSemesterAverage),
-		);
-		report.periodAverages.secondSemesterAverage = averageNumbers(
-			Object.values(report.secondSemesterAverage),
-		);
-		report.yearlyAverage = averageNumbers([
-			report.periodAverages.firstSemesterAverage,
-			report.periodAverages.secondSemesterAverage,
-		]);
+		const sem1PeriodAvg = averageNumbers([p1, p2, p3]);
+		report.firstSemesterAverage[subject] =
+			sem1PeriodAvg !== null && exam1 !== null
+				? Number(((sem1PeriodAvg + exam1) / 2).toFixed(1))
+				: null;
+
+		const p4 = getSubjectGrade('fourth');
+		const p5 = getSubjectGrade('fifth');
+		const p6 = getSubjectGrade('sixth');
+		const exam2 = getSubjectGrade('six_period_exam');
+
+		const sem2PeriodAvg = averageNumbers([p4, p5, p6]);
+		report.secondSemesterAverage[subject] =
+			sem2PeriodAvg !== null && exam2 !== null
+				? Number(((sem2PeriodAvg + exam2) / 2).toFixed(1))
+				: null;
 	});
+
+	REPORT_PERIOD_KEYS.forEach((periodKey) => {
+		report.periodAverages[periodKey] = averageNumbers(
+			report.periods[periodKey].map((entry) => entry.grade),
+		);
+	});
+
+	report.periodAverages.firstSemesterAverage = averageNumbers(
+		Object.values(report.firstSemesterAverage),
+	);
+	report.periodAverages.secondSemesterAverage = averageNumbers(
+		Object.values(report.secondSemesterAverage),
+	);
+	report.yearlyAverage = averageNumbers([
+		report.periodAverages.firstSemesterAverage,
+		report.periodAverages.secondSemesterAverage,
+	]);
+});
 
 	return Array.from(reportsByStudentId.values());
 };

@@ -110,7 +110,10 @@ export function processClassPeriodicReport(
 	const studentsMap = new Map<string, StudentPeriodicReport>();
 
 	grades
-		.filter((g) => g.classId === classId && normalizeYearlyPeriodKey(g.period) === period)
+		.filter(
+			(g) =>
+				g.classId === classId && normalizeYearlyPeriodKey(g.period) === period,
+		)
 		.forEach((g) => {
 			if (!studentsMap.has(g.studentId)) {
 				studentsMap.set(g.studentId, {
@@ -129,18 +132,20 @@ export function processClassPeriodicReport(
 				.subjects.push({ subject: g.subject, grade: g.grade });
 		});
 
-	const studentsWithAverages = Array.from(studentsMap.values()).map((student) => {
-		const cleanedSubjects = removeDuplicateSubjects(student.subjects);
-		const stats = getStats(cleanedSubjects);
-		return {
-			...student,
-			subjects: cleanedSubjects,
-			periodicAverage: stats.average,
-			incompletes: stats.incompletes,
-			passes: stats.passes,
-			fails: stats.fails,
-		};
-	});
+	const studentsWithAverages = Array.from(studentsMap.values()).map(
+		(student) => {
+			const cleanedSubjects = removeDuplicateSubjects(student.subjects);
+			const stats = getStats(cleanedSubjects);
+			return {
+				...student,
+				subjects: cleanedSubjects,
+				periodicAverage: stats.average,
+				incompletes: stats.incompletes,
+				passes: stats.passes,
+				fails: stats.fails,
+			};
+		},
+	);
 
 	const rankedData = calculateRanks(
 		studentsWithAverages.map((s) => ({
@@ -255,18 +260,6 @@ export function processClassYearlyReport(
 				student.periods[period],
 			).average;
 		}
-		const yearlyAvgs = Object.values(student.yearlySubjectAverages).filter(
-			(avg) => !Number.isNaN(avg) && avg > 0,
-		);
-		student.yearlyAverage =
-			yearlyAvgs.length > 0
-				? Number(
-						(yearlyAvgs.reduce((a, b) => a + b, 0) / yearlyAvgs.length).toFixed(
-							1,
-						),
-					)
-				: 0;
-		student.periodAverages.yearlyAverage = student.yearlyAverage;
 
 		const firstSemAvgs = Object.values(student.firstSemesterAverage).filter(
 			(avg) => !Number.isNaN(avg) && avg > 0,
@@ -288,6 +281,21 @@ export function processClassYearlyReport(
 				).toFixed(1),
 			);
 		}
+
+		// Reconciled Overall Yearly Average Calculation matching Frontend convention exactly:
+		const fSemAvg = student.periodAverages.firstSemesterAverage;
+		const sSemAvg = student.periodAverages.secondSemesterAverage;
+
+		if (typeof fSemAvg === 'number' && typeof sSemAvg === 'number') {
+			student.yearlyAverage = Number(((fSemAvg + sSemAvg) / 2).toFixed(1));
+		} else if (typeof fSemAvg === 'number') {
+			student.yearlyAverage = fSemAvg;
+		} else if (typeof sSemAvg === 'number') {
+			student.yearlyAverage = sSemAvg;
+		} else {
+			student.yearlyAverage = 0;
+		}
+		student.periodAverages.yearlyAverage = student.yearlyAverage;
 	});
 
 	const studentsArray = Array.from(studentsMap.values());
@@ -346,7 +354,6 @@ export function processClassYearlyReport(
 		);
 	}
 
-	// After the yearly rank loop, before `return finalReports`:
 	const totalRanked = yearlyRankCandidates.length;
 	finalResult.forEach((r) => {
 		r.classStudentCount = totalRanked;
@@ -361,9 +368,10 @@ export function attachRanksToGrades<T extends GradeRecordLike>(
 ): RankedGradeRow<T>[] {
 	if (!Array.isArray(grades) || grades.length === 0) return [];
 
-	const sourceRows = Array.isArray(rankingSourceGrades) && rankingSourceGrades.length > 0
-		? rankingSourceGrades
-		: grades;
+	const sourceRows =
+		Array.isArray(rankingSourceGrades) && rankingSourceGrades.length > 0
+			? rankingSourceGrades
+			: grades;
 
 	const classIds = new Set<string>();
 	sourceRows.forEach((row) => {
@@ -393,11 +401,17 @@ export function attachRanksToGrades<T extends GradeRecordLike>(
 
 		const periodSet = new Set<string>();
 		classGrades.forEach((row) => {
-			const normalizedPeriod = normalizeYearlyPeriodKey(String(row?.period || ''));
+			const normalizedPeriod = normalizeYearlyPeriodKey(
+				String(row?.period || ''),
+			);
 			if (normalizedPeriod) periodSet.add(normalizedPeriod);
 		});
 		Array.from(periodSet).forEach((period) => {
-			const periodicRows = processClassPeriodicReport(classGrades, classId, period);
+			const periodicRows = processClassPeriodicReport(
+				classGrades,
+				classId,
+				period,
+			);
 			periodicRows.forEach((row) => {
 				periodRankMap.set(`${classId}::${period}::${row.studentId}`, row.rank);
 			});
@@ -407,7 +421,9 @@ export function attachRanksToGrades<T extends GradeRecordLike>(
 	return grades.map((grade) => {
 		const classId = String(grade?.classId || '').trim();
 		const studentId = String(grade?.studentId || '').trim();
-		const normalizedPeriod = normalizeYearlyPeriodKey(String(grade?.period || ''));
+		const normalizedPeriod = normalizeYearlyPeriodKey(
+			String(grade?.period || ''),
+		);
 		const baseKey = `${classId}::${studentId}`;
 		const ranks = rankMap.get(baseKey) || {};
 		const periodRank = periodRankMap.get(

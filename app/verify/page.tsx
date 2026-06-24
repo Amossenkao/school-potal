@@ -72,7 +72,26 @@ function VerifyContent() {
 	const [error, setError] = useState<string | null>(null);
 	const [isBlobLoading, setIsBlobLoading] = useState(false);
 	const [cachedPayload, setCachedPayload] = useState<any>(null);
+				const getDisplayClassName = (name: string) => {
+					// Keep kindergarten classes intact
+					if (
+						['k-i', 'k-ii', 'k-1', 'k-2'].includes(name.toLocaleLowerCase())
+					) {
+						return name;
+					}
 
+					// Remove AM/PM suffixes
+					if (name.endsWith(' AM') || name.endsWith(' PM')) {
+						return name.slice(0, -3);
+					}
+
+					// For classes like Grade 11-A, Grade 11-B, etc.
+					if (name.includes('-')) {
+						return name.split('-')[0];
+					}
+
+					return name;
+				};
 	useEffect(() => {
 		if (!id || !academicYear) {
 			setError('Invalid verification link. Missing required parameters.');
@@ -99,7 +118,7 @@ function VerifyContent() {
 					studentId: data.studentData.studentId,
 					firstName: nameParts[0] ?? '',
 					lastName: nameParts.slice(1).join(' ') ?? '',
-					className: data.className ?? data.reportFilters?.className ?? '',
+					className: getDisplayClassName(data.className ?? data.reportFilters?.className ?? ''),
 					academicYear: data.reportFilters.academicYear,
 					yearlyAverage: data.studentData.yearlyAverage,
 					yearlyRank: data.studentData.ranks?.yearly ?? null,
@@ -163,7 +182,7 @@ function VerifyContent() {
 
 			const pdfBytes = await generateYearlyReportPdf({
 				studentsData: [studentDataWithQr],
-				className,
+				className: getDisplayClassName(className),
 				classSubjects,
 				reportFilters,
 				classStudentCount,
@@ -339,7 +358,7 @@ function VerifyContent() {
 											<div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
 												<Hash className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
 												<p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
-													System ID
+													Student ID
 												</p>
 											</div>
 											<p className="text-xs sm:text-sm font-semibold text-foreground truncate">
