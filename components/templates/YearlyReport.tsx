@@ -6,6 +6,7 @@ import {
 	View,
 	Image,
 	StyleSheet,
+	Font,
 } from '@react-pdf/renderer';
 import {
 	REPORT_CARD_THEMES,
@@ -16,7 +17,12 @@ import {
 // ─────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────
-
+// Register the signature font locally to avoid format errors
+Font.register({
+  family: 'Great Vibes',
+  src: '/fonts/GreatVibes-Regular.ttf',
+  format: 'truetype',
+});
 export interface StudentYearlyReport {
 	studentId: string;
 	studentName: string;
@@ -630,9 +636,9 @@ export const ReportCard = React.memo(function PDFDocument({
 										backgroundColor: activeTheme.rowAltBg,
 									}}
 								>
-									<Text style={{ ...styles.subjectCell, fontWeight: 'bold' }}>
-										
-									</Text>
+									<Text
+										style={{ ...styles.subjectCell, fontWeight: 'bold' }}
+									></Text>
 									<Text style={gradeStyle(studentData.periodAverages.first)}>
 										{studentData.periodAverages.first?.toFixed(1) ?? ''}
 									</Text>
@@ -667,9 +673,9 @@ export const ReportCard = React.memo(function PDFDocument({
 										backgroundColor: activeTheme.rowAltBg,
 									}}
 								>
-									<Text style={{ ...styles.subjectCell, fontWeight: 'bold' }}>
-										
-									</Text>
+									<Text
+										style={{ ...styles.subjectCell, fontWeight: 'bold' }}
+									></Text>
 									<Text style={styles.tableCell}>
 										{studentData.ranks.first ?? ''}
 									</Text>
@@ -973,7 +979,9 @@ export const ReportCard = React.memo(function PDFDocument({
 									<Text>Teachers Remark: ____________________________</Text>
 									<View style={{ marginTop: 25, alignItems: 'center' }}>
 										<Text>Signed: _________________________</Text>
-										<Text style={{width: "100%", textAlign: "center"}}>Class Sponsor</Text>
+										<Text style={{ width: '100%', textAlign: 'center' }}>
+											Class Sponsor
+										</Text>
 									</View>
 								</View>
 							</View>
@@ -1057,12 +1065,46 @@ export const ReportCard = React.memo(function PDFDocument({
 											marginBottom: 10,
 										}}
 									>
-										<Text style={{ fontSize: 9 }}>
-											Date: ____________________
-										</Text>
-										<Text style={{ fontSize: 9 }}>
-											Principal: _______________________________
-										</Text>
+										{/* Date Container */}
+										<View style={{ position: 'relative' }}>
+											<Text style={{ fontSize: 9 }}>
+												Date: ______________
+											</Text>
+											<Text
+												style={{
+													position: 'absolute',
+													bottom: 1.5,
+													left: 26,
+													fontSize: 10,
+													fontWeight: 'bold',
+													color: '#1f2937',
+												}}
+											>
+												July 12, 2026{' '}
+												{/* You can replace this with a dynamic date prop later */}
+											</Text>
+										</View>
+
+										{/* Signature Container */}
+										<View style={{ position: 'relative' }}>
+											<Text style={{ fontSize: 9 }}>
+												Principal: ______________________________________
+											</Text>
+											<Text
+												style={{
+													fontFamily: 'Great Vibes',
+													fontSize: 16,
+													fontWeight: 'bold',
+													position: 'absolute',
+													bottom: -2, // Nudge down slightly so loops cross the line naturally
+													left: 45,
+													color: '#000c2c', // Deep ink blue/black
+													letterSpacing: 0.5,
+												}}
+											>
+												Pst. Emmanuel B. Tarr, Sr.
+											</Text>
+										</View>
 									</View>
 									<View
 										style={{
