@@ -1061,7 +1061,7 @@ export const ReportCard = React.memo(function PDFDocument({
 											Date: ____________________
 										</Text>
 										<Text style={{ fontSize: 9 }}>
-											Principal: __________________
+											Principal: _______________________________
 										</Text>
 									</View>
 									<View
