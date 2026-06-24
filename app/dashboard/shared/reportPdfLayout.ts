@@ -260,7 +260,7 @@ export const buildReportPlacements = ({
 	};
 
 	placements.avg_label = {
-		x: tableLeft - 11 * scaleX,
+		x: tableLeft - 10 * scaleX,
 		y: avgRowTop + summaryRowLift,
 		boxHeight: rowHeight,
 		valign: 'middle',
@@ -271,7 +271,7 @@ export const buildReportPlacements = ({
 	};
 
 	placements.rank_label = {
-		x: tableLeft - 11 * scaleX,
+		x: tableLeft - 10 * scaleX,
 		y: rankRowTop + summaryRowLift,
 		boxHeight: rowHeight,
 		valign: 'middle',
