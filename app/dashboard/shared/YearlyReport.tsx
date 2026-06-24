@@ -75,6 +75,7 @@ interface StudentYearlyReport {
 	yearlyAverage: number | null;
 	ranks: Record<string, number | null>;
 	qrCodeDataUrl?: string;
+	classStudentCount?: number;
 }
 
 interface Student {
@@ -416,7 +417,6 @@ const buildReportsFromGradeRows = ({
 				: null;
 		report.periods[period][subjectIndex].grade = gradeValue;
 	});
-
 	reportsByStudentId.forEach((report) => {
 		const subjects = Object.keys(report.firstSemesterAverage);
 		subjects.forEach((subject) => {
@@ -424,18 +424,35 @@ const buildReportsFromGradeRows = ({
 				report.periods[period].find((entry) => entry.subject === subject)
 					?.grade ?? null;
 
-			report.firstSemesterAverage[subject] = averageNumbers([
+			// 1. First Semester: Average 1st, 2nd, and 3rd periods, then combine with the exam grade
+			const firstPeriodsAvg = averageNumbers([
 				getSubjectGrade('first'),
 				getSubjectGrade('second'),
 				getSubjectGrade('third'),
-				getSubjectGrade('third_period_exam'),
 			]);
-			report.secondSemesterAverage[subject] = averageNumbers([
+			const thirdExam = getSubjectGrade('third_period_exam');
+
+			report.firstSemesterAverage[subject] =
+				firstPeriodsAvg !== null && thirdExam !== null
+					? Number(((firstPeriodsAvg + thirdExam) / 2).toFixed(1))
+					: firstPeriodsAvg !== null
+						? firstPeriodsAvg
+						: thirdExam;
+
+			// 2. Second Semester: Average 4th, 5th, and 6th periods, then combine with the exam grade
+			const secondPeriodsAvg = averageNumbers([
 				getSubjectGrade('fourth'),
 				getSubjectGrade('fifth'),
 				getSubjectGrade('sixth'),
-				getSubjectGrade('six_period_exam'),
 			]);
+			const sixExam = getSubjectGrade('six_period_exam');
+
+			report.secondSemesterAverage[subject] =
+				secondPeriodsAvg !== null && sixExam !== null
+					? Number(((secondPeriodsAvg + sixExam) / 2).toFixed(1))
+					: secondPeriodsAvg !== null
+						? secondPeriodsAvg
+						: sixExam;
 		});
 
 		REPORT_PERIOD_KEYS.forEach((periodKey) => {
@@ -443,19 +460,21 @@ const buildReportsFromGradeRows = ({
 				report.periods[periodKey].map((entry) => entry.grade),
 			);
 		});
+
 		report.periodAverages.firstSemesterAverage = averageNumbers(
 			Object.values(report.firstSemesterAverage),
 		);
 		report.periodAverages.secondSemesterAverage = averageNumbers(
 			Object.values(report.secondSemesterAverage),
 		);
+
+		// 3. Yearly Average: Standard mean of the first and second semester averages
 		report.yearlyAverage = averageNumbers([
 			report.periodAverages.firstSemesterAverage,
 			report.periodAverages.secondSemesterAverage,
 		]);
 		report.periodAverages.yearlyAverage = report.yearlyAverage;
 	});
-
 
 	const finalReports = Array.from(reportsByStudentId.values());
 
@@ -509,9 +528,15 @@ const buildReportsFromGradeRows = ({
 		}
 	});
 
+	// After the yearly rank loop, before `return finalReports`:
+	const totalRanked = validYearlyStudents.length;
+	finalReports.forEach((r) => {
+		r.classStudentCount = totalRanked;
+	});
+
 	return finalReports;
 	return Array.from(reportsByStudentId.values());
-};
+};;
 
 // --- Student Multi-Select Component ---
 
@@ -1925,6 +1950,11 @@ const buildYearlyFieldMap = ({
 		academic_year: reportFilters.academicYear,
 		promotion_decision: '',
 	};
+
+	fields.rank_label = studentData.classStudentCount
+		? `Rank out of ${studentData.classStudentCount}`
+		: 'Rank';
+	
 	const promotionResult = buildPromotionStatement({
 		studentData,
 		className,
@@ -2136,18 +2166,20 @@ const fetchImageAsBase64 = async (url: string): Promise<string | null> => {
 	}
 };
 
-const generateYearlyReportPdf = async ({
+export const generateYearlyReportPdf = async ({
 	studentsData,
 	className,
 	classSubjects,
 	reportFilters,
 	school,
+	classStudentCount,
 }: {
 	studentsData: StudentYearlyReport[];
 	className: string;
 	classSubjects: string[];
 	reportFilters: ReportFilters;
 	school: any;
+	classStudentCount: number;
 }) => {
 	const schoolName = Array.isArray(school?.name)
 		? school.name.filter(Boolean).join(' ')
@@ -2914,17 +2946,18 @@ function ReportContent({
 							yearlyAverage = existingReport.yearlyAverage;
 						}
 
-						return {
-							studentId,
-							studentName,
-							periods,
-							firstSemesterAverage,
-							secondSemesterAverage,
-							periodAverages,
-							yearlyAverage,
-							ranks,
-							qrCodeDataUrl,
-						};
+				return {
+					studentId,
+					studentName,
+					periods,
+					firstSemesterAverage,
+					secondSemesterAverage,
+					periodAverages,
+					yearlyAverage,
+					ranks,
+					qrCodeDataUrl,
+					classStudentCount: existingReport?.classStudentCount ?? undefined
+				};
 					}),
 				);
 

@@ -668,7 +668,7 @@ export const ReportCard = React.memo(function PDFDocument({
 									}}
 								>
 									<Text style={{ ...styles.subjectCell, fontWeight: 'bold' }}>
-										Rank
+										
 									</Text>
 									<Text style={styles.tableCell}>
 										{studentData.ranks.first ?? ''}

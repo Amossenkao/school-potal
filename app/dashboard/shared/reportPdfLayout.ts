@@ -147,6 +147,8 @@ export const buildReportPlacements = ({
 		maxWidth: 180 * scaleX,
 	};
 
+
+
 	const tableLeft = 40 * scaleX;
 	const tableTop = 439 * scaleY;
 	const tableHeight = 240 * scaleY;
@@ -256,6 +258,17 @@ export const buildReportPlacements = ({
 			};
 		});
 	};
+
+		placements.rank_label = {
+			x: tableLeft - 12 * scaleX,
+			y: rankRowTop + summaryRowLift,
+			boxHeight: rowHeight,
+			valign: 'middle',
+			size: rowFontSize,
+			font: 'bold',
+			align: 'left',
+			maxWidth: subjectWidth,
+		};
 
 	summaryRow(avgRowTop, {
 		avg_p1: 'p1',

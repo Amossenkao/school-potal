@@ -30,6 +30,7 @@ export interface StudentYearlyReport {
 	periodAverages: Record<string, number>;
 	yearlyAverage: number;
 	ranks: Record<string, number>;
+	classStudentCount?: number;
 }
 
 type RankedGradeRow<T extends GradeRecordLike> = T & {
@@ -200,7 +201,9 @@ export function processClassYearlyReport(
 	studentsMap.forEach((student) => {
 		const allSubjects = Array.from(subjectsSet);
 		Object.keys(student.periods).forEach((period) => {
-			student.periods[period] = removeDuplicateSubjects(student.periods[period]);
+			student.periods[period] = removeDuplicateSubjects(
+				student.periods[period],
+			);
 		});
 
 		allSubjects.forEach((subject) => {
@@ -248,7 +251,9 @@ export function processClassYearlyReport(
 		});
 
 		for (const period in student.periods) {
-			student.periodAverages[period] = getStats(student.periods[period]).average;
+			student.periodAverages[period] = getStats(
+				student.periods[period],
+			).average;
 		}
 		const yearlyAvgs = Object.values(student.yearlySubjectAverages).filter(
 			(avg) => !Number.isNaN(avg) && avg > 0,
@@ -256,7 +261,9 @@ export function processClassYearlyReport(
 		student.yearlyAverage =
 			yearlyAvgs.length > 0
 				? Number(
-						(yearlyAvgs.reduce((a, b) => a + b, 0) / yearlyAvgs.length).toFixed(1),
+						(yearlyAvgs.reduce((a, b) => a + b, 0) / yearlyAvgs.length).toFixed(
+							1,
+						),
 					)
 				: 0;
 		student.periodAverages.yearlyAverage = student.yearlyAverage;
@@ -266,7 +273,9 @@ export function processClassYearlyReport(
 		);
 		if (firstSemAvgs.length > 0) {
 			student.periodAverages.firstSemesterAverage = Number(
-				(firstSemAvgs.reduce((a, b) => a + b, 0) / firstSemAvgs.length).toFixed(1),
+				(firstSemAvgs.reduce((a, b) => a + b, 0) / firstSemAvgs.length).toFixed(
+					1,
+				),
 			);
 		}
 		const secondSemAvgs = Object.values(student.secondSemesterAverage).filter(
@@ -274,7 +283,9 @@ export function processClassYearlyReport(
 		);
 		if (secondSemAvgs.length > 0) {
 			student.periodAverages.secondSemesterAverage = Number(
-				(secondSemAvgs.reduce((a, b) => a + b, 0) / secondSemAvgs.length).toFixed(1),
+				(
+					secondSemAvgs.reduce((a, b) => a + b, 0) / secondSemAvgs.length
+				).toFixed(1),
 			);
 		}
 	});
@@ -334,6 +345,12 @@ export function processClassYearlyReport(
 			studentIds.includes(student.studentId),
 		);
 	}
+
+	// After the yearly rank loop, before `return finalReports`:
+	const totalRanked = yearlyRankCandidates.length;
+	finalResult.forEach((r) => {
+		r.classStudentCount = totalRanked;
+	});
 
 	return finalResult;
 }
