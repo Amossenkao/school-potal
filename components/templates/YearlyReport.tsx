@@ -548,7 +548,7 @@ export const ReportCard = React.memo(function PDFDocument({
 						key={`${studentData.studentId}-grades`}
 						size="A4"
 						orientation="landscape"
-						style={{ ...styles.page, paddingTop: 5 }}
+						style={{ ...styles.page, paddingTop: 5, paddingBottom: 5 }}
 					>
 						<View style={styles.topRow}>
 							<View style={styles.headerLeft}>

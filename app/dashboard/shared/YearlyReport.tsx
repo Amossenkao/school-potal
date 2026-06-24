@@ -2534,14 +2534,16 @@ function ReportContent({
 					typeof navigator !== 'undefined' && navigator.onLine === false;
 
 				if (isStudent && user) {
-					studentsToProcess = [
-						{
-							studentId: normalizeStudentId(user.studentId, user.id, user._id),
-							firstName: user.firstName,
-							middleName: user.middleName,
-							lastName: user.lastName,
-						},
-					];
+				studentsToProcess = [
+					{
+						studentId: normalizeStudentId(user.studentId, user.id, user._id),
+						id: user.id,     
+						_id: user._id,
+						firstName: user.firstName,
+						middleName: user.middleName,
+						lastName: user.lastName,
+					},
+				];
 				} else {
 					const cachedUsers = getScopedAcademicYearValue(
 						usersByAcademicYear,
@@ -2556,14 +2558,12 @@ function ReportContent({
 								) === reportFilters.className,
 						);
 						const mapped = filtered.map((student: any) => ({
-							studentId: normalizeStudentId(
-								student.studentId,
-								student.id,
-								student._id,
-							),
-							firstName: student.firstName,
-							middleName: student.middleName,
-							lastName: student.lastName,
+								studentId: normalizeStudentId(student.studentId, student.id, student._id),
+								id: student.id,      // <-- ADD THIS
+								_id: student._id,    // <-- ADD THIS
+								firstName: student.firstName,
+								middleName: student.middleName,
+								lastName: student.lastName,
 						}));
 						if (selectedStudentIds.length > 0) {
 							studentsToProcess = mapped.filter((student: any) =>
@@ -2614,14 +2614,12 @@ function ReportContent({
 							);
 
 							const mapped = studentsResult.data.map((student: any) => ({
-								studentId: normalizeStudentId(
-									student.studentId,
-									student.id,
-									student._id,
-								),
-								firstName: student.firstName,
-								middleName: student.middleName,
-								lastName: student.lastName,
+									studentId: normalizeStudentId(student.studentId, student.id, student._id),
+									id: student.id,      // <-- ADD THIS
+									_id: student._id,    // <-- ADD THIS
+									firstName: student.firstName,
+									middleName: student.middleName,
+									lastName: student.lastName,
 							}));
 							setClientCache(cacheKey, mapped, OFFLINE_CACHE_TTL_MS);
 
@@ -2808,14 +2806,10 @@ function ReportContent({
 								studentId,
 						);
 
-						const qrPayload = buildReportVerificationPayload({
-							studentId,
-							studentName,
-							className,
-							academicYear: reportFilters.academicYear,
-							session: reportFilters.session,
-							schoolShortName: school?.shortName,
-						});
+						const verifyId = student.id || student._id || studentId;
+
+						const qrPayload = `${window.location.origin}/verify?id=${verifyId}&academicYear=${encodeURIComponent(reportFilters.academicYear)}`;
+
 						const qrCodeDataUrl = await generateStudentQrCodeDataUrl(qrPayload);
 
 						const periods: Record<
