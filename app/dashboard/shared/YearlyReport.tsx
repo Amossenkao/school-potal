@@ -56,6 +56,7 @@ import {
 import { loadReportTemplateBytes } from '@/utils/reportTemplate';
 import { areGradeRowsEquivalent } from '@/utils/gradeRows';
 import { report } from 'process';
+import FullCalendar from '@fullcalendar/react';
 
 // --- Type Definitions ---
 
@@ -176,7 +177,9 @@ const normalizeStudentId = (...ids: Array<unknown>) => {
 
 const buildStudentFullName = (student: any) =>
 	student?.fullName ||
-	`${student?.firstName || ''} ${student?.lastName || ''}`.trim();
+	[student?.firstName, student?.middleName, student?.lastName]
+		.filter(Boolean)
+		.join(' ');
 
 const mergeSubjectNames = (subjects: Array<unknown>) => {
 	const result: string[] = [];
@@ -354,7 +357,7 @@ const buildReportsFromGradeRows = ({
 		if (!studentId) return;
 		const studentName =
 			buildStudentFullName(student) ||
-			(typeof student?.studentName === 'string' ? student.studentName : '');
+			(typeof student?.fullName === 'string' ? student.fullName : '');
 		ensureStudentReport(studentId, studentName);
 	});
 
@@ -2574,6 +2577,7 @@ function ReportContent({
 						firstName: user.firstName,
 						middleName: user.middleName,
 						lastName: user.lastName,
+						fullName: user.fullName || `${user.firstName} ${user.lastName}`.trim(),
 					},
 				];
 				} else {
@@ -2595,7 +2599,8 @@ function ReportContent({
 								_id: student._id,    // <-- ADD THIS
 								firstName: student.firstName,
 								middleName: student.middleName,
-								lastName: student.lastName,
+							lastName: student.lastName,
+								fullName: student.fullName || `${student.firstName} ${student.lastName}`.trim(),
 						}));
 						if (selectedStudentIds.length > 0) {
 							studentsToProcess = mapped.filter((student: any) =>
@@ -2987,6 +2992,7 @@ function ReportContent({
 		user?.firstName,
 		user?.middleName,
 		user?.lastName,
+		user?.fullName,
 		schoolSubjects,
 		className,
 		setUsersForYear,
