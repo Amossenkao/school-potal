@@ -259,16 +259,27 @@ export const buildReportPlacements = ({
 		});
 	};
 
-		placements.rank_label = {
-			x: tableLeft - 12 * scaleX,
-			y: rankRowTop + summaryRowLift,
-			boxHeight: rowHeight,
-			valign: 'middle',
-			size: rowFontSize,
-			font: 'bold',
-			align: 'left',
-			maxWidth: subjectWidth,
-		};
+	placements.avg_label = {
+		x: tableLeft - 11 * scaleX,
+		y: avgRowTop + summaryRowLift,
+		boxHeight: rowHeight,
+		valign: 'middle',
+		size: rowFontSize,
+		font: 'bold',
+		align: 'left',
+		maxWidth: subjectWidth,
+	};
+
+	placements.rank_label = {
+		x: tableLeft - 11 * scaleX,
+		y: rankRowTop + summaryRowLift,
+		boxHeight: rowHeight,
+		valign: 'middle',
+		size: rowFontSize,
+		font: 'bold',
+		align: 'left',
+		maxWidth: subjectWidth,
+	};
 
 	summaryRow(avgRowTop, {
 		avg_p1: 'p1',

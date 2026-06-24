@@ -1953,6 +1953,7 @@ const buildYearlyFieldMap = ({
 		academic_year: reportFilters.academicYear,
 		promotion_decision: '',
 	};
+	fields.avg_label = 'Average';
 
 	fields.rank_label = studentData.classStudentCount
 		? `Rank out of ${studentData.classStudentCount}`

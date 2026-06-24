@@ -631,7 +631,7 @@ export const ReportCard = React.memo(function PDFDocument({
 									}}
 								>
 									<Text style={{ ...styles.subjectCell, fontWeight: 'bold' }}>
-										Average
+										
 									</Text>
 									<Text style={gradeStyle(studentData.periodAverages.first)}>
 										{studentData.periodAverages.first?.toFixed(1) ?? ''}
