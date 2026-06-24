@@ -1486,14 +1486,6 @@ const buildPromotionStatementLines = ({
 				font: 'bold',
 			},
 
-			{
-				text: decision != 'summer_school' ? ' for academic ' : '',
-				font: 'bold',
-			},
-			{
-				text: decision === 'summer_school' ? '' : academicYear,
-				font: 'bold',
-			},
 		],
 	];
 };
