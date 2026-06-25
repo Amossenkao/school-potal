@@ -1206,14 +1206,14 @@ export async function POST(request: NextRequest) {
 	
 	// Temporary RESTRICTION ON POSTING GRADES
 
-	return NextResponse.json(
-		{
-			success: false,
-			message:
-				'MongoDB Cluster storage limit exceeded. Upgrade your cluster tier or delete data to continue writing.',
-		},
-		{ status: 500 },
-	);
+	// return NextResponse.json(
+	// 	{
+	// 		success: false,
+	// 		message:
+	// 			'MongoDB Cluster storage limit exceeded. Upgrade your cluster tier or delete data to continue writing.',
+	// 	},
+	// 	{ status: 500 },
+	// );
 
 	try {
 		const teacher = await authorizeUser(request, ['teacher']);

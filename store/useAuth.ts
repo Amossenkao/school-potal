@@ -260,7 +260,7 @@ const applyBootstrapPayload = (data: any) => {
 	}
 
 	if (academicYear && data?.users) {
-		schoolStore.setUsersForYear(academicYear, data.users, { merge: false });
+		schoolStore.setUsersForYear(academicYear, data.users);
 	}
 
 	if (academicYear && Array.isArray(data?.calendarEvents)) {
@@ -270,10 +270,9 @@ const applyBootstrapPayload = (data: any) => {
 	if (academicYear && data?.schedules && typeof data.schedules === 'object') {
 		schoolStore.setSchedulesForYear(academicYear, data.schedules);
 	}
-
-	if (academicYear && Array.isArray(data?.grades)) {
-		schoolStore.setGradesForYear(academicYear, data.grades);
-	}
+if (academicYear && Array.isArray(data?.grades)) {
+	schoolStore.mergeGradesForYear(academicYear, data.grades);
+}
 
 	if (academicYear && Array.isArray(data?.gradeRequests)) {
 		schoolStore.setGradeRequestsForYear(academicYear, data.gradeRequests);
