@@ -2078,25 +2078,7 @@ const templateBoldFont = await templateDoc.embedFont(
 	StandardFonts.HelveticaBold,
 );
 const scaleY = templatePage1.getHeight() / 595.28;
-const sponsorLabel = reportFilters.sponsorName
-	? `${reportFilters.sponsorName}, Class Sponsor`
-	: 'Class Sponsor';
-drawTextMap({
-	page: templatePage1,
-	values: { sponsor_name: sponsorLabel },
-	placements: {
-		sponsor_name: {
-			x: templatePage1.getWidth() - 190 * (templatePage1.getWidth() / 841.89),
-			y: templatePage1.getHeight() - 86 * scaleY,
-			size: 9 * scaleY,
-			align: 'left',
-			maxWidth: 180 * (templatePage1.getWidth() / 841.89),
-		},
-	},
-	fonts: { normal: templateFont, bold: templateBoldFont },
-	defaultSize: 9,
-	debug: DEBUG_COORDS,
-});
+
 const modifiedTemplateBytes = await templateDoc.save();
 
 const page1Placements = buildReportPlacements({
