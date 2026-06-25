@@ -1203,6 +1203,13 @@ export async function GET(request: NextRequest) {
 
 // POST, PUT, PATCH handlers remain unchanged
 export async function POST(request: NextRequest) {
+	
+	// Temporary RESTRICTION ON POSTING GRADES
+
+	return NextResponse.json({
+		success: false, message: "NET::ERR_MONGODB_WRITE_RESTRICTED"
+	}, {status: 500});
+
 	try {
 		const teacher = await authorizeUser(request, ['teacher']);
 		if (!teacher) {
