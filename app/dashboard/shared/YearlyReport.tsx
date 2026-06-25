@@ -1431,152 +1431,8 @@ type PromotionStatementSegment = {
 	underline?: boolean;
 };
 
-const buildPromotionStatementLines = ({
-	studentName,
-	currentClass,
-	decision,
-	academicYear,
-	nextClass,
-}: {
-	studentName: string;
-	currentClass: string;
-	decision: PromotionDecision;
-	academicYear: string;
-	nextClass?: string;
-}): PromotionStatementSegment[][] => {
-	if (decision === 'incomplete') {
-		return [
-			[
-				{
-					text: 'Promotion statement cannot be generated because this report contains one or more incompletes.',
-				},
-			],
-		];
-	}
 
-	const hasOrHasNot = decision == 'promoted' ? ' HAS' : ' HAS NOT';
 
-	const actionText =
-		decision === 'promoted'
-			? 'Promoted to '
-			: decision === 'failed'
-				? 'Required to repeat '
-				: 'Required to attend summer school';
-
-	return [
-		[
-			{ text: 'This is to certify that ' },
-			{ text: studentName, font: 'bold' },
-			{ text: hasOrHasNot },
-		],
-		[
-			{ text: 'Satisfactorily completed the work of ' },
-			{ text: currentClass, font: 'bold' },
-			{ text: ' and is' },
-		],
-		[
-			{ text: actionText.toLocaleUpperCase(), font: 'bold' },
-			{
-				text:
-					decision == 'summer_school'
-						? ''
-						: decision === 'promoted'
-							? nextClass || ''
-							: currentClass,
-				font: 'bold',
-			},
-
-		],
-	];
-};
-
-const splitPromotionSegmentForWrap = (segment: PromotionStatementSegment) =>
-	segment.text.match(/\S+\s*|\s+/g)?.map((text) => ({ ...segment, text })) ?? [
-		segment,
-	];
-
-const drawPromotionStatement = ({
-	page,
-	basePlacement,
-	lines,
-	fonts,
-	color,
-}: {
-	page: PDFPage;
-	basePlacement: TextPlacement;
-	lines: PromotionStatementSegment[][];
-	fonts: { normal: PDFFont; bold: PDFFont };
-	color: { r: number; g: number; b: number };
-}) => {
-	const size = basePlacement.size ?? 12;
-	const lineHeight = basePlacement.lineHeight ?? size + 4;
-	const paragraphGap = lineHeight * 0.35;
-	const maxWidth = basePlacement.maxWidth ?? 330;
-	const pdfColor = rgb(color.r, color.g, color.b);
-	let y = basePlacement.y;
-
-	const widthOf = (segment: PromotionStatementSegment) => {
-		const font = segment.font === 'bold' ? fonts.bold : fonts.normal;
-		return font.widthOfTextAtSize(
-			sanitizeTextForPdfFont(segment.text, font),
-			size,
-		);
-	};
-
-	for (const logicalLine of lines) {
-		const wrappedLines: PromotionStatementSegment[][] = [[]];
-		let currentWidth = 0;
-
-		for (const segment of logicalLine.flatMap(splitPromotionSegmentForWrap)) {
-			const tokenWidth = widthOf(segment);
-			const currentLine = wrappedLines[wrappedLines.length - 1];
-			if (
-				currentLine.length > 0 &&
-				currentWidth + tokenWidth > maxWidth &&
-				segment.text.trim()
-			) {
-				wrappedLines.push([]);
-				currentWidth = 0;
-			}
-			wrappedLines[wrappedLines.length - 1].push(segment);
-			currentWidth += tokenWidth;
-		}
-
-		for (const visualLine of wrappedLines) {
-			let x = basePlacement.x;
-			for (const segment of visualLine) {
-				const font = segment.font === 'bold' ? fonts.bold : fonts.normal;
-				const text = sanitizeTextForPdfFont(segment.text, font);
-				if (!text) continue;
-				const textWidth = font.widthOfTextAtSize(text, size);
-				page.drawText(text, {
-					x,
-					y,
-					size,
-					font,
-					color: pdfColor,
-				});
-				if (segment.underline && text.trim()) {
-					const underlineStart =
-						x + font.widthOfTextAtSize(text.match(/^\s*/)?.[0] ?? '', size);
-					const underlineEnd =
-						x +
-						textWidth -
-						font.widthOfTextAtSize(text.match(/\s*$/)?.[0] ?? '', size);
-					page.drawLine({
-						start: { x: underlineStart, y: y - 2 },
-						end: { x: underlineEnd, y: y - 2 },
-						thickness: 0.5,
-						color: pdfColor,
-					});
-				}
-				x += textWidth;
-			}
-			y -= lineHeight;
-		}
-		y -= paragraphGap;
-	}
-};
 
 const normalizeClassNameForPromotion = (name?: string) => {
 	if (!name) return '';
@@ -1728,7 +1584,6 @@ const getSubjectYearlyAverage = (
 };
 
 type PromotionStatementResult = {
-	text: string;
 	decision: PromotionDecision;
 	studentName: string;
 	currentClass: string;
@@ -1747,8 +1602,11 @@ const buildPromotionStatement = ({
 	classSubjects: string[];
 	reportFilters: ReportFilters;
 	school: any;
-}): PromotionStatementResult => {
-	const currentClass = className || reportFilters.className;
+	}): PromotionStatementResult => {
+	
+	const currentClass = getDisplayClassName(
+		className || reportFilters.className,
+	);
 	const nextClass = resolveNextClassName({
 		school,
 		currentClassId: reportFilters.className,
@@ -1760,7 +1618,6 @@ const buildPromotionStatement = ({
 
 	if (hasIncompleteYearlyReport(studentData, classSubjects)) {
 		return {
-			text: 'Promotion statement cannot be generated because this report contains one or more incompletes.',
 			decision: 'incomplete',
 			studentName: studentFullName,
 			currentClass,
@@ -1791,11 +1648,9 @@ const buildPromotionStatement = ({
 		decision = 'failed';
 	}
 
-	// let decision = reportFilters.sponsorName as PromotionDecision;
 
 	if (decision === 'failed') {
 		return {
-			text: `This is to certify that ${studentFullName} has not satisfactorily completed the work of ${currentClass} and is hereby required to repeat ${currentClass} for the ${academicYear} academic year.`,
 			decision: 'failed',
 			studentName: studentFullName,
 			currentClass,
@@ -1805,7 +1660,6 @@ const buildPromotionStatement = ({
 
 	if (decision === 'summer_school') {
 		return {
-			text: `This is to certify that ${studentFullName} has not satisfactorily completed the work of ${currentClass} but is eligible for summer school. The student is required to attend summer school and pass all required subjects in order to be promoted to ${nextClass} for the ${academicYear} academic year.`,
 			decision: 'summer_school',
 			studentName: studentFullName,
 			currentClass,
@@ -1814,7 +1668,6 @@ const buildPromotionStatement = ({
 	}
 
 	return {
-		text: `This is to certify that ${studentFullName} has satisfactorily completed the work of ${currentClass} and is hereby promoted to ${nextClass} for the ${academicYear} academic year.`,
 		decision: 'promoted',
 		studentName: studentFullName,
 		currentClass,
@@ -1822,31 +1675,6 @@ const buildPromotionStatement = ({
 	};
 };
 
-const buildReportVerificationPayload = ({
-	studentId,
-	studentName,
-	className,
-	academicYear,
-	session,
-	schoolShortName,
-}: {
-	studentId: string;
-	studentName: string;
-	className: string;
-	academicYear: string;
-	session: string;
-	schoolShortName?: string;
-}) =>
-	JSON.stringify({
-		type: 'yearly_report',
-		studentId,
-		studentName,
-		className,
-		academicYear,
-		session,
-		school: schoolShortName ?? '',
-		generatedAt: new Date().toISOString(),
-	});
 
 const generateStudentQrCodeDataUrl = async (payload: string) =>
 	QRCode.toDataURL(payload, {
@@ -1944,6 +1772,7 @@ const buildYearlyFieldMap = ({
 		class_name: classDisplayName,
 		academic_year: reportFilters.academicYear,
 		promotion_decision: '',
+		teacher_remarks: "Good"
 	};
 	fields.avg_label = 'Average';
 
@@ -2063,6 +1892,7 @@ const fillTemplateForStudent = async ({
 }) => {
 	const filledDoc = await PDFDocument.load(templateBytes);
 	const [page1, page2] = filledDoc.getPages();
+
 	const fieldMap = buildYearlyFieldMap({
 		studentData,
 		className,
@@ -2070,82 +1900,122 @@ const fillTemplateForStudent = async ({
 		reportFilters,
 		school,
 	});
+
 	const font = await filledDoc.embedFont(StandardFonts.Helvetica);
 	const boldFont = await filledDoc.embedFont(StandardFonts.HelveticaBold);
+	const fonts = { normal: font, bold: boldFont };
+
 	const page1Placements = buildConditionalColorPlacements({
 		basePlacements: placements.page1,
 		values: fieldMap,
 	});
+
 	drawTextMap({
 		page: page1,
 		values: fieldMap,
 		placements: page1Placements,
-		fonts: { normal: font, bold: boldFont },
+		fonts,
 		defaultSize: 9,
 		debug: DEBUG_COORDS,
 	});
-	if (page2) {
-		// Handle promotion statement with custom styling (underlines and colors)
-		const promotionDecision = fieldMap.promotion_decision as string;
-		const basePromotionPlacement = placements.page2.promotion_statement;
 
-		if (basePromotionPlacement && promotionDecision) {
-			const promotionLines = buildPromotionStatementLines({
-				studentName: fieldMap.student_name,
-				currentClass: fieldMap.class_name,
-				decision: promotionDecision as PromotionDecision,
-				academicYear: reportFilters.academicYear,
-				nextClass: resolveNextClassName({
-					school,
-					currentClassId: reportFilters.className,
-					currentClassName: fieldMap.class_name,
-				}),
+	if (!page2) return filledDoc;
+
+	// --- Build promotion fields ---
+
+	const promotionResult = buildPromotionStatement({
+		studentData,
+		className,
+		classSubjects,
+		reportFilters,
+		school,
+	});
+
+	const nextClass = resolveNextClassName({
+		school,
+		currentClassId: reportFilters.className,
+		currentClassName: fieldMap.class_name,
+	});
+
+	const isIncomplete = promotionResult.decision === 'incomplete';
+
+	// Always set promotion_name; other fields are empty-string when incomplete
+	// so drawTextMap finds a value for every placement key and doesn't throw.
+	fieldMap.promotion_name = isIncomplete ? "" : promotionResult.studentName;
+	fieldMap.promotion_class = isIncomplete ? '' : promotionResult.currentClass;
+	fieldMap.promotion_has = isIncomplete
+		? ''
+		: promotionResult.decision === 'promoted'
+			? 'HAS'
+			: 'HAS NOT';
+	fieldMap.promotion_decision_text = isIncomplete
+		? ''
+		: promotionResult.decision === 'promoted'
+			? `PROMOTED TO ${nextClass}`
+			: promotionResult.decision === 'failed'
+				? `REQUIRED TO REPEAT ${promotionResult.currentClass}`
+				: promotionResult.decision === 'summer_school'
+					? 'REQUIRED TO ATTEND SUMMER SCHOOL'
+					: '';
+
+
+	// Remove legacy keys that no longer exist in placements to avoid
+	// "name not found" errors in drawTextMap.
+	const { promotion_statement: _s, promotion_decision: _d, ...page2Fields } = fieldMap;
+
+	// --- Build page 2 placements ---
+
+	const promotionColor =
+		PROMOTION_COLORS[promotionResult.decision as keyof typeof PROMOTION_COLORS] ??
+		BLUE_TEXT;
+
+	const page2BasePlacements: TextPlacementMap = {
+		...placements.page2,
+		promotion_has: {
+			...placements.page2.promotion_has,
+			color: isIncomplete ? undefined : promotionColor,
+			font: 'bold' as const,
+		},
+		promotion_decision_text: {
+			...placements.page2.promotion_decision_text,
+			color: isIncomplete ? undefined : promotionColor,
+			font: 'bold' as const,
+		},
+	};
+
+	const page2Placements = buildConditionalColorPlacements({
+		basePlacements: page2BasePlacements,
+		values: page2Fields,
+	});
+
+	drawTextMap({
+		page: page2,
+		values: page2Fields,
+		placements: page2Placements,
+		fonts,
+		defaultSize: 9,
+		debug: DEBUG_COORDS,
+	});
+
+	// --- Draw QR code (optional) ---
+
+	if (placements.page2Qr && studentData.qrCodeDataUrl) {
+		try {
+			const qrBytes = await fetch(studentData.qrCodeDataUrl).then((res) =>
+				res.arrayBuffer(),
+			);
+			const qrImage = await filledDoc.embedPng(qrBytes);
+			page2.drawImage(qrImage, {
+				x: placements.page2Qr.x,
+				y: placements.page2Qr.y,
+				width: placements.page2Qr.width,
+				height: placements.page2Qr.height,
 			});
-			drawPromotionStatement({
-				page: page2,
-				basePlacement: basePromotionPlacement,
-				lines: promotionLines,
-				fonts: { normal: font, bold: boldFont },
-				color:
-					PROMOTION_COLORS[promotionDecision as PromotionDecision] ?? BLUE_TEXT,
-			});
-		}
-
-		// Draw other page2 fields normally (excluding promotion-related fields)
-		const otherFields = { ...fieldMap };
-		delete otherFields.promotion_statement;
-		delete otherFields.promotion_decision;
-
-		const page2Placements = buildConditionalColorPlacements({
-			basePlacements: placements.page2,
-			values: otherFields,
-		});
-		drawTextMap({
-			page: page2,
-			values: otherFields,
-			placements: page2Placements,
-			fonts: { normal: font, bold: boldFont },
-			defaultSize: 9,
-			debug: DEBUG_COORDS,
-		});
-
-		if (placements.page2Qr && studentData.qrCodeDataUrl) {
-			try {
-				const qrBytes = await fetch(studentData.qrCodeDataUrl).then((res) =>
-					res.arrayBuffer(),
-				);
-				const qrImage = await filledDoc.embedPng(qrBytes);
-				page2.drawImage(qrImage, {
-					x: placements.page2Qr.x,
-					y: placements.page2Qr.y,
-					width: placements.page2Qr.width,
-					height: placements.page2Qr.height,
-				});
-			} catch {
-				// QR image is optional; don't fail report generation when offline.
-			}
+		} catch {
+			// QR image is optional; don't fail report generation when offline.
 		}
 	}
+
 	return filledDoc;
 };
 
@@ -2183,28 +2053,57 @@ export const generateYearlyReportPdf = async ({
 			? school.name
 			: '';
 
-	const templateBytes = await loadReportTemplateBytes({
-		reportType: 'yearly',
-		school: {
-			shortName: school?.shortName,
-			host: school?.host,
-			name: schoolName,
-			logoUrl: school?.logoUrl,
-			logoUrl2: school?.logoUrl2,
-			address: Array.isArray(school?.address) ? school.address : [],
+const templateBytes = await loadReportTemplateBytes({
+	reportType: 'yearly',
+	school: {
+		shortName: school?.shortName,
+		host: school?.host,
+		name: schoolName,
+		logoUrl: school?.logoUrl,
+		logoUrl2: school?.logoUrl2,
+		address: Array.isArray(school?.address) ? school.address : [],
+	},
+	session: reportFilters.session,
+	classLevel: reportFilters.classLevel,
+	classSubjects,
+	themeId: school?.settings?.reportCardThemes?.[reportFilters.classLevel],
+	sponsorName: reportFilters.sponsorName,
+});
+const templateDoc = await PDFDocument.load(templateBytes);
+const [templatePage1, templatePage2] = templateDoc.getPages();
+
+// Stamp class-level fields (sponsor name) onto the template once
+const templateFont = await templateDoc.embedFont(StandardFonts.Helvetica);
+const templateBoldFont = await templateDoc.embedFont(
+	StandardFonts.HelveticaBold,
+);
+const scaleY = templatePage1.getHeight() / 595.28;
+const sponsorLabel = reportFilters.sponsorName
+	? `${reportFilters.sponsorName}, Class Sponsor`
+	: 'Class Sponsor';
+drawTextMap({
+	page: templatePage1,
+	values: { sponsor_name: sponsorLabel },
+	placements: {
+		sponsor_name: {
+			x: templatePage1.getWidth() - 190 * (templatePage1.getWidth() / 841.89),
+			y: templatePage1.getHeight() - 86 * scaleY,
+			size: 9 * scaleY,
+			align: 'left',
+			maxWidth: 180 * (templatePage1.getWidth() / 841.89),
 		},
-		session: reportFilters.session,
-		classLevel: reportFilters.classLevel,
-		classSubjects,
-		themeId: school?.settings?.reportCardThemes?.[reportFilters.classLevel],
-	});
-	const templateDoc = await PDFDocument.load(templateBytes);
-	const [templatePage1, templatePage2] = templateDoc.getPages();
-	const page1Placements = buildReportPlacements({
-		pageWidth: templatePage1.getWidth(),
-		pageHeight: templatePage1.getHeight(),
-		subjectCount: classSubjects.length,
-	});
+	},
+	fonts: { normal: templateFont, bold: templateBoldFont },
+	defaultSize: 9,
+	debug: DEBUG_COORDS,
+});
+const modifiedTemplateBytes = await templateDoc.save();
+
+const page1Placements = buildReportPlacements({
+	pageWidth: templatePage1.getWidth(),
+	pageHeight: templatePage1.getHeight(),
+	subjectCount: classSubjects.length,
+});
 	const page2Placements = templatePage2
 		? buildReportPage2Placements({
 				pageWidth: templatePage2.getWidth(),
@@ -2225,7 +2124,7 @@ export const generateYearlyReportPdf = async ({
 			className,
 			classSubjects,
 			reportFilters,
-			templateBytes,
+			templateBytes: modifiedTemplateBytes,
 			school,
 			placements: {
 				page1: page1Placements,

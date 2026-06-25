@@ -204,11 +204,6 @@ const styles = StyleSheet.create({
 		paddingLeft: 50,
 	},
 
-	signatureSection: {
-		marginTop: 20,
-		paddingLeft: 50,
-	},
-
 	// Second page styles
 
 	pageTwoContainer: {
@@ -437,7 +432,7 @@ function ThemedProgressReportHeader({
 
 function PromotionStatement({ theme }: { theme: ReportTheme }) {
 	return (
-		<View style={{ marginBottom: 16 }}>
+		<View style={{ marginBottom: 50, marginTop: 50 }}>
 			<Text
 				style={{
 					fontSize: 16,
@@ -450,6 +445,73 @@ function PromotionStatement({ theme }: { theme: ReportTheme }) {
 			>
 				Promotion Statement
 			</Text>
+
+			<View style={{ marginTop: 50, flexDirection: 'column', gap: 25 }}>
+				{/* Line 1: "This is to certify that ___________" */}
+				<View
+					style={{
+						flexDirection: 'row',
+						alignItems: 'flex-end',
+						width: '100%',
+						marginBottom: 12,
+					}}
+				>
+					<Text style={{ fontSize: 11, flexShrink: 0 }}>
+						This is to certify that{' '}
+					</Text>
+					<View
+						style={{
+							flex: 1,
+							borderBottomWidth: 1,
+							borderBottomColor: '#000',
+							height: 1,
+						}}
+					/>
+				</View>
+
+				{/* Line 2: "___ satisfactorily completed the work of ___ and is" */}
+				<View
+					style={{
+						flexDirection: 'row',
+						alignItems: 'flex-end',
+						width: '100%',
+						marginBottom: 12,
+					}}
+				>
+					<View
+						style={{
+							width: 70,
+							borderBottomWidth: 1,
+							borderBottomColor: '#000',
+							height: 1,
+							flexShrink: 0,
+						}}
+					/>
+					<Text style={{ fontSize: 11, flexShrink: 0 }}>
+						{' '}
+						satisfactorily completed the work of{' '}
+					</Text>
+					<View
+						style={{
+							flex: 1,
+							borderBottomWidth: 1,
+							borderBottomColor: '#000',
+							height: 1,
+						}}
+					/>
+					<Text style={{ fontSize: 11, flexShrink: 0 }}> and is</Text>
+				</View>
+
+				{/* Line 3: full-width promotion decision blank */}
+				<View
+					style={{
+						width: '100%',
+						borderBottomWidth: 1,
+						borderBottomColor: '#000',
+						height: 1,
+					}}
+				/>
+			</View>
 		</View>
 	);
 }
@@ -975,12 +1037,73 @@ export const ReportCard = React.memo(function PDFDocument({
 								>
 									Yearly Average below 70 will not be eligible for promotion.
 								</Text>
-								<View style={styles.signatureSection}>
-									<Text>Teachers Remark: ____________________________</Text>
-									<View style={{ marginTop: 25, alignItems: 'center' }}>
-										<Text>Signed: _________________________</Text>
-										<Text style={{ width: '100%', textAlign: 'center' }}>
-											Class Sponsor
+
+								{/* Teacher's Remark Row */}
+								<View
+									style={{
+										...styles.promotionText,
+										color: activeTheme.sectionTitleColor,
+										flexDirection: 'row',
+										alignItems: 'flex-end',
+										justifyContent: 'flex-end',
+										width: '100%',
+										marginTop: 20,
+										marginBottom: 30,
+									}}
+								>
+									<Text style={{ fontSize: 10 }}>Teacher's Remark:{' '} </Text>
+									<Text
+										style={{
+											borderBottomWidth: 1,
+											borderBottomColor: '#000',
+											width: 250,
+										}}
+									/>
+								</View>
+
+								{/* Signed Row */}
+								<View
+									style={{
+										...styles.promotionText,
+										color: activeTheme.sectionTitleColor,
+										flexDirection: 'row',
+										alignItems: 'flex-end',
+										justifyContent: 'flex-end',
+										width: '100%',
+									}}
+								>
+									<View>
+										{' '}
+										<Text
+											style={{
+												fontSize: 12,
+												paddingBottom: 15,
+												textAlign: 'right',
+											}}
+										>
+											Signed:{' '}
+										</Text>
+									</View>
+									<View
+										style={{ alignItems: 'center', justifyContent: 'center' }}
+									>
+										<Text
+											style={{
+												borderBottomWidth: 1,
+												borderBottomColor: '#000',
+												width: 250,
+											}}
+										/>
+										<Text
+											style={{
+												fontSize: 12,
+												textAlign: 'center',
+												marginTop: 2,
+											}}
+										>
+											{classSponsor
+												? `${classSponsor}, Class Sponsor`
+												: 'Class Sponsor'}
 										</Text>
 									</View>
 								</View>
@@ -1067,9 +1190,7 @@ export const ReportCard = React.memo(function PDFDocument({
 									>
 										{/* Date Container */}
 										<View style={{ position: 'relative' }}>
-											<Text style={{ fontSize: 9 }}>
-												Date: ______________
-											</Text>
+											<Text style={{ fontSize: 9 }}>Date: ______________</Text>
 											<Text
 												style={{
 													position: 'absolute',

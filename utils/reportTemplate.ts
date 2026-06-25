@@ -16,6 +16,7 @@ export type ReportTemplateFallbackRequest = {
 	classSubjects: string[];
 	semester?: TemplateSemesterKey;
 	themeId?: string;
+	sponsorName?: string;
 };
 
 const TEMPLATE_CACHE_NAME = 'report-template-bytes-v1';

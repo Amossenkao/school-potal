@@ -34,7 +34,7 @@ const HEADER_RECTS = {
 	student_name: {
 		x: 66.8988113,
 		y: 559.8097534,
-		width: 231.8035813,
+		width: 270,
 		height: 20,
 	},
 	class_name: { x: 67.8988113, y: 540.1, width: 150.9999924, height: 20 },
@@ -138,13 +138,6 @@ export const buildReportPlacements = ({
 		size: 9 * scaleY,
 		align: 'center',
 		font: 'bold',
-	};
-	placements.sponsor_name = {
-		x: pageWidth - 190 * scaleX,
-		y: pageHeight - 86 * scaleY,
-		size: 9 * scaleY,
-		align: 'left',
-		maxWidth: 180 * scaleX,
 	};
 
 
@@ -386,7 +379,7 @@ export const buildSemesterCardPlacements = ({
 	};
 	placements.student_id = {
 		x: shiftX(77),
-		y: pageHeight - 173.8585, // was -138
+		y: pageHeight - 173.8585,
 		size: 8,
 		align: 'left',
 		maxWidth: 120,
@@ -416,6 +409,8 @@ export const buildSemesterCardPlacements = ({
 		color: { r: 0.118, g: 0.227, b: 0.541 },
 		font: 'bold',
 	};
+
+
 
 	const columns = {
 		subject: shiftX(32),
@@ -690,13 +685,36 @@ export const buildReportPage2Placements = ({
 		font: 'bold',
 	});
 
-	placements.promotion_statement = {
-		x: 40 * scaleX,
-		y: 400 * scaleY,
-		size: 12 * scaleY,
-		lineHeight: 25 * scaleY,
-		align: 'left',
-		maxWidth: 350 * scaleX,
+	placements.promotion_name = {
+		x: 262 * scaleX,
+		y: 327 * scaleY,
+		size: 14 * scaleY,
+		align: 'center',
+		maxWidth: 244 * scaleX,
+		font: 'bold',
+	};
+	placements.promotion_has = {
+		x: /* x start of HAS/HAS NOT blank */ 74 * scaleX,
+		y: /* y of line 2 */ 277 * scaleY,
+		size: 14 * scaleY,
+		align: 'center',
+		maxWidth: 70 * scaleX,
+		font: 'bold',
+	};
+	placements.promotion_class = {
+		x: /* x start of class blank */ 319 * scaleX,
+		y: 277 * scaleY,
+		size: 14 * scaleY,
+		align: 'center',
+		maxWidth: /* width of class blank */ 65 * scaleX,
+		font: 'bold',
+	};
+	placements.promotion_decision_text = {
+		x: /* center of line 3 blank */ 211.5 * scaleX,
+		y: /* y of line 3 */ 239 * scaleY,
+		size: 14 * scaleY,
+		align: 'center',
+		maxWidth: 345 * scaleX,
 		font: 'bold',
 	};
 

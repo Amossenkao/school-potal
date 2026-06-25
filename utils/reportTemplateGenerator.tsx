@@ -27,6 +27,7 @@ export type DynamicTemplateRequest = {
 	classSubjects: string[];
 	semester?: SemesterKey;
 	themeId?: string;
+	sponsorName?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -111,14 +112,15 @@ const buildReportFilters = (semester: SemesterKey, classLevel?: string) => ({
 export const generateDynamicTemplateBytes = async (
 	request: DynamicTemplateRequest,
 ): Promise<ArrayBuffer> => {
-	const {
-		reportType,
-		school,
-		classSubjects,
-		classLevel,
-		semester: rawSemester,
-		themeId,
-	} = request;
+const {
+	reportType,
+	school,
+	classSubjects,
+	classLevel,
+	semester: rawSemester,
+	themeId,
+	sponsorName,
+} = request;
 
 	const safeSubjects = classSubjects.length ? classSubjects : [''];
 	const semester: SemesterKey = rawSemester === 'second' ? 'second' : 'first';
@@ -146,7 +148,7 @@ export const generateDynamicTemplateBytes = async (
 				classSubjects={safeSubjects}
 				reportFilters={buildReportFilters(semester, classLevel)}
 				school={school}
-				classSponsor=""
+				classSponsor={sponsorName ?? ''}
 				activeTheme={activeTheme}
 				themeId={activeTheme.id}
 			/>
