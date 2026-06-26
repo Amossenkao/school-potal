@@ -434,42 +434,6 @@ runBackgroundGradeSync: async (academicYear, options = {}) => {
 			gradeSyncInProgress.delete(academicYear);
 		}
 	},
-2. Update useAuth.ts
-To stop the background sync from fighting with the Next.js router for network bandwidth, wrap the trigger in a brief timeout so the dashboard can render instantly.
-
-TypeScript
-// Look for runDeferredPostLoginBootstrap in useAuth.ts
-const runDeferredPostLoginBootstrap = (data: any) => {
-	if (typeof window === 'undefined') return;
-	const schedule = window.requestIdleCallback || ((cb) => window.setTimeout(cb, 100));
-	schedule(() => {
-		void (async () => {
-			try {
-				clearSessionScopedClientState();
-				await clearSessionSensitiveStorage();
-				applyBootstrapPayload(data);
-				setDashboardStartPath();
-
-				if (data?.user) {
-					cacheAuthUser(data.user as User);
-				}
-
-				const academicYear = data?.academicYear;
-				if (academicYear && typeof data?.gradesCursor === 'string') {
-					// Add a timeout so it doesn't block the dashboard redirect
-					setTimeout(() => {
-						useSchoolStore.getState().runBackgroundGradeSync(academicYear, {
-							gradesCursor: data.gradesCursor,
-							mode: 'background-parallel',
-						});
-					}, 2500); 
-				}
-			} catch (error) {
-				console.warn('Deferred login bootstrap hydration failed:', error);
-			}
-		})();
-	});
-};
 
 	fetchSchool: async () => {
 		if (!get().school) {
