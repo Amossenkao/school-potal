@@ -19,6 +19,72 @@ interface PageLoadingProps {
 	size?: 'sm' | 'md' | 'lg';
 }
 
+// 1. Move SpinnerCore OUTSIDE of PageLoading
+const SpinnerCore = ({
+	showSchoolBrand = false,
+	compact = false,
+	currentSchool,
+	sizeClass,
+	message,
+}: {
+	showSchoolBrand?: boolean;
+	compact?: boolean;
+	currentSchool: any;
+	sizeClass: string;
+	message?: string;
+}) => {
+	const logo = currentSchool?.logoUrl;
+	const schoolShortName = currentSchool?.shortName || 'School';
+
+	return (
+		<div className="flex flex-col items-center gap-4">
+			<div className={`loader-shell ${sizeClass}`}>
+				<div className="loader-ring loader-ring-outer" />
+				<div className="loader-ring loader-ring-middle" />
+				<div className="loader-ring loader-ring-inner" />
+				<div className="loader-center">
+					{logo ? (
+						<div className="relative h-7 w-7">
+							<img
+								src={logo}
+								alt={`${schoolShortName} logo`}
+								className="h-7 w-7 rounded-full object-cover"
+								loading="eager"
+								decoding="async"
+								onError={(event) => {
+									event.currentTarget.style.display = 'none';
+									const fallback = event.currentTarget
+										.nextElementSibling as HTMLElement | null;
+									if (fallback) {
+										fallback.style.display = 'grid';
+									}
+								}}
+							/>
+							<span className="hidden h-7 w-7 place-items-center rounded-full bg-primary/10 text-primary">
+								<GraduationCap className="h-4 w-4" />
+							</span>
+						</div>
+					) : (
+						<span className="grid h-7 w-7 place-items-center rounded-full bg-primary/10 text-primary">
+							<GraduationCap className="h-4 w-4" />
+						</span>
+					)}
+				</div>
+			</div>
+			{showSchoolBrand && !compact && (
+				<p className="text-sm font-semibold tracking-wide text-foreground">
+					{schoolShortName} e-Portal
+				</p>
+			)}
+			{message && (
+				<p className="max-w-xs text-center text-sm text-muted-foreground">
+					{message}
+				</p>
+			)}
+		</div>
+	);
+};
+
 export const PageLoading = ({
 	message = '',
 	fullScreen = true,
@@ -30,75 +96,25 @@ export const PageLoading = ({
 		md: 'h-16 w-16',
 		lg: 'h-20 w-20',
 	};
+
 	const currentSchool = useSchoolStore((state) => state.school);
 
 	const containerClasses = fullScreen
 		? 'fixed inset-0 z-50 flex items-center justify-center bg-background/92 px-4'
 		: 'flex items-center justify-center p-6';
 
-	const SpinnerCore = ({
-		showSchoolBrand = false,
-		compact = false,
-	}: {
-		showSchoolBrand?: boolean;
-		compact?: boolean;
-	}) => {
-		const logo = currentSchool?.logoUrl;
-		const schoolShortName = currentSchool?.shortName || 'School';
-
-		return (
-			<div className="flex flex-col items-center gap-4">
-				<div className={`loader-shell ${sizeClasses[size]}`}>
-					<div className="loader-ring loader-ring-outer" />
-					<div className="loader-ring loader-ring-middle" />
-					<div className="loader-ring loader-ring-inner" />
-					<div className="loader-center">
-						{logo ? (
-							<div className="relative h-7 w-7">
-								<img
-									src={logo}
-									alt={`${schoolShortName} logo`}
-									className="h-7 w-7 rounded-full object-cover"
-									loading="eager"
-									decoding="async"
-									onError={(event) => {
-										event.currentTarget.style.display = 'none';
-										const fallback = event.currentTarget
-											.nextElementSibling as HTMLElement | null;
-										if (fallback) {
-											fallback.style.display = 'grid';
-										}
-									}}
-								/>
-								<span className="hidden h-7 w-7 place-items-center rounded-full bg-primary/10 text-primary">
-									<GraduationCap className="h-4 w-4" />
-								</span>
-							</div>
-						) : (
-							<span className="grid h-7 w-7 place-items-center rounded-full bg-primary/10 text-primary">
-								<GraduationCap className="h-4 w-4" />
-							</span>
-						)}
-					</div>
-				</div>
-				{showSchoolBrand && !compact && (
-					<p className="text-sm font-semibold tracking-wide text-foreground">
-						{schoolShortName} e-Portal
-					</p>
-				)}
-				{message && (
-					<p className="max-w-xs text-center text-sm text-muted-foreground">
-						{message}
-					</p>
-				)}
-			</div>
-		);
-	};
-
 	const renderContent = () => {
 		switch (variant) {
 			case 'minimal':
-				return <SpinnerCore compact />;
+				// 2. Pass the necessary props to the extracted component
+				return (
+					<SpinnerCore
+						compact
+						currentSchool={currentSchool}
+						sizeClass={sizeClasses[size]}
+						message={message}
+					/>
+				);
 
 			case 'dots':
 				return (
@@ -108,7 +124,9 @@ export const PageLoading = ({
 							<span className="loader-dot loader-dot-delay-1" />
 							<span className="loader-dot loader-dot-delay-2" />
 						</div>
-						{message && <p className="text-sm text-muted-foreground">{message}</p>}
+						{message && (
+							<p className="text-sm text-muted-foreground">{message}</p>
+						)}
 					</div>
 				);
 
@@ -116,14 +134,21 @@ export const PageLoading = ({
 				return (
 					<div className="flex flex-col items-center gap-4">
 						<div className="loader-pulse" />
-						{message && <p className="text-sm text-muted-foreground">{message}</p>}
+						{message && (
+							<p className="text-sm text-muted-foreground">{message}</p>
+						)}
 					</div>
 				);
 
 			case 'school':
 				return (
 					<div className="w-full max-w-sm rounded-3xl border border-border/70 bg-card/95 px-6 py-7 text-center shadow-sm">
-						<SpinnerCore showSchoolBrand />
+						<SpinnerCore
+							showSchoolBrand
+							currentSchool={currentSchool}
+							sizeClass={sizeClasses[size]}
+							message={message}
+						/>
 					</div>
 				);
 
@@ -133,7 +158,9 @@ export const PageLoading = ({
 						<div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-destructive/10">
 							<AlertCircle className="h-8 w-8 text-destructive" />
 						</div>
-						<h1 className="text-2xl font-semibold text-foreground">Page Not Found</h1>
+						<h1 className="text-2xl font-semibold text-foreground">
+							Page Not Found
+						</h1>
 						<p className="text-sm text-muted-foreground">
 							{message || 'The page you requested is unavailable.'}
 						</p>
@@ -157,7 +184,8 @@ export const PageLoading = ({
 							Dashboard Page Not Found
 						</h1>
 						<p className="text-sm text-muted-foreground">
-							{message || 'This dashboard section is unavailable for your account.'}
+							{message ||
+								'This dashboard section is unavailable for your account.'}
 						</p>
 						<Link
 							href="/dashboard"
@@ -170,7 +198,14 @@ export const PageLoading = ({
 				);
 
 			default:
-				return <SpinnerCore compact={variant !== 'school'} />;
+				return (
+					<SpinnerCore
+						compact={variant !== 'school'}
+						currentSchool={currentSchool}
+						sizeClass={sizeClasses[size]}
+						message={message}
+					/>
+				);
 		}
 	};
 

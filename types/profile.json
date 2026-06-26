@@ -1,18 +1,16 @@
 {
-	"_id": {
-		"$oid": "6a30b9ee2a7c33d77b41161e"
-	},
-	"host": "ucaliberia.vercel.app",
-	"dbName": "uca",
+
+	"host": "jkolleh.vercel.app",
+	"dbName": "samore",
 	"id": "68b2c47c7acabadf6a1bcfaf",
-	"name": "Upstairs Christian Academy",
+	"name": "Jessica Rachel Kolleh Memorial Institute",
 	"slogan": "Excellence in Education",
-	"shortName": "Upstairs",
-	"initials": "UCA",
-	"studentIdPrefix": "UCA",
+	"shortName": "Jessica Kolleh",
+	"initials": "JRKMI",
+	"studentIdPrefix": "JRK",
 	"themeName": "auroraForge",
-	"logoUrl": "https://res.cloudinary.com/dcalueltd/image/upload/v1753368059/school-management-system/uca/logo.png",
-	"logoUrl2": "https://res.cloudinary.com/dcalueltd/image/upload/v1753484515/school-management-system/uca/uca_logo2_kqlgdl.png",
+	"logoUrl": "https://res.cloudinary.com/dcalueltd/image/upload/v1758818685/school-management-system/jessica%20kolleh/JKMI_Logo_fslf1w.png",
+	"logoUrl2": "https://res.cloudinary.com/dcalueltd/image/upload/v1758818685/school-management-system/jessica%20kolleh/JKMI_Logo_fslf1w.png",
 	"firstAcademicYear": "2025-2026",
 	"isActive": true,
 	"sysAdmin": {
@@ -149,10 +147,10 @@
 		}
 	},
 	"address": [
-		"Daycare, Nursery, Kindergarten, Elem, Junior & Senior High",
-		"Unity Town, Pipeline Road, Lower Johnsonville",
-		"P.O Box 2523 Montserrado County Liberia",
-		"Email: ucacedemy2011@gmail.com"
+		"Daycare, Elementary, Junior & Senior High School",
+		"Block \"E\", Logan Town Community",
+		"Lower Johnsonville, Montserrado, Liberia",
+		"Cell #: 0775981842 / 0778323267"
 	],
 	"phones": ["+231 770 123 456", "+231 880 789 012"],
 	"emails": ["info@unityca.edu.lr", "admissions@unityca.edu.lr"],
@@ -408,14 +406,6 @@
 					},
 					{
 						"name": "Civics",
-						"weight": 1
-					},
-					{
-						"name": "Vocabulary",
-						"weight": 1
-					},
-					{
-						"name": "Phonics",
 						"weight": 1
 					},
 					{

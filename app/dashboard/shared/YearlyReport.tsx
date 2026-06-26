@@ -1621,7 +1621,6 @@ const buildPromotionStatement = ({
 		currentClassId: reportFilters.className,
 		currentClassName: currentClass,
 	});
-	const academicYear = reportFilters.academicYear;
 	const studentFullName = studentData.studentName;
 	const passMark = resolvePromotionPassMark(school);
 
