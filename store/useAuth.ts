@@ -372,24 +372,33 @@ if (academicYear && typeof window !== 'undefined') {
 		}
 	};
 
-	const runDeferredPostLoginBootstrap = (data: any) => {
-		if (typeof window === 'undefined') return;
-		window.setTimeout(() => {
-			void (async () => {
-				try {
-					clearSessionScopedClientState();
-					await clearSessionSensitiveStorage();
-					applyBootstrapPayload(data);
-					setDashboardStartPath();
-					if (data?.user) {
-						cacheAuthUser(data.user as User);
-					}
-				} catch (error) {
-					console.warn('Deferred login bootstrap hydration failed:', error);
+const runDeferredPostLoginBootstrap = (data: any) => {
+	if (typeof window === 'undefined') return;
+
+	// Use requestIdleCallback to wait until the main thread is completely free,
+	// fallback to a 100ms timeout if the browser doesn't support it (e.g., Safari).
+	const schedule =
+		window.requestIdleCallback || ((cb) => window.setTimeout(cb, 100));
+
+	schedule(() => {
+		void (async () => {
+			try {
+				clearSessionScopedClientState();
+				await clearSessionSensitiveStorage();
+
+				// Apply the heavy payload HERE, completely off the render path
+				applyBootstrapPayload(data);
+				setDashboardStartPath();
+
+				if (data?.user) {
+					cacheAuthUser(data.user as User);
 				}
-			})();
-		}, 0);
-	};
+			} catch (error) {
+				console.warn('Deferred login bootstrap hydration failed:', error);
+			}
+		})();
+	});
+};
 
 	return {
 		user: null,
@@ -451,7 +460,8 @@ if (academicYear && typeof window !== 'undefined') {
 					isBootstrapping: false,
 				});
 				useNetworkStore.getState().setAuthCheckFailed(false);
-				applyBootstrapPayload(data);
+
+
 				setDashboardStartPath();
 				cacheAuthUser(data.user as User);
 				runDeferredPostLoginBootstrap(data);
