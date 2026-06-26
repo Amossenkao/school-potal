@@ -394,7 +394,7 @@ const fetchSchedules = async (
 	return { classSchedules, testSchedules };
 };
 
-const BOOTSTRAP_GRADE_LIMIT = 10000;
+const BOOTSTRAP_GRADE_LIMIT = 5000;
 
 const fetchGradesBootstrap = async (
 	models: any,

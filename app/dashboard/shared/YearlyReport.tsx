@@ -1532,9 +1532,18 @@ const resolveNextClassName = ({
 		return getDisplayClassName(currentClassName);
 	}
 
-	const nextClass = ordered
+	let nextClass = ordered
 		.slice(currentIndex + 1)
 		.find((klass) => klass.baseName !== currentMeta.baseName);
+	
+	if (!nextClass?.name) {
+		switch (school.highestLevel) {
+			case "Elementary":
+				return "Grade 7"
+			case "Junior High":
+				return "Grade 10"
+		}
+	}
 
 	return getDisplayClassName(nextClass?.name || currentClassName);
 };

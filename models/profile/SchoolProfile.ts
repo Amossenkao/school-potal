@@ -203,14 +203,51 @@ const SubjectSchema = new Schema(
 			trim: true,
 		},
 
-		weight: {
-			type: Number,
-			required: true,
-			default: 1,
+		isMajorSubject: {
+			type: Boolean,
+			required: false,
+			default: false,
 		},
 	},
 	{ _id: false },
 );
+const ImagesSchema = new Schema({
+	logoUrl: {
+		type: String,
+		required: true,
+	},
+
+	logoUrl2: {
+		type: String,
+		required: false,
+	},
+
+	pwaIcon: {
+		type: String,
+		required: false,
+	},
+
+	loadingSpinnerIcon: {
+		type: String,
+		required: false,
+	},
+
+	semesterReportWatermark: {
+		type: String,
+		required: false,
+	},
+
+	yearlyReportWatermark: {
+		type: String,
+		required: false,
+	},
+
+	yearlyReportWatermark2: {
+		type: String,
+		required: false
+	}
+});
+
 
 const FeeSchema = new Schema(
 	{
@@ -328,6 +365,12 @@ const SchoolProfileSchema = new Schema<SchoolProfile & Document>(
 		},
 
 		studentIdPrefix: {
+			type: String,
+			required: true,
+			trim: true,
+		},
+
+		highestLevel: {
 			type: String,
 			required: true,
 			trim: true,

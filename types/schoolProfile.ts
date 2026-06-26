@@ -43,6 +43,8 @@ export type FeatureKey =
 	| 'school_settings'
 	| 'school_profile';
 
+export type schoolLevel = "Elementary" | "Junior High" | "Senior High"
+
 export interface RoleFeatureAccess {
 	student: FeatureKey[];
 	teacher: FeatureKey[];
@@ -55,7 +57,7 @@ export interface RoleFeatureAccess {
 // Subject inside each level
 export interface Subject {
 	name: string;
-	weight: number;
+	isMajorSubject?: number;
 }
 
 export interface Level {
@@ -145,6 +147,7 @@ export interface SchoolProfile {
 	shortName: string;
 	initials: string;
 	studentIdPrefix: string;
+	highestLevel: schoolLevel,
 	logoUrl: string;
 	logoUrl2?: string;
 	images: Images;
