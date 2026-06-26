@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantModels } from '@/models';
 import { authorizeUser } from '@/proxy';
 import { Types } from 'mongoose';
-import { getRoleGradesQuery } from "@/app/api/auth/bootstrap"
+import { getRoleGradesQuery } from '@/lib/bootstrap';
 
-const MAX_GRADE_SYNC_LIMIT = 5000;
+const MAX_GRADE_SYNC_LIMIT = 10_000;
 
 export async function GET(req: NextRequest) {
 	try {
@@ -16,10 +16,11 @@ export async function GET(req: NextRequest) {
 		const { searchParams } = new URL(req.url);
 		const academicYear = searchParams.get('academicYear');
 		const limit = Math.min(
-			parseInt(searchParams.get('limit') || '5000', 10),
+			parseInt(searchParams.get('limit') || '10000', 10),
 			MAX_GRADE_SYNC_LIMIT,
 		);
 		const cursorRaw = searchParams.get('cursor');
+		const skipRaw = searchParams.get('skip'); // 👈 new param for parallel mode
 
 		if (!academicYear) {
 			return NextResponse.json(
@@ -28,20 +29,46 @@ export async function GET(req: NextRequest) {
 			);
 		}
 
-
 		const roleQuery = getRoleGradesQuery(currentUser, academicYear);
 		if (!roleQuery) {
 			return new Response(
 				JSON.stringify({ success: true, data: [], nextCursor: null }),
-				{
-					status: 200,
-					headers: {
-						'Content-Type': 'application/json',
-					},
-				},
+				{ status: 200, headers: { 'Content-Type': 'application/json' } },
 			);
 		}
 
+		const models = await getTenantModels();
+
+		// ── Parallel mode: skip-based ──────────────────────────────────────────
+		// When a numeric `skip` param is present the client is driving parallel
+		// chunk fetches. We use .skip() + .limit() on the full sorted collection
+		// so every chunk is independently addressable without needing a cursor
+		// anchor from the previous chunk.
+		if (skipRaw !== null) {
+			const skip = Math.max(0, parseInt(skipRaw, 10));
+
+			const grades = await models.Grade.find(roleQuery)
+				.sort({ lastUpdated: 1, _id: 1 })
+				.skip(skip)
+				.limit(limit)
+				.lean();
+
+			const payload = JSON.stringify({
+				success: true,
+				data: grades,
+				nextCursor: null, // not needed in parallel mode
+			});
+
+			return new Response(payload, {
+				status: 200,
+				headers: {
+					'Content-Type': 'application/json',
+					'Content-Length': String(Buffer.byteLength(payload, 'utf8')),
+				},
+			});
+		}
+
+		// ── Sequential mode: keyset/cursor-based (unchanged) ──────────────────
 		const query: any = { ...roleQuery };
 
 		if (cursorRaw) {
@@ -61,7 +88,6 @@ export async function GET(req: NextRequest) {
 			}
 		}
 
-		const models = await getTenantModels();
 		const grades = await models.Grade.find(query)
 			.sort({ lastUpdated: 1, _id: 1 })
 			.limit(limit)

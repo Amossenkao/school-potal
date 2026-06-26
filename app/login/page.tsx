@@ -714,28 +714,19 @@ const LoginPage = () => {
 		if (typeof activeElement.blur === 'function') activeElement.blur();
 	}, []);
 
-const navigateToDashboardWithSpinner = useCallback(() => {
-	dismissKeyboardFocus();
-	setIsRedirecting(true);
+	// login.tsx — navigateToDashboardWithSpinner
+	const navigateToDashboardWithSpinner = useCallback(() => {
+		dismissKeyboardFocus();
+		setIsRedirecting(true);
 
-	// Resume background grade sync only if the bootstrap left a cursor,
-	// meaning it hit the 20,000-record cap and there's more to fetch.
-	const currentSchool = useSchoolStore.getState().school;
-	if (currentSchool?.currentAcademicYear) {
-		const CURSOR_KEY = `sync_cursor_grades_${currentSchool.currentAcademicYear}`;
-		const hasCursor = Boolean(localStorage.getItem(CURSOR_KEY));
-		if (hasCursor) {
-			useSchoolStore
-				.getState()
-				.runBackgroundGradeSync(currentSchool.currentAcademicYear);
-		}
-	}
+		// ✅ Remove the entire sync block that was here
+		// The sync is handled by runDeferredPostLoginBootstrap in authStore
 
-	window.requestAnimationFrame(() => {
-		router.push('/dashboard');
-	});
-}, [router, dismissKeyboardFocus]);
-	
+		window.requestAnimationFrame(() => {
+			router.push('/dashboard');
+		});
+	}, [router, dismissKeyboardFocus]);
+
 	useEffect(() => {
 		void bootstrapAuth();
 	}, [bootstrapAuth]);
@@ -1323,6 +1314,6 @@ const navigateToDashboardWithSpinner = useCallback(() => {
 			)}
 		</>
 	);
-};
+};;
 
 export default LoginPage;

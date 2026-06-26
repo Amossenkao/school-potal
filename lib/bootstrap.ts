@@ -394,7 +394,18 @@ const fetchSchedules = async (
 	return { classSchedules, testSchedules };
 };
 
-const BOOTSTRAP_GRADE_LIMIT = 5000;
+
+
+const BOOTSTRAP_GRADE_LIMIT = 10_000;
+const ADMIN_BOOTSTRAP_GRADE_LIMIT = 10_000;
+
+export type GradesCursor = {
+	lastUpdated: string | null;
+	_id: string;
+	totalCount: number;
+	fetchedCount: number;
+	chunkSize: number;
+};
 
 const fetchGradesBootstrap = async (
 	models: any,
@@ -407,18 +418,25 @@ const fetchGradesBootstrap = async (
 	const query = getRoleGradesQuery(currentUser, academicYear);
 	if (!query) return { grades: [], gradesCursor: null };
 
-	const grades = await Grade.find(query)
-		.sort({ lastUpdated: 1, _id: 1 })
-		.limit(BOOTSTRAP_GRADE_LIMIT)
-		.lean();
+	const isAdmin = currentUser?.role === 'system_admin';
+	const limit = isAdmin ? ADMIN_BOOTSTRAP_GRADE_LIMIT : BOOTSTRAP_GRADE_LIMIT;
+
+	const [grades, totalCount] = await Promise.all([
+		Grade.find(query).sort({ lastUpdated: 1, _id: 1 }).limit(limit).lean(),
+		Grade.countDocuments(query),
+	]);
 
 	let gradesCursor: string | null = null;
-	if (grades.length === BOOTSTRAP_GRADE_LIMIT) {
+	if (grades.length === limit && totalCount > limit) {
 		const last = grades[grades.length - 1];
-		gradesCursor = JSON.stringify({
-			lastUpdated: last.lastUpdated,
-			_id: last._id,
-		});
+		const cursor: GradesCursor = {
+			lastUpdated: last.lastUpdated ?? null,
+			_id: last._id.toString(),
+			totalCount,
+			fetchedCount: limit,
+			chunkSize: isAdmin ? ADMIN_BOOTSTRAP_GRADE_LIMIT : BOOTSTRAP_GRADE_LIMIT,
+		};
+		gradesCursor = JSON.stringify(cursor);
 	}
 
 	return { grades, gradesCursor };

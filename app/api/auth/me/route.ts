@@ -5,7 +5,7 @@ import { getTenantModels } from '@/models';
 import {
 	buildBootstrapPayload,
 	getDomainVersions,
-} from '@/app/api/auth/bootstrap';
+} from '@/lib/bootstrap';
 import { resolveAcademicYearAccessContext } from '@/utils/academicYearAccess';
 import { syncDebugError, syncDebugLog, syncDebugWarn } from '@/lib/syncDebug';
 

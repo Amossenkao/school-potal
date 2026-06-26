@@ -9,7 +9,7 @@ import { UserRole } from '@/types';
 import {
 	buildBootstrapPayload,
 	getDomainVersionsFromBootstrapPayload,
-} from '@/app/api/auth/bootstrap';
+} from '@/lib/bootstrap';
 import { checkRateLimit, getRequestIp } from '@/utils/rateLimit';
 import { resolveAcademicYearAccessContext } from '@/utils/academicYearAccess';
 import { normalizeHost } from '@/utils/host';
