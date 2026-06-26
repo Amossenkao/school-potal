@@ -719,9 +719,6 @@ const LoginPage = () => {
 		dismissKeyboardFocus();
 		setIsRedirecting(true);
 
-		// ✅ Remove the entire sync block that was here
-		// The sync is handled by runDeferredPostLoginBootstrap in authStore
-
 		window.requestAnimationFrame(() => {
 			router.push('/dashboard');
 		});
