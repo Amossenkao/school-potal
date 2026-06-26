@@ -180,6 +180,17 @@ const AdminGradeManagement: React.FC = () => {
 		status: 'All',
 	});
 
+
+	useEffect(() => {
+		if (!actionNotice) return;
+
+		const timer = setTimeout(() => {
+			setActionNotice(null);
+		}, 10000);
+
+		return () => clearTimeout(timer);
+	}, [actionNotice]);
+
 	useEffect(() => {
 		if (!isAnyModalOpen) return;
 		return lockBodyScroll();
