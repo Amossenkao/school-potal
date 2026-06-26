@@ -361,99 +361,88 @@ const AdminGradeManagement: React.FC = () => {
 
 	// Initial load — shows full-table spinner only when there is nothing to
 	// display yet. Called on mount and when selectedAcademicYear changes.
-	const loadGrades = async () => {
-		if (!selectedAcademicYear) {
-			setSubmissions([]);
-			setLoading(false);
-			return;
-		}
+const loadGrades = async () => {
+	if (!selectedAcademicYear) {
+		setSubmissions([]);
+		setLoading(false);
+		return;
+	}
 
-		const schoolState = useSchoolStore.getState();
-		const scopedStoreSnapshot = getScopedAcademicYearValue(
-			schoolState.gradesByAcademicYear || {},
-			selectedAcademicYear,
-		);
-		const hasYearSnapshot = Boolean(scopedStoreSnapshot.key);
-		const cachedGrades = Array.isArray(scopedStoreSnapshot.value)
-			? scopedStoreSnapshot.value
-			: [];
+	const schoolState = useSchoolStore.getState();
+	const scopedStoreSnapshot = getScopedAcademicYearValue(
+		schoolState.gradesByAcademicYear || {},
+		selectedAcademicYear,
+	);
+	const hasYearSnapshot = Boolean(scopedStoreSnapshot.key);
+	const cachedGrades = Array.isArray(scopedStoreSnapshot.value)
+		? scopedStoreSnapshot.value
+		: [];
 
-		// If we already have grades in the store, use them and exit
-		if (hasYearSnapshot && cachedGrades.length > 0) {
-			setSubmissions(transformRawGrades(cachedGrades as RawGradeData[]));
-			setError('');
-			setLoading(false);
-			return;
-		}
+	if (hasYearSnapshot && cachedGrades.length > 0) {
+		setSubmissions(transformRawGrades(cachedGrades as RawGradeData[]));
+		setError('');
+		setLoading(false);
+	}
 
-		// Only block the table with a spinner when there is nothing to show yet
-		if (submissions.length === 0) {
-			setLoading(true);
-		}
+	if (submissions.length === 0) {
+		setLoading(true);
+	}
 
-		try {
-			setError('');
-			// Trigger the chunked background sync instead of fetching everything at once.
-			// As the store receives chunks, the `scopedGrades` useEffect will automatically
-			// update the submissions state and clear the loading spinner.
-			await useSchoolStore
-				.getState()
-				.runBackgroundGradeSync(selectedAcademicYear);
-		} catch (err) {
+	// Fire it without awaiting to completely unblock the UI thread
+	useSchoolStore
+		.getState()
+		.runBackgroundGradeSync(selectedAcademicYear, {
+			mode: 'background-parallel',
+		})
+		.catch((err) => {
 			console.error('Error fetching grades:', err);
 			if (submissions.length === 0) {
 				setError('Failed to fetch grade submissions. Please try again.');
 			}
-		} finally {
-			// Ensure loading state turns off if the sync finishes or errors out entirely
+		})
+		.finally(() => {
 			setLoading(false);
+		});
+};
+
+
+const handleRefresh = async () => {
+	if (!selectedAcademicYear || isSyncing) return;
+	setIsSyncing(true);
+	setActionNotice(null);
+
+	try {
+		const CURSOR_KEY = `sync_cursor_grades_${selectedAcademicYear}`;
+		const hasCursor = Boolean(localStorage.getItem(CURSOR_KEY));
+
+		if (hasCursor) {
+			// Use sequential mode explicitly for the refresh
+			await useSchoolStore
+				.getState()
+				.runBackgroundGradeSync(selectedAcademicYear, {
+					mode: 'refresh-sequential',
+				});
+		} else {
+			const schoolState = useSchoolStore.getState();
+			const scopedStoreSnapshot = getScopedAcademicYearValue(
+				schoolState.gradesByAcademicYear || {},
+				selectedAcademicYear,
+			);
+			const cachedGrades = Array.isArray(scopedStoreSnapshot.value)
+				? scopedStoreSnapshot.value
+				: [];
+			setSubmissions(transformRawGrades(cachedGrades as RawGradeData[]));
 		}
-	};
-
-	// Cursor-aware refresh — resumes the background sync from the watermark
-	// cursor so only grades newer than what the store already has are fetched.
-	// The table stays fully visible; only the button reflects the syncing state.
-	const handleRefresh = async () => {
-		if (!selectedAcademicYear || isSyncing) return;
-		setIsSyncing(true);
-		setActionNotice(null);
-
-		try {
-			const CURSOR_KEY = `sync_cursor_grades_${selectedAcademicYear}`;
-			const hasCursor = Boolean(localStorage.getItem(CURSOR_KEY));
-
-			if (hasCursor) {
-				// Resume background sync from the watermark cursor.
-				// Each chunk calls mergeGradesForYear, which triggers the
-				// scopedGrades selector below and re-renders the table
-				// progressively as new records arrive.
-				await useSchoolStore
-					.getState()
-					.runBackgroundGradeSync(selectedAcademicYear);
-			} else {
-				// No cursor means the store has never been populated for this year.
-				// Re-derive submissions from the current store state in case
-				// something changed via a realtime event.
-				const schoolState = useSchoolStore.getState();
-				const scopedStoreSnapshot = getScopedAcademicYearValue(
-					schoolState.gradesByAcademicYear || {},
-					selectedAcademicYear,
-				);
-				const cachedGrades = Array.isArray(scopedStoreSnapshot.value)
-					? scopedStoreSnapshot.value
-					: [];
-				setSubmissions(transformRawGrades(cachedGrades as RawGradeData[]));
-			}
-		} catch (err) {
-			console.error('Error refreshing grades:', err);
-			setActionNotice({
-				type: 'error',
-				message: 'Refresh failed. Please try again.',
-			});
-		} finally {
-			setIsSyncing(false);
-		}
-	};
+	} catch (err) {
+		console.error('Error refreshing grades:', err);
+		setActionNotice({
+			type: 'error',
+			message: 'Refresh failed. Please try again.',
+		});
+	} finally {
+		setIsSyncing(false);
+	}
+};
 
 	// Triggered on academic-year context change; store updates flow in via
 	// the scopedGrades effect below and should not retrigger this.

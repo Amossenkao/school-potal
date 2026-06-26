@@ -388,12 +388,15 @@ const runDeferredPostLoginBootstrap = (data: any) => {
 					cacheAuthUser(data.user as User);
 				}
 
-				// 👇 Add this — kick off parallel background sync
 				const academicYear = data?.academicYear;
 				if (academicYear && typeof data?.gradesCursor === 'string') {
-					useSchoolStore
-						.getState()
-						.runBackgroundGradeSync(academicYear, data.gradesCursor);
+					// Add a timeout so it doesn't block the dashboard redirect
+					setTimeout(() => {
+						useSchoolStore.getState().runBackgroundGradeSync(academicYear, {
+							gradesCursor: data.gradesCursor,
+							mode: 'background-parallel',
+						});
+					}, 2500);
 				}
 			} catch (error) {
 				console.warn('Deferred login bootstrap hydration failed:', error);

@@ -77,7 +77,10 @@ type SchoolStore = {
 	hydrateCache: () => void;
 	runBackgroundGradeSync: (
 		academicYear: string,
-		gradesCursor?: string | null,
+		options?: {
+			gradesCursor?: string | null;
+			mode?: 'background-parallel' | 'refresh-sequential';
+		},
 	) => Promise<void>;
 };
 
@@ -311,10 +314,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	gradeRequestsVersionByAcademicYear: {},
 	schedulesVersionByAcademicYear: {},
 
-	runBackgroundGradeSync: async (
-		academicYear: string,
-		gradesCursor?: string | null,
-	) => {
+runBackgroundGradeSync: async (academicYear, options = {}) => {
 		if (!academicYear) return;
 		if (gradeSyncInProgress.has(academicYear)) return;
 
@@ -322,7 +322,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		if (!networkStore.isOnline) return;
 
 		const CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
-		const rawCursor = gradesCursor ?? localStorage.getItem(CURSOR_KEY) ?? null;
+		const rawCursor = options.gradesCursor ?? localStorage.getItem(CURSOR_KEY) ?? null;
 		if (!rawCursor) return;
 
 		let parsedCursor: GradesCursor | null = null;
@@ -337,18 +337,13 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 
 		const { totalCount, fetchedCount, chunkSize = 30_000 } = parsedCursor;
 		const remaining = totalCount - fetchedCount;
-
-		// isInitialSync = called from bootstrap with a cursor, still has chunks to fetch
-		// isRefresh = called from UI refresh button or after sync complete, check for new grades
-		const isInitialSync = !!gradesCursor && remaining > 0;
+		const mode = options.mode || 'background-parallel';
 
 		try {
-			if (isInitialSync) {
-				// ── Parallel mode: fetch remaining chunks by skip offset ──────────
+			if (mode === 'background-parallel' && remaining > 0) {
+				// ── Parallel mode: Runs silently in the background ──────────
 				const chunkCount = Math.ceil(remaining / chunkSize);
-				console.log(
-					`[Sync] Parallel fetch: ${chunkCount} chunks for ${academicYear}`,
-				);
+				console.log(`[Sync] Parallel background fetch: ${chunkCount} chunks for ${academicYear}`);
 
 				const fetchPromises = Array.from({ length: chunkCount }, (_, i) => {
 					const skip = fetchedCount + i * chunkSize;
@@ -357,51 +352,25 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 						limit: String(chunkSize),
 						skip: String(skip),
 					});
-					return fetch(`/api/sync/grades?${params.toString()}`).then(
-						async (res) => {
-							if (!res.ok) throw new Error(`Server error: ${res.status}`);
-							const result = await res.json();
-							const chunk = Array.isArray(result.data) ? result.data : [];
+					return fetch(`/api/sync/grades?${params.toString()}`).then(async (res) => {
+						if (!res.ok) throw new Error(`Server error: ${res.status}`);
+						const result = await res.json();
+						const chunk = Array.isArray(result.data) ? result.data : [];
 
-							// Merge each chunk as it arrives — don't wait for all
-							if (chunk.length > 0) {
-								set((state) => {
-									const existing =
-										resolveAcademicYearRecord(
-											state.gradesByAcademicYear,
-											academicYear,
-										) || [];
-									const gradeMap = new Map<string, any>();
-									for (const grade of existing) {
-										const key = getGradeIdentity(grade);
-										if (key) gradeMap.set(key, grade);
-									}
-									for (const grade of chunk) {
-										const key = getGradeIdentity(grade);
-										if (key) gradeMap.set(key, grade);
-									}
-									const value = Array.from(gradeMap.values());
-									return {
-										gradesByAcademicYear: assignAcademicYearRecord(
-											state.gradesByAcademicYear,
-											academicYear,
-											value,
-										),
-									};
-								});
-							}
-							return chunk;
-						},
-					);
+						if (chunk.length > 0) {
+							get().mergeGradesForYear(academicYear, chunk);
+						}
+						return chunk;
+					});
 				});
 
 				await Promise.allSettled(fetchPromises);
-			} else {
-				// ── Sequential mode: fetch only grades newer than resume cursor ───
-				// Used for refresh button calls and re-checks after initial sync
+			} else if (mode === 'refresh-sequential') {
+				// ── Sequential mode: Only fetches new records in 10k chunks ───
 				console.log(`[Sync] Sequential refresh for ${academicYear}`);
 				let currentCursor = rawCursor;
 				let hasMore = true;
+				const REFRESH_CHUNK_LIMIT = 10_000;
 
 				while (hasMore) {
 					if (!networkStore.isOnline) {
@@ -411,7 +380,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 
 					const params = new URLSearchParams({
 						academicYear,
-						limit: String(chunkSize),
+						limit: String(REFRESH_CHUNK_LIMIT),
 					});
 					params.append('cursor', currentCursor);
 
@@ -425,30 +394,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 					const chunk = Array.isArray(result.data) ? result.data : [];
 
 					if (chunk.length > 0) {
-						set((state) => {
-							const existing =
-								resolveAcademicYearRecord(
-									state.gradesByAcademicYear,
-									academicYear,
-								) || [];
-							const gradeMap = new Map<string, any>();
-							for (const grade of existing) {
-								const key = getGradeIdentity(grade);
-								if (key) gradeMap.set(key, grade);
-							}
-							for (const grade of chunk) {
-								const key = getGradeIdentity(grade);
-								if (key) gradeMap.set(key, grade);
-							}
-							const value = Array.from(gradeMap.values());
-							return {
-								gradesByAcademicYear: assignAcademicYearRecord(
-									state.gradesByAcademicYear,
-									academicYear,
-									value,
-								),
-							};
-						});
+						get().mergeGradesForYear(academicYear, chunk);
 					}
 
 					if (result.nextCursor) {
@@ -460,10 +406,8 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				}
 			}
 
-			// ── After either mode: write resume cursor pointing past latest grade ─
-			const finalGrades =
-				resolveAcademicYearRecord(get().gradesByAcademicYear, academicYear) ||
-				[];
+			// ── Update cursor pointing past the latest grade ─
+			const finalGrades = resolveAcademicYearRecord(get().gradesByAcademicYear, academicYear) || [];
 
 			if (finalGrades.length > 0) {
 				let latest = finalGrades[0];
@@ -482,21 +426,50 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 					chunkSize,
 				};
 				localStorage.setItem(CURSOR_KEY, JSON.stringify(resumeCursor));
-			} else {
-				localStorage.removeItem(CURSOR_KEY);
 			}
 
-			// Single IndexedDB write at the end
-			persistDomainSnapshot(
-				'grades',
-				getAcademicYearPrimaryKey(academicYear),
-				finalGrades,
-			);
+			persistDomainSnapshot('grades', getAcademicYearPrimaryKey(academicYear), finalGrades);
 			persistMeta(get());
 		} finally {
 			gradeSyncInProgress.delete(academicYear);
 		}
 	},
+2. Update useAuth.ts
+To stop the background sync from fighting with the Next.js router for network bandwidth, wrap the trigger in a brief timeout so the dashboard can render instantly.
+
+TypeScript
+// Look for runDeferredPostLoginBootstrap in useAuth.ts
+const runDeferredPostLoginBootstrap = (data: any) => {
+	if (typeof window === 'undefined') return;
+	const schedule = window.requestIdleCallback || ((cb) => window.setTimeout(cb, 100));
+	schedule(() => {
+		void (async () => {
+			try {
+				clearSessionScopedClientState();
+				await clearSessionSensitiveStorage();
+				applyBootstrapPayload(data);
+				setDashboardStartPath();
+
+				if (data?.user) {
+					cacheAuthUser(data.user as User);
+				}
+
+				const academicYear = data?.academicYear;
+				if (academicYear && typeof data?.gradesCursor === 'string') {
+					// Add a timeout so it doesn't block the dashboard redirect
+					setTimeout(() => {
+						useSchoolStore.getState().runBackgroundGradeSync(academicYear, {
+							gradesCursor: data.gradesCursor,
+							mode: 'background-parallel',
+						});
+					}, 2500); 
+				}
+			} catch (error) {
+				console.warn('Deferred login bootstrap hydration failed:', error);
+			}
+		})();
+	});
+};
 
 	fetchSchool: async () => {
 		if (!get().school) {
