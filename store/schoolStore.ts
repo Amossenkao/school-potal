@@ -81,7 +81,10 @@ type SchoolStore = {
 			gradesCursor?: string | null;
 			mode?: 'background-parallel' | 'refresh-sequential';
 		},
-	) => Promise<void>;
+	) => Promise<{
+		status: 'success' | 'busy' | 'error' | 'no-op';
+		fetchedCount: number;
+	}>;
 };
 
 // Prevent multiple simultaneous fetches
@@ -314,59 +317,68 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	gradeRequestsVersionByAcademicYear: {},
 	schedulesVersionByAcademicYear: {},
 
-runBackgroundGradeSync: async (academicYear, options = {}) => {
-		if (!academicYear) return;
-		if (gradeSyncInProgress.has(academicYear)) return;
-
-		const networkStore = useNetworkStore.getState();
-		if (!networkStore.isOnline) return;
-
-		const CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
-		const rawCursor = options.gradesCursor ?? localStorage.getItem(CURSOR_KEY) ?? null;
-		if (!rawCursor) return;
-
-		let parsedCursor: GradesCursor | null = null;
-		try {
-			parsedCursor = JSON.parse(rawCursor);
-		} catch {
-			localStorage.removeItem(CURSOR_KEY);
-			return;
+	runBackgroundGradeSync: async (academicYear, options = {}) => {
+		if (!academicYear) return { status: 'no-op', fetchedCount: 0 };
+		if (gradeSyncInProgress.has(academicYear)) {
+			console.log(`[Sync] Blocked: Sync already running for ${academicYear}`);
+			return { status: 'busy', fetchedCount: 0 };
 		}
 
-		gradeSyncInProgress.add(academicYear);
+		const networkStore = useNetworkStore.getState();
+		if (!networkStore.isOnline) return { status: 'error', fetchedCount: 0 };
 
-		const { totalCount, fetchedCount, chunkSize = 30_000 } = parsedCursor;
-		const remaining = totalCount - fetchedCount;
 		const mode = options.mode || 'background-parallel';
+		const CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
+		const rawCursor =
+			options.gradesCursor ?? localStorage.getItem(CURSOR_KEY) ?? null;
+
+		gradeSyncInProgress.add(academicYear);
+		let totalFetched = 0;
 
 		try {
-			if (mode === 'background-parallel' && remaining > 0) {
-				// ── Parallel mode: Runs silently in the background ──────────
-				const chunkCount = Math.ceil(remaining / chunkSize);
-				console.log(`[Sync] Parallel background fetch: ${chunkCount} chunks for ${academicYear}`);
+			if (mode === 'background-parallel') {
+				if (!rawCursor) return { status: 'no-op', fetchedCount: 0 };
 
-				const fetchPromises = Array.from({ length: chunkCount }, (_, i) => {
-					const skip = fetchedCount + i * chunkSize;
-					const params = new URLSearchParams({
-						academicYear,
-						limit: String(chunkSize),
-						skip: String(skip),
+				let parsedCursor: GradesCursor | null = null;
+				try {
+					parsedCursor = JSON.parse(rawCursor);
+				} catch {
+					localStorage.removeItem(CURSOR_KEY);
+					return { status: 'error', fetchedCount: 0 };
+				}
+
+				const { totalCount, fetchedCount, chunkSize = 30_000 } = parsedCursor;
+				const remaining = totalCount - fetchedCount;
+
+				if (remaining > 0) {
+					const chunkCount = Math.ceil(remaining / chunkSize);
+					console.log(`[Sync] Parallel background fetch: ${chunkCount} chunks`);
+
+					const fetchPromises = Array.from({ length: chunkCount }, (_, i) => {
+						const skip = fetchedCount + i * chunkSize;
+						const params = new URLSearchParams({
+							academicYear,
+							limit: String(chunkSize),
+							skip: String(skip),
+						});
+						return fetch(`/api/sync/grades?${params.toString()}`).then(
+							async (res) => {
+								if (!res.ok) throw new Error(`Server error: ${res.status}`);
+								const result = await res.json();
+								const chunk = Array.isArray(result.data) ? result.data : [];
+
+								if (chunk.length > 0) {
+									get().mergeGradesForYear(academicYear, chunk);
+									totalFetched += chunk.length;
+								}
+								return chunk;
+							},
+						);
 					});
-					return fetch(`/api/sync/grades?${params.toString()}`).then(async (res) => {
-						if (!res.ok) throw new Error(`Server error: ${res.status}`);
-						const result = await res.json();
-						const chunk = Array.isArray(result.data) ? result.data : [];
 
-						if (chunk.length > 0) {
-							get().mergeGradesForYear(academicYear, chunk);
-						}
-						return chunk;
-					});
-				});
-
-				await Promise.allSettled(fetchPromises);
+					await Promise.allSettled(fetchPromises);
+				}
 			} else if (mode === 'refresh-sequential') {
-				// ── Sequential mode: Only fetches new records in 10k chunks ───
 				console.log(`[Sync] Sequential refresh for ${academicYear}`);
 				let currentCursor = rawCursor;
 				let hasMore = true;
@@ -374,7 +386,7 @@ runBackgroundGradeSync: async (academicYear, options = {}) => {
 
 				while (hasMore) {
 					if (!networkStore.isOnline) {
-						localStorage.setItem(CURSOR_KEY, currentCursor);
+						localStorage.setItem(CURSOR_KEY, currentCursor || '');
 						break;
 					}
 
@@ -382,7 +394,7 @@ runBackgroundGradeSync: async (academicYear, options = {}) => {
 						academicYear,
 						limit: String(REFRESH_CHUNK_LIMIT),
 					});
-					params.append('cursor', currentCursor);
+					if (currentCursor) params.append('cursor', currentCursor);
 
 					const res = await fetch(`/api/sync/grades?${params.toString()}`);
 					if (!res.ok) {
@@ -395,6 +407,7 @@ runBackgroundGradeSync: async (academicYear, options = {}) => {
 
 					if (chunk.length > 0) {
 						get().mergeGradesForYear(academicYear, chunk);
+						totalFetched += chunk.length;
 					}
 
 					if (result.nextCursor) {
@@ -407,7 +420,9 @@ runBackgroundGradeSync: async (academicYear, options = {}) => {
 			}
 
 			// ── Update cursor pointing past the latest grade ─
-			const finalGrades = resolveAcademicYearRecord(get().gradesByAcademicYear, academicYear) || [];
+			const finalGrades =
+				resolveAcademicYearRecord(get().gradesByAcademicYear, academicYear) ||
+				[];
 
 			if (finalGrades.length > 0) {
 				let latest = finalGrades[0];
@@ -423,13 +438,22 @@ runBackgroundGradeSync: async (academicYear, options = {}) => {
 					_id: latest._id.toString(),
 					totalCount: finalGrades.length,
 					fetchedCount: finalGrades.length,
-					chunkSize,
+					chunkSize: 30_000,
 				};
 				localStorage.setItem(CURSOR_KEY, JSON.stringify(resumeCursor));
 			}
 
-			persistDomainSnapshot('grades', getAcademicYearPrimaryKey(academicYear), finalGrades);
+			persistDomainSnapshot(
+				'grades',
+				getAcademicYearPrimaryKey(academicYear),
+				finalGrades,
+			);
 			persistMeta(get());
+
+			return { status: 'success', fetchedCount: totalFetched };
+		} catch (error) {
+			console.error('[Sync] Error during background sync:', error);
+			return { status: 'error', fetchedCount: totalFetched };
 		} finally {
 			gradeSyncInProgress.delete(academicYear);
 		}

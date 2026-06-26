@@ -412,17 +412,22 @@ const handleRefresh = async () => {
 	setActionNotice(null);
 
 	try {
+		// Start a timer to enforce a minimum visual UI delay
+		const startTime = Date.now();
 		const CURSOR_KEY = `sync_cursor_grades_${selectedAcademicYear}`;
 		const hasCursor = Boolean(localStorage.getItem(CURSOR_KEY));
 
+		let result = { status: 'no-op', fetchedCount: 0 };
+
 		if (hasCursor) {
-			// Use sequential mode explicitly for the refresh
-			await useSchoolStore
+			// Use sequential mode explicitly for the manual refresh
+			result = await useSchoolStore
 				.getState()
 				.runBackgroundGradeSync(selectedAcademicYear, {
 					mode: 'refresh-sequential',
 				});
 		} else {
+			// Re-derive local state if no cursor exists
 			const schoolState = useSchoolStore.getState();
 			const scopedStoreSnapshot = getScopedAcademicYearValue(
 				schoolState.gradesByAcademicYear || {},
@@ -432,6 +437,38 @@ const handleRefresh = async () => {
 				? scopedStoreSnapshot.value
 				: [];
 			setSubmissions(transformRawGrades(cachedGrades as RawGradeData[]));
+			result = { status: 'success', fetchedCount: 0 };
+		}
+
+		// Enforce a minimum 600ms spinner delay so it doesn't just flash invisibly
+		const elapsed = Date.now() - startTime;
+		if (elapsed < 600) {
+			await new Promise((resolve) => setTimeout(resolve, 600 - elapsed));
+		}
+
+		// Provide explicit feedback to the user based on the store's report
+		if (result.status === 'busy') {
+			setActionNotice({
+				type: 'info',
+				message:
+					'A background data sync is already running. Please wait a moment.',
+			});
+		} else if (result.status === 'error') {
+			setActionNotice({
+				type: 'error',
+				message:
+					'Failed to communicate with the server. Please check your connection.',
+			});
+		} else if (result.fetchedCount > 0) {
+			setActionNotice({
+				type: 'info',
+				message: `Successfully fetched ${result.fetchedCount} new or updated grade records.`,
+			});
+		} else {
+			setActionNotice({
+				type: 'info',
+				message: 'All grades are currently up to date.',
+			});
 		}
 	} catch (err) {
 		console.error('Error refreshing grades:', err);
