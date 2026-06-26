@@ -359,32 +359,56 @@ const AdminGradeManagement: React.FC = () => {
 		});
 	};
 
+	// Initial load — shows full-table spinner only when there is nothing to
 	// display yet. Called on mount and when selectedAcademicYear changes.
-const loadGrades = async () => {
-	if (!selectedAcademicYear) {
-		setSubmissions([]);
-		setLoading(false);
-		return;
-	}
+	const loadGrades = async () => {
+		if (!selectedAcademicYear) {
+			setSubmissions([]);
+			setLoading(false);
+			return;
+		}
 
-	const schoolState = useSchoolStore.getState();
-	const scopedStoreSnapshot = getScopedAcademicYearValue(
-		schoolState.gradesByAcademicYear || {},
-		selectedAcademicYear,
-	);
-	const cachedGrades = Array.isArray(scopedStoreSnapshot.value)
-		? scopedStoreSnapshot.value
-		: [];
+		const schoolState = useSchoolStore.getState();
+		const scopedStoreSnapshot = getScopedAcademicYearValue(
+			schoolState.gradesByAcademicYear || {},
+			selectedAcademicYear,
+		);
+		const hasYearSnapshot = Boolean(scopedStoreSnapshot.key);
+		const cachedGrades = Array.isArray(scopedStoreSnapshot.value)
+			? scopedStoreSnapshot.value
+			: [];
 
-	if (cachedGrades.length > 0) {
-		setSubmissions(transformRawGrades(cachedGrades as RawGradeData[]));
-		setError('');
-	}
+		// If we already have grades in the store, use them and exit
+		if (hasYearSnapshot && cachedGrades.length > 0) {
+			setSubmissions(transformRawGrades(cachedGrades as RawGradeData[]));
+			setError('');
+			setLoading(false);
+			return;
+		}
 
-	// Always turn off loading — the scopedGrades effect will
-	// update submissions whenever the background sync delivers more grades
-	setLoading(false);
-};
+		// Only block the table with a spinner when there is nothing to show yet
+		if (submissions.length === 0) {
+			setLoading(true);
+		}
+
+		try {
+			setError('');
+			// Trigger the chunked background sync instead of fetching everything at once.
+			// As the store receives chunks, the `scopedGrades` useEffect will automatically
+			// update the submissions state and clear the loading spinner.
+			await useSchoolStore
+				.getState()
+				.runBackgroundGradeSync(selectedAcademicYear);
+		} catch (err) {
+			console.error('Error fetching grades:', err);
+			if (submissions.length === 0) {
+				setError('Failed to fetch grade submissions. Please try again.');
+			}
+		} finally {
+			// Ensure loading state turns off if the sync finishes or errors out entirely
+			setLoading(false);
+		}
+	};
 
 	// Cursor-aware refresh — resumes the background sync from the watermark
 	// cursor so only grades newer than what the store already has are fetched.
