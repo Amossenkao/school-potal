@@ -318,6 +318,9 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		if (!academicYear) return;
 		if (gradeSyncInProgress.has(academicYear)) return;
 
+		const networkStore = useNetworkStore.getState();
+		if (!networkStore.isOnline) return;
+
 		const CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
 		const rawCursor = gradesCursor ?? localStorage.getItem(CURSOR_KEY) ?? null;
 		if (!rawCursor) return;
@@ -330,28 +333,82 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			return;
 		}
 
+		gradeSyncInProgress.add(academicYear);
+
 		const { totalCount, fetchedCount, chunkSize = 30_000 } = parsedCursor;
 		const remaining = totalCount - fetchedCount;
 
-		// ✅ If called with no cursor (refresh button), or sync is already complete,
-		// use sequential cursor mode to check for NEW grades since last sync
-		const isRefresh = !gradesCursor;
-		const isComplete = remaining <= 0;
-
-		if (!networkStore.isOnline) {
-			localStorage.setItem(CURSOR_KEY, rawCursor);
-			return;
-		}
-
-		gradeSyncInProgress.add(academicYear);
+		// isInitialSync = called from bootstrap with a cursor, still has chunks to fetch
+		// isRefresh = called from UI refresh button or after sync complete, check for new grades
+		const isInitialSync = !!gradesCursor && remaining > 0;
 
 		try {
-			if (isRefresh || isComplete) {
-				// Sequential mode — fetch only grades newer than the resume cursor
+			if (isInitialSync) {
+				// ── Parallel mode: fetch remaining chunks by skip offset ──────────
+				const chunkCount = Math.ceil(remaining / chunkSize);
+				console.log(
+					`[Sync] Parallel fetch: ${chunkCount} chunks for ${academicYear}`,
+				);
+
+				const fetchPromises = Array.from({ length: chunkCount }, (_, i) => {
+					const skip = fetchedCount + i * chunkSize;
+					const params = new URLSearchParams({
+						academicYear,
+						limit: String(chunkSize),
+						skip: String(skip),
+					});
+					return fetch(`/api/sync/grades?${params.toString()}`).then(
+						async (res) => {
+							if (!res.ok) throw new Error(`Server error: ${res.status}`);
+							const result = await res.json();
+							const chunk = Array.isArray(result.data) ? result.data : [];
+
+							// Merge each chunk as it arrives — don't wait for all
+							if (chunk.length > 0) {
+								set((state) => {
+									const existing =
+										resolveAcademicYearRecord(
+											state.gradesByAcademicYear,
+											academicYear,
+										) || [];
+									const gradeMap = new Map<string, any>();
+									for (const grade of existing) {
+										const key = getGradeIdentity(grade);
+										if (key) gradeMap.set(key, grade);
+									}
+									for (const grade of chunk) {
+										const key = getGradeIdentity(grade);
+										if (key) gradeMap.set(key, grade);
+									}
+									const value = Array.from(gradeMap.values());
+									return {
+										gradesByAcademicYear: assignAcademicYearRecord(
+											state.gradesByAcademicYear,
+											academicYear,
+											value,
+										),
+									};
+								});
+							}
+							return chunk;
+						},
+					);
+				});
+
+				await Promise.allSettled(fetchPromises);
+			} else {
+				// ── Sequential mode: fetch only grades newer than resume cursor ───
+				// Used for refresh button calls and re-checks after initial sync
+				console.log(`[Sync] Sequential refresh for ${academicYear}`);
 				let currentCursor = rawCursor;
 				let hasMore = true;
 
 				while (hasMore) {
+					if (!networkStore.isOnline) {
+						localStorage.setItem(CURSOR_KEY, currentCursor);
+						break;
+					}
+
 					const params = new URLSearchParams({
 						academicYear,
 						limit: String(chunkSize),
@@ -359,7 +416,10 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 					params.append('cursor', currentCursor);
 
 					const res = await fetch(`/api/sync/grades?${params.toString()}`);
-					if (!res.ok) break;
+					if (!res.ok) {
+						console.error(`[Sync] Server error: ${res.status}`);
+						break;
+					}
 
 					const result = await res.json();
 					const chunk = Array.isArray(result.data) ? result.data : [];
@@ -396,129 +456,43 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 						localStorage.setItem(CURSOR_KEY, currentCursor);
 					} else {
 						hasMore = false;
-						// Update resume cursor to point past latest grade
-						const currentGrades =
-							resolveAcademicYearRecord(
-								get().gradesByAcademicYear,
-								academicYear,
-							) || [];
-						if (currentGrades.length > 0) {
-							let latest = currentGrades[0];
-							for (const grade of currentGrades) {
-								const t = new Date(grade.lastUpdated || 0).getTime();
-								const lt = new Date(latest.lastUpdated || 0).getTime();
-								if (
-									t > lt ||
-									(t === lt && String(grade._id) > String(latest._id))
-								) {
-									latest = grade;
-								}
-							}
-							const resumeCursor: GradesCursor = {
-								lastUpdated: latest.lastUpdated ?? null,
-								_id: latest._id.toString(),
-								totalCount: currentGrades.length,
-								fetchedCount: currentGrades.length,
-								chunkSize,
-							};
-							localStorage.setItem(CURSOR_KEY, JSON.stringify(resumeCursor));
-						}
-						persistDomainSnapshot(
-							'grades',
-							getAcademicYearPrimaryKey(academicYear),
-							resolveAcademicYearRecord(
-								get().gradesByAcademicYear,
-								academicYear,
-							) || [],
-						);
-						persistMeta(get());
 					}
 				}
-			} else {
-				// Parallel mode — initial sync with remaining chunks
-				const chunkCount = Math.ceil(remaining / chunkSize);
-				const fetchPromises = Array.from({ length: chunkCount }, (_, i) => {
-					const skip = fetchedCount + i * chunkSize;
-					const params = new URLSearchParams({
-						academicYear,
-						limit: String(chunkSize),
-						skip: String(skip),
-					});
-					return fetch(`/api/sync/grades?${params.toString()}`).then(
-						async (res) => {
-							if (!res.ok) throw new Error(`Server error: ${res.status}`);
-							const result = await res.json();
-							const chunk = Array.isArray(result.data) ? result.data : [];
-							if (chunk.length > 0) {
-								set((state) => {
-									const existing =
-										resolveAcademicYearRecord(
-											state.gradesByAcademicYear,
-											academicYear,
-										) || [];
-									const gradeMap = new Map<string, any>();
-									for (const grade of existing) {
-										const key = getGradeIdentity(grade);
-										if (key) gradeMap.set(key, grade);
-									}
-									for (const grade of chunk) {
-										const key = getGradeIdentity(grade);
-										if (key) gradeMap.set(key, grade);
-									}
-									const value = Array.from(gradeMap.values());
-									return {
-										gradesByAcademicYear: assignAcademicYearRecord(
-											state.gradesByAcademicYear,
-											academicYear,
-											value,
-										),
-									};
-								});
-							}
-							return chunk;
-						},
-					);
-				});
-
-				const results = await Promise.allSettled(fetchPromises);
-				const anyFailed = results.some((r) => r.status === 'rejected');
-
-				const currentGrades =
-					resolveAcademicYearRecord(get().gradesByAcademicYear, academicYear) ||
-					[];
-				if (currentGrades.length > 0) {
-					let latest = currentGrades[0];
-					for (const grade of currentGrades) {
-						const t = new Date(grade.lastUpdated || 0).getTime();
-						const lt = new Date(latest.lastUpdated || 0).getTime();
-						if (
-							t > lt ||
-							(t === lt && String(grade._id) > String(latest._id))
-						) {
-							latest = grade;
-						}
-					}
-					const resumeCursor: GradesCursor = {
-						lastUpdated: latest.lastUpdated ?? null,
-						_id: latest._id.toString(),
-						totalCount: currentGrades.length,
-						fetchedCount: anyFailed
-							? fetchedCount +
-								results.filter((r) => r.status === 'fulfilled').length *
-									chunkSize
-							: currentGrades.length,
-						chunkSize,
-					};
-					localStorage.setItem(CURSOR_KEY, JSON.stringify(resumeCursor));
-				}
-				persistDomainSnapshot(
-					'grades',
-					getAcademicYearPrimaryKey(academicYear),
-					resolveAcademicYearRecord(get().gradesByAcademicYear, academicYear) ||
-						[],
-				);
-				persistMeta(get());
 			}
+
+			// ── After either mode: write resume cursor pointing past latest grade ─
+			const finalGrades =
+				resolveAcademicYearRecord(get().gradesByAcademicYear, academicYear) ||
+				[];
+
+			if (finalGrades.length > 0) {
+				let latest = finalGrades[0];
+				for (const grade of finalGrades) {
+					const t = new Date(grade.lastUpdated || 0).getTime();
+					const lt = new Date(latest.lastUpdated || 0).getTime();
+					if (t > lt || (t === lt && String(grade._id) > String(latest._id))) {
+						latest = grade;
+					}
+				}
+				const resumeCursor: GradesCursor = {
+					lastUpdated: latest.lastUpdated ?? null,
+					_id: latest._id.toString(),
+					totalCount: finalGrades.length,
+					fetchedCount: finalGrades.length,
+					chunkSize,
+				};
+				localStorage.setItem(CURSOR_KEY, JSON.stringify(resumeCursor));
+			} else {
+				localStorage.removeItem(CURSOR_KEY);
+			}
+
+			// Single IndexedDB write at the end
+			persistDomainSnapshot(
+				'grades',
+				getAcademicYearPrimaryKey(academicYear),
+				finalGrades,
+			);
+			persistMeta(get());
 		} finally {
 			gradeSyncInProgress.delete(academicYear);
 		}
