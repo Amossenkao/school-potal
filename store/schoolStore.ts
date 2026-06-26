@@ -315,42 +315,30 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		academicYear: string,
 		gradesCursor?: string | null,
 	) => {
-		const { school } = get();
-		const networkStore = useNetworkStore.getState();
-
-		if (!school || !academicYear) return;
-
-		if (gradeSyncInProgress.has(academicYear)) {
-			console.log(
-				`[Sync] Grade sync already in progress for ${academicYear}, skipping.`,
-			);
-			return;
-		}
+		if (!academicYear) return;
+		if (gradeSyncInProgress.has(academicYear)) return;
 
 		const CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
 		const rawCursor = gradesCursor ?? localStorage.getItem(CURSOR_KEY) ?? null;
-
 		if (!rawCursor) return;
 
 		let parsedCursor: GradesCursor | null = null;
 		try {
-			parsedCursor = JSON.parse(rawCursor) as GradesCursor;
+			parsedCursor = JSON.parse(rawCursor);
 		} catch {
-			console.warn('[Sync] Could not parse grades cursor, aborting sync.');
 			localStorage.removeItem(CURSOR_KEY);
 			return;
 		}
 
-		const { totalCount, fetchedCount, chunkSize = 10_000 } = parsedCursor;
+		const { totalCount, fetchedCount, chunkSize = 30_000 } = parsedCursor;
 		const remaining = totalCount - fetchedCount;
 
-		if (remaining <= 0) {
-			localStorage.removeItem(CURSOR_KEY);
-			return;
-		}
+		// ✅ If called with no cursor (refresh button), or sync is already complete,
+		// use sequential cursor mode to check for NEW grades since last sync
+		const isRefresh = !gradesCursor;
+		const isComplete = remaining <= 0;
 
 		if (!networkStore.isOnline) {
-			console.warn('[Sync] Offline — skipping background grade sync.');
 			localStorage.setItem(CURSOR_KEY, rawCursor);
 			return;
 		}
@@ -358,125 +346,178 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		gradeSyncInProgress.add(academicYear);
 
 		try {
-			const chunkCount = Math.ceil(remaining / chunkSize);
+			if (isRefresh || isComplete) {
+				// Sequential mode — fetch only grades newer than the resume cursor
+				let currentCursor = rawCursor;
+				let hasMore = true;
 
-			const fetchPromises = Array.from({ length: chunkCount }, (_, i) => {
-				const skip = fetchedCount + i * chunkSize;
-				const params = new URLSearchParams({
-					academicYear,
-					limit: String(chunkSize),
-					skip: String(skip), // 👈 absolute offset, no cursor needed
-				});
-				return fetch(`/api/sync/grades?${params.toString()}`).then(async (res) => {
-					if (!res.ok) throw new Error(`[Sync] Server error: ${res.status}`);
+				while (hasMore) {
+					const params = new URLSearchParams({
+						academicYear,
+						limit: String(chunkSize),
+					});
+					params.append('cursor', currentCursor);
+
+					const res = await fetch(`/api/sync/grades?${params.toString()}`);
+					if (!res.ok) break;
+
 					const result = await res.json();
-					return Array.isArray(result.data) ? result.data : [];
-				});
-			});
+					const chunk = Array.isArray(result.data) ? result.data : [];
 
-			console.log(
-				`[Sync] Fetching ${chunkCount} grade chunks in parallel for ${academicYear}…`,
-			);
+					if (chunk.length > 0) {
+						set((state) => {
+							const existing =
+								resolveAcademicYearRecord(
+									state.gradesByAcademicYear,
+									academicYear,
+								) || [];
+							const gradeMap = new Map<string, any>();
+							for (const grade of existing) {
+								const key = getGradeIdentity(grade);
+								if (key) gradeMap.set(key, grade);
+							}
+							for (const grade of chunk) {
+								const key = getGradeIdentity(grade);
+								if (key) gradeMap.set(key, grade);
+							}
+							const value = Array.from(gradeMap.values());
+							return {
+								gradesByAcademicYear: assignAcademicYearRecord(
+									state.gradesByAcademicYear,
+									academicYear,
+									value,
+								),
+							};
+						});
+					}
 
-			const results = await Promise.allSettled(fetchPromises);
-
-			const succeeded: any[][] = [];
-			let anyFailed = false;
-			for (const result of results) {
-				if (result.status === 'fulfilled') {
-					succeeded.push(result.value);
-				} else {
-					anyFailed = true;
-					console.error('[Sync] A grade chunk failed:', result.reason);
-				}
-			}
-
-			if (succeeded.length === 0) {
-				console.error('[Sync] All grade chunks failed. Cursor preserved.');
-				localStorage.setItem(CURSOR_KEY, rawCursor);
-				return;
-			}
-
-			// Single state update + single IndexedDB write for all chunks
-			set((state) => {
-				const existing =
-					resolveAcademicYearRecord(state.gradesByAcademicYear, academicYear) ||
-					[];
-
-				const gradeMap = new Map<string, any>();
-				for (const grade of existing) {
-					const key = getGradeIdentity(grade);
-					if (key) gradeMap.set(key, grade);
-				}
-				for (const chunk of succeeded) {
-					for (const grade of chunk) {
-						const key = getGradeIdentity(grade);
-						if (key) gradeMap.set(key, grade);
+					if (result.nextCursor) {
+						currentCursor = result.nextCursor;
+						localStorage.setItem(CURSOR_KEY, currentCursor);
+					} else {
+						hasMore = false;
+						// Update resume cursor to point past latest grade
+						const currentGrades =
+							resolveAcademicYearRecord(
+								get().gradesByAcademicYear,
+								academicYear,
+							) || [];
+						if (currentGrades.length > 0) {
+							let latest = currentGrades[0];
+							for (const grade of currentGrades) {
+								const t = new Date(grade.lastUpdated || 0).getTime();
+								const lt = new Date(latest.lastUpdated || 0).getTime();
+								if (
+									t > lt ||
+									(t === lt && String(grade._id) > String(latest._id))
+								) {
+									latest = grade;
+								}
+							}
+							const resumeCursor: GradesCursor = {
+								lastUpdated: latest.lastUpdated ?? null,
+								_id: latest._id.toString(),
+								totalCount: currentGrades.length,
+								fetchedCount: currentGrades.length,
+								chunkSize,
+							};
+							localStorage.setItem(CURSOR_KEY, JSON.stringify(resumeCursor));
+						}
+						persistDomainSnapshot(
+							'grades',
+							getAcademicYearPrimaryKey(academicYear),
+							resolveAcademicYearRecord(
+								get().gradesByAcademicYear,
+								academicYear,
+							) || [],
+						);
+						persistMeta(get());
 					}
 				}
+			} else {
+				// Parallel mode — initial sync with remaining chunks
+				const chunkCount = Math.ceil(remaining / chunkSize);
+				const fetchPromises = Array.from({ length: chunkCount }, (_, i) => {
+					const skip = fetchedCount + i * chunkSize;
+					const params = new URLSearchParams({
+						academicYear,
+						limit: String(chunkSize),
+						skip: String(skip),
+					});
+					return fetch(`/api/sync/grades?${params.toString()}`).then(
+						async (res) => {
+							if (!res.ok) throw new Error(`Server error: ${res.status}`);
+							const result = await res.json();
+							const chunk = Array.isArray(result.data) ? result.data : [];
+							if (chunk.length > 0) {
+								set((state) => {
+									const existing =
+										resolveAcademicYearRecord(
+											state.gradesByAcademicYear,
+											academicYear,
+										) || [];
+									const gradeMap = new Map<string, any>();
+									for (const grade of existing) {
+										const key = getGradeIdentity(grade);
+										if (key) gradeMap.set(key, grade);
+									}
+									for (const grade of chunk) {
+										const key = getGradeIdentity(grade);
+										if (key) gradeMap.set(key, grade);
+									}
+									const value = Array.from(gradeMap.values());
+									return {
+										gradesByAcademicYear: assignAcademicYearRecord(
+											state.gradesByAcademicYear,
+											academicYear,
+											value,
+										),
+									};
+								});
+							}
+							return chunk;
+						},
+					);
+				});
 
-				const value = Array.from(gradeMap.values());
-				const gradesByAcademicYear = assignAcademicYearRecord(
-					state.gradesByAcademicYear,
-					academicYear,
-					value,
-				);
+				const results = await Promise.allSettled(fetchPromises);
+				const anyFailed = results.some((r) => r.status === 'rejected');
 
+				const currentGrades =
+					resolveAcademicYearRecord(get().gradesByAcademicYear, academicYear) ||
+					[];
+				if (currentGrades.length > 0) {
+					let latest = currentGrades[0];
+					for (const grade of currentGrades) {
+						const t = new Date(grade.lastUpdated || 0).getTime();
+						const lt = new Date(latest.lastUpdated || 0).getTime();
+						if (
+							t > lt ||
+							(t === lt && String(grade._id) > String(latest._id))
+						) {
+							latest = grade;
+						}
+					}
+					const resumeCursor: GradesCursor = {
+						lastUpdated: latest.lastUpdated ?? null,
+						_id: latest._id.toString(),
+						totalCount: currentGrades.length,
+						fetchedCount: anyFailed
+							? fetchedCount +
+								results.filter((r) => r.status === 'fulfilled').length *
+									chunkSize
+							: currentGrades.length,
+						chunkSize,
+					};
+					localStorage.setItem(CURSOR_KEY, JSON.stringify(resumeCursor));
+				}
 				persistDomainSnapshot(
 					'grades',
 					getAcademicYearPrimaryKey(academicYear),
-					value,
+					resolveAcademicYearRecord(get().gradesByAcademicYear, academicYear) ||
+						[],
 				);
-				persistMeta(state);
-
-				return { gradesByAcademicYear };
-			});
-
-			if (anyFailed) {
-				const successfulCount = succeeded.reduce(
-					(sum, chunk) => sum + chunk.length,
-					0,
-				);
-				const resumeCursor: GradesCursor = {
-					...parsedCursor,
-					fetchedCount: fetchedCount + successfulCount,
-				};
-				localStorage.setItem(CURSOR_KEY, JSON.stringify(resumeCursor));
-				console.warn(`[Sync] Partial sync. Resume cursor saved.`);
-				return;
-			}
-
-			// Full sync complete — write a resume cursor for next login
-			const currentGrades =
-				resolveAcademicYearRecord(get().gradesByAcademicYear, academicYear) ||
-				[];
-
-			if (currentGrades.length > 0) {
-				let latestGrade = currentGrades[0];
-				for (const grade of currentGrades) {
-					const gradeTime = new Date(grade.lastUpdated || 0).getTime();
-					const latestTime = new Date(latestGrade.lastUpdated || 0).getTime();
-					if (
-						gradeTime > latestTime ||
-						(gradeTime === latestTime &&
-							String(grade._id) > String(latestGrade._id))
-					) {
-						latestGrade = grade;
-					}
-				}
-				const resumeCursor: GradesCursor = {
-					lastUpdated: latestGrade.lastUpdated ?? null,
-					_id: latestGrade._id.toString(),
-					totalCount: currentGrades.length,
-					fetchedCount: currentGrades.length,
-					chunkSize,
-				};
-				localStorage.setItem(CURSOR_KEY, JSON.stringify(resumeCursor));
-				console.log(
-					'[Sync] Background grade sync complete. Resume cursor saved.',
-				);
-			} else {
-				localStorage.removeItem(CURSOR_KEY);
+				persistMeta(get());
 			}
 		} finally {
 			gradeSyncInProgress.delete(academicYear);
