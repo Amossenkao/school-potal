@@ -799,10 +799,6 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			payload.user && typeof payload.user === 'object'
 				? (payload.user as any)
 				: null;
-		const payloadUsers =
-			payload.users && typeof payload.users === 'object'
-				? (payload.users as UsersPayload)
-				: null;
 		const affectedUserIds = new Set<string>(
 			Array.isArray(payload.targetUserIds)
 				? payload.targetUserIds
@@ -838,6 +834,15 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		].includes(event.type);
 		const shouldTouchSchedules = ['CLASS_UPDATED'].includes(event.type);
 		const shouldTouchGradeRequests = event.type === 'GRADE_CHANGE_REQUESTED';
+
+		// When an event carries no academicYear (e.g. a system_admin profile update
+		// where extractAcademicYears returns []), fall back to every year currently
+		// loaded in the store so the roster upsert still fires rather than silently
+		// no-oping because the year gate resolves to an empty string.
+		const fallbackYears =
+			shouldTouchUsers && !academicYear
+				? Object.keys(get().usersByAcademicYear)
+				: [];
 
 		set((state) => {
 			if (academicYear) {
@@ -920,6 +925,18 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				event.type === 'USER_DISABLED' || event.type === 'STUDENT_REMOVED';
 			const userIds = Array.from(affectedUserIds);
 
+			// If the event has no academicYear and the user payload has no year
+			// membership (e.g. system_admin), fall back to all loaded years so
+			// the roster upsert fires instead of silently doing nothing.
+			const targetYears =
+				yearsToTouch.length > 0
+					? yearsToTouch
+					: fallbackYears.length > 0
+						? fallbackYears
+						: academicYear
+							? [academicYear]
+							: [];
+
 			set((state) => {
 				let usersByAcademicYear = state.usersByAcademicYear;
 				let touched = false;
@@ -943,13 +960,6 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 					);
 					touched = true;
 				};
-
-				const targetYears =
-					yearsToTouch.length > 0
-						? yearsToTouch
-						: academicYear
-							? [academicYear]
-							: [];
 
 				if (removeFromAllYears && userIds.length > 0) {
 					Object.keys(usersByAcademicYear).forEach((year) => {

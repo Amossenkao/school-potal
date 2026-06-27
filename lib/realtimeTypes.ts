@@ -110,6 +110,7 @@ export const getAuthorizedRealtimeChannels = (options: {
 
 	const role = trim(options.role || options.user?.role).toLowerCase();
 	const userId = trim(options.user?.id);
+
 	if (userId) {
 		channels.add(getUserRealtimeChannel(tenantId, userId));
 	}
@@ -119,8 +120,11 @@ export const getAuthorizedRealtimeChannels = (options: {
 		role === 'system_admin' ||
 		role === 'super_admin'
 	) {
-		channels.add(`class:${tenantId}:*`);
-		channels.add(`user:${tenantId}:*`);
+		// school:tenantId (already added) receives all broadcast events.
+		// user:tenantId:ownId (already added) receives targeted security events.
+		// Wildcard channel subscriptions don't work for message delivery in Ably —
+		// wildcards are capability-only. Everything admins need arrives on the
+		// school channel once resolvePublishChannels fans out correctly.
 		return Array.from(channels);
 	}
 
@@ -144,6 +148,27 @@ export const getAuthorizedRealtimeCapabilities = (options: {
 	role?: string | null;
 	publicOnly?: boolean;
 }) => {
+	const tenantId = sanitizeChannelSegment(options.tenantId);
+	const role = trim(options.role || options.user?.role).toLowerCase();
+
+	// Admins and system admins get wildcard capability grants so their token
+	// is valid on any channel. They only subscribe to specific channels
+	// (school + own user channel) but the wildcard capability means Ably
+	// will accept the token if we ever need to add channels without re-minting.
+	if (
+		!options.publicOnly &&
+		tenantId &&
+		(role === 'administrator' ||
+			role === 'system_admin' ||
+			role === 'super_admin')
+	) {
+		return {
+			[`school:${tenantId}`]: ['subscribe'],
+			[`class:${tenantId}:*`]: ['subscribe'],
+			[`user:${tenantId}:*`]: ['subscribe'],
+		};
+	}
+
 	const channels = getAuthorizedRealtimeChannels(options);
 	return channels.reduce<Record<string, string[]>>((capabilities, channel) => {
 		capabilities[channel] = ['subscribe'];
@@ -290,47 +315,97 @@ export const resolvePublishChannels = (event: RealtimeEvent) => {
 		});
 	};
 
+	// Extract common routing fields from payload
 	const scope = payload.scope as RealtimeScope | undefined;
 	const targetUserIds = payload.targetUserIds as string[] | undefined;
+	const actorId = String(payload.actorId || '').trim();
+
 	const classIds =
 		(scope?.classIds as string[] | undefined) ||
 		(payload.classIds as string[] | undefined) ||
 		(payload.classId ? [String(payload.classId)] : undefined) ||
 		(payload.classIdToUpdate ? [String(payload.classIdToUpdate)] : undefined);
 
+	// Extract class channels the affected user belongs to so that peers
+	// (teachers, classmates, admins) who share those classes receive the event.
+	// This is the key fan-out that makes profile updates visible to everyone
+	// who has access to that user, not just the user themselves.
+	const addPayloadUserClassChannels = () => {
+		const payloadUser = payload.user as Record<string, any> | undefined;
+		if (!payloadUser) return;
+
+		const directClassId = String(payloadUser.classId || '').trim();
+		if (directClassId) addClassIds([directClassId]);
+
+		const yearClassIds = Array.isArray(payloadUser.academicYears)
+			? payloadUser.academicYears
+					.map((ay: any) => String(ay?.classId || '').trim())
+					.filter(Boolean)
+			: [];
+		if (yearClassIds.length > 0) addClassIds(yearClassIds);
+
+		const subjectClassIds = Array.isArray(payloadUser.subjects)
+			? payloadUser.subjects.flatMap((s: any) =>
+					Array.isArray(s?.classes)
+						? s.classes
+								.map((c: any) => String(c?.classId || '').trim())
+								.filter(Boolean)
+						: [],
+				)
+			: [];
+		if (subjectClassIds.length > 0) addClassIds(subjectClassIds);
+	};
+
 	switch (event.type) {
 		case 'ANNOUNCEMENT_CREATED':
 		case 'EVENT_CREATED':
 		case 'EVENT_UPDATED':
 		case 'EVENT_DELETED':
+			// School-wide broadcast — school channel is sufficient.
 			addSchool();
 			break;
+
 		case 'USER_CREATED':
 		case 'USER_UPDATED':
 		case 'USER_DISABLED':
+			// Publish to:
+			// 1. school channel — reaches admins and system_admins
+			// 2. the affected user's own channel — reaches that user directly
+			// 3. the affected user's class channels — reaches teachers and classmates
+			//    who have access to this user but don't subscribe to their user channel
 			addSchool();
 			addUserIds(
 				targetUserIds ||
 					(payload.userId ? [String(payload.userId)] : undefined),
 			);
 			addClassIds(classIds);
+			addPayloadUserClassChannels();
 			break;
+
 		case 'STUDENT_ADDED':
 		case 'STUDENT_REMOVED':
 		case 'CLASS_UPDATED':
 			addSchool();
 			addClassIds(classIds);
 			break;
+
 		case 'GRADE_CREATED':
 		case 'GRADE_UPDATED':
 		case 'GRADE_CHANGE_REQUESTED':
+			// Publish to:
+			// 1. school channel — reaches admins and system_admins
+			// 2. class channels — reaches the teacher and students in that class
+			// 3. targeted user channels — reaches the specific student or teacher
+			// 4. actor channel — acknowledges the submission back to the submitter
 			addSchool();
 			addClassIds(classIds);
 			addUserIds(
 				targetUserIds ||
 					(payload.userId ? [String(payload.userId)] : undefined),
 			);
+			if (actorId) addUserIds([actorId]);
 			break;
+
 		default:
 			addSchool();
 			addClassIds(classIds);
@@ -338,6 +413,7 @@ export const resolvePublishChannels = (event: RealtimeEvent) => {
 				targetUserIds ||
 					(payload.userId ? [String(payload.userId)] : undefined),
 			);
+			break;
 	}
 
 	if (channels.size === 0) {
