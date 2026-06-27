@@ -786,6 +786,11 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	},
 
 	applyRealtimeEvent: (event) => {
+		console.log('[schoolStore] applyRealtimeEvent received:', event.type, {
+			payload: event.payload,
+			timestamp: event.timestamp,
+		});
+
 		const payload = (event?.payload || {}) as Record<string, unknown>;
 		const academicYear = String(
 			payload.academicYear || payload.year || payload.schoolYear || '',
@@ -808,6 +813,16 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		);
 		const payloadUserId = String(payload.userId || '').trim();
 		if (payloadUserId) affectedUserIds.add(payloadUserId);
+
+		console.log(
+			'[schoolStore] academicYear from payload:',
+			academicYear || '(none)',
+		);
+		console.log(
+			'[schoolStore] payloadUser present:',
+			Boolean(payloadUser),
+			payloadUser,
+		);
 
 		if (schoolPayload) {
 			get().setSchool(schoolPayload);
@@ -835,14 +850,19 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		const shouldTouchSchedules = ['CLASS_UPDATED'].includes(event.type);
 		const shouldTouchGradeRequests = event.type === 'GRADE_CHANGE_REQUESTED';
 
-		// When an event carries no academicYear (e.g. a system_admin profile update
-		// where extractAcademicYears returns []), fall back to every year currently
-		// loaded in the store so the roster upsert still fires rather than silently
-		// no-oping because the year gate resolves to an empty string.
+		console.log('[schoolStore] shouldTouchUsers:', shouldTouchUsers, {
+			shouldTouchCalendar,
+			shouldTouchGrades,
+			shouldTouchSchedules,
+			shouldTouchGradeRequests,
+		});
+
 		const fallbackYears =
 			shouldTouchUsers && !academicYear
 				? Object.keys(get().usersByAcademicYear)
 				: [];
+
+		console.log('[schoolStore] fallbackYears:', fallbackYears);
 
 		set((state) => {
 			if (academicYear) {
@@ -925,9 +945,6 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				event.type === 'USER_DISABLED' || event.type === 'STUDENT_REMOVED';
 			const userIds = Array.from(affectedUserIds);
 
-			// If the event has no academicYear and the user payload has no year
-			// membership (e.g. system_admin), fall back to all loaded years so
-			// the roster upsert fires instead of silently doing nothing.
 			const targetYears =
 				yearsToTouch.length > 0
 					? yearsToTouch
@@ -936,6 +953,15 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 						: academicYear
 							? [academicYear]
 							: [];
+
+			console.log('[schoolStore] roster upsert — targetYears:', targetYears, {
+				yearsToTouch,
+				fallbackYears,
+				academicYear,
+				removeFromAllYears,
+				userIds,
+				payloadUser,
+			});
 
 			set((state) => {
 				let usersByAcademicYear = state.usersByAcademicYear;
@@ -969,9 +995,23 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 					targetYears.forEach((year) => updateRosterForYear(year));
 				}
 
-				if (!touched) return {};
+				if (!touched) {
+					console.warn(
+						'[schoolStore] roster upsert — no years were touched, state unchanged',
+					);
+					return {};
+				}
+
+				console.log(
+					'[schoolStore] roster upsert — state updated for years:',
+					targetYears,
+				);
 				return { usersByAcademicYear };
 			});
+		} else if (shouldTouchUsers) {
+			console.warn(
+				'[schoolStore] shouldTouchUsers is true but payloadUser is null — roster will NOT be updated',
+			);
 		}
 
 		if (

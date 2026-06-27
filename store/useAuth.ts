@@ -319,6 +319,11 @@ if (academicYear && typeof window !== 'undefined') {
 };
 
 const applyRealtimeEvent = (event: RealtimeEvent) => {
+	console.log('[authStore] applyRealtimeEvent received:', event.type, {
+		payload: event.payload,
+		timestamp: event.timestamp,
+	});
+
 	const payload = (event?.payload || {}) as Record<string, unknown>;
 	const affectedUserIds = new Set<string>(
 		Array.isArray(payload.targetUserIds)
@@ -334,7 +339,13 @@ const applyRealtimeEvent = (event: RealtimeEvent) => {
 		affectedUserIds.size === 0 ||
 		(currentUserId ? affectedUserIds.has(currentUserId) : false);
 
+	console.log('[authStore] impactsCurrentUser:', impactsCurrentUser, {
+		affectedUserIds: Array.from(affectedUserIds),
+		currentUserId,
+	});
+
 	if (event.type === 'USER_DISABLED' && impactsCurrentUser) {
+		console.log('[authStore] Handling USER_DISABLED — clearing session');
 		set({
 			user: null,
 			isLoggedIn: false,
@@ -355,6 +366,11 @@ const applyRealtimeEvent = (event: RealtimeEvent) => {
 	if (event.type === 'USER_UPDATED' && impactsCurrentUser) {
 		const nextUser =
 			payload.user && typeof payload.user === 'object' ? payload.user : null;
+		console.log(
+			'[authStore] Handling USER_UPDATED — nextUser present:',
+			Boolean(nextUser),
+			nextUser,
+		);
 		if (nextUser) {
 			set((state) => ({
 				user: state.user
@@ -367,9 +383,6 @@ const applyRealtimeEvent = (event: RealtimeEvent) => {
 		}
 	}
 
-	// Grade events and grade requests don't affect authStore state directly,
-	// but confirming the connection is healthy prevents false offline indicators
-	// for system admins who receive these on the school channel.
 	if (
 		event.type === 'GRADE_CREATED' ||
 		event.type === 'GRADE_UPDATED' ||
