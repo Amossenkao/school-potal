@@ -206,36 +206,70 @@ const runAuthRefresh = useCallback(
 		});
 
 		const handleRealtimeEvent = (event: RealtimeEvent) => {
-			useSchoolStore.getState().applyRealtimeEvent(event);
-			useAuth.getState().applyRealtimeEvent(event);
-			const currentUserId = String(user?.id || '').trim();
-			const targetUserIds = Array.isArray(event.payload?.targetUserIds)
-				? event.payload.targetUserIds.map((value) => String(value || '').trim())
-				: [];
-			const eventUserId = String(event.payload?.userId || '').trim();
-			const impactsCurrentUser =
-				currentUserId &&
-				(Boolean(eventUserId && eventUserId === currentUserId) ||
-					targetUserIds.includes(currentUserId));
-			if (event.type === 'USER_DISABLED' && impactsCurrentUser) {
-				return;
-			}
-			const academicYear = String(event.payload?.academicYear || '').trim();
-			const reason = String(event.payload?.reason || '').trim();
-			if (SECURITY_SYNC_REASONS.has(reason)) {
-				void runAuthRefresh({
-					force: true,
-					trigger: `ably-security:${event.type}`,
-					academicYear,
-				});
-				return;
-			}
+	console.log("handleRealtimeEvent called", event)
+	useSchoolStore.getState().applyRealtimeEvent(event);
+	useAuth.getState().applyRealtimeEvent(event);
+
+	const currentUserId = String(user?.id || '').trim();
+	const targetUserIds = Array.isArray(event.payload?.targetUserIds)
+		? event.payload.targetUserIds.map((v) => String(v || '').trim())
+		: [];
+	const eventUserId = String(event.payload?.userId || '').trim();
+	const impactsCurrentUser =
+		currentUserId &&
+		(Boolean(eventUserId && eventUserId === currentUserId) ||
+			targetUserIds.includes(currentUserId));
+
+	if (event.type === 'USER_DISABLED' && impactsCurrentUser) {
+		return;
+	}
+
+	const academicYear = String(event.payload?.academicYear || '').trim();
+	const reason = String(event.payload?.reason || '').trim();
+
+	if (SECURITY_SYNC_REASONS.has(reason)) {
+		void runAuthRefresh({
+			force: true,
+			trigger: `ably-security:${event.type}`,
+			academicYear,
+		});
+		return;
+	}
+
+	// Only trigger a server round-trip if the event carries no user payload.
+	// If payloadUser is present, applyRealtimeEvent already updated the roster
+	// in-place — no need to re-fetch from the server.
+	const hasPayloadUser = Boolean(
+		event.payload?.user && typeof event.payload.user === 'object',
+	);
+	const isUserEvent = [
+		'USER_CREATED',
+		'USER_UPDATED',
+		'USER_DISABLED',
+		'STUDENT_ADDED',
+		'STUDENT_REMOVED',
+		'CLASS_UPDATED',
+	].includes(event.type);
+
+	if (isUserEvent && hasPayloadUser) {
+		// Roster already patched in-place by applyRealtimeEvent.
+		// Only sync if this impacts the current user's own session data.
+		if (impactsCurrentUser) {
 			scheduleRefresh({
 				force: true,
 				trigger: `ably:${event.type}`,
 				academicYear,
 			});
-		};
+		}
+		return;
+	}
+
+	scheduleRefresh({
+		force: true,
+		trigger: `ably:${event.type}`,
+		academicYear,
+	});
+};
 
 		channels.forEach((channelName) => {
 			const channel = client.channels.get(channelName);
