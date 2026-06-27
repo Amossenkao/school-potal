@@ -417,13 +417,16 @@ const loadGrades = async () => {
 };
 
 
-const handleRefresh = async () => {
+const handleRefresh = async (silent: boolean = false) => {
 	if (!selectedAcademicYear || isSyncing) return;
-	setIsSyncing(true);
-	setActionNotice(null);
+
+	// Only trigger UI states if this is a manual user click
+	if (!silent) {
+		setIsSyncing(true);
+		setActionNotice(null);
+	}
 
 	try {
-		// Start a timer to enforce a minimum visual UI delay
 		const startTime = Date.now();
 		const CURSOR_KEY = `sync_cursor_grades_${selectedAcademicYear}`;
 		const hasCursor = Boolean(localStorage.getItem(CURSOR_KEY));
@@ -431,14 +434,12 @@ const handleRefresh = async () => {
 		let result = { status: 'no-op', fetchedCount: 0 };
 
 		if (hasCursor) {
-			// Use sequential mode explicitly for the manual refresh
 			result = await useSchoolStore
 				.getState()
 				.runBackgroundGradeSync(selectedAcademicYear, {
 					mode: 'refresh-sequential',
 				});
 		} else {
-			// Re-derive local state if no cursor exists
 			const schoolState = useSchoolStore.getState();
 			const scopedStoreSnapshot = getScopedAcademicYearValue(
 				schoolState.gradesByAcademicYear || {},
@@ -451,44 +452,49 @@ const handleRefresh = async () => {
 			result = { status: 'success', fetchedCount: 0 };
 		}
 
-		// Enforce a minimum 600ms spinner delay so it doesn't just flash invisibly
-		const elapsed = Date.now() - startTime;
-		if (elapsed < 600) {
-			await new Promise((resolve) => setTimeout(resolve, 600 - elapsed));
-		}
+		// Only show delays and notices if this is a manual refresh
+		if (!silent) {
+			const elapsed = Date.now() - startTime;
+			if (elapsed < 600) {
+				await new Promise((resolve) => setTimeout(resolve, 600 - elapsed));
+			}
 
-		// Provide explicit feedback to the user based on the store's report
-		if (result.status === 'busy') {
-			setActionNotice({
-				type: 'info',
-				message:
-					'A background data sync is already running. Please wait a moment.',
-			});
-		} else if (result.status === 'error') {
-			setActionNotice({
-				type: 'error',
-				message:
-					'Failed to communicate with the server. Please check your connection.',
-			});
-		} else if (result.fetchedCount > 0) {
-			setActionNotice({
-				type: 'info',
-				message: `Successfully fetched ${result.fetchedCount} new or updated grade records.`,
-			});
-		} else {
-			setActionNotice({
-				type: 'info',
-				message: 'All grades are currently up to date.',
-			});
+			if (result.status === 'busy') {
+				setActionNotice({
+					type: 'info',
+					message:
+						'A background data sync is already running. Please wait a moment.',
+				});
+			} else if (result.status === 'error') {
+				setActionNotice({
+					type: 'error',
+					message:
+						'Failed to communicate with the server. Please check your connection.',
+				});
+			} else if (result.fetchedCount > 0) {
+				setActionNotice({
+					type: 'info',
+					message: `Successfully fetched ${result.fetchedCount} new or updated grade records.`,
+				});
+			} else {
+				setActionNotice({
+					type: 'info',
+					message: 'All grades are currently up to date.',
+				});
+			}
 		}
 	} catch (err) {
 		console.error('Error refreshing grades:', err);
-		setActionNotice({
-			type: 'error',
-			message: 'Refresh failed. Please try again.',
-		});
+		if (!silent) {
+			setActionNotice({
+				type: 'error',
+				message: 'Refresh failed. Please try again.',
+			});
+		}
 	} finally {
-		setIsSyncing(false);
+		if (!silent) {
+			setIsSyncing(false);
+		}
 	}
 };
 
@@ -620,45 +626,47 @@ const handleRefresh = async () => {
 	};
 
 	// API interaction handlers
-	const updateGradesStatus = async (
-		payload: {
-			submissionId: string;
-			studentId: string;
-			status: 'Approved' | 'Rejected';
-			rejectionReason?: string;
-		}[],
-	) => {
-		try {
-			setActionNotice(null);
-			const response = await fetch('/api/grades', {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload),
-			});
-			const result = await response.json().catch(() => ({}));
-			if (!response.ok) {
-				throw new Error(result.message || 'API request failed');
-			}
-			if (result?.queued) {
-				applySubmissionStatusLocally(payload);
-				setActionNotice({
-					type: 'info',
-					message:
-						'You are offline. Approval/rejection was queued and will sync when you reconnect.',
-				});
-				return;
-			}
-			applySubmissionStatusLocally(payload);
-			window.dispatchEvent(new CustomEvent('grading:counts:refresh'));
-			void handleRefresh();
-		} catch (error) {
-			console.error('Error updating grade status:', error);
-			setActionNotice({
-				type: 'error',
-				message: 'Could not update grade status. Please try again.',
-			});
+const updateGradesStatus = async (
+	payload: {
+		submissionId: string;
+		studentId: string;
+		status: 'Approved' | 'Rejected';
+		rejectionReason?: string;
+	}[],
+) => {
+	try {
+		setActionNotice(null);
+		const response = await fetch('/api/grades', {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload),
+		});
+		const result = await response.json().catch(() => ({}));
+		if (!response.ok) {
+			throw new Error(result.message || 'API request failed');
 		}
-	};
+		if (result?.queued) {
+			applySubmissionStatusLocally(payload);
+			setActionNotice({
+				type: 'info',
+				message:
+					'You are offline. Approval/rejection was queued and will sync when you reconnect.',
+			});
+			return;
+		}
+		applySubmissionStatusLocally(payload);
+		window.dispatchEvent(new CustomEvent('grading:counts:refresh'));
+
+		// Pass true to run the post-action refresh silently
+		void handleRefresh(true);
+	} catch (error) {
+		console.error('Error updating grade status:', error);
+		setActionNotice({
+			type: 'error',
+			message: 'Could not update grade status. Please try again.',
+		});
+	}
+};
 
 	// Modal and action handlers
 	const handleApprove = async () => {
