@@ -270,48 +270,52 @@ const applyBootstrapPayload = (data: any) => {
 	if (academicYear && data?.schedules && typeof data.schedules === 'object') {
 		schoolStore.setSchedulesForYear(academicYear, data.schedules);
 	}
-if (academicYear && Array.isArray(data?.grades)) {
-	schoolStore.mergeGradesForYear(academicYear, data.grades);
-}
+
+	if (academicYear && Array.isArray(data?.grades)) {
+		schoolStore.mergeGradesForYear(academicYear, data.grades);
+	}
 
 	if (academicYear && Array.isArray(data?.gradeRequests)) {
 		schoolStore.setGradeRequestsForYear(academicYear, data.gradeRequests);
 	}
 
+	if (academicYear && typeof window !== 'undefined') {
+		const CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
 
-if (academicYear && typeof window !== 'undefined') {
-	const CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
-
-	if (typeof data?.gradesCursor === 'string') {
-		// Bootstrap hit the 20k cap — resume from where it stopped
-		localStorage.setItem(CURSOR_KEY, data.gradesCursor);
-	} else if (Array.isArray(data?.grades) && data.grades.length > 0) {
-		// Bootstrap returned all grades — write a resume cursor pointing
-		// to the most recent one so future refreshes only fetch new records
-		const grades = data.grades;
-		let latestGrade = grades[0];
-		for (const grade of grades) {
-			const gradeTime = new Date(grade.lastUpdated || 0).getTime();
-			const latestTime = new Date(latestGrade.lastUpdated || 0).getTime();
-			if (
-				gradeTime > latestTime ||
-				(gradeTime === latestTime &&
-					String(grade._id) > String(latestGrade._id))
-			) {
-				latestGrade = grade;
+		if (typeof data?.gradesCursor === 'string') {
+			// Bootstrap hit the cap — resume from where it stopped
+			localStorage.setItem(CURSOR_KEY, data.gradesCursor);
+		} else if (Array.isArray(data?.grades) && data.grades.length > 0) {
+			// Bootstrap returned all grades — write a full resume cursor so
+			// background-parallel sees remaining = 0 and skips unnecessary fetches
+			const grades = data.grades;
+			let latestGrade = grades[0];
+			for (const grade of grades) {
+				const gradeTime = new Date(grade.lastUpdated || 0).getTime();
+				const latestTime = new Date(latestGrade.lastUpdated || 0).getTime();
+				if (
+					gradeTime > latestTime ||
+					(gradeTime === latestTime &&
+						String(grade._id) > String(latestGrade._id))
+				) {
+					latestGrade = grade;
+				}
 			}
+			localStorage.setItem(
+				CURSOR_KEY,
+				JSON.stringify({
+					lastUpdated: latestGrade.lastUpdated,
+					_id: latestGrade._id,
+					totalCount: grades.length,
+					fetchedCount: grades.length,
+					chunkSize: 30_000,
+				}),
+			);
+		} else {
+			// No grades at all — clear any stale cursor from a previous session
+			localStorage.removeItem(CURSOR_KEY);
 		}
-		localStorage.setItem(
-			CURSOR_KEY,
-			JSON.stringify({
-				lastUpdated: latestGrade.lastUpdated,
-				_id: latestGrade._id,
-			}),
-		);
-	} else {
-		localStorage.removeItem(CURSOR_KEY);
 	}
-}
 
 	if (typeof versions.user === 'string') {
 		set({ userVersion: versions.user });
@@ -486,7 +490,7 @@ const runDeferredPostLoginBootstrap = (data: any) => {
 					isBootstrapping: false,
 				});
 				useNetworkStore.getState().setAuthCheckFailed(false);
-
+				applyBootstrapPayload(data);
 
 				setDashboardStartPath();
 				cacheAuthUser(data.user as User);
@@ -568,6 +572,7 @@ const runDeferredPostLoginBootstrap = (data: any) => {
 					isBootstrapping: false,
 				});
 				useNetworkStore.getState().setAuthCheckFailed(false);
+
 				applyBootstrapPayload(data);
 				setDashboardStartPath();
 				cacheAuthUser(data.user as User);
