@@ -1221,7 +1221,7 @@ const updateGradesStatus = async (
 						    loading reflects the initial empty-table load. Both disable
 						    the button but only isSyncing keeps the table visible. */}
 						<button
-							onClick={handleRefresh}
+							onClick={() => handleRefresh(false)}
 							disabled={loading || isSyncing}
 							className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 sm:w-auto"
 						>
