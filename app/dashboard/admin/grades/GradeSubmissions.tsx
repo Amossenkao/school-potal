@@ -1217,9 +1217,7 @@ const updateGradesStatus = async (
 									: ''}
 							</p>
 						</div>
-						{/* Refresh button — isSyncing reflects cursor-aware refresh;
-						    loading reflects the initial empty-table load. Both disable
-						    the button but only isSyncing keeps the table visible. */}
+
 						<button
 							onClick={() => handleRefresh(false)}
 							disabled={loading || isSyncing}

@@ -4,10 +4,6 @@ const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
 const API_CACHE = `api-${CACHE_VERSION}`;
 
 const STATIC_ASSETS = [
-	'/',
-	'/login',
-	'/dashboard',
-	'/dashboard/',
 	'/offline',
 	'/manifest.webmanifest',
 ];
