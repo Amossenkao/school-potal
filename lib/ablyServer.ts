@@ -11,12 +11,14 @@ import {
 } from '@/lib/realtimeTypes';
 import { syncDebugLog, syncDebugWarn } from '@/lib/syncDebug';
 
-const getAblyRestClient = () => {
-	const apiKey = String(process.env.ABLY_API_KEY || '').trim();
-	if (!apiKey) {
-		throw new Error('ABLY_API_KEY is missing.');
-	}
-	return new Ably.Rest(apiKey);
+// After
+let _ablyRestClient: Ably.Rest | null = null;
+const getAblyRestClient = (): Ably.Rest => {
+  if (_ablyRestClient) return _ablyRestClient;
+  const apiKey = String(process.env.ABLY_API_KEY || '').trim();
+  if (!apiKey) throw new Error('ABLY_API_KEY is missing.');
+  _ablyRestClient = new Ably.Rest(apiKey);
+  return _ablyRestClient;
 };
 
 const toUniqueStrings = (values?: string[]) => {
