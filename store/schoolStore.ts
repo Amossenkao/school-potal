@@ -347,7 +347,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 					return { status: 'error', fetchedCount: 0 };
 				}
 
-				const { totalCount, fetchedCount, chunkSize = 30_000 } = parsedCursor;
+				const { totalCount, fetchedCount, chunkSize = 100_000 } = parsedCursor;
 				const remaining = totalCount - fetchedCount;
 
 				if (remaining > 0) {
