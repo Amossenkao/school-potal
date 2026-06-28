@@ -208,6 +208,7 @@ const componentImporters: Record<string, ComponentImporter> = {
 	profile: () => import('@/app/dashboard/shared/UserProfile'),
 	chat: () => import('@/app/dashboard/shared/Chat'),
 	community: () => import('@/app/dashboard/shared/Community'),
+	attendance: () => import('@/app/dashboard/shared/Attendance'),
 
 	// Dynamic Administrator pages (to be defined in school profile)
 	// 'financial-reports': dynamic(
@@ -737,16 +738,43 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 			],
 		},
 	},
-	community: {
-		key: 'community',
-		title: 'Community',
-		icon: UserCircle,
+
+	attendance: {
+		key: 'attendance',
+		title: 'Attendance',
+		icon: AlignEndVerticalIcon,
 		routes: {
-			student: [
-				{ key: 'community', title: 'Community', href: '/dashboard/community' },
+			system_admin: [
+				{
+					key: 'attendance',
+					title: 'Attendance',
+					href: '/attendance',
+					icon: AlignEndVerticalIcon,
+				},
 			],
 			teacher: [
-				{ key: 'community', title: 'Community', href: '/dashboard/community' },
+				{
+					key: 'attendance',
+					title: 'Attendance',
+					href: '/attendance',
+					icon: AlignEndVerticalIcon,
+				},
+			],
+			student: [
+				{
+					key: 'attendance',
+					title: 'Attendance',
+					href: '/attendance',
+					icon: AlignEndVerticalIcon,
+				},
+			],
+			administrator: [
+				{
+					key: 'attendance',
+					title: 'Attendance',
+					href: '/attendance',
+					icon: AlignEndVerticalIcon,
+				},
 			],
 		},
 	},

@@ -9,6 +9,7 @@ export type FeatureKey =
 	| 'homepage'
 	| 'enrollment_info'
 	| 'apps'
+	| 'attendance'
 
 	// Academic Features
 	| 'grading_system'
