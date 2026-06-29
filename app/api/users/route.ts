@@ -34,7 +34,7 @@ async function addNotificationToUser(
 	userId: string,
 	notification: Notification,
 	options: {
-		tenantKey?: string;
+		tenantId?: string;
 		actorId?: string | null;
 		reason?: string;
 	} = {},
@@ -47,7 +47,7 @@ async function addNotificationToUser(
 	if (updatedUser) {
 		await updateUserSessionNotifications(userId, updatedUser.notifications);
 		await publishSyncEventSafe({
-			tenantKey: options.tenantKey || '',
+			tenantId: options.tenantId || '',
 			domain: 'user',
 			actorId: options.actorId || userId,
 			reason: options.reason || 'user-notification',
@@ -2355,7 +2355,7 @@ export async function POST(request: NextRequest) {
 			typeof schoolProfileRaw === 'string'
 				? JSON.parse(schoolProfileRaw)
 				: schoolProfileRaw;
-		const tenantKey = resolveTenantSyncKey({
+		const tenantId = resolveTenantSyncKey({
 			schoolProfile,
 			tenantId: currentUser.tenantId,
 			host,
@@ -2485,7 +2485,7 @@ export async function POST(request: NextRequest) {
 		const realtimeUser = buildRealtimeUserPayload(newUser.toObject());
 		await bumpUsersVersion(createdUserYears);
 		await publishSyncEventsForAcademicYearsSafe({
-			tenantKey,
+			tenantId,
 			domain: 'users',
 			academicYears: createdUserYears,
 			payload: {
@@ -2576,7 +2576,7 @@ export async function PUT(request: NextRequest) {
 			typeof schoolProfileRaw === 'string'
 				? JSON.parse(schoolProfileRaw)
 				: schoolProfileRaw;
-		const tenantKey = resolveTenantSyncKey({
+		const tenantId = resolveTenantSyncKey({
 			schoolProfile,
 			tenantId: currentUser.tenantId,
 			host: request.headers.get('host'),
@@ -2800,7 +2800,7 @@ export async function PUT(request: NextRequest) {
 				const promotionYears = extractAcademicYears(result.student);
 				await bumpUsersVersion(promotionYears);
 				await publishSyncEventsForAcademicYearsSafe({
-					tenantKey,
+					tenantId,
 					domain: 'users',
 					academicYears: promotionYears,
 					actorId: currentUser.id,
@@ -2988,7 +2988,7 @@ export async function PUT(request: NextRequest) {
 				const demotionYears = extractAcademicYears(result.student);
 				await bumpUsersVersion(demotionYears);
 				await publishSyncEventsForAcademicYearsSafe({
-					tenantKey,
+					tenantId,
 					domain: 'users',
 					academicYears: demotionYears,
 					actorId: currentUser.id,
@@ -3319,7 +3319,7 @@ export async function PUT(request: NextRequest) {
 				const teacherCarryoverYears = extractAcademicYears(updatedTeacher);
 				await bumpUsersVersion(teacherCarryoverYears);
 				await publishSyncEventsForAcademicYearsSafe({
-					tenantKey,
+					tenantId,
 					domain: 'users',
 					academicYears: teacherCarryoverYears,
 					actorId: currentUser.id,
@@ -3465,7 +3465,7 @@ export async function PUT(request: NextRequest) {
 			const adminCarryoverYears = extractAcademicYears(updatedAdministrator);
 			await bumpUsersVersion(adminCarryoverYears);
 			await publishSyncEventsForAcademicYearsSafe({
-				tenantKey,
+				tenantId,
 				domain: 'users',
 				academicYears: adminCarryoverYears,
 				actorId: currentUser.id,
@@ -3589,7 +3589,7 @@ export async function PUT(request: NextRequest) {
 					type: 'Security',
 				} as Notification,
 				{
-					tenantKey,
+					tenantId,
 					actorId: currentUser.id,
 					reason: 'password-reset',
 				},
@@ -3598,7 +3598,7 @@ export async function PUT(request: NextRequest) {
 			const resetYears = extractAcademicYears(updatedUser);
 			await bumpUsersVersion(resetYears);
 			await publishSyncEventsForAcademicYearsSafe({
-				tenantKey,
+				tenantId,
 				domain: 'users',
 				academicYears: resetYears,
 				actorId: currentUser.id,
@@ -4016,7 +4016,7 @@ export async function PUT(request: NextRequest) {
 		if (deactivatedNow) {
 			await destroyAllUserSessions(actualTargetUserId);
 			await publishSyncEventSafe({
-				tenantKey,
+				tenantId,
 				domain: 'user',
 				actorId: currentUser.id,
 				reason: 'account-deactivated',
@@ -4032,7 +4032,7 @@ export async function PUT(request: NextRequest) {
 				currentSessionId || undefined,
 			);
 			await publishSyncEventSafe({
-				tenantKey,
+				tenantId,
 				domain: 'user',
 				actorId: currentUser.id,
 				reason: 'password-changed-session-revocation',
@@ -4072,7 +4072,7 @@ export async function PUT(request: NextRequest) {
 					type: 'Profile',
 				} as Notification,
 				{
-					tenantKey,
+					tenantId,
 					actorId: currentUser.id,
 					reason: 'profile-updated',
 				},
@@ -4092,7 +4092,7 @@ export async function PUT(request: NextRequest) {
 					type: 'Security',
 				} as Notification,
 				{
-					tenantKey,
+					tenantId,
 					actorId: currentUser.id,
 					reason: 'password-changed',
 				},
@@ -4105,7 +4105,7 @@ export async function PUT(request: NextRequest) {
 		);
 		await bumpUsersVersion(updatedUserYears);
 		await publishSyncEventsForAcademicYearsSafe({
-			tenantKey,
+			tenantId,
 			domain: 'users',
 			academicYears: updatedUserYears,
 			payload: {
@@ -4180,7 +4180,7 @@ export async function DELETE(request: NextRequest) {
 			typeof schoolProfileRaw === 'string'
 				? JSON.parse(schoolProfileRaw)
 				: schoolProfileRaw;
-		const tenantKey = resolveTenantSyncKey({
+		const tenantId = resolveTenantSyncKey({
 			schoolProfile,
 			tenantId: currentUser.tenantId,
 			host: request.headers.get('host'),
@@ -4307,7 +4307,7 @@ export async function DELETE(request: NextRequest) {
 		const deletedUserYears = extractAcademicYears(targetUser);
 		await bumpUsersVersion(deletedUserYears);
 		await publishSyncEventsForAcademicYearsSafe({
-			tenantKey,
+			tenantId,
 			domain: 'users',
 			academicYears: deletedUserYears,
 			payload: {
