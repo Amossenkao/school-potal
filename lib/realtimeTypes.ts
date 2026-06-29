@@ -244,6 +244,8 @@ export const resolveRealtimeEventType = (params: {
 		case 'user':
 		case 'users':
 			return 'USER_UPDATED';
+		case 'attendance':
+			return 'ATTENDANCE_CREATED';
 		default:
 			return 'ANNOUNCEMENT_CREATED';
 	}
@@ -369,6 +371,8 @@ export const resolvePublishChannels = (event: RealtimeEvent) => {
 		case 'USER_CREATED':
 		case 'USER_UPDATED':
 		case 'USER_DISABLED':
+		case 'ATTENDANCE_CREATED':
+		case 'ATTENDANCE_UPDATED':
 			// Publish to:
 			// 1. school channel — reaches admins and system_admins
 			// 2. the affected user's own channel — reaches that user directly
