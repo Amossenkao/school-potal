@@ -957,6 +957,7 @@ const Attendance = () => {
 	}, [attendanceByAcademicYear, selectedAcademicYear, selectedClassId]);
 
 	// ── permissions ───────────────────────────────────────────────────────────
+	// ── permissions ───────────────────────────────────────────────────────────
 	const canTakeAttendance = useCallback(
 		(date: string) => {
 			if (!user) return false;
@@ -967,23 +968,44 @@ const Attendance = () => {
 			)
 				return true;
 			if (user.role === 'teacher') return date === todayStr();
+
 			if (user.role === 'student') {
-				const allowed = user.daysToRecordAttendance || [];
 				const isToday = date === todayStr();
-				return (
-					isToday &&
-					allowed.some((d: any) => getUTCDateString(d) === todayStr())
+
+				// Check if any attendance data exists for this specific date
+				const isAlreadyRecorded = students.some(
+					(s) => !!attendanceMap[s.studentId]?.[date],
 				);
+
+				// Students can only record if it's today, they have permission, and it hasn't been recorded yet
+				return isToday && !!user.canRecordAttendance && !isAlreadyRecorded;
 			}
 			return false;
 		},
-		[user],
+		[user, students, attendanceMap], // Added students and attendanceMap to dependencies
 	);
 
 	const canEditAttendance = useCallback(
-		(date: string) => canTakeAttendance(date),
-		[canTakeAttendance],
+		(date: string) => {
+			if (!user) return false;
+			if (
+				user.role === 'system_admin' ||
+				user.role === 'administrator' ||
+				user.role === 'super_admin'
+			)
+				return true;
+
+			// Teachers can only modify attendance for today
+			if (user.role === 'teacher') return date === todayStr();
+
+			// Students can NEVER modify attendance that has already been recorded
+			if (user.role === 'student') return false;
+
+			return false;
+		},
+		[user], // Only depends on user
 	);
+
 
 	// ── save attendance ───────────────────────────────────────────────────────
 	const handleSave = useCallback(
@@ -1509,6 +1531,6 @@ const Attendance = () => {
 			)}
 		</div>
 	);
-};
+};;
 
 export default Attendance;

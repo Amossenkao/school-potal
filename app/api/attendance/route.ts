@@ -6,9 +6,7 @@ import { getTenantModels } from '@/models';
 import { authorizeUser } from '@/proxy';
 import { normalizeHost } from '@/utils/host';
 import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
-import { connectToTenantsDb } from '@/lib/mongoose';
-import SchoolProfileSchema from '@/models/profile/SchoolProfile';
-import { SchoolProfile as SchoolProfileType } from '@/types/schoolProfile';
+import { getSchoolProfile } from '@/lib/mongoose';
 import type { Student, Teacher } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -272,9 +270,9 @@ export async function POST(request: NextRequest) {
 		} = body;
 
 		// ── Basic validation ──────────────────────────────────────────────────
-		if (!academicYear || !dateStr) {
+		if (!academicYear || !dateStr || !bodyClassId) {
 			return NextResponse.json(
-				{ success: false, message: 'academicYear and date are required.' },
+				{ success: false, message: 'academicYear, classId and date are required.' },
 				{ status: 400 },
 			);
 		}
@@ -285,16 +283,14 @@ export async function POST(request: NextRequest) {
 		const { Attendance, Student, Teacher } = await getTenantModels();
 
 		// ── Resolve tenant for sync events ────────────────────────────────────
-		const tenantsConnection = await connectToTenantsDb();
-		const SchoolProfile =
-			tenantsConnection.models.Profile ||
-			tenantsConnection.model<SchoolProfileType & Document>(
-				'Profile',
-				SchoolProfileSchema,
-			);
-		const schoolProfile = await SchoolProfile.findOne({
-			host: cleanHost,
-		}).lean();
+
+		const schoolProfile = await getSchoolProfile();
+
+		if (!schoolProfile) {
+			return NextResponse.json({
+				success: false, message: "School Profile not found"
+			}, {status: 400})
+		}
 		const tenantId = resolveTenantSyncKey({
 			schoolProfile,
 			tenantId: currentUser.tenantId,
@@ -303,12 +299,6 @@ export async function POST(request: NextRequest) {
 
 		// ── system_admin ──────────────────────────────────────────────────────
 		if (currentUser.role === 'system_admin') {
-			if (!bodyClassId) {
-				return NextResponse.json(
-					{ success: false, message: 'classId is required.' },
-					{ status: 400 },
-				);
-			}
 
 			const record = await upsertAttendance({
 				Attendance,
@@ -344,13 +334,6 @@ export async function POST(request: NextRequest) {
 						message: 'Teachers can only record attendance for today.',
 					},
 					{ status: 403 },
-				);
-			}
-
-			if (!bodyClassId) {
-				return NextResponse.json(
-					{ success: false, message: 'classId is required.' },
-					{ status: 400 },
 				);
 			}
 
@@ -417,10 +400,8 @@ export async function POST(request: NextRequest) {
 			}
 
 			// Check permission: today must be in daysToRecordAttendance
-			const allowed = (student.daysToRecordAttendance ?? []).some((d) =>
-				isSameDay(d, today),
-			);
-			if (!allowed) {
+
+			if (!student.canRecordAttendance) {
 				return NextResponse.json(
 					{
 						success: false,
@@ -548,9 +529,9 @@ export async function PATCH(request: NextRequest) {
 			absentStudentIds,
 		} = body;
 
-		if (!academicYear || !dateStr) {
+		if (!academicYear || !dateStr || !bodyClassId) {
 			return NextResponse.json(
-				{ success: false, message: 'academicYear and date are required.' },
+				{ success: false, message: 'academicYear, classId and date are required.' },
 				{ status: 400 },
 			);
 		}
@@ -561,16 +542,9 @@ export async function PATCH(request: NextRequest) {
 		const { Attendance, Student, Teacher } = await getTenantModels();
 
 		// ── Resolve tenant for sync events ────────────────────────────────────
-		const tenantsConnection = await connectToTenantsDb();
-		const SchoolProfile =
-			tenantsConnection.models.Profile ||
-			tenantsConnection.model<SchoolProfileType & Document>(
-				'Profile',
-				SchoolProfileSchema,
-			);
-		const schoolProfile = await SchoolProfile.findOne({
-			host: cleanHost,
-		}).lean();
+
+		const schoolProfile = await getSchoolProfile()
+
 		const tenantId = resolveTenantSyncKey({
 			schoolProfile,
 			tenantId: currentUser.tenantId,
@@ -579,12 +553,6 @@ export async function PATCH(request: NextRequest) {
 
 		// ── system_admin ──────────────────────────────────────────────────────
 		if (currentUser.role === 'system_admin') {
-			if (!bodyClassId) {
-				return NextResponse.json(
-					{ success: false, message: 'classId is required.' },
-					{ status: 400 },
-				);
-			}
 
 			const record = await patchAttendance({
 				Attendance,
@@ -699,10 +667,8 @@ export async function PATCH(request: NextRequest) {
 				);
 			}
 
-			const allowed = (student.daysToRecordAttendance ?? []).some((d) =>
-				isSameDay(d, today),
-			);
-			if (!allowed) {
+
+			if (!student.canRecordAttendance) {
 				return NextResponse.json(
 					{
 						success: false,
@@ -858,16 +824,9 @@ export async function DELETE(request: NextRequest) {
 		const result = await Attendance.deleteMany(filter);
 
 		// ── Sync event ────────────────────────────────────────────────────────
-		const tenantsConnection = await connectToTenantsDb();
-		const SchoolProfile =
-			tenantsConnection.models.Profile ||
-			tenantsConnection.model<SchoolProfileType & Document>(
-				'Profile',
-				SchoolProfileSchema,
-			);
-		const schoolProfile = await SchoolProfile.findOne({
-			host: cleanHost,
-		}).lean();
+
+		const schoolProfile = await getSchoolProfile();
+
 		const tenantId = resolveTenantSyncKey({
 			schoolProfile,
 			tenantId: currentUser.tenantId,

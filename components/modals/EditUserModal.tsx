@@ -1839,6 +1839,29 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 														: 'Standard Registration'}
 												</span>
 											</label>
+
+											<div className="mt-4">
+												<label className="relative inline-flex items-center cursor-pointer">
+													<input
+														type="checkbox"
+														name="canRecordAttendance"
+														checked={formData.canRecordAttendance || false}
+														onChange={(e) =>
+															setFormData((prev) => ({
+																...prev,
+																canRecordAttendance: e.target.checked,
+															}))
+														}
+														className="sr-only peer"
+													/>
+													<div className="w-11 h-6 bg-border peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+													<span className="ml-3 text-sm font-medium text-foreground">
+														{formData.canRecordAttendance
+															? 'Can Record Attendance'
+															: 'Cannot Record Attendance'}
+													</span>
+												</label>
+											</div>
 										</div>
 									</div>
 								</section>

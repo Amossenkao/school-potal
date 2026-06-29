@@ -57,6 +57,7 @@ const StudentSchema = new Schema<Student & Document>({
 	enrollmentYear: { type: String, required: true },
 	enrollmentSemester: { type: String, required: true },
 	shareContactWithClassmates: { type: Boolean, required: true, default: false },
+	canRecordAttendance: {type: Boolean, required: false, default: false},
 	enrollmentStatus: {
 		type: String,
 		enum: ['enrolled', 'graduated', 'transferred', 'dropped'],
