@@ -1826,103 +1826,121 @@ export async function PATCH(request: NextRequest) {
 		const successfulUpdates = results.filter((result) => result.success);
 		const failedUpdates = results.filter((result) => !result.success);
 
-		if (successfulUpdates.length > 0) {
-			const teacherSummary = new Map<
-				string,
-				{
-					count: number;
-					status: string;
-					subject: string;
-					classId: string;
-					period: string;
-				}
-			>();
+if (successfulUpdates.length > 0) {
+    const teacherSummary = new Map<
+        string,
+        {
+            count: number;
+            status: string;
+            subject: string;
+            classId: string;
+            period: string;
+        }
+    >();
 
-			for (const update of successfulUpdates) {
-				const data = update.data;
-				if (!data?.teacherUsername) continue;
-				const key = `${data.teacherUsername}|${data.submissionId}|${data.status}`;
-				const existing = teacherSummary.get(key);
-				if (existing) {
-					existing.count += 1;
-				} else {
-					teacherSummary.set(key, {
-						count: 1,
-						status: data.status,
-						subject: data.subject,
-						classId: data.classId,
-						period: data.period,
-					});
-				}
-			}
+    for (const update of successfulUpdates) {
+        const data = update.data;
+        if (!data?.teacherUsername) continue;
+        const key = `${data.teacherUsername}|${data.submissionId}|${data.status}`;
+        const existing = teacherSummary.get(key);
+        if (existing) {
+            existing.count += 1;
+        } else {
+            teacherSummary.set(key, {
+                count: 1,
+                status: data.status,
+                subject: data.subject,
+                classId: data.classId,
+                period: data.period,
+            });
+        }
+    }
 
-			const notificationPromises = Array.from(teacherSummary.entries()).map(
-				async ([key, summary]) => {
-					const teacherUsername = key.split('|')[0];
-					const teacher = await User.findOne({ username: teacherUsername })
-						.select('_id')
-						.lean();
-					if (!teacher) return;
-					const notification = {
-						title: `Grades ${summary.status}`,
-						message: `Your ${summary.count} grade${
-							summary.count === 1 ? '' : 's'
-						} for ${summary.subject} (${summary.period}) in ${
-							summary.classId
-						} have been ${summary.status.toLowerCase()}. (${summary.count} student${
-							summary.count === 1 ? '' : 's'
-						})`,
-						timestamp: new Date(),
-						read: false,
-						type: 'Grades',
-					};
-					await addNotificationToUser(
-						User,
-						teacher._id.toString(),
-						notification,
-						{
-							tenantId,
-							actorId: currentUser.id,
-							reason: 'grade-status-notification',
-						},
-					);
-				},
-			);
-			await Promise.allSettled(notificationPromises);
-		}
+    const teacherUsernames = Array.from(teacherSummary.keys()).map(
+        (key) => key.split('|')[0],
+    );
 
-		if (successfulUpdates.length > 0) {
-			const years = Array.from(
-				new Set(
-					successfulUpdates
-						.map((entry) => String(entry?.data?.academicYear || '').trim())
-						.filter(Boolean),
-				),
-			);
-			const classIds = Array.from(
-				new Set(
-					successfulUpdates
-						.map((entry) => String(entry?.data?.classId || '').trim())
-						.filter(Boolean),
-				),
-			);
-			await Promise.all(
-				(years.length > 0 ? years : ['']).map((academicYear) => {
-					const gradesForYear = successfulUpdates
-						.filter(entry => String(entry?.data?.academicYear || '').trim() === academicYear)
-						.map(entry => entry.data);
-					return publishSyncEventSafe({
-						tenantId,
-						domain: 'grades',
-						payload: { grades: gradesForYear },
-						academicYear: academicYear || null,
-						actorId: currentUser.id,
-						reason: 'grades-status-updated',
-						scope: { classIds },
-					});
-				}),
-			);
-		}
+    const teacherUsers = await User.find({
+        username: { $in: teacherUsernames },
+        role: 'teacher',
+    })
+        .select('_id username')
+        .lean();
+
+    const teacherIdByUsername = new Map(
+        teacherUsers.map((t: any) => [t.username, t._id.toString()]),
+    );
+
+    const resolvedTeacherIds = new Set<string>(); // ← declared here, in scope for both
+
+    const notificationPromises = Array.from(teacherSummary.entries()).map(
+        async ([key, summary]) => {
+            const teacherUsername = key.split('|')[0];
+            const teacherId = teacherIdByUsername.get(teacherUsername);
+            if (!teacherId) return;
+
+				resolvedTeacherIds.add(teacherId);
+				
+
+            const notification = {
+                title: `Grades ${summary.status}`,
+                message: `Your ${summary.count} grade${
+                    summary.count === 1 ? '' : 's'
+                } for ${summary.subject} (${summary.period}) in ${
+                    summary.classId
+                } have been ${summary.status.toLowerCase()}. (${summary.count} student${
+                    summary.count === 1 ? '' : 's'
+                })`,
+                timestamp: new Date(),
+                read: false,
+                type: 'Grades',
+            };
+            await addNotificationToUser(User, teacherId, notification, {
+                tenantId,
+                actorId: currentUser.id,
+                reason: 'grade-status-notification',
+            });
+        },
+    );
+    await Promise.allSettled(notificationPromises);
+
+    const years = Array.from(
+        new Set(
+            successfulUpdates
+                .map((entry) => String(entry?.data?.academicYear || '').trim())
+                .filter(Boolean),
+        ),
+    );
+    const classIds = Array.from(
+        new Set(
+            successfulUpdates
+                .map((entry) => String(entry?.data?.classId || '').trim())
+                .filter(Boolean),
+        ),
+    );
+    await Promise.all(
+        (years.length > 0 ? years : ['']).map((academicYear) => {
+            const gradesForYear = successfulUpdates
+                .filter(
+                    (entry) =>
+                        String(entry?.data?.academicYear || '').trim() === academicYear,
+                )
+						.map((entry) => entry.data);
+					
+					console.log(`Resolved IDs for academicYear ${academicYear}:`, Array.from(resolvedTeacherIds));
+            return publishSyncEventSafe({
+                tenantId,
+                domain: 'grades',
+                payload: { grades: gradesForYear },
+                academicYear: academicYear || null,
+                actorId: currentUser.id,
+                reason: 'grades-status-updated',
+                scope: { classIds },
+                targetUserIds: Array.from(resolvedTeacherIds),
+            });
+        }),
+    );
+}
 
 		return NextResponse.json({
 			success: true,

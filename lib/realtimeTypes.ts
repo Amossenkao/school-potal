@@ -20,7 +20,7 @@ export type RealtimeScope = {
 
 export type RealtimeEvent = {
 	type: string;
-	tennatId: string;
+	tenantId: string;
 	payload: Record<string, unknown>;
 	timestamp: string;
 	source: RealtimeSource;
