@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/utils/session';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { getTenantModels } from '@/models';
-import {
-	buildBootstrapPayload,
-	getDomainVersions,
-} from '@/lib/bootstrap';
+import { buildBootstrapPayload, getDomainVersions } from '@/lib/bootstrap';
 import { resolveAcademicYearAccessContext } from '@/utils/academicYearAccess';
 import { syncDebugError, syncDebugLog, syncDebugWarn } from '@/lib/syncDebug';
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
 const toHash = (value: unknown) => {
 	try {
@@ -32,11 +31,14 @@ const toSchoolVersion = (schoolProfile: any) => {
 	return toHash(schoolProfile);
 };
 
+// ─── GET /api/auth/me ────────────────────────────────────────────────────────
+
 export async function GET(request: NextRequest) {
 	const requestId = crypto.randomUUID();
 	const startedAt = Date.now();
 	const { searchParams } = new URL(request.url);
-	const syncTrigger = String(searchParams.get('sync_trigger') || '').trim() || 'none';
+	const syncTrigger =
+		String(searchParams.get('sync_trigger') || '').trim() || 'none';
 
 	const logResponse = (
 		stage: string,
@@ -53,24 +55,37 @@ export async function GET(request: NextRequest) {
 	};
 
 	try {
+		// ── Extract all client-side version tokens ──────────────────────────
+		const clientUsersVersion =
+			searchParams.get('v_users') || searchParams.get('usersVersion');
+		const clientGradesVersion = searchParams.get('v_grades');
+		const clientCalendarVersion = searchParams.get('v_calendar');
+		const clientSchedulesVersion = searchParams.get('v_schedules');
+		const clientGradeRequestsVersion = searchParams.get('v_grade_requests');
+		const clientAttendanceVersion = searchParams.get('v_attendance');
+		const clientSchoolVersion = searchParams.get('v_school');
+		const clientUserVersion = searchParams.get('v_user');
+		const requestedAcademicYear = searchParams.get('academicYear');
+
 		syncDebugLog('auth-me', 'Incoming auth sync request.', {
 			requestId,
 			syncTrigger,
 			host: request.headers.get('host') || null,
 			hasSessionCookie: Boolean(request.cookies.get('sessionId')?.value),
 			query: {
-				v_users: searchParams.get('v_users') || searchParams.get('usersVersion'),
-				v_grades: searchParams.get('v_grades'),
-				v_calendar: searchParams.get('v_calendar'),
-				v_schedules: searchParams.get('v_schedules'),
-				v_grade_requests: searchParams.get('v_grade_requests'),
-				v_school: searchParams.get('v_school'),
-				v_user: searchParams.get('v_user'),
-				academicYear: searchParams.get('academicYear'),
+				v_users: clientUsersVersion,
+				v_grades: clientGradesVersion,
+				v_calendar: clientCalendarVersion,
+				v_schedules: clientSchedulesVersion,
+				v_grade_requests: clientGradeRequestsVersion,
+				v_attendance: clientAttendanceVersion,
+				v_school: clientSchoolVersion,
+				v_user: clientUserVersion,
+				academicYear: requestedAcademicYear,
 			},
 		});
 
-		const sessionCookie = request.cookies.get('sessionId');
+		// ── School profile (needed even for unauthenticated responses) ───────
 		const schoolProfileRaw = await getSchoolProfile();
 		const schoolProfile =
 			typeof schoolProfileRaw === 'string'
@@ -78,6 +93,8 @@ export async function GET(request: NextRequest) {
 				: schoolProfileRaw;
 		const schoolVersion = toSchoolVersion(schoolProfile);
 
+		// ── Session validation ───────────────────────────────────────────────
+		const sessionCookie = request.cookies.get('sessionId');
 		if (!sessionCookie) {
 			logResponse('No active session cookie.', 401);
 			return NextResponse.json(
@@ -114,7 +131,6 @@ export async function GET(request: NextRequest) {
 				},
 				{ status: 401 },
 			);
-
 			response.cookies.set('sessionId', '', {
 				httpOnly: true,
 				secure: process.env.NODE_ENV === 'production',
@@ -122,10 +138,10 @@ export async function GET(request: NextRequest) {
 				expires: new Date(0),
 				path: '/',
 			});
-
 			return response;
 		}
 
+		// ── School active check ──────────────────────────────────────────────
 		if (schoolProfile?.isActive === false) {
 			logResponse('School inactive.', 403);
 			return NextResponse.json(
@@ -138,6 +154,7 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
+		// ── User active check ────────────────────────────────────────────────
 		const models = await getTenantModels();
 		const freshUser = await models.User.findById(session.id).lean();
 		if (!freshUser || freshUser.isActive === false) {
@@ -161,28 +178,21 @@ export async function GET(request: NextRequest) {
 			});
 			return response;
 		}
+
+		// ── Build resolved user identity ─────────────────────────────────────
 		const resolvedUserId = freshUser?._id?.toString?.() || session.id;
 		const userPayload = {
 			...freshUser,
 			id: resolvedUserId,
 			_id: resolvedUserId,
 		};
-
-		const clientUsersVersion =
-			searchParams.get('v_users') || searchParams.get('usersVersion');
-		const clientGradesVersion = searchParams.get('v_grades');
-		const clientCalendarVersion = searchParams.get('v_calendar');
-		const clientSchedulesVersion = searchParams.get('v_schedules');
-		const clientGradeRequestsVersion = searchParams.get('v_grade_requests');
-		const clientSchoolVersion = searchParams.get('v_school');
-		const clientUserVersion = searchParams.get('v_user');
-		const requestedAcademicYear = searchParams.get('academicYear');
-
 		const resolvedSessionUser = {
 			...session,
 			...userPayload,
 			id: resolvedUserId,
 		};
+
+		// ── Academic year access ─────────────────────────────────────────────
 		const yearAccess = resolveAcademicYearAccessContext({
 			user: resolvedSessionUser,
 			schoolProfile,
@@ -204,9 +214,12 @@ export async function GET(request: NextRequest) {
 		}
 
 		const academicYear = yearAccess.academicYear;
+
+		// ── Compute server-side versions for all domains ─────────────────────
 		const versions = await getDomainVersions(resolvedSessionUser, academicYear);
 		const userVersion = toHash(userPayload);
 
+		// ── Diff client vs server versions to decide what to include ─────────
 		const include = {
 			school: clientSchoolVersion !== schoolVersion,
 			users:
@@ -217,8 +230,10 @@ export async function GET(request: NextRequest) {
 			schedules: clientSchedulesVersion !== versions.schedules,
 			grades: clientGradesVersion !== versions.grades,
 			gradeRequests: clientGradeRequestsVersion !== versions.gradeRequests,
+			attendance: clientAttendanceVersion !== versions.attendance,
 		};
 		const includeUser = clientUserVersion !== userVersion;
+
 		syncDebugLog('auth-me', 'Computed include flags.', {
 			requestId,
 			syncTrigger,
@@ -233,6 +248,7 @@ export async function GET(request: NextRequest) {
 				schedules: clientSchedulesVersion,
 				grades: clientGradesVersion,
 				gradeRequests: clientGradeRequestsVersion,
+				attendance: clientAttendanceVersion,
 				user: clientUserVersion,
 			},
 			serverVersions: {
@@ -242,10 +258,12 @@ export async function GET(request: NextRequest) {
 				schedules: versions.schedules,
 				grades: versions.grades,
 				gradeRequests: versions.gradeRequests,
+				attendance: versions.attendance,
 				user: userVersion,
 			},
 		});
 
+		// ── Build bootstrap payload ──────────────────────────────────────────
 		let bootstrapPayload: any = null;
 		try {
 			bootstrapPayload = await buildBootstrapPayload(resolvedSessionUser, {
@@ -256,13 +274,18 @@ export async function GET(request: NextRequest) {
 			});
 		} catch (error) {
 			console.warn('Failed to build bootstrap payload:', error);
-			syncDebugWarn('auth-me', 'Bootstrap payload build failed; returning minimal payload.', {
-				requestId,
-				error: error instanceof Error ? error.message : String(error),
-				userId: resolvedUserId,
-				academicYear,
-			});
+			syncDebugWarn(
+				'auth-me',
+				'Bootstrap payload build failed; returning minimal payload.',
+				{
+					requestId,
+					error: error instanceof Error ? error.message : String(error),
+					userId: resolvedUserId,
+					academicYear,
+				},
+			);
 		}
+
 		logResponse('Auth sync success.', 200, {
 			userId: resolvedUserId,
 			academicYear,
@@ -290,6 +313,7 @@ export async function GET(request: NextRequest) {
 				schedules: versions.schedules,
 				grades: versions.grades,
 				gradeRequests: versions.gradeRequests,
+				attendance: versions.attendance,
 			},
 		});
 	} catch (error) {
@@ -301,13 +325,13 @@ export async function GET(request: NextRequest) {
 			durationMs: Date.now() - startedAt,
 		});
 		return NextResponse.json(
-			{
-				message: 'Internal server error',
-			},
+			{ message: 'Internal server error' },
 			{ status: 500 },
 		);
 	}
 }
+
+// ─── Unsupported methods ─────────────────────────────────────────────────────
 
 export async function POST() {
 	return NextResponse.json({ message: 'Method not allowed' }, { status: 405 });
