@@ -200,11 +200,6 @@ export default async function RootLayout({
 			<body>
 				<DynamicDocumentTitle fallbackSchoolShortName={schoolShortName} />
 				<RootProviders>{children}</RootProviders>
-				<script
-					defer
-					src="https://static.cloudflareinsights.com/beacon.min.js"
-					data-cf-beacon='{"token": "2641db84ad4c444485ac6fdccee7de50"}'
-				/>
 			</body>
 		</html>
 	);

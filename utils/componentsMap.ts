@@ -24,6 +24,7 @@ import {
 	Book,
 	BookA,
 	BookCheck,
+	Users2,
 } from 'lucide-react';
 import type { SchoolProfile, FeatureKey } from '@/types/schoolProfile';
 
@@ -779,6 +780,32 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		},
 	},
 
+	community: {
+		key: 'community',
+		title: 'Community',
+		icon: Users2,
+
+		routes: {
+			teacher: [
+				{
+					key: 'community',
+					title: 'Community',
+					href: '/community',
+					icon: Users2,
+				},
+			],
+
+			student: [
+				{
+					key: 'community',
+					title: 'Community',
+					href: '/community',
+					icon: Users2,
+				},
+			],
+		},
+	},
+
 	school_settings: {
 		key: 'school_settings',
 		title: 'School Settings',
@@ -1266,7 +1293,7 @@ export function generateNavigationItems(
 	});
 
 	// Add uncategorized routes
-	const uncategorizedOrder = ['community', 'profile'];
+	const uncategorizedOrder =  [ 'attendance', 'community', 'profile'];
 	uncategorizedRoutes
 		.sort((a, b) => {
 			const aIndex = uncategorizedOrder.indexOf(a.key);
@@ -1288,7 +1315,7 @@ export function generateNavigationItems(
 	if (userRole === 'system_admin') {
 		moveNavItemBefore(navItems, calendarNavLabel, 'Profile');
 	} else {
-		moveNavItemBefore(navItems, calendarNavLabel, 'Community');
+		moveNavItemBefore(navItems, calendarNavLabel, 'Attendance');
 	}
 
 	return navItems;

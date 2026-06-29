@@ -24,7 +24,6 @@ interface NetworkState {
 const CONNECTIVITY_ENDPOINT = '/api/ping';
 const CONNECTIVITY_TIMEOUT_MS = 15000;
 const CONNECTIVITY_RECHECK_WINDOW_MS = 5000;
-
 let connectivityCheckPromise: Promise<boolean> | null = null;
 
 const getBrowserOnline = () => {
@@ -137,6 +136,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 		}));
 	},
 	refreshConnectivity: async (options) => {
+
 		const timeoutMs = options?.timeoutMs ?? CONNECTIVITY_TIMEOUT_MS;
 		const force = options?.force ?? false;
 		const browserOnline = getBrowserOnline();

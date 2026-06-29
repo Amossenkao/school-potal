@@ -1159,9 +1159,7 @@ const handleDeactivateSuccess = (updatedUser: any) => {
 			// Merge onto the full existing user so no fields are lost
 			return normalizeUser({ ...u, ...updatedUser });
 		});
-
-		// Update the client cache but skip the schoolStore sync,
-		// because upsertUserInRoster removes inactive users from the roster.
+		
 		const cacheKey = getManageUsersCacheKey(selectedAcademicYear);
 		const usersVersion = getUsersVersionForYear(selectedAcademicYear);
 		setClientCache(cacheKey, {
