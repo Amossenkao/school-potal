@@ -279,7 +279,7 @@ const useAuth = create<AuthState>((set, get) => {
 		}
 
 		if (academicYear && Array.isArray(data?.grades)) {
-			schoolStore.mergeGradesForYear(academicYear, data.grades);
+			schoolStore.setGradesForYear(academicYear, data.grades);
 		}
 
 		if (academicYear && Array.isArray(data?.gradeRequests)) {
