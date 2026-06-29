@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
 		const cacheKey = `school_events:${schoolProfile?.dbName}:academic:${academicYear}`;
 		await redis.del(cacheKey);
 		await publishSyncEventSafe({
-			tenantKey: resolveTenantSyncKey({
+			tenantId: resolveTenantSyncKey({
 				schoolProfile,
 				host: request.headers.get('host'),
 			}),
@@ -233,7 +233,7 @@ export async function PATCH(request: NextRequest) {
 		const cacheKey = `school_events:${schoolProfile?.dbName}:academic:${academicYear}`;
 		await redis.del(cacheKey);
 		await publishSyncEventSafe({
-			tenantKey: resolveTenantSyncKey({
+			tenantId: resolveTenantSyncKey({
 				schoolProfile,
 				host: request.headers.get('host'),
 			}),
@@ -285,7 +285,7 @@ export async function DELETE(request: NextRequest) {
 		const cacheKey = `school_events:${schoolProfile?.dbName}:academic:${academicYear}`;
 		await redis.del(cacheKey);
 		await publishSyncEventSafe({
-			tenantKey: resolveTenantSyncKey({
+			tenantId: resolveTenantSyncKey({
 				schoolProfile,
 				host: request.headers.get('host'),
 			}),
