@@ -455,8 +455,8 @@ const fetchAttendanceForRole = async (
 	return Attendance.find(query).sort({ date: 1, classId: 1 }).lean();
 };
 
-const BOOTSTRAP_GRADE_LIMIT = 100_000;
-const ADMIN_BOOTSTRAP_GRADE_LIMIT = 100_000;
+const BOOTSTRAP_GRADE_LIMIT = 10_000;
+const ADMIN_BOOTSTRAP_GRADE_LIMIT = 10_000;
 
 export type GradesCursor = {
 	lastUpdated: string | null;

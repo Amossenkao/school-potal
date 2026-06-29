@@ -375,7 +375,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 					return { status: 'error', fetchedCount: 0 };
 				}
 
-				const { totalCount, fetchedCount, chunkSize = 100_000 } = parsedCursor;
+				const { totalCount, fetchedCount, chunkSize = 10_000 } = parsedCursor;
 				const remaining = totalCount - fetchedCount;
 
 				if (remaining > 0) {
@@ -466,7 +466,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 					_id: latest._id.toString(),
 					totalCount: finalGrades.length,
 					fetchedCount: finalGrades.length,
-					chunkSize: 30_000,
+					chunkSize: 10_000,
 				};
 				localStorage.setItem(CURSOR_KEY, JSON.stringify(resumeCursor));
 			}

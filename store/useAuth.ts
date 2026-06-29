@@ -488,6 +488,8 @@ const useAuth = create<AuthState>((set, get) => {
 					return null;
 				}
 
+				console.log(`[authStore] Login successful for user:`, data.user);
+
 				set({
 					user: data.user,
 					isLoggedIn: true,
