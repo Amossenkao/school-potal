@@ -1145,7 +1145,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		}
 
 		if (academicYear && Array.isArray(payload.grades)) {
-			get().setGradesForYear(academicYear, payload.grades as any[]);
+			get().mergeGradesForYear(academicYear, payload.grades as any[]);
 		}
 		if (academicYear && Array.isArray(payload.calendarEvents)) {
 			get().setCalendarForYear(academicYear, payload.calendarEvents as any[]);
