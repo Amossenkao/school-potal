@@ -313,7 +313,6 @@ const upsertUserInRoster = (roster: UsersPayload, user: any) => {
 	const userId = getUserIdentity(user);
 	if (!userId) return roster;
 	const nextRoster = removeUsersFromRoster(roster, [userId]);
-	if (user?.isActive === false) return nextRoster;
 	const role = String(user?.role || '').trim();
 	const bucket =
 		role === 'teacher'

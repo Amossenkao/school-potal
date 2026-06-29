@@ -1150,27 +1150,39 @@ const UserManagementDashboard = () => {
 		});
 	};
 
-	const handleDeactivateSuccess = (updatedUser: any) => {
-		setUsers((currentUsers) => {
-			const nextUsers = currentUsers.map((u) =>
-				(u.id || u._id) === (updatedUser.id || updatedUser._id)
-					? normalizeUser(updatedUser)
-					: u,
-			);
-			syncUsersSnapshot(
-				nextUsers,
-				totalUsersRef.current,
-				roleCountsRef.current,
-			);
-			return nextUsers;
+const handleDeactivateSuccess = (updatedUser: any) => {
+	setUsers((currentUsers) => {
+		const nextUsers = currentUsers.map((u) => {
+			const currentId = u.id || u._id;
+			const updatedId = updatedUser.id || updatedUser._id;
+			if (currentId !== updatedId) return u;
+			// Merge onto the full existing user so no fields are lost
+			return normalizeUser({ ...u, ...updatedUser });
 		});
-		setFeedback({
-			type: 'success',
-			message: `User ${
-				updatedUser.isActive ? 'activated' : 'deactivated'
-			} successfully`,
+
+		// Update the client cache but skip the schoolStore sync,
+		// because upsertUserInRoster removes inactive users from the roster.
+		const cacheKey = getManageUsersCacheKey(selectedAcademicYear);
+		const usersVersion = getUsersVersionForYear(selectedAcademicYear);
+		setClientCache(cacheKey, {
+			users: nextUsers,
+			totalUsers:
+				typeof totalUsersRef.current === 'number'
+					? totalUsersRef.current
+					: null,
+			roleCounts: roleCountsRef.current,
+			serverPage,
+			usersVersion,
 		});
-	};
+
+		return nextUsers;
+	});
+
+	setFeedback({
+		type: 'success',
+		message: `User ${updatedUser.isActive ? 'activated' : 'deactivated'} successfully`,
+	});
+};
 
 	if (loading) {
 		return (

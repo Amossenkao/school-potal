@@ -1823,6 +1823,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 											<label className="relative inline-flex items-center cursor-pointer w-max">
 												<input
 													type="checkbox"
+													
 													checked={!!formData.isLateRegistration}
 													onChange={(e) =>
 														setFormData((prev) => ({
@@ -1845,7 +1846,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 													<input
 														type="checkbox"
 														name="canRecordAttendance"
-														checked={formData.canRecordAttendance || false}
+														checked={!!formData.canRecordAttendance}
 														onChange={(e) =>
 															setFormData((prev) => ({
 																...prev,
