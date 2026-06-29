@@ -18,6 +18,7 @@ type DomainVersions = {
 	schedules: string;
 	grades: string;
 	gradeRequests: string;
+	attendance: string;
 };
 
 type BootstrapUsers = {
@@ -197,6 +198,42 @@ const getRoleGradeRequestsQuery = (currentUser: any, academicYear: string) => {
 	return null;
 };
 
+/**
+ * Builds the Attendance query for the requesting user.
+ *
+ * - student     → only their own class for the given academic year
+ * - teacher     → only the classes listed in their subjects for the year
+ * - system_admin → all records for the year
+ * - everyone else → null (no access)
+ */
+export const getRoleAttendanceQuery = (
+	currentUser: any,
+	academicYear: string,
+) => {
+	const academicYearMatch = getAcademicYearMatch(academicYear);
+
+	if (currentUser?.role === 'student') {
+		const classId = getStudentClassIdForYear(currentUser, academicYear);
+		if (!classId) return null;
+		return { academicYear: academicYearMatch, classId };
+	}
+
+	if (currentUser?.role === 'teacher') {
+		const classIds = getTeacherClassIdsForYear(currentUser, academicYear);
+		if (classIds.length === 0) return null;
+		return {
+			academicYear: academicYearMatch,
+			classId: { $in: classIds },
+		};
+	}
+
+	if (currentUser?.role === 'system_admin') {
+		return { academicYear: academicYearMatch };
+	}
+
+	return null;
+};
+
 const getRoleUsersQuery = (currentUser: any, academicYear: string) => {
 	const academicYearMatch = getAcademicYearMatch(academicYear);
 	if (currentUser.role === 'student') {
@@ -324,6 +361,7 @@ export const getDomainVersionsFromBootstrapPayload = (payload: {
 	schedules?: { classSchedules?: any[]; testSchedules?: any[] };
 	grades?: any[];
 	gradeRequests?: any[];
+	attendance?: any[];
 }): DomainVersions => {
 	const calendarEvents = Array.isArray(payload.calendarEvents)
 		? payload.calendarEvents
@@ -338,12 +376,16 @@ export const getDomainVersionsFromBootstrapPayload = (payload: {
 	const testSchedules = Array.isArray(payload.schedules?.testSchedules)
 		? payload.schedules?.testSchedules
 		: [];
+	const attendance = Array.isArray(payload.attendance)
+		? payload.attendance
+		: [];
 
 	const calendarStats = getDocsStats(calendarEvents);
 	const gradesStats = getDocsStats(grades);
 	const gradeRequestsStats = getDocsStats(gradeRequests);
 	const classScheduleStats = getDocsStats(classSchedules);
 	const testScheduleStats = getDocsStats(testSchedules);
+	const attendanceStats = getDocsStats(attendance);
 
 	return {
 		users:
@@ -354,6 +396,7 @@ export const getDomainVersionsFromBootstrapPayload = (payload: {
 		schedules: `c${classScheduleStats.count}:${classScheduleStats.latestTimestamp}:${classScheduleStats.latestId}|t${testScheduleStats.count}:${testScheduleStats.latestTimestamp}:${testScheduleStats.latestId}`,
 		grades: `${gradesStats.count}:${gradesStats.latestTimestamp}:${gradesStats.latestId}`,
 		gradeRequests: `${gradeRequestsStats.count}:${gradeRequestsStats.latestTimestamp}:${gradeRequestsStats.latestId}`,
+		attendance: `${attendanceStats.count}:${attendanceStats.latestTimestamp}:${attendanceStats.latestId}`,
 	};
 };
 
@@ -394,7 +437,23 @@ const fetchSchedules = async (
 	return { classSchedules, testSchedules };
 };
 
+/**
+ * Fetches attendance records scoped to the requesting user's role.
+ * Sorted oldest-first so the client can append incrementally.
+ */
+const fetchAttendanceForRole = async (
+	models: any,
+	currentUser: any,
+	academicYear: string,
+): Promise<any[]> => {
+	const { Attendance } = models;
+	if (!Attendance) return [];
 
+	const query = getRoleAttendanceQuery(currentUser, academicYear);
+	if (!query) return [];
+
+	return Attendance.find(query).sort({ date: 1, classId: 1 }).lean();
+};
 
 const BOOTSTRAP_GRADE_LIMIT = 100_000;
 const ADMIN_BOOTSTRAP_GRADE_LIMIT = 100_000;
@@ -550,6 +609,7 @@ export const getDomainVersions = async (
 	const User = models.User;
 	const Grade = models.Grade;
 	const GradeChangeRequest = models.GradeChangeRequest;
+	const Attendance = models.Attendance;
 	const usersQuery = getRoleUsersQuery(currentUser, academicYear);
 	const classFilter = getRoleClassFilter(currentUser, academicYear);
 	const gradesQuery = getRoleGradesQuery(currentUser, academicYear);
@@ -557,11 +617,14 @@ export const getDomainVersions = async (
 		currentUser,
 		academicYear,
 	);
+	const attendanceQuery = getRoleAttendanceQuery(currentUser, academicYear);
 	const canQueryUsers = Boolean(User && usersQuery);
 	const canQueryGrades = Boolean(Grade && gradesQuery);
 	const canQueryGradeRequests = Boolean(
 		GradeChangeRequest && gradeRequestsQuery,
 	);
+	const canQueryAttendance = Boolean(Attendance && attendanceQuery);
+
 	const [
 		usersSyncVersion,
 		usersCount,
@@ -576,6 +639,8 @@ export const getDomainVersions = async (
 		gradesLatest,
 		gradeRequestsCount,
 		gradeRequestsLatest,
+		attendanceCount,
+		attendanceLatest,
 	] = await Promise.all([
 		getUsersSyncVersion(academicYear).catch(() => 0),
 		canQueryUsers ? User.countDocuments(usersQuery) : 0,
@@ -638,12 +703,20 @@ export const getDomainVersions = async (
 					.select({ _id: 1, lastUpdated: 1, submittedAt: 1, updatedAt: 1 })
 					.lean()
 			: null,
+		canQueryAttendance ? Attendance.countDocuments(attendanceQuery) : 0,
+		canQueryAttendance
+			? Attendance.findOne(attendanceQuery)
+					.sort({ date: -1, _id: -1 })
+					.select({ _id: 1, date: 1, updatedAt: 1 })
+					.lean()
+			: null,
 	]);
 
 	const calendar = `${calendarCount}:${getLatestDocToken(calendarLatest)}`;
 	const schedules = `c${classScheduleCount}:${getLatestDocToken(classScheduleLatest)}|t${testScheduleCount}:${getLatestDocToken(testScheduleLatest)}`;
 	const grades = `${gradesCount}:${getLatestDocToken(gradesLatest)}`;
 	const gradeRequests = `${gradeRequestsCount}:${getLatestDocToken(gradeRequestsLatest)}`;
+	const attendance = `${attendanceCount}:${getLatestDocToken(attendanceLatest)}`;
 	const computedUsersVersion = `sync:${Number.isFinite(usersSyncVersion) ? usersSyncVersion : 0}|${usersCount}:${getLatestDocToken(usersLatest)}`;
 
 	return {
@@ -653,6 +726,7 @@ export const getDomainVersions = async (
 		schedules,
 		grades,
 		gradeRequests,
+		attendance,
 	};
 };
 
@@ -666,6 +740,7 @@ export const buildBootstrapPayload = async (
 			schedules?: boolean;
 			grades?: boolean;
 			gradeRequests?: boolean;
+			attendance?: boolean;
 		};
 		academicYear?: string;
 		usersVersion?: string;
@@ -694,27 +769,37 @@ export const buildBootstrapPayload = async (
 		schedules: options.include?.schedules !== false,
 		grades: options.include?.grades !== false,
 		gradeRequests: options.include?.gradeRequests !== false,
+		attendance: options.include?.attendance !== false,
 	};
 	const models = await getTenantModels();
 
-	const [users, calendarEvents, schedules, gradesResult, gradeRequests] =
-		await Promise.all([
-			include.users
-				? fetchUsersForRole(models, currentUser, academicYear)
-				: Promise.resolve(undefined),
-			include.calendar
-				? fetchCalendarEvents(models, academicYear)
-				: Promise.resolve(undefined),
-			include.schedules
-				? fetchSchedules(models, currentUser, academicYear)
-				: Promise.resolve(undefined),
-			include.grades
-				? fetchGradesBootstrap(models, currentUser, academicYear)
-				: Promise.resolve(undefined),
-			include.gradeRequests
-				? fetchGradeRequestsForRole(models, currentUser, academicYear)
-				: Promise.resolve(undefined),
-		]);
+	const [
+		users,
+		calendarEvents,
+		schedules,
+		gradesResult,
+		gradeRequests,
+		attendance,
+	] = await Promise.all([
+		include.users
+			? fetchUsersForRole(models, currentUser, academicYear)
+			: Promise.resolve(undefined),
+		include.calendar
+			? fetchCalendarEvents(models, academicYear)
+			: Promise.resolve(undefined),
+		include.schedules
+			? fetchSchedules(models, currentUser, academicYear)
+			: Promise.resolve(undefined),
+		include.grades
+			? fetchGradesBootstrap(models, currentUser, academicYear)
+			: Promise.resolve(undefined),
+		include.gradeRequests
+			? fetchGradeRequestsForRole(models, currentUser, academicYear)
+			: Promise.resolve(undefined),
+		include.attendance
+			? fetchAttendanceForRole(models, currentUser, academicYear)
+			: Promise.resolve(undefined),
+	]);
 
 	const resolvedUsersVersion =
 		typeof options.usersVersion === 'string'
@@ -734,5 +819,6 @@ export const buildBootstrapPayload = async (
 		...(include.schedules ? { schedules } : {}),
 		...(include.grades ? { grades, gradesCursor } : {}),
 		...(include.gradeRequests ? { gradeRequests } : {}),
+		...(include.attendance ? { attendance } : {}),
 	};
 };

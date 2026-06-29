@@ -20,117 +20,20 @@ import {
 	X,
 	Pencil,
 	Check,
+	Loader2,
 } from 'lucide-react';
-
-// ─── Demo data ──────────────────────────────────────────────────────────────
-
-const DEMO_USER = {
-	role: 'systemAdmin', // ← change to: 'teacher' | 'student' | 'systemAdmin'
-	userId: 'u001',
-	username: 'admin.demo',
-	name: 'Admin Demo',
-	sponsorClass: null,
-	assignedAttendanceDays: [],
-	subjects: [
-		{
-			year: '2024/2025',
-			classes: [
-				{ classId: 'cls-7a', subjects: ['Mathematics', 'Physics'] },
-				{ classId: 'cls-8b', subjects: ['Mathematics'] },
-			],
-		},
-	],
-};
-
-const DEMO_SCHOOL = {
-	name: 'Upstairs Christian Academy',
-	classLevels: {
-		'Morning Session': {
-			'Junior High': {
-				classes: [
-					{ classId: 'cls-7a', name: 'Grade 7A' },
-					{ classId: 'cls-7b', name: 'Grade 7B' },
-					{ classId: 'cls-8b', name: 'Grade 8B' },
-				],
-			},
-			'Senior High': {
-				classes: [
-					{ classId: 'cls-10a', name: 'Grade 10A' },
-					{ classId: 'cls-11b', name: 'Grade 11B' },
-				],
-			},
-		},
-		'Afternoon Session': {
-			'Junior High': {
-				classes: [{ classId: 'cls-7c', name: 'Grade 7C' }],
-			},
-		},
-	},
-	settings: {
-		teacherSettings: {
-			gradeSubmissionAcademicYears: ['2024/2025', '2023/2024'],
-		},
-	},
-};
-
-const STUDENT_NAMES = [
-	'Abena Mensah',
-	'Kofi Asante',
-	'Ama Boateng',
-	'Kwame Darko',
-	'Efua Osei',
-	'Yaw Nyarko',
-	'Adwoa Antwi',
-	'Kojo Frimpong',
-	'Akosua Asare',
-	'Kwesi Appiah',
-	'Abigail Tetteh',
-	'Emmanuel Acheampong',
-	'Nana Adjei',
-	'Priscilla Owusu',
-	'Samuel Amoah',
-];
-
-function generateDemoStudents(classId: string) {
-	const count =
-		(
-			{
-				'cls-7a': 15,
-				'cls-7b': 12,
-				'cls-8b': 10,
-				'cls-10a': 13,
-				'cls-11b': 11,
-				'cls-7c': 9,
-			} as Record<string, number>
-		)[classId] || 12;
-	return STUDENT_NAMES.slice(0, count).map((name, i) => ({
-		studentId: `${classId}-s${i + 1}`,
-		studentName: name,
-	}));
-}
-
-function generateDemoAttendance(classId: string, dates: string[]) {
-	const students = generateDemoStudents(classId);
-	const records: any[] = [];
-	students.forEach((student) => {
-		dates.forEach((date) => {
-			if (Math.random() > 0.12) {
-				records.push({
-					studentId: student.studentId,
-					date,
-					status: Math.random() > 0.15 ? 'present' : 'absent',
-					takenBy: 'admin.demo',
-				});
-			}
-		});
-	});
-	return records;
-}
+import { useSchoolStore } from '@/store/schoolStore';
+import useAuth from '@/store/useAuth';
+import { PageLoading } from '@/components/loading';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmtDate(d: Date) {
-	return d.toISOString().slice(0, 10);
+	// Prevents local timezone shifts from .toISOString()
+	const y = d.getFullYear();
+	const m = String(d.getMonth() + 1).padStart(2, '0');
+	const day = String(d.getDate()).padStart(2, '0');
+	return `${y}-${m}-${day}`;
 }
 
 function parseDate(s: string) {
@@ -189,22 +92,35 @@ function exportCsv(filename: string, rows: any[], headers: string[]) {
 	a.click();
 }
 
+// Extract UTC date strictly avoiding local timezone shifts
+function getUTCDateString(isoString: string | Date) {
+	if (!isoString) return '';
+	const str =
+		typeof isoString === 'string' ? isoString : isoString.toISOString();
+	return str.includes('T') ? str.substring(0, 10) : str;
+}
+
+// Utility equivalents for scoped store values
+function areAcademicYearsEqual(y1?: string, y2?: string) {
+	if (!y1 || !y2) return false;
+	return (
+		String(y1).replace(/[\/\-]/g, '') === String(y2).replace(/[\/\-]/g, '')
+	);
+}
+
+function getScopedAcademicYearValue(
+	storeRecord: Record<string, any>,
+	academicYear: string,
+) {
+	if (!storeRecord || !academicYear) return { value: null };
+	const match = Object.keys(storeRecord).find((k) =>
+		areAcademicYearsEqual(k, academicYear),
+	);
+	return { value: match ? storeRecord[match] : null };
+}
+
 // ─── Date Range Picker ───────────────────────────────────────────────────────
 
-const MONTH_NAMES = [
-	'Jan',
-	'Feb',
-	'Mar',
-	'Apr',
-	'May',
-	'Jun',
-	'Jul',
-	'Aug',
-	'Sep',
-	'Oct',
-	'Nov',
-	'Dec',
-];
 const FULL_MONTH = [
 	'January',
 	'February',
@@ -555,7 +471,14 @@ const StatusChip = ({ status, compact = false }: any) => {
 
 // ─── Take/Edit Attendance Modal ───────────────────────────────────────────────
 
-function AttendanceModal({ date, students, existing, onSave, onClose }: any) {
+function AttendanceModal({
+	date,
+	students,
+	existing,
+	onSave,
+	onClose,
+	isSubmitting,
+}: any) {
 	const [records, setRecords] = useState(() => {
 		const map: Record<string, string> = {};
 		students.forEach((s: any) => {
@@ -604,7 +527,8 @@ function AttendanceModal({ date, students, existing, onSave, onClose }: any) {
 					</div>
 					<button
 						onClick={onClose}
-						className="p-1.5 rounded-lg hover:bg-accent transition-colors"
+						disabled={isSubmitting}
+						className="p-1.5 rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
 					>
 						<X className="w-4 h-4" />
 					</button>
@@ -614,13 +538,15 @@ function AttendanceModal({ date, students, existing, onSave, onClose }: any) {
 				<div className="flex gap-2 px-4 py-2.5 border-b border-border shrink-0">
 					<button
 						onClick={() => setAll('present')}
-						className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-1.5 rounded-lg bg-[var(--bg-success,#dcfce7)] text-[var(--text-success,#166534)] hover:opacity-80 transition-opacity"
+						disabled={isSubmitting}
+						className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-1.5 rounded-lg bg-[var(--bg-success,#dcfce7)] text-[var(--text-success,#166534)] hover:opacity-80 transition-opacity disabled:opacity-50"
 					>
 						<Check className="w-3.5 h-3.5" /> All present
 					</button>
 					<button
 						onClick={() => setAll('absent')}
-						className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-1.5 rounded-lg bg-[var(--bg-danger,#fee2e2)] text-[var(--text-danger,#991b1b)] hover:opacity-80 transition-opacity"
+						disabled={isSubmitting}
+						className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-1.5 rounded-lg bg-[var(--bg-danger,#fee2e2)] text-[var(--text-danger,#991b1b)] hover:opacity-80 transition-opacity disabled:opacity-50"
 					>
 						<X className="w-3.5 h-3.5" /> All absent
 					</button>
@@ -641,7 +567,11 @@ function AttendanceModal({ date, students, existing, onSave, onClose }: any) {
 								<label
 									key={student.studentId}
 									htmlFor={switchId}
-									className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-accent/50 transition-colors cursor-pointer select-none"
+									className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors select-none ${
+										isSubmitting
+											? 'opacity-60 cursor-not-allowed'
+											: 'cursor-pointer hover:bg-accent/50'
+									}`}
 								>
 									<span className="flex-1 text-sm font-medium text-foreground">
 										{student.studentName}
@@ -653,6 +583,7 @@ function AttendanceModal({ date, students, existing, onSave, onClose }: any) {
 											type="checkbox"
 											id={switchId}
 											checked={isPresent}
+											disabled={isSubmitting}
 											onChange={() =>
 												setRecords((prev) => ({
 													...prev,
@@ -695,16 +626,22 @@ function AttendanceModal({ date, students, existing, onSave, onClose }: any) {
 				<div className="flex gap-2 px-4 py-3 border-t border-border shrink-0">
 					<button
 						onClick={onClose}
-						className="flex-1 py-2.5 text-sm font-medium rounded-xl hover:bg-accent transition-colors"
+						disabled={isSubmitting}
+						className="flex-1 py-2.5 text-sm font-medium rounded-xl hover:bg-accent transition-colors disabled:opacity-50"
 					>
 						Cancel
 					</button>
 					<button
 						onClick={() => onSave(date, records)}
-						className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+						disabled={isSubmitting}
+						className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
 					>
-						<Save className="w-4 h-4" />
-						Save attendance
+						{isSubmitting ? (
+							<Loader2 className="w-4 h-4 animate-spin" />
+						) : (
+							<Save className="w-4 h-4" />
+						)}
+						{isSubmitting ? 'Saving...' : 'Save attendance'}
 					</button>
 				</div>
 			</div>
@@ -712,45 +649,106 @@ function AttendanceModal({ date, students, existing, onSave, onClose }: any) {
 	);
 }
 
-
 // ─── Main Attendance Component ────────────────────────────────────────────────
 
 const Attendance = () => {
-	const user = DEMO_USER;
-	const school = DEMO_SCHOOL;
+	const user = useAuth((state) => state.user) as any;
+	const school = useSchoolStore((state) => state.school);
+	const usersByAcademicYear = useSchoolStore(
+		(state) => state.usersByAcademicYear,
+	);
+	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
+	const attendanceByAcademicYear = useSchoolStore(
+		(state) => state.attendanceByAcademicYear,
+	);
+	const mergeAttendanceForYear = useSchoolStore(
+		(state) => state.mergeAttendanceForYear,
+	);
+
+	const usersByYearRef = useRef(usersByAcademicYear);
+	const attendanceByYearRef = useRef(attendanceByAcademicYear);
+	const tableScrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+	useEffect(() => {
+		usersByYearRef.current = usersByAcademicYear;
+	}, [usersByAcademicYear]);
+	useEffect(() => {
+		attendanceByYearRef.current = attendanceByAcademicYear;
+	}, [attendanceByAcademicYear]);
+
+	// ── Available Academic Years ───────────────────────────────────────────────
+	const availableAcademicYears = useMemo(() => {
+		if (!user) return [];
+		if (
+			user.role === 'system_admin' ||
+			user.role === 'administrator' ||
+			user.role === 'super_admin'
+		) {
+			const globalYears =
+				school?.settings?.teacherSettings?.gradeSubmissionAcademicYears || [];
+			return globalYears.length > 0
+				? globalYears
+				: [school?.currentAcademicYear].filter(Boolean);
+		}
+		if (user.role === 'teacher') {
+			const years = new Set<string>();
+			user.subjects?.forEach((s: any) => {
+				if (s.year) years.add(s.year);
+			});
+			return Array.from(years).sort().reverse();
+		}
+		if (user.role === 'student') {
+			const years = new Set<string>();
+			user.academicYears?.forEach((ay: any) => {
+				if (ay.year) years.add(ay.year);
+			});
+			if (user.enrollmentYear) years.add(user.enrollmentYear);
+			return Array.from(years).sort().reverse();
+		}
+		return [];
+	}, [user, school]);
 
 	// ── filter state ──────────────────────────────────────────────────────────
-	const [selectedAcademicYear, setSelectedAcademicYear] = useState('2024/2025');
+	const [selectedAcademicYear, setSelectedAcademicYear] = useState('');
 	const [selectedSession, setSelectedSession] = useState('');
 	const [selectedClassLevel, setSelectedClassLevel] = useState('');
 	const [selectedClassId, setSelectedClassId] = useState('');
 	const [dateRange, setDateRange] = useState(() => {
 		const today = new Date();
 		const dow = today.getDay(); // 0=Sun, 6=Sat
-		// If weekend, anchor back to the Friday just passed
 		const anchor = new Date(today);
-		if (dow === 0) anchor.setDate(today.getDate() - 2); // Sun → Fri
-		if (dow === 6) anchor.setDate(today.getDate() - 1); // Sat → Fri
-		// Monday of the anchor's week (anchor is always Mon–Fri here)
+		if (dow === 0) anchor.setDate(today.getDate() - 2);
+		if (dow === 6) anchor.setDate(today.getDate() - 1);
 		const mon = new Date(anchor);
 		mon.setDate(anchor.getDate() - (anchor.getDay() - 1));
 		return { from: fmtDate(mon), to: fmtDate(anchor) };
 	});
 
-	// ── attendance data ───────────────────────────────────────────────────────
-	const [attendanceMap, setAttendanceMap] = useState<Record<string, any>>({});
+	// Initialize default academic year
+	useEffect(() => {
+		if (availableAcademicYears.length > 0 && !selectedAcademicYear) {
+			setSelectedAcademicYear(availableAcademicYears[0]);
+		}
+	}, [availableAcademicYears, selectedAcademicYear]);
+
+	// ── state logic ───────────────────────────────────────────────────────
 	const [students, setStudents] = useState<any[]>([]);
 	const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
 	const [modal, setModal] = useState<{ date: string } | null>(null);
-	const [notification, setNotification] = useState<{ message: string } | null>(
-		null,
-	);
-	const tableScrollContainerRef = useRef<HTMLDivElement | null>(null);
+	const [notification, setNotification] = useState<{
+		type: 'success' | 'error';
+		message: string;
+	} | null>(null);
+	const [isLoading, setIsLoading] = useState(false);
+	const [isSubmitting, setIsSubmitting] = useState(false);
 
-	const showNotification = useCallback((message: string) => {
-		setNotification({ message });
-		setTimeout(() => setNotification(null), 4000);
-	}, []);
+	const showNotification = useCallback(
+		(message: string, type: 'success' | 'error' = 'error') => {
+			setNotification({ message, type });
+			setTimeout(() => setNotification(null), 4000);
+		},
+		[],
+	);
 
 	// ── derived dates ─────────────────────────────────────────────────────────
 	const dates = useMemo(() => {
@@ -759,44 +757,62 @@ const Attendance = () => {
 	}, [dateRange]);
 
 	// ── class metadata helpers ────────────────────────────────────────────────
-	const getClassMeta = useCallback((classId: string) => {
-		for (const [session, levels] of Object.entries(school.classLevels)) {
-			for (const [level, ld] of Object.entries(levels as any)) {
-				const found = (ld as any).classes?.find(
-					(c: any) => c.classId === classId,
-				);
-				if (found) return { ...found, session, level };
+	const getClassMeta = useCallback(
+		(classId: string) => {
+			for (const [session, levels] of Object.entries(
+				school?.classLevels || {},
+			)) {
+				for (const [level, ld] of Object.entries(levels as any)) {
+					const found = (ld as any).classes?.find(
+						(c: any) => c.classId === classId,
+					);
+					if (found) return { ...found, session, level };
+				}
 			}
-		}
-		return null;
-	}, []);
+			return null;
+		},
+		[school],
+	);
 
 	const assignedClasses = useMemo(() => {
-		if (user.role === 'systemAdmin') {
+		if (!user) return [];
+		if (
+			user.role === 'system_admin' ||
+			user.role === 'administrator' ||
+			user.role === 'super_admin'
+		) {
 			const all: any[] = [];
-			for (const [session, levels] of Object.entries(school.classLevels))
-				for (const [level, ld] of Object.entries(levels as any))
+			for (const [session, levels] of Object.entries(
+				school?.classLevels || {},
+			)) {
+				for (const [level, ld] of Object.entries(levels as any)) {
 					(ld as any).classes?.forEach((c: any) =>
 						all.push({ ...c, session, level }),
 					);
+				}
+			}
 			return all;
 		}
 		if (user.role === 'teacher') {
 			const yr = (user.subjects || []).find(
-				(e) => e.year === selectedAcademicYear,
+				(e: any) => e.year === selectedAcademicYear,
 			);
 			return (yr?.classes || [])
-				.map((e) => {
+				.map((e: any) => {
 					const meta = getClassMeta(e.classId);
 					return meta ? { ...meta } : null;
 				})
 				.filter(Boolean);
 		}
 		if (user.role === 'student') {
-			return [getClassMeta('cls-7a')].filter(Boolean);
+			const yr = (user.academicYears || []).find(
+				(e: any) => e.year === selectedAcademicYear,
+			);
+			const cid = yr?.classId || user.classId;
+			return [getClassMeta(cid)].filter(Boolean);
 		}
 		return [];
-	}, [user, selectedAcademicYear, getClassMeta]);
+	}, [user, school, selectedAcademicYear, getClassMeta]);
 
 	const sessions = useMemo(
 		() => [...new Set(assignedClasses.map((c) => c.session))],
@@ -832,45 +848,132 @@ const Attendance = () => {
 		if (classes.length === 1 && !selectedClassId)
 			setSelectedClassId(classes[0].classId);
 	}, [classes, selectedClassId]);
-	useEffect(() => {
-		if (user.role === 'student') {
-			setSelectedSession('Morning Session');
-			setSelectedClassLevel('Junior High');
-			setSelectedClassId('cls-7a');
-		}
-	}, [user.role]);
 
-	// load students + generate demo attendance when class changes
+	// Reset state when filters change
 	useEffect(() => {
-		if (!selectedClassId) {
-			setStudents([]);
-			setAttendanceMap({});
-			return;
-		}
-		const studs = generateDemoStudents(selectedClassId);
-		setStudents(studs);
-		const today = new Date();
-		const from = new Date();
-		from.setDate(today.getDate() - 45);
-		const allDates = getSchoolDatesInRange(fmtDate(from), fmtDate(today));
-		const records = generateDemoAttendance(selectedClassId, allDates);
-		const map: Record<string, any> = {};
-		records.forEach((r) => {
-			if (!map[r.studentId]) map[r.studentId] = {};
-			map[r.studentId][r.date] = r;
+		setStudents([]);
+	}, [selectedAcademicYear, selectedClassId]);
+
+	// Load Data
+	useEffect(() => {
+		if (!selectedClassId || !selectedAcademicYear) return;
+		let isMounted = true;
+
+		const loadData = async () => {
+			setIsLoading(true);
+			try {
+				let studentsList: any[] = [];
+				const cachedUsers = getScopedAcademicYearValue(
+					usersByYearRef.current,
+					selectedAcademicYear,
+				).value;
+
+				if (Array.isArray(cachedUsers?.students)) {
+					studentsList = cachedUsers.students.filter((s: any) => {
+						const yr = s.academicYears?.find(
+							(a: any) => a.year === selectedAcademicYear,
+						);
+						return (yr?.classId || s.classId) === selectedClassId;
+					});
+				}
+
+				if (studentsList.length === 0) {
+					const res = await fetch(
+						`/api/users?role=student&academicYear=${selectedAcademicYear}&classId=${selectedClassId}`,
+					);
+					if (res.ok) {
+						const data = await res.json();
+						studentsList = Array.isArray(data?.data)
+							? data.data
+							: Array.isArray(data?.data?.students)
+								? data.data.students
+								: [];
+						setUsersForYear(
+							selectedAcademicYear,
+							{ students: studentsList },
+							{ merge: true },
+						);
+					}
+				}
+
+				if (!isMounted) return;
+				setStudents(
+					studentsList.map((s) => ({
+						// FIX: Priority given to the custom string ID rather than the MongoDB Object ID
+						studentId: s.studentId || s.id || s._id,
+						studentName:
+							s.fullName || `${s.firstName || ''} ${s.lastName || ''}`.trim(),
+					})),
+				);
+
+				const res = await fetch(
+					`/api/attendance?academicYear=${selectedAcademicYear}&classId=${selectedClassId}`,
+				);
+				if (res.ok) {
+					const data = await res.json();
+					const attendanceList = Array.isArray(data?.data) ? data.data : [];
+					mergeAttendanceForYear(selectedAcademicYear, attendanceList);
+				}
+			} catch (error) {
+				console.error('Failed to load attendance data:', error);
+			} finally {
+				if (isMounted) setIsLoading(false);
+			}
+		};
+		loadData();
+
+		return () => {
+			isMounted = false;
+		};
+	}, [
+		selectedClassId,
+		selectedAcademicYear,
+		setUsersForYear,
+		mergeAttendanceForYear,
+	]);
+
+	// Construct Map directly from central store cache
+	const attendanceMap = useMemo(() => {
+		const map: Record<string, Record<string, { status: string }>> = {};
+		const allAtt =
+			getScopedAcademicYearValue(attendanceByAcademicYear, selectedAcademicYear)
+				.value || [];
+		const classAtt = allAtt.filter((a: any) => a.classId === selectedClassId);
+
+		classAtt.forEach((record: any) => {
+			const dateStr = getUTCDateString(record.date);
+			if (!dateStr) return;
+
+			record.presentStudentIds?.forEach((id: string) => {
+				if (!map[id]) map[id] = {};
+				map[id][dateStr] = { status: 'present' };
+			});
+			record.absentStudentIds?.forEach((id: string) => {
+				if (!map[id]) map[id] = {};
+				map[id][dateStr] = { status: 'absent' };
+			});
 		});
-		setAttendanceMap(map);
-	}, [selectedClassId]);
+		return map;
+	}, [attendanceByAcademicYear, selectedAcademicYear, selectedClassId]);
 
 	// ── permissions ───────────────────────────────────────────────────────────
 	const canTakeAttendance = useCallback(
 		(date: string) => {
-			if (user.role === 'systemAdmin') return true;
-			if (user.role === 'teacher') return true;
+			if (!user) return false;
+			if (
+				user.role === 'system_admin' ||
+				user.role === 'administrator' ||
+				user.role === 'super_admin'
+			)
+				return true;
+			if (user.role === 'teacher') return date === todayStr();
 			if (user.role === 'student') {
-				const allowed = user.assignedAttendanceDays || [];
+				const allowed = user.daysToRecordAttendance || [];
 				const isToday = date === todayStr();
-				return allowed.includes(date as never) && isToday;
+				return (
+					isToday &&
+					allowed.some((d: any) => getUTCDateString(d) === todayStr())
+				);
 			}
 			return false;
 		},
@@ -878,34 +981,73 @@ const Attendance = () => {
 	);
 
 	const canEditAttendance = useCallback(
-		(date: string) => {
-			if (user.role === 'systemAdmin') return true;
-			if (user.role === 'teacher') return true;
-			if (user.role === 'student') return date === todayStr();
-			return false;
-		},
-		[user],
+		(date: string) => canTakeAttendance(date),
+		[canTakeAttendance],
 	);
 
 	// ── save attendance ───────────────────────────────────────────────────────
 	const handleSave = useCallback(
-		(date: string, records: Record<string, string>) => {
-			setAttendanceMap((prev) => {
-				const next = { ...prev };
-				Object.entries(records).forEach(([studentId, status]) => {
-					if (!next[studentId]) next[studentId] = {};
-					next[studentId][date] = {
-						studentId,
-						date,
-						status,
-						takenBy: user.username,
-					};
+		async (date: string, records: Record<string, string>) => {
+			if (isSubmitting) return;
+			setIsSubmitting(true);
+
+			try {
+				const presentStudentIds = Object.entries(records)
+					.filter(([_, status]) => status === 'present')
+					.map(([id]) => id);
+				const absentStudentIds = Object.entries(records)
+					.filter(([_, status]) => status === 'absent')
+					.map(([id]) => id);
+
+				const payload = {
+					academicYear: selectedAcademicYear,
+					classId: selectedClassId,
+					date: new Date(date).toISOString(),
+					presentStudentIds,
+					absentStudentIds,
+				};
+
+				// Determine if we're creating or patching
+				const existingRecords =
+					getScopedAcademicYearValue(
+						attendanceByYearRef.current,
+						selectedAcademicYear,
+					).value || [];
+				const hasExistingForDate = existingRecords.some(
+					(r: any) =>
+						r.classId === selectedClassId && getUTCDateString(r.date) === date,
+				);
+
+				const res = await fetch('/api/attendance', {
+					method: hasExistingForDate ? 'PATCH' : 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(payload),
 				});
-				return next;
-			});
-			setModal(null);
+
+				if (!res.ok) {
+					const errorData = await res.json();
+					throw new Error(errorData.message || 'Failed to save attendance');
+				}
+
+				const { data } = await res.json();
+				mergeAttendanceForYear(selectedAcademicYear, [data]);
+
+				setModal(null);
+				showNotification('Attendance saved successfully!', 'success');
+			} catch (error: any) {
+				console.error('Error saving attendance:', error);
+				showNotification(error.message || 'An error occurred while saving.');
+			} finally {
+				setIsSubmitting(false);
+			}
 		},
-		[user.username],
+		[
+			selectedAcademicYear,
+			selectedClassId,
+			mergeAttendanceForYear,
+			isSubmitting,
+			showNotification,
+		],
 	);
 
 	// ── stats per student ─────────────────────────────────────────────────────
@@ -962,7 +1104,12 @@ const Attendance = () => {
 	)?.name;
 	const hasClass = !!selectedClassId && students.length > 0;
 	const canExport =
-		(user.role === 'systemAdmin' || user.role === 'teacher') && hasClass;
+		user &&
+		(user.role === 'system_admin' ||
+			user.role === 'administrator' ||
+			user.role === 'super_admin' ||
+			user.role === 'teacher') &&
+		hasClass;
 
 	// ── modal state ───────────────────────────────────────────────────────────
 	const modalStudents = students;
@@ -980,7 +1127,12 @@ const Attendance = () => {
 	const todayIsWeekend = [0, 6].includes(new Date().getDay());
 	const todayRecorded =
 		selectedClassId &&
+		students.length > 0 &&
 		students.every((s) => !!attendanceMap[s.studentId]?.[today]);
+
+	if (!user) {
+		return <PageLoading fullScreen={false} message="Checking authorization" />;
+	}
 
 	return (
 		<div
@@ -989,8 +1141,18 @@ const Attendance = () => {
 		>
 			{/* ── notification ── */}
 			{notification && (
-				<div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2.5 px-4 py-3 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/90 text-amber-800 dark:text-amber-200 shadow-lg text-sm font-medium whitespace-nowrap">
-					<AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
+				<div
+					className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-lg text-sm font-medium whitespace-nowrap ${
+						notification.type === 'error'
+							? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/90 text-red-800 dark:text-red-200'
+							: 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/90 text-green-800 dark:text-green-200'
+					}`}
+				>
+					{notification.type === 'error' ? (
+						<AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+					) : (
+						<CheckCircle className="w-4 h-4 shrink-0 text-green-500" />
+					)}
 					{notification.message}
 				</div>
 			)}
@@ -1033,22 +1195,23 @@ const Attendance = () => {
 					>
 						<div className="bg-card border border-border rounded-xl shadow-sm">
 							<div className="flex flex-wrap gap-2 p-2.5 sm:p-3 items-end">
-								{user.role !== 'student' && (
-									<FilterSelect
-										label="Year"
-										value={selectedAcademicYear}
-										onChange={(v: string) => {
-											setSelectedAcademicYear(v);
-											setSelectedSession('');
-											setSelectedClassLevel('');
-											setSelectedClassId('');
-										}}
-										options={['2024/2025', '2023/2024'].map((y) => ({
-											label: y,
-											value: y,
-										}))}
-									/>
-								)}
+								{user.role !== 'student' &&
+									availableAcademicYears.length > 0 && (
+										<FilterSelect
+											label="Year"
+											value={selectedAcademicYear}
+											onChange={(v: string) => {
+												setSelectedAcademicYear(v);
+												setSelectedSession('');
+												setSelectedClassLevel('');
+												setSelectedClassId('');
+											}}
+											options={availableAcademicYears.map((y) => ({
+												label: y,
+												value: y,
+											}))}
+										/>
+									)}
 
 								{user.role !== 'student' && sessions.length > 1 && (
 									<FilterSelect
@@ -1095,8 +1258,14 @@ const Attendance = () => {
 										/>
 									)}
 
-								{/* Date range picker replaces the Subject filter */}
+								{/* Date range picker */}
 								<DateRangePicker value={dateRange} onChange={setDateRange} />
+
+								{isLoading && (
+									<div className="flex items-end pb-1 ml-2">
+										<Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+									</div>
+								)}
 							</div>
 						</div>
 
@@ -1179,7 +1348,7 @@ const Attendance = () => {
 							</p>
 						</div>
 					</div>
-				) : students.length === 0 ? (
+				) : students.length === 0 && !isLoading ? (
 					<div className="flex-1 flex items-center justify-center p-6">
 						<div className="bg-card border border-border rounded-xl p-8 text-center shadow-sm">
 							<h3 className="font-semibold text-foreground mb-1">
@@ -1335,6 +1504,7 @@ const Attendance = () => {
 					existing={modalExisting}
 					onSave={handleSave}
 					onClose={() => setModal(null)}
+					isSubmitting={isSubmitting}
 				/>
 			)}
 		</div>

@@ -27,6 +27,7 @@ type SyncVersions = {
 	schedules?: string;
 	grades?: string;
 	gradeRequests?: string;
+	attendance?: string;
 };
 
 interface AuthState {
@@ -225,210 +226,220 @@ const useAuth = create<AuthState>((set, get) => {
 		return null;
 	};
 
-	
-const applyBootstrapPayload = (data: any) => {
-	const schoolStore = useSchoolStore.getState();
-	const versions: SyncVersions =
-		data?.versions && typeof data.versions === 'object' ? data.versions : {};
-	const academicYear = data?.academicYear;
+	const applyBootstrapPayload = (data: any) => {
+		const schoolStore = useSchoolStore.getState();
+		const versions: SyncVersions =
+			data?.versions && typeof data.versions === 'object' ? data.versions : {};
+		const academicYear = data?.academicYear;
 
-	if (data?.school !== undefined && data?.school !== null) {
-		schoolStore.setSchool(data.school);
-	}
-	if (typeof versions.school === 'string') {
-		schoolStore.setSchoolVersion(versions.school);
-	}
+		if (data?.school !== undefined && data?.school !== null) {
+			schoolStore.setSchool(data.school);
+		}
+		if (typeof versions.school === 'string') {
+			schoolStore.setSchoolVersion(versions.school);
+		}
 
-	if (academicYear && versions) {
-		schoolStore.setDomainVersionsForYear(academicYear, {
-			users:
-				typeof versions.users === 'string'
-					? versions.users
-					: typeof data?.usersVersion === 'string'
-						? data.usersVersion
+		if (academicYear && versions) {
+			schoolStore.setDomainVersionsForYear(academicYear, {
+				users:
+					typeof versions.users === 'string'
+						? versions.users
+						: typeof data?.usersVersion === 'string'
+							? data.usersVersion
+							: undefined,
+				calendar:
+					typeof versions.calendar === 'string' ? versions.calendar : undefined,
+				grades:
+					typeof versions.grades === 'string' ? versions.grades : undefined,
+				gradeRequests:
+					typeof versions.gradeRequests === 'string'
+						? versions.gradeRequests
 						: undefined,
-			calendar:
-				typeof versions.calendar === 'string' ? versions.calendar : undefined,
-			grades: typeof versions.grades === 'string' ? versions.grades : undefined,
-			gradeRequests:
-				typeof versions.gradeRequests === 'string'
-					? versions.gradeRequests
-					: undefined,
-			schedules:
-				typeof versions.schedules === 'string' ? versions.schedules : undefined,
-		});
-	}
-
-	if (academicYear && data?.users) {
-		schoolStore.setUsersForYear(academicYear, data.users);
-	}
-
-	if (academicYear && Array.isArray(data?.calendarEvents)) {
-		schoolStore.setCalendarForYear(academicYear, data.calendarEvents);
-	}
-
-	if (academicYear && data?.schedules && typeof data.schedules === 'object') {
-		schoolStore.setSchedulesForYear(academicYear, data.schedules);
-	}
-
-	if (academicYear && Array.isArray(data?.grades)) {
-		schoolStore.mergeGradesForYear(academicYear, data.grades);
-	}
-
-	if (academicYear && Array.isArray(data?.gradeRequests)) {
-		schoolStore.setGradeRequestsForYear(academicYear, data.gradeRequests);
-	}
-
-	if (academicYear && typeof window !== 'undefined') {
-		const CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
-
-		if (typeof data?.gradesCursor === 'string') {
-			// Bootstrap hit the cap — resume from where it stopped
-			localStorage.setItem(CURSOR_KEY, data.gradesCursor);
-		} else if (Array.isArray(data?.grades) && data.grades.length > 0) {
-			// Bootstrap returned all grades — write a full resume cursor so
-			// background-parallel sees remaining = 0 and skips unnecessary fetches
-			const grades = data.grades;
-			let latestGrade = grades[0];
-			for (const grade of grades) {
-				const gradeTime = new Date(grade.lastUpdated || 0).getTime();
-				const latestTime = new Date(latestGrade.lastUpdated || 0).getTime();
-				if (
-					gradeTime > latestTime ||
-					(gradeTime === latestTime &&
-						String(grade._id) > String(latestGrade._id))
-				) {
-					latestGrade = grade;
-				}
-			}
-			localStorage.setItem(
-				CURSOR_KEY,
-				JSON.stringify({
-					lastUpdated: latestGrade.lastUpdated,
-					_id: latestGrade._id,
-					totalCount: grades.length,
-					fetchedCount: grades.length,
-					chunkSize: 30_000,
-				}),
-			);
-		} else {
-			// No grades at all — clear any stale cursor from a previous session
-			localStorage.removeItem(CURSOR_KEY);
+				schedules:
+					typeof versions.schedules === 'string'
+						? versions.schedules
+						: undefined,
+				attendance:
+					typeof versions.attendance === 'string'
+						? versions.attendance
+						: undefined,
+			});
 		}
-	}
 
-	if (typeof versions.user === 'string') {
-		set({ userVersion: versions.user });
-	}
-};
+		if (academicYear && data?.users) {
+			schoolStore.setUsersForYear(academicYear, data.users);
+		}
 
-const applyRealtimeEvent = (event: RealtimeEvent) => {
-	console.log('[authStore] applyRealtimeEvent received:', event.type, {
-		payload: event.payload,
-		timestamp: event.timestamp,
-	});
+		if (academicYear && Array.isArray(data?.calendarEvents)) {
+			schoolStore.setCalendarForYear(academicYear, data.calendarEvents);
+		}
 
-	const payload = (event?.payload || {}) as Record<string, unknown>;
-	const affectedUserIds = new Set<string>(
-		Array.isArray(payload.targetUserIds)
-			? payload.targetUserIds
-					.map((value) => String(value || '').trim())
-					.filter(Boolean)
-			: [],
-	);
-	const payloadUserId = String(payload.userId || '').trim();
-	if (payloadUserId) affectedUserIds.add(payloadUserId);
-	const currentUserId = String(get().user?.id || '').trim();
-	const impactsCurrentUser =
-		affectedUserIds.size === 0 ||
-		(currentUserId ? affectedUserIds.has(currentUserId) : false);
+		if (academicYear && data?.schedules && typeof data.schedules === 'object') {
+			schoolStore.setSchedulesForYear(academicYear, data.schedules);
+		}
 
-	console.log('[authStore] impactsCurrentUser:', impactsCurrentUser, {
-		affectedUserIds: Array.from(affectedUserIds),
-		currentUserId,
-	});
+		if (academicYear && Array.isArray(data?.grades)) {
+			schoolStore.mergeGradesForYear(academicYear, data.grades);
+		}
 
-	if (event.type === 'USER_DISABLED' && impactsCurrentUser) {
-		console.log('[authStore] Handling USER_DISABLED — clearing session');
-		set({
-			user: null,
-			isLoggedIn: false,
-			isLoading: false,
-			userVersion: null,
-			error: 'Your account has been disabled.',
-			sessionId: null,
-			isAwaitingOtp: false,
-			otpContact: null,
-			userId: null,
+		if (academicYear && Array.isArray(data?.gradeRequests)) {
+			schoolStore.setGradeRequestsForYear(academicYear, data.gradeRequests);
+		}
+
+		if (academicYear && Array.isArray(data?.attendance)) {
+			schoolStore.setAttendanceForYear(academicYear, data.attendance);
+		}
+
+		if (academicYear && typeof window !== 'undefined') {
+			const CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
+
+			if (typeof data?.gradesCursor === 'string') {
+				// Bootstrap hit the cap — resume from where it stopped
+				localStorage.setItem(CURSOR_KEY, data.gradesCursor);
+			} else if (Array.isArray(data?.grades) && data.grades.length > 0) {
+				// Bootstrap returned all grades — write a full resume cursor so
+				// background-parallel sees remaining = 0 and skips unnecessary fetches
+				const grades = data.grades;
+				let latestGrade = grades[0];
+				for (const grade of grades) {
+					const gradeTime = new Date(grade.lastUpdated || 0).getTime();
+					const latestTime = new Date(latestGrade.lastUpdated || 0).getTime();
+					if (
+						gradeTime > latestTime ||
+						(gradeTime === latestTime &&
+							String(grade._id) > String(latestGrade._id))
+					) {
+						latestGrade = grade;
+					}
+				}
+				localStorage.setItem(
+					CURSOR_KEY,
+					JSON.stringify({
+						lastUpdated: latestGrade.lastUpdated,
+						_id: latestGrade._id,
+						totalCount: grades.length,
+						fetchedCount: grades.length,
+						chunkSize: 30_000,
+					}),
+				);
+			} else {
+				// No grades at all — clear any stale cursor from a previous session
+				localStorage.removeItem(CURSOR_KEY);
+			}
+		}
+
+		if (typeof versions.user === 'string') {
+			set({ userVersion: versions.user });
+		}
+	};
+
+	const applyRealtimeEvent = (event: RealtimeEvent) => {
+		console.log('[authStore] applyRealtimeEvent received:', event.type, {
+			payload: event.payload,
+			timestamp: event.timestamp,
 		});
-		cacheAuthUser(null);
-		clearSessionScopedClientState();
-		void clearSessionSensitiveStorage('logout');
-		return;
-	}
 
-	if (event.type === 'USER_UPDATED' && impactsCurrentUser) {
-		const nextUser =
-			payload.user && typeof payload.user === 'object' ? payload.user : null;
-		console.log(
-			'[authStore] Handling USER_UPDATED — nextUser present:',
-			Boolean(nextUser),
-			nextUser,
+		const payload = (event?.payload || {}) as Record<string, unknown>;
+		const affectedUserIds = new Set<string>(
+			Array.isArray(payload.targetUserIds)
+				? payload.targetUserIds
+						.map((value) => String(value || '').trim())
+						.filter(Boolean)
+				: [],
 		);
-		if (nextUser) {
-			set((state) => ({
-				user: state.user
-					? ({ ...state.user, ...nextUser } as User)
-					: state.user,
-			}));
+		const payloadUserId = String(payload.userId || '').trim();
+		if (payloadUserId) affectedUserIds.add(payloadUserId);
+		const currentUserId = String(get().user?.id || '').trim();
+		const impactsCurrentUser =
+			affectedUserIds.size === 0 ||
+			(currentUserId ? affectedUserIds.has(currentUserId) : false);
+
+		console.log('[authStore] impactsCurrentUser:', impactsCurrentUser, {
+			affectedUserIds: Array.from(affectedUserIds),
+			currentUserId,
+		});
+
+		if (event.type === 'USER_DISABLED' && impactsCurrentUser) {
+			console.log('[authStore] Handling USER_DISABLED — clearing session');
+			set({
+				user: null,
+				isLoggedIn: false,
+				isLoading: false,
+				userVersion: null,
+				error: 'Your account has been disabled.',
+				sessionId: null,
+				isAwaitingOtp: false,
+				otpContact: null,
+				userId: null,
+			});
+			cacheAuthUser(null);
+			clearSessionScopedClientState();
+			void clearSessionSensitiveStorage('logout');
+			return;
 		}
-		if (typeof payload.userVersion === 'string') {
-			set({ userVersion: payload.userVersion });
-		}
-	}
 
-	if (
-		event.type === 'GRADE_CREATED' ||
-		event.type === 'GRADE_UPDATED' ||
-		event.type === 'GRADE_CHANGE_REQUESTED' ||
-		event.type === 'ANNOUNCEMENT_CREATED'
-	) {
-		useNetworkStore.getState().setAuthCheckFailed(false);
-	}
-};
-
-const runDeferredPostLoginBootstrap = (data: any) => {
-	if (typeof window === 'undefined') return;
-	const schedule =
-		window.requestIdleCallback || ((cb) => window.setTimeout(cb, 100));
-	schedule(() => {
-		void (async () => {
-			try {
-				clearSessionScopedClientState();
-				await clearSessionSensitiveStorage();
-				applyBootstrapPayload(data);
-				setDashboardStartPath();
-
-				if (data?.user) {
-					cacheAuthUser(data.user as User);
-				}
-
-				const academicYear = data?.academicYear;
-				if (academicYear && typeof data?.gradesCursor === 'string') {
-					// Add a timeout so it doesn't block the dashboard redirect
-					setTimeout(() => {
-						useSchoolStore.getState().runBackgroundGradeSync(academicYear, {
-							gradesCursor: data.gradesCursor,
-							mode: 'background-parallel',
-						});
-					}, 2500);
-				}
-			} catch (error) {
-				console.warn('Deferred login bootstrap hydration failed:', error);
+		if (event.type === 'USER_UPDATED' && impactsCurrentUser) {
+			const nextUser =
+				payload.user && typeof payload.user === 'object' ? payload.user : null;
+			console.log(
+				'[authStore] Handling USER_UPDATED — nextUser present:',
+				Boolean(nextUser),
+				nextUser,
+			);
+			if (nextUser) {
+				set((state) => ({
+					user: state.user
+						? ({ ...state.user, ...nextUser } as User)
+						: state.user,
+				}));
 			}
-		})();
-	});
-};
+			if (typeof payload.userVersion === 'string') {
+				set({ userVersion: payload.userVersion });
+			}
+		}
+
+		if (
+			event.type === 'GRADE_CREATED' ||
+			event.type === 'GRADE_UPDATED' ||
+			event.type === 'GRADE_CHANGE_REQUESTED' ||
+			event.type === 'ANNOUNCEMENT_CREATED'
+		) {
+			useNetworkStore.getState().setAuthCheckFailed(false);
+		}
+	};
+
+	const runDeferredPostLoginBootstrap = (data: any) => {
+		if (typeof window === 'undefined') return;
+		const schedule =
+			window.requestIdleCallback || ((cb) => window.setTimeout(cb, 100));
+		schedule(() => {
+			void (async () => {
+				try {
+					clearSessionScopedClientState();
+					await clearSessionSensitiveStorage();
+					applyBootstrapPayload(data);
+					setDashboardStartPath();
+
+					if (data?.user) {
+						cacheAuthUser(data.user as User);
+					}
+
+					const academicYear = data?.academicYear;
+					if (academicYear && typeof data?.gradesCursor === 'string') {
+						// Add a timeout so it doesn't block the dashboard redirect
+						setTimeout(() => {
+							useSchoolStore.getState().runBackgroundGradeSync(academicYear, {
+								gradesCursor: data.gradesCursor,
+								mode: 'background-parallel',
+							});
+						}, 2500);
+					}
+				} catch (error) {
+					console.warn('Deferred login bootstrap hydration failed:', error);
+				}
+			})();
+		});
+	};
 
 	return {
 		user: null,
@@ -837,6 +848,10 @@ const runDeferredPostLoginBootstrap = (data: any) => {
 						schoolState.gradeRequestsVersionByAcademicYear,
 						preferredYear,
 					);
+					const attendanceVersion = getScopedVersion(
+						schoolState.attendanceVersionByAcademicYear,
+						preferredYear,
+					);
 
 					if (typeof usersVersion === 'string') {
 						query.set('v_users', String(usersVersion));
@@ -853,6 +868,9 @@ const runDeferredPostLoginBootstrap = (data: any) => {
 					}
 					if (typeof gradeRequestsVersion === 'string') {
 						query.set('v_grade_requests', gradeRequestsVersion);
+					}
+					if (typeof attendanceVersion === 'string') {
+						query.set('v_attendance', attendanceVersion);
 					}
 					if (typeof schoolState.schoolVersion === 'string') {
 						query.set('v_school', schoolState.schoolVersion);

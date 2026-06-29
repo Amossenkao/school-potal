@@ -7,7 +7,8 @@ export type SyncDomain =
 	| 'schedules'
 	| 'grades'
 	| 'gradeRequests'
-	| 'user';
+	| 'user'
+	| 'attendance'
 
 export type RealtimeSource = 'system' | 'admin' | 'teacher' | 'student';
 
@@ -19,7 +20,7 @@ export type RealtimeScope = {
 
 export type RealtimeEvent = {
 	type: string;
-	tenantId: string;
+	tennatId: string;
 	payload: Record<string, unknown>;
 	timestamp: string;
 	source: RealtimeSource;

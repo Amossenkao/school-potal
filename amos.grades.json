@@ -1,912 +1,901 @@
-[
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be101" },
-		"academicYear": "2025-2026",
-		"period": "first",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Math",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 73,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-first-Math"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be102" },
-		"academicYear": "2025-2026",
-		"period": "second",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Math",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 76,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-second-Math"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be103" },
-		"academicYear": "2025-2026",
-		"period": "third",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Math",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 82,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third-Math"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be104" },
-		"academicYear": "2025-2026",
-		"period": "third_period_exam",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Math",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 83,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third_period_exam-Math"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be105" },
-		"academicYear": "2025-2026",
-		"period": "second",
-		"classId": "Morning-GradeElevenA",
-		"subject": "English",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 75,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-second-english"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be106" },
-		"academicYear": "2025-2026",
-		"period": "third",
-		"classId": "Morning-GradeElevenA",
-		"subject": "English",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 75,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third-english"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be107" },
-		"academicYear": "2025-2026",
-		"period": "third_period_exam",
-		"classId": "Morning-GradeElevenA",
-		"subject": "English",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 76,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third_period_exam-english"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be108" },
-		"academicYear": "2025-2026",
-		"period": "first",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Chemistry",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 70,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-first-chemistry"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be109" },
-		"academicYear": "2025-2026",
-		"period": "second",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Chemistry",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 68,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-second-chemistry"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be110" },
-		"academicYear": "2025-2026",
-		"period": "third",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Chemistry",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 81,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third-chemistry"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be111" },
-		"academicYear": "2025-2026",
-		"period": "third_period_exam",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Chemistry",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 78,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third_period_exam-chemistry"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be112" },
-		"academicYear": "2025-2026",
-		"period": "first",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Agriculture",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 65,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-first-agriculture"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be113" },
-		"academicYear": "2025-2026",
-		"period": "second",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Agriculture",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 69,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-second-agriculture"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be114" },
-		"academicYear": "2025-2026",
-		"period": "third_period_exam",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Agriculture",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 69,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third_period_exam-agriculture"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be115" },
-		"academicYear": "2025-2026",
-		"period": "first",
-		"classId": "Morning-GradeElevenA",
-		"subject": "History",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 83,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-first-history"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be116" },
-		"academicYear": "2025-2026",
-		"period": "second",
-		"classId": "Morning-GradeElevenA",
-		"subject": "History",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 80,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-second-history"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be117" },
-		"academicYear": "2025-2026",
-		"period": "third",
-		"classId": "Morning-GradeElevenA",
-		"subject": "History",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 82,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third-history"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be118" },
-		"academicYear": "2025-2026",
-		"period": "third_period_exam",
-		"classId": "Morning-GradeElevenA",
-		"subject": "History",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 81,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third_period_exam-history"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be119" },
-		"academicYear": "2025-2026",
-		"period": "first",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Government",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 83,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-first-government"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be120" },
-		"academicYear": "2025-2026",
-		"period": "second",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Government",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 86,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-second-government"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be121" },
-		"academicYear": "2025-2026",
-		"period": "third",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Government",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 84,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third-government"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be122" },
-		"academicYear": "2025-2026",
-		"period": "third_period_exam",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Government",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 82,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third_period_exam-government"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be123" },
-		"academicYear": "2025-2026",
-		"period": "first",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Biology",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 74,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-first-biology"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be124" },
-		"academicYear": "2025-2026",
-		"period": "second",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Biology",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 80,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-second-biology"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be125" },
-		"academicYear": "2025-2026",
-		"period": "third",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Biology",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 74,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third-biology"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be126" },
-		"academicYear": "2025-2026",
-		"period": "third_period_exam",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Biology",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 74,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third_period_exam-biology"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be127" },
-		"academicYear": "2025-2026",
-		"period": "first",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Economics",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 68,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-first-economics"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be128" },
-		"academicYear": "2025-2026",
-		"period": "second",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Economics",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 87,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-second-economics"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be129" },
-		"academicYear": "2025-2026",
-		"period": "third",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Economics",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 95,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third-economics"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be130" },
-		"academicYear": "2025-2026",
-		"period": "third_period_exam",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Economics",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 80,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third_period_exam-economics"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be131" },
-		"academicYear": "2025-2026",
-		"period": "first",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Accounting",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 60,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-first-accounting"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be132" },
-		"academicYear": "2025-2026",
-		"period": "second",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Accounting",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 94,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-second-accounting"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be133" },
-		"academicYear": "2025-2026",
-		"period": "third",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Accounting",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 87,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third-accounting"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be134" },
-		"academicYear": "2025-2026",
-		"period": "third_period_exam",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Accounting",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 89,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third_period_exam-accounting"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be135" },
-		"academicYear": "2025-2026",
-		"period": "first",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Physics",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 65,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-first-physics"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be136" },
-		"academicYear": "2025-2026",
-		"period": "second",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Physics",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 80,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-second-physics"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be137" },
-		"academicYear": "2025-2026",
-		"period": "third",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Physics",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 76,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third-physics"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be138" },
-		"academicYear": "2025-2026",
-		"period": "third_period_exam",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Physics",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 77,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third_period_exam-physics"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be139" },
-		"academicYear": "2025-2026",
-		"period": "first",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Practical",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 73,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-first-practical"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be140" },
-		"academicYear": "2025-2026",
-		"period": "second",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Practical",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 76,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-second-practical"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be141" },
-		"academicYear": "2025-2026",
-		"period": "third",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Practical",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 76,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third-practical"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be142" },
-		"academicYear": "2025-2026",
-		"period": "third_period_exam",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Practical",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 77,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third_period_exam-practical"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be143" },
-		"academicYear": "2025-2026",
-		"period": "first",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Literature",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 74,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-first-literature"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be144" },
-		"academicYear": "2025-2026",
-		"period": "second",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Literature",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 66,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-second-literature"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be145" },
-		"academicYear": "2025-2026",
-		"period": "third",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Literature",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 71,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third-literature"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be146" },
-		"academicYear": "2025-2026",
-		"period": "third_period_exam",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Literature",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 71,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third_period_exam-literature"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be147" },
-		"academicYear": "2025-2026",
-		"period": "first",
-		"classId": "Morning-GradeElevenA",
-		"subject": "R.O.T.C",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 70,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-first-rotc"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be148" },
-		"academicYear": "2025-2026",
-		"period": "second",
-		"classId": "Morning-GradeElevenA",
-		"subject": "R.O.T.C",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 90,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-second-rotc"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be149" },
-		"academicYear": "2025-2026",
-		"period": "third",
-		"classId": "Morning-GradeElevenA",
-		"subject": "R.O.T.C",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 89,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third-rotc"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be150" },
-		"academicYear": "2025-2026",
-		"period": "third_period_exam",
-		"classId": "Morning-GradeElevenA",
-		"subject": "R.O.T.C",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 80,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third_period_exam-rotc"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be151" },
-		"academicYear": "2025-2026",
-		"period": "first",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Geography",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 71,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-first-geography"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be152" },
-		"academicYear": "2025-2026",
-		"period": "third",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Geography",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 76,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third-geography"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be153" },
-		"academicYear": "2025-2026",
-		"period": "third_period_exam",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Geography",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 88,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third_period_exam-geography"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be154" },
-		"academicYear": "2025-2026",
-		"period": "first",
-		"classId": "Morning-GradeElevenA",
-		"subject": "French",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 89,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-first-french"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be155" },
-		"academicYear": "2025-2026",
-		"period": "second",
-		"classId": "Morning-GradeElevenA",
-		"subject": "French",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 83,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-second-french"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be156" },
-		"academicYear": "2025-2026",
-		"period": "third",
-		"classId": "Morning-GradeElevenA",
-		"subject": "French",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 84,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third-french"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be157" },
-		"academicYear": "2025-2026",
-		"period": "third_period_exam",
-		"classId": "Morning-GradeElevenA",
-		"subject": "French",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 87,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third_period_exam-french"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be158" },
-		"academicYear": "2025-2026",
-		"period": "first",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Computer",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 88,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-first-computer"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be159" },
-		"academicYear": "2025-2026",
-		"period": "second",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Computer",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 90,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-second-computer"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be160" },
-		"academicYear": "2025-2026",
-		"period": "third",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Computer",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 80,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third-computer"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be161" },
-		"academicYear": "2025-2026",
-		"period": "third_period_exam",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Computer",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 80,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third_period_exam-computer"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be162" },
-		"academicYear": "2025-2026",
-		"period": "first",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Bible",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 80,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-first-bible"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be163" },
-		"academicYear": "2025-2026",
-		"period": "second",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Bible",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 77,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-second-bible"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be164" },
-		"academicYear": "2025-2026",
-		"period": "third",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Bible",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 80,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third-bible"
-	},
-	{
-		"_id": { "$oid": "6a308bdb748f662f9f8be165" },
-		"academicYear": "2025-2026",
-		"period": "third_period_exam",
-		"classId": "Morning-GradeElevenA",
-		"subject": "Bible",
-		"teacherUsername": "teacher_temp",
-		"studentId": "UCA2025211",
-		"studentName": "Naomi K. Mayango",
-		"grade": 80,
-		"status": "Approved",
-		"lastUpdated": "2026-06-20T11:13:57.000Z",
-		"submissionId": "2025-2026-morning-gradeelevena-third_period_exam-bible"
-	}
-]
+{
+	"host": "ucaliberia.vercel.app",
+	"dbName": "uca",
+	"id": "68b2c47c7acabadf6a1bcfaf",
+	"name": "Upstairs Christian Academy",
+	"slogan": "Excellence in Education",
+	"shortName": "Upstairs",
+	"initials": "UCA",
+	"studentIdPrefix": "UCA",
+	"themeName": "horizon",
+	"logoUrl": "https://res.cloudinary.com/dcalueltd/image/upload/v1753368059/school-management-system/uca/logo.png",
+	"logoUrl2": "https://res.cloudinary.com/dcalueltd/image/upload/v1753484515/school-management-system/uca/uca_logo2_kqlgdl.png",
+	"firstAcademicYear": "2025-2026",
+	"isActive": true,
+	"sysAdmin": {
+		"name": "Amos Senkao",
+		"email": "amossenkao@gmail.com",
+		"phone": "0776949463"
+	},
+	"administrativePositions": [
+		{
+			"id": "principal",
+			"name": "Principal"
+		},
+		{
+			"id": "dean",
+			"name": "Dean of Students"
+		},
+		{
+			"id": "registrar",
+			"name": "Registrar"
+		},
+		{
+			"id": "vpi",
+			"name": "Vice Principal for Instruction (VPI)"
+		},
+		{
+			"id": "business manager",
+			"name": "Business Manager"
+		},
+		{
+			"id": "propeietor",
+			"name": "Proprietor"
+		}
+	],
+	"enabledFeatures": [
+		"dashboard",
+		"calendar_events",
+		"community",
+		"profile_management",
+		"ai_chat",
+		"grading_system",
+		"fee_payment",
+		"admissions",
+		"user_management",
+		"academic_reports",
+		"school_settings",
+		"notifications",
+		"support_system",
+		"apps",
+		"attendance"
+	],
+	"roleFeatureAccess": {
+		"system_admin": [
+			"dashboard",
+			"user_management",
+			"calendar_events",
+			"grading_system",
+			"class_management",
+			"academic_reports",
+			"calendar_events",
+			"academic_resources",
+			"admissions",
+			"profile_management",
+			"ai_chat",
+			"notifications",
+			"school_settings",
+			"support_system",
+			"attendance"
+		],
+		"teacher": [
+			"dashboard",
+			"community",
+			"calendar_events",
+			"grading_system",
+			"academic_resources",
+			"profile_management",
+			"ai_chat",
+			"notifications",
+			"attendance"
+		],
+		"student": [
+			"dashboard",
+			"community",
+			"calendar_events",
+			"fee_payment",
+			"academic_reports",
+			"academic_resources",
+			"profile_management",
+			"ai_chat",
+			"attendance",
+			"notifications"
+		],
+		"administrator": {
+			"vpi": [
+				"dashboard",
+				"notifications",
+				"calendar_events",
+				"ai_chat",
+				"support_system",
+				"admissions",
+				"community",
+				"attendance"
+			]
+		}
+	},
+	"settings": {
+		"studentSettings": {
+			"loginAccess": true,
+			"yearlyReportAccess": true,
+			"reportAccessPeriods": ["first", "second", "third", "third_period_exam"],
+			"reportAccessSemesters": ["first"]
+		},
+		"teacherSettings": {
+			"loginAccess": true,
+			"gradeSubmissionPeriods": [
+				"second",
+				"third",
+				"third_period_exam",
+				"fourth",
+				"fifth",
+				"sixth",
+				"sixth_period_exam",
+				"first"
+			],
+			"gradeSubmissionAcademicYears": ["2025-2026"],
+			"viewMastersAcademicYears": ["2025-2026"],
+			"viewGradeSubmissionsAcademicYears": ["2025-2026"],
+			"gradeChangeRequestAcademicYears": ["2025-2026"],
+			"gradeChangeRequestPeriods": [
+				"third_period_exam",
+				"fourth",
+				"fifth",
+				"sixth",
+				"sixth_period_exam",
+				"third"
+			]
+		},
+		"administratorSettings": {
+			"loginAccess": true
+		},
+		"reportCardThemes": {
+			"Self Contained": "slateSteel",
+			"Elementary": "amberHarvest",
+			"Junior High": "midnightSapphire",
+			"Senior High": "slateSteel",
+			"Daycare": "violetDusk",
+			"Lower Elementary": "pureBlack",
+			"Upper Elementary": "pureBlack",
+			"Daycare Division": "pureBlack"
+		}
+	},
+	"address": [
+		"Daycare, Nursery, Kindergarten, Elem, Junior & Senior High",
+		"Unity Town, Pipeline Road, Lower Johnsonville",
+		"P.O Box 2523 Montserrado County Liberia",
+		"Email: ucacedemy2011@gmail.com"
+	],
+	"phones": ["+231 770 123 456", "+231 880 789 012"],
+	"emails": ["info@unityca.edu.lr", "admissions@unityca.edu.lr"],
+	"classLevels": {
+		"Morning": {
+			"Daycare Division": {
+				"isSelfContained": true,
+				"classes": [
+					{
+						"classId": "Morning-Nursery",
+						"name": "Nursery"
+					},
+					{
+						"classId": "Morning-ABC",
+						"name": "ABC"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Hygiene",
+						"weight": 1
+					},
+					{
+						"name": "Social Skills",
+						"weight": 1
+					},
+					{
+						"name": "Identifying Alphabets",
+						"weight": 1
+					},
+					{
+						"name": "Identifying Numbers",
+						"weight": 1
+					},
+					{
+						"name": "Tracing Numbers",
+						"weight": 1
+					},
+					{
+						"name": "Physical Education",
+						"weight": 1
+					},
+					{
+						"name": "Drawing",
+						"weight": 1
+					},
+					{
+						"name": "Recognizing Words",
+						"weight": 1
+					},
+					{
+						"name": "Phonics",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					}
+				]
+			},
+			"Lower Elementary": {
+				"isSelfContained": true,
+				"classes": [
+					{
+						"classId": "Morning-KOne",
+						"name": "K 1"
+					},
+					{
+						"classId": "Morning-KTwo",
+						"name": "K 2"
+					},
+					{
+						"classId": "Morning-GradeOne",
+						"name": "Grade 1"
+					},
+					{
+						"classId": "Morning-GradeTwo",
+						"name": "Grade 2"
+					},
+					{
+						"classId": "Morning-GradeThree",
+						"name": "Grade 3"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Math",
+						"weight": 1
+					},
+					{
+						"name": "General Science",
+						"weight": 1
+					},
+					{
+						"name": "English",
+						"weight": 1
+					},
+					{
+						"name": "Social Studies",
+						"weight": 1
+					},
+					{
+						"name": "Health Science",
+						"weight": 1
+					},
+					{
+						"name": "Physical Education",
+						"weight": 1
+					},
+					{
+						"name": "Reading",
+						"weight": 1
+					},
+					{
+						"name": "Writing",
+						"weight": 1
+					},
+					{
+						"name": "Spelling",
+						"weight": 1
+					},
+					{
+						"name": "Phonics",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					},
+					{
+						"name": "Drawing",
+						"weight": 1
+					}
+				]
+			},
+			"Upper Elementary": {
+				"classes": [
+					{
+						"classId": "Morning-GradeFour",
+						"name": "Grade 4"
+					},
+					{
+						"classId": "Morning-GradeFive",
+						"name": "Grade 5"
+					},
+					{
+						"classId": "Morning-GradeSix",
+						"name": "Grade 6"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Math",
+						"weight": 1
+					},
+					{
+						"name": "General Science",
+						"weight": 1
+					},
+					{
+						"name": "English",
+						"weight": 1
+					},
+					{
+						"name": "French",
+						"weight": 1
+					},
+					{
+						"name": "Social Studies",
+						"weight": 1
+					},
+					{
+						"name": "Health Science",
+						"weight": 1
+					},
+					{
+						"name": "Physical Education",
+						"weight": 1
+					},
+					{
+						"name": "Computer",
+						"weight": 1
+					},
+					{
+						"name": "Reading",
+						"weight": 1
+					},
+					{
+						"name": "Writing",
+						"weight": 1
+					},
+					{
+						"name": "Spelling",
+						"weight": 1
+					},
+					{
+						"name": "Phonics",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					}
+				]
+			},
+			"Junior High": {
+				"classes": [
+					{
+						"classId": "Morning-GradeSeven",
+						"name": "Grade 7"
+					},
+					{
+						"classId": "Morning-GradeEight",
+						"name": "Grade 8"
+					},
+					{
+						"classId": "Morning-GradeNine",
+						"name": "Grade 9"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Math",
+						"weight": 1
+					},
+					{
+						"name": "General Science",
+						"weight": 1
+					},
+					{
+						"name": "English",
+						"weight": 1
+					},
+					{
+						"name": "French",
+						"weight": 1
+					},
+					{
+						"name": "Geography",
+						"weight": 1
+					},
+					{
+						"name": "Health Science",
+						"weight": 1
+					},
+					{
+						"name": "Physical Education",
+						"weight": 1
+					},
+					{
+						"name": "Computer",
+						"weight": 1
+					},
+					{
+						"name": "History",
+						"weight": 1
+					},
+					{
+						"name": "Civics",
+						"weight": 1
+					},
+					{
+						"name": "Vocabulary",
+						"weight": 1
+					},
+					{
+						"name": "Phonics",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					},
+					{
+						"name": "Agriculture",
+						"weight": 1
+					},
+					{
+						"name": "Literature",
+						"weight": 1
+					}
+				]
+			},
+			"Senior High": {
+				"classes": [
+					{
+						"classId": "Morning-GradeTenA",
+						"name": "Grade 10-A"
+					},
+					{
+						"classId": "Morning-GradeTenB",
+						"name": "Grade 10-B"
+					},
+					{
+						"classId": "Morning-GradeElevenA",
+						"name": "Grade 11-A"
+					},
+					{
+						"classId": "Morning-GradeElevenB",
+						"name": "Grade 11-B"
+					},
+					{
+						"classId": "Morning-GradeTwelveA",
+						"name": "Grade 12-A"
+					},
+					{
+						"classId": "Morning-GradeTwelveB",
+						"name": "Grade 12-B"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Math",
+						"weight": 1
+					},
+					{
+						"name": "Biology",
+						"weight": 1
+					},
+					{
+						"name": "English",
+						"weight": 1
+					},
+					{
+						"name": "Physics",
+						"weight": 1
+					},
+					{
+						"name": "Chemistry",
+						"weight": 1
+					},
+					{
+						"name": "Computer",
+						"weight": 1
+					},
+					{
+						"name": "Economics",
+						"weight": 1
+					},
+					{
+						"name": "Government",
+						"weight": 1
+					},
+					{
+						"name": "Geography",
+						"weight": 1
+					},
+					{
+						"name": "History",
+						"weight": 1
+					},
+					{
+						"name": "Literature",
+						"weight": 1
+					},
+					{
+						"name": "Accounting",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					},
+					{
+						"name": "French",
+						"weight": 1
+					},
+					{
+						"name": "Agriculture",
+						"weight": 1
+					},
+					{
+						"name": "Practical",
+						"weight": 1
+					},
+					{
+						"name": "R.O.T.C",
+						"weight": 1
+					}
+				]
+			}
+		},
+		"Night": {
+			"Daycare Division": {
+				"isSelfContained": true,
+				"classes": [
+					{
+						"classId": "Night-Nursery",
+						"name": "Nursery"
+					},
+					{
+						"classId": "Night-ABC",
+						"name": "ABC"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Hygiene",
+						"weight": 1
+					},
+					{
+						"name": "Social Skills",
+						"weight": 1
+					},
+					{
+						"name": "Identifying Alphabets",
+						"weight": 1
+					},
+					{
+						"name": "Identifying Numbers",
+						"weight": 1
+					},
+					{
+						"name": "Tracing Numbers",
+						"weight": 1
+					},
+					{
+						"name": "Physical Education",
+						"weight": 1
+					},
+					{
+						"name": "Drawing",
+						"weight": 1
+					},
+					{
+						"name": "Recognizing Words",
+						"weight": 1
+					},
+					{
+						"name": "Phonics",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					}
+				]
+			},
+			"Lower Elementary": {
+				"isSelfContained": true,
+				"classes": [
+					{
+						"classId": "Night-kOne",
+						"name": "K 1"
+					},
+					{
+						"classId": "Night-kTwo",
+						"name": "K 2"
+					},
+					{
+						"classId": "Night-GradeOne",
+						"name": "Grade 1 PM"
+					},
+					{
+						"classId": "Night-GradeTwo",
+						"name": "Grade 2 PM"
+					},
+					{
+						"classId": "Night-GradeThree",
+						"name": "Grade 3 PM"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Math",
+						"weight": 1
+					},
+					{
+						"name": "General Science",
+						"weight": 1
+					},
+					{
+						"name": "English",
+						"weight": 1
+					},
+					{
+						"name": "Social Studies",
+						"weight": 1
+					},
+					{
+						"name": "Health Science",
+						"weight": 1
+					},
+					{
+						"name": "Reading",
+						"weight": 1
+					},
+					{
+						"name": "Writing",
+						"weight": 1
+					},
+					{
+						"name": "Spelling",
+						"weight": 1
+					},
+					{
+						"name": "Phonics",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					},
+					{
+						"name": "Drawing",
+						"weight": 1
+					}
+				]
+			},
+			"Upper Elementary": {
+				"classes": [
+					{
+						"classId": "Night-GradeFour",
+						"name": "Grade 4 PM"
+					},
+					{
+						"classId": "Night-GradeFive",
+						"name": "Grade 5 PM"
+					},
+					{
+						"classId": "Night-GradeSix",
+						"name": "Grade 6 PM"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Math",
+						"weight": 1
+					},
+					{
+						"name": "General Science",
+						"weight": 1
+					},
+					{
+						"name": "English",
+						"weight": 1
+					},
+					{
+						"name": "French",
+						"weight": 1
+					},
+					{
+						"name": "Social Studies",
+						"weight": 1
+					},
+					{
+						"name": "Health Science",
+						"weight": 1
+					},
+					{
+						"name": "Reading",
+						"weight": 1
+					},
+					{
+						"name": "Writing",
+						"weight": 1
+					},
+					{
+						"name": "Spelling",
+						"weight": 1
+					},
+					{
+						"name": "Phonics",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					}
+				]
+			},
+			"Junior High": {
+				"classes": [
+					{
+						"classId": "Night-GradeSeven",
+						"name": "Grade 7 PM"
+					},
+					{
+						"classId": "Night-GradeEight",
+						"name": "Grade 8 PM"
+					},
+					{
+						"classId": "Night-GradeNine",
+						"name": "Grade 9 PM"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Math",
+						"weight": 1
+					},
+					{
+						"name": "General Science",
+						"weight": 1
+					},
+					{
+						"name": "English",
+						"weight": 1
+					},
+					{
+						"name": "French",
+						"weight": 1
+					},
+					{
+						"name": "Geography",
+						"weight": 1
+					},
+					{
+						"name": "Health Science",
+						"weight": 1
+					},
+					{
+						"name": "Computer",
+						"weight": 1
+					},
+					{
+						"name": "History",
+						"weight": 1
+					},
+					{
+						"name": "Civics",
+						"weight": 1
+					},
+					{
+						"name": "Vocabulary",
+						"weight": 1
+					},
+					{
+						"name": "Phonics",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					},
+					{
+						"name": "Agriculture",
+						"weight": 1
+					},
+					{
+						"name": "Literature",
+						"weight": 1
+					}
+				]
+			},
+			"Senior High": {
+				"classes": [
+					{
+						"classId": "Night-GradeTen",
+						"name": "Grade 10 PM"
+					},
+					{
+						"classId": "Night-GradeEleven",
+						"name": "Grade 11 PM"
+					},
+					{
+						"classId": "Night-GradeTwelve",
+						"name": "Grade 12 PM"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Math",
+						"weight": 1
+					},
+					{
+						"name": "Biology",
+						"weight": 1
+					},
+					{
+						"name": "English",
+						"weight": 1
+					},
+					{
+						"name": "Physics",
+						"weight": 1
+					},
+					{
+						"name": "Chemistry",
+						"weight": 1
+					},
+					{
+						"name": "Computer",
+						"weight": 1
+					},
+					{
+						"name": "Economics",
+						"weight": 1
+					},
+					{
+						"name": "Government",
+						"weight": 1
+					},
+					{
+						"name": "Geography",
+						"weight": 1
+					},
+					{
+						"name": "History",
+						"weight": 1
+					},
+					{
+						"name": "Literature",
+						"weight": 1
+					},
+					{
+						"name": "Accounting",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					},
+					{
+						"name": "French",
+						"weight": 1
+					},
+					{
+						"name": "Agriculture",
+						"weight": 1
+					},
+					{
+						"name": "Practical",
+						"weight": 1
+					}
+				]
+			}
+		}
+	},
+	"updatedAt": {
+		"$date": "2026-06-27T09:27:24.673Z"
+	},
+	"currentAcademicYear": "2025-2026"
+}

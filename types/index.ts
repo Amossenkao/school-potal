@@ -12,6 +12,15 @@ export interface ClassSchedule {
 	subject: string;
 }
 
+export interface Attendance {
+	academicYear: string;
+	classId: string;
+	date: Date,
+	presentStudentIds: string[];
+	absentStudentIds: string[];
+	recordedBy?: string;
+}
+
 export interface PaymentRecords {
 	id: string;
 	receiptNumber: string;
@@ -95,6 +104,7 @@ export interface Student extends User {
 	shareContactWithClassmates: boolean;
 	isLateRegistration?: boolean;
 	academicYears: { year: string; classId: string; className?: string }[];
+	daysToRecordAttendance: Date[],
 	guardian: {
 		firstName: string;
 		middleName?: string;
