@@ -19,7 +19,7 @@ async function addNotificationToUser(
 	userId: string,
 	notification: any,
 	options: {
-		tenantKey?: string;
+		tenantId?: string;
 		actorId?: string | null;
 		reason?: string;
 	} = {},
@@ -36,7 +36,7 @@ async function addNotificationToUser(
 		if (updatedUser) {
 			await updateUserSessionNotifications(userId, updatedUser.notifications);
 			await publishSyncEventSafe({
-				tenantKey: options.tenantKey || '',
+				tenantId: options.tenantId || '',
 				domain: 'user',
 				actorId: options.actorId || userId,
 				reason: options.reason || 'user-notification',
@@ -1239,7 +1239,7 @@ export async function POST(request: NextRequest) {
 
 		// Fetch school settings to check if grade submission is allowed
 		const schoolProfile = await getSchoolProfile();
-		const tenantKey = resolveTenantSyncKey({
+		const tenantId = resolveTenantSyncKey({
 			schoolProfile,
 			tenantId: teacher.tenantId,
 			host: request.headers.get('host'),
@@ -1517,7 +1517,7 @@ export async function POST(request: NextRequest) {
 			for (const admin of admins) {
 				notificationPromises.push(
 					addNotificationToUser(User, admin._id.toString(), notification, {
-						tenantKey,
+						tenantId,
 						actorId: teacher.id,
 						reason: 'grade-submission-notification',
 					}),
@@ -1526,7 +1526,7 @@ export async function POST(request: NextRequest) {
 		}
 		await Promise.allSettled(notificationPromises);
 		await publishSyncEventSafe({
-			tenantKey,
+			tenantId,
 			domain: 'grades',
 			payload: { grades: gradeDocuments },
 			academicYear: String(resolvedAcademicYear || ''),
@@ -1587,7 +1587,7 @@ export async function PUT(request: NextRequest) {
 		}
 
 		const schoolProfile = await getSchoolProfile();
-		const tenantKey = resolveTenantSyncKey({
+		const tenantId = resolveTenantSyncKey({
 			schoolProfile,
 			tenantId: currentUser.tenantId,
 			host: request.headers.get('host'),
@@ -1717,7 +1717,7 @@ export async function PUT(request: NextRequest) {
 		}));
 		const result = await Grade.insertMany(newGradeDocuments);
 		await publishSyncEventSafe({
-			tenantKey,
+			tenantId,
 			domain: 'grades',
 			payload: { grades: newGradeDocuments },
 			academicYear: String(submissionAcademicYear || ''),
@@ -1784,7 +1784,7 @@ export async function PATCH(request: NextRequest) {
 				{ status: 403 },
 			);
 		}
-		const tenantKey = resolveTenantSyncKey({
+		const tenantId = resolveTenantSyncKey({
 			tenantId: currentUser.tenantId,
 			host: request.headers.get('host'),
 		});
@@ -1881,7 +1881,7 @@ export async function PATCH(request: NextRequest) {
 						teacher._id.toString(),
 						notification,
 						{
-							tenantKey,
+							tenantId,
 							actorId: currentUser.id,
 							reason: 'grade-status-notification',
 						},
@@ -1912,7 +1912,7 @@ export async function PATCH(request: NextRequest) {
 						.filter(entry => String(entry?.data?.academicYear || '').trim() === academicYear)
 						.map(entry => entry.data);
 					return publishSyncEventSafe({
-						tenantKey,
+						tenantId,
 						domain: 'grades',
 						payload: { grades: gradesForYear },
 						academicYear: academicYear || null,

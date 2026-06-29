@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const tenantKey = resolveTenantSyncKey({
+		const tenantId = resolveTenantSyncKey({
 			schoolProfile: currentSchool,
 			tenantId: currentUser.tenantId,
 			host: cleanHost,
@@ -414,7 +414,7 @@ export async function POST(request: NextRequest) {
 			if (affectedYearsSet.size > 0) {
 				await bumpUsersVersion(Array.from(affectedYearsSet));
 				await publishSyncEventsForAcademicYearsSafe({
-					tenantKey,
+					tenantId,
 					domain: 'users',
 					academicYears: Array.from(affectedYearsSet),
 					actorId: currentUser.id,
@@ -424,14 +424,14 @@ export async function POST(request: NextRequest) {
 		}
 
 		await publishSyncEventSafe({
-			tenantKey,
+			tenantId,
 			domain: 'school',
 			academicYear: String(updatedSchoolProfile.currentAcademicYear || ''),
 			actorId: currentUser.id,
 			reason: 'school-settings-updated',
 		});
 		await publishPublicSyncEventSafe({
-			tenantKey,
+			tenantId,
 			domain: 'school',
 			academicYear: String(updatedSchoolProfile.currentAcademicYear || ''),
 			actorId: currentUser.id,

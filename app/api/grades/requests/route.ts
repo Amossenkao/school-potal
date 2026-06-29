@@ -53,7 +53,7 @@ async function addNotificationToUser(
 	userId: string,
 	notification: any,
 	options: {
-		tenantKey?: string;
+		tenantId?: string;
 		actorId?: string | null;
 		reason?: string;
 	} = {},
@@ -70,7 +70,7 @@ async function addNotificationToUser(
 		if (updatedUser) {
 			await updateUserNotificationSession(userId, updatedUser.notifications);
 			await publishSyncEventSafe({
-				tenantKey: options.tenantKey || '',
+				tenantId: options.tenantId || '',
 				domain: 'user',
 				actorId: options.actorId || userId,
 				reason: options.reason || 'user-notification',
@@ -259,7 +259,7 @@ export async function POST(request: NextRequest) {
 			typeof schoolProfileRaw === 'string'
 				? JSON.parse(schoolProfileRaw)
 				: schoolProfileRaw;
-		const tenantKey = resolveTenantSyncKey({
+		const tenantId = resolveTenantSyncKey({
 			schoolProfile,
 			tenantId: teacher.tenantId,
 			host: request.headers.get('host'),
@@ -436,7 +436,7 @@ export async function POST(request: NextRequest) {
 			};
 			const notificationPromises = admins.map((admin: any) =>
 				addNotificationToUser(User, admin._id.toString(), notification, {
-					tenantKey,
+					tenantId,
 					actorId: teacher.id,
 					reason: 'grade-change-request-notification',
 				}),
@@ -445,7 +445,7 @@ export async function POST(request: NextRequest) {
 		}
 		if (updatedGrades.length > 0) {
 			await publishSyncEventSafe({
-				tenantKey,
+				tenantId,
 				domain: 'grades',
 				payload: { grades: updatedGrades },
 				academicYear: String(academicYear || ''),
@@ -456,7 +456,7 @@ export async function POST(request: NextRequest) {
 		}
 		if (createdRequests.length > 0) {
 			await publishSyncEventSafe({
-				tenantKey,
+				tenantId,
 				domain: 'gradeRequests',
 				academicYear: String(academicYear || ''),
 				actorId: teacher.id,
@@ -493,7 +493,7 @@ export async function PATCH(request: NextRequest) {
 		if (!admin) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}
-		const tenantKey = resolveTenantSyncKey({
+		const tenantId = resolveTenantSyncKey({
 			tenantId: admin.tenantId,
 			host: request.headers.get('host'),
 		});
@@ -612,7 +612,7 @@ export async function PATCH(request: NextRequest) {
 								teacherUser._id.toString(),
 								notification,
 								{
-									tenantKey,
+									tenantId,
 									actorId: admin.id,
 									reason: 'grade-request-status-notification',
 								},
@@ -653,7 +653,7 @@ export async function PATCH(request: NextRequest) {
 			await Promise.all(
 				(years.length > 0 ? years : ['']).map((academicYear) =>
 					publishSyncEventSafe({
-						tenantKey,
+						tenantId,
 						domain: 'gradeRequests',
 						academicYear: academicYear || null,
 						actorId: admin.id,
@@ -667,7 +667,7 @@ export async function PATCH(request: NextRequest) {
 				await Promise.all(
 					(years.length > 0 ? years : ['']).map((academicYear) =>
 						publishSyncEventSafe({
-							tenantKey,
+							tenantId,
 							domain: 'grades',
 							academicYear: academicYear || null,
 							actorId: admin.id,
@@ -702,7 +702,7 @@ export async function PUT(request: NextRequest) {
 		if (!teacher) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}
-		const tenantKey = resolveTenantSyncKey({
+		const tenantId = resolveTenantSyncKey({
 			tenantId: teacher.tenantId,
 			host: request.headers.get('host'),
 		});
@@ -777,7 +777,7 @@ export async function PUT(request: NextRequest) {
 			);
 		}
 		await publishSyncEventSafe({
-			tenantKey,
+			tenantId,
 			domain: 'gradeRequests',
 			academicYear: String(updatedRequest.academicYear || ''),
 			actorId: teacher.id,
@@ -810,7 +810,7 @@ export async function DELETE(request: NextRequest) {
 		if (!teacher) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}
-		const tenantKey = resolveTenantSyncKey({
+		const tenantId = resolveTenantSyncKey({
 			tenantId: teacher.tenantId,
 			host: request.headers.get('host'),
 		});
@@ -867,7 +867,7 @@ export async function DELETE(request: NextRequest) {
 
 		const deletedRequest = await GradeChangeRequest.findByIdAndDelete(requestId);
 		await publishSyncEventSafe({
-			tenantKey,
+			tenantId,
 			domain: 'gradeRequests',
 			academicYear: String(
 				deletedRequest?.academicYear || requestToDelete.academicYear || '',

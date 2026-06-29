@@ -34,7 +34,7 @@ export async function PATCH(request: NextRequest) {
 			typeof schoolProfileRaw === 'string'
 				? JSON.parse(schoolProfileRaw)
 				: schoolProfileRaw;
-		const tenantKey = resolveTenantSyncKey({
+		const tenantId = resolveTenantSyncKey({
 			schoolProfile,
 			tenantId: currentUser.tenantId,
 			host: request.headers.get('host'),
@@ -141,7 +141,7 @@ export async function PATCH(request: NextRequest) {
 		await user.save();
 		await updateUserSessionNotifications(currentUserId, user.notifications);
 		await publishSyncEventSafe({
-			tenantKey,
+			tenantId,
 			domain: 'user',
 			actorId: currentUserId,
 			reason: `notifications-${String(action || 'update')}`,
