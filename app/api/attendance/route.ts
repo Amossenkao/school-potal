@@ -272,7 +272,10 @@ export async function POST(request: NextRequest) {
 		// ── Basic validation ──────────────────────────────────────────────────
 		if (!academicYear || !dateStr || !bodyClassId) {
 			return NextResponse.json(
-				{ success: false, message: 'academicYear, classId and date are required.' },
+				{
+					success: false,
+					message: 'academicYear, classId and date are required.',
+				},
 				{ status: 400 },
 			);
 		}
@@ -287,9 +290,13 @@ export async function POST(request: NextRequest) {
 		const schoolProfile = await getSchoolProfile();
 
 		if (!schoolProfile) {
-			return NextResponse.json({
-				success: false, message: "School Profile not found"
-			}, {status: 400})
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'School Profile not found',
+				},
+				{ status: 400 },
+			);
 		}
 		const tenantId = resolveTenantSyncKey({
 			schoolProfile,
@@ -299,7 +306,6 @@ export async function POST(request: NextRequest) {
 
 		// ── system_admin ──────────────────────────────────────────────────────
 		if (currentUser.role === 'system_admin') {
-
 			const record = await upsertAttendance({
 				Attendance,
 				academicYear,
@@ -310,12 +316,31 @@ export async function POST(request: NextRequest) {
 				recordedBy: currentUser.id,
 			});
 
+			// NOTE: include the actual record in the payload so every connected
+			// client (not just the actor) can merge it via applyRealtimeEvent.
+			// Previously this only sent a version-bump signal with no data,
+			// so observers other than the actor never saw the update — the
+			// actor's own UI only updated because the component manually
+			// merges the API response into the store after a successful save.
+			//
+			// `classId` at the TOP LEVEL of payload (not nested inside
+			// `attendance`) is required for resolvePublishChannels to route
+			// this event to `class:{tenantId}:{classId}` — that's the channel
+			// every teacher/student in that class is actually subscribed to.
+			// Without it, ATTENDANCE_CREATED/UPDATED only reaches the school
+			// channel (admins) since attendance records have no single
+			// targetUserId the way a USER_UPDATED event does.
 			await publishSyncEventSafe({
 				tenantId,
 				domain: 'attendance',
 				academicYear,
 				actorId: currentUser.id,
 				reason: 'attendance-recorded',
+				payload: {
+					academicYear,
+					classId: bodyClassId,
+					attendance: [record],
+				},
 			});
 
 			return NextResponse.json(
@@ -378,6 +403,11 @@ export async function POST(request: NextRequest) {
 				academicYear,
 				actorId: currentUser.id,
 				reason: 'attendance-recorded',
+				payload: {
+					academicYear,
+					classId: bodyClassId,
+					attendance: [record],
+				},
 			});
 
 			return NextResponse.json(
@@ -455,6 +485,11 @@ export async function POST(request: NextRequest) {
 				academicYear,
 				actorId: currentUser.id,
 				reason: 'attendance-recorded',
+				payload: {
+					academicYear,
+					classId: studentClassId,
+					attendance: [record],
+				},
 			});
 
 			return NextResponse.json(
@@ -531,7 +566,10 @@ export async function PATCH(request: NextRequest) {
 
 		if (!academicYear || !dateStr || !bodyClassId) {
 			return NextResponse.json(
-				{ success: false, message: 'academicYear, classId and date are required.' },
+				{
+					success: false,
+					message: 'academicYear, classId and date are required.',
+				},
 				{ status: 400 },
 			);
 		}
@@ -543,7 +581,7 @@ export async function PATCH(request: NextRequest) {
 
 		// ── Resolve tenant for sync events ────────────────────────────────────
 
-		const schoolProfile = await getSchoolProfile()
+		const schoolProfile = await getSchoolProfile();
 
 		const tenantId = resolveTenantSyncKey({
 			schoolProfile,
@@ -553,7 +591,6 @@ export async function PATCH(request: NextRequest) {
 
 		// ── system_admin ──────────────────────────────────────────────────────
 		if (currentUser.role === 'system_admin') {
-
 			const record = await patchAttendance({
 				Attendance,
 				academicYear,
@@ -577,6 +614,11 @@ export async function PATCH(request: NextRequest) {
 				academicYear,
 				actorId: currentUser.id,
 				reason: 'attendance-updated',
+				payload: {
+					academicYear,
+					classId: bodyClassId,
+					attendance: [record],
+				},
 			});
 
 			return NextResponse.json({ success: true, data: record });
@@ -649,6 +691,11 @@ export async function PATCH(request: NextRequest) {
 				academicYear,
 				actorId: currentUser.id,
 				reason: 'attendance-updated',
+				payload: {
+					academicYear,
+					classId: bodyClassId,
+					attendance: [record],
+				},
 			});
 
 			return NextResponse.json({ success: true, data: record });
@@ -666,7 +713,6 @@ export async function PATCH(request: NextRequest) {
 					{ status: 404 },
 				);
 			}
-
 
 			if (!student.canRecordAttendance) {
 				return NextResponse.json(
@@ -727,6 +773,11 @@ export async function PATCH(request: NextRequest) {
 				academicYear,
 				actorId: currentUser.id,
 				reason: 'attendance-updated',
+				payload: {
+					academicYear,
+					classId: studentClassId,
+					attendance: [record],
+				},
 			});
 
 			return NextResponse.json({ success: true, data: record });

@@ -1313,7 +1313,8 @@ export function generateNavigationItems(
 
 	const calendarNavLabel = 'Calendar & Schedules';
 	if (userRole === 'system_admin') {
-		moveNavItemBefore(navItems, calendarNavLabel, 'Profile');
+		  moveNavItemBefore(navItems, 'Attendance', 'Profile');
+			moveNavItemBefore(navItems, calendarNavLabel, 'Attendance');
 	} else {
 		moveNavItemBefore(navItems, calendarNavLabel, 'Attendance');
 	}
