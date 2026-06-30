@@ -1784,7 +1784,9 @@ export async function PATCH(request: NextRequest) {
 				{ status: 403 },
 			);
 		}
+		const schoolProfile = await getSchoolProfile();
 		const tenantId = resolveTenantSyncKey({
+			schoolProfile,
 			tenantId: currentUser.tenantId,
 			host: request.headers.get('host'),
 		});

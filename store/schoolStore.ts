@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { isEqual } from 'lodash';
 import type SchoolProfile from '@/types/schoolProfile';
 
 import type { GradesCursor } from '@/lib/bootstrap';
@@ -557,6 +558,9 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	},
 
 	setSchool: (school) => {
+		if (isEqual(get().school, school)) {
+			return;
+		}
 		set({ school });
 		if (school) {
 			localStorage.setItem('school-profile', JSON.stringify(school));

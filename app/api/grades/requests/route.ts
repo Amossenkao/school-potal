@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantModels } from '@/models';
 import { authorizeUser } from '@/proxy';
-import {
-	updateUserSessionNotifications,
-} from '@/utils/session';
+import { updateUserSessionNotifications } from '@/utils/session';
 import crypto from 'crypto';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
@@ -34,12 +32,12 @@ function isGradeChangeWindowOpen(
 // Helper function to safely update user session with new notification
 async function updateUserNotificationSession(
 	userId: string,
-	newNotifications: any[]
+	newNotifications: any[],
 ) {
 	try {
 		await updateUserSessionNotifications(userId, newNotifications);
 		console.log(
-			`Successfully updated session notifications for user ${userId}`
+			`Successfully updated session notifications for user ${userId}`,
 		);
 	} catch (sessionError) {
 		console.error(`Failed to update session for user ${userId}:`, sessionError);
@@ -64,7 +62,7 @@ async function addNotificationToUser(
 			{
 				$push: { notifications: notification },
 			},
-			{ new: true, select: 'notifications' } // Only return notifications to minimize data transfer
+			{ new: true, select: 'notifications' }, // Only return notifications to minimize data transfer
 		);
 
 		if (updatedUser) {
@@ -84,6 +82,98 @@ async function addNotificationToUser(
 		return false;
 	}
 }
+
+const toPlainObject = (value: any) =>
+	value && typeof value.toObject === 'function' ? value.toObject() : value;
+
+const toUniqueStrings = (values: unknown[]) =>
+	Array.from(
+		new Set(
+			values
+				.map((value) => String(value || '').trim())
+				.filter((value) => value.length > 0),
+		),
+	);
+
+const buildGradeRequestReport = (allRequests: any[]) => {
+	const groupedByBatch = allRequests.reduce(
+		(acc: Record<string, any>, request: any) => {
+			const plainRequest = toPlainObject(request);
+			const batchId = String(plainRequest?.batchId || '').trim();
+			if (!batchId) return acc;
+			if (!acc[batchId]) {
+				acc[batchId] = {
+					batchId: plainRequest.batchId,
+					academicYear: plainRequest.academicYear,
+					period: plainRequest.period,
+					classId: plainRequest.classId,
+					subject: plainRequest.subject,
+					teacherUsername: plainRequest.teacherUsername,
+					teacherName: plainRequest.teacherName,
+					submittedAt: plainRequest.submittedAt,
+					lastUpdated: plainRequest.lastUpdated,
+					requests: [],
+				};
+			}
+			acc[batchId].requests.push({
+				...plainRequest,
+				requestId: String(plainRequest._id || plainRequest.requestId || ''),
+			});
+			const requestUpdatedAt = new Date(
+				plainRequest.lastUpdated || plainRequest.submittedAt || 0,
+			).getTime();
+			const batchUpdatedAt = new Date(
+				acc[batchId].lastUpdated || acc[batchId].submittedAt || 0,
+			).getTime();
+			if (requestUpdatedAt > batchUpdatedAt) {
+				acc[batchId].lastUpdated = plainRequest.lastUpdated;
+			}
+			return acc;
+		},
+		{} as Record<string, any>,
+	);
+
+	const report = (Object.values(groupedByBatch) as any[]).map((batch: any) => {
+		const statuses = new Set(
+			batch.requests.map((request: any) => request.status),
+		);
+		let status: string = 'Pending';
+		if (statuses.size === 1) {
+			const singleStatus = statuses.values().next().value as string | undefined;
+			if (singleStatus) status = singleStatus;
+		} else if (
+			statuses.has('Pending') ||
+			(statuses.has('Approved') && statuses.has('Rejected'))
+		) {
+			status = 'Partially Approved';
+		} else if (statuses.has('Approved')) {
+			status = 'Approved';
+		} else if (statuses.has('Rejected')) {
+			status = 'Rejected';
+		}
+		return {
+			...batch,
+			status,
+			stats: { totalRequests: batch.requests.length },
+		};
+	});
+
+	report.sort(
+		(a, b) =>
+			new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime(),
+	);
+	return report;
+};
+
+const fetchGradeRequestReportForYear = async (
+	GradeChangeRequest: any,
+	academicYear: string,
+) => {
+	const allRequests = await GradeChangeRequest.find({
+		academicYear: getAcademicYearFilterValue(academicYear),
+	}).lean();
+	return buildGradeRequestReport(allRequests);
+};
 
 // -----------------------------------------------------------------------------
 // GET - Fetch Grade Change Requests (for Admin or Teacher)
@@ -138,7 +228,9 @@ export async function GET(request: NextRequest) {
 		}
 		const academicYear = yearAccess.academicYear;
 
-		const query: any = { academicYear: getAcademicYearFilterValue(academicYear) };
+		const query: any = {
+			academicYear: getAcademicYearFilterValue(academicYear),
+		};
 
 		// If the user is a teacher, only fetch their requests
 		if (currentUser.role === 'teacher') {
@@ -150,58 +242,60 @@ export async function GET(request: NextRequest) {
 		// Group requests by their batchId for the UI
 		const groupedByBatch = allRequests.reduce(
 			(acc: Record<string, any>, request: any) => {
-			const batchId = request.batchId;
-			if (!acc[batchId]) {
-				acc[batchId] = {
-					batchId: request.batchId,
-					academicYear: request.academicYear,
-					period: request.period,
-					classId: request.classId,
-					subject: request.subject,
-					teacherUsername: request.teacherUsername,
-					teacherName: request.teacherName,
-					submittedAt: request.submittedAt,
-					requests: [],
-				};
-			}
-			acc[batchId].requests.push({
-				...request,
-				requestId: request._id.toString(),
-			});
-			return acc;
+				const batchId = request.batchId;
+				if (!acc[batchId]) {
+					acc[batchId] = {
+						batchId: request.batchId,
+						academicYear: request.academicYear,
+						period: request.period,
+						classId: request.classId,
+						subject: request.subject,
+						teacherUsername: request.teacherUsername,
+						teacherName: request.teacherName,
+						submittedAt: request.submittedAt,
+						requests: [],
+					};
+				}
+				acc[batchId].requests.push({
+					...request,
+					requestId: request._id.toString(),
+				});
+				return acc;
 			},
 			{} as Record<string, any>,
 		);
 
-		const report = (Object.values(groupedByBatch) as any[]).map((batch: any) => {
-			const statuses = new Set(batch.requests.map((r: any) => r.status));
-			let status: string = 'Pending';
-			if (statuses.size === 1) {
-				const singleStatus = statuses.values().next().value as
-					| string
-					| undefined;
-				if (singleStatus) status = singleStatus;
-			} else if (
-				statuses.has('Pending') ||
-				(statuses.has('Approved') && statuses.has('Rejected'))
-			) {
-				status = 'Partially Approved';
-			} else if (statuses.has('Approved')) {
-				status = 'Approved';
-			} else if (statuses.has('Rejected')) {
-				status = 'Rejected';
-			}
-			return {
-				...batch,
-				status,
-				stats: { totalRequests: batch.requests.length },
-			};
-		});
+		const report = (Object.values(groupedByBatch) as any[]).map(
+			(batch: any) => {
+				const statuses = new Set(batch.requests.map((r: any) => r.status));
+				let status: string = 'Pending';
+				if (statuses.size === 1) {
+					const singleStatus = statuses.values().next().value as
+						| string
+						| undefined;
+					if (singleStatus) status = singleStatus;
+				} else if (
+					statuses.has('Pending') ||
+					(statuses.has('Approved') && statuses.has('Rejected'))
+				) {
+					status = 'Partially Approved';
+				} else if (statuses.has('Approved')) {
+					status = 'Approved';
+				} else if (statuses.has('Rejected')) {
+					status = 'Rejected';
+				}
+				return {
+					...batch,
+					status,
+					stats: { totalRequests: batch.requests.length },
+				};
+			},
+		);
 
 		// Sort by most recent submission
 		report.sort(
 			(a, b) =>
-				new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+				new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime(),
 		);
 
 		return NextResponse.json({
@@ -215,7 +309,7 @@ export async function GET(request: NextRequest) {
 		console.error('Error fetching grade change requests:', error);
 		return NextResponse.json(
 			{ message: 'Internal server error' },
-			{ status: 500 }
+			{ status: 500 },
 		);
 	}
 }
@@ -230,7 +324,8 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}
 
-		const { Grade, GradeChangeRequest, User, Teacher } = await getTenantModels();
+		const { Grade, GradeChangeRequest, User, Teacher } =
+			await getTenantModels();
 		const body = await request.json();
 		const {
 			classId,
@@ -249,7 +344,7 @@ export async function POST(request: NextRequest) {
 		) {
 			return NextResponse.json(
 				{ message: 'Missing required fields' },
-				{ status: 400 }
+				{ status: 400 },
 			);
 		}
 
@@ -270,7 +365,7 @@ export async function POST(request: NextRequest) {
 		if (!teacherRecord) {
 			return NextResponse.json(
 				{ success: false, message: 'Teacher profile not found.' },
-				{ status: 404 }
+				{ status: 404 },
 			);
 		}
 		const yearAccess = resolveAcademicYearAccessContext({
@@ -286,7 +381,7 @@ export async function POST(request: NextRequest) {
 					defaultAcademicYear: yearAccess.defaultAcademicYear,
 					allowedAcademicYears: yearAccess.allowedAcademicYears,
 				},
-				{ status: 403 }
+				{ status: 403 },
 			);
 		}
 		const academicYear = yearAccess.academicYear;
@@ -298,14 +393,14 @@ export async function POST(request: NextRequest) {
 					message:
 						'Grade change requests are not currently open for this academic year or period.',
 				},
-				{ status: 403 }
+				{ status: 403 },
 			);
 		}
 
 		const teacherYearData = getTeacherYearAssignment(
 			teacherRecord,
 			academicYear,
-			{ schoolProfile }
+			{ schoolProfile },
 		);
 		if (!teacherYearData) {
 			return NextResponse.json(
@@ -314,7 +409,7 @@ export async function POST(request: NextRequest) {
 					message:
 						'You are not assigned to this academic year for grade changes.',
 				},
-				{ status: 403 }
+				{ status: 403 },
 			);
 		}
 
@@ -322,7 +417,7 @@ export async function POST(request: NextRequest) {
 			teacherRecord,
 			academicYear,
 			classId,
-			{ schoolProfile }
+			{ schoolProfile },
 		);
 		if (!classData) {
 			return NextResponse.json(
@@ -330,7 +425,7 @@ export async function POST(request: NextRequest) {
 					success: false,
 					message: 'You are not assigned to this class for this year.',
 				},
-				{ status: 403 }
+				{ status: 403 },
 			);
 		}
 
@@ -341,7 +436,7 @@ export async function POST(request: NextRequest) {
 					success: false,
 					message: 'You are not assigned to this subject for this class.',
 				},
-				{ status: 403 }
+				{ status: 403 },
 			);
 		}
 
@@ -360,7 +455,7 @@ export async function POST(request: NextRequest) {
 
 			if (!originalGradeDoc) {
 				console.warn(
-					`Original grade not found for student ${req.studentId}, skipping.`
+					`Original grade not found for student ${req.studentId}, skipping.`,
 				);
 				continue;
 			}
@@ -373,7 +468,7 @@ export async function POST(request: NextRequest) {
 
 			if (existingRequest) {
 				console.log(
-					`Duplicate pending request for student ${req.studentId}, skipping.`
+					`Duplicate pending request for student ${req.studentId}, skipping.`,
 				);
 				continue;
 			}
@@ -474,13 +569,13 @@ export async function POST(request: NextRequest) {
 					updatedGrades: updatedGrades.map((g) => g.toObject()),
 				},
 			},
-			{ status: 201 }
+			{ status: 201 },
 		);
 	} catch (error: any) {
 		console.error('Error creating grade change requests:', error);
 		return NextResponse.json(
 			{ message: error.message || 'Internal server error' },
-			{ status: 500 }
+			{ status: 500 },
 		);
 	}
 }
@@ -493,7 +588,9 @@ export async function PATCH(request: NextRequest) {
 		if (!admin) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}
+		const schoolProfile = await getSchoolProfile();
 		const tenantId = resolveTenantSyncKey({
+			schoolProfile,
 			tenantId: admin.tenantId,
 			host: request.headers.get('host'),
 		});
@@ -622,13 +719,10 @@ export async function PATCH(request: NextRequest) {
 					}
 					return false;
 				} catch (error) {
-					console.error(
-						`Failed to notify teacher ${teacherUsername}:`,
-						error
-					);
+					console.error(`Failed to notify teacher ${teacherUsername}:`, error);
 					return false;
 				}
-			}
+			},
 		);
 
 		// Wait for all teacher notifications to complete
@@ -688,7 +782,7 @@ export async function PATCH(request: NextRequest) {
 		console.error('Error processing grade change requests:', error);
 		return NextResponse.json(
 			{ message: 'Internal server error' },
-			{ status: 500 }
+			{ status: 500 },
 		);
 	}
 }
@@ -702,7 +796,9 @@ export async function PUT(request: NextRequest) {
 		if (!teacher) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}
+		const schoolProfile = await getSchoolProfile();
 		const tenantId = resolveTenantSyncKey({
+			schoolProfile,
 			tenantId: teacher.tenantId,
 			host: request.headers.get('host'),
 		});
@@ -720,7 +816,7 @@ export async function PUT(request: NextRequest) {
 		if (!requestToUpdate) {
 			return NextResponse.json(
 				{ message: 'Request not found' },
-				{ status: 404 }
+				{ status: 404 },
 			);
 		}
 
@@ -731,11 +827,10 @@ export async function PUT(request: NextRequest) {
 		if (requestToUpdate.status !== 'Pending') {
 			return NextResponse.json(
 				{ message: 'Cannot edit a request that is not pending' },
-				{ status: 400 }
+				{ status: 400 },
 			);
 		}
 
-		const schoolProfile = await getSchoolProfile();
 		if (
 			!isGradeChangeWindowOpen(
 				schoolProfile,
@@ -751,7 +846,7 @@ export async function PUT(request: NextRequest) {
 					success: false,
 					message: 'Grade change requests are currently closed.',
 				},
-				{ status: 403 }
+				{ status: 403 },
 			);
 		}
 
@@ -767,13 +862,13 @@ export async function PUT(request: NextRequest) {
 			{
 				new: true,
 				runValidators: false,
-			}
+			},
 		);
 
 		if (!updatedRequest) {
 			return NextResponse.json(
 				{ success: false, message: 'Request was not updated.' },
-				{ status: 500 }
+				{ status: 500 },
 			);
 		}
 		await publishSyncEventSafe({
@@ -796,7 +891,7 @@ export async function PUT(request: NextRequest) {
 		console.error('Error updating grade change request:', error);
 		return NextResponse.json(
 			{ message: 'Internal server error', error: error.message },
-			{ status: 500 }
+			{ status: 500 },
 		);
 	}
 }
@@ -810,7 +905,9 @@ export async function DELETE(request: NextRequest) {
 		if (!teacher) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}
+		const schoolProfile = await getSchoolProfile();
 		const tenantId = resolveTenantSyncKey({
+			schoolProfile,
 			tenantId: teacher.tenantId,
 			host: request.headers.get('host'),
 		});
@@ -822,7 +919,7 @@ export async function DELETE(request: NextRequest) {
 		if (!requestId) {
 			return NextResponse.json(
 				{ message: 'Request ID is required' },
-				{ status: 400 }
+				{ status: 400 },
 			);
 		}
 
@@ -831,7 +928,7 @@ export async function DELETE(request: NextRequest) {
 		if (!requestToDelete) {
 			return NextResponse.json(
 				{ message: 'Request not found' },
-				{ status: 404 }
+				{ status: 404 },
 			);
 		}
 
@@ -841,11 +938,10 @@ export async function DELETE(request: NextRequest) {
 		if (requestToDelete.status !== 'Pending') {
 			return NextResponse.json(
 				{ message: 'Cannot withdraw a request that is not pending' },
-				{ status: 400 }
+				{ status: 400 },
 			);
 		}
 
-		const schoolProfile = await getSchoolProfile();
 		if (
 			!isGradeChangeWindowOpen(
 				schoolProfile,
@@ -861,11 +957,12 @@ export async function DELETE(request: NextRequest) {
 					success: false,
 					message: 'Grade change requests are currently closed.',
 				},
-				{ status: 403 }
+				{ status: 403 },
 			);
 		}
 
-		const deletedRequest = await GradeChangeRequest.findByIdAndDelete(requestId);
+		const deletedRequest =
+			await GradeChangeRequest.findByIdAndDelete(requestId);
 		await publishSyncEventSafe({
 			tenantId,
 			domain: 'gradeRequests',
@@ -889,7 +986,7 @@ export async function DELETE(request: NextRequest) {
 		console.error('Error withdrawing grade change request:', error);
 		return NextResponse.json(
 			{ message: 'Internal server error' },
-			{ status: 500 }
+			{ status: 500 },
 		);
 	}
 }

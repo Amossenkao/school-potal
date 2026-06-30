@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Ably from 'ably';
 import {
 	Eye,
@@ -679,11 +679,21 @@ const LoginPage = () => {
 	const applyRealtimeEvent = useSchoolStore(
 		(state) => state.applyRealtimeEvent,
 	);
+	const publicSchoolTenantKey = useMemo(
+		() =>
+			resolveTenantSyncKey({
+				schoolProfile: currentSchool,
+			}),
+		[currentSchool?.dbName, currentSchool?.host],
+	);
 	const [loginDisabledError, setLoginDisabledError] = useState('');
 	const [offlineError, setOfflineError] = useState('');
 	const usernameInputRef = useRef<HTMLInputElement>(null);
 	const refreshConnectivity = useNetworkStore(
 		(state) => state.refreshConnectivity,
+	);
+	const schoolRefreshInFlightRef = useRef<Promise<SchoolProfile | null> | null>(
+		null,
 	);
 
 	const {
@@ -765,7 +775,11 @@ const LoginPage = () => {
 
 	const refreshSchoolProfile =
 		useCallback(async (): Promise<SchoolProfile | null> => {
-			try {
+			if (schoolRefreshInFlightRef.current) {
+				return schoolRefreshInFlightRef.current;
+			}
+
+			const refreshPromise = (async () => {
 				const response = await fetch('/api/school', {
 					cache: 'no-store',
 					headers: { 'Cache-Control': 'no-store' },
@@ -774,16 +788,27 @@ const LoginPage = () => {
 				const nextSchool = (await response.json()) as SchoolProfile;
 				setSchool(nextSchool);
 				return nextSchool;
-			} catch {
-				return null;
+			})().catch(() => null);
+
+			schoolRefreshInFlightRef.current = refreshPromise;
+			try {
+				return await refreshPromise;
+			} finally {
+				if (schoolRefreshInFlightRef.current === refreshPromise) {
+					schoolRefreshInFlightRef.current = null;
+				}
 			}
 		}, [setSchool]);
 
 	useEffect(() => {
-		let aborted = false;
 		let client: Ably.Realtime | null = null;
 		let unsubscribe: (() => void) | null = null;
 		let refreshTimer: number | null = null;
+		const tenantKey =
+			publicSchoolTenantKey ||
+			resolveTenantSyncKey({
+				host: window.location.host,
+			});
 
 		const clearRefreshTimer = () => {
 			if (!refreshTimer) return;
@@ -812,10 +837,6 @@ const LoginPage = () => {
 
 		const connectStream = async () => {
 			closeClient();
-			const tenantKey = resolveTenantSyncKey({
-				schoolProfile: currentSchool,
-				host: window.location.host,
-			});
 			if (!tenantKey) return;
 			const nextClient = new Ably.Realtime({
 				authUrl: PUBLIC_SYNC_STREAM_TOKEN_ENDPOINT,
@@ -838,8 +859,6 @@ const LoginPage = () => {
 			};
 			channel.subscribe(listener);
 			unsubscribe = () => channel.unsubscribe(listener);
-			nextClient.connection.on('connected', () => scheduleRefresh());
-			nextClient.connection.on('failed', () => scheduleRefresh());
 		};
 
 		const handleOnline = () => {
@@ -863,7 +882,7 @@ const LoginPage = () => {
 			closeClient();
 			clearRefreshTimer();
 		};
-	}, [applyRealtimeEvent, currentSchool, refreshSchoolProfile]);
+	}, [applyRealtimeEvent, publicSchoolTenantKey, refreshSchoolProfile]);
 
 	useEffect(() => {
 		clearError();
@@ -991,7 +1010,9 @@ const LoginPage = () => {
 	};
 
 	const isBootstrappingSession =
-		(!hasBootstrapped || isBootstrapping) && !isRedirecting;
+		(!hasBootstrapped || isBootstrapping) &&
+		!isRedirecting &&
+		Boolean(user?.isActive || isLoggedIn);
 	if (isBootstrappingSession)
 		return <PageLoading variant="school" message="Loading…" />;
 
