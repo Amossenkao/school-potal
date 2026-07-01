@@ -937,7 +937,6 @@ const Community = () => {
 				</div>
 			</div>
 
-			{/* Self-contained modal */}
 			{viewingUser && (
 				<UserModal
 					user={viewingUser}

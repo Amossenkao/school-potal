@@ -486,6 +486,12 @@ const TeacherGradeChangeRequests = ({
 				return;
 			}
 			await fetchRequests(true);
+		// Notify other components that grade requests have been updated
+		window.dispatchEvent(
+			new CustomEvent('grading:requests:updated', {
+				detail: { academicYear: selectedAcademicYear, teacherUsername: teacherInfo?.username },
+			}),
+		);
 		} catch (err: any) {
 			alert(`Error: ${err.message}`);
 		}

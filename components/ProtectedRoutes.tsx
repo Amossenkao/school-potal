@@ -15,12 +15,8 @@ const ProtectedRoute = ({
 	requiredRole,
 	allowedRoles,
 }: ProtectedRouteProps) => {
-	const {
-		user,
-		isBootstrapping,
-		hasBootstrapped,
-		bootstrapAuth,
-	} = useAuth();
+	const { user, isBootstrapping, hasBootstrapped, isVerifying, bootstrapAuth } =
+		useAuth();
 	const router = useRouter();
 	const pathname = usePathname();
 
@@ -34,7 +30,11 @@ const ProtectedRoute = ({
 	const hasUnauthorizedAccess = useMemo(() => {
 		if (!user) return false;
 		if (requiredRole && user.role !== requiredRole) return true;
-		if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+		if (
+			allowedRoles &&
+			allowedRoles.length > 0 &&
+			!allowedRoles.includes(user.role)
+		) {
 			return true;
 		}
 		return false;
@@ -44,9 +44,15 @@ const ProtectedRoute = ({
 		void bootstrapAuth();
 	}, [bootstrapAuth]);
 
+	// Redirect to /login once we have a real answer. This fires on either
+	// the cold path (no cache — waited for hasBootstrapped) or the optimistic
+	// path (hasBootstrapped flipped immediately from cache, isVerifying later
+	// resolves to "not actually logged in").
 	useEffect(() => {
-		if (!hasBootstrapped || isBootstrapping) return;
-		if (isAuthenticated) return;
+		if (!hasBootstrapped) return; // no cache, still resolving initial state
+		if (isAuthenticated) return; // authenticated, either from cache or confirmed
+		if (isVerifying) return; // background check still running, don't redirect yet
+
 		if (pathname !== '/login') {
 			router.replace('/login');
 			const fallbackTimer = window.setTimeout(() => {
@@ -56,12 +62,11 @@ const ProtectedRoute = ({
 			}, 1200);
 			return () => window.clearTimeout(fallbackTimer);
 		}
-	}, [hasBootstrapped, isBootstrapping, isAuthenticated, pathname, router]);
+	}, [hasBootstrapped, isVerifying, isAuthenticated, pathname, router]);
 
 	useEffect(() => {
 		if (
 			!hasBootstrapped ||
-			isBootstrapping ||
 			!user ||
 			user.role === 'system_admin' ||
 			!user.mustChangePassword ||
@@ -70,18 +75,17 @@ const ProtectedRoute = ({
 			return;
 		}
 		router.replace('/login/account-setup');
-	}, [hasBootstrapped, isBootstrapping, pathname, router, user]);
+	}, [hasBootstrapped, pathname, router, user]);
 
-	if (!hasBootstrapped || isBootstrapping) {
+	// No cached user to render optimistically — this is the only case where
+	// we genuinely have nothing to show yet.
+	if (!hasBootstrapped) {
 		return (
-			<PageLoading
-				variant="school"
-				fullScreen={true}
-				message="Loading..."
-			/>
+			<PageLoading variant="school" fullScreen={true} message="Loading..." />
 		);
 	}
 
+	// Either cache said "logged out", or the background check just confirmed it.
 	if (!isAuthenticated) {
 		return (
 			<PageLoading

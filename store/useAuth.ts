@@ -36,17 +36,13 @@ interface AuthState {
 	error: string | null;
 	isLoading: boolean;
 	userVersion: string | null;
+
+	// Bootstrap / verification lifecycle
 	isBootstrapping: boolean;
 	hasBootstrapped: boolean;
-
-	sessionId: string | null;
-	isAwaitingOtp: boolean;
-	otpContact: string | null;
-	userId: string | null;
+	isVerifying: boolean;
 
 	login: (loginData: LoginData) => Promise<User | null>;
-	verifyOtp: (otp: string) => Promise<boolean>;
-	resendOtp: () => Promise<boolean>;
 	logout: () => Promise<void>;
 	checkAuthStatus: (options?: {
 		skipConnectivityCheck?: boolean;
@@ -57,7 +53,6 @@ interface AuthState {
 	bootstrapAuth: (options?: { force?: boolean }) => Promise<void>;
 
 	clearError: () => void;
-	resetOtpState: () => void;
 	setUser: (user: User | null) => void;
 	hydrateFromCache: () => void;
 	applyRealtimeEvent: (event: RealtimeEvent) => void;
@@ -68,9 +63,7 @@ let authBootstrapPromise: Promise<void> | null = null;
 let lastAuthCheckCompletedAt = 0;
 
 const AUTH_REQUEST_TIMEOUT_MS = 15000;
-const AUTH_LOGIN_TIMEOUT_MS = 15000;
 const AUTH_CHECK_DEDUP_MS = 1200;
-const AUTH_BOOTSTRAP_TIMEOUT_MS = 15000;
 const OFFLINE_REQUEST_MESSAGE =
 	'You are offline. Please connect to the internet and try again.';
 const REQUEST_TIMEOUT_MESSAGE = 'The request took too long. Please try again.';
@@ -334,11 +327,6 @@ const useAuth = create<AuthState>((set, get) => {
 	};
 
 	const applyRealtimeEvent = (event: RealtimeEvent) => {
-		console.log('[authStore] applyRealtimeEvent received:', event.type, {
-			payload: event.payload,
-			timestamp: event.timestamp,
-		});
-
 		const payload = (event?.payload || {}) as Record<string, unknown>;
 		const affectedUserIds = new Set<string>(
 			Array.isArray(payload.targetUserIds)
@@ -354,23 +342,13 @@ const useAuth = create<AuthState>((set, get) => {
 			affectedUserIds.size === 0 ||
 			(currentUserId ? affectedUserIds.has(currentUserId) : false);
 
-		console.log('[authStore] impactsCurrentUser:', impactsCurrentUser, {
-			affectedUserIds: Array.from(affectedUserIds),
-			currentUserId,
-		});
-
 		if (event.type === 'USER_DISABLED' && impactsCurrentUser) {
-			console.log('[authStore] Handling USER_DISABLED — clearing session');
 			set({
 				user: null,
 				isLoggedIn: false,
 				isLoading: false,
 				userVersion: null,
 				error: 'Your account has been disabled.',
-				sessionId: null,
-				isAwaitingOtp: false,
-				otpContact: null,
-				userId: null,
 			});
 			cacheAuthUser(null);
 			clearSessionScopedClientState();
@@ -381,11 +359,6 @@ const useAuth = create<AuthState>((set, get) => {
 		if (event.type === 'USER_UPDATED' && impactsCurrentUser) {
 			const nextUser =
 				payload.user && typeof payload.user === 'object' ? payload.user : null;
-			console.log(
-				'[authStore] Handling USER_UPDATED — nextUser present:',
-				Boolean(nextUser),
-				nextUser,
-			);
 			if (nextUser) {
 				set((state) => ({
 					user: state.user
@@ -447,13 +420,10 @@ const useAuth = create<AuthState>((set, get) => {
 		error: null,
 		isLoading: false,
 		userVersion: null,
+
 		isBootstrapping: true,
 		hasBootstrapped: false,
-
-		sessionId: null,
-		isAwaitingOtp: false,
-		otpContact: null,
-		userId: null,
+		isVerifying: false,
 
 		login: async (loginData: LoginData): Promise<User | null> => {
 			set({ isLoading: true, error: null });
@@ -475,32 +445,14 @@ const useAuth = create<AuthState>((set, get) => {
 					return null;
 				}
 
-				if (data.requiresOTP) {
-					set({
-						sessionId: data.sessionId,
-						isAwaitingOtp: true,
-						otpContact: data.contact,
-						userId: data.userId,
-						isLoading: false,
-						hasBootstrapped: true,
-						isBootstrapping: false,
-					});
-					return null;
-				}
-
-				console.log(`[authStore] Login successful for user:`, data.user);
-
 				set({
 					user: data.user,
 					isLoggedIn: true,
 					isLoading: false,
-					sessionId: null,
-					isAwaitingOtp: false,
-					otpContact: null,
-					userId: null,
 					error: null,
 					hasBootstrapped: true,
 					isBootstrapping: false,
+					isVerifying: false,
 				});
 				useNetworkStore.getState().setAuthCheckFailed(false);
 				applyBootstrapPayload(data);
@@ -522,168 +474,6 @@ const useAuth = create<AuthState>((set, get) => {
 				}
 				set({ error: error.message || 'Network error', isLoading: false });
 				return null;
-			}
-		},
-
-		verifyOtp: async (otp: string): Promise<boolean> => {
-			const { sessionId, userId } = get();
-			if (!sessionId) {
-				set({ error: 'No active OTP session' });
-				return false;
-			}
-			if (!/^[0-9]{6}$/.test(otp.trim())) {
-				set({ error: 'Please enter a valid 6-digit OTP' });
-				return false;
-			}
-
-			set({ isLoading: true, error: null });
-			try {
-				const controller = new AbortController();
-				const timeoutId = window.setTimeout(
-					() =>
-						controller.abort(
-							createTimeoutAbortReason('OTP verification request'),
-						),
-					AUTH_LOGIN_TIMEOUT_MS,
-				);
-				const res = await (async () => {
-					try {
-						return await fetch('/api/auth/login', {
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							credentials: 'include',
-							body: JSON.stringify({
-								sessionId,
-								otp,
-								action: 'verify_otp',
-								userId,
-							}),
-							signal: controller.signal,
-						});
-					} finally {
-						window.clearTimeout(timeoutId);
-					}
-				})();
-
-				const data = await res.json().catch(() => ({}));
-
-				if (!res.ok) {
-					set({ error: data.message || 'Invalid OTP', isLoading: false });
-					return false;
-				}
-
-				set({
-					user: data.user,
-					isLoggedIn: true,
-					isLoading: false,
-					sessionId: null,
-					isAwaitingOtp: false,
-					otpContact: null,
-					userId: null,
-					error: null,
-					hasBootstrapped: true,
-					isBootstrapping: false,
-				});
-				useNetworkStore.getState().setAuthCheckFailed(false);
-
-				applyBootstrapPayload(data);
-				setDashboardStartPath();
-				cacheAuthUser(data.user as User);
-				runDeferredPostLoginBootstrap(data);
-
-				return true;
-			} catch (error: any) {
-				if (isAbortLikeError(error)) {
-					set({
-						error: REQUEST_TIMEOUT_MESSAGE,
-						isLoading: false,
-					});
-					return false;
-				}
-				if (isLikelyNetworkError(error)) {
-					useNetworkStore.getState().markOffline('otp-verification-failed');
-					set({
-						error: OFFLINE_REQUEST_MESSAGE,
-						isLoading: false,
-					});
-					return false;
-				}
-				set({
-					error: error.message || 'OTP verification failed',
-					isLoading: false,
-				});
-				return false;
-			}
-		},
-
-		resendOtp: async (): Promise<boolean> => {
-			const { sessionId } = get();
-			if (!sessionId) {
-				set({ error: 'No active OTP session' });
-				return false;
-			}
-			set({ isLoading: true, error: null });
-
-			try {
-				const controller = new AbortController();
-				const timeoutId = window.setTimeout(
-					() =>
-						controller.abort(createTimeoutAbortReason('OTP resend request')),
-					AUTH_REQUEST_TIMEOUT_MS,
-				);
-				const res = await (async () => {
-					try {
-						return await fetch('/api/auth/login', {
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							credentials: 'include',
-							body: JSON.stringify({ sessionId, action: 'resend_otp' }),
-							signal: controller.signal,
-						});
-					} finally {
-						window.clearTimeout(timeoutId);
-					}
-				})();
-
-				const data = await res.json().catch(() => ({}));
-
-				if (!res.ok) {
-					set({
-						error: data.message || 'Failed to resend OTP',
-						isLoading: false,
-					});
-					return false;
-				}
-
-				set({
-					sessionId: data.sessionId,
-					otpContact: data.contact,
-					userId: data.userId,
-					isLoading: false,
-				});
-
-				return true;
-			} catch (error: any) {
-				if (isAbortLikeError(error)) {
-					set({
-						error: REQUEST_TIMEOUT_MESSAGE,
-						isLoading: false,
-					});
-					return false;
-				}
-				if (isLikelyNetworkError(error)) {
-					useNetworkStore.getState().markOffline('otp-resend-failed');
-					set({
-						error: OFFLINE_REQUEST_MESSAGE,
-						isLoading: false,
-					});
-					return false;
-				}
-				set({
-					error: error.message || 'Failed to resend OTP',
-					isLoading: false,
-				});
-				return false;
 			}
 		},
 
@@ -749,13 +539,10 @@ const useAuth = create<AuthState>((set, get) => {
 				isLoggedIn: false,
 				error: null,
 				isLoading: false,
-				sessionId: null,
-				isAwaitingOtp: false,
-				otpContact: null,
-				userId: null,
 				userVersion: null,
 				isBootstrapping: false,
 				hasBootstrapped: true,
+				isVerifying: false,
 			});
 			try {
 				localStorage.removeItem('auth-user');
@@ -984,76 +771,63 @@ const useAuth = create<AuthState>((set, get) => {
 			}
 
 			authBootstrapPromise = (async () => {
-				set({ isBootstrapping: true });
-
+				// 1. Try to hydrate from cache synchronously, first.
 				if (!get().user) {
 					get().hydrateFromCache();
+				}
+
+				const hasCachedUser = Boolean(get().user);
+
+				if (hasCachedUser) {
+					// 2. Optimistic path: we already have a plausible user.
+					// Unblock the UI immediately and verify in the background.
+					set({
+						isBootstrapping: false,
+						hasBootstrapped: true,
+						isVerifying: true,
+					});
+				} else {
+					// No cache to fall back on — there's nothing to render yet,
+					// so keep the app in a genuine loading state.
+					set({ isBootstrapping: true, isVerifying: false });
 				}
 
 				if (typeof navigator !== 'undefined' && !navigator.onLine) {
 					useNetworkStore.getState().markOffline('browser-offline');
 					useNetworkStore.getState().setAuthCheckFailed(true);
-					// Complete bootstrap with cached state - don't return early
-					const cachedUser = get().user;
-					if (cachedUser) {
-						set({ isBootstrapping: false, hasBootstrapped: true });
-					}
+					set({
+						isBootstrapping: false,
+						hasBootstrapped: true,
+						isVerifying: false,
+					});
 					return;
 				}
 
-				const authCheckTask = get().checkAuthStatus({
-					skipConnectivityCheck: true,
-				});
-				if (typeof window === 'undefined') {
-					await authCheckTask;
-					return;
-				}
-
-				let timeoutId: number | null = null;
-				const result = await Promise.race([
-					authCheckTask.then(() => 'done' as const),
-					new Promise<'timeout'>((resolve) => {
-						timeoutId = window.setTimeout(
-							() => resolve('timeout'),
-							AUTH_BOOTSTRAP_TIMEOUT_MS,
-						);
-					}),
-				]);
-				if (timeoutId !== null) {
-					window.clearTimeout(timeoutId);
-				}
-
-				if (result === 'timeout') {
-					useNetworkStore.getState().setAuthCheckFailed(true);
-					void authCheckTask.catch((error) => {
-						console.warn(
-							'Background auth check failed after bootstrap timeout:',
-							error,
-						);
+				// 3. Run the real check to completion. No artificial timeout
+				// truncating it — it's no longer blocking the UI, so let it
+				// take as long as it needs.
+				try {
+					await get().checkAuthStatus({
+						skipConnectivityCheck: true,
+						force: true,
+					});
+				} catch (error) {
+					console.warn('Auth bootstrap verification failed:', error);
+				} finally {
+					set({
+						isBootstrapping: false,
+						hasBootstrapped: true,
+						isVerifying: false,
 					});
 				}
-			})()
-				.catch((error) => {
-					console.error('Auth bootstrap failed:', error);
-				})
-				.finally(() => {
-					set({ isBootstrapping: false, hasBootstrapped: true });
-					authBootstrapPromise = null;
-				});
+			})().finally(() => {
+				authBootstrapPromise = null;
+			});
 
 			await authBootstrapPromise;
 		},
 
 		clearError: () => set({ error: null }),
-
-		resetOtpState: () =>
-			set({
-				sessionId: null,
-				isAwaitingOtp: false,
-				otpContact: null,
-				error: null,
-				userId: null,
-			}),
 
 		setUser: (user: User | null) => {
 			const currentUser = get().user;
