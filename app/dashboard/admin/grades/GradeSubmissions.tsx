@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
 	Filter,
 	CheckCircle,
@@ -111,6 +111,7 @@ const periods = [
 const normalizeAcademicYear = (value?: string) =>
 	value ? value.replace('/', '-') : '';
 
+
 const AdminGradeManagement: React.FC = () => {
 	const currentSchool = useSchoolStore((state) => state.school);
 	const currentAcademicYear = currentSchool?.currentAcademicYear || '';
@@ -180,6 +181,62 @@ const AdminGradeManagement: React.FC = () => {
 		status: 'All',
 	});
 
+	// Add this ref near the top of AdminGradeManagement
+	const syncFiredRef = useRef<string | null>(null);
+
+	const loadGrades = async () => {
+		if (!selectedAcademicYear) {
+			setSubmissions([]);
+			setLoading(false);
+			return;
+		}
+
+		const schoolState = useSchoolStore.getState();
+		const scopedStoreSnapshot = getScopedAcademicYearValue(
+			schoolState.gradesByAcademicYear || {},
+			selectedAcademicYear,
+		);
+		const hasYearSnapshot = Boolean(scopedStoreSnapshot.key);
+		const cachedGrades = Array.isArray(scopedStoreSnapshot.value)
+			? scopedStoreSnapshot.value
+			: [];
+
+		if (hasYearSnapshot && cachedGrades.length > 0) {
+			setSubmissions(transformRawGrades(cachedGrades as RawGradeData[]));
+			setError('');
+			setLoading(false);
+		}
+
+		// FIX 2: Check `cachedGrades.length` instead of `submissions.length`.
+		// `submissions` is a stale closure here and will always incorrectly evaluate to 0
+		// on the initial mount, overriding the loading state unnecessarily.
+		if (cachedGrades.length === 0) {
+			setLoading(true);
+		}
+
+		// FIX 1: Prevent strict-mode or rapid double-firing of background sync
+		if (syncFiredRef.current === selectedAcademicYear) return;
+		syncFiredRef.current = selectedAcademicYear;
+
+		// Fire it without awaiting to completely unblock the UI thread
+		useSchoolStore
+			.getState()
+			.runBackgroundGradeSync(selectedAcademicYear, {
+				mode: 'background-parallel',
+			})
+			.catch((err) => {
+				console.error('Error fetching grades:', err);
+				// Must use setter callback to avoid stale closure state
+				setSubmissions((prev) => {
+					if (prev.length === 0)
+						setError('Failed to fetch grade submissions. Please try again.');
+					return prev;
+				});
+			})
+			.finally(() => {
+				setLoading(false);
+			});
+	};
 
 	useEffect(() => {
 		if (!actionNotice) return;
@@ -370,133 +427,86 @@ const AdminGradeManagement: React.FC = () => {
 		});
 	};
 
-	// Initial load — shows full-table spinner only when there is nothing to
-	// display yet. Called on mount and when selectedAcademicYear changes.
-const loadGrades = async () => {
-	if (!selectedAcademicYear) {
-		setSubmissions([]);
-		setLoading(false);
-		return;
-	}
+	const handleRefresh = async (silent: boolean = false) => {
+		if (!selectedAcademicYear || isSyncing) return;
 
-	const schoolState = useSchoolStore.getState();
-	const scopedStoreSnapshot = getScopedAcademicYearValue(
-		schoolState.gradesByAcademicYear || {},
-		selectedAcademicYear,
-	);
-	const hasYearSnapshot = Boolean(scopedStoreSnapshot.key);
-	const cachedGrades = Array.isArray(scopedStoreSnapshot.value)
-		? scopedStoreSnapshot.value
-		: [];
-
-	if (hasYearSnapshot && cachedGrades.length > 0) {
-		setSubmissions(transformRawGrades(cachedGrades as RawGradeData[]));
-		setError('');
-		setLoading(false);
-	}
-
-	if (submissions.length === 0) {
-		setLoading(true);
-	}
-
-	// Fire it without awaiting to completely unblock the UI thread
-	useSchoolStore
-		.getState()
-		.runBackgroundGradeSync(selectedAcademicYear, {
-			mode: 'background-parallel',
-		})
-		.catch((err) => {
-			console.error('Error fetching grades:', err);
-			if (submissions.length === 0) {
-				setError('Failed to fetch grade submissions. Please try again.');
-			}
-		})
-		.finally(() => {
-			setLoading(false);
-		});
-};
-
-
-const handleRefresh = async (silent: boolean = false) => {
-	if (!selectedAcademicYear || isSyncing) return;
-
-	// Only trigger UI states if this is a manual user click
-	if (!silent) {
-		setIsSyncing(true);
-		setActionNotice(null);
-	}
-
-	try {
-		const startTime = Date.now();
-		const CURSOR_KEY = `sync_cursor_grades_${selectedAcademicYear}`;
-		const hasCursor = Boolean(localStorage.getItem(CURSOR_KEY));
-
-		let result = { status: 'no-op', fetchedCount: 0 };
-
-		if (hasCursor) {
-			result = await useSchoolStore
-				.getState()
-				.runBackgroundGradeSync(selectedAcademicYear, {
-					mode: 'refresh-sequential',
-				});
-		} else {
-			const schoolState = useSchoolStore.getState();
-			const scopedStoreSnapshot = getScopedAcademicYearValue(
-				schoolState.gradesByAcademicYear || {},
-				selectedAcademicYear,
-			);
-			const cachedGrades = Array.isArray(scopedStoreSnapshot.value)
-				? scopedStoreSnapshot.value
-				: [];
-			setSubmissions(transformRawGrades(cachedGrades as RawGradeData[]));
-			result = { status: 'success', fetchedCount: 0 };
+		// Only trigger UI states if this is a manual user click
+		if (!silent) {
+			setIsSyncing(true);
+			setActionNotice(null);
 		}
 
-		// Only show delays and notices if this is a manual refresh
-		if (!silent) {
-			const elapsed = Date.now() - startTime;
-			if (elapsed < 600) {
-				await new Promise((resolve) => setTimeout(resolve, 600 - elapsed));
+		try {
+			const startTime = Date.now();
+			const CURSOR_KEY = `sync_cursor_grades_${selectedAcademicYear}`;
+			const hasCursor = Boolean(localStorage.getItem(CURSOR_KEY));
+
+			let result = { status: 'no-op', fetchedCount: 0 };
+
+			if (hasCursor) {
+				result = await useSchoolStore
+					.getState()
+					.runBackgroundGradeSync(selectedAcademicYear, {
+						mode: 'refresh-sequential',
+					});
+			} else {
+				const schoolState = useSchoolStore.getState();
+				const scopedStoreSnapshot = getScopedAcademicYearValue(
+					schoolState.gradesByAcademicYear || {},
+					selectedAcademicYear,
+				);
+				const cachedGrades = Array.isArray(scopedStoreSnapshot.value)
+					? scopedStoreSnapshot.value
+					: [];
+				setSubmissions(transformRawGrades(cachedGrades as RawGradeData[]));
+				result = { status: 'success', fetchedCount: 0 };
 			}
 
-			if (result.status === 'busy') {
-				setActionNotice({
-					type: 'info',
-					message:
-						'A background data sync is already running. Please wait a moment.',
-				});
-			} else if (result.status === 'error') {
+			// Only show delays and notices if this is a manual refresh
+			if (!silent) {
+				const elapsed = Date.now() - startTime;
+				if (elapsed < 600) {
+					await new Promise((resolve) => setTimeout(resolve, 600 - elapsed));
+				}
+
+				if (result.status === 'busy') {
+					setActionNotice({
+						type: 'info',
+						message:
+							'A background data sync is already running. Please wait a moment.',
+					});
+				} else if (result.status === 'error') {
+					setActionNotice({
+						type: 'error',
+						message:
+							'Failed to communicate with the server. Please check your connection.',
+					});
+				} else if (result.fetchedCount > 0) {
+					setActionNotice({
+						type: 'info',
+						message: `Successfully fetched ${result.fetchedCount} new or updated grade records.`,
+					});
+				} else {
+					setActionNotice({
+						type: 'info',
+						message: 'All grades are currently up to date.',
+					});
+				}
+			}
+		} catch (err) {
+			console.error('Error refreshing grades:', err);
+			if (!silent) {
 				setActionNotice({
 					type: 'error',
-					message:
-						'Failed to communicate with the server. Please check your connection.',
-				});
-			} else if (result.fetchedCount > 0) {
-				setActionNotice({
-					type: 'info',
-					message: `Successfully fetched ${result.fetchedCount} new or updated grade records.`,
-				});
-			} else {
-				setActionNotice({
-					type: 'info',
-					message: 'All grades are currently up to date.',
+					message: 'Refresh failed. Please try again.',
 				});
 			}
+		} finally {
+			if (!silent) {
+				setIsSyncing(false);
+			}
 		}
-	} catch (err) {
-		console.error('Error refreshing grades:', err);
-		if (!silent) {
-			setActionNotice({
-				type: 'error',
-				message: 'Refresh failed. Please try again.',
-			});
-		}
-	} finally {
-		if (!silent) {
-			setIsSyncing(false);
-		}
-	}
-};
+	};
 
 	// Triggered on academic-year context change; store updates flow in via
 	// the scopedGrades effect below and should not retrigger this.
@@ -626,47 +636,47 @@ const handleRefresh = async (silent: boolean = false) => {
 	};
 
 	// API interaction handlers
-const updateGradesStatus = async (
-	payload: {
-		submissionId: string;
-		studentId: string;
-		status: 'Approved' | 'Rejected';
-		rejectionReason?: string;
-	}[],
-) => {
-	try {
-		setActionNotice(null);
-		const response = await fetch('/api/grades', {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(payload),
-		});
-		const result = await response.json().catch(() => ({}));
-		if (!response.ok) {
-			throw new Error(result.message || 'API request failed');
-		}
-		if (result?.queued) {
-			applySubmissionStatusLocally(payload);
-			setActionNotice({
-				type: 'info',
-				message:
-					'You are offline. Approval/rejection was queued and will sync when you reconnect.',
+	const updateGradesStatus = async (
+		payload: {
+			submissionId: string;
+			studentId: string;
+			status: 'Approved' | 'Rejected';
+			rejectionReason?: string;
+		}[],
+	) => {
+		try {
+			setActionNotice(null);
+			const response = await fetch('/api/grades', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload),
 			});
-			return;
-		}
-		applySubmissionStatusLocally(payload);
-		window.dispatchEvent(new CustomEvent('grading:counts:refresh'));
+			const result = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(result.message || 'API request failed');
+			}
+			if (result?.queued) {
+				applySubmissionStatusLocally(payload);
+				setActionNotice({
+					type: 'info',
+					message:
+						'You are offline. Approval/rejection was queued and will sync when you reconnect.',
+				});
+				return;
+			}
+			applySubmissionStatusLocally(payload);
+			window.dispatchEvent(new CustomEvent('grading:counts:refresh'));
 
-		// Pass true to run the post-action refresh silently
-		void handleRefresh(true);
-	} catch (error) {
-		console.error('Error updating grade status:', error);
-		setActionNotice({
-			type: 'error',
-			message: 'Could not update grade status. Please try again.',
-		});
-	}
-};
+			// Pass true to run the post-action refresh silently
+			void handleRefresh(true);
+		} catch (error) {
+			console.error('Error updating grade status:', error);
+			setActionNotice({
+				type: 'error',
+				message: 'Could not update grade status. Please try again.',
+			});
+		}
+	};
 
 	// Modal and action handlers
 	const handleApprove = async () => {
@@ -1567,6 +1577,6 @@ const updateGradesStatus = async (
 			{showBulkRejectModal && renderBulkRejectModal()}
 		</div>
 	);
-};;
+};;;
 
 export default AdminGradeManagement;

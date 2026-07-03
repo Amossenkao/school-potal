@@ -1052,8 +1052,6 @@ const SubmitGrade: React.FC = () => {
 			academicYear: selectedAcademicYear,
 			classId: selectedClassId,
 			subject: selectedSubject,
-			period:
-				selectedPeriods.length > 0 ? selectedPeriods[0] : allPeriods[0].id,
 			grades: gradesToSubmit,
 		};
 
