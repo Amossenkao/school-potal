@@ -726,7 +726,6 @@ self.addEventListener('fetch', (event) => {
       </svg>
     </div>
 
-    <p class="eyebrow"><span class="dot"></span>School Mesh</p>
     <h1 class="headline">You're offline</h1>
 
     <div class="card">
@@ -774,7 +773,6 @@ self.addEventListener('fetch', (event) => {
       </button>
     </div>
 
-    <p class="footer-note">Upstairs Christian Academy · School Mesh</p>
   </div>
 
 <script>
