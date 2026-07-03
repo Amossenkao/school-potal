@@ -324,484 +324,563 @@ self.addEventListener('fetch', (event) => {
 					// Fallback for truly uncached scenarios - serve offline page HTML directly
 					return new Response(
 						`<!DOCTYPE html>
-							<html lang="en">
-							<head>
-							<meta charset="UTF-8">
-							<meta name="viewport" content="width=device-width, initial-scale=1.0">
-							<title>Offline — School Mesh</title>
-							<link rel="preconnect" href="https://fonts.googleapis.com">
-							<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-							<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-							<style>
-								:root{
-									--bg-deep:#131a28;
-									--bg-deep-2:#0d1320;
-									--paper:#faf4e7;
-									--paper-edge:#eadfc4;
-									--ink:#2a2015;
-									--ink-soft:#7a6b53;
-									--amber:#f0a букве5a; /* placeholder overwritten below */
-									--amber-1:#f2a65a;
-									--amber-2:#e0873c;
-									--amber-glow: 242,166,90;
-									--wire:#3c4a63;
-									--wire-lit:#f2a65a;
-									--ok:#7cb87f;
-								}
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Offline — School Mesh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ============ THEME TOKENS ============ */
+  :root{
+    --amber-1:#f2a65a;
+    --amber-2:#e0873c;
+    --amber-glow: 242,166,90;
+    --ok:#7cb87f;
+    --radius:1rem;
+  }
 
-								*{box-sizing:border-box;}
+  html[data-theme="dark"]{
+    --bg-0:#0d1320;
+    --bg-1:#131a28;
+    --paper:#1b2334;
+    --paper-edge:#2a3448;
+    --ink:#f2ece0;
+    --ink-soft:#9aa3ba;
+    --wire:#3c4a63;
+    --pill-bg:#232c3f;
+    --pill-edge:#323e56;
+    --pill-online-bg:rgba(124,184,127,0.14);
+    --pill-online-edge:rgba(124,184,127,0.4);
+    --card-shadow: 0 30px 60px -20px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.03) inset;
+    --node-bg:#232c3f;
+    --sky-op:1;
+  }
 
-								html,body{
-									margin:0;
-									height:100%;
-								}
+  html[data-theme="light"]{
+    --bg-0:#f6efdd;
+    --bg-1:#efe4c8;
+    --paper:#fffdf8;
+    --paper-edge:#e8dcbf;
+    --ink:#2a2015;
+    --ink-soft:#8a7a5c;
+    --wire:#cdbf9a;
+    --pill-bg:#f2ead9;
+    --pill-edge:#e3d5ac;
+    --pill-online-bg:#eaf5ea;
+    --pill-online-edge:#c7e2c8;
+    --card-shadow: 0 30px 60px -24px rgba(120,90,40,0.28), 0 0 0 1px rgba(0,0,0,0.02) inset;
+    --node-bg:#fffdf8;
+    --sky-op:0.35;
+  }
 
-								body{
-									font-family:'Inter',system-ui,-apple-system,sans-serif;
-									background:
-										radial-gradient(ellipse 60% 40% at 50% 0%, rgba(242,166,90,0.07), transparent 60%),
-										linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-deep-2) 100%);
-									min-height:100vh;
-									overflow:hidden;
-									position:relative;
-									color:var(--ink);
-								}
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
 
-								/* ---------- ambient night sky ---------- */
-								.sky{
-									position:fixed;
-									inset:0;
-									pointer-events:none;
-									z-index:0;
-								}
-								.star{
-									position:absolute;
-									width:2px;
-									height:2px;
-									background:rgba(255,255,255,0.55);
-									border-radius:50%;
-									animation:twinkle 4s ease-in-out infinite;
-								}
-								@keyframes twinkle{
-									0%,100%{opacity:.15; transform:scale(1);}
-									50%{opacity:.9; transform:scale(1.4);}
-								}
-								.dust{
-									position:absolute;
-									width:3px;
-									height:3px;
-									border-radius:50%;
-									background:rgba(242,166,90,0.35);
-									filter:blur(0.5px);
-									animation:float 9s ease-in-out infinite;
-								}
-								@keyframes float{
-									0%{transform:translateY(0) translateX(0); opacity:0;}
-									10%{opacity:.7;}
-									50%{transform:translateY(-40px) translateX(10px); opacity:.5;}
-									90%{opacity:0;}
-									100%{transform:translateY(-90px) translateX(-6px); opacity:0;}
-								}
+  body{
+    font-family:'Inter',system-ui,-apple-system,sans-serif;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 0%, rgba(var(--amber-glow),0.10), transparent 60%),
+      linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
+    min-height:100vh;
+    overflow:hidden;
+    position:relative;
+    color:var(--ink);
+    transition:background .5s ease, color .5s ease;
+  }
 
-								/* ---------- layout ---------- */
-								.stage{
-									position:relative;
-									z-index:1;
-									min-height:100vh;
-									display:flex;
-									flex-direction:column;
-									align-items:center;
-									justify-content:center;
-									padding:2rem 1.25rem;
-								}
+  /* ---------- ambient night sky ---------- */
+  .sky{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    z-index:0;
+    opacity:var(--sky-op);
+    transition:opacity .5s ease;
+  }
+  .star{
+    position:absolute;
+    width:2px;height:2px;
+    background:rgba(255,255,255,0.55);
+    border-radius:50%;
+    animation:twinkle 4s ease-in-out infinite;
+  }
+  html[data-theme="light"] .star{ background:rgba(120,90,40,0.35); }
+  @keyframes twinkle{
+    0%,100%{opacity:.15; transform:scale(1);}
+    50%{opacity:.9; transform:scale(1.4);}
+  }
+  .dust{
+    position:absolute;
+    width:3px;height:3px;
+    border-radius:50%;
+    background:rgba(var(--amber-glow),0.35);
+    filter:blur(0.5px);
+    animation:float 9s ease-in-out infinite;
+  }
+  @keyframes float{
+    0%{transform:translateY(0) translateX(0); opacity:0;}
+    10%{opacity:.7;}
+    50%{transform:translateY(-40px) translateX(10px); opacity:.5;}
+    90%{opacity:0;}
+    100%{transform:translateY(-90px) translateX(-6px); opacity:0;}
+  }
 
-								/* ---------- signature: lantern ---------- */
-								.lantern-wrap{
-									position:relative;
-									width:110px;
-									height:150px;
-									margin-bottom:0.75rem;
-								}
-								.glow{
-									position:absolute;
-									left:50%;
-									top:42%;
-									width:190px;
-									height:190px;
-									transform:translate(-50%,-50%);
-									background:radial-gradient(circle, rgba(var(--amber-glow),0.55) 0%, rgba(var(--amber-glow),0.12) 45%, transparent 72%);
-									animation:pulseGlow 3.2s ease-in-out infinite;
-									filter:blur(2px);
-								}
-								@keyframes pulseGlow{
-									0%,100%{opacity:.65; transform:translate(-50%,-50%) scale(0.94);}
-									50%{opacity:1; transform:translate(-50%,-50%) scale(1.06);}
-								}
-								.lantern{
-									position:relative;
-									width:100%;
-									height:100%;
-									display:block;
-								}
-								.flame{
-									transform-origin:50% 100%;
-									animation:flicker 2.4s ease-in-out infinite;
-								}
-								@keyframes flicker{
-									0%,100%{ transform:scaleY(1) scaleX(1) rotate(0deg); }
-									20%{ transform:scaleY(1.08) scaleX(0.96) rotate(-1.5deg); }
-									45%{ transform:scaleY(0.92) scaleX(1.05) rotate(1deg); }
-									70%{ transform:scaleY(1.1) scaleX(0.94) rotate(-0.5deg); }
-								}
+  /* ---------- theme toggle ---------- */
+  .theme-toggle{
+    position:fixed;
+    top:1.25rem;
+    right:1.25rem;
+    z-index:5;
+    width:52px;
+    height:30px;
+    border-radius:999px;
+    border:1px solid var(--pill-edge);
+    background:var(--pill-bg);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    padding:3px;
+    transition:background .4s ease, border-color .4s ease;
+  }
+  .theme-toggle:focus-visible{ outline:2px solid var(--amber-1); outline-offset:3px; }
+  .toggle-knob{
+    width:22px;height:22px;
+    border-radius:50%;
+    background:linear-gradient(180deg, var(--amber-1), var(--amber-2));
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;
+    box-shadow:0 3px 8px -2px rgba(224,135,60,0.6);
+    transform:translateX(0);
+    transition:transform .35s cubic-bezier(.4,1.6,.5,1);
+  }
+  html[data-theme="light"] .toggle-knob{ transform:translateX(22px); }
+  .toggle-knob svg{ width:13px;height:13px; }
 
-								/* ---------- headline ---------- */
-								.eyebrow{
-									font-family:'JetBrains Mono', monospace;
-									font-size:0.7rem;
-									letter-spacing:0.14em;
-									text-transform:uppercase;
-									color:var(--amber-1);
-									margin:0 0 0.4rem;
-									display:flex;
-									align-items:center;
-									gap:0.45rem;
-								}
-								.eyebrow .dot{
-									width:6px;height:6px;border-radius:50%;
-									background:var(--amber-1);
-									box-shadow:0 0 8px 1px rgba(var(--amber-glow),0.8);
-									animation:blink 1.6s ease-in-out infinite;
-								}
-								@keyframes blink{
-									0%,100%{opacity:1;}
-									50%{opacity:.25;}
-								}
+  /* ---------- layout ---------- */
+  .stage{
+    position:relative;
+    z-index:1;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:2rem 1.25rem;
+  }
 
-								h1.headline{
-									font-family:'Fraunces', serif;
-									font-weight:600;
-									font-size:1.9rem;
-									color:#f4ead9;
-									margin:0 0 1.6rem;
-									text-align:center;
-									letter-spacing:-0.01em;
-								}
+  /* ---------- signature: lantern ---------- */
+  .lantern-wrap{
+    position:relative;
+    width:110px;
+    height:150px;
+    margin-bottom:0.75rem;
+  }
+  .glow{
+    position:absolute;
+    left:50%;top:42%;
+    width:190px;height:190px;
+    transform:translate(-50%,-50%);
+    background:radial-gradient(circle, rgba(var(--amber-glow),0.55) 0%, rgba(var(--amber-glow),0.12) 45%, transparent 72%);
+    animation:pulseGlow 3.2s ease-in-out infinite;
+    filter:blur(2px);
+  }
+  @keyframes pulseGlow{
+    0%,100%{opacity:.65; transform:translate(-50%,-50%) scale(0.94);}
+    50%{opacity:1; transform:translate(-50%,-50%) scale(1.06);}
+  }
+  .lantern{ position:relative; width:100%; height:100%; display:block; }
+  .flame{ transform-origin:50% 100%; animation:flicker 2.4s ease-in-out infinite; }
+  @keyframes flicker{
+    0%,100%{ transform:scaleY(1) scaleX(1) rotate(0deg); }
+    20%{ transform:scaleY(1.08) scaleX(0.96) rotate(-1.5deg); }
+    45%{ transform:scaleY(0.92) scaleX(1.05) rotate(1deg); }
+    70%{ transform:scaleY(1.1) scaleX(0.94) rotate(-0.5deg); }
+  }
+  .lantern-frame{ fill:var(--paper-edge); stroke:var(--wire); }
+  .lantern-glass{ fill:var(--bg-0); opacity:0.55; }
 
-								/* ---------- card ---------- */
-								.card{
-									width:100%;
-									max-width:26rem;
-									background:var(--paper);
-									border:1px solid var(--paper-edge);
-									border-radius:1rem;
-									padding:2rem 1.75rem 1.75rem;
-									text-align:center;
-									box-shadow:
-										0 30px 60px -20px rgba(0,0,0,0.55),
-										0 0 0 1px rgba(255,255,255,0.02) inset;
-									position:relative;
-									overflow:hidden;
-								}
-								.card::before{
-									content:"";
-									position:absolute;
-									inset:0;
-									background-image:
-										radial-gradient(rgba(0,0,0,0.035) 1px, transparent 1px);
-									background-size:3px 3px;
-									opacity:0.5;
-									pointer-events:none;
-								}
+  /* ---------- headline ---------- */
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.7rem;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--amber-1);
+    margin:0 0 0.4rem;
+    display:flex;align-items:center;gap:0.45rem;
+  }
+  .eyebrow .dot{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--amber-1);
+    box-shadow:0 0 8px 1px rgba(var(--amber-glow),0.8);
+    animation:blink 1.6s ease-in-out infinite;
+  }
+  @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.25;} }
 
-								.message{
-									font-size:0.92rem;
-									line-height:1.6;
-									color:var(--ink-soft);
-									margin:0 0 1.4rem;
-									position:relative;
-								}
-								.message strong{
-									color:var(--ink);
-									font-weight:600;
-								}
+  h1.headline{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:1.9rem;
+    color:var(--ink);
+    margin:0 0 1.6rem;
+    text-align:center;
+    letter-spacing:-0.01em;
+  }
 
-								/* ---------- connection wire ---------- */
-								.wire-row{
-									display:flex;
-									align-items:center;
-									justify-content:center;
-									gap:0.6rem;
-									margin:0 0 1.5rem;
-								}
-								.node{
-									width:30px;height:30px;
-									border-radius:50%;
-									display:flex;align-items:center;justify-content:center;
-									background:#fff;
-									border:1.5px solid var(--paper-edge);
-									color:var(--ink-soft);
-									flex-shrink:0;
-								}
-								.node svg{width:15px;height:15px;}
-								.wire{
-									flex:1;
-									max-width:96px;
-									height:0;
-									border-top:2px dashed var(--wire);
-									position:relative;
-								}
-								.wire .pulse{
-									position:absolute;
-									top:-3.5px;
-									left:0;
-									width:7px;height:7px;
-									border-radius:50%;
-									background:var(--amber-1);
-									box-shadow:0 0 6px 1px rgba(var(--amber-glow),0.75);
-									animation:travel 1.8s linear infinite;
-								}
-								@keyframes travel{
-									0%{left:0%; opacity:0;}
-									8%{opacity:1;}
-									92%{opacity:1;}
-									100%{left:100%; opacity:0;}
-								}
+  /* ---------- card ---------- */
+  .card{
+    width:100%;
+    max-width:26rem;
+    background:var(--paper);
+    border:1px solid var(--paper-edge);
+    border-radius:var(--radius);
+    padding:2rem 1.75rem 1.75rem;
+    text-align:center;
+    box-shadow:var(--card-shadow);
+    position:relative;
+    overflow:hidden;
+    transition:background .4s ease, border-color .4s ease, box-shadow .4s ease;
+  }
 
-								/* ---------- status pill ---------- */
-								.status{
-									font-family:'JetBrains Mono', monospace;
-									font-size:0.72rem;
-									letter-spacing:0.03em;
-									color:var(--ink-soft);
-									background:#f2ead9;
-									border:1px solid var(--paper-edge);
-									border-radius:999px;
-									padding:0.4rem 0.85rem;
-									display:inline-flex;
-									align-items:center;
-									gap:0.5rem;
-									margin-bottom:1.5rem;
-									transition:all .4s ease;
-								}
-								.status.online{
-									background:#eaf5ea;
-									border-color:#c7e2c8;
-									color:#3c6b3f;
-								}
-								.status-dot{
-									width:6px;height:6px;border-radius:50%;
-									background:var(--ink-soft);
-									animation:blink 1.6s ease-in-out infinite;
-								}
-								.status.online .status-dot{
-									background:var(--ok);
-									animation:none;
-								}
+  .message{
+    font-size:0.92rem;
+    line-height:1.6;
+    color:var(--ink-soft);
+    margin:0 0 1.35rem;
+  }
+  .message strong{ color:var(--ink); font-weight:600; }
 
-								/* ---------- button ---------- */
-								.retry-btn{
-									font-family:'Inter',sans-serif;
-									font-weight:600;
-									font-size:0.9rem;
-									color:#fff;
-									background:linear-gradient(180deg, var(--amber-1), var(--amber-2));
-									border:none;
-									border-radius:0.65rem;
-									padding:0.75rem 1.5rem;
-									display:inline-flex;
-									align-items:center;
-									gap:0.55rem;
-									cursor:pointer;
-									box-shadow:0 8px 20px -6px rgba(224,135,60,0.55);
-									transition:transform .15s ease, box-shadow .15s ease;
-								}
-								.retry-btn:hover{
-									transform:translateY(-1px);
-									box-shadow:0 10px 24px -6px rgba(224,135,60,0.65);
-								}
-								.retry-btn:active{
-									transform:translateY(0px) scale(0.98);
-								}
-								.retry-btn:focus-visible{
-									outline:2px solid var(--amber-1);
-									outline-offset:3px;
-								}
-								.retry-btn svg{
-									width:16px;height:16px;
-									transition:transform .5s ease;
-								}
-								.retry-btn.spinning svg{
-									animation:spin .7s linear;
-								}
-								@keyframes spin{
-									to{transform:rotate(360deg);}
-								}
+  /* ---------- cached ledger ---------- */
+  .ledger{
+    display:flex;
+    justify-content:center;
+    gap:0.55rem;
+    margin:0 0 1.5rem;
+    flex-wrap:wrap;
+  }
+  .ledger-item{
+    display:flex;
+    align-items:center;
+    gap:0.35rem;
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.66rem;
+    letter-spacing:0.02em;
+    color:var(--ink-soft);
+    background:var(--pill-bg);
+    border:1px solid var(--pill-edge);
+    border-radius:999px;
+    padding:0.32rem 0.65rem 0.32rem 0.5rem;
+  }
+  .ledger-item svg{ width:11px;height:11px; color:var(--amber-1); flex-shrink:0; }
 
-								.footer-note{
-									margin-top:1.6rem;
-									font-family:'JetBrains Mono', monospace;
-									font-size:0.68rem;
-									letter-spacing:0.08em;
-									text-transform:uppercase;
-									color:#8a94a8;
-									text-align:center;
-								}
+  /* ---------- connection wire ---------- */
+  .wire-row{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:0.6rem;
+    margin:0 0 1.5rem;
+  }
+  .node{
+    width:30px;height:30px;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--node-bg);
+    border:1.5px solid var(--paper-edge);
+    color:var(--ink-soft);
+    flex-shrink:0;
+    transition:background .4s ease, border-color .4s ease;
+  }
+  .node svg{ width:15px;height:15px; }
+  .wire{
+    flex:1;
+    max-width:96px;
+    height:0;
+    border-top:2px dashed var(--wire);
+    position:relative;
+  }
+  .wire .pulse{
+    position:absolute;
+    top:-3.5px;left:0;
+    width:7px;height:7px;
+    border-radius:50%;
+    background:var(--amber-1);
+    box-shadow:0 0 6px 1px rgba(var(--amber-glow),0.75);
+    animation:travel 1.8s linear infinite;
+  }
+  @keyframes travel{
+    0%{left:0%; opacity:0;}
+    8%{opacity:1;}
+    92%{opacity:1;}
+    100%{left:100%; opacity:0;}
+  }
 
-								@media (max-width: 380px){
-									h1.headline{font-size:1.55rem;}
-									.card{padding:1.6rem 1.25rem 1.5rem;}
-								}
+  /* ---------- status pill ---------- */
+  .status{
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.72rem;
+    letter-spacing:0.03em;
+    color:var(--ink-soft);
+    background:var(--pill-bg);
+    border:1px solid var(--pill-edge);
+    border-radius:999px;
+    padding:0.4rem 0.85rem;
+    display:inline-flex;
+    align-items:center;
+    gap:0.5rem;
+    margin-bottom:1.5rem;
+    transition:all .4s ease;
+  }
+  .status.online{
+    background:var(--pill-online-bg);
+    border-color:var(--pill-online-edge);
+    color:#3c6b3f;
+  }
+  html[data-theme="dark"] .status.online{ color:#a9d8ab; }
+  .status-dot{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--ink-soft);
+    animation:blink 1.6s ease-in-out infinite;
+  }
+  .status.online .status-dot{ background:var(--ok); animation:none; }
 
-								@media (prefers-reduced-motion: reduce){
-									*{animation:none !important; transition:none !important;}
-								}
-							</style>
-							</head>
-							<body>
+  /* ---------- button ---------- */
+  .retry-btn{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:0.9rem;
+    color:#fff;
+    background:linear-gradient(180deg, var(--amber-1), var(--amber-2));
+    border:none;
+    border-radius:0.65rem;
+    padding:0.75rem 1.5rem;
+    display:inline-flex;
+    align-items:center;
+    gap:0.55rem;
+    cursor:pointer;
+    box-shadow:0 8px 20px -6px rgba(224,135,60,0.55);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .retry-btn:hover{ transform:translateY(-1px); box-shadow:0 10px 24px -6px rgba(224,135,60,0.65); }
+  .retry-btn:active{ transform:translateY(0px) scale(0.98); }
+  .retry-btn:focus-visible{ outline:2px solid var(--amber-1); outline-offset:3px; }
+  .retry-btn svg{ width:16px;height:16px; transition:transform .5s ease; }
+  .retry-btn.spinning svg{ animation:spin .7s linear; }
+  @keyframes spin{ to{transform:rotate(360deg);} }
+  .retry-btn:disabled{ opacity:0.85; cursor:default; }
 
-								<div class="sky" id="sky"></div>
+  .footer-note{
+    margin-top:1.6rem;
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.68rem;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    text-align:center;
+    opacity:0.75;
+  }
 
-								<div class="stage">
+  @media (max-width: 380px){
+    h1.headline{ font-size:1.55rem; }
+    .card{ padding:1.6rem 1.25rem 1.5rem; }
+    .theme-toggle{ top:0.9rem; right:0.9rem; }
+  }
 
-									<div class="lantern-wrap">
-										<div class="glow"></div>
-										<svg class="lantern" viewBox="0 0 110 150" fill="none" xmlns="http://www.w3.org/2000/svg">
-											<!-- hanging wire -->
-											<line x1="55" y1="0" x2="55" y2="18" stroke="#5b6579" stroke-width="2"/>
-											<!-- top cap -->
-											<path d="M40 18 H70 L64 30 H46 Z" fill="#4a5568"/>
-											<ellipse cx="55" cy="18" rx="15" ry="3" fill="#5b6579"/>
-											<!-- body -->
-											<path d="M38 30 H72 L78 108 Q55 118 32 108 Z" fill="#2f3b52" stroke="#4a5568" stroke-width="1.5"/>
-											<!-- glass panels -->
-											<path d="M45 38 H65 L69 100 Q55 107 41 100 Z" fill="#1a2233" opacity="0.55"/>
-											<line x1="55" y1="38" x2="55" y2="102" stroke="#4a5568" stroke-width="1"/>
-											<!-- flame -->
-											<g class="flame">
-												<path d="M55 55 C48 66 48 78 55 86 C62 78 62 66 55 55 Z" fill="#f2a65a"/>
-												<path d="M55 64 C51 71 51 79 55 84 C59 79 59 71 55 64 Z" fill="#fddca0"/>
-											</g>
-											<!-- base -->
-											<path d="M32 108 Q55 118 78 108 L74 120 H36 Z" fill="#4a5568"/>
-											<ellipse cx="55" cy="120" rx="19" ry="3.5" fill="#5b6579"/>
-											<!-- feet -->
-											<rect x="42" y="122" width="4" height="8" rx="1.5" fill="#4a5568"/>
-											<rect x="64" y="122" width="4" height="8" rx="1.5" fill="#4a5568"/>
-										</svg>
-									</div>
+  @media (prefers-reduced-motion: reduce){
+    *{ animation:none !important; transition:none !important; }
+  }
+</style>
+</head>
+<body>
 
-									<h1 class="headline">You're offline</h1>
+  <div class="sky" id="sky"></div>
 
-									<div class="card">
-										<p class="message">
-											Cached lessons, grades, and records are still here for you to <strong>view</strong>.
-											Anything new is being <strong>queued</strong> and will sync the moment the
-											connection returns.
-										</p>
+  <button class="theme-toggle" id="themeToggle" aria-label="Switch appearance" title="Switch between light and dark">
+    <span class="toggle-knob" id="toggleKnob">
+      <svg id="knobIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></svg>
+    </span>
+  </button>
 
-										<div class="wire-row">
-											<div class="node" title="This device">
-												<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-											</div>
-											<div class="wire"><div class="pulse"></div></div>
-											<div class="node" title="School Mesh server">
-												<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-											</div>
-										</div>
+  <div class="stage">
 
-										<div class="status" id="status">
-											<span class="status-dot"></span>
-											<span id="statusText">Searching for a signal…</span>
-										</div>
+    <div class="lantern-wrap">
+      <div class="glow"></div>
+      <svg class="lantern" viewBox="0 0 110 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <line x1="55" y1="0" x2="55" y2="18" stroke="var(--wire)" stroke-width="2"/>
+        <path d="M40 18 H70 L64 30 H46 Z" class="lantern-frame" stroke-width="1.5"/>
+        <ellipse cx="55" cy="18" rx="15" ry="3" class="lantern-frame" stroke-width="1"/>
+        <path d="M38 30 H72 L78 108 Q55 118 32 108 Z" class="lantern-frame" stroke-width="1.5"/>
+        <path d="M45 38 H65 L69 100 Q55 107 41 100 Z" class="lantern-glass"/>
+        <line x1="55" y1="38" x2="55" y2="102" stroke="var(--wire)" stroke-width="1"/>
+        <g class="flame">
+          <path d="M55 55 C48 66 48 78 55 86 C62 78 62 66 55 55 Z" fill="#f2a65a"/>
+          <path d="M55 64 C51 71 51 79 55 84 C59 79 59 71 55 64 Z" fill="#fddca0"/>
+        </g>
+        <path d="M32 108 Q55 118 78 108 L74 120 H36 Z" class="lantern-frame" stroke-width="1.5"/>
+        <ellipse cx="55" cy="120" rx="19" ry="3.5" class="lantern-frame" stroke-width="1"/>
+        <rect x="42" y="122" width="4" height="8" rx="1.5" class="lantern-frame" stroke-width="1"/>
+        <rect x="64" y="122" width="4" height="8" rx="1.5" class="lantern-frame" stroke-width="1"/>
+      </svg>
+    </div>
 
-										<br>
+    <p class="eyebrow"><span class="dot"></span>School Mesh</p>
+    <h1 class="headline">You're offline</h1>
 
-										<button class="retry-btn" id="retryBtn">
-											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-											<span id="retryLabel">Try again</span>
-										</button>
-									</div>
+    <div class="card">
+      <p class="message">
+        Cached lessons, grades, and records are still here for you to <strong>view</strong>.
+        Anything new is being <strong>queued</strong> and will sync the moment the
+        connection returns.
+      </p>
 
-								</div>
+      <div class="ledger">
+        <span class="ledger-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          Lessons
+        </span>
+        <span class="ledger-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Grades
+        </span>
+        <span class="ledger-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+          Records
+        </span>
+      </div>
 
-							<script>
-								// ambient sky: stars + drifting dust
-								(function(){
-									var sky = document.getElementById('sky');
-									var frag = document.createDocumentFragment();
-									for (var i = 0; i < 40; i++) {
-										var s = document.createElement('div');
-										s.className = 'star';
-										s.style.left = Math.random() * 100 + '%';
-										s.style.top = Math.random() * 55 + '%';
-										s.style.animationDelay = (Math.random() * 4) + 's';
-										frag.appendChild(s);
-									}
-									for (var j = 0; j < 14; j++) {
-										var d = document.createElement('div');
-										d.className = 'dust';
-										d.style.left = (35 + Math.random() * 30) + '%';
-										d.style.top = (30 + Math.random() * 30) + '%';
-										d.style.animationDelay = (Math.random() * 9) + 's';
-										d.style.animationDuration = (7 + Math.random() * 5) + 's';
-										frag.appendChild(d);
-									}
-									sky.appendChild(frag);
-								})();
+      <div class="wire-row">
+        <div class="node" title="This device">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+        </div>
+        <div class="wire"><div class="pulse"></div></div>
+        <div class="node" title="School Mesh server">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        </div>
+      </div>
 
-								var statusEl = document.getElementById('status');
-								var statusText = document.getElementById('statusText');
-								var retryBtn = document.getElementById('retryBtn');
-								var retryLabel = document.getElementById('retryLabel');
+      <div class="status" id="status">
+        <span class="status-dot"></span>
+        <span id="statusText">Searching for a signal…</span>
+      </div>
 
-								function setOnlineUI(){
-									statusEl.classList.add('online');
-									statusText.textContent = 'Connection restored — syncing…';
-									retryLabel.textContent = 'Reloading…';
-									setTimeout(function(){ window.location.reload(); }, 900);
-								}
+      <br>
 
-								function setOfflineUI(){
-									statusEl.classList.remove('online');
-									statusText.textContent = 'Searching for a signal…';
-								}
+      <button class="retry-btn" id="retryBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        <span id="retryLabel">Try again</span>
+      </button>
+    </div>
 
-								window.addEventListener('online', setOnlineUI);
-								window.addEventListener('offline', setOfflineUI);
+    <p class="footer-note">Upstairs Christian Academy · School Mesh</p>
+  </div>
 
-								if (navigator.onLine) {
-									// Tab may regain focus already connected; nudge a reload check.
-									statusText.textContent = 'Reconnecting…';
-								}
+<script>
+  // ---------- theme ----------
+  var root = document.documentElement;
+  var themeToggle = document.getElementById('themeToggle');
+  var knobIcon = document.getElementById('knobIcon');
 
-								retryBtn.addEventListener('click', function(){
-									retryBtn.classList.add('spinning');
-									retryBtn.disabled = true;
-									retryLabel.textContent = 'Checking…';
-									setTimeout(function(){
-										if (navigator.onLine) {
-											setOnlineUI();
-										} else {
-											retryBtn.classList.remove('spinning');
-											retryBtn.disabled = false;
-											retryLabel.textContent = 'Try again';
-											statusText.textContent = 'Still offline — searching…';
-										}
-									}, 900);
-								});
+  var sunPath = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+  var moonPath = '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>';
 
-								// periodic silent check every 15s
-								setInterval(function(){
-									if (navigator.onLine) setOnlineUI();
-								}, 15000);
-							</script>
+  function applyTheme(theme){
+    root.setAttribute('data-theme', theme);
+    knobIcon.innerHTML = theme === 'dark' ? moonPath : sunPath;
+    themeToggle.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+  }
 
-							</body>
-							</html>`,
+  var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  var currentTheme = prefersDark ? 'dark' : 'light';
+  // default the scene to dark (its natural, lantern-lit state) unless the
+  // system explicitly prefers light
+  if (!window.matchMedia || window.matchMedia('(prefers-color-scheme: light)').matches !== true) {
+    currentTheme = 'dark';
+  }
+  applyTheme(currentTheme);
+
+  themeToggle.addEventListener('click', function(){
+    currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    applyTheme(currentTheme);
+  });
+
+  // ---------- ambient sky: stars + drifting dust ----------
+  (function(){
+    var sky = document.getElementById('sky');
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < 40; i++) {
+      var s = document.createElement('div');
+      s.className = 'star';
+      s.style.left = Math.random() * 100 + '%';
+      s.style.top = Math.random() * 55 + '%';
+      s.style.animationDelay = (Math.random() * 4) + 's';
+      frag.appendChild(s);
+    }
+    for (var j = 0; j < 14; j++) {
+      var d = document.createElement('div');
+      d.className = 'dust';
+      d.style.left = (35 + Math.random() * 30) + '%';
+      d.style.top = (30 + Math.random() * 30) + '%';
+      d.style.animationDelay = (Math.random() * 9) + 's';
+      d.style.animationDuration = (7 + Math.random() * 5) + 's';
+      frag.appendChild(d);
+    }
+    sky.appendChild(frag);
+  })();
+
+  // ---------- connectivity ----------
+  var statusEl = document.getElementById('status');
+  var statusText = document.getElementById('statusText');
+  var retryBtn = document.getElementById('retryBtn');
+  var retryLabel = document.getElementById('retryLabel');
+
+  function setOnlineUI(){
+    statusEl.classList.add('online');
+    statusText.textContent = 'Connection restored — syncing…';
+    retryLabel.textContent = 'Reloading…';
+    setTimeout(function(){ window.location.reload(); }, 900);
+  }
+
+  function setOfflineUI(){
+    statusEl.classList.remove('online');
+    statusText.textContent = 'Searching for a signal…';
+  }
+
+  window.addEventListener('online', setOnlineUI);
+  window.addEventListener('offline', setOfflineUI);
+
+  if (navigator.onLine) {
+    statusText.textContent = 'Reconnecting…';
+  }
+
+  retryBtn.addEventListener('click', function(){
+    retryBtn.classList.add('spinning');
+    retryBtn.disabled = true;
+    retryLabel.textContent = 'Checking…';
+    setTimeout(function(){
+      if (navigator.onLine) {
+        setOnlineUI();
+      } else {
+        retryBtn.classList.remove('spinning');
+        retryBtn.disabled = false;
+        retryLabel.textContent = 'Try again';
+        statusText.textContent = 'Still offline — searching…';
+      }
+    }, 900);
+  });
+
+  setInterval(function(){
+    if (navigator.onLine) setOnlineUI();
+  }, 15000);
+</script>
+
+</body>
+</html>`,
 						{
 							status: 200,
-							headers: { 'Content-Type': 'text/html' },
-						},
+							headers: { 'Content-Type': 'text/html' },					},
 					);
 				}),
 		);
