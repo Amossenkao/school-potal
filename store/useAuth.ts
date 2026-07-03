@@ -219,79 +219,94 @@ const useAuth = create<AuthState>((set, get) => {
 		return null;
 	};
 
-	const applyBootstrapPayload = (data: any) => {
-		const schoolStore = useSchoolStore.getState();
-		const versions: SyncVersions =
-			data?.versions && typeof data.versions === 'object' ? data.versions : {};
-		const academicYear = data?.academicYear;
+const applyBootstrapPayload = (
+	data: any,
+	options: { gradesStrategy?: 'replace' | 'merge' } = {},
+) => {
+	const gradesStrategy = options.gradesStrategy ?? 'replace';
+	const schoolStore = useSchoolStore.getState();
+	const versions: SyncVersions =
+		data?.versions && typeof data.versions === 'object' ? data.versions : {};
+	const academicYear = data?.academicYear;
 
-		if (data?.school !== undefined && data?.school !== null) {
-			schoolStore.setSchool(data.school);
-		}
-		if (typeof versions.school === 'string') {
-			schoolStore.setSchoolVersion(versions.school);
-		}
+	if (data?.school !== undefined && data?.school !== null) {
+		schoolStore.setSchool(data.school);
+	}
+	if (typeof versions.school === 'string') {
+		schoolStore.setSchoolVersion(versions.school);
+	}
 
-		if (academicYear && versions) {
-			schoolStore.setDomainVersionsForYear(academicYear, {
-				users:
-					typeof versions.users === 'string'
-						? versions.users
-						: typeof data?.usersVersion === 'string'
-							? data.usersVersion
-							: undefined,
-				calendar:
-					typeof versions.calendar === 'string' ? versions.calendar : undefined,
-				grades:
-					typeof versions.grades === 'string' ? versions.grades : undefined,
-				gradeRequests:
-					typeof versions.gradeRequests === 'string'
-						? versions.gradeRequests
+	if (academicYear && versions) {
+		schoolStore.setDomainVersionsForYear(academicYear, {
+			users:
+				typeof versions.users === 'string'
+					? versions.users
+					: typeof data?.usersVersion === 'string'
+						? data.usersVersion
 						: undefined,
-				schedules:
-					typeof versions.schedules === 'string'
-						? versions.schedules
-						: undefined,
-				attendance:
-					typeof versions.attendance === 'string'
-						? versions.attendance
-						: undefined,
-			});
-		}
+			calendar:
+				typeof versions.calendar === 'string' ? versions.calendar : undefined,
+			grades: typeof versions.grades === 'string' ? versions.grades : undefined,
+			gradeRequests:
+				typeof versions.gradeRequests === 'string'
+					? versions.gradeRequests
+					: undefined,
+			schedules:
+				typeof versions.schedules === 'string' ? versions.schedules : undefined,
+			attendance:
+				typeof versions.attendance === 'string'
+					? versions.attendance
+					: undefined,
+		});
+	}
 
-		if (academicYear && data?.users) {
-			schoolStore.setUsersForYear(academicYear, data.users);
-		}
+	if (academicYear && data?.users) {
+		schoolStore.setUsersForYear(academicYear, data.users);
+	}
 
-		if (academicYear && Array.isArray(data?.calendarEvents)) {
-			schoolStore.setCalendarForYear(academicYear, data.calendarEvents);
-		}
+	if (academicYear && Array.isArray(data?.calendarEvents)) {
+		schoolStore.setCalendarForYear(academicYear, data.calendarEvents);
+	}
 
-		if (academicYear && data?.schedules && typeof data.schedules === 'object') {
-			schoolStore.setSchedulesForYear(academicYear, data.schedules);
-		}
+	if (academicYear && data?.schedules && typeof data.schedules === 'object') {
+		schoolStore.setSchedulesForYear(academicYear, data.schedules);
+	}
 
-		if (academicYear && Array.isArray(data?.grades)) {
+	// Grades: only a fresh login baseline (`login()`, gradesStrategy === 'replace')
+	// should overwrite the store outright. Every other caller (periodic
+	// checkAuthStatus / /api/auth/me pings, realtime-triggered refreshes) must
+	// merge, or it will clobber grades that a background sync or optimistic
+	// local patch already merged in.
+	if (academicYear && Array.isArray(data?.grades)) {
+		if (gradesStrategy === 'merge') {
+			schoolStore.mergeGradesForYear(academicYear, data.grades);
+		} else {
 			schoolStore.setGradesForYear(academicYear, data.grades);
 		}
+	}
 
-		if (academicYear && Array.isArray(data?.gradeRequests)) {
-			schoolStore.setGradeRequestsForYear(academicYear, data.gradeRequests);
-		}
+	if (academicYear && Array.isArray(data?.gradeRequests)) {
+		schoolStore.setGradeRequestsForYear(academicYear, data.gradeRequests);
+	}
 
-		if (academicYear && Array.isArray(data?.attendance)) {
-			schoolStore.setAttendanceForYear(academicYear, data.attendance);
-		}
+	if (academicYear && Array.isArray(data?.attendance)) {
+		schoolStore.setAttendanceForYear(academicYear, data.attendance);
+	}
 
-		if (academicYear && typeof window !== 'undefined') {
-			const CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
+	if (academicYear && typeof window !== 'undefined') {
+		const CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
 
-			if (typeof data?.gradesCursor === 'string') {
-				// Bootstrap hit the cap — resume from where it stopped
-				localStorage.setItem(CURSOR_KEY, data.gradesCursor);
-			} else if (Array.isArray(data?.grades) && data.grades.length > 0) {
-				// Bootstrap returned all grades — write a full resume cursor so
-				// background-parallel sees remaining = 0 and skips unnecessary fetches
+		if (typeof data?.gradesCursor === 'string') {
+			// Bootstrap hit the cap — resume from where it stopped
+			localStorage.setItem(CURSOR_KEY, data.gradesCursor);
+		} else if (Array.isArray(data?.grades) && data.grades.length > 0) {
+			// Bootstrap returned all grades — write a full resume cursor so
+			// background-parallel sees remaining = 0 and skips unnecessary fetches.
+			// NOTE: this branch only runs for a `replace`-strategy payload (login),
+			// since a `merge`-strategy payload (e.g. /api/auth/me) may legitimately
+			// return a small/partial `data.grades` slice that must NOT be treated
+			// as "the complete set" for cursor purposes.
+			if (gradesStrategy === 'replace') {
 				const grades = data.grades;
 				let latestGrade = grades[0];
 				for (const grade of grades) {
@@ -315,16 +330,20 @@ const useAuth = create<AuthState>((set, get) => {
 						chunkSize: 30_000,
 					}),
 				);
-			} else {
-				// No grades at all — clear any stale cursor from a previous session
-				localStorage.removeItem(CURSOR_KEY);
 			}
+		} else if (gradesStrategy === 'replace') {
+			// No grades at all on a fresh login baseline — clear any stale
+			// cursor from a previous session. A merge-strategy call with no
+			// grades tells us nothing about total state, so leave the cursor
+			// (and whatever sync progress it represents) untouched.
+			localStorage.removeItem(CURSOR_KEY);
 		}
+	}
 
-		if (typeof versions.user === 'string') {
-			set({ userVersion: versions.user });
-		}
-	};
+	if (typeof versions.user === 'string') {
+		set({ userVersion: versions.user });
+	}
+};
 
 	const applyRealtimeEvent = (event: RealtimeEvent) => {
 		const payload = (event?.payload || {}) as Record<string, unknown>;
@@ -381,38 +400,34 @@ const useAuth = create<AuthState>((set, get) => {
 		}
 	};
 
-	const runDeferredPostLoginBootstrap = (data: any) => {
-		if (typeof window === 'undefined') return;
-		const schedule =
-			window.requestIdleCallback || ((cb) => window.setTimeout(cb, 100));
-		schedule(() => {
-			void (async () => {
-				try {
-					clearSessionScopedClientState();
-					await clearSessionSensitiveStorage();
-					applyBootstrapPayload(data);
-					setDashboardStartPath();
+const runDeferredPostLoginBootstrap = (data: any) => {
+	if (typeof window === 'undefined') return;
+	const schedule =
+		window.requestIdleCallback || ((cb) => window.setTimeout(cb, 100));
+	schedule(() => {
+		void (async () => {
+			try {
+				clearSessionScopedClientState();
+				await clearSessionSensitiveStorage();
+				// applyBootstrapPayload(data) removed — already applied synchronously in login()
+				setDashboardStartPath();
+				if (data?.user) cacheAuthUser(data.user as User);
 
-					if (data?.user) {
-						cacheAuthUser(data.user as User);
-					}
-
-					const academicYear = data?.academicYear;
-					if (academicYear && typeof data?.gradesCursor === 'string') {
-						// Add a timeout so it doesn't block the dashboard redirect
-						setTimeout(() => {
-							useSchoolStore.getState().runBackgroundGradeSync(academicYear, {
-								gradesCursor: data.gradesCursor,
-								mode: 'background-parallel',
-							});
-						}, 2500);
-					}
-				} catch (error) {
-					console.warn('Deferred login bootstrap hydration failed:', error);
+				const academicYear = data?.academicYear;
+				if (academicYear && typeof data?.gradesCursor === 'string') {
+					setTimeout(() => {
+						useSchoolStore.getState().runBackgroundGradeSync(academicYear, {
+							gradesCursor: data.gradesCursor,
+							mode: 'background-parallel',
+						});
+					}, 2500);
 				}
-			})();
-		});
-	};
+			} catch (error) {
+				console.warn('Deferred login bootstrap hydration failed:', error);
+			}
+		})();
+	});
+};
 
 	return {
 		user: null,
@@ -703,7 +718,7 @@ const useAuth = create<AuthState>((set, get) => {
 
 					const data = await res.json().catch(() => ({}));
 					useNetworkStore.getState().setAuthCheckFailed(false);
-					applyBootstrapPayload(data);
+					applyBootstrapPayload(data, { gradesStrategy: 'merge' });
 
 					if (Object.prototype.hasOwnProperty.call(data, 'user') && data.user) {
 						const previousIdentity = resolveIdentity(get().user);

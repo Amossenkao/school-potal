@@ -86,16 +86,12 @@ const runAuthRefresh = useCallback(
 			// Only run background grade sync if there's a cursor to resume from.
 			// If gradesCursor was null at bootstrap, all grades are already present
 			// and there's nothing for the background sync to do.
-			const activeYear =
-				options?.academicYear ||
-				useSchoolStore.getState().school?.currentAcademicYear;
-			if (activeYear) {
-				const CURSOR_KEY = `sync_cursor_grades_${activeYear}`;
-				const hasCursor = Boolean(localStorage.getItem(CURSOR_KEY));
-				if (hasCursor) {
-					useSchoolStore.getState().runBackgroundGradeSync(activeYear);
-				}
-			}
+const activeYear =
+	options?.academicYear ||
+	useSchoolStore.getState().school?.currentAcademicYear;
+if (activeYear && useSchoolStore.getState().hasPendingGradeSync(activeYear)) {
+	useSchoolStore.getState().runBackgroundGradeSync(activeYear);
+}
 		} catch (error) {
 			console.error('[AuthProvider] Auth refresh failed:', error);
 			setAuthCheckFailed(true);

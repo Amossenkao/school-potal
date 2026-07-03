@@ -30,6 +30,7 @@ type SchoolStore = {
 			administrators: any[];
 		}
 	>;
+	hasPendingGradeSync: (academicYear: string) => boolean;
 	usersVersionByAcademicYear: Record<string, string>;
 	calendarByAcademicYear: Record<string, any[]>;
 	gradesByAcademicYear: Record<string, any[]>;
@@ -124,6 +125,25 @@ const writeMetaCache = (payload: {
 	} catch (error) {
 		console.warn('Failed to persist school metadata cache:', error);
 	}
+};
+
+// --- add near the cursor-related helpers ---
+export const readGradesSyncCursor = (academicYear: string): GradesCursor | null => {
+	if (typeof window === 'undefined' || !academicYear) return null;
+	try {
+		const raw = localStorage.getItem(`sync_cursor_grades_${academicYear}`);
+		if (!raw) return null;
+		const parsed = JSON.parse(raw) as GradesCursor;
+		return parsed && typeof parsed.totalCount === 'number' ? parsed : null;
+	} catch {
+		return null;
+	}
+};
+
+export const gradesSyncHasRemaining = (academicYear: string): boolean => {
+	const cursor = readGradesSyncCursor(academicYear);
+	if (!cursor) return false;
+	return cursor.totalCount - cursor.fetchedCount > 0;
 };
 
 const persistMeta = (
@@ -576,6 +596,8 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			return { schoolVersion: version };
 		});
 	},
+
+	hasPendingGradeSync: (academicYear) => gradesSyncHasRemaining(academicYear),
 
 	setUsersForYear: (academicYear, payload, options = {}) => {
 		if (!academicYear) return;

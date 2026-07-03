@@ -666,9 +666,6 @@ const AdminGradeManagement: React.FC = () => {
 			}
 			applySubmissionStatusLocally(payload);
 			window.dispatchEvent(new CustomEvent('grading:counts:refresh'));
-
-			// Pass true to run the post-action refresh silently
-			void handleRefresh(true);
 		} catch (error) {
 			console.error('Error updating grade status:', error);
 			setActionNotice({
