@@ -1,3 +1,4 @@
+// @/components/RootProviders.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -26,6 +27,7 @@ export default function RootProviders({
 	const { hydrateFromCache } = useAuth();
 	const hasAppsFeature = Boolean(school?.enabledFeatures?.includes('apps'));
 
+	// RootProviders.tsx
 	useEffect(() => {
 		hydrateCache();
 		hydrateFromCache();
@@ -34,6 +36,23 @@ export default function RootProviders({
 		}, 0);
 		return () => window.clearTimeout(taskId);
 	}, [fetchSchool, hydrateCache, hydrateFromCache]);
+
+	// NEW: keep the dashboard shell warm for offline use
+	useEffect(() => {
+		if (!('serviceWorker' in navigator)) return;
+		const controller = navigator.serviceWorker.controller;
+		if (!controller) return;
+
+		const cacheShell = () => {
+			const path = useAuth.getState().user ? '/dashboard' : '/login';
+			controller.postMessage({ type: 'cache-app-shell', path });
+		};
+
+		// the network comes back (SW's cache-app-shell does a real fetch).
+		cacheShell();
+		window.addEventListener('online', cacheShell);
+		return () => window.removeEventListener('online', cacheShell);
+	}, []);
 
 	useEffect(() => {
 		if (!('serviceWorker' in navigator)) return;

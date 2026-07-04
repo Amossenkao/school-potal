@@ -181,30 +181,33 @@ self.addEventListener('message', (event) => {
 	if (event?.data?.type === 'clear-all-data') {
 		event.waitUntil(clearAllCachesAndQueues());
 	}
-	if (event?.data?.type === 'cache-dashboard-shell') {
+	// sw.js — generalize the existing handler
+	if (event?.data?.type === 'cache-app-shell') {
 		const path = String(event?.data?.path || '');
-		if (!path.startsWith('/dashboard')) return;
+		if (!['/dashboard', '/login'].includes(path)) return;
 		event.waitUntil(
 			(async () => {
 				const runtimeCache = await caches.open(RUNTIME_CACHE);
-				const normalized = path.startsWith('/') ? path : `/${path}`;
 				try {
-					const response = await fetch(normalized, {
-						method: 'GET',
+					const response = await fetch(path, {
 						credentials: 'include',
 						cache: 'no-store',
 					});
 					if (!response.ok) return;
-					await runtimeCache.put(new Request(normalized), response.clone());
-					await runtimeCache.put(new Request('/dashboard'), response.clone());
-					await runtimeCache.put(new Request('/dashboard/'), response.clone());
+					await runtimeCache.put(new Request(path), response.clone());
+					if (path === '/dashboard') {
+						await runtimeCache.put(
+							new Request('/dashboard/'),
+							response.clone(),
+						);
+					}
 				} catch (error) {
-					console.warn('Failed to refresh dashboard shell cache:', error);
+					console.warn('Failed to refresh app shell cache:', path, error);
 				}
 			})(),
 		);
 	}
-});
+};);
 
 self.addEventListener('fetch', (event) => {
 	const { request } = event;

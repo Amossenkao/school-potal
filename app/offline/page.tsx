@@ -1,3 +1,4 @@
+// @/app/offline/page.tsx
 'use client';
 
 import { WifiOff, RefreshCw, Clock, Database } from 'lucide-react';
