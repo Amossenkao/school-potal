@@ -41,19 +41,36 @@ export default function RootProviders({
 useEffect(() => {
 	if (!('serviceWorker' in navigator)) return;
 
-	const cacheShell = () => {
+	const cacheShell = (path: '/dashboard' | '/login') => {
 		const controller = navigator.serviceWorker.controller;
+		console.log('[client] cacheShell', path, 'controller:', !!controller);
 		if (!controller) return;
-		const path = useAuth.getState().user ? '/dashboard' : '/login';
 		controller.postMessage({ type: 'cache-app-shell', path });
 	};
 
-	cacheShell();
-	navigator.serviceWorker.addEventListener('controllerchange', cacheShell);
-	window.addEventListener('online', cacheShell);
+	// Fire immediately based on current known state
+	cacheShell(useAuth.getState().user ? '/dashboard' : '/login');
+
+	// Re-fire whenever auth state actually resolves/changes
+	const unsubscribe = useAuth.subscribe((state, prevState) => {
+		if (state.user !== prevState.user) {
+			cacheShell(state.user ? '/dashboard' : '/login');
+		}
+	});
+
+	const handleOnline = () => {
+		cacheShell(useAuth.getState().user ? '/dashboard' : '/login');
+	};
+	navigator.serviceWorker.addEventListener('controllerchange', handleOnline);
+	window.addEventListener('online', handleOnline);
+
 	return () => {
-		navigator.serviceWorker.removeEventListener('controllerchange', cacheShell);
-		window.removeEventListener('online', cacheShell);
+		unsubscribe();
+		navigator.serviceWorker.removeEventListener(
+			'controllerchange',
+			handleOnline,
+		);
+		window.removeEventListener('online', handleOnline);
 	};
 }, []);
 
