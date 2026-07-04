@@ -207,7 +207,7 @@ self.addEventListener('message', (event) => {
 			})(),
 		);
 	}
-};);
+});
 
 self.addEventListener('fetch', (event) => {
 	const { request } = event;

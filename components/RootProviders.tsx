@@ -38,21 +38,24 @@ export default function RootProviders({
 	}, [fetchSchool, hydrateCache, hydrateFromCache]);
 
 	// NEW: keep the dashboard shell warm for offline use
-	useEffect(() => {
-		if (!('serviceWorker' in navigator)) return;
+useEffect(() => {
+	if (!('serviceWorker' in navigator)) return;
+
+	const cacheShell = () => {
 		const controller = navigator.serviceWorker.controller;
 		if (!controller) return;
+		const path = useAuth.getState().user ? '/dashboard' : '/login';
+		controller.postMessage({ type: 'cache-app-shell', path });
+	};
 
-		const cacheShell = () => {
-			const path = useAuth.getState().user ? '/dashboard' : '/login';
-			controller.postMessage({ type: 'cache-app-shell', path });
-		};
-
-		// the network comes back (SW's cache-app-shell does a real fetch).
-		cacheShell();
-		window.addEventListener('online', cacheShell);
-		return () => window.removeEventListener('online', cacheShell);
-	}, []);
+	cacheShell();
+	navigator.serviceWorker.addEventListener('controllerchange', cacheShell);
+	window.addEventListener('online', cacheShell);
+	return () => {
+		navigator.serviceWorker.removeEventListener('controllerchange', cacheShell);
+		window.removeEventListener('online', cacheShell);
+	};
+}, []);
 
 	useEffect(() => {
 		if (!('serviceWorker' in navigator)) return;
