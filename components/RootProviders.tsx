@@ -199,11 +199,10 @@ useEffect(() => {
 		return () => window.removeEventListener('online', flushQueue);
 	}, [hasAppsFeature]);
 
-	useEffect(() => {
-		applyTenantThemeToDocument(
-			localStorage.getItem('user_theme_preference') || school?.themeName,
-		);
-	}, [localStorage.getItem('user_theme_preference'), school?.themeName]);
+useEffect(() => {
+	const preferredTheme = localStorage.getItem('user_theme_preference');
+	applyTenantThemeToDocument(preferredTheme || school?.themeName);
+}, [school?.themeName]);
 
 	return (
 		<AuthProvider>
