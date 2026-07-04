@@ -14,6 +14,7 @@ import { applyTenantThemeToDocument } from '@/lib/tenantTheme';
 import { clearAllClientCache } from '@/utils/clientCache';
 import { clearUserSessionDataCaches } from '@/utils/sessionPrivacy';
 import { useNetworkStore } from '@/store/networkStore';
+import { cacheAppShellDirect } from '@/utils/cacheAppShell';
 
 const OFFLINE_REQUESTS_KEY = 'school_portal_offline_requests';
 const LOGOUT_ENDPOINT = '/api/auth/login';
@@ -39,37 +40,21 @@ export default function RootProviders({
 
 	// NEW: keep the dashboard shell warm for offline use
 useEffect(() => {
-	if (!('serviceWorker' in navigator)) return;
+	cacheAppShellDirect(useAuth.getState().user ? '/dashboard' : '/login');
 
-	const cacheShell = (path: '/dashboard' | '/login') => {
-		const controller = navigator.serviceWorker.controller;
-		console.log('[client] cacheShell', path, 'controller:', !!controller);
-		if (!controller) return;
-		controller.postMessage({ type: 'cache-app-shell', path });
-	};
-
-	// Fire immediately based on current known state
-	cacheShell(useAuth.getState().user ? '/dashboard' : '/login');
-
-	// Re-fire whenever auth state actually resolves/changes
 	const unsubscribe = useAuth.subscribe((state, prevState) => {
 		if (state.user !== prevState.user) {
-			cacheShell(state.user ? '/dashboard' : '/login');
+			cacheAppShellDirect(state.user ? '/dashboard' : '/login');
 		}
 	});
 
 	const handleOnline = () => {
-		cacheShell(useAuth.getState().user ? '/dashboard' : '/login');
+		cacheAppShellDirect(useAuth.getState().user ? '/dashboard' : '/login');
 	};
-	navigator.serviceWorker.addEventListener('controllerchange', handleOnline);
 	window.addEventListener('online', handleOnline);
 
 	return () => {
 		unsubscribe();
-		navigator.serviceWorker.removeEventListener(
-			'controllerchange',
-			handleOnline,
-		);
 		window.removeEventListener('online', handleOnline);
 	};
 }, []);

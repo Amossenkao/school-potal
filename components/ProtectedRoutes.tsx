@@ -44,9 +44,6 @@ const ProtectedRoute = ({
 		void bootstrapAuth();
 	}, [bootstrapAuth]);
 
-	// Redirect to /login once we have a real answer. This fires on either
-	// the cold path (no cache — waited for hasBootstrapped) or the optimistic
-	// path (hasBootstrapped flipped immediately from cache, isVerifying later
 	// resolves to "not actually logged in").
 	useEffect(() => {
 		if (!hasBootstrapped) return; // no cache, still resolving initial state
@@ -79,11 +76,11 @@ const ProtectedRoute = ({
 
 	// No cached user to render optimistically — this is the only case where
 	// we genuinely have nothing to show yet.
-	if (!hasBootstrapped) {
-		return (
-			<PageLoading variant="school" fullScreen={true} message="Loading..." />
-		);
-	}
+	// if (!hasBootstrapped) {
+	// 	return (
+	// 		<PageLoading variant="school" fullScreen={true} message="Loading..." />
+	// 	);
+	// }
 
 	// Either cache said "logged out", or the background check just confirmed it.
 	if (!isAuthenticated) {
