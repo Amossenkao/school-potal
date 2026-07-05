@@ -7,6 +7,7 @@ const API_CACHE = `api-${CACHE_VERSION}`;
 const STATIC_ASSETS = [
 	'/offline',
 	'/manifest.webmanifest',
+	'/fonts/GreatVibes-Regular.ttf', // add this line
 ];
 const API_ALLOWLIST = [
 	'/api/users',
@@ -917,6 +918,7 @@ self.addEventListener('fetch', (event) => {
 	if (
 		isSameOrigin &&
 		(url.pathname.startsWith('/_next/static/') ||
+			url.pathname.startsWith('/fonts/') || // add this line
 			request.destination === 'script' ||
 			request.destination === 'style' ||
 			request.destination === 'font' ||
