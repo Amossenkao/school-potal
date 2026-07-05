@@ -400,18 +400,22 @@ const applyBootstrapPayload = (
 		}
 	};
 
-const runDeferredPostLoginBootstrap = (data: any) => {
+const runDeferredPostLoginBootstrap = (
+	data: any,
+	shouldClearPreviousSession: boolean,
+) => {
 	if (typeof window === 'undefined') return;
 	const schedule =
 		window.requestIdleCallback || ((cb) => window.setTimeout(cb, 100));
 	schedule(() => {
 		void (async () => {
 			try {
-				clearSessionScopedClientState();
-				await clearSessionSensitiveStorage();
-				// applyBootstrapPayload(data) removed — already applied synchronously in login()
-				setDashboardStartPath();
-				if (data?.user) cacheAuthUser(data.user as User);
+				if (shouldClearPreviousSession) {
+					clearSessionScopedClientState();
+					await clearSessionSensitiveStorage();
+					setDashboardStartPath();
+					if (data?.user) cacheAuthUser(data.user as User);
+				}
 
 				const academicYear = data?.academicYear;
 				if (academicYear && typeof data?.gradesCursor === 'string') {
@@ -443,6 +447,16 @@ const runDeferredPostLoginBootstrap = (data: any) => {
 		login: async (loginData: LoginData): Promise<User | null> => {
 			set({ isLoading: true, error: null });
 			try {
+				// Capture the previously cached identity BEFORE login overwrites anything.
+				const previousCachedUser = (() => {
+					try {
+						const raw = localStorage.getItem('auth-user');
+						return raw ? (JSON.parse(raw) as User) : null;
+					} catch {
+						return null;
+					}
+				})();
+
 				const res = await fetch('/api/auth/login', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
@@ -474,7 +488,18 @@ const runDeferredPostLoginBootstrap = (data: any) => {
 
 				setDashboardStartPath();
 				cacheAuthUser(data.user as User);
-				runDeferredPostLoginBootstrap(data);
+
+				// Only wipe the previous session's caches if a DIFFERENT user just
+				// logged in on this device. Otherwise we'd delete the IndexedDB
+				// snapshots, RUNTIME_CACHE shell, and API_CACHE entries we just
+				// wrote for offline use, moments after writing them.
+				const previousIdentity = resolveIdentity(previousCachedUser);
+				const nextIdentity = resolveIdentity(data.user as User);
+				const isDifferentUser = Boolean(
+					previousIdentity && nextIdentity && previousIdentity !== nextIdentity,
+				);
+
+				runDeferredPostLoginBootstrap(data, isDifferentUser);
 
 				return data.user;
 			} catch (error: any) {
