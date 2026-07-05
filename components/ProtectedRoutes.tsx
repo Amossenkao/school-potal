@@ -16,8 +16,7 @@ const ProtectedRoute = ({
 	requiredRole,
 	allowedRoles,
 }: ProtectedRouteProps) => {
-	const { user, hasBootstrapped, isVerifying, bootstrapAuth } =
-		useAuth();
+	const { user, hasBootstrapped, isVerifying, bootstrapAuth } = useAuth();
 	const router = useRouter();
 	const pathname = usePathname();
 
@@ -45,8 +44,11 @@ const ProtectedRoute = ({
 		void bootstrapAuth();
 	}, [bootstrapAuth]);
 
-	// Keep the URL in sync in the background, but don't gate what's on screen
-	// on this — we render LoginPage directly below instead of a loader.
+	// Background verification can flip us from "not authenticated" to
+	// "authenticated" (or vice versa) after the fact. Keep the URL in sync
+	// with whatever the current authenticated state resolves to — this is
+	// the only place isVerifying still matters, so we don't redirect to
+	// /login while a background check might still confirm a valid session.
 	useEffect(() => {
 		if (!hasBootstrapped) return;
 		if (isAuthenticated) return;
@@ -69,10 +71,11 @@ const ProtectedRoute = ({
 		router.replace('/login/account-setup');
 	}, [hasBootstrapped, pathname, router, user]);
 
-	// Still resolving the initial auth check (cache/cookie lookup) — this is
-	// the only case where a generic loader makes sense, since we don't yet
-	// know whether to show the protected content or the login page.
-	if (!hasBootstrapped || isVerifying) {
+	// hasBootstrapped is now true essentially immediately (cache hydration
+	// is synchronous), for BOTH the cached-user and no-cache cases. So this
+	// is no longer a network-bound loading state — it only covers the one
+	// unavoidable render tick before the first effect runs.
+	if (!hasBootstrapped) {
 		return (
 			<PageLoading variant="school" fullScreen={true} message="Loading..." />
 		);

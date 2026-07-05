@@ -813,41 +813,33 @@ const runDeferredPostLoginBootstrap = (
 			}
 
 			authBootstrapPromise = (async () => {
-				// 1. Try to hydrate from cache synchronously, first.
+				// 1. Hydrate from cache synchronously if we have one.
 				if (!get().user) {
 					get().hydrateFromCache();
 				}
 
-				const hasCachedUser = Boolean(get().user);
-
-				if (hasCachedUser) {
-					// 2. Optimistic path: we already have a plausible user.
-					// Unblock the UI immediately and verify in the background.
-					set({
-						isBootstrapping: false,
-						hasBootstrapped: true,
-						isVerifying: true,
-					});
-				} else {
-					// No cache to fall back on — there's nothing to render yet,
-					// so keep the app in a genuine loading state.
-					set({ isBootstrapping: true, isVerifying: false });
-				}
+				// 2. Unblock the UI immediately, in both cases. Whatever we have
+				// right now — a cached user or nothing — IS the render. There's
+				// no state left where the UI waits on the network.
+				//   - cached user  -> ProtectedRoute renders the dashboard
+				//   - no cached user -> ProtectedRoute renders LoginPage
+				// isVerifying just tracks the background confirmation; it no
+				// longer gates what's on screen.
+				set({
+					isBootstrapping: false,
+					hasBootstrapped: true,
+					isVerifying: true,
+				});
 
 				if (typeof navigator !== 'undefined' && !navigator.onLine) {
 					useNetworkStore.getState().markOffline('browser-offline');
 					useNetworkStore.getState().setAuthCheckFailed(true);
-					set({
-						isBootstrapping: false,
-						hasBootstrapped: true,
-						isVerifying: false,
-					});
+					set({ isVerifying: false });
 					return;
 				}
 
-				// 3. Run the real check to completion. No artificial timeout
-				// truncating it — it's no longer blocking the UI, so let it
-				// take as long as it needs.
+				// 3. Confirm with the server in the background. No timeout
+				// truncating it since it isn't blocking anything anymore.
 				try {
 					await get().checkAuthStatus({
 						skipConnectivityCheck: true,
@@ -856,11 +848,7 @@ const runDeferredPostLoginBootstrap = (
 				} catch (error) {
 					console.warn('Auth bootstrap verification failed:', error);
 				} finally {
-					set({
-						isBootstrapping: false,
-						hasBootstrapped: true,
-						isVerifying: false,
-					});
+					set({ isVerifying: false });
 				}
 			})().finally(() => {
 				authBootstrapPromise = null;
