@@ -289,11 +289,25 @@ self.addEventListener('fetch', (event) => {
 			fetch(request)
 				.then((response) => {
 					if (response.ok) {
+						// Clone RIGHT NOW, synchronously, before `response` is returned to the
+						// browser and before any async gap (caches.open is itself async).
+						const runtimeCopy = response.clone();
+						const dashboardCopy1 =
+							isSameOrigin && url.pathname.startsWith('/dashboard')
+								? response.clone()
+								: null;
+						const dashboardCopy2 =
+							isSameOrigin && url.pathname.startsWith('/dashboard')
+								? response.clone()
+								: null;
+
 						caches.open(RUNTIME_CACHE).then(async (cache) => {
-							await cache.put(request, response.clone());
-							if (isSameOrigin && url.pathname.startsWith('/dashboard')) {
-								await cache.put(new Request('/dashboard'), response.clone());
-								await cache.put(new Request('/dashboard/'), response.clone());
+							await cache.put(request, runtimeCopy);
+							if (dashboardCopy1) {
+								await cache.put(new Request('/dashboard'), dashboardCopy1);
+							}
+							if (dashboardCopy2) {
+								await cache.put(new Request('/dashboard/'), dashboardCopy2);
 							}
 						});
 					}
@@ -322,7 +336,12 @@ self.addEventListener('fetch', (event) => {
 					const offlineFallback = await caches.match('/offline');
 					if (offlineFallback) return offlineFallback;
 					// Try to find the offline page in any cache
-					for (const cacheName of [STATIC_CACHE, RUNTIME_CACHE, API_CACHE, 'api-runtime-v1']) {
+					for (const cacheName of [
+						STATIC_CACHE,
+						RUNTIME_CACHE,
+						API_CACHE,
+						'api-runtime-v1',
+					]) {
 						const cache = await caches.open(cacheName);
 						const offlinePage = await cache.match('/offline');
 						if (offlinePage) return offlinePage;
@@ -884,7 +903,8 @@ self.addEventListener('fetch', (event) => {
 </html>`,
 						{
 							status: 200,
-							headers: { 'Content-Type': 'text/html' },					},
+							headers: { 'Content-Type': 'text/html' },
+						},
 					);
 				}),
 		);
