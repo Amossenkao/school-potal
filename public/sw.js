@@ -17,7 +17,8 @@ const API_ALLOWLIST = [
 	'/api/schedules',
 	'/api/school',
 	'/api/notifications',
-	'/api/settings',
+  '/api/settings',
+  '/api/attendance',
 ];
 
 const DB_NAME = 'pwa-queue';
@@ -149,6 +150,18 @@ self.addEventListener('install', (event) => {
 					}),
 				),
 			);
+
+			try {
+				const loginResponse = await fetch('/login', {
+					credentials: 'omit',
+					cache: 'no-store',
+				});
+				if (loginResponse.ok) {
+					await cache.put('/login', loginResponse.clone());
+				}
+			} catch (error) {
+				console.warn('Failed to pre-cache /login shell:', error);
+			}
 			await self.skipWaiting();
 		})(),
 	);

@@ -724,7 +724,6 @@ const LoginPage = () => {
 		if (typeof activeElement.blur === 'function') activeElement.blur();
 	}, []);
 
-	// login.tsx — navigateToDashboardWithSpinner
 	const navigateToDashboardWithSpinner = useCallback(() => {
 		dismissKeyboardFocus();
 		setIsRedirecting(true);
