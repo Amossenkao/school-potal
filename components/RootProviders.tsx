@@ -155,28 +155,36 @@ export default function RootProviders({
 						authError,
 					);
 				}
+if (!isSessionValid) {
+	console.warn(
+		'[Sync Pipeline] No valid session. Clearing secure queues and refreshing public state.',
+	);
 
-				if (!isSessionValid) {
-					console.warn(
-						'[Sync Pipeline] Session expired or corrupted while offline. Flushing local queues.',
-					);
-					localStorage.removeItem(OFFLINE_REQUESTS_KEY);
-					useAuth.setState({
-						user: null,
-						isLoggedIn: false,
-						error: null,
-						isLoading: false,
-						sessionId: null,
-						isAwaitingOtp: false,
-						otpContact: null,
-						userId: null,
-						userVersion: null,
-					});
-					useSchoolStore.getState().clearCache();
-					clearAllClientCache();
-					await clearUserSessionDataCaches({ mode: 'logout' });
-					return;
-				}
+	// 1. Clear secure outbound queues
+	localStorage.removeItem(OFFLINE_REQUESTS_KEY);
+
+	// 2. Reset Auth state
+	useAuth.setState({
+		user: null,
+		isLoggedIn: false,
+		error: null,
+		isLoading: false,
+		sessionId: null,
+		isAwaitingOtp: false,
+		otpContact: null,
+		userId: null,
+		userVersion: null,
+	});
+
+	// 3. THE FIX: Fetch the latest public school state so the login page gets the updated config
+	await useSchoolStore.getState().fetchSchool();
+
+	// 4. Clear sensitive caches
+	clearAllClientCache();
+	await clearUserSessionDataCaches({ mode: 'logout' });
+
+	return; // Now it is safe to abort the rest of the authenticated pipeline
+}
 
 				// -------------------------------------------------------------
 				// PHASE 2: Outbound Queue Replay (Strict FIFO Order)
