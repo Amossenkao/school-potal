@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import useAuth from '@/store/useAuth';
 import { PageLoading } from '@/components/loading';
+import LoginPage from '@/app/login/page';
 
 interface ProtectedRouteProps {
 	children: React.ReactNode;
@@ -44,20 +45,14 @@ const ProtectedRoute = ({
 		void bootstrapAuth();
 	}, [bootstrapAuth]);
 
-	// resolves to "not actually logged in").
+	// Keep the URL in sync in the background, but don't gate what's on screen
+	// on this — we render LoginPage directly below instead of a loader.
 	useEffect(() => {
-		if (!hasBootstrapped) return; // no cache, still resolving initial state
-		if (isAuthenticated) return; // authenticated, either from cache or confirmed
-		if (isVerifying) return; // background check still running, don't redirect yet
-
+		if (!hasBootstrapped) return;
+		if (isAuthenticated) return;
+		if (isVerifying) return;
 		if (pathname !== '/login') {
 			router.replace('/login');
-			const fallbackTimer = window.setTimeout(() => {
-				if (window.location.pathname !== '/login') {
-					window.location.replace('/login');
-				}
-			}, 1200);
-			return () => window.clearTimeout(fallbackTimer);
 		}
 	}, [hasBootstrapped, isVerifying, isAuthenticated, pathname, router]);
 
@@ -74,23 +69,17 @@ const ProtectedRoute = ({
 		router.replace('/login/account-setup');
 	}, [hasBootstrapped, pathname, router, user]);
 
-	// No cached user to render optimistically — this is the only case where
-	// we genuinely have nothing to show yet.
-	// if (!hasBootstrapped) {
-	// 	return (
-	// 		<PageLoading variant="school" fullScreen={true} message="Loading..." />
-	// 	);
-	// }
-
-	// Either cache said "logged out", or the background check just confirmed it.
-	if (!isAuthenticated) {
+	// Still resolving the initial auth check (cache/cookie lookup) — this is
+	// the only case where a generic loader makes sense, since we don't yet
+	// know whether to show the protected content or the login page.
+	if (!hasBootstrapped || isVerifying) {
 		return (
-			<PageLoading
-				variant="school"
-				fullScreen={true}
-				message="Redirecting to login..."
-			/>
+			<PageLoading variant="school" fullScreen={true} message="Loading..." />
 		);
+	}
+
+	if (!isAuthenticated) {
+		return <LoginPage />;
 	}
 
 	const activeUser = user!;

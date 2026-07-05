@@ -1,3 +1,4 @@
+// ─── Root layout ──────────────────────────────────────────────────────────────
 import './globals.css';
 import type { Metadata } from 'next';
 import RootProviders from '@/components/RootProviders';
