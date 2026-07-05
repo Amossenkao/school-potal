@@ -11,6 +11,7 @@ import {
 	type ClearUserSessionDataOptions,
 } from '@/utils/sessionPrivacy';
 import type { RealtimeEvent } from '@/lib/realtimeTypes';
+import { cacheAppShellDirect } from '@/utils/cacheAppShell';
 
 interface LoginData {
 	role: string;
@@ -597,6 +598,7 @@ const runDeferredPostLoginBootstrap = (
 					? { preserveLocalStorageKeys: [OFFLINE_REQUESTS_KEY] }
 					: {},
 			);
+			await cacheAppShellDirect('/login');
 		},
 
 		applyRealtimeEvent,

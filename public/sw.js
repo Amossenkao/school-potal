@@ -111,7 +111,9 @@ const clearSessionCaches = async () => {
 const clearAllCachesAndQueues = async () => {
 	const keys = await caches.keys();
 	await Promise.all([
-		...keys.map((key) => caches.delete(key)),
+		...keys
+			.filter((key) => key !== STATIC_CACHE)
+			.map((key) => caches.delete(key)),
 		clearQueue().catch(() => undefined),
 	]);
 };

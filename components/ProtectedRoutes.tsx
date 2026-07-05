@@ -16,7 +16,7 @@ const ProtectedRoute = ({
 	requiredRole,
 	allowedRoles,
 }: ProtectedRouteProps) => {
-	const { user, isBootstrapping, hasBootstrapped, isVerifying, bootstrapAuth } =
+	const { user, hasBootstrapped, isVerifying, bootstrapAuth } =
 		useAuth();
 	const router = useRouter();
 	const pathname = usePathname();

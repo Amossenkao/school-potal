@@ -107,11 +107,17 @@ const clearSensitiveCaches = async () => {
 	}
 };
 
+const STATIC_CACHE_PRESERVE_PREFIX = 'static-';
+
 const clearAllCaches = async () => {
 	if (typeof window === 'undefined' || !('caches' in window)) return;
 	try {
 		const cacheNames = await window.caches.keys();
-		await Promise.all(cacheNames.map((name) => window.caches.delete(name)));
+		await Promise.all(
+			cacheNames
+				.filter((name) => !name.startsWith(STATIC_CACHE_PRESERVE_PREFIX))
+				.map((name) => window.caches.delete(name)),
+		);
 	} catch (error) {
 		console.warn('Failed to clear Cache Storage entries:', error);
 	}
