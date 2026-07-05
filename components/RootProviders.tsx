@@ -28,7 +28,12 @@ export default function RootProviders({
 	const { hydrateFromCache } = useAuth();
 	const hasAppsFeature = Boolean(school?.enabledFeatures?.includes('apps'));
 
-	// RootProviders.tsx
+	// Initialize store network event hooks once
+	useEffect(() => {
+		useNetworkStore.getState().initNetworkListeners();
+	}, []);
+
+	// Hydrate global caches locally
 	useEffect(() => {
 		hydrateCache();
 		hydrateFromCache();
@@ -38,27 +43,29 @@ export default function RootProviders({
 		return () => window.clearTimeout(taskId);
 	}, [fetchSchool, hydrateCache, hydrateFromCache]);
 
-	// NEW: keep the dashboard shell warm for offline use
-useEffect(() => {
-	cacheAppShellDirect(useAuth.getState().user ? '/dashboard' : '/login');
-
-	const unsubscribe = useAuth.subscribe((state, prevState) => {
-		if (state.user !== prevState.user) {
-			cacheAppShellDirect(state.user ? '/dashboard' : '/login');
-		}
-	});
-
-	const handleOnline = () => {
+	// Keep Dashboard shell hot
+	useEffect(() => {
 		cacheAppShellDirect(useAuth.getState().user ? '/dashboard' : '/login');
-	};
-	window.addEventListener('online', handleOnline);
 
-	return () => {
-		unsubscribe();
-		window.removeEventListener('online', handleOnline);
-	};
-}, []);
+		const unsubAuth = useAuth.subscribe((state, prevState) => {
+			if (state.user !== prevState.user) {
+				cacheAppShellDirect(state.user ? '/dashboard' : '/login');
+			}
+		});
 
+		const unsubNetwork = useNetworkStore.subscribe((state, prevState) => {
+			if (state.isOnline && !prevState.isOnline) {
+				cacheAppShellDirect(useAuth.getState().user ? '/dashboard' : '/login');
+			}
+		});
+
+		return () => {
+			unsubAuth();
+			unsubNetwork();
+		};
+	}, []);
+
+	// Service Worker registration logic
 	useEffect(() => {
 		if (!('serviceWorker' in navigator)) return;
 
@@ -109,53 +116,50 @@ useEffect(() => {
 		};
 	}, []);
 
+	// =========================================================================
+	// DETERMINISTIC 4-PHASE OFFLINE-TO-ONLINE SYNC PIPELINE
+	// =========================================================================
 	useEffect(() => {
-		const flushOfflineRequests = async () => {
+		const executeSyncPipeline = async () => {
+			// Guard clause: Avoid overlapping sync attempts
+			if (useNetworkStore.getState().isSyncing) return;
+			useNetworkStore.setState({ isSyncing: true });
+
+			console.log('[Sync Pipeline] Commencing catch-up process...');
+
 			try {
-				const raw = localStorage.getItem(OFFLINE_REQUESTS_KEY);
-				if (!raw) return;
-				const queued = JSON.parse(raw);
-				if (!Array.isArray(queued) || queued.length === 0) {
-					localStorage.removeItem(OFFLINE_REQUESTS_KEY);
+				// -------------------------------------------------------------
+				// PHASE 1: Session & Connectivity Verification
+				// -------------------------------------------------------------
+				const isOnline = await useNetworkStore.getState().refreshConnectivity({
+					timeoutMs: 2500,
+					force: true,
+					reason: 'pipeline-verification',
+				});
+				if (!isOnline) {
+					console.warn('[Sync Pipeline] Aborted. Connection verified false.');
 					return;
 				}
-				const isOnline = await useNetworkStore.getState().refreshConnectivity({
-					timeoutMs: 2200,
-					force: true,
-					reason: 'flush-offline-requests',
-				});
-				if (!isOnline) return;
-				const remaining: any[] = [];
-				let queuedLogoutResolved = false;
 
-				for (const item of queued) {
-					try {
-						const res = await fetch(item.url, {
-							method: item.method || 'GET',
-							headers: item.headers || {},
-							body: item.body,
-							credentials: item.credentials || 'include',
-						});
-						const method = String(item?.method || 'GET').toUpperCase();
-						const url = String(item?.url || '');
-						const isLogoutRequest =
-							method === 'DELETE' &&
-							(url === LOGOUT_ENDPOINT || url.endsWith(LOGOUT_ENDPOINT));
-						const logoutResolved =
-							isLogoutRequest && (res.ok || res.status === 401);
-						if (logoutResolved) {
-							queuedLogoutResolved = true;
-							continue;
-						}
-						if (!res.ok) {
-							remaining.push(item);
-						}
-					} catch {
-						remaining.push(item);
-					}
+				let isSessionValid = false;
+				try {
+					await useAuth.getState().checkAuthStatus({
+						skipConnectivityCheck: true,
+						force: true,
+						trigger: 'pipeline-session-validation',
+					});
+					isSessionValid = !!useAuth.getState().user?.isActive;
+				} catch (authError) {
+					console.error(
+						'[Sync Pipeline] Phase 1 verification request failed:',
+						authError,
+					);
 				}
 
-				if (queuedLogoutResolved) {
+				if (!isSessionValid) {
+					console.warn(
+						'[Sync Pipeline] Session expired or corrupted while offline. Flushing local queues.',
+					);
 					localStorage.removeItem(OFFLINE_REQUESTS_KEY);
 					useAuth.setState({
 						user: null,
@@ -174,37 +178,139 @@ useEffect(() => {
 					return;
 				}
 
-				if (remaining.length > 0) {
-					localStorage.setItem(OFFLINE_REQUESTS_KEY, JSON.stringify(remaining));
-				} else {
-					localStorage.removeItem(OFFLINE_REQUESTS_KEY);
+				// -------------------------------------------------------------
+				// PHASE 2: Outbound Queue Replay (Strict FIFO Order)
+				// -------------------------------------------------------------
+				const raw = localStorage.getItem(OFFLINE_REQUESTS_KEY);
+				if (raw) {
+					const queued = JSON.parse(raw);
+					if (Array.isArray(queued) && queued.length > 0) {
+						const remaining: any[] = [];
+						let queuedLogoutResolved = false;
+
+						for (const item of queued) {
+							try {
+								// Inject structural tracking headers for server-side idempotency handling
+								const headers = {
+									...(item.headers || {}),
+									'X-Offline-Sync-Id': item.offlineId || crypto.randomUUID(),
+									'X-Offline-Timestamp': String(item.timestamp || Date.now()),
+								};
+
+								const res = await fetch(item.url, {
+									method: item.method || 'GET',
+									headers,
+									body: item.body,
+									credentials: item.credentials || 'include',
+								});
+
+								const method = String(item?.method || 'GET').toUpperCase();
+								const url = String(item?.url || '');
+								const isLogoutRequest =
+									method === 'DELETE' &&
+									(url === LOGOUT_ENDPOINT || url.endsWith(LOGOUT_ENDPOINT));
+
+								if (isLogoutRequest && (res.ok || res.status === 401)) {
+									queuedLogoutResolved = true;
+									break;
+								}
+
+								// If request fails due to 5xx error or connection dropping mid-stream, keep it in FIFO queue
+								// If it fails due to 4xx (Client Conflict), proceed but drop it to prevent permanent queue blocks
+								if (!res.ok && res.status >= 500) {
+									remaining.push(item);
+								}
+							} catch (fetchError) {
+								remaining.push(item);
+							}
+						}
+
+						if (queuedLogoutResolved) {
+							localStorage.removeItem(OFFLINE_REQUESTS_KEY);
+							useAuth.setState({
+								user: null,
+								isLoggedIn: false,
+								error: null,
+								isLoading: false,
+								sessionId: null,
+								isAwaitingOtp: false,
+								otpContact: null,
+								userId: null,
+								userVersion: null,
+							});
+							useSchoolStore.getState().clearCache();
+							clearAllClientCache();
+							await clearUserSessionDataCaches({ mode: 'logout' });
+							return;
+						}
+
+						if (remaining.length > 0) {
+							localStorage.setItem(
+								OFFLINE_REQUESTS_KEY,
+								JSON.stringify(remaining),
+							);
+						} else {
+							localStorage.removeItem(OFFLINE_REQUESTS_KEY);
+						}
+					}
 				}
-			} catch (error) {
-				console.warn('Failed to flush offline requests:', error);
+
+				// -------------------------------------------------------------
+				// PHASE 3: Service Worker Synchronization
+				// -------------------------------------------------------------
+				if (
+					hasAppsFeature &&
+					'serviceWorker' in navigator &&
+					navigator.serviceWorker.controller
+				) {
+					navigator.serviceWorker.controller.postMessage({
+						type: 'flush-grade-queue',
+					});
+				}
+
+				// -------------------------------------------------------------
+				// PHASE 4: Inbound Stream Catch-Up (Full Fallback Rehydration)
+				// -------------------------------------------------------------
+				await useSchoolStore.getState().fetchSchool();
+				const activeYear =
+					useSchoolStore.getState().school?.currentAcademicYear;
+				if (
+					activeYear &&
+					useSchoolStore.getState().hasPendingGradeSync(activeYear)
+				) {
+					useSchoolStore.getState().runBackgroundGradeSync(activeYear);
+				}
+
+				console.log('[Sync Pipeline] Pipeline executed successfully.');
+			} catch (pipelineError) {
+				console.error(
+					'[Sync Pipeline] Fatal processing error during recovery:',
+					pipelineError,
+				);
+			} finally {
+				useNetworkStore.setState({ isSyncing: false });
 			}
 		};
 
-		const flushQueue = () => {
-			void flushOfflineRequests();
-			if (
-				hasAppsFeature &&
-				'serviceWorker' in navigator &&
-				navigator.serviceWorker.controller
-			) {
-				navigator.serviceWorker.controller.postMessage({
-					type: 'flush-grade-queue',
-				});
+		// Run pipeline directly if we boot online
+		if (useNetworkStore.getState().isOnline) {
+			void executeSyncPipeline();
+		}
+
+		// Subscribe cleanly to offline -> online store state changes
+		const unsubNetwork = useNetworkStore.subscribe((state, prevState) => {
+			if (state.isOnline && !prevState.isOnline) {
+				void executeSyncPipeline();
 			}
-		};
-		window.addEventListener('online', flushQueue);
-		flushQueue();
-		return () => window.removeEventListener('online', flushQueue);
+		});
+
+		return () => unsubNetwork();
 	}, [hasAppsFeature]);
 
-useEffect(() => {
-	const preferredTheme = localStorage.getItem('user_theme_preference');
-	applyTenantThemeToDocument(preferredTheme || school?.themeName);
-}, [school?.themeName]);
+	useEffect(() => {
+		const preferredTheme = localStorage.getItem('user_theme_preference');
+		applyTenantThemeToDocument(preferredTheme || school?.themeName);
+	}, [school?.themeName]);
 
 	return (
 		<AuthProvider>

@@ -31,8 +31,7 @@ export default function AuthProvider({
 	const user = useAuth((state) => state.user);
 	const currentSchool = useSchoolStore((state) => state.school);
 
-	const setBrowserOnline = useNetworkStore((state) => state.setBrowserOnline);
-	const markOffline = useNetworkStore((state) => state.markOffline);
+	const setAblyState = useNetworkStore((state) => state.setAblyState);
 	const setAuthCheckFailed = useNetworkStore(
 		(state) => state.setAuthCheckFailed,
 	);
@@ -57,55 +56,54 @@ export default function AuthProvider({
 		}
 	}, []);
 
-	
-const runAuthRefresh = useCallback(
-	async (options?: {
-		force?: boolean;
-		trigger?: string;
-		academicYear?: string;
-	}) => {
-		if (authRefreshInFlight.current) {
-			const previous = pendingAuthRefreshRef.current;
-			pendingAuthRefreshRef.current = {
-				force: Boolean(previous?.force) || Boolean(options?.force),
-				trigger: options?.trigger || previous?.trigger,
-				academicYear: options?.academicYear || previous?.academicYear,
-			};
-			return;
-		}
-		authRefreshInFlight.current = true;
-		try {
-			await checkAuthStatus({
-				skipConnectivityCheck: true,
-				force: options?.force === true,
-				trigger: options?.trigger,
-				academicYear: options?.academicYear,
-			});
-			await ensureSchoolProfile();
-
-			// Only run background grade sync if there's a cursor to resume from.
-			// If gradesCursor was null at bootstrap, all grades are already present
-			// and there's nothing for the background sync to do.
-const activeYear =
-	options?.academicYear ||
-	useSchoolStore.getState().school?.currentAcademicYear;
-if (activeYear && useSchoolStore.getState().hasPendingGradeSync(activeYear)) {
-	useSchoolStore.getState().runBackgroundGradeSync(activeYear);
-}
-		} catch (error) {
-			console.error('[AuthProvider] Auth refresh failed:', error);
-			setAuthCheckFailed(true);
-		} finally {
-			authRefreshInFlight.current = false;
-			const pending = pendingAuthRefreshRef.current;
-			pendingAuthRefreshRef.current = null;
-			if (pending) {
-				void runAuthRefresh(pending);
+	const runAuthRefresh = useCallback(
+		async (options?: {
+			force?: boolean;
+			trigger?: string;
+			academicYear?: string;
+		}) => {
+			if (authRefreshInFlight.current) {
+				const previous = pendingAuthRefreshRef.current;
+				pendingAuthRefreshRef.current = {
+					force: Boolean(previous?.force) || Boolean(options?.force),
+					trigger: options?.trigger || previous?.trigger,
+					academicYear: options?.academicYear || previous?.academicYear,
+				};
+				return;
 			}
-		}
-	},
-	[checkAuthStatus, ensureSchoolProfile, setAuthCheckFailed],
-);
+			authRefreshInFlight.current = true;
+			try {
+				await checkAuthStatus({
+					skipConnectivityCheck: true,
+					force: options?.force === true,
+					trigger: options?.trigger,
+					academicYear: options?.academicYear,
+				});
+				await ensureSchoolProfile();
+
+				const activeYear =
+					options?.academicYear ||
+					useSchoolStore.getState().school?.currentAcademicYear;
+				if (
+					activeYear &&
+					useSchoolStore.getState().hasPendingGradeSync(activeYear)
+				) {
+					useSchoolStore.getState().runBackgroundGradeSync(activeYear);
+				}
+			} catch (error) {
+				console.error('[AuthProvider] Auth refresh failed:', error);
+				setAuthCheckFailed(true);
+			} finally {
+				authRefreshInFlight.current = false;
+				const pending = pendingAuthRefreshRef.current;
+				pendingAuthRefreshRef.current = null;
+				if (pending) {
+					void runAuthRefresh(pending);
+				}
+			}
+		},
+		[checkAuthStatus, ensureSchoolProfile, setAuthCheckFailed],
+	);
 
 	const closeRealtimeClient = useCallback(() => {
 		realtimeSubscriptionsRef.current.forEach((unsubscribe) => unsubscribe());
@@ -116,6 +114,7 @@ if (activeYear && useSchoolStore.getState().hasPendingGradeSync(activeYear)) {
 		}
 	}, []);
 
+	// Initial bootstrap run on mount
 	useEffect(() => {
 		const runInitialBootstrap = async () => {
 			try {
@@ -126,32 +125,9 @@ if (activeYear && useSchoolStore.getState().hasPendingGradeSync(activeYear)) {
 			}
 		};
 		void runInitialBootstrap();
+	}, [bootstrapAuth, ensureSchoolProfile]);
 
-		const handleOnline = () => {
-			setBrowserOnline(true);
-			void runAuthRefresh({ force: true, trigger: 'online' });
-		};
-		const handleOffline = () => {
-			markOffline('browser-offline');
-			setAuthCheckFailed(true);
-		};
-
-		window.addEventListener('online', handleOnline);
-		window.addEventListener('offline', handleOffline);
-
-		return () => {
-			window.removeEventListener('online', handleOnline);
-			window.removeEventListener('offline', handleOffline);
-		};
-	}, [
-		bootstrapAuth,
-		ensureSchoolProfile,
-		markOffline,
-		runAuthRefresh,
-		setAuthCheckFailed,
-		setBrowserOnline,
-	]);
-
+	// Ably Streaming Channel Setup and Connection Listeners
 	useEffect(() => {
 		if (typeof window === 'undefined') return;
 		if (!user?.isActive) {
@@ -202,70 +178,65 @@ if (activeYear && useSchoolStore.getState().hasPendingGradeSync(activeYear)) {
 		});
 
 		const handleRealtimeEvent = (event: RealtimeEvent) => {
-	console.log("handleRealtimeEvent called", event)
-	useSchoolStore.getState().applyRealtimeEvent(event);
-	useAuth.getState().applyRealtimeEvent(event);
+			console.log('handleRealtimeEvent called', event);
+			useSchoolStore.getState().applyRealtimeEvent(event);
+			useAuth.getState().applyRealtimeEvent(event);
 
-	const currentUserId = String(user?.id || '').trim();
-	const targetUserIds = Array.isArray(event.payload?.targetUserIds)
-		? event.payload.targetUserIds.map((v) => String(v || '').trim())
-		: [];
-	const eventUserId = String(event.payload?.userId || '').trim();
-	const impactsCurrentUser =
-		currentUserId &&
-		(Boolean(eventUserId && eventUserId === currentUserId) ||
-			targetUserIds.includes(currentUserId));
+			const currentUserId = String(user?.id || '').trim();
+			const targetUserIds = Array.isArray(event.payload?.targetUserIds)
+				? event.payload.targetUserIds.map((v) => String(v || '').trim())
+				: [];
+			const eventUserId = String(event.payload?.userId || '').trim();
+			const impactsCurrentUser =
+				currentUserId &&
+				(Boolean(eventUserId && eventUserId === currentUserId) ||
+					targetUserIds.includes(currentUserId));
 
-	if (event.type === 'USER_DISABLED' && impactsCurrentUser) {
-		return;
-	}
+			if (event.type === 'USER_DISABLED' && impactsCurrentUser) {
+				return;
+			}
 
-	const academicYear = String(event.payload?.academicYear || '').trim();
-	const reason = String(event.payload?.reason || '').trim();
+			const academicYear = String(event.payload?.academicYear || '').trim();
+			const reason = String(event.payload?.reason || '').trim();
 
-	if (SECURITY_SYNC_REASONS.has(reason)) {
-		void runAuthRefresh({
-			force: true,
-			trigger: `ably-security:${event.type}`,
-			academicYear,
-		});
-		return;
-	}
+			if (SECURITY_SYNC_REASONS.has(reason)) {
+				void runAuthRefresh({
+					force: true,
+					trigger: `ably-security:${event.type}`,
+					academicYear,
+				});
+				return;
+			}
 
-	// Only trigger a server round-trip if the event carries no user payload.
-	// If payloadUser is present, applyRealtimeEvent already updated the roster
-	// in-place — no need to re-fetch from the server.
-	const hasPayloadUser = Boolean(
-		event.payload?.user && typeof event.payload.user === 'object',
-	);
-	const isUserEvent = [
-		'USER_CREATED',
-		'USER_UPDATED',
-		'USER_DISABLED',
-		'STUDENT_ADDED',
-		'STUDENT_REMOVED',
-		'CLASS_UPDATED',
-	].includes(event.type);
+			const hasPayloadUser = Boolean(
+				event.payload?.user && typeof event.payload.user === 'object',
+			);
+			const isUserEvent = [
+				'USER_CREATED',
+				'USER_UPDATED',
+				'USER_DISABLED',
+				'STUDENT_ADDED',
+				'STUDENT_REMOVED',
+				'CLASS_UPDATED',
+			].includes(event.type);
 
-	if (isUserEvent && hasPayloadUser) {
-		// Roster already patched in-place by applyRealtimeEvent.
-		// Only sync if this impacts the current user's own session data.
-		if (impactsCurrentUser) {
+			if (isUserEvent && hasPayloadUser) {
+				if (impactsCurrentUser) {
+					scheduleRefresh({
+						force: true,
+						trigger: `ably:${event.type}`,
+						academicYear,
+					});
+				}
+				return;
+			}
+
 			scheduleRefresh({
 				force: true,
 				trigger: `ably:${event.type}`,
 				academicYear,
 			});
-		}
-		return;
-	}
-
-	scheduleRefresh({
-		force: true,
-		trigger: `ably:${event.type}`,
-		academicYear,
-	});
-};
+		};
 
 		channels.forEach((channelName) => {
 			const channel = client.channels.get(channelName);
@@ -287,21 +258,25 @@ if (activeYear && useSchoolStore.getState().hasPendingGradeSync(activeYear)) {
 			);
 		});
 
+		// Pipe state directly to the store
 		client.connection.on('connected', () => {
+			setAblyState('connected');
 			setAuthCheckFailed(false);
 			void runAuthRefresh({ force: true, trigger: 'ably-connected' });
 		});
+
 		client.connection.on('failed', () => {
-			if (typeof navigator !== 'undefined' && !navigator.onLine) {
-				markOffline('browser-offline');
-			}
+			setAblyState('failed');
 			setAuthCheckFailed(true);
 		});
+
 		client.connection.on('suspended', () => {
+			setAblyState('suspended');
 			setAuthCheckFailed(true);
 		});
 
 		return () => {
+			setAblyState('disconnected');
 			closeRealtimeClient();
 			if (syncEventDebounceRef.current !== null) {
 				window.clearTimeout(syncEventDebounceRef.current);
@@ -311,8 +286,8 @@ if (activeYear && useSchoolStore.getState().hasPendingGradeSync(activeYear)) {
 	}, [
 		closeRealtimeClient,
 		currentSchool,
-		markOffline,
 		runAuthRefresh,
+		setAblyState,
 		setAuthCheckFailed,
 		user?.id,
 		user?.isActive,
@@ -320,13 +295,5 @@ if (activeYear && useSchoolStore.getState().hasPendingGradeSync(activeYear)) {
 		user,
 	]);
 
-	useEffect(() => {
-		if (typeof navigator === 'undefined') return;
-		if (!navigator.onLine && !user) {
-			markOffline('browser-offline');
-		}
-	}, [markOffline, user]);
-
 	return <>{children}</>;
 }
-
