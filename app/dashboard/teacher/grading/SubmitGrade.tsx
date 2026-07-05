@@ -189,12 +189,116 @@ const SubmitGrade: React.FC = () => {
 		setIsGenerateModalOpen(false);
 	};
 
+		const periods = useMemo(() => {
+			if (school?.settings?.teacherSettings?.gradeSubmissionPeriods) {
+				const allowedPeriods =
+					school.settings.teacherSettings.gradeSubmissionPeriods;
+				return allPeriods.filter((p) => allowedPeriods.includes(p.id));
+			}
+			return allPeriods;
+		}, [school]);
+
 	useEffect(() => {
 		usersByAcademicYearRef.current = usersByAcademicYear;
 	}, [usersByAcademicYear]);
+
 	useEffect(() => {
 		gradesByAcademicYearRef.current = gradesByAcademicYear;
 	}, [gradesByAcademicYear]);
+
+	// ── THE FIX: Real-time synchronization of grades ──
+	useEffect(() => {
+		if (
+			!selectedAcademicYear ||
+			!selectedClassId ||
+			!selectedSubject ||
+			studentsForGrading.length === 0
+		) {
+			return;
+		}
+
+		// 1. Get the latest grades for the selected year from the Zustand store
+		const cachedGradesForYear = getScopedAcademicYearValue(
+			gradesByAcademicYear,
+			selectedAcademicYear,
+		).value;
+
+		if (!Array.isArray(cachedGradesForYear)) return;
+
+		// 2. Filter down to the exact class and subject currently being viewed
+		const relevantGrades = cachedGradesForYear.filter(
+			(grade: any) =>
+				grade?.classId === selectedClassId &&
+				grade?.subject === selectedSubject,
+		);
+
+		if (relevantGrades.length === 0) return;
+
+		// 3. Map the live grades by studentId and period
+		const liveGradesMap = new Map();
+		relevantGrades.forEach((grade: any) => {
+			if (!liveGradesMap.has(grade.studentId)) {
+				liveGradesMap.set(grade.studentId, {});
+			}
+			liveGradesMap.get(grade.studentId)[grade.period] = {
+				grade: grade.grade,
+				status: grade.status,
+			};
+		});
+
+		// 4. Safely merge the live data into the local state
+		setStudentsForGrading((prev) => {
+			let hasChanges = false;
+			const nextState = prev.map((student) => {
+				const liveStudentGrades = liveGradesMap.get(student.studentId) || {};
+				let studentChanged = false;
+				const updatedGrades = { ...student.grades };
+
+				periods.forEach(({ id }) => {
+					const liveGrade = liveStudentGrades[id];
+					const currentGrade = updatedGrades[id];
+
+					if (
+						liveGrade &&
+						liveGrade.grade !== undefined &&
+						liveGrade.status &&
+						(liveGrade.status.toLowerCase() === 'approved' ||
+							liveGrade.status.toLowerCase() === 'pending')
+					) {
+						// If the live grade differs from what the UI shows, update it.
+						if (
+							currentGrade.grade !== liveGrade.grade ||
+							currentGrade.status !== liveGrade.status ||
+							!currentGrade.hasExistingGrade
+						) {
+							updatedGrades[id] = {
+								grade: liveGrade.grade,
+								hasExistingGrade: true,
+								status: liveGrade.status,
+								isDraft: false,
+							};
+							studentChanged = true;
+						}
+					}
+				});
+
+				if (studentChanged) {
+					hasChanges = true;
+					return { ...student, grades: updatedGrades };
+				}
+				return student;
+			});
+
+			// Only trigger a re-render if actual changes were detected
+			return hasChanges ? nextState : prev;
+		});
+	}, [
+		gradesByAcademicYear, // Triggers when real-time events update the global store
+		selectedAcademicYear,
+		selectedClassId,
+		selectedSubject,
+		periods,
+	]);
 
 	const getClassMetaById = useCallback(
 		(classId: string) => {
@@ -279,14 +383,7 @@ const SubmitGrade: React.FC = () => {
 		[teacherInfo?.username, selectedAcademicYear],
 	);
 
-	const periods = useMemo(() => {
-		if (school?.settings?.teacherSettings?.gradeSubmissionPeriods) {
-			const allowedPeriods =
-				school.settings.teacherSettings.gradeSubmissionPeriods;
-			return allPeriods.filter((p) => allowedPeriods.includes(p.id));
-		}
-		return allPeriods;
-	}, [school]);
+
 
 	const teacherYears = useMemo(
 		() => getTeacherAcademicYears(teacherInfo),
