@@ -16,6 +16,8 @@ interface NetworkState {
 		force?: boolean;
 		reason?: string;
 	}) => Promise<boolean>;
+	markOffline: (reason?: string) => void;
+	markOnline: () => void;
 	setAblyState: (
 		state: 'connected' | 'failed' | 'suspended' | 'disconnected',
 	) => void;
@@ -24,6 +26,7 @@ interface NetworkState {
 }
 
 const POLL_INTERVAL_MS = 10_000; // 10 seconds
+const RECOVERY_RETRY_INTERVAL_MS = 5_000;
 const CONNECTIVITY_CHECK_URL = 'https://www.gstatic.com/generate_204';
 const STUCK_CHECK_TIMEOUT_MS = 8_000;
 
@@ -46,7 +49,31 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 		// across it, leaving an orphaned interval bound to a stale closure).
 		get().stopNetworkListeners();
 
+		const clearRecoveryRetryTimer = () => {
+			const timerId = (window as any).__networkRecoveryRetryIntervalId;
+			if (timerId) {
+				window.clearInterval(timerId);
+				(window as any).__networkRecoveryRetryIntervalId = null;
+			}
+		};
+
+		const scheduleRecoveryRetryTimer = () => {
+			clearRecoveryRetryTimer();
+			const timerId = window.setInterval(() => {
+				if (get().isOnline) {
+					clearRecoveryRetryTimer();
+					return;
+				}
+				void get().refreshConnectivity({
+					force: true,
+					reason: 'offline-recovery-poll',
+				});
+			}, RECOVERY_RETRY_INTERVAL_MS);
+			(window as any).__networkRecoveryRetryIntervalId = timerId;
+		};
+
 		const handleOnline = async () => {
+			clearRecoveryRetryTimer();
 			await get().refreshConnectivity({
 				force: true,
 				reason: 'browser-online-event',
@@ -54,24 +81,22 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 		};
 
 		const handleOffline = () => {
-			set({
-				isOnline: false,
-				offlineReason: 'browser-offline',
-				authCheckFailed: true,
-			});
+			get().markOffline('browser-offline');
+			scheduleRecoveryRetryTimer();
 		};
 
 		window.addEventListener('online', handleOnline);
 		window.addEventListener('offline', handleOffline);
+		window.addEventListener('focus', handleOnline);
 
 		const intervalId = window.setInterval(() => {
 			if (document.visibilityState !== 'visible') return;
-			get().refreshConnectivity({ reason: 'interval-poll' });
+			void get().refreshConnectivity({ reason: 'interval-poll' });
 		}, POLL_INTERVAL_MS);
 
 		const handleVisibilityChange = () => {
 			if (document.visibilityState === 'visible') {
-				get().refreshConnectivity({ reason: 'visibility-change' });
+				void get().refreshConnectivity({ reason: 'visibility-change' });
 			}
 		};
 		document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -94,6 +119,12 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 		if (intervalId) {
 			window.clearInterval(intervalId);
 			(window as any).__networkPollIntervalId = null;
+		}
+
+		const recoveryTimerId = (window as any).__networkRecoveryRetryIntervalId;
+		if (recoveryTimerId) {
+			window.clearInterval(recoveryTimerId);
+			(window as any).__networkRecoveryRetryIntervalId = null;
 		}
 
 		const onlineHandler = (window as any).__networkOnlineHandler;
@@ -152,24 +183,32 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 				signal: controller.signal,
 			});
 
-			set({
-				isOnline: true,
-				isChecking: false,
-				offlineReason: null,
-				checkStartedAt: null,
-			});
+			get().markOnline();
 			return true;
 		} catch (error) {
-			set({
-				isOnline: false,
-				isChecking: false,
-				offlineReason: 'network-error',
-				checkStartedAt: null,
-			});
+			get().markOffline('network-error');
 			return false;
 		} finally {
 			clearTimeout(timeoutId);
 		}
+	},
+
+	markOffline: (reason = 'network-error') => {
+		set({
+			isOnline: false,
+			isChecking: false,
+			offlineReason: reason,
+			authCheckFailed: true,
+			checkStartedAt: null,
+		});
+	},
+	markOnline: () => {
+		set({
+			isOnline: true,
+			isChecking: false,
+			offlineReason: null,
+			checkStartedAt: null,
+		});
 	},
 
 	setAblyState: (state) => set({ ablyState: state }),
