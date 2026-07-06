@@ -7,6 +7,7 @@ interface NetworkState {
 	ablyState: 'connected' | 'failed' | 'suspended' | 'disconnected' | null;
 	authCheckFailed: boolean;
 	offlineReason: string | null;
+	checkStartedAt: number | null;
 
 	// Actions
 	initNetworkListeners: () => void;
@@ -22,8 +23,9 @@ interface NetworkState {
 	stopNetworkListeners: () => void;
 }
 
-const POLL_INTERVAL_MS = 1_000; 
+const POLL_INTERVAL_MS = 30_000; // 1s was way too aggressive and caused overlapping checks
 const CONNECTIVITY_CHECK_URL = 'https://www.gstatic.com/generate_204';
+const STUCK_CHECK_TIMEOUT_MS = 8_000; // hard ceiling — never trust isChecking indefinitely
 
 export const useNetworkStore = create<NetworkState>((set, get) => ({
 	isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
@@ -32,6 +34,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 	ablyState: null,
 	authCheckFailed: false,
 	offlineReason: null,
+	checkStartedAt: null,
 
 	initNetworkListeners: () => {
 		if (typeof window === 'undefined') return;
@@ -57,7 +60,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 		window.addEventListener('offline', handleOffline);
 
 		const intervalId = window.setInterval(() => {
-			if (get().isChecking) return;
 			if (document.visibilityState !== 'visible') return;
 			get().refreshConnectivity({ reason: 'interval-poll' });
 		}, POLL_INTERVAL_MS);
@@ -92,16 +94,31 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 	},
 
 	refreshConnectivity: async (options) => {
-		if (get().isChecking && !options?.force) return get().isOnline;
+		const state = get();
 
-		set({ isChecking: true });
+		if (state.isChecking && !options?.force) {
+			// Self-heal: if a previous check has been "in flight" longer than
+			// it possibly could be (network hiccup, unhandled rejection, etc.),
+			// treat it as abandoned rather than trusting it forever.
+			const stuckSince = state.checkStartedAt;
+			const isStuck =
+				stuckSince !== null && Date.now() - stuckSince > STUCK_CHECK_TIMEOUT_MS;
+
+			if (!isStuck) {
+				return state.isOnline;
+			}
+			// fall through and run a fresh check, overwriting the stuck one
+		}
+
+		set({ isChecking: true, checkStartedAt: Date.now() });
+
+		const controller = new AbortController();
+		const timeoutId = setTimeout(
+			() => controller.abort(),
+			options?.timeoutMs || 3000,
+		);
+
 		try {
-			const controller = new AbortController();
-			const timeoutId = setTimeout(
-				() => controller.abort(),
-				options?.timeoutMs || 3000,
-			);
-
 			// no-cors means we can't read res.ok/status — an opaque response
 			// that resolves (rather than throws) is treated as "online"
 			await fetch(CONNECTIVITY_CHECK_URL, {
@@ -111,11 +128,11 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 				signal: controller.signal,
 			});
 
-			clearTimeout(timeoutId);
 			set({
 				isOnline: true,
 				isChecking: false,
 				offlineReason: null,
+				checkStartedAt: null,
 			});
 			return true;
 		} catch (error) {
@@ -123,8 +140,11 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 				isOnline: false,
 				isChecking: false,
 				offlineReason: 'network-error',
+				checkStartedAt: null,
 			});
 			return false;
+		} finally {
+			clearTimeout(timeoutId);
 		}
 	},
 
