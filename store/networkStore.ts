@@ -23,9 +23,9 @@ interface NetworkState {
 	stopNetworkListeners: () => void;
 }
 
-const POLL_INTERVAL_MS = 30_000; // 1s was way too aggressive and caused overlapping checks
+const POLL_INTERVAL_MS = 10_000; // 10 seconds
 const CONNECTIVITY_CHECK_URL = 'https://www.gstatic.com/generate_204';
-const STUCK_CHECK_TIMEOUT_MS = 8_000; // hard ceiling — never trust isChecking indefinitely
+const STUCK_CHECK_TIMEOUT_MS = 8_000;
 
 export const useNetworkStore = create<NetworkState>((set, get) => ({
 	isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
@@ -38,8 +38,13 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
 	initNetworkListeners: () => {
 		if (typeof window === 'undefined') return;
-		if ((window as any).__networkListenersAttached) return;
-		(window as any).__networkListenersAttached = true;
+
+		// Always tear down any previous attachment before creating a new one.
+		// This makes init idempotent instead of relying on a flag that can
+		// outlive the store instance it was originally set for (e.g. after
+		// a dev-mode hot reload recreates this module but `window` persists
+		// across it, leaving an orphaned interval bound to a stale closure).
+		get().stopNetworkListeners();
 
 		const handleOnline = async () => {
 			await get().refreshConnectivity({
@@ -63,7 +68,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 			if (document.visibilityState !== 'visible') return;
 			get().refreshConnectivity({ reason: 'interval-poll' });
 		}, POLL_INTERVAL_MS);
-		(window as any).__networkPollIntervalId = intervalId;
 
 		const handleVisibilityChange = () => {
 			if (document.visibilityState === 'visible') {
@@ -71,7 +75,12 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 			}
 		};
 		document.addEventListener('visibilitychange', handleVisibilityChange);
+
+		(window as any).__networkPollIntervalId = intervalId;
+		(window as any).__networkOnlineHandler = handleOnline;
+		(window as any).__networkOfflineHandler = handleOffline;
 		(window as any).__networkVisibilityHandler = handleVisibilityChange;
+		(window as any).__networkListenersAttached = true;
 
 		if (!navigator.onLine) {
 			handleOffline();
@@ -80,16 +89,31 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
 	stopNetworkListeners: () => {
 		if (typeof window === 'undefined') return;
+
 		const intervalId = (window as any).__networkPollIntervalId;
 		if (intervalId) {
 			window.clearInterval(intervalId);
 			(window as any).__networkPollIntervalId = null;
 		}
+
+		const onlineHandler = (window as any).__networkOnlineHandler;
+		if (onlineHandler) {
+			window.removeEventListener('online', onlineHandler);
+			(window as any).__networkOnlineHandler = null;
+		}
+
+		const offlineHandler = (window as any).__networkOfflineHandler;
+		if (offlineHandler) {
+			window.removeEventListener('offline', offlineHandler);
+			(window as any).__networkOfflineHandler = null;
+		}
+
 		const visibilityHandler = (window as any).__networkVisibilityHandler;
 		if (visibilityHandler) {
 			document.removeEventListener('visibilitychange', visibilityHandler);
 			(window as any).__networkVisibilityHandler = null;
 		}
+
 		(window as any).__networkListenersAttached = false;
 	},
 
@@ -98,8 +122,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
 		if (state.isChecking && !options?.force) {
 			// Self-heal: if a previous check has been "in flight" longer than
-			// it possibly could be (network hiccup, unhandled rejection, etc.),
-			// treat it as abandoned rather than trusting it forever.
+			// it possibly could be, treat it as abandoned rather than trusting
+			// it forever.
 			const stuckSince = state.checkStartedAt;
 			const isStuck =
 				stuckSince !== null && Date.now() - stuckSince > STUCK_CHECK_TIMEOUT_MS;
