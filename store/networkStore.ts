@@ -23,7 +23,7 @@ interface NetworkState {
 }
 
 const POLL_INTERVAL_MS = 1_000; 
-const CONNECTIVITY_CHECK_URL = 'https://cloudflare.com/cdn-cgi/trace';
+const CONNECTIVITY_CHECK_URL = 'https://www.gstatic.com/generate_204';
 
 export const useNetworkStore = create<NetworkState>((set, get) => ({
 	isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,

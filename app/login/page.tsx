@@ -208,6 +208,61 @@ const IdentityStrip = ({
 	);
 };
 
+/** Compact role/position indicator for mobile — mirrors IdentityStrip's badges */
+const MobileRoleIndicator = ({
+	selectedRole,
+	adminPosition,
+	roles,
+	adminPositions,
+}: {
+	selectedRole: string;
+	adminPosition: string;
+	roles: {
+		value: string;
+		label: string;
+		icon: React.ElementType;
+		colorClass: string;
+	}[];
+	adminPositions: { id: string; name: string }[];
+}) => {
+	const currentRole = roles.find((r) => r.value === selectedRole);
+	const currentPos = adminPositions.find((p) => p.id === adminPosition);
+
+	if (!currentRole) return null;
+
+	return (
+		<div className="lg:hidden flex flex-wrap items-center gap-2 mb-6 animate-in fade-in slide-in-from-top-2 duration-200">
+			<div
+				className="
+					flex items-center gap-1.5
+					rounded-full border border-border bg-muted/40
+					px-3 py-1.5
+				"
+			>
+				<currentRole.icon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+				<span className="text-xs font-medium text-foreground">
+					{currentRole.label}
+				</span>
+			</div>
+
+			{selectedRole === 'administrator' && currentPos && (
+				<div
+					className="
+						flex items-center gap-1.5
+						rounded-full border border-border bg-muted/40
+						px-3 py-1.5
+					"
+				>
+					<Shield className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+					<span className="text-xs font-medium text-foreground">
+						{currentPos.name}
+					</span>
+				</div>
+			)}
+		</div>
+	);
+};
+
 /** Inline error banner */
 const ErrorBanner = ({
 	message,
@@ -687,11 +742,24 @@ const LoginPage = () => {
 		[currentSchool?.dbName, currentSchool?.host],
 	);
 	const [loginDisabledError, setLoginDisabledError] = useState('');
-	const [offlineError, setOfflineError] = useState('');
 	const usernameInputRef = useRef<HTMLInputElement>(null);
+
+	// ── Network store: single source of truth for connectivity ──
+	const isOnline = useNetworkStore((state) => state.isOnline);
 	const refreshConnectivity = useNetworkStore(
 		(state) => state.refreshConnectivity,
 	);
+	const initNetworkListeners = useNetworkStore(
+		(state) => state.initNetworkListeners,
+	);
+	const offlineError = !isOnline
+		? 'You are offline. Please connect to the internet and try again.'
+		: '';
+
+	useEffect(() => {
+		initNetworkListeners();
+	}, [initNetworkListeners]);
+
 	const schoolRefreshInFlightRef = useRef<Promise<SchoolProfile | null> | null>(
 		null,
 	);
@@ -959,15 +1027,11 @@ const LoginPage = () => {
 	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		setFormData({ ...formData, [e.target.name]: e.target.value });
 		if (error) clearError();
-		if (offlineError) setOfflineError('');
 	};
 
 	const handleLoginSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (typeof navigator !== 'undefined' && !navigator.onLine) {
-			setOfflineError(
-				'You are offline. Please connect to the internet and try again.',
-			);
+		if (!isOnline) {
 			return;
 		}
 		void refreshConnectivity({
@@ -975,7 +1039,6 @@ const LoginPage = () => {
 			timeoutMs: 5200,
 			reason: 'login-submit',
 		});
-		setOfflineError('');
 		const latestSchool = await refreshSchoolProfile();
 		const disabledMessage = resolveRoleLoginDisabledMessage(
 			selectedRole,
@@ -1129,14 +1192,13 @@ const LoginPage = () => {
 									</div>
 								)}
 
-								{/* ── Disabled error shown above steps ── */}
-								{loginDisabledError && !showRoleStep && (
-									<ErrorBanner
-										message={loginDisabledError}
-										icon={Shield}
-										variant="error"
-									/>
-								)}
+								{/* Mobile role/position indicator — desktop already shows this via IdentityStrip */}
+								<MobileRoleIndicator
+									selectedRole={selectedRole}
+									adminPosition={adminPosition}
+									roles={roles}
+									adminPositions={adminPositions}
+								/>
 
 								{/* ── Step: role selection ── */}
 								{showRoleStep && (
@@ -1331,6 +1393,6 @@ const LoginPage = () => {
 			)}
 		</>
 	);
-};;
+};
 
 export default LoginPage;
