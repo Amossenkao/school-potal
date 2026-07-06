@@ -3,7 +3,7 @@ import { create } from 'zustand';
 interface NetworkState {
 	isOnline: boolean;
 	isChecking: boolean;
-	isSyncing: boolean; // TRACKS PIPELINE PERFORMANCE
+	isSyncing: boolean;
 	ablyState: 'connected' | 'failed' | 'suspended' | 'disconnected' | null;
 	authCheckFailed: boolean;
 	offlineReason: string | null;
@@ -19,7 +19,11 @@ interface NetworkState {
 		state: 'connected' | 'failed' | 'suspended' | 'disconnected',
 	) => void;
 	setAuthCheckFailed: (failed: boolean) => void;
+	stopNetworkListeners: () => void;
 }
+
+const POLL_INTERVAL_MS = 1_000; 
+const CONNECTIVITY_CHECK_URL = 'https://cloudflare.com/cdn-cgi/trace';
 
 export const useNetworkStore = create<NetworkState>((set, get) => ({
 	isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
@@ -35,7 +39,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 		(window as any).__networkListenersAttached = true;
 
 		const handleOnline = async () => {
-			// Phase 1 verification step is initiated right here
 			await get().refreshConnectivity({
 				force: true,
 				reason: 'browser-online-event',
@@ -53,12 +56,44 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 		window.addEventListener('online', handleOnline);
 		window.addEventListener('offline', handleOffline);
 
+		const intervalId = window.setInterval(() => {
+			if (get().isChecking) return;
+			if (document.visibilityState !== 'visible') return;
+			get().refreshConnectivity({ reason: 'interval-poll' });
+		}, POLL_INTERVAL_MS);
+		(window as any).__networkPollIntervalId = intervalId;
+
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === 'visible') {
+				get().refreshConnectivity({ reason: 'visibility-change' });
+			}
+		};
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+		(window as any).__networkVisibilityHandler = handleVisibilityChange;
+
 		if (!navigator.onLine) {
 			handleOffline();
 		}
 	},
 
+	stopNetworkListeners: () => {
+		if (typeof window === 'undefined') return;
+		const intervalId = (window as any).__networkPollIntervalId;
+		if (intervalId) {
+			window.clearInterval(intervalId);
+			(window as any).__networkPollIntervalId = null;
+		}
+		const visibilityHandler = (window as any).__networkVisibilityHandler;
+		if (visibilityHandler) {
+			document.removeEventListener('visibilitychange', visibilityHandler);
+			(window as any).__networkVisibilityHandler = null;
+		}
+		(window as any).__networkListenersAttached = false;
+	},
+
 	refreshConnectivity: async (options) => {
+		if (get().isChecking && !options?.force) return get().isOnline;
+
 		set({ isChecking: true });
 		try {
 			const controller = new AbortController();
@@ -67,20 +102,22 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 				options?.timeoutMs || 3000,
 			);
 
-			const res = await fetch('/api/ping', {
+			// no-cors means we can't read res.ok/status — an opaque response
+			// that resolves (rather than throws) is treated as "online"
+			await fetch(CONNECTIVITY_CHECK_URL, {
 				method: 'HEAD',
+				mode: 'no-cors',
 				cache: 'no-store',
 				signal: controller.signal,
 			});
 
 			clearTimeout(timeoutId);
-			const isOnline = res.ok;
 			set({
-				isOnline,
+				isOnline: true,
 				isChecking: false,
-				offlineReason: isOnline ? null : 'ping-failed',
+				offlineReason: null,
 			});
-			return isOnline;
+			return true;
 		} catch (error) {
 			set({
 				isOnline: false,
