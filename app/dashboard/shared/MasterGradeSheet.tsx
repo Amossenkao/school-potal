@@ -113,6 +113,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const schoolCurrentAcademicYear =
 		currentSchool?.currentAcademicYear || currentAcademicYear;
 
+	const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
+
 	useEffect(() => {
 		usersByAcademicYearRef.current = usersByAcademicYear;
 	}, [usersByAcademicYear]);
@@ -1076,6 +1078,200 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		activeSubjectIndex,
 	]);
 
+	// ── Real-time synchronization of grades ──
+	useEffect(() => {
+		if (!selectedAcademicYear || !selectedClass || !selectedSubject) {
+			return;
+		}
+
+		const cachedGradesForYear = getScopedAcademicYearValue(
+			gradesByAcademicYear,
+			selectedAcademicYear,
+		).value;
+
+		if (!Array.isArray(cachedGradesForYear)) return;
+
+		const updateStudentPeriods = (
+			student: Student,
+			relevantGradesMap: Map<string, any>,
+		) => {
+			const liveStudentGrades = relevantGradesMap.get(student.studentId) || {};
+			let studentChanged = false;
+			const updatedPeriods = { ...student.periods };
+
+			periods.forEach(({ value: periodKey }) => {
+				const liveGrade = liveStudentGrades[periodKey];
+				const currentGrade = updatedPeriods[periodKey];
+
+				if (
+					liveGrade &&
+					liveGrade.grade !== undefined &&
+					liveGrade.status &&
+					(liveGrade.status.toLowerCase() === 'approved' ||
+						liveGrade.status.toLowerCase() === 'pending')
+				) {
+					if (
+						!currentGrade ||
+						currentGrade.grade !== liveGrade.grade ||
+						currentGrade.status !== liveGrade.status
+					) {
+						updatedPeriods[periodKey] = {
+							grade: liveGrade.grade,
+							status: liveGrade.status,
+						};
+						studentChanged = true;
+					}
+				}
+			});
+
+			if (studentChanged) {
+				return { ...student, periods: updatedPeriods, changed: true };
+			}
+			return { ...student, changed: false };
+		};
+
+		// Single Class / Single Subject Scenario
+		if (
+			selectedClass !== ALL_CLASSES_VALUE &&
+			selectedSubject !== ALL_SUBJECTS_VALUE &&
+			combinedData.length > 0
+		) {
+			const relevantGrades = cachedGradesForYear.filter(
+				(grade: any) =>
+					grade?.classId === selectedClass &&
+					grade?.subject === selectedSubject,
+			);
+
+			if (relevantGrades.length === 0) return;
+
+			const liveGradesMap = new Map();
+			relevantGrades.forEach((grade: any) => {
+				if (!liveGradesMap.has(grade.studentId)) {
+					liveGradesMap.set(grade.studentId, {});
+				}
+				liveGradesMap.get(grade.studentId)[grade.period] = {
+					grade: grade.grade,
+					status: grade.status,
+				};
+			});
+
+			setCombinedData((prev) => {
+				let hasChanges = false;
+				const nextState = prev.map((student) => {
+					const updated = updateStudentPeriods(student, liveGradesMap);
+					if (updated.changed) {
+						hasChanges = true;
+						delete updated.changed;
+						return updated;
+					}
+					return student;
+				});
+				return hasChanges ? nextState : prev;
+			});
+		}
+
+		// ALL_CLASSES Scenario
+		if (
+			selectedClass === ALL_CLASSES_VALUE &&
+			allClassesData.length > 0 &&
+			selectedSubject !== ALL_SUBJECTS_VALUE
+		) {
+			setAllClassesData((prev) => {
+				let anyClassChanged = false;
+				const nextState = prev.map((classData) => {
+					const relevantGrades = cachedGradesForYear.filter(
+						(grade: any) =>
+							grade?.classId === classData.classId &&
+							grade?.subject === selectedSubject,
+					);
+					if (relevantGrades.length === 0) return classData;
+
+					const liveGradesMap = new Map();
+					relevantGrades.forEach((grade: any) => {
+						if (!liveGradesMap.has(grade.studentId)) {
+							liveGradesMap.set(grade.studentId, {});
+						}
+						liveGradesMap.get(grade.studentId)[grade.period] = {
+							grade: grade.grade,
+							status: grade.status,
+						};
+					});
+
+					let classChanged = false;
+					const nextStudents = classData.students.map((student) => {
+						const updated = updateStudentPeriods(student, liveGradesMap);
+						if (updated.changed) {
+							classChanged = true;
+							delete updated.changed;
+							return updated;
+						}
+						return student;
+					});
+
+					if (classChanged) {
+						anyClassChanged = true;
+						return { ...classData, students: nextStudents };
+					}
+					return classData;
+				});
+				return anyClassChanged ? nextState : prev;
+			});
+		}
+
+		// ALL_SUBJECTS Scenario
+		if (
+			selectedSubject === ALL_SUBJECTS_VALUE &&
+			allSubjectsData.length > 0 &&
+			selectedClass !== ALL_CLASSES_VALUE
+		) {
+			setAllSubjectsData((prev) => {
+				let anySubjectChanged = false;
+				const nextState = prev.map((subjectData) => {
+					const relevantGrades = cachedGradesForYear.filter(
+						(grade: any) =>
+							grade?.classId === selectedClass &&
+							grade?.subject === subjectData.subject,
+					);
+					if (relevantGrades.length === 0) return subjectData;
+
+					const liveGradesMap = new Map();
+					relevantGrades.forEach((grade: any) => {
+						if (!liveGradesMap.has(grade.studentId)) {
+							liveGradesMap.set(grade.studentId, {});
+						}
+						liveGradesMap.get(grade.studentId)[grade.period] = {
+							grade: grade.grade,
+							status: grade.status,
+						};
+					});
+
+					let subjectChanged = false;
+					const nextStudents = subjectData.students.map((student) => {
+						const updated = updateStudentPeriods(student, liveGradesMap);
+						if (updated.changed) {
+							subjectChanged = true;
+							delete updated.changed;
+							return updated;
+						}
+						return student;
+					});
+
+					if (subjectChanged) {
+						anySubjectChanged = true;
+						return { ...subjectData, students: nextStudents };
+					}
+					return subjectData;
+				});
+				return anySubjectChanged ? nextState : prev;
+			});
+		}
+	}, [
+		gradesByAcademicYear,
+		selectedAcademicYear,
+		selectedClass,
+		selectedSubject,
+	]);
+
 	useEffect(() => {
 		if (selectedClass && selectedSubject) {
 			setPdfReady(false);
@@ -1201,84 +1397,131 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 	return (
 		<div className="space-y-6">
-			<div className="bg-card border border-border rounded-xl shadow-sm">
-				<div className="flex flex-wrap gap-2 p-2.5 sm:p-3 items-end">
-					{showAcademicYearFilter && (
-						<FilterSelect
-							label="Year"
-							value={selectedAcademicYear}
-							onChange={handleAcademicYearChange}
-							options={availableAcademicYears.map((year) => ({
-								label: year,
-								value: year,
-							}))}
+			{/* Accordion Toggle for Mobile - Match styling of SubmitGrade */}
+			<div className="z-20 shrink-0 bg-background/95 backdrop-blur pt-0 mt-0 pb-2 space-y-2 border-b border-border/50 shadow-sm">
+				{/* Mobile Summary Bar */}
+				<button
+					onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
+					className="md:hidden flex items-center justify-between w-full bg-card border border-border rounded-xl p-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors"
+				>
+					<div className="flex items-center gap-2 text-sm font-medium text-foreground overflow-hidden">
+						<span className="truncate">
+							{selectedAcademicYear || 'Year'}
+							{selectedClass
+								? ` • ${
+										selectedClass === ALL_CLASSES_VALUE
+											? 'All Classes'
+											: classes.find((c: any) => c.classId === selectedClass)
+													?.name || selectedClass
+									}`
+								: ''}
+							{selectedSubject
+								? ` • ${
+										selectedSubject === ALL_SUBJECTS_VALUE
+											? 'All Subjects'
+											: selectedSubject
+									}`
+								: ''}
+						</span>
+					</div>
+					<div className="flex items-center gap-2 shrink-0 pl-2">
+						<ChevronDown
+							className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${isFiltersExpanded ? 'rotate-180' : ''}`}
 						/>
-					)}
-					{showSessionFilter && (
-						<FilterSelect
-							label="Session"
-							value={selectedSession}
-							onChange={handleSessionChange}
-							placeholder="Session"
-							options={sessions.map((session) => ({
-								label: session,
-								value: session,
-							}))}
-						/>
-					)}
-					{showLevelFilter && selectedSession && (
-						<FilterSelect
-							label="Level"
-							value={selectedLevel}
-							onChange={handleLevelChange}
-							placeholder="Level"
-							options={classLevels.map((level) => ({
-								label: level,
-								value: level,
-							}))}
-						/>
-					)}
-					{showClassFilter && selectedLevel && (
-						<FilterSelect
-							label="Class"
-							value={selectedClass}
-							onChange={handleClassChange}
-							placeholder="Class"
-							options={[
-								...(!isSelfContainedLevel
-									? [{ label: 'All Classes', value: ALL_CLASSES_VALUE }]
-									: []),
-								...classes.map((cls: any) => ({
-									label: cls.name,
-									value: cls.classId,
-								})),
-							]}
-						/>
-					)}
-					{showSubjectFilter && selectedClass && (
-						<FilterSelect
-							label="Subject"
-							value={selectedSubject}
-							onChange={handleSubjectChange}
-							placeholder="Subject"
-							options={[
-								...(isSelfContainedLevel
-									? [{ label: 'All Subjects', value: ALL_SUBJECTS_VALUE }]
-									: []),
-								...subjects.map((subject) => ({
-									label: subject,
-									value: subject,
-								})),
-							]}
-						/>
-					)}
-					{isLoadingData && (
-						<div className="flex items-end pb-1">
-							<Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+					</div>
+				</button>
+
+				{/* Collapsible Content */}
+				<div
+					className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out md:grid-rows-[1fr] md:opacity-100 ${
+						isFiltersExpanded
+							? 'grid-rows-[1fr] opacity-100'
+							: 'grid-rows-[0fr] opacity-0'
+					}`}
+				>
+					<div className="overflow-hidden flex flex-col gap-2">
+						<div className="bg-card border border-border rounded-xl shadow-sm">
+							<div className="flex flex-wrap gap-2 p-2.5 sm:p-3 items-end">
+								{showAcademicYearFilter && (
+									<FilterSelect
+										label="Year"
+										value={selectedAcademicYear}
+										onChange={handleAcademicYearChange}
+										options={availableAcademicYears.map((year) => ({
+											label: year,
+											value: year,
+										}))}
+									/>
+								)}
+								{showSessionFilter && (
+									<FilterSelect
+										label="Session"
+										value={selectedSession}
+										onChange={handleSessionChange}
+										placeholder="Session"
+										options={sessions.map((session) => ({
+											label: session,
+											value: session,
+										}))}
+									/>
+								)}
+								{showLevelFilter && selectedSession && (
+									<FilterSelect
+										label="Level"
+										value={selectedLevel}
+										onChange={handleLevelChange}
+										placeholder="Level"
+										options={classLevels.map((level) => ({
+											label: level,
+											value: level,
+										}))}
+									/>
+								)}
+								{showClassFilter && selectedLevel && (
+									<FilterSelect
+										label="Class"
+										value={selectedClass}
+										onChange={handleClassChange}
+										placeholder="Class"
+										options={[
+											...(!isSelfContainedLevel
+												? [{ label: 'All Classes', value: ALL_CLASSES_VALUE }]
+												: []),
+											...classes.map((cls: any) => ({
+												label: cls.name,
+												value: cls.classId,
+											})),
+										]}
+									/>
+								)}
+								{showSubjectFilter && selectedClass && (
+									<FilterSelect
+										label="Subject"
+										value={selectedSubject}
+										onChange={handleSubjectChange}
+										placeholder="Subject"
+										options={[
+											...(isSelfContainedLevel
+												? [{ label: 'All Subjects', value: ALL_SUBJECTS_VALUE }]
+												: []),
+											...subjects.map((subject) => ({
+												label: subject,
+												value: subject,
+											})),
+										]}
+									/>
+								)}
+								{isLoadingData && (
+									<div className="flex items-end pb-1">
+										<Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+									</div>
+								)}
+							</div>
 						</div>
-					)}
+					</div>
 				</div>
 			</div>
+
 			{effectiveUser?.role === 'teacher' && !isSelectedAcademicYearAllowed && (
 				<div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
 					Viewing master grade sheets is not allowed for academic year{' '}
