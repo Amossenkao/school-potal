@@ -267,6 +267,7 @@ const SubmitGrade: React.FC = () => {
 					) {
 						// If the live grade differs from what the UI shows, update it.
 						if (
+							!currentGrade ||
 							currentGrade?.grade !== liveGrade.grade ||
 							currentGrade?.status !== liveGrade.status ||
 							!currentGrade?.hasExistingGrade
