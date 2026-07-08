@@ -1,3 +1,6 @@
+// components/dashboard/insightAnalytics.ts
+import type { SchoolProfile } from '@/types/schoolProfile';
+
 export type RawGradeRecord = {
 	grade?: number | string | null;
 	subject?: string | null;
@@ -63,6 +66,8 @@ export const SEMESTER_LABELS: Record<'first' | 'second', string> = {
 	second: '2nd Semester',
 };
 
+// Order matters here: [period1, period2, period3, examPeriod].
+// The semester average formula relies on this exact shape.
 export const SEMESTER_PERIODS: Record<'first' | 'second', string[]> = {
 	first: ['first', 'second', 'third', 'third_period_exam'],
 	second: ['fourth', 'fifth', 'sixth', 'sixth_period_exam'],
@@ -159,6 +164,30 @@ const computeAverageOrNull = (values: number[]) => {
 	);
 };
 
+/**
+ * Semester average formula:
+ * 1. Average the three regular periods (first/second/third, or fourth/fifth/sixth).
+ * 2. Blend that average with the period-exam grade: (regularAverage + examGrade) / 2.
+ * Falls back gracefully if only one side is present.
+ */
+const computeSemesterSubjectAverage = (
+	periodGrades: Map<string, number>,
+	semesterPeriods: string[],
+) => {
+	const [p1, p2, p3, examPeriod] = semesterPeriods;
+	const regularValues = [p1, p2, p3]
+		.map((period) => periodGrades.get(period))
+		.filter((value): value is number => typeof value === 'number');
+	const regularAverage = computeAverageOrNull(regularValues);
+	const examGrade = periodGrades.get(examPeriod);
+	const hasExam = typeof examGrade === 'number';
+
+	if (regularAverage === null && !hasExam) return null;
+	if (regularAverage === null) return examGrade as number;
+	if (!hasExam) return regularAverage;
+	return Number(((regularAverage + examGrade) / 2).toFixed(1));
+};
+
 type TopPerformerGradeEntry = {
 	subject: string;
 	period: string;
@@ -185,10 +214,7 @@ const computeSemesterOverallFromEntries = (
 	const subjectAverages: number[] = [];
 
 	subjectPeriodMap.forEach((periodGrades) => {
-		const periodValues = semesterPeriods
-			.map((period) => periodGrades.get(period))
-			.filter((value): value is number => typeof value === 'number');
-		const subjectAverage = computeAverageOrNull(periodValues);
+		const subjectAverage = computeSemesterSubjectAverage(periodGrades, semesterPeriods);
 		if (subjectAverage !== null) {
 			subjectAverages.push(subjectAverage);
 		}
@@ -237,6 +263,68 @@ export const buildAverageByDimension = (
 		.sort((left, right) => right.average - left.average || right.count - left.count);
 };
 
+/**
+ * Walks schoolProfile.classLevels in its natural (session -> level -> class)
+ * order and returns classIds in that same sequence. Used to keep class-based
+ * charts/tables aligned with how the school actually lists its classes,
+ * instead of sorting by score or alphabetically.
+ */
+export const getOrderedClassIds = (schoolProfile: SchoolProfile): string[] => {
+	const levels = (schoolProfile as any)?.classLevels || {};
+	const classIds: string[] = [];
+	Object.keys(levels).forEach((session) => {
+		const sessionLevels = levels[session] || {};
+		Object.keys(sessionLevels).forEach((levelName) => {
+			const levelData = sessionLevels[levelName] as any;
+			const classes = levelData?.classes || [];
+			classes.forEach((klass: any) => {
+				if (klass?.classId && !classIds.includes(klass.classId)) {
+					classIds.push(klass.classId);
+				}
+			});
+		});
+	});
+	return classIds;
+};
+
+/**
+ * Like buildAverageByDimension, but groups by classId and orders the result
+ * by the class's position in the school profile rather than by average.
+ */
+export const buildClassAverages = (
+	grades: NumericGradeRecord[],
+	schoolProfile: SchoolProfile,
+	resolveClassLabel: (classId: string) => string,
+) => {
+	const grouped = new Map<string, number[]>();
+	grades.forEach((grade) => {
+		const classId = grade.classId || 'unknown';
+		if (!grouped.has(classId)) grouped.set(classId, []);
+		grouped.get(classId)!.push(grade.grade);
+	});
+
+	const orderedIds = getOrderedClassIds(schoolProfile);
+	const orderIndex = new Map(orderedIds.map((id, index) => [id, index]));
+
+	return Array.from(grouped.entries())
+		.map(([classId, values]) => ({
+			label: resolveClassLabel(classId) || classId,
+			classId,
+			average: computeAverage(values),
+			count: values.length,
+		}))
+		.sort((left, right) => {
+			const leftOrder = orderIndex.has(left.classId)
+				? orderIndex.get(left.classId)!
+				: Number.MAX_SAFE_INTEGER;
+			const rightOrder = orderIndex.has(right.classId)
+				? orderIndex.get(right.classId)!
+				: Number.MAX_SAFE_INTEGER;
+			if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+			return left.label.localeCompare(right.label);
+		});
+};
+
 export const buildPeriodTrend = (grades: NumericGradeRecord[]) => {
 	return ALL_PERIODS.map((period) => {
 		const values = grades
@@ -251,19 +339,73 @@ export const buildPeriodTrend = (grades: NumericGradeRecord[]) => {
 	}).filter((entry) => entry.count > 0);
 };
 
+/**
+ * For each semester, groups grades by subject, computes the
+ * (regular-period average + exam grade) / 2 average per subject,
+ * then averages across subjects for the semester's overall figure.
+ */
 export const buildSemesterTrend = (grades: NumericGradeRecord[]) => {
 	return (['first', 'second'] as const).map((semester) => {
 		const periods = SEMESTER_PERIODS[semester];
-		const values = grades
-			.filter((grade) => periods.includes(grade.period))
-			.map((grade) => grade.grade);
+		const [p1, p2, p3, examPeriod] = periods;
+
+		const bySubject = new Map<string, NumericGradeRecord[]>();
+		let recordCount = 0;
+		grades.forEach((grade) => {
+			if (!periods.includes(grade.period)) return;
+			recordCount += 1;
+			if (!bySubject.has(grade.subject)) bySubject.set(grade.subject, []);
+			bySubject.get(grade.subject)!.push(grade);
+		});
+
+		const subjectAverages: number[] = [];
+		bySubject.forEach((subjectGrades) => {
+			const regularValues = subjectGrades
+				.filter(
+					(grade) =>
+						grade.period === p1 || grade.period === p2 || grade.period === p3,
+				)
+				.map((grade) => grade.grade);
+			const examValues = subjectGrades
+				.filter((grade) => grade.period === examPeriod)
+				.map((grade) => grade.grade);
+
+			const regularAverage = computeAverageOrNull(regularValues);
+			const examAverage = computeAverageOrNull(examValues);
+
+			let subjectAverage: number | null = null;
+			if (regularAverage !== null && examAverage !== null) {
+				subjectAverage = Number(((regularAverage + examAverage) / 2).toFixed(1));
+			} else if (regularAverage !== null) {
+				subjectAverage = regularAverage;
+			} else if (examAverage !== null) {
+				subjectAverage = examAverage;
+			}
+			if (subjectAverage !== null) subjectAverages.push(subjectAverage);
+		});
+
 		return {
 			key: semester,
 			label: SEMESTER_LABELS[semester],
-			average: computeAverage(values),
-			count: values.length,
+			average: computeAverageOrNull(subjectAverages) ?? 0,
+			count: recordCount,
 		};
 	});
+};
+
+/**
+ * Convenience helper for "Average Grade" style stat cards: pass the full
+ * (unfiltered-by-semester) numeric grades plus which semester is selected,
+ * and get back that semester's average using the same formula as above.
+ */
+export const computeSemesterAverageFromGrades = (
+	grades: NumericGradeRecord[],
+	semester: 'first' | 'second',
+) => {
+	const [{ average }] = buildSemesterTrend(grades).filter(
+		(entry) => entry.key === semester,
+	);
+	return average ?? 0;
 };
 
 export const buildPassFailData = (
@@ -318,19 +460,25 @@ export const buildTopPerformerRows = (
 		scope: TopPerformerScope;
 		limit: number;
 		resolveClassLabel?: (classId: string) => string;
+		orderedClassIds?: string[];
 	},
 ) => {
 	const safeLimit = Math.max(1, options.limit);
-	const grouped = new Map<
-		string,
-		{
-			scopeLabel: string;
-			studentId: string;
-			studentName: string;
-			entries: TopPerformerGradeEntry[];
-			classCounts: Map<string, number>;
-		}
-	>();
+	
+const grouped = new Map<
+	string,
+	{
+		scopeLabel: string;
+		studentId: string;
+		studentName: string;
+		entries: TopPerformerGradeEntry[];
+		classCounts: Map<string, number>;
+	}
+>();
+	// Tracks, for scope === 'class', which raw classId a given scopeLabel
+	// (the resolved class name) came from — needed to sort groups by the
+	// school profile's class order instead of by score.
+	const scopeLabelToClassId = new Map<string, string>();
 
 	const resolveClassLabel = (grade: NumericGradeRecord) => {
 		const classLabel = options.resolveClassLabel?.(grade.classId || '') || '';
@@ -365,6 +513,10 @@ export const buildTopPerformerRows = (
 		const studentId = grade.studentId || `student-${index}`;
 		const studentName = grade.studentName || 'Unknown Student';
 		const groupingKey = `${scopeLabel}::${studentId}`;
+
+		if (options.scope === 'class' && grade.classId && !scopeLabelToClassId.has(scopeLabel)) {
+			scopeLabelToClassId.set(scopeLabel, grade.classId);
+		}
 
 		if (!grouped.has(groupingKey)) {
 			grouped.set(groupingKey, {
@@ -425,7 +577,23 @@ export const buildTopPerformerRows = (
 		groupedByScope.get(row.scopeLabel)!.push(row);
 	});
 
+	const classOrderIndex = new Map(
+		(options.orderedClassIds || []).map((id, index) => [id, index]),
+	);
+
 	const rankedGroups = Array.from(groupedByScope.entries()).sort((left, right) => {
+		if (options.scope === 'class' && classOrderIndex.size > 0) {
+			const leftClassId = scopeLabelToClassId.get(left[0]) || '';
+			const rightClassId = scopeLabelToClassId.get(right[0]) || '';
+			const leftOrder = classOrderIndex.has(leftClassId)
+				? classOrderIndex.get(leftClassId)!
+				: Number.MAX_SAFE_INTEGER;
+			const rightOrder = classOrderIndex.has(rightClassId)
+				? classOrderIndex.get(rightClassId)!
+				: Number.MAX_SAFE_INTEGER;
+			if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+			return left[0].localeCompare(right[0]);
+		}
 		const leftTop = left[1][0]?.average ?? 0;
 		const rightTop = right[1][0]?.average ?? 0;
 		return rightTop - leftTop || left[0].localeCompare(right[0]);

@@ -355,6 +355,14 @@ export default function TeacherPerformanceInsights({
 		[filteredGrades, topScope, topLimit, schoolProfile],
 	);
 
+	const topClassLabel = useMemo(() => {
+		if (classAverages.length === 0) return 'N/A';
+		return classAverages.reduce(
+			(best, entry) => (entry.average > best.average ? entry : best),
+			classAverages[0],
+		).label;
+	}, [classAverages]);
+
 	const topChartData = useMemo(
 		() =>
 			topRows.map((entry) => ({
@@ -394,7 +402,8 @@ export default function TeacherPerformanceInsights({
 					<div>
 						<CardTitle>Teaching Performance Lab</CardTitle>
 						<p className="text-sm text-muted-foreground">
-							Analyze class outcomes and identify top performers by academic year.
+							Analyze class outcomes and identify top performers by academic
+							year.
 						</p>
 					</div>
 					<div className="flex flex-wrap gap-3">
@@ -481,7 +490,9 @@ export default function TeacherPerformanceInsights({
 				</CardHeader>
 				<CardContent>
 					{isLoading ? (
-						<p className="text-sm text-muted-foreground">Loading class analytics…</p>
+						<p className="text-sm text-muted-foreground">
+							Loading class analytics…
+						</p>
 					) : errorMessage ? (
 						<p className="text-sm text-red-500">{errorMessage}</p>
 					) : (
@@ -498,9 +509,9 @@ export default function TeacherPerformanceInsights({
 									helper: `${passCount}/${totalRecords} passing`,
 								},
 								{
-									label: 'Top Subject',
-									value: subjectAverages[0]?.label || 'N/A',
-									helper: 'Highest class average',
+									label: 'Top Class',
+									value: topClassLabel,
+									helper: 'Best performing class',
 								},
 								{
 									label: 'Top Class',
@@ -518,7 +529,9 @@ export default function TeacherPerformanceInsights({
 								>
 									<p className="text-xs text-muted-foreground">{stat.label}</p>
 									<p className="mt-1 text-2xl font-semibold">{stat.value}</p>
-									<p className="mt-1 text-xs text-muted-foreground">{stat.helper}</p>
+									<p className="mt-1 text-xs text-muted-foreground">
+										{stat.helper}
+									</p>
 								</motion.div>
 							))}
 						</div>
@@ -592,7 +605,9 @@ export default function TeacherPerformanceInsights({
 									className={PIE_CHART_CLASS}
 								>
 									<PieChart>
-										<ChartTooltip content={<ChartTooltipContent nameKey="label" />} />
+										<ChartTooltip
+											content={<ChartTooltipContent nameKey="label" />}
+										/>
 										<Pie
 											data={passFailData}
 											dataKey="value"
@@ -604,7 +619,10 @@ export default function TeacherPerformanceInsights({
 											animationDuration={700}
 										>
 											{passFailData.map((entry) => (
-												<Cell key={entry.label} fill={`var(--color-${entry.label})`} />
+												<Cell
+													key={entry.label}
+													fill={`var(--color-${entry.label})`}
+												/>
 											))}
 										</Pie>
 									</PieChart>
@@ -628,7 +646,9 @@ export default function TeacherPerformanceInsights({
 									className={PIE_CHART_CLASS}
 								>
 									<PieChart>
-										<ChartTooltip content={<ChartTooltipContent nameKey="key" />} />
+										<ChartTooltip
+											content={<ChartTooltipContent nameKey="key" />}
+										/>
 										<Pie
 											data={gradeBandPieData}
 											dataKey="value"
@@ -640,7 +660,10 @@ export default function TeacherPerformanceInsights({
 											animationDuration={700}
 										>
 											{gradeBandPieData.map((entry) => (
-												<Cell key={entry.label} fill={`var(--color-${entry.key})`} />
+												<Cell
+													key={entry.label}
+													fill={`var(--color-${entry.key})`}
+												/>
 											))}
 										</Pie>
 									</PieChart>
@@ -656,7 +679,8 @@ export default function TeacherPerformanceInsights({
 							<div>
 								<CardTitle>Top Performers</CardTitle>
 								<p className="text-sm text-muted-foreground">
-									View top results across subject, class, period, semester, or yearly.
+									View top results across subject, class, period, semester, or
+									yearly.
 								</p>
 							</div>
 							<div className="flex flex-wrap gap-3">
@@ -681,7 +705,9 @@ export default function TeacherPerformanceInsights({
 									<select
 										className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
 										value={String(topLimit)}
-										onChange={(event) => setTopLimit(Number(event.target.value))}
+										onChange={(event) =>
+											setTopLimit(Number(event.target.value))
+										}
 									>
 										<option value="1">Top 1</option>
 										<option value="2">Top 2</option>
@@ -727,12 +753,23 @@ export default function TeacherPerformanceInsights({
 											</thead>
 											<tbody>
 												{topRows.map((entry) => (
-													<tr key={entry.key} className="border-t border-border/70">
+													<tr
+														key={entry.key}
+														className="border-t border-border/70"
+													>
 														<td className="px-4 py-3">{entry.scopeLabel}</td>
-														<td className="px-4 py-3 font-medium">{entry.studentName}</td>
-														<td className="px-4 py-3">{entry.classLabel || '—'}</td>
-														<td className="px-4 py-3">{entry.studentId || '—'}</td>
-														<td className="px-4 py-3">{entry.average.toFixed(1)}</td>
+														<td className="px-4 py-3 font-medium">
+															{entry.studentName}
+														</td>
+														<td className="px-4 py-3">
+															{entry.classLabel || '—'}
+														</td>
+														<td className="px-4 py-3">
+															{entry.studentId || '—'}
+														</td>
+														<td className="px-4 py-3">
+															{entry.average.toFixed(1)}
+														</td>
 														<td className="px-4 py-3">{entry.count}</td>
 													</tr>
 												))}

@@ -1,16 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import {
-	BarChart,
-	Bar,
-	CartesianGrid,
-	PieChart,
-	Pie,
-	Cell,
-	XAxis,
-	YAxis,
-} from 'recharts';
+import { BarChart, Bar, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { Users, Mars, Venus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
 	ChartContainer,
@@ -20,9 +12,7 @@ import {
 	ChartTooltipContent,
 } from '@/components/ui/chart';
 import type { SchoolProfile } from '@/types/schoolProfile';
-import {
-	getClassLevelLabel,
-} from '@/components/dashboard/academicYear';
+import { getClassLevelLabel } from '@/components/dashboard/academicYear';
 import { useSchoolStore } from '@/store/schoolStore';
 import {
 	areAcademicYearsEqual,
@@ -56,7 +46,6 @@ type DashboardInsightsProps = {
 	};
 	selectedYear?: string;
 	onYearChange?: (year: string) => void;
-	showYearSelector?: boolean;
 };
 
 type StudentRecord = {
@@ -80,14 +69,7 @@ type Option = {
 	label: string;
 };
 
-const ageBuckets = [
-	{ key: '10-12', min: 10, max: 12 },
-	{ key: '13-15', min: 13, max: 15 },
-	{ key: '16-18', min: 16, max: 18 },
-	{ key: '19+', min: 19, max: 99 },
-];
-const BAR_CHART_CLASS = 'h-[240px] sm:h-[280px] w-full aspect-auto';
-const PIE_CHART_CLASS = 'h-[220px] sm:h-[260px] w-full aspect-auto';
+const BAR_CHART_CLASS = 'h-[260px] sm:h-[300px] w-full aspect-auto';
 
 const normalizeGender = (value?: string) => {
 	if (!value) return 'Unknown';
@@ -95,20 +77,6 @@ const normalizeGender = (value?: string) => {
 	if (normalized.startsWith('m')) return 'Male';
 	if (normalized.startsWith('f')) return 'Female';
 	return 'Other';
-};
-
-const getAge = (dateOfBirth?: string) => {
-	if (!dateOfBirth) return null;
-	const birthDate = new Date(dateOfBirth);
-	if (Number.isNaN(birthDate.getTime())) return null;
-	const today = new Date();
-	let age = today.getFullYear() - birthDate.getFullYear();
-	const hasHadBirthday =
-		today.getMonth() > birthDate.getMonth() ||
-		(today.getMonth() === birthDate.getMonth() &&
-			today.getDate() >= birthDate.getDate());
-	if (!hasHadBirthday) age -= 1;
-	return age;
 };
 
 const getStudentClassLabel = (student: StudentRecord) =>
@@ -127,10 +95,10 @@ export default function DashboardInsights({
 	schoolProfile,
 	user,
 	selectedYear: selectedYearProp,
-	onYearChange,
-	showYearSelector = true,
 }: DashboardInsightsProps) {
 	const role = user?.role || 'student';
+	const selectedGender = 'all';
+
 	const academicYearOptions = useMemo(() => {
 		const schoolYears = buildSchoolAcademicYearRange(schoolProfile);
 		if (role === 'student') {
@@ -141,7 +109,9 @@ export default function DashboardInsights({
 		if (role === 'teacher') {
 			const teacherYears = getTeacherAcademicYears(user);
 			const scopedYears = teacherYears.filter((year) =>
-				schoolYears.some((schoolYear) => areAcademicYearsEqual(schoolYear, year)),
+				schoolYears.some((schoolYear) =>
+					areAcademicYearsEqual(schoolYear, year),
+				),
 			);
 			const years =
 				scopedYears.length > 0
@@ -182,21 +152,20 @@ export default function DashboardInsights({
 			pickCurrentOrMostRecentAcademicYear(years, currentAcademicYear) || ''
 		);
 	}, [academicYearOptions, currentAcademicYear, role]);
+
 	const isYearControlled = typeof selectedYearProp === 'string';
-	const [internalYear, setInternalYear] = useState(
-		defaultAcademicYear,
-	);
+	const [internalYear, setInternalYear] = useState(defaultAcademicYear);
 	const selectedYear = isYearControlled ? selectedYearProp || '' : internalYear;
-	const setSelectedYear = isYearControlled
-		? (onYearChange || (() => {}))
-		: setInternalYear;
 	const [selectedClassId, setSelectedClassId] = useState('all');
-	const [selectedGender, setSelectedGender] = useState('all');
 	const [students, setStudents] = useState<StudentRecord[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [errorMessage, setErrorMessage] = useState('');
-	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
+
+	const usersByAcademicYear = useSchoolStore(
+		(state) => state.usersByAcademicYear,
+	);
 	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
+
 	const teacherClassIds = useMemo(() => {
 		if (role !== 'teacher') return [];
 		const relevantSubjects = user?.subjects?.filter((subject) =>
@@ -238,7 +207,12 @@ export default function DashboardInsights({
 		if (!internalYear || !selectedIsAvailable) {
 			setInternalYear(defaultAcademicYear);
 		}
-	}, [academicYearOptions, internalYear, defaultAcademicYear, isYearControlled]);
+	}, [
+		academicYearOptions,
+		internalYear,
+		defaultAcademicYear,
+		isYearControlled,
+	]);
 
 	useEffect(() => {
 		if (role === 'student') {
@@ -404,34 +378,70 @@ export default function DashboardInsights({
 	const filteredStudents = useMemo(() => {
 		if (selectedGender === 'all') return students;
 		return students.filter(
-			(student) => normalizeGender(student.gender) === selectedGender
+			(student) => normalizeGender(student.gender) === selectedGender,
 		);
 	}, [students, selectedGender]);
 
 	const totalStudents = filteredStudents.length;
+	const totalMales = useMemo(
+		() =>
+			filteredStudents.filter((s) => normalizeGender(s.gender) === 'Male')
+				.length,
+		[filteredStudents],
+	);
+	const totalFemales = useMemo(
+		() =>
+			filteredStudents.filter((s) => normalizeGender(s.gender) === 'Female')
+				.length,
+		[filteredStudents],
+	);
+
 	const classBreakdown = useMemo(() => {
 		const counts = new Map<
 			string,
-			{ classId: string; className: string; students: number }
+			{
+				classId: string;
+				className: string;
+				total: number;
+				male: number;
+				female: number;
+			}
 		>();
 		filteredStudents.forEach((student) => {
 			const classId = getStudentClassId(student);
 			const label = getStudentClassLabel(student);
 			const key = classId || label;
+			const gender = normalizeGender(student.gender);
+
 			if (!counts.has(key)) {
-				counts.set(key, { classId, className: label, students: 0 });
+				counts.set(key, {
+					classId,
+					className: label,
+					total: 0,
+					male: 0,
+					female: 0,
+				});
 			}
-			counts.get(key)!.students += 1;
+			const entry = counts.get(key)!;
+			entry.total += 1;
+			if (gender === 'Male') entry.male += 1;
+			if (gender === 'Female') entry.female += 1;
 		});
-		return Array.from(counts.values()).sort(
-			(a, b) => b.students - a.students,
-		);
+		return Array.from(counts.values()).sort((a, b) => b.total - a.total);
 	}, [filteredStudents]);
 
 	const classLevels = useMemo(() => {
 		const grouped = new Map<
 			string,
-			{ levelLabel: string; classes: { className: string; students: number }[] }
+			{
+				levelLabel: string;
+				classes: {
+					className: string;
+					total: number;
+					male: number;
+					female: number;
+				}[];
+			}
 		>();
 		classBreakdown.forEach((entry) => {
 			const levelLabel =
@@ -441,7 +451,9 @@ export default function DashboardInsights({
 			}
 			grouped.get(levelLabel)!.classes.push({
 				className: entry.className,
-				students: entry.students,
+				total: entry.total,
+				male: entry.male,
+				female: entry.female,
 			});
 		});
 		return Array.from(grouped.values()).map((entry) => ({
@@ -452,309 +464,237 @@ export default function DashboardInsights({
 		}));
 	}, [classBreakdown, schoolProfile]);
 
-	const genderData = useMemo(() => {
-		const counts: Record<string, number> = {};
-		filteredStudents.forEach((student) => {
-			const label = normalizeGender(student.gender);
-			counts[label] = (counts[label] || 0) + 1;
-		});
-		return Object.entries(counts).map(([label, value]) => ({
-			label,
-			value,
-		}));
-	}, [filteredStudents]);
-
-	const ageGroups = useMemo(() => {
-		const counts = Object.fromEntries(
-			ageBuckets.map((bucket) => [bucket.key, 0])
-		) as Record<string, number>;
-
-		filteredStudents.forEach((student) => {
-			const age = getAge(student.dateOfBirth);
-			if (age === null) return;
-			const bucket = ageBuckets.find(
-				(item) => age >= item.min && age <= item.max
-			);
-			if (bucket) {
-				counts[bucket.key] += 1;
-			}
-		});
-
-		return ageBuckets.map((bucket) => ({
-			group: bucket.key,
-			students: counts[bucket.key],
-		}));
-	}, [filteredStudents]);
-
-	const activeClassLabel =
-		selectedClassId === 'all'
-			? 'All classes'
-			: classOptions.find((option) => option.value === selectedClassId)?.label ||
-			  'Selected class';
-
 	const formatAxisLabel = (value: string) =>
 		value.length > 12 ? `${value.slice(0, 12)}…` : value;
 
 	return (
-		<div className="space-y-6">
-			<Card>
-				<CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-					<div>
-						<CardTitle>Enrollment Insights</CardTitle>
-						<p className="text-sm text-muted-foreground">
-							Showing {activeClassLabel} for {selectedYear || 'current year'}.
-						</p>
-					</div>
-					<div className="flex flex-wrap gap-3">
-						{showYearSelector && academicYearOptions.length > 1 ? (
-							<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-								Academic Year
-								<select
-									className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-									value={selectedYear}
-									onChange={(event) => setSelectedYear(event.target.value)}
-								>
-									{academicYearOptions.map((option) => (
-										<option key={option.value} value={option.value}>
-											{option.label}
-										</option>
-									))}
-								</select>
-							</div>
-						) : null}
-						{role !== 'student' ? (
-							<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-								Class
-								<select
-									className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-									value={selectedClassId}
-									onChange={(event) => setSelectedClassId(event.target.value)}
-								>
-									<option value="all">All classes</option>
-									{classOptions.map((option) => (
-										<option key={option.value} value={option.value}>
-											{option.label}
-										</option>
-									))}
-								</select>
-							</div>
-						) : null}
-						<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-							Gender
-							<select
-								className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-								value={selectedGender}
-								onChange={(event) => setSelectedGender(event.target.value)}
-							>
-								<option value="all">All</option>
-								<option value="Female">Female</option>
-								<option value="Male">Male</option>
-								<option value="Other">Other</option>
-								<option value="Unknown">Unknown</option>
-							</select>
-						</div>
-					</div>
-				</CardHeader>
-				<CardContent>
-					{isLoading ? (
-						<p className="text-sm text-muted-foreground">Loading insights…</p>
-					) : errorMessage ? (
-						<p className="text-sm text-red-500">{errorMessage}</p>
-					) : (
-						<p className="text-sm text-muted-foreground">
-							Total students: {totalStudents}
-						</p>
-					)}
-				</CardContent>
-			</Card>
+		<div className="space-y-8">
+			{/* Loading State Check */}
+			{isLoading && (
+				<div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
+					<div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+					Updating insights…
+				</div>
+			)}
 
-			<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-				<Card>
-					<CardHeader>
-						<CardTitle className="text-sm font-medium">Total Students</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="text-3xl font-semibold">{totalStudents}</div>
-						<p className="text-xs text-muted-foreground">
-							Based on current filters
-						</p>
-					</CardContent>
+			{/* Error Messaging State */}
+			{errorMessage && (
+				<Card className="border border-destructive/50 bg-destructive/5 p-4">
+					<p className="text-sm font-medium text-destructive">{errorMessage}</p>
 				</Card>
-				<Card>
-					<CardHeader>
-						<CardTitle className="text-sm font-medium">
-							Classes Represented
+			)}
+
+			{/* Summary Stats Cards */}
+			<div className="grid gap-4 sm:grid-cols-3">
+				<Card className="relative overflow-hidden border border-border">
+					<div className="absolute right-4 top-4 h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+						<Users className="h-4 w-4" />
+					</div>
+					<CardHeader className="pb-2">
+						<CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+							Total Students
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<div className="text-3xl font-semibold">{classBreakdown.length}</div>
-						<p className="text-xs text-muted-foreground">
-							Available in this dataset
-						</p>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader>
-						<CardTitle className="text-sm font-medium">
-							Top Class Size
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="text-3xl font-semibold">
-							{classBreakdown[0]?.students || 0}
+						<div className="text-4xl font-bold tracking-tight text-foreground">
+							{totalStudents}
 						</div>
-						<p className="text-xs text-muted-foreground">
-							{classBreakdown[0]?.className || 'No data'}
+						<p className="mt-1 text-xs text-muted-foreground">
+							Enrolled across scope
+						</p>
+					</CardContent>
+				</Card>
+
+				<Card className="relative overflow-hidden border border-border">
+					<div className="absolute right-4 top-4 h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+						<Mars className="h-4 w-4" />
+					</div>
+					<CardHeader className="pb-2">
+						<CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+							Male Students
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<div className="text-4xl font-bold tracking-tight text-primary">
+							{totalMales}
+						</div>
+						<p className="mt-1 text-xs text-muted-foreground">
+							{totalStudents > 0
+								? Math.round((totalMales / totalStudents) * 100)
+								: 0}
+							% of total
+						</p>
+					</CardContent>
+				</Card>
+
+				<Card className="relative overflow-hidden border border-border">
+					<div className="absolute right-4 top-4 h-8 w-8 rounded-full bg-chart-2/10 flex items-center justify-center text-chart-2">
+						<Venus className="h-4 w-4" />
+					</div>
+					<CardHeader className="pb-2">
+						<CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+							Female Students
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<div className="text-4xl font-bold tracking-tight text-chart-2">
+							{totalFemales}
+						</div>
+						<p className="mt-1 text-xs text-muted-foreground">
+							{totalStudents > 0
+								? Math.round((totalFemales / totalStudents) * 100)
+								: 0}
+							% of total
 						</p>
 					</CardContent>
 				</Card>
 			</div>
 
-			<div className="grid gap-6 lg:grid-cols-2">
-				<div className="space-y-3">
+			{/* Class Level Breakdown Charts */}
+			<div className="space-y-4">
+				<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
 					<div>
-						<h3 className="text-sm font-semibold text-foreground">
+						<h3 className="text-lg font-semibold tracking-tight">
 							Breakdown by Class Level
 						</h3>
-						<p className="text-xs text-muted-foreground">
-							Grouped by level for easier viewing on mobile.
+						<p className="text-sm text-muted-foreground">
+							Each chart shows Total, Male, and Female enrollment per class.
 						</p>
 					</div>
-					{classLevels.length === 0 ? (
-						<p className="text-sm text-muted-foreground">No data.</p>
-					) : (
-						<div className="grid gap-4 sm:grid-cols-2">
-							{classLevels.map((group) => (
-								<Card key={group.levelLabel}>
-									<CardHeader>
-										<CardTitle className="text-sm">
-											{group.levelLabel}
-										</CardTitle>
-									</CardHeader>
-									<CardContent>
-										<ChartContainer
-											config={{
-												students: {
-													label: 'Students',
-													color: 'hsl(217, 91%, 60%)',
-												},
-											}}
-											className={BAR_CHART_CLASS}
-										>
-											<BarChart
-												data={group.classes}
-												margin={{ top: 8, right: 12, left: 0, bottom: 24 }}
-											>
-												<CartesianGrid vertical={false} strokeDasharray="3 3" />
-												<XAxis
-													dataKey="className"
-													tickLine={false}
-													axisLine={false}
-													interval="preserveStartEnd"
-													minTickGap={8}
-													angle={-25}
-													textAnchor="end"
-													height={48}
-													tick={{ fontSize: 12 }}
-													tickFormatter={formatAxisLabel}
-												/>
-												<YAxis tickLine={false} axisLine={false} width={30} />
-												<ChartTooltip content={<ChartTooltipContent />} />
-												<Bar
-													dataKey="students"
-													fill="var(--color-students)"
-													radius={[6, 6, 0, 0]}
-												/>
-											</BarChart>
-										</ChartContainer>
-									</CardContent>
-								</Card>
-							))}
+					<div className="flex items-center gap-4 text-xs text-muted-foreground">
+						<div className="flex items-center gap-1.5">
+							<span className="h-3 w-3 rounded-sm bg-muted-foreground/60" />
+							<span>Total</span>
 						</div>
-					)}
+						<div className="flex items-center gap-1.5">
+							<span className="h-3 w-3 rounded-sm bg-primary" />
+							<span>Male</span>
+						</div>
+						<div className="flex items-center gap-1.5">
+							<span className="h-3 w-3 rounded-sm bg-chart-2" />
+							<span>Female</span>
+						</div>
+					</div>
 				</div>
 
-				<Card>
-					<CardHeader>
-						<CardTitle>Gender Distribution</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<ChartContainer
-							config={{
-								Female: { label: 'Female', color: 'hsl(328, 85%, 63%)' },
-								Male: { label: 'Male', color: 'hsl(221, 83%, 53%)' },
-								Other: { label: 'Other', color: 'hsl(45, 90%, 55%)' },
-								Unknown: { label: 'Unknown', color: 'hsl(220, 9%, 65%)' },
-							}}
-							className={PIE_CHART_CLASS}
-						>
-							<PieChart>
-								<ChartTooltip content={<ChartTooltipContent nameKey="label" />} />
-								<Pie
-									data={genderData}
-									dataKey="value"
-									nameKey="label"
-									innerRadius={50}
-									outerRadius={82}
-									stroke="transparent"
-								>
-									{genderData.map((item) => (
-										<Cell
-											key={item.label}
-											fill={`var(--color-${item.label})`}
-										/>
-									))}
-								</Pie>
-								<ChartLegend
-									content={
-										<ChartLegendContent nameKey="label" className="flex-wrap" />
-									}
-									verticalAlign="bottom"
-								/>
-							</PieChart>
-						</ChartContainer>
-					</CardContent>
-				</Card>
+				{classLevels.length === 0 ? (
+					<Card className="py-12 border border-border">
+						<CardContent className="flex flex-col items-center justify-center text-center">
+							<div className="mb-3">
+								<Users className="h-8 w-8 text-muted-foreground" />
+							</div>
+							<p className="text-sm font-medium text-muted-foreground">
+								No class data available for this context.
+							</p>
+						</CardContent>
+					</Card>
+				) : (
+					<div className="grid gap-4 lg:grid-cols-2">
+						{classLevels.map((group) => (
+							<Card
+								key={group.levelLabel}
+								className="flex flex-col border border-border"
+							>
+								<CardHeader className="pb-2">
+									<div className="flex items-center justify-between">
+										<CardTitle className="text-sm font-semibold">
+											{group.levelLabel}
+										</CardTitle>
+										<span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+											{group.classes.length} class
+											{group.classes.length !== 1 ? 'es' : ''}
+										</span>
+									</div>
+								</CardHeader>
+								<CardContent className="flex-1">
+									<ChartContainer
+										config={{
+											total: {
+												label: 'Total',
+												color: 'var(--muted-foreground)',
+											},
+											male: {
+												label: 'Male',
+												color: 'var(--primary)',
+											},
+											female: {
+												label: 'Female',
+												color: 'var(--chart-2)',
+											},
+										}}
+										className={BAR_CHART_CLASS}
+									>
+										<BarChart
+											data={group.classes}
+											margin={{ top: 8, right: 12, left: 0, bottom: 32 }}
+											barCategoryGap="20%"
+										>
+											<CartesianGrid
+												vertical={false}
+												strokeDasharray="3 3"
+												className="stroke-muted"
+											/>
+											<XAxis
+												dataKey="className"
+												tickLine={false}
+												axisLine={false}
+												interval="preserveStartEnd"
+												minTickGap={8}
+												angle={-30}
+												textAnchor="end"
+												height={50}
+												tick={{ fontSize: 11 }}
+												tickFormatter={formatAxisLabel}
+												className="fill-muted-foreground"
+											/>
+											<YAxis
+												tickLine={false}
+												axisLine={false}
+												width={36}
+												tick={{ fontSize: 11 }}
+												className="fill-muted-foreground"
+											/>
+											<ChartTooltip
+												content={
+													<ChartTooltipContent className="w-40 border border-border bg-background text-foreground" />
+												}
+												cursor={{ fill: 'hsl(var(--muted) / 0.3)' }}
+											/>
+											<Bar
+												dataKey="total"
+												fill="currentColor"
+												className="text-muted-foreground/60"
+												radius={[4, 4, 0, 0]}
+												maxBarSize={32}
+											/>
+											<Bar
+												dataKey="male"
+												fill="currentColor"
+												className="text-primary"
+												radius={[4, 4, 0, 0]}
+												maxBarSize={32}
+											/>
+											<Bar
+												dataKey="female"
+												fill="currentColor"
+												className="text-chart-2"
+												radius={[4, 4, 0, 0]}
+												maxBarSize={32}
+											/>
+											<ChartLegend
+												content={
+													<ChartLegendContent className="flex-wrap justify-center gap-4 pt-2 text-muted-foreground" />
+												}
+												verticalAlign="bottom"
+											/>
+										</BarChart>
+									</ChartContainer>
+								</CardContent>
+							</Card>
+						))}
+					</div>
+				)}
 			</div>
-
-			<Card>
-				<CardHeader>
-					<CardTitle>Age Group Distribution</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<ChartContainer
-						config={{
-							students: { label: 'Students', color: 'hsl(142, 70%, 45%)' },
-						}}
-						className={BAR_CHART_CLASS}
-					>
-						<BarChart
-							data={ageGroups}
-							margin={{ top: 8, right: 12, left: 0, bottom: 24 }}
-						>
-							<CartesianGrid vertical={false} strokeDasharray="3 3" />
-							<XAxis
-								dataKey="group"
-								tickLine={false}
-								axisLine={false}
-								interval="preserveStartEnd"
-								minTickGap={8}
-								angle={-20}
-								textAnchor="end"
-								height={40}
-								tick={{ fontSize: 12 }}
-							/>
-							<YAxis tickLine={false} axisLine={false} width={30} />
-							<ChartTooltip content={<ChartTooltipContent />} />
-							<Bar
-								dataKey="students"
-								fill="var(--color-students)"
-								radius={[6, 6, 0, 0]}
-							/>
-						</BarChart>
-					</ChartContainer>
-				</CardContent>
-			</Card>
 		</div>
 	);
 }

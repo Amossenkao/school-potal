@@ -24,13 +24,16 @@ import {
 	PERIOD_LABELS,
 	SEMESTER_LABELS,
 	buildAverageByDimension,
+	buildClassAverages, // new
 	buildGradeBandData,
 	buildPassFailData,
 	buildPeriodTrend,
 	buildSemesterTrend,
 	buildTopPerformerRows,
+	computeSemesterAverageFromGrades, // new
 	filterGradesByPeriodAndSemester,
 	formatAxisLabel,
+	getOrderedClassIds, // new
 	normalizeNumericGrades,
 	type ChartType,
 	type RawGradeRecord,
@@ -153,6 +156,11 @@ export default function AdminPerformance({
 	}, [selectedYear, gradesByAcademicYear, setGradesForYear]);
 
 	const passMark = schoolProfile.settings?.gradingSettings?.passMark || 70;
+
+	const orderedClassIds = useMemo(
+		() => getOrderedClassIds(schoolProfile),
+		[schoolProfile],
+	);
 	const numericGrades = useMemo(
 		() => normalizeNumericGrades(grades as RawGradeRecord[]),
 		[grades],
@@ -167,13 +175,13 @@ export default function AdminPerformance({
 		[numericGrades, selectedPeriod, selectedSemester],
 	);
 
-	const classAverages = useMemo(
-		() =>
-			buildAverageByDimension(filteredGrades, (grade) =>
-				getClassNameById(schoolProfile, grade.classId || ''),
-			),
-		[filteredGrades, schoolProfile],
-	);
+const classAverages = useMemo(
+	() =>
+		buildClassAverages(filteredGrades, schoolProfile, (classId) =>
+			getClassNameById(schoolProfile, classId),
+		),
+	[filteredGrades, schoolProfile],
+);
 	const subjectAverages = useMemo(
 		() => buildAverageByDimension(filteredGrades, (grade) => grade.subject),
 		[filteredGrades],
@@ -211,9 +219,11 @@ export default function AdminPerformance({
 			buildTopPerformerRows(filteredGrades, {
 				scope: topScope,
 				limit: topLimit,
-				resolveClassLabel: (classId) => getClassNameById(schoolProfile, classId),
+				resolveClassLabel: (classId) =>
+					getClassNameById(schoolProfile, classId),
+				orderedClassIds,
 			}),
-		[filteredGrades, topScope, topLimit, schoolProfile],
+		[filteredGrades, topScope, topLimit, schoolProfile, orderedClassIds],
 	);
 
 	const topChartData = useMemo(
@@ -233,10 +243,14 @@ export default function AdminPerformance({
 		[topRows, topScope],
 	);
 
-	const averageGrade = useMemo(
-		() => getAverage(filteredGrades.map((grade) => grade.grade)),
-		[filteredGrades],
-	);
+const averageGrade = useMemo(() => {
+	if (selectedSemester === 'first' || selectedSemester === 'second') {
+		return computeSemesterAverageFromGrades(numericGrades, selectedSemester);
+	}
+	return getAverage(filteredGrades.map((grade) => grade.grade));
+}, [filteredGrades, numericGrades, selectedSemester]);
+
+	
 	const passCount = passFailData.find((entry) => entry.label === 'Pass')?.value || 0;
 	const totalRecords = filteredGrades.length;
 	const passRate = totalRecords > 0 ? Math.round((passCount / totalRecords) * 100) : 0;

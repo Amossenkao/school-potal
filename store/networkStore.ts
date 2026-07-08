@@ -28,7 +28,79 @@ interface NetworkState {
 const POLL_INTERVAL_MS = 10_000; // 10 seconds
 const RECOVERY_RETRY_INTERVAL_MS = 5_000;
 const CONNECTIVITY_CHECK_URL = 'https://www.gstatic.com/generate_204';
+// Same-origin fallback: hits your own Vercel deployment instead of a
+// third-party domain, so a gstatic-specific outage/blip on the user's
+// network can't strand the app in a false "offline" state.
+const OWN_ORIGIN_FALLBACK_PATH = '/favicon.ico';
 const STUCK_CHECK_TIMEOUT_MS = 8_000;
+
+// --- Recovery retry timer -------------------------------------------------
+// Lives at module scope (not nested inside initNetworkListeners) so it can
+// be armed from ANYWHERE we transition to offline — not just the browser's
+// native 'offline' event. markOffline() calls from a failed connectivity
+// ping (refreshConnectivity's catch block), checkAuthStatus, login, or
+// logout should all be able to arm this without depending on which
+// component happened to call initNetworkListeners.
+const clearRecoveryRetryTimer = () => {
+	if (typeof window === 'undefined') return;
+	const timerId = (window as any).__networkRecoveryRetryIntervalId;
+	if (timerId) {
+		window.clearInterval(timerId);
+		(window as any).__networkRecoveryRetryIntervalId = null;
+	}
+};
+
+// IDEMPOTENT: only starts a new interval if one isn't already running.
+// Previously this unconditionally cleared + recreated itself every time
+// markOffline() ran (i.e. on every failed retry while offline), which
+// meant there was never one stable long-lived interval — just a chain of
+// short-lived ones, more exposed to background-tab timer throttling and
+// vulnerable to being killed off by an unrelated teardown (see
+// initNetworkListeners below) with nothing to restart it.
+const scheduleRecoveryRetryTimer = (getState: () => NetworkState) => {
+	if (typeof window === 'undefined') return;
+	if ((window as any).__networkRecoveryRetryIntervalId) return;
+	const timerId = window.setInterval(() => {
+		if (getState().isOnline) {
+			clearRecoveryRetryTimer();
+			return;
+		}
+		void getState().refreshConnectivity({
+			force: true,
+			reason: 'offline-recovery-poll',
+		});
+	}, RECOVERY_RETRY_INTERVAL_MS);
+	(window as any).__networkRecoveryRetryIntervalId = timerId;
+};
+
+// Probes a single URL; resolves true on any response that doesn't throw
+// (opaque no-cors responses can't be read for status, so "didn't throw"
+// is the online signal), rejects on abort/network failure.
+const probeUrl = async (url: string, signal: AbortSignal): Promise<true> => {
+	await fetch(url, {
+		method: 'HEAD',
+		mode: 'no-cors',
+		cache: 'no-store',
+		signal,
+	});
+	return true;
+};
+
+const isAbortLikeError = (error: unknown) => {
+	if (!error) return false;
+	if (error instanceof DOMException) {
+		return error.name === 'AbortError' || error.name === 'TimeoutError';
+	}
+	if (typeof error === 'object') {
+		const candidate = error as { name?: unknown; message?: unknown };
+		const name = typeof candidate.name === 'string' ? candidate.name : '';
+		if (name === 'AbortError' || name === 'TimeoutError') return true;
+		const message =
+			typeof candidate.message === 'string' ? candidate.message : '';
+		if (/signal is aborted/i.test(message)) return true;
+	}
+	return false;
+};
 
 export const useNetworkStore = create<NetworkState>((set, get) => ({
 	isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
@@ -42,35 +114,19 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 	initNetworkListeners: () => {
 		if (typeof window === 'undefined') return;
 
-		// Always tear down any previous attachment before creating a new one.
-		// This makes init idempotent instead of relying on a flag that can
-		// outlive the store instance it was originally set for (e.g. after
-		// a dev-mode hot reload recreates this module but `window` persists
-		// across it, leaving an orphaned interval bound to a stale closure).
-		get().stopNetworkListeners();
-
-		const clearRecoveryRetryTimer = () => {
-			const timerId = (window as any).__networkRecoveryRetryIntervalId;
-			if (timerId) {
-				window.clearInterval(timerId);
-				(window as any).__networkRecoveryRetryIntervalId = null;
+		// RECOMMENDATION: idempotent init. Previously this unconditionally
+		// tore down and rebuilt every listener (including the recovery
+		// timer) on every call, on the assumption there's exactly one
+		// caller. In practice AuthProvider and RootProviders can both call
+		// this, and remounts/effect re-runs make repeat calls likely. If
+		// we're already fully attached, don't rebuild — just make sure the
+		// recovery loop matches current offline state and bail.
+		if ((window as any).__networkListenersAttached) {
+			if (!get().isOnline) {
+				scheduleRecoveryRetryTimer(get);
 			}
-		};
-
-		const scheduleRecoveryRetryTimer = () => {
-			clearRecoveryRetryTimer();
-			const timerId = window.setInterval(() => {
-				if (get().isOnline) {
-					clearRecoveryRetryTimer();
-					return;
-				}
-				void get().refreshConnectivity({
-					force: true,
-					reason: 'offline-recovery-poll',
-				});
-			}, RECOVERY_RETRY_INTERVAL_MS);
-			(window as any).__networkRecoveryRetryIntervalId = timerId;
-		};
+			return;
+		}
 
 		const handleOnline = async () => {
 			clearRecoveryRetryTimer();
@@ -82,7 +138,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
 		const handleOffline = () => {
 			get().markOffline('browser-offline');
-			scheduleRecoveryRetryTimer();
 		};
 
 		window.addEventListener('online', handleOnline);
@@ -109,9 +164,17 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
 		if (!navigator.onLine) {
 			handleOffline();
+		} else if (!get().isOnline) {
+			// navigator.onLine can read true while we're still marked
+			// offline (flaky DNS, captive portal, server unreachable but
+			// link physically up). Make sure recovery is running in that
+			// case too, not just the hard-offline branch above.
+			scheduleRecoveryRetryTimer(get);
 		}
 	},
 
+	// NOTE: this is now a true full teardown — call it on logout / actual
+	// app unmount, not as a "reset before rebuild" step inside init.
 	stopNetworkListeners: () => {
 		if (typeof window === 'undefined') return;
 
@@ -121,11 +184,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 			(window as any).__networkPollIntervalId = null;
 		}
 
-		const recoveryTimerId = (window as any).__networkRecoveryRetryIntervalId;
-		if (recoveryTimerId) {
-			window.clearInterval(recoveryTimerId);
-			(window as any).__networkRecoveryRetryIntervalId = null;
-		}
+		clearRecoveryRetryTimer();
 
 		const onlineHandler = (window as any).__networkOnlineHandler;
 		if (onlineHandler) {
@@ -152,17 +211,12 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 		const state = get();
 
 		if (state.isChecking && !options?.force) {
-			// Self-heal: if a previous check has been "in flight" longer than
-			// it possibly could be, treat it as abandoned rather than trusting
-			// it forever.
 			const stuckSince = state.checkStartedAt;
 			const isStuck =
 				stuckSince !== null && Date.now() - stuckSince > STUCK_CHECK_TIMEOUT_MS;
-
 			if (!isStuck) {
 				return state.isOnline;
 			}
-			// fall through and run a fresh check, overwriting the stuck one
 		}
 
 		set({ isChecking: true, checkStartedAt: Date.now() });
@@ -174,17 +228,24 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 		);
 
 		try {
-			// no-cors means we can't read res.ok/status — an opaque response
-			// that resolves (rather than throws) is treated as "online"
-			await fetch(CONNECTIVITY_CHECK_URL, {
-				method: 'HEAD',
-				mode: 'no-cors',
-				cache: 'no-store',
-				signal: controller.signal,
-			});
+			// Try the external probe first, as before — this is the common
+			// case and costs you nothing on Vercel either way.
+			try {
+				await probeUrl(CONNECTIVITY_CHECK_URL, controller.signal);
+				get().markOnline();
+				return true;
+			} catch (externalError) {
+				if (isAbortLikeError(externalError)) throw externalError;
 
-			get().markOnline();
-			return true;
+				// External probe failed — before declaring offline, check our
+				// own origin ONCE as a tiebreaker. This only fires on the
+				// failure path, so it adds ~zero request volume in the normal
+				// case. Also: hitting a static asset (not an /api route) means
+				// this doesn't invoke a serverless function even when it does fire.
+				await probeUrl(OWN_ORIGIN_FALLBACK_PATH, controller.signal);
+				get().markOnline();
+				return true;
+			}
 		} catch (error) {
 			get().markOffline('network-error');
 			return false;
@@ -201,8 +262,14 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 			authCheckFailed: true,
 			checkStartedAt: null,
 		});
+		// Arm the fast recovery loop regardless of *why* we went offline.
+		// scheduleRecoveryRetryTimer is idempotent now, so calling this on
+		// every failed check (not just the first transition) is harmless —
+		// it won't tear down and recreate an already-running timer.
+		scheduleRecoveryRetryTimer(get);
 	},
 	markOnline: () => {
+		clearRecoveryRetryTimer();
 		set({
 			isOnline: true,
 			isChecking: false,
