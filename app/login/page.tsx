@@ -828,30 +828,30 @@ const LoginPage = () => {
 		void bootstrapAuth();
 	}, [bootstrapAuth]);
 
-	useEffect(() => {
-		if (
-			hasBootstrapped &&
-			!isBootstrapping &&
-			!isLoading &&
-			user?.isActive &&
-			isLoggedIn &&
-			!isAwaitingOtp &&
-			!isRedirecting &&
-			!isLoggingOut
-		) {
-			navigateToDashboardWithSpinner();
-		}
-	}, [
-		hasBootstrapped,
-		isBootstrapping,
-		isLoading,
-		user,
-		isLoggedIn,
-		isAwaitingOtp,
-		isRedirecting,
-		isLoggingOut,
-		navigateToDashboardWithSpinner,
-	]);
+useEffect(() => {
+	if (
+		hasBootstrapped &&
+		!isBootstrapping &&
+		!isLoading &&
+		user?.isActive &&
+		isLoggedIn &&
+		!isAwaitingOtp &&
+		!isRedirecting &&
+		!redirectTimedOut // 1. Add this guard clause to break the loop
+	) {
+		navigateToDashboardWithSpinner();
+	}
+}, [
+	hasBootstrapped,
+	isBootstrapping,
+	isLoading,
+	user,
+	isLoggedIn,
+	isAwaitingOtp,
+	isRedirecting,
+	redirectTimedOut, // 2. Add to dependency array
+	navigateToDashboardWithSpinner,
+]);
 
 	useEffect(() => {
 		if (!isRedirecting) {
