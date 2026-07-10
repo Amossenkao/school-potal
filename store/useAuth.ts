@@ -42,6 +42,7 @@ interface AuthState {
 	isBootstrapping: boolean;
 	hasBootstrapped: boolean;
 	isVerifying: boolean;
+	isLoggingOut: boolean;
 
 	login: (loginData: LoginData) => Promise<User | null>;
 	logout: () => Promise<void>;
@@ -444,7 +445,7 @@ const runDeferredPostLoginBootstrap = (
 		isBootstrapping: true,
 		hasBootstrapped: false,
 		isVerifying: false,
-
+		isLoggingOut: false,
 		login: async (loginData: LoginData): Promise<User | null> => {
 			set({ isLoading: true, error: null });
 			try {
@@ -519,7 +520,11 @@ const runDeferredPostLoginBootstrap = (
 		},
 
 		logout: async () => {
-			set({ isLoading: true });
+			// Mark logout in progress immediately. This is the ONLY signal
+			// ProtectedRoute needs — user/isLoggedIn stay untouched until
+			// everything below has actually finished.
+			set({ isLoading: true, isLoggingOut: true });
+
 			let queuedOfflineLogout = false;
 			const queueOfflineLogout = () => {
 				if (queuedOfflineLogout) return;
@@ -541,13 +546,15 @@ const runDeferredPostLoginBootstrap = (
 				}
 			};
 
+			let wasOnline = false;
+
 			try {
-				const isOnline = await useNetworkStore.getState().refreshConnectivity({
+				wasOnline = await useNetworkStore.getState().refreshConnectivity({
 					force: true,
 					timeoutMs: 2500,
 					reason: 'logout',
 				});
-				if (isOnline) {
+				if (wasOnline) {
 					const controller = new AbortController();
 					const timeoutId = window.setTimeout(
 						() => controller.abort(createTimeoutAbortReason('Logout request')),
@@ -569,22 +576,16 @@ const runDeferredPostLoginBootstrap = (
 				if (isLikelyNetworkError(error) || isAbortLikeError(error)) {
 					useNetworkStore.getState().markOffline('logout-request-failed');
 					queueOfflineLogout();
+					wasOnline = false;
 				}
 				if (!isAbortLikeError(error)) {
 					console.warn('Logout request failed:', error);
 				}
 			}
 
-			set({
-				user: null,
-				isLoggedIn: false,
-				error: null,
-				isLoading: false,
-				userVersion: null,
-				isBootstrapping: false,
-				hasBootstrapped: true,
-				isVerifying: false,
-			});
+			// --- Cleanup phase: everything here must finish BEFORE we flip
+			// user/isLoggedIn. This is what ProtectedRoute's isLoggingOut spinner
+			// is covering, for both the online and offline paths.
 			try {
 				localStorage.removeItem('auth-user');
 			} catch (error) {
@@ -598,7 +599,31 @@ const runDeferredPostLoginBootstrap = (
 					? { preserveLocalStorageKeys: [OFFLINE_REQUESTS_KEY] }
 					: {},
 			);
-			await cacheAppShellDirect('/login');
+
+			// Only worth re-priming the SW's cached shell if we're actually online —
+			// offline, /login is already precached, and this fetch would just hang
+			// or fail for no benefit while the user waits.
+			if (wasOnline) {
+				try {
+					await cacheAppShellDirect('/login');
+				} catch (error) {
+					console.warn('Failed to pre-cache login shell:', error);
+				}
+			}
+
+			// --- Now, and only now, flip auth state. Everything ProtectedRoute or
+			// any other subscriber could possibly need has already been cleared.
+			set({
+				user: null,
+				isLoggedIn: false,
+				error: null,
+				isLoading: false,
+				userVersion: null,
+				isBootstrapping: false,
+				hasBootstrapped: true,
+				isVerifying: false,
+				isLoggingOut: false,
+			});
 		},
 
 		applyRealtimeEvent,

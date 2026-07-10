@@ -37,10 +37,7 @@ export default function RootProviders({
 	useEffect(() => {
 		hydrateCache();
 		hydrateFromCache();
-		const taskId = window.setTimeout(() => {
-			void fetchSchool();
-		}, 0);
-		return () => window.clearTimeout(taskId);
+		void fetchSchool();
 	}, [fetchSchool, hydrateCache, hydrateFromCache]);
 
 	// Keep Dashboard shell hot

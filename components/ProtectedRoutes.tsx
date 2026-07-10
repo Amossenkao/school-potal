@@ -16,7 +16,7 @@ const ProtectedRoute = ({
 	requiredRole,
 	allowedRoles,
 }: ProtectedRouteProps) => {
-	const { user, hasBootstrapped, isVerifying, bootstrapAuth } = useAuth();
+	const { user, hasBootstrapped, isVerifying,isLoggingOut, bootstrapAuth } = useAuth();
 	const router = useRouter();
 	const pathname = usePathname();
 
@@ -51,12 +51,13 @@ const ProtectedRoute = ({
 	// /login while a background check might still confirm a valid session.
 	useEffect(() => {
 		if (!hasBootstrapped) return;
+		if (isLoggingOut) return; 
 		if (isAuthenticated) return;
 		if (isVerifying) return;
 		if (pathname !== '/login') {
 			router.replace('/login');
 		}
-	}, [hasBootstrapped, isVerifying, isAuthenticated, pathname, router]);
+	}, [hasBootstrapped, isVerifying,isLoggingOut, isAuthenticated, pathname, router]);
 
 	useEffect(() => {
 		if (
@@ -78,6 +79,16 @@ const ProtectedRoute = ({
 	if (!hasBootstrapped) {
 		return (
 			<PageLoading variant="school" fullScreen={true} message="Loading..." />
+		);
+	}
+
+	if (isLoggingOut) {
+		return (
+			<PageLoading
+				variant="school"
+				fullScreen={true}
+				message="Signing out..."
+			/>
 		);
 	}
 

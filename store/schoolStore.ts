@@ -349,8 +349,20 @@ const upsertUserInRoster = (roster: UsersPayload, user: any) => {
 
 const gradeSyncInProgress = new Set<string>();
 
+const readSchoolProfileCache = (): SchoolProfile | null => {
+	if (typeof window === 'undefined') return null;
+	try {
+		const raw = localStorage.getItem('school-profile');
+		return raw ? (JSON.parse(raw) as SchoolProfile) : null;
+	} catch (error) {
+		console.warn('Failed to read cached school profile:', error);
+		return null;
+	}
+};
+
+
 export const useSchoolStore = create<SchoolStore>((set, get) => ({
-	school: null,
+	school: readSchoolProfileCache(),
 	schoolVersion: null,
 	usersByAcademicYear: {},
 	usersVersionByAcademicYear: {},
@@ -508,21 +520,8 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	},
 
 	fetchSchool: async () => {
-		if (!get().school) {
-			try {
-				const storedSchool = localStorage.getItem('school-profile');
-				if (storedSchool) {
-					set({ school: JSON.parse(storedSchool) });
-				}
-			} catch (error) {
-				console.error(
-					'Failed to load school profile from local storage:',
-					error,
-				);
-			}
-		}
-
-		// Cache-first: if school exists in memory or local storage, skip network fetch.
+		// school is already hydrated synchronously at store creation (or via
+		// a prior fetch), so if it's present there's nothing to do.
 		if (get().school) return;
 
 		const isOnline = await useNetworkStore.getState().refreshConnectivity({
@@ -539,36 +538,19 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				const timeoutId = window.setTimeout(() => controller.abort(), 5000);
 				const response = await (async () => {
 					try {
-						return await fetch(`/api/school`, {
-							signal: controller.signal,
-						});
+						return await fetch(`/api/school`, { signal: controller.signal });
 					} finally {
 						window.clearTimeout(timeoutId);
 					}
 				})();
-				if (!response.ok) {
+				if (!response.ok)
 					throw new Error(`Failed to fetch: ${response.statusText}`);
-				}
 				const schoolProfile: SchoolProfile = await response.json();
 				set({ school: schoolProfile });
-
 				localStorage.setItem('school-profile', JSON.stringify(schoolProfile));
 			} catch (error) {
 				console.error('Failed to fetch school profile:', error);
-				// Keep existing cached school data if available instead of blanking UI.
-				if (!get().school) {
-					try {
-						const storedSchool = localStorage.getItem('school-profile');
-						if (storedSchool) {
-							set({ school: JSON.parse(storedSchool) });
-						}
-					} catch (cacheError) {
-						console.warn(
-							'Failed to restore cached school profile:',
-							cacheError,
-						);
-					}
-				}
+				// Cache was already checked at store init — nothing further to fall back to.
 			} finally {
 				fetchPromise = null;
 			}

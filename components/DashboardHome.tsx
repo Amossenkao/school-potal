@@ -371,9 +371,9 @@ function getRoleDescription(role: string): string {
 		system_admin:
 			'You have full system access to manage users, settings, and all school operations.',
 		teacher:
-			'Manage your classes, submit grades and lesson plans, and access teaching resources.',
+			'Submit grades, take attendance, view your masters',
 		student:
-			'View your academic progress, pay fees, and access learning materials.',
+			'View your academic progress, view your class and text schedules',
 		administrator:
 			'Handle administrative tasks and manage staff-related functions.',
 		registrar:
