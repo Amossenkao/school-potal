@@ -34,7 +34,8 @@ const SpinnerCore = ({
 	message?: string;
 }) => {
 	const logo = currentSchool?.logoUrl;
-	const schoolShortName = currentSchool?.shortName || 'School';
+	const schoolShortName = currentSchool?.shortName || currentSchool?.name || '';
+	const shouldShowSchoolBrand = Boolean(showSchoolBrand && schoolShortName);
 
 	return (
 		<div className="flex flex-col items-center gap-4">
@@ -47,7 +48,7 @@ const SpinnerCore = ({
 						<div className="relative h-7 w-7">
 							<img
 								src={logo}
-								alt={`${schoolShortName} logo`}
+								alt={`${schoolShortName || 'School'} logo`}
 								className="h-7 w-7 rounded-full object-cover"
 								loading="eager"
 								decoding="async"
@@ -64,11 +65,11 @@ const SpinnerCore = ({
 								<GraduationCap className="h-4 w-4" />
 							</span>
 						</div>
-					) : (
+					) : currentSchool ? (
 						<span className="grid h-7 w-7 place-items-center rounded-full bg-primary/10 text-primary">
 							<GraduationCap className="h-4 w-4" />
 						</span>
-					)}
+					) : null}
 				</div>
 			</div>
 			{showSchoolBrand && !compact && (

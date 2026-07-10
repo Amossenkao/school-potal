@@ -42,7 +42,8 @@ export default function RootProviders({
 
 	// Keep Dashboard shell hot
 	useEffect(() => {
-		cacheAppShellDirect(useAuth.getState().user ? '/dashboard' : '/login');
+		cacheAppShellDirect('/login');
+		void cacheAppShellDirect('/dashboard');
 
 		const unsubAuth = useAuth.subscribe((state, prevState) => {
 			if (state.user !== prevState.user) {

@@ -597,9 +597,9 @@ const AppSidebar: React.FC = () => {
 	const handleLogout = useCallback(async () => {
 		setOpenSubmenu(null);
 		setIsLoggingOut(true);
+		router.replace('/login');
 		try {
 			await logout();
-			router.replace('/login');
 		} catch {
 			setIsLoggingOut(false);
 		}

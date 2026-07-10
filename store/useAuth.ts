@@ -492,6 +492,9 @@ const runDeferredPostLoginBootstrap = (
 
 				setDashboardStartPath();
 				cacheAuthUser(data.user as User);
+				try {
+					window.history.replaceState(null, '', '/dashboard');
+				} catch {}
 
 				// Only wipe the previous session's caches if a DIFFERENT user just
 				// logged in on this device. Otherwise we'd delete the IndexedDB
@@ -599,6 +602,9 @@ const runDeferredPostLoginBootstrap = (
 				isVerifying: false,
 				isLoggingOut: false,
 			});
+			try {
+				window.history.replaceState(null, '', '/login');
+			} catch {}
 
 			void (async () => {
 				try {

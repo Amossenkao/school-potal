@@ -74,6 +74,11 @@ const IdentityStrip = ({
 }) => {
 	const currentRole = roles.find((r) => r.value === selectedRole);
 	const currentPos = adminPositions.find((p) => p.id === adminPosition);
+	const schoolDisplayName = school?.shortName || school?.name || '';
+	const schoolTagline = school?.tagline || school?.slogan || '';
+	const hasSchoolBrand = Boolean(
+		school?.logoUrl || schoolDisplayName || school?.initials || schoolTagline,
+	);
 
 	return (
 		<aside
@@ -84,31 +89,41 @@ const IdentityStrip = ({
 		"
 		>
 			{/* Logo + school name */}
-			<Link href="/" className="flex flex-col gap-4">
-				<div
-					className="
-					w-30 h-30 flex items-center justify-center
-				"
-				>
-					{school?.logoUrl ? (
-						<img
-							src={school.logoUrl}
-							alt={`${school.shortName || 'School'} logo`}
-							className="w-full h-full "
-						/>
-					) : (
-						<School className="w-8 h-8 text-muted-foreground" />
-					)}
+			{hasSchoolBrand ? (
+				<Link href="/" className="flex flex-col gap-4">
+					<div
+						className="
+						w-30 h-30 flex items-center justify-center overflow-hidden rounded-2xl border border-border/60 bg-muted/40
+					"
+					>
+						{school?.logoUrl ? (
+							<img
+								src={school.logoUrl}
+								alt={`${schoolDisplayName || 'School'} logo`}
+								className="w-full h-full object-cover"
+							/>
+						) : (
+							<div className="h-10 w-10 rounded-full border border-border/60 bg-muted/40" />
+						)}
+					</div>
+					<div>
+						<p className="text-base font-semibold text-foreground leading-snug">
+							{schoolDisplayName ? `${schoolDisplayName} e-Portal` : 'e-Portal'}
+						</p>
+						<p className="text-xs text-muted-foreground mt-1 leading-snug">
+							{schoolTagline || 'Excellence in Education'}
+						</p>
+					</div>
+				</Link>
+			) : (
+				<div className="flex flex-col gap-4">
+					<div className="h-30 w-30 animate-pulse rounded-2xl border border-border/60 bg-muted/40" />
+					<div className="space-y-2">
+						<div className="h-4 w-24 animate-pulse rounded bg-muted" />
+						<div className="h-3 w-28 animate-pulse rounded bg-muted" />
+					</div>
 				</div>
-				<div>
-					<p className="text-base font-semibold text-foreground leading-snug">
-						{school?.shortName || 'School'} e-Portal
-					</p>
-					<p className="text-xs text-muted-foreground mt-1 leading-snug">
-						{school?.tagline || 'Excellence in Education'}
-					</p>
-				</div>
-			</Link>
+			)}
 
 			<div className="h-px bg-border" />
 
@@ -777,6 +792,7 @@ const LoginPage = () => {
 		bootstrapAuth,
 		isBootstrapping,
 		hasBootstrapped,
+		isLoggingOut,
 	} = useAuth();
 
 	const [formData, setFormData] = useState({
@@ -784,6 +800,13 @@ const LoginPage = () => {
 		password: '',
 		otp: '',
 	});
+	const hasSchoolBrand = Boolean(
+		currentSchool?.logoUrl ||
+			currentSchool?.shortName ||
+			currentSchool?.name ||
+			currentSchool?.initials ||
+			currentSchool?.tagline,
+	);
 
 	const dismissKeyboardFocus = useCallback(() => {
 		if (typeof document === 'undefined') return;
@@ -813,7 +836,8 @@ const LoginPage = () => {
 			user?.isActive &&
 			isLoggedIn &&
 			!isAwaitingOtp &&
-			!isRedirecting
+			!isRedirecting &&
+			!isLoggingOut
 		) {
 			navigateToDashboardWithSpinner();
 		}
@@ -825,6 +849,7 @@ const LoginPage = () => {
 		isLoggedIn,
 		isAwaitingOtp,
 		isRedirecting,
+		isLoggingOut,
 		navigateToDashboardWithSpinner,
 	]);
 
@@ -1113,6 +1138,7 @@ const LoginPage = () => {
 						>
 							{/* Mobile logo header — visible only on small screens */}
 							<div className="lg:hidden flex items-center gap-4 px-6 pt-6 pb-4 border-b border-border">
+							{hasSchoolBrand ? (
 								<Link href="/" className="flex items-center gap-3">
 									<div
 										className="
@@ -1122,22 +1148,32 @@ const LoginPage = () => {
 										{currentSchool?.logoUrl ? (
 											<img
 												src={currentSchool.logoUrl}
-												alt={`${currentSchool.shortName || 'School'} logo`}
+												alt={`${currentSchool.shortName || currentSchool.name || 'School'} logo`}
 												className="w-full h-full"
 											/>
 										) : (
-											<School className="w-7 h-7 text-muted-foreground" />
+											<div className="h-10 w-10 rounded-full border border-border/60 bg-muted/40" />
 										)}
 									</div>
 									<div>
 										<p className="text-sm font-semibold text-foreground leading-snug">
-											{currentSchool?.shortName || 'School'} e-Portal
+											{currentSchool?.shortName || currentSchool?.name || ''} e-Portal
 										</p>
 										<p className="text-xs text-muted-foreground mt-0.5 leading-snug">
 											{currentSchool?.tagline || 'Excellence in Education'}
 										</p>
 									</div>
 								</Link>
+							) : (
+								<div className="flex items-center gap-3 w-full">
+									<div className="h-12 w-12 shrink-0 animate-pulse rounded-full border border-border/60 bg-muted/40" />
+									<div className="flex-1 space-y-2">
+										<div className="h-4 w-24 animate-pulse rounded bg-muted" />
+										<div className="h-3 w-28 animate-pulse rounded bg-muted" />
+									</div>
+								</div>
+								)}
+								
 							</div>
 
 							{/* Left identity strip (desktop only) */}

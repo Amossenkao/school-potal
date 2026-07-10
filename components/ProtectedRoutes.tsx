@@ -51,13 +51,13 @@ const ProtectedRoute = ({
 	// /login while a background check might still confirm a valid session.
 	useEffect(() => {
 		if (!hasBootstrapped) return;
-		if (isLoggingOut) return; 
+		if (isLoggingOut) return;
 		if (isAuthenticated) return;
 		if (isVerifying) return;
 		if (pathname !== '/login') {
 			router.replace('/login');
 		}
-	}, [hasBootstrapped, isVerifying,isLoggingOut, isAuthenticated, pathname, router]);
+	}, [hasBootstrapped, isVerifying, isLoggingOut, isAuthenticated, pathname, router]);
 
 	useEffect(() => {
 		if (
@@ -93,7 +93,16 @@ const ProtectedRoute = ({
 	}
 
 	if (!isAuthenticated) {
-		return <LoginPage />;
+		if (pathname === '/login') {
+			return <LoginPage />;
+		}
+		return (
+			<PageLoading
+				variant="school"
+				fullScreen={true}
+				message="Redirecting to login..."
+			/>
+		);
 	}
 
 	const activeUser = user!;
