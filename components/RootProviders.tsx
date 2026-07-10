@@ -166,10 +166,6 @@ if (!isSessionValid) {
 		isLoggedIn: false,
 		error: null,
 		isLoading: false,
-		sessionId: null,
-		isAwaitingOtp: false,
-		otpContact: null,
-		userId: null,
 		userVersion: null,
 	});
 
@@ -237,10 +233,6 @@ if (!isSessionValid) {
 								isLoggedIn: false,
 								error: null,
 								isLoading: false,
-								sessionId: null,
-								isAwaitingOtp: false,
-								otpContact: null,
-								userId: null,
 								userVersion: null,
 							});
 							useSchoolStore.getState().clearCache();

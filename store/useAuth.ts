@@ -37,6 +37,7 @@ interface AuthState {
 	error: string | null;
 	isLoading: boolean;
 	userVersion: string | null;
+	sessionId: string | null;
 
 	// Bootstrap / verification lifecycle
 	isBootstrapping: boolean;
@@ -441,6 +442,7 @@ const runDeferredPostLoginBootstrap = (
 		error: null,
 		isLoading: false,
 		userVersion: null,
+		sessionId: null,
 
 		isBootstrapping: true,
 		hasBootstrapped: false,
@@ -583,36 +585,9 @@ const runDeferredPostLoginBootstrap = (
 				}
 			}
 
-			// --- Cleanup phase: everything here must finish BEFORE we flip
-			// user/isLoggedIn. This is what ProtectedRoute's isLoggingOut spinner
-			// is covering, for both the online and offline paths.
-			try {
-				localStorage.removeItem('auth-user');
-			} catch (error) {
-				console.warn('Failed to clear auth user cache:', error);
-			}
-			useSchoolStore.getState().clearCache();
-			clearSessionScopedClientState();
-			await clearSessionSensitiveStorage(
-				'logout',
-				queuedOfflineLogout
-					? { preserveLocalStorageKeys: [OFFLINE_REQUESTS_KEY] }
-					: {},
-			);
-
-			// Only worth re-priming the SW's cached shell if we're actually online —
-			// offline, /login is already precached, and this fetch would just hang
-			// or fail for no benefit while the user waits.
-			if (wasOnline) {
-				try {
-					await cacheAppShellDirect('/login');
-				} catch (error) {
-					console.warn('Failed to pre-cache login shell:', error);
-				}
-			}
-
-			// --- Now, and only now, flip auth state. Everything ProtectedRoute or
-			// any other subscriber could possibly need has already been cleared.
+			// Clear the UI state as soon as the server response is in hand. The
+			// subsequent cache/IndexedDB/Service Worker cleanup can run in the
+			// background without keeping the signing-out spinner visible.
 			set({
 				user: null,
 				isLoggedIn: false,
@@ -623,6 +598,35 @@ const runDeferredPostLoginBootstrap = (
 				hasBootstrapped: true,
 				isVerifying: false,
 				isLoggingOut: false,
+			});
+
+			void (async () => {
+				try {
+					localStorage.removeItem('auth-user');
+				} catch (error) {
+					console.warn('Failed to clear auth user cache:', error);
+				}
+				useSchoolStore.getState().clearCache();
+				clearSessionScopedClientState();
+				await clearSessionSensitiveStorage(
+					'logout',
+					queuedOfflineLogout
+						? { preserveLocalStorageKeys: [OFFLINE_REQUESTS_KEY] }
+						: {},
+				);
+
+				// Only worth re-priming the SW's cached shell if we're actually online —
+				// offline, /login is already precached, and this fetch would just hang
+				// or fail for no benefit while the user waits.
+				if (wasOnline) {
+					try {
+						await cacheAppShellDirect('/login');
+					} catch (error) {
+						console.warn('Failed to pre-cache login shell:', error);
+					}
+				}
+			})().catch((error) => {
+				console.warn('Logout cleanup failed:', error);
 			});
 		},
 
