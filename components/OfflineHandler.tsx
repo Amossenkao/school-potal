@@ -146,10 +146,10 @@ export default function OfflineHandler({
 			try {
 				const parsed = new URL(url, window.location.origin);
 				return (
-					parsed.origin === window.location.origin && parsed.pathname === '/api/ping'
+					parsed.origin === window.location.origin && parsed.pathname === '/favicon.ico'
 				);
 			} catch {
-				return url.includes('/api/ping');
+				return url.includes('/favicon.ico');
 			}
 		};
 
@@ -226,6 +226,9 @@ export default function OfflineHandler({
 				if (shouldQueueOfflineMutation(url, method)) {
 					return originalFetch(...(args as Parameters<typeof fetch>));
 				}
+				if (!apiRequest) {
+					return originalFetch(...(args as Parameters<typeof fetch>));
+				}
 				if (method.toUpperCase() === 'GET') {
 					if (cacheableGet) {
 						const cached = request ? await readCachedResponse(request) : null;
@@ -239,7 +242,6 @@ export default function OfflineHandler({
 						}
 						return Promise.reject(new Error(OFFLINE_ERROR_MESSAGE));
 					}
-					// Allow static/non-API GET assets to resolve from browser/service-worker cache.
 					return originalFetch(...(args as Parameters<typeof fetch>));
 				}
 				return Promise.reject(new Error(OFFLINE_ERROR_MESSAGE));

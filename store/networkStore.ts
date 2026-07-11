@@ -27,11 +27,7 @@ interface NetworkState {
 
 const POLL_INTERVAL_MS = 10_000; // 10 seconds
 const RECOVERY_RETRY_INTERVAL_MS = 5_000;
-const CONNECTIVITY_CHECK_URL = 'https://www.gstatic.com/generate_204';
-// Same-origin fallback: hits your own Vercel deployment instead of a
-// third-party domain, so a gstatic-specific outage/blip on the user's
-// network can't strand the app in a false "offline" state.
-const OWN_ORIGIN_FALLBACK_PATH = '/favicon.ico';
+const CONNECTIVITY_CHECK_URL = '/favicon.ico';
 const STUCK_CHECK_TIMEOUT_MS = 8_000;
 
 // --- Recovery retry timer -------------------------------------------------
@@ -84,22 +80,6 @@ const probeUrl = async (url: string, signal: AbortSignal): Promise<true> => {
 		signal,
 	});
 	return true;
-};
-
-const isAbortLikeError = (error: unknown) => {
-	if (!error) return false;
-	if (error instanceof DOMException) {
-		return error.name === 'AbortError' || error.name === 'TimeoutError';
-	}
-	if (typeof error === 'object') {
-		const candidate = error as { name?: unknown; message?: unknown };
-		const name = typeof candidate.name === 'string' ? candidate.name : '';
-		if (name === 'AbortError' || name === 'TimeoutError') return true;
-		const message =
-			typeof candidate.message === 'string' ? candidate.message : '';
-		if (/signal is aborted/i.test(message)) return true;
-	}
-	return false;
 };
 
 export const useNetworkStore = create<NetworkState>((set, get) => ({
@@ -228,24 +208,9 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 		);
 
 		try {
-			// Try the external probe first, as before — this is the common
-			// case and costs you nothing on Vercel either way.
-			try {
-				await probeUrl(CONNECTIVITY_CHECK_URL, controller.signal);
-				get().markOnline();
-				return true;
-			} catch (externalError) {
-				if (isAbortLikeError(externalError)) throw externalError;
-
-				// External probe failed — before declaring offline, check our
-				// own origin ONCE as a tiebreaker. This only fires on the
-				// failure path, so it adds ~zero request volume in the normal
-				// case. Also: hitting a static asset (not an /api route) means
-				// this doesn't invoke a serverless function even when it does fire.
-				await probeUrl(OWN_ORIGIN_FALLBACK_PATH, controller.signal);
-				get().markOnline();
-				return true;
-			}
+			await probeUrl(CONNECTIVITY_CHECK_URL, controller.signal);
+			get().markOnline();
+			return true;
 		} catch (error) {
 			get().markOffline('network-error');
 			return false;
