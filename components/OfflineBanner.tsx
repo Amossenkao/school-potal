@@ -1,19 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNetworkStore } from '@/store/networkStore';
 
 export default function OfflineBanner() {
 	const { isOnline, isSyncing } = useNetworkStore();
 	const [visible, setVisible] = useState(false);
 	const [justCameOnline, setJustCameOnline] = useState(false);
+	const wasOfflineRef = useRef(false);
 
 	useEffect(() => {
 		if (!isOnline) {
+			wasOfflineRef.current = true;
 			setJustCameOnline(false);
 			setVisible(true);
 			return;
 		}
+
+		if (!wasOfflineRef.current) return;
 
 		if (isSyncing) {
 			setVisible(true);
