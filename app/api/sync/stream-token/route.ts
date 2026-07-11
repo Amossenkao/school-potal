@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeUser } from '@/proxy';
-import { getTenantModels } from '@/models';
 import { getSchoolProfile } from '@/lib/mongoose';
 import {
 	createAblyTokenRequest,
@@ -19,7 +18,7 @@ const noStoreJson = (payload: Record<string, unknown>, status = 200) =>
 		},
 	});
 
-	const HANDLER_TIMEOUT_MS = 8_000;
+	const HANDLER_TIMEOUT_MS = 20_000;
 
 	async function handleGetRequest(request: NextRequest): Promise<NextResponse> {
 		const requestId = crypto.randomUUID();
@@ -31,10 +30,16 @@ const noStoreJson = (payload: Record<string, unknown>, status = 200) =>
 				userAgent: request.headers.get('user-agent') || null,
 			});
 
+			const t0 = Date.now();
 			const [currentUser, schoolProfileRaw] = await Promise.all([
 				authorizeUser(request),
 				getSchoolProfile(),
 			]);
+			const t1 = Date.now();
+			syncDebugLog('stream-token', 'Auth + profile resolved.', {
+				requestId,
+				durationMs: t1 - t0,
+			});
 			if (!currentUser) {
 				syncDebugWarn('stream-token', 'Unauthorized token request.', {
 					requestId,
@@ -89,7 +94,7 @@ const noStoreJson = (payload: Record<string, unknown>, status = 200) =>
 				);
 			}
 
-			// After — use session fields directly, zero DB calls
+			const tToken = Date.now();
 			const tokenRequest = await createAblyTokenRequest({
 				tenantId: tenantKey,
 				user: {
@@ -111,6 +116,8 @@ const noStoreJson = (payload: Record<string, unknown>, status = 200) =>
 				channels: Object.keys(
 					JSON.parse(String(tokenRequest.capability || '{}')),
 				),
+				authMs: t1 - t0,
+				tokenMs: Date.now() - tToken,
 				durationMs: Date.now() - startedAt,
 			});
 

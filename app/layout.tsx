@@ -1,6 +1,7 @@
 // ─── Root layout ──────────────────────────────────────────────────────────────
 import './globals.css';
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import RootProviders from '@/components/RootProviders';
 import DynamicDocumentTitle from '@/components/DynamicDocumentTitle';
 import { getSchoolProfile } from '@/lib/mongoose';
@@ -45,31 +46,6 @@ const toSchoolShortName = (profile: any, fallbackName: string) => {
 // wrong theme or colour-mode on hard refresh / SSR.
 // It mirrors exactly what applyTenantThemeToDocument() + ThemeToggleButton do
 // at runtime — the only source of truth is localStorage.
-const THEME_RESTORE_SCRIPT = `
-(function () {
-  try {
-    // ── 1. Dark / light mode ────────────────────────────────────────────────
-    // Adjust the localStorage key below if ThemeToggleButton uses a different one.
-    var mode = localStorage.getItem('theme');
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    var dark = mode === 'dark' || (mode !== 'light' && prefersDark);
-    document.documentElement.classList.toggle('dark', dark);
-
-    // ── 2. Tenant theme ─────────────────────────────────────────────────────
-    // Setting data-theme lets CSS selectors in globals.css restore variables
-    // instantly without waiting for the JS bundle.
-    // applyTenantThemeToDocument() must also call setAttribute('data-theme', name)
-    // so the attribute stays in sync whenever the user changes themes at runtime.
-    var theme = localStorage.getItem('user_theme_preference');
-    if (theme) {
-      document.documentElement.setAttribute('data-theme', theme);
-    }
-  } catch (_) {
-    // localStorage unavailable (private browsing edge-cases) — silently skip.
-  }
-})();
-`.trim();
-
 // ─── Metadata ─────────────────────────────────────────────────────────────────
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -167,7 +143,11 @@ export default async function RootLayout({
 				 * element is painted. Restores dark-mode class and data-theme attribute
 				 * from localStorage synchronously, eliminating flash on hard refresh.
 				 */}
-				<script dangerouslySetInnerHTML={{ __html: THEME_RESTORE_SCRIPT }} />
+				<Script
+					id="theme-restore"
+					strategy="beforeInteractive"
+					src="/theme-restore.js"
+				/>
 
 				{/* Server-side tenant theme — used as the SSR baseline / fallback.
 				    At runtime applyTenantThemeToDocument() takes over and the
