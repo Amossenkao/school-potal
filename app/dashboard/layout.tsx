@@ -10,6 +10,7 @@ import { useOfflineNavigationStore } from '@/store/offlineNavigationStore';
 import { useNetworkStore } from '@/store/networkStore';
 import OfflineRouteRenderer from '@/components/OfflineRouteRenderer';
 import PrefetchDashboardChunks from '@/components/PrefetchDashboardChunks';
+import OfflineBanner from '@/components/OfflineBanner';
 
 export default function AdminLayout({
 	children: _children,
@@ -143,13 +144,14 @@ export default function AdminLayout({
 							: undefined
 					}
 				>
-					{/* Header */}
-					<AppHeader
-						isMobileOpen={isMobileOpen}
-						onToggleSidebar={toggleSidebar}
-						onToggleMobileSidebar={toggleMobileSidebar}
-					/>
-					{/* Page Content */}
+				{/* Header */}
+				<AppHeader
+					isMobileOpen={isMobileOpen}
+					onToggleSidebar={toggleSidebar}
+					onToggleMobileSidebar={toggleMobileSidebar}
+				/>
+				<OfflineBanner />
+				{/* Page Content */}
 					<main className="px-0 overflow-x-hidden pb-4 md:pb-6 pt-[calc(var(--app-header-height,4rem)+1rem)] lg:pt-4">
 						<OfflineRouteRenderer path={activePath} />
 					</main>
