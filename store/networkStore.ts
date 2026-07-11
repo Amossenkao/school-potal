@@ -8,6 +8,8 @@ interface NetworkState {
 	authCheckFailed: boolean;
 	offlineReason: string | null;
 	checkStartedAt: number | null;
+	consecutiveFailures: number;
+	consecutiveSuccesses: number;
 
 	// Actions
 	initNetworkListeners: () => void;
@@ -25,49 +27,10 @@ interface NetworkState {
 	stopNetworkListeners: () => void;
 }
 
-const POLL_INTERVAL_MS = 10_000; // 10 seconds
-const RECOVERY_RETRY_INTERVAL_MS = 5_000;
+const POLL_INTERVAL_MS = 5_000;
 const CONNECTIVITY_CHECK_URL = '/favicon.ico';
 const STUCK_CHECK_TIMEOUT_MS = 8_000;
-
-// --- Recovery retry timer -------------------------------------------------
-// Lives at module scope (not nested inside initNetworkListeners) so it can
-// be armed from ANYWHERE we transition to offline — not just the browser's
-// native 'offline' event. markOffline() calls from a failed connectivity
-// ping (refreshConnectivity's catch block), checkAuthStatus, login, or
-// logout should all be able to arm this without depending on which
-// component happened to call initNetworkListeners.
-const clearRecoveryRetryTimer = () => {
-	if (typeof window === 'undefined') return;
-	const timerId = (window as any).__networkRecoveryRetryIntervalId;
-	if (timerId) {
-		window.clearInterval(timerId);
-		(window as any).__networkRecoveryRetryIntervalId = null;
-	}
-};
-
-// IDEMPOTENT: only starts a new interval if one isn't already running.
-// Previously this unconditionally cleared + recreated itself every time
-// markOffline() ran (i.e. on every failed retry while offline), which
-// meant there was never one stable long-lived interval — just a chain of
-// short-lived ones, more exposed to background-tab timer throttling and
-// vulnerable to being killed off by an unrelated teardown (see
-// initNetworkListeners below) with nothing to restart it.
-const scheduleRecoveryRetryTimer = (getState: () => NetworkState) => {
-	if (typeof window === 'undefined') return;
-	if ((window as any).__networkRecoveryRetryIntervalId) return;
-	const timerId = window.setInterval(() => {
-		if (getState().isOnline) {
-			clearRecoveryRetryTimer();
-			return;
-		}
-		void getState().refreshConnectivity({
-			force: true,
-			reason: 'offline-recovery-poll',
-		});
-	}, RECOVERY_RETRY_INTERVAL_MS);
-	(window as any).__networkRecoveryRetryIntervalId = timerId;
-};
+const CONSECUTIVE_THRESHOLD = 3;
 
 // Probes a single URL; resolves true on any response that doesn't throw
 // (opaque no-cors responses can't be read for status, so "didn't throw"
@@ -90,34 +53,28 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 	authCheckFailed: false,
 	offlineReason: null,
 	checkStartedAt: null,
+	consecutiveFailures: 0,
+	consecutiveSuccesses: 0,
 
 	initNetworkListeners: () => {
 		if (typeof window === 'undefined') return;
 
-		// RECOMMENDATION: idempotent init. Previously this unconditionally
-		// tore down and rebuilt every listener (including the recovery
-		// timer) on every call, on the assumption there's exactly one
-		// caller. In practice AuthProvider and RootProviders can both call
-		// this, and remounts/effect re-runs make repeat calls likely. If
-		// we're already fully attached, don't rebuild — just make sure the
-		// recovery loop matches current offline state and bail.
 		if ((window as any).__networkListenersAttached) {
-			if (!get().isOnline) {
-				scheduleRecoveryRetryTimer(get);
-			}
 			return;
 		}
 
-		const handleOnline = async () => {
-			clearRecoveryRetryTimer();
-			await get().refreshConnectivity({
+		const handleOnline = () => {
+			void get().refreshConnectivity({
 				force: true,
 				reason: 'browser-online-event',
 			});
 		};
 
 		const handleOffline = () => {
-			get().markOffline('browser-offline');
+			void get().refreshConnectivity({
+				force: true,
+				reason: 'browser-offline-event',
+			});
 		};
 
 		window.addEventListener('online', handleOnline);
@@ -125,7 +82,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 		window.addEventListener('focus', handleOnline);
 
 		const intervalId = window.setInterval(() => {
-			if (document.visibilityState !== 'visible') return;
 			void get().refreshConnectivity({ reason: 'interval-poll' });
 		}, POLL_INTERVAL_MS);
 
@@ -141,20 +97,8 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 		(window as any).__networkOfflineHandler = handleOffline;
 		(window as any).__networkVisibilityHandler = handleVisibilityChange;
 		(window as any).__networkListenersAttached = true;
-
-		if (!navigator.onLine) {
-			handleOffline();
-		} else if (!get().isOnline) {
-			// navigator.onLine can read true while we're still marked
-			// offline (flaky DNS, captive portal, server unreachable but
-			// link physically up). Make sure recovery is running in that
-			// case too, not just the hard-offline branch above.
-			scheduleRecoveryRetryTimer(get);
-		}
 	},
 
-	// NOTE: this is now a true full teardown — call it on logout / actual
-	// app unmount, not as a "reset before rebuild" step inside init.
 	stopNetworkListeners: () => {
 		if (typeof window === 'undefined') return;
 
@@ -163,8 +107,6 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 			window.clearInterval(intervalId);
 			(window as any).__networkPollIntervalId = null;
 		}
-
-		clearRecoveryRetryTimer();
 
 		const onlineHandler = (window as any).__networkOnlineHandler;
 		if (onlineHandler) {
@@ -209,13 +151,22 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
 		try {
 			await probeUrl(CONNECTIVITY_CHECK_URL, controller.signal);
-			get().markOnline();
-			return true;
-		} catch (error) {
-			get().markOffline('network-error');
-			return false;
+			const consecutiveSuccesses = get().consecutiveSuccesses + 1;
+			set({ consecutiveSuccesses, consecutiveFailures: 0 });
+			if (consecutiveSuccesses >= CONSECUTIVE_THRESHOLD && !get().isOnline) {
+				get().markOnline();
+			}
+			return get().isOnline;
+		} catch {
+			const consecutiveFailures = get().consecutiveFailures + 1;
+			set({ consecutiveFailures, consecutiveSuccesses: 0 });
+			if (consecutiveFailures >= CONSECUTIVE_THRESHOLD && get().isOnline) {
+				get().markOffline('network-error');
+			}
+			return get().isOnline;
 		} finally {
 			clearTimeout(timeoutId);
+			set({ isChecking: false, checkStartedAt: null });
 		}
 	},
 
@@ -226,20 +177,18 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 			offlineReason: reason,
 			authCheckFailed: true,
 			checkStartedAt: null,
+			consecutiveFailures: 0,
+			consecutiveSuccesses: 0,
 		});
-		// Arm the fast recovery loop regardless of *why* we went offline.
-		// scheduleRecoveryRetryTimer is idempotent now, so calling this on
-		// every failed check (not just the first transition) is harmless —
-		// it won't tear down and recreate an already-running timer.
-		scheduleRecoveryRetryTimer(get);
 	},
 	markOnline: () => {
-		clearRecoveryRetryTimer();
 		set({
 			isOnline: true,
 			isChecking: false,
 			offlineReason: null,
 			checkStartedAt: null,
+			consecutiveFailures: 0,
+			consecutiveSuccesses: 0,
 		});
 	},
 
