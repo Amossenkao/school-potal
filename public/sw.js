@@ -872,6 +872,12 @@ self.addEventListener('fetch', (event) => {
   var retryBtn = document.getElementById('retryBtn');
   var retryLabel = document.getElementById('retryLabel');
 
+  function probeConnectivity(){
+    return fetch('/ping.txt', { method: 'HEAD', mode: 'no-cors', cache: 'no-store' })
+      .then(function(){ return true; })
+      .catch(function(){ return false; });
+  }
+
   function setOnlineUI(){
     statusEl.classList.add('online');
     statusText.textContent = 'Connection restored — syncing…';
@@ -884,19 +890,19 @@ self.addEventListener('fetch', (event) => {
     statusText.textContent = 'Searching for a signal…';
   }
 
-  window.addEventListener('online', setOnlineUI);
+  window.addEventListener('online', function(){
+    probeConnectivity().then(function(isOnline){
+      if (isOnline) setOnlineUI();
+    });
+  });
   window.addEventListener('offline', setOfflineUI);
-
-  if (navigator.onLine) {
-    statusText.textContent = 'Reconnecting…';
-  }
 
   retryBtn.addEventListener('click', function(){
     retryBtn.classList.add('spinning');
     retryBtn.disabled = true;
     retryLabel.textContent = 'Checking…';
-    setTimeout(function(){
-      if (navigator.onLine) {
+    probeConnectivity().then(function(isOnline){
+      if (isOnline) {
         setOnlineUI();
       } else {
         retryBtn.classList.remove('spinning');
@@ -904,12 +910,14 @@ self.addEventListener('fetch', (event) => {
         retryLabel.textContent = 'Try again';
         statusText.textContent = 'Still offline — searching…';
       }
-    }, 900);
+    });
   });
 
   setInterval(function(){
-    if (navigator.onLine) setOnlineUI();
-  }, 15000);
+    probeConnectivity().then(function(isOnline){
+      if (isOnline) setOnlineUI();
+    });
+  }, 5000);
 </script>
 
 </body>

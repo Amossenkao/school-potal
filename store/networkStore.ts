@@ -28,7 +28,7 @@ interface NetworkState {
 }
 
 const POLL_INTERVAL_MS = 5_000;
-const CONNECTIVITY_CHECK_URL = '/favicon.ico';
+const CONNECTIVITY_CHECK_URL = '/ping.txt';
 const STUCK_CHECK_TIMEOUT_MS = 8_000;
 const CONSECUTIVE_THRESHOLD = 3;
 
@@ -82,7 +82,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 		window.addEventListener('focus', handleOnline);
 
 		const intervalId = window.setInterval(() => {
-			void get().refreshConnectivity({ reason: 'interval-poll' });
+			void get().refreshConnectivity({ force: true, reason: 'interval-poll' });
 		}, POLL_INTERVAL_MS);
 
 		const handleVisibilityChange = () => {

@@ -146,10 +146,10 @@ export default function OfflineHandler({
 			try {
 				const parsed = new URL(url, window.location.origin);
 				return (
-					parsed.origin === window.location.origin && parsed.pathname === '/favicon.ico'
+					parsed.origin === window.location.origin && parsed.pathname === '/ping.txt'
 				);
 			} catch {
-				return url.includes('/favicon.ico');
+				return url.includes('/ping.txt');
 			}
 		};
 
