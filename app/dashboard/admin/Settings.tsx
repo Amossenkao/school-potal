@@ -131,9 +131,64 @@ const buildAcademicYearRange = (
 };
 
 // ---------------------------------------------------------------------------
+// Default shapes for the per-academic-year settings
+// ---------------------------------------------------------------------------
+const defaultStudentYearSettings = () => ({
+	enabled: false,
+	yearlyReportAccess: false,
+	periods: [] as string[],
+	semesters: [] as string[],
+});
+
+const defaultTeacherYearSettings = () => ({
+	enabled: false,
+	gradeSubmission: { enabled: false, periods: [] as string[] },
+	viewGradeSubmissions: { enabled: false },
+	gradeChangeRequest: { enabled: false, periods: [] as string[] },
+	viewMasters: { enabled: false },
+});
+
+const normalizeStudentYearSettings = (existing: any) => {
+	const base = defaultStudentYearSettings();
+	if (!existing || typeof existing !== 'object') return base;
+	return {
+		enabled: !!existing.enabled,
+		yearlyReportAccess: !!existing.yearlyReportAccess,
+		periods: ensureArray(existing.periods),
+		semesters: ensureArray(existing.semesters),
+	};
+};
+
+const normalizeTeacherYearSettings = (existing: any) => {
+	const base = defaultTeacherYearSettings();
+	if (!existing || typeof existing !== 'object') return base;
+	return {
+		enabled: !!existing.enabled,
+		gradeSubmission: {
+			enabled: !!existing.gradeSubmission?.enabled,
+			periods: ensureArray(existing.gradeSubmission?.periods),
+		},
+		viewGradeSubmissions: {
+			enabled: !!existing.viewGradeSubmissions?.enabled,
+		},
+		gradeChangeRequest: {
+			enabled: !!existing.gradeChangeRequest?.enabled,
+			periods: ensureArray(existing.gradeChangeRequest?.periods),
+		},
+		viewMasters: { enabled: !!existing.viewMasters?.enabled },
+	};
+};
+
+// ---------------------------------------------------------------------------
 // MultiSelect
 // ---------------------------------------------------------------------------
-const MultiSelect = ({ options, selected, onChange, label }: any) => {
+const MultiSelect = ({
+	options,
+	selected,
+	onChange,
+	label,
+	disabled = false,
+}: any) => {
 	const [isOpen, setIsOpen] = useState(false);
 	const safeOptions = Array.isArray(options) ? options : [];
 	const safeSelected = ensureArray(selected);
@@ -143,7 +198,9 @@ const MultiSelect = ({ options, selected, onChange, label }: any) => {
 			<label className="block text-xs sm:text-sm font-medium text-foreground mb-1.5">
 				{label}
 			</label>
-			<div className="w-full rounded-lg border border-border bg-background p-2 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+			<div
+				className={`w-full rounded-lg border border-border bg-background p-2 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
+			>
 				<div className="flex flex-wrap gap-1.5 items-center min-h-[32px]">
 					{safeSelected.map((itemValue: string) => {
 						const itemLabel =
@@ -419,6 +476,337 @@ const BulkActionItem = ({
 		</div>
 	</div>
 );
+
+// ---------------------------------------------------------------------------
+// YearAccordionHeader — shared header row used by both per-year accordions
+// ---------------------------------------------------------------------------
+const YearAccordionHeader = ({
+	icon: Icon,
+	year,
+	enabled,
+	enabledLabel,
+	disabledLabel,
+	isExpanded,
+	onToggleExpand,
+	onToggleEnabled,
+}: any) => (
+	<div
+		role="button"
+		tabIndex={0}
+		onClick={onToggleExpand}
+		onKeyDown={(e: React.KeyboardEvent) => {
+			if (e.key === 'Enter' || e.key === ' ') onToggleExpand();
+		}}
+		className="w-full flex items-center gap-3 px-4 py-3.5 bg-card hover:bg-muted/30 transition-colors text-left cursor-pointer"
+	>
+		<div
+			className={`h-9 w-9 rounded-lg flex-shrink-0 flex items-center justify-center transition-colors ${enabled ? 'bg-primary/10' : 'bg-muted'}`}
+		>
+			<Icon
+				className={`h-4 w-4 ${enabled ? 'text-primary' : 'text-muted-foreground'}`}
+			/>
+		</div>
+
+		<div className="flex-1 min-w-0">
+			<p className="font-semibold text-sm text-foreground leading-tight">
+				{year}
+			</p>
+			<p className="text-xs text-muted-foreground mt-0.5">
+				{enabled ? enabledLabel : disabledLabel}
+			</p>
+		</div>
+
+		<div
+			className="flex-shrink-0"
+			onClick={(e) => e.stopPropagation()}
+			onKeyDown={(e) => e.stopPropagation()}
+		>
+			<ToggleSwitch checked={enabled} onChange={onToggleEnabled} />
+		</div>
+
+		<ChevronDown
+			className={`h-4 w-4 text-muted-foreground transition-transform duration-300 flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
+		/>
+	</div>
+);
+
+// ---------------------------------------------------------------------------
+// StudentReportAccessByYear — accordion grouping report access by academic year
+// ---------------------------------------------------------------------------
+function StudentReportAccessByYear({
+	years,
+	data,
+	onChange,
+}: {
+	years: string[];
+	data: Record<string, any>;
+	onChange: (next: Record<string, any>) => void;
+}) {
+	const [expandedYear, setExpandedYear] = useState<string | null>(
+		years.length > 0 ? years[0] : null,
+	);
+
+	if (years.length === 0) {
+		return (
+			<p className="text-sm text-muted-foreground">
+				No academic years configured yet.
+			</p>
+		);
+	}
+
+	const getYear = (year: string) => normalizeStudentYearSettings(data[year]);
+
+	const updateYear = (year: string, patch: any) => {
+		onChange({ ...data, [year]: { ...getYear(year), ...patch } });
+	};
+
+	return (
+		<div className="space-y-2.5">
+			{years.map((year) => {
+				const yearSettings = getYear(year);
+				const isExpanded = expandedYear === year;
+
+				return (
+					<div
+						key={year}
+						className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
+							isExpanded
+								? 'border-primary/50 shadow-md'
+								: 'border-border hover:border-border/80'
+						}`}
+					>
+						<YearAccordionHeader
+							icon={Calendar}
+							year={year}
+							enabled={yearSettings.enabled}
+							enabledLabel="Report access enabled"
+							disabledLabel="Report access disabled"
+							isExpanded={isExpanded}
+							onToggleExpand={() => setExpandedYear(isExpanded ? null : year)}
+							onToggleEnabled={() =>
+								updateYear(year, { enabled: !yearSettings.enabled })
+							}
+						/>
+
+						{isExpanded && (
+							<div className="border-t border-border bg-muted/10 p-4 space-y-3 sm:space-y-4">
+								{!yearSettings.enabled && (
+									<p className="text-xs text-muted-foreground italic">
+										Turn on report access above to configure these settings for{' '}
+										{year}.
+									</p>
+								)}
+								<div
+									className={
+										!yearSettings.enabled
+											? 'opacity-50 pointer-events-none space-y-3 sm:space-y-4'
+											: 'space-y-3 sm:space-y-4'
+									}
+								>
+									<SettingsItem
+										label="Yearly Report Access"
+										description="Allow students to access the full yearly academic report"
+										checked={yearSettings.yearlyReportAccess}
+										onChange={() =>
+											updateYear(year, {
+												yearlyReportAccess: !yearSettings.yearlyReportAccess,
+											})
+										}
+										disabled={!yearSettings.enabled}
+									/>
+									<MultiSelect
+										options={academicPeriodsMap}
+										selected={yearSettings.periods}
+										onChange={(v: string[]) => updateYear(year, { periods: v })}
+										label="Periodic reports students can view"
+										disabled={!yearSettings.enabled}
+									/>
+									<MultiSelect
+										options={semesterOptions}
+										selected={yearSettings.semesters}
+										onChange={(v: string[]) =>
+											updateYear(year, { semesters: v })
+										}
+										label="Semester reports students can view"
+										disabled={!yearSettings.enabled}
+									/>
+								</div>
+							</div>
+						)}
+					</div>
+				);
+			})}
+		</div>
+	);
+}
+
+// ---------------------------------------------------------------------------
+// TeacherPermissionsByYear — accordion grouping teacher permissions by year
+// ---------------------------------------------------------------------------
+function TeacherPermissionsByYear({
+	years,
+	data,
+	onChange,
+}: {
+	years: string[];
+	data: Record<string, any>;
+	onChange: (next: Record<string, any>) => void;
+}) {
+	const [expandedYear, setExpandedYear] = useState<string | null>(
+		years.length > 0 ? years[0] : null,
+	);
+
+	if (years.length === 0) {
+		return (
+			<p className="text-sm text-muted-foreground">
+				No academic years configured yet.
+			</p>
+		);
+	}
+
+	const getYear = (year: string) => normalizeTeacherYearSettings(data[year]);
+
+	const updateYear = (year: string, patch: any) => {
+		onChange({ ...data, [year]: { ...getYear(year), ...patch } });
+	};
+
+	const updateNested = (year: string, key: string, patch: any) => {
+		const current = getYear(year);
+		onChange({
+			...data,
+			[year]: { ...current, [key]: { ...(current as any)[key], ...patch } },
+		});
+	};
+
+	return (
+		<div className="space-y-2.5">
+			{years.map((year) => {
+				const yearSettings = getYear(year);
+				const isExpanded = expandedYear === year;
+
+				return (
+					<div
+						key={year}
+						className={`rounded-xl border-2 overflow-hidden transition-all duration-300 ${
+							isExpanded
+								? 'border-primary/50 shadow-md'
+								: 'border-border hover:border-border/80'
+						}`}
+					>
+						<YearAccordionHeader
+							icon={BookOpen}
+							year={year}
+							enabled={yearSettings.enabled}
+							enabledLabel="Permissions enabled"
+							disabledLabel="Permissions disabled"
+							isExpanded={isExpanded}
+							onToggleExpand={() => setExpandedYear(isExpanded ? null : year)}
+							onToggleEnabled={() =>
+								updateYear(year, { enabled: !yearSettings.enabled })
+							}
+						/>
+
+						{isExpanded && (
+							<div className="border-t border-border bg-muted/10 p-4 space-y-3 sm:space-y-4">
+								{!yearSettings.enabled && (
+									<p className="text-xs text-muted-foreground italic">
+										Turn on permissions above to configure these settings for{' '}
+										{year}.
+									</p>
+								)}
+								<div
+									className={
+										!yearSettings.enabled
+											? 'opacity-50 pointer-events-none space-y-3 sm:space-y-4'
+											: 'space-y-3 sm:space-y-4'
+									}
+								>
+									<div className="space-y-3">
+										<SettingsItem
+											label="Grade Submission"
+											description="Allow teachers to submit grades for this academic year"
+											checked={yearSettings.gradeSubmission.enabled}
+											onChange={() =>
+												updateNested(year, 'gradeSubmission', {
+													enabled: !yearSettings.gradeSubmission.enabled,
+												})
+											}
+											disabled={!yearSettings.enabled}
+										/>
+										{yearSettings.gradeSubmission.enabled && (
+											<MultiSelect
+												options={academicPeriodsMap}
+												selected={yearSettings.gradeSubmission.periods}
+												onChange={(v: string[]) =>
+													updateNested(year, 'gradeSubmission', {
+														periods: v,
+													})
+												}
+												label="Submission periods"
+												disabled={!yearSettings.enabled}
+											/>
+										)}
+									</div>
+
+									<SettingsItem
+										label="View Grade Submissions"
+										description="Allow teachers to view submitted grades for this academic year"
+										checked={yearSettings.viewGradeSubmissions.enabled}
+										onChange={() =>
+											updateNested(year, 'viewGradeSubmissions', {
+												enabled: !yearSettings.viewGradeSubmissions.enabled,
+											})
+										}
+										disabled={!yearSettings.enabled}
+									/>
+
+									<SettingsItem
+										label="View Master Grade Sheets"
+										description="Allow teachers to view master grade sheets for this academic year"
+										checked={yearSettings.viewMasters.enabled}
+										onChange={() =>
+											updateNested(year, 'viewMasters', {
+												enabled: !yearSettings.viewMasters.enabled,
+											})
+										}
+										disabled={!yearSettings.enabled}
+									/>
+
+									<div className="space-y-3">
+										<SettingsItem
+											label="Grade Change Requests"
+											description="Allow teachers to submit grade change requests for this academic year"
+											checked={yearSettings.gradeChangeRequest.enabled}
+											onChange={() =>
+												updateNested(year, 'gradeChangeRequest', {
+													enabled: !yearSettings.gradeChangeRequest.enabled,
+												})
+											}
+											disabled={!yearSettings.enabled}
+										/>
+										{yearSettings.gradeChangeRequest.enabled && (
+											<MultiSelect
+												options={academicPeriodsMap}
+												selected={yearSettings.gradeChangeRequest.periods}
+												onChange={(v: string[]) =>
+													updateNested(year, 'gradeChangeRequest', {
+														periods: v,
+													})
+												}
+												label="Grade change request periods"
+												disabled={!yearSettings.enabled}
+											/>
+										)}
+									</div>
+								</div>
+							</div>
+						)}
+					</div>
+				);
+			})}
+		</div>
+	);
+}
 
 // ---------------------------------------------------------------------------
 // MockReportCard — miniature report card preview rendered in the chosen theme
@@ -729,61 +1117,115 @@ export default function Settings() {
 				school.currentAcademicYear || getCurrentAcademicYear();
 			setCurrentAcademicYear(baseAcademicYear);
 
-			const studentDefaults = {
-				loginAccess: true,
-				yearlyReportAccess: false,
-				reportAccessPeriods: [],
-				reportAccessSemesters: [],
-			};
-			const teacherDefaults = {
-				loginAccess: true,
-				gradeSubmissionPeriods: [],
-				gradeSubmissionAcademicYears: [baseAcademicYear],
-				viewMastersAcademicYears: [baseAcademicYear],
-				viewGradeSubmissionsAcademicYears: [baseAcademicYear],
-				gradeChangeRequestAcademicYears: [baseAcademicYear],
-				gradeChangeRequestPeriods: [],
-			};
-			const administratorDefaults = { loginAccess: true };
+			const rawStudentSettings = school.settings.studentSettings || {};
+			const rawTeacherSettings = school.settings.teacherSettings || {};
 
-			const nextStudentSettings = {
-				...studentDefaults,
-				...(school.settings.studentSettings || {}),
-			};
-			nextStudentSettings.reportAccessPeriods = ensureArray(
-				nextStudentSettings.reportAccessPeriods,
-			);
-			nextStudentSettings.reportAccessSemesters = ensureArray(
-				nextStudentSettings.reportAccessSemesters,
-			);
+			// --- Student settings: normalize per-year map, with a one-time
+			// migration from the old global-only fields if no per-year data exists yet.
+			const existingStudentByYear =
+				rawStudentSettings.reportAccessByYear &&
+				typeof rawStudentSettings.reportAccessByYear === 'object'
+					? rawStudentSettings.reportAccessByYear
+					: null;
 
-			const nextTeacherSettings = {
-				...teacherDefaults,
-				...(school.settings.teacherSettings || {}),
-			};
-			nextTeacherSettings.gradeSubmissionPeriods = ensureArray(
-				nextTeacherSettings.gradeSubmissionPeriods,
-			);
-			nextTeacherSettings.gradeSubmissionAcademicYears = ensureArray(
-				nextTeacherSettings.gradeSubmissionAcademicYears,
-			);
-			nextTeacherSettings.viewMastersAcademicYears = ensureArray(
-				nextTeacherSettings.viewMastersAcademicYears,
-			);
-			nextTeacherSettings.viewGradeSubmissionsAcademicYears = ensureArray(
-				nextTeacherSettings.viewGradeSubmissionsAcademicYears,
-			);
-			nextTeacherSettings.gradeChangeRequestAcademicYears = ensureArray(
-				nextTeacherSettings.gradeChangeRequestAcademicYears,
-			);
-			nextTeacherSettings.gradeChangeRequestPeriods = ensureArray(
-				nextTeacherSettings.gradeChangeRequestPeriods,
-			);
+			let nextReportAccessByYear: Record<string, any> = {};
+			if (existingStudentByYear) {
+				Object.keys(existingStudentByYear).forEach((year) => {
+					nextReportAccessByYear[year] = normalizeStudentYearSettings(
+						existingStudentByYear[year],
+					);
+				});
+			} else if (
+				rawStudentSettings.yearlyReportAccess !== undefined ||
+				rawStudentSettings.reportAccessPeriods !== undefined ||
+				rawStudentSettings.reportAccessSemesters !== undefined
+			) {
+				// Legacy global settings existed — seed the current academic year
+				// with them so nothing is silently lost.
+				nextReportAccessByYear[baseAcademicYear] = normalizeStudentYearSettings(
+					{
+						enabled: true,
+						yearlyReportAccess: rawStudentSettings.yearlyReportAccess,
+						periods: rawStudentSettings.reportAccessPeriods,
+						semesters: rawStudentSettings.reportAccessSemesters,
+					},
+				);
+			}
 
-			setStudentSettings(nextStudentSettings);
-			setTeacherSettings(nextTeacherSettings);
+			setStudentSettings({
+				loginAccess:
+					rawStudentSettings.loginAccess !== undefined
+						? rawStudentSettings.loginAccess
+						: true,
+				reportAccessByYear: nextReportAccessByYear,
+			});
+
+			// --- Teacher settings: normalize per-year map, with a one-time
+			// migration from the old array-based fields if no per-year data exists yet.
+			const existingTeacherByYear =
+				rawTeacherSettings.permissionsByYear &&
+				typeof rawTeacherSettings.permissionsByYear === 'object'
+					? rawTeacherSettings.permissionsByYear
+					: null;
+
+			let nextPermissionsByYear: Record<string, any> = {};
+			if (existingTeacherByYear) {
+				Object.keys(existingTeacherByYear).forEach((year) => {
+					nextPermissionsByYear[year] = normalizeTeacherYearSettings(
+						existingTeacherByYear[year],
+					);
+				});
+			} else {
+				const legacyGradeSubmissionYears = ensureArray(
+					rawTeacherSettings.gradeSubmissionAcademicYears,
+				);
+				const legacyViewMastersYears = ensureArray(
+					rawTeacherSettings.viewMastersAcademicYears,
+				);
+				const legacyViewSubmissionsYears = ensureArray(
+					rawTeacherSettings.viewGradeSubmissionsAcademicYears,
+				);
+				const legacyGradeChangeYears = ensureArray(
+					rawTeacherSettings.gradeChangeRequestAcademicYears,
+				);
+				const legacyYears = new Set<string>([
+					...legacyGradeSubmissionYears,
+					...legacyViewMastersYears,
+					...legacyViewSubmissionsYears,
+					...legacyGradeChangeYears,
+				]);
+
+				legacyYears.forEach((year) => {
+					nextPermissionsByYear[year] = normalizeTeacherYearSettings({
+						enabled: true,
+						gradeSubmission: {
+							enabled: legacyGradeSubmissionYears.includes(year),
+							periods: rawTeacherSettings.gradeSubmissionPeriods,
+						},
+						viewGradeSubmissions: {
+							enabled: legacyViewSubmissionsYears.includes(year),
+						},
+						gradeChangeRequest: {
+							enabled: legacyGradeChangeYears.includes(year),
+							periods: rawTeacherSettings.gradeChangeRequestPeriods,
+						},
+						viewMasters: {
+							enabled: legacyViewMastersYears.includes(year),
+						},
+					});
+				});
+			}
+
+			setTeacherSettings({
+				loginAccess:
+					rawTeacherSettings.loginAccess !== undefined
+						? rawTeacherSettings.loginAccess
+						: true,
+				permissionsByYear: nextPermissionsByYear,
+			});
+
 			setAdministratorSettings({
-				...administratorDefaults,
+				loginAccess: true,
 				...(school.settings.administratorSettings || {}),
 			});
 			setReportCardThemes((school.settings as any).reportCardThemes || {});
@@ -816,6 +1258,9 @@ export default function Settings() {
 			buildAcademicYearRange(firstAcademicYear, maxCurrentAcademicYearOption),
 		[firstAcademicYear, maxCurrentAcademicYearOption],
 	);
+	// Every academic year between the school's first academic year and the
+	// currently selected academic year (inclusive) — this is the range used
+	// to group both student report access and teacher permissions.
 	const settingsAcademicYearValues = useMemo(
 		() =>
 			buildAcademicYearRange(
@@ -846,6 +1291,11 @@ export default function Settings() {
 		baseCurrentAcademicYear,
 	]);
 
+	const academicYears = useMemo(
+		() => academicYearOptions.map((o) => o.value),
+		[academicYearOptions],
+	);
+
 	useEffect(() => {
 		if (!currentAcademicYearOptions.length) return;
 		const hasCurrentOption = currentAcademicYearOptions.some(
@@ -869,40 +1319,37 @@ export default function Settings() {
 		school?.currentAcademicYear,
 	]);
 
+	// Keep the per-year settings maps in sync with the current academic year
+	// range: add defaults for newly-in-range years, drop years that fell out.
 	useEffect(() => {
-		if (!teacherSettings) return;
-		const allowedAcademicYears = new Set(
-			academicYearOptions.map((o) => o.value),
-		);
-		const sanitize = (years: any) =>
-			ensureArray(years).filter((y: string) => allowedAcademicYears.has(y));
+		if (!academicYears.length) return;
+
+		setStudentSettings((prev: any) => {
+			if (!prev) return prev;
+			const existing = prev.reportAccessByYear || {};
+			const next: Record<string, any> = {};
+			academicYears.forEach((year) => {
+				next[year] = existing[year]
+					? normalizeStudentYearSettings(existing[year])
+					: defaultStudentYearSettings();
+			});
+			const unchanged = JSON.stringify(next) === JSON.stringify(existing);
+			return unchanged ? prev : { ...prev, reportAccessByYear: next };
+		});
+
 		setTeacherSettings((prev: any) => {
 			if (!prev) return prev;
-			const next = {
-				...prev,
-				gradeSubmissionAcademicYears: sanitize(
-					prev.gradeSubmissionAcademicYears,
-				),
-				viewMastersAcademicYears: sanitize(prev.viewMastersAcademicYears),
-				viewGradeSubmissionsAcademicYears: sanitize(
-					prev.viewGradeSubmissionsAcademicYears,
-				),
-				gradeChangeRequestAcademicYears: sanitize(
-					prev.gradeChangeRequestAcademicYears,
-				),
-			};
-			const unchanged =
-				JSON.stringify(next.gradeSubmissionAcademicYears) ===
-					JSON.stringify(ensureArray(prev.gradeSubmissionAcademicYears)) &&
-				JSON.stringify(next.viewMastersAcademicYears) ===
-					JSON.stringify(ensureArray(prev.viewMastersAcademicYears)) &&
-				JSON.stringify(next.viewGradeSubmissionsAcademicYears) ===
-					JSON.stringify(ensureArray(prev.viewGradeSubmissionsAcademicYears)) &&
-				JSON.stringify(next.gradeChangeRequestAcademicYears) ===
-					JSON.stringify(ensureArray(prev.gradeChangeRequestAcademicYears));
-			return unchanged ? prev : next;
+			const existing = prev.permissionsByYear || {};
+			const next: Record<string, any> = {};
+			academicYears.forEach((year) => {
+				next[year] = existing[year]
+					? normalizeTeacherYearSettings(existing[year])
+					: defaultTeacherYearSettings();
+			});
+			const unchanged = JSON.stringify(next) === JSON.stringify(existing);
+			return unchanged ? prev : { ...prev, permissionsByYear: next };
 		});
-	}, [teacherSettings, academicYearOptions]);
+	}, [academicYears]);
 
 	const toggleStudentSetting = (s: string) =>
 		setStudentSettings((p: any) => ({ ...p, [s]: !p[s] }));
@@ -1065,42 +1512,23 @@ export default function Settings() {
 							checked={studentSettings.loginAccess}
 							onChange={() => toggleStudentSetting('loginAccess')}
 						/>
-						<SettingsItem
-							label="Yearly Report Access"
-							description="Allow students to access yearly academic reports"
-							checked={studentSettings.yearlyReportAccess}
-							onChange={() => toggleStudentSetting('yearlyReportAccess')}
-						/>
 						<div className="pt-3 sm:pt-4 border-t border-border space-y-3">
 							<h4 className="font-medium text-foreground text-sm sm:text-base">
-								Periodic Report Access
+								Report Access by Academic Year
 							</h4>
-							<MultiSelect
-								options={academicPeriodsMap}
-								selected={studentSettings.reportAccessPeriods}
-								onChange={(v: string[]) =>
+							<p className="text-xs sm:text-sm text-muted-foreground">
+								Covers every academic year from {firstAcademicYear} through{' '}
+								{currentAcademicYear || baseCurrentAcademicYear}.
+							</p>
+							<StudentReportAccessByYear
+								years={academicYears}
+								data={studentSettings.reportAccessByYear}
+								onChange={(next) =>
 									setStudentSettings((p: any) => ({
 										...p,
-										reportAccessPeriods: v,
+										reportAccessByYear: next,
 									}))
 								}
-								label="Select periods students can view. Leave empty to disable."
-							/>
-						</div>
-						<div className="pt-3 sm:pt-4 border-t border-border space-y-3">
-							<h4 className="font-medium text-foreground text-sm sm:text-base">
-								Semester Report Access
-							</h4>
-							<MultiSelect
-								options={semesterOptions}
-								selected={studentSettings.reportAccessSemesters}
-								onChange={(v: string[]) =>
-									setStudentSettings((p: any) => ({
-										...p,
-										reportAccessSemesters: v,
-									}))
-								}
-								label="Select semesters students can view. Leave empty to disable."
 							/>
 						</div>
 						<div className="pt-3 sm:pt-4 border-t border-border space-y-3">
@@ -1142,83 +1570,23 @@ export default function Settings() {
 						/>
 						<div className="pt-3 sm:pt-4 border-t border-border space-y-3">
 							<h4 className="font-medium text-foreground text-sm sm:text-base">
-								Grade Submission Windows
+								Permissions by Academic Year
 							</h4>
-							<MultiSelect
-								options={academicYearOptions}
-								selected={teacherSettings.gradeSubmissionAcademicYears}
-								onChange={(v: string[]) =>
+							<p className="text-xs sm:text-sm text-muted-foreground">
+								Grade submission, viewing grade submissions, grade change
+								requests, and viewing masters — all grouped per academic year,
+								from {firstAcademicYear} through{' '}
+								{currentAcademicYear || baseCurrentAcademicYear}.
+							</p>
+							<TeacherPermissionsByYear
+								years={academicYears}
+								data={teacherSettings.permissionsByYear}
+								onChange={(next) =>
 									setTeacherSettings((p: any) => ({
 										...p,
-										gradeSubmissionAcademicYears: v,
+										permissionsByYear: next,
 									}))
 								}
-								label="Academic Years"
-							/>
-							<MultiSelect
-								options={academicPeriodsMap}
-								selected={teacherSettings.gradeSubmissionPeriods}
-								onChange={(v: string[]) =>
-									setTeacherSettings((p: any) => ({
-										...p,
-										gradeSubmissionPeriods: v,
-									}))
-								}
-								label="Periods"
-							/>
-						</div>
-						<div className="pt-3 sm:pt-4 border-t border-border space-y-3">
-							<h4 className="font-medium text-foreground text-sm sm:text-base">
-								Permissions
-							</h4>
-							<MultiSelect
-								options={academicYearOptions}
-								selected={teacherSettings.viewMastersAcademicYears}
-								onChange={(v: string[]) =>
-									setTeacherSettings((p: any) => ({
-										...p,
-										viewMastersAcademicYears: v,
-									}))
-								}
-								label="View Master Grade Sheets for Academic Years"
-							/>
-							<MultiSelect
-								options={academicYearOptions}
-								selected={teacherSettings.viewGradeSubmissionsAcademicYears}
-								onChange={(v: string[]) =>
-									setTeacherSettings((p: any) => ({
-										...p,
-										viewGradeSubmissionsAcademicYears: v,
-									}))
-								}
-								label="View Grade Submissions for Academic Years"
-							/>
-						</div>
-						<div className="pt-3 sm:pt-4 border-t border-border space-y-3">
-							<h4 className="font-medium text-foreground text-sm sm:text-base">
-								Grade Change Request Windows
-							</h4>
-							<MultiSelect
-								options={academicYearOptions}
-								selected={teacherSettings.gradeChangeRequestAcademicYears}
-								onChange={(v: string[]) =>
-									setTeacherSettings((p: any) => ({
-										...p,
-										gradeChangeRequestAcademicYears: v,
-									}))
-								}
-								label="Academic Years"
-							/>
-							<MultiSelect
-								options={academicPeriodsMap}
-								selected={teacherSettings.gradeChangeRequestPeriods}
-								onChange={(v: string[]) =>
-									setTeacherSettings((p: any) => ({
-										...p,
-										gradeChangeRequestPeriods: v,
-									}))
-								}
-								label="Periods"
 							/>
 						</div>
 						<div className="pt-3 sm:pt-4 border-t border-border space-y-3">

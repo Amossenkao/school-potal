@@ -337,39 +337,43 @@ const TeacherGradeChangeRequests = ({
 				setLoading(false);
 				return;
 			}
+			let hasCachedDisplay = false;
 			try {
 				const academicYear = selectedAcademicYear;
-				const storeState = useSchoolStore.getState();
-				const cachedByYear = storeState.gradeRequestsByAcademicYear || {};
-				const scopedStoreSnapshot = getScopedAcademicYearValue(
-					cachedByYear,
-					academicYear,
-				);
-				const hasYearSnapshot = Boolean(scopedStoreSnapshot.key);
-				const scopedStoreRequests = Array.isArray(scopedStoreSnapshot.value)
-					? scopedStoreSnapshot.value
-					: [];
 				const cacheKey = `gradeRequests:${academicYear}:${
 					teacherInfo?.username || 'teacher'
 				}`;
-				if (!skipCache && hasYearSnapshot) {
-					setRequests(normalizeBatchRequests(scopedStoreRequests));
-					setError('');
-					setLoading(false);
-					return;
-				}
 
 				if (!skipCache) {
-					const cached = getClientCache<BatchRequest[]>(cacheKey);
-					if (cached !== null) {
-						setRequests(normalizeBatchRequests(cached));
+					const storeState = useSchoolStore.getState();
+					const scopedStoreSnapshot = getScopedAcademicYearValue(
+						storeState.gradeRequestsByAcademicYear || {},
+						academicYear,
+					);
+					const scopedStoreRequests = Array.isArray(scopedStoreSnapshot.value)
+						? scopedStoreSnapshot.value
+						: [];
+					if (scopedStoreRequests.length > 0) {
+						setRequests(normalizeBatchRequests(scopedStoreRequests));
 						setError('');
 						setLoading(false);
-						return;
+						hasCachedDisplay = true;
+					}
+
+					if (!hasCachedDisplay) {
+						const cached = getClientCache<BatchRequest[]>(cacheKey);
+						if (cached !== null && cached.length > 0) {
+							setRequests(normalizeBatchRequests(cached));
+							setError('');
+							setLoading(false);
+							hasCachedDisplay = true;
+						}
 					}
 				}
 
-				setLoading(true);
+				if (!hasCachedDisplay) {
+					setLoading(true);
+				}
 				setError('');
 				const res = await fetch(
 					`/api/grades/requests?academicYear=${academicYear}`
@@ -383,9 +387,11 @@ const TeacherGradeChangeRequests = ({
 				setGradeRequestsForYear(academicYear, normalizedReport);
 				setClientCache(cacheKey, normalizedReport);
 			} catch (err) {
-				setError(
-					'Could not load your grade change requests. Please try again later.'
-				);
+				if (!hasCachedDisplay) {
+					setError(
+						'Could not load your grade change requests. Please try again later.'
+					);
+				}
 			} finally {
 				setLoading(false);
 			}

@@ -29,6 +29,123 @@ import { normalizeHost } from '@/utils/host';
 import { TENANT_THEMES } from '@/lib/tenantTheme';
 // -----------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Shape validation / sanitization for the per-academic-year settings.
+// Mirrors the client-side academicPeriodsMap / semesterOptions enums so a
+// malformed or stale client payload can never write junk keys into settings.
+// ---------------------------------------------------------------------------
+const ACADEMIC_PERIOD_VALUES = [
+	'first',
+	'second',
+	'third',
+	'third_period_exam',
+	'fourth',
+	'fifth',
+	'sixth',
+	'sixth_period_exam',
+] as const;
+
+const SEMESTER_VALUES = ['first', 'second'] as const;
+
+const ACADEMIC_YEAR_KEY_REGEX = /^\d{4}-\d{4}$/;
+
+const sanitizePeriods = (value: any): string[] =>
+	Array.isArray(value)
+		? value.filter((p) => ACADEMIC_PERIOD_VALUES.includes(p))
+		: [];
+
+const sanitizeSemesters = (value: any): string[] =>
+	Array.isArray(value) ? value.filter((s) => SEMESTER_VALUES.includes(s)) : [];
+
+/**
+ * Sanitizes the incoming studentSettings payload into:
+ * { loginAccess: boolean, reportAccessByYear: { [year]: { enabled, yearlyReportAccess, periods, semesters } } }
+ */
+function sanitizeStudentSettings(raw: any): any {
+	if (!raw || typeof raw !== 'object') return undefined;
+
+	const reportAccessByYear: Record<string, any> = {};
+	const byYear = raw.reportAccessByYear;
+	if (byYear && typeof byYear === 'object') {
+		for (const [year, value] of Object.entries(byYear)) {
+			if (!ACADEMIC_YEAR_KEY_REGEX.test(year)) continue;
+			const v: any = value || {};
+			reportAccessByYear[year] = {
+				enabled: !!v.enabled,
+				yearlyReportAccess: !!v.yearlyReportAccess,
+				periods: sanitizePeriods(v.periods),
+				semesters: sanitizeSemesters(v.semesters),
+			};
+		}
+	}
+
+	return {
+		loginAccess: raw.loginAccess !== undefined ? !!raw.loginAccess : true,
+		reportAccessByYear,
+	};
+}
+
+/**
+ * Sanitizes the incoming teacherSettings payload into:
+ * { loginAccess: boolean, permissionsByYear: { [year]: {
+ *     enabled, gradeSubmission: {enabled, periods}, viewGradeSubmissions: {enabled},
+ *     gradeChangeRequest: {enabled, periods}, viewMasters: {enabled}
+ * } } }
+ */
+function sanitizeTeacherSettings(raw: any): any {
+	if (!raw || typeof raw !== 'object') return undefined;
+
+	const permissionsByYear: Record<string, any> = {};
+	const byYear = raw.permissionsByYear;
+	if (byYear && typeof byYear === 'object') {
+		for (const [year, value] of Object.entries(byYear)) {
+			if (!ACADEMIC_YEAR_KEY_REGEX.test(year)) continue;
+			const v: any = value || {};
+			permissionsByYear[year] = {
+				enabled: !!v.enabled,
+				gradeSubmission: {
+					enabled: !!v.gradeSubmission?.enabled,
+					periods: sanitizePeriods(v.gradeSubmission?.periods),
+				},
+				viewGradeSubmissions: {
+					enabled: !!v.viewGradeSubmissions?.enabled,
+				},
+				gradeChangeRequest: {
+					enabled: !!v.gradeChangeRequest?.enabled,
+					periods: sanitizePeriods(v.gradeChangeRequest?.periods),
+				},
+				viewMasters: {
+					enabled: !!v.viewMasters?.enabled,
+				},
+			};
+		}
+	}
+
+	return {
+		loginAccess: raw.loginAccess !== undefined ? !!raw.loginAccess : true,
+		permissionsByYear,
+	};
+}
+
+/**
+ * Compares two "by academic year" maps (old vs. new, already sanitized) and
+ * returns the list of academic year keys whose settings actually changed —
+ * added, removed, or edited. Used to scope realtime sync events so only the
+ * affected academic years' listeners get told to refresh.
+ */
+function collectChangedYears(oldMap: any, newMap: any): string[] {
+	const oldM = oldMap && typeof oldMap === 'object' ? oldMap : {};
+	const newM = newMap && typeof newMap === 'object' ? newMap : {};
+	const years = new Set<string>([...Object.keys(oldM), ...Object.keys(newM)]);
+	const changed: string[] = [];
+	years.forEach((year) => {
+		const before = JSON.stringify(oldM[year] ?? null);
+		const after = JSON.stringify(newM[year] ?? null);
+		if (before !== after) changed.push(year);
+	});
+	return changed;
+}
+
 /**
  * Helper to process arrays concurrently.
  */
@@ -111,14 +228,27 @@ export async function POST(request: NextRequest) {
 		const body = await request.json();
 		const {
 			currentAcademicYear,
-			studentSettings,
-			teacherSettings,
+			studentSettings: rawStudentSettings,
+			teacherSettings: rawTeacherSettings,
 			administratorSettings,
 			reportCardThemes,
 			themeName,
 			bulkUserActions,
 			bulkPasswordResets,
 		} = body;
+
+		// Sanitize the per-academic-year settings payloads before they ever
+		// touch the database. Anything that doesn't match the expected shape
+		// (unknown period/semester values, malformed year keys, etc.) is
+		// silently dropped rather than persisted.
+		const studentSettings =
+			rawStudentSettings !== undefined
+				? sanitizeStudentSettings(rawStudentSettings)
+				: undefined;
+		const teacherSettings =
+			rawTeacherSettings !== undefined
+				? sanitizeTeacherSettings(rawTeacherSettings)
+				: undefined;
 
 		// Build update object
 		const updateObject: any = {};
@@ -421,6 +551,33 @@ export async function POST(request: NextRequest) {
 					reason: 'bulk-user-action',
 				});
 			}
+		}
+
+		// Notify any academic years whose student report access or teacher
+		// permissions actually changed, so realtime listeners scoped to a
+		// specific academic year (not just the currently selected one) know
+		// to refresh.
+		const changedSettingsYears = new Set<string>();
+		if (studentSettings !== undefined) {
+			collectChangedYears(
+				oldSettings?.studentSettings?.reportAccessByYear,
+				studentSettings.reportAccessByYear,
+			).forEach((year) => changedSettingsYears.add(year));
+		}
+		if (teacherSettings !== undefined) {
+			collectChangedYears(
+				oldSettings?.teacherSettings?.permissionsByYear,
+				teacherSettings.permissionsByYear,
+			).forEach((year) => changedSettingsYears.add(year));
+		}
+		if (changedSettingsYears.size > 0) {
+			await publishSyncEventsForAcademicYearsSafe({
+				tenantId,
+				domain: 'school',
+				academicYears: Array.from(changedSettingsYears),
+				actorId: currentUser.id,
+				reason: 'school-settings-updated',
+			});
 		}
 
 		await publishSyncEventSafe({

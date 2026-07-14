@@ -7,6 +7,7 @@ interface NetworkState {
 	ablyState: 'connected' | 'failed' | 'suspended' | 'disconnected' | null;
 	authCheckFailed: boolean;
 	offlineReason: string | null;
+	lastSyncSummary: string | null;
 	checkStartedAt: number | null;
 	consecutiveFailures: number;
 	consecutiveSuccesses: number;
@@ -20,6 +21,7 @@ interface NetworkState {
 	}) => Promise<boolean>;
 	markOffline: (reason?: string) => void;
 	markOnline: () => void;
+	setSyncSummary: (summary: string | null) => void;
 	setAblyState: (
 		state: 'connected' | 'failed' | 'suspended' | 'disconnected',
 	) => void;
@@ -52,6 +54,7 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 	ablyState: null,
 	authCheckFailed: false,
 	offlineReason: null,
+	lastSyncSummary: null,
 	checkStartedAt: null,
 	consecutiveFailures: 0,
 	consecutiveSuccesses: 0,
@@ -194,4 +197,5 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
 
 	setAblyState: (state) => set({ ablyState: state }),
 	setAuthCheckFailed: (failed) => set({ authCheckFailed: failed }),
+	setSyncSummary: (summary) => set({ lastSyncSummary: summary }),
 }));

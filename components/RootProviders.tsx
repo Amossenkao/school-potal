@@ -9,7 +9,7 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import VercelUpgrade from '@/components/uca-inactive';
 import AuthProvider from '@/context/AuthProvider';
 import OfflineHandler from '@/components/OfflineHandler';
-import { Toaster } from 'react-hot-toast';
+import toast, { Toaster } from 'react-hot-toast';
 import { applyTenantThemeToDocument } from '@/lib/tenantTheme';
 import { clearAllClientCache } from '@/utils/clientCache';
 import { clearUserSessionDataCaches } from '@/utils/sessionPrivacy';

@@ -122,6 +122,7 @@ const clearAllCachesAndQueues = async () => {
 
 const flushQueue = async () => {
 	const entries = await readQueue();
+	let flushedCount = 0;
 	for (const entry of entries) {
 		try {
 			const res = await fetch(entry.url, {
@@ -132,11 +133,13 @@ const flushQueue = async () => {
 			});
 			if (res.ok) {
 				await clearQueueItem(entry.id);
+				flushedCount++;
 			}
 		} catch (error) {
 			console.warn('Queue replay failed:', error);
 		}
 	}
+	return flushedCount;
 };
 
 self.addEventListener('install', (event) => {
@@ -189,7 +192,15 @@ self.addEventListener('message', (event) => {
 		event.waitUntil(self.skipWaiting());
 	}
 	if (event?.data?.type === 'flush-grade-queue') {
-		event.waitUntil(flushQueue());
+		event.waitUntil(
+			(async () => {
+				const flushedCount = await flushQueue();
+				const client = event.source;
+				if (client) {
+					client.postMessage({ type: 'flush-grade-queue-result', flushedCount });
+				}
+			})(),
+		);
 	}
 	if (event?.data?.type === 'clear-session-data') {
 		event.waitUntil(clearSessionCaches());

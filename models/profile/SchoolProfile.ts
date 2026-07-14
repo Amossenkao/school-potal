@@ -12,6 +12,7 @@ const featureKeys: FeatureKey[] = [
 	'homepage',
 	'enrollment_info',
 	'apps',
+	'attendance',
 
 	// Academic Features
 	'grading_system',
@@ -47,14 +48,94 @@ const featureKeys: FeatureKey[] = [
 	'school_profile',
 ];
 
+const academicPeriods = [
+	'first',
+	'second',
+	'third',
+	'third_period_exam',
+	'fourth',
+	'fifth',
+	'sixth',
+	'sixth_period_exam',
+];
+
+const semesters = ['first', 'second'];
+
+const schoolLevels = ['Elementary', 'Junior High', 'Senior High'];
+
 // --- Sub-Schemas for nested objects ---
+
+const StudentReportAccessYearSettingsSchema = new Schema(
+	{
+		enabled: { type: Boolean, required: true, default: false },
+		yearlyReportAccess: { type: Boolean, required: true, default: false },
+		periods: { type: [String], enum: academicPeriods, default: [] },
+		semesters: { type: [String], enum: semesters, default: [] },
+	},
+	{ _id: false },
+);
 
 const StudentSettingsSchema = new Schema(
 	{
 		loginAccess: { type: Boolean, default: true },
-		yearlyReportAccess: { type: Boolean, default: false },
-		reportAccessPeriods: { type: [String], default: [] },
-		reportAccessSemesters: { type: [String], default: [] },
+		reportAccessByYear: {
+			type: Map,
+			of: StudentReportAccessYearSettingsSchema,
+			default: {},
+		},
+	},
+	{ _id: false },
+);
+
+const TeacherGradeSubmissionSettingsSchema = new Schema(
+	{
+		enabled: { type: Boolean, required: true, default: false },
+		periods: { type: [String], enum: academicPeriods, default: [] },
+	},
+	{ _id: false },
+);
+
+const TeacherGradeChangeRequestSettingsSchema = new Schema(
+	{
+		enabled: { type: Boolean, required: true, default: false },
+		periods: { type: [String], enum: academicPeriods, default: [] },
+	},
+	{ _id: false },
+);
+
+const TeacherViewGradeSubmissionsSettingsSchema = new Schema(
+	{
+		enabled: { type: Boolean, required: true, default: false },
+	},
+	{ _id: false },
+);
+
+const TeacherViewMastersSettingsSchema = new Schema(
+	{
+		enabled: { type: Boolean, required: true, default: false },
+	},
+	{ _id: false },
+);
+
+const TeacherPermissionsYearSettingsSchema = new Schema(
+	{
+		enabled: { type: Boolean, required: true, default: false },
+		gradeSubmission: {
+			type: TeacherGradeSubmissionSettingsSchema,
+			required: true,
+		},
+		viewGradeSubmissions: {
+			type: TeacherViewGradeSubmissionsSettingsSchema,
+			required: true,
+		},
+		gradeChangeRequest: {
+			type: TeacherGradeChangeRequestSettingsSchema,
+			required: true,
+		},
+		viewMasters: {
+			type: TeacherViewMastersSettingsSchema,
+			required: true,
+		},
 	},
 	{ _id: false },
 );
@@ -62,12 +143,11 @@ const StudentSettingsSchema = new Schema(
 const TeacherSettingsSchema = new Schema(
 	{
 		loginAccess: { type: Boolean, default: true },
-		gradeSubmissionPeriods: { type: [String], default: [] },
-		gradeSubmissionAcademicYears: { type: [String], default: [] },
-		viewMastersAcademicYears: { type: [String], default: [] },
-		viewGradeSubmissionsAcademicYears: { type: [String], default: [] },
-		gradeChangeRequestAcademicYears: { type: [String], default: [] },
-		gradeChangeRequestPeriods: { type: [String], default: [] },
+		permissionsByYear: {
+			type: Map,
+			of: TeacherPermissionsYearSettingsSchema,
+			default: {},
+		},
 	},
 	{ _id: false },
 );
@@ -211,43 +291,46 @@ const SubjectSchema = new Schema(
 	},
 	{ _id: false },
 );
-const ImagesSchema = new Schema({
-	logoUrl: {
-		type: String,
-		required: true,
+
+const ImagesSchema = new Schema(
+	{
+		logoUrl: {
+			type: String,
+			required: true,
+		},
+
+		logoUrl2: {
+			type: String,
+			required: false,
+		},
+
+		pwaIcon: {
+			type: String,
+			required: false,
+		},
+
+		loadingSpinnerIcon: {
+			type: String,
+			required: false,
+		},
+
+		semesterReportWatermark: {
+			type: String,
+			required: false,
+		},
+
+		yearlyReportWatermark: {
+			type: String,
+			required: false,
+		},
+
+		yearlyReportWatermark2: {
+			type: String,
+			required: false,
+		},
 	},
-
-	logoUrl2: {
-		type: String,
-		required: false,
-	},
-
-	pwaIcon: {
-		type: String,
-		required: false,
-	},
-
-	loadingSpinnerIcon: {
-		type: String,
-		required: false,
-	},
-
-	semesterReportWatermark: {
-		type: String,
-		required: false,
-	},
-
-	yearlyReportWatermark: {
-		type: String,
-		required: false,
-	},
-
-	yearlyReportWatermark2: {
-		type: String,
-		required: false
-	}
-});
-
+	{ _id: false },
+);
 
 const FeeSchema = new Schema(
 	{
@@ -374,6 +457,7 @@ const SchoolProfileSchema = new Schema<SchoolProfile & Document>(
 			type: String,
 			required: true,
 			trim: true,
+			enum: schoolLevels,
 		},
 
 		logoUrl: {
@@ -385,6 +469,11 @@ const SchoolProfileSchema = new Schema<SchoolProfile & Document>(
 		logoUrl2: {
 			type: String,
 			trim: true,
+		},
+
+		images: {
+			type: ImagesSchema,
+			required: true,
 		},
 
 		yearFounded: {

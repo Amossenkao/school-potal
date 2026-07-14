@@ -44,7 +44,7 @@ export type FeatureKey =
 	| 'school_settings'
 	| 'school_profile';
 
-export type schoolLevel = "Elementary" | "Junior High" | "Senior High"
+export type schoolLevel = 'Elementary' | 'Junior High' | 'Senior High';
 
 export interface RoleFeatureAccess {
 	student: FeatureKey[];
@@ -58,7 +58,7 @@ export interface RoleFeatureAccess {
 // Subject inside each level
 export interface Subject {
 	name: string;
-	isMajorSubject?: number;
+	isMajorSubject?: boolean;
 }
 
 export interface Level {
@@ -82,21 +82,86 @@ export interface ClassLevels {
 	[sessionName: string]: Session;
 }
 
+// ---------------------------------------------------------------------------
+// Shared academic-period / semester / academic-year enums
+// ---------------------------------------------------------------------------
+
+export type AcademicPeriod =
+	| 'first'
+	| 'second'
+	| 'third'
+	| 'third_period_exam'
+	| 'fourth'
+	| 'fifth'
+	| 'sixth'
+	| 'sixth_period_exam';
+
+export type Semester = 'first' | 'second';
+
+/**
+ * An academic year label, e.g. "2024-2025". Kept as a plain string (rather
+ * than a template literal type) so it can be used directly as a Record key.
+ */
+export type AcademicYear = string;
+
+// ---------------------------------------------------------------------------
+// Student report access, grouped by academic year
+// ---------------------------------------------------------------------------
+
+export interface StudentReportAccessYearSettings {
+	/** Master switch for this academic year. When false, none of the report
+	 * access settings below apply for this year, regardless of their values. */
+	enabled: boolean;
+	yearlyReportAccess: boolean;
+	periods: AcademicPeriod[];
+	semesters: Semester[];
+}
+
 export interface StudentSettings {
 	loginAccess: boolean;
-	yearlyReportAccess: boolean;
-	reportAccessPeriods: string[];
-	reportAccessSemesters: string[];
+	/** Report access settings keyed by academic year (e.g. "2024-2025"),
+	 * spanning the school's first academic year through the current one. */
+	reportAccessByYear: Record<AcademicYear, StudentReportAccessYearSettings>;
+}
+
+// ---------------------------------------------------------------------------
+// Teacher permissions, grouped by academic year
+// ---------------------------------------------------------------------------
+
+export interface TeacherGradeSubmissionSettings {
+	enabled: boolean;
+	periods: AcademicPeriod[];
+}
+
+export interface TeacherGradeChangeRequestSettings {
+	enabled: boolean;
+	periods: AcademicPeriod[];
+}
+
+export interface TeacherViewGradeSubmissionsSettings {
+	enabled: boolean;
+}
+
+export interface TeacherViewMastersSettings {
+	enabled: boolean;
+}
+
+export interface TeacherPermissionsYearSettings {
+	/** Master switch for this academic year. When false, none of the
+	 * permissions below apply for this year, regardless of their values. */
+	enabled: boolean;
+	gradeSubmission: TeacherGradeSubmissionSettings;
+	viewGradeSubmissions: TeacherViewGradeSubmissionsSettings;
+	gradeChangeRequest: TeacherGradeChangeRequestSettings;
+	viewMasters: TeacherViewMastersSettings;
 }
 
 export interface TeacherSettings {
 	loginAccess: boolean;
-	gradeSubmissionPeriods: string[];
-	gradeSubmissionAcademicYears: string[];
-	viewMastersAcademicYears: string[];
-	viewGradeSubmissionsAcademicYears: string[];
-	gradeChangeRequestAcademicYears: string[];
-	gradeChangeRequestPeriods: string[];
+	/** Grade submission / viewing / change-request permissions keyed by
+	 * academic year (e.g. "2024-2025"), spanning the school's first
+	 * academic year through the current one. */
+	permissionsByYear: Record<AcademicYear, TeacherPermissionsYearSettings>;
 }
 
 export interface AdministratorSettings {
@@ -107,7 +172,7 @@ export interface GradingSettings {
 	passMark: number;
 	gradeScale: { min: number; max: number };
 	summerSchoolWeight?: number;
-	failuerWeight: number;
+	failureWeight: number;
 	givesDoublePromotion: boolean;
 	givesDemotion: boolean;
 }
@@ -148,7 +213,7 @@ export interface SchoolProfile {
 	shortName: string;
 	initials: string;
 	studentIdPrefix: string;
-	highestLevel: schoolLevel,
+	highestLevel: schoolLevel;
 	logoUrl: string;
 	logoUrl2?: string;
 	images: Images;
