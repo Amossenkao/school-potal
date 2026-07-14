@@ -25,6 +25,7 @@ import {
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import { PageLoading } from '@/components/loading';
+import { getAllowedGradeSubmissionAcademicYears } from '@/utils/schoolSettingsAccess';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -685,7 +686,7 @@ const Attendance = () => {
 			user.role === 'super_admin'
 		) {
 			const globalYears =
-				school?.settings?.teacherSettings?.gradeSubmissionAcademicYears || [];
+				getAllowedGradeSubmissionAcademicYears(school) || [];
 			return globalYears.length > 0
 				? globalYears
 				: [school?.currentAcademicYear].filter(Boolean);

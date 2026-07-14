@@ -20,6 +20,7 @@ import {
 import { StudentMultiSelect } from './StudentMultiSelect';
 import { PageLoading } from '@/components/loading';
 import AccessDenied from '@/components/AccessDenied';
+import { isYearlyReportAccessAllowed } from '@/utils/schoolSettingsAccess';
 
 interface BaseFilters {
   academicYear: string;
@@ -586,7 +587,7 @@ export const SharedFilter = <T extends BaseFilters>({
 
   if (
     isActualStudent &&
-    currentSchool?.settings?.studentSettings?.yearlyReportAccess === false
+    !isYearlyReportAccessAllowed(currentSchool, filters.academicYear)
   ) {
     return (
       <AccessDenied

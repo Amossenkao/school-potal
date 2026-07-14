@@ -12,21 +12,14 @@ import {
 	getTeacherYearAssignment,
 	resolveAcademicYearAccessContext,
 } from '@/utils/academicYearAccess';
+import { isGradeChangeRequestAllowedForYear } from '@/utils/schoolSettingsAccess';
 
 function isGradeChangeWindowOpen(
 	schoolProfile: any,
 	academicYear: string,
 	period: string,
 ): boolean {
-	const settings = schoolProfile?.settings?.teacherSettings;
-	if (!settings) return false;
-	const years = Array.isArray(settings.gradeChangeRequestAcademicYears)
-		? settings.gradeChangeRequestAcademicYears
-		: [];
-	const periods = Array.isArray(settings.gradeChangeRequestPeriods)
-		? settings.gradeChangeRequestPeriods
-		: [];
-	return years.includes(academicYear) && periods.includes(period);
+	return isGradeChangeRequestAllowedForYear(schoolProfile, academicYear, period);
 }
 
 // Helper function to safely update user session with new notification

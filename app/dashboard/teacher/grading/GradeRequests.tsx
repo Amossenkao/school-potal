@@ -26,6 +26,7 @@ import {
 	pickMostRecentAcademicYear,
 	sortAcademicYearsDesc,
 } from '@/utils/academicYearOptions';
+import { getAllowedGradeChangeRequestAcademicYears } from '@/utils/schoolSettingsAccess';
 
 // --- TYPES ---
 interface TeacherInfo {
@@ -270,7 +271,7 @@ const TeacherGradeChangeRequests = ({
 	const allowedAcademicYears = useMemo(
 		() =>
 			sortAcademicYearsDesc(
-				school?.settings?.teacherSettings?.gradeChangeRequestAcademicYears || [],
+				getAllowedGradeChangeRequestAcademicYears(school) || [],
 			),
 		[school],
 	);

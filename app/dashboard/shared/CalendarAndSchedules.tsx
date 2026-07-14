@@ -21,10 +21,6 @@ import {
 	getScopedAcademicYearValue,
 } from '@/utils/academicYear';
 import { getStudentClassIdForAcademicYear } from '@/utils/academicYearAccess';
-import {
-	pickMostRecentAcademicYear,
-	sortAcademicYearsDesc,
-} from '@/utils/academicYearOptions';
 
 type ClassScheduleItem = {
 	id: string;
@@ -206,57 +202,10 @@ export default function CalendarAndSchedules({
 	const schoolCurrentAcademicYear = String(
 		schoolProfile.currentAcademicYear || '',
 	).trim();
-	const availableAcademicYears = useMemo(() => {
-		const allowedYears = Array.isArray(user?.allowedAcademicYears)
-			? user.allowedAcademicYears
-			: [];
-		if (allowedYears.length > 0) {
-			return sortAcademicYearsDesc(allowedYears);
-		}
-		if (!user) return [];
-		if (userRole === 'student' || userRole === 'administrator') {
-			return sortAcademicYearsDesc(
-				Array.isArray(user.academicYears)
-					? user.academicYears.map((entry) => entry?.year)
-					: [],
-			);
-		}
-		if (userRole === 'teacher') {
-			return sortAcademicYearsDesc(
-				Array.isArray(user.subjects)
-					? user.subjects.map((entry) => entry?.year)
-					: [],
-			);
-		}
-		return sortAcademicYearsDesc([schoolCurrentAcademicYear]);
-	}, [user, userRole, schoolCurrentAcademicYear]);
-	const academicYear = useMemo(() => {
-		if (isSystemAdmin) {
-			return (
-				schoolCurrentAcademicYear ||
-				pickMostRecentAcademicYear(availableAcademicYears, '') ||
-				''
-			);
-		}
-		return pickMostRecentAcademicYear(availableAcademicYears, '') || '';
-	}, [isSystemAdmin, schoolCurrentAcademicYear, availableAcademicYears]);
+	const academicYear = schoolCurrentAcademicYear;
 	const canUseAcademicYear = useMemo(() => {
-		if (!academicYear) return false;
-		if (isSystemAdmin) {
-			return (
-				!schoolCurrentAcademicYear ||
-				areAcademicYearsEqual(academicYear, schoolCurrentAcademicYear)
-			);
-		}
-		return availableAcademicYears.some((year) =>
-			areAcademicYearsEqual(year, academicYear),
-		);
-	}, [
-		academicYear,
-		isSystemAdmin,
-		schoolCurrentAcademicYear,
-		availableAcademicYears,
-	]);
+		return Boolean(academicYear);
+	}, [academicYear]);
 	const studentClassIdForAcademicYear = useMemo(() => {
 		if (userRole !== 'student' || !academicYear) return '';
 		return getStudentClassIdForAcademicYear(user as any, academicYear, {

@@ -12,6 +12,12 @@ import {
 	getTeacherYearAssignment,
 	resolveAcademicYearAccessContext,
 } from '@/utils/academicYearAccess';
+import {
+	isPeriodReportAccessAllowed,
+	isSemesterReportAccessAllowed,
+	isYearlyReportAccessAllowed,
+	isGradeSubmissionAllowedForYear,
+} from '@/utils/schoolSettingsAccess';
 
 // Helper function to add notification to user and update their session
 async function addNotificationToUser(
@@ -1076,9 +1082,9 @@ export async function GET(request: NextRequest) {
 				);
 			}
 			if (period) {
-				const allowedPeriods =
-					schoolProfile?.settings?.studentSettings?.reportAccessPeriods || [];
-				if (!allowedPeriods.includes(period)) {
+				if (
+					!isPeriodReportAccessAllowed(schoolProfile, academicYear, period)
+				) {
 					return NextResponse.json(
 						{
 							success: false,
@@ -1088,9 +1094,9 @@ export async function GET(request: NextRequest) {
 					);
 				}
 			} else if (semester) {
-				const allowedSemesters =
-					schoolProfile?.settings?.studentSettings?.reportAccessSemesters || [];
-				if (!allowedSemesters.includes(semester)) {
+				if (
+					!isSemesterReportAccessAllowed(schoolProfile, academicYear, semester)
+				) {
 					return NextResponse.json(
 						{
 							success: false,
@@ -1100,7 +1106,7 @@ export async function GET(request: NextRequest) {
 					);
 				}
 			} else if (
-				schoolProfile?.settings?.studentSettings?.yearlyReportAccess === false
+				!isYearlyReportAccessAllowed(schoolProfile, academicYear)
 			) {
 				return NextResponse.json(
 					{
@@ -1252,12 +1258,12 @@ export async function POST(request: NextRequest) {
 			schoolProfile?.settings?.gradingSettings?.gradeScale?.max ?? 100;
 
 		if (schoolProfile?.settings?.teacherSettings) {
-			const { gradeSubmissionAcademicYears = [], gradeSubmissionPeriods = [] } =
-				schoolProfile.settings.teacherSettings;
-
 			if (
-				!gradeSubmissionAcademicYears.includes(resolvedAcademicYear) ||
-				!gradeSubmissionPeriods.includes(period)
+				!isGradeSubmissionAllowedForYear(
+					schoolProfile,
+					resolvedAcademicYear,
+					period,
+				)
 			) {
 				return NextResponse.json(
 					{
@@ -1592,7 +1598,6 @@ export async function PUT(request: NextRequest) {
 			tenantId: currentUser.tenantId,
 			host: request.headers.get('host'),
 		});
-		const teacherSettings = schoolProfile?.settings?.teacherSettings;
 		const submissionAcademicYear = String(
 			existingSubmission.academicYear || '',
 		);
@@ -1601,20 +1606,13 @@ export async function PUT(request: NextRequest) {
 				(grades || []).map((grade: any) => String(grade?.period || '').trim()),
 			),
 		).filter(Boolean);
-		const allowedSubmissionYears = Array.isArray(
-			teacherSettings?.gradeSubmissionAcademicYears,
-		)
-			? teacherSettings.gradeSubmissionAcademicYears
-			: [];
-		const allowedSubmissionPeriods = Array.isArray(
-			teacherSettings?.gradeSubmissionPeriods,
-		)
-			? teacherSettings.gradeSubmissionPeriods
-			: [];
 		if (
-			!allowedSubmissionYears.includes(submissionAcademicYear) ||
-			submissionPeriods.some(
-				(periodValue) => !allowedSubmissionPeriods.includes(periodValue),
+			!submissionPeriods.every((periodValue) =>
+				isGradeSubmissionAllowedForYear(
+					schoolProfile,
+					submissionAcademicYear,
+					periodValue,
+				),
 			)
 		) {
 			return NextResponse.json(

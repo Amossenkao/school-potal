@@ -26,6 +26,7 @@ import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import AccessDenied from '@/components/AccessDenied';
+import { getAllowedStudentSemesters } from '@/utils/schoolSettingsAccess';
 import { drawTextMap } from '@/utils/pdfText';
 import { buildSemesterCardPlacements } from '@/app/dashboard/shared/reportPdfLayout';
 import {
@@ -983,8 +984,10 @@ const FilterContent = React.memo(function FilterContent({
 		filters.classLevel,
 	]);
 
-	const allowedSemesters =
-		currentSchool?.settings?.studentSettings?.reportAccessSemesters || [];
+	const allowedSemesters = getAllowedStudentSemesters(
+		currentSchool,
+		filters.academicYear,
+	);
 	const hasSemesterAccess = !isStudent || allowedSemesters.length > 0;
 	const filteredSemesterOptions =
 		isStudent && hasSemesterAccess

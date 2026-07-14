@@ -32,6 +32,10 @@ import {
 	pickMostRecentAcademicYear,
 	sortAcademicYearsDesc,
 } from '@/utils/academicYearOptions';
+import {
+	getAllowedGradeSubmissionAcademicYears,
+	getAllowedGradeSubmissionPeriods,
+} from '@/utils/schoolSettingsAccess';
 
 interface TeacherInfo {
 	name: string;
@@ -190,13 +194,15 @@ const SubmitGrade: React.FC = () => {
 	};
 
 		const periods = useMemo(() => {
-			if (school?.settings?.teacherSettings?.gradeSubmissionPeriods) {
-				const allowedPeriods =
-					school.settings.teacherSettings.gradeSubmissionPeriods;
+			const allowedPeriods = getAllowedGradeSubmissionPeriods(
+				school,
+				selectedAcademicYear,
+			);
+			if (allowedPeriods.length > 0) {
 				return allPeriods.filter((p) => allowedPeriods.includes(p.id));
 			}
 			return allPeriods;
-		}, [school]);
+		}, [school, selectedAcademicYear]);
 
 	useEffect(() => {
 		usersByAcademicYearRef.current = usersByAcademicYear;
@@ -395,7 +401,7 @@ const SubmitGrade: React.FC = () => {
 	const allowedAcademicYears = useMemo(
 		() =>
 			sortAcademicYearsDesc(
-				school?.settings?.teacherSettings?.gradeSubmissionAcademicYears || [],
+				getAllowedGradeSubmissionAcademicYears(school) || [],
 			),
 		[school],
 	);

@@ -24,6 +24,7 @@ import {
 import QRCode from 'qrcode';
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
+import { isYearlyReportAccessAllowed } from '@/utils/schoolSettingsAccess';
 import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import {
@@ -1079,7 +1080,7 @@ const FilterContent = React.memo(function FilterContent({
 
 	if (
 		isStudent &&
-		!currentSchool?.settings?.studentSettings.yearlyReportAccess
+		!isYearlyReportAccessAllowed(currentSchool, filters.academicYear)
 	) {
 		return (
 			<AccessDenied

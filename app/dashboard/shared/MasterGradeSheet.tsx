@@ -19,6 +19,7 @@ import {
 	pickMostRecentAcademicYear,
 	sortAcademicYearsDesc,
 } from '@/utils/academicYearOptions';
+import { getAllowedViewMastersAcademicYears } from '@/utils/schoolSettingsAccess';
 
 // Types
 interface Student {
@@ -216,8 +217,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const allowedAcademicYears = useMemo(
 		() =>
 			sortAcademicYearsDesc(
-				currentSchool?.settings?.teacherSettings?.viewMastersAcademicYears ||
-					[],
+				getAllowedViewMastersAcademicYears(currentSchool) || [],
 			),
 		[currentSchool],
 	);

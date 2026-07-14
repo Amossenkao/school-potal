@@ -32,6 +32,10 @@ import {
 	sortAcademicYearsDesc,
 } from '@/utils/academicYearOptions';
 import { lockBodyScroll } from '@/utils/scrollLock';
+import {
+	getAllowedViewGradeSubmissionsAcademicYears,
+	getAllowedGradeChangeRequestPeriods,
+} from '@/utils/schoolSettingsAccess';
 import router from 'next/router';
 
 // Types
@@ -246,8 +250,7 @@ const TeacherGradeSubmissions = () => {
 	const allowedAcademicYears = useMemo(
 		() =>
 			sortAcademicYearsDesc(
-				school?.settings?.teacherSettings
-					?.viewGradeSubmissionsAcademicYears || [],
+				getAllowedViewGradeSubmissionsAcademicYears(school) || [],
 			),
 		[school],
 	);
@@ -1017,8 +1020,10 @@ const TeacherGradeSubmissions = () => {
 
 		if (hasApprovedChange && selectedGrade) {
 			const periodValue = selectedGrade.period;
-			const allowedPeriods =
-				school?.settings?.teacherSettings?.gradeChangeRequestPeriods || [];
+			const allowedPeriods = getAllowedGradeChangeRequestPeriods(
+				school,
+				academicYear,
+			);
 			const isRequestAllowed = allowedPeriods.includes(periodValue);
 
 			if (!isRequestAllowed) {

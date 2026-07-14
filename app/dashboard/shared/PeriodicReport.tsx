@@ -21,6 +21,7 @@ import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import AccessDenied from '@/components/AccessDenied';
+import { getAllowedStudentPeriods } from '@/utils/schoolSettingsAccess';
 import {
 	areAcademicYearsEqual,
 	getScopedAcademicYearValue,
@@ -806,17 +807,13 @@ function FilterContent({
 		return <PageLoading fullScreen={false} />;
 	}
 
-	const canAccessReport =
-		isStudent &&
-		school?.settings?.studentSettings.reportAccessPeriods &&
-		school?.settings?.studentSettings.reportAccessPeriods.length > 0;
+	const allowedPeriods = getAllowedStudentPeriods(school, filters.academicYear);
+	const canAccessReport = isStudent && allowedPeriods.length > 0;
 
 	let filteredPeriodOptions = periodOptions;
 	if (isStudent && canAccessReport) {
 		filteredPeriodOptions = periodOptions.filter((period) => {
-			return school?.settings?.studentSettings.reportAccessPeriods.includes(
-				period.id,
-			);
+			return allowedPeriods.includes(period.id);
 		});
 	} else if (isStudent && !canAccessReport) {
 		return (
