@@ -143,14 +143,10 @@ export default function OfflineHandler({
 		};
 
 		const isConnectivityProbe = (url: string) => {
-			try {
-				const parsed = new URL(url, window.location.origin);
-				return (
-					parsed.origin === window.location.origin && parsed.pathname === '/ping.txt'
-				);
-			} catch {
-				return url.includes('/ping.txt');
-			}
+			return (
+				url === 'https://www.gstatic.com/generate_204' ||
+				url.includes('gstatic.com/generate_204')
+			);
 		};
 
 		const isSameOriginApiRequest = (url: string) => {

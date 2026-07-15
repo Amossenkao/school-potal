@@ -30,7 +30,7 @@ interface NetworkState {
 }
 
 const POLL_INTERVAL_MS = 5_000;
-const CONNECTIVITY_CHECK_URL = '/ping.txt';
+const CONNECTIVITY_CHECK_URL = 'https://www.gstatic.com/generate_204';
 const STUCK_CHECK_TIMEOUT_MS = 8_000;
 const CONSECUTIVE_THRESHOLD = 3;
 

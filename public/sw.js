@@ -884,7 +884,7 @@ self.addEventListener('fetch', (event) => {
   var retryLabel = document.getElementById('retryLabel');
 
   function probeConnectivity(){
-    return fetch('/ping.txt', { method: 'HEAD', mode: 'no-cors', cache: 'no-store' })
+    return fetch('https://www.gstatic.com/generate_204', { method: 'HEAD', mode: 'no-cors', cache: 'no-store' })
       .then(function(){ return true; })
       .catch(function(){ return false; });
   }
