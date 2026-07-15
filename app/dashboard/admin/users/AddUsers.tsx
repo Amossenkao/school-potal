@@ -2608,10 +2608,15 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 						</motion.div>
 					)}
 				</div>
+			</div>
 
-				{/* ── Footer nav ── */}
-				{currentStep < 5 && (
-					<div className="px-4 sm:px-6 lg:px-8 py-4 border-t border-border bg-muted/40 flex items-center justify-between gap-3">
+			{/* Spacer so content isn't hidden behind the fixed footer nav */}
+			{currentStep < 5 && <div className="h-20 sm:h-24" />}
+
+			{/* ── Footer nav (fixed to viewport bottom) ── */}
+			{currentStep < 5 && (
+				<div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 shadow-[0_-2px_12px_rgba(0,0,0,0.06)]">
+					<div className="w-full max-w-5xl mx-auto px-3 sm:px-4 lg:px-6 py-3 sm:py-4 flex items-center justify-between gap-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-4">
 						<button
 							onClick={
 								currentStep === 1 ? (onBack ?? (() => {})) : handlePrevious
@@ -2650,8 +2655,8 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 							)}
 						</button>
 					</div>
-				)}
-			</div>
+				</div>
+			)}
 
 			{/* ── Error modal ── */}
 			{showErrorModal && (
