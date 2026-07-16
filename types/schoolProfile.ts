@@ -6,8 +6,6 @@ export type FeatureKey =
 	| 'user_management'
 	| 'profile_management'
 	| 'ai_chat'
-	| 'homepage'
-	| 'enrollment_info'
 	| 'apps'
 	| 'attendance'
 
@@ -17,23 +15,12 @@ export type FeatureKey =
 	| 'academic_resources'
 	| 'calendar_events'
 	| 'class_management'
-	| 'digital_signatures'
 
 	// Financial Features
 	| 'fee_payment'
-	| 'salary_management'
-	| 'financial_reports'
-	| 'financial_profile'
-	| 'scholarships_and_wards'
-	| 'payroll_management'
-	| 'receipts_and_clearances'
 
 	// Student Features
 	| 'admissions'
-	| 'student_records'
-	| 'information_sheet'
-	| 'online_verification'
-	| 'document_requests'
 
 	// Communication & Support
 	| 'support_system'
@@ -41,10 +28,7 @@ export type FeatureKey =
 	| 'notifications'
 
 	// System Features
-	| 'school_settings'
-	| 'school_profile';
-
-export type schoolLevel = 'Elementary' | 'Junior High' | 'Senior High';
+	| 'school_settings';
 
 export interface RoleFeatureAccess {
 	student: FeatureKey[];
@@ -55,29 +39,27 @@ export interface RoleFeatureAccess {
 	};
 }
 
-// Subject inside each level
 export interface Subject {
 	name: string;
-	isMajorSubject?: boolean;
-}
-
-export interface Level {
-	classes: Class[];
-	subjects: Subject[];
+	weight: number;
 }
 
 export interface Class {
 	classId: string;
 	name: string;
+	feeGroup: string;
+}
+
+export interface Level {
 	isSelfContained?: boolean;
-	fees: { feeType: string; category: string; requiredAmount: number }[];
+	classes: Class[];
+	subjects: Subject[];
 }
 
 export interface Session {
 	[levelName: string]: Level;
 }
 
-// The overall structure
 export interface ClassLevels {
 	[sessionName: string]: Session;
 }
@@ -98,10 +80,6 @@ export type AcademicPeriod =
 
 export type Semester = 'first' | 'second';
 
-/**
- * An academic year label, e.g. "2024-2025". Kept as a plain string (rather
- * than a template literal type) so it can be used directly as a Record key.
- */
 export type AcademicYear = string;
 
 // ---------------------------------------------------------------------------
@@ -109,8 +87,6 @@ export type AcademicYear = string;
 // ---------------------------------------------------------------------------
 
 export interface StudentReportAccessYearSettings {
-	/** Master switch for this academic year. When false, none of the report
-	 * access settings below apply for this year, regardless of their values. */
 	enabled: boolean;
 	yearlyReportAccess: boolean;
 	periods: AcademicPeriod[];
@@ -119,8 +95,6 @@ export interface StudentReportAccessYearSettings {
 
 export interface StudentSettings {
 	loginAccess: boolean;
-	/** Report access settings keyed by academic year (e.g. "2024-2025"),
-	 * spanning the school's first academic year through the current one. */
 	reportAccessByYear: Record<AcademicYear, StudentReportAccessYearSettings>;
 }
 
@@ -147,8 +121,6 @@ export interface TeacherViewMastersSettings {
 }
 
 export interface TeacherPermissionsYearSettings {
-	/** Master switch for this academic year. When false, none of the
-	 * permissions below apply for this year, regardless of their values. */
 	enabled: boolean;
 	gradeSubmission: TeacherGradeSubmissionSettings;
 	viewGradeSubmissions: TeacherViewGradeSubmissionsSettings;
@@ -158,9 +130,6 @@ export interface TeacherPermissionsYearSettings {
 
 export interface TeacherSettings {
 	loginAccess: boolean;
-	/** Grade submission / viewing / change-request permissions keyed by
-	 * academic year (e.g. "2024-2025"), spanning the school's first
-	 * academic year through the current one. */
 	permissionsByYear: Record<AcademicYear, TeacherPermissionsYearSettings>;
 }
 
@@ -168,70 +137,120 @@ export interface AdministratorSettings {
 	loginAccess: boolean;
 }
 
-export interface GradingSettings {
-	passMark: number;
-	gradeScale: { min: number; max: number };
-	summerSchoolWeight?: number;
-	failureWeight: number;
-	givesDoublePromotion: boolean;
-	givesDemotion: boolean;
-}
-
 export interface SystemAdmin {
 	name: string;
 	phone: string;
 	email?: string;
-	office: string;
 }
 
 export interface SchoolSettings {
 	studentSettings: StudentSettings;
 	teacherSettings: TeacherSettings;
 	administratorSettings: AdministratorSettings;
-	gradingSettings: GradingSettings;
 	reportCardThemes?: Record<string, string>;
 }
 
-export interface Images {
-	logoUrl: string;
-	logoUrl2?: string;
-	pwaIcon?: string;
-	loadingSpinnerIcon?: string;
-	semesterReportWatermark?: string;
-	yearlyReportWatermark?: string;
-	yearlyReportWatermark2?: string;
+// ---------------------------------------------------------------------------
+// Fee schedule types
+// ---------------------------------------------------------------------------
+
+export interface FeeScheduleInstallment {
+	label: string;
+	dueWindow?: string;
+	/** Morning groups use old/new pricing; Night groups use a single amount. */
+	old?: number;
+	new?: number;
+	amount?: number;
 }
 
+export interface FeeScheduleRequirement {
+	item: string;
+	amount: number;
+	currency?: string;
+	dueAt: string;
+}
+
+export interface FeeScheduleAccessory {
+	item: string;
+	amount: number;
+	dueAt: string;
+	studentType: string;
+}
+
+export interface TuitionAndRegistration {
+	old: {
+		reg1stSem: number;
+		reg2ndSem: number;
+		tuition: number;
+		total: number;
+	};
+	new: {
+		reg1stSem: number;
+		reg2ndSem: number;
+		tuition: number;
+		total: number;
+	};
+}
+
+export interface FlatFees {
+	[key: string]: number;
+}
+
+export interface FeeGroup {
+	label: string;
+	appliesTo: string[];
+	currency: string;
+	tuitionAndRegistration?: TuitionAndRegistration;
+	flatFees?: FlatFees;
+	installments: FeeScheduleInstallment[];
+	requirements?: FeeScheduleRequirement[];
+	accessories?: FeeScheduleAccessory[];
+	extraClasses?: {
+		amount: number;
+		period?: string;
+	};
+}
+
+export interface SessionFeeGroups {
+	[feeGroupKey: string]: FeeGroup;
+}
+
+export interface FeeScheduleYear {
+	paymentWindows: Record<string, string>;
+	[sessionName: string]: Record<string, unknown> | Record<string, string>;
+}
+
+export interface FeeSchedules {
+	[academicYear: string]: FeeScheduleYear;
+}
+
+// ---------------------------------------------------------------------------
+// School Profile
+// ---------------------------------------------------------------------------
+
 export interface SchoolProfile {
-	// Basic school info
 	isActive: boolean;
 	host: string;
 	dbName: string;
 	id?: string;
-	name: string[];
+	name: string;
 	slogan: string;
 	shortName: string;
 	initials: string;
 	studentIdPrefix: string;
-	highestLevel: schoolLevel;
 	logoUrl: string;
 	logoUrl2?: string;
-	images: Images;
-	yearFounded: number;
 	firstAcademicYear: string;
 	currentAcademicYear: string;
 	administrativePositions: { id: string; name: string }[];
 	sysAdmin: SystemAdmin;
+	themeName?: TenantThemeName;
 
 	enabledFeatures: FeatureKey[];
 	roleFeatureAccess: RoleFeatureAccess;
-	financialProfile: any;
 
-	// School Settings
 	settings: SchoolSettings;
-	themeName?: TenantThemeName;
-
-	// Additional properties
+	feeSchedules?: FeeSchedules;
 
 	address: string[];
 	phones: string[];

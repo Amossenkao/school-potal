@@ -1,643 +1,2183 @@
-[
-	{
-		"_id": {
-			"$oid": "68cfd367043b504888e93673"
+{
+	"_id": {
+		"$oid": "6a41213669dfacde652d87bc"
+	},
+	"host": "ucaliberia.vercel.app",
+	"dbName": "uca",
+	"id": "68b2c47c7acabadf6a1bcfaf",
+	"name": "Upstairs Christian Academy",
+	"slogan": "Excellence in Education",
+	"shortName": "Upstairs",
+	"initials": "UCA",
+	"studentIdPrefix": "UCA",
+	"themeName": "horizon",
+	"logoUrl": "https://res.cloudinary.com/dcalueltd/image/upload/v1753368059/school-management-system/uca/logo.png",
+	"logoUrl2": "https://res.cloudinary.com/dcalueltd/image/upload/v1753484515/school-management-system/uca/uca_logo2_kqlgdl.png",
+	"firstAcademicYear": "2025-2026",
+	"isActive": true,
+	"sysAdmin": {
+		"name": "Amos Senkao",
+		"email": "amossenkao@gmail.com",
+		"phone": "0776949463"
+	},
+	"administrativePositions": [
+		{
+			"id": "principal",
+			"name": "Principal"
 		},
-		"host": "jkolleh.vercel.app",
-		"dbName": "jkolleh",
-		"id": "68b2c47c7acabadf6a1bcfaf",
-		"name": "Jessica Rachel Kolleh Memorial Institute",
-		"slogan": "Quality Education Produces Good Nation",
-		"shortName": "Jessica Kolleh",
-		"initials": "JRK",
-		"studentIdPrefix": "JRK",
-		"logoUrl": "https://res.cloudinary.com/dcalueltd/image/upload/v1758818685/school-management-system/jessica%20kolleh/JKMI_Logo_fslf1w.png",
-		"logoUrl2": "https://res.cloudinary.com/dcalueltd/image/upload/v1758826305/school-management-system/jessica%20kolleh/Coat_of_arms_of_Liberia-cropped_p0twqb.png",
-		"description": "We provide exceptional education that nurtures both academic excellence and spiritual growth",
-		"heroImageUrl": "https://res.cloudinary.com/dcalueltd/image/upload/v1753368059/school-management-system/uca/Hero.png",
-		"tagline": "",
-		"yearFounded": 2017,
-		"firstAcademicYear": "2025-2026",
-		"isActive": true,
-		"sysAdmin": {
-			"name": "Joseph Kolleh",
-			"email": "mail@example.com",
-			"phone:": "0776456353"
+		{
+			"id": "dean",
+			"name": "Dean of Students"
 		},
-		"administrativePositions": [
-			{ "id": "principal", "name": "Principal" },
-			{ "id": "dena", "name": "Dean of Students" },
-			{ "id": "registrar", "name": "Registrar" }
-		],
-		"enabledFeatures": [
+		{
+			"id": "registrar",
+			"name": "Registrar"
+		},
+		{
+			"id": "vpi",
+			"name": "Vice Principal for Instruction (VPI)"
+		},
+		{
+			"id": "business manager",
+			"name": "Business Manager"
+		},
+		{
+			"id": "propeietor",
+			"name": "Proprietor"
+		}
+	],
+	"enabledFeatures": [
+		"dashboard",
+		"calendar_events",
+		"community",
+		"profile_management",
+		"ai_chat",
+		"grading_system",
+		"fee_payment",
+		"admissions",
+		"user_management",
+		"academic_reports",
+		"school_settings",
+		"notifications",
+		"support_system",
+		"apps",
+		"attendance"
+	],
+	"roleFeatureAccess": {
+		"system_admin": [
 			"dashboard",
-			"profile_management",
-			"homepage",
-			"ai_chat",
-			"grading_system",
-			"academic_resources",
-			"calendar_events",
-			"fee_payment",
-			"admissions",
 			"user_management",
+			"calendar_events",
+			"grading_system",
 			"class_management",
 			"academic_reports",
-			"school_settings",
+			"calendar_events",
+			"academic_resources",
+			"attendance",
+			"admissions",
+			"profile_management",
+			"ai_chat",
 			"notifications",
+			"school_settings",
 			"support_system"
 		],
-		"roleFeatureAccess": {
-			"system_admin": [
+		"teacher": [
+			"dashboard",
+			"community",
+			"calendar_events",
+			"grading_system",
+			"academic_resources",
+			"attendance",
+			"profile_management",
+			"ai_chat",
+			"notifications"
+		],
+		"student": [
+			"dashboard",
+			"calendar_events",
+			"fee_payment",
+			"academic_reports",
+			"attendance",
+			"community",
+			"profile_management",
+			"ai_chat",
+			"notifications"
+		],
+		"administrator": {
+			"vpi": [
 				"dashboard",
-				"user_management",
-				"grading_system",
-				"class_management",
-				"academic_reports",
-				"calendar_events",
-				"academic_resources",
-				"admissions",
-				"profile_management",
-				"ai_chat",
 				"notifications",
-				"school_settings",
-				"support_system"
-			],
-			"teacher": [
-				"dashboard",
-				"grading_system",
-				"academic_resources",
-				"profile_management",
+				"calendar_events",
 				"ai_chat",
-				"notifications"
-			],
-			"student": [
-				"dashboard",
-				"fee_payment",
-				"grading_system",
-				"academic_resources",
-				"profile_management",
-				"ai_chat"
-			],
-			"administrator": {
-				"principal": [
-					"grading_system",
-					"notifications",
-					"ai_chat",
-					"support_system",
-					"school_profile",
-					"admissions"
+				"support_system",
+				"admissions",
+				"community",
+				"attendance"
+			]
+		}
+	},
+	"settings": {
+		"studentSettings": {
+			"loginAccess": true,
+			"reportAccessByYear": {
+				"2025-2026": {
+					"enabled": true,
+					"yearlyReportAccess": true,
+					"periods": ["first", "second", "third", "third_period_exam"],
+					"semesters": ["first"]
+				}
+			}
+		},
+		"teacherSettings": {
+			"loginAccess": true,
+			"permissionsByYear": {
+				"2025-2026": {
+					"enabled": true,
+					"gradeSubmission": {
+						"enabled": true,
+						"periods": [
+							"first",
+							"second",
+							"third",
+							"third_period_exam",
+							"fourth",
+							"fifth",
+							"sixth",
+							"sixth_period_exam"
+						]
+					},
+					"viewGradeSubmissions": {
+						"enabled": true
+					},
+					"gradeChangeRequest": {
+						"enabled": true,
+						"periods": [
+							"third_period_exam",
+							"fourth",
+							"fifth",
+							"sixth",
+							"sixth_period_exam",
+							"third",
+							"first",
+							"second"
+						]
+					},
+					"viewMasters": {
+						"enabled": true
+					}
+				}
+			}
+		},
+		"administratorSettings": {
+			"loginAccess": true
+		},
+		"reportCardThemes": {
+			"Self Contained": "slateSteel",
+			"Elementary": "amberHarvest",
+			"Junior High": "pureBlack",
+			"Senior High": "midnightSapphire",
+			"Daycare": "violetDusk",
+			"Lower Elementary": "pureBlack",
+			"Upper Elementary": "pureBlack",
+			"Daycare Division": "pureBlack"
+		}
+	},
+	"address": [
+		"Daycare, Nursery, Kindergarten, Elem, Junior & Senior High",
+		"Unity Town, Pipeline Road, Lower Johnsonville",
+		"P.O Box 2523 Montserrado County Liberia",
+		"Email: ucacedemy2011@gmail.com"
+	],
+	"phones": ["+231 770 123 456", "+231 880 789 012"],
+	"emails": ["info@unityca.edu.lr", "admissions@unityca.edu.lr"],
+	"classLevels": {
+		"Morning": {
+			"Daycare Division": {
+				"isSelfContained": true,
+				"classes": [
+					{
+						"classId": "Morning-Nursery",
+						"name": "Nursery",
+						"feeGroup": "morning-nursery-grade3"
+					},
+					{
+						"classId": "Morning-ABC",
+						"name": "ABC",
+						"feeGroup": "morning-nursery-grade3"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Hygiene",
+						"weight": 1
+					},
+					{
+						"name": "Social Skills",
+						"weight": 1
+					},
+					{
+						"name": "Identifying Alphabets",
+						"weight": 1
+					},
+					{
+						"name": "Identifying Numbers",
+						"weight": 1
+					},
+					{
+						"name": "Tracing Numbers",
+						"weight": 1
+					},
+					{
+						"name": "Physical Education",
+						"weight": 1
+					},
+					{
+						"name": "Drawing",
+						"weight": 1
+					},
+					{
+						"name": "Recognizing Words",
+						"weight": 1
+					},
+					{
+						"name": "Phonics",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					}
+				]
+			},
+			"Lower Elementary": {
+				"isSelfContained": true,
+				"classes": [
+					{
+						"classId": "Morning-KOne",
+						"name": "K 1",
+						"feeGroup": "morning-nursery-grade3"
+					},
+					{
+						"classId": "Morning-KTwo",
+						"name": "K 2",
+						"feeGroup": "morning-nursery-grade3"
+					},
+					{
+						"classId": "Morning-GradeOne",
+						"name": "Grade 1",
+						"feeGroup": "morning-nursery-grade3"
+					},
+					{
+						"classId": "Morning-GradeTwo",
+						"name": "Grade 2",
+						"feeGroup": "morning-nursery-grade3"
+					},
+					{
+						"classId": "Morning-GradeThree",
+						"name": "Grade 3",
+						"feeGroup": "morning-nursery-grade3"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Math",
+						"weight": 1
+					},
+					{
+						"name": "General Science",
+						"weight": 1
+					},
+					{
+						"name": "English",
+						"weight": 1
+					},
+					{
+						"name": "Social Studies",
+						"weight": 1
+					},
+					{
+						"name": "Health Science",
+						"weight": 1
+					},
+					{
+						"name": "Physical Education",
+						"weight": 1
+					},
+					{
+						"name": "Reading",
+						"weight": 1
+					},
+					{
+						"name": "Writing",
+						"weight": 1
+					},
+					{
+						"name": "Spelling",
+						"weight": 1
+					},
+					{
+						"name": "Phonics",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					},
+					{
+						"name": "Drawing",
+						"weight": 1
+					}
+				]
+			},
+			"Upper Elementary": {
+				"classes": [
+					{
+						"classId": "Morning-GradeFour",
+						"name": "Grade 4",
+						"feeGroup": "morning-grade4-5"
+					},
+					{
+						"classId": "Morning-GradeFive",
+						"name": "Grade 5",
+						"feeGroup": "morning-grade4-5"
+					},
+					{
+						"classId": "Morning-GradeSix",
+						"name": "Grade 6",
+						"feeGroup": "morning-grade6"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Math",
+						"weight": 1
+					},
+					{
+						"name": "General Science",
+						"weight": 1
+					},
+					{
+						"name": "English",
+						"weight": 1
+					},
+					{
+						"name": "French",
+						"weight": 1
+					},
+					{
+						"name": "Social Studies",
+						"weight": 1
+					},
+					{
+						"name": "Health Science",
+						"weight": 1
+					},
+					{
+						"name": "Physical Education",
+						"weight": 1
+					},
+					{
+						"name": "Computer",
+						"weight": 1
+					},
+					{
+						"name": "Reading",
+						"weight": 1
+					},
+					{
+						"name": "Writing",
+						"weight": 1
+					},
+					{
+						"name": "Spelling",
+						"weight": 1
+					},
+					{
+						"name": "Phonics",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					}
+				]
+			},
+			"Junior High": {
+				"classes": [
+					{
+						"classId": "Morning-GradeSeven",
+						"name": "Grade 7",
+						"feeGroup": "morning-grade7"
+					},
+					{
+						"classId": "Morning-GradeEight",
+						"name": "Grade 8",
+						"feeGroup": "morning-grade8"
+					},
+					{
+						"classId": "Morning-GradeNine",
+						"name": "Grade 9",
+						"feeGroup": "morning-grade9"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Math",
+						"weight": 1
+					},
+					{
+						"name": "General Science",
+						"weight": 1
+					},
+					{
+						"name": "English",
+						"weight": 1
+					},
+					{
+						"name": "French",
+						"weight": 1
+					},
+					{
+						"name": "Geography",
+						"weight": 1
+					},
+					{
+						"name": "Health Science",
+						"weight": 1
+					},
+					{
+						"name": "Physical Education",
+						"weight": 1
+					},
+					{
+						"name": "Computer",
+						"weight": 1
+					},
+					{
+						"name": "History",
+						"weight": 1
+					},
+					{
+						"name": "Civics",
+						"weight": 1
+					},
+					{
+						"name": "Vocabulary",
+						"weight": 1
+					},
+					{
+						"name": "Phonics",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					},
+					{
+						"name": "Agriculture",
+						"weight": 1
+					},
+					{
+						"name": "Literature",
+						"weight": 1
+					}
+				]
+			},
+			"Senior High": {
+				"classes": [
+					{
+						"classId": "Morning-GradeTenA",
+						"name": "Grade 10-A",
+						"feeGroup": "morning-grade10"
+					},
+					{
+						"classId": "Morning-GradeTenB",
+						"name": "Grade 10-B",
+						"feeGroup": "morning-grade10"
+					},
+					{
+						"classId": "Morning-GradeElevenA",
+						"name": "Grade 11-A",
+						"feeGroup": "morning-grade11"
+					},
+					{
+						"classId": "Morning-GradeElevenB",
+						"name": "Grade 11-B",
+						"feeGroup": "morning-grade11"
+					},
+					{
+						"classId": "Morning-GradeTwelveA",
+						"name": "Grade 12-A",
+						"feeGroup": "morning-grade12"
+					},
+					{
+						"classId": "Morning-GradeTwelveB",
+						"name": "Grade 12-B",
+						"feeGroup": "morning-grade12"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Math",
+						"weight": 1
+					},
+					{
+						"name": "Biology",
+						"weight": 1
+					},
+					{
+						"name": "English",
+						"weight": 1
+					},
+					{
+						"name": "Physics",
+						"weight": 1
+					},
+					{
+						"name": "Chemistry",
+						"weight": 1
+					},
+					{
+						"name": "Computer",
+						"weight": 1
+					},
+					{
+						"name": "Economics",
+						"weight": 1
+					},
+					{
+						"name": "Government",
+						"weight": 1
+					},
+					{
+						"name": "Geography",
+						"weight": 1
+					},
+					{
+						"name": "History",
+						"weight": 1
+					},
+					{
+						"name": "Literature",
+						"weight": 1
+					},
+					{
+						"name": "Accounting",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					},
+					{
+						"name": "French",
+						"weight": 1
+					},
+					{
+						"name": "Agriculture",
+						"weight": 1
+					},
+					{
+						"name": "Practical",
+						"weight": 1
+					},
+					{
+						"name": "R.O.T.C",
+						"weight": 1
+					}
 				]
 			}
 		},
-		"settings": {
-			"studentSettings": {
-				"loginAccess": true,
-				"yearlyReportAccess": true,
-				"reportAccessPeriods": ["first"],
-				"reportAccessSemesters": ["first"]
+		"Night": {
+			"Daycare Division": {
+				"isSelfContained": true,
+				"classes": [
+					{
+						"classId": "Night-Nursery",
+						"name": "Nursery",
+						"feeGroup": "night-grade1-6"
+					},
+					{
+						"classId": "Night-ABC",
+						"name": "ABC",
+						"feeGroup": "night-grade1-6"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Hygiene",
+						"weight": 1
+					},
+					{
+						"name": "Social Skills",
+						"weight": 1
+					},
+					{
+						"name": "Identifying Alphabets",
+						"weight": 1
+					},
+					{
+						"name": "Identifying Numbers",
+						"weight": 1
+					},
+					{
+						"name": "Tracing Numbers",
+						"weight": 1
+					},
+					{
+						"name": "Physical Education",
+						"weight": 1
+					},
+					{
+						"name": "Drawing",
+						"weight": 1
+					},
+					{
+						"name": "Recognizing Words",
+						"weight": 1
+					},
+					{
+						"name": "Phonics",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					}
+				]
 			},
-			"teacherSettings": {
-				"loginAccess": true,
-				"gradeSubmissionPeriods": ["first", "second"],
-				"gradeSubmissionAcademicYears": ["2025-2026"],
-				"viewMastersAcademicYears": ["2025-2026"],
-				"viewGradeSubmissionsAcademicYears": ["2025-2026"],
-				"gradeChangeRequestAcademicYears": ["2025-2026"],
-				"gradeChangeRequestPeriods": []
+			"Lower Elementary": {
+				"isSelfContained": true,
+				"classes": [
+					{
+						"classId": "Night-kOne",
+						"name": "K 1",
+						"feeGroup": "night-grade1-6"
+					},
+					{
+						"classId": "Night-kTwo",
+						"name": "K 2",
+						"feeGroup": "night-grade1-6"
+					},
+					{
+						"classId": "Night-GradeOne",
+						"name": "Grade 1 PM",
+						"feeGroup": "night-grade1-6"
+					},
+					{
+						"classId": "Night-GradeTwo",
+						"name": "Grade 2 PM",
+						"feeGroup": "night-grade1-6"
+					},
+					{
+						"classId": "Night-GradeThree",
+						"name": "Grade 3 PM",
+						"feeGroup": "night-grade1-6"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Math",
+						"weight": 1
+					},
+					{
+						"name": "General Science",
+						"weight": 1
+					},
+					{
+						"name": "English",
+						"weight": 1
+					},
+					{
+						"name": "Social Studies",
+						"weight": 1
+					},
+					{
+						"name": "Health Science",
+						"weight": 1
+					},
+					{
+						"name": "Reading",
+						"weight": 1
+					},
+					{
+						"name": "Writing",
+						"weight": 1
+					},
+					{
+						"name": "Spelling",
+						"weight": 1
+					},
+					{
+						"name": "Phonics",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					},
+					{
+						"name": "Drawing",
+						"weight": 1
+					}
+				]
 			},
-			"administratorSettings": {
-				"loginAccess": true
+			"Upper Elementary": {
+				"classes": [
+					{
+						"classId": "Night-GradeFour",
+						"name": "Grade 4 PM",
+						"feeGroup": "night-grade1-6"
+					},
+					{
+						"classId": "Night-GradeFive",
+						"name": "Grade 5 PM",
+						"feeGroup": "night-grade1-6"
+					},
+					{
+						"classId": "Night-GradeSix",
+						"name": "Grade 6 PM",
+						"feeGroup": "night-grade1-6"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Math",
+						"weight": 1
+					},
+					{
+						"name": "General Science",
+						"weight": 1
+					},
+					{
+						"name": "English",
+						"weight": 1
+					},
+					{
+						"name": "French",
+						"weight": 1
+					},
+					{
+						"name": "Social Studies",
+						"weight": 1
+					},
+					{
+						"name": "Health Science",
+						"weight": 1
+					},
+					{
+						"name": "Reading",
+						"weight": 1
+					},
+					{
+						"name": "Writing",
+						"weight": 1
+					},
+					{
+						"name": "Spelling",
+						"weight": 1
+					},
+					{
+						"name": "Phonics",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					}
+				]
+			},
+			"Junior High": {
+				"classes": [
+					{
+						"classId": "Night-GradeSeven",
+						"name": "Grade 7 PM",
+						"feeGroup": "night-grade7-9"
+					},
+					{
+						"classId": "Night-GradeEight",
+						"name": "Grade 8 PM",
+						"feeGroup": "night-grade7-9"
+					},
+					{
+						"classId": "Night-GradeNine",
+						"name": "Grade 9 PM",
+						"feeGroup": "night-grade7-9"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Math",
+						"weight": 1
+					},
+					{
+						"name": "General Science",
+						"weight": 1
+					},
+					{
+						"name": "English",
+						"weight": 1
+					},
+					{
+						"name": "French",
+						"weight": 1
+					},
+					{
+						"name": "Geography",
+						"weight": 1
+					},
+					{
+						"name": "Health Science",
+						"weight": 1
+					},
+					{
+						"name": "Computer",
+						"weight": 1
+					},
+					{
+						"name": "History",
+						"weight": 1
+					},
+					{
+						"name": "Civics",
+						"weight": 1
+					},
+					{
+						"name": "Vocabulary",
+						"weight": 1
+					},
+					{
+						"name": "Phonics",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					},
+					{
+						"name": "Agriculture",
+						"weight": 1
+					},
+					{
+						"name": "Literature",
+						"weight": 1
+					}
+				]
+			},
+			"Senior High": {
+				"classes": [
+					{
+						"classId": "Night-GradeTen",
+						"name": "Grade 10 PM",
+						"feeGroup": "night-grade10-11"
+					},
+					{
+						"classId": "Night-GradeEleven",
+						"name": "Grade 11 PM",
+						"feeGroup": "night-grade10-11"
+					},
+					{
+						"classId": "Night-GradeTwelve",
+						"name": "Grade 12 PM",
+						"feeGroup": "night-grade12"
+					}
+				],
+				"subjects": [
+					{
+						"name": "Math",
+						"weight": 1
+					},
+					{
+						"name": "Biology",
+						"weight": 1
+					},
+					{
+						"name": "English",
+						"weight": 1
+					},
+					{
+						"name": "Physics",
+						"weight": 1
+					},
+					{
+						"name": "Chemistry",
+						"weight": 1
+					},
+					{
+						"name": "Computer",
+						"weight": 1
+					},
+					{
+						"name": "Economics",
+						"weight": 1
+					},
+					{
+						"name": "Government",
+						"weight": 1
+					},
+					{
+						"name": "Geography",
+						"weight": 1
+					},
+					{
+						"name": "History",
+						"weight": 1
+					},
+					{
+						"name": "Literature",
+						"weight": 1
+					},
+					{
+						"name": "Accounting",
+						"weight": 1
+					},
+					{
+						"name": "Bible",
+						"weight": 1
+					},
+					{
+						"name": "French",
+						"weight": 1
+					},
+					{
+						"name": "Agriculture",
+						"weight": 1
+					},
+					{
+						"name": "Practical",
+						"weight": 1
+					}
+				]
 			}
-		},
-		"whyChoose": [
-			{
-				"icon": "Award",
-				"title": "Academic Excellence",
-				"description": "Our rigorous curriculum and dedicated teachers ensure students achieve their highest potential with consistently high test scores.",
-				"iconColor": "blue-600"
+		}
+	},
+	"updatedAt": {
+		"$date": "2026-07-15T19:12:46.871Z"
+	},
+	"currentAcademicYear": "2025-2026",
+	"feeSchedules": {
+		"2026-2027": {
+			"paymentWindows": {
+				"1st": "During Registration",
+				"2nd": "Nov 2 - Nov 9, 2026",
+				"3rd": "Feb 8 - Feb 19, 2027",
+				"4th": "Mar 22 - Apr 5, 2027"
 			},
-			{
-				"icon": "Laptop",
-				"title": "Technology Focused",
-				"description": "Modern computer labs, smart classrooms, and digital learning tools prepare students for the future.",
-				"iconColor": "purple-600"
-			},
-			{
-				"icon": "Heart",
-				"title": "Character Development",
-				"description": "We focus on building strong moral values and character through Christian principles and community service.",
-				"iconColor": "green-600"
-			},
-			{
-				"icon": "Users",
-				"title": "Small Class Sizes",
-				"description": "Our low student-to-teacher ratio ensures personalized attention and better learning outcomes for every student.",
-				"iconColor": "orange-600"
-			},
-			{
-				"icon": "Target",
-				"title": "Holistic Education",
-				"description": "We develop the whole child through academics, arts, athletics, and spiritual growth programs.",
-				"iconColor": "red-600"
-			},
-			{
-				"icon": "Globe",
-				"title": "Global Perspective",
-				"description": "Our international programs and diverse community prepare students for success in a global society.",
-				"iconColor": "teal-600"
-			}
-		],
-		"facilities": [
-			{
-				"icon": "Zap",
-				"title": "Modern E-Portal System",
-				"description": "Advanced online platform for grades, assignments, and parent communication",
-				"iconColor": "blue-600"
-			},
-			{
-				"icon": "Laptop",
-				"title": "Computer Laboratory",
-				"description": "Fully equipped with latest computers and high-speed internet connectivity",
-				"iconColor": "purple-600"
-			},
-			{
-				"icon": "FlaskConical",
-				"title": "Science Laboratory",
-				"description": "Well-equipped labs for chemistry, biology, and physics experiments",
-				"iconColor": "green-600"
-			},
-			{
-				"icon": "BookOpen",
-				"title": "Digital Library",
-				"description": "Extensive collection of books and digital resources for research",
-				"iconColor": "orange-600"
-			},
-			{
-				"icon": "Wifi",
-				"title": "Campus-Wide WiFi",
-				"description": "High-speed wireless internet access throughout the entire campus",
-				"iconColor": "red-600"
-			},
-			{
-				"icon": "Building",
-				"title": "Smart Classrooms",
-				"description": "Interactive whiteboards and multimedia systems in every classroom",
-				"iconColor": "teal-600"
-			},
-			{
-				"icon": "Shield",
-				"title": "Security System",
-				"description": "24/7 CCTV monitoring and secure campus environment for student safety",
-				"iconColor": "pink-600"
-			},
-			{
-				"icon": "Star",
-				"title": "Multi-Purpose Hall",
-				"description": "Large auditorium for assemblies, performances, and special events",
-				"iconColor": "indigo-600"
-			}
-		],
-		"team": [
-			{
-				"name": "Dr. John Doe",
-				"title": "Principal",
-				"avatarUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
-				"bio": "Ed.D in Educational Leadership with over 20 years experience in academic administration and curriculum development.",
-				"email": "principal@unityca.edu.lr",
-				"badgeBg": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-			},
-			{
-				"name": "Prof. Jane Smith",
-				"title": "Vice Principal",
-				"avatarUrl": "https://images.unsplash.com/photo-1494790108755-2616b612b494?w=150&h=150&fit=crop&crop=face",
-				"bio": "M.Ed in Secondary Education with expertise in student affairs, discipline management, and academic counseling.",
-				"email": "vprincipal@unityca.edu.lr",
-				"badgeBg": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
-			},
-			{
-				"name": "Mr. Michael Brown",
-				"title": "Registrar",
-				"avatarUrl": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-				"bio": "B.A in Business Administration specializing in student records management, enrollment, and academic documentation.",
-				"email": "registrar@unityca.edu.lr",
-				"badgeBg": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-			},
-			{
-				"name": "Dr. Sarah Wilson",
-				"title": "Academic Director",
-				"avatarUrl": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
-				"bio": "Ph.D in Curriculum and Instruction, responsible for academic programs, teacher development, and assessment.",
-				"email": "academic@unityca.edu.lr",
-				"badgeBg": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400"
-			},
-			{
-				"name": "Mr. Robert Taylor",
-				"title": "Student Affairs Director",
-				"avatarUrl": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face",
-				"bio": "M.A in Student Personnel Services, overseeing student activities, counseling services, and campus life.",
-				"email": "studentaffairs@unityca.edu.lr",
-				"badgeBg": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-			},
-			{
-				"name": "Ms. Linda Davis",
-				"title": "Finance Director",
-				"avatarUrl": "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=150&h=150&fit=crop&crop=face",
-				"bio": "CPA with MBA in Finance, managing school finances, budgeting, tuition, and financial aid programs.",
-				"email": "finance@unityca.edu.lr",
-				"badgeBg": "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400"
-			}
-		],
-		"address": [
-			"Pipeline Road, Logan Town, Lower Johnsonville",
-			"Montserrado County, Liberia"
-		],
-		"phones": ["+231 770 123 456", "+231 880 789 012"],
-		"emails": ["info@unityca.edu.lr", "admissions@unityca.edu.lr"],
-		"hours": [
-			"Monday - Friday: 7:30 AM - 3:30 PM",
-			"Saturday: 8:00 AM - 12:00 PM",
-			"Sunday: Closed"
-		],
-		"quickLinks": [
-			{
-				"label": "About Us",
-				"href": "#about"
-			},
-			{
-				"label": "Admissions",
-				"href": "#admissions"
-			},
-			{
-				"label": "Academic Programs",
-				"href": "#programs"
-			},
-			{
-				"label": "Facilities",
-				"href": "#facilities"
-			},
-			{
-				"label": "Student Life",
-				"href": "#student-life"
-			},
-			{
-				"label": "News & Events",
-				"href": "#news"
-			}
-		],
-		"academicLinks": [
-			{
-				"label": "Elementary School",
-				"href": "#elementary"
-			},
-			{
-				"label": "Junior High School",
-				"href": "#junior-high"
-			},
-			{
-				"label": "Senior High School",
-				"href": "#senior-high"
-			},
-			{
-				"label": "Course Catalog",
-				"href": "#catalog"
-			},
-			{
-				"label": "Academic Calendar",
-				"href": "#calendar"
-			},
-			{
-				"label": "Library",
-				"href": "#library"
-			}
-		],
-		"footerLinks": [
-			{
-				"label": "Privacy Policy",
-				"href": "#privacy"
-			},
-			{
-				"label": "Terms of Service",
-				"href": "#terms"
-			},
-			{
-				"label": "Site Map",
-				"href": "#sitemap"
-			}
-		],
-		"classLevels": {
 			"Morning": {
-				"Self Contained": {
-					"classes": [
+				"morning-nursery-grade3": {
+					"label": "Nursery – Grade 3",
+					"appliesTo": [
+						"Morning-Daycare",
+						"Morning-Nursery",
+						"Morning-KOne",
+						"Morning-KTwo",
+						"Morning-GradeOne",
+						"Morning-GradeTwo",
+						"Morning-GradeThree"
+					],
+					"currency": "LRD",
+					"tuitionAndRegistration": {
+						"old": {
+							"reg1stSem": 4000,
+							"reg2ndSem": 4250,
+							"tuition": 7000,
+							"total": 15250
+						},
+						"new": {
+							"reg1stSem": 4100,
+							"reg2ndSem": 4250,
+							"tuition": 8050,
+							"total": 16400
+						}
+					},
+					"installments": [
 						{
-							"classId": "Morning-Nursery",
-							"name": "Nursery"
+							"label": "1st (During Registration)",
+							"old": 5000,
+							"new": 6000
 						},
 						{
-							"classId": "Morning-ABC",
-							"name": "ABC"
+							"label": "2nd",
+							"dueWindow": "Nov 2 - Nov 9, 2026",
+							"old": 4000,
+							"new": 5000
 						},
 						{
-							"classId": "Morning-kOne",
-							"name": "K-I"
+							"label": "3rd",
+							"dueWindow": "Feb 8 - Feb 19, 2027",
+							"old": 3500,
+							"new": 3500
 						},
 						{
-							"classId": "Morning-kTwo",
-							"name": "K-II"
-						},
-						{
-							"classId": "Morning-GradeOne",
-							"name": "Grade 1"
-						},
-						{
-							"classId": "Morning-GradeTwo",
-							"name": "Grade 2"
-						},
-						{
-							"classId": "Morning-GradeThree",
-							"name": "Grade 3"
+							"label": "4th",
+							"dueWindow": "Mar 22 - Apr 5, 2027",
+							"old": 2750,
+							"new": 1900
 						}
 					],
-					"subjects": [
+					"requirements": [
 						{
-							"name": "Bible",
-							"weight": 1
+							"item": "First Aid",
+							"amount": 2500,
+							"dueAt": "1st"
 						},
 						{
-							"name": "Letter Recognition",
-							"weight": 1
+							"item": "Computerized ID Card",
+							"amount": 500,
+							"dueAt": "1st"
 						},
 						{
-							"name": "English",
-							"weight": 1
+							"item": "PTA",
+							"amount": 100,
+							"dueAt": "1st"
 						},
 						{
-							"name": "Letter Writing",
-							"weight": 1
+							"item": "Breakage Fee",
+							"amount": 750,
+							"dueAt": "1st"
 						},
 						{
-							"name": "Social Studies",
-							"weight": 1
+							"item": "E-Portal",
+							"amount": 1000,
+							"dueAt": "2nd"
 						},
 						{
-							"name": "Spelling",
-							"weight": 1
+							"item": "Activities",
+							"amount": 200,
+							"dueAt": "2nd"
 						},
 						{
-							"name": "Physical Education",
-							"weight": 1
+							"item": "Field Trip",
+							"amount": 4000,
+							"dueAt": "3rd"
+						}
+					],
+					"accessories": [
+						{
+							"item": "Uniform Set",
+							"amount": 3700,
+							"dueAt": "beforeRegistration",
+							"studentType": "all"
 						},
 						{
-							"name": "Drawing",
-							"weight": 1
+							"item": "Wednesday Dress Code",
+							"amount": 1500,
+							"dueAt": "1st",
+							"studentType": "new"
 						},
 						{
-							"name": "Reading",
-							"weight": 1
-						},
-						{
-							"name": "Writing",
-							"weight": 1
-						},
-						{
-							"name": "Science",
-							"weight": 1
-						},
-						{
-							"name": "Number Reciting",
-							"weight": 1
-						},
-						{
-							"name": "Number Recognition",
-							"weight": 1
-						},
-						{
-							"name": "Health Science",
-							"weight": 1
-						},
-						{
-							"name": "Phonics",
-							"weight": 1
+							"item": "Track Suit",
+							"amount": 6000,
+							"dueAt": "2nd",
+							"studentType": "new"
 						}
 					]
 				},
-				"Elementary": {
-					"classes": [
+				"morning-grade4-5": {
+					"label": "Grade 4 – 5",
+					"appliesTo": [
+						"Morning-GradeFour",
+						"Morning-GradeFive"
+					],
+					"currency": "LRD",
+					"tuitionAndRegistration": {
+						"old": {
+							"reg1stSem": 4000,
+							"reg2ndSem": 3450,
+							"tuition": 10000,
+							"total": 17450
+						},
+						"new": {
+							"reg1stSem": 4500,
+							"reg2ndSem": 3950,
+							"tuition": 10000,
+							"total": 18450
+						}
+					},
+					"installments": [
 						{
-							"classId": "Morning-GradeFour",
-							"name": "Grade 4"
+							"label": "1st (During Registration)",
+							"old": 7500,
+							"new": 8000
 						},
 						{
-							"classId": "Morning-GradeFive",
-							"name": "Grade 5"
+							"label": "2nd",
+							"dueWindow": "Nov 2 - Nov 9, 2026",
+							"old": 4500,
+							"new": 5000
 						},
 						{
-							"classId": "Morning-GradeSix",
-							"name": "Grade 6"
+							"label": "3rd",
+							"dueWindow": "Feb 8 - Feb 19, 2027",
+							"old": 3000,
+							"new": 3000
+						},
+						{
+							"label": "4th",
+							"dueWindow": "Mar 22 - Apr 5, 2027",
+							"old": 2450,
+							"new": 2450
 						}
 					],
-					"subjects": [
+					"requirements": [
 						{
-							"name": "Math",
-							"weight": 1
+							"item": "First Aid",
+							"amount": 2500,
+							"dueAt": "1st"
 						},
 						{
-							"name": "Science",
-							"weight": 1
+							"item": "PTA",
+							"amount": 100,
+							"dueAt": "1st"
 						},
 						{
-							"name": "English",
-							"weight": 1
+							"item": "Computerized ID Card",
+							"amount": 500,
+							"dueAt": "1st"
 						},
 						{
-							"name": "Drawing",
-							"weight": 1
+							"item": "Breakage Fee",
+							"amount": 750,
+							"dueAt": "1st"
 						},
 						{
-							"name": "Computer",
-							"weight": 1
+							"item": "E-Portal",
+							"amount": 1000,
+							"dueAt": "2nd"
 						},
 						{
-							"name": "Social Studies",
-							"weight": 1
+							"item": "Activities",
+							"amount": 200,
+							"dueAt": "2nd"
 						},
 						{
-							"name": "Health Science",
-							"weight": 1
+							"item": "Field Trip",
+							"amount": 4000,
+							"dueAt": "3rd"
 						},
 						{
-							"name": "Physical Education",
-							"weight": 1
+							"item": "Computer Literacy",
+							"amount": 3000,
+							"dueAt": "3rd"
+						}
+					],
+					"accessories": [
+						{
+							"item": "Uniform Set",
+							"amount": 4000,
+							"dueAt": "beforeRegistration",
+							"studentType": "all"
 						},
 						{
-							"name": "Reading",
-							"weight": 1
+							"item": "Wednesday Dress Code",
+							"amount": 2000,
+							"dueAt": "1st",
+							"studentType": "new"
 						},
 						{
-							"name": "Writing",
-							"weight": 1
-						},
-						{
-							"name": "Spelling",
-							"weight": 1
-						},
-						{
-							"name": "Phonics",
-							"weight": 1
-						},
-						{
-							"name": "Bible",
-							"weight": 1
+							"item": "Track Suit",
+							"amount": 6000,
+							"dueAt": "2nd",
+							"studentType": "new"
 						}
 					]
 				},
-				"Junior High": {
-					"classes": [
+				"morning-grade6": {
+					"label": "Grade 6",
+					"appliesTo": [
+						"Morning-GradeSix"
+					],
+					"currency": "LRD",
+					"tuitionAndRegistration": {
+						"old": {
+							"reg1stSem": 4050,
+							"reg2ndSem": 3700,
+							"tuition": 10300,
+							"total": 18050
+						},
+						"new": {
+							"reg1stSem": 5000,
+							"reg2ndSem": 4000,
+							"tuition": 10350,
+							"total": 19350
+						}
+					},
+					"installments": [
 						{
-							"classId": "Morning-GradeSeven",
-							"name": "Grade 7"
+							"label": "1st (During Registration)",
+							"old": 8000,
+							"new": 8500
 						},
 						{
-							"classId": "Morning-GradeEight",
-							"name": "Grade 8"
+							"label": "2nd",
+							"dueWindow": "Nov 2 - Nov 9, 2026",
+							"old": 5000,
+							"new": 5350
 						},
 						{
-							"classId": "Morning-GradeNine",
-							"name": "Grade 9"
+							"label": "3rd",
+							"dueWindow": "Feb 8 - Feb 19, 2027",
+							"old": 3500,
+							"new": 3500
+						},
+						{
+							"label": "4th",
+							"dueWindow": "Mar 22 - Apr 5, 2027",
+							"old": 1550,
+							"new": 2000
 						}
 					],
-					"subjects": [
+					"requirements": [
 						{
-							"name": "Math",
-							"weight": 1
+							"item": "First Aid",
+							"amount": 2500,
+							"dueAt": "1st"
 						},
 						{
-							"name": "Science",
-							"weight": 1
+							"item": "PTA",
+							"amount": 100,
+							"dueAt": "1st"
 						},
 						{
-							"name": "Computer",
-							"weight": 1
+							"item": "Computerized ID Card",
+							"amount": 500,
+							"dueAt": "1st"
 						},
 						{
-							"name": "English",
-							"weight": 1
+							"item": "Breakage Fee",
+							"amount": 750,
+							"dueAt": "1st"
 						},
 						{
-							"name": "Geography",
-							"weight": 1
+							"item": "E-Portal",
+							"amount": 1000,
+							"dueAt": "2nd"
 						},
 						{
-							"name": "Physical Education",
-							"weight": 1
+							"item": "Activities",
+							"amount": 200,
+							"dueAt": "2nd"
 						},
 						{
-							"name": "History",
-							"weight": 1
+							"item": "Field Trip",
+							"amount": 4000,
+							"dueAt": "3rd"
 						},
 						{
-							"name": "Civics",
-							"weight": 1
+							"item": "Computer Literacy",
+							"amount": 3000,
+							"dueAt": "3rd"
+						}
+					],
+					"extraClasses": {
+						"amount": 2000,
+						"period": "Aug 25 - Sep 4, 2026"
+					},
+					"accessories": [
+						{
+							"item": "Uniform Set",
+							"amount": 4000,
+							"dueAt": "beforeRegistration",
+							"studentType": "all"
 						},
 						{
-							"name": "Vocabulary",
-							"weight": 1
+							"item": "Wednesday Dress Code",
+							"amount": 2000,
+							"dueAt": "1st",
+							"studentType": "new"
 						},
 						{
-							"name": "RME",
-							"weight": 1
-						},
-						{
-							"name": "Agriculture",
-							"weight": 1
-						},
-						{
-							"name": "Literature",
-							"weight": 1
+							"item": "Track Suit",
+							"amount": 6000,
+							"dueAt": "2nd",
+							"studentType": "new"
 						}
 					]
 				},
-				"Senior High": {
-					"classes": [
+				"morning-grade7": {
+					"label": "Grade 7",
+					"appliesTo": [
+						"Morning-GradeSeven"
+					],
+					"currency": "LRD",
+					"tuitionAndRegistration": {
+						"old": {
+							"reg1stSem": 5000,
+							"reg2ndSem": 4250,
+							"tuition": 10000,
+							"total": 19250
+						},
+						"new": {
+							"reg1stSem": 5300,
+							"reg2ndSem": 4750,
+							"tuition": 10000,
+							"total": 20050
+						}
+					},
+					"installments": [
 						{
-							"classId": "Morning-GradeTen",
-							"name": "Grade 10"
+							"label": "1st (During Registration)",
+							"old": 8500,
+							"new": 9000
 						},
 						{
-							"classId": "Morning-GradeEleven",
-							"name": "Grade 11"
+							"label": "2nd",
+							"dueWindow": "Nov 2 - Nov 9, 2026",
+							"old": 4500,
+							"new": 4500
 						},
 						{
-							"classId": "Morning-GradeTwelve",
-							"name": "Grade 12"
+							"label": "3rd",
+							"dueWindow": "Feb 8 - Feb 19, 2027",
+							"old": 3500,
+							"new": 3500
+						},
+						{
+							"label": "4th",
+							"dueWindow": "Mar 22 - Apr 5, 2027",
+							"old": 2750,
+							"new": 3050
 						}
 					],
-					"subjects": [
+					"requirements": [
 						{
-							"name": "Math",
-							"weight": 1
+							"item": "First Aid",
+							"amount": 2500,
+							"dueAt": "1st"
 						},
 						{
-							"name": "Biology",
-							"weight": 1
+							"item": "PTA",
+							"amount": 100,
+							"dueAt": "1st"
 						},
 						{
-							"name": "English",
-							"weight": 1
+							"item": "Computerized ID Card",
+							"amount": 500,
+							"dueAt": "1st"
 						},
 						{
-							"name": "Physics",
-							"weight": 1
+							"item": "Breakage Fee",
+							"amount": 750,
+							"dueAt": "1st"
 						},
 						{
-							"name": "Chemistry",
-							"weight": 1
+							"item": "E-Portal",
+							"amount": 1000,
+							"dueAt": "2nd"
 						},
 						{
-							"name": "Computer",
-							"weight": 1
+							"item": "Activities",
+							"amount": 200,
+							"dueAt": "2nd"
 						},
 						{
-							"name": "Economics",
-							"weight": 1
+							"item": "Field Trip",
+							"amount": 4000,
+							"dueAt": "3rd"
 						},
 						{
-							"name": "Government",
-							"weight": 1
+							"item": "Computer Literacy",
+							"amount": 3000,
+							"dueAt": "3rd"
+						}
+					],
+					"accessories": [
+						{
+							"item": "Uniform Set",
+							"amount": 4700,
+							"dueAt": "beforeRegistration",
+							"studentType": "all"
 						},
 						{
-							"name": "Geography",
-							"weight": 1
+							"item": "Wednesday Dress Code",
+							"amount": 2000,
+							"dueAt": "1st",
+							"studentType": "new"
 						},
 						{
-							"name": "History",
-							"weight": 1
+							"item": "Track Suit",
+							"amount": 6000,
+							"dueAt": "2nd",
+							"studentType": "new"
+						}
+					]
+				},
+				"morning-grade8": {
+					"label": "Grade 8",
+					"appliesTo": [
+						"Morning-GradeEight"
+					],
+					"currency": "LRD",
+					"tuitionAndRegistration": {
+						"old": {
+							"reg1stSem": 5500,
+							"reg2ndSem": 4650,
+							"tuition": 10000,
+							"total": 20150
+						},
+						"new": {
+							"reg1stSem": 5500,
+							"reg2ndSem": 4750,
+							"tuition": 10700,
+							"total": 20950
+						}
+					},
+					"installments": [
+						{
+							"label": "1st (During Registration)",
+							"old": 9000,
+							"new": 9500
 						},
 						{
-							"name": "Literature",
-							"weight": 1
+							"label": "2nd",
+							"dueWindow": "Nov 2 - Nov 9, 2026",
+							"old": 4500,
+							"new": 4500
 						},
 						{
-							"name": "Oral English",
-							"weight": 1
+							"label": "3rd",
+							"dueWindow": "Feb 8 - Feb 19, 2027",
+							"old": 3700,
+							"new": 3900
 						},
 						{
-							"name": "RME",
-							"weight": 1
+							"label": "4th",
+							"dueWindow": "Mar 22 - Apr 5, 2027",
+							"old": 2950,
+							"new": 3050
+						}
+					],
+					"requirements": [
+						{
+							"item": "First Aid",
+							"amount": 2500,
+							"dueAt": "1st"
 						},
 						{
-							"name": "ROTC",
-							"weight": 1
+							"item": "PTA",
+							"amount": 100,
+							"dueAt": "1st"
 						},
 						{
-							"name": "Agriculture",
-							"weight": 1
+							"item": "Computerized ID Card",
+							"amount": 500,
+							"dueAt": "1st"
+						},
+						{
+							"item": "Breakage Fee",
+							"amount": 750,
+							"dueAt": "1st"
+						},
+						{
+							"item": "E-Portal",
+							"amount": 1000,
+							"dueAt": "2nd"
+						},
+						{
+							"item": "Activities",
+							"amount": 200,
+							"dueAt": "2nd"
+						},
+						{
+							"item": "Field Trip",
+							"amount": 4000,
+							"dueAt": "3rd"
+						},
+						{
+							"item": "Computer Literacy",
+							"amount": 3000,
+							"dueAt": "3rd"
+						}
+					],
+					"accessories": [
+						{
+							"item": "Uniform Set",
+							"amount": 4700,
+							"dueAt": "beforeRegistration",
+							"studentType": "all"
+						},
+						{
+							"item": "Wednesday Dress Code",
+							"amount": 2000,
+							"dueAt": "1st",
+							"studentType": "new"
+						},
+						{
+							"item": "Track Suit",
+							"amount": 6000,
+							"dueAt": "2nd",
+							"studentType": "new"
+						}
+					]
+				},
+				"morning-grade9": {
+					"label": "Grade 9",
+					"appliesTo": [
+						"Morning-GradeNine"
+					],
+					"currency": "LRD",
+					"tuitionAndRegistration": {
+						"old": {
+							"reg1stSem": 6000,
+							"reg2ndSem": 4750,
+							"tuition": 10300,
+							"total": 21050
+						},
+						"new": {
+							"reg1stSem": 6500,
+							"reg2ndSem": 4850,
+							"tuition": 10500,
+							"total": 21850
+						}
+					},
+					"installments": [
+						{
+							"label": "1st (During Registration)",
+							"old": 9000,
+							"new": 9500
+						},
+						{
+							"label": "2nd",
+							"dueWindow": "Nov 2 - Nov 9, 2026",
+							"old": 5350,
+							"new": 5350
+						},
+						{
+							"label": "3rd",
+							"dueWindow": "Feb 8 - Feb 19, 2027",
+							"old": 3700,
+							"new": 3700
+						},
+						{
+							"label": "4th",
+							"dueWindow": "Mar 22 - Apr 5, 2027",
+							"old": 3000,
+							"new": 3300
+						}
+					],
+					"requirements": [
+						{
+							"item": "First Aid",
+							"amount": 2500,
+							"dueAt": "1st"
+						},
+						{
+							"item": "PTA",
+							"amount": 100,
+							"dueAt": "1st"
+						},
+						{
+							"item": "Computerized ID Card",
+							"amount": 500,
+							"dueAt": "1st"
+						},
+						{
+							"item": "Breakage Fee",
+							"amount": 750,
+							"dueAt": "1st"
+						},
+						{
+							"item": "E-Portal",
+							"amount": 1000,
+							"dueAt": "2nd"
+						},
+						{
+							"item": "Activities",
+							"amount": 200,
+							"dueAt": "2nd"
+						},
+						{
+							"item": "Field Trip",
+							"amount": 4000,
+							"dueAt": "3rd"
+						},
+						{
+							"item": "Computer Literacy",
+							"amount": 3000,
+							"dueAt": "3rd"
+						}
+					],
+					"extraClasses": {
+						"amount": 2500,
+						"period": "Aug 25 - Sep 4, 2026"
+					},
+					"accessories": [
+						{
+							"item": "Uniform Set",
+							"amount": 4700,
+							"dueAt": "beforeRegistration",
+							"studentType": "all"
+						},
+						{
+							"item": "Wednesday Dress Code",
+							"amount": 2000,
+							"dueAt": "1st",
+							"studentType": "new"
+						},
+						{
+							"item": "Track Suit",
+							"amount": 6000,
+							"dueAt": "2nd",
+							"studentType": "new"
+						}
+					]
+				},
+				"morning-grade10": {
+					"label": "Grade 10",
+					"appliesTo": [
+						"Morning-GradeTenA",
+						"Morning-GradeTenB"
+					],
+					"currency": "LRD",
+					"tuitionAndRegistration": {
+						"old": {
+							"reg1stSem": 6000,
+							"reg2ndSem": 5000,
+							"tuition": 11550,
+							"total": 22550
+						},
+						"new": {
+							"reg1stSem": 6000,
+							"reg2ndSem": 5650,
+							"tuition": 12000,
+							"total": 23650
+						}
+					},
+					"installments": [
+						{
+							"label": "1st (During Registration)",
+							"old": 9000,
+							"new": 9000
+						},
+						{
+							"label": "2nd",
+							"dueWindow": "Nov 2 - Nov 9, 2026",
+							"old": 6000,
+							"new": 6500
+						},
+						{
+							"label": "3rd",
+							"dueWindow": "Feb 8 - Feb 19, 2027",
+							"old": 4550,
+							"new": 5150
+						},
+						{
+							"label": "4th",
+							"dueWindow": "Mar 22 - Apr 5, 2027",
+							"old": 3000,
+							"new": 3000
+						}
+					],
+					"requirements": [
+						{
+							"item": "First Aid",
+							"amount": 2500,
+							"dueAt": "1st"
+						},
+						{
+							"item": "PTA",
+							"amount": 100,
+							"dueAt": "1st"
+						},
+						{
+							"item": "Computerized ID Card",
+							"amount": 500,
+							"dueAt": "1st"
+						},
+						{
+							"item": "Breakage Fee",
+							"amount": 750,
+							"dueAt": "1st"
+						},
+						{
+							"item": "E-Portal",
+							"amount": 1000,
+							"dueAt": "2nd"
+						},
+						{
+							"item": "Activities",
+							"amount": 200,
+							"dueAt": "2nd"
+						},
+						{
+							"item": "Field Trip",
+							"amount": 4000,
+							"dueAt": "3rd"
+						},
+						{
+							"item": "Computer Literacy",
+							"amount": 3000,
+							"dueAt": "3rd"
+						},
+						{
+							"item": "Science Lab Fee + Lab Manual + Activities",
+							"amount": 5,
+							"currency": "USD",
+							"dueAt": "3rd"
+						}
+					],
+					"accessories": [
+						{
+							"item": "Uniform Set",
+							"amount": 5000,
+							"dueAt": "beforeRegistration",
+							"studentType": "all"
+						},
+						{
+							"item": "Wednesday Dress Code",
+							"amount": 2000,
+							"dueAt": "1st",
+							"studentType": "new"
+						},
+						{
+							"item": "Track Suit",
+							"amount": 6000,
+							"dueAt": "2nd",
+							"studentType": "new"
+						}
+					]
+				},
+				"morning-grade11": {
+					"label": "Grade 11",
+					"appliesTo": [
+						"Morning-GradeElevenA",
+						"Morning-GradeElevenB"
+					],
+					"currency": "LRD",
+					"tuitionAndRegistration": {
+						"old": {
+							"reg1stSem": 6000,
+							"reg2ndSem": 5650,
+							"tuition": 12400,
+							"total": 24050
+						},
+						"new": {
+							"reg1stSem": 6350,
+							"reg2ndSem": 6000,
+							"tuition": 12500,
+							"total": 24850
+						}
+					},
+					"installments": [
+						{
+							"label": "1st (During Registration)",
+							"old": 9000,
+							"new": 9000
+						},
+						{
+							"label": "2nd",
+							"dueWindow": "Nov 2 - Nov 9, 2026",
+							"old": 6000,
+							"new": 6500
+						},
+						{
+							"label": "3rd",
+							"dueWindow": "Feb 8 - Feb 19, 2027",
+							"old": 4650,
+							"new": 5350
+						},
+						{
+							"label": "4th",
+							"dueWindow": "Mar 22 - Apr 5, 2027",
+							"old": 4400,
+							"new": 4000
+						}
+					],
+					"requirements": [
+						{
+							"item": "First Aid",
+							"amount": 2500,
+							"dueAt": "1st"
+						},
+						{
+							"item": "PTA",
+							"amount": 100,
+							"dueAt": "1st"
+						},
+						{
+							"item": "Computerized ID Card",
+							"amount": 500,
+							"dueAt": "1st"
+						},
+						{
+							"item": "Breakage Fee",
+							"amount": 750,
+							"dueAt": "1st"
+						},
+						{
+							"item": "E-Portal",
+							"amount": 1000,
+							"dueAt": "2nd"
+						},
+						{
+							"item": "Activities",
+							"amount": 200,
+							"dueAt": "2nd"
+						},
+						{
+							"item": "Field Trip",
+							"amount": 4000,
+							"dueAt": "3rd"
+						},
+						{
+							"item": "Computer Literacy",
+							"amount": 3000,
+							"dueAt": "3rd"
+						},
+						{
+							"item": "Science Lab Fee + Lab Manual + Activities",
+							"amount": 5,
+							"currency": "USD",
+							"dueAt": "3rd"
+						},
+						{
+							"item": "Junior & Senior Prom",
+							"amount": 5000,
+							"dueAt": "3rd"
+						}
+					],
+					"accessories": [
+						{
+							"item": "Uniform Set",
+							"amount": 5000,
+							"dueAt": "beforeRegistration",
+							"studentType": "all"
+						},
+						{
+							"item": "Wednesday Dress Code",
+							"amount": 2000,
+							"dueAt": "1st",
+							"studentType": "new"
+						},
+						{
+							"item": "Track Suit",
+							"amount": 6000,
+							"dueAt": "2nd",
+							"studentType": "new"
+						}
+					]
+				},
+				"morning-grade12": {
+					"label": "Grade 12",
+					"appliesTo": [
+						"Morning-GradeTwelveA",
+						"Morning-GradeTwelveB"
+					],
+					"currency": "LRD",
+					"tuitionAndRegistration": {
+						"old": {
+							"reg1stSem": 8000,
+							"reg2ndSem": 7250,
+							"tuition": 15500,
+							"total": 30750
+						},
+						"new": {
+							"reg1stSem": 8000,
+							"reg2ndSem": 8250,
+							"tuition": 16500,
+							"total": 32750
+						}
+					},
+					"installments": [
+						{
+							"label": "1st (During Registration)",
+							"old": 12000,
+							"new": 13500
+						},
+						{
+							"label": "2nd",
+							"dueWindow": "Nov 2 - Nov 9, 2026",
+							"old": 9000,
+							"new": 9500
+						},
+						{
+							"label": "3rd",
+							"dueWindow": "Feb 8 - Feb 19, 2027",
+							"old": 5750,
+							"new": 5750
+						},
+						{
+							"label": "4th",
+							"dueWindow": "Mar 22 - Apr 5, 2027",
+							"old": 4000,
+							"new": 4000
+						}
+					],
+					"requirements": [
+						{
+							"item": "First Aid",
+							"amount": 2500,
+							"dueAt": "1st"
+						},
+						{
+							"item": "PTA",
+							"amount": 100,
+							"dueAt": "1st"
+						},
+						{
+							"item": "Breakage Fee",
+							"amount": 750,
+							"dueAt": "1st"
+						},
+						{
+							"item": "E-Portal",
+							"amount": 1000,
+							"dueAt": "2nd"
+						},
+						{
+							"item": "Activities",
+							"amount": 200,
+							"dueAt": "2nd"
+						},
+						{
+							"item": "Field Trip",
+							"amount": 4000,
+							"dueAt": "3rd"
+						},
+						{
+							"item": "Computer Literacy",
+							"amount": 3000,
+							"dueAt": "3rd"
+						},
+						{
+							"item": "Science Lab Fee + Lab Manual + Activities",
+							"amount": 5,
+							"currency": "USD",
+							"dueAt": "3rd"
+						},
+						{
+							"item": "Class Project",
+							"amount": 50,
+							"currency": "USD",
+							"dueAt": "3rd"
+						}
+					],
+					"extraClasses": {
+						"amount": 4000,
+						"period": "Aug 25 - Sep 4, 2026"
+					},
+					"accessories": [
+						{
+							"item": "Uniform Set (Uniform, Neck Tie, Tie Pin)",
+							"amount": 10500,
+							"dueAt": "beforeRegistration",
+							"studentType": "all"
+						},
+						{
+							"item": "T-Shirt, Militant Short Trouser & Face Cap",
+							"amount": 4000,
+							"dueAt": "1st",
+							"studentType": "all"
+						},
+						{
+							"item": "Wednesday Dress Code",
+							"amount": 2000,
+							"dueAt": "1st",
+							"studentType": "all"
+						},
+						{
+							"item": "Track Suit",
+							"amount": 6000,
+							"dueAt": "2nd",
+							"studentType": "new"
+						}
+					]
+				}
+			},
+			"Night": {
+				"night-grade1-6": {
+					"label": "Grade 1 – 6",
+					"appliesTo": [
+						"Night-kOne",
+						"Night-kTwo",
+						"Night-GradeOne",
+						"Night-GradeTwo",
+						"Night-GradeThree",
+						"Night-GradeFour",
+						"Night-GradeFive",
+						"Night-GradeSix"
+					],
+					"currency": "LRD",
+					"flatFees": {
+						"reg1stSem": 1000,
+						"reg2ndSem": 850,
+						"tuition": 4300,
+						"tShirt": 1500,
+						"ePortal": 700,
+						"handBook": 200,
+						"breakageFee": 750,
+						"activitiesFee": 200,
+						"total": 9500
+					},
+					"installments": [
+						{
+							"label": "1st (During Registration)",
+							"amount": 3000
+						},
+						{
+							"label": "2nd",
+							"dueWindow": "Nov 4 - Nov 15, 2025",
+							"amount": 2500
+						},
+						{
+							"label": "3rd",
+							"dueWindow": "Feb 10 - Feb 21, 2026",
+							"amount": 2300
+						},
+						{
+							"label": "4th",
+							"dueWindow": "Mar 24 - Apr 4, 2026",
+							"amount": 1700
+						}
+					],
+					"extraClasses": {
+						"amount": 2000
+					}
+				},
+				"night-grade7-9": {
+					"label": "Grade 7 – 9",
+					"appliesTo": [
+						"Night-GradeSeven",
+						"Night-GradeEight",
+						"Night-GradeNine"
+					],
+					"currency": "LRD",
+					"flatFees": {
+						"reg1stSem": 1000,
+						"reg2ndSem": 800,
+						"tuition": 4350,
+						"tShirt": 1500,
+						"ePortal": 700,
+						"handBook": 200,
+						"breakageFee": 750,
+						"computerLab": 500,
+						"activitiesFee": 200,
+						"total": 10000
+					},
+					"installments": [
+						{
+							"label": "1st (During Registration)",
+							"amount": 3500
+						},
+						{
+							"label": "2nd",
+							"dueWindow": "Nov 4 - Nov 15, 2025",
+							"amount": 2500
+						},
+						{
+							"label": "3rd",
+							"dueWindow": "Feb 10 - Feb 21, 2026",
+							"amount": 2300
+						},
+						{
+							"label": "4th",
+							"dueWindow": "Mar 24 - Apr 4, 2026",
+							"amount": 1700
+						}
+					],
+					"extraClasses": {
+						"amount": 2500
+					}
+				},
+				"night-grade10-11": {
+					"label": "Grade 10 – 11",
+					"appliesTo": [
+						"Night-GradeTen",
+						"Night-GradeEleven"
+					],
+					"currency": "LRD",
+					"flatFees": {
+						"reg1stSem": 1200,
+						"reg2ndSem": 1000,
+						"tuition": 5950,
+						"tShirt": 1500,
+						"ePortal": 700,
+						"handBook": 200,
+						"breakageFee": 750,
+						"computerLab": 500,
+						"activitiesFee": 200,
+						"total": 12000
+					},
+					"installments": [
+						{
+							"label": "1st (During Registration)",
+							"amount": 4000
+						},
+						{
+							"label": "2nd",
+							"dueWindow": "Nov 4 - Nov 15, 2025",
+							"amount": 3300
+						},
+						{
+							"label": "3rd",
+							"dueWindow": "Feb 10 - Feb 21, 2026",
+							"amount": 3000
+						},
+						{
+							"label": "4th",
+							"dueWindow": "Mar 24 - Apr 4, 2026",
+							"amount": 1700
+						}
+					]
+				},
+				"night-grade12": {
+					"label": "Grade 12",
+					"appliesTo": [
+						"Night-GradeTwelve"
+					],
+					"currency": "LRD",
+					"flatFees": {
+						"reg1stSem": 1200,
+						"reg2ndSem": 1000,
+						"tuition": 5950,
+						"tShirt": 1500,
+						"ePortal": 700,
+						"handBook": 200,
+						"breakageFee": 750,
+						"computerLab": 500,
+						"activitiesFee": 200,
+						"total": 15000
+					},
+					"installments": [
+						{
+							"label": "1st (During Registration)",
+							"amount": 5500
+						},
+						{
+							"label": "2nd",
+							"dueWindow": "Nov 4 - Nov 15, 2025",
+							"amount": 5000
+						},
+						{
+							"label": "3rd",
+							"dueWindow": "Feb 10 - Feb 21, 2026",
+							"amount": 2500
+						},
+						{
+							"label": "4th",
+							"dueWindow": "Mar 24 - Apr 4, 2026",
+							"amount": 2000
+						}
+					],
+					"extraClasses": {
+						"amount": 4000
+					},
+					"accessories": [
+						{
+							"item": "Uniform Set",
+							"amount": 7500,
+							"dueAt": "registration",
+							"studentType": "all"
+						},
+						{
+							"item": "Tie",
+							"amount": 2000,
+							"dueAt": "registration",
+							"studentType": "all"
 						}
 					]
 				}
 			}
-		},
-		"updatedAt": {
-			"$date": "2025-09-25T16:35:56.303Z"
 		}
 	}
-]
+}
