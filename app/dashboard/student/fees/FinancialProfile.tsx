@@ -27,6 +27,9 @@ import {
 	Gift,
 } from 'lucide-react';
 
+const formatCurrency = (value: number) =>
+	value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 const getInstallmentAmount = (
 	inst: FeeGroup['installments'][number],
 	studentType: 'old' | 'new',
@@ -210,7 +213,7 @@ export default function FinancialProfile() {
 								<CardDescription>Total Due</CardDescription>
 								<CardTitle className="flex items-center gap-2">
 									<TrendingDown className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-									LRD {totalDue.toFixed(2)}
+									LRD {formatCurrency(totalDue)}
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
@@ -225,7 +228,7 @@ export default function FinancialProfile() {
 								<CardDescription>Total Paid</CardDescription>
 								<CardTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
 									<TrendingUp className="h-5 w-5" />
-									LRD {totalPaid.toFixed(2)}
+									LRD {formatCurrency(totalPaid)}
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
@@ -240,7 +243,7 @@ export default function FinancialProfile() {
 								<CardDescription>Outstanding Balance</CardDescription>
 								<CardTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
 									<Wallet className="h-5 w-5" />
-									LRD {(totalDue - totalPaid).toFixed(2)}
+									LRD {formatCurrency(totalDue - totalPaid)}
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
@@ -268,25 +271,25 @@ export default function FinancialProfile() {
 									<div className="rounded-lg border p-3">
 										<p className="text-xs text-muted-foreground mb-1">1st Semester Registration</p>
 										<p className="text-lg font-semibold">
-											LRD {feeGroup.tuitionAndRegistration[studentType].reg1stSem.toFixed(2)}
+											LRD {formatCurrency(feeGroup.tuitionAndRegistration[studentType].reg1stSem)}
 										</p>
 									</div>
 									<div className="rounded-lg border p-3">
 										<p className="text-xs text-muted-foreground mb-1">2nd Semester Registration</p>
 										<p className="text-lg font-semibold">
-											LRD {feeGroup.tuitionAndRegistration[studentType].reg2ndSem.toFixed(2)}
+											LRD {formatCurrency(feeGroup.tuitionAndRegistration[studentType].reg2ndSem)}
 										</p>
 									</div>
 									<div className="rounded-lg border p-3">
 										<p className="text-xs text-muted-foreground mb-1">Tuition</p>
 										<p className="text-lg font-semibold">
-											LRD {feeGroup.tuitionAndRegistration[studentType].tuition.toFixed(2)}
+											LRD {formatCurrency(feeGroup.tuitionAndRegistration[studentType].tuition)}
 										</p>
 									</div>
 									<div className="rounded-lg border p-3 bg-primary/5">
 										<p className="text-xs text-muted-foreground mb-1">Total</p>
 										<p className="text-lg font-semibold text-primary">
-											LRD {feeGroup.tuitionAndRegistration[studentType].total.toFixed(2)}
+											LRD {formatCurrency(feeGroup.tuitionAndRegistration[studentType].total)}
 										</p>
 									</div>
 								</div>
@@ -324,7 +327,7 @@ export default function FinancialProfile() {
 													)}
 												</div>
 												<div className="text-right">
-													<p className="font-semibold">LRD {amount.toFixed(2)}</p>
+													<p className="font-semibold">LRD {formatCurrency(amount)}</p>
 													<p className="text-xs text-muted-foreground">—</p>
 												</div>
 											</div>
@@ -360,7 +363,7 @@ export default function FinancialProfile() {
 											</div>
 											<div className="text-right">
 												<p className="font-semibold">
-													LRD {req.amount.toFixed(2)}
+													LRD {formatCurrency(req.amount)}
 												</p>
 												<p className="text-xs text-muted-foreground">—</p>
 											</div>
@@ -402,7 +405,7 @@ export default function FinancialProfile() {
 												</div>
 												<div className="text-right">
 													<p className="font-semibold">
-														LRD {acc.amount.toFixed(2)}
+														LRD {formatCurrency(acc.amount)}
 													</p>
 													<p className="text-xs text-muted-foreground">—</p>
 												</div>
