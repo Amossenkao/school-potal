@@ -9,6 +9,7 @@ const featureKeys: FeatureKey[] = [
 	'user_management',
 	'profile_management',
 	'ai_chat',
+	'homepage',
 	'apps',
 	'attendance',
 
@@ -21,6 +22,7 @@ const featureKeys: FeatureKey[] = [
 
 	// Financial Features
 	'fee_payment',
+	'financial_reports',
 
 	// Student Features
 	'admissions',
@@ -158,6 +160,10 @@ const SchoolSettingsSchema = new Schema(
 		administratorSettings: {
 			type: AdministratorSettingsSchema,
 			required: true,
+		},
+
+		gradingSettings: {
+			type: Schema.Types.Mixed,
 		},
 
 		reportCardThemes: {
@@ -414,6 +420,10 @@ const SchoolProfileSchema = new Schema<SchoolProfile & Document>(
 		logoUrl2: {
 			type: String,
 			trim: true,
+		},
+
+		yearFounded: {
+			type: Number,
 		},
 
 		firstAcademicYear: {

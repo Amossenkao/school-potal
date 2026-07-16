@@ -182,6 +182,8 @@ const componentImporters: Record<string, ComponentImporter> = {
 	// ),
 
 	// Fees Payment
+	'financial-profile': () =>
+		import('@/app/dashboard/student/fees/FinancialProfile'),
 	pay: () => import('@/app/dashboard/student/fees/PayFees'),
 	'payment-history': () =>
 		import('@/app/dashboard/student/fees/PaymentHistory'),
@@ -598,9 +600,15 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		key: 'fee_payment',
 		title: 'Fee Payment',
 		icon: Wallet,
-		category: 'Fees Payment',
+		category: 'Finances',
 		routes: {
 			student: [
+				{
+					key: 'financial-profile',
+					title: 'Financial Profile',
+					href: '/financial-profile',
+					icon: Wallet,
+				},
 				{ key: 'pay', title: 'Pay Fees', href: '/pay', icon: Wallet },
 				{
 					key: 'payment-history',

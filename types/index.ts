@@ -113,6 +113,7 @@ export interface Student extends User {
 		phone: string;
 		address: string;
 	};
+	isNewStudent?: boolean;
 	financialProfile: StudentFinancialProfile;
 }
 

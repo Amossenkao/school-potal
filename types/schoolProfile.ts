@@ -6,6 +6,7 @@ export type FeatureKey =
 	| 'user_management'
 	| 'profile_management'
 	| 'ai_chat'
+	| 'homepage'
 	| 'apps'
 	| 'attendance'
 
@@ -18,6 +19,7 @@ export type FeatureKey =
 
 	// Financial Features
 	| 'fee_payment'
+	| 'financial_reports'
 
 	// Student Features
 	| 'admissions'
@@ -137,6 +139,15 @@ export interface AdministratorSettings {
 	loginAccess: boolean;
 }
 
+export interface GradingSettings {
+	passMark: number;
+	gradeScale: { min: number; max: number };
+	summerSchoolWeight?: number;
+	failureWeight: number;
+	givesDoublePromotion: boolean;
+	givesDemotion: boolean;
+}
+
 export interface SystemAdmin {
 	name: string;
 	phone: string;
@@ -147,6 +158,7 @@ export interface SchoolSettings {
 	studentSettings: StudentSettings;
 	teacherSettings: TeacherSettings;
 	administratorSettings: AdministratorSettings;
+	gradingSettings?: GradingSettings;
 	reportCardThemes?: Record<string, string>;
 }
 
@@ -240,6 +252,7 @@ export interface SchoolProfile {
 	studentIdPrefix: string;
 	logoUrl: string;
 	logoUrl2?: string;
+	yearFounded?: number;
 	firstAcademicYear: string;
 	currentAcademicYear: string;
 	administrativePositions: { id: string; name: string }[];
