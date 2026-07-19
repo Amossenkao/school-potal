@@ -5,6 +5,7 @@ import React, {
 	useRef,
 	useMemo,
 	useCallback,
+	useId
 } from 'react';
 import {
 	Facebook,
@@ -539,176 +540,477 @@ const buildReportsFromGradeRows = ({
 	});
 
 	return finalReports;
-	return Array.from(reportsByStudentId.values());
 };;
 
-// --- Student Multi-Select Component ---
 
-const StudentMultiSelect = React.memo(function StudentMultiSelect({
-	students,
-	selectedStudents,
-	onSelectionChange,
-}: {
+export interface StudentMultiSelectProps {
 	students: Student[];
 	selectedStudents: string[];
 	onSelectionChange: (studentIds: string[]) => void;
-}) {
-	const [searchTerm, setSearchTerm] = useState('');
-	const [isOpen, setIsOpen] = useState(false);
-	const dropdownRef = useRef<HTMLDivElement>(null);
+	/** Max pills shown in the trigger before "+N more" */
+	maxVisiblePills?: number;
+	/** Accessible label for the control */
+	label?: string;
+	/** Panel max-height in px (default 240) */
+	panelMaxHeight?: number;
+	className?: string;
+}
 
-	const filteredStudents = useMemo(
-		() =>
-			students.filter((student) =>
-				student.name.toLowerCase().includes(searchTerm.toLowerCase()),
-			),
-		[students, searchTerm],
+// ─── Utilities ────────────────────────────────────────────────────────────────
+
+const getInitials = (name: string) =>
+	name
+		.split(' ')
+		.map((p) => p[0])
+		.join('')
+		.slice(0, 2)
+		.toUpperCase();
+
+const getFirstName = (name: string) => name.split(' ')[0];
+const getLastName = (name: string) => name.split(' ').slice(1).join(' ');
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+interface ChipProps {
+	student: Student;
+	isSelected: boolean;
+	onToggle: (id: string) => void;
+}
+
+const StudentChip = React.memo(function StudentChip({
+	student,
+	isSelected,
+	onToggle,
+}: ChipProps) {
+	return (
+		<div
+			role="option"
+			aria-selected={isSelected}
+			tabIndex={0}
+			onClick={() => onToggle(student.id)}
+			onKeyDown={(e) => {
+				if (e.key === ' ' || e.key === 'Enter') {
+					e.preventDefault();
+					onToggle(student.id);
+				}
+			}}
+			className={`flex flex-col items-start gap-0.5 p-2 rounded-md cursor-pointer relative transition-colors select-none outline-none min-w-0 border ${
+				isSelected
+					? 'border-primary bg-accent'
+					: 'border-border bg-card'
+			}`}
+			onFocus={(e) =>
+				(e.currentTarget.style.boxShadow =
+					'0 0 0 2px hsl(var(--primary))')
+			}
+			onBlur={(e) => (e.currentTarget.style.boxShadow = '')}
+		>
+			{/* Avatar */}
+			<div
+				className={`w-[26px] h-[26px] rounded-full flex items-center justify-center text-[10px] font-medium mb-0.5 shrink-0 transition-colors ${
+					isSelected
+						? 'bg-primary text-primary-foreground'
+						: 'bg-muted text-muted-foreground'
+				}`}
+				aria-hidden="true"
+			>
+				{getInitials(student.name)}
+			</div>
+
+			{/* Name lines */}
+			<span
+				className={`text-xs font-medium leading-tight truncate max-w-full ${
+					isSelected ? 'text-primary' : 'text-foreground'
+				}`}
+			>
+				{getFirstName(student.name)}
+			</span>
+			<span className="text-[10px] leading-tight text-muted-foreground truncate max-w-full">
+				{getLastName(student.name)}
+			</span>
+
+			{/* Check mark */}
+			<svg
+				aria-hidden="true"
+				className={`absolute top-[5px] right-1.5 transition-opacity text-primary ${
+					isSelected ? 'opacity-100' : 'opacity-0'
+				}`}
+				width="11"
+				height="11"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth={3}
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			>
+				<path d="M20 6L9 17l-5-5" />
+			</svg>
+		</div>
+	);
+});
+
+// ─── Main component ──────────────────────────────────────────────────────────
+
+export const StudentMultiSelect = React.memo(function StudentMultiSelect({
+	students,
+	selectedStudents,
+	onSelectionChange,
+	maxVisiblePills = 3,
+	label = 'Select specific students',
+	panelMaxHeight = 240,
+	className = '',
+}: StudentMultiSelectProps) {
+	const [isOpen, setIsOpen] = useState(false);
+	const [searchTerm, setSearchTerm] = useState('');
+
+	const wrapperRef = useRef<HTMLDivElement>(null);
+	const triggerRef = useRef<HTMLButtonElement>(null);
+	const searchRef = useRef<HTMLInputElement>(null);
+	const panelId = useId();
+	const labelId = useId();
+
+	// ── Derived state ────────────────────────────────────────────────────────
+
+	const selectedSet = useMemo(
+		() => new Set(selectedStudents),
+		[selectedStudents],
 	);
 
+	const filteredStudents = useMemo(() => {
+		const q = searchTerm.toLowerCase().trim();
+		if (!q) return students;
+		return students.filter((s) => s.name.toLowerCase().includes(q));
+	}, [students, searchTerm]);
+
+	const filteredIds = useMemo(
+		() => new Set(filteredStudents.map((s) => s.id)),
+		[filteredStudents],
+	);
+
+	const selectedStudentObjects = useMemo(
+		() => students.filter((s) => selectedSet.has(s.id)),
+		[students, selectedSet],
+	);
+
+	const visiblePills = selectedStudentObjects.slice(0, maxVisiblePills);
+	const overflowCount = selectedStudentObjects.length - maxVisiblePills;
+
+	// ── Handlers ─────────────────────────────────────────────────────────────
+
+	const toggle = useCallback(
+		(id: string) => {
+			const next = selectedSet.has(id)
+				? selectedStudents.filter((sid) => sid !== id)
+				: [...selectedStudents, id];
+			onSelectionChange(next);
+		},
+		[selectedStudents, selectedSet, onSelectionChange],
+	);
+
+	const handleSelectAll = useCallback(() => {
+		const nonFiltered = selectedStudents.filter((id) => !filteredIds.has(id));
+		onSelectionChange([
+			...new Set([...nonFiltered, ...filteredStudents.map((s) => s.id)]),
+		]);
+	}, [filteredStudents, selectedStudents, filteredIds, onSelectionChange]);
+
+	const handleClear = useCallback(() => {
+		onSelectionChange(selectedStudents.filter((id) => !filteredIds.has(id)));
+	}, [selectedStudents, filteredIds, onSelectionChange]);
+
+	const handleInvert = useCallback(() => {
+		const nonFiltered = selectedStudents.filter((id) => !filteredIds.has(id));
+		const invertedFiltered = filteredStudents
+			.filter((s) => !selectedSet.has(s.id))
+			.map((s) => s.id);
+		onSelectionChange([...nonFiltered, ...invertedFiltered]);
+	}, [
+		filteredStudents,
+		selectedStudents,
+		selectedSet,
+		filteredIds,
+		onSelectionChange,
+	]);
+
+	const openPanel = useCallback(() => {
+		setIsOpen(true);
+		// Defer to let DOM update before focusing
+		setTimeout(() => searchRef.current?.focus(), 10);
+	}, []);
+
+	const closePanel = useCallback(() => {
+		setIsOpen(false);
+		setSearchTerm('');
+	}, []);
+
+	const togglePanel = useCallback(() => {
+		if (isOpen) closePanel();
+		else openPanel();
+	}, [isOpen, openPanel, closePanel]);
+
+	// ── Outside-click & keyboard dismiss ────────────────────────────────────
+
 	useEffect(() => {
-		const handleClickOutside = (event: MouseEvent) => {
-			if (
-				dropdownRef.current &&
-				!dropdownRef.current.contains(event.target as Node)
-			) {
-				setIsOpen(false);
+		if (!isOpen) return;
+
+		const onPointerDown = (e: PointerEvent) => {
+			if (!wrapperRef.current?.contains(e.target as Node)) closePanel();
+		};
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				closePanel();
+				triggerRef.current?.focus();
 			}
 		};
 
-		document.addEventListener('mousedown', handleClickOutside);
+		document.addEventListener('pointerdown', onPointerDown, { capture: true });
+		document.addEventListener('keydown', onKeyDown);
 		return () => {
-			document.removeEventListener('mousedown', handleClickOutside);
+			document.removeEventListener('pointerdown', onPointerDown, {
+				capture: true,
+			});
+			document.removeEventListener('keydown', onKeyDown);
 		};
-	}, []);
+	}, [isOpen, closePanel]);
 
-	const handleStudentToggle = useCallback(
-		(studentId: string) => {
-			const newSelection = selectedStudents.includes(studentId)
-				? selectedStudents.filter((id) => id !== studentId)
-				: [...selectedStudents, studentId];
-			onSelectionChange(newSelection);
-		},
-		[selectedStudents, onSelectionChange],
-	);
+	// ── Render ───────────────────────────────────────────────────────────────
 
-	const selectedStudentNames = useMemo(
-		() =>
-			students
-				.filter((s) => selectedStudents.includes(s.id))
-				.map((s) => s.name),
-		[students, selectedStudents],
-	);
-
-	const handleSelectAll = useCallback(
-		(e: React.MouseEvent) => {
-			e.stopPropagation();
-			onSelectionChange(students.map((s) => s.id));
-		},
-		[students, onSelectionChange],
-	);
-
-	const handleClearAll = useCallback(
-		(e: React.MouseEvent) => {
-			e.stopPropagation();
-			onSelectionChange([]);
-		},
-		[onSelectionChange],
-	);
+	const triggerRadius = isOpen ? '8px 8px 0 0' : '8px';
 
 	return (
-		<div className="relative" ref={dropdownRef}>
-			<label className="block text-sm font-medium mb-1">
-				Select Specific Students (Optional)
+		<div className={`${className} relative w-full`} ref={wrapperRef}>
+			{/* Label */}
+			<label id={labelId} className="block text-sm font-medium text-foreground mb-1.5">
+				{label}{' '}
+				<span className="text-muted-foreground font-normal">(optional)</span>
 			</label>
-			<div
-				className="w-full border border-border px-3 py-2 rounded bg-background text-foreground cursor-pointer min-h-[42px] flex items-center justify-between"
-				onClick={() => setIsOpen(!isOpen)}
+
+			{/* Trigger */}
+			<button
+				ref={triggerRef}
+				type="button"
+				aria-haspopup="listbox"
+				aria-expanded={isOpen}
+				aria-controls={panelId}
+				aria-labelledby={labelId}
+				onClick={togglePanel}
+				className={`flex items-center gap-1.5 w-full min-h-[40px] py-[5px] px-2.5 cursor-pointer text-left transition-colors outline-none box-border ${
+					isOpen
+						? 'rounded-t-lg border border-primary border-b-0 bg-card'
+						: 'rounded-lg border border-border bg-card'
+				}`}
+				onFocus={(e) =>
+					!isOpen &&
+					(e.currentTarget.style.boxShadow =
+						'0 0 0 2px hsl(var(--primary))')
+				}
+				onBlur={(e) => (e.currentTarget.style.boxShadow = '')}
 			>
-				<div className="flex-1">
-					{selectedStudents.length === 0 ? (
-						<span className="text-muted-foreground">
-							All students in class...
+				{/* Pills row */}
+				<div className="flex items-center flex-nowrap gap-1 flex-1 overflow-hidden min-w-0">
+					{selectedStudentObjects.length === 0 ? (
+						<span className="text-sm text-muted-foreground">
+							All students included
 						</span>
-					) : selectedStudents.length <= 3 ? (
-						<span>{selectedStudentNames.join(', ')}</span>
 					) : (
-						<span>{selectedStudents.length} students selected</span>
+						<>
+							{visiblePills.map((s) => (
+								<span
+									key={s.id}
+									className="inline-flex items-center gap-0.5 bg-accent text-primary rounded-full py-0.5 pl-1.5 pr-[7px] text-xs font-medium whitespace-nowrap shrink-0"
+								>
+									{getFirstName(s.name)}
+									<span
+										role="button"
+										aria-label={`Remove ${getFirstName(s.name)}`}
+										tabIndex={0}
+										onClick={(e) => {
+											e.stopPropagation();
+											toggle(s.id);
+										}}
+										onKeyDown={(e) => {
+											if (e.key === ' ' || e.key === 'Enter') {
+												e.preventDefault();
+												e.stopPropagation();
+												toggle(s.id);
+											}
+										}}
+										className="cursor-pointer opacity-60 text-[15px] leading-none inline-flex items-center hover:opacity-100"
+									>
+										×
+									</span>
+								</span>
+							))}
+
+							{overflowCount > 0 && (
+								<span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+									+{overflowCount} more
+								</span>
+							)}
+						</>
 					)}
 				</div>
-				<div className="ml-2">
-					<svg
-						className={`w-4 h-4 transition-transform ${
-							isOpen ? 'rotate-180' : ''
-						}`}
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path
+
+				{/* Selected count badge */}
+				{selectedStudentObjects.length > 0 && (
+					<span className="text-[11px] font-medium text-primary bg-accent rounded-full py-px px-[7px] shrink-0 whitespace-nowrap">
+						{selectedStudentObjects.length}
+					</span>
+				)}
+
+				{/* Chevron */}
+				<svg
+					aria-hidden="true"
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth={2}
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					className={`text-muted-foreground shrink-0 transition-transform ${
+						isOpen ? 'rotate-180' : 'rotate-0'
+					}`}
+				>
+					<path d="M6 9l6 6 6-6" />
+				</svg>
+			</button>
+
+			{/* Panel */}
+			{isOpen && (
+				<div
+					id={panelId}
+					role="listbox"
+					aria-multiselectable="true"
+					aria-label="Students"
+					className="absolute top-full left-0 right-0 z-50 bg-card border border-primary border-t-0 rounded-b-lg flex flex-col shadow-lg"
+				>
+					{/* Search */}
+					<div className="flex items-center gap-1.5 py-[7px] px-2.5 border-b border-border">
+						<svg
+							aria-hidden="true"
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth={2}
 							strokeLinecap="round"
 							strokeLinejoin="round"
-							strokeWidth={2}
-							d="M19 9l-7 7-7-7"
-						/>
-					</svg>
-				</div>
-			</div>
+							className="text-muted-foreground shrink-0"
+						>
+							<circle cx="11" cy="11" r="8" />
+							<path d="M21 21l-4.35-4.35" />
+						</svg>
 
-			{isOpen && (
-				<div className="absolute z-10 w-full mt-1 bg-background border border-border rounded shadow-lg max-h-60 overflow-hidden">
-					<div className="p-2 border-b border-border">
 						<input
+							ref={searchRef}
 							type="text"
-							placeholder="Search students..."
+							placeholder="Search by name…"
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
-							className="w-full px-2 py-1 text-sm border border-border rounded bg-background text-foreground"
-							onClick={(e) => e.stopPropagation()}
+							aria-label="Search students"
+							className="flex-1 border-none bg-transparent text-[13px] text-foreground outline-none p-0 min-w-0"
 						/>
-					</div>
-					<div className="max-h-48 overflow-y-auto">
-						{filteredStudents.map((student) => (
-							<div
-								key={student.id}
-								className="flex items-center px-3 py-2 hover:bg-muted cursor-pointer"
-								onClick={(e) => {
-									e.stopPropagation();
-									handleStudentToggle(student.id);
+
+						{searchTerm && (
+							<button
+								type="button"
+								aria-label="Clear search"
+								onClick={() => {
+									setSearchTerm('');
+									searchRef.current?.focus();
 								}}
+								className="bg-transparent border-none p-0.5 cursor-pointer text-muted-foreground flex items-center shrink-0"
 							>
-								<input
-									type="checkbox"
-									checked={selectedStudents.includes(student.id)}
-									readOnly
-									className="mr-2"
-								/>
-								<span className="text-sm">{student.name}</span>
-							</div>
-						))}
+								<svg
+									width="13"
+									height="13"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth={2.5}
+									strokeLinecap="round"
+									strokeLinejoin="round"
+								>
+									<path d="M18 6L6 18M6 6l12 12" />
+								</svg>
+							</button>
+						)}
 					</div>
-					<div className="p-2 border-t border-border bg-muted/50">
-						<div className="flex gap-2">
-							<button
-								type="button"
-								onClick={handleSelectAll}
-								className="flex-1 px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
-							>
-								Select All
-							</button>
-							<button
-								type="button"
-								onClick={handleClearAll}
-								className="flex-1 px-2 py-1 text-xs bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border"
-							>
-								Clear All
-							</button>
-						</div>
+
+					{/* Action bar */}
+					<div className="flex items-center gap-0 py-1 px-2 border-b border-border bg-muted flex-wrap row-gap-0.5">
+						{[
+							{ label: 'Select all', handler: handleSelectAll },
+							{ label: 'Clear', handler: handleClear },
+							{ label: 'Invert', handler: handleInvert },
+						].map(({ label: btnLabel, handler }, i) => (
+							<React.Fragment key={btnLabel}>
+								{i > 0 && (
+									<span
+										aria-hidden="true"
+										className="w-px h-3 bg-border shrink-0 mx-0.5"
+									/>
+								)}
+								<button
+									type="button"
+									onClick={handler}
+									className="text-[11px] text-muted-foreground cursor-pointer py-[3px] px-[7px] rounded bg-transparent border-none transition-colors whitespace-nowrap hover:bg-card hover:text-foreground"
+								>
+									{btnLabel}
+								</button>
+							</React.Fragment>
+						))}
+
+						<span className="ml-auto text-[11px] text-muted-foreground pl-1 whitespace-nowrap">
+							{searchTerm
+								? `${filteredStudents.length} of ${students.length}`
+								: `${selectedStudents.length} selected`}
+						</span>
+					</div>
+
+					{/* Student grid — scrollable */}
+					<div
+						className={`${
+							filteredStudents.length > 0
+								? 'grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))] gap-1 p-2'
+								: 'block'
+						} overflow-y-auto`}
+						style={{ maxHeight: `${panelMaxHeight}px`, WebkitOverflowScrolling: 'touch' }}
+					>
+						{filteredStudents.length > 0 ? (
+							filteredStudents.map((student) => (
+								<StudentChip
+									key={student.id}
+									student={student}
+									isSelected={selectedSet.has(student.id)}
+									onToggle={toggle}
+								/>
+							))
+						) : (
+							<p className="text-center py-6 px-4 text-[13px] text-muted-foreground m-0">
+								No students match &ldquo;{searchTerm}&rdquo;
+							</p>
+						)}
 					</div>
 				</div>
+			)}
+
+			{/* Footer: summary when closed */}
+			{!isOpen && selectedStudentObjects.length > 0 && (
+				<p className="mt-1.5 text-xs text-muted-foreground">
+					{selectedStudentObjects.length <= 3
+						? selectedStudentObjects.map((s) => getFirstName(s.name)).join(', ')
+						: `${selectedStudentObjects.length} students selected`}
+				</p>
 			)}
 		</div>
 	);
 });
+
 
 interface ReportFilters {
 	academicYear: string;
@@ -716,7 +1018,50 @@ interface ReportFilters {
 	classLevel: string;
 	className: string;
 	selectedStudents: string[];
-	sponsorName: string; // NEW: Sponsor name field
+	includeSponsorName: boolean;
+	sponsorName: string;
+	includePrincipalSignature: boolean;
+	principalSignatureValue: string;
+	includeDate: boolean;
+	dateValue: string;
+}
+
+// Reusable toggle — drop this just above FilterContent or in a shared ui file
+function Toggle({
+	id,
+	checked,
+	onChange,
+	label,
+}: {
+	id: string;
+	checked: boolean;
+	onChange: (checked: boolean) => void;
+	label: string;
+}) {
+	return (
+		<label htmlFor={id} className="flex items-center gap-3 cursor-pointer select-none">
+			<div className="relative">
+				<input
+					id={id}
+					type="checkbox"
+					checked={checked}
+					onChange={(e) => onChange(e.target.checked)}
+					className="sr-only"
+				/>
+				<div
+					className={`w-10 h-6 rounded-full transition-colors duration-200 ${
+						checked ? 'bg-primary' : 'bg-muted'
+					}`}
+				/>
+				<div
+					className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${
+						checked ? 'translate-x-4' : 'translate-x-0'
+					}`}
+				/>
+			</div>
+			<span className="text-sm font-medium">{label}</span>
+		</label>
+	);
 }
 
 const FilterContent = React.memo(function FilterContent({
@@ -741,6 +1086,7 @@ const FilterContent = React.memo(function FilterContent({
 	const isSystemAdmin = userRole === 'system_admin';
 	const isAdministrator = userRole === 'administrator';
 	const isStudent = userRole === 'student';
+
 	const academicYearOptions = useMemo(() => {
 		const schoolYears = buildSchoolAcademicYearRange(currentSchool);
 		if (isStudent) {
@@ -768,6 +1114,7 @@ const FilterContent = React.memo(function FilterContent({
 		userRole,
 		user,
 	]);
+
 	const defaultAcademicYear = useMemo(() => {
 		const schoolCurrentAcademicYear =
 			currentSchool?.currentAcademicYear || getCurrentAcademicYear();
@@ -876,10 +1223,7 @@ const FilterContent = React.memo(function FilterContent({
 			areAcademicYearsEqual(year, filters.academicYear),
 		);
 		if (!filters.academicYear || !isSelectedYearAvailable) {
-			setFilters((prev) => ({
-				...prev,
-				academicYear: defaultAcademicYear,
-			}));
+			setFilters((prev) => ({ ...prev, academicYear: defaultAcademicYear }));
 		}
 
 		if (userAvailableSessions.length === 1 && !filters.session && !isStudent) {
@@ -989,9 +1333,7 @@ const FilterContent = React.memo(function FilterContent({
 					const response = await fetch(
 						`/api/users?classId=${filters.className}&role=student&academicYear=${filters.academicYear}`,
 					);
-					if (!response.ok) {
-						throw new Error('Failed to fetch students');
-					}
+					if (!response.ok) throw new Error('Failed to fetch students');
 					const responseData = await response.json();
 					if (responseData.success && responseData.data) {
 						setUsersForYear(
@@ -1055,28 +1397,14 @@ const FilterContent = React.memo(function FilterContent({
 			const nextSelected = prev.selectedStudents.filter((studentId) =>
 				allowedIds.has(normalizeStudentId(studentId)),
 			);
-			if (nextSelected.length === prev.selectedStudents.length) {
-				return prev;
-			}
-			return {
-				...prev,
-				selectedStudents: nextSelected,
-			};
+			if (nextSelected.length === prev.selectedStudents.length) return prev;
+			return { ...prev, selectedStudents: nextSelected };
 		});
 	}, [students, isStudent, setFilters]);
 
 	const canSubmit = useMemo(() => {
-		if (isStudent) {
-			return !!(filters.academicYear && filters.className);
-		}
 		return !!(filters.academicYear && filters.className);
-	}, [
-		isStudent,
-		filters.academicYear,
-		filters.className,
-		filters.session,
-		filters.classLevel,
-	]);
+	}, [filters.academicYear, filters.className]);
 
 	if (
 		isStudent &&
@@ -1128,8 +1456,8 @@ const FilterContent = React.memo(function FilterContent({
 						<button
 							type="button"
 							onClick={onSubmit}
-							className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
 							disabled={!canSubmit}
+							className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
 						>
 							View Report
 						</button>
@@ -1145,6 +1473,7 @@ const FilterContent = React.memo(function FilterContent({
 				<h2 className="text-lg font-semibold mb-4 text-center">
 					Filter Report Card
 				</h2>
+
 				{academicYearOptions.length > 1 && (
 					<div className="mb-4">
 						<label className="block text-sm font-medium mb-1">
@@ -1160,7 +1489,6 @@ const FilterContent = React.memo(function FilterContent({
 									classLevel: '',
 									className: '',
 									selectedStudents: [],
-									// Keep sponsorName
 								}))
 							}
 							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
@@ -1275,33 +1603,131 @@ const FilterContent = React.memo(function FilterContent({
 					</div>
 				)}
 
-				{/* NEW: Optional Sponsor Text Area */}
+				{/* Sponsor Name Toggle */}
 				{filters.className && (
 					<div className="mb-4">
-						<label
-							htmlFor="sponsor-name"
-							className="block text-sm font-medium mb-1"
-						>
-							Class Sponsor Name (Optional)
-						</label>
-						<input
-							id="sponsor-name"
-							type="text"
-							value={filters.sponsorName}
-							onChange={(e) =>
-								setFilters((f) => ({ ...f, sponsorName: e.target.value }))
-							}
-							placeholder="e.g., Jane Doe"
-							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+						<Toggle
+							id="include-sponsor-name"
+							checked={!!filters.includeSponsorName}
+							label="Include Class Sponsor Name"
+							onChange={(checked) => {
+								if (checked) {
+									const cached = loadYearlyReportPrefs(filters.academicYear, filters.className);
+									setFilters((f) => ({
+										...f,
+										includeSponsorName: true,
+										sponsorName: f.sponsorName || cached.sponsorName || '',
+									}));
+								} else {
+									setFilters((f) => ({ ...f, includeSponsorName: false }));
+								}
+								saveYearlyReportPrefs({ includeSponsorName: checked }, filters.academicYear, filters.className);
+							}}
 						/>
+						{filters.includeSponsorName && (
+							<input
+								id="sponsor-name"
+								type="text"
+								value={filters.sponsorName}
+								onChange={(e) => {
+									const value = e.target.value;
+									setFilters((f) => ({ ...f, sponsorName: value }));
+									saveYearlyReportPrefs({ sponsorName: value }, filters.academicYear, filters.className);
+								}}
+								placeholder="e.g., Jane Doe"
+								className="mt-2 w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+							/>
+						)}
 					</div>
 				)}
+
+				{/* Principal Signature Toggle */}
+				{filters.className && (
+					<div className="mb-4">
+						<Toggle
+							id="include-principal-signature"
+							checked={!!filters.includePrincipalSignature}
+							label="Include Principal's Signature"
+							onChange={(checked) => {
+								if (checked) {
+									const cached = loadYearlyReportPrefs(filters.academicYear, filters.className);
+									setFilters((f) => ({
+										...f,
+										includePrincipalSignature: true,
+										principalSignatureValue:
+											f.principalSignatureValue ||
+											cached.principalSignatureValue ||
+											'',
+									}));
+								} else {
+									setFilters((f) => ({
+										...f,
+										includePrincipalSignature: false,
+									}));
+								}
+								saveYearlyReportPrefs({ includePrincipalSignature: checked }, filters.academicYear, filters.className);
+							}}
+						/>
+						{filters.includePrincipalSignature && (
+							<input
+								id="principal-signature-value"
+								type="text"
+								value={filters.principalSignatureValue}
+								onChange={(e) => {
+									const value = e.target.value;
+									setFilters((f) => ({ ...f, principalSignatureValue: value }));
+									saveYearlyReportPrefs({ principalSignatureValue: value }, filters.academicYear, filters.className);
+								}}
+								placeholder="e.g., Pst. Emmanuel B. Tarr, Sr."
+								className="mt-2 w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+							/>
+						)}
+					</div>
+				)}
+
+				{/* Date Toggle */}
+				{filters.className && (
+					<div className="mb-4">
+						<Toggle
+							id="include-date"
+							checked={!!filters.includeDate}
+							label="Include Date"
+							onChange={(checked) => {
+								if (checked) {
+									const cached = loadYearlyReportPrefs(filters.academicYear, filters.className);
+									setFilters((f) => ({
+										...f,
+										includeDate: true,
+										dateValue: f.dateValue || cached.dateValue || '',
+									}));
+								} else {
+									setFilters((f) => ({ ...f, includeDate: false }));
+								}
+								saveYearlyReportPrefs({ includeDate: checked }, filters.academicYear, filters.className);
+							}}
+						/>
+						{filters.includeDate && (
+							<input
+								id="date-value"
+								type="date"
+								value={filters.dateValue}
+								onChange={(e) => {
+									const value = e.target.value;
+									setFilters((f) => ({ ...f, dateValue: value }));
+									saveYearlyReportPrefs({ dateValue: value }, filters.academicYear, filters.className);
+								}}
+								className="mt-2 w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+							/>
+						)}
+					</div>
+				)}
+
 				<div className="flex gap-2 mt-6">
 					<button
 						type="button"
 						onClick={onSubmit}
-						className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
 						disabled={!canSubmit}
+						className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
 					>
 						Apply Filter
 					</button>
@@ -1314,6 +1740,56 @@ const FilterContent = React.memo(function FilterContent({
 // --- PDF Template Helpers ---
 const DEBUG_COORDS = process.env.NEXT_PUBLIC_PDF_DEBUG_COORDS === 'true';
 const OFFLINE_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
+
+const YEARLY_REPORT_PREFS_NAMESPACE = 'yearlyReportPreferences';
+const loadYearlyReportPrefs = (
+	academicYear?: string,
+	classId?: string,
+): Record<string, any> => {
+	try {
+		if (academicYear && classId) {
+			const scopedKey = `${YEARLY_REPORT_PREFS_NAMESPACE}:${academicYear}:${classId}`;
+			const raw = localStorage.getItem(scopedKey);
+			if (raw) return JSON.parse(raw);
+		}
+		const raw = localStorage.getItem(YEARLY_REPORT_PREFS_NAMESPACE);
+		if (raw) return JSON.parse(raw);
+	} catch {}
+	return {};
+};
+const saveYearlyReportPrefs = (
+	prefs: Record<string, any>,
+	academicYear?: string,
+	classId?: string,
+) => {
+	try {
+		if (academicYear && classId) {
+			const scopedKey = `${YEARLY_REPORT_PREFS_NAMESPACE}:${academicYear}:${classId}`;
+			const existing = loadYearlyReportPrefs(academicYear, classId);
+			localStorage.setItem(
+				scopedKey,
+				JSON.stringify({ ...existing, ...prefs }),
+			);
+		} else {
+			const existing = loadYearlyReportPrefs();
+			localStorage.setItem(
+				YEARLY_REPORT_PREFS_NAMESPACE,
+				JSON.stringify({ ...existing, ...prefs }),
+			);
+		}
+	} catch {}
+};
+
+const formatDisplayDate = (isoDate: string): string => {
+	if (!isoDate) return '';
+	const date = new Date(`${isoDate}T00:00:00`);
+	if (Number.isNaN(date.getTime())) return isoDate;
+	return date.toLocaleDateString('en-US', {
+		month: 'long',
+		day: 'numeric',
+		year: 'numeric',
+	});
+};
 type LinkValidityOption = '1d' | '2d' | '3d' | '1w' | '1m';
 const LINK_VALIDITY_OPTIONS: Array<{
 	value: LinkValidityOption;
@@ -2076,7 +2552,11 @@ const templateBytes = await loadReportTemplateBytes({
 	classLevel: reportFilters.classLevel,
 	classSubjects,
 	themeId: school?.settings?.reportCardThemes?.[reportFilters.classLevel],
-	sponsorName: reportFilters.sponsorName,
+	sponsorName: reportFilters.includeSponsorName ? reportFilters.sponsorName : '',
+	includePrincipalSignature: reportFilters.includePrincipalSignature,
+	principalSignatureValue: reportFilters.principalSignatureValue,
+	includeDate: reportFilters.includeDate,
+	dateValue: reportFilters.includeDate ? formatDisplayDate(reportFilters.dateValue) : '',
 });
 const templateDoc = await PDFDocument.load(templateBytes);
 const [templatePage1, templatePage2] = templateDoc.getPages();
@@ -3475,15 +3955,37 @@ function ReportContent({
 // --- Main Component ---
 
 export default function ReportCardPage() {
-	// UPDATED: Initial state for filters now includes sponsorName
-	const [filters, setFilters] = useState<ReportFilters>({
-		academicYear: '',
-		session: '',
-		classLevel: '',
-		className: '',
-		selectedStudents: [],
-		sponsorName: '', // NEW: Default to empty string
+	const [filters, setFilters] = useState<ReportFilters>(() => {
+		return {
+			academicYear: '',
+			session: '',
+			classLevel: '',
+			className: '',
+			selectedStudents: [],
+			includeSponsorName: false,
+			sponsorName: '',
+			includePrincipalSignature: false,
+			principalSignatureValue: '',
+			includeDate: false,
+			dateValue: '',
+		};
 	});
+
+	useEffect(() => {
+		if (!filters.academicYear || !filters.className) return;
+		const cached = loadYearlyReportPrefs(filters.academicYear, filters.className);
+		if (!Object.keys(cached).length) return;
+		setFilters((prev) => {
+			const next = { ...prev };
+			if (cached.includeSponsorName !== undefined) next.includeSponsorName = cached.includeSponsorName;
+			if (cached.sponsorName !== undefined) next.sponsorName = cached.sponsorName;
+			if (cached.includePrincipalSignature !== undefined) next.includePrincipalSignature = cached.includePrincipalSignature;
+			if (cached.principalSignatureValue !== undefined) next.principalSignatureValue = cached.principalSignatureValue;
+			if (cached.includeDate !== undefined) next.includeDate = cached.includeDate;
+			if (cached.dateValue !== undefined) next.dateValue = cached.dateValue;
+			return next;
+		});
+	}, [filters.academicYear, filters.className]);
 
 	const [reportStep, setReportStep] = useState(0);
 

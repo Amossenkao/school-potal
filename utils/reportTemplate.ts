@@ -17,6 +17,10 @@ export type ReportTemplateFallbackRequest = {
 	semester?: TemplateSemesterKey;
 	themeId?: string;
 	sponsorName?: string;
+	includePrincipalSignature?: boolean;
+	principalSignatureValue?: string;
+	includeDate?: boolean;
+	dateValue?: string;
 };
 
 // ---------------------------------------------------------------------------

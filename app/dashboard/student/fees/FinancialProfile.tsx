@@ -199,7 +199,7 @@ export default function FinancialProfile() {
 										Class: {(user as any).className || '—'}
 									</p>
 									<p className="text-sm text-muted-foreground">
-										Student Type: {studentType === 'new' ? 'New Student' : 'Returning Student'}
+										Student Type: {studentType === 'new' ? 'New Student' : 'Old Student'}
 									</p>
 								</div>
 							</div>
@@ -263,7 +263,7 @@ export default function FinancialProfile() {
 									Tuition & Registration
 								</CardTitle>
 								<CardDescription>
-									{studentType === 'new' ? 'New student' : 'Returning student'} rates
+									{studentType === 'new' ? 'New student' : 'Old student'} rates
 								</CardDescription>
 							</CardHeader>
 							<CardContent>

@@ -42,6 +42,10 @@ export interface ReportFilters {
 	className: string;
 	selectedStudents: string[];
 	sponsorName: string;
+	includePrincipalSignature?: boolean;
+	principalSignatureValue?: string;
+	includeDate?: boolean;
+	dateValue?: string;
 }
 
 // Sytling
@@ -1191,19 +1195,20 @@ export const ReportCard = React.memo(function PDFDocument({
 										{/* Date Container */}
 										<View style={{ position: 'relative' }}>
 											<Text style={{ fontSize: 9 }}>Date: ______________</Text>
-											<Text
-												style={{
-													position: 'absolute',
-													bottom: 1.5,
-													left: 26,
-													fontSize: 10,
-													fontWeight: 'bold',
-													color: '#1f2937',
-												}}
-											>
-												July 12, 2026{' '}
-												{/* You can replace this with a dynamic date prop later */}
-											</Text>
+											{reportFilters.includeDate && reportFilters.dateValue ? (
+												<Text
+													style={{
+														position: 'absolute',
+														bottom: 1.5,
+														left: 26,
+														fontSize: 10,
+														fontWeight: 'bold',
+														color: '#1f2937',
+													}}
+												>
+													{reportFilters.dateValue}
+												</Text>
+											) : null}
 										</View>
 
 										{/* Signature Container */}
@@ -1211,20 +1216,22 @@ export const ReportCard = React.memo(function PDFDocument({
 											<Text style={{ fontSize: 9 }}>
 												Principal: ______________________________________
 											</Text>
-											<Text
-												style={{
-													fontFamily: 'Great Vibes',
-													fontSize: 16,
-													fontWeight: 'bold',
-													position: 'absolute',
-													bottom: -2, // Nudge down slightly so loops cross the line naturally
-													left: 45,
-													color: '#000c2c', // Deep ink blue/black
-													letterSpacing: 0.5,
-												}}
-											>
-												Pst. Emmanuel B. Tarr, Sr.
-											</Text>
+											{reportFilters.includePrincipalSignature && reportFilters.principalSignatureValue ? (
+												<Text
+													style={{
+														fontFamily: 'Great Vibes',
+														fontSize: 16,
+														fontWeight: 'bold',
+														position: 'absolute',
+														bottom: -2,
+														left: 45,
+														color: '#000c2c',
+														letterSpacing: 0.5,
+													}}
+												>
+													{reportFilters.principalSignatureValue}
+												</Text>
+											) : null}
 										</View>
 									</View>
 									<View

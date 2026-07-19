@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v9';
+const CACHE_VERSION = 'v10';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
 const API_CACHE = `api-${CACHE_VERSION}`;
@@ -160,7 +160,34 @@ self.addEventListener('install', (event) => {
 					cache: 'no-store',
 				});
 				if (loginResponse.ok) {
-					await cache.put('/login', loginResponse.clone());
+					const html = await loginResponse.text();
+					await cache.put(
+						'/login',
+						new Response(html, {
+							status: loginResponse.status,
+							statusText: loginResponse.statusText,
+							headers: loginResponse.headers,
+						}),
+					);
+
+					// Extract CSS and JS URLs from the HTML so the page
+					// renders correctly on the very first offline load.
+					const assetUrls = [];
+					const linkRe = /href="(\/_next\/static\/[^"]+\.css)"/g;
+					const scriptRe = /src="(\/_next\/static\/[^"]+\.js)"/g;
+					let m;
+					while ((m = linkRe.exec(html)) !== null) assetUrls.push(m[1]);
+					while ((m = scriptRe.exec(html)) !== null) assetUrls.push(m[1]);
+
+					await Promise.allSettled(
+						assetUrls.map((url) =>
+							fetch(url)
+								.then((res) => {
+									if (res.ok) return cache.put(url, res);
+								})
+								.catch(() => {}),
+						),
+					);
 				}
 			} catch (error) {
 				console.warn('Failed to pre-cache /login shell:', error);

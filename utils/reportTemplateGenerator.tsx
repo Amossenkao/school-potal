@@ -28,6 +28,10 @@ export type DynamicTemplateRequest = {
 	semester?: SemesterKey;
 	themeId?: string;
 	sponsorName?: string;
+	includePrincipalSignature?: boolean;
+	principalSignatureValue?: string;
+	includeDate?: boolean;
+	dateValue?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -100,9 +104,19 @@ const resolveTheme = (themeId?: string) =>
 		(t) => t.id === (themeId ?? DEFAULT_REPORT_CARD_THEME),
 	) ?? REPORT_CARD_THEMES.find((t) => t.id === DEFAULT_REPORT_CARD_THEME)!;
 
-const buildReportFilters = (semester: SemesterKey, classLevel?: string) => ({
+const buildReportFilters = (
+	semester: SemesterKey,
+	classLevel?: string,
+	extra?: {
+		includePrincipalSignature?: boolean;
+		principalSignatureValue?: string;
+		includeDate?: boolean;
+		dateValue?: string;
+	},
+) => ({
 	semester,
 	classLevel,
+	...extra,
 });
 
 // ---------------------------------------------------------------------------
@@ -120,6 +134,10 @@ const {
 	semester: rawSemester,
 	themeId,
 	sponsorName,
+	includePrincipalSignature,
+	principalSignatureValue,
+	includeDate,
+	dateValue,
 } = request;
 
 	const safeSubjects = classSubjects.length ? classSubjects : [''];
@@ -146,7 +164,12 @@ const {
 				studentsData={studentsData}
 				className=""
 				classSubjects={safeSubjects}
-				reportFilters={buildReportFilters(semester, classLevel)}
+				reportFilters={buildReportFilters(semester, classLevel, {
+				includePrincipalSignature,
+				principalSignatureValue,
+				includeDate,
+				dateValue,
+			})}
 				school={school}
 				classSponsor={sponsorName ?? ''}
 				activeTheme={activeTheme}
