@@ -410,6 +410,15 @@ const buildReportsFromGradeRows = ({
 					? Math.min(currentRank, yearlyRank)
 					: yearlyRank;
 		}
+		const gradeClassStudentCount = Number(gradeRow?.classStudentCount);
+		if (
+			Number.isFinite(gradeClassStudentCount) &&
+			gradeClassStudentCount > 0 &&
+			(typeof report.classStudentCount !== 'number' ||
+				gradeClassStudentCount > report.classStudentCount)
+		) {
+			report.classStudentCount = gradeClassStudentCount;
+		}
 
 		const subjectIndex = report.periods[period].findIndex(
 			(entry) => entry.subject === subject,
@@ -483,61 +492,74 @@ const buildReportsFromGradeRows = ({
 
 	const finalReports = Array.from(reportsByStudentId.values());
 
-	// --- Rank Computation Logic ---
-	const rankKeys = [
-		'first',
-		'second',
-		'third',
-		'third_period_exam',
-		'fourth',
-		'fifth',
-		'sixth',
-		'six_period_exam',
-		'firstSemesterAverage',
-		'secondSemesterAverage',
-	] as const;
+	// Check if ranks were already populated from grade rows (e.g., pre-computed server-side ranks)
+	const hasPrecomputedRanks = finalReports.some((r) =>
+		Object.values(r.ranks).some((v) => v !== null),
+	);
 
-	// 1. Compute ranks for all periods and semesters
-	rankKeys.forEach((key) => {
-		const validStudents = finalReports
-			.filter((r) => r.periodAverages[key] !== null)
-			.map((r) => ({ id: r.studentId, score: r.periodAverages[key] as number }))
+	if (!hasPrecomputedRanks && finalReports.length > 1) {
+		// --- Rank Computation Logic (fallback when no pre-computed ranks) ---
+		const rankKeys = [
+			'first',
+			'second',
+			'third',
+			'third_period_exam',
+			'fourth',
+			'fifth',
+			'sixth',
+			'six_period_exam',
+			'firstSemesterAverage',
+			'secondSemesterAverage',
+		] as const;
+
+		// 1. Compute ranks for all periods and semesters
+		rankKeys.forEach((key) => {
+			const validStudents = finalReports
+				.filter((r) => r.periodAverages[key] !== null)
+				.map((r) => ({ id: r.studentId, score: r.periodAverages[key] as number }))
+				.sort((a, b) => b.score - a.score);
+
+			let currentRank = 1;
+			validStudents.forEach((student, index) => {
+				if (index > 0 && student.score < validStudents[index - 1].score) {
+					currentRank = index + 1;
+				}
+				const report = reportsByStudentId.get(student.id);
+				if (report) {
+					report.ranks[key] = currentRank;
+				}
+			});
+		});
+
+		// 2. Compute Yearly Ranks (stored directly on the report object's ranks)
+		const validYearlyStudents = finalReports
+			.filter((r) => r.yearlyAverage !== null)
+			.map((r) => ({ id: r.studentId, score: r.yearlyAverage as number }))
 			.sort((a, b) => b.score - a.score);
 
-		let currentRank = 1;
-		validStudents.forEach((student, index) => {
-			if (index > 0 && student.score < validStudents[index - 1].score) {
-				currentRank = index + 1;
+		let yearlyCurrentRank = 1;
+		validYearlyStudents.forEach((student, index) => {
+			if (index > 0 && student.score < validYearlyStudents[index - 1].score) {
+				yearlyCurrentRank = index + 1;
 			}
 			const report = reportsByStudentId.get(student.id);
 			if (report) {
-				report.ranks[key] = currentRank;
+				report.ranks.yearly = yearlyCurrentRank;
 			}
 		});
-	});
 
-	// 2. Compute Yearly Ranks (stored directly on the report object's ranks)
-	const validYearlyStudents = finalReports
-		.filter((r) => r.yearlyAverage !== null)
-		.map((r) => ({ id: r.studentId, score: r.yearlyAverage as number }))
-		.sort((a, b) => b.score - a.score);
-
-	let yearlyCurrentRank = 1;
-	validYearlyStudents.forEach((student, index) => {
-		if (index > 0 && student.score < validYearlyStudents[index - 1].score) {
-			yearlyCurrentRank = index + 1;
-		}
-		const report = reportsByStudentId.get(student.id);
-		if (report) {
-			report.ranks.yearly = yearlyCurrentRank;
-		}
-	});
-
-	// After the yearly rank loop, before `return finalReports`:
-	const totalRanked = validYearlyStudents.length;
-	finalReports.forEach((r) => {
-		r.classStudentCount = totalRanked;
-	});
+		const totalRanked = validYearlyStudents.length;
+		finalReports.forEach((r) => {
+			r.classStudentCount = totalRanked;
+		});
+	} else {
+		// Use pre-computed ranks and classStudentCount from grade rows
+		finalReports.forEach((r) => {
+			if (typeof r.classStudentCount !== 'number' || r.classStudentCount <= 0) {
+				r.classStudentCount = finalReports.length;
+			}
+		});
+	}
 
 	return finalReports;
 };;

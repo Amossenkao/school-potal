@@ -37,6 +37,7 @@ type RankedGradeRow<T extends GradeRecordLike> = T & {
 	rank: number | null;
 	yearlyRank: number | null;
 	ranks: Record<string, number | null>;
+	classStudentCount?: number;
 };
 
 function getStats(grades: Array<{ grade: number }>) {
@@ -382,6 +383,7 @@ export function attachRanksToGrades<T extends GradeRecordLike>(
 	const rankMap = new Map<string, Record<string, number | null>>();
 	const periodRankMap = new Map<string, number>();
 	const yearlyRankMap = new Map<string, number>();
+	const classStudentCountMap = new Map<string, number>();
 
 	Array.from(classIds).forEach((classId) => {
 		const classGrades = sourceRows.filter((row) => row.classId === classId);
@@ -396,6 +398,12 @@ export function attachRanksToGrades<T extends GradeRecordLike>(
 			rankMap.set(key, ranks);
 			if (typeof report.ranks?.yearly === 'number') {
 				yearlyRankMap.set(key, report.ranks.yearly);
+			}
+			if (
+				typeof report.classStudentCount === 'number' &&
+				Number.isFinite(report.classStudentCount)
+			) {
+				classStudentCountMap.set(classId, report.classStudentCount);
 			}
 		});
 
@@ -430,6 +438,7 @@ export function attachRanksToGrades<T extends GradeRecordLike>(
 			`${classId}::${normalizedPeriod}::${studentId}`,
 		);
 		const yearlyRank = yearlyRankMap.get(baseKey);
+		const classStudentCount = classStudentCountMap.get(classId);
 
 		return {
 			...grade,
@@ -442,6 +451,9 @@ export function attachRanksToGrades<T extends GradeRecordLike>(
 					? yearlyRank
 					: null,
 			ranks,
+			...(typeof classStudentCount === 'number' && Number.isFinite(classStudentCount)
+				? { classStudentCount }
+				: {}),
 		};
 	});
 }

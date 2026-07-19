@@ -480,14 +480,39 @@ const fetchGradesBootstrap = async (
 	const isAdmin = currentUser?.role === 'system_admin';
 	const limit = isAdmin ? ADMIN_BOOTSTRAP_GRADE_LIMIT : BOOTSTRAP_GRADE_LIMIT;
 
-	const [grades, totalCount] = await Promise.all([
+	const [rawGrades, totalCount] = await Promise.all([
 		Grade.find(query).sort({ lastUpdated: 1, _id: 1 }).limit(limit).lean(),
 		Grade.countDocuments(query),
 	]);
 
+	let grades = rawGrades;
+
+	if (currentUser?.role === 'student' && rawGrades.length > 0) {
+		try {
+			const { attachRanksToGrades } = await import('@/utils/gradeRanks');
+			const studentClassIds = Array.from(
+				new Set(
+					rawGrades
+						.map((g: any) => String(g?.classId || '').trim())
+						.filter(Boolean),
+				),
+			);
+			if (studentClassIds.length > 0) {
+				const academicYearMatch = getAcademicYearMatch(academicYear);
+				const classGrades = await Grade.find({
+					academicYear: academicYearMatch,
+					classId: { $in: studentClassIds },
+				}).lean();
+				grades = attachRanksToGrades(rawGrades, classGrades);
+			}
+		} catch {
+			grades = rawGrades;
+		}
+	}
+
 	let gradesCursor: string | null = null;
-	if (grades.length === limit && totalCount > limit) {
-		const last = grades[grades.length - 1];
+	if (rawGrades.length === limit && totalCount > limit) {
+		const last = rawGrades[rawGrades.length - 1];
 		const cursor: GradesCursor = {
 			lastUpdated: last.lastUpdated ?? null,
 			_id: last._id.toString(),
