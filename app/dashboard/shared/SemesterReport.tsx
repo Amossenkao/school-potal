@@ -42,6 +42,7 @@ import {
 } from '@/utils/academicYearOptions';
 import { loadReportTemplateBytes } from '@/utils/reportTemplate';
 import { areGradeRowsEquivalent } from '@/utils/gradeRows';
+import { attachRanksToGrades } from '@/utils/gradeRanks';
 
 const InlineLoading = ({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) => (
 	<div className="-m-8">
@@ -2037,9 +2038,10 @@ function ReportContent({
 							areAcademicYearsEqual(gradeYear, reportFilters.academicYear)
 						);
 					});
+					const rankedStoreGrades = attachRanksToGrades(filteredStoreGrades);
 					gradesData = {
 						success: true,
-						data: { grades: filteredStoreGrades },
+						data: { grades: rankedStoreGrades },
 					};
 				} else if (offline && cachedGrades) {
 					gradesData = cachedGrades;
