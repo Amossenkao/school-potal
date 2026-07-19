@@ -1582,27 +1582,6 @@ const FilterContent = React.memo(function FilterContent({
 					</div>
 				)}
 
-				{filters.className && (
-					<div className="mb-4">
-						{loadingStudents ? (
-							<div className="text-center py-4">
-								<InlineLoading size="sm" />
-							</div>
-						) : (
-							<StudentMultiSelect
-								students={students}
-								selectedStudents={filters.selectedStudents}
-								onSelectionChange={(studentIds) =>
-									setFilters((prev) => ({
-										...prev,
-										selectedStudents: studentIds,
-									}))
-								}
-							/>
-						)}
-					</div>
-				)}
-
 				{/* Sponsor Name Toggle */}
 				{filters.className && (
 					<div className="mb-4">
@@ -1612,16 +1591,17 @@ const FilterContent = React.memo(function FilterContent({
 							label="Include Class Sponsor Name"
 							onChange={(checked) => {
 								if (checked) {
-									const cached = loadYearlyReportPrefs(filters.academicYear, filters.className);
+									const cached = loadYearlyReportPrefs(filters.academicYear);
+									const classData = cached[filters.className] || {};
 									setFilters((f) => ({
 										...f,
 										includeSponsorName: true,
-										sponsorName: f.sponsorName || cached.sponsorName || '',
+										sponsorName: f.sponsorName || classData.sponsorName || '',
 									}));
 								} else {
 									setFilters((f) => ({ ...f, includeSponsorName: false }));
 								}
-								saveYearlyReportPrefs({ includeSponsorName: checked }, filters.academicYear, filters.className);
+								saveClassPrefs({ includeSponsorName: checked }, filters.academicYear, filters.className);
 							}}
 						/>
 						{filters.includeSponsorName && (
@@ -1632,7 +1612,7 @@ const FilterContent = React.memo(function FilterContent({
 								onChange={(e) => {
 									const value = e.target.value;
 									setFilters((f) => ({ ...f, sponsorName: value }));
-									saveYearlyReportPrefs({ sponsorName: value }, filters.academicYear, filters.className);
+									saveClassPrefs({ sponsorName: value }, filters.academicYear, filters.className);
 								}}
 								placeholder="e.g., Jane Doe"
 								className="mt-2 w-full border border-border px-3 py-2 rounded bg-background text-foreground"
@@ -1650,7 +1630,7 @@ const FilterContent = React.memo(function FilterContent({
 							label="Include Principal's Signature"
 							onChange={(checked) => {
 								if (checked) {
-									const cached = loadYearlyReportPrefs(filters.academicYear, filters.className);
+									const cached = loadYearlyReportPrefs(filters.academicYear);
 									setFilters((f) => ({
 										...f,
 										includePrincipalSignature: true,
@@ -1665,7 +1645,7 @@ const FilterContent = React.memo(function FilterContent({
 										includePrincipalSignature: false,
 									}));
 								}
-								saveYearlyReportPrefs({ includePrincipalSignature: checked }, filters.academicYear, filters.className);
+								saveYearlyReportPrefs({ includePrincipalSignature: checked }, filters.academicYear);
 							}}
 						/>
 						{filters.includePrincipalSignature && (
@@ -1676,7 +1656,7 @@ const FilterContent = React.memo(function FilterContent({
 								onChange={(e) => {
 									const value = e.target.value;
 									setFilters((f) => ({ ...f, principalSignatureValue: value }));
-									saveYearlyReportPrefs({ principalSignatureValue: value }, filters.academicYear, filters.className);
+									saveYearlyReportPrefs({ principalSignatureValue: value }, filters.academicYear);
 								}}
 								placeholder="e.g., Pst. Emmanuel B. Tarr, Sr."
 								className="mt-2 w-full border border-border px-3 py-2 rounded bg-background text-foreground"
@@ -1694,7 +1674,7 @@ const FilterContent = React.memo(function FilterContent({
 							label="Include Date"
 							onChange={(checked) => {
 								if (checked) {
-									const cached = loadYearlyReportPrefs(filters.academicYear, filters.className);
+									const cached = loadYearlyReportPrefs(filters.academicYear);
 									setFilters((f) => ({
 										...f,
 										includeDate: true,
@@ -1703,7 +1683,7 @@ const FilterContent = React.memo(function FilterContent({
 								} else {
 									setFilters((f) => ({ ...f, includeDate: false }));
 								}
-								saveYearlyReportPrefs({ includeDate: checked }, filters.academicYear, filters.className);
+								saveYearlyReportPrefs({ includeDate: checked }, filters.academicYear);
 							}}
 						/>
 						{filters.includeDate && (
@@ -1714,9 +1694,30 @@ const FilterContent = React.memo(function FilterContent({
 								onChange={(e) => {
 									const value = e.target.value;
 									setFilters((f) => ({ ...f, dateValue: value }));
-									saveYearlyReportPrefs({ dateValue: value }, filters.academicYear, filters.className);
+									saveYearlyReportPrefs({ dateValue: value }, filters.academicYear);
 								}}
 								className="mt-2 w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+							/>
+						)}
+					</div>
+				)}
+
+				{filters.className && (
+					<div className="mb-4">
+						{loadingStudents ? (
+							<div className="text-center py-4">
+								<InlineLoading size="sm" />
+							</div>
+						) : (
+							<StudentMultiSelect
+								students={students}
+								selectedStudents={filters.selectedStudents}
+								onSelectionChange={(studentIds) =>
+									setFilters((prev) => ({
+										...prev,
+										selectedStudents: studentIds,
+									}))
+								}
 							/>
 						)}
 					</div>
@@ -1740,41 +1741,49 @@ const FilterContent = React.memo(function FilterContent({
 // --- PDF Template Helpers ---
 const DEBUG_COORDS = process.env.NEXT_PUBLIC_PDF_DEBUG_COORDS === 'true';
 const OFFLINE_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
-
 const YEARLY_REPORT_PREFS_NAMESPACE = 'yearlyReportPreferences';
 const loadYearlyReportPrefs = (
 	academicYear?: string,
-	classId?: string,
 ): Record<string, any> => {
 	try {
-		if (academicYear && classId) {
-			const scopedKey = `${YEARLY_REPORT_PREFS_NAMESPACE}:${academicYear}:${classId}`;
+		if (academicYear) {
+			const scopedKey = `${YEARLY_REPORT_PREFS_NAMESPACE}:${academicYear}`;
 			const raw = localStorage.getItem(scopedKey);
 			if (raw) return JSON.parse(raw);
 		}
-		const raw = localStorage.getItem(YEARLY_REPORT_PREFS_NAMESPACE);
-		if (raw) return JSON.parse(raw);
 	} catch {}
 	return {};
 };
+
 const saveYearlyReportPrefs = (
 	prefs: Record<string, any>,
+	academicYear?: string,
+) => {
+	try {
+		if (academicYear) {
+			const scopedKey = `${YEARLY_REPORT_PREFS_NAMESPACE}:${academicYear}`;
+			const existing = loadYearlyReportPrefs(academicYear);
+			localStorage.setItem(
+				scopedKey,
+				JSON.stringify({ ...existing, ...prefs }),
+			);
+		}
+	} catch {}
+};
+
+const saveClassPrefs = (
+	classPrefs: Record<string, any>,
 	academicYear?: string,
 	classId?: string,
 ) => {
 	try {
 		if (academicYear && classId) {
-			const scopedKey = `${YEARLY_REPORT_PREFS_NAMESPACE}:${academicYear}:${classId}`;
-			const existing = loadYearlyReportPrefs(academicYear, classId);
+			const scopedKey = `${YEARLY_REPORT_PREFS_NAMESPACE}:${academicYear}`;
+			const existing = loadYearlyReportPrefs(academicYear);
+			const merged = { ...(existing[classId] || {}), ...classPrefs };
 			localStorage.setItem(
 				scopedKey,
-				JSON.stringify({ ...existing, ...prefs }),
-			);
-		} else {
-			const existing = loadYearlyReportPrefs();
-			localStorage.setItem(
-				YEARLY_REPORT_PREFS_NAMESPACE,
-				JSON.stringify({ ...existing, ...prefs }),
+				JSON.stringify({ ...existing, [classId]: merged }),
 			);
 		}
 	} catch {}
@@ -3972,17 +3981,22 @@ export default function ReportCardPage() {
 	});
 
 	useEffect(() => {
-		if (!filters.academicYear || !filters.className) return;
-		const cached = loadYearlyReportPrefs(filters.academicYear, filters.className);
-		if (!Object.keys(cached).length) return;
+		if (!filters.academicYear) return;
+		const prefs = loadYearlyReportPrefs(filters.academicYear);
 		setFilters((prev) => {
 			const next = { ...prev };
-			if (cached.includeSponsorName !== undefined) next.includeSponsorName = cached.includeSponsorName;
-			if (cached.sponsorName !== undefined) next.sponsorName = cached.sponsorName;
-			if (cached.includePrincipalSignature !== undefined) next.includePrincipalSignature = cached.includePrincipalSignature;
-			if (cached.principalSignatureValue !== undefined) next.principalSignatureValue = cached.principalSignatureValue;
-			if (cached.includeDate !== undefined) next.includeDate = cached.includeDate;
-			if (cached.dateValue !== undefined) next.dateValue = cached.dateValue;
+			if (prefs.includePrincipalSignature !== undefined) next.includePrincipalSignature = prefs.includePrincipalSignature;
+			if (prefs.principalSignatureValue !== undefined) next.principalSignatureValue = prefs.principalSignatureValue;
+			if (prefs.includeDate !== undefined) next.includeDate = prefs.includeDate;
+			if (prefs.dateValue !== undefined) next.dateValue = prefs.dateValue;
+			if (filters.className) {
+				const classData = prefs[filters.className] || {};
+				next.includeSponsorName = classData.includeSponsorName ?? false;
+				next.sponsorName = classData.sponsorName ?? '';
+			} else {
+				next.includeSponsorName = false;
+				next.sponsorName = '';
+			}
 			return next;
 		});
 	}, [filters.academicYear, filters.className]);
