@@ -1751,17 +1751,15 @@ function ReportContent({
 				Array.isArray(scopedGrades) &&
 				scopedGrades.length > 0 &&
 				(offline || hasScopedGradesVersion);
+			const selectedIdsSet =
+				selectedStudentIds.length > 0 ? new Set(selectedStudentIds) : null;
 			if (canUseScopedGrades) {
-				const selectedIdsSet =
-					selectedStudentIds.length > 0 ? new Set(selectedStudentIds) : null;
 				const filteredStoreGrades = scopedGrades.filter((grade: any) => {
 					const gradeYear = String(grade?.academicYear || '').trim();
-					const gradeStudentId = String(grade?.studentId || '').trim();
 					return (
 						grade?.classId === reportFilters.className &&
 						grade?.period === reportFilters.period &&
-						areAcademicYearsEqual(gradeYear, reportFilters.academicYear) &&
-						(!selectedIdsSet || selectedIdsSet.has(gradeStudentId))
+						areAcademicYearsEqual(gradeYear, reportFilters.academicYear)
 					);
 				});
 				data = {
@@ -1912,7 +1910,9 @@ function ReportContent({
 
 				return ranked;
 			})();
-			const gradeReports: PeriodicStudentData[] = normalizedReport;
+			const gradeReports: PeriodicStudentData[] = selectedIdsSet
+				? normalizedReport.filter((row) => selectedIdsSet.has(row.studentId))
+				: normalizedReport;
 			const gradesMap = new Map<string, PeriodicStudentData>();
 
 			if (Array.isArray(gradeReports)) {

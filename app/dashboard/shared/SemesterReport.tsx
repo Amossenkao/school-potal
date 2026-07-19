@@ -2027,16 +2027,14 @@ function ReportContent({
 					scopedGrades.length > 0 &&
 					(offline || hasScopedGradesVersion);
 
+				const selectedIdsSet =
+					selectedStudentIds.length > 0 ? new Set(selectedStudentIds) : null;
 				if (canUseScopedGrades) {
-					const selectedIdsSet =
-						selectedStudentIds.length > 0 ? new Set(selectedStudentIds) : null;
 					const filteredStoreGrades = scopedGrades.filter((grade: any) => {
 						const gradeYear = String(grade?.academicYear || '').trim();
-						const gradeStudentId = normalizeStudentId(grade?.studentId);
 						return (
 							grade?.classId === reportFilters.className &&
-							areAcademicYearsEqual(gradeYear, reportFilters.academicYear) &&
-							(!selectedIdsSet || selectedIdsSet.has(gradeStudentId))
+							areAcademicYearsEqual(gradeYear, reportFilters.academicYear)
 						);
 					});
 					gradesData = {
@@ -2108,6 +2106,16 @@ function ReportContent({
 						grades: gradesData.data.grades,
 						classSubjects: schoolSubjects,
 						studentsToProcess,
+					});
+				}
+				if (selectedIdsSet) {
+					existingReports = existingReports.filter((report: any) => {
+						const reportStudentId = normalizeStudentId(
+							report?.studentId,
+							report?.id,
+							report?._id,
+						);
+						return selectedIdsSet.has(reportStudentId);
 					});
 				}
 				const fetchedSubjects = mergeSubjectNames([
