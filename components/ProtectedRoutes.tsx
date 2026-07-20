@@ -16,7 +16,7 @@ const ProtectedRoute = ({
 	requiredRole,
 	allowedRoles,
 }: ProtectedRouteProps) => {
-	const { user, hasBootstrapped, isVerifying,isLoggingOut, bootstrapAuth } = useAuth();
+	const { user, startupResolved, isVerifying, isLoggingOut } = useAuth();
 	const router = useRouter();
 	const pathname = usePathname();
 
@@ -41,27 +41,18 @@ const ProtectedRoute = ({
 	}, [allowedRoles, requiredRole, user]);
 
 	useEffect(() => {
-		void bootstrapAuth();
-	}, [bootstrapAuth]);
-
-	// Background verification can flip us from "not authenticated" to
-	// "authenticated" (or vice versa) after the fact. Keep the URL in sync
-	// with whatever the current authenticated state resolves to — this is
-	// the only place isVerifying still matters, so we don't redirect to
-	// /login while a background check might still confirm a valid session.
-	useEffect(() => {
-		if (!hasBootstrapped) return;
+		if (!startupResolved) return;
 		if (isLoggingOut) return;
 		if (isAuthenticated) return;
 		if (isVerifying) return;
 		if (pathname !== '/login') {
 			router.replace('/login');
 		}
-	}, [hasBootstrapped, isVerifying, isLoggingOut, isAuthenticated, pathname, router]);
+	}, [startupResolved, isVerifying, isLoggingOut, isAuthenticated, pathname, router]);
 
 	useEffect(() => {
 		if (
-			!hasBootstrapped ||
+			!startupResolved ||
 			!user ||
 			user.role === 'system_admin' ||
 			!user.mustChangePassword ||
@@ -70,13 +61,12 @@ const ProtectedRoute = ({
 			return;
 		}
 		router.replace('/login/account-setup');
-	}, [hasBootstrapped, pathname, router, user]);
+	}, [startupResolved, pathname, router, user]);
 
-	// hasBootstrapped is now true essentially immediately (cache hydration
-	// is synchronous), for BOTH the cached-user and no-cache cases. So this
-	// is no longer a network-bound loading state — it only covers the one
-	// unavoidable render tick before the first effect runs.
-	if (!hasBootstrapped) {
+	// startupResolved is set synchronously during bootstrapAuth (which calls
+	// hydrateFromCache before setting the flag). This covers the single render
+	// tick before the first effect runs.
+	if (!startupResolved) {
 		return (
 			<PageLoading variant="school" fullScreen={true} message="Loading..." />
 		);

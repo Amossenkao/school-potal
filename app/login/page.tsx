@@ -789,9 +789,8 @@ const LoginPage = () => {
 		login,
 		verifyOtp,
 		clearError,
-		bootstrapAuth,
 		isBootstrapping,
-		hasBootstrapped,
+		startupResolved,
 		isLoggingOut,
 	} = useAuth();
 
@@ -824,32 +823,28 @@ const LoginPage = () => {
 		});
 	}, [router, dismissKeyboardFocus]);
 
-	useEffect(() => {
-		void bootstrapAuth();
-	}, [bootstrapAuth]);
-
 useEffect(() => {
 	if (
-		hasBootstrapped &&
+		startupResolved &&
 		!isBootstrapping &&
 		!isLoading &&
 		user?.isActive &&
 		isLoggedIn &&
 		!isAwaitingOtp &&
 		!isRedirecting &&
-		!redirectTimedOut // 1. Add this guard clause to break the loop
+		!redirectTimedOut
 	) {
 		navigateToDashboardWithSpinner();
 	}
 }, [
-	hasBootstrapped,
+	startupResolved,
 	isBootstrapping,
 	isLoading,
 	user,
 	isLoggedIn,
 	isAwaitingOtp,
 	isRedirecting,
-	redirectTimedOut, // 2. Add to dependency array
+	redirectTimedOut,
 	navigateToDashboardWithSpinner,
 ]);
 
@@ -1097,7 +1092,7 @@ useEffect(() => {
 	};
 
 	const isBootstrappingSession =
-		(!hasBootstrapped || isBootstrapping) &&
+		(!startupResolved || isBootstrapping) &&
 		!isRedirecting &&
 		Boolean(user?.isActive || isLoggedIn);
 	if (isBootstrappingSession)
@@ -1217,8 +1212,6 @@ useEffect(() => {
 												setRedirectTimedOut(false);
 												if (user?.isActive && isLoggedIn && !isAwaitingOtp) {
 													navigateToDashboardWithSpinner();
-												} else {
-													void bootstrapAuth({ force: true });
 												}
 											}}
 											className="ml-auto text-xs font-semibold underline underline-offset-2 hover:no-underline"

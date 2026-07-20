@@ -44,6 +44,7 @@ interface AuthState {
 	hasBootstrapped: boolean;
 	isVerifying: boolean;
 	isLoggingOut: boolean;
+	startupResolved: boolean;
 
 	login: (loginData: LoginData) => Promise<User | null>;
 	logout: () => Promise<void>;
@@ -448,6 +449,7 @@ const runDeferredPostLoginBootstrap = (
 		hasBootstrapped: false,
 		isVerifying: false,
 		isLoggingOut: false,
+		startupResolved: false,
 		login: async (loginData: LoginData): Promise<User | null> => {
 			set({ isLoading: true, error: null });
 			try {
@@ -486,6 +488,7 @@ const runDeferredPostLoginBootstrap = (
 					hasBootstrapped: true,
 					isBootstrapping: false,
 					isVerifying: false,
+					startupResolved: true,
 				});
 				useNetworkStore.getState().setAuthCheckFailed(false);
 				applyBootstrapPayload(data);
@@ -601,6 +604,7 @@ const runDeferredPostLoginBootstrap = (
 				hasBootstrapped: true,
 				isVerifying: false,
 				isLoggingOut: false,
+				startupResolved: true,
 			});
 			try {
 				window.history.replaceState(null, '', '/login');
@@ -645,6 +649,7 @@ const runDeferredPostLoginBootstrap = (
 			const trigger = String(options?.trigger || '').trim();
 			const requestedAcademicYear = String(options?.academicYear || '').trim();
 
+			if (get().isLoggingOut) return;
 			if (authCheckPromise) {
 				return authCheckPromise;
 			}
@@ -779,6 +784,11 @@ const runDeferredPostLoginBootstrap = (
 					}
 
 					const data = await res.json().catch(() => ({}));
+
+					// If logout started while the request was in flight, discard
+					// the response — logout must win over every background process.
+					if (get().isLoggingOut) return;
+
 					useNetworkStore.getState().setAuthCheckFailed(false);
 					applyBootstrapPayload(data, { gradesStrategy: 'merge' });
 
@@ -848,22 +858,20 @@ const runDeferredPostLoginBootstrap = (
 			}
 
 			authBootstrapPromise = (async () => {
-				// 1. Hydrate from cache synchronously if we have one.
-				if (!get().user) {
-					get().hydrateFromCache();
-				}
+				// 1. ALWAYS hydrate from cache synchronously. This MUST happen
+				//    before we unblock the UI so that the correct auth state
+				//    is available on the very first render.
+				get().hydrateFromCache();
 
-				// 2. Unblock the UI immediately, in both cases. Whatever we have
-				// right now — a cached user or nothing — IS the render. There's
-				// no state left where the UI waits on the network.
-				//   - cached user  -> ProtectedRoute renders the dashboard
-				//   - no cached user -> ProtectedRoute renders LoginPage
-				// isVerifying just tracks the background confirmation; it no
-				// longer gates what's on screen.
+				// 2. Unblock the UI. The cached user (or absence thereof) IS
+				//    the definitive initial render. `isVerifying` tracks the
+				//    background server confirmation but no longer gates what's
+				//    on screen.
 				set({
 					isBootstrapping: false,
 					hasBootstrapped: true,
 					isVerifying: true,
+					startupResolved: true,
 				});
 
 				if (typeof navigator !== 'undefined' && !navigator.onLine) {

@@ -62,6 +62,9 @@ export default function AuthProvider({
 			trigger?: string;
 			academicYear?: string;
 		}) => {
+			// Do not run any background auth refresh if the user is
+			// logging out — logout must win over every other process.
+			if (useAuth.getState().isLoggingOut) return;
 			if (authRefreshInFlight.current) {
 				const previous = pendingAuthRefreshRef.current;
 				pendingAuthRefreshRef.current = {
@@ -130,7 +133,7 @@ export default function AuthProvider({
 	// Ably Streaming Channel Setup and Connection Listeners
 	useEffect(() => {
 		if (typeof window === 'undefined') return;
-		if (!user?.isActive) {
+		if (!user?.isActive || useAuth.getState().isLoggingOut) {
 			closeRealtimeClient();
 			if (syncEventDebounceRef.current !== null) {
 				window.clearTimeout(syncEventDebounceRef.current);
@@ -262,6 +265,9 @@ export default function AuthProvider({
 		client.connection.on('connected', () => {
 			setAblyState('connected');
 			setAuthCheckFailed(false);
+			// Do not trigger auth refresh if the user is logging out —
+			// logout must win over every other authentication process.
+			if (useAuth.getState().isLoggingOut) return;
 			void runAuthRefresh({ force: true, trigger: 'ably-connected' });
 		});
 

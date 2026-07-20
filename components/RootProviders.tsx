@@ -24,8 +24,7 @@ export default function RootProviders({
 }: {
 	children: React.ReactNode;
 }) {
-	const { school, fetchSchool, hydrateCache } = useSchoolStore();
-	const { hydrateFromCache } = useAuth();
+	const { school, hydrateCache } = useSchoolStore();
 	const hasAppsFeature = Boolean(school?.enabledFeatures?.includes('apps'));
 
 	// Initialize store network event hooks once
@@ -33,12 +32,11 @@ export default function RootProviders({
 		useNetworkStore.getState().initNetworkListeners();
 	}, []);
 
-	// Hydrate global caches locally
+	// Hydrate school metadata cache. Auth cache hydration is handled
+	// exclusively by bootstrapAuth in the auth store — no competing caller.
 	useEffect(() => {
 		hydrateCache();
-		hydrateFromCache();
-		void fetchSchool();
-	}, [fetchSchool, hydrateCache, hydrateFromCache]);
+	}, [hydrateCache]);
 
 	// Keep Dashboard shell hot
 	useEffect(() => {
