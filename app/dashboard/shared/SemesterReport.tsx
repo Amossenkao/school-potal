@@ -1287,19 +1287,21 @@ function ReportContent({
 
 				const selectedIdsSet =
 					selectedStudentIds.length > 0 ? new Set(selectedStudentIds) : null;
-				if (canUseScopedGrades) {
-					const filteredStoreGrades = scopedGrades.filter((grade: any) => {
-						const gradeYear = String(grade?.academicYear || '').trim();
-						return (
-							grade?.classId === reportFilters.className &&
-							areAcademicYearsEqual(gradeYear, reportFilters.academicYear)
-						);
-					});
-				gradesData = {
-					success: true,
-					data: { grades: filteredStoreGrades },
-				};
-			} else if (cachedGrades) {
+			if (canUseScopedGrades) {
+				const filteredStoreGrades = scopedGrades.filter((grade: any) => {
+					const gradeYear = String(grade?.academicYear || '').trim();
+					return (
+						grade?.classId === reportFilters.className &&
+						areAcademicYearsEqual(gradeYear, reportFilters.academicYear)
+					);
+				});
+				if (filteredStoreGrades.length > 0) {
+					gradesData = {
+						success: true,
+						data: { grades: filteredStoreGrades },
+					};
+				}
+		} else if (cachedGrades) {
 				gradesData = cachedGrades;
 			} else if (offline) {
 				throw new Error(

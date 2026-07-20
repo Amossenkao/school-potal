@@ -935,10 +935,12 @@ function ReportContent({
 						areAcademicYearsEqual(gradeYear, reportFilters.academicYear)
 					);
 				});
-				data = {
-					success: true,
-					data: { grades: filteredStoreGrades },
-				};
+				if (filteredStoreGrades.length > 0) {
+					data = {
+						success: true,
+						data: { grades: filteredStoreGrades },
+					};
+				}
 		} else if (cachedGrades) {
 			data = cachedGrades;
 		} else if (offline) {

@@ -629,6 +629,9 @@ const UserManagementDashboard = () => {
 				serverPage: 1,
 				usersVersion,
 			});
+			if (isOnline) {
+				fetchUsers(1, true);
+			}
 			return;
 		}
 
