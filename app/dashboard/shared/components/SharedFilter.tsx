@@ -1,6 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, {
+	useState,
+	useEffect,
+	useMemo,
+	useCallback,
+	useRef,
+} from 'react';
+import ReactDOM from 'react-dom';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
@@ -184,7 +191,7 @@ const getStudentClassIdForYear = (student: any, academicYear: string) => {
 
 const OFFLINE_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 
-// ─── FilterSelect — custom styled select ─────────────────────────────────────
+// ─── FilterSelect — portal-based dropdown that escapes overflow-hidden ────────
 
 const FilterSelect = ({
 	label,
@@ -204,26 +211,128 @@ const FilterSelect = ({
 	done?: boolean;
 }) => {
 	const [open, setOpen] = useState(false);
+	const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+	const buttonRef = useRef<HTMLButtonElement>(null);
 	const selected = options.find((o) => o.value === value);
+
+	// Measure button position and set dropdown coords each time it opens
+	useEffect(() => {
+		if (!open || !buttonRef.current) return;
+
+		const updatePosition = () => {
+			const rect = buttonRef.current!.getBoundingClientRect();
+			const spaceBelow = window.innerHeight - rect.bottom;
+			const dropdownHeight = Math.min(options.length * 40 + 8, 216); // ~max-h-52
+
+			// Flip upward if not enough space below
+			if (spaceBelow < dropdownHeight && rect.top > dropdownHeight) {
+				setDropdownStyle({
+					position: 'fixed',
+					top: rect.top - dropdownHeight - 4,
+					left: rect.left,
+					width: rect.width,
+					zIndex: 9999,
+				});
+			} else {
+				setDropdownStyle({
+					position: 'fixed',
+					top: rect.bottom + 4,
+					left: rect.left,
+					width: rect.width,
+					zIndex: 9999,
+				});
+			}
+		};
+
+		updatePosition();
+		window.addEventListener('scroll', updatePosition, true);
+		window.addEventListener('resize', updatePosition);
+		return () => {
+			window.removeEventListener('scroll', updatePosition, true);
+			window.removeEventListener('resize', updatePosition);
+		};
+	}, [open, options.length]);
+
+	// Close on Escape
+	useEffect(() => {
+		if (!open) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') setOpen(false);
+		};
+		document.addEventListener('keydown', onKey);
+		return () => document.removeEventListener('keydown', onKey);
+	}, [open]);
+
+	const dropdown = open
+		? ReactDOM.createPortal(
+				<>
+					{/* Backdrop — full screen invisible click target */}
+					<div
+						style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+						onClick={() => setOpen(false)}
+					/>
+					{/* The actual list */}
+					<div
+						style={dropdownStyle}
+						className="rounded-lg border border-border bg-card shadow-lg overflow-hidden"
+					>
+						<ul className="py-1 max-h-52 overflow-y-auto">
+							{options.map((opt) => (
+								<li
+									key={opt.value}
+									onMouseDown={(e) => {
+										// mousedown fires before the button's blur, preventing flicker
+										e.preventDefault();
+										onChange(opt.value);
+										setOpen(false);
+									}}
+									className={`flex items-center justify-between px-3 py-2.5 text-sm cursor-pointer select-none transition-colors
+										${
+											opt.value === value
+												? 'bg-primary/10 text-primary font-medium'
+												: 'text-foreground hover:bg-muted'
+										}`}
+								>
+									<span>{opt.label}</span>
+									{opt.value === value && (
+										<Check className="h-3.5 w-3.5 text-primary flex-shrink-0 ml-2" />
+									)}
+								</li>
+							))}
+						</ul>
+					</div>
+				</>,
+				document.body,
+			)
+		: null;
 
 	return (
 		<div className="relative">
-			<p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1.5">
-				{label}
-			</p>
+			{label && (
+				<p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1.5">
+					{label}
+				</p>
+			)}
 			<button
+				ref={buttonRef}
 				type="button"
 				disabled={disabled}
-				onClick={() => setOpen((p) => !p)}
-				className={`w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-sm text-left transition-colors
-					${disabled ? 'opacity-40 cursor-not-allowed border-border bg-muted/30' : 'border-border bg-background hover:border-border-strong cursor-pointer'}
-					${done && !open ? 'border-primary/40 bg-primary/5' : ''}
-					focus:outline-none focus:ring-2 focus:ring-primary/30`}
+				onClick={() => !disabled && setOpen((p) => !p)}
+				className={[
+					'w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-sm text-left transition-colors',
+					disabled
+						? 'opacity-40 cursor-not-allowed border-border bg-muted/30'
+						: 'border-border bg-background hover:border-foreground/30 cursor-pointer',
+					done && !open && !disabled ? 'border-primary/40 bg-primary/5' : '',
+					'focus:outline-none focus:ring-2 focus:ring-primary/30',
+				]
+					.filter(Boolean)
+					.join(' ')}
 			>
 				<span
 					className={
 						selected
-							? done
+							? done && !open
 								? 'text-primary font-medium'
 								: 'text-foreground'
 							: 'text-muted-foreground'
@@ -232,38 +341,15 @@ const FilterSelect = ({
 					{selected ? selected.label : placeholder}
 				</span>
 				<span className="flex-shrink-0 flex items-center gap-1">
-					{done && selected && <Check className="h-3.5 w-3.5 text-primary" />}
+					{done && selected && !open && (
+						<Check className="h-3.5 w-3.5 text-primary" />
+					)}
 					<ChevronDown
 						className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
 					/>
 				</span>
 			</button>
-
-			{open && (
-				<>
-					<div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-					<div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-card shadow-lg overflow-hidden">
-						<ul className="py-1 max-h-52 overflow-y-auto">
-							{options.map((opt) => (
-								<li
-									key={opt.value}
-									onClick={() => {
-										onChange(opt.value);
-										setOpen(false);
-									}}
-									className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer transition-colors
-										${opt.value === value ? 'bg-primary/8 text-primary font-medium' : 'text-foreground hover:bg-muted'}`}
-								>
-									{opt.label}
-									{opt.value === value && (
-										<Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-									)}
-								</li>
-							))}
-						</ul>
-					</div>
-				</>
-			)}
+			{dropdown}
 		</div>
 	);
 };
@@ -274,23 +360,16 @@ const StepDot = ({
 	done,
 	active,
 	index,
-	isLast,
 }: {
 	done: boolean;
 	active: boolean;
 	index: number;
-	isLast: boolean;
 }) => (
-	<div className="relative flex flex-col items-center">
-		<div
-			className={`h-6 w-6 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-semibold transition-all
-				${done ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20' : active ? 'bg-primary/15 text-primary ring-2 ring-primary/25' : 'bg-muted text-muted-foreground border border-border'}`}
-		>
-			{done ? <Check className="h-3 w-3" /> : index}
-		</div>
-		{!isLast && (
-			<div className={`absolute top-6 left-1/2 -translate-x-1/2 w-px h-4 ${done ? 'bg-primary/30' : 'bg-border'}`} />
-		)}
+	<div
+		className={`h-6 w-6 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-medium transition-colors
+			${done ? 'bg-primary text-primary-foreground' : active ? 'bg-primary/15 text-primary border border-primary/40' : 'bg-muted text-muted-foreground border border-border'}`}
+	>
+		{done ? <Check className="h-3 w-3" /> : index}
 	</div>
 );
 
@@ -816,6 +895,22 @@ export const SharedFilter = <T extends BaseFilters>({
 		extraFilter,
 	]);
 
+	// ─── Grid ref for responsive two-column layout (must be before any early return) ──
+	const gridRef = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		if (isStudent) return; // no grid in student view
+		const el = gridRef.current;
+		if (!el) return;
+		const apply = () => {
+			el.style.gridTemplateColumns =
+				el.offsetWidth >= 768 ? '320px 1fr' : 'repeat(1, minmax(0, 1fr))';
+		};
+		apply();
+		const ro = new ResizeObserver(apply);
+		ro.observe(el);
+		return () => ro.disconnect();
+	}, [isStudent]);
+
 	// ─── Student View ─────────────────────────────────────────────────────────
 
 	if (isStudent) {
@@ -1106,7 +1201,7 @@ export const SharedFilter = <T extends BaseFilters>({
 		totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
 
 	return (
-		<div className="flex items-start justify-center min-h-[60vh] py-10 bg-background px-4">
+		<div className="flex items-start justify-center min-h-[60vh] py-1 bg-background px-4">
 			<div className="w-full max-w-4xl">
 				{/* Page-level header */}
 				<div className="mb-6">
@@ -1118,18 +1213,22 @@ export const SharedFilter = <T extends BaseFilters>({
 					</h2>
 				</div>
 
-				{/* Two-column layout */}
-				<div className="grid grid-cols-1 lg:grid-cols-[320px,1fr] gap-4 items-start">
+				{/* Two-column layout: fixed 320px rail + fluid right panel, stacks on mobile */}
+				<div
+					ref={gridRef}
+					className="grid gap-4 items-start"
+					style={{ gridTemplateColumns: 'repeat(1, minmax(0, 1fr))' }}
+				>
 					{/* ── Left: filter rail ── */}
-					<div className="rounded-2xl border border-border bg-card overflow-hidden">
+					<div className="rounded-2xl border border-border bg-card overflow-visible">
 						{/* Rail header with progress */}
-						<div className="px-5 pt-4 pb-3 border-b border-border bg-muted/10">
+						<div className="px-5 pt-5 pb-4 border-b border-border">
 							<div className="flex items-center justify-between mb-2">
-								<span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-									Steps
+								<span className="text-xs font-medium text-muted-foreground">
+									Filters
 								</span>
-								<span className="text-[11px] font-semibold text-primary">
-									{doneSteps}/{totalSteps}
+								<span className="text-xs font-medium text-primary">
+									{doneSteps}/{totalSteps} done
 								</span>
 							</div>
 							<div className="h-1 w-full rounded-full bg-muted overflow-hidden">
@@ -1140,31 +1239,27 @@ export const SharedFilter = <T extends BaseFilters>({
 							</div>
 						</div>
 
-						{/* Step list — segmented stepper */}
-						<div className="relative">
-							{steps.map((step, i) => (
+						{/* Step list */}
+						<div className="divide-y divide-border">
+							{steps.map((step) => (
 								<div
 									key={step.key}
-									className={`relative pl-[52px] pr-5 py-4 transition-colors
-										${step.done ? 'bg-muted/25' : step.active ? 'bg-primary/[0.04]' : 'opacity-40'}`}
+									className={`px-5 py-4 transition-colors ${step.active ? '' : 'opacity-40'}`}
 								>
-									{/* Accent left-border */}
-									<div className={`absolute left-0 top-0 bottom-0 w-[3px]
-										${step.done ? 'bg-primary' : step.active ? 'bg-primary/50' : 'bg-transparent'}`} />
-
-									{/* Step dot — absolute inside the rail */}
-									<div className="absolute left-4 top-4">
-										<StepDot done={step.done} active={step.active} index={step.index} isLast={i === steps.length - 1} />
+									{/* Step label row */}
+									<div className="flex items-center gap-2.5 mb-3">
+										<StepDot
+											done={step.done}
+											active={step.active}
+											index={step.index}
+										/>
+										<span
+											className={`text-sm font-medium ${step.done ? 'text-foreground' : step.active ? 'text-foreground' : 'text-muted-foreground'}`}
+										>
+											{step.label}
+										</span>
 									</div>
-
-									{/* Step label */}
-									<span className={`block text-sm mb-2
-										${step.done ? 'text-muted-foreground font-medium' : step.active ? 'text-foreground font-semibold' : 'text-muted-foreground font-medium'}`}>
-										{step.label}
-									</span>
-
-									{/* Step control */}
-									<div>{step.render()}</div>
+									{step.render()}
 								</div>
 							))}
 						</div>

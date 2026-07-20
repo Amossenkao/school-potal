@@ -1,3 +1,5 @@
+'use client';
+
 import React, {
 	useState,
 	useRef,
@@ -6,6 +8,7 @@ import React, {
 	useMemo,
 	useId,
 } from 'react';
+import ReactDOM from 'react-dom';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -22,12 +25,12 @@ export interface StudentMultiSelectProps {
 	maxVisiblePills?: number;
 	/** Accessible label for the control */
 	label?: string;
-	/** Panel max-height in px (default 240) */
+	/** Panel max-height in px (default 260) */
 	panelMaxHeight?: number;
 	className?: string;
 }
 
-// ─── Utilities ────────────────────────────────────────────────────────────────
+// ─── Utilities ───────────────────────────────────────────────────────────────
 
 const getInitials = (name: string) =>
 	name
@@ -40,7 +43,7 @@ const getInitials = (name: string) =>
 const getFirstName = (name: string) => name.split(' ')[0];
 const getLastName = (name: string) => name.split(' ').slice(1).join(' ');
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+// ─── StudentChip ─────────────────────────────────────────────────────────────
 
 interface ChipProps {
 	student: Student;
@@ -54,27 +57,26 @@ const StudentChip = React.memo(function StudentChip({
 	onToggle,
 }: ChipProps) {
 	return (
-		<div
-			role="option"
-			aria-selected={isSelected}
+		<button
+			type="button"
 			tabIndex={0}
 			onClick={() => onToggle(student.id)}
-			onKeyDown={(e) => {
-				if (e.key === ' ' || e.key === 'Enter') {
-					e.preventDefault();
-					onToggle(student.id);
-				}
-			}}
-			className={`relative flex flex-col items-start gap-0.5 p-2 rounded-md cursor-pointer select-none outline-none min-w-0 transition-colors
-				focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40
-				${isSelected
-					? 'border border-primary/60 bg-accent'
-					: 'border border-border bg-card'}`}
+			className={[
+				'relative flex flex-col items-start gap-0.5 p-2 rounded-lg cursor-pointer select-none outline-none min-w-0 w-full text-left transition-colors',
+				'focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none',
+				isSelected
+					? 'border border-primary/50 bg-primary/8'
+					: 'border border-border bg-card hover:bg-muted/50',
+			].join(' ')}
 		>
 			{/* Avatar */}
 			<div
-				className={`w-[26px] h-[26px] rounded-full flex items-center justify-center text-[10px] font-medium mb-0.5 shrink-0 transition-colors
-					${isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
+				className={[
+					'w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold mb-0.5 shrink-0 transition-colors',
+					isSelected
+						? 'bg-primary text-primary-foreground'
+						: 'bg-muted text-muted-foreground',
+				].join(' ')}
 				aria-hidden="true"
 			>
 				{getInitials(student.name)}
@@ -82,36 +84,42 @@ const StudentChip = React.memo(function StudentChip({
 
 			{/* Name lines */}
 			<span
-				className={`text-xs font-medium leading-tight truncate max-w-full
-					${isSelected ? 'text-primary' : 'text-foreground'}`}
+				className={[
+					'text-xs font-medium leading-tight truncate max-w-full',
+					isSelected ? 'text-primary' : 'text-foreground',
+				].join(' ')}
 			>
 				{getFirstName(student.name)}
 			</span>
-			<span className="text-[10px] leading-tight text-muted-foreground truncate max-w-full">
-				{getLastName(student.name)}
-			</span>
+			{getLastName(student.name) && (
+				<span className="text-[10px] leading-tight text-muted-foreground truncate max-w-full">
+					{getLastName(student.name)}
+				</span>
+			)}
 
-			{/* Check mark */}
-			<svg
-				aria-hidden="true"
-				className={`absolute top-[5px] right-1.5 text-primary transition-opacity
-					${isSelected ? 'opacity-100' : 'opacity-0'}`}
-				width="11"
-				height="11"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				strokeWidth={3}
-				strokeLinecap="round"
-				strokeLinejoin="round"
-			>
-				<path d="M20 6L9 17l-5-5" />
-			</svg>
-		</div>
+			{/* Check badge */}
+			{isSelected && (
+				<span className="absolute top-1.5 right-1.5 h-3.5 w-3.5 rounded-full bg-primary flex items-center justify-center">
+					<svg
+						width="7"
+						height="7"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="white"
+						strokeWidth={3.5}
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						aria-hidden="true"
+					>
+						<path d="M20 6L9 17l-5-5" />
+					</svg>
+				</span>
+			)}
+		</button>
 	);
 });
 
-// ─── Main component ──────────────────────────────────────────────────────────
+// ─── StudentMultiSelect ───────────────────────────────────────────────────────
 
 export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 	students,
@@ -119,19 +127,20 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 	onSelectionChange,
 	maxVisiblePills = 3,
 	label = 'Select specific students',
-	panelMaxHeight = 240,
+	panelMaxHeight = 260,
 	className = '',
 }: StudentMultiSelectProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [searchTerm, setSearchTerm] = useState('');
+	// Fixed position for the portal panel, computed from the trigger's bounding rect
+	const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({});
 
-	const wrapperRef = useRef<HTMLDivElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const searchRef = useRef<HTMLInputElement>(null);
-	const panelId = useId();
 	const labelId = useId();
+	const panelId = useId();
 
-	// ── Derived state ────────────────────────────────────────────────────────
+	// ── Derived state ─────────────────────────────────────────────────────────
 
 	const selectedSet = useMemo(
 		() => new Set(selectedStudents),
@@ -157,7 +166,96 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 	const visiblePills = selectedStudentObjects.slice(0, maxVisiblePills);
 	const overflowCount = selectedStudentObjects.length - maxVisiblePills;
 
-	// ── Handlers ─────────────────────────────────────────────────────────────
+	// ── Position panel relative to trigger ───────────────────────────────────
+
+	const computePanelStyle = useCallback(() => {
+		if (!triggerRef.current) return;
+		const rect = triggerRef.current.getBoundingClientRect();
+		const spaceBelow = window.innerHeight - rect.bottom;
+		// Estimate panel height: search ~40 + actionbar ~34 + grid up to panelMaxHeight
+		const estimatedPanel = panelMaxHeight + 80;
+
+		if (spaceBelow < estimatedPanel && rect.top > estimatedPanel) {
+			// Flip upward
+			setPanelStyle({
+				position: 'fixed',
+				bottom: window.innerHeight - rect.top + 4,
+				left: rect.left,
+				width: rect.width,
+				zIndex: 9999,
+			});
+		} else {
+			setPanelStyle({
+				position: 'fixed',
+				top: rect.bottom + 4,
+				left: rect.left,
+				width: rect.width,
+				zIndex: 9999,
+			});
+		}
+	}, [panelMaxHeight]);
+
+	// ── Open / close ──────────────────────────────────────────────────────────
+
+	const openPanel = useCallback(() => {
+		computePanelStyle();
+		setIsOpen(true);
+		setTimeout(() => searchRef.current?.focus(), 10);
+	}, [computePanelStyle]);
+
+	const closePanel = useCallback(() => {
+		setIsOpen(false);
+		setSearchTerm('');
+	}, []);
+
+	const togglePanel = useCallback(() => {
+		if (isOpen) closePanel();
+		else openPanel();
+	}, [isOpen, openPanel, closePanel]);
+
+	// ── Keep panel aligned on scroll / resize ────────────────────────────────
+
+	useEffect(() => {
+		if (!isOpen) return;
+		const update = () => computePanelStyle();
+		window.addEventListener('scroll', update, true);
+		window.addEventListener('resize', update);
+		return () => {
+			window.removeEventListener('scroll', update, true);
+			window.removeEventListener('resize', update);
+		};
+	}, [isOpen, computePanelStyle]);
+
+	// ── Outside-click & Escape dismiss ───────────────────────────────────────
+
+	useEffect(() => {
+		if (!isOpen) return;
+		const onPointerDown = (e: PointerEvent) => {
+			const target = e.target as Node;
+			const inTrigger = triggerRef.current?.contains(target);
+			// Portal panel is in document.body — identify it by data attribute
+			const inPanel = (target as HTMLElement)?.closest?.(
+				'[data-student-panel="true"]',
+			);
+			if (!inTrigger && !inPanel) closePanel();
+		};
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				closePanel();
+				triggerRef.current?.focus();
+			}
+		};
+		document.addEventListener('pointerdown', onPointerDown, { capture: true });
+		document.addEventListener('keydown', onKeyDown);
+		return () => {
+			document.removeEventListener('pointerdown', onPointerDown, {
+				capture: true,
+			});
+			document.removeEventListener('keydown', onKeyDown);
+		};
+	}, [isOpen, closePanel]);
+
+	// ── Selection handlers ────────────────────────────────────────────────────
 
 	const toggle = useCallback(
 		(id: string) => {
@@ -194,159 +292,17 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 		onSelectionChange,
 	]);
 
-	const openPanel = useCallback(() => {
-		setIsOpen(true);
-		// Defer to let DOM update before focusing
-		setTimeout(() => searchRef.current?.focus(), 10);
-	}, []);
+	// ── Portal panel ──────────────────────────────────────────────────────────
 
-	const closePanel = useCallback(() => {
-		setIsOpen(false);
-		setSearchTerm('');
-	}, []);
-
-	const togglePanel = useCallback(() => {
-		if (isOpen) closePanel();
-		else openPanel();
-	}, [isOpen, openPanel, closePanel]);
-
-	// ── Outside-click & keyboard dismiss ────────────────────────────────────
-
-	useEffect(() => {
-		if (!isOpen) return;
-
-		const onPointerDown = (e: PointerEvent) => {
-			if (!wrapperRef.current?.contains(e.target as Node)) closePanel();
-		};
-		const onKeyDown = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') {
-				closePanel();
-				triggerRef.current?.focus();
-			}
-		};
-
-		document.addEventListener('pointerdown', onPointerDown, { capture: true });
-		document.addEventListener('keydown', onKeyDown);
-		return () => {
-			document.removeEventListener('pointerdown', onPointerDown, {
-				capture: true,
-			});
-			document.removeEventListener('keydown', onKeyDown);
-		};
-	}, [isOpen, closePanel]);
-
-	// ── Render ───────────────────────────────────────────────────────────────
-
-	return (
-		<div
-			className={`relative w-full ${className}`}
-			ref={wrapperRef}
-		>
-			{/* Label */}
-			<label
-				id={labelId}
-				className="block text-sm font-medium text-foreground mb-1.5"
-			>
-				{label}{' '}
-				<span className="text-muted-foreground font-normal">(optional)</span>
-			</label>
-
-			{/* Trigger */}
-			<button
-				ref={triggerRef}
-				type="button"
-				aria-haspopup="listbox"
-				aria-expanded={isOpen}
-				aria-controls={panelId}
-				aria-labelledby={labelId}
-				onClick={togglePanel}
-				className={`flex items-center gap-1.5 w-full min-h-[40px] py-[5px] px-2.5 bg-card cursor-pointer text-left transition-colors box-border
-					focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40
-					${isOpen
-						? 'rounded-t-lg border border-primary/60 border-b-0'
-						: 'rounded-lg border border-border'}`}
-			>
-				{/* Pills row */}
-				<div className="flex items-center flex-nowrap gap-1 flex-1 overflow-hidden min-w-0">
-					{selectedStudentObjects.length === 0 ? (
-						<span className="text-sm text-muted-foreground">
-							All students included
-						</span>
-					) : (
-						<>
-							{visiblePills.map((s) => (
-								<span
-									key={s.id}
-									className="inline-flex items-center gap-0.5 bg-accent text-primary rounded-full py-0.5 pl-1.5 pr-2 text-xs font-medium whitespace-nowrap shrink-0"
-								>
-									{getFirstName(s.name)}
-									<span
-										role="button"
-										aria-label={`Remove ${getFirstName(s.name)}`}
-										tabIndex={0}
-										onClick={(e) => {
-											e.stopPropagation();
-											toggle(s.id);
-										}}
-										onKeyDown={(e) => {
-											if (e.key === ' ' || e.key === 'Enter') {
-												e.preventDefault();
-												e.stopPropagation();
-												toggle(s.id);
-											}
-										}}
-										className="cursor-pointer opacity-60 text-[15px] leading-none flex items-center hover:opacity-100 transition-opacity"
-									>
-										×
-									</span>
-								</span>
-							))}
-
-							{overflowCount > 0 && (
-								<span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-									+{overflowCount} more
-								</span>
-							)}
-						</>
-					)}
-				</div>
-
-				{/* Selected count badge */}
-				{selectedStudentObjects.length > 0 && (
-					<span className="text-[11px] font-medium text-primary bg-accent rounded-full py-px px-2 shrink-0 whitespace-nowrap">
-						{selectedStudentObjects.length}
-					</span>
-				)}
-
-				{/* Chevron */}
-				<svg
-					aria-hidden="true"
-					width="16"
-					height="16"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					strokeWidth={2}
-					strokeLinecap="round"
-					strokeLinejoin="round"
-					className={`shrink-0 text-muted-foreground transition-transform duration-200
-						${isOpen ? 'rotate-180' : 'rotate-0'}`}
-				>
-					<path d="M6 9l6 6 6-6" />
-				</svg>
-			</button>
-
-			{/* Panel */}
-			{isOpen && (
+	const panel = isOpen
+		? ReactDOM.createPortal(
 				<div
-					id={panelId}
-					role="listbox"
-					aria-multiselectable="true"
-					aria-label="Students"
-					className="absolute top-full left-0 right-0 z-50 bg-card border border-primary/60 border-t-none rounded-b-lg flex flex-col shadow-lg"
+					data-student-panel="true"
+					style={panelStyle}
+					className="rounded-xl border border-border bg-card shadow-lg flex flex-col overflow-hidden"
 				>
-					{/* Search */}
-					<div className="flex items-center gap-1.5 px-2.5 py-[7px] border-b border-border">
+					{/* Search row */}
+					<div className="flex items-center gap-2 px-3 py-2.5 border-b border-border bg-card">
 						<svg
 							aria-hidden="true"
 							width="14"
@@ -362,7 +318,6 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 							<circle cx="11" cy="11" r="8" />
 							<path d="M21 21l-4.35-4.35" />
 						</svg>
-
 						<input
 							ref={searchRef}
 							type="text"
@@ -370,9 +325,8 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
 							aria-label="Search students"
-							className="flex-1 border-none bg-transparent text-sm text-foreground outline-none p-0 min-w-0"
+							className="flex-1 bg-transparent text-sm text-foreground outline-none border-none p-0 min-w-0 placeholder:text-muted-foreground"
 						/>
-
 						{searchTerm && (
 							<button
 								type="button"
@@ -381,7 +335,7 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 									setSearchTerm('');
 									searchRef.current?.focus();
 								}}
-								className="bg-none border-none p-0.5 cursor-pointer text-muted-foreground flex items-center shrink-0 hover:text-foreground transition-colors"
+								className="p-0.5 text-muted-foreground hover:text-foreground transition-colors shrink-0"
 							>
 								<svg
 									width="13"
@@ -400,12 +354,14 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 					</div>
 
 					{/* Action bar */}
-					<div className="flex items-center gap-0 px-2 py-1 border-b border-border bg-muted flex-wrap row-gap-0.5">
-						{[
-							{ label: 'Select all', handler: handleSelectAll },
-							{ label: 'Clear', handler: handleClear },
-							{ label: 'Invert', handler: handleInvert },
-						].map(({ label: btnLabel, handler }, i) => (
+					<div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border bg-muted/40">
+						{(
+							[
+								{ label: 'All', handler: handleSelectAll },
+								{ label: 'Clear', handler: handleClear },
+								{ label: 'Invert', handler: handleInvert },
+							] as const
+						).map(({ label: btnLabel, handler }, i) => (
 							<React.Fragment key={btnLabel}>
 								{i > 0 && (
 									<span
@@ -416,44 +372,165 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 								<button
 									type="button"
 									onClick={handler}
-									className="text-[11px] text-muted-foreground cursor-pointer py-[3px] px-[7px] rounded bg-none border-none transition-colors whitespace-nowrap hover:bg-card hover:text-foreground"
+									className="text-[11px] text-muted-foreground py-1 px-2 rounded hover:bg-card hover:text-foreground transition-colors whitespace-nowrap"
 								>
 									{btnLabel}
 								</button>
 							</React.Fragment>
 						))}
-
-						<span className="ml-auto text-[11px] text-muted-foreground pl-1 whitespace-nowrap">
+						<span className="ml-auto text-[11px] text-muted-foreground pl-2 whitespace-nowrap">
 							{searchTerm
 								? `${filteredStudents.length} of ${students.length}`
-								: `${selectedStudents.length} selected`}
+								: `${selectedStudents.length} / ${students.length} selected`}
 						</span>
 					</div>
 
-					{/* Student grid — scrollable */}
+					{/* Student chip grid */}
 					<div
-						className={`overflow-y-auto ${filteredStudents.length > 0 ? 'grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))] gap-1 p-2' : 'block p-0'}`}
+						className="overflow-y-auto p-2"
 						style={{ maxHeight: panelMaxHeight }}
 					>
 						{filteredStudents.length > 0 ? (
-							filteredStudents.map((student) => (
-								<StudentChip
-									key={student.id}
-									student={student}
-									isSelected={selectedSet.has(student.id)}
-									onToggle={toggle}
-								/>
-							))
+							<div
+								className="grid gap-1.5"
+								style={{
+									gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
+								}}
+							>
+								{filteredStudents.map((student) => (
+									<StudentChip
+										key={student.id}
+										student={student}
+										isSelected={selectedSet.has(student.id)}
+										onToggle={toggle}
+									/>
+								))}
+							</div>
 						) : (
-							<p className="text-center py-6 px-4 text-sm text-muted-foreground m-0">
+							<p className="text-center py-6 text-sm text-muted-foreground">
 								No students match &ldquo;{searchTerm}&rdquo;
 							</p>
 						)}
 					</div>
-				</div>
-			)}
+				</div>,
+				document.body,
+			)
+		: null;
 
-			{/* Footer: summary when closed */}
+	// ── Render ────────────────────────────────────────────────────────────────
+
+	return (
+		<div className={`relative w-full ${className}`}>
+			{/* Label */}
+			<label
+				id={labelId}
+				className="block text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1.5"
+			>
+				{label}{' '}
+				<span className="normal-case tracking-normal font-normal">
+					(optional)
+				</span>
+			</label>
+
+			{/* Trigger button */}
+			<button
+				ref={triggerRef}
+				type="button"
+				aria-haspopup="listbox"
+				aria-expanded={isOpen}
+				aria-controls={panelId}
+				aria-labelledby={labelId}
+				onClick={togglePanel}
+				className={[
+					'flex items-center gap-1.5 w-full min-h-[40px] py-1.5 px-3 bg-background cursor-pointer text-left transition-colors rounded-lg border',
+					'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
+					isOpen
+						? 'border-primary/40 ring-2 ring-primary/20'
+						: 'border-border hover:border-foreground/30',
+				].join(' ')}
+			>
+				{/* Pills / placeholder */}
+				<div className="flex items-center flex-nowrap gap-1 flex-1 overflow-hidden min-w-0">
+					{selectedStudentObjects.length === 0 ? (
+						<span className="text-sm text-muted-foreground">
+							All students included
+						</span>
+					) : (
+						<>
+							{visiblePills.map((s) => (
+								<span
+									key={s.id}
+									className="inline-flex items-center gap-1 bg-primary/10 text-primary rounded-full py-0.5 pl-2 pr-1.5 text-xs font-medium whitespace-nowrap shrink-0"
+								>
+									{getFirstName(s.name)}
+									<span
+										role="button"
+										aria-label={`Remove ${getFirstName(s.name)}`}
+										tabIndex={0}
+										onClick={(e) => {
+											e.stopPropagation();
+											toggle(s.id);
+										}}
+										onKeyDown={(e) => {
+											if (e.key === ' ' || e.key === 'Enter') {
+												e.preventDefault();
+												e.stopPropagation();
+												toggle(s.id);
+											}
+										}}
+										className="cursor-pointer opacity-60 hover:opacity-100 transition-opacity flex items-center"
+									>
+										<svg
+											width="10"
+											height="10"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											strokeWidth={2.5}
+											strokeLinecap="round"
+										>
+											<path d="M18 6L6 18M6 6l12 12" />
+										</svg>
+									</span>
+								</span>
+							))}
+							{overflowCount > 0 && (
+								<span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+									+{overflowCount} more
+								</span>
+							)}
+						</>
+					)}
+				</div>
+
+				{/* Count badge */}
+				{selectedStudentObjects.length > 0 && (
+					<span className="text-[11px] font-medium text-primary bg-primary/10 rounded-full py-px px-2 shrink-0 whitespace-nowrap">
+						{selectedStudentObjects.length}
+					</span>
+				)}
+
+				{/* Chevron */}
+				<svg
+					aria-hidden="true"
+					width="15"
+					height="15"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth={2}
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					className={`shrink-0 text-muted-foreground transition-transform duration-200 ${isOpen ? 'rotate-180' : 'rotate-0'}`}
+				>
+					<path d="M6 9l6 6 6-6" />
+				</svg>
+			</button>
+
+			{/* Portal panel renders into document.body */}
+			{panel}
+
+			{/* Closed-state summary */}
 			{!isOpen && selectedStudentObjects.length > 0 && (
 				<p className="mt-1.5 text-xs text-muted-foreground">
 					{selectedStudentObjects.length <= 3
