@@ -236,7 +236,7 @@ const AdminGradeManagement: React.FC = () => {
 					setLoading(false);
 				});
 		} else {
-			const BOOTSTRAP_LIMIT = 500;
+			const BOOTSTRAP_LIMIT = 10_000;
 			try {
 				const params = new URLSearchParams({
 					academicYear: selectedAcademicYear,
