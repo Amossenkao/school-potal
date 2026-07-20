@@ -575,83 +575,81 @@ const TeacherGradeChangeRequests = ({
 	return (
 		<div className="space-y-4">
 			{editModal.isOpen && (
-				<div className="fixed inset-3 sm:inset-6 z-50 bg-black/25 backdrop-blur-[1px] overflow-y-auto overscroll-contain">
-					<div className="flex min-h-full items-center justify-center">
-						<div className="bg-card p-4 sm:p-5 rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain">
-						<div className="flex justify-between items-center mb-3">
-							<h3 className="text-base font-semibold">
-								Edit Grade Change Request
-							</h3>
-							<button
-								onClick={() => setEditModal((p) => ({ ...p, isOpen: false }))}
-								className="text-muted-foreground hover:text-foreground"
-							>
-								<X className="h-5 w-5" />
-							</button>
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setEditModal((p) => ({ ...p, isOpen: false }))}>
+					<div className="bg-card p-4 sm:p-5 rounded-lg shadow-xl w-full max-w-md border" onClick={(e) => e.stopPropagation()}>
+					<div className="flex justify-between items-center mb-3">
+						<h3 className="text-base font-semibold">
+							Edit Grade Change Request
+						</h3>
+						<button
+							onClick={() => setEditModal((p) => ({ ...p, isOpen: false }))}
+							className="text-muted-foreground hover:text-foreground"
+						>
+							<X className="h-5 w-5" />
+						</button>
+					</div>
+					<p className="text-xs text-muted-foreground mb-3">
+						For {editModal.studentName}
+					</p>
+					<div className="space-y-3">
+						<div className="flex items-center gap-3">
+							<label className="w-1/3 text-sm">Original Grade</label>
+							<input
+								type="text"
+								value={editModal.originalGrade}
+								disabled
+								className={`p-1.5 border rounded-md w-2/3 bg-muted text-sm ${getGradeColor(
+									editModal.originalGrade,
+								)}`}
+							/>
 						</div>
-						<p className="text-xs text-muted-foreground mb-3">
-							For {editModal.studentName}
-						</p>
-						<div className="space-y-3">
-							<div className="flex items-center gap-3">
-								<label className="w-1/3 text-sm">Original Grade</label>
-								<input
-									type="text"
-									value={editModal.originalGrade}
-									disabled
-									className={`p-1.5 border rounded-md w-2/3 bg-muted text-sm ${getGradeColor(
-										editModal.originalGrade,
-									)}`}
-								/>
-							</div>
-							<div className="flex items-center gap-3">
-								<label className="w-1/3 text-sm">New Grade</label>
-								<input
-									type="number"
-									value={editModal.requestedGrade}
-									onChange={(e) =>
-										setEditModal((p) => ({
-											...p,
-											requestedGrade: e.target.value,
-										}))
-									}
-									className={`p-1.5 border rounded-md w-2/3 text-sm ${getGradeColor(
-										editModal.requestedGrade === ''
-											? null
-											: Number(editModal.requestedGrade),
-									)}`}
-								/>
-							</div>
-							<div>
-								<label className="block mb-1.5 text-sm">Reason for Change</label>
-								<textarea
-									value={editModal.reasonForChange}
-									onChange={(e) =>
-										setEditModal((p) => ({
-											...p,
-											reasonForChange: e.target.value,
-										}))
-									}
-									className="w-full p-1.5 border rounded-md text-sm"
-									rows={3}
-								/>
-							</div>
+						<div className="flex items-center gap-3">
+							<label className="w-1/3 text-sm">New Grade</label>
+							<input
+								type="number"
+								value={editModal.requestedGrade}
+								onChange={(e) =>
+									setEditModal((p) => ({
+										...p,
+										requestedGrade: e.target.value,
+									}))
+								}
+								className={`p-1.5 border rounded-md w-2/3 text-sm ${getGradeColor(
+									editModal.requestedGrade === ''
+										? null
+										: Number(editModal.requestedGrade),
+								)}`}
+							/>
 						</div>
-						<div className="mt-4 flex justify-end gap-2">
-							<button
-								onClick={() => setEditModal((p) => ({ ...p, isOpen: false }))}
-								className="px-4 py-1.5 text-sm border rounded-md text-foreground hover:bg-muted"
-							>
-								Cancel
-							</button>
-							<button
-								onClick={handleSaveChanges}
-								className="px-4 py-1.5 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90"
-							>
-								Save Changes
-							</button>
+						<div>
+							<label className="block mb-1.5 text-sm">Reason for Change</label>
+							<textarea
+								value={editModal.reasonForChange}
+								onChange={(e) =>
+									setEditModal((p) => ({
+										...p,
+										reasonForChange: e.target.value,
+									}))
+								}
+								className="w-full p-1.5 border rounded-md text-sm"
+								rows={3}
+							/>
 						</div>
-						</div>
+					</div>
+					<div className="mt-4 flex justify-end gap-2">
+						<button
+							onClick={() => setEditModal((p) => ({ ...p, isOpen: false }))}
+							className="px-4 py-1.5 text-sm border rounded-md text-foreground hover:bg-muted"
+						>
+							Cancel
+						</button>
+						<button
+							onClick={handleSaveChanges}
+							className="px-4 py-1.5 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90"
+						>
+							Save Changes
+						</button>
+					</div>
 					</div>
 				</div>
 			)}

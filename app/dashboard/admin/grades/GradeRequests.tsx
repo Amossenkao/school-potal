@@ -738,10 +738,9 @@ const GradeRequests: React.FC = () => {
 		);
 
 		return (
-			<div className="fixed inset-3 sm:inset-6 z-50 bg-black/25 backdrop-blur-[1px] overflow-y-auto overscroll-contain">
-				<div className="flex min-h-full items-center justify-center">
-					<div className="bg-card rounded-lg shadow-xl w-full max-w-5xl max-h-[calc(100dvh-1.5rem)] flex flex-col border">
-						{/* Modal Header */}
+			<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => { setShowDetailsModal(false); setSelectedIndividualRequests(new Set()); }}>
+				<div className="bg-card rounded-lg shadow-xl w-full max-w-5xl max-h-[calc(100dvh-3rem)] flex flex-col border" onClick={(e) => e.stopPropagation()}>
+					{/* Modal Header */}
 						<div className="p-4 sm:p-5 border-b">
 							<div className="flex justify-between items-start">
 								<div>
@@ -911,74 +910,75 @@ const GradeRequests: React.FC = () => {
 							</div>
 						)}
 					</div>
-				</div>
 			</div>
 		);
 	};
 
 	const renderRejectModal = (isBulk: boolean) => (
-		<div className="fixed inset-3 sm:inset-6 z-50 bg-black/25 backdrop-blur-[1px] overflow-y-auto overscroll-contain">
-			<div className="flex min-h-full items-center justify-center">
-				<div className="bg-card rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain border">
-					<div className="p-4 sm:p-5 border-b flex justify-between items-center">
-						<h3 className="text-lg font-semibold text-destructive">
-							{isBulk ? 'Bulk Reject Requests' : 'Reject Request(s)'}
-						</h3>
-						<button
-							onClick={() =>
-								isBulk
-									? setShowBulkRejectModal(false)
-									: setShowRejectModal(false)
-							}
-							className="text-muted-foreground hover:text-foreground"
-						>
-							<X className="h-5 w-5" />
-						</button>
-					</div>
-					<div className="p-4 sm:p-5">
-						<p className="text-muted-foreground mb-3 text-sm">
-							{isBulk
-								? `You are rejecting all pending requests in ${selectedBulkRequests.size} batch(es).`
-								: 'Provide a reason for rejection. This will be visible to the teacher.'}
-						</p>
-						<textarea
-							value={isBulk ? bulkRejectionReason : rejectionReason}
-							onChange={(e) =>
-								isBulk
-									? setBulkRejectionReason(e.target.value)
-									: setRejectionReason(e.target.value)
-							}
-							placeholder="Enter detailed reason for rejection..."
-							rows={3}
-							className="w-full rounded-md border-input bg-background shadow-sm focus:ring-destructive focus:border-destructive text-sm"
-						/>
-					</div>
-					<div className="p-4 sm:p-5 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-						<button
-							onClick={() =>
-								isBulk
-									? setShowBulkRejectModal(false)
-									: setShowRejectModal(false)
-							}
-							className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto text-sm"
-						>
-							Cancel
-						</button>
-						<button
-							onClick={isBulk ? handleBulkReject : handleModalReject}
-							disabled={
-								isProcessing ||
-								!(isBulk ? bulkRejectionReason : rejectionReason).trim()
-							}
-							className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto text-sm"
-						>
-							{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}{' '}
-							<XCircle className="h-4 w-4" />{' '}
-							{isBulk
-								? `Reject ${selectedBulkRequests.size} Batches`
-								: 'Confirm Rejection'}
-						</button>
-					</div>
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() =>
+			isBulk
+				? setShowBulkRejectModal(false)
+				: setShowRejectModal(false)
+		}>
+			<div className="bg-card rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-3rem)] overflow-y-auto overscroll-contain border" onClick={(e) => e.stopPropagation()}>
+				<div className="p-4 sm:p-5 border-b flex justify-between items-center">
+					<h3 className="text-lg font-semibold text-destructive">
+						{isBulk ? 'Bulk Reject Requests' : 'Reject Request(s)'}
+					</h3>
+					<button
+						onClick={() =>
+							isBulk
+								? setShowBulkRejectModal(false)
+								: setShowRejectModal(false)
+						}
+						className="text-muted-foreground hover:text-foreground"
+					>
+						<X className="h-5 w-5" />
+					</button>
+				</div>
+				<div className="p-4 sm:p-5">
+					<p className="text-muted-foreground mb-3 text-sm">
+						{isBulk
+							? `You are rejecting all pending requests in ${selectedBulkRequests.size} batch(es).`
+							: 'Provide a reason for rejection. This will be visible to the teacher.'}
+					</p>
+					<textarea
+						value={isBulk ? bulkRejectionReason : rejectionReason}
+						onChange={(e) =>
+							isBulk
+								? setBulkRejectionReason(e.target.value)
+								: setRejectionReason(e.target.value)
+						}
+						placeholder="Enter detailed reason for rejection..."
+						rows={3}
+						className="w-full rounded-md border-input bg-background shadow-sm focus:ring-destructive focus:border-destructive text-sm"
+					/>
+				</div>
+				<div className="p-4 sm:p-5 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+					<button
+						onClick={() =>
+							isBulk
+								? setShowBulkRejectModal(false)
+								: setShowRejectModal(false)
+						}
+						className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto text-sm"
+					>
+						Cancel
+					</button>
+					<button
+						onClick={isBulk ? handleBulkReject : handleModalReject}
+						disabled={
+							isProcessing ||
+							!(isBulk ? bulkRejectionReason : rejectionReason).trim()
+						}
+						className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto text-sm"
+					>
+						{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}{' '}
+						<XCircle className="h-4 w-4" />{' '}
+						{isBulk
+							? `Reject ${selectedBulkRequests.size} Batches`
+							: 'Confirm Rejection'}
+					</button>
 				</div>
 			</div>
 		</div>

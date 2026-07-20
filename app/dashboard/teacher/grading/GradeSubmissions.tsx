@@ -1353,57 +1353,56 @@ const TeacherGradeSubmissions = () => {
 						};
 		const Icon = tone.icon;
 		return (
-			<div className="fixed inset-3 sm:inset-6 z-[1000] bg-black/35 backdrop-blur-sm overflow-y-auto overscroll-contain">
-				<div className="flex min-h-full items-center justify-center">
-					<div
-						className={`relative bg-card rounded-xl border ${tone.border} shadow-2xl w-full max-w-sm overflow-hidden`}
-						role="status"
-						aria-live="polite"
+			<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => { setResultModalOpen(false); setNotification(null); }}>
+				<div
+					className={`relative bg-card rounded-xl border ${tone.border} shadow-2xl w-full max-w-sm overflow-hidden`}
+					onClick={(e) => e.stopPropagation()}
+					role="status"
+					aria-live="polite"
+				>
+					<div className={`h-1.5 w-full ${tone.accent}`} />
+					<button
+						type="button"
+						onClick={() => {
+							setResultModalOpen(false);
+							setNotification(null);
+						}}
+						className="absolute right-3 top-3 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+						aria-label="Close notification"
 					>
-						<div className={`h-1.5 w-full ${tone.accent}`} />
-						<button
-							type="button"
+						<X className="h-4 w-4" />
+					</button>
+					<div className="p-4 pr-10">
+						<div className="flex items-start gap-3">
+							<div
+								className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${tone.iconWrap}`}
+							>
+								<Icon className="h-4 w-4" />
+							</div>
+							<div className="min-w-0">
+								<p className="text-sm font-semibold text-foreground">
+									{tone.title}
+								</p>
+								<p className="mt-1 text-xs leading-5 text-muted-foreground">
+									{notification.message}
+								</p>
+							</div>
+						</div>
+					</div>
+					<div className="flex items-center justify-between gap-3 border-t bg-muted/30 px-4 py-2">
+						<p className="text-xs text-muted-foreground">
+							Auto-closes shortly.
+						</p>
+						<Button
+							size="sm"
+							variant="outline"
 							onClick={() => {
 								setResultModalOpen(false);
 								setNotification(null);
 							}}
-							className="absolute right-3 top-3 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-							aria-label="Close notification"
 						>
-							<X className="h-4 w-4" />
-						</button>
-						<div className="p-4 pr-10">
-							<div className="flex items-start gap-3">
-								<div
-									className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${tone.iconWrap}`}
-								>
-									<Icon className="h-4 w-4" />
-								</div>
-								<div className="min-w-0">
-									<p className="text-sm font-semibold text-foreground">
-										{tone.title}
-									</p>
-									<p className="mt-1 text-xs leading-5 text-muted-foreground">
-										{notification.message}
-									</p>
-								</div>
-							</div>
-						</div>
-						<div className="flex items-center justify-between gap-3 border-t bg-muted/30 px-4 py-2">
-							<p className="text-xs text-muted-foreground">
-								Auto-closes shortly.
-							</p>
-							<Button
-								size="sm"
-								variant="outline"
-								onClick={() => {
-									setResultModalOpen(false);
-									setNotification(null);
-								}}
-							>
-								Dismiss
-							</Button>
-						</div>
+							Dismiss
+						</Button>
 					</div>
 				</div>
 			</div>
@@ -1461,51 +1460,49 @@ const TeacherGradeSubmissions = () => {
 		}
 
 		return (
-			<div className="fixed inset-3 sm:inset-6 z-[1000] bg-black/25 backdrop-blur-[1px] overflow-y-auto overscroll-contain">
-				<div className="flex min-h-full items-center justify-center">
-					<div className="bg-card p-4 sm:p-5 rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain border">
-						<h3 className="text-base font-semibold mb-2">
-							Reason for Grade Change Request
-						</h3>
-						<p className="text-xs text-muted-foreground mb-3">
-							You are editing one or more <strong>approved grades</strong>.
-							Please provide a reason for this change. This will be sent for
-							administrator review.
-						</p>
-						<textarea
-							value={confirmationModal.reason}
-							onChange={(e) =>
-								setConfirmationModal((prev) => ({
-									...prev,
-									reason: e.target.value,
-								}))
+			<div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setConfirmationModal({ isOpen: false, reason: '' })}>
+				<div className="bg-card p-4 sm:p-5 rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-3rem)] overflow-y-auto overscroll-contain border" onClick={(e) => e.stopPropagation()}>
+					<h3 className="text-base font-semibold mb-2">
+						Reason for Grade Change Request
+					</h3>
+					<p className="text-xs text-muted-foreground mb-3">
+						You are editing one or more <strong>approved grades</strong>.
+						Please provide a reason for this change. This will be sent for
+						administrator review.
+					</p>
+					<textarea
+						value={confirmationModal.reason}
+						onChange={(e) =>
+							setConfirmationModal((prev) => ({
+								...prev,
+								reason: e.target.value,
+							}))
+						}
+						className="w-full rounded-md border border-input bg-background p-2 text-sm"
+						rows={3}
+						placeholder="e.g., Correction of data entry error, re-evaluation of an assignment..."
+					/>
+					<div className="mt-3 flex justify-end gap-2">
+						<Button
+							onClick={() =>
+								setConfirmationModal({ isOpen: false, reason: '' })
 							}
-							className="w-full rounded-md border border-input bg-background p-2 text-sm"
-							rows={3}
-							placeholder="e.g., Correction of data entry error, re-evaluation of an assignment..."
-						/>
-						<div className="mt-3 flex justify-end gap-2">
-							<Button
-								onClick={() =>
-									setConfirmationModal({ isOpen: false, reason: '' })
-								}
-								variant="outline"
-								size="sm"
-							>
-								Cancel
-							</Button>
-							<Button
-								onClick={handleFinalSubmit}
-								disabled={!confirmationModal.reason.trim() || isSubmitting}
-								size="sm"
-							>
-								{isSubmitting ? (
-									<Loader2 className="h-4 w-4 animate-spin" />
-								) : (
-									'Confirm & Submit'
-								)}
-							</Button>
-						</div>
+							variant="outline"
+							size="sm"
+						>
+							Cancel
+						</Button>
+						<Button
+							onClick={handleFinalSubmit}
+							disabled={!confirmationModal.reason.trim() || isSubmitting}
+							size="sm"
+						>
+							{isSubmitting ? (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							) : (
+								'Confirm & Submit'
+							)}
+						</Button>
 					</div>
 				</div>
 			</div>
@@ -1514,30 +1511,29 @@ const TeacherGradeSubmissions = () => {
 
 	const renderDetailsModal = () =>
 		selectedGrade && (
-			<div className="fixed inset-3 sm:inset-6 z-50 bg-black/25 backdrop-blur-[1px] overflow-y-auto overscroll-contain">
-				<div className="flex min-h-full items-center justify-center">
-					<div className="bg-background rounded-lg border shadow-xl w-full max-w-4xl max-h-[calc(100dvh-1.5rem)] flex flex-col">
-						<div className="p-4 sm:p-5 border-b">
-							<div className="flex justify-between items-center">
-								<h3 className="text-lg font-semibold text-foreground">
-									Submission Details
-								</h3>
-								<button
-									onClick={() => setShowDetailsModal(false)}
-									className="text-muted-foreground hover:text-foreground"
-								>
-									<X className="h-5 w-5" />
-								</button>
-							</div>
-							<div className="text-xs text-muted-foreground mt-1">
-								{selectedGrade.subject} -{' '}
-								{classMap.get(selectedGrade.gradeLevel) ||
-									selectedGrade.gradeLevel}{' '}
-								({periods.find((p) => p.value === selectedGrade.period)?.label})
-							</div>
+			<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowDetailsModal(false)}>
+				<div className="bg-background rounded-lg border shadow-xl w-full max-w-4xl max-h-[calc(100dvh-3rem)] flex flex-col" onClick={(e) => e.stopPropagation()}>
+					<div className="p-4 sm:p-5 border-b">
+						<div className="flex justify-between items-center">
+							<h3 className="text-lg font-semibold text-foreground">
+								Submission Details
+							</h3>
+							<button
+								onClick={() => setShowDetailsModal(false)}
+								className="text-muted-foreground hover:text-foreground"
+							>
+								<X className="h-5 w-5" />
+							</button>
 						</div>
+						<div className="text-xs text-muted-foreground mt-1">
+							{selectedGrade.subject} -{' '}
+							{classMap.get(selectedGrade.gradeLevel) ||
+								selectedGrade.gradeLevel}{' '}
+							({periods.find((p) => p.value === selectedGrade.period)?.label})
+						</div>
+					</div>
 
-						{renderConfirmationErrorModal()}
+					{renderConfirmationErrorModal()}
 
 						<div className="p-4 sm:p-5 overflow-y-auto overscroll-contain flex-grow">
 							<div className="overflow-x-auto">
@@ -1699,7 +1695,6 @@ const TeacherGradeSubmissions = () => {
 								{isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
 								Submit Request
 							</Button>
-						</div>
 					</div>
 				</div>
 			</div>

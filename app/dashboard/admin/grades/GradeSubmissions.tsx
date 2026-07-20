@@ -972,13 +972,12 @@ const AdminGradeManagement: React.FC = () => {
 		);
 
 		return (
-			<div className="fixed inset-3 sm:inset-6 z-50 bg-black/25 backdrop-blur-[1px] overflow-y-auto overscroll-contain">
-				<div className="flex min-h-full items-center justify-center">
-					<div className="bg-card rounded-lg shadow-xl w-full max-w-4xl max-h-[calc(100dvh-1.5rem)] flex flex-col border">
-						<div className="p-4 sm:p-5 border-b">
-							<div className="flex justify-between items-center">
-								<div className="min-w-0">
-									<h3 className="text-lg font-semibold">Submission Details</h3>
+			<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowDetailsModal(false)}>
+				<div className="bg-card rounded-lg shadow-xl w-full max-w-4xl max-h-[calc(100dvh-3rem)] flex flex-col border" onClick={(e) => e.stopPropagation()}>
+					<div className="p-4 sm:p-5 border-b">
+						<div className="flex justify-between items-center">
+							<div className="min-w-0">
+								<h3 className="text-lg font-semibold">Submission Details</h3>
 									<div className="text-xs text-muted-foreground mt-1 space-y-0.5">
 										<div className="flex items-center gap-3 flex-wrap">
 											<span className="flex items-center gap-1">
@@ -1147,109 +1146,104 @@ const AdminGradeManagement: React.FC = () => {
 							</div>
 						)}
 					</div>
-				</div>
 			</div>
 		);
 	};
 
 	const renderRejectModal = () => (
-		<div className="fixed inset-3 sm:inset-6 z-50 bg-black/25 backdrop-blur-[1px] overflow-y-auto overscroll-contain">
-			<div className="flex min-h-full items-center justify-center">
-				<div className="bg-card rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain border">
-					<div className="p-4 sm:p-5 border-b">
-						<div className="flex justify-between items-center">
-							<h3 className="text-lg font-semibold text-destructive">
-								Reject Submission
-							</h3>
-							<button
-								onClick={() => setShowRejectModal(false)}
-								className="text-muted-foreground hover:text-foreground"
-							>
-								<X className="h-5 w-5" />
-							</button>
-						</div>
-					</div>
-					<div className="p-4 sm:p-5">
-						<p className="text-muted-foreground mb-3 text-sm">
-							Please provide a reason for rejecting this{' '}
-							{actionType === 'individual' ? 'student grade(s)' : 'submission'}:
-						</p>
-						<textarea
-							value={rejectionReason}
-							onChange={(e) => setRejectionReason(e.target.value)}
-							placeholder="Enter detailed reason for rejection..."
-							rows={3}
-							className="w-full rounded-md border-input bg-background shadow-sm focus:ring-destructive focus:border-destructive text-sm"
-						/>
-					</div>
-					<div className="p-4 sm:p-5 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowRejectModal(false)}>
+			<div className="bg-card rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-3rem)] overflow-y-auto overscroll-contain border" onClick={(e) => e.stopPropagation()}>
+				<div className="p-4 sm:p-5 border-b">
+					<div className="flex justify-between items-center">
+						<h3 className="text-lg font-semibold text-destructive">
+							Reject Submission
+						</h3>
 						<button
 							onClick={() => setShowRejectModal(false)}
-							className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto text-sm"
+							className="text-muted-foreground hover:text-foreground"
 						>
-							Cancel
-						</button>
-						<button
-							onClick={handleReject}
-							disabled={isProcessing || !rejectionReason.trim()}
-							className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto text-sm"
-						>
-							{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
-							<XCircle className="h-4 w-4" /> Reject
+							<X className="h-5 w-5" />
 						</button>
 					</div>
+				</div>
+				<div className="p-4 sm:p-5">
+					<p className="text-muted-foreground mb-3 text-sm">
+						Please provide a reason for rejecting this{' '}
+						{actionType === 'individual' ? 'student grade(s)' : 'submission'}:
+					</p>
+					<textarea
+						value={rejectionReason}
+						onChange={(e) => setRejectionReason(e.target.value)}
+						placeholder="Enter detailed reason for rejection..."
+						rows={3}
+						className="w-full rounded-md border-input bg-background shadow-sm focus:ring-destructive focus:border-destructive text-sm"
+					/>
+				</div>
+				<div className="p-4 sm:p-5 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+					<button
+						onClick={() => setShowRejectModal(false)}
+						className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto text-sm"
+					>
+						Cancel
+					</button>
+					<button
+						onClick={handleReject}
+						disabled={isProcessing || !rejectionReason.trim()}
+						className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto text-sm"
+					>
+						{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
+						<XCircle className="h-4 w-4" /> Reject
+					</button>
 				</div>
 			</div>
 		</div>
 	);
 
 	const renderBulkRejectModal = () => (
-		<div className="fixed inset-3 sm:inset-6 z-50 bg-black/25 backdrop-blur-[1px] overflow-y-auto overscroll-contain">
-			<div className="flex min-h-full items-center justify-center">
-				<div className="bg-card rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain border">
-					<div className="p-4 sm:p-5 border-b">
-						<div className="flex justify-between items-center">
-							<h3 className="text-lg font-semibold text-destructive">
-								Bulk Reject Submissions
-							</h3>
-							<button
-								onClick={() => setShowBulkRejectModal(false)}
-								className="text-muted-foreground hover:text-foreground"
-							>
-								<X className="h-5 w-5" />
-							</button>
-						</div>
-					</div>
-					<div className="p-4 sm:p-5">
-						<p className="text-muted-foreground mb-3 text-sm">
-							You are about to reject {selectedSubmissions.size} submission(s).
-							Please provide a reason:
-						</p>
-						<textarea
-							value={bulkRejectionReason}
-							onChange={(e) => setBulkRejectionReason(e.target.value)}
-							placeholder="Enter detailed reason for rejection..."
-							rows={3}
-							className="w-full rounded-md border-input bg-background shadow-sm focus:ring-destructive focus:border-destructive text-sm"
-						/>
-					</div>
-					<div className="p-4 sm:p-5 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowBulkRejectModal(false)}>
+			<div className="bg-card rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-3rem)] overflow-y-auto overscroll-contain border" onClick={(e) => e.stopPropagation()}>
+				<div className="p-4 sm:p-5 border-b">
+					<div className="flex justify-between items-center">
+						<h3 className="text-lg font-semibold text-destructive">
+							Bulk Reject Submissions
+						</h3>
 						<button
 							onClick={() => setShowBulkRejectModal(false)}
-							className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto text-sm"
+							className="text-muted-foreground hover:text-foreground"
 						>
-							Cancel
-						</button>
-						<button
-							onClick={handleBulkReject}
-							disabled={isProcessing || !bulkRejectionReason.trim()}
-							className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto text-sm"
-						>
-							{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
-							<XCircle className="h-4 w-4" /> Reject {selectedSubmissions.size}{' '}
-							Submissions
+							<X className="h-5 w-5" />
 						</button>
 					</div>
+				</div>
+				<div className="p-4 sm:p-5">
+					<p className="text-muted-foreground mb-3 text-sm">
+						You are about to reject {selectedSubmissions.size} submission(s).
+						Please provide a reason:
+					</p>
+					<textarea
+						value={bulkRejectionReason}
+						onChange={(e) => setBulkRejectionReason(e.target.value)}
+						placeholder="Enter detailed reason for rejection..."
+						rows={3}
+						className="w-full rounded-md border-input bg-background shadow-sm focus:ring-destructive focus:border-destructive text-sm"
+					/>
+				</div>
+				<div className="p-4 sm:p-5 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+					<button
+						onClick={() => setShowBulkRejectModal(false)}
+						className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto text-sm"
+					>
+						Cancel
+					</button>
+					<button
+						onClick={handleBulkReject}
+						disabled={isProcessing || !bulkRejectionReason.trim()}
+						className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto text-sm"
+					>
+						{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
+						<XCircle className="h-4 w-4" /> Reject {selectedSubmissions.size}{' '}
+						Submissions
+					</button>
 				</div>
 			</div>
 		</div>
