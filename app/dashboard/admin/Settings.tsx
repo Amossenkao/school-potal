@@ -106,12 +106,6 @@ const parseAcademicYearStart = (value: any) => {
 const formatAcademicYear = (startYear: number) =>
 	`${startYear}-${startYear + 1}`;
 
-const shiftAcademicYear = (yearLabel: string, delta: number) => {
-	const start = parseAcademicYearStart(yearLabel);
-	if (start === null) return null;
-	return formatAcademicYear(start + delta);
-};
-
 const buildAcademicYearRange = (
 	startYearLabel: string,
 	endYearLabel: string,
@@ -128,6 +122,15 @@ const buildAcademicYearRange = (
 	for (let year = lower; year <= upper; year += 1)
 		years.push(formatAcademicYear(year));
 	return years;
+};
+
+// ---------------------------------------------------------------------------
+// Academic year selector range:
+// From firstAcademicYear up to (currentCalendarYear+1)-(currentCalendarYear+2)
+// ---------------------------------------------------------------------------
+const getMaxSelectableAcademicYear = () => {
+	const calendarYear = new Date().getFullYear();
+	return formatAcademicYear(calendarYear + 1);
 };
 
 // ---------------------------------------------------------------------------
@@ -180,100 +183,117 @@ const normalizeTeacherYearSettings = (existing: any) => {
 };
 
 // ---------------------------------------------------------------------------
-// MultiSelect
+// ToggleSwitch
 // ---------------------------------------------------------------------------
-const MultiSelect = ({
+const ToggleSwitch = ({ checked, onChange, disabled = false }: any) => (
+	<button
+		type="button"
+		onClick={onChange}
+		disabled={disabled}
+		className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${checked ? 'bg-primary' : 'bg-muted'} ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+	>
+		<span
+			className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ease-in-out ${checked ? 'translate-x-6' : 'translate-x-1'}`}
+		/>
+		<span className="sr-only">Toggle setting</span>
+	</button>
+);
+
+// ---------------------------------------------------------------------------
+// PeriodToggleAccordion — replaces MultiSelect for periods/semesters
+// Renders an inline accordion with a compact switch per option.
+// ---------------------------------------------------------------------------
+const PeriodToggleAccordion = ({
 	options,
 	selected,
 	onChange,
 	label,
 	disabled = false,
-}: any) => {
+}: {
+	options: { value: string; label: string }[];
+	selected: string[];
+	onChange: (next: string[]) => void;
+	label: string;
+	disabled?: boolean;
+}) => {
 	const [isOpen, setIsOpen] = useState(false);
-	const safeOptions = Array.isArray(options) ? options : [];
 	const safeSelected = ensureArray(selected);
+	const selectedCount = safeSelected.length;
+
+	const toggle = (value: string) => {
+		if (safeSelected.includes(value)) {
+			onChange(safeSelected.filter((v) => v !== value));
+		} else {
+			onChange([...safeSelected, value]);
+		}
+	};
 
 	return (
-		<div className="relative w-full">
+		<div
+			className={`w-full ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
+		>
 			<label className="block text-xs sm:text-sm font-medium text-foreground mb-1.5">
 				{label}
 			</label>
-			<div
-				className={`w-full rounded-lg border border-border bg-background p-2 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
-			>
-				<div className="flex flex-wrap gap-1.5 items-center min-h-[32px]">
-					{safeSelected.map((itemValue: string) => {
-						const itemLabel =
-							safeOptions.find((o: any) => o.value === itemValue)?.label ||
-							itemValue;
-						return (
-							<div
-								key={itemValue}
-								className="flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap"
-							>
-								<span className="max-w-[120px] sm:max-w-none truncate">
-									{itemLabel}
+			<div className="rounded-lg border border-border bg-background overflow-hidden">
+				{/* Accordion header */}
+				<button
+					type="button"
+					onClick={() => setIsOpen(!isOpen)}
+					className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-muted/50 transition-colors text-left"
+				>
+					<span className="text-sm text-muted-foreground">
+						{selectedCount === 0 ? (
+							'None selected'
+						) : (
+							<span className="flex items-center gap-2">
+								<span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary/10 text-primary text-xs font-bold">
+									{selectedCount}
 								</span>
-								<button
-									type="button"
-									onClick={() =>
-										onChange(
-											safeSelected.filter((i: string) => i !== itemValue),
-										)
-									}
-									className="flex-shrink-0 text-primary/70 hover:text-primary"
-								>
-									<X className="h-3 w-3" />
-								</button>
-							</div>
-						);
-					})}
-					<div className="relative flex-1 min-w-[80px]">
-						<button
-							type="button"
-							onClick={() => setIsOpen(!isOpen)}
-							className="w-full text-left bg-transparent focus:outline-none flex justify-between items-center gap-2 text-sm"
-						>
-							<span className="text-muted-foreground truncate">
-								{safeSelected.length === 0 ? 'Select...' : 'Add...'}
+								<span className="text-foreground font-medium">
+									{selectedCount === 1 ? 'selected' : 'selected'}
+								</span>
 							</span>
-							<ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-						</button>
-						{isOpen && (
-							<>
-								<div
-									className="fixed inset-0 z-10"
-									onClick={() => setIsOpen(false)}
-								/>
-								<div className="absolute z-20 mt-1 w-full sm:w-auto sm:min-w-[200px] rounded-md bg-card shadow-lg border border-border max-h-60 overflow-auto">
-									<ul className="py-1">
-										{safeOptions
-											.filter((o: any) => !safeSelected.includes(o.value))
-											.map((option: any) => (
-												<li
-													key={option.value}
-													onClick={() => {
-														onChange([...safeSelected, option.value]);
-														setIsOpen(false);
-													}}
-													className="text-foreground cursor-pointer select-none px-3 py-2 hover:bg-muted text-sm"
-												>
-													{option.label}
-												</li>
-											))}
-										{safeOptions.filter(
-											(o: any) => !safeSelected.includes(o.value),
-										).length === 0 && (
-											<li className="text-muted-foreground px-3 py-2 text-sm">
-												All selected
-											</li>
-										)}
-									</ul>
-								</div>
-							</>
 						)}
+					</span>
+					<ChevronDown
+						className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+					/>
+				</button>
+
+				{/* Accordion body */}
+				{isOpen && (
+					<div className="border-t border-border bg-muted/10 p-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+						{options.map((option) => {
+							const isChecked = safeSelected.includes(option.value);
+							return (
+								<button
+									key={option.value}
+									type="button"
+									onClick={() => toggle(option.value)}
+									className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-colors border ${
+										isChecked
+											? 'bg-primary/8 border-primary/30'
+											: 'bg-background border-border hover:bg-muted/50'
+									}`}
+								>
+									<span
+										className={`text-xs font-medium leading-snug ${isChecked ? 'text-primary' : 'text-foreground'}`}
+									>
+										{option.label}
+									</span>
+									<div
+										className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors duration-200 ${isChecked ? 'bg-primary' : 'bg-muted'}`}
+									>
+										<span
+											className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${isChecked ? 'translate-x-4' : 'translate-x-0.5'}`}
+										/>
+									</div>
+								</button>
+							);
+						})}
 					</div>
-				</div>
+				)}
 			</div>
 		</div>
 	);
@@ -330,20 +350,9 @@ const SingleSelect = ({ options, selected, onChange, label }: any) => {
 	);
 };
 
-const ToggleSwitch = ({ checked, onChange, disabled = false }: any) => (
-	<button
-		type="button"
-		onClick={onChange}
-		disabled={disabled}
-		className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${checked ? 'bg-primary' : 'bg-muted'} ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-	>
-		<span
-			className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ease-in-out ${checked ? 'translate-x-6' : 'translate-x-1'}`}
-		/>
-		<span className="sr-only">Toggle setting</span>
-	</button>
-);
-
+// ---------------------------------------------------------------------------
+// SettingsSection
+// ---------------------------------------------------------------------------
 const SettingsSection = ({ icon: Icon, title, description, children }: any) => (
 	<div className="rounded-lg sm:rounded-xl border border-border bg-card p-4 sm:p-6 shadow-sm">
 		<div className="flex items-start gap-3 sm:gap-4 mb-4">
@@ -365,6 +374,9 @@ const SettingsSection = ({ icon: Icon, title, description, children }: any) => (
 	</div>
 );
 
+// ---------------------------------------------------------------------------
+// SettingsItem
+// ---------------------------------------------------------------------------
 const SettingsItem = ({
 	label,
 	description,
@@ -389,6 +401,9 @@ const SettingsItem = ({
 	</div>
 );
 
+// ---------------------------------------------------------------------------
+// BulkActionItem
+// ---------------------------------------------------------------------------
 const BulkActionItem = ({
 	label,
 	description,
@@ -531,7 +546,7 @@ const YearAccordionHeader = ({
 );
 
 // ---------------------------------------------------------------------------
-// StudentReportAccessByYear — accordion grouping report access by academic year
+// StudentReportAccessByYear
 // ---------------------------------------------------------------------------
 function StudentReportAccessByYear({
 	years,
@@ -542,9 +557,8 @@ function StudentReportAccessByYear({
 	data: Record<string, any>;
 	onChange: (next: Record<string, any>) => void;
 }) {
-	const [expandedYear, setExpandedYear] = useState<string | null>(
-		years.length > 0 ? years[0] : null,
-	);
+	// Start with all collapsed
+	const [expandedYear, setExpandedYear] = useState<string | null>(null);
 
 	if (years.length === 0) {
 		return (
@@ -614,14 +628,14 @@ function StudentReportAccessByYear({
 										}
 										disabled={!yearSettings.enabled}
 									/>
-									<MultiSelect
+									<PeriodToggleAccordion
 										options={academicPeriodsMap}
 										selected={yearSettings.periods}
 										onChange={(v: string[]) => updateYear(year, { periods: v })}
 										label="Periodic reports students can view"
 										disabled={!yearSettings.enabled}
 									/>
-									<MultiSelect
+									<PeriodToggleAccordion
 										options={semesterOptions}
 										selected={yearSettings.semesters}
 										onChange={(v: string[]) =>
@@ -641,7 +655,7 @@ function StudentReportAccessByYear({
 }
 
 // ---------------------------------------------------------------------------
-// TeacherPermissionsByYear — accordion grouping teacher permissions by year
+// TeacherPermissionsByYear
 // ---------------------------------------------------------------------------
 function TeacherPermissionsByYear({
 	years,
@@ -652,9 +666,8 @@ function TeacherPermissionsByYear({
 	data: Record<string, any>;
 	onChange: (next: Record<string, any>) => void;
 }) {
-	const [expandedYear, setExpandedYear] = useState<string | null>(
-		years.length > 0 ? years[0] : null,
-	);
+	// Start with all collapsed
+	const [expandedYear, setExpandedYear] = useState<string | null>(null);
 
 	if (years.length === 0) {
 		return (
@@ -734,7 +747,7 @@ function TeacherPermissionsByYear({
 											disabled={!yearSettings.enabled}
 										/>
 										{yearSettings.gradeSubmission.enabled && (
-											<MultiSelect
+											<PeriodToggleAccordion
 												options={academicPeriodsMap}
 												selected={yearSettings.gradeSubmission.periods}
 												onChange={(v: string[]) =>
@@ -785,7 +798,7 @@ function TeacherPermissionsByYear({
 											disabled={!yearSettings.enabled}
 										/>
 										{yearSettings.gradeChangeRequest.enabled && (
-											<MultiSelect
+											<PeriodToggleAccordion
 												options={academicPeriodsMap}
 												selected={yearSettings.gradeChangeRequest.periods}
 												onChange={(v: string[]) =>
@@ -809,7 +822,7 @@ function TeacherPermissionsByYear({
 }
 
 // ---------------------------------------------------------------------------
-// MockReportCard — miniature report card preview rendered in the chosen theme
+// MockReportCard
 // ---------------------------------------------------------------------------
 const MockReportCard = ({ theme }: { theme: any }) => (
 	<div
@@ -818,7 +831,6 @@ const MockReportCard = ({ theme }: { theme: any }) => (
 			background: `linear-gradient(145deg, ${theme.previewFrom} 0%, ${theme.previewTo} 100%)`,
 		}}
 	>
-		{/* Decorative background circles */}
 		<div
 			className="absolute -top-8 -right-8 h-28 w-28 rounded-full opacity-20"
 			style={{ background: theme.previewTo }}
@@ -829,7 +841,6 @@ const MockReportCard = ({ theme }: { theme: any }) => (
 		/>
 
 		<div className="relative z-10 p-3 h-full flex flex-col">
-			{/* School header */}
 			<div className="flex items-center gap-1.5 mb-2.5">
 				<div className="h-5 w-5 rounded-full bg-white/30 flex items-center justify-center flex-shrink-0">
 					<FileText className="h-2.5 w-2.5 text-white" />
@@ -840,12 +851,10 @@ const MockReportCard = ({ theme }: { theme: any }) => (
 				</div>
 			</div>
 
-			{/* Title bar */}
 			<div className="bg-white/20 rounded-md px-2 py-1 mb-2 text-center">
 				<div className="h-1.5 w-16 rounded-full bg-white/60 mx-auto" />
 			</div>
 
-			{/* Student info */}
 			<div className="mb-2 space-y-1">
 				<div className="flex gap-1 items-center">
 					<div className="h-1 w-6 rounded-full bg-white/40" />
@@ -857,15 +866,12 @@ const MockReportCard = ({ theme }: { theme: any }) => (
 				</div>
 			</div>
 
-			{/* Grade table */}
 			<div className="flex-1 bg-white/10 rounded-lg p-1.5 space-y-1">
-				{/* Header */}
 				<div className="flex gap-1 pb-1 border-b border-white/20">
 					<div className="flex-1 h-1.5 rounded-full bg-white/50" />
 					<div className="w-6 h-1.5 rounded-full bg-white/50" />
 					<div className="w-6 h-1.5 rounded-full bg-white/50" />
 				</div>
-				{/* Rows */}
 				{[70, 85, 55, 92, 78].map((score, i) => (
 					<div key={i} className="flex gap-1 items-center">
 						<div className="flex-1 h-1 rounded-full bg-white/30" />
@@ -881,7 +887,6 @@ const MockReportCard = ({ theme }: { theme: any }) => (
 				))}
 			</div>
 
-			{/* Footer */}
 			<div className="mt-2 flex justify-between items-center">
 				<div className="h-1 w-12 rounded-full bg-white/30" />
 				<div className="h-3 w-10 rounded bg-white/20 flex items-center justify-center">
@@ -893,7 +898,7 @@ const MockReportCard = ({ theme }: { theme: any }) => (
 );
 
 // ---------------------------------------------------------------------------
-// ReportCardThemePicker — reimagined accordion-style per-class-level selector
+// ReportCardThemePicker — all accordions collapsed by default
 // ---------------------------------------------------------------------------
 function ReportCardThemePicker({
 	classLevels,
@@ -904,9 +909,8 @@ function ReportCardThemePicker({
 	themes: Record<string, string>;
 	onChange: (level: string, themeId: string) => void;
 }) {
-	const [expandedLevel, setExpandedLevel] = useState<string | null>(
-		classLevels.length > 0 ? classLevels[0] : null,
-	);
+	// All collapsed by default — null means nothing is open
+	const [expandedLevel, setExpandedLevel] = useState<string | null>(null);
 
 	if (classLevels.length === 0) {
 		return (
@@ -923,7 +927,6 @@ function ReportCardThemePicker({
 		<div className="space-y-2.5">
 			{classLevels.map((level) => {
 				const currentThemeId = themes[level] || DEFAULT_REPORT_CARD_THEME;
-
 				const currentTheme = getTheme(currentThemeId);
 				const isExpanded = expandedLevel === level;
 
@@ -936,13 +939,12 @@ function ReportCardThemePicker({
 								: 'border-border hover:border-border/80'
 						}`}
 					>
-						{/* ── Accordion header ── */}
+						{/* Accordion header */}
 						<button
 							type="button"
 							onClick={() => setExpandedLevel(isExpanded ? null : level)}
 							className="w-full flex items-center gap-3 px-4 py-3.5 bg-card hover:bg-muted/30 transition-colors text-left"
 						>
-							{/* Active theme gradient pill */}
 							<div
 								className="h-9 w-9 rounded-lg flex-shrink-0 shadow-sm ring-1 ring-black/10 dark:ring-white/10"
 								style={{
@@ -957,9 +959,7 @@ function ReportCardThemePicker({
 								<p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
 									<span
 										className="inline-block h-2 w-2 rounded-full flex-shrink-0"
-										style={{
-											background: currentTheme.previewFrom,
-										}}
+										style={{ background: currentTheme.previewFrom }}
 									/>
 									{currentTheme.name}
 								</p>
@@ -972,24 +972,22 @@ function ReportCardThemePicker({
 							/>
 						</button>
 
-						{/* ── Expanded content ── */}
+						{/* Expanded content */}
 						{isExpanded && (
 							<div className="border-t border-border bg-muted/10 p-4">
 								<div className="flex flex-col sm:flex-row gap-5">
-									{/* Left: live report card preview */}
+									{/* Live preview */}
 									<div className="sm:w-28 flex-shrink-0">
 										<p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
 											Live Preview
 										</p>
-
 										<MockReportCard theme={currentTheme} />
-
 										<p className="mt-2 text-[10px] text-center text-muted-foreground font-medium">
 											{currentTheme.name}
 										</p>
 									</div>
 
-									{/* Right: theme palette grid */}
+									{/* Theme palette grid */}
 									<div className="flex-1 min-w-0">
 										<p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
 											Select Theme
@@ -1011,14 +1009,12 @@ function ReportCardThemePicker({
 																: 'border-transparent hover:border-muted-foreground/30'
 														}`}
 													>
-														{/* Swatch */}
 														<div
 															className="h-11 w-full rounded-lg shadow-sm relative overflow-hidden transition-transform duration-150 group-hover:scale-105"
 															style={{
 																background: `linear-gradient(135deg, ${theme.previewFrom} 0%, ${theme.previewTo} 100%)`,
 															}}
 														>
-															{/* shimmer */}
 															<div
 																className="absolute inset-0 opacity-25"
 																style={{
@@ -1026,8 +1022,6 @@ function ReportCardThemePicker({
 																		'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.2) 4px, rgba(255,255,255,0.2) 5px)',
 																}}
 															/>
-
-															{/* check */}
 															{isSelected && (
 																<div className="absolute inset-0 flex items-center justify-center">
 																	<div className="h-6 w-6 rounded-full bg-white/95 shadow-md flex items-center justify-center">
@@ -1037,7 +1031,6 @@ function ReportCardThemePicker({
 															)}
 														</div>
 
-														{/* label */}
 														<span
 															className={`text-[9px] leading-tight text-center font-semibold w-full truncate transition-colors ${
 																isSelected
@@ -1052,7 +1045,6 @@ function ReportCardThemePicker({
 											})}
 										</div>
 
-										{/* Active theme callout */}
 										<div className="mt-4 flex items-center gap-2 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
 											<Sparkles className="h-3.5 w-3.5 text-primary flex-shrink-0" />
 											<p className="text-xs text-muted-foreground leading-snug">
@@ -1062,9 +1054,7 @@ function ReportCardThemePicker({
 												report cards will use the{' '}
 												<span
 													className="font-semibold"
-													style={{
-														color: currentTheme.previewFrom,
-													}}
+													style={{ color: currentTheme.previewFrom }}
 												>
 													{currentTheme.name}
 												</span>{' '}
@@ -1120,8 +1110,7 @@ export default function Settings() {
 			const rawStudentSettings = school.settings.studentSettings || {};
 			const rawTeacherSettings = school.settings.teacherSettings || {};
 
-			// --- Student settings: normalize per-year map, with a one-time
-			// migration from the old global-only fields if no per-year data exists yet.
+			// --- Student settings normalization
 			const existingStudentByYear =
 				rawStudentSettings.reportAccessByYear &&
 				typeof rawStudentSettings.reportAccessByYear === 'object'
@@ -1140,8 +1129,6 @@ export default function Settings() {
 				rawStudentSettings.reportAccessPeriods !== undefined ||
 				rawStudentSettings.reportAccessSemesters !== undefined
 			) {
-				// Legacy global settings existed — seed the current academic year
-				// with them so nothing is silently lost.
 				nextReportAccessByYear[baseAcademicYear] = normalizeStudentYearSettings(
 					{
 						enabled: true,
@@ -1160,8 +1147,7 @@ export default function Settings() {
 				reportAccessByYear: nextReportAccessByYear,
 			});
 
-			// --- Teacher settings: normalize per-year map, with a one-time
-			// migration from the old array-based fields if no per-year data exists yet.
+			// --- Teacher settings normalization
 			const existingTeacherByYear =
 				rawTeacherSettings.permissionsByYear &&
 				typeof rawTeacherSettings.permissionsByYear === 'object'
@@ -1243,92 +1229,81 @@ export default function Settings() {
 		return Array.from(levels);
 	}, [school?.classLevels]);
 
-	const baseCurrentAcademicYear =
-		school?.currentAcademicYear || getCurrentAcademicYear();
-	const firstAcademicYear =
-		school?.firstAcademicYear ||
-		school?.currentAcademicYear ||
-		currentAcademicYear ||
-		getCurrentAcademicYear();
-	const maxCurrentAcademicYearOption =
-		shiftAcademicYear(baseCurrentAcademicYear, 5) || baseCurrentAcademicYear;
+	// ---------------------------------------------------------------------------
+	// Academic year range:
+	// From school.firstAcademicYear up to (currentCalendarYear+1)-(currentCalendarYear+2)
+	// The upper bound is always exactly "next calendar year - year after next"
+	// regardless of what the selected current academic year is.
+	// ---------------------------------------------------------------------------
+	const firstAcademicYear = useMemo(() => {
+		return (
+			school?.firstAcademicYear ||
+			school?.currentAcademicYear ||
+			getCurrentAcademicYear()
+		);
+	}, [school?.firstAcademicYear, school?.currentAcademicYear]);
 
-	const currentAcademicYearValues = useMemo(
-		() =>
-			buildAcademicYearRange(firstAcademicYear, maxCurrentAcademicYearOption),
-		[firstAcademicYear, maxCurrentAcademicYearOption],
-	);
-	// Every academic year between the school's first academic year and the
-	// currently selected academic year (inclusive) — this is the range used
-	// to group both student report access and teacher permissions.
-	const settingsAcademicYearValues = useMemo(
-		() =>
-			buildAcademicYearRange(
-				firstAcademicYear,
-				currentAcademicYear || baseCurrentAcademicYear,
-			),
-		[firstAcademicYear, currentAcademicYear, baseCurrentAcademicYear],
+	// The hard upper bound for the selector: calendarYear+1 - calendarYear+2
+	const maxSelectableAcademicYear = useMemo(
+		() => getMaxSelectableAcademicYear(),
+		[],
 	);
 
+	// All academic years between firstAcademicYear and maxSelectableAcademicYear
 	const currentAcademicYearOptions = useMemo(() => {
-		const values =
-			currentAcademicYearValues.length > 0
-				? currentAcademicYearValues
-				: [baseCurrentAcademicYear];
+		const range = buildAcademicYearRange(
+			firstAcademicYear,
+			maxSelectableAcademicYear,
+		);
+		// Fallback: if range is empty, at least include the first year
+		const values = range.length > 0 ? range : [firstAcademicYear];
 		return values.map((year) => ({ value: year, label: year }));
-	}, [currentAcademicYearValues, baseCurrentAcademicYear]);
+	}, [firstAcademicYear, maxSelectableAcademicYear]);
 
-	const academicYearOptions = useMemo(() => {
-		const fallbackYear = currentAcademicYear || baseCurrentAcademicYear;
-		const values =
-			settingsAcademicYearValues.length > 0
-				? settingsAcademicYearValues
-				: [fallbackYear];
-		return values.map((year) => ({ value: year, label: year }));
-	}, [
-		settingsAcademicYearValues,
-		currentAcademicYear,
-		baseCurrentAcademicYear,
-	]);
-
-	const academicYears = useMemo(
-		() => academicYearOptions.map((o) => o.value),
-		[academicYearOptions],
-	);
-
+	// Ensure the selected current academic year is always a valid option.
+	// On initial load, prefer the school's stored value; fall back to the
+	// last (most recent) option.
 	useEffect(() => {
 		if (!currentAcademicYearOptions.length) return;
-		const hasCurrentOption = currentAcademicYearOptions.some(
+		const isValid = currentAcademicYearOptions.some(
 			(o) => o.value === currentAcademicYear,
 		);
-		if (hasCurrentOption) return;
-		const schoolCurrent = school?.currentAcademicYear;
-		const fallbackValue =
-			(schoolCurrent &&
-				currentAcademicYearOptions.find((o) => o.value === schoolCurrent)
+		if (isValid) return;
+
+		const schoolStored = school?.currentAcademicYear;
+		const preferred =
+			(schoolStored &&
+				currentAcademicYearOptions.find((o) => o.value === schoolStored)
 					?.value) ||
 			currentAcademicYearOptions[currentAcademicYearOptions.length - 1]
 				?.value ||
 			currentAcademicYearOptions[0]?.value ||
 			'';
-		if (fallbackValue && fallbackValue !== currentAcademicYear)
-			setCurrentAcademicYear(fallbackValue);
+
+		if (preferred && preferred !== currentAcademicYear)
+			setCurrentAcademicYear(preferred);
 	}, [
 		currentAcademicYear,
 		currentAcademicYearOptions,
 		school?.currentAcademicYear,
 	]);
 
-	// Keep the per-year settings maps in sync with the current academic year
-	// range: add defaults for newly-in-range years, drop years that fell out.
+	// The per-year settings range: firstAcademicYear → selected currentAcademicYear
+	const settingsAcademicYears = useMemo(() => {
+		const end = currentAcademicYear || maxSelectableAcademicYear;
+		const range = buildAcademicYearRange(firstAcademicYear, end);
+		return range.length > 0 ? range : [firstAcademicYear];
+	}, [firstAcademicYear, currentAcademicYear, maxSelectableAcademicYear]);
+
+	// Keep the per-year settings maps in sync with the current range
 	useEffect(() => {
-		if (!academicYears.length) return;
+		if (!settingsAcademicYears.length) return;
 
 		setStudentSettings((prev: any) => {
 			if (!prev) return prev;
 			const existing = prev.reportAccessByYear || {};
 			const next: Record<string, any> = {};
-			academicYears.forEach((year) => {
+			settingsAcademicYears.forEach((year) => {
 				next[year] = existing[year]
 					? normalizeStudentYearSettings(existing[year])
 					: defaultStudentYearSettings();
@@ -1341,7 +1316,7 @@ export default function Settings() {
 			if (!prev) return prev;
 			const existing = prev.permissionsByYear || {};
 			const next: Record<string, any> = {};
-			academicYears.forEach((year) => {
+			settingsAcademicYears.forEach((year) => {
 				next[year] = existing[year]
 					? normalizeTeacherYearSettings(existing[year])
 					: defaultTeacherYearSettings();
@@ -1349,7 +1324,7 @@ export default function Settings() {
 			const unchanged = JSON.stringify(next) === JSON.stringify(existing);
 			return unchanged ? prev : { ...prev, permissionsByYear: next };
 		});
-	}, [academicYears]);
+	}, [settingsAcademicYears]);
 
 	const toggleStudentSetting = (s: string) =>
 		setStudentSettings((p: any) => ({ ...p, [s]: !p[s] }));
@@ -1360,6 +1335,7 @@ export default function Settings() {
 
 	const handleQueueBulkAction = (category: string, action: string) =>
 		setPendingBulkActions((prev) => ({ ...prev, [category]: action }));
+
 	const clearPendingBulkAction = (category: string) => {
 		setPendingBulkActions((prev) => {
 			const n = { ...prev };
@@ -1487,7 +1463,7 @@ export default function Settings() {
 						/>
 					</SettingsSection>
 
-					{/* ── Report Card Themes (reimagined) ── */}
+					{/* ── Report Card Themes ── */}
 					<SettingsSection
 						icon={FileText}
 						title="Report Card Themes"
@@ -1518,10 +1494,10 @@ export default function Settings() {
 							</h4>
 							<p className="text-xs sm:text-sm text-muted-foreground">
 								Covers every academic year from {firstAcademicYear} through{' '}
-								{currentAcademicYear || baseCurrentAcademicYear}.
+								{currentAcademicYear || maxSelectableAcademicYear}.
 							</p>
 							<StudentReportAccessByYear
-								years={academicYears}
+								years={settingsAcademicYears}
 								data={studentSettings.reportAccessByYear}
 								onChange={(next) =>
 									setStudentSettings((p: any) => ({
@@ -1576,10 +1552,10 @@ export default function Settings() {
 								Grade submission, viewing grade submissions, grade change
 								requests, and viewing masters — all grouped per academic year,
 								from {firstAcademicYear} through{' '}
-								{currentAcademicYear || baseCurrentAcademicYear}.
+								{currentAcademicYear || maxSelectableAcademicYear}.
 							</p>
 							<TeacherPermissionsByYear
-								years={academicYears}
+								years={settingsAcademicYears}
 								data={teacherSettings.permissionsByYear}
 								onChange={(next) =>
 									setTeacherSettings((p: any) => ({

@@ -25,7 +25,7 @@ import {
 import QRCode from 'qrcode';
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
-import { isYearlyReportAccessAllowed } from '@/utils/schoolSettingsAccess';
+import { getStudentAllowedAccess } from '@/utils/schoolSettingsAccess';
 import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import {
@@ -33,6 +33,7 @@ import {
 	enqueueShareRequest,
 } from '@/utils/shareQueue';
 import AccessDenied from '@/components/AccessDenied';
+import { SharedFilter, type YearlyReportFilters } from './components/SharedFilter';
 import {
 	areAcademicYearsEqual,
 	getScopedAcademicYearValue,
@@ -57,8 +58,6 @@ import {
 } from '@/app/dashboard/shared/reportPdfLayout';
 import { loadReportTemplateBytes } from '@/utils/reportTemplate';
 import { areGradeRowsEquivalent } from '@/utils/gradeRows';
-import { report } from 'process';
-import FullCalendar from '@fullcalendar/react';
 
 // --- Type Definitions ---
 
@@ -1034,19 +1033,7 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 });
 
 
-interface ReportFilters {
-	academicYear: string;
-	session: string;
-	classLevel: string;
-	className: string;
-	selectedStudents: string[];
-	includeSponsorName: boolean;
-	sponsorName: string;
-	includePrincipalSignature: boolean;
-	principalSignatureValue: string;
-	includeDate: boolean;
-	dateValue: string;
-}
+type ReportFilters = YearlyReportFilters;
 
 // Reusable toggle — drop this just above FilterContent or in a shared ui file
 function Toggle({
@@ -1085,680 +1072,6 @@ function Toggle({
 		</label>
 	);
 }
-
-const FilterContent = React.memo(function FilterContent({
-	filters,
-	setFilters,
-	onSubmit,
-}: {
-	filters: ReportFilters;
-	setFilters: React.Dispatch<React.SetStateAction<ReportFilters>>;
-	onSubmit: () => void;
-}) {
-	const currentSchool = useSchoolStore((state) => state.school);
-	const usersByAcademicYear = useSchoolStore(
-		(state) => state.usersByAcademicYear,
-	);
-	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
-	const user = useAuth((state) => state.user);
-	const [students, setStudents] = useState<Student[]>([]);
-	const [loadingStudents, setLoadingStudents] = useState(false);
-
-	const userRole = user?.role || 'student';
-	const isSystemAdmin = userRole === 'system_admin';
-	const isAdministrator = userRole === 'administrator';
-	const isStudent = userRole === 'student';
-
-	const academicYearOptions = useMemo(() => {
-		const schoolYears = buildSchoolAcademicYearRange(currentSchool);
-		if (isStudent) {
-			const studentYears = getStudentAcademicYears(user);
-			return studentYears.length > 0 ? studentYears : schoolYears;
-		}
-		if (isSystemAdmin || isAdministrator) {
-			return schoolYears;
-		}
-		if (userRole === 'teacher') {
-			const teacherYears = getTeacherAcademicYears(user);
-			const scopedYears = teacherYears.filter((year) =>
-				schoolYears.some((schoolYear) =>
-					areAcademicYearsEqual(schoolYear, year),
-				),
-			);
-			return scopedYears.length > 0 ? scopedYears : teacherYears;
-		}
-		return schoolYears;
-	}, [
-		currentSchool,
-		isStudent,
-		isSystemAdmin,
-		isAdministrator,
-		userRole,
-		user,
-	]);
-
-	const defaultAcademicYear = useMemo(() => {
-		const schoolCurrentAcademicYear =
-			currentSchool?.currentAcademicYear || getCurrentAcademicYear();
-		if (isStudent) {
-			return (
-				pickMostRecentAcademicYear(
-					academicYearOptions,
-					schoolCurrentAcademicYear,
-				) || schoolCurrentAcademicYear
-			);
-		}
-		return (
-			pickCurrentOrMostRecentAcademicYear(
-				academicYearOptions,
-				schoolCurrentAcademicYear,
-			) || schoolCurrentAcademicYear
-		);
-	}, [academicYearOptions, isStudent, currentSchool?.currentAcademicYear]);
-
-	useEffect(() => {
-		if (!isStudent || !user) return;
-		const yearEntry = Array.isArray(user.academicYears)
-			? user.academicYears.find((ay: any) =>
-					areAcademicYearsEqual(ay.year, filters.academicYear),
-				)
-			: null;
-		const classIdForYear =
-			yearEntry?.classId ||
-			(areAcademicYearsEqual(
-				filters.academicYear,
-				currentSchool?.currentAcademicYear || getCurrentAcademicYear(),
-			)
-				? user.classId || ''
-				: '');
-		const classMeta = getClassMetaById(
-			currentSchool?.classLevels,
-			classIdForYear,
-		);
-		const currentStudentId = normalizeStudentId(
-			user?.studentId,
-			user?.id,
-			user?._id,
-		);
-
-		setFilters((prev) => {
-			const nextSession = classMeta?.session || '';
-			const nextClassLevel = classMeta?.level || '';
-			const nextClassName = classIdForYear || '';
-			const nextSelectedStudents = currentStudentId ? [currentStudentId] : [];
-			const isSameSelection =
-				prev.selectedStudents.length === nextSelectedStudents.length &&
-				prev.selectedStudents.every(
-					(studentId, index) => studentId === nextSelectedStudents[index],
-				);
-			if (
-				prev.session === nextSession &&
-				prev.classLevel === nextClassLevel &&
-				prev.className === nextClassName &&
-				isSameSelection
-			) {
-				return prev;
-			}
-			return {
-				...prev,
-				session: nextSession,
-				classLevel: nextClassLevel,
-				className: nextClassName,
-				selectedStudents: nextSelectedStudents,
-			};
-		});
-	}, [isStudent, user, filters.academicYear, setFilters, currentSchool]);
-
-	const availableSessions = useMemo(
-		() =>
-			currentSchool?.classLevels ? Object.keys(currentSchool.classLevels) : [],
-		[currentSchool?.classLevels],
-	);
-
-	const userAvailableSessions = useMemo(() => {
-		if (isSystemAdmin) return availableSessions;
-		if (user?.session) return [user.session];
-		return availableSessions;
-	}, [isSystemAdmin, user?.session, availableSessions]);
-
-	const availableGradeLevels = useMemo(
-		() =>
-			filters.session && currentSchool?.classLevels?.[filters.session]
-				? Object.keys(currentSchool.classLevels[filters.session])
-				: [],
-		[filters.session, currentSchool?.classLevels],
-	);
-
-	const availableClasses = useMemo(
-		() =>
-			filters.session &&
-			filters.classLevel &&
-			currentSchool?.classLevels?.[filters.session]?.[filters.classLevel]
-				?.classes
-				? currentSchool.classLevels[filters.session][filters.classLevel].classes
-				: [],
-		[filters.session, filters.classLevel, currentSchool?.classLevels],
-	);
-
-	useEffect(() => {
-		const isSelectedYearAvailable = academicYearOptions.some((year) =>
-			areAcademicYearsEqual(year, filters.academicYear),
-		);
-		if (!filters.academicYear || !isSelectedYearAvailable) {
-			setFilters((prev) => ({ ...prev, academicYear: defaultAcademicYear }));
-		}
-
-		if (userAvailableSessions.length === 1 && !filters.session && !isStudent) {
-			setFilters((prev) => {
-				const nextSession = userAvailableSessions[0];
-				if (prev.session === nextSession) return prev;
-				return {
-					...prev,
-					session: nextSession,
-					classLevel: '',
-					className: '',
-					selectedStudents: [],
-				};
-			});
-		}
-
-		if (
-			filters.session &&
-			availableGradeLevels.length === 1 &&
-			!filters.classLevel &&
-			!isStudent
-		) {
-			setFilters((prev) => {
-				const nextClassLevel = availableGradeLevels[0];
-				if (prev.classLevel === nextClassLevel) return prev;
-				return {
-					...prev,
-					classLevel: nextClassLevel,
-					className: '',
-					selectedStudents: [],
-				};
-			});
-		}
-
-		if (
-			filters.classLevel &&
-			availableClasses.length === 1 &&
-			!filters.className &&
-			!isStudent
-		) {
-			setFilters((prev) => ({
-				...prev,
-				className: availableClasses[0].classId,
-				selectedStudents: [],
-			}));
-		}
-	}, [
-		filters.academicYear,
-		filters.session,
-		filters.classLevel,
-		academicYearOptions,
-		defaultAcademicYear,
-		userAvailableSessions,
-		availableGradeLevels,
-		availableClasses,
-		setFilters,
-		isStudent,
-	]);
-
-	useEffect(() => {
-		if (filters.className && !isStudent) {
-			const fetchStudents = async () => {
-				setLoadingStudents(true);
-				try {
-					const offline =
-						typeof navigator !== 'undefined' && navigator.onLine === false;
-					const cachedUsers = getScopedAcademicYearValue(
-						usersByAcademicYear,
-						filters.academicYear,
-					).value;
-					if (cachedUsers?.students?.length) {
-						const filtered = cachedUsers.students.filter(
-							(student: any) =>
-								getStudentClassIdForYear(student, filters.academicYear) ===
-								filters.className,
-						);
-						if (filtered.length > 0) {
-							const mappedStudents = filtered.map((student: any) => {
-								const classId = getStudentClassIdForYear(
-									student,
-									filters.academicYear,
-								);
-								return {
-									id: normalizeStudentId(
-										student.studentId,
-										student.id,
-										student._id,
-									),
-									name: buildStudentFullName(student),
-									className: classId,
-								};
-							});
-							setStudents(mappedStudents);
-							return;
-						}
-					}
-					const cacheKey = `yearly:students:${filters.academicYear}:${filters.className}`;
-					const cached = getClientCache<Student[]>(cacheKey);
-					if (cached) {
-						setStudents(cached);
-						return;
-					}
-					if (offline) {
-						setStudents([]);
-						return;
-					}
-					const response = await fetch(
-						`/api/users?classId=${filters.className}&role=student&academicYear=${filters.academicYear}`,
-					);
-					if (!response.ok) throw new Error('Failed to fetch students');
-					const responseData = await response.json();
-					if (responseData.success && responseData.data) {
-						setUsersForYear(
-							filters.academicYear,
-							{
-								students: Array.isArray(responseData.data)
-									? responseData.data
-									: [],
-							},
-							{ merge: true },
-						);
-						const mappedStudents = responseData.data.map((student: any) => ({
-							id: normalizeStudentId(
-								student.studentId,
-								student.id,
-								student._id,
-							),
-							name: buildStudentFullName(student),
-							className: getStudentClassIdForYear(
-								student,
-								filters.academicYear,
-							),
-						}));
-						setStudents(mappedStudents);
-						setClientCache(cacheKey, mappedStudents, OFFLINE_CACHE_TTL_MS);
-					} else {
-						setStudents([]);
-					}
-				} catch (error) {
-					console.error('Error fetching students:', error);
-					setStudents([]);
-				} finally {
-					setLoadingStudents(false);
-				}
-			};
-			fetchStudents();
-		} else {
-			setStudents([]);
-			if (!isStudent) {
-				setFilters((prev) =>
-					prev.selectedStudents.length === 0
-						? prev
-						: { ...prev, selectedStudents: [] },
-				);
-			}
-		}
-	}, [
-		filters.className,
-		filters.academicYear,
-		isStudent,
-		setFilters,
-		usersByAcademicYear,
-		setUsersForYear,
-	]);
-
-	useEffect(() => {
-		if (isStudent) return;
-		const allowedIds = new Set(students.map((student) => student.id));
-		setFilters((prev) => {
-			if (!prev.selectedStudents.length) return prev;
-			const nextSelected = prev.selectedStudents.filter((studentId) =>
-				allowedIds.has(normalizeStudentId(studentId)),
-			);
-			if (nextSelected.length === prev.selectedStudents.length) return prev;
-			return { ...prev, selectedStudents: nextSelected };
-		});
-	}, [students, isStudent, setFilters]);
-
-	const canSubmit = useMemo(() => {
-		return !!(filters.academicYear && filters.className);
-	}, [filters.academicYear, filters.className]);
-
-	if (
-		isStudent &&
-		!isYearlyReportAccessAllowed(currentSchool, filters.academicYear)
-	) {
-		return (
-			<AccessDenied
-				message="You are currently not allowed to view yearly reports"
-				description=""
-			/>
-		);
-	}
-
-	if (isStudent) {
-		const isStudentInfoComplete = !!filters.className;
-		return (
-			<div className="flex flex-col items-center justify-center min-h-[60vh] py-10 bg-background text-foreground">
-				<div className="bg-card rounded-lg shadow border border-border w-full max-w-md p-6">
-					<h2 className="text-lg font-semibold mb-4 text-center">
-						My Report Card
-					</h2>
-					{academicYearOptions.length > 1 && (
-						<div className="mb-4">
-							<label className="block text-sm font-medium mb-1">
-								Academic Year
-							</label>
-							<select
-								value={filters.academicYear}
-								onChange={(e) =>
-									setFilters((f) => ({ ...f, academicYear: e.target.value }))
-								}
-								className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-							>
-								{academicYearOptions.map((year) => (
-									<option key={year} value={year}>
-										{year}
-									</option>
-								))}
-							</select>
-						</div>
-					)}
-					{!isStudentInfoComplete && (
-						<div className="p-3 mb-4 text-center text-sm bg-destructive/10 text-destructive rounded border border-destructive/20">
-							Your profile is missing required class information. Please contact
-							an administrator.
-						</div>
-					)}
-					<div className="flex gap-2 mt-6">
-						<button
-							type="button"
-							onClick={onSubmit}
-							disabled={!canSubmit}
-							className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
-						>
-							View Report
-						</button>
-					</div>
-				</div>
-			</div>
-		);
-	}
-
-	return (
-		<div className="flex flex-col items-center justify-center min-h-[60vh] py-10">
-			<div className="bg-card rounded-lg shadow border border-border w-full max-w-md p-6">
-				<h2 className="text-lg font-semibold mb-4 text-center">
-					Filter Report Card
-				</h2>
-
-				{academicYearOptions.length > 1 && (
-					<div className="mb-4">
-						<label className="block text-sm font-medium mb-1">
-							Academic Year
-						</label>
-						<select
-							value={filters.academicYear}
-							onChange={(e) =>
-								setFilters((f) => ({
-									...f,
-									academicYear: e.target.value,
-									session: '',
-									classLevel: '',
-									className: '',
-									selectedStudents: [],
-								}))
-							}
-							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-						>
-							{academicYearOptions.map((year) => (
-								<option key={year} value={year}>
-									{year}
-								</option>
-							))}
-						</select>
-					</div>
-				)}
-
-				{userAvailableSessions.length > 1 && (
-					<div className="mb-4">
-						<label className="block text-sm font-medium mb-1">Session</label>
-						<select
-							value={filters.session}
-							onChange={(e) =>
-								setFilters((f) => ({
-									...f,
-									session: e.target.value,
-									classLevel: '',
-									className: '',
-									selectedStudents: [],
-								}))
-							}
-							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
-							disabled={!filters.academicYear}
-						>
-							<option value="">Select Session</option>
-							{userAvailableSessions.map((session) => (
-								<option key={session} value={session}>
-									{session}
-								</option>
-							))}
-						</select>
-					</div>
-				)}
-
-				{filters.session && availableGradeLevels.length > 1 && (
-					<div className="mb-4">
-						<label className="block text-sm font-medium mb-1">
-							Grade Level
-						</label>
-						<select
-							value={filters.classLevel}
-							onChange={(e) =>
-								setFilters((f) => ({
-									...f,
-									classLevel: e.target.value,
-									className: '',
-									selectedStudents: [],
-								}))
-							}
-							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
-							disabled={!filters.session}
-						>
-							<option value="">Select Grade Level</option>
-							{availableGradeLevels.map((level) => (
-								<option key={level} value={level}>
-									{level}
-								</option>
-							))}
-						</select>
-					</div>
-				)}
-
-				{filters.classLevel && availableClasses.length > 1 && (
-					<div className="mb-4">
-						<label className="block text-sm font-medium mb-1">Class</label>
-						<select
-							value={filters.className}
-							onChange={(e) =>
-								setFilters((f) => ({
-									...f,
-									className: e.target.value,
-									selectedStudents: [],
-								}))
-							}
-							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
-							disabled={!filters.classLevel}
-						>
-							<option value="">Select Class</option>
-							{availableClasses.map((classInfo: any) => (
-								<option key={classInfo.classId} value={classInfo.classId}>
-									{classInfo.name}
-								</option>
-							))}
-						</select>
-					</div>
-				)}
-
-				{/* Sponsor Name Toggle */}
-				{filters.className && (
-					<div className="mb-4">
-						<Toggle
-							id="include-sponsor-name"
-							checked={!!filters.includeSponsorName}
-							label="Include Class Sponsor Name"
-							onChange={(checked) => {
-								if (checked) {
-									const cached = loadYearlyReportPrefs(filters.academicYear);
-									const classData = cached[filters.className] || {};
-									setFilters((f) => ({
-										...f,
-										includeSponsorName: true,
-										sponsorName: f.sponsorName || classData.sponsorName || '',
-									}));
-								} else {
-									setFilters((f) => ({ ...f, includeSponsorName: false }));
-								}
-								saveClassPrefs({ includeSponsorName: checked }, filters.academicYear, filters.className);
-							}}
-						/>
-						{filters.includeSponsorName && (
-							<input
-								id="sponsor-name"
-								type="text"
-								value={filters.sponsorName}
-								onChange={(e) => {
-									const value = e.target.value;
-									setFilters((f) => ({ ...f, sponsorName: value }));
-									saveClassPrefs({ sponsorName: value }, filters.academicYear, filters.className);
-								}}
-								placeholder="e.g., Jane Doe"
-								className="mt-2 w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-							/>
-						)}
-					</div>
-				)}
-
-				{/* Principal Signature Toggle */}
-				{filters.className && (
-					<div className="mb-4">
-						<Toggle
-							id="include-principal-signature"
-							checked={!!filters.includePrincipalSignature}
-							label="Include Principal's Signature"
-							onChange={(checked) => {
-								if (checked) {
-									const cached = loadYearlyReportPrefs(filters.academicYear);
-									setFilters((f) => ({
-										...f,
-										includePrincipalSignature: true,
-										principalSignatureValue:
-											f.principalSignatureValue ||
-											cached.principalSignatureValue ||
-											'',
-									}));
-								} else {
-									setFilters((f) => ({
-										...f,
-										includePrincipalSignature: false,
-									}));
-								}
-								saveYearlyReportPrefs({ includePrincipalSignature: checked }, filters.academicYear);
-							}}
-						/>
-						{filters.includePrincipalSignature && (
-							<input
-								id="principal-signature-value"
-								type="text"
-								value={filters.principalSignatureValue}
-								onChange={(e) => {
-									const value = e.target.value;
-									setFilters((f) => ({ ...f, principalSignatureValue: value }));
-									saveYearlyReportPrefs({ principalSignatureValue: value }, filters.academicYear);
-								}}
-								placeholder="e.g., Pst. Emmanuel B. Tarr, Sr."
-								className="mt-2 w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-							/>
-						)}
-					</div>
-				)}
-
-				{/* Date Toggle */}
-				{filters.className && (
-					<div className="mb-4">
-						<Toggle
-							id="include-date"
-							checked={!!filters.includeDate}
-							label="Include Date"
-							onChange={(checked) => {
-								if (checked) {
-									const cached = loadYearlyReportPrefs(filters.academicYear);
-									setFilters((f) => ({
-										...f,
-										includeDate: true,
-										dateValue: f.dateValue || cached.dateValue || '',
-									}));
-								} else {
-									setFilters((f) => ({ ...f, includeDate: false }));
-								}
-								saveYearlyReportPrefs({ includeDate: checked }, filters.academicYear);
-							}}
-						/>
-						{filters.includeDate && (
-							<input
-								id="date-value"
-								type="date"
-								value={filters.dateValue}
-								onChange={(e) => {
-									const value = e.target.value;
-									setFilters((f) => ({ ...f, dateValue: value }));
-									saveYearlyReportPrefs({ dateValue: value }, filters.academicYear);
-								}}
-								className="mt-2 w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-							/>
-						)}
-					</div>
-				)}
-
-				{filters.className && (
-					<div className="mb-4">
-						{loadingStudents ? (
-							<div className="text-center py-4">
-								<InlineLoading size="sm" />
-							</div>
-						) : (
-							<StudentMultiSelect
-								students={students}
-								selectedStudents={filters.selectedStudents}
-								onSelectionChange={(studentIds) =>
-									setFilters((prev) => ({
-										...prev,
-										selectedStudents: studentIds,
-									}))
-								}
-							/>
-						)}
-					</div>
-				)}
-
-				<div className="flex gap-2 mt-6">
-					<button
-						type="button"
-						onClick={onSubmit}
-						disabled={!canSubmit}
-						className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
-					>
-						Apply Filter
-					</button>
-				</div>
-			</div>
-		</div>
-	);
-});
 
 // --- PDF Template Helpers ---
 const DEBUG_COORDS = process.env.NEXT_PUBLIC_PDF_DEBUG_COORDS === 'true';
@@ -2731,8 +2044,9 @@ function ReportContent({
 		hasReportDataRef.current = studentsData.length > 0;
 	}, [studentsData.length]);
 
+	const schoolSubjectsRef = useRef<string[]>([]);
 	const schoolSubjects = useMemo(() => {
-		if (!currentSchool) return [];
+		if (!currentSchool) return schoolSubjectsRef.current;
 		const classMeta = getClassMetaById(
 			currentSchool.classLevels,
 			reportFilters.className,
@@ -2748,11 +2062,16 @@ function ReportContent({
 			currentSchool?.classLevels?.[resolvedMeta?.session || '']?.[
 				resolvedMeta?.level || ''
 			]?.subjects || [];
-		return mergeSubjectNames(
+		const next = mergeSubjectNames(
 			subjects.map((subject: any) =>
 				typeof subject === 'string' ? subject : subject?.name,
 			),
 		);
+		if (schoolSubjectsRef.current.join('||') === next.join('||')) {
+			return schoolSubjectsRef.current;
+		}
+		schoolSubjectsRef.current = next;
+		return next;
 	}, [
 		currentSchool,
 		reportFilters.session,
@@ -3994,6 +3313,9 @@ function ReportContent({
 // --- Main Component ---
 
 export default function ReportCardPage() {
+	const user = useAuth((state) => state.user);
+	const currentSchool = useSchoolStore((state) => state.school)
+	const isStudent = user?.role == "student";
 	const [filters, setFilters] = useState<ReportFilters>(() => {
 		return {
 			academicYear: '',
@@ -4009,6 +3331,16 @@ export default function ReportCardPage() {
 			dateValue: '',
 		};
 	});
+
+	const studentAccessOptions = useMemo(() => {
+		if (!isStudent || !currentSchool) return [];
+		return getStudentAllowedAccess(user, currentSchool);
+	}, [isStudent, user, currentSchool]);
+
+	// Check if ANY of the years have yearlyReportAccess set to true
+	const hasYearlyAccess = studentAccessOptions.some(
+		(year: any) => year.yearlyReportAccess === true,
+	);
 
 	useEffect(() => {
 		if (!filters.academicYear) return;
@@ -4041,13 +3373,193 @@ export default function ReportCardPage() {
 		setReportStep(0);
 	}, []);
 
+	// Block if the user is a student and NONE of their years allow yearly access
+	if (isStudent && !hasYearlyAccess) {
+		return (
+			<AccessDenied message="You are currently not allowed to view yearly reports" />
+		);
+	}
+
 	return (
 		<div className="p-4">
 			{reportStep === 0 && (
-				<FilterContent
+				<SharedFilter<ReportFilters>
 					filters={filters}
 					setFilters={setFilters}
 					onSubmit={handleSubmitFilters}
+					reportType="yearly"
+					config={{
+						gradeLevelField: 'classLevel',
+						filterSessionsByUser: true,
+						studentViewTitle: 'My Report Card',
+						nonStudentViewTitle: 'Filter Report Card',
+						renderExtraFields: (f, setF) => {
+							const ff = f as ReportFilters;
+							return (
+								ff.className && (
+									<div className="bg-muted/50 rounded-lg p-3 sm:col-span-2">
+										<label className="block text-sm font-medium mb-2">
+											Report Options
+										</label>
+										<div className="flex flex-col gap-3">
+											<Toggle
+												id="include-sponsor-name"
+												checked={!!ff.includeSponsorName}
+												label="Class Sponsor Name"
+												onChange={(checked) => {
+													if (checked) {
+														const cached = loadYearlyReportPrefs(
+															ff.academicYear,
+														);
+														const classData = cached[ff.className] || {};
+														setF((prev) => ({
+															...prev,
+															includeSponsorName: true,
+															sponsorName:
+																(prev as ReportFilters).sponsorName ||
+																classData.sponsorName ||
+																'',
+														}));
+													} else {
+														setF((prev) => ({
+															...prev,
+															includeSponsorName: false,
+														}));
+													}
+													saveClassPrefs(
+														{ includeSponsorName: checked },
+														ff.academicYear,
+														ff.className,
+													);
+												}}
+											/>
+											{ff.includeSponsorName && (
+												<input
+													id="sponsor-name"
+													type="text"
+													value={ff.sponsorName}
+													onChange={(e) => {
+														const value = e.target.value;
+														setF((prev) => ({
+															...prev,
+															sponsorName: value,
+														}));
+														saveClassPrefs(
+															{ sponsorName: value },
+															ff.academicYear,
+															ff.className,
+														);
+													}}
+													placeholder="e.g., Jane Doe"
+													className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+												/>
+											)}
+
+											<Toggle
+												id="include-principal-signature"
+												checked={!!ff.includePrincipalSignature}
+												label="Principal's Signature"
+												onChange={(checked) => {
+													if (checked) {
+														const cached = loadYearlyReportPrefs(
+															ff.academicYear,
+														);
+														setF((prev) => ({
+															...prev,
+															includePrincipalSignature: true,
+															principalSignatureValue:
+																(prev as ReportFilters)
+																	.principalSignatureValue ||
+																cached.principalSignatureValue ||
+																'',
+														}));
+													} else {
+														setF((prev) => ({
+															...prev,
+															includePrincipalSignature: false,
+														}));
+													}
+													saveYearlyReportPrefs(
+														{ includePrincipalSignature: checked },
+														ff.academicYear,
+													);
+												}}
+											/>
+											{ff.includePrincipalSignature && (
+												<input
+													id="principal-signature-value"
+													type="text"
+													value={ff.principalSignatureValue}
+													onChange={(e) => {
+														const value = e.target.value;
+														setF((prev) => ({
+															...prev,
+															principalSignatureValue: value,
+														}));
+														saveYearlyReportPrefs(
+															{ principalSignatureValue: value },
+															ff.academicYear,
+														);
+													}}
+													placeholder="e.g., Pst. Emmanuel B. Tarr, Sr."
+													className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+												/>
+											)}
+
+											<Toggle
+												id="include-date"
+												checked={!!ff.includeDate}
+												label="Include Date"
+												onChange={(checked) => {
+													if (checked) {
+														const cached = loadYearlyReportPrefs(
+															ff.academicYear,
+														);
+														setF((prev) => ({
+															...prev,
+															includeDate: true,
+															dateValue:
+																(prev as ReportFilters).dateValue ||
+																cached.dateValue ||
+																'',
+														}));
+													} else {
+														setF((prev) => ({
+															...prev,
+															includeDate: false,
+														}));
+													}
+													saveYearlyReportPrefs(
+														{ includeDate: checked },
+														ff.academicYear,
+													);
+												}}
+											/>
+											{ff.includeDate && (
+												<input
+													id="date-value"
+													type="date"
+													value={ff.dateValue}
+													onChange={(e) => {
+														const value = e.target.value;
+														setF((prev) => ({
+															...prev,
+															dateValue: value,
+														}));
+														saveYearlyReportPrefs(
+															{ dateValue: value },
+															ff.academicYear,
+														);
+													}}
+													className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+												/>
+											)}
+										</div>
+									</div>
+								)
+							);
+						},
+					}}
 				/>
 			)}
 			{reportStep === 1 && (

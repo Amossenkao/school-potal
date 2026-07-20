@@ -1,13 +1,38 @@
 import type {
 	SchoolProfile,
-	AcademicPeriod,
-	Semester,
 } from '@/types/schoolProfile';
 import { getScopedAcademicYearValue } from '@/utils/academicYear';
 
-// ---------------------------------------------------------------------------
-// Student settings helpers  (reportAccessByYear)
-// ---------------------------------------------------------------------------
+// Assuming SchoolProfile type definition exists in your project
+export const getStudentAllowedAccess = (student: any, schoolProfile: SchoolProfile) => {
+  const allowedYearsConfig = schoolProfile?.settings?.studentSettings?.reportAccessByYear || {};
+  
+  if (!student.academicYears || !Array.isArray(student.academicYears)) {
+    return [];
+  }
+
+  return student.academicYears
+    .filter((year: any) => allowedYearsConfig[year.year]?.enabled)
+    .map((year: any) => ({
+      academicYear: year.year,
+      ...allowedYearsConfig[year.year]
+    }));
+};
+
+export const getTeacherAllowedAccess = (teacher: any, schoolProfile: any) => {
+  const permissionsConfig = schoolProfile?.settings?.teacherSettings?.permissionsByYear || {};
+
+  if (!teacher.subjects || !Array.isArray(teacher.subjects)) {
+    return [];
+  }
+
+  return teacher.subjects
+		.filter((subject: any) => permissionsConfig[subject.year]?.enabled)
+		.map((subject: any) => ({
+			academicYear: subject.year,
+			...permissionsConfig[subject.year],
+		}));
+};
 
 export function getStudentReportAccessForYear(
 	schoolProfile: Pick<SchoolProfile, 'settings'> | null | undefined,
@@ -48,23 +73,8 @@ export function isSemesterReportAccessAllowed(
 	return (access.semesters as string[]).includes(semester);
 }
 
-export function getAllowedStudentPeriods(
-	schoolProfile: Pick<SchoolProfile, 'settings'> | null | undefined,
-	academicYear: string,
-): string[] {
-	const access = getStudentReportAccessForYear(schoolProfile, academicYear);
-	if (!access?.enabled) return [];
-	return access.periods as string[];
-}
 
-export function getAllowedStudentSemesters(
-	schoolProfile: Pick<SchoolProfile, 'settings'> | null | undefined,
-	academicYear: string,
-): string[] {
-	const access = getStudentReportAccessForYear(schoolProfile, academicYear);
-	if (!access?.enabled) return [];
-	return access.semesters as string[];
-}
+
 
 // ---------------------------------------------------------------------------
 // Teacher settings helpers  (permissionsByYear)

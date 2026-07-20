@@ -26,7 +26,7 @@ import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import AccessDenied from '@/components/AccessDenied';
-import { getAllowedStudentSemesters } from '@/utils/schoolSettingsAccess';
+import { getStudentAllowedAccess } from '@/utils/schoolSettingsAccess';
 import { drawTextMap } from '@/utils/pdfText';
 import { buildSemesterCardPlacements } from '@/app/dashboard/shared/reportPdfLayout';
 import {
@@ -44,6 +44,7 @@ import { loadReportTemplateBytes } from '@/utils/reportTemplate';
 import { areGradeRowsEquivalent } from '@/utils/gradeRows';
 import { attachRanksToGrades } from '@/utils/gradeRanks';
 import StudentMultiSelect from './components/StudentMultiSelect';
+import { SharedFilter, FilterConfig, SemesterReportFilters } from './components/SharedFilter';
 
 const InlineLoading = ({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) => (
 	<div className="-m-8">
@@ -399,57 +400,56 @@ const buildReportsFromGradeRows = ({
 		report.periods[period][subjectIndex].grade = gradeValue;
 	});
 
-reportsByStudentId.forEach((report) => {
-	const subjects = Object.keys(report.firstSemesterAverage);
-	subjects.forEach((subject) => {
-		const getSubjectGrade = (period: ReportPeriodKey) =>
-			report.periods[period].find((entry) => entry.subject === subject)
-				?.grade ?? null;
+	reportsByStudentId.forEach((report) => {
+		const subjects = Object.keys(report.firstSemesterAverage);
+		subjects.forEach((subject) => {
+			const getSubjectGrade = (period: ReportPeriodKey) =>
+				report.periods[period].find((entry) => entry.subject === subject)
+					?.grade ?? null;
 
-		const p1 = getSubjectGrade('first');
-		const p2 = getSubjectGrade('second');
-		const p3 = getSubjectGrade('third');
-		const exam1 = getSubjectGrade('third_period_exam');
+			const p1 = getSubjectGrade('first');
+			const p2 = getSubjectGrade('second');
+			const p3 = getSubjectGrade('third');
+			const exam1 = getSubjectGrade('third_period_exam');
 
-		const sem1PeriodAvg = averageNumbers([p1, p2, p3]);
-		report.firstSemesterAverage[subject] =
-			sem1PeriodAvg !== null && exam1 !== null
-				? Number(((sem1PeriodAvg + exam1) / 2).toFixed(1))
-				: null;
+			const sem1PeriodAvg = averageNumbers([p1, p2, p3]);
+			report.firstSemesterAverage[subject] =
+				sem1PeriodAvg !== null && exam1 !== null
+					? Number(((sem1PeriodAvg + exam1) / 2).toFixed(1))
+					: null;
 
-		const p4 = getSubjectGrade('fourth');
-		const p5 = getSubjectGrade('fifth');
-		const p6 = getSubjectGrade('sixth');
-		const exam2 = getSubjectGrade('six_period_exam');
+			const p4 = getSubjectGrade('fourth');
+			const p5 = getSubjectGrade('fifth');
+			const p6 = getSubjectGrade('sixth');
+			const exam2 = getSubjectGrade('six_period_exam');
 
-		const sem2PeriodAvg = averageNumbers([p4, p5, p6]);
-		report.secondSemesterAverage[subject] =
-			sem2PeriodAvg !== null && exam2 !== null
-				? Number(((sem2PeriodAvg + exam2) / 2).toFixed(1))
-				: null;
-	});
+			const sem2PeriodAvg = averageNumbers([p4, p5, p6]);
+			report.secondSemesterAverage[subject] =
+				sem2PeriodAvg !== null && exam2 !== null
+					? Number(((sem2PeriodAvg + exam2) / 2).toFixed(1))
+					: null;
+		});
 
-	REPORT_PERIOD_KEYS.forEach((periodKey) => {
-		report.periodAverages[periodKey] = averageNumbers(
-			report.periods[periodKey].map((entry) => entry.grade),
+		REPORT_PERIOD_KEYS.forEach((periodKey) => {
+			report.periodAverages[periodKey] = averageNumbers(
+				report.periods[periodKey].map((entry) => entry.grade),
+			);
+		});
+
+		report.periodAverages.firstSemesterAverage = averageNumbers(
+			Object.values(report.firstSemesterAverage),
 		);
+		report.periodAverages.secondSemesterAverage = averageNumbers(
+			Object.values(report.secondSemesterAverage),
+		);
+		report.yearlyAverage = averageNumbers([
+			report.periodAverages.firstSemesterAverage,
+			report.periodAverages.secondSemesterAverage,
+		]);
 	});
-
-	report.periodAverages.firstSemesterAverage = averageNumbers(
-		Object.values(report.firstSemesterAverage),
-	);
-	report.periodAverages.secondSemesterAverage = averageNumbers(
-		Object.values(report.secondSemesterAverage),
-	);
-	report.yearlyAverage = averageNumbers([
-		report.periodAverages.firstSemesterAverage,
-		report.periodAverages.secondSemesterAverage,
-	]);
-});
 
 	return Array.from(reportsByStudentId.values());
 };
-
 
 interface ReportFilters {
 	academicYear: string;
@@ -460,648 +460,6 @@ interface ReportFilters {
 	selectedStudents: string[];
 }
 
-const FilterContent = React.memo(function FilterContent({
-	filters,
-	setFilters,
-	onSubmit,
-}: {
-	filters: ReportFilters;
-	setFilters: React.Dispatch<React.SetStateAction<ReportFilters>>;
-	onSubmit: () => void;
-}) {
-	const currentSchool = useSchoolStore((state) => state.school);
-	const usersByAcademicYear = useSchoolStore(
-		(state) => state.usersByAcademicYear,
-	);
-	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
-	const user = useAuth((state) => state.user);
-	const [students, setStudents] = useState<Student[]>([]);
-	const [loadingStudents, setLoadingStudents] = useState(false);
-
-	const userRole = user?.role || 'student';
-	const isSystemAdmin = userRole === 'system_admin';
-	const isAdministrator = userRole === 'administrator';
-	const isStudent = userRole === 'student';
-	const academicYearOptions = useMemo(() => {
-		const schoolYears = buildSchoolAcademicYearRange(currentSchool);
-		if (isStudent) {
-			const studentYears = getStudentAcademicYears(user);
-			return studentYears.length > 0 ? studentYears : schoolYears;
-		}
-		if (isSystemAdmin || isAdministrator) {
-			return schoolYears;
-		}
-		if (userRole === 'teacher') {
-			const teacherYears = getTeacherAcademicYears(user);
-			const scopedYears = teacherYears.filter((year) =>
-				schoolYears.some((schoolYear) =>
-					areAcademicYearsEqual(schoolYear, year),
-				),
-			);
-			return scopedYears.length > 0 ? scopedYears : teacherYears;
-		}
-		return schoolYears;
-	}, [
-		currentSchool,
-		isStudent,
-		isSystemAdmin,
-		isAdministrator,
-		userRole,
-		user,
-	]);
-	const defaultAcademicYear = useMemo(() => {
-		const schoolCurrentAcademicYear =
-			currentSchool?.currentAcademicYear || getCurrentAcademicYear();
-		if (isStudent) {
-			return (
-				pickMostRecentAcademicYear(
-					academicYearOptions,
-					schoolCurrentAcademicYear,
-				) || schoolCurrentAcademicYear
-			);
-		}
-		return (
-			pickCurrentOrMostRecentAcademicYear(
-				academicYearOptions,
-				schoolCurrentAcademicYear,
-			) || schoolCurrentAcademicYear
-		);
-	}, [academicYearOptions, isStudent, currentSchool?.currentAcademicYear]);
-
-	useEffect(() => {
-		if (!isStudent || !user) return;
-		const yearEntry = Array.isArray(user.academicYears)
-			? user.academicYears.find((ay: any) =>
-					areAcademicYearsEqual(ay.year, filters.academicYear),
-				)
-			: null;
-		const classIdForYear =
-			yearEntry?.classId ||
-			(areAcademicYearsEqual(
-				filters.academicYear,
-				currentSchool?.currentAcademicYear || getCurrentAcademicYear(),
-			)
-				? user.classId || ''
-				: '');
-		const classMeta = getClassMetaById(
-			currentSchool?.classLevels,
-			classIdForYear,
-		);
-		const currentStudentId = normalizeStudentId(
-			user?.studentId,
-			user?.id,
-			user?._id,
-		);
-
-		setFilters((prev) => {
-			const nextSession = classMeta?.session || '';
-			const nextClassLevel = classMeta?.level || '';
-			const nextClassName = classIdForYear || '';
-			const nextSelectedStudents = currentStudentId ? [currentStudentId] : [];
-			const isSameSelection =
-				prev.selectedStudents.length === nextSelectedStudents.length &&
-				prev.selectedStudents.every(
-					(studentId, index) => studentId === nextSelectedStudents[index],
-				);
-			if (
-				prev.session === nextSession &&
-				prev.classLevel === nextClassLevel &&
-				prev.className === nextClassName &&
-				isSameSelection
-			) {
-				return prev;
-			}
-			return {
-				...prev,
-				session: nextSession,
-				classLevel: nextClassLevel,
-				className: nextClassName,
-				selectedStudents: nextSelectedStudents,
-			};
-		});
-	}, [isStudent, user, filters.academicYear, setFilters, currentSchool]);
-
-	const availableSessions = useMemo(
-		() =>
-			currentSchool?.classLevels ? Object.keys(currentSchool.classLevels) : [],
-		[currentSchool?.classLevels],
-	);
-
-	const userAvailableSessions = useMemo(() => {
-		if (isSystemAdmin) return availableSessions;
-		if (user?.session) return [user.session];
-		return availableSessions;
-	}, [isSystemAdmin, user?.session, availableSessions]);
-
-	const availableGradeLevels = useMemo(
-		() =>
-			filters.session && currentSchool?.classLevels?.[filters.session]
-				? Object.keys(currentSchool.classLevels[filters.session])
-				: [],
-		[filters.session, currentSchool?.classLevels],
-	);
-
-	const availableClasses = useMemo(
-		() =>
-			filters.session &&
-			filters.classLevel &&
-			currentSchool?.classLevels?.[filters.session]?.[filters.classLevel]
-				?.classes
-				? currentSchool.classLevels[filters.session][filters.classLevel].classes
-				: [],
-		[filters.session, filters.classLevel, currentSchool?.classLevels],
-	);
-
-	useEffect(() => {
-		const isSelectedYearAvailable = academicYearOptions.some((year) =>
-			areAcademicYearsEqual(year, filters.academicYear),
-		);
-		if (!filters.academicYear || !isSelectedYearAvailable) {
-			setFilters((prev) => ({
-				...prev,
-				academicYear: defaultAcademicYear,
-			}));
-		}
-
-		if (userAvailableSessions.length === 1 && !filters.session && !isStudent) {
-			setFilters((prev) => {
-				const nextSession = userAvailableSessions[0];
-				if (prev.session === nextSession) return prev;
-				return {
-					...prev,
-					session: nextSession,
-					classLevel: '',
-					className: '',
-					selectedStudents: [],
-				};
-			});
-		}
-
-		if (
-			filters.session &&
-			availableGradeLevels.length === 1 &&
-			!filters.classLevel &&
-			!isStudent
-		) {
-			setFilters((prev) => {
-				const nextClassLevel = availableGradeLevels[0];
-				if (prev.classLevel === nextClassLevel) return prev;
-				return {
-					...prev,
-					classLevel: nextClassLevel,
-					className: '',
-					selectedStudents: [],
-				};
-			});
-		}
-
-		if (
-			filters.classLevel &&
-			availableClasses.length === 1 &&
-			!filters.className &&
-			!isStudent
-		) {
-			setFilters((prev) => ({
-				...prev,
-				className: availableClasses[0].classId,
-				selectedStudents: [],
-			}));
-		}
-	}, [
-		filters.academicYear,
-		filters.session,
-		filters.classLevel,
-		academicYearOptions,
-		defaultAcademicYear,
-		userAvailableSessions,
-		availableGradeLevels,
-		availableClasses,
-		setFilters,
-		isStudent,
-	]);
-
-	useEffect(() => {
-		if (filters.className && !isStudent) {
-			const fetchStudents = async () => {
-				setLoadingStudents(true);
-				try {
-					const offline =
-						typeof navigator !== 'undefined' && navigator.onLine === false;
-					const cachedUsers = getScopedAcademicYearValue(
-						usersByAcademicYear,
-						filters.academicYear,
-					).value;
-					if (cachedUsers?.students?.length) {
-						const filtered = cachedUsers.students.filter(
-							(student: any) =>
-								getStudentClassIdForYear(student, filters.academicYear) ===
-								filters.className,
-						);
-						if (filtered.length > 0) {
-							const mappedStudents = filtered.map((student: any) => {
-								const classId = getStudentClassIdForYear(
-									student,
-									filters.academicYear,
-								);
-								return {
-									id: normalizeStudentId(
-										student.studentId,
-										student.id,
-										student._id,
-									),
-									name: resolveStudentDisplayName(student),
-									className: classId,
-								};
-							});
-							setStudents(mappedStudents);
-							return;
-						}
-					}
-					const cacheKey = `semester:students:${filters.academicYear}:${filters.className}`;
-					const cached = getClientCache<Student[]>(cacheKey);
-					if (cached) {
-						setStudents(cached);
-						return;
-					}
-					if (offline) {
-						setStudents([]);
-						return;
-					}
-					const response = await fetch(
-						`/api/users?classId=${filters.className}&role=student&academicYear=${filters.academicYear}`,
-						{ cache: 'no-store' },
-					);
-					if (!response.ok) {
-						throw new Error('Failed to fetch students');
-					}
-					const responseData = await response.json();
-					if (responseData.success && responseData.data) {
-						setUsersForYear(
-							filters.academicYear,
-							{
-								students: Array.isArray(responseData.data)
-									? responseData.data
-									: [],
-							},
-							{ merge: true },
-						);
-						const mappedStudents = responseData.data.map((student: any) => ({
-							id: normalizeStudentId(
-								student.studentId,
-								student.id,
-								student._id,
-							),
-							name: resolveStudentDisplayName(student),
-							className: getStudentClassIdForYear(
-								student,
-								filters.academicYear,
-							),
-						}));
-						setStudents(mappedStudents);
-						setClientCache(cacheKey, mappedStudents, OFFLINE_CACHE_TTL_MS);
-					} else {
-						setStudents([]);
-					}
-				} catch (error) {
-					console.error('Error fetching students:', error);
-					setStudents([]);
-				} finally {
-					setLoadingStudents(false);
-				}
-			};
-			fetchStudents();
-		} else {
-			setStudents([]);
-			if (!isStudent) {
-				setFilters((prev) =>
-					prev.selectedStudents.length === 0
-						? prev
-						: { ...prev, selectedStudents: [] },
-				);
-			}
-		}
-	}, [
-		filters.className,
-		filters.academicYear,
-		isStudent,
-		setFilters,
-		usersByAcademicYear,
-		setUsersForYear,
-	]);
-
-	useEffect(() => {
-		if (isStudent) return;
-		const allowedIds = new Set(students.map((student) => student.id));
-		setFilters((prev) => {
-			if (!prev.selectedStudents.length) return prev;
-			const nextSelected = prev.selectedStudents.filter((studentId) =>
-				allowedIds.has(normalizeStudentId(studentId)),
-			);
-			if (nextSelected.length === prev.selectedStudents.length) {
-				return prev;
-			}
-			return {
-				...prev,
-				selectedStudents: nextSelected,
-			};
-		});
-	}, [students, isStudent, setFilters]);
-
-	const canSubmit = useMemo(() => {
-		if (isStudent) {
-			return !!(filters.academicYear && filters.semester && filters.className);
-		}
-		return !!(filters.academicYear && filters.className && filters.semester);
-	}, [
-		isStudent,
-		filters.academicYear,
-		filters.className,
-		filters.semester,
-		filters.session,
-		filters.classLevel,
-	]);
-
-	const allowedSemesters = getAllowedStudentSemesters(
-		currentSchool,
-		filters.academicYear,
-	);
-	const hasSemesterAccess = !isStudent || allowedSemesters.length > 0;
-	const filteredSemesterOptions =
-		isStudent && hasSemesterAccess
-			? semesterOptions.filter((option) =>
-					allowedSemesters.includes(option.value),
-				)
-			: semesterOptions;
-
-	useEffect(() => {
-		if (!isStudent || !hasSemesterAccess) return;
-		if (filteredSemesterOptions.length === 1 && !filters.semester) {
-			setFilters((prev) => ({
-				...prev,
-				semester: filteredSemesterOptions[0].value as ReportFilters['semester'],
-			}));
-		} else if (
-			filters.semester &&
-			!filteredSemesterOptions.find((opt) => opt.value === filters.semester)
-		) {
-			setFilters((prev) => ({ ...prev, semester: '' }));
-		}
-	}, [
-		isStudent,
-		hasSemesterAccess,
-		filteredSemesterOptions,
-		filters.semester,
-		setFilters,
-	]);
-
-	if (isStudent && !hasSemesterAccess) {
-		return (
-			<AccessDenied
-				message="You are currently not allowed to view semester reports"
-				description=""
-			/>
-		);
-	}
-
-	if (isStudent) {
-		const isStudentInfoComplete = !!filters.className;
-		return (
-			<div className="flex flex-col items-center justify-center min-h-[60vh] py-10 bg-background text-foreground">
-				<div className="bg-card rounded-lg shadow border border-border w-full max-w-md p-6">
-					<h2 className="text-lg font-semibold mb-4 text-center">
-						My Semester Report
-					</h2>
-					{academicYearOptions.length > 1 && (
-						<div className="mb-4">
-							<label className="block text-sm font-medium mb-1">
-								Academic Year
-							</label>
-							<select
-								value={filters.academicYear}
-								onChange={(e) =>
-									setFilters((f) => ({ ...f, academicYear: e.target.value }))
-								}
-								className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-							>
-								{academicYearOptions.map((year) => (
-									<option key={year} value={year}>
-										{year}
-									</option>
-								))}
-							</select>
-						</div>
-					)}
-					<div className="mb-4">
-						<label className="block text-sm font-medium mb-1">Semester</label>
-						<select
-							value={filters.semester}
-							onChange={(e) =>
-								setFilters((f) => ({
-									...f,
-									semester: e.target.value as ReportFilters['semester'],
-								}))
-							}
-							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-						>
-							<option value="">Select Semester</option>
-							{filteredSemesterOptions.map((option) => (
-								<option key={option.value} value={option.value}>
-									{option.label}
-								</option>
-							))}
-						</select>
-					</div>
-					{!isStudentInfoComplete && (
-						<div className="p-3 mb-4 text-center text-sm bg-destructive/10 text-destructive rounded border border-destructive/20">
-							Your profile is missing required class information. Please contact
-							an administrator.
-						</div>
-					)}
-					<div className="flex gap-2 mt-6">
-						<button
-							type="button"
-							onClick={onSubmit}
-							className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
-							disabled={!canSubmit}
-						>
-							View Report
-						</button>
-					</div>
-				</div>
-			</div>
-		);
-	}
-
-	return (
-		<div className="flex flex-col items-center justify-center min-h-[60vh] py-10">
-			<div className="bg-card rounded-lg shadow border border-border w-full max-w-md p-6">
-				<h2 className="text-lg font-semibold mb-4 text-center">
-					Filter Semester Report
-				</h2>
-				{academicYearOptions.length > 1 && (
-					<div className="mb-4">
-						<label className="block text-sm font-medium mb-1">
-							Academic Year
-						</label>
-						<select
-							value={filters.academicYear}
-							onChange={(e) =>
-								setFilters((f) => ({
-									...f,
-									academicYear: e.target.value,
-									session: '',
-									classLevel: '',
-									className: '',
-									selectedStudents: [],
-								}))
-							}
-							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-						>
-							{academicYearOptions.map((year) => (
-								<option key={year} value={year}>
-									{year}
-								</option>
-							))}
-						</select>
-					</div>
-				)}
-
-				{userAvailableSessions.length > 1 && (
-					<div className="mb-4">
-						<label className="block text-sm font-medium mb-1">Session</label>
-						<select
-							value={filters.session}
-							onChange={(e) =>
-								setFilters((f) => ({
-									...f,
-									session: e.target.value,
-									classLevel: '',
-									className: '',
-									selectedStudents: [],
-								}))
-							}
-							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
-							disabled={!filters.academicYear}
-						>
-							<option value="">Select Session</option>
-							{userAvailableSessions.map((session) => (
-								<option key={session} value={session}>
-									{session}
-								</option>
-							))}
-						</select>
-					</div>
-				)}
-
-				{filters.session && availableGradeLevels.length > 1 && (
-					<div className="mb-4">
-						<label className="block text-sm font-medium mb-1">
-							Grade Level
-						</label>
-						<select
-							value={filters.classLevel}
-							onChange={(e) =>
-								setFilters((f) => ({
-									...f,
-									classLevel: e.target.value,
-									className: '',
-									selectedStudents: [],
-								}))
-							}
-							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
-							disabled={!filters.session}
-						>
-							<option value="">Select Grade Level</option>
-							{availableGradeLevels.map((level) => (
-								<option key={level} value={level}>
-									{level}
-								</option>
-							))}
-						</select>
-					</div>
-				)}
-
-				{filters.classLevel && availableClasses.length > 1 && (
-					<div className="mb-4">
-						<label className="block text-sm font-medium mb-1">Class</label>
-						<select
-							value={filters.className}
-							onChange={(e) =>
-								setFilters((f) => ({
-									...f,
-									className: e.target.value,
-									selectedStudents: [],
-								}))
-							}
-							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
-							disabled={!filters.classLevel}
-						>
-							<option value="">Select Class</option>
-							{availableClasses.map((classInfo: any) => (
-								<option key={classInfo.classId} value={classInfo.classId}>
-									{classInfo.name}
-								</option>
-							))}
-						</select>
-					</div>
-				)}
-
-				<div className="mb-4">
-					<label className="block text-sm font-medium mb-1">Semester</label>
-					<select
-						value={filters.semester}
-						onChange={(e) =>
-							setFilters((f) => ({
-								...f,
-								semester: e.target.value as ReportFilters['semester'],
-							}))
-						}
-						className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-					>
-						<option value="">Select Semester</option>
-						{semesterOptions.map((option) => (
-							<option key={option.value} value={option.value}>
-								{option.label}
-							</option>
-						))}
-					</select>
-				</div>
-
-				{filters.className && (
-					<div className="mb-4">
-						{loadingStudents ? (
-							<div className="text-center py-4">
-								<InlineLoading size="sm" />
-							</div>
-						) : (
-							<StudentMultiSelect
-								students={students}
-								selectedStudents={filters.selectedStudents}
-								onSelectionChange={(studentIds) =>
-									setFilters((prev) => ({
-										...prev,
-										selectedStudents: studentIds,
-									}))
-								}
-							/>
-						)}
-					</div>
-				)}
-
-				<div className="flex gap-2 mt-6">
-					<button
-						type="button"
-						onClick={onSubmit}
-						className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
-						disabled={!canSubmit}
-					>
-						Apply Filter
-					</button>
-				</div>
-			</div>
-		</div>
-	);
-});
 
 // --- PDF Template Helpers ---
 const DEBUG_COORDS = process.env.NEXT_PUBLIC_PDF_DEBUG_COORDS === 'true';
@@ -1641,8 +999,9 @@ function ReportContent({
 		serverKey,
 	]);
 
+	const schoolSubjectsRef = useRef<string[]>([]);
 	const schoolSubjects = useMemo(() => {
-		if (!currentSchool) return [];
+		if (!currentSchool) return schoolSubjectsRef.current;
 		const classMeta = getClassMetaById(
 			currentSchool.classLevels,
 			reportFilters.className,
@@ -1658,11 +1017,16 @@ function ReportContent({
 			currentSchool?.classLevels?.[resolvedMeta?.session || '']?.[
 				resolvedMeta?.level || ''
 			]?.subjects || [];
-		return mergeSubjectNames(
+		const next = mergeSubjectNames(
 			subjects.map((subject: any) =>
 				typeof subject === 'string' ? subject : subject?.name,
 			),
 		);
+		if (schoolSubjectsRef.current.join('||') === next.join('||')) {
+			return schoolSubjectsRef.current;
+		}
+		schoolSubjectsRef.current = next;
+		return next;
 	}, [
 		currentSchool,
 		reportFilters.session,
@@ -1687,6 +1051,7 @@ function ReportContent({
 	);
 
 	useEffect(() => {
+		let cancelled = false;
 		const fetchStudentsData = async () => {
 			setLoading(true);
 			setError(null);
@@ -1706,6 +1071,7 @@ function ReportContent({
 				const offline =
 					typeof navigator !== 'undefined' && navigator.onLine === false;
 				if (cachedReport && offline) {
+					if (cancelled) return;
 					setStudentsData(cachedReport);
 					const cachedSubjects = mergeSubjectNames([
 						...schoolSubjects,
@@ -2128,15 +1494,20 @@ function ReportContent({
 
 				setStudentsData(reportData);
 				setClientCache(reportCacheKey, reportData, OFFLINE_CACHE_TTL_MS);
-				setLoading(false);
+				if (!cancelled) setLoading(false);
 			} catch (err: any) {
 				console.error('Error fetching report data:', err);
-				setError(err.message || 'Failed to load report data');
-				setLoading(false);
+				if (!cancelled) {
+					setError(err.message || 'Failed to load report data');
+					setLoading(false);
+				}
 			}
 		};
 
 		fetchStudentsData();
+		return () => {
+			cancelled = true;
+		};
 	}, [
 		reportFilters.academicYear,
 		reportFilters.className,
@@ -2747,38 +2118,107 @@ function ReportContent({
 	);
 }
 
-export default function SemesterReport() {
-	const [filters, setFilters] = useState<ReportFilters>({
+export default function SemesterReportWrapper() {
+	const [showReport, setShowReport] = useState(false);
+	const [activeStudents, setActiveStudents] = useState<Student[]>([]);
+	const user = useAuth((state) => state.user);
+	const currentSchool = useSchoolStore((state) => state.school);
+	const isStudent = user?.role == 'student';
+
+	const studentAccessOptions = useMemo(() => {
+		if (!isStudent || !currentSchool) return [];
+		return getStudentAllowedAccess(user, currentSchool);
+	}, [isStudent, user, currentSchool]);
+
+	const allowedSemesters = studentAccessOptions
+		.map((year: any) => year.semesters || [])
+		.flat();
+
+	const [filters, setFilters] = useState<SemesterReportFilters>({
 		academicYear: '',
+		semester: '',
 		session: '',
 		classLevel: '',
 		className: '',
-		semester: '',
 		selectedStudents: [],
 	});
 
-	const [reportStep, setReportStep] = useState(0);
-
-	const handleSubmitFilters = useCallback(() => {
-		setReportStep(1);
+	const handleFilterSubmit = useCallback((students?: Student[]) => {
+		setActiveStudents(students || []);
+		setShowReport(true);
 	}, []);
 
-	const handleBackToFilters = useCallback(() => {
-		setReportStep(0);
+	const handleBack = useCallback(() => {
+		setShowReport(false);
+		setActiveStudents([]);
 	}, []);
+
+	// 1. Calculate the allowed semesters for the SPECIFICALLY selected year
+	const allowedSemestersForSelectedYear = useMemo(() => {
+		if (!isStudent) return [];
+
+		const currentYearAccess = studentAccessOptions.find((opt: any) =>
+			areAcademicYearsEqual(opt.academicYear, filters.academicYear),
+		);
+		return currentYearAccess?.semesters || [];
+	}, [isStudent, studentAccessOptions, filters.academicYear]);
+
+	// 2. Update your filterConfig to filter the options array
+	const filterConfig: FilterConfig<SemesterReportFilters> = useMemo(
+		() => ({
+			gradeLevelField: 'classLevel',
+			extraFilter: {
+				field: 'semester',
+				label: 'Semester',
+				options: semesterOptions
+					// Filter the base options to only include what the student has access to
+					.filter(
+						(s) =>
+							!isStudent || allowedSemestersForSelectedYear.includes(s.value),
+					)
+					.map((s) => ({ value: s.value, label: s.label })),
+			},
+			// ... [Keep your other existing config properties]
+		}),
+		[isStudent, allowedSemestersForSelectedYear],
+	);
+
+	const filterContent = useMemo(
+		() => (
+			<SharedFilter
+				filters={filters}
+				setFilters={setFilters}
+				onSubmit={handleFilterSubmit}
+				config={filterConfig}
+				reportType="semester"
+			/>
+		),
+		[filters, handleFilterSubmit, filterConfig],
+	);
+
+	const reportContent = useMemo(() => {
+		if (!showReport) return null;
+		const filterKey = `${filters.academicYear}-${filters.semester}-${filters.session}-${filters.classLevel}-${filters.className}-${filters.selectedStudents.join(',')}`;
+
+		return (
+			<ReportContent
+				key={filterKey}
+				reportFilters={filters}
+				activeStudents={activeStudents}
+				onBack={handleBack}
+			/>
+		);
+	}, [showReport, filters, activeStudents, handleBack]);
+
+	if (isStudent && allowedSemesters.length === 0) {
+		return (
+			<AccessDenied message="You are currently not allowed to view semester reports" />
+		);
+	}
 
 	return (
-		<div className="p-4">
-			{reportStep === 0 && (
-				<FilterContent
-					filters={filters}
-					setFilters={setFilters}
-					onSubmit={handleSubmitFilters}
-				/>
-			)}
-			{reportStep === 1 && (
-				<ReportContent reportFilters={filters} onBack={handleBackToFilters} />
-			)}
+		<div className="w-full h-screen bg-background">
+			{!showReport ? filterContent : reportContent}
 		</div>
 	);
 }
