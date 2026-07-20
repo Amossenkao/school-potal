@@ -16,6 +16,7 @@ import {
 import { StudentMultiSelect } from './StudentMultiSelect';
 import { PageLoading } from '@/components/loading';
 import { getStudentAllowedAccess } from '@/utils/schoolSettingsAccess';
+import { ChevronDown, Check, ArrowRight } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -143,15 +144,10 @@ const defaultBuildStudentName = (student: any) => {
 		.join(' ')
 		.trim();
 	if (fullName) return fullName;
-
-	if (typeof student?.name === 'string' && student.name.trim()) {
+	if (typeof student?.name === 'string' && student.name.trim())
 		return student.name.trim();
-	}
-
-	if (typeof student?.studentName === 'string' && student.studentName.trim()) {
+	if (typeof student?.studentName === 'string' && student.studentName.trim())
 		return student.studentName.trim();
-	}
-
 	return '';
 };
 
@@ -188,6 +184,116 @@ const getStudentClassIdForYear = (student: any, academicYear: string) => {
 
 const OFFLINE_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
 
+// ─── FilterSelect — custom styled select ─────────────────────────────────────
+
+const FilterSelect = ({
+	label,
+	value,
+	onChange,
+	options,
+	placeholder,
+	disabled = false,
+	done = false,
+}: {
+	label: string;
+	value: string;
+	onChange: (v: string) => void;
+	options: Array<{ value: string; label: string }>;
+	placeholder: string;
+	disabled?: boolean;
+	done?: boolean;
+}) => {
+	const [open, setOpen] = useState(false);
+	const selected = options.find((o) => o.value === value);
+
+	return (
+		<div className="relative">
+			<p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1.5">
+				{label}
+			</p>
+			<button
+				type="button"
+				disabled={disabled}
+				onClick={() => setOpen((p) => !p)}
+				className={`w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-sm text-left transition-colors
+					${disabled ? 'opacity-40 cursor-not-allowed border-border bg-muted/30' : 'border-border bg-background hover:border-border-strong cursor-pointer'}
+					${done && !open ? 'border-primary/40 bg-primary/5' : ''}
+					focus:outline-none focus:ring-2 focus:ring-primary/30`}
+			>
+				<span
+					className={
+						selected
+							? done
+								? 'text-primary font-medium'
+								: 'text-foreground'
+							: 'text-muted-foreground'
+					}
+				>
+					{selected ? selected.label : placeholder}
+				</span>
+				<span className="flex-shrink-0 flex items-center gap-1">
+					{done && selected && <Check className="h-3.5 w-3.5 text-primary" />}
+					<ChevronDown
+						className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+					/>
+				</span>
+			</button>
+
+			{open && (
+				<>
+					<div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+					<div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-card shadow-lg overflow-hidden">
+						<ul className="py-1 max-h-52 overflow-y-auto">
+							{options.map((opt) => (
+								<li
+									key={opt.value}
+									onClick={() => {
+										onChange(opt.value);
+										setOpen(false);
+									}}
+									className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer transition-colors
+										${opt.value === value ? 'bg-primary/8 text-primary font-medium' : 'text-foreground hover:bg-muted'}`}
+								>
+									{opt.label}
+									{opt.value === value && (
+										<Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+									)}
+								</li>
+							))}
+						</ul>
+					</div>
+				</>
+			)}
+		</div>
+	);
+};
+
+// ─── StepDot — visual step indicator ─────────────────────────────────────────
+
+const StepDot = ({
+	done,
+	active,
+	index,
+	isLast,
+}: {
+	done: boolean;
+	active: boolean;
+	index: number;
+	isLast: boolean;
+}) => (
+	<div className="relative flex flex-col items-center">
+		<div
+			className={`h-6 w-6 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-semibold transition-all
+				${done ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20' : active ? 'bg-primary/15 text-primary ring-2 ring-primary/25' : 'bg-muted text-muted-foreground border border-border'}`}
+		>
+			{done ? <Check className="h-3 w-3" /> : index}
+		</div>
+		{!isLast && (
+			<div className={`absolute top-6 left-1/2 -translate-x-1/2 w-px h-4 ${done ? 'bg-primary/30' : 'bg-border'}`} />
+		)}
+	</div>
+);
+
 // ─── SharedFilter Component ───────────────────────────────────────────────────
 
 export const SharedFilter = <T extends BaseFilters>({
@@ -220,6 +326,7 @@ export const SharedFilter = <T extends BaseFilters>({
 	const buildName = config.buildStudentName || defaultBuildStudentName;
 
 	// ─── Academic Year Options ────────────────────────────────────────────────
+
 	const studentAccessOptions = useMemo(() => {
 		if (!isStudent || !user || !currentSchool) return [];
 		return getStudentAllowedAccess(user, currentSchool);
@@ -227,24 +334,16 @@ export const SharedFilter = <T extends BaseFilters>({
 
 	const academicYearOptions = useMemo(() => {
 		if (isStudent) {
-			// Filter based on the specific report type requested
 			const filteredOptions = studentAccessOptions.filter((opt: any) => {
-				if (reportType === 'yearly') {
-					return opt.yearlyReportAccess === true;
-				}
-				if (reportType === 'semester') {
+				if (reportType === 'yearly') return opt.yearlyReportAccess === true;
+				if (reportType === 'semester')
 					return Array.isArray(opt.semesters) && opt.semesters.length > 0;
-				}
-				if (reportType === 'periodic') {
+				if (reportType === 'periodic')
 					return Array.isArray(opt.periods) && opt.periods.length > 0;
-				}
-
 				return true;
 			});
-
 			return filteredOptions.map((opt: any) => opt.academicYear);
 		}
-
 		return buildSchoolAcademicYearRange(currentSchool);
 	}, [
 		currentSchool,
@@ -316,7 +415,7 @@ export const SharedFilter = <T extends BaseFilters>({
 		return [];
 	}, [filters.session, filters, currentSchool?.classLevels, getGradeLevel]);
 
-	// ─── Extra Filter (semester/period) ───────────────────────────────────────
+	// ─── Extra Filter ─────────────────────────────────────────────────────────
 
 	const extraFilter = config.extraFilter;
 	const extraFilterValue = extraFilter
@@ -488,11 +587,7 @@ export const SharedFilter = <T extends BaseFilters>({
 		);
 		if (!filters.academicYear || !isSelectedYearAvailable) {
 			setFilters(
-				(prev) =>
-					({
-						...prev,
-						academicYear: defaultAcademicYear,
-					}) as T,
+				(prev) => ({ ...prev, academicYear: defaultAcademicYear }) as T,
 			);
 		}
 	}, [
@@ -632,11 +727,11 @@ export const SharedFilter = <T extends BaseFilters>({
 
 	useEffect(() => {
 		if (isStudent) return;
-		const allowedIds = new Set(students.map((student) => student.id));
+		const allowedIds = new Set(students.map((s) => s.id));
 		setFilters((prev) => {
 			if (!prev.selectedStudents.length) return prev;
-			const nextSelected = prev.selectedStudents.filter((studentId) =>
-				allowedIds.has(normalize(studentId)),
+			const nextSelected = prev.selectedStudents.filter((id) =>
+				allowedIds.has(normalize(id)),
 			);
 			if (nextSelected.length === prev.selectedStudents.length) return prev;
 			return { ...prev, selectedStudents: nextSelected } as T;
@@ -725,95 +820,80 @@ export const SharedFilter = <T extends BaseFilters>({
 
 	if (isStudent) {
 		const isStudentInfoComplete = !!filters.className;
+
 		return (
-			<div className="flex flex-col items-center justify-center min-h-[60vh] py-10 bg-background text-foreground">
-				<div className="bg-card rounded-xl shadow border border-border w-full max-w-lg p-6 lg:p-8">
-					<h2 className="text-lg font-semibold mb-5 text-center">
-						{config.studentViewTitle || 'Filter Report Card'}
-					</h2>
-
-					<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-						{academicYearOptions.length > 1 && (
-							<div className="bg-muted/50 rounded-lg p-3">
-								<label className="block text-sm font-medium mb-1.5">
-									Academic Year
-								</label>
-								<select
-									value={filters.academicYear}
-									onChange={(e) =>
-										setFilters(
-											(f) =>
-												({
-													...f,
-													academicYear: e.target.value,
-												}) as T,
-										)
-									}
-									className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-								>
-									{academicYearOptions.map((year) => (
-										<option key={year} value={year}>
-											{year}
-										</option>
-									))}
-								</select>
-							</div>
-						)}
-
-						{extraFilter && filteredExtraOptions.length > 0 && (
-							<div className="bg-muted/50 rounded-lg p-3">
-								<label className="block text-sm font-medium mb-1.5">
-									{extraFilter.label}
-								</label>
-								<select
-									value={extraFilterValue}
-									onChange={(e) =>
-										setFilters(
-											(f) =>
-												({
-													...f,
-													[extraFilter.field]: e.target.value,
-												}) as T,
-										)
-									}
-									className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-								>
-									<option value="">Select {extraFilter.label}</option>
-									{filteredExtraOptions.map((option) => (
-										<option key={option.value} value={option.value}>
-											{option.label}
-										</option>
-									))}
-								</select>
-							</div>
-						)}
+			<div className="flex items-center justify-center min-h-[60vh] py-10 bg-background text-foreground px-4">
+				<div className="w-full max-w-sm">
+					{/* Header */}
+					<div className="mb-6 text-center">
+						<p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-1">
+							{config.studentViewTitle || 'Report card'}
+						</p>
+						<h2 className="text-xl font-semibold text-foreground">
+							Select your report
+						</h2>
 					</div>
 
-					{!isStudentInfoComplete && (
-						<div className="p-3 mb-4 mt-3 text-center text-sm bg-destructive/10 text-destructive rounded border border-destructive/20">
-							Your profile is missing required class information. Please contact
-							an administrator.
-						</div>
-					)}
+					{/* Card */}
+					<div className="rounded-2xl border border-border bg-card overflow-hidden">
+						<div className="p-5 space-y-4">
+							{academicYearOptions.length > 1 && (
+								<FilterSelect
+									label="Academic year"
+									value={filters.academicYear}
+									onChange={(v) =>
+										setFilters((f) => ({ ...f, academicYear: v }) as T)
+									}
+									options={academicYearOptions.map((y) => ({
+										value: y,
+										label: y,
+									}))}
+									placeholder="Select year"
+									done={!!filters.academicYear}
+								/>
+							)}
 
-					<div className="flex gap-2 mt-6">
-						{config.showStudentReset && (
+							{extraFilter && filteredExtraOptions.length > 0 && (
+								<FilterSelect
+									label={extraFilter.label}
+									value={extraFilterValue}
+									onChange={(v) =>
+										setFilters((f) => ({ ...f, [extraFilter.field]: v }) as T)
+									}
+									options={filteredExtraOptions}
+									placeholder={`Select ${extraFilter.label.toLowerCase()}`}
+									done={!!extraFilterValue}
+								/>
+							)}
+
+							{!isStudentInfoComplete && (
+								<div className="rounded-lg border border-destructive/20 bg-destructive/8 p-3 text-xs text-destructive leading-relaxed">
+									Your profile is missing class information. Contact an
+									administrator.
+								</div>
+							)}
+						</div>
+
+						<div className="border-t border-border bg-muted/20 px-5 py-4 flex gap-2">
+							{config.showStudentReset && (
+								<button
+									type="button"
+									onClick={handleReset}
+									className="px-4 py-2 text-sm rounded-lg border border-border bg-background hover:bg-muted text-muted-foreground transition-colors"
+								>
+									Reset
+								</button>
+							)}
 							<button
 								type="button"
-								onClick={handleReset}
-								className="flex-1 px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80 border border-border"
+								onClick={handleSubmit}
+								disabled={!canSubmit}
+								className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
 							>
-								Reset
+								{config.viewButtonText || 'View report'}
+								<ArrowRight className="h-4 w-4" />
 							</button>
-						)}
-						<button
-							type="button"
-							onClick={handleSubmit}
-							className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
-							disabled={!canSubmit}
-						>
-							{config.viewButtonText || 'View Report'}
-						</button>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -826,248 +906,400 @@ export const SharedFilter = <T extends BaseFilters>({
 		? config.showStudentSelect(filters, isSystemAdmin)
 		: !!filters.className;
 
-	return (
-		<div className="flex flex-col items-center justify-center min-h-[60vh] py-10">
-			<div className="bg-card rounded-xl shadow border border-border w-full max-w-5xl p-6 lg:p-8">
-				<h2 className="text-lg font-semibold mb-5 text-center">
-					{config.nonStudentViewTitle || 'Filter Report Card'}
-				</h2>
+	// Build the filter steps for the left rail
+	const showSession = userAvailableSessions.length > 1;
+	const showGradeLevel = config.showGradeLevelWhenSingle
+		? !!(filters.session && availableGradeLevels.length >= 1)
+		: !!(filters.session && availableGradeLevels.length > 1);
+	const showClass =
+		config.showClassAlways ||
+		!!(getGradeLevel(filters) && availableClasses.length > 1);
 
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-					{academicYearOptions.length > 1 && (
-						<div className="bg-muted/50 rounded-lg p-3">
-							<label className="block text-sm font-medium mb-1.5">
-								Academic Year
-							</label>
-							<select
-								value={filters.academicYear}
-								onChange={(e) =>
-									setFilters(
-										(f) =>
-											({
-												...f,
-												academicYear: e.target.value,
-												session: '',
-												[gradeLevelField]: '',
-												className: '',
-												selectedStudents: [],
-											}) as T,
-									)
-								}
-								className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-							>
-								{academicYearOptions.map((year) => (
-									<option key={year} value={year}>
-										{year}
-									</option>
-								))}
-							</select>
-						</div>
-					)}
+	// Step completion state
+	const yearDone = !!filters.academicYear;
+	const extraDone = !extraFilter || !!extraFilterValue;
+	const sessionDone = !showSession || !!filters.session;
+	const gradeDone = !showGradeLevel || !!getGradeLevel(filters);
+	const classDone = !!filters.className;
 
-					{extraFilter && (
-						<div className="bg-muted/50 rounded-lg p-3">
-							<label className="block text-sm font-medium mb-1.5">
-								{extraFilter.label}
-							</label>
-							<select
-								value={extraFilterValue}
-								onChange={(e) =>
-									setFilters(
-										(f) =>
-											({
-												...f,
-												[extraFilter.field]: e.target.value,
-											}) as T,
-									)
-								}
-								className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
-							>
-								<option value="">Select {extraFilter.label}</option>
-								{extraFilter.options.map((option) => (
-									<option key={option.value} value={option.value}>
-										{option.label}
-									</option>
-								))}
-							</select>
-						</div>
-					)}
+	type Step = {
+		key: string;
+		label: string;
+		index: number;
+		done: boolean;
+		active: boolean;
+		render: () => React.ReactNode;
+	};
 
-					{userAvailableSessions.length > 1 && (
-						<div className="bg-muted/50 rounded-lg p-3">
-							<label className="block text-sm font-medium mb-1.5">
-								Session
-							</label>
-							<select
-								value={filters.session}
-								onChange={(e) =>
-									setFilters(
-										(f) =>
-											({
-												...f,
-												session: e.target.value,
-												[gradeLevelField]: '',
-												className: '',
-												selectedStudents: [],
-											}) as T,
-									)
-								}
-								className="w-full border border-border px-3 py-2 rounded bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
-								disabled={!filters.academicYear}
-							>
-								<option value="">Select Session</option>
-								{userAvailableSessions.map((session) => (
-									<option key={session} value={session}>
-										{session}
-									</option>
-								))}
-							</select>
-						</div>
-					)}
+	const steps: Step[] = [];
+	let stepIndex = 1;
 
-					{(config.showGradeLevelWhenSingle
-						? filters.session && availableGradeLevels.length >= 1
-						: filters.session && availableGradeLevels.length > 1) && (
-						<div className="bg-muted/50 rounded-lg p-3">
-							<label className="block text-sm font-medium mb-1.5">
-								Grade Level
-							</label>
-							<select
-								value={getGradeLevel(filters)}
-								onChange={(e) =>
-									setFilters(
-										(f) =>
-											({
-												...f,
-												[gradeLevelField]: e.target.value,
-												className: '',
-												selectedStudents: [],
-											}) as T,
-									)
-								}
-								className="w-full border border-border px-3 py-2 rounded bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
-								disabled={!filters.session}
-							>
-								<option value="">Select Grade Level</option>
-								{availableGradeLevels.map((level) => (
-									<option key={level} value={level}>
-										{level}
-									</option>
-								))}
-							</select>
-						</div>
-					)}
-
-					{config.showClassAlways ? (
-						<div className="bg-muted/50 rounded-lg p-3">
-							<label className="block text-sm font-medium mb-1.5">Class</label>
-							<select
-								value={filters.className}
-								onChange={(e) =>
-									setFilters(
-										(f) =>
-											({
-												...f,
-												className: e.target.value,
-												selectedStudents: [],
-											}) as T,
-									)
-								}
-								className="w-full border border-border px-3 py-2 rounded bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
-								disabled={!getGradeLevel(filters)}
-							>
-								<option value="">Select Class</option>
-								{availableClasses.map((classInfo: any) => (
-									<option key={classInfo.classId} value={classInfo.classId}>
-										{classInfo.name}
-									</option>
-								))}
-							</select>
-						</div>
-					) : (
-						getGradeLevel(filters) &&
-						availableClasses.length > 1 && (
-							<div className="bg-muted/50 rounded-lg p-3">
-								<label className="block text-sm font-medium mb-1.5">
-									Class
-								</label>
-								<select
-									value={filters.className}
-									onChange={(e) =>
-										setFilters(
-											(f) =>
-												({
-													...f,
-													className: e.target.value,
-													selectedStudents: [],
-												}) as T,
-										)
-									}
-									className="w-full border border-border px-3 py-2 rounded bg-background text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
-									disabled={!getGradeLevel(filters)}
-								>
-									<option value="">Select Class</option>
-									{availableClasses.map((classInfo: any) => (
-										<option key={classInfo.classId} value={classInfo.classId}>
-											{classInfo.name}
-										</option>
-									))}
-								</select>
-							</div>
+	// Academic year step
+	if (academicYearOptions.length > 1) {
+		const idx = stepIndex++;
+		steps.push({
+			key: 'year',
+			label: 'Academic year',
+			index: idx,
+			done: yearDone,
+			active: true,
+			render: () => (
+				<FilterSelect
+					label=""
+					value={filters.academicYear}
+					onChange={(v) =>
+						setFilters(
+							(f) =>
+								({
+									...f,
+									academicYear: v,
+									session: '',
+									[gradeLevelField]: '',
+									className: '',
+									selectedStudents: [],
+								}) as T,
 						)
-					)}
+					}
+					options={academicYearOptions.map((y) => ({ value: y, label: y }))}
+					placeholder="Select year"
+					done={yearDone}
+				/>
+			),
+		});
+	}
+
+	// Extra filter step
+	if (extraFilter) {
+		const prevDone = yearDone;
+		const idx = stepIndex++;
+		steps.push({
+			key: 'extra',
+			label: extraFilter.label,
+			index: idx,
+			done: !!extraFilterValue,
+			active: prevDone,
+			render: () => (
+				<FilterSelect
+					label=""
+					value={extraFilterValue}
+					onChange={(v) =>
+						setFilters((f) => ({ ...f, [extraFilter.field]: v }) as T)
+					}
+					options={extraFilter.options}
+					placeholder={`Select ${extraFilter.label.toLowerCase()}`}
+					disabled={!prevDone}
+					done={!!extraFilterValue}
+				/>
+			),
+		});
+	}
+
+	// Session step
+	if (showSession) {
+		const prevDone = yearDone && extraDone;
+		const idx = stepIndex++;
+		steps.push({
+			key: 'session',
+			label: 'Session',
+			index: idx,
+			done: !!filters.session,
+			active: prevDone,
+			render: () => (
+				<FilterSelect
+					label=""
+					value={filters.session}
+					onChange={(v) =>
+						setFilters(
+							(f) =>
+								({
+									...f,
+									session: v,
+									[gradeLevelField]: '',
+									className: '',
+									selectedStudents: [],
+								}) as T,
+						)
+					}
+					options={userAvailableSessions.map((s) => ({ value: s, label: s }))}
+					placeholder="Select session"
+					disabled={!prevDone}
+					done={!!filters.session}
+				/>
+			),
+		});
+	}
+
+	// Grade level step
+	if (showGradeLevel) {
+		const prevDone = yearDone && extraDone && sessionDone;
+		const idx = stepIndex++;
+		steps.push({
+			key: 'grade',
+			label: 'Grade level',
+			index: idx,
+			done: !!getGradeLevel(filters),
+			active: prevDone,
+			render: () => (
+				<FilterSelect
+					label=""
+					value={getGradeLevel(filters)}
+					onChange={(v) =>
+						setFilters(
+							(f) =>
+								({
+									...f,
+									[gradeLevelField]: v,
+									className: '',
+									selectedStudents: [],
+								}) as T,
+						)
+					}
+					options={availableGradeLevels.map((l) => ({ value: l, label: l }))}
+					placeholder="Select grade"
+					disabled={!prevDone}
+					done={!!getGradeLevel(filters)}
+				/>
+			),
+		});
+	}
+
+	// Class step
+	if (showClass) {
+		const prevDone = yearDone && extraDone && sessionDone && gradeDone;
+		const idx = stepIndex++;
+		steps.push({
+			key: 'class',
+			label: 'Class',
+			index: idx,
+			done: !!filters.className,
+			active: prevDone,
+			render: () => (
+				<FilterSelect
+					label=""
+					value={filters.className}
+					onChange={(v) =>
+						setFilters(
+							(f) =>
+								({
+									...f,
+									className: v,
+									selectedStudents: [],
+								}) as T,
+						)
+					}
+					options={availableClasses.map((c: any) => ({
+						value: c.classId,
+						label: c.name,
+					}))}
+					placeholder="Select class"
+					disabled={!prevDone}
+					done={!!filters.className}
+				/>
+			),
+		});
+	}
+
+	// Progress: how many steps done out of total
+	const totalSteps = steps.length;
+	const doneSteps = steps.filter((s) => s.done).length;
+	const progressPct =
+		totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
+
+	return (
+		<div className="flex items-start justify-center min-h-[60vh] py-10 bg-background px-4">
+			<div className="w-full max-w-4xl">
+				{/* Page-level header */}
+				<div className="mb-6">
+					<p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-0.5">
+						{config.nonStudentViewTitle || 'Report card'}
+					</p>
+					<h2 className="text-xl font-semibold text-foreground">
+						Filter options
+					</h2>
 				</div>
 
-				{config.renderExtraFields && (
-					<div className="mt-3">
-						{config.renderExtraFields(filters, setFilters)}
-					</div>
-				)}
-
-				{shouldShowStudentSelect && (
-					<div className="mt-3">
-						{loadingStudents ? (
-							<div className="text-center py-4">
-								<PageLoading fullScreen={false} variant="minimal" size="sm" />
+				{/* Two-column layout */}
+				<div className="grid grid-cols-1 lg:grid-cols-[320px,1fr] gap-4 items-start">
+					{/* ── Left: filter rail ── */}
+					<div className="rounded-2xl border border-border bg-card overflow-hidden">
+						{/* Rail header with progress */}
+						<div className="px-5 pt-4 pb-3 border-b border-border bg-muted/10">
+							<div className="flex items-center justify-between mb-2">
+								<span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+									Steps
+								</span>
+								<span className="text-[11px] font-semibold text-primary">
+									{doneSteps}/{totalSteps}
+								</span>
 							</div>
-						) : (
-							<StudentMultiSelect
-								students={students}
-								selectedStudents={filters.selectedStudents}
-								onSelectionChange={(studentIds) =>
-									setFilters(
-										(prev) =>
-											({
-												...prev,
-												selectedStudents: studentIds,
-											}) as T,
-									)
-								}
-							/>
-						)}
-					</div>
-				)}
+							<div className="h-1 w-full rounded-full bg-muted overflow-hidden">
+								<div
+									className="h-full rounded-full bg-primary transition-all duration-500"
+									style={{ width: `${progressPct}%` }}
+								/>
+							</div>
+						</div>
 
-				<div className="flex justify-end gap-2 mt-6">
-					{config.showNonStudentReset && (
-						<button
-							type="button"
-							onClick={handleReset}
-							className="px-6 py-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 border border-border"
-						>
-							Reset
-						</button>
+						{/* Step list — segmented stepper */}
+						<div className="relative">
+							{steps.map((step, i) => (
+								<div
+									key={step.key}
+									className={`relative pl-[52px] pr-5 py-4 transition-colors
+										${step.done ? 'bg-muted/25' : step.active ? 'bg-primary/[0.04]' : 'opacity-40'}`}
+								>
+									{/* Accent left-border */}
+									<div className={`absolute left-0 top-0 bottom-0 w-[3px]
+										${step.done ? 'bg-primary' : step.active ? 'bg-primary/50' : 'bg-transparent'}`} />
+
+									{/* Step dot — absolute inside the rail */}
+									<div className="absolute left-4 top-4">
+										<StepDot done={step.done} active={step.active} index={step.index} isLast={i === steps.length - 1} />
+									</div>
+
+									{/* Step label */}
+									<span className={`block text-sm mb-2
+										${step.done ? 'text-muted-foreground font-medium' : step.active ? 'text-foreground font-semibold' : 'text-muted-foreground font-medium'}`}>
+										{step.label}
+									</span>
+
+									{/* Step control */}
+									<div>{step.render()}</div>
+								</div>
+							))}
+						</div>
+
+						{/* Extra fields (renderExtraFields) */}
+						{config.renderExtraFields && (
+							<div className="px-5 pb-4 border-t border-border pt-4">
+								{config.renderExtraFields(filters, setFilters)}
+							</div>
+						)}
+
+						{/* Action buttons */}
+						<div className="px-5 py-4 border-t border-border bg-muted/20 flex gap-2">
+							{config.showNonStudentReset && (
+								<button
+									type="button"
+									onClick={handleReset}
+									className="px-4 py-2 text-sm rounded-lg border border-border bg-background hover:bg-muted text-muted-foreground transition-colors"
+								>
+									Reset
+								</button>
+							)}
+							<button
+								type="button"
+								onClick={handleSubmit}
+								disabled={!canSubmit}
+								className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+							>
+								{config.applyButtonText || 'Apply filter'}
+								<ArrowRight className="h-4 w-4" />
+							</button>
+						</div>
+					</div>
+
+					{/* ── Right: student picker ── */}
+					{shouldShowStudentSelect && (
+						<div className="rounded-2xl border border-border bg-card overflow-hidden">
+							{/* Header */}
+							<div className="px-5 py-4 border-b border-border flex items-center justify-between">
+								<div>
+									<p className="text-sm font-medium text-foreground">
+										Students
+									</p>
+									{!loadingStudents && students.length > 0 && (
+										<p className="text-xs text-muted-foreground mt-0.5">
+											{students.length} in this class
+											{filters.selectedStudents.length > 0 &&
+												` · ${filters.selectedStudents.length} selected`}
+										</p>
+									)}
+								</div>
+								{filters.selectedStudents.length > 0 && (
+									<button
+										type="button"
+										onClick={() =>
+											setFilters((p) => ({ ...p, selectedStudents: [] }) as T)
+										}
+										className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+									>
+										Clear selection
+									</button>
+								)}
+							</div>
+
+							{/* Content */}
+							<div className="p-4">
+								{!filters.className ? (
+									<div className="py-12 text-center">
+										<div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
+											<svg
+												className="h-5 w-5 text-muted-foreground"
+												fill="none"
+												stroke="currentColor"
+												viewBox="0 0 24 24"
+											>
+												<path
+													strokeLinecap="round"
+													strokeLinejoin="round"
+													strokeWidth={1.5}
+													d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"
+												/>
+											</svg>
+										</div>
+										<p className="text-sm text-muted-foreground">
+											Select a class to see students
+										</p>
+									</div>
+								) : loadingStudents ? (
+									<div className="py-12 flex items-center justify-center">
+										<PageLoading
+											fullScreen={false}
+											variant="minimal"
+											size="sm"
+										/>
+									</div>
+								) : students.length === 0 ? (
+									<div className="py-12 text-center">
+										<p className="text-sm text-muted-foreground">
+											No students found for this class
+										</p>
+									</div>
+								) : (
+									<StudentMultiSelect
+										students={students}
+										selectedStudents={filters.selectedStudents}
+										onSelectionChange={(studentIds) =>
+											setFilters(
+												(prev) =>
+													({ ...prev, selectedStudents: studentIds }) as T,
+											)
+										}
+									/>
+								)}
+							</div>
+						</div>
 					)}
-					<button
-						type="button"
-						onClick={handleSubmit}
-						className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 font-medium"
-						disabled={!canSubmit}
-					>
-						{config.applyButtonText || 'Apply Filter'}
-					</button>
+
+					{/* If no student select, show a summary card for visual balance */}
+					{!shouldShowStudentSelect && filters.className && (
+						<div className="rounded-2xl border border-border bg-card p-5 flex items-center gap-4">
+							<div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+								<Check className="h-5 w-5 text-primary" />
+							</div>
+							<div>
+								<p className="text-sm font-medium text-foreground">
+									Ready to generate
+								</p>
+								<p className="text-xs text-muted-foreground mt-0.5">
+									All required filters are set. Click apply to continue.
+								</p>
+							</div>
+						</div>
+					)}
 				</div>
 			</div>
 		</div>
 	);
-};;
+};

@@ -65,53 +65,16 @@ const StudentChip = React.memo(function StudentChip({
 					onToggle(student.id);
 				}
 			}}
-			style={{
-				display: 'flex',
-				flexDirection: 'column',
-				alignItems: 'flex-start',
-				gap: '2px',
-				padding: '8px',
-				borderRadius: '6px',
-				border: isSelected
-					? '0.5px solid var(--border-accent, #378add)'
-					: '0.5px solid var(--border, rgba(0,0,0,0.12))',
-				background: isSelected
-					? 'var(--bg-accent, #e6f1fb)'
-					: 'var(--surface-2, #fff)',
-				cursor: 'pointer',
-				position: 'relative',
-				transition: 'border-color 0.1s, background 0.1s',
-				userSelect: 'none',
-				outline: 'none',
-				minWidth: 0,
-			}}
-			onFocus={(e) =>
-				(e.currentTarget.style.boxShadow =
-					'0 0 0 2px var(--border-accent, #378add)')
-			}
-			onBlur={(e) => (e.currentTarget.style.boxShadow = '')}
+			className={`relative flex flex-col items-start gap-0.5 p-2 rounded-md cursor-pointer select-none outline-none min-w-0 transition-colors
+				focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40
+				${isSelected
+					? 'border border-primary/60 bg-accent'
+					: 'border border-border bg-card'}`}
 		>
 			{/* Avatar */}
 			<div
-				style={{
-					width: '26px',
-					height: '26px',
-					borderRadius: '50%',
-					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'center',
-					fontSize: '10px',
-					fontWeight: 500,
-					marginBottom: '2px',
-					flexShrink: 0,
-					background: isSelected
-						? 'var(--fill-accent, #378add)'
-						: 'var(--surface-0, #f1efea)',
-					color: isSelected
-						? 'var(--on-accent, #fff)'
-						: 'var(--text-secondary, #5f5e5a)',
-					transition: 'background 0.1s, color 0.1s',
-				}}
+				className={`w-[26px] h-[26px] rounded-full flex items-center justify-center text-[10px] font-medium mb-0.5 shrink-0 transition-colors
+					${isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
 				aria-hidden="true"
 			>
 				{getInitials(student.name)}
@@ -119,46 +82,20 @@ const StudentChip = React.memo(function StudentChip({
 
 			{/* Name lines */}
 			<span
-				style={{
-					fontSize: '12px',
-					fontWeight: 500,
-					lineHeight: '1.25',
-					color: isSelected
-						? 'var(--text-accent, #185fa5)'
-						: 'var(--text-primary, #2c2c2a)',
-					overflow: 'hidden',
-					textOverflow: 'ellipsis',
-					whiteSpace: 'nowrap',
-					maxWidth: '100%',
-				}}
+				className={`text-xs font-medium leading-tight truncate max-w-full
+					${isSelected ? 'text-primary' : 'text-foreground'}`}
 			>
 				{getFirstName(student.name)}
 			</span>
-			<span
-				style={{
-					fontSize: '10px',
-					lineHeight: '1.25',
-					color: 'var(--text-secondary, #888780)',
-					overflow: 'hidden',
-					textOverflow: 'ellipsis',
-					whiteSpace: 'nowrap',
-					maxWidth: '100%',
-				}}
-			>
+			<span className="text-[10px] leading-tight text-muted-foreground truncate max-w-full">
 				{getLastName(student.name)}
 			</span>
 
 			{/* Check mark */}
 			<svg
 				aria-hidden="true"
-				style={{
-					position: 'absolute',
-					top: '5px',
-					right: '6px',
-					opacity: isSelected ? 1 : 0,
-					transition: 'opacity 0.1s',
-					color: 'var(--text-accent, #185fa5)',
-				}}
+				className={`absolute top-[5px] right-1.5 text-primary transition-opacity
+					${isSelected ? 'opacity-100' : 'opacity-0'}`}
 				width="11"
 				height="11"
 				viewBox="0 0 24 24"
@@ -300,29 +237,18 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 
 	// ── Render ───────────────────────────────────────────────────────────────
 
-	const triggerRadius = isOpen ? '8px 8px 0 0' : '8px';
-
 	return (
 		<div
-			className={className}
+			className={`relative w-full ${className}`}
 			ref={wrapperRef}
-			style={{ position: 'relative', width: '100%' }}
 		>
 			{/* Label */}
 			<label
 				id={labelId}
-				style={{
-					display: 'block',
-					fontSize: '14px',
-					fontWeight: 500,
-					color: 'var(--text-primary, #2c2c2a)',
-					marginBottom: '6px',
-				}}
+				className="block text-sm font-medium text-foreground mb-1.5"
 			>
 				{label}{' '}
-				<span style={{ color: 'var(--text-muted, #b4b2a9)', fontWeight: 400 }}>
-					(optional)
-				</span>
+				<span className="text-muted-foreground font-normal">(optional)</span>
 			</label>
 
 			{/* Trigger */}
@@ -334,48 +260,16 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 				aria-controls={panelId}
 				aria-labelledby={labelId}
 				onClick={togglePanel}
-				style={{
-					display: 'flex',
-					alignItems: 'center',
-					gap: '6px',
-					width: '100%',
-					minHeight: '40px',
-					padding: '5px 10px',
-					borderRadius: triggerRadius,
-					border: isOpen
-						? '0.5px solid var(--border-accent, #378add)'
-						: '0.5px solid var(--border-strong, rgba(0,0,0,0.2))',
-					borderBottom: isOpen ? 'none' : undefined,
-					background: 'var(--surface-2, #fff)',
-					cursor: 'pointer',
-					textAlign: 'left',
-					transition: 'border-color 0.15s',
-					outline: 'none',
-					boxSizing: 'border-box',
-				}}
-				onFocus={(e) =>
-					!isOpen &&
-					(e.currentTarget.style.boxShadow =
-						'0 0 0 2px var(--border-accent, #378add)')
-				}
-				onBlur={(e) => (e.currentTarget.style.boxShadow = '')}
+				className={`flex items-center gap-1.5 w-full min-h-[40px] py-[5px] px-2.5 bg-card cursor-pointer text-left transition-colors box-border
+					focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40
+					${isOpen
+						? 'rounded-t-lg border border-primary/60 border-b-0'
+						: 'rounded-lg border border-border'}`}
 			>
 				{/* Pills row */}
-				<div
-					style={{
-						display: 'flex',
-						alignItems: 'center',
-						flexWrap: 'nowrap',
-						gap: '4px',
-						flex: 1,
-						overflow: 'hidden',
-						minWidth: 0,
-					}}
-				>
+				<div className="flex items-center flex-nowrap gap-1 flex-1 overflow-hidden min-w-0">
 					{selectedStudentObjects.length === 0 ? (
-						<span
-							style={{ fontSize: '14px', color: 'var(--text-muted, #b4b2a9)' }}
-						>
+						<span className="text-sm text-muted-foreground">
 							All students included
 						</span>
 					) : (
@@ -383,19 +277,7 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 							{visiblePills.map((s) => (
 								<span
 									key={s.id}
-									style={{
-										display: 'inline-flex',
-										alignItems: 'center',
-										gap: '3px',
-										background: 'var(--bg-accent, #e6f1fb)',
-										color: 'var(--text-accent, #185fa5)',
-										borderRadius: '99px',
-										padding: '2px 7px 2px 6px',
-										fontSize: '12px',
-										fontWeight: 500,
-										whiteSpace: 'nowrap',
-										flexShrink: 0,
-									}}
+									className="inline-flex items-center gap-0.5 bg-accent text-primary rounded-full py-0.5 pl-1.5 pr-2 text-xs font-medium whitespace-nowrap shrink-0"
 								>
 									{getFirstName(s.name)}
 									<span
@@ -413,20 +295,7 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 												toggle(s.id);
 											}
 										}}
-										style={{
-											cursor: 'pointer',
-											opacity: 0.6,
-											fontSize: '15px',
-											lineHeight: 1,
-											display: 'flex',
-											alignItems: 'center',
-										}}
-										onMouseEnter={(e) =>
-											((e.currentTarget as HTMLElement).style.opacity = '1')
-										}
-										onMouseLeave={(e) =>
-											((e.currentTarget as HTMLElement).style.opacity = '0.6')
-										}
+										className="cursor-pointer opacity-60 text-[15px] leading-none flex items-center hover:opacity-100 transition-opacity"
 									>
 										×
 									</span>
@@ -434,14 +303,7 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 							))}
 
 							{overflowCount > 0 && (
-								<span
-									style={{
-										fontSize: '12px',
-										color: 'var(--text-secondary, #888780)',
-										whiteSpace: 'nowrap',
-										flexShrink: 0,
-									}}
-								>
+								<span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
 									+{overflowCount} more
 								</span>
 							)}
@@ -451,18 +313,7 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 
 				{/* Selected count badge */}
 				{selectedStudentObjects.length > 0 && (
-					<span
-						style={{
-							fontSize: '11px',
-							fontWeight: 500,
-							color: 'var(--text-accent, #185fa5)',
-							background: 'var(--bg-accent, #e6f1fb)',
-							borderRadius: '99px',
-							padding: '1px 7px',
-							flexShrink: 0,
-							whiteSpace: 'nowrap',
-						}}
-					>
+					<span className="text-[11px] font-medium text-primary bg-accent rounded-full py-px px-2 shrink-0 whitespace-nowrap">
 						{selectedStudentObjects.length}
 					</span>
 				)}
@@ -478,12 +329,8 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 					strokeWidth={2}
 					strokeLinecap="round"
 					strokeLinejoin="round"
-					style={{
-						color: 'var(--text-secondary, #888780)',
-						flexShrink: 0,
-						transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-						transition: 'transform 0.18s',
-					}}
+					className={`shrink-0 text-muted-foreground transition-transform duration-200
+						${isOpen ? 'rotate-180' : 'rotate-0'}`}
 				>
 					<path d="M6 9l6 6 6-6" />
 				</svg>
@@ -496,32 +343,10 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 					role="listbox"
 					aria-multiselectable="true"
 					aria-label="Students"
-					style={{
-						position: 'absolute',
-						top: '100%',
-						left: 0,
-						right: 0,
-						zIndex: 50,
-						background: 'var(--surface-2, #fff)',
-						border: '0.5px solid var(--border-accent, #378add)',
-						borderTop: 'none',
-						borderRadius: '0 0 8px 8px',
-						display: 'flex',
-						flexDirection: 'column',
-						boxShadow:
-							'0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.05)',
-					}}
+					className="absolute top-full left-0 right-0 z-50 bg-card border border-primary/60 border-t-none rounded-b-lg flex flex-col shadow-lg"
 				>
 					{/* Search */}
-					<div
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: '6px',
-							padding: '7px 10px',
-							borderBottom: '0.5px solid var(--border, rgba(0,0,0,0.1))',
-						}}
-					>
+					<div className="flex items-center gap-1.5 px-2.5 py-[7px] border-b border-border">
 						<svg
 							aria-hidden="true"
 							width="14"
@@ -532,7 +357,7 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 							strokeWidth={2}
 							strokeLinecap="round"
 							strokeLinejoin="round"
-							style={{ color: 'var(--text-muted, #b4b2a9)', flexShrink: 0 }}
+							className="text-muted-foreground shrink-0"
 						>
 							<circle cx="11" cy="11" r="8" />
 							<path d="M21 21l-4.35-4.35" />
@@ -545,16 +370,7 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
 							aria-label="Search students"
-							style={{
-								flex: 1,
-								border: 'none',
-								background: 'transparent',
-								fontSize: '13px',
-								color: 'var(--text-primary, #2c2c2a)',
-								outline: 'none',
-								padding: 0,
-								minWidth: 0,
-							}}
+							className="flex-1 border-none bg-transparent text-sm text-foreground outline-none p-0 min-w-0"
 						/>
 
 						{searchTerm && (
@@ -565,16 +381,7 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 									setSearchTerm('');
 									searchRef.current?.focus();
 								}}
-								style={{
-									background: 'none',
-									border: 'none',
-									padding: '2px',
-									cursor: 'pointer',
-									color: 'var(--text-muted, #b4b2a9)',
-									display: 'flex',
-									alignItems: 'center',
-									flexShrink: 0,
-								}}
+								className="bg-none border-none p-0.5 cursor-pointer text-muted-foreground flex items-center shrink-0 hover:text-foreground transition-colors"
 							>
 								<svg
 									width="13"
@@ -593,18 +400,7 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 					</div>
 
 					{/* Action bar */}
-					<div
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: '0',
-							padding: '4px 8px',
-							borderBottom: '0.5px solid var(--border, rgba(0,0,0,0.1))',
-							background: 'var(--surface-1, #f1efea)',
-							flexWrap: 'wrap',
-							rowGap: '2px',
-						}}
-					>
+					<div className="flex items-center gap-0 px-2 py-1 border-b border-border bg-muted flex-wrap row-gap-0.5">
 						{[
 							{ label: 'Select all', handler: handleSelectAll },
 							{ label: 'Clear', handler: handleClear },
@@ -614,55 +410,20 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 								{i > 0 && (
 									<span
 										aria-hidden="true"
-										style={{
-											width: '1px',
-											height: '12px',
-											background: 'var(--border-strong, rgba(0,0,0,0.2))',
-											flexShrink: 0,
-											margin: '0 2px',
-										}}
+										className="w-px h-3 bg-border shrink-0 mx-0.5"
 									/>
 								)}
 								<button
 									type="button"
 									onClick={handler}
-									style={{
-										fontSize: '11px',
-										color: 'var(--text-secondary, #888780)',
-										cursor: 'pointer',
-										padding: '3px 7px',
-										borderRadius: '4px',
-										background: 'none',
-										border: 'none',
-										transition: 'background 0.12s, color 0.12s',
-										whiteSpace: 'nowrap',
-									}}
-									onMouseEnter={(e) => {
-										(e.currentTarget as HTMLElement).style.background =
-											'var(--surface-2, #fff)';
-										(e.currentTarget as HTMLElement).style.color =
-											'var(--text-primary, #2c2c2a)';
-									}}
-									onMouseLeave={(e) => {
-										(e.currentTarget as HTMLElement).style.background = 'none';
-										(e.currentTarget as HTMLElement).style.color =
-											'var(--text-secondary, #888780)';
-									}}
+									className="text-[11px] text-muted-foreground cursor-pointer py-[3px] px-[7px] rounded bg-none border-none transition-colors whitespace-nowrap hover:bg-card hover:text-foreground"
 								>
 									{btnLabel}
 								</button>
 							</React.Fragment>
 						))}
 
-						<span
-							style={{
-								marginLeft: 'auto',
-								fontSize: '11px',
-								color: 'var(--text-muted, #b4b2a9)',
-								paddingLeft: '4px',
-								whiteSpace: 'nowrap',
-							}}
-						>
+						<span className="ml-auto text-[11px] text-muted-foreground pl-1 whitespace-nowrap">
 							{searchTerm
 								? `${filteredStudents.length} of ${students.length}`
 								: `${selectedStudents.length} selected`}
@@ -671,17 +432,8 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 
 					{/* Student grid — scrollable */}
 					<div
-						style={{
-							overflowY: 'auto',
-							maxHeight: `${panelMaxHeight}px`,
-							padding: filteredStudents.length > 0 ? '8px' : '0',
-							// Responsive grid: fills available width, min 90px per chip
-							display: filteredStudents.length > 0 ? 'grid' : 'block',
-							gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
-							gap: '4px',
-							// Smooth scroll inertia on iOS
-							WebkitOverflowScrolling: 'touch',
-						}}
+						className={`overflow-y-auto ${filteredStudents.length > 0 ? 'grid grid-cols-[repeat(auto-fill,minmax(90px,1fr))] gap-1 p-2' : 'block p-0'}`}
+						style={{ maxHeight: panelMaxHeight }}
 					>
 						{filteredStudents.length > 0 ? (
 							filteredStudents.map((student) => (
@@ -693,15 +445,7 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 								/>
 							))
 						) : (
-							<p
-								style={{
-									textAlign: 'center',
-									padding: '24px 16px',
-									fontSize: '13px',
-									color: 'var(--text-muted, #b4b2a9)',
-									margin: 0,
-								}}
-							>
+							<p className="text-center py-6 px-4 text-sm text-muted-foreground m-0">
 								No students match &ldquo;{searchTerm}&rdquo;
 							</p>
 						)}
@@ -711,13 +455,7 @@ export const StudentMultiSelect = React.memo(function StudentMultiSelect({
 
 			{/* Footer: summary when closed */}
 			{!isOpen && selectedStudentObjects.length > 0 && (
-				<p
-					style={{
-						marginTop: '6px',
-						fontSize: '12px',
-						color: 'var(--text-secondary, #888780)',
-					}}
-				>
+				<p className="mt-1.5 text-xs text-muted-foreground">
 					{selectedStudentObjects.length <= 3
 						? selectedStudentObjects.map((s) => getFirstName(s.name)).join(', ')
 						: `${selectedStudentObjects.length} students selected`}

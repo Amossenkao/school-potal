@@ -42,7 +42,7 @@ import {
 } from '@/utils/academicYearOptions';
 import { loadReportTemplateBytes } from '@/utils/reportTemplate';
 import { areGradeRowsEquivalent } from '@/utils/gradeRows';
-import { attachRanksToGrades } from '@/utils/gradeRanks';
+
 import StudentMultiSelect from './components/StudentMultiSelect';
 import { SharedFilter, FilterConfig, SemesterReportFilters } from './components/SharedFilter';
 
@@ -448,7 +448,62 @@ const buildReportsFromGradeRows = ({
 		]);
 	});
 
-	return Array.from(reportsByStudentId.values());
+	const finalReports = Array.from(reportsByStudentId.values());
+
+	const hasPrecomputedRanks = finalReports.some((r) =>
+		Object.values(r.ranks).some((v) => v !== null),
+	);
+
+	if (!hasPrecomputedRanks && finalReports.length > 1) {
+		const rankKeys = [
+			'first',
+			'second',
+			'third',
+			'third_period_exam',
+			'fourth',
+			'fifth',
+			'sixth',
+			'six_period_exam',
+			'firstSemesterAverage',
+			'secondSemesterAverage',
+		] as const;
+
+		rankKeys.forEach((key) => {
+			const validStudents = finalReports
+				.filter((r) => r.periodAverages[key] !== null)
+				.map((r) => ({ id: r.studentId, score: r.periodAverages[key] as number }))
+				.sort((a, b) => b.score - a.score);
+
+			let currentRank = 1;
+			validStudents.forEach((student, index) => {
+				if (index > 0 && student.score < validStudents[index - 1].score) {
+					currentRank = index + 1;
+				}
+				const report = reportsByStudentId.get(student.id);
+				if (report) {
+					report.ranks[key] = currentRank;
+				}
+			});
+		});
+
+		const validYearlyStudents = finalReports
+			.filter((r) => r.yearlyAverage !== null)
+			.map((r) => ({ id: r.studentId, score: r.yearlyAverage as number }))
+			.sort((a, b) => b.score - a.score);
+
+		let yearlyCurrentRank = 1;
+		validYearlyStudents.forEach((student, index) => {
+			if (index > 0 && student.score < validYearlyStudents[index - 1].score) {
+				yearlyCurrentRank = index + 1;
+			}
+			const report = reportsByStudentId.get(student.id);
+			if (report) {
+				report.ranks.yearly = yearlyCurrentRank;
+			}
+		});
+	}
+
+	return finalReports;
 };
 
 interface ReportFilters {
@@ -1240,11 +1295,10 @@ function ReportContent({
 							areAcademicYearsEqual(gradeYear, reportFilters.academicYear)
 						);
 					});
-					const rankedStoreGrades = attachRanksToGrades(filteredStoreGrades);
-					gradesData = {
-						success: true,
-						data: { grades: rankedStoreGrades },
-					};
+				gradesData = {
+					success: true,
+					data: { grades: filteredStoreGrades },
+				};
 				} else if (offline && cachedGrades) {
 					gradesData = cachedGrades;
 				} else if (offline && !cachedGrades) {
