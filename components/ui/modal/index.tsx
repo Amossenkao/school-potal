@@ -63,7 +63,7 @@ export const Modal: React.FC<ModalProps> = ({
     : "relative w-full max-h-[calc(100vh-2rem)] overflow-y-auto rounded-3xl bg-white dark:bg-gray-900 sm:max-h-[calc(100vh-3rem)]";
 
   return createPortal(
-    <div className="fixed inset-0 z-[70]">
+    <div className="fixed inset-0 z-[80]">
       {!isFullscreen && (
         <div
           className={`absolute inset-0 h-full w-full ${overlayClassName}`}

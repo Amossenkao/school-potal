@@ -1353,10 +1353,10 @@ const TeacherGradeSubmissions = () => {
 						};
 		const Icon = tone.icon;
 		return (
-			<div className="fixed inset-0 z-[1000] bg-black/35 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain">
+			<div className="fixed inset-3 sm:inset-6 z-[1000] bg-black/35 backdrop-blur-sm overflow-y-auto overscroll-contain">
 				<div className="flex min-h-full items-center justify-center">
 					<div
-						className={`relative bg-card rounded-xl border ${tone.border} shadow-2xl w-full max-w-md overflow-hidden`}
+						className={`relative bg-card rounded-xl border ${tone.border} shadow-2xl w-full max-w-sm overflow-hidden`}
 						role="status"
 						aria-live="polite"
 					>
@@ -1372,26 +1372,26 @@ const TeacherGradeSubmissions = () => {
 						>
 							<X className="h-4 w-4" />
 						</button>
-						<div className="p-6 pr-12">
-							<div className="flex items-start gap-4">
+						<div className="p-4 pr-10">
+							<div className="flex items-start gap-3">
 								<div
-									className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${tone.iconWrap}`}
+									className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${tone.iconWrap}`}
 								>
-									<Icon className="h-5 w-5" />
+									<Icon className="h-4 w-4" />
 								</div>
 								<div className="min-w-0">
-									<p className="text-base font-semibold text-foreground">
+									<p className="text-sm font-semibold text-foreground">
 										{tone.title}
 									</p>
-									<p className="mt-1 text-sm leading-6 text-muted-foreground">
+									<p className="mt-1 text-xs leading-5 text-muted-foreground">
 										{notification.message}
 									</p>
 								</div>
 							</div>
 						</div>
-						<div className="flex items-center justify-between gap-3 border-t bg-muted/30 px-6 py-3">
+						<div className="flex items-center justify-between gap-3 border-t bg-muted/30 px-4 py-2">
 							<p className="text-xs text-muted-foreground">
-								This message will close automatically.
+								Auto-closes shortly.
 							</p>
 							<Button
 								size="sm"
@@ -1434,43 +1434,40 @@ const TeacherGradeSubmissions = () => {
 
 		if (confirmationModal.isError) {
 			return (
-				<div className="fixed inset-0 z-[1000] bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
-					<div className="flex min-h-full items-center justify-center">
-						<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border border-destructive/50">
-							<div className="flex items-center gap-3 mb-4">
-								<XCircle className="h-6 w-6 text-destructive flex-shrink-0" />
-								<h3 className="text-xl font-bold text-destructive">
-									Request Blocked
-								</h3>
-							</div>
-							<p className="text-sm text-foreground mb-6">
+				<div className="p-4 sm:p-5 border-b bg-destructive/10">
+					<div className="flex items-center gap-3">
+						<XCircle className="h-5 w-5 text-destructive flex-shrink-0" />
+						<div className="min-w-0 flex-1">
+							<p className="text-sm font-medium text-destructive">
+								Request Blocked
+							</p>
+							<p className="text-xs text-muted-foreground mt-1">
 								{confirmationModal.errorMessage ||
 									'An unexpected error occurred. You cannot submit this request.'}
 							</p>
-							<div className="mt-4 flex justify-end">
-								<Button
-									onClick={() =>
-										setConfirmationModal({ isOpen: false, reason: '' })
-									}
-									variant="destructive"
-								>
-									Close
-								</Button>
-							</div>
 						</div>
+						<Button
+							size="sm"
+							variant="destructive"
+							onClick={() =>
+								setConfirmationModal({ isOpen: false, reason: '' })
+							}
+						>
+							Close
+						</Button>
 					</div>
 				</div>
 			);
 		}
 
 		return (
-			<div className="fixed inset-0 z-[1000] bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
+			<div className="fixed inset-3 sm:inset-6 z-[1000] bg-black/25 backdrop-blur-[1px] overflow-y-auto overscroll-contain">
 				<div className="flex min-h-full items-center justify-center">
-					<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border">
-						<h3 className="text-lg font-semibold mb-2">
+					<div className="bg-card p-4 sm:p-5 rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain border">
+						<h3 className="text-base font-semibold mb-2">
 							Reason for Grade Change Request
 						</h3>
-						<p className="text-sm text-muted-foreground mb-4">
+						<p className="text-xs text-muted-foreground mb-3">
 							You are editing one or more <strong>approved grades</strong>.
 							Please provide a reason for this change. This will be sent for
 							administrator review.
@@ -1483,22 +1480,24 @@ const TeacherGradeSubmissions = () => {
 									reason: e.target.value,
 								}))
 							}
-							className="w-full rounded-md border border-input bg-background p-2"
-							rows={4}
+							className="w-full rounded-md border border-input bg-background p-2 text-sm"
+							rows={3}
 							placeholder="e.g., Correction of data entry error, re-evaluation of an assignment..."
 						/>
-						<div className="mt-4 flex justify-end gap-2">
+						<div className="mt-3 flex justify-end gap-2">
 							<Button
 								onClick={() =>
 									setConfirmationModal({ isOpen: false, reason: '' })
 								}
 								variant="outline"
+								size="sm"
 							>
 								Cancel
 							</Button>
 							<Button
 								onClick={handleFinalSubmit}
 								disabled={!confirmationModal.reason.trim() || isSubmitting}
+								size="sm"
 							>
 								{isSubmitting ? (
 									<Loader2 className="h-4 w-4 animate-spin" />
@@ -1515,12 +1514,12 @@ const TeacherGradeSubmissions = () => {
 
 	const renderDetailsModal = () =>
 		selectedGrade && (
-			<div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
+			<div className="fixed inset-3 sm:inset-6 z-50 bg-black/25 backdrop-blur-[1px] overflow-y-auto overscroll-contain">
 				<div className="flex min-h-full items-center justify-center">
-					<div className="bg-background rounded-lg border shadow-xl w-full max-w-5xl max-h-[calc(100dvh-2rem)] flex flex-col">
-						<div className="p-6 border-b">
+					<div className="bg-background rounded-lg border shadow-xl w-full max-w-4xl max-h-[calc(100dvh-1.5rem)] flex flex-col">
+						<div className="p-4 sm:p-5 border-b">
 							<div className="flex justify-between items-center">
-								<h3 className="text-xl font-semibold text-foreground">
+								<h3 className="text-lg font-semibold text-foreground">
 									Submission Details
 								</h3>
 								<button
@@ -1530,7 +1529,7 @@ const TeacherGradeSubmissions = () => {
 									<X className="h-5 w-5" />
 								</button>
 							</div>
-							<div className="text-sm text-muted-foreground mt-1">
+							<div className="text-xs text-muted-foreground mt-1">
 								{selectedGrade.subject} -{' '}
 								{classMap.get(selectedGrade.gradeLevel) ||
 									selectedGrade.gradeLevel}{' '}
@@ -1540,12 +1539,12 @@ const TeacherGradeSubmissions = () => {
 
 						{renderConfirmationErrorModal()}
 
-						<div className="p-6 overflow-y-auto overscroll-contain flex-grow">
+						<div className="p-4 sm:p-5 overflow-y-auto overscroll-contain flex-grow">
 							<div className="overflow-x-auto">
 								<table className="min-w-full divide-y divide-border">
 									<thead className="bg-muted/50">
 										<tr>
-											<th className="p-3 text-left">
+											<th className="p-2.5 text-left">
 												<input
 													type="checkbox"
 													tabIndex={-1}
@@ -1560,16 +1559,16 @@ const TeacherGradeSubmissions = () => {
 													className="rounded border-border accent-primary"
 												/>
 											</th>
-											<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+											<th className="px-3 sm:px-4 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase">
 												Student Name
 											</th>
-											<th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
-												Current Grade
-											</th>
-											<th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+											<th className="px-3 sm:px-4 py-2.5 text-center text-xs font-medium text-muted-foreground uppercase">
 												New Grade
 											</th>
-											<th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+											<th className="px-3 sm:px-4 py-2.5 text-center text-xs font-medium text-muted-foreground uppercase">
+												Current Grade
+											</th>
+											<th className="px-3 sm:px-4 py-2.5 text-center text-xs font-medium text-muted-foreground uppercase">
 												Status
 											</th>
 										</tr>
@@ -1583,7 +1582,7 @@ const TeacherGradeSubmissions = () => {
 													key={student.studentId}
 													className={`${student.selected ? 'bg-primary/5' : ''} hover:bg-muted/30 transition-colors`}
 												>
-													<td className="p-3">
+													<td className="p-2.5">
 														<input
 															type="checkbox"
 															tabIndex={-1}
@@ -1601,7 +1600,7 @@ const TeacherGradeSubmissions = () => {
 														/>
 													</td>
 													<td
-														className={`px-6 py-4 whitespace-nowrap transition-colors ${isActive ? 'bg-primary' : ''}`}
+														className={`px-3 sm:px-4 py-3 whitespace-nowrap transition-colors ${isActive ? 'bg-primary' : ''}`}
 													>
 														<span
 															className={`text-sm font-medium ${isActive ? 'text-primary-foreground' : 'text-foreground'}`}
@@ -1609,16 +1608,7 @@ const TeacherGradeSubmissions = () => {
 															{student.name}
 														</span>
 													</td>
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-														<span
-															className={getModalGradeColor(
-																student.currentGrade,
-															)}
-														>
-															{student.currentGrade ?? 'N/A'}
-														</span>
-													</td>
-													<td className="px-6 py-4">
+													<td className="px-3 sm:px-4 py-3">
 														{(() => {
 															const validation = getGradeValidationStatus(
 																student.newGrade,
@@ -1643,7 +1633,7 @@ const TeacherGradeSubmissions = () => {
 																		onBlur={() => setActiveModalStudentId(null)}
 																		onKeyDown={handleGradeInputKeyDown}
 																		disabled={!student.selected}
-																		className={`w-20 h-10 rounded-lg border-2 text-center text-base font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors ${getModalGradeColor(
+																		className={`w-20 h-9 rounded-lg border-2 text-center text-sm font-semibold focus:ring-2 focus:ring-ring focus:border-ring transition-colors ${getModalGradeColor(
 																			student.newGrade === ''
 																				? null
 																				: Number(student.newGrade),
@@ -1663,9 +1653,18 @@ const TeacherGradeSubmissions = () => {
 															);
 														})()}
 													</td>
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+													<td className="px-3 sm:px-4 py-3 whitespace-nowrap text-sm text-center">
 														<span
-															className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
+															className={getModalGradeColor(
+																student.currentGrade,
+															)}
+														>
+															{student.currentGrade ?? 'N/A'}
+														</span>
+													</td>
+													<td className="px-3 sm:px-4 py-3 whitespace-nowrap text-sm text-center">
+														<span
+															className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
 																student.status,
 															)}`}
 														>
@@ -1680,10 +1679,11 @@ const TeacherGradeSubmissions = () => {
 							</div>
 						</div>
 
-						<div className="p-6 border-t bg-muted/50 flex justify-end gap-3">
+						<div className="p-4 sm:p-5 border-t bg-muted/50 flex justify-end gap-3">
 							<Button
 								onClick={() => setShowDetailsModal(false)}
 								variant="outline"
+								size="sm"
 							>
 								Cancel
 							</Button>
@@ -1693,7 +1693,8 @@ const TeacherGradeSubmissions = () => {
 									isSubmitting ||
 									gradeChangeStudents.filter((s) => s.selected).length === 0
 								}
-								className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
+								size="sm"
+								className="flex items-center gap-2"
 							>
 								{isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
 								Submit Request

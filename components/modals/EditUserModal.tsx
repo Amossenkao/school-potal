@@ -961,10 +961,6 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			);
 			const updatedUser = getUpdatedUserFromResponse(data);
 			if (!updatedUser) {
-				setFeedback({
-					type: 'success',
-					message: data?.message || 'No changes were made.',
-				});
 				setIsLoading(false);
 				onClose();
 				return;
@@ -2065,7 +2061,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 					{/* PROMOTION MODAL */}
 					{showPromotionModal && (
-						<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+						<div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
 							<div className="bg-card w-full max-w-lg rounded-xl border border-border shadow-xl">
 								<div className="flex items-center justify-between p-4 border-b border-border">
 									<h5 className="text-lg font-semibold text-foreground">
@@ -2206,7 +2202,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 					{/* DEMOTION MODAL */}
 					{showDemotionModal && (
-						<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+						<div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
 							<div className="bg-card w-full max-w-lg rounded-xl border border-border shadow-xl">
 								<div className="flex items-center justify-between p-4 border-b border-border">
 									<h5 className="text-lg font-semibold text-foreground">
@@ -2324,7 +2320,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 					{/* CARRY OVER MODAL */}
 					{showCarryOverModal && (
-						<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4">
+						<div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4">
 							<div className="bg-card w-full max-w-4xl max-h-[92vh] rounded-xl border border-border shadow-xl flex flex-col">
 								<div className="flex items-center justify-between p-4 border-b border-border">
 									<div>

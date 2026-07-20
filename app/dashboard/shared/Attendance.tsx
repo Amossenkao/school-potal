@@ -340,7 +340,7 @@ function DateRangePicker({ value, onChange }: any) {
 			</button>
 
 			{open && (
-				<div className="absolute top-full left-0 mt-1 z-50 bg-card border border-border rounded-xl shadow-xl p-3 w-max min-w-[280px]">
+				<div className="absolute top-full left-0 mt-1 z-[70] bg-card border border-border rounded-xl shadow-xl p-3 w-max min-w-[280px]">
 					{selecting && (
 						<div className="mb-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-1.5 text-center">
 							Click a second date to complete the range
@@ -1209,7 +1209,7 @@ const Attendance = () => {
 			)}
 
 			{/* ── filter bar matching SubmitGrades layout ── */}
-			<div className="z-40 shrink-0 bg-background/95 backdrop-blur px-3 sm:px-4 pt-0 mt-0 pb-2 space-y-2 border-b border-border/50 shadow-sm">
+			<div className="shrink-0 bg-background/95 px-3 sm:px-4 pt-0 mt-0 pb-2 space-y-2 border-b border-border/50 shadow-sm">
 				{/* Mobile toggle */}
 				<button
 					onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}

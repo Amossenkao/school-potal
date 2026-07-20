@@ -33,7 +33,7 @@ const ConflictModal = ({
 	};
 
 	return (
-		<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
+		<div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
 			<div className="bg-card rounded-xl shadow-2xl w-full max-w-2xl border border-border max-h-[90dvh] overflow-hidden">
 				<div className="p-4 sm:p-6">
 					<div className="flex flex-col sm:flex-row gap-3 sm:gap-4">

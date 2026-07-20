@@ -1627,17 +1627,14 @@ const handleDeactivateSuccess = (updatedUser: any) => {
 								const key = (u.id || u._id)?.toString();
 								return updateMap.has(key) ? updateMap.get(key) : u;
 							});
-							syncUsersSnapshot(
-								nextUsers,
-								totalUsersRef.current,
-								roleCountsRef.current,
-							);
-							return nextUsers;
-						});
-						if (isOnline) {
-							fetchUsers(1, true);
-						}
-						setShowEditModal(false);
+						syncUsersSnapshot(
+							nextUsers,
+							totalUsersRef.current,
+							roleCountsRef.current,
+						);
+						return nextUsers;
+					});
+					setShowEditModal(false);
 						setEditingUser(null);
 						setFeedback({
 							type: 'success',

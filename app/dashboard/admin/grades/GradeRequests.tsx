@@ -738,31 +738,31 @@ const GradeRequests: React.FC = () => {
 		);
 
 		return (
-			<div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
+			<div className="fixed inset-3 sm:inset-6 z-50 bg-black/25 backdrop-blur-[1px] overflow-y-auto overscroll-contain">
 				<div className="flex min-h-full items-center justify-center">
-					<div className="bg-card rounded-lg shadow-xl w-full max-w-6xl max-h-[calc(100dvh-2rem)] flex flex-col border">
+					<div className="bg-card rounded-lg shadow-xl w-full max-w-5xl max-h-[calc(100dvh-1.5rem)] flex flex-col border">
 						{/* Modal Header */}
-						<div className="p-6 border-b">
+						<div className="p-4 sm:p-5 border-b">
 							<div className="flex justify-between items-start">
 								<div>
-									<h3 className="text-xl font-semibold">
+									<h3 className="text-lg font-semibold">
 										Grade Change Request Batch
 									</h3>
-									<div className="text-sm text-muted-foreground mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
-										<span className="flex items-center gap-1.5">
-											<User className="h-4 w-4" />
+									<div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+										<span className="flex items-center gap-1">
+											<User className="h-3 w-3" />
 											{selectedBulkRequest.teacherName}
 										</span>
-										<span className="flex items-center gap-1.5">
-											<BookOpen className="h-4 w-4" />
+										<span className="flex items-center gap-1">
+											<BookOpen className="h-3 w-3" />
 											{selectedBulkRequest.subject}
 										</span>
-										<span className="flex items-center gap-1.5">
-											<GraduationCap className="h-4 w-4" />
+										<span className="flex items-center gap-1">
+											<GraduationCap className="h-3 w-3" />
 											{classMap.get(selectedBulkRequest.classId)}
 										</span>
-										<span className="flex items-center gap-1.5">
-											<Calendar className="h-4 w-4" />
+										<span className="flex items-center gap-1">
+											<Calendar className="h-3 w-3" />
 											Submitted: {formatDate(selectedBulkRequest.submittedAt)}
 										</span>
 									</div>
@@ -776,12 +776,12 @@ const GradeRequests: React.FC = () => {
 							</div>
 						</div>
 						{/* Modal Body */}
-						<div className="p-6 overflow-y-auto overscroll-contain flex-grow">
+						<div className="p-4 sm:p-5 overflow-y-auto overscroll-contain flex-grow">
 							<div className="overflow-x-auto">
 								<table className="min-w-full divide-y divide-border">
 									<thead className="bg-muted/50">
 										<tr>
-											<th className="p-3 text-left">
+											<th className="p-2.5 text-left">
 												<input
 													type="checkbox"
 													onChange={(e) => {
@@ -801,16 +801,16 @@ const GradeRequests: React.FC = () => {
 													className="rounded border-input"
 												/>
 											</th>
-											<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+											<th className="px-3 sm:px-4 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase">
 												Student
 											</th>
-											<th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+											<th className="px-3 sm:px-4 py-2.5 text-center text-xs font-medium text-muted-foreground uppercase">
 												Grade Change
 											</th>
-											<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+											<th className="px-3 sm:px-4 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase">
 												Teacher's Reason
 											</th>
-											<th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+											<th className="px-3 sm:px-4 py-2.5 text-center text-xs font-medium text-muted-foreground uppercase">
 												Status
 											</th>
 										</tr>
@@ -825,7 +825,7 @@ const GradeRequests: React.FC = () => {
 														: ''
 												}
 											>
-												<td className="p-3">
+												<td className="p-2.5">
 													<input
 														type="checkbox"
 														disabled={req.status !== 'Pending'}
@@ -844,10 +844,10 @@ const GradeRequests: React.FC = () => {
 														className="rounded border-input disabled:opacity-50"
 													/>
 												</td>
-												<td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+												<td className="px-3 sm:px-4 py-3 whitespace-nowrap text-sm font-medium">
 													{req.studentName}
 												</td>
-												<td className="px-4 py-4 whitespace-nowrap text-sm text-center font-semibold">
+												<td className="px-3 sm:px-4 py-3 whitespace-nowrap text-sm text-center font-semibold">
 													<span className={getGradeColor(req.originalGrade)}>
 														{req.originalGrade ?? 'N/A'}
 													</span>
@@ -856,10 +856,10 @@ const GradeRequests: React.FC = () => {
 														{req.requestedGrade}
 													</span>
 												</td>
-												<td className="px-4 py-4 text-sm text-muted-foreground max-w-sm truncate">
+												<td className="px-3 sm:px-4 py-3 text-xs text-muted-foreground max-w-sm truncate">
 													{req.reasonForChange}
 												</td>
-												<td className="px-4 py-4 whitespace-nowrap text-sm text-center">
+												<td className="px-3 sm:px-4 py-3 whitespace-nowrap text-sm text-center">
 													<span
 														className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
 															req.status,
@@ -878,8 +878,8 @@ const GradeRequests: React.FC = () => {
 						{['Pending', 'Partially Approved'].includes(
 							selectedBulkRequest.status,
 						) && (
-							<div className="p-6 border-t bg-muted flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-								<div className="text-sm text-muted-foreground">
+							<div className="p-4 sm:p-5 border-t bg-muted flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+								<div className="text-xs text-muted-foreground">
 									{selectedIndividualRequests.size > 0
 										? `${selectedIndividualRequests.size} pending request(s) selected`
 										: 'Actions apply to all pending requests'}
@@ -887,7 +887,7 @@ const GradeRequests: React.FC = () => {
 								<div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
 									<button
 										onClick={() => setShowRejectModal(true)}
-										className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 flex items-center justify-center gap-2 sm:w-auto"
+										className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 flex items-center justify-center gap-2 sm:w-auto text-sm"
 									>
 										<XCircle className="h-4 w-4" /> Reject{' '}
 										{selectedIndividualRequests.size > 0
@@ -897,7 +897,7 @@ const GradeRequests: React.FC = () => {
 									<button
 										onClick={handleModalApprove}
 										disabled={isProcessing}
-										className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto"
+										className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto text-sm"
 									>
 										{isProcessing && (
 											<Loader2 className="h-4 w-4 animate-spin" />
@@ -917,10 +917,10 @@ const GradeRequests: React.FC = () => {
 	};
 
 	const renderRejectModal = (isBulk: boolean) => (
-		<div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
+		<div className="fixed inset-3 sm:inset-6 z-50 bg-black/25 backdrop-blur-[1px] overflow-y-auto overscroll-contain">
 			<div className="flex min-h-full items-center justify-center">
-				<div className="bg-card rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border">
-					<div className="p-6 border-b flex justify-between items-center">
+				<div className="bg-card rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain border">
+					<div className="p-4 sm:p-5 border-b flex justify-between items-center">
 						<h3 className="text-lg font-semibold text-destructive">
 							{isBulk ? 'Bulk Reject Requests' : 'Reject Request(s)'}
 						</h3>
@@ -935,8 +935,8 @@ const GradeRequests: React.FC = () => {
 							<X className="h-5 w-5" />
 						</button>
 					</div>
-					<div className="p-6">
-						<p className="text-muted-foreground mb-4">
+					<div className="p-4 sm:p-5">
+						<p className="text-muted-foreground mb-3 text-sm">
 							{isBulk
 								? `You are rejecting all pending requests in ${selectedBulkRequests.size} batch(es).`
 								: 'Provide a reason for rejection. This will be visible to the teacher.'}
@@ -949,18 +949,18 @@ const GradeRequests: React.FC = () => {
 									: setRejectionReason(e.target.value)
 							}
 							placeholder="Enter detailed reason for rejection..."
-							rows={4}
-							className="w-full rounded-md border-input bg-background shadow-sm focus:ring-destructive focus:border-destructive"
+							rows={3}
+							className="w-full rounded-md border-input bg-background shadow-sm focus:ring-destructive focus:border-destructive text-sm"
 						/>
 					</div>
-					<div className="p-6 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+					<div className="p-4 sm:p-5 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
 						<button
 							onClick={() =>
 								isBulk
 									? setShowBulkRejectModal(false)
 									: setShowRejectModal(false)
 							}
-							className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto"
+							className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto text-sm"
 						>
 							Cancel
 						</button>
@@ -970,7 +970,7 @@ const GradeRequests: React.FC = () => {
 								isProcessing ||
 								!(isBulk ? bulkRejectionReason : rejectionReason).trim()
 							}
-							className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto"
+							className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto text-sm"
 						>
 							{isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}{' '}
 							<XCircle className="h-4 w-4" />{' '}

@@ -575,36 +575,37 @@ const TeacherGradeChangeRequests = ({
 	return (
 		<div className="space-y-4">
 			{editModal.isOpen && (
-				<div className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[1px] p-4 overflow-y-auto overscroll-contain">
+				<div className="fixed inset-3 sm:inset-6 z-50 bg-black/25 backdrop-blur-[1px] overflow-y-auto overscroll-contain">
 					<div className="flex min-h-full items-center justify-center">
-						<div className="bg-card p-6 rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
-						<div className="flex justify-between items-center mb-4">
-							<h3 className="text-lg font-semibold">
+						<div className="bg-card p-4 sm:p-5 rounded-lg shadow-xl w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain">
+						<div className="flex justify-between items-center mb-3">
+							<h3 className="text-base font-semibold">
 								Edit Grade Change Request
 							</h3>
 							<button
 								onClick={() => setEditModal((p) => ({ ...p, isOpen: false }))}
+								className="text-muted-foreground hover:text-foreground"
 							>
 								<X className="h-5 w-5" />
 							</button>
 						</div>
-						<p className="text-sm text-muted-foreground mb-4">
+						<p className="text-xs text-muted-foreground mb-3">
 							For {editModal.studentName}
 						</p>
-						<div className="space-y-4">
-							<div className="flex items-center gap-4">
-								<label className="w-1/3">Original Grade</label>
+						<div className="space-y-3">
+							<div className="flex items-center gap-3">
+								<label className="w-1/3 text-sm">Original Grade</label>
 								<input
 									type="text"
 									value={editModal.originalGrade}
 									disabled
-									className={`p-2 border rounded-md w-2/3 bg-muted ${getGradeColor(
+									className={`p-1.5 border rounded-md w-2/3 bg-muted text-sm ${getGradeColor(
 										editModal.originalGrade,
 									)}`}
 								/>
 							</div>
-							<div className="flex items-center gap-4">
-								<label className="w-1/3">New Grade</label>
+							<div className="flex items-center gap-3">
+								<label className="w-1/3 text-sm">New Grade</label>
 								<input
 									type="number"
 									value={editModal.requestedGrade}
@@ -614,7 +615,7 @@ const TeacherGradeChangeRequests = ({
 											requestedGrade: e.target.value,
 										}))
 									}
-									className={`p-2 border rounded-md w-2/3 ${getGradeColor(
+									className={`p-1.5 border rounded-md w-2/3 text-sm ${getGradeColor(
 										editModal.requestedGrade === ''
 											? null
 											: Number(editModal.requestedGrade),
@@ -622,7 +623,7 @@ const TeacherGradeChangeRequests = ({
 								/>
 							</div>
 							<div>
-								<label className="block mb-2">Reason for Change</label>
+								<label className="block mb-1.5 text-sm">Reason for Change</label>
 								<textarea
 									value={editModal.reasonForChange}
 									onChange={(e) =>
@@ -631,15 +632,21 @@ const TeacherGradeChangeRequests = ({
 											reasonForChange: e.target.value,
 										}))
 									}
-									className="w-full p-2 border rounded-md"
+									className="w-full p-1.5 border rounded-md text-sm"
 									rows={3}
 								/>
 							</div>
 						</div>
-						<div className="mt-6 flex justify-end">
+						<div className="mt-4 flex justify-end gap-2">
+							<button
+								onClick={() => setEditModal((p) => ({ ...p, isOpen: false }))}
+								className="px-4 py-1.5 text-sm border rounded-md text-foreground hover:bg-muted"
+							>
+								Cancel
+							</button>
 							<button
 								onClick={handleSaveChanges}
-								className="px-4 py-2 bg-primary text-primary-foreground rounded-md"
+								className="px-4 py-1.5 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90"
 							>
 								Save Changes
 							</button>
