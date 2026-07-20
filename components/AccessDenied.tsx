@@ -11,7 +11,7 @@ interface AccessDeniedProps {
 export default function AccessDenied({
 	title = 'Access Denied',
 	message = "You don't have permission to access this page.",
-	description = 'If you believe this is an error, please contact your administrator or try logging in with different credentials.',
+	description = '',
 	showBackButton = true,
 }: AccessDeniedProps) {
 	const handleGoBack = () => {
