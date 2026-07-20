@@ -1287,6 +1287,7 @@ function ReportContent({
 
 				const selectedIdsSet =
 					selectedStudentIds.length > 0 ? new Set(selectedStudentIds) : null;
+		let usedScopedGrades = false;
 			if (canUseScopedGrades) {
 				const filteredStoreGrades = scopedGrades.filter((grade: any) => {
 					const gradeYear = String(grade?.academicYear || '').trim();
@@ -1300,14 +1301,17 @@ function ReportContent({
 						success: true,
 						data: { grades: filteredStoreGrades },
 					};
+					usedScopedGrades = true;
 				}
-		} else if (cachedGrades) {
-				gradesData = cachedGrades;
-			} else if (offline) {
-				throw new Error(
-					'No cached grades found for offline semester report generation.',
-				);
-			} else {
+			}
+			if (!usedScopedGrades) {
+				if (cachedGrades) {
+					gradesData = cachedGrades;
+				} else if (offline) {
+					throw new Error(
+						'No cached grades found for offline semester report generation.',
+					);
+				} else {
 					try {
 						const gradesResponse = await fetch(
 							`/api/grades?${params.toString()}`,
@@ -1351,6 +1355,7 @@ function ReportContent({
 							throw fetchErr;
 						}
 					}
+				}
 				}
 
 				let existingReports: any[] = [];

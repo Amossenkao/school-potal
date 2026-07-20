@@ -926,6 +926,7 @@ function ReportContent({
 				(offline || hasScopedGradesVersion);
 			const selectedIdsSet =
 				selectedStudentIds.length > 0 ? new Set(selectedStudentIds) : null;
+				let usedScopedGrades = false;
 			if (canUseScopedGrades) {
 				const filteredStoreGrades = scopedGrades.filter((grade: any) => {
 					const gradeYear = String(grade?.academicYear || '').trim();
@@ -940,14 +941,17 @@ function ReportContent({
 						success: true,
 						data: { grades: filteredStoreGrades },
 					};
+					usedScopedGrades = true;
 				}
-		} else if (cachedGrades) {
-			data = cachedGrades;
-		} else if (offline) {
-			throw new Error(
-				'No cached grades found for offline periodic report generation.',
-			);
-		} else {
+			}
+			if (!usedScopedGrades) {
+				if (cachedGrades) {
+					data = cachedGrades;
+				} else if (offline) {
+					throw new Error(
+						'No cached grades found for offline periodic report generation.',
+					);
+				} else {
 				try {
 					const res = await fetch(`/api/grades?${params.toString()}`, {
 						cache: 'no-store',
@@ -983,6 +987,7 @@ function ReportContent({
 					}
 					if (!data) throw fetchError;
 				}
+			}
 			}
 
 			if (!data.success) {
