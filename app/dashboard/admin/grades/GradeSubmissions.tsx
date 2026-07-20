@@ -218,11 +218,16 @@ const AdminGradeManagement: React.FC = () => {
 		if (syncFiredRef.current === selectedAcademicYear) return;
 		syncFiredRef.current = selectedAcademicYear;
 
-		// Fire it without awaiting to completely unblock the UI thread
+		// Fire it without awaiting to completely unblock the UI thread.
+		// background-parallel requires an existing cursor; when switching to
+		// a year for the first time no cursor exists, so fall back to
+		// refresh-sequential which performs the initial full fetch.
+		const GRADE_CURSOR_KEY = `sync_cursor_grades_${selectedAcademicYear}`;
+		const hasCursor = Boolean(localStorage.getItem(GRADE_CURSOR_KEY));
 		useSchoolStore
 			.getState()
 			.runBackgroundGradeSync(selectedAcademicYear, {
-				mode: 'background-parallel',
+				mode: hasCursor ? 'background-parallel' : 'refresh-sequential',
 			})
 			.catch((err) => {
 				console.error('Error fetching grades:', err);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
 	Plus,
 	CheckCircle,
@@ -173,6 +173,8 @@ const TeacherGradeSubmissions = () => {
 	});
 	// true during cursor-aware refresh; table stays visible
 	const [isSyncing, setIsSyncing] = useState(false);
+	// Prevent strict-mode or rapid double-firing of background sync per year
+	const syncFiredRef = useRef<string | null>(null);
 	const [error, setError] = useState({
 		teacherInfo: '',
 		submittedGrades: '',
@@ -366,11 +368,25 @@ const TeacherGradeSubmissions = () => {
 			? scopedStoreSnapshot.value
 			: [];
 
-		// Store already has data for this year — no network call needed.
+		// Store already has data for this year — show it immediately,
+		// then fire a silent background sync so new/updated grades appear
+		// without a blocking spinner.
 		if (hasYearSnapshot) {
 			processSubmittedGrades(cachedGrades);
 			setError((prev) => ({ ...prev, submittedGrades: '' }));
 			setLoading((prev) => ({ ...prev, submittedGrades: false }));
+
+			if (syncFiredRef.current !== academicYear) {
+				syncFiredRef.current = academicYear;
+				const GRADE_CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
+				const hasCursor = Boolean(localStorage.getItem(GRADE_CURSOR_KEY));
+				useSchoolStore
+					.getState()
+					.runBackgroundGradeSync(academicYear, {
+						mode: hasCursor ? 'background-parallel' : 'refresh-sequential',
+					})
+					.catch(() => {});
+			}
 			return;
 		}
 
