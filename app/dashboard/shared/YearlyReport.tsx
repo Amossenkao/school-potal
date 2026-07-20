@@ -2433,13 +2433,13 @@ function ReportContent({
 						success: true,
 						data: { grades: filteredStoreGrades },
 					};
-				} else if (offline && cachedGrades) {
-					gradesData = cachedGrades;
-				} else if (offline && !cachedGrades) {
-					throw new Error(
-						'No cached grades found for offline yearly report generation.',
-					);
-				} else {
+			} else if (cachedGrades) {
+						gradesData = cachedGrades;
+					} else if (offline) {
+						throw new Error(
+							'No cached grades found for offline yearly report generation.',
+						);
+					} else {
 					try {
 						const gradesResponse = await fetch(
 							`/api/grades?${params.toString()}`,

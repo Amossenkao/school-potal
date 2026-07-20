@@ -960,7 +960,7 @@ export async function GET(request: NextRequest) {
 				const report = processClassYearlyReport(grades, classId);
 				return NextResponse.json({
 					success: true,
-					data: { report, academicYear, classId },
+					data: { grades, report, academicYear, classId },
 				});
 			}
 

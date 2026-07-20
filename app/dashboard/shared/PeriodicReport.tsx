@@ -939,13 +939,13 @@ function ReportContent({
 					success: true,
 					data: { grades: filteredStoreGrades },
 				};
-			} else if (offline && cachedGrades) {
-				data = cachedGrades;
-			} else if (offline && !cachedGrades) {
-				throw new Error(
-					'No cached grades found for offline periodic report generation.',
-				);
-			} else {
+		} else if (cachedGrades) {
+			data = cachedGrades;
+		} else if (offline) {
+			throw new Error(
+				'No cached grades found for offline periodic report generation.',
+			);
+		} else {
 				try {
 					const res = await fetch(`/api/grades?${params.toString()}`, {
 						cache: 'no-store',
