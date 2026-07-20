@@ -676,13 +676,18 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				academicYear,
 				value,
 			);
+			const gradesVersionByAcademicYear = assignAcademicYearRecord(
+				state.gradesVersionByAcademicYear,
+				academicYear,
+				String(Date.now()),
+			);
 			persistDomainSnapshot(
 				'grades',
 				getAcademicYearPrimaryKey(academicYear),
 				value,
 			);
 			persistMeta(state);
-			return { gradesByAcademicYear };
+			return { gradesByAcademicYear, gradesVersionByAcademicYear };
 		});
 	},
 
@@ -707,13 +712,18 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				academicYear,
 				value,
 			);
+			const gradesVersionByAcademicYear = assignAcademicYearRecord(
+				state.gradesVersionByAcademicYear,
+				academicYear,
+				String(Date.now()),
+			);
 			persistDomainSnapshot(
 				'grades',
 				getAcademicYearPrimaryKey(academicYear),
 				value,
 			);
 			persistMeta(state);
-			return { gradesByAcademicYear };
+			return { gradesByAcademicYear, gradesVersionByAcademicYear };
 		});
 	},
 
