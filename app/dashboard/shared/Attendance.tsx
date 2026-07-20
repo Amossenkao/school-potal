@@ -25,7 +25,7 @@ import {
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import { PageLoading } from '@/components/loading';
-import { getAllowedGradeSubmissionAcademicYears } from '@/utils/schoolSettingsAccess';
+
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -685,11 +685,28 @@ const Attendance = () => {
 			user.role === 'administrator' ||
 			user.role === 'super_admin'
 		) {
-			const globalYears =
-				getAllowedGradeSubmissionAcademicYears(school) || [];
-			return globalYears.length > 0
-				? globalYears
-				: [school?.currentAcademicYear].filter(Boolean);
+			const firstYear = school?.firstAcademicYear;
+			const currentYear = school?.currentAcademicYear;
+			if (!firstYear || !currentYear) {
+				return [currentYear].filter(Boolean);
+			}
+			const sep = firstYear.includes('/') ? '/' : '-';
+			const startNum = parseInt(
+				firstYear.split(sep)[0] || firstYear.split('/')[0],
+				10,
+			);
+			const endNum = parseInt(
+				currentYear.split(sep)[0] || currentYear.split('/')[0],
+				10,
+			);
+			if (Number.isNaN(startNum) || Number.isNaN(endNum)) {
+				return [currentYear];
+			}
+			const years: string[] = [];
+			for (let y = startNum; y <= endNum; y++) {
+				years.push(`${y}${sep}${y + 1}`);
+			}
+			return years.reverse();
 		}
 		if (user.role === 'teacher') {
 			const years = new Set<string>();
@@ -836,9 +853,9 @@ const Attendance = () => {
 		);
 	}, [assignedClasses, selectedSession, selectedClassLevel]);
 
-	// auto-select single options
+	// auto-select first session by default
 	useEffect(() => {
-		if (sessions.length === 1 && !selectedSession)
+		if (sessions.length > 0 && !selectedSession)
 			setSelectedSession(sessions[0]);
 	}, [sessions, selectedSession]);
 	useEffect(() => {
@@ -907,13 +924,24 @@ const Attendance = () => {
 					})),
 				);
 
-				const res = await fetch(
-					`/api/attendance?academicYear=${selectedAcademicYear}&classId=${selectedClassId}`,
+				const cachedAttendance =
+					getScopedAcademicYearValue(
+						attendanceByYearRef.current,
+						selectedAcademicYear,
+					).value || [];
+				const hasCachedAttendance = cachedAttendance.some(
+					(a: any) => a.classId === selectedClassId,
 				);
-				if (res.ok) {
-					const data = await res.json();
-					const attendanceList = Array.isArray(data?.data) ? data.data : [];
-					mergeAttendanceForYear(selectedAcademicYear, attendanceList);
+
+				if (!hasCachedAttendance) {
+					const res = await fetch(
+						`/api/attendance?academicYear=${selectedAcademicYear}&classId=${selectedClassId}`,
+					);
+					if (res.ok) {
+						const data = await res.json();
+						const attendanceList = Array.isArray(data?.data) ? data.data : [];
+						mergeAttendanceForYear(selectedAcademicYear, attendanceList);
+					}
 				}
 			} catch (error) {
 				console.error('Failed to load attendance data:', error);
