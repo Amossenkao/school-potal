@@ -2862,7 +2862,7 @@ function ReportContent({
 		);
 	}
 
-	if (studentsData.length === 0) {
+	if (!loading && studentsData.length === 0) {
 		return (
 			<div className="flex flex-col items-center justify-center min-h-[60vh] py-10">
 				<div className="bg-card rounded-lg shadow border border-border w-full max-w-md p-6 text-center">

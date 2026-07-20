@@ -1214,7 +1214,7 @@ function ReportContent({
 	const isReportReady = Boolean(pdfUrl && downloadUrl && !pdfGenerating);
 
 	// Handle both error cases and no students found cases
-	if (error || studentsData.length === 0) {
+	if (error || (!loading && studentsData.length === 0)) {
 		const isNoStudentsFound = !error && studentsData.length === 0;
 
 		return (
