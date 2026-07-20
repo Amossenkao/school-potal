@@ -1213,14 +1213,6 @@ function ReportContent({
 	}, [onBack]);
 	const isReportReady = Boolean(pdfUrl && downloadUrl && !pdfGenerating);
 
-	if (loading) {
-		return (
-			<div className="flex items-center justify-center min-h-[60vh]">
-				<PageLoading fullScreen={false} variant="minimal" size="lg" />
-			</div>
-		);
-	}
-
 	// Handle both error cases and no students found cases
 	if (error || studentsData.length === 0) {
 		const isNoStudentsFound = !error && studentsData.length === 0;

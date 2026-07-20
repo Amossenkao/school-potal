@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 		const roleQuery = getRoleGradesQuery(currentUser, academicYear);
 		if (!roleQuery) {
 			return new Response(
-				JSON.stringify({ success: true, data: [], nextCursor: null }),
+				JSON.stringify({ success: true, data: [], nextCursor: null, totalCount: 0 }),
 				{ status: 200, headers: { 'Content-Type': 'application/json' } },
 			);
 		}
@@ -88,10 +88,13 @@ export async function GET(req: NextRequest) {
 			}
 		}
 
-		const grades = await models.Grade.find(query)
-			.sort({ lastUpdated: 1, _id: 1 })
-			.limit(limit)
-			.lean();
+		const [grades, totalCount] = await Promise.all([
+			models.Grade.find(query)
+				.sort({ lastUpdated: 1, _id: 1 })
+				.limit(limit)
+				.lean(),
+			models.Grade.countDocuments(query),
+		]);
 
 		let nextCursor: string | null = null;
 		if (grades.length === limit) {
@@ -106,6 +109,7 @@ export async function GET(req: NextRequest) {
 			success: true,
 			data: grades,
 			nextCursor,
+			totalCount,
 		});
 
 		return new Response(payload, {

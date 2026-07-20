@@ -35,6 +35,7 @@ import { useNetworkStore } from '@/store/networkStore';
 import { useSchoolStore } from '@/store/schoolStore';
 import { PageLoading } from '@/components/loading';
 import { getScopedAcademicYearValue } from '@/utils/academicYear';
+import type { GradesCursor } from '@/lib/bootstrap';
 import { lockBodyScroll } from '@/utils/scrollLock';
 import {
 	buildSchoolAcademicYearRange,
@@ -207,40 +208,82 @@ const AdminGradeManagement: React.FC = () => {
 			setLoading(false);
 		}
 
-		// FIX 2: Check `cachedGrades.length` instead of `submissions.length`.
-		// `submissions` is a stale closure here and will always incorrectly evaluate to 0
-		// on the initial mount, overriding the loading state unnecessarily.
 		if (cachedGrades.length === 0) {
 			setLoading(true);
 		}
 
-		// FIX 1: Prevent strict-mode or rapid double-firing of background sync
 		if (syncFiredRef.current === selectedAcademicYear) return;
 		syncFiredRef.current = selectedAcademicYear;
 
-		// Fire it without awaiting to completely unblock the UI thread.
-		// background-parallel requires an existing cursor; when switching to
-		// a year for the first time no cursor exists, so fall back to
-		// refresh-sequential which performs the initial full fetch.
 		const GRADE_CURSOR_KEY = `sync_cursor_grades_${selectedAcademicYear}`;
 		const hasCursor = Boolean(localStorage.getItem(GRADE_CURSOR_KEY));
-		useSchoolStore
-			.getState()
-			.runBackgroundGradeSync(selectedAcademicYear, {
-				mode: hasCursor ? 'background-parallel' : 'refresh-sequential',
-			})
-			.catch((err) => {
-				console.error('Error fetching grades:', err);
-				// Must use setter callback to avoid stale closure state
+
+		if (hasCursor) {
+			useSchoolStore
+				.getState()
+				.runBackgroundGradeSync(selectedAcademicYear, {
+					mode: 'background-parallel',
+				})
+				.catch((err) => {
+					console.error('Error fetching grades:', err);
+					setSubmissions((prev) => {
+						if (prev.length === 0)
+							setError('Failed to fetch grade submissions. Please try again.');
+						return prev;
+					});
+				})
+				.finally(() => {
+					setLoading(false);
+				});
+		} else {
+			const BOOTSTRAP_LIMIT = 500;
+			try {
+				const params = new URLSearchParams({
+					academicYear: selectedAcademicYear,
+					limit: String(BOOTSTRAP_LIMIT),
+				});
+				const res = await fetch(`/api/sync/grades?${params.toString()}`);
+				if (!res.ok) throw new Error(`Server error: ${res.status}`);
+				const result = await res.json();
+				const initialGrades = Array.isArray(result.data) ? result.data : [];
+				const totalCount: number = result.totalCount ?? initialGrades.length;
+
+				if (initialGrades.length > 0) {
+					useSchoolStore
+						.getState()
+						.mergeGradesForYear(selectedAcademicYear, initialGrades);
+				}
+
+				if (totalCount > BOOTSTRAP_LIMIT) {
+					const cursor: GradesCursor = {
+						lastUpdated: null,
+						_id: '',
+						totalCount,
+						fetchedCount: BOOTSTRAP_LIMIT,
+						chunkSize: 10_000,
+					};
+					localStorage.setItem(GRADE_CURSOR_KEY, JSON.stringify(cursor));
+
+					useSchoolStore
+						.getState()
+						.runBackgroundGradeSync(selectedAcademicYear, {
+							mode: 'background-parallel',
+						})
+						.catch((err) => {
+							console.error('Error fetching remaining grades:', err);
+						});
+				}
+			} catch (err) {
+				console.error('Error bootstrapping grades:', err);
 				setSubmissions((prev) => {
 					if (prev.length === 0)
 						setError('Failed to fetch grade submissions. Please try again.');
 					return prev;
 				});
-			})
-			.finally(() => {
+			} finally {
 				setLoading(false);
-			});
+			}
+		}
 	};
 
 	useEffect(() => {

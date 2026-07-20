@@ -36,6 +36,7 @@ import {
 	getAllowedViewGradeSubmissionsAcademicYears,
 	getAllowedGradeChangeRequestPeriods,
 } from '@/utils/schoolSettingsAccess';
+import type { GradesCursor } from '@/lib/bootstrap';
 import router from 'next/router';
 
 // Types
@@ -368,9 +369,6 @@ const TeacherGradeSubmissions = () => {
 			? scopedStoreSnapshot.value
 			: [];
 
-		// Store already has data for this year — show it immediately,
-		// then fire a silent background sync so new/updated grades appear
-		// without a blocking spinner.
 		if (hasYearSnapshot) {
 			processSubmittedGrades(cachedGrades);
 			setError((prev) => ({ ...prev, submittedGrades: '' }));
@@ -390,43 +388,76 @@ const TeacherGradeSubmissions = () => {
 			return;
 		}
 
-		// Only block the table with a spinner when there is nothing to show yet.
 		if (submittedGrades.length === 0) {
 			setLoading((prev) => ({ ...prev, submittedGrades: true }));
 		}
 
-		try {
-			setError((prev) => ({ ...prev, submittedGrades: '' }));
-			const res = await fetch(`/api/grades?academicYear=${academicYear}`, {
-				cache: 'no-store',
-			});
-			if (!res.ok) throw new Error('Failed to fetch submitted grades');
-			const data = await res.json();
-			const grades = Array.isArray(data.data?.grades)
-				? data.data.grades
-				: Array.isArray(data.data?.report?.grades)
-					? data.data.report.grades
-					: [];
+		const GRADE_CURSOR_KEY = `sync_cursor_grades_${academicYear}`;
+		const hasCursor = Boolean(localStorage.getItem(GRADE_CURSOR_KEY));
 
-			setGradesForYear(academicYear, grades);
-			processSubmittedGrades(grades);
-			setError((prev) => ({ ...prev, submittedGrades: '' }));
-		} catch (err) {
-			console.error('Error fetching submitted grades:', err);
-			if (submittedGrades.length === 0) {
-				setError((prev) => ({
-					...prev,
-					submittedGrades: 'Failed to load submitted grades.',
-				}));
+		if (hasCursor) {
+			useSchoolStore
+				.getState()
+				.runBackgroundGradeSync(academicYear, {
+					mode: 'background-parallel',
+				})
+				.catch(() => {})
+				.finally(() => {
+					setLoading((prev) => ({ ...prev, submittedGrades: false }));
+				});
+		} else {
+			const BOOTSTRAP_LIMIT = 500;
+			try {
+				setError((prev) => ({ ...prev, submittedGrades: '' }));
+				const params = new URLSearchParams({
+					academicYear,
+					limit: String(BOOTSTRAP_LIMIT),
+				});
+				const res = await fetch(`/api/sync/grades?${params.toString()}`);
+				if (!res.ok) throw new Error('Failed to fetch submitted grades');
+				const result = await res.json();
+				const initialGrades = Array.isArray(result.data) ? result.data : [];
+				const totalCount: number = result.totalCount ?? initialGrades.length;
+
+				if (initialGrades.length > 0) {
+					useSchoolStore
+						.getState()
+						.mergeGradesForYear(academicYear, initialGrades);
+				}
+
+				if (totalCount > BOOTSTRAP_LIMIT) {
+					const cursor: GradesCursor = {
+						lastUpdated: null,
+						_id: '',
+						totalCount,
+						fetchedCount: BOOTSTRAP_LIMIT,
+						chunkSize: 10_000,
+					};
+					localStorage.setItem(GRADE_CURSOR_KEY, JSON.stringify(cursor));
+
+					useSchoolStore
+						.getState()
+						.runBackgroundGradeSync(academicYear, {
+							mode: 'background-parallel',
+						})
+						.catch(() => {});
+				}
+			} catch (err) {
+				console.error('Error fetching submitted grades:', err);
+				if (submittedGrades.length === 0) {
+					setError((prev) => ({
+						...prev,
+						submittedGrades: 'Failed to load submitted grades.',
+					}));
+				}
+			} finally {
+				setLoading((prev) => ({ ...prev, submittedGrades: false }));
 			}
-		} finally {
-			setLoading((prev) => ({ ...prev, submittedGrades: false }));
 		}
 	}, [
 		academicYear,
 		teacherInfo,
 		processSubmittedGrades,
-		setGradesForYear,
 		isSelectedAcademicYearAllowed,
 		submittedGrades.length,
 	]);

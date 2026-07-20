@@ -1185,17 +1185,6 @@ const handleDeactivateSuccess = (updatedUser: any) => {
 	});
 };
 
-	if (loading) {
-		return (
-			<div className="flex items-center justify-center min-h-[60vh]">
-				<PageLoading
-					message="Content Loading, Please wait..."
-					fullScreen={false}
-				/>
-			</div>
-		);
-	}
-
 	return (
 		<div className="min-h-screen bg-background text-foreground p-6">
 			{/* The rest of your component remains the same, no changes needed below this line */}
@@ -1352,6 +1341,14 @@ const handleDeactivateSuccess = (updatedUser: any) => {
 				</div>
 
 				<div className="bg-card rounded-lg border border-border">
+					{loading ? (
+						<div className="flex items-center justify-center min-h-[40vh]">
+							<PageLoading
+								message="Loading users..."
+								fullScreen={false}
+							/>
+						</div>
+					) : (
 					<div className="overflow-x-auto">
 						<table className="w-full">
 							<thead className="bg-muted/50">
@@ -1468,6 +1465,7 @@ const handleDeactivateSuccess = (updatedUser: any) => {
 							</tbody>
 						</table>
 					</div>
+					)}
 
 					<div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-border">
 						<div className="flex items-center gap-2">

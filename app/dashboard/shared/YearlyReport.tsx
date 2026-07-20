@@ -2844,10 +2844,6 @@ function ReportContent({
 		}
 	}, [downloadUrl, reportFileName]);
 
-	if (loading) {
-		return <PageLoading fullScreen={false} variant="minimal" size="lg" />;
-	}
-
 	if (error) {
 		return (
 			<div className="flex flex-col items-center justify-center min-h-[60vh] py-10">
