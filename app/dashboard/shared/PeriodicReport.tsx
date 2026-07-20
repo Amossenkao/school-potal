@@ -1717,9 +1717,12 @@ export default function PeriodicReportWrapper() {
 	const filterConfig: FilterConfig<PeriodicReportFilters> = useMemo(
 		() => ({
 			gradeLevelField: 'gradeLevel',
+			nonStudentViewTitle: 'Filter Grade Sheets',
+			studentViewTitle: 'My Grade Sheet',
 			extraFilter: {
 				field: 'period',
 				label: 'Period',
+
 				options: periodOptions
 					// Filter the base options to only include what the student has access to
 					.filter(

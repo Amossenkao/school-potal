@@ -2221,9 +2221,12 @@ export default function SemesterReportWrapper() {
 	const filterConfig: FilterConfig<SemesterReportFilters> = useMemo(
 		() => ({
 			gradeLevelField: 'classLevel',
+			nonStudentViewTitle: 'Filter Semester Reports',
+			studentViewTitle: 'My Semester Report',
 			extraFilter: {
 				field: 'semester',
 				label: 'Semester',
+
 				options: semesterOptions
 					// Filter the base options to only include what the student has access to
 					.filter(

@@ -512,9 +512,10 @@ export const SharedFilter = <T extends BaseFilters>({
 		if (isStudent) return;
 		const shouldAutoSelect = config.autoSelectSingle !== false;
 
+		// Always default to the first session when none is selected yet.
 		if (
 			shouldAutoSelect &&
-			userAvailableSessions.length === 1 &&
+			userAvailableSessions.length > 0 &&
 			!filters.session
 		) {
 			setFilters((prev) => {
@@ -632,11 +633,12 @@ export const SharedFilter = <T extends BaseFilters>({
 		normalize,
 	]);
 
-	// ─── Extra Filter Auto-select (students) ──────────────────────────────────
+	// ─── Extra Filter Auto-select (semester / period) — all roles ────────────
 
 	useEffect(() => {
-		if (!extraFilter || !isStudent) return;
-		if (filteredExtraOptions.length === 1 && !extraFilterValue) {
+		if (!extraFilter) return;
+		// Default to the first option whenever nothing is selected yet.
+		if (!extraFilterValue && filteredExtraOptions.length > 0) {
 			setFilters(
 				(prev) =>
 					({
@@ -644,19 +646,15 @@ export const SharedFilter = <T extends BaseFilters>({
 						[extraFilter.field]: filteredExtraOptions[0].value,
 					}) as T,
 			);
-		} else if (
+		}
+		// Clear if the selected value is no longer a valid option.
+		if (
 			extraFilterValue &&
 			!filteredExtraOptions.find((opt) => opt.value === extraFilterValue)
 		) {
 			setFilters((prev) => ({ ...prev, [extraFilter.field]: '' }) as T);
 		}
-	}, [
-		extraFilter,
-		isStudent,
-		filteredExtraOptions,
-		extraFilterValue,
-		setFilters,
-	]);
+	}, [extraFilter, filteredExtraOptions, extraFilterValue, setFilters]);
 
 	// ─── Keep Academic Year Valid ─────────────────────────────────────────────
 
@@ -1201,7 +1199,7 @@ export const SharedFilter = <T extends BaseFilters>({
 		totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
 
 	return (
-		<div className="flex items-start justify-center min-h-[60vh] py-1 bg-background px-4">
+		<div className="flex items-start justify-center min-h-[60vh] py-10 bg-background px-4">
 			<div className="w-full max-w-4xl">
 				{/* Page-level header */}
 				<div className="mb-6">
