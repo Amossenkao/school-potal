@@ -2016,6 +2016,7 @@ function ReportContent({
 	);
 	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
 	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
+	const mergeGradesForYear = useSchoolStore((state) => state.mergeGradesForYear);
 	const user = useAuth((state) => state.user);
 	const isStudent = user?.role === 'student';
 	const createdBy = useMemo(
@@ -2472,7 +2473,7 @@ function ReportContent({
 									gradesData.data.grades,
 								)
 							) {
-								setGradesForYear(
+								mergeGradesForYear(
 									reportFilters.academicYear,
 									gradesData.data.grades,
 								);
@@ -2725,6 +2726,7 @@ function ReportContent({
 		className,
 		setUsersForYear,
 		setGradesForYear,
+		mergeGradesForYear,
 	]);
 
 	// Generate the PDF using the fillable template

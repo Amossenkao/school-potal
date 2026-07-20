@@ -976,6 +976,7 @@ function ReportContent({
 	);
 	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
 	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
+	const mergeGradesForYear = useSchoolStore((state) => state.mergeGradesForYear);
 	const user = useAuth((state) => state.user);
 	const isStudent = user?.role === 'student';
 	const createdBy = useMemo(
@@ -1330,7 +1331,7 @@ function ReportContent({
 										gradesData.data.grades,
 									)
 								) {
-									setGradesForYear(
+									mergeGradesForYear(
 										reportFilters.academicYear,
 										gradesData.data.grades,
 									);
@@ -1584,6 +1585,7 @@ function ReportContent({
 		schoolSubjects,
 		setUsersForYear,
 		setGradesForYear,
+		mergeGradesForYear,
 		isStudent,
 	]);
 

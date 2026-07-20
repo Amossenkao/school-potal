@@ -627,6 +627,7 @@ function ReportContent({
 		(state) => state.gradesVersionByAcademicYear,
 	);
 	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
+	const mergeGradesForYear = useSchoolStore((state) => state.mergeGradesForYear);
 	const user = useAuth((state) => state.user);
 	const isStudent = user?.role === 'student';
 	const createdBy = useMemo(
@@ -966,7 +967,7 @@ function ReportContent({
 						if (
 							!areGradeRowsEquivalent(existingScopedGrades, data.data.grades)
 						) {
-							setGradesForYear(reportFilters.academicYear, data.data.grades);
+							mergeGradesForYear(reportFilters.academicYear, data.data.grades);
 						}
 					}
 					setClientCache(gradesCacheKey, data, OFFLINE_CACHE_TTL_MS);
@@ -1184,6 +1185,7 @@ function ReportContent({
 		user?.studentId,
 		user?.username,
 		setGradesForYear,
+		mergeGradesForYear,
 	]);
 
 	// Only fetch data once on mount or when filters/students change
