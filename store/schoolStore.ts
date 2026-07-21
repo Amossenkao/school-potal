@@ -950,17 +950,24 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			'EVENT_DELETED',
 			'ANNOUNCEMENT_CREATED',
 		].includes(event.type);
+		// Class transitions move grades between classes — bump grades and
+		// attendance versions so old-class peers lose access and new-class
+		// peers gain access to the student's data.
+		const hasClassTransition =
+			shouldTouchUsers &&
+			Array.isArray((payload as any).oldClassIds) &&
+			(payload as any).oldClassIds.length > 0;
 		const shouldTouchGrades = [
 			'GRADE_CREATED',
 			'GRADE_UPDATED',
 			'GRADE_CHANGE_REQUESTED',
-		].includes(event.type);
+		].includes(event.type) || hasClassTransition;
 		const shouldTouchSchedules = ['CLASS_UPDATED'].includes(event.type);
 		const shouldTouchGradeRequests = event.type === 'GRADE_CHANGE_REQUESTED';
 		const shouldTouchAttendance = [
 			'ATTENDANCE_CREATED',
 			'ATTENDANCE_UPDATED',
-		].includes(event.type);
+		].includes(event.type) || hasClassTransition;
 
 		console.log('[schoolStore] shouldTouchUsers:', shouldTouchUsers, {
 			shouldTouchCalendar,

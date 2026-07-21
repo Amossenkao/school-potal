@@ -192,6 +192,8 @@ const LEGACY_REASON_TO_EVENT_TYPE: Record<string, string> = {
 	'teacher-academic-year-added': 'USER_UPDATED',
 	'administrator-academic-year-added': 'USER_UPDATED',
 	'bulk-user-action': 'USER_UPDATED',
+	'student-class-changed': 'USER_UPDATED',
+	'teacher-class-reassigned': 'USER_UPDATED',
 	'user-notification': 'USER_UPDATED',
 	'notifications-markasread': 'USER_UPDATED',
 	'notifications-markallasread': 'USER_UPDATED',
@@ -378,6 +380,7 @@ export const resolvePublishChannels = (event: RealtimeEvent) => {
 			// 2. the affected user's own channel — reaches that user directly
 			// 3. the affected user's class channels — reaches teachers and classmates
 			//    who have access to this user but don't subscribe to their user channel
+			// 4. old class channels — for class transitions, so former peers lose access
 			addSchool();
 			addUserIds(
 				targetUserIds ||
@@ -385,6 +388,10 @@ export const resolvePublishChannels = (event: RealtimeEvent) => {
 			);
 			addClassIds(classIds);
 			addPayloadUserClassChannels();
+			// Class transition: publish to old class channels so former
+			// teachers and classmates receive the event and lose access.
+			const oldClassIds = payload.oldClassIds as string[] | undefined;
+			if (oldClassIds?.length) addClassIds(oldClassIds);
 			break;
 
 		case 'STUDENT_ADDED':

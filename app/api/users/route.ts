@@ -3862,11 +3862,17 @@ export async function PUT(request: NextRequest) {
 		);
 
 		// Handle student class change (update academicYears + grades)
+		let studentClassChangeOldClassIds: string[] = [];
 		if (
 			targetUser.role === 'student' &&
 			filteredUserData.classId &&
 			filteredUserData.classId !== targetUser.classId
 		) {
+			// Capture old class before update for real-time access revocation
+			if (targetUser.classId) {
+				studentClassChangeOldClassIds = [targetUser.classId];
+			}
+
 			const schoolProfile = await getSchoolProfile();
 			const currentAcademicYear =
 				schoolProfile.currentAcademicYear || getAcademicYear();
@@ -3931,6 +3937,39 @@ export async function PUT(request: NextRequest) {
 						updatedAt: new Date(),
 					},
 				},
+			);
+		}
+
+		// Track teacher class assignment changes for real-time access updates
+		let teacherClassChangeRemovedClassIds: string[] = [];
+		let teacherClassChangeAddedClassIds: string[] = [];
+		if (
+			targetUser.role === 'teacher' &&
+			filteredUserData.hasOwnProperty('subjects')
+		) {
+			const extractClassIdsFromSubjects = (subjects: any[]): string[] => {
+				if (!Array.isArray(subjects)) return [];
+				return Array.from(
+					new Set(
+						subjects.flatMap((s: any) =>
+							Array.isArray(s?.classes)
+								? s.classes
+										.map((c: any) => String(c?.classId || '').trim())
+										.filter(Boolean)
+								: [],
+						),
+					),
+				);
+			};
+			const oldClassIds = extractClassIdsFromSubjects(targetUser.subjects || []);
+			const newClassIds = extractClassIdsFromSubjects(
+				filteredUserData.subjects || [],
+			);
+			teacherClassChangeRemovedClassIds = oldClassIds.filter(
+				(id) => !newClassIds.includes(id),
+			);
+			teacherClassChangeAddedClassIds = newClassIds.filter(
+				(id) => !oldClassIds.includes(id),
 			);
 		}
 
@@ -4105,18 +4144,52 @@ export async function PUT(request: NextRequest) {
 		const realtimeUser = buildRealtimeUserPayload(
 			updatedUser.toObject() as any,
 		);
+
+		// Build class transition metadata for real-time access revocation/granting
+		const classTransitionPayload: Record<string, any> = {
+			user: realtimeUser,
+			userId: String(realtimeUser.id || ''),
+			targetUserIds: [String(realtimeUser.id || '')],
+		};
+		if (studentClassChangeOldClassIds.length > 0) {
+			classTransitionPayload.oldClassIds = studentClassChangeOldClassIds;
+			classTransitionPayload.newClassIds = filteredUserData.classId
+				? [filteredUserData.classId]
+				: [];
+		}
+		if (teacherClassChangeRemovedClassIds.length > 0) {
+			classTransitionPayload.oldClassIds = [
+				...(Array.isArray(classTransitionPayload.oldClassIds)
+					? classTransitionPayload.oldClassIds
+					: []),
+				...teacherClassChangeRemovedClassIds,
+			];
+		}
+		if (teacherClassChangeAddedClassIds.length > 0) {
+			classTransitionPayload.newClassIds = [
+				...(Array.isArray(classTransitionPayload.newClassIds)
+					? classTransitionPayload.newClassIds
+					: []),
+				...teacherClassChangeAddedClassIds,
+			];
+		}
+
+		const eventReason =
+			studentClassChangeOldClassIds.length > 0
+				? 'student-class-changed'
+				: teacherClassChangeRemovedClassIds.length > 0 ||
+						teacherClassChangeAddedClassIds.length > 0
+					? 'teacher-class-reassigned'
+					: 'user-updated';
+
 		await bumpUsersVersion(updatedUserYears);
 		await publishSyncEventsForAcademicYearsSafe({
 			tenantId,
 			domain: 'users',
 			academicYears: updatedUserYears,
-			payload: {
-				user: realtimeUser,
-				userId: String(realtimeUser.id || ''),
-				targetUserIds: [String(realtimeUser.id || '')],
-			},
+			payload: classTransitionPayload,
 			actorId: currentUser.id,
-			reason: 'user-updated',
+			reason: eventReason,
 		});
 
 		const refreshedUser =
