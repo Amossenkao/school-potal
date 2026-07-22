@@ -122,7 +122,7 @@ const componentImporters: Record<string, ComponentImporter> = {
 
 	// Grading
 	submissions: () => import('@/app/dashboard/admin/grades/GradeSubmissions'),
-	requests: () => import('@/app/dashboard/admin/grades/GradeRequests'),
+	requests: () => import('@/app/dashboard/shared/GradeRequests'),
 	grading: () => import('@/app/dashboard/teacher/grading/GradeManagement'),
 	'periodic-grade': () => import('@/app/dashboard/shared/PeriodicReport'),
 	'yearly-grade': () => import('@/app/dashboard/shared/YearlyReport'),
@@ -143,7 +143,7 @@ const componentImporters: Record<string, ComponentImporter> = {
 	'submit-grades': () =>
 		import('@/app/dashboard/teacher/grading/SubmitGrade'),
 	'grade-requests': () =>
-		import('@/app/dashboard/teacher/grading/GradeRequests'),
+		import('@/app/dashboard/shared/GradeRequests'),
 
 	// Lesson Planning
 	// 'view-lessonplans': dynamic(

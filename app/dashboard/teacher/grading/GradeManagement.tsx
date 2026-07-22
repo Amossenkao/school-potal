@@ -5,7 +5,7 @@ import { BarChart3 } from 'lucide-react';
 import GradeSubmissions from './GradeSubmissions';
 import SubmitGrade from './SubmitGrade';
 import MasterGradeSheet from '../../shared/MasterGradeSheet';
-import TeacherGradeChangeRequests from './GradeRequests';
+import GradeRequests from '../../shared/GradeRequests';
 import useAuth from '@/store/useAuth';
 import { PageLoading } from '@/components/loading';
 
@@ -154,7 +154,7 @@ const GradeManagement = () => {
 							/>
 						)}
 						{activeTab === 'requests' && (
-							<TeacherGradeChangeRequests teacherInfo={teacherInfo} />
+							<GradeRequests teacherInfo={teacherInfo} />
 						)}
 					</>
 				)}
