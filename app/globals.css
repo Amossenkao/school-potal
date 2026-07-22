@@ -312,6 +312,10 @@
 	direction: ltr;
 }
 
+@utility sidebar-contain {
+	contain: layout style;
+}
+
 @layer utilities {
 	/* For Remove Date Icon */
 	input[type='date']::-webkit-inner-spin-button,

@@ -173,17 +173,22 @@ const NavItemComponent = memo(
 		const isPrimaryActive = isItemActive || hasActiveSubItem || isSubmenuOpen;
 
 		// Use CSS max-height transition instead of JS-measured height — no layout thrash
+		// Compute an accurate max-height from item count so the animation duration
+		// matches actual content height (avoids the janky "dead time" of 600px → 50px).
+		const SUBMENU_ITEM_HEIGHT = 44; // px: py-2 + text + gap
+		const SUBMENU_PADDING = 24; // px: container padding + border
 		const submenuStyle = useMemo(
 			() => ({
-				maxHeight: isSubmenuOpen ? '600px' : '0px',
+				maxHeight: isSubmenuOpen
+					? `${subItems.length * SUBMENU_ITEM_HEIGHT + SUBMENU_PADDING}px`
+					: '0px',
 				overflow: 'hidden',
-				// Use max-height + opacity for a snappier feel on low-end devices
 				opacity: isSubmenuOpen ? 1 : 0,
 				transition: isSubmenuOpen
 					? 'max-height 250ms ease-out, opacity 180ms ease-out'
 					: 'max-height 200ms ease-in, opacity 120ms ease-in',
 			}),
-			[isSubmenuOpen],
+			[isSubmenuOpen, subItems.length],
 		);
 
 		const primaryItemClass = `group relative flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-theme-sm font-medium transition-colors duration-150 ${
@@ -350,8 +355,6 @@ const AppSidebar: React.FC = () => {
 	const releaseBodyScrollLock = useRef<(() => void) | null>(null);
 	const [initialSetupDone, setInitialSetupDone] = useState(false);
 	const [navigationItems, setNavigationItems] = useState<NavItem[]>([]);
-	const [pendingSubmissionsCount, setPendingSubmissionsCount] = useState(0);
-	const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 	const [isLoggingOut, setIsLoggingOut] = useState(false);
 	const [sidebarTransitionsReady, setSidebarTransitionsReady] = useState(false);
 
@@ -436,10 +439,9 @@ const AppSidebar: React.FC = () => {
 		gradeRequestsByAcademicYear,
 	]);
 
-	useEffect(() => {
-		setPendingSubmissionsCount(pendingCounts.submissions);
-		setPendingRequestsCount(pendingCounts.requests);
-	}, [pendingCounts]);
+	// Destructure memoized counts so primitives flow into the nav-items effect
+	const { submissions: pendingSubmissions, requests: pendingRequests } =
+		pendingCounts;
 
 	// ── Transition readiness (defer to next frame to avoid first-render flash) ─
 	useEffect(() => {
@@ -450,13 +452,11 @@ const AppSidebar: React.FC = () => {
 	}, []);
 
 	// ── External event: grading counts refresh ────────────────────────────────
+	// A lightweight counter that forces the nav-items effect to re-run when
+	// external code dispatches this event (e.g. after a grade submission).
+	const [countsRefreshTrigger, setCountsRefreshTrigger] = useState(0);
 	useEffect(() => {
-		// pendingCounts is already reactive via useMemo; this event just forces
-		// the store selectors to re-run if something mutated outside React.
-		const handler = () => {
-			// trigger a no-op state update so the memo re-runs
-			setPendingSubmissionsCount((c) => c);
-		};
+		const handler = () => setCountsRefreshTrigger((n) => n + 1);
 		window.addEventListener('grading:counts:refresh', handler);
 		return () => window.removeEventListener('grading:counts:refresh', handler);
 	}, []);
@@ -511,7 +511,7 @@ const AppSidebar: React.FC = () => {
 				role,
 				adminPosition,
 			);
-			const totalPending = pendingSubmissionsCount + pendingRequestsCount;
+			const totalPending = pendingSubmissions + pendingRequests;
 
 			const completeNavItems: NavItem[] = [
 				...dynamicNavItems,
@@ -525,9 +525,9 @@ const AppSidebar: React.FC = () => {
 					subItems: item.subItems?.map((sub) => {
 						let badgeCount: number | undefined;
 						if (sub.name === 'Grade Submissions')
-							badgeCount = pendingSubmissionsCount;
+							badgeCount = pendingSubmissions;
 						else if (sub.name === 'Grade Requests')
-							badgeCount = pendingRequestsCount;
+							badgeCount = pendingRequests;
 						return {
 							...sub,
 							href: sub.href ? prependDashboard(sub.href) : undefined,
@@ -563,8 +563,9 @@ const AppSidebar: React.FC = () => {
 		role,
 		adminPosition,
 		unreadNotifications,
-		pendingSubmissionsCount,
-		pendingRequestsCount,
+		pendingSubmissions,
+		pendingRequests,
+		countsRefreshTrigger,
 	]);
 
 	// ── Auto-expand submenu for active route (one-time on mount) ─────────────
@@ -616,13 +617,13 @@ const AppSidebar: React.FC = () => {
 	// ── Derived display state ─────────────────────────────────────────────────
 	const shouldShowLabels = isExpanded || isHovered || isMobileOpen;
 
-	// ── Sidebar geometry (GPU-composited: transform instead of width) ─────────
-	// Width switches between two fixed values (collapsed / expanded).
-	// Use translate-based approach for mobile overlay; width for desktop.
-	// The key insight: `transition-[width]` forces layout recalc on every frame.
-	// `transition-transform` + fixed width is compositor-only on low-end GPUs.
+	// ── Sidebar geometry ─────────────────────────────────────────────────────
+	// On desktop (lg+): animate width between collapsed (90px) and expanded (290px).
+	// On mobile: width snaps instantly — the sidebar is hidden via translate-x
+	// anyway, so animating width only causes layout-reflow jank on low-end phones.
+	// `contain: layout style` limits reflow scope to the sidebar subtree.
 	const sidebarTransitionClass = sidebarTransitionsReady
-		? 'transition-[width] duration-300 ease-in-out will-change-transform'
+		? 'lg:transition-[width] lg:duration-300 lg:ease-in-out'
 		: 'transition-none';
 
 	const sidebarWidthClass =
@@ -643,7 +644,7 @@ const AppSidebar: React.FC = () => {
 		return <PageLoading variant="school" message="Signing out..." />;
 	}
 
-	const shellClass = `fixed top-[var(--app-header-height,4rem)] left-0 z-50 h-[calc(100dvh-var(--app-header-height,4rem))] lg:top-0 lg:h-dvh overflow-hidden border-r border-gray-200 text-gray-900 shadow-theme-lg dark:border-gray-800 dark:text-gray-100 rounded-tr-2xl rounded-br-2xl lg:rounded-tr-none lg:rounded-br-none ${sidebarSurfaceClass} ${sidebarTransitionClass} ${sidebarWidthClass} ${sidebarTranslateClass} lg:translate-x-0`;
+	const shellClass = `fixed top-[var(--app-header-height,4rem)] left-0 z-50 h-[calc(100dvh-var(--app-header-height,4rem))] lg:top-0 lg:h-dvh overflow-hidden border-r border-gray-200 text-gray-900 shadow-theme-lg dark:border-gray-800 dark:text-gray-100 rounded-tr-2xl rounded-br-2xl lg:rounded-tr-none lg:rounded-br-none sidebar-contain ${sidebarSurfaceClass} ${sidebarTransitionClass} ${sidebarWidthClass} ${sidebarTranslateClass} lg:translate-x-0`;
 
 	if (user === undefined || !currentSchool) {
 		return (
