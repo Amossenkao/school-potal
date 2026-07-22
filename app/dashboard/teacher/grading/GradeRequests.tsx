@@ -415,18 +415,25 @@ const TeacherGradeChangeRequests = ({
 		fetchRequests,
 	]);
 
-	useEffect(() => {
-		if (
-			!teacherInfo?.username ||
-			!selectedAcademicYear ||
-			!Array.isArray(scopedGradeRequests)
-		) {
-			return;
-		}
-		setRequests(normalizeBatchRequests(scopedGradeRequests));
-		setError('');
-		setLoading(false);
-	}, [teacherInfo?.username, selectedAcademicYear, scopedGradeRequests]);
+useEffect(() => {
+	if (
+		!teacherInfo?.username ||
+		!selectedAcademicYear ||
+		!Array.isArray(scopedGradeRequests)
+	) {
+		return;
+	}
+
+	// Prevent an uninitialized empty store array from wiping out perfectly good cached/fetched data
+	if (scopedGradeRequests.length === 0 && requests.length > 0) {
+		return;
+	}
+
+	setRequests(normalizeBatchRequests(scopedGradeRequests));
+	setError('');
+	setLoading(false);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [teacherInfo?.username, selectedAcademicYear, scopedGradeRequests]);
 
 	useEffect(() => {
 		const handleRequestUpdate = (
@@ -720,7 +727,7 @@ const TeacherGradeChangeRequests = ({
 					</p>
 				</div>
 			) : null}
-			{requests.length === 0 ? (
+			{filteredRequests.length === 0 ? (
 				<div className="text-center text-muted-foreground p-8 bg-card border rounded-lg">
 					<p>You have not submitted any grade change requests.</p>
 				</div>
