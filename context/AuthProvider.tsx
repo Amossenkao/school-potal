@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import Ably from 'ably';
 import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
 import { useNetworkStore } from '@/store/networkStore';
+import { PageLoading } from '@/components/loading';
 import {
 	getAuthorizedRealtimeChannels,
 	resolveTenantSyncKey,
@@ -29,7 +31,12 @@ export default function AuthProvider({
 	const bootstrapAuth = useAuth((state) => state.bootstrapAuth);
 	const checkAuthStatus = useAuth((state) => state.checkAuthStatus);
 	const user = useAuth((state) => state.user);
+	const startupResolved = useAuth((state) => state.startupResolved);
+	const isBootstrapping = useAuth((state) => state.isBootstrapping);
+	const isLoggingOut = useAuth((state) => state.isLoggingOut);
 	const currentSchool = useSchoolStore((state) => state.school);
+	const router = useRouter();
+	const pathname = usePathname();
 
 	const setAblyState = useNetworkStore((state) => state.setAblyState);
 	const setAuthCheckFailed = useNetworkStore(
@@ -45,6 +52,8 @@ export default function AuthProvider({
 	const syncEventDebounceRef = useRef<number | null>(null);
 	const realtimeClientRef = useRef<Ably.Realtime | null>(null);
 	const realtimeSubscriptionsRef = useRef<Array<() => void>>([]);
+	const initialRouteResolvedRef = useRef(false);
+	const [isResolvingInitialRoute, setIsResolvingInitialRoute] = useState(true);
 
 	const ensureSchoolProfile = useCallback(async () => {
 		const currentSchool = useSchoolStore.getState().school;
@@ -121,14 +130,67 @@ export default function AuthProvider({
 	useEffect(() => {
 		const runInitialBootstrap = async () => {
 			try {
-				await bootstrapAuth({ force: true });
 				await ensureSchoolProfile();
+				await bootstrapAuth({ force: true });
 			} catch (error) {
 				console.error('[AuthProvider] Initial auth bootstrap failed:', error);
 			}
 		};
 		void runInitialBootstrap();
 	}, [bootstrapAuth, ensureSchoolProfile]);
+
+	useEffect(() => {
+		if (!startupResolved || isBootstrapping) return;
+		if (initialRouteResolvedRef.current) return;
+
+		const ownsStartupRoute =
+			pathname === '/' ||
+			pathname === '/login' ||
+			pathname === '/login/account-setup' ||
+			pathname.startsWith('/dashboard');
+
+		if (!ownsStartupRoute) {
+			initialRouteResolvedRef.current = true;
+			setIsResolvingInitialRoute(false);
+			return;
+		}
+
+		const destination = user?.isActive
+			? user.role !== 'system_admin' && user.mustChangePassword
+				? '/login/account-setup'
+				: '/dashboard'
+			: '/login';
+
+		if (pathname === destination) {
+			initialRouteResolvedRef.current = true;
+			setIsResolvingInitialRoute(false);
+			return;
+		}
+
+		router.replace(destination);
+	}, [isBootstrapping, pathname, router, startupResolved, user]);
+
+	useEffect(() => {
+		if (!startupResolved || isBootstrapping) return;
+		if (!initialRouteResolvedRef.current) return;
+		if (isLoggingOut) return;
+		if (user?.isActive) return;
+		if (pathname === '/login') return;
+		if (
+			pathname === '/' ||
+			pathname.startsWith('/dashboard') ||
+			pathname.startsWith('/login')
+		) {
+			router.replace('/login');
+		}
+	}, [
+		isBootstrapping,
+		isLoggingOut,
+		pathname,
+		router,
+		startupResolved,
+		user?.isActive,
+	]);
 
 	// Ably Streaming Channel Setup and Connection Listeners
 	useEffect(() => {
@@ -300,6 +362,20 @@ export default function AuthProvider({
 		user?.role,
 		user,
 	]);
+
+	if (!startupResolved || isBootstrapping || isResolvingInitialRoute) {
+		return <PageLoading variant="school" fullScreen={true} message="Loading..." />;
+	}
+
+	if (isLoggingOut) {
+		return (
+			<PageLoading
+				variant="school"
+				fullScreen={true}
+				message="Signing out..."
+			/>
+		);
+	}
 
 	return <>{children}</>;
 }

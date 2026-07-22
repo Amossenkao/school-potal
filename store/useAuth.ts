@@ -65,9 +65,11 @@ interface AuthState {
 let authCheckPromise: Promise<void> | null = null;
 let authBootstrapPromise: Promise<void> | null = null;
 let lastAuthCheckCompletedAt = 0;
+let authFlowEpoch = 0;
 
 const AUTH_REQUEST_TIMEOUT_MS = 15000;
 const AUTH_CHECK_DEDUP_MS = 1200;
+const CLIENT_SESSION_PRESENT_COOKIE = 'session-present';
 const OFFLINE_REQUEST_MESSAGE =
 	'You are offline. Please connect to the internet and try again.';
 const REQUEST_TIMEOUT_MESSAGE = 'The request took too long. Please try again.';
@@ -114,31 +116,34 @@ const isLikelyNetworkError = (error: unknown) => {
 	return false;
 };
 
+const getCookieValue = (name: string) => {
+	if (typeof document === 'undefined') return '';
+	const match = document.cookie.match(
+		new RegExp(
+			`(?:^|; )${name.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}=([^;]*)`,
+		),
+	);
+	return match ? decodeURIComponent(match[1]) : '';
+};
+
+const hasClientSessionCookie = () =>
+	Boolean(getCookieValue(CLIENT_SESSION_PRESENT_COOKIE));
+
+const clearClientSessionCookie = () => {
+	if (typeof document === 'undefined') return;
+	document.cookie = `${CLIENT_SESSION_PRESENT_COOKIE}=; Max-Age=0; path=/; SameSite=Lax`;
+};
+
+const beginAuthMutation = () => {
+	authFlowEpoch += 1;
+	authCheckPromise = null;
+	authBootstrapPromise = null;
+	return authFlowEpoch;
+};
+
 const useAuth = create<AuthState>((set, get) => {
 	const OFFLINE_REQUESTS_KEY = 'school_portal_offline_requests';
 	const LOGOUT_ENDPOINT = '/api/auth/login';
-
-	const enqueueOfflineRequest = (entry: {
-		url: string;
-		method: string;
-		credentials?: RequestCredentials;
-		headers?: Record<string, string>;
-		body?: string;
-	}) => {
-		if (typeof window === 'undefined') return;
-		try {
-			const raw = window.localStorage.getItem(OFFLINE_REQUESTS_KEY);
-			const queue = raw ? JSON.parse(raw) : [];
-			queue.push({
-				...entry,
-				id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-				createdAt: Date.now(),
-			});
-			window.localStorage.setItem(OFFLINE_REQUESTS_KEY, JSON.stringify(queue));
-		} catch (error) {
-			console.warn('Failed to enqueue offline request:', error);
-		}
-	};
 
 	const hasQueuedLogoutRequest = () => {
 		if (typeof window === 'undefined') return false;
@@ -374,6 +379,7 @@ const applyBootstrapPayload = (
 				error: 'Your account has been disabled.',
 			});
 			cacheAuthUser(null);
+			clearClientSessionCookie();
 			clearSessionScopedClientState();
 			void clearSessionSensitiveStorage('logout');
 			return;
@@ -451,6 +457,7 @@ const runDeferredPostLoginBootstrap = (
 		isLoggingOut: false,
 		startupResolved: false,
 		login: async (loginData: LoginData): Promise<User | null> => {
+			beginAuthMutation();
 			set({ isLoading: true, error: null });
 			try {
 				// Capture the previously cached identity BEFORE login overwrites anything.
@@ -528,40 +535,23 @@ const runDeferredPostLoginBootstrap = (
 		},
 
 		logout: async () => {
+			beginAuthMutation();
 			// Mark logout in progress immediately. This is the ONLY signal
 			// ProtectedRoute needs — user/isLoggedIn stay untouched until
 			// everything below has actually finished.
 			set({ isLoading: true, isLoggingOut: true });
 
-			let queuedOfflineLogout = false;
-			const queueOfflineLogout = () => {
-				if (queuedOfflineLogout) return;
-				enqueueOfflineRequest({
-					url: '/api/auth/login',
-					method: 'DELETE',
-					credentials: 'include',
-				});
-				queuedOfflineLogout = true;
-				if (typeof window !== 'undefined') {
-					window.dispatchEvent(
-						new CustomEvent('offline:fetch', {
-							detail: {
-								message:
-									'You are offline. Logout request was queued and will sync when you reconnect.',
-							},
-						}),
-					);
-				}
-			};
-
 			let wasOnline = false;
 
 			try {
-				wasOnline = await useNetworkStore.getState().refreshConnectivity({
-					force: true,
-					timeoutMs: 2500,
-					reason: 'logout',
-				});
+				wasOnline =
+					typeof navigator !== 'undefined' && navigator.onLine
+						? await useNetworkStore.getState().refreshConnectivity({
+								force: true,
+								timeoutMs: 2500,
+								reason: 'logout',
+							})
+						: false;
 				if (wasOnline) {
 					const controller = new AbortController();
 					const timeoutId = window.setTimeout(
@@ -569,21 +559,21 @@ const runDeferredPostLoginBootstrap = (
 						AUTH_REQUEST_TIMEOUT_MS,
 					);
 					try {
-						await fetch('/api/auth/login', {
+						const response = await fetch('/api/auth/login', {
 							method: 'DELETE',
 							credentials: 'include',
 							signal: controller.signal,
 						});
+						if (!response.ok && response.status !== 401) {
+							throw new Error(`Logout failed with status ${response.status}`);
+						}
 					} finally {
 						window.clearTimeout(timeoutId);
 					}
-				} else {
-					queueOfflineLogout();
 				}
 			} catch (error) {
 				if (isLikelyNetworkError(error) || isAbortLikeError(error)) {
 					useNetworkStore.getState().markOffline('logout-request-failed');
-					queueOfflineLogout();
 					wasOnline = false;
 				}
 				if (!isAbortLikeError(error)) {
@@ -606,6 +596,7 @@ const runDeferredPostLoginBootstrap = (
 				isLoggingOut: false,
 				startupResolved: true,
 			});
+			clearClientSessionCookie();
 			try {
 				window.history.replaceState(null, '', '/login');
 			} catch {}
@@ -618,12 +609,7 @@ const runDeferredPostLoginBootstrap = (
 				}
 				useSchoolStore.getState().clearCache();
 				clearSessionScopedClientState();
-				await clearSessionSensitiveStorage(
-					'logout',
-					queuedOfflineLogout
-						? { preserveLocalStorageKeys: [OFFLINE_REQUESTS_KEY] }
-						: {},
-				);
+				await clearSessionSensitiveStorage('logout');
 
 				// Only worth re-priming the SW's cached shell if we're actually online —
 				// offline, /login is already precached, and this fetch would just hang
@@ -643,6 +629,7 @@ const runDeferredPostLoginBootstrap = (
 		applyRealtimeEvent,
 
 		checkAuthStatus: async (options) => {
+			const requestEpoch = authFlowEpoch;
 			const now = Date.now();
 			const skipConnectivityCheck = options?.skipConnectivityCheck ?? true;
 			const force = options?.force === true;
@@ -650,6 +637,15 @@ const runDeferredPostLoginBootstrap = (
 			const requestedAcademicYear = String(options?.academicYear || '').trim();
 
 			if (get().isLoggingOut) return;
+			if (typeof window !== 'undefined' && !hasClientSessionCookie()) {
+				if (get().user || get().isLoggedIn) {
+					set({ user: null, isLoggedIn: false, userVersion: null });
+					cacheAuthUser(null);
+				}
+				useNetworkStore.getState().setAuthCheckFailed(false);
+				lastAuthCheckCompletedAt = Date.now();
+				return;
+			}
 			if (authCheckPromise) {
 				return authCheckPromise;
 			}
@@ -787,7 +783,7 @@ const runDeferredPostLoginBootstrap = (
 
 					// If logout started while the request was in flight, discard
 					// the response — logout must win over every background process.
-					if (get().isLoggingOut) return;
+					if (get().isLoggingOut || requestEpoch !== authFlowEpoch) return;
 
 					useNetworkStore.getState().setAuthCheckFailed(false);
 					applyBootstrapPayload(data, { gradesStrategy: 'merge' });
@@ -825,6 +821,7 @@ const runDeferredPostLoginBootstrap = (
 							} catch (error) {
 								console.warn('Failed to clear auth user cache:', error);
 							}
+							clearClientSessionCookie();
 							clearSessionScopedClientState();
 							await clearSessionSensitiveStorage('logout');
 						}
@@ -858,21 +855,26 @@ const runDeferredPostLoginBootstrap = (
 			}
 
 			authBootstrapPromise = (async () => {
-				// 1. ALWAYS hydrate from cache synchronously. This MUST happen
-				//    before we unblock the UI so that the correct auth state
-				//    is available on the very first render.
-				get().hydrateFromCache();
+				useSchoolStore.getState().hydrateCache();
+				if (!useSchoolStore.getState().school) {
+					await useSchoolStore.getState().fetchSchool();
+				}
 
-				// 2. Unblock the UI. The cached user (or absence thereof) IS
-				//    the definitive initial render. `isVerifying` tracks the
-				//    background server confirmation but no longer gates what's
-				//    on screen.
+				get().hydrateFromCache();
+				const hasCachedUser = Boolean(get().user?.isActive);
+				const hasSessionCookie =
+					typeof window === 'undefined' ? false : hasClientSessionCookie();
+
 				set({
 					isBootstrapping: false,
 					hasBootstrapped: true,
-					isVerifying: true,
+					isVerifying: hasCachedUser && hasSessionCookie,
 					startupResolved: true,
 				});
+
+				if (!hasCachedUser || !hasSessionCookie) {
+					return;
+				}
 
 				if (typeof navigator !== 'undefined' && !navigator.onLine) {
 					useNetworkStore.getState().markOffline('browser-offline');
@@ -921,6 +923,11 @@ const runDeferredPostLoginBootstrap = (
 		hydrateFromCache: () => {
 			try {
 				if (hasQueuedLogoutRequest()) {
+					localStorage.removeItem('auth-user');
+					set({ user: null, isLoggedIn: false, userVersion: null });
+					return;
+				}
+				if (!hasClientSessionCookie()) {
 					localStorage.removeItem('auth-user');
 					set({ user: null, isLoggedIn: false, userVersion: null });
 					return;

@@ -649,9 +649,9 @@ const UserDropdown = memo(function UserDropdown() {
 	const handleLogout = async () => {
 		setIsOpen(false);
 		setIsLoggingOut(true);
-		router.replace('/login');
 		try {
 			await logout();
+			router.replace('/login');
 		} catch (error) {
 			console.error('Logout failed:', error);
 			setIsLoggingOut(false);

@@ -8,6 +8,25 @@ import { syncDebugError, syncDebugLog, syncDebugWarn } from '@/lib/syncDebug';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+const CLIENT_SESSION_PRESENT_COOKIE = 'session-present';
+
+const clearSessionCookies = (response: NextResponse) => {
+	response.cookies.set('sessionId', '', {
+		httpOnly: true,
+		secure: process.env.NODE_ENV === 'production',
+		sameSite: 'lax',
+		expires: new Date(0),
+		path: '/',
+	});
+	response.cookies.set(CLIENT_SESSION_PRESENT_COOKIE, '', {
+		httpOnly: false,
+		secure: process.env.NODE_ENV === 'production',
+		sameSite: 'lax',
+		expires: new Date(0),
+		path: '/',
+	});
+};
+
 const toHash = (value: unknown) => {
 	try {
 		const raw = JSON.stringify(value) || '';
@@ -97,7 +116,7 @@ export async function GET(request: NextRequest) {
 		const sessionCookie = request.cookies.get('sessionId');
 		if (!sessionCookie) {
 			logResponse('No active session cookie.', 401);
-			return NextResponse.json(
+			const response = NextResponse.json(
 				{
 					user: null,
 					school: schoolProfile || null,
@@ -105,12 +124,14 @@ export async function GET(request: NextRequest) {
 				},
 				{ status: 401 },
 			);
+			clearSessionCookies(response);
+			return response;
 		}
 
 		const sessionId = sessionCookie.value;
 		if (!sessionId || sessionId.length < 10) {
 			logResponse('Invalid session id format.', 401);
-			return NextResponse.json(
+			const response = NextResponse.json(
 				{
 					user: null,
 					school: schoolProfile || null,
@@ -118,6 +139,8 @@ export async function GET(request: NextRequest) {
 				},
 				{ status: 401 },
 			);
+			clearSessionCookies(response);
+			return response;
 		}
 
 		const session = await getSession(sessionId);
@@ -131,20 +154,14 @@ export async function GET(request: NextRequest) {
 				},
 				{ status: 401 },
 			);
-			response.cookies.set('sessionId', '', {
-				httpOnly: true,
-				secure: process.env.NODE_ENV === 'production',
-				sameSite: 'lax',
-				expires: new Date(0),
-				path: '/',
-			});
+			clearSessionCookies(response);
 			return response;
 		}
 
 		// ── School active check ──────────────────────────────────────────────
 		if (schoolProfile?.isActive === false) {
 			logResponse('School inactive.', 403);
-			return NextResponse.json(
+			const response = NextResponse.json(
 				{
 					user: null,
 					school: schoolProfile || null,
@@ -152,6 +169,8 @@ export async function GET(request: NextRequest) {
 				},
 				{ status: 403 },
 			);
+			clearSessionCookies(response);
+			return response;
 		}
 
 		// ── User active check ────────────────────────────────────────────────
@@ -169,13 +188,7 @@ export async function GET(request: NextRequest) {
 				},
 				{ status: 403 },
 			);
-			response.cookies.set('sessionId', '', {
-				httpOnly: true,
-				secure: process.env.NODE_ENV === 'production',
-				sameSite: 'lax',
-				expires: new Date(0),
-				path: '/',
-			});
+			clearSessionCookies(response);
 			return response;
 		}
 

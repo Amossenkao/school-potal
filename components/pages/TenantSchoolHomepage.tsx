@@ -5,32 +5,13 @@ import { useSchoolStore } from '@/store/schoolStore';
 import NavBar from '@/components/sections/NavBar';
 import LoginPage from '@/app/login/page';
 import { PageLoading } from '@/components/loading';
-import useAuth from '@/store/useAuth';
-import { useNetworkStore } from '@/store/networkStore';
-import { useRouter } from 'next/navigation';
 
 export default function TenantSchoolHomepage() {
-	const router = useRouter();
 	const school = useSchoolStore((state) => state.school);
 	const fetchSchool = useSchoolStore((state) => state.fetchSchool);
-	const { user, bootstrapAuth, hasBootstrapped, isBootstrapping } = useAuth();
-	const { isOnline } = useNetworkStore();
-	const isOffline = !isOnline;
 	const [hasResolvedSchoolBootstrap, setHasResolvedSchoolBootstrap] = useState(
 		() => Boolean(school),
 	);
-
-	useEffect(() => {
-		void bootstrapAuth();
-	}, [bootstrapAuth]);
-
-	useEffect(() => {
-		if (!isOffline) return;
-		if (!hasBootstrapped || isBootstrapping) return;
-		if (user?.isActive) {
-			router.replace('/dashboard');
-		}
-	}, [hasBootstrapped, isBootstrapping, isOffline, router, user?.isActive]);
 
 	useEffect(() => {
 		if (school) {
@@ -50,16 +31,6 @@ export default function TenantSchoolHomepage() {
 			cancelled = true;
 		};
 	}, [school, fetchSchool]);
-
-	if (isOffline) {
-		if (!hasBootstrapped || isBootstrapping) {
-			return <PageLoading variant="school" message="Loading..." />;
-		}
-		if (user?.isActive) {
-			return <PageLoading variant="school" message="Opening dashboard..." />;
-		}
-		return <LoginPage />;
-	}
 
 	if (!school) {
 		if (!hasResolvedSchoolBootstrap) {

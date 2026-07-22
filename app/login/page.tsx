@@ -830,6 +830,7 @@ useEffect(() => {
 		!isLoading &&
 		user?.isActive &&
 		isLoggedIn &&
+		!isLoggingOut &&
 		!isAwaitingOtp &&
 		!isRedirecting &&
 		!redirectTimedOut
@@ -842,6 +843,7 @@ useEffect(() => {
 	isLoading,
 	user,
 	isLoggedIn,
+	isLoggingOut,
 	isAwaitingOtp,
 	isRedirecting,
 	redirectTimedOut,

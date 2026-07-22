@@ -98,10 +98,10 @@ export default function NavBar({ skipStorageLoad = false }) {
 
 	const handleLogout = async () => {
 		setIsLoggingOut(true);
-		router.replace('/login');
 		try {
 			await logout();
 		} finally {
+			router.replace('/login');
 			setTimeout(() => {
 				setIsLoggingOut(false);
 			}, 300);

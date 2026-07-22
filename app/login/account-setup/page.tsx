@@ -574,7 +574,7 @@ export default function AccountSetupPage() {
 								className="text-muted-foreground hover:text-foreground gap-1.5"
 								onClick={async () => {
 									await logout();
-									router.push('/login');
+									router.replace('/login');
 								}}
 							>
 								<LogOut className="w-3.5 h-3.5" />

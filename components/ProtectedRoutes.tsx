@@ -3,7 +3,6 @@ import { useEffect, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import useAuth from '@/store/useAuth';
 import { PageLoading } from '@/components/loading';
-import LoginPage from '@/app/login/page';
 
 interface ProtectedRouteProps {
 	children: React.ReactNode;
@@ -16,7 +15,7 @@ const ProtectedRoute = ({
 	requiredRole,
 	allowedRoles,
 }: ProtectedRouteProps) => {
-	const { user, startupResolved, isVerifying, isLoggingOut } = useAuth();
+	const { user, startupResolved, isLoggingOut } = useAuth();
 	const router = useRouter();
 	const pathname = usePathname();
 
@@ -39,16 +38,6 @@ const ProtectedRoute = ({
 		}
 		return false;
 	}, [allowedRoles, requiredRole, user]);
-
-	useEffect(() => {
-		if (!startupResolved) return;
-		if (isLoggingOut) return;
-		if (isAuthenticated) return;
-		if (isVerifying) return;
-		if (pathname !== '/login') {
-			router.replace('/login');
-		}
-	}, [startupResolved, isVerifying, isLoggingOut, isAuthenticated, pathname, router]);
 
 	useEffect(() => {
 		if (
@@ -83,9 +72,6 @@ const ProtectedRoute = ({
 	}
 
 	if (!isAuthenticated) {
-		if (pathname === '/login') {
-			return <LoginPage />;
-		}
 		return (
 			<PageLoading
 				variant="school"

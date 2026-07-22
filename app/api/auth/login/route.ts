@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { serialize } from 'cookie';
 import { getUserModel } from '@/models';
 import { createSession, destroySession } from '@/utils/session';
 import { verifyOTP, sendOTP } from '@/utils/otp';
@@ -13,6 +12,8 @@ import {
 import { checkRateLimit, getRequestIp } from '@/utils/rateLimit';
 import { resolveAcademicYearAccessContext } from '@/utils/academicYearAccess';
 import { normalizeHost } from '@/utils/host';
+
+const CLIENT_SESSION_PRESENT_COOKIE = 'session-present';
 
 const toHash = (value: unknown) => {
 	try {
@@ -377,6 +378,13 @@ function setSessionCookie(response: NextResponse, sessionId: string) {
 		sameSite: 'lax',
 		secure: process.env.NODE_ENV === 'production',
 	});
+	response.cookies.set(CLIENT_SESSION_PRESENT_COOKIE, '1', {
+		httpOnly: false,
+		path: '/',
+		maxAge: 60 * 60 * 24,
+		sameSite: 'lax',
+		secure: process.env.NODE_ENV === 'production',
+	});
 }
 
 function buildUserResponse(user: any) {
@@ -458,9 +466,19 @@ export async function DELETE(request: NextRequest) {
 	const sessionId = request.cookies.get('sessionId')?.value;
 	if (sessionId) await destroySession(sessionId);
 	const response = NextResponse.json({ message: 'Logged out successfully' });
-	response.headers.set(
-		'Set-Cookie',
-		serialize('sessionId', '', { httpOnly: true, path: '/', maxAge: 0 }),
-	);
+	response.cookies.set('sessionId', '', {
+		httpOnly: true,
+		path: '/',
+		maxAge: 0,
+		sameSite: 'lax',
+		secure: process.env.NODE_ENV === 'production',
+	});
+	response.cookies.set(CLIENT_SESSION_PRESENT_COOKIE, '', {
+		httpOnly: false,
+		path: '/',
+		maxAge: 0,
+		sameSite: 'lax',
+		secure: process.env.NODE_ENV === 'production',
+	});
 	return response;
 }
