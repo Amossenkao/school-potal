@@ -469,9 +469,12 @@ const TeacherGradeChangeRequests = ({
 	}, [authUser, teacherInfo, selectedAcademicYear]);
 
 	const filteredRequests = useMemo(() => {
+		if (!requests.length) return [];
+
 		if (!yearAssignment?.classes || !Array.isArray(yearAssignment.classes)) {
-			return [];
+			return requests;
 		}
+
 		const allowedMap = new Map<string, Set<string>>();
 		yearAssignment.classes.forEach((c: any) => {
 			if (c?.classId && Array.isArray(c.subjects)) {
@@ -481,6 +484,9 @@ const TeacherGradeChangeRequests = ({
 				);
 			}
 		});
+
+		if (allowedMap.size === 0) return requests;
+
 		return requests.filter((batch) => {
 			const allowedSubjects = allowedMap.get(String(batch.classId || '').trim());
 			return (
@@ -489,6 +495,10 @@ const TeacherGradeChangeRequests = ({
 			);
 		});
 	}, [requests, yearAssignment]);
+
+	useEffect(() => {
+		setCurrentPage(1);
+	}, [filteredRequests.length]);
 
 	// Pagination Logic
 	const paginatedRequests = useMemo(() => {
@@ -703,7 +713,7 @@ const TeacherGradeChangeRequests = ({
 					</p>
 				</div>
 			) : null}
-			{selectedAcademicYear && isSelectedAcademicYearAllowed && requests.length === 0 ? (
+			{requests.length === 0 ? (
 				<div className="text-center text-muted-foreground p-8 bg-card border rounded-lg">
 					<p>You have not submitted any grade change requests.</p>
 				</div>
