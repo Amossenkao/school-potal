@@ -934,7 +934,7 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 			timeStyle: 'short',
 		});
 
-	// --- RENDER: Admin Details Modal ---
+	// --- RENDER: Details Modal (shared by admin and teacher) ---
 	const renderDetailsModal = () => {
 		if (!selectedBulkRequest) return null;
 		const selectableRequests = selectedBulkRequest.requests.filter(
@@ -994,26 +994,28 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 							<table className="min-w-full divide-y divide-border">
 								<thead className="bg-muted/50">
 									<tr>
-										<th className="p-2.5 text-left">
-											<input
-												type="checkbox"
-												onChange={(e) => {
-													if (e.target.checked)
-														setSelectedIndividualRequests(
-															new Set(
-																selectableRequests.map((g) => g.requestId),
-															),
-														);
-													else setSelectedIndividualRequests(new Set());
-												}}
-												checked={
-													selectableRequests.length > 0 &&
-													selectedIndividualRequests.size ===
-														selectableRequests.length
-												}
-												className="rounded border-input"
-											/>
-										</th>
+										{!isTeacher && (
+											<th className="p-2.5 text-left">
+												<input
+													type="checkbox"
+													onChange={(e) => {
+														if (e.target.checked)
+															setSelectedIndividualRequests(
+																new Set(
+																	selectableRequests.map((g) => g.requestId),
+																),
+															);
+														else setSelectedIndividualRequests(new Set());
+													}}
+													checked={
+														selectableRequests.length > 0 &&
+														selectedIndividualRequests.size ===
+															selectableRequests.length
+													}
+													className="rounded border-input"
+												/>
+											</th>
+										)}
 										<th className="px-3 sm:px-4 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase">
 											Student
 										</th>
@@ -1021,11 +1023,16 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 											Grade Change
 										</th>
 										<th className="px-3 sm:px-4 py-2.5 text-left text-xs font-medium text-muted-foreground uppercase">
-											Teacher&apos;s Reason
+											{isTeacher ? 'Reason' : 'Teacher\'s Reason'}
 										</th>
 										<th className="px-3 sm:px-4 py-2.5 text-center text-xs font-medium text-muted-foreground uppercase">
 											Status
 										</th>
+										{isTeacher && (
+											<th className="px-3 sm:px-4 py-2.5 text-right text-xs font-medium text-muted-foreground uppercase">
+												Actions
+											</th>
+										)}
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-border">
@@ -1033,30 +1040,32 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 										<tr
 											key={req.requestId}
 											className={
-												selectedIndividualRequests.has(req.requestId)
+												!isTeacher && selectedIndividualRequests.has(req.requestId)
 													? 'bg-primary/10'
 													: ''
 											}
 										>
-											<td className="p-2.5">
-												<input
-													type="checkbox"
-													disabled={req.status !== 'Pending'}
-													checked={selectedIndividualRequests.has(
-														req.requestId,
-													)}
-													onChange={() => {
-														const newSet = new Set(
-															selectedIndividualRequests,
-														);
-														if (newSet.has(req.requestId))
-															newSet.delete(req.requestId);
-														else newSet.add(req.requestId);
-														setSelectedIndividualRequests(newSet);
-													}}
-													className="rounded border-input disabled:opacity-50"
-												/>
-											</td>
+											{!isTeacher && (
+												<td className="p-2.5">
+													<input
+														type="checkbox"
+														disabled={req.status !== 'Pending'}
+														checked={selectedIndividualRequests.has(
+															req.requestId,
+														)}
+														onChange={() => {
+															const newSet = new Set(
+																selectedIndividualRequests,
+															);
+															if (newSet.has(req.requestId))
+																newSet.delete(req.requestId);
+															else newSet.add(req.requestId);
+															setSelectedIndividualRequests(newSet);
+														}}
+														className="rounded border-input disabled:opacity-50"
+													/>
+												</td>
+											)}
 											<td className="px-3 sm:px-4 py-3 whitespace-nowrap text-sm font-medium">
 												{req.studentName}
 											</td>
@@ -1081,13 +1090,39 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 													{getStatusIcon(req.status)} {req.status}
 												</span>
 											</td>
+											{isTeacher && (
+												<td className="px-3 sm:px-4 py-3 whitespace-nowrap text-right text-sm">
+													{req.status === 'Pending' &&
+														isSelectedAcademicYearAllowed && (
+															<div className="flex items-center justify-end gap-1">
+																<button
+																	onClick={() => {
+																		setShowDetailsModal(false);
+																		handleOpenEditModal(req);
+																	}}
+																	className="text-blue-500 hover:underline flex items-center gap-1 px-2 py-1 rounded-md hover:bg-blue-500/10 transition-colors text-xs"
+																>
+																	<Edit className="h-3 w-3" /> Edit
+																</button>
+																<button
+																	onClick={() => {
+																		handleWithdraw(req.requestId);
+																	}}
+																	className="text-red-500 hover:underline flex items-center gap-1 px-2 py-1 rounded-md hover:bg-red-500/10 transition-colors text-xs"
+																>
+																	<Trash2 className="h-3 w-3" /> Withdraw
+																</button>
+															</div>
+														)}
+												</td>
+											)}
 										</tr>
 									))}
 								</tbody>
 							</table>
 						</div>
 					</div>
-					{['Pending', 'Partially Approved'].includes(
+					{!isTeacher && ['Pending', 'Partially Approved'].includes(
 						selectedBulkRequest.status,
 					) && (
 						<div className="p-4 sm:p-5 border-t bg-muted flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1678,8 +1713,8 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 				</div>
 			</div>
 
-			{/* Admin Modals */}
-			{!isTeacher && showDetailsModal && renderDetailsModal()}
+			{/* Modals */}
+			{showDetailsModal && renderDetailsModal()}
 			{!isTeacher && showRejectModal && renderRejectModal(false)}
 			{!isTeacher && showBulkRejectModal && renderRejectModal(true)}
 		</div>
