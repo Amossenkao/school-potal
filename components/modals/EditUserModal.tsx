@@ -1859,6 +1859,30 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 													</span>
 												</label>
 											</div>
+											<div className="mt-4">
+												<label className="block text-sm font-medium text-foreground mb-2">
+													Student Type
+												</label>
+												<label className="relative inline-flex items-center cursor-pointer w-max">
+													<input
+														type="checkbox"
+														checked={!!formData.isNewStudent}
+														onChange={(e) =>
+															setFormData((prev) => ({
+																...prev,
+																isNewStudent: e.target.checked,
+															}))
+														}
+														className="sr-only peer"
+													/>
+													<div className="w-11 h-6 bg-border peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+													<span className="ml-3 text-sm font-medium text-foreground">
+														{formData.isNewStudent
+															? 'New Student'
+															: 'Existing Student'}
+													</span>
+												</label>
+											</div>
 										</div>
 									</div>
 								</section>

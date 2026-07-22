@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSchoolStore } from '@/store/schoolStore';
 import ConflictModal from '@/components/modals/ConflictModal';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
 	buildSchoolAcademicYearRange,
 	getCurrentAcademicYearLabel,
@@ -634,6 +634,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			classId: '',
 			enrollmentYear: defaultEnrollmentYear,
 			enrollmentSemester: defaultEnrollmentSemester,
+			isNewStudent: true,
 			guardian: {
 				firstName: '',
 				middleName: '',
@@ -946,8 +947,6 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				existingUsers.find((u) => u.email === formData.email)
 			)
 				e.email = 'Email already registered';
-		}
-		if (step === 3) {
 			if (userType === 'student') {
 				if (!formData.student.guardian.firstName.trim())
 					e.guardianFirstName = 'First name required';
@@ -957,6 +956,10 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 					e.guardianPhone = 'Phone required';
 				if (!formData.student.guardian.address.trim())
 					e.guardianAddress = 'Address required';
+			}
+		}
+		if (step === 3) {
+			if (userType === 'student') {
 				if (!formData.student.session) e.session = 'Session is required';
 				else if (!formData.student.classId)
 					e.classId = 'Class selection required';
@@ -984,7 +987,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			await handleSubmit();
 		} else if (await validateStep(currentStep)) {
 			if (currentStep === 1)
-				setActivePanel(userType === 'student' ? 'guardian' : '');
+				setActivePanel(userType === 'student' ? 'class' : '');
 			setCurrentStep((s) => s + 1);
 		} else {
 			setErrorMessage('Please fix the errors before continuing.');
@@ -1065,6 +1068,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				classLevel: selectedClass?.level,
 				enrollmentYear: formData.student.enrollmentYear,
 				enrollmentSemester: formData.student.enrollmentSemester,
+				isNewStudent: formData.student.isNewStudent,
 				guardian: formData.student.guardian,
 			};
 		} else if (userType === 'teacher') {
@@ -1102,6 +1106,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				classId: '',
 				enrollmentYear: defaultEnrollmentYear,
 				enrollmentSemester: defaultEnrollmentSemester,
+				isNewStudent: true,
 				guardian: {
 					firstName: '',
 					middleName: '',
@@ -1135,13 +1140,13 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		{
 			label:
 				userType === 'student'
-					? 'Student'
+					? 'Class'
 					: userType === 'teacher'
 						? 'Teaching'
 						: 'Role',
 			short:
 				userType === 'student'
-					? 'Student'
+					? 'Class'
 					: userType === 'teacher'
 						? 'Teaching'
 						: 'Role',
@@ -1510,6 +1515,163 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 									</Field>
 								</div>
 							</SectionCard>
+
+							{userType === 'student' && (
+								<SectionCard
+									title="Guardian Information"
+									subtitle="The person responsible for this student"
+									icon={Home}
+								>
+									<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+										<Field
+											label="First Name"
+											required
+											error={errors.guardianFirstName}
+											icon={Hash}
+										>
+											<input
+												type="text"
+												value={formData.student.guardian.firstName}
+												onChange={(e) =>
+													setFormData({
+														...formData,
+														student: {
+															...formData.student,
+															guardian: {
+																...formData.student.guardian,
+																firstName: e.target.value,
+															},
+														},
+													})
+												}
+												className={`${inputBase} ${errors.guardianFirstName ? inputError : inputNormal}`}
+												placeholder="First name"
+												autoComplete="off"
+											/>
+										</Field>
+										<Field label="Middle Name" icon={Hash}>
+											<input
+												type="text"
+												value={formData.student.guardian.middleName}
+												onChange={(e) =>
+													setFormData({
+														...formData,
+														student: {
+															...formData.student,
+															guardian: {
+																...formData.student.guardian,
+																middleName: e.target.value,
+															},
+														},
+													})
+												}
+												className={`${inputBase} ${inputNormal}`}
+												placeholder="Optional"
+											/>
+										</Field>
+										<Field
+											label="Last Name"
+											required
+											error={errors.guardianLastName}
+											icon={Hash}
+										>
+											<input
+												type="text"
+												value={formData.student.guardian.lastName}
+												onChange={(e) =>
+													setFormData({
+														...formData,
+														student: {
+															...formData.student,
+															guardian: {
+																...formData.student.guardian,
+																lastName: e.target.value,
+															},
+														},
+													})
+												}
+												className={`${inputBase} ${errors.guardianLastName ? inputError : inputNormal}`}
+												placeholder="Last name"
+												autoComplete="off"
+											/>
+										</Field>
+									</div>
+									<div className="grid grid-cols-2 gap-3 sm:gap-4 mt-3 sm:mt-4">
+										<Field
+											label="Phone"
+											required
+											error={errors.guardianPhone}
+											icon={Phone}
+										>
+											<input
+												type="tel"
+												value={formData.student.guardian.phone}
+												onChange={(e) =>
+													setFormData({
+														...formData,
+														student: {
+															...formData.student,
+															guardian: {
+																...formData.student.guardian,
+																phone: e.target.value,
+															},
+														},
+													})
+												}
+												className={`${inputBase} ${errors.guardianPhone ? inputError : inputNormal}`}
+												placeholder="+231 555 0000"
+											/>
+										</Field>
+										<Field label="Email" icon={Mail}>
+											<input
+												type="email"
+												value={formData.student.guardian.email}
+												onChange={(e) =>
+													setFormData({
+														...formData,
+														student: {
+															...formData.student,
+															guardian: {
+																...formData.student.guardian,
+																email: e.target.value,
+															},
+														},
+													})
+												}
+												className={`${inputBase} ${inputNormal}`}
+												placeholder="Optional"
+											/>
+										</Field>
+									</div>
+									<div className="mt-3 sm:mt-4">
+										<Field
+											label="Address"
+											required
+											error={errors.guardianAddress}
+											icon={MapPin}
+										>
+											<textarea
+												value={formData.student.guardian.address}
+												onChange={(e) =>
+													setFormData({
+														...formData,
+														student: {
+															...formData.student,
+															guardian: {
+																...formData.student.guardian,
+																address: e.target.value,
+															},
+														},
+													})
+												}
+												className={`${inputBase} ${errors.guardianAddress ? inputError : inputNormal} resize-none`}
+												rows={2}
+												placeholder="Street, City, County"
+											/>
+										</Field>
+									</div>
+								</SectionCard>
+							)}
 						</motion.div>
 					)}
 
@@ -1525,45 +1687,6 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 									const sessions = getSessions();
 									const multiSession = sessions.length > 1;
 
-									const sidebarItems = [
-										{
-											id: 'guardian',
-											label: 'Guardian',
-											icon: Home,
-											badge:
-												formData.student.guardian.firstName &&
-												formData.student.guardian.phone ? (
-													<CheckCircle2 className="w-3 h-3 shrink-0 opacity-80" />
-												) : undefined,
-										},
-										...(multiSession
-											? sessions.map((s) => ({
-													id: `session-${s}`,
-													label: s,
-													icon: GraduationCap,
-													badge:
-														formData.student.session === s &&
-														formData.student.classId ? (
-															<CheckCircle2 className="w-3 h-3 shrink-0 opacity-80" />
-														) : undefined,
-												}))
-											: [
-													{
-														id: 'class',
-														label: 'Class',
-														icon: GraduationCap,
-														badge: formData.student.classId ? (
-															<CheckCircle2 className="w-3 h-3 shrink-0 opacity-80" />
-														) : undefined,
-													},
-												]),
-									];
-
-									const guardianComplete = !!(
-										formData.student.guardian.firstName &&
-										formData.student.guardian.lastName &&
-										formData.student.guardian.phone
-									);
 									const assignedClassName = formData.student.classId
 										? getAllClassesForSession(formData.student.session).find(
 												(c: any) => c.classId === formData.student.classId,
@@ -1574,499 +1697,248 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 										<div className="space-y-4">
 											<div>
 												<h2 className="text-base sm:text-lg font-bold text-foreground">
-													Student Details
+													Class Assignment
 												</h2>
 												<p className="text-xs sm:text-sm text-muted-foreground mt-1">
-													Set up the guardian and class placement for this
-													student.
+													Assign this student to a class and enrollment period.
 												</p>
 											</div>
 
-											{/* Mobile tab strip */}
-											<MobileTabStrip
-												items={sidebarItems}
-												activeId={activePanel}
-												onSelect={setActivePanel}
-											/>
-
-											{/* Layout */}
-											<div className="flex gap-4">
-												{/* Desktop sidebar */}
-												<div className="hidden sm:flex flex-col gap-1 w-40 lg:w-44 shrink-0">
-													<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 px-1">
-														Sections
-													</p>
-													{sidebarItems.map((item) => (
-														<SidebarItem
-															key={item.id}
-															label={item.label}
-															isActive={activePanel === item.id}
-															badge={item.badge}
-															icon={item.icon}
-															onClick={() => setActivePanel(item.id)}
-														/>
-													))}
-
-													{/* Desktop summary */}
-													{(guardianComplete || assignedClassName) && (
-														<div className="mt-3 pt-3 border-t border-border space-y-1.5">
-															<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-1">
-																Summary
-															</p>
-															<div className="rounded-lg bg-muted/60 border border-border px-3 py-2.5 space-y-1.5 text-xs">
-																<div className="flex justify-between gap-1">
-																	<span className="text-muted-foreground">
-																		Guardian
-																	</span>
-																	<span className="font-semibold text-foreground">
-																		{guardianComplete ? '✓ Set' : '—'}
-																	</span>
-																</div>
-																{multiSession && (
-																	<div className="flex justify-between gap-1">
-																		<span className="text-muted-foreground">
-																			Session
-																		</span>
-																		<span className="font-semibold text-foreground truncate max-w-[72px] text-right">
-																			{formData.student.session || '—'}
-																		</span>
-																	</div>
-																)}
-																<div className="flex justify-between gap-1">
-																	<span className="text-muted-foreground">
-																		Class
-																	</span>
-																	<span className="font-semibold text-primary truncate max-w-[72px] text-right">
-																		{assignedClassName ?? '—'}
-																	</span>
-																</div>
-															</div>
-														</div>
-													)}
+											<SectionCard
+												title="Enrollment"
+												subtitle="Select the class and enrollment details for this student"
+												icon={GraduationCap}
+											>
+												{/* Enrollment selectors */}
+												<div className="grid grid-cols-2 gap-3 mb-4">
+													<Field
+														label="Enrollment Year"
+														required
+														error={errors.enrollmentYear}
+														icon={Calendar}
+													>
+														<select
+															value={
+																formData.student.enrollmentYear
+															}
+															onChange={(e) =>
+																setFormData({
+																	...formData,
+																	student: {
+																		...formData.student,
+																		enrollmentYear:
+																			e.target.value,
+																	},
+																})
+															}
+															className={`${inputBase} ${errors.enrollmentYear ? inputError : inputNormal}`}
+														>
+															{enrollmentYearOptions.map((yr) => (
+																<option key={yr} value={yr}>
+																	{yr}
+																</option>
+															))}
+														</select>
+													</Field>
+													<Field
+														label="Semester"
+														required
+														error={errors.enrollmentSemester}
+													>
+														<select
+															value={
+																formData.student
+																	.enrollmentSemester
+															}
+															onChange={(e) =>
+																setFormData({
+																	...formData,
+																	student: {
+																		...formData.student,
+																		enrollmentSemester:
+																			e.target.value,
+																	},
+																})
+															}
+															className={`${inputBase} ${errors.enrollmentSemester ? inputError : inputNormal}`}
+														>
+															<option value="">Select</option>
+															<option value="1st Semester">
+																1st Semester
+															</option>
+															<option value="2nd Semester">
+																2nd Semester
+															</option>
+														</select>
+													</Field>
 												</div>
 
-												{/* Content area */}
-												<div className="flex-1 min-w-0">
-													<AnimatePresence mode="wait">
-														{!activePanel ? (
-															<motion.div
-																key="empty"
-																initial={{ opacity: 0 }}
-																animate={{ opacity: 1 }}
-																exit={{ opacity: 0 }}
-																className="min-h-[200px] sm:min-h-[360px] flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border text-center p-6 gap-3"
-															>
-																<GraduationCap className="w-8 h-8 text-muted-foreground/30" />
-																<p className="text-sm font-medium text-muted-foreground">
-																	{/* Mobile: tap above; Desktop: select from left */}
-																	<span className="sm:hidden">
-																		Tap a section above to begin
-																	</span>
-																	<span className="hidden sm:inline">
-																		Select a section to begin
-																	</span>
-																</p>
-															</motion.div>
-														) : activePanel === 'guardian' ? (
-															<motion.div
-																key="guardian"
-																initial={{ opacity: 0, x: 6 }}
-																animate={{ opacity: 1, x: 0 }}
-																exit={{ opacity: 0, x: -6 }}
-																transition={{ duration: 0.16 }}
-															>
-																<SectionCard
-																	title="Guardian Information"
-																	subtitle="The person responsible for this student"
-																	icon={Home}
-																>
-																	<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-																		<Field
-																			label="First Name"
-																			required
-																			error={errors.guardianFirstName}
-																			icon={Hash}
-																		>
-																			<input
-																				type="text"
-																				value={
-																					formData.student.guardian.firstName
-																				}
-																				onChange={(e) =>
-																					setFormData({
-																						...formData,
-																						student: {
-																							...formData.student,
-																							guardian: {
-																								...formData.student.guardian,
-																								firstName: e.target.value,
-																							},
-																						},
-																					})
-																				}
-																				className={`${inputBase} ${errors.guardianFirstName ? inputError : inputNormal}`}
-																				placeholder="First name"
-																				autoComplete="off"
-																			/>
-																		</Field>
-																		<Field label="Middle Name" icon={Hash}>
-																			<input
-																				type="text"
-																				value={
-																					formData.student.guardian.middleName
-																				}
-																				onChange={(e) =>
-																					setFormData({
-																						...formData,
-																						student: {
-																							...formData.student,
-																							guardian: {
-																								...formData.student.guardian,
-																								middleName: e.target.value,
-																							},
-																						},
-																					})
-																				}
-																				className={`${inputBase} ${inputNormal}`}
-																				placeholder="Optional"
-																			/>
-																		</Field>
-																		<Field
-																			label="Last Name"
-																			required
-																			error={errors.guardianLastName}
-																			icon={Hash}
-																		>
-																			<input
-																				type="text"
-																				value={
-																					formData.student.guardian.lastName
-																				}
-																				onChange={(e) =>
-																					setFormData({
-																						...formData,
-																						student: {
-																							...formData.student,
-																							guardian: {
-																								...formData.student.guardian,
-																								lastName: e.target.value,
-																							},
-																						},
-																					})
-																				}
-																				className={`${inputBase} ${errors.guardianLastName ? inputError : inputNormal}`}
-																				placeholder="Last name"
-																				autoComplete="off"
-																			/>
-																		</Field>
-																	</div>
-																	<div className="grid grid-cols-2 gap-3 sm:gap-4 mt-3 sm:mt-4">
-																		<Field
-																			label="Phone"
-																			required
-																			error={errors.guardianPhone}
-																			icon={Phone}
-																		>
-																			<input
-																				type="tel"
-																				value={formData.student.guardian.phone}
-																				onChange={(e) =>
-																					setFormData({
-																						...formData,
-																						student: {
-																							...formData.student,
-																							guardian: {
-																								...formData.student.guardian,
-																								phone: e.target.value,
-																							},
-																						},
-																					})
-																				}
-																				className={`${inputBase} ${errors.guardianPhone ? inputError : inputNormal}`}
-																				placeholder="+231 555 0000"
-																			/>
-																		</Field>
-																		<Field label="Email" icon={Mail}>
-																			<input
-																				type="email"
-																				value={formData.student.guardian.email}
-																				onChange={(e) =>
-																					setFormData({
-																						...formData,
-																						student: {
-																							...formData.student,
-																							guardian: {
-																								...formData.student.guardian,
-																								email: e.target.value,
-																							},
-																						},
-																					})
-																				}
-																				className={`${inputBase} ${inputNormal}`}
-																				placeholder="Optional"
-																			/>
-																		</Field>
-																	</div>
-																	<div className="mt-3 sm:mt-4">
-																		<Field
-																			label="Address"
-																			required
-																			error={errors.guardianAddress}
-																			icon={MapPin}
-																		>
-																			<textarea
-																				value={
-																					formData.student.guardian.address
-																				}
-																				onChange={(e) =>
-																					setFormData({
-																						...formData,
-																						student: {
-																							...formData.student,
-																							guardian: {
-																								...formData.student.guardian,
-																								address: e.target.value,
-																							},
-																						},
-																					})
-																				}
-																				className={`${inputBase} ${errors.guardianAddress ? inputError : inputNormal} resize-none`}
-																				rows={2}
-																				placeholder="Street, City, County"
-																			/>
-																		</Field>
-																	</div>
+												{/* Session & Class */}
+												{multiSession && (
+													<div className="mb-4">
+														<p className="text-[10px] font-semibold text-foreground/70 uppercase tracking-wider mb-2">
+															Session
+														</p>
+														<div className="flex gap-2 flex-wrap">
+															{sessions.map((s) => {
+																const isSel =
+																	formData.student.session === s;
+																return (
 																	<button
+																		key={s}
 																		type="button"
 																		onClick={() =>
-																			setActivePanel(
-																				multiSession
-																					? `session-${sessions[0]}`
-																					: 'class',
-																			)
+																			handleStudentSessionSelection(s)
 																		}
-																		className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline touch-manipulation"
+																		className={`px-3.5 py-2 rounded-lg border text-xs font-semibold transition-all touch-manipulation ${isSel ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/40 text-foreground'}`}
 																	>
-																		Continue to class assignment{' '}
-																		<ChevronRight className="w-3.5 h-3.5" />
+																		{isSel && (
+																			<CheckCircle2 className="inline w-3 h-3 mr-1" />
+																		)}
+																		{s}
 																	</button>
-																</SectionCard>
-															</motion.div>
-														) : (
-															(() => {
-																const panelSession = multiSession
-																	? activePanel.replace('session-', '')
-																	: sessions[0];
-																if (!panelSession) return null;
-																return (
-																	<motion.div
-																		key={activePanel}
-																		initial={{ opacity: 0, x: 6 }}
-																		animate={{ opacity: 1, x: 0 }}
-																		exit={{ opacity: 0, x: -6 }}
-																		transition={{ duration: 0.16 }}
-																	>
-																		<SectionCard
-																			title={
-																				multiSession
-																					? `${panelSession} — Class`
-																					: 'Class Assignment'
-																			}
-																			subtitle="A student can only be enrolled in one class across all sessions"
-																			icon={GraduationCap}
-																		>
-																			{/* Enrollment selectors */}
-																			<div className="grid grid-cols-2 gap-3 mb-4">
-																				<Field
-																					label="Enrollment Year"
-																					required
-																					error={errors.enrollmentYear}
-																					icon={Calendar}
-																				>
-																					<select
-																						value={
-																							formData.student.enrollmentYear
-																						}
-																						onChange={(e) =>
-																							setFormData({
-																								...formData,
-																								student: {
-																									...formData.student,
-																									enrollmentYear:
-																										e.target.value,
-																								},
-																							})
-																						}
-																						className={`${inputBase} ${errors.enrollmentYear ? inputError : inputNormal}`}
-																					>
-																						{enrollmentYearOptions.map((yr) => (
-																							<option key={yr} value={yr}>
-																								{yr}
-																							</option>
-																						))}
-																					</select>
-																				</Field>
-																				<Field
-																					label="Semester"
-																					required
-																					error={errors.enrollmentSemester}
-																				>
-																					<select
-																						value={
-																							formData.student
-																								.enrollmentSemester
-																						}
-																						onChange={(e) =>
-																							setFormData({
-																								...formData,
-																								student: {
-																									...formData.student,
-																									enrollmentSemester:
-																										e.target.value,
-																								},
-																							})
-																						}
-																						className={`${inputBase} ${errors.enrollmentSemester ? inputError : inputNormal}`}
-																					>
-																						<option value="">Select</option>
-																						<option value="1st Semester">
-																							1st Semester
-																						</option>
-																						<option value="2nd Semester">
-																							2nd Semester
-																						</option>
-																					</select>
-																				</Field>
-																			</div>
-
-																			{/* Single-session chooser inline */}
-																			{!multiSession && sessions.length > 0 && (
-																				<div className="mb-4">
-																					<p className="text-[10px] font-semibold text-foreground/70 uppercase tracking-wider mb-2">
-																						Session
-																					</p>
-																					<div className="flex gap-2 flex-wrap">
-																						{sessions.map((s) => {
-																							const isSel =
-																								formData.student.session === s;
-																							return (
-																								<button
-																									key={s}
-																									type="button"
-																									onClick={() =>
-																										handleStudentSessionSelection(
-																											s,
-																										)
-																									}
-																									className={`px-3.5 py-2 rounded-lg border text-xs font-semibold transition-all touch-manipulation ${isSel ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/40 text-foreground'}`}
-																								>
-																									{isSel && (
-																										<CheckCircle2 className="inline w-3 h-3 mr-1" />
-																									)}
-																									{s}
-																								</button>
-																							);
-																						})}
-																					</div>
-																					{errors.session && (
-																						<p className="text-xs text-destructive mt-1">
-																							{errors.session}
-																						</p>
-																					)}
-																				</div>
-																			)}
-
-																			{/* Multi-session info strip */}
-																			{multiSession &&
-																				formData.student.session &&
-																				formData.student.session !==
-																					panelSession && (
-																					<div className="mb-3 px-3 py-2 rounded-lg bg-muted/50 border border-border text-xs text-muted-foreground">
-																						Currently enrolled in{' '}
-																						<span className="font-semibold text-foreground">
-																							{formData.student.session}
-																						</span>
-																						. Selecting here will move the
-																						student.
-																					</div>
-																				)}
-
-																			{/* Class grid */}
-																			<div className="space-y-3 max-h-[45vh] sm:max-h-64 overflow-y-auto pr-0.5">
-																				{getClassLevels(panelSession).map(
-																					(level) => {
-																						const style = getLevelStyle(level);
-																						return (
-																							<div
-																								key={level}
-																								className={`rounded-lg border p-3 ${style.section}`}
-																							>
-																								<div className="mb-2">
-																									<span
-																										className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${style.badge}`}
-																									>
-																										{level}
-																									</span>
-																								</div>
-																								<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-																									{getClassesBySessionAndLevel(
-																										panelSession,
-																										level,
-																									).map((cls: any) => {
-																										const isSelected =
-																											formData.student
-																												.classId ===
-																											cls.classId;
-																										return (
-																											<motion.label
-																												key={cls.classId}
-																												whileTap={{
-																													scale: 0.96,
-																												}}
-																												className={`relative flex items-center gap-2 rounded-lg border p-2.5 cursor-pointer text-sm transition-all touch-manipulation ${isSelected ? 'border-primary bg-primary/10 shadow-sm' : 'border-border bg-background hover:border-primary/40'}`}
-																											>
-																												<input
-																													type="radio"
-																													name="studentClass"
-																													value={cls.classId}
-																													checked={isSelected}
-																													onChange={() =>
-																														handleStudentClassSelection(
-																															cls.classId,
-																															panelSession,
-																														)
-																													}
-																													className="absolute opacity-0 w-0 h-0"
-																												/>
-																												<ThemedRadio
-																													checked={isSelected}
-																												/>
-																												<span className="text-foreground font-medium text-xs sm:text-sm truncate">
-																													{cls.name}
-																												</span>
-																											</motion.label>
-																										);
-																									})}
-																								</div>
-																							</div>
-																						);
-																					},
-																				)}
-																			</div>
-																			{errors.classId && (
-																				<p className="text-xs text-destructive mt-2 flex items-center gap-1">
-																					<XCircle className="w-3 h-3" />{' '}
-																					{errors.classId}
-																				</p>
-																			)}
-																		</SectionCard>
-																	</motion.div>
 																);
-															})()
+															})}
+														</div>
+														{errors.session && (
+															<p className="text-xs text-destructive mt-1">
+																{errors.session}
+															</p>
 														)}
-													</AnimatePresence>
+													</div>
+												)}
+
+												{formData.student.session && (
+													<div className="space-y-3 max-h-[45vh] sm:max-h-64 overflow-y-auto pr-0.5 mb-4">
+														{getClassLevels(formData.student.session).map(
+															(level) => {
+																const style = getLevelStyle(level);
+																return (
+																	<div
+																		key={level}
+																		className={`rounded-lg border p-3 ${style.section}`}
+																	>
+																		<div className="mb-2">
+																			<span
+																				className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${style.badge}`}
+																			>
+																				{level}
+																			</span>
+																		</div>
+																		<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+																			{getClassesBySessionAndLevel(
+																				formData.student.session,
+																				level,
+																			).map((cls: any) => {
+																				const isSelected =
+																					formData.student.classId ===
+																					cls.classId;
+																				return (
+																					<motion.label
+																						key={cls.classId}
+																						whileTap={{ scale: 0.96 }}
+																						className={`relative flex items-center gap-2 rounded-lg border p-2.5 cursor-pointer text-sm transition-all touch-manipulation ${isSelected ? 'border-primary bg-primary/10 shadow-sm' : 'border-border bg-background hover:border-primary/40'}`}
+																					>
+																						<input
+																							type="radio"
+																							name="studentClass"
+																							value={cls.classId}
+																							checked={isSelected}
+																							onChange={() =>
+																								handleStudentClassSelection(
+																									cls.classId,
+																									formData.student.session,
+																								)
+																							}
+																							className="absolute opacity-0 w-0 h-0"
+																						/>
+																						<ThemedRadio
+																							checked={isSelected}
+																						/>
+																						<span className="text-foreground font-medium text-xs sm:text-sm truncate">
+																							{cls.name}
+																						</span>
+																					</motion.label>
+																				);
+																			})}
+																		</div>
+																	</div>
+																);
+															},
+														)}
+													</div>
+												)}
+												{!formData.student.session && !multiSession && sessions.length > 0 && (
+													<div className="mb-4">
+														<p className="text-[10px] font-semibold text-foreground/70 uppercase tracking-wider mb-2">
+															Session
+														</p>
+														<div className="flex gap-2 flex-wrap">
+															{sessions.map((s) => {
+																const isSel =
+																	formData.student.session === s;
+																return (
+																	<button
+																		key={s}
+																		type="button"
+																		onClick={() =>
+																			handleStudentSessionSelection(s)
+																		}
+																		className={`px-3.5 py-2 rounded-lg border text-xs font-semibold transition-all touch-manipulation ${isSel ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/40 text-foreground'}`}
+																	>
+																		{isSel && (
+																			<CheckCircle2 className="inline w-3 h-3 mr-1" />
+																		)}
+																		{s}
+																	</button>
+																);
+															})}
+														</div>
+														{errors.session && (
+															<p className="text-xs text-destructive mt-1">
+																{errors.session}
+															</p>
+														)}
+													</div>
+												)}
+												{errors.classId && (
+													<p className="text-xs text-destructive mt-2 flex items-center gap-1">
+														<XCircle className="w-3 h-3" />{' '}
+														{errors.classId}
+													</p>
+												)}
+											</SectionCard>
+
+											<SectionCard
+												title="New Student"
+												subtitle="Indicate whether this is a new or existing student"
+												icon={GraduationCap}
+											>
+												<div className="flex items-center gap-3">
+													<label className="relative inline-flex items-center cursor-pointer">
+														<input
+															type="checkbox"
+															checked={formData.student.isNewStudent}
+															onChange={(e) =>
+																setFormData({
+																	...formData,
+																	student: {
+																		...formData.student,
+																		isNewStudent: e.target.checked,
+																	},
+																})
+															}
+															className="sr-only peer"
+														/>
+														<div className="w-11 h-6 bg-border peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+													</label>
+													<span className="text-sm font-medium text-foreground">
+														{formData.student.isNewStudent
+															? 'New Student'
+															: 'Existing Student'}
+													</span>
 												</div>
-											</div>
+											</SectionCard>
 										</div>
 									);
 								})()}
@@ -2448,6 +2320,14 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 												<ReviewRow
 													label="Semester"
 													value={formData.student.enrollmentSemester}
+												/>
+												<ReviewRow
+													label="Student Type"
+													value={
+														formData.student.isNewStudent
+															? 'New Student'
+															: 'Existing Student'
+													}
 												/>
 												<div className="pt-3 mt-1">
 													<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">

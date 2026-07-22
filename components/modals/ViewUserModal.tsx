@@ -210,12 +210,20 @@ const ViewUserModal = ({
 															getClassNameFromId(viewingUser.classId)
 														}
 													/>
-													<InfoField
-														label="Years with Institution"
-														value={getYearsSpent(viewingUser)}
-													/>
-												</div>
+												<InfoField
+													label="Years with Institution"
+													value={getYearsSpent(viewingUser)}
+												/>
+												<InfoField
+													label="Student Type"
+													value={
+														viewingUser.isNewStudent
+															? 'New Student'
+															: 'Existing Student'
+													}
+												/>
 											</div>
+										</div>
 											<div>
 												<h5 className="font-semibold mb-3 text-lg border-b pb-2">
 													Academic Year History
