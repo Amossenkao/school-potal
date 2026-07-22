@@ -11,6 +11,7 @@ import {
 	X,
 	ChevronLeft,
 	ChevronRight,
+	RefreshCw,
 } from 'lucide-react';
 import { PageLoading } from '@/components/loading';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
@@ -332,12 +333,6 @@ const TeacherGradeChangeRequests = ({
 				setLoading(false);
 				return;
 			}
-			if (!isSelectedAcademicYearAllowed) {
-				setRequests([]);
-				setError('');
-				setLoading(false);
-				return;
-			}
 			let hasCachedDisplay = false;
 			try {
 				const academicYear = selectedAcademicYear;
@@ -401,15 +396,13 @@ const TeacherGradeChangeRequests = ({
 			teacherInfo?.username,
 			selectedAcademicYear,
 			setGradeRequestsForYear,
-			isSelectedAcademicYearAllowed,
 		]
 	);
 
 	useEffect(() => {
 		if (
 			!teacherInfo?.username ||
-			!selectedAcademicYear ||
-			!isSelectedAcademicYearAllowed
+			!selectedAcademicYear
 		) {
 			setRequests([]);
 			setLoading(false);
@@ -420,7 +413,6 @@ const TeacherGradeChangeRequests = ({
 		teacherInfo?.username,
 		selectedAcademicYear,
 		fetchRequests,
-		isSelectedAcademicYearAllowed,
 	]);
 
 	useEffect(() => {
@@ -689,20 +681,35 @@ const TeacherGradeChangeRequests = ({
 				</div>
 			)}
 			<div className="bg-card border rounded-lg p-4">
-				<label className="block text-sm font-medium text-foreground mb-1">
-					Academic Year
-				</label>
-				<select
-					value={selectedAcademicYear}
-					onChange={(e) => setSelectedAcademicYear(e.target.value)}
-					className="w-full sm:w-auto rounded-md border-input bg-background shadow-sm p-2 text-sm"
-				>
-					{availableAcademicYears.map((year) => (
-						<option key={year} value={year}>
-							{year}
-						</option>
-					))}
-				</select>
+				<div className="flex items-end gap-3">
+					<div className="flex-1">
+						<label className="block text-sm font-medium text-foreground mb-1">
+							Academic Year
+						</label>
+						<select
+							value={selectedAcademicYear}
+							onChange={(e) => setSelectedAcademicYear(e.target.value)}
+							className="w-full sm:w-auto rounded-md border-input bg-background shadow-sm p-2 text-sm"
+						>
+							{availableAcademicYears.map((year) => (
+								<option key={year} value={year}>
+									{year}
+								</option>
+							))}
+						</select>
+					</div>
+					{selectedAcademicYear && isSelectedAcademicYearAllowed && (
+						<button
+							onClick={() => fetchRequests(true)}
+							disabled={loading}
+							className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-md hover:bg-muted disabled:opacity-50 transition-colors"
+							title="Refresh grade requests"
+						>
+							<RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+							Refresh
+						</button>
+					)}
+				</div>
 			</div>
 			{selectedAcademicYear && !isSelectedAcademicYearAllowed ? (
 				<div className="text-center text-amber-700 p-8 bg-amber-50 border border-amber-200 rounded-lg">
@@ -769,7 +776,7 @@ const TeacherGradeChangeRequests = ({
 												<span className="font-medium">{req.status}</span>
 											</div>
 											<div className="flex justify-end items-center gap-2">
-												{req.status === 'Pending' && (
+												{req.status === 'Pending' && isSelectedAcademicYearAllowed && (
 													<>
 														<button
 															onClick={() => handleOpenEditModal(req)}
