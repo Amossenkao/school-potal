@@ -45,7 +45,7 @@ interface GradeChangeRequest {
 	adminRejectionReason?: string;
 }
 interface BatchRequest {
-	batchId: string;
+	submissionId: string;
 	subject: string;
 	classId: string;
 	period: string;
@@ -162,7 +162,7 @@ const normalizeBatchRequests = (input: unknown): BatchRequest[] => {
 	if (!Array.isArray(input)) return [];
 
 	type BatchAccumulator = {
-		batchId: string;
+		submissionId: string;
 		subject: string;
 		classId: string;
 		period: string;
@@ -172,20 +172,20 @@ const normalizeBatchRequests = (input: unknown): BatchRequest[] => {
 		source?: UnknownRecord;
 	};
 
-	const batchesById = new Map<string, BatchAccumulator>();
+	const batchesBySubmissionId = new Map<string, BatchAccumulator>();
 
-	const getAccumulator = (batchId: string): BatchAccumulator => {
-		const existing = batchesById.get(batchId);
+	const getAccumulator = (submissionId: string): BatchAccumulator => {
+		const existing = batchesBySubmissionId.get(submissionId);
 		if (existing) return existing;
 		const created: BatchAccumulator = {
-			batchId,
+			submissionId,
 			subject: '',
 			classId: '',
 			period: '',
 			submittedAt: '',
 			requests: [],
 		};
-		batchesById.set(batchId, created);
+		batchesBySubmissionId.set(submissionId, created);
 		return created;
 	};
 
@@ -194,9 +194,12 @@ const normalizeBatchRequests = (input: unknown): BatchRequest[] => {
 
 	input.forEach((item, itemIndex) => {
 		if (!isObjectRecord(item)) return;
-		const fallbackBatchId = `batch-${itemIndex + 1}`;
-		const batchId = toStringSafe(item.batchId, fallbackBatchId);
-		const accumulator = getAccumulator(batchId);
+		const fallbackSubmissionId = `submission-${itemIndex + 1}`;
+		const submissionId = toStringSafe(
+			item.submissionId ?? item.batchId,
+			fallbackSubmissionId,
+		);
+		const accumulator = getAccumulator(submissionId);
 
 		accumulator.subject = firstNonEmpty(accumulator.subject, item.subject);
 		accumulator.classId = firstNonEmpty(accumulator.classId, item.classId);
@@ -220,19 +223,19 @@ const normalizeBatchRequests = (input: unknown): BatchRequest[] => {
 			accumulator.requests.push(
 				normalizeGradeRequest(
 					request,
-					batchId,
+					submissionId,
 					requestStartIndex + requestIndex + 1,
 				),
 			);
 		});
 	});
 
-	return Array.from(batchesById.values()).map((batch) => {
+	return Array.from(batchesBySubmissionId.values()).map((batch) => {
 		const status = normalizeBatchStatus(batch.status, batch.requests);
 		const resolvedSubmittedAt = batch.submittedAt || new Date().toISOString();
 		return {
 			...(batch.source || {}),
-			batchId: batch.batchId,
+			submissionId: batch.submissionId,
 			subject: batch.subject,
 			classId: batch.classId,
 			period: batch.period,
@@ -454,42 +457,9 @@ const TeacherGradeChangeRequests = ({
 		};
 	}, [teacherInfo?.username, selectedAcademicYear, fetchRequests]);
 
-	const yearAssignment = useMemo(() => {
-		const subjects = authUser?.subjects || teacherInfo?.subjects || [];
-		return (subjects || []).find((entry: any) =>
-			areAcademicYearsEqual(entry?.year, selectedAcademicYear),
-		);
-	}, [authUser, teacherInfo, selectedAcademicYear]);
-
 	const filteredRequests = useMemo(() => {
-		if (!requests.length) return [];
-
-		if (!yearAssignment?.classes || !Array.isArray(yearAssignment.classes)) {
-			return requests;
-		}
-
-		const allowedMap = new Map<string, Set<string>>();
-		yearAssignment.classes.forEach((c: any) => {
-			if (c?.classId && Array.isArray(c.subjects)) {
-				allowedMap.set(
-					String(c.classId).trim(),
-					new Set(c.subjects.map((s: any) => String(s || '').trim())),
-				);
-			}
-		});
-
-		if (allowedMap.size === 0) return requests;
-
-		return requests.filter((batch) => {
-			const allowedSubjects = allowedMap.get(
-				String(batch.classId || '').trim(),
-			);
-			return (
-				allowedSubjects &&
-				allowedSubjects.has(String(batch.subject || '').trim())
-			);
-		});
-	}, [requests, yearAssignment]);
+		return requests;
+	}, [requests]);
 
 	useEffect(() => {
 		setCurrentPage(1);
@@ -715,37 +685,22 @@ const TeacherGradeChangeRequests = ({
 							))}
 						</select>
 					</div>
-					{/* FIX: Refresh button is always shown when a year is selected,
-					    not gated on isSelectedAcademicYearAllowed, so teachers can
-					    always reload their data regardless of school settings state. */}
-					{selectedAcademicYear && (
-						<button
-							onClick={() => fetchRequests(true)}
-							disabled={loading}
-							className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-md hover:bg-muted disabled:opacity-50 transition-colors"
-							title="Refresh grade requests"
-						>
-							<RefreshCw
-								className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-							/>
-							Refresh
-						</button>
-					)}
+				{/* FIX: Refresh button is always shown when a year is selected,
+				    not gated on isSelectedAcademicYearAllowed, so teachers can
+				    always reload their data regardless of school settings state. */}
+					<button
+						onClick={() => fetchRequests(true)}
+						disabled={loading}
+						className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-md hover:bg-muted disabled:opacity-50 transition-colors"
+						title="Refresh grade requests"
+					>
+						<RefreshCw
+							className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+						/>
+						Refresh
+					</button>
 				</div>
 			</div>
-
-			{/* FIX: "Not allowed" is a warning banner only — it no longer hides the
-			    request list. Teachers can still view their historical requests for
-			    years that are no longer open for new submissions. */}
-			{selectedAcademicYear && !isSelectedAcademicYearAllowed && (
-				<div className="text-center text-amber-700 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-					<p>
-						New grade change requests are not allowed for academic year{' '}
-						<strong>{selectedAcademicYear}</strong>. Existing requests are shown
-						below in read-only mode.
-					</p>
-				</div>
-			)}
 
 			{filteredRequests.length === 0 ? (
 				<div className="text-center text-muted-foreground p-8 bg-card border rounded-lg">
@@ -756,7 +711,7 @@ const TeacherGradeChangeRequests = ({
 					<div className="space-y-4">
 						{paginatedRequests.map((batch) => (
 							<div
-								key={batch.batchId}
+								key={batch.submissionId}
 								className="bg-card border rounded-lg shadow-sm"
 							>
 								<div className="p-4 border-b bg-muted/50">
