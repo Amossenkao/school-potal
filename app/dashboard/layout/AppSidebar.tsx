@@ -180,7 +180,7 @@ const NavItemComponent = memo(
 		const submenuStyle = useMemo(
 			() => ({
 				maxHeight: isSubmenuOpen
-					? `${subItems.length * SUBMENU_ITEM_HEIGHT + SUBMENU_PADDING}px`
+					? `${(subItems?.length ?? 0) * SUBMENU_ITEM_HEIGHT + SUBMENU_PADDING}px`
 					: '0px',
 				overflow: 'hidden',
 				opacity: isSubmenuOpen ? 1 : 0,
@@ -188,7 +188,7 @@ const NavItemComponent = memo(
 					? 'max-height 250ms ease-out, opacity 180ms ease-out'
 					: 'max-height 200ms ease-in, opacity 120ms ease-in',
 			}),
-			[isSubmenuOpen, subItems.length],
+			[isSubmenuOpen, subItems?.length],
 		);
 
 		const primaryItemClass = `group relative flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-theme-sm font-medium transition-colors duration-150 ${
