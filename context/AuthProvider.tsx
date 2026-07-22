@@ -167,6 +167,13 @@ export default function AuthProvider({
 			return;
 		}
 
+		if (!user?.isActive) {
+			initialRouteResolvedRef.current = true;
+			setIsResolvingInitialRoute(false);
+			router.replace(destination);
+			return;
+		}
+
 		router.replace(destination);
 	}, [isBootstrapping, pathname, router, startupResolved, user]);
 
