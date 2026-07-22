@@ -389,11 +389,13 @@ const applyBootstrapPayload = (
 			const nextUser =
 				payload.user && typeof payload.user === 'object' ? payload.user : null;
 			if (nextUser) {
-				set((state) => ({
-					user: state.user
+				set((state) => {
+					const updated = state.user
 						? ({ ...state.user, ...nextUser } as User)
-						: state.user,
-				}));
+						: (nextUser as User);
+					useSchoolStore.getState().pruneGradesForUser(updated);
+					return { user: updated };
+				});
 			}
 			if (typeof payload.userVersion === 'string') {
 				set({ userVersion: payload.userVersion });

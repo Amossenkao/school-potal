@@ -461,17 +461,42 @@ const TeacherGradeChangeRequests = ({
 		};
 	}, [teacherInfo?.username, selectedAcademicYear, fetchRequests]);
 
-	useEffect(() => {
-		setCurrentPage(1);
-	}, [selectedAcademicYear]);
+	const yearAssignment = useMemo(() => {
+		const subjects = authUser?.subjects || teacherInfo?.subjects || [];
+		return (subjects || []).find((entry: any) =>
+			areAcademicYearsEqual(entry?.year, selectedAcademicYear),
+		);
+	}, [authUser, teacherInfo, selectedAcademicYear]);
+
+	const filteredRequests = useMemo(() => {
+		if (!yearAssignment?.classes || !Array.isArray(yearAssignment.classes)) {
+			return [];
+		}
+		const allowedMap = new Map<string, Set<string>>();
+		yearAssignment.classes.forEach((c: any) => {
+			if (c?.classId && Array.isArray(c.subjects)) {
+				allowedMap.set(
+					String(c.classId).trim(),
+					new Set(c.subjects.map((s: any) => String(s || '').trim())),
+				);
+			}
+		});
+		return requests.filter((batch) => {
+			const allowedSubjects = allowedMap.get(String(batch.classId || '').trim());
+			return (
+				allowedSubjects &&
+				allowedSubjects.has(String(batch.subject || '').trim())
+			);
+		});
+	}, [requests, yearAssignment]);
 
 	// Pagination Logic
 	const paginatedRequests = useMemo(() => {
 		const startIndex = (currentPage - 1) * itemsPerPage;
-		return requests.slice(startIndex, startIndex + itemsPerPage);
-	}, [requests, currentPage, itemsPerPage]);
+		return filteredRequests.slice(startIndex, startIndex + itemsPerPage);
+	}, [filteredRequests, currentPage, itemsPerPage]);
 
-	const totalPages = Math.ceil(requests.length / itemsPerPage);
+	const totalPages = Math.max(1, Math.ceil(filteredRequests.length / itemsPerPage));
 
 	const handleWithdraw = async (requestId: string) => {
 		if (!confirm('Are you sure you want to withdraw this request?')) return;

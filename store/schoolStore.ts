@@ -8,6 +8,9 @@ import {
 	getAllDomainSnapshots,
 	setDomainSnapshot,
 } from '@/utils/domainSyncCache';
+import {
+	getTeacherClassSubjectPairsForAcademicYear,
+} from '@/utils/academicYearAccess';
 import { useNetworkStore } from './networkStore';
 import type { RealtimeEvent } from '@/lib/realtimeTypes';
 
@@ -80,6 +83,7 @@ type SchoolStore = {
 		},
 	) => void;
 	applyRealtimeEvent: (event: RealtimeEvent) => void;
+	pruneGradesForUser: (user: any) => void;
 	clearCache: () => void;
 	hydrateCache: () => void;
 	runBackgroundGradeSync: (
@@ -1190,6 +1194,94 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		if (academicYear && Array.isArray(payload.attendance)) {
 			get().mergeAttendanceForYear(academicYear, payload.attendance as any[]);
 		}
+	},
+
+	pruneGradesForUser: (user: any) => {
+		if (!user || typeof user !== 'object') return;
+		const role = String(user.role || '').trim();
+		if (role !== 'teacher' && role !== 'student') return;
+
+		set((state) => {
+			let touched = false;
+			const nextGradesByAcademicYear = { ...state.gradesByAcademicYear };
+
+			Object.keys(nextGradesByAcademicYear).forEach((academicYear) => {
+				const currentGrades = nextGradesByAcademicYear[academicYear];
+				if (!Array.isArray(currentGrades) || currentGrades.length === 0) return;
+
+				if (role === 'teacher') {
+					const pairs = getTeacherClassSubjectPairsForAcademicYear(
+						user,
+						academicYear,
+					);
+					if (pairs.length === 0) {
+						nextGradesByAcademicYear[academicYear] = [];
+						persistDomainSnapshot(
+							'grades',
+							getAcademicYearPrimaryKey(academicYear),
+							[],
+						);
+						touched = true;
+						return;
+					}
+
+					const allowedClassMap = new Map<string, Set<string>>();
+					pairs.forEach((p) => {
+						allowedClassMap.set(p.classId, new Set(p.subjects));
+					});
+
+					const filtered = currentGrades.filter((g) => {
+						const classId = String(g?.classId || g?.gradeLevel || '').trim();
+						const subject = String(g?.subject || '').trim();
+						const allowedSubjects = allowedClassMap.get(classId);
+						return allowedSubjects && allowedSubjects.has(subject);
+					});
+
+					if (filtered.length !== currentGrades.length) {
+						nextGradesByAcademicYear[academicYear] = filtered;
+						persistDomainSnapshot(
+							'grades',
+							getAcademicYearPrimaryKey(academicYear),
+							filtered,
+						);
+						touched = true;
+					}
+				} else if (role === 'student') {
+					const studentId = String(
+						user.studentId || user.username || user.id || '',
+					).trim();
+					if (!studentId) return;
+
+					const filtered = currentGrades.filter((g) => {
+						const gStudentId = String(g?.studentId || '').trim();
+						return gStudentId === studentId;
+					});
+
+					if (filtered.length !== currentGrades.length) {
+						nextGradesByAcademicYear[academicYear] = filtered;
+						persistDomainSnapshot(
+							'grades',
+							getAcademicYearPrimaryKey(academicYear),
+							filtered,
+						);
+						touched = true;
+					}
+				}
+			});
+
+			if (!touched) return {};
+
+			const gradesVersionByAcademicYear = {
+				...state.gradesVersionByAcademicYear,
+			};
+			Object.keys(nextGradesByAcademicYear).forEach((year) => {
+				gradesVersionByAcademicYear[year] = String(Date.now());
+			});
+			return {
+				gradesByAcademicYear: nextGradesByAcademicYear,
+				gradesVersionByAcademicYear,
+			};
+		});
 	},
 
 	clearCache: () => {

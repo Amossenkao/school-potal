@@ -282,3 +282,30 @@ export const getTeacherClassAssignmentForAcademicYear = (
 		) || null
 	);
 };
+
+export const getTeacherClassSubjectPairsForAcademicYear = (
+	teacher: AnyUser | null | undefined,
+	academicYear: string,
+	options: {
+		currentAcademicYear?: string | null;
+		schoolProfile?: SchoolProfileLike | null;
+	} = {},
+) => {
+	const assignment = getTeacherYearAssignment(teacher, academicYear, options);
+	if (!assignment?.classes || !Array.isArray(assignment.classes)) return [];
+	const pairs: Array<{ classId: string; subjects: string[] }> = [];
+	for (const entry of assignment.classes) {
+		const classId = String(entry?.classId || '').trim();
+		if (!classId) continue;
+		const subjects = Array.isArray(entry?.subjects)
+			? entry.subjects
+					.map((s) => String(s || '').trim())
+					.filter(Boolean)
+			: [];
+		if (subjects.length > 0) {
+			pairs.push({ classId, subjects });
+		}
+	}
+	return pairs;
+};
+

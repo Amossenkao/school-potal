@@ -267,14 +267,33 @@ const TeacherGradeSubmissions = () => {
 
 	const processSubmittedGrades = useCallback(
 		(grades: any[]) => {
+			const assignedClassMap = new Map<string, Set<string>>();
+			(yearAssignment?.classes || []).forEach((c) => {
+				if (c.classId && Array.isArray(c.subjects)) {
+					assignedClassMap.set(c.classId, new Set(c.subjects));
+				}
+			});
+
+			if (assignedClassMap.size === 0) {
+				setSubmittedGrades([]);
+				return;
+			}
+
 			const submissionsMap = new Map<string, any>();
 			grades.forEach((grade: any) => {
+				const classId = grade.classId || grade.gradeLevel;
+				const subject = grade.subject;
+				const allowedSubjects = assignedClassMap.get(classId);
+				if (!allowedSubjects || !allowedSubjects.has(subject)) {
+					return;
+				}
+
 				if (!submissionsMap.has(grade.submissionId)) {
 					submissionsMap.set(grade.submissionId, {
 						submissionId: grade.submissionId,
 						academicYear: grade.academicYear,
 						period: grade.period,
-						gradeLevel: grade.classId,
+						gradeLevel: classId,
 						subject: grade.subject,
 						teacherUsername: grade.teacherUsername || teacherInfo?.username,
 						lastUpdated: grade.lastUpdated,
@@ -345,7 +364,7 @@ const TeacherGradeSubmissions = () => {
 
 			setSubmittedGrades(processedSubmissions);
 		},
-		[teacherInfo?.username],
+		[teacherInfo?.username, yearAssignment],
 	);
 
 	// Initial load — shows full-table spinner only when there is nothing to
@@ -938,6 +957,13 @@ const TeacherGradeSubmissions = () => {
 
 	const applyFilters = (grades: GradeSubmission[]) =>
 		grades.filter((grade) => {
+			const classAssignment = yearAssignment?.classes?.find(
+				(c) => c.classId === grade.gradeLevel,
+			);
+			if (!classAssignment || !classAssignment.subjects?.includes(grade.subject)) {
+				return false;
+			}
+
 			if (filters.subject && grade.subject !== filters.subject) return false;
 			if (filters.classId && grade.gradeLevel !== filters.classId) return false;
 			if (filters.period && grade.period !== filters.period) return false;

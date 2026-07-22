@@ -6,6 +6,7 @@ import {
 	getCurrentAcademicYearFromSchoolProfile,
 	getStudentClassIdForAcademicYear,
 	getTeacherClassIdsForAcademicYear,
+	getTeacherClassSubjectPairsForAcademicYear,
 	resolveAcademicYearAccessContext,
 } from '@/utils/academicYearAccess';
 import { getUsersVersion as getUsersSyncVersion } from '@/utils/userSync';
@@ -167,12 +168,22 @@ export const getRoleGradesQuery = (currentUser: any, academicYear: string) => {
 	}
 
 	if (currentUser?.role === 'teacher') {
-		const classIds = getTeacherClassIdsForYear(currentUser, academicYear);
-		if (classIds.length === 0 || !currentUser.username) return null;
+		if (!currentUser.username) return null;
+		const pairs = getTeacherClassSubjectPairsForAcademicYear(
+			currentUser,
+			academicYear,
+		);
+		if (pairs.length === 0) return null;
+
+		const classSubjectConditions = pairs.map((p) => ({
+			classId: p.classId,
+			subject: p.subjects.length === 1 ? p.subjects[0] : { $in: p.subjects },
+		}));
+
 		return {
 			academicYear: academicYearMatch,
-			classId: { $in: classIds },
 			teacherUsername: currentUser.username,
+			$or: classSubjectConditions,
 		};
 	}
 
@@ -187,9 +198,21 @@ const getRoleGradeRequestsQuery = (currentUser: any, academicYear: string) => {
 	const academicYearMatch = getAcademicYearMatch(academicYear);
 	if (currentUser?.role === 'teacher') {
 		if (!currentUser.username) return null;
+		const pairs = getTeacherClassSubjectPairsForAcademicYear(
+			currentUser,
+			academicYear,
+		);
+		if (pairs.length === 0) return null;
+
+		const classSubjectConditions = pairs.map((p) => ({
+			classId: p.classId,
+			subject: p.subjects.length === 1 ? p.subjects[0] : { $in: p.subjects },
+		}));
+
 		return {
 			academicYear: academicYearMatch,
 			teacherUsername: currentUser.username,
+			$or: classSubjectConditions,
 		};
 	}
 	if (currentUser?.role === 'system_admin') {
