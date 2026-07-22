@@ -238,10 +238,11 @@ const UserManagementDashboard = () => {
 	const [activeTab, setActiveTab] = useState('all');
 	const [searchTerm, setSearchTerm] = useState('');
 	const [users, setUsers] = useState<any[]>([]);
-	const [loading, setLoading] = useState(true);
+	const [loading, setLoading] = useState(false);
 	const [feedback, setFeedback] = useState({ type: '', message: '' });
 	const totalUsersRef = useRef<number | null>(null);
 	const roleCountsRef = useRef<Record<string, number>>({});
+	const prevYearRef = useRef('');
 
 	// Modal State
 	const [showEditModal, setShowEditModal] = useState(false);
@@ -446,18 +447,22 @@ const UserManagementDashboard = () => {
 	};
 
 	const fetchUsers = useCallback(
-		async (page = 1, replace = false) => {
+		async (page = 1, replace = false, silent = false) => {
 			if (!selectedAcademicYear) {
-				setUsers([]);
-				setLoading(false);
-				setIsFetchingMore(false);
+				if (!silent) {
+					setUsers([]);
+					setLoading(false);
+					setIsFetchingMore(false);
+				}
 				return;
 			}
 			const isInitialLoad = page === 1;
-			if (isInitialLoad) {
-				setLoading(true);
-			} else {
-				setIsFetchingMore(true);
+			if (!silent) {
+				if (isInitialLoad) {
+					setLoading(true);
+				} else {
+					setIsFetchingMore(true);
+				}
 			}
 
 			try {
@@ -531,8 +536,10 @@ const UserManagementDashboard = () => {
 					setUsers([]);
 				}
 			} finally {
-				setLoading(false);
-				setIsFetchingMore(false);
+				if (!silent) {
+					setLoading(false);
+					setIsFetchingMore(false);
+				}
 			}
 		},
 		[
@@ -574,6 +581,11 @@ const UserManagementDashboard = () => {
 
 	useEffect(() => {
 		if (!schoolProfile || !selectedAcademicYear) return;
+		const isYearSwitch =
+			prevYearRef.current !== '' &&
+			prevYearRef.current !== selectedAcademicYear;
+		prevYearRef.current = selectedAcademicYear;
+
 		setCurrentPage(1);
 		setServerPage(1);
 		setTotalUsers(null);
@@ -630,7 +642,7 @@ const UserManagementDashboard = () => {
 				usersVersion,
 			});
 			if (isOnline) {
-				fetchUsers(1, true);
+				fetchUsers(1, true, true);
 			}
 			return;
 		}
@@ -644,11 +656,11 @@ const UserManagementDashboard = () => {
 			setServerPage(cached.serverPage || 1);
 			setLoading(false);
 			if (isOnline) {
-				fetchUsers(1, true);
+				fetchUsers(1, true, true);
 			}
 			return;
 		}
-		fetchUsers(1, true);
+		fetchUsers(1, true, !isYearSwitch);
 	}, [
 		schoolProfile,
 		selectedAcademicYear,
