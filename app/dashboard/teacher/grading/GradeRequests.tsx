@@ -92,14 +92,14 @@ const toNumberSafe = (value: unknown, fallback = 0): number => {
 };
 
 const normalizeRequestStatus = (
-	status: unknown
+	status: unknown,
 ): GradeChangeRequest['status'] => {
 	if (status === 'Approved' || status === 'Rejected') return status;
 	return 'Pending';
 };
 
 const inferBatchStatus = (
-	requests: GradeChangeRequest[]
+	requests: GradeChangeRequest[],
 ): BatchRequest['status'] => {
 	const statuses = new Set(requests.map((request) => request.status));
 	if (statuses.size === 1) {
@@ -118,7 +118,7 @@ const inferBatchStatus = (
 
 const normalizeBatchStatus = (
 	status: unknown,
-	requests: GradeChangeRequest[]
+	requests: GradeChangeRequest[],
 ): BatchRequest['status'] => {
 	if (
 		status === 'Pending' ||
@@ -134,7 +134,7 @@ const normalizeBatchStatus = (
 const normalizeGradeRequest = (
 	request: unknown,
 	defaultBatchId: string,
-	requestIndex: number
+	requestIndex: number,
 ): GradeChangeRequest => {
 	const source = isObjectRecord(request) ? request : {};
 	const fallbackId = `${defaultBatchId}-request-${requestIndex}`;
@@ -203,7 +203,7 @@ const normalizeBatchRequests = (input: unknown): BatchRequest[] => {
 		accumulator.period = firstNonEmpty(accumulator.period, item.period);
 		accumulator.submittedAt = firstNonEmpty(
 			accumulator.submittedAt,
-			item.submittedAt
+			item.submittedAt,
 		);
 
 		if (accumulator.status === undefined && typeof item.status === 'string') {
@@ -221,16 +221,15 @@ const normalizeBatchRequests = (input: unknown): BatchRequest[] => {
 				normalizeGradeRequest(
 					request,
 					batchId,
-					requestStartIndex + requestIndex + 1
-				)
+					requestStartIndex + requestIndex + 1,
+				),
 			);
 		});
 	});
 
 	return Array.from(batchesById.values()).map((batch) => {
 		const status = normalizeBatchStatus(batch.status, batch.requests);
-		const resolvedSubmittedAt =
-			batch.submittedAt || new Date().toISOString();
+		const resolvedSubmittedAt = batch.submittedAt || new Date().toISOString();
 		return {
 			...(batch.source || {}),
 			batchId: batch.batchId,
@@ -268,7 +267,11 @@ const TeacherGradeChangeRequests = ({
 		if (teacherAcademicYears.length > 0) return teacherAcademicYears;
 		if (fallbackAcademicYears.length > 0) return fallbackAcademicYears;
 		return sortAcademicYearsDesc([school?.currentAcademicYear].filter(Boolean));
-	}, [teacherAcademicYears, fallbackAcademicYears, school?.currentAcademicYear]);
+	}, [
+		teacherAcademicYears,
+		fallbackAcademicYears,
+		school?.currentAcademicYear,
+	]);
 	const allowedAcademicYears = useMemo(
 		() =>
 			sortAcademicYearsDesc(
@@ -372,12 +375,14 @@ const TeacherGradeChangeRequests = ({
 				}
 				setError('');
 				const res = await fetch(
-					`/api/grades/requests?academicYear=${academicYear}`
+					`/api/grades/requests?academicYear=${academicYear}`,
 				);
 				if (!res.ok)
 					throw new Error('Failed to fetch your grade change requests.');
 				const data = await res.json();
-				const report = Array.isArray(data?.data?.report) ? data.data.report : [];
+				const report = Array.isArray(data?.data?.report)
+					? data.data.report
+					: [];
 				const normalizedReport = normalizeBatchRequests(report);
 				setRequests(normalizedReport);
 				setGradeRequestsForYear(academicYear, normalizedReport);
@@ -385,59 +390,48 @@ const TeacherGradeChangeRequests = ({
 			} catch (err) {
 				if (!hasCachedDisplay) {
 					setError(
-						'Could not load your grade change requests. Please try again later.'
+						'Could not load your grade change requests. Please try again later.',
 					);
 				}
 			} finally {
 				setLoading(false);
 			}
 		},
-		[
-			teacherInfo?.username,
-			selectedAcademicYear,
-			setGradeRequestsForYear,
-		]
+		[teacherInfo?.username, selectedAcademicYear, setGradeRequestsForYear],
 	);
 
 	useEffect(() => {
-		if (
-			!teacherInfo?.username ||
-			!selectedAcademicYear
-		) {
+		if (!teacherInfo?.username || !selectedAcademicYear) {
 			setRequests([]);
 			setLoading(false);
 			return;
 		}
 		void fetchRequests();
-	}, [
-		teacherInfo?.username,
-		selectedAcademicYear,
-		fetchRequests,
-	]);
+	}, [teacherInfo?.username, selectedAcademicYear, fetchRequests]);
 
-useEffect(() => {
-	if (
-		!teacherInfo?.username ||
-		!selectedAcademicYear ||
-		!Array.isArray(scopedGradeRequests)
-	) {
-		return;
-	}
+	useEffect(() => {
+		if (
+			!teacherInfo?.username ||
+			!selectedAcademicYear ||
+			!Array.isArray(scopedGradeRequests)
+		) {
+			return;
+		}
 
-	// Prevent an uninitialized empty store array from wiping out perfectly good cached/fetched data
-	if (scopedGradeRequests.length === 0 && requests.length > 0) {
-		return;
-	}
+		// Prevent an uninitialized empty store array from wiping out perfectly good cached/fetched data
+		if (scopedGradeRequests.length === 0 && requests.length > 0) {
+			return;
+		}
 
-	setRequests(normalizeBatchRequests(scopedGradeRequests));
-	setError('');
-	setLoading(false);
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-}, [teacherInfo?.username, selectedAcademicYear, scopedGradeRequests]);
+		setRequests(normalizeBatchRequests(scopedGradeRequests));
+		setError('');
+		setLoading(false);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [teacherInfo?.username, selectedAcademicYear, scopedGradeRequests]);
 
 	useEffect(() => {
 		const handleRequestUpdate = (
-			event: CustomEvent<{ academicYear?: string; teacherUsername?: string }>
+			event: CustomEvent<{ academicYear?: string; teacherUsername?: string }>,
 		) => {
 			const eventYear = event.detail?.academicYear;
 			const eventTeacher = event.detail?.teacherUsername;
@@ -450,12 +444,12 @@ useEffect(() => {
 
 		window.addEventListener(
 			'grading:requests:updated',
-			handleRequestUpdate as EventListener
+			handleRequestUpdate as EventListener,
 		);
 		return () => {
 			window.removeEventListener(
 				'grading:requests:updated',
-				handleRequestUpdate as EventListener
+				handleRequestUpdate as EventListener,
 			);
 		};
 	}, [teacherInfo?.username, selectedAcademicYear, fetchRequests]);
@@ -487,7 +481,9 @@ useEffect(() => {
 		if (allowedMap.size === 0) return requests;
 
 		return requests.filter((batch) => {
-			const allowedSubjects = allowedMap.get(String(batch.classId || '').trim());
+			const allowedSubjects = allowedMap.get(
+				String(batch.classId || '').trim(),
+			);
 			return (
 				allowedSubjects &&
 				allowedSubjects.has(String(batch.subject || '').trim())
@@ -505,7 +501,10 @@ useEffect(() => {
 		return filteredRequests.slice(startIndex, startIndex + itemsPerPage);
 	}, [filteredRequests, currentPage, itemsPerPage]);
 
-	const totalPages = Math.max(1, Math.ceil(filteredRequests.length / itemsPerPage));
+	const totalPages = Math.max(
+		1,
+		Math.ceil(filteredRequests.length / itemsPerPage),
+	);
 
 	const handleWithdraw = async (requestId: string) => {
 		if (!confirm('Are you sure you want to withdraw this request?')) return;
@@ -522,17 +521,20 @@ useEffect(() => {
 
 			if (result?.queued) {
 				alert(
-					'You are offline. Request withdrawal was queued and will sync when you reconnect.'
+					'You are offline. Request withdrawal was queued and will sync when you reconnect.',
 				);
 				return;
 			}
 			await fetchRequests(true);
-		// Notify other components that grade requests have been updated
-		window.dispatchEvent(
-			new CustomEvent('grading:requests:updated', {
-				detail: { academicYear: selectedAcademicYear, teacherUsername: teacherInfo?.username },
-			}),
-		);
+			// Notify other components that grade requests have been updated
+			window.dispatchEvent(
+				new CustomEvent('grading:requests:updated', {
+					detail: {
+						academicYear: selectedAcademicYear,
+						teacherUsername: teacherInfo?.username,
+					},
+				}),
+			);
 		} catch (err: any) {
 			alert(`Error: ${err.message}`);
 		}
@@ -570,7 +572,7 @@ useEffect(() => {
 
 			if (result?.queued) {
 				alert(
-					'You are offline. Request update was queued and will sync when you reconnect.'
+					'You are offline. Request update was queued and will sync when you reconnect.',
 				);
 				setEditModal((prev) => ({ ...prev, isOpen: false }));
 				return;
@@ -609,81 +611,89 @@ useEffect(() => {
 	return (
 		<div className="space-y-4">
 			{editModal.isOpen && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setEditModal((p) => ({ ...p, isOpen: false }))}>
-					<div className="bg-card p-4 sm:p-5 rounded-lg shadow-xl w-full max-w-md border" onClick={(e) => e.stopPropagation()}>
-					<div className="flex justify-between items-center mb-3">
-						<h3 className="text-base font-semibold">
-							Edit Grade Change Request
-						</h3>
-						<button
-							onClick={() => setEditModal((p) => ({ ...p, isOpen: false }))}
-							className="text-muted-foreground hover:text-foreground"
-						>
-							<X className="h-5 w-5" />
-						</button>
-					</div>
-					<p className="text-xs text-muted-foreground mb-3">
-						For {editModal.studentName}
-					</p>
-					<div className="space-y-3">
-						<div className="flex items-center gap-3">
-							<label className="w-1/3 text-sm">Original Grade</label>
-							<input
-								type="text"
-								value={editModal.originalGrade}
-								disabled
-								className={`p-1.5 border rounded-md w-2/3 bg-muted text-sm ${getGradeColor(
-									editModal.originalGrade,
-								)}`}
-							/>
+				<div
+					className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+					onClick={() => setEditModal((p) => ({ ...p, isOpen: false }))}
+				>
+					<div
+						className="bg-card p-4 sm:p-5 rounded-lg shadow-xl w-full max-w-md border"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<div className="flex justify-between items-center mb-3">
+							<h3 className="text-base font-semibold">
+								Edit Grade Change Request
+							</h3>
+							<button
+								onClick={() => setEditModal((p) => ({ ...p, isOpen: false }))}
+								className="text-muted-foreground hover:text-foreground"
+							>
+								<X className="h-5 w-5" />
+							</button>
 						</div>
-						<div className="flex items-center gap-3">
-							<label className="w-1/3 text-sm">New Grade</label>
-							<input
-								type="number"
-								value={editModal.requestedGrade}
-								onChange={(e) =>
-									setEditModal((p) => ({
-										...p,
-										requestedGrade: e.target.value,
-									}))
-								}
-								className={`p-1.5 border rounded-md w-2/3 text-sm ${getGradeColor(
-									editModal.requestedGrade === ''
-										? null
-										: Number(editModal.requestedGrade),
-								)}`}
-							/>
+						<p className="text-xs text-muted-foreground mb-3">
+							For {editModal.studentName}
+						</p>
+						<div className="space-y-3">
+							<div className="flex items-center gap-3">
+								<label className="w-1/3 text-sm">Original Grade</label>
+								<input
+									type="text"
+									value={editModal.originalGrade}
+									disabled
+									className={`p-1.5 border rounded-md w-2/3 bg-muted text-sm ${getGradeColor(
+										editModal.originalGrade,
+									)}`}
+								/>
+							</div>
+							<div className="flex items-center gap-3">
+								<label className="w-1/3 text-sm">New Grade</label>
+								<input
+									type="number"
+									value={editModal.requestedGrade}
+									onChange={(e) =>
+										setEditModal((p) => ({
+											...p,
+											requestedGrade: e.target.value,
+										}))
+									}
+									className={`p-1.5 border rounded-md w-2/3 text-sm ${getGradeColor(
+										editModal.requestedGrade === ''
+											? null
+											: Number(editModal.requestedGrade),
+									)}`}
+								/>
+							</div>
+							<div>
+								<label className="block mb-1.5 text-sm">
+									Reason for Change
+								</label>
+								<textarea
+									value={editModal.reasonForChange}
+									onChange={(e) =>
+										setEditModal((p) => ({
+											...p,
+											reasonForChange: e.target.value,
+										}))
+									}
+									className="w-full p-1.5 border rounded-md text-sm"
+									rows={3}
+								/>
+							</div>
 						</div>
-						<div>
-							<label className="block mb-1.5 text-sm">Reason for Change</label>
-							<textarea
-								value={editModal.reasonForChange}
-								onChange={(e) =>
-									setEditModal((p) => ({
-										...p,
-										reasonForChange: e.target.value,
-									}))
-								}
-								className="w-full p-1.5 border rounded-md text-sm"
-								rows={3}
-							/>
+						<div className="mt-4 flex justify-end gap-2">
+							<button
+								onClick={() => setEditModal((p) => ({ ...p, isOpen: false }))}
+								className="px-4 py-1.5 text-sm border rounded-md text-foreground hover:bg-muted"
+							>
+								Cancel
+							</button>
+							<button
+								onClick={handleSaveChanges}
+								className="px-4 py-1.5 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90"
+							>
+								Save Changes
+							</button>
 						</div>
-					</div>
-					<div className="mt-4 flex justify-end gap-2">
-						<button
-							onClick={() => setEditModal((p) => ({ ...p, isOpen: false }))}
-							className="px-4 py-1.5 text-sm border rounded-md text-foreground hover:bg-muted"
-						>
-							Cancel
-						</button>
-						<button
-							onClick={handleSaveChanges}
-							className="px-4 py-1.5 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90"
-						>
-							Save Changes
-						</button>
-					</div>
 					</div>
 				</div>
 			)}
@@ -705,33 +715,43 @@ useEffect(() => {
 							))}
 						</select>
 					</div>
-					{selectedAcademicYear && isSelectedAcademicYearAllowed && (
+					{/* FIX: Refresh button is always shown when a year is selected,
+					    not gated on isSelectedAcademicYearAllowed, so teachers can
+					    always reload their data regardless of school settings state. */}
+					{selectedAcademicYear && (
 						<button
 							onClick={() => fetchRequests(true)}
 							disabled={loading}
 							className="flex items-center gap-1.5 px-3 py-2 text-sm border rounded-md hover:bg-muted disabled:opacity-50 transition-colors"
 							title="Refresh grade requests"
 						>
-							<RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+							<RefreshCw
+								className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+							/>
 							Refresh
 						</button>
 					)}
 				</div>
 			</div>
-			{selectedAcademicYear && !isSelectedAcademicYearAllowed ? (
-				<div className="text-center text-amber-700 p-8 bg-amber-50 border border-amber-200 rounded-lg">
+
+			{/* FIX: "Not allowed" is a warning banner only — it no longer hides the
+			    request list. Teachers can still view their historical requests for
+			    years that are no longer open for new submissions. */}
+			{selectedAcademicYear && !isSelectedAcademicYearAllowed && (
+				<div className="text-center text-amber-700 p-4 bg-amber-50 border border-amber-200 rounded-lg">
 					<p>
-						Grade requests are not allowed for academic year{' '}
-						<strong>{selectedAcademicYear}</strong>. Please select an allowed
-						academic year.
+						New grade change requests are not allowed for academic year{' '}
+						<strong>{selectedAcademicYear}</strong>. Existing requests are shown
+						below in read-only mode.
 					</p>
 				</div>
-			) : null}
+			)}
+
 			{filteredRequests.length === 0 ? (
 				<div className="text-center text-muted-foreground p-8 bg-card border rounded-lg">
 					<p>You have not submitted any grade change requests.</p>
 				</div>
-			) : selectedAcademicYear && isSelectedAcademicYearAllowed ? (
+			) : (
 				<>
 					<div className="space-y-4">
 						{paginatedRequests.map((batch) => (
@@ -783,22 +803,26 @@ useEffect(() => {
 												<span className="font-medium">{req.status}</span>
 											</div>
 											<div className="flex justify-end items-center gap-2">
-												{req.status === 'Pending' && isSelectedAcademicYearAllowed && (
-													<>
-														<button
-															onClick={() => handleOpenEditModal(req)}
-															className="text-sm text-blue-500 hover:underline flex items-center gap-1 px-3 py-1 rounded-md hover:bg-blue-500/10 transition-colors"
-														>
-															<Edit className="h-4 w-4" /> Edit
-														</button>
-														<button
-															onClick={() => handleWithdraw(req._id)}
-															className="text-sm text-red-500 hover:underline flex items-center gap-1 px-3 py-1 rounded-md hover:bg-red-500/10 transition-colors"
-														>
-															<Trash2 className="h-4 w-4" /> Withdraw
-														</button>
-													</>
-												)}
+												{/* FIX: Edit/Withdraw actions remain gated on
+												    isSelectedAcademicYearAllowed AND Pending status —
+												    read-only view for closed years is intentional. */}
+												{req.status === 'Pending' &&
+													isSelectedAcademicYearAllowed && (
+														<>
+															<button
+																onClick={() => handleOpenEditModal(req)}
+																className="text-sm text-blue-500 hover:underline flex items-center gap-1 px-3 py-1 rounded-md hover:bg-blue-500/10 transition-colors"
+															>
+																<Edit className="h-4 w-4" /> Edit
+															</button>
+															<button
+																onClick={() => handleWithdraw(req._id)}
+																className="text-sm text-red-500 hover:underline flex items-center gap-1 px-3 py-1 rounded-md hover:bg-red-500/10 transition-colors"
+															>
+																<Trash2 className="h-4 w-4" /> Withdraw
+															</button>
+														</>
+													)}
 											</div>
 										</div>
 									))}
@@ -832,7 +856,7 @@ useEffect(() => {
 						</div>
 					</div>
 				</>
-			) : null}
+			)}
 		</div>
 	);
 };
