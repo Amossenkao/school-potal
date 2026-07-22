@@ -3926,23 +3926,52 @@ export async function PUT(request: NextRequest) {
 				},
 			);
 
-			await models.Grade.updateMany(
-				{
-					studentId: targetUser.studentId,
-					academicYear: currentAcademicYear,
-				},
-				{
-					$set: {
-						classId: filteredUserData.classId,
-						updatedAt: new Date(),
+			// Update classId AND recompute submissionId for each grade individually
+			// (submissionId encodes the classId, so it must change when the class changes)
+			const affectedGrades = await models.Grade.find({
+				studentId: targetUser.studentId,
+				academicYear: currentAcademicYear,
+			}).lean();
+
+			if (affectedGrades.length > 0) {
+				const newClassId = String(filteredUserData.classId).trim();
+				const buildSubmissionId = (
+					yr: string,
+					clsId: string,
+					period: string,
+					subject: string,
+				) =>
+					`${yr}-${clsId}-${period}-${subject}`
+						.replaceAll(/[\/\s+]/gi, '')
+						.toLowerCase();
+
+				const gradeBulkOps = affectedGrades.map((g: any) => ({
+					updateOne: {
+						filter: { _id: g._id },
+						update: {
+							$set: {
+								classId: newClassId,
+								submissionId: buildSubmissionId(
+									String(g.academicYear || ''),
+									newClassId,
+									String(g.period || ''),
+									String(g.subject || ''),
+								),
+								updatedAt: new Date(),
+							},
+						},
 					},
-				},
-			);
+				}));
+				if (gradeBulkOps.length > 0) {
+					await models.Grade.bulkWrite(gradeBulkOps, { ordered: false });
+				}
+			}
 		}
 
 		// Track teacher class assignment changes for real-time access updates
 		let teacherClassChangeRemovedClassIds: string[] = [];
 		let teacherClassChangeAddedClassIds: string[] = [];
+		const teacherGradeBackfillPromises: Promise<any>[] = [];
 		if (
 			targetUser.role === 'teacher' &&
 			filteredUserData.hasOwnProperty('subjects')
@@ -3971,6 +4000,62 @@ export async function PUT(request: NextRequest) {
 			teacherClassChangeAddedClassIds = newClassIds.filter(
 				(id) => !oldClassIds.includes(id),
 			);
+
+			// Backfill teacherUsername on existing grades for newly assigned
+			// class/subject pairs. Compare old vs new subjects per academic year.
+			type YearClassSubjectMap = Map<string, Map<string, Set<string>>>;
+			const buildYearClassSubjectMap = (subjects: any[]): YearClassSubjectMap => {
+				const map: YearClassSubjectMap = new Map();
+				if (!Array.isArray(subjects)) return map;
+				for (const yearEntry of subjects) {
+					const year = String(yearEntry?.year || '').trim();
+					if (!year) continue;
+					if (!map.has(year)) map.set(year, new Map());
+					const classMap = map.get(year)!;
+					for (const cls of yearEntry?.classes || []) {
+						const classId = String(cls?.classId || '').trim();
+						if (!classId) continue;
+						if (!classMap.has(classId)) classMap.set(classId, new Set());
+						const subSet = classMap.get(classId)!;
+						for (const subj of cls?.subjects || []) {
+							const s = String(subj || '').trim();
+							if (s) subSet.add(s);
+						}
+					}
+				}
+				return map;
+			};
+
+			const oldMap = buildYearClassSubjectMap(targetUser.subjects || []);
+			const newMap = buildYearClassSubjectMap(filteredUserData.subjects || []);
+
+			for (const [year, newClassMap] of newMap.entries()) {
+				const oldClassMap = oldMap.get(year);
+				for (const [classId, newSubjects] of newClassMap.entries()) {
+					const oldSubjects = oldClassMap?.get(classId) ?? new Set<string>();
+					// Find subjects that are newly assigned (not in old set)
+					const addedSubjects = Array.from(newSubjects).filter(
+						(s) => !oldSubjects.has(s),
+					);
+					if (addedSubjects.length === 0) continue;
+					// Update teacherUsername on existing grades for this class/subject/year
+					teacherGradeBackfillPromises.push(
+						models.Grade.updateMany(
+							{
+								academicYear: year,
+								classId,
+								subject: { $in: addedSubjects },
+							},
+							{
+								$set: {
+									teacherUsername: targetUser.username,
+									updatedAt: new Date(),
+								},
+							},
+						),
+					);
+				}
+			}
 		}
 
 		// Handle password change for self-update
@@ -4054,6 +4139,12 @@ export async function PUT(request: NextRequest) {
 
 		const wasActive = targetUser.isActive !== false;
 		const deactivatedNow = wasActive && filteredUserData.isActive === false;
+
+		// Await teacher grade backfill (teacherUsername on newly assigned class/subject pairs)
+		if (teacherGradeBackfillPromises.length > 0) {
+			await Promise.allSettled(teacherGradeBackfillPromises);
+		}
+
 		if (deactivatedNow) {
 			await destroyAllUserSessions(actualTargetUserId);
 			await publishSyncEventSafe({

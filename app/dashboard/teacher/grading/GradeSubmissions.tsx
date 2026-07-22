@@ -246,6 +246,12 @@ const TeacherGradeSubmissions = () => {
 		[teacherInfo],
 	);
 
+	const yearAssignment = useMemo(() => {
+		return (teacherInfo?.subjects || []).find((entry) =>
+			areAcademicYearsEqual(entry.year, academicYear),
+		);
+	}, [teacherInfo, academicYear]);
+
 	const availableAcademicYears = useMemo(() => {
 		return teacherYears;
 	}, [teacherYears]);
@@ -569,11 +575,7 @@ const TeacherGradeSubmissions = () => {
 		[school],
 	);
 
-	const yearAssignment = useMemo(() => {
-		return (teacherInfo?.subjects || []).find((entry) =>
-			areAcademicYearsEqual(entry.year, academicYear),
-		);
-	}, [teacherInfo, academicYear]);
+
 
 	const assignedClasses = useMemo(() => {
 		const classes = yearAssignment?.classes || [];

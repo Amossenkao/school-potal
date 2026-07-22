@@ -508,16 +508,16 @@ export default function TeacherPerformanceInsights({
 									value: `${passRate}%`,
 									helper: `${passCount}/${totalRecords} passing`,
 								},
-								{
-									label: 'Top Class',
-									value: topClassLabel,
-									helper: 'Best performing class',
-								},
-								{
-									label: 'Top Class',
-									value: classAverages[0]?.label || 'N/A',
-									helper: 'Best performing class',
-								},
+							{
+								label: 'Top Class',
+								value: topClassLabel,
+								helper: 'Best performing class',
+							},
+							{
+								label: 'Top Class Average',
+								value: classAverages[0]?.label || 'N/A',
+								helper: 'Best performing class',
+							},
 							].map((stat, index) => (
 								<motion.div
 									key={stat.label}
