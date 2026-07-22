@@ -798,6 +798,124 @@ export async function PUT(request: NextRequest) {
 
 		const { GradeChangeRequest } = await getTenantModels();
 		const body = await request.json();
+
+		// --- Batch mode: { updates: [{ requestId, requestedGrade, reasonForChange }, ...] } ---
+		if (Array.isArray(body.updates)) {
+			const updates = body.updates as {
+				requestId: string;
+				requestedGrade: number;
+				reasonForChange: string;
+			}[];
+
+			if (updates.length === 0) {
+				return NextResponse.json(
+					{ message: 'No updates provided' },
+					{ status: 400 },
+				);
+			}
+
+			const results: { requestId: string; success: boolean; message: string }[] =
+				[];
+			const classIds = new Set<string>();
+			let academicYear = '';
+
+			for (const update of updates) {
+				const { requestId, requestedGrade, reasonForChange } = update;
+				if (!requestId || requestedGrade === undefined || !reasonForChange) {
+					results.push({
+						requestId,
+						success: false,
+						message: 'Invalid payload for this item',
+					});
+					continue;
+				}
+
+				const requestToUpdate = await GradeChangeRequest.findById(requestId);
+				if (!requestToUpdate) {
+					results.push({
+						requestId,
+						success: false,
+						message: 'Request not found',
+					});
+					continue;
+				}
+				if (requestToUpdate.teacherUsername !== teacher.username) {
+					results.push({
+						requestId,
+						success: false,
+						message: 'Forbidden',
+					});
+					continue;
+				}
+				if (requestToUpdate.status !== 'Pending') {
+					results.push({
+						requestId,
+						success: false,
+						message: 'Cannot edit a request that is not pending',
+					});
+					continue;
+				}
+				if (
+					!isGradeChangeWindowOpen(
+						schoolProfile,
+						String(
+							requestToUpdate.academicYear ||
+								getCurrentAcademicYearFromSchoolProfile(schoolProfile),
+						),
+						String(requestToUpdate.period || ''),
+					)
+				) {
+					results.push({
+						requestId,
+						success: false,
+						message: 'Grade change requests are currently closed',
+					});
+					continue;
+				}
+
+				await GradeChangeRequest.findByIdAndUpdate(
+					requestId,
+					{
+						$set: {
+							requestedGrade,
+							reasonForChange,
+							lastUpdated: new Date(),
+						},
+					},
+					{ runValidators: false },
+				);
+
+				if (requestToUpdate.classId) {
+					classIds.add(String(requestToUpdate.classId));
+				}
+				if (!academicYear && requestToUpdate.academicYear) {
+					academicYear = String(requestToUpdate.academicYear);
+				}
+				results.push({ requestId, success: true, message: 'Updated' });
+			}
+
+			if (classIds.size > 0) {
+				await publishSyncEventSafe({
+					tenantId,
+					domain: 'gradeRequests',
+					academicYear: academicYear || getCurrentAcademicYearFromSchoolProfile(schoolProfile),
+					actorId: teacher.id,
+					reason: 'grade-request-updated',
+					scope: { classIds: Array.from(classIds) },
+				});
+			}
+
+			const allSuccess = results.every((r) => r.success);
+			return NextResponse.json({
+				success: allSuccess,
+				message: allSuccess
+					? 'All requests updated successfully.'
+					: 'Some requests could not be updated.',
+				data: results,
+			});
+		}
+
+		// --- Single mode: { requestId, requestedGrade, reasonForChange } ---
 		const { requestId, requestedGrade, reasonForChange } = body;
 
 		if (!requestId || requestedGrade === undefined || !reasonForChange) {
@@ -907,6 +1025,102 @@ export async function DELETE(request: NextRequest) {
 
 		const { GradeChangeRequest } = await getTenantModels();
 		const { searchParams } = new URL(request.url);
+
+		// --- Batch mode: ?requestIds=id1,id2,id3 ---
+		const requestIdsParam = searchParams.get('requestIds');
+		if (requestIdsParam) {
+			const requestIds = requestIdsParam
+				.split(',')
+				.map((id) => id.trim())
+				.filter(Boolean);
+
+			if (requestIds.length === 0) {
+				return NextResponse.json(
+					{ message: 'No request IDs provided' },
+					{ status: 400 },
+				);
+			}
+
+			const results: { requestId: string; success: boolean; message: string }[] =
+				[];
+			const classIds = new Set<string>();
+			let academicYear = '';
+
+			for (const requestId of requestIds) {
+				const requestToDelete = await GradeChangeRequest.findById(requestId);
+				if (!requestToDelete) {
+					results.push({
+						requestId,
+						success: false,
+						message: 'Request not found',
+					});
+					continue;
+				}
+				if (requestToDelete.teacherUsername !== teacher.username) {
+					results.push({ requestId, success: false, message: 'Forbidden' });
+					continue;
+				}
+				if (requestToDelete.status !== 'Pending') {
+					results.push({
+						requestId,
+						success: false,
+						message: 'Cannot withdraw a request that is not pending',
+					});
+					continue;
+				}
+				if (
+					!isGradeChangeWindowOpen(
+						schoolProfile,
+						String(
+							requestToDelete.academicYear ||
+								getCurrentAcademicYearFromSchoolProfile(schoolProfile),
+						),
+						String(requestToDelete.period || ''),
+					)
+				) {
+					results.push({
+						requestId,
+						success: false,
+						message: 'Grade change requests are currently closed',
+					});
+					continue;
+				}
+
+				await GradeChangeRequest.findByIdAndDelete(requestId);
+
+				if (requestToDelete.classId) {
+					classIds.add(String(requestToDelete.classId));
+				}
+				if (!academicYear && requestToDelete.academicYear) {
+					academicYear = String(requestToDelete.academicYear);
+				}
+				results.push({ requestId, success: true, message: 'Withdrawn' });
+			}
+
+			if (classIds.size > 0) {
+				await publishSyncEventSafe({
+					tenantId,
+					domain: 'gradeRequests',
+					academicYear:
+						academicYear ||
+						getCurrentAcademicYearFromSchoolProfile(schoolProfile),
+					actorId: teacher.id,
+					reason: 'grade-request-withdrawn',
+					scope: { classIds: Array.from(classIds) },
+				});
+			}
+
+			const allSuccess = results.every((r) => r.success);
+			return NextResponse.json({
+				success: allSuccess,
+				message: allSuccess
+					? 'All requests withdrawn successfully.'
+					: 'Some requests could not be withdrawn.',
+				data: results,
+			});
+		}
+
+		// --- Single mode: ?requestId=xxx ---
 		const requestId = searchParams.get('requestId');
 
 		if (!requestId) {

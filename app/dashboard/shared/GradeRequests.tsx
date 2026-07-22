@@ -308,6 +308,11 @@ const periods = [
 	{ id: 'second', label: 'Second Period', value: 'secondPeriod' },
 ];
 
+const formatPeriod = (period: string): string => {
+	const found = periods.find((p) => p.value === period || p.id === period);
+	return found ? found.label : period || 'N/A';
+};
+
 // --- SHARED COMPONENT ---
 interface GradeRequestsProps {
 	teacherInfo?: UserInfo | null;
@@ -429,7 +434,7 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 
 	// --- Withdraw Confirmation Modal ---
 	const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-	const [withdrawRequestId, setWithdrawRequestId] = useState<string | null>(null);
+	const [withdrawRequestIds, setWithdrawRequestIds] = useState<string[]>([]);
 
 	// --- Batch Edit Modal ---
 	const [batchEditModal, setBatchEditModal] = useState<{
@@ -507,7 +512,7 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 
 	// --- DATA FETCHING ---
 	const fetchRequests = useCallback(
-		async (forceRefresh = false) => {
+		async (forceRefresh = false, silent = false) => {
 			if (!selectedAcademicYear) {
 				setBulkRequests([]);
 				setLoading(false);
@@ -532,7 +537,9 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 					return;
 				}
 
-				if (!forceRefresh && bulkRequests.length > 0) {
+				if (silent) {
+					setError('');
+				} else if (!forceRefresh && bulkRequests.length > 0) {
 					setError('');
 				} else {
 					setLoading(true);
@@ -646,7 +653,7 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 			}
 			applyRequestStatusLocally(payload);
 			window.dispatchEvent(new CustomEvent('grading:counts:refresh'));
-			void fetchRequests(true);
+			void fetchRequests(true, true);
 		} catch (error) {
 			console.error('Error updating grade status:', error);
 			setActionNotice({
@@ -659,24 +666,25 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 	};
 
 	// --- API: Teacher Withdraw ---
-	const handleWithdraw = (requestId: string) => {
-		setWithdrawRequestId(requestId);
+	const handleWithdraw = (requestIds: string[]) => {
+		setWithdrawRequestIds(requestIds);
 		setShowWithdrawModal(true);
 	};
 
 	const handleConfirmWithdraw = async () => {
-		if (!withdrawRequestId) return;
+		if (withdrawRequestIds.length === 0) return;
 		setIsWithdrawing(true);
 		try {
 			setActionNotice(null);
+			const idsParam = withdrawRequestIds.join(',');
 			const res = await fetch(
-				`/api/grades/requests?requestId=${withdrawRequestId}`,
+				`/api/grades/requests?requestIds=${encodeURIComponent(idsParam)}`,
 				{ method: 'DELETE' },
 			);
 			const result = await res.json().catch(() => ({}));
 
 			if (!res.ok) {
-				throw new Error(result.message || 'Failed to withdraw request.');
+				throw new Error(result.message || 'Failed to withdraw request(s).');
 			}
 
 			if (result?.queued) {
@@ -687,7 +695,7 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 				});
 				return;
 			}
-			await fetchRequests(true);
+			void fetchRequests(true, true);
 			window.dispatchEvent(
 				new CustomEvent('grading:requests:updated', {
 					detail: {
@@ -701,7 +709,7 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 		} finally {
 			setIsWithdrawing(false);
 			setShowWithdrawModal(false);
-			setWithdrawRequestId(null);
+			setWithdrawRequestIds([]);
 		}
 	};
 
@@ -747,7 +755,7 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 				return;
 			}
 
-			await fetchRequests(true);
+			void fetchRequests(true, true);
 			setEditModal({
 				isOpen: false,
 				requestId: '',
@@ -810,9 +818,13 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					requestId,
-					requestedGrade: Number(edit.requestedGrade),
-					reasonForChange: edit.reasonForChange,
+					updates: [
+						{
+							requestId,
+							requestedGrade: Number(edit.requestedGrade),
+							reasonForChange: edit.reasonForChange,
+						},
+					],
 				}),
 			});
 			const result = await res.json().catch(() => ({}));
@@ -826,7 +838,7 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 						'You are offline. Request update was queued and will sync when you reconnect.',
 				});
 			} else {
-				await fetchRequests(true);
+				void fetchRequests(true, true);
 				window.dispatchEvent(
 					new CustomEvent('grading:requests:updated', {
 						detail: {
@@ -853,22 +865,23 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 		setIsEditing(true);
 		try {
 			setActionNotice(null);
-			for (const [requestId, edit] of pendingEdits) {
-				const res = await fetch('/api/grades/requests', {
-					method: 'PUT',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						requestId,
-						requestedGrade: Number(edit.requestedGrade),
-						reasonForChange: edit.reasonForChange,
-					}),
-				});
-				const result = await res.json().catch(() => ({}));
-				if (!res.ok) {
-					throw new Error(result.message || 'Failed to update request.');
-				}
+			const updates = pendingEdits.map(([requestId, edit]) => ({
+				requestId,
+				requestedGrade: Number(edit.requestedGrade),
+				reasonForChange: edit.reasonForChange,
+			}));
+			const res = await fetch('/api/grades/requests', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ updates }),
+			});
+			const result = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				throw new Error(result.message || 'Failed to update requests.');
 			}
-			await fetchRequests(true);
+			setBatchEditModal({ isOpen: false, batchId: '' });
+			setBatchEdits({});
+			void fetchRequests(true, true);
 			window.dispatchEvent(
 				new CustomEvent('grading:requests:updated', {
 					detail: {
@@ -1022,7 +1035,7 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 		setSelectedBatchId(null);
 		setCurrentPage(1);
 		setShowWithdrawModal(false);
-		setWithdrawRequestId(null);
+		setWithdrawRequestIds([]);
 		setBatchEditModal({ isOpen: false, batchId: '' });
 		setBatchEdits({});
 	}, [selectedAcademicYear]);
@@ -1131,6 +1144,10 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 									<span className="flex items-center gap-1">
 										<GraduationCap className="h-3 w-3" />
 										{classMap.get(selectedBulkRequest.classId)}
+									</span>
+									<span className="flex items-center gap-1">
+										<Clock className="h-3 w-3" />
+										{formatPeriod(selectedBulkRequest.period)}
 									</span>
 									<span className="flex items-center gap-1">
 										<Calendar className="h-3 w-3" />
@@ -1270,7 +1287,7 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 																</button>
 																<button
 																	onClick={() => {
-																		handleWithdraw(req.requestId);
+																		handleWithdraw([req.requestId]);
 																	}}
 																	disabled={isWithdrawing}
 																	className="text-red-500 hover:underline flex items-center gap-1 px-2 py-1 rounded-md hover:bg-red-500/10 transition-colors text-xs disabled:opacity-50"
@@ -1403,17 +1420,23 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 
 	// --- RENDER: Withdraw Confirmation Modal ---
 	const renderWithdrawModal = () => {
-		if (!withdrawRequestId) return null;
-		let studentName = '';
-		let batchInfo: BulkGradeRequest | null = null;
+		if (withdrawRequestIds.length === 0) return null;
+
+		const withdrawSet = new Set(withdrawRequestIds);
+		const matchingRequests: { req: GradeChangeRequest; batch: BulkGradeRequest }[] = [];
 		for (const batch of bulkRequests) {
-			const req = batch.requests.find((r) => r.requestId === withdrawRequestId);
-			if (req) {
-				studentName = req.studentName;
-				batchInfo = batch;
-				break;
+			for (const req of batch.requests) {
+				if (withdrawSet.has(req.requestId)) {
+					matchingRequests.push({ req, batch });
+				}
 			}
 		}
+
+		if (matchingRequests.length === 0) return null;
+
+		const isBatch = matchingRequests.length > 1;
+		const firstBatch = matchingRequests[0].batch;
+		const count = matchingRequests.length;
 
 		return (
 			<div
@@ -1421,7 +1444,7 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 				onClick={() => {
 					if (!isWithdrawing) {
 						setShowWithdrawModal(false);
-						setWithdrawRequestId(null);
+						setWithdrawRequestIds([]);
 					}
 				}}
 			>
@@ -1431,13 +1454,13 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 				>
 					<div className="p-4 sm:p-5 border-b flex justify-between items-center">
 						<h3 className="text-lg font-semibold text-destructive">
-							Withdraw Request
+							{isBatch ? `Withdraw ${count} Requests` : 'Withdraw Request'}
 						</h3>
 						<button
 							onClick={() => {
 								if (!isWithdrawing) {
 									setShowWithdrawModal(false);
-									setWithdrawRequestId(null);
+									setWithdrawRequestIds([]);
 								}
 							}}
 							className="text-muted-foreground hover:text-foreground"
@@ -1447,38 +1470,46 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 					</div>
 					<div className="p-4 sm:p-5 space-y-3">
 						<p className="text-sm text-foreground">
-							Are you sure you want to withdraw this grade change request?
+							{isBatch
+								? `Are you sure you want to withdraw all ${count} pending grade change requests in this batch?`
+								: 'Are you sure you want to withdraw this grade change request?'}
 						</p>
 						<div className="rounded-md bg-muted p-3 text-sm space-y-1">
-							{studentName && (
+							{!isBatch && (
 								<p>
 									<span className="text-muted-foreground">Student:</span>{' '}
-									<strong>{studentName}</strong>
+									<strong>{matchingRequests[0].req.studentName}</strong>
 								</p>
 							)}
-							{batchInfo && (
-								<>
-									<p>
-										<span className="text-muted-foreground">Subject:</span>{' '}
-										{batchInfo.subject}
-									</p>
-									<p>
-										<span className="text-muted-foreground">Class:</span>{' '}
-										{classMap.get(batchInfo.classId) || batchInfo.classId}
-									</p>
-								</>
+							{isBatch && (
+								<p>
+									<span className="text-muted-foreground">Requests:</span>{' '}
+									<strong>{count} pending</strong>
+								</p>
 							)}
+							<p>
+								<span className="text-muted-foreground">Subject:</span>{' '}
+								{firstBatch.subject}
+							</p>
+							<p>
+								<span className="text-muted-foreground">Class:</span>{' '}
+								{classMap.get(firstBatch.classId) || firstBatch.classId}
+							</p>
+							<p>
+								<span className="text-muted-foreground">Period:</span>{' '}
+								{formatPeriod(firstBatch.period)}
+							</p>
 						</div>
 						<p className="text-xs text-muted-foreground">
-							This action cannot be undone. You will need to submit a new request
-							if you want to change this grade later.
+							This action cannot be undone. You will need to submit new requests
+							later if needed.
 						</p>
 					</div>
 					<div className="p-4 sm:p-5 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
 						<button
 							onClick={() => {
 								setShowWithdrawModal(false);
-								setWithdrawRequestId(null);
+								setWithdrawRequestIds([]);
 							}}
 							disabled={isWithdrawing}
 							className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto text-sm"
@@ -1493,7 +1524,8 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 							{isWithdrawing && (
 								<Loader2 className="h-4 w-4 animate-spin" />
 							)}
-							<Trash2 className="h-4 w-4" /> Withdraw Request
+							<Trash2 className="h-4 w-4" />{' '}
+							{isBatch ? `Withdraw ${count} Requests` : 'Withdraw Request'}
 						</button>
 					</div>
 				</div>
@@ -1543,6 +1575,10 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 									<span className="flex items-center gap-1">
 										<GraduationCap className="h-3 w-3" />
 										{classMap.get(batchEditRequest.classId)}
+									</span>
+									<span className="flex items-center gap-1">
+										<Clock className="h-3 w-3" />
+										{formatPeriod(batchEditRequest.period)}
 									</span>
 								</div>
 							</div>
@@ -2005,6 +2041,9 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 												Status
 											</th>
 											<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+												Period
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
 												Submitted At
 											</th>
 											<th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
@@ -2073,6 +2112,9 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 													</span>
 												</td>
 												<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+													{formatPeriod(batch.period)}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
 													{formatDate(batch.submittedAt)}
 												</td>
 												<td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -2104,11 +2146,11 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 																	</button>
 																	<button
 																		onClick={() => {
-																			const pendingReq = batch.requests.find(
-																				(r) => r.status === 'Pending',
-																			);
-																			if (pendingReq)
-																				handleWithdraw(pendingReq.requestId);
+																			const pendingIds = batch.requests
+																				.filter((r) => r.status === 'Pending')
+																				.map((r) => r.requestId);
+																			if (pendingIds.length > 0)
+																				handleWithdraw(pendingIds);
 																		}}
 																		disabled={isWithdrawing}
 																		className="text-sm text-red-500 hover:underline flex items-center gap-1 px-2 py-1 rounded-md hover:bg-red-500/10 transition-colors disabled:opacity-50"
