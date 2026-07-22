@@ -412,12 +412,9 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 		requestedGrade: '',
 		reasonForChange: '',
 	});
-	const isAnyModalOpen =
-		showDetailsModal || showRejectModal || showBulkRejectModal || editModal.isOpen;
 
 	// --- Selection and Action States ---
-	const [selectedBulkRequest, setSelectedBulkRequest] =
-		useState<BulkGradeRequest | null>(null);
+	const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
 	const [selectedBulkRequests, setSelectedBulkRequests] = useState<Set<string>>(
 		new Set(),
 	);
@@ -427,6 +424,46 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 	const [rejectionReason, setRejectionReason] = useState('');
 	const [bulkRejectionReason, setBulkRejectionReason] = useState('');
 	const [isProcessing, setIsProcessing] = useState(false);
+	const [isWithdrawing, setIsWithdrawing] = useState(false);
+	const [isEditing, setIsEditing] = useState(false);
+
+	// --- Withdraw Confirmation Modal ---
+	const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+	const [withdrawRequestId, setWithdrawRequestId] = useState<string | null>(null);
+
+	// --- Batch Edit Modal ---
+	const [batchEditModal, setBatchEditModal] = useState<{
+		isOpen: boolean;
+		batchId: string;
+	}>({ isOpen: false, batchId: '' });
+	const [batchEdits, setBatchEdits] = useState<
+		Record<string, { requestedGrade: string; reasonForChange: string }>
+	>({});
+
+	const isAnyModalOpen =
+		showDetailsModal ||
+		showRejectModal ||
+		showBulkRejectModal ||
+		editModal.isOpen ||
+		showWithdrawModal ||
+		batchEditModal.isOpen;
+
+	// --- Derived: reactive to store ---
+	const selectedBulkRequest = useMemo(
+		() =>
+			selectedBatchId
+				? bulkRequests.find((b) => b.batchId === selectedBatchId) ?? null
+				: null,
+		[bulkRequests, selectedBatchId],
+	);
+
+	const batchEditRequest = useMemo(
+		() =>
+			batchEditModal.isOpen
+				? bulkRequests.find((b) => b.batchId === batchEditModal.batchId) ?? null
+				: null,
+		[bulkRequests, batchEditModal],
+	);
 
 	// --- Filter and Pagination States ---
 	const [searchQuery, setSearchQuery] = useState('');
@@ -578,14 +615,6 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 		if (selectedAcademicYear) {
 			setGradeRequestsForYear(selectedAcademicYear, nextRequests);
 		}
-		if (selectedBulkRequest) {
-			const refreshedSelected = nextRequests.find(
-				(batch) => batch.batchId === selectedBulkRequest.batchId,
-			);
-			if (refreshedSelected) {
-				setSelectedBulkRequest(refreshedSelected);
-			}
-		}
 	};
 
 	// --- API: Admin Approve/Reject ---
@@ -630,13 +659,20 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 	};
 
 	// --- API: Teacher Withdraw ---
-	const handleWithdraw = async (requestId: string) => {
-		if (!confirm('Are you sure you want to withdraw this request?')) return;
+	const handleWithdraw = (requestId: string) => {
+		setWithdrawRequestId(requestId);
+		setShowWithdrawModal(true);
+	};
 
+	const handleConfirmWithdraw = async () => {
+		if (!withdrawRequestId) return;
+		setIsWithdrawing(true);
 		try {
-			const res = await fetch(`/api/grades/requests?requestId=${requestId}`, {
-				method: 'DELETE',
-			});
+			setActionNotice(null);
+			const res = await fetch(
+				`/api/grades/requests?requestId=${withdrawRequestId}`,
+				{ method: 'DELETE' },
+			);
 			const result = await res.json().catch(() => ({}));
 
 			if (!res.ok) {
@@ -662,6 +698,10 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 			);
 		} catch (err: any) {
 			setActionNotice({ type: 'error', message: err.message });
+		} finally {
+			setIsWithdrawing(false);
+			setShowWithdrawModal(false);
+			setWithdrawRequestId(null);
 		}
 	};
 
@@ -679,8 +719,9 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 
 	const handleSaveChanges = async () => {
 		const { requestId, requestedGrade, reasonForChange } = editModal;
-
+		setIsEditing(true);
 		try {
+			setActionNotice(null);
 			const res = await fetch('/api/grades/requests', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
@@ -725,6 +766,121 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 			);
 		} catch (err: any) {
 			setActionNotice({ type: 'error', message: err.message });
+		} finally {
+			setIsEditing(false);
+		}
+	};
+
+	// --- Batch Edit Handlers ---
+	const handleOpenBatchEditModal = (batch: BulkGradeRequest) => {
+		const initialEdits: Record<
+			string,
+			{ requestedGrade: string; reasonForChange: string }
+		> = {};
+		batch.requests.forEach((req) => {
+			if (req.status === 'Pending') {
+				initialEdits[req.requestId] = {
+					requestedGrade: String(req.requestedGrade),
+					reasonForChange: req.reasonForChange,
+				};
+			}
+		});
+		setBatchEdits(initialEdits);
+		setBatchEditModal({ isOpen: true, batchId: batch.batchId });
+	};
+
+	const handleBatchEditChange = (
+		requestId: string,
+		field: 'requestedGrade' | 'reasonForChange',
+		value: string,
+	) => {
+		setBatchEdits((prev) => ({
+			...prev,
+			[requestId]: { ...prev[requestId], [field]: value },
+		}));
+	};
+
+	const handleBatchSaveSingle = async (requestId: string) => {
+		const edit = batchEdits[requestId];
+		if (!edit) return;
+		setIsEditing(true);
+		try {
+			setActionNotice(null);
+			const res = await fetch('/api/grades/requests', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					requestId,
+					requestedGrade: Number(edit.requestedGrade),
+					reasonForChange: edit.reasonForChange,
+				}),
+			});
+			const result = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				throw new Error(result.message || 'Failed to update request.');
+			}
+			if (result?.queued) {
+				setActionNotice({
+					type: 'info',
+					message:
+						'You are offline. Request update was queued and will sync when you reconnect.',
+				});
+			} else {
+				await fetchRequests(true);
+				window.dispatchEvent(
+					new CustomEvent('grading:requests:updated', {
+						detail: {
+							academicYear: selectedAcademicYear,
+							teacherUsername: effectiveUser?.username,
+						},
+					}),
+				);
+			}
+		} catch (err: any) {
+			setActionNotice({ type: 'error', message: err.message });
+		} finally {
+			setIsEditing(false);
+		}
+	};
+
+	const handleBatchSaveAll = async () => {
+		const pendingEdits = Object.entries(batchEdits).filter(([requestId]) => {
+			const batch = bulkRequests.find((b) => b.batchId === batchEditModal.batchId);
+			const req = batch?.requests.find((r) => r.requestId === requestId);
+			return req?.status === 'Pending';
+		});
+		if (pendingEdits.length === 0) return;
+		setIsEditing(true);
+		try {
+			setActionNotice(null);
+			for (const [requestId, edit] of pendingEdits) {
+				const res = await fetch('/api/grades/requests', {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						requestId,
+						requestedGrade: Number(edit.requestedGrade),
+						reasonForChange: edit.reasonForChange,
+					}),
+				});
+				const result = await res.json().catch(() => ({}));
+				if (!res.ok) {
+					throw new Error(result.message || 'Failed to update request.');
+				}
+			}
+			await fetchRequests(true);
+			window.dispatchEvent(
+				new CustomEvent('grading:requests:updated', {
+					detail: {
+						academicYear: selectedAcademicYear,
+						teacherUsername: effectiveUser?.username,
+					},
+				}),
+			);
+		} catch (err: any) {
+			setActionNotice({ type: 'error', message: err.message });
+		} finally {
+			setIsEditing(false);
 		}
 	};
 
@@ -863,8 +1019,12 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 	useEffect(() => {
 		setSelectedBulkRequests(new Set());
 		setSelectedIndividualRequests(new Set());
-		setSelectedBulkRequest(null);
+		setSelectedBatchId(null);
 		setCurrentPage(1);
+		setShowWithdrawModal(false);
+		setWithdrawRequestId(null);
+		setBatchEditModal({ isOpen: false, batchId: '' });
+		setBatchEdits({});
 	}, [selectedAcademicYear]);
 
 	// --- Selection Toggles ---
@@ -1090,7 +1250,7 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 													{getStatusIcon(req.status)} {req.status}
 												</span>
 											</td>
-											{isTeacher && (
+																{isTeacher && (
 												<td className="px-3 sm:px-4 py-3 whitespace-nowrap text-right text-sm">
 													{req.status === 'Pending' &&
 														isSelectedAcademicYearAllowed && (
@@ -1100,16 +1260,24 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 																		setShowDetailsModal(false);
 																		handleOpenEditModal(req);
 																	}}
-																	className="text-blue-500 hover:underline flex items-center gap-1 px-2 py-1 rounded-md hover:bg-blue-500/10 transition-colors text-xs"
+																	disabled={isEditing}
+																	className="text-blue-500 hover:underline flex items-center gap-1 px-2 py-1 rounded-md hover:bg-blue-500/10 transition-colors text-xs disabled:opacity-50"
 																>
+																	{isEditing && (
+																		<Loader2 className="h-3 w-3 animate-spin" />
+																	)}
 																	<Edit className="h-3 w-3" /> Edit
 																</button>
 																<button
 																	onClick={() => {
 																		handleWithdraw(req.requestId);
 																	}}
-																	className="text-red-500 hover:underline flex items-center gap-1 px-2 py-1 rounded-md hover:bg-red-500/10 transition-colors text-xs"
+																	disabled={isWithdrawing}
+																	className="text-red-500 hover:underline flex items-center gap-1 px-2 py-1 rounded-md hover:bg-red-500/10 transition-colors text-xs disabled:opacity-50"
 																>
+																	{isWithdrawing && (
+																		<Loader2 className="h-3 w-3 animate-spin" />
+																	)}
 																	<Trash2 className="h-3 w-3" /> Withdraw
 																</button>
 															</div>
@@ -1233,14 +1401,304 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 		</div>
 	);
 
+	// --- RENDER: Withdraw Confirmation Modal ---
+	const renderWithdrawModal = () => {
+		if (!withdrawRequestId) return null;
+		let studentName = '';
+		let batchInfo: BulkGradeRequest | null = null;
+		for (const batch of bulkRequests) {
+			const req = batch.requests.find((r) => r.requestId === withdrawRequestId);
+			if (req) {
+				studentName = req.studentName;
+				batchInfo = batch;
+				break;
+			}
+		}
+
+		return (
+			<div
+				className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+				onClick={() => {
+					if (!isWithdrawing) {
+						setShowWithdrawModal(false);
+						setWithdrawRequestId(null);
+					}
+				}}
+			>
+				<div
+					className="bg-card rounded-lg shadow-xl w-full max-w-md border m-4"
+					onClick={(e) => e.stopPropagation()}
+				>
+					<div className="p-4 sm:p-5 border-b flex justify-between items-center">
+						<h3 className="text-lg font-semibold text-destructive">
+							Withdraw Request
+						</h3>
+						<button
+							onClick={() => {
+								if (!isWithdrawing) {
+									setShowWithdrawModal(false);
+									setWithdrawRequestId(null);
+								}
+							}}
+							className="text-muted-foreground hover:text-foreground"
+						>
+							<X className="h-5 w-5" />
+						</button>
+					</div>
+					<div className="p-4 sm:p-5 space-y-3">
+						<p className="text-sm text-foreground">
+							Are you sure you want to withdraw this grade change request?
+						</p>
+						<div className="rounded-md bg-muted p-3 text-sm space-y-1">
+							{studentName && (
+								<p>
+									<span className="text-muted-foreground">Student:</span>{' '}
+									<strong>{studentName}</strong>
+								</p>
+							)}
+							{batchInfo && (
+								<>
+									<p>
+										<span className="text-muted-foreground">Subject:</span>{' '}
+										{batchInfo.subject}
+									</p>
+									<p>
+										<span className="text-muted-foreground">Class:</span>{' '}
+										{classMap.get(batchInfo.classId) || batchInfo.classId}
+									</p>
+								</>
+							)}
+						</div>
+						<p className="text-xs text-muted-foreground">
+							This action cannot be undone. You will need to submit a new request
+							if you want to change this grade later.
+						</p>
+					</div>
+					<div className="p-4 sm:p-5 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+						<button
+							onClick={() => {
+								setShowWithdrawModal(false);
+								setWithdrawRequestId(null);
+							}}
+							disabled={isWithdrawing}
+							className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto text-sm"
+						>
+							Cancel
+						</button>
+						<button
+							onClick={handleConfirmWithdraw}
+							disabled={isWithdrawing}
+							className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto text-sm"
+						>
+							{isWithdrawing && (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							)}
+							<Trash2 className="h-4 w-4" /> Withdraw Request
+						</button>
+					</div>
+				</div>
+			</div>
+		);
+	};
+
+	// --- RENDER: Batch Edit Modal ---
+	const renderBatchEditModal = () => {
+		if (!batchEditRequest) return null;
+		const pendingRequests = batchEditRequest.requests.filter(
+			(r) => r.status === 'Pending',
+	 );
+		const hasChanges = pendingRequests.some((req) => {
+			const edit = batchEdits[req.requestId];
+			if (!edit) return false;
+			return (
+				edit.requestedGrade !== String(req.requestedGrade) ||
+				edit.reasonForChange !== req.reasonForChange
+			);
+		});
+
+		return (
+			<div
+				className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+				onClick={() => setBatchEditModal({ isOpen: false, batchId: '' })}
+			>
+				<div
+					className="bg-card rounded-lg shadow-xl w-full max-w-5xl max-h-[calc(100dvh-3rem)] flex flex-col border m-4"
+					onClick={(e) => e.stopPropagation()}
+				>
+					<div className="p-4 sm:p-5 border-b">
+						<div className="flex justify-between items-start">
+							<div>
+								<h3 className="text-lg font-semibold">
+									Edit Grade Change Requests
+								</h3>
+								<div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+									<span className="flex items-center gap-1">
+										<User className="h-3 w-3" />
+										{batchEditRequest.teacherName}
+									</span>
+									<span className="flex items-center gap-1">
+										<BookOpen className="h-3 w-3" />
+										{batchEditRequest.subject}
+									</span>
+									<span className="flex items-center gap-1">
+										<GraduationCap className="h-3 w-3" />
+										{classMap.get(batchEditRequest.classId)}
+									</span>
+								</div>
+							</div>
+							<button
+								onClick={() => setBatchEditModal({ isOpen: false, batchId: '' })}
+								className="text-muted-foreground hover:text-foreground"
+							>
+								<X className="h-5 w-5" />
+							</button>
+						</div>
+					</div>
+					<div className="p-4 sm:p-5 overflow-y-auto overscroll-contain flex-grow">
+						{pendingRequests.length === 0 ? (
+							<p className="text-center text-muted-foreground py-8 text-sm">
+								No pending requests in this batch to edit.
+							</p>
+						) : (
+							<div className="space-y-4">
+								{pendingRequests.map((req) => {
+									const edit = batchEdits[req.requestId];
+									if (!edit) return null;
+									const isChanged =
+										edit.requestedGrade !== String(req.requestedGrade) ||
+										edit.reasonForChange !== req.reasonForChange;
+									return (
+										<div
+											key={req.requestId}
+											className={`border rounded-lg p-4 space-y-3 transition-colors ${
+												isChanged
+													? 'border-blue-300 bg-blue-50/50 dark:border-blue-700 dark:bg-blue-900/20'
+													: 'border-border'
+											}`}
+										>
+											<div className="flex items-center justify-between">
+												<h4 className="text-sm font-medium">
+													{req.studentName}
+												</h4>
+												<div className="flex items-center gap-2">
+													{isChanged && (
+														<span className="text-xs text-blue-600 dark:text-blue-400">
+															Modified
+														</span>
+													)}
+													<span
+														className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${getStatusClasses(
+															req.status,
+														)}`}
+													>
+														{getStatusIcon(req.status)} {req.status}
+													</span>
+												</div>
+											</div>
+											<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+												<div>
+													<label className="block text-xs text-muted-foreground mb-1">
+														Original Grade
+													</label>
+													<input
+														type="text"
+														value={req.originalGrade ?? 'N/A'}
+														disabled
+														className={`w-full p-1.5 border rounded-md text-sm bg-muted ${getGradeColor(
+															req.originalGrade,
+														)}`}
+													/>
+												</div>
+												<div>
+													<label className="block text-xs text-muted-foreground mb-1">
+														Requested Grade
+													</label>
+													<input
+														type="number"
+														value={edit.requestedGrade}
+														onChange={(e) =>
+															handleBatchEditChange(
+																req.requestId,
+																'requestedGrade',
+																e.target.value,
+															)
+														}
+														className={`w-full p-1.5 border rounded-md text-sm ${getGradeColor(
+															edit.requestedGrade === ''
+																? null
+																: Number(edit.requestedGrade),
+														)}`}
+													/>
+												</div>
+											</div>
+											<div>
+												<label className="block text-xs text-muted-foreground mb-1">
+													Reason for Change
+												</label>
+												<textarea
+													value={edit.reasonForChange}
+													onChange={(e) =>
+														handleBatchEditChange(
+															req.requestId,
+															'reasonForChange',
+															e.target.value,
+														)
+													}
+													className="w-full p-1.5 border rounded-md text-sm"
+													rows={2}
+												/>
+											</div>
+											<div className="flex justify-end">
+												<button
+													onClick={() => handleBatchSaveSingle(req.requestId)}
+													disabled={isEditing || !isChanged}
+													className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5"
+												>
+													{isEditing && (
+														<Loader2 className="h-3 w-3 animate-spin" />
+													)}
+													Save
+												</button>
+											</div>
+										</div>
+									);
+								})}
+							</div>
+						)}
+					</div>
+					<div className="p-4 sm:p-5 border-t bg-muted flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+						<button
+							onClick={() => setBatchEditModal({ isOpen: false, batchId: '' })}
+							className="w-full px-4 py-2 text-foreground bg-card border rounded-md hover:bg-muted sm:w-auto text-sm"
+						>
+							Close
+						</button>
+						{pendingRequests.length > 0 && (
+							<button
+								onClick={handleBatchSaveAll}
+								disabled={isEditing || !hasChanges}
+								className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2 sm:w-auto text-sm"
+							>
+								{isEditing && (
+									<Loader2 className="h-4 w-4 animate-spin" />
+								)}
+								Save All Changes
+							</button>
+						)}
+					</div>
+				</div>
+			</div>
+		);
+	};
+
 	// --- RENDER: Teacher Edit Modal ---
 	const renderEditModal = () => (
 		<div
-			className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+			className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
 			onClick={() => setEditModal((p) => ({ ...p, isOpen: false }))}
 		>
 			<div
-				className="bg-card p-4 sm:p-5 rounded-lg shadow-xl w-full max-w-md border"
+				className="bg-card p-4 sm:p-5 rounded-lg shadow-xl w-full max-w-md border m-4"
 				onClick={(e) => e.stopPropagation()}
 			>
 				<div className="flex justify-between items-center mb-3">
@@ -1311,14 +1769,13 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 					</button>
 					<button
 						onClick={handleSaveChanges}
-						disabled={isProcessing}
-						className="px-4 py-1.5 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90 disabled:opacity-50"
+						disabled={isEditing}
+						className="px-4 py-1.5 bg-primary text-primary-foreground rounded-md text-sm hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
 					>
-						{isProcessing ? (
-							<Loader2 className="h-4 w-4 animate-spin inline" />
-						) : (
-							'Save Changes'
+						{isEditing && (
+							<Loader2 className="h-4 w-4 animate-spin" />
 						)}
+						Save Changes
 					</button>
 				</div>
 			</div>
@@ -1620,18 +2077,18 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 												</td>
 												<td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
 													<div className="flex items-center justify-end gap-2">
-														<button
-															onClick={() => {
-																setSelectedBulkRequest(batch);
-																setShowDetailsModal(true);
-																setSelectedIndividualRequests(new Set());
-															}}
-															className="text-primary hover:underline flex items-center gap-1"
-														>
+													<button
+														onClick={() => {
+															setSelectedBatchId(batch.batchId);
+															setShowDetailsModal(true);
+															setSelectedIndividualRequests(new Set());
+														}}
+														className="text-primary hover:underline flex items-center gap-1"
+													>
 															<Eye className="h-4 w-4" /> Review
 														</button>
 														{/* Teacher: Edit & Withdraw on pending requests */}
-														{isTeacher &&
+																{isTeacher &&
 															isSelectedAcademicYearAllowed &&
 															batch.requests.some(
 																(r) => r.status === 'Pending',
@@ -1639,30 +2096,30 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 																<>
 																	<button
 																		onClick={() => {
-																			const pendingReq =
-															batch.requests.find(
-																(r) => r.status === 'Pending',
-															);
-														if (pendingReq) handleOpenEditModal(pendingReq);
-													}}
-													className="text-sm text-blue-500 hover:underline flex items-center gap-1 px-2 py-1 rounded-md hover:bg-blue-500/10 transition-colors"
-												>
-													<Edit className="h-3.5 w-3.5" /> Edit
-												</button>
-												<button
-													onClick={() => {
-														const pendingReq = batch.requests.find(
-															(r) => r.status === 'Pending',
-														);
-														if (pendingReq)
-															handleWithdraw(pendingReq.requestId);
-													}}
-													className="text-sm text-red-500 hover:underline flex items-center gap-1 px-2 py-1 rounded-md hover:bg-red-500/10 transition-colors"
-												>
-													<Trash2 className="h-3.5 w-3.5" /> Withdraw
-												</button>
-											</>
-										)}
+																			handleOpenBatchEditModal(batch);
+																		}}
+																		className="text-sm text-blue-500 hover:underline flex items-center gap-1 px-2 py-1 rounded-md hover:bg-blue-500/10 transition-colors"
+																	>
+																		<Edit className="h-3.5 w-3.5" /> Edit
+																	</button>
+																	<button
+																		onClick={() => {
+																			const pendingReq = batch.requests.find(
+																				(r) => r.status === 'Pending',
+																			);
+																			if (pendingReq)
+																				handleWithdraw(pendingReq.requestId);
+																		}}
+																		disabled={isWithdrawing}
+																		className="text-sm text-red-500 hover:underline flex items-center gap-1 px-2 py-1 rounded-md hover:bg-red-500/10 transition-colors disabled:opacity-50"
+																	>
+																		{isWithdrawing && (
+																			<Loader2 className="h-3 w-3 animate-spin" />
+																		)}
+																		<Trash2 className="h-3.5 w-3.5" /> Withdraw
+																	</button>
+																</>
+															)}
 									</div>
 												</td>
 											</tr>
@@ -1717,6 +2174,8 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 			{showDetailsModal && renderDetailsModal()}
 			{!isTeacher && showRejectModal && renderRejectModal(false)}
 			{!isTeacher && showBulkRejectModal && renderRejectModal(true)}
+			{showWithdrawModal && renderWithdrawModal()}
+			{batchEditModal.isOpen && renderBatchEditModal()}
 		</div>
 	);
 };
