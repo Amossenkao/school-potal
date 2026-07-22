@@ -817,7 +817,21 @@ export const SharedFilter = <T extends BaseFilters>({
 
 	// ─── Can Submit ───────────────────────────────────────────────────────────
 
+	// Disable the button when students were fetched for the selected class
+	// and none were found — it makes no sense to apply filters with zero students.
+	const noStudentsFound =
+		!isStudent &&
+		!!filters.className &&
+		!!(
+			config.showStudentSelect
+				? config.showStudentSelect(filters, isSystemAdmin)
+				: true
+		) &&
+		!loadingStudents &&
+		students.length === 0;
+
 	const canSubmit = useMemo(() => {
+		if (noStudentsFound) return false;
 		if (config.validateCanSubmit) {
 			return config.validateCanSubmit(filters, isStudent);
 		}
@@ -832,6 +846,7 @@ export const SharedFilter = <T extends BaseFilters>({
 		config.validateCanSubmit,
 		extraFilterValue,
 		extraFilter,
+		noStudentsFound,
 	]);
 
 	// ─── Handle Submit ────────────────────────────────────────────────────────
