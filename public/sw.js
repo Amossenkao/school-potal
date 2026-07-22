@@ -6,6 +6,7 @@ const API_CACHE = `api-${CACHE_VERSION}`;
 
 const STATIC_ASSETS = [
 	'/offline',
+	'/login',
 	'/manifest.webmanifest',
 	'/fonts/GreatVibes-Regular.ttf', // add this line
 ];

@@ -1,5 +1,5 @@
 //@/utils/cacheAppShell.ts
-const RUNTIME_CACHE_NAME = 'runtime-v9';
+const RUNTIME_CACHE_NAME = 'runtime-v10';
 
 export async function cacheAppShellDirect(path: '/dashboard' | '/login') {
 	if (typeof window === 'undefined' || !('caches' in window)) return;

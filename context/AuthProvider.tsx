@@ -158,7 +158,7 @@ export default function AuthProvider({
 		const destination = user?.isActive
 			? user.role !== 'system_admin' && user.mustChangePassword
 				? '/login/account-setup'
-				: '/dashboard'
+				: pathname.startsWith('/dashboard') ? pathname : '/dashboard'
 			: '/login';
 
 		if (pathname === destination) {
