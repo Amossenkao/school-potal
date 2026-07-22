@@ -28,7 +28,6 @@ import useAuth from '@/store/useAuth';
 import { useNetworkStore } from '@/store/networkStore';
 import { useSchoolStore } from '@/store/schoolStore';
 import { PageLoading } from '@/components/loading';
-import { getClientCache, setClientCache } from '@/utils/clientCache';
 import { lockBodyScroll } from '@/utils/scrollLock';
 import {
 	areAcademicYearsEqual,
@@ -345,7 +344,7 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 		if (isTeacher) {
 			if (teacherAcademicYears.length > 0) return teacherAcademicYears;
 			return sortAcademicYearsDesc(
-				[school?.currentAcademicYear].filter(Boolean),
+				[currentSchool?.currentAcademicYear].filter(Boolean),
 			);
 		}
 		return schoolAcademicYearOptions;
@@ -353,7 +352,7 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 		isTeacher,
 		teacherAcademicYears,
 		schoolAcademicYearOptions,
-		school?.currentAcademicYear,
+		currentSchool?.currentAcademicYear,
 	]);
 
 	const defaultAcademicYear = useMemo(() => {
@@ -405,6 +404,14 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 	const [showDetailsModal, setShowDetailsModal] = useState(false);
 	const [showRejectModal, setShowRejectModal] = useState(false);
 	const [showBulkRejectModal, setShowBulkRejectModal] = useState(false);
+	const [editModal, setEditModal] = useState({
+		isOpen: false,
+		requestId: '',
+		studentName: '',
+		originalGrade: 0,
+		requestedGrade: '',
+		reasonForChange: '',
+	});
 	const isAnyModalOpen =
 		showDetailsModal || showRejectModal || showBulkRejectModal || editModal.isOpen;
 
@@ -426,16 +433,6 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 	const [currentPage, setCurrentPage] = useState<number>(1);
 	const [rowsPerPage, setRowsPerPage] = useState<number>(5);
 	const [filters, setFilters] = useState({ status: 'All' });
-
-	// --- Teacher Edit Modal ---
-	const [editModal, setEditModal] = useState({
-		isOpen: false,
-		requestId: '',
-		studentName: '',
-		originalGrade: 0,
-		requestedGrade: '',
-		reasonForChange: '',
-	});
 
 	const classMap = useMemo(() => {
 		if (!currentSchool?.classLevels) return new Map();
