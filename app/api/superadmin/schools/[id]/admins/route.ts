@@ -4,6 +4,7 @@ import SchoolProfileSchema from '@/models/profile/SchoolProfile';
 import UserSchema from '@/models/user/User';
 import SystemAdminSchema from '@/models/user/SystemAdmin';
 import bcrypt from 'bcryptjs';
+import { publishSyncEventSafe } from '@/lib/realtimeSync';
 
 async function getProfileModel() {
 	const conn = await connectToTenantsDb();
@@ -104,6 +105,25 @@ export async function POST(
 			address: address || '',
 			isActive: true,
 			createdAt: new Date(),
+		});
+
+		await publishSyncEventSafe({
+			tenantId: id,
+			domain: 'users',
+			reason: 'user-created',
+			payload: {
+				userId: String(admin._id),
+				user: {
+					_id: String(admin._id),
+					firstName: admin.firstName,
+					lastName: admin.lastName,
+					fullName: admin.fullName,
+					username: admin.username,
+					phone: admin.phone,
+					email: admin.email,
+					isActive: admin.isActive,
+				},
+			},
 		});
 
 		return NextResponse.json({

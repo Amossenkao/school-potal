@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import {
 	School,
@@ -11,7 +11,11 @@ import {
 	ShieldCheck,
 	ShieldOff,
 	ArrowRight,
+	Wifi,
+	WifiOff,
 } from 'lucide-react';
+import { useSuperadminRealtime } from '../hooks/useSuperadminRealtime';
+import type { RealtimeEvent } from '@/lib/realtimeTypes';
 
 interface SchoolSummary {
 	id?: string;
@@ -40,6 +44,47 @@ export default function SchoolsListPage() {
 	const [error, setError] = useState('');
 	const [search, setSearch] = useState('');
 	const [togglingId, setTogglingId] = useState<string | null>(null);
+
+	const handleRealtimeEvent = useCallback((event: RealtimeEvent) => {
+		const reason = String(event.payload?.reason || event.reason || '').trim();
+		const schoolData = event.payload?.school as Record<string, any> | undefined;
+
+		if (reason === 'school-toggled-active' && schoolData?.host) {
+			setSchools((prev) =>
+				prev.map((s) =>
+					s.host === schoolData.host
+						? { ...s, isActive: schoolData.isActive ?? !s.isActive }
+						: s
+				)
+			);
+			return;
+		}
+
+		if (reason === 'school-updated' && schoolData?.host) {
+			setSchools((prev) =>
+				prev.map((s) =>
+					s.host === schoolData.host
+						? { ...s, ...schoolData }
+						: s
+				)
+			);
+			return;
+		}
+
+		if (reason === 'school-deleted' && event.payload?.host) {
+			setSchools((prev) =>
+				prev.filter((s) => s.host !== event.payload.host)
+			);
+			return;
+		}
+	}, []);
+
+	const schoolHosts = useMemo(
+		() => schools.map((s) => s.host).filter(Boolean),
+		[schools]
+	);
+
+	useSuperadminRealtime({ schoolHosts, onEvent: handleRealtimeEvent });
 
 	useEffect(() => {
 		fetchSchools();

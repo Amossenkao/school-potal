@@ -4,6 +4,7 @@ import SchoolProfileSchema from '@/models/profile/SchoolProfile';
 import UserSchema from '@/models/user/User';
 import SystemAdminSchema from '@/models/user/SystemAdmin';
 import bcrypt from 'bcryptjs';
+import { publishSyncEventSafe } from '@/lib/realtimeSync';
 
 async function getProfileModel() {
 	const conn = await connectToTenantsDb();
@@ -58,6 +59,14 @@ export async function PUT(
 			.exec();
 
 		if (!admin) return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
+
+		await publishSyncEventSafe({
+			tenantId: id,
+			domain: 'users',
+			reason: 'user-updated',
+			payload: { userId, user: admin },
+		});
+
 		return NextResponse.json({ admin });
 	} catch (error: any) {
 		console.error('[superadmin/schools/[id]/admins/[userId]] PUT error:', error);
@@ -96,6 +105,13 @@ export async function PATCH(
 				.lean()
 				.exec();
 
+			await publishSyncEventSafe({
+				tenantId: id,
+				domain: 'users',
+				reason: 'user-updated',
+				payload: { userId, user: updated },
+			});
+
 			return NextResponse.json({ admin: updated });
 		}
 
@@ -109,6 +125,13 @@ export async function PATCH(
 			await User.discriminators.system_admin
 				.findByIdAndUpdate(userId, { $set: { password: hashedPassword, defaultPassword, mustChangePassword: true, updatedAt: new Date() } })
 				.exec();
+
+			await publishSyncEventSafe({
+				tenantId: id,
+				domain: 'users',
+				reason: 'user-updated',
+				payload: { userId, user: { _id: userId, username: admin.username } },
+			});
 
 			return NextResponse.json({
 				credentials: { username: admin.username, defaultPassword, note: 'User must change password on next login' },
@@ -143,6 +166,13 @@ export async function DELETE(
 
 		const admin = await User.discriminators.system_admin.findByIdAndDelete(userId).lean().exec();
 		if (!admin) return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
+
+		await publishSyncEventSafe({
+			tenantId: id,
+			domain: 'users',
+			reason: 'user-deleted',
+			payload: { userId },
+		});
 
 		return NextResponse.json({ success: true });
 	} catch (error: any) {

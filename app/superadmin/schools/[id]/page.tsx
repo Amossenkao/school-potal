@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
 	ArrowLeft, Loader2, Trash2, Users, GraduationCap, BookOpen, ShieldCheck, UserPlus, Settings,
 } from 'lucide-react';
 import SchoolProfileForm, { SchoolFormData } from '../../components/SchoolProfileForm';
+import { useSuperadminRealtime } from '../../hooks/useSuperadminRealtime';
+import type { RealtimeEvent } from '@/lib/realtimeTypes';
 
 interface SchoolStats {
 	students: number;
@@ -108,6 +110,20 @@ export default function SchoolDetailPage() {
 			setSaving(false);
 		}
 	};
+
+	const handleRealtimeEvent = useCallback((event: RealtimeEvent) => {
+		const reason = String(event.payload?.reason || event.reason || '').trim();
+		if (reason === 'school-deleted') {
+			router.push('/superadmin/schools');
+			return;
+		}
+		if (reason === 'school-updated' || reason === 'school-toggled-active') {
+			fetchSchool();
+			fetchStats();
+		}
+	}, [router]);
+
+	useSuperadminRealtime({ schoolHosts: [host], onEvent: handleRealtimeEvent });
 
 	if (loading) {
 		return (

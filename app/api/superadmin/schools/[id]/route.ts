@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToTenantsDb, clearSchoolProfileMemoryCache } from '@/lib/mongoose';
 import SchoolProfileSchema from '@/models/profile/SchoolProfile';
 import { redis } from '@/lib/redis';
+import { publishSyncEventSafe } from '@/lib/realtimeSync';
 
 async function getProfileModel() {
 	const conn = await connectToTenantsDb();
@@ -50,6 +51,13 @@ export async function PUT(
 		clearSchoolProfileMemoryCache(id);
 		await redis.del(`school_profile:${id}`);
 
+		await publishSyncEventSafe({
+			tenantId: id,
+			domain: 'school',
+			reason: 'school-updated',
+			payload: { school },
+		});
+
 		return NextResponse.json({ school });
 	} catch (error: any) {
 		console.error('[superadmin/schools/[id]] PUT error:', error);
@@ -79,6 +87,13 @@ export async function PATCH(
 		clearSchoolProfileMemoryCache(id);
 		await redis.del(`school_profile:${id}`);
 
+		await publishSyncEventSafe({
+			tenantId: id,
+			domain: 'school',
+			reason: body.isActive !== undefined ? 'school-toggled-active' : 'school-updated',
+			payload: { school },
+		});
+
 		return NextResponse.json({ school });
 	} catch (error: any) {
 		console.error('[superadmin/schools/[id]] PATCH error:', error);
@@ -101,6 +116,13 @@ export async function DELETE(
 
 		clearSchoolProfileMemoryCache(id);
 		await redis.del(`school_profile:${id}`);
+
+		await publishSyncEventSafe({
+			tenantId: id,
+			domain: 'school',
+			reason: 'school-deleted',
+			payload: { host: id },
+		});
 
 		return NextResponse.json({ success: true });
 	} catch (error: any) {

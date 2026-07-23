@@ -15,6 +15,7 @@ import { clearAllClientCache } from '@/utils/clientCache';
 import { clearUserSessionDataCaches } from '@/utils/sessionPrivacy';
 import { useNetworkStore } from '@/store/networkStore';
 import { cacheAppShellDirect } from '@/utils/cacheAppShell';
+import Inactive from './inactive';
 
 const OFFLINE_REQUESTS_KEY = 'school_portal_offline_requests';
 const LOGOUT_ENDPOINT = '/api/auth/login';
@@ -313,7 +314,7 @@ if (!isSessionValid) {
 			<ThemeProvider>
 				<SidebarProvider>
 					<OfflineHandler>
-						{school ? school.isActive ? children : <VercelUpgrade /> : children}
+						{school ? school.isActive ? children : <Inactive /> : children}
 					</OfflineHandler>
 				</SidebarProvider>
 				<Toaster position="top-right" />

@@ -6,6 +6,8 @@ import Link from 'next/link';
 import {
 	ArrowLeft, Loader2, Plus, Trash2, X, UserPlus, Copy, Check, Pencil, CheckCircle, Key, ToggleLeft, ToggleRight,
 } from 'lucide-react';
+import { useSuperadminRealtime } from '../../../hooks/useSuperadminRealtime';
+import type { RealtimeEvent } from '@/lib/realtimeTypes';
 
 interface SystemAdminAccount {
 	_id: string;
@@ -87,6 +89,15 @@ export default function SchoolAdminsPage() {
 			setLoading(false);
 		}
 	};
+
+	const handleRealtimeEvent = useCallback((event: RealtimeEvent) => {
+		const reason = String(event.payload?.reason || event.reason || '').trim();
+		if (reason === 'user-created' || reason === 'user-updated' || reason === 'user-deleted') {
+			fetchAdmins();
+		}
+	}, []);
+
+	useSuperadminRealtime({ schoolHosts: [host], onEvent: handleRealtimeEvent });
 
 	const updateSuggestions = useCallback((firstName: string, lastName: string) => {
 		setUsernameSuggestion(generateUsernameSuggestion(firstName, lastName));

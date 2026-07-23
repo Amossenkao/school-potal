@@ -65,6 +65,9 @@ export const resolveTenantSyncKey = (options: {
 	return '';
 };
 
+export const getSuperadminRealtimeChannel = (superadminId: string) =>
+	`superadmin:${sanitizeChannelSegment(superadminId)}`;
+
 export const getSchoolRealtimeChannel = (tenantId: string) =>
 	`school:${sanitizeChannelSegment(tenantId)}`;
 
@@ -152,6 +155,18 @@ export const getAuthorizedRealtimeCapabilities = (options: {
 	const tenantId = sanitizeChannelSegment(options.tenantId);
 	const role = trim(options.role || options.user?.role).toLowerCase();
 
+	// Super admins get wildcard capability on ALL school channels so their
+	// token is valid on any school channel for cross-tenant real-time events.
+	if (
+		!options.publicOnly &&
+		role === 'super_admin'
+	) {
+		return {
+			['school:*']: ['subscribe'],
+			['superadmin:*']: ['subscribe'],
+		};
+	}
+
 	// Admins and system admins get wildcard capability grants so their token
 	// is valid on any channel. They only subscribe to specific channels
 	// (school + own user channel) but the wildcard capability means Ably
@@ -160,8 +175,7 @@ export const getAuthorizedRealtimeCapabilities = (options: {
 		!options.publicOnly &&
 		tenantId &&
 		(role === 'administrator' ||
-			role === 'system_admin' ||
-			role === 'super_admin')
+			role === 'system_admin')
 	) {
 		return {
 			[`school:${tenantId}`]: ['subscribe'],
@@ -305,6 +319,12 @@ export const resolvePublishChannels = (event: RealtimeEvent) => {
 	const addSchool = () => {
 		if (tenantId) channels.add(getSchoolRealtimeChannel(tenantId));
 	};
+	const addSuperadminBroadcast = () => {
+		// Publish to the superadmin broadcast channel so all superadmin
+		// clients receive cross-school events regardless of which school
+		// they're currently viewing.
+		channels.add('superadmin:broadcast');
+	};
 	const addClassIds = (classIds?: string[]) => {
 		toUniqueStrings(classIds).forEach((classId) => {
 			if (tenantId && classId) {
@@ -370,6 +390,14 @@ export const resolvePublishChannels = (event: RealtimeEvent) => {
 			addSchool();
 			break;
 
+		case 'SCHOOL_UPDATED':
+		case 'SCHOOL_DELETED':
+			// School-level change — broadcast to both the school channel
+			// and the superadmin broadcast channel.
+			addSchool();
+			addSuperadminBroadcast();
+			break;
+
 		case 'USER_CREATED':
 		case 'USER_UPDATED':
 		case 'USER_DISABLED':
@@ -380,8 +408,9 @@ export const resolvePublishChannels = (event: RealtimeEvent) => {
 			// 2. the affected user's own channel — reaches that user directly
 			// 3. the affected user's class channels — reaches teachers and classmates
 			//    who have access to this user but don't subscribe to their user channel
-			// 4. old class channels — for class transitions, so former peers lose access
+			// 4. superadmin broadcast — reaches all superadmin sessions
 			addSchool();
+			addSuperadminBroadcast();
 			addUserIds(
 				targetUserIds ||
 					(payload.userId ? [String(payload.userId)] : undefined),
