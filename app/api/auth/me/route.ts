@@ -160,16 +160,15 @@ export async function GET(request: NextRequest) {
 
 		// ── School active check ──────────────────────────────────────────────
 		if (schoolProfile?.isActive === false) {
-			logResponse('School inactive.', 403);
+			logResponse('School inactive.', 200);
 			const response = NextResponse.json(
 				{
 					user: null,
 					school: schoolProfile || null,
 					message: 'School is inactive',
 				},
-				{ status: 403 },
+				{ status: 200 },
 			);
-			clearSessionCookies(response);
 			return response;
 		}
 

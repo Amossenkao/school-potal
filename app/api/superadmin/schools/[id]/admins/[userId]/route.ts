@@ -5,6 +5,7 @@ import UserSchema from '@/models/user/User';
 import SystemAdminSchema from '@/models/user/SystemAdmin';
 import bcrypt from 'bcryptjs';
 import { publishSyncEventSafe } from '@/lib/realtimeSync';
+import { destroyAllUserSessions } from '@/utils/session';
 
 async function getProfileModel() {
 	const conn = await connectToTenantsDb();
@@ -99,16 +100,22 @@ export async function PATCH(
 			const admin = await User.discriminators.system_admin.findById(userId).lean().exec();
 			if (!admin) return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
 
+			const nowActive = !admin.isActive;
+
 			const updated = await User.discriminators.system_admin
-				.findByIdAndUpdate(userId, { $set: { isActive: !admin.isActive, updatedAt: new Date() } }, { new: true })
+				.findByIdAndUpdate(userId, { $set: { isActive: nowActive, updatedAt: new Date() } }, { new: true })
 				.select('firstName lastName fullName username phone email isActive')
 				.lean()
 				.exec();
 
+			if (!nowActive) {
+				await destroyAllUserSessions(userId);
+			}
+
 			await publishSyncEventSafe({
 				tenantId: id,
 				domain: 'users',
-				reason: 'user-updated',
+				reason: nowActive ? 'user-updated' : 'account-deactivated',
 				payload: { userId, user: updated },
 			});
 
@@ -126,10 +133,12 @@ export async function PATCH(
 				.findByIdAndUpdate(userId, { $set: { password: hashedPassword, defaultPassword, mustChangePassword: true, updatedAt: new Date() } })
 				.exec();
 
+			await destroyAllUserSessions(userId);
+
 			await publishSyncEventSafe({
 				tenantId: id,
 				domain: 'users',
-				reason: 'user-updated',
+				reason: 'user-password-reset',
 				payload: { userId, user: { _id: userId, username: admin.username } },
 			});
 
@@ -166,6 +175,8 @@ export async function DELETE(
 
 		const admin = await User.discriminators.system_admin.findByIdAndDelete(userId).lean().exec();
 		if (!admin) return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
+
+		await destroyAllUserSessions(userId);
 
 		await publishSyncEventSafe({
 			tenantId: id,

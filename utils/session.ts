@@ -45,6 +45,14 @@ export const destroyAllTenantSessions = async (
 
 	if (sessionIds.length > 0) {
 		const pipeline = redis.pipeline();
+
+		for (const sid of sessionIds) {
+			const sessionData = await getSession(sid);
+			if (sessionData?.id) {
+				pipeline.srem(`user:sessions:${sessionData.id}`, sid);
+			}
+		}
+
 		pipeline.del(...sessionIds);
 		pipeline.del(tenantSessionKey);
 		await pipeline.exec();
