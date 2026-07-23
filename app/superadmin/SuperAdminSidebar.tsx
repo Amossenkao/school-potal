@@ -3,14 +3,13 @@
 import React, { memo, useState, useCallback } from 'react';
 import { useSidebar } from '@/context/SidebarContext';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import {
 	LayoutDashboard,
 	School,
 	PlusCircle,
 	Settings,
-	LogOut,
 	ChevronLeft,
 	ChevronRight,
 	X,
@@ -28,7 +27,6 @@ const NAV_ITEMS = [
 const SuperAdminSidebar = memo(function SuperAdminSidebar() {
 	const { isExpanded, isHovered, isMobileOpen, toggleSidebar, setIsHovered, closeMobileSidebar } = useSidebar();
 	const pathname = usePathname();
-	const router = useRouter();
 	const [isHovering, setIsHovering] = useState(false);
 
 	const effectiveExpanded = isMobileOpen ? true : isExpanded || isHovering;
@@ -36,11 +34,6 @@ const SuperAdminSidebar = memo(function SuperAdminSidebar() {
 	const handleNavClick = useCallback(() => {
 		closeMobileSidebar();
 	}, [closeMobileSidebar]);
-
-	const handleLogout = useCallback(() => {
-		sessionStorage.removeItem('superadmin_auth');
-		router.replace('/superadmin/login');
-	}, [router]);
 
 	return (
 		<aside
@@ -96,25 +89,17 @@ const SuperAdminSidebar = memo(function SuperAdminSidebar() {
 				})}
 			</nav>
 
-			{/* Bottom section */}
-			<div className="border-t border-white/10 px-3 py-3 space-y-1">
-				<button
-					onClick={handleLogout}
-					className={`flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-colors ${effectiveExpanded ? '' : 'justify-center'}`}
-					title={!effectiveExpanded ? 'Logout' : undefined}
-				>
-					<LogOut className="h-5 w-5 shrink-0" />
-					{effectiveExpanded && <span>Logout</span>}
-				</button>
-				<button
-					onClick={toggleSidebar}
-					className="hidden lg:flex items-center justify-center w-full rounded-lg py-2 text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-					aria-label="Toggle sidebar"
-				>
-					{isExpanded ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-					{effectiveExpanded && <span className="ml-2 text-xs">Collapse</span>}
-				</button>
-			</div>
+		{/* Bottom section */}
+		<div className="border-t border-white/10 px-3 py-3 space-y-1">
+			<button
+				onClick={toggleSidebar}
+				className="hidden lg:flex items-center justify-center w-full rounded-lg py-2 text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+				aria-label="Toggle sidebar"
+			>
+				{isExpanded ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+				{effectiveExpanded && <span className="ml-2 text-xs">Collapse</span>}
+			</button>
+		</div>
 		</aside>
 	);
 });
