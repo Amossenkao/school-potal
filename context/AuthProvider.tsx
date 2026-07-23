@@ -143,6 +143,15 @@ export default function AuthProvider({
 		if (!startupResolved || isBootstrapping) return;
 		if (initialRouteResolvedRef.current) return;
 
+		if (!currentSchool) {
+			initialRouteResolvedRef.current = true;
+			setIsResolvingInitialRoute(false);
+			if (pathname !== '/') {
+				router.replace('/');
+			}
+			return;
+		}
+
 		const ownsStartupRoute =
 			pathname === '/' ||
 			pathname === '/login' ||
@@ -175,7 +184,7 @@ export default function AuthProvider({
 		}
 
 		router.replace(destination);
-	}, [isBootstrapping, pathname, router, startupResolved, user]);
+	}, [isBootstrapping, currentSchool, pathname, router, startupResolved, user]);
 
 	useEffect(() => {
 		if (!startupResolved || isBootstrapping) return;
@@ -198,6 +207,15 @@ export default function AuthProvider({
 		startupResolved,
 		user?.isActive,
 	]);
+
+	useEffect(() => {
+		if (!startupResolved || isBootstrapping) return;
+		if (!initialRouteResolvedRef.current) return;
+		if (isLoggingOut) return;
+		if (currentSchool) return;
+		if (pathname === '/') return;
+		router.replace('/');
+	}, [isBootstrapping, currentSchool, isLoggingOut, pathname, router, startupResolved]);
 
 	// Ably Streaming Channel Setup and Connection Listeners
 	useEffect(() => {

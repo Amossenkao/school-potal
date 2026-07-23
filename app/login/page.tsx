@@ -990,6 +990,12 @@ useEffect(() => {
 	}, [selectedRole, currentSchool]);
 
 	useEffect(() => {
+		if (startupResolved && !isBootstrapping && !currentSchool) {
+			router.replace('/');
+		}
+	}, [startupResolved, isBootstrapping, currentSchool, router]);
+
+	useEffect(() => {
 		if (!selectedRole) return;
 		if (selectedRole === 'administrator' && !adminPosition) return;
 		if (isAwaitingOtp) return;
