@@ -54,18 +54,16 @@ export default function SuperAdminLoginPage() {
 			{/* Left branding panel */}
 			<div className="hidden w-1/2 bg-[#111827] lg:flex lg:flex-col lg:items-center lg:justify-center lg:p-12">
 				<div className="max-w-md text-center">
-					<Link href="/" className="inline-block">
+					<Link href="/" className="inline-flex items-center gap-3 mb-6">
 						<Image
 							src="/images/SchoolMesh.png"
 							alt="SchoolMesh"
 							width={64}
 							height={64}
-							className="mx-auto mb-6 h-16 w-16 rounded-2xl object-contain"
+							className="h-16 w-16 rounded-2xl object-contain"
 							priority
 						/>
-					</Link>
-					<Link href="/" className="inline-block">
-						<h1 className="text-3xl font-bold text-white tracking-tight hover:opacity-80 transition-opacity">
+						<h1 className="text-3xl font-bold text-white tracking-tight">
 							School<span className="text-[#465fff]">Mesh</span>
 						</h1>
 					</Link>
@@ -95,8 +93,8 @@ export default function SuperAdminLoginPage() {
 			<div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
 				<div className="w-full max-w-sm">
 					{/* Mobile logo */}
-				<div className="mb-8 flex items-center gap-2.5 lg:hidden">
-					<Link href="/" className="flex items-center gap-2.5">
+				<div className="mb-8 flex justify-center lg:hidden">
+					<Link href="/" className="inline-flex items-center gap-2.5">
 						<Image
 							src="/images/SchoolMesh.png"
 							alt="SchoolMesh"

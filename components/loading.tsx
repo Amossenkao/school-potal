@@ -100,6 +100,22 @@ export const PageLoading = ({
 	};
 
 	const currentSchool = useSchoolStore((state) => state.school);
+	const STATUS_MESSAGES = ['Connecting…', 'Loading data…', 'Almost ready…'];
+
+
+		const [statusIndex, setStatusIndex] = React.useState(0);
+		const [visible, setVisible] = React.useState(true);
+	
+		React.useEffect(() => {
+			const cycle = setInterval(() => {
+				setVisible(false);
+				setTimeout(() => {
+					setStatusIndex((i) => (i + 1) % STATUS_MESSAGES.length);
+					setVisible(true);
+				}, 300);
+			}, 1800);
+			return () => clearInterval(cycle);
+		}, []);
 
 	const containerClasses = fullScreen
 		? 'fixed inset-0 z-50 flex items-center justify-center bg-background/92 px-4'
@@ -154,41 +170,325 @@ export const PageLoading = ({
 					</div>
 				);
 
-			case 'company':
+		case 'company':
 				return (
-					<div className="flex flex-col items-center gap-6">
-						<div className="relative">
-							{/* Outer glow ring */}
-							<div className="absolute inset-0 rounded-full bg-[#465fff]/10 animate-ping" style={{ animationDuration: '2s' }} />
-							{/* Middle rotating ring */}
-							<div className="absolute -inset-3 rounded-full border-2 border-dashed border-[#465fff]/20 animate-spin" style={{ animationDuration: '8s' }} />
-							{/* Inner pulsing ring */}
-							<div className="absolute -inset-1.5 rounded-full border-2 border-[#465fff]/30 animate-pulse" style={{ animationDuration: '1.5s' }} />
-							{/* Logo container */}
-							<div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-lg shadow-gray-900/5 border border-gray-100">
-								<img
-									src="/images/SchoolMesh.png"
-									alt="SchoolMesh"
-									className="h-12 w-12 object-contain"
-									loading="eager"
-									decoding="async"
+					<div>
+						<style>{`
+				@keyframes sm-arc-spin {
+					from { stroke-dashoffset: 0; }
+					to   { stroke-dashoffset: -502; }
+				}
+				@keyframes sm-arc-spin-slow {
+					from { stroke-dashoffset: 200; }
+					to   { stroke-dashoffset: -200; }
+				}
+				@keyframes sm-orbit1 {
+					from { transform: rotate(0deg)   translateX(38px) rotate(0deg); }
+					to   { transform: rotate(360deg) translateX(38px) rotate(-360deg); }
+				}
+				@keyframes sm-orbit2 {
+					from { transform: rotate(120deg)  translateX(28px) rotate(-120deg); }
+					to   { transform: rotate(480deg)  translateX(28px) rotate(-480deg); }
+				}
+				@keyframes sm-orbit3 {
+					from { transform: rotate(240deg)  translateX(50px) rotate(-240deg); }
+					to   { transform: rotate(600deg)  translateX(50px) rotate(-600deg); }
+				}
+				@keyframes sm-pulse-ring {
+					0%,100% { transform: scale(1);    opacity: 0.25; }
+					50%      { transform: scale(1.12); opacity: 0.08; }
+				}
+				@keyframes sm-pulse-ring2 {
+					0%,100% { transform: scale(1);   opacity: 0.15; }
+					50%      { transform: scale(1.2); opacity: 0.04; }
+				}
+				@keyframes sm-logo-breathe {
+					0%,100% { transform: scale(1); }
+					50%      { transform: scale(1.04); }
+				}
+				@keyframes sm-shimmer-bar {
+					0%   { transform: translateX(-100%); }
+					100% { transform: translateX(400%); }
+				}
+				@keyframes sm-fade-in {
+					from { opacity: 0; transform: translateY(4px); }
+					to   { opacity: 1; transform: translateY(0); }
+				}
+				@keyframes sm-fade-out {
+					from { opacity: 1; transform: translateY(0); }
+					to   { opacity: 0; transform: translateY(-4px); }
+				}
+
+				.sm-status-enter {
+					animation: sm-fade-in 0.3s ease forwards;
+				}
+				.sm-status-exit {
+					animation: sm-fade-out 0.3s ease forwards;
+				}
+			`}</style>
+
+						<div
+							style={{
+								display: 'flex',
+								flexDirection: 'column',
+								alignItems: 'center',
+								gap: '28px',
+							}}
+						>
+							{/* ── Spinner rig ── */}
+							<div
+								style={{
+									position: 'relative',
+									width: 140,
+									height: 140,
+									display: 'flex',
+									alignItems: 'center',
+									justifyContent: 'center',
+								}}
+							>
+								{/* Pulse rings */}
+								<div
+									style={{
+										position: 'absolute',
+										width: 136,
+										height: 136,
+										borderRadius: '50%',
+										border: '1.5px solid #465fff',
+										animation: 'sm-pulse-ring2 2.8s ease-in-out infinite 0.4s',
+									}}
 								/>
+								<div
+									style={{
+										position: 'absolute',
+										width: 110,
+										height: 110,
+										borderRadius: '50%',
+										border: '1.5px solid #465fff',
+										animation: 'sm-pulse-ring 2.8s ease-in-out infinite',
+									}}
+								/>
+
+								{/* SVG arcs */}
+								<svg
+									width={140}
+									height={140}
+									viewBox="0 0 140 140"
+									style={{ position: 'absolute', top: 0, left: 0 }}
+									aria-hidden="true"
+								>
+									{/* Inner counter-rotating arc */}
+									<circle
+										cx={70}
+										cy={70}
+										r={54}
+										fill="none"
+										stroke="#7c99ff"
+										strokeWidth={1.5}
+										strokeLinecap="round"
+										strokeDasharray="30 342"
+										opacity={0.5}
+										style={{
+											animation:
+												'sm-arc-spin-slow 2.6s cubic-bezier(0.4,0,0.2,1) infinite reverse',
+											transformOrigin: '70px 70px',
+										}}
+									/>
+									{/* Outer trail */}
+									<circle
+										cx={70}
+										cy={70}
+										r={64}
+										fill="none"
+										stroke="#465fff"
+										strokeWidth={1}
+										strokeLinecap="round"
+										strokeDasharray="40 462"
+										opacity={0.3}
+										style={{
+											animation:
+												'sm-arc-spin 1.8s cubic-bezier(0.4,0,0.2,1) infinite 0.15s',
+											transformOrigin: '70px 70px',
+										}}
+									/>
+									{/* Outer main arc */}
+									<circle
+										cx={70}
+										cy={70}
+										r={64}
+										fill="none"
+										stroke="#465fff"
+										strokeWidth={2}
+										strokeLinecap="round"
+										strokeDasharray="80 422"
+										style={{
+											animation:
+												'sm-arc-spin 1.8s cubic-bezier(0.4,0,0.2,1) infinite',
+											transformOrigin: '70px 70px',
+										}}
+									/>
+								</svg>
+
+								{/* Orbit dots */}
+								<div
+									style={{
+										position: 'absolute',
+										width: 5,
+										height: 5,
+										borderRadius: '50%',
+										background: '#b3c2ff',
+										top: 'calc(50% - 2.5px)',
+										left: 'calc(50% - 2.5px)',
+										transformOrigin: 'center center',
+										animation:
+											'sm-orbit3 4s cubic-bezier(0.4,0,0.2,1) infinite',
+									}}
+								/>
+								<div
+									style={{
+										position: 'absolute',
+										width: 6,
+										height: 6,
+										borderRadius: '50%',
+										background: '#7c99ff',
+										top: 'calc(50% - 3px)',
+										left: 'calc(50% - 3px)',
+										transformOrigin: 'center center',
+										animation:
+											'sm-orbit2 3.1s cubic-bezier(0.4,0,0.2,1) infinite',
+									}}
+								/>
+								<div
+									style={{
+										position: 'absolute',
+										width: 8,
+										height: 8,
+										borderRadius: '50%',
+										background: '#465fff',
+										top: 'calc(50% - 4px)',
+										left: 'calc(50% - 4px)',
+										transformOrigin: 'center center',
+										animation:
+											'sm-orbit1 2.4s cubic-bezier(0.4,0,0.2,1) infinite',
+									}}
+								/>
+
+								{/* Logo card */}
+								<div
+									style={{
+										position: 'relative',
+										zIndex: 10,
+										width: 76,
+										height: 76,
+										borderRadius: 20,
+										background: '#ffffff',
+										border: '1px solid rgba(0,0,0,0.07)',
+										display: 'flex',
+										alignItems: 'center',
+										justifyContent: 'center',
+										animation: 'sm-logo-breathe 3s ease-in-out infinite',
+										boxShadow:
+											'0 4px 16px rgba(70,95,255,0.12), 0 1px 3px rgba(0,0,0,0.06)',
+									}}
+								>
+									<img
+										src="/images/SchoolMesh.png"
+										alt="SchoolMesh"
+										width={44}
+										height={44}
+										style={{ objectFit: 'contain' }}
+										loading="eager"
+										decoding="async"
+									/>
+								</div>
 							</div>
-						</div>
-						<div className="flex flex-col items-center gap-2">
-							<p className="text-sm font-semibold tracking-wide text-[#111827]">
-								School<span className="text-[#465fff]">Mesh</span>
-							</p>
-							{message && (
-								<p className="max-w-xs text-center text-sm text-gray-500">
-									{message}
+
+							{/* ── Label block ── */}
+							<div
+								style={{
+									display: 'flex',
+									flexDirection: 'column',
+									alignItems: 'center',
+									gap: 10,
+								}}
+							>
+								{/* Brand name */}
+								<p
+									style={{
+										fontSize: 15,
+										fontWeight: 500,
+										letterSpacing: '0.06em',
+										color: '#111827',
+										margin: 0,
+									}}
+								>
+									School
+									<span style={{ color: '#465fff' }}>Mesh</span>
 								</p>
-							)}
-							{/* Animated dots */}
-							<div className="flex items-center gap-1.5 mt-1">
-								<span className="h-1.5 w-1.5 rounded-full bg-[#465fff] animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1.2s' }} />
-								<span className="h-1.5 w-1.5 rounded-full bg-[#465fff] animate-bounce" style={{ animationDelay: '150ms', animationDuration: '1.2s' }} />
-								<span className="h-1.5 w-1.5 rounded-full bg-[#465fff] animate-bounce" style={{ animationDelay: '300ms', animationDuration: '1.2s' }} />
+
+								{/* Progress shimmer bar */}
+								<div
+									style={{
+										width: 120,
+										height: 3,
+										borderRadius: 99,
+										background: '#f3f4f6',
+										overflow: 'hidden',
+										position: 'relative',
+									}}
+								>
+									<div
+										style={{
+											position: 'absolute',
+											inset: 0,
+											background: 'rgba(70,95,255,0.15)',
+											borderRadius: 99,
+										}}
+									/>
+									<div
+										style={{
+											position: 'absolute',
+											top: 0,
+											bottom: 0,
+											width: 40,
+											background:
+												'linear-gradient(90deg, transparent, rgba(70,95,255,0.6), transparent)',
+											borderRadius: 99,
+											animation: 'sm-shimmer-bar 1.8s ease-in-out infinite',
+										}}
+									/>
+								</div>
+
+								{/* Status message — prop takes priority, otherwise cycles */}
+								<div
+									style={{ height: 20, display: 'flex', alignItems: 'center' }}
+								>
+									{message ? (
+										<p
+											style={{
+												fontSize: 13,
+												color: '#6b7280',
+												margin: 0,
+												maxWidth: 240,
+												textAlign: 'center',
+											}}
+										>
+											{message}
+										</p>
+									) : (
+										<p
+											key={statusIndex}
+											className={visible ? 'sm-status-enter' : 'sm-status-exit'}
+											style={{
+												fontSize: 13,
+												color: '#6b7280',
+												margin: 0,
+												whiteSpace: 'nowrap',
+											}}
+										>
+											{STATUS_MESSAGES[statusIndex]}
+										</p>
+									)}
+								</div>
 							</div>
 						</div>
 					</div>
