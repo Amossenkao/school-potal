@@ -612,12 +612,24 @@ export default function SchoolMeshLandingPage() {
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [openFaq, setOpenFaq] = useState<number | null>(null);
 	const [mobileFaq, setMobileFaq] = useState<number | null>(null);
+	const headerRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		const handler = () => setIsScrolled(window.scrollY > 20);
 		window.addEventListener('scroll', handler, { passive: true });
 		return () => window.removeEventListener('scroll', handler);
 	}, []);
+
+	useEffect(() => {
+		if (!isMobileMenuOpen) return;
+		const handleClickOutside = (e: MouseEvent) => {
+			if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+				setIsMobileMenuOpen(false);
+			}
+		};
+		document.addEventListener('mousedown', handleClickOutside);
+		return () => document.removeEventListener('mousedown', handleClickOutside);
+	}, [isMobileMenuOpen]);
 
 	const handleSubmit = useCallback(
 		(e: React.FormEvent) => {
@@ -630,10 +642,11 @@ export default function SchoolMeshLandingPage() {
 
 	return (
 		<div
-			className={`${inter.variable} scroll-smooth bg-[#FAFBFC] font-sans text-[#111827] antialiased`}
+			className={`${inter.variable} scroll-smooth overflow-x-hidden bg-[#FAFBFC] font-sans text-[#111827] antialiased`}
 		>
 			{/* ── Navigation ───────────────────────────────────── */}
 			<header
+				ref={headerRef}
 				className={`fixed top-0 z-50 w-full transition-all duration-300 ${
 					isScrolled
 						? 'border-b border-gray-200/60 bg-white/80 backdrop-blur-xl shadow-sm'
@@ -666,12 +679,12 @@ export default function SchoolMeshLandingPage() {
 					</div>
 
 					<div className="hidden items-center gap-3 md:flex">
-						<a
-							href="#contact"
+						<Link
+							href="/superadmin/login"
 							className="text-sm font-medium text-gray-600 transition-colors hover:text-[#111827]"
 						>
 							Log In
-						</a>
+						</Link>
 						<a
 							href="#pricing"
 							className="rounded-full bg-[#111827] px-5 py-2 text-sm font-medium text-white transition-all hover:bg-gray-800 hover:shadow-lg hover:shadow-gray-900/10"
@@ -691,9 +704,9 @@ export default function SchoolMeshLandingPage() {
 				</nav>
 
 				<AnimatePresence>
-					{isMobileMenuOpen && (
-						<motion.div
-							initial={{ opacity: 0, height: 0 }}
+				{isMobileMenuOpen && (
+					<motion.div
+						initial={{ opacity: 0, height: 0 }}
 							animate={{ opacity: 1, height: 'auto' }}
 							exit={{ opacity: 0, height: 0 }}
 							transition={{ duration: 0.25 }}
@@ -711,12 +724,13 @@ export default function SchoolMeshLandingPage() {
 									</a>
 								))}
 								<div className="border-t border-gray-100 pt-3 mt-3 space-y-2">
-									<a
-										href="#contact"
+									<Link
+										href="/superadmin/login"
+										onClick={() => setIsMobileMenuOpen(false)}
 										className="block rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
 									>
 										Log In
-									</a>
+									</Link>
 									<a
 										href="#pricing"
 										onClick={() => setIsMobileMenuOpen(false)}
@@ -744,22 +758,22 @@ export default function SchoolMeshLandingPage() {
 				.sm-hero-float-pill2 { animation:sm-hero-float 3.8s 1.2s ease-in-out infinite; }
 				.sm-hero-badge-dot { animation:sm-hero-shimmer 2s ease-in-out infinite; }
 			`}} />
-			<section className="relative overflow-hidden bg-[#FAFBFC]" style={{ padding: '36px 0 20px' }}>
+			<section className="relative overflow-hidden bg-[#FAFBFC] pt-20 pb-5 lg:pt-9 lg:pb-5">
 				<div className="mx-auto max-w-7xl px-5 sm:px-8">
-					<div className="grid items-center gap-0 lg:grid-cols-2" style={{ minHeight: '520px' }}>
+					<div className="grid items-center gap-0 lg:grid-cols-2 lg:min-h-[520px]">
 						{/* LEFT: Copy */}
 						<motion.div
 							initial={{ opacity: 0, y: 14 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.5, ease: 'easeOut' }}
-							style={{ paddingRight: 40 }}
+							className="lg:pr-10"
 						>
 							<div className="mb-5 inline-flex items-center gap-[7px] rounded-full border border-gray-200/60 bg-white px-3 py-[5px] text-xs font-medium text-gray-600">
 								<span className="sm-hero-badge-dot h-[6px] w-[6px] shrink-0 rounded-full bg-[#12b76a]" />
-								Now available for schools worldwide
+								Now available for schools nationwide
 							</div>
 
-							<h1 className="mb-3.5 text-[36px] font-medium leading-[1.12] tracking-[-0.03em] text-[#111827]">
+							<h1 className="mb-3.5 text-3xl font-medium leading-[1.12] tracking-[-0.03em] text-[#111827] sm:text-[46px]">
 								School management,<br />
 								<span
 									className="bg-gradient-to-br from-[#465fff] to-[#12b76a] bg-clip-text text-transparent"
@@ -769,7 +783,7 @@ export default function SchoolMeshLandingPage() {
 								</span>
 							</h1>
 
-							<p className="mb-7 max-w-[340px] text-[15px] leading-[1.65] text-gray-500">
+							<p className="mb-7 max-w-[340px] text-base leading-[1.65] text-gray-500 sm:text-[20px]">
 								Admissions, attendance, grades, finance, and communication — connected
 								in one platform your whole school will actually enjoy using.
 							</p>
@@ -824,10 +838,8 @@ export default function SchoolMeshLandingPage() {
 						>
 							{/* SVG mesh background */}
 							<svg
-								width="100%"
 								viewBox="0 0 340 380"
-								className="pointer-events-none absolute -top-5 z-[1]"
-								style={{ left: -20, right: -20, width: 'calc(100% + 40px)' }}
+								className="pointer-events-none absolute -top-5 z-[1] left-0 w-full"
 								aria-hidden="true"
 							>
 								<line className="sm-hero-edge" x1="170" y1="88" x2="80" y2="160" stroke="#374151" strokeWidth="0.8" />
@@ -866,7 +878,7 @@ export default function SchoolMeshLandingPage() {
 							</svg>
 
 							{/* Dashboard card */}
-							<div className="sm-hero-float-card relative z-[2] ml-5 mt-5 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.10),0_4px_16px_rgba(0,0,0,0.06)]">
+							<div className="sm-hero-float-card relative z-[2] mt-5 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.10),0_4px_16px_rgba(0,0,0,0.06)] sm:ml-5">
 								<div className="flex items-center gap-2.5 border-b border-gray-200/60 bg-gray-50 px-3.5 py-[11px]">
 									<div className="flex gap-[5px]">
 										<div className="h-2 w-2 rounded-full bg-[#FF5F57]" />
@@ -961,7 +973,7 @@ export default function SchoolMeshLandingPage() {
 							</div>
 
 							{/* Floating pills */}
-							<div className="sm-hero-float-pill1 absolute -bottom-3 -left-6 z-[3] flex items-center gap-2 rounded-[10px] border border-gray-200/60 bg-gray-100 px-3 py-2 text-[11px] shadow-[0_8px_24px_rgba(0,0,0,0.10)]">
+							<div className="sm-hero-float-pill1 absolute -bottom-3 left-2 z-[3] flex items-center gap-2 rounded-[10px] border border-gray-200/60 bg-gray-100 px-3 py-2 text-[11px] shadow-[0_8px_24px_rgba(0,0,0,0.10)] sm:-left-6 sm:left-auto">
 								<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(16,185,129,0.1)]">
 									<CheckCircle2 className="h-3.5 w-3.5 text-[#12b76a]" />
 								</div>
@@ -971,7 +983,7 @@ export default function SchoolMeshLandingPage() {
 								</div>
 							</div>
 
-							<div className="sm-hero-float-pill2 absolute -right-5 top-5 z-[3] flex items-center gap-2 rounded-[10px] border border-gray-200/60 bg-gray-100 px-3 py-2 text-[11px] shadow-[0_8px_24px_rgba(0,0,0,0.10)]">
+							<div className="sm-hero-float-pill2 absolute right-2 top-5 z-[3] flex items-center gap-2 rounded-[10px] border border-gray-200/60 bg-gray-100 px-3 py-2 text-[11px] shadow-[0_8px_24px_rgba(0,0,0,0.10)] sm:-right-5">
 								<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(70,95,255,0.1)]">
 									<CloudOff className="h-3.5 w-3.5 text-[#465fff]" />
 								</div>
