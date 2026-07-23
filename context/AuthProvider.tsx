@@ -374,6 +374,16 @@ export default function AuthProvider({
 		return <PageLoading variant="school" fullScreen={true} message="Loading..." />;
 	}
 
+	if (!currentSchool) {
+		return (
+			<PageLoading
+				variant="school"
+				fullScreen={true}
+				message="Redirecting..."
+			/>
+		);
+	}
+
 	if (isLoggingOut) {
 		return (
 			<PageLoading

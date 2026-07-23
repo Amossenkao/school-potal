@@ -5,15 +5,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Inter } from 'next/font/google';
-import {
-	AnimatePresence,
-	motion,
-	useInView,
-	type Variants,
-} from 'framer-motion';
+import { AnimatePresence, motion, useInView, type Variants } from 'framer-motion';
 import {
 	ArrowRight,
 	BarChart3,
+	FileDown,
 	BookOpen,
 	CalendarDays,
 	CloudOff,
@@ -78,11 +74,7 @@ type AnimateWhenVisibleProps = {
 	custom?: number;
 };
 
-function AnimateWhenVisible({
-	children,
-	className,
-	custom = 0,
-}: AnimateWhenVisibleProps) {
+function AnimateWhenVisible({ children, className, custom = 0 }: AnimateWhenVisibleProps) {
 	return (
 		<motion.div
 			className={className}
@@ -97,13 +89,7 @@ function AnimateWhenVisible({
 	);
 }
 
-function AnimatedCounter({
-	target,
-	suffix = '',
-}: {
-	target: number;
-	suffix?: string;
-}) {
+function AnimatedCounter({ target, suffix = '' }: { target: number; suffix?: string }) {
 	const ref = useRef<HTMLSpanElement>(null);
 	const isInView = useInView(ref, { once: true });
 	const [count, setCount] = useState(0);
@@ -143,109 +129,45 @@ const navItems = [
 ];
 
 const features = [
-	{
-		icon: FileText,
-		title: 'Admissions',
-		description:
-			'Streamline enrollment with digital applications, automated workflows, and real-time status tracking.',
-	},
-	{
-		icon: UserCheck,
-		title: 'Attendance',
-		description:
-			'Track daily attendance with instant notifications, pattern analysis, and reporting dashboards.',
-	},
-	{
-		icon: CircleDollarSign,
-		title: 'Finance',
-		description:
-			'Manage fees, invoices, payments, and financial reporting from one unified system.',
-	},
-	{
-		icon: BookOpen,
-		title: 'Report Cards',
-		description:
-			'Generate professional report cards with customizable templates and automated grade calculations.',
-	},
-	{
-		icon: MessageSquare,
-		title: 'Communication',
-		description:
-			'Connect teachers, parents, and students with built-in messaging, announcements, and notifications.',
-	},
-	{
-		icon: Users,
-		title: 'Parent Portal',
-		description:
-			'Give parents real-time access to grades, attendance, schedules, and school communications.',
-	},
-	{
-		icon: BarChart3,
-		title: 'Analytics',
-		description:
-			'Surface actionable insights across academics, operations, and student outcomes with live dashboards.',
-	},
-	{
-		icon: Sparkles,
-		title: 'AI Assistance',
-		description:
-			'Intelligent automation for grading suggestions, schedule optimization, and predictive insights.',
-	},
-	{
-		icon: CloudOff,
-		title: 'Offline Mode',
-		description:
-			'Keep working without internet. Changes sync automatically when connectivity returns.',
-	},
+	{ icon: FileText, title: 'Admissions', description: 'Streamline enrollment with digital applications, automated workflows, and real-time status tracking.' },
+	{ icon: UserCheck, title: 'Attendance', description: 'Track daily attendance with instant notifications, pattern analysis, and reporting dashboards.' },
+	{ icon: CircleDollarSign, title: 'Finance', description: 'Manage fees, invoices, payments, and financial reporting from one unified system.' },
+	{ icon: BookOpen, title: 'Report Cards', description: 'Generate professional report cards with customizable templates and automated grade calculations.' },
+	{ icon: MessageSquare, title: 'Communication', description: 'Connect teachers, parents, and students with built-in messaging, announcements, and notifications.' },
+	{ icon: Users, title: 'Parent Portal', description: 'Give parents real-time access to grades, attendance, schedules, and school communications.' },
+	{ icon: BarChart3, title: 'Analytics', description: 'Surface actionable insights across academics, operations, and student outcomes with live dashboards.' },
+	{ icon: Sparkles, title: 'AI Assistance', description: 'Intelligent automation for grading suggestions, schedule optimization, and predictive insights.' },
+	{ icon: CloudOff, title: 'Offline Mode', description: 'Keep working without internet. Changes sync automatically when connectivity returns.' },
 ];
 
 const showcaseItems = [
 	{
 		tag: 'Dashboard',
 		title: 'Everything you need, one glance away.',
-		description:
-			'A role-aware dashboard that greets every user by name, shows live insights, and adapts to whether you are an admin, teacher, or student.',
-		features: [
-			'Role-based personalized views',
-			'Real-time clock & day timeline',
-			'Performance charts & enrollment stats',
-		],
+		description: 'A role-aware dashboard that greets every user by name, shows live insights, and adapts to whether you are an admin, teacher, or student.',
+		features: ['Role-based personalized views', 'Real-time clock & day timeline', 'Performance charts & enrollment stats'],
 		color: '#465fff',
 		type: 'dashboard' as const,
 	},
 	{
 		tag: 'Attendance',
 		title: 'Mark attendance in seconds.',
-		description:
-			'Filter by class, pick a date range, and toggle each student present or absent with a single tap. Stats update live — present count, absence rate, everything.',
-		features: [
-			'Date-range calendar picker',
-			'One-tap present/absent toggles',
-			'Live attendance rate per student',
-		],
+		description: 'Filter by class, pick a date range, and toggle each student present or absent with a single tap. Stats update live — present count, absence rate, everything.',
+		features: ['Date-range calendar picker', 'One-tap present/absent toggles', 'Live attendance rate per student'],
 		color: '#12b76a',
 		type: 'attendance' as const,
 	},
 	{
 		tag: 'Report Cards',
 		title: 'Professional reports, generated instantly.',
-		description:
-			'Select a class and subject, and SchoolMesh builds a complete grade report with assessments, exam scores, averages, and class rank — ready to share or download as PDF.',
-		features: [
-			'Multi-period grade tables',
-			'Automatic average & rank',
-			'PDF generation & share links',
-		],
+		description: 'Select a class and subject, and SchoolMesh builds a complete grade report with assessments, exam scores, averages, and class rank — ready to share or download as PDF.',
+		features: ['Multi-period grade tables', 'Automatic average & rank', 'PDF generation & share links'],
 		color: '#f79009',
 		type: 'reportcard' as const,
 	},
 ];
 
-const comparisonRows: {
-	feature: string;
-	schoolMesh: boolean | 'partial';
-	traditional: boolean | 'partial';
-}[] = [
+const comparisonRows: { feature: string; schoolMesh: boolean | 'partial'; traditional: boolean | 'partial' }[] = [
 	{ feature: 'Cloud-Native', schoolMesh: true, traditional: false },
 	{ feature: 'Offline Support', schoolMesh: true, traditional: false },
 	{ feature: 'Mobile-First Design', schoolMesh: true, traditional: false },
@@ -253,11 +175,7 @@ const comparisonRows: {
 	{ feature: 'Modern Security', schoolMesh: true, traditional: 'partial' },
 	{ feature: 'Intuitive UI', schoolMesh: true, traditional: false },
 	{ feature: 'Automated Workflows', schoolMesh: true, traditional: false },
-	{
-		feature: 'Multi-Tenant Architecture',
-		schoolMesh: true,
-		traditional: false,
-	},
+	{ feature: 'Multi-Tenant Architecture', schoolMesh: true, traditional: false },
 	{ feature: 'AI-Powered Insights', schoolMesh: true, traditional: false },
 ];
 
@@ -273,24 +191,21 @@ const testimonials = [
 		name: 'Grace Toe',
 		role: 'Principal',
 		school: 'Upstairs Christian Academy',
-		quote:
-			'SchoolMesh transformed how we manage everything from attendance to report cards. Our teachers save hours every week.',
+		quote: 'SchoolMesh transformed how we manage everything from attendance to report cards. Our teachers save hours every week.',
 		avatar: 'GT',
 	},
 	{
 		name: 'Samuel Koffa',
 		role: 'School Administrator',
 		school: 'Buchanan Scholars Institute',
-		quote:
-			'The multi-tenant setup lets us manage multiple campuses from one platform. The analytics give us insights we never had before.',
+		quote: 'The multi-tenant setup lets us manage multiple campuses from one platform. The analytics give us insights we never had before.',
 		avatar: 'SK',
 	},
 	{
 		name: 'Martha Jallah',
 		role: 'Director of IT',
 		school: 'Paynesville STEM College',
-		quote:
-			'Offline capability is a game-changer. Our staff can work from anywhere and everything syncs when they are back online.',
+		quote: 'Offline capability is a game-changer. Our staff can work from anywhere and everything syncs when they are back online.',
 		avatar: 'MJ',
 	},
 ];
@@ -335,33 +250,27 @@ const pricingPlans = [
 const faqs = [
 	{
 		question: 'What is SchoolMesh?',
-		answer:
-			'SchoolMesh is a complete cloud-based school management platform that connects administrators, teachers, parents, and students in one intelligent system. It handles everything from admissions and attendance to finance and analytics.',
+		answer: 'SchoolMesh is a complete cloud-based school management platform that connects administrators, teachers, parents, and students in one intelligent system. It handles everything from admissions and attendance to finance and analytics.',
 	},
 	{
 		question: 'How does multi-tenancy work?',
-		answer:
-			'Each school gets its own isolated environment with custom branding, settings, and data. Multiple schools can share one platform instance while maintaining complete independence over their operations and information.',
+		answer: 'Each school gets its own isolated environment with custom branding, settings, and data. Multiple schools can share one platform instance while maintaining complete independence over their operations and information.',
 	},
 	{
 		question: 'Does SchoolMesh work offline?',
-		answer:
-			'Yes. SchoolMesh is designed to work without an internet connection. Teachers and administrators can continue working offline, and all changes are automatically synchronized when connectivity returns.',
+		answer: 'Yes. SchoolMesh is designed to work without an internet connection. Teachers and administrators can continue working offline, and all changes are automatically synchronized when connectivity returns.',
 	},
 	{
 		question: 'Is my school data secure?',
-		answer:
-			'Absolutely. We use industry-standard encryption, secure data isolation between tenants, role-based access controls, and regular security audits to ensure your data is always protected.',
+		answer: 'Absolutely. We use industry-standard encryption, secure data isolation between tenants, role-based access controls, and regular security audits to ensure your data is always protected.',
 	},
 	{
 		question: 'Can I try SchoolMesh for free?',
-		answer:
-			'Yes. We offer a free tier for individual schools to get started. You can explore all core features before committing to a paid plan. No credit card required.',
+		answer: 'Yes. We offer a free tier for individual schools to get started. You can explore all core features before committing to a paid plan. No credit card required.',
 	},
 	{
 		question: 'What devices does SchoolMesh support?',
-		answer:
-			'SchoolMesh works on any modern web browser, and we also offer dedicated mobile apps for iOS and Android, plus a desktop application for Windows and macOS.',
+		answer: 'SchoolMesh works on any modern web browser, and we also offer dedicated mobile apps for iOS and Android, plus a desktop application for Windows and macOS.',
 	},
 ];
 
@@ -414,7 +323,7 @@ function DashboardMockup() {
 		<div className="flex overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg shadow-gray-900/5">
 			{/* Sidebar */}
 			<div className="hidden w-48 shrink-0 border-r border-gray-100 bg-[#f9fafb] p-3 lg:block">
-				<div className="mb-4 flex items-center gap-2 rounded-lg border border-gray-100 bg-white p-2">
+					<div className="mb-4 flex items-center gap-2 rounded-lg border border-gray-100 bg-white p-2">
 					<Image
 						src="/images/SchoolMesh.png"
 						alt="SchoolMesh"
@@ -423,9 +332,7 @@ function DashboardMockup() {
 						className="h-7 w-7 rounded-md object-contain"
 					/>
 					<div>
-						<p className="text-[10px] font-bold text-[#111827]">
-							School<span className="text-[#465fff]">Mesh</span>
-						</p>
+						<p className="text-[10px] font-bold text-[#111827]">School<span className="text-[#465fff]">Mesh</span></p>
 						<p className="text-[7px] text-gray-400">Excellence in Education</p>
 					</div>
 				</div>
@@ -442,13 +349,11 @@ function DashboardMockup() {
 							{item.active && (
 								<span className="absolute inset-y-1.5 left-0 w-0.5 rounded-r-full bg-[#465fff]" />
 							)}
-							<div
-								className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border ${
-									item.active
-										? 'border-[#465fff]/20 bg-[#465fff]/10 text-[#465fff]'
-										: 'border-gray-200 bg-white text-gray-400'
-								}`}
-							>
+							<div className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border ${
+								item.active
+									? 'border-[#465fff]/20 bg-[#465fff]/10 text-[#465fff]'
+									: 'border-gray-200 bg-white text-gray-400'
+							}`}>
 								<item.icon className="h-3 w-3" />
 							</div>
 							<span className="truncate">{item.name}</span>
@@ -485,29 +390,16 @@ function DashboardMockup() {
 						<h4 className="text-sm font-extrabold text-[#111827] tracking-tight">
 							Good morning, Admin!
 						</h4>
-						<p className="mt-0.5 text-[9px] text-gray-500">
-							Handle administrative tasks and manage staff-related functions.
-						</p>
+						<p className="mt-0.5 text-[9px] text-gray-500">Handle administrative tasks and manage staff-related functions.</p>
 						{/* Day timeline */}
 						<div className="mt-2">
 							<div className="relative h-1 rounded-full bg-gray-100">
-								<div
-									className="absolute inset-y-0 left-0 rounded-full bg-[#465fff] opacity-30"
-									style={{ width: '35%' }}
-								/>
-								<div
-									className="absolute top-1/2 h-2 w-2 -translate-y-1/2 -translate-x-1/2 rounded-full bg-[#465fff] ring-2 ring-white animate-pulse"
-									style={{ left: '35%' }}
-								/>
+								<div className="absolute inset-y-0 left-0 rounded-full bg-[#465fff] opacity-30" style={{ width: '35%' }} />
+								<div className="absolute top-1/2 h-2 w-2 -translate-y-1/2 -translate-x-1/2 rounded-full bg-[#465fff] ring-2 ring-white animate-pulse" style={{ left: '35%' }} />
 							</div>
 							<div className="mt-0.5 flex justify-between">
 								{['Dawn', 'Midday', 'Dusk', 'Night'].map((s, i) => (
-									<span
-										key={s}
-										className={`text-[7px] font-medium uppercase tracking-wider ${i === 1 ? 'text-[#465fff]' : 'text-gray-400'}`}
-									>
-										{s}
-									</span>
+									<span key={s} className={`text-[7px] font-medium uppercase tracking-wider ${i === 1 ? 'text-[#465fff]' : 'text-gray-400'}`}>{s}</span>
 								))}
 							</div>
 						</div>
@@ -517,12 +409,7 @@ function DashboardMockup() {
 				<div className="px-2 pt-0.5">
 					<div className="flex gap-0.5 rounded-lg border border-gray-200 bg-white p-0.5">
 						{['Insights', 'Performance', 'Enrollment'].map((tab, i) => (
-							<div
-								key={tab}
-								className={`flex-1 rounded-md px-2 py-1 text-center text-[9px] font-semibold ${i === 0 ? 'bg-[#465fff] text-white shadow-sm' : 'text-gray-500'}`}
-							>
-								{tab}
-							</div>
+							<div key={tab} className={`flex-1 rounded-md px-2 py-1 text-center text-[9px] font-semibold ${i === 0 ? 'bg-[#465fff] text-white shadow-sm' : 'text-gray-500'}`}>{tab}</div>
 						))}
 					</div>
 				</div>
@@ -533,10 +420,7 @@ function DashboardMockup() {
 						{ label: 'Teachers', value: '186', color: '#12b76a' },
 						{ label: 'Avg Pass Rate', value: '86%', color: '#f79009' },
 					].map((s) => (
-						<div
-							key={s.label}
-							className="rounded-lg border border-gray-100 bg-white p-2"
-						>
+						<div key={s.label} className="rounded-lg border border-gray-100 bg-white p-2">
 							<p className="text-[8px] font-medium text-gray-500">{s.label}</p>
 							<p className="text-xs font-bold text-[#111827]">{s.value}</p>
 						</div>
@@ -549,51 +433,11 @@ function DashboardMockup() {
 
 function AttendanceMockup() {
 	const students = [
-		{
-			name: 'Alice Johnson',
-			mon: 'P',
-			tue: 'P',
-			wed: 'A',
-			thu: 'P',
-			fri: 'P',
-			rate: 80,
-		},
-		{
-			name: 'Bob Mensah',
-			mon: 'P',
-			tue: 'P',
-			wed: 'P',
-			thu: 'P',
-			fri: 'P',
-			rate: 100,
-		},
-		{
-			name: 'Clara Owusu',
-			mon: 'A',
-			tue: 'P',
-			wed: 'P',
-			thu: 'A',
-			fri: 'P',
-			rate: 60,
-		},
-		{
-			name: 'David Koffi',
-			mon: 'P',
-			tue: 'P',
-			wed: 'P',
-			thu: 'P',
-			fri: 'A',
-			rate: 80,
-		},
-		{
-			name: 'Emefa Adjei',
-			mon: 'P',
-			tue: 'A',
-			wed: 'P',
-			thu: 'P',
-			fri: 'P',
-			rate: 80,
-		},
+		{ name: 'Alice Johnson', mon: 'P', tue: 'P', wed: 'A', thu: 'P', fri: 'P', rate: 80 },
+		{ name: 'Bob Mensah', mon: 'P', tue: 'P', wed: 'P', thu: 'P', fri: 'P', rate: 100 },
+		{ name: 'Clara Owusu', mon: 'A', tue: 'P', wed: 'P', thu: 'A', fri: 'P', rate: 60 },
+		{ name: 'David Koffi', mon: 'P', tue: 'P', wed: 'P', thu: 'P', fri: 'A', rate: 80 },
+		{ name: 'Emefa Adjei', mon: 'P', tue: 'A', wed: 'P', thu: 'P', fri: 'P', rate: 80 },
 	];
 	const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
@@ -607,9 +451,7 @@ function AttendanceMockup() {
 					{ label: 'Class', value: 'Grade 7A' },
 				].map((f) => (
 					<div key={f.label} className="flex flex-col gap-0.5">
-						<span className="text-[8px] font-semibold uppercase tracking-wider text-gray-400">
-							{f.label}
-						</span>
+						<span className="text-[8px] font-semibold uppercase tracking-wider text-gray-400">{f.label}</span>
 						<div className="flex h-6 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 text-[10px] font-medium text-gray-700">
 							{f.value}
 							<ChevronDown className="h-2.5 w-2.5 text-gray-400" />
@@ -617,9 +459,7 @@ function AttendanceMockup() {
 					</div>
 				))}
 				<div className="flex flex-col gap-0.5">
-					<span className="text-[8px] font-semibold uppercase tracking-wider text-gray-400">
-						Date Range
-					</span>
+					<span className="text-[8px] font-semibold uppercase tracking-wider text-gray-400">Date Range</span>
 					<div className="flex h-6 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 text-[10px] font-medium text-gray-700">
 						Jun 16 – Jun 20
 						<ChevronDown className="h-2.5 w-2.5 text-gray-400" />
@@ -628,70 +468,46 @@ function AttendanceMockup() {
 			</div>
 			{/* Action strip */}
 			<div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2">
-				<span className="text-[8px] font-semibold uppercase tracking-wider text-gray-400">
-					Actions
-				</span>
-				<div className="flex items-center gap-1 rounded-full border border-[#465fff] bg-[#465fff] px-2 py-0.5 text-[9px] font-semibold text-white">
-					✏️ Take attendance
-				</div>
-				<div className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2 py-0.5 text-[9px] font-medium text-gray-600">
-					📥 Export CSV
-				</div>
+				<span className="text-[8px] font-semibold uppercase tracking-wider text-gray-400">Actions</span>
+									<div className="flex items-center gap-1 rounded-full border border-[#465fff] bg-[#465fff] px-2 py-0.5 text-[9px] font-semibold text-white">
+										✏️ Take attendance
+									</div>
+									<div className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2 py-0.5 text-[9px] font-medium text-gray-600">
+										📥 Export CSV
+									</div>
 			</div>
 			{/* Table */}
 			<div className="overflow-x-auto">
 				<table className="w-full min-w-[400px]">
 					<thead>
 						<tr className="border-b border-gray-100 bg-gray-50">
-							<th className="px-3 py-2 text-left text-[9px] font-semibold uppercase tracking-wider text-gray-500">
-								Student
-							</th>
+							<th className="px-3 py-2 text-left text-[9px] font-semibold uppercase tracking-wider text-gray-500">Student</th>
 							{days.map((d) => (
-								<th
-									key={d}
-									className="px-2 py-2 text-center text-[9px] font-semibold text-gray-500"
-								>
+								<th key={d} className="px-2 py-2 text-center text-[9px] font-semibold text-gray-500">
 									<div className="flex flex-col items-center">
 										<span>{d}</span>
-										<span className="font-bold text-gray-700">
-											{16 + days.indexOf(d)}
-										</span>
+										<span className="font-bold text-gray-700">{16 + days.indexOf(d)}</span>
 									</div>
 								</th>
 							))}
-							<th className="px-2 py-2 text-center text-[9px] font-semibold uppercase tracking-wider text-gray-500">
-								Rate
-							</th>
+							<th className="px-2 py-2 text-center text-[9px] font-semibold uppercase tracking-wider text-gray-500">Rate</th>
 						</tr>
 					</thead>
 					<tbody>
 						{students.map((s) => (
-							<tr
-								key={s.name}
-								className="border-b border-gray-50 hover:bg-gray-50/50"
-							>
-								<td className="whitespace-nowrap px-3 py-2 text-[11px] font-medium text-[#111827]">
-									{s.name}
-								</td>
+							<tr key={s.name} className="border-b border-gray-50 hover:bg-gray-50/50">
+								<td className="whitespace-nowrap px-3 py-2 text-[11px] font-medium text-[#111827]">{s.name}</td>
 								{days.map((d) => {
 									const val = s[d.toLowerCase() as keyof typeof s] as string;
 									const isP = val === 'P';
 									return (
 										<td key={d} className="px-2 py-2 text-center">
-											<span
-												className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold ${isP ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
-											>
-												{val}
-											</span>
+											<span className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold ${isP ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{val}</span>
 										</td>
 									);
 								})}
 								<td className="px-2 py-2 text-center">
-									<span
-										className={`text-[11px] font-bold tabular-nums ${s.rate >= 85 ? 'text-green-600' : s.rate >= 70 ? 'text-amber-600' : 'text-red-600'}`}
-									>
-										{s.rate}%
-									</span>
+									<span className={`text-[11px] font-bold tabular-nums ${s.rate >= 85 ? 'text-green-600' : s.rate >= 70 ? 'text-amber-600' : 'text-red-600'}`}>{s.rate}%</span>
 								</td>
 							</tr>
 						))}
@@ -710,13 +526,7 @@ function ReportCardMockup() {
 		{ subject: 'Mathematics', assessment: 42, exam: 35, average: 77, rank: 3 },
 		{ subject: 'English', assessment: 38, exam: 30, average: 68, rank: 8 },
 		{ subject: 'Science', assessment: 45, exam: 38, average: 83, rank: 1 },
-		{
-			subject: 'Social Studies',
-			assessment: 40,
-			exam: 32,
-			average: 72,
-			rank: 5,
-		},
+		{ subject: 'Social Studies', assessment: 40, exam: 32, average: 72, rank: 5 },
 		{ subject: 'French', assessment: 36, exam: 28, average: 64, rank: 12 },
 	];
 
@@ -733,13 +543,9 @@ function ReportCardMockup() {
 						className="h-6 w-6 object-contain"
 					/>
 				</div>
-				<p className="text-xs font-bold text-[#111827]">
-					Upstairs Christian Academy
-				</p>
+				<p className="text-xs font-bold text-[#111827]">Upstairs Christian Academy</p>
 				<p className="text-[9px] text-gray-500">Monrovia, Liberia</p>
-				<p className="mt-1 text-[10px] font-bold text-[#1a365d]">
-					STUDENT YEARLY REPORT CARD
-				</p>
+				<p className="mt-1 text-[10px] font-bold text-[#1a365d]">STUDENT YEARLY REPORT CARD</p>
 			</div>
 			{/* Student info */}
 			<div className="grid grid-cols-2 gap-x-4 gap-y-1 border-b border-gray-100 px-4 py-2.5">
@@ -761,40 +567,20 @@ function ReportCardMockup() {
 					<thead>
 						<tr className="border-b border-gray-200 bg-gray-50">
 							{['Subject', 'Assessment', 'Exam', 'Average', 'Rank'].map((h) => (
-								<th
-									key={h}
-									className={`px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-gray-600 ${h === 'Subject' ? 'text-left' : 'text-center'}`}
-								>
-									{h}
-								</th>
+								<th key={h} className={`px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-gray-600 ${h === 'Subject' ? 'text-left' : 'text-center'}`}>{h}</th>
 							))}
 						</tr>
 					</thead>
 					<tbody>
 						{grades.map((g, i) => (
-							<tr
-								key={g.subject}
-								className={`border-b border-gray-50 ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}
-							>
-								<td className="whitespace-nowrap px-3 py-1.5 text-[11px] font-medium text-[#111827]">
-									{g.subject}
-								</td>
-								<td className="px-3 py-1.5 text-center text-[11px] text-gray-600 tabular-nums">
-									{g.assessment}
-								</td>
-								<td className="px-3 py-1.5 text-center text-[11px] text-gray-600 tabular-nums">
-									{g.exam}
-								</td>
+							<tr key={g.subject} className={`border-b border-gray-50 ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
+								<td className="whitespace-nowrap px-3 py-1.5 text-[11px] font-medium text-[#111827]">{g.subject}</td>
+								<td className="px-3 py-1.5 text-center text-[11px] text-gray-600 tabular-nums">{g.assessment}</td>
+								<td className="px-3 py-1.5 text-center text-[11px] text-gray-600 tabular-nums">{g.exam}</td>
 								<td className="px-3 py-1.5 text-center">
-									<span
-										className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${g.average >= 80 ? 'bg-green-100 text-green-700' : g.average >= 70 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}
-									>
-										{g.average}
-									</span>
+									<span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${g.average >= 80 ? 'bg-green-100 text-green-700' : g.average >= 70 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{g.average}</span>
 								</td>
-								<td className="px-3 py-1.5 text-center text-[11px] font-semibold text-gray-600 tabular-nums">
-									#{g.rank}
-								</td>
+								<td className="px-3 py-1.5 text-center text-[11px] font-semibold text-gray-600 tabular-nums">#{g.rank}</td>
 							</tr>
 						))}
 					</tbody>
@@ -813,12 +599,8 @@ function ReportCardMockup() {
 					</div>
 				</div>
 				<div className="flex gap-1.5">
-					<div className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[9px] font-semibold text-gray-600">
-						📄 PDF
-					</div>
-					<div className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[9px] font-semibold text-gray-600">
-						🔗 Share
-					</div>
+					<div className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[9px] font-semibold text-gray-600">📄 PDF</div>
+					<div className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[9px] font-semibold text-gray-600">🔗 Share</div>
 				</div>
 			</div>
 		</div>
@@ -850,11 +632,14 @@ export default function SchoolMeshLandingPage() {
 		return () => document.removeEventListener('mousedown', handleClickOutside);
 	}, [isMobileMenuOpen]);
 
-	const handleSubmit = useCallback((e: React.FormEvent) => {
-		e.preventDefault();
-		setIsSubmitting(true);
-		window.setTimeout(() => setIsSubmitting(false), 1200);
-	}, []);
+	const handleSubmit = useCallback(
+		(e: React.FormEvent) => {
+			e.preventDefault();
+			setIsSubmitting(true);
+			window.setTimeout(() => setIsSubmitting(false), 1200);
+		},
+		[],
+	);
 
 	return (
 		<div
@@ -870,11 +655,7 @@ export default function SchoolMeshLandingPage() {
 				}`}
 			>
 				<nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
-					<Link
-						href="#home"
-						className="flex items-center gap-2.5"
-						aria-label="SchoolMesh Home"
-					>
+					<Link href="#home" className="flex items-center gap-2.5" aria-label="SchoolMesh Home">
 						<Image
 							src="/images/SchoolMesh.png"
 							alt="SchoolMesh logo"
@@ -883,9 +664,7 @@ export default function SchoolMeshLandingPage() {
 							className="h-10 w-10 rounded-lg object-contain"
 							priority
 						/>
-						<span className="text-xl font-bold tracking-tight text-[#111827]">
-							School<span className="text-[#465fff]">Mesh</span>
-						</span>
+						<span className="text-xl font-bold tracking-tight text-[#111827]">School<span className="text-[#465fff]">Mesh</span></span>
 					</Link>
 
 					<div className="hidden items-center gap-8 md:flex">
@@ -898,6 +677,12 @@ export default function SchoolMeshLandingPage() {
 								{item.label}
 							</a>
 						))}
+						<Link
+							href="/brochure"
+							className="text-sm font-medium text-gray-600 transition-colors hover:text-[#111827]"
+						>
+							Brochure
+						</Link>
 					</div>
 
 					<div className="hidden items-center gap-3 md:flex">
@@ -921,18 +706,14 @@ export default function SchoolMeshLandingPage() {
 						className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-700 md:hidden"
 						aria-label="Toggle menu"
 					>
-						{isMobileMenuOpen ? (
-							<X className="h-5 w-5" />
-						) : (
-							<Menu className="h-5 w-5" />
-						)}
+						{isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
 					</button>
 				</nav>
 
 				<AnimatePresence>
-					{isMobileMenuOpen && (
-						<motion.div
-							initial={{ opacity: 0, height: 0 }}
+				{isMobileMenuOpen && (
+					<motion.div
+						initial={{ opacity: 0, height: 0 }}
 							animate={{ opacity: 1, height: 'auto' }}
 							exit={{ opacity: 0, height: 0 }}
 							transition={{ duration: 0.25 }}
@@ -949,6 +730,13 @@ export default function SchoolMeshLandingPage() {
 										{item.label}
 									</a>
 								))}
+								<Link
+									href="/brochure"
+									onClick={() => setIsMobileMenuOpen(false)}
+									className="block rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-[#111827]"
+								>
+									Brochure
+								</Link>
 								<div className="border-t border-gray-100 pt-3 mt-3 space-y-2">
 									<Link
 										href="/superadmin/login"
@@ -972,10 +760,8 @@ export default function SchoolMeshLandingPage() {
 			</header>
 
 			<main id="home">
-				{/* ── Hero ──────────────────────────────────────── */}
-				<style
-					dangerouslySetInnerHTML={{
-						__html: `
+			{/* ── Hero ──────────────────────────────────────── */}
+			<style dangerouslySetInnerHTML={{ __html: `
 				@keyframes sm-hero-pulse { 0% { opacity:0.4; r:6; } 50% { opacity:0.1; r:13; } 100% { opacity:0.4; r:6; } }
 				@keyframes sm-hero-shimmer { 0%,100% { opacity:0.7; } 50% { opacity:1; } }
 				@keyframes sm-hero-float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-6px); } }
@@ -985,503 +771,253 @@ export default function SchoolMeshLandingPage() {
 				.sm-hero-float-pill1 { animation:sm-hero-float 3.5s 0.5s ease-in-out infinite; }
 				.sm-hero-float-pill2 { animation:sm-hero-float 3.8s 1.2s ease-in-out infinite; }
 				.sm-hero-badge-dot { animation:sm-hero-shimmer 2s ease-in-out infinite; }
-			`,
-					}}
-				/>
-				<section className="relative overflow-hidden bg-[#FAFBFC] pt-20 pb-5 lg:pt-9 lg:pb-5">
-					<div className="mx-auto max-w-7xl px-5 sm:px-8">
-						<div className="grid items-center gap-0 lg:grid-cols-2 lg:min-h-[520px]">
-							{/* LEFT: Copy */}
-							<motion.div
-								initial={{ opacity: 0, y: 14 }}
-								animate={{ opacity: 1, y: 0 }}
-								transition={{ duration: 0.5, ease: 'easeOut' }}
-								className="lg:pr-10"
+			`}} />
+			<section className="relative overflow-hidden bg-[#FAFBFC] pt-20 pb-5 lg:pt-9 lg:pb-5">
+				<div className="mx-auto max-w-7xl px-5 sm:px-8">
+					<div className="grid items-center gap-0 lg:grid-cols-2 lg:min-h-[520px]">
+						{/* LEFT: Copy */}
+						<motion.div
+							initial={{ opacity: 0, y: 14 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.5, ease: 'easeOut' }}
+							className="lg:pr-10"
+						>
+							<div className="mb-5 inline-flex items-center gap-[7px] rounded-full border border-gray-200/60 bg-white px-3 py-[5px] text-xs font-medium text-gray-600">
+								<span className="sm-hero-badge-dot h-[6px] w-[6px] shrink-0 rounded-full bg-[#12b76a]" />
+								Now available for schools nationwide
+							</div>
+
+							<h1 className="mb-3.5 text-3xl font-medium leading-[1.12] tracking-[-0.03em] text-[#111827] sm:text-[46px]">
+								School management,<br />
+								<span
+									className="bg-gradient-to-br from-[#465fff] to-[#12b76a] bg-clip-text text-transparent"
+									style={{ WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
+								>
+									finally effortless.
+								</span>
+							</h1>
+
+							<p className="mb-7 max-w-[340px] text-base leading-[1.65] text-gray-500 sm:text-[20px]">
+								Admissions, attendance, grades, finance, and communication — connected
+								in one platform your whole school will actually enjoy using.
+							</p>
+
+							<div className="mb-8 flex flex-wrap items-center gap-2.5">
+								<a
+									href="#pricing"
+									className="inline-flex items-center gap-1.5 rounded-full bg-[#465fff] px-5 py-2.5 text-[13px] font-medium text-white transition-all hover:opacity-[0.88] hover:-translate-y-px"
+								>
+									Start free
+									<ArrowRight className="h-[13px] w-[13px]" />
+								</a>
+								<a
+									href="#contact"
+									className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-transparent px-[18px] py-2.5 text-[13px] font-medium text-[#111827] transition-all hover:bg-gray-50 hover:-translate-y-px"
+								>
+									<Play className="h-3 w-3" />
+									Book a demo
+								</a>
+								<Link
+									href="/brochure"
+									className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-transparent px-[18px] py-2.5 text-[13px] font-medium text-[#111827] transition-all hover:bg-gray-50 hover:-translate-y-px"
+								>
+									<FileDown className="h-3 w-3" />
+									Brochure
+								</Link>
+							</div>
+
+							<div className="flex items-center gap-2.5 text-xs text-gray-400">
+								<div className="flex">
+									{[
+										{ initials: 'JS', bg: '#465fff' },
+										{ initials: 'AM', bg: '#12b76a' },
+										{ initials: 'KO', bg: '#f79009' },
+										{ initials: 'PL', bg: '#8b5cf6' },
+										{ initials: 'NW', bg: '#ef4444' },
+									].map((av, i) => (
+										<div
+											key={av.initials}
+											className="flex h-[26px] w-[26px] items-center justify-center rounded-full border-[1.5px] border-[#FAFBFC] text-[9px] font-medium text-white"
+											style={{ background: av.bg, marginLeft: i === 0 ? 0 : -7 }}
+										>
+											{av.initials}
+										</div>
+									))}
+								</div>
+								<span>
+									Trusted by <span className="font-medium text-[#111827]">&nbsp;250+ schools&nbsp;</span> across Africa
+								</span>
+							</div>
+						</motion.div>
+
+						{/* RIGHT: Illustration + Dashboard */}
+						<motion.div
+							initial={{ opacity: 0, y: 14 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.6, delay: 0.1, ease: 'easeOut' }}
+							className="relative"
+						>
+							{/* SVG mesh background */}
+							<svg
+								viewBox="0 0 340 380"
+								className="pointer-events-none absolute -top-5 z-[1] left-0 w-full"
+								aria-hidden="true"
 							>
-								<div className="mb-5 inline-flex items-center gap-[7px] rounded-full border border-gray-200/60 bg-white px-3 py-[5px] text-xs font-medium text-gray-600">
-									<span className="sm-hero-badge-dot h-[6px] w-[6px] shrink-0 rounded-full bg-[#12b76a]" />
-									Now available for schools nationwide
+								<line className="sm-hero-edge" x1="170" y1="88" x2="80" y2="160" stroke="#374151" strokeWidth="0.8" />
+								<line className="sm-hero-edge" x1="170" y1="88" x2="260" y2="155" stroke="#374151" strokeWidth="0.8" style={{ animationDelay: '0.4s' }} />
+								<line className="sm-hero-edge" x1="80" y1="160" x2="50" y2="265" stroke="#374151" strokeWidth="0.6" style={{ animationDelay: '0.8s' }} />
+								<line className="sm-hero-edge" x1="260" y1="155" x2="295" y2="268" stroke="#374151" strokeWidth="0.6" style={{ animationDelay: '1.2s' }} />
+								<line className="sm-hero-edge" x1="80" y1="160" x2="295" y2="268" stroke="#e5e7eb" strokeWidth="0.5" style={{ animationDelay: '1.6s' }} />
+								<line className="sm-hero-edge" x1="260" y1="155" x2="50" y2="265" stroke="#e5e7eb" strokeWidth="0.5" style={{ animationDelay: '2.0s' }} />
+								<line className="sm-hero-edge" x1="50" y1="265" x2="295" y2="268" stroke="#374151" strokeWidth="0.7" style={{ animationDelay: '0.6s' }} />
+
+								<circle cx="170" cy="88" r="6" fill="#465fff" opacity="0.18" style={{ animation: 'sm-hero-pulse 2.4s ease-in-out infinite' }} />
+								<circle cx="80" cy="160" r="6" fill="#8b5cf6" opacity="0.15" style={{ animation: 'sm-hero-pulse 2.8s 0.3s ease-in-out infinite' }} />
+								<circle cx="260" cy="155" r="6" fill="#12b76a" opacity="0.15" style={{ animation: 'sm-hero-pulse 3.0s 0.6s ease-in-out infinite' }} />
+								<circle cx="50" cy="265" r="6" fill="#f79009" opacity="0.15" style={{ animation: 'sm-hero-pulse 2.6s 0.9s ease-in-out infinite' }} />
+								<circle cx="295" cy="268" r="6" fill="#465fff" opacity="0.15" style={{ animation: 'sm-hero-pulse 2.9s 1.1s ease-in-out infinite' }} />
+
+								<circle cx="170" cy="88" r="20" fill="#465fff" opacity="0.10" />
+								<circle cx="170" cy="88" r="13" fill="#465fff" />
+								<text x="170" y="92" textAnchor="middle" fontSize="10" fontWeight="500" fill="#fff" fontFamily="sans-serif">HUB</text>
+
+								<circle cx="80" cy="160" r="16" fill="#8b5cf6" opacity="0.12" />
+								<circle cx="80" cy="160" r="10" fill="#8b5cf6" />
+								<text x="80" y="164" textAnchor="middle" fontSize="8" fontWeight="500" fill="#fff" fontFamily="sans-serif">ADM</text>
+
+								<circle cx="260" cy="155" r="16" fill="#12b76a" opacity="0.12" />
+								<circle cx="260" cy="155" r="10" fill="#12b76a" />
+								<text x="260" y="159" textAnchor="middle" fontSize="8" fontWeight="500" fill="#fff" fontFamily="sans-serif">TCH</text>
+
+								<circle cx="50" cy="265" r="14" fill="#f79009" opacity="0.12" />
+								<circle cx="50" cy="265" r="9" fill="#f79009" />
+								<text x="50" y="269" textAnchor="middle" fontSize="7" fontWeight="500" fill="#fff" fontFamily="sans-serif">PRN</text>
+
+								<circle cx="295" cy="268" r="14" fill="#465fff" opacity="0.12" />
+								<circle cx="295" cy="268" r="9" fill="#465fff" />
+								<text x="295" y="272" textAnchor="middle" fontSize="7" fontWeight="500" fill="#fff" fontFamily="sans-serif">STU</text>
+							</svg>
+
+							{/* Dashboard card */}
+							<div className="sm-hero-float-card relative z-[2] mt-5 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.10),0_4px_16px_rgba(0,0,0,0.06)] sm:ml-5">
+								<div className="flex items-center gap-2.5 border-b border-gray-200/60 bg-gray-50 px-3.5 py-[11px]">
+									<div className="flex gap-[5px]">
+										<div className="h-2 w-2 rounded-full bg-[#FF5F57]" />
+										<div className="h-2 w-2 rounded-full bg-[#FEBC2E]" />
+										<div className="h-2 w-2 rounded-full bg-[#28C840]" />
+									</div>
+									<div className="flex flex-1 items-center gap-[5px] rounded-[5px] border border-gray-200/60 bg-gray-100 px-2.5 py-1 text-[10px] text-gray-400">
+										<Lock className="h-[10px] w-[10px] text-[#12b76a]" />
+										app.schoolmesh.io
+									</div>
 								</div>
 
-								<h1 className="mb-3.5 text-3xl font-medium leading-[1.12] tracking-[-0.03em] text-[#111827] sm:text-[46px]">
-									School management,
-									<br />
-									<span
-										className="bg-gradient-to-br from-[#465fff] to-[#12b76a] bg-clip-text text-transparent"
-										style={{
-											WebkitBackgroundClip: 'text',
-											WebkitTextFillColor: 'transparent',
-										}}
-									>
-										finally effortless.
-									</span>
-								</h1>
-
-								<p className="mb-7 max-w-[340px] text-base leading-[1.65] text-gray-500 sm:text-[20px]">
-									Admissions, attendance, grades, finance, and communication —
-									connected in one platform your whole school will actually
-									enjoy using.
-								</p>
-
-								<div className="mb-8 flex flex-wrap items-center gap-2.5">
-									<a
-										href="#pricing"
-										className="inline-flex items-center gap-1.5 rounded-full bg-[#465fff] px-5 py-2.5 text-[13px] font-medium text-white transition-all hover:opacity-[0.88] hover:-translate-y-px"
-									>
-										Start free
-										<ArrowRight className="h-[13px] w-[13px]" />
-									</a>
-									<a
-										href="#contact"
-										className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-transparent px-[18px] py-2.5 text-[13px] font-medium text-[#111827] transition-all hover:bg-gray-50 hover:-translate-y-px"
-									>
-										<Play className="h-3 w-3" />
-										Book a demo
-									</a>
-								</div>
-
-								<div className="flex items-center gap-2.5 text-xs text-gray-400">
-									<div className="flex">
+								<div className="grid" style={{ gridTemplateColumns: '150px 1fr' }}>
+									<div className="bg-[#111827] py-3">
+										<div className="mb-2 flex items-center gap-[7px] border-b border-white/[0.08] px-3 pb-3">
+											<div className="flex h-[18px] w-[18px] items-center justify-center rounded bg-[#465fff] text-[7px] font-bold text-white">SM</div>
+											<span className="text-[11px] font-bold tracking-[-0.02em] text-white">School<span className="text-[#465fff]">Mesh</span></span>
+										</div>
 										{[
-											{ initials: 'JS', bg: '#465fff' },
-											{ initials: 'AM', bg: '#12b76a' },
-											{ initials: 'KO', bg: '#f79009' },
-											{ initials: 'PL', bg: '#8b5cf6' },
-											{ initials: 'NW', bg: '#ef4444' },
-										].map((av, i) => (
+											{ label: 'Dashboard', icon: LayoutDashboard, active: true },
+											{ label: 'Students', icon: Users },
+											{ label: 'Grading', icon: ClipboardList },
+											{ label: 'Attendance', icon: CalendarDays },
+											{ label: 'Analytics', icon: BarChart3 },
+											{ label: 'Settings', icon: Settings },
+										].map((item) => (
 											<div
-												key={av.initials}
-												className="flex h-[26px] w-[26px] items-center justify-center rounded-full border-[1.5px] border-[#FAFBFC] text-[9px] font-medium text-white"
-												style={{
-													background: av.bg,
-													marginLeft: i === 0 ? 0 : -7,
-												}}
+												key={item.label}
+												className={`flex items-center gap-[7px] px-3 py-[5px] text-[10px] ${
+													item.active
+														? 'bg-[#465fff]/30 text-white'
+														: 'text-white/45'
+												}`}
+												style={item.active ? { borderLeft: '2px solid #465fff' } : undefined}
 											>
-												{av.initials}
+												<item.icon className="h-[11px] w-[11px] opacity-80" />
+												{item.label}
 											</div>
 										))}
 									</div>
-									<span>
-										Trusted by{' '}
-										<span className="font-medium text-[#111827]">
-											&nbsp;250+ schools&nbsp;
-										</span>{' '}
-										across Africa
-									</span>
-								</div>
-							</motion.div>
 
-							{/* RIGHT: Illustration + Dashboard */}
-							<motion.div
-								initial={{ opacity: 0, y: 14 }}
-								animate={{ opacity: 1, y: 0 }}
-								transition={{ duration: 0.6, delay: 0.1, ease: 'easeOut' }}
-								className="relative"
-							>
-								{/* SVG mesh background */}
-								<svg
-									viewBox="0 0 340 380"
-									className="pointer-events-none absolute -top-5 z-[1] left-0 w-full"
-									aria-hidden="true"
-								>
-									<line
-										className="sm-hero-edge"
-										x1="170"
-										y1="88"
-										x2="80"
-										y2="160"
-										stroke="#374151"
-										strokeWidth="0.8"
-									/>
-									<line
-										className="sm-hero-edge"
-										x1="170"
-										y1="88"
-										x2="260"
-										y2="155"
-										stroke="#374151"
-										strokeWidth="0.8"
-										style={{ animationDelay: '0.4s' }}
-									/>
-									<line
-										className="sm-hero-edge"
-										x1="80"
-										y1="160"
-										x2="50"
-										y2="265"
-										stroke="#374151"
-										strokeWidth="0.6"
-										style={{ animationDelay: '0.8s' }}
-									/>
-									<line
-										className="sm-hero-edge"
-										x1="260"
-										y1="155"
-										x2="295"
-										y2="268"
-										stroke="#374151"
-										strokeWidth="0.6"
-										style={{ animationDelay: '1.2s' }}
-									/>
-									<line
-										className="sm-hero-edge"
-										x1="80"
-										y1="160"
-										x2="295"
-										y2="268"
-										stroke="#e5e7eb"
-										strokeWidth="0.5"
-										style={{ animationDelay: '1.6s' }}
-									/>
-									<line
-										className="sm-hero-edge"
-										x1="260"
-										y1="155"
-										x2="50"
-										y2="265"
-										stroke="#e5e7eb"
-										strokeWidth="0.5"
-										style={{ animationDelay: '2.0s' }}
-									/>
-									<line
-										className="sm-hero-edge"
-										x1="50"
-										y1="265"
-										x2="295"
-										y2="268"
-										stroke="#374151"
-										strokeWidth="0.7"
-										style={{ animationDelay: '0.6s' }}
-									/>
-
-									<circle
-										cx="170"
-										cy="88"
-										r="6"
-										fill="#465fff"
-										opacity="0.18"
-										style={{
-											animation: 'sm-hero-pulse 2.4s ease-in-out infinite',
-										}}
-									/>
-									<circle
-										cx="80"
-										cy="160"
-										r="6"
-										fill="#8b5cf6"
-										opacity="0.15"
-										style={{
-											animation: 'sm-hero-pulse 2.8s 0.3s ease-in-out infinite',
-										}}
-									/>
-									<circle
-										cx="260"
-										cy="155"
-										r="6"
-										fill="#12b76a"
-										opacity="0.15"
-										style={{
-											animation: 'sm-hero-pulse 3.0s 0.6s ease-in-out infinite',
-										}}
-									/>
-									<circle
-										cx="50"
-										cy="265"
-										r="6"
-										fill="#f79009"
-										opacity="0.15"
-										style={{
-											animation: 'sm-hero-pulse 2.6s 0.9s ease-in-out infinite',
-										}}
-									/>
-									<circle
-										cx="295"
-										cy="268"
-										r="6"
-										fill="#465fff"
-										opacity="0.15"
-										style={{
-											animation: 'sm-hero-pulse 2.9s 1.1s ease-in-out infinite',
-										}}
-									/>
-
-									<circle
-										cx="170"
-										cy="88"
-										r="20"
-										fill="#465fff"
-										opacity="0.10"
-									/>
-									<circle cx="170" cy="88" r="13" fill="#465fff" />
-									<text
-										x="170"
-										y="92"
-										textAnchor="middle"
-										fontSize="10"
-										fontWeight="500"
-										fill="#fff"
-										fontFamily="sans-serif"
-									>
-										HUB
-									</text>
-
-									<circle
-										cx="80"
-										cy="160"
-										r="16"
-										fill="#8b5cf6"
-										opacity="0.12"
-									/>
-									<circle cx="80" cy="160" r="10" fill="#8b5cf6" />
-									<text
-										x="80"
-										y="164"
-										textAnchor="middle"
-										fontSize="8"
-										fontWeight="500"
-										fill="#fff"
-										fontFamily="sans-serif"
-									>
-										ADM
-									</text>
-
-									<circle
-										cx="260"
-										cy="155"
-										r="16"
-										fill="#12b76a"
-										opacity="0.12"
-									/>
-									<circle cx="260" cy="155" r="10" fill="#12b76a" />
-									<text
-										x="260"
-										y="159"
-										textAnchor="middle"
-										fontSize="8"
-										fontWeight="500"
-										fill="#fff"
-										fontFamily="sans-serif"
-									>
-										TCH
-									</text>
-
-									<circle
-										cx="50"
-										cy="265"
-										r="14"
-										fill="#f79009"
-										opacity="0.12"
-									/>
-									<circle cx="50" cy="265" r="9" fill="#f79009" />
-									<text
-										x="50"
-										y="269"
-										textAnchor="middle"
-										fontSize="7"
-										fontWeight="500"
-										fill="#fff"
-										fontFamily="sans-serif"
-									>
-										PRN
-									</text>
-
-									<circle
-										cx="295"
-										cy="268"
-										r="14"
-										fill="#465fff"
-										opacity="0.12"
-									/>
-									<circle cx="295" cy="268" r="9" fill="#465fff" />
-									<text
-										x="295"
-										y="272"
-										textAnchor="middle"
-										fontSize="7"
-										fontWeight="500"
-										fill="#fff"
-										fontFamily="sans-serif"
-									>
-										STU
-									</text>
-								</svg>
-
-								{/* Dashboard card */}
-								<div className="sm-hero-float-card relative z-[2] mt-5 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.10),0_4px_16px_rgba(0,0,0,0.06)] sm:ml-5">
-									<div className="flex items-center gap-2.5 border-b border-gray-200/60 bg-gray-50 px-3.5 py-[11px]">
-										<div className="flex gap-[5px]">
-											<div className="h-2 w-2 rounded-full bg-[#FF5F57]" />
-											<div className="h-2 w-2 rounded-full bg-[#FEBC2E]" />
-											<div className="h-2 w-2 rounded-full bg-[#28C840]" />
-										</div>
-										<div className="flex flex-1 items-center gap-[5px] rounded-[5px] border border-gray-200/60 bg-gray-100 px-2.5 py-1 text-[10px] text-gray-400">
-											<Lock className="h-[10px] w-[10px] text-[#12b76a]" />
-											app.schoolmesh.io
-										</div>
-									</div>
-
-									<div
-										className="grid"
-										style={{ gridTemplateColumns: '150px 1fr' }}
-									>
-										<div className="bg-[#111827] py-3">
-											<div className="mb-2 flex items-center gap-[7px] border-b border-white/[0.08] px-3 pb-3">
-												<div className="flex h-[18px] w-[18px] items-center justify-center rounded bg-[#465fff] text-[7px] font-bold text-white">
-													SM
+									<div className="bg-white p-3">
+										<div className="relative mb-2.5 overflow-hidden rounded-[10px] border border-gray-200/60 bg-gray-100 p-3">
+											<div className="absolute -top-5 -right-5 h-20 w-20 rounded-full bg-[radial-gradient(circle,rgba(139,92,246,0.2)_0%,transparent_70%)]" />
+											<div className="relative z-10">
+												<div className="mb-1.5 inline-flex items-center gap-1 rounded-full border border-purple-300/40 bg-purple-500/10 px-[7px] py-[2px] text-[9px] font-medium text-purple-700">
+													<ShieldCheck className="h-[9px] w-[9px]" />
+													System admin
 												</div>
-												<span className="text-[11px] font-bold tracking-[-0.02em] text-white">
-													School<span className="text-[#465fff]">Mesh</span>
-												</span>
+												<div className="text-[13px] font-medium text-[#111827]">Good morning, Admin ✨</div>
+												<div className="text-[10px] text-gray-400">Full access · Academic year 2025–2026</div>
+												<div className="relative mt-2.5 overflow-visible">
+													<div className="h-[3px] rounded-[2px] bg-gray-200">
+														<div className="h-full rounded-[2px] bg-purple-500 opacity-40" style={{ width: '38%' }} />
+													</div>
+													<div
+														className="absolute top-1/2 h-[7px] w-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-purple-500"
+														style={{ left: '38%', border: '1.5px solid #f3f4f6' }}
+													/>
+												</div>
 											</div>
-											{[
-												{
-													label: 'Dashboard',
-													icon: LayoutDashboard,
-													active: true,
-												},
-												{ label: 'Students', icon: Users },
-												{ label: 'Grading', icon: ClipboardList },
-												{ label: 'Attendance', icon: CalendarDays },
-												{ label: 'Analytics', icon: BarChart3 },
-												{ label: 'Settings', icon: Settings },
-											].map((item) => (
+										</div>
+
+										<div className="mb-2 flex gap-[3px] rounded-[7px] border border-gray-200/60 bg-gray-50 p-[2px]">
+											{['Insights', 'Performance', 'Enrollment'].map((tab, i) => (
 												<div
-													key={item.label}
-													className={`flex items-center gap-[7px] px-3 py-[5px] text-[10px] ${
-														item.active
-															? 'bg-[#465fff]/30 text-white'
-															: 'text-white/45'
+													key={tab}
+													className={`flex-1 rounded-[5px] py-1 text-center text-[10px] font-medium ${
+														i === 0 ? 'border border-gray-200/60 bg-gray-100 text-[#465fff]' : 'text-gray-400'
 													}`}
-													style={
-														item.active
-															? { borderLeft: '2px solid #465fff' }
-															: undefined
-													}
 												>
-													<item.icon className="h-[11px] w-[11px] opacity-80" />
-													{item.label}
+													{tab}
 												</div>
 											))}
 										</div>
 
-										<div className="bg-white p-3">
-											<div className="relative mb-2.5 overflow-hidden rounded-[10px] border border-gray-200/60 bg-gray-100 p-3">
-												<div className="absolute -top-5 -right-5 h-20 w-20 rounded-full bg-[radial-gradient(circle,rgba(139,92,246,0.2)_0%,transparent_70%)]" />
-												<div className="relative z-10">
-													<div className="mb-1.5 inline-flex items-center gap-1 rounded-full border border-purple-300/40 bg-purple-500/10 px-[7px] py-[2px] text-[9px] font-medium text-purple-700">
-														<ShieldCheck className="h-[9px] w-[9px]" />
-														System admin
-													</div>
-													<div className="text-[13px] font-medium text-[#111827]">
-														Good morning, Admin ✨
-													</div>
-													<div className="text-[10px] text-gray-400">
-														Full access · Academic year 2025–2026
-													</div>
-													<div className="relative mt-2.5 overflow-visible">
-														<div className="h-[3px] rounded-[2px] bg-gray-200">
-															<div
-																className="h-full rounded-[2px] bg-purple-500 opacity-40"
-																style={{ width: '38%' }}
-															/>
-														</div>
-														<div
-															className="absolute top-1/2 h-[7px] w-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-purple-500"
-															style={{
-																left: '38%',
-																border: '1.5px solid #f3f4f6',
-															}}
-														/>
-													</div>
+										<div className="grid grid-cols-2 gap-1.5">
+											{[
+												{ label: 'Students', value: '2,847', color: '#465fff' },
+												{ label: 'Teachers', value: '186', color: '#12b76a' },
+												{ label: 'Avg grade', value: '78.4', color: '#f79009' },
+												{ label: 'Pass rate', value: '86%', color: '#111827' },
+											].map((stat) => (
+												<div key={stat.label} className="rounded-[7px] border border-gray-200/60 bg-gray-100 p-2">
+													<div className="text-[9px] text-gray-400">{stat.label}</div>
+													<div className="text-base font-medium leading-none" style={{ color: stat.color }}>{stat.value}</div>
 												</div>
-											</div>
-
-											<div className="mb-2 flex gap-[3px] rounded-[7px] border border-gray-200/60 bg-gray-50 p-[2px]">
-												{['Insights', 'Performance', 'Enrollment'].map(
-													(tab, i) => (
-														<div
-															key={tab}
-															className={`flex-1 rounded-[5px] py-1 text-center text-[10px] font-medium ${
-																i === 0
-																	? 'border border-gray-200/60 bg-gray-100 text-[#465fff]'
-																	: 'text-gray-400'
-															}`}
-														>
-															{tab}
-														</div>
-													),
-												)}
-											</div>
-
-											<div className="grid grid-cols-2 gap-1.5">
-												{[
-													{
-														label: 'Students',
-														value: '2,847',
-														color: '#465fff',
-													},
-													{ label: 'Teachers', value: '186', color: '#12b76a' },
-													{
-														label: 'Avg grade',
-														value: '78.4',
-														color: '#f79009',
-													},
-													{
-														label: 'Pass rate',
-														value: '86%',
-														color: '#111827',
-													},
-												].map((stat) => (
-													<div
-														key={stat.label}
-														className="rounded-[7px] border border-gray-200/60 bg-gray-100 p-2"
-													>
-														<div className="text-[9px] text-gray-400">
-															{stat.label}
-														</div>
-														<div
-															className="text-base font-medium leading-none"
-															style={{ color: stat.color }}
-														>
-															{stat.value}
-														</div>
-													</div>
-												))}
-											</div>
+											))}
 										</div>
 									</div>
 								</div>
+							</div>
 
-								{/* Floating pills */}
-								<div className="sm-hero-float-pill1 absolute -bottom-3 left-2 z-[3] flex items-center gap-2 rounded-[10px] border border-gray-200/60 bg-gray-100 px-3 py-2 text-[11px] shadow-[0_8px_24px_rgba(0,0,0,0.10)] sm:-left-6 sm:left-auto">
-									<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(16,185,129,0.1)]">
-										<CheckCircle2 className="h-3.5 w-3.5 text-[#12b76a]" />
-									</div>
-									<div>
-										<div className="font-medium text-[#111827]">
-											Report cards sent
-										</div>
-										<div className="text-[10px] text-gray-400">
-											842 students · 2 min ago
-										</div>
-									</div>
+							{/* Floating pills */}
+							<div className="sm-hero-float-pill1 absolute -bottom-3 left-2 z-[3] flex items-center gap-2 rounded-[10px] border border-gray-200/60 bg-gray-100 px-3 py-2 text-[11px] shadow-[0_8px_24px_rgba(0,0,0,0.10)] sm:-left-6 sm:left-auto">
+								<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(16,185,129,0.1)]">
+									<CheckCircle2 className="h-3.5 w-3.5 text-[#12b76a]" />
 								</div>
+								<div>
+									<div className="font-medium text-[#111827]">Report cards sent</div>
+									<div className="text-[10px] text-gray-400">842 students · 2 min ago</div>
+								</div>
+							</div>
 
-								<div className="sm-hero-float-pill2 absolute right-2 top-5 z-[3] flex items-center gap-2 rounded-[10px] border border-gray-200/60 bg-gray-100 px-3 py-2 text-[11px] shadow-[0_8px_24px_rgba(0,0,0,0.10)] sm:-right-5">
-									<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(70,95,255,0.1)]">
-										<CloudOff className="h-3.5 w-3.5 text-[#465fff]" />
-									</div>
-									<div>
-										<div className="font-medium text-[#111827]">
-											Offline sync complete
-										</div>
-										<div className="text-[10px] text-gray-400">Just now</div>
-									</div>
+							<div className="sm-hero-float-pill2 absolute right-2 top-5 z-[3] flex items-center gap-2 rounded-[10px] border border-gray-200/60 bg-gray-100 px-3 py-2 text-[11px] shadow-[0_8px_24px_rgba(0,0,0,0.10)] sm:-right-5">
+								<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(70,95,255,0.1)]">
+									<CloudOff className="h-3.5 w-3.5 text-[#465fff]" />
 								</div>
-							</motion.div>
-						</div>
+								<div>
+									<div className="font-medium text-[#111827]">Offline sync complete</div>
+									<div className="text-[10px] text-gray-400">Just now</div>
+								</div>
+							</div>
+						</motion.div>
 					</div>
-				</section>
+				</div>
+			</section>
+
 
 				{/* ── Trust Section ──────────────────────────────── */}
 				<section className="border-y border-gray-100 bg-white py-14">
@@ -1493,25 +1029,16 @@ export default function SchoolMeshLandingPage() {
 						</AnimateWhenVisible>
 						<AnimateWhenVisible custom={1}>
 							<div className="mt-8 flex flex-wrap items-center justify-center gap-x-12 gap-y-6">
-								{[
-									'Upstairs Christian Academy',
-									'Buchanan Scholars',
-									'Paynesville STEM',
-									'Kakata Future Leaders',
-									'Harper Academy',
-								].map((name) => (
-									<div
-										key={name}
-										className="flex items-center gap-2 text-gray-300"
-									>
-										<div className="h-8 w-8 rounded-lg bg-gray-100 flex items-center justify-center">
-											<GraduationCap className="h-4 w-4 text-gray-400" />
+								{['Upstairs Christian Academy', 'Buchanan Scholars', 'Paynesville STEM', 'Kakata Future Leaders', 'Harper Academy'].map(
+									(name) => (
+										<div key={name} className="flex items-center gap-2 text-gray-300">
+											<div className="h-8 w-8 rounded-lg bg-gray-100 flex items-center justify-center">
+												<GraduationCap className="h-4 w-4 text-gray-400" />
+											</div>
+											<span className="text-sm font-semibold text-gray-400 whitespace-nowrap">{name}</span>
 										</div>
-										<span className="text-sm font-semibold text-gray-400 whitespace-nowrap">
-											{name}
-										</span>
-									</div>
-								))}
+									),
+								)}
 							</div>
 						</AnimateWhenVisible>
 					</div>
@@ -1528,8 +1055,8 @@ export default function SchoolMeshLandingPage() {
 								Everything your school needs.
 							</h2>
 							<p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
-								Purpose-built modules that cover every aspect of school
-								management, from admissions to analytics.
+								Purpose-built modules that cover every aspect of school management, from
+								admissions to analytics.
 							</p>
 						</AnimateWhenVisible>
 
@@ -1552,12 +1079,8 @@ export default function SchoolMeshLandingPage() {
 										<div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#465fff]/10 text-[#465fff] transition-colors group-hover:bg-[#465fff] group-hover:text-white">
 											<Icon className="h-5 w-5" />
 										</div>
-										<h3 className="text-lg font-semibold text-[#111827]">
-											{feature.title}
-										</h3>
-										<p className="mt-2 text-sm leading-relaxed text-gray-500">
-											{feature.description}
-										</p>
+										<h3 className="text-lg font-semibold text-[#111827]">{feature.title}</h3>
+										<p className="mt-2 text-sm leading-relaxed text-gray-500">{feature.description}</p>
 									</motion.div>
 								);
 							})}
@@ -1576,8 +1099,8 @@ export default function SchoolMeshLandingPage() {
 								Built around real workflows.
 							</h2>
 							<p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
-								Every feature is designed around how schools actually operate —
-								not how software expects them to.
+								Every feature is designed around how schools actually operate — not how
+								software expects them to.
 							</p>
 						</AnimateWhenVisible>
 
@@ -1612,10 +1135,7 @@ export default function SchoolMeshLandingPage() {
 											</p>
 											<ul className="mt-6 space-y-3">
 												{item.features.map((f) => (
-													<li
-														key={f}
-														className="flex items-center gap-3 text-gray-600"
-													>
+													<li key={f} className="flex items-center gap-3 text-gray-600">
 														<CheckCircle2
 															className="h-5 w-5 shrink-0"
 															style={{ color: item.color }}
@@ -1643,9 +1163,9 @@ export default function SchoolMeshLandingPage() {
 								Purpose-built for modern schools.
 							</h2>
 							<p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
-								SchoolMesh goes beyond basic management with features designed
-								to protect integrity, strengthen family connections, and keep
-								your school running from anywhere.
+								SchoolMesh goes beyond basic management with features designed to protect
+								integrity, strengthen family connections, and keep your school running
+								from anywhere.
 							</p>
 						</AnimateWhenVisible>
 
@@ -1658,13 +1178,10 @@ export default function SchoolMeshLandingPage() {
 										<div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#465fff]/10 text-[#465fff]">
 											<Share2 className="h-7 w-7" />
 										</div>
-										<h3 className="text-lg font-bold text-[#111827]">
-											Digital Report Sharing
-										</h3>
+										<h3 className="text-lg font-bold text-[#111827]">Digital Report Sharing</h3>
 										<p className="mt-3 text-sm text-gray-500 leading-relaxed">
-											Students share reports digitally with parents or sponsors
-											— instantly, from any device, anywhere in the world. No
-											printing required.
+											Students share reports digitally with parents or sponsors — instantly,
+											from any device, anywhere in the world. No printing required.
 										</p>
 										<ul className="mt-5 space-y-2">
 											{[
@@ -1672,10 +1189,7 @@ export default function SchoolMeshLandingPage() {
 												'Parents receive reports on their phone',
 												'Works across schools and academic years',
 											].map((f) => (
-												<li
-													key={f}
-													className="flex items-start gap-2 text-sm text-gray-600"
-												>
+												<li key={f} className="flex items-start gap-2 text-sm text-gray-600">
 													<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#465fff]" />
 													{f}
 												</li>
@@ -1693,13 +1207,11 @@ export default function SchoolMeshLandingPage() {
 										<div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#12b76a]/10 text-[#12b76a]">
 											<QrCode className="h-7 w-7" />
 										</div>
-										<h3 className="text-lg font-bold text-[#111827]">
-											QR Code Security
-										</h3>
+										<h3 className="text-lg font-bold text-[#111827]">QR Code Security</h3>
 										<p className="mt-3 text-sm text-gray-500 leading-relaxed">
-											Every report includes a unique QR code anyone can scan to
-											verify its authenticity — protecting against forgery and
-											giving institutions complete confidence.
+											Every report includes a unique QR code anyone can scan to verify
+											its authenticity — protecting against forgery and giving institutions
+											complete confidence.
 										</p>
 										<ul className="mt-5 space-y-2">
 											{[
@@ -1707,10 +1219,7 @@ export default function SchoolMeshLandingPage() {
 												'Scan to verify document authenticity',
 												'Trusted by institutions worldwide',
 											].map((f) => (
-												<li
-													key={f}
-													className="flex items-start gap-2 text-sm text-gray-600"
-												>
+												<li key={f} className="flex items-start gap-2 text-sm text-gray-600">
 													<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#12b76a]" />
 													{f}
 												</li>
@@ -1728,13 +1237,10 @@ export default function SchoolMeshLandingPage() {
 										<div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f79009]/10 text-[#f79009]">
 											<CloudOff className="h-7 w-7" />
 										</div>
-										<h3 className="text-lg font-bold text-[#111827]">
-											Works Offline
-										</h3>
+										<h3 className="text-lg font-bold text-[#111827]">Works Offline</h3>
 										<p className="mt-3 text-sm text-gray-500 leading-relaxed">
-											No internet? No problem. Teachers and admins keep working
-											offline, and everything syncs automatically when
-											connectivity returns.
+											No internet? No problem. Teachers and admins keep working offline,
+											and everything syncs automatically when connectivity returns.
 										</p>
 										<ul className="mt-5 space-y-2">
 											{[
@@ -1742,10 +1248,7 @@ export default function SchoolMeshLandingPage() {
 												'Automatic sync when back online',
 												'Perfect for rural and low-connectivity areas',
 											].map((f) => (
-												<li
-													key={f}
-													className="flex items-start gap-2 text-sm text-gray-600"
-												>
+												<li key={f} className="flex items-start gap-2 text-sm text-gray-600">
 													<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#f79009]" />
 													{f}
 												</li>
@@ -1763,13 +1266,10 @@ export default function SchoolMeshLandingPage() {
 										<div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#8b5cf6]/10 text-[#8b5cf6]">
 											<Globe className="h-7 w-7" />
 										</div>
-										<h3 className="text-lg font-bold text-[#111827]">
-											Every Device, One Platform
-										</h3>
+										<h3 className="text-lg font-bold text-[#111827]">Every Device, One Platform</h3>
 										<p className="mt-3 text-sm text-gray-500 leading-relaxed">
-											Access SchoolMesh from any web browser, or use our
-											dedicated mobile and desktop apps for the best experience
-											on every device.
+											Access SchoolMesh from any web browser, or use our dedicated mobile
+											and desktop apps for the best experience on every device.
 										</p>
 										<ul className="mt-5 space-y-2">
 											{[
@@ -1777,10 +1277,7 @@ export default function SchoolMeshLandingPage() {
 												'Native apps with push notifications',
 												'Same data across all devices',
 											].map((f) => (
-												<li
-													key={f}
-													className="flex items-start gap-2 text-sm text-gray-600"
-												>
+												<li key={f} className="flex items-start gap-2 text-sm text-gray-600">
 													<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#8b5cf6]" />
 													{f}
 												</li>
@@ -1798,13 +1295,10 @@ export default function SchoolMeshLandingPage() {
 										<div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ec4899]/10 text-[#ec4899]">
 											<Sparkles className="h-7 w-7" />
 										</div>
-										<h3 className="text-lg font-bold text-[#111827]">
-											AI-Powered Insights
-										</h3>
+										<h3 className="text-lg font-bold text-[#111827]">AI-Powered Insights</h3>
 										<p className="mt-3 text-sm text-gray-500 leading-relaxed">
-											Intelligent automation for grading suggestions, schedule
-											optimization, and predictive analytics that help schools
-											make data-driven decisions.
+											Intelligent automation for grading suggestions, schedule optimization,
+											and predictive analytics that help schools make data-driven decisions.
 										</p>
 										<ul className="mt-5 space-y-2">
 											{[
@@ -1812,10 +1306,7 @@ export default function SchoolMeshLandingPage() {
 												'Schedule optimization',
 												'Predictive student outcome analytics',
 											].map((f) => (
-												<li
-													key={f}
-													className="flex items-start gap-2 text-sm text-gray-600"
-												>
+												<li key={f} className="flex items-start gap-2 text-sm text-gray-600">
 													<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#ec4899]" />
 													{f}
 												</li>
@@ -1833,13 +1324,10 @@ export default function SchoolMeshLandingPage() {
 										<div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#10B981]/10 text-[#10B981]">
 											<Database className="h-7 w-7" />
 										</div>
-										<h3 className="text-lg font-bold text-[#111827]">
-											Multi-Tenant Architecture
-										</h3>
+										<h3 className="text-lg font-bold text-[#111827]">Multi-Tenant Architecture</h3>
 										<p className="mt-3 text-sm text-gray-500 leading-relaxed">
-											Each school gets its own branded environment with
-											independent data, users, and settings — all powered by one
-											shared platform.
+											Each school gets its own branded environment with independent data,
+											users, and settings — all powered by one shared platform.
 										</p>
 										<ul className="mt-5 space-y-2">
 											{[
@@ -1847,10 +1335,7 @@ export default function SchoolMeshLandingPage() {
 												'Complete data isolation & privacy',
 												'Scalable from one school to hundreds',
 											].map((f) => (
-												<li
-													key={f}
-													className="flex items-start gap-2 text-sm text-gray-600"
-												>
+												<li key={f} className="flex items-start gap-2 text-sm text-gray-600">
 													<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#10B981]" />
 													{f}
 												</li>
@@ -1897,9 +1382,7 @@ export default function SchoolMeshLandingPage() {
 									>
 										<AnimatedCounter target={stat.value} suffix={stat.suffix} />
 									</p>
-									<p className="mt-2 text-sm font-medium text-gray-400">
-										{stat.label}
-									</p>
+									<p className="mt-2 text-sm font-medium text-gray-400">{stat.label}</p>
 								</motion.div>
 							))}
 						</motion.div>
@@ -1917,8 +1400,7 @@ export default function SchoolMeshLandingPage() {
 								Loved by educators.
 							</h2>
 							<p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
-								Hear from the schools that have transformed their operations
-								with SchoolMesh.
+								Hear from the schools that have transformed their operations with SchoolMesh.
 							</p>
 						</AnimateWhenVisible>
 
@@ -1952,9 +1434,7 @@ export default function SchoolMeshLandingPage() {
 											{t.avatar}
 										</div>
 										<div>
-											<p className="text-sm font-semibold text-[#111827]">
-												{t.name}
-											</p>
+											<p className="text-sm font-semibold text-[#111827]">{t.name}</p>
 											<p className="text-xs text-gray-500">
 												{t.role}, {t.school}
 											</p>
@@ -1977,8 +1457,7 @@ export default function SchoolMeshLandingPage() {
 								Simple, transparent pricing.
 							</h2>
 							<p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
-								Two simple plans. Per-student annual pricing with no hidden
-								fees.
+								Two simple plans. Per-student annual pricing with no hidden fees.
 							</p>
 						</AnimateWhenVisible>
 
@@ -2006,25 +1485,16 @@ export default function SchoolMeshLandingPage() {
 										</div>
 									)}
 									<div>
-										<h3 className="text-xl font-bold text-[#111827]">
-											{plan.name}
-										</h3>
-										<p className="mt-1 text-sm text-gray-500">
-											{plan.description}
-										</p>
+										<h3 className="text-xl font-bold text-[#111827]">{plan.name}</h3>
+										<p className="mt-1 text-sm text-gray-500">{plan.description}</p>
 									</div>
 									<div className="mt-6">
-										<p className="text-3xl font-bold text-[#111827]">
-											{plan.price}
-										</p>
+										<p className="text-3xl font-bold text-[#111827]">{plan.price}</p>
 										<p className="mt-1 text-sm text-gray-500">{plan.period}</p>
 									</div>
 									<ul className="mt-6 space-y-3">
 										{plan.features.map((f) => (
-											<li
-												key={f}
-												className="flex items-center gap-2.5 text-sm text-gray-600"
-											>
+											<li key={f} className="flex items-center gap-2.5 text-sm text-gray-600">
 												<CheckCircle2 className="h-4 w-4 shrink-0 text-[#10B981]" />
 												{f}
 											</li>
@@ -2064,9 +1534,7 @@ export default function SchoolMeshLandingPage() {
 									<div className="overflow-hidden rounded-xl border border-gray-100 bg-white">
 										<button
 											type="button"
-											onClick={() =>
-												setOpenFaq(openFaq === index ? null : index)
-											}
+											onClick={() => setOpenFaq(openFaq === index ? null : index)}
 											className="flex w-full items-center justify-between px-6 py-4 text-left"
 											aria-expanded={openFaq === index}
 										>
@@ -2116,9 +1584,8 @@ export default function SchoolMeshLandingPage() {
 										Ready to modernize your school?
 									</h2>
 									<p className="mx-auto mt-4 max-w-xl text-lg text-gray-400">
-										Join hundreds of schools already using SchoolMesh to
-										streamline their operations and focus on what matters most —
-										education.
+										Join hundreds of schools already using SchoolMesh to streamline
+										their operations and focus on what matters most — education.
 									</p>
 									<div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
 										<a
@@ -2154,9 +1621,8 @@ export default function SchoolMeshLandingPage() {
 										Get in touch with our team.
 									</h2>
 									<p className="mt-4 text-lg text-gray-500">
-										Have questions about SchoolMesh? Planning a rollout for your
-										school or network? We&apos;re here to help with onboarding,
-										migration, and setup.
+										Have questions about SchoolMesh? Planning a rollout for your school or
+										network? We&apos;re here to help with onboarding, migration, and setup.
 									</p>
 									<div className="mt-8 space-y-5">
 										<div className="flex items-center gap-4">
@@ -2164,12 +1630,8 @@ export default function SchoolMeshLandingPage() {
 												<Mail className="h-5 w-5" />
 											</div>
 											<div>
-												<p className="text-sm font-semibold text-[#111827]">
-													Email
-												</p>
-												<p className="text-sm text-gray-500">
-													team@schoolmesh.io
-												</p>
+												<p className="text-sm font-semibold text-[#111827]">Email</p>
+												<p className="text-sm text-gray-500">team@schoolmesh.io</p>
 											</div>
 										</div>
 										<div className="flex items-center gap-4">
@@ -2177,12 +1639,8 @@ export default function SchoolMeshLandingPage() {
 												<Phone className="h-5 w-5" />
 											</div>
 											<div>
-												<p className="text-sm font-semibold text-[#111827]">
-													Phone
-												</p>
-												<p className="text-sm text-gray-500">
-													+231 77 000 0000
-												</p>
+												<p className="text-sm font-semibold text-[#111827]">Phone</p>
+												<p className="text-sm text-gray-500">+231 77 000 0000</p>
 											</div>
 										</div>
 										<div className="flex items-center gap-4">
@@ -2190,12 +1648,8 @@ export default function SchoolMeshLandingPage() {
 												<Globe className="h-5 w-5" />
 											</div>
 											<div>
-												<p className="text-sm font-semibold text-[#111827]">
-													Location
-												</p>
-												<p className="text-sm text-gray-500">
-													Monrovia, Liberia
-												</p>
+												<p className="text-sm font-semibold text-[#111827]">Location</p>
+												<p className="text-sm text-gray-500">Monrovia, Liberia</p>
 											</div>
 										</div>
 									</div>
@@ -2207,18 +1661,13 @@ export default function SchoolMeshLandingPage() {
 									onSubmit={handleSubmit}
 									className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8"
 								>
-									<h3 className="text-lg font-bold text-[#111827]">
-										Send us a message
-									</h3>
+									<h3 className="text-lg font-bold text-[#111827]">Send us a message</h3>
 									<p className="mt-1 text-sm text-gray-500">
 										We&apos;ll get back to you within 24 hours.
 									</p>
 									<div className="mt-6 space-y-4">
 										<div>
-											<label
-												htmlFor="contact-name"
-												className="text-sm font-medium text-[#111827]"
-											>
+											<label htmlFor="contact-name" className="text-sm font-medium text-[#111827]">
 												Full Name
 											</label>
 											<input
@@ -2231,10 +1680,7 @@ export default function SchoolMeshLandingPage() {
 										</div>
 										<div className="grid gap-4 sm:grid-cols-2">
 											<div>
-												<label
-													htmlFor="contact-email"
-													className="text-sm font-medium text-[#111827]"
-												>
+												<label htmlFor="contact-email" className="text-sm font-medium text-[#111827]">
 													Email
 												</label>
 												<input
@@ -2246,10 +1692,7 @@ export default function SchoolMeshLandingPage() {
 												/>
 											</div>
 											<div>
-												<label
-													htmlFor="contact-org"
-													className="text-sm font-medium text-[#111827]"
-												>
+												<label htmlFor="contact-org" className="text-sm font-medium text-[#111827]">
 													School / Organization
 												</label>
 												<input
@@ -2262,10 +1705,7 @@ export default function SchoolMeshLandingPage() {
 											</div>
 										</div>
 										<div>
-											<label
-												htmlFor="contact-message"
-												className="text-sm font-medium text-[#111827]"
-											>
+											<label htmlFor="contact-message" className="text-sm font-medium text-[#111827]">
 												Message
 											</label>
 											<textarea
@@ -2304,13 +1744,11 @@ export default function SchoolMeshLandingPage() {
 									height={40}
 									className="h-10 w-10 rounded-lg object-contain"
 								/>
-								<span className="text-xl font-bold tracking-tight text-white">
-									School<span className="text-[#465fff]">Mesh</span>
-								</span>
+								<span className="text-xl font-bold tracking-tight text-white">School<span className="text-[#465fff]">Mesh</span></span>
 							</div>
 							<p className="mt-4 max-w-xs text-sm leading-relaxed text-gray-400">
-								The connected operating system for modern schools. Manage
-								everything from admissions to analytics.
+								The connected operating system for modern schools. Manage everything
+								from admissions to analytics.
 							</p>
 							<div className="mt-6 flex gap-3">
 								{['Twitter', 'LinkedIn', 'GitHub'].map((social) => (

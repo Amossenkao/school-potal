@@ -91,7 +91,7 @@ export default function SchoolAdminsPage() {
 	};
 
 	const handleRealtimeEvent = useCallback((event: RealtimeEvent) => {
-		const reason = String(event.payload?.reason || event.reason || '').trim();
+		const reason = String(event.payload?.reason || '').trim();
 		if (reason === 'user-created' || reason === 'user-updated' || reason === 'user-deleted') {
 			fetchAdmins();
 		}

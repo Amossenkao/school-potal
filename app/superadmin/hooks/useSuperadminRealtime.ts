@@ -35,7 +35,6 @@ export function useSuperadminRealtime(options: {
 		const client = new Ably.Realtime({
 			authUrl: SUPERADMIN_SYNC_TOKEN_ENDPOINT,
 			authMethod: 'GET',
-			withCredentials: true,
 		});
 		clientRef.current = client;
 

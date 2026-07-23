@@ -112,7 +112,7 @@ export default function SchoolDetailPage() {
 	};
 
 	const handleRealtimeEvent = useCallback((event: RealtimeEvent) => {
-		const reason = String(event.payload?.reason || event.reason || '').trim();
+		const reason = String(event.payload?.reason || '').trim();
 		if (reason === 'school-deleted') {
 			router.push('/superadmin/schools');
 			return;

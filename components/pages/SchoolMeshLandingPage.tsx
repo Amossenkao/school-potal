@@ -9,6 +9,7 @@ import { AnimatePresence, motion, useInView, type Variants } from 'framer-motion
 import {
 	ArrowRight,
 	BarChart3,
+	FileDown,
 	BookOpen,
 	CalendarDays,
 	CloudOff,
@@ -676,6 +677,12 @@ export default function SchoolMeshLandingPage() {
 								{item.label}
 							</a>
 						))}
+						<Link
+							href="/brochure"
+							className="text-sm font-medium text-gray-600 transition-colors hover:text-[#111827]"
+						>
+							Brochure
+						</Link>
 					</div>
 
 					<div className="hidden items-center gap-3 md:flex">
@@ -723,6 +730,13 @@ export default function SchoolMeshLandingPage() {
 										{item.label}
 									</a>
 								))}
+								<Link
+									href="/brochure"
+									onClick={() => setIsMobileMenuOpen(false)}
+									className="block rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-[#111827]"
+								>
+									Brochure
+								</Link>
 								<div className="border-t border-gray-100 pt-3 mt-3 space-y-2">
 									<Link
 										href="/superadmin/login"
@@ -803,6 +817,13 @@ export default function SchoolMeshLandingPage() {
 									<Play className="h-3 w-3" />
 									Book a demo
 								</a>
+								<Link
+									href="/brochure"
+									className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-transparent px-[18px] py-2.5 text-[13px] font-medium text-[#111827] transition-all hover:bg-gray-50 hover:-translate-y-px"
+								>
+									<FileDown className="h-3 w-3" />
+									Brochure
+								</Link>
 							</div>
 
 							<div className="flex items-center gap-2.5 text-xs text-gray-400">

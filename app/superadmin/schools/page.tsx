@@ -46,7 +46,7 @@ export default function SchoolsListPage() {
 	const [togglingId, setTogglingId] = useState<string | null>(null);
 
 	const handleRealtimeEvent = useCallback((event: RealtimeEvent) => {
-		const reason = String(event.payload?.reason || event.reason || '').trim();
+		const reason = String(event.payload?.reason || '').trim();
 		const schoolData = event.payload?.school as Record<string, any> | undefined;
 
 		if (reason === 'school-toggled-active' && schoolData?.host) {
