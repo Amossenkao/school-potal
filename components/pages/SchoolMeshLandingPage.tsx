@@ -21,6 +21,7 @@ import {
 	Globe,
 	GraduationCap,
 	LayoutDashboard,
+	Lock,
 	LogOut,
 	Mail,
 	Menu,
@@ -731,198 +732,259 @@ export default function SchoolMeshLandingPage() {
 			</header>
 
 			<main id="home">
-				{/* ── Hero ──────────────────────────────────────── */}
-				<section className="relative overflow-hidden bg-[#FAFBFC] pt-32 pb-20 sm:pt-40 sm:pb-28">
-					<div className="absolute inset-0 overflow-hidden">
-						<div className="absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-[#465fff]/5 blur-3xl" />
-						<div className="absolute -bottom-40 -left-40 h-[500px] w-[500px] rounded-full bg-[#10B981]/5 blur-3xl" />
-					</div>
+			{/* ── Hero ──────────────────────────────────────── */}
+			<style dangerouslySetInnerHTML={{ __html: `
+				@keyframes sm-hero-pulse { 0% { opacity:0.4; r:6; } 50% { opacity:0.1; r:13; } 100% { opacity:0.4; r:6; } }
+				@keyframes sm-hero-shimmer { 0%,100% { opacity:0.7; } 50% { opacity:1; } }
+				@keyframes sm-hero-float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-6px); } }
+				@keyframes sm-hero-dash { to { stroke-dashoffset:-24; } }
+				.sm-hero-edge { stroke-dasharray:5 4; animation:sm-hero-dash 2s linear infinite; }
+				.sm-hero-float-card { animation:sm-hero-float 4s ease-in-out infinite; }
+				.sm-hero-float-pill1 { animation:sm-hero-float 3.5s 0.5s ease-in-out infinite; }
+				.sm-hero-float-pill2 { animation:sm-hero-float 3.8s 1.2s ease-in-out infinite; }
+				.sm-hero-badge-dot { animation:sm-hero-shimmer 2s ease-in-out infinite; }
+			`}} />
+			<section className="relative overflow-hidden bg-[#FAFBFC]" style={{ padding: '36px 0 20px' }}>
+				<div className="mx-auto max-w-7xl px-5 sm:px-8">
+					<div className="grid items-center gap-0 lg:grid-cols-2" style={{ minHeight: '520px' }}>
+						{/* LEFT: Copy */}
+						<motion.div
+							initial={{ opacity: 0, y: 14 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.5, ease: 'easeOut' }}
+							style={{ paddingRight: 40 }}
+						>
+							<div className="mb-5 inline-flex items-center gap-[7px] rounded-full border border-gray-200/60 bg-white px-3 py-[5px] text-xs font-medium text-gray-600">
+								<span className="sm-hero-badge-dot h-[6px] w-[6px] shrink-0 rounded-full bg-[#12b76a]" />
+								Now available for schools worldwide
+							</div>
 
-					<div className="relative mx-auto max-w-7xl px-5 sm:px-8">
-						<div className="mx-auto max-w-4xl text-center">
-							<AnimateWhenVisible custom={0}>
-								<div className="mb-6 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-1.5 text-sm font-medium text-gray-600 shadow-sm">
-									<span className="h-1.5 w-1.5 rounded-full bg-[#10B981] animate-pulse" />
-									Now available for schools worldwide
-								</div>
-							</AnimateWhenVisible>
+							<h1 className="mb-3.5 text-[36px] font-medium leading-[1.12] tracking-[-0.03em] text-[#111827]">
+								School management,<br />
+								<span
+									className="bg-gradient-to-br from-[#465fff] to-[#12b76a] bg-clip-text text-transparent"
+									style={{ WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
+								>
+									finally effortless.
+								</span>
+							</h1>
 
-							<AnimateWhenVisible custom={1}>
-								<h1 className="text-5xl font-bold tracking-tight text-[#111827] sm:text-6xl lg:text-7xl">
-									School management,{' '}
-									<span className="bg-gradient-to-r from-[#465fff] to-[#12b76a] bg-clip-text text-transparent">
-										finally effortless.
-									</span>
-								</h1>
-							</AnimateWhenVisible>
+							<p className="mb-7 max-w-[340px] text-[15px] leading-[1.65] text-gray-500">
+								Admissions, attendance, grades, finance, and communication — connected
+								in one platform your whole school will actually enjoy using.
+							</p>
 
-							<AnimateWhenVisible custom={2}>
-								<p className="mx-auto mt-6 max-w-2xl text-lg text-gray-500 leading-relaxed sm:text-xl">
-									Admissions, attendance, grades, finance, and communication — connected
-									in one platform that your whole school will actually enjoy using.
-								</p>
-							</AnimateWhenVisible>
+							<div className="mb-8 flex flex-wrap items-center gap-2.5">
+								<a
+									href="#pricing"
+									className="inline-flex items-center gap-1.5 rounded-full bg-[#465fff] px-5 py-2.5 text-[13px] font-medium text-white transition-all hover:opacity-[0.88] hover:-translate-y-px"
+								>
+									Start free
+									<ArrowRight className="h-[13px] w-[13px]" />
+								</a>
+								<a
+									href="#contact"
+									className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-transparent px-[18px] py-2.5 text-[13px] font-medium text-[#111827] transition-all hover:bg-gray-50 hover:-translate-y-px"
+								>
+									<Play className="h-3 w-3" />
+									Book a demo
+								</a>
+							</div>
 
-							<AnimateWhenVisible custom={3}>
-								<div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-									<a
-										href="#pricing"
-										className="group inline-flex items-center gap-2 rounded-full bg-[#465fff] px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#465fff]/20 transition-all hover:bg-[#3a4fe6] hover:shadow-xl hover:shadow-[#465fff]/30 hover:-translate-y-0.5"
-									>
-										Start Free
-										<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-									</a>
-									<a
-										href="#contact"
-										className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-8 py-3.5 text-sm font-semibold text-[#111827] shadow-sm transition-all hover:border-gray-300 hover:shadow-md hover:-translate-y-0.5"
-									>
-										Book Demo
-									</a>
-								</div>
-							</AnimateWhenVisible>
-						</div>
-
-						{/* Product Preview — matches actual DashboardHome */}
-						<AnimateWhenVisible custom={4} className="mt-16 sm:mt-20">
-							<div className="relative mx-auto max-w-5xl">
-								<div className="absolute -inset-4 rounded-[2rem] bg-gradient-to-b from-[#465fff]/10 to-transparent blur-2xl" />
-								<div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl shadow-gray-900/5">
-									{/* Browser chrome */}
-									<div className="flex items-center gap-2 border-b border-gray-100 px-5 py-3">
-										<div className="flex gap-1.5">
-											<div className="h-3 w-3 rounded-full bg-red-400" />
-											<div className="h-3 w-3 rounded-full bg-amber-400" />
-											<div className="h-3 w-3 rounded-full bg-green-400" />
+							<div className="flex items-center gap-2.5 text-xs text-gray-400">
+								<div className="flex">
+									{[
+										{ initials: 'JS', bg: '#465fff' },
+										{ initials: 'AM', bg: '#12b76a' },
+										{ initials: 'KO', bg: '#f79009' },
+										{ initials: 'PL', bg: '#8b5cf6' },
+										{ initials: 'NW', bg: '#ef4444' },
+									].map((av, i) => (
+										<div
+											key={av.initials}
+											className="flex h-[26px] w-[26px] items-center justify-center rounded-full border-[1.5px] border-[#FAFBFC] text-[9px] font-medium text-white"
+											style={{ background: av.bg, marginLeft: i === 0 ? 0 : -7 }}
+										>
+											{av.initials}
 										</div>
-										<div className="ml-4 flex flex-1 items-center gap-2 rounded-lg bg-gray-50 px-3 py-1.5">
-											<Globe className="h-3.5 w-3.5 text-gray-400" />
-											<span className="text-xs text-gray-400">app.schoolmesh.com</span>
-										</div>
+									))}
+								</div>
+								<span>
+									Trusted by <span className="font-medium text-[#111827]">&nbsp;250+ schools&nbsp;</span> across Africa
+								</span>
+							</div>
+						</motion.div>
+
+						{/* RIGHT: Illustration + Dashboard */}
+						<motion.div
+							initial={{ opacity: 0, y: 14 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.6, delay: 0.1, ease: 'easeOut' }}
+							className="relative"
+						>
+							{/* SVG mesh background */}
+							<svg
+								width="100%"
+								viewBox="0 0 340 380"
+								className="pointer-events-none absolute -top-5 z-[1]"
+								style={{ left: -20, right: -20, width: 'calc(100% + 40px)' }}
+								aria-hidden="true"
+							>
+								<line className="sm-hero-edge" x1="170" y1="88" x2="80" y2="160" stroke="#374151" strokeWidth="0.8" />
+								<line className="sm-hero-edge" x1="170" y1="88" x2="260" y2="155" stroke="#374151" strokeWidth="0.8" style={{ animationDelay: '0.4s' }} />
+								<line className="sm-hero-edge" x1="80" y1="160" x2="50" y2="265" stroke="#374151" strokeWidth="0.6" style={{ animationDelay: '0.8s' }} />
+								<line className="sm-hero-edge" x1="260" y1="155" x2="295" y2="268" stroke="#374151" strokeWidth="0.6" style={{ animationDelay: '1.2s' }} />
+								<line className="sm-hero-edge" x1="80" y1="160" x2="295" y2="268" stroke="#e5e7eb" strokeWidth="0.5" style={{ animationDelay: '1.6s' }} />
+								<line className="sm-hero-edge" x1="260" y1="155" x2="50" y2="265" stroke="#e5e7eb" strokeWidth="0.5" style={{ animationDelay: '2.0s' }} />
+								<line className="sm-hero-edge" x1="50" y1="265" x2="295" y2="268" stroke="#374151" strokeWidth="0.7" style={{ animationDelay: '0.6s' }} />
+
+								<circle cx="170" cy="88" r="6" fill="#465fff" opacity="0.18" style={{ animation: 'sm-hero-pulse 2.4s ease-in-out infinite' }} />
+								<circle cx="80" cy="160" r="6" fill="#8b5cf6" opacity="0.15" style={{ animation: 'sm-hero-pulse 2.8s 0.3s ease-in-out infinite' }} />
+								<circle cx="260" cy="155" r="6" fill="#12b76a" opacity="0.15" style={{ animation: 'sm-hero-pulse 3.0s 0.6s ease-in-out infinite' }} />
+								<circle cx="50" cy="265" r="6" fill="#f79009" opacity="0.15" style={{ animation: 'sm-hero-pulse 2.6s 0.9s ease-in-out infinite' }} />
+								<circle cx="295" cy="268" r="6" fill="#465fff" opacity="0.15" style={{ animation: 'sm-hero-pulse 2.9s 1.1s ease-in-out infinite' }} />
+
+								<circle cx="170" cy="88" r="20" fill="#465fff" opacity="0.10" />
+								<circle cx="170" cy="88" r="13" fill="#465fff" />
+								<text x="170" y="92" textAnchor="middle" fontSize="10" fontWeight="500" fill="#fff" fontFamily="sans-serif">HUB</text>
+
+								<circle cx="80" cy="160" r="16" fill="#8b5cf6" opacity="0.12" />
+								<circle cx="80" cy="160" r="10" fill="#8b5cf6" />
+								<text x="80" y="164" textAnchor="middle" fontSize="8" fontWeight="500" fill="#fff" fontFamily="sans-serif">ADM</text>
+
+								<circle cx="260" cy="155" r="16" fill="#12b76a" opacity="0.12" />
+								<circle cx="260" cy="155" r="10" fill="#12b76a" />
+								<text x="260" y="159" textAnchor="middle" fontSize="8" fontWeight="500" fill="#fff" fontFamily="sans-serif">TCH</text>
+
+								<circle cx="50" cy="265" r="14" fill="#f79009" opacity="0.12" />
+								<circle cx="50" cy="265" r="9" fill="#f79009" />
+								<text x="50" y="269" textAnchor="middle" fontSize="7" fontWeight="500" fill="#fff" fontFamily="sans-serif">PRN</text>
+
+								<circle cx="295" cy="268" r="14" fill="#465fff" opacity="0.12" />
+								<circle cx="295" cy="268" r="9" fill="#465fff" />
+								<text x="295" y="272" textAnchor="middle" fontSize="7" fontWeight="500" fill="#fff" fontFamily="sans-serif">STU</text>
+							</svg>
+
+							{/* Dashboard card */}
+							<div className="sm-hero-float-card relative z-[2] ml-5 mt-5 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.10),0_4px_16px_rgba(0,0,0,0.06)]">
+								<div className="flex items-center gap-2.5 border-b border-gray-200/60 bg-gray-50 px-3.5 py-[11px]">
+									<div className="flex gap-[5px]">
+										<div className="h-2 w-2 rounded-full bg-[#FF5F57]" />
+										<div className="h-2 w-2 rounded-full bg-[#FEBC2E]" />
+										<div className="h-2 w-2 rounded-full bg-[#28C840]" />
 									</div>
-									{/* App shell: sidebar + content */}
-									<div className="grid min-h-[340px] sm:min-h-[440px] lg:grid-cols-[220px_1fr]">
-										{/* Sidebar */}
-										<div className="hidden border-r border-gray-100 bg-[#f9fafb] p-3 lg:block">
-											<div className="mb-4 flex items-center gap-2.5 px-2">
-												<Image
-													src="/images/SchoolMesh.png"
-													alt="SchoolMesh"
-													width={28}
-													height={28}
-													className="h-7 w-7 rounded-lg object-contain"
-												/>
-												<span className="text-xs font-bold text-[#111827]">School<span className="text-[#465fff]">Mesh</span></span>
+									<div className="flex flex-1 items-center gap-[5px] rounded-[5px] border border-gray-200/60 bg-gray-100 px-2.5 py-1 text-[10px] text-gray-400">
+										<Lock className="h-[10px] w-[10px] text-[#12b76a]" />
+										app.schoolmesh.io
+									</div>
+								</div>
+
+								<div className="grid" style={{ gridTemplateColumns: '150px 1fr' }}>
+									<div className="bg-[#111827] py-3">
+										<div className="mb-2 flex items-center gap-[7px] border-b border-white/[0.08] px-3 pb-3">
+											<div className="flex h-[18px] w-[18px] items-center justify-center rounded bg-[#465fff] text-[7px] font-bold text-white">SM</div>
+											<span className="text-[11px] font-bold tracking-[-0.02em] text-white">School<span className="text-[#465fff]">Mesh</span></span>
+										</div>
+										{[
+											{ label: 'Dashboard', icon: LayoutDashboard, active: true },
+											{ label: 'Students', icon: Users },
+											{ label: 'Grading', icon: ClipboardList },
+											{ label: 'Attendance', icon: CalendarDays },
+											{ label: 'Analytics', icon: BarChart3 },
+											{ label: 'Settings', icon: Settings },
+										].map((item) => (
+											<div
+												key={item.label}
+												className={`flex items-center gap-[7px] px-3 py-[5px] text-[10px] ${
+													item.active
+														? 'bg-[#465fff]/30 text-white'
+														: 'text-white/45'
+												}`}
+												style={item.active ? { borderLeft: '2px solid #465fff' } : undefined}
+											>
+												<item.icon className="h-[11px] w-[11px] opacity-80" />
+												{item.label}
 											</div>
-											<div className="space-y-0.5">
-												{[
-													{ label: 'Dashboard', icon: LayoutDashboard, active: true },
-													{ label: 'User Management', icon: Users },
-													{ label: 'Grading', icon: ClipboardList },
-													{ label: 'Academic Reports', icon: GraduationCap },
-													{ label: 'Calendar', icon: CalendarDays },
-													{ label: 'Attendance', icon: UserCheck },
-													{ label: 'Settings', icon: Settings },
-												].map((item) => (
-													<div
-														key={item.label}
-														className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
-															item.active
-																? 'relative border-[#465fff]/20 bg-[#465fff]/5 text-[#465fff]'
-																: 'border-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-700'
-														}`}
-													>
-														{item.active && (
-															<span className="absolute inset-y-1 left-0 w-0.5 rounded-r-full bg-[#465fff]" />
-														)}
-														<div className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border ${
-															item.active
-																? 'border-[#465fff]/20 bg-[#465fff]/10 text-[#465fff]'
-																: 'border-gray-200 bg-white text-gray-400'
-														}`}>
-															<item.icon className="h-3 w-3" />
-														</div>
-														{item.label}
+										))}
+									</div>
+
+									<div className="bg-white p-3">
+										<div className="relative mb-2.5 overflow-hidden rounded-[10px] border border-gray-200/60 bg-gray-100 p-3">
+											<div className="absolute -top-5 -right-5 h-20 w-20 rounded-full bg-[radial-gradient(circle,rgba(139,92,246,0.2)_0%,transparent_70%)]" />
+											<div className="relative z-10">
+												<div className="mb-1.5 inline-flex items-center gap-1 rounded-full border border-purple-300/40 bg-purple-500/10 px-[7px] py-[2px] text-[9px] font-medium text-purple-700">
+													<ShieldCheck className="h-[9px] w-[9px]" />
+													System admin
+												</div>
+												<div className="text-[13px] font-medium text-[#111827]">Good morning, Admin ✨</div>
+												<div className="text-[10px] text-gray-400">Full access · Academic year 2025–2026</div>
+												<div className="relative mt-2.5 overflow-visible">
+													<div className="h-[3px] rounded-[2px] bg-gray-200">
+														<div className="h-full rounded-[2px] bg-purple-500 opacity-40" style={{ width: '38%' }} />
 													</div>
-												))}
+													<div
+														className="absolute top-1/2 h-[7px] w-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-purple-500"
+														style={{ left: '38%', border: '1.5px solid #f3f4f6' }}
+													/>
+												</div>
 											</div>
 										</div>
-										{/* Main content — Dashboard Home hero */}
-										<div className="p-4 sm:p-5">
-											{/* Hero card with role glow */}
-											<div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-5 sm:p-6">
-												{/* Animated gradient glow — admin purple */}
-												<div className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-gradient-to-br from-purple-400/25 via-fuchsia-400/15 to-transparent blur-3xl" />
-												<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(0,0,0,0.015),transparent_60%)]" />
-												{/* Background role icon watermark */}
-												<div className="absolute top-4 right-4 opacity-[0.04] pointer-events-none">
-													<ShieldCheck size={140} />
+
+										<div className="mb-2 flex gap-[3px] rounded-[7px] border border-gray-200/60 bg-gray-50 p-[2px]">
+											{['Insights', 'Performance', 'Enrollment'].map((tab, i) => (
+												<div
+													key={tab}
+													className={`flex-1 rounded-[5px] py-1 text-center text-[10px] font-medium ${
+														i === 0 ? 'border border-gray-200/60 bg-gray-100 text-[#465fff]' : 'text-gray-400'
+													}`}
+												>
+													{tab}
 												</div>
-												<div className="relative z-10">
-													{/* Role badge + academic year */}
-													<div className="mb-3 flex flex-wrap items-center gap-2">
-														<span className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-purple-700">
-															<ShieldCheck size={10} strokeWidth={2.5} />
-															System Admin
-														</span>
-														<span className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-500">
-															2025-2026
-														</span>
-													</div>
-													{/* Greeting */}
-													<h3 className="text-xl font-extrabold text-[#111827] tracking-tight sm:text-2xl">
-														Good morning, Admin! ✨
-													</h3>
-													<p className="mt-1 text-xs text-gray-500">
-														You have full system access to manage users, settings, and all school operations.
-													</p>
-													{/* Day timeline */}
-													<div className="relative mt-4">
-														<div className="relative h-1 rounded-full bg-gray-100 overflow-visible">
-															<div className="absolute inset-y-0 left-0 rounded-full bg-purple-400 opacity-30" style={{ width: '38%' }} />
-															<div className="absolute top-1/2 h-2.5 w-2.5 -translate-y-1/2 -translate-x-1/2 rounded-full bg-purple-500 ring-2 ring-white animate-pulse" style={{ left: '38%' }} />
-														</div>
-														<div className="mt-1.5 flex justify-between">
-															{['Dawn', 'Midday', 'Dusk', 'Night'].map((s, i) => (
-																<span key={s} className={`text-[9px] font-medium uppercase tracking-wider ${i === 1 ? 'text-purple-600' : 'text-gray-400'}`}>{s}</span>
-															))}
-														</div>
-													</div>
+											))}
+										</div>
+
+										<div className="grid grid-cols-2 gap-1.5">
+											{[
+												{ label: 'Students', value: '2,847', color: '#465fff' },
+												{ label: 'Teachers', value: '186', color: '#12b76a' },
+												{ label: 'Avg grade', value: '78.4', color: '#f79009' },
+												{ label: 'Pass rate', value: '86%', color: '#111827' },
+											].map((stat) => (
+												<div key={stat.label} className="rounded-[7px] border border-gray-200/60 bg-gray-100 p-2">
+													<div className="text-[9px] text-gray-400">{stat.label}</div>
+													<div className="text-base font-medium leading-none" style={{ color: stat.color }}>{stat.value}</div>
 												</div>
-											</div>
-											{/* Insights tabs */}
-											<div className="mt-4 flex gap-1 rounded-lg border border-gray-100 bg-gray-50 p-0.5">
-												{['Insights', 'Performance', 'Enrollment'].map((tab, i) => (
-													<div
-														key={tab}
-														className={`flex-1 rounded-md px-3 py-1.5 text-center text-[11px] font-semibold transition-colors ${
-															i === 0 ? 'bg-white text-[#465fff] shadow-sm' : 'text-gray-500'
-														}`}
-													>
-														{tab}
-													</div>
-												))}
-											</div>
-											{/* Mini stat cards */}
-											<div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-												{[
-													{ label: 'Students', value: '2,847', icon: '👩‍🎓', color: '#465fff' },
-													{ label: 'Teachers', value: '186', icon: '👩‍🏫', color: '#12b76a' },
-													{ label: 'Avg. Grade', value: '78.4', icon: '📊', color: '#f79009' },
-													{ label: 'Pass Rate', value: '86%', icon: '✅', color: '#8b5cf6' },
-												].map((s) => (
-													<div key={s.label} className="rounded-xl border border-gray-100 bg-white p-2.5 sm:p-3">
-														<p className="text-[10px] font-medium text-gray-500">{s.label}</p>
-														<p className="mt-0.5 text-lg font-bold text-[#111827]">{s.value}</p>
-													</div>
-												))}
-											</div>
+											))}
 										</div>
 									</div>
 								</div>
 							</div>
-						</AnimateWhenVisible>
+
+							{/* Floating pills */}
+							<div className="sm-hero-float-pill1 absolute -bottom-3 -left-6 z-[3] flex items-center gap-2 rounded-[10px] border border-gray-200/60 bg-gray-100 px-3 py-2 text-[11px] shadow-[0_8px_24px_rgba(0,0,0,0.10)]">
+								<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(16,185,129,0.1)]">
+									<CheckCircle2 className="h-3.5 w-3.5 text-[#12b76a]" />
+								</div>
+								<div>
+									<div className="font-medium text-[#111827]">Report cards sent</div>
+									<div className="text-[10px] text-gray-400">842 students · 2 min ago</div>
+								</div>
+							</div>
+
+							<div className="sm-hero-float-pill2 absolute -right-5 top-5 z-[3] flex items-center gap-2 rounded-[10px] border border-gray-200/60 bg-gray-100 px-3 py-2 text-[11px] shadow-[0_8px_24px_rgba(0,0,0,0.10)]">
+								<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(70,95,255,0.1)]">
+									<CloudOff className="h-3.5 w-3.5 text-[#465fff]" />
+								</div>
+								<div>
+									<div className="font-medium text-[#111827]">Offline sync complete</div>
+									<div className="text-[10px] text-gray-400">Just now</div>
+								</div>
+							</div>
+						</motion.div>
 					</div>
-				</section>
+				</div>
+			</section>
+
 
 				{/* ── Trust Section ──────────────────────────────── */}
 				<section className="border-y border-gray-100 bg-white py-14">
