@@ -161,15 +161,23 @@ export async function GET(request: NextRequest) {
 		// ── School active check ──────────────────────────────────────────────
 		if (schoolProfile?.isActive === false) {
 			logResponse('School inactive.', 200);
-			const response = NextResponse.json(
-				{
-					user: null,
-					school: schoolProfile || null,
-					message: 'School is inactive',
-				},
-				{ status: 200 },
-			);
-			return response;
+			const models = await getTenantModels();
+			const freshUser = await models.User.findById(session.id).lean();
+			if (!freshUser || freshUser.isActive === false) {
+				const response = NextResponse.json(
+					{ user: null, school: schoolProfile || null, message: 'Account is deactivated' },
+					{ status: 403 },
+				);
+				clearSessionCookies(response);
+				return response;
+			}
+			const resolvedUserId = freshUser?._id?.toString?.() || session.id;
+			const userPayload = { ...freshUser, id: resolvedUserId, _id: resolvedUserId };
+			return NextResponse.json({
+				user: userPayload,
+				school: schoolProfile || null,
+				message: 'School is inactive',
+			});
 		}
 
 		// ── User active check ────────────────────────────────────────────────
