@@ -3,7 +3,6 @@ import { connectToTenantsDb, clearSchoolProfileMemoryCache } from '@/lib/mongoos
 import SchoolProfileSchema from '@/models/profile/SchoolProfile';
 import { redis } from '@/lib/redis';
 import { publishSyncEventSafe } from '@/lib/realtimeSync';
-import { destroyAllTenantSessions } from '@/utils/session';
 
 async function getProfileModel() {
 	const conn = await connectToTenantsDb();
@@ -88,10 +87,6 @@ export async function PATCH(
 		clearSchoolProfileMemoryCache(id);
 		await redis.del(`school_profile:${id}`);
 
-		if (body.isActive === false) {
-			await destroyAllTenantSessions(id);
-		}
-
 		await publishSyncEventSafe({
 			tenantId: id,
 			domain: 'school',
@@ -121,7 +116,6 @@ export async function DELETE(
 
 		clearSchoolProfileMemoryCache(id);
 		await redis.del(`school_profile:${id}`);
-		await destroyAllTenantSessions(id);
 
 		await publishSyncEventSafe({
 			tenantId: id,

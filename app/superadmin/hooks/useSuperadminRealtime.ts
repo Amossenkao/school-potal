@@ -39,6 +39,7 @@ export function useSuperadminRealtime(options: {
 		clientRef.current = client;
 
 		const handleEvent = (event: RealtimeEvent) => {
+			console.log('[superadmin-realtime] Event received:', event.type, event.payload?.reason, event.tenantId);
 			onEventRef.current?.(event);
 		};
 
@@ -46,7 +47,10 @@ export function useSuperadminRealtime(options: {
 			const channel = client.channels.get(channelName);
 			const listener = (message: any) => {
 				const event = message?.data as RealtimeEvent | undefined;
-				if (!event || typeof event.type !== 'string' || typeof event.tenantId !== 'string') return;
+				if (!event || typeof event.type !== 'string' || typeof event.tenantId !== 'string') {
+					console.warn('[superadmin-realtime] Invalid event on channel:', channelName, message?.data);
+					return;
+				}
 				handleEvent(event);
 			};
 			channel.subscribe(listener);
@@ -63,14 +67,17 @@ export function useSuperadminRealtime(options: {
 		});
 
 		client.connection.on('connected', () => {
+			console.log('[superadmin-realtime] Connected. Subscribed channels:', SUPERADMIN_BROADCAST_CHANNEL, ...uniqueHosts.map(getSchoolRealtimeChannel));
 			setConnected(true);
 		});
 
 		client.connection.on('failed', () => {
+			console.warn('[superadmin-realtime] Connection failed');
 			setConnected(false);
 		});
 
 		client.connection.on('suspended', () => {
+			console.warn('[superadmin-realtime] Connection suspended');
 			setConnected(false);
 		});
 

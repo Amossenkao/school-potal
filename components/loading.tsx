@@ -108,7 +108,6 @@ export const PageLoading = ({
 	const renderContent = () => {
 		switch (variant) {
 			case 'minimal':
-				// 2. Pass the necessary props to the extracted component
 				return (
 					<SpinnerCore
 						compact
@@ -154,52 +153,248 @@ export const PageLoading = ({
 					</div>
 				);
 
-		case 'company':
+			case 'company':
 				return (
-					<div className="flex flex-col items-center gap-6">
+					<div className="flex flex-col items-center gap-8">
 						<style>{`
-							@keyframes shimmer {
-								0%, 100% { opacity: 0.4; transform: scale(1); }
-								50% { opacity: 0.8; transform: scale(1.08); }
+							@keyframes sm-orbit-outer {
+								from { transform: translate(-50%, -50%) rotate(0deg); }
+								to   { transform: translate(-50%, -50%) rotate(360deg); }
 							}
-							@keyframes shimmer-ring {
-								0%, 100% { opacity: 0; transform: scale(0.95); }
-								50% { opacity: 0.5; transform: scale(1.05); }
+							@keyframes sm-orbit-inner {
+								from { transform: translate(-50%, -50%) rotate(0deg); }
+								to   { transform: translate(-50%, -50%) rotate(-360deg); }
+							}
+							@keyframes sm-logo-breathe {
+								0%, 100% { opacity: 0.85; }
+								50%       { opacity: 1; }
+							}
+							@keyframes sm-node-pulse {
+								0%, 100% { opacity: 0.25; transform: scale(1); }
+								50%       { opacity: 1;    transform: scale(1.45); }
+							}
+							@keyframes sm-mesh-flow {
+								0%, 100% { stroke-dashoffset: 40; opacity: 0.15; }
+								50%       { stroke-dashoffset: 0;  opacity: 0.55; }
+							}
+							@keyframes sm-label-in {
+								from { opacity: 0; transform: translateY(5px); }
+								to   { opacity: 1; transform: translateY(0); }
+							}
+
+							.sm-orbit-track {
+								position: absolute;
+								top: 50%;
+								left: 50%;
+								border-radius: 50%;
+								border: 1px solid hsl(var(--border));
+								transform: translate(-50%, -50%);
+								pointer-events: none;
+							}
+							.sm-orbit-spinner {
+								position: absolute;
+								top: 50%;
+								left: 50%;
+								border-radius: 50%;
+								transform: translate(-50%, -50%);
+							}
+							.sm-orbit-spinner--outer {
+								width: 136px;
+								height: 136px;
+								animation: sm-orbit-outer 3.2s linear infinite;
+							}
+							.sm-orbit-spinner--inner {
+								width: 88px;
+								height: 88px;
+								animation: sm-orbit-inner 2.4s linear infinite;
+							}
+							.sm-orbit-node {
+								position: absolute;
+								top: -3px;
+								left: 50%;
+								transform: translateX(-50%);
+								border-radius: 50%;
+							}
+							.sm-logo-center {
+								position: absolute;
+								top: 50%;
+								left: 50%;
+								transform: translate(-50%, -50%);
+								width: 64px;
+								height: 64px;
+								border-radius: 16px;
+								background: white;
+								border: 1px solid hsl(var(--border));
+								display: flex;
+								align-items: center;
+								justify-content: center;
+								animation: sm-logo-breathe 2.8s ease-in-out infinite;
+							}
+							.sm-logo-fallback {
+								display: none;
+								align-items: center;
+								justify-content: center;
+								width: 100%;
+								height: 100%;
+							}
+							.sm-mesh-node {
+								animation: sm-node-pulse 2.4s ease-in-out infinite;
+							}
+							.sm-mesh-node:nth-child(1) { animation-delay: 0s; }
+							.sm-mesh-node:nth-child(2) { animation-delay: 0.4s; }
+							.sm-mesh-node:nth-child(3) { animation-delay: 0.8s; }
+							.sm-mesh-line {
+								stroke-dasharray: 40;
+								animation: sm-mesh-flow 2.4s ease-in-out infinite;
+							}
+							.sm-mesh-line:nth-child(1) { animation-delay: 0s; }
+							.sm-mesh-line:nth-child(2) { animation-delay: 0.3s; }
+							.sm-mesh-line:nth-child(3) { animation-delay: 0.6s; }
+							.sm-mesh-line:nth-child(4) { animation-delay: 0.9s; }
+							.sm-label {
+								animation: sm-label-in 0.5s ease-out both;
+								animation-delay: 0.2s;
 							}
 						`}</style>
-						<div className="relative">
-							{/* Soft radial glow */}
+
+						{/* Orbital ring system */}
+						<div className="relative" style={{ width: 160, height: 160 }}>
+							{/* Tracks */}
 							<div
-								className="absolute inset-0 -m-6 rounded-full"
-								style={{
-									background: 'radial-gradient(circle, rgba(70,95,255,0.15) 0%, rgba(70,95,255,0.05) 50%, transparent 70%)',
-									animation: 'shimmer 2.5s ease-in-out infinite',
-								}}
+								className="sm-orbit-track"
+								style={{ width: 136, height: 136 }}
 							/>
-							{/* Subtle ring pulse */}
 							<div
-								className="absolute -inset-2 rounded-full border border-[#465fff]/20"
-								style={{
-									animation: 'shimmer-ring 3s ease-in-out infinite',
-								}}
+								className="sm-orbit-track"
+								style={{ width: 88, height: 88 }}
 							/>
-							{/* Logo */}
-							<div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-lg shadow-gray-900/5 border border-gray-100">
+
+							{/* Outer spinner + node */}
+							<div className="sm-orbit-spinner sm-orbit-spinner--outer">
+								<div
+									className="sm-orbit-node"
+									style={{
+										width: 7,
+										height: 7,
+										background: '#465fff',
+									}}
+								/>
+							</div>
+
+							{/* Inner spinner + node */}
+							<div className="sm-orbit-spinner sm-orbit-spinner--inner">
+								<div
+									className="sm-orbit-node"
+									style={{
+										width: 5,
+										height: 5,
+										top: -2.5,
+										background: '#111827',
+										opacity: 0.45,
+									}}
+								/>
+							</div>
+
+							{/* Logo center */}
+							<div className="sm-logo-center">
 								<img
 									src="/images/SchoolMesh.png"
 									alt="SchoolMesh"
-									className="h-12 w-12 object-contain"
+									style={{
+										width: 40,
+										height: 40,
+										objectFit: 'contain',
+									}}
 									loading="eager"
 									decoding="async"
+									onError={(e) => {
+										e.currentTarget.style.display = 'none';
+										const fallback = e.currentTarget
+											.nextElementSibling as HTMLElement | null;
+										if (fallback) fallback.style.display = 'flex';
+									}}
 								/>
+								<div className="sm-logo-fallback">
+									<GraduationCap size={28} style={{ color: '#465fff' }} />
+								</div>
 							</div>
 						</div>
-						<div className="flex flex-col items-center gap-2">
-							<p className="text-sm font-semibold tracking-wide text-[#111827]">
-								School<span className="text-[#465fff]">Mesh</span>
+
+						{/* Animated mesh motif */}
+						<svg
+							width="80"
+							height="32"
+							viewBox="0 0 80 32"
+							style={{ overflow: 'visible' }}
+							aria-hidden="true"
+						>
+							<line
+								className="sm-mesh-line"
+								x1="8"
+								y1="16"
+								x2="40"
+								y2="8"
+								stroke="#465fff"
+								strokeWidth="1"
+							/>
+							<line
+								className="sm-mesh-line"
+								x1="40"
+								y1="8"
+								x2="72"
+								y2="16"
+								stroke="#465fff"
+								strokeWidth="1"
+							/>
+							<line
+								className="sm-mesh-line"
+								x1="8"
+								y1="16"
+								x2="40"
+								y2="24"
+								stroke="#465fff"
+								strokeWidth="1"
+							/>
+							<line
+								className="sm-mesh-line"
+								x1="40"
+								y1="24"
+								x2="72"
+								y2="16"
+								stroke="#465fff"
+								strokeWidth="1"
+							/>
+							<circle
+								className="sm-mesh-node"
+								cx="8"
+								cy="16"
+								r="3"
+								fill="#465fff"
+							/>
+							<circle
+								className="sm-mesh-node"
+								cx="40"
+								cy="8"
+								r="3"
+								fill="#465fff"
+							/>
+							<circle
+								className="sm-mesh-node"
+								cx="72"
+								cy="16"
+								r="3"
+								fill="#465fff"
+							/>
+						</svg>
+
+						{/* Wordmark + message */}
+						<div className="sm-label flex flex-col items-center gap-1.5">
+							<p className="text-sm font-semibold tracking-wide text-foreground">
+								School
+								<span style={{ color: '#465fff' }}>Mesh</span>
 							</p>
 							{message && (
-								<p className="max-w-xs text-center text-sm text-gray-500">
+								<p className="max-w-xs text-center text-sm text-muted-foreground">
 									{message}
 								</p>
 							)}
