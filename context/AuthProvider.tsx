@@ -7,6 +7,7 @@ import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
 import { useNetworkStore } from '@/store/networkStore';
 import { PageLoading } from '@/components/loading';
+import { useHasSchool } from '@/context/HasSchoolContext';
 import {
 	getAuthorizedRealtimeChannels,
 	resolveTenantSyncKey,
@@ -42,6 +43,7 @@ export default function AuthProvider({
 	const setAuthCheckFailed = useNetworkStore(
 		(state) => state.setAuthCheckFailed,
 	);
+	const hasSchool = useHasSchool();
 
 	const authRefreshInFlight = useRef(false);
 	const pendingAuthRefreshRef = useRef<{
@@ -143,12 +145,18 @@ export default function AuthProvider({
 		if (!startupResolved || isBootstrapping) return;
 		if (initialRouteResolvedRef.current) return;
 
-		if (!currentSchool) {
+		if (hasSchool && !currentSchool) {
 			initialRouteResolvedRef.current = true;
 			setIsResolvingInitialRoute(false);
 			if (pathname !== '/') {
 				router.replace('/');
 			}
+			return;
+		}
+
+		if (!hasSchool) {
+			initialRouteResolvedRef.current = true;
+			setIsResolvingInitialRoute(false);
 			return;
 		}
 
@@ -184,12 +192,13 @@ export default function AuthProvider({
 		}
 
 		router.replace(destination);
-	}, [isBootstrapping, currentSchool, pathname, router, startupResolved, user]);
+	}, [hasSchool, isBootstrapping, currentSchool, pathname, router, startupResolved, user]);
 
 	useEffect(() => {
 		if (!startupResolved || isBootstrapping) return;
 		if (!initialRouteResolvedRef.current) return;
 		if (isLoggingOut) return;
+		if (!hasSchool) return;
 		if (user?.isActive) return;
 		if (pathname === '/login') return;
 		if (
@@ -200,6 +209,7 @@ export default function AuthProvider({
 			router.replace('/login');
 		}
 	}, [
+		hasSchool,
 		isBootstrapping,
 		isLoggingOut,
 		pathname,
@@ -212,10 +222,11 @@ export default function AuthProvider({
 		if (!startupResolved || isBootstrapping) return;
 		if (!initialRouteResolvedRef.current) return;
 		if (isLoggingOut) return;
+		if (!hasSchool) return;
 		if (currentSchool) return;
 		if (pathname === '/') return;
 		router.replace('/');
-	}, [isBootstrapping, currentSchool, isLoggingOut, pathname, router, startupResolved]);
+	}, [hasSchool, isBootstrapping, currentSchool, isLoggingOut, pathname, router, startupResolved]);
 
 	// Ably Streaming Channel Setup and Connection Listeners
 	useEffect(() => {
@@ -389,10 +400,16 @@ export default function AuthProvider({
 	]);
 
 	if (!startupResolved || isBootstrapping || isResolvingInitialRoute) {
-		return <PageLoading variant="school" fullScreen={true} message="Loading..." />;
+		return (
+			<PageLoading
+				variant={hasSchool ? 'school' : 'company'}
+				fullScreen={true}
+				message="Loading..."
+			/>
+		);
 	}
 
-	if (!currentSchool) {
+	if (!currentSchool && hasSchool) {
 		return (
 			<PageLoading
 				variant="school"
@@ -405,7 +422,7 @@ export default function AuthProvider({
 	if (isLoggingOut) {
 		return (
 			<PageLoading
-				variant="school"
+				variant={hasSchool ? 'school' : 'company'}
 				fullScreen={true}
 				message="Signing out..."
 			/>

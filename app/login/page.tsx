@@ -28,6 +28,8 @@ import { useNetworkStore } from '@/store/networkStore';
 import Link from 'next/link';
 import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
 import type SchoolProfile from '@/types/schoolProfile';
+import { useHasSchool } from '@/context/HasSchoolContext';
+import SuperAdminLoginPage from '@/app/superadmin/login/page';
 import {
 	getAuthorizedRealtimeChannels,
 	resolveTenantSyncKey,
@@ -758,6 +760,7 @@ const LoginPage = () => {
 	);
 	const [loginDisabledError, setLoginDisabledError] = useState('');
 	const usernameInputRef = useRef<HTMLInputElement>(null);
+	const hasSchool = useHasSchool();
 
 	// ── Network store: single source of truth for connectivity ──
 	const isOnline = useNetworkStore((state) => state.isOnline);
@@ -990,10 +993,10 @@ useEffect(() => {
 	}, [selectedRole, currentSchool]);
 
 	useEffect(() => {
-		if (startupResolved && !isBootstrapping && !currentSchool) {
+		if (hasSchool && startupResolved && !isBootstrapping && !currentSchool) {
 			router.replace('/');
 		}
-	}, [startupResolved, isBootstrapping, currentSchool, router]);
+	}, [hasSchool, startupResolved, isBootstrapping, currentSchool, router]);
 
 	useEffect(() => {
 		if (!selectedRole) return;
@@ -1105,6 +1108,10 @@ useEffect(() => {
 		Boolean(user?.isActive || isLoggedIn);
 	if (isBootstrappingSession)
 		return <PageLoading variant="school" message="Loading…" />;
+
+	if (!hasSchool) {
+		return <SuperAdminLoginPage />;
+	}
 
 	// Determine which main step to show
 	const showRoleStep = !selectedRole;

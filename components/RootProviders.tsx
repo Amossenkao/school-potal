@@ -16,14 +16,17 @@ import { clearUserSessionDataCaches } from '@/utils/sessionPrivacy';
 import { useNetworkStore } from '@/store/networkStore';
 import { cacheAppShellDirect } from '@/utils/cacheAppShell';
 import Inactive from './inactive';
+import { HasSchoolProvider } from '@/context/HasSchoolContext';
 
 const OFFLINE_REQUESTS_KEY = 'school_portal_offline_requests';
 const LOGOUT_ENDPOINT = '/api/auth/login';
 
 export default function RootProviders({
 	children,
+	hasSchool = false,
 }: {
 	children: React.ReactNode;
+	hasSchool?: boolean;
 }) {
 	const { school, hydrateCache } = useSchoolStore();
 	const hasAppsFeature = Boolean(school?.enabledFeatures?.includes('apps'));
@@ -310,15 +313,17 @@ if (!isSessionValid) {
 	}, [school?.themeName]);
 
 	return (
-		<AuthProvider>
-			<ThemeProvider>
-				<SidebarProvider>
-					<OfflineHandler>
-						{school ? school.isActive ? children : <Inactive /> : children}
-					</OfflineHandler>
-				</SidebarProvider>
-				<Toaster position="top-right" />
-			</ThemeProvider>
-		</AuthProvider>
+		<HasSchoolProvider value={hasSchool}>
+			<AuthProvider>
+				<ThemeProvider>
+					<SidebarProvider>
+						<OfflineHandler>
+							{school ? school.isActive ? children : <Inactive /> : children}
+						</OfflineHandler>
+					</SidebarProvider>
+					<Toaster position="top-right" />
+				</ThemeProvider>
+			</AuthProvider>
+		</HasSchoolProvider>
 	);
 }

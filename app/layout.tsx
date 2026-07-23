@@ -131,6 +131,7 @@ export default async function RootLayout({
 	const schoolShortName = toSchoolShortName(profile, schoolName);
 	const tenantThemeColor = resolveTenantThemeColor(profile?.themeName);
 	const tenantThemeCss = buildTenantThemeCss(profile?.themeName);
+	const hasSchool = Boolean(profile);
 
 	return (
 		// Suppress hydration warning: the blocking script mutates classList and
@@ -180,7 +181,7 @@ export default async function RootLayout({
 			</head>
 			<body>
 				<DynamicDocumentTitle fallbackSchoolShortName={schoolShortName} />
-				<RootProviders>{children}</RootProviders>
+				<RootProviders hasSchool={hasSchool}>{children}</RootProviders>
 			</body>
 		</html>
 	);

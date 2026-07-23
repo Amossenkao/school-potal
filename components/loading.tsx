@@ -14,6 +14,7 @@ interface PageLoadingProps {
 		| 'dots'
 		| 'pulse'
 		| 'school'
+		| 'company'
 		| 'not-found'
 		| 'dashboard-not-found';
 	size?: 'sm' | 'md' | 'lg';
@@ -150,6 +151,46 @@ export const PageLoading = ({
 							sizeClass={sizeClasses[size]}
 							message={message}
 						/>
+					</div>
+				);
+
+			case 'company':
+				return (
+					<div className="flex flex-col items-center gap-6">
+						<div className="relative">
+							{/* Outer glow ring */}
+							<div className="absolute inset-0 rounded-full bg-[#465fff]/10 animate-ping" style={{ animationDuration: '2s' }} />
+							{/* Middle rotating ring */}
+							<div className="absolute -inset-3 rounded-full border-2 border-dashed border-[#465fff]/20 animate-spin" style={{ animationDuration: '8s' }} />
+							{/* Inner pulsing ring */}
+							<div className="absolute -inset-1.5 rounded-full border-2 border-[#465fff]/30 animate-pulse" style={{ animationDuration: '1.5s' }} />
+							{/* Logo container */}
+							<div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-lg shadow-gray-900/5 border border-gray-100">
+								<img
+									src="/images/SchoolMesh.png"
+									alt="SchoolMesh"
+									className="h-12 w-12 object-contain"
+									loading="eager"
+									decoding="async"
+								/>
+							</div>
+						</div>
+						<div className="flex flex-col items-center gap-2">
+							<p className="text-sm font-semibold tracking-wide text-[#111827]">
+								School<span className="text-[#465fff]">Mesh</span>
+							</p>
+							{message && (
+								<p className="max-w-xs text-center text-sm text-gray-500">
+									{message}
+								</p>
+							)}
+							{/* Animated dots */}
+							<div className="flex items-center gap-1.5 mt-1">
+								<span className="h-1.5 w-1.5 rounded-full bg-[#465fff] animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1.2s' }} />
+								<span className="h-1.5 w-1.5 rounded-full bg-[#465fff] animate-bounce" style={{ animationDelay: '150ms', animationDuration: '1.2s' }} />
+								<span className="h-1.5 w-1.5 rounded-full bg-[#465fff] animate-bounce" style={{ animationDelay: '300ms', animationDuration: '1.2s' }} />
+							</div>
+						</div>
 					</div>
 				);
 
