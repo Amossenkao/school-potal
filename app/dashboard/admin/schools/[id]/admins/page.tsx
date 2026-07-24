@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
 	ArrowLeft, Loader2, Plus, Trash2, X, UserPlus, Copy, Check, Pencil, CheckCircle, Key, ToggleLeft, ToggleRight,
 } from 'lucide-react';
 import { useSuperadminRealtime } from '@/app/dashboard/admin/hooks/useSuperadminRealtime';
 import type { RealtimeEvent } from '@/lib/realtimeTypes';
+import useAuth from '@/store/useAuth';
 
 interface SystemAdminAccount {
 	_id: string;
@@ -47,7 +48,11 @@ function generatePasswordSuggestion(firstName: string, lastName: string): string
 
 export default function SchoolAdminsPage() {
 	const params = useParams();
-	const host = params?.id as string;
+	const searchParams = useSearchParams();
+	const host = ((params?.id as string) || searchParams.get('host') || '').trim();
+	const schoolName = useAuth((state) =>
+		state.superAdminSchools.find((school: any) => school.host === host)?.name,
+	);
 
 	const [admins, setAdmins] = useState<SystemAdminAccount[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -237,12 +242,14 @@ export default function SchoolAdminsPage() {
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center gap-3">
-				<Link href={`/dashboard/admin/schools/${host}`} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 transition-colors">
+				<Link href={`/dashboard/school?host=${encodeURIComponent(host)}`} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 transition-colors">
 					<ArrowLeft className="h-5 w-5" />
 				</Link>
 				<div className="flex-1">
 					<h1 className="text-2xl font-bold text-gray-900 dark:text-white">System Admins</h1>
-					<p className="text-sm text-gray-500">Manage system administrator accounts for this school.</p>
+					<p className="text-sm text-gray-500">
+						Manage system administrator accounts for {schoolName || host || 'this school'}.
+					</p>
 				</div>
 				<button
 					onClick={() => { setShowCreate(true); setCreatedUserInfo(null); }}

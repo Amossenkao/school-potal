@@ -17,10 +17,10 @@ import {
 } from 'lucide-react';
 
 const NAV_ITEMS = [
-	{ label: 'Dashboard', href: '/dashboard/admin', icon: LayoutDashboard },
-	{ label: 'Schools', href: '/dashboard/admin/schools', icon: School },
-	{ label: 'Onboard', href: '/dashboard/admin/onboard', icon: PlusCircle },
-	{ label: 'Audit Logs', href: '/dashboard/admin/audit-logs', icon: ScrollText },
+	{ label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+	{ label: 'Schools', href: '/dashboard/schools', icon: School },
+	{ label: 'Onboard', href: '/dashboard/onboard', icon: PlusCircle },
+	{ label: 'Audit Logs', href: '/dashboard/audit', icon: ScrollText },
 	{ label: 'Settings', href: '/dashboard/admin/settings', icon: Settings },
 ];
 
@@ -46,7 +46,7 @@ const SuperAdminSidebar = memo(function SuperAdminSidebar() {
 			{/* Logo */}
 			<div className={`flex items-center gap-3 px-4 h-16 shrink-0 border-b border-white/10 ${effectiveExpanded ? 'justify-start' : 'justify-center'}`}>
 				{effectiveExpanded ? (
-					<Link href="/dashboard/admin" className="flex items-center gap-2.5" onClick={handleNavClick}>
+					<Link href="/dashboard" className="flex items-center gap-2.5" onClick={handleNavClick}>
 						<Image src="/images/SchoolMesh.png" alt="SchoolMesh" width={32} height={32} className="h-8 w-8 rounded-lg object-contain" />
 						<div>
 							<p className="text-sm font-bold tracking-tight">School<span className="text-[#465fff]">Mesh</span></p>
@@ -54,7 +54,7 @@ const SuperAdminSidebar = memo(function SuperAdminSidebar() {
 						</div>
 					</Link>
 				) : (
-					<Link href="/dashboard/admin" onClick={handleNavClick}>
+					<Link href="/dashboard" onClick={handleNavClick}>
 						<Image src="/images/SchoolMesh.png" alt="SM" width={32} height={32} className="h-8 w-8 rounded-lg object-contain" />
 					</Link>
 				)}
@@ -67,8 +67,8 @@ const SuperAdminSidebar = memo(function SuperAdminSidebar() {
 			<nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
 				{NAV_ITEMS.map((item) => {
 					const Icon = item.icon;
-				const isActive = item.href === '/dashboard/admin'
-					? pathname === '/dashboard/admin'
+				const isActive = item.href === '/dashboard'
+					? pathname === '/dashboard' || pathname === '/dashboard/admin'
 					: pathname.startsWith(item.href);
 					return (
 						<Link

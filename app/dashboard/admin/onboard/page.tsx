@@ -22,7 +22,7 @@ export default function SuperAdminOnboardPage() {
 			});
 			const result = await res.json();
 			if (!res.ok) throw new Error(result.error || 'Failed to create school');
-			router.push('/dashboard/admin/schools');
+			router.push('/dashboard/schools');
 		} catch (e: any) {
 			setError(e.message);
 		} finally {
@@ -33,7 +33,7 @@ export default function SuperAdminOnboardPage() {
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center gap-3">
-				<Link href="/dashboard/admin/schools" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 transition-colors">
+				<Link href="/dashboard/schools" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 transition-colors">
 					<ArrowLeft className="h-5 w-5" />
 				</Link>
 				<div>

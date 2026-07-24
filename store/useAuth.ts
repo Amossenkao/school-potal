@@ -31,6 +31,47 @@ type SyncVersions = {
 	attendance?: string;
 };
 
+type SuperAdminUserCounts = {
+	total: number;
+	students: number;
+	teachers: number;
+	administrators: number;
+	systemAdmins: number;
+};
+
+type SuperAdminSchoolCounts = SuperAdminUserCounts;
+
+type SuperAdminSchoolSummary = {
+	id?: string;
+	_id?: string;
+	name: string;
+	shortName?: string;
+	initials?: string;
+	host: string;
+	dbName?: string;
+	isActive: boolean;
+	logoUrl?: string;
+	address?: string[];
+	phones?: string[];
+	emails?: string[];
+	administrativePositions?: { id: string; name: string }[];
+	sysAdmin?: { name?: string; phone?: string; email?: string };
+	settings?: {
+		studentSettings?: { loginAccess?: boolean };
+		teacherSettings?: { loginAccess?: boolean };
+		administratorSettings?: { loginAccess?: boolean };
+	};
+	stats?: SuperAdminSchoolCounts;
+	users?: Omit<SuperAdminUserCounts, 'total'>;
+	totalUsers?: number;
+};
+
+type SuperAdminStats = {
+	schools: { total: number; active: number; inactive: number };
+	users: SuperAdminUserCounts;
+	recentSchools: { name: string; host: string; initials: string; isActive: boolean }[];
+};
+
 interface AuthState {
 	user: User | null;
 	isLoggedIn: boolean;
@@ -56,17 +97,107 @@ interface AuthState {
 	}) => Promise<void>;
 	bootstrapAuth: (options?: { force?: boolean }) => Promise<void>;
 
-	superAdminStats: {
-		schools: { total: number; active: number; inactive: number };
-		users: { total: number; students: number; teachers: number; administrators: number; systemAdmins: number };
-		recentSchools: { name: string; host: string; initials: string; isActive: boolean }[];
-	} | null;
+	superAdminStats: SuperAdminStats | null;
+	superAdminSchools: SuperAdminSchoolSummary[];
+	superAdminSchoolsLoaded: boolean;
+	setSuperAdminSchools: (schools: SuperAdminSchoolSummary[]) => void;
+	upsertSuperAdminSchool: (school: Partial<SuperAdminSchoolSummary> & { host?: string }) => void;
+	removeSuperAdminSchool: (host: string) => void;
 
 	clearError: () => void;
 	setUser: (user: User | null) => void;
 	hydrateFromCache: () => void;
 	applyRealtimeEvent: (event: RealtimeEvent) => void;
 }
+
+const EMPTY_USER_COUNTS: SuperAdminUserCounts = {
+	total: 0,
+	students: 0,
+	teachers: 0,
+	administrators: 0,
+	systemAdmins: 0,
+};
+
+const normalizeSuperAdminSchool = (school: any): SuperAdminSchoolSummary | null => {
+	const host = String(school?.host || '').trim();
+	if (!host) return null;
+	const users = school?.users || {};
+	const rawStats = school?.stats || {};
+	const stats = {
+		students: Number(rawStats.students ?? users.students ?? 0),
+		teachers: Number(rawStats.teachers ?? users.teachers ?? 0),
+		administrators: Number(rawStats.administrators ?? users.administrators ?? 0),
+		systemAdmins: Number(rawStats.systemAdmins ?? users.systemAdmins ?? 0),
+		total: Number(rawStats.total ?? school?.totalUsers ?? 0),
+	};
+	stats.total =
+		stats.total ||
+		stats.students + stats.teachers + stats.administrators + stats.systemAdmins;
+
+	return {
+		...school,
+		id: school?.id || school?._id,
+		host,
+		name: String(school?.name || host),
+		shortName: school?.shortName || '',
+		initials: school?.initials || String(school?.name || host).slice(0, 2).toUpperCase(),
+		isActive: school?.isActive !== false,
+		stats,
+		users: {
+			students: stats.students,
+			teachers: stats.teachers,
+			administrators: stats.administrators,
+			systemAdmins: stats.systemAdmins,
+		},
+		totalUsers: stats.total,
+	};
+};
+
+const buildSuperAdminStats = (
+	schools: SuperAdminSchoolSummary[],
+	statsInput?: any,
+): SuperAdminStats => {
+	const active = schools.filter((school) => school.isActive).length;
+	const users = schools.reduce(
+		(acc, school) => {
+			const stats = school.stats || EMPTY_USER_COUNTS;
+			acc.students += stats.students || 0;
+			acc.teachers += stats.teachers || 0;
+			acc.administrators += stats.administrators || 0;
+			acc.systemAdmins += stats.systemAdmins || 0;
+			acc.total += stats.total || 0;
+			return acc;
+		},
+		{ ...EMPTY_USER_COUNTS },
+	);
+
+	return {
+		schools: statsInput?.schools || {
+			total: schools.length,
+			active,
+			inactive: schools.length - active,
+		},
+		users: statsInput?.users || users,
+		recentSchools: (schools.length ? schools : statsInput?.perSchool || [])
+			.slice(-5)
+			.reverse()
+			.map((school: any) => ({
+				name: school.name,
+				host: school.host,
+				initials: school.initials || String(school.name || school.host || '').slice(0, 2).toUpperCase(),
+				isActive: school.isActive !== false,
+			})),
+	};
+};
+
+const getSuperAdminSchoolsFromPayload = (data: any) =>
+	((Array.isArray(data?.schools)
+		? data.schools
+		: Array.isArray(data?.stats?.perSchool)
+			? data.stats.perSchool
+			: []) as any[])
+		.map(normalizeSuperAdminSchool)
+		.filter(Boolean) as SuperAdminSchoolSummary[];
 
 let authCheckPromise: Promise<void> | null = null;
 let authBootstrapPromise: Promise<void> | null = null;
@@ -465,6 +596,47 @@ const runDeferredPostLoginBootstrap = (
 		isLoggingOut: false,
 		startupResolved: false,
 		superAdminStats: null,
+		superAdminSchools: [],
+		superAdminSchoolsLoaded: false,
+		setSuperAdminSchools: (schools) => {
+			const normalized = schools
+				.map(normalizeSuperAdminSchool)
+				.filter(Boolean) as SuperAdminSchoolSummary[];
+			set({
+				superAdminSchools: normalized,
+				superAdminSchoolsLoaded: true,
+				superAdminStats: buildSuperAdminStats(normalized),
+			});
+		},
+		upsertSuperAdminSchool: (school) => {
+			const normalized = normalizeSuperAdminSchool(school);
+			if (!normalized) return;
+			set((state) => {
+				const exists = state.superAdminSchools.some((item) => item.host === normalized.host);
+				const schools = exists
+					? state.superAdminSchools.map((item) =>
+							item.host === normalized.host ? { ...item, ...normalized } : item,
+						)
+					: [normalized, ...state.superAdminSchools];
+				return {
+					superAdminSchools: schools,
+					superAdminSchoolsLoaded: true,
+					superAdminStats: buildSuperAdminStats(schools),
+				};
+			});
+		},
+		removeSuperAdminSchool: (host) => {
+			const normalizedHost = String(host || '').trim();
+			if (!normalizedHost) return;
+			set((state) => {
+				const schools = state.superAdminSchools.filter((school) => school.host !== normalizedHost);
+				return {
+					superAdminSchools: schools,
+					superAdminSchoolsLoaded: true,
+					superAdminStats: buildSuperAdminStats(schools),
+				};
+			});
+		},
 		login: async (loginData: LoginData): Promise<User | null> => {
 			beginAuthMutation();
 			set({ isLoading: true, error: null });
@@ -509,13 +681,12 @@ const runDeferredPostLoginBootstrap = (
 				useNetworkStore.getState().setAuthCheckFailed(false);
 				applyBootstrapPayload(data);
 
-				if (data?.user?.role === 'superadmin' && data?.stats) {
+				if (data?.user?.role === 'superadmin' && (data?.stats || data?.schools)) {
+					const superAdminSchools = getSuperAdminSchoolsFromPayload(data);
 					set({
-						superAdminStats: {
-							schools: data.stats.schools || { total: 0, active: 0, inactive: 0 },
-							users: data.stats.users || { total: 0, students: 0, teachers: 0, administrators: 0, systemAdmins: 0 },
-							recentSchools: (data.schools || data.stats.perSchool || []).slice(-5).reverse(),
-						},
+						superAdminSchools,
+						superAdminSchoolsLoaded: superAdminSchools.length > 0,
+						superAdminStats: buildSuperAdminStats(superAdminSchools, data.stats),
 					});
 				}
 
@@ -615,6 +786,8 @@ const runDeferredPostLoginBootstrap = (
 				isLoggingOut: false,
 				startupResolved: true,
 				superAdminStats: null,
+				superAdminSchools: [],
+				superAdminSchoolsLoaded: false,
 			});
 			clearClientSessionCookie();
 			try {
@@ -808,13 +981,12 @@ const runDeferredPostLoginBootstrap = (
 					useNetworkStore.getState().setAuthCheckFailed(false);
 					applyBootstrapPayload(data, { gradesStrategy: 'merge' });
 
-					if (get().user?.role === 'superadmin' && data?.stats) {
+					if (get().user?.role === 'superadmin' && (data?.stats || data?.schools)) {
+						const superAdminSchools = getSuperAdminSchoolsFromPayload(data);
 						set({
-							superAdminStats: {
-								schools: data.stats.schools || { total: 0, active: 0, inactive: 0 },
-								users: data.stats.users || { total: 0, students: 0, teachers: 0, administrators: 0, systemAdmins: 0 },
-								recentSchools: (data.schools || data.stats.perSchool || []).slice(-5).reverse(),
-							},
+							superAdminSchools,
+							superAdminSchoolsLoaded: superAdminSchools.length > 0,
+							superAdminStats: buildSuperAdminStats(superAdminSchools, data.stats),
 						});
 					}
 

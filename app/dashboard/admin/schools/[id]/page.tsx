@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
 	ArrowLeft, Loader2, Trash2, Users, GraduationCap, BookOpen, ShieldCheck, UserPlus, Settings,
@@ -9,6 +9,7 @@ import {
 import SchoolProfileForm, { SchoolFormData } from '@/app/dashboard/admin/components/SchoolProfileForm';
 import { useSuperadminRealtime } from '@/app/dashboard/admin/hooks/useSuperadminRealtime';
 import type { RealtimeEvent } from '@/lib/realtimeTypes';
+import useAuth from '@/store/useAuth';
 
 interface SchoolStats {
 	students: number;
@@ -18,10 +19,76 @@ interface SchoolStats {
 	total: number;
 }
 
+const normalizeSchoolStats = (school: any): SchoolStats | null => {
+	if (!school) return null;
+	const source = school.stats || school.users || {};
+	const stats = {
+		students: Number(source.students || 0),
+		teachers: Number(source.teachers || 0),
+		administrators: Number(source.administrators || 0),
+		systemAdmins: Number(source.systemAdmins || 0),
+		total: Number(source.total || school.totalUsers || 0),
+	};
+	stats.total =
+		stats.total ||
+		stats.students + stats.teachers + stats.administrators + stats.systemAdmins;
+	return stats;
+};
+
+const normalizeSchoolFormData = (school: any): SchoolFormData => ({
+	...school,
+	logoUrl2: school?.logoUrl2 || '',
+	yearFounded: school?.yearFounded || '',
+	administrativePositions: school?.administrativePositions || [],
+	enabledFeatures: school?.enabledFeatures || [],
+	roleFeatureAccess: school?.roleFeatureAccess || {
+		student: [],
+		teacher: [],
+		system_admin: [],
+		administrator: {},
+	},
+	settings: {
+		studentSettings: {
+			loginAccess: true,
+			reportAccessByYear: {},
+			...(school?.settings?.studentSettings || {}),
+		},
+		teacherSettings: {
+			loginAccess: true,
+			permissionsByYear: {},
+			...(school?.settings?.teacherSettings || {}),
+		},
+		administratorSettings: {
+			loginAccess: true,
+			...(school?.settings?.administratorSettings || {}),
+		},
+		gradingSettings: {
+			passMark: 50,
+			gradeScale: { min: 0, max: 100 },
+			summerSchoolWeight: 0,
+			failureWeight: 0,
+			givesDoublePromotion: false,
+			givesDemotion: false,
+			...(school?.settings?.gradingSettings || {}),
+		},
+	},
+	classLevels: school?.classLevels || {},
+	feeSchedules: school?.feeSchedules || {},
+	address: school?.address || [],
+	phones: school?.phones || [],
+	emails: school?.emails || [],
+});
+
 export default function SchoolDetailPage() {
 	const params = useParams();
 	const router = useRouter();
-	const host = params?.id as string;
+	const searchParams = useSearchParams();
+	const host = ((params?.id as string) || searchParams.get('host') || '').trim();
+	const cachedSchool = useAuth((state) =>
+		state.superAdminSchools.find((item: any) => item.host === host),
+	) as any;
+	const upsertSuperAdminSchool = useAuth((state) => state.upsertSuperAdminSchool);
+	const removeSuperAdminSchool = useAuth((state) => state.removeSuperAdminSchool);
 
 	const [school, setSchool] = useState<SchoolFormData | null>(null);
 	const [stats, setStats] = useState<SchoolStats | null>(null);
@@ -32,37 +99,30 @@ export default function SchoolDetailPage() {
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
 	useEffect(() => {
-		if (host) {
-			fetchSchool();
-			fetchStats();
+		if (!host) return;
+		if (cachedSchool) {
+			setSchool((prev) => prev || normalizeSchoolFormData(cachedSchool));
+			const cachedStats = normalizeSchoolStats(cachedSchool);
+			if (cachedStats) setStats(cachedStats);
+			setLoading(false);
 		}
-	}, [host]);
+		const hasFullProfile =
+			cachedSchool &&
+			('classLevels' in cachedSchool ||
+				'enabledFeatures' in cachedSchool ||
+				'roleFeatureAccess' in cachedSchool);
+		if (!hasFullProfile) fetchSchool();
+		if (!normalizeSchoolStats(cachedSchool)) fetchStats();
+	}, [host, cachedSchool]);
 
 	const fetchSchool = async () => {
 		try {
-			setLoading(true);
+			setLoading((current) => current || !school);
 			const res = await fetch(`/api/school?host=${encodeURIComponent(host)}`);
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.error || 'Failed to load school');
-			setSchool({
-				...data.school,
-				logoUrl2: data.school.logoUrl2 || '',
-				yearFounded: data.school.yearFounded || '',
-				administrativePositions: data.school.administrativePositions || [],
-				enabledFeatures: data.school.enabledFeatures || [],
-				roleFeatureAccess: data.school.roleFeatureAccess || { student: [], teacher: [], system_admin: [], administrator: {} },
-				settings: {
-					studentSettings: { loginAccess: true, reportAccessByYear: {}, ...(data.school.settings?.studentSettings || {}) },
-					teacherSettings: { loginAccess: true, permissionsByYear: {}, ...(data.school.settings?.teacherSettings || {}) },
-					administratorSettings: { loginAccess: true, ...(data.school.settings?.administratorSettings || {}) },
-					gradingSettings: { passMark: 50, gradeScale: { min: 0, max: 100 }, summerSchoolWeight: 0, failureWeight: 0, givesDoublePromotion: false, givesDemotion: false, ...(data.school.settings?.gradingSettings || {}) },
-				},
-				classLevels: data.school.classLevels || {},
-				feeSchedules: data.school.feeSchedules || {},
-				address: data.school.address || [],
-				phones: data.school.phones || [],
-				emails: data.school.emails || [],
-			});
+			setSchool(normalizeSchoolFormData(data.school));
+			upsertSuperAdminSchool(data.school);
 		} catch (e: any) {
 			setError(e.message);
 		} finally {
@@ -74,7 +134,20 @@ export default function SchoolDetailPage() {
 		try {
 			const res = await fetch(`/api/school?host=${encodeURIComponent(host)}&stats=true`);
 			const data = await res.json();
-			if (res.ok) setStats(data);
+			if (res.ok) {
+				setStats(data);
+				upsertSuperAdminSchool({
+					host,
+					stats: data,
+					users: {
+						students: data.students,
+						teachers: data.teachers,
+						administrators: data.administrators,
+						systemAdmins: data.systemAdmins,
+					},
+					totalUsers: data.total,
+				});
+			}
 		} catch {}
 	};
 
@@ -90,6 +163,7 @@ export default function SchoolDetailPage() {
 			});
 			const result = await res.json();
 			if (!res.ok) throw new Error(result.error || 'Failed to save');
+			upsertSuperAdminSchool(result.school || data);
 			setSuccess('Changes saved successfully.');
 			setTimeout(() => setSuccess(''), 3000);
 		} catch (e: any) {
@@ -104,7 +178,8 @@ export default function SchoolDetailPage() {
 			setSaving(true);
 			const res = await fetch(`/api/school?host=${encodeURIComponent(host)}`, { method: 'DELETE' });
 			if (!res.ok) throw new Error('Failed to delete school');
-			router.push('/dashboard/admin/schools');
+			removeSuperAdminSchool(host);
+			router.push('/dashboard/schools');
 		} catch (e: any) {
 			setError(e.message);
 			setSaving(false);
@@ -114,14 +189,17 @@ export default function SchoolDetailPage() {
 	const handleRealtimeEvent = useCallback((event: RealtimeEvent) => {
 		const reason = String(event.payload?.reason || '').trim();
 		if (reason === 'school-deleted') {
-			router.push('/dashboard/admin/schools');
+			removeSuperAdminSchool(host);
+			router.push('/dashboard/schools');
 			return;
 		}
 		if (reason === 'school-updated' || reason === 'school-toggled-active') {
+			const schoolData = event.payload?.school as Record<string, any> | undefined;
+			if (schoolData?.host) upsertSuperAdminSchool(schoolData);
 			fetchSchool();
-			fetchStats();
+			if (!stats) fetchStats();
 		}
-	}, [router]);
+	}, [host, removeSuperAdminSchool, router, stats, upsertSuperAdminSchool]);
 
 	useSuperadminRealtime({ schoolHosts: [host], onEvent: handleRealtimeEvent });
 
@@ -148,7 +226,7 @@ export default function SchoolDetailPage() {
 		<div className="space-y-6">
 			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 				<div className="flex items-center gap-3">
-					<Link href="/dashboard/admin/schools" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 transition-colors">
+					<Link href="/dashboard/schools" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 transition-colors">
 						<ArrowLeft className="h-5 w-5" />
 					</Link>
 					<div>
@@ -158,7 +236,7 @@ export default function SchoolDetailPage() {
 				</div>
 				<div className="flex items-center gap-3">
 					<Link
-						href={`/dashboard/admin/schools/${host}/admins`}
+						href={`/dashboard/school/admins?host=${encodeURIComponent(host)}`}
 						className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors dark:border-gray-800 dark:text-gray-400"
 					>
 						<ShieldCheck className="h-4 w-4" />

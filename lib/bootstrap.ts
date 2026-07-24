@@ -923,7 +923,7 @@ export const buildSuperAdminBootstrapPayload = async (
 	const { SchoolProfile } = await getSchoolMeshModels();
 
 	const schools = await SchoolProfile.find({})
-		.select('host dbName name shortName initials logoUrl isActive')
+		.select('host dbName name slogan shortName initials logoUrl isActive address phones emails administrativePositions sysAdmin settings.studentSettings.loginAccess settings.teacherSettings.loginAccess settings.administratorSettings.loginAccess updatedAt')
 		.lean()
 		.exec();
 
@@ -932,27 +932,38 @@ export const buildSuperAdminBootstrapPayload = async (
 
 	// Get user counts for each school
 	const dbNames = [...new Set(schools.map((s: any) => s.dbName).filter(Boolean))] as string[];
-	const counts = await Promise.all(dbNames.map(getTenantUserCounts));
+	const countsByDbName = new Map(
+		await Promise.all(
+			dbNames.map(async (dbName) => [dbName, await getTenantUserCounts(dbName)] as const),
+		),
+	);
 
 	let totalStudents = 0;
 	let totalTeachers = 0;
 	let totalAdministrators = 0;
 	let totalSystemAdmins = 0;
 
-	const perSchoolStats = schools.map((school: any, index: number) => {
-		const schoolCounts = counts[index] || { students: 0, teachers: 0, administrators: 0, systemAdmins: 0 };
+	const perSchoolStats = schools.map((school: any) => {
+		const schoolCounts = countsByDbName.get(school.dbName) || { students: 0, teachers: 0, administrators: 0, systemAdmins: 0 };
+		const totalUsersForSchool = schoolCounts.students + schoolCounts.teachers + schoolCounts.administrators + schoolCounts.systemAdmins;
 		totalStudents += schoolCounts.students;
 		totalTeachers += schoolCounts.teachers;
 		totalAdministrators += schoolCounts.administrators;
 		totalSystemAdmins += schoolCounts.systemAdmins;
 
 		return {
+			...school,
 			host: school.host,
 			name: school.name,
+			shortName: school.shortName,
 			initials: school.initials,
 			isActive: school.isActive,
+			stats: {
+				...schoolCounts,
+				total: totalUsersForSchool,
+			},
 			users: schoolCounts,
-			totalUsers: schoolCounts.students + schoolCounts.teachers + schoolCounts.administrators + schoolCounts.systemAdmins,
+			totalUsers: totalUsersForSchool,
 		};
 	});
 

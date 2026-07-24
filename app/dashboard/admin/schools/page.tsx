@@ -3,262 +3,499 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import {
-	School,
+	ArrowRight,
+	BookOpen,
 	Building2,
+	GraduationCap,
 	Loader2,
+	MoreHorizontal,
 	PlusCircle,
 	Search,
+	Settings,
 	ShieldCheck,
 	ShieldOff,
-	ArrowRight,
-	Wifi,
-	WifiOff,
+	Trash2,
+	UserCog,
+	Users,
 } from 'lucide-react';
 import { useSuperadminRealtime } from '@/app/dashboard/admin/hooks/useSuperadminRealtime';
 import type { RealtimeEvent } from '@/lib/realtimeTypes';
+import useAuth from '@/store/useAuth';
+
+interface SchoolStats {
+	total: number;
+	students: number;
+	teachers: number;
+	administrators: number;
+	systemAdmins: number;
+}
 
 interface SchoolSummary {
 	id?: string;
+	_id?: string;
 	name: string;
-	shortName: string;
-	initials: string;
+	shortName?: string;
+	initials?: string;
 	host: string;
-	dbName: string;
+	dbName?: string;
 	isActive: boolean;
-	logoUrl: string;
-	address: string[];
-	phones: string[];
-	emails: string[];
-	administrativePositions: { id: string; name: string }[];
-	sysAdmin: { name: string; phone: string; email?: string };
-	settings: {
-		studentSettings: { loginAccess: boolean };
-		teacherSettings: { loginAccess: boolean };
-		administratorSettings: { loginAccess: boolean };
+	logoUrl?: string;
+	address?: string[];
+	phones?: string[];
+	emails?: string[];
+	sysAdmin?: { name?: string; phone?: string; email?: string };
+	stats?: SchoolStats;
+	totalUsers?: number;
+	users?: {
+		students: number;
+		teachers: number;
+		administrators: number;
+		systemAdmins: number;
 	};
 }
 
+const getStats = (school: SchoolSummary): SchoolStats => {
+	const users = (school.users || {}) as Partial<SchoolStats>;
+	const stats = (school.stats || {}) as Partial<SchoolStats>;
+	const next = {
+		students: Number(stats.students ?? users.students ?? 0),
+		teachers: Number(stats.teachers ?? users.teachers ?? 0),
+		administrators: Number(stats.administrators ?? users.administrators ?? 0),
+		systemAdmins: Number(stats.systemAdmins ?? users.systemAdmins ?? 0),
+		total: Number(stats.total ?? school.totalUsers ?? 0),
+	};
+	next.total =
+		next.total ||
+		next.students + next.teachers + next.administrators + next.systemAdmins;
+	return next;
+};
+
+const initialsFor = (school: SchoolSummary) =>
+	(school.initials || school.shortName || school.name || school.host || 'SM')
+		.slice(0, 2)
+		.toUpperCase();
+
 export default function SchoolsListPage() {
-	const [schools, setSchools] = useState<SchoolSummary[]>([]);
-	const [loading, setLoading] = useState(true);
+	const schools = useAuth((state) => state.superAdminSchools) as SchoolSummary[];
+	const schoolsLoaded = useAuth((state) => state.superAdminSchoolsLoaded);
+	const setSuperAdminSchools = useAuth((state) => state.setSuperAdminSchools);
+	const upsertSuperAdminSchool = useAuth((state) => state.upsertSuperAdminSchool);
+	const removeSuperAdminSchool = useAuth((state) => state.removeSuperAdminSchool);
+
+	const [loading, setLoading] = useState(!schoolsLoaded);
 	const [error, setError] = useState('');
 	const [search, setSearch] = useState('');
+	const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+	const [selectedHost, setSelectedHost] = useState('');
 	const [togglingId, setTogglingId] = useState<string | null>(null);
+	const [deletingId, setDeletingId] = useState<string | null>(null);
+
+	const selectedSchool = useMemo(
+		() => schools.find((school) => school.host === selectedHost) || schools[0] || null,
+		[schools, selectedHost],
+	);
 
 	const handleRealtimeEvent = useCallback((event: RealtimeEvent) => {
 		const reason = String(event.payload?.reason || '').trim();
 		const schoolData = event.payload?.school as Record<string, any> | undefined;
 
-		if (reason === 'school-toggled-active' && schoolData?.host) {
-			setSchools((prev) =>
-				prev.map((s) =>
-					s.host === schoolData.host
-						? { ...s, isActive: schoolData.isActive ?? !s.isActive }
-						: s
-				)
-			);
-			return;
-		}
-
-		if (reason === 'school-updated' && schoolData?.host) {
-			setSchools((prev) =>
-				prev.map((s) =>
-					s.host === schoolData.host
-						? { ...s, ...schoolData }
-						: s
-				)
-			);
+		if ((reason === 'school-toggled-active' || reason === 'school-updated') && schoolData?.host) {
+			upsertSuperAdminSchool(schoolData);
 			return;
 		}
 
 		if (reason === 'school-deleted' && event.payload?.host) {
-			setSchools((prev) =>
-				prev.filter((s) => s.host !== event.payload.host)
-			);
-			return;
+			removeSuperAdminSchool(String(event.payload.host));
 		}
-	}, []);
+	}, [removeSuperAdminSchool, upsertSuperAdminSchool]);
 
 	const schoolHosts = useMemo(
-		() => schools.map((s) => s.host).filter(Boolean),
-		[schools]
+		() => schools.map((school) => school.host).filter(Boolean),
+		[schools],
 	);
 
 	useSuperadminRealtime({ schoolHosts, onEvent: handleRealtimeEvent });
 
-	useEffect(() => {
-		fetchSchools();
-	}, []);
-
-	const fetchSchools = async () => {
+	const fetchSchools = useCallback(async () => {
 		try {
 			setLoading(true);
+			setError('');
 			const res = await fetch('/api/school?all=true');
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.error || 'Failed to load schools');
-			setSchools(data.schools || []);
+			setSuperAdminSchools(data.schools || []);
 		} catch (e: any) {
-			setError(e.message);
+			setError(e.message || 'Failed to load schools');
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [setSuperAdminSchools]);
+
+	useEffect(() => {
+		if (schoolsLoaded) {
+			setLoading(false);
+			return;
+		}
+		fetchSchools();
+	}, [fetchSchools, schoolsLoaded]);
 
 	const toggleSchoolActive = async (school: SchoolSummary) => {
 		try {
 			setTogglingId(school.host);
+			const nextIsActive = !school.isActive;
+			upsertSuperAdminSchool({ ...school, isActive: nextIsActive });
 			const res = await fetch(`/api/school?host=${encodeURIComponent(school.host)}`, {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ isActive: !school.isActive }),
+				body: JSON.stringify({ isActive: nextIsActive }),
 			});
-			if (!res.ok) throw new Error('Failed to update');
-			setSchools((prev) =>
-				prev.map((s) => (s.host === school.host ? { ...s, isActive: !s.isActive } : s))
-			);
-		} catch {
-			// ignore
+			const data = await res.json().catch(() => ({}));
+			if (!res.ok) throw new Error(data.error || 'Failed to update school status');
+			if (data.school) upsertSuperAdminSchool(data.school);
+		} catch (e: any) {
+			setError(e.message || 'Failed to update school status');
+			upsertSuperAdminSchool(school);
 		} finally {
 			setTogglingId(null);
 		}
 	};
 
-	const filtered = schools.filter(
-		(s) =>
-			s.name.toLowerCase().includes(search.toLowerCase()) ||
-			s.shortName.toLowerCase().includes(search.toLowerCase()) ||
-			s.host.toLowerCase().includes(search.toLowerCase())
+	const deleteSchool = async (school: SchoolSummary) => {
+		if (!confirm(`Delete ${school.name}? This cannot be undone.`)) return;
+		try {
+			setDeletingId(school.host);
+			const res = await fetch(`/api/school?host=${encodeURIComponent(school.host)}`, {
+				method: 'DELETE',
+			});
+			const data = await res.json().catch(() => ({}));
+			if (!res.ok) throw new Error(data.error || 'Failed to delete school');
+			removeSuperAdminSchool(school.host);
+			if (selectedHost === school.host) setSelectedHost('');
+		} catch (e: any) {
+			setError(e.message || 'Failed to delete school');
+		} finally {
+			setDeletingId(null);
+		}
+	};
+
+	const filtered = useMemo(() => {
+		const query = search.trim().toLowerCase();
+		return schools.filter((school) => {
+			if (statusFilter === 'active' && !school.isActive) return false;
+			if (statusFilter === 'inactive' && school.isActive) return false;
+			if (!query) return true;
+			return [
+				school.name,
+				school.shortName,
+				school.host,
+				school.dbName,
+				school.sysAdmin?.name,
+				school.sysAdmin?.phone,
+			]
+				.filter(Boolean)
+				.some((value) => String(value).toLowerCase().includes(query));
+		});
+	}, [schools, search, statusFilter]);
+
+	const totals = useMemo(
+		() =>
+			schools.reduce(
+				(acc, school) => {
+					const stats = getStats(school);
+					acc.schools += 1;
+					if (school.isActive) acc.active += 1;
+					acc.students += stats.students;
+					acc.teachers += stats.teachers;
+					acc.admins += stats.administrators + stats.systemAdmins;
+					acc.users += stats.total;
+					return acc;
+				},
+				{ schools: 0, active: 0, students: 0, teachers: 0, admins: 0, users: 0 },
+			),
+		[schools],
 	);
 
-	const activeCount = schools.filter((s) => s.isActive).length;
+	const topStats = [
+		{ label: 'Schools', value: totals.schools, icon: Building2, color: '#465fff', tone: 'bg-[#465fff]/10' },
+		{ label: 'Active', value: totals.active, icon: ShieldCheck, color: '#10B981', tone: 'bg-green-50' },
+		{ label: 'Students', value: totals.students, icon: GraduationCap, color: '#F59E0B', tone: 'bg-amber-50' },
+		{ label: 'Total Users', value: totals.users, icon: Users, color: '#06B6D4', tone: 'bg-cyan-50' },
+	];
 
 	return (
 		<div className="space-y-6">
-			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+			<div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
 				<div>
 					<h1 className="text-2xl font-bold text-gray-900 dark:text-white">Schools</h1>
-					<p className="text-sm text-gray-500 mt-1">
-						Manage all registered schools on the platform.
+					<p className="mt-1 text-sm text-gray-500">
+						Operate schools, admins, access, and live platform health from one place.
 					</p>
 				</div>
-				<Link
-					href="/dashboard/admin/onboard"
-					className="inline-flex items-center gap-2 rounded-lg bg-[#465fff] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#3a4fe6] transition-colors"
-				>
-					<PlusCircle className="h-4 w-4" />
-					Onboard School
-				</Link>
+				<div className="flex flex-wrap items-center gap-2">
+					<button
+						onClick={fetchSchools}
+						disabled={loading}
+						className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-900"
+					>
+						{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+						Refresh
+					</button>
+					<Link
+						href="/dashboard/onboard"
+						className="inline-flex items-center gap-2 rounded-lg bg-[#465fff] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3a4fe6]"
+					>
+						<PlusCircle className="h-4 w-4" />
+						Onboard
+					</Link>
+				</div>
 			</div>
 
-			<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-				{[
-					{ label: 'Total Schools', value: schools.length, icon: School, color: '#465fff' },
-					{ label: 'Active', value: activeCount, icon: ShieldCheck, color: '#10B981' },
-					{ label: 'Inactive', value: schools.length - activeCount, icon: ShieldOff, color: '#EF4444' },
-					{ label: 'DB Names', value: new Set(schools.map((s) => s.dbName)).size, icon: Building2, color: '#8B5CF6' },
-				].map((stat) => (
-					<div key={stat.label} className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-						<div className="flex items-center justify-between">
-							<p className="text-sm text-gray-500">{stat.label}</p>
-							<stat.icon className="h-4 w-4" style={{ color: stat.color }} />
+			{error && (
+				<div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+					{error}
+				</div>
+			)}
+
+			<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+				{topStats.map((stat) => {
+					const Icon = stat.icon;
+					return (
+						<div key={stat.label} className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+							<div className="flex items-center justify-between gap-3">
+								<p className="text-sm text-gray-500">{stat.label}</p>
+								<div className={`flex h-8 w-8 items-center justify-center rounded-lg ${stat.tone}`}>
+									<Icon className="h-4 w-4" style={{ color: stat.color }} />
+								</div>
+							</div>
+							<p className="mt-3 text-2xl font-bold text-gray-900 dark:text-white">{stat.value.toLocaleString()}</p>
 						</div>
-						<p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
-					</div>
-				))}
+					);
+				})}
 			</div>
 
-			<div className="relative max-w-sm">
-				<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-				<input
-					type="text"
-					placeholder="Search schools..."
-					value={search}
-					onChange={(e) => setSearch(e.target.value)}
-					className="w-full rounded-lg border border-gray-200 bg-white pl-10 pr-4 py-2.5 text-sm outline-none focus:border-[#465fff] focus:ring-2 focus:ring-[#465fff]/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white"
-				/>
-			</div>
-
-			<div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 overflow-hidden">
-				{loading ? (
-					<div className="flex items-center justify-center py-20">
-						<Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+			<div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+				<div className="space-y-4">
+					<div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900 sm:flex-row sm:items-center">
+						<div className="relative flex-1">
+							<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+							<input
+								type="text"
+								placeholder="Search by school, host, database, or admin"
+								value={search}
+								onChange={(event) => setSearch(event.target.value)}
+								className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-[#465fff] focus:ring-2 focus:ring-[#465fff]/10 dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+							/>
+						</div>
+						<div className="grid grid-cols-3 rounded-lg bg-gray-100 p-1 text-xs font-semibold text-gray-500 dark:bg-gray-950">
+							{(['all', 'active', 'inactive'] as const).map((filter) => (
+								<button
+									key={filter}
+									onClick={() => setStatusFilter(filter)}
+									className={`rounded-md px-3 py-2 capitalize transition-colors ${
+										statusFilter === filter
+											? 'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-white'
+											: 'hover:text-gray-900 dark:hover:text-white'
+									}`}
+								>
+									{filter}
+								</button>
+							))}
+						</div>
 					</div>
-				) : error ? (
-					<div className="py-20 text-center text-sm text-red-500">{error}</div>
-				) : filtered.length === 0 ? (
-					<div className="py-20 text-center text-sm text-gray-500">No schools found.</div>
-				) : (
-					<div className="overflow-x-auto">
-						<table className="w-full text-sm">
-							<thead>
-								<tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:border-gray-800 dark:bg-gray-800/50">
-									<th className="px-4 py-3">School</th>
-									<th className="px-4 py-3 hidden md:table-cell">Host</th>
-									<th className="px-4 py-3 hidden lg:table-cell">DB Name</th>
-									<th className="px-4 py-3 hidden lg:table-cell">Admin</th>
-									<th className="px-4 py-3 text-center">Status</th>
-									<th className="px-4 py-3 text-right">Actions</th>
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-								{filtered.map((school) => (
-									<tr key={school.host} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
-										<td className="px-4 py-3">
-											<div className="flex items-center gap-3">
+
+					<div className="grid gap-3">
+						{loading ? (
+							<div className="flex items-center justify-center rounded-lg border border-gray-200 bg-white py-20 dark:border-gray-800 dark:bg-gray-900">
+								<Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+							</div>
+						) : filtered.length === 0 ? (
+							<div className="rounded-lg border border-gray-200 bg-white py-20 text-center text-sm text-gray-500 dark:border-gray-800 dark:bg-gray-900">
+								No schools found.
+							</div>
+						) : (
+							filtered.map((school) => {
+								const stats = getStats(school);
+								const selected = selectedSchool?.host === school.host;
+								return (
+									<div
+										key={school.host}
+										className={`rounded-lg border bg-white p-4 transition-colors dark:bg-gray-900 ${
+											selected
+												? 'border-[#465fff] ring-2 ring-[#465fff]/10'
+												: 'border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700'
+										}`}
+									>
+										<div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+											<button
+												onClick={() => setSelectedHost(school.host)}
+												className="flex min-w-0 flex-1 items-start gap-3 text-left"
+											>
 												{school.logoUrl ? (
-													<img src={school.logoUrl} alt="" className="h-8 w-8 rounded-lg object-cover" />
+													<img src={school.logoUrl} alt="" className="h-11 w-11 rounded-lg object-cover" />
 												) : (
-													<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#465fff]/10 text-xs font-bold text-[#465fff]">
-														{school.initials || school.shortName?.slice(0, 2)}
+													<div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#465fff]/10 text-sm font-bold text-[#465fff]">
+														{initialsFor(school)}
 													</div>
 												)}
 												<div className="min-w-0">
-													<p className="font-medium text-gray-900 dark:text-white truncate">{school.name}</p>
-													<p className="text-xs text-gray-500 truncate md:hidden">{school.host}</p>
+													<div className="flex flex-wrap items-center gap-2">
+														<h2 className="truncate text-sm font-semibold text-gray-900 dark:text-white">{school.name}</h2>
+														<span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+															school.isActive
+																? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+																: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+														}`}>
+															{school.isActive ? 'Active' : 'Inactive'}
+														</span>
+													</div>
+													<p className="mt-0.5 truncate text-xs text-gray-500">{school.host}</p>
+													<p className="mt-2 text-xs text-gray-500">
+														{school.sysAdmin?.name || 'No system admin listed'}
+														{school.sysAdmin?.phone ? ` · ${school.sysAdmin.phone}` : ''}
+													</p>
 												</div>
-											</div>
-										</td>
-										<td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden md:table-cell">{school.host}</td>
-										<td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden lg:table-cell font-mono text-xs">{school.dbName}</td>
-										<td className="px-4 py-3 hidden lg:table-cell">
-											<p className="text-gray-900 dark:text-white">{school.sysAdmin?.name || '—'}</p>
-											<p className="text-xs text-gray-500">{school.sysAdmin?.phone || ''}</p>
-										</td>
-										<td className="px-4 py-3 text-center">
-											<button
-												onClick={() => toggleSchoolActive(school)}
-												disabled={togglingId === school.host}
-												className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
-													school.isActive
-														? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400'
-														: 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400'
-												} disabled:opacity-50`}
-											>
-												{togglingId === school.host ? (
-													<Loader2 className="h-3 w-3 animate-spin" />
-												) : school.isActive ? (
-													<ShieldCheck className="h-3 w-3" />
-												) : (
-													<ShieldOff className="h-3 w-3" />
-												)}
-												{school.isActive ? 'Active' : 'Inactive'}
 											</button>
-										</td>
-										<td className="px-4 py-3 text-right">
-											<Link
-												href={`/dashboard/admin/schools/${school.host}`}
-												className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors dark:text-gray-400 dark:hover:bg-gray-800"
-											>
-												Manage
-												<ArrowRight className="h-3 w-3" />
-											</Link>
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
+
+											<div className="grid grid-cols-4 gap-2 lg:w-[360px]">
+												{[
+													{ label: 'Students', value: stats.students, icon: GraduationCap },
+													{ label: 'Teachers', value: stats.teachers, icon: BookOpen },
+													{ label: 'Admins', value: stats.administrators, icon: UserCog },
+													{ label: 'Sys', value: stats.systemAdmins, icon: ShieldCheck },
+												].map((item) => {
+													const Icon = item.icon;
+													return (
+														<div key={item.label} className="rounded-lg bg-gray-50 px-2 py-2 text-center dark:bg-gray-950">
+															<Icon className="mx-auto h-3.5 w-3.5 text-gray-400" />
+															<p className="mt-1 text-sm font-bold text-gray-900 dark:text-white">{item.value.toLocaleString()}</p>
+															<p className="text-[10px] text-gray-500">{item.label}</p>
+														</div>
+													);
+												})}
+											</div>
+										</div>
+
+										<div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+											<div className="text-xs text-gray-500">
+												<span className="font-medium text-gray-700 dark:text-gray-300">{stats.total.toLocaleString()}</span> total users
+												{school.dbName ? <span> · {school.dbName}</span> : null}
+											</div>
+											<div className="flex flex-wrap items-center gap-2">
+												<button
+													onClick={() => toggleSchoolActive(school)}
+													disabled={togglingId === school.host}
+													className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
+														school.isActive
+															? 'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-300'
+															: 'bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-300'
+													}`}
+												>
+													{togglingId === school.host ? (
+														<Loader2 className="h-3.5 w-3.5 animate-spin" />
+													) : school.isActive ? (
+														<ShieldOff className="h-3.5 w-3.5" />
+													) : (
+														<ShieldCheck className="h-3.5 w-3.5" />
+													)}
+													{school.isActive ? 'Deactivate' : 'Activate'}
+												</button>
+												<Link
+													href={`/dashboard/school/admins?host=${encodeURIComponent(school.host)}`}
+													className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+												>
+													<UserCog className="h-3.5 w-3.5" />
+													Admins
+												</Link>
+												<Link
+													href={`/dashboard/school?host=${encodeURIComponent(school.host)}`}
+													className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+												>
+													<Settings className="h-3.5 w-3.5" />
+													Profile
+												</Link>
+												<button
+													onClick={() => deleteSchool(school)}
+													disabled={deletingId === school.host}
+													className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-900/20"
+												>
+													{deletingId === school.host ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+													Delete
+												</button>
+											</div>
+										</div>
+									</div>
+								);
+							})
+						)}
 					</div>
-				)}
+				</div>
+
+				<aside className="rounded-lg border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 xl:sticky xl:top-24 xl:self-start">
+					{selectedSchool ? (
+						<>
+							<div className="flex items-start gap-3">
+								{selectedSchool.logoUrl ? (
+									<img src={selectedSchool.logoUrl} alt="" className="h-12 w-12 rounded-lg object-cover" />
+								) : (
+									<div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#465fff]/10 text-sm font-bold text-[#465fff]">
+										{initialsFor(selectedSchool)}
+									</div>
+								)}
+								<div className="min-w-0">
+									<h2 className="truncate text-base font-bold text-gray-900 dark:text-white">{selectedSchool.name}</h2>
+									<p className="truncate text-xs text-gray-500">{selectedSchool.host}</p>
+								</div>
+							</div>
+
+							<div className="mt-5 grid grid-cols-2 gap-3">
+								{[
+									['Students', getStats(selectedSchool).students],
+									['Teachers', getStats(selectedSchool).teachers],
+									['Admins', getStats(selectedSchool).administrators],
+									['System', getStats(selectedSchool).systemAdmins],
+								].map(([label, value]) => (
+									<div key={label} className="rounded-lg bg-gray-50 p-3 dark:bg-gray-950">
+										<p className="text-xs text-gray-500">{label}</p>
+										<p className="mt-1 text-lg font-bold text-gray-900 dark:text-white">{Number(value).toLocaleString()}</p>
+									</div>
+								))}
+							</div>
+
+							<div className="mt-5 space-y-3 border-t border-gray-100 pt-5 text-sm dark:border-gray-800">
+								<div>
+									<p className="text-xs font-semibold uppercase text-gray-400">System Admin</p>
+									<p className="mt-1 font-medium text-gray-900 dark:text-white">{selectedSchool.sysAdmin?.name || 'Not listed'}</p>
+									<p className="text-xs text-gray-500">{selectedSchool.sysAdmin?.phone || selectedSchool.sysAdmin?.email || ''}</p>
+								</div>
+								<div>
+									<p className="text-xs font-semibold uppercase text-gray-400">Database</p>
+									<p className="mt-1 font-mono text-xs text-gray-700 dark:text-gray-300">{selectedSchool.dbName || 'Not configured'}</p>
+								</div>
+							</div>
+
+							<div className="mt-5 grid gap-2">
+								<Link
+									href={`/dashboard/school?host=${encodeURIComponent(selectedSchool.host)}`}
+									className="inline-flex items-center justify-between rounded-lg bg-[#465fff] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#3a4fe6]"
+								>
+									Manage Profile
+									<ArrowRight className="h-4 w-4" />
+								</Link>
+								<Link
+									href={`/dashboard/school/admins?host=${encodeURIComponent(selectedSchool.host)}`}
+									className="inline-flex items-center justify-between rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
+								>
+									Manage System Admins
+									<ArrowRight className="h-4 w-4" />
+								</Link>
+							</div>
+						</>
+					) : (
+						<div className="py-12 text-center text-sm text-gray-500">
+							Select a school to inspect operations.
+						</div>
+					)}
+				</aside>
 			</div>
 		</div>
 	);

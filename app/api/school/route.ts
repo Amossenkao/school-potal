@@ -229,7 +229,38 @@ export async function GET(request: NextRequest) {
 				const schools = await SchoolProfile.find({})
 					.select('host dbName name slogan shortName initials logoUrl isActive address phones emails administrativePositions sysAdmin settings.studentSettings.loginAccess settings.teacherSettings.loginAccess settings.administratorSettings.loginAccess')
 					.lean().exec();
-				return NextResponse.json({ schools });
+				const dbNames = [...new Set(schools.map((s: any) => s.dbName).filter(Boolean))] as string[];
+				const countsByDbName = new Map(
+					await Promise.all(
+						dbNames.map(async (dbName) => [dbName, await getTenantUserCounts(dbName)] as const),
+					),
+				);
+				const schoolsWithStats = schools.map((school: any) => {
+					const counts = countsByDbName.get(school.dbName) || {
+						students: 0,
+						teachers: 0,
+						administrators: 0,
+						systemAdmins: 0,
+					};
+					return {
+						...school,
+						stats: {
+							...counts,
+							total:
+								counts.students +
+								counts.teachers +
+								counts.administrators +
+								counts.systemAdmins,
+						},
+						users: counts,
+						totalUsers:
+							counts.students +
+							counts.teachers +
+							counts.administrators +
+							counts.systemAdmins,
+					};
+				});
+				return NextResponse.json({ schools: schoolsWithStats });
 			}
 
 			// Specific school by host
