@@ -24,12 +24,14 @@ import {
 	GraduationCap,
 	LayoutDashboard,
 	Lock,
+	LogIn,
 	LogOut,
 	Mail,
 	Menu,
 	MessageSquare,
 	Phone,
 	Play,
+	Plus,
 	QrCode,
 	Settings,
 	ShieldCheck,
@@ -122,11 +124,11 @@ function AnimatedCounter({ target, suffix = '' }: { target: number; suffix?: str
 }
 
 const navItems = [
-	{ label: 'Features', href: '#features' },
-	{ label: 'Solutions', href: '#solutions' },
-	{ label: 'Pricing', href: '#pricing' },
-	{ label: 'About', href: '#about' },
-	{ label: 'Contact', href: '#contact' },
+	{ label: 'About', href: '#about', icon: Sparkles },
+	{ label: 'Features', href: '#features', icon: LayoutDashboard },
+	{ label: 'Solutions', href: '#solutions', icon: ClipboardList },
+	{ label: 'Pricing', href: '#pricing', icon: CircleDollarSign },
+	{ label: 'Contact', href: '#contact', icon: Mail },
 ];
 
 const features = [
@@ -159,10 +161,10 @@ const showcaseItems = [
 		type: 'attendance' as const,
 	},
 	{
-		tag: 'Report Cards',
-		title: 'Professional reports, generated instantly.',
-		description: 'Select a class and subject, and SchoolMesh builds a complete grade report with assessments, exam scores, averages, and class rank — ready to share or download as PDF.',
-		features: ['Multi-period grade tables', 'Automatic average & rank', 'PDF generation & share links'],
+		tag: 'Grading',
+		title: 'Submit grades in seconds, not hours.',
+		description: 'Filter by class and subject, toggle periods with chips, and enter grades directly into a spreadsheet-like table. Drafts save offline and sync when you reconnect.',
+		features: ['Period-based grade chips', 'Inline spreadsheet editing', 'Offline draft sync'],
 		color: '#f79009',
 		type: 'reportcard' as const,
 	},
@@ -178,6 +180,53 @@ const comparisonRows: { feature: string; schoolMesh: boolean | 'partial'; tradit
 	{ feature: 'Automated Workflows', schoolMesh: true, traditional: false },
 	{ feature: 'Multi-Tenant Architecture', schoolMesh: true, traditional: false },
 	{ feature: 'AI-Powered Insights', schoolMesh: true, traditional: false },
+];
+
+const teamMembers = [
+	{
+		name: 'Amos Senkao',
+		initials: 'AS',
+		role: 'Founder & Lead Engineer',
+		bio: 'Full-stack engineer and educator who built SchoolMesh from classroom feedback. Obsessed with fast, reliable software that works offline.',
+		color: '#465fff',
+		links: [
+			{ icon: 'mail', label: 'Email', href: 'mailto:amossenkao@gmail.com' },
+			{ icon: 'linkedin', label: 'LinkedIn', href: '#' },
+		],
+	},
+	{
+		name: 'James Doe',
+		initials: 'JD',
+		role: 'Head of Operations',
+		bio: 'Oversees onboarding and school partnerships. Ensures every school gets a smooth rollout and hands-on training.',
+		color: '#12b76a',
+		links: [
+			{ icon: 'mail', label: 'Email', href: 'mailto:james@schoolmesh.net' },
+			{ icon: 'linkedin', label: 'LinkedIn', href: '#' },
+		],
+	},
+	{
+		name: 'Joseph D. Suah',
+		initials: 'AB',
+		role: 'Product & UX Lead',
+		bio: 'Designs every screen with the end user in mind. Believes great software should feel invisible — just results.',
+		color: '#f79009',
+		links: [
+			{ icon: 'mail', label: 'Email', href: 'mailto:joseph@schoolmesh.net' },
+			{ icon: 'twitter', label: 'X', href: '#' },
+		],
+	},
+	{
+		name: 'Fredrick S. Boakai',
+		initials: 'JK',
+		role: 'School Partnerships',
+		bio: 'Connects SchoolMesh with schools across Liberia. Former teacher who understands what educators need from their tools.',
+		color: '#8b5cf6',
+		links: [
+			{ icon: 'mail', label: 'Email', href: 'mailto:fredrick@schoolmesh.net' },
+			{ icon: 'globe', label: 'Website', href: '#' },
+		],
+	},
 ];
 
 const stats = [
@@ -530,114 +579,106 @@ function AttendanceMockup() {
 	);
 }
 
-function ReportCardMockup() {
-	const subjects = [
-		{ name: 'Mathematics', f1: 82, f2: 78, f3: 85, exam1: 88, avg1: 83.25, f4: 80, f5: 82, f6: 79, exam2: 85, avg2: 81.5, yearly: 82.4 },
-		{ name: 'English', f1: 72, f2: 68, f3: 75, exam1: 70, avg1: 71.25, f4: 74, f5: 70, f6: 72, exam2: 68, avg2: 71.0, yearly: 71.1 },
-		{ name: 'Science', f1: 90, f2: 88, f3: 92, exam1: 95, avg1: 91.25, f4: 89, f5: 91, f6: 87, exam2: 93, avg2: 90.0, yearly: 90.6 },
-		{ name: 'Social Studies', f1: 78, f2: 75, f3: 80, exam1: 72, avg1: 76.25, f4: 77, f5: 74, f6: 79, exam2: 70, avg2: 75.0, yearly: 75.6 },
-		{ name: 'French', f1: 65, f2: 60, f3: 68, exam1: 55, avg1: 62.0, f4: 62, f5: 67, f6: 63, exam2: 58, avg2: 62.5, yearly: 62.3 },
+function SubmitGradeMockup() {
+	const students = [
+		{ name: 'Alice Johnson', id: 'STU-001', grades: { first: 68, second: 78, third: 85, third_exam: 88 } },
+		{ name: 'Bob Mensah', id: 'STU-002', grades: { first: 72, second: 68, third: 75, third_exam: 70 } },
+		{ name: 'Clara Owusu', id: 'STU-003', grades: { first: 90, second: 88, third: 92, third_exam: 95 } },
+		{ name: 'David Koffi', id: 'STU-004', grades: { first: 65, second: 0, third: 68, third_exam: 0 } },
+		{ name: 'Emefa Adjei', id: 'STU-005', grades: { first: 78, second: 75, third: 0, third_exam: 72 } },
+	] as const;
+	const periods = [
+		{ id: 'first', label: '1st Pd', active: true },
+		{ id: 'second', label: '2nd Pd', active: true },
+		{ id: 'third', label: '3rd Pd', active: true },
+		{ id: 'third_exam', label: '3rd Pd Exam', active: false },
 	];
-	const gpa = (v: number) => (v >= 90 ? 'A' : v >= 80 ? 'B' : v >= 75 ? 'C' : v >= 70 ? 'D' : 'F');
+	const gradeColor = (v: number) => {
+		if (v === 0) return 'text-gray-400';
+		return v >= 70 ? 'text-[#465fff]' : 'text-[#ff0000]';
+	};
 
 	return (
 		<div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-			{/* Header */}
-			<div className="border-b border-gray-100 bg-gray-50 px-3 py-2.5 text-center sm:px-4 sm:py-3">
-				<div className="mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-lg bg-[#465fff] sm:h-8 sm:w-8">
-					<Image src="/images/SchoolMesh.png" alt="SchoolMesh" width={32} height={32} className="h-5 w-5 object-contain sm:h-6 sm:w-6" />
-				</div>
-				<p className="text-[11px] font-bold text-[#111827] sm:text-xs">Upstairs Christian Academy</p>
-				<p className="text-[8px] text-gray-500 sm:text-[9px]">Monrovia, Liberia</p>
-				<p className="mt-0.5 text-[9px] font-bold text-[#1a365d] sm:text-[10px]">STUDENT YEARLY REPORT CARD</p>
-			</div>
-			{/* Student info */}
-			<div className="grid grid-cols-2 gap-x-3 gap-y-1 border-b border-gray-100 px-3 py-2 sm:gap-x-4 sm:px-4 sm:py-2.5">
+			{/* Filter bar */}
+			<div className="flex flex-wrap items-end gap-2 border-b border-gray-100 bg-gray-50/80 p-2 sm:p-3">
 				{[
-					['Student', 'Alice Johnson'],
-					['Class', 'Grade 7A'],
-					['Academic Year', '2025-2026'],
-					['Class Rank', '3 / 42'],
-				].map(([k, v]) => (
-					<div key={k} className="flex items-baseline gap-1 min-w-0">
-						<span className="text-[8px] font-semibold text-gray-500 whitespace-nowrap sm:text-[9px]">{k}:</span>
-						<span className="truncate text-[9px] font-bold text-[#111827] sm:text-[10px]">{v}</span>
+					{ label: 'Year', value: '2025–2026' },
+					{ label: 'Session', value: 'Junior' },
+					{ label: 'Class', value: 'Grade 7A' },
+					{ label: 'Subject', value: 'Mathematics' },
+				].map((f) => (
+					<div key={f.label} className="flex flex-col gap-0.5">
+						<span className="text-[7px] font-semibold uppercase tracking-wider text-gray-400 sm:text-[8px]">{f.label}</span>
+						<div className="flex h-5 items-center gap-1 rounded-md border border-gray-200 bg-white px-1.5 text-[9px] font-medium text-gray-700 sm:h-6 sm:px-2 sm:text-[10px]">
+							{f.value}
+							<ChevronDown className="h-2 w-2 text-gray-400 sm:h-2.5 sm:w-2.5" />
+						</div>
 					</div>
 				))}
 			</div>
-			{/* Semester tables */}
+			{/* Period chips */}
+			<div className="flex flex-wrap items-center gap-1.5 border-b border-gray-100 px-2 py-1.5 sm:gap-2 sm:px-3 sm:py-2">
+				<span className="text-[7px] font-semibold uppercase tracking-wider text-gray-400 sm:text-[8px]">Periods</span>
+				{periods.map((p) => (
+					<div
+						key={p.id}
+						className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[8px] font-semibold sm:px-2.5 sm:text-[9px] ${
+							p.active
+								? 'bg-[#465fff] text-white'
+								: 'border border-gray-200 bg-white text-gray-500'
+						}`}
+					>
+						{p.label}
+						{p.active && <CheckCircle2 className="h-2 w-2 sm:h-2.5 sm:w-2.5" />}
+					</div>
+				))}
+			</div>
+			{/* Grade table */}
 			<div className="overflow-x-auto">
-				<table className="w-full min-w-[520px]">
+				<table className="w-full min-w-[380px]">
 					<thead>
-						<tr className="border-b border-gray-200 bg-gray-50">
-							<th className="px-2 py-1.5 text-left text-[7px] font-bold uppercase tracking-wider text-gray-600 sm:px-3 sm:text-[8px]">Subject</th>
-							<th className="px-1 py-1.5 text-center text-[7px] font-bold uppercase text-gray-500 sm:px-1.5 sm:text-[8px]" colSpan={4}>1st Semester</th>
-							<th className="px-1 py-1.5 text-center text-[7px] font-bold uppercase text-gray-500 sm:px-1.5 sm:text-[8px]" colSpan={5}>2nd Semester</th>
-							<th className="px-2 py-1.5 text-center text-[7px] font-bold uppercase tracking-wider text-gray-600 sm:px-3 sm:text-[8px]">Yr Avg</th>
-						</tr>
-						<tr className="border-b border-gray-100 bg-gray-50/80">
-							<th className="px-2 py-1 text-left text-[7px] text-gray-400 sm:px-3 sm:text-[8px]"></th>
-							{['1st', '2nd', '3rd', 'Exam'].map((p) => (
-								<th key={p} className="px-1 py-1 text-center text-[6px] font-semibold text-gray-400 sm:px-1.5 sm:text-[7px]">{p}</th>
+						<tr className="border-b border-gray-100 bg-gray-50">
+							<th className="px-2 py-1.5 text-left text-[7px] font-semibold uppercase tracking-wider text-gray-500 sm:px-3 sm:text-[8px]">Student</th>
+							{periods.filter((p) => p.active).map((p) => (
+								<th key={p.id} className="px-1.5 py-1.5 text-center text-[7px] font-semibold uppercase tracking-wider text-gray-500 sm:px-2 sm:text-[8px]">{p.label}</th>
 							))}
-							<th className="px-1 py-1 text-center text-[6px] font-bold text-gray-500 sm:px-1.5 sm:text-[7px]">Avg</th>
-							{['4th', '5th', '6th', 'Exam'].map((p) => (
-								<th key={p} className="px-1 py-1 text-center text-[6px] font-semibold text-gray-400 sm:px-1.5 sm:text-[7px]">{p}</th>
-							))}
-							<th className="px-1 py-1 text-center text-[6px] font-bold text-gray-500 sm:px-1.5 sm:text-[7px]">Avg</th>
-							<th className="px-2 py-1 text-center text-[7px] text-gray-400 sm:px-3 sm:text-[8px]"></th>
 						</tr>
 					</thead>
 					<tbody>
-						{subjects.map((s, i) => (
-							<tr key={s.name} className={`border-b border-gray-50 ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
-								<td className="whitespace-nowrap px-2 py-1.5 text-[9px] font-medium text-[#111827] sm:px-3 sm:text-[10px]">{s.name}</td>
-								{[s.f1, s.f2, s.f3, s.exam1].map((v, j) => (
-									<td key={j} className={`px-1 py-1.5 text-center text-[8px] tabular-nums sm:px-1.5 sm:text-[9px] ${v < 70 ? 'font-bold text-red-500' : 'text-gray-600'}`}>{v}</td>
-								))}
-								<td className="px-1 py-1.5 text-center text-[9px] font-bold tabular-nums sm:px-1.5 sm:text-[10px]"><span className="text-[#465fff]">{s.avg1}</span></td>
-								{[s.f4, s.f5, s.f6, s.exam2].map((v, j) => (
-									<td key={j} className={`px-1 py-1.5 text-center text-[8px] tabular-nums sm:px-1.5 sm:text-[9px] ${v < 70 ? 'font-bold text-red-500' : 'text-gray-600'}`}>{v}</td>
-								))}
-								<td className="px-1 py-1.5 text-center text-[9px] font-bold tabular-nums sm:px-1.5 sm:text-[10px]"><span className="text-[#465fff]">{s.avg2}</span></td>
-								<td className="px-2 py-1.5 text-center text-[9px] font-bold tabular-nums sm:px-3 sm:text-[10px]"><span className={s.yearly >= 70 ? 'text-[#465fff]' : 'text-red-500'}>{s.yearly}</span></td>
+						{students.map((s, i) => (
+							<tr key={s.id} className={`border-b border-gray-50 ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
+								<td className="whitespace-nowrap px-2 py-1.5 sm:px-3 sm:py-2">
+									<div className="text-[9px] font-medium text-[#111827] sm:text-[10px]">{s.name}</div>
+								</td>
+								{periods.filter((p) => p.active).map((p) => {
+									const val = s.grades[p.id as keyof typeof s.grades];
+									return (
+										<td key={p.id} className="px-1.5 py-1.5 text-center sm:px-2 sm:py-2">
+											<input
+												type="text"
+												readOnly
+												value={val || ''}
+												className={`w-10 rounded-md border border-gray-200 bg-white px-1 py-0.5 text-center text-[9px] font-semibold tabular-nums outline-none sm:w-12 sm:text-[10px] ${gradeColor(val)}`}
+											/>
+										</td>
+									);
+								})}
 							</tr>
 						))}
 					</tbody>
 				</table>
 			</div>
-			{/* Grading method */}
-			<div className="border-t border-gray-100 bg-gray-50/80 px-3 py-1.5 sm:px-4">
-				<p className="text-[7px] font-bold uppercase tracking-wider text-gray-500 sm:text-[8px]">Method of Grading:</p>
-				<div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[7px] text-gray-600 sm:text-[8px]">
-					<span><b>A</b> = 90-100 (Excellent)</span>
-					<span><b>B</b> = 80-89 (Very Good)</span>
-					<span><b>C</b> = 75-79 (Good)</span>
-					<span><b>D</b> = 70-74 (Fair)</span>
-					<span><b>F</b> = Below 70 (Fail)</span>
+			{/* Submit bar */}
+			<div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/80 px-2 py-1.5 sm:px-3 sm:py-2">
+				<div className="flex items-center gap-2">
+					<span className="text-[8px] font-semibold text-gray-500 sm:text-[9px]">3 periods selected</span>
+					<span className="text-[7px] text-gray-400 sm:text-[8px]">·</span>
+					<span className="text-[8px] text-gray-500 sm:text-[9px]">12 new grades</span>
 				</div>
-			</div>
-			{/* Promotion & summary */}
-			<div className="flex flex-col gap-2 border-t border-gray-200 bg-gray-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-2.5">
-				<div className="min-w-0 space-y-1">
-					<p className="text-[8px] font-semibold text-[#111827] sm:text-[9px]">Promotion: <span className="font-normal text-gray-600">Passed to Grade 8</span></p>
-					<p className="text-[8px] text-gray-500 sm:text-[9px]">Teacher&apos;s Remark: <span className="font-semibold text-gray-700">Excellent performance</span></p>
-					<div className="flex items-center gap-2">
-						<span className="text-[8px] font-bold text-[#111827] sm:text-[10px]">Yr Avg: 76.4</span>
-						<span className="text-[8px] text-gray-400">|</span>
-						<span className="text-[8px] font-bold text-[#111827] sm:text-[10px]">Rank: #3 / 42</span>
-					</div>
-				</div>
-				<div className="flex shrink-0 gap-1.5">
-					<div className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[8px] font-semibold text-gray-600 sm:text-[9px]">
-						<QrCode className="h-3 w-3" /> Verify
-					</div>
-					<div className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[8px] font-semibold text-gray-600 sm:text-[9px]">
-						<Download className="h-3 w-3" /> PDF
-					</div>
-					<div className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[8px] font-semibold text-gray-600 sm:text-[9px]">
-						<Share2 className="h-3 w-3" /> Share
-					</div>
+				<div className="flex items-center gap-1.5 rounded-full bg-[#465fff] px-2.5 py-1 text-[8px] font-semibold text-white sm:text-[9px]">
+					<Plus className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+					Submit
 				</div>
 			</div>
 		</div>
@@ -705,15 +746,19 @@ export default function SchoolMeshLandingPage() {
 					</Link>
 
 					<div className="hidden items-center gap-8 md:flex">
-						{navItems.map((item) => (
-							<a
-								key={item.href}
-								href={item.href}
-								className="text-sm font-medium text-gray-600 transition-colors hover:text-[#111827]"
-							>
-								{item.label}
-							</a>
-						))}
+						{navItems.map((item) => {
+							const NavIcon = item.icon;
+							return (
+								<a
+									key={item.href}
+									href={item.href}
+									className="flex items-center gap-1.5 text-sm font-medium text-gray-600 transition-colors hover:text-[#111827]"
+								>
+									<NavIcon className="h-3.5 w-3.5 text-gray-400" />
+									{item.label}
+								</a>
+							);
+						})}
 						<Link
 							href="/brochure"
 							className="text-sm font-medium text-gray-600 transition-colors hover:text-[#111827]"
@@ -725,16 +770,11 @@ export default function SchoolMeshLandingPage() {
 					<div className="hidden items-center gap-3 md:flex">
 						<Link
 							href="/superadmin/login"
-							className="text-sm font-medium text-gray-600 transition-colors hover:text-[#111827]"
+							className="inline-flex items-center gap-1.5 rounded-full bg-[#111827] px-5 py-2 text-sm font-medium text-white transition-all hover:bg-gray-800 hover:shadow-lg hover:shadow-gray-900/10"
 						>
-							Log In
+							<LogIn className="h-3.5 w-3.5" />
+							Login
 						</Link>
-						<a
-							href="#pricing"
-							className="rounded-full bg-[#111827] px-5 py-2 text-sm font-medium text-white transition-all hover:bg-gray-800 hover:shadow-lg hover:shadow-gray-900/10"
-						>
-							Start Free
-						</a>
 					</div>
 
 					<button
@@ -757,16 +797,20 @@ export default function SchoolMeshLandingPage() {
 							className="overflow-hidden border-t border-gray-100 bg-white md:hidden"
 						>
 							<div className="space-y-1 px-5 py-4">
-								{navItems.map((item) => (
-									<a
-										key={item.href}
-										href={item.href}
-										onClick={() => setIsMobileMenuOpen(false)}
-										className="block rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-[#111827]"
-									>
-										{item.label}
-									</a>
-								))}
+								{navItems.map((item) => {
+									const NavIcon = item.icon;
+									return (
+										<a
+											key={item.href}
+											href={item.href}
+											onClick={() => setIsMobileMenuOpen(false)}
+											className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-[#111827]"
+										>
+											<NavIcon className="h-4 w-4 text-gray-400" />
+											{item.label}
+										</a>
+									);
+								})}
 								<Link
 									href="/brochure"
 									onClick={() => setIsMobileMenuOpen(false)}
@@ -774,21 +818,15 @@ export default function SchoolMeshLandingPage() {
 								>
 									Brochure
 								</Link>
-								<div className="border-t border-gray-100 pt-3 mt-3 space-y-2">
+								<div className="border-t border-gray-100 pt-3 mt-3">
 									<Link
 										href="/superadmin/login"
 										onClick={() => setIsMobileMenuOpen(false)}
-										className="block rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+										className="flex items-center justify-center gap-1.5 rounded-full bg-[#111827] px-5 py-2.5 text-sm font-medium text-white"
 									>
-										Log In
+										<LogIn className="h-4 w-4" />
+										Login
 									</Link>
-									<a
-										href="#pricing"
-										onClick={() => setIsMobileMenuOpen(false)}
-										className="block rounded-full bg-[#111827] px-5 py-2.5 text-center text-sm font-medium text-white"
-									>
-										Start Free
-									</a>
 								</div>
 							</div>
 						</motion.div>
@@ -882,7 +920,7 @@ export default function SchoolMeshLandingPage() {
 									))}
 								</div>
 								<span>
-									Trusted by <span className="font-medium text-[#111827]">&nbsp;250+ schools&nbsp;</span> across Africa
+									Trusted by <span className="font-medium text-[#111827]">&nbsp;20+ schools&nbsp;</span> across Liberia
 								</span>
 							</div>
 						</motion.div>
@@ -1061,6 +1099,184 @@ export default function SchoolMeshLandingPage() {
 				</div>
 			</section>
 
+				{/* ── About SchoolMesh ───────────────────────────── */}
+				<section id="about" className="bg-white py-20 sm:py-28">
+					<div className="mx-auto max-w-7xl px-5 sm:px-8">
+						<div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
+							<AnimateWhenVisible>
+								<div>
+									<p className="mb-3 text-sm font-semibold uppercase tracking-widest text-[#465fff]">
+										About SchoolMesh
+									</p>
+									<h2 className="text-3xl font-bold tracking-tight text-[#111827] sm:text-4xl lg:text-5xl">
+										Built by educators, for educators.
+									</h2>
+									<p className="mt-4 text-lg leading-relaxed text-gray-500">
+										School<span className="text-[#465fff]">Mesh</span> was born from a simple frustration: we were spending more
+										time wrestling with disconnected software than focusing on our students. We
+										built a platform that puts security, convenience, and user experience first — so
+										that you can get back to what matters.
+									</p>
+									<p className="mt-4 text-base leading-relaxed text-gray-500">
+										Every workflow in School<span className="text-[#465fff]">Mesh</span> is shaped by real classroom feedback from teachers,
+										students, and school owners across Liberia. The result is a tool that feels
+										familiar from day one — not something your staff needs weeks of training to use.
+									</p>
+									<div className="mt-8 grid grid-cols-2 gap-4">
+										{[
+											{ value: '99.9%', label: 'Uptime SLA', icon: ShieldCheck },
+											{ value: '< 2s', label: 'Page loads', icon: Sparkles },
+											{ value: '100%', label: 'Offline-ready', icon: CloudOff },
+											{ value: '24/7', label: 'Support', icon: MessageSquare },
+										].map((item) => (
+											<div key={item.label} className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50/80 px-4 py-3">
+												<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#465fff]/10 text-[#465fff]">
+													<item.icon className="h-4 w-4" />
+												</div>
+												<div>
+													<p className="text-lg font-bold text-[#111827]">{item.value}</p>
+													<p className="text-xs text-gray-500">{item.label}</p>
+												</div>
+											</div>
+										))}
+									</div>
+								</div>
+							</AnimateWhenVisible>
+
+							<AnimateWhenVisible custom={1}>
+								<div className="relative">
+									<div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-lg shadow-gray-900/5 sm:p-8">
+										<div className="space-y-5">
+											<div className="flex items-start gap-4">
+												<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#465fff]/10 text-[#465fff]">
+													<GraduationCap className="h-5 w-5" />
+												</div>
+												<div>
+													<h4 className="text-sm font-bold text-[#111827]">Our Mission</h4>
+													<p className="mt-1 text-sm leading-relaxed text-gray-500">
+														Empower every school with a single, effortless platform — built by
+														people who understand the classroom, not just the codebase.
+													</p>
+												</div>
+											</div>
+											<div className="flex items-start gap-4">
+												<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#12b76a]/10 text-[#12b76a]">
+													<Database className="h-5 w-5" />
+												</div>
+												<div>
+													<h4 className="text-sm font-bold text-[#111827]">Security First</h4>
+													<p className="mt-1 text-sm leading-relaxed text-gray-500">
+														Fully encrypted, GDPR-aligned, with complete data isolation per
+														school. Your students&apos; data stays safe and yours alone.
+													</p>
+												</div>
+											</div>
+											<div className="flex items-start gap-4">
+												<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f79009]/10 text-[#f79009]">
+													<CloudOff className="h-5 w-5" />
+												</div>
+												<div>
+													<h4 className="text-sm font-bold text-[#111827]">Built for Real Conditions</h4>
+													<p className="mt-1 text-sm leading-relaxed text-gray-500">
+														Designed for Liberian internet conditions. Full offline support
+														with automatic sync — because connectivity shouldn&apos;t block learning.
+													</p>
+												</div>
+											</div>
+											<div className="flex items-start gap-4">
+												<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#8b5cf6]/10 text-[#8b5cf6]">
+													<Users className="h-5 w-5" />
+												</div>
+												<div>
+													<h4 className="text-sm font-bold text-[#111827]">Designed for People</h4>
+													<p className="mt-1 text-sm leading-relaxed text-gray-500">
+														Clean interfaces, minimal clicks, zero jargon. We obsess over
+														convenience so your team stays focused on education.
+													</p>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</AnimateWhenVisible>
+						</div>
+					</div>
+				</section>
+
+				{/* ── Team ──────────────────────────────────────── */}
+				<section id="team" className="py-20 sm:py-28">
+					<div className="mx-auto max-w-7xl px-5 sm:px-8">
+						<AnimateWhenVisible className="text-center">
+							<p className="mb-3 text-sm font-semibold uppercase tracking-widest text-[#465fff]">
+								Our Team
+							</p>
+							<h2 className="text-3xl font-bold tracking-tight text-[#111827] sm:text-4xl lg:text-5xl">
+								The people behind School<span className="text-[#465fff]">Mesh</span>.
+							</h2>
+							<p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
+								A small, dedicated team of educators and engineers building the
+								tools schools actually need.
+							</p>
+						</AnimateWhenVisible>
+
+						<motion.div
+							className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
+							variants={stagger}
+							initial="hidden"
+							whileInView="visible"
+							viewport={{ once: true, amount: 0.1 }}
+						>
+							{teamMembers.map((member) => (
+								<motion.div
+									key={member.name}
+									variants={fadeUp}
+									whileHover={{ y: -4, transition: { duration: 0.2 } }}
+									className="group rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm transition-shadow hover:shadow-lg hover:shadow-gray-900/5"
+								>
+									<div
+										className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold text-white shadow-md"
+										style={{ background: member.color }}
+									>
+										{member.initials}
+									</div>
+									<h3 className="text-base font-bold text-[#111827]">
+										{member.name}
+									</h3>
+									<p
+										className="mt-1 text-xs font-semibold uppercase tracking-wider"
+										style={{ color: member.color }}
+									>
+										{member.role}
+									</p>
+									<p className="mt-3 text-sm leading-relaxed text-gray-500">
+										{member.bio}
+									</p>
+									<div className="mt-4 flex justify-center gap-2">
+										{member.links.map((link) => (
+											<a
+												key={link.label}
+												href={link.href}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-2.5 py-1 text-[10px] font-medium text-gray-500 transition-colors hover:border-gray-300 hover:text-[#111827]"
+											>
+												{link.icon === 'mail' && <Mail className="h-3 w-3" />}
+												{link.icon === 'globe' && <Globe className="h-3 w-3" />}
+												{link.icon === 'linkedin' && (
+													<span className="text-[10px] font-bold">in</span>
+												)}
+												{link.icon === 'twitter' && (
+													<span className="text-[10px] font-bold">X</span>
+												)}
+												{link.label}
+											</a>
+										))}
+									</div>
+								</motion.div>
+							))}
+						</motion.div>
+					</div>
+				</section>
 
 				{/* ── Trust Section ──────────────────────────────── */}
 				<section className="border-y border-gray-100 bg-white py-14">
@@ -1159,7 +1375,7 @@ export default function SchoolMeshLandingPage() {
 										<div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-lg shadow-gray-900/5 sm:p-6">
 											{item.type === 'dashboard' && <DashboardMockup />}
 											{item.type === 'attendance' && <AttendanceMockup />}
-											{item.type === 'reportcard' && <ReportCardMockup />}
+											{item.type === 'reportcard' && <SubmitGradeMockup />}
 										</div>
 									</AnimateWhenVisible>
 									<AnimateWhenVisible custom={1} className="lg:[direction:ltr]">
@@ -1206,7 +1422,7 @@ export default function SchoolMeshLandingPage() {
 								Purpose-built for modern schools.
 							</h2>
 							<p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
-								SchoolMesh goes beyond basic management with features designed to protect
+								School<span className="text-[#465fff]">Mesh</span> goes beyond basic management with features designed to protect
 								integrity, strengthen family connections, and keep your school running
 								from anywhere.
 							</p>
@@ -1311,7 +1527,7 @@ export default function SchoolMeshLandingPage() {
 										</div>
 										<h3 className="text-lg font-bold text-[#111827]">Every Device, One Platform</h3>
 										<p className="mt-3 text-sm text-gray-500 leading-relaxed">
-											Access SchoolMesh from any web browser, or use our dedicated mobile
+											Access School<span className="text-[#465fff]">Mesh</span> from any web browser, or use our dedicated mobile
 											and desktop apps for the best experience on every device.
 										</p>
 										<ul className="mt-5 space-y-2">
@@ -1443,7 +1659,7 @@ export default function SchoolMeshLandingPage() {
 								Loved by educators.
 							</h2>
 							<p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
-								Hear from the schools that have transformed their operations with SchoolMesh.
+								Hear from the schools that have transformed their operations with School<span className="text-[#465fff]">Mesh</span>.
 							</p>
 						</AnimateWhenVisible>
 
@@ -1638,7 +1854,7 @@ export default function SchoolMeshLandingPage() {
 										Ready to modernize your school?
 									</h2>
 									<p className="mx-auto mt-4 max-w-xl text-lg text-gray-400">
-										Join hundreds of schools already using SchoolMesh to streamline
+										Join hundreds of schools already using School<span className="text-[#465fff]">Mesh</span> to streamline
 										their operations and focus on what matters most — education.
 									</p>
 									<div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -1675,7 +1891,7 @@ export default function SchoolMeshLandingPage() {
 										Get in touch with our team.
 									</h2>
 									<p className="mt-4 text-lg text-gray-500">
-										Have questions about SchoolMesh? Planning a rollout for your school or
+										Have questions about School<span className="text-[#465fff]">Mesh</span>? Planning a rollout for your school or
 										network? We&apos;re here to help with onboarding, migration, and setup.
 									</p>
 									<div className="mt-8 space-y-5">
@@ -1848,7 +2064,7 @@ export default function SchoolMeshLandingPage() {
 				<div className="border-t border-white/10">
 					<div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-5 py-6 sm:flex-row sm:px-8">
 						<p className="text-xs text-gray-500">
-							&copy; {new Date().getFullYear()} SchoolMesh. All rights reserved.
+							&copy; {new Date().getFullYear()} School<span className="text-[#465fff]">Mesh</span>. All rights reserved.
 						</p>
 						<p className="text-xs text-gray-500">
 							Connecting people, processes, and information.
