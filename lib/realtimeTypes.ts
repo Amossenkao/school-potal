@@ -122,7 +122,7 @@ export const getAuthorizedRealtimeChannels = (options: {
 	if (
 		role === 'administrator' ||
 		role === 'system_admin' ||
-		role === 'super_admin'
+		role === 'superadmin'
 	) {
 		// school:tenantId (already added) receives all broadcast events.
 		// user:tenantId:ownId (already added) receives targeted security events.
@@ -159,7 +159,7 @@ export const getAuthorizedRealtimeCapabilities = (options: {
 	// token is valid on any school channel for cross-tenant real-time events.
 	if (
 		!options.publicOnly &&
-		role === 'super_admin'
+		role === 'superadmin'
 	) {
 		return {
 			['school:*']: ['subscribe'],

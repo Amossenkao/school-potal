@@ -59,7 +59,7 @@ export default function AuditLogsPage() {
 			if (levelFilter) params.set('level', levelFilter);
 			if (categoryFilter) params.set('category', categoryFilter);
 
-			const res = await fetch(`/api/superadmin/audit-logs?${params}`);
+			const res = await fetch(`/api/audit-logs?${params}`);
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.error || 'Failed to load logs');
 			setLogs(data.logs || []);
@@ -75,7 +75,7 @@ export default function AuditLogsPage() {
 	const seedDemoLogs = async () => {
 		try {
 			setSeeding(true);
-			await fetch('/api/superadmin/audit-logs/seed', { method: 'POST' });
+			await fetch('/api/audit-logs/seed', { method: 'POST' });
 			setPage(1);
 			setLevelFilter('');
 			setCategoryFilter('');

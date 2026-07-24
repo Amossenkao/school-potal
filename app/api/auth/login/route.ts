@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { getUserModel } from '@/models';
+import { getSchoolMeshModels } from '@/models/schoolmesh';
 import { createSession, destroySession } from '@/utils/session';
-import { verifyOTP, sendOTP } from '@/utils/otp';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { UserRole } from '@/types';
 import {
 	buildBootstrapPayload,
+	buildSuperAdminBootstrapPayload,
 	getDomainVersionsFromBootstrapPayload,
 } from '@/lib/bootstrap';
 import { checkRateLimit, getRequestIp } from '@/utils/rateLimit';
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
 	}
 
 	const body = await request.json();
-	let { action, username, password, role, otp, sessionId, id, userId } = body;
+	let { action, username, password, role, id, userId } = body;
 	const resolvedUserId = id || userId;
 	const ip = getRequestIp(request.headers);
 
@@ -99,10 +100,19 @@ export async function POST(request: NextRequest) {
 		username = username.toUpperCase();
 	}
 
-	const User = await getUserModel(host);
-	let user: any = await (resolvedUserId
-		? User.findById(resolvedUserId)
-		: User.findOne({ username, role }));
+	// Look up superadmin from schoolmesh database
+	let user: any = null;
+	if (role === 'superadmin') {
+		const { SuperAdmin } = await getSchoolMeshModels();
+		user = resolvedUserId
+			? await SuperAdmin.findById(resolvedUserId)
+			: await SuperAdmin.findOne({ username, role: 'superadmin' });
+	} else {
+		const User = await getUserModel(host);
+		user = resolvedUserId
+			? await User.findById(resolvedUserId)
+			: await User.findOne({ username, role });
+	}
 
 	try {
 		switch (action) {
@@ -127,116 +137,6 @@ export async function POST(request: NextRequest) {
 					}
 				}
 				return await handleLogin(user, password, host);
-			case 'verify_otp':
-				{
-					const otpLimiter = await checkRateLimit(
-						`rl:otp_verify:${host}:${ip}:${String(resolvedUserId || '')}`,
-						8,
-						300,
-					);
-					if (!otpLimiter.allowed) {
-						return NextResponse.json(
-							{
-								success: false,
-								message: 'Too many OTP verification attempts. Try again later.',
-								retryAfter: otpLimiter.retryAfter,
-							},
-							{ status: 429 },
-						);
-					}
-				}
-				const verificationResult = await verifyOTP(
-					sessionId,
-					otp,
-					host,
-					resolvedUserId,
-				);
-
-				const verifiedUser = verificationResult.success
-					? buildUserResponse(user)
-					: null;
-				let bootstrapPayload: any = null;
-				if (verificationResult.success && verifiedUser) {
-					try {
-						bootstrapPayload = await buildLoginBootstrapPayload(verifiedUser);
-					} catch (error) {
-						console.warn('Failed to build bootstrap payload:', error);
-						try {
-							const schoolProfileRaw = await getSchoolProfile();
-							const schoolProfile = normalizeSchoolProfile(schoolProfileRaw);
-							const yearAccess = resolveAcademicYearAccessContext({
-								user: verifiedUser,
-								schoolProfile,
-							});
-							bootstrapPayload = {
-								academicYear: yearAccess.academicYear,
-								defaultAcademicYear: yearAccess.defaultAcademicYear,
-								allowedAcademicYears: yearAccess.allowedAcademicYears,
-								school: schoolProfile,
-								versions: {
-									user: toHash(verifiedUser),
-									school: toSchoolVersion(schoolProfile),
-								},
-							};
-						} catch (fallbackError) {
-							console.warn(
-								'Failed to build fallback login payload:',
-								fallbackError,
-							);
-						}
-					}
-				}
-
-				const response = NextResponse.json(
-					{
-						success: verificationResult.success,
-						message: verificationResult.message,
-						...(verificationResult.success && {
-							user: verifiedUser,
-							...bootstrapPayload,
-						}),
-						requiresOTP: !verificationResult.success,
-					},
-					{ status: verificationResult.status },
-				);
-
-				if (verificationResult.success) {
-					const loginSessionId = await createSession({
-						tenantId: host,
-						purpose: 'login',
-						...buildUserResponse(user),
-					});
-
-					setSessionCookie(response, loginSessionId);
-				}
-				return response;
-
-			case 'resend_otp':
-				{
-					const resendLimiter = await checkRateLimit(
-						`rl:otp_resend:${host}:${ip}:${String(resolvedUserId || '')}`,
-						5,
-						300,
-					);
-					if (!resendLimiter.allowed) {
-						return NextResponse.json(
-							{
-								success: false,
-								message: 'Too many OTP resend requests. Try again later.',
-								retryAfter: resendLimiter.retryAfter,
-							},
-							{ status: 429 },
-						);
-					}
-				}
-				const sendResult = await sendOTP(user._id.toString(), host);
-				return NextResponse.json(
-					{
-						...sendResult.data,
-						otpContact: user.phone || user.email,
-					},
-					{ status: sendResult.status },
-				);
 			default:
 				return NextResponse.json(
 					{ message: 'Invalid action' },
@@ -260,6 +160,52 @@ async function handleLogin(user: any, password: string, host: string) {
 		);
 	}
 
+	// Handle superadmin login (schoolmesh database)
+	if (user.role === 'superadmin') {
+		if (!user.isActive) {
+			return NextResponse.json(
+				{ message: 'Account is deactivated' },
+				{ status: 403 },
+			);
+		}
+
+		const isPasswordValid = await bcrypt.compare(password, user.password);
+		if (!isPasswordValid) {
+			return NextResponse.json(
+				{ message: 'Incorrect credentials' },
+				{ status: 401 },
+			);
+		}
+
+		const userData = buildSuperAdminUserResponse(user);
+		const sessionData = {
+			tenantId: 'schoolmesh',
+			purpose: 'login',
+			...userData,
+		};
+
+		const sessionId = await createSession(sessionData);
+		let bootstrapPayload: any = null;
+		try {
+			bootstrapPayload = await buildSuperAdminBootstrapPayload(userData);
+		} catch (error) {
+			console.warn('Failed to build superadmin bootstrap payload:', error);
+			bootstrapPayload = {
+				versions: {
+					user: toHash(userData),
+				},
+			};
+		}
+
+		const response = NextResponse.json(
+			{ message: 'Login successful', user: userData, ...bootstrapPayload },
+			{ status: 200 },
+		);
+		setSessionCookie(response, sessionId);
+		return response;
+	}
+
+	// Handle school user login (tenant database)
 	let schoolProfile: any = null;
 	try {
 		schoolProfile = normalizeSchoolProfile(await getSchoolProfile());
@@ -326,48 +272,36 @@ async function handleLogin(user: any, password: string, host: string) {
 		...userData,
 	};
 
-	if (user.role === 'system_admins') {
-		const sendResult = await sendOTP(user._id.toString(), host);
-		return NextResponse.json(
-			{
-				...sendResult.data,
-				message: 'OTP verification required',
-				otpContact: user.phone || user.email,
+	const sessionId = await createSession(sessionData);
+	let bootstrapPayload: any = null;
+	try {
+		bootstrapPayload = await buildLoginBootstrapPayload(
+			userData,
+			schoolProfile,
+		);
+	} catch (error) {
+		console.warn('Failed to build login bootstrap payload:', error);
+		const yearAccess = resolveAcademicYearAccessContext({
+			user: userData,
+			schoolProfile,
+		});
+		bootstrapPayload = {
+			academicYear: yearAccess.academicYear,
+			defaultAcademicYear: yearAccess.defaultAcademicYear,
+			allowedAcademicYears: yearAccess.allowedAcademicYears,
+			school: schoolProfile,
+			versions: {
+				user: toHash(userData),
+				school: toSchoolVersion(schoolProfile),
 			},
-			{ status: sendResult.status },
-		);
-	} else {
-		const sessionId = await createSession(sessionData);
-		let bootstrapPayload: any = null;
-		try {
-			bootstrapPayload = await buildLoginBootstrapPayload(
-				userData,
-				schoolProfile,
-			);
-		} catch (error) {
-			console.warn('Failed to build login bootstrap payload:', error);
-			const yearAccess = resolveAcademicYearAccessContext({
-				user: userData,
-				schoolProfile,
-			});
-			bootstrapPayload = {
-				academicYear: yearAccess.academicYear,
-				defaultAcademicYear: yearAccess.defaultAcademicYear,
-				allowedAcademicYears: yearAccess.allowedAcademicYears,
-				school: schoolProfile,
-				versions: {
-					user: toHash(userData),
-					school: toSchoolVersion(schoolProfile),
-				},
-			};
-		}
-		const response = NextResponse.json(
-			{ message: 'Login successful', user: userData, ...bootstrapPayload },
-			{ status: 200 },
-		);
-		setSessionCookie(response, sessionId);
-		return response;
+		};
 	}
+	const response = NextResponse.json(
+		{ message: 'Login successful', user: userData, ...bootstrapPayload },
+		{ status: 200 },
+	);
+	setSessionCookie(response, sessionId);
+	return response;
 }
 
 function setSessionCookie(response: NextResponse, sessionId: string) {
@@ -460,6 +394,33 @@ function buildUserResponse(user: any) {
 		default:
 			return baseUser;
 	}
+}
+
+function buildSuperAdminUserResponse(user: any) {
+	return {
+		id: user._id.toString(),
+		username: user.username,
+		role: 'superadmin' as UserRole,
+		firstName: user.firstName,
+		middleName: user.middleName,
+		lastName: user.lastName,
+		fullName: user.fullName,
+		nickName: user.nickName,
+		gender: user.gender,
+		dateOfBirth: user.dateOfBirth,
+		isActive: user.isActive,
+		mustChangePassword: user.mustChangePassword,
+		passwordChangedAt: user.passwordChangedAt,
+		phone: user.phone,
+		email: user.email,
+		address: user.address,
+		bio: user.bio,
+		avatar: user.avatar,
+		profilePictureUrl: user.profilePictureUrl,
+		notifications: user.notifications || [],
+		chats: user.chats || [],
+		chatSessions: user.chatSessions || [],
+	};
 }
 
 export async function DELETE(request: NextRequest) {

@@ -79,7 +79,7 @@ export default function SchoolAdminsPage() {
 	const fetchAdmins = async () => {
 		try {
 			setLoading(true);
-			const res = await fetch(`/api/superadmin/schools/${host}/admins`);
+			const res = await fetch(`/api/users?host=${encodeURIComponent(host)}&role=system_admin`);
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.error || 'Failed to load admins');
 			setAdmins(data.admins || []);
@@ -108,7 +108,7 @@ export default function SchoolAdminsPage() {
 		try {
 			setCreating(true);
 			setError('');
-			const res = await fetch(`/api/superadmin/schools/${host}/admins`, {
+			const res = await fetch(`/api/users?host=${encodeURIComponent(host)}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(form),
@@ -145,7 +145,7 @@ export default function SchoolAdminsPage() {
 	const handleUpdate = async (userId: string) => {
 		try {
 			setEditSaving(true);
-			const res = await fetch(`/api/superadmin/schools/${host}/admins/${userId}`, {
+			const res = await fetch(`/api/users?host=${encodeURIComponent(host)}&id=${userId}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(editForm),
@@ -164,7 +164,7 @@ export default function SchoolAdminsPage() {
 	const handleDelete = async (userId: string) => {
 		if (!confirm('Are you sure you want to delete this admin account?')) return;
 		try {
-			const res = await fetch(`/api/superadmin/schools/${host}/admins/${userId}`, { method: 'DELETE' });
+			const res = await fetch(`/api/users?host=${encodeURIComponent(host)}&id=${userId}`, { method: 'DELETE' });
 			if (!res.ok) {
 				const data = await res.json();
 				throw new Error(data.error || 'Failed to delete');
@@ -178,8 +178,8 @@ export default function SchoolAdminsPage() {
 	const handleToggleActive = async (userId: string) => {
 		try {
 			setTogglingId(userId);
-			const res = await fetch(`/api/superadmin/schools/${host}/admins/${userId}`, {
-				method: 'PATCH',
+			const res = await fetch(`/api/users?host=${encodeURIComponent(host)}&id=${userId}`, {
+				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ action: 'toggle_active' }),
 			});
@@ -197,8 +197,8 @@ export default function SchoolAdminsPage() {
 		if (!confirm('Reset this admin\'s password to their username? They will be forced to change it on next login.')) return;
 		try {
 			setResettingId(userId);
-			const res = await fetch(`/api/superadmin/schools/${host}/admins/${userId}`, {
-				method: 'PATCH',
+			const res = await fetch(`/api/users?host=${encodeURIComponent(host)}&id=${userId}`, {
+				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ action: 'reset_password' }),
 			});

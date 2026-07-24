@@ -93,7 +93,7 @@ export default function SchoolsListPage() {
 	const fetchSchools = async () => {
 		try {
 			setLoading(true);
-			const res = await fetch('/api/superadmin/schools');
+			const res = await fetch('/api/school?all=true');
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.error || 'Failed to load schools');
 			setSchools(data.schools || []);
@@ -107,7 +107,7 @@ export default function SchoolsListPage() {
 	const toggleSchoolActive = async (school: SchoolSummary) => {
 		try {
 			setTogglingId(school.host);
-			const res = await fetch(`/api/superadmin/schools/${school.host}`, {
+			const res = await fetch(`/api/school?host=${encodeURIComponent(school.host)}`, {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ isActive: !school.isActive }),

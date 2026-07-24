@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/utils/session';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { getTenantModels } from '@/models';
-import { buildBootstrapPayload, getDomainVersions } from '@/lib/bootstrap';
+import { getSchoolMeshModels } from '@/models/schoolmesh';
+import { buildBootstrapPayload, buildSuperAdminBootstrapPayload, getDomainVersions } from '@/lib/bootstrap';
 import { resolveAcademicYearAccessContext } from '@/utils/academicYearAccess';
 import { syncDebugError, syncDebugLog, syncDebugWarn } from '@/lib/syncDebug';
 
@@ -156,6 +157,57 @@ export async function GET(request: NextRequest) {
 			);
 			clearSessionCookies(response);
 			return response;
+		}
+
+		// ── Superadmin session (schoolmesh DB) ──────────────────────────────
+		if (session.role === 'superadmin') {
+			const { SuperAdmin } = await getSchoolMeshModels();
+			const freshUser = await SuperAdmin.findById(session.id).lean();
+			if (!freshUser || freshUser.isActive === false) {
+				logResponse('Superadmin inactive or missing.', 403, {
+					sessionUserId: String(session.id || ''),
+				});
+				const response = NextResponse.json(
+					{ user: null, message: 'Account is deactivated' },
+					{ status: 403 },
+				);
+				clearSessionCookies(response);
+				return response;
+			}
+
+			const resolvedUserId = freshUser?._id?.toString?.() || session.id;
+			const userPayload = { ...freshUser, id: resolvedUserId, _id: resolvedUserId };
+
+			const userVersion = toHash(userPayload);
+			const clientUserVersion = searchParams.get('v_user');
+			const includeUser = clientUserVersion !== userVersion;
+
+			let bootstrapPayload: any = null;
+			try {
+				bootstrapPayload = await buildSuperAdminBootstrapPayload(userPayload);
+			} catch (error) {
+				console.warn('Failed to build superadmin bootstrap payload:', error);
+				bootstrapPayload = {
+					versions: { user: userVersion },
+				};
+			}
+
+			logResponse('Auth sync success (superadmin).', 200, {
+				userId: resolvedUserId,
+				includeUser,
+				hasBootstrapPayload: Boolean(bootstrapPayload),
+			});
+
+			return NextResponse.json({
+				message: 'Session valid',
+				...(includeUser ? { user: userPayload } : {}),
+				...bootstrapPayload,
+				versions: {
+					user: userVersion,
+					school: schoolVersion,
+					...(bootstrapPayload?.versions || {}),
+				},
+			});
 		}
 
 		// ── School active check ──────────────────────────────────────────────

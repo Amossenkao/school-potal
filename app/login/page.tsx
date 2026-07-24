@@ -787,10 +787,7 @@ const LoginPage = () => {
 		isLoggedIn,
 		user,
 		error,
-		isAwaitingOtp,
-		otpContact,
 		login,
-		verifyOtp,
 		clearError,
 		isBootstrapping,
 		startupResolved,
@@ -800,7 +797,6 @@ const LoginPage = () => {
 	const [formData, setFormData] = useState({
 		username: '',
 		password: '',
-		otp: '',
 	});
 	const hasSchoolBrand = Boolean(
 		currentSchool?.logoUrl ||
@@ -834,7 +830,6 @@ useEffect(() => {
 		user?.isActive &&
 		isLoggedIn &&
 		!isLoggingOut &&
-		!isAwaitingOtp &&
 		!isRedirecting &&
 		!redirectTimedOut
 	) {
@@ -847,7 +842,6 @@ useEffect(() => {
 	user,
 	isLoggedIn,
 	isLoggingOut,
-	isAwaitingOtp,
 	isRedirecting,
 	redirectTimedOut,
 	navigateToDashboardWithSpinner,
@@ -979,7 +973,7 @@ useEffect(() => {
 	useEffect(() => {
 		clearError();
 		setLoginDisabledError('');
-		setFormData({ username: '', password: '', otp: '' });
+		setFormData({ username: '', password: '' });
 	}, [selectedRole, adminPosition, clearError]);
 
 	useEffect(() => {
@@ -1001,7 +995,6 @@ useEffect(() => {
 	useEffect(() => {
 		if (!selectedRole) return;
 		if (selectedRole === 'administrator' && !adminPosition) return;
-		if (isAwaitingOtp) return;
 		if (isRedirecting) return;
 		if (user?.isActive && isLoggedIn) return;
 		if (isLoading || loginDisabledError) return;
@@ -1011,7 +1004,6 @@ useEffect(() => {
 	}, [
 		selectedRole,
 		adminPosition,
-		isAwaitingOtp,
 		isRedirecting,
 		isLoading,
 		loginDisabledError,
@@ -1119,8 +1111,7 @@ useEffect(() => {
 		selectedRole === 'administrator' && !adminPosition && !loginDisabledError;
 	const showFormStep =
 		selectedRole &&
-		(selectedRole !== 'administrator' || !!adminPosition) &&
-		!isAwaitingOtp;
+		(selectedRole !== 'administrator' || !!adminPosition);
 
 	return (
 		<>
@@ -1198,13 +1189,13 @@ useEffect(() => {
 									setAdminPosition('');
 									clearError();
 									setLoginDisabledError('');
-									setFormData({ username: '', password: '', otp: '' });
+									setFormData({ username: '', password: '' });
 								}}
 								onChangePosition={() => {
 									setAdminPosition('');
 									clearError();
 									setLoginDisabledError('');
-									setFormData({ username: '', password: '', otp: '' });
+									setFormData({ username: '', password: '' });
 								}}
 							/>
 
@@ -1223,12 +1214,12 @@ useEffect(() => {
 										<span>Redirect took too long.</span>
 										<button
 											type="button"
-											onClick={() => {
-												setRedirectTimedOut(false);
-												if (user?.isActive && isLoggedIn && !isAwaitingOtp) {
-													navigateToDashboardWithSpinner();
-												}
-											}}
+										onClick={() => {
+											setRedirectTimedOut(false);
+											if (user?.isActive && isLoggedIn) {
+												navigateToDashboardWithSpinner();
+											}
+										}}
 											className="ml-auto text-xs font-semibold underline underline-offset-2 hover:no-underline"
 										>
 											Retry
@@ -1277,85 +1268,7 @@ useEffect(() => {
 									/>
 								)}
 
-								{/* ── Step: OTP ── */}
-								{isAwaitingOtp && (
-									<div className="animate-in fade-in slide-in-from-right-4 duration-300">
-										<div className="mb-8">
-											<p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">
-												Verification
-											</p>
-											<h2 className="text-2xl font-bold text-foreground">
-												Check your messages
-											</h2>
-											<p className="text-sm text-muted-foreground mt-1">
-												{otpContact
-													? `A code was sent to ${otpContact}.`
-													: 'A one-time code was sent to your registered contact.'}
-											</p>
-										</div>
-										<form
-											onSubmit={async (e) => {
-												e.preventDefault();
-												const verified = await verifyOtp(formData.otp);
-												if (verified) navigateToDashboardWithSpinner();
-											}}
-											className="flex flex-col gap-5"
-										>
-											<div className="flex flex-col gap-1.5">
-												<label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-													One-time code
-												</label>
-												<div className="relative">
-													<KeyRound
-														className="
-														absolute left-3 top-1/2 -translate-y-1/2
-														w-4 h-4 text-muted-foreground pointer-events-none
-													"
-													/>
-													<input
-														type="text"
-														name="otp"
-														value={formData.otp}
-														onChange={handleInputChange}
-														placeholder="e.g. 123456"
-														inputMode="numeric"
-														maxLength={6}
-														required
-														className="
-															w-full pl-9 pr-4 py-2.5
-															text-sm text-foreground tracking-widest
-															bg-muted/40 border border-border rounded-xl
-															placeholder:text-muted-foreground/50 placeholder:tracking-normal
-															focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50
-															focus:bg-background
-															transition-all
-														"
-													/>
-												</div>
-											</div>
-											<button
-												type="submit"
-												disabled={isLoading || !formData.otp}
-												className="
-													flex items-center justify-center gap-2
-													px-6 py-3 rounded-xl
-													bg-primary text-primary-foreground
-													text-sm font-semibold shadow-sm
-													hover:opacity-90 active:scale-[0.98]
-													disabled:opacity-40 disabled:cursor-not-allowed
-													transition-all duration-150
-												"
-											>
-												{isLoading ? (
-													<Loader2 className="w-4 h-4 animate-spin" />
-												) : null}
-												Verify &amp; sign in
-											</button>
-										</form>
-									</div>
-								)}
-
-								{/* Mobile-only role/position switcher */}
+							{/* Mobile-only role/position switcher */}
 								{selectedRole && (
 									<div
 										className="
@@ -1369,7 +1282,7 @@ useEffect(() => {
 													setAdminPosition('');
 													clearError();
 													setLoginDisabledError('');
-													setFormData({ username: '', password: '', otp: '' });
+													setFormData({ username: '', password: '' });
 												}}
 												className="
 													flex items-center gap-1.5
@@ -1388,7 +1301,7 @@ useEffect(() => {
 												setAdminPosition('');
 												clearError();
 												setLoginDisabledError('');
-												setFormData({ username: '', password: '', otp: '' });
+												setFormData({ username: '', password: '' });
 											}}
 											className="
 												flex items-center gap-1.5

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToTenantsDb } from '@/lib/mongoose';
-import mongoose, { Schema } from 'mongoose';
+import { getSchoolMeshModels } from '@/models/schoolmesh';
+import { authorizeUser } from '@/proxy';
+import { Schema } from 'mongoose';
 
 const AuditLogSchema = new Schema(
 	{
@@ -27,11 +28,16 @@ AuditLogSchema.index({ createdAt: -1 });
 AuditLogSchema.index({ level: 1, createdAt: -1 });
 
 async function getAuditLogModel() {
-	const conn = await connectToTenantsDb();
-	return (conn.models.AuditLog || conn.model('AuditLog', AuditLogSchema)) as any;
+	const { connection } = await getSchoolMeshModels();
+	return (connection.models.AuditLog || connection.model('AuditLog', AuditLogSchema)) as any;
 }
 
 export async function GET(request: NextRequest) {
+	const currentUser = await authorizeUser(request, 'superadmin');
+	if (!currentUser) {
+		return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+	}
+
 	try {
 		const { searchParams } = new URL(request.url);
 		const level = searchParams.get('level');
@@ -58,20 +64,20 @@ export async function GET(request: NextRequest) {
 
 		return NextResponse.json({
 			logs,
-			pagination: {
-				page,
-				limit,
-				total,
-				pages: Math.ceil(total / limit),
-			},
+			pagination: { page, limit, total, pages: Math.ceil(total / limit) },
 		});
 	} catch (error: any) {
-		console.error('[superadmin/audit-logs] GET error:', error);
+		console.error('[audit-logs] GET error:', error);
 		return NextResponse.json({ error: error.message || 'Failed to load audit logs' }, { status: 500 });
 	}
 }
 
 export async function POST(request: NextRequest) {
+	const currentUser = await authorizeUser(request, 'superadmin');
+	if (!currentUser) {
+		return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+	}
+
 	try {
 		const body = await request.json();
 		const { level, category, message, details, source } = body;
@@ -85,7 +91,7 @@ export async function POST(request: NextRequest) {
 
 		return NextResponse.json({ log }, { status: 201 });
 	} catch (error: any) {
-		console.error('[superadmin/audit-logs] POST error:', error);
+		console.error('[audit-logs] POST error:', error);
 		return NextResponse.json({ error: error.message || 'Failed to create audit log' }, { status: 500 });
 	}
 }

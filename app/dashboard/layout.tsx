@@ -137,7 +137,7 @@ export default function AdminLayout({
 			: 'lg:ml-[90px]';
 
 		return (
-			<ProtectedRoute allowedRoles={['system_admin']}>
+			<ProtectedRoute allowedRoles={['superadmin']}>
 				<div className="min-h-screen flex bg-background relative">
 					<SuperAdminSidebar />
 					<div

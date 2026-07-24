@@ -14,7 +14,7 @@ const noStoreJson = (payload: Record<string, unknown>, status = 200) =>
 export async function GET(request: NextRequest) {
 	try {
 		const currentUser = await authorizeUser(request);
-		if (!currentUser || currentUser.role !== 'super_admin') {
+		if (!currentUser || currentUser.role !== 'superadmin') {
 			return noStoreJson({ success: false, message: 'Forbidden' }, 403);
 		}
 
@@ -25,14 +25,14 @@ export async function GET(request: NextRequest) {
 
 		const tokenRequest = await createAblyTokenRequest({
 			tenantId: 'superadmin',
-			user: { id: currentUser.id, role: 'super_admin' },
-			role: 'super_admin',
+			user: { id: currentUser.id, role: 'superadmin' },
+			role: 'superadmin',
 			clientId: userId,
 		});
 
 		return noStoreJson({ success: true, ...tokenRequest });
 	} catch (error) {
-		console.error('[superadmin/sync-token] Failed to mint token:', error);
+		console.error('[school/sync-token] Failed to mint token:', error);
 		return NextResponse.json(
 			{ success: false, message: 'Token service unavailable' },
 			{ status: 503, headers: { 'Cache-Control': 'no-store' } },

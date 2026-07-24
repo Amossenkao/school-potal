@@ -44,6 +44,7 @@ const ProtectedRoute = ({
 			!startupResolved ||
 			!user ||
 			user.role === 'system_admin' ||
+			user.role === 'superadmin' ||
 			!user.mustChangePassword ||
 			pathname === '/login/account-setup'
 		) {
@@ -90,6 +91,7 @@ const ProtectedRoute = ({
 
 	if (
 		activeUser.role !== 'system_admin' &&
+		activeUser.role !== 'superadmin' &&
 		activeUser.mustChangePassword &&
 		pathname !== '/login/account-setup'
 	) {

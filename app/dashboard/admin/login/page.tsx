@@ -1,51 +1,37 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2, LogIn } from 'lucide-react';
+import useAuth from '@/store/useAuth';
 
 export default function SuperAdminLoginPage() {
+	const router = useRouter();
 	const [username, setUsername] = useState('');
 	const [password, setPassword] = useState('');
 	const [showPw, setShowPw] = useState(false);
-	const [isLoading, setIsLoading] = useState(false);
-	const [error, setError] = useState('');
+
+	const { login, isLoading, error, clearError } = useAuth();
 
 	const fillDemo = () => {
 		setUsername('admin');
 		setPassword('admin');
+		clearError();
 	};
 
-	const handleSubmit = async (e: FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		setError('');
-		setIsLoading(true);
 
-		try {
-			const res = await fetch('/api/auth/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					action: 'login',
-					role: 'system_admin',
-					username,
-					password,
-				}),
-			});
+		const loggedInUser = await login({
+			role: 'superadmin',
+			username,
+			password,
+		});
 
-			const data = await res.json();
-
-			if (!res.ok) {
-				setError(data?.error || 'Invalid credentials. Please try again.');
-				return;
-			}
-
-			window.location.href = '/dashboard/admin';
-		} catch {
-			setError('Something went wrong. Please try again.');
-		} finally {
-			setIsLoading(false);
+		if (loggedInUser) {
+			router.push('/dashboard');
 		}
 	};
 
@@ -68,7 +54,8 @@ export default function SuperAdminLoginPage() {
 						</h1>
 					</Link>
 					<p className="mt-3 text-gray-400 text-sm leading-relaxed">
-						Platform administration portal for managing schools, tenants, and system configuration.
+						Platform administration portal for managing schools, tenants, and
+						system configuration.
 					</p>
 					<div className="mt-10 flex items-center justify-center gap-8 text-xs text-gray-500">
 						<div className="flex flex-col items-center gap-1">
@@ -93,21 +80,21 @@ export default function SuperAdminLoginPage() {
 			<div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
 				<div className="w-full max-w-sm">
 					{/* Mobile logo */}
-				<div className="mb-8 flex justify-center lg:hidden">
-					<Link href="/" className="inline-flex items-center gap-2.5">
-						<Image
-							src="/images/SchoolMesh.png"
-							alt="SchoolMesh"
-							width={36}
-							height={36}
-							className="h-9 w-9 rounded-lg object-contain"
-							priority
-						/>
-						<span className="text-lg font-bold tracking-tight text-[#111827]">
-							School<span className="text-[#465fff]">Mesh</span>
-						</span>
-					</Link>
-				</div>
+					<div className="mb-8 flex justify-center lg:hidden">
+						<Link href="/" className="inline-flex items-center gap-2.5">
+							<Image
+								src="/images/SchoolMesh.png"
+								alt="SchoolMesh"
+								width={36}
+								height={36}
+								className="h-9 w-9 rounded-lg object-contain"
+								priority
+							/>
+							<span className="text-lg font-bold tracking-tight text-[#111827]">
+								School<span className="text-[#465fff]">Mesh</span>
+							</span>
+						</Link>
+					</div>
 
 					<div className="mb-8">
 						<p className="mb-1 text-xs font-semibold uppercase tracking-widest text-[#465fff]">
@@ -142,7 +129,10 @@ export default function SuperAdminLoginPage() {
 								autoComplete="username"
 								placeholder="Enter your username"
 								value={username}
-								onChange={(e) => { setUsername(e.target.value); setError(''); }}
+								onChange={(e) => {
+									setUsername(e.target.value);
+									clearError();
+								}}
 								disabled={isLoading}
 								className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-[#111827] outline-none transition placeholder:text-gray-400 focus:border-[#465fff] focus:ring-2 focus:ring-[#465fff]/10 disabled:opacity-50"
 							/>
@@ -163,7 +153,10 @@ export default function SuperAdminLoginPage() {
 									autoComplete="current-password"
 									placeholder="Enter your password"
 									value={password}
-									onChange={(e) => { setPassword(e.target.value); setError(''); }}
+									onChange={(e) => {
+										setPassword(e.target.value);
+										clearError();
+									}}
 									disabled={isLoading}
 									className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 pr-11 text-sm text-[#111827] outline-none transition placeholder:text-gray-400 focus:border-[#465fff] focus:ring-2 focus:ring-[#465fff]/10 disabled:opacity-50"
 								/>
@@ -173,7 +166,11 @@ export default function SuperAdminLoginPage() {
 									className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
 									aria-label={showPw ? 'Hide password' : 'Show password'}
 								>
-									{showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+									{showPw ? (
+										<EyeOff className="h-4 w-4" />
+									) : (
+										<Eye className="h-4 w-4" />
+									)}
 								</button>
 							</div>
 						</div>

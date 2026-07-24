@@ -15,7 +15,7 @@ export default function SuperAdminOnboardPage() {
 		try {
 			setSaving(true);
 			setError('');
-			const res = await fetch('/api/superadmin/schools', {
+			const res = await fetch('/api/school', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(data),

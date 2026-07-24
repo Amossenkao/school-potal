@@ -75,7 +75,7 @@ export default function NavBar({ skipStorageLoad = false }) {
 	useEffect(() => {
 		setMounted(true);
 
-		// Skip if explicitly told to (e.g., during OTP flow)
+		// Skip if explicitly told to
 		if (!skipStorageLoad) {
 			void bootstrapAuth();
 		}

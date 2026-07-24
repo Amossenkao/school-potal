@@ -41,7 +41,7 @@ export default function SchoolDetailPage() {
 	const fetchSchool = async () => {
 		try {
 			setLoading(true);
-			const res = await fetch(`/api/superadmin/schools/${host}`);
+			const res = await fetch(`/api/school?host=${encodeURIComponent(host)}`);
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.error || 'Failed to load school');
 			setSchool({
@@ -72,7 +72,7 @@ export default function SchoolDetailPage() {
 
 	const fetchStats = async () => {
 		try {
-			const res = await fetch(`/api/superadmin/schools/${host}/stats`);
+			const res = await fetch(`/api/school?host=${encodeURIComponent(host)}&stats=true`);
 			const data = await res.json();
 			if (res.ok) setStats(data);
 		} catch {}
@@ -83,7 +83,7 @@ export default function SchoolDetailPage() {
 			setSaving(true);
 			setError('');
 			setSuccess('');
-			const res = await fetch(`/api/superadmin/schools/${host}`, {
+			const res = await fetch(`/api/school?host=${encodeURIComponent(host)}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(data),
@@ -102,7 +102,7 @@ export default function SchoolDetailPage() {
 	const deleteSchool = async () => {
 		try {
 			setSaving(true);
-			const res = await fetch(`/api/superadmin/schools/${host}`, { method: 'DELETE' });
+			const res = await fetch(`/api/school?host=${encodeURIComponent(host)}`, { method: 'DELETE' });
 			if (!res.ok) throw new Error('Failed to delete school');
 			router.push('/dashboard/admin/schools');
 		} catch (e: any) {

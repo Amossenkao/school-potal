@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
 	School,
@@ -12,6 +11,7 @@ import {
 	Activity,
 	ArrowRight,
 } from 'lucide-react';
+import useAuth from '@/store/useAuth';
 
 interface SystemStats {
 	schools: { total: number; active: number; inactive: number };
@@ -20,41 +20,15 @@ interface SystemStats {
 }
 
 export default function SuperAdminDashboardPage() {
-	const [stats, setStats] = useState<SystemStats | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState('');
+	const stats = useAuth((state) => state.superAdminStats);
 
-	useEffect(() => {
-		fetchStats();
-	}, []);
-
-	const fetchStats = async () => {
-		try {
-			setLoading(true);
-			const res = await fetch('/api/superadmin/stats');
-			const data = await res.json();
-			if (!res.ok) throw new Error(data.error || 'Failed to load stats');
-			setStats(data);
-		} catch (e: any) {
-			setError(e.message);
-		} finally {
-			setLoading(false);
-		}
-	};
-
-	if (loading) {
+	if (!stats) {
 		return (
 			<div className="flex items-center justify-center py-20">
 				<Loader2 className="h-6 w-6 animate-spin text-gray-400" />
 			</div>
 		);
 	}
-
-	if (error) {
-		return <div className="py-20 text-center text-sm text-red-500">{error}</div>;
-	}
-
-	if (!stats) return null;
 
 	const statCards = [
 		{ label: 'Total Schools', value: stats.schools.total, icon: School, color: '#465fff', bg: 'bg-[#465fff]/10' },

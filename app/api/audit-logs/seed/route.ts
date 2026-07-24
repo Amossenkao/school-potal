@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
-import { connectToTenantsDb } from '@/lib/mongoose';
-import mongoose, { Schema } from 'mongoose';
+import { NextRequest, NextResponse } from 'next/server';
+import { getSchoolMeshModels } from '@/models/schoolmesh';
+import { authorizeUser } from '@/proxy';
+import { Schema } from 'mongoose';
 
 const AuditLogSchema = new Schema(
 	{
@@ -22,13 +23,13 @@ const AuditLogSchema = new Schema(
 );
 
 async function getAuditLogModel() {
-	const conn = await connectToTenantsDb();
-	return (conn.models.AuditLog || conn.model('AuditLog', AuditLogSchema)) as any;
+	const { connection } = await getSchoolMeshModels();
+	return (connection.models.AuditLog || connection.model('AuditLog', AuditLogSchema)) as any;
 }
 
 const SEED_LOGS = [
 	{ level: 'success', category: 'system', message: 'Platform started successfully', source: 'server' },
-	{ level: 'info', category: 'database', message: 'Connected to tenants database', source: 'mongodb' },
+	{ level: 'info', category: 'database', message: 'Connected to schoolmesh database', source: 'mongodb' },
 	{ level: 'info', category: 'system', message: 'Redis cache connection established', source: 'redis' },
 	{ level: 'success', category: 'school', message: 'School "Springfield Academy" onboarded', source: 'superadmin' },
 	{ level: 'info', category: 'auth', message: 'Super admin login from 192.168.1.100', source: 'auth' },
@@ -39,7 +40,7 @@ const SEED_LOGS = [
 	{ level: 'warning', category: 'auth', message: 'Failed login attempt for system_admin from 10.0.0.55', source: 'auth', details: { ip: '10.0.0.55', attempts: 3 } },
 	{ level: 'info', category: 'system', message: 'Scheduled backup completed successfully', source: 'cron' },
 	{ level: 'error', category: 'system', message: 'Ably realtime channel error: connection limit reached', source: 'ably', details: { channel: 'school:grades' } },
-	{ level: 'success', category: 'database', message: 'Indexes rebuilt for tenants database', source: 'mongodb' },
+	{ level: 'success', category: 'database', message: 'Indexes rebuilt for schoolmesh database', source: 'mongodb' },
 	{ level: 'info', category: 'school', message: 'School "Oakwood Prep" deactivated by super admin', source: 'superadmin' },
 	{ level: 'warning', category: 'database', message: 'Slow query detected: 3.2s on grades collection', source: 'mongodb', details: { queryTime: 3200, collection: 'grades' } },
 	{ level: 'info', category: 'auth', message: 'Session cleanup: 47 expired sessions removed', source: 'cron' },
@@ -49,7 +50,12 @@ const SEED_LOGS = [
 	{ level: 'warning', category: 'system', message: 'Disk usage at 78% on primary server', source: 'monitor', details: { usage: '78%', path: '/var/data' } },
 ];
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+	const currentUser = await authorizeUser(request, 'superadmin');
+	if (!currentUser) {
+		return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+	}
+
 	try {
 		const AuditLog = await getAuditLogModel();
 
@@ -63,7 +69,7 @@ export async function POST() {
 
 		return NextResponse.json({ success: true, count: logs.length });
 	} catch (error: any) {
-		console.error('[superadmin/audit-logs/seed] POST error:', error);
+		console.error('[audit-logs/seed] POST error:', error);
 		return NextResponse.json({ error: error.message || 'Failed to seed audit logs' }, { status: 500 });
 	}
 }

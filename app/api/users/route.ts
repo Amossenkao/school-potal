@@ -2,13 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { getTenantModels } from '@/models';
 import { authorizeUser } from '@/proxy';
-import { getSchoolProfile } from '@/lib/mongoose';
+import { getSchoolProfile, getTenantConnectionByDbName } from '@/lib/mongoose';
+import { normalizeHost } from '@/utils/host';
+import { getSchoolMeshModels } from '@/models/schoolmesh';
+import UserSchema from '@/models/user/User';
+import SystemAdminSchema from '@/models/user/SystemAdmin';
 import {
 	updateAllUserSessions,
 	destroyAllUserSessions,
 	updateUserSessionNotifications,
 } from '@/utils/session';
-import { sendOTP, verifyOTP } from '@/utils/otp';
 import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
 import {
 	publishSyncEventSafe,
@@ -1251,6 +1254,21 @@ async function handleForceReassignmentEnhanced(
 	}
 }
 
+function generateSysId(): string {
+	const year = new Date().getFullYear();
+	const seq = String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0');
+	return `SYS${year}${seq}`;
+}
+
+async function generateUniqueUsername(UserModel: any, maxAttempts = 10): Promise<string> {
+	for (let i = 0; i < maxAttempts; i++) {
+		const candidate = generateSysId();
+		const exists = await UserModel.findOne({ username: candidate }).lean().exec();
+		if (!exists) return candidate;
+	}
+	throw new Error('Failed to generate a unique username after multiple attempts');
+}
+
 export async function GET(request: NextRequest) {
 	try {
 		const currentUser = await authorizeUser(request);
@@ -1260,8 +1278,46 @@ export async function GET(request: NextRequest) {
 				{ status: 401 },
 			);
 		}
-		const models = await getTenantModels();
+
 		const { searchParams } = new URL(request.url);
+		const hostParam = searchParams.get('host');
+
+		// --- Superadmin: list system_admins in a specific school's tenant DB ---
+		if (currentUser.role === 'superadmin' && hostParam) {
+			const cleanHost = normalizeHost(hostParam);
+			const { SchoolProfile } = await getSchoolMeshModels();
+			const school = await SchoolProfile.findOne({ host: cleanHost }).select('dbName').lean().exec();
+			if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
+
+			const connection = await getTenantConnectionByDbName((school as any).dbName);
+			if (!connection) return NextResponse.json({ users: [], admins: [] });
+
+			const User = (connection.models.User || connection.model('User', UserSchema)) as any;
+			if (!User.discriminators?.system_admin) {
+				User.discriminator('system_admin', SystemAdminSchema);
+			}
+
+			const roleFilter = searchParams.get('role');
+			const query: any = {};
+			if (roleFilter === 'system_admin') {
+				const admins = await User.discriminators.system_admin
+					.find({ role: 'system_admin' })
+					.select('firstName lastName fullName username phone email isActive createdAt')
+					.sort({ createdAt: -1 })
+					.lean()
+					.exec();
+				return NextResponse.json({ users: admins || [], admins: admins || [] });
+			}
+
+			const users = await User.find(query)
+				.select('firstName lastName fullName username role phone email isActive createdAt')
+				.sort({ createdAt: -1 })
+				.lean()
+				.exec();
+			return NextResponse.json({ users: users || [] });
+		}
+
+		const models = await getTenantModels();
 		const role = searchParams.get('role') as UserRole | null;
 		const classId = searchParams.get('classId');
 		const targetId = searchParams.get('id');
@@ -2344,13 +2400,107 @@ interface ValidationErrorWithConflicts extends ValidationError {
 export async function POST(request: NextRequest) {
 	try {
 		// Only system admins can create new users
-		const currentUser = await authorizeUser(request, 'system_admin');
+		const currentUser = await authorizeUser(request, ['system_admin', 'superadmin']);
 
 		if (!currentUser) {
 			return NextResponse.json(
 				{ success: false, message: 'Unauthorized' },
 				{ status: 401 },
 			);
+		}
+
+		// --- Superadmin: create system_admin in a specific school ---
+		if (currentUser.role === 'superadmin') {
+			const { searchParams } = new URL(request.url);
+			const hostParam = searchParams.get('host');
+			if (!hostParam) {
+				return NextResponse.json(
+					{ success: false, message: 'host query parameter is required for superadmin' },
+					{ status: 400 },
+				);
+			}
+
+			const cleanHost = normalizeHost(hostParam);
+			const { SchoolProfile } = await getSchoolMeshModels();
+			const school = await SchoolProfile.findOne({ host: cleanHost }).select('dbName').lean().exec();
+			if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
+
+			const connection = await getTenantConnectionByDbName((school as any).dbName);
+			if (!connection) return NextResponse.json({ error: 'Could not connect to school database' }, { status: 500 });
+
+			const User = (connection.models.User || connection.model('User', UserSchema)) as any;
+			if (!User.discriminators?.system_admin) {
+				User.discriminator('system_admin', SystemAdminSchema);
+			}
+
+			const body = await request.json();
+			const { firstName, middleName, lastName, phone, email, gender, dateOfBirth, address } = body;
+
+			if (!firstName || !lastName || !phone) {
+				return NextResponse.json({ error: 'firstName, lastName, and phone are required' }, { status: 400 });
+			}
+
+			const username = await generateUniqueUsername(User.discriminators.system_admin);
+			const defaultPassword = username;
+			const hashedPassword = await bcrypt.hash(defaultPassword, 12);
+			const fullName = middleName ? `${firstName} ${middleName} ${lastName}` : `${firstName} ${lastName}`;
+
+			const admin = await User.discriminators.system_admin.create({
+				role: 'system_admin',
+				firstName,
+				middleName: middleName || '',
+				lastName,
+				fullName,
+				username,
+				password: hashedPassword,
+				defaultPassword,
+				mustChangePassword: true,
+				phone,
+				email: email || '',
+				gender: gender || 'Other',
+				dateOfBirth: dateOfBirth || '2000-01-01',
+				address: address || '',
+				isActive: true,
+				createdAt: new Date(),
+			});
+
+			const { publishSyncEventSafe } = await import('@/lib/realtimeSync');
+			await publishSyncEventSafe({
+				tenantId: cleanHost,
+				domain: 'users',
+				reason: 'user-created',
+				payload: {
+					userId: String(admin._id),
+					user: {
+						_id: String(admin._id),
+						firstName: admin.firstName,
+						lastName: admin.lastName,
+						fullName: admin.fullName,
+						username: admin.username,
+						phone: admin.phone,
+						email: admin.email,
+						isActive: admin.isActive,
+					},
+				},
+			});
+
+			return NextResponse.json({
+				user: {
+					_id: admin._id,
+					firstName: admin.firstName,
+					lastName: admin.lastName,
+					fullName: admin.fullName,
+					username: admin.username,
+					phone: admin.phone,
+					email: admin.email,
+					isActive: admin.isActive,
+					generatedCredentials: {
+						username,
+						defaultPassword,
+						note: 'User must change password on first login',
+					},
+				},
+			}, { status: 201 });
 		}
 
 		const host = request.headers.get('host');
@@ -2575,6 +2725,86 @@ export async function PUT(request: NextRequest) {
 				{ status: 401 },
 			);
 		}
+
+		const { searchParams } = new URL(request.url);
+
+		// --- Superadmin: update system_admin in a specific school ---
+		if (currentUser.role === 'superadmin') {
+			const hostParam = searchParams.get('host');
+			const targetUserId = searchParams.get('id');
+			if (!hostParam) {
+				return NextResponse.json(
+					{ success: false, message: 'host query parameter is required for superadmin' },
+					{ status: 400 },
+				);
+			}
+			if (!targetUserId) {
+				return NextResponse.json(
+					{ success: false, message: 'id query parameter is required' },
+					{ status: 400 },
+				);
+			}
+
+			const cleanHost = normalizeHost(hostParam);
+			const { SchoolProfile } = await getSchoolMeshModels();
+			const school = await SchoolProfile.findOne({ host: cleanHost }).select('dbName').lean().exec();
+			if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
+
+			const connection = await getTenantConnectionByDbName((school as any).dbName);
+			if (!connection) return NextResponse.json({ error: 'Could not connect to school database' }, { status: 500 });
+
+			const User = (connection.models.User || connection.model('User', UserSchema)) as any;
+			if (!User.discriminators?.system_admin) {
+				User.discriminator('system_admin', SystemAdminSchema);
+			}
+
+			const body = await request.json();
+			const allowedFields = ['firstName', 'middleName', 'lastName', 'phone', 'email', 'gender', 'dateOfBirth', 'address', 'isActive'];
+			const updateData: any = {};
+			for (const field of allowedFields) {
+				if (body[field] !== undefined) updateData[field] = body[field];
+			}
+			if (body.firstName || body.lastName) {
+				const existing = await User.discriminators.system_admin.findById(targetUserId).lean().exec();
+				if (existing) {
+					const fn = body.firstName || existing.firstName;
+					const mn = body.middleName !== undefined ? body.middleName : existing.middleName;
+					const ln = body.lastName || existing.lastName;
+					updateData.fullName = mn ? `${fn} ${mn} ${ln}` : `${fn} ${ln}`;
+				}
+			}
+
+			const admin = await User.discriminators.system_admin.findByIdAndUpdate(
+				targetUserId,
+				{ $set: updateData },
+				{ new: true, runValidators: true },
+			).lean();
+
+			if (!admin) return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
+
+			const { publishSyncEventSafe } = await import('@/lib/realtimeSync');
+			await publishSyncEventSafe({
+				tenantId: cleanHost,
+				domain: 'users',
+				reason: 'user-updated',
+				payload: {
+					userId: String(admin._id),
+					user: {
+						_id: String(admin._id),
+						firstName: admin.firstName,
+						lastName: admin.lastName,
+						fullName: admin.fullName,
+						username: admin.username,
+						phone: admin.phone,
+						email: admin.email,
+						isActive: admin.isActive,
+					},
+				},
+			});
+
+			return NextResponse.json({ user: admin });
+		}
+
 		const schoolProfileRaw = await getSchoolProfile();
 		const schoolProfile =
 			typeof schoolProfileRaw === 'string'
@@ -2587,7 +2817,6 @@ export async function PUT(request: NextRequest) {
 		});
 
 		const models = await getTenantModels();
-		const { searchParams } = new URL(request.url);
 		const targetUserId = searchParams.get('id');
 		const resetPassword = searchParams.get('resetPassword') === 'true';
 		const action = searchParams.get('action');
@@ -4334,7 +4563,7 @@ export async function PUT(request: NextRequest) {
 // DELETE: Delete user by ID (admin only)
 export async function DELETE(request: NextRequest) {
 	try {
-		const currentUser = await authorizeUser(request, ['system_admin']);
+		const currentUser = await authorizeUser(request, ['system_admin', 'superadmin']);
 		if (!currentUser) {
 			return NextResponse.json(
 				{
@@ -4344,6 +4573,56 @@ export async function DELETE(request: NextRequest) {
 				{ status: 401 },
 			);
 		}
+
+		const { searchParams } = new URL(request.url);
+
+		// --- Superadmin: delete system_admin in a specific school ---
+		if (currentUser.role === 'superadmin') {
+			const hostParam = searchParams.get('host');
+			const targetUserId = searchParams.get('id');
+			if (!hostParam) {
+				return NextResponse.json(
+					{ success: false, message: 'host query parameter is required for superadmin' },
+					{ status: 400 },
+				);
+			}
+			if (!targetUserId) {
+				return NextResponse.json(
+					{ success: false, message: 'id query parameter is required' },
+					{ status: 400 },
+				);
+			}
+
+			const cleanHost = normalizeHost(hostParam);
+			const { SchoolProfile } = await getSchoolMeshModels();
+			const school = await SchoolProfile.findOne({ host: cleanHost }).select('dbName').lean().exec();
+			if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
+
+			const connection = await getTenantConnectionByDbName((school as any).dbName);
+			if (!connection) return NextResponse.json({ error: 'Could not connect to school database' }, { status: 500 });
+
+			const User = (connection.models.User || connection.model('User', UserSchema)) as any;
+			if (!User.discriminators?.system_admin) {
+				User.discriminator('system_admin', SystemAdminSchema);
+			}
+
+			const admin = await User.discriminators.system_admin.findByIdAndDelete(targetUserId).lean();
+			if (!admin) return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
+
+			const { destroyAllUserSessions } = await import('@/utils/session');
+			await destroyAllUserSessions(targetUserId);
+
+			const { publishSyncEventSafe } = await import('@/lib/realtimeSync');
+			await publishSyncEventSafe({
+				tenantId: cleanHost,
+				domain: 'users',
+				reason: 'user-deleted',
+				payload: { userId: targetUserId },
+			});
+
+			return NextResponse.json({ success: true });
+		}
+
 		const schoolProfileRaw = await getSchoolProfile();
 		const schoolProfile =
 			typeof schoolProfileRaw === 'string'

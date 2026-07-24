@@ -683,7 +683,7 @@ const Attendance = () => {
 		if (
 			user.role === 'system_admin' ||
 			user.role === 'administrator' ||
-			user.role === 'super_admin'
+			user.role === 'superadmin'
 		) {
 			const firstYear = school?.firstAcademicYear;
 			const currentYear = school?.currentAcademicYear;
@@ -797,7 +797,7 @@ const Attendance = () => {
 		if (
 			user.role === 'system_admin' ||
 			user.role === 'administrator' ||
-			user.role === 'super_admin'
+			user.role === 'superadmin'
 		) {
 			const all: any[] = [];
 			for (const [session, levels] of Object.entries(
@@ -993,7 +993,7 @@ const Attendance = () => {
 			if (
 				user.role === 'system_admin' ||
 				user.role === 'administrator' ||
-				user.role === 'super_admin'
+				user.role === 'superadmin'
 			)
 				return true;
 			if (user.role === 'teacher') return date === todayStr();
@@ -1020,7 +1020,7 @@ const Attendance = () => {
 			if (
 				user.role === 'system_admin' ||
 				user.role === 'administrator' ||
-				user.role === 'super_admin'
+				user.role === 'superadmin'
 			)
 				return true;
 
@@ -1158,7 +1158,7 @@ const Attendance = () => {
 		user &&
 		(user.role === 'system_admin' ||
 			user.role === 'administrator' ||
-			user.role === 'super_admin' ||
+			user.role === 'superadmin' ||
 			user.role === 'teacher') &&
 		hasClass;
 

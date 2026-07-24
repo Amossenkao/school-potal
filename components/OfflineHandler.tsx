@@ -38,7 +38,6 @@ export default function OfflineHandler({
 			'/api/grades/requests',
 			'/api/calendar',
 			'/api/schedules',
-			'/api/settings',
 			'/api/notifications',
 			'/api/school',
 		];

@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { getSession } from '@/utils/session';
 import { UserRole } from './types';
 import { getTenantModels } from '@/models';
+import { getSchoolMeshModels } from '@/models/schoolmesh';
 import { getSchoolProfile } from '@/lib/mongoose';
 
 // Marketing-only routes that should NOT be accessible on school hosts
@@ -25,24 +26,28 @@ export default async function proxy(request: NextRequest) {
 		return NextResponse.next();
 	}
 
-	const schoolMesh = isSchoolMeshHost(host);
+const schoolMesh = isSchoolMeshHost(host);
 
-	if (!schoolMesh && SCHOOLMESH_ONLY_ROUTES.some((route) => pathname.startsWith(route))) {
-		try {
-			const profile = await getSchoolProfile({ host });
-			if (!profile) {
-				const url = request.nextUrl.clone();
-				url.pathname = '/';
-				return NextResponse.redirect(url);
-			}
-		} catch {
+if (
+	!schoolMesh &&
+	SCHOOLMESH_ONLY_ROUTES.some((route) => pathname.startsWith(route))
+) {
+	try {
+		const profile = await getSchoolProfile({ host });
+
+		if (profile) {
 			const url = request.nextUrl.clone();
-			url.pathname = '/';
-			return NextResponse.redirect(url);
+			url.pathname = '/__404__';
+			return NextResponse.rewrite(url);
 		}
+	} catch {
+		const url = request.nextUrl.clone();
+		url.pathname = '/__404__';
+		return NextResponse.rewrite(url);
 	}
+}
 
-	return NextResponse.next();
+return NextResponse.next();
 }
 
 export interface AuthenticatedUser {
@@ -71,6 +76,19 @@ export async function authenticateRequest(
 		throw new Error('Invalid or expired session');
 	}
 
+	// 3. Handle superadmin sessions (schoolmesh database)
+	if (session.role === 'superadmin') {
+		const { SuperAdmin } = await getSchoolMeshModels();
+		const currentUser = await SuperAdmin.findById(session.id)
+			.select('isActive role')
+			.lean();
+		if (!currentUser || currentUser.isActive === false) {
+			throw new Error('User account is inactive');
+		}
+		return session;
+	}
+
+	// 4. Handle school user sessions (tenant database)
 	const requestHost = request.headers.get('host')?.split(':')[0];
 	const sessionHost =
 		typeof session.tenantId === 'string'
@@ -93,7 +111,7 @@ export async function authenticateRequest(
 		throw new Error('User account is inactive');
 	}
 
-	// 4. Return session data as authenticated user
+	// 5. Return session data as authenticated user
 	return session;
 }
 

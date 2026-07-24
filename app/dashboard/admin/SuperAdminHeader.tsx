@@ -4,6 +4,7 @@ import React, { memo, useRef, useEffect, useState } from 'react';
 import { Menu, X, LogOut, ChevronDown, Sun, Moon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
+import useAuth from '@/store/useAuth';
 
 type Props = {
 	isMobileOpen: boolean;
@@ -17,6 +18,7 @@ const SuperAdminHeader = memo(function SuperAdminHeader({ isMobileOpen, onToggle
 	const [dropdownOpen, setDropdownOpen] = useState(false);
 	const dropdownRef = useRef<HTMLDivElement>(null);
 	const { theme, toggleTheme } = useTheme();
+	const logout = useAuth((state) => state.logout);
 
 	useEffect(() => {
 		const headerEl = headerRef.current;
@@ -53,9 +55,9 @@ const SuperAdminHeader = memo(function SuperAdminHeader({ isMobileOpen, onToggle
 		else onToggleMobileSidebar();
 	};
 
-	const handleLogout = () => {
+	const handleLogout = async () => {
 		setDropdownOpen(false);
-		sessionStorage.removeItem('superadmin_auth');
+		await logout();
 		router.replace('/login');
 	};
 

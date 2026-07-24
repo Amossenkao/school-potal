@@ -8,6 +8,6 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
 	return (
-		<ProtectedRoute requiredRole="system_admin">{children}</ProtectedRoute>
+		<ProtectedRoute allowedRoles={['system_admin', 'superadmin']}>{children}</ProtectedRoute>
 	);
 }

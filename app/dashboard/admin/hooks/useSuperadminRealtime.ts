@@ -5,7 +5,7 @@ import Ably from 'ably';
 import type { RealtimeEvent } from '@/lib/realtimeTypes';
 import { getSchoolRealtimeChannel } from '@/lib/realtimeTypes';
 
-const SUPERADMIN_SYNC_TOKEN_ENDPOINT = '/api/superadmin/sync-token';
+const SUPERADMIN_SYNC_TOKEN_ENDPOINT = '/api/school/sync-token';
 const SUPERADMIN_BROADCAST_CHANNEL = 'superadmin:broadcast';
 
 export function useSuperadminRealtime(options: {

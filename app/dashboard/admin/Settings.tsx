@@ -1368,8 +1368,8 @@ export default function Settings() {
 		};
 
 		try {
-			const response = await fetch('/api/settings', {
-				method: 'POST',
+			const response = await fetch('/api/school', {
+				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload),
 			});

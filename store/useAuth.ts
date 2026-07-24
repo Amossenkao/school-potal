@@ -56,6 +56,12 @@ interface AuthState {
 	}) => Promise<void>;
 	bootstrapAuth: (options?: { force?: boolean }) => Promise<void>;
 
+	superAdminStats: {
+		schools: { total: number; active: number; inactive: number };
+		users: { total: number; students: number; teachers: number; administrators: number; systemAdmins: number };
+		recentSchools: { name: string; host: string; initials: string; isActive: boolean }[];
+	} | null;
+
 	clearError: () => void;
 	setUser: (user: User | null) => void;
 	hydrateFromCache: () => void;
@@ -458,6 +464,7 @@ const runDeferredPostLoginBootstrap = (
 		isVerifying: false,
 		isLoggingOut: false,
 		startupResolved: false,
+		superAdminStats: null,
 		login: async (loginData: LoginData): Promise<User | null> => {
 			beginAuthMutation();
 			set({ isLoading: true, error: null });
@@ -501,6 +508,16 @@ const runDeferredPostLoginBootstrap = (
 				});
 				useNetworkStore.getState().setAuthCheckFailed(false);
 				applyBootstrapPayload(data);
+
+				if (data?.user?.role === 'superadmin' && data?.stats) {
+					set({
+						superAdminStats: {
+							schools: data.stats.schools || { total: 0, active: 0, inactive: 0 },
+							users: data.stats.users || { total: 0, students: 0, teachers: 0, administrators: 0, systemAdmins: 0 },
+							recentSchools: (data.schools || data.stats.perSchool || []).slice(-5).reverse(),
+						},
+					});
+				}
 
 				setDashboardStartPath();
 				cacheAuthUser(data.user as User);
@@ -597,6 +614,7 @@ const runDeferredPostLoginBootstrap = (
 				isVerifying: false,
 				isLoggingOut: false,
 				startupResolved: true,
+				superAdminStats: null,
 			});
 			clearClientSessionCookie();
 			try {
@@ -789,6 +807,16 @@ const runDeferredPostLoginBootstrap = (
 
 					useNetworkStore.getState().setAuthCheckFailed(false);
 					applyBootstrapPayload(data, { gradesStrategy: 'merge' });
+
+					if (get().user?.role === 'superadmin' && data?.stats) {
+						set({
+							superAdminStats: {
+								schools: data.stats.schools || { total: 0, active: 0, inactive: 0 },
+								users: data.stats.users || { total: 0, students: 0, teachers: 0, administrators: 0, systemAdmins: 0 },
+								recentSchools: (data.schools || data.stats.perSchool || []).slice(-5).reverse(),
+							},
+						});
+					}
 
 					if (Object.prototype.hasOwnProperty.call(data, 'user') && data.user) {
 						const previousIdentity = resolveIdentity(get().user);

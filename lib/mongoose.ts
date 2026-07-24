@@ -18,6 +18,9 @@ const connectionPromises: Map<string, Promise<Connection>> = new Map();
 // A dedicated connection for the central 'tenants' database
 let tenantsDbConnection: Connection | null = null;
 let tenantsDbConnectionPromise: Promise<Connection> | null = null;
+// A dedicated connection for the 'schoolmesh' database (company admin + school profiles)
+let schoolMeshDbConnection: Connection | null = null;
+let schoolMeshDbConnectionPromise: Promise<Connection> | null = null;
 
 type SchoolProfileCacheEntry = {
 	value: any;
@@ -155,6 +158,70 @@ export const connectToTenantsDb = async (): Promise<Connection> => {
 	}
 };
 
+/**
+ * Establishes and caches a connection to the central 'schoolmesh' database.
+ * This database stores company admins (superadmin role) and school profiles.
+ * @returns A Mongoose Connection object for the 'schoolmesh' database.
+ */
+export const connectToSchoolMeshDb = async (): Promise<Connection> => {
+	if (schoolMeshDbConnection && schoolMeshDbConnection.readyState === 1) {
+		return schoolMeshDbConnection;
+	}
+	if (schoolMeshDbConnectionPromise) {
+		return schoolMeshDbConnectionPromise;
+	}
+
+	if (schoolMeshDbConnection && schoolMeshDbConnection.readyState === 2) {
+		schoolMeshDbConnectionPromise = schoolMeshDbConnection
+			.asPromise()
+			.then(() => schoolMeshDbConnection as Connection)
+			.finally(() => {
+				schoolMeshDbConnectionPromise = null;
+			});
+		return schoolMeshDbConnectionPromise;
+	}
+
+	try {
+		schoolMeshDbConnectionPromise = (async () => {
+			schoolMeshDbConnection = mongoose.createConnection(MONGODB_URI, {
+				dbName: 'schoolmesh',
+				maxPoolSize: MAX_POOL_SIZE,
+				minPoolSize: 0,
+				maxIdleTimeMS: MAX_IDLE_TIME_MS,
+				serverSelectionTimeoutMS: SERVER_SELECTION_TIMEOUT_MS,
+			});
+
+			await new Promise<void>((resolve, reject) => {
+				schoolMeshDbConnection!.once('connected', () => {
+					console.log("✅ Successfully connected to central 'schoolmesh' database.");
+					resolve();
+				});
+				schoolMeshDbConnection!.once('error', (err) => {
+					console.error("❌ Error connecting to 'schoolmesh' database:", err);
+					reject(err);
+				});
+			});
+
+			return schoolMeshDbConnection as Connection;
+		})();
+
+		return await schoolMeshDbConnectionPromise;
+	} catch (err) {
+		console.error("MongoDB connection error for 'schoolmesh' database:", err);
+		if (schoolMeshDbConnection) {
+			try {
+				await schoolMeshDbConnection.close();
+			} catch {
+				// Ignore close errors during failed connection bootstrap.
+			}
+		}
+		schoolMeshDbConnection = null;
+		throw err;
+	} finally {
+		schoolMeshDbConnectionPromise = null;
+	}
+};
+
 const getOrCreateTenantConnectionByDbName = async (
 	dbName: string,
 ): Promise<Connection> => {
@@ -257,7 +324,7 @@ export const getTenantConnection = async (
 };
 
 /**
- * Retrieves a school's profile from the central 'tenants' database, with Redis caching.
+ * Retrieves a school's profile from the central 'schoolmesh' database, with Redis caching.
  * @returns The profile document, or null if not found or an error occurs.
  */
 export const getSchoolProfile = async (
@@ -302,12 +369,12 @@ export const getSchoolProfile = async (
 			}
 		}
 
-		// 3. If not in cache, fetch from DB
-		const connection = await connectToTenantsDb();
+		// 3. If not in cache, fetch from schoolmesh database
+		const connection = await connectToSchoolMeshDb();
 
 		const ProfileModel =
-			connection.models.Profile ||
-			connection.model<SchoolProfile>('Profile', SchoolProfileSchema);
+			connection.models.SchoolProfile ||
+			connection.model<SchoolProfile>('SchoolProfile', SchoolProfileSchema);
 
 		let profile = await ProfileModel.findOne({ host }).lean().exec();
 		if (!profile && process.env.NODE_ENV !== 'production') {
@@ -364,10 +431,16 @@ export const closeAllConnections = async () => {
 		allPromises.push(tenantsDbConnection.close());
 	}
 
+	if (schoolMeshDbConnection) {
+		allPromises.push(schoolMeshDbConnection.close());
+	}
+
 	await Promise.all(allPromises);
 	connections.clear();
 	connectionPromises.clear();
 	tenantsDbConnection = null;
 	tenantsDbConnectionPromise = null;
+	schoolMeshDbConnection = null;
+	schoolMeshDbConnectionPromise = null;
 	console.log('All MongoDB connections closed.');
 };

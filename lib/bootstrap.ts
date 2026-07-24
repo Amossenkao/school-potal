@@ -1,5 +1,6 @@
 import { getTenantModels } from '@/models';
-import { getSchoolProfile } from '@/lib/mongoose';
+import { getSchoolProfile, getTenantConnectionByDbName } from '@/lib/mongoose';
+import { getSchoolMeshModels } from '@/models/schoolmesh';
 import type { UserRole } from '@/types';
 import {
 	getAcademicYearFilterValue,
@@ -12,6 +13,19 @@ import {
 import { getUsersVersion as getUsersSyncVersion } from '@/utils/userSync';
 
 const MAX_BOOTSTRAP_USERS = 5000;
+
+const toHash = (value: unknown) => {
+	try {
+		const raw = JSON.stringify(value) || '';
+		let hash = 0;
+		for (let i = 0; i < raw.length; i += 1) {
+			hash = (hash * 31 + raw.charCodeAt(i)) >>> 0;
+		}
+		return String(hash);
+	} catch {
+		return '0';
+	}
+};
 
 type DomainVersions = {
 	users: string;
@@ -868,5 +882,101 @@ export const buildBootstrapPayload = async (
 		...(include.grades ? { grades, gradesCursor } : {}),
 		...(include.gradeRequests ? { gradeRequests } : {}),
 		...(include.attendance ? { attendance } : {}),
+	};
+};
+
+/**
+ * Gets user counts for a specific tenant database.
+ */
+const getTenantUserCounts = async (dbName: string) => {
+	try {
+		const connection = await getTenantConnectionByDbName(dbName);
+		if (!connection) {
+			return { students: 0, teachers: 0, administrators: 0, systemAdmins: 0 };
+		}
+
+		const User = connection.models.User;
+		if (!User) {
+			return { students: 0, teachers: 0, administrators: 0, systemAdmins: 0 };
+		}
+
+		const [students, teachers, administrators, systemAdmins] = await Promise.all([
+			User.countDocuments({ role: 'student', isActive: true }).catch(() => 0),
+			User.countDocuments({ role: 'teacher', isActive: true }).catch(() => 0),
+			User.countDocuments({ role: 'administrator', isActive: true }).catch(() => 0),
+			User.countDocuments({ role: 'system_admin', isActive: true }).catch(() => 0),
+		]);
+
+		return { students, teachers, administrators, systemAdmins };
+	} catch {
+		return { students: 0, teachers: 0, administrators: 0, systemAdmins: 0 };
+	}
+};
+
+/**
+ * Builds the bootstrap payload for superadmin users.
+ * Includes platform-wide stats: schools, users by role, per-school stats.
+ */
+export const buildSuperAdminBootstrapPayload = async (
+	currentUser: any,
+) => {
+	const { SchoolProfile } = await getSchoolMeshModels();
+
+	const schools = await SchoolProfile.find({})
+		.select('host dbName name shortName initials logoUrl isActive')
+		.lean()
+		.exec();
+
+	const activeSchools = schools.filter((s: any) => s.isActive);
+	const inactiveSchools = schools.filter((s: any) => !s.isActive);
+
+	// Get user counts for each school
+	const dbNames = [...new Set(schools.map((s: any) => s.dbName).filter(Boolean))] as string[];
+	const counts = await Promise.all(dbNames.map(getTenantUserCounts));
+
+	let totalStudents = 0;
+	let totalTeachers = 0;
+	let totalAdministrators = 0;
+	let totalSystemAdmins = 0;
+
+	const perSchoolStats = schools.map((school: any, index: number) => {
+		const schoolCounts = counts[index] || { students: 0, teachers: 0, administrators: 0, systemAdmins: 0 };
+		totalStudents += schoolCounts.students;
+		totalTeachers += schoolCounts.teachers;
+		totalAdministrators += schoolCounts.administrators;
+		totalSystemAdmins += schoolCounts.systemAdmins;
+
+		return {
+			host: school.host,
+			name: school.name,
+			initials: school.initials,
+			isActive: school.isActive,
+			users: schoolCounts,
+			totalUsers: schoolCounts.students + schoolCounts.teachers + schoolCounts.administrators + schoolCounts.systemAdmins,
+		};
+	});
+
+	const totalUsers = totalStudents + totalTeachers + totalAdministrators + totalSystemAdmins;
+
+	return {
+		stats: {
+			schools: {
+				total: schools.length,
+				active: activeSchools.length,
+				inactive: inactiveSchools.length,
+			},
+			users: {
+				total: totalUsers,
+				students: totalStudents,
+				teachers: totalTeachers,
+				administrators: totalAdministrators,
+				systemAdmins: totalSystemAdmins,
+			},
+			perSchool: perSchoolStats,
+		},
+		schools: perSchoolStats,
+		versions: {
+			user: toHash(currentUser),
+		},
 	};
 };

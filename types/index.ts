@@ -3,7 +3,7 @@ export type UserRole =
 	| 'teacher'
 	| 'administrator'
 	| 'system_admin'
-	| 'super_admin';
+	| 'superadmin';
 
 export interface ClassSchedule {
 	day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday';
@@ -135,6 +135,10 @@ export interface Administrator extends User {
 export interface SystemAdmin extends User {
 	role: 'system_admin';
 	username: string;
+}
+
+export interface SuperAdmin extends User {
+	role: 'superadmin';
 }
 
 export interface AIChatMessage {
