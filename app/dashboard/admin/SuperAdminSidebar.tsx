@@ -14,6 +14,7 @@ import {
 	ChevronRight,
 	X,
 	ScrollText,
+	UserCircle,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
 	{ label: 'Onboard', href: '/dashboard/onboard', icon: PlusCircle },
 	{ label: 'Audit Logs', href: '/dashboard/audit', icon: ScrollText },
 	{ label: 'Settings', href: '/dashboard/admin/settings', icon: Settings },
+	{ label: 'Profile', href: '/dashboard/admin/profile', icon: UserCircle },
 ];
 
 const SuperAdminSidebar = memo(function SuperAdminSidebar() {

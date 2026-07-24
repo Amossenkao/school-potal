@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { toast } from 'react-hot-toast';
 import {
 	ArrowLeft, Loader2, Plus, Trash2, X, UserPlus, Copy, Check, Pencil, CheckCircle, Key, ToggleLeft, ToggleRight,
 } from 'lucide-react';
@@ -176,8 +177,10 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 			if (!res.ok) throw new Error(data.error || 'Failed to update');
 			setEditingId(null);
 			fetchAdmins();
+			toast.success('Admin updated successfully');
 		} catch (e: any) {
 			setError(e.message);
+			toast.error(e.message || 'Failed to update admin');
 		} finally {
 			setEditSaving(false);
 		}
@@ -192,8 +195,10 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 				throw new Error(data.error || 'Failed to delete');
 			}
 			fetchAdmins();
+			toast.success('Admin deleted successfully');
 		} catch (e: any) {
 			setError(e.message);
+			toast.error(e.message || 'Failed to delete admin');
 		}
 	};
 
@@ -208,8 +213,10 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.error || 'Failed to toggle status');
 			fetchAdmins();
+			toast.success('Admin status updated');
 		} catch (e: any) {
 			setError(e.message);
+			toast.error(e.message || 'Failed to toggle status');
 		} finally {
 			setTogglingId(null);
 		}
@@ -227,8 +234,10 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.error || 'Failed to reset password');
 			setResetCredentials(data.credentials);
+			toast.success('Password reset successfully');
 		} catch (e: any) {
 			setError(e.message);
+			toast.error(e.message || 'Failed to reset password');
 		} finally {
 			setResettingId(null);
 		}

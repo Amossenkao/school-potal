@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { ArrowLeft, Loader2, Trash2, Users, GraduationCap, BookOpen, ShieldCheck, X } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import SchoolProfileForm, { SchoolFormData } from '@/app/dashboard/admin/components/SchoolProfileForm';
 import { useSuperadminRealtime } from '@/app/dashboard/admin/hooks/useSuperadminRealtime';
 import type { RealtimeEvent } from '@/lib/realtimeTypes';
@@ -94,7 +95,6 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState('');
-	const [success, setSuccess] = useState('');
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
 	useEffect(() => {
@@ -154,7 +154,6 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 		try {
 			setSaving(true);
 			setError('');
-			setSuccess('');
 			const res = await fetch(`/api/school?host=${encodeURIComponent(host)}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
@@ -163,10 +162,10 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 			const result = await res.json();
 			if (!res.ok) throw new Error(result.error || 'Failed to save');
 			upsertSuperAdminSchool(result.school || data);
-			setSuccess('Changes saved successfully.');
-			setTimeout(() => setSuccess(''), 3000);
+			toast.success('Changes saved successfully');
 		} catch (e: any) {
 			setError(e.message);
+			toast.error(e.message || 'Failed to save');
 		} finally {
 			setSaving(false);
 		}
@@ -179,9 +178,12 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 			if (!res.ok) throw new Error('Failed to delete school');
 			removeSuperAdminSchool(host);
 			onDeleted?.(host);
+			toast.success('School deleted successfully');
 			onClose();
 		} catch (e: any) {
 			setError(e.message);
+			toast.error(e.message || 'Failed to delete school');
+		} finally {
 			setSaving(false);
 		}
 	};
@@ -243,7 +245,6 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 				</div>
 			</div>
 
-			{success && <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">{success}</div>}
 			{error && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>}
 
 			{stats && (

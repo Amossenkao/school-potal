@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import {
 	ArrowLeft, ArrowRight, Check, School, Palette, GraduationCap, Phone,
 	ShieldCheck, Users, Settings, ToggleLeft, Briefcase, Loader2,
-	BookOpen, DollarSign, ClipboardCheck, Layers, Plus, Trash2, ChevronDown, ChevronRight, Pencil, X, Wand2,
+	BookOpen, DollarSign, ClipboardCheck, Layers, Plus, Trash2, ChevronDown, ChevronRight, Pencil, X, Wand2, Save,
 } from 'lucide-react';
 import {
 	DEFAULT_CLASS_LEVELS, DEFAULT_ADMIN_POSITIONS, DEFAULT_FEATURES,
@@ -567,6 +567,13 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 				</button>
 				<div className="flex items-center gap-3">
 					<span className="text-xs text-gray-400">Step {step + 1} of {STEPS.length}</span>
+					{!isLast && (
+						<button onClick={handleSubmit} disabled={saving}
+							className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors dark:border-gray-800 dark:text-gray-400">
+							{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+							{saving ? 'Saving...' : 'Save'}
+						</button>
+					)}
 					{isLast ? (
 						<button onClick={handleSubmit} disabled={saving}
 							className="inline-flex items-center gap-2 rounded-lg bg-[#465fff] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#3a4fe6] disabled:opacity-50 transition-colors">

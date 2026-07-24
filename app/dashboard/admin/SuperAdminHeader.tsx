@@ -1,7 +1,8 @@
 'use client';
 
 import React, { memo, useRef, useEffect, useState } from 'react';
-import { Menu, X, LogOut, ChevronDown, Sun, Moon, KeyRound, Loader2, Eye, EyeOff } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { Menu, X, LogOut, ChevronDown, Sun, Moon, KeyRound, Loader2, Eye, EyeOff, UserCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
 import useAuth from '@/store/useAuth';
@@ -20,7 +21,6 @@ const ChangePasswordModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 	const [showOld, setShowOld] = useState(false);
 	const [showNew, setShowNew] = useState(false);
 	const [error, setError] = useState('');
-	const [success, setSuccess] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
 	const setUser = useAuth((state) => state.setUser);
 	const isOnline = useNetworkStore((state) => state.isOnline);
@@ -30,7 +30,6 @@ const ChangePasswordModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 		setNewPassword('');
 		setConfirmPassword('');
 		setError('');
-		setSuccess('');
 		setIsLoading(false);
 		setShowOld(false);
 		setShowNew(false);
@@ -48,7 +47,6 @@ const ChangePasswordModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setError('');
-		setSuccess('');
 
 		if (!isOnline) {
 			setError('You are offline. Please connect to the internet and try again.');
@@ -82,8 +80,8 @@ const ChangePasswordModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 				setUser(data.user);
 			}
 
-			setSuccess('Password updated successfully!');
-			window.setTimeout(() => handleClose(), 2000);
+			toast.success('Password updated successfully');
+			handleClose();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Failed to change password.');
 		} finally {
@@ -159,11 +157,6 @@ const ChangePasswordModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 					{error && (
 						<div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
 							{error}
-						</div>
-					)}
-					{success && (
-						<div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400">
-							{success}
 						</div>
 					)}
 
@@ -251,7 +244,7 @@ const SuperAdminHeader = memo(function SuperAdminHeader({ isMobileOpen, onToggle
 	const displayEmail = user?.email || '';
 	const initials = [user?.firstName, user?.lastName]
 		.filter(Boolean)
-		.map((n: string) => n.charAt(0))
+		.map((n) => (n as string).charAt(0))
 		.join('')
 		.toUpperCase()
 		.slice(0, 2) || 'SA';
@@ -276,6 +269,15 @@ const SuperAdminHeader = memo(function SuperAdminHeader({ isMobileOpen, onToggle
 							<p className="text-sm font-semibold text-gray-800 dark:text-white">SchoolMesh Admin</p>
 						</div>
 						<div className="ml-auto flex items-center gap-3">
+							{/* Theme toggle */}
+							<button
+								onClick={toggleTheme}
+								className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors dark:text-gray-400 dark:hover:bg-gray-800"
+								title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+							>
+								{theme === 'dark' ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />}
+							</button>
+
 							{/* Profile dropdown */}
 							<div className="relative" ref={dropdownRef}>
 								<button
@@ -308,15 +310,16 @@ const SuperAdminHeader = memo(function SuperAdminHeader({ isMobileOpen, onToggle
 												<p className="text-xs text-gray-500 truncate">{displayEmail}</p>
 											)}
 										</div>
-										<div className="py-1.5">
-											<button
-												onClick={toggleTheme}
-												className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors dark:text-gray-300 dark:hover:bg-gray-800"
-											>
-												{theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-												{theme === 'dark' ? 'Light mode' : 'Dark mode'}
-											</button>
-											<button
+									<div className="py-1.5">
+										<a
+											href="/dashboard/admin/profile"
+											onClick={() => setDropdownOpen(false)}
+											className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors dark:text-gray-300 dark:hover:bg-gray-800"
+										>
+											<UserCircle className="h-4 w-4" />
+											My Profile
+										</a>
+										<button
 												onClick={handleChangePassword}
 												className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors dark:text-gray-300 dark:hover:bg-gray-800"
 											>

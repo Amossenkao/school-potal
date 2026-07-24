@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import {
 	School,
 	Users,
@@ -13,6 +15,8 @@ import {
 } from 'lucide-react';
 import useAuth from '@/store/useAuth';
 
+const SchoolProfilePanel = dynamic(() => import('@/app/dashboard/admin/components/SchoolProfilePanel'), { ssr: false });
+
 interface SystemStats {
 	schools: { total: number; active: number; inactive: number };
 	users: { total: number; students: number; teachers: number; administrators: number; systemAdmins: number };
@@ -21,6 +25,18 @@ interface SystemStats {
 
 export default function SuperAdminDashboardPage() {
 	const stats = useAuth((state) => state.superAdminStats);
+	const [profileModalHost, setProfileModalHost] = useState('');
+
+	if (profileModalHost) {
+		return (
+			<div className="min-h-0">
+				<SchoolProfilePanel
+					host={profileModalHost}
+					onClose={() => setProfileModalHost('')}
+				/>
+			</div>
+		);
+	}
 
 	if (!stats) {
 		return (
@@ -114,10 +130,10 @@ export default function SuperAdminDashboardPage() {
 					) : (
 						<div className="space-y-3">
 							{stats.recentSchools.map((school) => (
-								<Link
+								<button
 									key={school.host}
-									href={`/dashboard/admin/schools/${encodeURIComponent(school.host)}`}
-									className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-gray-50 transition-colors dark:hover:bg-gray-800/50"
+									onClick={() => setProfileModalHost(school.host)}
+									className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-gray-50 transition-colors dark:hover:bg-gray-800/50 text-left"
 								>
 									<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#465fff]/10 text-xs font-bold text-[#465fff]">
 										{school.initials}
@@ -128,12 +144,12 @@ export default function SuperAdminDashboardPage() {
 									</div>
 									<span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
 										school.isActive
-											? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+											? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-40'
 											: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
 									}`}>
 										{school.isActive ? 'Active' : 'Inactive'}
 									</span>
-								</Link>
+								</button>
 							))}
 						</div>
 					)}

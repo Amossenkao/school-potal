@@ -36,7 +36,7 @@ export default function DynamicDocumentTitle({
 	const pathname = usePathname();
 	const school = useSchoolStore((state) => state.school);
 	const schoolShortName =
-		school?.shortName?.trim() || fallbackSchoolShortName.trim() || 'School';
+		school?.shortName?.trim() || fallbackSchoolShortName.trim() || 'SchoolMesh';
 
 	useEffect(() => {
 		const pageName = toReadablePageName(pathname || '/');
