@@ -1,8 +1,135 @@
+'use client';
+
+import { useCallback, useEffect, useMemo } from 'react';
+import Ably from 'ably';
 import { useSchoolStore } from '@/store/schoolStore';
+import {
+	getAuthorizedRealtimeChannels,
+	resolveTenantSyncKey,
+	type RealtimeEvent,
+} from '@/lib/realtimeTypes';
 import { Ban, Mail, Phone, MapPin } from 'lucide-react';
+
+const PUBLIC_SYNC_STREAM_TOKEN_ENDPOINT = '/api/sync/public-stream-token';
+const PUBLIC_SYNC_REFRESH_DEBOUNCE_MS = 120;
 
 export default function Inactive() {
 	const school = useSchoolStore((state) => state.school);
+	const setSchool = useSchoolStore((state) => state.setSchool);
+	const applyRealtimeEvent = useSchoolStore((state) => state.applyRealtimeEvent);
+	const publicSchoolTenantKey = useMemo(
+		() =>
+			resolveTenantSyncKey({
+				schoolProfile: school,
+			}),
+		[school?.dbName, school?.host],
+	);
+
+	const refreshSchoolProfile = useCallback(async () => {
+		try {
+			const response = await fetch('/api/school', {
+				cache: 'no-store',
+				headers: { 'Cache-Control': 'no-store' },
+			});
+			if (!response.ok) return;
+			const latestSchool = await response.json();
+			setSchool(latestSchool);
+		} catch (error) {
+			console.warn('[inactive] Failed to refresh school profile:', error);
+		}
+	}, [setSchool]);
+
+	useEffect(() => {
+		if (typeof window === 'undefined') return;
+
+		let client: Ably.Realtime | null = null;
+		let unsubscribe: (() => void) | null = null;
+		let refreshTimer: number | null = null;
+		const tenantKey =
+			publicSchoolTenantKey ||
+			resolveTenantSyncKey({
+				host: window.location.host,
+			});
+
+		const clearRefreshTimer = () => {
+			if (!refreshTimer) return;
+			window.clearTimeout(refreshTimer);
+			refreshTimer = null;
+		};
+
+		const closeClient = () => {
+			if (unsubscribe) {
+				unsubscribe();
+				unsubscribe = null;
+			}
+			if (client) {
+				client.close();
+				client = null;
+			}
+		};
+
+		const scheduleRefresh = () => {
+			clearRefreshTimer();
+			refreshTimer = window.setTimeout(() => {
+				refreshTimer = null;
+				void refreshSchoolProfile();
+			}, PUBLIC_SYNC_REFRESH_DEBOUNCE_MS);
+		};
+
+		const connectStream = () => {
+			closeClient();
+			if (!tenantKey) return;
+
+			const nextClient = new Ably.Realtime({
+				authUrl: PUBLIC_SYNC_STREAM_TOKEN_ENDPOINT,
+				authMethod: 'GET',
+				withCredentials: true,
+			});
+			client = nextClient;
+
+			const channels = getAuthorizedRealtimeChannels({
+				tenantId: tenantKey,
+				publicOnly: true,
+			});
+			const cleanupFns: (() => void)[] = [];
+			channels.forEach((channelName) => {
+				const channel = nextClient.channels.get(channelName);
+				const listener = (message: any) => {
+					const event = message?.data as RealtimeEvent | undefined;
+					if (!event || event.tenantId !== tenantKey) return;
+					applyRealtimeEvent(event);
+					scheduleRefresh();
+				};
+				channel.subscribe(listener);
+				cleanupFns.push(() => channel.unsubscribe(listener));
+			});
+			unsubscribe = () => cleanupFns.forEach((fn) => fn());
+		};
+
+		const handleOnline = () => {
+			scheduleRefresh();
+			connectStream();
+		};
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === 'visible') scheduleRefresh();
+		};
+
+		window.addEventListener('online', handleOnline);
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+		scheduleRefresh();
+		connectStream();
+
+		return () => {
+			window.removeEventListener('online', handleOnline);
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+			closeClient();
+			clearRefreshTimer();
+		};
+	}, [
+		applyRealtimeEvent,
+		publicSchoolTenantKey,
+		refreshSchoolProfile,
+	]);
 
 	const contactEmail = school?.emails?.[0] ?? 'support@schoolmesh.com';
 	const contactPhone = school?.phones?.[0] ?? null;
