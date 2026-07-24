@@ -2789,20 +2789,30 @@ export async function PUT(request: NextRequest) {
 			}
 
 			const body = await request.json();
-			const allowedFields = ['firstName', 'middleName', 'lastName', 'phone', 'email', 'gender', 'dateOfBirth', 'address', 'isActive'];
-			const updateData: any = {};
-			for (const field of allowedFields) {
-				if (body[field] !== undefined) updateData[field] = body[field];
-			}
 			const existing = await User.discriminators.system_admin.findById(targetUserId).lean().exec();
 			if (!existing) return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
+
+			const allowedFields = ['firstName', 'middleName', 'lastName', 'phone', 'email', 'gender', 'dateOfBirth', 'address', 'isActive'];
+			const requiredProfileFields = new Set(['gender', 'dateOfBirth', 'address']);
+			const updateData: any = {};
+			for (const field of allowedFields) {
+				if (body[field] === undefined) continue;
+				if (
+					requiredProfileFields.has(field) &&
+					typeof body[field] === 'string' &&
+					body[field].trim() === ''
+				) {
+					continue;
+				}
+				updateData[field] = body[field];
+			}
 			if (body.action === 'toggle_active' && body.isActive === undefined) {
 				updateData.isActive = existing.isActive === false;
 			}
-			if (body.firstName || body.lastName) {
-				const fn = body.firstName || existing.firstName;
+			if (body.firstName !== undefined || body.middleName !== undefined || body.lastName !== undefined) {
+				const fn = body.firstName !== undefined ? body.firstName : existing.firstName;
 				const mn = body.middleName !== undefined ? body.middleName : existing.middleName;
-				const ln = body.lastName || existing.lastName;
+				const ln = body.lastName !== undefined ? body.lastName : existing.lastName;
 				updateData.fullName = mn ? `${fn} ${mn} ${ln}` : `${fn} ${ln}`;
 			}
 

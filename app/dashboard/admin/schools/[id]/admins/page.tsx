@@ -145,10 +145,17 @@ export default function SchoolAdminsPage() {
 	const handleUpdate = async (userId: string) => {
 		try {
 			setEditSaving(true);
+			const updatePayload = {
+				firstName: editForm.firstName,
+				middleName: editForm.middleName,
+				lastName: editForm.lastName,
+				phone: editForm.phone,
+				email: editForm.email,
+			};
 			const res = await fetch(`/api/users?host=${encodeURIComponent(host)}&id=${userId}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(editForm),
+				body: JSON.stringify(updatePayload),
 			});
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.error || 'Failed to update');
