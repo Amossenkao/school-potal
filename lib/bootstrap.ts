@@ -1,6 +1,7 @@
 import { getTenantModels } from '@/models';
 import { getSchoolProfile, getTenantConnectionByDbName } from '@/lib/mongoose';
 import { getSchoolMeshModels } from '@/models/schoolmesh';
+import UserSchema from '@/models/user/User';
 import type { UserRole } from '@/types';
 import {
 	getAcademicYearFilterValue,
@@ -895,9 +896,9 @@ const getTenantUserCounts = async (dbName: string) => {
 			return { students: 0, teachers: 0, administrators: 0, systemAdmins: 0 };
 		}
 
-		const User = connection.models.User;
+		let User = connection.models.User;
 		if (!User) {
-			return { students: 0, teachers: 0, administrators: 0, systemAdmins: 0 };
+			User = connection.model('User', UserSchema);
 		}
 
 		const [students, teachers, administrators, systemAdmins] = await Promise.all([

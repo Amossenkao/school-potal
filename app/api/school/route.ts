@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Document } from 'mongoose';
 import { SchoolSettings, SchoolProfile as SchoolProfileType } from '@/types/schoolProfile';
 import SchoolProfileSchema from '@/models/profile/SchoolProfile';
+import UserSchema from '@/models/user/User';
 import { getTenantModels } from '@/models';
 import { getSchoolMeshModels } from '@/models/schoolmesh';
 import {
@@ -131,8 +132,10 @@ async function getTenantUserCounts(dbName: string) {
 	try {
 		const connection = await getTenantConnectionByDbName(dbName);
 		if (!connection) return { students: 0, teachers: 0, administrators: 0, systemAdmins: 0 };
-		const User = connection.models.User;
-		if (!User) return { students: 0, teachers: 0, administrators: 0, systemAdmins: 0 };
+		let User = connection.models.User;
+		if (!User) {
+			User = connection.model('User', UserSchema);
+		}
 		const [students, teachers, administrators, systemAdmins] = await Promise.all([
 			User.countDocuments({ role: 'student', isActive: true }).catch(() => 0),
 			User.countDocuments({ role: 'teacher', isActive: true }).catch(() => 0),
@@ -211,8 +214,10 @@ export async function GET(request: NextRequest) {
 				const connection = await getTenantConnectionByDbName((school as any).dbName);
 				if (!connection) return NextResponse.json({ students: 0, teachers: 0, administrators: 0, systemAdmins: 0, total: 0 });
 
-				const User = connection.models.User;
-				if (!User) return NextResponse.json({ students: 0, teachers: 0, administrators: 0, systemAdmins: 0, total: 0 });
+				let User = connection.models.User;
+				if (!User) {
+					User = connection.model('User', UserSchema);
+				}
 
 				const [students, teachers, administrators, systemAdmins] = await Promise.all([
 					User.countDocuments({ role: 'student', isActive: true }).catch(() => 0),
