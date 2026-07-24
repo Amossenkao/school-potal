@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import {
 	ArrowRight,
+	ArrowLeft,
 	BookOpen,
 	Building2,
 	GraduationCap,
@@ -21,6 +23,9 @@ import {
 import { useSuperadminRealtime } from '@/app/dashboard/admin/hooks/useSuperadminRealtime';
 import type { RealtimeEvent } from '@/lib/realtimeTypes';
 import useAuth from '@/store/useAuth';
+
+const SchoolProfilePanel = dynamic(() => import('@/app/dashboard/admin/components/SchoolProfilePanel'), { ssr: false });
+const SchoolAdminsPanel = dynamic(() => import('@/app/dashboard/admin/components/SchoolAdminsPanel'), { ssr: false });
 
 interface SchoolStats {
 	total: number;
@@ -89,6 +94,10 @@ export default function SchoolsListPage() {
 	const [selectedHost, setSelectedHost] = useState('');
 	const [togglingId, setTogglingId] = useState<string | null>(null);
 	const [deletingId, setDeletingId] = useState<string | null>(null);
+	const [deleteConfirmSchool, setDeleteConfirmSchool] = useState<SchoolSummary | null>(null);
+
+	const [profileModalHost, setProfileModalHost] = useState('');
+	const [adminsModalHost, setAdminsModalHost] = useState('');
 
 	const selectedSchool = useMemo(
 		() => schools.find((school) => school.host === selectedHost) || schools[0] || null,
@@ -161,7 +170,7 @@ export default function SchoolsListPage() {
 	};
 
 	const deleteSchool = async (school: SchoolSummary) => {
-		if (!confirm(`Delete ${school.name}? This cannot be undone.`)) return;
+		setDeleteConfirmSchool(null);
 		try {
 			setDeletingId(school.host);
 			const res = await fetch(`/api/school?host=${encodeURIComponent(school.host)}`, {
@@ -221,6 +230,29 @@ export default function SchoolsListPage() {
 		{ label: 'Students', value: totals.students, icon: GraduationCap, color: '#F59E0B', tone: 'bg-amber-50' },
 		{ label: 'Total Users', value: totals.users, icon: Users, color: '#06B6D4', tone: 'bg-cyan-50' },
 	];
+
+	if (profileModalHost) {
+		return (
+			<div className="min-h-0">
+				<SchoolProfilePanel
+					host={profileModalHost}
+					onClose={() => setProfileModalHost('')}
+					onOpenAdmins={(h) => { setProfileModalHost(''); setAdminsModalHost(h); }}
+				/>
+			</div>
+		);
+	}
+
+	if (adminsModalHost) {
+		return (
+			<div className="min-h-0">
+				<SchoolAdminsPanel
+					host={adminsModalHost}
+					onClose={() => setAdminsModalHost('')}
+				/>
+			</div>
+		);
+	}
 
 	return (
 		<div className="space-y-6">
@@ -399,22 +431,22 @@ export default function SchoolsListPage() {
 													)}
 													{school.isActive ? 'Deactivate' : 'Activate'}
 												</button>
-												<Link
-													href={`/dashboard/school/admins?host=${encodeURIComponent(school.host)}`}
+												<button
+													onClick={() => setAdminsModalHost(school.host)}
 													className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
 												>
 													<UserCog className="h-3.5 w-3.5" />
 													Admins
-												</Link>
-												<Link
-													href={`/dashboard/school?host=${encodeURIComponent(school.host)}`}
+												</button>
+												<button
+													onClick={() => setProfileModalHost(school.host)}
 													className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
 												>
 													<Settings className="h-3.5 w-3.5" />
 													Profile
-												</Link>
+												</button>
 												<button
-													onClick={() => deleteSchool(school)}
+													onClick={() => setDeleteConfirmSchool(school)}
 													disabled={deletingId === school.host}
 													className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-900/20"
 												>
@@ -474,20 +506,20 @@ export default function SchoolsListPage() {
 							</div>
 
 							<div className="mt-5 grid gap-2">
-								<Link
-									href={`/dashboard/school?host=${encodeURIComponent(selectedSchool.host)}`}
+								<button
+									onClick={() => setProfileModalHost(selectedSchool.host)}
 									className="inline-flex items-center justify-between rounded-lg bg-[#465fff] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#3a4fe6]"
 								>
 									Manage Profile
 									<ArrowRight className="h-4 w-4" />
-								</Link>
-								<Link
-									href={`/dashboard/school/admins?host=${encodeURIComponent(selectedSchool.host)}`}
+								</button>
+								<button
+									onClick={() => setAdminsModalHost(selectedSchool.host)}
 									className="inline-flex items-center justify-between rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
 								>
 									Manage System Admins
 									<ArrowRight className="h-4 w-4" />
-								</Link>
+								</button>
 							</div>
 						</>
 					) : (
@@ -497,6 +529,33 @@ export default function SchoolsListPage() {
 					)}
 				</aside>
 			</div>
+
+			{deleteConfirmSchool && (
+				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+					<div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
+						<h3 className="text-lg font-bold text-gray-900 dark:text-white">Delete School</h3>
+						<p className="mt-2 text-sm text-gray-500">
+							Are you sure you want to delete <span className="font-semibold text-gray-900 dark:text-white">{deleteConfirmSchool.name}</span>? This action cannot be undone.
+						</p>
+						<div className="mt-6 flex justify-end gap-3">
+							<button
+								onClick={() => setDeleteConfirmSchool(null)}
+								className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+							>
+								Cancel
+							</button>
+							<button
+								onClick={() => deleteSchool(deleteConfirmSchool)}
+								disabled={deletingId === deleteConfirmSchool.host}
+								className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+							>
+								{deletingId === deleteConfirmSchool.host ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+								Delete
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }

@@ -116,7 +116,7 @@ export default function SuperAdminDashboardPage() {
 							{stats.recentSchools.map((school) => (
 								<Link
 									key={school.host}
-									href={`/dashboard/school?host=${encodeURIComponent(school.host)}`}
+									href={`/dashboard/admin/schools/${encodeURIComponent(school.host)}`}
 									className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-gray-50 transition-colors dark:hover:bg-gray-800/50"
 								>
 									<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#465fff]/10 text-xs font-bold text-[#465fff]">
