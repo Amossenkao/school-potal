@@ -40,6 +40,7 @@ const features = [
 	{ icon: Users, title: 'Student Portal', description: "Students can view their reports, attendance, balances and schedules", color: '#06b6d4' },
 	{ icon: BarChart3, title: 'Analytics', description: 'Surface actionable insights across academics, operations, and student outcomes with live dashboards.', color: '#465fff' },
 	{ icon: CloudOff, title: 'Offline Mode', description: 'Keep working without internet. Changes sync automatically when connectivity returns.', color: '#f79009' },
+	{ icon: CalendarDays, title: 'Calendar & Schedules', description: 'Plan and manage school events, class timetables, and academic calendars in one place.', color: '#8b5cf6' },
 ];
 
 const stats = [
@@ -442,7 +443,7 @@ export default function BrochurePage() {
 								</p>
 
 								<div className="mb-2 grid grid-cols-2 gap-2">
-									{features.slice(0, 4).map((f) => (
+									{features.map((f) => (
 										<div key={f.title} className="flex items-start gap-1.5 rounded-lg border border-gray-100 p-2">
 											<div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md" style={{ backgroundColor: `${f.color}10` }}>
 												<f.icon className="h-3 w-3" style={{ color: f.color }} />
@@ -557,7 +558,7 @@ export default function BrochurePage() {
 								</div>
 
 								<p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#465fff]">Pricing</p>
-								<h2 className="mb-2 text-xl font-bold tracking-tight text-[#111827]">Simple, transparent pricing.</h2>
+								<h2 className="mb-2 text-xl font-bold tracking-tight text-[#111827]">Simple, transparent, and affordable pricing.</h2>
 								<p className="mb-4 text-[10px] leading-relaxed text-gray-500">
 									Two simple plans with per-student annual pricing, plus a custom option for schools and networks that prefer a fixed annual fee.
 								</p>

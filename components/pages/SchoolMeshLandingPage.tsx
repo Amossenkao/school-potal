@@ -18,6 +18,7 @@ import {
 	ClipboardList,
 	CircleDollarSign,
 	Database,
+	Download,
 	FileText,
 	Globe,
 	GraduationCap,
@@ -129,15 +130,15 @@ const navItems = [
 ];
 
 const features = [
-	{ icon: FileText, title: 'Admissions', description: 'Streamline enrollment with digital applications, automated workflows, and real-time status tracking.' },
-	{ icon: UserCheck, title: 'Attendance', description: 'Track daily attendance with instant notifications, pattern analysis, and reporting dashboards.' },
-	{ icon: CircleDollarSign, title: 'Finance', description: 'Manage fees, invoices, payments, and financial reporting from one unified system.' },
-	{ icon: BookOpen, title: 'Report Cards', description: 'Generate professional report cards with customizable templates and automated grade calculations.' },
-	{ icon: MessageSquare, title: 'Communication', description: 'Connect teachers, parents, and students with built-in messaging, announcements, and notifications.' },
-	{ icon: Users, title: 'Parent Portal', description: 'Give parents real-time access to grades, attendance, schedules, and school communications.' },
-	{ icon: BarChart3, title: 'Analytics', description: 'Surface actionable insights across academics, operations, and student outcomes with live dashboards.' },
-	{ icon: Sparkles, title: 'AI Assistance', description: 'Intelligent automation for grading suggestions, schedule optimization, and predictive insights.' },
-	{ icon: CloudOff, title: 'Offline Mode', description: 'Keep working without internet. Changes sync automatically when connectivity returns.' },
+	{ icon: FileText, title: 'Admissions', description: 'Streamline enrollment with digital applications, automated workflows, and real-time status tracking.', color: '#465fff' },
+	{ icon: UserCheck, title: 'Attendance', description: 'Track daily attendance with instant notifications, pattern analysis, and reporting dashboards.', color: '#12b76a' },
+	{ icon: CircleDollarSign, title: 'Finance', description: 'Manage fees, invoices, payments, and financial reporting from one unified system.', color: '#f79009' },
+	{ icon: BookOpen, title: 'Report Cards', description: 'Generate professional report cards with customizable templates and automated grade calculations.', color: '#8b5cf6' },
+	{ icon: Users, title: 'Student Portal', description: "Students can view their reports, attendance, balances and schedules", color: '#06b6d4' },
+	{ icon: BarChart3, title: 'Analytics', description: 'Surface actionable insights across academics, operations, and student outcomes with live dashboards.', color: '#465fff' },
+	{ icon: CalendarDays, title: 'Calendar & Schedules', description: 'Plan and manage school events, class timetables, and academic calendars in one place.', color: '#12b76a' },
+	{ icon: Globe, title: 'Real-Time', description: 'Live updates across the platform — attendance, grades, and notifications sync instantly for all users.', color: '#f79009' },
+	{ icon: CloudOff, title: 'Offline Mode', description: 'Keep working without internet. Changes sync automatically when connectivity returns.', color: '#8b5cf6' },
 ];
 
 const showcaseItems = [
@@ -180,40 +181,40 @@ const comparisonRows: { feature: string; schoolMesh: boolean | 'partial'; tradit
 ];
 
 const stats = [
-	{ value: 10000, suffix: '+', label: 'Students', color: '#465fff' },
-	{ value: 250, suffix: '+', label: 'Schools', color: '#10B981' },
-	{ value: 99.9, suffix: '%', label: 'Availability', color: '#F59E0B' },
-	{ value: 50, suffix: 'M+', label: 'Records Managed', color: '#8B5CF6' },
+	{ value: 2500, suffix: '+', label: 'Students', color: '#465fff' },
+	{ value: 5, suffix: '+', label: 'Schools', color: '#12b76a' },
+	{ value: 99.9, suffix: '%', label: 'Availability', color: '#f79009' },
+	{ value: 1.6, suffix: 'M+', label: 'Records Managed', color: '#8b5cf6' },
 ];
 
 const testimonials = [
 	{
-		name: 'Grace Toe',
-		role: 'Principal',
+		name: 'James Doe',
+		role: 'Teacher',
 		school: 'Upstairs Christian Academy',
-		quote: 'SchoolMesh transformed how we manage everything from attendance to report cards. Our teachers save hours every week.',
-		avatar: 'GT',
+		quote: 'Submitting grades in the SchoolMesh system is very easy and convenient for us teachers.',
+		avatar: 'JD',
 	},
 	{
-		name: 'Samuel Koffa',
-		role: 'School Administrator',
-		school: 'Buchanan Scholars Institute',
-		quote: 'The multi-tenant setup lets us manage multiple campuses from one platform. The analytics give us insights we never had before.',
-		avatar: 'SK',
+		name: 'Abu B. Bangura',
+		role: 'Teacher',
+		school: 'Upstairs Christian Academy',
+		quote: 'This platform is very intuitive, fast, and makes grading hassle-free.',
+		avatar: 'AB',
 	},
 	{
-		name: 'Martha Jallah',
-		role: 'Director of IT',
-		school: 'Paynesville STEM College',
-		quote: 'Offline capability is a game-changer. Our staff can work from anywhere and everything syncs when they are back online.',
-		avatar: 'MJ',
+		name: 'Mr. Joseph Kolleh',
+		role: 'Proprietor',
+		school: 'Jessica Rachel Kolleh Memorial Institute',
+		quote: "I've heard many positive things from my teachers who have used this system, and I'm looking forward to introducing it at my school next academic year.",
+		avatar: 'JK',
 	},
 ];
 
 const pricingPlans = [
 	{
 		name: 'Starter',
-		description: 'Full access via the web platform',
+		description: 'Full web platform access',
 		price: '500 LRD',
 		period: 'per student · per academic year',
 		features: [
@@ -222,11 +223,10 @@ const pricingPlans = [
 			'Attendance & grading',
 			'Parent & student portals',
 			'Report cards & analytics',
-			'Grade submissions & requests',
-			'Standard support',
 		],
 		highlight: false,
 		cta: 'Get Started',
+		custom: false,
 	},
 	{
 		name: 'Premium',
@@ -239,11 +239,20 @@ const pricingPlans = [
 			'Desktop app (Windows & macOS)',
 			'Offline-first with sync',
 			'Push notifications',
-			'Priority support',
-			'Custom branding',
 		],
 		highlight: true,
 		cta: 'Get Started',
+		custom: false,
+	},
+	{
+		name: 'Custom / Enterprise',
+		description: 'For schools and networks that prefer a fixed annual fee.',
+		price: 'Custom',
+		period: 'lump-sum annual pricing',
+		features: ['Lump-sum annual pricing', 'Based on projected enrollment', 'Predictable budgeting', 'Priority onboarding & support', 'Custom branding & integrations'],
+		highlight: false,
+		cta: 'Contact Us',
+		custom: true,
 	},
 ];
 
@@ -444,77 +453,77 @@ function AttendanceMockup() {
 	return (
 		<div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
 			{/* Filter bar */}
-			<div className="flex flex-wrap items-end gap-2 border-b border-gray-100 bg-gray-50/80 p-3">
+			<div className="flex flex-wrap items-end gap-2 border-b border-gray-100 bg-gray-50/80 p-2 sm:p-3">
 				{[
 					{ label: 'Year', value: '2025-2026' },
 					{ label: 'Session', value: 'Junior' },
 					{ label: 'Class', value: 'Grade 7A' },
 				].map((f) => (
 					<div key={f.label} className="flex flex-col gap-0.5">
-						<span className="text-[8px] font-semibold uppercase tracking-wider text-gray-400">{f.label}</span>
-						<div className="flex h-6 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 text-[10px] font-medium text-gray-700">
+						<span className="text-[7px] font-semibold uppercase tracking-wider text-gray-400 sm:text-[8px]">{f.label}</span>
+						<div className="flex h-5 items-center gap-1 rounded-md border border-gray-200 bg-white px-1.5 text-[9px] font-medium text-gray-700 sm:h-6 sm:px-2 sm:text-[10px]">
 							{f.value}
-							<ChevronDown className="h-2.5 w-2.5 text-gray-400" />
+							<ChevronDown className="h-2 w-2 text-gray-400 sm:h-2.5 sm:w-2.5" />
 						</div>
 					</div>
 				))}
 				<div className="flex flex-col gap-0.5">
-					<span className="text-[8px] font-semibold uppercase tracking-wider text-gray-400">Date Range</span>
-					<div className="flex h-6 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 text-[10px] font-medium text-gray-700">
+					<span className="text-[7px] font-semibold uppercase tracking-wider text-gray-400 sm:text-[8px]">Date Range</span>
+					<div className="flex h-5 items-center gap-1 rounded-md border border-gray-200 bg-white px-1.5 text-[9px] font-medium text-gray-700 sm:h-6 sm:px-2 sm:text-[10px]">
 						Jun 16 – Jun 20
-						<ChevronDown className="h-2.5 w-2.5 text-gray-400" />
+						<ChevronDown className="h-2 w-2 text-gray-400 sm:h-2.5 sm:w-2.5" />
 					</div>
 				</div>
 			</div>
 			{/* Action strip */}
-			<div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2">
-				<span className="text-[8px] font-semibold uppercase tracking-wider text-gray-400">Actions</span>
-									<div className="flex items-center gap-1 rounded-full border border-[#465fff] bg-[#465fff] px-2 py-0.5 text-[9px] font-semibold text-white">
-										✏️ Take attendance
-									</div>
-									<div className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2 py-0.5 text-[9px] font-medium text-gray-600">
-										📥 Export CSV
-									</div>
+			<div className="flex flex-wrap items-center gap-1.5 border-b border-gray-100 px-2 py-1.5 sm:gap-2 sm:px-3 sm:py-2">
+				<span className="text-[7px] font-semibold uppercase tracking-wider text-gray-400 sm:text-[8px]">Actions</span>
+				<div className="flex items-center gap-1 rounded-full border border-[#465fff] bg-[#465fff] px-1.5 py-0.5 text-[8px] font-semibold text-white sm:px-2 sm:text-[9px]">
+					✏️ Take attendance
+				</div>
+				<div className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-1.5 py-0.5 text-[8px] font-medium text-gray-600 sm:px-2 sm:text-[9px]">
+					📥 Export CSV
+				</div>
 			</div>
 			{/* Table */}
 			<div className="overflow-x-auto">
-				<table className="w-full min-w-[400px]">
+				<table className="w-full min-w-[340px]">
 					<thead>
 						<tr className="border-b border-gray-100 bg-gray-50">
-							<th className="px-3 py-2 text-left text-[9px] font-semibold uppercase tracking-wider text-gray-500">Student</th>
+							<th className="px-2 py-1.5 text-left text-[8px] font-semibold uppercase tracking-wider text-gray-500 sm:px-3 sm:py-2 sm:text-[9px]">Student</th>
 							{days.map((d) => (
-								<th key={d} className="px-2 py-2 text-center text-[9px] font-semibold text-gray-500">
+								<th key={d} className="px-1 py-1.5 text-center text-[8px] font-semibold text-gray-500 sm:px-2 sm:py-2 sm:text-[9px]">
 									<div className="flex flex-col items-center">
 										<span>{d}</span>
 										<span className="font-bold text-gray-700">{16 + days.indexOf(d)}</span>
 									</div>
 								</th>
 							))}
-							<th className="px-2 py-2 text-center text-[9px] font-semibold uppercase tracking-wider text-gray-500">Rate</th>
+							<th className="px-2 py-1.5 text-center text-[8px] font-semibold uppercase tracking-wider text-gray-500 sm:px-2 sm:py-2 sm:text-[9px]">Rate</th>
 						</tr>
 					</thead>
 					<tbody>
 						{students.map((s) => (
 							<tr key={s.name} className="border-b border-gray-50 hover:bg-gray-50/50">
-								<td className="whitespace-nowrap px-3 py-2 text-[11px] font-medium text-[#111827]">{s.name}</td>
+								<td className="whitespace-nowrap px-2 py-1.5 text-[10px] font-medium text-[#111827] sm:px-3 sm:py-2 sm:text-[11px]">{s.name}</td>
 								{days.map((d) => {
 									const val = s[d.toLowerCase() as keyof typeof s] as string;
 									const isP = val === 'P';
 									return (
-										<td key={d} className="px-2 py-2 text-center">
-											<span className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold ${isP ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{val}</span>
+										<td key={d} className="px-1 py-1.5 text-center sm:px-2 sm:py-2">
+											<span className={`inline-flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-bold sm:h-5 sm:w-5 sm:text-[9px] ${isP ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{val}</span>
 										</td>
 									);
 								})}
-								<td className="px-2 py-2 text-center">
-									<span className={`text-[11px] font-bold tabular-nums ${s.rate >= 85 ? 'text-green-600' : s.rate >= 70 ? 'text-amber-600' : 'text-red-600'}`}>{s.rate}%</span>
+								<td className="px-2 py-1.5 text-center sm:px-2 sm:py-2">
+									<span className={`text-[10px] font-bold tabular-nums sm:text-[11px] ${s.rate >= 85 ? 'text-green-600' : s.rate >= 70 ? 'text-amber-600' : 'text-red-600'}`}>{s.rate}%</span>
 								</td>
 							</tr>
 						))}
 					</tbody>
 				</table>
 			</div>
-			<div className="border-t border-gray-100 px-3 py-1.5 text-center text-[9px] font-medium text-gray-400">
+			<div className="border-t border-gray-100 px-2 py-1 text-center text-[8px] font-medium text-gray-400 sm:px-3 sm:py-1.5 sm:text-[9px]">
 				Showing 5 school days · 5 students · Weekends excluded
 			</div>
 		</div>
@@ -522,85 +531,113 @@ function AttendanceMockup() {
 }
 
 function ReportCardMockup() {
-	const grades = [
-		{ subject: 'Mathematics', assessment: 42, exam: 35, average: 77, rank: 3 },
-		{ subject: 'English', assessment: 38, exam: 30, average: 68, rank: 8 },
-		{ subject: 'Science', assessment: 45, exam: 38, average: 83, rank: 1 },
-		{ subject: 'Social Studies', assessment: 40, exam: 32, average: 72, rank: 5 },
-		{ subject: 'French', assessment: 36, exam: 28, average: 64, rank: 12 },
+	const subjects = [
+		{ name: 'Mathematics', f1: 82, f2: 78, f3: 85, exam1: 88, avg1: 83.25, f4: 80, f5: 82, f6: 79, exam2: 85, avg2: 81.5, yearly: 82.4 },
+		{ name: 'English', f1: 72, f2: 68, f3: 75, exam1: 70, avg1: 71.25, f4: 74, f5: 70, f6: 72, exam2: 68, avg2: 71.0, yearly: 71.1 },
+		{ name: 'Science', f1: 90, f2: 88, f3: 92, exam1: 95, avg1: 91.25, f4: 89, f5: 91, f6: 87, exam2: 93, avg2: 90.0, yearly: 90.6 },
+		{ name: 'Social Studies', f1: 78, f2: 75, f3: 80, exam1: 72, avg1: 76.25, f4: 77, f5: 74, f6: 79, exam2: 70, avg2: 75.0, yearly: 75.6 },
+		{ name: 'French', f1: 65, f2: 60, f3: 68, exam1: 55, avg1: 62.0, f4: 62, f5: 67, f6: 63, exam2: 58, avg2: 62.5, yearly: 62.3 },
 	];
+	const gpa = (v: number) => (v >= 90 ? 'A' : v >= 80 ? 'B' : v >= 75 ? 'C' : v >= 70 ? 'D' : 'F');
 
 	return (
 		<div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-			{/* PDF-like header */}
-			<div className="border-b border-gray-100 bg-gray-50 px-4 py-3 text-center">
-				<div className="mx-auto mb-1 flex h-8 w-8 items-center justify-center rounded-lg bg-[#465fff]">
-					<Image
-						src="/images/SchoolMesh.png"
-						alt="SchoolMesh"
-						width={32}
-						height={32}
-						className="h-6 w-6 object-contain"
-					/>
+			{/* Header */}
+			<div className="border-b border-gray-100 bg-gray-50 px-3 py-2.5 text-center sm:px-4 sm:py-3">
+				<div className="mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-lg bg-[#465fff] sm:h-8 sm:w-8">
+					<Image src="/images/SchoolMesh.png" alt="SchoolMesh" width={32} height={32} className="h-5 w-5 object-contain sm:h-6 sm:w-6" />
 				</div>
-				<p className="text-xs font-bold text-[#111827]">Upstairs Christian Academy</p>
-				<p className="text-[9px] text-gray-500">Monrovia, Liberia</p>
-				<p className="mt-1 text-[10px] font-bold text-[#1a365d]">STUDENT YEARLY REPORT CARD</p>
+				<p className="text-[11px] font-bold text-[#111827] sm:text-xs">Upstairs Christian Academy</p>
+				<p className="text-[8px] text-gray-500 sm:text-[9px]">Monrovia, Liberia</p>
+				<p className="mt-0.5 text-[9px] font-bold text-[#1a365d] sm:text-[10px]">STUDENT YEARLY REPORT CARD</p>
 			</div>
 			{/* Student info */}
-			<div className="grid grid-cols-2 gap-x-4 gap-y-1 border-b border-gray-100 px-4 py-2.5">
+			<div className="grid grid-cols-2 gap-x-3 gap-y-1 border-b border-gray-100 px-3 py-2 sm:gap-x-4 sm:px-4 sm:py-2.5">
 				{[
 					['Student', 'Alice Johnson'],
 					['Class', 'Grade 7A'],
 					['Academic Year', '2025-2026'],
 					['Class Rank', '3 / 42'],
 				].map(([k, v]) => (
-					<div key={k} className="flex items-baseline gap-1.5">
-						<span className="text-[9px] font-semibold text-gray-500">{k}:</span>
-						<span className="text-[10px] font-bold text-[#111827]">{v}</span>
+					<div key={k} className="flex items-baseline gap-1 min-w-0">
+						<span className="text-[8px] font-semibold text-gray-500 whitespace-nowrap sm:text-[9px]">{k}:</span>
+						<span className="truncate text-[9px] font-bold text-[#111827] sm:text-[10px]">{v}</span>
 					</div>
 				))}
 			</div>
-			{/* Grade table */}
+			{/* Semester tables */}
 			<div className="overflow-x-auto">
-				<table className="w-full">
+				<table className="w-full min-w-[520px]">
 					<thead>
 						<tr className="border-b border-gray-200 bg-gray-50">
-							{['Subject', 'Assessment', 'Exam', 'Average', 'Rank'].map((h) => (
-								<th key={h} className={`px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-gray-600 ${h === 'Subject' ? 'text-left' : 'text-center'}`}>{h}</th>
+							<th className="px-2 py-1.5 text-left text-[7px] font-bold uppercase tracking-wider text-gray-600 sm:px-3 sm:text-[8px]">Subject</th>
+							<th className="px-1 py-1.5 text-center text-[7px] font-bold uppercase text-gray-500 sm:px-1.5 sm:text-[8px]" colSpan={4}>1st Semester</th>
+							<th className="px-1 py-1.5 text-center text-[7px] font-bold uppercase text-gray-500 sm:px-1.5 sm:text-[8px]" colSpan={5}>2nd Semester</th>
+							<th className="px-2 py-1.5 text-center text-[7px] font-bold uppercase tracking-wider text-gray-600 sm:px-3 sm:text-[8px]">Yr Avg</th>
+						</tr>
+						<tr className="border-b border-gray-100 bg-gray-50/80">
+							<th className="px-2 py-1 text-left text-[7px] text-gray-400 sm:px-3 sm:text-[8px]"></th>
+							{['1st', '2nd', '3rd', 'Exam'].map((p) => (
+								<th key={p} className="px-1 py-1 text-center text-[6px] font-semibold text-gray-400 sm:px-1.5 sm:text-[7px]">{p}</th>
 							))}
+							<th className="px-1 py-1 text-center text-[6px] font-bold text-gray-500 sm:px-1.5 sm:text-[7px]">Avg</th>
+							{['4th', '5th', '6th', 'Exam'].map((p) => (
+								<th key={p} className="px-1 py-1 text-center text-[6px] font-semibold text-gray-400 sm:px-1.5 sm:text-[7px]">{p}</th>
+							))}
+							<th className="px-1 py-1 text-center text-[6px] font-bold text-gray-500 sm:px-1.5 sm:text-[7px]">Avg</th>
+							<th className="px-2 py-1 text-center text-[7px] text-gray-400 sm:px-3 sm:text-[8px]"></th>
 						</tr>
 					</thead>
 					<tbody>
-						{grades.map((g, i) => (
-							<tr key={g.subject} className={`border-b border-gray-50 ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
-								<td className="whitespace-nowrap px-3 py-1.5 text-[11px] font-medium text-[#111827]">{g.subject}</td>
-								<td className="px-3 py-1.5 text-center text-[11px] text-gray-600 tabular-nums">{g.assessment}</td>
-								<td className="px-3 py-1.5 text-center text-[11px] text-gray-600 tabular-nums">{g.exam}</td>
-								<td className="px-3 py-1.5 text-center">
-									<span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${g.average >= 80 ? 'bg-green-100 text-green-700' : g.average >= 70 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{g.average}</span>
-								</td>
-								<td className="px-3 py-1.5 text-center text-[11px] font-semibold text-gray-600 tabular-nums">#{g.rank}</td>
+						{subjects.map((s, i) => (
+							<tr key={s.name} className={`border-b border-gray-50 ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
+								<td className="whitespace-nowrap px-2 py-1.5 text-[9px] font-medium text-[#111827] sm:px-3 sm:text-[10px]">{s.name}</td>
+								{[s.f1, s.f2, s.f3, s.exam1].map((v, j) => (
+									<td key={j} className={`px-1 py-1.5 text-center text-[8px] tabular-nums sm:px-1.5 sm:text-[9px] ${v < 70 ? 'font-bold text-red-500' : 'text-gray-600'}`}>{v}</td>
+								))}
+								<td className="px-1 py-1.5 text-center text-[9px] font-bold tabular-nums sm:px-1.5 sm:text-[10px]"><span className="text-[#465fff]">{s.avg1}</span></td>
+								{[s.f4, s.f5, s.f6, s.exam2].map((v, j) => (
+									<td key={j} className={`px-1 py-1.5 text-center text-[8px] tabular-nums sm:px-1.5 sm:text-[9px] ${v < 70 ? 'font-bold text-red-500' : 'text-gray-600'}`}>{v}</td>
+								))}
+								<td className="px-1 py-1.5 text-center text-[9px] font-bold tabular-nums sm:px-1.5 sm:text-[10px]"><span className="text-[#465fff]">{s.avg2}</span></td>
+								<td className="px-2 py-1.5 text-center text-[9px] font-bold tabular-nums sm:px-3 sm:text-[10px]"><span className={s.yearly >= 70 ? 'text-[#465fff]' : 'text-red-500'}>{s.yearly}</span></td>
 							</tr>
 						))}
 					</tbody>
 				</table>
 			</div>
-			{/* Summary */}
-			<div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-4 py-2">
-				<div className="flex items-center gap-3">
-					<div>
-						<p className="text-[9px] text-gray-500">Yearly Average</p>
-						<p className="text-sm font-bold text-[#111827]">72.8</p>
-					</div>
-					<div>
-						<p className="text-[9px] text-gray-500">Class Position</p>
-						<p className="text-sm font-bold text-[#111827]">#3 / 42</p>
+			{/* Grading method */}
+			<div className="border-t border-gray-100 bg-gray-50/80 px-3 py-1.5 sm:px-4">
+				<p className="text-[7px] font-bold uppercase tracking-wider text-gray-500 sm:text-[8px]">Method of Grading:</p>
+				<div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[7px] text-gray-600 sm:text-[8px]">
+					<span><b>A</b> = 90-100 (Excellent)</span>
+					<span><b>B</b> = 80-89 (Very Good)</span>
+					<span><b>C</b> = 75-79 (Good)</span>
+					<span><b>D</b> = 70-74 (Fair)</span>
+					<span><b>F</b> = Below 70 (Fail)</span>
+				</div>
+			</div>
+			{/* Promotion & summary */}
+			<div className="flex flex-col gap-2 border-t border-gray-200 bg-gray-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-2.5">
+				<div className="min-w-0 space-y-1">
+					<p className="text-[8px] font-semibold text-[#111827] sm:text-[9px]">Promotion: <span className="font-normal text-gray-600">Passed to Grade 8</span></p>
+					<p className="text-[8px] text-gray-500 sm:text-[9px]">Teacher&apos;s Remark: <span className="font-semibold text-gray-700">Excellent performance</span></p>
+					<div className="flex items-center gap-2">
+						<span className="text-[8px] font-bold text-[#111827] sm:text-[10px]">Yr Avg: 76.4</span>
+						<span className="text-[8px] text-gray-400">|</span>
+						<span className="text-[8px] font-bold text-[#111827] sm:text-[10px]">Rank: #3 / 42</span>
 					</div>
 				</div>
-				<div className="flex gap-1.5">
-					<div className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[9px] font-semibold text-gray-600">📄 PDF</div>
-					<div className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[9px] font-semibold text-gray-600">🔗 Share</div>
+				<div className="flex shrink-0 gap-1.5">
+					<div className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[8px] font-semibold text-gray-600 sm:text-[9px]">
+						<QrCode className="h-3 w-3" /> Verify
+					</div>
+					<div className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[8px] font-semibold text-gray-600 sm:text-[9px]">
+						<Download className="h-3 w-3" /> PDF
+					</div>
+					<div className="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[8px] font-semibold text-gray-600 sm:text-[9px]">
+						<Share2 className="h-3 w-3" /> Share
+					</div>
 				</div>
 			</div>
 		</div>
@@ -915,7 +952,13 @@ export default function SchoolMeshLandingPage() {
 								<div className="grid" style={{ gridTemplateColumns: '150px 1fr' }}>
 									<div className="bg-[#111827] py-3">
 										<div className="mb-2 flex items-center gap-[7px] border-b border-white/[0.08] px-3 pb-3">
-											<div className="flex h-[18px] w-[18px] items-center justify-center rounded bg-[#465fff] text-[7px] font-bold text-white">SM</div>
+											<Image
+												src="/images/SchoolMesh.png"
+												alt="SchoolMesh"
+												width={18}
+												height={18}
+												className="h-[18px] w-[18px] rounded bg-[#465fff] object-contain p-[2px]"
+											/>
 											<span className="text-[11px] font-bold tracking-[-0.02em] text-white">School<span className="text-[#465fff]">Mesh</span></span>
 										</div>
 										{[
@@ -1076,7 +1119,7 @@ export default function SchoolMeshLandingPage() {
 										whileHover={{ y: -4, transition: { duration: 0.2 } }}
 										className="group rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-shadow hover:shadow-lg hover:shadow-gray-900/5"
 									>
-										<div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#465fff]/10 text-[#465fff] transition-colors group-hover:bg-[#465fff] group-hover:text-white">
+										<div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl transition-colors" style={{ backgroundColor: `${feature.color}15`, color: feature.color }}>
 											<Icon className="h-5 w-5" />
 										</div>
 										<h3 className="text-lg font-semibold text-[#111827]">{feature.title}</h3>
@@ -1454,15 +1497,15 @@ export default function SchoolMeshLandingPage() {
 								Pricing
 							</p>
 							<h2 className="text-3xl font-bold tracking-tight text-[#111827] sm:text-4xl lg:text-5xl">
-								Simple, transparent pricing.
+								Simple, transparent, and affordable pricing.
 							</h2>
 							<p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
-								Two simple plans. Per-student annual pricing with no hidden fees.
+								Two simple plans with per-student annual pricing, plus a custom option for schools and networks that prefer a fixed annual fee.
 							</p>
 						</AnimateWhenVisible>
 
 						<motion.div
-							className="mt-14 grid max-w-3xl mx-auto gap-6 lg:grid-cols-2"
+							className="mt-14 grid max-w-5xl mx-auto gap-6 sm:grid-cols-2 lg:grid-cols-3"
 							variants={stagger}
 							initial="hidden"
 							whileInView="visible"
@@ -1474,9 +1517,11 @@ export default function SchoolMeshLandingPage() {
 									variants={fadeUp}
 									whileHover={{ y: -6, transition: { duration: 0.2 } }}
 									className={`relative rounded-2xl border p-7 transition-shadow ${
-										plan.highlight
-											? 'border-[#465fff] bg-[#465fff]/[0.02] shadow-lg shadow-[#465fff]/10'
-											: 'border-gray-100 bg-white shadow-sm hover:shadow-lg hover:shadow-gray-900/5'
+										plan.custom
+											? 'border-dashed border-[#465fff]/30 bg-[#465fff]/[0.02] hover:shadow-lg hover:shadow-gray-900/5'
+											: plan.highlight
+												? 'border-[#465fff] bg-[#465fff]/[0.02] shadow-lg shadow-[#465fff]/10'
+												: 'border-gray-100 bg-white shadow-sm hover:shadow-lg hover:shadow-gray-900/5'
 									}`}
 								>
 									{plan.highlight && (
@@ -1484,18 +1529,23 @@ export default function SchoolMeshLandingPage() {
 											Most Popular
 										</div>
 									)}
+									{plan.custom && (
+										<div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#465fff]/10 px-4 py-1 text-xs font-bold text-[#465fff]">
+											CUSTOM
+										</div>
+									)}
 									<div>
 										<h3 className="text-xl font-bold text-[#111827]">{plan.name}</h3>
 										<p className="mt-1 text-sm text-gray-500">{plan.description}</p>
 									</div>
 									<div className="mt-6">
-										<p className="text-3xl font-bold text-[#111827]">{plan.price}</p>
+										<p className={`text-3xl font-bold ${plan.custom ? 'text-[#465fff]' : 'text-[#111827]'}`}>{plan.price}</p>
 										<p className="mt-1 text-sm text-gray-500">{plan.period}</p>
 									</div>
 									<ul className="mt-6 space-y-3">
 										{plan.features.map((f) => (
 											<li key={f} className="flex items-center gap-2.5 text-sm text-gray-600">
-												<CheckCircle2 className="h-4 w-4 shrink-0 text-[#10B981]" />
+												<CheckCircle2 className={`h-4 w-4 shrink-0 ${plan.custom ? 'text-[#465fff]' : 'text-[#10B981]'}`} />
 												{f}
 											</li>
 										))}
@@ -1505,7 +1555,9 @@ export default function SchoolMeshLandingPage() {
 										className={`mt-8 block w-full rounded-full py-3 text-center text-sm font-semibold transition-all ${
 											plan.highlight
 												? 'bg-[#465fff] text-white shadow-md shadow-[#465fff]/20 hover:bg-[#3a4fe6] hover:shadow-lg'
-												: 'border border-gray-200 text-[#111827] hover:border-gray-300 hover:bg-gray-50'
+												: plan.custom
+													? 'border border-[#465fff]/30 text-[#465fff] hover:border-[#465fff]/50 hover:bg-[#465fff]/5'
+													: 'border border-gray-200 text-[#111827] hover:border-gray-300 hover:bg-gray-50'
 										}`}
 									>
 										{plan.cta}
@@ -1513,6 +1565,8 @@ export default function SchoolMeshLandingPage() {
 								</motion.div>
 							))}
 						</motion.div>
+
+						<p className="mt-8 text-center text-sm text-gray-400">Start free · No credit card required</p>
 					</div>
 				</section>
 
@@ -1631,25 +1685,34 @@ export default function SchoolMeshLandingPage() {
 											</div>
 											<div>
 												<p className="text-sm font-semibold text-[#111827]">Email</p>
-												<p className="text-sm text-gray-500">team@schoolmesh.io</p>
+												<p className="text-sm text-gray-500">info@schoolmesh.net / amossenkao@gmail.com</p>
 											</div>
 										</div>
 										<div className="flex items-center gap-4">
-											<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#10B981]/10 text-[#10B981]">
+											<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#12b76a]/10 text-[#12b76a]">
 												<Phone className="h-5 w-5" />
 											</div>
 											<div>
 												<p className="text-sm font-semibold text-[#111827]">Phone</p>
-												<p className="text-sm text-gray-500">+231 77 000 0000</p>
+												<p className="text-sm text-gray-500">+231 776949463 / +231 887956586</p>
 											</div>
 										</div>
 										<div className="flex items-center gap-4">
-											<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F59E0B]/10 text-[#F59E0B]">
+											<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#8b5cf6]/10 text-[#8b5cf6]">
+												<Globe className="h-5 w-5" />
+											</div>
+											<div>
+												<p className="text-sm font-semibold text-[#111827]">Website</p>
+												<p className="text-sm text-gray-500">www.schoolmesh.net</p>
+											</div>
+										</div>
+										<div className="flex items-center gap-4">
+											<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f79009]/10 text-[#f79009]">
 												<Globe className="h-5 w-5" />
 											</div>
 											<div>
 												<p className="text-sm font-semibold text-[#111827]">Location</p>
-												<p className="text-sm text-gray-500">Monrovia, Liberia</p>
+												<p className="text-sm text-gray-500">Unity Town, Lower Johnsonville, Montserrado County Liberia</p>
 											</div>
 										</div>
 									</div>
