@@ -2796,6 +2796,9 @@ export async function PUT(request: NextRequest) {
 			}
 			const existing = await User.discriminators.system_admin.findById(targetUserId).lean().exec();
 			if (!existing) return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
+			if (body.action === 'toggle_active' && body.isActive === undefined) {
+				updateData.isActive = existing.isActive === false;
+			}
 			if (body.firstName || body.lastName) {
 				const fn = body.firstName || existing.firstName;
 				const mn = body.middleName !== undefined ? body.middleName : existing.middleName;
@@ -2820,9 +2823,13 @@ export async function PUT(request: NextRequest) {
 			const deactivatedNow = existing.isActive !== false && admin.isActive === false;
 			await bumpUsersVersionForTenantConnection(connection, [activeAcademicYear]);
 			if (deactivatedNow) {
-				await destroyAllUserSessions(targetUserId);
+				await destroyAllUserSessions(targetUserId, undefined, {
+					tenantId: cleanHost,
+				});
 			} else {
-				await updateAllUserSessions(targetUserId, buildUserResponse(admin));
+				await updateAllUserSessions(targetUserId, buildUserResponse(admin), {
+					tenantId: cleanHost,
+				});
 			}
 			await publishSyncEventSafe({
 				tenantId,
@@ -4644,7 +4651,9 @@ export async function DELETE(request: NextRequest) {
 			const admin = await User.discriminators.system_admin.findByIdAndDelete(targetUserId).lean();
 			if (!admin) return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
 
-			await destroyAllUserSessions(targetUserId);
+			await destroyAllUserSessions(targetUserId, undefined, {
+				tenantId: cleanHost,
+			});
 
 			const tenantId = resolveTenantSyncKey({
 				schoolProfile: school,

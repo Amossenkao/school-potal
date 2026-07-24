@@ -2,6 +2,57 @@ import { redis } from '@/lib/redis';
 
 const SESSION_EXPIRY = 60 * 60 * 24; // 1 day in seconds
 
+type SessionMutationOptions = {
+	onlyUpdateFields?: string[];
+	tenantId?: string;
+};
+
+const trim = (value: unknown) => String(value || '').trim();
+
+const getUserSessionKey = (id: string) => `user:sessions:${id}`;
+
+const getTenantSessionKey = (tenantId: string) =>
+	`tenant:sessions:${tenantId}`;
+
+const getTenantUserSessionKey = (tenantId: string, id: string) =>
+	`tenant:user:sessions:${tenantId}:${id}`;
+
+const getSetMembers = async (key: string): Promise<string[]> => {
+	const members = await redis.smembers(key);
+	return members.map((member) => trim(member)).filter(Boolean);
+};
+
+const getSessionIdsForUser = async (
+	id: string,
+	tenantId?: string,
+): Promise<string[]> => {
+	const normalizedId = trim(id);
+	const normalizedTenantId = trim(tenantId);
+	if (!normalizedId) return [];
+
+	const ids = new Set<string>(await getSetMembers(getUserSessionKey(normalizedId)));
+	if (normalizedTenantId) {
+		const scopedIds = await getSetMembers(
+			getTenantUserSessionKey(normalizedTenantId, normalizedId),
+		);
+		scopedIds.forEach((sid) => ids.add(sid));
+	}
+
+	if (!normalizedTenantId) return Array.from(ids);
+
+	const filtered: string[] = [];
+	for (const sid of ids) {
+		const sessionData = await getSession(sid);
+		if (
+			trim(sessionData?.id) === normalizedId &&
+			trim(sessionData?.tenantId) === normalizedTenantId
+		) {
+			filtered.push(sid);
+		}
+	}
+	return filtered;
+};
+
 /**
  * Creates or updates a session indexed by 'id' and 'tenantId'.
  */
@@ -15,8 +66,8 @@ export const createSession = async (
 	}
 
 	const newSessionId = sessionId || crypto.randomUUID();
-	const userSessionKey = `user:sessions:${userData.id}`;
-	const tenantSessionKey = `tenant:sessions:${userData.tenantId}`;
+	const userSessionKey = getUserSessionKey(userData.id);
+	const tenantSessionKey = getTenantSessionKey(userData.tenantId);
 
 	const pipeline = redis.pipeline();
 	pipeline.set(newSessionId, JSON.stringify(userData));
@@ -28,6 +79,14 @@ export const createSession = async (
 	if (userData.tenantId) {
 		pipeline.sadd(tenantSessionKey, newSessionId);
 		pipeline.expire(tenantSessionKey, expiry);
+		pipeline.sadd(
+			getTenantUserSessionKey(userData.tenantId, userData.id),
+			newSessionId,
+		);
+		pipeline.expire(
+			getTenantUserSessionKey(userData.tenantId, userData.id),
+			expiry,
+		);
 	}
 
 	await pipeline.exec();
@@ -40,8 +99,8 @@ export const createSession = async (
 export const destroyAllTenantSessions = async (
 	tenantId: string,
 ): Promise<void> => {
-	const tenantSessionKey = `tenant:sessions:${tenantId}`;
-	const sessionIds = await redis.smembers(tenantSessionKey);
+	const tenantSessionKey = getTenantSessionKey(tenantId);
+	const sessionIds = await getSetMembers(tenantSessionKey);
 
 	if (sessionIds.length > 0) {
 		const pipeline = redis.pipeline();
@@ -49,7 +108,13 @@ export const destroyAllTenantSessions = async (
 		for (const sid of sessionIds) {
 			const sessionData = await getSession(sid);
 			if (sessionData?.id) {
-				pipeline.srem(`user:sessions:${sessionData.id}`, sid);
+				pipeline.srem(getUserSessionKey(sessionData.id), sid);
+				if (sessionData.tenantId) {
+					pipeline.srem(
+						getTenantUserSessionKey(sessionData.tenantId, sessionData.id),
+						sid,
+					);
+				}
 			}
 		}
 
@@ -66,16 +131,23 @@ export const destroySession = async (sessionId: string): Promise<number> => {
 	const sessionData = await getSession(sessionId);
 
 	if (sessionData?.id) {
-		const userSessionKey = `user:sessions:${sessionData.id}`;
-		const tenantSessionKey = `tenant:sessions:${sessionData.tenantId}`;
+		const userSessionKey = getUserSessionKey(sessionData.id);
+		const tenantSessionKey = getTenantSessionKey(sessionData.tenantId);
 
 		const pipeline = redis.pipeline();
 		pipeline.srem(userSessionKey, sessionId);
 		if (sessionData.tenantId) pipeline.srem(tenantSessionKey, sessionId);
+		if (sessionData.tenantId) {
+			pipeline.srem(
+				getTenantUserSessionKey(sessionData.tenantId, sessionData.id),
+				sessionId,
+			);
+		}
 		pipeline.del(sessionId);
 
-		const results = await pipeline.exec();
-		return results ? (results[results.length - 1][1] as number) : 0;
+		const results = (await pipeline.exec()) as Array<[unknown, unknown]> | null;
+		const deleted = results?.[results.length - 1]?.[1];
+		return typeof deleted === 'number' ? deleted : 0;
 	}
 
 	return await redis.del(sessionId);
@@ -106,10 +178,9 @@ const mergeSessionData = (existingSession: any, newUserData: any): any => {
 export const updateAllUserSessions = async (
 	id: string, // Changed from userId
 	newUserData: any,
-	options: { onlyUpdateFields?: string[] } = {},
+	options: SessionMutationOptions = {},
 ): Promise<void> => {
-	const userSessionKey = `user:sessions:${id}`;
-	const sessionIds = await redis.smembers(userSessionKey);
+	const sessionIds = await getSessionIdsForUser(id, options.tenantId);
 	if (sessionIds.length === 0) return;
 
 	const pipeline = redis.pipeline();
@@ -150,30 +221,43 @@ export const updateUserSessionNotifications = async (
 export const destroyAllUserSessions = async (
 	id: string,
 	excludeSessionId?: string,
+	options: { tenantId?: string } = {},
 ) => {
-	const userSessionKey = `user:sessions:${id}`;
-	let ids = await redis.smembers(userSessionKey);
+	const userSessionKey = getUserSessionKey(id);
+	let ids = await getSessionIdsForUser(id, options.tenantId);
 	if (excludeSessionId) ids = ids.filter((i) => i !== excludeSessionId);
 
 	if (ids.length > 0) {
 		const pipeline = redis.pipeline();
-		pipeline.del(...ids);
-		pipeline.srem(userSessionKey, ...ids);
+		for (const sid of ids) {
+			const sessionData = await getSession(sid);
+			pipeline.del(sid);
+			pipeline.srem(userSessionKey, sid);
+			if (sessionData?.tenantId) {
+				pipeline.srem(getTenantSessionKey(sessionData.tenantId), sid);
+			}
+			if (sessionData?.tenantId && sessionData?.id) {
+				pipeline.srem(
+					getTenantUserSessionKey(sessionData.tenantId, sessionData.id),
+					sid,
+				);
+			}
+		}
 		await pipeline.exec();
 	}
 };
 export const getAllUserSessions = async (id: string): Promise<any[]> => {
-	const userSessionKey = `user:sessions:${id}`;
-	const sessionIds = await redis.smembers(userSessionKey);
+	const userSessionKey = getUserSessionKey(id);
+	const sessionIds = await getSetMembers(userSessionKey);
 	const sessions: any[] = [];
 
 	if (sessionIds.length === 0) return sessions;
 
 	const pipeline = redis.pipeline();
 	sessionIds.forEach((sid) => pipeline.get(sid));
-	const results = await pipeline.exec();
+	const results = (await pipeline.exec()) as Array<[unknown, unknown]> | null;
 
-	results.forEach(([err, data]) => {
+	(results || []).forEach(([err, data]) => {
 		if (!err && data) {
 			sessions.push(typeof data === 'string' ? JSON.parse(data) : data);
 		}
@@ -184,17 +268,17 @@ export const getAllUserSessions = async (id: string): Promise<any[]> => {
 export const getAllTenantSessions = async (
 	tenantId: string,
 ): Promise<any[]> => {
-	const tenantSessionKey = `tenant:sessions:${tenantId}`;
-	const sessionIds = await redis.smembers(tenantSessionKey);
+	const tenantSessionKey = getTenantSessionKey(tenantId);
+	const sessionIds = await getSetMembers(tenantSessionKey);
 	const sessions: any[] = [];
 
 	if (sessionIds.length === 0) return sessions;
 
 	const pipeline = redis.pipeline();
 	sessionIds.forEach((sid) => pipeline.get(sid));
-	const results = await pipeline.exec();
+	const results = (await pipeline.exec()) as Array<[unknown, unknown]> | null;
 
-	results.forEach(([err, data]) => {
+	(results || []).forEach(([err, data]) => {
 		if (!err && data) {
 			sessions.push(typeof data === 'string' ? JSON.parse(data) : data);
 		}
