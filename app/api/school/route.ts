@@ -332,6 +332,9 @@ export async function PUT(request: NextRequest) {
 			const body = await request.json();
 			const { SchoolProfile } = await getSchoolMeshModels();
 
+			const previousSchool = await SchoolProfile.findOne({ host: cleanHost }).lean();
+			if (!previousSchool) return NextResponse.json({ error: 'School not found' }, { status: 404 });
+
 			const school = await SchoolProfile.findOneAndUpdate(
 				{ host: cleanHost },
 				{ $set: body },
@@ -342,18 +345,35 @@ export async function PUT(request: NextRequest) {
 
 			clearSchoolProfileMemoryCache(cleanHost);
 			await redis.del(`school_profile:${cleanHost}`);
+			const updatedHost = normalizeHost((school as any).host);
+			if (updatedHost && updatedHost !== cleanHost) {
+				clearSchoolProfileMemoryCache(updatedHost);
+				await redis.del(`school_profile:${updatedHost}`);
+			}
 
-			const tenantId = resolveTenantSyncKey({
-				schoolProfile: school,
-				host: cleanHost,
-			});
+			const tenantIds = Array.from(
+				new Set(
+					[previousSchool, school]
+						.map((profile) =>
+							resolveTenantSyncKey({
+								schoolProfile: profile,
+								host: cleanHost,
+							}),
+						)
+						.filter(Boolean),
+				),
+			);
 
-			await publishSyncEventSafe({
-				tenantId,
-				domain: 'school',
-				reason: 'school-updated',
-				payload: { school },
-			});
+			await Promise.all(
+				tenantIds.map((tenantId) =>
+					publishSyncEventSafe({
+						tenantId,
+						domain: 'school',
+						reason: 'school-updated',
+						payload: { school },
+					}),
+				),
+			);
 
 			return NextResponse.json({ school });
 		}
@@ -671,6 +691,9 @@ export async function PATCH(request: NextRequest) {
 		const body = await request.json();
 		const { SchoolProfile } = await getSchoolMeshModels();
 
+		const previousSchool = await SchoolProfile.findOne({ host: cleanHost }).lean();
+		if (!previousSchool) return NextResponse.json({ error: 'School not found' }, { status: 404 });
+
 		const school = await SchoolProfile.findOneAndUpdate(
 			{ host: cleanHost },
 			{ $set: body },
@@ -681,18 +704,35 @@ export async function PATCH(request: NextRequest) {
 
 		clearSchoolProfileMemoryCache(cleanHost);
 		await redis.del(`school_profile:${cleanHost}`);
+		const updatedHost = normalizeHost((school as any).host);
+		if (updatedHost && updatedHost !== cleanHost) {
+			clearSchoolProfileMemoryCache(updatedHost);
+			await redis.del(`school_profile:${updatedHost}`);
+		}
 
-		const tenantId = resolveTenantSyncKey({
-			schoolProfile: school,
-			host: cleanHost,
-		});
+		const tenantIds = Array.from(
+			new Set(
+				[previousSchool, school]
+					.map((profile) =>
+						resolveTenantSyncKey({
+							schoolProfile: profile,
+							host: cleanHost,
+						}),
+					)
+					.filter(Boolean),
+			),
+		);
 
-		await publishSyncEventSafe({
-			tenantId,
-			domain: 'school',
-			reason: body.isActive !== undefined ? 'school-toggled-active' : 'school-updated',
-			payload: { school },
-		});
+		await Promise.all(
+			tenantIds.map((tenantId) =>
+				publishSyncEventSafe({
+					tenantId,
+					domain: 'school',
+					reason: body.isActive !== undefined ? 'school-toggled-active' : 'school-updated',
+					payload: { school },
+				}),
+			),
+		);
 
 		return NextResponse.json({ school });
 	} catch (error: any) {

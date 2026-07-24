@@ -7,6 +7,7 @@ import { normalizeHost } from '@/utils/host';
 import { getSchoolMeshModels } from '@/models/schoolmesh';
 import UserSchema from '@/models/user/User';
 import SystemAdminSchema from '@/models/user/SystemAdmin';
+import UserSyncStateSchema from '@/models/user/UserSyncState';
 import {
 	updateAllUserSessions,
 	destroyAllUserSessions,
@@ -210,12 +211,41 @@ function buildUserResponse(
 }
 
 function buildRealtimeUserPayload(user: any) {
-	const realtimeUser = buildUserResponse(user) as Record<string, unknown>;
+	const realtimeUser = buildUserResponse(user) as unknown as Record<
+		string,
+		unknown
+	>;
 	delete realtimeUser.password;
 	delete realtimeUser.defaultPassword;
 	delete realtimeUser.notifications;
 	delete realtimeUser.chats;
 	return realtimeUser;
+}
+
+async function bumpUsersVersionForTenantConnection(
+	connection: any,
+	academicYears: string[],
+) {
+	const uniqueYears = Array.from(
+		new Set((academicYears || []).map((year) => String(year || '').trim())),
+	).filter(Boolean);
+	if (uniqueYears.length === 0) return;
+
+	const UserSyncState =
+		connection.models.UserSyncState ||
+		connection.model('UserSyncState', UserSyncStateSchema);
+	await Promise.all(
+		uniqueYears.map((year) =>
+			UserSyncState.updateOne(
+				{ academicYear: year },
+				{
+					$inc: { version: 1 },
+					$set: { updatedAt: new Date() },
+				},
+				{ upsert: true },
+			),
+		),
+	);
 }
 
 async function hashPassword(password: string): Promise<string> {
@@ -2422,7 +2452,7 @@ export async function POST(request: NextRequest) {
 
 			const cleanHost = normalizeHost(hostParam);
 			const { SchoolProfile } = await getSchoolMeshModels();
-			const school = await SchoolProfile.findOne({ host: cleanHost }).select('dbName').lean().exec();
+			const school = await SchoolProfile.findOne({ host: cleanHost }).select('dbName host currentAcademicYear').lean().exec();
 			if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
 
 			const connection = await getTenantConnectionByDbName((school as any).dbName);
@@ -2464,23 +2494,23 @@ export async function POST(request: NextRequest) {
 				createdAt: new Date(),
 			});
 
-			const { publishSyncEventSafe } = await import('@/lib/realtimeSync');
+			const tenantId = resolveTenantSyncKey({
+				schoolProfile: school,
+				host: cleanHost,
+			});
+			const activeAcademicYear = String((school as any).currentAcademicYear || getAcademicYear());
+			const realtimeUser = buildRealtimeUserPayload(admin.toObject());
+			await bumpUsersVersionForTenantConnection(connection, [activeAcademicYear]);
 			await publishSyncEventSafe({
-				tenantId: cleanHost,
+				tenantId,
 				domain: 'users',
+				academicYear: activeAcademicYear,
+				actorId: currentUser.id,
 				reason: 'user-created',
 				payload: {
-					userId: String(admin._id),
-					user: {
-						_id: String(admin._id),
-						firstName: admin.firstName,
-						lastName: admin.lastName,
-						fullName: admin.fullName,
-						username: admin.username,
-						phone: admin.phone,
-						email: admin.email,
-						isActive: admin.isActive,
-					},
+					userId: String(realtimeUser.id || admin._id),
+					user: realtimeUser,
+					targetUserIds: [String(realtimeUser.id || admin._id)],
 				},
 			});
 
@@ -2747,7 +2777,7 @@ export async function PUT(request: NextRequest) {
 
 			const cleanHost = normalizeHost(hostParam);
 			const { SchoolProfile } = await getSchoolMeshModels();
-			const school = await SchoolProfile.findOne({ host: cleanHost }).select('dbName').lean().exec();
+			const school = await SchoolProfile.findOne({ host: cleanHost }).select('dbName host currentAcademicYear').lean().exec();
 			if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
 
 			const connection = await getTenantConnectionByDbName((school as any).dbName);
@@ -2764,14 +2794,13 @@ export async function PUT(request: NextRequest) {
 			for (const field of allowedFields) {
 				if (body[field] !== undefined) updateData[field] = body[field];
 			}
+			const existing = await User.discriminators.system_admin.findById(targetUserId).lean().exec();
+			if (!existing) return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
 			if (body.firstName || body.lastName) {
-				const existing = await User.discriminators.system_admin.findById(targetUserId).lean().exec();
-				if (existing) {
-					const fn = body.firstName || existing.firstName;
-					const mn = body.middleName !== undefined ? body.middleName : existing.middleName;
-					const ln = body.lastName || existing.lastName;
-					updateData.fullName = mn ? `${fn} ${mn} ${ln}` : `${fn} ${ln}`;
-				}
+				const fn = body.firstName || existing.firstName;
+				const mn = body.middleName !== undefined ? body.middleName : existing.middleName;
+				const ln = body.lastName || existing.lastName;
+				updateData.fullName = mn ? `${fn} ${mn} ${ln}` : `${fn} ${ln}`;
 			}
 
 			const admin = await User.discriminators.system_admin.findByIdAndUpdate(
@@ -2782,23 +2811,29 @@ export async function PUT(request: NextRequest) {
 
 			if (!admin) return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
 
-			const { publishSyncEventSafe } = await import('@/lib/realtimeSync');
+			const tenantId = resolveTenantSyncKey({
+				schoolProfile: school,
+				host: cleanHost,
+			});
+			const activeAcademicYear = String((school as any).currentAcademicYear || getAcademicYear());
+			const realtimeUser = buildRealtimeUserPayload(admin);
+			const deactivatedNow = existing.isActive !== false && admin.isActive === false;
+			await bumpUsersVersionForTenantConnection(connection, [activeAcademicYear]);
+			if (deactivatedNow) {
+				await destroyAllUserSessions(targetUserId);
+			} else {
+				await updateAllUserSessions(targetUserId, buildUserResponse(admin));
+			}
 			await publishSyncEventSafe({
-				tenantId: cleanHost,
+				tenantId,
 				domain: 'users',
-				reason: 'user-updated',
+				academicYear: activeAcademicYear,
+				actorId: currentUser.id,
+				reason: deactivatedNow ? 'account-deactivated' : 'user-updated',
 				payload: {
-					userId: String(admin._id),
-					user: {
-						_id: String(admin._id),
-						firstName: admin.firstName,
-						lastName: admin.lastName,
-						fullName: admin.fullName,
-						username: admin.username,
-						phone: admin.phone,
-						email: admin.email,
-						isActive: admin.isActive,
-					},
+					userId: String(realtimeUser.id || admin._id),
+					user: realtimeUser,
+					targetUserIds: [String(realtimeUser.id || admin._id)],
 				},
 			});
 
@@ -4595,7 +4630,7 @@ export async function DELETE(request: NextRequest) {
 
 			const cleanHost = normalizeHost(hostParam);
 			const { SchoolProfile } = await getSchoolMeshModels();
-			const school = await SchoolProfile.findOne({ host: cleanHost }).select('dbName').lean().exec();
+			const school = await SchoolProfile.findOne({ host: cleanHost }).select('dbName host currentAcademicYear').lean().exec();
 			if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
 
 			const connection = await getTenantConnectionByDbName((school as any).dbName);
@@ -4609,15 +4644,26 @@ export async function DELETE(request: NextRequest) {
 			const admin = await User.discriminators.system_admin.findByIdAndDelete(targetUserId).lean();
 			if (!admin) return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
 
-			const { destroyAllUserSessions } = await import('@/utils/session');
 			await destroyAllUserSessions(targetUserId);
 
-			const { publishSyncEventSafe } = await import('@/lib/realtimeSync');
+			const tenantId = resolveTenantSyncKey({
+				schoolProfile: school,
+				host: cleanHost,
+			});
+			const activeAcademicYear = String((school as any).currentAcademicYear || getAcademicYear());
+			const realtimeUser = buildRealtimeUserPayload(admin);
+			await bumpUsersVersionForTenantConnection(connection, [activeAcademicYear]);
 			await publishSyncEventSafe({
-				tenantId: cleanHost,
+				tenantId,
 				domain: 'users',
+				academicYear: activeAcademicYear,
+				actorId: currentUser.id,
 				reason: 'user-deleted',
-				payload: { userId: targetUserId },
+				payload: {
+					userId: targetUserId,
+					user: realtimeUser,
+					targetUserIds: [targetUserId],
+				},
 			});
 
 			return NextResponse.json({ success: true });
