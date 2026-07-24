@@ -343,8 +343,13 @@ export async function PUT(request: NextRequest) {
 			clearSchoolProfileMemoryCache(cleanHost);
 			await redis.del(`school_profile:${cleanHost}`);
 
+			const tenantId = resolveTenantSyncKey({
+				schoolProfile: school,
+				host: cleanHost,
+			});
+
 			await publishSyncEventSafe({
-				tenantId: cleanHost,
+				tenantId,
 				domain: 'school',
 				reason: 'school-updated',
 				payload: { school },
@@ -677,8 +682,13 @@ export async function PATCH(request: NextRequest) {
 		clearSchoolProfileMemoryCache(cleanHost);
 		await redis.del(`school_profile:${cleanHost}`);
 
+		const tenantId = resolveTenantSyncKey({
+			schoolProfile: school,
+			host: cleanHost,
+		});
+
 		await publishSyncEventSafe({
-			tenantId: cleanHost,
+			tenantId,
 			domain: 'school',
 			reason: body.isActive !== undefined ? 'school-toggled-active' : 'school-updated',
 			payload: { school },
@@ -713,8 +723,13 @@ export async function DELETE(request: NextRequest) {
 		clearSchoolProfileMemoryCache(cleanHost);
 		await redis.del(`school_profile:${cleanHost}`);
 
+		const tenantId = resolveTenantSyncKey({
+			schoolProfile: result,
+			host: cleanHost,
+		});
+
 		await publishSyncEventSafe({
-			tenantId: cleanHost,
+			tenantId,
 			domain: 'school',
 			reason: 'school-deleted',
 			payload: { host: cleanHost },

@@ -65,6 +65,8 @@ export const resolveTenantSyncKey = (options: {
 	return '';
 };
 
+export const PLATFORM_EVENTS_CHANNEL = 'platform:events';
+
 export const getSuperadminRealtimeChannel = (superadminId: string) =>
 	`superadmin:${sanitizeChannelSegment(superadminId)}`;
 
@@ -109,6 +111,7 @@ export const getAuthorizedRealtimeChannels = (options: {
 
 	const channels = new Set<string>();
 	channels.add(getSchoolRealtimeChannel(tenantId));
+	channels.add(PLATFORM_EVENTS_CHANNEL);
 
 	if (options.publicOnly) return Array.from(channels);
 
@@ -164,6 +167,7 @@ export const getAuthorizedRealtimeCapabilities = (options: {
 		return {
 			['school:*']: ['subscribe'],
 			['superadmin:*']: ['subscribe'],
+			[PLATFORM_EVENTS_CHANNEL]: ['subscribe'],
 		};
 	}
 
@@ -181,6 +185,7 @@ export const getAuthorizedRealtimeCapabilities = (options: {
 			[`school:${tenantId}`]: ['subscribe'],
 			[`class:${tenantId}:*`]: ['subscribe'],
 			[`user:${tenantId}:*`]: ['subscribe'],
+			[PLATFORM_EVENTS_CHANNEL]: ['subscribe'],
 		};
 	}
 
@@ -395,10 +400,12 @@ export const resolvePublishChannels = (event: RealtimeEvent) => {
 
 		case 'SCHOOL_UPDATED':
 		case 'SCHOOL_DELETED':
-			// School-level change — broadcast to both the school channel
-			// and the superadmin broadcast channel.
+			// School-level change — broadcast to the school channel,
+			// the superadmin broadcast channel, and the platform events
+			// channel so all subscribed schools receive the event.
 			addSchool();
 			addSuperadminBroadcast();
+			channels.add(PLATFORM_EVENTS_CHANNEL);
 			break;
 
 		case 'USER_CREATED':

@@ -934,17 +934,20 @@ useEffect(() => {
 				tenantId: tenantKey,
 				publicOnly: true,
 			});
-			const schoolChannel = channels[0];
-			if (!schoolChannel) return;
-			const channel = nextClient.channels.get(schoolChannel);
-			const listener = (message: any) => {
-				const event = message?.data as RealtimeEvent | undefined;
-				if (!event || event.tenantId !== tenantKey) return;
-				applyRealtimeEvent(event);
-				scheduleRefresh();
-			};
-			channel.subscribe(listener);
-			unsubscribe = () => channel.unsubscribe(listener);
+			if (channels.length === 0) return;
+			const cleanupFns: (() => void)[] = [];
+			channels.forEach((channelName) => {
+				const channel = nextClient.channels.get(channelName);
+				const listener = (message: any) => {
+					const event = message?.data as RealtimeEvent | undefined;
+					if (!event || event.tenantId !== tenantKey) return;
+					applyRealtimeEvent(event);
+					scheduleRefresh();
+				};
+				channel.subscribe(listener);
+				cleanupFns.push(() => channel.unsubscribe(listener));
+			});
+			unsubscribe = () => cleanupFns.forEach((fn) => fn());
 		};
 
 		const handleOnline = () => {
