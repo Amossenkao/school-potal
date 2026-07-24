@@ -292,7 +292,7 @@ export default function SchoolsListPage() {
 				{topStats.map((stat) => {
 					const Icon = stat.icon;
 					return (
-						<div key={stat.label} className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+						<div key={stat.label} className="rounded-lg border border-gray-200 bg-card p-4 dark:border-gray-800">
 							<div className="flex items-center justify-between gap-3">
 								<p className="text-sm text-gray-500">{stat.label}</p>
 								<div className={`flex h-8 w-8 items-center justify-center rounded-lg ${stat.tone}`}>
@@ -307,7 +307,7 @@ export default function SchoolsListPage() {
 
 			<div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
 				<div className="space-y-4">
-					<div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900 sm:flex-row sm:items-center">
+					<div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-card p-3 dark:border-gray-800 sm:flex-row sm:items-center">
 						<div className="relative flex-1">
 							<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 							<input
@@ -315,17 +315,17 @@ export default function SchoolsListPage() {
 								placeholder="Search by school, host, database, or admin"
 								value={search}
 								onChange={(event) => setSearch(event.target.value)}
-								className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-[#465fff] focus:ring-2 focus:ring-[#465fff]/10 dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+								className="w-full rounded-lg border border-gray-200 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-[#465fff] focus:ring-2 focus:ring-[#465fff]/10 dark:border-gray-800 dark:bg-background dark:text-white"
 							/>
 						</div>
-						<div className="grid grid-cols-3 rounded-lg bg-gray-100 p-1 text-xs font-semibold text-gray-500 dark:bg-gray-950">
+						<div className="grid grid-cols-3 rounded-lg bg-gray-100 p-1 text-xs font-semibold text-gray-500 dark:bg-background">
 							{(['all', 'active', 'inactive'] as const).map((filter) => (
 								<button
 									key={filter}
 									onClick={() => setStatusFilter(filter)}
 									className={`rounded-md px-3 py-2 capitalize transition-colors ${
 										statusFilter === filter
-											? 'bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-white'
+											? ' text-gray-900 shadow-sm dark:bg-card dark:text-white'
 											: 'hover:text-gray-900 dark:hover:text-white'
 									}`}
 								>
@@ -337,11 +337,11 @@ export default function SchoolsListPage() {
 
 					<div className="grid gap-3">
 						{loading ? (
-							<div className="flex items-center justify-center rounded-lg border border-gray-200 bg-white py-20 dark:border-gray-800 dark:bg-gray-900">
+							<div className="flex items-center justify-center rounded-lg border border-gray-200 bg-card py-20 dark:border-gray-800">
 								<Loader2 className="h-6 w-6 animate-spin text-gray-400" />
 							</div>
 						) : filtered.length === 0 ? (
-							<div className="rounded-lg border border-gray-200 bg-white py-20 text-center text-sm text-gray-500 dark:border-gray-800 dark:bg-gray-900">
+							<div className="rounded-lg border border-gray-200 py-20 text-center text-sm text-gray-500 dark:border-gray-800 bg-card">
 								No schools found.
 							</div>
 						) : (
@@ -351,7 +351,7 @@ export default function SchoolsListPage() {
 								return (
 									<div
 										key={school.host}
-										className={`rounded-lg border bg-white p-4 transition-colors dark:bg-gray-900 ${
+										className={`rounded-lg border bg-card p-4 transition-colors ${
 											selected
 												? 'border-[#465fff] ring-2 ring-[#465fff]/10'
 												: 'border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700'
@@ -397,7 +397,7 @@ export default function SchoolsListPage() {
 												].map((item) => {
 													const Icon = item.icon;
 													return (
-														<div key={item.label} className="rounded-lg bg-gray-50 px-2 py-2 text-center dark:bg-gray-950">
+														<div key={item.label} className="rounded-lg bg-gray-50 px-2 py-2 text-center dark:bg-background">
 															<Icon className="mx-auto h-3.5 w-3.5 text-gray-400" />
 															<p className="mt-1 text-sm font-bold text-gray-900 dark:text-white">{item.value.toLocaleString()}</p>
 															<p className="text-[10px] text-gray-500">{item.label}</p>
@@ -462,7 +462,7 @@ export default function SchoolsListPage() {
 					</div>
 				</div>
 
-				<aside className="rounded-lg border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900 xl:sticky xl:top-24 xl:self-start">
+				<aside className="rounded-lg border border-gray-200 p-5 dark:border-gray-800 bg-card xl:sticky xl:top-24 xl:self-start">
 					{selectedSchool ? (
 						<>
 							<div className="flex items-start gap-3">
@@ -486,7 +486,7 @@ export default function SchoolsListPage() {
 									['Admins', getStats(selectedSchool).administrators],
 									['System', getStats(selectedSchool).systemAdmins],
 								].map(([label, value]) => (
-									<div key={label} className="rounded-lg bg-gray-50 p-3 dark:bg-gray-950">
+									<div key={label} className="rounded-lg bg-gray-50 p-3 dark:bg-background">
 										<p className="text-xs text-gray-500">{label}</p>
 										<p className="mt-1 text-lg font-bold text-gray-900 dark:text-white">{Number(value).toLocaleString()}</p>
 									</div>
@@ -532,7 +532,7 @@ export default function SchoolsListPage() {
 
 			{deleteConfirmSchool && (
 				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-					<div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
+					<div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
 						<h3 className="text-lg font-bold text-gray-900 dark:text-white">Delete School</h3>
 						<p className="mt-2 text-sm text-gray-500">
 							Are you sure you want to delete <span className="font-semibold text-gray-900 dark:text-white">{deleteConfirmSchool.name}</span>? This action cannot be undone.

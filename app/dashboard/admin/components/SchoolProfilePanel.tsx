@@ -251,7 +251,7 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 					{statCards.map((stat) => {
 						const Icon = stat.icon;
 						return (
-							<div key={stat.label} className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+							<div key={stat.label} className="rounded-xl border border-gray-200 bg-card p-4 dark:border-gray-800">
 								<div className="flex items-center justify-between mb-2">
 									<p className="text-xs font-medium text-gray-500">{stat.label}</p>
 									<div className={`flex h-8 w-8 items-center justify-center rounded-lg ${stat.bg}`}>
@@ -277,7 +277,7 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 
 			{showDeleteConfirm && (
 				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-					<div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
+					<div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
 						<h3 className="text-lg font-bold text-gray-900 dark:text-white">Confirm Deletion</h3>
 						<p className="mt-2 text-sm text-gray-500">
 							Type <span className="font-mono font-semibold">{school?.name}</span> to confirm.
@@ -285,7 +285,7 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 						<input
 							type="text"
 							placeholder="Type school name..."
-							className="mt-4 w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/10 dark:border-gray-800 dark:bg-gray-800"
+							className="mt-4 w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/10 dark:border-gray-800 dark:bg-muted"
 							id="delete-confirm-input"
 							autoFocus
 						/>

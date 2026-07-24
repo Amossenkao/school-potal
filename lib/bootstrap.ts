@@ -914,6 +914,28 @@ const getTenantUserCounts = async (dbName: string) => {
 	}
 };
 
+const getTenantSystemAdmins = async (dbName: string) => {
+	try {
+		const connection = await getTenantConnectionByDbName(dbName);
+		if (!connection) return [];
+
+		let User = connection.models.User;
+		if (!User) {
+			User = connection.model('User', UserSchema);
+		}
+
+		const admins = await User.find({ role: 'system_admin' })
+			.select('firstName middleName lastName fullName username phone email isActive createdAt')
+			.sort({ createdAt: -1 })
+			.lean()
+			.exec();
+
+		return admins || [];
+	} catch {
+		return [];
+	}
+};
+
 /**
  * Builds the bootstrap payload for superadmin users.
  * Includes platform-wide stats: schools, users by role, per-school stats.
@@ -924,20 +946,25 @@ export const buildSuperAdminBootstrapPayload = async (
 	const { SchoolProfile } = await getSchoolMeshModels();
 
 	const schools = await SchoolProfile.find({})
-		.select('host dbName name slogan shortName initials logoUrl isActive address phones emails administrativePositions sysAdmin settings.studentSettings.loginAccess settings.teacherSettings.loginAccess settings.administratorSettings.loginAccess updatedAt')
+		.select('host dbName name slogan shortName initials studentIdPrefix logoUrl logoUrl2 yearFounded firstAcademicYear currentAcademicYear isActive themeName enabledFeatures roleFeatureAccess classLevels feeSchedules settings address phones emails administrativePositions sysAdmin updatedAt')
 		.lean()
 		.exec();
 
 	const activeSchools = schools.filter((s: any) => s.isActive);
 	const inactiveSchools = schools.filter((s: any) => !s.isActive);
 
-	// Get user counts for each school
+	// Get user counts and system admins for each school
 	const dbNames = [...new Set(schools.map((s: any) => s.dbName).filter(Boolean))] as string[];
-	const countsByDbName = new Map(
-		await Promise.all(
+	const [countsEntries, systemAdminsEntries] = await Promise.all([
+		Promise.all(
 			dbNames.map(async (dbName) => [dbName, await getTenantUserCounts(dbName)] as const),
 		),
-	);
+		Promise.all(
+			dbNames.map(async (dbName) => [dbName, await getTenantSystemAdmins(dbName)] as const),
+		),
+	]);
+	const countsByDbName = new Map(countsEntries);
+	const systemAdminsByDbName = new Map(systemAdminsEntries);
 
 	let totalStudents = 0;
 	let totalTeachers = 0;
@@ -946,6 +973,7 @@ export const buildSuperAdminBootstrapPayload = async (
 
 	const perSchoolStats = schools.map((school: any) => {
 		const schoolCounts = countsByDbName.get(school.dbName) || { students: 0, teachers: 0, administrators: 0, systemAdmins: 0 };
+		const schoolSystemAdmins = systemAdminsByDbName.get(school.dbName) || [];
 		const totalUsersForSchool = schoolCounts.students + schoolCounts.teachers + schoolCounts.administrators + schoolCounts.systemAdmins;
 		totalStudents += schoolCounts.students;
 		totalTeachers += schoolCounts.teachers;
@@ -965,6 +993,7 @@ export const buildSuperAdminBootstrapPayload = async (
 			},
 			users: schoolCounts,
 			totalUsers: totalUsersForSchool,
+			systemAdmins: schoolSystemAdmins,
 		};
 	});
 

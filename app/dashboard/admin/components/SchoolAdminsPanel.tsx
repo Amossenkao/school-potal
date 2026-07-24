@@ -51,12 +51,15 @@ interface SchoolAdminsPanelProps {
 }
 
 export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: SchoolAdminsPanelProps) {
-	const schoolName = useAuth((state) =>
-		state.superAdminSchools.find((school: any) => school.host === host)?.name,
+	const cachedSchool = useAuth((state) =>
+		state.superAdminSchools.find((school: any) => school.host === host),
 	);
 
-	const [admins, setAdmins] = useState<SystemAdminAccount[]>([]);
-	const [loading, setLoading] = useState(true);
+	const [admins, setAdmins] = useState<SystemAdminAccount[]>(() => {
+		const cached = cachedSchool?.systemAdmins;
+		return Array.isArray(cached) ? cached : [];
+	});
+	const [loading, setLoading] = useState(!cachedSchool?.systemAdmins?.length);
 	const [error, setError] = useState('');
 	const [showCreate, setShowCreate] = useState(false);
 	const [creating, setCreating] = useState(false);
@@ -82,7 +85,11 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 	const [deleteConfirmAdmin, setDeleteConfirmAdmin] = useState<SystemAdminAccount | null>(null);
 	const [resetConfirmAdmin, setResetConfirmAdmin] = useState<SystemAdminAccount | null>(null);
 
-	useEffect(() => { if (host) fetchAdmins(); }, [host]);
+	useEffect(() => {
+		if (!host) return;
+		const hasCached = Array.isArray(cachedSchool?.systemAdmins) && cachedSchool.systemAdmins.length > 0;
+		if (!hasCached) fetchAdmins();
+	}, [host]);
 
 	const fetchAdmins = async () => {
 		try {
@@ -240,7 +247,7 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 		setTimeout(() => setCopied(''), 2000);
 	};
 
-	const inputClass = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white';
+	const inputClass = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white';
 
 	return (
 		<div className="space-y-6">
@@ -251,7 +258,7 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 				<div className="flex-1">
 					<h1 className="text-2xl font-bold text-gray-900 dark:text-white">System Admins</h1>
 					<p className="text-sm text-gray-500">
-						Manage system administrator accounts for {schoolName || host || 'this school'}.
+						Manage system administrator accounts for {cachedSchool?.name || host || 'this school'}.
 					</p>
 				</div>
 				<button
@@ -272,7 +279,7 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 
 			{showCreate && (
 				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-					<div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
+					<div className="w-full max-w-lg rounded-2xl bg-card p-6 shadow-xl">
 						<div className="flex items-center justify-between mb-5">
 							<h3 className="text-lg font-bold text-gray-900 dark:text-white">New System Admin</h3>
 							<button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
@@ -408,7 +415,7 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 
 			{createdUserInfo && (
 				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-					<div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900 flex flex-col items-center text-center">
+					<div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl flex flex-col items-center text-center">
 						<div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-4">
 							<CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
 						</div>
@@ -421,19 +428,19 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 						</div>
 
 						<div className="w-full rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden mb-5">
-							<div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+							<div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-muted/50">
 								<p className="text-sm font-semibold text-gray-900 dark:text-white">Generated Credentials</p>
 							</div>
 							<div className="p-4 space-y-3">
 								<div className="flex items-center justify-between gap-3">
 									<span className="text-sm text-gray-500">Username</span>
-									<code className="text-sm font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2.5 py-1 rounded-lg break-all">
+									<code className="text-sm font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-muted border border-gray-200 dark:border-gray-700 px-2.5 py-1 rounded-lg break-all">
 										{createdUserInfo.generatedCredentials.username}
 									</code>
 								</div>
 								<div className="flex items-center justify-between gap-3">
 									<span className="text-sm text-gray-500">Temp. Password</span>
-									<code className="text-sm font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2.5 py-1 rounded-lg break-all">
+									<code className="text-sm font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-muted border border-gray-200 dark:border-gray-700 px-2.5 py-1 rounded-lg break-all">
 										{createdUserInfo.generatedCredentials.defaultPassword}
 									</code>
 								</div>
@@ -448,7 +455,7 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 						<div className="flex gap-3 w-full">
 							<button
 								onClick={handleCopyAllCredentials}
-								className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium text-gray-900 dark:text-white transition-colors"
+								className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-muted hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium text-gray-900 dark:text-white transition-colors"
 							>
 								{copied === 'all' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
 								{copied === 'all' ? 'Copied!' : 'Copy Credentials'}
@@ -466,7 +473,7 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 
 			{resetCredentials && (
 				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-					<div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900 flex flex-col items-center text-center">
+					<div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl flex flex-col items-center text-center">
 						<div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-4">
 							<Key className="w-8 h-8 text-amber-600 dark:text-amber-400" />
 						</div>
@@ -478,13 +485,13 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 							<div className="p-4 space-y-3">
 								<div className="flex items-center justify-between gap-3">
 									<span className="text-sm text-gray-500">Username</span>
-									<code className="text-sm font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2.5 py-1 rounded-lg break-all">
+									<code className="text-sm font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-muted border border-gray-200 dark:border-gray-700 px-2.5 py-1 rounded-lg break-all">
 										{resetCredentials.username}
 									</code>
 								</div>
 								<div className="flex items-center justify-between gap-3">
 									<span className="text-sm text-gray-500">New Password</span>
-									<code className="text-sm font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2.5 py-1 rounded-lg break-all">
+									<code className="text-sm font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-muted border border-gray-200 dark:border-gray-700 px-2.5 py-1 rounded-lg break-all">
 										{resetCredentials.defaultPassword}
 									</code>
 								</div>
@@ -502,7 +509,7 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 									navigator.clipboard.writeText(creds).then(() => setCopied('reset'));
 									setTimeout(() => setCopied(''), 2000);
 								}}
-								className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium text-gray-900 dark:text-white transition-colors"
+								className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-muted hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium text-gray-900 dark:text-white transition-colors"
 							>
 								{copied === 'reset' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
 								{copied === 'reset' ? 'Copied!' : 'Copy Credentials'}
@@ -518,7 +525,7 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 				</div>
 			)}
 
-			<div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 overflow-hidden">
+			<div className="rounded-xl border border-gray-200 bg-card dark:border-gray-800 overflow-hidden">
 				{loading ? (
 					<div className="flex items-center justify-center py-20">
 						<Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -529,15 +536,15 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 					<div className="divide-y divide-gray-100 dark:divide-gray-800">
 						{admins.map((admin) => (
 							<div key={admin._id} className={`flex items-center gap-4 px-5 py-4 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors ${!admin.isActive ? 'opacity-60' : ''}`}>
-								<div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${admin.isActive ? 'bg-[#465fff]/10 text-[#465fff]' : 'bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500'}`}>
+								<div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${admin.isActive ? 'bg-[#465fff]/10 text-[#465fff]' : 'bg-gray-200 text-gray-400 dark:bg-muted dark:text-gray-500'}`}>
 									{admin.firstName.charAt(0)}{admin.lastName.charAt(0)}
 								</div>
 								{editingId === admin._id ? (
 									<div className="flex-1 grid gap-3 sm:grid-cols-3">
-										<input value={editForm.firstName} onChange={(e) => setEditForm((p) => ({ ...p, firstName: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" placeholder="First name" />
-										<input value={editForm.lastName} onChange={(e) => setEditForm((p) => ({ ...p, lastName: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" placeholder="Last name" />
-										<input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" placeholder="Phone" />
-										<input value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white sm:col-span-3" placeholder="Email" />
+										<input value={editForm.firstName} onChange={(e) => setEditForm((p) => ({ ...p, firstName: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="First name" />
+										<input value={editForm.lastName} onChange={(e) => setEditForm((p) => ({ ...p, lastName: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="Last name" />
+										<input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="Phone" />
+										<input value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white sm:col-span-3" placeholder="Email" />
 									</div>
 								) : (
 									<div className="flex-1 min-w-0">
@@ -586,7 +593,7 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 
 			{deleteConfirmAdmin && (
 				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-					<div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
+					<div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
 						<h3 className="text-lg font-bold text-gray-900 dark:text-white">Delete Admin Account</h3>
 						<p className="mt-2 text-sm text-gray-500">
 							Are you sure you want to delete <span className="font-semibold text-gray-900 dark:text-white">{deleteConfirmAdmin.fullName}</span>? This action cannot be undone.
@@ -612,7 +619,7 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 
 			{resetConfirmAdmin && (
 				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-					<div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
+					<div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
 						<h3 className="text-lg font-bold text-gray-900 dark:text-white">Reset Password</h3>
 						<p className="mt-2 text-sm text-gray-500">
 							Reset <span className="font-semibold text-gray-900 dark:text-white">{resetConfirmAdmin.fullName}</span>&apos;s password to their username? They will be forced to change it on next login.

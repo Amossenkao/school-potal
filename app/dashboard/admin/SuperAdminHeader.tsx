@@ -98,7 +98,7 @@ const ChangePasswordModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 			className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
 			onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
 		>
-			<div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl p-6">
+			<div className="w-full max-w-md rounded-2xl bg-card border border-gray-200 dark:border-gray-800 shadow-xl p-6">
 				<div className="flex items-center gap-3 mb-5">
 					<div className="h-10 w-10 rounded-xl bg-[#465fff]/10 flex items-center justify-center">
 						<KeyRound className="h-5 w-5 text-[#465fff]" />
@@ -119,7 +119,7 @@ const ChangePasswordModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 								onChange={(e) => { setOldPassword(e.target.value); setError(''); }}
 								required
 								placeholder="Enter current password"
-								className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm text-gray-900 outline-none transition dark:border-gray-700 dark:bg-gray-800 dark:text-white placeholder:text-gray-400 focus:border-[#465fff] focus:ring-2 focus:ring-[#465fff]/10 disabled:opacity-50"
+								className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm text-gray-900 outline-none transition dark:border-gray-700 dark:bg-muted dark:text-white placeholder:text-gray-400 focus:border-[#465fff] focus:ring-2 focus:ring-[#465fff]/10 disabled:opacity-50"
 							/>
 							<button type="button" onClick={() => setShowOld((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
 								{showOld ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -136,7 +136,7 @@ const ChangePasswordModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 								onChange={(e) => { setNewPassword(e.target.value); setError(''); }}
 								required
 								placeholder="Enter new password"
-								className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm text-gray-900 outline-none transition dark:border-gray-700 dark:bg-gray-800 dark:text-white placeholder:text-gray-400 focus:border-[#465fff] focus:ring-2 focus:ring-[#465fff]/10 disabled:opacity-50"
+								className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm text-gray-900 outline-none transition dark:border-gray-700 dark:bg-muted dark:text-white placeholder:text-gray-400 focus:border-[#465fff] focus:ring-2 focus:ring-[#465fff]/10 disabled:opacity-50"
 							/>
 							<button type="button" onClick={() => setShowNew((p) => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
 								{showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -152,7 +152,7 @@ const ChangePasswordModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 							onChange={(e) => { setConfirmPassword(e.target.value); setError(''); }}
 							required
 							placeholder="Confirm new password"
-							className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition dark:border-gray-700 dark:bg-gray-800 dark:text-white placeholder:text-gray-400 focus:border-[#465fff] focus:ring-2 focus:ring-[#465fff]/10 disabled:opacity-50"
+							className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition dark:border-gray-700 dark:bg-muted dark:text-white placeholder:text-gray-400 focus:border-[#465fff] focus:ring-2 focus:ring-[#465fff]/10 disabled:opacity-50"
 						/>
 					</div>
 
@@ -172,7 +172,7 @@ const ChangePasswordModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 							type="button"
 							onClick={handleClose}
 							disabled={isLoading}
-							className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+							className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-muted transition-colors disabled:opacity-50"
 						>
 							Cancel
 						</button>
@@ -261,7 +261,7 @@ const SuperAdminHeader = memo(function SuperAdminHeader({ isMobileOpen, onToggle
 		<>
 			<header
 				ref={headerRef}
-				className="fixed inset-x-0 top-0 lg:sticky lg:top-0 flex w-full bg-white border-gray-200 z-50 dark:border-gray-800 dark:bg-gray-900 lg:border-b"
+				className="fixed inset-x-0 top-0 lg:sticky lg:top-0 flex w-full bg-card border-gray-200 z-50 dark:border-gray-800 lg:border-b"
 			>
 				<div className="flex flex-col items-center justify-between grow lg:flex-row lg:px-6">
 					<div className="flex items-center justify-between w-full gap-2 px-3 py-3 border-b border-gray-200 dark:border-gray-800 sm:gap-4 lg:justify-normal lg:border-b-0 lg:px-0 lg:py-4">
@@ -301,7 +301,7 @@ const SuperAdminHeader = memo(function SuperAdminHeader({ isMobileOpen, onToggle
 								</button>
 
 								{dropdownOpen && (
-									<div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-gray-200 bg-white py-1.5 shadow-lg dark:border-gray-800 dark:bg-gray-900 z-[60]">
+									<div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-gray-200 bg-card py-1.5 shadow-lg dark:border-gray-800 z-[60]">
 										<div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
 											<p className="text-sm font-semibold text-gray-900 dark:text-white">{displayName}</p>
 											{displayEmail && (

@@ -234,7 +234,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 							className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors ${
 								isActive ? 'bg-[#465fff] text-white'
 								: isDone ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-								: 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400'
+								: 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-muted dark:text-gray-400'
 							}`}>
 							{isDone ? <Check className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
 							<span className="hidden sm:inline">{s.label}</span>
@@ -243,7 +243,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 				})}
 			</div>
 
-			<div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900 min-h-[400px]">
+			<div className="rounded-xl border border-gray-200 bg-card p-6 dark:border-gray-800 min-h-[400px]">
 				<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">{STEPS[step].label}</h3>
 
 				{/* ═══ Step 0: School Info ═══ */}
@@ -271,7 +271,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 								<div>
 									<label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Theme</label>
 									<select value={form.themeName} onChange={(e) => update('themeName', e.target.value)}
-										className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white">
+										className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
 										{THEME_NAMES.map((t) => <option key={t} value={t}>{t}</option>)}
 									</select>
 								</div>
@@ -360,9 +360,9 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 							{form.administrativePositions.map((pos, i) => (
 								<div key={i} className="flex items-center gap-3 mb-2">
 									<input value={pos.id} onChange={(e) => { const next = [...form.administrativePositions]; next[i] = { ...next[i], id: e.target.value }; update('administrativePositions', next); }}
-										placeholder="ID (e.g. principal)" className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" />
+										placeholder="ID (e.g. principal)" className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 									<input value={pos.name} onChange={(e) => { const next = [...form.administrativePositions]; next[i] = { ...next[i], name: e.target.value }; update('administrativePositions', next); }}
-										placeholder="Display name (e.g. Principal)" className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" />
+										placeholder="Display name (e.g. Principal)" className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 									<button onClick={() => update('administrativePositions', form.administrativePositions.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 text-sm">Remove</button>
 								</div>
 							))}
@@ -381,7 +381,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 									const enabled = form.enabledFeatures.includes(key);
 									return (
 										<label key={key} onClick={() => update('enabledFeatures', enabled ? form.enabledFeatures.filter((f) => f !== key) : [...form.enabledFeatures, key])}
-											className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${enabled ? 'border-[#465fff]/30 bg-[#465fff]/5' : 'border-gray-200 bg-white hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900'}`}>
+											className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${enabled ? 'border-[#465fff]/30 bg-[#465fff]/5' : 'border-gray-200 bg-white hover:bg-gray-50 dark:border-gray-800 dark:bg-card'}`}>
 											<div className={`h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${enabled ? 'border-[#465fff] bg-[#465fff]' : 'border-gray-300'}`}>
 												{enabled && <Check className="h-2.5 w-2.5 text-white" />}
 											</div>
@@ -403,7 +403,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 												<button key={key} onClick={() => {
 													const current = form.roleFeatureAccess[role] || [];
 													update('roleFeatureAccess', { ...form.roleFeatureAccess, [role]: selected ? current.filter((f) => f !== key) : [...current, key] });
-												}} className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${selected ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400'}`}>
+												}} className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${selected ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-muted dark:text-gray-400'}`}>
 													{key.replace(/_/g, ' ')}
 												</button>
 											);
@@ -453,7 +453,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 							<div className="space-y-4">
 								{Object.entries(form.feeSchedules).map(([year, yearData]: [string, any]) => (
 									<div key={year} className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
-										<div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-3 flex items-center justify-between">
+										<div className="bg-gray-50 dark:bg-muted/50 px-4 py-3 flex items-center justify-between">
 											<span className="text-sm font-semibold text-gray-900 dark:text-white">{year}</span>
 											<button onClick={() => { const next = JSON.parse(JSON.stringify(form.feeSchedules)); delete next[year]; update('feeSchedules', next); }}
 												className="text-xs text-red-400 hover:text-red-600">Remove</button>
@@ -482,7 +482,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 																				}
 																				update('feeSchedules', next);
 																			}}
-																			className="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" placeholder="Old" />
+																			className="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="Old" />
 																		<input type="number" value={fgData.tuitionAndRegistration?.new?.tuition || 0}
 																			onChange={(e) => {
 																				const next = JSON.parse(JSON.stringify(form.feeSchedules));
@@ -493,7 +493,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 																				}
 																				update('feeSchedules', next);
 																			}}
-																			className="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" placeholder="New" />
+																			className="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="New" />
 																	</div>
 																</div>
 																<div>
@@ -517,7 +517,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 									value={JSON.stringify(form.feeSchedules, null, 2)}
 									onChange={(e) => { try { update('feeSchedules', JSON.parse(e.target.value)); } catch {} }}
 									rows={12}
-									className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-mono outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white"
+									className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-mono outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white"
 								/>
 							</details>
 						</div>
@@ -535,10 +535,10 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 									<label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Grade Scale</label>
 									<div className="flex items-center gap-2 mt-1.5">
 										<input type="number" value={form.settings.gradingSettings.gradeScale.min} onChange={(e) => update('settings.gradingSettings.gradeScale.min', Number(e.target.value) || 0)}
-											className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" placeholder="0" />
+											className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="0" />
 										<span className="text-gray-400">to</span>
 										<input type="number" value={form.settings.gradingSettings.gradeScale.max} onChange={(e) => update('settings.gradingSettings.gradeScale.max', Number(e.target.value) || 100)}
-											className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" placeholder="100" />
+											className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="100" />
 									</div>
 								</div>
 								<Field label="Summer School Weight" value={String(form.settings.gradingSettings.summerSchoolWeight)} onChange={(v) => update('settings.gradingSettings.summerSchoolWeight', Number(v) || 0)} placeholder="0" />
@@ -705,11 +705,11 @@ function ClassLevelsEditor({ classLevels, onChange, onUseDefaults }: {
 
 			{sessions.map((session) => (
 				<div key={session} className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
-					<div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800/50 px-4 py-3 gap-2">
+					<div className="flex items-center justify-between bg-gray-50 dark:bg-muted/50 px-4 py-3 gap-2">
 						{editingSession === session ? (
 							<div className="flex items-center gap-2 flex-1">
 								<input autoFocus value={editSessionName} onChange={(e) => setEditSessionName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && renameSession(session)}
-									className="flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" />
+									className="flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 								<button onClick={() => renameSession(session)} className="text-xs text-green-600 font-medium">Save</button>
 								<button onClick={() => setEditingSession(null)} className="text-xs text-gray-400">Cancel</button>
 							</div>
@@ -735,7 +735,7 @@ function ClassLevelsEditor({ classLevels, onChange, onUseDefaults }: {
 										{editingLevel?.session === session && editingLevel.level === level ? (
 											<div className="flex items-center gap-2 flex-1">
 												<input autoFocus value={editLevelName} onChange={(e) => setEditLevelName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && renameLevel(session, level)}
-													className="flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" />
+													className="flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 												<button onClick={() => renameLevel(session, level)} className="text-[10px] text-green-600 font-medium">Save</button>
 												<button onClick={() => setEditingLevel(null)} className="text-[10px] text-gray-400">Cancel</button>
 											</div>
@@ -764,9 +764,9 @@ function ClassLevelsEditor({ classLevels, onChange, onUseDefaults }: {
 											editingClass?.session === session && editingClass.level === level && editingClass.classIdx === ci ? (
 												<div key={ci} className="flex items-center gap-2 mb-1">
 													<input autoFocus value={editClassName} onChange={(e) => setEditClassName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveEditClass(session, level, ci)}
-														className="flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" />
+														className="flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 													<input value={editClassFeeGroup} onChange={(e) => setEditClassFeeGroup(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveEditClass(session, level, ci)}
-														className="w-20 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" />
+														className="w-20 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 													<button onClick={() => saveEditClass(session, level, ci)} className="text-[10px] text-green-600 font-medium">Save</button>
 													<button onClick={() => setEditingClass(null)} className="text-[10px] text-gray-400">Cancel</button>
 												</div>
@@ -782,9 +782,9 @@ function ClassLevelsEditor({ classLevels, onChange, onUseDefaults }: {
 										))}
 										<div className="flex items-center gap-2 mt-1">
 											<input value={newClassName} onChange={(e) => setNewClassName(e.target.value)} placeholder="Class name" onKeyDown={(e) => e.key === 'Enter' && addClass(session, level)}
-												className="flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" />
+												className="flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 											<input value={newClassFeeGroup} onChange={(e) => setNewClassFeeGroup(e.target.value)} placeholder="Fee group" onKeyDown={(e) => e.key === 'Enter' && addClass(session, level)}
-												className="w-24 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" />
+												className="w-24 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 											<button onClick={() => addClass(session, level)} className="text-xs text-[#465fff] font-medium">+Add</button>
 										</div>
 									</div>
@@ -795,9 +795,9 @@ function ClassLevelsEditor({ classLevels, onChange, onUseDefaults }: {
 											editingSubject?.session === session && editingSubject.level === level && editingSubject.subjectIdx === si ? (
 												<div key={si} className="flex items-center gap-2 mb-1">
 													<input autoFocus value={editSubjectName} onChange={(e) => setEditSubjectName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveEditSubject(session, level, si)}
-														className="flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" />
+														className="flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 													<input value={editSubjectWeight} onChange={(e) => setEditSubjectWeight(e.target.value)} type="number" onKeyDown={(e) => e.key === 'Enter' && saveEditSubject(session, level, si)}
-														className="w-14 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" />
+														className="w-14 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 													<button onClick={() => saveEditSubject(session, level, si)} className="text-[10px] text-green-600 font-medium">Save</button>
 													<button onClick={() => setEditingSubject(null)} className="text-[10px] text-gray-400">Cancel</button>
 												</div>
@@ -813,9 +813,9 @@ function ClassLevelsEditor({ classLevels, onChange, onUseDefaults }: {
 										))}
 										<div className="flex items-center gap-2 mt-1">
 											<input value={newSubjectName} onChange={(e) => setNewSubjectName(e.target.value)} placeholder="Subject name" onKeyDown={(e) => e.key === 'Enter' && addSubject(session, level)}
-												className="flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" />
+												className="flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 											<input value={newSubjectWeight} onChange={(e) => setNewSubjectWeight(e.target.value)} placeholder="Weight" type="number" onKeyDown={(e) => e.key === 'Enter' && addSubject(session, level)}
-												className="w-16 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" />
+												className="w-16 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 											<button onClick={() => addSubject(session, level)} className="text-xs text-[#465fff] font-medium">+Add</button>
 										</div>
 									</div>
@@ -824,7 +824,7 @@ function ClassLevelsEditor({ classLevels, onChange, onUseDefaults }: {
 							<div className="flex items-center gap-2 ml-4">
 								<input value={newLevel} onChange={(e) => setNewLevel(e.target.value)} placeholder="New level name (e.g. Grade 1)"
 									onKeyDown={(e) => e.key === 'Enter' && (() => { if (newLevel.trim()) { onChange({ ...classLevels, [session]: { ...classLevels[session], [newLevel.trim()]: { classes: [], subjects: [] } } }); setNewLevel(''); } })()}
-									className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" />
+									className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 								<button onClick={() => { if (newLevel.trim()) { onChange({ ...classLevels, [session]: { ...classLevels[session], [newLevel.trim()]: { classes: [], subjects: [] } } }); setNewLevel(''); } }}
 									className="rounded-lg bg-[#465fff]/10 px-3 py-2 text-xs font-semibold text-[#465fff] hover:bg-[#465fff]/20">+ Level</button>
 							</div>
@@ -836,7 +836,7 @@ function ClassLevelsEditor({ classLevels, onChange, onUseDefaults }: {
 			<div className="flex items-center gap-2">
 				<input value={newSession} onChange={(e) => setNewSession(e.target.value)} placeholder="New session name (e.g. Morning)"
 					onKeyDown={(e) => e.key === 'Enter' && (() => { if (newSession.trim()) { onChange({ ...classLevels, [newSession.trim()]: {} }); setNewSession(''); setExpandedSession(newSession.trim()); } })()}
-					className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" />
+					className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 				<button onClick={() => { if (newSession.trim()) { onChange({ ...classLevels, [newSession.trim()]: {} }); setNewSession(''); setExpandedSession(newSession.trim()); } }}
 					className="rounded-lg bg-[#465fff] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#3a4fe6] transition-colors">+ Session</button>
 			</div>
@@ -878,7 +878,7 @@ function AcademicPermissionsEditor({ studentSettings, teacherSettings, currentYe
 							<p className="text-xs font-semibold text-gray-500 mb-2">Periods</p>
 							<div className="flex flex-wrap gap-2">{ACADEMIC_PERIODS.map((p) => (
 								<button key={p} onClick={() => updateStudentYear({ periods: togglePeriod(studentYear.periods, p) })}
-									className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${studentYear.periods.includes(p) ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}>
+									className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${studentYear.periods.includes(p) ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 dark:bg-muted dark:text-gray-400'}`}>
 									{p.replace(/_/g, ' ')}
 								</button>
 							))}</div>
@@ -887,7 +887,7 @@ function AcademicPermissionsEditor({ studentSettings, teacherSettings, currentYe
 							<p className="text-xs font-semibold text-gray-500 mb-2">Semesters</p>
 							<div className="flex flex-wrap gap-2">{SEMESTERS.map((s) => (
 								<button key={s} onClick={() => updateStudentYear({ semesters: togglePeriod(studentYear.semesters, s) })}
-									className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${studentYear.semesters.includes(s) ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}>
+									className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${studentYear.semesters.includes(s) ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 dark:bg-muted dark:text-gray-400'}`}>
 									{s} semester
 								</button>
 							))}</div>
@@ -901,7 +901,7 @@ function AcademicPermissionsEditor({ studentSettings, teacherSettings, currentYe
 							<div className="ml-4"><p className="text-xs font-semibold text-gray-500 mb-2">Grade Submission Periods</p>
 								<div className="flex flex-wrap gap-2">{ACADEMIC_PERIODS.map((p) => (
 									<button key={p} onClick={() => updateTeacherYear({ gradeSubmission: { ...teacherYear.gradeSubmission, periods: togglePeriod(teacherYear.gradeSubmission.periods, p) } })}
-										className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${teacherYear.gradeSubmission.periods.includes(p) ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}>
+										className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${teacherYear.gradeSubmission.periods.includes(p) ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 dark:bg-muted dark:text-gray-400'}`}>
 										{p.replace(/_/g, ' ')}
 									</button>
 								))}</div>
@@ -913,7 +913,7 @@ function AcademicPermissionsEditor({ studentSettings, teacherSettings, currentYe
 							<div className="ml-4"><p className="text-xs font-semibold text-gray-500 mb-2">Change Request Periods</p>
 								<div className="flex flex-wrap gap-2">{ACADEMIC_PERIODS.map((p) => (
 									<button key={p} onClick={() => updateTeacherYear({ gradeChangeRequest: { ...teacherYear.gradeChangeRequest, periods: togglePeriod(teacherYear.gradeChangeRequest.periods, p) } })}
-										className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${teacherYear.gradeChangeRequest.periods.includes(p) ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}>
+										className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${teacherYear.gradeChangeRequest.periods.includes(p) ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 dark:bg-muted dark:text-gray-400'}`}>
 										{p.replace(/_/g, ' ')}
 									</button>
 								))}</div>
@@ -935,7 +935,7 @@ function Field({ label, required, value, onChange, onBlur, placeholder }: {
 		<div>
 			<label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{label} {required && <span className="text-red-400">*</span>}</label>
 			<input type="text" required={required} value={value} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} placeholder={placeholder}
-				className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] focus:ring-2 focus:ring-[#465fff]/10 dark:border-gray-800 dark:bg-gray-800 dark:text-white" />
+				className="mt-1.5 w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] focus:ring-2 focus:ring-[#465fff]/10 dark:border-gray-800 dark:bg-muted dark:text-white" />
 		</div>
 	);
 }
@@ -946,7 +946,7 @@ function DynamicList({ values, onChange, placeholder }: { values: string[]; onCh
 			{values.map((val, i) => (
 				<div key={i} className="flex items-center gap-2">
 					<input value={val} onChange={(e) => { const next = [...values]; next[i] = e.target.value; onChange(next); }} placeholder={placeholder}
-						className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-800 dark:text-white" />
+						className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 					<button onClick={() => onChange(values.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 text-sm">Remove</button>
 				</div>
 			))}

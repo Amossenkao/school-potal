@@ -25,7 +25,7 @@ export default function SuperAdminSettingsPage() {
 			</div>
 
 			{/* Appearance */}
-			<div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+			<div className="rounded-xl border border-gray-200 bg-card p-6 dark:border-gray-800">
 				<div className="flex items-center gap-3 mb-5">
 					<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#465fff]/10">
 						<Palette className="h-4.5 w-4.5 text-[#465fff]" />
@@ -47,7 +47,7 @@ export default function SuperAdminSettingsPage() {
 						className="relative inline-flex h-8 w-14 items-center rounded-full transition-colors bg-gray-200 dark:bg-[#465fff]"
 					>
 						<span
-							className={`inline-flex h-6 w-6 items-center justify-center rounded-full bg-white shadow transition-transform ${
+							className={`inline-flex h-6 w-6 items-center justify-center rounded-full bg-card shadow transition-transform ${
 								theme === 'dark' ? 'translate-x-7' : 'translate-x-1'
 							}`}
 						>
@@ -62,7 +62,7 @@ export default function SuperAdminSettingsPage() {
 			</div>
 
 			{/* Admin Account */}
-			<div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+			<div className="rounded-xl border border-gray-200 bg-card p-6 dark:border-gray-800">
 				<div className="flex items-center gap-3 mb-5">
 					<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-50">
 						<Info className="h-4.5 w-4.5 text-green-500" />
@@ -87,7 +87,7 @@ export default function SuperAdminSettingsPage() {
 			</div>
 
 			{/* Platform Info */}
-			<div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+			<div className="rounded-xl border border-gray-200 bg-card p-6 dark:border-gray-800">
 				<div className="flex items-center gap-3 mb-5">
 					<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-50">
 						<Info className="h-4.5 w-4.5 text-purple-500" />

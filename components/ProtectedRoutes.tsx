@@ -3,17 +3,20 @@ import { useEffect, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import useAuth from '@/store/useAuth';
 import { PageLoading } from '@/components/loading';
+import type { PageLoadingProps } from '@/components/loading';
 
 interface ProtectedRouteProps {
 	children: React.ReactNode;
 	requiredRole?: string;
 	allowedRoles?: string[];
+	spinnerVariant?: PageLoadingProps['variant'];
 }
 
 const ProtectedRoute = ({
 	children,
 	requiredRole,
 	allowedRoles,
+	spinnerVariant = 'company',
 }: ProtectedRouteProps) => {
 	const { user, startupResolved, isLoggingOut } = useAuth();
 	const router = useRouter();
@@ -63,14 +66,14 @@ const ProtectedRoute = ({
 	// tick before the first effect runs.
 	if (!startupResolved) {
 		return (
-			<PageLoading variant="school" fullScreen={true} message="Loading..." />
+			<PageLoading variant={spinnerVariant} fullScreen={true} message="Loading..." />
 		);
 	}
 
 	if (isLoggingOut) {
 		return (
 			<PageLoading
-				variant="school"
+				variant={spinnerVariant}
 				fullScreen={true}
 				message="Signing out..."
 			/>
@@ -80,7 +83,7 @@ const ProtectedRoute = ({
 	if (!isAuthenticated) {
 		return (
 			<PageLoading
-				variant="school"
+				variant={spinnerVariant}
 				fullScreen={true}
 				message="Redirecting to login..."
 			/>
@@ -97,7 +100,7 @@ const ProtectedRoute = ({
 	) {
 		return (
 			<PageLoading
-				variant="school"
+				variant={spinnerVariant}
 				fullScreen={true}
 				message="Preparing account setup..."
 			/>

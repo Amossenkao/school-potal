@@ -41,6 +41,19 @@ type SuperAdminUserCounts = {
 
 type SuperAdminSchoolCounts = SuperAdminUserCounts;
 
+type SystemAdminSummary = {
+	_id: string;
+	firstName: string;
+	middleName?: string;
+	lastName: string;
+	fullName: string;
+	username: string;
+	phone: string;
+	email: string;
+	isActive: boolean;
+	createdAt?: string;
+};
+
 type SuperAdminSchoolSummary = {
 	id?: string;
 	_id?: string;
@@ -64,6 +77,7 @@ type SuperAdminSchoolSummary = {
 	stats?: SuperAdminSchoolCounts;
 	users?: Omit<SuperAdminUserCounts, 'total'>;
 	totalUsers?: number;
+	systemAdmins?: SystemAdminSummary[];
 };
 
 type SuperAdminStats = {
@@ -134,6 +148,8 @@ const normalizeSuperAdminSchool = (school: any): SuperAdminSchoolSummary | null 
 		stats.total ||
 		stats.students + stats.teachers + stats.administrators + stats.systemAdmins;
 
+	const systemAdmins = Array.isArray(school?.systemAdmins) ? school.systemAdmins : undefined;
+
 	return {
 		...school,
 		id: school?.id || school?._id,
@@ -150,6 +166,7 @@ const normalizeSuperAdminSchool = (school: any): SuperAdminSchoolSummary | null 
 			systemAdmins: stats.systemAdmins,
 		},
 		totalUsers: stats.total,
+		...(systemAdmins ? { systemAdmins } : {}),
 	};
 };
 
@@ -612,8 +629,19 @@ const runDeferredPostLoginBootstrap = (
 			const normalized = normalizeSuperAdminSchool(school);
 			if (!normalized) return;
 			set((state) => {
-				const exists = state.superAdminSchools.some((item) => item.host === normalized.host);
-				const schools = exists
+				const existing = state.superAdminSchools.find((item) => item.host === normalized.host);
+				const hasIncomingStats = Boolean(school?.stats || school?.users || school?.totalUsers);
+				if (existing && !hasIncomingStats && normalized.stats) {
+					const hasExistingStats = Boolean(
+						existing.stats && (existing.stats.students || existing.stats.teachers || existing.stats.administrators || existing.stats.systemAdmins || existing.stats.total),
+					);
+					if (hasExistingStats) {
+						normalized.stats = existing.stats;
+						normalized.users = existing.users;
+						normalized.totalUsers = existing.totalUsers;
+					}
+				}
+				const schools = existing
 					? state.superAdminSchools.map((item) =>
 							item.host === normalized.host ? { ...item, ...normalized } : item,
 						)

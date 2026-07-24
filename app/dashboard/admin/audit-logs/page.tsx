@@ -114,7 +114,7 @@ export default function AuditLogsPage() {
 					<button
 						onClick={seedDemoLogs}
 						disabled={seeding}
-						className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 disabled:opacity-50"
+						className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-card px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors dark:border-gray-800 dark:text-gray-400 disabled:opacity-50"
 					>
 						<Database className={`h-4 w-4 ${seeding ? 'animate-spin' : ''}`} />
 						{seeding ? 'Seeding...' : 'Seed Demo Data'}
@@ -122,7 +122,7 @@ export default function AuditLogsPage() {
 					<button
 						onClick={fetchLogs}
 						disabled={loading}
-						className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400"
+						className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-card px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors dark:border-gray-800 dark:text-gray-400"
 					>
 						<RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
 						Refresh
@@ -139,7 +139,7 @@ export default function AuditLogsPage() {
 				<select
 					value={levelFilter}
 					onChange={(e) => { setLevelFilter(e.target.value); setPage(1); }}
-					className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-900 dark:text-white"
+					className="rounded-lg border border-gray-200 bg-card px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:text-white"
 				>
 					<option value="">All Levels</option>
 					<option value="info">Info</option>
@@ -150,7 +150,7 @@ export default function AuditLogsPage() {
 				<select
 					value={categoryFilter}
 					onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
-					className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-gray-900 dark:text-white"
+					className="rounded-lg border border-gray-200 bg-card px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:text-white"
 				>
 					<option value="">All Categories</option>
 					<option value="system">System</option>
@@ -163,7 +163,7 @@ export default function AuditLogsPage() {
 			</div>
 
 			{/* Log entries */}
-			<div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 overflow-hidden">
+			<div className="rounded-xl border border-gray-200 bg-card dark:border-gray-800 overflow-hidden">
 				{loading ? (
 					<div className="flex items-center justify-center py-20">
 						<Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -187,7 +187,7 @@ export default function AuditLogsPage() {
 											<span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${config.bg} ${config.color}`}>
 												{config.label}
 											</span>
-											<span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+											<span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 dark:bg-muted dark:text-gray-400">
 												{CATEGORY_LABELS[log.category] || log.category}
 											</span>
 											{log.source && (
@@ -196,7 +196,7 @@ export default function AuditLogsPage() {
 										</div>
 										<p className="mt-1.5 text-sm text-gray-900 dark:text-white">{log.message}</p>
 										{log.details && (
-											<pre className="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-600 overflow-x-auto dark:bg-gray-800/50 dark:text-gray-400">
+											<pre className="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-600 overflow-x-auto dark:bg-muted/50 dark:text-gray-400">
 													{typeof log.details === 'string' ? log.details : JSON.stringify(log.details, null, 2)}
 											</pre>
 										)}

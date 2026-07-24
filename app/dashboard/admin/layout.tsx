@@ -8,6 +8,6 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
 	return (
-		<ProtectedRoute allowedRoles={['system_admin', 'superadmin']}>{children}</ProtectedRoute>
+		<ProtectedRoute allowedRoles={['system_admin', 'superadmin']} spinnerVariant="school">{children}</ProtectedRoute>
 	);
 }

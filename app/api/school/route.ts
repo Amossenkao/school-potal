@@ -148,6 +148,25 @@ async function getTenantUserCounts(dbName: string) {
 	}
 }
 
+async function getTenantSystemAdmins(dbName: string) {
+	try {
+		const connection = await getTenantConnectionByDbName(dbName);
+		if (!connection) return [];
+		let User = connection.models.User;
+		if (!User) {
+			User = connection.model('User', UserSchema);
+		}
+		const admins = await User.find({ role: 'system_admin' })
+			.select('firstName middleName lastName fullName username phone email isActive createdAt')
+			.sort({ createdAt: -1 })
+			.lean()
+			.exec();
+		return admins || [];
+	} catch {
+		return [];
+	}
+}
+
 function unauthorized() {
 	return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 }
@@ -232,14 +251,19 @@ export async function GET(request: NextRequest) {
 			// All schools
 			if (all === 'true') {
 				const schools = await SchoolProfile.find({})
-					.select('host dbName name slogan shortName initials logoUrl isActive address phones emails administrativePositions sysAdmin settings.studentSettings.loginAccess settings.teacherSettings.loginAccess settings.administratorSettings.loginAccess')
+					.select('host dbName name slogan shortName initials studentIdPrefix logoUrl logoUrl2 yearFounded firstAcademicYear currentAcademicYear isActive themeName enabledFeatures roleFeatureAccess classLevels feeSchedules settings address phones emails administrativePositions sysAdmin')
 					.lean().exec();
 				const dbNames = [...new Set(schools.map((s: any) => s.dbName).filter(Boolean))] as string[];
-				const countsByDbName = new Map(
-					await Promise.all(
+				const [countsEntries, systemAdminsEntries] = await Promise.all([
+					Promise.all(
 						dbNames.map(async (dbName) => [dbName, await getTenantUserCounts(dbName)] as const),
 					),
-				);
+					Promise.all(
+						dbNames.map(async (dbName) => [dbName, await getTenantSystemAdmins(dbName)] as const),
+					),
+				]);
+				const countsByDbName = new Map(countsEntries);
+				const systemAdminsByDbName = new Map(systemAdminsEntries);
 				const schoolsWithStats = schools.map((school: any) => {
 					const counts = countsByDbName.get(school.dbName) || {
 						students: 0,
@@ -247,6 +271,7 @@ export async function GET(request: NextRequest) {
 						administrators: 0,
 						systemAdmins: 0,
 					};
+					const schoolSystemAdmins = systemAdminsByDbName.get(school.dbName) || [];
 					return {
 						...school,
 						stats: {
@@ -263,6 +288,7 @@ export async function GET(request: NextRequest) {
 							counts.teachers +
 							counts.administrators +
 							counts.systemAdmins,
+						systemAdmins: schoolSystemAdmins,
 					};
 				});
 				return NextResponse.json({ schools: schoolsWithStats });

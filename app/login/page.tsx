@@ -1102,7 +1102,7 @@ useEffect(() => {
 		!isRedirecting &&
 		Boolean(user?.isActive || isLoggedIn);
 	if (isBootstrappingSession)
-		return <PageLoading variant="school" message="Loading…" />;
+		return <PageLoading variant="company" message="Loading…" />;
 
 	if (!hasSchool) {
 		return <SuperAdminLoginPage />;
@@ -1118,9 +1118,9 @@ useEffect(() => {
 
 	return (
 		<>
-			{isRedirecting && (
-				<PageLoading variant="school" message="Opening dashboard…" />
-			)}
+		{isRedirecting && (
+			<PageLoading variant="company" message="Opening dashboard…" />
+		)}
 
 			{/* Theme toggle */}
 			<div className="fixed top-4 right-4 z-50">

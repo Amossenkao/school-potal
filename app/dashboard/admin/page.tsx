@@ -55,7 +55,7 @@ export default function SuperAdminDashboardPage() {
 					return (
 						<div
 							key={stat.label}
-							className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900"
+							className="rounded-xl border border-gray-200 bg-card p-5 dark:border-gray-800"
 						>
 							<div className="flex items-center justify-between">
 								<p className="text-sm font-medium text-gray-500">{stat.label}</p>
@@ -74,7 +74,7 @@ export default function SuperAdminDashboardPage() {
 			{/* Quick Actions + Recent Schools */}
 			<div className="grid gap-6 lg:grid-cols-3">
 				{/* Quick Actions */}
-				<div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+				<div className="rounded-xl border border-gray-200 bg-card p-6 dark:border-gray-800">
 					<h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
 					<div className="space-y-3">
 						<Link
@@ -102,7 +102,7 @@ export default function SuperAdminDashboardPage() {
 				</div>
 
 				{/* Recent Schools */}
-				<div className="lg:col-span-2 rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+				<div className="lg:col-span-2 rounded-xl border border-gray-200 bg-card p-6 dark:border-gray-800">
 					<div className="flex items-center justify-between mb-4">
 						<h3 className="text-sm font-semibold text-gray-900 dark:text-white">Recent Schools</h3>
 						<Link href="/dashboard/schools" className="text-xs font-medium text-[#465fff] hover:underline">
