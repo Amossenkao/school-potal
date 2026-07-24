@@ -452,7 +452,7 @@ const SchoolProfileSchema = new Schema<SchoolProfile & Document>(
 		themeName: {
 			type: String,
 			enum: TENANT_THEME_NAMES,
-			default: 'horizon',
+			default: TENANT_THEME_NAMES[0],
 		},
 
 		// Features & Permissions

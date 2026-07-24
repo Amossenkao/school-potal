@@ -12,6 +12,7 @@ import {
 	buildFeeScheduleScaffold, buildDefaultStudentSettings, buildDefaultTeacherSettings,
 	getAcademicYearRange,
 } from '@/app/dashboard/admin/defaults/classLevels';
+import { TENANT_THEME_NAMES, DEFAULT_TENANT_THEME_NAME } from '@/types/tenantTheme';
 
 const FEATURE_KEYS = [
 	'dashboard', 'user_management', 'profile_management', 'ai_chat', 'homepage',
@@ -20,9 +21,7 @@ const FEATURE_KEYS = [
 	'admissions', 'support_system', 'community', 'notifications', 'school_settings',
 ];
 
-const THEME_NAMES = [
-	'horizon', 'sunset', 'ocean', 'forest', 'slate', 'midnight', 'rose', 'emerald',
-];
+const THEME_NAMES = TENANT_THEME_NAMES;
 
 const ACADEMIC_PERIODS = [
 	'first', 'second', 'third', 'third_period_exam', 'fourth', 'fifth', 'sixth', 'sixth_period_exam',
@@ -92,7 +91,7 @@ export const defaultFormData: SchoolFormData = {
 	firstAcademicYear: '', currentAcademicYear: '',
 	administrativePositions: [...DEFAULT_ADMIN_POSITIONS],
 	sysAdmin: { name: '', phone: '', email: '' },
-	themeName: 'horizon',
+	themeName: DEFAULT_TENANT_THEME_NAME,
 	enabledFeatures: [...DEFAULT_FEATURES],
 	roleFeatureAccess: { ...DEFAULT_ROLE_FEATURE_ACCESS },
 	settings: {

@@ -26,6 +26,7 @@ import {
 import { authorizeUser } from '@/proxy';
 import { normalizeHost } from '@/utils/host';
 import { TENANT_THEMES } from '@/lib/tenantTheme';
+import { DEFAULT_TENANT_THEME_NAME } from '@/types/tenantTheme';
 
 // --- Settings sanitization helpers (migrated from /api/settings) ---
 
@@ -355,7 +356,7 @@ export async function POST(request: NextRequest) {
 			currentAcademicYear: currentYear,
 			administrativePositions: [],
 			sysAdmin: { name: sysAdmin.name || '', phone: sysAdmin.phone || '', email: sysAdmin.email || '' },
-			themeName: 'horizon',
+			themeName: DEFAULT_TENANT_THEME_NAME,
 			enabledFeatures: ['dashboard', 'user_management', 'profile_management', 'homepage'],
 			roleFeatureAccess: { student: [], teacher: [], system_admin: [], administrator: {} },
 			settings: {
