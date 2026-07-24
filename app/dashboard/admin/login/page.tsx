@@ -15,12 +15,6 @@ export default function SuperAdminLoginPage() {
 
 	const { login, isLoading, error, clearError } = useAuth();
 
-	const fillDemo = () => {
-		setUsername('admin');
-		setPassword('admin');
-		clearError();
-	};
-
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 
@@ -186,14 +180,6 @@ export default function SuperAdminLoginPage() {
 								<LogIn className="h-4 w-4" />
 							)}
 							{isLoading ? 'Signing in...' : 'Sign in'}
-						</button>
-
-						<button
-							type="button"
-							onClick={fillDemo}
-							className="w-full rounded-full border border-gray-200 bg-white px-6 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-800"
-						>
-							Use Demo Credentials
 						</button>
 					</form>
 
