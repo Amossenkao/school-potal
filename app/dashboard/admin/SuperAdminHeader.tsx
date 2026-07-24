@@ -56,7 +56,7 @@ const SuperAdminHeader = memo(function SuperAdminHeader({ isMobileOpen, onToggle
 	const handleLogout = () => {
 		setDropdownOpen(false);
 		sessionStorage.removeItem('superadmin_auth');
-		router.replace('/superadmin/login');
+		router.replace('/login');
 	};
 
 	return (

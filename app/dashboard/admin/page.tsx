@@ -104,21 +104,21 @@ export default function SuperAdminDashboardPage() {
 					<h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
 					<div className="space-y-3">
 						<Link
-							href="/superadmin/schools"
+							href="/dashboard/admin/schools"
 							className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800/50"
 						>
 							<span>View All Schools</span>
 							<ArrowRight className="h-4 w-4 text-gray-400" />
 						</Link>
 						<Link
-							href="/superadmin/onboard"
+							href="/dashboard/admin/onboard"
 							className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800/50"
 						>
 							<span>Onboard New School</span>
 							<ArrowRight className="h-4 w-4 text-gray-400" />
 						</Link>
 						<Link
-							href="/superadmin/audit-logs"
+							href="/dashboard/admin/audit-logs"
 							className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800/50"
 						>
 							<span>View Audit Logs</span>
@@ -131,7 +131,7 @@ export default function SuperAdminDashboardPage() {
 				<div className="lg:col-span-2 rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
 					<div className="flex items-center justify-between mb-4">
 						<h3 className="text-sm font-semibold text-gray-900 dark:text-white">Recent Schools</h3>
-						<Link href="/superadmin/schools" className="text-xs font-medium text-[#465fff] hover:underline">
+						<Link href="/dashboard/admin/schools" className="text-xs font-medium text-[#465fff] hover:underline">
 							View all
 						</Link>
 					</div>
@@ -142,7 +142,7 @@ export default function SuperAdminDashboardPage() {
 							{stats.recentSchools.map((school) => (
 								<Link
 									key={school.host}
-									href={`/superadmin/schools/${school.host}`}
+									href={`/dashboard/admin/schools/${school.host}`}
 									className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-gray-50 transition-colors dark:hover:bg-gray-800/50"
 								>
 									<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#465fff]/10 text-xs font-bold text-[#465fff]">

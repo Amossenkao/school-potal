@@ -41,7 +41,7 @@ export default function SuperAdminLoginPage() {
 				return;
 			}
 
-			window.location.href = '/superadmin';
+			window.location.href = '/dashboard/admin';
 		} catch {
 			setError('Something went wrong. Please try again.');
 		} finally {

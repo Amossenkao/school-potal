@@ -14,7 +14,7 @@ import {
 	Wifi,
 	WifiOff,
 } from 'lucide-react';
-import { useSuperadminRealtime } from '../hooks/useSuperadminRealtime';
+import { useSuperadminRealtime } from '@/app/dashboard/admin/hooks/useSuperadminRealtime';
 import type { RealtimeEvent } from '@/lib/realtimeTypes';
 
 interface SchoolSummary {
@@ -142,7 +142,7 @@ export default function SchoolsListPage() {
 					</p>
 				</div>
 				<Link
-					href="/superadmin/onboard"
+					href="/dashboard/admin/onboard"
 					className="inline-flex items-center gap-2 rounded-lg bg-[#465fff] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#3a4fe6] transition-colors"
 				>
 					<PlusCircle className="h-4 w-4" />
@@ -246,7 +246,7 @@ export default function SchoolsListPage() {
 										</td>
 										<td className="px-4 py-3 text-right">
 											<Link
-												href={`/superadmin/schools/${school.host}`}
+												href={`/dashboard/admin/schools/${school.host}`}
 												className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors dark:text-gray-400 dark:hover:bg-gray-800"
 											>
 												Manage

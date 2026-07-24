@@ -52,6 +52,11 @@ const ProtectedRoute = ({
 		router.replace('/login/account-setup');
 	}, [startupResolved, pathname, router, user]);
 
+	useEffect(() => {
+		if (!startupResolved || isLoggingOut || isAuthenticated) return;
+		router.replace('/login');
+	}, [startupResolved, isLoggingOut, isAuthenticated, router]);
+
 	// startupResolved is set synchronously during bootstrapAuth (which calls
 	// hydrateFromCache before setting the flag). This covers the single render
 	// tick before the first effect runs.

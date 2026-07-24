@@ -11,7 +11,7 @@ import {
 	DEFAULT_ROLE_FEATURE_ACCESS, DEFAULT_GRADING_SETTINGS,
 	buildFeeScheduleScaffold, buildDefaultStudentSettings, buildDefaultTeacherSettings,
 	getAcademicYearRange,
-} from '../defaults/classLevels';
+} from '@/app/dashboard/admin/defaults/classLevels';
 
 const FEATURE_KEYS = [
 	'dashboard', 'user_management', 'profile_management', 'ai_chat', 'homepage',

@@ -17,11 +17,11 @@ import {
 } from 'lucide-react';
 
 const NAV_ITEMS = [
-	{ label: 'Dashboard', href: '/superadmin', icon: LayoutDashboard },
-	{ label: 'Schools', href: '/superadmin/schools', icon: School },
-	{ label: 'Onboard', href: '/superadmin/onboard', icon: PlusCircle },
-	{ label: 'Audit Logs', href: '/superadmin/audit-logs', icon: ScrollText },
-	{ label: 'Settings', href: '/superadmin/settings', icon: Settings },
+	{ label: 'Dashboard', href: '/dashboard/admin', icon: LayoutDashboard },
+	{ label: 'Schools', href: '/dashboard/admin/schools', icon: School },
+	{ label: 'Onboard', href: '/dashboard/admin/onboard', icon: PlusCircle },
+	{ label: 'Audit Logs', href: '/dashboard/admin/audit-logs', icon: ScrollText },
+	{ label: 'Settings', href: '/dashboard/admin/settings', icon: Settings },
 ];
 
 const SuperAdminSidebar = memo(function SuperAdminSidebar() {
@@ -46,7 +46,7 @@ const SuperAdminSidebar = memo(function SuperAdminSidebar() {
 			{/* Logo */}
 			<div className={`flex items-center gap-3 px-4 h-16 shrink-0 border-b border-white/10 ${effectiveExpanded ? 'justify-start' : 'justify-center'}`}>
 				{effectiveExpanded ? (
-					<Link href="/superadmin" className="flex items-center gap-2.5" onClick={handleNavClick}>
+					<Link href="/dashboard/admin" className="flex items-center gap-2.5" onClick={handleNavClick}>
 						<Image src="/images/SchoolMesh.png" alt="SchoolMesh" width={32} height={32} className="h-8 w-8 rounded-lg object-contain" />
 						<div>
 							<p className="text-sm font-bold tracking-tight">School<span className="text-[#465fff]">Mesh</span></p>
@@ -54,7 +54,7 @@ const SuperAdminSidebar = memo(function SuperAdminSidebar() {
 						</div>
 					</Link>
 				) : (
-					<Link href="/superadmin" onClick={handleNavClick}>
+					<Link href="/dashboard/admin" onClick={handleNavClick}>
 						<Image src="/images/SchoolMesh.png" alt="SM" width={32} height={32} className="h-8 w-8 rounded-lg object-contain" />
 					</Link>
 				)}
@@ -67,9 +67,9 @@ const SuperAdminSidebar = memo(function SuperAdminSidebar() {
 			<nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
 				{NAV_ITEMS.map((item) => {
 					const Icon = item.icon;
-					const isActive = item.href === '/superadmin'
-						? pathname === '/superadmin'
-						: pathname.startsWith(item.href);
+				const isActive = item.href === '/dashboard/admin'
+					? pathname === '/dashboard/admin'
+					: pathname.startsWith(item.href);
 					return (
 						<Link
 							key={item.href}

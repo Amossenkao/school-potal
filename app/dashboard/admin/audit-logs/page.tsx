@@ -197,7 +197,7 @@ export default function AuditLogsPage() {
 										<p className="mt-1.5 text-sm text-gray-900 dark:text-white">{log.message}</p>
 										{log.details && (
 											<pre className="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-600 overflow-x-auto dark:bg-gray-800/50 dark:text-gray-400">
-												{typeof log.details === 'string' ? log.details : JSON.stringify(log.details, null, 2)}
+													{typeof log.details === 'string' ? log.details : JSON.stringify(log.details, null, 2)}
 											</pre>
 										)}
 									</div>

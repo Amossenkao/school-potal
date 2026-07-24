@@ -6,8 +6,8 @@ import Link from 'next/link';
 import {
 	ArrowLeft, Loader2, Trash2, Users, GraduationCap, BookOpen, ShieldCheck, UserPlus, Settings,
 } from 'lucide-react';
-import SchoolProfileForm, { SchoolFormData } from '../../components/SchoolProfileForm';
-import { useSuperadminRealtime } from '../../hooks/useSuperadminRealtime';
+import SchoolProfileForm, { SchoolFormData } from '@/app/dashboard/admin/components/SchoolProfileForm';
+import { useSuperadminRealtime } from '@/app/dashboard/admin/hooks/useSuperadminRealtime';
 import type { RealtimeEvent } from '@/lib/realtimeTypes';
 
 interface SchoolStats {
@@ -104,7 +104,7 @@ export default function SchoolDetailPage() {
 			setSaving(true);
 			const res = await fetch(`/api/superadmin/schools/${host}`, { method: 'DELETE' });
 			if (!res.ok) throw new Error('Failed to delete school');
-			router.push('/superadmin/schools');
+			router.push('/dashboard/admin/schools');
 		} catch (e: any) {
 			setError(e.message);
 			setSaving(false);
@@ -114,7 +114,7 @@ export default function SchoolDetailPage() {
 	const handleRealtimeEvent = useCallback((event: RealtimeEvent) => {
 		const reason = String(event.payload?.reason || '').trim();
 		if (reason === 'school-deleted') {
-			router.push('/superadmin/schools');
+			router.push('/dashboard/admin/schools');
 			return;
 		}
 		if (reason === 'school-updated' || reason === 'school-toggled-active') {
@@ -148,7 +148,7 @@ export default function SchoolDetailPage() {
 		<div className="space-y-6">
 			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 				<div className="flex items-center gap-3">
-					<Link href="/superadmin/schools" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 transition-colors">
+					<Link href="/dashboard/admin/schools" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 transition-colors">
 						<ArrowLeft className="h-5 w-5" />
 					</Link>
 					<div>
@@ -158,7 +158,7 @@ export default function SchoolDetailPage() {
 				</div>
 				<div className="flex items-center gap-3">
 					<Link
-						href={`/superadmin/schools/${host}/admins`}
+						href={`/dashboard/admin/schools/${host}/admins`}
 						className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors dark:border-gray-800 dark:text-gray-400"
 					>
 						<ShieldCheck className="h-4 w-4" />

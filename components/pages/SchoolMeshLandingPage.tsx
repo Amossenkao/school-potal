@@ -769,12 +769,12 @@ export default function SchoolMeshLandingPage() {
 
 					<div className="hidden items-center gap-3 md:flex">
 						<Link
-							href="/superadmin/login"
-							className="inline-flex items-center gap-1.5 rounded-full bg-[#111827] px-5 py-2 text-sm font-medium text-white transition-all hover:bg-gray-800 hover:shadow-lg hover:shadow-gray-900/10"
-						>
-							<LogIn className="h-3.5 w-3.5" />
-							Login
-						</Link>
+						href="/login"
+						className="inline-flex items-center gap-1.5 rounded-full bg-[#111827] px-5 py-2 text-sm font-medium text-white transition-all hover:bg-gray-800 hover:shadow-lg hover:shadow-gray-900/10"
+					>
+						<LogIn className="h-3.5 w-3.5" />
+						Login
+					</Link>
 					</div>
 
 					<button
@@ -819,14 +819,14 @@ export default function SchoolMeshLandingPage() {
 									Brochure
 								</Link>
 								<div className="border-t border-gray-100 pt-3 mt-3">
-									<Link
-										href="/superadmin/login"
-										onClick={() => setIsMobileMenuOpen(false)}
-										className="flex items-center justify-center gap-1.5 rounded-full bg-[#111827] px-5 py-2.5 text-sm font-medium text-white"
-									>
-										<LogIn className="h-4 w-4" />
-										Login
-									</Link>
+								<Link
+									href="/login"
+									onClick={() => setIsMobileMenuOpen(false)}
+									className="flex items-center justify-center gap-1.5 rounded-full bg-[#111827] px-5 py-2.5 text-sm font-medium text-white"
+								>
+									<LogIn className="h-4 w-4" />
+									Login
+								</Link>
 								</div>
 							</div>
 						</motion.div>

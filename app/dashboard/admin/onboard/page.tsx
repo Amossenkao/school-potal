@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import SchoolProfileForm, { SchoolFormData } from '../components/SchoolProfileForm';
+import SchoolProfileForm, { SchoolFormData } from '@/app/dashboard/admin/components/SchoolProfileForm';
 
 export default function SuperAdminOnboardPage() {
 	const router = useRouter();
@@ -22,7 +22,7 @@ export default function SuperAdminOnboardPage() {
 			});
 			const result = await res.json();
 			if (!res.ok) throw new Error(result.error || 'Failed to create school');
-			router.push('/superadmin/schools');
+			router.push('/dashboard/admin/schools');
 		} catch (e: any) {
 			setError(e.message);
 		} finally {
@@ -33,7 +33,7 @@ export default function SuperAdminOnboardPage() {
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center gap-3">
-				<Link href="/superadmin/schools" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 transition-colors">
+				<Link href="/dashboard/admin/schools" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 transition-colors">
 					<ArrowLeft className="h-5 w-5" />
 				</Link>
 				<div>

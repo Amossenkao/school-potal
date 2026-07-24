@@ -4,7 +4,7 @@ import { useSchoolStore } from '@/store/schoolStore';
 import DashboardHome from '@/components/DashboardHome';
 import useAuth from '@/store/useAuth';
 import { useHasSchool } from '@/context/HasSchoolContext';
-import SuperAdminDashboardPage from '@/app/superadmin/page';
+import SuperAdminDashboardPage from '@/app/dashboard/admin/page';
 
 export default function DashboardPage() {
 	const hasSchool = useHasSchool();

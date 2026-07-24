@@ -29,7 +29,7 @@ import Link from 'next/link';
 import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
 import type SchoolProfile from '@/types/schoolProfile';
 import { useHasSchool } from '@/context/HasSchoolContext';
-import SuperAdminLoginPage from '@/app/superadmin/login/page';
+import SuperAdminLoginPage from '@/app/dashboard/admin/login/page';
 import {
 	getAuthorizedRealtimeChannels,
 	resolveTenantSyncKey,

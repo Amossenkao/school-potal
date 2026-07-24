@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
 	ArrowLeft, Loader2, Plus, Trash2, X, UserPlus, Copy, Check, Pencil, CheckCircle, Key, ToggleLeft, ToggleRight,
 } from 'lucide-react';
-import { useSuperadminRealtime } from '../../../hooks/useSuperadminRealtime';
+import { useSuperadminRealtime } from '@/app/dashboard/admin/hooks/useSuperadminRealtime';
 import type { RealtimeEvent } from '@/lib/realtimeTypes';
 
 interface SystemAdminAccount {
@@ -230,7 +230,7 @@ export default function SchoolAdminsPage() {
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center gap-3">
-				<Link href={`/superadmin/schools/${host}`} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 transition-colors">
+				<Link href={`/dashboard/admin/schools/${host}`} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 transition-colors">
 					<ArrowLeft className="h-5 w-5" />
 				</Link>
 				<div className="flex-1">

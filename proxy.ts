@@ -1,10 +1,49 @@
+import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getSession } from '@/utils/session';
 import { UserRole } from './types';
 import { getTenantModels } from '@/models';
 import { getSchoolProfile } from '@/lib/mongoose';
 
-export default function proxy() {}
+// Marketing-only routes that should NOT be accessible on school hosts
+const SCHOOLMESH_ONLY_ROUTES = ['/brochure'];
+
+// Routes that should always be skipped (API, static, etc.)
+const SKIP_PREFIXES = ['/api', '/_next', '/images', '/fonts'];
+
+function isSchoolMeshHost(host: string): boolean {
+	const h = host.toLowerCase().split(':')[0];
+	const normalized = h.replace(/[-_]/g, '');
+	return normalized.includes('schoolmesh');
+}
+
+export default async function proxy(request: NextRequest) {
+	const { pathname } = request.nextUrl;
+	const host = request.headers.get('host') || '';
+
+	if (SKIP_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+		return NextResponse.next();
+	}
+
+	const schoolMesh = isSchoolMeshHost(host);
+
+	if (!schoolMesh && SCHOOLMESH_ONLY_ROUTES.some((route) => pathname.startsWith(route))) {
+		try {
+			const profile = await getSchoolProfile({ host });
+			if (!profile) {
+				const url = request.nextUrl.clone();
+				url.pathname = '/';
+				return NextResponse.redirect(url);
+			}
+		} catch {
+			const url = request.nextUrl.clone();
+			url.pathname = '/';
+			return NextResponse.redirect(url);
+		}
+	}
+
+	return NextResponse.next();
+}
 
 export interface AuthenticatedUser {
 	id: string;
