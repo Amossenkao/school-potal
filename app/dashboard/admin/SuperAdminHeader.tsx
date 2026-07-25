@@ -1,6 +1,7 @@
 'use client';
 
 import React, { memo, useRef, useEffect, useState } from 'react';
+import Image from 'next/image';
 import { toast } from 'react-hot-toast';
 import { Menu, X, LogOut, ChevronDown, Sun, Moon, KeyRound, Loader2, Eye, EyeOff, UserCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -265,8 +266,9 @@ const SuperAdminHeader = memo(function SuperAdminHeader({ isMobileOpen, onToggle
 						>
 							{isMobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
 						</button>
-						<div className="lg:hidden">
-							<p className="text-sm font-semibold text-gray-800 dark:text-white">SchoolMesh Admin</p>
+						<div className="lg:hidden flex items-center gap-2.5">
+							<Image src="/images/SchoolMesh.png" alt="SchoolMesh" width={28} height={28} className="h-7 w-7 rounded-lg object-contain" />
+							<p className="text-sm font-bold tracking-tight">School<span className="text-[#465fff]">Mesh</span></p>
 						</div>
 						<div className="ml-auto flex items-center gap-3">
 							{/* Theme toggle */}
@@ -311,14 +313,13 @@ const SuperAdminHeader = memo(function SuperAdminHeader({ isMobileOpen, onToggle
 											)}
 										</div>
 									<div className="py-1.5">
-										<a
-											href="/dashboard/admin/profile"
-											onClick={() => setDropdownOpen(false)}
+										<button
+											onClick={() => { setDropdownOpen(false); router.push('/dashboard/admin/profile'); }}
 											className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors dark:text-gray-300 dark:hover:bg-gray-800"
 										>
 											<UserCircle className="h-4 w-4" />
 											My Profile
-										</a>
+										</button>
 										<button
 												onClick={handleChangePassword}
 												className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors dark:text-gray-300 dark:hover:bg-gray-800"

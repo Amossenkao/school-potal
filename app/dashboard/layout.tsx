@@ -26,6 +26,7 @@ export default function AdminLayout({
 		isMobileOpen,
 		toggleSidebar,
 		toggleMobileSidebar,
+		closeMobileSidebar,
 	} = useSidebar();
 	const pathname = usePathname();
 	const previousPathname = useRef(pathname);
@@ -133,11 +134,11 @@ export default function AdminLayout({
 		const mainContentMargin = isMobileOpen
 			? 'ml-0'
 			: isExpanded || isHovered
-			? 'lg:ml-[290px]'
+			? 'lg:ml-[260px]'
 			: 'lg:ml-[90px]';
 
 		return (
-			<ProtectedRoute allowedRoles={['superadmin']}>
+			<ProtectedRoute allowedRoles={['superadmin']} spinnerVariant="school">
 				<div className="min-h-screen flex bg-background relative">
 					<SuperAdminSidebar />
 					<div
@@ -162,7 +163,7 @@ export default function AdminLayout({
 						</main>
 					</div>
 					{isMobileOpen && (
-						<div className="fixed inset-x-0 bottom-0 top-[var(--app-header-height,4rem)] bg-black/20 z-30 lg:hidden" />
+						<div onClick={closeMobileSidebar} className="fixed inset-x-0 bottom-0 top-[var(--app-header-height,4rem)] bg-black/20 z-30 lg:hidden" />
 					)}
 				</div>
 			</ProtectedRoute>
@@ -170,7 +171,7 @@ export default function AdminLayout({
 	}
 
 	return (
-		<ProtectedRoute>
+		<ProtectedRoute spinnerVariant="school">
 			<div className="min-h-screen flex bg-background relative">
 				<PrefetchDashboardChunks />
 				{/* Sidebar */}

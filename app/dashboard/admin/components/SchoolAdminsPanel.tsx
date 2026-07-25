@@ -259,41 +259,44 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 	const inputClass = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white';
 
 	return (
-		<div className="space-y-6">
-			<div className="flex items-center gap-3">
-				<button onClick={onClose} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 transition-colors">
+		<div className="space-y-4 sm:space-y-6">
+			{/* Header */}
+			<div className="flex items-start gap-3">
+				<button onClick={onClose} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 transition-colors shrink-0 mt-0.5">
 					<ArrowLeft className="h-5 w-5" />
 				</button>
-				<div className="flex-1">
-					<h1 className="text-2xl font-bold text-gray-900 dark:text-white">System Admins</h1>
-					<p className="text-sm text-gray-500">
-						Manage system administrator accounts for {cachedSchool?.name || host || 'this school'}.
+				<div className="flex-1 min-w-0">
+					<h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">System Admins</h1>
+					<p className="text-xs sm:text-sm text-gray-500 truncate">
+						Manage admins for {cachedSchool?.name || host || 'this school'}.
 					</p>
 				</div>
 				<button
 					onClick={() => { setShowCreate(true); setCreatedUserInfo(null); }}
-					className="inline-flex items-center gap-2 rounded-lg bg-[#465fff] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#3a4fe6] transition-colors"
+					className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg bg-[#465fff] px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#3a4fe6] transition-colors shrink-0"
 				>
 					<UserPlus className="h-4 w-4" />
-					Add Admin
+					<span className="hidden xs:inline">Add Admin</span>
+					<span className="xs:hidden">Add</span>
 				</button>
 			</div>
 
 			{error && (
-				<div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex items-center justify-between">
-					{error}
-					<button onClick={() => setError('')} className="text-red-400 hover:text-red-600"><X className="h-4 w-4" /></button>
+				<div className="rounded-lg bg-red-50 border border-red-200 px-3 sm:px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-2">
+					<span className="truncate">{error}</span>
+					<button onClick={() => setError('')} className="text-red-400 hover:text-red-600 shrink-0"><X className="h-4 w-4" /></button>
 				</div>
 			)}
 
+			{/* Create Admin Modal */}
 			{showCreate && (
-				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-					<div className="w-full max-w-lg rounded-2xl bg-card p-6 shadow-xl">
-						<div className="flex items-center justify-between mb-5">
+				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-4">
+					<div className="w-full max-w-lg rounded-2xl bg-card p-4 sm:p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+						<div className="flex items-center justify-between mb-4 sm:mb-5">
 							<h3 className="text-lg font-bold text-gray-900 dark:text-white">New System Admin</h3>
 							<button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
 						</div>
-						<div className="grid gap-4 sm:grid-cols-2">
+						<div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
 							<div>
 								<label className="text-xs font-semibold text-gray-500">First Name *</label>
 								<input
@@ -382,23 +385,23 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 						</div>
 
 						{(usernameSuggestion || passwordSuggestion) && (
-							<div className="mt-4 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 dark:bg-blue-900/20 dark:border-blue-800">
+							<div className="mt-4 rounded-lg bg-blue-50 border border-blue-200 px-3 sm:px-4 py-3 dark:bg-blue-900/20 dark:border-blue-800">
 								<p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-2">Suggested Credentials</p>
-								<div className="space-y-1">
+								<div className="space-y-1.5">
 									{usernameSuggestion && (
 										<div className="flex items-center gap-2">
-											<span className="text-xs text-blue-600 dark:text-blue-400">Username:</span>
-											<code className="text-xs font-mono font-semibold text-blue-800 dark:text-blue-200">{usernameSuggestion}</code>
-											<button onClick={() => copyToClipboard(usernameSuggestion, 'suggest-user')} className="text-blue-400 hover:text-blue-600">
+											<span className="text-xs text-blue-600 dark:text-blue-400 shrink-0">Username:</span>
+											<code className="text-xs font-mono font-semibold text-blue-800 dark:text-blue-200 break-all">{usernameSuggestion}</code>
+											<button onClick={() => copyToClipboard(usernameSuggestion, 'suggest-user')} className="text-blue-400 hover:text-blue-600 shrink-0">
 												{copied === 'suggest-user' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
 											</button>
 										</div>
 									)}
 									{passwordSuggestion && (
 										<div className="flex items-center gap-2">
-											<span className="text-xs text-blue-600 dark:text-blue-400">Password:</span>
-											<code className="text-xs font-mono font-semibold text-blue-800 dark:text-blue-200">{passwordSuggestion}</code>
-											<button onClick={() => copyToClipboard(passwordSuggestion, 'suggest-pass')} className="text-blue-400 hover:text-blue-600">
+											<span className="text-xs text-blue-600 dark:text-blue-400 shrink-0">Password:</span>
+											<code className="text-xs font-mono font-semibold text-blue-800 dark:text-blue-200 break-all">{passwordSuggestion}</code>
+											<button onClick={() => copyToClipboard(passwordSuggestion, 'suggest-pass')} className="text-blue-400 hover:text-blue-600 shrink-0">
 												{copied === 'suggest-pass' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
 											</button>
 										</div>
@@ -407,12 +410,12 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 							</div>
 						)}
 
-						<div className="mt-6 flex justify-end gap-3">
+						<div className="mt-5 sm:mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
 							<button onClick={() => setShowCreate(false)} className="rounded-lg px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">Cancel</button>
 							<button
 								onClick={handleCreate}
 								disabled={creating || !form.firstName || !form.lastName || !form.phone}
-								className="inline-flex items-center gap-2 rounded-lg bg-[#465fff] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#3a4fe6] disabled:opacity-50 transition-colors"
+								className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#465fff] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#3a4fe6] disabled:opacity-50 transition-colors"
 							>
 								{creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
 								{creating ? 'Creating...' : 'Create Admin'}
@@ -422,34 +425,35 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 				</div>
 			)}
 
+			{/* Created Credentials Modal */}
 			{createdUserInfo && (
-				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-					<div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl flex flex-col items-center text-center">
-						<div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-4">
-							<CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
+				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-4">
+					<div className="w-full max-w-md rounded-2xl bg-card p-4 sm:p-6 shadow-xl flex flex-col items-center text-center max-h-[90vh] overflow-y-auto">
+						<div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-3 sm:mb-4">
+							<CheckCircle className="w-7 h-7 sm:w-8 sm:h-8 text-green-600 dark:text-green-400" />
 						</div>
-						<div className="mb-5">
-							<h3 className="text-xl font-bold text-gray-900 dark:text-white">Account Created!</h3>
-							<p className="text-sm text-gray-500 mt-1.5">
+						<div className="mb-4 sm:mb-5">
+							<h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">Account Created!</h3>
+							<p className="text-xs sm:text-sm text-gray-500 mt-1.5">
 								<span className="font-semibold text-gray-900 dark:text-white">{createdUserInfo.fullName}</span>{' '}
 								account was successfully created.
 							</p>
 						</div>
 
-						<div className="w-full rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden mb-5">
-							<div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-muted/50">
+						<div className="w-full rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden mb-4 sm:mb-5">
+							<div className="px-3 sm:px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-muted/50">
 								<p className="text-sm font-semibold text-gray-900 dark:text-white">Generated Credentials</p>
 							</div>
-							<div className="p-4 space-y-3">
-								<div className="flex items-center justify-between gap-3">
-									<span className="text-sm text-gray-500">Username</span>
-									<code className="text-sm font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-muted border border-gray-200 dark:border-gray-700 px-2.5 py-1 rounded-lg break-all">
+							<div className="p-3 sm:p-4 space-y-3">
+								<div className="flex items-center justify-between gap-2 sm:gap-3">
+									<span className="text-xs sm:text-sm text-gray-500 shrink-0">Username</span>
+									<code className="text-xs sm:text-sm font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-muted border border-gray-200 dark:border-gray-700 px-2 sm:px-2.5 py-1 rounded-lg break-all text-right">
 										{createdUserInfo.generatedCredentials.username}
 									</code>
 								</div>
-								<div className="flex items-center justify-between gap-3">
-									<span className="text-sm text-gray-500">Temp. Password</span>
-									<code className="text-sm font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-muted border border-gray-200 dark:border-gray-700 px-2.5 py-1 rounded-lg break-all">
+								<div className="flex items-center justify-between gap-2 sm:gap-3">
+									<span className="text-xs sm:text-sm text-gray-500 shrink-0">Temp. Password</span>
+									<code className="text-xs sm:text-sm font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-muted border border-gray-200 dark:border-gray-700 px-2 sm:px-2.5 py-1 rounded-lg break-all text-right">
 										{createdUserInfo.generatedCredentials.defaultPassword}
 									</code>
 								</div>
@@ -461,7 +465,7 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 							</div>
 						</div>
 
-						<div className="flex gap-3 w-full">
+						<div className="flex flex-col-reverse sm:flex-row gap-3 w-full">
 							<button
 								onClick={handleCopyAllCredentials}
 								className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-muted hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium text-gray-900 dark:text-white transition-colors"
@@ -480,27 +484,28 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 				</div>
 			)}
 
+			{/* Reset Credentials Modal */}
 			{resetCredentials && (
-				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-					<div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl flex flex-col items-center text-center">
-						<div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-4">
-							<Key className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-4">
+					<div className="w-full max-w-md rounded-2xl bg-card p-4 sm:p-6 shadow-xl flex flex-col items-center text-center max-h-[90vh] overflow-y-auto">
+						<div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-3 sm:mb-4">
+							<Key className="w-7 h-7 sm:w-8 sm:h-8 text-amber-600 dark:text-amber-400" />
 						</div>
-						<div className="mb-5">
-							<h3 className="text-xl font-bold text-gray-900 dark:text-white">Password Reset</h3>
-							<p className="text-sm text-gray-500 mt-1.5">Password has been reset to the username.</p>
+						<div className="mb-4 sm:mb-5">
+							<h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">Password Reset</h3>
+							<p className="text-xs sm:text-sm text-gray-500 mt-1.5">Password has been reset to the username.</p>
 						</div>
-						<div className="w-full rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden mb-5">
-							<div className="p-4 space-y-3">
-								<div className="flex items-center justify-between gap-3">
-									<span className="text-sm text-gray-500">Username</span>
-									<code className="text-sm font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-muted border border-gray-200 dark:border-gray-700 px-2.5 py-1 rounded-lg break-all">
+						<div className="w-full rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden mb-4 sm:mb-5">
+							<div className="p-3 sm:p-4 space-y-3">
+								<div className="flex items-center justify-between gap-2 sm:gap-3">
+									<span className="text-xs sm:text-sm text-gray-500 shrink-0">Username</span>
+									<code className="text-xs sm:text-sm font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-muted border border-gray-200 dark:border-gray-700 px-2 sm:px-2.5 py-1 rounded-lg break-all text-right">
 										{resetCredentials.username}
 									</code>
 								</div>
-								<div className="flex items-center justify-between gap-3">
-									<span className="text-sm text-gray-500">New Password</span>
-									<code className="text-sm font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-muted border border-gray-200 dark:border-gray-700 px-2.5 py-1 rounded-lg break-all">
+								<div className="flex items-center justify-between gap-2 sm:gap-3">
+									<span className="text-xs sm:text-sm text-gray-500 shrink-0">New Password</span>
+									<code className="text-xs sm:text-sm font-mono font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-muted border border-gray-200 dark:border-gray-700 px-2 sm:px-2.5 py-1 rounded-lg break-all text-right">
 										{resetCredentials.defaultPassword}
 									</code>
 								</div>
@@ -511,7 +516,7 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 								)}
 							</div>
 						</div>
-						<div className="flex gap-3 w-full">
+						<div className="flex flex-col-reverse sm:flex-row gap-3 w-full">
 							<button
 								onClick={() => {
 									const creds = `Username: ${resetCredentials.username}\nPassword: ${resetCredentials.defaultPassword}`;
@@ -534,89 +539,104 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 				</div>
 			)}
 
+			{/* Admins List */}
 			<div className="rounded-xl border border-gray-200 bg-card dark:border-gray-800 overflow-hidden">
 				{loading ? (
-					<div className="flex items-center justify-center py-20">
+					<div className="flex items-center justify-center py-16 sm:py-20">
 						<Loader2 className="h-6 w-6 animate-spin text-gray-400" />
 					</div>
 				) : admins.length === 0 ? (
-					<div className="py-20 text-center text-sm text-gray-500">No system admin accounts found.</div>
+					<div className="py-16 sm:py-20 text-center text-sm text-gray-500 px-4">No system admin accounts found.</div>
 				) : (
 					<div className="divide-y divide-gray-100 dark:divide-gray-800">
 						{admins.map((admin) => (
-							<div key={admin._id} className={`flex items-center gap-4 px-5 py-4 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors ${!admin.isActive ? 'opacity-60' : ''}`}>
-								<div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${admin.isActive ? 'bg-[#465fff]/10 text-[#465fff]' : 'bg-gray-200 text-gray-400 dark:bg-muted dark:text-gray-500'}`}>
-									{admin.firstName.charAt(0)}{admin.lastName.charAt(0)}
-								</div>
+							<div key={admin._id} className={`px-3 sm:px-5 py-3 sm:py-4 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors ${!admin.isActive ? 'opacity-60' : ''}`}>
 								{editingId === admin._id ? (
-									<div className="flex-1 grid gap-3 sm:grid-cols-3">
-										<input value={editForm.firstName} onChange={(e) => setEditForm((p) => ({ ...p, firstName: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="First name" />
-										<input value={editForm.lastName} onChange={(e) => setEditForm((p) => ({ ...p, lastName: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="Last name" />
-										<input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="Phone" />
-										<input value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white sm:col-span-3" placeholder="Email" />
+									/* Edit mode */
+									<div className="space-y-3">
+										<div className="flex items-center gap-3">
+											<div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${admin.isActive ? 'bg-[#465fff]/10 text-[#465fff]' : 'bg-gray-200 text-gray-400 dark:bg-muted dark:text-gray-500'}`}>
+												{admin.firstName.charAt(0)}{admin.lastName.charAt(0)}
+											</div>
+											<p className="text-sm font-medium text-gray-900 dark:text-white truncate">Editing {admin.fullName}</p>
+										</div>
+										<div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2">
+											<input value={editForm.firstName} onChange={(e) => setEditForm((p) => ({ ...p, firstName: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="First name" />
+											<input value={editForm.lastName} onChange={(e) => setEditForm((p) => ({ ...p, lastName: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="Last name" />
+											<input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="Phone" />
+											<input value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white sm:col-span-2" placeholder="Email" />
+										</div>
+										<div className="flex items-center gap-2 justify-end">
+											<button onClick={() => setEditingId(null)} className="rounded-lg px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-100">Cancel</button>
+											<button onClick={() => handleUpdate(admin._id)} disabled={editSaving} className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50">
+												{editSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+												Save
+											</button>
+										</div>
 									</div>
 								) : (
-									<div className="flex-1 min-w-0">
-										<p className="text-sm font-medium text-gray-900 dark:text-white truncate">{admin.fullName}</p>
-										<div className="flex items-center gap-3 mt-0.5">
-											<span className="text-xs text-gray-500 font-mono">{admin.username}</span>
-											<span className="text-xs text-gray-400">{admin.phone}</span>
-											{admin.email && <span className="text-xs text-gray-400 hidden sm:inline">{admin.email}</span>}
+									/* Display mode */
+									<div className="flex items-start gap-3">
+										<div className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full text-xs sm:text-sm font-bold mt-0.5 ${admin.isActive ? 'bg-[#465fff]/10 text-[#465fff]' : 'bg-gray-200 text-gray-400 dark:bg-muted dark:text-gray-500'}`}>
+											{admin.firstName.charAt(0)}{admin.lastName.charAt(0)}
+										</div>
+										<div className="flex-1 min-w-0">
+											<div className="flex items-start justify-between gap-2">
+												<div className="min-w-0">
+													<p className="text-sm font-medium text-gray-900 dark:text-white truncate">{admin.fullName}</p>
+													<div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+														<span className="text-xs text-gray-500 font-mono">{admin.username}</span>
+														<span className="text-xs text-gray-400">{admin.phone}</span>
+														{admin.email && <span className="text-xs text-gray-400 hidden sm:inline">{admin.email}</span>}
+													</div>
+												</div>
+												{/* Action buttons - desktop: inline, mobile: below info */}
+												<div className="flex items-center gap-1 shrink-0">
+													<button onClick={() => handleToggleActive(admin._id)} disabled={togglingId === admin._id}
+														title={admin.isActive ? 'Deactivate' : 'Activate'}
+														className={`rounded-lg p-1.5 sm:p-2 transition-colors ${admin.isActive ? 'text-green-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20' : 'text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'}`}>
+														{togglingId === admin._id ? <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" /> : admin.isActive ? <ToggleRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <ToggleLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+													</button>
+													<button onClick={() => setResetConfirmAdmin(admin)} disabled={resettingId === admin._id}
+														title="Reset password"
+														className="rounded-lg p-1.5 sm:p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
+														{resettingId === admin._id ? <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" /> : <Key className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+													</button>
+													<button onClick={() => startEdit(admin)} className="rounded-lg p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+														<Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+													</button>
+													<button onClick={() => setDeleteConfirmAdmin(admin)} className="rounded-lg p-1.5 sm:p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
+														<Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+													</button>
+												</div>
+											</div>
 										</div>
 									</div>
 								)}
-								<div className="flex items-center gap-2 shrink-0">
-									{editingId === admin._id ? (
-										<>
-											<button onClick={() => handleUpdate(admin._id)} disabled={editSaving} className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50">
-												{editSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
-											</button>
-											<button onClick={() => setEditingId(null)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100">Cancel</button>
-										</>
-									) : (
-										<>
-											<button onClick={() => handleToggleActive(admin._id)} disabled={togglingId === admin._id}
-												title={admin.isActive ? 'Deactivate' : 'Activate'}
-												className={`rounded-lg p-2 transition-colors ${admin.isActive ? 'text-green-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20' : 'text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'}`}>
-												{togglingId === admin._id ? <Loader2 className="h-4 w-4 animate-spin" /> : admin.isActive ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
-											</button>
-											<button onClick={() => setResetConfirmAdmin(admin)} disabled={resettingId === admin._id}
-												title="Reset password"
-												className="rounded-lg p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors">
-												{resettingId === admin._id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Key className="h-4 w-4" />}
-											</button>
-											<button onClick={() => startEdit(admin)} className="rounded-lg p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
-												<Pencil className="h-4 w-4" />
-											</button>
-											<button onClick={() => setDeleteConfirmAdmin(admin)} className="rounded-lg p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
-												<Trash2 className="h-4 w-4" />
-											</button>
-										</>
-									)}
-								</div>
 							</div>
 						))}
 					</div>
 				)}
 			</div>
 
+			{/* Delete Confirm Modal */}
 			{deleteConfirmAdmin && (
-				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-					<div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
+				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-4">
+					<div className="w-full max-w-sm rounded-2xl bg-card p-4 sm:p-6 shadow-xl">
 						<h3 className="text-lg font-bold text-gray-900 dark:text-white">Delete Admin Account</h3>
 						<p className="mt-2 text-sm text-gray-500">
 							Are you sure you want to delete <span className="font-semibold text-gray-900 dark:text-white">{deleteConfirmAdmin.fullName}</span>? This action cannot be undone.
 						</p>
-						<div className="mt-6 flex justify-end gap-3">
+						<div className="mt-5 sm:mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
 							<button
 								onClick={() => setDeleteConfirmAdmin(null)}
-								className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+								className="rounded-lg px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
 							>
 								Cancel
 							</button>
 							<button
 								onClick={() => handleDelete(deleteConfirmAdmin._id)}
-								className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors"
+								className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition-colors"
 							>
 								<Trash2 className="h-4 w-4" />
 								Delete
@@ -626,24 +646,25 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 				</div>
 			)}
 
+			{/* Reset Confirm Modal */}
 			{resetConfirmAdmin && (
-				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-					<div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
+				<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-4">
+					<div className="w-full max-w-sm rounded-2xl bg-card p-4 sm:p-6 shadow-xl">
 						<h3 className="text-lg font-bold text-gray-900 dark:text-white">Reset Password</h3>
 						<p className="mt-2 text-sm text-gray-500">
 							Reset <span className="font-semibold text-gray-900 dark:text-white">{resetConfirmAdmin.fullName}</span>&apos;s password to their username? They will be forced to change it on next login.
 						</p>
-						<div className="mt-6 flex justify-end gap-3">
+						<div className="mt-5 sm:mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
 							<button
 								onClick={() => setResetConfirmAdmin(null)}
-								className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+								className="rounded-lg px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
 							>
 								Cancel
 							</button>
 							<button
 								onClick={() => handleResetPassword(resetConfirmAdmin._id)}
 								disabled={resettingId === resetConfirmAdmin._id}
-								className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50 transition-colors"
+								className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50 transition-colors"
 							>
 								{resettingId === resetConfirmAdmin._id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Key className="h-4 w-4" />}
 								Reset Password

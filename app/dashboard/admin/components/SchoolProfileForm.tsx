@@ -242,8 +242,8 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 				})}
 			</div>
 
-			<div className="rounded-xl border border-gray-200 bg-card p-6 dark:border-gray-800 min-h-[400px]">
-				<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">{STEPS[step].label}</h3>
+		<div className="rounded-xl border border-gray-200 bg-card p-4 sm:p-6 dark:border-gray-800 min-h-[400px]">
+			<h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-6">{STEPS[step].label}</h3>
 
 				{/* ═══ Step 0: School Info ═══ */}
 				{step === 0 && (
@@ -357,12 +357,12 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 							<h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Administrative Positions</h4>
 							<p className="text-xs text-gray-500 mb-3">Positions available in this school.</p>
 							{form.administrativePositions.map((pos, i) => (
-								<div key={i} className="flex items-center gap-3 mb-2">
+								<div key={i} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 mb-2">
 									<input value={pos.id} onChange={(e) => { const next = [...form.administrativePositions]; next[i] = { ...next[i], id: e.target.value }; update('administrativePositions', next); }}
 										placeholder="ID (e.g. principal)" className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 									<input value={pos.name} onChange={(e) => { const next = [...form.administrativePositions]; next[i] = { ...next[i], name: e.target.value }; update('administrativePositions', next); }}
 										placeholder="Display name (e.g. Principal)" className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-									<button onClick={() => update('administrativePositions', form.administrativePositions.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 text-sm">Remove</button>
+									<button onClick={() => update('administrativePositions', form.administrativePositions.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 text-sm self-end sm:self-auto">Remove</button>
 								</div>
 							))}
 							<button onClick={() => update('administrativePositions', [...form.administrativePositions, { id: '', name: '' }])} className="text-sm text-[#465fff] font-medium hover:underline">+ Add Position</button>
@@ -428,20 +428,20 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 				{/* ═══ Step 4: Fee Schedules ═══ */}
 				{step === 4 && (
 					<div className="space-y-6">
-						<div className="flex items-center justify-between">
-							<div>
-								<h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Fee Schedules</h4>
-								<p className="text-xs text-gray-500 mt-1">Fee groups are auto-generated from classLevels. Edit amounts below.</p>
-							</div>
-							{Object.keys(form.feeSchedules).length === 0 && Object.keys(form.classLevels).length > 0 && (
-								<button onClick={() => {
-									const year = form.currentAcademicYear || form.firstAcademicYear;
-									if (year) update('feeSchedules', buildFeeScheduleScaffold(form.classLevels, year));
-								}} className="inline-flex items-center gap-1.5 rounded-lg bg-[#465fff]/10 px-3 py-1.5 text-xs font-semibold text-[#465fff] hover:bg-[#465fff]/20 transition-colors">
-									<Wand2 className="h-3.5 w-3.5" /> Generate from Class Levels
-								</button>
-							)}
+					<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+						<div>
+							<h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Fee Schedules</h4>
+							<p className="text-xs text-gray-500 mt-1">Fee groups are auto-generated from classLevels. Edit amounts below.</p>
 						</div>
+						{Object.keys(form.feeSchedules).length === 0 && Object.keys(form.classLevels).length > 0 && (
+							<button onClick={() => {
+								const year = form.currentAcademicYear || form.firstAcademicYear;
+								if (year) update('feeSchedules', buildFeeScheduleScaffold(form.classLevels, year));
+							}} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#465fff]/10 px-3 py-1.5 text-xs font-semibold text-[#465fff] hover:bg-[#465fff]/20 transition-colors">
+								<Wand2 className="h-3.5 w-3.5" /> Generate from Class Levels
+							</button>
+						)}
+					</div>
 						{Object.keys(form.feeSchedules).length === 0 ? (
 							<div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-8 text-center">
 								<DollarSign className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
@@ -452,10 +452,10 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 							<div className="space-y-4">
 								{Object.entries(form.feeSchedules).map(([year, yearData]: [string, any]) => (
 									<div key={year} className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
-										<div className="bg-gray-50 dark:bg-muted/50 px-4 py-3 flex items-center justify-between">
+										<div className="bg-gray-50 dark:bg-muted/50 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
 											<span className="text-sm font-semibold text-gray-900 dark:text-white">{year}</span>
 											<button onClick={() => { const next = JSON.parse(JSON.stringify(form.feeSchedules)); delete next[year]; update('feeSchedules', next); }}
-												className="text-xs text-red-400 hover:text-red-600">Remove</button>
+												className="text-xs text-red-400 hover:text-red-600 self-end sm:self-auto">Remove</button>
 										</div>
 										<div className="p-4 space-y-3">
 											{Object.entries(yearData).filter(([k]) => k !== 'paymentWindows').map(([sessionName, sessionData]: [string, any]) => (
@@ -560,34 +560,34 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 				)}
 			</div>
 
-			<div className="flex items-center justify-between">
-				<button onClick={() => setStep((s) => s - 1)} disabled={step === 0}
-					className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors dark:border-gray-800 dark:text-gray-400">
-					<ArrowLeft className="h-4 w-4" /> Back
-				</button>
-				<div className="flex items-center gap-3">
-					<span className="text-xs text-gray-400">Step {step + 1} of {STEPS.length}</span>
-					{!isLast && (
-						<button onClick={handleSubmit} disabled={saving}
-							className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors dark:border-gray-800 dark:text-gray-400">
-							{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-							{saving ? 'Saving...' : 'Save'}
-						</button>
-					)}
-					{isLast ? (
-						<button onClick={handleSubmit} disabled={saving}
-							className="inline-flex items-center gap-2 rounded-lg bg-[#465fff] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#3a4fe6] disabled:opacity-50 transition-colors">
-							{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-							{saving ? 'Saving...' : submitLabel}
-						</button>
-					) : (
-						<button onClick={() => setStep((s) => s + 1)}
-							className="inline-flex items-center gap-2 rounded-lg bg-[#465fff] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#3a4fe6] transition-colors">
-							Next <ArrowRight className="h-4 w-4" />
-						</button>
-					)}
-				</div>
+		<div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
+			<button onClick={() => setStep((s) => s - 1)} disabled={step === 0}
+				className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors dark:border-gray-800 dark:text-gray-400">
+				<ArrowLeft className="h-4 w-4" /> Back
+			</button>
+			<div className="flex items-center justify-between sm:justify-end gap-3">
+				<span className="text-xs text-gray-400">Step {step + 1} of {STEPS.length}</span>
+				{!isLast && (
+					<button onClick={handleSubmit} disabled={saving}
+						className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors dark:border-gray-800 dark:text-gray-400">
+						{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+						{saving ? 'Saving...' : 'Save'}
+					</button>
+				)}
+				{isLast ? (
+					<button onClick={handleSubmit} disabled={saving}
+						className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#465fff] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#3a4fe6] disabled:opacity-50 transition-colors">
+						{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+						{saving ? 'Saving...' : submitLabel}
+					</button>
+				) : (
+					<button onClick={() => setStep((s) => s + 1)}
+						className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#465fff] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#3a4fe6] transition-colors">
+						Next <ArrowRight className="h-4 w-4" />
+					</button>
+				)}
 			</div>
+		</div>
 		</div>
 	);
 }
@@ -699,11 +699,11 @@ function ClassLevelsEditor({ classLevels, onChange, onUseDefaults }: {
 
 	return (
 		<div className="space-y-4">
-			<div className="flex items-center justify-between">
+			<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 				<p className="text-sm text-gray-500">Define academic sessions, levels, classes, and subjects. Click names to rename, or use the edit/delete icons.</p>
 				{onUseDefaults && Object.keys(classLevels).length === 0 && (
 					<button onClick={onUseDefaults}
-						className="inline-flex items-center gap-1.5 rounded-lg bg-[#465fff]/10 px-3 py-1.5 text-xs font-semibold text-[#465fff] hover:bg-[#465fff]/20 transition-colors">
+						className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#465fff]/10 px-3 py-1.5 text-xs font-semibold text-[#465fff] hover:bg-[#465fff]/20 transition-colors whitespace-nowrap">
 						<Wand2 className="h-3.5 w-3.5" /> Use Defaults
 					</button>
 				)}
@@ -781,8 +781,8 @@ function ClassLevelsEditor({ classLevels, onChange, onUseDefaults }: {
 													<span>{cls.name}</span>
 													<span className="text-gray-400">({cls.feeGroup})</span>
 													<button onClick={() => { setEditingClass({ session, level, classIdx: ci }); setEditClassName(cls.name); setEditClassFeeGroup(cls.feeGroup); }}
-														className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600"><Pencil className="h-3 w-3" /></button>
-													<button onClick={() => deleteClass(session, level, ci)} className="opacity-0 group-hover:opacity-100 text-red-300 hover:text-red-500"><X className="h-3 w-3" /></button>
+														className="sm:opacity-0 sm:group-hover:opacity-100 text-gray-400 hover:text-gray-600"><Pencil className="h-3 w-3" /></button>
+													<button onClick={() => deleteClass(session, level, ci)} className="sm:opacity-0 sm:group-hover:opacity-100 text-red-300 hover:text-red-500"><X className="h-3 w-3" /></button>
 												</div>
 											)
 										))}
@@ -812,8 +812,8 @@ function ClassLevelsEditor({ classLevels, onChange, onUseDefaults }: {
 													<span>{subj.name}</span>
 													<span className="text-gray-400">w:{subj.weight}</span>
 													<button onClick={() => { setEditingSubject({ session, level, subjectIdx: si }); setEditSubjectName(subj.name); setEditSubjectWeight(String(subj.weight)); }}
-														className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600"><Pencil className="h-3 w-3" /></button>
-													<button onClick={() => deleteSubject(session, level, si)} className="opacity-0 group-hover:opacity-100 text-red-300 hover:text-red-500"><X className="h-3 w-3" /></button>
+														className="sm:opacity-0 sm:group-hover:opacity-100 text-gray-400 hover:text-gray-600"><Pencil className="h-3 w-3" /></button>
+													<button onClick={() => deleteSubject(session, level, si)} className="sm:opacity-0 sm:group-hover:opacity-100 text-red-300 hover:text-red-500"><X className="h-3 w-3" /></button>
 												</div>
 											)
 										))}
@@ -839,12 +839,12 @@ function ClassLevelsEditor({ classLevels, onChange, onUseDefaults }: {
 				</div>
 			))}
 
-			<div className="flex items-center gap-2">
+			<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
 				<input value={newSession} onChange={(e) => setNewSession(e.target.value)} placeholder="New session name (e.g. Morning)"
 					onKeyDown={(e) => e.key === 'Enter' && (() => { if (newSession.trim()) { onChange({ ...classLevels, [newSession.trim()]: {} }); setNewSession(''); setExpandedSession(newSession.trim()); } })()}
 					className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 				<button onClick={() => { if (newSession.trim()) { onChange({ ...classLevels, [newSession.trim()]: {} }); setNewSession(''); setExpandedSession(newSession.trim()); } }}
-					className="rounded-lg bg-[#465fff] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#3a4fe6] transition-colors">+ Session</button>
+					className="rounded-lg bg-[#465fff] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#3a4fe6] transition-colors justify-center">+ Session</button>
 			</div>
 		</div>
 	);

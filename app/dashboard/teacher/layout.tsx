@@ -7,5 +7,5 @@ interface TeacherLayoutProps {
 }
 
 export default function TeacherLayout({ children }: TeacherLayoutProps) {
-	return <ProtectedRoute requiredRole="teacher">{children}</ProtectedRoute>;
+	return <ProtectedRoute requiredRole="teacher" spinnerVariant="school">{children}</ProtectedRoute>;
 }

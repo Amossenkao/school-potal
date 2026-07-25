@@ -1,6 +1,6 @@
 'use client';
 
-import React, { memo, useState, useCallback } from 'react';
+import React, { memo, useState, useCallback, useEffect } from 'react';
 import { useSidebar } from '@/context/SidebarContext';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -33,13 +33,20 @@ const SuperAdminSidebar = memo(function SuperAdminSidebar() {
 
 	const effectiveExpanded = isMobileOpen ? true : isExpanded || isHovering;
 
+	useEffect(() => {
+		if (!isMobileOpen) return;
+		const prev = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+		return () => { document.body.style.overflow = prev; };
+	}, [isMobileOpen]);
+
 	const handleNavClick = useCallback(() => {
 		closeMobileSidebar();
 	}, [closeMobileSidebar]);
 
 	return (
 		<aside
-			className={`fixed top-0 left-0 z-40 h-screen bg-card text-gray-900 dark:text-white transition-all duration-300 ease-in-out flex flex-col border-r border-gray-200 dark:border-white/10 ${
+			className={`fixed top-0 left-0 z-40 h-screen bg-card text-gray-900 dark:text-white transition-all duration-300 ease-in-out flex flex-col border-r border-gray-200 dark:border-white/10 rounded-r-xl overflow-hidden ${
 				effectiveExpanded ? 'w-[260px]' : 'w-[90px]'
 			} ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
 			onMouseEnter={() => { setIsHovered(true); setIsHovering(true); }}

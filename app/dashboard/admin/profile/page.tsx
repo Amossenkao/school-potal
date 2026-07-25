@@ -141,22 +141,22 @@ export default function SuperAdminProfilePage() {
 	}
 
 	return (
-		<div className="max-w-2xl space-y-6">
+		<div className="max-w-2xl space-y-4 sm:space-y-6 px-0 sm:px-0">
 			<div>
-				<h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+				<h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
 					My Profile
 				</h1>
-				<p className="mt-1 text-sm text-gray-500">
+				<p className="mt-1 text-xs sm:text-sm text-gray-500">
 					Manage your account information and security settings.
 				</p>
 			</div>
 
 			{/* Avatar & Basic Info */}
-			<div className="rounded-xl border border-gray-200 bg-card p-6 dark:border-gray-800">
-				<div className="flex items-center gap-4 mb-6">
+			<div className="rounded-xl border border-gray-200 bg-card p-4 sm:p-6 dark:border-gray-800">
+				<div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6">
 					{/* Avatar — clicking the preview opens the picker */}
 					<div
-						className="relative group cursor-pointer"
+						className="relative group cursor-pointer shrink-0"
 						onClick={() => setShowAvatarPicker(true)}
 					>
 						<AvatarDisplay avatar={form.avatar} initials={initials} />
@@ -165,7 +165,7 @@ export default function SuperAdminProfilePage() {
 						</div>
 					</div>
 
-					<div>
+					<div className="text-center sm:text-left">
 						<h2 className="text-lg font-bold text-gray-900 dark:text-white">
 							{user.fullName}
 						</h2>
@@ -177,7 +177,7 @@ export default function SuperAdminProfilePage() {
 				</div>
 
 				<div className="space-y-4">
-					<div className="grid grid-cols-2 gap-4">
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 						<div>
 							<label className="text-xs font-semibold uppercase tracking-wider text-gray-500">
 								First Name
@@ -208,7 +208,7 @@ export default function SuperAdminProfilePage() {
 						</div>
 					</div>
 
-					<div className="grid grid-cols-2 gap-4">
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 						<div>
 							<label className="text-xs font-semibold uppercase tracking-wider text-gray-500">
 								Last Name
@@ -284,7 +284,7 @@ export default function SuperAdminProfilePage() {
 						</div>
 					</div>
 
-					<div className="grid grid-cols-2 gap-4">
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 						<div>
 							<label className="text-xs font-semibold uppercase tracking-wider text-gray-500">
 								Gender
@@ -333,7 +333,7 @@ export default function SuperAdminProfilePage() {
 					<button
 						onClick={handleSaveProfile}
 						disabled={saving}
-						className="inline-flex items-center gap-2 rounded-lg bg-[#465fff] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#3a4fe6] disabled:opacity-50"
+						className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-[#465fff] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#3a4fe6] disabled:opacity-50"
 					>
 						{saving ? (
 							<Loader2 className="h-4 w-4 animate-spin" />
@@ -346,7 +346,7 @@ export default function SuperAdminProfilePage() {
 			</div>
 
 			{/* Change Password */}
-			<div className="rounded-xl border border-gray-200 bg-card p-6 dark:border-gray-800">
+			<div className="rounded-xl border border-gray-200 bg-card p-4 sm:p-6 dark:border-gray-800">
 				<div className="mb-5 flex items-center gap-3">
 					<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50">
 						<Lock className="h-4 w-4 text-orange-500" />
@@ -382,7 +382,7 @@ export default function SuperAdminProfilePage() {
 						</div>
 					</div>
 
-					<div className="grid grid-cols-2 gap-4">
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 						<div>
 							<label className="text-xs font-semibold uppercase tracking-wider text-gray-500">
 								New Password
@@ -433,7 +433,7 @@ export default function SuperAdminProfilePage() {
 							!passwordForm.newPassword ||
 							!passwordForm.confirmPassword
 						}
-						className="inline-flex items-center gap-2 rounded-lg bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
+						className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-lg bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
 					>
 						{savingPassword ? (
 							<Loader2 className="h-4 w-4 animate-spin" />

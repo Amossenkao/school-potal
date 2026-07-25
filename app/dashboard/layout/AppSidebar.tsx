@@ -644,7 +644,7 @@ const AppSidebar: React.FC = () => {
 		return <PageLoading variant="school" message="Signing out..." />;
 	}
 
-	const shellClass = `fixed top-[var(--app-header-height,4rem)] left-0 z-50 h-[calc(100dvh-var(--app-header-height,4rem))] lg:top-0 lg:h-dvh overflow-hidden border-r border-gray-200 text-gray-900 shadow-theme-lg dark:border-gray-800 dark:text-gray-100 rounded-tr-2xl rounded-br-2xl lg:rounded-tr-none lg:rounded-br-none sidebar-contain ${sidebarSurfaceClass} ${sidebarTransitionClass} ${sidebarWidthClass} ${sidebarTranslateClass} lg:translate-x-0`;
+	const shellClass = `fixed top-[var(--app-header-height,4rem)] left-0 z-50 h-[calc(100dvh-var(--app-header-height,4rem))] lg:top-0 lg:h-dvh overflow-hidden border-r border-gray-200 text-gray-900 shadow-theme-lg dark:border-gray-800 dark:text-gray-100 sidebar-contain ${sidebarSurfaceClass} ${sidebarTransitionClass} ${sidebarWidthClass} ${sidebarTranslateClass} lg:translate-x-0`;
 
 	if (user === undefined || !currentSchool) {
 		return (
@@ -668,7 +668,7 @@ const AppSidebar: React.FC = () => {
 		);
 	}
 
-	return (
+		return (
 		<aside
 			ref={sidebarRef}
 			className={shellClass}
@@ -677,16 +677,20 @@ const AppSidebar: React.FC = () => {
 		>
 			<AmbientGlow />
 
-			<div className="relative z-10 flex h-full flex-col px-4 sm:px-5 pb-5 pt-4">
-				{/* School logo / identity */}
-				<Link
-					className={`hidden lg:flex items-center rounded-xl border border-brand-100 bg-white/90 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900/70 ${
-						shouldShowLabels
-							? 'mb-5 gap-3 px-3 py-3 justify-start'
-							: 'mb-5 justify-center px-2.5 py-2.5'
-					}`}
-					href="/"
+			<div className="relative z-10 flex h-full flex-col px-4 sm:px-5 pb-5">
+				{/* School logo / identity — height matches header for border alignment */}
+				<div
+					className="shrink-0 flex items-center border-b border-gray-200 dark:border-gray-800 -mx-4 sm:-mx-5 px-4 sm:px-5"
+					style={{ height: 'calc(var(--app-header-height, 4rem) - 1px)' }}
 				>
+					<Link
+						className={`hidden lg:flex items-center rounded-xl border border-brand-100 bg-white/90 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900/70 ${
+							shouldShowLabels
+								? 'gap-3 px-3 py-3 justify-start'
+								: 'justify-center px-2.5 py-2.5'
+						}`}
+						href="/"
+					>
 					<div
 						className={`grid place-items-center rounded-xl border border-brand-100 bg-white shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 ${
 							sidebarTransitionsReady
@@ -711,6 +715,7 @@ const AppSidebar: React.FC = () => {
 						</div>
 					)}
 				</Link>
+				</div>
 
 				{/* Nav list */}
 				<div className="left-scrollbar flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain">
