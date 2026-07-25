@@ -132,7 +132,8 @@ SubMenuItem.displayName = 'SubMenuItem';
 
 interface SimpleNavItemProps {
 	item: NavItem;
-	isActive: (href: string) => boolean;
+	isActive: (href: string, path: string) => boolean;
+	activePath: string;
 	onNavigate: (href: string, opts?: { keepSubmenuOpen?: boolean }) => void;
 	onLogout: () => void;
 }
@@ -140,8 +141,8 @@ interface SimpleNavItemProps {
 // Handles regular links and the logout button — never receives openSubmenu,
 // so it doesn't re-render when a submenu is toggled elsewhere.
 const SimpleNavItem = memo(
-	({ item, isActive, onNavigate, onLogout }: SimpleNavItemProps) => {
-		const isItemActive = item.href ? isActive(item.href) : false;
+	({ item, isActive, activePath, onNavigate, onLogout }: SimpleNavItemProps) => {
+		const isItemActive = item.href ? isActive(item.href, activePath) : false;
 
 		const primaryItemClass = `group relative flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-theme-sm font-medium transition-colors duration-150 sc-item ${
 			isItemActive
@@ -229,7 +230,8 @@ SimpleNavItem.displayName = 'SimpleNavItem';
 
 interface SubmenuItemProps {
 	item: NavItem;
-	isActive: (href: string) => boolean;
+	isActive: (href: string, path: string) => boolean;
+	activePath: string;
 	openSubmenu: string | null;
 	onSubmenuToggle: (name: string) => void;
 	onNavigate: (href: string, opts?: { keepSubmenuOpen?: boolean }) => void;
@@ -242,6 +244,7 @@ const SubmenuItemComponent = memo(
 	({
 		item,
 		isActive,
+		activePath,
 		openSubmenu,
 		onSubmenuToggle,
 		onNavigate,
@@ -249,9 +252,9 @@ const SubmenuItemComponent = memo(
 	}: SubmenuItemProps) => {
 		const subMenuRef = useRef<HTMLDivElement>(null);
 		const subItems = item.subItems!;
-		const isItemActive = item.href ? isActive(item.href) : false;
+		const isItemActive = item.href ? isActive(item.href, activePath) : false;
 		const hasActiveSubItem = subItems.some(
-			(sub) => sub.href && isActive(sub.href),
+			(sub) => sub.href && isActive(sub.href, activePath),
 		);
 		const isSubmenuOpen = openSubmenu === item.name;
 		const isPrimaryActive = isItemActive || hasActiveSubItem || isSubmenuOpen;
@@ -332,7 +335,7 @@ const SubmenuItemComponent = memo(
 								<SubMenuItem
 									key={`${sub.href || sub.name}-${index}`}
 									item={sub}
-									isActive={!!(sub.href && isActive(sub.href))}
+									isActive={!!(sub.href && isActive(sub.href, activePath))}
 									onNavigate={handleSubNavigate}
 								/>
 							))}
@@ -449,12 +452,8 @@ const AppSidebar: React.FC = () => {
 			: undefined;
 
 	// ── Active path check ─────────────────────────────────────────────────────
-	// Use a ref so isActive has a stable identity — avoids re-rendering every
-	// memoized NavItemComponent when the path changes.
-	const activePathRef = useRef(activePath);
-	activePathRef.current = activePath;
 	const isActive = useCallback(
-		(href: string) => prependDashboard(href) === activePathRef.current,
+		(href: string, path: string) => prependDashboard(href) === path,
 		[],
 	);
 
@@ -656,13 +655,13 @@ const AppSidebar: React.FC = () => {
 	useEffect(() => {
 		if (initialSetupDone || navigationItems.length === 0) return;
 		for (const nav of navigationItems) {
-			if (nav.subItems?.some((sub) => sub.href && isActive(sub.href))) {
+			if (nav.subItems?.some((sub) => sub.href && isActive(sub.href, activePath))) {
 				setOpenSubmenu(nav.name);
 				break;
 			}
 		}
 		setInitialSetupDone(true);
-	}, [initialSetupDone, navigationItems, isActive]);
+	}, [initialSetupDone, navigationItems, isActive, activePath]);
 
 	// ── Handlers ──────────────────────────────────────────────────────────────
 	const handleSubmenuToggle = useCallback((itemName: string) => {
@@ -815,6 +814,7 @@ const AppSidebar: React.FC = () => {
 											key={item.name}
 											item={item}
 											isActive={isActive}
+											activePath={activePath}
 											openSubmenu={openSubmenu}
 											onSubmenuToggle={handleSubmenuToggle}
 											onNavigate={handleClientNavigate}
@@ -825,6 +825,7 @@ const AppSidebar: React.FC = () => {
 											key={item.name}
 											item={item}
 											isActive={isActive}
+											activePath={activePath}
 											onNavigate={handleClientNavigate}
 											onLogout={handleLogout}
 										/>

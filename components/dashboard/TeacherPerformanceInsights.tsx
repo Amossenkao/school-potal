@@ -1,10 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
 import { PieChart, Pie, Cell } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
 	ChartContainer,
 	ChartTooltip,
@@ -14,6 +12,7 @@ import type { SchoolProfile } from '@/types/schoolProfile';
 import { getClassNameById } from '@/components/dashboard/academicYear';
 import InsightMetricChart from '@/components/dashboard/InsightMetricChart';
 import InsightChartTypeSelect from '@/components/dashboard/InsightChartTypeSelect';
+import StatCard from '@/components/dashboard/StatCard';
 import { useSchoolStore } from '@/store/schoolStore';
 import {
 	areAcademicYearsEqual,
@@ -42,6 +41,17 @@ import {
 	type RawGradeRecord,
 	type TopPerformerScope,
 } from '@/components/dashboard/insightAnalytics';
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from '@/components/ui/table';
+import { GraduationCap, Trophy, BookOpen, TrendingUp } from 'lucide-react';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type GradeItem = {
 	grade?: number | string | null;
@@ -61,12 +71,9 @@ type TeacherPerformanceInsightsProps = {
 	};
 };
 
-const PIE_CHART_CLASS = 'h-[220px] sm:h-[270px] w-full aspect-auto';
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-const fadeVariant = {
-	hidden: { opacity: 0, y: 10 },
-	show: { opacity: 1, y: 0 },
-};
+const PIE_CHART_CLASS = 'h-[220px] sm:h-[270px] w-full aspect-auto';
 
 const getAverage = (values: number[]) => {
 	if (values.length === 0) return 0;
@@ -75,10 +82,13 @@ const getAverage = (values: number[]) => {
 	);
 };
 
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function TeacherPerformanceInsights({
 	schoolProfile,
 	user,
 }: TeacherPerformanceInsightsProps) {
+	// ── Academic year ─────────────────────────────────────────────────────────
 	const teacherYears = useMemo(() => getTeacherAcademicYears(user), [user]);
 	const academicYearOptions = useMemo(() => {
 		const schoolYears = buildSchoolAcademicYearRange(schoolProfile);
@@ -104,11 +114,8 @@ export default function TeacherPerformanceInsights({
 	const [selectedPeriod, setSelectedPeriod] = useState('all');
 	const [selectedSemester, setSelectedSemester] = useState('all');
 	const [overviewChartType, setOverviewChartType] = useState<ChartType>('column');
-	const [trendChartType, setTrendChartType] = useState<ChartType>('column');
-	const [topChartType, setTopChartType] = useState<ChartType>('column');
 	const [topScope, setTopScope] = useState<TopPerformerScope>('subject');
-	const [topLimit, setTopLimit] = useState(1);
-	const [trendView, setTrendView] = useState<'period' | 'semester'>('period');
+	const [topLimit, setTopLimit] = useState(3);
 	const [grades, setGrades] = useState<GradeItem[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const [errorMessage, setErrorMessage] = useState('');
@@ -124,6 +131,7 @@ export default function TeacherPerformanceInsights({
 		}
 	}, [academicYearOptions, defaultAcademicYear, selectedYear]);
 
+	// ── Teacher's classes & subjects ──────────────────────────────────────────
 	const yearAssignment = useMemo(
 		() =>
 			user.subjects?.find((entry) =>
@@ -188,17 +196,14 @@ export default function TeacherPerformanceInsights({
 	}, [selectedSubject, subjectOptions]);
 
 	useEffect(() => {
-		if (selectedSemester !== 'all') {
-			setSelectedPeriod('all');
-		}
+		if (selectedSemester !== 'all') setSelectedPeriod('all');
 	}, [selectedSemester]);
 
 	useEffect(() => {
-		if (selectedPeriod !== 'all') {
-			setSelectedSemester('all');
-		}
+		if (selectedPeriod !== 'all') setSelectedSemester('all');
 	}, [selectedPeriod]);
 
+	// ── Grade fetching ────────────────────────────────────────────────────────
 	useEffect(() => {
 		if (!selectedYear) return;
 		if (teacherClassIds.length === 0) {
@@ -283,6 +288,7 @@ export default function TeacherPerformanceInsights({
 		setGradesForYear,
 	]);
 
+	// ── Derived data ──────────────────────────────────────────────────────────
 	const passMark = schoolProfile.settings?.gradingSettings?.passMark || 70;
 	const numericGrades = useMemo(
 		() => normalizeNumericGrades(grades as RawGradeRecord[]),
@@ -297,13 +303,6 @@ export default function TeacherPerformanceInsights({
 			),
 		[numericGrades, selectedPeriod, selectedSemester],
 	);
-
-	const periodTrend = useMemo(() => buildPeriodTrend(numericGrades), [numericGrades]);
-	const semesterTrend = useMemo(
-		() => buildSemesterTrend(numericGrades),
-		[numericGrades],
-	);
-	const trendData = trendView === 'period' ? periodTrend : semesterTrend;
 
 	const subjectAverages = useMemo(
 		() => buildAverageByDimension(filteredGrades, (grade) => grade.subject),
@@ -345,6 +344,19 @@ export default function TeacherPerformanceInsights({
 	const totalRecords = filteredGrades.length;
 	const passRate = totalRecords > 0 ? Math.round((passCount / totalRecords) * 100) : 0;
 
+	const topClassLabel = useMemo(() => {
+		if (classAverages.length === 0) return 'N/A';
+		return classAverages.reduce(
+			(best, entry) => (entry.average > best.average ? entry : best),
+			classAverages[0],
+		).label;
+	}, [classAverages]);
+
+	const topSubjectLabel = useMemo(() => {
+		if (subjectAverages.length === 0) return 'N/A';
+		return subjectAverages[0]?.label || 'N/A';
+	}, [subjectAverages]);
+
 	const topRows = useMemo(
 		() =>
 			buildTopPerformerRows(filteredGrades, {
@@ -354,14 +366,6 @@ export default function TeacherPerformanceInsights({
 			}),
 		[filteredGrades, topScope, topLimit, schoolProfile],
 	);
-
-	const topClassLabel = useMemo(() => {
-		if (classAverages.length === 0) return 'N/A';
-		return classAverages.reduce(
-			(best, entry) => (entry.average > best.average ? entry : best),
-			classAverages[0],
-		).label;
-	}, [classAverages]);
 
 	const topChartData = useMemo(
 		() =>
@@ -380,11 +384,6 @@ export default function TeacherPerformanceInsights({
 		[topRows, topScope],
 	);
 
-	const trendAverage = useMemo(
-		() => getAverage(trendData.map((entry) => entry.average)),
-		[trendData],
-	);
-
 	const periodOptions = useMemo(() => {
 		const configured =
 			schoolProfile.settings?.teacherSettings?.gradeSubmissionPeriods || [];
@@ -396,18 +395,18 @@ export default function TeacherPerformanceInsights({
 	}, [schoolProfile]);
 
 	return (
-		<div className="space-y-6">
+		<div className="space-y-8">
+			{/* ── Header with filters ─────────────────────────────────────────── */}
 			<Card className="overflow-hidden border-primary/15 bg-gradient-to-br from-emerald-50/60 via-background to-sky-50/60 dark:from-emerald-950/20 dark:via-background dark:to-sky-950/20">
 				<CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
 					<div>
-						<CardTitle>Teaching Performance Lab</CardTitle>
+						<CardTitle>Teaching Performance</CardTitle>
 						<p className="text-sm text-muted-foreground">
-							Analyze class outcomes and identify top performers by academic
-							year.
+							Aggregate performance for your classes and subjects.
 						</p>
 					</div>
 					<div className="flex flex-wrap gap-3">
-						{academicYearOptions.length > 1 ? (
+						{academicYearOptions.length > 1 && (
 							<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
 								Academic Year
 								<select
@@ -422,8 +421,8 @@ export default function TeacherPerformanceInsights({
 									))}
 								</select>
 							</div>
-						) : null}
-						{classOptions.length > 1 ? (
+						)}
+						{classOptions.length > 1 && (
 							<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
 								Class
 								<select
@@ -439,8 +438,8 @@ export default function TeacherPerformanceInsights({
 									))}
 								</select>
 							</div>
-						) : null}
-						{subjectOptions.length > 1 ? (
+						)}
+						{subjectOptions.length > 1 && (
 							<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
 								Subject
 								<select
@@ -456,7 +455,7 @@ export default function TeacherPerformanceInsights({
 									))}
 								</select>
 							</div>
-						) : null}
+						)}
 						<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
 							Period
 							<select
@@ -490,348 +489,237 @@ export default function TeacherPerformanceInsights({
 				</CardHeader>
 				<CardContent>
 					{isLoading ? (
-						<p className="text-sm text-muted-foreground">
-							Loading class analytics…
-						</p>
+						<p className="text-sm text-muted-foreground">Loading analytics…</p>
 					) : errorMessage ? (
 						<p className="text-sm text-red-500">{errorMessage}</p>
 					) : (
 						<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-							{[
-								{
-									label: 'Average Grade',
-									value: averageGrade.toFixed(1),
-									helper: `${totalRecords} assessed records`,
-								},
-								{
-									label: 'Pass Rate',
-									value: `${passRate}%`,
-									helper: `${passCount}/${totalRecords} passing`,
-								},
-							{
-								label: 'Top Class',
-								value: topClassLabel,
-								helper: 'Best performing class',
-							},
-							{
-								label: 'Top Class Average',
-								value: classAverages[0]?.label || 'N/A',
-								helper: 'Best performing class',
-							},
-							].map((stat, index) => (
-								<motion.div
-									key={stat.label}
-									variants={fadeVariant}
-									initial="hidden"
-									animate="show"
-									transition={{ duration: 0.28, delay: index * 0.05 }}
-									className="rounded-lg border border-border/70 bg-background/70 p-4 backdrop-blur-sm"
-								>
-									<p className="text-xs text-muted-foreground">{stat.label}</p>
-									<p className="mt-1 text-2xl font-semibold">{stat.value}</p>
-									<p className="mt-1 text-xs text-muted-foreground">
-										{stat.helper}
-									</p>
-								</motion.div>
-							))}
+							<StatCard label="Average Grade" value={averageGrade.toFixed(1)} helper={`${totalRecords} assessed records`} icon={GraduationCap} index={0} />
+							<StatCard label="Pass Rate" value={`${passRate}%`} helper={`${passCount}/${totalRecords} passing`} icon={TrendingUp} index={1} />
+							<StatCard label="Top Class" value={topClassLabel} helper="Best performing class" icon={Trophy} index={2} />
+							<StatCard label="Top Subject" value={topSubjectLabel} helper="Highest average score" icon={BookOpen} index={3} />
 						</div>
 					)}
 				</CardContent>
 			</Card>
 
-			<Tabs defaultValue="overview" className="w-full">
-				<TabsList className="h-auto w-full justify-start gap-2 overflow-x-auto p-1">
-					<TabsTrigger value="overview">Overview</TabsTrigger>
-					<TabsTrigger value="performance">Top Performers</TabsTrigger>
-					<TabsTrigger value="trends">Trends</TabsTrigger>
-				</TabsList>
-
-				<TabsContent value="overview" className="space-y-6">
-					<Card>
-						<CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-							<div>
-								<CardTitle>Subject and Class Averages</CardTitle>
-								<p className="text-sm text-muted-foreground">
-									Compare averages with your selected filters.
-								</p>
-							</div>
-							<InsightChartTypeSelect
-								label="Graph Type"
-								value={overviewChartType}
-								onChange={setOverviewChartType}
-							/>
-						</CardHeader>
-						<CardContent className="space-y-6">
-							{subjectAverages.length === 0 ? (
-								<p className="text-sm text-muted-foreground">
-									No grade data available.
-								</p>
-							) : (
-								<div className="grid gap-6 lg:grid-cols-2">
-									<InsightMetricChart
-										data={subjectAverages}
-										chartType={overviewChartType}
-										xKey="label"
-										yKey="average"
-										yLabel="Average Grade"
-										color="hsl(221, 83%, 53%)"
-										xTickFormatter={(value) => formatAxisLabel(value, 14)}
-									/>
-									<InsightMetricChart
-										data={classAverages}
-										chartType={overviewChartType}
-										xKey="label"
-										yKey="average"
-										yLabel="Average Grade"
-										color="hsl(157, 72%, 40%)"
-										xTickFormatter={(value) => formatAxisLabel(value, 14)}
-									/>
-								</div>
-							)}
-						</CardContent>
-					</Card>
-
-					<div className="grid gap-6 lg:grid-cols-2">
-						<Card>
-							<CardHeader>
-								<CardTitle>Pass vs Fail</CardTitle>
-							</CardHeader>
-							<CardContent>
-								<ChartContainer
-									config={{
-										Pass: { label: 'Pass', color: 'hsl(145, 63%, 42%)' },
-										Fail: { label: 'Fail', color: 'hsl(0, 84%, 60%)' },
-									}}
-									className={PIE_CHART_CLASS}
-								>
-									<PieChart>
-										<ChartTooltip
-											content={<ChartTooltipContent nameKey="label" />}
-										/>
-										<Pie
-											data={passFailData}
-											dataKey="value"
-											nameKey="label"
-											innerRadius={52}
-											outerRadius={85}
-											stroke="transparent"
-											isAnimationActive
-											animationDuration={700}
-										>
-											{passFailData.map((entry) => (
-												<Cell
-													key={entry.label}
-													fill={`var(--color-${entry.label})`}
-												/>
-											))}
-										</Pie>
-									</PieChart>
-								</ChartContainer>
-							</CardContent>
-						</Card>
-
-						<Card>
-							<CardHeader>
-								<CardTitle>Grade Distribution</CardTitle>
-							</CardHeader>
-							<CardContent>
-								<ChartContainer
-									config={{
-										A: { label: 'A (90-100)', color: 'hsl(145, 63%, 42%)' },
-										B: { label: 'B (80-89)', color: 'hsl(199, 89%, 48%)' },
-										C: { label: 'C (70-79)', color: 'hsl(45, 93%, 47%)' },
-										D: { label: 'D (60-69)', color: 'hsl(24, 95%, 53%)' },
-										F: { label: 'F (<60)', color: 'hsl(0, 84%, 60%)' },
-									}}
-									className={PIE_CHART_CLASS}
-								>
-									<PieChart>
-										<ChartTooltip
-											content={<ChartTooltipContent nameKey="key" />}
-										/>
-										<Pie
-											data={gradeBandPieData}
-											dataKey="value"
-											nameKey="key"
-											innerRadius={42}
-											outerRadius={86}
-											stroke="transparent"
-											isAnimationActive
-											animationDuration={700}
-										>
-											{gradeBandPieData.map((entry) => (
-												<Cell
-													key={entry.label}
-													fill={`var(--color-${entry.key})`}
-												/>
-											))}
-										</Pie>
-									</PieChart>
-								</ChartContainer>
-							</CardContent>
-						</Card>
+			{/* ── Performance Overview: Subject & Class Averages ───────────────── */}
+			<Card>
+				<CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+					<div>
+						<CardTitle>Subject and Class Averages</CardTitle>
+						<p className="text-sm text-muted-foreground">
+							Compare averages with your selected filters.
+						</p>
 					</div>
-				</TabsContent>
+					<InsightChartTypeSelect
+						label="Graph Type"
+						value={overviewChartType}
+						onChange={setOverviewChartType}
+					/>
+				</CardHeader>
+				<CardContent className="space-y-6">
+					{subjectAverages.length === 0 ? (
+						<p className="text-sm text-muted-foreground">No grade data available.</p>
+					) : (
+						<div className="grid gap-6 lg:grid-cols-2">
+							<InsightMetricChart
+								data={subjectAverages}
+								chartType={overviewChartType}
+								xKey="label"
+								yKey="average"
+								yLabel="Average Grade"
+								color="hsl(221, 83%, 53%)"
+								xTickFormatter={(value) => formatAxisLabel(value, 14)}
+							/>
+							<InsightMetricChart
+								data={classAverages}
+								chartType={overviewChartType}
+								xKey="label"
+								yKey="average"
+								yLabel="Average Grade"
+								color="hsl(157, 72%, 40%)"
+								xTickFormatter={(value) => formatAxisLabel(value, 14)}
+							/>
+						</div>
+					)}
+				</CardContent>
+			</Card>
 
-				<TabsContent value="performance" className="space-y-6">
-					<Card>
-						<CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-							<div>
-								<CardTitle>Top Performers</CardTitle>
-								<p className="text-sm text-muted-foreground">
-									View top results across subject, class, period, semester, or
-									yearly.
-								</p>
-							</div>
-							<div className="flex flex-wrap gap-3">
-								<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-									Scope
-									<select
-										className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-										value={topScope}
-										onChange={(event) =>
-											setTopScope(event.target.value as TopPerformerScope)
-										}
-									>
-										<option value="subject">By Subject</option>
-										<option value="class">By Class</option>
-										<option value="period">By Period</option>
-										<option value="semester">By Semester</option>
-										<option value="yearly">Yearly Overall</option>
-									</select>
-								</div>
-								<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-									Top X
-									<select
-										className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-										value={String(topLimit)}
-										onChange={(event) =>
-											setTopLimit(Number(event.target.value))
-										}
-									>
-										<option value="1">Top 1</option>
-										<option value="2">Top 2</option>
-										<option value="3">Top 3</option>
-										<option value="4">Top 4</option>
-										<option value="5">Top 5</option>
-									</select>
-								</div>
-								<InsightChartTypeSelect
-									label="Graph Type"
-									value={topChartType}
-									onChange={setTopChartType}
+			{/* ── Pass/Fail + Grade Distribution ──────────────────────────────── */}
+			<div className="grid gap-6 lg:grid-cols-2">
+				<Card>
+					<CardHeader>
+						<CardTitle>Pass vs Fail</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<ChartContainer
+							config={{
+								Pass: { label: 'Pass', color: 'hsl(145, 63%, 42%)' },
+								Fail: { label: 'Fail', color: 'hsl(0, 84%, 60%)' },
+							}}
+							className={PIE_CHART_CLASS}
+						>
+							<PieChart>
+								<ChartTooltip
+									content={<ChartTooltipContent nameKey="label" />}
 								/>
-							</div>
-						</CardHeader>
-						<CardContent className="space-y-5">
-							{topRows.length === 0 ? (
-								<p className="text-sm text-muted-foreground">
-									No performer data available.
-								</p>
-							) : (
-								<>
-									<InsightMetricChart
-										data={topChartData}
-										chartType={topChartType}
-										xKey="label"
-										yKey="average"
-										yLabel="Average Grade"
-										color="hsl(266, 83%, 58%)"
-										xTickFormatter={(value) => formatAxisLabel(value, 12)}
-									/>
-									<div className="overflow-x-auto rounded-lg border border-border">
-										<table className="min-w-full text-sm">
-											<thead className="bg-muted/50">
-												<tr className="text-left text-muted-foreground">
-													<th className="px-4 py-3">Scope</th>
-													<th className="px-4 py-3">Student</th>
-													<th className="px-4 py-3">Class</th>
-													<th className="px-4 py-3">Student ID</th>
-													<th className="px-4 py-3">Average</th>
-													<th className="px-4 py-3">Records</th>
-												</tr>
-											</thead>
-											<tbody>
-												{topRows.map((entry) => (
-													<tr
-														key={entry.key}
-														className="border-t border-border/70"
-													>
-														<td className="px-4 py-3">{entry.scopeLabel}</td>
-														<td className="px-4 py-3 font-medium">
-															{entry.studentName}
-														</td>
-														<td className="px-4 py-3">
-															{entry.classLabel || '—'}
-														</td>
-														<td className="px-4 py-3">
-															{entry.studentId || '—'}
-														</td>
-														<td className="px-4 py-3">
-															{entry.average.toFixed(1)}
-														</td>
-														<td className="px-4 py-3">{entry.count}</td>
-													</tr>
-												))}
-											</tbody>
-										</table>
-									</div>
-								</>
-							)}
-						</CardContent>
-					</Card>
-				</TabsContent>
+								<Pie
+									data={passFailData}
+									dataKey="value"
+									nameKey="label"
+									innerRadius={52}
+									outerRadius={85}
+									stroke="transparent"
+									isAnimationActive
+									animationDuration={700}
+								>
+									{passFailData.map((entry) => (
+										<Cell
+											key={entry.label}
+											fill={`var(--color-${entry.label})`}
+										/>
+									))}
+								</Pie>
+							</PieChart>
+						</ChartContainer>
+					</CardContent>
+				</Card>
 
-				<TabsContent value="trends" className="space-y-6">
-					<Card>
-						<CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-							<div>
-								<CardTitle>Performance Trend</CardTitle>
-								<p className="text-sm text-muted-foreground">
-									Average trend: {trendAverage.toFixed(1)}
-								</p>
-							</div>
-							<div className="flex flex-wrap gap-3">
-								<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-									Trend View
-									<select
-										className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-										value={trendView}
-										onChange={(event) =>
-											setTrendView(event.target.value as 'period' | 'semester')
-										}
-									>
-										<option value="period">By period</option>
-										<option value="semester">By semester</option>
-									</select>
-								</div>
-								<InsightChartTypeSelect
-									label="Graph Type"
-									value={trendChartType}
-									onChange={setTrendChartType}
+				<Card>
+					<CardHeader>
+						<CardTitle>Grade Distribution</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<ChartContainer
+							config={{
+								A: { label: 'A (90-100)', color: 'hsl(145, 63%, 42%)' },
+								B: { label: 'B (80-89)', color: 'hsl(199, 89%, 48%)' },
+								C: { label: 'C (70-79)', color: 'hsl(45, 93%, 47%)' },
+								D: { label: 'D (60-69)', color: 'hsl(24, 95%, 53%)' },
+								F: { label: 'F (<60)', color: 'hsl(0, 84%, 60%)' },
+							}}
+							className={PIE_CHART_CLASS}
+						>
+							<PieChart>
+								<ChartTooltip
+									content={<ChartTooltipContent nameKey="key" />}
 								/>
+								<Pie
+									data={gradeBandPieData}
+									dataKey="value"
+									nameKey="key"
+									innerRadius={42}
+									outerRadius={86}
+									stroke="transparent"
+									isAnimationActive
+									animationDuration={700}
+								>
+									{gradeBandPieData.map((entry) => (
+										<Cell
+											key={entry.label}
+											fill={`var(--color-${entry.key})`}
+										/>
+									))}
+								</Pie>
+							</PieChart>
+						</ChartContainer>
+					</CardContent>
+				</Card>
+			</div>
+
+			{/* ── Top Performers in My Classes ────────────────────────────────── */}
+			<Card>
+				<CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+					<div>
+						<CardTitle>Top Performers in My Classes</CardTitle>
+						<p className="text-sm text-muted-foreground">
+							Ranked by subject, class, period, semester, or yearly average.
+						</p>
+					</div>
+					<div className="flex flex-wrap gap-3">
+						<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+							Scope
+							<select
+								className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+								value={topScope}
+								onChange={(event) =>
+									setTopScope(event.target.value as TopPerformerScope)
+								}
+							>
+								<option value="subject">By Subject</option>
+								<option value="class">By Class</option>
+								<option value="period">By Period</option>
+								<option value="semester">By Semester</option>
+								<option value="yearly">Yearly Overall</option>
+							</select>
+						</div>
+						<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+							Top X
+							<select
+								className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+								value={String(topLimit)}
+								onChange={(event) =>
+									setTopLimit(Number(event.target.value))
+								}
+							>
+								<option value={3}>Top 3</option>
+								<option value={5}>Top 5</option>
+								<option value={10}>Top 10</option>
+							</select>
+						</div>
+					</div>
+				</CardHeader>
+				<CardContent className="space-y-5">
+					{topRows.length === 0 ? (
+						<p className="text-sm text-muted-foreground">
+							No performer data available.
+						</p>
+					) : (
+						<>
+							<InsightMetricChart
+								data={topChartData}
+								chartType="bar"
+								xKey="label"
+								yKey="average"
+								yLabel="Average Grade"
+								color="hsl(266, 83%, 58%)"
+								xTickFormatter={(value) => formatAxisLabel(value, 12)}
+							/>
+							<div className="overflow-x-auto rounded-lg border">
+								<Table>
+									<TableHeader>
+										<TableRow>
+											<TableHead>Scope</TableHead>
+											<TableHead>Student</TableHead>
+											<TableHead>Class</TableHead>
+											<TableHead className="text-right">Average</TableHead>
+											<TableHead className="text-right">Records</TableHead>
+										</TableRow>
+									</TableHeader>
+									<TableBody>
+										{topRows.map((entry) => (
+											<TableRow key={entry.key}>
+												<TableCell>{entry.scopeLabel}</TableCell>
+												<TableCell className="font-medium">
+													{entry.studentName}
+												</TableCell>
+												<TableCell>{entry.classLabel || '—'}</TableCell>
+												<TableCell className="text-right font-semibold">
+													{entry.average.toFixed(1)}
+												</TableCell>
+												<TableCell className="text-right text-muted-foreground">
+													{entry.count}
+												</TableCell>
+											</TableRow>
+										))}
+									</TableBody>
+								</Table>
 							</div>
-						</CardHeader>
-						<CardContent>
-							{trendData.length === 0 ? (
-								<p className="text-sm text-muted-foreground">
-									No trend data available.
-								</p>
-							) : (
-								<InsightMetricChart
-									data={trendData}
-									chartType={trendChartType}
-									xKey="label"
-									yKey="average"
-									yLabel="Average Grade"
-									color="hsl(212, 91%, 54%)"
-									xTickFormatter={(value) => formatAxisLabel(value, 16)}
-								/>
-							)}
-						</CardContent>
-					</Card>
-				</TabsContent>
-			</Tabs>
+						</>
+					)}
+				</CardContent>
+			</Card>
 		</div>
 	);
 }
