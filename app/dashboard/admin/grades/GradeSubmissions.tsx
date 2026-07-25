@@ -836,15 +836,17 @@ const AdminGradeManagement: React.FC = () => {
 		setIsProcessing(false);
 	};
 
-	// Get unique values for filters
-	const getUniqueSubjects = () =>
-		[...new Set(submissions.map((s) => s.subject))].sort();
-	const getUniqueClasses = () => {
+	// Get unique values for filters — memoized to avoid recomputing on every render
+	const uniqueSubjects = useMemo(
+		() => [...new Set(submissions.map((s) => s.subject))].sort(),
+		[submissions],
+	);
+	const uniqueClasses = useMemo(() => {
 		const classIds = [...new Set(submissions.map((s) => s.classId))];
 		return classIds
 			.map((id) => ({ classId: id, name: classMap.get(id) || id }))
 			.sort((a, b) => a.name.localeCompare(b.name));
-	};
+	}, [submissions, classMap]);
 
 	// Filtering and sorting logic
 	const filteredAndSortedSubmissions = useMemo(() => {
@@ -1343,7 +1345,7 @@ const AdminGradeManagement: React.FC = () => {
 							className="w-full sm:w-auto rounded-md border-input bg-background shadow-sm focus:ring-primary focus:border-primary p-2 text-sm"
 						>
 							<option value="">All Classes</option>
-							{getUniqueClasses().map((cls) => (
+							{uniqueClasses.map((cls) => (
 								<option key={cls.classId} value={cls.classId}>
 									{cls.name}
 								</option>
@@ -1357,7 +1359,7 @@ const AdminGradeManagement: React.FC = () => {
 							className="w-full sm:w-auto rounded-md border-input bg-background shadow-sm focus:ring-primary focus:border-primary p-2 text-sm"
 						>
 							<option value="">All Subjects</option>
-							{getUniqueSubjects().map((subject) => (
+							{uniqueSubjects.map((subject) => (
 								<option key={subject} value={subject}>
 									{subject}
 								</option>

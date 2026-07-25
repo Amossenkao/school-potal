@@ -1,7 +1,7 @@
 // components/DashboardHome.tsx
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { motion } from 'framer-motion';
 import {
 	Shield,
@@ -109,7 +109,6 @@ const ROLE_CONFIG: Record<
 };
 
 // Segments of the day used by the "day timeline" signature element.
-// Each segment encodes a real window of the school day, not decoration.
 const DAY_SEGMENTS = [
 	{ label: 'Dawn', icon: Sunrise, startHour: 5 },
 	{ label: 'Midday', icon: Sun, startHour: 11 },
@@ -117,31 +116,37 @@ const DAY_SEGMENTS = [
 	{ label: 'Night', icon: Moon, startHour: 20 },
 ];
 
-export default function DashboardHome({
-	user,
-	schoolProfile,
-}: DashboardHomeProps) {
-	const [greeting, setGreeting] = useState('Welcome');
+// Framer Motion variants (defined once, shared across children)
+const containerVariants = {
+	hidden: { opacity: 0 },
+	show: {
+		opacity: 1,
+		transition: { staggerChildren: 0.1 },
+	},
+};
+
+const itemVariants = {
+	hidden: { opacity: 0, y: 20 },
+	show: {
+		opacity: 1,
+		y: 0,
+		transition: { type: 'spring', stiffness: 300, damping: 24 },
+	},
+};
+
+// ── LiveClock: owns the 1-second interval so its ticks never re-render
+//    the rest of DashboardHome (hero text, insight components, etc.)
+const LiveClock = memo(function LiveClock({
+	config,
+}: {
+	config: (typeof ROLE_CONFIG)[string];
+}) {
 	const [now, setNow] = useState<Date | null>(null);
 	const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 	const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
-	// Live, drift-free clock. Rather than polling on a fixed 60s (or even 1s)
-	// interval from mount — which can visibly lag behind the real clock as
-	// timers slip — we snap the very first tick to the next real second
-	// boundary, then run a 1s interval from there. Every tick reads a fresh
-	// Date, so the displayed time is always accurate to the second, never
-	// "behind." Kept inside useEffect so the first server-rendered markup
-	// never depends on the client's clock, avoiding hydration mismatches.
 	useEffect(() => {
-		const tick = () => {
-			const current = new Date();
-			setNow(current);
-			const hour = current.getHours();
-			if (hour < 12) setGreeting('Good morning');
-			else if (hour < 18) setGreeting('Good afternoon');
-			else setGreeting('Good evening');
-		};
+		const tick = () => setNow(new Date());
 
 		tick();
 		const msUntilNextSecond = 1000 - new Date().getMilliseconds();
@@ -156,30 +161,6 @@ export default function DashboardHome({
 		};
 	}, []);
 
-	const role = user?.role || 'student';
-	const isAdminRole = role === 'system_admin' || role === 'administrator';
-
-	const config = ROLE_CONFIG[role] || ROLE_CONFIG.default;
-	const RoleIcon = config.icon;
-
-	// Framer Motion variants for staggered fade-in
-	const containerVariants = {
-		hidden: { opacity: 0 },
-		show: {
-			opacity: 1,
-			transition: { staggerChildren: 0.1 },
-		},
-	};
-
-	const itemVariants = {
-		hidden: { opacity: 0, y: 20 },
-		show: {
-			opacity: 1,
-			y: 0,
-			transition: { type: 'spring', stiffness: 300, damping: 24 },
-		},
-	};
-
 	const dateLabel = now
 		? now.toLocaleDateString(undefined, {
 				weekday: 'long',
@@ -188,7 +169,10 @@ export default function DashboardHome({
 			})
 		: '';
 	const hourMinuteLabel = now
-		? now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+		? now.toLocaleTimeString(undefined, {
+				hour: 'numeric',
+				minute: '2-digit',
+			})
 		: '';
 	const secondsLabel = now
 		? now.getSeconds().toString().padStart(2, '0')
@@ -199,8 +183,6 @@ export default function DashboardHome({
 				.split(' ')[1]
 		: '';
 
-	// Percentage through the current day (00:00 -> 24:00), used to place the
-	// live marker on the day timeline below.
 	const dayProgressPct = useMemo(() => {
 		if (!now) return 0;
 		const secondsIntoDay =
@@ -212,6 +194,88 @@ export default function DashboardHome({
 	const activeSegmentIndex = DAY_SEGMENTS.reduce((acc, seg, idx) => {
 		return currentHour >= seg.startHour ? idx : acc;
 	}, 0);
+
+	if (!now) return null;
+
+	return (
+		<>
+			{/* Time card */}
+			<div className="shrink-0 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/40 px-5 py-4 text-right">
+				<div className="flex items-baseline justify-end gap-1.5">
+					<p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums leading-none">
+						{hourMinuteLabel.replace(/\s?[AP]M$/i, '')}
+					</p>
+					<span
+						className={`inline-flex items-center justify-center min-w-[2ch] rounded-md px-1 py-0.5 text-xs font-bold tabular-nums ${config.bg} ${config.color}`}
+					>
+						{secondsLabel}
+					</span>
+					{periodLabel ? (
+						<span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase">
+							{periodLabel}
+						</span>
+					) : null}
+				</div>
+				<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+					{dateLabel}
+				</p>
+			</div>
+
+			{/* Day timeline */}
+			<div className="relative z-10 mt-8">
+				<div className="relative h-1.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-visible">
+					<div
+						className={`absolute inset-y-0 left-0 rounded-full ${config.color} bg-current opacity-20`}
+						style={{ width: `${dayProgressPct}%` }}
+					/>
+					<div
+						className={`absolute top-1/2 h-3 w-3 -translate-y-1/2 -translate-x-1/2 rounded-full ${config.color} bg-current ring-4 ring-white dark:ring-gray-900 animate-pulse [animation-duration:2s]`}
+						style={{ left: `${dayProgressPct}%` }}
+					/>
+				</div>
+				<div className="mt-2 flex justify-between">
+					{DAY_SEGMENTS.map((segment, idx) => {
+						const SegmentIcon = segment.icon;
+						const isActive = idx === activeSegmentIndex;
+						return (
+							<div
+								key={segment.label}
+								className={`flex items-center gap-1 text-[11px] font-medium uppercase tracking-wider transition-colors ${
+									isActive
+										? config.color
+										: 'text-gray-400 dark:text-gray-600'
+								}`}
+							>
+								<SegmentIcon size={12} />
+								{segment.label}
+							</div>
+						);
+					})}
+				</div>
+			</div>
+		</>
+	);
+});
+
+// ── Main component ────────────────────────────────────────────────────────
+
+export default function DashboardHome({
+	user,
+	schoolProfile,
+}: DashboardHomeProps) {
+	// Greeting changes at most 3× per day — compute once, no interval needed.
+	const [greeting] = useState(() => {
+		const hour = new Date().getHours();
+		if (hour < 12) return 'Good morning';
+		if (hour < 18) return 'Good afternoon';
+		return 'Good evening';
+	});
+
+	const role = user?.role || 'student';
+	const isAdminRole = role === 'system_admin' || role === 'administrator';
+
+	const config = ROLE_CONFIG[role] || ROLE_CONFIG.default;
+	const RoleIcon = config.icon;
 
 	return (
 		<motion.div
@@ -225,13 +289,11 @@ export default function DashboardHome({
 				variants={itemVariants}
 				className="relative overflow-hidden rounded-3xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 shadow-sm"
 			>
-				{/* Animated gradient glow, unique per role */}
 				<div
 					className={`pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-gradient-to-br ${config.glow} blur-3xl opacity-70 animate-pulse [animation-duration:6s]`}
 				/>
 				<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(0,0,0,0.02),_transparent_60%)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.03),_transparent_60%)]" />
 
-				{/* Subtle Background Icon Decoration */}
 				<div className="absolute top-6 right-6 opacity-[0.05] dark:opacity-[0.04] pointer-events-none transition-transform duration-700 hover:scale-105">
 					<RoleIcon size={220} />
 				</div>
@@ -276,76 +338,13 @@ export default function DashboardHome({
 						</motion.p>
 					</div>
 
-					{now ? (
-						<motion.div
-							variants={itemVariants}
-							className="shrink-0 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/40 px-5 py-4 text-right"
-						>
-							{/* Digital readout: hour:minute large, seconds tick as a
-							    small live chip so the "live-ness" of the clock is
-							    visible at a glance, not just implied. */}
-							<div className="flex items-baseline justify-end gap-1.5">
-								<p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums leading-none">
-									{hourMinuteLabel.replace(/\s?[AP]M$/i, '')}
-								</p>
-								<span
-									className={`inline-flex items-center justify-center min-w-[2ch] rounded-md px-1 py-0.5 text-xs font-bold tabular-nums ${config.bg} ${config.color}`}
-								>
-									{secondsLabel}
-								</span>
-								{periodLabel ? (
-									<span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase">
-										{periodLabel}
-									</span>
-								) : null}
-							</div>
-							<p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-								{dateLabel}
-							</p>
-						</motion.div>
-					) : null}
+					{/* Clock + timeline: isolated in LiveClock so 1-second ticks
+					    don't re-render the hero text or insight components below. */}
+					<LiveClock config={config} />
 				</div>
-
-				{/* Signature element: a live day timeline. Encodes where "now"
-				    actually sits within the school day, rather than decorating
-				    the hero with something generic. The marker moves in real
-				    time as the seconds tick. */}
-				{now ? (
-					<motion.div variants={itemVariants} className="relative z-10 mt-8">
-						<div className="relative h-1.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-visible">
-							<div
-								className={`absolute inset-y-0 left-0 rounded-full ${config.color} bg-current opacity-20`}
-								style={{ width: `${dayProgressPct}%` }}
-							/>
-							<div
-								className={`absolute top-1/2 h-3 w-3 -translate-y-1/2 -translate-x-1/2 rounded-full ${config.color} bg-current ring-4 ring-white dark:ring-gray-900 animate-pulse [animation-duration:2s]`}
-								style={{ left: `${dayProgressPct}%` }}
-							/>
-						</div>
-						<div className="mt-2 flex justify-between">
-							{DAY_SEGMENTS.map((segment, idx) => {
-								const SegmentIcon = segment.icon;
-								const isActive = idx === activeSegmentIndex;
-								return (
-									<div
-										key={segment.label}
-										className={`flex items-center gap-1 text-[11px] font-medium uppercase tracking-wider transition-colors ${
-											isActive
-												? config.color
-												: 'text-gray-400 dark:text-gray-600'
-										}`}
-									>
-										<SegmentIcon size={12} />
-										{segment.label}
-									</div>
-								);
-							})}
-						</div>
-					</motion.div>
-				) : null}
 			</motion.div>
 
-			{/* Dashboard Insights */}
+			{/* Dashboard Insights — memoized so parent re-renders are skipped */}
 			<motion.div variants={itemVariants} className="pb-10">
 				{isAdminRole ? (
 					<SystemAdminDashboard schoolProfile={schoolProfile} user={user} />

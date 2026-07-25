@@ -55,19 +55,6 @@ const getAcademicYearCandidates = (value?: string | null) => {
 		: [normalized, slashVariant];
 };
 
-const getScopedYearArray = (
-	byYear: Record<string, any[]>,
-	academicYear: string,
-): any[] | null => {
-	const candidates = getAcademicYearCandidates(academicYear);
-	for (const candidate of candidates) {
-		if (Object.prototype.hasOwnProperty.call(byYear, candidate)) {
-			return Array.isArray(byYear[candidate]) ? byYear[candidate] : [];
-		}
-	}
-	return null;
-};
-
 const prependDashboard = (href: string) => {
 	if (!href) return href;
 	if (href.startsWith('/dashboard') || href === '/logout') return href;
@@ -749,9 +736,10 @@ const AppSidebar: React.FC = () => {
 			<AmbientGlow />
 
 			<div className="relative z-10 flex h-full flex-col px-4 sm:px-5 pb-5">
-				{/* School logo / identity — height matches header for border alignment */}
+				{/* School logo / identity — height matches header for border alignment.
+				    Hidden on mobile so no empty gap appears above the first nav item. */}
 				<div
-					className="shrink-0 flex items-center border-b border-gray-200 dark:border-gray-800 -mx-4 sm:-mx-5 px-4 sm:px-5"
+					className="hidden lg:flex shrink-0 items-center border-b border-gray-200 dark:border-gray-800 -mx-4 sm:-mx-5 px-4 sm:px-5"
 					style={{ height: 'calc(var(--app-header-height, 4rem) - 1px)' }}
 				>
 					<Link
@@ -789,7 +777,7 @@ const AppSidebar: React.FC = () => {
 				</div>
 
 				{/* Nav list */}
-				<div className="left-scrollbar flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain">
+				<div className="left-scrollbar flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain lg:pt-2">
 					<div className="direction-ltr">
 						<nav
 							className={`flex-1 min-w-0 ${!shouldShowLabels ? 'sidebar-collapsed' : ''}`}

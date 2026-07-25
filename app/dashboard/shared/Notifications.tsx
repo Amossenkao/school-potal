@@ -528,33 +528,37 @@ const Notifications: React.FC = () => {
 		[tabs, activeTab]
 	);
 
-	const filteredNotifications =
-		user?.notifications
-			?.filter((n) => {
-				const normalizedId = toNotificationId(n._id);
-				if (pendingDeleteIds.has(normalizedId)) return false;
-				const matchesTab = activeTab === 'All' || n.type === activeTab;
-				const detailsText =
-					typeof n.details === 'string'
-						? n.details
-						: n.details
-							? JSON.stringify(n.details)
-							: '';
-				const matchesSearch =
-					searchQuery.trim() === '' ||
-					n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-					n.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
-					detailsText.toLowerCase().includes(searchQuery.toLowerCase());
-				return matchesTab && matchesSearch;
-			})
-			.sort(
-				(a, b) =>
-					new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-			) || [];
+	const filteredNotifications = useMemo(() => {
+		return (
+			user?.notifications
+				?.filter((n) => {
+					const normalizedId = toNotificationId(n._id);
+					if (pendingDeleteIds.has(normalizedId)) return false;
+					const matchesTab = activeTab === 'All' || n.type === activeTab;
+					const detailsText =
+						typeof n.details === 'string'
+							? n.details
+							: n.details
+								? JSON.stringify(n.details)
+								: '';
+					const matchesSearch =
+						searchQuery.trim() === '' ||
+						n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+						n.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
+						detailsText.toLowerCase().includes(searchQuery.toLowerCase());
+					return matchesTab && matchesSearch;
+				})
+				.sort(
+					(a, b) =>
+						new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+				) || []
+		);
+	}, [user?.notifications, activeTab, searchQuery, pendingDeleteIds]);
 
-	const filteredUnreadCount = filteredNotifications.filter(
-		(n) => !n.read
-	).length;
+	const filteredUnreadCount = useMemo(
+		() => filteredNotifications.filter((n) => !n.read).length,
+		[filteredNotifications],
+	);
 
 	const getTabIcon = (tab: NotificationType | 'All') => {
 		switch (tab) {

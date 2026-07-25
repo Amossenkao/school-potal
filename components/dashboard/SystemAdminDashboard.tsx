@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, memo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { SchoolProfile } from '@/types/schoolProfile';
 import { buildAcademicYearOptions } from '@/components/dashboard/academicYear';
@@ -15,7 +15,7 @@ interface SystemAdminDashboardProps {
 	user: any;
 }
 
-export default function SystemAdminDashboard({
+const SystemAdminDashboard = memo(function SystemAdminDashboard({
 	schoolProfile,
 	user,
 }: SystemAdminDashboardProps) {
@@ -106,4 +106,6 @@ export default function SystemAdminDashboard({
 			</Tabs>
 		</div>
 	);
-}
+});
+
+export default SystemAdminDashboard;
