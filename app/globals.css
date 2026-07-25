@@ -316,6 +316,26 @@
 	contain: layout style;
 }
 
+/* ── Sidebar collapsed state (labels hidden) ─────────────────────────────── */
+/* Applied via a class on the nav container; handles all label/badge/chevron
+   visibility through pure CSS so hover-triggered collapse doesn't cause
+   React re-renders of every NavItemComponent. */
+@media (min-width: 1024px) {
+	.sidebar-collapsed .sc-label,
+	.sidebar-collapsed .sc-badge,
+	.sidebar-collapsed .sc-chevron,
+	.sidebar-collapsed .sc-submenu {
+		display: none;
+	}
+	.sidebar-collapsed .sc-item {
+		justify-content: center;
+		padding-left: 0.375rem;
+		padding-right: 0.375rem;
+		padding-top: 0.625rem;
+		padding-bottom: 0.625rem;
+	}
+}
+
 @layer utilities {
 	/* For Remove Date Icon */
 	input[type='date']::-webkit-inner-spin-button,

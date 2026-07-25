@@ -143,62 +143,27 @@ const SubMenuItem = memo(({ item, isActive, onNavigate }: SubMenuItemProps) => {
 });
 SubMenuItem.displayName = 'SubMenuItem';
 
-interface NavItemComponentProps {
+interface SimpleNavItemProps {
 	item: NavItem;
-	showLabels: boolean;
 	isActive: (href: string) => boolean;
-	openSubmenu: string | null;
-	onSubmenuToggle: (name: string) => void;
 	onNavigate: (href: string, opts?: { keepSubmenuOpen?: boolean }) => void;
 	onLogout: () => void;
 }
 
-const NavItemComponent = memo(
-	({
-		item,
-		showLabels,
-		isActive,
-		openSubmenu,
-		onSubmenuToggle,
-		onNavigate,
-		onLogout,
-	}: NavItemComponentProps) => {
-		const subMenuRef = useRef<HTMLDivElement>(null);
-		const subItems = item.subItems;
+// Handles regular links and the logout button — never receives openSubmenu,
+// so it doesn't re-render when a submenu is toggled elsewhere.
+const SimpleNavItem = memo(
+	({ item, isActive, onNavigate, onLogout }: SimpleNavItemProps) => {
 		const isItemActive = item.href ? isActive(item.href) : false;
-		const hasActiveSubItem = subItems?.some(
-			(sub) => sub.href && isActive(sub.href),
-		);
-		const isSubmenuOpen = openSubmenu === item.name;
-		const isPrimaryActive = isItemActive || hasActiveSubItem || isSubmenuOpen;
 
-		// Use CSS max-height transition instead of JS-measured height — no layout thrash
-		// Compute an accurate max-height from item count so the animation duration
-		// matches actual content height (avoids the janky "dead time" of 600px → 50px).
-		const SUBMENU_ITEM_HEIGHT = 44; // px: py-2 + text + gap
-		const SUBMENU_PADDING = 24; // px: container padding + border
-		const submenuStyle = useMemo(
-			() => ({
-				maxHeight: isSubmenuOpen
-					? `${(subItems?.length ?? 0) * SUBMENU_ITEM_HEIGHT + SUBMENU_PADDING}px`
-					: '0px',
-				overflow: 'hidden',
-				opacity: isSubmenuOpen ? 1 : 0,
-				transition: isSubmenuOpen
-					? 'max-height 250ms ease-out, opacity 180ms ease-out'
-					: 'max-height 200ms ease-in, opacity 120ms ease-in',
-			}),
-			[isSubmenuOpen, subItems?.length],
-		);
-
-		const primaryItemClass = `group relative flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-theme-sm font-medium transition-colors duration-150 ${
-			isPrimaryActive
+		const primaryItemClass = `group relative flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-theme-sm font-medium transition-colors duration-150 sc-item ${
+			isItemActive
 				? 'border-brand-200 bg-brand-50 text-brand-700 shadow-theme-xs dark:border-brand-500/35 dark:bg-brand-500/15 dark:text-brand-300'
 				: 'border-transparent text-gray-700 hover:border-brand-100 hover:bg-brand-25 hover:text-gray-900 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:bg-white/5 dark:hover:text-white'
-		} ${!showLabels ? 'lg:justify-center lg:px-1.5 lg:py-2.5' : 'lg:justify-start'}`;
+		} lg:justify-start`;
 
 		const iconClass = `grid size-8 shrink-0 place-items-center rounded-lg border transition-colors duration-150 ${
-			isPrimaryActive
+			isItemActive
 				? 'border-brand-200 bg-brand-100 text-brand-600 dark:border-brand-500/35 dark:bg-brand-500/15 dark:text-brand-300'
 				: 'border-gray-200 bg-white text-gray-500 group-hover:border-brand-100 group-hover:text-brand-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:group-hover:border-brand-500/35 dark:group-hover:text-brand-300'
 		}`;
@@ -220,86 +185,19 @@ const NavItemComponent = memo(
 			[item.href, onNavigate],
 		);
 
-		const handleSubNavigate = useCallback(
-			(href: string) => {
-				onNavigate(href, { keepSubmenuOpen: true });
-			},
-			[onNavigate],
-		);
-
-		if (subItems) {
-			return (
-				<li>
-					<button
-						onClick={() => onSubmenuToggle(item.name)}
-						className={primaryItemClass}
-					>
-						{isPrimaryActive && (
-							<span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-brand-500 dark:bg-brand-400" />
-						)}
-						<span className={iconClass}>
-							<item.icon className="w-5 h-5" />
-						</span>
-						{showLabels && (
-							<span className="min-w-0 flex-1 text-left leading-5 break-words">
-								{item.name}
-							</span>
-						)}
-						{showLabels && item.badgeCount && item.badgeCount > 0 && (
-							<Badge count={item.badgeCount} />
-						)}
-						{showLabels && (
-							<ChevronDown
-								className={`ml-2 h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 ${
-									isSubmenuOpen
-										? 'rotate-180 text-brand-600 dark:text-brand-300'
-										: ''
-								}`}
-							/>
-						)}
-					</button>
-
-					{showLabels && (
-						<div ref={subMenuRef} style={submenuStyle}>
-							<div className="mt-2 rounded-xl border border-brand-100 bg-brand-25/80 p-2 dark:border-gray-700 dark:bg-gray-900/65">
-								<ul className="space-y-1">
-									{subItems.map((sub, index) => (
-										<SubMenuItem
-											key={`${sub.href || sub.name}-${index}`}
-											item={sub}
-											isActive={!!(sub.href && isActive(sub.href))}
-											onNavigate={handleSubNavigate}
-										/>
-									))}
-								</ul>
-							</div>
-						</div>
-					)}
-				</li>
-			);
-		}
-
 		if (item.href && item.isLogout) {
 			return (
 				<li>
 					<button
-						onClick={() => {
-							onLogout();
-						}}
-						className={`group relative flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-left text-theme-sm font-medium text-error-600 transition-colors duration-150 hover:border-error-200 hover:bg-error-50 dark:text-error-400 dark:hover:border-error-500/35 dark:hover:bg-error-500/15 ${
-							!showLabels
-								? 'lg:justify-center lg:px-0 lg:py-2.5'
-								: 'lg:justify-start'
-						}`}
+						onClick={() => onLogout()}
+						className={`group relative flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-left text-theme-sm font-medium text-error-600 transition-colors duration-150 hover:border-error-200 hover:bg-error-50 dark:text-error-400 dark:hover:border-error-500/35 dark:hover:bg-error-500/15 sc-item lg:justify-start`}
 					>
 						<span className="grid size-8 shrink-0 place-items-center rounded-lg border border-error-200 bg-error-50 text-error-500 dark:border-error-500/35 dark:bg-error-500/15 dark:text-error-400">
 							<item.icon className="w-5 h-5" />
 						</span>
-						{showLabels && (
-							<span className="min-w-0 flex-1 text-left leading-5 break-words">
-								{item.name}
-							</span>
-						)}
+						<span className="min-w-0 flex-1 text-left leading-5 break-words sc-label">
+							{item.name}
+						</span>
 					</button>
 				</li>
 			);
@@ -313,18 +211,16 @@ const NavItemComponent = memo(
 						onClick={handleLinkClick}
 						className={primaryItemClass}
 					>
-						{isPrimaryActive && (
+						{isItemActive && (
 							<span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-brand-500 dark:bg-brand-400" />
 						)}
 						<span className={iconClass}>
 							<item.icon className="w-5 h-5" />
 						</span>
-						{showLabels && (
-							<span className="min-w-0 flex-1 text-left leading-5 break-words">
-								{item.name}
-							</span>
-						)}
-						{showLabels && item.badgeCount && item.badgeCount > 0 && (
+						<span className="min-w-0 flex-1 text-left leading-5 break-words sc-label">
+							{item.name}
+						</span>
+						{item.badgeCount && item.badgeCount > 0 && (
 							<Badge count={item.badgeCount} />
 						)}
 					</Link>
@@ -335,7 +231,120 @@ const NavItemComponent = memo(
 		return null;
 	},
 );
-NavItemComponent.displayName = 'NavItemComponent';
+SimpleNavItem.displayName = 'SimpleNavItem';
+
+interface SubmenuItemProps {
+	item: NavItem;
+	isActive: (href: string) => boolean;
+	openSubmenu: string | null;
+	onSubmenuToggle: (name: string) => void;
+	onNavigate: (href: string, opts?: { keepSubmenuOpen?: boolean }) => void;
+	onLogout: () => void;
+}
+
+// Only rendered for items that have subItems. Isolates the openSubmenu prop
+// so toggling one submenu doesn't cause SimpleNavItem instances to re-render.
+const SubmenuItemComponent = memo(
+	({
+		item,
+		isActive,
+		openSubmenu,
+		onSubmenuToggle,
+		onNavigate,
+		onLogout,
+	}: SubmenuItemProps) => {
+		const subMenuRef = useRef<HTMLDivElement>(null);
+		const subItems = item.subItems!;
+		const isItemActive = item.href ? isActive(item.href) : false;
+		const hasActiveSubItem = subItems.some(
+			(sub) => sub.href && isActive(sub.href),
+		);
+		const isSubmenuOpen = openSubmenu === item.name;
+		const isPrimaryActive = isItemActive || hasActiveSubItem || isSubmenuOpen;
+
+		const SUBMENU_ITEM_HEIGHT = 44;
+		const SUBMENU_PADDING = 24;
+		const submenuStyle = useMemo(
+			() => ({
+				maxHeight: isSubmenuOpen
+					? `${subItems.length * SUBMENU_ITEM_HEIGHT + SUBMENU_PADDING}px`
+					: '0px',
+				overflow: 'hidden',
+				opacity: isSubmenuOpen ? 1 : 0,
+				transition: isSubmenuOpen
+					? 'max-height 250ms ease-out, opacity 180ms ease-out'
+					: 'max-height 200ms ease-in, opacity 120ms ease-in',
+			}),
+			[isSubmenuOpen, subItems.length],
+		);
+
+		const primaryItemClass = `group relative flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-theme-sm font-medium transition-colors duration-150 sc-item ${
+			isPrimaryActive
+				? 'border-brand-200 bg-brand-50 text-brand-700 shadow-theme-xs dark:border-brand-500/35 dark:bg-brand-500/15 dark:text-brand-300'
+				: 'border-transparent text-gray-700 hover:border-brand-100 hover:bg-brand-25 hover:text-gray-900 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:bg-white/5 dark:hover:text-white'
+		} lg:justify-start`;
+
+		const iconClass = `grid size-8 shrink-0 place-items-center rounded-lg border transition-colors duration-150 ${
+			isPrimaryActive
+				? 'border-brand-200 bg-brand-100 text-brand-600 dark:border-brand-500/35 dark:bg-brand-500/15 dark:text-brand-300'
+				: 'border-gray-200 bg-white text-gray-500 group-hover:border-brand-100 group-hover:text-brand-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:group-hover:border-brand-500/35 dark:group-hover:text-brand-300'
+		}`;
+
+		const handleSubNavigate = useCallback(
+			(href: string) => {
+				onNavigate(href, { keepSubmenuOpen: true });
+			},
+			[onNavigate],
+		);
+
+		return (
+			<li>
+				<button
+					onClick={() => onSubmenuToggle(item.name)}
+					className={primaryItemClass}
+				>
+					{isPrimaryActive && (
+						<span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-brand-500 dark:bg-brand-400" />
+					)}
+					<span className={iconClass}>
+						<item.icon className="w-5 h-5" />
+					</span>
+					<span className="min-w-0 flex-1 text-left leading-5 break-words sc-label">
+						{item.name}
+					</span>
+					{item.badgeCount && item.badgeCount > 0 && (
+						<span className="sc-badge">
+							<Badge count={item.badgeCount} />
+						</span>
+					)}
+					<ChevronDown
+						className={`ml-2 h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 sc-chevron ${
+							isSubmenuOpen
+								? 'rotate-180 text-brand-600 dark:text-brand-300'
+								: ''
+						}`}
+					/>
+				</button>
+
+				<div ref={subMenuRef} style={submenuStyle} className="sc-submenu">
+					<div className="mt-2 rounded-xl border border-brand-100 bg-brand-25/80 p-2 dark:border-gray-700 dark:bg-gray-900/65">
+						<ul className="space-y-1">
+							{subItems.map((sub, index) => (
+								<SubMenuItem
+									key={`${sub.href || sub.name}-${index}`}
+									item={sub}
+									isActive={!!(sub.href && isActive(sub.href))}
+									onNavigate={handleSubNavigate}
+								/>
+							))}
+						</ul>
+					</div>
+				</div>
+			</li>
+		);
+	},
+);
+SubmenuItemComponent.displayName = 'SubmenuItemComponent';
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -355,6 +364,7 @@ const AppSidebar: React.FC = () => {
 	const releaseBodyScrollLock = useRef<(() => void) | null>(null);
 	const [initialSetupDone, setInitialSetupDone] = useState(false);
 	const [navigationItems, setNavigationItems] = useState<NavItem[]>([]);
+	const prevNavItemsRef = useRef<NavItem[]>([]);
 	const [isLoggingOut, setIsLoggingOut] = useState(false);
 	const [sidebarTransitionsReady, setSidebarTransitionsReady] = useState(false);
 
@@ -364,11 +374,59 @@ const AppSidebar: React.FC = () => {
 	const currentSchool = useSchoolStore(
 		(state) => state.school,
 	) as SchoolProfile;
-	const gradesByAcademicYear = useSchoolStore(
-		(state) => state.gradesByAcademicYear,
+
+	// Pre-compute the normalized year so selectors below are stable
+	const normalizedAcademicYear = useMemo(
+		() =>
+			normalizeAcademicYear(
+				currentSchool?.currentAcademicYear || getCurrentAcademicYear(),
+			),
+		[currentSchool?.currentAcademicYear],
 	);
-	const gradeRequestsByAcademicYear = useSchoolStore(
-		(state) => state.gradeRequestsByAcademicYear,
+
+	// Select only the year-specific arrays instead of the entire records.
+	// This avoids re-renders when other academic years change in the store
+	// (which happens frequently via realtime events / background sync).
+	const scopedGrades = useSchoolStore(
+		useCallback(
+			(state) => {
+				const candidates = getAcademicYearCandidates(normalizedAcademicYear);
+				for (const c of candidates) {
+					if (
+						Object.prototype.hasOwnProperty.call(
+							state.gradesByAcademicYear,
+							c,
+						)
+					) {
+						const arr = state.gradesByAcademicYear[c];
+						return Array.isArray(arr) ? arr : [];
+					}
+				}
+				return [];
+			},
+			[normalizedAcademicYear],
+		),
+	);
+
+	const scopedRequests = useSchoolStore(
+		useCallback(
+			(state) => {
+				const candidates = getAcademicYearCandidates(normalizedAcademicYear);
+				for (const c of candidates) {
+					if (
+						Object.prototype.hasOwnProperty.call(
+							state.gradeRequestsByAcademicYear,
+							c,
+						)
+					) {
+						const arr = state.gradeRequestsByAcademicYear[c];
+						return Array.isArray(arr) ? arr : [];
+					}
+				}
+				return [];
+			},
+			[normalizedAcademicYear],
+		),
 	);
 
 	const role = user?.role;
@@ -378,26 +436,21 @@ const AppSidebar: React.FC = () => {
 			: undefined;
 
 	// ── Active path check ─────────────────────────────────────────────────────
+	// Use a ref so isActive has a stable identity — avoids re-rendering every
+	// memoized NavItemComponent when the path changes.
+	const activePathRef = useRef(activePath);
+	activePathRef.current = activePath;
 	const isActive = useCallback(
-		(href: string) => prependDashboard(href) === activePath,
-		[activePath],
+		(href: string) => prependDashboard(href) === activePathRef.current,
+		[],
 	);
 
 	// ── Pending counts ────────────────────────────────────────────────────────
-	// Memoized so the heavy grade-array scan only runs when store slices change
+	// scopedGrades / scopedRequests are already year-specific arrays from the
+	// selectors above, so this memo only re-runs when the current year's data changes.
 	const pendingCounts = useMemo(() => {
 		if (!user || user.role !== 'system_admin')
 			return { submissions: 0, requests: 0 };
-
-		const academicYear = normalizeAcademicYear(
-			currentSchool?.currentAcademicYear || getCurrentAcademicYear(),
-		);
-		if (!academicYear) return { submissions: 0, requests: 0 };
-
-		const scopedGrades =
-			getScopedYearArray(gradesByAcademicYear, academicYear) || [];
-		const scopedRequests =
-			getScopedYearArray(gradeRequestsByAcademicYear, academicYear) || [];
 
 		const statusesBySubmission = new Map<string, Set<string>>();
 		for (const grade of scopedGrades) {
@@ -432,12 +485,7 @@ const AppSidebar: React.FC = () => {
 		).length;
 
 		return { submissions, requests };
-	}, [
-		user,
-		currentSchool?.currentAcademicYear,
-		gradesByAcademicYear,
-		gradeRequestsByAcademicYear,
-	]);
+	}, [user, scopedGrades, scopedRequests]);
 
 	// Destructure memoized counts so primitives flow into the nav-items effect
 	const { submissions: pendingSubmissions, requests: pendingRequests } =
@@ -550,7 +598,30 @@ const AppSidebar: React.FC = () => {
 				return newItem;
 			});
 
-			setNavigationItems(processed);
+			// Skip setState if nothing meaningful changed — avoids re-rendering all children
+			const prev = prevNavItemsRef.current;
+			const isSame =
+				prev.length === processed.length &&
+				prev.every(
+					(item, i) =>
+						item.name === processed[i].name &&
+						item.href === processed[i].href &&
+						item.badgeCount === processed[i].badgeCount &&
+						item.isLogout === processed[i].isLogout &&
+						(item.subItems?.length ?? 0) ===
+							(processed[i].subItems?.length ?? 0) &&
+						item.subItems?.every(
+							(sub, j) =>
+								sub.name === processed[i].subItems?.[j]?.name &&
+								sub.href === processed[i].subItems?.[j]?.href &&
+								sub.badgeCount === processed[i].subItems?.[j]?.badgeCount,
+						),
+				);
+
+			if (!isSame) {
+				prevNavItemsRef.current = processed;
+				setNavigationItems(processed);
+			}
 		} catch (error) {
 			console.error('Error generating navigation items:', error);
 			setNavigationItems([
@@ -720,20 +791,31 @@ const AppSidebar: React.FC = () => {
 				{/* Nav list */}
 				<div className="left-scrollbar flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain">
 					<div className="direction-ltr">
-						<nav className="flex-1 min-w-0">
+						<nav
+							className={`flex-1 min-w-0 ${!shouldShowLabels ? 'sidebar-collapsed' : ''}`}
+						>
 							<ul className="flex flex-col gap-1">
-								{navigationItems.map((item) => (
-									<NavItemComponent
-										key={item.name}
-										item={item}
-										showLabels={shouldShowLabels}
-										isActive={isActive}
-										openSubmenu={openSubmenu}
-										onSubmenuToggle={handleSubmenuToggle}
-										onNavigate={handleClientNavigate}
-										onLogout={handleLogout}
-									/>
-								))}
+								{navigationItems.map((item) =>
+									item.subItems ? (
+										<SubmenuItemComponent
+											key={item.name}
+											item={item}
+											isActive={isActive}
+											openSubmenu={openSubmenu}
+											onSubmenuToggle={handleSubmenuToggle}
+											onNavigate={handleClientNavigate}
+											onLogout={handleLogout}
+										/>
+									) : (
+										<SimpleNavItem
+											key={item.name}
+											item={item}
+											isActive={isActive}
+											onNavigate={handleClientNavigate}
+											onLogout={handleLogout}
+										/>
+									),
+								)}
 							</ul>
 						</nav>
 					</div>
