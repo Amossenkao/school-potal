@@ -17,8 +17,10 @@ import {
 	ALL_PERIODS,
 	PERIOD_LABELS,
 	SEMESTER_LABELS,
+	buildClassSessionMap,
 	buildTopPerformerRows,
 	filterGradesByPeriodAndSemester,
+	getSessionNames,
 	normalizeNumericGrades,
 	type RawGradeRecord,
 	type TopPerformerScope,
@@ -49,24 +51,36 @@ export default function SchoolWideTopPerformers({
 	const [selectedSemester, setSelectedSemester] = useState('all');
 	const [topLimit, setTopLimit] = useState(10);
 
-	const periodOptions = useMemo(() => {
-		const configured =
-			schoolProfile.settings?.teacherSettings?.gradeSubmissionPeriods || [];
-		const source = configured.length > 0 ? configured : [...ALL_PERIODS];
-		return source.map((period) => ({
-			value: period,
-			label: PERIOD_LABELS[period] || period,
-		}));
-	}, [schoolProfile]);
+	const sessionNames = useMemo(() => getSessionNames(schoolProfile), [schoolProfile]);
+	const classSessionMap = useMemo(() => buildClassSessionMap(schoolProfile), [schoolProfile]);
+	const hasMultipleSessions = sessionNames.length > 1;
+	const [selectedSession, setSelectedSession] = useState(() => sessionNames[0] ?? '');
+
+	const periodOptions = useMemo(
+		() =>
+			ALL_PERIODS.map((period: string) => ({
+				value: period,
+				label: PERIOD_LABELS[period] || period,
+			})),
+		[],
+	);
 
 	const numericGrades = useMemo(
 		() => normalizeNumericGrades(grades as RawGradeRecord[]),
 		[grades],
 	);
 
+	const sessionFilteredGrades = useMemo(
+		() =>
+			selectedSession
+				? numericGrades.filter((g) => classSessionMap.get(g.classId) === selectedSession)
+				: numericGrades,
+		[numericGrades, selectedSession, classSessionMap],
+	);
+
 	const filteredGrades = useMemo(
-		() => filterGradesByPeriodAndSemester(numericGrades, selectedPeriod, selectedSemester),
-		[numericGrades, selectedPeriod, selectedSemester],
+		() => filterGradesByPeriodAndSemester(sessionFilteredGrades, selectedPeriod, selectedSemester),
+		[sessionFilteredGrades, selectedPeriod, selectedSemester],
 	);
 
 	const topRows = useMemo(
@@ -94,6 +108,23 @@ export default function SchoolWideTopPerformers({
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-3">
+					{hasMultipleSessions && (
+						<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+							Session
+							<select
+								className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+								value={selectedSession}
+								onChange={(e) => setSelectedSession(e.target.value)}
+							>
+								<option value="">All sessions</option>
+								{sessionNames.map((s) => (
+									<option key={s} value={s}>
+										{s}
+									</option>
+								))}
+							</select>
+						</div>
+					)}
 					<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
 						Period
 						<select

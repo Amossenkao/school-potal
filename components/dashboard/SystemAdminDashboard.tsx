@@ -12,7 +12,7 @@ import {
 	ChartTooltipContent,
 } from '@/components/ui/chart';
 import type { SchoolProfile } from '@/types/schoolProfile';
-import { buildAcademicYearOptions, getClassLevelLabel } from '@/components/dashboard/academicYear';
+import { buildAcademicYearOptions, getClassNameById } from '@/components/dashboard/academicYear';
 import StatCard from '@/components/dashboard/StatCard';
 import TopPerformersByClass from '@/components/dashboard/TopPerformersByClass';
 import SchoolWideTopPerformers from '@/components/dashboard/SchoolWideTopPerformers';
@@ -25,9 +25,9 @@ import {
 	pickCurrentOrMostRecentAcademicYear,
 } from '@/utils/academicYearOptions';
 import {
-	buildPassFailData,
-	buildGradeBandData,
-	computeSemesterAverageFromGrades,
+	buildClassSessionMap,
+	getOrderedClassIds,
+	getSessionNames,
 	normalizeNumericGrades,
 	type RawGradeRecord,
 } from '@/components/dashboard/insightAnalytics';
@@ -70,14 +70,6 @@ const normalizeGender = (value?: string) => {
 
 const getStudentClassId = (s: StudentRecord) =>
 	s.historicalClass?.classId || s.classId || s.currentClass?.classId || '';
-
-const getStudentClassLabel = (s: StudentRecord) =>
-	s.historicalClass?.className || s.className || s.currentClass?.className || 'Unknown';
-
-const getAverage = (values: number[]) => {
-	if (values.length === 0) return 0;
-	return Number((values.reduce((a, b) => a + b, 0) / values.length).toFixed(1));
-};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -200,8 +192,6 @@ const SystemAdminDashboard = memo(function SystemAdminDashboard({
 	}, [selectedYear, usersByAcademicYear, setUsersForYear]);
 
 	// ── Derived data ──────────────────────────────────────────────────────────
-	const passMark = schoolProfile.settings?.gradingSettings?.passMark || 70;
-
 	const numericGrades = useMemo(
 		() => normalizeNumericGrades(grades as RawGradeRecord[]),
 		[grades],
@@ -214,25 +204,28 @@ const SystemAdminDashboard = memo(function SystemAdminDashboard({
 		);
 	}, [numericGrades]);
 
-	const passFailData = useMemo(() => buildPassFailData(numericGrades, passMark), [numericGrades, passMark]);
-	const gradeBandData = useMemo(() => buildGradeBandData(numericGrades), [numericGrades]);
-	const gradeBandPieData = useMemo(
-		() =>
-			gradeBandData.map((entry) => {
-				if (entry.label.startsWith('A')) return { key: 'A', ...entry };
-				if (entry.label.startsWith('B')) return { key: 'B', ...entry };
-				if (entry.label.startsWith('C')) return { key: 'C', ...entry };
-				if (entry.label.startsWith('D')) return { key: 'D', ...entry };
-				return { key: 'F', ...entry };
-			}),
-		[gradeBandData],
-	);
-
-	const passCount = passFailData.find((e) => e.label === 'Pass')?.value || 0;
 	const totalRecords = numericGrades.length;
-	const passRate = totalRecords > 0 ? Math.round((passCount / totalRecords) * 100) : 0;
 
-	// Student demographics
+	// ── Session & class filters ──────────────────────────────────────────────
+	const sessionNames = useMemo(() => getSessionNames(schoolProfile), [schoolProfile]);
+	const hasMultipleSessions = sessionNames.length > 1;
+	const [selectedSession, setSelectedSession] = useState(() => sessionNames[0] ?? '');
+	const classSessionMap = useMemo(() => buildClassSessionMap(schoolProfile), [schoolProfile]);
+
+	const classFilterOptions = useMemo(() => {
+		const allClassIds = getOrderedClassIds(schoolProfile);
+		const filtered = selectedSession
+			? allClassIds.filter((id) => classSessionMap.get(id) === selectedSession)
+			: allClassIds;
+		return filtered.map((id) => ({
+			value: id,
+			label: getClassNameById(schoolProfile, id),
+		}));
+	}, [schoolProfile, selectedSession, classSessionMap]);
+
+	const [selectedClassId, setSelectedClassId] = useState('');
+
+	// ── Student demographics ─────────────────────────────────────────────────
 	const totalStudents = students.length;
 	const totalMales = useMemo(
 		() => students.filter((s) => normalizeGender(s.gender) === 'Male').length,
@@ -243,42 +236,53 @@ const SystemAdminDashboard = memo(function SystemAdminDashboard({
 		[students],
 	);
 
-	const genderPieData = useMemo(
-		() => [
-			{ label: 'Male', value: totalMales },
-			{ label: 'Female', value: totalFemales },
-			...(totalStudents - totalMales - totalFemales > 0
-				? [{ label: 'Other', value: totalStudents - totalMales - totalFemales }]
-				: []),
-		],
-		[totalStudents, totalMales, totalFemales],
-	);
-
-	const classBreakdown = useMemo(() => {
-		const counts = new Map<string, { classId: string; className: string; total: number; male: number; female: number }>();
-		students.forEach((s) => {
-			const classId = getStudentClassId(s);
-			const label = getStudentClassLabel(s);
-			const key = classId || label;
-			const gender = normalizeGender(s.gender);
-			if (!counts.has(key)) counts.set(key, { classId, className: label, total: 0, male: 0, female: 0 });
-			const e = counts.get(key)!;
-			e.total += 1;
-			if (gender === 'Male') e.male += 1;
-			if (gender === 'Female') e.female += 1;
-		});
-		return Array.from(counts.values()).sort((a, b) => b.total - a.total);
-	}, [students]);
-
-	const classBarData = useMemo(
+	// Filtered students for charts
+	const filteredStudents = useMemo(
 		() =>
-			classBreakdown.map((c) => ({
-				className: c.className.length > 14 ? c.className.slice(0, 13) + '…' : c.className,
-				Male: c.male,
-				Female: c.female,
-			})),
-		[classBreakdown],
+			selectedClassId
+				? students.filter((s) => getStudentClassId(s) === selectedClassId)
+				: students,
+		[students, selectedClassId],
 	);
+
+	// Gender bar data (Male, Female, Total)
+	const genderBarData = useMemo(() => {
+		const male = filteredStudents.filter((s) => normalizeGender(s.gender) === 'Male').length;
+		const female = filteredStudents.filter((s) => normalizeGender(s.gender) === 'Female').length;
+		const total = filteredStudents.length;
+		return [{ name: 'Students', Male: male, Female: female, Total: total }];
+	}, [filteredStudents]);
+
+	// Age distribution pie data
+	const AGE_RANGES = ['3-5', '6-9', '10-12', '13-15', '16-18', '19+'] as const;
+
+	const ageDistributionData = useMemo(() => {
+		const counts = new Map<string, number>();
+		AGE_RANGES.forEach((r) => counts.set(r, 0));
+
+		const now = new Date();
+		filteredStudents.forEach((s) => {
+			const dob = (s as any).dateOfBirth || (s as any).dob;
+			if (!dob) return;
+			const birth = new Date(dob);
+			if (Number.isNaN(birth.getTime())) return;
+			let age = now.getFullYear() - birth.getFullYear();
+			const monthDiff = now.getMonth() - birth.getMonth();
+			if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) age--;
+
+			if (age < 3) counts.set('3-5', (counts.get('3-5') || 0) + 1);
+			else if (age <= 5) counts.set('3-5', (counts.get('3-5') || 0) + 1);
+			else if (age <= 9) counts.set('6-9', (counts.get('6-9') || 0) + 1);
+			else if (age <= 12) counts.set('10-12', (counts.get('10-12') || 0) + 1);
+			else if (age <= 15) counts.set('13-15', (counts.get('13-15') || 0) + 1);
+			else if (age <= 18) counts.set('16-18', (counts.get('16-18') || 0) + 1);
+			else counts.set('19+', (counts.get('19+') || 0) + 1);
+		});
+
+		return AGE_RANGES
+			.filter((r) => (counts.get(r) || 0) > 0)
+			.map((r) => ({ label: r, value: counts.get(r) || 0 }));
+	}, [filteredStudents]);
 
 	const isLoading = isLoadingGrades || isLoadingStudents;
 
@@ -322,6 +326,41 @@ const SystemAdminDashboard = memo(function SystemAdminDashboard({
 				<StatCard label="Average Grade" value={averageGrade.toFixed(1)} helper={`${totalRecords} grade records`} icon={GraduationCap} index={3} />
 			</div>
 
+			{/* ── Demographics Filters ──────────────────────────────────────── */}
+			<div className="flex flex-wrap gap-3">
+				{hasMultipleSessions && (
+					<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+						Session
+						<select
+							className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+							value={selectedSession}
+							onChange={(e) => {
+								setSelectedSession(e.target.value);
+								setSelectedClassId('');
+							}}
+						>
+							<option value="">All sessions</option>
+							{sessionNames.map((s) => (
+								<option key={s} value={s}>{s}</option>
+							))}
+						</select>
+					</div>
+				)}
+				<div className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+					Class
+					<select
+						className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+						value={selectedClassId}
+						onChange={(e) => setSelectedClassId(e.target.value)}
+					>
+						<option value="">All Classes</option>
+						{classFilterOptions.map((opt) => (
+							<option key={opt.value} value={opt.value}>{opt.label}</option>
+						))}
+					</select>
+				</div>
+			</div>
+
 			{/* ── Demographics ────────────────────────────────────────────────── */}
 			<div className="grid gap-6 lg:grid-cols-2">
 				<Card>
@@ -331,118 +370,61 @@ const SystemAdminDashboard = memo(function SystemAdminDashboard({
 					<CardContent>
 						{isLoadingStudents ? (
 							<p className="py-6 text-center text-sm text-muted-foreground">Loading student data…</p>
-						) : totalStudents === 0 ? (
+						) : filteredStudents.length === 0 ? (
 							<p className="py-6 text-center text-sm text-muted-foreground">No student data available.</p>
 						) : (
 							<ChartContainer
 								config={{
 									Male: { label: 'Male', color: 'hsl(210, 80%, 55%)' },
 									Female: { label: 'Female', color: 'hsl(330, 70%, 60%)' },
-									Other: { label: 'Other', color: 'hsl(150, 40%, 55%)' },
-								}}
-								className={PIE_CHART_CLASS}
-							>
-								<PieChart>
-									<ChartTooltip content={<ChartTooltipContent nameKey="label" />} />
-									<Pie data={genderPieData} dataKey="value" nameKey="label" innerRadius={52} outerRadius={85} stroke="transparent" isAnimationActive animationDuration={700}>
-										{genderPieData.map((entry) => (
-											<Cell key={entry.label} fill={`var(--color-${entry.label})`} />
-										))}
-									</Pie>
-									<ChartLegend content={<ChartLegendContent nameKey="label" />} />
-								</PieChart>
-							</ChartContainer>
-						)}
-					</CardContent>
-				</Card>
-
-				<Card>
-					<CardHeader>
-						<CardTitle>Class Distribution</CardTitle>
-					</CardHeader>
-					<CardContent>
-						{isLoadingStudents ? (
-							<p className="py-6 text-center text-sm text-muted-foreground">Loading student data…</p>
-						) : classBarData.length === 0 ? (
-							<p className="py-6 text-center text-sm text-muted-foreground">No student data available.</p>
-						) : (
-							<ChartContainer
-								config={{
-									Male: { label: 'Male', color: 'hsl(210, 80%, 55%)' },
-									Female: { label: 'Female', color: 'hsl(330, 70%, 60%)' },
+									Total: { label: 'Total', color: 'hsl(150, 40%, 55%)' },
 								}}
 								className={BAR_CHART_CLASS}
 							>
-								<BarChart data={classBarData}>
+								<BarChart data={genderBarData}>
 									<CartesianGrid vertical={false} strokeOpacity={0.08} />
-									<XAxis dataKey="className" tick={{ fontSize: 11 }} interval={0} angle={-35} textAnchor="end" height={60} />
+									<XAxis dataKey="name" tick={{ fontSize: 11 }} />
 									<YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
 									<ChartTooltip content={<ChartTooltipContent />} />
 									<ChartLegend content={<ChartLegendContent />} />
 									<Bar dataKey="Male" fill="var(--color-Male)" radius={[4, 4, 0, 0]} />
 									<Bar dataKey="Female" fill="var(--color-Female)" radius={[4, 4, 0, 0]} />
+									<Bar dataKey="Total" fill="var(--color-Total)" radius={[4, 4, 0, 0]} />
 								</BarChart>
 							</ChartContainer>
 						)}
 					</CardContent>
 				</Card>
-			</div>
 
-			{/* ── Performance Overview ─────────────────────────────────────────── */}
-			<div className="grid gap-6 lg:grid-cols-2">
 				<Card>
 					<CardHeader>
-						<CardTitle>Pass vs Fail</CardTitle>
+						<CardTitle>Age Distribution</CardTitle>
 					</CardHeader>
 					<CardContent>
-						{isLoadingGrades ? (
-							<p className="py-6 text-center text-sm text-muted-foreground">Loading grades…</p>
+						{isLoadingStudents ? (
+							<p className="py-6 text-center text-sm text-muted-foreground">Loading student data…</p>
+						) : ageDistributionData.length === 0 ? (
+							<p className="py-6 text-center text-sm text-muted-foreground">No age data available.</p>
 						) : (
 							<ChartContainer
 								config={{
-									Pass: { label: 'Pass', color: 'hsl(145, 63%, 42%)' },
-									Fail: { label: 'Fail', color: 'hsl(0, 84%, 60%)' },
+									'3-5': { label: '3-5 yrs', color: 'hsl(145, 63%, 42%)' },
+									'6-9': { label: '6-9 yrs', color: 'hsl(199, 89%, 48%)' },
+									'10-12': { label: '10-12 yrs', color: 'hsl(45, 93%, 47%)' },
+									'13-15': { label: '13-15 yrs', color: 'hsl(24, 95%, 53%)' },
+									'16-18': { label: '16-18 yrs', color: 'hsl(280, 65%, 55%)' },
+									'19+': { label: '19+ yrs', color: 'hsl(0, 84%, 60%)' },
 								}}
 								className={PIE_CHART_CLASS}
 							>
 								<PieChart>
 									<ChartTooltip content={<ChartTooltipContent nameKey="label" />} />
-									<Pie data={passFailData} dataKey="value" nameKey="label" innerRadius={52} outerRadius={85} stroke="transparent" isAnimationActive animationDuration={700}>
-										{passFailData.map((entry) => (
+									<Pie data={ageDistributionData} dataKey="value" nameKey="label" innerRadius={52} outerRadius={85} stroke="transparent" isAnimationActive animationDuration={700}>
+										{ageDistributionData.map((entry) => (
 											<Cell key={entry.label} fill={`var(--color-${entry.label})`} />
 										))}
 									</Pie>
-								</PieChart>
-							</ChartContainer>
-						)}
-					</CardContent>
-				</Card>
-
-				<Card>
-					<CardHeader>
-						<CardTitle>Grade Distribution</CardTitle>
-					</CardHeader>
-					<CardContent>
-						{isLoadingGrades ? (
-							<p className="py-6 text-center text-sm text-muted-foreground">Loading grades…</p>
-						) : (
-							<ChartContainer
-								config={{
-									A: { label: 'A (90-100)', color: 'hsl(145, 63%, 42%)' },
-									B: { label: 'B (80-89)', color: 'hsl(199, 89%, 48%)' },
-									C: { label: 'C (70-79)', color: 'hsl(45, 93%, 47%)' },
-									D: { label: 'D (60-69)', color: 'hsl(24, 95%, 53%)' },
-									F: { label: 'F (<60)', color: 'hsl(0, 84%, 60%)' },
-								}}
-								className={PIE_CHART_CLASS}
-							>
-								<PieChart>
-									<ChartTooltip content={<ChartTooltipContent nameKey="key" />} />
-									<Pie data={gradeBandPieData} dataKey="value" nameKey="key" innerRadius={42} outerRadius={86} stroke="transparent" isAnimationActive animationDuration={700}>
-										{gradeBandPieData.map((entry) => (
-											<Cell key={entry.label} fill={`var(--color-${entry.key})`} />
-										))}
-									</Pie>
+									<ChartLegend content={<ChartLegendContent nameKey="label" />} />
 								</PieChart>
 							</ChartContainer>
 						)}

@@ -384,15 +384,14 @@ export default function TeacherPerformanceInsights({
 		[topRows, topScope],
 	);
 
-	const periodOptions = useMemo(() => {
-		const configured =
-			schoolProfile.settings?.teacherSettings?.gradeSubmissionPeriods || [];
-		const source = configured.length > 0 ? configured : [...ALL_PERIODS];
-		return source.map((period) => ({
-			value: period,
-			label: PERIOD_LABELS[period] || period,
-		}));
-	}, [schoolProfile]);
+	const periodOptions = useMemo(
+		() =>
+			ALL_PERIODS.map((period: string) => ({
+				value: period,
+				label: PERIOD_LABELS[period] || period,
+			})),
+		[],
+	);
 
 	return (
 		<div className="space-y-8">

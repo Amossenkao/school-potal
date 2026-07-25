@@ -264,6 +264,36 @@ export const buildAverageByDimension = (
 };
 
 /**
+ * Returns the session names from schoolProfile.classLevels (e.g. ["Morning", "Night"]).
+ */
+export const getSessionNames = (schoolProfile: SchoolProfile): string[] => {
+	const levels = (schoolProfile as any)?.classLevels || {};
+	return Object.keys(levels);
+};
+
+/**
+ * Builds a Map from classId to its parent session name.
+ * e.g. "Morning-GradeSeven" -> "Morning"
+ */
+export const buildClassSessionMap = (schoolProfile: SchoolProfile): Map<string, string> => {
+	const levels = (schoolProfile as any)?.classLevels || {};
+	const map = new Map<string, string>();
+	for (const session of Object.keys(levels)) {
+		const sessionLevels = levels[session] || {};
+		for (const levelName of Object.keys(sessionLevels)) {
+			const levelData = sessionLevels[levelName] as any;
+			const classes = levelData?.classes || [];
+			for (const klass of classes) {
+				if (klass?.classId) {
+					map.set(klass.classId, session);
+				}
+			}
+		}
+	}
+	return map;
+};
+
+/**
  * Walks schoolProfile.classLevels in its natural (session -> level -> class)
  * order and returns classIds in that same sequence. Used to keep class-based
  * charts/tables aligned with how the school actually lists its classes,
