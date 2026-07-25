@@ -201,14 +201,21 @@ const SimpleNavItem = memo(
 						{isItemActive && (
 							<span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-brand-500 dark:bg-brand-400" />
 						)}
-						<span className={iconClass}>
+						<span className={`${iconClass} relative`}>
 							<item.icon className="w-5 h-5" />
+							{item.badgeCount && item.badgeCount > 0 && (
+								<span className="sc-icon-badge">
+									{item.badgeCount > 99 ? '99+' : item.badgeCount}
+								</span>
+							)}
 						</span>
 						<span className="min-w-0 flex-1 text-left leading-5 break-words sc-label">
 							{item.name}
 						</span>
 						{item.badgeCount && item.badgeCount > 0 && (
-							<Badge count={item.badgeCount} />
+							<span className="sc-badge">
+								<Badge count={item.badgeCount} />
+							</span>
 						)}
 					</Link>
 				</li>
@@ -293,8 +300,13 @@ const SubmenuItemComponent = memo(
 					{isPrimaryActive && (
 						<span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-brand-500 dark:bg-brand-400" />
 					)}
-					<span className={iconClass}>
+					<span className={`${iconClass} relative`}>
 						<item.icon className="w-5 h-5" />
+						{item.badgeCount && item.badgeCount > 0 && (
+							<span className="sc-icon-badge">
+								{item.badgeCount > 99 ? '99+' : item.badgeCount}
+							</span>
+						)}
 					</span>
 					<span className="min-w-0 flex-1 text-left leading-5 break-words sc-label">
 						{item.name}
