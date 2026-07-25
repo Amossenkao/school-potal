@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, memo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import {
 	Shield,
 	BookOpen,
@@ -117,7 +117,7 @@ const DAY_SEGMENTS = [
 ];
 
 // Framer Motion variants (defined once, shared across children)
-const containerVariants = {
+const containerVariants: Variants = {
 	hidden: { opacity: 0 },
 	show: {
 		opacity: 1,
@@ -125,7 +125,7 @@ const containerVariants = {
 	},
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
 	hidden: { opacity: 0, y: 20 },
 	show: {
 		opacity: 1,
@@ -142,8 +142,8 @@ const LiveClock = memo(function LiveClock({
 	config: (typeof ROLE_CONFIG)[string];
 }) {
 	const [now, setNow] = useState<Date | null>(null);
-	const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
-	const intervalRef = useRef<ReturnType<typeof setInterval>>();
+	const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
+	const intervalRef = useRef<ReturnType<typeof setInterval>>(null);
 
 	useEffect(() => {
 		const tick = () => setNow(new Date());
@@ -156,8 +156,8 @@ const LiveClock = memo(function LiveClock({
 		}, msUntilNextSecond);
 
 		return () => {
-			clearTimeout(timeoutRef.current);
-			clearInterval(intervalRef.current);
+			if (timeoutRef.current) clearTimeout(timeoutRef.current);
+			if (intervalRef.current) clearInterval(intervalRef.current);
 		};
 	}, []);
 

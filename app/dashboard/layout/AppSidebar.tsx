@@ -371,14 +371,29 @@ const AppSidebar: React.FC = () => {
 		[currentSchool?.currentAcademicYear],
 	);
 
+	// Stable empty array to avoid creating new references on every selector call
+	// (Zustand v5's useSyncExternalStore detects new refs → infinite loop).
+	const EMPTY_GRADES_REF = useRef<any[]>([]);
+	const EMPTY_REQUESTS_REF = useRef<any[]>([]);
+
+	// Pre-compute candidate year keys outside the selector so the selector
+	// itself never allocates new arrays.
+	const gradeCandidates = useMemo(
+		() => getAcademicYearCandidates(normalizedAcademicYear),
+		[normalizedAcademicYear],
+	);
+	const requestCandidates = useMemo(
+		() => getAcademicYearCandidates(normalizedAcademicYear),
+		[normalizedAcademicYear],
+	);
+
 	// Select only the year-specific arrays instead of the entire records.
 	// This avoids re-renders when other academic years change in the store
 	// (which happens frequently via realtime events / background sync).
 	const scopedGrades = useSchoolStore(
 		useCallback(
 			(state) => {
-				const candidates = getAcademicYearCandidates(normalizedAcademicYear);
-				for (const c of candidates) {
+				for (const c of gradeCandidates) {
 					if (
 						Object.prototype.hasOwnProperty.call(
 							state.gradesByAcademicYear,
@@ -386,20 +401,19 @@ const AppSidebar: React.FC = () => {
 						)
 					) {
 						const arr = state.gradesByAcademicYear[c];
-						return Array.isArray(arr) ? arr : [];
+						return Array.isArray(arr) ? arr : EMPTY_GRADES_REF.current;
 					}
 				}
-				return [];
+				return EMPTY_GRADES_REF.current;
 			},
-			[normalizedAcademicYear],
+			[gradeCandidates],
 		),
 	);
 
 	const scopedRequests = useSchoolStore(
 		useCallback(
 			(state) => {
-				const candidates = getAcademicYearCandidates(normalizedAcademicYear);
-				for (const c of candidates) {
+				for (const c of requestCandidates) {
 					if (
 						Object.prototype.hasOwnProperty.call(
 							state.gradeRequestsByAcademicYear,
@@ -407,12 +421,12 @@ const AppSidebar: React.FC = () => {
 						)
 					) {
 						const arr = state.gradeRequestsByAcademicYear[c];
-						return Array.isArray(arr) ? arr : [];
+						return Array.isArray(arr) ? arr : EMPTY_REQUESTS_REF.current;
 					}
 				}
-				return [];
+				return EMPTY_REQUESTS_REF.current;
 			},
-			[normalizedAcademicYear],
+			[requestCandidates],
 		),
 	);
 
