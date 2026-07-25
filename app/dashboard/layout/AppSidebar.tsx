@@ -727,7 +727,7 @@ const AppSidebar: React.FC = () => {
 		return <PageLoading variant="school" message="Signing out..." />;
 	}
 
-	const shellClass = `fixed top-[var(--app-header-height,4rem)] left-0 z-50 h-[calc(100dvh-var(--app-header-height,4rem))] lg:top-0 lg:h-dvh overflow-hidden border-r border-gray-200 text-gray-900 shadow-theme-lg dark:border-gray-800 dark:text-gray-100 sidebar-contain ${sidebarSurfaceClass} ${sidebarTransitionClass} ${sidebarWidthClass} ${sidebarTranslateClass} lg:translate-x-0`;
+	const shellClass = `fixed top-[var(--app-header-height,4rem)] left-0 z-50 h-[calc(100dvh-var(--app-header-height,4rem))] lg:top-0 lg:h-dvh overflow-hidden rounded-tr-2xl rounded-br-2xl border-r border-gray-200 text-gray-900 shadow-theme-lg dark:border-gray-800 dark:text-gray-100 sidebar-contain ${sidebarSurfaceClass} ${sidebarTransitionClass} ${sidebarWidthClass} ${sidebarTranslateClass} lg:translate-x-0`;
 
 	if (user === undefined || !currentSchool) {
 		return (
@@ -802,7 +802,7 @@ const AppSidebar: React.FC = () => {
 				</div>
 
 				{/* Nav list */}
-				<div className="left-scrollbar flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain lg:pt-2">
+				<div className="left-scrollbar flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain pt-2 lg:pt-3">
 					<div className="direction-ltr">
 						<nav
 							className={`flex-1 min-w-0 ${!shouldShowLabels ? 'sidebar-collapsed' : ''}`}
