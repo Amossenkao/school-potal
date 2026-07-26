@@ -4,21 +4,30 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import SchoolProfileForm, { SchoolFormData } from '@/app/dashboard/admin/components/SchoolProfileForm';
+import SchoolProfileForm, { type SchoolFormState } from '@/app/dashboard/admin/components/SchoolProfileForm';
 
 export default function SuperAdminOnboardPage() {
 	const router = useRouter();
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState('');
 
-	const handleSubmit = async (data: SchoolFormData) => {
+	const handleSubmit = async (data: SchoolFormState) => {
 		try {
 			setSaving(true);
 			setError('');
+			// POST handler expects flat keys
 			const res = await fetch('/api/school', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(data),
+				body: JSON.stringify({
+					name: data.identity.name,
+					shortName: data.identity.shortName,
+					host: data.system.host,
+					dbName: data.system.dbName,
+					sysAdmin: data.userConfig.sysAdmin,
+					slogan: data.identity.slogan,
+					initials: data.identity.initials,
+				}),
 			});
 			const result = await res.json();
 			if (!res.ok) throw new Error(result.error || 'Failed to create school');

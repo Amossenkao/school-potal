@@ -1,6 +1,6 @@
 import SchoolMeshLandingPage from '@/components/pages/SchoolMeshLandingPage';
-import TenantSchoolHomepage from '@/components/pages/TenantSchoolHomepage';
 import { getSchoolProfile } from '@/lib/mongoose';
+import LoginPage from "@/app/login/page";
 
 export default async function HomePage() {
 	const schoolProfile = await getSchoolProfile();
@@ -9,5 +9,5 @@ export default async function HomePage() {
 		return <SchoolMeshLandingPage />;
 	}
 
-	return <TenantSchoolHomepage />;
+	return <LoginPage />;
 }

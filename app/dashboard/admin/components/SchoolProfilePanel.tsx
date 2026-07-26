@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { ArrowLeft, Loader2, Trash2, Users, GraduationCap, BookOpen, ShieldCheck, X } from 'lucide-react';
+import { ArrowLeft, Loader2, Trash2, Users, GraduationCap, BookOpen, ShieldCheck } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import SchoolProfileForm, { SchoolFormData } from '@/app/dashboard/admin/components/SchoolProfileForm';
+import SchoolProfileForm, { type SchoolFormState } from '@/app/dashboard/admin/components/SchoolProfileForm';
 import { useSuperadminRealtime } from '@/app/dashboard/admin/hooks/useSuperadminRealtime';
 import type { RealtimeEvent } from '@/lib/realtimeTypes';
 import useAuth from '@/store/useAuth';
+import { DEFAULT_TENANT_THEME_NAME } from '@/types/tenantTheme';
 
 interface SchoolStats {
 	students: number;
@@ -32,57 +33,100 @@ const normalizeSchoolStats = (school: any): SchoolStats | null => {
 	return stats;
 };
 
-const normalizeSchoolFormData = (school: any): SchoolFormData => {
-	const identity = school?.identity || school;
-	const branding = school?.branding || school;
-	const contact = school?.contact || school;
-	const userConfig = school?.userConfig || school?.settings || school;
-	const academicConfig = school?.academicConfig || school;
+const normalizeSchoolFormState = (school: any): SchoolFormState => {
+	const sys = school?.system || {};
+	const id = school?.identity || {};
+	const br = school?.branding || {};
+	const co = school?.contact || {};
+	const ac = school?.academicConfig || {};
+	const uc = school?.userConfig || {};
+	const fc = school?.featureConfig || {};
+	const fi = school?.financialConfig || {};
 
 	return {
-		...school,
-		logoUrl2: branding?.logoUrl2 || '',
-		yearFounded: identity?.yearFounded || '',
-		administrativePositions: userConfig?.administrativePositions || [],
-		enabledFeatures: school?.featureConfig?.enabledFeatures || school?.enabledFeatures || [],
-		roleFeatureAccess: school?.featureConfig?.roleFeatureAccess || school?.roleFeatureAccess || {
-			student: [],
-			teacher: [],
-			system_admin: [],
-			administrator: {},
+		system: {
+			host: sys.host || school?.host || '',
+			dbName: sys.dbName || school?.dbName || '',
+			isActive: sys.isActive ?? school?.isActive ?? true,
 		},
-		settings: {
+		identity: {
+			name: id.name || school?.name || '',
+			shortName: id.shortName || school?.shortName || '',
+			initials: id.initials || school?.initials || '',
+			slogan: id.slogan || school?.slogan || '',
+			studentIdPrefix: id.studentIdPrefix || school?.studentIdPrefix || '',
+			yearFounded: id.yearFounded || school?.yearFounded || '',
+			firstAcademicYear: id.firstAcademicYear || school?.firstAcademicYear || '',
+			currentAcademicYear: id.currentAcademicYear || school?.currentAcademicYear || '',
+		},
+		branding: {
+			logoUrl: br.logoUrl || school?.logoUrl || '',
+			logoUrl2: br.logoUrl2 || school?.logoUrl2 || '',
+			themeName: br.themeName || school?.themeName || DEFAULT_TENANT_THEME_NAME,
+		},
+		contact: {
+			addresses: co.addresses?.map((a: any) => ({
+				label: a.label,
+				lines: a.lines || [],
+			})) || [],
+			phones: co.phones || school?.phones || [],
+			emails: co.emails || school?.emails || [],
+		},
+		academicConfig: {
+			classLevels: ac.classLevels || school?.classLevels || {},
+			gradingSettings: {
+				passMark: ac.gradingSettings?.passMark ?? 50,
+				gradeScale: ac.gradingSettings?.gradeScale ?? { min: 0, max: 100 },
+				hasSummerSchool: ac.gradingSettings?.hasSummerSchool ?? false,
+				givesDoublePromotion: ac.gradingSettings?.givesDoublePromotion ?? false,
+			},
+		},
+		userConfig: {
+			administrativePositions: uc.administrativePositions || school?.administrativePositions || [],
+			sysAdmin: uc.sysAdmin || school?.sysAdmin || { name: '', phone: '', email: '' },
 			studentSettings: {
-				loginAccess: true,
-				reportAccessByYear: {},
-				...(userConfig?.studentSettings || {}),
+				loginAccess: uc.studentSettings?.loginAccess ?? true,
+				reportAccessByYear: uc.studentSettings?.reportAccessByYear || {},
 			},
 			teacherSettings: {
-				loginAccess: true,
-				permissionsByYear: {},
-				...(userConfig?.teacherSettings || {}),
+				loginAccess: uc.teacherSettings?.loginAccess ?? true,
+				permissionsByYear: uc.teacherSettings?.permissionsByYear || {},
 			},
 			administratorSettings: {
-				loginAccess: true,
-				...(userConfig?.administratorSettings || {}),
-			},
-			gradingSettings: {
-				passMark: 50,
-				gradeScale: { min: 0, max: 100 },
-				summerSchoolWeight: 0,
-				failureWeight: 0,
-				givesDoublePromotion: false,
-				givesDemotion: false,
-				...(academicConfig?.gradingSettings || {}),
+				loginAccess: uc.administratorSettings?.loginAccess ?? true,
 			},
 		},
-		classLevels: academicConfig?.classLevels || school?.classLevels || {},
-		feeSchedules: school?.financialConfig?.feeSchedules || school?.feeSchedules || {},
-		address: contact?.addresses?.flatMap((a: any) => a.lines || []) || school?.address || [],
-		phones: contact?.phones || school?.phones || [],
-		emails: contact?.emails || school?.emails || [],
+		featureConfig: {
+			enabledFeatures: fc.enabledFeatures || school?.enabledFeatures || [],
+			roleFeatureAccess: fc.roleFeatureAccess || school?.roleFeatureAccess || {
+				student: [],
+				teacher: [],
+				system_admin: [],
+				administrator: {},
+			},
+		},
+		financialConfig: {
+			feeSchedules: fi.feeSchedules || school?.feeSchedules || {},
+		},
 	};
 };
+
+// Flatten a nested object into dot-notation keys for MongoDB $set
+// Skips empty strings and undefined to avoid overwriting existing DB values
+// and triggering validation errors on required/enum fields
+function flattenForDb(obj: any, prefix = ''): Record<string, any> {
+	const result: Record<string, any> = {};
+	for (const [key, value] of Object.entries(obj)) {
+		const fullKey = prefix ? `${prefix}.${key}` : key;
+		if (value === undefined || value === '') continue;
+		if (value && typeof value === 'object' && !Array.isArray(value)) {
+			Object.assign(result, flattenForDb(value, fullKey));
+		} else {
+			result[fullKey] = value;
+		}
+	}
+	return result;
+}
 
 interface SchoolProfilePanelProps {
 	host: string;
@@ -98,7 +142,7 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 	const upsertSuperAdminSchool = useAuth((state) => state.upsertSuperAdminSchool);
 	const removeSuperAdminSchool = useAuth((state) => state.removeSuperAdminSchool);
 
-	const [school, setSchool] = useState<SchoolFormData | null>(null);
+	const [school, setSchool] = useState<SchoolFormState | null>(null);
 	const [stats, setStats] = useState<SchoolStats | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
@@ -107,19 +151,23 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 
 	useEffect(() => {
 		if (!host) return;
-		if (cachedSchool) {
-			setSchool((prev) => prev || normalizeSchoolFormData(cachedSchool));
-			const cachedStats = normalizeSchoolStats(cachedSchool);
-			if (cachedStats) setStats(cachedStats);
-			setLoading(false);
-		}
 		const hasFullProfile =
 			cachedSchool &&
 			('classLevels' in cachedSchool ||
 				'enabledFeatures' in cachedSchool ||
-				'roleFeatureAccess' in cachedSchool);
+				'roleFeatureAccess' in cachedSchool ||
+				'academicConfig' in cachedSchool ||
+				'featureConfig' in cachedSchool);
+		if (cachedSchool) {
+			if (hasFullProfile) {
+				setSchool(normalizeSchoolFormState(cachedSchool));
+				setLoading(false);
+			}
+			const cachedStats = normalizeSchoolStats(cachedSchool);
+			if (cachedStats) setStats(cachedStats);
+		}
 		if (!hasFullProfile) fetchSchool();
-		if (!normalizeSchoolStats(cachedSchool)) fetchStats();
+		if (!cachedSchool || !normalizeSchoolStats(cachedSchool)) fetchStats();
 	}, [host, cachedSchool]);
 
 	const fetchSchool = async () => {
@@ -128,7 +176,7 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 			const res = await fetch(`/api/school?host=${encodeURIComponent(host)}`);
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.error || 'Failed to load school');
-			setSchool(normalizeSchoolFormData(data.school));
+			setSchool(normalizeSchoolFormState(data.school));
 			upsertSuperAdminSchool(data.school);
 		} catch (e: any) {
 			setError(e.message);
@@ -158,18 +206,24 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 		} catch {}
 	};
 
-	const handleSave = async (data: SchoolFormData) => {
+	const handleSave = async (formState: SchoolFormState) => {
 		try {
 			setSaving(true);
 			setError('');
+
+			// Flatten nested form state to dot-notation for MongoDB $set
+			const flatBody = flattenForDb(formState);
+			// Never overwrite the system.id
+			delete flatBody['system.id'];
+
 			const res = await fetch(`/api/school?host=${encodeURIComponent(host)}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(data),
+				body: JSON.stringify(flatBody),
 			});
 			const result = await res.json();
 			if (!res.ok) throw new Error(result.error || 'Failed to save');
-			upsertSuperAdminSchool(result.school || data);
+			upsertSuperAdminSchool(result.school || flatBody);
 			toast.success('Changes saved successfully');
 		} catch (e: any) {
 			setError(e.message);
@@ -229,8 +283,8 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 						<ArrowLeft className="h-5 w-5" />
 					</button>
 					<div>
-						<h1 className="text-2xl font-bold text-gray-900 dark:text-white">{school?.name || 'School Details'}</h1>
-						<p className="text-sm text-gray-500">{school?.host} · {school?.dbName}</p>
+						<h1 className="text-2xl font-bold text-gray-900 dark:text-white">{school?.identity.name || 'School Details'}</h1>
+						<p className="text-sm text-gray-500">{school?.system.host} · {school?.system.dbName}</p>
 					</div>
 				</div>
 				<div className="flex items-center gap-3">
@@ -289,7 +343,7 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 					<div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
 						<h3 className="text-lg font-bold text-gray-900 dark:text-white">Confirm Deletion</h3>
 						<p className="mt-2 text-sm text-gray-500">
-							Type <span className="font-mono font-semibold">{school?.name}</span> to confirm.
+							Type <span className="font-mono font-semibold">{school?.identity.name}</span> to confirm.
 						</p>
 						<input
 							type="text"
@@ -303,7 +357,7 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 							<button
 								onClick={() => {
 									const input = document.getElementById('delete-confirm-input') as HTMLInputElement;
-									if (input?.value === school?.name) deleteSchool();
+									if (input?.value === school?.identity.name) deleteSchool();
 								}}
 								disabled={saving}
 								className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
