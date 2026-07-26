@@ -12,6 +12,7 @@ const featureKeys: FeatureKey[] = [
 	'homepage',
 	'apps',
 	'attendance',
+	'teacher_attendance',
 
 	// Academic Features
 	'grading_system',
@@ -49,7 +50,162 @@ const academicPeriods = [
 
 const semesters = ['first', 'second'];
 
-// --- Sub-Schemas for nested objects ---
+// ============================================================================
+// SECTION 1 — SCHOOL PROFILE SUB-SCHEMAS
+// ============================================================================
+
+// ---------------------------------------------------------------------------
+// 1.1 System
+// ---------------------------------------------------------------------------
+
+const SchoolProfileSystemSchema = new Schema(
+	{
+		isActive: { type: Boolean, required: true, default: true },
+		host: { type: String, required: true, trim: true },
+		dbName: { type: String, required: true, trim: true },
+	},
+	{ _id: false },
+);
+
+// ---------------------------------------------------------------------------
+// 1.2 Identity
+// ---------------------------------------------------------------------------
+
+const SchoolProfileIdentitySchema = new Schema(
+	{
+		name: { type: String, required: true, trim: true },
+		shortName: { type: String, required: true, trim: true },
+		initials: { type: String, required: true, trim: true },
+		slogan: { type: String, required: true, trim: true },
+		studentIdPrefix: { type: String, required: true, trim: true },
+		yearFounded: { type: Number },
+		firstAcademicYear: { type: String, required: true, trim: true },
+		currentAcademicYear: { type: String, required: true, trim: true },
+	},
+	{ _id: false },
+);
+
+// ---------------------------------------------------------------------------
+// 1.3 Branding
+// ---------------------------------------------------------------------------
+
+const SchoolProfileBrandingSchema = new Schema(
+	{
+		themeName: {
+			type: String,
+			enum: TENANT_THEME_NAMES,
+			default: TENANT_THEME_NAMES[0],
+		},
+		logoUrl: { type: String, required: true, trim: true },
+		logoUrl2: { type: String, trim: true },
+		reportCardThemes: {
+			type: Map,
+			of: String,
+			default: {},
+		},
+	},
+	{ _id: false },
+);
+
+// ---------------------------------------------------------------------------
+// 1.4 Contact
+// ---------------------------------------------------------------------------
+
+const SchoolAddressSchema = new Schema(
+	{
+		label: { type: String, trim: true },
+		lines: { type: [String], required: true, default: [] },
+	},
+	{ _id: false },
+);
+
+const SchoolProfileContactSchema = new Schema(
+	{
+		addresses: { type: [SchoolAddressSchema], required: true, default: [] },
+		phones: { type: [String], default: [] },
+		emails: { type: [String], default: [] },
+		website: { type: String, trim: true },
+	},
+	{ _id: false },
+);
+
+// ---------------------------------------------------------------------------
+// 1.5 Academic Configuration
+// ---------------------------------------------------------------------------
+
+const SubjectSchema = new Schema(
+	{
+		name: { type: String, required: true, trim: true },
+		isMajorSubject: { type: Boolean },
+	},
+	{ _id: false },
+);
+
+const ClassSchema = new Schema(
+	{
+		classId: { type: String, required: true, trim: true },
+		name: { type: String, required: true, trim: true },
+		feeGroup: { type: String, required: true, trim: true },
+	},
+	{ _id: false },
+);
+
+const LevelSchema = new Schema(
+	{
+		isSelfContained: { type: Boolean, default: false },
+		classes: { type: [ClassSchema], required: true, default: [] },
+		subjects: { type: [SubjectSchema], required: true, default: [] },
+	},
+	{ _id: false },
+);
+
+const AcademicYearConfigSchema = new Schema(
+	{
+		academicYear: { type: String, required: true, trim: true },
+		calendarId: { type: String, default: null },
+		feeScheduleId: { type: String, default: null },
+	},
+	{ _id: false },
+);
+
+const GradingSettingsSchema = new Schema(
+	{
+		passMark: { type: Number, required: true },
+		gradeScale: {
+			min: { type: Number, required: true },
+			max: { type: Number, required: true },
+		},
+		hasSummerSchool: { type: Boolean, required: true },
+		givesDoublePromotion: { type: Boolean, required: true },
+	},
+	{ _id: false },
+);
+
+const SchoolProfileAcademicConfigSchema = new Schema(
+	{
+		gradingSettings: { type: GradingSettingsSchema },
+		// Outer key: session name; inner key: level name → LevelSchema
+		classLevels: {
+			type: Map,
+			of: {
+				type: Map,
+				of: LevelSchema,
+			},
+			default: {},
+		},
+		// Keyed by academic year string, e.g. "2025-2026"
+		academicYearConfigs: {
+			type: Map,
+			of: AcademicYearConfigSchema,
+			default: {},
+		},
+	},
+	{ _id: false },
+);
+
+// ---------------------------------------------------------------------------
+// 1.6 User Configuration
+// ---------------------------------------------------------------------------
 
 const StudentReportAccessYearSettingsSchema = new Schema(
 	{
@@ -145,36 +301,6 @@ const AdministratorSettingsSchema = new Schema(
 	{ _id: false },
 );
 
-const SchoolSettingsSchema = new Schema(
-	{
-		studentSettings: {
-			type: StudentSettingsSchema,
-			required: true,
-		},
-
-		teacherSettings: {
-			type: TeacherSettingsSchema,
-			required: true,
-		},
-
-		administratorSettings: {
-			type: AdministratorSettingsSchema,
-			required: true,
-		},
-
-		gradingSettings: {
-			type: Schema.Types.Mixed,
-		},
-
-		reportCardThemes: {
-			type: Map,
-			of: String,
-			default: {},
-		},
-	},
-	{ _id: false },
-);
-
 const SystemAdminSchema = new Schema(
 	{
 		name: { type: String, required: true, trim: true },
@@ -192,6 +318,28 @@ const AdministrativePositionSchema = new Schema(
 	{ _id: false },
 );
 
+const SchoolProfileUserConfigSchema = new Schema(
+	{
+		sysAdmin: { type: SystemAdminSchema, required: true },
+		administrativePositions: {
+			type: [AdministrativePositionSchema],
+			required: true,
+			default: [],
+		},
+		studentSettings: { type: StudentSettingsSchema, required: true },
+		teacherSettings: { type: TeacherSettingsSchema, required: true },
+		administratorSettings: {
+			type: AdministratorSettingsSchema,
+			required: true,
+		},
+	},
+	{ _id: false },
+);
+
+// ---------------------------------------------------------------------------
+// 1.7 Feature Configuration
+// ---------------------------------------------------------------------------
+
 const RoleFeatureAccessSchema = new Schema(
 	{
 		student: {
@@ -200,308 +348,177 @@ const RoleFeatureAccessSchema = new Schema(
 			required: true,
 			default: [],
 		},
-
 		teacher: {
 			type: [String],
 			enum: featureKeys,
 			required: true,
 			default: [],
 		},
-
 		system_admin: {
 			type: [String],
 			enum: featureKeys,
 			required: true,
 			default: [],
 		},
-
-		administrator: {
-			type: Map,
-			of: {
-				type: [String],
-				enum: featureKeys,
-			},
-			default: {},
-		},
+		// NOTE: administrator map removed — not present in the new RoleFeatureAccess type
 	},
 	{ _id: false },
 );
 
-const SubjectSchema = new Schema(
+const SchoolProfileFeatureConfigSchema = new Schema(
 	{
-		name: {
-			type: String,
-			required: true,
-			trim: true,
-		},
-
-		weight: {
-			type: Number,
-			required: true,
-			default: 1,
-		},
-	},
-	{ _id: false },
-);
-
-const ClassSchema = new Schema(
-	{
-		classId: {
-			type: String,
-			required: true,
-			trim: true,
-		},
-
-		name: {
-			type: String,
-			required: true,
-			trim: true,
-		},
-
-		feeGroup: {
-			type: String,
-			required: true,
-			trim: true,
-		},
-	},
-	{ _id: false },
-);
-
-const LevelSchema = new Schema(
-	{
-		isSelfContained: {
-			type: Boolean,
-			required: false,
-			default: false,
-		},
-
-		classes: {
-			type: [ClassSchema],
-			required: true,
-			default: [],
-		},
-
-		subjects: {
-			type: [SubjectSchema],
-			required: true,
-			default: [],
-		},
-	},
-	{ _id: false },
-);
-
-// --- Fee schedule sub-schemas ---
-
-const FeeScheduleInstallmentSchema = new Schema(
-	{
-		label: { type: String, required: true, trim: true },
-		dueWindow: { type: String, trim: true },
-		old: { type: Number },
-		new: { type: Number },
-		amount: { type: Number },
-	},
-	{ _id: false },
-);
-
-const FeeScheduleRequirementSchema = new Schema(
-	{
-		item: { type: String, required: true, trim: true },
-		amount: { type: Number, required: true },
-		currency: { type: String, trim: true },
-		dueAt: { type: String, required: true, trim: true },
-	},
-	{ _id: false },
-);
-
-const FeeScheduleAccessorySchema = new Schema(
-	{
-		item: { type: String, required: true, trim: true },
-		amount: { type: Number, required: true },
-		dueAt: { type: String, required: true, trim: true },
-		studentType: { type: String, required: true, trim: true },
-	},
-	{ _id: false },
-);
-
-const FeeGroupSchema = new Schema(
-	{
-		label: { type: String, required: true, trim: true },
-		appliesTo: { type: [String], required: true, default: [] },
-		currency: { type: String, required: true, trim: true },
-
-		tuitionAndRegistration: {
-			type: Schema.Types.Mixed,
-		},
-
-		flatFees: {
-			type: Schema.Types.Mixed,
-		},
-
-		installments: {
-			type: [FeeScheduleInstallmentSchema],
-			required: true,
-			default: [],
-		},
-
-		requirements: {
-			type: [FeeScheduleRequirementSchema],
-		},
-
-		accessories: {
-			type: [FeeScheduleAccessorySchema],
-		},
-
-		extraClasses: {
-			type: Schema.Types.Mixed,
-		},
-	},
-	{ _id: false },
-);
-
-// --- Main School Profile Schema ---
-
-const SchoolProfileSchema = new Schema<SchoolProfile & Document>(
-	{
-		// Basic school info
-		isActive: {
-			type: Boolean,
-			required: true,
-			default: true,
-		},
-
-		host: {
-			type: String,
-			required: true,
-			trim: true,
-		},
-
-		dbName: {
-			type: String,
-			required: true,
-			trim: true,
-		},
-
-		name: {
-			type: String,
-			required: true,
-			trim: true,
-		},
-
-		slogan: {
-			type: String,
-			required: true,
-			trim: true,
-		},
-
-		shortName: {
-			type: String,
-			required: true,
-			trim: true,
-		},
-
-		initials: {
-			type: String,
-			required: true,
-			trim: true,
-		},
-
-		studentIdPrefix: {
-			type: String,
-			required: true,
-			trim: true,
-		},
-
-		logoUrl: {
-			type: String,
-			required: true,
-			trim: true,
-		},
-
-		logoUrl2: {
-			type: String,
-			trim: true,
-		},
-
-		yearFounded: {
-			type: Number,
-		},
-
-		firstAcademicYear: {
-			type: String,
-			required: true,
-			trim: true,
-		},
-
-		currentAcademicYear: {
-			type: String,
-			required: true,
-			trim: true,
-		},
-
-		administrativePositions: {
-			type: [AdministrativePositionSchema],
-			required: true,
-			default: [],
-		},
-
-		sysAdmin: {
-			type: SystemAdminSchema,
-			required: true,
-		},
-
-		themeName: {
-			type: String,
-			enum: TENANT_THEME_NAMES,
-			default: TENANT_THEME_NAMES[0],
-		},
-
-		// Features & Permissions
 		enabledFeatures: {
 			type: [String],
 			enum: featureKeys,
 			default: [],
 		},
+		roleFeatureAccess: { type: RoleFeatureAccessSchema, required: true },
+	},
+	{ _id: false },
+);
 
-		roleFeatureAccess: {
-			type: RoleFeatureAccessSchema,
+// ---------------------------------------------------------------------------
+// 1.8 Financial Configuration
+// ---------------------------------------------------------------------------
+
+const CurrencyConfigSchema = new Schema(
+	{
+		code: { type: String, required: true, trim: true },
+		label: { type: String, required: true, trim: true },
+		symbol: { type: String, required: true, trim: true },
+		isDefault: { type: Boolean, required: true, default: false },
+	},
+	{ _id: false },
+);
+
+const FeeDefinitionSchema = new Schema(
+	{
+		id: { type: String, required: true, trim: true },
+		name: { type: String, required: true, trim: true },
+		category: {
+			type: String,
 			required: true,
+			enum: [
+				'tuition',
+				'registration',
+				'requirements',
+				'facility',
+				'accessories',
+				'transport',
+				'boarding',
+				'library',
+				'documents',
+				'graduation',
+				'other',
+			],
 		},
+		description: { type: String, trim: true },
+		flag: { type: String, trim: true },
+		isActive: { type: Boolean, required: true, default: true },
+	},
+	{ _id: false },
+);
 
-		// Settings
-		settings: {
-			type: SchoolSettingsSchema,
+const MoneySchema = new Schema(
+	{
+		amount: { type: Number, required: true },
+		currency: { type: String, required: true, trim: true },
+	},
+	{ _id: false },
+);
+
+const PaymentInstallmentSchema = new Schema(
+	{
+		id: { type: String, required: true, trim: true },
+		label: { type: String, required: true, trim: true },
+		percentage: { type: Number },
+		fixedAmount: { type: MoneySchema },
+		dueWindow: { type: String, trim: true },
+	},
+	{ _id: false },
+);
+
+const PaymentPlanSchema = new Schema(
+	{
+		id: { type: String, required: true, trim: true },
+		name: { type: String, required: true, trim: true },
+		description: { type: String, trim: true },
+		installments: {
+			type: [PaymentInstallmentSchema],
 			required: true,
-		},
-
-		// Fee schedules
-		feeSchedules: {
-			type: Schema.Types.Mixed,
-		},
-
-		// Contact info
-		address: {
-			type: [String],
 			default: [],
 		},
+		isActive: { type: Boolean, required: true, default: true },
+	},
+	{ _id: false },
+);
 
-		phones: {
-			type: [String],
+const RuleConditionSchema = new Schema(
+	{
+		field: { type: String, required: true, trim: true },
+		operator: {
+			type: String,
+			required: true,
+			enum: [
+				'equals',
+				'notEquals',
+				'contains',
+				'notContains',
+				'greaterThan',
+				'lessThan',
+				'greaterThanOrEquals',
+				'lessThanOrEquals',
+				'in',
+				'notIn',
+			],
+		},
+		// Mixed to accommodate string | number | boolean | array
+		value: { type: Schema.Types.Mixed, required: true },
+	},
+	{ _id: false },
+);
+
+const StudentGroupSchema = new Schema(
+	{
+		id: { type: String, required: true, trim: true },
+		name: { type: String, required: true, trim: true },
+		priority: { type: Number, required: true, default: 0 },
+		conditions: { type: [RuleConditionSchema], required: true, default: [] },
+		isActive: { type: Boolean, required: true, default: true },
+	},
+	{ _id: false },
+);
+
+const SchoolProfileFinancialConfigSchema = new Schema(
+	{
+		currencies: { type: [CurrencyConfigSchema], required: true, default: [] },
+		feeDefinitions: {
+			type: [FeeDefinitionSchema],
+			required: true,
 			default: [],
 		},
+		paymentPlans: { type: [PaymentPlanSchema], required: true, default: [] },
+		studentGroups: { type: [StudentGroupSchema], required: true, default: [] },
+	},
+	{ _id: false },
+);
 
-		emails: {
-			type: [String],
-			default: [],
-		},
+// ============================================================================
+// ROOT SCHOOL PROFILE SCHEMA
+// ============================================================================
 
-		// Academic structure
-		classLevels: {
-			type: Map,
-			of: {
-				type: Map,
-				of: LevelSchema,
-			},
-			default: {},
+const SchoolProfileSchema = new Schema<SchoolProfile & Document>(
+	{
+		system: { type: SchoolProfileSystemSchema, required: true },
+		identity: { type: SchoolProfileIdentitySchema, required: true },
+		branding: { type: SchoolProfileBrandingSchema, required: true },
+		contact: { type: SchoolProfileContactSchema, required: true },
+		academicConfig: { type: SchoolProfileAcademicConfigSchema, required: true },
+		userConfig: { type: SchoolProfileUserConfigSchema, required: true },
+		featureConfig: { type: SchoolProfileFeatureConfigSchema, required: true },
+		financialConfig: {
+			type: SchoolProfileFinancialConfigSchema,
+			required: true,
 		},
 	},
 	{

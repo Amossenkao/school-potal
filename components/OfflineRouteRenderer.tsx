@@ -4,7 +4,6 @@ import { memo, useCallback, useMemo } from 'react';
 import {
 	generateDynamicComponentsMap,
 	validateComponentAccess,
-	isValidAdministratorPosition,
 } from '@/utils/componentsMap';
 import { PageLoading } from '@/components/loading';
 import DashboardHome from '@/components/DashboardHome';
@@ -42,16 +41,11 @@ function validateAdministratorAccess(
 	}
 	if (user.role === 'administrator') {
 		const adminUser = user as Administrator;
-		if (
-			!isValidAdministratorPosition(schoolProfile, adminUser.position)
-		) {
-			return false;
-		}
 		return validateComponentAccess(
 			schoolProfile,
 			'administrator',
 			routeKey,
-			adminUser.position
+			adminUser.permissions
 		);
 	}
 	return validateComponentAccess(schoolProfile, user.role, routeKey);
@@ -142,14 +136,14 @@ function OfflineRouteRenderer({ path }: { path: string }) {
 		);
 	}
 
-	const adminPosition =
+	const adminPermissions =
 		user.role === 'administrator'
-			? (user as Administrator).position
+			? (user as Administrator).permissions
 			: undefined;
 	const componentsMap = generateDynamicComponentsMap(
 		school,
 		user.role,
-		adminPosition
+		adminPermissions
 	);
 
 	const entry =
@@ -173,13 +167,9 @@ function OfflineRouteRenderer({ path }: { path: string }) {
 
 	const userContext = {
 		...user,
-		adminPosition:
+		adminPermissions:
 			user.role === 'administrator'
-				? (user as Administrator).position
-				: null,
-		availablePositions:
-			user.role === 'administrator'
-				? Object.keys(school.roleFeatureAccess.administrator)
+				? (user as Administrator).permissions
 				: [],
 	};
 

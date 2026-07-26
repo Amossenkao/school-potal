@@ -16,9 +16,9 @@ export default function PrefetchDashboardChunks() {
 		if (!school || !user || !isOnline) return;
 
 		const runPrefetch = () => {
-			const adminPosition =
-				user.role === 'administrator' ? (user as any).position : undefined;
-			preloadComponentsForUser(school, user.role, adminPosition);
+			const adminPermissions =
+				user.role === 'administrator' ? (user as any).permissions : undefined;
+			preloadComponentsForUser(school, user.role, adminPermissions);
 		};
 
 		if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {

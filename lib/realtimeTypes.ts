@@ -9,6 +9,7 @@ export type SyncDomain =
 	| 'gradeRequests'
 	| 'user'
 	| 'attendance'
+	| 'teacher_attendance'
 
 export type RealtimeSource = 'system' | 'admin' | 'teacher' | 'student';
 
@@ -240,6 +241,7 @@ const LEGACY_REASON_TO_EVENT_TYPE: Record<string, string> = {
 	'grade-submission-notification': 'GRADE_UPDATED',
 	'grade-status-notification': 'GRADE_UPDATED',
 	'school-settings-updated': 'ANNOUNCEMENT_CREATED',
+	'teacher-attendance-saved': 'TEACHER_ATTENDANCE_SAVED',
 	update: 'USER_UPDATED',
 };
 
@@ -270,6 +272,8 @@ export const resolveRealtimeEventType = (params: {
 			return 'USER_UPDATED';
 		case 'attendance':
 			return 'ATTENDANCE_CREATED';
+		case 'teacher_attendance':
+			return 'TEACHER_ATTENDANCE_SAVED';
 		default:
 			return 'ANNOUNCEMENT_CREATED';
 	}
@@ -413,6 +417,7 @@ export const resolvePublishChannels = (event: RealtimeEvent) => {
 		case 'USER_DISABLED':
 		case 'ATTENDANCE_CREATED':
 		case 'ATTENDANCE_UPDATED':
+		case 'TEACHER_ATTENDANCE_SAVED':
 			// Publish to:
 			// 1. school channel — reaches admins and system_admins
 			// 2. the affected user's own channel — reaches that user directly

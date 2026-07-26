@@ -12,6 +12,7 @@ import GradeChangeRequestSchema from './grade/GradeChangeRequest';
 import ReportShareSchema from './reports/ReportShare';
 import SchoolEventSchema from '@/models/events/SchoolEvent';
 import AttendanceSchema from './attendance/Attendance';
+import TeacherAttendanceSchema from './attendance/TeacherAttendance';
 
 import type {
 	User,
@@ -71,6 +72,10 @@ export const getTenantModels = async (host?: string | null) => {
 		'Attendance',
 		AttendanceSchema,
 	);
+	const TeacherAttendanceModel = connection.model<Document>(
+		'TeacherAttendance',
+		TeacherAttendanceSchema as any,
+	);
 	const ReportShareModel = connection.model<Document>(
 		'ReportShare',
 		ReportShareSchema
@@ -95,6 +100,7 @@ export const getTenantModels = async (host?: string | null) => {
 		SchoolEvent: SchoolEventModel,
 		UserSyncState: UserSyncStateModel,
 		Attendance: AttendanceModel,
+		TeacherAttendance: TeacherAttendanceModel,
 	};
 
 	// --- Store the compiled models in the cache ---
@@ -118,3 +124,5 @@ export const getGradeModel = async (host?: string | null) =>
 	(await getTenantModels(host)).Grade;
 export const getAttendanceModel = async (host?: string | null) =>
 	(await getTenantModels(host)).Attendance;
+export const getTeacherAttendanceModel = async (host?: string | null) =>
+	(await getTenantModels(host)).TeacherAttendance;

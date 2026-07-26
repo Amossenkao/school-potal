@@ -1,3 +1,5 @@
+import { FeatureKey } from './schoolProfile';
+
 export type UserRole =
 	| 'student'
 	| 'teacher'
@@ -18,6 +20,14 @@ export interface Attendance {
 	date: Date,
 	presentStudentIds: string[];
 	absentStudentIds: string[];
+	recordedBy?: string;
+}
+
+export interface TeacherAttendance {
+	academicYear: string;
+	teacherId: string;
+	date: Date;
+	status: 'present' | 'late' | 'absent';
 	recordedBy?: string;
 }
 
@@ -129,6 +139,9 @@ export interface Teacher extends User {
 export interface Administrator extends User {
 	role: 'administrator';
 	position: string;
+	permissions: FeatureKey[];
+	canRecordStudentAttendance: boolean;
+	canRecordTeacherAttendance: boolean;
 	academicYears: { year: string; position: string }[];
 }
 

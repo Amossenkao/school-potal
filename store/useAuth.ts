@@ -29,6 +29,7 @@ type SyncVersions = {
 	grades?: string;
 	gradeRequests?: string;
 	attendance?: string;
+	teacherAttendance?: string;
 };
 
 type SuperAdminUserCounts = {
@@ -420,6 +421,10 @@ const applyBootstrapPayload = (
 				typeof versions.attendance === 'string'
 					? versions.attendance
 					: undefined,
+			teacherAttendance:
+				typeof versions.teacherAttendance === 'string'
+					? versions.teacherAttendance
+					: undefined,
 		});
 	}
 
@@ -454,6 +459,13 @@ const applyBootstrapPayload = (
 
 	if (academicYear && Array.isArray(data?.attendance)) {
 		schoolStore.setAttendanceForYear(academicYear, data.attendance);
+	}
+
+	if (academicYear && Array.isArray(data?.teacherAttendance)) {
+		schoolStore.setTeacherAttendanceForYear(
+			academicYear,
+			data.teacherAttendance,
+		);
 	}
 
 	if (academicYear && typeof window !== 'undefined') {
@@ -525,6 +537,10 @@ const applyBootstrapPayload = (
 			(currentUserId ? affectedUserIds.has(currentUserId) : false);
 
 		if (event.type === 'USER_DISABLED' && impactsCurrentUser) {
+			const reason = String(event.payload?.reason || '').trim();
+			if (reason === 'password-changed-session-revocation') {
+				return;
+			}
 			set({
 				user: null,
 				isLoggedIn: false,

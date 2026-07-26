@@ -25,6 +25,7 @@ import {
 	BookA,
 	BookCheck,
 	Users2,
+	ClipboardCheck,
 } from 'lucide-react';
 import type { SchoolProfile, FeatureKey } from '@/types/schoolProfile';
 
@@ -212,6 +213,8 @@ const componentImporters: Record<string, ComponentImporter> = {
 	chat: () => import('@/app/dashboard/shared/Chat'),
 	community: () => import('@/app/dashboard/shared/Community'),
 	attendance: () => import('@/app/dashboard/shared/Attendance'),
+	'teacher-attendance': () => import('@/app/dashboard/shared/TeacherAttendanceAdmin'),
+	'my-attendance': () => import('@/app/dashboard/shared/TeacherAttendanceView'),
 
 	// Dynamic Administrator pages (to be defined in school profile)
 	// 'financial-reports': dynamic(
@@ -237,13 +240,13 @@ const componentMappings: Record<string, any> = Object.fromEntries(
 function getAccessibleRouteKeys(
 	schoolProfile: SchoolProfile,
 	userRole: string,
-	adminPosition?: string,
+	adminPermissions?: FeatureKey[],
 ): string[] {
 	const routeKeys: string[] = [];
 	const userFeatures = getUserAccessibleFeatures(
 		schoolProfile,
 		userRole,
-		adminPosition,
+		adminPermissions,
 	);
 
 	userFeatures.forEach((feature) => {
@@ -268,12 +271,12 @@ function getAccessibleRouteKeys(
 export function preloadComponentsForUser(
 	schoolProfile: SchoolProfile,
 	userRole: string,
-	adminPosition?: string,
+	adminPermissions?: FeatureKey[],
 ): void {
 	const routeKeys = getAccessibleRouteKeys(
 		schoolProfile,
 		userRole,
-		adminPosition,
+		adminPermissions,
 	);
 	const uniqueKeys = Array.from(new Set(routeKeys));
 
@@ -752,11 +755,12 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		key: 'attendance',
 		title: 'Attendance',
 		icon: AlignEndVerticalIcon,
+		category: 'Attendance',
 		routes: {
 			system_admin: [
 				{
 					key: 'attendance',
-					title: 'Attendance',
+					title: 'Class Attendance',
 					href: '/attendance',
 					icon: AlignEndVerticalIcon,
 				},
@@ -764,7 +768,7 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 			teacher: [
 				{
 					key: 'attendance',
-					title: 'Attendance',
+					title: 'Class Attendance',
 					href: '/attendance',
 					icon: AlignEndVerticalIcon,
 				},
@@ -772,7 +776,7 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 			student: [
 				{
 					key: 'attendance',
-					title: 'Attendance',
+					title: 'My Attendance',
 					href: '/attendance',
 					icon: AlignEndVerticalIcon,
 				},
@@ -780,9 +784,42 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 			administrator: [
 				{
 					key: 'attendance',
-					title: 'Attendance',
+					title: 'Class Attendance',
 					href: '/attendance',
 					icon: AlignEndVerticalIcon,
+				},
+			],
+		},
+	},
+
+	teacher_attendance: {
+		key: 'teacher_attendance',
+		title: 'Teacher Attendance',
+		icon: ClipboardCheck,
+		category: 'Attendance',
+		routes: {
+			system_admin: [
+				{
+					key: 'teacher-attendance',
+					title: 'Teacher Attendance',
+					href: '/teacher-attendance',
+					icon: ClipboardCheck,
+				},
+			],
+		teacher: [
+			{
+				key: 'my-attendance',
+				title: 'My Attendance',
+				href: '/my-attendance',
+				icon: ClipboardCheck,
+			},
+		],
+			administrator: [
+				{
+					key: 'teacher-attendance',
+					title: 'Teacher Attendance',
+					href: '/teacher-attendance',
+					icon: ClipboardCheck,
 				},
 			],
 		},
@@ -1054,24 +1091,23 @@ function getAdministratorFeatureAccess(
 
 /**
  * Enhanced function to check if a user has access to a specific feature
- * Now supports administrator positions defined in the school profile.
+ * Administrators use their individual permissions array.
+ * Other roles use roleFeatureAccess from the school profile.
  */
 function hasFeatureAccess(
 	schoolProfile: SchoolProfile,
 	userRole: string,
 	feature: FeatureKey,
-	adminPosition?: string,
+	adminPermissions?: FeatureKey[],
 ): boolean {
+	if (feature === 'dashboard') return true;
+
 	// Check if feature is enabled for the school
 	if (!schoolProfile.enabledFeatures.includes(feature)) return false;
 
-	// Handle administrator positions dynamically
-	if (userRole === 'administrator' && adminPosition) {
-		const adminAccess = getAdministratorFeatureAccess(
-			schoolProfile,
-			adminPosition,
-		);
-		return adminAccess ? adminAccess.includes(feature) : false;
+	// Handle administrators using per-user permissions
+	if (userRole === 'administrator' && adminPermissions) {
+		return adminPermissions.includes(feature);
 	}
 
 	// Handle standard roles
@@ -1089,12 +1125,12 @@ function hasFeatureAccess(
 
 /**
  * Enhanced function to generate dynamic components map based on school profile and user role
- * Now supports administrator positions defined in the school profile.
+ * Administrators use their individual permissions array.
  */
 export function generateDynamicComponentsMap(
 	schoolProfile: SchoolProfile,
 	userRole: string,
-	adminPosition?: string,
+	adminPermissions?: FeatureKey[],
 ): any {
 	const dynamicMap: any = {
 		[userRole]: {
@@ -1105,11 +1141,11 @@ export function generateDynamicComponentsMap(
 		},
 	};
 
-	// Get user's accessible features with position support
+	// Get user's accessible features with permissions support
 	const userFeatures = getUserAccessibleFeatures(
 		schoolProfile,
 		userRole,
-		adminPosition,
+		adminPermissions,
 	);
 
 	// Process each feature the user has access to
@@ -1176,17 +1212,18 @@ function isSharedComponent(key: string): boolean {
 		'periodic-reports',
 		'yearly-reports',
 		'semester-report',
+		'teacher-attendance',
 	];
 	return sharedComponents.includes(key);
 }
 
 /**
- * Enhanced navigation generation with administrator position support
+ * Enhanced navigation generation with administrator permissions support
  */
 export function generateNavigationItems(
 	schoolProfile: SchoolProfile,
 	userRole: string,
-	adminPosition?: string,
+	adminPermissions?: FeatureKey[],
 ): NavItem[] {
 	const navItems: NavItem[] = [];
 	const moveNavItemBefore = (
@@ -1209,11 +1246,11 @@ export function generateNavigationItems(
 		href: '/dashboard',
 	});
 
-	// Get user's accessible features with position support
+	// Get user's accessible features with permissions support
 	const accessibleFeatures = getUserAccessibleFeatures(
 		schoolProfile,
 		userRole,
-		adminPosition,
+		adminPermissions,
 	);
 
 	// Group routes by category
@@ -1301,7 +1338,7 @@ export function generateNavigationItems(
 	});
 
 	// Add uncategorized routes
-	const uncategorizedOrder =  [ 'attendance', 'community', 'profile'];
+	const uncategorizedOrder =  [ 'community', 'profile'];
 	uncategorizedRoutes
 		.sort((a, b) => {
 			const aIndex = uncategorizedOrder.indexOf(a.key);
@@ -1320,12 +1357,8 @@ export function generateNavigationItems(
 		});
 
 	const calendarNavLabel = 'Calendar & Schedules';
-	if (userRole === 'system_admin') {
-		  moveNavItemBefore(navItems, 'Attendance', 'Profile');
-			moveNavItemBefore(navItems, calendarNavLabel, 'Attendance');
-	} else {
-		moveNavItemBefore(navItems, calendarNavLabel, 'Attendance');
-	}
+	moveNavItemBefore(navItems, 'Attendance', 'Profile');
+	moveNavItemBefore(navItems, calendarNavLabel, 'Attendance');
 
 	return navItems;
 }
@@ -1337,7 +1370,7 @@ export function validateComponentAccess(
 	schoolProfile: SchoolProfile,
 	userRole: string,
 	routeKey: string,
-	adminPosition?: string,
+	adminPermissions?: FeatureKey[],
 ): boolean {
 	// Explicitly tie report routes to academic_reports feature access
 	const reportRouteFeatureMap: Record<string, FeatureKey> = {
@@ -1352,7 +1385,7 @@ export function validateComponentAccess(
 			schoolProfile,
 			userRole,
 			reportRouteFeatureMap[routeKey],
-			adminPosition,
+			adminPermissions,
 		);
 	}
 
@@ -1368,7 +1401,7 @@ export function validateComponentAccess(
 				schoolProfile,
 				userRole,
 				feature.key,
-				adminPosition,
+				adminPermissions,
 			);
 		}
 	}
@@ -1382,7 +1415,7 @@ export function validateComponentAccess(
 export function getUserRoutes(
 	schoolProfile: SchoolProfile,
 	userRole: string,
-	adminPosition?: string,
+	adminPermissions?: FeatureKey[],
 ): Array<{
 	key: string;
 	title: string;
@@ -1401,7 +1434,7 @@ export function getUserRoutes(
 	const accessibleFeatures = getUserAccessibleFeatures(
 		schoolProfile,
 		userRole,
-		adminPosition,
+		adminPermissions,
 	);
 
 	accessibleFeatures.forEach((feature) => {
@@ -1438,16 +1471,10 @@ export function isFeatureEnabled(
 export function getUserAccessibleFeatures(
 	schoolProfile: SchoolProfile,
 	userRole: string,
-	adminPosition?: string,
+	adminPermissions?: FeatureKey[],
 ): FeatureKey[] {
-	if (userRole === 'administrator' && adminPosition) {
-		const adminAccess = getAdministratorFeatureAccess(
-			schoolProfile,
-			adminPosition,
-		);
-		const features = adminAccess || [];
-
-		const uniqueFeatures = Array.from(new Set(features));
+	if (userRole === 'administrator' && adminPermissions) {
+		const uniqueFeatures = Array.from(new Set(adminPermissions));
 		return uniqueFeatures.filter((feature) =>
 			schoolProfile.enabledFeatures.includes(feature),
 		);

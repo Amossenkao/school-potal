@@ -1,6 +1,6 @@
 import { connectToSchoolMeshDb } from '@/lib/mongoose';
 import { Connection, Document } from 'mongoose';
-import SuperAdminSchema from '@/models/superadmin/SuperAdmin';
+import SuperAdminSchema from '@/models/schoolmesh/superadmin/SuperAdmin';
 import SchoolProfileSchema from '@/models/profile/SchoolProfile';
 
 import type { SuperAdmin } from '@/types';

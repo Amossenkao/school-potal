@@ -7,7 +7,9 @@ export type CachedDomain =
 	| 'grades'
 	| 'calendar'
 	| 'schedules'
-	| 'gradeRequests';
+	| 'gradeRequests'
+	| 'attendance'
+	| 'teacherAttendance';
 
 type DomainRecord = {
 	key: string;

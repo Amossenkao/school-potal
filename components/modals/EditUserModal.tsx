@@ -238,6 +238,10 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	const allowsDoublePromotion =
 		schoolProfile?.settings?.gradingSettings?.givesDoublePromotion === true;
 
+	const availablePermissions = useMemo(() => {
+		return schoolProfile?.enabledFeatures || [];
+	}, [schoolProfile]);
+
 	const getClassNameFromId = (classId) => {
 		if (!classId || !schoolProfile?.classLevels) return classId;
 		for (const session of Object.values(schoolProfile.classLevels)) {
@@ -497,6 +501,10 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				setCarryOverActiveSession(firstSession);
 			}
 
+			if (userData.role === 'administrator') {
+				userData.permissions = userData.permissions || [];
+			}
+
 			setFormData(userData);
 			setValidationErrors([]);
 			setConflictState(null);
@@ -597,20 +605,14 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	const selectTriggerClass =
 		'bg-background border-input hover:border-primary/40 focus:ring-2 focus:ring-primary/30 transition';
 
-	const adminPositions = [
-		'Principal',
-		'Vice Principal',
-		'Academic Director',
-		'Dean of Students',
-		'Registrar',
-		'Finance Officer',
-		'IT Administrator',
-		'HR Manager',
-		'Guidance Counselor',
-		'Librarian',
-		'Secretary',
-		'Administrative Assistant',
-	];
+	const adminPositions = useMemo(() => {
+		if (Array.isArray(schoolProfile?.administrativePositions)) {
+			return schoolProfile.administrativePositions
+				.map((pos: any) => pos.name)
+				.filter(Boolean);
+		}
+		return [];
+	}, [schoolProfile]);
 
 	const handleInputChange = (e) => {
 		const { name, value } = e.target;
@@ -1936,6 +1938,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 						)}
 
 						{user.role === 'administrator' && (
+							<>
 							<section>
 								<h5 className="font-semibold mb-3 text-lg border-b pb-2">
 									Administrative Information
@@ -1963,6 +1966,84 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 									</Select>
 								</div>
 							</section>
+							<section>
+								<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+									Feature Permissions
+								</h5>
+								<div className="space-y-3">
+									<p className="text-xs text-muted-foreground">
+										Select which features this administrator can access.
+									</p>
+									<div className="flex flex-wrap gap-2">
+										{availablePermissions.map((feature) => {
+											const perms = formData.permissions || [];
+											const isSelected = perms.includes(feature);
+											return (
+												<button
+													key={feature}
+													type="button"
+													onClick={() => {
+														const newPerms = isSelected
+															? perms.filter((p) => p !== feature)
+															: [...perms, feature];
+														setFormData({ ...formData, permissions: newPerms });
+													}}
+													className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+														isSelected
+															? 'bg-primary text-primary-foreground'
+															: 'bg-muted text-muted-foreground hover:bg-muted/80'
+													}`}
+												>
+													{feature.replace(/_/g, ' ')}
+												</button>
+											);
+										})}
+									</div>
+								</div>
+							</section>
+							<section>
+								<h5 className="font-semibold mb-4 text-lg border-b pb-2">
+									Attendance Permissions
+								</h5>
+								<div className="space-y-3">
+									<p className="text-xs text-muted-foreground">
+										Grant this administrator permission to record attendance.
+									</p>
+									<label className="flex items-center gap-3 cursor-pointer">
+										<input
+											type="checkbox"
+											checked={formData.canRecordStudentAttendance || false}
+											onChange={(e) =>
+												handleInputChange({
+													target: { name: 'canRecordStudentAttendance', value: e.target.checked },
+												})
+											}
+											className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+										/>
+										<div>
+											<p className="text-sm font-medium text-foreground">Record Student Attendance</p>
+											<p className="text-xs text-muted-foreground">Allow recording class attendance for students</p>
+										</div>
+									</label>
+									<label className="flex items-center gap-3 cursor-pointer">
+										<input
+											type="checkbox"
+											checked={formData.canRecordTeacherAttendance || false}
+											onChange={(e) =>
+												handleInputChange({
+													target: { name: 'canRecordTeacherAttendance', value: e.target.checked },
+												})
+											}
+											className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+										/>
+										<div>
+											<p className="text-sm font-medium text-foreground">Record Teacher Attendance</p>
+											<p className="text-xs text-muted-foreground">Allow recording attendance for teachers</p>
+										</div>
+									</label>
+								</div>
+							</section>
+							</>
 						)}
 
 						{user.role === 'teacher' && schoolProfile && (
