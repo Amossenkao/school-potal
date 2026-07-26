@@ -195,6 +195,9 @@ function buildUserResponse(
 				...baseUser,
 				role: 'administrator',
 				position: user.position,
+				permissions: user.permissions || [],
+				canRecordStudentAttendance: user.canRecordStudentAttendance || false,
+				canRecordTeacherAttendance: user.canRecordTeacherAttendance || false,
 				academicYears: user.academicYears || [],
 			} as Administrator;
 
@@ -449,6 +452,9 @@ async function buildUserData(
 				...commonData,
 				adminId: roleBasedId,
 				position: userData.position,
+				permissions: userData.permissions || [],
+				canRecordStudentAttendance: userData.canRecordStudentAttendance || false,
+				canRecordTeacherAttendance: userData.canRecordTeacherAttendance || false,
 				academicYears: [
 					{
 						year: academicYear,
@@ -3965,7 +3971,7 @@ export async function PUT(request: NextRequest) {
 						allowedFields = [...baseFields, 'subjects', 'sponsorClass'];
 						break;
 					case 'administrator':
-						allowedFields = [...baseFields, 'position'];
+						allowedFields = [...baseFields, 'position', 'permissions', 'canRecordStudentAttendance', 'canRecordTeacherAttendance'];
 						break;
 					default:
 						allowedFields = baseFields;

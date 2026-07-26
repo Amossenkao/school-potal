@@ -446,9 +446,9 @@ const AppSidebar: React.FC = () => {
 	);
 
 	const role = user?.role;
-	const adminPosition =
+	const adminPermissions =
 		user?.role === 'administrator'
-			? (user as Administrator).position
+			? (user as Administrator).permissions
 			: undefined;
 
 	// ── Active path check ─────────────────────────────────────────────────────
@@ -569,7 +569,7 @@ const AppSidebar: React.FC = () => {
 			const dynamicNavItems = generateNavigationItems(
 				currentSchool,
 				role,
-				adminPosition,
+				adminPermissions,
 			);
 			const totalPending = pendingSubmissions + pendingRequests;
 
@@ -644,7 +644,7 @@ const AppSidebar: React.FC = () => {
 	}, [
 		currentSchool,
 		role,
-		adminPosition,
+		adminPermissions,
 		unreadNotifications,
 		pendingSubmissions,
 		pendingRequests,

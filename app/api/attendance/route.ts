@@ -237,6 +237,7 @@ export async function POST(request: NextRequest) {
 			'system_admin',
 			'teacher',
 			'student',
+			'administrator',
 		]);
 		if (!currentUser) {
 			return NextResponse.json(
@@ -283,6 +284,18 @@ export async function POST(request: NextRequest) {
 		const recordDate = toUTCDate(dateStr);
 		const today = todayUTC();
 
+		// Reject weekends (0 = Sunday, 6 = Saturday)
+		const dayOfWeekPost = recordDate.getUTCDay();
+		if (dayOfWeekPost === 0 || dayOfWeekPost === 6) {
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'Attendance cannot be recorded on weekends.',
+				},
+				{ status: 400 },
+			);
+		}
+
 		const { Attendance, Student, Teacher } = await getTenantModels();
 
 		// ── Resolve tenant for sync events ────────────────────────────────────
@@ -303,6 +316,51 @@ export async function POST(request: NextRequest) {
 			tenantId: currentUser.tenantId,
 			host: cleanHost,
 		});
+
+		// ── administrator ────────────────────────────────────────────────────
+		if (currentUser.role === 'administrator') {
+			const { Administrator } = await getTenantModels();
+			const admin = await Administrator.findById(currentUser.id)
+				.select('canRecordStudentAttendance')
+				.lean();
+			if (!admin?.canRecordStudentAttendance) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'You do not have permission to record student attendance.',
+					},
+					{ status: 403 },
+				);
+			}
+
+			const record = await upsertAttendance({
+				Attendance,
+				academicYear,
+				classId: bodyClassId,
+				date: recordDate,
+				presentStudentIds,
+				absentStudentIds,
+				recordedBy: currentUser.id,
+			});
+
+			await publishSyncEventSafe({
+				tenantId,
+				domain: 'attendance',
+				academicYear,
+				actorId: currentUser.id,
+				reason: 'attendance-recorded',
+				payload: {
+					academicYear,
+					classId: bodyClassId,
+					attendance: [record],
+				},
+			});
+
+			return NextResponse.json(
+				{ success: true, data: record },
+				{ status: 200 },
+			);
+		}
 
 		// ── system_admin ──────────────────────────────────────────────────────
 		if (currentUser.role === 'system_admin') {
@@ -576,6 +634,18 @@ export async function PATCH(request: NextRequest) {
 
 		const recordDate = toUTCDate(dateStr);
 		const today = todayUTC();
+
+		// Reject weekends (0 = Sunday, 6 = Saturday)
+		const dayOfWeekPatch = recordDate.getUTCDay();
+		if (dayOfWeekPatch === 0 || dayOfWeekPatch === 6) {
+			return NextResponse.json(
+				{
+					success: false,
+					message: 'Attendance cannot be recorded on weekends.',
+				},
+				{ status: 400 },
+			);
+		}
 
 		const { Attendance, Student, Teacher } = await getTenantModels();
 

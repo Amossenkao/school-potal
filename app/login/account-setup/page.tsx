@@ -200,8 +200,10 @@ export default function AccountSetupPage() {
 
 	useEffect(() => {
 		if (!authLoading) {
-			if (!user || !user.mustChangePassword) {
+			if (!user) {
 				router.push('/login');
+			} else if (!user.mustChangePassword) {
+				router.push('/dashboard');
 			}
 			setIsInitializing(false);
 		}

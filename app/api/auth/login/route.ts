@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
 	}
 
 	const body = await request.json();
-	let { action, username, password, role, id, userId } = body;
+	let { action, username, password, role, id, userId, position } = body;
 	const resolvedUserId = id || userId;
 	const ip = getRequestIp(request.headers);
 
@@ -112,6 +112,22 @@ export async function POST(request: NextRequest) {
 		user = resolvedUserId
 			? await User.findById(resolvedUserId)
 			: await User.findOne({ username, role });
+	}
+
+	if (
+		role === 'administrator' &&
+		position &&
+		user &&
+		user.role === 'administrator' &&
+		user.position &&
+		user.position !== position
+	) {
+		return NextResponse.json(
+			{
+				message: 'Incorrect username or password',
+			},
+			{ status: 401 },
+		);
 	}
 
 	try {
@@ -387,6 +403,9 @@ function buildUserResponse(user: any) {
 			return {
 				...baseUser,
 				position: user.position,
+				permissions: user.permissions || [],
+				canRecordStudentAttendance: user.canRecordStudentAttendance ?? false,
+				canRecordTeacherAttendance: user.canRecordTeacherAttendance ?? false,
 				academicYears: user.academicYears || [],
 			};
 		case 'system_admin':

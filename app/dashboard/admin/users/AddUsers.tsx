@@ -31,6 +31,7 @@ import {
 	FileText,
 	Home,
 	Briefcase,
+	ClipboardCheck,
 	ChevronDown,
 } from 'lucide-react';
 import { fail } from 'assert';
@@ -654,7 +655,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			isSponsor: false,
 			sponsorClass: null as string | null,
 		},
-		administrator: { position: '' },
+		administrator: { position: '', permissions: [], canRecordStudentAttendance: false, canRecordTeacherAttendance: false },
 	});
 
 	useEffect(() => {
@@ -757,6 +758,10 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			) || null,
 		[adminPositions, formData.administrator.position],
 	);
+
+	const availablePermissions = useMemo(() => {
+		return school?.enabledFeatures || [];
+	}, [school]);
 
 	const existingUsers = [
 		{ email: 'john@school.edu' },
@@ -975,6 +980,8 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			} else if (userType === 'administrator') {
 				if (!formData.administrator.position)
 					e.position = 'Position is required';
+				if (formData.administrator.permissions.length === 0)
+					e.permissions = 'At least one permission must be selected';
 			}
 		}
 		setErrors(e);
@@ -1078,7 +1085,13 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				sponsorClass: formData.teacher.sponsorClass,
 			};
 		} else if (userType === 'administrator') {
-			userData = { ...base, position: formData.administrator.position };
+			userData = {
+				...base,
+				position: formData.administrator.position,
+				permissions: formData.administrator.permissions,
+				canRecordStudentAttendance: formData.administrator.canRecordStudentAttendance,
+				canRecordTeacherAttendance: formData.administrator.canRecordTeacherAttendance,
+			};
 		} else {
 			userData = base;
 		}
@@ -1117,7 +1130,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				},
 			},
 			teacher: { subjects: [], isSponsor: false, sponsorClass: null },
-			administrator: { position: '' },
+	administrator: { position: '', permissions: [] as string[], canRecordStudentAttendance: false, canRecordTeacherAttendance: false },
 		});
 		setErrors({});
 		setCreatedUserInfo(null);
@@ -2169,8 +2182,8 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 											Administrative Role
 										</h2>
 										<p className="text-xs sm:text-sm text-muted-foreground mt-1">
-											Assign an administrative position. Permissions are managed
-											in system settings.
+											Assign an administrative position and configure feature
+											permissions for this administrator.
 										</p>
 									</div>
 									<SectionCard title="Position Assignment" icon={Briefcase}>
@@ -2214,13 +2227,109 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 															{selectedAdminPosition?.name ??
 																formData.administrator.position}
 														</p>
-														<p className="text-xs text-muted-foreground mt-0.5">
-															Permissions for this role are configured in system
-															settings.
-														</p>
 													</div>
 												</motion.div>
 											)}
+										</div>
+									</SectionCard>
+									<SectionCard title="Permissions" icon={Shield}>
+										<div className="space-y-3">
+											<p className="text-xs text-muted-foreground">
+												Select which features this administrator can access.
+											</p>
+											<div className="flex flex-wrap gap-2">
+												{availablePermissions.map((feature) => {
+													const isSelected =
+														formData.administrator.permissions.includes(feature);
+													return (
+														<button
+															key={feature}
+															type="button"
+															onClick={() => {
+																const newPerms = isSelected
+																	? formData.administrator.permissions.filter(
+																			(p) => p !== feature,
+																		)
+																	: [
+																			...formData.administrator.permissions,
+																			feature,
+																		];
+																setFormData({
+																	...formData,
+																	administrator: {
+																		...formData.administrator,
+																		permissions: newPerms,
+																	},
+																});
+															}}
+															className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+																isSelected
+																	? 'bg-primary text-primary-foreground'
+																	: 'bg-muted text-muted-foreground hover:bg-muted/80'
+															}`}
+														>
+															{feature.replace(/_/g, ' ')}
+														</button>
+													);
+												})}
+											</div>
+											{errors.permissions && (
+												<motion.p
+													initial={{ opacity: 0 }}
+													animate={{ opacity: 1 }}
+													className="text-xs text-destructive flex items-center gap-1"
+												>
+													<XCircle className="w-3.5 h-3.5" />{' '}
+													{errors.permissions}
+												</motion.p>
+											)}
+										</div>
+									</SectionCard>
+									<SectionCard title="Attendance Permissions" icon={ClipboardCheck}>
+										<div className="space-y-3">
+											<p className="text-xs text-muted-foreground">
+												Grant this administrator permission to record attendance.
+											</p>
+											<label className="flex items-center gap-3 cursor-pointer group">
+												<input
+													type="checkbox"
+													checked={formData.administrator.canRecordStudentAttendance}
+													onChange={(e) =>
+														setFormData({
+															...formData,
+															administrator: {
+																...formData.administrator,
+																canRecordStudentAttendance: e.target.checked,
+															},
+														})
+													}
+													className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+												/>
+												<div>
+													<p className="text-sm font-medium text-foreground">Record Student Attendance</p>
+													<p className="text-xs text-muted-foreground">Allow recording class attendance for students</p>
+												</div>
+											</label>
+											<label className="flex items-center gap-3 cursor-pointer group">
+												<input
+													type="checkbox"
+													checked={formData.administrator.canRecordTeacherAttendance}
+													onChange={(e) =>
+														setFormData({
+															...formData,
+															administrator: {
+																...formData.administrator,
+																canRecordTeacherAttendance: e.target.checked,
+															},
+														})
+													}
+													className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+												/>
+												<div>
+													<p className="text-sm font-medium text-foreground">Record Teacher Attendance</p>
+													<p className="text-xs text-muted-foreground">Allow recording attendance for teachers</p>
+												</div>
+											</label>
 										</div>
 									</SectionCard>
 								</div>
@@ -2390,7 +2499,8 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 													)}
 											</>
 										)}
-										{userType === 'administrator' && (
+									{userType === 'administrator' && (
+										<>
 											<ReviewRow
 												label="Position"
 												value={
@@ -2399,7 +2509,24 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 														: formData.administrator.position
 												}
 											/>
-										)}
+											<ReviewRow
+												label="Permissions"
+												value={
+													formData.administrator.permissions
+														.map((p: string) => p.replace(/_/g, ' '))
+														.join(', ') || '—'
+												}
+											/>
+											<ReviewRow
+												label="Student Attendance"
+												value={formData.administrator.canRecordStudentAttendance ? 'Can Record' : 'No Access'}
+											/>
+											<ReviewRow
+												label="Teacher Attendance"
+												value={formData.administrator.canRecordTeacherAttendance ? 'Can Record' : 'No Access'}
+											/>
+										</>
+									)}
 									</div>
 								</div>
 							</div>

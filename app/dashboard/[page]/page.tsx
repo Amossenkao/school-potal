@@ -2,7 +2,6 @@
 import {
 	generateDynamicComponentsMap,
 	validateComponentAccess,
-	isValidAdministratorPosition,
 } from '@/utils/componentsMap';
 import { getCurrentUser } from '@/lib/auth';
 import { PageLoading } from '@/components/loading';
@@ -19,7 +18,7 @@ interface PageProps {
 	};
 }
 
-// Enhanced validation function for administrators with flexible positions
+// Validation function for administrators using per-user permissions
 function validateAdministratorAccess(
 	schoolProfile: SchoolProfile,
 	user: User,
@@ -30,24 +29,14 @@ function validateAdministratorAccess(
 		return validateComponentAccess(schoolProfile, 'system_admin', routeKey);
 	}
 
-	// For administrators, validate position exists and check access
+	// For administrators, use their individual permissions
 	if (user.role === 'administrator') {
 		const adminUser = user as Administrator;
-
-		// Check if the position is valid for this school
-		if (!isValidAdministratorPosition(schoolProfile, adminUser.position)) {
-			console.warn(
-				`Invalid administrator position: ${adminUser.position} for this school`,
-			);
-			return false;
-		}
-
-		// Use the validateComponentAccess function with admin position
 		return validateComponentAccess(
 			schoolProfile,
 			'administrator',
 			routeKey,
-			adminUser.position,
+			adminUser.permissions,
 		);
 	}
 
@@ -101,22 +90,7 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 			let errorMessage = `Access denied. `;
 
 			if (user.role === 'administrator') {
-				const adminUser = user as Administrator;
-				const validPositions = Object.keys(
-					plainSchoolProfile.roleFeatureAccess.administrator,
-				);
-
-				if (
-					!isValidAdministratorPosition(plainSchoolProfile, adminUser.position)
-				) {
-					errorMessage += `Your position "${
-						adminUser.position
-					}" is not recognized for this school. Valid positions are: ${validPositions.join(
-						', ',
-					)}.`;
-				} else {
-					errorMessage += `Your position "${adminUser.position}" does not have permission to access "${page}".`;
-				}
+				errorMessage += `You do not have permission to access "${page}". Contact the system administrator to update your permissions.`;
 			} else {
 				errorMessage += `Your role "${user.role}" does not have permission to access "${page}".`;
 			}
@@ -130,15 +104,15 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 			);
 		}
 
-		// Generate dynamic components map with administrator position support
-		const adminPosition =
+		// Generate dynamic components map with administrator permissions support
+		const adminPermissions =
 			user.role === 'administrator'
-				? (user as Administrator).position
+				? (user as Administrator).permissions
 				: undefined;
 		const componentsMap = generateDynamicComponentsMap(
 			plainSchoolProfile,
 			user.role,
-			adminPosition,
+			adminPermissions,
 		);
 
 		// Try to find the component in role-specific items first, then shared items
@@ -176,15 +150,11 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 			.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
 			.join(' ');
 
-		// Enhanced user context with administrator position info
+		// User context with administrator permissions info
 		const userContext = {
 			...user,
-			adminPosition:
-				user.role === 'administrator' ? (user as Administrator).position : null,
-			availablePositions:
-				user.role === 'administrator'
-					? Object.keys(plainSchoolProfile.roleFeatureAccess.administrator)
-					: [],
+			adminPermissions:
+				user.role === 'administrator' ? (user as Administrator).permissions : [],
 		};
 
 		return (
