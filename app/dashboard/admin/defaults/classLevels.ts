@@ -1,4 +1,4 @@
-import type { ClassLevels, FeeSchedules, AcademicPeriod, Semester } from '@/types/schoolProfile';
+import type { ClassLevels, AcademicPeriod, Semester } from '@/types/schoolProfile';
 
 // ---------------------------------------------------------------------------
 // Default class levels — common structure for Liberian schools
@@ -184,66 +184,6 @@ export const DEFAULT_GRADING_SETTINGS = {
 	givesDoublePromotion: false,
 	givesDemotion: false,
 };
-
-// ---------------------------------------------------------------------------
-// Build fee schedule scaffold from classLevels
-// Generates a skeleton feeSchedules entry for the given academic year
-// with a fee group for each unique feeGroup found in classLevels.
-// ---------------------------------------------------------------------------
-
-const EMPTY_FEE_GROUP = (label: string, classIds: string[]) => ({
-	label,
-	appliesTo: classIds,
-	currency: 'LRD',
-	tuitionAndRegistration: {
-		old: { reg1stSem: 0, reg2ndSem: 0, tuition: 0, total: 0 },
-		new: { reg1stSem: 0, reg2ndSem: 0, tuition: 0, total: 0 },
-	},
-	installments: [
-		{ label: '1st (During Registration)', old: 0, new: 0 },
-		{ label: '2nd', old: 0, new: 0 },
-		{ label: '3rd', old: 0, new: 0 },
-		{ label: '4th', old: 0, new: 0 },
-	],
-	requirements: [
-		{ item: 'First Aid', amount: 0, dueAt: '1st' },
-		{ item: 'PTA', amount: 0, dueAt: '1st' },
-		{ item: 'Computerized ID Card', amount: 0, dueAt: '1st' },
-		{ item: 'Breakage Fee', amount: 0, dueAt: '1st' },
-	],
-	accessories: [
-		{ item: 'Uniform Set', amount: 0, dueAt: 'beforeRegistration', studentType: 'all' },
-	],
-});
-
-export function buildFeeScheduleScaffold(classLevels: ClassLevels, academicYear: string): FeeSchedules {
-	const feeGroupMap: Record<string, { label: string; classIds: string[] }> = {};
-
-	for (const [_sessionName, session] of Object.entries(classLevels)) {
-		for (const [levelName, level] of Object.entries(session)) {
-			for (const cls of level.classes) {
-				const fg = cls.feeGroup || 'default';
-				if (!feeGroupMap[fg]) {
-					feeGroupMap[fg] = { label: levelName, classIds: [] };
-				}
-				feeGroupMap[fg].classIds.push(cls.classId);
-			}
-		}
-	}
-
-	const sessionName = Object.keys(classLevels)[0] || 'Morning';
-	const sessionFeeGroups: Record<string, unknown> = {};
-	for (const [key, val] of Object.entries(feeGroupMap)) {
-		sessionFeeGroups[key] = EMPTY_FEE_GROUP(val.label, val.classIds);
-	}
-
-	return {
-		[academicYear]: {
-			paymentWindows: { '1st': 'During Registration' },
-			[sessionName]: sessionFeeGroups,
-		},
-	};
-}
 
 // ---------------------------------------------------------------------------
 // Build per-year settings for a range of academic years

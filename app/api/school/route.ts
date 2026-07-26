@@ -478,6 +478,12 @@ export async function PUT(request: NextRequest) {
 			const previousSchool = await SchoolProfile.findOne({ 'system.host': cleanHost }).lean();
 			if (!previousSchool) return NextResponse.json({ error: 'School not found' }, { status: 404 });
 
+			// Preserve system.id (read-only, not managed by the form)
+			const existingId = (previousSchool as any)?.system?.id;
+			if (existingId && body.system) {
+				body.system.id = existingId;
+			}
+
 			const school = await SchoolProfile.findOneAndUpdate(
 				{ 'system.host': cleanHost },
 				{ $set: body },

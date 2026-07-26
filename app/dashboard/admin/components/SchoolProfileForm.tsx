@@ -9,11 +9,12 @@ import {
 } from 'lucide-react';
 import {
 	DEFAULT_CLASS_LEVELS, DEFAULT_ADMIN_POSITIONS, DEFAULT_FEATURES,
-	DEFAULT_ROLE_FEATURE_ACCESS, buildFeeScheduleScaffold,
+	DEFAULT_ROLE_FEATURE_ACCESS,
 	buildDefaultStudentSettings, buildDefaultTeacherSettings,
 	getAcademicYearRange,
 } from '@/app/dashboard/admin/defaults/classLevels';
 import { TENANT_THEME_NAMES, DEFAULT_TENANT_THEME_NAME } from '@/types/tenantTheme';
+import { REPORT_CARD_THEMES } from '@/types/reportCardTheme';
 import type { FeatureKey } from '@/types/schoolProfile';
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
@@ -58,8 +59,8 @@ export interface SchoolFormState {
 		studentIdPrefix: string; yearFounded: string | number;
 		firstAcademicYear: string; currentAcademicYear: string;
 	};
-	branding: { logoUrl: string; logoUrl2: string; themeName: string };
-	contact: { addresses: { label?: string; lines: string[] }[]; phones: string[]; emails: string[] };
+	branding: { logoUrl: string; logoUrl2: string; themeName: string; reportCardThemes: Record<string, string> };
+	contact: { addresses: { label?: string; lines: string[] }[]; phones: string[]; emails: string[]; website: string };
 	academicConfig: {
 		classLevels: Record<string, Record<string, {
 			isSelfContained?: boolean;
@@ -89,14 +90,26 @@ export interface SchoolFormState {
 			administrator: Record<string, FeatureKey[]>;
 		};
 	};
-	financialConfig: { feeSchedules: Record<string, Record<string, unknown>> };
+	financialConfig: {
+		currencies: { code: string; label: string; symbol: string; isDefault: boolean }[];
+		feeDefinitions: { id: string; name: string; category: string; description: string; flag: string; isActive: boolean }[];
+		paymentPlans: {
+			id: string; name: string; description: string; isActive: boolean;
+			installments: { id: string; label: string; percentage: string; fixedAmount: string; fixedAmountCurrency: string; dueWindow: string }[];
+		}[];
+		studentGroups: {
+			id: string; name: string; priority: number; isActive: boolean;
+			conditions: { field: string; operator: string; value: string }[];
+		}[];
+		feeSchedules: any[];
+	};
 }
 
 export const defaultFormState: SchoolFormState = {
 	system: { host: '', dbName: '', isActive: true },
 	identity: { name: '', shortName: '', initials: '', slogan: '', studentIdPrefix: '', yearFounded: '', firstAcademicYear: '', currentAcademicYear: '' },
-	branding: { logoUrl: '', logoUrl2: '', themeName: DEFAULT_TENANT_THEME_NAME },
-	contact: { addresses: [], phones: [], emails: [] },
+	branding: { logoUrl: '', logoUrl2: '', themeName: DEFAULT_TENANT_THEME_NAME, reportCardThemes: {} },
+	contact: { addresses: [], phones: [], emails: [], website: '' },
 	academicConfig: { classLevels: {}, gradingSettings: { passMark: 50, gradeScale: { min: 0, max: 100 }, hasSummerSchool: false, givesDoublePromotion: false } },
 	userConfig: {
 		administrativePositions: [...DEFAULT_ADMIN_POSITIONS],
@@ -109,7 +122,13 @@ export const defaultFormState: SchoolFormState = {
 		enabledFeatures: [...DEFAULT_FEATURES] as FeatureKey[],
 		roleFeatureAccess: { ...DEFAULT_ROLE_FEATURE_ACCESS } as SchoolFormState['featureConfig']['roleFeatureAccess'],
 	},
-	financialConfig: { feeSchedules: {} },
+	financialConfig: {
+		currencies: [],
+		feeDefinitions: [],
+		paymentPlans: [],
+		studentGroups: [],
+		feeSchedules: [],
+	},
 };
 
 // ─── Steps ──────────────────────────────────────────────────────────────────────
@@ -120,7 +139,7 @@ const STEPS = [
 	{ label: 'Academic', icon: GraduationCap },
 	{ label: 'Grading', icon: ClipboardCheck },
 	{ label: 'Features & Access', icon: ToggleLeft },
-	{ label: 'Fee Schedules', icon: DollarSign },
+	{ label: 'Financial', icon: DollarSign },
 ];
 
 // ─── Props ──────────────────────────────────────────────────────────────────────
@@ -272,9 +291,6 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 							}} placeholder="e.g. 2025-2026" />
 							<Field label="Current Academic Year" value={form.identity.currentAcademicYear} onChange={(v) => {
 								update('identity.currentAcademicYear', v);
-								if (v && Object.keys(form.academicConfig.classLevels).length > 0 && !form.financialConfig.feeSchedules[v]) {
-									update('financialConfig.feeSchedules', { ...form.financialConfig.feeSchedules, ...buildFeeScheduleScaffold(form.academicConfig.classLevels, v) });
-								}
 								if (form.identity.firstAcademicYear && v) {
 									const years = getAcademicYearRange(form.identity.firstAcademicYear, v);
 									update('userConfig.studentSettings', buildDefaultStudentSettings(years));
@@ -312,6 +328,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 								)}
 							</div>
 						</div>
+
 					</div>
 				)}
 
@@ -338,6 +355,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 								</div>
 								<div><h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Phone Numbers</h5><DynamicList values={form.contact.phones} onChange={(v) => update('contact.phones', v)} placeholder="+231 ..." /></div>
 								<div><h5 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Emails</h5><DynamicList values={form.contact.emails} onChange={(v) => update('contact.emails', v)} placeholder="email@..." /></div>
+								<Field label="Website" value={form.contact.website} onChange={(v) => update('contact.website', v)} placeholder="https://..." />
 							</div>
 						</div>
 						<div className="border-t border-gray-100 dark:border-gray-800 pt-6">
@@ -353,10 +371,14 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 							<p className="text-xs text-gray-500 mb-3">Positions available in this school.</p>
 							{form.userConfig.administrativePositions.map((pos, i) => (
 								<div key={i} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 mb-2">
-									<input value={pos.id} onChange={(e) => { const next = [...form.userConfig.administrativePositions]; next[i] = { ...next[i], id: e.target.value }; update('userConfig.administrativePositions', next); }}
-										placeholder="ID (e.g. principal)" className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-									<input value={pos.name} onChange={(e) => { const next = [...form.userConfig.administrativePositions]; next[i] = { ...next[i], name: e.target.value }; update('userConfig.administrativePositions', next); }}
-										placeholder="Display name (e.g. Principal)" className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+									<input value={pos.name} onChange={(e) => {
+										const next = [...form.userConfig.administrativePositions];
+										const newName = e.target.value;
+										next[i] = { ...next[i], name: newName, id: newName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') };
+										update('userConfig.administrativePositions', next);
+									}}
+										placeholder="Position name (e.g. Business Manager)" className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+									<span className="text-xs text-gray-400 font-mono whitespace-nowrap">ID: {pos.id || '—'}</span>
 									<button onClick={() => update('userConfig.administrativePositions', form.userConfig.administrativePositions.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 text-sm self-end sm:self-auto">Remove</button>
 								</div>
 							))}
@@ -370,23 +392,38 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 					<div className="space-y-8">
 						<div>
 							<h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Class Levels</h4>
-							<ClassLevelsEditor classLevels={form.academicConfig.classLevels} onChange={(v) => {
-								update('academicConfig.classLevels', v);
-								const year = form.identity.currentAcademicYear || form.identity.firstAcademicYear;
-								if (year && Object.keys(v).length > 0) {
-									const existing = Object.keys(form.financialConfig.feeSchedules);
-									if (!existing.includes(year)) {
-										update('financialConfig.feeSchedules', { ...form.financialConfig.feeSchedules, ...buildFeeScheduleScaffold(v, year) });
-									}
-								}
-							}} onUseDefaults={() => {
-								update('academicConfig.classLevels', DEFAULT_CLASS_LEVELS);
-								const year = form.identity.currentAcademicYear || form.identity.firstAcademicYear;
-								if (year) {
-									update('financialConfig.feeSchedules', { ...form.financialConfig.feeSchedules, ...buildFeeScheduleScaffold(DEFAULT_CLASS_LEVELS, year) });
-								}
-							}} />
+						<ClassLevelsEditor classLevels={form.academicConfig.classLevels} onChange={(v) => {
+							update('academicConfig.classLevels', v);
+						}} onUseDefaults={() => {
+							update('academicConfig.classLevels', DEFAULT_CLASS_LEVELS);
+						}} />
 						</div>
+						{(() => {
+							const allLevels = new Set<string>();
+							for (const session of Object.values(form.academicConfig.classLevels)) {
+								for (const level of Object.keys(session)) allLevels.add(level);
+							}
+							const levels = Array.from(allLevels);
+							if (levels.length === 0) return null;
+							return (
+								<div className="border-t border-gray-100 dark:border-gray-800 pt-6">
+									<h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Report Card Themes by Class Level</h4>
+									<p className="text-xs text-gray-500 mb-3">Assign a report card theme to each class level. Theme names are from the predefined theme catalogue.</p>
+									<div className="space-y-2">
+										{levels.map((level) => (
+											<div key={level} className="flex items-center gap-3">
+												<span className="text-sm text-gray-700 dark:text-gray-300 min-w-[160px] truncate">{level}</span>
+												<select value={form.branding.reportCardThemes[level] || ''} onChange={(e) => update('branding.reportCardThemes', { ...form.branding.reportCardThemes, [level]: e.target.value })}
+													className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
+													<option value="">— Default —</option>
+													{REPORT_CARD_THEMES.map((t) => <option key={t.id} value={t.id}>{t.emoji} {t.name}</option>)}
+												</select>
+											</div>
+										))}
+									</div>
+								</div>
+							);
+						})()}
 					</div>
 				)}
 
@@ -414,12 +451,16 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 							</div>
 						</div>
 						<div className="border-t border-gray-100 dark:border-gray-800 pt-6">
-							<h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Login Access</h4>
-							<div className="space-y-3">
-								<ToggleRow label="Students can log in" checked={form.userConfig.studentSettings.loginAccess} onChange={(v) => update('userConfig.studentSettings.loginAccess', v)} />
-								<ToggleRow label="Teachers can log in" checked={form.userConfig.teacherSettings.loginAccess} onChange={(v) => update('userConfig.teacherSettings.loginAccess', v)} />
-								<ToggleRow label="Administrators can log in" checked={form.userConfig.administratorSettings.loginAccess} onChange={(v) => update('userConfig.administratorSettings.loginAccess', v)} />
-							</div>
+							<AcademicPermissionsEditor
+								studentSettings={form.userConfig.studentSettings}
+								teacherSettings={form.userConfig.teacherSettings}
+								firstYear={form.identity.firstAcademicYear}
+								currentYear={form.identity.currentAcademicYear}
+								onChange={(student, teacher) => {
+									update('userConfig.studentSettings', student);
+									update('userConfig.teacherSettings', teacher);
+								}}
+							/>
 						</div>
 					</div>
 				)}
@@ -465,105 +506,169 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 								</div>
 							))}
 						</div>
-						<div className="border-t border-gray-100 dark:border-gray-800 pt-6">
-							<AcademicPermissionsEditor
-								studentSettings={form.userConfig.studentSettings}
-								teacherSettings={form.userConfig.teacherSettings}
-								currentYear={form.identity.currentAcademicYear}
-								onChange={(student, teacher) => {
-									update('userConfig.studentSettings', student);
-									update('userConfig.teacherSettings', teacher);
-								}}
-							/>
-						</div>
 					</div>
 				)}
 
-				{/* ═══ Step 5: Fee Schedules ═══ */}
-				{step === 5 && (
-					<div className="space-y-6">
-					<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-						<div>
-							<h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Fee Schedules</h4>
-							<p className="text-xs text-gray-500 mt-1">Fee groups are auto-generated from classLevels. Edit amounts below.</p>
-						</div>
-						{Object.keys(form.financialConfig.feeSchedules).length === 0 && Object.keys(form.academicConfig.classLevels).length > 0 && (
-							<button onClick={() => {
-								const year = form.identity.currentAcademicYear || form.identity.firstAcademicYear;
-								if (year) update('financialConfig.feeSchedules', buildFeeScheduleScaffold(form.academicConfig.classLevels, year));
-							}} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#465fff]/10 px-3 py-1.5 text-xs font-semibold text-[#465fff] hover:bg-[#465fff]/20 transition-colors">
-								<Wand2 className="h-3.5 w-3.5" /> Generate from Class Levels
-							</button>
-						)}
+			{/* ═══ Step 5: Financial ═══ */}
+			{step === 5 && (
+				<div className="space-y-8">
+					{/* ── Currencies ── */}
+					<div>
+						<h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Currencies</h4>
+						<p className="text-xs text-gray-500 mb-3">Define currencies used by this school. Exactly one must be marked as default.</p>
+						{form.financialConfig.currencies.map((cur, i) => (
+							<div key={i} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 mb-2">
+								<input value={cur.code} onChange={(e) => { const next = [...form.financialConfig.currencies]; next[i] = { ...next[i], code: e.target.value }; update('financialConfig.currencies', next); }}
+									placeholder="Code (e.g. LRD)" className="w-24 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+								<input value={cur.label} onChange={(e) => { const next = [...form.financialConfig.currencies]; next[i] = { ...next[i], label: e.target.value }; update('financialConfig.currencies', next); }}
+									placeholder="Label (e.g. Liberian Dollar)" className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+								<input value={cur.symbol} onChange={(e) => { const next = [...form.financialConfig.currencies]; next[i] = { ...next[i], symbol: e.target.value }; update('financialConfig.currencies', next); }}
+									placeholder="Symbol (e.g. L$)" className="w-20 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+								<label className="flex items-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
+									<input type="checkbox" checked={cur.isDefault} onChange={(e) => {
+										const next = form.financialConfig.currencies.map((c, j) => ({ ...c, isDefault: j === i ? e.target.checked : false }));
+										update('financialConfig.currencies', next);
+									}} /> Default
+								</label>
+								<button onClick={() => update('financialConfig.currencies', form.financialConfig.currencies.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 text-sm self-end sm:self-auto">Remove</button>
+							</div>
+						))}
+						<button onClick={() => update('financialConfig.currencies', [...form.financialConfig.currencies, { code: '', label: '', symbol: '', isDefault: form.financialConfig.currencies.length === 0 }])} className="text-sm text-[#465fff] font-medium hover:underline">+ Add Currency</button>
 					</div>
-						{Object.keys(form.financialConfig.feeSchedules).length === 0 ? (
+
+					{/* ── Fee Definitions ── */}
+					<div className="border-t border-gray-100 dark:border-gray-800 pt-6">
+						<h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Fee Definitions</h4>
+						<p className="text-xs text-gray-500 mb-3">Catalogue of fee types. Prices live in Fee Schedules.</p>
+						{form.financialConfig.feeDefinitions.map((fd, i) => (
+							<div key={i} className="rounded-lg border border-gray-200 dark:border-gray-800 p-3 mb-3">
+								<div className="grid gap-3 sm:grid-cols-3">
+									<input value={fd.name} onChange={(e) => { const next = [...form.financialConfig.feeDefinitions]; next[i] = { ...next[i], name: e.target.value }; update('financialConfig.feeDefinitions', next); }}
+										placeholder="Fee name (e.g. Tuition)" className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+									<div>
+										<select value={fd.category} onChange={(e) => { const next = [...form.financialConfig.feeDefinitions]; next[i] = { ...next[i], category: e.target.value }; update('financialConfig.feeDefinitions', next); }}
+											className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
+											{['tuition', 'registration', 'requirements', 'facility', 'accessories', 'transport', 'boarding', 'library', 'documents', 'graduation', 'other'].map((c) => <option key={c} value={c}>{c}</option>)}
+										</select>
+									</div>
+									<div className="flex items-center gap-2">
+										<input value={fd.description} onChange={(e) => { const next = [...form.financialConfig.feeDefinitions]; next[i] = { ...next[i], description: e.target.value }; update('financialConfig.feeDefinitions', next); }}
+											placeholder="Description" className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+										<label className="flex items-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
+											<input type="checkbox" checked={fd.isActive} onChange={(e) => { const next = [...form.financialConfig.feeDefinitions]; next[i] = { ...next[i], isActive: e.target.checked }; update('financialConfig.feeDefinitions', next); }} /> Active
+										</label>
+									</div>
+								</div>
+								<div className="flex items-center gap-2 mt-2">
+									<input value={fd.flag} onChange={(e) => { const next = [...form.financialConfig.feeDefinitions]; next[i] = { ...next[i], flag: e.target.value }; update('financialConfig.feeDefinitions', next); }}
+										placeholder="Flag (e.g. Required, Waivable)" className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+									<button onClick={() => update('financialConfig.feeDefinitions', form.financialConfig.feeDefinitions.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 text-sm">Remove</button>
+								</div>
+							</div>
+						))}
+						<button onClick={() => update('financialConfig.feeDefinitions', [...form.financialConfig.feeDefinitions, { id: `fee-${Date.now()}`, name: '', category: 'tuition', description: '', flag: '', isActive: true }])} className="text-sm text-[#465fff] font-medium hover:underline">+ Add Fee Definition</button>
+					</div>
+
+					{/* ── Payment Plans ── */}
+					<div className="border-t border-gray-100 dark:border-gray-800 pt-6">
+						<h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Payment Plans</h4>
+						<p className="text-xs text-gray-500 mb-3">Reusable payment plan templates with installment schedules.</p>
+						{form.financialConfig.paymentPlans.map((plan, i) => (
+							<div key={i} className="rounded-lg border border-gray-200 dark:border-gray-800 p-4 mb-3">
+								<div className="grid gap-3 sm:grid-cols-3 mb-3">
+									<input value={plan.name} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; next[i] = { ...next[i], name: e.target.value }; update('financialConfig.paymentPlans', next); }}
+										placeholder="Plan name (e.g. Two-Semester Plan)" className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+									<input value={plan.description} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; next[i] = { ...next[i], description: e.target.value }; update('financialConfig.paymentPlans', next); }}
+										placeholder="Description" className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+									<div className="flex items-center gap-2">
+										<label className="flex items-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
+											<input type="checkbox" checked={plan.isActive} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; next[i] = { ...next[i], isActive: e.target.checked }; update('financialConfig.paymentPlans', next); }} /> Active
+										</label>
+										<button onClick={() => update('financialConfig.paymentPlans', form.financialConfig.paymentPlans.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 text-sm ml-auto">Remove</button>
+									</div>
+								</div>
+								<div className="space-y-2">
+									<p className="text-xs font-semibold text-gray-500">Installments</p>
+									{plan.installments.map((inst, ii) => (
+										<div key={ii} className="flex items-center gap-2">
+											<input value={inst.label} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; const insts = [...pi.installments]; insts[ii] = { ...insts[ii], label: e.target.value }; pi.installments = insts; next[i] = pi; update('financialConfig.paymentPlans', next); }}
+												placeholder="Label" className="flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+											<input value={inst.percentage} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; const insts = [...pi.installments]; insts[ii] = { ...insts[ii], percentage: e.target.value }; pi.installments = insts; next[i] = pi; update('financialConfig.paymentPlans', next); }}
+												placeholder="%" className="w-16 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+											<input value={inst.dueWindow} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; const insts = [...pi.installments]; insts[ii] = { ...insts[ii], dueWindow: e.target.value }; pi.installments = insts; next[i] = pi; update('financialConfig.paymentPlans', next); }}
+												placeholder="Due window" className="w-32 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+											<button onClick={() => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; pi.installments = pi.installments.filter((__, j) => j !== ii); next[i] = pi; update('financialConfig.paymentPlans', next); }} className="text-red-400 hover:text-red-600 text-xs">X</button>
+										</div>
+									))}
+									<button onClick={() => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; pi.installments = [...pi.installments, { id: `inst-${Date.now()}`, label: '', percentage: '', fixedAmount: '', fixedAmountCurrency: '', dueWindow: '' }]; next[i] = pi; update('financialConfig.paymentPlans', next); }} className="text-xs text-[#465fff] font-medium hover:underline">+ Installment</button>
+								</div>
+							</div>
+						))}
+						<button onClick={() => update('financialConfig.paymentPlans', [...form.financialConfig.paymentPlans, { id: `plan-${Date.now()}`, name: '', description: '', isActive: true, installments: [] }])} className="text-sm text-[#465fff] font-medium hover:underline">+ Add Payment Plan</button>
+					</div>
+
+					{/* ── Student Groups ── */}
+					<div className="border-t border-gray-100 dark:border-gray-800 pt-6">
+						<h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Student Groups</h4>
+						<p className="text-xs text-gray-500 mb-3">Rule-driven student groupings (e.g. "New Students", "Teacher's Ward").</p>
+						{form.financialConfig.studentGroups.map((sg, i) => (
+							<div key={i} className="rounded-lg border border-gray-200 dark:border-gray-800 p-4 mb-3">
+								<div className="grid gap-3 sm:grid-cols-4 mb-3">
+									<input value={sg.name} onChange={(e) => { const next = [...form.financialConfig.studentGroups]; next[i] = { ...next[i], name: e.target.value }; update('financialConfig.studentGroups', next); }}
+										placeholder="Group name" className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+									<input type="number" value={sg.priority} onChange={(e) => { const next = [...form.financialConfig.studentGroups]; next[i] = { ...next[i], priority: Number(e.target.value) || 0 }; update('financialConfig.studentGroups', next); }}
+										placeholder="Priority" className="w-20 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+									<label className="flex items-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
+										<input type="checkbox" checked={sg.isActive} onChange={(e) => { const next = [...form.financialConfig.studentGroups]; next[i] = { ...next[i], isActive: e.target.checked }; update('financialConfig.studentGroups', next); }} /> Active
+									</label>
+									<button onClick={() => update('financialConfig.studentGroups', form.financialConfig.studentGroups.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 text-sm self-end">Remove</button>
+								</div>
+								<div className="space-y-2">
+									<p className="text-xs font-semibold text-gray-500">Conditions</p>
+									{sg.conditions.map((cond, ci) => (
+										<div key={ci} className="flex items-center gap-2">
+											<input value={cond.field} onChange={(e) => { const next = [...form.financialConfig.studentGroups]; const sg2 = { ...next[i] }; const conds = [...sg2.conditions]; conds[ci] = { ...conds[ci], field: e.target.value }; sg2.conditions = conds; next[i] = sg2; update('financialConfig.studentGroups', next); }}
+												placeholder="Field (e.g. studentType)" className="flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+											<select value={cond.operator} onChange={(e) => { const next = [...form.financialConfig.studentGroups]; const sg2 = { ...next[i] }; const conds = [...sg2.conditions]; conds[ci] = { ...conds[ci], operator: e.target.value }; sg2.conditions = conds; next[i] = sg2; update('financialConfig.studentGroups', next); }}
+												className="w-32 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
+												{['equals', 'notEquals', 'contains', 'notContains', 'greaterThan', 'lessThan', 'in', 'notIn'].map((op) => <option key={op} value={op}>{op}</option>)}
+											</select>
+											<input value={cond.value} onChange={(e) => { const next = [...form.financialConfig.studentGroups]; const sg2 = { ...next[i] }; const conds = [...sg2.conditions]; conds[ci] = { ...conds[ci], value: e.target.value }; sg2.conditions = conds; next[i] = sg2; update('financialConfig.studentGroups', next); }}
+												placeholder="Value" className="flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+											<button onClick={() => { const next = [...form.financialConfig.studentGroups]; const sg2 = { ...next[i] }; sg2.conditions = sg2.conditions.filter((__, j) => j !== ci); next[i] = sg2; update('financialConfig.studentGroups', next); }} className="text-red-400 hover:text-red-600 text-xs">X</button>
+										</div>
+									))}
+									<button onClick={() => { const next = [...form.financialConfig.studentGroups]; const sg2 = { ...next[i] }; sg2.conditions = [...sg2.conditions, { field: '', operator: 'equals', value: '' }]; next[i] = sg2; update('financialConfig.studentGroups', next); }} className="text-xs text-[#465fff] font-medium hover:underline">+ Condition</button>
+								</div>
+							</div>
+						))}
+						<button onClick={() => update('financialConfig.studentGroups', [...form.financialConfig.studentGroups, { id: `group-${Date.now()}`, name: '', priority: 0, isActive: true, conditions: [] }])} className="text-sm text-[#465fff] font-medium hover:underline">+ Add Student Group</button>
+					</div>
+
+					{/* ── Fee Schedules ── */}
+					<div className="border-t border-gray-100 dark:border-gray-800 pt-6">
+						<h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Fee Schedules</h4>
+						<p className="text-xs text-gray-500 mb-3">Per-academic-year fee schedules with session fee groups and adjustments. Edit via raw JSON.</p>
+						{form.financialConfig.feeSchedules.length === 0 ? (
 							<div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-8 text-center">
 								<DollarSignIcon className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
 								<p className="text-sm text-gray-500">No fee schedules configured yet.</p>
-								<p className="text-xs text-gray-400 mt-1">Set your academic years and class levels first, then fee groups will be auto-generated.</p>
 							</div>
 						) : (
-							<div className="space-y-4">
-								{Object.entries(form.financialConfig.feeSchedules).map(([year, yearData]: [string, any]) => (
-									<div key={year} className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
-										<div className="bg-gray-50 dark:bg-muted/50 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-											<span className="text-sm font-semibold text-gray-900 dark:text-white">{year}</span>
-											<button onClick={() => { const next = JSON.parse(JSON.stringify(form.financialConfig.feeSchedules)); delete next[year]; update('financialConfig.feeSchedules', next); }}
-												className="text-xs text-red-400 hover:text-red-600 self-end sm:self-auto">Remove</button>
+							<div className="space-y-3">
+								{form.financialConfig.feeSchedules.map((fs: any, i: number) => (
+									<div key={i} className="rounded-lg border border-gray-200 dark:border-gray-800 p-3">
+										<div className="flex items-center justify-between mb-2">
+											<span className="text-sm font-medium text-gray-700 dark:text-gray-300">{fs.academicYear || `Schedule ${i + 1}`}</span>
+											<button onClick={() => update('financialConfig.feeSchedules', form.financialConfig.feeSchedules.filter((__, j) => j !== i))} className="text-xs text-red-400 hover:text-red-600">Remove</button>
 										</div>
-										<div className="p-4 space-y-3">
-											{Object.entries(yearData).filter(([k]) => k !== 'paymentWindows').map(([sessionName, sessionData]: [string, any]) => (
-												<div key={sessionName}>
-													<h6 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{sessionName}</h6>
-													{Object.entries(sessionData).map(([fgKey, fgData]: [string, any]) => (
-														<div key={fgKey} className="ml-3 mb-3 rounded-lg border border-gray-100 dark:border-gray-800 p-3">
-															<div className="flex items-center justify-between mb-2">
-																<span className="text-sm font-medium text-gray-700 dark:text-gray-300">{fgData.label || fgKey}</span>
-																<span className="text-[10px] text-gray-400 font-mono">{fgKey}</span>
-															</div>
-															<div className="grid gap-3 sm:grid-cols-2">
-																<div>
-																	<p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Tuition (Old/New)</p>
-																	<div className="flex gap-2">
-																		<input type="number" value={fgData.tuitionAndRegistration?.old?.tuition || 0}
-																			onChange={(e) => {
-																				const next = JSON.parse(JSON.stringify(form.financialConfig.feeSchedules));
-																				const fg = next[year]?.[sessionName]?.[fgKey];
-																				if (fg) {
-																					fg.tuitionAndRegistration = fg.tuitionAndRegistration || { old: {}, new: {} };
-																					fg.tuitionAndRegistration.old = { ...fg.tuitionAndRegistration.old, tuition: Number(e.target.value) || 0 };
-																				}
-																				update('financialConfig.feeSchedules', next);
-																			}}
-																			className="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="Old" />
-																		<input type="number" value={fgData.tuitionAndRegistration?.new?.tuition || 0}
-																			onChange={(e) => {
-																				const next = JSON.parse(JSON.stringify(form.financialConfig.feeSchedules));
-																				const fg = next[year]?.[sessionName]?.[fgKey];
-																				if (fg) {
-																					fg.tuitionAndRegistration = fg.tuitionAndRegistration || { old: {}, new: {} };
-																					fg.tuitionAndRegistration.new = { ...fg.tuitionAndRegistration.new, tuition: Number(e.target.value) || 0 };
-																				}
-																				update('financialConfig.feeSchedules', next);
-																			}}
-																			className="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="New" />
-																	</div>
-																</div>
-																<div>
-																	<p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Installments</p>
-																	<p className="text-xs text-gray-500">{fgData.installments?.length || 0} payment periods</p>
-																</div>
-															</div>
-														</div>
-													))}
-												</div>
-											))}
-										</div>
+										<p className="text-xs text-gray-400">{fs.sessionFeeSchedules?.length || 0} session(s), {fs.feeAdjustments?.length || 0} adjustment(s)</p>
 									</div>
 								))}
 							</div>
 						)}
-						<div className="border-t border-gray-100 dark:border-gray-800 pt-4">
+						<button onClick={() => update('financialConfig.feeSchedules', [...form.financialConfig.feeSchedules, { academicYear: form.identity.currentAcademicYear || '', sessionFeeSchedules: [], feeAdjustments: [] }])} className="text-sm text-[#465fff] font-medium hover:underline">+ Add Fee Schedule</button>
+						<div className="border-t border-gray-100 dark:border-gray-800 pt-4 mt-4">
 							<details className="group">
 								<summary className="text-xs font-semibold text-gray-500 cursor-pointer hover:text-gray-700 dark:hover:text-gray-300">Edit Raw JSON</summary>
 								<textarea
@@ -575,8 +680,9 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 							</details>
 						</div>
 					</div>
-				)}
-			</div>
+				</div>
+			)}
+		</div>
 
 		<div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
 			<button onClick={() => setStep((s) => s - 1)} disabled={step === 0}
@@ -719,6 +825,21 @@ function ClassLevelsEditor({ classLevels, onChange, onUseDefaults }: {
 					<Wand2 className="h-3.5 w-3.5" /> Use Default Class Levels
 				</button>
 			)}
+			{onUseDefaults && Object.keys(classLevels).length > 0 && (
+				<button onClick={() => {
+					let suffix = 2;
+					let name = 'Morning';
+					while (classLevels[name]) { name = `Morning ${suffix}`; suffix++; }
+					const newLevels = JSON.parse(JSON.stringify(DEFAULT_CLASS_LEVELS));
+					const entry = Object.entries(newLevels)[0];
+					delete newLevels[entry[0]];
+					newLevels[name] = entry[1];
+					onChange({ ...classLevels, ...newLevels });
+					setExpandedSession(name);
+				}} className="inline-flex items-center gap-1.5 rounded-lg bg-[#465fff]/10 px-3 py-1.5 text-xs font-semibold text-[#465fff] hover:bg-[#465fff]/20 transition-colors">
+					<Wand2 className="h-3.5 w-3.5" /> Add Default Session
+				</button>
+			)}
 			<div className="flex gap-2">
 				<input value={newSession} onChange={(e) => setNewSession(e.target.value)} placeholder="New session name (e.g. Morning)"
 					className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
@@ -829,83 +950,103 @@ function ClassLevelsEditor({ classLevels, onChange, onUseDefaults }: {
 }
 
 // ─── Academic Permissions Editor ────────────────────────────────────────────────
-function AcademicPermissionsEditor({ studentSettings, teacherSettings, currentYear, onChange }: {
+function AcademicPermissionsEditor({ studentSettings, teacherSettings, firstYear, currentYear, onChange }: {
 	studentSettings: SchoolFormState['userConfig']['studentSettings'];
 	teacherSettings: SchoolFormState['userConfig']['teacherSettings'];
+	firstYear: string;
 	currentYear: string;
 	onChange: (student: typeof studentSettings, teacher: typeof teacherSettings) => void;
 }) {
-	const [year, setYear] = useState(currentYear || '');
-	const studentYear = studentSettings.reportAccessByYear[year] || { enabled: false, yearlyReportAccess: false, periods: [] as string[], semesters: [] as string[] };
-	const teacherYear = teacherSettings.permissionsByYear[year] || { enabled: false, gradeSubmission: { enabled: false, periods: [] as string[] }, viewGradeSubmissions: { enabled: false }, gradeChangeRequest: { enabled: false, periods: [] as string[] }, viewMasters: { enabled: false } };
+	const years = getAcademicYearRange(firstYear, currentYear);
+	const [expandedYear, setExpandedYear] = useState(currentYear || '');
 
-	const updateStudentYear = (patch: Partial<typeof studentYear>) => {
-		onChange({ ...studentSettings, reportAccessByYear: { ...studentSettings.reportAccessByYear, [year]: { ...studentYear, ...patch } } }, teacherSettings);
-	};
-	const updateTeacherYear = (patch: Partial<typeof teacherYear>) => {
-		onChange(studentSettings, { ...teacherSettings, permissionsByYear: { ...teacherSettings.permissionsByYear, [year]: { ...teacherYear, ...patch } } });
-	};
 	const togglePeriod = (current: string[], value: string) => current.includes(value) ? current.filter((p) => p !== value) : [...current, value];
 
 	return (
-		<div className="space-y-6">
+		<div className="space-y-4">
 			<h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Per-Year Academic Permissions</h4>
-			<p className="text-sm text-gray-500">Configure per-academic-year student report access and teacher permissions.</p>
-			<Field label="Academic Year" value={year} onChange={setYear} placeholder="e.g. 2025-2026" />
-			{year && (
-				<>
-					<div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4 space-y-3">
-						<h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Student Report Access</h5>
-						<ToggleRow label="Enabled for this year" checked={studentYear.enabled} onChange={(v) => updateStudentYear({ enabled: v })} />
-						<ToggleRow label="Yearly report access" checked={studentYear.yearlyReportAccess} onChange={(v) => updateStudentYear({ yearlyReportAccess: v })} />
-						<div>
-							<p className="text-xs font-semibold text-gray-500 mb-2">Periods</p>
-							<div className="flex flex-wrap gap-2">{ACADEMIC_PERIODS.map((p) => (
-								<button key={p} onClick={() => updateStudentYear({ periods: togglePeriod(studentYear.periods, p) })}
-									className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${studentYear.periods.includes(p) ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 dark:bg-muted dark:text-gray-400'}`}>
-									{p.replace(/_/g, ' ')}
-								</button>
-							))}</div>
-						</div>
-						<div>
-							<p className="text-xs font-semibold text-gray-500 mb-2">Semesters</p>
-							<div className="flex flex-wrap gap-2">{SEMESTERS.map((s) => (
-								<button key={s} onClick={() => updateStudentYear({ semesters: togglePeriod(studentYear.semesters, s) })}
-									className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${studentYear.semesters.includes(s) ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 dark:bg-muted dark:text-gray-400'}`}>
-									{s} semester
-								</button>
-							))}</div>
-						</div>
-					</div>
-					<div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4 space-y-3">
-						<h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Teacher Permissions</h5>
-						<ToggleRow label="Enabled for this year" checked={teacherYear.enabled} onChange={(v) => updateTeacherYear({ enabled: v })} />
-						<ToggleRow label="Grade submission" checked={teacherYear.gradeSubmission.enabled} onChange={(v) => updateTeacherYear({ gradeSubmission: { ...teacherYear.gradeSubmission, enabled: v } })} />
-						{teacherYear.gradeSubmission.enabled && (
-							<div className="ml-4"><p className="text-xs font-semibold text-gray-500 mb-2">Grade Submission Periods</p>
-								<div className="flex flex-wrap gap-2">{ACADEMIC_PERIODS.map((p) => (
-									<button key={p} onClick={() => updateTeacherYear({ gradeSubmission: { ...teacherYear.gradeSubmission, periods: togglePeriod(teacherYear.gradeSubmission.periods, p) } })}
-										className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${teacherYear.gradeSubmission.periods.includes(p) ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 dark:bg-muted dark:text-gray-400'}`}>
-										{p.replace(/_/g, ' ')}
-									</button>
-								))}</div>
+			<p className="text-xs text-gray-500">Configure per-academic-year student report access and teacher permissions.</p>
+			{years.length === 0 ? (
+				<p className="text-sm text-gray-400">Set first and current academic years on the School Identity step to configure per-year permissions.</p>
+			) : (
+				years.map((yr) => {
+					const isExpanded = expandedYear === yr;
+					const studentYear = studentSettings.reportAccessByYear[yr] || { enabled: false, yearlyReportAccess: false, periods: [] as string[], semesters: [] as string[] };
+					const teacherYear = teacherSettings.permissionsByYear[yr] || { enabled: false, gradeSubmission: { enabled: false, periods: [] as string[] }, viewGradeSubmissions: { enabled: false }, gradeChangeRequest: { enabled: false, periods: [] as string[] }, viewMasters: { enabled: false } };
+
+					const updateStudentYear = (patch: Partial<typeof studentYear>) => {
+						onChange({ ...studentSettings, reportAccessByYear: { ...studentSettings.reportAccessByYear, [yr]: { ...studentYear, ...patch } } }, teacherSettings);
+					};
+					const updateTeacherYear = (patch: Partial<typeof teacherYear>) => {
+						onChange(studentSettings, { ...teacherSettings, permissionsByYear: { ...teacherSettings.permissionsByYear, [yr]: { ...teacherYear, ...patch } } });
+					};
+
+					return (
+						<div key={yr} className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+							<div className="flex items-center gap-2 bg-gray-50 dark:bg-muted/50 px-4 py-3 cursor-pointer select-none"
+								onClick={() => setExpandedYear(isExpanded ? '' : yr)}>
+								{isExpanded ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
+								<span className="flex-1 text-sm font-semibold text-gray-900 dark:text-white">{yr}</span>
+								{yr === currentYear && <span className="text-[10px] font-semibold text-[#465fff] bg-[#465fff]/10 px-2 py-0.5 rounded-full">Current</span>}
 							</div>
-						)}
-						<ToggleRow label="View grade submissions" checked={teacherYear.viewGradeSubmissions.enabled} onChange={(v) => updateTeacherYear({ viewGradeSubmissions: { enabled: v } })} />
-						<ToggleRow label="Grade change requests" checked={teacherYear.gradeChangeRequest.enabled} onChange={(v) => updateTeacherYear({ gradeChangeRequest: { ...teacherYear.gradeChangeRequest, enabled: v } })} />
-						{teacherYear.gradeChangeRequest.enabled && (
-							<div className="ml-4"><p className="text-xs font-semibold text-gray-500 mb-2">Change Request Periods</p>
-								<div className="flex flex-wrap gap-2">{ACADEMIC_PERIODS.map((p) => (
-									<button key={p} onClick={() => updateTeacherYear({ gradeChangeRequest: { ...teacherYear.gradeChangeRequest, periods: togglePeriod(teacherYear.gradeChangeRequest.periods, p) } })}
-										className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${teacherYear.gradeChangeRequest.periods.includes(p) ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 dark:bg-muted dark:text-gray-400'}`}>
-										{p.replace(/_/g, ' ')}
-									</button>
-								))}</div>
-							</div>
-						)}
-						<ToggleRow label="View masters" checked={teacherYear.viewMasters.enabled} onChange={(v) => updateTeacherYear({ viewMasters: { enabled: v } })} />
-					</div>
-				</>
+							{isExpanded && (
+								<div className="p-4 space-y-4">
+									<div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4 space-y-3">
+										<h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Student Report Access</h5>
+										<ToggleRow label="Enabled for this year" checked={studentYear.enabled} onChange={(v) => updateStudentYear({ enabled: v })} />
+										<ToggleRow label="Yearly report access" checked={studentYear.yearlyReportAccess} onChange={(v) => updateStudentYear({ yearlyReportAccess: v })} />
+										<div>
+											<p className="text-xs font-semibold text-gray-500 mb-2">Periods</p>
+											<div className="flex flex-wrap gap-2">{ACADEMIC_PERIODS.map((p) => (
+												<button key={p} onClick={() => updateStudentYear({ periods: togglePeriod(studentYear.periods, p) })}
+													className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${studentYear.periods.includes(p) ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 dark:bg-muted dark:text-gray-400'}`}>
+													{p.replace(/_/g, ' ')}
+												</button>
+											))}</div>
+										</div>
+										<div>
+											<p className="text-xs font-semibold text-gray-500 mb-2">Semesters</p>
+											<div className="flex flex-wrap gap-2">{SEMESTERS.map((s) => (
+												<button key={s} onClick={() => updateStudentYear({ semesters: togglePeriod(studentYear.semesters, s) })}
+													className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${studentYear.semesters.includes(s) ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 dark:bg-muted dark:text-gray-400'}`}>
+													{s} semester
+												</button>
+											))}</div>
+										</div>
+									</div>
+									<div className="rounded-lg border border-gray-200 dark:border-gray-800 p-4 space-y-3">
+										<h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Teacher Permissions</h5>
+										<ToggleRow label="Enabled for this year" checked={teacherYear.enabled} onChange={(v) => updateTeacherYear({ enabled: v })} />
+										<ToggleRow label="Grade submission" checked={teacherYear.gradeSubmission.enabled} onChange={(v) => updateTeacherYear({ gradeSubmission: { ...teacherYear.gradeSubmission, enabled: v } })} />
+										{teacherYear.gradeSubmission.enabled && (
+											<div className="ml-4"><p className="text-xs font-semibold text-gray-500 mb-2">Grade Submission Periods</p>
+												<div className="flex flex-wrap gap-2">{ACADEMIC_PERIODS.map((p) => (
+													<button key={p} onClick={() => updateTeacherYear({ gradeSubmission: { ...teacherYear.gradeSubmission, periods: togglePeriod(teacherYear.gradeSubmission.periods, p) } })}
+														className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${teacherYear.gradeSubmission.periods.includes(p) ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 dark:bg-muted dark:text-gray-400'}`}>
+														{p.replace(/_/g, ' ')}
+													</button>
+												))}</div>
+											</div>
+										)}
+										<ToggleRow label="View grade submissions" checked={teacherYear.viewGradeSubmissions.enabled} onChange={(v) => updateTeacherYear({ viewGradeSubmissions: { enabled: v } })} />
+										<ToggleRow label="Grade change requests" checked={teacherYear.gradeChangeRequest.enabled} onChange={(v) => updateTeacherYear({ gradeChangeRequest: { ...teacherYear.gradeChangeRequest, enabled: v } })} />
+										{teacherYear.gradeChangeRequest.enabled && (
+											<div className="ml-4"><p className="text-xs font-semibold text-gray-500 mb-2">Change Request Periods</p>
+												<div className="flex flex-wrap gap-2">{ACADEMIC_PERIODS.map((p) => (
+													<button key={p} onClick={() => updateTeacherYear({ gradeChangeRequest: { ...teacherYear.gradeChangeRequest, periods: togglePeriod(teacherYear.gradeChangeRequest.periods, p) } })}
+														className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${teacherYear.gradeChangeRequest.periods.includes(p) ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 dark:bg-muted dark:text-gray-400'}`}>
+														{p.replace(/_/g, ' ')}
+													</button>
+												))}</div>
+											</div>
+										)}
+										<ToggleRow label="View masters" checked={teacherYear.viewMasters.enabled} onChange={(v) => updateTeacherYear({ viewMasters: { enabled: v } })} />
+									</div>
+								</div>
+							)}
+						</div>
+					);
+				})
 			)}
 		</div>
 	);
@@ -953,4 +1094,26 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
 // Thin wrapper so the fee-schedules step can reference a component (keeps JSX compact)
 function DollarSignIcon(props: React.SVGProps<SVGSVGElement>) {
 	return <DollarSign {...props} />;
+}
+
+function KeyValueEditor({ value, onChange }: { value: Record<string, string>; onChange: (v: Record<string, string>) => void }) {
+	const entries = Object.entries(value);
+	const [newKey, setNewKey] = useState('');
+	return (
+		<div className="space-y-2">
+			{entries.map(([k, v]) => (
+				<div key={k} className="flex items-center gap-2">
+					<input value={k} readOnly className="w-40 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-mono dark:border-gray-800 dark:bg-muted dark:text-white" />
+					<input value={v} onChange={(e) => onChange({ ...value, [k]: e.target.value })} placeholder="Value"
+						className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+					<button onClick={() => { const next = { ...value }; delete next[k]; onChange(next); }} className="text-red-400 hover:text-red-600 text-sm">Remove</button>
+				</div>
+			))}
+			<div className="flex items-center gap-2">
+				<input value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="Key" onKeyDown={(e) => { if (e.key === 'Enter' && newKey.trim()) { onChange({ ...value, [newKey.trim()]: '' }); setNewKey(''); } }}
+					className="w-40 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-mono outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+				<button onClick={() => { if (newKey.trim()) { onChange({ ...value, [newKey.trim()]: '' }); setNewKey(''); } }} className="text-sm text-[#465fff] font-medium hover:underline">+ Add</button>
+			</div>
+		</div>
+	);
 }

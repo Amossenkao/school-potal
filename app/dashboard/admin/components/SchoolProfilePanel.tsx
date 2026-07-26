@@ -63,6 +63,7 @@ const normalizeSchoolFormState = (school: any): SchoolFormState => {
 			logoUrl: br.logoUrl || school?.logoUrl || '',
 			logoUrl2: br.logoUrl2 || school?.logoUrl2 || '',
 			themeName: br.themeName || school?.themeName || DEFAULT_TENANT_THEME_NAME,
+			reportCardThemes: br.reportCardThemes || school?.reportCardThemes || {},
 		},
 		contact: {
 			addresses: co.addresses?.map((a: any) => ({
@@ -71,6 +72,7 @@ const normalizeSchoolFormState = (school: any): SchoolFormState => {
 			})) || [],
 			phones: co.phones || school?.phones || [],
 			emails: co.emails || school?.emails || [],
+			website: co.website || school?.website || '',
 		},
 		academicConfig: {
 			classLevels: ac.classLevels || school?.classLevels || {},
@@ -106,27 +108,14 @@ const normalizeSchoolFormState = (school: any): SchoolFormState => {
 			},
 		},
 		financialConfig: {
-			feeSchedules: fi.feeSchedules || school?.feeSchedules || {},
+			currencies: fi.currencies || school?.currencies || [],
+			feeDefinitions: fi.feeDefinitions || school?.feeDefinitions || [],
+			paymentPlans: fi.paymentPlans || school?.paymentPlans || [],
+			studentGroups: fi.studentGroups || school?.studentGroups || [],
+			feeSchedules: fi.feeSchedules || school?.feeSchedules || [],
 		},
 	};
 };
-
-// Flatten a nested object into dot-notation keys for MongoDB $set
-// Skips empty strings and undefined to avoid overwriting existing DB values
-// and triggering validation errors on required/enum fields
-function flattenForDb(obj: any, prefix = ''): Record<string, any> {
-	const result: Record<string, any> = {};
-	for (const [key, value] of Object.entries(obj)) {
-		const fullKey = prefix ? `${prefix}.${key}` : key;
-		if (value === undefined || value === '') continue;
-		if (value && typeof value === 'object' && !Array.isArray(value)) {
-			Object.assign(result, flattenForDb(value, fullKey));
-		} else {
-			result[fullKey] = value;
-		}
-	}
-	return result;
-}
 
 interface SchoolProfilePanelProps {
 	host: string;
@@ -211,19 +200,14 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 			setSaving(true);
 			setError('');
 
-			// Flatten nested form state to dot-notation for MongoDB $set
-			const flatBody = flattenForDb(formState);
-			// Never overwrite the system.id
-			delete flatBody['system.id'];
-
 			const res = await fetch(`/api/school?host=${encodeURIComponent(host)}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(flatBody),
+				body: JSON.stringify(formState),
 			});
 			const result = await res.json();
 			if (!res.ok) throw new Error(result.error || 'Failed to save');
-			upsertSuperAdminSchool(result.school || flatBody);
+			upsertSuperAdminSchool(result.school || formState);
 			toast.success('Changes saved successfully');
 		} catch (e: any) {
 			setError(e.message);
