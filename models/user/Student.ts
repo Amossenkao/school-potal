@@ -66,6 +66,8 @@ const StudentSchema = new Schema<Student & Document>({
 	isLateRegistration: { type: Boolean, required: false, default: false },
 	guardian: { type: GuardianSchema, required: true },
 	academicYears: { type: [YearSchema], required: true },
+	wardTeacherId: { type: String, required: false },
+	scholarships: { type: [String], required: false },
 	financialProfile: { type: FinancialProfileSchema, required: true },
 });
 

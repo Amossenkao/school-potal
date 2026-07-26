@@ -310,10 +310,10 @@ export default function DashboardHome({
 								<RoleIcon size={14} strokeWidth={2.5} />
 								{role.replace('_', ' ')}
 							</span>
-							{schoolProfile?.currentAcademicYear ? (
+							{schoolProfile?.identity?.currentAcademicYear ? (
 								<span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
 									<CalendarDays size={14} />
-									{schoolProfile.currentAcademicYear}
+									{schoolProfile.identity.currentAcademicYear}
 								</span>
 							) : null}
 						</motion.div>

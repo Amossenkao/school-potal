@@ -11,8 +11,10 @@ import {
 } from '@/utils/academicYearOptions';
 
 type SchoolProfileLike = {
-	currentAcademicYear?: string | null;
-	firstAcademicYear?: string | null;
+	identity?: {
+		currentAcademicYear?: string | null;
+		firstAcademicYear?: string | null;
+	} | null;
 };
 
 type AnyUser = {
@@ -36,7 +38,7 @@ const toCanonicalAcademicYear = (value?: string | null) => {
 export const getCurrentAcademicYearFromSchoolProfile = (
 	schoolProfile?: SchoolProfileLike | null,
 ) =>
-	toCanonicalAcademicYear(schoolProfile?.currentAcademicYear) ||
+	toCanonicalAcademicYear(schoolProfile?.identity?.currentAcademicYear) ||
 	getCurrentAcademicYearLabel();
 
 export const getAcademicYearQueryValues = (academicYear?: string | null) => {

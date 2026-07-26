@@ -32,49 +32,57 @@ const normalizeSchoolStats = (school: any): SchoolStats | null => {
 	return stats;
 };
 
-const normalizeSchoolFormData = (school: any): SchoolFormData => ({
-	...school,
-	logoUrl2: school?.logoUrl2 || '',
-	yearFounded: school?.yearFounded || '',
-	administrativePositions: school?.administrativePositions || [],
-	enabledFeatures: school?.enabledFeatures || [],
-	roleFeatureAccess: school?.roleFeatureAccess || {
-		student: [],
-		teacher: [],
-		system_admin: [],
-		administrator: {},
-	},
-	settings: {
-		studentSettings: {
-			loginAccess: true,
-			reportAccessByYear: {},
-			...(school?.settings?.studentSettings || {}),
+const normalizeSchoolFormData = (school: any): SchoolFormData => {
+	const identity = school?.identity || school;
+	const branding = school?.branding || school;
+	const contact = school?.contact || school;
+	const userConfig = school?.userConfig || school?.settings || school;
+	const academicConfig = school?.academicConfig || school;
+
+	return {
+		...school,
+		logoUrl2: branding?.logoUrl2 || '',
+		yearFounded: identity?.yearFounded || '',
+		administrativePositions: userConfig?.administrativePositions || [],
+		enabledFeatures: school?.enabledFeatures || [],
+		roleFeatureAccess: school?.roleFeatureAccess || {
+			student: [],
+			teacher: [],
+			system_admin: [],
+			administrator: {},
 		},
-		teacherSettings: {
-			loginAccess: true,
-			permissionsByYear: {},
-			...(school?.settings?.teacherSettings || {}),
+		settings: {
+			studentSettings: {
+				loginAccess: true,
+				reportAccessByYear: {},
+				...(userConfig?.studentSettings || {}),
+			},
+			teacherSettings: {
+				loginAccess: true,
+				permissionsByYear: {},
+				...(userConfig?.teacherSettings || {}),
+			},
+			administratorSettings: {
+				loginAccess: true,
+				...(userConfig?.administratorSettings || {}),
+			},
+			gradingSettings: {
+				passMark: 50,
+				gradeScale: { min: 0, max: 100 },
+				summerSchoolWeight: 0,
+				failureWeight: 0,
+				givesDoublePromotion: false,
+				givesDemotion: false,
+				...(academicConfig?.gradingSettings || {}),
+			},
 		},
-		administratorSettings: {
-			loginAccess: true,
-			...(school?.settings?.administratorSettings || {}),
-		},
-		gradingSettings: {
-			passMark: 50,
-			gradeScale: { min: 0, max: 100 },
-			summerSchoolWeight: 0,
-			failureWeight: 0,
-			givesDoublePromotion: false,
-			givesDemotion: false,
-			...(school?.settings?.gradingSettings || {}),
-		},
-	},
-	classLevels: school?.classLevels || {},
-	feeSchedules: school?.feeSchedules || {},
-	address: school?.address || [],
-	phones: school?.phones || [],
-	emails: school?.emails || [],
-});
+		classLevels: academicConfig?.classLevels || school?.classLevels || {},
+		feeSchedules: school?.feeSchedules || {},
+		address: contact?.addresses?.flatMap((a: any) => a.lines || []) || school?.address || [],
+		phones: contact?.phones || school?.phones || [],
+		emails: contact?.emails || school?.emails || [],
+	};
+};
 
 interface SchoolProfilePanelProps {
 	host: string;

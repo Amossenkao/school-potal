@@ -5,7 +5,7 @@ import { getScopedAcademicYearValue } from '@/utils/academicYear';
 
 // Assuming SchoolProfile type definition exists in your project
 export const getStudentAllowedAccess = (student: any, schoolProfile: SchoolProfile) => {
-  const allowedYearsConfig = schoolProfile?.settings?.studentSettings?.reportAccessByYear || {};
+  const allowedYearsConfig = schoolProfile?.userConfig?.studentSettings?.reportAccessByYear || {};
   
   if (!student.academicYears || !Array.isArray(student.academicYears)) {
     return [];
@@ -20,7 +20,7 @@ export const getStudentAllowedAccess = (student: any, schoolProfile: SchoolProfi
 };
 
 export const getTeacherAllowedAccess = (teacher: any, schoolProfile: any) => {
-  const permissionsConfig = schoolProfile?.settings?.teacherSettings?.permissionsByYear || {};
+  const permissionsConfig = schoolProfile?.userConfig?.teacherSettings?.permissionsByYear || {};
 
   if (!teacher.subjects || !Array.isArray(teacher.subjects)) {
     return [];
@@ -35,17 +35,17 @@ export const getTeacherAllowedAccess = (teacher: any, schoolProfile: any) => {
 };
 
 export function getStudentReportAccessForYear(
-	schoolProfile: Pick<SchoolProfile, 'settings'> | null | undefined,
+	schoolProfile: Pick<SchoolProfile, 'userConfig'> | null | undefined,
 	academicYear: string,
 ) {
 	const reportAccess =
-		schoolProfile?.settings?.studentSettings?.reportAccessByYear;
+		schoolProfile?.userConfig?.studentSettings?.reportAccessByYear;
 	const { value } = getScopedAcademicYearValue(reportAccess, academicYear);
 	return value;
 }
 
 export function isYearlyReportAccessAllowed(
-	schoolProfile: Pick<SchoolProfile, 'settings'> | null | undefined,
+	schoolProfile: Pick<SchoolProfile, 'userConfig'> | null | undefined,
 	academicYear: string,
 ): boolean {
 	const access = getStudentReportAccessForYear(schoolProfile, academicYear);
@@ -54,7 +54,7 @@ export function isYearlyReportAccessAllowed(
 }
 
 export function isPeriodReportAccessAllowed(
-	schoolProfile: Pick<SchoolProfile, 'settings'> | null | undefined,
+	schoolProfile: Pick<SchoolProfile, 'userConfig'> | null | undefined,
 	academicYear: string,
 	period: string,
 ): boolean {
@@ -64,7 +64,7 @@ export function isPeriodReportAccessAllowed(
 }
 
 export function isSemesterReportAccessAllowed(
-	schoolProfile: Pick<SchoolProfile, 'settings'> | null | undefined,
+	schoolProfile: Pick<SchoolProfile, 'userConfig'> | null | undefined,
 	academicYear: string,
 	semester: string,
 ): boolean {
@@ -81,17 +81,17 @@ export function isSemesterReportAccessAllowed(
 // ---------------------------------------------------------------------------
 
 export function getTeacherPermissionsForYear(
-	schoolProfile: Pick<SchoolProfile, 'settings'> | null | undefined,
+	schoolProfile: Pick<SchoolProfile, 'userConfig'> | null | undefined,
 	academicYear: string,
 ) {
 	const permissionsByYear =
-		schoolProfile?.settings?.teacherSettings?.permissionsByYear;
+		schoolProfile?.userConfig?.teacherSettings?.permissionsByYear;
 	const { value } = getScopedAcademicYearValue(permissionsByYear, academicYear);
 	return value;
 }
 
 export function isGradeSubmissionAllowedForYear(
-	schoolProfile: Pick<SchoolProfile, 'settings'> | null | undefined,
+	schoolProfile: Pick<SchoolProfile, 'userConfig'> | null | undefined,
 	academicYear: string,
 	period: string,
 ): boolean {
@@ -101,7 +101,7 @@ export function isGradeSubmissionAllowedForYear(
 }
 
 export function isGradeChangeRequestAllowedForYear(
-	schoolProfile: Pick<SchoolProfile, 'settings'> | null | undefined,
+	schoolProfile: Pick<SchoolProfile, 'userConfig'> | null | undefined,
 	academicYear: string,
 	period: string,
 ): boolean {
@@ -111,10 +111,10 @@ export function isGradeChangeRequestAllowedForYear(
 }
 
 export function getAllowedGradeSubmissionAcademicYears(
-	schoolProfile: Pick<SchoolProfile, 'settings'> | null | undefined,
+	schoolProfile: Pick<SchoolProfile, 'userConfig'> | null | undefined,
 ): string[] {
 	const permissionsByYear =
-		schoolProfile?.settings?.teacherSettings?.permissionsByYear;
+		schoolProfile?.userConfig?.teacherSettings?.permissionsByYear;
 	if (!permissionsByYear) return [];
 	return Object.keys(permissionsByYear).filter(
 		(year) =>
@@ -133,10 +133,10 @@ export function getAllowedGradeSubmissionPeriods(
 }
 
 export function getAllowedViewGradeSubmissionsAcademicYears(
-	schoolProfile: Pick<SchoolProfile, 'settings'> | null | undefined,
+	schoolProfile: Pick<SchoolProfile, 'userConfig'> | null | undefined,
 ): string[] {
 	const permissionsByYear =
-		schoolProfile?.settings?.teacherSettings?.permissionsByYear;
+		schoolProfile?.userConfig?.teacherSettings?.permissionsByYear;
 	if (!permissionsByYear) return [];
 	return Object.keys(permissionsByYear).filter(
 		(year) =>
@@ -146,10 +146,10 @@ export function getAllowedViewGradeSubmissionsAcademicYears(
 }
 
 export function getAllowedGradeChangeRequestAcademicYears(
-	schoolProfile: Pick<SchoolProfile, 'settings'> | null | undefined,
+	schoolProfile: Pick<SchoolProfile, 'userConfig'> | null | undefined,
 ): string[] {
 	const permissionsByYear =
-		schoolProfile?.settings?.teacherSettings?.permissionsByYear;
+		schoolProfile?.userConfig?.teacherSettings?.permissionsByYear;
 	if (!permissionsByYear) return [];
 	return Object.keys(permissionsByYear).filter(
 		(year) =>
@@ -159,7 +159,7 @@ export function getAllowedGradeChangeRequestAcademicYears(
 }
 
 export function getAllowedGradeChangeRequestPeriods(
-	schoolProfile: Pick<SchoolProfile, 'settings'> | null | undefined,
+	schoolProfile: Pick<SchoolProfile, 'userConfig'> | null | undefined,
 	academicYear: string,
 ): string[] {
 	const perms = getTeacherPermissionsForYear(schoolProfile, academicYear);
@@ -168,10 +168,10 @@ export function getAllowedGradeChangeRequestPeriods(
 }
 
 export function getAllowedViewMastersAcademicYears(
-	schoolProfile: Pick<SchoolProfile, 'settings'> | null | undefined,
+	schoolProfile: Pick<SchoolProfile, 'userConfig'> | null | undefined,
 ): string[] {
 	const permissionsByYear =
-		schoolProfile?.settings?.teacherSettings?.permissionsByYear;
+		schoolProfile?.userConfig?.teacherSettings?.permissionsByYear;
 	if (!permissionsByYear) return [];
 	return Object.keys(permissionsByYear).filter(
 		(year) =>

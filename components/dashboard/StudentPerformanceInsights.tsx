@@ -84,7 +84,7 @@ export default function StudentPerformanceInsights({
 		const years = studentYears.length > 0 ? studentYears : schoolYears;
 		return years.map((year) => ({ value: year, label: year }));
 	}, [schoolProfile, user]);
-	const currentAcademicYear = schoolProfile.currentAcademicYear || '';
+	const currentAcademicYear = schoolProfile.identity.currentAcademicYear || '';
 	const defaultAcademicYear = useMemo(
 		() =>
 			pickMostRecentAcademicYear(
@@ -190,7 +190,7 @@ export default function StudentPerformanceInsights({
 		return () => controller.abort();
 	}, [selectedYear, gradesByAcademicYear, setGradesForYear, user?.studentId]);
 
-	const passMark = schoolProfile.settings?.gradingSettings?.passMark || 70;
+	const passMark = schoolProfile.academicConfig?.gradingSettings?.passMark || 70;
 	const numericGrades = useMemo(
 		() => normalizeNumericGrades(grades as RawGradeRecord[]),
 		[grades],

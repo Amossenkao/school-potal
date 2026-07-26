@@ -211,7 +211,7 @@ export async function GET(request: NextRequest) {
 		}
 
 		// ── School active check ──────────────────────────────────────────────
-		if (schoolProfile?.isActive === false) {
+		if (schoolProfile?.system?.isActive === false) {
 			logResponse('School inactive.', 200);
 			const models = await getTenantModels();
 			const freshUser = await models.User.findById(session.id).lean();

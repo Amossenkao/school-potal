@@ -376,16 +376,18 @@ export const getSchoolProfile = async (
 			connection.models.SchoolProfile ||
 			connection.model<SchoolProfile>('SchoolProfile', SchoolProfileSchema);
 
-		let profile = await ProfileModel.findOne({ host }).lean().exec();
+		let profile = await ProfileModel.findOne({ 'system.host': host }).lean().exec();
 		if (!profile && process.env.NODE_ENV !== 'production') {
 			const devTenantHost = normalizeHost(process.env.DEV_TENANT_HOST);
 			const devTenantDbName = String(process.env.DEV_TENANT_DB_NAME || '').trim();
 
 			if (devTenantHost) {
-				profile = await ProfileModel.findOne({ host: devTenantHost }).lean().exec();
+				profile = await ProfileModel.findOne({ 'system.host': devTenantHost }).lean().exec();
 			}
 			if (!profile && devTenantDbName) {
-				profile = await ProfileModel.findOne({ dbName: devTenantDbName })
+				profile = await ProfileModel.findOne({
+					'system.dbName': devTenantDbName,
+				})
 					.lean()
 					.exec();
 			}

@@ -23,6 +23,7 @@ import { PageLoading } from '@/components/loading';
 import AvatarPicker from '@/components/avatarPicker';
 import { Button } from '@/components/ui/button';
 import { LOADING_POLICY, useLoadingGate } from '@/hooks/useLoadingGate';
+import { useHasSchool } from '@/context/HasSchoolContext';
 
 // ─── Ruled-line background texture (notebook aesthetic) ───────────────────────
 function NotebookLines() {
@@ -171,6 +172,7 @@ function ValidationRow({ met, label }: { met: boolean; label: string }) {
 export default function AccountSetupPage() {
 	const router = useRouter();
 	const { user, logout, isLoading: authLoading, setUser } = useAuth();
+	const hasSchool = useHasSchool();
 	const [isInitializing, setIsInitializing] = useState(true);
 	const [step, setStep] = useState(1);
 
@@ -301,7 +303,7 @@ export default function AccountSetupPage() {
 			<div className="min-h-screen flex items-center justify-center bg-background">
 				<PageLoading
 					fullScreen
-					variant="school"
+					variant={hasSchool ? 'school' : 'company'}
 					message="Preparing account setup..."
 				/>
 			</div>

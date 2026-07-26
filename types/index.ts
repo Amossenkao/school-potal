@@ -124,6 +124,9 @@ export interface Student extends User {
 		address: string;
 	};
 	isNewStudent?: boolean;
+	wardTeacherId?: string;
+	scholarships?: string[];
+
 	financialProfile: StudentFinancialProfile;
 }
 

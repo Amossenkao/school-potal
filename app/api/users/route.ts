@@ -313,7 +313,7 @@ async function generateIdByRole(models: any, role: string): Promise<string> {
 	};
 	const prefix = prefixes[role];
 	const idField = idFieldMap[role];
-	const academicYear = schoolProfile.currentAcademicYear || getAcademicYear();
+	const academicYear = schoolProfile.identity.currentAcademicYear || getAcademicYear();
 	const year = academicYear.split('-')[0];
 
 	const idPrefixRegex = `^${prefix}${year}`;
@@ -614,12 +614,12 @@ async function promoteStudent(
 ) {
 	const schoolProfile = await getSchoolProfile();
 	const currentAcademicYear =
-		schoolProfile.currentAcademicYear || getAcademicYear();
+		schoolProfile.identity.currentAcademicYear || getAcademicYear();
 
 	// Validate if double promotion is allowed
 	if (promotionType === 'doublePromotion') {
 		const allowDoublePromotion =
-			schoolProfile.settings?.studentSettings?.allowDoublePromotion;
+			schoolProfile.academicConfig?.gradingSettings?.givesDoublePromotion;
 		if (!allowDoublePromotion) {
 			throw new Error(
 				'Double promotion is not allowed according to school settings. Please contact the school administrator.',
@@ -751,17 +751,13 @@ async function demoteStudent(
 ) {
 	const schoolProfile = await getSchoolProfile();
 	const currentAcademicYear =
-		schoolProfile.currentAcademicYear || getAcademicYear();
+		schoolProfile.identity.currentAcademicYear || getAcademicYear();
 
 	// Validate if semester demotion is allowed
 	if (demotionType === 'semesterDemotion') {
-		const allowSemesterDemotion =
-			schoolProfile.settings?.studentSettings?.allowSemesterDemotion;
-		if (!allowSemesterDemotion) {
-			throw new Error(
-				'Semester demotion is not allowed according to school settings. Please contact the school administrator.',
-			);
-		}
+		throw new Error(
+			'Semester demotion is not allowed according to school settings. Please contact the school administrator.',
+		);
 	}
 
 	const updateData: any = {
@@ -1322,10 +1318,13 @@ export async function GET(request: NextRequest) {
 		if (currentUser.role === 'superadmin' && hostParam) {
 			const cleanHost = normalizeHost(hostParam);
 			const { SchoolProfile } = await getSchoolMeshModels();
-			const school = await SchoolProfile.findOne({ host: cleanHost }).select('dbName').lean().exec();
+			const school = await SchoolProfile.findOne({ 'system.host': cleanHost }).select('system.dbName system.host identity.currentAcademicYear').lean().exec();
 			if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
 
-			const connection = await getTenantConnectionByDbName((school as any).dbName);
+			const connection = await getTenantConnectionByDbName((school as any).system?.dbName);
+			if (!connection) return NextResponse.json({ students: 0, teachers: 0, administrators: 0, systemAdmins: 0, total: 0 });
+
+
 			if (!connection) return NextResponse.json({ users: [], admins: [] });
 
 			const User = (connection.models.User || connection.model('User', UserSchema)) as any;
@@ -1359,7 +1358,7 @@ export async function GET(request: NextRequest) {
 		const targetId = searchParams.get('id');
 		const schoolProfile = await getSchoolProfile();
 		const currentAcademicYear =
-			schoolProfile?.currentAcademicYear || getAcademicYear();
+			schoolProfile?.identity.currentAcademicYear || getAcademicYear();
 		const academicYear =
 			searchParams.get('academicYear') || currentAcademicYear;
 		const limit = parseInt(searchParams.get('limit') || '50000', 10);
@@ -2971,7 +2970,7 @@ export async function PUT(request: NextRequest) {
 						(student.academicYears || []).map((ay: any) => ay?.year),
 					) ||
 					student.enrollmentYear ||
-					schoolProfile?.currentAcademicYear ||
+					schoolProfile?.identity.currentAcademicYear ||
 					getAcademicYear();
 				const latestStart = getAcademicYearStart(studentLatestAcademicYear);
 				const newStart = getAcademicYearStart(newAcademicYear);
@@ -3441,7 +3440,7 @@ export async function PUT(request: NextRequest) {
 					getLatestAcademicYearFromValues(
 						existingSubjects.map((entry: any) => entry?.year),
 					) ||
-					schoolProfile?.currentAcademicYear ||
+					schoolProfile?.identity.currentAcademicYear ||
 					getAcademicYear();
 				const latestStart = getAcademicYearStart(latestAcademicYear);
 
@@ -3646,15 +3645,15 @@ export async function PUT(request: NextRequest) {
 				getLatestAcademicYearFromValues(
 					existingAcademicYears.map((entry: any) => entry?.year),
 				) ||
-				schoolProfile?.currentAcademicYear ||
-				getAcademicYear();
-			const latestStart = getAcademicYearStart(latestAcademicYear);
+			schoolProfile?.identity.currentAcademicYear ||
+			getAcademicYear();
+		const latestStart = getAcademicYearStart(latestAcademicYear);
 
-			if (latestStart === null || newStart <= latestStart) {
-				return NextResponse.json(
-					{
-						success: false,
-						message:
+		if (latestStart === null || newStart <= latestStart) {
+			return NextResponse.json(
+				{
+					success: false,
+					message:
 							"New academic year must be later than the administrator's latest academic year.",
 					},
 					{ status: 400 },
@@ -4165,7 +4164,7 @@ export async function PUT(request: NextRequest) {
 
 			const schoolProfile = await getSchoolProfile();
 			const currentAcademicYear =
-				schoolProfile.currentAcademicYear || getAcademicYear();
+				schoolProfile.identity.currentAcademicYear || getAcademicYear();
 			if (!Array.isArray(targetUser.academicYears)) {
 				return NextResponse.json(
 					{
@@ -4192,7 +4191,7 @@ export async function PUT(request: NextRequest) {
 			let resolvedClassName = filteredUserData.className;
 			if (!resolvedClassName) {
 				const classMeta = getClassMetaById(
-					schoolProfile.classLevels,
+					schoolProfile.academicConfig.classLevels,
 					filteredUserData.classId,
 				);
 				if (classMeta?.name) {

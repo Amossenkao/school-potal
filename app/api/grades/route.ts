@@ -219,8 +219,8 @@ function getTeacherClassData(
 }
 
 function getClassNameFromId(schoolProfile: any, id?: string) {
-	if (!id || !schoolProfile?.classLevels) return id || '';
-	for (const session of Object.values(schoolProfile.classLevels)) {
+	if (!id || !schoolProfile?.academicConfig?.classLevels) return id || '';
+	for (const session of Object.values(schoolProfile.academicConfig.classLevels)) {
 		if (!session || typeof session !== 'object') continue;
 		for (const level of Object.values(session)) {
 			if (!level?.classes || !Array.isArray(level.classes)) continue;
@@ -1251,13 +1251,13 @@ export async function POST(request: NextRequest) {
 			host: request.headers.get('host'),
 		});
 		const className = getClassNameFromId(schoolProfile, classId) || classId;
-		const passMark = schoolProfile?.settings?.gradingSettings?.passMark ?? 60;
+		const passMark = schoolProfile?.academicConfig?.gradingSettings?.passMark ?? 60;
 		const gradeMin =
-			schoolProfile?.settings?.gradingSettings?.gradeScale?.min ?? 0;
+			schoolProfile?.academicConfig?.gradingSettings?.gradeScale?.min ?? 0;
 		const gradeMax =
-			schoolProfile?.settings?.gradingSettings?.gradeScale?.max ?? 100;
+			schoolProfile?.academicConfig?.gradingSettings?.gradeScale?.max ?? 100;
 
-		if (schoolProfile?.settings?.teacherSettings) {
+		if (schoolProfile?.userConfig?.teacherSettings) {
 			if (
 				!isGradeSubmissionAllowedForYear(
 					schoolProfile,
@@ -1626,9 +1626,9 @@ export async function PUT(request: NextRequest) {
 		}
 
 		const gradeMin =
-			schoolProfile?.settings?.gradingSettings?.gradeScale?.min ?? 0;
+			schoolProfile?.academicConfig?.gradingSettings?.gradeScale?.min ?? 0;
 		const gradeMax =
-			schoolProfile?.settings?.gradingSettings?.gradeScale?.max ?? 100;
+			schoolProfile?.academicConfig?.gradingSettings?.gradeScale?.max ?? 100;
 		const validation = validateGrades(grades, gradeMin, gradeMax);
 		if (!validation.isValid) {
 			return NextResponse.json(

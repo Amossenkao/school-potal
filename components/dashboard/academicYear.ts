@@ -5,8 +5,8 @@ export type AcademicYearOption = { value: string; label: string };
 export const buildAcademicYearOptions = (
 	schoolProfile: SchoolProfile,
 ): AcademicYearOption[] => {
-	const current = schoolProfile.currentAcademicYear || '';
-	const first = schoolProfile.firstAcademicYear || '';
+	const current = schoolProfile.identity.currentAcademicYear || '';
+	const first = schoolProfile.identity.firstAcademicYear || '';
 	const parseStart = (value: string) => {
 		const match = value.match(/^(\d{4})/);
 		return match ? Number(match[1]) : null;
@@ -34,7 +34,7 @@ export const getClassNameById = (
 	classId?: string,
 ) => {
 	if (!classId) return '';
-	const levels = schoolProfile.classLevels || {};
+	const levels = schoolProfile.academicConfig.classLevels || {};
 	for (const session of Object.values(levels)) {
 		if (!session || typeof session !== 'object') continue;
 		for (const level of Object.values(session)) {
@@ -52,7 +52,7 @@ export const getClassLevelLabel = (
 	classId?: string,
 ) => {
 	if (!classId) return '';
-	const levels = schoolProfile.classLevels || {};
+	const levels = schoolProfile.academicConfig.classLevels || {};
 	const sessionNames = Object.keys(levels).filter(Boolean);
 	const includeSession = sessionNames.length > 1;
 	for (const [sessionName, session] of Object.entries(levels)) {

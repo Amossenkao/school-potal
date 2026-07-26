@@ -145,7 +145,6 @@ const ClassSchema = new Schema(
 	{
 		classId: { type: String, required: true, trim: true },
 		name: { type: String, required: true, trim: true },
-		feeGroup: { type: String, required: true, trim: true },
 	},
 	{ _id: false },
 );
@@ -159,11 +158,10 @@ const LevelSchema = new Schema(
 	{ _id: false },
 );
 
+// AcademicYearConfig only holds the year string now — fee schedule lives in financialConfig
 const AcademicYearConfigSchema = new Schema(
 	{
 		academicYear: { type: String, required: true, trim: true },
-		calendarId: { type: String, default: null },
-		feeScheduleId: { type: String, default: null },
 	},
 	{ _id: false },
 );
@@ -342,43 +340,28 @@ const SchoolProfileUserConfigSchema = new Schema(
 
 const RoleFeatureAccessSchema = new Schema(
 	{
-		student: {
-			type: [String],
-			enum: featureKeys,
-			required: true,
-			default: [],
-		},
-		teacher: {
-			type: [String],
-			enum: featureKeys,
-			required: true,
-			default: [],
-		},
+		student: { type: [String], enum: featureKeys, required: true, default: [] },
+		teacher: { type: [String], enum: featureKeys, required: true, default: [] },
 		system_admin: {
 			type: [String],
 			enum: featureKeys,
 			required: true,
 			default: [],
 		},
-		// NOTE: administrator map removed — not present in the new RoleFeatureAccess type
 	},
 	{ _id: false },
 );
 
 const SchoolProfileFeatureConfigSchema = new Schema(
 	{
-		enabledFeatures: {
-			type: [String],
-			enum: featureKeys,
-			default: [],
-		},
+		enabledFeatures: { type: [String], enum: featureKeys, default: [] },
 		roleFeatureAccess: { type: RoleFeatureAccessSchema, required: true },
 	},
 	{ _id: false },
 );
 
 // ---------------------------------------------------------------------------
-// 1.8 Financial Configuration
+// 1.8 Financial Configuration — permanent definitions
 // ---------------------------------------------------------------------------
 
 const CurrencyConfigSchema = new Schema(
@@ -489,6 +472,109 @@ const StudentGroupSchema = new Schema(
 	{ _id: false },
 );
 
+// ============================================================================
+// SECTION 2 — FEE SCHEDULE SUB-SCHEMAS
+// Embedded inside SchoolProfileFinancialConfig as an array of FeeSchedule docs,
+// one per academic year.
+// ============================================================================
+
+const ScheduledFeeSchema = new Schema(
+	{
+		feeId: { type: String, required: true, trim: true },
+		amount: { type: MoneySchema, required: true },
+		isRequired: { type: Boolean, required: true, default: true },
+		// Null means due immediately / not tied to an installment
+		dueInstallmentId: { type: String, default: null, trim: true },
+		// Empty array = applies to all students in the group
+		applicableStudentGroupIds: { type: [String], default: [] },
+	},
+	{ _id: false },
+);
+
+const FeeGroupSchema = new Schema(
+	{
+		id: { type: String, required: true, trim: true },
+		name: { type: String, required: true, trim: true },
+		appliesToClassIds: { type: [String], required: true, default: [] },
+		paymentPlanId: { type: String, required: true, trim: true },
+		scheduledFees: { type: [ScheduledFeeSchema], required: true, default: [] },
+	},
+	{ _id: false },
+);
+
+const SessionFeeScheduleSchema = new Schema(
+	{
+		sessionName: { type: String, required: true, trim: true },
+		feeGroups: { type: [FeeGroupSchema], required: true, default: [] },
+	},
+	{ _id: false },
+);
+
+// Fee adjustment action — stored as Mixed because the shape varies by type.
+// The discriminant is the `type` field; application logic narrows from there.
+const FeeAdjustmentActionSchema = new Schema(
+	{
+		type: {
+			type: String,
+			required: true,
+			enum: [
+				'percentage_discount',
+				'fixed_discount',
+				'fixed_price_override',
+				'waive_fee',
+				'add_fee',
+			],
+		},
+		// Null for actions that apply across all fees in a group
+		feeId: { type: String, default: null, trim: true },
+		// percentage_discount
+		discountPercent: { type: Number },
+		// fixed_discount
+		discountAmount: { type: MoneySchema },
+		// fixed_price_override
+		overrideAmount: { type: MoneySchema },
+		// add_fee
+		amount: { type: MoneySchema },
+		dueInstallmentId: { type: String, default: null, trim: true },
+	},
+	{ _id: false },
+);
+
+const FeeAdjustmentSchema = new Schema(
+	{
+		id: { type: String, required: true, trim: true },
+		name: { type: String, required: true, trim: true },
+		description: { type: String, trim: true },
+		enabled: { type: Boolean, required: true, default: true },
+		priority: { type: Number, required: true, default: 0 },
+		isStackable: { type: Boolean, required: true, default: false },
+		conditions: { type: [RuleConditionSchema], required: true, default: [] },
+		actions: { type: [FeeAdjustmentActionSchema], required: true, default: [] },
+	},
+	{ _id: false },
+);
+
+const FeeScheduleSchema = new Schema(
+	{
+		academicYear: { type: String, required: true, trim: true },
+		sessionFeeSchedules: {
+			type: [SessionFeeScheduleSchema],
+			required: true,
+			default: [],
+		},
+		feeAdjustments: {
+			type: [FeeAdjustmentSchema],
+			required: true,
+			default: [],
+		},
+	},
+	{ _id: false },
+);
+
+// ---------------------------------------------------------------------------
+// 1.8 Financial Configuration (assembled)
+// ---------------------------------------------------------------------------
+
 const SchoolProfileFinancialConfigSchema = new Schema(
 	{
 		currencies: { type: [CurrencyConfigSchema], required: true, default: [] },
@@ -499,6 +585,7 @@ const SchoolProfileFinancialConfigSchema = new Schema(
 		},
 		paymentPlans: { type: [PaymentPlanSchema], required: true, default: [] },
 		studentGroups: { type: [StudentGroupSchema], required: true, default: [] },
+		feeSchedules: { type: [FeeScheduleSchema], required: true, default: [] },
 	},
 	{ _id: false },
 );

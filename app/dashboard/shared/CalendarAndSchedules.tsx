@@ -102,7 +102,7 @@ export default function CalendarAndSchedules({
 			level: string;
 			session: string;
 		}[] = [];
-		Object.entries(schoolProfile.classLevels || {}).forEach(
+		Object.entries(schoolProfile.academicConfig?.classLevels || {}).forEach(
 			([sessionName, session]) => {
 				Object.entries(session || {}).forEach(([levelName, level]) => {
 					if (levelName === 'Self Contained') {
@@ -148,9 +148,9 @@ export default function CalendarAndSchedules({
 	}, [classOptions]);
 
 	const sessionOptions = useMemo(() => {
-		const sessions = Object.keys(schoolProfile.classLevels || {});
+		const sessions = Object.keys(schoolProfile.academicConfig?.classLevels || {});
 		return sessions.filter((sessionName) => {
-			const levels = schoolProfile.classLevels?.[sessionName] || {};
+			const levels = schoolProfile.academicConfig?.classLevels?.[sessionName] || {};
 			return Object.keys(levels).some((level) => level !== 'Self Contained');
 		});
 	}, [schoolProfile]);
@@ -200,7 +200,7 @@ export default function CalendarAndSchedules({
 	>([]);
 	const [slotEditingIds, setSlotEditingIds] = useState<string[]>([]);
 	const schoolCurrentAcademicYear = String(
-		schoolProfile.currentAcademicYear || '',
+		schoolProfile.identity.currentAcademicYear || '',
 	).trim();
 	const academicYear = schoolCurrentAcademicYear;
 	const canUseAcademicYear = useMemo(() => {

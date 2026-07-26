@@ -54,8 +54,8 @@ export const resolveTenantSyncKey = (options: {
 	host?: string | null;
 }) => {
 	const candidates = [
-		options.schoolProfile?.dbName,
-		options.schoolProfile?.host,
+		options.schoolProfile?.system?.dbName,
+		options.schoolProfile?.system?.host,
 		options.tenantId,
 		options.host,
 	];

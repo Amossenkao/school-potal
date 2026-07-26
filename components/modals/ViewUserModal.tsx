@@ -35,8 +35,8 @@ const ViewUserModal = ({
 	);
 
 	const getClassNameFromId = (classId) => {
-		if (!classId || !schoolProfile?.classLevels) return classId;
-		for (const session of Object.values(schoolProfile.classLevels)) {
+		if (!classId || !schoolProfile?.academicConfig?.classLevels) return classId;
+		for (const session of Object.values(schoolProfile.academicConfig.classLevels)) {
 			if (!session || typeof session !== 'object') continue;
 			for (const level of Object.values(session)) {
 				if (!level?.classes || !Array.isArray(level.classes)) continue;

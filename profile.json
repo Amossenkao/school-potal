@@ -1,12 +1,10 @@
 {
-	"_id": { "$oid": "6a41213669dfacde652d87bc" },
-
 	"system": {
-		"isActive": true,
+		"id": "68b2c47c7acabadf6a1bcfaf",
+		"isActive": false,
 		"host": "ucaliberia.vercel.app",
 		"dbName": "uca"
 	},
-
 	"identity": {
 		"name": "Upstairs Christian Academy",
 		"shortName": "Upstairs",
@@ -17,47 +15,42 @@
 		"firstAcademicYear": "2025-2026",
 		"currentAcademicYear": "2025-2026"
 	},
-
 	"branding": {
 		"themeName": "goldCircuit",
-		"logoUrl": "https://res.cloudinary.com/dcalueltid/image/upload/v1753368059/school-management-system/uca/logo.png",
-		"logoUrl2": "https://res.cloudinary.com/dcalueltid/image/upload/v1753484515/school-management-system/uca/uca_logo2_kqlgdl.png",
+		"logoUrl": "https://res.cloudinary.com/dcalueltd/image/upload/v1753368059/school-management-system/uca/logo.png",
+		"logoUrl2": "https://res.cloudinary.com/dcalueltd/image/upload/v1753484515/school-management-system/uca/uca_logo2_kqlgdl.png",
 		"reportCardThemes": {}
 	},
-
 	"contact": {
 		"addresses": [
 			{
-				"label": "Main Campus",
 				"lines": [
 					"Daycare, Nursery, Kindergarten, Elem, Junior & Senior High",
 					"Unity Town, Pipeline Road, Lower Johnsonville",
-					"P.O Box 2523 Montserrado County Liberia"
+					"P.O Box 2523 Montserrado County Liberia",
+					"Email: ucacedemy2011@gmail.com"
 				]
 			}
 		],
-		"phones": ["+231 770 123 456", "+231 880 789 012"],
+		"phones": [
+			"+231 770 123 456",
+			"+231 880 789 012"
+		],
 		"emails": [
-			"ucacedemy2011@gmail.com"
+			"info@unityca.edu.lr",
+			"admissions@unityca.edu.lr"
 		]
 	},
-
 	"academicConfig": {
 		"gradingSettings": {
-			"passMark": 70,
-			"gradeScale": { "min": 60, "max": 100 },
-			"hasSummerSchool": true,
-			"givesDoublePromotion": true
+			"passMark": 50,
+			"gradeScale": {
+				"min": 0,
+				"max": 100
+			},
+			"hasSummerSchool": false,
+			"givesDoublePromotion": false
 		},
-
-		"academicYearConfigs": {
-			"2025-2026": {
-				"academicYear": "2025-2026",
-				"calendarId": null,
-				"feeScheduleId": null
-			}
-		},
-
 		"classLevels": {
 			"Morning": {
 				"Daycare Division": {
@@ -65,26 +58,44 @@
 					"classes": [
 						{
 							"classId": "Morning-Nursery",
-							"name": "Nursery",
-							"feeGroup": "morning-nursery-grade3"
+							"name": "Nursery"
 						},
 						{
 							"classId": "Morning-ABC",
-							"name": "ABC",
-							"feeGroup": "morning-nursery-grade3"
+							"name": "ABC"
 						}
 					],
 					"subjects": [
-						{ "name": "Hygiene" },
-						{ "name": "Social Skills" },
-						{ "name": "Identifying Alphabets" },
-						{ "name": "Identifying Numbers" },
-						{ "name": "Tracing Numbers" },
-						{ "name": "Physical Education" },
-						{ "name": "Drawing" },
-						{ "name": "Recognizing Words" },
-						{ "name": "Phonics" },
-						{ "name": "Bible" }
+						{
+							"name": "Hygiene"
+						},
+						{
+							"name": "Social Skills"
+						},
+						{
+							"name": "Identifying Alphabets"
+						},
+						{
+							"name": "Identifying Numbers"
+						},
+						{
+							"name": "Tracing Numbers"
+						},
+						{
+							"name": "Physical Education"
+						},
+						{
+							"name": "Drawing"
+						},
+						{
+							"name": "Recognizing Words"
+						},
+						{
+							"name": "Phonics"
+						},
+						{
+							"name": "Bible"
+						}
 					]
 				},
 				"Lower Elementary": {
@@ -92,43 +103,62 @@
 					"classes": [
 						{
 							"classId": "Morning-KOne",
-							"name": "K 1",
-							"feeGroup": "morning-nursery-grade3"
+							"name": "K 1"
 						},
 						{
 							"classId": "Morning-KTwo",
-							"name": "K 2",
-							"feeGroup": "morning-nursery-grade3"
+							"name": "K 2"
 						},
 						{
 							"classId": "Morning-GradeOne",
-							"name": "Grade 1",
-							"feeGroup": "morning-nursery-grade3"
+							"name": "Grade 1"
 						},
 						{
 							"classId": "Morning-GradeTwo",
-							"name": "Grade 2",
-							"feeGroup": "morning-nursery-grade3"
+							"name": "Grade 2"
 						},
 						{
 							"classId": "Morning-GradeThree",
-							"name": "Grade 3",
-							"feeGroup": "morning-nursery-grade3"
+							"name": "Grade 3"
 						}
 					],
 					"subjects": [
-						{ "name": "Math" },
-						{ "name": "General Science" },
-						{ "name": "English" },
-						{ "name": "Social Studies" },
-						{ "name": "Health Science" },
-						{ "name": "Physical Education" },
-						{ "name": "Reading" },
-						{ "name": "Writing" },
-						{ "name": "Spelling" },
-						{ "name": "Phonics" },
-						{ "name": "Bible" },
-						{ "name": "Drawing" }
+						{
+							"name": "Math"
+						},
+						{
+							"name": "General Science"
+						},
+						{
+							"name": "English"
+						},
+						{
+							"name": "Social Studies"
+						},
+						{
+							"name": "Health Science"
+						},
+						{
+							"name": "Physical Education"
+						},
+						{
+							"name": "Reading"
+						},
+						{
+							"name": "Writing"
+						},
+						{
+							"name": "Spelling"
+						},
+						{
+							"name": "Phonics"
+						},
+						{
+							"name": "Bible"
+						},
+						{
+							"name": "Drawing"
+						}
 					]
 				},
 				"Upper Elementary": {
@@ -136,34 +166,57 @@
 					"classes": [
 						{
 							"classId": "Morning-GradeFour",
-							"name": "Grade 4",
-							"feeGroup": "morning-grade4-5"
+							"name": "Grade 4"
 						},
 						{
 							"classId": "Morning-GradeFive",
-							"name": "Grade 5",
-							"feeGroup": "morning-grade4-5"
+							"name": "Grade 5"
 						},
 						{
 							"classId": "Morning-GradeSix",
-							"name": "Grade 6",
-							"feeGroup": "morning-grade6"
+							"name": "Grade 6"
 						}
 					],
 					"subjects": [
-						{ "name": "Math" },
-						{ "name": "General Science" },
-						{ "name": "English" },
-						{ "name": "French" },
-						{ "name": "Social Studies" },
-						{ "name": "Health Science" },
-						{ "name": "Physical Education" },
-						{ "name": "Computer" },
-						{ "name": "Reading" },
-						{ "name": "Writing" },
-						{ "name": "Spelling" },
-						{ "name": "Phonics" },
-						{ "name": "Bible" }
+						{
+							"name": "Math"
+						},
+						{
+							"name": "General Science"
+						},
+						{
+							"name": "English"
+						},
+						{
+							"name": "French"
+						},
+						{
+							"name": "Social Studies"
+						},
+						{
+							"name": "Health Science"
+						},
+						{
+							"name": "Physical Education"
+						},
+						{
+							"name": "Computer"
+						},
+						{
+							"name": "Reading"
+						},
+						{
+							"name": "Writing"
+						},
+						{
+							"name": "Spelling"
+						},
+						{
+							"name": "Phonics"
+						},
+						{
+							"name": "Bible"
+						}
 					]
 				},
 				"Junior High": {
@@ -171,36 +224,63 @@
 					"classes": [
 						{
 							"classId": "Morning-GradeSeven",
-							"name": "Grade 7",
-							"feeGroup": "morning-grade7"
+							"name": "Grade 7"
 						},
 						{
 							"classId": "Morning-GradeEight",
-							"name": "Grade 8",
-							"feeGroup": "morning-grade8"
+							"name": "Grade 8"
 						},
 						{
 							"classId": "Morning-GradeNine",
-							"name": "Grade 9",
-							"feeGroup": "morning-grade9"
+							"name": "Grade 9"
 						}
 					],
 					"subjects": [
-						{ "name": "Math" },
-						{ "name": "General Science" },
-						{ "name": "English" },
-						{ "name": "French" },
-						{ "name": "Geography" },
-						{ "name": "Health Science" },
-						{ "name": "Physical Education" },
-						{ "name": "Computer" },
-						{ "name": "History" },
-						{ "name": "Civics" },
-						{ "name": "Vocabulary" },
-						{ "name": "Phonics" },
-						{ "name": "Bible" },
-						{ "name": "Agriculture" },
-						{ "name": "Literature" }
+						{
+							"name": "Math"
+						},
+						{
+							"name": "General Science"
+						},
+						{
+							"name": "English"
+						},
+						{
+							"name": "French"
+						},
+						{
+							"name": "Geography"
+						},
+						{
+							"name": "Health Science"
+						},
+						{
+							"name": "Physical Education"
+						},
+						{
+							"name": "Computer"
+						},
+						{
+							"name": "History"
+						},
+						{
+							"name": "Civics"
+						},
+						{
+							"name": "Vocabulary"
+						},
+						{
+							"name": "Phonics"
+						},
+						{
+							"name": "Bible"
+						},
+						{
+							"name": "Agriculture"
+						},
+						{
+							"name": "Literature"
+						}
 					]
 				},
 				"Senior High": {
@@ -208,83 +288,128 @@
 					"classes": [
 						{
 							"classId": "Morning-GradeTenA",
-							"name": "Grade 10-A",
-							"feeGroup": "morning-grade10"
+							"name": "Grade 10-A"
 						},
 						{
 							"classId": "Morning-GradeTenB",
-							"name": "Grade 10-B",
-							"feeGroup": "morning-grade10"
+							"name": "Grade 10-B"
 						},
 						{
 							"classId": "Morning-GradeElevenA",
-							"name": "Grade 11-A",
-							"feeGroup": "morning-grade11"
+							"name": "Grade 11-A"
 						},
 						{
 							"classId": "Morning-GradeElevenB",
-							"name": "Grade 11-B",
-							"feeGroup": "morning-grade11"
+							"name": "Grade 11-B"
 						},
 						{
 							"classId": "Morning-GradeTwelveA",
-							"name": "Grade 12-A",
-							"feeGroup": "morning-grade12"
+							"name": "Grade 12-A"
 						},
 						{
 							"classId": "Morning-GradeTwelveB",
-							"name": "Grade 12-B",
-							"feeGroup": "morning-grade12"
+							"name": "Grade 12-B"
 						}
 					],
 					"subjects": [
-						{ "name": "Math" },
-						{ "name": "Biology" },
-						{ "name": "English" },
-						{ "name": "Physics" },
-						{ "name": "Chemistry" },
-						{ "name": "Computer" },
-						{ "name": "Economics" },
-						{ "name": "Government" },
-						{ "name": "Geography" },
-						{ "name": "History" },
-						{ "name": "Literature" },
-						{ "name": "Accounting" },
-						{ "name": "Bible" },
-						{ "name": "French" },
-						{ "name": "Agriculture" },
-						{ "name": "Practical" },
-						{ "name": "R.O.T.C" }
+						{
+							"name": "Math"
+						},
+						{
+							"name": "Biology"
+						},
+						{
+							"name": "English"
+						},
+						{
+							"name": "Physics"
+						},
+						{
+							"name": "Chemistry"
+						},
+						{
+							"name": "Computer"
+						},
+						{
+							"name": "Economics"
+						},
+						{
+							"name": "Government"
+						},
+						{
+							"name": "Geography"
+						},
+						{
+							"name": "History"
+						},
+						{
+							"name": "Literature"
+						},
+						{
+							"name": "Accounting"
+						},
+						{
+							"name": "Bible"
+						},
+						{
+							"name": "French"
+						},
+						{
+							"name": "Agriculture"
+						},
+						{
+							"name": "Practical"
+						},
+						{
+							"name": "R.O.T.C"
+						}
 					]
 				}
 			},
-
 			"Night": {
 				"Daycare Division": {
 					"isSelfContained": true,
 					"classes": [
 						{
 							"classId": "Night-Nursery",
-							"name": "Nursery",
-							"feeGroup": "night-grade1-6"
+							"name": "Nursery"
 						},
 						{
 							"classId": "Night-ABC",
-							"name": "ABC",
-							"feeGroup": "night-grade1-6"
+							"name": "ABC"
 						}
 					],
 					"subjects": [
-						{ "name": "Hygiene" },
-						{ "name": "Social Skills" },
-						{ "name": "Identifying Alphabets" },
-						{ "name": "Identifying Numbers" },
-						{ "name": "Tracing Numbers" },
-						{ "name": "Physical Education" },
-						{ "name": "Drawing" },
-						{ "name": "Recognizing Words" },
-						{ "name": "Phonics" },
-						{ "name": "Bible" }
+						{
+							"name": "Hygiene"
+						},
+						{
+							"name": "Social Skills"
+						},
+						{
+							"name": "Identifying Alphabets"
+						},
+						{
+							"name": "Identifying Numbers"
+						},
+						{
+							"name": "Tracing Numbers"
+						},
+						{
+							"name": "Physical Education"
+						},
+						{
+							"name": "Drawing"
+						},
+						{
+							"name": "Recognizing Words"
+						},
+						{
+							"name": "Phonics"
+						},
+						{
+							"name": "Bible"
+						}
 					]
 				},
 				"Lower Elementary": {
@@ -292,42 +417,59 @@
 					"classes": [
 						{
 							"classId": "Night-kOne",
-							"name": "K 1",
-							"feeGroup": "night-grade1-6"
+							"name": "K 1"
 						},
 						{
 							"classId": "Night-kTwo",
-							"name": "K 2",
-							"feeGroup": "night-grade1-6"
+							"name": "K 2"
 						},
 						{
 							"classId": "Night-GradeOne",
-							"name": "Grade 1 PM",
-							"feeGroup": "night-grade1-6"
+							"name": "Grade 1 PM"
 						},
 						{
 							"classId": "Night-GradeTwo",
-							"name": "Grade 2 PM",
-							"feeGroup": "night-grade1-6"
+							"name": "Grade 2 PM"
 						},
 						{
 							"classId": "Night-GradeThree",
-							"name": "Grade 3 PM",
-							"feeGroup": "night-grade1-6"
+							"name": "Grade 3 PM"
 						}
 					],
 					"subjects": [
-						{ "name": "Math" },
-						{ "name": "General Science" },
-						{ "name": "English" },
-						{ "name": "Social Studies" },
-						{ "name": "Health Science" },
-						{ "name": "Reading" },
-						{ "name": "Writing" },
-						{ "name": "Spelling" },
-						{ "name": "Phonics" },
-						{ "name": "Bible" },
-						{ "name": "Drawing" }
+						{
+							"name": "Math"
+						},
+						{
+							"name": "General Science"
+						},
+						{
+							"name": "English"
+						},
+						{
+							"name": "Social Studies"
+						},
+						{
+							"name": "Health Science"
+						},
+						{
+							"name": "Reading"
+						},
+						{
+							"name": "Writing"
+						},
+						{
+							"name": "Spelling"
+						},
+						{
+							"name": "Phonics"
+						},
+						{
+							"name": "Bible"
+						},
+						{
+							"name": "Drawing"
+						}
 					]
 				},
 				"Upper Elementary": {
@@ -335,32 +477,51 @@
 					"classes": [
 						{
 							"classId": "Night-GradeFour",
-							"name": "Grade 4 PM",
-							"feeGroup": "night-grade1-6"
+							"name": "Grade 4 PM"
 						},
 						{
 							"classId": "Night-GradeFive",
-							"name": "Grade 5 PM",
-							"feeGroup": "night-grade1-6"
+							"name": "Grade 5 PM"
 						},
 						{
 							"classId": "Night-GradeSix",
-							"name": "Grade 6 PM",
-							"feeGroup": "night-grade1-6"
+							"name": "Grade 6 PM"
 						}
 					],
 					"subjects": [
-						{ "name": "Math" },
-						{ "name": "General Science" },
-						{ "name": "English" },
-						{ "name": "French" },
-						{ "name": "Social Studies" },
-						{ "name": "Health Science" },
-						{ "name": "Reading" },
-						{ "name": "Writing" },
-						{ "name": "Spelling" },
-						{ "name": "Phonics" },
-						{ "name": "Bible" }
+						{
+							"name": "Math"
+						},
+						{
+							"name": "General Science"
+						},
+						{
+							"name": "English"
+						},
+						{
+							"name": "French"
+						},
+						{
+							"name": "Social Studies"
+						},
+						{
+							"name": "Health Science"
+						},
+						{
+							"name": "Reading"
+						},
+						{
+							"name": "Writing"
+						},
+						{
+							"name": "Spelling"
+						},
+						{
+							"name": "Phonics"
+						},
+						{
+							"name": "Bible"
+						}
 					]
 				},
 				"Junior High": {
@@ -368,35 +529,60 @@
 					"classes": [
 						{
 							"classId": "Night-GradeSeven",
-							"name": "Grade 7 PM",
-							"feeGroup": "night-grade7-9"
+							"name": "Grade 7 PM"
 						},
 						{
 							"classId": "Night-GradeEight",
-							"name": "Grade 8 PM",
-							"feeGroup": "night-grade7-9"
+							"name": "Grade 8 PM"
 						},
 						{
 							"classId": "Night-GradeNine",
-							"name": "Grade 9 PM",
-							"feeGroup": "night-grade7-9"
+							"name": "Grade 9 PM"
 						}
 					],
 					"subjects": [
-						{ "name": "Math" },
-						{ "name": "General Science" },
-						{ "name": "English" },
-						{ "name": "French" },
-						{ "name": "Geography" },
-						{ "name": "Health Science" },
-						{ "name": "Computer" },
-						{ "name": "History" },
-						{ "name": "Civics" },
-						{ "name": "Vocabulary" },
-						{ "name": "Phonics" },
-						{ "name": "Bible" },
-						{ "name": "Agriculture" },
-						{ "name": "Literature" }
+						{
+							"name": "Math"
+						},
+						{
+							"name": "General Science"
+						},
+						{
+							"name": "English"
+						},
+						{
+							"name": "French"
+						},
+						{
+							"name": "Geography"
+						},
+						{
+							"name": "Health Science"
+						},
+						{
+							"name": "Computer"
+						},
+						{
+							"name": "History"
+						},
+						{
+							"name": "Civics"
+						},
+						{
+							"name": "Vocabulary"
+						},
+						{
+							"name": "Phonics"
+						},
+						{
+							"name": "Bible"
+						},
+						{
+							"name": "Agriculture"
+						},
+						{
+							"name": "Literature"
+						}
 					]
 				},
 				"Senior High": {
@@ -404,71 +590,121 @@
 					"classes": [
 						{
 							"classId": "Night-GradeTen",
-							"name": "Grade 10 PM",
-							"feeGroup": "night-grade10-11"
+							"name": "Grade 10 PM"
 						},
 						{
 							"classId": "Night-GradeEleven",
-							"name": "Grade 11 PM",
-							"feeGroup": "night-grade10-11"
+							"name": "Grade 11 PM"
 						},
 						{
 							"classId": "Night-GradeTwelve",
-							"name": "Grade 12 PM",
-							"feeGroup": "night-grade12"
+							"name": "Grade 12 PM"
 						}
 					],
 					"subjects": [
-						{ "name": "Math" },
-						{ "name": "Biology" },
-						{ "name": "English" },
-						{ "name": "Physics" },
-						{ "name": "Chemistry" },
-						{ "name": "Computer" },
-						{ "name": "Economics" },
-						{ "name": "Government" },
-						{ "name": "Geography" },
-						{ "name": "History" },
-						{ "name": "Literature" },
-						{ "name": "Accounting" },
-						{ "name": "Bible" },
-						{ "name": "French" },
-						{ "name": "Agriculture" },
-						{ "name": "Practical" }
+						{
+							"name": "Math"
+						},
+						{
+							"name": "Biology"
+						},
+						{
+							"name": "English"
+						},
+						{
+							"name": "Physics"
+						},
+						{
+							"name": "Chemistry"
+						},
+						{
+							"name": "Computer"
+						},
+						{
+							"name": "Economics"
+						},
+						{
+							"name": "Government"
+						},
+						{
+							"name": "Geography"
+						},
+						{
+							"name": "History"
+						},
+						{
+							"name": "Literature"
+						},
+						{
+							"name": "Accounting"
+						},
+						{
+							"name": "Bible"
+						},
+						{
+							"name": "French"
+						},
+						{
+							"name": "Agriculture"
+						},
+						{
+							"name": "Practical"
+						}
 					]
 				}
 			}
 		}
 	},
-
 	"userConfig": {
 		"sysAdmin": {
 			"name": "Amos Senkao",
 			"phone": "0776949463",
 			"email": "amossenkao@gmail.com"
 		},
-
 		"administrativePositions": [
-			{ "id": "principal", "name": "Principal" },
-			{ "id": "dean", "name": "Dean of Students" },
-			{ "id": "registrar", "name": "Registrar" },
-			{ "id": "vpi", "name": "Vice Principal for Instruction (VPI)" },
-			{ "id": "business manager", "name": "Business Manager" },
-			{ "id": "propeietor", "name": "Proprietor" }
+			{
+				"id": "principal",
+				"name": "Principal"
+			},
+			{
+				"id": "dean",
+				"name": "Dean of Students"
+			},
+			{
+				"id": "registrar",
+				"name": "Registrar"
+			},
+			{
+				"id": "vpi",
+				"name": "Vice Principal for Instruction (VPI)"
+			},
+			{
+				"id": "business manager",
+				"name": "Business Manager"
+			},
+			{
+				"id": "propeietor",
+				"name": "Proprietor"
+			}
 		],
-
 		"studentSettings": {
 			"loginAccess": true,
 			"reportAccessByYear": {
 				"2025-2026": {
 					"enabled": true,
 					"yearlyReportAccess": true,
-					"periods": ["first", "second", "third", "third_period_exam"],
-					"semesters": ["first"]
+					"periods": [
+						"first",
+						"second",
+						"third",
+						"third_period_exam"
+					],
+					"semesters": [
+						"first"
+					]
 				}
 			}
 		},
-
 		"teacherSettings": {
 			"loginAccess": true,
 			"permissionsByYear": {
@@ -487,30 +723,32 @@
 							"sixth_period_exam"
 						]
 					},
-					"viewGradeSubmissions": { "enabled": true },
+					"viewGradeSubmissions": {
+						"enabled": true
+					},
 					"gradeChangeRequest": {
 						"enabled": true,
 						"periods": [
-							"first",
-							"second",
-							"third",
 							"third_period_exam",
 							"fourth",
 							"fifth",
 							"sixth",
-							"sixth_period_exam"
+							"sixth_period_exam",
+							"third",
+							"first",
+							"second"
 						]
 					},
-					"viewMasters": { "enabled": true }
+					"viewMasters": {
+						"enabled": true
+					}
 				}
 			}
 		},
-
 		"administratorSettings": {
-			"loginAccess": true
+			"loginAccess": false
 		}
 	},
-
 	"featureConfig": {
 		"enabledFeatures": [
 			"dashboard",
@@ -559,6 +797,7 @@
 				"grading_system",
 				"class_management",
 				"academic_reports",
+				"calendar_events",
 				"academic_resources",
 				"attendance",
 				"admissions",
@@ -570,7 +809,6 @@
 			]
 		}
 	},
-
 	"financialConfig": {
 		"currencies": [
 			{
@@ -586,7 +824,6 @@
 				"isDefault": false
 			}
 		],
-
 		"feeDefinitions": [
 			{
 				"id": "tuition",
@@ -595,13 +832,13 @@
 				"isActive": true
 			},
 			{
-				"id": "registration-1st",
+				"id": "reg-1st-sem",
 				"name": "Registration (1st Semester)",
 				"category": "registration",
 				"isActive": true
 			},
 			{
-				"id": "registration-2nd",
+				"id": "reg-2nd-sem",
 				"name": "Registration (2nd Semester)",
 				"category": "registration",
 				"isActive": true
@@ -638,7 +875,7 @@
 			},
 			{
 				"id": "activities",
-				"name": "Activities Fee",
+				"name": "Activities",
 				"category": "requirements",
 				"isActive": true
 			},
@@ -655,45 +892,21 @@
 				"isActive": true
 			},
 			{
-				"id": "science-lab",
+				"id": "science-lab-fee",
 				"name": "Science Lab Fee + Lab Manual + Activities",
+				"category": "requirements",
+				"isActive": true
+			},
+			{
+				"id": "prom",
+				"name": "Junior & Senior Prom",
 				"category": "requirements",
 				"isActive": true
 			},
 			{
 				"id": "class-project",
 				"name": "Class Project",
-				"category": "graduation",
-				"isActive": true
-			},
-			{
-				"id": "prom",
-				"name": "Junior & Senior Prom",
-				"category": "graduation",
-				"isActive": true
-			},
-			{
-				"id": "handbook",
-				"name": "Handbook",
 				"category": "requirements",
-				"isActive": true
-			},
-			{
-				"id": "t-shirt",
-				"name": "T-Shirt",
-				"category": "accessories",
-				"isActive": true
-			},
-			{
-				"id": "computer-lab",
-				"name": "Computer Lab",
-				"category": "facility",
-				"isActive": true
-			},
-			{
-				"id": "extra-classes",
-				"name": "Extra Classes",
-				"category": "other",
 				"isActive": true
 			},
 			{
@@ -715,9 +928,33 @@
 				"isActive": true
 			},
 			{
-				"id": "militant-set",
+				"id": "tshirt-militant",
 				"name": "T-Shirt, Militant Short Trouser & Face Cap",
 				"category": "accessories",
+				"isActive": true
+			},
+			{
+				"id": "t-shirt",
+				"name": "T-Shirt",
+				"category": "accessories",
+				"isActive": true
+			},
+			{
+				"id": "handbook",
+				"name": "Handbook",
+				"category": "other",
+				"isActive": true
+			},
+			{
+				"id": "computer-lab",
+				"name": "Computer Lab",
+				"category": "facility",
+				"isActive": true
+			},
+			{
+				"id": "extra-classes",
+				"name": "Extra Classes",
+				"category": "other",
 				"isActive": true
 			},
 			{
@@ -727,79 +964,2313 @@
 				"isActive": true
 			}
 		],
-
 		"paymentPlans": [
 			{
-				"id": "four-installments",
-				"name": "Four Installments",
-				"description": "Standard four-payment plan used across Morning and Night sessions",
+				"id": "morning-plan",
+				"name": "Morning Plan",
 				"isActive": true,
 				"installments": [
-					{ "id": "inst-1", "label": "1st (During Registration)" },
 					{
-						"id": "inst-2",
+						"id": "morning-1st",
+						"label": "1st (During Registration)"
+					},
+					{
+						"id": "morning-2nd",
 						"label": "2nd",
 						"dueWindow": "Nov 2 - Nov 9, 2026"
 					},
 					{
-						"id": "inst-3",
+						"id": "morning-3rd",
 						"label": "3rd",
 						"dueWindow": "Feb 8 - Feb 19, 2027"
 					},
 					{
-						"id": "inst-4",
+						"id": "morning-4th",
 						"label": "4th",
 						"dueWindow": "Mar 22 - Apr 5, 2027"
 					}
 				]
 			},
 			{
-				"id": "four-installments-night",
-				"name": "Four Installments (Night Session)",
-				"description": "Four-payment plan for Night session classes",
+				"id": "night-plan",
+				"name": "Night Plan",
 				"isActive": true,
 				"installments": [
-					{ "id": "inst-1", "label": "1st (During Registration)" },
 					{
-						"id": "inst-2",
+						"id": "night-1st",
+						"label": "1st (During Registration)"
+					},
+					{
+						"id": "night-2nd",
 						"label": "2nd",
 						"dueWindow": "Nov 4 - Nov 15, 2025"
 					},
 					{
-						"id": "inst-3",
+						"id": "night-3rd",
 						"label": "3rd",
 						"dueWindow": "Feb 10 - Feb 21, 2026"
 					},
 					{
-						"id": "inst-4",
+						"id": "night-4th",
 						"label": "4th",
 						"dueWindow": "Mar 24 - Apr 4, 2026"
 					}
 				]
 			}
 		],
-
 		"studentGroups": [
 			{
 				"id": "new-students",
 				"name": "New Students",
-				"priority": 10,
-				"isActive": true,
+				"priority": 1,
 				"conditions": [
-					{ "field": "studentType", "operator": "equals", "value": "new" }
-				]
+					{
+						"field": "studentType",
+						"operator": "equals",
+						"value": "new"
+					}
+				],
+				"isActive": true
 			},
 			{
 				"id": "returning-students",
 				"name": "Returning Students",
-				"priority": 20,
-				"isActive": true,
+				"priority": 2,
 				"conditions": [
-					{ "field": "studentType", "operator": "equals", "value": "returning" }
-				]
+					{
+						"field": "studentType",
+						"operator": "equals",
+						"value": "returning"
+					}
+				],
+				"isActive": true
+			}
+		],
+		"feeSchedules": [
+			{
+				"academicYear": "2025-2026",
+				"sessionFeeSchedules": [
+					{
+						"sessionName": "Morning",
+						"feeGroups": [
+							{
+								"id": "morning-nursery-grade3",
+								"name": "Nursery – Grade 3",
+								"appliesToClassIds": [
+									"Morning-Daycare",
+									"Morning-Nursery",
+									"Morning-KOne",
+									"Morning-KTwo",
+									"Morning-GradeOne",
+									"Morning-GradeTwo",
+									"Morning-GradeThree"
+								],
+								"paymentPlanId": "morning-plan",
+								"scheduledFees": [
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 8050,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 7000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 4100,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 4000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 4250,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "first-aid",
+										"amount": {
+											"amount": 2500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "id-card",
+										"amount": {
+											"amount": 500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "pta",
+										"amount": {
+											"amount": 100,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "breakage-fee",
+										"amount": {
+											"amount": 750,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "e-portal",
+										"amount": {
+											"amount": 1000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "activities",
+										"amount": {
+											"amount": 200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "field-trip",
+										"amount": {
+											"amount": 4000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "uniform-set",
+										"amount": {
+											"amount": 3700,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "wednesday-dress",
+										"amount": {
+											"amount": 1500,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "track-suit",
+										"amount": {
+											"amount": 6000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									}
+								]
+							},
+							{
+								"id": "morning-grade4-5",
+								"name": "Grade 4 – 5",
+								"appliesToClassIds": [
+									"Morning-GradeFour",
+									"Morning-GradeFive"
+								],
+								"paymentPlanId": "morning-plan",
+								"scheduledFees": [
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 10000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 4500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 4000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 3950,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 3450,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "first-aid",
+										"amount": {
+											"amount": 2500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "pta",
+										"amount": {
+											"amount": 100,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "id-card",
+										"amount": {
+											"amount": 500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "breakage-fee",
+										"amount": {
+											"amount": 750,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "e-portal",
+										"amount": {
+											"amount": 1000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "activities",
+										"amount": {
+											"amount": 200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "field-trip",
+										"amount": {
+											"amount": 4000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "computer-literacy",
+										"amount": {
+											"amount": 3000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "uniform-set",
+										"amount": {
+											"amount": 4000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "wednesday-dress",
+										"amount": {
+											"amount": 2000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "track-suit",
+										"amount": {
+											"amount": 6000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									}
+								]
+							},
+							{
+								"id": "morning-grade6",
+								"name": "Grade 6",
+								"appliesToClassIds": [
+									"Morning-GradeSix"
+								],
+								"paymentPlanId": "morning-plan",
+								"scheduledFees": [
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 10350,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 10300,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 5000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 4050,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 4000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 3700,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "first-aid",
+										"amount": {
+											"amount": 2500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "pta",
+										"amount": {
+											"amount": 100,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "id-card",
+										"amount": {
+											"amount": 500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "breakage-fee",
+										"amount": {
+											"amount": 750,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "e-portal",
+										"amount": {
+											"amount": 1000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "activities",
+										"amount": {
+											"amount": 200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "field-trip",
+										"amount": {
+											"amount": 4000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "computer-literacy",
+										"amount": {
+											"amount": 3000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "extra-classes",
+										"amount": {
+											"amount": 2000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "uniform-set",
+										"amount": {
+											"amount": 4000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "wednesday-dress",
+										"amount": {
+											"amount": 2000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "track-suit",
+										"amount": {
+											"amount": 6000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									}
+								]
+							},
+							{
+								"id": "morning-grade7",
+								"name": "Grade 7",
+								"appliesToClassIds": [
+									"Morning-GradeSeven"
+								],
+								"paymentPlanId": "morning-plan",
+								"scheduledFees": [
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 10000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 5300,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 5000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 4750,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 4250,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "first-aid",
+										"amount": {
+											"amount": 2500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "pta",
+										"amount": {
+											"amount": 100,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "id-card",
+										"amount": {
+											"amount": 500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "breakage-fee",
+										"amount": {
+											"amount": 750,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "e-portal",
+										"amount": {
+											"amount": 1000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "activities",
+										"amount": {
+											"amount": 200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "field-trip",
+										"amount": {
+											"amount": 4000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "computer-literacy",
+										"amount": {
+											"amount": 3000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "uniform-set",
+										"amount": {
+											"amount": 4700,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "wednesday-dress",
+										"amount": {
+											"amount": 2000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "track-suit",
+										"amount": {
+											"amount": 6000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									}
+								]
+							},
+							{
+								"id": "morning-grade8",
+								"name": "Grade 8",
+								"appliesToClassIds": [
+									"Morning-GradeEight"
+								],
+								"paymentPlanId": "morning-plan",
+								"scheduledFees": [
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 10700,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 10000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 5500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 4750,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 4650,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "first-aid",
+										"amount": {
+											"amount": 2500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "pta",
+										"amount": {
+											"amount": 100,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "id-card",
+										"amount": {
+											"amount": 500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "breakage-fee",
+										"amount": {
+											"amount": 750,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "e-portal",
+										"amount": {
+											"amount": 1000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "activities",
+										"amount": {
+											"amount": 200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "field-trip",
+										"amount": {
+											"amount": 4000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "computer-literacy",
+										"amount": {
+											"amount": 3000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "uniform-set",
+										"amount": {
+											"amount": 4700,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "wednesday-dress",
+										"amount": {
+											"amount": 2000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "track-suit",
+										"amount": {
+											"amount": 6000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									}
+								]
+							},
+							{
+								"id": "morning-grade9",
+								"name": "Grade 9",
+								"appliesToClassIds": [
+									"Morning-GradeNine"
+								],
+								"paymentPlanId": "morning-plan",
+								"scheduledFees": [
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 10500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 10300,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 6500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 6000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 4850,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 4750,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "first-aid",
+										"amount": {
+											"amount": 2500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "pta",
+										"amount": {
+											"amount": 100,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "id-card",
+										"amount": {
+											"amount": 500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "breakage-fee",
+										"amount": {
+											"amount": 750,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "e-portal",
+										"amount": {
+											"amount": 1000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "activities",
+										"amount": {
+											"amount": 200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "field-trip",
+										"amount": {
+											"amount": 4000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "computer-literacy",
+										"amount": {
+											"amount": 3000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "extra-classes",
+										"amount": {
+											"amount": 2500,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "uniform-set",
+										"amount": {
+											"amount": 4700,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "wednesday-dress",
+										"amount": {
+											"amount": 2000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "track-suit",
+										"amount": {
+											"amount": 6000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									}
+								]
+							},
+							{
+								"id": "morning-grade10",
+								"name": "Grade 10",
+								"appliesToClassIds": [
+									"Morning-GradeTenA",
+									"Morning-GradeTenB"
+								],
+								"paymentPlanId": "morning-plan",
+								"scheduledFees": [
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 12000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 11550,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 6000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 5650,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 5000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "first-aid",
+										"amount": {
+											"amount": 2500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "pta",
+										"amount": {
+											"amount": 100,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "id-card",
+										"amount": {
+											"amount": 500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "breakage-fee",
+										"amount": {
+											"amount": 750,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "e-portal",
+										"amount": {
+											"amount": 1000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "activities",
+										"amount": {
+											"amount": 200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "field-trip",
+										"amount": {
+											"amount": 4000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "computer-literacy",
+										"amount": {
+											"amount": 3000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "science-lab-fee",
+										"amount": {
+											"amount": 5,
+											"currency": "USD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "uniform-set",
+										"amount": {
+											"amount": 5000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "wednesday-dress",
+										"amount": {
+											"amount": 2000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "track-suit",
+										"amount": {
+											"amount": 6000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									}
+								]
+							},
+							{
+								"id": "morning-grade11",
+								"name": "Grade 11",
+								"appliesToClassIds": [
+									"Morning-GradeElevenA",
+									"Morning-GradeElevenB"
+								],
+								"paymentPlanId": "morning-plan",
+								"scheduledFees": [
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 12500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 12400,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 6350,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 6000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 6000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 5650,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "first-aid",
+										"amount": {
+											"amount": 2500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "pta",
+										"amount": {
+											"amount": 100,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "id-card",
+										"amount": {
+											"amount": 500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "breakage-fee",
+										"amount": {
+											"amount": 750,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "e-portal",
+										"amount": {
+											"amount": 1000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "activities",
+										"amount": {
+											"amount": 200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "field-trip",
+										"amount": {
+											"amount": 4000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "computer-literacy",
+										"amount": {
+											"amount": 3000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "science-lab-fee",
+										"amount": {
+											"amount": 5,
+											"currency": "USD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "prom",
+										"amount": {
+											"amount": 5000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "uniform-set",
+										"amount": {
+											"amount": 5000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "wednesday-dress",
+										"amount": {
+											"amount": 2000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "track-suit",
+										"amount": {
+											"amount": 6000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									}
+								]
+							},
+							{
+								"id": "morning-grade12",
+								"name": "Grade 12",
+								"appliesToClassIds": [
+									"Morning-GradeTwelveA",
+									"Morning-GradeTwelveB"
+								],
+								"paymentPlanId": "morning-plan",
+								"scheduledFees": [
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 16500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 15500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 8000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 8250,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 7250,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"returning-students"
+										]
+									},
+									{
+										"feeId": "first-aid",
+										"amount": {
+											"amount": 2500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "pta",
+										"amount": {
+											"amount": 100,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "breakage-fee",
+										"amount": {
+											"amount": 750,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "e-portal",
+										"amount": {
+											"amount": 1000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "activities",
+										"amount": {
+											"amount": 200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "field-trip",
+										"amount": {
+											"amount": 4000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "computer-literacy",
+										"amount": {
+											"amount": 3000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "science-lab-fee",
+										"amount": {
+											"amount": 5,
+											"currency": "USD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "class-project",
+										"amount": {
+											"amount": 50,
+											"currency": "USD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "morning-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "extra-classes",
+										"amount": {
+											"amount": 4000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "uniform-set",
+										"amount": {
+											"amount": 10500,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "tshirt-militant",
+										"amount": {
+											"amount": 4000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "wednesday-dress",
+										"amount": {
+											"amount": 2000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "track-suit",
+										"amount": {
+											"amount": 6000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "morning-2nd",
+										"applicableStudentGroupIds": [
+											"new-students"
+										]
+									}
+								]
+							}
+						]
+					},
+					{
+						"sessionName": "Night",
+						"feeGroups": [
+							{
+								"id": "night-grade1-6",
+								"name": "Grade 1 – 6",
+								"appliesToClassIds": [
+									"Night-kOne",
+									"Night-kTwo",
+									"Night-GradeOne",
+									"Night-GradeTwo",
+									"Night-GradeThree",
+									"Night-GradeFour",
+									"Night-GradeFive",
+									"Night-GradeSix"
+								],
+								"paymentPlanId": "night-plan",
+								"scheduledFees": [
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 4300,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 1000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 850,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "handbook",
+										"amount": {
+											"amount": 200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "breakage-fee",
+										"amount": {
+											"amount": 750,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "t-shirt",
+										"amount": {
+											"amount": 1500,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "e-portal",
+										"amount": {
+											"amount": 700,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "activities",
+										"amount": {
+											"amount": 200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "extra-classes",
+										"amount": {
+											"amount": 2000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									}
+								]
+							},
+							{
+								"id": "night-grade7-9",
+								"name": "Grade 7 – 9",
+								"appliesToClassIds": [
+									"Night-GradeSeven",
+									"Night-GradeEight",
+									"Night-GradeNine"
+								],
+								"paymentPlanId": "night-plan",
+								"scheduledFees": [
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 4350,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 1000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 800,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "handbook",
+										"amount": {
+											"amount": 200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "breakage-fee",
+										"amount": {
+											"amount": 750,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "t-shirt",
+										"amount": {
+											"amount": 1500,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "e-portal",
+										"amount": {
+											"amount": 700,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "activities",
+										"amount": {
+											"amount": 200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "computer-lab",
+										"amount": {
+											"amount": 500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "extra-classes",
+										"amount": {
+											"amount": 2500,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									}
+								]
+							},
+							{
+								"id": "night-grade10-11",
+								"name": "Grade 10 – 11",
+								"appliesToClassIds": [
+									"Night-GradeTen",
+									"Night-GradeEleven"
+								],
+								"paymentPlanId": "night-plan",
+								"scheduledFees": [
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 5950,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 1200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 1000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "handbook",
+										"amount": {
+											"amount": 200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "breakage-fee",
+										"amount": {
+											"amount": 750,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "t-shirt",
+										"amount": {
+											"amount": 1500,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "e-portal",
+										"amount": {
+											"amount": 700,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "activities",
+										"amount": {
+											"amount": 200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "computer-lab",
+										"amount": {
+											"amount": 500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-3rd",
+										"applicableStudentGroupIds": []
+									}
+								]
+							},
+							{
+								"id": "night-grade12",
+								"name": "Grade 12",
+								"appliesToClassIds": [
+									"Night-GradeTwelve"
+								],
+								"paymentPlanId": "night-plan",
+								"scheduledFees": [
+									{
+										"feeId": "tuition",
+										"amount": {
+											"amount": 5950,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "reg-1st-sem",
+										"amount": {
+											"amount": 1200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "reg-2nd-sem",
+										"amount": {
+											"amount": 1000,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "handbook",
+										"amount": {
+											"amount": 200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "breakage-fee",
+										"amount": {
+											"amount": 750,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "t-shirt",
+										"amount": {
+											"amount": 1500,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "e-portal",
+										"amount": {
+											"amount": 700,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "activities",
+										"amount": {
+											"amount": 200,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-2nd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "computer-lab",
+										"amount": {
+											"amount": 500,
+											"currency": "LRD"
+										},
+										"isRequired": true,
+										"dueInstallmentId": "night-3rd",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "extra-classes",
+										"amount": {
+											"amount": 4000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "uniform-set",
+										"amount": {
+											"amount": 7500,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									},
+									{
+										"feeId": "tie",
+										"amount": {
+											"amount": 2000,
+											"currency": "LRD"
+										},
+										"isRequired": false,
+										"dueInstallmentId": "night-1st",
+										"applicableStudentGroupIds": []
+									}
+								]
+							}
+						]
+					}
+				],
+				"feeAdjustments": []
 			}
 		]
-	},
-
-	"updatedAt": { "$date": "2026-07-25T14:03:53.535Z" }
+	}
 }

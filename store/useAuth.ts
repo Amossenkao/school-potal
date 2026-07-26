@@ -134,7 +134,7 @@ const EMPTY_USER_COUNTS: SuperAdminUserCounts = {
 };
 
 const normalizeSuperAdminSchool = (school: any): SuperAdminSchoolSummary | null => {
-	const host = String(school?.host || '').trim();
+	const host = String(school?.system?.host || school?.host || '').trim();
 	if (!host) return null;
 	const users = school?.users || {};
 	const rawStats = school?.stats || {};
@@ -152,13 +152,23 @@ const normalizeSuperAdminSchool = (school: any): SuperAdminSchoolSummary | null 
 	const systemAdmins = Array.isArray(school?.systemAdmins) ? school.systemAdmins : undefined;
 
 	return {
-		...school,
 		id: school?.id || school?._id,
 		host,
-		name: String(school?.name || host),
-		shortName: school?.shortName || '',
-		initials: school?.initials || String(school?.name || host).slice(0, 2).toUpperCase(),
-		isActive: school?.isActive !== false,
+		name: String(school?.identity?.name || school?.name || host),
+		shortName: school?.identity?.shortName || school?.shortName || '',
+		initials: school?.initials || school?.identity?.initials || String(school?.name || school?.identity?.name || host).slice(0, 2).toUpperCase(),
+		isActive: school?.system?.isActive !== false && school?.isActive !== false,
+		logoUrl: school?.branding?.logoUrl || school?.logoUrl,
+		address: school?.contact?.addresses?.flatMap((a: any) => a.lines || []) || school?.address,
+		phones: school?.contact?.phones || school?.phones || [],
+		emails: school?.contact?.emails || school?.emails || [],
+		administrativePositions: school?.userConfig?.administrativePositions || school?.administrativePositions || [],
+		sysAdmin: school?.userConfig?.sysAdmin || school?.sysAdmin,
+		settings: {
+			studentSettings: school?.userConfig?.studentSettings || school?.settings?.studentSettings,
+			teacherSettings: school?.userConfig?.teacherSettings || school?.settings?.teacherSettings,
+			administratorSettings: school?.userConfig?.administratorSettings || school?.settings?.administratorSettings,
+		},
 		stats,
 		users: {
 			students: stats.students,

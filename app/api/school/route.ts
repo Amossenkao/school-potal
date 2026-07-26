@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Document } from 'mongoose';
-import { SchoolSettings, SchoolProfile as SchoolProfileType } from '@/types/schoolProfile';
+import { SchoolProfile as SchoolProfileType } from '@/types/schoolProfile';
 import SchoolProfileSchema from '@/models/profile/SchoolProfile';
 import UserSchema from '@/models/user/User';
 import { getTenantModels } from '@/models';
@@ -168,6 +168,63 @@ async function getTenantSystemAdmins(dbName: string) {
 	}
 }
 
+const flattenSchoolProfile = (school: any): any => {
+	if (!school || typeof school !== 'object') return school;
+	const flat: any = { ...school };
+	if (school.system) {
+		flat.host = school.system.host;
+		flat.dbName = school.system.dbName;
+		flat.isActive = school.system.isActive;
+	}
+	if (school.identity) {
+		flat.name = school.identity.name;
+		flat.shortName = school.identity.shortName;
+		flat.initials = school.identity.initials;
+		flat.slogan = school.identity.slogan;
+		flat.studentIdPrefix = school.identity.studentIdPrefix;
+		flat.yearFounded = school.identity.yearFounded;
+		flat.firstAcademicYear = school.identity.firstAcademicYear;
+		flat.currentAcademicYear = school.identity.currentAcademicYear;
+	}
+	if (school.branding) {
+		flat.logoUrl = school.branding.logoUrl;
+		flat.logoUrl2 = school.branding.logoUrl2;
+		flat.themeName = school.branding.themeName;
+	}
+	if (school.contact) {
+		flat.address = (school.contact.addresses || []).flatMap((a: any) => a.lines || []);
+		flat.phones = school.contact.phones || [];
+		flat.emails = school.contact.emails || [];
+		flat.website = school.contact.website;
+	}
+	if (school.userConfig || school.academicConfig) {
+		flat.settings = {
+			studentSettings: school.userConfig?.studentSettings,
+			teacherSettings: school.userConfig?.teacherSettings,
+			administratorSettings: school.userConfig?.administratorSettings,
+			gradingSettings: school.academicConfig?.gradingSettings,
+			reportCardThemes: school.branding?.reportCardThemes,
+		};
+		flat.administrativePositions = school.userConfig?.administrativePositions || [];
+		flat.sysAdmin = school.userConfig?.sysAdmin;
+	}
+	if (school.academicConfig) {
+		flat.classLevels = school.academicConfig.classLevels || {};
+	}
+	if (school.featureConfig) {
+		flat.enabledFeatures = school.featureConfig.enabledFeatures || [];
+		flat.roleFeatureAccess = school.featureConfig.roleFeatureAccess;
+	}
+	if (school.financialConfig) {
+		flat.currencies = school.financialConfig.currencies || [];
+		flat.feeDefinitions = school.financialConfig.feeDefinitions || [];
+		flat.paymentPlans = school.financialConfig.paymentPlans || [];
+		flat.studentGroups = school.financialConfig.studentGroups || [];
+		flat.feeSchedules = school.financialConfig.feeSchedules || [];
+	}
+	return flat;
+};
+
 function unauthorized() {
 	return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 }
@@ -194,29 +251,30 @@ export async function GET(request: NextRequest) {
 
 			const { SchoolProfile } = await getSchoolMeshModels();
 
-			// Global stats
-			if (stats === 'true' && !host) {
-				const schools = await SchoolProfile.find({})
-					.select('host dbName name initials isActive')
-					.lean().exec();
+		// Global stats
+		if (stats === 'true' && !host) {
+			const schools = await SchoolProfile.find({})
+				.lean()
+				.exec();
+			const flatSchools = schools.map(flattenSchoolProfile);
 
-				const activeSchools = schools.filter((s: any) => s.isActive);
-				const inactiveSchools = schools.filter((s: any) => !s.isActive);
-				let totalStudents = 0, totalTeachers = 0, totalAdministrators = 0, totalSystemAdmins = 0;
+			const activeSchools = flatSchools.filter((s: any) => s.isActive);
+			const inactiveSchools = flatSchools.filter((s: any) => !s.isActive);
+			let totalStudents = 0, totalTeachers = 0, totalAdministrators = 0, totalSystemAdmins = 0;
 
-				const dbNames = [...new Set(schools.map((s: any) => s.dbName).filter(Boolean))] as string[];
-				const counts = await Promise.all(dbNames.map(getTenantUserCounts));
-				for (const c of counts) {
-					totalStudents += c.students;
-					totalTeachers += c.teachers;
-					totalAdministrators += c.administrators;
-					totalSystemAdmins += c.systemAdmins;
-				}
+			const dbNames = [...new Set(flatSchools.map((s: any) => s.dbName).filter(Boolean))] as string[];
+			const counts = await Promise.all(dbNames.map(getTenantUserCounts));
+			for (const c of counts) {
+				totalStudents += c.students;
+				totalTeachers += c.teachers;
+				totalAdministrators += c.administrators;
+				totalSystemAdmins += c.systemAdmins;
+			}
 
-				const totalUsers = totalStudents + totalTeachers + totalAdministrators + totalSystemAdmins;
-				const recentSchools = schools.slice(-5).reverse().map((s: any) => ({
-					name: s.name, host: s.host, initials: s.initials, isActive: s.isActive,
-				}));
+			const totalUsers = totalStudents + totalTeachers + totalAdministrators + totalSystemAdmins;
+			const recentSchools = flatSchools.slice(-5).reverse().map((s: any) => ({
+				name: s.name, host: s.host, initials: s.initials, isActive: s.isActive,
+			}));
 
 				return NextResponse.json({
 					schools: { total: schools.length, active: activeSchools.length, inactive: inactiveSchools.length },
@@ -228,10 +286,10 @@ export async function GET(request: NextRequest) {
 			// Per-school stats
 			if (stats === 'true' && host) {
 				const cleanHost = normalizeHost(host);
-				const school = await SchoolProfile.findOne({ host: cleanHost }).select('host dbName name').lean().exec();
+				const school = await SchoolProfile.findOne({ 'system.host': cleanHost }).select('system.host system.dbName identity.name').lean().exec();
 				if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
 
-				const connection = await getTenantConnectionByDbName((school as any).dbName);
+				const connection = await getTenantConnectionByDbName((school as any).system?.dbName);
 				if (!connection) return NextResponse.json({ students: 0, teachers: 0, administrators: 0, systemAdmins: 0, total: 0 });
 
 				let User = connection.models.User;
@@ -249,60 +307,61 @@ export async function GET(request: NextRequest) {
 				return NextResponse.json({ students, teachers, administrators, systemAdmins, total: students + teachers + administrators + systemAdmins });
 			}
 
-			// All schools
-			if (all === 'true') {
-				const schools = await SchoolProfile.find({})
-					.select('host dbName name slogan shortName initials studentIdPrefix logoUrl logoUrl2 yearFounded firstAcademicYear currentAcademicYear isActive themeName enabledFeatures roleFeatureAccess classLevels feeSchedules settings address phones emails administrativePositions sysAdmin')
-					.lean().exec();
-				const dbNames = [...new Set(schools.map((s: any) => s.dbName).filter(Boolean))] as string[];
-				const [countsEntries, systemAdminsEntries] = await Promise.all([
-					Promise.all(
-						dbNames.map(async (dbName) => [dbName, await getTenantUserCounts(dbName)] as const),
-					),
-					Promise.all(
-						dbNames.map(async (dbName) => [dbName, await getTenantSystemAdmins(dbName)] as const),
-					),
-				]);
-				const countsByDbName = new Map(countsEntries);
-				const systemAdminsByDbName = new Map(systemAdminsEntries);
-				const schoolsWithStats = schools.map((school: any) => {
-					const counts = countsByDbName.get(school.dbName) || {
-						students: 0,
-						teachers: 0,
-						administrators: 0,
-						systemAdmins: 0,
-					};
-					const schoolSystemAdmins = systemAdminsByDbName.get(school.dbName) || [];
-					return {
-						...school,
-						stats: {
-							...counts,
-							total:
-								counts.students +
-								counts.teachers +
-								counts.administrators +
-								counts.systemAdmins,
-						},
-						users: counts,
-						totalUsers:
+		// All schools
+		if (all === 'true') {
+			const schools = await SchoolProfile.find({})
+				.lean()
+				.exec();
+			const flatSchools = schools.map(flattenSchoolProfile);
+			const dbNames = [...new Set(flatSchools.map((s: any) => s.dbName).filter(Boolean))] as string[];
+			const [countsEntries, systemAdminsEntries] = await Promise.all([
+				Promise.all(
+					dbNames.map(async (dbName) => [dbName, await getTenantUserCounts(dbName)] as const),
+				),
+				Promise.all(
+					dbNames.map(async (dbName) => [dbName, await getTenantSystemAdmins(dbName)] as const),
+				),
+			]);
+			const countsByDbName = new Map(countsEntries);
+			const systemAdminsByDbName = new Map(systemAdminsEntries);
+			const schoolsWithStats = flatSchools.map((school: any) => {
+				const counts = countsByDbName.get(school.dbName) || {
+					students: 0,
+					teachers: 0,
+					administrators: 0,
+					systemAdmins: 0,
+				};
+				const schoolSystemAdmins = systemAdminsByDbName.get(school.dbName) || [];
+				return {
+					...school,
+					stats: {
+						...counts,
+						total:
 							counts.students +
 							counts.teachers +
 							counts.administrators +
 							counts.systemAdmins,
-						systemAdmins: schoolSystemAdmins,
-					};
-				});
-				return NextResponse.json({ schools: schoolsWithStats });
-			}
-
-			// Specific school by host
-			if (host) {
-				const cleanHost = normalizeHost(host);
-				const school = await SchoolProfile.findOne({ host: cleanHost }).lean().exec();
-				if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
-				return NextResponse.json({ school });
-			}
+					},
+					users: counts,
+					totalUsers:
+						counts.students +
+						counts.teachers +
+						counts.administrators +
+						counts.systemAdmins,
+					systemAdmins: schoolSystemAdmins,
+				};
+			});
+			return NextResponse.json({ schools: schoolsWithStats });
 		}
+
+		// Specific school by host
+		if (host) {
+			const cleanHost = normalizeHost(host);
+			const school = await SchoolProfile.findOne({ 'system.host': cleanHost }).lean().exec();
+			if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
+			return NextResponse.json({ school });
+		}
+		} // end superadmin branches
 
 		// --- Default: existing system_admin behavior (no auth required) ---
 		const profile = await getSchoolProfile();
@@ -334,7 +393,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		const { SchoolProfile } = await getSchoolMeshModels();
-		const existing = await SchoolProfile.findOne({ $or: [{ host }, { dbName }] }).lean();
+		const existing = await SchoolProfile.findOne({ $or: [{ 'system.host': host }, { 'system.dbName': dbName }] }).lean();
 		if (existing) {
 			return NextResponse.json({ error: 'A school with this host or database name already exists' }, { status: 409 });
 		}
@@ -343,30 +402,50 @@ export async function POST(request: NextRequest) {
 		const currentYear = `${now}/${now + 1}`;
 
 		const newSchool = await SchoolProfile.create({
-			isActive: true,
-			host,
-			dbName,
-			name,
-			slogan: slogan || '',
-			shortName,
-			initials: initials || shortName.slice(0, 2).toUpperCase(),
-			studentIdPrefix: shortName.slice(0, 3).toUpperCase(),
-			logoUrl: '',
-			firstAcademicYear: currentYear,
-			currentAcademicYear: currentYear,
-			administrativePositions: [],
-			sysAdmin: { name: sysAdmin.name || '', phone: sysAdmin.phone || '', email: sysAdmin.email || '' },
-			themeName: DEFAULT_TENANT_THEME_NAME,
-			enabledFeatures: ['dashboard', 'user_management', 'profile_management', 'homepage'],
-			roleFeatureAccess: { student: [], teacher: [], system_admin: [], administrator: {} },
-			settings: {
+			system: {
+				isActive: true,
+				host,
+				dbName,
+			},
+			identity: {
+				name,
+				slogan: slogan || '',
+				shortName,
+				initials: initials || shortName.slice(0, 2).toUpperCase(),
+				studentIdPrefix: shortName.slice(0, 3).toUpperCase(),
+				firstAcademicYear: currentYear,
+				currentAcademicYear: currentYear,
+			},
+			branding: {
+				logoUrl: '',
+				themeName: DEFAULT_TENANT_THEME_NAME,
+			},
+			contact: {
+				addresses: [],
+				phones: [],
+				emails: [],
+			},
+			academicConfig: {
+				classLevels: {},
+			},
+			userConfig: {
+				sysAdmin: { name: sysAdmin.name || '', phone: sysAdmin.phone || '', email: sysAdmin.email || '' },
+				administrativePositions: [],
 				studentSettings: { loginAccess: true, reportAccessByYear: {} },
 				teacherSettings: { loginAccess: true, permissionsByYear: {} },
 				administratorSettings: { loginAccess: true },
 			},
-			address: [],
-			phones: [],
-			emails: [],
+			featureConfig: {
+				enabledFeatures: ['dashboard', 'user_management', 'profile_management', 'homepage'],
+				roleFeatureAccess: { student: [], teacher: [], system_admin: [], administrator: {} },
+			},
+			financialConfig: {
+				currencies: [],
+				feeDefinitions: [],
+				paymentPlans: [],
+				studentGroups: [],
+				feeSchedules: [],
+			},
 		});
 
 		return NextResponse.json({ school: newSchool }, { status: 201 });
@@ -395,11 +474,11 @@ export async function PUT(request: NextRequest) {
 			const body = await request.json();
 			const { SchoolProfile } = await getSchoolMeshModels();
 
-			const previousSchool = await SchoolProfile.findOne({ host: cleanHost }).lean();
+			const previousSchool = await SchoolProfile.findOne({ 'system.host': cleanHost }).lean();
 			if (!previousSchool) return NextResponse.json({ error: 'School not found' }, { status: 404 });
 
 			const school = await SchoolProfile.findOneAndUpdate(
-				{ host: cleanHost },
+				{ 'system.host': cleanHost },
 				{ $set: body },
 				{ new: true, runValidators: true },
 			).lean();
@@ -408,7 +487,7 @@ export async function PUT(request: NextRequest) {
 
 			clearSchoolProfileMemoryCache(cleanHost);
 			await redis.del(`school_profile:${cleanHost}`);
-			const updatedHost = normalizeHost((school as any).host);
+			const updatedHost = normalizeHost((school as any).system?.host);
 			if (updatedHost && updatedHost !== cleanHost) {
 				clearSchoolProfileMemoryCache(updatedHost);
 				await redis.del(`school_profile:${updatedHost}`);
@@ -462,7 +541,7 @@ export async function PUT(request: NextRequest) {
 			tenantsConnection.models.Profile ||
 			tenantsConnection.model<SchoolProfileType & Document>('Profile', SchoolProfileSchema);
 
-		const currentSchool: any = await SchoolProfileTenants.findOne({ host: cleanHost }).lean();
+		const currentSchool: any = await SchoolProfileTenants.findOne({ 'system.host': cleanHost }).lean();
 		if (!currentSchool) {
 			return NextResponse.json({ success: false, message: 'School profile not found.' }, { status: 404 });
 		}
@@ -473,7 +552,7 @@ export async function PUT(request: NextRequest) {
 			host: cleanHost,
 		});
 
-		const oldSettings = currentSchool?.settings;
+		const oldSettings = currentSchool?.userConfig;
 		const body = await request.json();
 		const {
 			currentAcademicYear,
@@ -492,7 +571,7 @@ export async function PUT(request: NextRequest) {
 		const updateObject: any = {};
 
 		if (currentAcademicYear) {
-			updateObject.currentAcademicYear = currentAcademicYear;
+			updateObject['identity.currentAcademicYear'] = currentAcademicYear;
 		}
 
 		const hasSettingsPatch =
@@ -502,14 +581,23 @@ export async function PUT(request: NextRequest) {
 			reportCardThemes !== undefined;
 
 		if (hasSettingsPatch) {
-			const existingSettings = currentSchool?.settings || {};
-			updateObject.settings = {
-				...existingSettings,
-				...(studentSettings !== undefined ? { studentSettings } : {}),
-				...(teacherSettings !== undefined ? { teacherSettings } : {}),
-				...(administratorSettings !== undefined ? { administratorSettings } : {}),
-				...(reportCardThemes !== undefined ? { reportCardThemes } : {}),
-			} as SchoolSettings;
+			const existingStudentSettings = currentSchool?.userConfig?.studentSettings || {};
+			const existingTeacherSettings = currentSchool?.userConfig?.teacherSettings || {};
+			const existingAdministratorSettings = currentSchool?.userConfig?.administratorSettings || {};
+			const existingReportCardThemes = currentSchool?.branding?.reportCardThemes || {};
+
+			if (studentSettings !== undefined) {
+				updateObject['userConfig.studentSettings'] = { ...existingStudentSettings, ...studentSettings };
+			}
+			if (teacherSettings !== undefined) {
+				updateObject['userConfig.teacherSettings'] = { ...existingTeacherSettings, ...teacherSettings };
+			}
+			if (administratorSettings !== undefined) {
+				updateObject['userConfig.administratorSettings'] = { ...existingAdministratorSettings, ...administratorSettings };
+			}
+			if (reportCardThemes !== undefined) {
+				updateObject['branding.reportCardThemes'] = { ...existingReportCardThemes, ...reportCardThemes };
+			}
 		}
 
 		if (themeName !== undefined) {
@@ -519,11 +607,11 @@ export async function PUT(request: NextRequest) {
 					{ status: 400 },
 				);
 			}
-			updateObject.themeName = themeName;
+			updateObject['branding.themeName'] = themeName;
 		}
 
 		const updatedSchoolProfile = await SchoolProfileTenants.findOneAndUpdate(
-			{ host: cleanHost },
+			{ 'system.host': cleanHost },
 			{ $set: updateObject },
 			{ new: true },
 		).lean();
@@ -541,9 +629,9 @@ export async function PUT(request: NextRequest) {
 		await redis.set(
 			quickCacheKey,
 			JSON.stringify({
-				currentAcademicYear: updatedSchoolProfile.currentAcademicYear,
-				settings: updatedSchoolProfile.settings,
-				themeName: updatedSchoolProfile.themeName,
+				currentAcademicYear: updatedSchoolProfile.identity?.currentAcademicYear,
+				userConfig: updatedSchoolProfile.userConfig,
+				themeName: updatedSchoolProfile.branding?.themeName,
 			}),
 			{ ex: 60 * 5 },
 		);
@@ -552,19 +640,19 @@ export async function PUT(request: NextRequest) {
 		if (oldSettings) {
 			const sessionDestructionPromises: Promise<void>[] = [];
 
-			if (oldSettings.studentSettings?.loginAccess === true && studentSettings?.loginAccess === false) {
+			if (oldSettings?.studentSettings?.loginAccess === true && studentSettings?.loginAccess === false) {
 				const studentsToLogout = await Student.find({ role: 'student' }).select('_id').lean();
 				studentsToLogout.forEach((student: any) =>
 					sessionDestructionPromises.push(destroyAllUserSessions(student._id.toString())),
 				);
 			}
-			if (oldSettings.teacherSettings?.loginAccess === true && teacherSettings?.loginAccess === false) {
+			if (oldSettings?.teacherSettings?.loginAccess === true && teacherSettings?.loginAccess === false) {
 				const teachersToLogout = await Teacher.find({ role: 'teacher' }).select('_id').lean();
 				teachersToLogout.forEach((teacher: any) =>
 					sessionDestructionPromises.push(destroyAllUserSessions(teacher._id.toString())),
 				);
 			}
-			if (oldSettings.administratorSettings?.loginAccess === true && administratorSettings?.loginAccess === false) {
+			if (oldSettings?.administratorSettings?.loginAccess === true && administratorSettings?.loginAccess === false) {
 				const adminsToLogout = await Administrator.find({ role: 'administrator' }).select('_id').lean();
 				adminsToLogout.forEach((admin: any) =>
 					sessionDestructionPromises.push(destroyAllUserSessions(admin._id.toString())),
@@ -686,11 +774,11 @@ export async function PUT(request: NextRequest) {
 		// Notify affected academic years
 		const changedSettingsYears = new Set<string>();
 		if (studentSettings !== undefined) {
-			collectChangedYears(oldSettings?.studentSettings?.reportAccessByYear, studentSettings.reportAccessByYear)
-				.forEach((year) => changedSettingsYears.add(year));
+		collectChangedYears(oldSettings?.userConfig?.studentSettings?.reportAccessByYear, studentSettings.reportAccessByYear)
+			.forEach((year) => changedSettingsYears.add(year));
 		}
 		if (teacherSettings !== undefined) {
-			collectChangedYears(oldSettings?.teacherSettings?.permissionsByYear, teacherSettings.permissionsByYear)
+			collectChangedYears(oldSettings?.userConfig?.teacherSettings?.permissionsByYear, teacherSettings.permissionsByYear)
 				.forEach((year) => changedSettingsYears.add(year));
 		}
 		if (changedSettingsYears.size > 0) {
@@ -706,14 +794,14 @@ export async function PUT(request: NextRequest) {
 		await publishSyncEventSafe({
 			tenantId,
 			domain: 'school',
-			academicYear: String(updatedSchoolProfile.currentAcademicYear || ''),
+			academicYear: String(updatedSchoolProfile.identity?.currentAcademicYear || ''),
 			actorId: currentUser.id,
 			reason: 'school-settings-updated',
 		});
 		await publishPublicSyncEventSafe({
 			tenantId,
 			domain: 'school',
-			academicYear: String(updatedSchoolProfile.currentAcademicYear || ''),
+			academicYear: String(updatedSchoolProfile.identity?.currentAcademicYear || ''),
 			actorId: currentUser.id,
 			reason: 'school-settings-updated',
 		});
@@ -722,9 +810,9 @@ export async function PUT(request: NextRequest) {
 			success: true,
 			message: 'Settings and user actions applied successfully.',
 			data: {
-				currentAcademicYear: updatedSchoolProfile.currentAcademicYear,
-				settings: updatedSchoolProfile.settings,
-				themeName: updatedSchoolProfile.themeName,
+				currentAcademicYear: updatedSchoolProfile.identity?.currentAcademicYear,
+				settings: updatedSchoolProfile.userConfig,
+				themeName: updatedSchoolProfile.branding?.themeName,
 			},
 		});
 	} catch (error) {
@@ -754,12 +842,17 @@ export async function PATCH(request: NextRequest) {
 		const body = await request.json();
 		const { SchoolProfile } = await getSchoolMeshModels();
 
-		const previousSchool = await SchoolProfile.findOne({ host: cleanHost }).lean();
+		const previousSchool = await SchoolProfile.findOne({ 'system.host': cleanHost }).lean();
 		if (!previousSchool) return NextResponse.json({ error: 'School not found' }, { status: 404 });
 
+		const patchBody: any = {};
+		if (body.isActive !== undefined) patchBody['system.isActive'] = body.isActive;
+		if (body.host !== undefined) patchBody['system.host'] = body.host;
+		if (body.dbName !== undefined) patchBody['system.dbName'] = body.dbName;
+
 		const school = await SchoolProfile.findOneAndUpdate(
-			{ host: cleanHost },
-			{ $set: body },
+			{ 'system.host': cleanHost },
+			{ $set: patchBody },
 			{ new: true, runValidators: true },
 		).lean();
 
@@ -767,7 +860,7 @@ export async function PATCH(request: NextRequest) {
 
 		clearSchoolProfileMemoryCache(cleanHost);
 		await redis.del(`school_profile:${cleanHost}`);
-		const updatedHost = normalizeHost((school as any).host);
+		const updatedHost = normalizeHost(school.system?.host);
 		if (updatedHost && updatedHost !== cleanHost) {
 			clearSchoolProfileMemoryCache(updatedHost);
 			await redis.del(`school_profile:${updatedHost}`);
@@ -792,7 +885,7 @@ export async function PATCH(request: NextRequest) {
 					tenantId,
 					domain: 'school',
 					reason: body.isActive !== undefined ? 'school-toggled-active' : 'school-updated',
-					payload: { school },
+					payload: { school: flattenSchoolProfile(school) },
 				}),
 			),
 		);
@@ -820,7 +913,7 @@ export async function DELETE(request: NextRequest) {
 		const cleanHost = normalizeHost(hostParam);
 		const { SchoolProfile } = await getSchoolMeshModels();
 
-		const result = await SchoolProfile.findOneAndDelete({ host: cleanHost }).lean();
+		const result = await SchoolProfile.findOneAndDelete({ 'system.host': cleanHost }).lean();
 		if (!result) return NextResponse.json({ error: 'School not found' }, { status: 404 });
 
 		clearSchoolProfileMemoryCache(cleanHost);

@@ -1016,6 +1016,59 @@ const getTenantSystemAdmins = async (dbName: string) => {
 	}
 };
 
+const flattenSchoolSummary = (school: any): any => {
+	if (!school || typeof school !== 'object') return school;
+	const flat: any = { ...school };
+	if (school.system) {
+		flat.host = school.system.host;
+		flat.dbName = school.system.dbName;
+		flat.isActive = school.system.isActive;
+	}
+	if (school.identity) {
+		flat.name = school.identity.name;
+		flat.shortName = school.identity.shortName;
+		flat.initials = school.identity.initials;
+		flat.slogan = school.identity.slogan;
+		flat.studentIdPrefix = school.identity.studentIdPrefix;
+		flat.yearFounded = school.identity.yearFounded;
+		flat.firstAcademicYear = school.identity.firstAcademicYear;
+		flat.currentAcademicYear = school.identity.currentAcademicYear;
+	}
+	if (school.branding) {
+		flat.logoUrl = school.branding.logoUrl;
+		flat.logoUrl2 = school.branding.logoUrl2;
+		flat.themeName = school.branding.themeName;
+		flat.reportCardThemes = school.branding.reportCardThemes;
+	}
+	if (school.contact) {
+		flat.address = (school.contact.addresses || []).flatMap((a: any) => a.lines || []);
+		flat.phones = school.contact.phones || [];
+		flat.emails = school.contact.emails || [];
+		flat.website = school.contact.website;
+	}
+	if (school.userConfig || school.academicConfig) {
+		flat.settings = {
+			studentSettings: school.userConfig?.studentSettings,
+			teacherSettings: school.userConfig?.teacherSettings,
+			administratorSettings: school.userConfig?.administratorSettings,
+			gradingSettings: school.academicConfig?.gradingSettings,
+		};
+		flat.administrativePositions = school.userConfig?.administrativePositions || [];
+		flat.sysAdmin = school.userConfig?.sysAdmin;
+	}
+	if (school.academicConfig) {
+		flat.classLevels = school.academicConfig.classLevels || {};
+	}
+	if (school.featureConfig) {
+		flat.enabledFeatures = school.featureConfig.enabledFeatures || [];
+		flat.roleFeatureAccess = school.featureConfig.roleFeatureAccess;
+	}
+	if (school.financialConfig) {
+		flat.feeSchedules = school.financialConfig.feeSchedules || [];
+	}
+	return flat;
+};
+
 /**
  * Builds the bootstrap payload for superadmin users.
  * Includes platform-wide stats: schools, users by role, per-school stats.
@@ -1026,15 +1079,16 @@ export const buildSuperAdminBootstrapPayload = async (
 	const { SchoolProfile } = await getSchoolMeshModels();
 
 	const schools = await SchoolProfile.find({})
-		.select('host dbName name slogan shortName initials studentIdPrefix logoUrl logoUrl2 yearFounded firstAcademicYear currentAcademicYear isActive themeName enabledFeatures roleFeatureAccess classLevels feeSchedules settings address phones emails administrativePositions sysAdmin updatedAt')
+		.select('system.host system.dbName identity.name identity.shortName identity.initials identity.slogan identity.studentIdPrefix identity.yearFounded identity.firstAcademicYear identity.currentAcademicYear system.isActive branding.themeName branding.logoUrl branding.logoUrl2 branding.reportCardThemes contact.addresses contact.phones contact.emails contact.website userConfig.administrativePositions userConfig.sysAdmin userConfig.studentSettings userConfig.teacherSettings userConfig.administratorSettings academicConfig.gradingSettings academicConfig.classLevels featureConfig.enabledFeatures featureConfig.roleFeatureAccess financialConfig.feeSchedules updatedAt')
 		.lean()
 		.exec();
 
-	const activeSchools = schools.filter((s: any) => s.isActive);
-	const inactiveSchools = schools.filter((s: any) => !s.isActive);
+	const flatSchools = schools.map(flattenSchoolSummary);
+	const activeSchools = flatSchools.filter((s: any) => s.isActive);
+	const inactiveSchools = flatSchools.filter((s: any) => !s.isActive);
 
 	// Get user counts and system admins for each school
-	const dbNames = [...new Set(schools.map((s: any) => s.dbName).filter(Boolean))] as string[];
+	const dbNames = [...new Set(flatSchools.map((s: any) => s.dbName).filter(Boolean))] as string[];
 	const [countsEntries, systemAdminsEntries] = await Promise.all([
 		Promise.all(
 			dbNames.map(async (dbName) => [dbName, await getTenantUserCounts(dbName)] as const),
@@ -1051,7 +1105,7 @@ export const buildSuperAdminBootstrapPayload = async (
 	let totalAdministrators = 0;
 	let totalSystemAdmins = 0;
 
-	const perSchoolStats = schools.map((school: any) => {
+	const perSchoolStats = flatSchools.map((school: any) => {
 		const schoolCounts = countsByDbName.get(school.dbName) || { students: 0, teachers: 0, administrators: 0, systemAdmins: 0 };
 		const schoolSystemAdmins = systemAdminsByDbName.get(school.dbName) || [];
 		const totalUsersForSchool = schoolCounts.students + schoolCounts.teachers + schoolCounts.administrators + schoolCounts.systemAdmins;
@@ -1062,14 +1116,13 @@ export const buildSuperAdminBootstrapPayload = async (
 
 		return {
 			...school,
-			host: school.host,
-			name: school.name,
-			shortName: school.shortName,
-			initials: school.initials,
-			isActive: school.isActive,
 			stats: {
 				...schoolCounts,
-				total: totalUsersForSchool,
+				total:
+					schoolCounts.students +
+					schoolCounts.teachers +
+					schoolCounts.administrators +
+					schoolCounts.systemAdmins,
 			},
 			users: schoolCounts,
 			totalUsers: totalUsersForSchool,

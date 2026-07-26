@@ -234,17 +234,17 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 	const schoolProfile = useSchoolStore((state) => state.school);
 	const allowsDemotion =
-		schoolProfile?.settings?.gradingSettings?.givesDemotion === true;
+		schoolProfile?.academicConfig?.gradingSettings?.givesDemotion === true;
 	const allowsDoublePromotion =
-		schoolProfile?.settings?.gradingSettings?.givesDoublePromotion === true;
+		schoolProfile?.academicConfig?.gradingSettings?.givesDoublePromotion === true;
 
 	const availablePermissions = useMemo(() => {
-		return schoolProfile?.enabledFeatures || [];
+		return schoolProfile?.featureConfig?.enabledFeatures || [];
 	}, [schoolProfile]);
 
 	const getClassNameFromId = (classId) => {
-		if (!classId || !schoolProfile?.classLevels) return classId;
-		for (const session of Object.values(schoolProfile.classLevels)) {
+		if (!classId || !schoolProfile?.academicConfig?.classLevels) return classId;
+		for (const session of Object.values(schoolProfile.academicConfig.classLevels)) {
 			if (!session || typeof session !== 'object') continue;
 			for (const level of Object.values(session as Record<string, any>)) {
 				if (!level?.classes || !Array.isArray(level.classes)) continue;
@@ -295,9 +295,9 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		level === 'Self Contained';
 
 	const getAllClassesWithSessionAndLevel = () => {
-		if (!schoolProfile?.classLevels) return [];
+		if (!schoolProfile?.academicConfig?.classLevels) return [];
 		const all: any[] = [];
-		Object.entries(schoolProfile.classLevels).forEach(([session, levels]) => {
+		Object.entries(schoolProfile.academicConfig.classLevels).forEach(([session, levels]) => {
 			if (!levels || typeof levels !== 'object') return;
 			Object.entries(levels).forEach(([level, levelData]: [string, any]) => {
 				levelData.classes?.forEach((cls) => {
@@ -308,9 +308,9 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		return all;
 	};
 
-	const getClassMetaById = (classId) => {
-		if (!classId || !schoolProfile?.classLevels) return null;
-		for (const [session, levels] of Object.entries(schoolProfile.classLevels)) {
+		const getClassMetaById = (classId) => {
+			if (!classId || !schoolProfile?.academicConfig?.classLevels) return null;
+			for (const [session, levels] of Object.entries(schoolProfile.academicConfig.classLevels)) {
 			if (!levels || typeof levels !== 'object') continue;
 			for (const [level, levelData] of Object.entries(
 				levels as Record<string, any>,
@@ -328,10 +328,10 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		return name.replace(/\s*-?\s*[A-D]$/i, '').trim();
 	};
 
-	const getOrderedClassesForSession = (session) => {
-		if (!session || !schoolProfile?.classLevels?.[session]) return [];
-		const ordered: any[] = [];
-		Object.entries(schoolProfile.classLevels[session]).forEach(
+		const getOrderedClassesForSession = (session) => {
+			if (!session || !schoolProfile?.academicConfig?.classLevels?.[session]) return [];
+			const ordered: any[] = [];
+			Object.entries(schoolProfile.academicConfig.classLevels[session]).forEach(
 			([level, levelData]: [string, any]) => {
 				levelData.classes?.forEach((cls) => {
 					ordered.push({ ...cls, session, level });
@@ -540,10 +540,10 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	}, [isOpen]);
 
 	const getSessions = () =>
-		schoolProfile?.classLevels ? Object.keys(schoolProfile.classLevels) : [];
+		schoolProfile?.academicConfig?.classLevels ? Object.keys(schoolProfile.academicConfig.classLevels) : [];
 	const getClassLevels = (session) =>
-		schoolProfile?.classLevels?.[session]
-			? Object.keys(schoolProfile.classLevels[session])
+		schoolProfile?.academicConfig?.classLevels?.[session]
+			? Object.keys(schoolProfile.academicConfig.classLevels[session])
 			: [];
 
 	const getSubjectName = (subjectValue) => {
@@ -553,12 +553,12 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		return '';
 	};
 
-	const getSubjectsBySessionAndLevel = (session, level) =>
-		schoolProfile?.classLevels?.[session]?.[level]?.subjects || [];
+		const getSubjectsBySessionAndLevel = (session, level) =>
+			schoolProfile?.academicConfig?.classLevels?.[session]?.[level]?.subjects || [];
 
-	const getAllClassesForSession = (session) => {
-		if (!schoolProfile?.classLevels?.[session]) return [];
-		return Object.values(schoolProfile.classLevels[session]).flatMap(
+		const getAllClassesForSession = (session) => {
+			if (!schoolProfile?.academicConfig?.classLevels?.[session]) return [];
+			return Object.values(schoolProfile.academicConfig.classLevels[session]).flatMap(
 			(level: any) => level.classes || [],
 		);
 	};

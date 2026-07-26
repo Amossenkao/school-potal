@@ -230,31 +230,31 @@ async function handleLogin(user: any, password: string, host: string) {
 	}
 
 	let loginAllowed = true;
-	if (schoolProfile?.isActive === false) {
+	if (schoolProfile?.system?.isActive === false) {
 		return NextResponse.json(
 			{ message: 'School access is currently disabled' },
 			{ status: 403 },
 		);
 	}
 
-	if (schoolProfile?.settings) {
+	if (schoolProfile?.userConfig) {
 		const role = user.role as UserRole;
 		switch (role) {
 			case 'student':
 				loginAllowed =
-					schoolProfile.settings.studentSettings?.loginAccess !== false;
+					schoolProfile.userConfig.studentSettings?.loginAccess !== false;
 				break;
 			case 'teacher':
 				loginAllowed =
-					schoolProfile.settings.teacherSettings?.loginAccess !== false;
+					schoolProfile.userConfig.teacherSettings?.loginAccess !== false;
 				break;
 			case 'administrator':
 				loginAllowed =
-					schoolProfile.settings.administratorSettings?.loginAccess !== false;
+					schoolProfile.userConfig.administratorSettings?.loginAccess !== false;
 				break;
 			case 'system_admin':
 				loginAllowed =
-					schoolProfile.settings.systemAdminSettings?.loginAccess !== false;
+					schoolProfile.userConfig.sysAdmin !== undefined;
 				break;
 		}
 	}

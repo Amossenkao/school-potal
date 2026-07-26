@@ -6,7 +6,6 @@ import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import { SidebarProvider } from '@/context/SidebarContext';
 import { ThemeProvider } from '@/context/ThemeContext';
-import VercelUpgrade from '@/components/uca-inactive';
 import AuthProvider from '@/context/AuthProvider';
 import OfflineHandler from '@/components/OfflineHandler';
 import toast, { Toaster } from 'react-hot-toast';
@@ -318,7 +317,7 @@ if (!isSessionValid) {
 				<ThemeProvider>
 					<SidebarProvider>
 						<OfflineHandler>
-							{school ? school.isActive ? children : <Inactive /> : children}
+							{school ? school.system.isActive ? children : <Inactive /> : children}
 						</OfflineHandler>
 					</SidebarProvider>
 					<Toaster

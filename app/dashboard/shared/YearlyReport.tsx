@@ -1179,7 +1179,7 @@ const toNumeric = (value: string | number | null | undefined) => {
 
 const resolvePromotionPassMark = (school: any) => {
 	const configuredPassMark = Number(
-		school?.settings?.gradingSettings?.passMark,
+		school?.academicConfig?.gradingSettings?.passMark,
 	);
 	return Number.isFinite(configuredPassMark) && configuredPassMark > 0
 		? configuredPassMark
@@ -1895,7 +1895,7 @@ const templateBytes = await loadReportTemplateBytes({
 	session: reportFilters.session,
 	classLevel: reportFilters.classLevel,
 	classSubjects,
-	themeId: school?.settings?.reportCardThemes?.[reportFilters.classLevel],
+	themeId: school?.branding?.reportCardThemes?.[reportFilters.classLevel],
 	sponsorName: reportFilters.includeSponsorName ? reportFilters.sponsorName : '',
 	includePrincipalSignature: reportFilters.includePrincipalSignature,
 	principalSignatureValue: reportFilters.principalSignatureValue,

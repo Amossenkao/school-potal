@@ -34,6 +34,8 @@ if (
 ) {
 	try {
 		const profile = await getSchoolProfile({ host });
+			console.log(`School Profile: ${profile}`);
+
 
 		if (profile) {
 			const url = request.nextUrl.clone();
@@ -99,7 +101,7 @@ export async function authenticateRequest(
 	}
 
 	const schoolProfile = await getSchoolProfile();
-	if (schoolProfile?.isActive === false) {
+	if (schoolProfile?.system?.isActive === false) {
 		throw new Error('School is inactive');
 	}
 

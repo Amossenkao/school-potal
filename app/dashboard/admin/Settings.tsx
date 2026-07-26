@@ -1102,13 +1102,13 @@ export default function Settings() {
 	}, [school, fetchSchool]);
 
 	useEffect(() => {
-		if (school && school.settings) {
+		if (school && school.userConfig) {
 			const baseAcademicYear =
-				school.currentAcademicYear || getCurrentAcademicYear();
+				school.identity?.currentAcademicYear || getCurrentAcademicYear();
 			setCurrentAcademicYear(baseAcademicYear);
 
-			const rawStudentSettings = school.settings.studentSettings || {};
-			const rawTeacherSettings = school.settings.teacherSettings || {};
+			const rawStudentSettings = school.userConfig.studentSettings || {};
+			const rawTeacherSettings = school.userConfig.teacherSettings || {};
 
 			// --- Student settings normalization
 			const existingStudentByYear =
@@ -1210,11 +1210,11 @@ export default function Settings() {
 				permissionsByYear: nextPermissionsByYear,
 			});
 
-			setAdministratorSettings({
-				loginAccess: true,
-				...(school.settings.administratorSettings || {}),
-			});
-			setReportCardThemes((school.settings as any).reportCardThemes || {});
+		setAdministratorSettings({
+			loginAccess: true,
+			...(school.userConfig.administratorSettings || {}),
+		});
+		setReportCardThemes((school.branding as any)?.reportCardThemes || {});
 			setIsLoading(false);
 		}
 	}, [school]);
@@ -1237,11 +1237,11 @@ export default function Settings() {
 	// ---------------------------------------------------------------------------
 	const firstAcademicYear = useMemo(() => {
 		return (
-			school?.firstAcademicYear ||
-			school?.currentAcademicYear ||
+			school?.identity?.firstAcademicYear ||
+			school?.identity?.currentAcademicYear ||
 			getCurrentAcademicYear()
 		);
-	}, [school?.firstAcademicYear, school?.currentAcademicYear]);
+	}, [school?.identity?.firstAcademicYear, school?.identity?.currentAcademicYear]);
 
 	// The hard upper bound for the selector: calendarYear+1 - calendarYear+2
 	const maxSelectableAcademicYear = useMemo(
@@ -1378,14 +1378,14 @@ export default function Settings() {
 				if (school) {
 					setSchool({
 						...school,
-						currentAcademicYear,
-						settings: {
-							...school.settings,
+						identity: { ...school.identity, currentAcademicYear },
+						userConfig: {
+							...school.userConfig,
 							studentSettings,
 							teacherSettings,
 							administratorSettings,
-							reportCardThemes,
-						} as any,
+						},
+						branding: { ...school.branding, reportCardThemes },
 					});
 				}
 				setFeedback({

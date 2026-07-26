@@ -6,8 +6,8 @@ export const MAX_SCHEDULES = 10;
 
 export const getAcademicYear = (schoolProfile: any) => {
 	const now = new Date();
-	if (schoolProfile?.currentAcademicYear) {
-		return schoolProfile.currentAcademicYear;
+	if (schoolProfile?.identity?.currentAcademicYear) {
+		return schoolProfile.identity.currentAcademicYear;
 	}
 	const currentYear = now.getFullYear();
 	const currentMonth = now.getMonth();
@@ -131,8 +131,8 @@ export const buildUserContext = (
 	}
 
 	const schoolDetails = [
-		`School: ${schoolProfile?.name || schoolProfile?.shortName || 'Unknown'}`,
-		`Academic Year: ${schoolProfile?.currentAcademicYear || 'Unknown'}`,
+		`School: ${schoolProfile?.identity?.name || schoolProfile?.identity?.shortName || 'Unknown'}`,
+		`Academic Year: ${schoolProfile?.identity?.currentAcademicYear || 'Unknown'}`,
 	];
 
 	const gradeDetails =

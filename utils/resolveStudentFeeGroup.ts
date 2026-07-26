@@ -15,7 +15,7 @@ export const resolveStudentFeeGroup = (
 	schoolProfile: SchoolProfile | null | undefined,
 	academicYear?: string,
 ): ResolvedFeeGroup | null => {
-	if (!classId || !schoolProfile?.classLevels || !schoolProfile?.feeSchedules) {
+	if (!classId || !schoolProfile?.academicConfig?.classLevels || !schoolProfile?.financialConfig?.feeSchedules) {
 		return null;
 	}
 
@@ -26,7 +26,7 @@ export const resolveStudentFeeGroup = (
 	let sessionName = '';
 	let feeGroupKey = '';
 
-	for (const [sName, session] of Object.entries(schoolProfile.classLevels)) {
+	for (const [sName, session] of Object.entries(schoolProfile.academicConfig.classLevels)) {
 		if (!session || typeof session !== 'object') continue;
 		for (const level of Object.values(session)) {
 			if (!level || typeof level !== 'object') continue;
@@ -43,7 +43,7 @@ export const resolveStudentFeeGroup = (
 
 	if (!sessionName || !feeGroupKey) return null;
 
-	const schedule = schoolProfile.feeSchedules[year];
+	const schedule = schoolProfile.financialConfig.feeSchedules[year];
 	if (!schedule) return null;
 
 	const sessionGroups = (schedule as any)[sessionName];

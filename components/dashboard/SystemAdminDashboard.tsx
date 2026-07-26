@@ -85,7 +85,7 @@ const SystemAdminDashboard = memo(function SystemAdminDashboard({
 		() => buildAcademicYearOptions(schoolProfile),
 		[schoolProfile],
 	);
-	const currentAcademicYear = schoolProfile.currentAcademicYear || '';
+	const currentAcademicYear = schoolProfile.identity.currentAcademicYear || '';
 	const defaultAcademicYear = useMemo(
 		() =>
 			pickCurrentOrMostRecentAcademicYear(

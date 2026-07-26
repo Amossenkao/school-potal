@@ -99,7 +99,7 @@ export default function TeacherPerformanceInsights({
 		const years = scopedYears.length > 0 ? scopedYears : teacherYears;
 		return years.map((year) => ({ value: year, label: year }));
 	}, [schoolProfile, teacherYears]);
-	const currentAcademicYear = schoolProfile.currentAcademicYear || '';
+	const currentAcademicYear = schoolProfile.identity.currentAcademicYear || '';
 	const defaultAcademicYear = useMemo(
 		() =>
 			pickMostRecentAcademicYear(
@@ -289,7 +289,7 @@ export default function TeacherPerformanceInsights({
 	]);
 
 	// ── Derived data ──────────────────────────────────────────────────────────
-	const passMark = schoolProfile.settings?.gradingSettings?.passMark || 70;
+	const passMark = schoolProfile.academicConfig?.gradingSettings?.passMark || 70;
 	const numericGrades = useMemo(
 		() => normalizeNumericGrades(grades as RawGradeRecord[]),
 		[grades],

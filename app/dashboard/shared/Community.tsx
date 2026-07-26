@@ -299,7 +299,7 @@ const Community = () => {
 
 	const getClassNameFromId = (id?: string) => {
 		if (!id || !schoolProfile?.classLevels) return id || '';
-		for (const session of Object.values(schoolProfile.classLevels)) {
+		for (const session of Object.values(schoolProfile.academicConfig?.classLevels || {})) {
 			if (!session || typeof session !== 'object') continue;
 			for (const level of Object.values(session)) {
 				if (!level?.classes || !Array.isArray(level.classes)) continue;
@@ -377,7 +377,7 @@ const Community = () => {
 
 	const defaultAcademicYear = useMemo(() => {
 		const schoolCurrentAcademicYear = String(
-			schoolProfile?.currentAcademicYear || '',
+			schoolProfile?.identity?.currentAcademicYear || '',
 		).trim();
 		if (sessionUser?.role === 'system_admin') {
 			return (
@@ -387,7 +387,7 @@ const Community = () => {
 			);
 		}
 		return pickMostRecentAcademicYear(availableYears, null) || '';
-	}, [availableYears, schoolProfile?.currentAcademicYear, sessionUser?.role]);
+	}, [availableYears, schoolProfile?.identity?.currentAcademicYear, sessionUser?.role]);
 
 	const availableClasses = useMemo(() => {
 		if (!sessionUser || sessionUser.role !== 'teacher' || !academicYear)

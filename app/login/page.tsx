@@ -39,11 +39,11 @@ import {
 const PUBLIC_SYNC_STREAM_TOKEN_ENDPOINT = '/api/sync/public-stream-token';
 const PUBLIC_SYNC_REFRESH_DEBOUNCE_MS = 120;
 
-const resolveRoleLoginDisabledMessage = (role: string, school: any): string => {
+const resolveRoleLoginDisabledMessage = (role: string, school: SchoolProfile | null): string => {
 	if (!role || role === 'system_admin') return '';
 	const roleSettingsKey = `${role}Settings`;
-	const roleSettings = school?.settings?.[roleSettingsKey];
-	if (roleSettings?.loginAccess === false) {
+	const roleSettings = school?.userConfig?.[roleSettingsKey as keyof typeof school.userConfig];
+	if (roleSettings && typeof roleSettings === 'object' && 'loginAccess' in roleSettings && roleSettings.loginAccess === false) {
 		return `Login is currently disabled for ${role}s.`;
 	}
 	return '';
@@ -61,7 +61,7 @@ const IdentityStrip = ({
 	onChangeRole,
 	onChangePosition,
 }: {
-	school: any;
+	school: SchoolProfile | null;
 	selectedRole: string;
 	adminPosition: string;
 	adminPositions: { id: string; name: string }[];
@@ -76,10 +76,10 @@ const IdentityStrip = ({
 }) => {
 	const currentRole = roles.find((r) => r.value === selectedRole);
 	const currentPos = adminPositions.find((p) => p.id === adminPosition);
-	const schoolDisplayName = school?.shortName || school?.name || '';
-	const schoolTagline = school?.tagline || school?.slogan || '';
+	const schoolDisplayName = school?.identity?.shortName || school?.identity?.name || '';
+	const schoolTagline = school?.identity?.slogan || '';
 	const hasSchoolBrand = Boolean(
-		school?.logoUrl || schoolDisplayName || school?.initials || schoolTagline,
+		school?.branding?.logoUrl || schoolDisplayName || school?.identity?.initials || schoolTagline,
 	);
 
 	return (
@@ -98,9 +98,9 @@ const IdentityStrip = ({
 						w-30 h-30 flex items-center justify-center overflow-hidden rounded-2xl border border-border/60 bg-muted/40
 					"
 					>
-						{school?.logoUrl ? (
+						{school?.branding?.logoUrl ? (
 							<img
-								src={school.logoUrl}
+								src={school.branding.logoUrl}
 								alt={`${schoolDisplayName || 'School'} logo`}
 								className="w-full h-full object-cover"
 							/>
@@ -206,7 +206,7 @@ const IdentityStrip = ({
 			<div className="mt-auto text-[10px] text-muted-foreground/60 leading-relaxed">
 				<p>
 					&copy; {new Date().getFullYear()}{' '}
-					{school?.name || 'Upstairs Christian Academy'}.
+					{school?.identity?.name || 'Upstairs Christian Academy'}.
 					<br />
 					All Rights Reserved.
 				</p>
@@ -626,7 +626,7 @@ const RecoveryModal = ({
 	onClose,
 }: {
 	selectedRole: string;
-	school: any;
+	school: SchoolProfile | null;
 	onClose: () => void;
 }) => {
 	const isSysAdmin = selectedRole === 'system_admin';
@@ -702,7 +702,7 @@ const RecoveryModal = ({
 						<span className="text-sm font-semibold text-foreground">
 							{isSysAdmin
 								? 'Amos Senkao'
-								: school?.sysAdmin?.name || 'Amos Senkao'}
+								: school?.userConfig?.sysAdmin?.name || 'Amos Senkao'}
 						</span>
 					</div>
 					<div className="flex justify-between items-center">
@@ -710,7 +710,7 @@ const RecoveryModal = ({
 						<span className="text-sm font-semibold text-foreground">
 							{isSysAdmin
 								? '0776-949463'
-								: school?.sysAdmin?.phone || '0776 - 949463'}
+								: school?.userConfig?.sysAdmin?.phone || '0776 - 949463'}
 						</span>
 					</div>
 					{isSysAdmin && (
@@ -754,9 +754,9 @@ const LoginPage = () => {
 	const publicSchoolTenantKey = useMemo(
 		() =>
 			resolveTenantSyncKey({
-				schoolProfile: currentSchool,
+				schoolProfile: currentSchool?.system,
 			}),
-		[currentSchool?.dbName, currentSchool?.host],
+		[currentSchool?.system?.dbName, currentSchool?.system?.host],
 	);
 	const [loginDisabledError, setLoginDisabledError] = useState('');
 	const usernameInputRef = useRef<HTMLInputElement>(null);
@@ -799,11 +799,11 @@ const LoginPage = () => {
 		password: '',
 	});
 	const hasSchoolBrand = Boolean(
-		currentSchool?.logoUrl ||
-			currentSchool?.shortName ||
-			currentSchool?.name ||
-			currentSchool?.initials ||
-			currentSchool?.tagline,
+		currentSchool?.branding?.logoUrl ||
+			currentSchool?.identity?.shortName ||
+			currentSchool?.identity?.name ||
+			currentSchool?.identity?.initials ||
+			currentSchool?.identity?.slogan,
 	);
 
 	const dismissKeyboardFocus = useCallback(() => {
@@ -1048,7 +1048,11 @@ useEffect(() => {
 		},
 	];
 
-	const adminPositions = currentSchool?.administrativePositions || [];
+	const adminPositions = [...(
+		currentSchool?.userConfig?.administrativePositions ||
+		(currentSchool as any)?.administrativePositions ||
+		[]
+	)];
 
 	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -1102,7 +1106,7 @@ useEffect(() => {
 		!isRedirecting &&
 		Boolean(user?.isActive || isLoggedIn);
 	if (isBootstrappingSession)
-		return <PageLoading variant="company" message="Loading…" />;
+		return <PageLoading variant={hasSchool ? 'school' : 'company'} message="Loading…" />;
 
 	if (!hasSchool) {
 		return <SuperAdminLoginPage />;
@@ -1119,7 +1123,7 @@ useEffect(() => {
 	return (
 		<>
 		{isRedirecting && (
-			<PageLoading variant="company" message="Opening dashboard…" />
+			<PageLoading variant={hasSchool ? 'school' : 'company'} message="Opening dashboard…" />
 		)}
 
 			{/* Theme toggle */}
@@ -1149,22 +1153,22 @@ useEffect(() => {
 										w-16 h-16 flex items-center justify-center overflow-hidden flex-shrink-0
 									"
 									>
-										{currentSchool?.logoUrl ? (
-											<img
-												src={currentSchool.logoUrl}
-												alt={`${currentSchool.shortName || currentSchool.name || 'School'} logo`}
-												className="w-full h-full"
-											/>
+								{currentSchool?.branding?.logoUrl ? (
+									<img
+										src={currentSchool.branding.logoUrl}
+										alt={`${currentSchool.identity?.shortName || currentSchool.identity?.name || 'School'} logo`}
+										className="w-full h-full"
+									/>
 										) : (
 											<div className="h-10 w-10 rounded-full border border-border/60 bg-muted/40" />
 										)}
 									</div>
 									<div>
-										<p className="text-sm font-semibold text-foreground leading-snug">
-											{currentSchool?.shortName || currentSchool?.name || ''} e-Portal
-										</p>
-										<p className="text-xs text-muted-foreground mt-0.5 leading-snug">
-											{currentSchool?.tagline || 'Excellence in Education'}
+									<p className="text-sm font-semibold text-foreground leading-snug">
+										{currentSchool?.identity?.shortName || currentSchool?.identity?.name || ''} e-Portal
+									</p>
+									<p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+										{currentSchool?.identity?.slogan || 'Excellence in Education'}
 										</p>
 									</div>
 								</Link>
@@ -1326,7 +1330,7 @@ useEffect(() => {
 					<footer className="py-6 text-center border-t border-border bg-card/50">
 						<p className="text-xs text-muted-foreground">
 							&copy; {new Date().getFullYear()}{' '}
-							{currentSchool?.name || 'Upstairs Christian Academy'}. All Rights
+							{currentSchool?.identity?.name || 'Upstairs Christian Academy'}. All Rights
 							Reserved.
 						</p>
 						<p className="text-[10px] text-muted-foreground/50 mt-1">

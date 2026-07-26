@@ -42,8 +42,8 @@ const FilterUsersModal = ({
 			setSessions(availableSessions);
 			return;
 		}
-		if (schoolProfile?.classLevels) {
-			setSessions(Object.keys(schoolProfile.classLevels));
+		if (schoolProfile?.academicConfig?.classLevels) {
+			setSessions(Object.keys(schoolProfile.academicConfig.classLevels));
 			return;
 		}
 		setSessions([]);
@@ -58,9 +58,9 @@ const FilterUsersModal = ({
 	useEffect(() => {
 		if (
 			effectiveSession !== 'all' &&
-			schoolProfile?.classLevels?.[effectiveSession]
+			schoolProfile?.academicConfig?.classLevels?.[effectiveSession]
 		) {
-			setClassLevels(Object.keys(schoolProfile.classLevels[effectiveSession]));
+			setClassLevels(Object.keys(schoolProfile.academicConfig.classLevels[effectiveSession]));
 		} else {
 			setClassLevels([]);
 		}
@@ -78,15 +78,15 @@ const FilterUsersModal = ({
 		if (
 			effectiveSession !== 'all' &&
 			effectiveClassLevel !== 'all' &&
-			schoolProfile?.classLevels?.[effectiveSession]?.[effectiveClassLevel]
+			schoolProfile?.academicConfig?.classLevels?.[effectiveSession]?.[effectiveClassLevel]
 		) {
 			setClasses(
-				schoolProfile.classLevels[effectiveSession][effectiveClassLevel]
+				schoolProfile.academicConfig.classLevels[effectiveSession][effectiveClassLevel]
 					.classes || []
 			);
 			setSubjects(
 				(
-					schoolProfile.classLevels[effectiveSession][effectiveClassLevel]
+					schoolProfile.academicConfig.classLevels[effectiveSession][effectiveClassLevel]
 						.subjects || []
 				)
 					.map((subject: any) =>

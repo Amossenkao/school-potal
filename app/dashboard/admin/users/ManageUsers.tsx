@@ -318,10 +318,10 @@ const UserManagementDashboard = () => {
 
 	// Fixed availableClasses
 	const availableClasses = useMemo(() => {
-		if (!schoolProfile?.classLevels) return [];
+		if (!schoolProfile?.academicConfig?.classLevels) return [];
 		const allClasses = [];
 
-		Object.entries(schoolProfile.classLevels).forEach(([session, levels]) => {
+		Object.entries(schoolProfile.academicConfig.classLevels).forEach(([session, levels]) => {
 			// Add null check for levels
 			if (!levels || typeof levels !== 'object') return;
 
@@ -348,16 +348,16 @@ const UserManagementDashboard = () => {
 
 	// Fixed availableSessions
 	const availableSessions = useMemo(() => {
-		if (!schoolProfile?.classLevels) return [];
-		return Object.keys(schoolProfile.classLevels);
+		if (!schoolProfile?.academicConfig?.classLevels) return [];
+		return Object.keys(schoolProfile.academicConfig.classLevels);
 	}, [schoolProfile]);
 
 	// Fixed availableClassLevels
 	const availableClassLevels = useMemo(() => {
-		if (!schoolProfile?.classLevels) return [];
+		if (!schoolProfile?.academicConfig?.classLevels) return [];
 		const levels = new Set();
 
-		Object.values(schoolProfile.classLevels).forEach((sessionData) => {
+		Object.values(schoolProfile.academicConfig.classLevels).forEach((sessionData) => {
 			// Add null check for sessionData
 			if (!sessionData || typeof sessionData !== 'object') return;
 
@@ -569,7 +569,7 @@ const UserManagementDashboard = () => {
 		const defaultAcademicYear =
 			pickCurrentOrMostRecentAcademicYear(
 				academicYearOptions,
-				schoolProfile.currentAcademicYear,
+				schoolProfile.identity.currentAcademicYear,
 			) || '';
 		if (
 			!selectedAcademicYear ||
