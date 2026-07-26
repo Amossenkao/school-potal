@@ -392,8 +392,8 @@ const Attendance = () => {
 			user.role === 'administrator' ||
 			user.role === 'superadmin'
 		) {
-			const firstYear = school?.firstAcademicYear;
-			const currentYear = school?.currentAcademicYear;
+			const firstYear = school?.identity?.firstAcademicYear;
+			const currentYear = school?.identity?.currentAcademicYear;
 			if (!firstYear || !currentYear) {
 				return [currentYear].filter(Boolean);
 			}
@@ -485,7 +485,7 @@ const Attendance = () => {
 	const getClassMeta = useCallback(
 		(classId: string) => {
 			for (const [session, levels] of Object.entries(
-				school?.classLevels || {},
+				school?.academicConfig?.classLevels || {},
 			)) {
 				for (const [level, ld] of Object.entries(levels as any)) {
 					const found = (ld as any).classes?.find(
@@ -508,7 +508,7 @@ const Attendance = () => {
 		) {
 			const all: any[] = [];
 			for (const [session, levels] of Object.entries(
-				school?.classLevels || {},
+				school?.academicConfig?.classLevels || {},
 			)) {
 				for (const [level, ld] of Object.entries(levels as any)) {
 					(ld as any).classes?.forEach((c: any) =>

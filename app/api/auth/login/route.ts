@@ -39,6 +39,7 @@ const toSchoolVersion = (schoolProfile: any) => {
 	return toHash(schoolProfile);
 };
 
+
 const normalizeSchoolProfile = (schoolProfileRaw: any) =>
 	typeof schoolProfileRaw === 'string'
 		? JSON.parse(schoolProfileRaw)
@@ -49,6 +50,8 @@ const buildLoginBootstrapPayload = async (
 	schoolProfileInput?: any,
 ) => {
 	const schoolProfileRaw = schoolProfileInput ?? (await getSchoolProfile());
+
+	console.log(`RAW School Profile: ${schoolProfileRaw}`)
 	const schoolProfile = normalizeSchoolProfile(schoolProfileRaw);
 	const payload = await buildBootstrapPayload(currentUser, {
 		include: {

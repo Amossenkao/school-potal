@@ -544,9 +544,9 @@ const TeacherGradeSubmissions = () => {
 	}, [scopedGrades]);
 
 	const classMap = useMemo(() => {
-		if (!school?.classLevels) return new Map();
+		if (!school?.academicConfig?.classLevels) return new Map();
 		const map = new Map();
-		Object.values(school.classLevels).forEach((session: any) => {
+		Object.values(school.academicConfig.classLevels).forEach((session: any) => {
 			Object.values(session).forEach((level: any) => {
 				level.classes.forEach((cls: any) => {
 					map.set(cls.classId, cls.name);
@@ -558,8 +558,8 @@ const TeacherGradeSubmissions = () => {
 
 	const getClassMetaById = useCallback(
 		(classId: string) => {
-			if (!classId || !school?.classLevels) return null;
-			for (const [session, levels] of Object.entries(school.classLevels)) {
+			if (!classId || !school?.academicConfig?.classLevels) return null;
+			for (const [session, levels] of Object.entries(school.academicConfig.classLevels)) {
 				if (!levels || typeof levels !== 'object') continue;
 				for (const [level, levelData] of Object.entries(levels)) {
 					if (!levelData?.classes || !Array.isArray(levelData.classes))

@@ -115,9 +115,9 @@ const normalizeAcademicYear = (value?: string) =>
 
 const AdminGradeManagement: React.FC = () => {
 	const currentSchool = useSchoolStore((state) => state.school);
-	const currentAcademicYear = currentSchool?.currentAcademicYear || '';
+	const currentAcademicYear = currentSchool?.identity?.currentAcademicYear || '';
 	const academicYearOptions = useMemo(
-		() => buildSchoolAcademicYearRange(currentSchool),
+		() => buildSchoolAcademicYearRange({ firstAcademicYear: currentSchool?.identity?.firstAcademicYear, currentAcademicYear: currentSchool?.identity?.currentAcademicYear }),
 		[currentSchool],
 	);
 	const usersByAcademicYear = useSchoolStore(
@@ -354,9 +354,9 @@ const AdminGradeManagement: React.FC = () => {
 	}, [usersByAcademicYear]);
 
 	const classMap = useMemo(() => {
-		if (!currentSchool?.classLevels) return new Map();
+		if (!currentSchool?.academicConfig?.classLevels) return new Map();
 		const map = new Map<string, string>();
-		Object.values(currentSchool.classLevels).forEach((session: any) => {
+		Object.values(currentSchool.academicConfig.classLevels).forEach((session: any) => {
 			Object.values(session).forEach((level: any) => {
 				level.classes.forEach((cls: { classId: string; name: string }) => {
 					map.set(cls.classId, cls.name);

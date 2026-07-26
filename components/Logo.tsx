@@ -4,14 +4,14 @@ import { useSchoolStore } from '@/store/schoolStore';
 
 export default function Logo() {
 	const currentSchool = useSchoolStore((state) => state.school);
-	const schoolName = currentSchool?.shortName || currentSchool?.name || '';
-	const schoolInitials = currentSchool?.initials || '';
+	const schoolName = currentSchool?.identity.shortName || currentSchool?.identity.name || '';
+	const schoolInitials = currentSchool?.identity.initials || '';
 
 	return (
 		<div className="flex items-center gap-3 cursor-pointer">
 			<div className="h-12 w-12 flex items-center justify-center overflow-hidden rounded-full border border-border/60 bg-muted/40">
-				{currentSchool?.logoUrl ? (
-					<img src={currentSchool.logoUrl} alt={`${schoolName || 'School'} logo`} className="h-full w-full object-cover" />
+				{currentSchool?.branding.logoUrl ? (
+					<img src={currentSchool.branding.logoUrl} alt={`${schoolName || 'School'} logo`} className="h-full w-full object-cover" />
 				) : null}
 			</div>
 			<div className="min-w-0">
@@ -24,7 +24,7 @@ export default function Logo() {
 							{schoolInitials || schoolName}
 						</h1>
 						<p className="text-xs text-muted-foreground hidden lg:block truncate">
-							{currentSchool?.slogan || currentSchool?.tagline || 'Excellence in Education'}
+							{currentSchool?.identity.slogan || currentSchool?.identity.slogan || 'Excellence in Education'}
 						</p>
 					</>
 				) : (

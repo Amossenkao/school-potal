@@ -310,7 +310,7 @@ const UserManagementDashboard = () => {
 		);
 	}, [usersByAcademicYear]);
 	const academicYearOptions = useMemo(
-		() => buildSchoolAcademicYearRange(schoolProfile),
+		() => buildSchoolAcademicYearRange({ firstAcademicYear: schoolProfile?.identity?.firstAcademicYear, currentAcademicYear: schoolProfile?.identity?.currentAcademicYear }),
 		[schoolProfile],
 	);
 	const hasMultipleAcademicYears = academicYearOptions.length > 1;
@@ -368,10 +368,10 @@ const UserManagementDashboard = () => {
 
 	// Fixed availableSubjects
 	const availableSubjects = useMemo(() => {
-		if (!schoolProfile?.classLevels) return [];
+		if (!schoolProfile?.academicConfig?.classLevels) return [];
 		const subjects = new Set();
 
-		Object.values(schoolProfile.classLevels).forEach((sessionData) => {
+		Object.values(schoolProfile.academicConfig.classLevels).forEach((sessionData) => {
 			// Add null check for sessionData
 			if (!sessionData || typeof sessionData !== 'object') return;
 
@@ -751,19 +751,19 @@ const UserManagementDashboard = () => {
 	};
 
 	const getClassDisplayName = (classId: any) => {
-		if (!classId || !schoolProfile?.classLevels) return classId;
+		if (!classId || !schoolProfile?.academicConfig?.classLevels) return classId;
 		const foundClass = availableClasses.find((cls) => cls.classId === classId);
 		return foundClass ? foundClass.displayName : classId;
 	};
 
 	const getClassLevelFromId = (classId: any) => {
-		if (!classId || !schoolProfile?.classLevels) return null;
+		if (!classId || !schoolProfile?.academicConfig?.classLevels) return null;
 		const foundClass = availableClasses.find((cls) => cls.classId === classId);
 		return foundClass ? foundClass.level : null;
 	};
 
 	const getSessionFromId = (classId: any) => {
-		if (!classId || !schoolProfile?.classLevels) return null;
+		if (!classId || !schoolProfile?.academicConfig?.classLevels) return null;
 		const foundClass = availableClasses.find((cls) => cls.classId === classId);
 		return foundClass ? foundClass.session : null;
 	};

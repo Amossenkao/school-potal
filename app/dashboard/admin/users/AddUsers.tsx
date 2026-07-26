@@ -600,11 +600,11 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	const school = useSchoolStore((state) => state.school);
 	const defaultEnrollmentSemester = '1st Semester';
 	const currentAcademicYear = String(
-		school?.currentAcademicYear || getCurrentAcademicYearLabel(),
+		school?.identity?.currentAcademicYear || getCurrentAcademicYearLabel(),
 	).trim();
 
 	const enrollmentYearOptions = useMemo(() => {
-		const years = buildSchoolAcademicYearRange(school || undefined);
+		const years = buildSchoolAcademicYearRange({ firstAcademicYear: school?.identity?.firstAcademicYear, currentAcademicYear: school?.identity?.currentAcademicYear });
 		return years.length > 0
 			? years
 			: currentAcademicYear
@@ -685,25 +685,25 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 
 	/* ── School data helpers ── */
 	const getSessions = () =>
-		school?.classLevels ? Object.keys(school.classLevels) : [];
+		school?.academicConfig?.classLevels ? Object.keys(school.academicConfig.classLevels) : [];
 	const hasMultipleSessions = getSessions().length > 1;
 
 	const getClassLevels = (session: string) =>
-		school?.classLevels?.[session]
-			? Object.keys(school.classLevels[session])
+		school?.academicConfig?.classLevels?.[session]
+			? Object.keys(school.academicConfig.classLevels[session])
 			: [];
 
 	const isLevelSelfContained = (session: string, level: string) =>
-		!!school?.classLevels?.[session]?.[level]?.isSelfContained;
+		!!school?.academicConfig?.classLevels?.[session]?.[level]?.isSelfContained;
 
 	const getClassesBySessionAndLevel = (session: string, level: string) =>
-		school?.classLevels?.[session]?.[level]?.classes ?? [];
+		school?.academicConfig?.classLevels?.[session]?.[level]?.classes ?? [];
 
 	const getAllClassesForSession = (session: string) => {
-		if (!school?.classLevels?.[session]) return [];
+		if (!school?.academicConfig?.classLevels?.[session]) return [];
 		const all: any[] = [];
-		Object.keys(school.classLevels[session]).forEach((level) => {
-			(school.classLevels[session][level].classes ?? []).forEach((cls: any) => {
+		Object.keys(school.academicConfig.classLevels[session]).forEach((level) => {
+			(school.academicConfig.classLevels[session][level].classes ?? []).forEach((cls: any) => {
 				all.push({ ...cls, level, session });
 			});
 		});
@@ -714,7 +714,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		session: string,
 		level: string,
 	): string[] =>
-		(school?.classLevels?.[session]?.[level]?.subjects ?? []).map(
+		(school?.academicConfig?.classLevels?.[session]?.[level]?.subjects ?? []).map(
 			(s: any) => s.name,
 		);
 
@@ -732,8 +732,8 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 
 	/* ── Admin positions ── */
 	const adminPositions = useMemo(() => {
-		const fromProfile = Array.isArray(school?.administrativePositions)
-			? school.administrativePositions
+		const fromProfile = Array.isArray(school?.userConfig?.administrativePositions)
+			? school.userConfig.administrativePositions
 					.map((item: any) => ({
 						key: String(item?.id || '').trim(),
 						name: String(item?.name || '').trim(),
@@ -742,8 +742,8 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			: [];
 		if (fromProfile.length > 0) return fromProfile;
 		return (
-			school?.roleFeatureAccess?.administrator
-				? Object.keys(school.roleFeatureAccess.administrator)
+			school?.featureConfig?.roleFeatureAccess?.administrator
+				? Object.keys(school.featureConfig.roleFeatureAccess.administrator)
 				: []
 		).map((key: string) => ({
 			key,
@@ -760,7 +760,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	);
 
 	const availablePermissions = useMemo(() => {
-		return school?.enabledFeatures || [];
+		return school?.featureConfig?.enabledFeatures || [];
 	}, [school]);
 
 	const existingUsers = [
@@ -1201,9 +1201,9 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 							<h1 className="text-base sm:text-xl font-bold text-foreground leading-tight truncate">
 								Create New User
 							</h1>
-							{school?.name && (
+							{school?.identity?.name && (
 								<p className="text-xs text-muted-foreground mt-0.5 truncate">
-									{school.name}
+									{school.identity.name}
 								</p>
 							)}
 						</div>

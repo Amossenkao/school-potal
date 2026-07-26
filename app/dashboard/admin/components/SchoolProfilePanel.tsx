@@ -44,8 +44,8 @@ const normalizeSchoolFormData = (school: any): SchoolFormData => {
 		logoUrl2: branding?.logoUrl2 || '',
 		yearFounded: identity?.yearFounded || '',
 		administrativePositions: userConfig?.administrativePositions || [],
-		enabledFeatures: school?.enabledFeatures || [],
-		roleFeatureAccess: school?.roleFeatureAccess || {
+		enabledFeatures: school?.featureConfig?.enabledFeatures || school?.enabledFeatures || [],
+		roleFeatureAccess: school?.featureConfig?.roleFeatureAccess || school?.roleFeatureAccess || {
 			student: [],
 			teacher: [],
 			system_admin: [],
@@ -77,7 +77,7 @@ const normalizeSchoolFormData = (school: any): SchoolFormData => {
 			},
 		},
 		classLevels: academicConfig?.classLevels || school?.classLevels || {},
-		feeSchedules: school?.feeSchedules || {},
+		feeSchedules: school?.financialConfig?.feeSchedules || school?.feeSchedules || {},
 		address: contact?.addresses?.flatMap((a: any) => a.lines || []) || school?.address || [],
 		phones: contact?.phones || school?.phones || [],
 		emails: contact?.emails || school?.emails || [],

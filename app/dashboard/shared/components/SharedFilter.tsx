@@ -423,7 +423,7 @@ export const SharedFilter = <T extends BaseFilters>({
 			});
 			return filteredOptions.map((opt: any) => opt.academicYear);
 		}
-		return buildSchoolAcademicYearRange(currentSchool);
+		return buildSchoolAcademicYearRange({ firstAcademicYear: currentSchool?.identity?.firstAcademicYear, currentAcademicYear: currentSchool?.identity?.currentAcademicYear });
 	}, [
 		currentSchool,
 		isStudent,
@@ -437,7 +437,7 @@ export const SharedFilter = <T extends BaseFilters>({
 
 	const defaultAcademicYear = useMemo(() => {
 		const schoolCurrentAcademicYear =
-			currentSchool?.currentAcademicYear || getCurrentAcademicYear();
+			currentSchool?.identity.currentAcademicYear || getCurrentAcademicYear();
 		if (isStudent) {
 			return (
 				pickMostRecentAcademicYear(
@@ -452,14 +452,14 @@ export const SharedFilter = <T extends BaseFilters>({
 				schoolCurrentAcademicYear,
 			) || schoolCurrentAcademicYear
 		);
-	}, [academicYearOptions, isStudent, currentSchool?.currentAcademicYear]);
+	}, [academicYearOptions, isStudent, currentSchool?.identity.currentAcademicYear]);
 
 	// ─── Available Options ────────────────────────────────────────────────────
 
 	const availableSessions = useMemo(
 		() =>
-			currentSchool?.classLevels ? Object.keys(currentSchool.classLevels) : [],
-		[currentSchool?.classLevels],
+			currentSchool?.academicConfig.classLevels ? Object.keys(currentSchool.academicConfig.classLevels) : [],
+		[currentSchool?.academicConfig.classLevels],
 	);
 
 	const userAvailableSessions = useMemo(() => {
@@ -476,10 +476,10 @@ export const SharedFilter = <T extends BaseFilters>({
 
 	const availableGradeLevels = useMemo(
 		() =>
-			filters.session && currentSchool?.classLevels?.[filters.session]
-				? Object.keys(currentSchool.classLevels[filters.session])
+			filters.session && currentSchool?.academicConfig.classLevels?.[filters.session]
+				? Object.keys(currentSchool.academicConfig.classLevels[filters.session])
 				: [],
-		[filters.session, currentSchool?.classLevels],
+		[filters.session, currentSchool?.academicConfig.classLevels],
 	);
 
 	const availableClasses = useMemo(() => {
@@ -487,12 +487,12 @@ export const SharedFilter = <T extends BaseFilters>({
 		if (
 			filters.session &&
 			level &&
-			currentSchool?.classLevels?.[filters.session]?.[level]
+			currentSchool?.academicConfig.classLevels?.[filters.session]?.[level]
 		) {
-			return currentSchool.classLevels[filters.session][level].classes || [];
+			return currentSchool.academicConfig.classLevels[filters.session][level].classes || [];
 		}
 		return [];
-	}, [filters.session, filters, currentSchool?.classLevels, getGradeLevel]);
+	}, [filters.session, filters, currentSchool?.academicConfig.classLevels, getGradeLevel]);
 
 	// ─── Extra Filter ─────────────────────────────────────────────────────────
 
@@ -587,12 +587,12 @@ export const SharedFilter = <T extends BaseFilters>({
 			yearEntry?.classId ||
 			(areAcademicYearsEqual(
 				filters.academicYear,
-				currentSchool?.currentAcademicYear || getCurrentAcademicYear(),
+				currentSchool?.identity.currentAcademicYear || getCurrentAcademicYear(),
 			)
 				? user.classId || ''
 				: '');
 		const classMeta = getClassMetaById(
-			currentSchool?.classLevels,
+			currentSchool?.academicConfig.classLevels,
 			classIdForYear,
 		);
 		const currentStudentId = normalize(user?.studentId, user?.id, user?._id);

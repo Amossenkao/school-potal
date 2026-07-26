@@ -642,7 +642,7 @@ function ReportContent({
 	const schoolSubjects = useMemo(() => {
 		if (!school) return schoolSubjectsRef.current;
 		const classMeta = getClassMetaById(
-			school.classLevels,
+			school.academicConfig.classLevels,
 			reportFilters.className,
 		);
 		const resolvedMeta =
@@ -654,7 +654,7 @@ function ReportContent({
 				: null);
 		if (!resolvedMeta?.session || !resolvedMeta?.level) return schoolSubjectsRef.current;
 		const subjects =
-			school.classLevels?.[resolvedMeta.session]?.[resolvedMeta.level]
+			school.academicConfig.classLevels?.[resolvedMeta.session]?.[resolvedMeta.level]
 				?.subjects || [];
 		const next = mergeSubjectNames(
 			subjects.map((subject: any) =>
@@ -687,10 +687,10 @@ function ReportContent({
 	// Get class name from school profile - memoized
 	const className = useMemo(() => {
 		if (
-			school?.classLevels?.[reportFilters.session]?.[reportFilters.gradeLevel]
+			school?.academicConfig.classLevels?.[reportFilters.session]?.[reportFilters.gradeLevel]
 				?.classes
 		) {
-			const classInfo = school.classLevels[reportFilters.session][
+			const classInfo = school.academicConfig.classLevels[reportFilters.session][
 				reportFilters.gradeLevel
 			].classes.find((c: any) => c.classId === reportFilters.className);
 			return classInfo ? classInfo.name : reportFilters.className;

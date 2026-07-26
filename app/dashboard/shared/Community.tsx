@@ -298,7 +298,7 @@ const Community = () => {
 	// ── Helpers ──────────────────────────────────────────────────────────────
 
 	const getClassNameFromId = (id?: string) => {
-		if (!id || !schoolProfile?.classLevels) return id || '';
+		if (!id || !schoolProfile?.academicConfig?.classLevels) return id || '';
 		for (const session of Object.values(schoolProfile.academicConfig?.classLevels || {})) {
 			if (!session || typeof session !== 'object') continue;
 			for (const level of Object.values(session)) {
@@ -370,7 +370,7 @@ const Community = () => {
 			);
 		}
 		if (sessionUser.role === 'system_admin') {
-			return buildSchoolAcademicYearRange(schoolProfile || undefined);
+			return buildSchoolAcademicYearRange({ firstAcademicYear: schoolProfile?.identity?.firstAcademicYear, currentAcademicYear: schoolProfile?.identity?.currentAcademicYear });
 		}
 		return sortAcademicYearsDesc([]);
 	}, [sessionUser, schoolProfile]);

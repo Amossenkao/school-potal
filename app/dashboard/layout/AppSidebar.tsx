@@ -381,9 +381,9 @@ const AppSidebar: React.FC = () => {
 	const normalizedAcademicYear = useMemo(
 		() =>
 			normalizeAcademicYear(
-				currentSchool?.currentAcademicYear || getCurrentAcademicYear(),
+				currentSchool?.identity.currentAcademicYear || getCurrentAcademicYear(),
 			),
-		[currentSchool?.currentAcademicYear],
+		[currentSchool?.identity.currentAcademicYear],
 	);
 
 	// Stable empty array to avoid creating new references on every selector call
@@ -783,7 +783,7 @@ const AppSidebar: React.FC = () => {
 						} ${shouldShowLabels ? 'h-12 w-12' : 'h-14 w-14'}`}
 					>
 						<img
-							src={currentSchool?.logoUrl}
+							src={currentSchool?.branding.logoUrl}
 							alt="School logo"
 							className="h-10 w-10 object-contain"
 						/>
@@ -791,10 +791,10 @@ const AppSidebar: React.FC = () => {
 					{shouldShowLabels && (
 						<div>
 							<h1 className="text-base font-bold tracking-[0.02em] text-gray-900 dark:text-gray-100">
-								{currentSchool.shortName}
+								{currentSchool.identity.shortName}
 							</h1>
 							<p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
-								{currentSchool?.slogan || 'Excellence in Education'}
+								{currentSchool?.identity.slogan || 'Excellence in Education'}
 							</p>
 						</div>
 					)}

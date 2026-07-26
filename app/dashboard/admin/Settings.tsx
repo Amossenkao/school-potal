@@ -1212,7 +1212,6 @@ export default function Settings() {
 
 		setAdministratorSettings({
 			loginAccess: true,
-			...(school.userConfig.administratorSettings || {}),
 		});
 		setReportCardThemes((school.branding as any)?.reportCardThemes || {});
 			setIsLoading(false);
@@ -1220,14 +1219,14 @@ export default function Settings() {
 	}, [school]);
 
 	const allClassLevels = useMemo(() => {
-		if (!school?.classLevels) return [] as string[];
+		if (!school?.academicConfig.classLevels) return [] as string[];
 		const levels = new Set<string>();
-		Object.values(school.classLevels).forEach((session: any) => {
+		Object.values(school.academicConfig.classLevels).forEach((session: any) => {
 			if (session && typeof session === 'object')
 				Object.keys(session).forEach((l) => levels.add(l));
 		});
 		return Array.from(levels);
-	}, [school?.classLevels]);
+	}, [school?.academicConfig.classLevels]);
 
 	// ---------------------------------------------------------------------------
 	// Academic year range:
@@ -1270,7 +1269,7 @@ export default function Settings() {
 		);
 		if (isValid) return;
 
-		const schoolStored = school?.currentAcademicYear;
+		const schoolStored = school?.identity.currentAcademicYear;
 		const preferred =
 			(schoolStored &&
 				currentAcademicYearOptions.find((o) => o.value === schoolStored)
@@ -1285,7 +1284,7 @@ export default function Settings() {
 	}, [
 		currentAcademicYear,
 		currentAcademicYearOptions,
-		school?.currentAcademicYear,
+		school?.identity.currentAcademicYear,
 	]);
 
 	// The per-year settings range: firstAcademicYear → selected currentAcademicYear

@@ -315,12 +315,12 @@ export const getTenantConnection = async (
 	const host =
 		normalizeHost(hostOverride) || normalizeHost((await headers()).get('host'));
 	const school = await getSchoolProfile({ host });
-	if (!school?.dbName) {
+	if (!school?.system.dbName) {
 		console.log('School not found for host:', host);
 		return null;
 	}
 
-	return getTenantConnectionByDbName(school.dbName);
+	return getTenantConnectionByDbName(school.system.dbName);
 };
 
 /**

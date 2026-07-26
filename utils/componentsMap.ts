@@ -250,7 +250,7 @@ function getAccessibleRouteKeys(
 	);
 
 	userFeatures.forEach((feature) => {
-		if (!schoolProfile.enabledFeatures.includes(feature)) return;
+		if (!schoolProfile.featureConfig.enabledFeatures.includes(feature)) return;
 		const featureConfig = featureConfigurations[feature];
 		if (!featureConfig) return;
 
@@ -1076,7 +1076,7 @@ function getAdministratorFeatureAccess(
 	adminPosition?: string,
 ): FeatureKey[] | null {
 	if (!adminPosition) return null;
-	const adminAccessMap = schoolProfile.roleFeatureAccess?.administrator;
+	const adminAccessMap = schoolProfile.featureConfig.roleFeatureAccess?.administrator;
 	if (!adminAccessMap) return null;
 
 	const normalizedPosition = normalizeAdministratorPosition(adminPosition);
@@ -1103,7 +1103,7 @@ function hasFeatureAccess(
 	if (feature === 'dashboard') return true;
 
 	// Check if feature is enabled for the school
-	if (!schoolProfile.enabledFeatures.includes(feature)) return false;
+	if (!schoolProfile.featureConfig.enabledFeatures.includes(feature)) return false;
 
 	// Handle administrators using per-user permissions
 	if (userRole === 'administrator' && adminPermissions) {
@@ -1112,8 +1112,8 @@ function hasFeatureAccess(
 
 	// Handle standard roles
 	const roleAccess =
-		schoolProfile.roleFeatureAccess[
-			userRole as keyof typeof schoolProfile.roleFeatureAccess
+		schoolProfile.featureConfig.roleFeatureAccess[
+			userRole as keyof typeof schoolProfile.featureConfig.roleFeatureAccess
 		];
 
 	if (Array.isArray(roleAccess)) {
@@ -1151,7 +1151,7 @@ export function generateDynamicComponentsMap(
 	// Process each feature the user has access to
 	userFeatures.forEach((feature) => {
 		// Check if feature is enabled for the school
-		if (!schoolProfile.enabledFeatures.includes(feature)) return;
+		if (!schoolProfile.featureConfig.enabledFeatures.includes(feature)) return;
 
 		const featureConfig = featureConfigurations[feature];
 		if (!featureConfig) return;
@@ -1274,7 +1274,7 @@ export function generateNavigationItems(
 	accessibleFeatures.forEach((feature) => {
 		if (feature === 'dashboard') return; // Skip dashboard as it's already added
 		// Check if feature is enabled for the school
-		if (!schoolProfile.enabledFeatures.includes(feature)) return;
+		if (!schoolProfile.featureConfig.enabledFeatures.includes(feature)) return;
 
 		const featureConfig = featureConfigurations[feature];
 		if (!featureConfig) return;
@@ -1465,7 +1465,7 @@ export function isFeatureEnabled(
 	schoolProfile: SchoolProfile,
 	feature: FeatureKey,
 ): boolean {
-	return schoolProfile.enabledFeatures.includes(feature);
+	return schoolProfile.featureConfig.enabledFeatures.includes(feature);
 }
 
 export function getUserAccessibleFeatures(
@@ -1476,27 +1476,27 @@ export function getUserAccessibleFeatures(
 	if (userRole === 'administrator' && adminPermissions) {
 		const uniqueFeatures = Array.from(new Set(adminPermissions));
 		return uniqueFeatures.filter((feature) =>
-			schoolProfile.enabledFeatures.includes(feature),
+			schoolProfile.featureConfig.enabledFeatures.includes(feature),
 		);
 	}
 
 	const roleAccess =
-		schoolProfile.roleFeatureAccess[
-			userRole as keyof typeof schoolProfile.roleFeatureAccess
+		schoolProfile.featureConfig.roleFeatureAccess[
+			userRole as keyof typeof schoolProfile.featureConfig.roleFeatureAccess
 		];
 
 	const features = Array.isArray(roleAccess) ? roleAccess : [];
 	const uniqueFeatures = Array.from(new Set(features));
 	if (
 		userRole === 'student' &&
-		schoolProfile.enabledFeatures.includes('notifications') &&
+		schoolProfile.featureConfig.enabledFeatures.includes('notifications') &&
 		!uniqueFeatures.includes('notifications')
 	) {
 		uniqueFeatures.push('notifications');
 	}
 
 	return uniqueFeatures.filter((feature) =>
-		schoolProfile.enabledFeatures.includes(feature),
+		schoolProfile.featureConfig.enabledFeatures.includes(feature),
 	);
 }
 

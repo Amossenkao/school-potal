@@ -112,7 +112,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const { isOnline } = useNetworkStore();
 	const effectiveUser = (teacherInfo || userInfo) as UserInfo | null;
 	const schoolCurrentAcademicYear =
-		currentSchool?.currentAcademicYear || currentAcademicYear;
+		currentSchool?.identity?.currentAcademicYear || currentAcademicYear;
 
 	const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
 
@@ -125,8 +125,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	}, [gradesByAcademicYear]);
 
 	const getClassMetaById = (classId: string) => {
-		if (!classId || !currentSchool?.classLevels) return null;
-		for (const [session, levels] of Object.entries(currentSchool.classLevels)) {
+		if (!classId || !currentSchool?.academicConfig?.classLevels) return null;
+		for (const [session, levels] of Object.entries(currentSchool.academicConfig.classLevels)) {
 			if (!levels || typeof levels !== 'object') continue;
 			for (const [level, levelData] of Object.entries(levels)) {
 				if (!levelData?.classes || !Array.isArray(levelData.classes)) continue;
@@ -140,7 +140,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	};
 
 	const getAllSessions = () =>
-		currentSchool?.classLevels ? Object.keys(currentSchool.classLevels) : [];
+		currentSchool?.academicConfig?.classLevels ? Object.keys(currentSchool.academicConfig.classLevels) : [];
 	const getTeacherSessions = () => {
 		const yearData = (effectiveUser?.subjects || []).find((s) =>
 			areAcademicYearsEqual(s.year, selectedAcademicYear),
@@ -153,8 +153,8 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	};
 
 	const getAllClassLevels = (session: string) => {
-		if (!currentSchool?.classLevels?.[session]) return [];
-		return Object.keys(currentSchool.classLevels[session]);
+		if (!currentSchool?.academicConfig?.classLevels?.[session]) return [];
+		return Object.keys(currentSchool.academicConfig.classLevels[session]);
 	};
 	const getTeacherClassLevels = (session: string) => {
 		const yearData = (effectiveUser?.subjects || []).find((s) =>
@@ -170,7 +170,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	};
 
 	const getAllClasses = (session: string, level: string) => {
-		return currentSchool?.classLevels?.[session]?.[level]?.classes || [];
+		return currentSchool?.academicConfig?.classLevels?.[session]?.[level]?.classes || [];
 	};
 	const getTeacherClasses = (session: string, level: string) => {
 		const yearData = (effectiveUser?.subjects || []).find((s) =>
@@ -188,7 +188,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 	const getAllSubjects = (session: string, level: string) => {
 		return (
-			currentSchool?.classLevels?.[session]?.[level]?.subjects?.map(
+			currentSchool?.academicConfig?.classLevels?.[session]?.[level]?.subjects?.map(
 				(s: any) => s.name,
 			) || []
 		);
@@ -209,7 +209,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	};
 
 	const availableAcademicYears = useMemo(() => {
-		const schoolYears = buildSchoolAcademicYearRange(currentSchool);
+		const schoolYears = buildSchoolAcademicYearRange({ firstAcademicYear: currentSchool?.identity?.firstAcademicYear, currentAcademicYear: currentSchool?.identity?.currentAcademicYear });
 		if (effectiveUser?.role !== 'teacher') return schoolYears;
 		return getTeacherAcademicYears(effectiveUser);
 	}, [currentSchool, effectiveUser]);
@@ -298,7 +298,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		if (!selectedSession || !selectedLevel) return false;
 		if (String(selectedLevel).trim().toLowerCase() === 'self contained')
 			return true;
-		return !!currentSchool?.classLevels?.[selectedSession]?.[selectedLevel]
+		return !!currentSchool?.academicConfig?.classLevels?.[selectedSession]?.[selectedLevel]
 			?.isSelfContained;
 	}, [selectedSession, selectedLevel, currentSchool]);
 
@@ -1378,7 +1378,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 			</div>
 		);
 	}
-	if (!currentSchool?.classLevels) {
+	if (!currentSchool?.academicConfig?.classLevels) {
 		return (
 			<div className="text-center text-muted-foreground py-8">
 				School profile data is not available. Please contact the administrator.

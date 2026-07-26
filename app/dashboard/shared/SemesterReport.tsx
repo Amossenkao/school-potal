@@ -859,21 +859,21 @@ const generateSemesterReportPdf = async ({
 	schoolShortName?: string;
 	school?: any;
 }) => {
-	const schoolName = Array.isArray(school?.name)
-		? school.name.filter(Boolean).join(' ')
-		: typeof school?.name === 'string'
-			? school.name
+	const schoolName = Array.isArray(school?.identity?.name)
+		? school.identity.name.filter(Boolean).join(' ')
+		: typeof school?.identity?.name === 'string'
+			? school.identity.name
 			: '';
 
 	const templateBytes = await loadReportTemplateBytes({
 		reportType: 'semester',
 		school: {
-			shortName: schoolShortName || school?.shortName,
-			host: school?.host,
+			shortName: schoolShortName || school?.identity?.shortName,
+			host: school?.system?.host,
 			name: schoolName,
-			logoUrl: school?.logoUrl,
-			logoUrl2: school?.logoUrl2,
-			address: Array.isArray(school?.address) ? school.address : [],
+			logoUrl: school?.branding?.logoUrl,
+			logoUrl2: school?.branding?.logoUrl2,
+			address: Array.isArray(school?.contact?.addresses) ? school.contact.addresses.flatMap((a: any) => a.lines || []) : [],
 		},
 		session: reportFilters.session,
 		classLevel: reportFilters.classLevel,
@@ -985,7 +985,7 @@ function ReportContent({
 	);
 
 	const className = useMemo(() => {
-		const classInfo = currentSchool?.classLevels?.[reportFilters.session]?.[
+		const classInfo = currentSchool?.academicConfig?.classLevels?.[reportFilters.session]?.[
 			reportFilters.classLevel
 		]?.classes.find((c: any) => c.classId === reportFilters.className);
 		return classInfo?.name || reportFilters.className;
@@ -1059,7 +1059,7 @@ function ReportContent({
 	const schoolSubjects = useMemo(() => {
 		if (!currentSchool) return schoolSubjectsRef.current;
 		const classMeta = getClassMetaById(
-			currentSchool.classLevels,
+			currentSchool.academicConfig?.classLevels,
 			reportFilters.className,
 		);
 		const resolvedMeta =
@@ -1070,7 +1070,7 @@ function ReportContent({
 				? { session: reportFilters.session, level: reportFilters.classLevel }
 				: null);
 		const subjects =
-			currentSchool?.classLevels?.[resolvedMeta?.session || '']?.[
+			currentSchool?.academicConfig?.classLevels?.[resolvedMeta?.session || '']?.[
 				resolvedMeta?.level || ''
 			]?.subjects || [];
 		const next = mergeSubjectNames(
@@ -1610,11 +1610,11 @@ function ReportContent({
 			/iPad|iPhone|iPod/.test(navigator.userAgent);
 
 		Promise.all([
-			school?.logoUrl
-				? fetchImageAsBase64(school.logoUrl)
+			school?.branding?.logoUrl
+				? fetchImageAsBase64(school.branding.logoUrl)
 				: Promise.resolve(null),
-			school?.logoUrl2
-				? fetchImageAsBase64(school.logoUrl2)
+			school?.branding?.logoUrl2
+				? fetchImageAsBase64(school.branding.logoUrl2)
 				: Promise.resolve(null),
 		])
 			.then(([logoUrl, logoUrl2]) =>
@@ -1623,7 +1623,7 @@ function ReportContent({
 					className,
 					classSubjects,
 					reportFilters,
-					schoolShortName: school?.shortName,
+					schoolShortName: school?.identity?.shortName,
 					school: {
 						...school,
 						logoUrl: logoUrl ?? undefined,
@@ -1682,7 +1682,7 @@ function ReportContent({
 		classSubjectsKey,
 		reportFilters,
 		school,
-		school?.shortName,
+		school?.identity?.shortName,
 		loading,
 		error,
 	]);

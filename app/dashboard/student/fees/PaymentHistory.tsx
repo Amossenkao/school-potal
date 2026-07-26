@@ -118,22 +118,22 @@ const ReceiptDocument = ({ payment, school }: { payment: any; school: any }) => 
 	<Document>
 		<Page size="A4" style={receiptStyles.page}>
 			<View style={receiptStyles.headerRow}>
-				{school?.logoUrl ? (
-					<Image src={school.logoUrl} style={receiptStyles.logo} />
+				{school?.branding?.logoUrl ? (
+					<Image src={school.branding.logoUrl} style={receiptStyles.logo} />
 				) : (
 					<View style={receiptStyles.logo} />
 				)}
 				<View style={receiptStyles.headerCenter}>
-					<Text style={receiptStyles.schoolName}>{school?.name}</Text>
+					<Text style={receiptStyles.schoolName}>{school?.identity?.name}</Text>
 					<Text style={receiptStyles.schoolDetails}>
-						{Array.isArray(school?.address)
-							? school.address.join('\n')
-							: school?.address || ''}
+						{Array.isArray(school?.contact?.addresses)
+							? school.contact.addresses.flatMap((a: any) => a.lines || []).join('\n')
+							: ''}
 					</Text>
 				</View>
-				{school?.logoUrl2 || school?.logoUrl ? (
+				{school?.branding?.logoUrl2 || school?.branding?.logoUrl ? (
 					<Image
-						src={school?.logoUrl2 || school?.logoUrl}
+						src={school?.branding?.logoUrl2 || school?.branding?.logoUrl}
 						style={receiptStyles.logo}
 					/>
 				) : (

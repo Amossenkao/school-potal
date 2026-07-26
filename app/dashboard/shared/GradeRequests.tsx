@@ -326,11 +326,11 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 	const isTeacher = effectiveUser?.role === 'teacher';
 
 	const currentSchool = useSchoolStore((state) => state.school);
-	const currentAcademicYear = currentSchool?.currentAcademicYear || '';
+	const currentAcademicYear = currentSchool?.identity?.currentAcademicYear || '';
 
 	// --- Academic Year Options ---
 	const schoolAcademicYearOptions = useMemo(
-		() => buildSchoolAcademicYearRange(currentSchool),
+		() => buildSchoolAcademicYearRange({ firstAcademicYear: currentSchool?.identity?.firstAcademicYear, currentAcademicYear: currentSchool?.identity?.currentAcademicYear }),
 		[currentSchool],
 	);
 	const teacherAcademicYears = useMemo(
@@ -349,7 +349,7 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 		if (isTeacher) {
 			if (teacherAcademicYears.length > 0) return teacherAcademicYears;
 			return sortAcademicYearsDesc(
-				[currentSchool?.currentAcademicYear].filter(Boolean),
+				[currentSchool?.identity?.currentAcademicYear].filter(Boolean),
 			);
 		}
 		return schoolAcademicYearOptions;
@@ -357,7 +357,7 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 		isTeacher,
 		teacherAcademicYears,
 		schoolAcademicYearOptions,
-		currentSchool?.currentAcademicYear,
+		currentSchool?.identity?.currentAcademicYear,
 	]);
 
 	const defaultAcademicYear = useMemo(() => {
@@ -477,9 +477,9 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 	const [filters, setFilters] = useState({ status: 'All' });
 
 	const classMap = useMemo(() => {
-		if (!currentSchool?.classLevels) return new Map();
+		if (!currentSchool?.academicConfig?.classLevels) return new Map();
 		const map = new Map<string, string>();
-		Object.values(currentSchool.classLevels).forEach((session: any) => {
+		Object.values(currentSchool.academicConfig.classLevels).forEach((session: any) => {
 			Object.values(session).forEach((level: any) => {
 				level.classes.forEach((cls: { classId: string; name: string }) => {
 					map.set(cls.classId, cls.name);

@@ -206,15 +206,15 @@ export async function generateMetadata({ params }: PageProps) {
 		return {
 			title: pageTitle,
 			description: `${pageTitle} page for ${
-				schoolProfile?.name || 'school management'
-			}${
-				user?.role === 'administrator'
-					? ` - ${(user as Administrator).position} access`
-					: ''
-			}`,
-			...(theme === 'dark' && {
-				themeColor: resolveTenantThemeColor(schoolProfile?.themeName),
-			}),
+			schoolProfile?.identity?.name || 'school management'
+		}${
+			user?.role === 'administrator'
+				? ` - ${(user as Administrator).position} access`
+				: ''
+		}`,
+		...(theme === 'dark' && {
+			themeColor: resolveTenantThemeColor(schoolProfile?.branding?.themeName),
+		}),
 		};
 	} catch (error) {
 		return {

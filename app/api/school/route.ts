@@ -464,6 +464,7 @@ export async function PUT(request: NextRequest) {
 	try {
 		const url = new URL(request.url);
 		const hostParam = url.searchParams.get('host');
+		const { SchoolProfile } = await getSchoolMeshModels();
 
 		// --- Superadmin: update school profile ---
 		if (hostParam) {
@@ -472,7 +473,7 @@ export async function PUT(request: NextRequest) {
 
 			const cleanHost = normalizeHost(hostParam);
 			const body = await request.json();
-			const { SchoolProfile } = await getSchoolMeshModels();
+			
 
 			const previousSchool = await SchoolProfile.findOne({ 'system.host': cleanHost }).lean();
 			if (!previousSchool) return NextResponse.json({ error: 'School not found' }, { status: 404 });
@@ -536,12 +537,8 @@ export async function PUT(request: NextRequest) {
 		}
 
 		const { Student, Teacher, Administrator } = await getTenantModels();
-		const tenantsConnection = await (await import('@/lib/mongoose')).connectToTenantsDb();
-		const SchoolProfileTenants =
-			tenantsConnection.models.Profile ||
-			tenantsConnection.model<SchoolProfileType & Document>('Profile', SchoolProfileSchema);
 
-		const currentSchool: any = await SchoolProfileTenants.findOne({ 'system.host': cleanHost }).lean();
+		const currentSchool: any = await SchoolProfile.findOne({ 'system.host': cleanHost }).lean();
 		if (!currentSchool) {
 			return NextResponse.json({ success: false, message: 'School profile not found.' }, { status: 404 });
 		}
@@ -610,7 +607,7 @@ export async function PUT(request: NextRequest) {
 			updateObject['branding.themeName'] = themeName;
 		}
 
-		const updatedSchoolProfile = await SchoolProfileTenants.findOneAndUpdate(
+		const updatedSchoolProfile = await SchoolProfile.findOneAndUpdate(
 			{ 'system.host': cleanHost },
 			{ $set: updateObject },
 			{ new: true },

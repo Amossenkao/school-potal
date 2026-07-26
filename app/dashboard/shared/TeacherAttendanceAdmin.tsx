@@ -448,8 +448,8 @@ const TeacherAttendanceAdmin = () => {
 	const availableAcademicYears = useMemo(() => {
 		if (!user) return [];
 		if (user.role === 'system_admin' || user.role === 'administrator') {
-			const firstYear = school?.identity?.firstAcademicYear || school?.firstAcademicYear;
-			const currentYear = school?.identity?.currentAcademicYear || school?.currentAcademicYear;
+			const firstYear = school?.identity?.firstAcademicYear;
+			const currentYear = school?.identity?.currentAcademicYear;
 			if (!firstYear || !currentYear)
 				return [currentYear].filter(Boolean) as string[];
 			const sep = firstYear.includes('/') ? '/' : '-';

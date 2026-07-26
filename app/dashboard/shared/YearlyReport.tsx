@@ -1333,7 +1333,7 @@ const resolveNextClassName = ({
 	currentClassId: string;
 	currentClassName: string;
 }) => {
-	const classLevels = school?.classLevels;
+	const classLevels = school?.academicConfig.classLevels;
 	const currentMeta = getClassMetaForPromotion(classLevels, currentClassId);
 
 	if (!currentMeta) {
@@ -1876,31 +1876,35 @@ export const generateYearlyReportPdf = async ({
 	school: any;
 	classStudentCount: number;
 }) => {
-	const schoolName = Array.isArray(school?.name)
-		? school.name.filter(Boolean).join(' ')
-		: typeof school?.name === 'string'
-			? school.name
+	const schoolName = Array.isArray(school?.identity.name)
+		? school.identity.name.filter(Boolean).join(' ')
+		: typeof school?.identity.name === 'string'
+			? school.identity.name
 			: '';
 
 const templateBytes = await loadReportTemplateBytes({
 	reportType: 'yearly',
 	school: {
-		shortName: school?.shortName,
-		host: school?.host,
+		shortName: school?.identity.shortName,
+		host: school?.system.host,
 		name: schoolName,
-		logoUrl: school?.logoUrl,
-		logoUrl2: school?.logoUrl2,
-		address: Array.isArray(school?.address) ? school.address : [],
+		logoUrl: school?.branding.logoUrl,
+		logoUrl2: school?.branding.logoUrl2,
+		address: school?.contact.addresses,
 	},
 	session: reportFilters.session,
 	classLevel: reportFilters.classLevel,
 	classSubjects,
 	themeId: school?.branding?.reportCardThemes?.[reportFilters.classLevel],
-	sponsorName: reportFilters.includeSponsorName ? reportFilters.sponsorName : '',
+	sponsorName: reportFilters.includeSponsorName
+		? reportFilters.sponsorName
+		: '',
 	includePrincipalSignature: reportFilters.includePrincipalSignature,
 	principalSignatureValue: reportFilters.principalSignatureValue,
 	includeDate: reportFilters.includeDate,
-	dateValue: reportFilters.includeDate ? formatDisplayDate(reportFilters.dateValue) : '',
+	dateValue: reportFilters.includeDate
+		? formatDisplayDate(reportFilters.dateValue)
+		: '',
 });
 const templateDoc = await PDFDocument.load(templateBytes);
 const [templatePage1, templatePage2] = templateDoc.getPages();
@@ -2025,7 +2029,7 @@ function ReportContent({
 	);
 
 	const className = useMemo(() => {
-		const classInfo = currentSchool?.classLevels?.[reportFilters.session]?.[
+		const classInfo = currentSchool?.academicConfig.classLevels?.[reportFilters.session]?.[
 			reportFilters.classLevel
 		]?.classes.find((c: any) => c.classId === reportFilters.className);
 
@@ -2049,7 +2053,7 @@ function ReportContent({
 	const schoolSubjects = useMemo(() => {
 		if (!currentSchool) return schoolSubjectsRef.current;
 		const classMeta = getClassMetaById(
-			currentSchool.classLevels,
+			currentSchool.academicConfig.classLevels,
 			reportFilters.className,
 		);
 		const resolvedMeta =
@@ -2060,7 +2064,7 @@ function ReportContent({
 				? { session: reportFilters.session, level: reportFilters.classLevel }
 				: null);
 		const subjects =
-			currentSchool?.classLevels?.[resolvedMeta?.session || '']?.[
+			currentSchool?.academicConfig.classLevels?.[resolvedMeta?.session || '']?.[
 				resolvedMeta?.level || ''
 			]?.subjects || [];
 		const next = mergeSubjectNames(
@@ -2755,11 +2759,11 @@ function ReportContent({
 			/iPad|iPhone|iPod/.test(navigator.userAgent);
 
 		Promise.all([
-			school?.logoUrl
-				? fetchImageAsBase64(school.logoUrl)
+			school?.branding.logoUrl
+				? fetchImageAsBase64(school.branding.logoUrl)
 				: Promise.resolve(null),
-			school?.logoUrl2
-				? fetchImageAsBase64(school.logoUrl2)
+			school?.branding.logoUrl2
+				? fetchImageAsBase64(school.branding.logoUrl2)
 				: Promise.resolve(null),
 		])
 			.then(([logoUrl, logoUrl2]) =>

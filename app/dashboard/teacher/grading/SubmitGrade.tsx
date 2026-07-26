@@ -309,8 +309,8 @@ const SubmitGrade: React.FC = () => {
 
 	const getClassMetaById = useCallback(
 		(classId: string) => {
-			if (!classId || !school?.classLevels) return null;
-			for (const [session, levels] of Object.entries(school.classLevels)) {
+			if (!classId || !school?.academicConfig?.classLevels) return null;
+			for (const [session, levels] of Object.entries(school.academicConfig.classLevels)) {
 				if (!levels || typeof levels !== 'object') continue;
 				for (const [level, levelData] of Object.entries(levels)) {
 					if (!levelData?.classes || !Array.isArray(levelData.classes))
