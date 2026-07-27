@@ -428,9 +428,7 @@ export interface Scholarship {
 	// e.g. "Academic Excellence Scholarship", "Proprietor's Ward"
 	readonly name: string;
 	readonly description?: string;
-	// fixedPayment = flat amount given to student; fixedDeduction = flat amount deducted from fees; percentage = fraction (0-1) off fees
 	readonly scholarshipType: 'fixedPayment' | 'fixedDeduction' | 'percentage';
-	// Monetary amount (for fixedPayment / fixedDeduction) or fraction 0-1 (for percentage)
 	readonly amount: number;
 	// ISO 4217 code, only applicable when scholarshipType is fixedPayment or fixedDeduction
 	readonly currency?: string;

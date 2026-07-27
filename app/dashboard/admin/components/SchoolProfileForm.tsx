@@ -163,11 +163,98 @@ function deepMerge<T extends Record<string, any>>(base: T, override: Partial<T>)
 	return result;
 }
 
+// ─── Validation helpers ────────────────────────────────────────────────────────
+
+function isValidPhone(phone: string): boolean {
+	const cleaned = phone.replace(/[\s\-().]/g, '');
+	return /^\+?\d{7,15}$/.test(cleaned);
+}
+
+function isValidEmail(email: string): boolean {
+	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
+type StepErrors = Record<string, string>;
+
+function validateStep(stepIndex: number, form: SchoolFormState): StepErrors {
+	const errors: StepErrors = {};
+
+	if (stepIndex === 0) {
+		if (!form.identity.name.trim()) errors['identity.name'] = 'School name is required';
+		if (!form.identity.shortName.trim()) errors['identity.shortName'] = 'Short name is required';
+		if (!form.identity.initials.trim()) errors['identity.initials'] = 'Initials are required';
+		if (!form.system.host.trim()) errors['system.host'] = 'Host is required';
+		if (!form.system.dbName.trim()) errors['system.dbName'] = 'Database name is required';
+	}
+
+	if (stepIndex === 1) {
+		if (!form.userConfig.sysAdmin.name.trim()) errors['userConfig.sysAdmin.name'] = 'Admin name is required';
+		if (!form.userConfig.sysAdmin.phone.trim()) {
+			errors['userConfig.sysAdmin.phone'] = 'Admin phone is required';
+		} else if (!isValidPhone(form.userConfig.sysAdmin.phone)) {
+			errors['userConfig.sysAdmin.phone'] = 'Enter a valid phone number';
+		}
+		if (form.userConfig.sysAdmin.email.trim() && !isValidEmail(form.userConfig.sysAdmin.email)) {
+			errors['userConfig.sysAdmin.email'] = 'Enter a valid email address';
+		}
+		for (let i = 0; i < form.contact.phones.length; i++) {
+			const p = form.contact.phones[i];
+			if (p.trim() && !isValidPhone(p)) {
+				errors[`contact.phones.${i}`] = 'Invalid phone number';
+			}
+		}
+		for (let i = 0; i < form.contact.emails.length; i++) {
+			const e = form.contact.emails[i];
+			if (e.trim() && !isValidEmail(e)) {
+				errors[`contact.emails.${i}`] = 'Invalid email address';
+			}
+		}
+	}
+
+	if (stepIndex === 2) {
+		if (Object.keys(form.academicConfig.classLevels).length === 0) {
+			errors['academicConfig.classLevels'] = 'At least one class level session is required';
+		}
+	}
+
+	return errors;
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────────
 
 export default function SchoolProfileForm({ initialData, onSubmit, submitLabel = 'Save', saving }: Props) {
 	const [step, setStep] = useState(0);
 	const [form, setForm] = useState<SchoolFormState>(() => deepMerge(defaultFormState, initialData || {}));
+	const [errors, setErrors] = useState<StepErrors>({});
+	const [expandedFeeGroups, setExpandedFeeGroups] = useState<Set<string>>(new Set());
+	const [expandedFinancialSections, setExpandedFinancialSections] = useState<Set<string>>(new Set());
+	const [expandedFeeDefs, setExpandedFeeDefs] = useState<Set<number>>(new Set());
+
+	// ── Navigation with validation ──
+	const navigateStep = useCallback((target: number) => {
+		if (target < step) {
+			setErrors({});
+			setStep(target);
+			return;
+		}
+		const validationErrors = validateStep(step, form);
+		if (Object.keys(validationErrors).length > 0) {
+			setErrors(validationErrors);
+			return;
+		}
+		setErrors({});
+		setStep(target);
+	}, [step, form]);
+
+	const goNext = useCallback(() => {
+		const validationErrors = validateStep(step, form);
+		if (Object.keys(validationErrors).length > 0) {
+			setErrors(validationErrors);
+			return;
+		}
+		setErrors({});
+		setStep((s) => s + 1);
+	}, [step, form]);
 
 	// ── Generic nested update helper ──
 	const update = useCallback((path: string, value: any) => {
@@ -180,6 +267,14 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 				return { ...obj, [keys[depth]]: rebuild(obj[keys[depth]] || {}, depth + 1) };
 			};
 			return rebuild(prev, 0);
+		});
+		setErrors((prev) => {
+			if (prev[path]) {
+				const next = { ...prev };
+				delete next[path];
+				return next;
+			}
+			return prev;
 		});
 	}, []);
 
@@ -280,8 +375,9 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 		const sessionNames = Object.keys(form.academicConfig.classLevels);
 
 		if (existingIdx === -1) {
-			// No fee schedule for current year — create one with sessions
-			update('financialConfig.feeSchedules', [...form.financialConfig.feeSchedules, buildDefaultFeeSchedule(currentYear)]);
+			// No fee schedule for current year — create one with sessions from classLevels
+			const sessions = sessionNames.map((name) => ({ sessionName: name, feeGroups: [] }));
+			update('financialConfig.feeSchedules', [...form.financialConfig.feeSchedules, { academicYear: currentYear, sessionFeeSchedules: sessions, scholarships: [] }]);
 		} else {
 			// Fee schedule exists — sync its sessions with classLevels
 			const existing = form.financialConfig.feeSchedules[existingIdx];
@@ -308,7 +404,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 					const isActive = i === step;
 					const isDone = i < step;
 					return (
-						<button key={s.label} onClick={() => setStep(i)}
+						<button key={s.label} onClick={() => navigateStep(i)}
 							className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all ${
 								isActive ? 'bg-[#465fff] text-white shadow-sm'
 								: isDone ? 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400'
@@ -336,12 +432,12 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 								if (!form.identity.initials) update('identity.initials', initials);
 								if (!form.identity.studentIdPrefix) update('identity.studentIdPrefix', initials);
 							}
-						}} placeholder="e.g. Upstairs Christian Academy" /></div>
+						}} placeholder="e.g. Upstairs Christian Academy" error={errors['identity.name']} /></div>
 							<Field label="Short Name" required value={form.identity.shortName} onChange={(v) => update('identity.shortName', v)} onBlur={() => {
 								const slug = form.identity.shortName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
 								if (slug && !form.system.host) { update('system.host', `${slug}.schoolmesh.app`); update('system.dbName', `schoolmesh_${slug}`); }
-							}} placeholder="e.g. Upstairs" />
-							<Field label="Initials" required value={form.identity.initials} onChange={(v) => update('identity.initials', v)} placeholder="e.g. UCA" />
+							}} placeholder="e.g. Upstairs" error={errors['identity.shortName']} />
+							<Field label="Initials" required value={form.identity.initials} onChange={(v) => update('identity.initials', v)} placeholder="e.g. UCA" error={errors['identity.initials']} />
 							<Field label="Student ID Prefix" value={form.identity.studentIdPrefix} onChange={(v) => update('identity.studentIdPrefix', v)} placeholder="e.g. UCA" />
 							<Field label="Slogan" value={form.identity.slogan} onChange={(v) => update('identity.slogan', v)} placeholder="e.g. Excellence in Education" />
 							<div>
@@ -355,11 +451,11 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 						<div className="border-t border-gray-100 dark:border-gray-800 pt-4">
 							<h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">System</h4>
 							<div className="grid gap-3 sm:grid-cols-2">
-								<div className="sm:col-span-2"><Field label="Host" required value={form.system.host} onChange={(v) => { const cleaned = v.toLowerCase().replace(/[^a-z0-9.-]/g, '').replace(/^[.-]+/, ''); update('system.host', cleaned); }} placeholder="e.g. ucaliberia.vercel.app" /></div>
-								<div className="sm:col-span-2">
-									<div className="flex items-end gap-3">
-										<div className="flex-1 min-w-0">
-											<Field label="Database Name" required value={form.system.dbName} onChange={(v) => update('system.dbName', v)} placeholder="e.g. schoolmesh_uca" disabled={form.system.matchHost} />
+							<div className="sm:col-span-2"><Field label="Host" required value={form.system.host} onChange={(v) => { const cleaned = v.toLowerCase().replace(/[^a-z0-9.-]/g, '').replace(/^[.-]+/, ''); update('system.host', cleaned); }} placeholder="e.g. ucaliberia.vercel.app" error={errors['system.host']} /></div>
+							<div className="sm:col-span-2">
+								<div className="flex items-end gap-3">
+									<div className="flex-1 min-w-0">
+										<Field label="Database Name" required value={form.system.dbName} onChange={(v) => update('system.dbName', v)} placeholder="e.g. schoolmesh_uca" disabled={form.system.matchHost} error={errors['system.dbName']} />
 										</div>
 										<CompactToggle label="Match Host" checked={form.system.matchHost} onChange={(newMatch) => {
 											update('system.matchHost', newMatch);
@@ -416,17 +512,17 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 									))}
 									<AddButton label="Address" onClick={() => update('contact.addresses', [...form.contact.addresses, { lines: [''] }])} />
 								</div>
-								<div><p className="text-[11px] font-medium text-gray-500 mb-1.5">Phone Numbers</p><DynamicList values={form.contact.phones} onChange={(v) => update('contact.phones', v)} placeholder="+231 ..." /></div>
-								<div><p className="text-[11px] font-medium text-gray-500 mb-1.5">Emails</p><DynamicList values={form.contact.emails} onChange={(v) => update('contact.emails', v)} placeholder="email@..." /></div>
+							<div><p className="text-[11px] font-medium text-gray-500 mb-1.5">Phone Numbers</p><DynamicList values={form.contact.phones} onChange={(v) => update('contact.phones', v)} placeholder="+231 ..." inputType="tel" itemErrors={Object.fromEntries(Object.entries(errors).filter(([k]) => k.startsWith('contact.phones.')).map(([k, v]) => [Number(k.split('.')[2]), v]))} /></div>
+							<div><p className="text-[11px] font-medium text-gray-500 mb-1.5">Emails</p><DynamicList values={form.contact.emails} onChange={(v) => update('contact.emails', v)} placeholder="email@..." inputType="email" itemErrors={Object.fromEntries(Object.entries(errors).filter(([k]) => k.startsWith('contact.emails.')).map(([k, v]) => [Number(k.split('.')[2]), v]))} /></div>
 								<Field label="Website" value={form.contact.website} onChange={(v) => update('contact.website', v)} placeholder="https://..." />
 							</div>
 						</div>
 						<div className="border-t border-gray-100 dark:border-gray-800 pt-4">
 							<h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">System Admin</h4>
 							<div className="grid gap-3 sm:grid-cols-2">
-								<div className="sm:col-span-2"><Field label="Admin Name" required value={form.userConfig.sysAdmin.name} onChange={(v) => update('userConfig.sysAdmin.name', v)} placeholder="Full name" /></div>
-								<Field label="Phone" required value={form.userConfig.sysAdmin.phone} onChange={(v) => update('userConfig.sysAdmin.phone', v)} placeholder="+231 ..." />
-								<Field label="Email" value={form.userConfig.sysAdmin.email} onChange={(v) => update('userConfig.sysAdmin.email', v)} placeholder="email@..." />
+								<div className="sm:col-span-2"><Field label="Admin Name" required value={form.userConfig.sysAdmin.name} onChange={(v) => update('userConfig.sysAdmin.name', v)} placeholder="Full name" error={errors['userConfig.sysAdmin.name']} /></div>
+								<Field label="Phone" required value={form.userConfig.sysAdmin.phone} onChange={(v) => update('userConfig.sysAdmin.phone', v)} placeholder="+231 ..." inputType="tel" error={errors['userConfig.sysAdmin.phone']} />
+								<Field label="Email" value={form.userConfig.sysAdmin.email} onChange={(v) => update('userConfig.sysAdmin.email', v)} placeholder="email@..." inputType="email" error={errors['userConfig.sysAdmin.email']} />
 							</div>
 						</div>
 						<div className="border-t border-gray-100 dark:border-gray-800 pt-4">
@@ -461,6 +557,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 						}} onUseDefaults={() => {
 							update('academicConfig.classLevels', DEFAULT_CLASS_LEVELS);
 						}} />
+						{errors['academicConfig.classLevels'] && <p className="text-[11px] text-red-500">{errors['academicConfig.classLevels']}</p>}
 						</div>
 						{(() => {
 							const allLevels = new Set<string>();
@@ -496,14 +593,14 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 						<div>
 							<h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Grading Settings</h4>
 							<div className="grid gap-3 sm:grid-cols-2">
-								<Field label="Pass Mark (%)" value={String(form.academicConfig.gradingSettings.passMark)} onChange={(v) => update('academicConfig.gradingSettings.passMark', Number(v) || 0)} placeholder="70" />
+								<Field label="Pass Mark (%)" value={String(form.academicConfig.gradingSettings.passMark)} onChange={(v) => update('academicConfig.gradingSettings.passMark', Number(v) || 0)} placeholder="70" inputType="number" />
 								<div>
 									<label className="text-[11px] font-medium text-gray-500">Grade Scale</label>
 									<div className="flex items-center gap-1.5 mt-1">
-										<input type="number" value={form.academicConfig.gradingSettings.gradeScale.min} onChange={(e) => update('academicConfig.gradingSettings.gradeScale.min', Number(e.target.value) || 60)}
+										<input type="number" inputMode="numeric" value={form.academicConfig.gradingSettings.gradeScale.min} onChange={(e) => update('academicConfig.gradingSettings.gradeScale.min', Number(e.target.value) || 60)}
 											className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="60" />
 										<span className="text-gray-400 text-xs shrink-0">to</span>
-										<input type="number" value={form.academicConfig.gradingSettings.gradeScale.max} onChange={(e) => update('academicConfig.gradingSettings.gradeScale.max', Number(e.target.value) || 100)}
+										<input type="number" inputMode="numeric" value={form.academicConfig.gradingSettings.gradeScale.max} onChange={(e) => update('academicConfig.gradingSettings.gradeScale.max', Number(e.target.value) || 100)}
 											className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="100" />
 									</div>
 								</div>
@@ -574,355 +671,549 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 
 			{/* ═══ Step 5: Financial ═══ */}
 			{step === 5 && (
-				<div className="space-y-5">
+				<div className="space-y-0">
 					{/* ── Currencies ── */}
-					<div>
-						<h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Currencies</h4>
-						<div className="space-y-1.5">
-							{form.financialConfig.currencies.map((cur, i) => (
-								<div key={i} className="flex items-center gap-1.5">
-									<input value={cur.code} onChange={(e) => { const next = [...form.financialConfig.currencies]; next[i] = { ...next[i], code: e.target.value }; update('financialConfig.currencies', next); }}
-										placeholder="Code" className="w-16 rounded-lg border border-gray-200 bg-white px-2 py-2 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-									<input value={cur.label} onChange={(e) => { const next = [...form.financialConfig.currencies]; next[i] = { ...next[i], label: e.target.value }; update('financialConfig.currencies', next); }}
-										placeholder="Label" className="flex-1 min-w-0 rounded-lg border border-gray-200 bg-white px-2 py-2 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-									<input value={cur.symbol} onChange={(e) => { const next = [...form.financialConfig.currencies]; next[i] = { ...next[i], symbol: e.target.value }; update('financialConfig.currencies', next); }}
-										placeholder="$" className="w-12 rounded-lg border border-gray-200 bg-white px-2 py-2 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-									<CompactToggle label="Default" checked={cur.isDefault} onChange={(checked) => {
-										const next = form.financialConfig.currencies.map((c, j) => ({ ...c, isDefault: j === i ? checked : false }));
-										update('financialConfig.currencies', next);
-									}} />
-									<RemoveRow onClick={() => update('financialConfig.currencies', form.financialConfig.currencies.filter((_, j) => j !== i))} />
-								</div>
-							))}
-						</div>
-						<AddButton label="Currency" onClick={() => update('financialConfig.currencies', [...form.financialConfig.currencies, { code: '', label: '', symbol: '', isDefault: form.financialConfig.currencies.length === 0 }])} />
+					<div className="border-b border-gray-100 dark:border-gray-800">
+						<button type="button" onClick={() => setExpandedFinancialSections((prev) => { const next = new Set(prev); next.has('currencies') ? next.delete('currencies') : next.add('currencies'); return next; })} className="w-full flex items-center gap-2 py-3 text-left">
+							{expandedFinancialSections.has('currencies') ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />}
+							<h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex-1">Currencies</h4>
+							{!expandedFinancialSections.has('currencies') && <span className="text-[10px] text-gray-400 font-mono">{form.financialConfig.currencies.length}</span>}
+						</button>
+						{expandedFinancialSections.has('currencies') && (
+							<div className="pb-4 space-y-1.5 pl-5">
+								{form.financialConfig.currencies.map((cur, i) => (
+									<div key={i} className="flex items-center gap-1.5">
+										<input value={cur.code} onChange={(e) => { const next = [...form.financialConfig.currencies]; next[i] = { ...next[i], code: e.target.value }; update('financialConfig.currencies', next); }}
+											placeholder="Code" className="w-16 rounded-lg border border-gray-200 bg-white px-2 py-2 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+										<input value={cur.label} onChange={(e) => { const next = [...form.financialConfig.currencies]; next[i] = { ...next[i], label: e.target.value }; update('financialConfig.currencies', next); }}
+											placeholder="Label" className="flex-1 min-w-0 rounded-lg border border-gray-200 bg-white px-2 py-2 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+										<input value={cur.symbol} onChange={(e) => { const next = [...form.financialConfig.currencies]; next[i] = { ...next[i], symbol: e.target.value }; update('financialConfig.currencies', next); }}
+											placeholder="$" className="w-12 rounded-lg border border-gray-200 bg-white px-2 py-2 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+										<CompactToggle label="Default" checked={cur.isDefault} onChange={(checked) => {
+											const next = form.financialConfig.currencies.map((c, j) => ({ ...c, isDefault: j === i ? checked : false }));
+											update('financialConfig.currencies', next);
+										}} />
+										<RemoveRow onClick={() => update('financialConfig.currencies', form.financialConfig.currencies.filter((_, j) => j !== i))} />
+									</div>
+								))}
+								<AddButton label="Currency" onClick={() => update('financialConfig.currencies', [...form.financialConfig.currencies, { code: '', label: '', symbol: '', isDefault: form.financialConfig.currencies.length === 0 }])} />
+							</div>
+						)}
 					</div>
 
 					{/* ── Payment Categories ── */}
-					<div className="border-t border-gray-100 dark:border-gray-800 pt-4">
-						<h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Payment Categories</h4>
-						<div className="space-y-1.5">
-							{form.financialConfig.paymentCategories.map((cat, i) => (
-								<div key={i} className="flex items-center gap-2">
-									<input value={cat.name} onChange={(e) => {
-										const newName = e.target.value;
-										const newId = newName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-										const next = [...form.financialConfig.paymentCategories];
-										next[i] = { id: newId, name: newName };
-										update('financialConfig.paymentCategories', next);
-									}} placeholder="Category name" className="flex-1 min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-									<span className="text-[10px] text-gray-400 font-mono whitespace-nowrap hidden sm:inline">{cat.id || '—'}</span>
-									<RemoveRow onClick={() => update('financialConfig.paymentCategories', form.financialConfig.paymentCategories.filter((_, j) => j !== i))} />
-								</div>
-							))}
-						</div>
-						<AddButton label="Category" onClick={() => update('financialConfig.paymentCategories', [...form.financialConfig.paymentCategories, { id: '', name: '' }])} />
+					<div className="border-b border-gray-100 dark:border-gray-800">
+						<button type="button" onClick={() => setExpandedFinancialSections((prev) => { const next = new Set(prev); next.has('paymentCategories') ? next.delete('paymentCategories') : next.add('paymentCategories'); return next; })} className="w-full flex items-center gap-2 py-3 text-left">
+							{expandedFinancialSections.has('paymentCategories') ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />}
+							<h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex-1">Payment Categories</h4>
+							{!expandedFinancialSections.has('paymentCategories') && <span className="text-[10px] text-gray-400 font-mono">{form.financialConfig.paymentCategories.length}</span>}
+						</button>
+						{expandedFinancialSections.has('paymentCategories') && (
+							<div className="pb-4 space-y-1.5 pl-5">
+								{form.financialConfig.paymentCategories.map((cat, i) => (
+									<div key={i} className="flex items-center gap-2">
+										<input value={cat.name} onChange={(e) => {
+											const newName = e.target.value;
+											const newId = newName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+											const next = [...form.financialConfig.paymentCategories];
+											next[i] = { id: newId, name: newName };
+											update('financialConfig.paymentCategories', next);
+										}} placeholder="Category name" className="flex-1 min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+										<span className="text-[10px] text-gray-400 font-mono whitespace-nowrap hidden sm:inline">{cat.id || '—'}</span>
+										<RemoveRow onClick={() => update('financialConfig.paymentCategories', form.financialConfig.paymentCategories.filter((_, j) => j !== i))} />
+									</div>
+								))}
+								<AddButton label="Category" onClick={() => update('financialConfig.paymentCategories', [...form.financialConfig.paymentCategories, { id: '', name: '' }])} />
+							</div>
+						)}
 					</div>
 
 					{/* ── Fee Definitions ── */}
-					<div className="border-t border-gray-100 dark:border-gray-800 pt-4">
-						<h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Fee Definitions</h4>
-						<div className="space-y-2">
-							{form.financialConfig.feeDefinitions.map((fd, i) => (
-								<div key={i} className="rounded-lg border border-gray-200 dark:border-gray-800 p-2.5">
-									<div className="grid gap-2 sm:grid-cols-3">
-										<input value={fd.name} onChange={(e) => { const next = [...form.financialConfig.feeDefinitions]; next[i] = { ...next[i], name: e.target.value }; update('financialConfig.feeDefinitions', next); }}
-											placeholder="Fee name" className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-										<select value={fd.category} onChange={(e) => { const next = [...form.financialConfig.feeDefinitions]; next[i] = { ...next[i], category: e.target.value }; update('financialConfig.feeDefinitions', next); }}
-											className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
-											<option value="">— Select —</option>
-											{form.financialConfig.paymentCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-										</select>
-										<div className="flex items-center gap-1.5">
-											<input value={fd.description} onChange={(e) => { const next = [...form.financialConfig.feeDefinitions]; next[i] = { ...next[i], description: e.target.value }; update('financialConfig.feeDefinitions', next); }}
-												placeholder="Description" className="flex-1 min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-											<CompactToggle label="Active" checked={fd.isActive} onChange={(checked) => { const next = [...form.financialConfig.feeDefinitions]; next[i] = { ...next[i], isActive: checked }; update('financialConfig.feeDefinitions', next); }} />
+					<div className="border-b border-gray-100 dark:border-gray-800">
+						<button type="button" onClick={() => setExpandedFinancialSections((prev) => { const next = new Set(prev); next.has('feeDefinitions') ? next.delete('feeDefinitions') : next.add('feeDefinitions'); return next; })} className="w-full flex items-center gap-2 py-3 text-left">
+							{expandedFinancialSections.has('feeDefinitions') ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />}
+							<h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex-1">Fee Definitions</h4>
+							{!expandedFinancialSections.has('feeDefinitions') && <span className="text-[10px] text-gray-400 font-mono">{form.financialConfig.feeDefinitions.length}</span>}
+						</button>
+						{expandedFinancialSections.has('feeDefinitions') && (
+							<div className="pb-4 pl-5 space-y-2">
+								{form.financialConfig.feeDefinitions.map((fd, i) => {
+									const fdExpanded = expandedFeeDefs.has(i);
+									return (
+										<div key={i} className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+											<div className="flex items-center gap-2 px-2.5 py-2 cursor-pointer select-none hover:bg-gray-50/50 dark:hover:bg-muted/30 transition-colors" onClick={() => setExpandedFeeDefs((prev) => { const next = new Set(prev); fdExpanded ? next.delete(i) : next.add(i); return next; })}>
+												{fdExpanded ? <ChevronDown className="h-3 w-3 text-gray-400 shrink-0" /> : <ChevronRight className="h-3 w-3 text-gray-400 shrink-0" />}
+												<span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate flex-1">{fd.name || <span className="italic text-gray-400">Unnamed fee</span>}</span>
+												<span className="text-[10px] text-gray-400 font-mono hidden sm:inline">{fd.category || '—'}</span>
+												<CompactToggle label="" checked={fd.isActive} onChange={(checked) => { const next = [...form.financialConfig.feeDefinitions]; next[i] = { ...next[i], isActive: checked }; update('financialConfig.feeDefinitions', next); }} />
+												<button onClick={(e) => { e.stopPropagation(); update('financialConfig.feeDefinitions', form.financialConfig.feeDefinitions.filter((_, j) => j !== i)); }} className="text-red-400 hover:text-red-500 text-[11px] font-medium">Remove</button>
+											</div>
+											{fdExpanded && (
+												<div className="px-2.5 pb-3 space-y-2 border-t border-gray-100 dark:border-gray-800 pt-2.5">
+													<div className="grid gap-2 sm:grid-cols-3">
+														<input value={fd.name} onChange={(e) => { const next = [...form.financialConfig.feeDefinitions]; next[i] = { ...next[i], name: e.target.value }; update('financialConfig.feeDefinitions', next); }}
+															placeholder="Fee name" className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+														<select value={fd.category} onChange={(e) => { const next = [...form.financialConfig.feeDefinitions]; next[i] = { ...next[i], category: e.target.value }; update('financialConfig.feeDefinitions', next); }}
+															className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
+															<option value="">— Select —</option>
+															{form.financialConfig.paymentCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+														</select>
+														<input value={fd.description} onChange={(e) => { const next = [...form.financialConfig.feeDefinitions]; next[i] = { ...next[i], description: e.target.value }; update('financialConfig.feeDefinitions', next); }}
+															placeholder="Description" className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+													</div>
+												</div>
+											)}
 										</div>
-									</div>
-									<div className="flex justify-end mt-1.5">
-										<RemoveRow onClick={() => update('financialConfig.feeDefinitions', form.financialConfig.feeDefinitions.filter((_, j) => j !== i))} />
-									</div>
-								</div>
-							))}
-						</div>
-						<AddButton label="Fee Definition" onClick={() => update('financialConfig.feeDefinitions', [...form.financialConfig.feeDefinitions, { id: `fee-${Date.now()}`, name: '', category: form.financialConfig.paymentCategories[0]?.id || '', description: '', isActive: true }])} />
+									);
+								})}
+								<AddButton label="Fee Definition" onClick={() => update('financialConfig.feeDefinitions', [...form.financialConfig.feeDefinitions, { id: `fee-${Date.now()}`, name: '', category: form.financialConfig.paymentCategories[0]?.id || '', description: '', isActive: true }])} />
+							</div>
+						)}
 					</div>
 
 					{/* ── Payment Plans ── */}
-					<div className="border-t border-gray-100 dark:border-gray-800 pt-4">
-						<h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Payment Plans</h4>
-						<div className="space-y-2">
-							{form.financialConfig.paymentPlans.map((plan, i) => (
-								<div key={i} className="rounded-lg border border-gray-200 dark:border-gray-800 p-3">
-									<div className="grid gap-2 sm:grid-cols-3 mb-2">
-										<input value={plan.name} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; next[i] = { ...next[i], name: e.target.value }; update('financialConfig.paymentPlans', next); }}
-											placeholder="Plan name" className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-										<input value={plan.description} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; next[i] = { ...next[i], description: e.target.value }; update('financialConfig.paymentPlans', next); }}
-											placeholder="Description" className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-										<div className="flex items-center gap-2">
-											<CompactToggle label="Active" checked={plan.isActive} onChange={(checked) => { const next = [...form.financialConfig.paymentPlans]; next[i] = { ...next[i], isActive: checked }; update('financialConfig.paymentPlans', next); }} />
-											<div className="ml-auto"><RemoveRow onClick={() => update('financialConfig.paymentPlans', form.financialConfig.paymentPlans.filter((_, j) => j !== i))} /></div>
+					<div className="border-b border-gray-100 dark:border-gray-800">
+						<button type="button" onClick={() => setExpandedFinancialSections((prev) => { const next = new Set(prev); next.has('paymentPlans') ? next.delete('paymentPlans') : next.add('paymentPlans'); return next; })} className="w-full flex items-center gap-2 py-3 text-left">
+							{expandedFinancialSections.has('paymentPlans') ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />}
+							<h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex-1">Payment Plans</h4>
+							{!expandedFinancialSections.has('paymentPlans') && <span className="text-[10px] text-gray-400 font-mono">{form.financialConfig.paymentPlans.length}</span>}
+						</button>
+						{expandedFinancialSections.has('paymentPlans') && (
+							<div className="pb-4 pl-5 space-y-2">
+								{form.financialConfig.paymentPlans.map((plan, i) => (
+									<div key={i} className="rounded-lg border border-gray-200 dark:border-gray-800 p-3">
+										<div className="grid gap-2 sm:grid-cols-3 mb-2">
+											<input value={plan.name} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; next[i] = { ...next[i], name: e.target.value }; update('financialConfig.paymentPlans', next); }}
+												placeholder="Plan name" className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+											<input value={plan.description} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; next[i] = { ...next[i], description: e.target.value }; update('financialConfig.paymentPlans', next); }}
+												placeholder="Description" className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+											<div className="flex items-center gap-2">
+												<CompactToggle label="Active" checked={plan.isActive} onChange={(checked) => { const next = [...form.financialConfig.paymentPlans]; next[i] = { ...next[i], isActive: checked }; update('financialConfig.paymentPlans', next); }} />
+												<div className="ml-auto"><RemoveRow onClick={() => update('financialConfig.paymentPlans', form.financialConfig.paymentPlans.filter((_, j) => j !== i))} /></div>
+											</div>
+										</div>
+										<div className="space-y-1">
+											<p className="text-[10px] font-medium text-gray-400 uppercase">Installments</p>
+											{plan.installments.map((inst, ii) => (
+												<div key={ii} className="flex items-center gap-1">
+													<input value={inst.label} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; const insts = [...pi.installments]; insts[ii] = { ...insts[ii], label: e.target.value }; pi.installments = insts; next[i] = pi; update('financialConfig.paymentPlans', next); }}
+														placeholder="Label" className="flex-1 min-w-0 rounded border border-gray-200 bg-white px-2 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+													<input value={inst.percentage} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; const insts = [...pi.installments]; insts[ii] = { ...insts[ii], percentage: e.target.value }; pi.installments = insts; next[i] = pi; update('financialConfig.paymentPlans', next); }}
+														placeholder="%" className="w-12 rounded border border-gray-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+													<input value={inst.dueWindow} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; const insts = [...pi.installments]; insts[ii] = { ...insts[ii], dueWindow: e.target.value }; pi.installments = insts; next[i] = pi; update('financialConfig.paymentPlans', next); }}
+														placeholder="Due" className="w-20 rounded border border-gray-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+													<button onClick={() => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; pi.installments = pi.installments.filter((__, j) => j !== ii); next[i] = pi; update('financialConfig.paymentPlans', next); }} className="text-gray-400 hover:text-red-500 text-[10px] p-0.5">✕</button>
+												</div>
+											))}
+											<button onClick={() => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; pi.installments = [...pi.installments, { id: `inst-${Date.now()}`, label: '', percentage: '', dueWindow: '' }]; next[i] = pi; update('financialConfig.paymentPlans', next); }} className="text-[11px] text-[#465fff] font-medium">+ Installment</button>
 										</div>
 									</div>
-									<div className="space-y-1">
-										<p className="text-[10px] font-medium text-gray-400 uppercase">Installments</p>
-										{plan.installments.map((inst, ii) => (
-											<div key={ii} className="flex items-center gap-1">
-												<input value={inst.label} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; const insts = [...pi.installments]; insts[ii] = { ...insts[ii], label: e.target.value }; pi.installments = insts; next[i] = pi; update('financialConfig.paymentPlans', next); }}
-													placeholder="Label" className="flex-1 min-w-0 rounded border border-gray-200 bg-white px-2 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-												<input value={inst.percentage} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; const insts = [...pi.installments]; insts[ii] = { ...insts[ii], percentage: e.target.value }; pi.installments = insts; next[i] = pi; update('financialConfig.paymentPlans', next); }}
-													placeholder="%" className="w-12 rounded border border-gray-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-												<input value={inst.dueWindow} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; const insts = [...pi.installments]; insts[ii] = { ...insts[ii], dueWindow: e.target.value }; pi.installments = insts; next[i] = pi; update('financialConfig.paymentPlans', next); }}
-													placeholder="Due" className="w-20 rounded border border-gray-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-												<button onClick={() => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; pi.installments = pi.installments.filter((__, j) => j !== ii); next[i] = pi; update('financialConfig.paymentPlans', next); }} className="text-gray-400 hover:text-red-500 text-[10px] p-0.5">✕</button>
-											</div>
-										))}
-										<button onClick={() => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; pi.installments = [...pi.installments, { id: `inst-${Date.now()}`, label: '', percentage: '', dueWindow: '' }]; next[i] = pi; update('financialConfig.paymentPlans', next); }} className="text-[11px] text-[#465fff] font-medium">+ Installment</button>
-									</div>
-								</div>
-							))}
-						</div>
-						<AddButton label="Payment Plan" onClick={() => update('financialConfig.paymentPlans', [...form.financialConfig.paymentPlans, { id: `plan-${Date.now()}`, name: '', description: '', isActive: true, installments: [] }])} />
+								))}
+								<AddButton label="Payment Plan" onClick={() => update('financialConfig.paymentPlans', [...form.financialConfig.paymentPlans, { id: `plan-${Date.now()}`, name: '', description: '', isActive: true, installments: [] }])} />
+							</div>
+						)}
 					</div>
 
 					{/* ── Student Groups ── */}
-					<div className="border-t border-gray-100 dark:border-gray-800 pt-4">
-						<h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Student Groups</h4>
-						<div className="space-y-2">
-							{form.financialConfig.studentGroups.map((sg, i) => (
-								<div key={i} className="rounded-lg border border-gray-200 dark:border-gray-800 p-3">
-									<div className="grid gap-2 sm:grid-cols-4 mb-2">
-										<input value={sg.name} onChange={(e) => { const next = [...form.financialConfig.studentGroups]; next[i] = { ...next[i], name: e.target.value }; update('financialConfig.studentGroups', next); }}
-											placeholder="Group name" className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-										<input type="number" value={sg.priority} onChange={(e) => { const next = [...form.financialConfig.studentGroups]; next[i] = { ...next[i], priority: Number(e.target.value) || 0 }; update('financialConfig.studentGroups', next); }}
-											placeholder="Priority" className="w-16 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-										<div className="flex items-center gap-2 sm:col-span-2">
-											<CompactToggle label="Active" checked={sg.isActive} onChange={(checked) => { const next = [...form.financialConfig.studentGroups]; next[i] = { ...next[i], isActive: checked }; update('financialConfig.studentGroups', next); }} />
-											<div className="ml-auto"><RemoveRow onClick={() => update('financialConfig.studentGroups', form.financialConfig.studentGroups.filter((_, j) => j !== i))} /></div>
+					<div className="border-b border-gray-100 dark:border-gray-800">
+						<button type="button" onClick={() => setExpandedFinancialSections((prev) => { const next = new Set(prev); next.has('studentGroups') ? next.delete('studentGroups') : next.add('studentGroups'); return next; })} className="w-full flex items-center gap-2 py-3 text-left">
+							{expandedFinancialSections.has('studentGroups') ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />}
+							<h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex-1">Student Groups</h4>
+							{!expandedFinancialSections.has('studentGroups') && <span className="text-[10px] text-gray-400 font-mono">{form.financialConfig.studentGroups.length}</span>}
+						</button>
+						{expandedFinancialSections.has('studentGroups') && (
+							<div className="pb-4 pl-5 space-y-2">
+								{form.financialConfig.studentGroups.map((sg, i) => (
+									<div key={i} className="rounded-lg border border-gray-200 dark:border-gray-800 p-3">
+										<div className="grid gap-2 sm:grid-cols-4 mb-2">
+											<input value={sg.name} onChange={(e) => { const next = [...form.financialConfig.studentGroups]; next[i] = { ...next[i], name: e.target.value }; update('financialConfig.studentGroups', next); }}
+												placeholder="Group name" className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+											<input type="number" inputMode="numeric" value={sg.priority} onChange={(e) => { const next = [...form.financialConfig.studentGroups]; next[i] = { ...next[i], priority: Number(e.target.value) || 0 }; update('financialConfig.studentGroups', next); }}
+												placeholder="Priority" className="w-16 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+											<div className="flex items-center gap-2 sm:col-span-2">
+												<CompactToggle label="Active" checked={sg.isActive} onChange={(checked) => { const next = [...form.financialConfig.studentGroups]; next[i] = { ...next[i], isActive: checked }; update('financialConfig.studentGroups', next); }} />
+												<div className="ml-auto"><RemoveRow onClick={() => update('financialConfig.studentGroups', form.financialConfig.studentGroups.filter((_, j) => j !== i))} /></div>
+											</div>
+										</div>
+										<div className="space-y-1">
+											<p className="text-[10px] font-medium text-gray-400 uppercase">Conditions</p>
+											{sg.conditions.map((cond, ci) => (
+												<div key={ci} className="flex items-center gap-1">
+													<input value={cond.field} onChange={(e) => { const next = [...form.financialConfig.studentGroups]; const sg2 = { ...next[i] }; const conds = [...sg2.conditions]; conds[ci] = { ...conds[ci], field: e.target.value }; sg2.conditions = conds; next[i] = sg2; update('financialConfig.studentGroups', next); }}
+														placeholder="Field" className="flex-1 min-w-0 rounded border border-gray-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+													<select value={cond.operator} onChange={(e) => { const next = [...form.financialConfig.studentGroups]; const sg2 = { ...next[i] }; const conds = [...sg2.conditions]; conds[ci] = { ...conds[ci], operator: e.target.value }; sg2.conditions = conds; next[i] = sg2; update('financialConfig.studentGroups', next); }}
+														className="w-24 rounded border border-gray-200 bg-white px-1 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
+														{['equals', 'notEquals', 'contains', 'notContains', 'greaterThan', 'lessThan', 'in', 'notIn'].map((op) => <option key={op} value={op}>{op}</option>)}
+													</select>
+													<input value={cond.value} onChange={(e) => { const next = [...form.financialConfig.studentGroups]; const sg2 = { ...next[i] }; const conds = [...sg2.conditions]; conds[ci] = { ...conds[ci], value: e.target.value }; sg2.conditions = conds; next[i] = sg2; update('financialConfig.studentGroups', next); }}
+														placeholder="Value" className="flex-1 min-w-0 rounded border border-gray-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+													<button onClick={() => { const next = [...form.financialConfig.studentGroups]; const sg2 = { ...next[i] }; sg2.conditions = sg2.conditions.filter((__, j) => j !== ci); next[i] = sg2; update('financialConfig.studentGroups', next); }} className="text-gray-400 hover:text-red-500 text-[10px] p-0.5">✕</button>
+												</div>
+											))}
+											<button onClick={() => { const next = [...form.financialConfig.studentGroups]; const sg2 = { ...next[i] }; sg2.conditions = [...sg2.conditions, { field: '', operator: 'equals', value: '' }]; next[i] = sg2; update('financialConfig.studentGroups', next); }} className="text-[11px] text-[#465fff] font-medium">+ Condition</button>
 										</div>
 									</div>
-									<div className="space-y-1">
-										<p className="text-[10px] font-medium text-gray-400 uppercase">Conditions</p>
-										{sg.conditions.map((cond, ci) => (
-											<div key={ci} className="flex items-center gap-1">
-												<input value={cond.field} onChange={(e) => { const next = [...form.financialConfig.studentGroups]; const sg2 = { ...next[i] }; const conds = [...sg2.conditions]; conds[ci] = { ...conds[ci], field: e.target.value }; sg2.conditions = conds; next[i] = sg2; update('financialConfig.studentGroups', next); }}
-													placeholder="Field" className="flex-1 min-w-0 rounded border border-gray-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-												<select value={cond.operator} onChange={(e) => { const next = [...form.financialConfig.studentGroups]; const sg2 = { ...next[i] }; const conds = [...sg2.conditions]; conds[ci] = { ...conds[ci], operator: e.target.value }; sg2.conditions = conds; next[i] = sg2; update('financialConfig.studentGroups', next); }}
-													className="w-24 rounded border border-gray-200 bg-white px-1 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
-													{['equals', 'notEquals', 'contains', 'notContains', 'greaterThan', 'lessThan', 'in', 'notIn'].map((op) => <option key={op} value={op}>{op}</option>)}
-												</select>
-												<input value={cond.value} onChange={(e) => { const next = [...form.financialConfig.studentGroups]; const sg2 = { ...next[i] }; const conds = [...sg2.conditions]; conds[ci] = { ...conds[ci], value: e.target.value }; sg2.conditions = conds; next[i] = sg2; update('financialConfig.studentGroups', next); }}
-													placeholder="Value" className="flex-1 min-w-0 rounded border border-gray-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-												<button onClick={() => { const next = [...form.financialConfig.studentGroups]; const sg2 = { ...next[i] }; sg2.conditions = sg2.conditions.filter((__, j) => j !== ci); next[i] = sg2; update('financialConfig.studentGroups', next); }} className="text-gray-400 hover:text-red-500 text-[10px] p-0.5">✕</button>
-											</div>
-										))}
-										<button onClick={() => { const next = [...form.financialConfig.studentGroups]; const sg2 = { ...next[i] }; sg2.conditions = [...sg2.conditions, { field: '', operator: 'equals', value: '' }]; next[i] = sg2; update('financialConfig.studentGroups', next); }} className="text-[11px] text-[#465fff] font-medium">+ Condition</button>
-									</div>
-								</div>
-							))}
-						</div>
-						<AddButton label="Student Group" onClick={() => update('financialConfig.studentGroups', [...form.financialConfig.studentGroups, { id: `group-${Date.now()}`, name: '', priority: 0, isActive: true, conditions: [] }])} />
+								))}
+								<AddButton label="Student Group" onClick={() => update('financialConfig.studentGroups', [...form.financialConfig.studentGroups, { id: `group-${Date.now()}`, name: '', priority: 0, isActive: true, conditions: [] }])} />
+							</div>
+						)}
 					</div>
 
 					{/* ── Fee Schedules ── */}
-					<div className="border-t border-gray-100 dark:border-gray-800 pt-4">
-						<h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Fee Schedules</h4>
+					<div className="border-b border-gray-100 dark:border-gray-800">
+						<button type="button" onClick={() => setExpandedFinancialSections((prev) => { const next = new Set(prev); next.has('feeSchedules') ? next.delete('feeSchedules') : next.add('feeSchedules'); return next; })} className="w-full flex items-center gap-2 py-3 text-left">
+							{expandedFinancialSections.has('feeSchedules') ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />}
+							<h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex-1">Fee Schedules</h4>
+							{!expandedFinancialSections.has('feeSchedules') && <span className="text-[10px] text-gray-400 font-mono">{form.financialConfig.feeSchedules.length} yr{form.financialConfig.feeSchedules.length !== 1 ? 's' : ''}</span>}
+						</button>
+						{expandedFinancialSections.has('feeSchedules') && (
+							<div className="pb-4 pl-5">
 						{form.financialConfig.feeSchedules.length === 0 ? (
 							<div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-6 text-center">
 								<DollarSignIcon className="h-6 w-6 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
 								<p className="text-xs text-gray-500">No fee schedules configured yet.</p>
 							</div>
 						) : (
-							<div className="space-y-3">
+							<div className="space-y-4">
 								{form.financialConfig.feeSchedules.map((fs: any, i: number) => {
 									const defaultCurrency = form.financialConfig.currencies.find((c) => c.isDefault)?.code || form.financialConfig.currencies[0]?.code || '';
 									return (
-										<div key={i}>
-											<div className="flex items-center justify-between mb-2">
-												<span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{fs.academicYear || 'Untitled Year'}</span>
+										<div key={i} className="rounded-lg border border-gray-200 dark:border-gray-800 p-3 sm:p-4">
+											<div className="flex items-center justify-between mb-3">
+												<span className="text-sm font-semibold text-gray-900 dark:text-white">{fs.academicYear || 'Untitled Year'}</span>
 												<button onClick={() => update('financialConfig.feeSchedules', form.financialConfig.feeSchedules.filter((__, j) => j !== i))} className="text-[11px] text-red-400 hover:text-red-500">Remove</button>
 											</div>
 
-											{/* ── Sessions within this fee schedule (read-only from class levels) ── */}
-											<div className="space-y-2 mb-3">
+											{/* ── Sessions ── */}
+											<div className="space-y-3">
 												{(fs.sessionFeeSchedules || []).map((sess: any, si: number) => {
-													// Only classes belonging to this session
 													const sessionClasses: { classId: string; name: string }[] = [];
 													const sessionData = form.academicConfig.classLevels[sess.sessionName];
 													if (sessionData) {
 														for (const [, level] of Object.entries(sessionData)) {
-															for (const cls of (level as any).classes || []) {
-																sessionClasses.push({ classId: cls.classId, name: cls.name });
-															}
+															for (const cls of (level as any).classes || []) sessionClasses.push({ classId: cls.classId, name: cls.name });
 														}
 													}
 													return (
-														<div key={si} className="rounded border border-gray-100 dark:border-gray-800 p-2.5">
-															<div className="flex items-center gap-2 mb-1.5">
-																<span className="flex-1 text-xs font-semibold text-gray-700 dark:text-gray-300">{sess.sessionName || 'Unnamed Session'}</span>
+														<div key={si} className="rounded-lg border border-gray-100 dark:border-gray-800 p-3">
+															<div className="flex items-center gap-2 mb-2.5">
+																<span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{sess.sessionName || 'Unnamed Session'}</span>
+																<span className="text-[10px] text-gray-400">{sessionClasses.length} classes</span>
 															</div>
-															{/* Fee Groups within session */}
-															<div className="space-y-1.5 ml-2">
-																{(sess.feeGroups || []).map((fg: any, fi: number) => (
-																	<div key={fi} className="rounded border border-gray-50 dark:border-gray-800 p-2 bg-gray-50/50 dark:bg-muted/30">
-																		<div className="flex items-center gap-2 mb-1">
-																			<input value={fg.name || ''} onChange={(e) => {
-																				const next = [...form.financialConfig.feeSchedules];
-																				const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
-																				const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
-																				fgList[fi] = { ...fgList[fi], name: e.target.value };
-																				sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
-																				update('financialConfig.feeSchedules', next);
-																			}} placeholder="Group name (e.g. Grade 7-9)" className="flex-1 rounded border border-gray-200 bg-white px-2 py-0.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-																			<select value={fg.paymentPlanId || ''} onChange={(e) => {
-																				const next = [...form.financialConfig.feeSchedules];
-																				const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
-																				const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
-																				fgList[fi] = { ...fgList[fi], paymentPlanId: e.target.value };
-																				sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
-																				update('financialConfig.feeSchedules', next);
-																			}} className="w-32 rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[10px] outline-none dark:bg-muted dark:text-white">
-																				<option value="">Plan</option>
-																				{form.financialConfig.paymentPlans.filter((p) => p.isActive).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-																			</select>
-																			<button onClick={() => {
-																				const next = [...form.financialConfig.feeSchedules];
-																				const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
-																				const sg = { ...sessList[si] }; sg.feeGroups = (sg.feeGroups || []).filter((__: any, j: number) => j !== fi);
-																				sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
-																				update('financialConfig.feeSchedules', next);
-																			}} className="text-red-400 hover:text-red-600 text-[10px]">X</button>
-																		</div>
-																		{/* Applies To Classes — only classes from this session */}
-																		<div className="flex flex-wrap gap-1 mb-1">
-																			{sessionClasses.map((c) => {
-																				const checked = (fg.appliesToClassIds || []).includes(c.classId);
-																				return (
-																					<label key={c.classId} className="inline-flex items-center gap-1 text-[10px] text-gray-500 cursor-pointer">
-																						<input type="checkbox" checked={checked} onChange={() => {
+
+															{/* ── Fee Groups ── */}
+															<div className="space-y-2.5 ml-0 sm:ml-2">
+																{(sess.feeGroups || []).map((fg: any, fi: number) => {
+																	const fgKey = `${i}-${si}-${fi}`;
+																	const isExpanded = expandedFeeGroups.has(fgKey);
+																	const allClassIds = sessionClasses.map((c) => c.classId);
+																	const allSelected = allClassIds.length > 0 && allClassIds.every((id) => (fg.appliesToClassIds || []).includes(id));
+																	return (
+																		<div key={fi} className="rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-muted/30 overflow-hidden">
+																			{/* Fee Group Accordion Header */}
+																			<div className="flex items-center gap-2 px-2.5 py-2 cursor-pointer select-none hover:bg-gray-100/50 dark:hover:bg-muted/50 transition-colors" onClick={() => setExpandedFeeGroups((prev) => { const next = new Set(prev); if (next.has(fgKey)) next.delete(fgKey); else next.add(fgKey); return next; })}>
+																				{isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />}
+																				{/* On small screens: display name as text; on sm+: editable input */}
+																				<span className="flex-1 min-w-0 text-xs text-gray-700 dark:text-gray-300 truncate sm:hidden">{fg.name || <span className="italic text-gray-400">Untitled group</span>}</span>
+																				<input value={fg.name || ''} onClick={(e) => e.stopPropagation()} onChange={(e) => {
+																					const next = [...form.financialConfig.feeSchedules];
+																					const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
+																					const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
+																					fgList[fi] = { ...fgList[fi], name: e.target.value };
+																					sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
+																					update('financialConfig.feeSchedules', next);
+																				}} placeholder="Group name" className="hidden sm:block flex-1 min-w-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+																				<button onClick={(e) => { e.stopPropagation(); const next = [...form.financialConfig.feeSchedules]; const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])]; const sg = { ...sessList[si] }; sg.feeGroups = (sg.feeGroups || []).filter((__: any, j: number) => j !== fi); sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s; update('financialConfig.feeSchedules', next); }} className="text-red-400 hover:text-red-500 text-[11px] font-medium sm:justify-self-end">Remove</button>
+																			</div>
+
+																			{/* Fee Group Body (collapsed by default) */}
+																			{isExpanded && (
+																				<div className="px-2.5 pb-2.5 space-y-2.5 border-t border-gray-200 dark:border-gray-800 pt-2.5">
+																					{/* Group Name (editable on small screens where header shows text only) */}
+																					<div className="sm:hidden">
+																						<label className="text-[10px] font-medium text-gray-400 uppercase mb-1 block">Group Name</label>
+																						<input value={fg.name || ''} onChange={(e) => {
 																							const next = [...form.financialConfig.feeSchedules];
 																							const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
 																							const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
-																							const currentIds = fgList[fi].appliesToClassIds || [];
-																							fgList[fi] = { ...fgList[fi], appliesToClassIds: checked ? currentIds.filter((id: string) => id !== c.classId) : [...currentIds, c.classId] };
+																							fgList[fi] = { ...fgList[fi], name: e.target.value };
 																							sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
 																							update('financialConfig.feeSchedules', next);
-																						}} />
-																						{c.name}
-																					</label>
-																				);
-																			})}
-																			{sessionClasses.length === 0 && <span className="text-[10px] text-gray-400 italic">No classes defined for this session</span>}
-																		</div>
-																		{/* Scheduled Fees */}
-																		<div className="space-y-1 ml-2">
-																			{(fg.scheduledFees || []).map((sf: any, sfi: number) => (
-																				<div key={sfi} className="space-y-1">
-																					<div className="flex items-center gap-1 text-[10px]">
-																						<select value={sf.feeId || ''} onChange={(e) => {
+																						}} placeholder="Group name (e.g. All Classes, Grade 7-9)" className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+																					</div>
+
+																					{/* Payment Plan */}
+																					<div>
+																						<label className="text-[10px] font-medium text-gray-400 uppercase mb-1 block">Payment Plan</label>
+																						<select value={fg.paymentPlanId || ''} onChange={(e) => {
 																							const next = [...form.financialConfig.feeSchedules];
 																							const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
 																							const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
-																							const sfList = [...(fgList[fi].scheduledFees || [])];
-																							sfList[sfi] = { ...sfList[sfi], feeId: e.target.value };
-																							fgList[fi] = { ...fgList[fi], scheduledFees: sfList };
+																							fgList[fi] = { ...fgList[fi], paymentPlanId: e.target.value };
 																							sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
 																							update('financialConfig.feeSchedules', next);
-																						}} className="w-28 rounded border border-gray-200 bg-white px-1 py-0.5 outline-none dark:bg-muted dark:text-white">
-																							<option value="">Fee</option>
-																							{form.financialConfig.feeDefinitions.filter((f) => f.isActive).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+																						}} className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
+																							<option value="">No payment plan</option>
+																							{form.financialConfig.paymentPlans.filter((p) => p.isActive).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
 																						</select>
-																						<select value={sf.amount?.currency || defaultCurrency} onChange={(e) => {
-																							const next = [...form.financialConfig.feeSchedules];
-																							const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
-																							const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
-																							const sfList = [...(fgList[fi].scheduledFees || [])];
-																							sfList[sfi] = { ...sfList[sfi], amount: { ...(sfList[sfi].amount || {}), currency: e.target.value } };
-																							fgList[fi] = { ...fgList[fi], scheduledFees: sfList };
-																							sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
-																							update('financialConfig.feeSchedules', next);
-																						}} className="w-14 rounded border border-gray-200 bg-white px-1 py-0.5 outline-none dark:bg-muted dark:text-white">
-																							{form.financialConfig.currencies.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
-																						</select>
-																						<input type="number" value={sf.amount?.amount || ''} onChange={(e) => {
-																							const next = [...form.financialConfig.feeSchedules];
-																							const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
-																							const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
-																							const sfList = [...(fgList[fi].scheduledFees || [])];
-																							sfList[sfi] = { ...sfList[sfi], amount: { amount: Number(e.target.value) || 0, currency: sfList[sfi].amount?.currency || defaultCurrency } };
-																							fgList[fi] = { ...fgList[fi], scheduledFees: sfList };
-																							sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
-																							update('financialConfig.feeSchedules', next);
-																						}} placeholder="Amt" className="w-16 rounded border border-gray-200 bg-white px-1 py-0.5 outline-none dark:bg-muted dark:text-white" />
-																						<label className="inline-flex items-center gap-0.5 text-gray-400">
-																							<input type="checkbox" checked={sf.isRequired !== false} onChange={(e) => {
+																					</div>
+
+																					{/* Applies To Classes */}
+																					<div>
+																						<div className="flex items-center gap-2 mb-1.5">
+																							<span className="text-[10px] font-medium text-gray-400 uppercase">Applies to</span>
+																							{sessionClasses.length > 0 && (
+																								<div className="flex items-center gap-1.5">
+																									<button onClick={() => {
+																										const next = [...form.financialConfig.feeSchedules];
+																										const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
+																										const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
+																										fgList[fi] = { ...fgList[fi], appliesToClassIds: [...allClassIds] };
+																										sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
+																										update('financialConfig.feeSchedules', next);
+																									}} className={`text-[10px] font-medium transition-colors ${allSelected ? 'text-gray-400' : 'text-[#465fff] hover:text-[#3a4fe6]'}`}>Select All</button>
+																									<span className="text-gray-300 dark:text-gray-600 text-[10px]">|</span>
+																									<button onClick={() => {
+																										const next = [...form.financialConfig.feeSchedules];
+																										const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
+																										const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
+																										fgList[fi] = { ...fgList[fi], appliesToClassIds: [] };
+																										sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
+																										update('financialConfig.feeSchedules', next);
+																									}} className={`text-[10px] font-medium transition-colors ${!allSelected && (fg.appliesToClassIds || []).length === 0 ? 'text-gray-400' : 'text-[#465fff] hover:text-[#3a4fe6]'}`}>Unselect All</button>
+																								</div>
+																							)}
+																						</div>
+																						<div className="flex flex-wrap gap-1.5">
+																							{sessionClasses.map((c) => {
+																								const checked = (fg.appliesToClassIds || []).includes(c.classId);
+																								return (
+																									<label key={c.classId} className="inline-flex items-center gap-1 text-[11px] text-gray-600 dark:text-gray-400 cursor-pointer">
+																										<input type="checkbox" checked={checked} onChange={() => {
+																											const next = [...form.financialConfig.feeSchedules];
+																											const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
+																											const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
+																											const currentIds = fgList[fi].appliesToClassIds || [];
+																											fgList[fi] = { ...fgList[fi], appliesToClassIds: checked ? currentIds.filter((id: string) => id !== c.classId) : [...currentIds, c.classId] };
+																											sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
+																											update('financialConfig.feeSchedules', next);
+																										}} className="rounded" />
+																										{c.name}
+																									</label>
+																								);
+																							})}
+																							{sessionClasses.length === 0 && <span className="text-[11px] text-gray-400 italic">No classes defined for this session</span>}
+																						</div>
+																					</div>
+
+																					{/* Scheduled Fees */}
+																					<div className="space-y-2">
+																						{(fg.scheduledFees || []).map((sf: any, sfi: number) => {
+																							const updateFee = (patch: any) => {
 																								const next = [...form.financialConfig.feeSchedules];
 																								const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
 																								const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
 																								const sfList = [...(fgList[fi].scheduledFees || [])];
-																								sfList[sfi] = { ...sfList[sfi], isRequired: e.target.checked };
+																								sfList[sfi] = { ...sfList[sfi], ...patch };
 																								fgList[fi] = { ...fgList[fi], scheduledFees: sfList };
 																								sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
 																								update('financialConfig.feeSchedules', next);
-																							}} /> Req
-																						</label>
+																							};
+																							return (
+																								<div key={sfi} className="rounded-lg border border-gray-100 dark:border-gray-800 p-2">
+																									<div className="grid gap-2 grid-cols-1 sm:grid-cols-[1fr_auto] items-center">
+																										<select value={sf.feeId || ''} onChange={(e) => updateFee({ feeId: e.target.value })}
+																											className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
+																											<option value="">Select Fee</option>
+																											{form.financialConfig.feeDefinitions.filter((f) => f.isActive).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+																										</select>
+																										<div className="flex items-center gap-1.5 flex-wrap">
+																											<select value={sf.amount?.currency || defaultCurrency} onChange={(e) => updateFee({ amount: { ...(sf.amount || {}), currency: e.target.value } })}
+																												className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
+																												{form.financialConfig.currencies.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
+																											</select>
+																											<CurrencyInput value={sf.amount?.amount || 0} onChange={(num) => updateFee({ amount: { amount: num, currency: sf.amount?.currency || defaultCurrency } })} />
+																											<label className="inline-flex items-center gap-1.5 text-[11px] text-gray-500 cursor-pointer">
+																												<input type="checkbox" checked={sf.isRequired !== false} onChange={(e) => updateFee({ isRequired: e.target.checked })} className="rounded" />
+																												Required
+																											</label>
+																											<button onClick={() => {
+																												const next = [...form.financialConfig.feeSchedules];
+																												const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
+																												const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
+																												fgList[fi] = { ...fgList[fi], scheduledFees: (fgList[fi].scheduledFees || []).filter((__: any, j: number) => j !== sfi) };
+																												sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
+																												update('financialConfig.feeSchedules', next);
+																											}} className="text-red-400 hover:text-red-500 text-[11px] font-medium">Remove</button>
+																										</div>
+																									</div>
+																									{/* Applicable Student Groups */}
+																									{form.financialConfig.studentGroups.filter((g) => g.isActive).length > 0 && (
+																										<div className="flex flex-wrap gap-1.5 mt-1.5 pt-1.5 border-t border-gray-100 dark:border-gray-800">
+																											{form.financialConfig.studentGroups.filter((g) => g.isActive).map((g) => {
+																												const checked = (sf.applicableStudentGroupIds || []).includes(g.id);
+																												return (
+																													<label key={g.id} className="inline-flex items-center gap-1 text-[10px] text-gray-400 cursor-pointer">
+																														<input type="checkbox" checked={checked} onChange={() => {
+																															const next = [...form.financialConfig.feeSchedules];
+																															const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
+																															const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
+																															const sfList = [...(fgList[fi].scheduledFees || [])];
+																															const currentIds = sfList[sfi].applicableStudentGroupIds || [];
+																															sfList[sfi] = { ...sfList[sfi], applicableStudentGroupIds: checked ? currentIds.filter((id: string) => id !== g.id) : [...currentIds, g.id] };
+																															fgList[fi] = { ...fgList[fi], scheduledFees: sfList };
+																															sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
+																															update('financialConfig.feeSchedules', next);
+																														}} className="rounded" />
+																														{g.name}
+																													</label>
+																												);
+																											})}
+																										</div>
+																									)}
+																								</div>
+																							);
+																						})}
 																						<button onClick={() => {
 																							const next = [...form.financialConfig.feeSchedules];
 																							const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
 																							const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
-																							fgList[fi] = { ...fgList[fi], scheduledFees: (fgList[fi].scheduledFees || []).filter((__: any, j: number) => j !== sfi) };
+																							const sfList = [...(fgList[fi].scheduledFees || [])];
+																							sfList.push({ feeId: '', amount: { amount: 0, currency: defaultCurrency }, isRequired: true, dueInstallmentId: null, applicableStudentGroupIds: [] });
+																							fgList[fi] = { ...fgList[fi], scheduledFees: sfList };
 																							sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
 																							update('financialConfig.feeSchedules', next);
-																						}} className="text-red-400 hover:text-red-600">X</button>
-																					</div>
-																					{/* Applicable Student Groups */}
-																					<div className="flex flex-wrap gap-1 ml-1">
-																						{form.financialConfig.studentGroups.filter((g) => g.isActive).map((g) => {
-																							const checked = (sf.applicableStudentGroupIds || []).includes(g.id);
-																							return (
-																								<label key={g.id} className="inline-flex items-center gap-1 text-[9px] text-gray-400 cursor-pointer">
-																									<input type="checkbox" checked={checked} onChange={() => {
-																										const next = [...form.financialConfig.feeSchedules];
-																										const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
-																										const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
-																										const sfList = [...(fgList[fi].scheduledFees || [])];
-																										const currentIds = sfList[sfi].applicableStudentGroupIds || [];
-																										sfList[sfi] = { ...sfList[sfi], applicableStudentGroupIds: checked ? currentIds.filter((id: string) => id !== g.id) : [...currentIds, g.id] };
-																										fgList[fi] = { ...fgList[fi], scheduledFees: sfList };
-																										sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
-																										update('financialConfig.feeSchedules', next);
-																									}} />
-																									{g.name}
-																								</label>
-																							);
-																						})}
+																						}} className="text-[11px] text-[#465fff] font-medium">+ Add Fee</button>
 																					</div>
 																				</div>
-																			))}
-																			<button onClick={() => {
-																				const next = [...form.financialConfig.feeSchedules];
-																				const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
-																				const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
-																				const sfList = [...(fgList[fi].scheduledFees || [])];
-																				sfList.push({ feeId: '', amount: { amount: 0, currency: defaultCurrency }, isRequired: true, dueInstallmentId: null, applicableStudentGroupIds: [] });
-																				fgList[fi] = { ...fgList[fi], scheduledFees: sfList };
-																				sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
-																				update('financialConfig.feeSchedules', next);
-																			}} className="text-[10px] text-[#465fff] font-medium">+ Fee</button>
+																			)}
 																		</div>
-																	</div>
-																))}
-																<button onClick={() => {
+																	);
+																})}
+															</div>
+															<button onClick={() => {
+																const next = [...form.financialConfig.feeSchedules];
+																const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
+																const sg = { ...sessList[si] };
+																const newIdx = (sg.feeGroups || []).length;
+																sg.feeGroups = [...(sg.feeGroups || []), { id: `fg-${Date.now()}`, name: '', appliesToClassIds: [], paymentPlanId: '', scheduledFees: [] }];
+																sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
+																update('financialConfig.feeSchedules', next);
+																setExpandedFeeGroups((prev) => { const next = new Set(prev); next.add(`${i}-${si}-${newIdx}`); return next; });
+															}} className="text-[11px] text-[#465fff] font-medium mt-2 inline-block">+ Add Fee Group</button>
+														</div>
+												);
+											})}
+										</div>
+
+										{/* ── Scholarships ── */}
+											<div className="border-t border-gray-100 dark:border-gray-800 pt-3 mt-3">
+												<h5 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Scholarships</h5>
+												<div className="space-y-2">
+													{(fs.scholarships || []).map((sch: any, sci: number) => (
+														<div key={sci} className="rounded-lg border border-gray-200 dark:border-gray-800 p-2.5">
+															<div className="grid gap-2 grid-cols-1 sm:grid-cols-[1fr_auto] items-start sm:items-center mb-2">
+																<input value={sch.name || ''} onChange={(e) => {
 																	const next = [...form.financialConfig.feeSchedules];
-																	const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
-																	const sg = { ...sessList[si] }; sg.feeGroups = [...(sg.feeGroups || []), { id: `fg-${Date.now()}`, name: '', appliesToClassIds: [], paymentPlanId: '', scheduledFees: [] }];
-																	sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
+																	const s = { ...next[i] };
+																	const schs = [...(s.scholarships || [])];
+																	schs[sci] = { ...schs[sci], name: e.target.value };
+																	s.scholarships = schs; next[i] = s;
 																	update('financialConfig.feeSchedules', next);
-																}} className="text-[10px] text-[#465fff] font-medium">+ Fee Group</button>
+																}} placeholder="Scholarship name" className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+																<div className="flex items-center gap-1.5 flex-wrap">
+																	<select value={sch.scholarshipType || 'fixedDeduction'} onChange={(e) => {
+																		const next = [...form.financialConfig.feeSchedules];
+																		const s = { ...next[i] };
+																		const schs = [...(s.scholarships || [])];
+																		schs[sci] = { ...schs[sci], scholarshipType: e.target.value };
+																		s.scholarships = schs; next[i] = s;
+																		update('financialConfig.feeSchedules', next);
+																	}} className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
+																		<option value="fixedDeduction">Fixed Deduction</option>
+																		<option value="fixedPayment">Fixed Payment</option>
+																		<option value="percentage">Percentage</option>
+																	</select>
+																	<button onClick={() => {
+																		const next = [...form.financialConfig.feeSchedules];
+																		const s = { ...next[i] };
+																		s.scholarships = (s.scholarships || []).filter((__: any, j: number) => j !== sci);
+																		next[i] = s;
+																		update('financialConfig.feeSchedules', next);
+																	}} className="text-red-400 hover:text-red-500 text-[11px] font-medium">Remove</button>
+																</div>
+															</div>
+															<div className="grid gap-2 grid-cols-1 sm:grid-cols-3">
+																<div>
+																	<label className="text-[10px] font-medium text-gray-400">Amount / Percentage</label>
+																	<input type="number" inputMode="numeric" value={sch.amount || ''} onChange={(e) => {
+																		const next = [...form.financialConfig.feeSchedules];
+																		const s = { ...next[i] };
+																		const schs = [...(s.scholarships || [])];
+																		schs[sci] = { ...schs[sci], amount: Number(e.target.value) || 0 };
+																		s.scholarships = schs; next[i] = s;
+																		update('financialConfig.feeSchedules', next);
+																	}} placeholder={sch.scholarshipType === 'percentage' ? 'e.g. 0.10 for 10%' : '0'} className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+																</div>
+																{sch.scholarshipType !== 'percentage' && (
+																	<div>
+																		<label className="text-[10px] font-medium text-gray-400">Currency</label>
+																		<select value={sch.currency || defaultCurrency} onChange={(e) => {
+																			const next = [...form.financialConfig.feeSchedules];
+																			const s = { ...next[i] };
+																			const schs = [...(s.scholarships || [])];
+																			schs[sci] = { ...schs[sci], currency: e.target.value };
+																			s.scholarships = schs; next[i] = s;
+																			update('financialConfig.feeSchedules', next);
+																		}} className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
+																			{form.financialConfig.currencies.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
+																		</select>
+																	</div>
+																)}
+																<div>
+																	<label className="text-[10px] font-medium text-gray-400">Description</label>
+																	<input value={sch.description || ''} onChange={(e) => {
+																		const next = [...form.financialConfig.feeSchedules];
+																		const s = { ...next[i] };
+																		const schs = [...(s.scholarships || [])];
+																		schs[sci] = { ...schs[sci], description: e.target.value };
+																		s.scholarships = schs; next[i] = s;
+																		update('financialConfig.feeSchedules', next);
+																	}} placeholder="Optional" className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+																</div>
+															</div>
+															{/* Applies to payment categories */}
+															<div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+																<span className="text-[10px] text-gray-400 self-center">Applies to:</span>
+																{form.financialConfig.paymentCategories.map((cat) => {
+																	const checked = (sch.appliesTo || []).includes(cat.id);
+																	return (
+																		<label key={cat.id} className="inline-flex items-center gap-1 text-[10px] text-gray-400 cursor-pointer">
+																			<input type="checkbox" checked={checked} onChange={() => {
+																				const next = [...form.financialConfig.feeSchedules];
+																				const s = { ...next[i] };
+																				const schs = [...(s.scholarships || [])];
+																				const current = schs[sci].appliesTo || [];
+																				schs[sci] = { ...schs[sci], appliesTo: checked ? current.filter((id: string) => id !== cat.id) : [...current, cat.id] };
+																				s.scholarships = schs; next[i] = s;
+																				update('financialConfig.feeSchedules', next);
+																			}} className="rounded" />
+																			{cat.name}
+																		</label>
+																	);
+																})}
+																{form.financialConfig.paymentCategories.length === 0 && <span className="text-[10px] text-gray-400 italic">All categories</span>}
 															</div>
 														</div>
-													);
-												})}
+													))}
+													<button onClick={() => {
+														const next = [...form.financialConfig.feeSchedules];
+														const s = { ...next[i] };
+														s.scholarships = [...(s.scholarships || []), { id: `sch-${Date.now()}`, name: '', description: '', scholarshipType: 'fixedDeduction', amount: 0, currency: defaultCurrency, appliesTo: [] }];
+														next[i] = s;
+														update('financialConfig.feeSchedules', next);
+													}} className="text-[11px] text-[#465fff] font-medium">+ Add Scholarship</button>
+												</div>
 											</div>
 										</div>
 									);
@@ -933,11 +1224,10 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 							const allYears = getAcademicYearRange(form.identity.firstAcademicYear, form.identity.currentAcademicYear);
 							const usedYears = new Set(form.financialConfig.feeSchedules.map((s) => s.academicYear));
 							const nextYear = [...allYears].reverse().find((yr) => !usedYears.has(yr)) || form.identity.currentAcademicYear || '';
-							// Clone the most recent existing fee schedule if one exists
 							const existing = form.financialConfig.feeSchedules[form.financialConfig.feeSchedules.length - 1];
 							const cloned = existing
 								? JSON.parse(JSON.stringify({ ...existing, academicYear: nextYear }))
-								: buildDefaultFeeSchedule(nextYear);
+								: { ...buildDefaultFeeSchedule(nextYear), sessionFeeSchedules: Object.keys(form.academicConfig.classLevels).map((name) => ({ sessionName: name, feeGroups: [] })) };
 							update('financialConfig.feeSchedules', [...form.financialConfig.feeSchedules, cloned]);
 						}} />
 						<div className="border-t border-gray-100 dark:border-gray-800 pt-3 mt-3">
@@ -951,6 +1241,8 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 								/>
 							</details>
 						</div>
+							</div>
+						)}
 					</div>
 				</div>
 			)}
@@ -970,7 +1262,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 						{saving ? 'Saving...' : submitLabel}
 					</button>
 				) : (
-					<button onClick={() => setStep((s) => s + 1)}
+					<button onClick={goNext}
 						className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#465fff] px-4 py-2 text-xs font-semibold text-white hover:bg-[#3a4fe6] transition-colors shadow-sm">
 						Next <ArrowRight className="h-3.5 w-3.5" />
 					</button>
@@ -1323,14 +1615,21 @@ function AcademicPermissionsEditor({ studentSettings, teacherSettings, firstYear
 }
 
 // ─── Shared Components ──────────────────────────────────────────────────────────
-function Field({ label, required, value, onChange, onBlur, placeholder, disabled }: {
-	label: string; required?: boolean; value: string; onChange: (v: string) => void; onBlur?: () => void; placeholder?: string; disabled?: boolean;
+function Field({ label, required, value, onChange, onBlur, placeholder, disabled, error, inputType }: {
+	label: string; required?: boolean; value: string; onChange: (v: string) => void; onBlur?: () => void; placeholder?: string; disabled?: boolean; error?: string; inputType?: 'text' | 'tel' | 'email' | 'number';
 }) {
+	const type = inputType || 'text';
+	const inputMode = type === 'tel' ? 'tel' : type === 'email' ? 'email' : type === 'number' ? 'numeric' : undefined;
 	return (
 		<div>
 			<label className="text-[11px] font-medium text-gray-500">{label}{required && <span className="text-red-400 ml-0.5">*</span>}</label>
-			<input type="text" required={required} value={value} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} placeholder={placeholder} disabled={disabled}
-				className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] focus:ring-2 focus:ring-[#465fff]/10 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-800 dark:bg-muted dark:text-white" />
+			<input type={type} inputMode={inputMode} required={required} value={value} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} placeholder={placeholder} disabled={disabled}
+				className={`mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm outline-none focus:ring-2 disabled:opacity-40 disabled:cursor-not-allowed dark:bg-muted dark:text-white ${
+					error
+						? 'border-red-400 focus:border-red-400 focus:ring-red-400/10 dark:border-red-400'
+						: 'border-gray-200 focus:border-[#465fff] focus:ring-[#465fff]/10 dark:border-gray-800'
+				}`} />
+			{error && <p className="text-[11px] text-red-500 mt-1">{error}</p>}
 		</div>
 	);
 }
@@ -1343,19 +1642,32 @@ function AddressInput({ value, onChange }: { value: string; onChange: (v: string
 		className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />;
 }
 
-function DynamicList({ values, onChange, placeholder }: { values: string[]; onChange: (v: string[]) => void; placeholder: string }) {
+function DynamicList({ values, onChange, placeholder, itemErrors, inputType }: { values: string[]; onChange: (v: string[]) => void; placeholder: string; itemErrors?: Record<number, string>; inputType?: 'text' | 'tel' | 'email' }) {
 	const endRef = useRef<HTMLInputElement>(null);
 	const prevLen = useRef(values.length);
 	useEffect(() => { if (values.length > prevLen.current) endRef.current?.focus(); prevLen.current = values.length; }, [values.length]);
+	const inputMode = inputType === 'tel' ? 'tel' : inputType === 'email' ? 'email' : undefined;
 	return (
 		<div className="space-y-1.5">
 			{values.map((val, i) => (
-				<div key={i} className="flex items-center gap-1.5">
-					<input ref={i === values.length - 1 ? endRef : undefined} value={val} onChange={(e) => { const next = [...values]; next[i] = e.target.value; onChange(next); }} placeholder={placeholder}
-						className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-					<button onClick={() => onChange(values.filter((_, j) => j !== i))} className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors dark:hover:bg-red-900/20">
-						<Trash2 className="h-3.5 w-3.5" />
-					</button>
+				<div key={i}>
+					<div className="flex items-center gap-1.5">
+						<input ref={i === values.length - 1 ? endRef : undefined} value={val} type={inputType || 'text'} inputMode={inputMode}
+							onChange={(e) => {
+								let raw = e.target.value;
+								if (inputType === 'tel') raw = raw.replace(/[^0-9+\-().\s]/g, '');
+								const next = [...values]; next[i] = raw; onChange(next);
+							}} placeholder={placeholder}
+							className={`flex-1 rounded-lg border bg-white px-3 py-2 text-sm outline-none focus:ring-2 dark:bg-muted dark:text-white ${
+								itemErrors?.[i]
+									? 'border-red-400 focus:border-red-400 focus:ring-red-400/10 dark:border-red-400'
+									: 'border-gray-200 focus:border-[#465fff] focus:ring-[#465fff]/10 dark:border-gray-800'
+							}`} />
+						<button onClick={() => onChange(values.filter((_, j) => j !== i))} className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors dark:hover:bg-red-900/20">
+							<Trash2 className="h-3.5 w-3.5" />
+						</button>
+					</div>
+					{itemErrors?.[i] && <p className="text-[11px] text-red-500 mt-1">{itemErrors[i]}</p>}
 				</div>
 			))}
 			<button onClick={() => onChange([...values, ''])} className="inline-flex items-center gap-1 text-[11px] font-medium text-[#465fff] hover:text-[#3a4fe6] transition-colors">
@@ -1363,6 +1675,42 @@ function DynamicList({ values, onChange, placeholder }: { values: string[]; onCh
 			</button>
 		</div>
 	);
+}
+
+function CurrencyInput({ value, onChange, placeholder }: { value: number; onChange: (v: number) => void; placeholder?: string }) {
+	const ref = useRef<HTMLInputElement>(null);
+	const [display, setDisplay] = useState(value ? formatMoney(value) : '');
+	const [focused, setFocused] = useState(false);
+
+	useEffect(() => {
+		if (!focused) {
+			setDisplay(value ? formatMoney(value) : '');
+		}
+	}, [value, focused]);
+
+	const handleChange = (raw: string) => {
+		const cleaned = raw.replace(/[^0-9]/g, '');
+		const num = Number(cleaned) || 0;
+		setDisplay(cleaned ? formatMoney(num) : '');
+		onChange(num);
+	};
+
+	return (
+		<input
+			ref={ref}
+			value={display}
+			onFocus={() => setFocused(true)}
+			onBlur={() => setFocused(false)}
+			onChange={(e) => handleChange(e.target.value)}
+			placeholder={placeholder || '0'}
+			inputMode="numeric"
+			className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white"
+		/>
+	);
+}
+
+function formatMoney(n: number): string {
+	return n.toLocaleString('en-US');
 }
 
 function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
