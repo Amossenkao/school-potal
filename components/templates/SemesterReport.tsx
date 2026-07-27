@@ -288,14 +288,26 @@ export const SemesterReport = React.memo(function SemesterReportDocument({
 
 	const title = 'Semester Report Template';
 
-	const schoolAddressFirstLine = Array.isArray(school?.address)
-		? Array.isArray(school.address[0])
-			? school.address[0].join('\n')
-			: school.address[0] || ''
+	// Normalize: accept both flat { name, logoUrl, address[] } and nested SchoolProfile
+	const sName = school?.name || school?.identity?.name || '';
+	const resolvedName = Array.isArray(sName) ? sName.filter(Boolean).join(' ') : sName;
+	const sLogo = school?.logoUrl || school?.branding?.logoUrl || '';
+	const sLogo2 = school?.logoUrl2 || school?.branding?.logoUrl2 || '';
+	const sAddress: string[] = Array.isArray(school?.address)
+		? school.address
+		: Array.isArray(school?.contact?.addresses)
+			? school.contact.addresses.flatMap((a: any) => a.lines || [])
+			: [];
+	const normalizedSchool = { name: resolvedName, logoUrl: sLogo, logoUrl2: sLogo2, address: sAddress };
+
+	const schoolAddressFirstLine = Array.isArray(normalizedSchool.address)
+		? Array.isArray(normalizedSchool.address[0])
+			? normalizedSchool.address[0].join('\n')
+			: normalizedSchool.address[0] || ''
 		: '';
 
-	const schoolAddress = Array.isArray(school?.address)
-		? school.address.slice(1).join('\n')
+	const schoolAddress = Array.isArray(normalizedSchool.address)
+		? normalizedSchool.address.slice(1).join('\n')
 		: '';
 
 	const periodColumns = [
@@ -341,9 +353,9 @@ export const SemesterReport = React.memo(function SemesterReportDocument({
 										minHeight: 360,
 									}}
 								>
-									{school?.logoUrl && (
+									{normalizedSchool.logoUrl && (
 										<Image
-											src={school.logoUrl}
+											src={normalizedSchool.logoUrl}
 											style={
 												{
 													...watermarkStyle,
@@ -375,7 +387,7 @@ export const SemesterReport = React.memo(function SemesterReportDocument({
 												letterSpacing: 0.2,
 											}}
 										>
-											{school?.name}
+											{normalizedSchool.name}
 										</Text>
 										<Text style={{ fontSize: 8, textAlign: 'center' }}>
 											{schoolAddressFirstLine}
@@ -390,9 +402,9 @@ export const SemesterReport = React.memo(function SemesterReportDocument({
 											}}
 										>
 											<View>
-												{(school?.logoUrl2 || school?.logoUrl) && (
+												{(normalizedSchool.logoUrl2 || normalizedSchool.logoUrl) && (
 													<Image
-														src={school?.logoUrl2 || school?.logoUrl}
+														src={normalizedSchool.logoUrl2 || normalizedSchool.logoUrl}
 														style={{ width: 32 }}
 													/>
 												)}
@@ -404,8 +416,8 @@ export const SemesterReport = React.memo(function SemesterReportDocument({
 												<Text style={{ height: 10 }}></Text>
 											</View>
 											<View>
-												{school?.logoUrl && (
-													<Image src={school.logoUrl} style={{ width: 32 }} />
+												{normalizedSchool.logoUrl && (
+													<Image src={normalizedSchool.logoUrl} style={{ width: 32 }} />
 												)}
 											</View>
 										</View>

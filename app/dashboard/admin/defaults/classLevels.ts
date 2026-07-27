@@ -244,3 +244,57 @@ export function getAcademicYearRange(firstYear: string, currentYear: string): st
 	}
 	return years;
 }
+
+// ---------------------------------------------------------------------------
+// Default financial config — common currencies, fee definitions, payment plans
+// and student groups for Liberian schools
+// ---------------------------------------------------------------------------
+
+export const DEFAULT_CURRENCIES = [
+	{ code: 'LRD', label: 'Liberian Dollar', symbol: 'L$', isDefault: true },
+	{ code: 'USD', label: 'United States Dollar', symbol: '$', isDefault: false },
+];
+
+export const DEFAULT_FEE_DEFINITIONS = [
+	{ id: 'tuition', name: 'Tuition', category: 'tuition', description: 'Core academic tuition fee', isActive: true },
+	{ id: 'reg-1st-sem', name: 'Registration (1st Semester)', category: 'registration', description: 'First semester registration', isActive: true },
+	{ id: 'reg-2nd-sem', name: 'Registration (2nd Semester)', category: 'registration', description: 'Second semester registration', isActive: true },
+	{ id: 'first-aid', name: 'First Aid', category: 'requirements', description: 'First aid kit fee', isActive: true },
+	{ id: 'id-card', name: 'Computerized ID Card', category: 'requirements', description: 'Student identification card', isActive: true },
+	{ id: 'pta', name: 'PTA', category: 'requirements', description: 'Parent-Teacher Association fee', isActive: true },
+	{ id: 'breakage-fee', name: 'Breakage Fee', category: 'requirements', description: 'Lab and facility breakage deposit', isActive: true },
+	{ id: 'e-portal', name: 'E-Portal', category: 'requirements', description: 'Online portal access fee', isActive: true },
+	{ id: 'activities', name: 'Activities', category: 'requirements', description: 'School activities fee', isActive: true },
+	{ id: 'field-trip', name: 'Field Trip', category: 'requirements', description: 'Educational field trip fee', isActive: true },
+	{ id: 'computer-literacy', name: 'Computer Literacy', category: 'requirements', description: 'Computer lab and literacy fee', isActive: true },
+	{ id: 'uniform-set', name: 'Uniform Set', category: 'accessories', description: 'School uniform set', isActive: true },
+	{ id: 'wednesday-dress', name: 'Wednesday Dress Code', category: 'accessories', description: 'Wednesday casual dress uniform', isActive: true },
+];
+
+export const DEFAULT_PAYMENT_PLANS = [
+	{
+		id: 'full-payment', name: 'Full Payment', description: 'Pay all fees at registration', isActive: true,
+		installments: [
+			{ id: 'full-1st', label: '1st (During Registration)', percentage: '', fixedAmount: '', fixedAmountCurrency: 'LRD', dueWindow: '' },
+		],
+	},
+];
+
+export const DEFAULT_STUDENT_GROUPS = [
+	{
+		id: 'new-students', name: 'New Students', priority: 1, isActive: true,
+		conditions: [{ field: 'studentType', operator: 'equals', value: 'new' }],
+	},
+	{
+		id: 'returning-students', name: 'Returning Students', priority: 2, isActive: true,
+		conditions: [{ field: 'studentType', operator: 'equals', value: 'returning' }],
+	},
+];
+
+export function buildDefaultFeeSchedule(academicYear: string) {
+	return {
+		academicYear,
+		sessionFeeSchedules: [],
+		feeAdjustments: [],
+	};
+}

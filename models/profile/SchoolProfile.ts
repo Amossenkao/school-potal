@@ -96,7 +96,7 @@ const SchoolProfileBrandingSchema = new Schema(
 			enum: TENANT_THEME_NAMES,
 			default: TENANT_THEME_NAMES[0],
 		},
-		logoUrl: { type: String, required: true, trim: true },
+		logoUrl: { type: String, default: '', trim: true },
 		logoUrl2: { type: String, trim: true },
 		reportCardThemes: {
 			type: Map,

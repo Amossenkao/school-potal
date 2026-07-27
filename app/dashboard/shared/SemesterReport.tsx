@@ -865,14 +865,18 @@ const generateSemesterReportPdf = async ({
 			? school.identity.name
 			: '';
 
+	const [templateLogo1, templateLogo2] = await Promise.all([
+		school?.branding?.logoUrl ? fetchImageAsBase64(school.branding.logoUrl) : Promise.resolve(null),
+		school?.branding?.logoUrl2 ? fetchImageAsBase64(school.branding.logoUrl2) : Promise.resolve(null),
+	]);
 	const templateBytes = await loadReportTemplateBytes({
 		reportType: 'semester',
 		school: {
 			shortName: schoolShortName || school?.identity?.shortName,
 			host: school?.system?.host,
 			name: schoolName,
-			logoUrl: school?.branding?.logoUrl,
-			logoUrl2: school?.branding?.logoUrl2,
+			logoUrl: templateLogo1 || undefined,
+			logoUrl2: templateLogo2 || undefined,
 			address: Array.isArray(school?.contact?.addresses) ? school.contact.addresses.flatMap((a: any) => a.lines || []) : [],
 		},
 		session: reportFilters.session,

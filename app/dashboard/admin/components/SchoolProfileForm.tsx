@@ -10,8 +10,9 @@ import {
 import {
 	DEFAULT_CLASS_LEVELS, DEFAULT_ADMIN_POSITIONS, DEFAULT_FEATURES,
 	DEFAULT_ROLE_FEATURE_ACCESS,
+	DEFAULT_CURRENCIES, DEFAULT_FEE_DEFINITIONS, DEFAULT_PAYMENT_PLANS, DEFAULT_STUDENT_GROUPS,
 	buildDefaultStudentSettings, buildDefaultTeacherSettings,
-	getAcademicYearRange,
+	buildDefaultFeeSchedule, getAcademicYearRange,
 } from '@/app/dashboard/admin/defaults/classLevels';
 import { TENANT_THEME_NAMES, DEFAULT_TENANT_THEME_NAME } from '@/types/tenantTheme';
 import { REPORT_CARD_THEMES } from '@/types/reportCardTheme';
@@ -92,7 +93,7 @@ export interface SchoolFormState {
 	};
 	financialConfig: {
 		currencies: { code: string; label: string; symbol: string; isDefault: boolean }[];
-		feeDefinitions: { id: string; name: string; category: string; description: string; flag: string; isActive: boolean }[];
+		feeDefinitions: { id: string; name: string; category: string; description: string; isActive: boolean }[];
 		paymentPlans: {
 			id: string; name: string; description: string; isActive: boolean;
 			installments: { id: string; label: string; percentage: string; fixedAmount: string; fixedAmountCurrency: string; dueWindow: string }[];
@@ -123,10 +124,10 @@ export const defaultFormState: SchoolFormState = {
 		roleFeatureAccess: { ...DEFAULT_ROLE_FEATURE_ACCESS } as SchoolFormState['featureConfig']['roleFeatureAccess'],
 	},
 	financialConfig: {
-		currencies: [],
-		feeDefinitions: [],
-		paymentPlans: [],
-		studentGroups: [],
+		currencies: DEFAULT_CURRENCIES.map((c) => ({ ...c })),
+		feeDefinitions: DEFAULT_FEE_DEFINITIONS.map((f) => ({ ...f })),
+		paymentPlans: DEFAULT_PAYMENT_PLANS.map((p) => ({ ...p, installments: p.installments.map((i) => ({ ...i })) })),
+		studentGroups: DEFAULT_STUDENT_GROUPS.map((g) => ({ ...g, conditions: g.conditions.map((c) => ({ ...c })) })),
 		feeSchedules: [],
 	},
 };
@@ -245,6 +246,13 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 			}
 		}
 	}, [form.identity.firstAcademicYear, form.identity.currentAcademicYear, form.userConfig.studentSettings, form.userConfig.teacherSettings, update]);
+
+	// ── Auto-create a fee schedule for the current academic year when none exists ──
+	useEffect(() => {
+		if (form.identity.currentAcademicYear && form.financialConfig.feeSchedules.length === 0) {
+			update('financialConfig.feeSchedules', [buildDefaultFeeSchedule(form.identity.currentAcademicYear)]);
+		}
+	}, [form.identity.currentAcademicYear, form.financialConfig.feeSchedules.length, update]);
 
 	return (
 		<div className="space-y-6">
@@ -560,13 +568,11 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 									</div>
 								</div>
 								<div className="flex items-center gap-2 mt-2">
-									<input value={fd.flag} onChange={(e) => { const next = [...form.financialConfig.feeDefinitions]; next[i] = { ...next[i], flag: e.target.value }; update('financialConfig.feeDefinitions', next); }}
-										placeholder="Flag (e.g. Required, Waivable)" className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 									<button onClick={() => update('financialConfig.feeDefinitions', form.financialConfig.feeDefinitions.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 text-sm">Remove</button>
 								</div>
 							</div>
 						))}
-						<button onClick={() => update('financialConfig.feeDefinitions', [...form.financialConfig.feeDefinitions, { id: `fee-${Date.now()}`, name: '', category: 'tuition', description: '', flag: '', isActive: true }])} className="text-sm text-[#465fff] font-medium hover:underline">+ Add Fee Definition</button>
+						<button onClick={() => update('financialConfig.feeDefinitions', [...form.financialConfig.feeDefinitions, { id: `fee-${Date.now()}`, name: '', category: 'tuition', description: '', isActive: true }])} className="text-sm text-[#465fff] font-medium hover:underline">+ Add Fee Definition</button>
 					</div>
 
 					{/* ── Payment Plans ── */}
@@ -648,7 +654,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 					{/* ── Fee Schedules ── */}
 					<div className="border-t border-gray-100 dark:border-gray-800 pt-6">
 						<h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Fee Schedules</h4>
-						<p className="text-xs text-gray-500 mb-3">Per-academic-year fee schedules with session fee groups and adjustments. Edit via raw JSON.</p>
+						<p className="text-xs text-gray-500 mb-3">Per-academic-year fee schedules with session fee groups. Edit via raw JSON.</p>
 						{form.financialConfig.feeSchedules.length === 0 ? (
 							<div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-8 text-center">
 								<DollarSignIcon className="h-8 w-8 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
@@ -662,7 +668,78 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 											<span className="text-sm font-medium text-gray-700 dark:text-gray-300">{fs.academicYear || `Schedule ${i + 1}`}</span>
 											<button onClick={() => update('financialConfig.feeSchedules', form.financialConfig.feeSchedules.filter((__, j) => j !== i))} className="text-xs text-red-400 hover:text-red-600">Remove</button>
 										</div>
-										<p className="text-xs text-gray-400">{fs.sessionFeeSchedules?.length || 0} session(s), {fs.feeAdjustments?.length || 0} adjustment(s)</p>
+										<p className="text-xs text-gray-400 mb-3">{fs.sessionFeeSchedules?.length || 0} session(s)</p>
+										{/* ── Fee Adjustments / Scholarships ── */}
+										<div className="border-t border-gray-100 dark:border-gray-800 pt-3 mt-1">
+											<p className="text-xs font-semibold text-gray-500 mb-2">Fee Adjustments / Scholarships</p>
+											{(fs.feeAdjustments || []).map((adj: any, ai: number) => (
+												<div key={ai} className="rounded border border-gray-100 dark:border-gray-800 p-2 mb-2">
+													<div className="grid gap-2 sm:grid-cols-4 mb-2">
+														<input value={adj.name || ''} onChange={(e) => {
+															const next = [...form.financialConfig.feeSchedules];
+															const s = { ...next[i] }; const adjList = [...(s.feeAdjustments || [])];
+															adjList[ai] = { ...adjList[ai], name: e.target.value };
+															s.feeAdjustments = adjList; next[i] = s; update('financialConfig.feeSchedules', next);
+														}} placeholder="Name (e.g. Staff Ward Discount)" className="rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+														<select value={adj.actions?.[0]?.type || 'percentage_discount'} onChange={(e) => {
+															const next = [...form.financialConfig.feeSchedules];
+															const s = { ...next[i] }; const adjList = [...(s.feeAdjustments || [])];
+															const action = { ...(adjList[ai].actions?.[0] || { type: 'percentage_discount', feeId: null }), type: e.target.value };
+															adjList[ai] = { ...adjList[ai], actions: [action] };
+															s.feeAdjustments = adjList; next[i] = s; update('financialConfig.feeSchedules', next);
+														}} className="rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
+															<option value="percentage_discount">Percentage Discount</option>
+															<option value="fixed_discount">Fixed Discount</option>
+															<option value="waive_fee">Waive Fee</option>
+															<option value="add_fee">Add Fee</option>
+														</select>
+														{adj.actions?.[0]?.type === 'percentage_discount' && (
+															<input type="number" value={adj.actions?.[0]?.discountPercent || ''} onChange={(e) => {
+																const next = [...form.financialConfig.feeSchedules];
+																const s = { ...next[i] }; const adjList = [...(s.feeAdjustments || [])];
+																adjList[ai] = { ...adjList[ai], actions: [{ ...adjList[ai].actions[0], discountPercent: Number(e.target.value) || 0 }] };
+																s.feeAdjustments = adjList; next[i] = s; update('financialConfig.feeSchedules', next);
+															}} placeholder="%" className="rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+														)}
+														{adj.actions?.[0]?.type === 'fixed_discount' && (
+															<input type="number" value={adj.actions?.[0]?.discountAmount?.amount || ''} onChange={(e) => {
+																const next = [...form.financialConfig.feeSchedules];
+																const s = { ...next[i] }; const adjList = [...(s.feeAdjustments || [])];
+																adjList[ai] = { ...adjList[ai], actions: [{ ...adjList[ai].actions[0], discountAmount: { amount: Number(e.target.value) || 0, currency: 'LRD' } }] };
+																s.feeAdjustments = adjList; next[i] = s; update('financialConfig.feeSchedules', next);
+															}} placeholder="Amount" className="rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+														)}
+														<div className="flex items-center gap-2">
+															<label className="flex items-center gap-1 text-xs text-gray-500 whitespace-nowrap">
+																<input type="checkbox" checked={adj.enabled !== false} onChange={(e) => {
+																	const next = [...form.financialConfig.feeSchedules];
+																	const s = { ...next[i] }; const adjList = [...(s.feeAdjustments || [])];
+																	adjList[ai] = { ...adjList[ai], enabled: e.target.checked };
+																	s.feeAdjustments = adjList; next[i] = s; update('financialConfig.feeSchedules', next);
+																}} /> On
+															</label>
+															<button onClick={() => {
+																const next = [...form.financialConfig.feeSchedules];
+																const s = { ...next[i] }; s.feeAdjustments = (s.feeAdjustments || []).filter((__: any, j: number) => j !== ai);
+																next[i] = s; update('financialConfig.feeSchedules', next);
+															}} className="text-red-400 hover:text-red-600 text-xs">X</button>
+														</div>
+													</div>
+													<input value={adj.description || ''} onChange={(e) => {
+														const next = [...form.financialConfig.feeSchedules];
+														const s = { ...next[i] }; const adjList = [...(s.feeAdjustments || [])];
+														adjList[ai] = { ...adjList[ai], description: e.target.value };
+														s.feeAdjustments = adjList; next[i] = s; update('financialConfig.feeSchedules', next);
+													}} placeholder="Description (e.g. 20% discount for staff wards)" className="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+												</div>
+											))}
+											<button onClick={() => {
+												const next = [...form.financialConfig.feeSchedules];
+												const s = { ...next[i] };
+												s.feeAdjustments = [...(s.feeAdjustments || []), { id: `adj-${Date.now()}`, name: '', description: '', enabled: true, priority: 0, isStackable: false, conditions: [], actions: [{ type: 'percentage_discount', feeId: null, discountPercent: 0 }] }];
+												next[i] = s; update('financialConfig.feeSchedules', next);
+											}} className="text-xs text-[#465fff] font-medium hover:underline">+ Add Adjustment / Scholarship</button>
+										</div>
 									</div>
 								))}
 							</div>
@@ -958,6 +1035,11 @@ function AcademicPermissionsEditor({ studentSettings, teacherSettings, firstYear
 	onChange: (student: typeof studentSettings, teacher: typeof teacherSettings) => void;
 }) {
 	const years = getAcademicYearRange(firstYear, currentYear);
+	const sortedYears = [...years].sort((a, b) => {
+		if (a === currentYear) return -1;
+		if (b === currentYear) return 1;
+		return a.localeCompare(b);
+	});
 	const [expandedYear, setExpandedYear] = useState(currentYear || '');
 
 	const togglePeriod = (current: string[], value: string) => current.includes(value) ? current.filter((p) => p !== value) : [...current, value];
@@ -969,7 +1051,7 @@ function AcademicPermissionsEditor({ studentSettings, teacherSettings, firstYear
 			{years.length === 0 ? (
 				<p className="text-sm text-gray-400">Set first and current academic years on the School Identity step to configure per-year permissions.</p>
 			) : (
-				years.map((yr) => {
+				sortedYears.map((yr) => {
 					const isExpanded = expandedYear === yr;
 					const studentYear = studentSettings.reportAccessByYear[yr] || { enabled: false, yearlyReportAccess: false, periods: [] as string[], semesters: [] as string[] };
 					const teacherYear = teacherSettings.permissionsByYear[yr] || { enabled: false, gradeSubmission: { enabled: false, periods: [] as string[] }, viewGradeSubmissions: { enabled: false }, gradeChangeRequest: { enabled: false, periods: [] as string[] }, viewMasters: { enabled: false } };

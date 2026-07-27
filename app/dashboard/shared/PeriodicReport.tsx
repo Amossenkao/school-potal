@@ -21,6 +21,7 @@ import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import { getStudentAllowedAccess } from '@/utils/schoolSettingsAccess';
+import { flattenSchoolForReport } from '@/utils/reportTemplate';
 import {
 	areAcademicYearsEqual,
 	getScopedAcademicYearValue,
@@ -635,8 +636,8 @@ function ReportContent({
 		[user],
 	);
 
-	// Memoize school data to prevent unnecessary re-renders
-	const schoolData = useMemo(() => school, [school]);
+	// Memoize flattened school data for report PDF components
+	const schoolData = useMemo(() => flattenSchoolForReport(school), [school]);
 
 	const schoolSubjectsRef = useRef<string[]>([]);
 	const schoolSubjects = useMemo(() => {

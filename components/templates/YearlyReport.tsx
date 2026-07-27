@@ -550,6 +550,18 @@ export const ReportCard = React.memo(function PDFDocument({
 		REPORT_CARD_THEMES.find((t) => t.id === themeId) ||
 		DEFAULT_REPORT_CARD_THEME;
 
+	// Normalize: accept both flat { name, logoUrl, address[] } and nested SchoolProfile
+	const sName = school?.name || school?.identity?.name || '';
+	const resolvedName = Array.isArray(sName) ? sName.filter(Boolean).join(' ') : sName;
+	const sLogo = school?.logoUrl || school?.branding?.logoUrl || '';
+	const sLogo2 = school?.logoUrl2 || school?.branding?.logoUrl2 || '';
+	const sAddress: string[] = Array.isArray(school?.address)
+		? school.address
+		: Array.isArray(school?.contact?.addresses)
+			? school.contact.addresses.flatMap((a: any) => a.lines || [])
+			: [];
+	const normalizedSchool = { name: resolvedName, logoUrl: sLogo, logoUrl2: sLogo2, address: sAddress };
+
 	const getDisplayClassName = (name: string) => {
 		if (name === 'K-I' || name === 'K-II') {
 			return name;
@@ -567,14 +579,14 @@ export const ReportCard = React.memo(function PDFDocument({
 	};
 
 	const classLabel = className ? getDisplayClassName(className) : '';
-	const schoolAddressFirstLine = Array.isArray(school?.address)
-		? Array.isArray(school.address[0])
-			? school.address[0].join('\n')
-			: school.address[0] || ''
+	const schoolAddressFirstLine = Array.isArray(normalizedSchool.address)
+		? Array.isArray(normalizedSchool.address[0])
+			? normalizedSchool.address[0].join('\n')
+			: normalizedSchool.address[0] || ''
 		: '';
 
-	const schoolAddress = Array.isArray(school?.address)
-		? school.address.slice(1).join('\n')
+	const schoolAddress = Array.isArray(normalizedSchool.address)
+		? normalizedSchool.address.slice(1).join('\n')
 		: '';
 
 	const accentLeft = {
@@ -640,9 +652,9 @@ export const ReportCard = React.memo(function PDFDocument({
 						<View style={styles.gradesContainer}>
 							{/* First Semester */}
 							<View style={styles.semester}>
-								{school?.logoUrl && (
+								{normalizedSchool.logoUrl && (
 									<Image
-										src={school.logoUrl}
+										src={normalizedSchool.logoUrl}
 										style={{
 											...watermarkStyle,
 											width: '40%',
@@ -762,9 +774,9 @@ export const ReportCard = React.memo(function PDFDocument({
 
 							{/* Second Semester */}
 							<View style={styles.lastSemester}>
-								{school?.logoUrl && (
+								{normalizedSchool.logoUrl && (
 									<Image
-										src={school.logoUrl}
+										src={normalizedSchool.logoUrl}
 										style={{
 											...watermarkStyle,
 											width: '40%',
@@ -1139,9 +1151,9 @@ export const ReportCard = React.memo(function PDFDocument({
 								}}
 							>
 								{/* FIX 3: null guard — only render watermark if a logo URL exists */}
-								{(school?.logoUrl2 || school?.logoUrl) && (
+								{(normalizedSchool.logoUrl2 || normalizedSchool.logoUrl) && (
 									<Image
-										src={school.logoUrl2 || school.logoUrl}
+										src={normalizedSchool.logoUrl2 || normalizedSchool.logoUrl}
 										style={{
 											...watermarkStyle,
 											width: '45%',
@@ -1285,7 +1297,7 @@ export const ReportCard = React.memo(function PDFDocument({
 											marginBottom: 2,
 										}}
 									>
-										{school?.name}
+										{normalizedSchool.name}
 									</Text>
 									<View>
 										<Text>{schoolAddressFirstLine}</Text>
@@ -1301,9 +1313,9 @@ export const ReportCard = React.memo(function PDFDocument({
 										}}
 									>
 										{/* FIX 3: null guard on left logo */}
-										{(school?.logoUrl2 || school?.logoUrl) && (
+										{(normalizedSchool.logoUrl2 || normalizedSchool.logoUrl) && (
 											<Image
-												src={school.logoUrl2 || school.logoUrl}
+												src={normalizedSchool.logoUrl2 || normalizedSchool.logoUrl}
 												style={{
 													width: 60,
 													height: 60,
@@ -1326,9 +1338,9 @@ export const ReportCard = React.memo(function PDFDocument({
 										</View>
 
 										{/* FIX 3: null guard on right logo */}
-										{school?.logoUrl && (
+										{normalizedSchool.logoUrl && (
 											<Image
-												src={school.logoUrl}
+												src={normalizedSchool.logoUrl}
 												style={{ width: 60, height: 60, alignSelf: 'flex-end' }}
 											/>
 										)}

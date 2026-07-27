@@ -24,6 +24,44 @@ export type ReportTemplateFallbackRequest = {
 };
 
 // ---------------------------------------------------------------------------
+// Flatten a nested SchoolProfile into the flat shape report templates expect.
+// Templates read school.name, school.logoUrl, school.logoUrl2, school.address[]
+// ---------------------------------------------------------------------------
+
+export type ReportTemplateSchool = {
+	shortName?: string;
+	host?: string;
+	name?: string;
+	logoUrl?: string;
+	logoUrl2?: string;
+	address?: string[];
+};
+
+export function flattenSchoolForReport(school: any): ReportTemplateSchool {
+	if (!school) return {};
+	const name = Array.isArray(school?.identity?.name)
+		? school.identity.name.filter(Boolean).join(' ')
+		: typeof school?.identity?.name === 'string'
+			? school.identity.name
+			: school?.name || '';
+	const address: string[] = Array.isArray(school?.contact?.addresses)
+		? school.contact.addresses.flatMap((a: any) =>
+				Array.isArray(a?.lines) ? a.lines : [],
+			)
+		: Array.isArray(school?.address)
+			? school.address
+			: [];
+	return {
+		shortName: school?.identity?.shortName || school?.shortName,
+		host: school?.system?.host || school?.host,
+		name,
+		logoUrl: school?.branding?.logoUrl || school?.logoUrl,
+		logoUrl2: school?.branding?.logoUrl2 || school?.logoUrl2,
+		address,
+	};
+}
+
+// ---------------------------------------------------------------------------
 // Logo normalizer — keep this. It's a safety guard, unrelated to caching:
 // it only accepts local paths or already-inlined data URIs, so a stray
 // remote http(s) URL never gets handed to the PDF renderer.

@@ -15,19 +15,10 @@ export default function SuperAdminOnboardPage() {
 		try {
 			setSaving(true);
 			setError('');
-			// POST handler expects flat keys
 			const res = await fetch('/api/school', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					name: data.identity.name,
-					shortName: data.identity.shortName,
-					host: data.system.host,
-					dbName: data.system.dbName,
-					sysAdmin: data.userConfig.sysAdmin,
-					slogan: data.identity.slogan,
-					initials: data.identity.initials,
-				}),
+				body: JSON.stringify(data),
 			});
 			const result = await res.json();
 			if (!res.ok) throw new Error(result.error || 'Failed to create school');
