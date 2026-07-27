@@ -13,7 +13,7 @@ import {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const toSchoolName = (profile: any) => {
-	const rawName = profile?.name;
+	const rawName = profile?.name || profile?.identity?.name;
 	if (typeof rawName === 'string' && rawName.trim()) {
 		return rawName.trim();
 	}
@@ -25,15 +25,19 @@ const toSchoolName = (profile: any) => {
 			return firstNonEmpty.trim();
 		}
 	}
-	if (typeof profile?.shortName === 'string' && profile.shortName.trim()) {
-		return profile.shortName.trim();
+	const fallbackShort =
+		profile?.shortName || profile?.identity?.shortName;
+	if (typeof fallbackShort === 'string' && fallbackShort.trim()) {
+		return fallbackShort.trim();
 	}
 	return 'School';
 };
 
 const toSchoolShortName = (profile: any, fallbackName: string) => {
 	const candidate =
-		(typeof profile?.shortName === 'string' ? profile.shortName : '') ||
+		(typeof (profile?.shortName || profile?.identity?.shortName) === 'string'
+			? profile.shortName || profile.identity?.shortName
+			: '') ||
 		(typeof profile?.initials === 'string' ? profile.initials : '') ||
 		fallbackName;
 	const normalized = String(candidate || '').trim();
@@ -52,11 +56,54 @@ export async function generateMetadata(): Promise<Metadata> {
 	const profileRaw = await getSchoolProfile();
 	const profile =
 		typeof profileRaw === 'string' ? JSON.parse(profileRaw) : profileRaw;
-	const logoUrl = profile?.logoUrl || profile?.logoUrl2;
-	const hasApps = profile?.enabledFeatures?.includes('apps');
-	const schoolName = toSchoolName(profile);
-	const schoolShortName = toSchoolShortName(profile, schoolName);
+
+	const isSchoolDomain = Boolean(profile);
+	const schoolName = isSchoolDomain ? toSchoolName(profile) : 'SchoolMesh';
+	const schoolShortName = isSchoolDomain
+		? toSchoolShortName(profile, schoolName)
+		: 'SchoolMesh';
+	const logoUrl = isSchoolDomain
+		? profile?.logoUrl || profile?.logoUrl2 || profile?.branding?.logoUrl || profile?.branding?.logoUrl2
+		: undefined;
+	const hasApps =
+		isSchoolDomain && profile?.enabledFeatures?.includes('apps');
 	const tenantThemeColor = resolveTenantThemeColor(profile?.themeName);
+
+	let icons: Metadata['icons'];
+	if (hasApps) {
+		icons = {
+			icon: [
+				{
+					url: '/api/pwa/icon?size=32&mode=logo&format=png',
+					sizes: '32x32',
+					type: 'image/png',
+				},
+				{
+					url: '/api/pwa/icon?size=192&mode=logo&format=png',
+					sizes: '192x192',
+					type: 'image/png',
+				},
+				{
+					url: '/api/pwa/icon?size=512&mode=logo&format=png',
+					sizes: '512x512',
+					type: 'image/png',
+				},
+			],
+			shortcut: ['/api/pwa/icon?size=192&mode=logo&format=png'],
+			apple: [
+				{
+					url: '/api/pwa/icon?size=180&mode=logo&format=png',
+					sizes: '180x180',
+					type: 'image/png',
+				},
+			],
+		};
+	} else if (logoUrl) {
+		icons = { icon: logoUrl, apple: logoUrl };
+	} else {
+		icons = { icon: '/images/SchoolMesh.png', apple: '/images/SchoolMesh.png' };
+	}
+
 	return {
 		applicationName: schoolShortName,
 		title: {
@@ -65,38 +112,7 @@ export async function generateMetadata(): Promise<Metadata> {
 		},
 		manifest: hasApps ? '/manifest.webmanifest' : undefined,
 		themeColor: hasApps ? tenantThemeColor : undefined,
-		icons: hasApps
-			? {
-					icon: [
-						{
-							url: '/api/pwa/icon?size=32&mode=logo&format=png',
-							sizes: '32x32',
-							type: 'image/png',
-						},
-						{
-							url: '/api/pwa/icon?size=192&mode=logo&format=png',
-							sizes: '192x192',
-							type: 'image/png',
-						},
-						{
-							url: '/api/pwa/icon?size=512&mode=logo&format=png',
-							sizes: '512x512',
-							type: 'image/png',
-						},
-					],
-					shortcut: ['/api/pwa/icon?size=192&mode=logo&format=png'],
-					apple: [
-						{
-							url: '/api/pwa/icon?size=180&mode=logo&format=png',
-							sizes: '180x180',
-							type: 'image/png',
-						},
-					],
-				}
-			: {
-					icon: logoUrl,
-					apple: logoUrl,
-				},
+		icons,
 		appleWebApp: hasApps
 			? {
 					capable: true,
@@ -126,33 +142,29 @@ export default async function RootLayout({
 	const profileRaw = await getSchoolProfile();
 	const profile =
 		typeof profileRaw === 'string' ? JSON.parse(profileRaw) : profileRaw;
-	const hasApps = profile?.enabledFeatures?.includes('apps');
-	const schoolName = toSchoolName(profile);
-	const schoolShortName = toSchoolShortName(profile, schoolName);
+	const isSchoolDomain = Boolean(profile);
+	const schoolName = isSchoolDomain ? toSchoolName(profile) : 'SchoolMesh';
+	const schoolShortName = isSchoolDomain
+		? toSchoolShortName(profile, schoolName)
+		: 'SchoolMesh';
+	const hasApps = isSchoolDomain && profile?.enabledFeatures?.includes('apps');
 	const tenantThemeColor = resolveTenantThemeColor(profile?.themeName);
 	const tenantThemeCss = buildTenantThemeCss(profile?.themeName);
-	const hasSchool = Boolean(profile);
+	const hasSchool = isSchoolDomain;
 
-	return (
-		// Suppress hydration warning: the blocking script mutates classList and
-		// data-theme before React hydrates, so a mismatch is expected and harmless.
+		return (
 		<html lang="en" suppressHydrationWarning>
 			<head>
-				{/*
-				 * ── Blocking theme-restore script ────────────────────────────────────
-				 * Must be the FIRST child of <head> so it runs before any stylesheet or
-				 * element is painted. Restores dark-mode class and data-theme attribute
-				 * from localStorage synchronously, eliminating flash on hard refresh.
-				 */}
+				<DynamicDocumentTitle
+					fallbackSchoolShortName={schoolShortName}
+					isSchoolDomain={isSchoolDomain}
+				/>
 				<Script
 					id="theme-restore"
 					strategy="beforeInteractive"
 					src="/theme-restore.js"
 				/>
 
-				{/* Server-side tenant theme — used as the SSR baseline / fallback.
-				    At runtime applyTenantThemeToDocument() takes over and the
-				    data-theme attribute drives per-user overrides via CSS. */}
 				{tenantThemeCss && (
 					<style
 						id="tenant-theme"
@@ -160,7 +172,6 @@ export default async function RootLayout({
 					/>
 				)}
 
-				{/* PWA / manifest tags */}
 				{hasApps && <link rel="manifest" href="/manifest.webmanifest" />}
 				{hasApps && (
 					<link
@@ -180,7 +191,6 @@ export default async function RootLayout({
 				)}
 			</head>
 			<body>
-				<DynamicDocumentTitle fallbackSchoolShortName={schoolShortName} />
 				<RootProviders hasSchool={hasSchool}>{children}</RootProviders>
 			</body>
 		</html>

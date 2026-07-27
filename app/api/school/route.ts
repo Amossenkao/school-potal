@@ -518,16 +518,17 @@ export async function PUT(request: NextRequest) {
 				),
 			);
 
-			await Promise.all(
-				tenantIds.map((tenantId) =>
-					publishSyncEventSafe({
-						tenantId,
-						domain: 'school',
-						reason: 'school-updated',
-						payload: { school },
-					}),
-				),
-			);
+		const flatSchool = flattenSchoolProfile(school);
+		await Promise.all(
+			tenantIds.map((tenantId) =>
+				publishSyncEventSafe({
+					tenantId,
+					domain: 'school',
+					reason: 'school-updated',
+					payload: { school: flatSchool },
+				}),
+			),
+		);
 
 			return NextResponse.json({ school });
 		}

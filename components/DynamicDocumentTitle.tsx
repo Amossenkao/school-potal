@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSchoolStore } from '@/store/schoolStore';
 
 type DynamicDocumentTitleProps = {
 	fallbackSchoolShortName: string;
+	isSchoolDomain: boolean;
 };
 
 const toReadablePageName = (pathname: string) => {
@@ -32,16 +32,16 @@ const toReadablePageName = (pathname: string) => {
 
 export default function DynamicDocumentTitle({
 	fallbackSchoolShortName,
+	isSchoolDomain,
 }: DynamicDocumentTitleProps) {
 	const pathname = usePathname();
 	const school = useSchoolStore((state) => state.school);
-	const schoolShortName =
-		school?.shortName?.trim() || fallbackSchoolShortName.trim() || 'SchoolMesh';
+	const schoolShortName = isSchoolDomain
+		? school?.identity?.shortName?.trim() ||
+			fallbackSchoolShortName.trim()
+		: 'SchoolMesh';
 
-	useEffect(() => {
-		const pageName = toReadablePageName(pathname || '/');
-		document.title = `${schoolShortName} | ${pageName}`;
-	}, [pathname, schoolShortName]);
+	const pageName = toReadablePageName(pathname || '/');
 
-	return null;
+	return <title>{`${schoolShortName} | ${pageName}`}</title>;
 }

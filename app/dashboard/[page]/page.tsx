@@ -206,7 +206,7 @@ export async function generateMetadata({ params }: PageProps) {
 		return {
 			title: pageTitle,
 			description: `${pageTitle} page for ${
-			schoolProfile?.identity?.name || 'school management'
+			schoolProfile?.identity?.name || 'SchoolMesh'
 		}${
 			user?.role === 'administrator'
 				? ` - ${(user as Administrator).position} access`

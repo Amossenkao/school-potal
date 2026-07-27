@@ -14,6 +14,38 @@ import {
 import { useNetworkStore } from './networkStore';
 import type { RealtimeEvent } from '@/lib/realtimeTypes';
 
+const flattenSchoolPayload = (school: any): any => {
+	if (!school || typeof school !== 'object') return school;
+	const flat: any = { ...school };
+	if (school.system) {
+		flat.host = school.system.host;
+		flat.dbName = school.system.dbName;
+		flat.isActive = school.system.isActive;
+	}
+	if (school.identity) {
+		flat.name = school.identity.name;
+		flat.shortName = school.identity.shortName;
+		flat.initials = school.identity.initials;
+		flat.slogan = school.identity.slogan;
+		flat.studentIdPrefix = school.identity.studentIdPrefix;
+		flat.yearFounded = school.identity.yearFounded;
+		flat.firstAcademicYear = school.identity.firstAcademicYear;
+		flat.currentAcademicYear = school.identity.currentAcademicYear;
+	}
+	if (school.branding) {
+		flat.logoUrl = school.branding.logoUrl;
+		flat.logoUrl2 = school.branding.logoUrl2;
+		flat.themeName = school.branding.themeName;
+	}
+	if (school.contact) {
+		flat.address = (school.contact.addresses || []).flatMap((a: any) => a.lines || []);
+		flat.phones = school.contact.phones || [];
+		flat.emails = school.contact.emails || [];
+		flat.website = school.contact.website;
+	}
+	return flat;
+};
+
 type UsersPayload = {
 	students?: any[];
 	teachers?: any[];
@@ -1029,7 +1061,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		);
 
 		if (schoolPayload) {
-			get().setSchool(schoolPayload);
+			get().setSchool(flattenSchoolPayload(schoolPayload));
 		}
 
 		const shouldTouchUsers = [
