@@ -244,11 +244,15 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 			onClose();
 			return;
 		}
-		if (reason === 'school-updated' || reason === 'school-toggled-active') {
+		if (reason === 'school-updated' || reason === 'school-toggled-active' || reason === 'school-settings-updated') {
 			const schoolData = event.payload?.school as Record<string, any> | undefined;
 			if (schoolData?.host) upsertSuperAdminSchool(schoolData);
 			fetchSchool();
 			if (!stats) fetchStats();
+		}
+		const isUserEvent = ['user-created', 'account-deactivated', 'user-deleted'].includes(reason);
+		if (isUserEvent) {
+			fetchStats();
 		}
 	}, [host, removeSuperAdminSchool, stats, upsertSuperAdminSchool]);
 

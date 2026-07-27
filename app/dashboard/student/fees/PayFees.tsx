@@ -13,19 +13,17 @@ import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
 import { resolveStudentFeeGroup } from '@/utils/resolveStudentFeeGroup';
 import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAccess';
-import type { FeeGroup } from '@/types/schoolProfile';
+import type { FeeDefinition, PaymentPlan, PaymentCategory, ScheduledFee } from '@/types/schoolProfile';
 import type { PaymentRecords } from '@/types';
 import {
 	Loader2,
 	AlertCircle,
 	BookOpen,
 	FileText,
-	MoreHorizontal,
 	Wallet,
 	User,
 	Phone,
 	Sparkles,
-	ClipboardList,
 	Gift,
 	CheckCircle,
 } from 'lucide-react';
@@ -36,20 +34,19 @@ const formatCurrency = (value: number) =>
 		maximumFractionDigits: 2,
 	});
 
-const getInstallmentAmount = (
-	inst: FeeGroup['installments'][number],
-	studentType: 'old' | 'new',
-) => {
-	if (studentType === 'new' && inst.new != null) return inst.new;
-	if (studentType === 'old' && inst.old != null) return inst.old;
-	return inst.amount ?? 0;
-};
-
 interface SelectedItem {
-	type: 'installment' | 'requirement' | 'accessory';
+	type: 'fee';
 	key: string;
 	label: string;
 	amount: number;
+	currency: string;
+}
+
+interface ResolvedFee {
+	scheduledFee: ScheduledFee;
+	feeDefinition: FeeDefinition | undefined;
+	categoryName: string;
+	installmentLabel: string | null;
 }
 
 export default function PayFees() {
@@ -63,6 +60,21 @@ export default function PayFees() {
 	const [paymentStatus, setPaymentStatus] = useState<'idle' | 'success'>('idle');
 	const [receipts, setReceipts] = useState<PaymentRecords[]>([]);
 
+	const feeDefinitions = useMemo(
+		() => school?.financialConfig?.feeDefinitions ?? [],
+		[school],
+	);
+
+	const paymentPlans = useMemo(
+		() => school?.financialConfig?.paymentPlans ?? [],
+		[school],
+	);
+
+	const paymentCategories = useMemo(
+		() => school?.financialConfig?.paymentCategories ?? [],
+		[school],
+	);
+
 	const resolved = useMemo(() => {
 		if (!user || !school) return null;
 		const academicYear = getCurrentAcademicYearFromSchoolProfile(school);
@@ -73,9 +85,34 @@ export default function PayFees() {
 		);
 	}, [user, school]);
 
-	const studentType: 'old' | 'new' = (user as any)?.isNewStudent
-		? 'new'
-		: 'old';
+	const resolvedFees = useMemo((): ResolvedFee[] => {
+		if (!resolved) return [];
+		const { feeGroup } = resolved;
+		const plan = paymentPlans.find((p) => p.id === feeGroup.paymentPlanId);
+		return feeGroup.scheduledFees.map((sf) => {
+			const feeDef = feeDefinitions.find((fd) => fd.id === sf.feeId);
+			const cat = paymentCategories.find((c) => c.id === feeDef?.category);
+			const installment = sf.dueInstallmentId && plan
+				? plan.installments.find((i) => i.id === sf.dueInstallmentId)
+				: null;
+			return {
+				scheduledFee: sf,
+				feeDefinition: feeDef,
+				categoryName: cat?.name || feeDef?.category || 'Other',
+				installmentLabel: installment?.label ?? null,
+			};
+		});
+	}, [resolved, feeDefinitions, paymentPlans, paymentCategories]);
+
+	const groupedFees = useMemo(() => {
+		const groups: Record<string, ResolvedFee[]> = {};
+		for (const rf of resolvedFees) {
+			const key = rf.categoryName;
+			if (!groups[key]) groups[key] = [];
+			groups[key].push(rf);
+		}
+		return groups;
+	}, [resolvedFees]);
 
 	const currentAcademicYear = useMemo(() => {
 		if (!school) return '';
@@ -84,14 +121,8 @@ export default function PayFees() {
 
 	const toggleItem = (item: SelectedItem) => {
 		setSelected((prev) => {
-			const exists = prev.find(
-				(s) => s.type === item.type && s.key === item.key,
-			);
-			if (exists) {
-				return prev.filter(
-					(s) => !(s.type === item.type && s.key === item.key),
-				);
-			}
+			const exists = prev.find((s) => s.key === item.key);
+			if (exists) return prev.filter((s) => s.key !== item.key);
 			return [...prev, item];
 		});
 	};
@@ -106,7 +137,6 @@ export default function PayFees() {
 
 		setIsProcessing(true);
 
-		// Simulate processing delay
 		await new Promise((r) => setTimeout(r, 1500));
 
 		const now = new Date();
@@ -203,8 +233,6 @@ export default function PayFees() {
 		);
 	}
 
-	const { feeGroup } = resolved;
-
 	return (
 		<div className="min-h-screen bg-background">
 			<div className="w-full px-4 sm:px-6 lg:px-8 py-8">
@@ -237,13 +265,13 @@ export default function PayFees() {
 										Payment Successful!
 									</h3>
 									<p className="text-green-700 dark:text-green-300">
-										Demo payment of LRD {formatCurrency(totalSelected)} has been
+										Demo payment of {formatCurrency(totalSelected)} has been
 										processed.
 									</p>
 									<div className="mt-3 text-sm text-green-700/80 dark:text-green-200/80 space-y-1">
 										{receipts.map((r) => (
 											<p key={r.id}>
-												{r.category}: LRD {formatCurrency(r.paymentAmount)} —{' '}
+												{r.category}: {formatCurrency(r.paymentAmount)} —{' '}
 												{r.receiptNumber}
 											</p>
 										))}
@@ -302,92 +330,28 @@ export default function PayFees() {
 							</CardContent>
 						</Card>
 
-						{/* Fee Items */}
+						{/* Fee Items grouped by category */}
 						<div className="space-y-6">
-							{/* Installments */}
-							{feeGroup.installments.length > 0 && (
-								<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
-									<CardHeader>
-										<CardTitle className="flex items-center gap-2">
-											<ClipboardList className="h-5 w-5" />
-											Payment Installments
-										</CardTitle>
-										<CardDescription>
-											Select the installments you want to pay
-										</CardDescription>
-									</CardHeader>
-									<CardContent>
-										<div className="space-y-3">
-											{feeGroup.installments.map((inst, idx) => {
-												const amount = getInstallmentAmount(inst, studentType);
-												const isSelected = selected.some(
-													(s) => s.type === 'installment' && s.key === `inst-${idx}`,
-												);
-												return (
-													<label
-														key={idx}
-														className={`flex items-center justify-between gap-4 rounded-lg border p-4 cursor-pointer transition-colors ${
-															isSelected
-																? 'border-primary bg-primary/5'
-																: 'hover:bg-muted/50'
-														}`}
-													>
-														<div className="flex items-center gap-3">
-															<input
-																type="checkbox"
-																checked={isSelected}
-																onChange={() =>
-																	toggleItem({
-																		type: 'installment',
-																		key: `inst-${idx}`,
-																		label: inst.label,
-																		amount,
-																	})
-																}
-																className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-															/>
-															<div>
-																<p className="font-medium">{inst.label}</p>
-																{inst.dueWindow && (
-																	<p className="text-xs text-muted-foreground">
-																		Due: {inst.dueWindow}
-																	</p>
-																)}
-															</div>
-														</div>
-														<p className="font-semibold whitespace-nowrap">
-															LRD {formatCurrency(amount)}
-														</p>
-													</label>
-												);
-											})}
-										</div>
-									</CardContent>
-								</Card>
-							)}
-
-							{/* Requirements */}
-							{feeGroup.requirements && feeGroup.requirements.length > 0 && (
-								<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
+							{Object.entries(groupedFees).map(([categoryName, fees]) => (
+								<Card key={categoryName} className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
 									<CardHeader>
 										<CardTitle className="flex items-center gap-2">
 											<FileText className="h-5 w-5" />
-											Requirements
+											{categoryName}
 										</CardTitle>
 										<CardDescription>
-											Select the required items you want to pay for
+											{fees.length} fee{fees.length !== 1 ? 's' : ''} in this category
 										</CardDescription>
 									</CardHeader>
 									<CardContent>
 										<div className="space-y-3">
-											{feeGroup.requirements.map((req, idx) => {
+											{fees.map((rf, idx) => {
 												const isSelected = selected.some(
-													(s) =>
-														s.type === 'requirement' && s.key === `req-${idx}`,
+													(s) => s.key === `${rf.scheduledFee.feeId}-${idx}`,
 												);
 												return (
 													<label
-														key={idx}
+														key={`${rf.scheduledFee.feeId}-${idx}`}
 														className={`flex items-center justify-between gap-4 rounded-lg border p-4 cursor-pointer transition-colors ${
 															isSelected
 																? 'border-primary bg-primary/5'
@@ -400,23 +364,36 @@ export default function PayFees() {
 																checked={isSelected}
 																onChange={() =>
 																	toggleItem({
-																		type: 'requirement',
-																		key: `req-${idx}`,
-																		label: req.item,
-																		amount: req.amount,
+																		type: 'fee',
+																		key: `${rf.scheduledFee.feeId}-${idx}`,
+																		label: rf.feeDefinition?.name || rf.scheduledFee.feeId,
+																		amount: rf.scheduledFee.amount.amount,
+																		currency: rf.scheduledFee.amount.currency,
 																	})
 																}
 																className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
 															/>
 															<div>
-																<p className="font-medium">{req.item}</p>
-																<p className="text-xs text-muted-foreground">
-																	Due at: {req.dueAt}
+																<p className="font-medium">
+																	{rf.feeDefinition?.name || rf.scheduledFee.feeId}
 																</p>
+																<div className="flex items-center gap-2 text-xs text-muted-foreground">
+																	{rf.scheduledFee.isRequired ? (
+																		<span className="text-amber-600 dark:text-amber-400 font-medium">Required</span>
+																	) : (
+																		<span className="text-green-600 dark:text-green-400 font-medium">Optional</span>
+																	)}
+																	{rf.installmentLabel && (
+																		<span>Due: {rf.installmentLabel}</span>
+																	)}
+																	{rf.feeDefinition?.flag && (
+																		<span>· {rf.feeDefinition.flag}</span>
+																	)}
+																</div>
 															</div>
 														</div>
 														<p className="font-semibold whitespace-nowrap">
-															LRD {formatCurrency(req.amount)}
+															{rf.scheduledFee.amount.currency} {formatCurrency(rf.scheduledFee.amount.amount)}
 														</p>
 													</label>
 												);
@@ -424,71 +401,16 @@ export default function PayFees() {
 										</div>
 									</CardContent>
 								</Card>
-							)}
+							))}
 
-							{/* Accessories */}
-							{feeGroup.accessories && feeGroup.accessories.length > 0 && (
+							{resolvedFees.length === 0 && (
 								<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
-									<CardHeader>
-										<CardTitle className="flex items-center gap-2">
-											<Gift className="h-5 w-5" />
-											Accessories
-										</CardTitle>
-										<CardDescription>
-											Optional items available for purchase
-										</CardDescription>
-									</CardHeader>
-									<CardContent>
-										<div className="space-y-3">
-											{feeGroup.accessories
-												.filter(
-													(a) =>
-														a.studentType === 'all' ||
-														a.studentType === studentType,
-												)
-												.map((acc, idx) => {
-													const isSelected = selected.some(
-														(s) =>
-															s.type === 'accessory' &&
-															s.key === `acc-${idx}`,
-													);
-													return (
-														<label
-															key={idx}
-															className={`flex items-center justify-between gap-4 rounded-lg border p-4 cursor-pointer transition-colors ${
-																isSelected
-																	? 'border-primary bg-primary/5'
-																	: 'hover:bg-muted/50'
-															}`}
-														>
-															<div className="flex items-center gap-3">
-																<input
-																	type="checkbox"
-																	checked={isSelected}
-																	onChange={() =>
-																		toggleItem({
-																			type: 'accessory',
-																			key: `acc-${idx}`,
-																			label: acc.item,
-																			amount: acc.amount,
-																		})
-																	}
-																	className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-																/>
-																<div>
-																	<p className="font-medium">{acc.item}</p>
-																	<p className="text-xs text-muted-foreground">
-																		Due: {acc.dueAt}
-																	</p>
-																</div>
-															</div>
-															<p className="font-semibold whitespace-nowrap">
-																LRD {formatCurrency(acc.amount)}
-															</p>
-														</label>
-													);
-												})}
-										</div>
+									<CardContent className="p-6 text-center">
+										<AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+										<h3 className="text-lg font-semibold mb-2">No Fees Available</h3>
+										<p className="text-muted-foreground">
+											There are no scheduled fees for your class in this fee schedule.
+										</p>
 									</CardContent>
 								</Card>
 							)}
@@ -557,20 +479,20 @@ export default function PayFees() {
 										<div className="space-y-2">
 											{selected.map((item) => (
 												<div
-													key={`${item.type}-${item.key}`}
+													key={item.key}
 													className="flex justify-between text-sm"
 												>
 													<span className="text-muted-foreground">
 														{item.label}
 													</span>
 													<span className="font-medium">
-														LRD {formatCurrency(item.amount)}
+														{item.currency} {formatCurrency(item.amount)}
 													</span>
 												</div>
 											))}
 											<div className="border-t pt-2 mt-2 flex justify-between font-semibold">
 												<span>Total</span>
-												<span>LRD {formatCurrency(totalSelected)}</span>
+												<span>{selected[0]?.currency || ''} {formatCurrency(totalSelected)}</span>
 											</div>
 										</div>
 										<div className="text-sm mt-3 space-y-1">
@@ -600,7 +522,7 @@ export default function PayFees() {
 										) : (
 											<>
 												<Wallet className="h-4 w-4 mr-2" />
-												Pay LRD {formatCurrency(totalSelected)} via{' '}
+												Pay {selected[0]?.currency || ''} {formatCurrency(totalSelected)} via{' '}
 												{paymentMethod === 'orange'
 													? 'Orange Money'
 													: 'Lonester Mobile Money'}

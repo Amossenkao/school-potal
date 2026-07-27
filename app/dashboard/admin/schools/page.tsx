@@ -124,18 +124,76 @@ export default function SchoolsListPage() {
 				| undefined;
 
 			if (
-				(reason === 'school-toggled-active' || reason === 'school-updated') &&
+				(reason === 'school-toggled-active' || reason === 'school-updated' || reason === 'school-settings-updated') &&
 				schoolData?.host
 			) {
 				upsertSuperAdminSchool(schoolData);
 				return;
 			}
 
+			if (reason === 'school-settings-updated' && event.tenantId) {
+				const matched = schools.find(
+					(s) => s.host === event.tenantId || s.dbName === event.tenantId,
+				);
+				if (matched) {
+					void fetch(`/api/school?host=${encodeURIComponent(matched.host)}&stats=true`)
+						.then((r) => r.json())
+						.then((data) => {
+							if (data?.total !== undefined) {
+								upsertSuperAdminSchool({
+									host: matched.host,
+									stats: data,
+									users: {
+										students: data.students,
+										teachers: data.teachers,
+										administrators: data.administrators,
+										systemAdmins: data.systemAdmins,
+									},
+									totalUsers: data.total,
+								});
+							}
+						})
+						.catch(() => {});
+				}
+				return;
+			}
+
 			if (reason === 'school-deleted' && event.payload?.host) {
 				removeSuperAdminSchool(String(event.payload.host));
+				return;
+			}
+
+			const isUserEvent = ['user-created', 'account-deactivated', 'user-deleted'].includes(reason);
+			if (isUserEvent && event.tenantId) {
+				const payloadUser = event.payload?.user as Record<string, any> | undefined;
+				const userRole = String(payloadUser?.role || '').trim();
+				const matched = schools.find(
+					(s) => s.host === event.tenantId || s.dbName === event.tenantId,
+				);
+				if (matched) {
+					const current = {
+						students: Number(matched.stats?.students ?? matched.users?.students ?? 0),
+						teachers: Number(matched.stats?.teachers ?? matched.users?.teachers ?? 0),
+						administrators: Number(matched.stats?.administrators ?? matched.users?.administrators ?? 0),
+						systemAdmins: Number(matched.stats?.systemAdmins ?? matched.users?.systemAdmins ?? 0),
+						total: Number(matched.stats?.total ?? matched.totalUsers ?? 0),
+					};
+					const delta = reason === 'user-deleted' || reason === 'account-deactivated' ? -1 : 1;
+					if (userRole === 'student') current.students = Math.max(0, current.students + delta);
+					else if (userRole === 'teacher') current.teachers = Math.max(0, current.teachers + delta);
+					else if (userRole === 'administrator') current.administrators = Math.max(0, current.administrators + delta);
+					else if (userRole === 'system_admin') current.systemAdmins = Math.max(0, current.systemAdmins + delta);
+					current.total = Math.max(0, current.total + delta);
+					upsertSuperAdminSchool({
+						host: matched.host,
+						stats: current,
+						users: { students: current.students, teachers: current.teachers, administrators: current.administrators, systemAdmins: current.systemAdmins },
+						totalUsers: current.total,
+					});
+				}
 			}
 		},
-		[removeSuperAdminSchool, upsertSuperAdminSchool],
+		[schools, removeSuperAdminSchool, upsertSuperAdminSchool],
 	);
 
 	const schoolHosts = useMemo(
