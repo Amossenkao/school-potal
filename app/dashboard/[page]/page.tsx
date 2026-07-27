@@ -204,7 +204,6 @@ export async function generateMetadata({ params }: PageProps) {
 			.join(' ');
 
 		return {
-			title: pageTitle,
 			description: `${pageTitle} page for ${
 			schoolProfile?.identity?.name || 'SchoolMesh'
 		}${
@@ -218,7 +217,6 @@ export async function generateMetadata({ params }: PageProps) {
 		};
 	} catch (error) {
 		return {
-			title: 'School Management System',
 			description: 'School management system dashboard',
 		};
 	}

@@ -106,10 +106,6 @@ export async function generateMetadata(): Promise<Metadata> {
 
 	return {
 		applicationName: schoolShortName,
-		title: {
-			default: `${schoolShortName} | Home`,
-			template: `${schoolShortName} | %s`,
-		},
 		manifest: hasApps ? '/manifest.webmanifest' : undefined,
 		themeColor: hasApps ? tenantThemeColor : undefined,
 		icons,

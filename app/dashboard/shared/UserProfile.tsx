@@ -5,7 +5,6 @@ import { Metadata } from 'next';
 import React from 'react';
 
 export const metadata: Metadata = {
-	title: 'User Profile',
 	description: 'Profile of the current user',
 };
 
