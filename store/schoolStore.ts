@@ -14,6 +14,12 @@ import {
 import { useNetworkStore } from './networkStore';
 import type { RealtimeEvent } from '@/lib/realtimeTypes';
 
+// Set by AuthProvider when the current user's role is resolved.
+// Used in applyRealtimeEvent to prevent superadmins from having
+// their school store overwritten by cross-school events.
+let _currentUserRole: string | null = null;
+export const setCurrentUserRole = (role: string | null) => { _currentUserRole = role; };
+
 const flattenSchoolPayload = (school: any): any => {
 	if (!school || typeof school !== 'object') return school;
 	const flat: any = { ...school };
@@ -1061,17 +1067,15 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		);
 
 		if (schoolPayload) {
-			// Only overwrite the school store if the event is for the same
-			// school currently loaded. On the superadmin dashboard, events
-			// arrive for OTHER schools via the broadcast channel — blindly
-			// overwriting would set isActive=false on the superadmin's own
-			// school and render the Inactive page.
-			const currentSchool = get().school as any;
-			const flattened = flattenSchoolPayload(schoolPayload);
-			const eventHost = flattened?.host || flattened?.system?.host;
-			const currentHost = currentSchool?.host || currentSchool?.system?.host;
-			if (!currentSchool || !eventHost || !currentHost || eventHost === currentHost) {
-				get().setSchool(flattened);
+			// Superadmins manage schools — they don't "have" a school.
+			// Overwriting the school store with another school's data would
+			// cause RootProviders to render <Inactive /> if that school is
+			// deactivated. Skip setSchool() entirely for superadmins.
+			if (_currentUserRole === 'superadmin') {
+				// Still notify listeners so dashboard components can refetch
+				// their school-specific data (stats, admins, etc.)
+			} else {
+				get().setSchool(flattenSchoolPayload(schoolPayload));
 			}
 		}
 

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Ably from 'ably';
 import useAuth from '@/store/useAuth';
-import { useSchoolStore } from '@/store/schoolStore';
+import { useSchoolStore, setCurrentUserRole } from '@/store/schoolStore';
 import { useNetworkStore } from '@/store/networkStore';
 import { PageLoading } from '@/components/loading';
 import { useHasSchool } from '@/context/HasSchoolContext';
@@ -229,6 +229,13 @@ export default function AuthProvider({
 		if (pathname === '/') return;
 		router.replace('/');
 	}, [hasSchool, isBootstrapping, currentSchool, isLoggingOut, pathname, router, startupResolved]);
+
+	// Sync user role to schoolStore so applyRealtimeEvent can skip
+	// setSchool() for superadmins (they manage schools, they don't have one).
+	useEffect(() => {
+		setCurrentUserRole(user?.role ?? null);
+		return () => setCurrentUserRole(null);
+	}, [user?.role]);
 
 	// Ably Streaming Channel Setup and Connection Listeners
 	useEffect(() => {
