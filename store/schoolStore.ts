@@ -1061,7 +1061,18 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		);
 
 		if (schoolPayload) {
-			get().setSchool(flattenSchoolPayload(schoolPayload));
+			// Only overwrite the school store if the event is for the same
+			// school currently loaded. On the superadmin dashboard, events
+			// arrive for OTHER schools via the broadcast channel — blindly
+			// overwriting would set isActive=false on the superadmin's own
+			// school and render the Inactive page.
+			const currentSchool = get().school as any;
+			const flattened = flattenSchoolPayload(schoolPayload);
+			const eventHost = flattened?.host || flattened?.system?.host;
+			const currentHost = currentSchool?.host || currentSchool?.system?.host;
+			if (!currentSchool || !eventHost || !currentHost || eventHost === currentHost) {
+				get().setSchool(flattened);
+			}
 		}
 
 		const shouldTouchUsers = [
