@@ -1,36 +1,6 @@
 import type { TenantThemeName } from '@/types/tenantTheme';
+import type {FeatureKey} from "@/types"
 
-// ============================================================================
-// FEATURES
-// ============================================================================
-
-export type FeatureKey =
-	// Core
-	| 'dashboard'
-	| 'user_management'
-	| 'profile_management'
-	| 'ai_chat'
-	| 'homepage'
-	| 'apps'
-	| 'attendance'
-	| 'teacher_attendance'
-	// Academic
-	| 'grading_system'
-	| 'academic_reports'
-	| 'academic_resources'
-	| 'calendar_events'
-	| 'class_management'
-	// Financial
-	| 'fee_payment'
-	| 'financial_reports'
-	// Student
-	| 'admissions'
-	// Communication & Support
-	| 'support_system'
-	| 'community'
-	| 'notifications'
-	// System
-	| 'school_settings';
 
 // Maps each role to the features it can access
 export interface RoleFeatureAccess {
@@ -286,21 +256,19 @@ export interface SchoolProfileFeatureConfig {
 }
 
 // ============================================================================
-// SCHOOL PROFILE — FINANCIAL CONFIG
+// PAYMENT CATEGORIES
 // ============================================================================
 
-export type FeeCategory =
-	| 'tuition'
-	| 'registration'
-	| 'requirements'
-	| 'facility'
-	| 'accessories'
-	| 'transport'
-	| 'boarding'
-	| 'library'
-	| 'documents'
-	| 'graduation'
-	| 'other';
+export interface PaymentCategory {
+	// Auto-generated from name (e.g. "tuition", "registration")
+	readonly id: string;
+	// User-defined (e.g. "Tuition", "Registration", "Lab Fees")
+	readonly name: string;
+}
+
+// ============================================================================
+// SCHOOL PROFILE — FINANCIAL CONFIG
+// ============================================================================
 
 // Describes WHAT a fee is — identity only, not price. Prices live in FeeSchedule
 export interface FeeDefinition {
@@ -308,7 +276,8 @@ export interface FeeDefinition {
 	readonly id: string;
 	// e.g. "Tuition", "PTA Levy"
 	readonly name: string;
-	readonly category: FeeCategory;
+	// References PaymentCategory.id
+	readonly category: string;
 	readonly description?: string;
 	// Informational only — e.g. "Required", "Waivable", "Government"
 	readonly flag?: string;
@@ -384,11 +353,13 @@ export interface StudentGroup {
 export interface SchoolProfileFinancialConfig {
 	// Exactly one entry must have isDefault: true
 	readonly currencies: readonly CurrencyConfig[];
+	// School-defined fee categories — used by FeeDefinition and Scholarship
+	readonly paymentCategories: readonly PaymentCategory[];
 	// Catalogue of fee types — no prices here, prices live in FeeSchedule
 	readonly feeDefinitions: readonly FeeDefinition[];
 	// Reusable payment plan templates referenced by FeeGroups
 	readonly paymentPlans: readonly PaymentPlan[];
-	// Reusable student group definitions referenced by ScheduledFees and FeeAdjustments
+	// Reusable student group definitions referenced by ScheduledFees
 	readonly studentGroups: readonly StudentGroup[];
 	// All fee schedules across every academic year
 	// Look up the active year via: feeSchedules.find(s => s.academicYear === currentAcademicYear)
@@ -449,82 +420,22 @@ export interface SessionFeeSchedule {
 }
 
 // ============================================================================
-// FEE ADJUSTMENT ACTIONS
+// SCHOLARSHIPS
 // ============================================================================
 
-export type FeeAdjustmentActionType =
-	| 'percentage_discount'
-	| 'fixed_discount'
-	| 'fixed_price_override'
-	| 'waive_fee'
-	| 'add_fee';
-
-interface FeeAdjustmentActionBase {
-	readonly type: FeeAdjustmentActionType;
-	// Null only for actions that operate across all fees in a group
-	readonly feeId: string | null;
-}
-
-// Reduces a fee by a fraction of its scheduled amount, e.g. discountPercent: 0.5 = 50% off
-export interface PercentageDiscountAction extends FeeAdjustmentActionBase {
-	readonly type: 'percentage_discount';
-	// 0 = no discount, 1 = full waiver
-	readonly discountPercent: number;
-}
-
-// Subtracts a fixed amount from a scheduled fee
-export interface FixedDiscountAction extends FeeAdjustmentActionBase {
-	readonly type: 'fixed_discount';
-	readonly discountAmount: Money;
-}
-
-// Replaces the scheduled fee entirely with a new price
-export interface FixedPriceOverrideAction extends FeeAdjustmentActionBase {
-	readonly type: 'fixed_price_override';
-	readonly overrideAmount: Money;
-}
-
-// Removes a fee entirely — sets effective amount to zero
-export interface WaiveFeeAction extends FeeAdjustmentActionBase {
-	readonly type: 'waive_fee';
-}
-
-// Adds a fee not present in the base FeeGroup schedule, e.g. a boarding surcharge
-export interface AddFeeAction extends FeeAdjustmentActionBase {
-	readonly type: 'add_fee';
-	readonly feeId: string;
-	readonly amount: Money;
-	// References PaymentInstallment.id from the target FeeGroup's plan
-	readonly dueInstallmentId: string | null;
-}
-
-export type FeeAdjustmentAction =
-	| PercentageDiscountAction
-	| FixedDiscountAction
-	| FixedPriceOverrideAction
-	| WaiveFeeAction
-	| AddFeeAction;
-
-// ============================================================================
-// FEE ADJUSTMENT RULES
-// ============================================================================
-
-// A rule-driven adjustment applied during invoice calculation.
-// Stored per-year because adjustments are often year-specific (e.g. "2027 Jubilee Scholarship")
-export interface FeeAdjustment {
+export interface Scholarship {
 	readonly id: string;
-	// e.g. "Academic Excellence Scholarship", "Government Subsidy"
+	// e.g. "Academic Excellence Scholarship", "Proprietor's Ward"
 	readonly name: string;
 	readonly description?: string;
-	// Toggle without deleting
-	readonly enabled: boolean;
-	// Lower number = evaluated first when multiple adjustments match
-	readonly priority: number;
-	// false = only highest-priority match applied; true = stacks on top of other adjustments
-	readonly isStackable: boolean;
-	// All conditions must match (implicit AND). For OR logic, create separate FeeAdjustments
-	readonly conditions: readonly RuleCondition[];
-	readonly actions: readonly FeeAdjustmentAction[];
+	// fixedPayment = flat amount given to student; fixedDeduction = flat amount deducted from fees; percentage = fraction (0-1) off fees
+	readonly scholarshipType: 'fixedPayment' | 'fixedDeduction' | 'percentage';
+	// Monetary amount (for fixedPayment / fixedDeduction) or fraction 0-1 (for percentage)
+	readonly amount: number;
+	// ISO 4217 code, only applicable when scholarshipType is fixedPayment or fixedDeduction
+	readonly currency?: string;
+	// PaymentCategory.id[] — which categories this scholarship applies to. Empty = all categories
+	readonly appliesTo: readonly string[];
 }
 
 // ============================================================================
@@ -536,6 +447,6 @@ export interface FeeSchedule {
 	readonly academicYear: AcademicYear;
 	// Fee groups organised by session
 	readonly sessionFeeSchedules: readonly SessionFeeSchedule[];
-	// Year-specific adjustments: scholarships, subsidies, staff benefits, etc.
-	readonly feeAdjustments: readonly FeeAdjustment[];
+	// Year-specific scholarships, subsidies, staff benefits, etc.
+	readonly scholarships: readonly Scholarship[];
 }

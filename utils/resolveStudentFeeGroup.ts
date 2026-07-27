@@ -6,7 +6,6 @@ import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAcc
 
 interface ResolvedFeeGroup {
 	sessionName: string;
-	feeGroupKey: string;
 	feeGroup: FeeGroup;
 }
 
@@ -24,7 +23,6 @@ export const resolveStudentFeeGroup = (
 
 	// Walk classLevels to find which session this classId belongs to
 	let sessionName = '';
-	let feeGroupKey = '';
 
 	for (const [sName, session] of Object.entries(schoolProfile.academicConfig.classLevels)) {
 		if (!session || typeof session !== 'object') continue;
@@ -34,23 +32,31 @@ export const resolveStudentFeeGroup = (
 			const match = classes.find((c: any) => c.classId === classId);
 			if (match) {
 				sessionName = sName;
-				feeGroupKey = match.feeGroup;
 				break;
 			}
 		}
 		if (sessionName) break;
 	}
 
-	if (!sessionName || !feeGroupKey) return null;
+	if (!sessionName) return null;
 
-	const schedule = schoolProfile.financialConfig.feeSchedules[year];
+	// Find the fee schedule for this academic year
+	const schedule = schoolProfile.financialConfig.feeSchedules.find(
+		(s) => s.academicYear === year,
+	);
 	if (!schedule) return null;
 
-	const sessionGroups = (schedule as any)[sessionName];
-	if (!sessionGroups || typeof sessionGroups !== 'object') return null;
+	// Find the session fee schedule matching this session
+	const sessionFeeSchedule = schedule.sessionFeeSchedules.find(
+		(sfs) => sfs.sessionName === sessionName,
+	);
+	if (!sessionFeeSchedule) return null;
 
-	const feeGroup = sessionGroups[feeGroupKey];
-	if (!feeGroup || typeof feeGroup !== 'object') return null;
+	// Find the fee group that includes this classId
+	const feeGroup = sessionFeeSchedule.feeGroups.find(
+		(fg) => fg.appliesToClassIds.includes(classId),
+	);
+	if (!feeGroup) return null;
 
-	return { sessionName, feeGroupKey, feeGroup: feeGroup as FeeGroup };
+	return { sessionName, feeGroup };
 };

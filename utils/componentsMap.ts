@@ -27,7 +27,8 @@ import {
 	Users2,
 	ClipboardCheck,
 } from 'lucide-react';
-import type { SchoolProfile, FeatureKey } from '@/types/schoolProfile';
+import type { SchoolProfile } from '@/types/schoolProfile';
+import type {FeatureKey} from "@/types";
 
 // Feature configuration with UI metadata
 interface FeatureConfig {

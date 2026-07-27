@@ -1,4 +1,3 @@
-import { FeatureKey } from './schoolProfile';
 
 export type UserRole =
 	| 'student'
@@ -7,6 +6,68 @@ export type UserRole =
 	| 'system_admin'
 	| 'superadmin';
 
+
+export type FeatureKey =
+	// Core
+	| 'dashboard'
+	| 'user_management'
+	| 'profile_management'
+	| 'ai_chat'
+	| 'homepage'
+	| 'apps'
+	| 'attendance'
+	| 'teacher_attendance'
+	// Academic
+	| 'grading_system'
+	| 'academic_reports'
+	| 'academic_resources'
+	| 'calendar_events'
+	| 'class_management'
+	// Financial
+	| 'fee_payment'
+	| 'financial_reports'
+	// Student
+	| 'admissions'
+	// Communication & Support
+	| 'support_system'
+	| 'community'
+	| 'notifications'
+	// System
+	| 'school_settings';
+
+export const FEATURE_KEYS: FeatureKey[] = [
+	// Core Features
+	'dashboard',
+	'user_management',
+	'profile_management',
+	'ai_chat',
+	'homepage',
+	'apps',
+	'attendance',
+	'teacher_attendance',
+
+	// Academic Features
+	'grading_system',
+	'academic_reports',
+	'academic_resources',
+	'calendar_events',
+	'class_management',
+
+	// Financial Features
+	'fee_payment',
+	'financial_reports',
+
+	// Student Features
+	'admissions',
+
+	// Communication & Support
+	'support_system',
+	'community',
+	'notifications',
+
+	// System Features
+	'school_settings',
+];
 export interface ClassSchedule {
 	day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday';
 	startTime: string;

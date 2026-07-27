@@ -386,7 +386,11 @@ export async function POST(request: NextRequest) {
 
 	try {
 		const body = await request.json();
-		const { name, shortName, host, dbName, sysAdmin, slogan, initials } = body;
+		const name = body.identity?.name;
+		const shortName = body.identity?.shortName;
+		const host = body.system?.host;
+		const dbName = body.system?.dbName;
+		const sysAdmin = body.userConfig?.sysAdmin;
 
 		if (!name || !shortName || !host || !dbName || !sysAdmin) {
 			return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -409,9 +413,9 @@ export async function POST(request: NextRequest) {
 			},
 			identity: {
 				name,
-				slogan: slogan || '',
+				slogan: body.identity?.slogan || '',
 				shortName,
-				initials: initials || shortName.slice(0, 2).toUpperCase(),
+				initials: body.identity?.initials || shortName.slice(0, 2).toUpperCase(),
 				studentIdPrefix: body.identity?.studentIdPrefix || shortName.slice(0, 3).toUpperCase(),
 				yearFounded: body.identity?.yearFounded || undefined,
 				firstAcademicYear: body.identity?.firstAcademicYear || currentYear,
@@ -431,7 +435,7 @@ export async function POST(request: NextRequest) {
 			},
 			academicConfig: {
 				classLevels: body.academicConfig?.classLevels || {},
-				gradingSettings: body.academicConfig?.gradingSettings || { passMark: 50, gradeScale: { min: 0, max: 100 }, hasSummerSchool: false, givesDoublePromotion: false },
+				gradingSettings: body.academicConfig?.gradingSettings || { passMark: 70, gradeScale: { min: 60, max: 100 }, hasSummerSchool: false, givesDoublePromotion: false },
 			},
 			userConfig: {
 				sysAdmin: { name: sysAdmin.name || '', phone: sysAdmin.phone || '', email: sysAdmin.email || '' },
@@ -446,6 +450,7 @@ export async function POST(request: NextRequest) {
 			},
 			financialConfig: {
 				currencies: body.financialConfig?.currencies || [],
+				paymentCategories: body.financialConfig?.paymentCategories || [],
 				feeDefinitions: body.financialConfig?.feeDefinitions || [],
 				paymentPlans: body.financialConfig?.paymentPlans || [],
 				studentGroups: body.financialConfig?.studentGroups || [],
@@ -470,67 +475,67 @@ export async function PUT(request: NextRequest) {
 		const url = new URL(request.url);
 		const hostParam = url.searchParams.get('host');
 		const { SchoolProfile } = await getSchoolMeshModels();
+		const body = await request.json();
 
 		// --- Superadmin: update school profile ---
 		if (hostParam) {
-			const currentUser = await authorizeUser(request, 'superadmin');
-			if (!currentUser) return unauthorized();
+			const superAdminUser = await authorizeUser(request, 'superadmin');
+			if (superAdminUser) {
+				const cleanHost = normalizeHost(hostParam);
 
-			const cleanHost = normalizeHost(hostParam);
-			const body = await request.json();
-			
+				const previousSchool = await SchoolProfile.findOne({ 'system.host': cleanHost }).lean();
+				if (!previousSchool) return NextResponse.json({ error: 'School not found' }, { status: 404 });
 
-			const previousSchool = await SchoolProfile.findOne({ 'system.host': cleanHost }).lean();
-			if (!previousSchool) return NextResponse.json({ error: 'School not found' }, { status: 404 });
+				// Preserve system.id (read-only, not managed by the form)
+				const existingId = (previousSchool as any)?.system?.id;
+				if (existingId && body.system) {
+					body.system.id = existingId;
+				}
 
-			// Preserve system.id (read-only, not managed by the form)
-			const existingId = (previousSchool as any)?.system?.id;
-			if (existingId && body.system) {
-				body.system.id = existingId;
+				const school = await SchoolProfile.findOneAndUpdate(
+					{ 'system.host': cleanHost },
+					{ $set: body },
+					{ new: true, runValidators: true },
+				).lean();
+
+				if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
+
+				clearSchoolProfileMemoryCache(cleanHost);
+				await redis.del(`school_profile:${cleanHost}`);
+				const updatedHost = normalizeHost((school as any).system?.host);
+				if (updatedHost && updatedHost !== cleanHost) {
+					clearSchoolProfileMemoryCache(updatedHost);
+					await redis.del(`school_profile:${updatedHost}`);
+				}
+
+				const tenantIds = Array.from(
+					new Set(
+						[previousSchool, school]
+							.map((profile) =>
+								resolveTenantSyncKey({
+									schoolProfile: profile,
+									host: cleanHost,
+								}),
+							)
+							.filter(Boolean),
+					),
+				);
+
+				const flatSchool = flattenSchoolProfile(school);
+				await Promise.all(
+					tenantIds.map((tenantId) =>
+						publishSyncEventSafe({
+							tenantId,
+							domain: 'school',
+							reason: 'school-updated',
+							payload: { school: flatSchool },
+						}),
+					),
+				);
+
+				return NextResponse.json({ school });
 			}
-
-			const school = await SchoolProfile.findOneAndUpdate(
-				{ 'system.host': cleanHost },
-				{ $set: body },
-				{ new: true, runValidators: true },
-			).lean();
-
-			if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
-
-			clearSchoolProfileMemoryCache(cleanHost);
-			await redis.del(`school_profile:${cleanHost}`);
-			const updatedHost = normalizeHost((school as any).system?.host);
-			if (updatedHost && updatedHost !== cleanHost) {
-				clearSchoolProfileMemoryCache(updatedHost);
-				await redis.del(`school_profile:${updatedHost}`);
-			}
-
-			const tenantIds = Array.from(
-				new Set(
-					[previousSchool, school]
-						.map((profile) =>
-							resolveTenantSyncKey({
-								schoolProfile: profile,
-								host: cleanHost,
-							}),
-						)
-						.filter(Boolean),
-				),
-			);
-
-		const flatSchool = flattenSchoolProfile(school);
-		await Promise.all(
-			tenantIds.map((tenantId) =>
-				publishSyncEventSafe({
-					tenantId,
-					domain: 'school',
-					reason: 'school-updated',
-					payload: { school: flatSchool },
-				}),
-			),
-		);
-
-			return NextResponse.json({ school });
+			// Not a superadmin — fall through to system_admin branch with hostParam
 		}
 
 		// --- System admin: update settings (migrated from /api/settings POST) ---
@@ -539,11 +544,11 @@ export async function PUT(request: NextRequest) {
 			return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 		}
 
-		const host = request.headers.get('host');
-		if (!host) {
-			return NextResponse.json({ success: false, message: 'Host header is missing.' }, { status: 400 });
+		const rawHost = hostParam || request.headers.get('host');
+		if (!rawHost) {
+			return NextResponse.json({ success: false, message: 'Host is missing.' }, { status: 400 });
 		}
-		const cleanHost = normalizeHost(host);
+		const cleanHost = normalizeHost(rawHost);
 		if (!cleanHost) {
 			return NextResponse.json({ success: false, message: 'Unable to resolve tenant host.' }, { status: 400 });
 		}
@@ -562,7 +567,6 @@ export async function PUT(request: NextRequest) {
 		});
 
 		const oldSettings = currentSchool?.userConfig;
-		const body = await request.json();
 		const {
 			currentAcademicYear,
 			studentSettings: rawStudentSettings,

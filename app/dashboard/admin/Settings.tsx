@@ -1367,7 +1367,8 @@ export default function Settings() {
 		};
 
 		try {
-			const response = await fetch('/api/school', {
+			const hostParam = school?.system?.host ? `?host=${encodeURIComponent(school.system.host)}` : '';
+			const response = await fetch(`/api/school${hostParam}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload),

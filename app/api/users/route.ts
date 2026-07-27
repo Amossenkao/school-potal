@@ -2457,10 +2457,14 @@ export async function POST(request: NextRequest) {
 
 			const cleanHost = normalizeHost(hostParam);
 			const { SchoolProfile } = await getSchoolMeshModels();
-			const school = await SchoolProfile.findOne({ host: cleanHost }).select('dbName host currentAcademicYear').lean().exec();
-			if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
+			const school = await SchoolProfile.findOne({ 'system.host': cleanHost })
+				.select('system.dbName system.host identity.currentAcademicYear')
+				.lean()
+				.exec();			if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
 
-			const connection = await getTenantConnectionByDbName((school as any).dbName);
+			const connection = await getTenantConnectionByDbName(
+				(school as any).system?.dbName,
+			);
 			if (!connection) return NextResponse.json({ error: 'Could not connect to school database' }, { status: 500 });
 
 			const User = (connection.models.User || connection.model('User', UserSchema)) as any;
@@ -2782,10 +2786,14 @@ export async function PUT(request: NextRequest) {
 
 			const cleanHost = normalizeHost(hostParam);
 			const { SchoolProfile } = await getSchoolMeshModels();
-			const school = await SchoolProfile.findOne({ host: cleanHost }).select('dbName host currentAcademicYear').lean().exec();
-			if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
+			const school = await SchoolProfile.findOne({ 'system.host': cleanHost })
+				.select('system.dbName system.host identity.currentAcademicYear')
+				.lean()
+				.exec();			if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
 
-			const connection = await getTenantConnectionByDbName((school as any).dbName);
+			const connection = await getTenantConnectionByDbName(
+				(school as any).system?.dbName,
+			);
 			if (!connection) return NextResponse.json({ error: 'Could not connect to school database' }, { status: 500 });
 
 			const User = (connection.models.User || connection.model('User', UserSchema)) as any;
@@ -4652,10 +4660,12 @@ export async function DELETE(request: NextRequest) {
 
 			const cleanHost = normalizeHost(hostParam);
 			const { SchoolProfile } = await getSchoolMeshModels();
-			const school = await SchoolProfile.findOne({ host: cleanHost }).select('dbName host currentAcademicYear').lean().exec();
+			const school = await SchoolProfile.findOne({ 'system.host': cleanHost }).select('system.dbName system.host identity.currentAcademicYear').lean().exec();
 			if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
 
-			const connection = await getTenantConnectionByDbName((school as any).dbName);
+			const connection = await getTenantConnectionByDbName(
+				(school as any).system?.dbName,
+			);
 			if (!connection) return NextResponse.json({ error: 'Could not connect to school database' }, { status: 500 });
 
 			const User = (connection.models.User || connection.model('User', UserSchema)) as any;

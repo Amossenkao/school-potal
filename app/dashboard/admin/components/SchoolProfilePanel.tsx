@@ -48,6 +48,7 @@ const normalizeSchoolFormState = (school: any): SchoolFormState => {
 			host: sys.host || school?.host || '',
 			dbName: sys.dbName || school?.dbName || '',
 			isActive: sys.isActive ?? school?.isActive ?? true,
+			matchHost: (sys.host || school?.host || '').replace(/[.-]/g, '_') === (sys.dbName || school?.dbName || ''),
 		},
 		identity: {
 			name: id.name || school?.name || '',
@@ -109,6 +110,7 @@ const normalizeSchoolFormState = (school: any): SchoolFormState => {
 		},
 		financialConfig: {
 			currencies: fi.currencies || school?.currencies || [],
+			paymentCategories: fi.paymentCategories || school?.paymentCategories || [],
 			feeDefinitions: fi.feeDefinitions || school?.feeDefinitions || [],
 			paymentPlans: fi.paymentPlans || school?.paymentPlans || [],
 			studentGroups: fi.studentGroups || school?.studentGroups || [],

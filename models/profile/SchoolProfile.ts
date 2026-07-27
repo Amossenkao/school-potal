@@ -1,41 +1,9 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { SchoolProfile, FeatureKey } from '@/types/schoolProfile';
+import { SchoolProfile } from '@/types/schoolProfile';
+import {FEATURE_KEYS } from '@/types';
 import { TENANT_THEME_NAMES } from '@/types/tenantTheme';
 
-// --- Enums and Constants ---
-const featureKeys: FeatureKey[] = [
-	// Core Features
-	'dashboard',
-	'user_management',
-	'profile_management',
-	'ai_chat',
-	'homepage',
-	'apps',
-	'attendance',
-	'teacher_attendance',
 
-	// Academic Features
-	'grading_system',
-	'academic_reports',
-	'academic_resources',
-	'calendar_events',
-	'class_management',
-
-	// Financial Features
-	'fee_payment',
-	'financial_reports',
-
-	// Student Features
-	'admissions',
-
-	// Communication & Support
-	'support_system',
-	'community',
-	'notifications',
-
-	// System Features
-	'school_settings',
-];
 
 const academicPeriods = [
 	'first',
@@ -340,11 +308,11 @@ const SchoolProfileUserConfigSchema = new Schema(
 
 const RoleFeatureAccessSchema = new Schema(
 	{
-		student: { type: [String], enum: featureKeys, required: true, default: [] },
-		teacher: { type: [String], enum: featureKeys, required: true, default: [] },
+		student: { type: [String], enum: FEATURE_KEYS, required: true, default: [] },
+		teacher: { type: [String], enum: FEATURE_KEYS, required: true, default: [] },
 		system_admin: {
 			type: [String],
-			enum: featureKeys,
+			enum: FEATURE_KEYS,
 			required: true,
 			default: [],
 		},
@@ -354,7 +322,7 @@ const RoleFeatureAccessSchema = new Schema(
 
 const SchoolProfileFeatureConfigSchema = new Schema(
 	{
-		enabledFeatures: { type: [String], enum: featureKeys, default: [] },
+		enabledFeatures: { type: [String], enum: FEATURE_KEYS, default: [] },
 		roleFeatureAccess: { type: RoleFeatureAccessSchema, required: true },
 	},
 	{ _id: false },
@@ -378,23 +346,7 @@ const FeeDefinitionSchema = new Schema(
 	{
 		id: { type: String, required: true, trim: true },
 		name: { type: String, required: true, trim: true },
-		category: {
-			type: String,
-			required: true,
-			enum: [
-				'tuition',
-				'registration',
-				'requirements',
-				'facility',
-				'accessories',
-				'transport',
-				'boarding',
-				'library',
-				'documents',
-				'graduation',
-				'other',
-			],
-		},
+		category: { type: String, required: true, trim: true },
 		description: { type: String, trim: true },
 		flag: { type: String, trim: true },
 		isActive: { type: Boolean, required: true, default: true },
@@ -510,46 +462,15 @@ const SessionFeeScheduleSchema = new Schema(
 	{ _id: false },
 );
 
-// Fee adjustment action — stored as Mixed because the shape varies by type.
-// The discriminant is the `type` field; application logic narrows from there.
-const FeeAdjustmentActionSchema = new Schema(
-	{
-		type: {
-			type: String,
-			required: true,
-			enum: [
-				'percentage_discount',
-				'fixed_discount',
-				'fixed_price_override',
-				'waive_fee',
-				'add_fee',
-			],
-		},
-		// Null for actions that apply across all fees in a group
-		feeId: { type: String, default: null, trim: true },
-		// percentage_discount
-		discountPercent: { type: Number },
-		// fixed_discount
-		discountAmount: { type: MoneySchema },
-		// fixed_price_override
-		overrideAmount: { type: MoneySchema },
-		// add_fee
-		amount: { type: MoneySchema },
-		dueInstallmentId: { type: String, default: null, trim: true },
-	},
-	{ _id: false },
-);
-
-const FeeAdjustmentSchema = new Schema(
+const ScholarshipSchema = new Schema(
 	{
 		id: { type: String, required: true, trim: true },
 		name: { type: String, required: true, trim: true },
 		description: { type: String, trim: true },
-		enabled: { type: Boolean, required: true, default: true },
-		priority: { type: Number, required: true, default: 0 },
-		isStackable: { type: Boolean, required: true, default: false },
-		conditions: { type: [RuleConditionSchema], required: true, default: [] },
-		actions: { type: [FeeAdjustmentActionSchema], required: true, default: [] },
+		scholarshipType: { type: String, required: true, enum: ['fixedPayment', 'fixedDeduction', 'percentage'] },
+		amount: { type: Number, required: true },
+		currency: { type: String, trim: true },
+		appliesTo: { type: [String], required: true, default: [] },
 	},
 	{ _id: false },
 );
@@ -562,8 +483,8 @@ const FeeScheduleSchema = new Schema(
 			required: true,
 			default: [],
 		},
-		feeAdjustments: {
-			type: [FeeAdjustmentSchema],
+		scholarships: {
+			type: [ScholarshipSchema],
 			required: true,
 			default: [],
 		},
@@ -575,9 +496,22 @@ const FeeScheduleSchema = new Schema(
 // 1.8 Financial Configuration (assembled)
 // ---------------------------------------------------------------------------
 
+const PaymentCategorySchema = new Schema(
+	{
+		id: { type: String, required: true, trim: true },
+		name: { type: String, required: true, trim: true },
+	},
+	{ _id: false },
+);
+
 const SchoolProfileFinancialConfigSchema = new Schema(
 	{
 		currencies: { type: [CurrencyConfigSchema], required: true, default: [] },
+		paymentCategories: {
+			type: [PaymentCategorySchema],
+			required: true,
+			default: [],
+		},
 		feeDefinitions: {
 			type: [FeeDefinitionSchema],
 			required: true,

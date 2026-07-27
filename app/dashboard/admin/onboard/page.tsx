@@ -4,10 +4,12 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
+import useAuth from '@/store/useAuth';
 import SchoolProfileForm, { type SchoolFormState } from '@/app/dashboard/admin/components/SchoolProfileForm';
 
 export default function SuperAdminOnboardPage() {
 	const router = useRouter();
+	const upsertSuperAdminSchool = useAuth((s) => s.upsertSuperAdminSchool);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState('');
 
@@ -22,6 +24,7 @@ export default function SuperAdminOnboardPage() {
 			});
 			const result = await res.json();
 			if (!res.ok) throw new Error(result.error || 'Failed to create school');
+			if (result.school) upsertSuperAdminSchool(result.school);
 			router.push('/dashboard/schools');
 		} catch (e: any) {
 			setError(e.message);
