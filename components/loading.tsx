@@ -66,16 +66,16 @@ const SpinnerCore = ({
 								<GraduationCap className="h-4 w-4" />
 							</span>
 						</div>
-					) : currentSchool ? (
+					) : (
 						<span className="grid h-7 w-7 place-items-center rounded-full bg-primary/10 text-primary">
 							<GraduationCap className="h-4 w-4" />
 						</span>
-					) : null}
+					)}
 				</div>
 			</div>
 			{showSchoolBrand && !compact && (
 				<p className="text-sm font-semibold tracking-wide text-foreground">
-					{schoolShortName} e-Portal
+					{schoolShortName ? `${schoolShortName} e-Portal` : 'e-Portal'}
 				</p>
 			)}
 			{message && (
