@@ -113,7 +113,7 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 		}
 	}, []);
 
-	useSuperadminRealtime({ schoolHosts: [host], onEvent: handleRealtimeEvent });
+	useSuperadminRealtime({ schoolHosts: [host], schoolTenantIds: cachedSchool?.dbName ? [cachedSchool.dbName] : [], onEvent: handleRealtimeEvent });
 
 	const updateSuggestions = useCallback((firstName: string, lastName: string) => {
 		setUsernameSuggestion(generateUsernameSuggestion(firstName, lastName));

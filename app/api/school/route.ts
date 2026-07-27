@@ -13,7 +13,7 @@ import {
 	setSchoolProfileMemoryCache,
 	clearSchoolProfileMemoryCache,
 } from '@/lib/mongoose';
-import { destroyAllUserSessions } from '@/utils/session';
+import { destroyAllUserSessions, destroyAllTenantSessions } from '@/utils/session';
 import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
 import bcrypt from 'bcryptjs';
 import { redis } from '@/lib/redis';
@@ -891,6 +891,14 @@ export async function PATCH(request: NextRequest) {
 					.filter(Boolean),
 			),
 		);
+
+		// When deactivating a school, destroy all tenant sessions so
+		// school users are logged out immediately (proxy blocks them anyway).
+		if (body.isActive === false) {
+			await Promise.all(
+				tenantIds.map((tenantId) => destroyAllTenantSessions(tenantId)),
+			);
+		}
 
 		await Promise.all(
 			tenantIds.map((tenantId) =>

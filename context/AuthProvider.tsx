@@ -56,6 +56,8 @@ export default function AuthProvider({
 	const realtimeSubscriptionsRef = useRef<Array<() => void>>([]);
 	const initialRouteResolvedRef = useRef(false);
 	const [isResolvingInitialRoute, setIsResolvingInitialRoute] = useState(true);
+	const [reconnectTrigger, setReconnectTrigger] = useState(0);
+	const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const ensureSchoolProfile = useCallback(async () => {
 		const currentSchool = useSchoolStore.getState().school;
@@ -350,7 +352,12 @@ export default function AuthProvider({
 				) {
 					return;
 				}
-				if (event.tenantId !== tenantKey) return;
+				// Events arrive on the correct channel (school:{tenantId}).
+				// The server may resolve tenantId from dbName while the client
+				// uses host — both refer to the same school. Filter only on
+				// security-relevant events (USER_DISABLED) by userId later in
+				// handleRealtimeEvent; skip the strict tenantId equality check
+				// to avoid silently dropping valid school events.
 				handleRealtimeEvent(event);
 			};
 			channel.subscribe(listener);
@@ -372,14 +379,32 @@ export default function AuthProvider({
 		client.connection.on('failed', () => {
 			setAblyState('failed');
 			setAuthCheckFailed(true);
+			console.warn('[AuthProvider] Ably connection failed, reconnecting in 5s');
+			if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+			reconnectTimerRef.current = setTimeout(() => {
+				reconnectTimerRef.current = null;
+				closeRealtimeClient();
+				setReconnectTrigger((n) => n + 1);
+			}, 5000);
 		});
 
 		client.connection.on('suspended', () => {
 			setAblyState('suspended');
 			setAuthCheckFailed(true);
+			console.warn('[AuthProvider] Ably connection suspended, reconnecting in 10s');
+			if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+			reconnectTimerRef.current = setTimeout(() => {
+				reconnectTimerRef.current = null;
+				closeRealtimeClient();
+				setReconnectTrigger((n) => n + 1);
+			}, 10000);
 		});
 
 		return () => {
+			if (reconnectTimerRef.current) {
+				clearTimeout(reconnectTimerRef.current);
+				reconnectTimerRef.current = null;
+			}
 			setAblyState('disconnected');
 			closeRealtimeClient();
 			if (syncEventDebounceRef.current !== null) {
@@ -391,6 +416,7 @@ export default function AuthProvider({
 		closeRealtimeClient,
 		currentSchool,
 		runAuthRefresh,
+		reconnectTrigger,
 		setAblyState,
 		setAuthCheckFailed,
 		user?.id,

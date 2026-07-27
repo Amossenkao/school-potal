@@ -7,17 +7,21 @@ import { getSchoolRealtimeChannel } from '@/lib/realtimeTypes';
 
 const SUPERADMIN_SYNC_TOKEN_ENDPOINT = '/api/school/sync-token';
 const SUPERADMIN_BROADCAST_CHANNEL = 'superadmin:broadcast';
+const RECONNECT_DELAY_MS = 5000;
 
 export function useSuperadminRealtime(options: {
 	schoolHosts?: string[];
+	schoolTenantIds?: string[];
 	onEvent?: (event: RealtimeEvent) => void;
 }) {
-	const { schoolHosts = [], onEvent } = options;
+	const { schoolHosts = [], schoolTenantIds = [], onEvent } = options;
 	const [connected, setConnected] = useState(false);
+	const [reconnectTrigger, setReconnectTrigger] = useState(0);
 	const clientRef = useRef<Ably.Realtime | null>(null);
 	const subscriptionsRef = useRef<Array<() => void>>([]);
 	const onEventRef = useRef(onEvent);
 	onEventRef.current = onEvent;
+	const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const closeClient = useCallback(() => {
 		subscriptionsRef.current.forEach((unsub) => unsub());
@@ -27,6 +31,14 @@ export function useSuperadminRealtime(options: {
 			clientRef.current = null;
 		}
 		setConnected(false);
+	}, []);
+
+	const scheduleReconnect = useCallback((delay: number) => {
+		if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+		reconnectTimerRef.current = setTimeout(() => {
+			reconnectTimerRef.current = null;
+			setReconnectTrigger((n) => n + 1);
+		}, delay);
 	}, []);
 
 	useEffect(() => {
@@ -60,31 +72,43 @@ export function useSuperadminRealtime(options: {
 		// Always subscribe to the superadmin broadcast channel
 		subscribeToChannel(SUPERADMIN_BROADCAST_CHANNEL);
 
-		// Subscribe to individual school channels
-		const uniqueHosts = Array.from(new Set(schoolHosts.filter(Boolean)));
-		uniqueHosts.forEach((host) => {
-			subscribeToChannel(getSchoolRealtimeChannel(host));
+		// Subscribe to individual school channels.
+		// resolvePublishChannels publishes on school:{tenantId} where tenantId
+		// is resolved by resolveTenantSyncKey (prioritizes dbName over host).
+		// Subscribe to both host and tenantId channels so we receive events
+		// regardless of which identifier the server resolved.
+		const allIdentifiers = Array.from(
+			new Set([...schoolHosts, ...schoolTenantIds].filter(Boolean)),
+		);
+		allIdentifiers.forEach((id) => {
+			subscribeToChannel(getSchoolRealtimeChannel(id));
 		});
 
 		client.connection.on('connected', () => {
-			console.log('[superadmin-realtime] Connected. Subscribed channels:', SUPERADMIN_BROADCAST_CHANNEL, ...uniqueHosts.map(getSchoolRealtimeChannel));
+			console.log('[superadmin-realtime] Connected. Subscribed channels:', SUPERADMIN_BROADCAST_CHANNEL, ...allIdentifiers.map(getSchoolRealtimeChannel));
 			setConnected(true);
 		});
 
 		client.connection.on('failed', () => {
-			console.warn('[superadmin-realtime] Connection failed');
+			console.warn('[superadmin-realtime] Connection failed, scheduling reconnect');
 			setConnected(false);
+			scheduleReconnect(RECONNECT_DELAY_MS);
 		});
 
 		client.connection.on('suspended', () => {
-			console.warn('[superadmin-realtime] Connection suspended');
+			console.warn('[superadmin-realtime] Connection suspended, scheduling reconnect');
 			setConnected(false);
+			scheduleReconnect(RECONNECT_DELAY_MS * 2);
 		});
 
 		return () => {
+			if (reconnectTimerRef.current) {
+				clearTimeout(reconnectTimerRef.current);
+				reconnectTimerRef.current = null;
+			}
 			closeClient();
 		};
-	}, [schoolHosts.join(','), closeClient]);
+	}, [schoolHosts.join(','), schoolTenantIds.join(','), closeClient, scheduleReconnect, reconnectTrigger]);
 
 	return { connected };
 }

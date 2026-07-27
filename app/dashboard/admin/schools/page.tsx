@@ -143,7 +143,12 @@ export default function SchoolsListPage() {
 		[schools],
 	);
 
-	useSuperadminRealtime({ schoolHosts, onEvent: handleRealtimeEvent });
+	const schoolTenantIds = useMemo(
+		() => schools.map((s) => s.dbName).filter((id): id is string => Boolean(id)),
+		[schools],
+	);
+
+	useSuperadminRealtime({ schoolHosts, schoolTenantIds, onEvent: handleRealtimeEvent });
 
 	const fetchSchools = useCallback(async () => {
 		try {

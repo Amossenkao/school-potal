@@ -252,7 +252,7 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 		}
 	}, [host, removeSuperAdminSchool, stats, upsertSuperAdminSchool]);
 
-	useSuperadminRealtime({ schoolHosts: [host], onEvent: handleRealtimeEvent });
+	useSuperadminRealtime({ schoolHosts: [host], schoolTenantIds: [school?.system.dbName].filter(Boolean) as string[], onEvent: handleRealtimeEvent });
 
 	const statCards = stats ? [
 		{ label: 'Students', value: stats.students, icon: GraduationCap, color: '#F59E0B', bg: 'bg-amber-50' },
