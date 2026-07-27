@@ -472,7 +472,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 					return { status: 'error', fetchedCount: 0 };
 				}
 
-				const { totalCount, fetchedCount, chunkSize = 10_000 } = parsedCursor;
+				const { totalCount, fetchedCount, chunkSize = 30_000 } = parsedCursor;
 				const remaining = totalCount - fetchedCount;
 
 				if (remaining > 0) {
@@ -507,7 +507,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				console.log(`[Sync] Sequential refresh for ${academicYear}`);
 				let currentCursor = rawCursor;
 				let hasMore = true;
-				const REFRESH_CHUNK_LIMIT = 10_000;
+				const REFRESH_CHUNK_LIMIT = 30_000;
 
 				while (hasMore) {
 					if (!networkStore.isOnline) {

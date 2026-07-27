@@ -34,8 +34,8 @@ const SpinnerCore = ({
 	sizeClass: string;
 	message?: string;
 }) => {
-	const logo = currentSchool?.logoUrl;
-	const schoolShortName = currentSchool?.shortName || currentSchool?.name || '';
+	const logo = currentSchool?.branding?.logoUrl;
+	const schoolShortName = currentSchool?.identity?.shortName || currentSchool?.identity?.name || '';
 	const shouldShowSchoolBrand = Boolean(showSchoolBrand && schoolShortName);
 
 	return (
