@@ -10,19 +10,20 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
-import { resolveStudentFeeGroup } from '@/utils/resolveStudentFeeGroup';
+import {
+	resolveStudentFeeGroups,
+	resolveStudentGroupIds,
+	resolveResolvedScheduledFees,
+} from '@/utils/resolveStudentFeeGroup';
 import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAccess';
-import type { FeeGroup } from '@/types/schoolProfile';
 import {
 	Loader2,
 	AlertCircle,
 	BookOpen,
 	FileText,
-	MoreHorizontal,
-	Wallet,
 	TrendingUp,
 	TrendingDown,
-	CreditCard,
+	Wallet,
 	ClipboardList,
 	Gift,
 } from 'lucide-react';
@@ -30,64 +31,82 @@ import {
 const formatCurrency = (value: number) =>
 	value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const getInstallmentAmount = (
-	inst: FeeGroup['installments'][number],
-	studentType: 'old' | 'new',
-) => {
-	if (studentType === 'new' && inst.new != null) return inst.new;
-	if (studentType === 'old' && inst.old != null) return inst.old;
-	return inst.amount ?? 0;
-};
-
 export default function FinancialProfile() {
 	const { user, isLoading } = useAuth();
 	const school = useSchoolStore((s) => s.school);
 
-	const resolved = useMemo(() => {
-		if (!user || !school) return null;
-		const academicYear = getCurrentAcademicYearFromSchoolProfile(school);
-		return resolveStudentFeeGroup(
+	const currentAcademicYear = useMemo(() => {
+		if (!school) return '';
+		return getCurrentAcademicYearFromSchoolProfile(school);
+	}, [school]);
+
+	const studentGroupIds = useMemo(() => {
+		if (!user || !school) return [] as string[];
+		const groups = school.financialConfig?.studentGroups ?? [];
+		return resolveStudentGroupIds(user, groups);
+	}, [user, school]);
+
+	const feeGroups = useMemo(() => {
+		if (!user || !school) return [];
+		const academicYear = currentAcademicYear;
+		return resolveStudentFeeGroups(
 			(user as any).classId,
 			school,
 			academicYear,
 		);
-	}, [user, school]);
+	}, [user, school, currentAcademicYear]);
 
-	const studentType: 'old' | 'new' = (user as any)?.isNewStudent
-		? 'new'
-		: 'old';
+	const allResolvedFees = useMemo(() => {
+		if (!school) return [];
+		const results: Array<{
+			sessionName: string;
+			groupName: string;
+			feeName: string;
+			categoryName: string;
+			amount: number;
+			currency: string;
+			isRequired: boolean;
+			installmentLabel: string | null;
+		}> = [];
+
+		for (const { sessionName, feeGroup } of feeGroups) {
+			const rsf = resolveResolvedScheduledFees(feeGroup, school, studentGroupIds);
+			for (const rf of rsf) {
+				results.push({
+					sessionName,
+					groupName: feeGroup.name,
+					feeName: rf.feeDefinition?.name || rf.scheduledFee.feeId,
+					categoryName: rf.categoryName,
+					amount: rf.scheduledFee.amount.amount,
+					currency: rf.scheduledFee.amount.currency,
+					isRequired: rf.scheduledFee.isRequired,
+					installmentLabel: rf.installmentLabel,
+				});
+			}
+		}
+		return results;
+	}, [feeGroups, school, studentGroupIds]);
 
 	const totals = useMemo(() => {
-		if (!resolved) return null;
-		const fg = resolved.feeGroup;
+		const totalDue = allResolvedFees.reduce((sum, f) => sum + f.amount, 0);
+		const requiredFees = allResolvedFees
+			.filter((f) => f.isRequired)
+			.reduce((sum, f) => sum + f.amount, 0);
+		const optionalFees = totalDue - requiredFees;
+		return { totalDue, requiredFees, optionalFees };
+	}, [allResolvedFees]);
 
-		const tuitionAndReg =
-			fg.tuitionAndRegistration?.[studentType]?.total ?? 0;
+	const groupedByCategory = useMemo(() => {
+		const groups: Record<string, typeof allResolvedFees> = {};
+		for (const fee of allResolvedFees) {
+			const key = fee.categoryName;
+			if (!groups[key]) groups[key] = [];
+			groups[key].push(fee);
+		}
+		return groups;
+	}, [allResolvedFees]);
 
-		const installments = fg.installments.reduce(
-			(sum, inst) => sum + getInstallmentAmount(inst, studentType),
-			0,
-		);
-
-		const requirements = (fg.requirements || []).reduce(
-			(sum, r) => sum + (r.amount || 0),
-			0,
-		);
-
-		const accessories = (fg.accessories || [])
-			.filter(
-				(a) =>
-					a.studentType === 'all' || a.studentType === studentType,
-			)
-			.reduce((sum, a) => sum + (a.amount || 0), 0);
-
-		const totalDue = installments + requirements + accessories;
-
-		// Placeholder — will be populated when payments data is available
-		const totalPaid = 0;
-
-		return { tuitionAndReg, installments, requirements, accessories, totalDue, totalPaid };
-	}, [resolved, studentType]);
+	const studentType: 'new' | 'old' = (user as any)?.studentType ?? 'old';
 
 	if (isLoading) {
 		return (
@@ -116,7 +135,7 @@ export default function FinancialProfile() {
 		);
 	}
 
-	if (!resolved || !totals) {
+	if (allResolvedFees.length === 0) {
 		return (
 			<div className="min-h-screen bg-background">
 				<div className="w-full px-4 sm:px-6 lg:px-8 py-8">
@@ -131,7 +150,7 @@ export default function FinancialProfile() {
 					<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
 						<CardContent className="p-6 text-center">
 							<AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-							<h3 className="text-lg font-semibold mb-2">No Fee Schedule Found</h3>
+							<h3 className="text-lg font-semibold mb-2">No Fees Found</h3>
 							<p className="text-muted-foreground">
 								No fee schedule is available for your class and the current academic year.
 							</p>
@@ -141,9 +160,6 @@ export default function FinancialProfile() {
 			</div>
 		);
 	}
-
-	const { feeGroup } = resolved;
-	const { totalDue, totalPaid } = totals;
 
 	return (
 		<div className="min-h-screen bg-background">
@@ -161,7 +177,7 @@ export default function FinancialProfile() {
 						</div>
 						<div className="inline-flex items-center gap-2 rounded-full border border-gray-200/80 bg-white/70 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-800/80 dark:bg-gray-900/70 dark:text-gray-300">
 							<Wallet className="h-3 w-3" />
-							{feeGroup.label}
+							{feeGroups.length} fee group{feeGroups.length !== 1 ? 's' : ''}
 						</div>
 					</div>
 				</div>
@@ -213,7 +229,7 @@ export default function FinancialProfile() {
 								<CardDescription>Total Due</CardDescription>
 								<CardTitle className="flex items-center gap-2">
 									<TrendingDown className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-									LRD {formatCurrency(totalDue)}
+									{allResolvedFees[0]?.currency || 'LRD'} {formatCurrency(totals.totalDue)}
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
@@ -228,7 +244,7 @@ export default function FinancialProfile() {
 								<CardDescription>Total Paid</CardDescription>
 								<CardTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
 									<TrendingUp className="h-5 w-5" />
-									LRD {formatCurrency(totalPaid)}
+									{allResolvedFees[0]?.currency || 'LRD'} {formatCurrency(0)}
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
@@ -243,7 +259,7 @@ export default function FinancialProfile() {
 								<CardDescription>Outstanding Balance</CardDescription>
 								<CardTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
 									<Wallet className="h-5 w-5" />
-									LRD {formatCurrency(totalDue - totalPaid)}
+									{allResolvedFees[0]?.currency || 'LRD'} {formatCurrency(totals.totalDue)}
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
@@ -254,167 +270,46 @@ export default function FinancialProfile() {
 						</Card>
 					</div>
 
-					{/* Tuition & Registration */}
-					{feeGroup.tuitionAndRegistration && (
-						<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
+					{/* Fees by Category */}
+					{Object.entries(groupedByCategory).map(([categoryName, fees]) => (
+						<Card key={categoryName} className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
 							<CardHeader>
 								<CardTitle className="flex items-center gap-2">
 									<BookOpen className="h-5 w-5" />
-									Tuition & Registration
+									{categoryName}
 								</CardTitle>
-								<CardDescription>
-									{studentType === 'new' ? 'New student' : 'Old student'} rates
-								</CardDescription>
-							</CardHeader>
-							<CardContent>
-								<div className="grid gap-3 sm:grid-cols-2">
-									<div className="rounded-lg border p-3">
-										<p className="text-xs text-muted-foreground mb-1">1st Semester Registration</p>
-										<p className="text-lg font-semibold">
-											LRD {formatCurrency(feeGroup.tuitionAndRegistration[studentType].reg1stSem)}
-										</p>
-									</div>
-									<div className="rounded-lg border p-3">
-										<p className="text-xs text-muted-foreground mb-1">2nd Semester Registration</p>
-										<p className="text-lg font-semibold">
-											LRD {formatCurrency(feeGroup.tuitionAndRegistration[studentType].reg2ndSem)}
-										</p>
-									</div>
-									<div className="rounded-lg border p-3">
-										<p className="text-xs text-muted-foreground mb-1">Tuition</p>
-										<p className="text-lg font-semibold">
-											LRD {formatCurrency(feeGroup.tuitionAndRegistration[studentType].tuition)}
-										</p>
-									</div>
-									<div className="rounded-lg border p-3 bg-primary/5">
-										<p className="text-xs text-muted-foreground mb-1">Total</p>
-										<p className="text-lg font-semibold text-primary">
-											LRD {formatCurrency(feeGroup.tuitionAndRegistration[studentType].total)}
-										</p>
-									</div>
-								</div>
-							</CardContent>
-						</Card>
-					)}
-
-					{/* Installments */}
-					{feeGroup.installments.length > 0 && (
-						<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2">
-									<ClipboardList className="h-5 w-5" />
-									Payment Installments
-								</CardTitle>
-								<CardDescription>
-									Scheduled payment milestones
-								</CardDescription>
+								<CardDescription>{fees.length} fee{fees.length !== 1 ? 's' : ''}</CardDescription>
 							</CardHeader>
 							<CardContent>
 								<div className="space-y-3">
-									{feeGroup.installments.map((inst, idx) => {
-										const amount = getInstallmentAmount(inst, studentType);
-										return (
-											<div
-												key={idx}
-												className="flex items-center justify-between gap-4 rounded-lg border p-4"
-											>
-												<div>
-													<p className="font-medium">{inst.label}</p>
-													{inst.dueWindow && (
-														<p className="text-xs text-muted-foreground">
-															Due: {inst.dueWindow}
-														</p>
-													)}
-												</div>
-												<div className="text-right">
-													<p className="font-semibold">LRD {formatCurrency(amount)}</p>
-													<p className="text-xs text-muted-foreground">—</p>
-												</div>
-											</div>
-										);
-									})}
-								</div>
-							</CardContent>
-						</Card>
-					)}
-
-					{/* Requirements */}
-					{feeGroup.requirements && feeGroup.requirements.length > 0 && (
-						<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2">
-									<FileText className="h-5 w-5" />
-									Requirements
-								</CardTitle>
-								<CardDescription>Required items and fees</CardDescription>
-							</CardHeader>
-							<CardContent>
-								<div className="space-y-3">
-									{feeGroup.requirements.map((req, idx) => (
+									{fees.map((fee, idx) => (
 										<div
 											key={idx}
 											className="flex items-center justify-between gap-4 rounded-lg border p-4"
 										>
 											<div>
-												<p className="font-medium">{req.item}</p>
-												<p className="text-xs text-muted-foreground">
-													Due at: {req.dueWindow || req.dueAt}
-												</p>
+												<p className="font-medium">{fee.feeName}</p>
+												<div className="flex items-center gap-2 text-xs text-muted-foreground">
+													{fee.isRequired ? (
+														<span className="text-amber-600 dark:text-amber-400 font-medium">Required</span>
+													) : (
+														<span className="text-green-600 dark:text-green-400 font-medium">Optional</span>
+													)}
+													{fee.installmentLabel && (
+														<span>Due: {fee.installmentLabel}</span>
+													)}
+												</div>
 											</div>
 											<div className="text-right">
-												<p className="font-semibold">
-													LRD {formatCurrency(req.amount)}
-												</p>
-												<p className="text-xs text-muted-foreground">—</p>
+												<p className="font-semibold">{fee.currency} {formatCurrency(fee.amount)}</p>
+												<p className="text-xs text-muted-foreground">{fee.groupName}</p>
 											</div>
 										</div>
 									))}
 								</div>
 							</CardContent>
 						</Card>
-					)}
-
-					{/* Accessories */}
-					{feeGroup.accessories && feeGroup.accessories.length > 0 && (
-						<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2">
-									<Gift className="h-5 w-5" />
-									Accessories
-								</CardTitle>
-								<CardDescription>Optional items available for purchase</CardDescription>
-							</CardHeader>
-							<CardContent>
-								<div className="space-y-3">
-									{feeGroup.accessories
-										.filter(
-											(a) =>
-												a.studentType === 'all' ||
-												a.studentType === studentType,
-										)
-										.map((acc, idx) => (
-											<div
-												key={idx}
-												className="flex items-center justify-between gap-4 rounded-lg border p-4"
-											>
-												<div>
-													<p className="font-medium">{acc.item}</p>
-													<p className="text-xs text-muted-foreground">
-														Due: {acc.dueAt}
-													</p>
-												</div>
-												<div className="text-right">
-													<p className="font-semibold">
-														LRD {formatCurrency(acc.amount)}
-													</p>
-													<p className="text-xs text-muted-foreground">—</p>
-												</div>
-											</div>
-										))}
-								</div>
-							</CardContent>
-						</Card>
-					)}
+					))}
 				</div>
 			</div>
 		</div>

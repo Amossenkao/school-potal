@@ -1865,25 +1865,19 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 												<label className="block text-sm font-medium text-foreground mb-2">
 													Student Type
 												</label>
-												<label className="relative inline-flex items-center cursor-pointer w-max">
-													<input
-														type="checkbox"
-														checked={!!formData.isNewStudent}
-														onChange={(e) =>
-															setFormData((prev) => ({
-																...prev,
-																isNewStudent: e.target.checked,
-															}))
-														}
-														className="sr-only peer"
-													/>
-													<div className="w-11 h-6 bg-border peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-													<span className="ml-3 text-sm font-medium text-foreground">
-														{formData.isNewStudent
-															? 'New Student'
-															: 'Existing Student'}
-													</span>
-												</label>
+												<select
+													value={formData.studentType ?? 'old'}
+													onChange={(e) =>
+														setFormData((prev) => ({
+															...prev,
+															studentType: e.target.value as 'new' | 'old',
+														}))
+													}
+													className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+												>
+													<option value="new">New Student</option>
+													<option value="old">Old Student</option>
+												</select>
 											</div>
 										</div>
 									</div>

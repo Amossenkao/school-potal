@@ -184,11 +184,10 @@ export interface Student extends User {
 		phone: string;
 		address: string;
 	};
-	isNewStudent?: boolean;
+	studentType?: 'old' | 'new';
 	wardTeacherId?: string;
 	scholarships?: string[];
 
-	financialProfile: StudentFinancialProfile;
 }
 
 export interface Teacher extends User {

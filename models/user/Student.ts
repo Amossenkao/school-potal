@@ -68,7 +68,7 @@ const StudentSchema = new Schema<Student & Document>({
 	academicYears: { type: [YearSchema], required: true },
 	wardTeacherId: { type: String, required: false },
 	scholarships: { type: [String], required: false },
-	financialProfile: { type: FinancialProfileSchema, required: true },
+	studentType: { type: String, enum: ['old', 'new'], required: false, default: 'old' },
 });
 
 export default StudentSchema;

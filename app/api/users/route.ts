@@ -175,7 +175,7 @@ function buildUserResponse(
 				canRecordAttendance: user.canRecordAttendance ?? false,
 				academicYears: user.academicYears || [],
 				guardian: user.guardian,
-				isNewStudent: user.isNewStudent ?? false,
+				studentType: user.studentType ?? 'old',
 				financialProfile: user.financialProfile || {
 					outstandingBalances: [],
 					paymentRecords: [],
@@ -415,7 +415,7 @@ async function buildUserData(
 				shareContactWithClassmates:
 					userData.shareContactWithClassmates ?? false,
 				canRecordAttendance: userData.canRecordAttendance ?? false,
-				isNewStudent: userData.isNewStudent ?? false,
+				studentType: userData.studentType ?? 'old',
 				academicYears: [
 					{
 						year: academicYear,
@@ -3971,7 +3971,7 @@ export async function PUT(request: NextRequest) {
 							"isLatestAcademicYear",
 							"isLateRegistration",
 							"canRecordAttendance",
-							"isNewStudent"
+							"studentType"
 						];
 						break;
 					case 'teacher':

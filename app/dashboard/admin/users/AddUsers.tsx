@@ -635,7 +635,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			classId: '',
 			enrollmentYear: defaultEnrollmentYear,
 			enrollmentSemester: defaultEnrollmentSemester,
-			isNewStudent: true,
+			studentType: 'new',
 			guardian: {
 				firstName: '',
 				middleName: '',
@@ -1075,7 +1075,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				classLevel: selectedClass?.level,
 				enrollmentYear: formData.student.enrollmentYear,
 				enrollmentSemester: formData.student.enrollmentSemester,
-				isNewStudent: formData.student.isNewStudent,
+				studentType: formData.student.studentType,
 				guardian: formData.student.guardian,
 			};
 		} else if (userType === 'teacher') {
@@ -1119,7 +1119,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				classId: '',
 				enrollmentYear: defaultEnrollmentYear,
 				enrollmentSemester: defaultEnrollmentSemester,
-				isNewStudent: true,
+				studentType: 'new',
 				guardian: {
 					firstName: '',
 					middleName: '',
@@ -1923,34 +1923,26 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 											</SectionCard>
 
 											<SectionCard
-												title="New Student"
+												title="Student Type"
 												subtitle="Indicate whether this is a new or existing student"
 												icon={GraduationCap}
 											>
-												<div className="flex items-center gap-3">
-													<label className="relative inline-flex items-center cursor-pointer">
-														<input
-															type="checkbox"
-															checked={formData.student.isNewStudent}
-															onChange={(e) =>
-																setFormData({
-																	...formData,
-																	student: {
-																		...formData.student,
-																		isNewStudent: e.target.checked,
-																	},
-																})
-															}
-															className="sr-only peer"
-														/>
-														<div className="w-11 h-6 bg-border peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-													</label>
-													<span className="text-sm font-medium text-foreground">
-														{formData.student.isNewStudent
-															? 'New Student'
-															: 'Existing Student'}
-													</span>
-												</div>
+												<select
+													value={formData.student.studentType}
+													onChange={(e) =>
+														setFormData({
+															...formData,
+															student: {
+																...formData.student,
+																studentType: e.target.value as 'new' | 'old',
+															},
+														})
+													}
+													className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+												>
+													<option value="new">New Student</option>
+													<option value="old">Old Student</option>
+												</select>
 											</SectionCard>
 										</div>
 									);
@@ -2430,14 +2422,14 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 													label="Semester"
 													value={formData.student.enrollmentSemester}
 												/>
-												<ReviewRow
-													label="Student Type"
-													value={
-														formData.student.isNewStudent
-															? 'New Student'
-															: 'Existing Student'
-													}
-												/>
+											<ReviewRow
+												label="Student Type"
+												value={
+													formData.student.studentType === 'new'
+														? 'New Student'
+														: 'Old Student'
+												}
+											/>
 												<div className="pt-3 mt-1">
 													<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
 														Guardian

@@ -217,9 +217,9 @@ const ViewUserModal = ({
 												<InfoField
 													label="Student Type"
 													value={
-														viewingUser.isNewStudent
+														viewingUser.studentType === 'new'
 															? 'New Student'
-															: 'Existing Student'
+															: 'Old Student'
 													}
 												/>
 											</div>

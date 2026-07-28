@@ -11,20 +11,20 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
-import { resolveStudentFeeGroup } from '@/utils/resolveStudentFeeGroup';
+import {
+	resolveStudentFeeGroups,
+	resolveStudentGroupIds,
+	resolveResolvedScheduledFees,
+} from '@/utils/resolveStudentFeeGroup';
 import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAccess';
-import type { FeeDefinition, PaymentPlan, PaymentCategory, ScheduledFee } from '@/types/schoolProfile';
 import type { PaymentRecords } from '@/types';
 import {
 	Loader2,
 	AlertCircle,
-	BookOpen,
-	FileText,
 	Wallet,
 	User,
 	Phone,
 	Sparkles,
-	Gift,
 	CheckCircle,
 } from 'lucide-react';
 
@@ -35,18 +35,10 @@ const formatCurrency = (value: number) =>
 	});
 
 interface SelectedItem {
-	type: 'fee';
 	key: string;
 	label: string;
 	amount: number;
 	currency: string;
-}
-
-interface ResolvedFee {
-	scheduledFee: ScheduledFee;
-	feeDefinition: FeeDefinition | undefined;
-	categoryName: string;
-	installmentLabel: string | null;
 }
 
 export default function PayFees() {
@@ -60,64 +52,63 @@ export default function PayFees() {
 	const [paymentStatus, setPaymentStatus] = useState<'idle' | 'success'>('idle');
 	const [receipts, setReceipts] = useState<PaymentRecords[]>([]);
 
-	const feeDefinitions = useMemo(
-		() => school?.financialConfig?.feeDefinitions ?? [],
-		[school],
-	);
-
-	const paymentPlans = useMemo(
-		() => school?.financialConfig?.paymentPlans ?? [],
-		[school],
-	);
-
-	const paymentCategories = useMemo(
-		() => school?.financialConfig?.paymentCategories ?? [],
-		[school],
-	);
-
-	const resolved = useMemo(() => {
-		if (!user || !school) return null;
-		const academicYear = getCurrentAcademicYearFromSchoolProfile(school);
-		return resolveStudentFeeGroup(
-			(user as any).classId,
-			school,
-			academicYear,
-		);
-	}, [user, school]);
-
-	const resolvedFees = useMemo((): ResolvedFee[] => {
-		if (!resolved) return [];
-		const { feeGroup } = resolved;
-		const plan = paymentPlans.find((p) => p.id === feeGroup.paymentPlanId);
-		return feeGroup.scheduledFees.map((sf) => {
-			const feeDef = feeDefinitions.find((fd) => fd.id === sf.feeId);
-			const cat = paymentCategories.find((c) => c.id === feeDef?.category);
-			const installment = sf.dueInstallmentId && plan
-				? plan.installments.find((i) => i.id === sf.dueInstallmentId)
-				: null;
-			return {
-				scheduledFee: sf,
-				feeDefinition: feeDef,
-				categoryName: cat?.name || feeDef?.category || 'Other',
-				installmentLabel: installment?.label ?? null,
-			};
-		});
-	}, [resolved, feeDefinitions, paymentPlans, paymentCategories]);
-
-	const groupedFees = useMemo(() => {
-		const groups: Record<string, ResolvedFee[]> = {};
-		for (const rf of resolvedFees) {
-			const key = rf.categoryName;
-			if (!groups[key]) groups[key] = [];
-			groups[key].push(rf);
-		}
-		return groups;
-	}, [resolvedFees]);
-
 	const currentAcademicYear = useMemo(() => {
 		if (!school) return '';
 		return getCurrentAcademicYearFromSchoolProfile(school);
 	}, [school]);
+
+	const studentGroupIds = useMemo(() => {
+		if (!user || !school) return [] as string[];
+		const groups = school.financialConfig?.studentGroups ?? [];
+		return resolveStudentGroupIds(user, groups);
+	}, [user, school]);
+
+	const feeGroups = useMemo(() => {
+		if (!user || !school) return [];
+		return resolveStudentFeeGroups(
+			(user as any).classId,
+			school,
+			currentAcademicYear,
+		);
+	}, [user, school, currentAcademicYear]);
+
+	const allResolvedFees = useMemo(() => {
+		if (!school) return [];
+		const resolved: Array<{
+			feeKey: string;
+			feeName: string;
+			categoryName: string;
+			amount: number;
+			currency: string;
+			groupName: string;
+		}> = [];
+		let feeIdx = 0;
+		for (const { feeGroup } of feeGroups) {
+			const rsf = resolveResolvedScheduledFees(feeGroup, school, studentGroupIds);
+			for (const rf of rsf) {
+				resolved.push({
+					feeKey: `${feeGroup.id}-${rf.scheduledFee.feeId}-${feeIdx}`,
+					feeName: rf.feeDefinition?.name || rf.scheduledFee.feeId,
+					categoryName: rf.categoryName,
+					amount: rf.scheduledFee.amount.amount,
+					currency: rf.scheduledFee.amount.currency,
+					groupName: feeGroup.name,
+				});
+				feeIdx++;
+			}
+		}
+		return resolved;
+	}, [feeGroups, school, studentGroupIds]);
+
+	const groupedByCategory = useMemo(() => {
+		const groups: Record<string, typeof allResolvedFees> = {};
+		for (const fee of allResolvedFees) {
+			const key = fee.categoryName;
+			if (!groups[key]) groups[key] = [];
+			groups[key].push(fee);
+		}
+		return groups;
+	}, [allResolvedFees]);
 
 	const toggleItem = (item: SelectedItem) => {
 		setSelected((prev) => {
@@ -144,7 +135,7 @@ export default function PayFees() {
 			id: `DEMO-${Date.now()}-${item.key}`,
 			receiptNumber: `RCP-${Date.now()}-${item.key}`,
 			paidBy: `${user.firstName} ${user.lastName}`,
-			feeType: item.type,
+			feeType: 'fee',
 			category: item.label,
 			paymentAmount: item.amount,
 			paymentAcademicYear: currentAcademicYear,
@@ -207,7 +198,7 @@ export default function PayFees() {
 		);
 	}
 
-	if (!resolved) {
+	if (allResolvedFees.length === 0) {
 		return (
 			<div className="min-h-screen bg-background">
 				<div className="w-full px-4 sm:px-6 lg:px-8 py-8">
@@ -332,11 +323,11 @@ export default function PayFees() {
 
 						{/* Fee Items grouped by category */}
 						<div className="space-y-6">
-							{Object.entries(groupedFees).map(([categoryName, fees]) => (
+							{Object.entries(groupedByCategory).map(([categoryName, fees]) => (
 								<Card key={categoryName} className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
 									<CardHeader>
 										<CardTitle className="flex items-center gap-2">
-											<FileText className="h-5 w-5" />
+											<Wallet className="h-5 w-5" />
 											{categoryName}
 										</CardTitle>
 										<CardDescription>
@@ -345,13 +336,13 @@ export default function PayFees() {
 									</CardHeader>
 									<CardContent>
 										<div className="space-y-3">
-											{fees.map((rf, idx) => {
+											{fees.map((fee) => {
 												const isSelected = selected.some(
-													(s) => s.key === `${rf.scheduledFee.feeId}-${idx}`,
+													(s) => s.key === fee.feeKey,
 												);
 												return (
 													<label
-														key={`${rf.scheduledFee.feeId}-${idx}`}
+														key={fee.feeKey}
 														className={`flex items-center justify-between gap-4 rounded-lg border p-4 cursor-pointer transition-colors ${
 															isSelected
 																? 'border-primary bg-primary/5'
@@ -364,36 +355,23 @@ export default function PayFees() {
 																checked={isSelected}
 																onChange={() =>
 																	toggleItem({
-																		type: 'fee',
-																		key: `${rf.scheduledFee.feeId}-${idx}`,
-																		label: rf.feeDefinition?.name || rf.scheduledFee.feeId,
-																		amount: rf.scheduledFee.amount.amount,
-																		currency: rf.scheduledFee.amount.currency,
+																		key: fee.feeKey,
+																		label: fee.feeName,
+																		amount: fee.amount,
+																		currency: fee.currency,
 																	})
 																}
 																className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
 															/>
 															<div>
-																<p className="font-medium">
-																	{rf.feeDefinition?.name || rf.scheduledFee.feeId}
+																<p className="font-medium">{fee.feeName}</p>
+																<p className="text-xs text-muted-foreground">
+																	{fee.groupName}
 																</p>
-																<div className="flex items-center gap-2 text-xs text-muted-foreground">
-																	{rf.scheduledFee.isRequired ? (
-																		<span className="text-amber-600 dark:text-amber-400 font-medium">Required</span>
-																	) : (
-																		<span className="text-green-600 dark:text-green-400 font-medium">Optional</span>
-																	)}
-																	{rf.installmentLabel && (
-																		<span>Due: {rf.installmentLabel}</span>
-																	)}
-																	{rf.feeDefinition?.flag && (
-																		<span>· {rf.feeDefinition.flag}</span>
-																	)}
-																</div>
 															</div>
 														</div>
 														<p className="font-semibold whitespace-nowrap">
-															{rf.scheduledFee.amount.currency} {formatCurrency(rf.scheduledFee.amount.amount)}
+															{fee.currency} {formatCurrency(fee.amount)}
 														</p>
 													</label>
 												);
@@ -402,18 +380,6 @@ export default function PayFees() {
 									</CardContent>
 								</Card>
 							))}
-
-							{resolvedFees.length === 0 && (
-								<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
-									<CardContent className="p-6 text-center">
-										<AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-										<h3 className="text-lg font-semibold mb-2">No Fees Available</h3>
-										<p className="text-muted-foreground">
-											There are no scheduled fees for your class in this fee schedule.
-										</p>
-									</CardContent>
-								</Card>
-							)}
 						</div>
 
 						{/* Payment Method & Phone */}
@@ -447,7 +413,6 @@ export default function PayFees() {
 									{paymentMethod && (
 										<div>
 											<label className="block text-sm font-medium mb-2">
-												<Phone className="h-4 w-4 inline mr-1" />
 												Phone Number
 											</label>
 											<input
