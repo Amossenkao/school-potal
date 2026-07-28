@@ -95,10 +95,13 @@ export interface TeacherAttendance {
 export interface PaymentRecords {
 	id: string;
 	receiptNumber: string;
+	studentId: string;
+	classId: string;
 	paidBy: string;
 	feeType: string;
 	category: string;
 	paymentAmount: number;
+	currency: string;
 	paymentAcademicYear: string;
 	paymentDate: string;
 	paymentTime: string;
@@ -111,6 +114,7 @@ export interface StudentFinancialProfile {
 		category: string;
 		requiredAmount: number;
 		remainingBalance: number;
+		currency: string;
 	}[];
 	paymentRecords: PaymentRecords[];
 }

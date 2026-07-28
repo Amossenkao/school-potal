@@ -34,6 +34,25 @@ const formatCurrency = (value: number) =>
 		maximumFractionDigits: 2,
 	});
 
+const formatNumberInput = (value: string): string => {
+	const stripped = value.replace(/,/g, '');
+	const filtered = stripped.replace(/[^\d.]/g, '');
+	const dotIndex = filtered.indexOf('.');
+	if (dotIndex !== -1) {
+		const before = filtered.slice(0, dotIndex + 1);
+		const after = filtered.slice(dotIndex + 1).replace(/\./g, '');
+		return before + after;
+	}
+	return filtered;
+};
+
+const displayWithCommas = (value: string): string => {
+	if (!value) return '';
+	const parts = value.split('.');
+	parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+	return parts.join('.');
+};
+
 interface SelectedItem {
 	key: string;
 	label: string;
@@ -51,6 +70,9 @@ export default function PayFees() {
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [paymentStatus, setPaymentStatus] = useState<'idle' | 'success'>('idle');
 	const [receipts, setReceipts] = useState<PaymentRecords[]>([]);
+	const [payInFullMap, setPayInFullMap] = useState<Record<string, boolean>>({});
+	const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
+	const [amountError, setAmountError] = useState<string | null>(null);
 
 	const currentAcademicYear = useMemo(() => {
 		if (!school) return '';
@@ -110,20 +132,114 @@ export default function PayFees() {
 		return groups;
 	}, [allResolvedFees]);
 
+	const paidByFeeName = useMemo(() => {
+		const records = (user as any)?.financialProfile?.paymentRecords || [];
+		const map: Record<string, number> = {};
+		for (const r of records) {
+			const key = `${r.category}::${r.currency || 'LRD'}`;
+			map[key] = (map[key] || 0) + r.paymentAmount;
+		}
+		return map;
+	}, [user]);
+
+	const selectedCurrency = useMemo(() => {
+		return selected.length > 0 ? selected[0].currency || 'LRD' : null;
+	}, [selected]);
+
 	const toggleItem = (item: SelectedItem) => {
-		setSelected((prev) => {
-			const exists = prev.find((s) => s.key === item.key);
-			if (exists) return prev.filter((s) => s.key !== item.key);
-			return [...prev, item];
-		});
+		const paid = paidByFeeName[`${item.label}::${item.currency}`] || 0;
+		if (paid >= item.amount) return;
+
+		const exists = selected.some((s) => s.key === item.key);
+		if (exists) {
+			setSelected((prev) => prev.filter((s) => s.key !== item.key));
+			setCustomAmounts((prev) => {
+				const { [item.key]: _, ...rest } = prev;
+				return rest;
+			});
+			setPayInFullMap((prev) => {
+				const { [item.key]: _, ...rest } = prev;
+				return rest;
+			});
+		} else {
+			const itemCurrency = item.currency || 'LRD';
+			if (selectedCurrency && selectedCurrency !== itemCurrency) {
+				return;
+			}
+			const outstanding = Math.max(0, item.amount - paid);
+			setSelected((prev) => [...prev, { ...item, amount: outstanding }]);
+			setPayInFullMap((prev) => ({ ...prev, [item.key]: true }));
+		}
 	};
 
-	const totalSelected = selected.reduce((sum, s) => sum + s.amount, 0);
+	const handleItemPayInFullChange = (key: string, value: boolean) => {
+		setPayInFullMap((prev) => ({ ...prev, [key]: value }));
+		setAmountError(null);
+		const fee = allResolvedFees.find((f) => f.feeKey === key);
+		if (value) {
+			const paid = fee ? paidByFeeName[`${fee.feeName}::${fee.currency}`] || 0 : 0;
+			const outstanding = fee ? Math.max(0, fee.amount - paid) : 0;
+			setSelected((prev) =>
+				prev.map((s) => (s.key === key ? { ...s, amount: outstanding } : s)),
+			);
+			setCustomAmounts((prev) => {
+				const { [key]: _, ...rest } = prev;
+				return rest;
+			});
+		} else {
+			setSelected((prev) =>
+				prev.map((s) => (s.key === key ? { ...s, amount: 0 } : s)),
+			);
+		}
+	};
+
+	const handleCustomAmountChange = (key: string, raw: string) => {
+		const clean = formatNumberInput(raw);
+		setCustomAmounts((prev) => ({ ...prev, [key]: clean }));
+		const parsed = parseFloat(clean);
+		if (!isNaN(parsed)) {
+			setSelected((prev) =>
+				prev.map((s) => (s.key === key ? { ...s, amount: parsed } : s)),
+			);
+		}
+	};
+
+	const selectedByCurrency = useMemo(() => {
+		const map: Record<string, number> = {};
+		for (const s of selected) {
+			const c = s.currency || 'LRD';
+			map[c] = (map[c] || 0) + s.amount;
+		}
+		return map;
+	}, [selected]);
 
 	const handlePayment = async () => {
 		if (!user || selected.length === 0 || !paymentMethod || !phoneNumber) {
 			alert('Please select at least one fee item and fill in all fields');
 			return;
+		}
+
+		setAmountError(null);
+
+		for (const item of selected) {
+			if (payInFullMap[item.key]) continue;
+			const raw = customAmounts[item.key] || '';
+			const parsed = parseFloat(raw);
+			if (!raw || isNaN(parsed) || parsed <= 0) {
+				setAmountError(`Please enter a valid payment amount for ${item.label}`);
+				return;
+			}
+			const fee = allResolvedFees.find((f) => f.feeKey === item.key);
+			if (fee) {
+				const paid = paidByFeeName[`${fee.feeName}::${fee.currency}`] || 0;
+				const outstanding = fee.amount - paid;
+				if (parsed > outstanding) {
+					setAmountError(
+						`The amount ${item.currency} ${formatCurrency(parsed)} exceeds the outstanding balance of ${item.currency} ${formatCurrency(outstanding)} for ${item.label}`,
+					);
+					return;
+				}
+			}
 		}
 
 		setIsProcessing(true);
@@ -134,10 +250,13 @@ export default function PayFees() {
 		const newRecords: PaymentRecords[] = selected.map((item) => ({
 			id: `DEMO-${Date.now()}-${item.key}`,
 			receiptNumber: `RCP-${Date.now()}-${item.key}`,
+			studentId: (user as any).studentId || user.id,
+			classId: (user as any).classId || '',
 			paidBy: `${user.firstName} ${user.lastName}`,
 			feeType: 'fee',
 			category: item.label,
 			paymentAmount: item.amount,
+			currency: item.currency || 'LRD',
 			paymentAcademicYear: currentAcademicYear,
 			paymentDate: now.toISOString().split('T')[0],
 			paymentTime: now.toLocaleTimeString(),
@@ -166,6 +285,9 @@ export default function PayFees() {
 		setPaymentMethod('');
 		setPhoneNumber('');
 		setReceipts([]);
+		setPayInFullMap({});
+		setCustomAmounts({});
+		setAmountError(null);
 	};
 
 	if (isLoading) {
@@ -256,13 +378,17 @@ export default function PayFees() {
 										Payment Successful!
 									</h3>
 									<p className="text-green-700 dark:text-green-300">
-										Demo payment of {formatCurrency(totalSelected)} has been
-										processed.
+										Demo payment
+										{Object.entries(selectedByCurrency).map(([c, amt]) => (
+											<React.Fragment key={c}>
+												{' '}{c} {formatCurrency(amt)}
+											</React.Fragment>
+										))} has been processed.
 									</p>
 									<div className="mt-3 text-sm text-green-700/80 dark:text-green-200/80 space-y-1">
 										{receipts.map((r) => (
 											<p key={r.id}>
-												{r.category}: {formatCurrency(r.paymentAmount)} —{' '}
+												{r.category}: {r.currency || 'LRD'} {formatCurrency(r.paymentAmount)} —{' '}
 												{r.receiptNumber}
 											</p>
 										))}
@@ -337,40 +463,66 @@ export default function PayFees() {
 									<CardContent>
 										<div className="space-y-3">
 											{fees.map((fee) => {
+												const paid = paidByFeeName[`${fee.feeName}::${fee.currency}`] || 0;
+												const remaining = Math.max(0, fee.amount - paid);
+												const isCleared = paid >= fee.amount;
 												const isSelected = selected.some(
 													(s) => s.key === fee.feeKey,
 												);
+												const isCurrencyMismatch = !isCleared && selectedCurrency !== null && selectedCurrency !== (fee.currency || 'LRD');
 												return (
 													<label
 														key={fee.feeKey}
-														className={`flex items-center justify-between gap-4 rounded-lg border p-4 cursor-pointer transition-colors ${
-															isSelected
-																? 'border-primary bg-primary/5'
-																: 'hover:bg-muted/50'
+														className={`flex items-center justify-between gap-4 rounded-lg border p-4 transition-colors ${
+															isCleared
+																? 'border-green-200 bg-green-50/50 dark:border-green-800/50 dark:bg-green-950/20 cursor-default'
+																: isCurrencyMismatch
+																	? 'border-gray-100 bg-gray-50/50 dark:border-gray-800/30 dark:bg-gray-900/20 cursor-not-allowed opacity-60'
+																	: isSelected
+																		? 'border-primary bg-primary/5 cursor-pointer'
+																		: 'hover:bg-muted/50 cursor-pointer'
 														}`}
 													>
 														<div className="flex items-center gap-3">
-															<input
-																type="checkbox"
-																checked={isSelected}
-																onChange={() =>
-																	toggleItem({
-																		key: fee.feeKey,
-																		label: fee.feeName,
-																		amount: fee.amount,
-																		currency: fee.currency,
-																	})
-																}
-																className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-															/>
+															{isCleared ? (
+																<CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
+															) : (
+																<input
+																	type="checkbox"
+																	checked={isSelected}
+																	disabled={isCurrencyMismatch}
+																	onChange={() =>
+																		toggleItem({
+																			key: fee.feeKey,
+																			label: fee.feeName,
+																			amount: fee.amount,
+																			currency: fee.currency,
+																		})
+																	}
+																	className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-40"
+																/>
+															)}
 															<div>
-																<p className="font-medium">{fee.feeName}</p>
+																<p className="font-medium">
+																	{fee.feeName}
+																	{isCleared && <span className="ml-2 text-xs font-medium text-green-600">Paid</span>}
+																	{isCurrencyMismatch && <span className="ml-2 text-xs text-muted-foreground">({fee.currency})</span>}
+																</p>
 																<p className="text-xs text-muted-foreground">
 																	{fee.groupName}
 																</p>
+																{isCleared ? (
+																	<p className="text-xs text-green-600 font-medium mt-0.5">Cleared</p>
+																) : isCurrencyMismatch ? (
+																	<p className="text-xs text-muted-foreground mt-0.5">Different currency — not selectable</p>
+																) : paid > 0 ? (
+																	<p className="text-xs text-muted-foreground mt-0.5">
+																		Paid {fee.currency} {formatCurrency(paid)} / Remaining {fee.currency} {formatCurrency(remaining)}
+																	</p>
+																) : null}
 															</div>
 														</div>
-														<p className="font-semibold whitespace-nowrap">
+														<p className={`font-semibold whitespace-nowrap ${isCleared ? 'text-green-600' : ''}`}>
 															{fee.currency} {formatCurrency(fee.amount)}
 														</p>
 													</label>
@@ -441,25 +593,74 @@ export default function PayFees() {
 								<CardContent className="p-6">
 									<div className="bg-muted/50 p-4 rounded-lg mb-4">
 										<h4 className="font-medium mb-3">Payment Summary</h4>
-										<div className="space-y-2">
-											{selected.map((item) => (
-												<div
-													key={item.key}
-													className="flex justify-between text-sm"
-												>
-													<span className="text-muted-foreground">
-														{item.label}
-													</span>
-													<span className="font-medium">
-														{item.currency} {formatCurrency(item.amount)}
-													</span>
-												</div>
-											))}
+
+										{/* Selected Items */}
+										<div className="space-y-3">
+											{selected.map((item) => {
+												const isFull = payInFullMap[item.key] ?? true;
+												const fee = allResolvedFees.find((f) => f.feeKey === item.key);
+												const paid = fee ? paidByFeeName[`${fee.feeName}::${fee.currency}`] || 0 : 0;
+												const outstanding = fee ? Math.max(0, fee.amount - paid) : 0;
+												return (
+													<div key={item.key} className="flex items-center justify-between gap-2">
+														<div className="flex-1 min-w-0">
+															<p className="text-sm font-medium truncate">{item.label}</p>
+															{isFull ? (
+																<p className="text-xs text-muted-foreground">
+																	Outstanding: {item.currency} {formatCurrency(outstanding)}
+																	{paid > 0 && (
+																		<span> of {item.currency} {formatCurrency(fee?.amount || 0)}</span>
+																	)}
+																</p>
+															) : (
+																<div className="flex items-center gap-1 mt-0.5">
+																	<span className="text-xs text-muted-foreground">{item.currency}</span>
+																	<input
+																		type="text"
+																		inputMode="decimal"
+																		value={displayWithCommas(customAmounts[item.key] ?? '')}
+																		onChange={(e) => handleCustomAmountChange(item.key, e.target.value)}
+																		placeholder="0.00"
+																		className="w-28 text-right border border-border rounded-md px-1.5 py-0.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+																	/>
+																	{outstanding > 0 && (
+																		<span className="text-xs text-muted-foreground whitespace-nowrap">
+																			/ {formatCurrency(outstanding)}
+																		</span>
+																	)}
+																</div>
+															)}
+														</div>
+														<button
+															type="button"
+															role="switch"
+															aria-checked={isFull}
+															onClick={() => handleItemPayInFullChange(item.key, !isFull)}
+															className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ${
+																isFull
+																	? 'bg-primary'
+																	: 'bg-gray-300 dark:bg-gray-600'
+															}`}
+														>
+															<span
+																className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+																	isFull ? 'translate-x-[18px]' : 'translate-x-0.5'
+																}`}
+															/>
+														</button>
+													</div>
+												);
+											})}
 											<div className="border-t pt-2 mt-2 flex justify-between font-semibold">
 												<span>Total</span>
-												<span>{selected[0]?.currency || ''} {formatCurrency(totalSelected)}</span>
+												<span className="text-right">
+													{Object.entries(selectedByCurrency).map(([c, amt]) => (
+														<span key={c} className="block whitespace-nowrap">{c} {formatCurrency(amt)}</span>
+													))}
+												</span>
 											</div>
 										</div>
+
 										<div className="text-sm mt-3 space-y-1">
 											<p>
 												<span className="text-muted-foreground">Method:</span>{' '}
@@ -474,6 +675,12 @@ export default function PayFees() {
 										</div>
 									</div>
 
+									{amountError && (
+										<div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
+											<p className="text-sm text-red-700 dark:text-red-300">{amountError}</p>
+										</div>
+									)}
+
 									<Button
 										onClick={handlePayment}
 										disabled={isProcessing}
@@ -486,11 +693,14 @@ export default function PayFees() {
 											</>
 										) : (
 											<>
-												<Wallet className="h-4 w-4 mr-2" />
-												Pay {selected[0]?.currency || ''} {formatCurrency(totalSelected)} via{' '}
-												{paymentMethod === 'orange'
-													? 'Orange Money'
-													: 'Lonester Mobile Money'}
+												<Wallet className="h-4 w-4 mr-2 shrink-0" />
+												<span className="truncate">
+													Pay {Object.entries(selectedByCurrency).map(([c, amt]) => (
+														<span key={c}>{c} {formatCurrency(amt)} </span>
+													))}via {paymentMethod === 'orange'
+														? 'Orange Money'
+														: 'Lonester Mobile Money'}
+												</span>
 											</>
 										)}
 									</Button>

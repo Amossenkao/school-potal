@@ -20,16 +20,35 @@ import {
 	Loader2,
 	AlertCircle,
 	BookOpen,
-	FileText,
 	TrendingUp,
 	TrendingDown,
 	Wallet,
-	ClipboardList,
-	Gift,
+	CheckCircle,
 } from 'lucide-react';
 
 const formatCurrency = (value: number) =>
 	value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+type CurrencyMap = Record<string, number>;
+
+const sumByCurrency = (items: Array<{ amount: number; currency: string }>): CurrencyMap => {
+	const map: CurrencyMap = {};
+	for (const item of items) {
+		const c = item.currency || 'LRD';
+		map[c] = (map[c] || 0) + item.amount;
+	}
+	return map;
+};
+
+const CurrencyLines = ({ amounts }: { amounts: CurrencyMap }) => (
+	<>
+		{Object.entries(amounts).map(([currency, value]) => (
+			<span key={currency} className="block whitespace-nowrap">
+				{currency} {formatCurrency(value)}
+			</span>
+		))}
+	</>
+);
 
 export default function FinancialProfile() {
 	const { user, isLoading } = useAuth();
@@ -87,14 +106,36 @@ export default function FinancialProfile() {
 		return results;
 	}, [feeGroups, school, studentGroupIds]);
 
-	const totals = useMemo(() => {
-		const totalDue = allResolvedFees.reduce((sum, f) => sum + f.amount, 0);
-		const requiredFees = allResolvedFees
-			.filter((f) => f.isRequired)
-			.reduce((sum, f) => sum + f.amount, 0);
-		const optionalFees = totalDue - requiredFees;
-		return { totalDue, requiredFees, optionalFees };
-	}, [allResolvedFees]);
+	const totalsByCurrency = useMemo(() => {
+		const dueMap = sumByCurrency(allResolvedFees);
+		const requiredMap = sumByCurrency(allResolvedFees.filter((f) => f.isRequired));
+		const paidRecords = (user as any)?.financialProfile?.paymentRecords || [];
+		const paidMap = sumByCurrency(paidRecords.map((r: any) => ({ amount: r.paymentAmount, currency: r.currency || 'LRD' })));
+		const allCurrencies = [...new Set([...Object.keys(dueMap), ...Object.keys(paidMap)])];
+		const result: Record<string, { totalDue: number; requiredFees: number; optionalFees: number; paid: number; balance: number }> = {};
+		for (const c of allCurrencies) {
+			const due = dueMap[c] || 0;
+			const paid = paidMap[c] || 0;
+			result[c] = {
+				totalDue: due,
+				requiredFees: requiredMap[c] || 0,
+				optionalFees: due - (requiredMap[c] || 0),
+				paid,
+				balance: due - paid,
+			};
+		}
+		return result;
+	}, [allResolvedFees, user]);
+
+	const paidByFeeName = useMemo(() => {
+		const records = (user as any)?.financialProfile?.paymentRecords || [];
+		const map: Record<string, number> = {};
+		for (const r of records) {
+			const key = `${r.category}::${r.currency || 'LRD'}`;
+			map[key] = (map[key] || 0) + r.paymentAmount;
+		}
+		return map;
+	}, [user]);
 
 	const groupedByCategory = useMemo(() => {
 		const groups: Record<string, typeof allResolvedFees> = {};
@@ -227,9 +268,11 @@ export default function FinancialProfile() {
 						<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
 							<CardHeader className="pb-2">
 								<CardDescription>Total Due</CardDescription>
-								<CardTitle className="flex items-center gap-2">
-									<TrendingDown className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-									{allResolvedFees[0]?.currency || 'LRD'} {formatCurrency(totals.totalDue)}
+								<CardTitle className="flex flex-col items-start gap-1 text-amber-600 dark:text-amber-400">
+									<TrendingDown className="h-5 w-5 shrink-0" />
+									<CurrencyLines amounts={Object.fromEntries(
+										Object.entries(totalsByCurrency).map(([c, t]) => [c, t.totalDue])
+									)} />
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
@@ -242,9 +285,11 @@ export default function FinancialProfile() {
 						<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
 							<CardHeader className="pb-2">
 								<CardDescription>Total Paid</CardDescription>
-								<CardTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
-									<TrendingUp className="h-5 w-5" />
-									{allResolvedFees[0]?.currency || 'LRD'} {formatCurrency(0)}
+								<CardTitle className="flex flex-col items-start gap-1 text-green-600 dark:text-green-400">
+									<TrendingUp className="h-5 w-5 shrink-0" />
+									<CurrencyLines amounts={Object.fromEntries(
+										Object.entries(totalsByCurrency).map(([c, t]) => [c, t.paid])
+									)} />
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
@@ -257,9 +302,11 @@ export default function FinancialProfile() {
 						<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70 sm:col-span-2 lg:col-span-1">
 							<CardHeader className="pb-2">
 								<CardDescription>Outstanding Balance</CardDescription>
-								<CardTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
-									<Wallet className="h-5 w-5" />
-									{allResolvedFees[0]?.currency || 'LRD'} {formatCurrency(totals.totalDue)}
+								<CardTitle className="flex flex-col items-start gap-1 text-red-600 dark:text-red-400">
+									<Wallet className="h-5 w-5 shrink-0" />
+									<CurrencyLines amounts={Object.fromEntries(
+										Object.entries(totalsByCurrency).map(([c, t]) => [c, t.balance])
+									)} />
 								</CardTitle>
 							</CardHeader>
 							<CardContent>
@@ -282,30 +329,45 @@ export default function FinancialProfile() {
 							</CardHeader>
 							<CardContent>
 								<div className="space-y-3">
-									{fees.map((fee, idx) => (
-										<div
-											key={idx}
-											className="flex items-center justify-between gap-4 rounded-lg border p-4"
-										>
-											<div>
-												<p className="font-medium">{fee.feeName}</p>
-												<div className="flex items-center gap-2 text-xs text-muted-foreground">
-													{fee.isRequired ? (
-														<span className="text-amber-600 dark:text-amber-400 font-medium">Required</span>
-													) : (
-														<span className="text-green-600 dark:text-green-400 font-medium">Optional</span>
-													)}
-													{fee.installmentLabel && (
-														<span>Due: {fee.installmentLabel}</span>
-													)}
+									{fees.map((fee, idx) => {
+										const paid = paidByFeeName[`${fee.feeName}::${fee.currency}`] || 0;
+										const remaining = Math.max(0, fee.amount - paid);
+										const isCleared = paid >= fee.amount;
+										return (
+											<div
+												key={idx}
+												className="flex items-center justify-between gap-4 rounded-lg border p-4"
+											>
+												<div>
+													<p className="font-medium">
+														{fee.feeName}
+														{isCleared && <CheckCircle className="inline h-4 w-4 ml-1.5 -mt-0.5 text-green-600" />}
+													</p>
+													<div className="flex items-center gap-2 text-xs text-muted-foreground">
+														{fee.isRequired ? (
+															<span className="text-amber-600 dark:text-amber-400 font-medium">Required</span>
+														) : (
+															<span className="text-green-600 dark:text-green-400 font-medium">Optional</span>
+														)}
+														{fee.installmentLabel && (
+															<span>Due: {fee.installmentLabel}</span>
+														)}
+													</div>
+													<div className="text-xs text-muted-foreground mt-1">
+														{isCleared ? (
+															<span className="text-green-600 font-medium">Cleared</span>
+														) : paid > 0 ? (
+															<span>Paid {fee.currency} {formatCurrency(paid)} / Remaining {fee.currency} {formatCurrency(remaining)}</span>
+														) : null}
+													</div>
+												</div>
+												<div className="text-right shrink-0">
+													<p className="font-semibold whitespace-nowrap">{fee.currency} {formatCurrency(fee.amount)}</p>
+													<p className="text-xs text-muted-foreground">{fee.groupName}</p>
 												</div>
 											</div>
-											<div className="text-right">
-												<p className="font-semibold">{fee.currency} {formatCurrency(fee.amount)}</p>
-												<p className="text-xs text-muted-foreground">{fee.groupName}</p>
-											</div>
-										</div>
-									))}
+										);
+									})}
 								</div>
 							</CardContent>
 						</Card>

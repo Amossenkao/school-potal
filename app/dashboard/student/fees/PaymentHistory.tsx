@@ -171,7 +171,7 @@ const ReceiptDocument = ({ payment, school }: { payment: any; school: any }) => 
 					<View>
 						<Text style={receiptStyles.label}>Amount</Text>
 						<Text style={receiptStyles.value}>
-							LRD {Number(payment.paymentAmount).toFixed(2)}
+							{payment.currency || 'LRD'} {Number(payment.paymentAmount).toFixed(2)}
 						</Text>
 					</View>
 				</View>
@@ -235,6 +235,7 @@ export default function PaymentHistory() {
 			id: record.id,
 			type: record.feeType,
 			amount: record.paymentAmount,
+			currency: record.currency || 'LRD',
 			status: 'completed',
 			paymentMethod: record.category,
 			phoneNumber: user?.phone || 'N/A',
@@ -688,8 +689,8 @@ export default function PaymentHistory() {
 												</div>
 												<div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end sm:gap-4">
 													<div className="text-left sm:text-right">
-														<p className="text-lg font-semibold">
-															LRD {Number(payment.amount).toFixed(2)}
+														<p className="text-lg font-semibold whitespace-nowrap">
+															{payment.currency || 'LRD'} {Number(payment.amount).toFixed(2)}
 														</p>
 														<p className="text-sm text-muted-foreground">
 															{getPaymentTypeLabel(payment.type)}
@@ -754,8 +755,8 @@ export default function PaymentHistory() {
 								</div>
 								<div className="text-right">
 									<p className="text-muted-foreground">Amount</p>
-									<p className="font-semibold">
-										LRD {Number(selectedPayment.amount).toFixed(2)}
+									<p className="font-semibold whitespace-nowrap">
+										{selectedPayment.currency || 'LRD'} {Number(selectedPayment.amount).toFixed(2)}
 									</p>
 								</div>
 							</div>

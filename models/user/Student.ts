@@ -29,6 +29,7 @@ const PaymentReceiptSchema = new Schema<PaymentRecords & Document>({
 	feeType: { type: String, required: true },
 	category: { type: String, required: true },
 	paymentAmount: { type: Number, required: true },
+	currency: { type: String, required: false, default: 'LRD' },
 	paymentAcademicYear: { type: String, required: true },
 	paymentDate: { type: String, required: true },
 	paymentTime: { type: String, required: true },
@@ -38,11 +39,12 @@ const FinancialProfileSchema = new Schema<StudentFinancialProfile & Document>(
 	{
 		outstandingBalances: [
 			{
-				academicYear: { type: String, required: true }, // Added field
+				academicYear: { type: String, required: true },
 				feeType: { type: String, required: true },
 				category: { type: String, required: true },
 				requiredAmount: { type: Number, required: true },
 				remainingBalance: { type: Number, required: true },
+				currency: { type: String, required: false, default: 'LRD' },
 			},
 		],
 		paymentRecords: [PaymentReceiptSchema],
