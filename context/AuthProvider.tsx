@@ -249,6 +249,16 @@ export default function AuthProvider({
 			return;
 		}
 
+		// Wait for the school profile to load before creating the Ably
+		// client. The token endpoint resolves tenantId from the DB school
+		// profile (prioritising system.dbName). If we create the client
+		// before currentSchool is available, resolveTenantSyncKey falls
+		// back to window.location.host — producing a channel name like
+		// "school:ucaliberia.vercel.app" that doesn't match the token's
+		// granted capability "school:ucaliberia" (the dbName), causing a
+		// 40160 "Channel denied" error.
+		if (!currentSchool) return;
+
 		const tenantKey = resolveTenantSyncKey({
 			schoolProfile: currentSchool,
 			host: window.location.host,
