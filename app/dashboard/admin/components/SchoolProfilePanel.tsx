@@ -7,6 +7,7 @@ import SchoolProfileForm, { type SchoolFormState } from '@/app/dashboard/admin/c
 import { useSuperadminRealtime } from '@/app/dashboard/admin/hooks/useSuperadminRealtime';
 import type { RealtimeEvent } from '@/lib/realtimeTypes';
 import useAuth from '@/store/useAuth';
+import { useSchoolStore } from '@/store/schoolStore';
 import { DEFAULT_TENANT_THEME_NAME } from '@/types/tenantTheme';
 
 interface SchoolStats {
@@ -215,6 +216,15 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 			const result = await res.json();
 			if (!res.ok) throw new Error(result.error || 'Failed to save');
 			upsertSuperAdminSchool(result.school || formState);
+
+			// Sync schoolStore.school if the saved school matches the one currently
+			// viewed, so stale featureConfig / identity data doesn't linger in
+			// components that read from schoolStore (e.g. AddUsers, EditUserModal).
+			const currentSchool = useSchoolStore.getState().school;
+			if (currentSchool?.system?.host === host && result.school) {
+				useSchoolStore.getState().setSchool(result.school);
+			}
+
 			toast.success('Changes saved successfully');
 		} catch (e: any) {
 			setError(e.message);

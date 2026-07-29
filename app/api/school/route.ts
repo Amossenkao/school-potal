@@ -492,9 +492,23 @@ export async function PUT(request: NextRequest) {
 					body.system.id = existingId;
 				}
 
+				// Flatten system subdoc into dotted paths to avoid Mongoose
+				// replacing the entire subdocument, which can mishandle
+				// system.isActive via the required/default Boolean field.
+				const $set: Record<string, any> = {};
+				for (const [key, value] of Object.entries(body)) {
+					if (key === 'system' && value && typeof value === 'object') {
+						for (const [subKey, subVal] of Object.entries(value as Record<string, any>)) {
+							$set[`system.${subKey}`] = subVal;
+						}
+					} else {
+						$set[key] = value;
+					}
+				}
+
 				const school = await SchoolProfile.findOneAndUpdate(
 					{ 'system.host': cleanHost },
-					{ $set: body },
+					{ $set },
 					{ new: true, runValidators: true },
 				).lean();
 
