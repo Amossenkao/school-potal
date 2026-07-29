@@ -9,63 +9,58 @@ export type UserRole =
 
 export type FeatureKey =
 	// Core
-	| 'dashboard'
 	| 'user_management'
-	| 'profile_management'
 	| 'ai_chat'
 	| 'homepage'
 	| 'apps'
-	| 'attendance'
+	| 'student_attendance'
 	| 'teacher_attendance'
 	// Academic
-	| 'grading_system'
+	| 'grade_management'
 	| 'academic_reports'
-	| 'academic_resources'
 	| 'calendar_events'
 	| 'class_management'
 	// Financial
 	| 'fee_payment'
 	| 'financial_reports'
+	| 'record_payments'
 	| 'online_payment'
-	// Student
-	| 'admissions'
 	// Communication & Support
 	| 'support_system'
 	| 'community'
-	| 'notifications'
+	// Documents
+	| 'academic_documents'
+
 	// System
 	| 'school_settings';
 
 export const FEATURE_KEYS: FeatureKey[] = [
 	// Core Features
-	'dashboard',
 	'user_management',
-	'profile_management',
 	'ai_chat',
 	'homepage',
 	'apps',
-	'attendance',
+	'student_attendance',
 	'teacher_attendance',
 
 	// Academic Features
-	'grading_system',
+	'grade_management',
 	'academic_reports',
-	'academic_resources',
 	'calendar_events',
 	'class_management',
 
 	// Financial Features
 	'fee_payment',
 	'financial_reports',
+	'record_payments',
 	'online_payment',
-
-	// Student Features
-	'admissions',
 
 	// Communication & Support
 	'support_system',
 	'community',
-	'notifications',
+
+	// Documents
+	'academic_documents',
 
 	// System Features
 	'school_settings',

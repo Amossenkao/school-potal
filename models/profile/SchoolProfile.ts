@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { SchoolProfile } from '@/types/schoolProfile';
-import {FEATURE_KEYS } from '@/types';
+import { FEATURE_KEYS } from '@/types';
 import { TENANT_THEME_NAMES } from '@/types/tenantTheme';
 
 

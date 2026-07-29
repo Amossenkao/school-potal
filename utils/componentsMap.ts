@@ -26,6 +26,7 @@ import {
 	BookCheck,
 	Users2,
 	ClipboardCheck,
+	DollarSign,
 } from 'lucide-react';
 import type { SchoolProfile } from '@/types/schoolProfile';
 import type {FeatureKey} from "@/types";
@@ -190,6 +191,26 @@ const componentImporters: Record<string, ComponentImporter> = {
 	'payment-history': () =>
 		import('@/app/dashboard/student/fees/PaymentHistory'),
 
+	// Record Payments
+	'record-payments': () =>
+		import('@/app/dashboard/record-payments/page'),
+	'scholarships': () =>
+		import('@/app/dashboard/scholarships/page'),
+	'clearances': () =>
+		import('@/app/dashboard/clearances/page'),
+
+	// Financial Reports (admin)
+	'financial-overview': () =>
+		import('@/app/dashboard/financial-overview/page'),
+	'admin-payment-history': () =>
+		import('@/app/dashboard/payment-history/page'),
+
+	// Documents
+	documents: () =>
+		import('@/app/dashboard/documents/page'),
+	attestation: () =>
+		import('@/app/dashboard/attestation/page'),
+
 	// Salary
 	// 'salary/advance': dynamic(
 	// 	() => import('@/app/dashboard/teacher/RequestSalaryAdvance')
@@ -309,22 +330,6 @@ export function preloadComponentsForUser(
 
 // Feature configurations with navigation structure
 const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
-	dashboard: {
-		key: 'dashboard',
-		title: 'Dashboard',
-		icon: LayoutDashboard,
-		routes: {
-			system_admin: [
-				{ key: 'dashboard', title: 'Dashboard', href: '/dashboard' },
-			],
-			teacher: [{ key: 'dashboard', title: 'Dashboard', href: '/dashboard' }],
-			student: [{ key: 'dashboard', title: 'Dashboard', href: '/dashboard' }],
-			administrator: [
-				{ key: 'dashboard', title: 'Dashboard', href: '/dashboard' },
-			],
-		},
-	},
-
 	user_management: {
 		key: 'user_management',
 		title: 'User Management',
@@ -348,8 +353,8 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		},
 	},
 
-	grading_system: {
-		key: 'grading_system',
+	grade_management: {
+		key: 'grade_management',
 		title: 'Grading System',
 		icon: CheckSquare,
 		category: 'Grading',
@@ -475,78 +480,6 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		},
 	},
 
-	academic_resources: {
-		key: 'academic_resources',
-		title: 'Academic Resources',
-		icon: Library,
-		category: 'Academic Resources',
-		routes: {
-			system_admin: [
-				{
-					key: 'resources/view',
-					title: 'View Resources',
-					href: '/resources/view',
-					icon: Library,
-				},
-				{
-					key: 'resources/add',
-					title: 'Add a Resource',
-					href: '/resources/add',
-					icon: FilePen,
-				},
-				{
-					key: 'resources/manage',
-					title: 'Manage Resources',
-					href: '/resources/manage',
-					icon: Library,
-				},
-			],
-			teacher: [
-				{
-					key: 'resources/view',
-					title: 'View Resources',
-					href: '/resources/view',
-					icon: Library,
-				},
-				{
-					key: 'resources/add-teacher',
-					title: 'Add a Resource',
-					href: '/resources/add',
-					icon: FilePen,
-				},
-				{
-					key: 'resources/manage-teacher',
-					title: 'Manage Resources',
-					href: '/resources/manage',
-					icon: Library,
-				},
-			],
-			student: [
-				{
-					key: 'resources/view',
-					title: 'View Resources',
-					href: '/resources/view',
-					icon: Library,
-				},
-			],
-
-			administrator: [
-				{
-					key: 'resources/view',
-					title: 'View Resources',
-					href: '/resources/view',
-					icon: Library,
-				},
-				{
-					key: 'resources/add',
-					title: 'Add a Resource',
-					href: '/resources/add',
-					icon: FilePen,
-				},
-			],
-		},
-	},
-
 	calendar_events: {
 		key: 'calendar_events',
 		title: 'Calendar & Events',
@@ -644,9 +577,15 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		routes: {
 			administrator: [
 				{
-					key: 'financial-reports',
-					title: 'Financial Reports',
-					href: '/financial-reports',
+					key: 'financial-overview',
+					title: 'Financial Overview',
+					href: '/dashboard/financial-overview',
+					icon: FileText,
+				},
+				{
+					key: 'admin-payment-history',
+					title: 'Payment History',
+					href: '/dashboard/payment-history',
 					icon: FileText,
 				},
 			],
@@ -690,6 +629,84 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		},
 	},
 
+	record_payments: {
+		key: 'record_payments',
+		title: 'Record Payments',
+		icon: DollarSign,
+		category: 'Financial',
+		routes: {
+			administrator: [
+				{
+					key: 'record-payments',
+					title: 'Record Payments',
+					href: '/dashboard/record-payments',
+					icon: DollarSign,
+				},
+				{
+					key: 'scholarships',
+					title: 'Scholarships & Wards',
+					href: '/dashboard/scholarships',
+					icon: GraduationCap,
+				},
+				{
+					key: 'clearances',
+					title: 'Clearances',
+					href: '/dashboard/clearances',
+					icon: ClipboardCheck,
+				},
+			],
+		},
+	},
+
+	academic_documents: {
+		key: 'academic_documents',
+		title: 'Academic Documents',
+		icon: FileText,
+		category: 'Academic Documents',
+		routes: {
+			system_admin: [
+				{
+					key: 'transcript-recommendation',
+					title: 'Transcript & Recommendation',
+					href: '/dashboard/documents',
+					icon: FileText,
+				},
+				{
+					key: 'attestation',
+					title: 'Attestation',
+					href: '/dashboard/attestation',
+					icon: FileText,
+				},
+				{
+					key: 'graduation-clearance',
+					title: 'Graduation Clearance',
+					href: '/dashboard/clearances',
+					icon: ClipboardCheck,
+				},
+			],
+			administrator: [
+				{
+					key: 'transcript-recommendation',
+					title: 'Transcript & Recommendation',
+					href: '/dashboard/documents',
+					icon: FileText,
+				},
+				{
+					key: 'attestation',
+					title: 'Attestation',
+					href: '/dashboard/attestation',
+					icon: FileText,
+				},
+				{
+					key: 'graduation-clearance',
+					title: 'Graduation Clearance',
+					href: '/dashboard/clearances',
+					icon: ClipboardCheck,
+				},
+			],
+		},
+	},
+
 	student_records: {
 		key: 'student_records',
 		title: 'Student Records',
@@ -707,88 +724,31 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		},
 	},
 
-	admissions: {
-		key: 'admissions',
-		title: 'Admissions',
-		icon: GraduationCap,
-		category: 'Student Management',
-		routes: {
-			administrator: [
-				{
-					key: 'admissions',
-					title: 'Admissions',
-					href: '/admissions',
-					icon: GraduationCap,
-				},
-			],
-		},
-	},
-
-	notifications: {
-		key: 'notifications',
-		title: 'Notifications',
-		icon: AlignEndVerticalIcon,
-		routes: {
-			teacher: [
-				{
-					key: 'notifications',
-					title: 'Notifications',
-					href: '/notifications',
-					icon: BellDot,
-				},
-			],
-			system_admin: [
-				{
-					key: 'notifications',
-					title: 'Notifications',
-					href: '/notifications',
-					icon: BellDot,
-				},
-			],
-			student: [
-				{
-					key: 'notifications',
-					title: 'Notifications',
-					href: '/notifications',
-					icon: BellDot,
-				},
-			],
-			administrator: [
-				{
-					key: 'notifications',
-					title: 'Notifications',
-					href: '/notifications',
-					icon: BellDot,
-				},
-			],
-		},
-	},
-
-	attendance: {
-		key: 'attendance',
-		title: 'Attendance',
+	student_attendance: {
+		key: 'student_attendance',
+		title: 'Student Attendance',
 		icon: AlignEndVerticalIcon,
 		category: 'Attendance',
 		routes: {
 			system_admin: [
 				{
-					key: 'attendance',
-					title: 'Class Attendance',
+					key: 'student-attendance',
+					title: 'Student Attendance',
 					href: '/attendance',
 					icon: AlignEndVerticalIcon,
 				},
 			],
 			teacher: [
 				{
-					key: 'attendance',
-					title: 'Class Attendance',
+					key: 'student-attendance',
+					title: 'Student Attendance',
 					href: '/attendance',
 					icon: AlignEndVerticalIcon,
 				},
 			],
 			student: [
 				{
-					key: 'attendance',
+					key: 'student-attendance',
 					title: 'My Attendance',
 					href: '/attendance',
 					icon: AlignEndVerticalIcon,
@@ -796,8 +756,8 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 			],
 			administrator: [
 				{
-					key: 'attendance',
-					title: 'Class Attendance',
+					key: 'student-attendance',
+					title: 'Student Attendance',
 					href: '/attendance',
 					icon: AlignEndVerticalIcon,
 				},
@@ -906,46 +866,6 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 			],
 			administrator: [
 				{ key: 'support', title: 'Support', href: '/support', icon: Shield },
-			],
-		},
-	},
-
-	profile_management: {
-		key: 'profile_management',
-		title: 'Profile Management',
-		icon: UserCircle,
-		routes: {
-			system_admin: [
-				{
-					key: 'profile',
-					title: 'Profile',
-					href: '/profile',
-					icon: UserCircle,
-				},
-			],
-			teacher: [
-				{
-					key: 'profile',
-					title: 'Profile',
-					href: '/profile',
-					icon: UserCircle,
-				},
-			],
-			student: [
-				{
-					key: 'profile',
-					title: 'Profile',
-					href: '/profile',
-					icon: UserCircle,
-				},
-			],
-			administrator: [
-				{
-					key: 'profile',
-					title: 'Profile',
-					href: '/profile',
-					icon: UserCircle,
-				},
 			],
 		},
 	},
@@ -1113,8 +1033,6 @@ function hasFeatureAccess(
 	feature: FeatureKey,
 	adminPermissions?: FeatureKey[],
 ): boolean {
-	if (feature === 'dashboard') return true;
-
 	// Check if feature is enabled for the school
 	if (!schoolProfile.featureConfig.enabledFeatures.includes(feature)) return false;
 
@@ -1254,12 +1172,12 @@ export function generateNavigationItems(
 		items.splice(nextIndex, 0, moved);
 	};
 
-	// Add dashboard home (always first)
-	navItems.push({
-		name: 'Dashboard',
-		icon: LayoutDashboard,
-		href: '/dashboard',
-	});
+	// Add default items available to all users
+	navItems.push(
+		{ name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
+		{ name: 'Profile', icon: UserCircle, href: '/profile' },
+		{ name: 'Notifications', icon: BellDot, href: '/notifications' },
+	);
 
 	// Get user's accessible features with permissions support
 	const accessibleFeatures = getUserAccessibleFeatures(
@@ -1287,7 +1205,6 @@ export function generateNavigationItems(
 
 	// Process each accessible feature
 	accessibleFeatures.forEach((feature) => {
-		if (feature === 'dashboard') return; // Skip dashboard as it's already added
 		// Check if feature is enabled for the school
 		if (!schoolProfile.featureConfig.enabledFeatures.includes(feature)) return;
 
@@ -1513,13 +1430,6 @@ export function getUserAccessibleFeatures(
 
 	const features = Array.isArray(roleAccess) ? roleAccess : [];
 	const uniqueFeatures = Array.from(new Set(features));
-	if (
-		userRole === 'student' &&
-		schoolProfile.featureConfig.enabledFeatures.includes('notifications') &&
-		!uniqueFeatures.includes('notifications')
-	) {
-		uniqueFeatures.push('notifications');
-	}
 
 	return uniqueFeatures.filter((feature) =>
 		schoolProfile.featureConfig.enabledFeatures.includes(feature),

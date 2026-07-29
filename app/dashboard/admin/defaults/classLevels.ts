@@ -149,20 +149,19 @@ export const DEFAULT_FEATURES = FEATURE_KEYS;
 
 export const DEFAULT_ROLE_FEATURE_ACCESS = {
 	system_admin: [
-		'dashboard', 'user_management', 'calendar_events', 'grading_system',
-		'class_management', 'academic_reports', 'academic_resources',
-		'attendance', 'admissions', 'profile_management', 'ai_chat',
-		'notifications', 'school_settings', 'support_system',
+		'user_management', 'calendar_events', 'grade_management',
+		'class_management', 'academic_reports',
+		'student_attendance', 'ai_chat',
+		'school_settings', 'support_system',
 	],
 	teacher: [
-		'dashboard', 'community', 'calendar_events', 'grading_system',
-		'academic_resources', 'attendance', 'profile_management',
-		'ai_chat', 'notifications',
+		'community', 'calendar_events', 'grade_management',
+		'student_attendance',
+		'ai_chat',
 	],
 	student: [
-		'dashboard', 'calendar_events', 'fee_payment', 'academic_reports',
-		'attendance', 'community', 'profile_management', 'ai_chat',
-		'notifications',
+		'calendar_events', 'fee_payment', 'academic_reports',
+		'student_attendance', 'community', 'ai_chat',
 	],
 	administrator: {} as Record<string, string[]>,
 };

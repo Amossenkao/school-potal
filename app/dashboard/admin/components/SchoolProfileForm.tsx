@@ -17,7 +17,7 @@ import {
 } from '@/app/dashboard/admin/defaults/classLevels';
 import { TENANT_THEME_NAMES, DEFAULT_TENANT_THEME_NAME } from '@/types/tenantTheme';
 import { REPORT_CARD_THEMES } from '@/types/reportCardTheme';
-import  { FEATURE_KEYS } from '@/types';
+import { FEATURE_KEYS, type FeatureKey } from '@/types';
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
 
@@ -148,6 +148,27 @@ interface Props {
 	saving?: boolean;
 }
 
+// ─── Helper: filter feature config to only include valid FEATURE_KEYS ──────────
+
+function sanitizeFeatureConfig(
+	featureConfig: Partial<SchoolFormState['featureConfig']>,
+): SchoolFormState['featureConfig'] {
+	const validKeys = (keys: string[]) => keys.filter((k): k is FeatureKey => FEATURE_KEYS.includes(k as FeatureKey));
+	return {
+		enabledFeatures: featureConfig.enabledFeatures ? validKeys(featureConfig.enabledFeatures) : [],
+		roleFeatureAccess: {
+			student: featureConfig.roleFeatureAccess?.student ? validKeys(featureConfig.roleFeatureAccess.student) : [],
+			teacher: featureConfig.roleFeatureAccess?.teacher ? validKeys(featureConfig.roleFeatureAccess.teacher) : [],
+			system_admin: featureConfig.roleFeatureAccess?.system_admin ? validKeys(featureConfig.roleFeatureAccess.system_admin) : [],
+			administrator: featureConfig.roleFeatureAccess?.administrator
+				? Object.fromEntries(
+					Object.entries(featureConfig.roleFeatureAccess.administrator).map(([pos, keys]) => [pos, validKeys(keys)]),
+				)
+				: {},
+		},
+	};
+}
+
 // ─── Helper: deep merge ─────────────────────────────────────────────────────────
 
 function deepMerge<T extends Record<string, any>>(base: T, override: Partial<T>): T {
@@ -224,7 +245,11 @@ function validateStep(stepIndex: number, form: SchoolFormState): StepErrors {
 
 export default function SchoolProfileForm({ initialData, onSubmit, submitLabel = 'Save', saving }: Props) {
 	const [step, setStep] = useState(0);
-	const [form, setForm] = useState<SchoolFormState>(() => deepMerge(defaultFormState, initialData || {}));
+	const [form, setForm] = useState<SchoolFormState>(() => {
+		const merged = deepMerge(defaultFormState, initialData || {});
+		merged.featureConfig = sanitizeFeatureConfig(merged.featureConfig);
+		return merged;
+	});
 	const [errors, setErrors] = useState<StepErrors>({});
 	const [expandedFeeGroups, setExpandedFeeGroups] = useState<Set<string>>(new Set());
 	const [expandedFinancialSections, setExpandedFinancialSections] = useState<Set<string>>(new Set());

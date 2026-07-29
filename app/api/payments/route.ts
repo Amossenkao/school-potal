@@ -29,40 +29,74 @@ export async function GET(req: NextRequest) {
 				{ status: 401 },
 			);
 		}
-		if (sessionUser.role !== 'student') {
-			return NextResponse.json(
-				{ success: false, message: 'Only students can fetch payment records.' },
-				{ status: 403 },
-			);
-		}
 
+		const { searchParams } = new URL(req.url);
 		const models = await getTenantModels();
 		const schoolProfile = await getSchoolProfile();
 
-		const studentId = sessionUser.studentId || sessionUser.username;
-		const payments = await models.Payment.find({ studentId })
-			.sort({ createdAt: -1 })
-			.lean();
+		if (sessionUser.role === 'student') {
+			const studentId = sessionUser.studentId || sessionUser.username;
+			const payments = await models.Payment.find({ studentId })
+				.sort({ createdAt: -1 })
+				.lean();
 
-		const mapped = payments.map((p: any) => ({
-			id: p._id.toString(),
-			receiptNumber: p.receiptNumber,
-			studentId: p.studentId,
-			classId: p.classId,
-			paidBy: p.paidBy,
-			feeType: p.feeType,
-			category: p.category,
-			paymentAmount: p.paymentAmount,
-			currency: p.currency || 'LRD',
-			paymentAcademicYear: p.paymentAcademicYear,
-			paymentDate: p.paymentDate,
-			paymentTime: p.paymentTime,
-		}));
+			const mapped = payments.map((p: any) => ({
+				id: p._id.toString(),
+				receiptNumber: p.receiptNumber,
+				studentId: p.studentId,
+				classId: p.classId,
+				paidBy: p.paidBy,
+				feeType: p.feeType,
+				category: p.category,
+				paymentAmount: p.paymentAmount,
+				currency: p.currency || 'LRD',
+				paymentAcademicYear: p.paymentAcademicYear,
+				paymentDate: p.paymentDate,
+				paymentTime: p.paymentTime,
+			}));
 
-		return NextResponse.json({
-			success: true,
-			data: { payments: mapped, school: schoolProfile },
-		});
+			return NextResponse.json({
+				success: true,
+				data: { payments: mapped, school: schoolProfile },
+			});
+		}
+
+		if (sessionUser.role === 'administrator') {
+			const studentId = searchParams.get('studentId');
+			const filter: Record<string, unknown> = {};
+			if (studentId) filter.studentId = studentId;
+
+			const payments = await models.Payment.find(filter)
+				.sort({ createdAt: -1 })
+				.limit(200)
+				.lean();
+
+			const mapped = payments.map((p: any) => ({
+				id: p._id.toString(),
+				receiptNumber: p.receiptNumber,
+				studentId: p.studentId,
+				classId: p.classId,
+				paidBy: p.paidBy,
+				feeType: p.feeType,
+				category: p.category,
+				paymentAmount: p.paymentAmount,
+				currency: p.currency || 'LRD',
+				paymentAcademicYear: p.paymentAcademicYear,
+				paymentDate: p.paymentDate,
+				paymentTime: p.paymentTime,
+				paymentMethod: p.paymentMethod,
+			}));
+
+			return NextResponse.json({
+				success: true,
+				data: { payments: mapped, school: schoolProfile },
+			});
+		}
+
+		return NextResponse.json(
+			{ success: false, message: 'Access denied.' },
+			{ status: 403 },
+		);
 	} catch (error) {
 		console.error('GET payments error:', error);
 		const message = error instanceof Error ? error.message : 'Failed to fetch payments.';
@@ -83,23 +117,11 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		if (sessionUser.role !== 'student') {
-			return NextResponse.json(
-				{ success: false, message: 'Only students can make payments.' },
-				{ status: 403 },
-			);
-		}
-
 		const payload = await req.json();
-		const { items, paymentMethod, phoneNumber, paymentAcademicYear } = payload;
+		const { items, paymentAcademicYear } = payload;
 
-		if (!items || !Array.isArray(items) || items.length === 0 || !paymentMethod || !phoneNumber) {
-			return badRequest('Missing payment details.');
-		}
-
-		// ── Validate payment method ──────────────────────────────────────────────
-		if (!VALID_PAYMENT_METHODS.includes(paymentMethod)) {
-			return badRequest(`Invalid payment method. Accepted: ${VALID_PAYMENT_METHODS.join(', ')}.`);
+		if (!items || !Array.isArray(items) || items.length === 0) {
+			return badRequest('Missing payment items.');
 		}
 
 		const models = await getTenantModels();
@@ -111,24 +133,56 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		const onlinePaymentEnabled = schoolProfile.featureConfig?.enabledFeatures?.includes('online_payment');
-		if (!onlinePaymentEnabled) {
-			return badRequest('Online payment is not available for this school.');
+		const isAdmin = sessionUser.role === 'administrator';
+		const isStudent = sessionUser.role === 'student';
+
+		if (!isAdmin && !isStudent) {
+			return NextResponse.json(
+				{ success: false, message: 'Access denied.' },
+				{ status: 403 },
+			);
 		}
 
-		// ── Resolve the student's fees from the school profile ───────────────────
+		const { paymentMethod, phoneNumber, studentId } = payload;
+
+		if (isStudent) {
+			if (!paymentMethod || !phoneNumber) {
+				return badRequest('Missing payment method or phone number.');
+			}
+			if (!VALID_PAYMENT_METHODS.includes(paymentMethod)) {
+				return badRequest(`Invalid payment method. Accepted: ${VALID_PAYMENT_METHODS.join(', ')}.`);
+			}
+			const onlinePaymentEnabled = schoolProfile.featureConfig?.enabledFeatures?.includes('online_payment');
+			if (!onlinePaymentEnabled) {
+				return badRequest('Online payment is not available for this school.');
+			}
+		}
+
+		if (isAdmin && !studentId) {
+			return badRequest('Missing studentId.');
+		}
+
 		const academicYear =
 			paymentAcademicYear ||
 			getCurrentAcademicYearFromSchoolProfile(schoolProfile) ||
 			'';
 
+		const targetStudentId = isStudent
+			? (sessionUser.studentId || sessionUser.username)
+			: studentId;
+
+		const student = isAdmin
+			? await models.Student.findOne({ studentId: targetStudentId }).lean()
+			: sessionUser;
+
+		if (!student) {
+			return badRequest(`Student "${targetStudentId}" not found.`);
+		}
+
+		const classId = student.classId || '';
 		const studentGroups = schoolProfile.financialConfig?.studentGroups ?? [];
-		const studentGroupIds = resolveStudentGroupIds(sessionUser, studentGroups);
-		const feeGroups = resolveStudentFeeGroups(
-			sessionUser.classId,
-			schoolProfile,
-			academicYear,
-		);
+		const groupIds = resolveStudentGroupIds(student, studentGroups);
+		const feeGroups = resolveStudentFeeGroups(classId, schoolProfile, academicYear);
 
 		const allResolvedFees: Array<{
 			feeDefId: string;
@@ -139,7 +193,7 @@ export async function POST(req: NextRequest) {
 		}> = [];
 
 		for (const { feeGroup } of feeGroups) {
-			const resolved = resolveResolvedScheduledFees(feeGroup, schoolProfile, studentGroupIds);
+			const resolved = resolveResolvedScheduledFees(feeGroup, schoolProfile, groupIds);
 			for (const rf of resolved) {
 				allResolvedFees.push({
 					feeDefId: rf.scheduledFee.feeId,
@@ -152,19 +206,16 @@ export async function POST(req: NextRequest) {
 		}
 
 		if (allResolvedFees.length === 0) {
-			return badRequest('No fees are configured for your class this academic year.');
+			return badRequest('No fees are configured for this class this academic year.');
 		}
 
-		// ── Fetch existing payments for balance computation ──────────────────────
-		const studentId = sessionUser.studentId || sessionUser.username;
-		const existingPayments = await models.Payment.find({ studentId }).lean();
+		const existingPayments = await models.Payment.find({ studentId: targetStudentId }).lean();
 		const paidByFeeType: Record<string, number> = {};
 		for (const p of existingPayments) {
 			const key = `${p.feeType}::${p.currency || DEFAULT_CURRENCY}`;
 			paidByFeeType[key] = (paidByFeeType[key] || 0) + p.paymentAmount;
 		}
 
-		// ── Validate each item ───────────────────────────────────────────────────
 		let selectedCurrency: string | null = null;
 
 		for (const item of items) {
@@ -172,35 +223,25 @@ export async function POST(req: NextRequest) {
 				selectedCurrency = item.currency;
 			}
 
-			// 1. Amount must be a positive finite number
 			const rawAmount = item.amount;
 			if (rawAmount === undefined || rawAmount === null || rawAmount === '') {
 				return badRequest(`Payment amount is missing for "${item.feeName || item.label}".`);
 			}
 			const amount = Number(rawAmount);
 			if (!isFinite(amount) || amount <= 0) {
-				return badRequest(
-					`Invalid payment amount for "${item.feeName || item.label}". Amount must be a positive number.`,
-				);
+				return badRequest(`Invalid payment amount for "${item.feeName || item.label}".`);
 			}
 			const currency = item.currency || DEFAULT_CURRENCY;
 
-			// 2. Single currency restriction — all items must share the same currency
 			if (selectedCurrency && currency !== selectedCurrency) {
-				return badRequest(
-					`Mixed currencies are not allowed. This payment uses "${selectedCurrency}", but "${item.feeName || item.label}" is in "${currency}".`,
-				);
+				return badRequest('Mixed currencies are not allowed.');
 			}
 
-			// 3. Currency must be recognised by the school
 			const validCurrencies = schoolProfile.financialConfig?.currencies ?? [];
 			if (validCurrencies.length > 0 && !validCurrencies.some((c: any) => c.code === currency)) {
-				return badRequest(
-					`Currency "${currency}" is not configured for this school.`,
-				);
+				return badRequest(`Currency "${currency}" is not configured for this school.`);
 			}
 
-			// 4. Fee must exist in the student's resolved fee schedule
 			const feeName = item.feeName || item.label || '';
 			const matchedFee = allResolvedFees.find(
 				(f) =>
@@ -208,20 +249,15 @@ export async function POST(req: NextRequest) {
 					f.currency === currency,
 			);
 			if (!matchedFee) {
-				return badRequest(
-					`Fee "${feeName}" was not found in your fee schedule for this academic year.`,
-				);
+				return badRequest(`Fee "${feeName}" was not found in the fee schedule.`);
 			}
 
-			// 5. Outstanding balance check
 			const paidKey = `${matchedFee.feeName}::${currency}`;
 			const totalPaidAlready = paidByFeeType[paidKey] || 0;
 			const outstanding = matchedFee.amount - totalPaidAlready;
 
 			if (outstanding <= 0) {
-				return badRequest(
-					`"${matchedFee.feeName}" has already been fully paid.`,
-				);
+				return badRequest(`"${matchedFee.feeName}" has already been fully paid.`);
 			}
 
 			if (amount > outstanding) {
@@ -231,15 +267,13 @@ export async function POST(req: NextRequest) {
 			}
 		}
 
-		// ── All validations passed — persist payments ────────────────────────────
 		const now = new Date();
 		const paymentDate = now.toISOString().split('T')[0];
 		const paymentTime = now.toLocaleTimeString();
 		const fullName = `${sessionUser.firstName || ''} ${sessionUser.lastName || ''}`.trim();
-		const classId = sessionUser.classId || '';
 
 		const paymentDocs = items.map((item: any) => ({
-			studentId,
+			studentId: targetStudentId,
 			classId,
 			paidBy: fullName,
 			feeType: item.feeName || item.label || '',
@@ -250,14 +284,14 @@ export async function POST(req: NextRequest) {
 			paymentDate,
 			paymentTime,
 			receiptNumber: formatReceiptNumber(),
-			paymentMethod,
-			phoneNumber,
+			paymentMethod: isStudent ? paymentMethod : (payload.paymentMethod || 'cash'),
+			phoneNumber: isStudent ? phoneNumber : '',
 			status: 'success',
 		}));
 
 		await models.Payment.insertMany(paymentDocs);
 
-		const allPayments = await models.Payment.find({ studentId })
+		const allPayments = await models.Payment.find({ studentId: targetStudentId })
 			.sort({ createdAt: -1 })
 			.lean();
 
@@ -276,9 +310,11 @@ export async function POST(req: NextRequest) {
 			paymentTime: p.paymentTime,
 		}));
 
-		await updateAllUserSessions(sessionUser.id, { payments: mappedPayments }, {
-			onlyUpdateFields: ['payments'],
-		});
+		if (isStudent) {
+			await updateAllUserSessions(sessionUser.id, { payments: mappedPayments }, {
+				onlyUpdateFields: ['payments'],
+			});
+		}
 
 		return NextResponse.json({
 			success: true,
