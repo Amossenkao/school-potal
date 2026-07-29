@@ -20,6 +20,59 @@ const formatReceiptNumber = () =>
 const badRequest = (message: string) =>
 	NextResponse.json({ success: false, message }, { status: 400 });
 
+export async function GET(req: NextRequest) {
+	try {
+		const sessionUser = await authorizeUser(req);
+		if (!sessionUser) {
+			return NextResponse.json(
+				{ success: false, message: 'Unauthorized' },
+				{ status: 401 },
+			);
+		}
+		if (sessionUser.role !== 'student') {
+			return NextResponse.json(
+				{ success: false, message: 'Only students can fetch payment records.' },
+				{ status: 403 },
+			);
+		}
+
+		const models = await getTenantModels();
+		const schoolProfile = await getSchoolProfile();
+
+		const studentId = sessionUser.studentId || sessionUser.username;
+		const payments = await models.Payment.find({ studentId })
+			.sort({ createdAt: -1 })
+			.lean();
+
+		const mapped = payments.map((p: any) => ({
+			id: p._id.toString(),
+			receiptNumber: p.receiptNumber,
+			studentId: p.studentId,
+			classId: p.classId,
+			paidBy: p.paidBy,
+			feeType: p.feeType,
+			category: p.category,
+			paymentAmount: p.paymentAmount,
+			currency: p.currency || 'LRD',
+			paymentAcademicYear: p.paymentAcademicYear,
+			paymentDate: p.paymentDate,
+			paymentTime: p.paymentTime,
+		}));
+
+		return NextResponse.json({
+			success: true,
+			data: { payments: mapped, school: schoolProfile },
+		});
+	} catch (error) {
+		console.error('GET payments error:', error);
+		const message = error instanceof Error ? error.message : 'Failed to fetch payments.';
+		return NextResponse.json(
+			{ success: false, message },
+			{ status: 500 },
+		);
+	}
+}
+
 export async function POST(req: NextRequest) {
 	try {
 		const sessionUser = await authorizeUser(req);

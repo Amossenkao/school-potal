@@ -16,8 +16,9 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
-import useAuth from '@/store/useAuth'; // Assuming this is your global auth store
+import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
+import isEqual from 'lodash/isEqual';
 import {
 	Document,
 	Page,
@@ -248,9 +249,33 @@ export default function PaymentHistory() {
 		}));
 	}, [user]);
 
-	const refreshPayments = () => {
+	const refreshPayments = async () => {
 		setError('');
-		setPayments(normalizePayments);
+		setIsLoadingPayments(true);
+		try {
+			const res = await fetch('/api/payments');
+			const json = await res.json();
+			if (!res.ok) throw new Error(json.message || 'Failed to refresh payments');
+			const { payments: freshPayments, school: freshSchool } = json.data;
+
+			// Merge payments into the auth store user — triggers re-render
+			// and the useEffect picks up the fresh normalizePayments automatically.
+			const currentUser = useAuth.getState().user;
+			if (currentUser && Array.isArray(freshPayments)) {
+				const updated = { ...currentUser, payments: freshPayments };
+				useAuth.setState({ user: updated });
+			}
+
+			// Merge school into schoolStore if different from current
+			const currentSchool = useSchoolStore.getState().school;
+			if (freshSchool && !isEqual(currentSchool, freshSchool)) {
+				useSchoolStore.getState().setSchool(freshSchool);
+			}
+		} catch (e: any) {
+			setError(e.message);
+		} finally {
+			setIsLoadingPayments(false);
+		}
 	};
 
 	// Fetch payment history
@@ -660,16 +685,16 @@ export default function PaymentHistory() {
 													</div>
 													<div className="min-w-0 flex-1">
 														<div className="mb-1 flex flex-wrap items-center gap-2">
-															<h4 className="font-semibold">
+															<h4 className="break-words font-semibold">
 																{payment.description}
 															</h4>
 															{getStatusBadge(payment.status)}
 														</div>
-														<p className="mb-2 break-words text-sm text-muted-foreground">
+														<p className="mb-2 break-all text-sm text-muted-foreground">
 															Payment ID: {payment.id} • Transaction:{' '}
 															{payment.transactionId}
 														</p>
-														<div className="grid gap-1.5 text-xs text-muted-foreground sm:grid-cols-2 sm:text-sm lg:flex lg:flex-wrap lg:items-center lg:gap-4">
+														<div className="grid gap-x-1.5 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2 sm:gap-1.5 sm:text-sm lg:flex lg:flex-wrap lg:items-center lg:gap-4">
 															<div className="flex items-center gap-1">
 																<Calendar className="h-4 w-4" />
 																{formatDate(payment.date)}
@@ -688,8 +713,8 @@ export default function PaymentHistory() {
 													</div>
 												</div>
 												<div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end sm:gap-4">
-													<div className="text-left sm:text-right">
-														<p className="text-lg font-semibold whitespace-nowrap">
+													<div className="min-w-0 text-left sm:text-right">
+														<p className="break-words text-lg font-semibold">
 															{payment.currency || 'LRD'} {Number(payment.amount).toFixed(2)}
 														</p>
 														<p className="text-sm text-muted-foreground">

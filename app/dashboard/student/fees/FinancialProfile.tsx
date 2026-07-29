@@ -1,5 +1,5 @@
 'use client';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
 	Card,
 	CardContent,
@@ -7,6 +7,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
@@ -24,7 +25,9 @@ import {
 	TrendingDown,
 	Wallet,
 	CheckCircle,
+	RefreshCw,
 } from 'lucide-react';
+import isEqual from 'lodash/isEqual';
 
 const formatCurrency = (value: number) =>
 	value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -43,7 +46,7 @@ const sumByCurrency = (items: Array<{ amount: number; currency: string }>): Curr
 const CurrencyLines = ({ amounts }: { amounts: CurrencyMap }) => (
 	<>
 		{Object.entries(amounts).map(([currency, value]) => (
-			<span key={currency} className="block whitespace-nowrap">
+			<span key={currency} className="block">
 				{currency} {formatCurrency(value)}
 			</span>
 		))}
@@ -151,6 +154,32 @@ export default function FinancialProfile() {
 	}, [allResolvedFees]);
 
 	const studentType: 'new' | 'old' = (user as any)?.studentType ?? 'old';
+	const [isRefreshing, setIsRefreshing] = useState(false);
+
+	const refreshFinancialProfile = async () => {
+		setIsRefreshing(true);
+		try {
+			const res = await fetch('/api/payments');
+			const json = await res.json();
+			if (!res.ok) throw new Error(json.message || 'Failed to refresh');
+			const { payments: freshPayments, school: freshSchool } = json.data;
+
+			const currentUser = useAuth.getState().user;
+			if (currentUser && Array.isArray(freshPayments)) {
+				const updated = { ...currentUser, payments: freshPayments };
+				useAuth.setState({ user: updated });
+			}
+
+			const currentSchool = useSchoolStore.getState().school;
+			if (freshSchool && !isEqual(currentSchool, freshSchool)) {
+				useSchoolStore.getState().setSchool(freshSchool);
+			}
+		} catch (e: any) {
+			console.error('Refresh failed', e);
+		} finally {
+			setIsRefreshing(false);
+		}
+	};
 
 	if (isLoading) {
 		return (
@@ -219,9 +248,19 @@ export default function FinancialProfile() {
 								View your fee balances and payment summary
 							</p>
 						</div>
-						<div className="inline-flex items-center gap-2 rounded-full border border-gray-200/80 bg-white/70 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-800/80 dark:bg-gray-900/70 dark:text-gray-300">
-							<Wallet className="h-3 w-3" />
-							{feeGroups.length} fee group{feeGroups.length !== 1 ? 's' : ''}
+						<div className="flex flex-wrap items-center gap-2">
+							<div className="inline-flex items-center gap-2 rounded-full border border-gray-200/80 bg-white/70 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-800/80 dark:bg-gray-900/70 dark:text-gray-300">
+								<Wallet className="h-3 w-3" />
+								{feeGroups.length} fee group{feeGroups.length !== 1 ? 's' : ''}
+							</div>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={refreshFinancialProfile}
+								disabled={isRefreshing}
+							>
+								<RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+							</Button>
 						</div>
 					</div>
 				</div>
@@ -339,24 +378,24 @@ export default function FinancialProfile() {
 										return (
 											<div
 												key={idx}
-												className="flex items-center justify-between gap-4 rounded-lg border p-4"
+												className="flex flex-col gap-2 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
 											>
-												<div>
-													<p className="font-medium">
+												<div className="min-w-0">
+													<p className="break-words font-medium">
 														{fee.feeName}
-														{isCleared && <CheckCircle className="inline h-4 w-4 ml-1.5 -mt-0.5 text-green-600" />}
+														{isCleared && <CheckCircle className="inline h-4 w-4 ml-1.5 -mt-0.5 shrink-0 text-green-600" />}
 													</p>
-													<div className="flex items-center gap-2 text-xs text-muted-foreground">
+													<div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
 														{fee.isRequired ? (
 															<span className="text-amber-600 dark:text-amber-400 font-medium">Required</span>
 														) : (
 															<span className="text-green-600 dark:text-green-400 font-medium">Optional</span>
 														)}
 														{fee.installmentLabel && (
-															<span>Due: {fee.installmentLabel}</span>
+															<span className="break-words">Due: {fee.installmentLabel}</span>
 														)}
 													</div>
-													<div className="text-xs text-muted-foreground mt-1">
+													<div className="mt-1 break-words text-xs text-muted-foreground">
 														{isCleared ? (
 															<span className="text-green-600 font-medium">Cleared</span>
 														) : paid > 0 ? (
@@ -364,8 +403,8 @@ export default function FinancialProfile() {
 														) : null}
 													</div>
 												</div>
-												<div className="text-right shrink-0">
-													<p className="font-semibold whitespace-nowrap">{fee.currency} {formatCurrency(fee.amount)}</p>
+												<div className="shrink-0 text-left sm:text-right">
+													<p className="font-semibold">{fee.currency} {formatCurrency(fee.amount)}</p>
 													<p className="text-xs text-muted-foreground">{fee.groupName}</p>
 												</div>
 											</div>

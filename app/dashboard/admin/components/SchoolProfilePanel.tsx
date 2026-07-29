@@ -312,41 +312,42 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 		<div className="space-y-6">
 			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 				<div className="flex items-center gap-3">
-					<button onClick={onClose} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 transition-colors">
+					<button onClick={onClose} className="shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 transition-colors">
 						<ArrowLeft className="h-5 w-5" />
 					</button>
-					<div>
-						<h1 className="text-2xl font-bold text-gray-900 dark:text-white">{school?.identity.name || 'School Details'}</h1>
-						<p className="text-sm text-gray-500">{school?.system.host} · {school?.system.dbName}</p>
+					<div className="min-w-0">
+						<h1 className="break-words text-xl font-bold text-gray-900 dark:text-white sm:text-2xl">{school?.identity.name || 'School Details'}</h1>
+						<p className="break-all text-sm text-gray-500">{school?.system.host} · {school?.system.dbName}</p>
 					</div>
 				</div>
-				<div className="flex items-center gap-3">
+				<div className="flex flex-wrap items-center gap-2 sm:gap-3">
 					{onOpenAdmins && (
 						<button
 							onClick={() => onOpenAdmins(host)}
-							className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors dark:border-gray-800 dark:text-gray-400"
+							className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm dark:border-gray-800 dark:text-gray-400"
 						>
-							<ShieldCheck className="h-4 w-4" />
-							Manage Admins
+							<ShieldCheck className="h-4 w-4 shrink-0" />
+							<span className="hidden sm:inline">Manage Admins</span>
+							<span className="sm:hidden">Admins</span>
 						</button>
 					)}
 					<button
 						onClick={toggleActive}
 						disabled={togglingActive || loading}
-						className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+						className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm ${
 							school?.system?.isActive
 								? 'border-orange-200 text-orange-600 hover:bg-orange-50'
 								: 'border-green-200 text-green-600 hover:bg-green-50'
 						}`}
 					>
-						{togglingActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <ToggleLeft className="h-4 w-4" />}
+						{togglingActive ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <ToggleLeft className="h-4 w-4 shrink-0" />}
 						{school?.system?.isActive ? 'Deactivate' : 'Activate'}
 					</button>
 					<button
 						onClick={() => setShowDeleteConfirm(true)}
-						className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+						className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
 					>
-						<Trash2 className="h-4 w-4" />
+						<Trash2 className="h-4 w-4 shrink-0" />
 						Delete
 					</button>
 				</div>
