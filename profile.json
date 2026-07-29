@@ -1,7 +1,10 @@
 {
+	"_id": {
+		"$oid": "6a67752b4607094e4be501a2"
+	},
 	"system": {
-		"isActive": false,
-		"host": "ucaliberia.vercel.app",
+		"isActive": true,
+		"host": "localhost",
 		"dbName": "uca"
 	},
 	"identity": {
@@ -31,14 +34,8 @@
 				]
 			}
 		],
-		"phones": [
-			"+231 770 123 456",
-			"+231 880 789 012"
-		],
-		"emails": [
-			"info@unityca.edu.lr",
-			"admissions@unityca.edu.lr"
-		],
+		"phones": ["+231 770 123 456", "+231 880 789 012"],
+		"emails": ["info@unityca.edu.lr", "admissions@unityca.edu.lr"],
 		"website": ""
 	},
 	"academicConfig": {
@@ -686,15 +683,8 @@
 				"2025-2026": {
 					"enabled": true,
 					"yearlyReportAccess": true,
-					"periods": [
-						"first",
-						"second",
-						"third",
-						"third_period_exam"
-					],
-					"semesters": [
-						"first"
-					]
+					"periods": ["first", "second", "third", "third_period_exam"],
+					"semesters": ["first"]
 				}
 			}
 		},
@@ -1073,13 +1063,13 @@
 			},
 			{
 				"id": "returning-students",
-				"name": "Returning Students",
+				"name": "Old Students",
 				"priority": 2,
 				"conditions": [
 					{
 						"field": "studentType",
 						"operator": "equals",
-						"value": "returning"
+						"value": "old"
 					}
 				],
 				"isActive": true
@@ -1114,7 +1104,8 @@
 									"Morning-GradeElevenA",
 									"Morning-GradeElevenB",
 									"Morning-GradeTwelveA",
-									"Morning-GradeTwelveB"
+									"Morning-GradeTwelveB",
+									"Morning-ABC"
 								],
 								"paymentPlanId": "morning-plan",
 								"scheduledFees": [
@@ -1186,21 +1177,15 @@
 										},
 										"isRequired": false,
 										"dueInstallmentId": "morning-2nd",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									}
 								]
 							},
 							{
 								"id": "morning-grade1-11",
-								"name": "Grade 1 – 11",
+								"name": "Grade 1 – 11 ID Card",
 								"appliesToClassIds": [
 									"Morning-Daycare",
-									"Morning-Nursery",
-									"Morning-KOne",
-									"Morning-KTwo",
-									"Morning-GradeOne",
 									"Morning-GradeTwo",
 									"Morning-GradeThree",
 									"Morning-GradeFour",
@@ -1297,7 +1282,8 @@
 									"Morning-KTwo",
 									"Morning-GradeOne",
 									"Morning-GradeTwo",
-									"Morning-GradeThree"
+									"Morning-GradeThree",
+									"Morning-ABC"
 								],
 								"paymentPlanId": "morning-plan",
 								"scheduledFees": [
@@ -1309,9 +1295,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "tuition",
@@ -1321,9 +1305,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "reg-1st-sem",
@@ -1333,9 +1315,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "reg-1st-sem",
@@ -1345,9 +1325,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "reg-2nd-sem",
@@ -1377,19 +1355,14 @@
 										},
 										"isRequired": false,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									}
 								]
 							},
 							{
 								"id": "morning-grade4-5",
 								"name": "Grade 4 – 5",
-								"appliesToClassIds": [
-									"Morning-GradeFour",
-									"Morning-GradeFive"
-								],
+								"appliesToClassIds": ["Morning-GradeFour", "Morning-GradeFive"],
 								"paymentPlanId": "morning-plan",
 								"scheduledFees": [
 									{
@@ -1410,9 +1383,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "reg-1st-sem",
@@ -1422,9 +1393,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "reg-2nd-sem",
@@ -1434,9 +1403,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-2nd",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "reg-2nd-sem",
@@ -1446,9 +1413,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-2nd",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "uniform-set",
@@ -1468,18 +1433,14 @@
 										},
 										"isRequired": false,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									}
 								]
 							},
 							{
 								"id": "morning-grade6",
 								"name": "Grade 6",
-								"appliesToClassIds": [
-									"Morning-GradeSix"
-								],
+								"appliesToClassIds": ["Morning-GradeSix"],
 								"paymentPlanId": "morning-plan",
 								"scheduledFees": [
 									{
@@ -1490,9 +1451,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "tuition",
@@ -1502,9 +1461,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "reg-1st-sem",
@@ -1514,9 +1471,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "reg-1st-sem",
@@ -1526,9 +1481,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "reg-2nd-sem",
@@ -1538,9 +1491,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-2nd",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "reg-2nd-sem",
@@ -1550,9 +1501,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-2nd",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "extra-classes",
@@ -1582,18 +1531,14 @@
 										},
 										"isRequired": false,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									}
 								]
 							},
 							{
 								"id": "morning-grade7",
 								"name": "Grade 7",
-								"appliesToClassIds": [
-									"Morning-GradeSeven"
-								],
+								"appliesToClassIds": ["Morning-GradeSeven"],
 								"paymentPlanId": "morning-plan",
 								"scheduledFees": [
 									{
@@ -1614,9 +1559,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "reg-1st-sem",
@@ -1626,9 +1569,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "reg-2nd-sem",
@@ -1638,9 +1579,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-2nd",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "reg-2nd-sem",
@@ -1650,9 +1589,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-2nd",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "uniform-set",
@@ -1672,18 +1609,14 @@
 										},
 										"isRequired": false,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									}
 								]
 							},
 							{
 								"id": "morning-grade8",
 								"name": "Grade 8",
-								"appliesToClassIds": [
-									"Morning-GradeEight"
-								],
+								"appliesToClassIds": ["Morning-GradeEight"],
 								"paymentPlanId": "morning-plan",
 								"scheduledFees": [
 									{
@@ -1694,9 +1627,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "tuition",
@@ -1706,9 +1637,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "reg-1st-sem",
@@ -1728,9 +1657,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-2nd",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "reg-2nd-sem",
@@ -1740,9 +1667,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-2nd",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "uniform-set",
@@ -1762,18 +1687,14 @@
 										},
 										"isRequired": false,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									}
 								]
 							},
 							{
 								"id": "morning-grade9",
 								"name": "Grade 9",
-								"appliesToClassIds": [
-									"Morning-GradeNine"
-								],
+								"appliesToClassIds": ["Morning-GradeNine"],
 								"paymentPlanId": "morning-plan",
 								"scheduledFees": [
 									{
@@ -1784,9 +1705,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "tuition",
@@ -1796,9 +1715,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "reg-1st-sem",
@@ -1808,9 +1725,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "reg-1st-sem",
@@ -1820,9 +1735,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "reg-2nd-sem",
@@ -1832,9 +1745,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-2nd",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "reg-2nd-sem",
@@ -1844,9 +1755,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-2nd",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "extra-classes",
@@ -1876,19 +1785,14 @@
 										},
 										"isRequired": false,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									}
 								]
 							},
 							{
 								"id": "morning-grade10",
 								"name": "Grade 10",
-								"appliesToClassIds": [
-									"Morning-GradeTenA",
-									"Morning-GradeTenB"
-								],
+								"appliesToClassIds": ["Morning-GradeTenA", "Morning-GradeTenB"],
 								"paymentPlanId": "morning-plan",
 								"scheduledFees": [
 									{
@@ -1899,9 +1803,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "tuition",
@@ -1911,9 +1813,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "reg-1st-sem",
@@ -1933,9 +1833,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-2nd",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "reg-2nd-sem",
@@ -1945,9 +1843,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-2nd",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "uniform-set",
@@ -1967,9 +1863,7 @@
 										},
 										"isRequired": false,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									}
 								]
 							},
@@ -1990,9 +1884,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "tuition",
@@ -2002,9 +1894,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "reg-1st-sem",
@@ -2014,9 +1904,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "reg-1st-sem",
@@ -2026,9 +1914,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "reg-2nd-sem",
@@ -2038,9 +1924,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-2nd",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "reg-2nd-sem",
@@ -2050,9 +1934,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-2nd",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "prom",
@@ -2082,9 +1964,7 @@
 										},
 										"isRequired": false,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									}
 								]
 							},
@@ -2105,9 +1985,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "tuition",
@@ -2117,9 +1995,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-1st",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "reg-1st-sem",
@@ -2139,9 +2015,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-2nd",
-										"applicableStudentGroupIds": [
-											"new-students"
-										]
+										"applicableStudentGroupIds": ["new-students"]
 									},
 									{
 										"feeId": "reg-2nd-sem",
@@ -2151,9 +2025,7 @@
 										},
 										"isRequired": true,
 										"dueInstallmentId": "morning-2nd",
-										"applicableStudentGroupIds": [
-											"returning-students"
-										]
+										"applicableStudentGroupIds": ["returning-students"]
 									},
 									{
 										"feeId": "class-project",
@@ -2422,10 +2294,7 @@
 							{
 								"id": "night-grade10-11",
 								"name": "Grade 10 – 11",
-								"appliesToClassIds": [
-									"Night-GradeTen",
-									"Night-GradeEleven"
-								],
+								"appliesToClassIds": ["Night-GradeTen", "Night-GradeEleven"],
 								"paymentPlanId": "night-plan",
 								"scheduledFees": [
 									{
@@ -2463,9 +2332,7 @@
 							{
 								"id": "night-grade12",
 								"name": "Grade 12",
-								"appliesToClassIds": [
-									"Night-GradeTwelve"
-								],
+								"appliesToClassIds": ["Night-GradeTwelve"],
 								"paymentPlanId": "night-plan",
 								"scheduledFees": [
 									{
@@ -2538,6 +2405,6 @@
 		]
 	},
 	"updatedAt": {
-		"$date": "2026-07-27T10:05:36.763Z"
+		"$date": "2026-07-28T20:54:28.714Z"
 	}
 }

@@ -13,6 +13,7 @@ import ReportShareSchema from './reports/ReportShare';
 import SchoolEventSchema from '@/models/events/SchoolEvent';
 import AttendanceSchema from './attendance/Attendance';
 import TeacherAttendanceSchema from './attendance/TeacherAttendance';
+import PaymentSchema from './payment/Payment';
 
 import type {
 	User,
@@ -88,6 +89,10 @@ export const getTenantModels = async (host?: string | null) => {
 		'UserSyncState',
 		UserSyncStateSchema
 	);
+	const PaymentModel = connection.model<Document>(
+		'Payment',
+		PaymentSchema,
+	);
 	const models = {
 		User,
 		Student: StudentModel,
@@ -101,6 +106,7 @@ export const getTenantModels = async (host?: string | null) => {
 		UserSyncState: UserSyncStateModel,
 		Attendance: AttendanceModel,
 		TeacherAttendance: TeacherAttendanceModel,
+		Payment: PaymentModel,
 	};
 
 	// --- Store the compiled models in the cache ---

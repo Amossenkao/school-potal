@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { ArrowLeft, Loader2, Trash2, Users, GraduationCap, BookOpen, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Loader2, Trash2, Users, GraduationCap, BookOpen, ShieldCheck, ToggleLeft } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import SchoolProfileForm, { type SchoolFormState } from '@/app/dashboard/admin/components/SchoolProfileForm';
 import { useSuperadminRealtime } from '@/app/dashboard/admin/hooks/useSuperadminRealtime';
@@ -139,6 +139,7 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState('');
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+	const [togglingActive, setTogglingActive] = useState(false);
 
 	useEffect(() => {
 		if (!host) return;
@@ -219,6 +220,31 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 		}
 	};
 
+	const toggleActive = async () => {
+		try {
+			setTogglingActive(true);
+			const nextActive = !school?.system?.isActive;
+			const res = await fetch(`/api/school?host=${encodeURIComponent(host)}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ isActive: nextActive }),
+			});
+			if (!res.ok) {
+				const data = await res.json();
+				throw new Error(data.error || 'Failed to toggle school status');
+			}
+			const data = await res.json();
+			upsertSuperAdminSchool(data.school);
+			setSchool(normalizeSchoolFormState(data.school));
+			toast.success(nextActive ? 'School activated' : 'School deactivated');
+		} catch (e: any) {
+			setError(e.message);
+			toast.error(e.message || 'Failed to toggle school status');
+		} finally {
+			setTogglingActive(false);
+		}
+	};
+
 	const deleteSchool = async () => {
 		try {
 			setSaving(true);
@@ -287,6 +313,18 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 							Manage Admins
 						</button>
 					)}
+					<button
+						onClick={toggleActive}
+						disabled={togglingActive || loading}
+						className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+							school?.system?.isActive
+								? 'border-orange-200 text-orange-600 hover:bg-orange-50'
+								: 'border-green-200 text-green-600 hover:bg-green-50'
+						}`}
+					>
+						{togglingActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <ToggleLeft className="h-4 w-4" />}
+						{school?.system?.isActive ? 'Deactivate' : 'Activate'}
+					</button>
 					<button
 						onClick={() => setShowDeleteConfirm(true)}
 						className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"

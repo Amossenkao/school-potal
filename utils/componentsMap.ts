@@ -238,6 +238,17 @@ const componentMappings: Record<string, any> = Object.fromEntries(
 	]),
 );
 
+function shouldExcludeRoute(
+	feature: FeatureKey,
+	routeKey: string,
+	schoolProfile: SchoolProfile,
+): boolean {
+	if (feature === 'fee_payment' && routeKey === 'pay') {
+		return !schoolProfile.featureConfig.enabledFeatures.includes('online_payment' as FeatureKey);
+	}
+	return false;
+}
+
 function getAccessibleRouteKeys(
 	schoolProfile: SchoolProfile,
 	userRole: string,
@@ -262,6 +273,7 @@ function getAccessibleRouteKeys(
 		if (!routes) return;
 
 		routes.forEach((route) => {
+			if (shouldExcludeRoute(feature, route.key, schoolProfile)) return;
 			routeKeys.push(route.key);
 		});
 	});
@@ -1171,6 +1183,8 @@ export function generateDynamicComponentsMap(
 
 		// Add each route for this feature
 		routes.forEach((route) => {
+			if (shouldExcludeRoute(feature, route.key, schoolProfile)) return;
+
 			const component = componentMappings[route.key];
 
 			if (!component) {
@@ -1287,6 +1301,8 @@ export function generateNavigationItems(
 		}
 
 		routes.forEach((route) => {
+			if (shouldExcludeRoute(feature, route.key, schoolProfile)) return;
+
 			const routeItem = {
 				title: route.title,
 				icon: route.icon || featureConfig.icon,
@@ -1390,6 +1406,14 @@ export function validateComponentAccess(
 		);
 	}
 
+	// Check online_payment dependency for 'pay' route
+	if (
+		routeKey === 'pay' &&
+		!schoolProfile.featureConfig.enabledFeatures.includes('online_payment' as FeatureKey)
+	) {
+		return false;
+	}
+
 	// Find which feature this route belongs to
 	for (const feature of Object.values(featureConfigurations)) {
 		let userRoutes = feature.routes[userRole];
@@ -1448,6 +1472,7 @@ export function getUserRoutes(
 		}
 
 		featureRoutes.forEach((route) => {
+			if (shouldExcludeRoute(feature, route.key, schoolProfile)) return;
 			routes.push({
 				key: route.key,
 				title: route.title,

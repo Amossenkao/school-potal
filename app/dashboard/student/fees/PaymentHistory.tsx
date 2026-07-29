@@ -230,7 +230,7 @@ export default function PaymentHistory() {
 	const [showModal, setShowModal] = useState(false);
 
 	const normalizePayments = useMemo(() => {
-		const records = (user as any)?.financialProfile?.paymentRecords || [];
+		const records = (user as any)?.payments || [];
 		return records.map((record: any) => ({
 			id: record.id,
 			type: record.feeType,

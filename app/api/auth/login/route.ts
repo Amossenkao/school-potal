@@ -385,6 +385,7 @@ function buildUserResponse(user: any) {
 			return {
 				...baseUser,
 				studentId: user.username,
+				studentType: user.studentType ?? 'old',
 				enrollmentYear: user.enrollmentYear,
 				enrollmentSemester: user.enrollmentSemester,
 				enrollmentStatus: user.enrollmentStatus,
@@ -394,7 +395,6 @@ function buildUserResponse(user: any) {
 				isLateRegistration: user.isLateRegistration ?? false,
 				academicYears: user.academicYears || [],
 				guardian: user.guardian,
-				financialProfile: user.financialProfile,
 			};
 		case 'teacher':
 			return {

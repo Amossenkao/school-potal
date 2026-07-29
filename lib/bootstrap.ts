@@ -36,6 +36,7 @@ type DomainVersions = {
 	gradeRequests: string;
 	attendance: string;
 	teacherAttendance: string;
+	payments: string;
 };
 
 type BootstrapUsers = {
@@ -67,6 +68,7 @@ const USER_BOOTSTRAP_SELECT = {
 	createdAt: 1,
 	updatedAt: 1,
 	studentId: 1,
+	studentType: 1,
 	enrollmentYear: 1,
 	enrollmentSemester: 1,
 	enrollmentStatus: 1,
@@ -76,7 +78,6 @@ const USER_BOOTSTRAP_SELECT = {
 	isLateRegistration: 1,
 	academicYears: 1,
 	guardian: 1,
-	financialProfile: 1,
 	subjects: 1,
 	sponsorClass: 1,
 	position: 1,
@@ -120,6 +121,7 @@ const normalizeUser = (user: any) => {
 			return {
 				...baseUser,
 				studentId: user.studentId || user.username,
+				studentType: user.studentType ?? 'old',
 				enrollmentYear: user.enrollmentYear,
 				enrollmentSemester: user.enrollmentSemester,
 				enrollmentStatus: user.enrollmentStatus,
@@ -129,7 +131,6 @@ const normalizeUser = (user: any) => {
 				isLateRegistration: user.isLateRegistration ?? false,
 				academicYears: user.academicYears || [],
 				guardian: user.guardian,
-				financialProfile: user.financialProfile,
 			};
 		case 'teacher':
 			return {
@@ -433,6 +434,7 @@ export const getDomainVersionsFromBootstrapPayload = (payload: {
 	gradeRequests?: any[];
 	attendance?: any[];
 	teacherAttendance?: any[];
+	payments?: any[];
 }): DomainVersions => {
 	const calendarEvents = Array.isArray(payload.calendarEvents)
 		? payload.calendarEvents
@@ -453,6 +455,7 @@ export const getDomainVersionsFromBootstrapPayload = (payload: {
 	const teacherAttendance = Array.isArray(payload.teacherAttendance)
 		? payload.teacherAttendance
 		: [];
+	const payments = Array.isArray(payload.payments) ? payload.payments : [];
 
 	const calendarStats = getDocsStats(calendarEvents);
 	const gradesStats = getDocsStats(grades);
@@ -461,6 +464,7 @@ export const getDomainVersionsFromBootstrapPayload = (payload: {
 	const testScheduleStats = getDocsStats(testSchedules);
 	const attendanceStats = getDocsStats(attendance);
 	const teacherAttendanceStats = getDocsStats(teacherAttendance);
+	const paymentsStats = getDocsStats(payments);
 
 	return {
 		users:
@@ -473,6 +477,7 @@ export const getDomainVersionsFromBootstrapPayload = (payload: {
 		gradeRequests: `${gradeRequestsStats.count}:${gradeRequestsStats.latestTimestamp}:${gradeRequestsStats.latestId}`,
 		attendance: `${attendanceStats.count}:${attendanceStats.latestTimestamp}:${attendanceStats.latestId}`,
 		teacherAttendance: `${teacherAttendanceStats.count}:${teacherAttendanceStats.latestTimestamp}:${teacherAttendanceStats.latestId}`,
+		payments: `${paymentsStats.count}:${paymentsStats.latestTimestamp}:${paymentsStats.latestId}`,
 	};
 };
 
@@ -543,6 +548,18 @@ const fetchTeacherAttendanceForRole = async (
 	if (!query) return [];
 
 	return TeacherAttendance.find(query).sort({ date: 1, teacherId: 1 }).lean();
+};
+
+const fetchPaymentsForStudent = async (
+	models: any,
+	currentUser: any,
+): Promise<any[]> => {
+	if (currentUser?.role !== 'student') return [];
+	const studentId = currentUser.studentId || currentUser.username;
+	if (!studentId) return [];
+	const { Payment } = models;
+	if (!Payment) return [];
+	return Payment.find({ studentId }).sort({ createdAt: -1 }).lean();
 };
 
 const BOOTSTRAP_GRADE_LIMIT = 30_000;
@@ -726,6 +743,7 @@ export const getDomainVersions = async (
 	const GradeChangeRequest = models.GradeChangeRequest;
 	const Attendance = models.Attendance;
 	const TeacherAttendance = models.TeacherAttendance;
+	const Payment = models.Payment;
 	const usersQuery = getRoleUsersQuery(currentUser, academicYear);
 	const classFilter = getRoleClassFilter(currentUser, academicYear);
 	const gradesQuery = getRoleGradesQuery(currentUser, academicYear);
@@ -747,6 +765,11 @@ export const getDomainVersions = async (
 	const canQueryTeacherAttendance = Boolean(
 		TeacherAttendance && teacherAttendanceQuery,
 	);
+	const studentId = currentUser?.role === 'student'
+		? (currentUser.studentId || currentUser.username)
+		: null;
+	const paymentsQuery = studentId ? { studentId } : null;
+	const canQueryPayments = Boolean(Payment && paymentsQuery);
 
 	const [
 		usersSyncVersion,
@@ -766,6 +789,8 @@ export const getDomainVersions = async (
 		attendanceLatest,
 		teacherAttendanceCount,
 		teacherAttendanceLatest,
+		paymentsCount,
+		paymentsLatest,
 	] = await Promise.all([
 		getUsersSyncVersion(academicYear).catch(() => 0),
 		canQueryUsers ? User.countDocuments(usersQuery) : 0,
@@ -844,6 +869,13 @@ export const getDomainVersions = async (
 					.select({ _id: 1, date: 1, updatedAt: 1 })
 					.lean()
 			: null,
+		canQueryPayments ? Payment.countDocuments(paymentsQuery) : 0,
+		canQueryPayments
+			? Payment.findOne(paymentsQuery)
+					.sort({ createdAt: -1, _id: -1 })
+					.select({ _id: 1, createdAt: 1, updatedAt: 1 })
+					.lean()
+			: null,
 	]);
 
 	const calendar = `${calendarCount}:${getLatestDocToken(calendarLatest)}`;
@@ -852,6 +884,7 @@ export const getDomainVersions = async (
 	const gradeRequests = `${gradeRequestsCount}:${getLatestDocToken(gradeRequestsLatest)}`;
 	const attendance = `${attendanceCount}:${getLatestDocToken(attendanceLatest)}`;
 	const teacherAttendanceVersion = `${teacherAttendanceCount}:${getLatestDocToken(teacherAttendanceLatest)}`;
+	const paymentsVersion = `${paymentsCount}:${getLatestDocToken(paymentsLatest)}`;
 	const computedUsersVersion = `sync:${Number.isFinite(usersSyncVersion) ? usersSyncVersion : 0}|${usersCount}:${getLatestDocToken(usersLatest)}`;
 
 	return {
@@ -863,6 +896,7 @@ export const getDomainVersions = async (
 		gradeRequests,
 		attendance,
 		teacherAttendance: teacherAttendanceVersion,
+		payments: paymentsVersion,
 	};
 };
 
@@ -878,6 +912,7 @@ export const buildBootstrapPayload = async (
 			gradeRequests?: boolean;
 			attendance?: boolean;
 			teacherAttendance?: boolean;
+			payments?: boolean;
 		};
 		academicYear?: string;
 		usersVersion?: string;
@@ -908,6 +943,7 @@ export const buildBootstrapPayload = async (
 		gradeRequests: options.include?.gradeRequests !== false,
 		attendance: options.include?.attendance !== false,
 		teacherAttendance: options.include?.teacherAttendance !== false,
+		payments: options.include?.payments !== false,
 	};
 	const models = await getTenantModels();
 
@@ -919,6 +955,7 @@ export const buildBootstrapPayload = async (
 		gradeRequests,
 		attendance,
 		teacherAttendance,
+		payments,
 	] = await Promise.all([
 		include.users
 			? fetchUsersForRole(models, currentUser, academicYear)
@@ -940,6 +977,9 @@ export const buildBootstrapPayload = async (
 			: Promise.resolve(undefined),
 		include.teacherAttendance
 			? fetchTeacherAttendanceForRole(models, currentUser, academicYear)
+			: Promise.resolve(undefined),
+		include.payments
+			? fetchPaymentsForStudent(models, currentUser)
 			: Promise.resolve(undefined),
 	]);
 
@@ -963,6 +1003,7 @@ export const buildBootstrapPayload = async (
 		...(include.gradeRequests ? { gradeRequests } : {}),
 		...(include.attendance ? { attendance } : {}),
 		...(include.teacherAttendance ? { teacherAttendance } : {}),
+		...(include.payments && payments ? { payments } : {}),
 	};
 };
 

@@ -109,7 +109,7 @@ export default function FinancialProfile() {
 	const totalsByCurrency = useMemo(() => {
 		const dueMap = sumByCurrency(allResolvedFees);
 		const requiredMap = sumByCurrency(allResolvedFees.filter((f) => f.isRequired));
-		const paidRecords = (user as any)?.financialProfile?.paymentRecords || [];
+		const paidRecords = (user as any)?.payments || [];
 		const paidMap = sumByCurrency(paidRecords.map((r: any) => ({ amount: r.paymentAmount, currency: r.currency || 'LRD' })));
 		const allCurrencies = [...new Set([...Object.keys(dueMap), ...Object.keys(paidMap)])];
 		const result: Record<string, { totalDue: number; requiredFees: number; optionalFees: number; paid: number; balance: number }> = {};
@@ -128,10 +128,13 @@ export default function FinancialProfile() {
 	}, [allResolvedFees, user]);
 
 	const paidByFeeName = useMemo(() => {
-		const records = (user as any)?.financialProfile?.paymentRecords || [];
+		const records = (user as any)?.payments || [];
 		const map: Record<string, number> = {};
 		for (const r of records) {
-			const key = `${r.category}::${r.currency || 'LRD'}`;
+			const cur = r.currency || 'LRD';
+			const key = r.feeType && r.feeType !== 'fee'
+				? `${r.feeType}::${cur}`
+				: `${r.category}::${cur}`;
 			map[key] = (map[key] || 0) + r.paymentAmount;
 		}
 		return map;

@@ -26,7 +26,6 @@ import type {
 	Teacher,
 	Administrator,
 	SystemAdmin,
-	StudentFinancialProfile,
 	AIChatMessage,
 	Notification,
 } from '@/types';
@@ -176,11 +175,7 @@ function buildUserResponse(
 				academicYears: user.academicYears || [],
 				guardian: user.guardian,
 				studentType: user.studentType ?? 'old',
-				financialProfile: user.financialProfile || {
-					outstandingBalances: [],
-					paymentRecords: [],
-				},
-			} as Student;
+		} as Student;
 
 		case 'teacher':
 			return {
@@ -431,11 +426,7 @@ async function buildUserData(
 					phone: userData.guardian?.phone?.trim(),
 					address: userData.guardian?.address?.trim(),
 				},
-				financialProfile: {
-					outstandingBalances: [],
-					paymentRecords: [],
-				},
-			};
+		};
 
 		case 'teacher':
 			return {

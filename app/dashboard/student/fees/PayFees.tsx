@@ -56,6 +56,8 @@ const displayWithCommas = (value: string): string => {
 interface SelectedItem {
 	key: string;
 	label: string;
+	feeId: string;
+	categoryName: string;
 	amount: number;
 	currency: string;
 }
@@ -98,6 +100,7 @@ export default function PayFees() {
 		if (!school) return [];
 		const resolved: Array<{
 			feeKey: string;
+			feeId: string;
 			feeName: string;
 			categoryName: string;
 			amount: number;
@@ -110,6 +113,7 @@ export default function PayFees() {
 			for (const rf of rsf) {
 				resolved.push({
 					feeKey: `${feeGroup.id}-${rf.scheduledFee.feeId}-${feeIdx}`,
+					feeId: rf.scheduledFee.feeId,
 					feeName: rf.feeDefinition?.name || rf.scheduledFee.feeId,
 					categoryName: rf.categoryName,
 					amount: rf.scheduledFee.amount.amount,
@@ -133,10 +137,13 @@ export default function PayFees() {
 	}, [allResolvedFees]);
 
 	const paidByFeeName = useMemo(() => {
-		const records = (user as any)?.financialProfile?.paymentRecords || [];
+		const records = (user as any)?.payments || [];
 		const map: Record<string, number> = {};
 		for (const r of records) {
-			const key = `${r.category}::${r.currency || 'LRD'}`;
+			const cur = r.currency || 'LRD';
+			const key = r.feeType && r.feeType !== 'fee'
+				? `${r.feeType}::${cur}`
+				: `${r.category}::${cur}`;
 			map[key] = (map[key] || 0) + r.paymentAmount;
 		}
 		return map;
@@ -244,35 +251,49 @@ export default function PayFees() {
 
 		setIsProcessing(true);
 
-		await new Promise((r) => setTimeout(r, 1500));
-
-		const now = new Date();
-		const newRecords: PaymentRecords[] = selected.map((item) => ({
-			id: `DEMO-${Date.now()}-${item.key}`,
-			receiptNumber: `RCP-${Date.now()}-${item.key}`,
-			studentId: (user as any).studentId || user.id,
-			classId: (user as any).classId || '',
-			paidBy: `${user.firstName} ${user.lastName}`,
-			feeType: 'fee',
-			category: item.label,
-			paymentAmount: item.amount,
-			currency: item.currency || 'LRD',
-			paymentAcademicYear: currentAcademicYear,
-			paymentDate: now.toISOString().split('T')[0],
-			paymentTime: now.toLocaleTimeString(),
+		const items = selected.map((item) => ({
+			key: item.key,
+			feeName: item.label,
+			feeId: item.feeId,
+			categoryName: item.categoryName,
+			amount: item.amount,
+			currency: item.currency,
 		}));
 
-		const updatedUser = {
-			...user,
-			financialProfile: {
-				...(user as any).financialProfile,
-				paymentRecords: [
-					...((user as any).financialProfile?.paymentRecords || []),
-					...newRecords,
-				],
-			},
-		};
-		setUser(updatedUser as any);
+		let newRecords: PaymentRecords[];
+
+		try {
+			const res = await fetch('/api/payments', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					items,
+					paymentMethod,
+					phoneNumber,
+					paymentAcademicYear: currentAcademicYear,
+				}),
+			});
+
+			const result = await res.json();
+
+			if (!result.success) {
+				setAmountError(result.message || 'Payment failed');
+				setIsProcessing(false);
+				return;
+			}
+
+			newRecords = result.data.payments.slice(-selected.length);
+
+			const updatedUser = {
+				...user,
+				payments: result.data.payments,
+			};
+			setUser(updatedUser as any);
+		} catch {
+			setAmountError('Payment failed. Please try again.');
+			setIsProcessing(false);
+			return;
+		}
 
 		setReceipts(newRecords);
 		setPaymentStatus('success');
@@ -492,12 +513,14 @@ export default function PayFees() {
 																	checked={isSelected}
 																	disabled={isCurrencyMismatch}
 																	onChange={() =>
-																		toggleItem({
-																			key: fee.feeKey,
-																			label: fee.feeName,
-																			amount: fee.amount,
-																			currency: fee.currency,
-																		})
+														toggleItem({
+															key: fee.feeKey,
+															label: fee.feeName,
+															feeId: fee.feeId,
+															categoryName: fee.categoryName,
+															amount: fee.amount,
+															currency: fee.currency,
+														})
 																	}
 																	className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-40"
 																/>

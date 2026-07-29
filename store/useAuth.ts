@@ -528,6 +528,14 @@ const applyBootstrapPayload = (
 	if (typeof versions.user === 'string') {
 		set({ userVersion: versions.user });
 	}
+
+	if (Array.isArray(data?.payments)) {
+		const currentUser = get().user;
+		if (currentUser) {
+			const updated = { ...(currentUser as any), payments: data.payments };
+			set({ user: updated });
+		}
+	}
 };
 
 	const applyRealtimeEvent = (event: RealtimeEvent) => {

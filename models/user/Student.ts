@@ -1,5 +1,5 @@
 import { Schema, Document } from 'mongoose';
-import { Student, StudentFinancialProfile, PaymentRecords } from '@/types';
+import { Student } from '@/types';
 
 const GuardianSchema = new Schema(
 	{
@@ -18,36 +18,6 @@ const YearSchema = new Schema(
 		year: { type: String, required: true },
 		classId: { type: String, required: true },
 		className: { type: String, required: false },
-	},
-	{ _id: false },
-);
-
-const PaymentReceiptSchema = new Schema<PaymentRecords & Document>({
-	id: { type: String, required: true, unique: true },
-	receiptNumber: { type: String, required: true, unique: true },
-	paidBy: { type: String, required: true },
-	feeType: { type: String, required: true },
-	category: { type: String, required: true },
-	paymentAmount: { type: Number, required: true },
-	currency: { type: String, required: false, default: 'LRD' },
-	paymentAcademicYear: { type: String, required: true },
-	paymentDate: { type: String, required: true },
-	paymentTime: { type: String, required: true },
-});
-
-const FinancialProfileSchema = new Schema<StudentFinancialProfile & Document>(
-	{
-		outstandingBalances: [
-			{
-				academicYear: { type: String, required: true },
-				feeType: { type: String, required: true },
-				category: { type: String, required: true },
-				requiredAmount: { type: Number, required: true },
-				remainingBalance: { type: Number, required: true },
-				currency: { type: String, required: false, default: 'LRD' },
-			},
-		],
-		paymentRecords: [PaymentReceiptSchema],
 	},
 	{ _id: false },
 );

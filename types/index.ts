@@ -26,6 +26,7 @@ export type FeatureKey =
 	// Financial
 	| 'fee_payment'
 	| 'financial_reports'
+	| 'online_payment'
 	// Student
 	| 'admissions'
 	// Communication & Support
@@ -56,6 +57,7 @@ export const FEATURE_KEYS: FeatureKey[] = [
 	// Financial Features
 	'fee_payment',
 	'financial_reports',
+	'online_payment',
 
 	// Student Features
 	'admissions',
@@ -105,18 +107,6 @@ export interface PaymentRecords {
 	paymentAcademicYear: string;
 	paymentDate: string;
 	paymentTime: string;
-}
-
-export interface StudentFinancialProfile {
-	outstandingBalances: {
-		academicYear: string;
-		feeType: string;
-		category: string;
-		requiredAmount: number;
-		remainingBalance: number;
-		currency: string;
-	}[];
-	paymentRecords: PaymentRecords[];
 }
 
 export interface Class {

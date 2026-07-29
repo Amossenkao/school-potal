@@ -1,4 +1,5 @@
 import type { ClassLevels, AcademicPeriod, Semester } from '@/types/schoolProfile';
+import {FEATURE_KEYS} from "@/types"
 
 // ---------------------------------------------------------------------------
 // Default class levels — common structure for Liberian schools
@@ -130,7 +131,6 @@ export const DEFAULT_CLASS_LEVELS: ClassLevels = {
 
 export const DEFAULT_ADMIN_POSITIONS = [
 	{ id: 'principal', name: 'Principal' },
-	{ id: 'dean', name: 'Dean of Students' },
 	{ id: 'registrar', name: 'Registrar' },
 	{ id: 'vpi', name: 'Vice Principal for Instruction (VPI)' },
 	{ id: 'business_manager', name: 'Business Manager' },
@@ -141,12 +141,7 @@ export const DEFAULT_ADMIN_POSITIONS = [
 // Default enabled features
 // ---------------------------------------------------------------------------
 
-export const DEFAULT_FEATURES = [
-	'dashboard', 'calendar_events', 'community', 'profile_management',
-	'ai_chat', 'grading_system', 'fee_payment', 'admissions',
-	'user_management', 'academic_reports', 'school_settings',
-	'notifications', 'support_system', 'apps', 'attendance',
-];
+export const DEFAULT_FEATURES = FEATURE_KEYS;
 
 // ---------------------------------------------------------------------------
 // Default role feature access
