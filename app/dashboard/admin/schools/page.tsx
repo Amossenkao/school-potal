@@ -136,6 +136,17 @@ export default function SchoolsListPage() {
 					(s) => s.host === event.tenantId || s.dbName === event.tenantId,
 				);
 				if (matched) {
+					// Fetch full school profile to update identity fields (name, logo, sysAdmin, etc.)
+					void fetch(`/api/school?host=${encodeURIComponent(matched.host)}`)
+						.then((r) => r.json())
+						.then((data) => {
+							if (data?.school) {
+								upsertSuperAdminSchool(data.school);
+							}
+						})
+						.catch(() => {});
+
+					// Also fetch stats
 					void fetch(`/api/school?host=${encodeURIComponent(matched.host)}&stats=true`)
 						.then((r) => r.json())
 						.then((data) => {
