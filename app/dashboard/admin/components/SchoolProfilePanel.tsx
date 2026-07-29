@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { ArrowLeft, Loader2, Trash2, Users, GraduationCap, BookOpen, ShieldCheck, ToggleLeft } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import SchoolProfileForm, { type SchoolFormState } from '@/app/dashboard/admin/components/SchoolProfileForm';
@@ -262,6 +262,7 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 		}
 	};
 
+	const lastEventTimestamp = useRef('');
 	const handleRealtimeEvent = useCallback((event: RealtimeEvent) => {
 		const reason = String(event.payload?.reason || '').trim();
 		if (reason === 'school-deleted') {
@@ -271,6 +272,8 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 			return;
 		}
 		if (reason === 'school-updated' || reason === 'school-toggled-active' || reason === 'school-settings-updated') {
+			if (event.timestamp && event.timestamp === lastEventTimestamp.current) return;
+			lastEventTimestamp.current = event.timestamp || '';
 			const schoolData = event.payload?.school as Record<string, any> | undefined;
 			if (schoolData?.host) upsertSuperAdminSchool(schoolData);
 			fetchSchool();

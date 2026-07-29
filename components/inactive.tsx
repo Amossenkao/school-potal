@@ -32,9 +32,9 @@ export default function Inactive() {
 	const publicSchoolTenantKey = useMemo(
 		() =>
 			resolveTenantSyncKey({
-				schoolProfile: school?.system,
+				schoolProfile: school,
 			}),
-		[school?.system?.dbName, school?.system?.host],
+		[school],
 	);
 
 	const refreshSchoolProfile = useCallback(async () => {

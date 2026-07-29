@@ -754,9 +754,9 @@ const LoginPage = () => {
 	const publicSchoolTenantKey = useMemo(
 		() =>
 			resolveTenantSyncKey({
-				schoolProfile: currentSchool?.system,
+				schoolProfile: currentSchool,
 			}),
-		[currentSchool?.system?.dbName, currentSchool?.system?.host],
+		[currentSchool],
 	);
 	const [loginDisabledError, setLoginDisabledError] = useState('');
 	const usernameInputRef = useRef<HTMLInputElement>(null);
