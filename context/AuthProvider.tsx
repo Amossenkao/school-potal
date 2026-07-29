@@ -298,7 +298,6 @@ export default function AuthProvider({
 		});
 
 		const handleRealtimeEvent = (event: RealtimeEvent) => {
-			console.log('handleRealtimeEvent called', event);
 			useSchoolStore.getState().applyRealtimeEvent(event);
 			useAuth.getState().applyRealtimeEvent(event);
 
@@ -348,6 +347,17 @@ export default function AuthProvider({
 						academicYear,
 					});
 				}
+				return;
+			}
+
+			// School-level changes (features toggled, settings, activation) are
+			// already applied to the school store by applyRealtimeEvent above.
+			// Skipping the auth refresh avoids applyBootstrapPayload overwriting
+			// the store with stale API data from getSchoolProfile().
+			if (
+				event.type === 'SCHOOL_UPDATED' ||
+				event.type === 'SCHOOL_DELETED'
+			) {
 				return;
 			}
 

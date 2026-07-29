@@ -162,7 +162,11 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 		if (!cachedSchool || !normalizeSchoolStats(cachedSchool)) fetchStats();
 	}, [host, cachedSchool]);
 
+	const lastFetchTime = useRef(0);
 	const fetchSchool = async () => {
+		const now = Date.now();
+		if (now - lastFetchTime.current < 1000) return;
+		lastFetchTime.current = now;
 		try {
 			setLoading((current) => current || !school);
 			const res = await fetch(`/api/school?host=${encodeURIComponent(host)}`);
