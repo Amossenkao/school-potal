@@ -317,7 +317,7 @@ if (!isSessionValid) {
 				<ThemeProvider>
 					<SidebarProvider>
 						<OfflineHandler>
-							{school ? school.system.isActive ? children : <Inactive /> : children}
+							{school ? school.system?.isActive ? children : <Inactive /> : children}
 						</OfflineHandler>
 					</SidebarProvider>
 					<Toaster
