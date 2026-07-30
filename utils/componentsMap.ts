@@ -210,6 +210,10 @@ const componentImporters: Record<string, ComponentImporter> = {
 		import('@/app/dashboard/documents/page'),
 	attestation: () =>
 		import('@/app/dashboard/attestation/page'),
+	diploma: () =>
+		import('@/app/dashboard/diploma/page'),
+	'digital-id': () =>
+		import('@/app/dashboard/digital-id/page'),
 
 	// Salary
 	// 'salary/advance': dynamic(
@@ -687,6 +691,18 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					href: '/dashboard/clearances',
 					icon: ClipboardCheck,
 				},
+				{
+					key: 'diploma',
+					title: 'Diploma',
+					href: '/dashboard/diploma',
+					icon: GraduationCap,
+				},
+				{
+					key: 'digital-id',
+					title: 'Digital ID',
+					href: '/dashboard/digital-id',
+					icon: Shield,
+				},
 			],
 			administrator: [
 				{
@@ -706,6 +722,18 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					title: 'Graduation Clearance',
 					href: '/dashboard/clearances',
 					icon: ClipboardCheck,
+				},
+				{
+					key: 'diploma',
+					title: 'Diploma',
+					href: '/dashboard/diploma',
+					icon: GraduationCap,
+				},
+				{
+					key: 'digital-id',
+					title: 'Digital ID',
+					href: '/dashboard/digital-id',
+					icon: Shield,
 				},
 			],
 		},
@@ -1272,40 +1300,31 @@ export function generateNavigationItems(
 		});
 	});
 
-	// ── Desired sidebar order ─────────────────────────────────────────────────
-	// 1. Dashboard
-	// 2. User Management
-	// 3. Grading
-	// 4. Academic Reports
-	// 5. Academic Documents
-	// 6. School Settings
-	// 7. AI Chat
-	// 8. (other uncategorized items like Community, Calendar, Attendance)
-	// 9. Profile   ← moved here, right before Support
-	// 10. Notifications ← moved here, right before Support
-	// 11. Support (if available)
-	// 12. Logout   ← appended last by the caller in AppSidebar
-	// ─────────────────────────────────────────────────────────────────────────
-
-	// Priority order for categorized feature sections
+	// Priority order for main feature categories
+	// Removed 'School Settings', 'AI Chat', and 'Support' so they can be explicitly placed at specific indexes below
 	const categoryOrder = [
 		'User Management',
 		'Grading',
 		'Academic Reports',
 		'Academic Documents',
-		'School Settings',
-		'AI Chat',
 	];
 
 	const navItems: NavItem[] = [];
 
 	// 1. Dashboard always first
-	navItems.push({ name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' });
+	navItems.push({
+		name: 'Dashboard',
+		icon: LayoutDashboard,
+		href: '/dashboard',
+	});
 
-	// 2-7. Categorized items in the prescribed order, then any remaining categories
+	// 2. Categorized items in order, excluding custom-placed categories
+	const excludedCategories = new Set(['School Settings', 'AI Chat', 'Support']);
 	const sortedCategories = [
 		...categoryOrder.filter((c) => routesByCategory[c]),
-		...Object.keys(routesByCategory).filter((c) => !categoryOrder.includes(c)),
+		...Object.keys(routesByCategory).filter(
+			(c) => !categoryOrder.includes(c) && !excludedCategories.has(c),
+		),
 	];
 
 	sortedCategories.forEach((categoryName) => {
@@ -1330,12 +1349,17 @@ export function generateNavigationItems(
 		}
 	});
 
-	// 8. Uncategorized routes (community, calendar, attendance, etc.)
-	// — exclude profile/notifications; those are placed just before Support below
-	const profileNotifKeys = new Set(['profile', 'notifications']);
+	// 3. Uncategorized routes (community, calendar, attendance, etc.)
+	const excludeKeys = new Set([
+		'profile',
+		'notifications',
+		'chat',
+		'ai_chat',
+		'support',
+	]);
 	const uncategorizedOrder = ['community'];
 	uncategorizedRoutes
-		.filter((r) => !profileNotifKeys.has(r.key))
+		.filter((r) => !excludeKeys.has(r.key))
 		.sort((a, b) => {
 			const aIndex = uncategorizedOrder.indexOf(a.key);
 			const bIndex = uncategorizedOrder.indexOf(b.key);
@@ -1350,26 +1374,100 @@ export function generateNavigationItems(
 
 	// Reorder Calendar & Attendance if present
 	const calendarNavLabel = 'Calendar & Schedules';
-	moveNavItemBefore(navItems, 'Attendance', navItems[navItems.length - 1]?.name ?? '');
-	moveNavItemBefore(navItems, calendarNavLabel, 'Attendance');
+	moveNavItemBefore(navItems, 'Attendance', calendarNavLabel);
 
-	// 9-10. Profile and Notifications — placed right before Support
-	// Support may appear as a categorized nav item named 'Support'.
-	// We append Profile & Notifications now; they will sit before Support
-	// because Support is not yet in navItems (it is added by the caller
-	// in AppSidebar as an uncategorized route or via the support_system feature).
-	// We add them here so they appear after the main feature items.
+	// 4. School Settings — placed right before Profile
+	if (routesByCategory['School Settings']) {
+		const settingRoutes = routesByCategory['School Settings'];
+		if (settingRoutes.length === 1) {
+			navItems.push({
+				name: settingRoutes[0].title,
+				icon: settingRoutes[0].icon,
+				href: settingRoutes[0].href,
+			});
+		} else if (settingRoutes.length > 1) {
+			navItems.push({
+				name: 'School Settings',
+				icon: settingRoutes[0].icon,
+				subItems: settingRoutes.map((route) => ({
+					name: route.title,
+					icon: route.icon,
+					href: route.href,
+				})),
+			});
+		}
+	}
+
+	// 5. Profile and Notifications
 	navItems.push({ name: 'Profile', icon: UserCircle, href: '/profile' });
-	navItems.push({ name: 'Notifications', icon: BellDot, href: '/notifications' });
+	navItems.push({
+		name: 'Notifications',
+		icon: BellDot,
+		href: '/notifications',
+	});
 
-	// 11. Support — if the user has access it will be in uncategorizedRoutes (key='support')
-	const supportRoute = uncategorizedRoutes.find((r) => r.key === 'support');
-	if (supportRoute) {
-		navItems.push({
-			name: supportRoute.title,
-			icon: supportRoute.icon,
-			href: supportRoute.href,
-		});
+	// 6. Support — checked once via categorized or uncategorized routes to prevent duplicates
+	if (routesByCategory['Support']) {
+		const supportRoutes = routesByCategory['Support'];
+		if (supportRoutes.length === 1) {
+			navItems.push({
+				name: supportRoutes[0].title,
+				icon: supportRoutes[0].icon,
+				href: supportRoutes[0].href,
+			});
+		} else if (supportRoutes.length > 1) {
+			navItems.push({
+				name: 'Support',
+				icon: supportRoutes[0].icon,
+				subItems: supportRoutes.map((route) => ({
+					name: route.title,
+					icon: route.icon,
+					href: route.href,
+				})),
+			});
+		}
+	} else {
+		const supportRoute = uncategorizedRoutes.find((r) => r.key === 'support');
+		if (supportRoute) {
+			navItems.push({
+				name: supportRoute.title,
+				icon: supportRoute.icon,
+				href: supportRoute.href,
+			});
+		}
+	}
+
+	// 7. AI Chat — right before Logout
+	if (routesByCategory['AI Chat']) {
+		const chatRoutes = routesByCategory['AI Chat'];
+		if (chatRoutes.length === 1) {
+			navItems.push({
+				name: chatRoutes[0].title,
+				icon: chatRoutes[0].icon,
+				href: chatRoutes[0].href,
+			});
+		} else if (chatRoutes.length > 1) {
+			navItems.push({
+				name: 'AI Chat',
+				icon: chatRoutes[0].icon,
+				subItems: chatRoutes.map((route) => ({
+					name: route.title,
+					icon: route.icon,
+					href: route.href,
+				})),
+			});
+		}
+	} else {
+		const uncategorizedChat = uncategorizedRoutes.find(
+			(r) => r.key === 'chat' || r.key === 'ai_chat',
+		);
+		if (uncategorizedChat) {
+			navItems.push({
+				name: uncategorizedChat.title,
+				icon: uncategorizedChat.icon,
+				href: uncategorizedChat.href,
+			});
+		}
 	}
 
 	return navItems;
