@@ -832,6 +832,7 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		key: 'school_settings',
 		title: 'School Settings',
 		icon: Settings,
+		category: 'School Settings',
 		routes: {
 			system_admin: [
 				{
@@ -878,6 +879,7 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		key: 'ai_chat',
 		title: 'AI Chat',
 		icon: MessageCircle,
+		category: 'AI Chat',
 		routes: {
 			system_admin: [
 				{
@@ -1190,7 +1192,7 @@ export function generateNavigationItems(
 	adminPermissions?: FeatureKey[],
 	isTeacher?: boolean,
 ): NavItem[] {
-	const navItems: NavItem[] = [];
+	// Helper to move an item before another item in the array
 	const moveNavItemBefore = (
 		items: NavItem[],
 		itemName: string,
@@ -1203,13 +1205,6 @@ export function generateNavigationItems(
 		const nextIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
 		items.splice(nextIndex, 0, moved);
 	};
-
-	// Add default items available to all users
-	navItems.push(
-		{ name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
-		{ name: 'Profile', icon: UserCircle, href: '/profile' },
-		{ name: 'Notifications', icon: BellDot, href: '/notifications' },
-	);
 
 	// Get user's accessible features with permissions support
 	const accessibleFeatures = getUserAccessibleFeatures(
@@ -1235,21 +1230,16 @@ export function generateNavigationItems(
 		key: string;
 	}> = [];
 
-	// Process each accessible feature
+	// Process each accessible feature (skip default_features — handled separately)
 	accessibleFeatures.forEach((feature) => {
-		// default_features routes are already added as hardcoded nav items above
 		if (feature === 'default_features') return;
-		// Check if feature is enabled for the school
 		if (!schoolProfile.featureConfig.enabledFeatures.includes(feature)) return;
 
 		const featureConfig = featureConfigurations[feature];
 		if (!featureConfig) return;
 
-		// Get routes for the user's role
 		let routes = featureConfig.routes[userRole];
-		if (!routes) {
-			return;
-		}
+		if (!routes) return;
 
 		routes.forEach((route) => {
 			if (shouldExcludeRoute(feature, route.key, schoolProfile)) return;
@@ -1266,14 +1256,14 @@ export function generateNavigationItems(
 					routesByCategory[featureConfig.category] = [];
 				}
 				const alreadyAdded = routesByCategory[featureConfig.category].some(
-					(item) => item.href === routeItem.href
+					(item) => item.href === routeItem.href,
 				);
 				if (!alreadyAdded) {
 					routesByCategory[featureConfig.category].push(routeItem);
 				}
 			} else {
 				const alreadyAdded = uncategorizedRoutes.some(
-					(item) => item.href === routeItem.href
+					(item) => item.href === routeItem.href,
 				);
 				if (!alreadyAdded) {
 					uncategorizedRoutes.push(routeItem);
@@ -1282,20 +1272,55 @@ export function generateNavigationItems(
 		});
 	});
 
-	// Convert categories to nav items
-	Object.entries(routesByCategory).forEach(([categoryName, routes]) => {
+	// ── Desired sidebar order ─────────────────────────────────────────────────
+	// 1. Dashboard
+	// 2. User Management
+	// 3. Grading
+	// 4. Academic Reports
+	// 5. Academic Documents
+	// 6. School Settings
+	// 7. AI Chat
+	// 8. (other uncategorized items like Community, Calendar, Attendance)
+	// 9. Profile   ← moved here, right before Support
+	// 10. Notifications ← moved here, right before Support
+	// 11. Support (if available)
+	// 12. Logout   ← appended last by the caller in AppSidebar
+	// ─────────────────────────────────────────────────────────────────────────
+
+	// Priority order for categorized feature sections
+	const categoryOrder = [
+		'User Management',
+		'Grading',
+		'Academic Reports',
+		'Academic Documents',
+		'School Settings',
+		'AI Chat',
+	];
+
+	const navItems: NavItem[] = [];
+
+	// 1. Dashboard always first
+	navItems.push({ name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' });
+
+	// 2-7. Categorized items in the prescribed order, then any remaining categories
+	const sortedCategories = [
+		...categoryOrder.filter((c) => routesByCategory[c]),
+		...Object.keys(routesByCategory).filter((c) => !categoryOrder.includes(c)),
+	];
+
+	sortedCategories.forEach((categoryName) => {
+		const routes = routesByCategory[categoryName];
+		if (!routes || routes.length === 0) return;
 		if (routes.length === 1) {
-			// Single route - add directly
 			navItems.push({
 				name: routes[0].title,
 				icon: routes[0].icon,
 				href: routes[0].href,
 			});
 		} else {
-			// Multiple routes - create submenu
 			navItems.push({
 				name: categoryName,
-				icon: routes[0].icon, // Use first route's icon for category
+				icon: routes[0].icon,
 				subItems: routes.map((route) => ({
 					name: route.title,
 					icon: route.icon,
@@ -1305,9 +1330,12 @@ export function generateNavigationItems(
 		}
 	});
 
-	// Add uncategorized routes
-	const uncategorizedOrder =  [ 'community', 'profile'];
+	// 8. Uncategorized routes (community, calendar, attendance, etc.)
+	// — exclude profile/notifications; those are placed just before Support below
+	const profileNotifKeys = new Set(['profile', 'notifications']);
+	const uncategorizedOrder = ['community'];
 	uncategorizedRoutes
+		.filter((r) => !profileNotifKeys.has(r.key))
 		.sort((a, b) => {
 			const aIndex = uncategorizedOrder.indexOf(a.key);
 			const bIndex = uncategorizedOrder.indexOf(b.key);
@@ -1317,16 +1345,32 @@ export function generateNavigationItems(
 			return aIndex - bIndex;
 		})
 		.forEach((route) => {
-			navItems.push({
-				name: route.title,
-				icon: route.icon,
-				href: route.href,
-			});
+			navItems.push({ name: route.title, icon: route.icon, href: route.href });
 		});
 
+	// Reorder Calendar & Attendance if present
 	const calendarNavLabel = 'Calendar & Schedules';
-	moveNavItemBefore(navItems, 'Attendance', 'Profile');
+	moveNavItemBefore(navItems, 'Attendance', navItems[navItems.length - 1]?.name ?? '');
 	moveNavItemBefore(navItems, calendarNavLabel, 'Attendance');
+
+	// 9-10. Profile and Notifications — placed right before Support
+	// Support may appear as a categorized nav item named 'Support'.
+	// We append Profile & Notifications now; they will sit before Support
+	// because Support is not yet in navItems (it is added by the caller
+	// in AppSidebar as an uncategorized route or via the support_system feature).
+	// We add them here so they appear after the main feature items.
+	navItems.push({ name: 'Profile', icon: UserCircle, href: '/profile' });
+	navItems.push({ name: 'Notifications', icon: BellDot, href: '/notifications' });
+
+	// 11. Support — if the user has access it will be in uncategorizedRoutes (key='support')
+	const supportRoute = uncategorizedRoutes.find((r) => r.key === 'support');
+	if (supportRoute) {
+		navItems.push({
+			name: supportRoute.title,
+			icon: supportRoute.icon,
+			href: supportRoute.href,
+		});
+	}
 
 	return navItems;
 }
