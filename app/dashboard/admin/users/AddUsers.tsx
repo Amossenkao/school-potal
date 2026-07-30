@@ -349,7 +349,10 @@ const TeacherSessionPanel = ({
 	uniqueSubjectNames,
 	totalTeacherClasses,
 	showSummaryInline,
+	subjects: subjectsProp,
+	showSponsorship = true,
 }: any) => {
+	const subjects = subjectsProp ?? formData.teacher.subjects;
 	const scClasses = getSelfContainedClasses(session);
 	const regularLevels = getClassLevels(session).filter(
 		(l: string) => !isLevelSelfContained(session, l),
@@ -358,7 +361,7 @@ const TeacherSessionPanel = ({
 	return (
 		<div className="space-y-4">
 			{/* Inline summary strip — single session only */}
-			{showSummaryInline && formData.teacher.subjects.length > 0 && (
+			{showSummaryInline && subjects.length > 0 && (
 				<div className="rounded-lg border border-border bg-muted/50 px-4 py-2.5 flex flex-wrap gap-x-5 gap-y-1 text-xs">
 					<span className="text-muted-foreground">
 						Unique subjects:{' '}
@@ -372,7 +375,7 @@ const TeacherSessionPanel = ({
 							{totalTeacherClasses}
 						</span>
 					</span>
-					{formData.teacher.isSponsor && formData.teacher.sponsorClass && (
+					{showSponsorship && formData.teacher.isSponsor && formData.teacher.sponsorClass && (
 						<span className="text-muted-foreground">
 							Sponsor Class:{' '}
 							<span className="font-bold text-primary ml-1">
@@ -448,9 +451,9 @@ const TeacherSessionPanel = ({
 					<div className="space-y-3 max-h-[50vh] sm:max-h-64 overflow-y-auto pr-0.5">
 						{regularLevels.map((level: string) => {
 							const style = getLvlStyle(level);
-							const subjects = getSubjectsBySessionAndLevel(session, level);
-							const checkedCount = subjects.filter((sub: string) =>
-								formData.teacher.subjects.some(
+							const subjectNames = getSubjectsBySessionAndLevel(session, level);
+							const checkedCount = subjectNames.filter((sub: string) =>
+								subjects.some(
 									(s: any) =>
 										s.subject === sub &&
 										s.level === level &&
@@ -471,13 +474,13 @@ const TeacherSessionPanel = ({
 										</span>
 										{checkedCount > 0 && (
 											<span className="text-xs text-muted-foreground">
-												{checkedCount}/{subjects.length} selected
+												{checkedCount}/{subjectNames.length} selected
 											</span>
 										)}
 									</div>
 									<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-										{subjects.map((subject: string, idx: number) => {
-											const isChecked = formData.teacher.subjects.some(
+										{subjectNames.map((subject: string, idx: number) => {
+											const isChecked = subjects.some(
 												(s: any) =>
 													s.subject === subject &&
 													s.level === level &&
@@ -522,61 +525,62 @@ const TeacherSessionPanel = ({
 				</SectionCard>
 			)}
 
-			{/* Class sponsorship */}
-			<SectionCard
-				title="Class Sponsorship"
-				subtitle="Assign this teacher as homeroom sponsor for one class (optional)."
-				icon={Users}
-			>
-				<select
-					value={
-						formData.teacher.sponsorClass &&
-						getAllClassesForSession(session).find(
-							(c: any) => c.classId === formData.teacher.sponsorClass,
-						)
-							? formData.teacher.sponsorClass
-							: ''
-					}
-					onChange={(e) => {
-						const hasSC = formData.teacher.subjects.some(
-							(s: any) => s.session === session && s.classId,
-						);
-						if (hasSC) {
-							const otherSubjects = formData.teacher.subjects.filter(
-								(s: any) => s.session !== session,
-							);
-							setFormData({
-								...formData,
-								teacher: {
-									...formData.teacher,
-									subjects: otherSubjects,
-									sponsorClass: e.target.value || null,
-									isSponsor: !!e.target.value,
-								},
-							});
-						} else {
-							setFormData({
-								...formData,
-								teacher: {
-									...formData.teacher,
-									sponsorClass: e.target.value || null,
-									isSponsor: !!e.target.value,
-								},
-							});
-						}
-					}}
-					className={`${inputBase} ${inputNormal}`}
+			{showSponsorship && <>
+				<SectionCard
+					title="Class Sponsorship"
+					subtitle="Assign this teacher as homeroom sponsor for one class (optional)."
+					icon={Users}
 				>
-					<option value="">No class sponsorship</option>
-					{getAllClassesForSession(session)
-						.filter((cls: any) => !isLevelSelfContained(session, cls.level))
-						.map((cls: any) => (
-							<option key={cls.classId} value={cls.classId}>
-								{cls.name} ({cls.level})
-							</option>
-						))}
-				</select>
-			</SectionCard>
+					<select
+						value={
+							formData.teacher.sponsorClass &&
+							getAllClassesForSession(session).find(
+								(c: any) => c.classId === formData.teacher.sponsorClass,
+							)
+								? formData.teacher.sponsorClass
+								: ''
+						}
+						onChange={(e) => {
+							const hasSC = subjects.some(
+								(s: any) => s.session === session && s.classId,
+							);
+							if (hasSC) {
+								const otherSubjects = subjects.filter(
+									(s: any) => s.session !== session,
+								);
+								setFormData({
+									...formData,
+									teacher: {
+										...formData.teacher,
+										subjects: otherSubjects,
+										sponsorClass: e.target.value || null,
+										isSponsor: !!e.target.value,
+									},
+								});
+							} else {
+								setFormData({
+									...formData,
+									teacher: {
+										...formData.teacher,
+										sponsorClass: e.target.value || null,
+										isSponsor: !!e.target.value,
+									},
+								});
+							}
+						}}
+						className={`${inputBase} ${inputNormal}`}
+					>
+						<option value="">No class sponsorship</option>
+						{getAllClassesForSession(session)
+							.filter((cls: any) => !isLevelSelfContained(session, cls.level))
+							.map((cls: any) => (
+								<option key={cls.classId} value={cls.classId}>
+									{cls.name} ({cls.level})
+								</option>
+							))}
+					</select>
+				</SectionCard>
+			</>}
 		</div>
 	);
 };
@@ -596,6 +600,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	const [showConflictModal, setShowConflictModal] = useState(false);
 	const [pendingUserData, setPendingUserData] = useState(null);
 	const [activePanel, setActivePanel] = useState<string>('');
+	const [adminActivePanel, setAdminActivePanel] = useState<string>('');
 
 	const school = useSchoolStore((state) => state.school);
 	const defaultEnrollmentSemester = '1st Semester';
@@ -655,7 +660,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			isSponsor: false,
 			sponsorClass: null as string | null,
 		},
-		administrator: { position: '', permissions: [], canRecordStudentAttendance: false, canRecordTeacherAttendance: false },
+		administrator: { position: '', permissions: [], canRecordStudentAttendance: false, canRecordTeacherAttendance: false, isTeacher: false, adminClasses: [] as Array<{ subject: string; level: string; session: string; classId?: string }> },
 	});
 
 	useEffect(() => {
@@ -892,6 +897,113 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	const sessionSubjectCount = (session: string) =>
 		formData.teacher.subjects.filter((s) => s.session === session).length;
 
+	/* ── Admin teacher handlers ── */
+	const isAdminSCClassChecked = (classId: string, session: string, level: string) =>
+		formData.administrator.adminClasses.some(
+			(s) =>
+				s.classId === classId && s.session === session && s.level === level,
+		);
+
+	const handleAdminSelfContainedSelection = (
+		classId: string,
+		session: string,
+		level: string,
+		checked: boolean,
+	) => {
+		const withoutThis = formData.administrator.adminClasses.filter(
+			(s) =>
+				!(s.classId === classId && s.session === session && s.level === level),
+		);
+		if (checked) {
+			const newSubjects = getSubjectsBySessionAndLevel(session, level)
+				.filter(Boolean)
+				.map((name: string) => ({ subject: name, level, session, classId }));
+			setFormData({
+				...formData,
+				administrator: {
+					...formData.administrator,
+					adminClasses: [...withoutThis, ...newSubjects],
+				},
+			});
+		} else {
+			setFormData({
+				...formData,
+				administrator: {
+					...formData.administrator,
+					adminClasses: withoutThis,
+				},
+			});
+		}
+	};
+
+	const handleAdminSubjectChange = (
+		subject: string,
+		level: string,
+		session: string,
+		checked: boolean,
+	) => {
+		let updated = [...formData.administrator.adminClasses];
+		const hasSCInSession = updated.some(
+			(s) =>
+				s.session === session &&
+				s.classId &&
+				isLevelSelfContained(session, s.level),
+		);
+		if (hasSCInSession) {
+			updated = updated.filter(
+				(s) =>
+					!(
+						s.session === session &&
+						s.classId &&
+						isLevelSelfContained(session, s.level)
+					),
+			);
+		}
+		if (checked) {
+			updated.push({ subject, level, session });
+		} else {
+			updated = updated.filter(
+				(s) =>
+					!(
+						s.subject === subject &&
+						s.level === level &&
+						s.session === session &&
+						!s.classId
+					),
+			);
+		}
+		setFormData({
+			...formData,
+			administrator: {
+				...formData.administrator,
+				adminClasses: updated,
+			},
+		});
+	};
+
+	const adminUniqueSubjectNames = useMemo(
+		() => new Set(formData.administrator.adminClasses.map((s) => s.subject)).size,
+		[formData.administrator.adminClasses],
+	);
+
+	const adminTotalTeacherClasses = useMemo(() => {
+		const ids = new Set<string>();
+		formData.administrator.adminClasses
+			.filter((s) => s.classId)
+			.forEach((s) => s.classId && ids.add(s.classId));
+		formData.administrator.adminClasses
+			.filter((s) => !s.classId)
+			.forEach((s) =>
+				getClassesBySessionAndLevel(s.session, s.level).forEach((cls: any) =>
+					ids.add(cls.classId),
+				),
+			);
+		return ids.size;
+	}, [formData.administrator.adminClasses]);
+
+	const adminSessionSubjectCount = (session: string) =>
+		formData.administrator.adminClasses.filter((s) => s.session === session).length;
+
 	/* ── Build API payload ── */
 	const buildTeacherSubjectsPayload = () => {
 		const classMap = new Map<string, Set<string>>();
@@ -1085,12 +1197,31 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				sponsorClass: formData.teacher.sponsorClass,
 			};
 		} else if (userType === 'administrator') {
+			const classMap = new Map<string, Set<string>>();
+			formData.administrator.adminClasses.forEach((s) => {
+				if (s.classId) {
+					if (!classMap.has(s.classId)) classMap.set(s.classId, new Set());
+					classMap.get(s.classId)!.add(s.subject);
+				} else {
+					const classes = getClassesBySessionAndLevel(s.session, s.level);
+					classes.forEach((cls: any) => {
+						if (!classMap.has(cls.classId)) classMap.set(cls.classId, new Set());
+						classMap.get(cls.classId)!.add(s.subject);
+					});
+				}
+			});
+			const adminClasses = Array.from(classMap.entries()).map(([classId, subjectsSet]) => ({
+				classId,
+				subjects: Array.from(subjectsSet),
+			}));
 			userData = {
 				...base,
 				position: formData.administrator.position,
 				permissions: formData.administrator.permissions,
 				canRecordStudentAttendance: formData.administrator.canRecordStudentAttendance,
 				canRecordTeacherAttendance: formData.administrator.canRecordTeacherAttendance,
+				isTeacher: formData.administrator.isTeacher,
+				classes: adminClasses.length > 0 ? [{ year: currentAcademicYear, classes: adminClasses }] : [],
 			};
 		} else {
 			userData = base;
@@ -1130,7 +1261,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				},
 			},
 			teacher: { subjects: [], isSponsor: false, sponsorClass: null },
-	administrator: { position: '', permissions: [] as string[], canRecordStudentAttendance: false, canRecordTeacherAttendance: false },
+	administrator: { position: '', permissions: [] as string[], canRecordStudentAttendance: false, canRecordTeacherAttendance: false, isTeacher: false, adminClasses: [] as Array<{ subject: string; level: string; session: string; classId?: string }> },
 		});
 		setErrors({});
 		setCreatedUserInfo(null);
@@ -2224,6 +2355,215 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 											)}
 										</div>
 									</SectionCard>
+									<SectionCard title="Teacher Role" icon={GraduationCap}>
+										<div className="space-y-3">
+											<p className="text-xs text-muted-foreground">
+												Enable teaching capabilities for this administrator. They will inherit teacher-level feature access and can be assigned classes and subjects.
+											</p>
+											<label className="flex items-center gap-3 cursor-pointer group">
+												<input
+													type="checkbox"
+													checked={formData.administrator.isTeacher}
+													onChange={(e) =>
+														setFormData({
+															...formData,
+															administrator: {
+																...formData.administrator,
+																isTeacher: e.target.checked,
+																adminClasses: e.target.checked ? formData.administrator.adminClasses : [],
+															},
+														})
+													}
+													className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+												/>
+												<div>
+													<p className="text-sm font-medium text-foreground">Enable Teacher Role</p>
+													<p className="text-xs text-muted-foreground">Grant class and subject assignments</p>
+												</div>
+											</label>
+										</div>
+									</SectionCard>
+									{formData.administrator.isTeacher && (
+										<div className="space-y-4">
+											<div className="flex items-center gap-2">
+												<div className="flex-1 h-px bg-border" />
+												<span className="text-sm font-semibold text-foreground shrink-0">Teaching Assignments</span>
+												<div className="flex-1 h-px bg-border" />
+											</div>
+
+											{/* Mobile session tabs */}
+											{hasMultipleSessions && (
+												<MobileTabStrip
+													items={getSessions().map((session) => ({
+														id: session,
+														label: session,
+														icon: BookOpen,
+														badge:
+															adminSessionSubjectCount(session) > 0 ? (
+																<span className="font-bold">
+																	{adminSessionSubjectCount(session)}
+																</span>
+															) : undefined,
+													}))}
+													activeId={adminActivePanel}
+													onSelect={setAdminActivePanel}
+												/>
+											)}
+
+											<div className="flex gap-4">
+												{/* Desktop sidebar — multi-session only */}
+												{hasMultipleSessions && (
+													<div className="hidden sm:flex flex-col gap-1 w-40 lg:w-44 shrink-0">
+														<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 px-1">
+															Sessions
+														</p>
+														{getSessions().map((session) => {
+															const count = adminSessionSubjectCount(session);
+															const isActive = adminActivePanel === session;
+															return (
+																<SidebarItem
+																	key={session}
+																	label={session}
+																	isActive={isActive}
+																	icon={BookOpen}
+																	badge={
+																		count > 0 ? (
+																			<span
+																				className={`shrink-0 text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center leading-none ${isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-primary/10 text-primary'}`}
+																			>
+																				{count}
+																			</span>
+																		) : undefined
+																	}
+																	onClick={() => setAdminActivePanel(session)}
+																/>
+															);
+														})}
+														{/* Sidebar summary */}
+														{formData.administrator.adminClasses.length > 0 && (
+															<div className="mt-3 pt-3 border-t border-border space-y-1.5">
+																<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-1">
+																	Summary
+																</p>
+																<div className="rounded-lg bg-muted/60 border border-border px-3 py-2.5 space-y-1.5 text-xs">
+																	<div className="flex justify-between gap-1">
+																		<span className="text-muted-foreground">
+																			Subjects
+																		</span>
+																		<span className="font-bold text-foreground">
+																			{adminUniqueSubjectNames}
+																		</span>
+																	</div>
+																	<div className="flex justify-between gap-1">
+																		<span className="text-muted-foreground">
+																			Classes
+																		</span>
+																		<span className="font-bold text-foreground">
+																			{adminTotalTeacherClasses}
+																		</span>
+																	</div>
+																	<div className="flex justify-between gap-1">
+																		<span className="text-muted-foreground">
+																			Sessions
+																		</span>
+																		<span className="font-bold text-foreground">
+																			{
+																				new Set(
+																					formData.administrator.adminClasses.map(
+																						(s) => s.session,
+																					),
+																				).size
+																			}
+																		</span>
+																	</div>
+																</div>
+															</div>
+														)}
+													</div>
+												)}
+
+												{/* Content panel */}
+												<div className="flex-1 min-w-0">
+													{!hasMultipleSessions ? (
+														<TeacherSessionPanel
+															session={getSessions()[0]}
+															formData={formData}
+															setFormData={setFormData}
+															subjects={formData.administrator.adminClasses}
+															showSponsorship={false}
+															isSCClassChecked={isAdminSCClassChecked}
+															handleSelfContainedSelection={handleAdminSelfContainedSelection}
+															handleSubjectChange={handleAdminSubjectChange}
+															getSelfContainedClasses={getSelfContainedClasses}
+															getClassLevels={getClassLevels}
+															isLevelSelfContained={isLevelSelfContained}
+															getSubjectsBySessionAndLevel={getSubjectsBySessionAndLevel}
+															getAllClassesForSession={getAllClassesForSession}
+															getLevelStyle={getLevelStyle}
+															uniqueSubjectNames={adminUniqueSubjectNames}
+															totalTeacherClasses={adminTotalTeacherClasses}
+															showSummaryInline
+														/>
+													) : !adminActivePanel ? (
+														<div className="min-h-[200px] sm:min-h-[360px] flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border text-center p-6 gap-3">
+															<BookOpen className="w-8 h-8 text-muted-foreground/30" />
+															<p className="text-sm font-medium text-muted-foreground">
+																<span className="sm:hidden">
+																	Tap a session above to begin
+																</span>
+																<span className="hidden sm:inline">
+																	Select a session to begin
+																</span>
+															</p>
+														</div>
+													) : (
+														<motion.div
+															key={adminActivePanel}
+															initial={{ opacity: 0, x: 6 }}
+															animate={{ opacity: 1, x: 0 }}
+															transition={{ duration: 0.16 }}
+														>
+															<TeacherSessionPanel
+																session={adminActivePanel}
+																formData={formData}
+																setFormData={setFormData}
+																subjects={formData.administrator.adminClasses}
+																showSponsorship={false}
+																isSCClassChecked={isAdminSCClassChecked}
+																handleSelfContainedSelection={handleAdminSelfContainedSelection}
+																handleSubjectChange={handleAdminSubjectChange}
+																getSelfContainedClasses={getSelfContainedClasses}
+																getClassLevels={getClassLevels}
+																isLevelSelfContained={isLevelSelfContained}
+																getSubjectsBySessionAndLevel={getSubjectsBySessionAndLevel}
+																getAllClassesForSession={getAllClassesForSession}
+																getLevelStyle={getLevelStyle}
+															/>
+														</motion.div>
+													)}
+												</div>
+											</div>
+
+											{/* Mobile summary bar — shown once anything is selected */}
+											{formData.administrator.adminClasses.length > 0 &&
+												hasMultipleSessions && (
+													<div className="sm:hidden rounded-lg border border-border bg-muted/50 px-4 py-2.5 flex gap-4 text-xs">
+														<span className="text-muted-foreground">
+															Subjects:{' '}
+															<span className="font-bold text-foreground">
+																{adminUniqueSubjectNames}
+															</span>
+														</span>
+														<span className="text-muted-foreground">
+															Classes:{' '}
+															<span className="font-bold text-foreground">
+																{adminTotalTeacherClasses}
+															</span>
+														</span>
+													</div>
+												)}
+										</div>
+									)}
 									<SectionCard title="Permissions" icon={Shield}>
 										<div className="space-y-3">
 											<p className="text-xs text-muted-foreground">
@@ -2517,6 +2857,20 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 												label="Teacher Attendance"
 												value={formData.administrator.canRecordTeacherAttendance ? 'Can Record' : 'No Access'}
 											/>
+											<ReviewRow
+												label="Is Teacher"
+												value={formData.administrator.isTeacher ? 'Yes' : 'No'}
+											/>
+											{formData.administrator.isTeacher && (
+												<ReviewRow
+													label="Classes"
+													value={
+														Array.from(
+															new Set(formData.administrator.adminClasses.map((s) => s.level)),
+														).join(', ') || '—'
+													}
+												/>
+											)}
 										</>
 									)}
 									</div>

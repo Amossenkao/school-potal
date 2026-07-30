@@ -450,6 +450,8 @@ const AppSidebar: React.FC = () => {
 		user?.role === 'administrator'
 			? (user as Administrator).permissions
 			: undefined;
+	const isTeacherAdmin =
+		user?.role === 'administrator' && (user as Administrator).isTeacher;
 
 	// ── Active path check ─────────────────────────────────────────────────────
 	const isActive = useCallback(
@@ -570,6 +572,7 @@ const AppSidebar: React.FC = () => {
 				currentSchool,
 				role,
 				adminPermissions,
+				isTeacherAdmin,
 			);
 			const totalPending = pendingSubmissions + pendingRequests;
 

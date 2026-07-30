@@ -193,6 +193,8 @@ function buildUserResponse(
 				permissions: user.permissions || [],
 				canRecordStudentAttendance: user.canRecordStudentAttendance || false,
 				canRecordTeacherAttendance: user.canRecordTeacherAttendance || false,
+				isTeacher: user.isTeacher ?? false,
+				classes: user.classes || [],
 				academicYears: user.academicYears || [],
 			} as Administrator;
 
@@ -446,6 +448,8 @@ async function buildUserData(
 				permissions: userData.permissions || [],
 				canRecordStudentAttendance: userData.canRecordStudentAttendance || false,
 				canRecordTeacherAttendance: userData.canRecordTeacherAttendance || false,
+				isTeacher: userData.isTeacher || false,
+				classes: userData.classes || [],
 				academicYears: [
 					{
 						year: academicYear,
@@ -1687,6 +1691,7 @@ export async function GET(request: NextRequest) {
 					nickName: a.nickName,
 					gender: a.gender,
 					position: a.position,
+					isTeacher: a.isTeacher || false,
 					role: 'administrator',
 				}));
 
@@ -3683,6 +3688,23 @@ export async function PUT(request: NextRequest) {
 				typeof position === 'string' && position.trim()
 					? position.trim()
 					: latestYearEntry?.position || targetRoleUser.position || null;
+			const existingClasses = Array.isArray(targetRoleUser.classes)
+				? targetRoleUser.classes
+				: [];
+			const latestClassEntry = existingClasses
+				.filter((entry: any) => entry?.year)
+				.sort(
+					(a: any, b: any) =>
+						(getAcademicYearStart(b.year) ?? -1) -
+						(getAcademicYearStart(a.year) ?? -1),
+				)[0];
+			const clonedClasses = normalizeTeacherClasses(
+				latestClassEntry?.classes || [],
+			);
+			const requestedClasses = normalizeTeacherClasses(classes || []);
+			const classesForNewYear = hasPayloadProp('classes')
+				? requestedClasses
+				: clonedClasses;
 			if (positionForNewYear) {
 				const positionConflict = await models.User.findOne({
 					_id: { $ne: targetUserId },
@@ -3721,15 +3743,23 @@ export async function PUT(request: NextRequest) {
 				}
 			}
 
+			const adminPushFields: any = {
+				academicYears: {
+					year: newAcademicYear,
+					position: positionForNewYear,
+				},
+			};
+			if (classesForNewYear.length > 0) {
+				adminPushFields.classes = {
+					year: newAcademicYear,
+					classes: classesForNewYear,
+				};
+			}
+
 			const updatedAdministrator = await models.Administrator.findByIdAndUpdate(
 				targetUserId,
 				{
-					$push: {
-						academicYears: {
-							year: newAcademicYear,
-							position: positionForNewYear,
-						},
-					},
+					$push: adminPushFields,
 					$set: {
 						...(positionForNewYear ? { position: positionForNewYear } : {}),
 						updatedBy: currentUser.userId,
@@ -3969,7 +3999,7 @@ export async function PUT(request: NextRequest) {
 						allowedFields = [...baseFields, 'subjects', 'sponsorClass'];
 						break;
 					case 'administrator':
-						allowedFields = [...baseFields, 'position', 'permissions', 'canRecordStudentAttendance', 'canRecordTeacherAttendance'];
+						allowedFields = [...baseFields, 'position', 'permissions', 'canRecordStudentAttendance', 'canRecordTeacherAttendance', 'isTeacher', 'classes'];
 						break;
 					default:
 						allowedFields = baseFields;

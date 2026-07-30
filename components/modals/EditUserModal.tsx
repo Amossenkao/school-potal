@@ -208,6 +208,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	const [showDemotionModal, setShowDemotionModal] = useState(false);
 	const [showCarryOverModal, setShowCarryOverModal] = useState(false);
 	const [activeTeacherSession, setActiveTeacherSession] = useState('');
+	const [adminActiveSession, setAdminActiveSession] = useState('');
 	const [carryOverActiveSession, setCarryOverActiveSession] = useState('');
 	const [promotionForm, setPromotionForm] = useState({
 		type: 'yearlyPromotion',
@@ -503,6 +504,38 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 			if (userData.role === 'administrator') {
 				userData.permissions = userData.permissions || [];
+				const activeYear = getCurrentAcademicYear();
+				const yearClasses =
+					userData.classes?.find((entry: any) => entry.year === activeYear) ||
+					(userData.classes || [])
+						.slice()
+						.sort((a: any, b: any) => (b.year || '').localeCompare(a.year || ''))[0];
+				const selectionMap = new Map();
+				(yearClasses?.classes || []).forEach((classData: any) => {
+					const meta = getClassMetaById(classData.classId);
+					if (!meta) return;
+					const isSC = isLevelSelfContained(meta.session, meta.level);
+					(classData.subjects || []).forEach((subjectValue: any) => {
+						const subjectName =
+							typeof subjectValue === 'string'
+								? subjectValue
+								: subjectValue?.subject || subjectValue?.name;
+						if (!subjectName) return;
+						const key = isSC
+							? `${meta.session}|${meta.level}|${classData.classId}|${subjectName}`
+							: `${meta.session}|${meta.level}|${subjectName}`;
+						if (!selectionMap.has(key)) {
+							selectionMap.set(key, {
+								subject: subjectName,
+								level: meta.level,
+								session: meta.session,
+								classId: isSC ? classData.classId : undefined,
+							});
+						}
+					});
+				});
+				userData.adminClasses = Array.from(selectionMap.values());
+				userData.isTeacher = userData.isTeacher || false;
 			}
 
 			setFormData(userData);
@@ -762,6 +795,65 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		});
 	};
 
+	/* ── Admin teacher handlers ── */
+	const handleAdminSubjectChange = (subject, level, session, checked) => {
+		setFormData((prev) => {
+			let updated = [...(prev.adminClasses || [])];
+			const hasSCInSession = updated.some(
+				(s) =>
+					s.session === session &&
+					s.classId &&
+					isLevelSelfContained(session, s.level),
+			);
+			if (hasSCInSession) {
+				updated = updated.filter(
+					(s) =>
+						!(
+							s.session === session &&
+							s.classId &&
+							isLevelSelfContained(session, s.level)
+						),
+				);
+			}
+			if (checked) {
+				updated.push({ subject, level, session });
+			} else {
+				updated = updated.filter(
+					(s) =>
+						!(
+							s.subject === subject &&
+							s.level === level &&
+							s.session === session &&
+							!s.classId
+						),
+				);
+			}
+			return { ...prev, adminClasses: updated };
+		});
+	};
+
+	const handleAdminSelfContainedSelection = (classId, session, level, checked) => {
+		setFormData((prev) => {
+			const existing = [...(prev.adminClasses || [])];
+			const filtered = existing.filter(
+				(s) =>
+					!(
+						s.classId === classId &&
+						s.session === session &&
+						s.level === level
+					),
+			);
+			if (checked) {
+				const subjects = getSubjectsBySessionAndLevel(session, level)
+					.map((sub: any) => getSubjectName(sub))
+					.filter(Boolean)
+					.map((name: string) => ({ subject: name, level, session, classId }));
+				return { ...prev, adminClasses: [...filtered, ...subjects] };
+			}
+			return { ...prev, adminClasses: filtered };
+		});
+	};
+
 	// Handlers for carry over using the same logic paradigm
 	const handleCarryOverSelfContainedSelection = (
 		classId,
@@ -917,10 +1009,20 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		setValidationErrors([]);
 		setConflictState(null);
 
-		const payload =
-			user?.role === 'teacher'
-				? { ...formData, subjects: buildTeacherSubjectsPayload() }
-				: formData;
+		let payload = formData;
+		if (user?.role === 'teacher') {
+			payload = { ...formData, subjects: buildTeacherSubjectsPayload() };
+		} else if (user?.role === 'administrator') {
+			const academicYear = getCurrentAcademicYear();
+			const classes = buildTeacherClassesPayloadFromSelections(
+				formData.adminClasses || [],
+				null,
+			);
+			payload = {
+				...formData,
+				classes: classes.length > 0 ? [{ year: academicYear, classes }] : [],
+			};
+		}
 		const changedData = getChangedFields(user, payload);
 
 		if (Object.keys(changedData).length === 0) {
@@ -1127,6 +1229,16 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			setCarryOverPosition(
 				latestAdminYear?.position || user?.position || adminPositions[0],
 			);
+			if (user?.isTeacher) {
+				const latestClassEntry = (user.classes || [])
+					.slice()
+					.sort((a: any, b: any) => (b.year || '').localeCompare(a.year || ''))[0];
+				const defaultSelections = mapYearEntryToTeacherSelections(
+					{ classes: latestClassEntry?.classes || [] },
+				);
+				setCarryOverSubjects(defaultSelections);
+				setCarryOverAssignmentsExpanded(defaultSelections.length > 0);
+			}
 		}
 		setShowCarryOverModal(true);
 	};
@@ -1386,6 +1498,15 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				return;
 			}
 			requestBody.position = carryOverPosition;
+			if (user?.isTeacher && carryOverSubjects.length > 0) {
+				const classes = buildTeacherClassesPayloadFromSelections(
+					carryOverSubjects,
+					null,
+				);
+				if (classes.length > 0) {
+					requestBody.classes = classes;
+				}
+			}
 		}
 
 		setActionLoading(true);
@@ -1451,6 +1572,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		onSCChange,
 		onSubChange,
 		onSponsorChange,
+		showSponsorship = true,
 	) => {
 		const scClasses = getSelfContainedClasses(session);
 		const regularLevels = getClassLevels(session).filter(
@@ -1577,7 +1699,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 					</SectionCard>
 				)}
 
-				<SectionCard
+				{showSponsorship && <SectionCard
 					title="Class Sponsorship"
 					subtitle="Assign this teacher as homeroom sponsor for one class (optional)."
 					icon={Users}
@@ -1607,7 +1729,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 								))}
 						</SelectContent>
 					</Select>
-				</SectionCard>
+				</SectionCard>}
 			</div>
 		);
 	};
@@ -1960,6 +2082,94 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 									</Select>
 								</div>
 							</section>
+							<section>
+								<h5 className="font-semibold mb-4 text-lg border-b pb-2">
+									Teacher Role
+								</h5>
+								<div className="space-y-3">
+									<p className="text-xs text-muted-foreground">
+										Enable teaching capabilities for this administrator. They will inherit teacher-level feature access and can be assigned classes and subjects.
+									</p>
+									<label className="flex items-center gap-3 cursor-pointer">
+										<input
+											type="checkbox"
+											checked={formData.isTeacher || false}
+											onChange={(e) => {
+												const checked = e.target.checked;
+												setFormData((prev) => ({
+													...prev,
+													isTeacher: checked,
+													adminClasses: checked ? prev.adminClasses || [] : [],
+												}));
+											}}
+											className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+										/>
+										<div>
+											<p className="text-sm font-medium text-foreground">Enable Teacher Role</p>
+											<p className="text-xs text-muted-foreground">Grant class and subject assignments</p>
+										</div>
+									</label>
+								</div>
+							</section>
+							{formData.isTeacher && (
+								<section>
+									<h5 className="font-semibold mb-4 text-lg border-b pb-2">
+										Teaching Assignments
+									</h5>
+
+									{getSessions().length > 1 && (
+										<MobileTabStrip
+											items={getSessions().map((session) => ({
+												id: session,
+												label: session,
+												icon: BookOpen,
+											}))}
+											activeId={adminActiveSession}
+											onSelect={setAdminActiveSession}
+										/>
+									)}
+
+									<div className="flex gap-4">
+										{getSessions().length > 1 && (
+											<div className="hidden sm:flex flex-col gap-1 w-40 lg:w-44 shrink-0">
+												<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 px-1">
+													Sessions
+												</p>
+												{getSessions().map((session) => (
+													<SidebarItem
+														key={session}
+														label={session}
+														isActive={adminActiveSession === session}
+														icon={BookOpen}
+														onClick={() => setAdminActiveSession(session)}
+													/>
+												))}
+											</div>
+										)}
+
+										<div className="flex-1 min-w-0">
+											<AnimatePresence mode="wait">
+												<motion.div
+													key={adminActiveSession || getSessions()[0]}
+													initial={{ opacity: 0, x: 6 }}
+													animate={{ opacity: 1, x: 0 }}
+													transition={{ duration: 0.16 }}
+												>
+													{renderTeacherSessionPanel(
+														adminActiveSession || getSessions()[0],
+														formData.adminClasses || [],
+														null,
+														handleAdminSelfContainedSelection,
+														handleAdminSubjectChange,
+														() => {},
+														false,
+													)}
+												</motion.div>
+											</AnimatePresence>
+										</div>
+									</div>
+								</section>
+							)}
 							<section>
 								<h5 className="font-semibold mb-3 text-lg border-b pb-2">
 									Feature Permissions

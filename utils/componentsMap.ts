@@ -274,12 +274,14 @@ function getAccessibleRouteKeys(
 	schoolProfile: SchoolProfile,
 	userRole: string,
 	adminPermissions?: FeatureKey[],
+	isTeacher?: boolean,
 ): string[] {
 	const routeKeys: string[] = [];
 	const userFeatures = getUserAccessibleFeatures(
 		schoolProfile,
 		userRole,
 		adminPermissions,
+		isTeacher,
 	);
 
 	userFeatures.forEach((feature) => {
@@ -306,11 +308,13 @@ export function preloadComponentsForUser(
 	schoolProfile: SchoolProfile,
 	userRole: string,
 	adminPermissions?: FeatureKey[],
+	isTeacher?: boolean,
 ): void {
 	const routeKeys = getAccessibleRouteKeys(
 		schoolProfile,
 		userRole,
 		adminPermissions,
+		isTeacher,
 	);
 	const uniqueKeys = Array.from(new Set(routeKeys));
 
@@ -911,12 +915,6 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 	},
 
 	// Placeholder features
-	homepage: {
-		key: 'homepage',
-		title: 'Homepage',
-		icon: LayoutDashboard,
-		routes: {},
-	},
 	enrollment_info: {
 		key: 'enrollment_info',
 		title: 'Enrollment Info',
@@ -970,6 +968,34 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		title: 'Document Requests',
 		icon: FileText,
 		routes: {},
+	},
+	default_features: {
+		key: 'default_features',
+		title: 'Default Pages',
+		icon: LayoutDashboard,
+		category: 'General',
+		routes: {
+			student: [
+				{ key: 'dashboard', title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+				{ key: 'profile', title: 'Profile', href: '/profile', icon: UserCircle },
+				{ key: 'notifications', title: 'Notifications', href: '/notifications', icon: BellDot },
+			],
+			teacher: [
+				{ key: 'dashboard', title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+				{ key: 'profile', title: 'Profile', href: '/profile', icon: UserCircle },
+				{ key: 'notifications', title: 'Notifications', href: '/notifications', icon: BellDot },
+			],
+			system_admin: [
+				{ key: 'dashboard', title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+				{ key: 'profile', title: 'Profile', href: '/profile', icon: UserCircle },
+				{ key: 'notifications', title: 'Notifications', href: '/notifications', icon: BellDot },
+			],
+			administrator: [
+				{ key: 'dashboard', title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+				{ key: 'profile', title: 'Profile', href: '/profile', icon: UserCircle },
+				{ key: 'notifications', title: 'Notifications', href: '/notifications', icon: BellDot },
+			],
+		},
 	},
 };
 
@@ -1032,16 +1058,20 @@ function hasFeatureAccess(
 	userRole: string,
 	feature: FeatureKey,
 	adminPermissions?: FeatureKey[],
+	isTeacher?: boolean,
 ): boolean {
-	// Check if feature is enabled for the school
+	if (feature === 'default_features') return true;
 	if (!schoolProfile.featureConfig.enabledFeatures.includes(feature)) return false;
 
-	// Handle administrators using per-user permissions
-	if (userRole === 'administrator' && adminPermissions) {
-		return adminPermissions.includes(feature);
+	if (userRole === 'administrator') {
+		if (adminPermissions?.includes(feature)) return true;
+		if (isTeacher) {
+			const teacherFeatures = schoolProfile.featureConfig.roleFeatureAccess.teacher;
+			if (Array.isArray(teacherFeatures) && teacherFeatures.includes(feature)) return true;
+		}
+		return false;
 	}
 
-	// Handle standard roles
 	const roleAccess =
 		schoolProfile.featureConfig.roleFeatureAccess[
 			userRole as keyof typeof schoolProfile.featureConfig.roleFeatureAccess
@@ -1062,6 +1092,7 @@ export function generateDynamicComponentsMap(
 	schoolProfile: SchoolProfile,
 	userRole: string,
 	adminPermissions?: FeatureKey[],
+	isTeacher?: boolean,
 ): any {
 	const dynamicMap: any = {
 		[userRole]: {
@@ -1077,12 +1108,12 @@ export function generateDynamicComponentsMap(
 		schoolProfile,
 		userRole,
 		adminPermissions,
+		isTeacher,
 	);
 
-	// Process each feature the user has access to
 	userFeatures.forEach((feature) => {
 		// Check if feature is enabled for the school
-		if (!schoolProfile.featureConfig.enabledFeatures.includes(feature)) return;
+		if (feature !== 'default_features' && !schoolProfile.featureConfig.enabledFeatures.includes(feature)) return;
 
 		const featureConfig = featureConfigurations[feature];
 		if (!featureConfig) return;
@@ -1157,6 +1188,7 @@ export function generateNavigationItems(
 	schoolProfile: SchoolProfile,
 	userRole: string,
 	adminPermissions?: FeatureKey[],
+	isTeacher?: boolean,
 ): NavItem[] {
 	const navItems: NavItem[] = [];
 	const moveNavItemBefore = (
@@ -1184,9 +1216,9 @@ export function generateNavigationItems(
 		schoolProfile,
 		userRole,
 		adminPermissions,
+		isTeacher,
 	);
 
-	// Group routes by category
 	const routesByCategory: Record<
 		string,
 		Array<{
@@ -1205,6 +1237,8 @@ export function generateNavigationItems(
 
 	// Process each accessible feature
 	accessibleFeatures.forEach((feature) => {
+		// default_features routes are already added as hardcoded nav items above
+		if (feature === 'default_features') return;
 		// Check if feature is enabled for the school
 		if (!schoolProfile.featureConfig.enabledFeatures.includes(feature)) return;
 
@@ -1305,6 +1339,7 @@ export function validateComponentAccess(
 	userRole: string,
 	routeKey: string,
 	adminPermissions?: FeatureKey[],
+	isTeacher?: boolean,
 ): boolean {
 	// Explicitly tie report routes to academic_reports feature access
 	const reportRouteFeatureMap: Record<string, FeatureKey> = {
@@ -1320,10 +1355,10 @@ export function validateComponentAccess(
 			userRole,
 			reportRouteFeatureMap[routeKey],
 			adminPermissions,
+			isTeacher,
 		);
 	}
 
-	// Check online_payment dependency for 'pay' route
 	if (
 		routeKey === 'pay' &&
 		!schoolProfile.featureConfig.enabledFeatures.includes('online_payment' as FeatureKey)
@@ -1331,7 +1366,6 @@ export function validateComponentAccess(
 		return false;
 	}
 
-	// Find which feature this route belongs to
 	for (const feature of Object.values(featureConfigurations)) {
 		let userRoutes = feature.routes[userRole];
 		if (!userRoutes) {
@@ -1344,6 +1378,7 @@ export function validateComponentAccess(
 				userRole,
 				feature.key,
 				adminPermissions,
+				isTeacher,
 			);
 		}
 	}
@@ -1358,6 +1393,7 @@ export function getUserRoutes(
 	schoolProfile: SchoolProfile,
 	userRole: string,
 	adminPermissions?: FeatureKey[],
+	isTeacher?: boolean,
 ): Array<{
 	key: string;
 	title: string;
@@ -1377,6 +1413,7 @@ export function getUserRoutes(
 		schoolProfile,
 		userRole,
 		adminPermissions,
+		isTeacher,
 	);
 
 	accessibleFeatures.forEach((feature) => {
@@ -1415,12 +1452,20 @@ export function getUserAccessibleFeatures(
 	schoolProfile: SchoolProfile,
 	userRole: string,
 	adminPermissions?: FeatureKey[],
+	isTeacher?: boolean,
 ): FeatureKey[] {
-	if (userRole === 'administrator' && adminPermissions) {
-		const uniqueFeatures = Array.from(new Set(adminPermissions));
-		return uniqueFeatures.filter((feature) =>
-			schoolProfile.featureConfig.enabledFeatures.includes(feature),
+	const defaultFeatures: FeatureKey[] = ['default_features'];
+
+	if (userRole === 'administrator') {
+		const features = new Set(adminPermissions || []);
+		if (isTeacher) {
+			const teacherFeatures = schoolProfile.featureConfig.roleFeatureAccess.teacher;
+			if (Array.isArray(teacherFeatures)) teacherFeatures.forEach((f) => features.add(f));
+		}
+		const enabled = Array.from(features).filter((f) =>
+			schoolProfile.featureConfig.enabledFeatures.includes(f),
 		);
+		return [...defaultFeatures, ...enabled];
 	}
 
 	const roleAccess =
@@ -1431,9 +1476,10 @@ export function getUserAccessibleFeatures(
 	const features = Array.isArray(roleAccess) ? roleAccess : [];
 	const uniqueFeatures = Array.from(new Set(features));
 
-	return uniqueFeatures.filter((feature) =>
+	const enabled = uniqueFeatures.filter((feature) =>
 		schoolProfile.featureConfig.enabledFeatures.includes(feature),
 	);
+	return [...defaultFeatures, ...enabled];
 }
 
 export function getFeatureConfig(

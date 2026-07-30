@@ -409,6 +409,8 @@ function buildUserResponse(user: any) {
 				permissions: user.permissions || [],
 				canRecordStudentAttendance: user.canRecordStudentAttendance ?? false,
 				canRecordTeacherAttendance: user.canRecordTeacherAttendance ?? false,
+				isTeacher: user.isTeacher ?? false,
+				classes: user.classes || [],
 				academicYears: user.academicYears || [],
 			};
 		case 'system_admin':

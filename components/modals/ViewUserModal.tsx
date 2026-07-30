@@ -361,7 +361,48 @@ const ViewUserModal = ({
 													label="Years with Institution"
 													value={getYearsSpent(viewingUser)}
 												/>
+												<div className="sm:col-span-2">
+													<p className="text-sm text-muted-foreground">Teacher Role</p>
+													{viewingUser.isTeacher ? (
+														<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+															Enabled
+														</span>
+													) : (
+														<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+															Not Enabled
+														</span>
+													)}
+												</div>
 											</div>
+											{viewingUser.isTeacher && viewingUser.classes && (
+												<div className="mt-4">
+													<p className="text-sm text-muted-foreground mb-2">
+														Current Classes & Subjects
+													</p>
+													{(() => {
+														const classEntries = Array.isArray(viewingUser.classes) ? viewingUser.classes : [];
+														const currentYearEntry = classEntries
+															.slice()
+															.sort((a, b) => (b.year || '').localeCompare(a.year || ''))[0];
+														return currentYearEntry?.classes?.length > 0 ? (
+															<div className="space-y-2">
+																{currentYearEntry.classes.map((cls, idx) => (
+																	<div key={`${cls.classId}-${idx}`} className="rounded-lg border border-border bg-muted/40 p-3">
+																		<p className="text-sm font-medium text-foreground">
+																			Class: {getClassNameFromId(cls.classId) || cls.classId}
+																		</p>
+																		<p className="text-xs text-muted-foreground">
+																			Subjects: {(cls.subjects || []).join(', ') || 'N/A'}
+																		</p>
+																	</div>
+																))}
+															</div>
+														) : (
+															<p className="text-sm text-muted-foreground">No current class assignments.</p>
+														);
+													})()}
+												</div>
+											)}
 											<div className="mt-4">
 												<p className="text-sm text-muted-foreground mb-2">
 													Position Timeline

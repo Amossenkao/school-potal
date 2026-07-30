@@ -37,6 +37,7 @@ function validateAdministratorAccess(
 			'administrator',
 			routeKey,
 			adminUser.permissions,
+			adminUser.isTeacher,
 		);
 	}
 
@@ -104,15 +105,17 @@ export default async function DynamicDashboardPage({ params }: PageProps) {
 			);
 		}
 
-		// Generate dynamic components map with administrator permissions support
 		const adminPermissions =
 			user.role === 'administrator'
 				? (user as Administrator).permissions
 				: undefined;
+		const isTeacherAdmin =
+			user.role === 'administrator' && (user as Administrator).isTeacher;
 		const componentsMap = generateDynamicComponentsMap(
 			plainSchoolProfile,
 			user.role,
 			adminPermissions,
+			isTeacherAdmin,
 		);
 
 		// Try to find the component in role-specific items first, then shared items

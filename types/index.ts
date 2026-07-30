@@ -11,7 +11,6 @@ export type FeatureKey =
 	// Core
 	| 'user_management'
 	| 'ai_chat'
-	| 'homepage'
 	| 'apps'
 	| 'student_attendance'
 	| 'teacher_attendance'
@@ -32,13 +31,15 @@ export type FeatureKey =
 	| 'academic_documents'
 
 	// System
-	| 'school_settings';
+	| 'school_settings'
+
+	// Default (always-accessible core pages)
+	| 'default_features';
 
 export const FEATURE_KEYS: FeatureKey[] = [
 	// Core Features
 	'user_management',
 	'ai_chat',
-	'homepage',
 	'apps',
 	'student_attendance',
 	'teacher_attendance',
@@ -64,6 +65,9 @@ export const FEATURE_KEYS: FeatureKey[] = [
 
 	// System Features
 	'school_settings',
+
+	// Default Features (always accessible)
+	'default_features',
 ];
 export interface ClassSchedule {
 	day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday';
@@ -194,6 +198,11 @@ export interface Administrator extends User {
 	permissions: FeatureKey[];
 	canRecordStudentAttendance: boolean;
 	canRecordTeacherAttendance: boolean;
+	isTeacher: boolean;
+	classes: {
+		year: string;
+		classes: { classId: string; subjects: string[] }[];
+	}[];
 	academicYears: { year: string; position: string }[];
 }
 

@@ -445,7 +445,7 @@ export async function POST(request: NextRequest) {
 				administratorSettings: body.userConfig?.administratorSettings || { loginAccess: true },
 			},
 			featureConfig: {
-				enabledFeatures: body.featureConfig?.enabledFeatures || ['user_management', 'homepage'],
+				enabledFeatures: body.featureConfig?.enabledFeatures || ['user_management'],
 				roleFeatureAccess: body.featureConfig?.roleFeatureAccess || { student: [], teacher: [], system_admin: [], administrator: {} },
 			},
 			financialConfig: {

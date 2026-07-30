@@ -7,6 +7,18 @@ const AdministratorSchema = new Schema<Administrator & Document>({
 	permissions: { type: [String], default: [] },
 	canRecordStudentAttendance: { type: Boolean, default: false },
 	canRecordTeacherAttendance: { type: Boolean, default: false },
+	isTeacher: { type: Boolean, default: false },
+	classes: [
+		{
+			year: { type: String, required: true },
+			classes: [
+				{
+					classId: { type: String, required: true },
+					subjects: { type: [String], default: [] },
+				},
+			],
+		},
+	],
 	academicYears: [
 		{
 			year: { type: String, required: true },

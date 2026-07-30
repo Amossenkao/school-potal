@@ -45,7 +45,8 @@ function validateAdministratorAccess(
 			schoolProfile,
 			'administrator',
 			routeKey,
-			adminUser.permissions
+			adminUser.permissions,
+			adminUser.isTeacher,
 		);
 	}
 	return validateComponentAccess(schoolProfile, user.role, routeKey);
@@ -140,10 +141,13 @@ function OfflineRouteRenderer({ path }: { path: string }) {
 		user.role === 'administrator'
 			? (user as Administrator).permissions
 			: undefined;
+	const isTeacherAdmin =
+		user.role === 'administrator' && (user as Administrator).isTeacher;
 	const componentsMap = generateDynamicComponentsMap(
 		school,
 		user.role,
-		adminPermissions
+		adminPermissions,
+		isTeacherAdmin,
 	);
 
 	const entry =
