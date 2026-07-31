@@ -3,10 +3,10 @@ import type { NextRequest } from 'next/server';
 
 import { authorizeUser } from '@/proxy';
 
-const MONITORING_ROLES = ['superadmin'] as const;
 
 export async function authorizeMonitoringRequest(request: NextRequest) {
-	const currentUser = await authorizeUser(request, [...MONITORING_ROLES]);
+	const currentUser = await authorizeUser(request, "superadmin");
+	console.log(`Current User: ${currentUser}`)
 
 	if (!currentUser) {
 		return {
