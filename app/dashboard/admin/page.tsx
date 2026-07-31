@@ -108,10 +108,10 @@ export default function SuperAdminDashboardPage() {
 							<ArrowRight className="h-4 w-4 text-gray-400" />
 						</Link>
 						<Link
-							href="/dashboard/audit"
+							href="/dashboard/admin/observability"
 							className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800/50"
 						>
-							<span>View Audit Logs</span>
+							<span>Open Observability</span>
 							<ArrowRight className="h-4 w-4 text-gray-400" />
 						</Link>
 					</div>

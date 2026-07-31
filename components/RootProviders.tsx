@@ -28,7 +28,7 @@ export default function RootProviders({
 	hasSchool?: boolean;
 }) {
 	const { school, hydrateCache } = useSchoolStore();
-	const hasAppsFeature = Boolean(school?.enabledFeatures?.includes('apps'));
+	const hasAppsFeature = Boolean(school?.featureConfig.enabledFeatures.includes('apps'));
 
 	// Initialize store network event hooks once
 	useEffect(() => {
@@ -272,7 +272,7 @@ if (!isSessionValid) {
 				// -------------------------------------------------------------
 				await useSchoolStore.getState().fetchSchool();
 				const activeYear =
-					useSchoolStore.getState().school?.currentAcademicYear;
+					useSchoolStore.getState().school?.identity.currentAcademicYear;
 				if (
 					activeYear &&
 					useSchoolStore.getState().hasPendingGradeSync(activeYear)
@@ -308,8 +308,8 @@ if (!isSessionValid) {
 
 	useEffect(() => {
 		const preferredTheme = localStorage.getItem('user_theme_preference');
-		applyTenantThemeToDocument(preferredTheme || school?.themeName);
-	}, [school?.themeName]);
+		applyTenantThemeToDocument(preferredTheme || school?.branding.themeName);
+	}, [school?.branding.themeName]);
 
 	return (
 		<HasSchoolProvider value={hasSchool}>

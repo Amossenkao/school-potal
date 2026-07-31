@@ -60,6 +60,7 @@ const IdentityStrip = ({
 	roles,
 	onChangeRole,
 	onChangePosition,
+	loginType,
 }: {
 	school: SchoolProfile | null;
 	selectedRole: string;
@@ -73,9 +74,20 @@ const IdentityStrip = ({
 	}[];
 	onChangeRole: () => void;
 	onChangePosition: () => void;
+	loginType: 'student' | 'parent';
 }) => {
 	const currentRole = roles.find((r) => r.value === selectedRole);
 	const currentPos = adminPositions.find((p) => p.id === adminPosition);
+	const roleLabel =
+		selectedRole === 'student'
+			? loginType === 'parent'
+				? 'Parent'
+				: 'Student'
+			: currentRole?.label || selectedRole;
+	const RoleIcon =
+		selectedRole === 'student' && loginType === 'parent'
+			? Users
+			: currentRole?.icon;
 	const schoolDisplayName = school?.identity?.shortName || school?.identity?.name || '';
 	const schoolTagline = school?.identity?.slogan || '';
 	const hasSchoolBrand = Boolean(
@@ -138,11 +150,11 @@ const IdentityStrip = ({
 							Role
 						</p>
 						<div className="flex items-center gap-2">
-							{currentRole && (
-								<currentRole.icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+							{RoleIcon && (
+								<RoleIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
 							)}
 							<p className="text-sm font-medium text-foreground truncate">
-								{currentRole?.label || selectedRole}
+								{roleLabel}
 							</p>
 						</div>
 					</div>
@@ -231,6 +243,7 @@ const MobileRoleIndicator = ({
 	adminPosition,
 	roles,
 	adminPositions,
+	loginType,
 }: {
 	selectedRole: string;
 	adminPosition: string;
@@ -241,11 +254,23 @@ const MobileRoleIndicator = ({
 		colorClass: string;
 	}[];
 	adminPositions: { id: string; name: string }[];
+	loginType: 'student' | 'parent';
 }) => {
 	const currentRole = roles.find((r) => r.value === selectedRole);
 	const currentPos = adminPositions.find((p) => p.id === adminPosition);
 
 	if (!currentRole) return null;
+
+	const roleLabel =
+		selectedRole === 'student'
+			? loginType === 'parent'
+				? 'Parent'
+				: 'Student'
+			: currentRole.label;
+	const RoleIcon =
+		selectedRole === 'student' && loginType === 'parent'
+			? Users
+			: currentRole.icon;
 
 	return (
 		<div className="lg:hidden flex flex-wrap items-center gap-2 mb-6 animate-in fade-in slide-in-from-top-2 duration-200">
@@ -256,9 +281,9 @@ const MobileRoleIndicator = ({
 					px-3 py-1.5
 				"
 			>
-				<currentRole.icon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+				<RoleIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
 				<span className="text-xs font-medium text-foreground">
-					{currentRole.label}
+					{roleLabel}
 				</span>
 			</div>
 
@@ -445,6 +470,9 @@ const FormStep = ({
 	offlineError,
 	onForgotPassword,
 	inputRef,
+	loginType,
+	onLoginTypeChange,
+	isStudentRole,
 }: {
 	formData: { username: string; password: string };
 	onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -455,6 +483,9 @@ const FormStep = ({
 	offlineError: string;
 	onForgotPassword: () => void;
 	inputRef: React.RefObject<HTMLInputElement>;
+	loginType: 'student' | 'parent';
+	onLoginTypeChange: (type: 'student' | 'parent') => void;
+	isStudentRole: boolean;
 }) => {
 	const [showPw, setShowPw] = useState(false);
 
@@ -484,6 +515,46 @@ const FormStep = ({
 			</div>
 
 			<form onSubmit={onSubmit} className="flex flex-col gap-5">
+				{/* Student / Parent toggle (only when signing in as student role) */}
+				{isStudentRole && (
+					<div className="flex flex-col gap-1.5">
+						<label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+							Sign in as
+						</label>
+						<div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted/50 border border-border">
+							{(
+								[
+									{ value: 'student', label: 'Student', icon: GraduationCap },
+									{ value: 'parent', label: 'Parent', icon: Users },
+								] as const
+							).map(({ value, label, icon: Icon }) => {
+								const active = loginType === value;
+								return (
+									<button
+										key={value}
+										type="button"
+										onClick={() => onLoginTypeChange(value)}
+										className={`
+											flex items-center justify-center gap-1.5
+											py-2 rounded-lg text-sm font-medium
+											transition-all duration-150
+											focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary
+											${
+												active
+													? 'bg-background text-foreground shadow-sm border border-border'
+													: 'text-muted-foreground hover:text-foreground border border-transparent'
+											}
+										`}
+									>
+										<Icon className="w-4 h-4" />
+										{label}
+									</button>
+								);
+							})}
+						</div>
+					</div>
+				)}
+
 				{/* Username */}
 				<div className="flex flex-col gap-1.5">
 					<label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -743,6 +814,7 @@ const LoginPage = () => {
 	const router = useRouter();
 	const [selectedRole, setSelectedRole] = useState('');
 	const [adminPosition, setAdminPosition] = useState('');
+	const [loginType, setLoginType] = useState<'student' | 'parent'>('student');
 	const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
 	const [isRedirecting, setIsRedirecting] = useState(false);
 	const [redirectTimedOut, setRedirectTimedOut] = useState(false);
@@ -977,6 +1049,7 @@ useEffect(() => {
 		clearError();
 		setLoginDisabledError('');
 		setFormData({ username: '', password: '' });
+		setLoginType('student');
 	}, [selectedRole, adminPosition, clearError]);
 
 	useEffect(() => {
@@ -1017,7 +1090,7 @@ useEffect(() => {
 	const roles = [
 		{
 			value: 'student',
-			label: 'Student',
+			label: 'Student/Parent',
 			icon: GraduationCap,
 			colorClass:
 				'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
@@ -1081,7 +1154,10 @@ useEffect(() => {
 		if (loginDisabledError) setLoginDisabledError('');
 
 		const loginData = {
-			role: selectedRole,
+			role:
+				selectedRole === 'student' && loginType === 'parent'
+					? 'parent'
+					: selectedRole,
 			username: formData.username,
 			password: formData.password,
 			...(selectedRole === 'administrator' && { position: adminPosition }),
@@ -1191,6 +1267,7 @@ useEffect(() => {
 								adminPosition={adminPosition}
 								adminPositions={adminPositions}
 								roles={roles}
+								loginType={loginType}
 								onChangeRole={() => {
 									setSelectedRole('');
 									setAdminPosition('');
@@ -1240,6 +1317,7 @@ useEffect(() => {
 									adminPosition={adminPosition}
 									roles={roles}
 									adminPositions={adminPositions}
+									loginType={loginType}
 								/>
 
 								{/* ── Step: role selection ── */}
@@ -1272,6 +1350,9 @@ useEffect(() => {
 										offlineError={offlineError}
 										onForgotPassword={() => setShowForgotPasswordModal(true)}
 										inputRef={usernameInputRef}
+										loginType={loginType}
+										onLoginTypeChange={setLoginType}
+										isStudentRole={selectedRole === 'student'}
 									/>
 								)}
 

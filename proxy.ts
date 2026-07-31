@@ -5,6 +5,10 @@ import { UserRole } from './types';
 import { getTenantModels } from '@/models';
 import { getSchoolMeshModels } from '@/models/schoolmesh';
 import { getSchoolProfile } from '@/lib/mongoose';
+import { recordApplicationError } from '@/lib/observability/applicationLog';
+import { getRequestContext, getRequestId } from '@/lib/observability/context';
+import { logEdgeRequest } from '@/lib/observability/edgeLogger';
+import { configureSentryScope } from '@/lib/observability/sentry';
 
 // Marketing-only routes that should NOT be accessible on school hosts
 const SCHOOLMESH_ONLY_ROUTES = ['/brochure'];
@@ -19,11 +23,29 @@ function isSchoolMeshHost(host: string): boolean {
 }
 
 export default async function proxy(request: NextRequest) {
+	const startedAt = Date.now();
+	const requestId = getRequestId(request);
+	const requestContext = getRequestContext(request, requestId);
+
+	configureSentryScope(requestContext);
+
+	const complete = (response: NextResponse, message = 'request completed') => {
+		response.headers.set('x-request-id', requestId);
+
+		logEdgeRequest('info', message, {
+			...requestContext,
+			statusCode: response.status,
+			duration: Date.now() - startedAt,
+		});
+
+		return response;
+	};
+
 	const { pathname } = request.nextUrl;
 	const host = request.headers.get('host') || '';
 
 	if (SKIP_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
-		return NextResponse.next();
+		return complete(NextResponse.next());
 	}
 
 const schoolMesh = isSchoolMeshHost(host);
@@ -34,22 +56,25 @@ if (
 ) {
 	try {
 		const profile = await getSchoolProfile({ host });
-			console.log(`School Profile: ${profile}`);
-
 
 		if (profile) {
 			const url = request.nextUrl.clone();
 			url.pathname = '/__404__';
-			return NextResponse.rewrite(url);
+			return complete(NextResponse.rewrite(url), 'request rewritten');
 		}
-	} catch {
+	} catch (error) {
+		await recordApplicationError(error, 'schoolmesh route guard failed', {
+			...requestContext,
+			operation: 'proxy.schoolmesh_route_guard',
+		});
+
 		const url = request.nextUrl.clone();
 		url.pathname = '/__404__';
-		return NextResponse.rewrite(url);
+		return complete(NextResponse.rewrite(url), 'request rewritten');
 	}
 }
 
-return NextResponse.next();
+return complete(NextResponse.next());
 }
 
 export interface AuthenticatedUser {

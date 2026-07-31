@@ -13,15 +13,15 @@ import {
 	ChevronLeft,
 	ChevronRight,
 	X,
-	ScrollText,
 	UserCircle,
+	Activity,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
 	{ label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
 	{ label: 'Schools', href: '/dashboard/schools', icon: School },
 	{ label: 'Onboard', href: '/dashboard/onboard', icon: PlusCircle },
-	{ label: 'Audit Logs', href: '/dashboard/audit', icon: ScrollText },
+	{ label: 'Observability', href: '/dashboard/admin/observability', icon: Activity },
 	{ label: 'Settings', href: '/dashboard/admin/settings', icon: Settings },
 	{ label: 'Profile', href: '/dashboard/admin/profile', icon: UserCircle },
 ];
