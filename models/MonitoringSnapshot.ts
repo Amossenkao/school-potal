@@ -28,6 +28,10 @@ const MonitoringSnapshotSchema = new Schema(
 			status: { type: String, default: 'unknown' },
 			version: { type: String },
 		},
+		database: {
+			cluster: { type: Schema.Types.Mixed },
+			tenants: { type: Schema.Types.Mixed },
+		},
 		health: { type: Schema.Types.Mixed },
 	},
 	{ timestamps: true },

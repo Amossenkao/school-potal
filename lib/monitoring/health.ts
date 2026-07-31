@@ -1,9 +1,8 @@
-import mongoose from 'mongoose';
-
 import { connectToSchoolMeshDb } from '@/lib/mongoose';
 
-import { getCloudflareHealth } from './cloudflare';
 import { getUptimeStatus } from './betterstack';
+import { getCloudflareHealth } from './cloudflare';
+import { getMongoHealth } from './mongodb';
 import { getReleaseHealth } from './sentry';
 import { getLatestDeploymentStatus } from './vercel';
 import type { HealthSummary, MonitoringProviderState } from './types';
@@ -23,8 +22,8 @@ function providerState(
 
 export async function getDatabaseHealth() {
 	try {
-		await connectToSchoolMeshDb();
-		return mongoose.connection.readyState === 0 ? 'warning' as const : 'healthy' as const;
+		const connection = await connectToSchoolMeshDb();
+		return connection.readyState === 1 ? 'healthy' as const : 'warning' as const;
 	} catch {
 		return 'critical' as const;
 	}
@@ -34,7 +33,12 @@ export async function getHealthSummary(): Promise<HealthSummary> {
 	const providers: MonitoringProviderState[] = [];
 	const database = await getDatabaseHealth();
 
-	providers.push(providerState('mongodb', database === 'healthy' ? 'connected' : 'error'));
+	try {
+		const mongoHealth = await getMongoHealth();
+		providers.push(providerState('mongodb', mongoHealth.status, mongoHealth.message));
+	} catch (error) {
+		providers.push(providerState('mongodb', 'error', error instanceof Error ? error.message : 'MongoDB unavailable'));
+	}
 
 	try {
 		const releaseHealth = await getReleaseHealth();

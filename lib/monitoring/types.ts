@@ -92,6 +92,58 @@ export interface HealthSummary {
 	providers: MonitoringProviderState[];
 }
 
+export interface MongoClusterMetrics {
+	clusterName: string;
+	storageUsedBytes: number;
+	storageLimitBytes: number;
+	storageUsed: string;
+	storageLimit: string;
+	connections: number;
+	operationsPerSecond: number;
+	status: MonitoringStatus;
+	message?: string;
+	measuredAt: string;
+}
+
+export interface TenantDatabaseStats {
+	schoolId: string;
+	schoolName?: string;
+	databaseName: string;
+	collections: number;
+	documents: number;
+	dataSizeBytes: number;
+	storageSizeBytes: number;
+	indexSizeBytes: number;
+	totalSizeBytes: number;
+	collectedAt: Date;
+}
+
+export interface MongoTenantUsage {
+	schoolId: string;
+	schoolName?: string;
+	databaseName: string;
+	storage: string;
+	storageBytes: number;
+	dataSizeBytes?: number;
+	indexSizeBytes?: number;
+	documents: number;
+	collections: number;
+	collectedAt?: string;
+}
+
+export interface MongoGrowthPoint {
+	schoolId?: string;
+	collectedAt: string;
+	storageBytes: number;
+	documents: number;
+}
+
+export interface MongoDatabaseSummary {
+	cluster: MongoClusterMetrics;
+	tenants: MongoTenantUsage[];
+	generatedAt: string;
+}
+
 export interface MonitoringSummary {
 	systemStatus: MonitoringStatus;
 	errors: ErrorSummary;
@@ -100,6 +152,7 @@ export interface MonitoringSummary {
 	uptime: UptimeSummary;
 	deployment: DeploymentSummary;
 	health: HealthSummary;
+	database: MongoDatabaseSummary;
 	generatedAt: string;
 }
 

@@ -1,5 +1,6 @@
 import { getSchoolMeshModels } from '@/models/schoolmesh';
 
+import { collectTenantDatabaseMetrics, buildMongoAlerts } from './collectors/mongodbCollector';
 import { getMonitoringSummary } from './index';
 import type { SystemAlertRecord } from './types';
 
@@ -41,6 +42,14 @@ function buildAlerts(summary: Awaited<ReturnType<typeof getMonitoringSummary>>):
 }
 
 export async function collectMonitoringSnapshot() {
+	const databaseCollection = await collectTenantDatabaseMetrics().catch((error) => ({
+		collected: 0,
+		saved: 0,
+		failures: [
+			{ schoolId: 'unknown', error: error instanceof Error ? error.message : 'MongoDB metric collection failed' },
+		],
+	}));
+
 	const summary = await getMonitoringSummary();
 	const { MonitoringSnapshot, SystemAlert } = await getSchoolMeshModels();
 
@@ -63,13 +72,18 @@ export async function collectMonitoringSnapshot() {
 			status: summary.deployment.status,
 			version: summary.deployment.version,
 		},
+		database: {
+			cluster: summary.database.cluster,
+			tenants: summary.database.tenants,
+		},
 		health: summary.health,
 	});
 
-	const alerts = buildAlerts(summary);
+	const mongoAlerts = await buildMongoAlerts().catch(() => []);
+	const alerts = [...buildAlerts(summary), ...mongoAlerts];
 	if (alerts.length > 0) {
 		await SystemAlert.insertMany(alerts, { ordered: false });
 	}
 
-	return { snapshot, alerts, summary };
+	return { snapshot, alerts, summary, databaseCollection };
 }

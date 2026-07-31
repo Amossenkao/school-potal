@@ -5,6 +5,7 @@ import SchoolProfileSchema from '@/models/profile/SchoolProfile';
 import ApplicationLogSchema, { type ApplicationLogDocument } from '@/models/ApplicationLog';
 import MonitoringSnapshotSchema, { type MonitoringSnapshotDocument } from '@/models/MonitoringSnapshot';
 import SystemAlertSchema, { type SystemAlertDocument } from '@/models/SystemAlert';
+import TenantDatabaseMetricSchema, { type TenantDatabaseMetricDocument } from '@/models/TenantDatabaseMetric';
 
 import type { SuperAdmin } from '@/types';
 import type { SchoolProfile } from '@/types/schoolProfile';
@@ -27,6 +28,8 @@ export const getSchoolMeshModels = async () => {
 		connection.model<MonitoringSnapshotDocument>('MonitoringSnapshot', MonitoringSnapshotSchema);
 	const SystemAlertModel = connection.models.SystemAlert ||
 		connection.model<SystemAlertDocument>('SystemAlert', SystemAlertSchema);
+	const TenantDatabaseMetricModel = connection.models.TenantDatabaseMetric ||
+		connection.model<TenantDatabaseMetricDocument>('TenantDatabaseMetric', TenantDatabaseMetricSchema);
 
 	schoolMeshModels = {
 		SuperAdmin: SuperAdminModel,
@@ -34,6 +37,7 @@ export const getSchoolMeshModels = async () => {
 		ApplicationLog: ApplicationLogModel,
 		MonitoringSnapshot: MonitoringSnapshotModel,
 		SystemAlert: SystemAlertModel,
+		TenantDatabaseMetric: TenantDatabaseMetricModel,
 		connection,
 	};
 

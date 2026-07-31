@@ -3,12 +3,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { RefreshCcw } from 'lucide-react';
 
+import DatabaseDetailPanel from './DatabaseDetailPanel';
+import DatabaseHealthCard from './DatabaseHealthCard';
 import ErrorSummaryCard from './ErrorSummaryCard';
 import LogExplorer from './LogExplorer';
 import RecentEvents from './RecentEvents';
 import SchoolHealthTable from './SchoolHealthTable';
 import StorageCard from './StorageCard';
 import SystemHealthCard from './SystemHealthCard';
+import TenantDatabaseUsageTable from './TenantDatabaseUsageTable';
 import type { MonitoringDashboardData, MonitoringFilters } from './types';
 
 export default function MonitoringOverview() {
@@ -17,6 +20,7 @@ export default function MonitoringOverview() {
 	const [logs, setLogs] = useState<any[]>([]);
 	const [loadError, setLoadError] = useState('');
 	const [isLoading, setIsLoading] = useState(true);
+	const [selectedSchoolId, setSelectedSchoolId] = useState('');
 	const [filters, setFilters] = useState<MonitoringFilters>({
 		schoolId: '',
 		severity: '',
@@ -84,6 +88,8 @@ export default function MonitoringOverview() {
 	}
 
 	const summary = data ?? {};
+	const tenants = summary.database?.tenants ?? [];
+	const selectedTenant = tenants.find((tenant) => tenant.schoolId === selectedSchoolId);
 
 	return (
 		<div className="space-y-6">
@@ -125,6 +131,29 @@ export default function MonitoringOverview() {
 				<SystemHealthCard data={summary} />
 				<ErrorSummaryCard data={summary} />
 				<StorageCard data={summary} />
+			</div>
+
+			<div className="space-y-6 border-t border-gray-100 pt-6 dark:border-gray-800">
+				<div>
+					<h2 className="text-sm font-semibold text-gray-900 dark:text-white">MongoDB</h2>
+					<p className="mt-1 text-xs text-gray-500">
+						Cluster health and database-per-tenant usage across all schools.
+					</p>
+				</div>
+				<div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
+					<DatabaseHealthCard data={summary} />
+					<TenantDatabaseUsageTable
+						tenants={tenants}
+						selectedSchoolId={selectedSchoolId}
+						onSelect={setSelectedSchoolId}
+					/>
+				</div>
+				{selectedTenant && (
+					<DatabaseDetailPanel
+						tenant={selectedTenant}
+						onClose={() => setSelectedSchoolId('')}
+					/>
+				)}
 			</div>
 
 			<div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">

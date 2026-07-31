@@ -39,6 +39,33 @@ export interface MonitoringDashboardData {
 			checkedAt: string;
 		}[];
 	};
+	database?: {
+		cluster?: {
+			clusterName?: string;
+			storageUsedBytes?: number;
+			storageLimitBytes?: number;
+			storageUsed?: string;
+			storageLimit?: string;
+			connections?: number;
+			operationsPerSecond?: number;
+			status?: string;
+			message?: string;
+			measuredAt?: string;
+		};
+		tenants?: {
+			schoolId: string;
+			schoolName?: string;
+			databaseName?: string;
+			storage?: string;
+			storageBytes?: number;
+			dataSizeBytes?: number;
+			indexSizeBytes?: number;
+			documents?: number;
+			collections?: number;
+			collectedAt?: string;
+		}[];
+		generatedAt?: string;
+	};
 	generatedAt?: string;
 	timestamp?: string;
 }
