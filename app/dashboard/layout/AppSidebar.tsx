@@ -101,7 +101,7 @@ const SubMenuItem = memo(({ item, isActive, onNavigate }: SubMenuItemProps) => {
 			<Link
 				href={item.href!}
 				onClick={handleClick}
-				className={`relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 pr-8 text-theme-sm transition-colors duration-150 overflow-visible ${
+				className={`relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 pr-8 text-theme-sm transition-colors duration-150 overflow-visible ${
 					isActive
 						? 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300'
 						: 'text-gray-600 hover:bg-white hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white'
@@ -144,13 +144,13 @@ const SimpleNavItem = memo(
 	({ item, isActive, activePath, onNavigate, onLogout }: SimpleNavItemProps) => {
 		const isItemActive = item.href ? isActive(item.href, activePath) : false;
 
-		const primaryItemClass = `group relative flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-theme-sm font-medium transition-colors duration-150 sc-item ${
+		const primaryItemClass = `group relative flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-1.5 text-theme-sm font-medium transition-colors duration-150 sc-item ${
 			isItemActive
 				? 'border-brand-200 bg-brand-50 text-brand-700 shadow-theme-xs dark:border-brand-500/35 dark:bg-brand-500/15 dark:text-brand-300'
 				: 'border-transparent text-gray-700 hover:border-brand-100 hover:bg-brand-25 hover:text-gray-900 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:bg-white/5 dark:hover:text-white'
 		} lg:justify-start`;
 
-		const iconClass = `grid size-8 shrink-0 place-items-center rounded-lg border transition-colors duration-150 ${
+		const iconClass = `grid size-7 shrink-0 place-items-center rounded-lg border transition-colors duration-150 ${
 			isItemActive
 				? 'border-brand-200 bg-brand-100 text-brand-600 dark:border-brand-500/35 dark:bg-brand-500/15 dark:text-brand-300'
 				: 'border-gray-200 bg-white text-gray-500 group-hover:border-brand-100 group-hover:text-brand-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:group-hover:border-brand-500/35 dark:group-hover:text-brand-300'
@@ -178,9 +178,9 @@ const SimpleNavItem = memo(
 				<li>
 					<button
 						onClick={() => onLogout()}
-						className={`group relative flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-left text-theme-sm font-medium text-error-600 transition-colors duration-150 hover:border-error-200 hover:bg-error-50 dark:text-error-400 dark:hover:border-error-500/35 dark:hover:bg-error-500/15 sc-item lg:justify-start`}
+						className={`group relative flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-1.5 text-left text-theme-sm font-medium text-error-600 transition-colors duration-150 hover:border-error-200 hover:bg-error-50 dark:text-error-400 dark:hover:border-error-500/35 dark:hover:bg-error-500/15 sc-item lg:justify-start`}
 					>
-						<span className="grid size-8 shrink-0 place-items-center rounded-lg border border-error-200 bg-error-50 text-error-500 dark:border-error-500/35 dark:bg-error-500/15 dark:text-error-400">
+						<span className="grid size-7 shrink-0 place-items-center rounded-lg border border-error-200 bg-error-50 text-error-500 dark:border-error-500/35 dark:bg-error-500/15 dark:text-error-400">
 							<item.icon className="w-5 h-5" />
 						</span>
 						<span className="min-w-0 flex-1 text-left leading-5 break-words sc-label">
@@ -259,7 +259,7 @@ const SubmenuItemComponent = memo(
 		const isSubmenuOpen = openSubmenu === item.name;
 		const isPrimaryActive = isItemActive || hasActiveSubItem || isSubmenuOpen;
 
-		const SUBMENU_ITEM_HEIGHT = 44;
+		const SUBMENU_ITEM_HEIGHT = 36;
 		const SUBMENU_PADDING = 24;
 		const submenuStyle = useMemo(
 			() => ({
@@ -275,13 +275,13 @@ const SubmenuItemComponent = memo(
 			[isSubmenuOpen, subItems.length],
 		);
 
-		const primaryItemClass = `group relative flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-theme-sm font-medium transition-colors duration-150 sc-item ${
+		const primaryItemClass = `group relative flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-1.5 text-theme-sm font-medium transition-colors duration-150 sc-item ${
 			isPrimaryActive
 				? 'border-brand-200 bg-brand-50 text-brand-700 shadow-theme-xs dark:border-brand-500/35 dark:bg-brand-500/15 dark:text-brand-300'
 				: 'border-transparent text-gray-700 hover:border-brand-100 hover:bg-brand-25 hover:text-gray-900 dark:text-gray-300 dark:hover:border-gray-700 dark:hover:bg-white/5 dark:hover:text-white'
 		} lg:justify-start`;
 
-		const iconClass = `grid size-8 shrink-0 place-items-center rounded-lg border transition-colors duration-150 ${
+		const iconClass = `grid size-7 shrink-0 place-items-center rounded-lg border transition-colors duration-150 ${
 			isPrimaryActive
 				? 'border-brand-200 bg-brand-100 text-brand-600 dark:border-brand-500/35 dark:bg-brand-500/15 dark:text-brand-300'
 				: 'border-gray-200 bg-white text-gray-500 group-hover:border-brand-100 group-hover:text-brand-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:group-hover:border-brand-500/35 dark:group-hover:text-brand-300'
@@ -329,8 +329,8 @@ const SubmenuItemComponent = memo(
 				</button>
 
 				<div ref={subMenuRef} style={submenuStyle} className="sc-submenu">
-					<div className="mt-2 rounded-xl border border-brand-100 bg-brand-25/80 p-2 dark:border-gray-700 dark:bg-gray-900/65">
-						<ul className="space-y-1">
+					<div className="mt-1.5 rounded-xl border border-brand-100 bg-brand-25/80 p-1.5 dark:border-gray-700 dark:bg-gray-900/65">
+						<ul className="space-y-0.5">
 							{subItems.map((sub, index) => (
 								<SubMenuItem
 									key={`${sub.href || sub.name}-${index}`}
@@ -805,12 +805,12 @@ const AppSidebar: React.FC = () => {
 				</div>
 
 				{/* Nav list */}
-				<div className="left-scrollbar flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain pt-2 lg:pt-3">
+				<div className="left-scrollbar flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain pt-1 lg:pt-2">
 					<div className="direction-ltr">
 						<nav
 							className={`flex-1 min-w-0 ${!shouldShowLabels ? 'sidebar-collapsed' : ''}`}
 						>
-							<ul className="flex flex-col gap-1">
+							<ul className="flex flex-col gap-0.5">
 								{navigationItems.map((item) =>
 									item.subItems ? (
 										<SubmenuItemComponent
