@@ -238,7 +238,7 @@ const componentImporters: Record<string, ComponentImporter> = {
 	profile: () => import('@/app/dashboard/shared/UserProfile'),
 	chat: () => import('@/app/dashboard/shared/Chat'),
 	community: () => import('@/app/dashboard/shared/Community'),
-	attendance: () => import('@/app/dashboard/shared/Attendance'),
+	"student-attendance": () => import('@/app/dashboard/shared/Attendance'),
 	'teacher-attendance': () => import('@/app/dashboard/shared/TeacherAttendanceAdmin'),
 	'my-attendance': () => import('@/app/dashboard/shared/TeacherAttendanceView'),
 
@@ -766,7 +766,7 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 				{
 					key: 'student-attendance',
 					title: 'Student Attendance',
-					href: '/attendance',
+					href: '/student-attendance',
 					icon: AlignEndVerticalIcon,
 				},
 			],
@@ -774,7 +774,7 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 				{
 					key: 'student-attendance',
 					title: 'Student Attendance',
-					href: '/attendance',
+					href: '/student-attendance',
 					icon: AlignEndVerticalIcon,
 				},
 			],
@@ -782,7 +782,7 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 				{
 					key: 'student-attendance',
 					title: 'My Attendance',
-					href: '/attendance',
+					href: '/student-attendance',
 					icon: AlignEndVerticalIcon,
 				},
 			],
@@ -790,7 +790,7 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 				{
 					key: 'student-attendance',
 					title: 'Student Attendance',
-					href: '/attendance',
+					href: '/student-attendance',
 					icon: AlignEndVerticalIcon,
 				},
 			],
@@ -811,14 +811,14 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					icon: ClipboardCheck,
 				},
 			],
-		teacher: [
-			{
-				key: 'my-attendance',
-				title: 'My Attendance',
-				href: '/my-attendance',
-				icon: ClipboardCheck,
-			},
-		],
+			teacher: [
+				{
+					key: 'my-attendance',
+					title: 'My Attendance',
+					href: '/my-attendance',
+					icon: ClipboardCheck,
+				},
+			],
 			administrator: [
 				{
 					key: 'teacher-attendance',
@@ -1006,24 +1006,84 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		category: 'General',
 		routes: {
 			student: [
-				{ key: 'dashboard', title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-				{ key: 'profile', title: 'Profile', href: '/profile', icon: UserCircle },
-				{ key: 'notifications', title: 'Notifications', href: '/notifications', icon: BellDot },
+				{
+					key: 'dashboard',
+					title: 'Dashboard',
+					href: '/dashboard',
+					icon: LayoutDashboard,
+				},
+				{
+					key: 'profile',
+					title: 'Profile',
+					href: '/profile',
+					icon: UserCircle,
+				},
+				{
+					key: 'notifications',
+					title: 'Notifications',
+					href: '/notifications',
+					icon: BellDot,
+				},
 			],
 			teacher: [
-				{ key: 'dashboard', title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-				{ key: 'profile', title: 'Profile', href: '/profile', icon: UserCircle },
-				{ key: 'notifications', title: 'Notifications', href: '/notifications', icon: BellDot },
+				{
+					key: 'dashboard',
+					title: 'Dashboard',
+					href: '/dashboard',
+					icon: LayoutDashboard,
+				},
+				{
+					key: 'profile',
+					title: 'Profile',
+					href: '/profile',
+					icon: UserCircle,
+				},
+				{
+					key: 'notifications',
+					title: 'Notifications',
+					href: '/notifications',
+					icon: BellDot,
+				},
 			],
 			system_admin: [
-				{ key: 'dashboard', title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-				{ key: 'profile', title: 'Profile', href: '/profile', icon: UserCircle },
-				{ key: 'notifications', title: 'Notifications', href: '/notifications', icon: BellDot },
+				{
+					key: 'dashboard',
+					title: 'Dashboard',
+					href: '/dashboard',
+					icon: LayoutDashboard,
+				},
+				{
+					key: 'profile',
+					title: 'Profile',
+					href: '/profile',
+					icon: UserCircle,
+				},
+				{
+					key: 'notifications',
+					title: 'Notifications',
+					href: '/notifications',
+					icon: BellDot,
+				},
 			],
 			administrator: [
-				{ key: 'dashboard', title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-				{ key: 'profile', title: 'Profile', href: '/profile', icon: UserCircle },
-				{ key: 'notifications', title: 'Notifications', href: '/notifications', icon: BellDot },
+				{
+					key: 'dashboard',
+					title: 'Dashboard',
+					href: '/dashboard',
+					icon: LayoutDashboard,
+				},
+				{
+					key: 'profile',
+					title: 'Profile',
+					href: '/profile',
+					icon: UserCircle,
+				},
+				{
+					key: 'notifications',
+					title: 'Notifications',
+					href: '/notifications',
+					icon: BellDot,
+				},
 			],
 		},
 	},
