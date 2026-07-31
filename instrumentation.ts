@@ -23,3 +23,5 @@ export const onRequestError = async (...args: Parameters<typeof import('@sentry/
 
 	return Sentry.captureRequestError(...args);
 };
+
+

@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 
 import { authorizeUser } from '@/proxy';
 
-const MONITORING_ROLES = ['system_admin', 'superadmin'] as const;
+const MONITORING_ROLES = ['superadmin'] as const;
 
 export async function authorizeMonitoringRequest(request: NextRequest) {
 	const currentUser = await authorizeUser(request, [...MONITORING_ROLES]);
