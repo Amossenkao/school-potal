@@ -169,11 +169,11 @@ function VerifyContent() {
 			const verifyPageUrl = window.location.href;
 
 			const [logoUrl, logoUrl2, qrCodeDataUrl] = await Promise.all([
-				school?.logoUrl
-					? fetchImageAsBase64(school.logoUrl)
+				school?.branding.logoUrl
+					? fetchImageAsBase64(school.branding.logoUrl)
 					: Promise.resolve(null),
-				school?.logoUrl2
-					? fetchImageAsBase64(school.logoUrl2)
+				school?.branding.logoUrl2
+					? fetchImageAsBase64(school.branding.logoUrl2)
 					: Promise.resolve(null),
 				generateStudentQrCodeDataUrl(verifyPageUrl),
 			]);
@@ -230,9 +230,9 @@ function VerifyContent() {
 					{/* ── Mobile Header ─────────────────────────────────── */}
 					<div className="lg:hidden flex items-center gap-3 px-5 pt-5 pb-4 border-b border-border bg-muted/30">
 						<div className="w-12 h-12 flex items-center justify-center overflow-hidden flex-shrink-0">
-							{currentSchool?.logoUrl ? (
+							{currentSchool?.branding.logoUrl ? (
 								<img
-									src={currentSchool.logoUrl}
+									src={currentSchool.branding.logoUrl}
 									alt="School logo"
 									className="w-full h-full object-contain"
 								/>
@@ -242,7 +242,7 @@ function VerifyContent() {
 						</div>
 						<div>
 							<p className="text-sm font-semibold text-foreground leading-snug">
-								{currentSchool?.shortName || 'School'}
+								{currentSchool?.identity.shortName || 'School'}
 							</p>
 							<p className="text-xs text-muted-foreground mt-0.5 leading-snug">
 								Official Document Verification
@@ -254,9 +254,9 @@ function VerifyContent() {
 					<aside className="hidden lg:flex flex-col w-72 xl:w-80 flex-shrink-0 border-r border-border bg-muted/30 px-6 py-6 gap-5">
 						<div className="flex flex-col items-center gap-3">
 							<div className="w-24 h-24 flex items-center justify-center">
-								{currentSchool?.logoUrl ? (
+								{currentSchool?.branding.logoUrl ? (
 									<img
-										src={currentSchool.logoUrl}
+										src={currentSchool.branding.logoUrl}
 										alt="School logo"
 										className="w-full h-full object-contain drop-shadow-sm"
 									/>
@@ -266,10 +266,10 @@ function VerifyContent() {
 							</div>
 							<div className="text-center">
 								<h2 className="text-base font-bold text-foreground leading-snug">
-									{currentSchool?.name || 'School Name'}
+									{currentSchool?.identity.shortName || 'School Name'}
 								</h2>
 								<p className="text-xs text-muted-foreground mt-1 leading-snug">
-									{currentSchool?.tagline || 'Excellence in Education'}
+									{currentSchool?.identity.slogan || 'Excellence in Education'}
 								</p>
 							</div>
 						</div>
@@ -291,7 +291,7 @@ function VerifyContent() {
 						<div className="mt-auto text-[10px] text-muted-foreground/60 leading-relaxed text-center">
 							<p>
 								&copy; {new Date().getFullYear()}{' '}
-								{currentSchool?.name || 'School'}.<br />
+								{currentSchool?.identity.name || 'School'}.<br />
 								All Rights Reserved.
 							</p>
 						</div>
