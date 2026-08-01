@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-import { getRecentLogs } from '@/lib/monitoring';
+import { getRecentLogs, getRecentApplicationLogs } from '@/lib/monitoring';
 import { errorResponse } from '@/lib/observability/api';
-import { getSchoolMeshModels } from '@/models/schoolmesh';
+import type { RecentLog } from '@/lib/monitoring/types';
 
 import { authorizeMonitoringRequest } from '../auth';
 
@@ -19,7 +19,6 @@ export async function GET(request: NextRequest) {
 	const requestId = request.nextUrl.searchParams.get('requestId');
 
 	try {
-		const { ApplicationLog } = await getSchoolMeshModels();
 		const providerLogs = await getRecentLogs().catch((error) => ({
 			summary: { errors: 0, warnings: 0 },
 			entries: [{
@@ -31,44 +30,24 @@ export async function GET(request: NextRequest) {
 				source: 'betterstack',
 			}],
 		}));
-		const query: Record<string, unknown> = {};
 
-		if (severity) {
-			query.level = severity === 'critical' ? 'critical' : severity;
-		}
+		const sentryLogs = await getRecentApplicationLogs().catch(() => []);
 
-		if (moduleName) query.module = moduleName;
-		if (schoolId) query.$or = [{ schoolId }, { schoolSlug: schoolId }, { tenantId: schoolId }];
-		if (requestId) query.requestId = requestId;
-		if (dateFrom || dateTo) {
-			query.createdAt = {
-				...(dateFrom ? { $gte: new Date(dateFrom) } : {}),
-				...(dateTo ? { $lte: new Date(dateTo) } : {}),
-			};
-		}
+		const matchesFilters = (log: RecentLog) => {
+			if (severity && log.level !== severity && !(severity === 'critical' && log.level === 'error')) {
+				return false;
+			}
+			if (moduleName && log.module !== moduleName) return false;
+			if (schoolId && log.schoolId !== schoolId && log.tenantId !== schoolId && log.schoolName !== schoolId) {
+				return false;
+			}
+			if (requestId && log.requestId !== requestId) return false;
+			if (dateFrom && new Date(log.timestamp) < new Date(dateFrom)) return false;
+			if (dateTo && new Date(log.timestamp) > new Date(dateTo)) return false;
+			return true;
+		};
 
-		const applicationLogs = await ApplicationLog.find(query).sort({ createdAt: -1 }).limit(100).lean();
-		const normalizedApplicationLogs = applicationLogs.map((log: any) => ({
-			id: String(log._id),
-			timestamp: log.createdAt?.toISOString?.() || new Date().toISOString(),
-			level: log.level === 'critical' ? 'error' : log.level,
-			message: log.message,
-			requestId: log.requestId,
-			schoolId: log.schoolId,
-			schoolName: log.schoolName,
-			tenantId: log.tenantId,
-			module: log.module,
-			operation: log.operation,
-			path: log.path,
-			method: log.method,
-			statusCode: log.statusCode,
-			errorName: log.errorName,
-			errorCode: log.errorCode,
-			stackPreview: log.stackPreview,
-			source: log.source,
-		}));
-
-		const entries = [...normalizedApplicationLogs, ...providerLogs.entries]
+		const entries = [...sentryLogs.filter(matchesFilters), ...providerLogs.entries.filter(matchesFilters)]
 			.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 			.slice(0, 100);
 		const summary = {
@@ -82,7 +61,7 @@ export async function GET(request: NextRequest) {
 				summary,
 				entries,
 				sources: {
-					application: normalizedApplicationLogs.length,
+					sentry: sentryLogs.length,
 					betterstack: providerLogs.entries.length,
 				},
 			},

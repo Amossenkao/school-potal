@@ -2,7 +2,6 @@ import { connectToSchoolMeshDb } from '@/lib/mongoose';
 import { Connection, Document } from 'mongoose';
 import SuperAdminSchema from '@/models/schoolmesh/superadmin/SuperAdmin';
 import SchoolProfileSchema from '@/models/profile/SchoolProfile';
-import ApplicationLogSchema, { type ApplicationLogDocument } from '@/models/ApplicationLog';
 import MonitoringSnapshotSchema, { type MonitoringSnapshotDocument } from '@/models/MonitoringSnapshot';
 import SystemAlertSchema, { type SystemAlertDocument } from '@/models/SystemAlert';
 import TenantDatabaseMetricSchema, { type TenantDatabaseMetricDocument } from '@/models/TenantDatabaseMetric';
@@ -22,8 +21,6 @@ export const getSchoolMeshModels = async () => {
 
 	const SchoolProfileModel = connection.models.SchoolProfile ||
 		connection.model<SchoolProfile & Document>('SchoolProfile', SchoolProfileSchema);
-	const ApplicationLogModel = connection.models.ApplicationLog ||
-		connection.model<ApplicationLogDocument>('ApplicationLog', ApplicationLogSchema);
 	const MonitoringSnapshotModel = connection.models.MonitoringSnapshot ||
 		connection.model<MonitoringSnapshotDocument>('MonitoringSnapshot', MonitoringSnapshotSchema);
 	const SystemAlertModel = connection.models.SystemAlert ||
@@ -34,7 +31,6 @@ export const getSchoolMeshModels = async () => {
 	schoolMeshModels = {
 		SuperAdmin: SuperAdminModel,
 		SchoolProfile: SchoolProfileModel,
-		ApplicationLog: ApplicationLogModel,
 		MonitoringSnapshot: MonitoringSnapshotModel,
 		SystemAlert: SystemAlertModel,
 		TenantDatabaseMetric: TenantDatabaseMetricModel,

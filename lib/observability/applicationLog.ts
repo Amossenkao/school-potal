@@ -1,6 +1,5 @@
 import { createLogger, type ErrorLogContext, type LogContext } from '@/lib/logger';
-import { captureApplicationError } from '@/lib/observability/sentry';
-import { getSchoolMeshModels } from '@/models/schoolmesh';
+import { captureApplicationError, captureApplicationMessage } from '@/lib/observability/sentry';
 
 type ApplicationLogLevel = 'debug' | 'info' | 'warning' | 'error' | 'critical';
 
@@ -46,18 +45,19 @@ export async function recordApplicationLog(input: RecordApplicationLogInput) {
 		logger.info(logPayload, message);
 	}
 
-	try {
-		const { ApplicationLog } = await getSchoolMeshModels();
-		await ApplicationLog.create({
-			level,
-			message,
+	if (level === 'error' || level === 'critical') {
+		captureApplicationError(error ?? new Error(message), {
 			...context,
 			...normalizeError(error),
 			source,
 			metadata,
 		});
-	} catch (writeError) {
-		logger.warn({ err: writeError }, 'failed to persist application log');
+	} else if (level === 'warning') {
+		captureApplicationMessage(message, 'warning', {
+			...context,
+			source,
+			metadata,
+		});
 	}
 }
 
@@ -72,6 +72,4 @@ export async function recordApplicationError(
 		message,
 		error,
 	});
-
-	captureApplicationError(error, context);
 }

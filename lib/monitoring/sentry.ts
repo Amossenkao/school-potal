@@ -1,4 +1,4 @@
-import type { ErrorSummary, RecentError } from './types';
+import type { ErrorSummary, RecentError, RecentLog } from './types';
 
 const SENTRY_API_BASE = 'https://sentry.io/api/0';
 
@@ -29,12 +29,59 @@ function issueQuery(sinceHours = 24) {
 	return encodeURIComponent(`firstSeen:>${since}`);
 }
 
+function eventLevel(level?: string): RecentLog['level'] {
+	const value = String(level || '').toLowerCase();
+	if (value === 'fatal' || value === 'error') return 'error';
+	if (value === 'warning' || value === 'warn') return 'warning';
+	return 'info';
+}
+
+function eventTag(event: any, key: string): string | undefined {
+	const tags = Array.isArray(event?.tags) ? event.tags : [];
+	const found = tags.find((tag: any) => tag?.[0] === key);
+	const value = found?.[1];
+	return value === undefined ? undefined : String(value);
+}
+
 export async function getSentryIssues() {
 	const org = process.env.SENTRY_ORG;
 	const project = process.env.SENTRY_PROJECT;
 	return sentryFetch<any[]>(
 		`/projects/${org}/${project}/issues/?query=${issueQuery()}&limit=50&sort=freq`,
 	);
+}
+
+export async function getRecentApplicationLogs(limit = 100): Promise<RecentLog[]> {
+	const org = process.env.SENTRY_ORG;
+	const project = process.env.SENTRY_PROJECT;
+	const events = await sentryFetch<any[]>(
+		`/projects/${org}/${project}/events/?limit=${limit}&full=true`,
+	);
+
+	return (events ?? [])
+		.filter((event) => String(event?.type || '') !== 'transaction')
+		.slice(0, limit)
+		.map((event) => ({
+			id: String(event.eventID || event.id || crypto.randomUUID()),
+			timestamp: String(event.dateCreated || event.timestamp || new Date().toISOString()),
+			level: eventLevel(event.level),
+			message: String(event.title || event.message || 'Application log'),
+			requestId: eventTag(event, 'requestId'),
+			tenantId: eventTag(event, 'tenantId') || eventTag(event, 'schoolSlug'),
+			schoolId: eventTag(event, 'schoolId'),
+			schoolName: event?.metadata?.schoolName,
+			module: eventTag(event, 'module') || event?.metadata?.module,
+			operation: eventTag(event, 'operation') || event?.metadata?.operation,
+			path: event?.metadata?.path,
+			method: event?.metadata?.method,
+			statusCode: event?.metadata?.statusCode
+				? Number(event.metadata.statusCode)
+				: undefined,
+			errorName: event?.metadata?.errorName || event?.metadata?.type,
+			errorCode: eventTag(event, 'errorCode') || event?.metadata?.errorCode,
+			stackPreview: event?.metadata?.stackPreview,
+			source: 'sentry',
+		}));
 }
 
 export async function getErrorSummary(): Promise<ErrorSummary> {

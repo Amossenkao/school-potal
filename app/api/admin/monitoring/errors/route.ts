@@ -17,8 +17,13 @@ export async function GET(request: NextRequest) {
 
 	try {
 		const [summary, errors, { SystemAlert }] = await Promise.all([
-			getErrorSummary(),
-			getRecentErrors(),
+			getErrorSummary().catch(() => ({
+				total: 0,
+				critical: 0,
+				last24Hours: 0,
+				affectedSchools: [],
+			})),
+			getRecentErrors().catch(() => []),
 			getSchoolMeshModels(),
 		]);
 		const alertQuery: Record<string, unknown> = { resolved: false };

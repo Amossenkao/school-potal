@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/nextjs';
 
-import type { ErrorLogContext, RequestLogContext } from '@/lib/logger';
+import type { ErrorLogContext, LogContext, RequestLogContext } from '@/lib/logger';
 
 export function configureSentryScope(context: RequestLogContext) {
 	Sentry.setContext('schoolmesh', {
@@ -39,6 +39,30 @@ export function captureApplicationError(error: unknown, context?: ErrorLogContex
 			schoolSlug: context?.schoolSlug,
 			operation: context?.operation,
 			errorCode: context?.errorCode,
+		},
+		extra: context,
+	});
+}
+
+export function captureApplicationMessage(
+	message: string,
+	level: 'info' | 'warning' | 'error',
+	context?: LogContext,
+) {
+	if (context) {
+		configureSentryScope(context);
+	}
+
+	return Sentry.captureMessage(message, {
+		level,
+		tags: {
+			requestId: context?.requestId ? String(context.requestId) : undefined,
+			tenantId: context?.tenantId ? String(context.tenantId) : undefined,
+			schoolId: context?.schoolId ? String(context.schoolId) : undefined,
+			schoolSlug: context?.schoolSlug ? String(context.schoolSlug) : undefined,
+			operation: context?.operation ? String(context.operation) : undefined,
+			errorCode: context?.errorCode ? String(context.errorCode) : undefined,
+			module: context?.module ? String(context.module) : undefined,
 		},
 		extra: context,
 	});

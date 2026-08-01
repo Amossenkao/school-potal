@@ -17,11 +17,13 @@ async function betterStackFetch<T>(path: string): Promise<T | null> {
 		next: { revalidate: 60 },
 	});
 
+	const jsonResponse = await response.json();
+	
 	if (!response.ok) {
 		throw new Error(`Better Stack API request failed with ${response.status}`);
 	}
 
-	return response.json() as Promise<T>;
+	return jsonResponse as Promise<T>;
 }
 
 export async function getRecentLogs(): Promise<{ summary: LogSummary; entries: RecentLog[] }> {
