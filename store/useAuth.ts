@@ -582,9 +582,11 @@ const applyBootstrapPayload = (
 				: null;
 			if (nextUser || parentChildren) {
 				set((state) => {
-					const updated = state.user
-						? ({ ...state.user, ...(nextUser || {}) } as User)
-						: (nextUser as User | null);
+					const updated = (
+						state.user
+							? { ...state.user, ...(nextUser || {}) }
+							: nextUser
+					) as any;
 					if (updated && parentChildren) {
 						updated.parentChildren = parentChildren;
 						const selectedId = String(updated.studentId || '');

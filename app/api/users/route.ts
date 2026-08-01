@@ -2897,10 +2897,13 @@ export async function POST(request: NextRequest) {
 			typeof schoolProfileRaw === 'string'
 				? JSON.parse(schoolProfileRaw)
 				: schoolProfileRaw;
+		const schoolCurrentAcademicYear = String(
+			(schoolProfile as any)?.identity?.currentAcademicYear || getAcademicYear(),
+		);
 		const tenantId = resolveTenantSyncKey({
 			schoolProfile,
 			tenantId: currentUser.tenantId,
-			host,
+			host: request.headers.get('host'),
 		});
 
 		const models = await getTenantModels(host);
@@ -4950,6 +4953,7 @@ export async function PUT(request: NextRequest) {
 						domain: 'users',
 						actorId: currentUser.id,
 						reason: 'parent-children-updated',
+						academicYear: schoolCurrentAcademicYear,
 						targetUserIds: [affectedParentId],
 						payload: {
 							userId: affectedParentId,
@@ -5075,6 +5079,15 @@ export async function PUT(request: NextRequest) {
 			updatedUser.toObject() as any,
 		);
 
+		// Scope user update events to the school's own current academic year.
+		// Users without an explicit academicYears list (e.g. parents) would
+		// otherwise fall back to the calendar-based year, which may not match
+		// the school's configured current year.
+		const eventAcademicYears =
+			String(updatedUser?.role) === 'parent'
+				? [schoolCurrentAcademicYear]
+				: updatedUserYears;
+
 		// Build class transition metadata for real-time access revocation/granting
 		const classTransitionPayload: Record<string, any> = {
 			user: realtimeUser,
@@ -5112,11 +5125,13 @@ export async function PUT(request: NextRequest) {
 					? 'teacher-class-reassigned'
 					: 'user-updated';
 
-		await bumpUsersVersion(updatedUserYears);
+		await bumpUsersVersion([
+			...new Set([...updatedUserYears, schoolCurrentAcademicYear]),
+		]);
 		await publishSyncEventsForAcademicYearsSafe({
 			tenantId,
 			domain: 'users',
-			academicYears: updatedUserYears,
+			academicYears: eventAcademicYears,
 			payload: classTransitionPayload,
 			actorId: currentUser.id,
 			reason: eventReason,
