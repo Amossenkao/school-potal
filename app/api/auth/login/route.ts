@@ -13,6 +13,7 @@ import {
 import { checkRateLimit, getRequestIp } from '@/utils/rateLimit';
 import { resolveAcademicYearAccessContext } from '@/utils/academicYearAccess';
 import { normalizeHost } from '@/utils/host';
+import { buildParentChildrenList } from '@/lib/parentAccess';
 
 const CLIENT_SESSION_PRESENT_COOKIE = 'session-present';
 
@@ -259,6 +260,10 @@ async function handleLogin(user: any, password: string, host: string) {
 				loginAllowed =
 					schoolProfile.userConfig.sysAdmin !== undefined;
 				break;
+			case 'parent':
+				loginAllowed =
+					schoolProfile.userConfig.parentSettings?.loginAccess !== false;
+				break;
 		}
 	}
 
@@ -284,7 +289,17 @@ async function handleLogin(user: any, password: string, host: string) {
 		);
 	}
 
-	const userData = buildUserResponse(user);
+	if (user.role === 'parent') {
+		const parentChildren = await buildParentChildrenList(
+			{ User: await getUserModel(host) },
+			user,
+		);
+		user.__parentChildren = parentChildren;
+		const selectedChild = parentChildren[0] || null;
+		user.__selectedChild = selectedChild;
+	}
+
+	const userData = await buildUserResponse(user, host);
 	const sessionData = {
 		tenantId: host,
 		purpose: 'login',
@@ -340,7 +355,7 @@ function setSessionCookie(response: NextResponse, sessionId: string) {
 	});
 }
 
-function buildUserResponse(user: any) {
+function buildUserResponse(user: any, host?: string) {
 
 	if (user.username == 'UCA2026504') {
 		console.log('User data for debugging:', {
@@ -394,7 +409,6 @@ function buildUserResponse(user: any) {
 				shareContactWithClassmates: user.shareContactWithClassmates ?? false,
 				isLateRegistration: user.isLateRegistration ?? false,
 				academicYears: user.academicYears || [],
-				guardian: user.guardian,
 			};
 		case 'teacher':
 			return {
@@ -415,6 +429,32 @@ function buildUserResponse(user: any) {
 			};
 		case 'system_admin':
 			return { ...baseUser, username: user.username };
+		case 'parent':
+			return {
+				...baseUser,
+				studentIds: user.studentIds || [],
+				parentChildren: user.__parentChildren || [],
+				studentId:
+					user.__selectedChild?.studentId ||
+					user.__parentChildren?.[0]?.studentId ||
+					null,
+				classId:
+					user.__selectedChild?.classId ||
+					user.__parentChildren?.[0]?.classId ||
+					null,
+				className:
+					user.__selectedChild?.className ||
+					user.__parentChildren?.[0]?.className ||
+					null,
+				classLevel:
+					user.__selectedChild?.classLevel ||
+					user.__parentChildren?.[0]?.classLevel ||
+					null,
+				academicYears:
+					user.__selectedChild?.academicYears ||
+					user.__parentChildren?.[0]?.academicYears ||
+					[],
+			};
 		default:
 			return baseUser;
 	}

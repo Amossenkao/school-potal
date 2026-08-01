@@ -34,8 +34,30 @@ export async function GET(req: NextRequest) {
 		const models = await getTenantModels();
 		const schoolProfile = await getSchoolProfile();
 
-		if (sessionUser.role === 'student') {
-			const studentId = sessionUser.studentId || sessionUser.username;
+		if (sessionUser.role === 'student' || sessionUser.role === 'parent') {
+			let studentId = sessionUser.studentId || sessionUser.username;
+
+			if (sessionUser.role === 'parent') {
+				const requested = searchParams.get('studentId');
+				if (requested) studentId = requested;
+				const parent = await models.Parent.findById(
+					sessionUser.id,
+				).lean();
+				const allowedStudentIds = Array.isArray(parent?.studentIds)
+					? parent.studentIds
+					: [];
+				if (!allowedStudentIds.includes(studentId)) {
+					return NextResponse.json(
+						{
+							success: false,
+							message:
+								'You can only view payments for your linked children.',
+						},
+						{ status: 403 },
+					);
+				}
+			}
+
 			const payments = await models.Payment.find({ studentId })
 				.sort({ createdAt: -1 })
 				.lean();

@@ -1,7 +1,7 @@
 // modals/EditUserModal.tsx
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
 	X,
 	ChevronDown,
@@ -10,6 +10,10 @@ import {
 	Users,
 	BookOpen,
 	CheckCircle2,
+	Search,
+	User,
+	UserCheck,
+	UserPlus,
 } from 'lucide-react';
 import { useSchoolStore } from '@/store/schoolStore';
 import ConflictModal from './ConflictModal';
@@ -232,6 +236,31 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		useState(false);
 	const [actionError, setActionError] = useState('');
 	const [actionLoading, setActionLoading] = useState(false);
+	const [parentEditAction, setParentEditAction] = useState<
+		'keep' | 'assign' | 'create' | 'unlink'
+	>('keep');
+	const [parentDraft, setParentDraft] = useState<any>({
+		searchTerm: '',
+		parentId: '',
+		parentLabel: '',
+		firstName: '',
+		middleName: '',
+		lastName: '',
+		email: '',
+		phone: '',
+		address: '',
+	});
+	const [parentSearchResults, setParentSearchResults] = useState<any[]>([]);
+	const [parentSearching, setParentSearching] = useState(false);
+	const [parentSearchDone, setParentSearchDone] = useState(false);
+	const [parentErrors, setParentErrors] = useState<any>({});
+	const parentSearchTimeout = useRef<any>(null);
+	const [childSearchTerm, setChildSearchTerm] = useState('');
+	const [childSearchResults, setChildSearchResults] = useState<any[]>([]);
+	const [childSearching, setChildSearching] = useState(false);
+	const [childSearchDone, setChildSearchDone] = useState(false);
+	const [childDetailsMap, setChildDetailsMap] = useState<Record<string, any>>({});
+	const childSearchTimeout = useRef<any>(null);
 
 	const schoolProfile = useSchoolStore((state) => state.school);
 	const allowsDemotion =
@@ -543,6 +572,34 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			setConflictState(null);
 			setActionError('');
 
+			setParentEditAction('keep');
+			setParentDraft({
+				searchTerm: '',
+				parentId: '',
+				parentLabel: '',
+				firstName: '',
+				middleName: '',
+				lastName: '',
+				email: '',
+				phone: '',
+				address: '',
+			});
+			setParentSearchResults([]);
+			setParentSearchDone(false);
+			setParentErrors({});
+
+			setChildSearchTerm('');
+			setChildSearchResults([]);
+			setChildSearchDone(false);
+			const childDetails: Record<string, any> = {};
+			(Array.isArray(userData.parentChildren) ? userData.parentChildren : []).forEach(
+				(c: any) => {
+					const key = c?.studentId || c?.username;
+					if (key) childDetails[key] = c;
+				}
+			);
+			setChildDetailsMap(childDetails);
+
 			setPromotionForm({
 				type: 'yearlyPromotion',
 				classId: '',
@@ -652,12 +709,192 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		setFormData((prev) => ({ ...prev, [name]: value }));
 	};
 
-	const handleGuardianInputChange = (e) => {
+	const currentParent = user?.linkedParent || null;
+
+	const handleParentDraftChange = (e: any) => {
 		const { name, value } = e.target;
-		setFormData((prev) => ({
+		setParentDraft((prev: any) => ({ ...prev, [name]: value }));
+	};
+
+	const searchParents = async (q: string) => {
+		if (!q.trim()) {
+			setParentSearchResults([]);
+			setParentSearchDone(false);
+			return;
+		}
+		setParentSearching(true);
+		try {
+			const params = new URLSearchParams({
+				role: 'parent',
+				limit: '8',
+				q: q.trim(),
+			});
+			const res = await fetch(`/api/users?${params.toString()}`);
+			const data = await res.json();
+			setParentSearchResults(Array.isArray(data?.data) ? data.data : []);
+			setParentSearchDone(true);
+		} catch {
+			setParentSearchResults([]);
+			setParentSearchDone(true);
+		} finally {
+			setParentSearching(false);
+		}
+	};
+
+	const onParentSearchChange = (value: string) => {
+		if (parentSearchTimeout.current) clearTimeout(parentSearchTimeout.current);
+		setParentDraft((prev) => ({
 			...prev,
-			guardian: { ...(prev.guardian || {}), [name]: value },
+			searchTerm: value,
+			parentId: '',
+			parentLabel: '',
 		}));
+		parentSearchTimeout.current = setTimeout(() => searchParents(value), 350);
+	};
+
+	const selectParent = (parent: any) => {
+		const parentName =
+			parent.fullName ||
+			[parent.firstName, parent.middleName, parent.lastName]
+				.filter(Boolean)
+				.join(' ');
+		setParentDraft((prev: any) => ({
+			...prev,
+			searchTerm: '',
+			parentId: parent.id || parent._id,
+			parentLabel: parentName,
+		}));
+		setParentSearchResults([]);
+		setParentSearchDone(false);
+		setParentErrors((prev: any) => ({ ...prev, parent: '' }));
+	};
+
+	const getParentDisplayName = (parent: any) =>
+		parent?.fullName ||
+		[parent?.firstName, parent?.middleName, parent?.lastName]
+			.filter(Boolean)
+			.join(' ') ||
+		'Linked parent';
+
+	const searchStudents = async (q: string) => {
+		if (!q.trim()) {
+			setChildSearchResults([]);
+			setChildSearchDone(false);
+			return;
+		}
+		setChildSearching(true);
+		try {
+			const params = new URLSearchParams({
+				role: 'student',
+				limit: '8',
+				q: q.trim(),
+			});
+			const res = await fetch(`/api/users?${params.toString()}`);
+			const data = await res.json();
+			setChildSearchResults(Array.isArray(data?.data) ? data.data : []);
+			setChildSearchDone(true);
+		} catch {
+			setChildSearchResults([]);
+			setChildSearchDone(true);
+		} finally {
+			setChildSearching(false);
+		}
+	};
+
+	const onChildSearchChange = (value: string) => {
+		if (childSearchTimeout.current) clearTimeout(childSearchTimeout.current);
+		setChildSearchTerm(value);
+		childSearchTimeout.current = setTimeout(() => searchStudents(value), 350);
+	};
+
+	const addChild = (student: any) => {
+		const sid = student.studentId || student.username;
+		if (!sid) return;
+		setFormData((prev: any) => {
+			const existing = Array.isArray(prev?.studentIds) ? prev.studentIds : [];
+			if (existing.includes(sid)) return prev;
+			return { ...prev, studentIds: [...existing, sid] };
+		});
+		setChildDetailsMap((prev) => ({ ...prev, [sid]: student }));
+		setChildSearchResults([]);
+		setChildSearchTerm('');
+		setChildSearchDone(false);
+	};
+
+	const removeChild = (sid: string) => {
+		setFormData((prev: any) => ({
+			...prev,
+			studentIds: Array.isArray(prev?.studentIds)
+				? prev.studentIds.filter((c: string) => c !== sid)
+				: [],
+		}));
+	};
+
+	const getChildDisplayName = (sid: string) => {
+		const c = childDetailsMap[sid];
+		if (!c) return sid;
+		return (
+			c.fullName ||
+			[c.firstName, c.middleName, c.lastName].filter(Boolean).join(' ') ||
+			sid
+		);
+	};
+
+	const getChildClassName = (sid: string) => {
+		const c = childDetailsMap[sid];
+		if (!c) return '';
+		return (
+			c.className || (c.classId ? getClassNameFromId(c.classId) : '') || ''
+		);
+	};
+
+	const setParentAction = (
+		action: 'keep' | 'assign' | 'create' | 'unlink',
+	) => {
+		setParentEditAction(action);
+		setParentErrors({});
+		if (action === 'assign') {
+			setParentDraft((prev) => ({ ...prev, parentId: '', parentLabel: '' }));
+		}
+	};
+
+	const validateParentAction = () => {
+		const e: any = {};
+		if (parentEditAction === 'assign') {
+			if (!parentDraft.parentId) e.parent = 'Select a parent to assign';
+		} else if (parentEditAction === 'create') {
+			if (!parentDraft.firstName.trim() || !parentDraft.lastName.trim())
+				e.parent = 'Parent first and last name are required';
+			if (!parentDraft.email.trim() && !parentDraft.phone.trim())
+				e.parentContact = 'Email or phone number required';
+			if (parentDraft.email && !/\S+@\S+\.\S+/.test(parentDraft.email))
+				e.parentEmail = 'Invalid email format';
+		} else if (parentEditAction === 'unlink') {
+			if (!currentParent?.id) e.parent = 'No linked parent to remove';
+		}
+		setParentErrors(e);
+		return Object.keys(e).length === 0;
+	};
+
+	const buildParentPayload = () => {
+		if (parentEditAction === 'assign') {
+			return { mode: 'assign', parentId: parentDraft.parentId };
+		}
+		if (parentEditAction === 'create') {
+			return {
+				mode: 'create',
+				firstName: parentDraft.firstName,
+				middleName: parentDraft.middleName,
+				lastName: parentDraft.lastName,
+				email: parentDraft.email,
+				phone: parentDraft.phone,
+				address: parentDraft.address,
+			};
+		}
+		if (parentEditAction === 'unlink') {
+			return { mode: 'unlink', parentId: currentParent?.id };
+		}
+		return null;
 	};
 
 	const handleStudentSessionChange = (newSession) => {
@@ -1025,6 +1262,18 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		}
 		const changedData = getChangedFields(user, payload);
 
+		if (user?.role === 'student' && parentEditAction !== 'keep') {
+			if (!validateParentAction()) {
+				setValidationErrors([
+					{ message: 'Please fix the parent account section.' },
+				]);
+				setIsLoading(false);
+				return;
+			}
+			const parentPayload = buildParentPayload();
+			if (parentPayload) (changedData as any).parent = parentPayload;
+		}
+
 		if (Object.keys(changedData).length === 0) {
 			setFeedback({ type: 'info', message: 'No changes were made.' });
 			setIsLoading(false);
@@ -1076,6 +1325,38 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				});
 			} else {
 				setFeedback({ type: 'success', message: 'User updated successfully.' });
+			}
+
+			if (user?.role === 'student' && parentEditAction !== 'keep') {
+				try {
+					const refreshRes = await fetch(
+						`/api/users?id=${updatedUser.id || updatedUser._id}&includeParents=1`,
+					);
+					const refreshData = await refreshRes.json();
+					const refreshed = getUpdatedUserFromResponse(refreshData);
+					if (refreshed) {
+						onSave(refreshed, updatedReassignedTeachers);
+						return;
+					}
+				} catch {
+					// Fall through to the standard save path below
+				}
+			}
+
+			if (user?.role === 'parent') {
+				try {
+					const refreshRes = await fetch(
+						`/api/users?id=${updatedUser.id || updatedUser._id}&includeParents=1`,
+					);
+					const refreshData = await refreshRes.json();
+					const refreshed = getUpdatedUserFromResponse(refreshData);
+					if (refreshed) {
+						onSave(refreshed, updatedReassignedTeachers);
+						return;
+					}
+				} catch {
+					// Fall through to the standard save path below
+				}
 			}
 			onSave(updatedUser, updatedReassignedTeachers);
 		} catch (err) {
@@ -2006,50 +2287,413 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 								</section>
 								<section>
 									<h5 className="font-semibold mb-3 text-lg border-b pb-2">
-										Guardian Information
+										Parent Account
 									</h5>
-									<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-										<InputField
-											label="Guardian First Name"
-											name="firstName"
-											value={formData.guardian?.firstName}
-											onChange={handleGuardianInputChange}
-										/>
-										<InputField
-											label="Guardian Middle Name"
-											name="middleName"
-											value={formData.guardian?.middleName}
-											onChange={handleGuardianInputChange}
-										/>
-										<InputField
-											label="Guardian Last Name"
-											name="lastName"
-											value={formData.guardian?.lastName}
-											onChange={handleGuardianInputChange}
-										/>
-										<InputField
-											label="Guardian Email"
-											name="email"
-											type="email"
-											value={formData.guardian?.email}
-											onChange={handleGuardianInputChange}
-										/>
-										<InputField
-											label="Guardian Phone"
-											name="phone"
-											value={formData.guardian?.phone}
-											onChange={handleGuardianInputChange}
-										/>
-										<div className="sm:col-span-2">
-											<InputField
-												label="Guardian Address"
-												name="address"
-												value={formData.guardian?.address}
-												onChange={handleGuardianInputChange}
-											/>
+
+									{currentParent && (
+										<div className="flex items-center gap-3 p-3 border border-border rounded-lg bg-muted/40 mb-4">
+											<div className="p-1.5 bg-primary/10 rounded-full shrink-0">
+												<UserCheck className="h-4 w-4 text-primary" />
+											</div>
+											<div className="min-w-0">
+												<p className="text-sm font-medium text-foreground truncate">
+													{getParentDisplayName(currentParent)}
+												</p>
+												<p className="text-xs text-muted-foreground truncate">
+													{currentParent.email ||
+														currentParent.phone ||
+														'Linked parent account'}
+												</p>
+											</div>
 										</div>
+									)}
+
+									<div className="flex items-center gap-2 mb-4">
+										{currentParent && (
+											<button
+												type="button"
+												onClick={() => setParentAction('keep')}
+												className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+													parentEditAction === 'keep'
+														? 'bg-primary/15 text-primary'
+														: 'bg-muted text-muted-foreground hover:bg-muted/70'
+												}`}
+											>
+												<CheckCircle2 className="h-3.5 w-3.5" />
+												Keep current
+											</button>
+										)}
+										<button
+											type="button"
+											onClick={() => setParentAction('assign')}
+											className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+												parentEditAction === 'assign'
+													? 'bg-primary/15 text-primary'
+													: 'bg-muted text-muted-foreground hover:bg-muted/70'
+											}`}
+										>
+											<UserCheck className="h-3.5 w-3.5" />
+											Search existing
+										</button>
+										<button
+											type="button"
+											onClick={() => setParentAction('create')}
+											className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+												parentEditAction === 'create'
+													? 'bg-primary/15 text-primary'
+													: 'bg-muted text-muted-foreground hover:bg-muted/70'
+											}`}
+										>
+											<UserPlus className="h-3.5 w-3.5" />
+											Create new
+										</button>
+										{currentParent && (
+											<button
+												type="button"
+												onClick={() => setParentAction('unlink')}
+												className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+													parentEditAction === 'unlink'
+														? 'bg-destructive/15 text-destructive'
+														: 'bg-muted text-muted-foreground hover:bg-muted/70'
+												}`}
+											>
+												<X className="h-3.5 w-3.5" />
+												Remove
+											</button>
+										)}
 									</div>
+
+									{parentErrors.parent && (
+										<p className="text-[11px] text-destructive mt-1 mb-2 flex items-center gap-1">
+											<AlertTriangle className="w-3 h-3 shrink-0" />
+											{parentErrors.parent}
+										</p>
+									)}
+
+									{parentEditAction === 'unlink' && currentParent && (
+										<div className="p-3 border border-destructive/30 bg-destructive/5 rounded-lg">
+											<p className="text-sm text-foreground">
+												This child will be removed from{' '}
+												<strong>{getParentDisplayName(currentParent)}</strong>
+												&apos;s account.
+											</p>
+										</div>
+									)}
+
+									{parentEditAction === 'assign' && (
+										<>
+											{!parentDraft.parentId ? (
+												<>
+													<div>
+														<label className="block text-sm font-medium text-foreground mb-1">
+															Search Parent
+														</label>
+														<div className="relative">
+															<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+															<input
+																type="text"
+																value={parentDraft.searchTerm}
+																onChange={(e: any) =>
+																	onParentSearchChange(e.target.value)
+																}
+																className={`w-full p-2 pl-10 border rounded-lg bg-background shadow-sm transition focus:outline-none focus:ring-2 focus:ring-primary/30 hover:border-primary/40 text-foreground ${
+																	parentErrors.parent
+																		? 'border-destructive'
+																		: 'border-border/70'
+																}`}
+																placeholder="Search by name, phone, or email..."
+																autoComplete="off"
+															/>
+														</div>
+													</div>
+													{parentSearching && (
+														<div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+															<Loader2 className="h-3.5 w-3.5 animate-spin" />
+															Searching...
+														</div>
+													)}
+													{!parentSearching &&
+														parentSearchDone &&
+														parentSearchResults.length === 0 && (
+															<p className="text-xs text-muted-foreground mt-2">
+																No matching parents found.{' '}
+																<button
+																	type="button"
+																	className="text-primary underline underline-offset-2"
+																	onClick={() => setParentAction('create')}
+																>
+																	Create a new parent instead
+																</button>
+															</p>
+														)}
+													{parentSearchResults.length > 0 && (
+														<ul className="mt-2 divide-y divide-border border border-border rounded-lg">
+															{parentSearchResults.map((parent: any) => (
+																<li key={parent.id || parent._id}>
+																	<button
+																		type="button"
+																		className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
+																		onClick={() => selectParent(parent)}
+																	>
+																		<div className="p-1.5 bg-primary/10 rounded-full">
+																			<User className="h-4 w-4 text-primary" />
+																		</div>
+																		<div className="flex-1 min-w-0">
+																			<p className="text-sm font-medium text-foreground truncate">
+																				{getParentDisplayName(parent)}
+																			</p>
+																			<p className="text-xs text-muted-foreground truncate">
+																				{parent.email || parent.phone || 'No contact'}{' '}
+																				•{' '}
+																				{(parent.studentIds?.length || 0) +
+																					' child' +
+																					(parent.studentIds?.length === 1
+																						? ''
+																						: 'ren')}
+																			</p>
+																		</div>
+																		<UserCheck className="h-4 w-4 text-primary shrink-0 mt-1" />
+																	</button>
+																</li>
+															))}
+														</ul>
+													)}
+												</>
+											) : (
+												<div className="flex items-center justify-between gap-3 p-3 border border-primary/30 bg-primary/5 rounded-lg">
+													<div className="flex items-center gap-3 min-w-0">
+														<div className="p-1.5 bg-primary/15 rounded-full shrink-0">
+															<UserCheck className="h-4 w-4 text-primary" />
+														</div>
+														<div className="min-w-0">
+															<p className="text-sm font-medium text-foreground truncate">
+																{parentDraft.parentLabel || 'Selected parent'}
+															</p>
+															<p className="text-xs text-muted-foreground">
+																This child will be linked to their account.
+															</p>
+														</div>
+													</div>
+													<button
+														type="button"
+														onClick={() =>
+															setParentDraft((prev: any) => ({
+																...prev,
+																parentId: '',
+																parentLabel: '',
+															}))
+														}
+														className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground shrink-0"
+													>
+														Change
+													</button>
+												</div>
+											)}
+										</>
+									)}
+
+									{parentEditAction === 'create' && (
+										<>
+											<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+												<InputField
+													label="Parent First Name"
+													name="firstName"
+													value={parentDraft.firstName}
+													onChange={handleParentDraftChange}
+													placeholder="First name"
+												/>
+												<InputField
+													label="Parent Middle Name"
+													name="middleName"
+													value={parentDraft.middleName}
+													onChange={handleParentDraftChange}
+													placeholder="Optional"
+												/>
+												<InputField
+													label="Parent Last Name"
+													name="lastName"
+													value={parentDraft.lastName}
+													onChange={handleParentDraftChange}
+													placeholder="Last name"
+												/>
+											</div>
+											<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+												<InputField
+													label="Parent Phone"
+													name="phone"
+													value={parentDraft.phone}
+													onChange={handleParentDraftChange}
+													placeholder="+231 555 0000"
+												/>
+												<InputField
+													label="Parent Email"
+													name="email"
+													type="email"
+													value={parentDraft.email}
+													onChange={handleParentDraftChange}
+													placeholder="Optional"
+												/>
+											</div>
+											<div className="mt-4">
+												<InputField
+													label="Parent Address"
+													name="address"
+													value={parentDraft.address}
+													onChange={handleParentDraftChange}
+													placeholder="Optional"
+												/>
+											</div>
+											{parentErrors.parentContact && (
+												<p className="text-[11px] text-destructive mt-2 flex items-center gap-1">
+													<AlertTriangle className="w-3 h-3 shrink-0" />
+													{parentErrors.parentContact}
+												</p>
+											)}
+											{parentErrors.parentEmail && (
+												<p className="text-[11px] text-destructive mt-2 flex items-center gap-1">
+													<AlertTriangle className="w-3 h-3 shrink-0" />
+													{parentErrors.parentEmail}
+												</p>
+											)}
+											<p className="text-xs text-muted-foreground mt-3">
+												A parent account will be created with the email (or
+												phone) as their login username and a temporary password
+												to change on first sign-in.
+											</p>
+										</>
+									)}
 								</section>
+							</>
+						)}
+
+						{user?.role === 'parent' && (
+							<>
+							<section>
+								<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+									Linked Children
+								</h5>
+								{Array.isArray(formData?.studentIds) &&
+								formData.studentIds.length > 0 ? (
+									<div className="space-y-2 mb-4">
+										{formData.studentIds.map((sid: string) => (
+											<div
+												key={sid}
+												className="flex items-center justify-between gap-3 p-3 border border-border rounded-lg bg-muted/40"
+											>
+												<div className="min-w-0">
+													<p className="text-sm font-medium text-foreground truncate">
+														{getChildDisplayName(sid)}
+													</p>
+													{getChildClassName(sid) && (
+														<p className="text-xs text-muted-foreground truncate">
+															Class: {getChildClassName(sid)}
+														</p>
+													)}
+													<p className="text-xs text-muted-foreground truncate">
+														Username: {sid}
+													</p>
+												</div>
+												<button
+													type="button"
+													onClick={() => removeChild(sid)}
+													className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-destructive bg-destructive/10 hover:bg-destructive/20 transition-colors shrink-0"
+												>
+													<X className="h-3.5 w-3.5" />
+													Remove
+												</button>
+											</div>
+										))}
+									</div>
+								) : (
+									<p className="text-sm text-muted-foreground mb-4">
+										No children linked to this account yet.
+									</p>
+								)}
+
+								<div>
+									<label className="block text-sm font-medium text-foreground mb-1">
+										Add a Child
+									</label>
+									<div className="relative">
+										<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+										<input
+											type="text"
+											value={childSearchTerm}
+											onChange={(e) => onChildSearchChange(e.target.value)}
+											className="w-full p-2 pl-10 border rounded-lg bg-background shadow-sm transition focus:outline-none focus:ring-2 focus:ring-primary/30 hover:border-primary/40 text-foreground border-border/70"
+											placeholder="Search students by name or username..."
+											autoComplete="off"
+										/>
+									</div>
+									{childSearching && (
+										<div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+											<Loader2 className="h-3.5 w-3.5 animate-spin" />
+											Searching...
+										</div>
+									)}
+									{!childSearching && childSearchDone && childSearchResults.length === 0 && (
+										<p className="text-xs text-muted-foreground mt-2">
+											No matching students found.
+										</p>
+									)}
+									{childSearchResults.length > 0 && (
+										<ul className="mt-2 divide-y divide-border border border-border rounded-lg">
+											{childSearchResults.map((student: any) => {
+												const sid = student.studentId || student.username;
+												const isLinked =
+													Array.isArray(formData?.studentIds) &&
+													formData.studentIds.includes(sid);
+												return (
+													<li key={student.id || student._id}>
+														<button
+															type="button"
+															disabled={isLinked}
+															className={`w-full flex items-start gap-3 px-3 py-2.5 text-left transition-colors ${
+																isLinked
+																	? 'opacity-50 cursor-not-allowed'
+																	: 'hover:bg-muted/50'
+															}`}
+															onClick={() => addChild(student)}
+														>
+															<div className="p-1.5 bg-primary/10 rounded-full">
+																<User className="h-4 w-4 text-primary" />
+															</div>
+															<div className="flex-1 min-w-0">
+																<p className="text-sm font-medium text-foreground truncate">
+																	{student.fullName ||
+																		[
+																			student.firstName,
+																			student.middleName,
+																			student.lastName,
+																		]
+																			.filter(Boolean)
+																			.join(' ')}
+																</p>
+																<p className="text-xs text-muted-foreground truncate">
+																	Class:{' '}
+																	{student.className ||
+																		getClassNameFromId(student.classId) ||
+																		'N/A'}{' '}
+																	• {sid}
+																</p>
+															</div>
+															{isLinked ? (
+																<CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-1" />
+															) : (
+																<UserPlus className="h-4 w-4 text-primary shrink-0 mt-1" />
+															)}
+														</button>
+													</li>
+												);
+											})}
+										</ul>
+									)}
+								</div>
+								<p className="text-xs text-muted-foreground mt-3">
+									Removing a child unlinks their account from this parent. The
+									student can be re-linked later.
+								</p>
+							</section>
 							</>
 						)}
 

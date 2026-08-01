@@ -77,7 +77,7 @@ const USER_BOOTSTRAP_SELECT = {
 	shareContactWithClassmates: 1,
 	isLateRegistration: 1,
 	academicYears: 1,
-	guardian: 1,
+	studentIds: 1,
 	subjects: 1,
 	sponsorClass: 1,
 	position: 1,
@@ -130,7 +130,6 @@ const normalizeUser = (user: any) => {
 				shareContactWithClassmates: user.shareContactWithClassmates ?? false,
 				isLateRegistration: user.isLateRegistration ?? false,
 				academicYears: user.academicYears || [],
-				guardian: user.guardian,
 			};
 		case 'teacher':
 			return {
@@ -149,6 +148,8 @@ const normalizeUser = (user: any) => {
 			};
 		case 'system_admin':
 			return { ...baseUser, username: user.username };
+		case 'parent':
+			return { ...baseUser, studentIds: user.studentIds || [] };
 		default:
 			return baseUser;
 	}
@@ -168,7 +169,7 @@ const getAcademicYearMatch = (academicYear: string) =>
 	getAcademicYearFilterValue(academicYear);
 
 const getRoleClassFilter = (currentUser: any, academicYear: string) => {
-	if (currentUser.role === 'student') {
+	if (currentUser.role === 'student' || currentUser.role === 'parent') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
 		return classId ? { classId } : {};
 	}
@@ -181,7 +182,7 @@ const getRoleClassFilter = (currentUser: any, academicYear: string) => {
 
 export const getRoleGradesQuery = (currentUser: any, academicYear: string) => {
 	const academicYearMatch = getAcademicYearMatch(academicYear);
-	if (currentUser?.role === 'student') {
+	if (currentUser?.role === 'student' || currentUser?.role === 'parent') {
 		const studentId = currentUser.studentId || currentUser.username;
 		if (!studentId) return null;
 		return { academicYear: academicYearMatch, studentId };
@@ -283,7 +284,7 @@ export const getRoleAttendanceQuery = (
 ) => {
 	const academicYearMatch = getAcademicYearMatch(academicYear);
 
-	if (currentUser?.role === 'student') {
+	if (currentUser?.role === 'student' || currentUser?.role === 'parent') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
 		if (!classId) return null;
 		return { academicYear: academicYearMatch, classId };
@@ -307,7 +308,7 @@ export const getRoleAttendanceQuery = (
 
 const getRoleUsersQuery = (currentUser: any, academicYear: string) => {
 	const academicYearMatch = getAcademicYearMatch(academicYear);
-	if (currentUser.role === 'student') {
+	if (currentUser.role === 'student' || currentUser.role === 'parent') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
 		if (!classId) return null;
 		return {

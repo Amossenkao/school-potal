@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
+import { resolveChildView } from '@/utils/childView';
 import isEqual from 'lodash/isEqual';
 import {
 	Document,
@@ -249,6 +250,8 @@ export default function PaymentHistory() {
 		}));
 	}, [user]);
 
+	const childView = useMemo(() => resolveChildView(user), [user]);
+
 	const refreshPayments = async () => {
 		setError('');
 		setIsLoadingPayments(true);
@@ -292,6 +295,13 @@ export default function PaymentHistory() {
 			setIsLoadingPayments(false);
 		}
 	}, [user, normalizePayments]);
+
+	// Parents load the selected child's payments on mount / child switch
+	useEffect(() => {
+		if (user?.role !== 'parent') return;
+		refreshPayments();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [user?.role, (user as any)?.studentId]);
 
 	// Filter payments based on search and selected filters
 	const filteredPayments = useMemo(() => {
@@ -503,6 +513,7 @@ export default function PaymentHistory() {
 							<Avatar className="h-12 w-12">
 								<AvatarImage
 									src={
+										childView.avatar ||
 										user.profilePictureUrl ||
 										user.avatar ||
 										(user as any).profilePhoto ||
@@ -510,19 +521,19 @@ export default function PaymentHistory() {
 									}
 								/>
 								<AvatarFallback>
-									{user.firstName?.[0]}
-									{user.lastName?.[0]}
+									{childView.name.charAt(0)}
+									{childView.name.split(' ')[1]?.[0] || ''}
 								</AvatarFallback>
 							</Avatar>
 							<div className="min-w-0 flex-1">
 								<h3 className="text-lg font-semibold">
-									{user.firstName} {user.lastName}
+									{childView.name}
 								</h3>
 								<p className="text-sm text-muted-foreground">
-									Student ID: {(user as any).studentId || user.id}
+									Student ID: {childView.studentId}
 								</p>
 								<p className="text-sm text-muted-foreground">
-									Class: {(user as any).className || 'Grade 9'}
+									Class: {childView.className || '—'}
 								</p>
 							</div>
 						</div>

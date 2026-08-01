@@ -163,6 +163,10 @@ export const DEFAULT_ROLE_FEATURE_ACCESS = {
 		'calendar_events', 'fee_payment', 'academic_reports',
 		'student_attendance', 'community', 'ai_chat',
 	],
+	parent: [
+		'calendar_events', 'fee_payment', 'academic_reports',
+		'student_attendance',
+	],
 	administrator: {} as Record<string, string[]>,
 };
 

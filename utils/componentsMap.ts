@@ -263,6 +263,26 @@ const componentMappings: Record<string, any> = Object.fromEntries(
 	]),
 );
 
+export function resolveEffectiveRole(userRole: string): string {
+	return userRole === 'parent' ? 'student' : userRole;
+}
+
+/**
+ * Resolves the feature-access list for a role from the school profile.
+ * Parents use their own configured subset when present, otherwise they
+ * inherit the student feature access (backward compatible).
+ */
+function getRoleFeatureAccess(
+	schoolProfile: SchoolProfile,
+	role: string,
+): readonly FeatureKey[] {
+	const access = schoolProfile.featureConfig.roleFeatureAccess;
+	if (role === 'parent') {
+		return Array.isArray(access.parent) ? access.parent : access.student;
+	}
+	return access[role as keyof typeof access] || [];
+}
+
 function shouldExcludeRoute(
 	feature: FeatureKey,
 	routeKey: string,
@@ -281,6 +301,7 @@ function getAccessibleRouteKeys(
 	isTeacher?: boolean,
 ): string[] {
 	const routeKeys: string[] = [];
+	const effectiveRole = resolveEffectiveRole(userRole);
 	const userFeatures = getUserAccessibleFeatures(
 		schoolProfile,
 		userRole,
@@ -293,8 +314,8 @@ function getAccessibleRouteKeys(
 		const featureConfig = featureConfigurations[feature];
 		if (!featureConfig) return;
 
-		let routes = featureConfig.routes[userRole];
-		if (!routes && userRole === 'administrator') {
+		let routes = featureConfig.routes[effectiveRole];
+		if (!routes && effectiveRole === 'administrator') {
 			return;
 		}
 		if (!routes) return;
@@ -1150,10 +1171,11 @@ function hasFeatureAccess(
 	adminPermissions?: FeatureKey[],
 	isTeacher?: boolean,
 ): boolean {
+	const effectiveRole = resolveEffectiveRole(userRole);
 	if (feature === 'default_features') return true;
 	if (!schoolProfile.featureConfig.enabledFeatures.includes(feature)) return false;
 
-	if (userRole === 'administrator') {
+	if (effectiveRole === 'administrator') {
 		if (adminPermissions?.includes(feature)) return true;
 		if (isTeacher) {
 			const teacherFeatures = schoolProfile.featureConfig.roleFeatureAccess.teacher;
@@ -1162,16 +1184,8 @@ function hasFeatureAccess(
 		return false;
 	}
 
-	const roleAccess =
-		schoolProfile.featureConfig.roleFeatureAccess[
-			userRole as keyof typeof schoolProfile.featureConfig.roleFeatureAccess
-		];
-
-	if (Array.isArray(roleAccess)) {
-		return roleAccess.includes(feature);
-	}
-
-	return false;
+	const roleAccess = getRoleFeatureAccess(schoolProfile, userRole);
+	return roleAccess.includes(feature);
 }
 
 /**
@@ -1194,6 +1208,7 @@ export function generateDynamicComponentsMap(
 	};
 
 	// Get user's accessible features with permissions support
+	const effectiveRole = resolveEffectiveRole(userRole);
 	const userFeatures = getUserAccessibleFeatures(
 		schoolProfile,
 		userRole,
@@ -1209,8 +1224,8 @@ export function generateDynamicComponentsMap(
 		if (!featureConfig) return;
 
 		// Get routes for the user's role
-		let routes = featureConfig.routes[userRole];
-		if (!routes && userRole === 'administrator') {
+		let routes = featureConfig.routes[effectiveRole];
+		if (!routes && effectiveRole === 'administrator') {
 			// If no specific routes for 'administrator' are defined for this feature,
 			// this indicates a configuration error or a feature that's not
 			// meant to have specific admin routes. We will skip it.
@@ -1295,6 +1310,7 @@ export function generateNavigationItems(
 	};
 
 	// Get user's accessible features with permissions support
+	const effectiveRole = resolveEffectiveRole(userRole);
 	const accessibleFeatures = getUserAccessibleFeatures(
 		schoolProfile,
 		userRole,
@@ -1326,7 +1342,7 @@ export function generateNavigationItems(
 		const featureConfig = featureConfigurations[feature];
 		if (!featureConfig) return;
 
-		let routes = featureConfig.routes[userRole];
+		let routes = featureConfig.routes[effectiveRole];
 		if (!routes) return;
 
 		routes.forEach((route) => {
@@ -1543,6 +1559,7 @@ export function validateComponentAccess(
 	adminPermissions?: FeatureKey[],
 	isTeacher?: boolean,
 ): boolean {
+	const effectiveRole = resolveEffectiveRole(userRole);
 	// Explicitly tie report routes to academic_reports feature access
 	const reportRouteFeatureMap: Record<string, FeatureKey> = {
 		'periodic-grade': 'academic_reports',
@@ -1569,7 +1586,7 @@ export function validateComponentAccess(
 	}
 
 	for (const feature of Object.values(featureConfigurations)) {
-		let userRoutes = feature.routes[userRole];
+		let userRoutes = feature.routes[effectiveRole];
 		if (!userRoutes) {
 			continue;
 		}
@@ -1611,6 +1628,7 @@ export function getUserRoutes(
 		category?: string;
 	}> = [];
 
+	const effectiveRole = resolveEffectiveRole(userRole);
 	const accessibleFeatures = getUserAccessibleFeatures(
 		schoolProfile,
 		userRole,
@@ -1622,7 +1640,7 @@ export function getUserRoutes(
 		const featureConfig = featureConfigurations[feature];
 		if (!featureConfig) return;
 
-		let featureRoutes = featureConfig.routes[userRole];
+		let featureRoutes = featureConfig.routes[effectiveRole];
 		if (!featureRoutes) {
 			return;
 		}
@@ -1657,8 +1675,9 @@ export function getUserAccessibleFeatures(
 	isTeacher?: boolean,
 ): FeatureKey[] {
 	const defaultFeatures: FeatureKey[] = ['default_features'];
+	const effectiveRole = resolveEffectiveRole(userRole);
 
-	if (userRole === 'administrator') {
+	if (effectiveRole === 'administrator') {
 		const features = new Set(adminPermissions || []);
 		if (isTeacher) {
 			const teacherFeatures = schoolProfile.featureConfig.roleFeatureAccess.teacher;
@@ -1670,12 +1689,8 @@ export function getUserAccessibleFeatures(
 		return [...defaultFeatures, ...enabled];
 	}
 
-	const roleAccess =
-		schoolProfile.featureConfig.roleFeatureAccess[
-			userRole as keyof typeof schoolProfile.featureConfig.roleFeatureAccess
-		];
-
-	const features = Array.isArray(roleAccess) ? roleAccess : [];
+	const roleAccess = getRoleFeatureAccess(schoolProfile, userRole);
+	const features = Array.from(roleAccess);
 	const uniqueFeatures = Array.from(new Set(features));
 
 	const enabled = uniqueFeatures.filter((feature) =>

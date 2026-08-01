@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
 			'system_admin',
 			'teacher',
 			'student',
+			'parent',
 		]);
 		if (!currentUser) {
 			return NextResponse.json(
@@ -92,7 +93,8 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
-		const { Attendance, Student, Teacher } = await getTenantModels();
+		const { Attendance, Student, Teacher, Parent } =
+			await getTenantModels();
 
 		// Build the base query
 		const query: Record<string, any> = { academicYear };
@@ -164,11 +166,46 @@ export async function GET(request: NextRequest) {
 			return NextResponse.json({ success: true, data: records });
 		}
 
-		// ── student ───────────────────────────────────────────────────────────
-		if (currentUser.role === 'student') {
-			const student = (await Student.findById(currentUser.id)
-				.select('classId academicYears')
-				.lean()) as (Student & Document) | null;
+		// ── student / parent (child-scoped) ──────────────────────────────────
+		if (currentUser.role === 'student' || currentUser.role === 'parent') {
+			let student: (Student & Document) | null;
+
+			if (currentUser.role === 'parent') {
+				const parent = (await Parent.findById(currentUser.id)
+					.select('studentIds')
+					.lean()) as { studentIds?: string[] } | null;
+				const studentIds = Array.isArray(parent?.studentIds)
+					? parent.studentIds
+					: [];
+				const selectedStudentId =
+					searchParams.get('studentId') ||
+					currentUser.studentId ||
+					studentIds[0];
+				if (
+					!parent ||
+					!selectedStudentId ||
+					!studentIds.includes(selectedStudentId)
+				) {
+					return NextResponse.json(
+						{
+							success: false,
+							message:
+								'You can only access attendance for your linked children.',
+						},
+						{ status: 403 },
+					);
+				}
+				student = (await Student.findOne({
+					username: selectedStudentId,
+					role: 'student',
+				})
+					.select('classId academicYears')
+					.lean()) as (Student & Document) | null;
+			} else {
+				student = (await Student.findById(currentUser.id)
+					.select('classId academicYears')
+					.lean()) as (Student & Document) | null;
+			}
 
 			if (!student) {
 				return NextResponse.json(

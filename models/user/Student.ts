@@ -1,18 +1,6 @@
 import { Schema, Document } from 'mongoose';
 import { Student } from '@/types';
 
-const GuardianSchema = new Schema(
-	{
-		firstName: { type: String, required: true },
-		middleName: String,
-		lastName: { type: String, required: true },
-		email: String,
-		phone: { type: String, required: true },
-		address: { type: String, required: true },
-	},
-	{ _id: false },
-);
-
 const YearSchema = new Schema(
 	{
 		year: { type: String, required: true },
@@ -36,7 +24,6 @@ const StudentSchema = new Schema<Student & Document>({
 		required: true,
 	},
 	isLateRegistration: { type: Boolean, required: false, default: false },
-	guardian: { type: GuardianSchema, required: true },
 	academicYears: { type: [YearSchema], required: true },
 	wardTeacherId: { type: String, required: false },
 	scholarships: { type: [String], required: false },

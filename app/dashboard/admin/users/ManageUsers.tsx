@@ -10,6 +10,7 @@ import {
 	GraduationCap,
 	BookOpen,
 	Shield,
+	HeartHandshake,
 	ChevronLeft,
 	ChevronRight,
 	ArrowUpDown,
@@ -473,6 +474,7 @@ const UserManagementDashboard = () => {
 				params.set('limit', String(serverPageSize));
 				params.set('page', String(page));
 				params.set('includeCounts', '1');
+				params.set('includeParents', '1');
 
 				const res = await fetch(`${API_URL}?${params.toString()}`);
 				const data = await res.json();
@@ -679,6 +681,8 @@ const UserManagementDashboard = () => {
 		const adminCount =
 			roleCounts.administrator ??
 			users.filter((u) => u.role === 'administrator').length;
+		const parentCount =
+			roleCounts.parent ?? users.filter((u) => u.role === 'parent').length;
 
 		return [
 			{ key: 'all', label: 'All Users', icon: Users, count: totalCount },
@@ -693,6 +697,12 @@ const UserManagementDashboard = () => {
 				label: 'Teachers',
 				icon: BookOpen,
 				count: teacherCount,
+			},
+			{
+				key: 'parent',
+				label: 'Parents',
+				icon: HeartHandshake,
+				count: parentCount,
 			},
 			{
 				key: 'administrator',
@@ -1050,10 +1060,12 @@ const UserManagementDashboard = () => {
 				return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
 			case 'teacher':
 				return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
-			case 'administrator':
-				return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
-			default:
-				return 'bg-muted text-muted-foreground';
+		case 'administrator':
+			return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
+		case 'parent':
+			return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400';
+		default:
+			return 'bg-muted text-muted-foreground';
 		}
 	};
 
@@ -1218,12 +1230,12 @@ const handleDeactivateSuccess = (updatedUser: any) => {
 								User Management
 							</h1>
 							<p className="text-muted-foreground">
-								Manage students, teachers, and administrators
+								Manage students, teachers, parents, and administrators
 							</p>
 						</div>
 					</div>
 				</div>
-				<div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+				<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
 					{userTypes.map((type) => {
 						const IconComponent = type.icon;
 						return (
@@ -1254,9 +1266,11 @@ const handleDeactivateSuccess = (updatedUser: any) => {
 												? 'bg-blue-100'
 												: type.key === 'teacher'
 													? 'bg-purple-100'
-													: type.key === 'administrator'
-														? 'bg-orange-100'
-														: 'bg-gray-100'
+													: type.key === 'parent'
+														? 'bg-emerald-100'
+														: type.key === 'administrator'
+															? 'bg-orange-100'
+															: 'bg-gray-100'
 										}`}
 									>
 										<IconComponent
@@ -1265,9 +1279,11 @@ const handleDeactivateSuccess = (updatedUser: any) => {
 													? 'text-blue-600'
 													: type.key === 'teacher'
 														? 'text-purple-600'
-														: type.key === 'administrator'
-															? 'text-orange-600'
-															: 'text-gray-600'
+														: type.key === 'parent'
+															? 'text-emerald-600'
+															: type.key === 'administrator'
+																? 'text-orange-600'
+																: 'text-gray-600'
 											}`}
 										/>
 									</div>
@@ -1456,6 +1472,22 @@ const handleDeactivateSuccess = (updatedUser: any) => {
 												getTeacherSubjects(user).join(', ')}
 											{user.role === 'administrator' &&
 												getAdministratorPositionForYear(user)}
+											{user.role === 'parent' &&
+												`${
+													Array.isArray(user.parentChildren)
+														? user.parentChildren.length
+														: Array.isArray(user.studentIds)
+															? user.studentIds.length
+															: 0
+												} linked child${
+													(Array.isArray(user.parentChildren)
+														? user.parentChildren.length
+														: Array.isArray(user.studentIds)
+															? user.studentIds.length
+															: 0) === 1
+														? ''
+														: 'ren'
+												}`}
 										</td>
 										<td className="px-6 py-4 text-sm text-muted-foreground">
 											{user.username || '—'}

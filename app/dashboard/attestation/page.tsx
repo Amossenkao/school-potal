@@ -20,6 +20,7 @@ import {
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
+import { isStudentRole } from '@/utils/effectiveRole';
 import { getClassMetaById } from '@/app/api/chat/utils';
 import {
 	DEFAULT_DOCUMENT_FILTERS,
@@ -261,7 +262,7 @@ export default function AttestationPage() {
 	);
 	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
 	const user = useAuth((state) => state.user);
-	const isStudent = user?.role === 'student';
+	const isStudent = isStudentRole(user?.role);
 
 	const [filters, setFilters] = useState<DocumentFilters>(DEFAULT_DOCUMENT_FILTERS);
 	const [students, setStudents] = useState<any[]>([]);

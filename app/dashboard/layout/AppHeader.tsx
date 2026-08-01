@@ -12,6 +12,9 @@ import {
 	CheckCheck,
 	Trash2,
 	Loader2,
+	Users,
+	ChevronDown,
+	Check,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -724,6 +727,14 @@ const UserDropdown = memo(function UserDropdown() {
 								<KeyRound className="h-4 w-4" />
 								Change Password
 							</button>
+							{user?.role === 'parent' && (
+								<div className="lg:hidden">
+									<ChildSwitcher
+										variant="menu"
+										onAfterSwitch={() => setIsOpen(false)}
+									/>
+								</div>
+							)}
 							<div className="border-t border-gray-200 dark:border-gray-700 my-1" />
 							<button
 								onClick={handleLogout}
@@ -742,6 +753,167 @@ const UserDropdown = memo(function UserDropdown() {
 				onClose={closePasswordModal}
 			/>
 		</>
+	);
+});
+
+// --- Child Switcher Component (parent role) ---
+const ChildSwitcher = memo(function ChildSwitcher({
+	variant = 'button',
+	onAfterSwitch,
+}: {
+	variant?: 'button' | 'menu';
+	onAfterSwitch?: () => void;
+}) {
+	const { user, switchChild } = useAuth();
+	const [isOpen, setIsOpen] = useState(false);
+	const [isSwitching, setIsSwitching] = useState(false);
+	const [error, setError] = useState('');
+	const dropdownRef = useRef<HTMLDivElement>(null);
+
+	const parentChildren = Array.isArray((user as any)?.parentChildren)
+		? (user as any).parentChildren
+		: [];
+	const selectedStudentId = String((user as any)?.studentId || '');
+	const selectedChild = parentChildren.find(
+		(child: any) => String(child.studentId || '') === selectedStudentId,
+	);
+
+	useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+			if (
+				dropdownRef.current &&
+				!dropdownRef.current.contains(event.target as Node)
+			) {
+				setIsOpen(false);
+			}
+		};
+		document.addEventListener('mousedown', handleClickOutside);
+		return () => document.removeEventListener('mousedown', handleClickOutside);
+	}, []);
+
+	if (user?.role !== 'parent') return null;
+	if (parentChildren.length === 0) return null;
+
+	const handleSelect = async (child: any) => {
+		if (child.studentId === selectedStudentId) {
+			setIsOpen(false);
+			onAfterSwitch?.();
+			return;
+		}
+		setIsSwitching(true);
+		setError('');
+		const ok = await switchChild(child.studentId);
+		setIsSwitching(false);
+		if (!ok) setError('Failed to switch child account.');
+		setIsOpen(false);
+		onAfterSwitch?.();
+	};
+
+	if (variant === 'menu') {
+		return (
+			<div className="py-1 border-b border-gray-200 dark:border-gray-700">
+				<p className="px-4 py-1.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+					Switch Child
+				</p>
+				{parentChildren.map((child: any) => {
+					const active = child.studentId === selectedStudentId;
+					return (
+						<button
+							key={child.studentId || child.id}
+							onClick={() => handleSelect(child)}
+							disabled={isSwitching}
+							className={`w-full text-left flex items-center gap-3 px-4 py-2 text-sm disabled:opacity-60 transition-colors ${
+								active
+									? 'bg-gray-50 dark:bg-gray-700/40 text-gray-900 dark:text-white'
+									: 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+							}`}
+						>
+							<Users className="h-4 w-4 shrink-0 text-gray-400" />
+							<span className="flex-1 min-w-0">
+								<span className="block font-medium truncate">
+									{child.fullName || child.studentId}
+								</span>
+								<span className="block text-xs text-gray-500 dark:text-gray-400 truncate">
+									{child.className || 'No class assigned'}
+								</span>
+							</span>
+							{active && <Check className="h-4 w-4 text-green-600 shrink-0" />}
+						</button>
+					);
+				})}
+				{isSwitching && (
+					<p className="px-4 py-1.5 text-xs text-gray-500">
+						Switching child account...
+					</p>
+				)}
+				{error && (
+					<p className="px-4 py-1.5 text-xs text-red-500">{error}</p>
+				)}
+			</div>
+		);
+	}
+
+	return (
+		<div className="relative" ref={dropdownRef}>
+			<button
+				onClick={() => setIsOpen(!isOpen)}
+				disabled={isSwitching}
+				className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-800 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60 transition-colors"
+				title="Switch child account"
+			>
+				<Users className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+				<span className="max-w-[180px] truncate">
+					{isSwitching
+						? 'Switching…'
+						: selectedChild?.fullName || selectedChild?.studentId || 'Select child'}
+				</span>
+				{parentChildren.length > 1 && (
+					<ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+				)}
+			</button>
+
+			{isOpen && parentChildren.length > 0 && (
+				<div className="absolute right-0 mt-2 w-64 max-w-[90vw] origin-top-right rounded-xl bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+					<div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+						<p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+							Switch Child
+						</p>
+					</div>
+					<div className="max-h-72 overflow-y-auto py-1">
+						{parentChildren.map((child: any) => {
+							const active = child.studentId === selectedStudentId;
+							return (
+								<button
+									key={child.studentId || child.id}
+									onClick={() => handleSelect(child)}
+									disabled={isSwitching}
+									className={`w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm disabled:opacity-60 ${
+										active
+											? 'bg-gray-50 dark:bg-gray-700/40 text-gray-900 dark:text-white'
+											: 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+									}`}
+								>
+									<div className="flex-1 min-w-0">
+										<p className="font-medium truncate">
+											{child.fullName || child.studentId}
+										</p>
+										<p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+											{child.className || 'No class assigned'}
+										</p>
+									</div>
+									{active && <Check className="h-4 w-4 text-green-600" />}
+								</button>
+							);
+						})}
+					</div>
+					{error && (
+						<div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700 text-xs text-red-500">
+							{error}
+						</div>
+					)}
+				</div>
+			)}
+		</div>
 	);
 });
 
@@ -861,6 +1033,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 					} items-center justify-between w-full gap-4 px-5 py-4 lg:flex shadow-theme-md lg:justify-end lg:px-0 lg:shadow-none`}
 				>
 					<div className="hidden lg:flex items-center gap-3 2xsm:gap-4">
+						<ChildSwitcher />
 						<NotificationsDropdown />
 						<ThemeToggleButton />
 					</div>

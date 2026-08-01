@@ -104,6 +104,7 @@ interface AuthState {
 
 	login: (loginData: LoginData) => Promise<User | null>;
 	logout: () => Promise<void>;
+	switchChild: (studentId: string) => Promise<boolean>;
 	checkAuthStatus: (options?: {
 		skipConnectivityCheck?: boolean;
 		force?: boolean;
@@ -882,6 +883,61 @@ const runDeferredPostLoginBootstrap = (
 		},
 
 		applyRealtimeEvent,
+
+		switchChild: async (studentId: string): Promise<boolean> => {
+			const currentUser = get().user;
+			if (!currentUser) return false;
+			if (currentUser.role !== 'parent') return false;
+
+			try {
+				const res = await fetch('/api/parent/children/select', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					credentials: 'include',
+					body: JSON.stringify({ studentId }),
+				});
+				const data = await res.json().catch(() => ({}));
+				if (!res.ok) {
+					throw new Error(
+						data?.message || 'Failed to switch child account',
+					);
+				}
+
+				const scopedData = data?.data && typeof data.data === 'object' ? data.data : {};
+				const currentParent = currentUser as User & {
+					parentChildren?: unknown[];
+				};
+				const nextUser = {
+					...currentUser,
+					...scopedData,
+					parentChildren:
+						Array.isArray(scopedData.parentChildren)
+							? scopedData.parentChildren
+							: Array.isArray(currentParent.parentChildren)
+								? currentParent.parentChildren
+								: [],
+				} as User;
+
+				set({ user: nextUser, isLoggedIn: true, error: null });
+				cacheAuthUser(nextUser);
+
+				// Clear cached domain data so the newly selected child's data
+				// loads fresh from the re-bootstrap below.
+				useSchoolStore.getState().clearCache();
+				void get().checkAuthStatus({
+					force: true,
+					trigger: 'child-switch',
+				});
+
+				return true;
+			} catch (error: any) {
+				if (isLikelyNetworkError(error)) {
+					useNetworkStore.getState().markOffline('child-switch-failed');
+				}
+				set({ error: error?.message || 'Failed to switch child account' });
+				return false;
+			}
+		},
 
 		checkAuthStatus: async (options) => {
 			const requestEpoch = authFlowEpoch;

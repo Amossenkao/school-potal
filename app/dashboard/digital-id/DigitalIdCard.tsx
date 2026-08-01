@@ -53,7 +53,10 @@ export default function DigitalIdCard({
 	const [logoError, setLogoError] = useState(false);
 	const [photoError, setPhotoError] = useState(false);
 
-	const fullName = useMemo(() => buildStudentFullName(student) || '—', [student]);
+	const fullName = useMemo(
+		() => buildStudentFullName(student) || '—',
+		[student],
+	);
 	const studentId = useMemo(
 		() => normalizeStudentId(student?.studentId, student?.id, student?._id),
 		[student],
@@ -87,6 +90,14 @@ export default function DigitalIdCard({
 		school?.identity?.initials || school?.identity?.shortName || 'SCH';
 	const schoolSlogan = school?.identity?.slogan || '';
 	const schoolLogo = school?.branding?.logoUrl || '';
+
+	// Address lines from school profile
+	const addressLine1 = school?.identity?.address?.street || '';
+	const addressLine2 = school?.identity?.address?.city
+		? `${school.identity.address.city}${school.identity.address.county ? `, ${school.identity.address.county}` : ''}`
+		: '';
+	const addressLine3 = school?.identity?.address?.country || '';
+
 	const prefixedStudentId = useMemo(() => {
 		if (!studentId) return '—';
 		const prefix = school?.identity?.studentIdPrefix || '';
@@ -101,11 +112,12 @@ export default function DigitalIdCard({
 	}, [academicYear]);
 
 	const statusBadge = useMemo(() => {
-		const isActive = ['active', 'enrolled', 'true'].includes(
-			String(student?.enrollmentStatus || '').toLowerCase(),
-		) || !student?.enrollmentStatus;
+		const isActive =
+			['active', 'enrolled', 'true'].includes(
+				String(student?.enrollmentStatus || '').toLowerCase(),
+			) || !student?.enrollmentStatus;
 		return {
-			label: isActive ? 'Verified Student' : 'Inactive',
+			label: isActive ? 'Active' : 'Inactive',
 			active: isActive,
 		};
 	}, [student]);
@@ -122,9 +134,9 @@ export default function DigitalIdCard({
 				return QRCode.toDataURL(JSON.stringify(payload), {
 					errorCorrectionLevel: 'M',
 					margin: 1,
-					width: 192,
+					width: 128,
 					color: {
-						dark: '#111827',
+						dark: '#1A1400',
 						light: '#FFFFFF',
 					},
 				});
@@ -149,182 +161,443 @@ export default function DigitalIdCard({
 		setPhotoError(false);
 	}, [photoUrl]);
 
+	const LogoBadge = () => {
+		if (schoolLogo && !logoError) {
+			return (
+				<img
+					src={schoolLogo}
+					alt={schoolName}
+					className="h-7 w-7 flex-shrink-0 rounded-md object-contain"
+					style={{ boxShadow: '0 1px 6px rgba(212,175,55,0.5)' }}
+					onError={() => setLogoError(true)}
+				/>
+			);
+		}
+		return (
+			<div
+				className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-[8px] font-bold tracking-tight"
+				style={{
+					background: 'linear-gradient(135deg, #D4AF37, #F5D87A, #B8960C)',
+					color: '#111007',
+					boxShadow: '0 1px 6px rgba(212,175,55,0.5)',
+				}}
+			>
+				{schoolInitials.slice(0, 3).toUpperCase()}
+			</div>
+		);
+	};
+
 	return (
-		<div className="w-full max-w-[340px] overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-			{/* Top band */}
-			<div className="bg-gradient-to-r from-primary to-primary/80 px-5 pb-6 pt-5 text-primary-foreground">
-				<div className="flex items-start gap-3">
-					{schoolLogo && !logoError ? (
-						<img
-							src={schoolLogo}
-							alt={schoolName}
-							className="h-10 w-10 flex-shrink-0 rounded-full object-contain"
-							onError={() => setLogoError(true)}
-						/>
-					) : (
-						<div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary-foreground/15 font-bold text-primary-foreground">
-							{schoolInitials.slice(0, 2).toUpperCase()}
-						</div>
-					)}
-					<div className="min-w-0">
-						<p className="truncate text-[11px] font-semibold uppercase tracking-[0.16em] opacity-90">
+		/*
+		 * Card dimensions: 340 × 214 px — CR80 credit card ratio (85.6 × 53.98 mm)
+		 * Overflow hidden clips the decorative layers to the rounded corners.
+		 */
+		<div
+			className="relative overflow-hidden"
+			style={{
+				width: 340,
+				height: 214,
+				borderRadius: 14,
+				background: '#FFFDF5',
+				boxShadow:
+					'0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10), inset 0 0 0 1px rgba(180,140,0,0.18)',
+				fontFamily: "'Space Grotesk', sans-serif",
+			}}
+		>
+			{/* ── Decorative layers (z-index 1–4, behind content at z-5) ────────── */}
+
+			{/* Top gold accent bar */}
+			<div
+				className="pointer-events-none absolute inset-x-0 top-0 z-[8]"
+				style={{
+					height: 4,
+					background:
+						'linear-gradient(90deg, #1A1400 0%, #D4AF37 35%, #F5D87A 60%, #D4AF37 80%, #1A1400 100%)',
+				}}
+			/>
+
+			{/* Right gold accent strip */}
+			<div
+				className="pointer-events-none absolute inset-y-0 right-0 z-[6]"
+				style={{
+					width: 3,
+					background:
+						'linear-gradient(180deg, #1A1400 0%, #D4AF37 40%, #F5D87A 70%, #D4AF37 100%)',
+				}}
+			/>
+
+			{/* Holographic shimmer */}
+			<div
+				className="pointer-events-none absolute inset-0 z-[10] animate-pulse"
+				style={{
+					background:
+						'linear-gradient(115deg, transparent 0%, rgba(212,175,55,0.07) 30%, transparent 50%, rgba(212,175,55,0.04) 70%, transparent 100%)',
+					borderRadius: 14,
+					animationDuration: '7s',
+				}}
+			/>
+
+			{/* Black header band */}
+			<div
+				className="pointer-events-none absolute inset-x-0 top-0 z-[2]"
+				style={{ height: 63, background: '#111007' }}
+			/>
+
+			{/* Subtle inner glow on header */}
+			<div
+				className="pointer-events-none absolute inset-x-0 top-0 z-[3]"
+				style={{
+					height: 63,
+					background:
+						'linear-gradient(180deg, rgba(212,175,55,0.08) 0%, transparent 100%)',
+				}}
+			/>
+
+			{/* Gold hairline separating header from body */}
+			<div
+				className="pointer-events-none absolute inset-x-0 z-[4]"
+				style={{
+					top: 63,
+					height: 1,
+					background:
+						'linear-gradient(90deg, transparent 0%, #D4AF37 20%, #F5D87A 50%, #D4AF37 80%, transparent 100%)',
+				}}
+			/>
+
+			{/* Diagonal security-paper hatching on card body */}
+			<div
+				className="pointer-events-none absolute inset-x-0 bottom-0 z-[1]"
+				style={{
+					top: 64,
+					backgroundImage:
+						'repeating-linear-gradient(-55deg, transparent, transparent 18px, rgba(212,175,55,0.025) 18px, rgba(212,175,55,0.025) 19px)',
+				}}
+			/>
+
+			{/* ── Content (z-5) ───────────────────────────────────────────────────── */}
+			<div
+				className="relative z-[5] flex h-full flex-col"
+				style={{ paddingBottom: 11 }}
+			>
+				{/* Header — logo | school name + address | logo */}
+				<div
+					className="flex items-center justify-center gap-2"
+					style={{
+						padding: '10px 14px 8px',
+						height: 63,
+						boxSizing: 'border-box',
+					}}
+				>
+					<LogoBadge />
+
+					<div className="flex min-w-0 flex-1 flex-col items-center gap-0.5">
+						<p
+							className="truncate text-center font-bold uppercase tracking-widest"
+							style={{
+								fontSize: 8.5,
+								color: '#F5D87A',
+								lineHeight: 1,
+								letterSpacing: '0.14em',
+							}}
+						>
 							{schoolName}
 						</p>
-						<p className="truncate text-[9px] uppercase tracking-[0.2em] opacity-60">
-							{schoolSlogan || school?.identity?.shortName || 'Official ID'}
-						</p>
-					</div>
-				</div>
-				<div className="mt-3 flex items-center gap-1.5">
-					<ShieldCheck className="h-3.5 w-3.5 flex-shrink-0" />
-					<p className="text-[11px] font-semibold uppercase tracking-[0.22em]">
-						Student Identification Card
-					</p>
-				</div>
-			</div>
-
-			{/* Body */}
-			<div className="-mt-6 px-5 pb-5">
-				{/* Photo + name */}
-				<div className="flex items-end gap-4">
-					<div className="h-[88px] w-[88px] flex-shrink-0 overflow-hidden rounded-xl border-4 border-card bg-muted shadow">
-						{photoUrl ? (
-							<img
-								src={photoUrl}
-								alt={fullName}
-								className="h-full w-full object-cover"
-								onError={() => setPhotoError(true)}
-							/>
-						) : (
-							<div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-primary/5">
-								<User className="h-8 w-8 text-primary/60" />
-							</div>
-						)}
-					</div>
-					<div className="min-w-0 pb-1">
-						<p className="truncate text-lg font-bold leading-tight text-foreground">
-							{fullName}
-						</p>
 						<p
-							className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-								statusBadge.active
-									? 'bg-emerald-500/10 text-emerald-600'
-									: 'bg-destructive/10 text-destructive'
-							}`}
+							className="text-center"
+							style={{
+								fontSize: 6.5,
+								color: 'rgba(212,175,55,0.55)',
+								lineHeight: 1.6,
+								letterSpacing: '0.04em',
+							}}
 						>
-							<BadgeCheck className="h-3 w-3" />
-							{statusBadge.label}
+							{addressLine1 || '12 Academy Drive, Sinkor'}
+							<br />
+							{addressLine2 || 'Monrovia, Montserrado County'}
+							<br />
+							{addressLine3 || 'Liberia, West Africa'}
 						</p>
 					</div>
+
+					<LogoBadge />
 				</div>
 
-				{/* Details */}
-				<div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl border border-border bg-muted/40 p-4">
-					<div className="col-span-2">
-						<p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-							Student ID
-						</p>
-						<p className="mt-0.5 truncate font-mono text-sm font-semibold text-foreground">
-							{prefixedStudentId}
-						</p>
-					</div>
-					<div>
-						<p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-							Class
-						</p>
-						<p className="mt-0.5 truncate text-sm font-medium text-foreground">
-							{classLevel}
-						</p>
-					</div>
-					<div>
-						<p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-							Academic Year
-						</p>
-						<p className="mt-0.5 truncate text-sm font-medium text-foreground">
-							{academicYear || '—'}
-						</p>
-					</div>
-					<div>
-						<p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-							Gender
-						</p>
-						<p className="mt-0.5 truncate text-sm font-medium text-foreground">
-							{student?.gender || '—'}
-						</p>
-					</div>
-					<div>
-						<p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-							Date of Birth
-						</p>
-						<p className="mt-0.5 truncate text-sm font-medium text-foreground">
-							{formatDate(student?.dateOfBirth)}
-						</p>
-					</div>
-					<div className="col-span-2">
-						<p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-							Enrollment
-						</p>
-						<p className="mt-0.5 flex items-center gap-1.5 truncate text-sm font-medium text-foreground">
-							<GraduationCap className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
-							{enrollmentStatus}
-						</p>
-					</div>
-				</div>
+				{/* Main — photo column + info column */}
+				<div
+					className="flex flex-1 gap-[11px]"
+					style={{ padding: '9px 14px 0' }}
+				>
+					{/* Photo column */}
+					<div className="flex flex-shrink-0 flex-col gap-[5px]">
+						{/* Photo frame */}
+						<div
+							className="flex items-center justify-center overflow-hidden"
+							style={{
+								width: 60,
+								height: 68,
+								borderRadius: 7,
+								background: '#F5EEC8',
+								border: '1px solid rgba(212,175,55,0.3)',
+								boxShadow: 'inset 0 0 0 1px rgba(212,175,55,0.15)',
+							}}
+						>
+							{photoUrl && !photoError ? (
+								<img
+									src={photoUrl}
+									alt={fullName}
+									className="h-full w-full object-cover"
+									onError={() => setPhotoError(true)}
+								/>
+							) : (
+								<User
+									className="h-6 w-6"
+									style={{ color: '#B8960C', opacity: 0.5 }}
+								/>
+							)}
+						</div>
 
-				{/* QR */}
-				<div className="mt-4 flex items-center gap-4 rounded-xl border border-border p-3">
-					<div className="h-[92px] w-[92px] flex-shrink-0 overflow-hidden rounded-lg bg-white p-1">
-						{qrDataUrl && !qrError ? (
-							// eslint-disable-next-line @next/next/no-img-element
-							<img
-								src={qrDataUrl}
-								alt="Verification QR code"
-								className="h-full w-full"
+						{/* Status pill */}
+						<div
+							className="flex items-center justify-center gap-[3px]"
+							style={{
+								padding: '2px 5px',
+								borderRadius: 3,
+								background: statusBadge.active
+									? 'rgba(16,185,129,0.08)'
+									: 'rgba(239,68,68,0.08)',
+								border: `0.5px solid ${statusBadge.active ? 'rgba(16,185,129,0.35)' : 'rgba(239,68,68,0.3)'}`,
+							}}
+						>
+							<span
+								className="block rounded-full"
+								style={{
+									width: 4,
+									height: 4,
+									background: statusBadge.active ? '#059669' : '#DC2626',
+									animation: 'pulse 2s ease-in-out infinite',
+								}}
 							/>
-						) : (
-							<div className="flex h-full w-full items-center justify-center">
-								<Fingerprint className="h-8 w-8 text-muted-foreground/50" />
+							<span
+								className="font-bold uppercase tracking-wider"
+								style={{
+									fontSize: 6.5,
+									color: statusBadge.active ? '#059669' : '#DC2626',
+									letterSpacing: '0.1em',
+								}}
+							>
+								{statusBadge.label}
+							</span>
+						</div>
+					</div>
+
+					{/* Info column */}
+					<div className="flex min-w-0 flex-1 flex-col justify-between">
+						<div>
+							{/* Student name */}
+							<p
+								className="truncate font-bold"
+								style={{
+									fontSize: 14,
+									color: '#111007',
+									lineHeight: 1.15,
+									letterSpacing: '-0.01em',
+								}}
+							>
+								{fullName}
+							</p>
+
+							{/* Grade · Gender */}
+							<p
+								className="mt-0.5 flex gap-[5px]"
+								style={{
+									fontSize: 8.5,
+									color: '#8A7430',
+									letterSpacing: '0.05em',
+								}}
+							>
+								<span>{classLevel}</span>
+								<span>·</span>
+								<span>{student?.gender || '—'}</span>
+							</p>
+						</div>
+
+						{/* Fields grid */}
+						<div className="mt-1.5 grid grid-cols-2" style={{ gap: '5px 8px' }}>
+							<div className="flex flex-col gap-px">
+								<span
+									className="font-bold uppercase"
+									style={{
+										fontSize: 6,
+										color: '#B8960C',
+										opacity: 0.7,
+										letterSpacing: '0.14em',
+									}}
+								>
+									Class
+								</span>
+								<span
+									className="truncate font-semibold"
+									style={{ fontSize: 9, color: '#1A1400' }}
+								>
+									{classLevel}
+								</span>
+							</div>
+
+							<div className="flex flex-col gap-px">
+								<span
+									className="font-bold uppercase"
+									style={{
+										fontSize: 6,
+										color: '#B8960C',
+										opacity: 0.7,
+										letterSpacing: '0.14em',
+									}}
+								>
+									Academic Year
+								</span>
+								<span
+									className="truncate font-semibold"
+									style={{ fontSize: 9, color: '#1A1400' }}
+								>
+									{academicYear || '—'}
+								</span>
+							</div>
+
+							<div className="flex flex-col gap-px">
+								<span
+									className="font-bold uppercase"
+									style={{
+										fontSize: 6,
+										color: '#B8960C',
+										opacity: 0.7,
+										letterSpacing: '0.14em',
+									}}
+								>
+									Date of Birth
+								</span>
+								<span
+									className="truncate font-semibold"
+									style={{ fontSize: 9, color: '#1A1400' }}
+								>
+									{formatDate(student?.dateOfBirth)}
+								</span>
+							</div>
+
+							<div className="flex flex-col gap-px">
+								<span
+									className="font-bold uppercase"
+									style={{
+										fontSize: 6,
+										color: '#B8960C',
+										opacity: 0.7,
+										letterSpacing: '0.14em',
+									}}
+								>
+									Enrollment
+								</span>
+								<span
+									className="flex items-center gap-1 truncate font-semibold"
+									style={{ fontSize: 9, color: '#1A1400' }}
+								>
+									{enrollmentStatus}
+								</span>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				{/* Footer — student ID number + validity + QR */}
+				<div
+					className="flex items-center justify-between"
+					style={{
+						marginTop: 8,
+						padding: '7px 14px 0',
+						borderTop: '0.5px solid rgba(212,175,55,0.2)',
+					}}
+				>
+					{/* ID number */}
+					<div className="flex flex-col gap-px">
+						<span
+							className="font-bold uppercase"
+							style={{
+								fontSize: 6,
+								color: '#B8960C',
+								opacity: 0.7,
+								letterSpacing: '0.14em',
+							}}
+						>
+							Student ID
+						</span>
+						<span
+							className="font-bold"
+							style={{
+								fontFamily: "'Space Mono', monospace",
+								fontSize: 11,
+								color: '#1A1400',
+								letterSpacing: '0.04em',
+							}}
+						>
+							{prefixedStudentId}
+						</span>
+					</div>
+
+					{/* Validity + QR */}
+					<div className="flex items-center gap-[6px]">
+						{validUntil && (
+							<div className="flex flex-col items-end gap-0.5">
+								<span
+									className="uppercase"
+									style={{
+										fontSize: 6,
+										color: '#B8960C',
+										opacity: 0.7,
+										letterSpacing: '0.12em',
+									}}
+								>
+									Valid until
+								</span>
+								<span
+									className="font-bold"
+									style={{
+										fontFamily: "'Space Mono', monospace",
+										fontSize: 7.5,
+										color: '#1A1400',
+									}}
+								>
+									{formatDate(validUntil)}
+								</span>
 							</div>
 						)}
-					</div>
-					<div className="min-w-0">
-						<p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-							<Fingerprint className="h-3.5 w-3.5 flex-shrink-0 text-primary" />
-							QR Verification
-						</p>
-						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-							Scan to verify this student ID&apos;s authenticity and validity.
-						</p>
-						<p className="mt-1.5 inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">
-							<ShieldCheck className="h-3 w-3 text-emerald-500" />
-							Signed fingerprint
-						</p>
+
+						{/* QR code box */}
+						<div
+							className="flex items-center justify-center"
+							style={{
+								width: 38,
+								height: 38,
+								background: '#fff',
+								borderRadius: 4,
+								border: '0.5px solid rgba(212,175,55,0.25)',
+								padding: 3,
+								boxSizing: 'border-box',
+							}}
+						>
+							{qrDataUrl && !qrError ? (
+								// eslint-disable-next-line @next/next/no-img-element
+								<img
+									src={qrDataUrl}
+									alt="Verification QR code"
+									className="h-full w-full"
+								/>
+							) : (
+								<Fingerprint
+									className="h-5 w-5"
+									style={{ color: 'rgba(180,140,0,0.35)' }}
+								/>
+							)}
+						</div>
 					</div>
 				</div>
-
-				{/* Validity footer */}
-				<div className="mt-4 flex items-center justify-between text-[10px] text-muted-foreground">
-					<span className="inline-flex items-center gap-1">
-						<CalendarDays className="h-3 w-3" />
-						Issued {formatDate(issuedAt)}
-					</span>
-					{validUntil && (
-						<span className="inline-flex items-center gap-1">
-							<ShieldCheck className="h-3 w-3" />
-							Valid until {formatDate(validUntil)}
-						</span>
-					)}
-				</div>
-			</div>
-
-			{/* Bottom strip */}
-			<div className="flex items-center justify-between border-t border-border bg-muted/40 px-5 py-2.5">
-				<span className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-					{school?.identity?.shortName || schoolName}
-				</span>
-				<span className="flex-shrink-0 text-[10px] font-medium text-muted-foreground">
-					{prefixedStudentId}
-				</span>
 			</div>
 		</div>
 	);

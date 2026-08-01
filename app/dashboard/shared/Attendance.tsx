@@ -26,6 +26,7 @@ import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
 import { PageLoading } from '@/components/loading';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
+import { isStudentRole } from '@/utils/effectiveRole';
 
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -422,7 +423,7 @@ const Attendance = () => {
 			});
 			return Array.from(years).sort().reverse();
 		}
-		if (user.role === 'student') {
+		if (user.role === 'student' || user.role === 'parent') {
 			const years = new Set<string>();
 			user.academicYears?.forEach((ay: any) => {
 				if (ay.year) years.add(ay.year);
@@ -529,7 +530,7 @@ const Attendance = () => {
 				})
 				.filter(Boolean);
 		}
-		if (user.role === 'student') {
+		if (user.role === 'student' || user.role === 'parent') {
 			const yr = (user.academicYears || []).find(
 				(e: any) => e.year === selectedAcademicYear,
 			);
@@ -588,12 +589,35 @@ const Attendance = () => {
 			setIsLoading(true);
 			try {
 				let studentsList: any[] = [];
+				const isParentView = user?.role === 'parent';
+
+				if (isParentView) {
+					const childId = user?.studentId || user?.username || '';
+					const child = Array.isArray(user?.parentChildren)
+						? user.parentChildren.find(
+								(c: any) =>
+									c.studentId === childId ||
+									c.username === childId ||
+									c.id === childId,
+							)
+						: null;
+					studentsList = [
+						{
+							studentId: childId,
+							firstName: child?.firstName || user?.firstName || '',
+							middleName: child?.middleName || user?.middleName || '',
+							lastName: child?.lastName || user?.lastName || '',
+							fullName: child?.fullName || user?.fullName || '',
+						},
+					];
+				}
+
 				const cachedUsers = getScopedAcademicYearValue(
 					usersByYearRef.current,
 					selectedAcademicYear,
 				).value;
 
-				if (Array.isArray(cachedUsers?.students)) {
+				if (studentsList.length === 0 && Array.isArray(cachedUsers?.students)) {
 					studentsList = cachedUsers.students.filter((s: any) => {
 						const yr = s.academicYears?.find(
 							(a: any) => a.year === selectedAcademicYear,
@@ -602,7 +626,7 @@ const Attendance = () => {
 					});
 				}
 
-				if (studentsList.length === 0) {
+				if (studentsList.length === 0 && !isParentView) {
 					const res = await fetch(
 						`/api/users?role=student&academicYear=${selectedAcademicYear}&classId=${selectedClassId}`,
 					);
@@ -664,6 +688,7 @@ const Attendance = () => {
 	}, [
 		selectedClassId,
 		selectedAcademicYear,
+		user,
 		setUsersForYear,
 		mergeAttendanceForYear,
 	]);
@@ -705,7 +730,7 @@ const Attendance = () => {
 				return true;
 			if (user.role === 'teacher') return date === todayStr();
 
-			if (user.role === 'student') {
+			if (isStudentRole(user.role)) {
 				const isToday = date === todayStr();
 
 				// Check if any attendance data exists for this specific date
@@ -735,7 +760,7 @@ const Attendance = () => {
 			if (user.role === 'teacher') return date === todayStr();
 
 			// Students can NEVER modify attendance that has already been recorded
-			if (user.role === 'student') return false;
+			if (isStudentRole(user.role)) return false;
 
 			return false;
 		},
@@ -964,7 +989,7 @@ const Attendance = () => {
 					>
 						<div className="bg-card border border-border rounded-xl shadow-sm">
 							<div className="flex flex-wrap gap-2 p-2.5 sm:p-3 items-end">
-								{user.role !== 'student' &&
+								{!isStudentRole(user.role) &&
 									availableAcademicYears.length > 1 && (
 										<FilterSelect
 											label="Year"
@@ -982,7 +1007,7 @@ const Attendance = () => {
 										/>
 									)}
 
-								{user.role !== 'student' && sessions.length > 1 && (
+								{!isStudentRole(user.role) && sessions.length > 1 && (
 									<FilterSelect
 										label="Session"
 										value={selectedSession}
@@ -996,7 +1021,7 @@ const Attendance = () => {
 									/>
 								)}
 
-								{user.role !== 'student' &&
+								{!isStudentRole(user.role) &&
 									levels.length > 1 &&
 									selectedSession && (
 										<FilterSelect
@@ -1011,7 +1036,7 @@ const Attendance = () => {
 										/>
 									)}
 
-								{user.role !== 'student' &&
+								{!isStudentRole(user.role) &&
 									classes.length >= 1 &&
 									selectedClassLevel && (
 										<FilterSelect

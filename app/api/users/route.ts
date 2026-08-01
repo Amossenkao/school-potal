@@ -5,6 +5,7 @@ import { authorizeUser } from '@/proxy';
 import { getSchoolProfile, getTenantConnectionByDbName } from '@/lib/mongoose';
 import { normalizeHost } from '@/utils/host';
 import { getSchoolMeshModels } from '@/models/schoolmesh';
+import { buildParentChildrenList } from '@/lib/parentAccess';
 import UserSchema from '@/models/user/User';
 import SystemAdminSchema from '@/models/user/SystemAdmin';
 import UserSyncStateSchema from '@/models/user/UserSyncState';
@@ -26,6 +27,7 @@ import type {
 	Teacher,
 	Administrator,
 	SystemAdmin,
+	Parent,
 	AIChatMessage,
 	Notification,
 } from '@/types';
@@ -83,7 +85,7 @@ const PROFILE_FIELD_LABELS: Record<string, string> = {
 	position: 'position',
 	sponsorClass: 'sponsor class',
 	subjects: 'teaching assignments',
-	guardian: 'guardian information',
+	studentIds: 'linked children',
 	financialProfile: 'financial profile',
 	enrollmentStatus: 'enrollment status',
 	isActive: 'account status',
@@ -133,7 +135,7 @@ function getAcademicYear(): string {
 
 function buildUserResponse(
 	user: any,
-): User | Student | Teacher | Administrator | SystemAdmin {
+): User | Student | Teacher | Administrator | SystemAdmin | Parent {
 	const baseUser: User = {
 		id: user._id?.toString(),
 		username: user.username,
@@ -173,7 +175,6 @@ function buildUserResponse(
 				shareContactWithClassmates: user.shareContactWithClassmates ?? false,
 				canRecordAttendance: user.canRecordAttendance ?? false,
 				academicYears: user.academicYears || [],
-				guardian: user.guardian,
 				studentType: user.studentType ?? 'old',
 		} as Student;
 
@@ -205,6 +206,13 @@ function buildUserResponse(
 				username: user.username,
 			} as SystemAdmin;
 
+		case 'parent':
+			return {
+				...baseUser,
+				role: 'parent',
+				studentIds: user.studentIds || [],
+			} as Parent;
+
 		default:
 			return baseUser;
 	}
@@ -220,6 +228,104 @@ function buildRealtimeUserPayload(user: any) {
 	delete realtimeUser.notifications;
 	delete realtimeUser.chats;
 	return realtimeUser;
+}
+
+/**
+ * Attaches `linkedParent` to student rows and hydrates `parentChildren`
+ * (matching lib/parentAccess.ts ParentChild) onto parent rows, in a single pass.
+ */
+async function hydrateParentRelationships(models: any, rows: any[] | any) {
+	const parents = await models.Parent.find({})
+		.select('_id firstName middleName lastName fullName email phone studentIds')
+		.lean();
+	const parentByStudentId = new Map<string, any>();
+	parents.forEach((p: any) => {
+		(p.studentIds || []).forEach((sid: string) => {
+			parentByStudentId.set(String(sid), p);
+		});
+	});
+
+	const list = Array.isArray(rows) ? rows : [rows];
+	const parentRows = list.filter((u: any) => u?.role === 'parent');
+	const allStudentIds = Array.from(
+		new Set(
+			parentRows.flatMap((p: any) =>
+				Array.isArray(p.studentIds) ? p.studentIds : [],
+			),
+		),
+	);
+	const students =
+		allStudentIds.length > 0
+			? await models.User.find({
+					role: 'student',
+					$or: [
+						{ studentId: { $in: allStudentIds } },
+						{ username: { $in: allStudentIds } },
+					],
+				})
+					.select(
+						'studentId username firstName middleName lastName fullName classId className classLevel academicYears isActive',
+					)
+					.lean()
+			: [];
+	const studentByKey = new Map<string, any>();
+	(students || []).forEach((s: any) => {
+		const key = s.studentId || s.username;
+		if (key) studentByKey.set(String(key), s);
+	});
+
+	const mapped = list.map((user: any) => {
+		if (user?.role !== 'student') {
+			if (user?.role === 'parent') {
+				return {
+					...user,
+					parentChildren: (Array.isArray(user.studentIds)
+						? user.studentIds
+						: []
+					)
+						.map((sid: string) => {
+							const s = studentByKey.get(String(sid));
+							if (!s) return null;
+							return {
+								id: s._id.toString(),
+								studentId: s.studentId || s.username,
+								username: s.username,
+								firstName: s.firstName,
+								middleName: s.middleName,
+								lastName: s.lastName,
+								fullName: s.fullName,
+								classId: s.classId,
+								className: s.className,
+								classLevel: s.classLevel,
+								academicYears: Array.isArray(s.academicYears)
+									? s.academicYears
+									: [],
+								isActive: s.isActive ?? true,
+							};
+						})
+						.filter(Boolean),
+				};
+			}
+			return user;
+		}
+		const parent = parentByStudentId.get(String(user.studentId || ''));
+		return {
+			...user,
+			linkedParent: parent
+				? {
+						id: parent._id.toString(),
+						firstName: parent.firstName,
+						middleName: parent.middleName,
+						lastName: parent.lastName,
+						fullName: parent.fullName,
+						email: parent.email,
+						phone: parent.phone,
+					}
+				: null,
+		};
+	});
+
+	return Array.isArray(rows) ? mapped : mapped[0];
 }
 
 async function bumpUsersVersionForTenantConnection(
@@ -370,7 +476,7 @@ async function buildUserData(
 ): Promise<any> {
 	const roleBasedId = await generateIdByRole(models, userData.role);
 	const credentials = generateCredentials(roleBasedId);
-	const academicYear = getAcademicYear();
+	const academicYear = userData.enrollmentYear || getAcademicYear();
 	const enrollmentSemester = userData.enrollmentSemester;
 
 	const commonData = {
@@ -420,14 +526,6 @@ async function buildUserData(
 						className: userData.className,
 					},
 				],
-				guardian: {
-					firstName: userData.guardian?.firstName?.trim(),
-					middleName: userData.guardian?.middleName?.trim(),
-					lastName: userData.guardian?.lastName?.trim(),
-					email: userData.guardian?.email?.trim().toLowerCase(),
-					phone: userData.guardian?.phone?.trim(),
-					address: userData.guardian?.address?.trim(),
-				},
 		};
 
 		case 'teacher':
@@ -464,6 +562,75 @@ async function buildUserData(
 		default:
 			throw new Error('Invalid user role');
 	}
+}
+
+// Link a parent to a student (assign existing or create new parent account).
+// Returns the parent doc or null when no parent payload was provided.
+async function attachOrCreateParent(
+	models: any,
+	parent: any,
+	studentId: string,
+	currentUser: any,
+): Promise<any | null> {
+	if (!parent) return null;
+
+	if (parent.mode === 'assign' && parent.parentId) {
+		const existing = await models.Parent.findById(parent.parentId).lean();
+		if (!existing) {
+			throw new Error('Selected parent account was not found.');
+		}
+		await models.Parent.updateOne(
+			{ _id: parent.parentId },
+			{
+				$addToSet: { studentIds: studentId },
+				$set: { updatedAt: new Date() },
+			},
+		);
+		return existing;
+	}
+
+	if (parent.mode === 'create') {
+		const email = parent.email?.toString().toLowerCase().trim() || '';
+		const phone = parent.phone?.toString().trim() || '';
+		const username = email || phone;
+		if (!username) {
+			throw new Error(
+				'Parent needs an email or phone number to create an account.',
+			);
+		}
+		const firstName = parent.firstName?.toString().trim() || '';
+		const middleName = parent.middleName?.toString().trim() || '';
+		const lastName = parent.lastName?.toString().trim() || '';
+		const fullName = [firstName, middleName, lastName].filter(Boolean).join(' ');
+		const defaultPassword = username;
+		const hashedPassword = await hashPassword(defaultPassword);
+
+		const created = await models.Parent.create({
+			role: 'parent',
+			firstName,
+			middleName,
+			lastName,
+			fullName,
+			username,
+			password: hashedPassword,
+			defaultPassword,
+			mustChangePassword: true,
+			isActive: true,
+			gender: parent.gender || 'Other',
+			dateOfBirth: parent.dateOfBirth || '2000-01-01',
+			email,
+			phone,
+			address: parent.address?.toString().trim() || '',
+			studentIds: [studentId],
+			createdBy: currentUser.userId,
+			createdAt: new Date(),
+			chats: [],
+			notifications: [],
+		});
+		return created;
+	}
+
+	return null;
 }
 
 // --- Student Promotion/Demotion Functions ---
@@ -1050,20 +1217,24 @@ async function validateUserData(
 			userData.phone = normalizedPhone;
 		}
 	}
-	if (userData.guardian?.email !== undefined) {
-		const normalizedGuardianEmail = userData.guardian.email?.toString().trim();
-		if (!normalizedGuardianEmail) {
-			delete userData.guardian.email;
-		} else {
-			userData.guardian.email = normalizedGuardianEmail;
+	if (userData.parent?.mode === 'create') {
+		if (userData.parent.email !== undefined) {
+			const normalizedParentEmail = userData.parent.email
+				?.toString()
+				.trim();
+			if (!normalizedParentEmail) {
+				delete userData.parent.email;
+			} else {
+				userData.parent.email = normalizedParentEmail;
+			}
 		}
-	}
-	if (userData.guardian?.phone !== undefined) {
-		const normalizedGuardianPhone = userData.guardian.phone?.toString().trim();
-		if (!normalizedGuardianPhone) {
-			delete userData.guardian.phone;
-		} else {
-			userData.guardian.phone = normalizedGuardianPhone;
+		if (userData.parent.phone !== undefined) {
+			const normalizedParentPhone = userData.parent.phone?.toString().trim();
+			if (!normalizedParentPhone) {
+				delete userData.parent.phone;
+			} else {
+				userData.parent.phone = normalizedParentPhone;
+			}
 		}
 	}
 	const requiredFields = [
@@ -1166,6 +1337,88 @@ async function validateUserData(
 			case 'teacher':
 				await validateTeacherData(userData, models, baseQuery, errors, userId);
 				break;
+		}
+	}
+
+	// Validate linked parent (student create/edit)
+	if (role === 'student' && userData.parent) {
+		const parent = userData.parent;
+		if (parent.mode === 'assign') {
+			if (!parent.parentId) {
+				errors.push({
+					field: 'parent',
+					message: 'Select a parent to assign',
+					type: 'REQUIRED_FIELD',
+				});
+			} else {
+				const existingParent = await models.Parent.findById(parent.parentId).lean();
+				if (!existingParent) {
+					errors.push({
+						field: 'parent',
+						message: 'Selected parent account was not found',
+						type: 'FORMAT_INVALID',
+					});
+				}
+			}
+		} else if (parent.mode === 'create') {
+			if (!parent.firstName?.toString().trim() || !parent.lastName?.toString().trim()) {
+				errors.push({
+					field: 'parent',
+					message: 'Parent first and last name are required',
+					type: 'REQUIRED_FIELD',
+				});
+			}
+			const parentEmail = parent.email?.toString().toLowerCase().trim();
+			const parentPhone = parent.phone?.toString().trim();
+			if (!parentEmail && !parentPhone) {
+				errors.push({
+					field: 'parent',
+					message:
+						'Parent needs an email or phone number to create an account',
+					type: 'REQUIRED_FIELD',
+				});
+			}
+			if (parentEmail && !validateEmail(parentEmail)) {
+				errors.push({
+					field: 'parent.email',
+					message: 'Invalid parent email format',
+					type: 'FORMAT_INVALID',
+				});
+			}
+			if (parentEmail) {
+				const existingUser = await models.User.findOne({
+					email: parentEmail,
+				}).lean();
+				if (existingUser) {
+					errors.push({
+						field: 'parent.email',
+						type: 'DUPLICATE_ENTRY',
+						message:
+							'A user already exists with this email. Search and assign them instead.',
+						details: {
+							existingUserId: existingUser._id.toString(),
+							existingUserName: existingUser.fullName,
+						},
+					});
+				}
+			}
+			if (parentPhone) {
+				const existingUser = await models.User.findOne({
+					phone: parentPhone,
+				}).lean();
+				if (existingUser) {
+					errors.push({
+						field: 'parent.phone',
+						type: 'DUPLICATE_ENTRY',
+						message:
+							'A user already exists with this phone number. Search and assign them instead.',
+						details: {
+							existingUserId: existingUser._id.toString(),
+							existingUserName: existingUser.fullName,
+						},
+					});
+				}
+			}
 		}
 	}
 
@@ -1298,7 +1551,7 @@ async function generateUniqueUsername(UserModel: any, maxAttempts = 10): Promise
 
 export async function GET(request: NextRequest) {
 	try {
-		const currentUser = await authorizeUser(request);
+		let currentUser: any = await authorizeUser(request);
 		if (!currentUser) {
 			return NextResponse.json(
 				{ success: false, message: 'Unauthorized' },
@@ -1361,6 +1614,10 @@ export async function GET(request: NextRequest) {
 		const includeCounts =
 			searchParams.get('includeCounts') === 'true' ||
 			searchParams.get('includeCounts') === '1';
+		const includeParents =
+			searchParams.get('includeParents') === 'true' ||
+			searchParams.get('includeParents') === '1';
+		const searchQuery = searchParams.get('q')?.trim() || '';
 		const skip = (page - 1) * limit;
 
 		let responseData: any;
@@ -1528,6 +1785,54 @@ export async function GET(request: NextRequest) {
 
 			return false;
 		};
+
+		// ========================================================================
+		// PARENT ROLE - Delegate to the selected child's student context so the
+		// parent can fetch classmates/teachers exactly like their child would.
+		// ========================================================================
+		if (currentUser.role === 'parent') {
+			const parent = await models.Parent.findById(currentUser.id)
+				.select('studentIds')
+				.lean();
+			const studentIds = Array.isArray(parent?.studentIds)
+				? parent.studentIds
+				: [];
+			const selectedStudentId =
+				searchParams.get('studentId') ||
+				currentUser.studentId ||
+				studentIds[0];
+			if (
+				!parent ||
+				!selectedStudentId ||
+				!studentIds.includes(selectedStudentId)
+			) {
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							'You can only access users linked to your children.',
+					},
+					{ status: 403 },
+				);
+			}
+			const child = await models.Student.findOne({
+				username: selectedStudentId,
+				role: 'student',
+			})
+				.select('_id')
+				.lean();
+			if (!child) {
+				return NextResponse.json(
+					{ success: false, message: 'Linked child not found.' },
+					{ status: 404 },
+				);
+			}
+			currentUser = {
+				...currentUser,
+				id: String(child._id),
+				role: 'student',
+			} as any;
+		}
 
 		// Validate current user has access to the requested academic year
 		const hasAccess = await validateAcademicYearAccess(
@@ -2164,6 +2469,24 @@ export async function GET(request: NextRequest) {
 				filters._id = targetId;
 			}
 
+			// Text search across name/username/email/phone fields
+			if (searchQuery) {
+				const escapedSearch = searchQuery.replace(
+					/[.*+?^${}()|[\]\\]/g,
+					(ch) => `\\${ch}`,
+				);
+				filters.$or = [
+					...((filters.$or as any[]) || []),
+					{ firstName: { $regex: escapedSearch, $options: 'i' } },
+					{ middleName: { $regex: escapedSearch, $options: 'i' } },
+					{ lastName: { $regex: escapedSearch, $options: 'i' } },
+					{ fullName: { $regex: escapedSearch, $options: 'i' } },
+					{ username: { $regex: escapedSearch, $options: 'i' } },
+					{ email: { $regex: escapedSearch, $options: 'i' } },
+					{ phone: { $regex: escapedSearch, $options: 'i' } },
+				];
+			}
+
 			// Filter by academic year based on role
 			if (role) {
 				if (role === 'teacher') {
@@ -2185,12 +2508,15 @@ export async function GET(request: NextRequest) {
 							classId || undefined,
 						),
 					);
+				} else if (role === 'parent') {
+					// Parents are not scoped by academic year
 				} else {
 					filters['academicYears.year'] = academicYear;
 				}
 			} else {
 				if (classId) {
 					filters.$or = [
+						...((filters.$or as any[]) || []),
 						{
 							role: 'student',
 							...buildStudentAcademicYearClassFilter(academicYear, classId),
@@ -2207,6 +2533,7 @@ export async function GET(request: NextRequest) {
 					];
 				} else {
 					filters.$or = [
+						...((filters.$or as any[]) || []),
 						// Students and administrators
 						{
 							role: { $in: ['student', 'administrator'] },
@@ -2217,6 +2544,8 @@ export async function GET(request: NextRequest) {
 							role: 'teacher',
 							'subjects.year': academicYear,
 						},
+						// Parents (not scoped by academic year)
+						{ role: 'parent' },
 					];
 				}
 			}
@@ -2239,6 +2568,14 @@ export async function GET(request: NextRequest) {
 						includeUsername: true,
 						restrictPhone: false,
 					});
+
+			// Attach linked parent accounts to student rows + hydrate parent children
+			if (includeParents) {
+				responseData = await hydrateParentRelationships(
+					models,
+					responseData,
+				);
+			}
 
 			let meta;
 			if (includeCounts) {
@@ -2290,6 +2627,24 @@ export async function GET(request: NextRequest) {
 				filters._id = targetId;
 			}
 
+			// Text search across name/username/email/phone fields
+			if (searchQuery) {
+				const escapedSearch = searchQuery.replace(
+					/[.*+?^${}()|[\]\\]/g,
+					(ch) => `\\${ch}`,
+				);
+				filters.$or = [
+					...((filters.$or as any[]) || []),
+					{ firstName: { $regex: escapedSearch, $options: 'i' } },
+					{ middleName: { $regex: escapedSearch, $options: 'i' } },
+					{ lastName: { $regex: escapedSearch, $options: 'i' } },
+					{ fullName: { $regex: escapedSearch, $options: 'i' } },
+					{ username: { $regex: escapedSearch, $options: 'i' } },
+					{ email: { $regex: escapedSearch, $options: 'i' } },
+					{ phone: { $regex: escapedSearch, $options: 'i' } },
+				];
+			}
+
 			// Filter by academic year based on role
 			if (role) {
 				if (role === 'teacher') {
@@ -2311,12 +2666,15 @@ export async function GET(request: NextRequest) {
 							classId || undefined,
 						),
 					);
+				} else if (role === 'parent') {
+					// Parents are not scoped by academic year
 				} else {
 					filters['academicYears.year'] = academicYear;
 				}
 			} else {
 				if (classId) {
 					filters.$or = [
+						...((filters.$or as any[]) || []),
 						{
 							role: 'student',
 							...buildStudentAcademicYearClassFilter(academicYear, classId),
@@ -2333,6 +2691,7 @@ export async function GET(request: NextRequest) {
 					];
 				} else {
 					filters.$or = [
+						...((filters.$or as any[]) || []),
 						// Students and administrators
 						{
 							role: { $in: ['student', 'administrator'] },
@@ -2343,6 +2702,8 @@ export async function GET(request: NextRequest) {
 							role: 'teacher',
 							'subjects.year': academicYear,
 						},
+						// Parents (not scoped by academic year)
+						{ role: 'parent' },
 					];
 				}
 			}
@@ -2365,6 +2726,14 @@ export async function GET(request: NextRequest) {
 						includeUsername: true,
 						restrictPhone: false,
 					});
+
+			// Attach linked parent accounts to student rows + hydrate parent children
+			if (includeParents) {
+				responseData = await hydrateParentRelationships(
+					models,
+					responseData,
+				);
+			}
 
 			let meta;
 			if (includeCounts) {
@@ -2653,6 +3022,22 @@ export async function POST(request: NextRequest) {
 					continue;
 				}
 				throw error;
+			}
+		}
+		// Link or create the parent for this student (replaces the legacy embedded guardian)
+		let linkedParent: any = null;
+		if (userData.role === 'student') {
+			try {
+				linkedParent = await attachOrCreateParent(
+					models,
+					userData.parent,
+					newUser.studentId,
+					currentUser,
+				);
+			} catch (parentError: any) {
+				// Roll back the student if parent linking fails (keeps creation atomic)
+				await models.Student.deleteOne({ _id: newUser._id }).catch(() => {});
+				throw parentError;
 			}
 		}
 		const userResponse = newUser.toObject();
@@ -3986,7 +4371,7 @@ export async function PUT(request: NextRequest) {
 							...baseFields,
 							'classId',
 							'className',
-							'guardian',
+							'parent',
 							'enrollmentStatus',
 							'financialProfile',
 							"isLatestAcademicYear",
@@ -4000,6 +4385,9 @@ export async function PUT(request: NextRequest) {
 						break;
 					case 'administrator':
 						allowedFields = [...baseFields, 'position', 'permissions', 'canRecordStudentAttendance', 'canRecordTeacherAttendance', 'isTeacher', 'classes'];
+						break;
+					case 'parent':
+						allowedFields = [...baseFields, 'studentIds'];
 						break;
 					default:
 						allowedFields = baseFields;
@@ -4051,7 +4439,36 @@ export async function PUT(request: NextRequest) {
 			}
 		}
 
-		if (Object.keys(filteredUserData).length === 0) {
+		// Extract parent linking payload (handled separately, not persisted to the student)
+		const parentUpdate = filteredUserData.parent;
+		delete filteredUserData.parent;
+
+		// Validate the parent payload (assign-exists, create names/contact/duplicates)
+		if (targetUser.role === 'student' && parentUpdate) {
+			const parentValidationErrors = await validateUserData(
+				{ role: 'student', parent: parentUpdate },
+				models,
+				true,
+				actualTargetUserId,
+				forceAssignments,
+			);
+			const parentNonConflictErrors = parentValidationErrors.filter(
+				(error) => !error.requiresConfirmation,
+			);
+			if (parentNonConflictErrors.length > 0) {
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							'Validation failed. Please correct the parent account and try again.',
+						errors: parentNonConflictErrors,
+					},
+					{ status: 400 },
+				);
+			}
+		}
+
+		if (Object.keys(filteredUserData).length === 0 && !parentUpdate) {
 			return NextResponse.json({
 				success: true,
 				message: 'No updatable fields were provided.',
@@ -4433,6 +4850,9 @@ export async function PUT(request: NextRequest) {
 			case 'system_admin':
 				ModelToUpdate = models.SystemAdmin;
 				break;
+			case 'parent':
+				ModelToUpdate = models.Parent;
+				break;
 		}
 
 		// Update user
@@ -4453,6 +4873,51 @@ export async function PUT(request: NextRequest) {
 				},
 				{ status: 404 },
 			);
+		}
+
+		// Apply parent link/unlink/create for students
+		let parentChangeApplied = false;
+		if (targetUser.role === 'student' && parentUpdate) {
+			const studentId = targetUser.studentId || targetUser.username;
+			if (parentUpdate.mode === 'assign' && parentUpdate.parentId) {
+				const existingParent = await models.Parent.findById(
+					parentUpdate.parentId,
+				).lean();
+				if (!existingParent) {
+					return NextResponse.json(
+						{
+							success: false,
+							message: 'Selected parent account was not found.',
+						},
+						{ status: 400 },
+					);
+				}
+				await models.Parent.updateOne(
+					{ _id: parentUpdate.parentId },
+					{
+						$addToSet: { studentIds: studentId },
+						$set: { updatedAt: new Date() },
+					},
+				);
+				parentChangeApplied = true;
+			} else if (parentUpdate.mode === 'unlink' && parentUpdate.parentId) {
+				await models.Parent.updateOne(
+					{ _id: parentUpdate.parentId },
+					{
+						$pull: { studentIds: studentId },
+						$set: { updatedAt: new Date() },
+					},
+				);
+				parentChangeApplied = true;
+			} else if (parentUpdate.mode === 'create') {
+				await attachOrCreateParent(
+					models,
+					{ mode: 'create', ...parentUpdate },
+					studentId,
+					currentUser,
+				);
+				parentChangeApplied = true;
+			}
 		}
 
 		const wasActive = targetUser.isActive !== false;
@@ -4496,6 +4961,17 @@ export async function PUT(request: NextRequest) {
 				actualTargetUserId,
 				buildUserResponse(updatedUser.toObject()),
 			);
+		}
+
+		// Refresh parent sessions with the latest child list when studentIds changed
+		if (targetUser.role === 'parent' && filteredUserData.studentIds !== undefined) {
+			const refreshedChildren = await buildParentChildrenList(
+				models,
+				updatedUser.toObject(),
+			);
+			await updateAllUserSessions(actualTargetUserId, {
+				parentChildren: refreshedChildren,
+			});
 		}
 
 		const profileUpdated = changedProfileFields.length > 0;
@@ -4821,6 +5297,12 @@ export async function DELETE(request: NextRequest) {
 					studentId: targetUser.studentId,
 				});
 				cascadeResults.gradesDeleted = deletedGrades.deletedCount || 0;
+
+				// Unlink the student from any parent accounts
+				await models.Parent.updateMany(
+					{ studentIds: targetUser.studentId },
+					{ $pull: { studentIds: targetUser.studentId } },
+				);
 
 				// Delete student's payment records (if they exist as separate documents)
 				// This depends on your data structure - adjust as needed

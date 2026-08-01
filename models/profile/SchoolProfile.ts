@@ -316,6 +316,8 @@ const RoleFeatureAccessSchema = new Schema(
 			required: true,
 			default: [],
 		},
+		administrator: { type: Schema.Types.Mixed, default: {} },
+		parent: { type: [String], enum: FEATURE_KEYS, default: [] },
 	},
 	{ _id: false },
 );

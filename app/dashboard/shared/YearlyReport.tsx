@@ -26,6 +26,7 @@ import QRCode from 'qrcode';
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import { getStudentAllowedAccess } from '@/utils/schoolSettingsAccess';
+import { isStudentRole } from '@/utils/effectiveRole';
 import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import {
@@ -2026,7 +2027,7 @@ function ReportContent({
 	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 	const mergeGradesForYear = useSchoolStore((state) => state.mergeGradesForYear);
 	const user = useAuth((state) => state.user);
-	const isStudent = user?.role === 'student';
+				const isStudent = isStudentRole(user?.role);
 	const createdBy = useMemo(
 		() => user?.id || user?._id || user?.studentId || '',
 		[user],
@@ -2282,7 +2283,7 @@ function ReportContent({
 			setError(null);
 
 			try {
-				const isStudent = user?.role === 'student';
+	const isStudent = isStudentRole(user?.role);
 				let studentsToProcess: any[] = [];
 				const selectedStudentIds = reportFilters.selectedStudents
 					.map((studentId) => normalizeStudentId(studentId))
@@ -3328,7 +3329,7 @@ function ReportContent({
 export default function ReportCardPage() {
 	const user = useAuth((state) => state.user);
 	const currentSchool = useSchoolStore((state) => state.school)
-	const isStudent = user?.role == "student";
+	const isStudent = isStudentRole(user?.role);
 	const [filters, setFilters] = useState<ReportFilters>(() => {
 		return {
 			academicYear: '',

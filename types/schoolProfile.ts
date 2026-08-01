@@ -7,6 +7,7 @@ export interface RoleFeatureAccess {
 	readonly student: readonly FeatureKey[];
 	readonly teacher: readonly FeatureKey[];
 	readonly system_admin: readonly FeatureKey[];
+	readonly parent?: readonly FeatureKey[];
 }
 
 // ============================================================================
@@ -113,6 +114,10 @@ export interface TeacherSettings {
 }
 
 export interface AdministratorSettings {
+	readonly loginAccess: boolean;
+}
+
+export interface ParentSettings {
 	readonly loginAccess: boolean;
 }
 
@@ -244,6 +249,7 @@ export interface SchoolProfileUserConfig {
 	readonly studentSettings: StudentSettings;
 	readonly teacherSettings: TeacherSettings;
 	readonly administratorSettings: AdministratorSettings;
+	readonly parentSettings?: ParentSettings;
 }
 
 // ============================================================================

@@ -107,6 +107,7 @@ const normalizeSchoolFormState = (school: any): SchoolFormState => {
 				teacher: [],
 				system_admin: [],
 				administrator: {},
+				parent: [],
 			},
 		},
 		financialConfig: {

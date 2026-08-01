@@ -88,7 +88,8 @@ export default function CalendarAndSchedules({
 	mode = 'all',
 	defaultTab = 'class-schedules',
 }: CalendarAndSchedulesProps) {
-	const userRole = user?.role || 'student';
+	const rawUserRole = user?.role || 'student';
+	const userRole = rawUserRole === 'parent' ? 'student' : rawUserRole;
 	const isSystemAdmin = userRole === 'system_admin';
 	const canViewAcademicCalendar = true;
 	const showCalendar = mode === 'all' || mode === 'calendar';

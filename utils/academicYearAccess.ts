@@ -94,7 +94,7 @@ export const getUserAllowedAcademicYears = (
 		return years.length > 0 ? years : [currentAcademicYear];
 	}
 
-	if (role === 'student' || role === 'administrator') {
+	if (role === 'student' || role === 'administrator' || role === 'parent') {
 		const years = sortAcademicYearsDesc(
 			Array.isArray(user?.academicYears)
 				? user.academicYears.map((entry) => entry?.year)

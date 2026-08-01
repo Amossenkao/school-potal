@@ -83,6 +83,7 @@ export interface SchoolFormState {
 			teacher: FeatureKey[];
 			system_admin: FeatureKey[];
 			administrator: Record<string, FeatureKey[]>;
+			parent: FeatureKey[];
 		};
 	};
 	financialConfig: {
@@ -154,10 +155,11 @@ function sanitizeFeatureConfig(
 	featureConfig: Partial<SchoolFormState['featureConfig']>,
 ): SchoolFormState['featureConfig'] {
 	const validKeys = (keys: string[]) => keys.filter((k): k is FeatureKey => FEATURE_KEYS.includes(k as FeatureKey));
+	const studentKeys = featureConfig.roleFeatureAccess?.student ? validKeys(featureConfig.roleFeatureAccess.student) : [];
 	return {
 		enabledFeatures: featureConfig.enabledFeatures ? validKeys(featureConfig.enabledFeatures) : [],
 		roleFeatureAccess: {
-			student: featureConfig.roleFeatureAccess?.student ? validKeys(featureConfig.roleFeatureAccess.student) : [],
+			student: studentKeys,
 			teacher: featureConfig.roleFeatureAccess?.teacher ? validKeys(featureConfig.roleFeatureAccess.teacher) : [],
 			system_admin: featureConfig.roleFeatureAccess?.system_admin ? validKeys(featureConfig.roleFeatureAccess.system_admin) : [],
 			administrator: featureConfig.roleFeatureAccess?.administrator
@@ -165,6 +167,9 @@ function sanitizeFeatureConfig(
 					Object.entries(featureConfig.roleFeatureAccess.administrator).map(([pos, keys]) => [pos, validKeys(keys)]),
 				)
 				: {},
+			parent: featureConfig.roleFeatureAccess?.parent
+				? validKeys(featureConfig.roleFeatureAccess.parent).filter((key) => studentKeys.includes(key))
+				: [],
 		},
 	};
 }
@@ -690,6 +695,26 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 									</div>
 								</div>
 							))}
+							<div className="mb-3">
+								<h5 className="text-[11px] font-medium text-gray-500 mb-1.5 capitalize">Parent</h5>
+								{form.featureConfig.roleFeatureAccess.student.length > 0 ? (
+									<div className="flex flex-wrap gap-1">
+										{form.featureConfig.roleFeatureAccess.student.map((key) => {
+											const selected = form.featureConfig.roleFeatureAccess.parent?.includes(key);
+											return (
+												<button key={key} onClick={() => {
+													const current = form.featureConfig.roleFeatureAccess.parent || [];
+													update('featureConfig.roleFeatureAccess', { ...form.featureConfig.roleFeatureAccess, parent: selected ? current.filter((f) => f !== key) : [...current, key] });
+												}} className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${selected ? 'bg-[#465fff] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-muted dark:text-gray-400'}`}>
+													{key.replace(/_/g, ' ')}
+												</button>
+											);
+										})}
+									</div>
+								) : (
+									<p className="text-[11px] text-gray-400">Enable features for Students to configure parent access.</p>
+								)}
+							</div>
 						</div>
 					</div>
 				)}

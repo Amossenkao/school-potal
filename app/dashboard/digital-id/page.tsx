@@ -10,6 +10,7 @@ import {
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import useAuth from '@/store/useAuth';
+import { isStudentRole } from '@/utils/effectiveRole';
 import {
 	DEFAULT_DOCUMENT_FILTERS,
 	documentFilterConfig,
@@ -40,7 +41,7 @@ export default function DigitalIdPage() {
 	);
 	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
 	const user = useAuth((state) => state.user);
-	const isStudent = user?.role === 'student';
+	const isStudent = isStudentRole(user?.role);
 
 	const [filters, setFilters] = useState<DocumentFilters>(DEFAULT_DOCUMENT_FILTERS);
 	const [students, setStudents] = useState<any[]>([]);

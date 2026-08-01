@@ -6,6 +6,7 @@ import StudentSchema from './user/Student';
 import TeacherSchema from './user/Teacher';
 import AdministratorSchema from './user/Administrator';
 import SystemAdminSchema from './user/SystemAdmin';
+import ParentSchema from './user/Parent';
 import UserSyncStateSchema from './user/UserSyncState';
 import GradeSchema from './grade/Grade';
 import GradeChangeRequestSchema from './grade/GradeChangeRequest';
@@ -21,6 +22,7 @@ import type {
 	Teacher,
 	Administrator,
 	SystemAdmin,
+	Parent,
 } from '@/types';
 
 // --- Model Cache ---
@@ -63,6 +65,10 @@ export const getTenantModels = async (host?: string | null) => {
 			SystemAdminSchema
 		);
 
+	const ParentModel =
+		User.discriminators?.parent ||
+		User.discriminator<Parent & Document>('parent', ParentSchema);
+
 	const GradeModel = connection.model<Document>('Grade', GradeSchema);
 	const GradeChangeRequestModal = connection.model<Document>(
 		'GradeChangeRequest',
@@ -99,6 +105,7 @@ export const getTenantModels = async (host?: string | null) => {
 		Teacher: TeacherModel,
 		Administrator: AdministratorModel,
 		SystemAdmin: SystemAdminModel,
+		Parent: ParentModel,
 		Grade: GradeModel,
 		GradeChangeRequest: GradeChangeRequestModal,
 		ReportShare: ReportShareModel,
@@ -126,6 +133,8 @@ export const getAdministratorModel = async (host?: string | null) =>
 	(await getTenantModels(host)).Administrator;
 export const getSystemAdminModel = async (host?: string | null) =>
 	(await getTenantModels(host)).SystemAdmin;
+export const getParentModel = async (host?: string | null) =>
+	(await getTenantModels(host)).Parent;
 export const getGradeModel = async (host?: string | null) =>
 	(await getTenantModels(host)).Grade;
 export const getAttendanceModel = async (host?: string | null) =>

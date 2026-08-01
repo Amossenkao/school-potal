@@ -256,34 +256,87 @@ const ViewUserModal = ({
 													)}
 												</div>
 											</div>
-											{viewingUser.guardian && (
-												<div>
-													<h5 className="font-semibold mb-3 text-lg border-b pb-2">
-														Guardian Information
-													</h5>
-													<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-														<InfoField
-															label="Guardian Name"
-															value={
-																viewingUser.guardian.firstName +
-																' ' +
-																(viewingUser.guardian.middleName || '') +
-																' ' +
-																viewingUser.guardian.lastName
-															}
-														/>
-														<InfoField
-															label="Guardian Phone"
-															value={viewingUser.guardian.phone}
-														/>
-														<InfoField
-															label="Guardian Email"
-															value={viewingUser.guardian.email}
-														/>
+											{viewingUser.role === 'student' &&
+												viewingUser.linkedParent && (
+													<div>
+														<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+															Linked Parent Account
+														</h5>
+														<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+															<InfoField
+																label="Parent Name"
+																value={
+																	viewingUser.linkedParent.fullName ||
+																	[
+																		viewingUser.linkedParent.firstName,
+																		viewingUser.linkedParent.middleName,
+																		viewingUser.linkedParent.lastName,
+																	]
+																		.filter(Boolean)
+																		.join(' ')
+																}
+															/>
+															<InfoField
+																label="Parent Phone"
+																value={viewingUser.linkedParent.phone}
+															/>
+															<InfoField
+																label="Parent Email"
+																value={viewingUser.linkedParent.email}
+															/>
+														</div>
 													</div>
-												</div>
-											)}
+												)}
 										</>
+									)}
+
+									{viewingUser.role === 'parent' && (
+										<div>
+											<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+												Linked Children
+											</h5>
+											<div className="space-y-3">
+												{Array.isArray(viewingUser.parentChildren) &&
+												viewingUser.parentChildren.length > 0 ? (
+													viewingUser.parentChildren.map(
+														(child: any, idx: any) => (
+															<div
+																key={`${child.studentId || child.id || idx}-${idx}`}
+																className="flex items-start justify-between rounded-lg border border-border bg-muted/40 p-3"
+															>
+																<div>
+																	<p className="text-sm font-medium text-foreground">
+																		{child.fullName ||
+																			[
+																				child.firstName,
+																				child.middleName,
+																				child.lastName,
+																			]
+																				.filter(Boolean)
+																				.join(' ') ||
+																			child.studentId}
+																	</p>
+																	<p className="text-xs text-muted-foreground">
+																		Class:{' '}
+																		{child.className ||
+																			getClassNameFromId(child.classId) ||
+																			'N/A'}
+																	</p>
+																	<p className="text-xs text-muted-foreground">
+																		Username:{' '}
+																		{child.studentId || child.username}
+																	</p>
+																</div>
+															</div>
+														),
+													)
+												) : (
+													<p className="text-sm text-muted-foreground">
+														No children linked to this account yet.
+													</p>
+												)}
+											</div>
+										</div>
 									)}
 
 									{viewingUser.role === 'teacher' && (

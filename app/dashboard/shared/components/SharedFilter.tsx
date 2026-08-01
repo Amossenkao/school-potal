@@ -23,6 +23,7 @@ import {
 import { StudentMultiSelect } from './StudentMultiSelect';
 import { PageLoading } from '@/components/loading';
 import { getStudentAllowedAccess } from '@/utils/schoolSettingsAccess';
+import { isStudentRole } from '@/utils/effectiveRole';
 import { ChevronDown, Check, ArrowRight } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -394,7 +395,7 @@ export const SharedFilter = <T extends BaseFilters>({
 	const userRole = user?.role || 'student';
 	const isSystemAdmin = userRole === 'system_admin';
 	const isAdministrator = userRole === 'administrator';
-	const isStudent = userRole === 'student';
+	const isStudent = isStudentRole(userRole);
 
 	const gradeLevelField = config.gradeLevelField;
 	const getGradeLevel = useCallback(

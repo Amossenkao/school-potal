@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSchoolStore } from '@/store/schoolStore';
 import ConflictModal from '@/components/modals/ConflictModal';
 import { motion } from 'framer-motion';
@@ -33,6 +33,9 @@ import {
 	Briefcase,
 	ClipboardCheck,
 	ChevronDown,
+	Search,
+	UserCheck,
+	UserPlus,
 } from 'lucide-react';
 import { fail } from 'assert';
 
@@ -641,14 +644,17 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			enrollmentYear: defaultEnrollmentYear,
 			enrollmentSemester: defaultEnrollmentSemester,
 			studentType: 'new',
-			guardian: {
-				firstName: '',
-				middleName: '',
-				lastName: '',
-				email: '',
-				phone: '',
-				address: '',
-			},
+		},
+		parent: {
+			mode: 'assign' as 'assign' | 'create',
+			parentId: '',
+			parentLabel: '',
+			firstName: '',
+			middleName: '',
+			lastName: '',
+			email: '',
+			phone: '',
+			address: '',
 		},
 		teacher: {
 			subjects: [] as Array<{
@@ -1046,6 +1052,63 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 		}));
 	};
 
+	/* ── Parent account search/assign/create ── */
+	const [parentSearchResults, setParentSearchResults] = useState<any[]>([]);
+	const [parentSearching, setParentSearching] = useState(false);
+	const [parentSearchDone, setParentSearchDone] = useState(false);
+	const parentSearchTimeout = useRef<any>(null);
+
+	const searchParents = async (q: string) => {
+		if (!q.trim()) {
+			setParentSearchResults([]);
+			setParentSearchDone(false);
+			return;
+		}
+		setParentSearching(true);
+		try {
+			const params = new URLSearchParams({
+				role: 'parent',
+				academicYear: currentAcademicYear,
+				limit: '8',
+				q: q.trim(),
+			});
+			const res = await fetch(`/api/users?${params.toString()}`);
+			const data = await res.json();
+			setParentSearchResults(Array.isArray(data?.data) ? data.data : []);
+			setParentSearchDone(true);
+		} catch {
+			setParentSearchResults([]);
+			setParentSearchDone(true);
+		} finally {
+			setParentSearching(false);
+		}
+	};
+
+	const onParentSearchChange = (value: string) => {
+		if (parentSearchTimeout.current) clearTimeout(parentSearchTimeout.current);
+		setFormData((prev) => ({
+			...prev,
+			parent: { ...prev.parent, parentId: '', parentLabel: '' },
+		}));
+		parentSearchTimeout.current = setTimeout(
+			() => searchParents(value),
+			350,
+		);
+	};
+
+	const selectParent = (parent: any) => {
+		setFormData((prev) => ({
+			...prev,
+			parent: {
+				...prev.parent,
+				parentId: parent.id || parent._id,
+				parentLabel: parent.fullName || '',
+			},
+		}));
+		setParentSearchResults([]);
+		setParentSearchDone(false);
+	};
+
 	/* ── Validation ── */
 	const validateStep = async (step: number) => {
 		setIsValidating(true);
@@ -1065,14 +1128,22 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			)
 				e.email = 'Email already registered';
 			if (userType === 'student') {
-				if (!formData.student.guardian.firstName.trim())
-					e.guardianFirstName = 'First name required';
-				if (!formData.student.guardian.lastName.trim())
-					e.guardianLastName = 'Last name required';
-				if (!formData.student.guardian.phone.trim())
-					e.guardianPhone = 'Phone required';
-				if (!formData.student.guardian.address.trim())
-					e.guardianAddress = 'Address required';
+				if (formData.parent.mode === 'assign') {
+					if (!formData.parent.parentId)
+						e.parent = 'Select a parent or create a new one';
+				} else {
+					if (!formData.parent.firstName.trim())
+						e.parentFirstName = 'First name required';
+					if (!formData.parent.lastName.trim())
+						e.parentLastName = 'Last name required';
+					if (!formData.parent.email.trim() && !formData.parent.phone.trim())
+						e.parentContact = 'Email or phone number required';
+					if (
+						formData.parent.email &&
+						!/\S+@\S+\.\S+/.test(formData.parent.email)
+					)
+						e.parentEmail = 'Invalid email format';
+				}
 			}
 		}
 		if (step === 3) {
@@ -1188,7 +1259,18 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				enrollmentYear: formData.student.enrollmentYear,
 				enrollmentSemester: formData.student.enrollmentSemester,
 				studentType: formData.student.studentType,
-				guardian: formData.student.guardian,
+				parent:
+					formData.parent.mode === 'assign'
+						? { mode: 'assign', parentId: formData.parent.parentId }
+						: {
+								mode: 'create',
+								firstName: formData.parent.firstName,
+								middleName: formData.parent.middleName,
+								lastName: formData.parent.lastName,
+								email: formData.parent.email,
+								phone: formData.parent.phone,
+								address: formData.parent.address,
+							},
 			};
 		} else if (userType === 'teacher') {
 			userData = {
@@ -1251,14 +1333,17 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				enrollmentYear: defaultEnrollmentYear,
 				enrollmentSemester: defaultEnrollmentSemester,
 				studentType: 'new',
-				guardian: {
-					firstName: '',
-					middleName: '',
-					lastName: '',
-					email: '',
-					phone: '',
-					address: '',
-				},
+			},
+			parent: {
+				mode: 'assign' as 'assign' | 'create',
+				parentId: '',
+				parentLabel: '',
+				firstName: '',
+				middleName: '',
+				lastName: '',
+				email: '',
+				phone: '',
+				address: '',
 			},
 			teacher: { subjects: [], isSponsor: false, sponsorClass: null },
 	administrator: { position: '', permissions: [] as string[], canRecordStudentAttendance: false, canRecordTeacherAttendance: false, isTeacher: false, adminClasses: [] as Array<{ subject: string; level: string; session: string; classId?: string }> },
@@ -1421,7 +1506,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 											icon: GraduationCap,
 											label: 'Student',
 											desc: 'Enrol a learner and assign them to a class',
-											detail: 'Guardian · Class assignment · Enrollment period',
+											detail: 'Parent account · Class assignment · Enrollment period',
 										},
 										{
 											type: 'teacher',
@@ -1662,158 +1747,334 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 
 							{userType === 'student' && (
 								<SectionCard
-									title="Guardian Information"
-									subtitle="The person responsible for this student"
+									title="Parent Account"
+									subtitle="Link an existing parent account or create one for this student"
 									icon={Home}
 								>
-									<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-										<Field
-											label="First Name"
-											required
-											error={errors.guardianFirstName}
-											icon={Hash}
+									<div className="flex items-center gap-2 mb-4">
+										<button
+											type="button"
+											onClick={() =>
+												setFormData((prev) => ({
+													...prev,
+													parent: {
+														...prev.parent,
+														mode: 'assign',
+														parentId: '',
+														parentLabel: '',
+													},
+												}))
+											}
+											className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+												formData.parent.mode === 'assign'
+													? 'bg-primary/15 text-primary'
+													: 'bg-muted text-muted-foreground hover:bg-muted/70'
+											}`}
 										>
-											<input
-												type="text"
-												value={formData.student.guardian.firstName}
-												onChange={(e) =>
-													setFormData({
-														...formData,
-														student: {
-															...formData.student,
-															guardian: {
-																...formData.student.guardian,
-																firstName: e.target.value,
-															},
-														},
-													})
-												}
-												className={`${inputBase} ${errors.guardianFirstName ? inputError : inputNormal}`}
-												placeholder="First name"
-												autoComplete="off"
-											/>
-										</Field>
-										<Field label="Middle Name" icon={Hash}>
-											<input
-												type="text"
-												value={formData.student.guardian.middleName}
-												onChange={(e) =>
-													setFormData({
-														...formData,
-														student: {
-															...formData.student,
-															guardian: {
-																...formData.student.guardian,
-																middleName: e.target.value,
-															},
-														},
-													})
-												}
-												className={`${inputBase} ${inputNormal}`}
-												placeholder="Optional"
-											/>
-										</Field>
-										<Field
-											label="Last Name"
-											required
-											error={errors.guardianLastName}
-											icon={Hash}
+											<UserCheck className="h-3.5 w-3.5" />
+											Search existing
+										</button>
+										<button
+											type="button"
+											onClick={() =>
+												setFormData((prev) => ({
+													...prev,
+													parent: {
+														...prev.parent,
+														mode: 'create',
+														parentId: '',
+														parentLabel: '',
+													},
+												}))
+											}
+											className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+												formData.parent.mode === 'create'
+													? 'bg-primary/15 text-primary'
+													: 'bg-muted text-muted-foreground hover:bg-muted/70'
+											}`}
 										>
-											<input
-												type="text"
-												value={formData.student.guardian.lastName}
-												onChange={(e) =>
-													setFormData({
-														...formData,
-														student: {
-															...formData.student,
-															guardian: {
-																...formData.student.guardian,
-																lastName: e.target.value,
-															},
-														},
-													})
-												}
-												className={`${inputBase} ${errors.guardianLastName ? inputError : inputNormal}`}
-												placeholder="Last name"
-												autoComplete="off"
-											/>
-										</Field>
+											<UserPlus className="h-3.5 w-3.5" />
+											Create new
+										</button>
 									</div>
-									<div className="grid grid-cols-2 gap-3 sm:gap-4 mt-3 sm:mt-4">
-										<Field
-											label="Phone"
-											required
-											error={errors.guardianPhone}
-											icon={Phone}
-										>
-											<input
-												type="tel"
-												value={formData.student.guardian.phone}
-												onChange={(e) =>
-													setFormData({
-														...formData,
-														student: {
-															...formData.student,
-															guardian: {
-																...formData.student.guardian,
-																phone: e.target.value,
-															},
-														},
-													})
-												}
-												className={`${inputBase} ${errors.guardianPhone ? inputError : inputNormal}`}
-												placeholder="+231 555 0000"
-											/>
-										</Field>
-										<Field label="Email" icon={Mail}>
-											<input
-												type="email"
-												value={formData.student.guardian.email}
-												onChange={(e) =>
-													setFormData({
-														...formData,
-														student: {
-															...formData.student,
-															guardian: {
-																...formData.student.guardian,
-																email: e.target.value,
-															},
-														},
-													})
-												}
-												className={`${inputBase} ${inputNormal}`}
-												placeholder="Optional"
-											/>
-										</Field>
-									</div>
-									<div className="mt-3 sm:mt-4">
-										<Field
-											label="Address"
-											required
-											error={errors.guardianAddress}
-											icon={MapPin}
-										>
-											<textarea
-												value={formData.student.guardian.address}
-												onChange={(e) =>
-													setFormData({
-														...formData,
-														student: {
-															...formData.student,
-															guardian: {
-																...formData.student.guardian,
-																address: e.target.value,
-															},
-														},
-													})
-												}
-												className={`${inputBase} ${errors.guardianAddress ? inputError : inputNormal} resize-none`}
-												rows={2}
-												placeholder="Street, City, County"
-											/>
-										</Field>
-									</div>
+
+									{formData.parent.mode === 'assign' && (
+										<>
+											{!formData.parent.parentId ? (
+												<>
+													<Field
+														label="Search Parent"
+														error={errors.parent}
+														icon={Search}
+													>
+														<div className="relative">
+															<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+															<input
+																type="text"
+																className={`${inputBase} ${errors.parent ? inputError : inputNormal} pl-10`}
+																placeholder="Search by name, phone, or email..."
+																autoComplete="off"
+																onChange={(e) =>
+																	onParentSearchChange(e.target.value)
+																}
+															/>
+														</div>
+													</Field>
+													{parentSearching && (
+														<div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+															<Loader2 className="h-3.5 w-3.5 animate-spin" />
+															Searching...
+														</div>
+													)}
+													{!parentSearching &&
+														parentSearchDone &&
+														parentSearchResults.length === 0 && (
+															<p className="text-xs text-muted-foreground mt-2">
+																No matching parents found.{' '}
+																<button
+																	type="button"
+																	className="text-primary underline underline-offset-2"
+																	onClick={() =>
+																		setFormData((prev) => ({
+																			...prev,
+																			parent: {
+																				...prev.parent,
+																				mode: 'create',
+																			},
+																		}))
+																	}
+																>
+																	Create a new parent instead
+																</button>
+															</p>
+														)}
+													{parentSearchResults.length > 0 && (
+														<ul className="mt-2 divide-y divide-border border border-border rounded-lg">
+															{parentSearchResults.map((parent: any) => {
+																const parentName =
+																	parent.fullName ||
+																	[
+																		parent.firstName,
+																		parent.middleName,
+																		parent.lastName,
+																	]
+																		.filter(Boolean)
+																		.join(' ');
+																return (
+																	<li key={parent.id || parent._id}>
+																		<button
+																			type="button"
+																			className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors"
+																			onClick={() => selectParent(parent)}
+																		>
+																			<div className="p-1.5 bg-primary/10 rounded-full">
+																				<User className="h-4 w-4 text-primary" />
+																			</div>
+																			<div className="flex-1 min-w-0">
+																				<p className="text-sm font-medium text-foreground truncate">
+																					{parentName}
+																				</p>
+																				<p className="text-xs text-muted-foreground truncate">
+																					{parent.email ||
+																						parent.phone ||
+																						'No contact'}{' '}
+																					•{' '}
+																					{(parent.studentIds
+																						?.length || 0) +
+																						' child' +
+																						(parent.studentIds
+																							?.length === 1
+																							? ''
+																							: 'ren')}
+																				</p>
+																			</div>
+																			<UserCheck className="h-4 w-4 text-primary shrink-0 mt-1" />
+																		</button>
+																	</li>
+																);
+															})}
+														</ul>
+													)}
+												</>
+											) : (
+												<div className="flex items-center justify-between gap-3 p-3 border border-primary/30 bg-primary/5 rounded-lg">
+													<div className="flex items-center gap-3 min-w-0">
+														<div className="p-1.5 bg-primary/15 rounded-full shrink-0">
+															<UserCheck className="h-4 w-4 text-primary" />
+														</div>
+														<div className="min-w-0">
+															<p className="text-sm font-medium text-foreground truncate">
+																{formData.parent.parentLabel || 'Selected parent'}
+															</p>
+															<p className="text-xs text-muted-foreground">
+																This child will be linked to their account.
+															</p>
+														</div>
+													</div>
+													<button
+														type="button"
+														onClick={() =>
+															setFormData((prev) => ({
+																...prev,
+																parent: {
+																	...prev.parent,
+																	parentId: '',
+																	parentLabel: '',
+																},
+															}))
+														}
+														className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground shrink-0"
+													>
+														Change
+													</button>
+												</div>
+											)}
+										</>
+									)}
+
+									{formData.parent.mode === 'create' && (
+										<>
+											<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+												<Field
+													label="First Name"
+													required
+													error={errors.parentFirstName}
+													icon={Hash}
+												>
+													<input
+														type="text"
+														value={formData.parent.firstName}
+														onChange={(e) =>
+															setFormData((prev) => ({
+																...prev,
+																parent: {
+																	...prev.parent,
+																	firstName: e.target.value,
+																},
+															}))
+														}
+														className={`${inputBase} ${errors.parentFirstName ? inputError : inputNormal}`}
+														placeholder="First name"
+														autoComplete="off"
+													/>
+												</Field>
+												<Field label="Middle Name" icon={Hash}>
+													<input
+														type="text"
+														value={formData.parent.middleName}
+														onChange={(e) =>
+															setFormData((prev) => ({
+																...prev,
+																parent: {
+																	...prev.parent,
+																	middleName: e.target.value,
+																},
+															}))
+														}
+														className={`${inputBase} ${inputNormal}`}
+														placeholder="Optional"
+													/>
+												</Field>
+												<Field
+													label="Last Name"
+													required
+													error={errors.parentLastName}
+													icon={Hash}
+												>
+													<input
+														type="text"
+														value={formData.parent.lastName}
+														onChange={(e) =>
+															setFormData((prev) => ({
+																...prev,
+																parent: {
+																	...prev.parent,
+																	lastName: e.target.value,
+																},
+															}))
+														}
+														className={`${inputBase} ${errors.parentLastName ? inputError : inputNormal}`}
+														placeholder="Last name"
+														autoComplete="off"
+													/>
+												</Field>
+											</div>
+											<div className="grid grid-cols-2 gap-3 sm:gap-4 mt-3 sm:mt-4">
+												<Field
+													label="Phone"
+													error={errors.parentContact}
+													icon={Phone}
+												>
+													<input
+														type="tel"
+														value={formData.parent.phone}
+														onChange={(e) =>
+															setFormData((prev) => ({
+																...prev,
+																parent: {
+																	...prev.parent,
+																	phone: e.target.value,
+																},
+															}))
+														}
+														className={`${inputBase} ${errors.parentContact ? inputError : inputNormal}`}
+														placeholder="+231 555 0000"
+													/>
+												</Field>
+												<Field
+													label="Email"
+													error={errors.parentEmail}
+													icon={Mail}
+												>
+													<input
+														type="email"
+														value={formData.parent.email}
+														onChange={(e) =>
+															setFormData((prev) => ({
+																...prev,
+																parent: {
+																	...prev.parent,
+																	email: e.target.value,
+																},
+															}))
+														}
+														className={`${inputBase} ${errors.parentEmail ? inputError : inputNormal}`}
+														placeholder="Optional"
+													/>
+												</Field>
+											</div>
+											{errors.parentContact && (
+												<p className="text-[11px] text-destructive mt-2 flex items-center gap-1">
+													<XCircle className="w-3 h-3 shrink-0" />
+													{errors.parentContact}
+												</p>
+											)}
+											<div className="mt-3 sm:mt-4">
+												<Field label="Address" icon={MapPin}>
+													<textarea
+														value={formData.parent.address}
+														onChange={(e) =>
+															setFormData((prev) => ({
+																...prev,
+																parent: {
+																	...prev.parent,
+																	address: e.target.value,
+																},
+															}))
+														}
+														className={`${inputBase} ${inputNormal} resize-none`}
+														rows={2}
+														placeholder="Street, City, County"
+													/>
+												</Field>
+											</div>
+											<p className="text-[11px] text-muted-foreground mt-3">
+												A login account is created automatically. Username is the
+												email (or phone number) — the parent can change the
+												password after first login.
+											</p>
+										</>
+									)}
 								</SectionCard>
 							)}
 						</motion.div>
@@ -2772,25 +3033,51 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 											/>
 												<div className="pt-3 mt-1">
 													<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-														Guardian
+														Parent Account
 													</p>
-													<ReviewRow
-														label="Name"
-														value={getFullName(
-															formData.student.guardian.firstName,
-															formData.student.guardian.middleName,
-															formData.student.guardian.lastName,
-														)}
-													/>
-													<ReviewRow
-														label="Phone"
-														value={formData.student.guardian.phone}
-													/>
-													{formData.student.guardian.email && (
+													{formData.parent.mode === 'assign' ? (
 														<ReviewRow
-															label="Email"
-															value={formData.student.guardian.email}
+															label="Assigned"
+															value={
+																formData.parent.parentLabel ||
+																'Selected parent'
+															}
 														/>
+													) : (
+														<>
+															<ReviewRow
+																label="Name"
+																value={getFullName(
+																	formData.parent.firstName,
+																	formData.parent.middleName,
+																	formData.parent.lastName,
+																)}
+															/>
+															<ReviewRow
+																label="Username"
+																value={
+																	formData.parent.email ||
+																	formData.parent.phone ||
+																	'—'
+																}
+															/>
+															{formData.parent.phone && (
+																<ReviewRow
+																	label="Phone"
+																	value={formData.parent.phone}
+																/>
+															)}
+															{formData.parent.email && (
+																<ReviewRow
+																	label="Email"
+																	value={formData.parent.email}
+																/>
+															)}
+															<ReviewRow
+																label="Account"
+																value="Created automatically"
+															/>
+														</>
 													)}
 												</div>
 											</>

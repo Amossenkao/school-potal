@@ -1,5 +1,5 @@
 'use client';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
 	Card,
 	CardContent,
@@ -17,6 +17,7 @@ import {
 	resolveResolvedScheduledFees,
 } from '@/utils/resolveStudentFeeGroup';
 import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAccess';
+import { resolveChildView } from '@/utils/childView';
 import {
 	Loader2,
 	AlertCircle,
@@ -153,8 +154,17 @@ export default function FinancialProfile() {
 		return groups;
 	}, [allResolvedFees]);
 
-	const studentType: 'new' | 'old' = (user as any)?.studentType ?? 'old';
+	const childView = useMemo(() => resolveChildView(user), [user]);
+
+	const studentType: 'new' | 'old' = childView.studentType ?? 'old';
 	const [isRefreshing, setIsRefreshing] = useState(false);
+
+	// Parents load the selected child's payments on mount / child switch
+	useEffect(() => {
+		if (user?.role !== 'parent') return;
+		refreshFinancialProfile();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [user?.role, (user as any)?.studentId]);
 
 	const refreshFinancialProfile = async () => {
 		setIsRefreshing(true);
@@ -276,6 +286,7 @@ export default function FinancialProfile() {
 								<Avatar className="w-14 h-14 ring-2 ring-primary/20">
 									<AvatarImage
 										src={
+											childView.avatar ||
 											user.profilePictureUrl ||
 											user.avatar ||
 											(user as any).profilePhoto ||
@@ -283,19 +294,19 @@ export default function FinancialProfile() {
 										}
 									/>
 									<AvatarFallback>
-										{user.firstName?.[0]}
-										{user.lastName?.[0]}
+										{childView.name.charAt(0)}
+										{childView.name.split(' ')[1]?.[0] || ''}
 									</AvatarFallback>
 								</Avatar>
 								<div>
 									<h3 className="text-lg font-semibold">
-										{user.firstName} {user.lastName}
+										{childView.name}
 									</h3>
 									<p className="text-sm text-muted-foreground">
-										Student ID: {(user as any).studentId || user.id}
+										Student ID: {childView.studentId}
 									</p>
 									<p className="text-sm text-muted-foreground">
-										Class: {(user as any).className || '—'}
+										Class: {childView.className || '—'}
 									</p>
 									<p className="text-sm text-muted-foreground">
 										Student Type: {studentType === 'new' ? 'New Student' : 'Old Student'}

@@ -253,11 +253,23 @@ export async function GET(request: NextRequest) {
 
 		// ── Build resolved user identity ─────────────────────────────────────
 		const resolvedUserId = freshUser?._id?.toString?.() || session.id;
-		const userPayload = {
+		const baseUserPayload = {
 			...freshUser,
 			id: resolvedUserId,
 			_id: resolvedUserId,
 		};
+		const userPayload =
+			freshUser?.role === 'parent'
+				? {
+						...baseUserPayload,
+						studentId: session.studentId ?? null,
+						classId: session.classId ?? null,
+						className: session.className ?? null,
+						classLevel: session.classLevel ?? null,
+						academicYears: session.academicYears ?? [],
+						parentChildren: session.parentChildren ?? [],
+					}
+				: baseUserPayload;
 		const resolvedSessionUser = {
 			...session,
 			...userPayload,

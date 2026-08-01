@@ -27,6 +27,7 @@ import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import AccessDenied from '@/components/AccessDenied';
 import { getStudentAllowedAccess } from '@/utils/schoolSettingsAccess';
+import { isStudentRole } from '@/utils/effectiveRole';
 import { drawTextMap } from '@/utils/pdfText';
 import { buildSemesterCardPlacements } from '@/app/dashboard/shared/reportPdfLayout';
 import {
@@ -982,7 +983,7 @@ function ReportContent({
 	const setGradesForYear = useSchoolStore((state) => state.setGradesForYear);
 	const mergeGradesForYear = useSchoolStore((state) => state.mergeGradesForYear);
 	const user = useAuth((state) => state.user);
-	const isStudent = user?.role === 'student';
+	const isStudent = isStudentRole(user?.role);
 	const createdBy = useMemo(
 		() => user?.id || user?._id || user?.studentId || '',
 		[user],
@@ -2186,7 +2187,7 @@ export default function SemesterReportWrapper() {
 	const [activeStudents, setActiveStudents] = useState<Student[]>([]);
 	const user = useAuth((state) => state.user);
 	const currentSchool = useSchoolStore((state) => state.school);
-	const isStudent = user?.role == 'student';
+	const isStudent = isStudentRole(user?.role);
 
 	const studentAccessOptions = useMemo(() => {
 		if (!isStudent || !currentSchool) return [];

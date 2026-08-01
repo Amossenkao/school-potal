@@ -4,6 +4,7 @@ export type UserRole =
 	| 'teacher'
 	| 'administrator'
 	| 'system_admin'
+	| 'parent'
 	| 'superadmin';
 
 
@@ -169,18 +170,37 @@ export interface Student extends User {
 	isLateRegistration?: boolean;
 	academicYears: { year: string; classId: string; className?: string }[];
 	canRecordAttendance?: string;
-	guardian: {
-		firstName: string;
-		middleName?: string;
-		lastName: string;
-		email?: string;
-		phone: string;
-		address: string;
-	};
 	studentType?: 'old' | 'new';
 	wardTeacherId?: string;
 	scholarships?: string[];
+}
 
+export interface ParentChildSession {
+	id: string;
+	studentId: string;
+	username: string;
+	firstName?: string;
+	middleName?: string;
+	lastName?: string;
+	fullName?: string;
+	classId?: string;
+	className?: string;
+	classLevel?: string;
+	academicYears: string[];
+	isActive?: boolean;
+}
+
+export interface Parent extends User {
+	role: 'parent';
+	// The studentId (username) of each child linked to this parent
+	studentIds: string[];
+	// Session-scoped fields for the currently selected child
+	parentChildren?: ParentChildSession[];
+	studentId?: string | null;
+	classId?: string;
+	className?: string;
+	classLevel?: string;
+	academicYears?: { year: string; classId: string; className?: string }[];
 }
 
 export interface Teacher extends User {

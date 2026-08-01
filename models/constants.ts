@@ -5,6 +5,7 @@ export const UserRoles = [
 	'teacher',
 	'administrator',
 	'system_admin',
+	'parent',
 ] as const;
 
 export const ClassLevels = [

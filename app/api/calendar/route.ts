@@ -43,24 +43,68 @@ export async function GET(request: NextRequest) {
 		const { searchParams } = new URL(request.url);
 		const requestedAcademicYear = searchParams.get('academicYear');
 		const models = await getTenantModels();
+		const requestedStudentId = searchParams.get('studentId');
+		const parentContext =
+			currentUser.role === 'parent'
+				? await models.Parent.findById(currentUser.id)
+						.select('role studentIds')
+						.lean()
+				: null;
 		const accessUser =
 			currentUser.role === 'student'
 				? await models.Student.findById(currentUser.id)
 						.select('role classId academicYears studentId username')
 						.lean()
-				: currentUser.role === 'teacher'
-					? await models.Teacher.findById(currentUser.id)
-							.select('role subjects username')
-							.lean()
-					: currentUser.role === 'administrator'
-						? await models.Administrator.findById(currentUser.id)
-								.select('role academicYears username')
+				: currentUser.role === 'parent'
+					? await (async () => {
+							if (!parentContext) return null;
+							const studentIds = Array.isArray(
+								parentContext.studentIds,
+							)
+								? parentContext.studentIds
+								: [];
+							const selectedStudentId =
+								requestedStudentId ||
+								currentUser.studentId ||
+								studentIds[0];
+							if (
+								!selectedStudentId ||
+								!studentIds.includes(selectedStudentId)
+							) {
+								return { __invalidParentChild: true };
+							}
+							return models.Student.findOne({
+								username: selectedStudentId,
+								role: 'student',
+							})
+								.select(
+									'role classId academicYears studentId username',
+								)
+								.lean();
+						})()
+					: currentUser.role === 'teacher'
+						? await models.Teacher.findById(currentUser.id)
+								.select('role subjects username')
 								.lean()
-						: currentUser;
+						: currentUser.role === 'administrator'
+							? await models.Administrator.findById(currentUser.id)
+									.select('role academicYears username')
+									.lean()
+							: currentUser;
 		if (!accessUser) {
 			return NextResponse.json(
 				{ success: false, message: 'Profile not found' },
 				{ status: 404 }
+			);
+		}
+		if ((accessUser as any)?.__invalidParentChild) {
+			return NextResponse.json(
+				{
+					success: false,
+					message:
+						'You can only access the calendar for your linked children.',
+				},
+				{ status: 403 }
 			);
 		}
 		const yearAccess = resolveAcademicYearAccessContext({

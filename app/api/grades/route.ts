@@ -831,6 +831,13 @@ export async function GET(request: NextRequest) {
 		const currentAcademicYear =
 			getCurrentAcademicYearFromSchoolProfile(schoolProfile);
 		const requestedAcademicYear = searchParams.get('academicYear');
+		const requestedStudentId = searchParams.get('studentId');
+		const parentContext =
+			currentUser.role === 'parent'
+				? await models.Parent.findById(currentUser.id)
+						.select('role studentIds')
+						.lean()
+				: null;
 		const roleProfile =
 			currentUser.role === 'student'
 				? await models.Student.findById(currentUser.id)
@@ -840,11 +847,46 @@ export async function GET(request: NextRequest) {
 					? await models.Teacher.findById(currentUser.id)
 							.select('role username subjects')
 							.lean()
-					: currentUser;
+					: currentUser.role === 'parent'
+						? await (async () => {
+								if (!parentContext) return null;
+								const studentIds = Array.isArray(
+									parentContext.studentIds,
+								)
+									? parentContext.studentIds
+									: [];
+								const selectedStudentId =
+									requestedStudentId ||
+									currentUser.studentId ||
+									studentIds[0];
+								if (
+									!selectedStudentId ||
+									!studentIds.includes(selectedStudentId)
+								) {
+									return { __invalidParentChild: true };
+								}
+								return models.Student.findOne({
+									username: selectedStudentId,
+									role: 'student',
+								})
+									.select('role studentId academicYears classId')
+									.lean();
+							})()
+						: currentUser;
 		if (!roleProfile) {
 			return NextResponse.json(
 				{ success: false, message: 'Profile not found' },
 				{ status: 404 },
+			);
+		}
+		if ((roleProfile as any)?.__invalidParentChild) {
+			return NextResponse.json(
+				{
+					success: false,
+					message:
+						'You can only access grades for your linked children.',
+				},
+				{ status: 403 },
 			);
 		}
 		const yearAccess = resolveAcademicYearAccessContext({
@@ -1054,8 +1096,8 @@ export async function GET(request: NextRequest) {
 			});
 		}
 
-		// --- Student ---
-		if (currentUser.role === 'student') {
+		// --- Student / Parent (child-scoped) ---
+		if (currentUser.role === 'student' || currentUser.role === 'parent') {
 			const student = roleProfile;
 			const studentClassId = getStudentClassIdForYear(
 				student,

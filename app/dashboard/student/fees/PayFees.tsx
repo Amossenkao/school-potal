@@ -1,5 +1,5 @@
 'use client';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
 	Card,
@@ -17,6 +17,7 @@ import {
 	resolveResolvedScheduledFees,
 } from '@/utils/resolveStudentFeeGroup';
 import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAccess';
+import { resolveChildView } from '@/utils/childView';
 import type { PaymentRecords } from '@/types';
 import {
 	Loader2,
@@ -148,6 +149,34 @@ export default function PayFees() {
 		}
 		return map;
 	}, [user]);
+
+	const childView = useMemo(() => resolveChildView(user), [user]);
+
+	useEffect(() => {
+		if (user?.role !== 'parent') return;
+		let cancelled = false;
+		const load = async () => {
+			try {
+				const res = await fetch('/api/payments');
+				const json = await res.json();
+				if (!res.ok || cancelled) return;
+				const { payments: freshPayments } = json.data;
+				if (Array.isArray(freshPayments)) {
+					const currentUser = useAuth.getState().user;
+					if (currentUser) {
+						const updated = { ...currentUser, payments: freshPayments };
+						useAuth.setState({ user: updated });
+					}
+				}
+			} catch {
+				// Swallow load errors; the fee list still renders.
+			}
+		};
+		load();
+		return () => {
+			cancelled = true;
+		};
+	}, [user?.role, (user as any)?.studentId]);
 
 	const selectedCurrency = useMemo(() => {
 		return selected.length > 0 ? selected[0].currency || 'LRD' : null;
@@ -442,6 +471,7 @@ export default function PayFees() {
 									<Avatar className="w-16 h-16 ring-2 ring-primary/20">
 										<AvatarImage
 											src={
+												childView.avatar ||
 												user.profilePictureUrl ||
 												user.avatar ||
 												(user as any).profilePhoto ||
@@ -449,19 +479,19 @@ export default function PayFees() {
 											}
 										/>
 										<AvatarFallback>
-											{user.firstName?.[0]}
-											{user.lastName?.[0]}
+											{childView.name.charAt(0)}
+											{childView.name.split(' ')[1]?.[0] || ''}
 										</AvatarFallback>
 									</Avatar>
 									<div className="flex-1">
 										<h3 className="text-lg font-semibold">
-											{user.firstName} {user.lastName}
+											{childView.name}
 										</h3>
 										<p className="text-sm text-muted-foreground">
-											Student ID: {(user as any).studentId || user.id}
+											Student ID: {childView.studentId}
 										</p>
 										<p className="text-sm text-muted-foreground">
-											Class: {(user as any).className || '—'}
+											Class: {childView.className || '—'}
 										</p>
 									</div>
 								</div>
