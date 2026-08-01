@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight, ExternalLink, Globe, ListTree, Braces } from 'lucide-react';
+import { ChevronRight, ExternalLink, Globe, ListTree, Braces, Info } from 'lucide-react';
 
 import type { IncidentDetail, LogEventDetail, StackTraceFrame } from '@/lib/monitoring/types';
 
@@ -37,15 +37,19 @@ function ProviderLink({ url, label }: { url?: string; label: string }) {
 	);
 }
 
-function CodeLine({ line, isActive }: { line?: string; isActive?: boolean }) {
+function CodeLine({ line, isActive, lineNo }: { line?: string; isActive?: boolean; lineNo?: number }) {
 	if (line === undefined) return null;
 	return (
 		<div
 			className={`flex items-center gap-3 whitespace-pre px-3 font-mono text-xs leading-6 ${
-				isActive ? 'bg-[#465fff]/10 text-[#465fff] dark:text-[#8b9bff]' : 'text-gray-200 dark:text-gray-300'
+				isActive
+					? 'bg-[#465fff]/20 text-white'
+					: 'text-gray-200 dark:text-gray-300'
 			}`}
 		>
-			<span className="w-8 shrink-0 select-none" />
+			<span className={`w-10 shrink-0 select-none text-right ${isActive ? 'text-[#8b9bff]' : 'text-gray-600'}`}>
+				{lineNo ?? ''}
+			</span>
 			<span className="min-w-0 flex-1">{line}</span>
 		</div>
 	);
@@ -54,22 +58,19 @@ function CodeLine({ line, isActive }: { line?: string; isActive?: boolean }) {
 function StackFrameView({ frame }: { frame: StackTraceFrame }) {
 	const [showVars, setShowVars] = useState(false);
 	const location = [frame.filename, frame.lineNo ? `:${frame.lineNo}` : '', frame.colNo ? `:${frame.colNo}` : ''].join('');
+	const startLine = (frame.lineNo ?? 0) - (frame.preContext?.length ?? 0);
 
 	return (
-		<div className={`rounded-lg border px-3 py-2 ${frame.inApp ? 'border-[#465fff]/30 bg-[#465fff]/5' : 'border-gray-100 dark:border-gray-800'}`}>
+		<div className="rounded-lg border border-[#465fff]/30 bg-[#465fff]/5 px-3 py-2">
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<div className="min-w-0 font-mono text-xs">
-					{frame.function ? (
-						<span className="font-semibold text-gray-900 dark:text-white">{frame.function}</span>
-					) : (
-						<span className="text-gray-400">&lt;anonymous&gt;</span>
-					)}
+					<span className="font-semibold text-gray-900 dark:text-white">
+						{frame.function || '&lt;anonymous&gt;'}
+					</span>
 					{location && <span className="ml-2 text-gray-500">{location}</span>}
 				</div>
 				<div className="flex shrink-0 items-center gap-2">
-					{frame.inApp && (
-						<span className="rounded-full bg-[#465fff]/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-[#465fff] dark:text-[#8b9bff]">in app</span>
-					)}
+					<span className="rounded-full bg-[#465fff]/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-[#465fff] dark:text-[#8b9bff]">in app</span>
 					{frame.vars && Object.keys(frame.vars).length > 0 && (
 						<button
 							className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium text-gray-500 transition hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-300"
@@ -85,11 +86,11 @@ function StackFrameView({ frame }: { frame: StackTraceFrame }) {
 			{(frame.contextLine || frame.preContext?.length || frame.postContext?.length) && (
 				<pre className="mt-2 overflow-x-auto rounded-md bg-gray-950 py-2 dark:bg-gray-950">
 					{frame.preContext?.map((line, index) => (
-						<CodeLine key={`pre-${index}`} line={line} />
+						<CodeLine key={`pre-${index}`} line={line} lineNo={startLine + index} />
 					))}
-					<CodeLine line={frame.contextLine} isActive />
+					<CodeLine line={frame.contextLine} isActive lineNo={frame.lineNo} />
 					{frame.postContext?.map((line, index) => (
-						<CodeLine key={`post-${index}`} line={line} />
+						<CodeLine key={`post-${index}`} line={line} lineNo={(frame.lineNo ?? 0) + 1 + index} />
 					))}
 				</pre>
 			)}
@@ -114,78 +115,119 @@ function Section({ icon, title, children }: { icon: React.ReactNode; title: stri
 	);
 }
 
+function RequestInfo({ request }: { request: NonNullable<LogEventDetail['request']> }) {
+	return (
+		<Section icon={<Globe className="h-3.5 w-3.5" />} title="Request">
+			<div className="rounded-lg border border-gray-100 dark:border-gray-800">
+				<div className="flex flex-wrap items-center gap-2 border-b border-gray-100 px-3 py-2 text-xs dark:border-gray-800">
+					{request.method && (
+						<span className="rounded bg-[#465fff]/10 px-1.5 py-0.5 font-mono font-semibold text-[#465fff]">{request.method}</span>
+					)}
+					<span className="break-all font-mono text-gray-700 dark:text-gray-300">{request.url || request.path || '—'}</span>
+				</div>
+				<div className="grid gap-2 px-3 py-2 sm:grid-cols-2">
+					{request.query && request.query.length > 0 && (
+						<div className="text-xs">
+							<p className="font-semibold text-gray-500">Query</p>
+							<p className="mt-1 break-all font-mono text-gray-700 dark:text-gray-300">{request.query.join('&')}</p>
+						</div>
+					)}
+					{request.data !== undefined && (
+						<div className={`text-xs ${request.query?.length ? '' : 'sm:col-span-2'}`}>
+							<p className="font-semibold text-gray-500">Body</p>
+							<pre className="mt-1 max-h-40 overflow-auto rounded bg-gray-50 p-2 font-mono text-[11px] text-gray-600 dark:bg-gray-900 dark:text-gray-300">
+								{typeof request.data === 'string' ? request.data : JSON.stringify(request.data, null, 2)}
+							</pre>
+						</div>
+					)}
+				</div>
+			</div>
+		</Section>
+	);
+}
+
+function contextLabel(context: Record<string, unknown> | undefined): string | undefined {
+	if (!context) return undefined;
+	const name = context.name;
+	const version = context.version;
+	if (!name && !version) return undefined;
+	return [name, version].filter((value) => value !== undefined && value !== null && value !== '').map(String).join(' ');
+}
+
+function InfoSection({ detail }: { detail: LogEventDetail }) {
+	const rows: Array<[string, string]> = [];
+	if (detail.level) rows.push(['Level', detail.level]);
+	if (detail.platform) rows.push(['Platform', detail.platform]);
+	if (detail.sdk) rows.push(['SDK', detail.sdk]);
+	if (detail.timestamp) rows.push(['Timestamp', formatTime(detail.timestamp)]);
+	if (detail.groupID) rows.push(['Group ID', detail.groupID]);
+
+	const os = contextLabel(detail.contexts?.os as Record<string, unknown> | undefined);
+	const runtime = contextLabel(detail.contexts?.runtime as Record<string, unknown> | undefined);
+	const browser = contextLabel(detail.contexts?.browser as Record<string, unknown> | undefined);
+	if (os) rows.push(['OS', os]);
+	if (runtime) rows.push(['Runtime', runtime]);
+	if (browser) rows.push(['Browser', browser]);
+
+	if (rows.length === 0 && !detail.tags?.length) return null;
+
+	return (
+		<Section icon={<Info className="h-3.5 w-3.5" />} title="Information">
+			{rows.length > 0 && (
+				<div className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-100 dark:divide-gray-800 dark:border-gray-800">
+					{rows.map(([label, value]) => (
+						<div key={label} className="flex items-baseline justify-between gap-4 px-3 py-1.5 text-xs">
+							<span className="shrink-0 text-gray-500">{label}</span>
+							<span className="truncate text-right font-medium text-gray-900 dark:text-white">{value}</span>
+						</div>
+					))}
+				</div>
+			)}
+			{detail.tags && detail.tags.length > 0 && (
+				<div className="mt-2 flex flex-wrap gap-1.5">
+					{detail.tags.map((tag, index) => (
+						<span key={index} className="rounded-full bg-gray-50 px-2 py-1 font-mono text-[11px] text-gray-600 dark:bg-gray-900 dark:text-gray-300">
+							<span className="text-gray-400">{tag.key}:</span> {tag.value}
+						</span>
+					))}
+				</div>
+			)}
+		</Section>
+	);
+}
+
 function SentryDetail({ detail }: { detail: LogEventDetail }) {
 	return (
 		<div>
 			{detail.exceptions.length > 0 ? (
-				detail.exceptions.map((exception, index) => (
-					<div key={index} className="mt-3 rounded-lg border border-red-200 bg-red-50/50 p-3 dark:border-red-900/40 dark:bg-red-950/20">
-						<p className="font-mono text-sm font-bold text-red-700 dark:text-red-300">
-							{exception.type}
-							{exception.value ? <span className="ml-2 font-medium text-red-600/80 dark:text-red-400/80">{exception.value}</span> : null}
-						</p>
-						{exception.mechanism && (
-							<p className="mt-1 text-xs text-gray-500">Mechanism: {exception.mechanism}</p>
-						)}
-						<div className="mt-3 space-y-2">
-							{exception.frames.length > 0 ? (
-								exception.frames.map((frame, frameIndex) => (
-									<StackFrameView key={frameIndex} frame={frame} />
-								))
-							) : (
-								<p className="text-sm text-gray-500">No stack trace frames available for this event.</p>
+				detail.exceptions.map((exception, index) => {
+					const frames = exception.frames.filter((frame) => frame.inApp);
+					return (
+						<div key={index} className="mt-3 rounded-lg border border-red-200 bg-red-50/50 p-3 dark:border-red-900/40 dark:bg-red-950/20">
+							<p className="font-mono text-sm font-bold text-red-700 dark:text-red-300">
+								{exception.type}
+								{exception.value ? <span className="ml-2 font-medium text-red-600/80 dark:text-red-400/80">{exception.value}</span> : null}
+							</p>
+							{exception.mechanism && (
+								<p className="mt-1 text-xs text-gray-500">Mechanism: {exception.mechanism}</p>
 							)}
+							<div className="mt-3 space-y-2">
+								{frames.length > 0 ? (
+									frames.map((frame, frameIndex) => (
+										<StackFrameView key={frameIndex} frame={frame} />
+									))
+								) : (
+									<p className="text-sm text-gray-500">No in-app stack frames available for this event.</p>
+								)}
+							</div>
 						</div>
-					</div>
-				))
+					);
+				})
 			) : (
 				<p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{detail.message || detail.title || 'No exception payload.'}</p>
 			)}
 
-			{detail.request && (
-				<Section icon={<Globe className="h-3.5 w-3.5" />} title="Request">
-					<div className="rounded-lg border border-gray-100 dark:border-gray-800">
-						<div className="flex flex-wrap items-center gap-2 border-b border-gray-100 px-3 py-2 text-xs dark:border-gray-800">
-							{detail.request.method && (
-								<span className="rounded bg-[#465fff]/10 px-1.5 py-0.5 font-mono font-semibold text-[#465fff]">{detail.request.method}</span>
-							)}
-							<span className="font-mono text-gray-700 dark:text-gray-300">{detail.request.url || detail.request.path || '—'}</span>
-						</div>
-						<div className="grid gap-2 px-3 py-2 sm:grid-cols-2">
-							{detail.request.query && detail.request.query.length > 0 && (
-								<div className="text-xs">
-									<p className="font-semibold text-gray-500">Query</p>
-									<p className="mt-1 break-all font-mono text-gray-700 dark:text-gray-300">{detail.request.query.join('&')}</p>
-								</div>
-							)}
-							{detail.request.headers && Object.keys(detail.request.headers).length > 0 && (
-								<div className="text-xs">
-									<p className="font-semibold text-gray-500">Headers</p>
-									<pre className="mt-1 max-h-40 overflow-auto rounded bg-gray-50 p-2 font-mono text-[11px] text-gray-600 dark:bg-gray-900 dark:text-gray-300">
-										{Object.entries(detail.request.headers).map(([key, value]) => `${key}: ${value}`).join('\n')}
-									</pre>
-								</div>
-							)}
-							{detail.request.data !== undefined && (
-								<div className="text-xs">
-									<p className="font-semibold text-gray-500">Body</p>
-									<pre className="mt-1 max-h-40 overflow-auto rounded bg-gray-50 p-2 font-mono text-[11px] text-gray-600 dark:bg-gray-900 dark:text-gray-300">
-										{typeof detail.request.data === 'string' ? detail.request.data : JSON.stringify(detail.request.data, null, 2)}
-									</pre>
-								</div>
-							)}
-							{detail.request.env && Object.keys(detail.request.env).length > 0 && (
-								<div className="text-xs">
-									<p className="font-semibold text-gray-500">Environment</p>
-									<pre className="mt-1 max-h-40 overflow-auto rounded bg-gray-50 p-2 font-mono text-[11px] text-gray-600 dark:bg-gray-900 dark:text-gray-300">
-										{Object.entries(detail.request.env).map(([key, value]) => `${key}: ${String(value)}`).join('\n')}
-									</pre>
-								</div>
-							)}
-						</div>
-					</div>
-				</Section>
-			)}
+			{detail.request && <RequestInfo request={detail.request} />}
 
 			{detail.breadcrumbs.length > 0 && (
 				<Section icon={<ListTree className="h-3.5 w-3.5" />} title="Breadcrumbs">
@@ -204,28 +246,7 @@ function SentryDetail({ detail }: { detail: LogEventDetail }) {
 				</Section>
 			)}
 
-			{(detail.tags?.length || detail.contexts) && (
-				<div className="grid gap-4 sm:grid-cols-2">
-					{detail.tags && detail.tags.length > 0 && (
-						<Section icon={<Braces className="h-3.5 w-3.5" />} title="Tags">
-							<div className="flex flex-wrap gap-1.5">
-								{detail.tags.map((tag, index) => (
-									<span key={index} className="rounded-full bg-gray-50 px-2 py-1 font-mono text-[11px] text-gray-600 dark:bg-gray-900 dark:text-gray-300">
-										<span className="text-gray-400">{tag.key}:</span> {tag.value}
-									</span>
-								))}
-							</div>
-						</Section>
-					)}
-					{detail.contexts && Object.keys(detail.contexts).length > 0 && (
-						<Section icon={<Globe className="h-3.5 w-3.5" />} title="Contexts">
-							<pre className="max-h-48 overflow-auto rounded-lg bg-gray-50 p-3 text-[11px] text-gray-600 dark:bg-gray-900 dark:text-gray-300">
-								{JSON.stringify(detail.contexts, null, 2)}
-							</pre>
-						</Section>
-					)}
-				</div>
-			)}
+			<InfoSection detail={detail} />
 		</div>
 	);
 }
