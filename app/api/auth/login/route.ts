@@ -429,32 +429,29 @@ function buildUserResponse(user: any, host?: string) {
 			};
 		case 'system_admin':
 			return { ...baseUser, username: user.username };
-		case 'parent':
-			return {
-				...baseUser,
-				studentIds: user.studentIds || [],
-				parentChildren: user.__parentChildren || [],
-				studentId:
-					user.__selectedChild?.studentId ||
-					user.__parentChildren?.[0]?.studentId ||
-					null,
-				classId:
-					user.__selectedChild?.classId ||
-					user.__parentChildren?.[0]?.classId ||
-					null,
-				className:
-					user.__selectedChild?.className ||
-					user.__parentChildren?.[0]?.className ||
-					null,
-				classLevel:
-					user.__selectedChild?.classLevel ||
-					user.__parentChildren?.[0]?.classLevel ||
-					null,
-				academicYears:
-					user.__selectedChild?.academicYears ||
-					user.__parentChildren?.[0]?.academicYears ||
-					[],
-			};
+		case 'parent': {
+				const selectedChild =
+					user.__selectedChild || user.__parentChildren?.[0] || null;
+				return {
+					...baseUser,
+					studentIds: user.studentIds || [],
+					parentChildren: user.__parentChildren || [],
+					studentId: selectedChild?.studentId || null,
+					classId: selectedChild?.classId || null,
+					className: selectedChild?.className || null,
+					classLevel: selectedChild?.classLevel || null,
+					academicYears: selectedChild?.academicYears || [],
+					firstName: selectedChild?.firstName || baseUser.firstName,
+					middleName: selectedChild?.middleName || baseUser.middleName,
+					lastName: selectedChild?.lastName || baseUser.lastName,
+					fullName:
+						selectedChild?.fullName ||
+						baseUser.fullName,
+					studentType: selectedChild?.studentType || 'old',
+					profilePictureUrl:
+						selectedChild?.profilePictureUrl || baseUser.profilePictureUrl,
+				};
+			}
 		default:
 			return baseUser;
 	}

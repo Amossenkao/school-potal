@@ -595,7 +595,10 @@ const fetchGradesBootstrap = async (
 
 	let grades = rawGrades;
 
-	if (currentUser?.role === 'student' && rawGrades.length > 0) {
+	if (
+		(currentUser?.role === 'student' || currentUser?.role === 'parent') &&
+		rawGrades.length > 0
+	) {
 		try {
 			const { attachRanksToGrades } = await import('@/utils/gradeRanks');
 			const studentClassIds = Array.from(

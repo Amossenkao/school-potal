@@ -5,7 +5,10 @@ import { authorizeUser } from '@/proxy';
 import { getSchoolProfile, getTenantConnectionByDbName } from '@/lib/mongoose';
 import { normalizeHost } from '@/utils/host';
 import { getSchoolMeshModels } from '@/models/schoolmesh';
-import { buildParentChildrenList } from '@/lib/parentAccess';
+import {
+	buildParentChildrenList,
+	scopedParentSessionFields,
+} from '@/lib/parentAccess';
 import UserSchema from '@/models/user/User';
 import SystemAdminSchema from '@/models/user/SystemAdmin';
 import UserSyncStateSchema from '@/models/user/UserSyncState';
@@ -13,6 +16,7 @@ import {
 	updateAllUserSessions,
 	destroyAllUserSessions,
 	updateUserSessionNotifications,
+	getAllUserSessions,
 } from '@/utils/session';
 import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
 import {
@@ -4877,6 +4881,7 @@ export async function PUT(request: NextRequest) {
 
 		// Apply parent link/unlink/create for students
 		let parentChangeApplied = false;
+		let affectedParentId: string | null = null;
 		if (targetUser.role === 'student' && parentUpdate) {
 			const studentId = targetUser.studentId || targetUser.username;
 			if (parentUpdate.mode === 'assign' && parentUpdate.parentId) {
@@ -4900,6 +4905,7 @@ export async function PUT(request: NextRequest) {
 					},
 				);
 				parentChangeApplied = true;
+				affectedParentId = String(parentUpdate.parentId);
 			} else if (parentUpdate.mode === 'unlink' && parentUpdate.parentId) {
 				await models.Parent.updateOne(
 					{ _id: parentUpdate.parentId },
@@ -4909,14 +4915,73 @@ export async function PUT(request: NextRequest) {
 					},
 				);
 				parentChangeApplied = true;
+				affectedParentId = String(parentUpdate.parentId);
 			} else if (parentUpdate.mode === 'create') {
-				await attachOrCreateParent(
+				const createdParent = await attachOrCreateParent(
 					models,
 					{ mode: 'create', ...parentUpdate },
 					studentId,
 					currentUser,
 				);
 				parentChangeApplied = true;
+				affectedParentId = createdParent?._id
+					? String(createdParent._id)
+					: null;
+			}
+		}
+
+		// Refresh the affected parent's sessions + notify via Ably so their UI
+		// reflects the new child list immediately.
+		if (parentChangeApplied && affectedParentId) {
+			try {
+				const affectedParent = await models.Parent.findById(
+					affectedParentId,
+				).lean();
+				if (affectedParent) {
+					const refreshedChildren = await buildParentChildrenList(
+						models,
+						affectedParent,
+					);
+					const existingSessions = await getAllUserSessions(
+						affectedParentId,
+					);
+					const currentSelectedId = String(
+						existingSessions[0]?.studentId || '',
+					).trim();
+					const sessionPatch: any = {
+						parentChildren: refreshedChildren,
+					};
+					if (
+						currentSelectedId &&
+						!refreshedChildren.some(
+							(c) =>
+								c.studentId === currentSelectedId ||
+								c.username === currentSelectedId,
+						)
+					) {
+						Object.assign(
+							sessionPatch,
+							scopedParentSessionFields(refreshedChildren[0] || null),
+						);
+					}
+					await updateAllUserSessions(affectedParentId, sessionPatch);
+					await publishSyncEventSafe({
+						tenantId,
+						domain: 'users',
+						actorId: currentUser.id,
+						reason: 'parent-children-updated',
+						targetUserIds: [affectedParentId],
+						payload: {
+							userId: affectedParentId,
+							parentChildren: refreshedChildren,
+						},
+					});
+				}
+			} catch (parentRefreshError) {
+				console.warn(
+					'Failed to refresh parent sessions after student parent change:',
+					parentRefreshError,
+				);
 			}
 		}
 
