@@ -25,6 +25,8 @@ const MONITORING_EVENT_TYPES = new Set([
 	'APPLICATION_WARNING_CREATED',
 ]);
 
+const STALE_SNAPSHOT_MS = 10 * 60 * 1000;
+
 function eventFromPayload(event: RealtimeEvent) {
 	const payload = (event.payload || {}) as Record<string, any>;
 	return {
@@ -69,6 +71,7 @@ export default function MonitoringOverview() {
 	});
 
 	const inFlightRef = useRef(false);
+	const autoRefreshedRef = useRef(false);
 
 	const queryString = useMemo(() => {
 		const params = new URLSearchParams();
@@ -171,6 +174,19 @@ export default function MonitoringOverview() {
 			void loadMonitoring(false, true);
 		}
 	}, [connected, loadMonitoring]);
+
+	useEffect(() => {
+		if (!data || autoRefreshedRef.current) return;
+		const generatedAt =
+			(data as any).generatedAt || (data as any).timestamp;
+		const ageMs = generatedAt
+			? Date.now() - new Date(generatedAt).getTime()
+			: Infinity;
+		if (ageMs > STALE_SNAPSHOT_MS) {
+			autoRefreshedRef.current = true;
+			void loadMonitoring(true, true);
+		}
+	}, [data, loadMonitoring]);
 
 	if (isLoading && !data) {
 		return <div className="py-16 text-center text-sm text-gray-500">Loading monitoring data...</div>;
