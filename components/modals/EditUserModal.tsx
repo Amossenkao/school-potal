@@ -865,8 +865,8 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		} else if (parentEditAction === 'create') {
 			if (!parentDraft.firstName.trim() || !parentDraft.lastName.trim())
 				e.parent = 'Parent first and last name are required';
-			if (!parentDraft.email.trim() && !parentDraft.phone.trim())
-				e.parentContact = 'Email or phone number required';
+			if (!parentDraft.phone.trim())
+				e.parentContact = 'Phone number is required';
 			if (parentDraft.email && !/\S+@\S+\.\S+/.test(parentDraft.email))
 				e.parentEmail = 'Invalid email format';
 		} else if (parentEditAction === 'unlink') {
@@ -2524,6 +2524,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 													value={parentDraft.phone}
 													onChange={handleParentDraftChange}
 													placeholder="+231 555 0000"
+													required
 												/>
 												<InputField
 													label="Parent Email"
@@ -2556,8 +2557,8 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 												</p>
 											)}
 											<p className="text-xs text-muted-foreground mt-3">
-												A parent account will be created with the email (or
-												phone) as their login username and a temporary password
+												A parent account will be created with the phone
+												number as their login username and a temporary password
 												to change on first sign-in.
 											</p>
 										</>

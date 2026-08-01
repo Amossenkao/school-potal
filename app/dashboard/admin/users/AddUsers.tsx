@@ -1136,8 +1136,8 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 						e.parentFirstName = 'First name required';
 					if (!formData.parent.lastName.trim())
 						e.parentLastName = 'Last name required';
-					if (!formData.parent.email.trim() && !formData.parent.phone.trim())
-						e.parentContact = 'Email or phone number required';
+					if (!formData.parent.phone.trim())
+						e.parentContact = 'Phone number required';
 					if (
 						formData.parent.email &&
 						!/\S+@\S+\.\S+/.test(formData.parent.email)
@@ -2019,6 +2019,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 														}
 														className={`${inputBase} ${errors.parentContact ? inputError : inputNormal}`}
 														placeholder="+231 555 0000"
+														required
 													/>
 												</Field>
 												<Field
@@ -3056,7 +3057,6 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 															<ReviewRow
 																label="Username"
 																value={
-																	formData.parent.email ||
 																	formData.parent.phone ||
 																	'—'
 																}

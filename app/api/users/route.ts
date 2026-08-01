@@ -594,14 +594,12 @@ async function attachOrCreateParent(
 	}
 
 	if (parent.mode === 'create') {
-		const email = parent.email?.toString().toLowerCase().trim() || '';
 		const phone = parent.phone?.toString().trim() || '';
-		const username = email || phone;
-		if (!username) {
-			throw new Error(
-				'Parent needs an email or phone number to create an account.',
-			);
+		if (!phone) {
+			throw new Error('Parent phone number is required to create an account.');
 		}
+		const email = parent.email?.toString().toLowerCase().trim() || '';
+		const username = phone;
 		const firstName = parent.firstName?.toString().trim() || '';
 		const middleName = parent.middleName?.toString().trim() || '';
 		const lastName = parent.lastName?.toString().trim() || '';
@@ -1374,11 +1372,10 @@ async function validateUserData(
 			}
 			const parentEmail = parent.email?.toString().toLowerCase().trim();
 			const parentPhone = parent.phone?.toString().trim();
-			if (!parentEmail && !parentPhone) {
+			if (!parentPhone) {
 				errors.push({
-					field: 'parent',
-					message:
-						'Parent needs an email or phone number to create an account',
+					field: 'parent.phone',
+					message: 'Parent phone number is required to create an account',
 					type: 'REQUIRED_FIELD',
 				});
 			}
@@ -1389,33 +1386,16 @@ async function validateUserData(
 					type: 'FORMAT_INVALID',
 				});
 			}
-			if (parentEmail) {
-				const existingUser = await models.User.findOne({
-					email: parentEmail,
-				}).lean();
-				if (existingUser) {
-					errors.push({
-						field: 'parent.email',
-						type: 'DUPLICATE_ENTRY',
-						message:
-							'A user already exists with this email. Search and assign them instead.',
-						details: {
-							existingUserId: existingUser._id.toString(),
-							existingUserName: existingUser.fullName,
-						},
-					});
-				}
-			}
 			if (parentPhone) {
 				const existingUser = await models.User.findOne({
-					phone: parentPhone,
+					$or: [{ phone: parentPhone }, { username: parentPhone }],
 				}).lean();
 				if (existingUser) {
 					errors.push({
 						field: 'parent.phone',
 						type: 'DUPLICATE_ENTRY',
 						message:
-							'A user already exists with this phone number. Search and assign them instead.',
+							'Another account already uses this phone number.',
 						details: {
 							existingUserId: existingUser._id.toString(),
 							existingUserName: existingUser.fullName,

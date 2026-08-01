@@ -73,10 +73,4 @@ export const scopedParentSessionFields = (child: ParentChild | null) => ({
 	className: child?.className || null,
 	classLevel: child?.classLevel || null,
 	academicYears: child?.academicYears || [],
-	firstName: child?.firstName || null,
-	middleName: child?.middleName || null,
-	lastName: child?.lastName || null,
-	fullName: child?.fullName || null,
-	studentType: child?.studentType || null,
-	profilePictureUrl: child?.profilePictureUrl || null,
 });

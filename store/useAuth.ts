@@ -577,12 +577,42 @@ const applyBootstrapPayload = (
 		if (event.type === 'USER_UPDATED' && impactsCurrentUser) {
 			const nextUser =
 				payload.user && typeof payload.user === 'object' ? payload.user : null;
-			if (nextUser) {
+			const parentChildren = Array.isArray(payload.parentChildren)
+				? payload.parentChildren
+				: null;
+			if (nextUser || parentChildren) {
 				set((state) => {
 					const updated = state.user
-						? ({ ...state.user, ...nextUser } as User)
-						: (nextUser as User);
-					useSchoolStore.getState().pruneGradesForUser(updated);
+						? ({ ...state.user, ...(nextUser || {}) } as User)
+						: (nextUser as User | null);
+					if (updated && parentChildren) {
+						updated.parentChildren = parentChildren;
+						const selectedId = String(updated.studentId || '');
+						const stillSelected = selectedId
+							? parentChildren.some(
+									(c: any) =>
+										String(c.studentId || '') === selectedId ||
+										String(c.username || '') === selectedId,
+								)
+							: true;
+						if (selectedId && !stillSelected) {
+							const first = parentChildren[0] as any;
+							updated.studentId =
+								first?.studentId || first?.username || null;
+							updated.classId = first?.classId || null;
+							updated.className = first?.className || null;
+							updated.classLevel = first?.classLevel || null;
+							updated.academicYears = Array.isArray(
+								first?.academicYears,
+							)
+								? first.academicYears
+								: [];
+							updated.studentType = first?.studentType || 'old';
+						}
+					}
+					if (updated) {
+						useSchoolStore.getState().pruneGradesForUser(updated);
+					}
 					return { user: updated };
 				});
 			}

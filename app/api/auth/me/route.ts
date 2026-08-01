@@ -269,16 +269,6 @@ export async function GET(request: NextRequest) {
 						academicYears: session.academicYears ?? [],
 						parentChildren: session.parentChildren ?? [],
 						studentType: session.studentType ?? (freshUser as any).studentType ?? 'old',
-						profilePictureUrl:
-							session.profilePictureUrl ?? (freshUser as any).profilePictureUrl ?? null,
-						firstName:
-							session.firstName ?? baseUserPayload.firstName,
-						middleName:
-							session.middleName ?? baseUserPayload.middleName,
-						lastName:
-							session.lastName ?? baseUserPayload.lastName,
-						fullName:
-							session.fullName ?? baseUserPayload.fullName,
 					}
 				: baseUserPayload;
 		const resolvedSessionUser = {

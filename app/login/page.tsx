@@ -499,7 +499,9 @@ const FormStep = ({
 					Enter your credentials
 				</h2>
 				<p className="text-sm text-muted-foreground mt-1">
-					Use your portal username and password.
+					{loginType === 'parent'
+						? 'Use your phone number and password.'
+						: 'Use your portal username and password.'}
 				</p>
 			</div>
 
@@ -555,10 +557,10 @@ const FormStep = ({
 					</div>
 				)}
 
-				{/* Username */}
+				{/* Username / Phone number */}
 				<div className="flex flex-col gap-1.5">
 					<label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-						Username
+						{loginType === 'parent' ? 'Phone number' : 'Username'}
 					</label>
 					<div className="relative">
 						<User
@@ -574,9 +576,15 @@ const FormStep = ({
 							onChange={onChange}
 							disabled={isLoading || !!loginDisabledError}
 							ref={inputRef}
-							placeholder="Enter your username"
+							placeholder={
+								loginType === 'parent'
+									? 'Enter your phone number'
+									: 'Enter your username'
+							}
 							required
-							autoComplete="username"
+							autoComplete={
+								loginType === 'parent' ? 'tel' : 'username'
+							}
 							className="
 								w-full pl-9 pr-4 py-2.5
 								text-sm text-foreground

@@ -27,6 +27,7 @@ import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
 import { getStudentAllowedAccess } from '@/utils/schoolSettingsAccess';
 import { isStudentRole } from '@/utils/effectiveRole';
+import { resolveReportStudent } from '@/utils/childView';
 import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import {
@@ -2292,15 +2293,16 @@ function ReportContent({
 					typeof navigator !== 'undefined' && navigator.onLine === false;
 
 				if (isStudent && user) {
+					const reportStudent = resolveReportStudent(user);
 				studentsToProcess = [
 					{
-						studentId: normalizeStudentId(user.studentId, user.id, user._id),
+						studentId: normalizeStudentId(reportStudent?.studentId, user.studentId, user.id, user._id),
 						id: user.id,     
 						_id: user._id,
-						firstName: user.firstName,
-						middleName: user.middleName,
-						lastName: user.lastName,
-						fullName: user.fullName || `${user.firstName} ${user.lastName}`.trim(),
+						firstName: reportStudent?.firstName ?? user.firstName,
+						middleName: reportStudent?.middleName ?? user.middleName,
+						lastName: reportStudent?.lastName ?? user.lastName,
+						fullName: reportStudent?.fullName || `${user.firstName} ${user.lastName}`.trim(),
 					},
 				];
 				} else {

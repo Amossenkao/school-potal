@@ -28,6 +28,7 @@ import { getClientCache, setClientCache } from '@/utils/clientCache';
 import AccessDenied from '@/components/AccessDenied';
 import { getStudentAllowedAccess } from '@/utils/schoolSettingsAccess';
 import { isStudentRole } from '@/utils/effectiveRole';
+import { resolveReportStudent } from '@/utils/childView';
 import { drawTextMap } from '@/utils/pdfText';
 import { buildSemesterCardPlacements } from '@/app/dashboard/shared/reportPdfLayout';
 import {
@@ -1148,12 +1149,13 @@ function ReportContent({
 				}
 
 				if (isStudent && user) {
+					const reportStudent = resolveReportStudent(user);
 					studentsToProcess = [
 						{
-							studentId: normalizeStudentId(user.studentId, user.id, user._id),
-							firstName: user.firstName,
-							middleName: user.middleName,
-							lastName: user.lastName,
+							studentId: normalizeStudentId(reportStudent?.studentId, user.studentId, user.id, user._id),
+							firstName: reportStudent?.firstName ?? user.firstName,
+							middleName: reportStudent?.middleName ?? user.middleName,
+							lastName: reportStudent?.lastName ?? user.lastName,
 						},
 					];
 				} else {

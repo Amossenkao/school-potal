@@ -22,6 +22,7 @@ import useAuth from '@/store/useAuth';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import { getStudentAllowedAccess } from '@/utils/schoolSettingsAccess';
 import { isStudentRole } from '@/utils/effectiveRole';
+import { resolveReportStudent } from '@/utils/childView';
 import { flattenSchoolForReport } from '@/utils/reportTemplate';
 import {
 	areAcademicYearsEqual,
@@ -1129,16 +1130,22 @@ function ReportContent({
 						? dedupedFallbackStudents
 						: isStudent && user
 							? [
-									{
-										id: String(
-											user?.studentId || user?.id || user?._id || '',
-										).trim(),
-										name: [user?.firstName, user?.middleName, user?.lastName]
-											.filter(Boolean)
-											.join(' ') ||
-											String(user?.studentId || user?.id || ''),
-										className: reportFilters.className,
-									},
+									(() => {
+										const reportStudent = resolveReportStudent(user);
+										return {
+											id: String(
+												reportStudent?.studentId ||
+													user?.studentId ||
+													user?.id ||
+													user?._id ||
+													'',
+											).trim(),
+											name:
+												reportStudent?.name ||
+												String(user?.studentId || user?.id || ''),
+											className: reportFilters.className,
+										};
+									})(),
 								]
 							: [];
 

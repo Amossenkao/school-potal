@@ -55,12 +55,6 @@ export async function POST(request: NextRequest) {
 			'className',
 			'classLevel',
 			'academicYears',
-			'firstName',
-			'middleName',
-			'lastName',
-			'fullName',
-			'studentType',
-			'profilePictureUrl',
 		],
 	});
 

@@ -113,9 +113,20 @@ export async function POST(request: NextRequest) {
 			: await SuperAdmin.findOne({ username, role: 'superadmin' });
 	} else {
 		const User = await getUserModel(host);
-		user = resolvedUserId
-			? await User.findById(resolvedUserId)
-			: await User.findOne({ username, role });
+		const loginIdentifier = String(username || '').trim().toLowerCase();
+		if (role === 'parent') {
+			// Parents log in strictly by phone number
+			user = resolvedUserId
+				? await User.findById(resolvedUserId)
+				: await User.findOne({
+						role: 'parent',
+						phone: loginIdentifier,
+					});
+		} else {
+			user = resolvedUserId
+				? await User.findById(resolvedUserId)
+				: await User.findOne({ username, role });
+		}
 	}
 
 	if (
@@ -441,15 +452,7 @@ function buildUserResponse(user: any, host?: string) {
 					className: selectedChild?.className || null,
 					classLevel: selectedChild?.classLevel || null,
 					academicYears: selectedChild?.academicYears || [],
-					firstName: selectedChild?.firstName || baseUser.firstName,
-					middleName: selectedChild?.middleName || baseUser.middleName,
-					lastName: selectedChild?.lastName || baseUser.lastName,
-					fullName:
-						selectedChild?.fullName ||
-						baseUser.fullName,
 					studentType: selectedChild?.studentType || 'old',
-					profilePictureUrl:
-						selectedChild?.profilePictureUrl || baseUser.profilePictureUrl,
 				};
 			}
 		default:
