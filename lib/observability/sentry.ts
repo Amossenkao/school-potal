@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/nextjs';
 
 import type { ErrorLogContext, LogContext, RequestLogContext } from '@/lib/logger';
+import { publishMonitoringLogEvent } from '@/lib/monitoring/publish';
 
 export function configureSentryScope(context: RequestLogContext) {
 	Sentry.setContext('schoolmesh', {
@@ -31,7 +32,7 @@ export function captureApplicationError(error: unknown, context?: ErrorLogContex
 		configureSentryScope(context);
 	}
 
-	return Sentry.captureException(error, {
+	const eventId = Sentry.captureException(error, {
 		tags: {
 			requestId: context?.requestId,
 			tenantId: context?.tenantId,
@@ -42,6 +43,19 @@ export function captureApplicationError(error: unknown, context?: ErrorLogContex
 		},
 		extra: context,
 	});
+
+	publishMonitoringLogEvent({
+		level: 'error',
+		message: error instanceof Error ? error.message : String(error),
+		eventId: String(eventId || ''),
+		context,
+		metadata: {
+			errorName: error instanceof Error ? error.name : typeof error,
+			stackPreview: error instanceof Error ? error.stack?.split('\n').slice(0, 8).join('\n') : undefined,
+		},
+	});
+
+	return eventId;
 }
 
 export function captureApplicationMessage(
@@ -53,7 +67,7 @@ export function captureApplicationMessage(
 		configureSentryScope(context);
 	}
 
-	return Sentry.captureMessage(message, {
+	const eventId = Sentry.captureMessage(message, {
 		level,
 		tags: {
 			requestId: context?.requestId ? String(context.requestId) : undefined,
@@ -66,4 +80,13 @@ export function captureApplicationMessage(
 		},
 		extra: context,
 	});
+
+	publishMonitoringLogEvent({
+		level,
+		message,
+		eventId: String(eventId || ''),
+		context,
+	});
+
+	return eventId;
 }

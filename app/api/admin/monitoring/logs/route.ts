@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
 					betterstack: providerLogs.entries.length,
 				},
 			},
-		});
+		}, { headers: { 'Cache-Control': 'no-store' } });
 	} catch (error) {
 		return errorResponse(request, error, 'Failed to load logs', 500, 'monitoring.logs');
 	}

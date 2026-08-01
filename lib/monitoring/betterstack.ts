@@ -1,4 +1,4 @@
-import type { LogSummary, RecentLog, UptimeSummary } from './types';
+import type { IncidentDetail, LogSummary, RecentLog, UptimeSummary } from './types';
 
 const BETTERSTACK_API_BASE = 'https://uptime.betterstack.com/api/v2';
 
@@ -6,16 +6,23 @@ function hasBetterStackConfig() {
 	return Boolean(process.env.BETTERSTACK_TOKEN);
 }
 
-async function betterStackFetch<T>(path: string): Promise<T | null> {
+async function betterStackFetch<T>(path: string, options?: { cache?: RequestCache }): Promise<T | null> {
 	if (!hasBetterStackConfig()) return null;
 
-	const response = await fetch(`${BETTERSTACK_API_BASE}${path}`, {
+	const fetchOptions: RequestInit = {
 		headers: {
 			Authorization: `Bearer ${process.env.BETTERSTACK_TOKEN}`,
 			'Content-Type': 'application/json',
 		},
 		next: { revalidate: 60 },
-	});
+	};
+
+	if (options?.cache) {
+		fetchOptions.cache = options.cache;
+		delete fetchOptions.next;
+	}
+
+	const response = await fetch(`${BETTERSTACK_API_BASE}${path}`, fetchOptions);
 
 	const jsonResponse = await response.json();
 	
@@ -34,6 +41,7 @@ export async function getRecentLogs(): Promise<{ summary: LogSummary; entries: R
 		level: incident.severity === 'critical' ? 'error' as const : 'warning' as const,
 		message: incident.message,
 		module: incident.module,
+		source: 'betterstack' as const,
 	}));
 
 	return {
@@ -57,6 +65,39 @@ export async function getIncidents() {
 		createdAt: String(incident.attributes?.created_at || new Date().toISOString()),
 		module: incident.attributes?.monitor_name,
 	}));
+}
+
+export async function getIncidentDetail(incidentId: string): Promise<IncidentDetail | null> {
+	if (!hasBetterStackConfig()) return null;
+
+	const payload = await betterStackFetch<any>(
+		`/incidents/${encodeURIComponent(incidentId)}`,
+		{ cache: 'no-store' },
+	);
+	const incident = payload?.data;
+	if (!incident) return null;
+
+	const attributes = incident.attributes || {};
+	const updates = Array.isArray(incident.incident_updates)
+		? incident.incident_updates.map((update: any) => ({
+				id: update?.id ? String(update.id) : undefined,
+				status: update?.attributes?.status,
+				message: update?.attributes?.message,
+				createdAt: update?.attributes?.created_at,
+			}))
+		: [];
+
+	return {
+		id: String(incident.id),
+		message: String(attributes.name || attributes.summary || 'Incident'),
+		severity: attributes.severity === 'critical' ? 'critical' : 'warning',
+		status: String(attributes.status || 'open'),
+		monitorName: attributes.monitor_name,
+		createdAt: String(attributes.created_at || new Date().toISOString()),
+		resolvedAt: attributes.resolved_at ? String(attributes.resolved_at) : undefined,
+		externalUrl: 'https://uptime.betterstack.com/incidents',
+		updates,
+	};
 }
 
 export async function getUptimeStatus(): Promise<UptimeSummary> {

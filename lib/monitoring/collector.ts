@@ -2,6 +2,7 @@ import { getSchoolMeshModels } from '@/models/schoolmesh';
 
 import { collectTenantDatabaseMetrics, buildMongoAlerts } from './collectors/mongodbCollector';
 import { getMonitoringSummary } from './index';
+import { publishMonitoringUpdate, publishSystemAlertCreated } from './publish';
 import type { SystemAlertRecord } from './types';
 
 function buildAlerts(summary: Awaited<ReturnType<typeof getMonitoringSummary>>): SystemAlertRecord[] {
@@ -84,6 +85,9 @@ export async function collectMonitoringSnapshot() {
 	if (alerts.length > 0) {
 		await SystemAlert.insertMany(alerts, { ordered: false });
 	}
+
+	alerts.forEach((alert) => publishSystemAlertCreated(alert));
+	publishMonitoringUpdate(summary);
 
 	return { snapshot, alerts, summary, databaseCollection };
 }

@@ -17,18 +17,18 @@ export async function GET(request: NextRequest) {
 	try {
 		if (refresh) {
 			const collected = await collectMonitoringSnapshot();
-			return NextResponse.json({ success: true, data: collected.summary });
+			return NextResponse.json({ success: true, data: collected.summary }, { headers: { 'Cache-Control': 'no-store' } });
 		}
 
 		const { MonitoringSnapshot } = await getSchoolMeshModels();
 		const latest = await MonitoringSnapshot.findOne().sort({ timestamp: -1 }).lean();
 
 		if (latest) {
-			return NextResponse.json({ success: true, data: latest, cached: true });
+			return NextResponse.json({ success: true, data: latest, cached: true }, { headers: { 'Cache-Control': 'no-store' } });
 		}
 
 		const summary = await getMonitoringSummary();
-		return NextResponse.json({ success: true, data: summary, cached: false });
+		return NextResponse.json({ success: true, data: summary, cached: false }, { headers: { 'Cache-Control': 'no-store' } });
 	} catch (error) {
 		return errorResponse(request, error, 'Failed to load monitoring overview', 500, 'monitoring.overview');
 	}

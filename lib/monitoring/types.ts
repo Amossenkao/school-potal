@@ -175,3 +175,98 @@ export interface SystemAlertRecord {
 	createdAt: Date;
 	resolvedAt?: Date;
 }
+
+export interface StackTraceFrame {
+	filename?: string;
+	absPath?: string;
+	module?: string;
+	function?: string;
+	lineNo?: number;
+	colNo?: number;
+	contextLine?: string;
+	preContext?: string[];
+	postContext?: string[];
+	inApp?: boolean;
+	vars?: Record<string, unknown>;
+}
+
+export interface ExceptionDetail {
+	type: string;
+	value?: string;
+	mechanism?: string;
+	frames: StackTraceFrame[];
+}
+
+export interface BreadcrumbDetail {
+	timestamp?: string;
+	type?: string;
+	level?: string;
+	category?: string;
+	message?: string;
+	data?: Record<string, unknown>;
+}
+
+export interface RequestDetail {
+	method?: string;
+	url?: string;
+	path?: string;
+	query?: string[];
+	data?: Record<string, unknown> | string;
+	headers?: Record<string, string>;
+	cookies?: Record<string, string>;
+	env?: Record<string, unknown>;
+}
+
+export interface LogEventDetail {
+	id: string;
+	timestamp: string;
+	level: string;
+	title?: string;
+	message?: string;
+	platform?: string;
+	sdk?: string;
+	groupID?: string;
+	externalUrl?: string;
+	exceptions: ExceptionDetail[];
+	breadcrumbs: BreadcrumbDetail[];
+	request?: RequestDetail;
+	contexts?: Record<string, unknown>;
+	tags?: { key: string; value: string }[];
+}
+
+export interface IncidentUpdateDetail {
+	id?: string;
+	status?: string;
+	message?: string;
+	createdAt?: string;
+}
+
+export interface IncidentDetail {
+	id: string;
+	message: string;
+	severity: string;
+	status: string;
+	monitorName?: string;
+	createdAt: string;
+	resolvedAt?: string;
+	externalUrl?: string;
+	updates: IncidentUpdateDetail[];
+}
+
+export interface SentryIssueDetail {
+	issue: {
+		id: string;
+		title: string;
+		level: string;
+		status: string;
+		count: number;
+		culprit?: string;
+		firstSeen?: string;
+		lastSeen?: string;
+		schoolId?: string;
+		schoolName?: string;
+		module?: string;
+		externalUrl?: string;
+	};
+	detail?: LogEventDetail;
+}

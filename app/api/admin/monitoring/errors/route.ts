@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 
 		const alerts = await SystemAlert.find(alertQuery).sort({ createdAt: -1 }).limit(50).lean();
 
-		return NextResponse.json({ success: true, data: { summary, errors, alerts } });
+		return NextResponse.json({ success: true, data: { summary, errors, alerts } }, { headers: { 'Cache-Control': 'no-store' } });
 	} catch (error) {
 		return errorResponse(request, error, 'Failed to load error monitoring', 500, 'monitoring.errors');
 	}

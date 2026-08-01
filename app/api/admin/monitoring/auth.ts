@@ -6,7 +6,6 @@ import { authorizeUser } from '@/proxy';
 
 export async function authorizeMonitoringRequest(request: NextRequest) {
 	const currentUser = await authorizeUser(request, "superadmin");
-	console.log(`Current User: ${currentUser}`)
 
 	if (!currentUser) {
 		return {

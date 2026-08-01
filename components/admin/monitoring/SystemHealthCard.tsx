@@ -1,4 +1,5 @@
 import { Activity, CheckCircle2, CircleAlert, CircleX } from 'lucide-react';
+import { PolarAngleAxis, RadialBar, RadialBarChart, ResponsiveContainer } from 'recharts';
 
 import type { MonitoringDashboardData } from './types';
 
@@ -13,6 +14,12 @@ function label(status?: string) {
 	return status.replace(/_/g, ' ').replace(/^\w/, (char) => char.toUpperCase());
 }
 
+function uptimeTone(percentage: number) {
+	if (percentage >= 99) return '#10b981';
+	if (percentage >= 95) return '#f59e0b';
+	return '#ef4444';
+}
+
 export default function SystemHealthCard({ data }: { data: MonitoringDashboardData }) {
 	const providers = data.health?.providers ?? [];
 	const rows = [
@@ -22,12 +29,45 @@ export default function SystemHealthCard({ data }: { data: MonitoringDashboardDa
 		['Monitoring', data.health?.monitoring],
 	];
 
+	const rawUptime = (data as any)?.uptime;
+	const uptime = typeof rawUptime === 'number' ? rawUptime : rawUptime?.percentage;
+	const tone = uptimeTone(uptime ?? 0);
+
 	return (
 		<div className="rounded-xl border border-gray-200 bg-card p-5 dark:border-gray-800">
 			<div className="mb-5 flex items-center gap-2">
 				<Activity className="h-5 w-5 text-[#465fff]" />
 				<h2 className="text-sm font-semibold text-gray-900 dark:text-white">System Health</h2>
 			</div>
+
+			<div className="mb-5 flex items-center gap-5">
+				<div className="relative h-28 w-28 shrink-0">
+					<ResponsiveContainer width="100%" height="100%">
+						<RadialBarChart
+							innerRadius="72%"
+							outerRadius="100%"
+							startAngle={90}
+							endAngle={-270}
+							data={[{ name: 'Uptime', value: uptime ?? 0, fill: tone }]}
+						>
+							<PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
+							<RadialBar dataKey="value" cornerRadius={8} background={{ fill: '#f3f4f6' }} />
+						</RadialBarChart>
+					</ResponsiveContainer>
+					<div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+						<span className="text-xl font-bold text-gray-900 dark:text-white">{uptime ?? 0}%</span>
+						<span className="text-[10px] uppercase text-gray-400">Uptime</span>
+					</div>
+				</div>
+				<div className="min-w-0">
+					<p className="text-xs font-semibold uppercase text-gray-400">Platform Status</p>
+					<p className="mt-1 flex items-center gap-2 text-lg font-bold capitalize text-gray-900 dark:text-white">
+						<StatusIcon status={data.systemStatus} />
+						{label(data.systemStatus)}
+					</p>
+				</div>
+			</div>
+
 			<div className="space-y-3">
 				{rows.map(([name, status]) => (
 					<div key={name} className="flex items-center justify-between text-sm">

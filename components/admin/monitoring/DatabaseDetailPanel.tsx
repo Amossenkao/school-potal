@@ -2,6 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
+import {
+	Area,
+	AreaChart,
+	CartesianGrid,
+	ResponsiveContainer,
+	Tooltip,
+	XAxis,
+	YAxis,
+} from 'recharts';
 
 interface TenantUsage {
 	schoolId: string;
@@ -27,6 +36,13 @@ function formatBytes(bytes: number) {
 	const units = ['B', 'KB', 'MB', 'GB', 'TB'];
 	const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
 	return `${(bytes / 1024 ** exponent).toFixed(2)} ${units[exponent]}`;
+}
+
+function formatBytesShort(bytes: number) {
+	if (!bytes) return '0';
+	const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+	const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+	return `${(bytes / 1024 ** exponent).toFixed(1)}${units[exponent]}`;
 }
 
 function formatDate(value: string) {
@@ -149,6 +165,35 @@ export default function DatabaseDetailPanel({
 									{growthPercent > 0 ? '+' : ''}{growthPercent}%
 								</span>
 							</p>
+						)}
+						{history.length > 1 && (
+							<div className="mb-3 h-40 rounded-lg border border-gray-100 p-2 dark:border-gray-800">
+								<ResponsiveContainer width="100%" height="100%">
+									<AreaChart
+										data={history.map((point) => ({
+											time: formatDate(point.collectedAt),
+											bytes: point.storageBytes,
+										}))}
+										margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+									>
+										<defs>
+											<linearGradient id={`storage-${tenant.schoolId}`} x1="0" y1="0" x2="0" y2="1">
+												<stop offset="5%" stopColor="#465fff" stopOpacity={0.35} />
+												<stop offset="95%" stopColor="#465fff" stopOpacity={0.02} />
+											</linearGradient>
+										</defs>
+										<CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-800" />
+										<XAxis dataKey="time" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} minTickGap={24} />
+										<YAxis tickFormatter={formatBytesShort} tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} width={44} domain={['auto', 'auto']} />
+										<Tooltip
+											formatter={(value) => [formatBytes(Number(value)), 'Storage']}
+											labelStyle={{ color: '#6b7280', fontSize: 11 }}
+											contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }}
+										/>
+										<Area type="monotone" dataKey="bytes" stroke="#465fff" strokeWidth={2} fill={`url(#storage-${tenant.schoolId})`} />
+									</AreaChart>
+								</ResponsiveContainer>
+							</div>
 						)}
 						<div className="max-h-48 overflow-y-auto">
 							<table className="w-full text-left text-sm">

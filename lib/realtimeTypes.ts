@@ -10,6 +10,7 @@ export type SyncDomain =
 	| 'user'
 	| 'attendance'
 	| 'teacher_attendance'
+	| 'monitoring'
 
 export type RealtimeSource = 'system' | 'admin' | 'teacher' | 'student';
 
@@ -460,6 +461,20 @@ export const resolvePublishChannels = (event: RealtimeEvent) => {
 					(payload.userId ? [String(payload.userId)] : undefined),
 			);
 			if (actorId) addUserIds([actorId]);
+			break;
+
+		case 'APPLICATION_LOG_CREATED':
+		case 'APPLICATION_WARNING_CREATED':
+		case 'SYSTEM_ALERT_CREATED':
+		case 'MONITORING_UPDATED':
+			// Observability events reach the superadmin broadcast channel and
+			// the platform events channel. Tenant-scoped events also reach the
+			// school channel so tenant admins can subscribe later.
+			if (tenantId && tenantId !== 'platform') {
+				addSchool();
+			}
+			addSuperadminBroadcast();
+			channels.add(PLATFORM_EVENTS_CHANNEL);
 			break;
 
 		default:
