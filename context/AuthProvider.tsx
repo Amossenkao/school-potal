@@ -326,7 +326,14 @@ export default function AuthProvider({
 			).trim();
 
 			const applyEvent = (evt: RealtimeEvent) => {
-				useSchoolStore.getState().applyRealtimeEvent(evt);
+				try {
+					useSchoolStore.getState().applyRealtimeEvent(evt);
+				} catch (storeError) {
+					console.warn(
+						'[AuthProvider] schoolStore.applyRealtimeEvent threw:',
+						storeError,
+					);
+				}
 				useAuth.getState().applyRealtimeEvent(evt);
 
 				const currentUserId = String(user?.id || '').trim();

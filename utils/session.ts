@@ -156,9 +156,12 @@ export const destroySession = async (sessionId: string): Promise<number> => {
 export const getSession = async (sessionId: string): Promise<any | null> => {
 	const sessionData = await redis.get(sessionId);
 	if (!sessionData) return null;
-	return typeof sessionData === 'string'
-		? JSON.parse(sessionData)
-		: sessionData;
+	if (typeof sessionData !== 'string') return sessionData;
+	try {
+		return JSON.parse(sessionData);
+	} catch {
+		return null;
+	}
 };
 
 /**
@@ -259,7 +262,15 @@ export const getAllUserSessions = async (id: string): Promise<any[]> => {
 
 	(results || []).forEach(([err, data]) => {
 		if (!err && data) {
-			sessions.push(typeof data === 'string' ? JSON.parse(data) : data);
+			if (typeof data === 'string') {
+				try {
+					sessions.push(JSON.parse(data));
+				} catch {
+					// skip corrupt session entry
+				}
+			} else {
+				sessions.push(data);
+			}
 		}
 	});
 
@@ -280,7 +291,15 @@ export const getAllTenantSessions = async (
 
 	(results || []).forEach(([err, data]) => {
 		if (!err && data) {
-			sessions.push(typeof data === 'string' ? JSON.parse(data) : data);
+			if (typeof data === 'string') {
+				try {
+					sessions.push(JSON.parse(data));
+				} catch {
+					// skip corrupt session entry
+				}
+			} else {
+				sessions.push(data);
+			}
 		}
 	});
 

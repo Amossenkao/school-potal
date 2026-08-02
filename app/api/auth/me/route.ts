@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/utils/session';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { getTenantModels } from '@/models';
+import { buildParentChildrenList } from '@/lib/parentAccess';
 import { getSchoolMeshModels } from '@/models/schoolmesh';
 import { buildBootstrapPayload, buildSuperAdminBootstrapPayload, getDomainVersions } from '@/lib/bootstrap';
 import { resolveAcademicYearAccessContext } from '@/utils/academicYearAccess';
@@ -266,18 +267,66 @@ export async function GET(request: NextRequest) {
 			id: resolvedUserId,
 			_id: resolvedUserId,
 		};
+		// Prefer the DB-resolved child list (source of truth) so a just-assigned
+		// student survives the forced /api/auth/me refresh even if the session
+		// write lags or was skipped. Fall back to the session copy only if the DB
+		// resolution fails.
+		let resolvedParentChildren: any[] | undefined;
+		if (freshUser?.role === 'parent') {
+			try {
+				resolvedParentChildren = await buildParentChildrenList(
+					models,
+					freshUser,
+				);
+			} catch (dbChildrenError) {
+				console.warn(
+					'Failed to resolve parent children from DB in /api/auth/me:',
+					dbChildrenError,
+				);
+			}
+		}
 		const userPayload =
 			freshUser?.role === 'parent'
-				? {
-						...baseUserPayload,
-						studentId: session.studentId ?? null,
-						classId: session.classId ?? null,
-						className: session.className ?? null,
-						classLevel: session.classLevel ?? null,
-						academicYears: session.academicYears ?? [],
-						parentChildren: session.parentChildren ?? [],
-						studentType: session.studentType ?? (freshUser as any).studentType ?? 'old',
-					}
+				? (() => {
+						// Keep a child selected at all times while the parent has
+						// children: preserve the current session selection when it is
+						// still valid, otherwise fall back to the first available
+						// child. A session may carry studentId: null (e.g. a parent
+						// who had no children at login, later assigned a student), and
+						// without this the child switcher would show no selection.
+						const parentChildren =
+							resolvedParentChildren ??
+							(Array.isArray(session.parentChildren)
+								? session.parentChildren
+								: []);
+						const sessionSelectedId = String(
+							session.studentId || '',
+						).trim();
+						const selectedChild =
+							parentChildren.find(
+								(c: any) =>
+									String(c.studentId || '').trim() === sessionSelectedId ||
+									String(c.username || '').trim() === sessionSelectedId,
+							) ||
+							parentChildren[0] ||
+							null;
+						return {
+							...baseUserPayload,
+							studentId:
+								selectedChild?.studentId || selectedChild?.username || null,
+							classId: selectedChild?.classId ?? null,
+							className: selectedChild?.className ?? null,
+							classLevel: selectedChild?.classLevel ?? null,
+							academicYears: Array.isArray(selectedChild?.academicYears)
+								? selectedChild.academicYears
+								: [],
+							parentChildren,
+							studentType:
+								selectedChild?.studentType ||
+								(freshUser as any).studentType ||
+								'old',
+						};
+					})()
 				: baseUserPayload;
 		const resolvedSessionUser = {
 			...session,

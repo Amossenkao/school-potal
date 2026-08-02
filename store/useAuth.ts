@@ -394,6 +394,36 @@ const useAuth = create<AuthState>((set, get) => {
 		return null;
 	};
 
+const repairParentChildSelection = (user: any): any => {
+	if (!user || typeof user !== 'object' || user.role !== 'parent') return user;
+	const parentChildren = Array.isArray(user.parentChildren)
+		? user.parentChildren
+		: [];
+	if (parentChildren.length === 0) return user;
+	const selectedId = String(user.studentId || '').trim();
+	const selectedStillValid = Boolean(
+		selectedId &&
+			parentChildren.some(
+				(c: any) =>
+					String(c.studentId || '').trim() === selectedId ||
+					String(c.username || '').trim() === selectedId,
+			),
+	);
+	if (selectedStillValid) return user;
+	const first = parentChildren[0] as any;
+	return {
+		...user,
+		studentId: first?.studentId || first?.username || null,
+		classId: first?.classId || null,
+		className: first?.className || null,
+		classLevel: first?.classLevel || null,
+		academicYears: Array.isArray(first?.academicYears)
+			? first.academicYears
+			: [],
+		studentType: first?.studentType || 'old',
+	};
+};
+
 const applyBootstrapPayload = (
 	data: any,
 	options: { gradesStrategy?: 'replace' | 'merge' } = {},
@@ -580,6 +610,13 @@ const applyBootstrapPayload = (
 			const parentChildren = Array.isArray(payload.parentChildren)
 				? payload.parentChildren
 				: null;
+			console.log('[useAuth] applyRealtimeEvent USER_UPDATED', {
+				reason: payload.reason,
+				currentUserId,
+				affectedUserIds: Array.from(affectedUserIds),
+				hasPayloadUser: Boolean(nextUser),
+				parentChildrenCount: parentChildren?.length ?? null,
+			});
 			if (nextUser || parentChildren) {
 				set((state) => {
 					const updated = (
@@ -589,36 +626,11 @@ const applyBootstrapPayload = (
 					) as any;
 					if (updated && parentChildren) {
 						updated.parentChildren = parentChildren;
-						const selectedId = String(updated.studentId || '');
-						const stillSelected = selectedId
-							? parentChildren.some(
-									(c: any) =>
-										String(c.studentId || '') === selectedId ||
-										String(c.username || '') === selectedId,
-								)
-							: parentChildren.length === 0;
-						// After a children change, always keep a valid selection:
-						// auto-select the first available child when the current
-						// selection is empty or points to a child that was removed.
-						if (!stillSelected) {
-							const first = parentChildren[0] as any;
-							updated.studentId =
-								first?.studentId || first?.username || null;
-							updated.classId = first?.classId || null;
-							updated.className = first?.className || null;
-							updated.classLevel = first?.classLevel || null;
-							updated.academicYears = Array.isArray(
-								first?.academicYears,
-							)
-								? first.academicYears
-								: [];
-							updated.studentType = first?.studentType || 'old';
-						}
 					}
 					if (updated) {
 						useSchoolStore.getState().pruneGradesForUser(updated);
 					}
-					return { user: updated };
+					return { user: repairParentChildSelection(updated) };
 				});
 			}
 			if (typeof payload.userVersion === 'string') {
@@ -766,8 +778,10 @@ const runDeferredPostLoginBootstrap = (
 					return null;
 				}
 
+				const loginUser = repairParentChildSelection(data.user);
+
 				set({
-					user: data.user,
+					user: loginUser,
 					isLoggedIn: true,
 					isLoading: false,
 					error: null,
@@ -789,7 +803,7 @@ const runDeferredPostLoginBootstrap = (
 				}
 
 				setDashboardStartPath();
-				cacheAuthUser(data.user as User);
+				cacheAuthUser(loginUser as User);
 				try {
 					window.history.replaceState(null, '', '/dashboard');
 				} catch {}
@@ -1147,9 +1161,11 @@ const runDeferredPostLoginBootstrap = (
 							: Array.isArray((data.user as any)?.payments)
 								? (data.user as any).payments
 								: null;
-						const storedUser = currentPayments
-							? { ...(data.user as any), payments: currentPayments }
-							: data.user;
+						const storedUser = repairParentChildSelection(
+							currentPayments
+								? { ...(data.user as any), payments: currentPayments }
+								: data.user,
+						);
 						if (!isEqual(storedUser, get().user)) {
 							set({ user: storedUser, isLoggedIn: true });
 						} else if (!get().isLoggedIn) {
@@ -1256,7 +1272,7 @@ const runDeferredPostLoginBootstrap = (
 
 		setUser: (user: User | null) => {
 			const currentUser = get().user;
-			const nextUser =
+			const nextUser = repairParentChildSelection(
 				user && currentUser && user.id === currentUser.id
 					? {
 							...currentUser,
@@ -1268,7 +1284,8 @@ const runDeferredPostLoginBootstrap = (
 								? (user as any).parentChildren
 								: (currentUser as any).parentChildren,
 						}
-					: user;
+					: user,
+			);
 			if (!isEqual(currentUser, nextUser)) {
 				set({ user: nextUser, isLoggedIn: Boolean(nextUser?.isActive) });
 				try {

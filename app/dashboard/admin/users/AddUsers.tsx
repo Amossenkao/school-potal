@@ -41,6 +41,45 @@ import { fail } from 'assert';
 
 // Helper function to build full name
 
+const normalizeYearKey = (value: string) =>
+	String(value || '')
+		.trim()
+		.replace(/[–—]/g, '-')
+		.replace(/\s+/g, '')
+		.replace(/\//g, '-');
+
+const getLocalRoster = (
+	usersByAcademicYear: Record<string, any>,
+	currentAcademicYear: string,
+) => {
+	const target = normalizeYearKey(currentAcademicYear);
+	if (!target) return undefined;
+	const matchKey = Object.keys(usersByAcademicYear || {}).find(
+		(key) => normalizeYearKey(key) === target,
+	);
+	if (!matchKey) return undefined;
+	return usersByAcademicYear[matchKey];
+};
+
+const filterLocalUsers = (users: any[], query: string) =>
+	(Array.isArray(users) ? users : []).filter((user) => {
+		const name = [user?.fullName, user?.firstName, user?.middleName, user?.lastName]
+			.filter(Boolean)
+			.join(' ')
+			.toLowerCase();
+		const username = String(user?.username || '').toLowerCase();
+		const email = String(user?.email || '').toLowerCase();
+		const phone = String(user?.phone || '').toLowerCase();
+		const id = String(user?.id || user?._id || '').toLowerCase();
+		return (
+			name.includes(query) ||
+			username.includes(query) ||
+			email.includes(query) ||
+			phone.includes(query) ||
+			id.includes(query)
+		);
+	});
+
 const getFullName = (
 	firstName: string,
 	middleName?: string,
@@ -606,6 +645,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	const [adminActivePanel, setAdminActivePanel] = useState<string>('');
 
 	const school = useSchoolStore((state) => state.school);
+	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
 	const defaultEnrollmentSemester = '1st Semester';
 	const currentAcademicYear = String(
 		school?.identity?.currentAcademicYear || getCurrentAcademicYearLabel(),
@@ -1064,6 +1104,22 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 			setParentSearchDone(false);
 			return;
 		}
+		const query = q.trim().toLowerCase();
+
+		const localRoster = getLocalRoster(
+			usersByAcademicYear as Record<string, any>,
+			currentAcademicYear,
+		);
+		const localParents = filterLocalUsers(localRoster?.parents, query).slice(
+			0,
+			8,
+		);
+		if (localParents.length > 0) {
+			setParentSearchResults(localParents);
+			setParentSearchDone(true);
+			return;
+		}
+
 		setParentSearching(true);
 		try {
 			const params = new URLSearchParams({

@@ -203,6 +203,45 @@ const getChangedFields = (originalUser, updatedFormData) => {
 const getUpdatedUserFromResponse = (data: any) =>
 	data?.data?.user || data?.data?.student || data?.data || null;
 
+const normalizeYearKey = (value: string) =>
+	String(value || '')
+		.trim()
+		.replace(/[–—]/g, '-')
+		.replace(/\s+/g, '')
+		.replace(/\//g, '-');
+
+const getLocalRoster = (
+	usersByAcademicYear: Record<string, any>,
+	academicYear: string,
+) => {
+	const target = normalizeYearKey(academicYear);
+	if (!target) return undefined;
+	const matchKey = Object.keys(usersByAcademicYear || {}).find(
+		(key) => normalizeYearKey(key) === target,
+	);
+	if (!matchKey) return undefined;
+	return usersByAcademicYear[matchKey];
+};
+
+const filterLocalUsers = (users: any[], query: string) =>
+	(Array.isArray(users) ? users : []).filter((user) => {
+		const name = [user?.fullName, user?.firstName, user?.middleName, user?.lastName]
+			.filter(Boolean)
+			.join(' ')
+			.toLowerCase();
+		const username = String(user?.username || '').toLowerCase();
+		const email = String(user?.email || '').toLowerCase();
+		const phone = String(user?.phone || '').toLowerCase();
+		const id = String(user?.id || user?._id || '').toLowerCase();
+		return (
+			name.includes(query) ||
+			username.includes(query) ||
+			email.includes(query) ||
+			phone.includes(query) ||
+			id.includes(query)
+		);
+	});
+
 const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	const [formData, setFormData] = useState<any>(null);
 	const [isLoading, setIsLoading] = useState(false);
@@ -263,6 +302,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	const childSearchTimeout = useRef<any>(null);
 
 	const schoolProfile = useSchoolStore((state) => state.school);
+	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
 	const allowsDemotion =
 		schoolProfile?.academicConfig?.gradingSettings?.givesDemotion === true;
 	const allowsDoublePromotion =
@@ -722,6 +762,22 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			setParentSearchDone(false);
 			return;
 		}
+		const query = q.trim().toLowerCase();
+
+		const localRoster = getLocalRoster(
+			usersByAcademicYear as Record<string, any>,
+			getCurrentAcademicYear(),
+		);
+		const localParents = filterLocalUsers(localRoster?.parents, query).slice(
+			0,
+			8,
+		);
+		if (localParents.length > 0) {
+			setParentSearchResults(localParents);
+			setParentSearchDone(true);
+			return;
+		}
+
 		setParentSearching(true);
 		try {
 			const params = new URLSearchParams({
@@ -782,6 +838,22 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			setChildSearchDone(false);
 			return;
 		}
+		const query = q.trim().toLowerCase();
+
+		const localRoster = getLocalRoster(
+			usersByAcademicYear as Record<string, any>,
+			getCurrentAcademicYear(),
+		);
+		const localStudents = filterLocalUsers(localRoster?.students, query).slice(
+			0,
+			8,
+		);
+		if (localStudents.length > 0) {
+			setChildSearchResults(localStudents);
+			setChildSearchDone(true);
+			return;
+		}
+
 		setChildSearching(true);
 		try {
 			const params = new URLSearchParams({

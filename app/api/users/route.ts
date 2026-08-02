@@ -8,6 +8,7 @@ import { getSchoolMeshModels } from '@/models/schoolmesh';
 import {
 	buildParentChildrenList,
 	scopedParentSessionFields,
+	type ParentChild,
 } from '@/lib/parentAccess';
 import UserSchema from '@/models/user/User';
 import SystemAdminSchema from '@/models/user/SystemAdmin';
@@ -3055,6 +3056,69 @@ export async function POST(request: NextRequest) {
 			reason: 'user-created',
 		});
 
+		// Notify the linked parent so their active session's child switcher,
+		// scoped APIs, and realtime UI reflect the new child immediately.
+		if (userData.role === 'student' && linkedParent) {
+			let refreshedChildren: ParentChild[] = [];
+			try {
+				const refreshedParent = await models.Parent.findById(
+					linkedParent._id,
+				).lean();
+				if (refreshedParent) {
+					refreshedChildren = await buildParentChildrenList(
+						models,
+						refreshedParent,
+					);
+				}
+			} catch (parentSyncError) {
+				console.warn(
+					'Failed to rehydrate parent children after student creation:',
+					parentSyncError,
+				);
+			}
+
+			try {
+				await updateAllUserSessions(String(linkedParent._id), {
+					parentChildren: refreshedChildren,
+				});
+			} catch (sessionRefreshError) {
+				console.warn(
+					'Failed to update parent sessions after student creation:',
+					sessionRefreshError,
+				);
+			}
+
+			try {
+				console.log(
+					'[users] POST publishing parent-children update:',
+					{
+						parentId: String(linkedParent._id),
+						count: refreshedChildren.length,
+					},
+				);
+				await publishSyncEventSafe({
+					tenantId,
+					domain: 'users',
+					actorId: currentUser.id,
+					reason: 'parent-children-updated',
+					academicYear: String(
+						(schoolProfile as any)?.identity?.currentAcademicYear ||
+							getAcademicYear(),
+					),
+					targetUserIds: [String(linkedParent._id)],
+					payload: {
+						userId: String(linkedParent._id),
+						parentChildren: refreshedChildren,
+					},
+				});
+			} catch (publishError) {
+				console.warn(
+					'Failed to publish parent-children update:',
+					publishError,
+				);
+			}
+		}
+
 		return NextResponse.json(
 			{
 				success: true,
@@ -4914,57 +4978,83 @@ export async function PUT(request: NextRequest) {
 		}
 
 		// Refresh the affected parent's sessions + notify via Ably so their UI
-		// reflects the new child list immediately.
+		// reflects the new child list immediately. The Ably publish is kept
+		// independent of the session refresh: if the session update fails, the
+		// parent's live UI still updates via the realtime event.
 		if (parentChangeApplied && affectedParentId) {
+			let refreshedChildren: ParentChild[] = [];
 			try {
 				const affectedParent = await models.Parent.findById(
 					affectedParentId,
 				).lean();
 				if (affectedParent) {
-					const refreshedChildren = await buildParentChildrenList(
+					refreshedChildren = await buildParentChildrenList(
 						models,
 						affectedParent,
 					);
-					const existingSessions = await getAllUserSessions(
-						affectedParentId,
-					);
-					const currentSelectedId = String(
-						existingSessions[0]?.studentId || '',
-					).trim();
-					const sessionPatch: any = {
-						parentChildren: refreshedChildren,
-					};
-					if (
-						currentSelectedId &&
-						!refreshedChildren.some(
-							(c) =>
-								c.studentId === currentSelectedId ||
-								c.username === currentSelectedId,
-						)
-					) {
-						Object.assign(
-							sessionPatch,
-							scopedParentSessionFields(refreshedChildren[0] || null),
-						);
-					}
-					await updateAllUserSessions(affectedParentId, sessionPatch);
-					await publishSyncEventSafe({
-						tenantId,
-						domain: 'users',
-						actorId: currentUser.id,
-						reason: 'parent-children-updated',
-						academicYear: schoolCurrentAcademicYear,
-						targetUserIds: [affectedParentId],
-						payload: {
-							userId: affectedParentId,
-							parentChildren: refreshedChildren,
-						},
-					});
 				}
 			} catch (parentRefreshError) {
 				console.warn(
-					'Failed to refresh parent sessions after student parent change:',
+					'Failed to rehydrate parent children after student parent change:',
 					parentRefreshError,
+				);
+			}
+
+			try {
+				const existingSessions = await getAllUserSessions(
+					affectedParentId,
+				);
+				const currentSelectedId = String(
+					existingSessions[0]?.studentId || '',
+				).trim();
+				const sessionPatch: any = {
+					parentChildren: refreshedChildren,
+				};
+				if (
+					currentSelectedId &&
+					!refreshedChildren.some(
+						(c) =>
+							c.studentId === currentSelectedId ||
+							c.username === currentSelectedId,
+					)
+				) {
+					Object.assign(
+						sessionPatch,
+						scopedParentSessionFields(refreshedChildren[0] || null),
+					);
+				}
+				await updateAllUserSessions(affectedParentId, sessionPatch);
+			} catch (sessionRefreshError) {
+				console.warn(
+					'Failed to update parent sessions after student parent change:',
+					sessionRefreshError,
+				);
+			}
+
+			try {
+				console.log(
+					'[users] PUT publishing parent-children update:',
+					{
+						affectedParentId,
+						count: refreshedChildren.length,
+					},
+				);
+				await publishSyncEventSafe({
+					tenantId,
+					domain: 'users',
+					actorId: currentUser.id,
+					reason: 'parent-children-updated',
+					academicYear: schoolCurrentAcademicYear,
+					targetUserIds: [affectedParentId],
+					payload: {
+						userId: affectedParentId,
+						parentChildren: refreshedChildren,
+					},
+				});
+			} catch (publishError) {
+				console.warn(
+					'Failed to publish parent-children update:',
+					publishError,
 				);
 			}
 		}

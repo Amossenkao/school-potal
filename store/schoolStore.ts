@@ -56,6 +56,14 @@ type UsersPayload = {
 	students?: any[];
 	teachers?: any[];
 	administrators?: any[];
+	parents?: any[];
+};
+
+type UsersRoster = {
+	students: any[];
+	teachers: any[];
+	administrators: any[];
+	parents: any[];
 };
 
 type SchedulesPayload = { classSchedules?: any[]; testSchedules?: any[] };
@@ -63,14 +71,7 @@ type SchedulesPayload = { classSchedules?: any[]; testSchedules?: any[] };
 type SchoolStore = {
 	school: SchoolProfile | null;
 	schoolVersion: string | null;
-	usersByAcademicYear: Record<
-		string,
-		{
-			students: any[];
-			teachers: any[];
-			administrators: any[];
-		}
-	>;
+	usersByAcademicYear: Record<string, UsersRoster>;
 	hasPendingGradeSync: (academicYear: string) => boolean;
 	usersVersionByAcademicYear: Record<string, string>;
 	calendarByAcademicYear: Record<string, any[]>;
@@ -384,11 +385,14 @@ const getUserYears = (user: any, fallbackAcademicYear?: string) => {
 	return Array.from(years);
 };
 
-const removeUsersFromRoster = (roster: UsersPayload, userIds: string[]) => {
+const removeUsersFromRoster = (
+	roster: UsersPayload,
+	userIds: string[],
+): UsersRoster => {
 	const ids = new Set(
 		userIds.map((value) => String(value || '').trim()).filter(Boolean),
 	);
-	if (ids.size === 0) return roster;
+	if (ids.size === 0) return roster as UsersRoster;
 	const filterUsers = (users?: any[]) =>
 		Array.isArray(users)
 			? users.filter((user) => !ids.has(getUserIdentity(user)))
@@ -397,12 +401,16 @@ const removeUsersFromRoster = (roster: UsersPayload, userIds: string[]) => {
 		students: filterUsers(roster.students),
 		teachers: filterUsers(roster.teachers),
 		administrators: filterUsers(roster.administrators),
+		parents: filterUsers(roster.parents),
 	};
 };
 
-const upsertUserInRoster = (roster: UsersPayload, user: any) => {
+const upsertUserInRoster = (
+	roster: UsersPayload,
+	user: any,
+): UsersRoster => {
 	const userId = getUserIdentity(user);
-	if (!userId) return roster;
+	if (!userId) return roster as UsersRoster;
 	const nextRoster = removeUsersFromRoster(roster, [userId]);
 	const role = String(user?.role || '').trim();
 	const bucket =
@@ -410,7 +418,9 @@ const upsertUserInRoster = (roster: UsersPayload, user: any) => {
 			? 'teachers'
 			: role === 'administrator'
 				? 'administrators'
-				: 'students';
+				: role === 'parent'
+					? 'parents'
+					: 'students';
 	return {
 		...nextRoster,
 		[bucket]: [...(nextRoster[bucket] || []), user],
@@ -664,10 +674,12 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				students: [],
 				teachers: [],
 				administrators: [],
+				parents: [],
 			};
 			const nextStudents = payload.students || [];
 			const nextTeachers = payload.teachers || [];
 			const nextAdmins = payload.administrators || [];
+			const nextParents = payload.parents || [];
 
 			const mergeById = (current: any[], incoming: any[]) => {
 				if (!merge) return incoming;
@@ -687,6 +699,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				students: mergeById(existing.students, nextStudents),
 				teachers: mergeById(existing.teachers, nextTeachers),
 				administrators: mergeById(existing.administrators, nextAdmins),
+				parents: mergeById(existing.parents, nextParents),
 			};
 
 			const usersByAcademicYear = assignAcademicYearRecord(
@@ -1266,6 +1279,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 						students: [],
 						teachers: [],
 						administrators: [],
+						parents: [],
 					};
 					const nextRoster = removeFromAllYears
 						? removeUsersFromRoster(existing, userIds)
@@ -1323,6 +1337,9 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 							: [],
 						administrators: Array.isArray((payload.users as any).administrators)
 							? (payload.users as any).administrators
+							: [],
+						parents: Array.isArray((payload.users as any).parents)
+							? (payload.users as any).parents
 							: [],
 					},
 				);
@@ -1615,6 +1632,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 								administrators: Array.isArray(users?.administrators)
 									? users.administrators
 									: [],
+								parents: Array.isArray(users?.parents) ? users.parents : [],
 							};
 							const nextUsers = assignAcademicYearRecord(
 								usersByAcademicYear,

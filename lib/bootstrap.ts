@@ -31,6 +31,7 @@ type BootstrapUsers = {
 	students: any[];
 	teachers: any[];
 	administrators: any[];
+	parents: any[];
 };
 
 const USER_BOOTSTRAP_SELECT = {
@@ -420,6 +421,7 @@ const getRoleUsersQuery = (currentUser: any, academicYear: string) => {
 				{ role: 'student', 'academicYears.year': academicYearMatch },
 				{ role: 'teacher', 'subjects.year': academicYearMatch },
 				{ role: 'administrator', 'academicYears.year': academicYearMatch },
+				{ role: 'parent' },
 			],
 		};
 	}
@@ -431,6 +433,7 @@ const groupUsersByRole = (users: any[]) => ({
 	students: users.filter((u) => u.role === 'student'),
 	teachers: users.filter((u) => u.role === 'teacher'),
 	administrators: users.filter((u) => u.role === 'administrator'),
+	parents: users.filter((u) => u.role === 'parent'),
 });
 
 const getDocTimestamp = (doc: any) => {
@@ -484,6 +487,7 @@ const getUsersVersionFromPayload = (users?: BootstrapUsers) => {
 		...(Array.isArray(users.students) ? users.students : []),
 		...(Array.isArray(users.teachers) ? users.teachers : []),
 		...(Array.isArray(users.administrators) ? users.administrators : []),
+		...(Array.isArray(users.parents) ? users.parents : []),
 	];
 	const { count, latestTimestamp, latestId } = getDocsStats(allUsers);
 	return `${count}:${latestTimestamp}:${latestId}`;
@@ -736,7 +740,7 @@ const fetchUsersForRole = async (
 	if (currentUser.role === 'student') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
 		if (!classId) {
-			return { students: [], teachers: [], administrators: [] };
+			return { students: [], teachers: [], administrators: [], parents: [] };
 		}
 		const [students, teachers, administrators] = await Promise.all([
 			models.Student.find({
@@ -760,13 +764,14 @@ const fetchUsersForRole = async (
 			students: students.map(normalizeUser),
 			teachers: teachers.map(normalizeUser),
 			administrators: administrators.map(normalizeUser),
+			parents: [],
 		};
 	}
 
 	if (currentUser.role === 'parent') {
 		const studentIds = getParentChildStudentIds(currentUser);
 		if (studentIds.length === 0) {
-			return { students: [], teachers: [], administrators: [] };
+			return { students: [], teachers: [], administrators: [], parents: [] };
 		}
 		const students = await models.Student.find({
 			$or: [
@@ -781,13 +786,14 @@ const fetchUsersForRole = async (
 			students: students.map(normalizeUser),
 			teachers: [],
 			administrators: [],
+			parents: [],
 		};
 	}
 
 	if (currentUser.role === 'teacher') {
 		const classIds = getTeacherClassIdsForYear(currentUser, academicYear);
 		if (classIds.length === 0) {
-			return { students: [], teachers: [], administrators: [] };
+			return { students: [], teachers: [], administrators: [], parents: [] };
 		}
 		const studentQuery = {
 			academicYears: {
@@ -808,6 +814,7 @@ const fetchUsersForRole = async (
 			students: students.map(normalizeUser),
 			teachers: teachers.map(normalizeUser),
 			administrators: administrators.map(normalizeUser),
+			parents: [],
 		};
 	}
 
@@ -817,7 +824,7 @@ const fetchUsersForRole = async (
 	) {
 		const usersQuery = getRoleUsersQuery(currentUser, academicYear);
 		if (!usersQuery) {
-			return { students: [], teachers: [], administrators: [] };
+			return { students: [], teachers: [], administrators: [], parents: [] };
 		}
 		const users = await models.User.find(usersQuery)
 			.select(USER_BOOTSTRAP_SELECT)
@@ -829,7 +836,7 @@ const fetchUsersForRole = async (
 		return groupUsersByRole(normalized);
 	}
 
-	return { students: [], teachers: [], administrators: [] };
+	return { students: [], teachers: [], administrators: [], parents: [] };
 };
 
 export const getDomainVersions = async (
