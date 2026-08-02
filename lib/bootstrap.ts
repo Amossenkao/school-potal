@@ -555,7 +555,12 @@ const fetchPaymentsForStudent = async (
 	models: any,
 	currentUser: any,
 ): Promise<any[]> => {
-	if (currentUser?.role !== 'student') return [];
+	if (
+		currentUser?.role !== 'student' &&
+		currentUser?.role !== 'parent'
+	) {
+		return [];
+	}
 	const studentId = currentUser.studentId || currentUser.username;
 	if (!studentId) return [];
 	const { Payment } = models;
@@ -657,7 +662,7 @@ const fetchUsersForRole = async (
 	academicYear: string,
 ) => {
 	const academicYearMatch = getAcademicYearMatch(academicYear);
-	if (currentUser.role === 'student') {
+	if (currentUser.role === 'student' || currentUser.role === 'parent') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
 		if (!classId) {
 			return { students: [], teachers: [], administrators: [] };
@@ -769,9 +774,10 @@ export const getDomainVersions = async (
 	const canQueryTeacherAttendance = Boolean(
 		TeacherAttendance && teacherAttendanceQuery,
 	);
-	const studentId = currentUser?.role === 'student'
-		? (currentUser.studentId || currentUser.username)
-		: null;
+	const studentId =
+		currentUser?.role === 'student' || currentUser?.role === 'parent'
+			? currentUser.studentId || currentUser.username
+			: null;
 	const paymentsQuery = studentId ? { studentId } : null;
 	const canQueryPayments = Boolean(Payment && paymentsQuery);
 

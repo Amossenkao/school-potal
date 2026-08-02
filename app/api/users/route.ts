@@ -2897,9 +2897,6 @@ export async function POST(request: NextRequest) {
 			typeof schoolProfileRaw === 'string'
 				? JSON.parse(schoolProfileRaw)
 				: schoolProfileRaw;
-		const schoolCurrentAcademicYear = String(
-			(schoolProfile as any)?.identity?.currentAcademicYear || getAcademicYear(),
-		);
 		const tenantId = resolveTenantSyncKey({
 			schoolProfile,
 			tenantId: currentUser.tenantId,
@@ -3243,6 +3240,9 @@ export async function PUT(request: NextRequest) {
 			typeof schoolProfileRaw === 'string'
 				? JSON.parse(schoolProfileRaw)
 				: schoolProfileRaw;
+		const schoolCurrentAcademicYear = String(
+			(schoolProfile as any)?.identity?.currentAcademicYear || getAcademicYear(),
+		);
 		const tenantId = resolveTenantSyncKey({
 			schoolProfile,
 			tenantId: currentUser.tenantId,
