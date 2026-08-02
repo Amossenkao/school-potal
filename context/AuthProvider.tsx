@@ -122,7 +122,7 @@ export default function AuthProvider({
 
 				const activeYear =
 					options?.academicYear ||
-					useSchoolStore.getState().school?.currentAcademicYear;
+					useSchoolStore.getState().school?.identity.currentAcademicYear;
 				if (
 					activeYear &&
 					useSchoolStore.getState().hasPendingGradeSync(activeYear)
@@ -391,6 +391,19 @@ export default function AuthProvider({
 				if (
 					evt.type === 'SCHOOL_UPDATED' ||
 					evt.type === 'SCHOOL_DELETED'
+				) {
+					return;
+				}
+
+				// Monitoring/observability events (warnings, system alerts, log
+				// aggregation) are not school-data changes. Refreshing on them can
+				// create an error → warning → refresh feedback loop, since a sync
+				// failure surfaces as a monitoring warning.
+				if (
+					evt.type === 'APPLICATION_LOG_CREATED' ||
+					evt.type === 'APPLICATION_WARNING_CREATED' ||
+					evt.type === 'SYSTEM_ALERT_CREATED' ||
+					evt.type === 'MONITORING_UPDATED'
 				) {
 					return;
 				}

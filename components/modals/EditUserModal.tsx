@@ -472,7 +472,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	};
 
 	const getCurrentAcademicYear = () =>
-		schoolProfile?.currentAcademicYear || getAcademicYear();
+		schoolProfile?.identity.currentAcademicYear || getAcademicYear();
 
 	const getCurrentAndNextAcademicYears = () => {
 		const currentYear = getCurrentAcademicYear();
@@ -1598,8 +1598,8 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 
 	const getAcademicYearOptions = () => {
 		const years = new Set(generateAcademicYears());
-		if (schoolProfile?.currentAcademicYear)
-			years.add(schoolProfile.currentAcademicYear);
+		if (schoolProfile?.identity.currentAcademicYear)
+			years.add(schoolProfile.identity.currentAcademicYear);
 		return Array.from(years).sort((a, b) => b.localeCompare(a));
 	};
 

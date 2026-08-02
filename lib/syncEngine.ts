@@ -21,6 +21,39 @@ export const LOG_BACKED_DOMAINS: SyncDomainName[] = [
 export const isLogBackedDomain = (domain: string): domain is SyncDomainName =>
 	(LOG_BACKED_DOMAINS as string[]).includes(domain);
 
+const SYNC_CURSOR_DOMAINS = [
+	'users',
+	'grades',
+	'attendance',
+	'teacher_attendance',
+	'calendar',
+	'schedules',
+	'gradeRequests',
+];
+
+/**
+ * Server-side current ChangeLog seq per (domain, academicYear), for the
+ * client to negotiate catch-up. Domains without any logged change are omitted
+ * (a missing key is equivalent to seq 0).
+ */
+export const getSyncCursorsForYear = async (
+	academicYear: string,
+): Promise<Record<string, number>> => {
+	const results = await Promise.allSettled(
+		SYNC_CURSOR_DOMAINS.map(async (domain) => ({
+			domain,
+			seq: await getDomainSeq(domain, academicYear),
+		})),
+	);
+	const cursors: Record<string, number> = {};
+	results.forEach((result) => {
+		if (result.status === 'fulfilled' && result.value.seq > 0) {
+			cursors[result.value.domain] = result.value.seq;
+		}
+	});
+	return cursors;
+};
+
 export const getDomainSeq = async (
 	domain: string,
 	academicYear: string,

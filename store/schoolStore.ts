@@ -5,9 +5,13 @@ import type SchoolProfile from '@/types/schoolProfile';
 import type { GradesCursor } from '@/lib/bootstrap';
 import {
 	clearDomainSnapshots,
+	clearSyncCursors,
 	getAllDomainSnapshots,
+	getAllSyncCursors,
+	setDomainCursor,
 	setDomainSnapshot,
 } from '@/utils/domainSyncCache';
+import type { CachedDomain } from '@/utils/domainSyncCache';
 import {
 	getTeacherClassSubjectPairsForAcademicYear,
 } from '@/utils/academicYearAccess';
@@ -92,6 +96,10 @@ type SchoolStore = {
 	attendanceVersionByAcademicYear: Record<string, string>;
 	teacherAttendanceVersionByAcademicYear: Record<string, string>;
 	schedulesVersionByAcademicYear: Record<string, string>;
+	syncSeqByAcademicYear: Record<
+		string,
+		Partial<Record<CachedDomain, number>>
+	>;
 
 	fetchSchool: (host?: string) => Promise<void>;
 	setSchool: (school: SchoolProfile | null) => void;
@@ -125,6 +133,10 @@ type SchoolStore = {
 			attendance?: string;
 			teacherAttendance?: string;
 		},
+	) => void;
+	setSyncSeqForYear: (
+		academicYear: string,
+		cursors: Partial<Record<CachedDomain, number>> | Record<string, number>,
 	) => void;
 	applyRealtimeEvent: (event: RealtimeEvent) => void;
 	pruneGradesForUser: (user: any) => void;
@@ -178,6 +190,22 @@ const writeMetaCache = (payload: {
 };
 
 // --- add near the cursor-related helpers ---
+// Next-gen sync: client ChangeLog seq cursor for a (domain, year), read from
+// the in-memory store (seeded from IndexedDB at hydrate). Returns 0 when the
+// client has no cursor yet (no baseline) or the engine is off.
+export const getClientSyncSeq = (
+	domain: CachedDomain,
+	academicYear: string,
+): number => {
+	if (!academicYear) return 0;
+	const map = useSchoolStore.getState().syncSeqByAcademicYear;
+	const record = resolveAcademicYearRecord<
+		Partial<Record<CachedDomain, number>>
+	>(map, academicYear);
+	const value = record?.[domain];
+	return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+};
+
 export const readGradesSyncCursor = (academicYear: string): GradesCursor | null => {
 	if (typeof window === 'undefined' || !academicYear) return null;
 	try {
@@ -458,6 +486,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	attendanceVersionByAcademicYear: {},
 	teacherAttendanceVersionByAcademicYear: {},
 	schedulesVersionByAcademicYear: {},
+	syncSeqByAcademicYear: {},
 
 	runBackgroundGradeSync: async (academicYear, options = {}) => {
 		if (!academicYear) return { status: 'no-op', fetchedCount: 0 };
@@ -1041,6 +1070,47 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		});
 	},
 
+	setSyncSeqForYear: (academicYear, cursors) => {
+		if (!academicYear || !cursors) return;
+		const primaryKey = getAcademicYearPrimaryKey(academicYear);
+		set((state) => {
+			const current = resolveAcademicYearRecord<
+				Partial<Record<CachedDomain, number>>
+			>(state.syncSeqByAcademicYear, academicYear) || {};
+			const merged: Partial<Record<CachedDomain, number>> = { ...current };
+			let changed = false;
+			Object.entries(cursors).forEach(([domain, seq]) => {
+				const value = Number(seq) || 0;
+				const typedDomain = domain as CachedDomain;
+				if (value > (merged[typedDomain] ?? 0)) {
+					merged[typedDomain] = value;
+					changed = true;
+				}
+			});
+			if (!changed) return {};
+			const syncSeqByAcademicYear = assignAcademicYearRecord(
+				state.syncSeqByAcademicYear,
+				primaryKey,
+				merged,
+			);
+			Object.entries(merged).forEach(([domain, seq]) => {
+				if (typeof seq === 'number' && seq > 0) {
+					void setDomainCursor(
+						domain as CachedDomain,
+						primaryKey,
+						seq,
+					).catch((error) => {
+						console.warn(
+							`Failed to persist sync cursor for ${domain}/${primaryKey}:`,
+							error,
+						);
+					});
+				}
+			});
+			return { syncSeqByAcademicYear };
+		});
+	},
+
 	applyRealtimeEvent: (event) => {
 		console.log('[schoolStore] applyRealtimeEvent received:', event.type, {
 			payload: event.payload,
@@ -1375,6 +1445,36 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				payload.teacherAttendance as any[],
 			);
 		}
+
+		// Next-gen sync: advance the ChangeLog cursor for a domain ONLY when the
+		// event actually carried that domain's data and it was applied above.
+		// The realtime seq is the primary domain's ChangeLog seq; events that
+		// merely bump version stamps (no payload data) must NOT advance the
+		// cursor, otherwise the delta reconcile would skip changes the store
+		// never received. The delta pull then applies them on the next refresh.
+		const eventSeq =
+			typeof event.seq === 'number' && Number.isFinite(event.seq)
+				? event.seq
+				: null;
+		if (academicYear && eventSeq !== null) {
+			const appliedDomains: CachedDomain[] = [];
+			if (Array.isArray(payload.grades)) appliedDomains.push('grades');
+			if (Array.isArray(payload.attendance)) appliedDomains.push('attendance');
+			if (Array.isArray(payload.teacherAttendance))
+				appliedDomains.push('teacherAttendance');
+			if (Array.isArray(payload.calendarEvents)) appliedDomains.push('calendar');
+			if (payload.schedules && typeof payload.schedules === 'object')
+				appliedDomains.push('schedules');
+			if (Array.isArray(payload.gradeRequests))
+				appliedDomains.push('gradeRequests');
+			if (appliedDomains.length > 0) {
+				const cursorPatch: Partial<Record<CachedDomain, number>> = {};
+				appliedDomains.forEach((domain) => {
+					cursorPatch[domain] = eventSeq;
+				});
+				get().setSyncSeqForYear(academicYear, cursorPatch);
+			}
+		}
 	},
 
 	pruneGradesForUser: (user: any) => {
@@ -1482,6 +1582,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			teacherAttendanceVersionByAcademicYear: {},
 			schedulesVersionByAcademicYear: {},
 			schoolVersion: null,
+			syncSeqByAcademicYear: {},
 		});
 		if (typeof window !== 'undefined') {
 			try {
@@ -1492,6 +1593,9 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		}
 		void clearDomainSnapshots().catch((error) => {
 			console.warn('Failed to clear IndexedDB domain snapshots:', error);
+		});
+		void clearSyncCursors().catch((error) => {
+			console.warn('Failed to clear IndexedDB sync cursors:', error);
 		});
 	},
 
@@ -1533,10 +1637,17 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			schedulesVersionByAcademicYear: dropYear(
 				state.schedulesVersionByAcademicYear,
 			),
+			syncSeqByAcademicYear: dropYear(state.syncSeqByAcademicYear),
 		}));
 		void clearDomainSnapshots(academicYear).catch((error) => {
 			console.warn(
 				`Failed to clear IndexedDB domain snapshots for ${academicYear}:`,
+				error,
+			);
+		});
+		void clearSyncCursors(academicYear).catch((error) => {
+			console.warn(
+				`Failed to clear IndexedDB sync cursors for ${academicYear}:`,
 				error,
 			);
 		});
@@ -1730,6 +1841,37 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				});
 			} catch (error) {
 				console.warn('Failed to hydrate IndexedDB domain snapshots:', error);
+			}
+		})();
+
+		void (async () => {
+			try {
+				const cursors = await getAllSyncCursors();
+				if (!Array.isArray(cursors) || cursors.length === 0) return;
+				const syncSeqByAcademicYear: Record<
+					string,
+					Partial<Record<CachedDomain, number>>
+				> = {};
+				cursors.forEach((cursor) => {
+					const year = String(cursor.academicYear || '').trim();
+					if (!year || typeof cursor.seq !== 'number' || cursor.seq <= 0) return;
+					const primaryYear = getAcademicYearPrimaryKey(year);
+					const existing = syncSeqByAcademicYear[primaryYear] || {};
+					existing[cursor.domain] = Math.max(
+						existing[cursor.domain] ?? 0,
+						cursor.seq,
+					);
+					syncSeqByAcademicYear[primaryYear] = existing;
+				});
+				if (Object.keys(syncSeqByAcademicYear).length === 0) return;
+				set((state) => ({
+					syncSeqByAcademicYear: {
+						...state.syncSeqByAcademicYear,
+						...syncSeqByAcademicYear,
+					},
+				}));
+			} catch (error) {
+				console.warn('Failed to hydrate IndexedDB sync cursors:', error);
 			}
 		})();
 	},

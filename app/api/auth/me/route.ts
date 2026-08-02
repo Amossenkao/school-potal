@@ -8,40 +8,23 @@ import { buildBootstrapPayload, buildSuperAdminBootstrapPayload, getDomainVersio
 import { resolveAcademicYearAccessContext } from '@/utils/academicYearAccess';
 import { syncDebugError, syncDebugLog, syncDebugWarn } from '@/lib/syncDebug';
 import { toHash, toSchoolVersion } from '@/utils/syncVersion';
-import { getDomainSeq } from '@/lib/syncEngine';
+import { getSyncCursorsForYear } from '@/lib/syncEngine';
 import { isSyncEngineEnabled } from '@/lib/syncFeatureFlag';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const CLIENT_SESSION_PRESENT_COOKIE = 'session-present';
 
-// Phase 5 seq-cursor negotiation: current ChangeLog seq per sync domain for
-// the resolved academic year, so the client can decide whether to resync.
-const SYNC_CURSOR_DOMAINS = [
-	'users',
-	'grades',
-	'attendance',
-	'teacher_attendance',
-	'calendar',
-	'schedules',
-	'gradeRequests',
+// Client-reported catch-up seq param names (next-gen sync only). Domains the
+// client can recover via /api/sync/delta; users/school stay legacy-versioned.
+const SYNC_DOMAIN_PARAM_KEYS: Array<[string, string]> = [
+	['grades', 'since_grades'],
+	['attendance', 'since_attendance'],
+	['teacher_attendance', 'since_teacher_attendance'],
+	['calendar', 'since_calendar'],
+	['schedules', 'since_schedules'],
+	['gradeRequests', 'since_grade_requests'],
 ];
-
-const getSyncCursors = async (academicYear: string) => {
-	const results = await Promise.allSettled(
-		SYNC_CURSOR_DOMAINS.map(async (domain) => ({
-			domain,
-			seq: await getDomainSeq(domain, academicYear),
-		})),
-	);
-	const cursors: Record<string, number> = {};
-	results.forEach((result) => {
-		if (result.status === 'fulfilled' && result.value.seq > 0) {
-			cursors[result.value.domain] = result.value.seq;
-		}
-	});
-	return cursors;
-};
 
 const clearSessionCookies = (response: NextResponse) => {
 	response.cookies.set('sessionId', '', {
@@ -95,6 +78,15 @@ export async function GET(request: NextRequest) {
 		const clientSchoolVersion = searchParams.get('v_school');
 		const clientUserVersion = searchParams.get('v_user');
 		const requestedAcademicYear = searchParams.get('academicYear');
+
+		// Next-gen sync: client-reported ChangeLog seq per domain (since_<domain>).
+		const sinceSeqByDomain: Record<string, number> = {};
+		SYNC_DOMAIN_PARAM_KEYS.forEach(([domain, key]) => {
+			const value = searchParams.get(key);
+			if (value && /^\d+$/.test(value)) {
+				sinceSeqByDomain[domain] = Number(value);
+			}
+		});
 
 		syncDebugLog('auth-me', 'Incoming auth sync request.', {
 			requestId,
@@ -360,7 +352,7 @@ export async function GET(request: NextRequest) {
 		// ── Phase 5: seq-cursor negotiation (flag-gated) ─────────────────────
 		const syncCursors =
 			isSyncEngineEnabled() && academicYear
-				? await getSyncCursors(academicYear)
+				? await getSyncCursorsForYear(academicYear)
 				: undefined;
 
 		// ── Compute server-side versions for all domains ─────────────────────
@@ -380,6 +372,25 @@ export async function GET(request: NextRequest) {
 			gradeRequests: clientGradeRequestsVersion !== versions.gradeRequests,
 			attendance: clientAttendanceVersion !== versions.attendance,
 		};
+
+		// Next-gen sync short-circuit: when the engine flag is on and the client
+		// reports it is already caught up on a domain (since_<domain> >= the
+		// server's current ChangeLog seq), skip re-sending that payload. This
+		// takes precedence over the legacy version-fingerprint diff, which is
+		// stale (realtime bumps the client's version stamps, forcing re-download).
+		if (syncCursors) {
+			Object.keys(include).forEach((domain) => {
+				const serverSeq = syncCursors[domain];
+				const sinceSeq = sinceSeqByDomain[domain];
+				if (
+					typeof serverSeq === 'number' &&
+					typeof sinceSeq === 'number' &&
+					sinceSeq >= serverSeq
+				) {
+					include[domain as keyof typeof include] = false;
+				}
+			});
+		}
 		const includeUser = clientUserVersion !== userVersion;
 
 		syncDebugLog('auth-me', 'Computed include flags.', {

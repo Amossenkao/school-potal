@@ -15,6 +15,8 @@ import { resolveAcademicYearAccessContext } from '@/utils/academicYearAccess';
 import { normalizeHost } from '@/utils/host';
 import { buildParentChildrenList } from '@/lib/parentAccess';
 import { toHash, toSchoolVersion } from '@/utils/syncVersion';
+import { getSyncCursorsForYear } from '@/lib/syncEngine';
+import { isSyncEngineEnabled } from '@/lib/syncFeatureFlag';
 
 const CLIENT_SESSION_PRESENT_COOKIE = 'session-present';
 
@@ -26,6 +28,7 @@ const normalizeSchoolProfile = (schoolProfileRaw: any) =>
 const buildLoginBootstrapPayload = async (
 	currentUser: any,
 	schoolProfileInput?: any,
+	academicYear?: string,
 ) => {
 	const schoolProfileRaw = schoolProfileInput ?? (await getSchoolProfile());
 
@@ -55,8 +58,16 @@ const buildLoginBootstrapPayload = async (
 		payments: payload?.payments,
 	});
 
+	// Next-gen sync: report current ChangeLog seq per domain so the client can
+	// seed its cursors without an extra /api/auth/me round trip.
+	const syncCursors =
+		isSyncEngineEnabled() && academicYear
+			? await getSyncCursorsForYear(academicYear)
+			: undefined;
+
 	return {
 		...(payload || {}),
+		...(syncCursors ? { syncCursors } : {}),
 		versions: {
 			user: toHash(currentUser),
 			school: toSchoolVersion(schoolProfile),
@@ -299,9 +310,14 @@ async function handleLogin(user: any, password: string, host: string) {
 	const sessionId = await createSession(sessionData);
 	let bootstrapPayload: any = null;
 	try {
+		const yearAccess = resolveAcademicYearAccessContext({
+			user: userData,
+			schoolProfile,
+		});
 		bootstrapPayload = await buildLoginBootstrapPayload(
 			userData,
 			schoolProfile,
+			yearAccess.academicYear,
 		);
 	} catch (error) {
 		console.warn('Failed to build login bootstrap payload:', error);

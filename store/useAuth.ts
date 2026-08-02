@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { isEqual } from 'lodash';
 import { User } from '@/types';
-import { useSchoolStore } from './schoolStore';
+import { useSchoolStore, getClientSyncSeq } from './schoolStore';
 import { useNetworkStore } from './networkStore';
 import { clearAllClientCache } from '@/utils/clientCache';
 import { useOfflineNavigationStore } from './offlineNavigationStore';
@@ -12,6 +12,13 @@ import {
 } from '@/utils/sessionPrivacy';
 import type { RealtimeEvent } from '@/lib/realtimeTypes';
 import { cacheAppShellDirect } from '@/utils/cacheAppShell';
+import { isSyncEngineEnabled } from '@/lib/syncFeatureFlag';
+import {
+	CLIENT_SYNC_DOMAINS,
+	CACHED_DOMAIN_BY_SYNC,
+	SYNC_DOMAIN_PARAM_KEYS,
+	syncFromCursors,
+} from '@/lib/clientSync';
 
 interface LoginData {
 	role: string;
@@ -472,6 +479,10 @@ const applyBootstrapPayload = (
 					? versions.teacherAttendance
 					: undefined,
 		});
+	}
+
+	if (academicYear && data?.syncCursors && typeof data.syncCursors === 'object') {
+		schoolStore.setSyncSeqForYear(academicYear, data.syncCursors);
 	}
 
 	if (academicYear && data?.users) {
@@ -1115,6 +1126,22 @@ const runDeferredPostLoginBootstrap = (
 					if (trigger) {
 						query.set('sync_trigger', trigger);
 					}
+					// Next-gen sync: advertise the client's ChangeLog seq per domain
+					// so /api/auth/me can skip re-sending caught-up payloads.
+					if (preferredYear && isSyncEngineEnabled()) {
+						CLIENT_SYNC_DOMAINS.forEach((domain) => {
+							const cursor = getClientSyncSeq(
+								CACHED_DOMAIN_BY_SYNC[domain],
+								preferredYear,
+							);
+							if (cursor > 0) {
+								query.set(
+									SYNC_DOMAIN_PARAM_KEYS[domain],
+									String(cursor),
+								);
+							}
+						});
+					}
 
 					const url = query.toString()
 						? `/api/auth/me?${query.toString()}`
@@ -1154,6 +1181,20 @@ const runDeferredPostLoginBootstrap = (
 						gradesStrategy: 'merge',
 						teacherAttendanceStrategy: 'merge',
 					});
+
+					// Next-gen sync: catch up any domain the server skipped because
+					// the client reported it was already current (or that has new
+					// changes since), without re-downloading full snapshots.
+					const syncYear =
+						data?.academicYear || preferredYear;
+					const syncCursors = data?.syncCursors as
+						| Record<string, number>
+						| undefined;
+					if (syncYear && syncCursors && isSyncEngineEnabled()) {
+						void syncFromCursors(syncYear, syncCursors).catch((error) => {
+							console.warn('[useAuth] next-gen sync reconcile failed:', error);
+						});
+					}
 
 					if (get().user?.role === 'superadmin' && (data?.stats || data?.schools)) {
 						const superAdminSchools = getSuperAdminSchoolsFromPayload(data);

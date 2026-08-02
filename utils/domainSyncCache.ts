@@ -218,6 +218,66 @@ export const setDomainCursor = async (
 	});
 };
 
+export const getAllSyncCursors = async (): Promise<SyncCursor[]> => {
+	const db = await openDb();
+	if (!db) return [];
+
+	return await new Promise((resolve, reject) => {
+		const tx = db.transaction(SYNC_META_STORE, 'readonly');
+		const store = tx.objectStore(SYNC_META_STORE);
+		const request = store.getAll();
+		request.onsuccess = () => {
+			const records = Array.isArray(request.result) ? request.result : [];
+			resolve(
+				records.filter(
+					(record): record is SyncCursor =>
+						typeof record?.key === 'string' &&
+						record.key.startsWith('cursor:') &&
+						typeof record?.seq === 'number',
+				),
+			);
+		};
+		request.onerror = () => reject(request.error);
+	});
+};
+
+export const clearSyncCursors = async (academicYear?: string) => {
+	const db = await openDb();
+	if (!db) return;
+
+	if (!academicYear) {
+		await new Promise<void>((resolve, reject) => {
+			const tx = db.transaction(SYNC_META_STORE, 'readwrite');
+			tx.objectStore(SYNC_META_STORE).clear();
+			tx.oncomplete = () => resolve();
+			tx.onerror = () => reject(tx.error);
+		});
+		return;
+	}
+
+	const prefix = `cursor:${academicYear}`;
+	await runWithLock('school-domain-cache:clear-cursors', async () => {
+		await new Promise<void>((resolve, reject) => {
+			const tx = db.transaction(SYNC_META_STORE, 'readwrite');
+			const store = tx.objectStore(SYNC_META_STORE);
+			const request = store.openCursor();
+			request.onsuccess = () => {
+				const cursor = request.result;
+				if (!cursor) {
+					resolve();
+					return;
+				}
+				if (cursor.value?.key?.endsWith?.(prefix)) {
+					cursor.delete();
+				}
+				cursor.continue();
+			};
+			tx.oncomplete = () => resolve();
+			tx.onerror = () => reject(tx.error);
+		});
+	});
+};
+
 export const isEventApplied = async (
 	eventId: string,
 ): Promise<boolean> => {
