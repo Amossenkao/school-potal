@@ -1269,6 +1269,13 @@ function ReportContent({
 					params.append('semester', reportFilters.semester);
 				}
 
+				if (user?.role === 'parent') {
+					const reportStudent = resolveReportStudent(user);
+					if (reportStudent?.studentId) {
+						params.set('studentId', reportStudent.studentId);
+					}
+				}
+
 				if (selectedStudentIds.length > 0) {
 					params.append('studentIds', selectedStudentIds.join(','));
 				}

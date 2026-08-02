@@ -17,6 +17,7 @@ import {
 	KeyRound,
 	BookOpen,
 	UserCog,
+	Users,
 	FileText,
 	ChevronDown,
 	X,
@@ -1084,6 +1085,7 @@ export default function Settings() {
 	const [studentSettings, setStudentSettings] = useState<any>(null);
 	const [teacherSettings, setTeacherSettings] = useState<any>(null);
 	const [administratorSettings, setAdministratorSettings] = useState<any>(null);
+	const [parentSettings, setParentSettings] = useState<any>(null);
 	const [reportCardThemes, setReportCardThemes] = useState<
 		Record<string, string>
 	>({});
@@ -1213,6 +1215,13 @@ export default function Settings() {
 		setAdministratorSettings({
 			loginAccess: true,
 		});
+		const rawParentSettings: any = (school.userConfig as any).parentSettings || {};
+		setParentSettings({
+			loginAccess:
+				rawParentSettings.loginAccess !== undefined
+					? rawParentSettings.loginAccess
+					: true,
+		});
 		setReportCardThemes((school.branding as any)?.reportCardThemes || {});
 			setIsLoading(false);
 		}
@@ -1331,6 +1340,8 @@ export default function Settings() {
 		setTeacherSettings((p: any) => ({ ...p, [s]: !p[s] }));
 	const toggleAdministratorSetting = (s: string) =>
 		setAdministratorSettings((p: any) => ({ ...p, [s]: !p[s] }));
+	const toggleParentSetting = (s: string) =>
+		setParentSettings((p: any) => ({ ...p, [s]: !p[s] }));
 
 	const handleQueueBulkAction = (category: string, action: string) =>
 		setPendingBulkActions((prev) => ({ ...prev, [category]: action }));
@@ -1361,6 +1372,7 @@ export default function Settings() {
 			studentSettings,
 			teacherSettings,
 			administratorSettings,
+			parentSettings,
 			reportCardThemes,
 			bulkUserActions: pendingBulkActions,
 			bulkPasswordResets,
@@ -1384,6 +1396,7 @@ export default function Settings() {
 							studentSettings,
 							teacherSettings,
 							administratorSettings,
+							parentSettings,
 						},
 						branding: { ...school.branding, reportCardThemes },
 					});
@@ -1630,6 +1643,20 @@ export default function Settings() {
 								disabled={isSaving}
 							/>
 						</div>
+					</SettingsSection>
+
+					{/* ── Parent Settings ── */}
+					<SettingsSection
+						icon={Users}
+						title="Parent Settings"
+						description="Control parent portal access"
+					>
+						<SettingsItem
+							label="Login Access"
+							description="Allow parents to login to the portal"
+							checked={parentSettings.loginAccess}
+							onChange={() => toggleParentSetting('loginAccess')}
+						/>
 					</SettingsSection>
 				</div>
 			</div>

@@ -804,17 +804,17 @@ const ChildSwitcher = memo(function ChildSwitcher({
 		setError('');
 		const ok = await switchChild(child.studentId);
 		setIsSwitching(false);
-		if (!ok) setError('Failed to switch child account.');
+		if (!ok) setError('Failed to select child.');
 		setIsOpen(false);
 		onAfterSwitch?.();
 	};
 
-	if (variant === 'menu') {
-		return (
-			<div className="py-1 border-b border-gray-200 dark:border-gray-700">
-				<p className="px-4 py-1.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-					Switch Child
-				</p>
+		if (variant === 'menu') {
+			return (
+				<div className="py-1 border-b border-gray-200 dark:border-gray-700">
+					<p className="px-4 py-1.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+						Viewing as
+					</p>
 				{parentChildren.map((child: any) => {
 					const active = child.studentId === selectedStudentId;
 					return (
@@ -843,7 +843,7 @@ const ChildSwitcher = memo(function ChildSwitcher({
 				})}
 				{isSwitching && (
 					<p className="px-4 py-1.5 text-xs text-gray-500">
-						Switching child account...
+						Selecting child...
 					</p>
 				)}
 				{error && (
@@ -859,12 +859,12 @@ const ChildSwitcher = memo(function ChildSwitcher({
 				onClick={() => setIsOpen(!isOpen)}
 				disabled={isSwitching}
 				className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-800 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60 transition-colors"
-				title="Switch child account"
+				title="Select child"
 			>
 				<Users className="h-4 w-4 text-gray-500 dark:text-gray-400" />
 				<span className="max-w-[180px] truncate">
 					{isSwitching
-						? 'Switching…'
+						? 'Selecting…'
 						: selectedChild?.fullName || selectedChild?.studentId || 'Select child'}
 				</span>
 				{parentChildren.length > 1 && (
@@ -874,11 +874,11 @@ const ChildSwitcher = memo(function ChildSwitcher({
 
 			{isOpen && parentChildren.length > 0 && (
 				<div className="absolute right-0 mt-2 w-64 max-w-[90vw] origin-top-right rounded-xl bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
-					<div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-						<p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-							Switch Child
-						</p>
-					</div>
+				<div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+					<p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+						Viewing as
+					</p>
+				</div>
 					<div className="max-h-72 overflow-y-auto py-1">
 						{parentChildren.map((child: any) => {
 							const active = child.studentId === selectedStudentId;

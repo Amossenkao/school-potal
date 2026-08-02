@@ -68,6 +68,13 @@ function sanitizeStudentSettings(raw: any): any {
 	};
 }
 
+function sanitizeParentSettings(raw: any): any {
+	if (!raw || typeof raw !== 'object') return undefined;
+	return {
+		loginAccess: raw.loginAccess !== undefined ? !!raw.loginAccess : true,
+	};
+}
+
 function sanitizeTeacherSettings(raw: any): any {
 	if (!raw || typeof raw !== 'object') return undefined;
 	const permissionsByYear: Record<string, any> = {};
@@ -202,6 +209,7 @@ const flattenSchoolProfile = (school: any): any => {
 			studentSettings: school.userConfig?.studentSettings,
 			teacherSettings: school.userConfig?.teacherSettings,
 			administratorSettings: school.userConfig?.administratorSettings,
+			parentSettings: school.userConfig?.parentSettings,
 			gradingSettings: school.academicConfig?.gradingSettings,
 			reportCardThemes: school.branding?.reportCardThemes,
 		};
@@ -443,6 +451,7 @@ export async function POST(request: NextRequest) {
 				studentSettings: body.userConfig?.studentSettings || { loginAccess: true, reportAccessByYear: {} },
 				teacherSettings: body.userConfig?.teacherSettings || { loginAccess: true, permissionsByYear: {} },
 				administratorSettings: body.userConfig?.administratorSettings || { loginAccess: true },
+				parentSettings: body.userConfig?.parentSettings || { loginAccess: true },
 			},
 			featureConfig: {
 				enabledFeatures: body.featureConfig?.enabledFeatures || ['user_management'],
@@ -567,7 +576,7 @@ export async function PUT(request: NextRequest) {
 			return NextResponse.json({ success: false, message: 'Unable to resolve tenant host.' }, { status: 400 });
 		}
 
-		const { Student, Teacher, Administrator } = await getTenantModels();
+		const { Student, Teacher, Administrator, Parent } = await getTenantModels();
 
 		const currentSchool: any = await SchoolProfile.findOne({ 'system.host': cleanHost }).lean();
 		if (!currentSchool) {
@@ -586,6 +595,7 @@ export async function PUT(request: NextRequest) {
 			studentSettings: rawStudentSettings,
 			teacherSettings: rawTeacherSettings,
 			administratorSettings,
+			parentSettings: rawParentSettings,
 			reportCardThemes,
 			themeName,
 			bulkUserActions,
@@ -594,6 +604,7 @@ export async function PUT(request: NextRequest) {
 
 		const studentSettings = rawStudentSettings !== undefined ? sanitizeStudentSettings(rawStudentSettings) : undefined;
 		const teacherSettings = rawTeacherSettings !== undefined ? sanitizeTeacherSettings(rawTeacherSettings) : undefined;
+		const parentSettings = rawParentSettings !== undefined ? sanitizeParentSettings(rawParentSettings) : undefined;
 
 		const updateObject: any = {};
 
@@ -605,12 +616,14 @@ export async function PUT(request: NextRequest) {
 			studentSettings !== undefined ||
 			teacherSettings !== undefined ||
 			administratorSettings !== undefined ||
+			parentSettings !== undefined ||
 			reportCardThemes !== undefined;
 
 		if (hasSettingsPatch) {
 			const existingStudentSettings = currentSchool?.userConfig?.studentSettings || {};
 			const existingTeacherSettings = currentSchool?.userConfig?.teacherSettings || {};
 			const existingAdministratorSettings = currentSchool?.userConfig?.administratorSettings || {};
+			const existingParentSettings = currentSchool?.userConfig?.parentSettings || {};
 			const existingReportCardThemes = currentSchool?.branding?.reportCardThemes || {};
 
 			if (studentSettings !== undefined) {
@@ -621,6 +634,9 @@ export async function PUT(request: NextRequest) {
 			}
 			if (administratorSettings !== undefined) {
 				updateObject['userConfig.administratorSettings'] = { ...existingAdministratorSettings, ...administratorSettings };
+			}
+			if (parentSettings !== undefined) {
+				updateObject['userConfig.parentSettings'] = { ...existingParentSettings, ...parentSettings };
 			}
 			if (reportCardThemes !== undefined) {
 				updateObject['branding.reportCardThemes'] = { ...existingReportCardThemes, ...reportCardThemes };
@@ -683,6 +699,12 @@ export async function PUT(request: NextRequest) {
 				const adminsToLogout = await Administrator.find({ role: 'administrator' }).select('_id').lean();
 				adminsToLogout.forEach((admin: any) =>
 					sessionDestructionPromises.push(destroyAllUserSessions(admin._id.toString())),
+				);
+			}
+			if (oldSettings?.parentSettings?.loginAccess === true && parentSettings?.loginAccess === false) {
+				const parentsToLogout = await Parent.find({ role: 'parent' }).select('_id').lean();
+				parentsToLogout.forEach((parent: any) =>
+					sessionDestructionPromises.push(destroyAllUserSessions(parent._id.toString())),
 				);
 			}
 

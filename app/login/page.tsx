@@ -39,12 +39,18 @@ import {
 const PUBLIC_SYNC_STREAM_TOKEN_ENDPOINT = '/api/sync/public-stream-token';
 const PUBLIC_SYNC_REFRESH_DEBOUNCE_MS = 120;
 
-const resolveRoleLoginDisabledMessage = (role: string, school: SchoolProfile | null): string => {
+const resolveRoleLoginDisabledMessage = (
+	role: string,
+	school: SchoolProfile | null,
+	loginType?: 'student' | 'parent',
+): string => {
 	if (!role || role === 'system_admin') return '';
-	const roleSettingsKey = `${role}Settings`;
+	const effectiveRole =
+		role === 'student' && loginType === 'parent' ? 'parent' : role;
+	const roleSettingsKey = `${effectiveRole}Settings`;
 	const roleSettings = school?.userConfig?.[roleSettingsKey as keyof typeof school.userConfig];
 	if (roleSettings && typeof roleSettings === 'object' && 'loginAccess' in roleSettings && roleSettings.loginAccess === false) {
-		return `Login is currently disabled for ${role}s.`;
+		return `Login is currently disabled for ${effectiveRole}s.`;
 	}
 	return '';
 };
@@ -1066,9 +1072,9 @@ useEffect(() => {
 
 	useEffect(() => {
 		setLoginDisabledError(
-			resolveRoleLoginDisabledMessage(selectedRole, currentSchool),
+			resolveRoleLoginDisabledMessage(selectedRole, currentSchool, loginType),
 		);
-	}, [selectedRole, currentSchool]);
+	}, [selectedRole, currentSchool, loginType]);
 
 	useEffect(() => {
 		if (hasSchool && startupResolved && !isBootstrapping && !currentSchool) {
@@ -1154,6 +1160,7 @@ useEffect(() => {
 		const disabledMessage = resolveRoleLoginDisabledMessage(
 			selectedRole,
 			latestSchool || currentSchool,
+			loginType,
 		);
 		if (disabledMessage) {
 			setLoginDisabledError(disabledMessage);

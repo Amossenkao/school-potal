@@ -269,8 +269,8 @@ export function resolveEffectiveRole(userRole: string): string {
 
 /**
  * Resolves the feature-access list for a role from the school profile.
- * Parents use their own configured subset when present, otherwise they
- * inherit the student feature access (backward compatible).
+ * Parents use their own configured subset when present and non-empty,
+ * otherwise they inherit the student feature access (backward compatible).
  */
 function getRoleFeatureAccess(
 	schoolProfile: SchoolProfile,
@@ -278,7 +278,10 @@ function getRoleFeatureAccess(
 ): readonly FeatureKey[] {
 	const access = schoolProfile.featureConfig.roleFeatureAccess;
 	if (role === 'parent') {
-		return Array.isArray(access.parent) ? access.parent : access.student;
+		if (Array.isArray(access.parent) && access.parent.length > 0) {
+			return access.parent;
+		}
+		return Array.isArray(access.student) ? access.student : [];
 	}
 	return access[role as keyof typeof access] || [];
 }

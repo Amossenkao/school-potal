@@ -102,6 +102,28 @@ const extractStudentClassIds = (user: AuthorizedRealtimeUser) => {
 	return toUniqueStrings([String(user.classId || ''), ...academicYearClassIds]);
 };
 
+const extractParentChildClassIds = (user: AuthorizedRealtimeUser) => {
+	const children = Array.isArray(user.parentChildren)
+		? user.parentChildren
+		: [];
+	const childClassIds = children.map((child: any) =>
+		String(child?.classId || ''),
+	);
+	const fallbackClassId = user.parentChildren?.length
+		? ''
+		: String(user.classId || '');
+	return toUniqueStrings([...childClassIds, fallbackClassId]);
+};
+
+const extractParentChildUserIds = (user: AuthorizedRealtimeUser) => {
+	const children = Array.isArray(user.parentChildren)
+		? user.parentChildren
+		: [];
+	return toUniqueStrings(
+		children.map((child: any) => String(child?.id || '')),
+	);
+};
+
 export const getAuthorizedRealtimeChannels = (options: {
 	tenantId: string;
 	user?: AuthorizedRealtimeUser | null;
@@ -142,11 +164,19 @@ export const getAuthorizedRealtimeChannels = (options: {
 			? extractTeacherClassIds(options.user || {})
 			: role === 'student'
 				? extractStudentClassIds(options.user || {})
-				: [];
+				: role === 'parent'
+					? extractParentChildClassIds(options.user || {})
+					: [];
 
 	classIds.forEach((classId) => {
 		channels.add(getClassRealtimeChannel(tenantId, classId));
 	});
+
+	if (role === 'parent') {
+		extractParentChildUserIds(options.user || {}).forEach((childId) => {
+			channels.add(getUserRealtimeChannel(tenantId, childId));
+		});
+	}
 
 	return Array.from(channels);
 };

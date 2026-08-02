@@ -913,6 +913,13 @@ function ReportContent({
 				session: reportFilters.session,
 			});
 
+			if (user?.role === 'parent') {
+				const reportStudent = resolveReportStudent(user);
+				if (reportStudent?.studentId) {
+					params.set('studentId', reportStudent.studentId);
+				}
+			}
+
 			// We fetch grades for the whole class to build rank, then filter locally.
 			let data: any;
 			const scopedGrades = getScopedAcademicYearValue(

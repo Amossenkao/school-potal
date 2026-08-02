@@ -157,7 +157,11 @@ export default function PayFees() {
 		let cancelled = false;
 		const load = async () => {
 			try {
-				const res = await fetch('/api/payments');
+				const url =
+					user?.role === 'parent' && childView.studentId
+						? `/api/payments?studentId=${encodeURIComponent(childView.studentId)}`
+						: '/api/payments';
+				const res = await fetch(url);
 				const json = await res.json();
 				if (!res.ok || cancelled) return;
 				const { payments: freshPayments } = json.data;

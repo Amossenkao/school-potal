@@ -63,6 +63,7 @@ const buildLoginBootstrapPayload = async (
 			grades: true,
 			gradeRequests: true,
 			attendance: true,
+			payments: true,
 		},
 		schoolProfile,
 	});
@@ -74,6 +75,7 @@ const buildLoginBootstrapPayload = async (
 		grades: payload?.grades,
 		gradeRequests: payload?.gradeRequests,
 		attendance: payload?.attendance,
+		payments: payload?.payments,
 	});
 
 	return {

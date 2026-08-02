@@ -165,13 +165,64 @@ const getTeacherClassIdsForYear = (teacher: any, academicYear: string) => {
 	return getTeacherClassIdsForAcademicYear(teacher, academicYear);
 };
 
+/**
+ * Resolves every child's student identifier (studentId or username) for a
+ * parent user. Falls back to the session's selected child when no hydrated
+ * children or linked `studentIds` are present (legacy sessions).
+ */
+const getParentChildStudentIds = (currentUser: any): string[] => {
+	const ids = new Set<string>();
+	if (Array.isArray(currentUser.parentChildren)) {
+		for (const child of currentUser.parentChildren) {
+			const id = child?.studentId || child?.username;
+			if (id) ids.add(String(id));
+		}
+	}
+	if (Array.isArray(currentUser.studentIds)) {
+		for (const sid of currentUser.studentIds) {
+			if (sid) ids.add(String(sid));
+		}
+	}
+	if (ids.size === 0) {
+		const fallback = currentUser.studentId || currentUser.username;
+		if (fallback) ids.add(String(fallback));
+	}
+	return Array.from(ids);
+};
+
+/**
+ * Resolves every child's class id for the given academic year so parents
+ * receive data scoped to all of their children, not just the first one.
+ */
+const getParentChildClassIds = (
+	currentUser: any,
+	academicYear: string,
+): string[] => {
+	const ids = new Set<string>();
+	if (Array.isArray(currentUser.parentChildren)) {
+		for (const child of currentUser.parentChildren) {
+			const classId = getStudentClassIdForYear(child, academicYear);
+			if (classId) ids.add(String(classId));
+		}
+	}
+	if (ids.size === 0) {
+		const classId = getStudentClassIdForYear(currentUser, academicYear);
+		if (classId) ids.add(String(classId));
+	}
+	return Array.from(ids);
+};
+
 const getAcademicYearMatch = (academicYear: string) =>
 	getAcademicYearFilterValue(academicYear);
 
 const getRoleClassFilter = (currentUser: any, academicYear: string) => {
-	if (currentUser.role === 'student' || currentUser.role === 'parent') {
+	if (currentUser.role === 'student') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
 		return classId ? { classId } : {};
+	}
+	if (currentUser.role === 'parent') {
+		const classIds = getParentChildClassIds(currentUser, academicYear);
+		return classIds.length ? { classId: { $in: classIds } } : {};
 	}
 	if (currentUser.role === 'teacher') {
 		const classIds = getTeacherClassIdsForYear(currentUser, academicYear);
@@ -182,10 +233,16 @@ const getRoleClassFilter = (currentUser: any, academicYear: string) => {
 
 export const getRoleGradesQuery = (currentUser: any, academicYear: string) => {
 	const academicYearMatch = getAcademicYearMatch(academicYear);
-	if (currentUser?.role === 'student' || currentUser?.role === 'parent') {
+	if (currentUser?.role === 'student') {
 		const studentId = currentUser.studentId || currentUser.username;
 		if (!studentId) return null;
 		return { academicYear: academicYearMatch, studentId };
+	}
+
+	if (currentUser?.role === 'parent') {
+		const studentIds = getParentChildStudentIds(currentUser);
+		if (studentIds.length === 0) return null;
+		return { academicYear: academicYearMatch, studentId: { $in: studentIds } };
 	}
 
 	if (currentUser?.role === 'teacher') {
@@ -284,10 +341,16 @@ export const getRoleAttendanceQuery = (
 ) => {
 	const academicYearMatch = getAcademicYearMatch(academicYear);
 
-	if (currentUser?.role === 'student' || currentUser?.role === 'parent') {
+	if (currentUser?.role === 'student') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
 		if (!classId) return null;
 		return { academicYear: academicYearMatch, classId };
+	}
+
+	if (currentUser?.role === 'parent') {
+		const classIds = getParentChildClassIds(currentUser, academicYear);
+		if (classIds.length === 0) return null;
+		return { academicYear: academicYearMatch, classId: { $in: classIds } };
 	}
 
 	if (currentUser?.role === 'teacher') {
@@ -308,7 +371,7 @@ export const getRoleAttendanceQuery = (
 
 const getRoleUsersQuery = (currentUser: any, academicYear: string) => {
 	const academicYearMatch = getAcademicYearMatch(academicYear);
-	if (currentUser.role === 'student' || currentUser.role === 'parent') {
+	if (currentUser.role === 'student') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
 		if (!classId) return null;
 		return {
@@ -324,6 +387,18 @@ const getRoleUsersQuery = (currentUser: any, academicYear: string) => {
 					},
 				},
 				{ role: 'administrator', 'academicYears.year': academicYearMatch },
+			],
+		};
+	}
+
+	if (currentUser.role === 'parent') {
+		const studentIds = getParentChildStudentIds(currentUser);
+		if (studentIds.length === 0) return null;
+		return {
+			role: 'student',
+			$or: [
+				{ studentId: { $in: studentIds } },
+				{ username: { $in: studentIds } },
 			],
 		};
 	}
@@ -551,21 +626,29 @@ const fetchTeacherAttendanceForRole = async (
 	return TeacherAttendance.find(query).sort({ date: 1, teacherId: 1 }).lean();
 };
 
+const getRolePaymentsQuery = (currentUser: any) => {
+	if (currentUser?.role === 'student') {
+		const studentId = currentUser.studentId || currentUser.username;
+		if (!studentId) return null;
+		return { studentId };
+	}
+	if (currentUser?.role === 'parent') {
+		const studentIds = getParentChildStudentIds(currentUser);
+		if (studentIds.length === 0) return null;
+		return { studentId: { $in: studentIds } };
+	}
+	return null;
+};
+
 const fetchPaymentsForStudent = async (
 	models: any,
 	currentUser: any,
 ): Promise<any[]> => {
-	if (
-		currentUser?.role !== 'student' &&
-		currentUser?.role !== 'parent'
-	) {
-		return [];
-	}
-	const studentId = currentUser.studentId || currentUser.username;
-	if (!studentId) return [];
+	const query = getRolePaymentsQuery(currentUser);
+	if (!query) return [];
 	const { Payment } = models;
 	if (!Payment) return [];
-	return Payment.find({ studentId }).sort({ createdAt: -1 }).lean();
+	return Payment.find(query).sort({ createdAt: -1 }).lean();
 };
 
 const BOOTSTRAP_GRADE_LIMIT = 10_000;
@@ -662,7 +745,7 @@ const fetchUsersForRole = async (
 	academicYear: string,
 ) => {
 	const academicYearMatch = getAcademicYearMatch(academicYear);
-	if (currentUser.role === 'student' || currentUser.role === 'parent') {
+	if (currentUser.role === 'student') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
 		if (!classId) {
 			return { students: [], teachers: [], administrators: [] };
@@ -689,6 +772,27 @@ const fetchUsersForRole = async (
 			students: students.map(normalizeUser),
 			teachers: teachers.map(normalizeUser),
 			administrators: administrators.map(normalizeUser),
+		};
+	}
+
+	if (currentUser.role === 'parent') {
+		const studentIds = getParentChildStudentIds(currentUser);
+		if (studentIds.length === 0) {
+			return { students: [], teachers: [], administrators: [] };
+		}
+		const students = await models.Student.find({
+			$or: [
+				{ studentId: { $in: studentIds } },
+				{ username: { $in: studentIds } },
+			],
+		})
+			.select(USER_BOOTSTRAP_SELECT)
+			.lean();
+
+		return {
+			students: students.map(normalizeUser),
+			teachers: [],
+			administrators: [],
 		};
 	}
 
@@ -774,11 +878,7 @@ export const getDomainVersions = async (
 	const canQueryTeacherAttendance = Boolean(
 		TeacherAttendance && teacherAttendanceQuery,
 	);
-	const studentId =
-		currentUser?.role === 'student' || currentUser?.role === 'parent'
-			? currentUser.studentId || currentUser.username
-			: null;
-	const paymentsQuery = studentId ? { studentId } : null;
+	const paymentsQuery = getRolePaymentsQuery(currentUser);
 	const canQueryPayments = Boolean(Payment && paymentsQuery);
 
 	const [

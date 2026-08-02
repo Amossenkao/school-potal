@@ -256,7 +256,11 @@ export default function PaymentHistory() {
 		setError('');
 		setIsLoadingPayments(true);
 		try {
-			const res = await fetch('/api/payments');
+			const url =
+				user?.role === 'parent' && childView.studentId
+					? `/api/payments?studentId=${encodeURIComponent(childView.studentId)}`
+					: '/api/payments';
+			const res = await fetch(url);
 			const json = await res.json();
 			if (!res.ok) throw new Error(json.message || 'Failed to refresh payments');
 			const { payments: freshPayments, school: freshSchool } = json.data;

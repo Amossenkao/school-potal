@@ -921,54 +921,41 @@ const runDeferredPostLoginBootstrap = (
 			if (!currentUser) return false;
 			if (currentUser.role !== 'parent') return false;
 
-			try {
-				const res = await fetch('/api/parent/children/select', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					credentials: 'include',
-					body: JSON.stringify({ studentId }),
-				});
-				const data = await res.json().catch(() => ({}));
-				if (!res.ok) {
-					throw new Error(
-						data?.message || 'Failed to switch child account',
-					);
-				}
-
-				const scopedData = data?.data && typeof data.data === 'object' ? data.data : {};
-				const currentParent = currentUser as User & {
-					parentChildren?: unknown[];
-				};
-				const nextUser = {
-					...currentUser,
-					...scopedData,
-					parentChildren:
-						Array.isArray(scopedData.parentChildren)
-							? scopedData.parentChildren
-							: Array.isArray(currentParent.parentChildren)
-								? currentParent.parentChildren
-								: [],
-				} as User;
-
-				set({ user: nextUser, isLoggedIn: true, error: null });
-				cacheAuthUser(nextUser);
-
-				// Clear cached domain data so the newly selected child's data
-				// loads fresh from the re-bootstrap below.
-				useSchoolStore.getState().clearCache();
-				void get().checkAuthStatus({
-					force: true,
-					trigger: 'child-switch',
-				});
-
-				return true;
-			} catch (error: any) {
-				if (isLikelyNetworkError(error)) {
-					useNetworkStore.getState().markOffline('child-switch-failed');
-				}
-				set({ error: error?.message || 'Failed to switch child account' });
+			const parentUser = currentUser as User & {
+				parentChildren?: Array<Record<string, any>>;
+			};
+			const parentChildren = Array.isArray(parentUser.parentChildren)
+				? parentUser.parentChildren
+				: [];
+			const child = parentChildren.find(
+				(c: any) =>
+					String(c.studentId || '').trim() === String(studentId || '').trim() ||
+					String(c.username || '').trim() === String(studentId || '').trim(),
+			);
+			if (!child) {
+				set({ error: 'Selected child not found.' });
 				return false;
 			}
+
+			// Client-side only selection: no server session round-trip. The
+			// bootstrap already ships data for all of the parent's children, so
+			// pages filter locally by the fields below (via resolveChildView /
+			// resolveReportStudent / user.studentId).
+			const nextUser = {
+				...currentUser,
+				studentId: child.studentId || child.username || null,
+				classId: child.classId || null,
+				className: child.className || null,
+				classLevel: child.classLevel || null,
+				academicYears: child.academicYears || [],
+				studentType: child.studentType || 'old',
+				parentChildren,
+			} as User;
+
+			set({ user: nextUser, isLoggedIn: true, error: null });
+			cacheAuthUser(nextUser);
+
+			return true;
 		},
 
 		checkAuthStatus: async (options) => {
