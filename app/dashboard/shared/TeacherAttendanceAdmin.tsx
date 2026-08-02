@@ -38,6 +38,16 @@ function fmtDate(d: Date) {
 	return `${y}-${m}-${day}`;
 }
 
+// Records are stored as UTC-midnight dates; render them via UTC getters so a
+// UTC-negative timezone doesn't shift the calendar day backwards.
+function fmtUTCDate(value: string | Date) {
+	const d = typeof value === 'string' ? new Date(value) : value;
+	const y = d.getUTCFullYear();
+	const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+	const day = String(d.getUTCDate()).padStart(2, '0');
+	return `${y}-${m}-${day}`;
+}
+
 function parseDate(s: string) {
 	const [y, m, day] = s.split('-').map(Number);
 	return new Date(y, m - 1, day);
@@ -387,14 +397,10 @@ const TeacherAttendanceAdmin = () => {
 
 	// ── Summary state ──────────────────────────────────────────────────
 	const [summaryRange, setSummaryRange] = useState<{ from: string; to: string }>(() => {
-		const today = new Date();
-		const dow = today.getDay();
-		const anchor = new Date(today);
-		if (dow === 0) anchor.setDate(today.getDate() - 2);
-		if (dow === 6) anchor.setDate(today.getDate() - 1);
-		const mon = new Date(anchor);
-		mon.setDate(anchor.getDate() - (anchor.getDay() - 1));
-		return { from: fmtDate(mon), to: fmtDate(anchor) };
+		const now = new Date();
+		const first = new Date(now.getFullYear(), now.getMonth(), 1);
+		const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+		return { from: fmtDate(first), to: fmtDate(last) };
 	});
 
 	// ── Summary data from store (local filtering, no API fetch) ──────
@@ -412,30 +418,44 @@ const TeacherAttendanceAdmin = () => {
 		const attMap: Record<string, Record<string, 'present' | 'late' | 'absent'>> = {};
 		allRecords.forEach((rec: any) => {
 			const teacherId = rec.teacherId;
-			const d = fmtDate(new Date(rec.date));
+			const d = fmtUTCDate(rec.date);
 			if (!attMap[teacherId]) attMap[teacherId] = {};
 			attMap[teacherId][d] = rec.status;
 		});
 
 		const schoolDays = getSchoolDatesInRange(summaryRange.from, summaryRange.to);
-		return teachers.map((t: any) => {
-			const teacherId: string = t.id || t._id;
-			const name: string = t.fullName || `${t.firstName} ${t.lastName}`;
-			const dayMap = attMap[teacherId] || {};
-			let present = 0,
-				late = 0,
-				absent = 0;
-			schoolDays.forEach((d) => {
-				const status = dayMap[d];
-				if (status === 'present') present++;
-				else if (status === 'late') late++;
-				else if (status === 'absent') absent++;
-			});
-			const total = present + late + absent;
-			const rate =
-				total > 0 ? Math.round(((present + late) / total) * 100) : null;
-			return { teacherId, name, present, late, absent, total, rate };
-		});
+		return teachers
+			.map((t: any) => {
+				const teacherId: string = t.id || t._id;
+				const name: string = t.fullName || `${t.firstName} ${t.lastName}`;
+				const dayMap = attMap[teacherId] || {};
+				const days: (TeacherAttendanceStatus | null)[] = schoolDays.map(
+					(d) => dayMap[d] || null,
+				);
+				let present = 0,
+					late = 0,
+					absent = 0;
+				schoolDays.forEach((d) => {
+					const status = dayMap[d];
+					if (status === 'present') present++;
+					else if (status === 'late') late++;
+					else if (status === 'absent') absent++;
+				});
+				const total = present + late + absent;
+				const rate =
+					total > 0 ? Math.round(((present + late) / total) * 100) : null;
+				return {
+					teacherId,
+					name,
+					days,
+					present,
+					late,
+					absent,
+					total,
+					rate,
+				};
+			})
+			.sort((a, b) => a.name.localeCompare(b.name));
 	}, [
 		selectedYear,
 		summaryRange.from,
@@ -595,6 +615,11 @@ const TeacherAttendanceAdmin = () => {
 		const rate = recorded > 0 ? Math.round((attended / recorded) * 100) : null;
 		return { total, present, late, absent, rate };
 	}, [summaryData]);
+
+	const summarySchoolDays = useMemo(
+		() => getSchoolDatesInRange(summaryRange.from, summaryRange.to),
+		[summaryRange.from, summaryRange.to],
+	);
 
 	// ── Handlers ────────────────────────────────────────────────────────
 	const handleStatusChange = useCallback(
@@ -1017,23 +1042,23 @@ const TeacherAttendanceAdmin = () => {
 								<span className="text-muted-foreground">
 									{summaryStats.total} teachers
 								</span>
-								<span className="text-[var(--text-success,#166534)]">
+								<span className="text-success-700">
 									{summaryStats.present} total present
 								</span>
-								<span className="text-amber-700 dark:text-amber-400">
+								<span className="text-warning-700 dark:text-warning-400">
 									{summaryStats.late} total late
 								</span>
-								<span className="text-[var(--text-danger,#991b1b)]">
+								<span className="text-error-700">
 									{summaryStats.absent} total absent
 								</span>
 								{summaryStats.rate !== null && (
 									<span
 										className={`tabular-nums ${
 											summaryStats.rate >= 85
-												? 'text-[var(--text-success,#166534)] font-bold'
+												? 'text-success-700 font-bold'
 												: summaryStats.rate >= 70
-													? 'text-yellow-600 dark:text-yellow-400 font-semibold'
-													: 'text-[var(--text-danger,#991b1b)] font-bold'
+													? 'text-warning-600 dark:text-warning-400 font-semibold'
+													: 'text-error-700 font-bold'
 										}`}
 									>
 										{summaryStats.rate}% overall attendance
@@ -1041,14 +1066,39 @@ const TeacherAttendanceAdmin = () => {
 								)}
 							</div>
 
-							{/* Per-teacher stats table */}
+							{/* Attendance grid */}
 							<div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-card shadow-sm">
-								<table className="w-full border-collapse">
+								<table className="min-w-max w-full border-collapse">
 									<thead className="bg-muted">
 										<tr>
 											<th className="sticky top-0 left-0 z-30 bg-muted border-b border-r border-border px-3 sm:px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap min-w-[140px] sm:min-w-[200px]">
 												Teacher
 											</th>
+											{summarySchoolDays.map((day) => {
+												const d = parseDate(day);
+												const dayName = d.toLocaleDateString('en-US', {
+													weekday: 'short',
+												});
+												const monthName = d.toLocaleDateString('en-US', {
+													month: 'short',
+												});
+												return (
+													<th
+														key={day}
+														className="sticky top-0 z-20 bg-muted border-b border-r border-border px-1.5 py-2 text-center text-[10px] font-semibold text-muted-foreground whitespace-nowrap min-w-[44px]"
+													>
+														<div className="flex flex-col items-center gap-0.5">
+															<span>{dayName}</span>
+															<span className="font-bold text-foreground/70">
+																{d.getDate()}
+															</span>
+															<span className="text-[8px] font-normal">
+																{monthName}
+															</span>
+														</div>
+													</th>
+												);
+											})}
 											<th className="sticky top-0 z-20 bg-muted border-b border-r border-border px-3 sm:px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap min-w-[64px]">
 												Present
 											</th>
@@ -1072,10 +1122,10 @@ const TeacherAttendanceAdmin = () => {
 												row.rate === null
 													? 'text-muted-foreground'
 													: row.rate >= 85
-														? 'text-[var(--text-success,#166534)] font-bold'
+														? 'text-success-700 font-bold'
 														: row.rate >= 70
-															? 'text-yellow-600 dark:text-yellow-400 font-semibold'
-															: 'text-[var(--text-danger,#991b1b)] font-bold';
+															? 'text-warning-600 dark:text-warning-400 font-semibold'
+															: 'text-error-700 font-bold';
 											return (
 												<tr
 													key={row.teacherId}
@@ -1086,18 +1136,55 @@ const TeacherAttendanceAdmin = () => {
 															{row.name}
 														</span>
 													</td>
+													{summarySchoolDays.map((day, dayIndex) => {
+														const status = row.days[dayIndex];
+														if (!status) {
+															return (
+																<td
+																	key={day}
+																	className="border-r border-border px-1.5 py-2 text-center"
+																>
+																	<span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-muted text-xs text-muted-foreground font-medium">
+																		–
+																	</span>
+																</td>
+															);
+														}
+														const chip =
+															status === 'present'
+																? 'bg-success-50 text-success-700'
+																: status === 'late'
+																	? 'bg-warning-50 dark:bg-warning-950/30 text-warning-700 dark:text-warning-400'
+																	: 'bg-error-50 text-error-700';
+														const letter =
+															status === 'present'
+																? 'P'
+																: status === 'late'
+																	? 'L'
+																	: 'A';
+														return (
+															<td
+																key={day}
+																className="border-r border-border px-1.5 py-2 text-center"
+															>
+																<span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold ${chip}`}>
+																	{letter}
+																</span>
+															</td>
+														);
+													})}
 													<td className="border-r border-border px-3 sm:px-4 py-2.5 text-center">
-														<span className="text-sm font-semibold text-[var(--text-success,#166534)] tabular-nums">
+														<span className="text-sm font-semibold text-success-700 tabular-nums">
 															{row.present}
 														</span>
 													</td>
 													<td className="border-r border-border px-3 sm:px-4 py-2.5 text-center">
-														<span className="text-sm font-semibold text-amber-700 dark:text-amber-400 tabular-nums">
+														<span className="text-sm font-semibold text-warning-700 dark:text-warning-400 tabular-nums">
 															{row.late}
 														</span>
 													</td>
 													<td className="border-r border-border px-3 sm:px-4 py-2.5 text-center">
-														<span className="text-sm font-semibold text-[var(--text-danger,#991b1b)] tabular-nums">
+														<span className="text-sm font-semibold text-error-700 tabular-nums">
 															{row.absent}
 														</span>
 													</td>
@@ -1119,7 +1206,7 @@ const TeacherAttendanceAdmin = () => {
 							</div>
 
 							<p className="text-[10px] text-muted-foreground shrink-0 text-center font-medium tracking-wide">
-								{getSchoolDatesInRange(summaryRange.from, summaryRange.to).length} school days · {summaryData.length} teachers
+								{summarySchoolDays.length} school days · {summaryData.length} teachers
 							</p>
 						</>
 					)}

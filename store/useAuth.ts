@@ -426,9 +426,14 @@ const repairParentChildSelection = (user: any): any => {
 
 const applyBootstrapPayload = (
 	data: any,
-	options: { gradesStrategy?: 'replace' | 'merge' } = {},
+	options: {
+		gradesStrategy?: 'replace' | 'merge';
+		teacherAttendanceStrategy?: 'replace' | 'merge';
+	} = {},
 ) => {
 	const gradesStrategy = options.gradesStrategy ?? 'replace';
+	const teacherAttendanceStrategy =
+		options.teacherAttendanceStrategy ?? 'replace';
 	const schoolStore = useSchoolStore.getState();
 	const versions: SyncVersions =
 		data?.versions && typeof data.versions === 'object' ? data.versions : {};
@@ -502,11 +507,23 @@ const applyBootstrapPayload = (
 		schoolStore.setAttendanceForYear(academicYear, data.attendance);
 	}
 
+	// Same principle as grades above: only a fresh login baseline
+	// (gradesStrategy/teacherAttendanceStrategy === 'replace') overwrites the
+	// store. Realtime-triggered refreshes (checkAuthStatus / /api/auth/me) must
+	// merge, or they will clobber a teacher-attendance record that the realtime
+	// event already merged in.
 	if (academicYear && Array.isArray(data?.teacherAttendance)) {
-		schoolStore.setTeacherAttendanceForYear(
-			academicYear,
-			data.teacherAttendance,
-		);
+		if (teacherAttendanceStrategy === 'merge') {
+			schoolStore.mergeTeacherAttendanceForYear(
+				academicYear,
+				data.teacherAttendance,
+			);
+		} else {
+			schoolStore.setTeacherAttendanceForYear(
+				academicYear,
+				data.teacherAttendance,
+			);
+		}
 	}
 
 	if (academicYear && typeof window !== 'undefined') {
@@ -1040,7 +1057,7 @@ const runDeferredPostLoginBootstrap = (
 				try {
 					const schoolState = useSchoolStore.getState();
 					const preferredYear =
-						requestedAcademicYear || schoolState.school?.currentAcademicYear;
+						requestedAcademicYear || schoolState.school?.identity.currentAcademicYear;
 					const query = new URLSearchParams();
 					const usersVersion = getScopedVersion(
 						schoolState.usersVersionByAcademicYear,
@@ -1133,7 +1150,10 @@ const runDeferredPostLoginBootstrap = (
 					if (get().isLoggingOut || requestEpoch !== authFlowEpoch) return;
 
 					useNetworkStore.getState().setAuthCheckFailed(false);
-					applyBootstrapPayload(data, { gradesStrategy: 'merge' });
+					applyBootstrapPayload(data, {
+						gradesStrategy: 'merge',
+						teacherAttendanceStrategy: 'merge',
+					});
 
 					if (get().user?.role === 'superadmin' && (data?.stats || data?.schools)) {
 						const superAdminSchools = getSuperAdminSchoolsFromPayload(data);

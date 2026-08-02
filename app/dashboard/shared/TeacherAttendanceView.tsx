@@ -18,6 +18,16 @@ function fmtDate(d: Date) {
 	return `${y}-${m}-${day}`;
 }
 
+// Records are stored as UTC-midnight dates; render them via UTC getters so a
+// UTC-negative timezone doesn't shift the calendar day backwards.
+function fmtUTCDate(value: string | Date) {
+	const d = typeof value === 'string' ? new Date(value) : value;
+	const y = d.getUTCFullYear();
+	const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+	const day = String(d.getUTCDate()).padStart(2, '0');
+	return `${y}-${m}-${day}`;
+}
+
 function parseDate(s: string) {
 	const [y, m, day] = s.split('-').map(Number);
 	return new Date(y, m - 1, day);
@@ -82,20 +92,20 @@ function StatusChip({ status }: { status: 'present' | 'late' | 'absent' | null }
 	}
 	if (status === 'present') {
 		return (
-			<span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-[var(--bg-success,#dcfce7)] text-xs font-bold text-[var(--text-success,#166534)]">
+			<span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-success-50 text-xs font-bold text-success-700">
 				P
 			</span>
 		);
 	}
 	if (status === 'late') {
 		return (
-			<span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-xs font-bold text-amber-700 dark:text-amber-400">
+			<span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-warning-50 dark:bg-warning-950/30 text-xs font-bold text-warning-700 dark:text-warning-400">
 				L
 			</span>
 		);
 	}
 	return (
-		<span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-[var(--bg-danger,#fee2e2)] text-xs font-bold text-[var(--text-danger,#991b1b)]">
+		<span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-error-50 text-xs font-bold text-error-700">
 			A
 		</span>
 	);
@@ -156,7 +166,7 @@ const TeacherAttendanceView = () => {
 		const daySet = new Set<string>();
 
 		allRecords.forEach((rec: any) => {
-			const d = fmtDate(new Date(rec.date));
+			const d = fmtUTCDate(rec.date);
 			const parsed = parseDate(d);
 			if (parsed >= rangeFrom && parsed <= rangeTo) {
 				attMap[d] = rec.status;
@@ -257,26 +267,26 @@ const TeacherAttendanceView = () => {
 								<p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Days Recorded</p>
 								<p className="text-2xl font-bold text-foreground mt-1 tabular-nums">{stats.total}</p>
 							</div>
-							<div className="rounded-xl border border-[var(--text-success,#166534)]/20 bg-[var(--bg-success,#dcfce7)] p-3 shadow-sm">
-								<p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-success,#166534)]/80">Present</p>
-								<p className="text-2xl font-bold text-[var(--text-success,#166534)] mt-1 tabular-nums">{stats.present}</p>
+							<div className="rounded-xl border border-success-700/20 bg-success-50 p-3 shadow-sm">
+								<p className="text-[10px] font-semibold uppercase tracking-wider text-success-700/80">Present</p>
+								<p className="text-2xl font-bold text-success-700 mt-1 tabular-nums">{stats.present}</p>
 							</div>
-							<div className="rounded-xl border border-amber-400/20 bg-amber-50 dark:bg-amber-950/30 p-3 shadow-sm">
-								<p className="text-[10px] font-semibold uppercase tracking-wider text-amber-700/80 dark:text-amber-400/80">Late</p>
-								<p className="text-2xl font-bold text-amber-700 dark:text-amber-400 mt-1 tabular-nums">{stats.late}</p>
+							<div className="rounded-xl border border-warning-500/20 bg-warning-50 dark:bg-warning-950/30 p-3 shadow-sm">
+								<p className="text-[10px] font-semibold uppercase tracking-wider text-warning-700/80 dark:text-warning-400/80">Late</p>
+								<p className="text-2xl font-bold text-warning-700 dark:text-warning-400 mt-1 tabular-nums">{stats.late}</p>
 							</div>
-							<div className="rounded-xl border border-[var(--text-danger,#991b1b)]/20 bg-[var(--bg-danger,#fee2e2)] p-3 shadow-sm">
-								<p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-danger,#991b1b)]/80">Absent</p>
-								<p className="text-2xl font-bold text-[var(--text-danger,#991b1b)] mt-1 tabular-nums">{stats.absent}</p>
+							<div className="rounded-xl border border-error-700/20 bg-error-50 p-3 shadow-sm">
+								<p className="text-[10px] font-semibold uppercase tracking-wider text-error-700/80">Absent</p>
+								<p className="text-2xl font-bold text-error-700 mt-1 tabular-nums">{stats.absent}</p>
 							</div>
 						</div>
 						{stats.rate !== null && (
 							<div className={`shrink-0 text-center text-sm font-bold tabular-nums py-1.5 rounded-lg ${
 								stats.rate >= 85
-									? 'bg-[var(--bg-success,#dcfce7)] text-[var(--text-success,#166534)] border border-[var(--text-success,#166534)]/20'
+									? 'bg-success-50 text-success-700 border border-success-700/20'
 									: stats.rate >= 70
-										? 'bg-amber-50 dark:bg-amber-950/30 text-yellow-700 dark:text-yellow-400 border border-yellow-400/20'
-										: 'bg-[var(--bg-danger,#fee2e2)] text-[var(--text-danger,#991b1b)] border border-[var(--text-danger,#991b1b)]/20'
+										? 'bg-warning-50 dark:bg-warning-950/30 text-warning-700 dark:text-warning-400 border border-warning-500/20'
+										: 'bg-error-50 text-error-700 border border-error-700/20'
 							}`}>
 								Attendance Rate: {stats.rate}%
 							</div>
