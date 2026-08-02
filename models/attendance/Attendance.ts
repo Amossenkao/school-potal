@@ -8,6 +8,8 @@ const AttendanceSchema = new Schema<Attendance & Document>({
   presentStudentIds: { type: [String], required: true },
   absentStudentIds: { type: [String], required: true },
   recordedBy: { type: String, required: false },
+  seq: { type: Number, default: 0 },
+  deletedAt: { type: Date, default: null },
 });
 
 export default AttendanceSchema;

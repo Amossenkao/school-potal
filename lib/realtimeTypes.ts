@@ -26,6 +26,7 @@ export type RealtimeEvent = {
 	payload: Record<string, unknown>;
 	timestamp: string;
 	source: RealtimeSource;
+	seq?: number;
 };
 
 export type AuthorizedRealtimeUser = Pick<User, 'id' | 'role'> &
@@ -333,6 +334,7 @@ export const buildRealtimeEvent = (params: {
 	actorId?: string | null;
 	scope?: RealtimeScope;
 	targetUserIds?: string[];
+	seq?: number;
 }) => {
 	const timestamp = new Date().toISOString();
 	const payload: Record<string, unknown> = {
@@ -351,6 +353,7 @@ export const buildRealtimeEvent = (params: {
 		payload,
 		timestamp,
 		source: resolveRealtimeSource(params.source),
+		...(typeof params.seq === 'number' ? { seq: params.seq } : {}),
 	} satisfies RealtimeEvent;
 };
 

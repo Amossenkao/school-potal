@@ -128,6 +128,7 @@ type SchoolStore = {
 	applyRealtimeEvent: (event: RealtimeEvent) => void;
 	pruneGradesForUser: (user: any) => void;
 	clearCache: () => void;
+	clearYearCache: (academicYear: string) => void;
 	hydrateCache: () => void;
 	runBackgroundGradeSync: (
 		academicYear: string,
@@ -1037,7 +1038,10 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		const academicYear = String(
 			payload.academicYear || payload.year || payload.schoolYear || '',
 		).trim();
-		const version = event.timestamp || new Date().toISOString();
+		const version =
+			typeof event.seq === 'number'
+				? String(event.seq)
+				: event.timestamp || new Date().toISOString();
 		const schoolPayload =
 			payload.school && typeof payload.school === 'object'
 				? (payload.school as SchoolProfile)
@@ -1471,6 +1475,53 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		}
 		void clearDomainSnapshots().catch((error) => {
 			console.warn('Failed to clear IndexedDB domain snapshots:', error);
+		});
+	},
+
+	clearYearCache: (academicYear) => {
+		if (!academicYear) return;
+		const dropYear = <T,>(record: Record<string, T>) => {
+			const next = { ...record };
+			delete next[academicYear];
+			return next;
+		};
+		set((state) => ({
+			usersByAcademicYear: dropYear(state.usersByAcademicYear),
+			calendarByAcademicYear: dropYear(state.calendarByAcademicYear),
+			gradesByAcademicYear: dropYear(state.gradesByAcademicYear),
+			gradeRequestsByAcademicYear: dropYear(
+				state.gradeRequestsByAcademicYear,
+			),
+			attendanceByAcademicYear: dropYear(state.attendanceByAcademicYear),
+			teacherAttendanceByAcademicYear: dropYear(
+				state.teacherAttendanceByAcademicYear,
+			),
+			schedulesByAcademicYear: dropYear(state.schedulesByAcademicYear),
+			usersVersionByAcademicYear: dropYear(state.usersVersionByAcademicYear),
+			calendarVersionByAcademicYear: dropYear(
+				state.calendarVersionByAcademicYear,
+			),
+			gradesVersionByAcademicYear: dropYear(
+				state.gradesVersionByAcademicYear,
+			),
+			gradeRequestsVersionByAcademicYear: dropYear(
+				state.gradeRequestsVersionByAcademicYear,
+			),
+			attendanceVersionByAcademicYear: dropYear(
+				state.attendanceVersionByAcademicYear,
+			),
+			teacherAttendanceVersionByAcademicYear: dropYear(
+				state.teacherAttendanceVersionByAcademicYear,
+			),
+			schedulesVersionByAcademicYear: dropYear(
+				state.schedulesVersionByAcademicYear,
+			),
+		}));
+		void clearDomainSnapshots(academicYear).catch((error) => {
+			console.warn(
+				`Failed to clear IndexedDB domain snapshots for ${academicYear}:`,
+				error,
+			);
 		});
 	},
 

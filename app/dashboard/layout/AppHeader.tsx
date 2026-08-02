@@ -774,9 +774,10 @@ const ChildSwitcher = memo(function ChildSwitcher({
 		? (user as any).parentChildren
 		: [];
 	const selectedStudentId = String((user as any)?.studentId || '');
-	const selectedChild = parentChildren.find(
-		(child: any) => String(child.studentId || '') === selectedStudentId,
-	);
+	const matchesSelectedChild = (child: any) =>
+		String(child?.studentId || '') === selectedStudentId ||
+		String(child?.username || '') === selectedStudentId;
+	const selectedChild = parentChildren.find(matchesSelectedChild);
 
 	useEffect(() => {
 		const handleClickOutside = (event: MouseEvent) => {
@@ -816,7 +817,7 @@ const ChildSwitcher = memo(function ChildSwitcher({
 						Viewing as
 					</p>
 				{parentChildren.map((child: any) => {
-					const active = child.studentId === selectedStudentId;
+					const active = matchesSelectedChild(child);
 					return (
 						<button
 							key={child.studentId || child.id}
@@ -881,7 +882,7 @@ const ChildSwitcher = memo(function ChildSwitcher({
 				</div>
 					<div className="max-h-72 overflow-y-auto py-1">
 						{parentChildren.map((child: any) => {
-							const active = child.studentId === selectedStudentId;
+							const active = matchesSelectedChild(child);
 							return (
 								<button
 									key={child.studentId || child.id}

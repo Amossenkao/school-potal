@@ -12,21 +12,9 @@ import {
 	resolveAcademicYearAccessContext,
 } from '@/utils/academicYearAccess';
 import { getUsersVersion as getUsersSyncVersion } from '@/utils/userSync';
+import { toHash } from '@/utils/syncVersion';
 
 const MAX_BOOTSTRAP_USERS = 5000;
-
-const toHash = (value: unknown) => {
-	try {
-		const raw = JSON.stringify(value) || '';
-		let hash = 0;
-		for (let i = 0; i < raw.length; i += 1) {
-			hash = (hash * 31 + raw.charCodeAt(i)) >>> 0;
-		}
-		return String(hash);
-	} catch {
-		return '0';
-	}
-};
 
 type DomainVersions = {
 	users: string;

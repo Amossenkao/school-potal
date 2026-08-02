@@ -4,6 +4,8 @@ import { authorizeUser } from '@/proxy';
 import { updateUserSessionNotifications } from '@/utils/session';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
+import { appendChange, appendChangeIdempotent, findChangeByIdempotencyKey } from '@/lib/syncEngine';
+import { readIdempotencyKey } from '@/utils/idempotency';
 import { attachRanksToGrades } from '@/utils/gradeRanks';
 import {
 	getAcademicYearFilterValue,
@@ -1299,6 +1301,26 @@ export async function POST(request: NextRequest) {
 		const gradeMax =
 			schoolProfile?.academicConfig?.gradingSettings?.gradeScale?.max ?? 100;
 
+		const idempotencyKey = readIdempotencyKey(request);
+		if (idempotencyKey) {
+			const replay = await findChangeByIdempotencyKey({
+				domain: 'grades',
+				academicYear: String(resolvedAcademicYear || ''),
+				idempotencyKey,
+			});
+			if (replay) {
+				return NextResponse.json(
+					{
+						success: true,
+						data: replay.document ?? [],
+						seq: replay.seq,
+						replayed: true,
+					},
+					{ status: 201 },
+				);
+			}
+		}
+
 		if (schoolProfile?.userConfig?.teacherSettings) {
 			if (
 				!isGradeSubmissionAllowedForYear(
@@ -1503,6 +1525,17 @@ export async function POST(request: NextRequest) {
 		}));
 		const result = await Grade.insertMany(gradeDocuments);
 
+		const logged = await appendChangeIdempotent({
+			domain: 'grades',
+			academicYear: String(resolvedAcademicYear || ''),
+			op: 'create',
+			documentId: gradeDocuments[0]?.submissionId ?? `${classId}:${subject}`,
+			documentType: 'Grade',
+			document: gradeDocuments,
+			actorId: teacher.id,
+			idempotencyKey,
+		});
+
 		// Notify admins per submissionId (one notification per batch/period)
 		const submissionSummary = new Map<
 			string,
@@ -1580,12 +1613,16 @@ export async function POST(request: NextRequest) {
 			academicYear: String(resolvedAcademicYear || ''),
 			actorId: teacher.id,
 			reason: 'grades-submitted',
+			seq: logged.seq,
 			scope: {
 				classIds: [String(classId)],
 			},
 		});
 
-		return NextResponse.json({ success: true, data: result }, { status: 201 });
+		return NextResponse.json(
+			{ success: true, data: result, seq: logged.seq, replayed: logged.replayed },
+			{ status: 201 },
+		);
 	} catch (error) {
 		console.error('Error in grades POST:', error);
 		return NextResponse.json(
@@ -1643,6 +1680,23 @@ export async function PUT(request: NextRequest) {
 		const submissionAcademicYear = String(
 			existingSubmission.academicYear || '',
 		);
+
+		const idempotencyKey = readIdempotencyKey(request);
+		if (idempotencyKey) {
+			const replay = await findChangeByIdempotencyKey({
+				domain: 'grades',
+				academicYear: submissionAcademicYear,
+				idempotencyKey,
+			});
+			if (replay) {
+				return NextResponse.json({
+					success: true,
+					data: replay.document ?? [],
+					seq: replay.seq,
+					replayed: true,
+				});
+			}
+		}
 		const submissionPeriods = Array.from(
 			new Set(
 				(grades || []).map((grade: any) => String(grade?.period || '').trim()),
@@ -1756,18 +1810,34 @@ export async function PUT(request: NextRequest) {
 			lastUpdated: new Date(),
 		}));
 		const result = await Grade.insertMany(newGradeDocuments);
+		const logged = await appendChangeIdempotent({
+			domain: 'grades',
+			academicYear: submissionAcademicYear,
+			op: 'update',
+			documentId: submissionId,
+			documentType: 'Grade',
+			document: newGradeDocuments,
+			actorId: currentUser.id,
+			idempotencyKey,
+		});
 		await publishSyncEventSafe({
 			tenantId,
 			domain: 'grades',
 			payload: { grades: newGradeDocuments },
-			academicYear: String(submissionAcademicYear || ''),
+			academicYear: submissionAcademicYear,
 			actorId: currentUser.id,
 			reason: 'grades-updated',
+			seq: logged.seq,
 			scope: {
 				classIds: [String(existingSubmission.classId || '')].filter(Boolean),
 			},
 		});
-		return NextResponse.json({ success: true, data: result });
+		return NextResponse.json({
+			success: true,
+			data: result,
+			seq: logged.seq,
+			replayed: logged.replayed,
+		});
 	} catch (error) {
 		console.error('Error in grades PUT:', error);
 		return NextResponse.json(
@@ -1867,6 +1937,27 @@ export async function PATCH(request: NextRequest) {
 
 		const successfulUpdates = results.filter((result) => result.success);
 		const failedUpdates = results.filter((result) => !result.success);
+
+		const seqByYear = new Map<string, number>();
+		for (const update of successfulUpdates) {
+			const data = update.data;
+			if (!data) continue;
+			const academicYear = String(data.academicYear || '').trim();
+			if (!academicYear) continue;
+			const logged = await appendChange({
+				domain: 'grades',
+				academicYear,
+				op: 'update',
+				documentId: `${update.submissionId}:${update.studentId}`,
+				documentType: 'Grade',
+				document: data,
+				actorId: currentUser.id,
+			});
+			seqByYear.set(
+				academicYear,
+				Math.max(seqByYear.get(academicYear) ?? 0, logged),
+			);
+		}
 
 if (successfulUpdates.length > 0) {
     const teacherSummary = new Map<
@@ -1977,6 +2068,7 @@ if (successfulUpdates.length > 0) {
                 academicYear: academicYear || null,
                 actorId: currentUser.id,
                 reason: 'grades-status-updated',
+                seq: seqByYear.get(academicYear),
                 scope: { classIds },
                 targetUserIds: Array.from(resolvedTeacherIds),
             });

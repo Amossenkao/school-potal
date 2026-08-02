@@ -13,6 +13,8 @@ const GradeSchema = new mongoose.Schema({
 	grade: { type: Number, required: true },
 	status: { type: String, enum: GradeStatus, required: true },
 	lastUpdated: { type: Date, required: true },
+	seq: { type: Number, default: 0 },
+	deletedAt: { type: Date, default: null },
 });
 
 // --- Existing Highly-Specific Indices ---

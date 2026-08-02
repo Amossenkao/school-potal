@@ -14,32 +14,9 @@ import { checkRateLimit, getRequestIp } from '@/utils/rateLimit';
 import { resolveAcademicYearAccessContext } from '@/utils/academicYearAccess';
 import { normalizeHost } from '@/utils/host';
 import { buildParentChildrenList } from '@/lib/parentAccess';
+import { toHash, toSchoolVersion } from '@/utils/syncVersion';
 
 const CLIENT_SESSION_PRESENT_COOKIE = 'session-present';
-
-const toHash = (value: unknown) => {
-	try {
-		const raw = JSON.stringify(value) || '';
-		let hash = 0;
-		for (let i = 0; i < raw.length; i += 1) {
-			hash = (hash * 31 + raw.charCodeAt(i)) >>> 0;
-		}
-		return String(hash);
-	} catch {
-		return '0';
-	}
-};
-
-const toSchoolVersion = (schoolProfile: any) => {
-	if (!schoolProfile) return '0';
-	const updatedAt = schoolProfile?.updatedAt
-		? new Date(schoolProfile.updatedAt).getTime()
-		: 0;
-	const id = schoolProfile?._id?.toString?.() || '';
-	if (updatedAt || id) return `${updatedAt}:${id}`;
-	return toHash(schoolProfile);
-};
-
 
 const normalizeSchoolProfile = (schoolProfileRaw: any) =>
 	typeof schoolProfileRaw === 'string'

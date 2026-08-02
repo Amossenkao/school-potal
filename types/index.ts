@@ -84,6 +84,8 @@ export interface Attendance {
 	presentStudentIds: string[];
 	absentStudentIds: string[];
 	recordedBy?: string;
+	seq?: number;
+	deletedAt?: Date | null;
 }
 
 export interface TeacherAttendance {
@@ -92,6 +94,8 @@ export interface TeacherAttendance {
 	date: Date;
 	status: 'present' | 'late' | 'absent';
 	recordedBy?: string;
+	seq?: number;
+	deletedAt?: Date | null;
 }
 
 export interface PaymentRecords {

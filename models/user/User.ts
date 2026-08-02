@@ -54,6 +54,8 @@ const UserSchema = new Schema<User & Document>(
 		notifications: { type: [NotificationSchema], required: true, default: [] },
 		chats: [ChatSchema],
 		chatSessions: { type: [ChatSessionSchema], required: true, default: [] },
+		seq: { type: Number, default: 0 },
+		deletedAt: { type: Date, default: null },
 	},
 	{
 		discriminatorKey: 'role',

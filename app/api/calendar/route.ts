@@ -4,6 +4,8 @@ import { getTenantModels } from '@/models';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { redis } from '@/lib/redis';
 import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
+import { appendChange, appendChangeIdempotent, findChangeByIdempotencyKey } from '@/lib/syncEngine';
+import { readIdempotencyKey } from '@/utils/idempotency';
 import {
 	getAcademicYearFilterValue,
 	getCurrentAcademicYearFromSchoolProfile,
@@ -193,6 +195,23 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
+		const idempotencyKey = readIdempotencyKey(request);
+		if (idempotencyKey) {
+			const replay = await findChangeByIdempotencyKey({
+				domain: 'calendar',
+				academicYear: String(academicYear || ''),
+				idempotencyKey,
+			});
+			if (replay) {
+				return NextResponse.json({
+					success: true,
+					data: replay.document,
+					seq: replay.seq,
+					replayed: true,
+				});
+			}
+		}
+
 		const models = await getTenantModels();
 		const event = await models.SchoolEvent.create({
 			eventType: 'academic_calendar',
@@ -209,6 +228,17 @@ export async function POST(request: NextRequest) {
 
 		const cacheKey = `school_events:${schoolProfile?.dbName}:academic:${academicYear}`;
 		await redis.del(cacheKey);
+		const logged = await appendChangeIdempotent({
+			domain: 'calendar',
+			academicYear: String(academicYear || ''),
+			op: 'create',
+			documentId: String(event._id),
+			documentType: 'SchoolEvent',
+			document:
+				typeof event.toObject === 'function' ? event.toObject() : event,
+			actorId: currentUser.id,
+			idempotencyKey,
+		});
 		await publishSyncEventSafe({
 			tenantId: resolveTenantSyncKey({
 				schoolProfile,
@@ -218,11 +248,14 @@ export async function POST(request: NextRequest) {
 			academicYear: String(academicYear || ''),
 			actorId: currentUser.id,
 			reason: 'calendar-created',
+			seq: logged.seq,
 		});
 
 		return NextResponse.json({
 			success: true,
 			data: event,
+			seq: logged.seq,
+			replayed: logged.replayed,
 		});
 	} catch (error) {
 		console.error('Failed to create academic calendar event:', error);
@@ -276,6 +309,18 @@ export async function PATCH(request: NextRequest) {
 			getCurrentAcademicYearFromSchoolProfile(schoolProfile);
 		const cacheKey = `school_events:${schoolProfile?.dbName}:academic:${academicYear}`;
 		await redis.del(cacheKey);
+		const logged = await appendChange({
+			domain: 'calendar',
+			academicYear: String(academicYear || ''),
+			op: 'update',
+			documentId: String(payload.id),
+			documentType: 'SchoolEvent',
+			document:
+				updated && typeof updated.toObject === 'function'
+					? updated.toObject()
+					: updated,
+			actorId: currentUser.id,
+		});
 		await publishSyncEventSafe({
 			tenantId: resolveTenantSyncKey({
 				schoolProfile,
@@ -285,9 +330,10 @@ export async function PATCH(request: NextRequest) {
 			academicYear: String(academicYear || ''),
 			actorId: currentUser.id,
 			reason: 'calendar-updated',
+			seq: logged,
 		});
 
-		return NextResponse.json({ success: true, data: updated });
+		return NextResponse.json({ success: true, data: updated, seq: logged });
 	} catch (error) {
 		console.error('Failed to update academic calendar event:', error);
 		return NextResponse.json(
@@ -328,6 +374,15 @@ export async function DELETE(request: NextRequest) {
 			getCurrentAcademicYearFromSchoolProfile(schoolProfile);
 		const cacheKey = `school_events:${schoolProfile?.dbName}:academic:${academicYear}`;
 		await redis.del(cacheKey);
+		const logged = await appendChange({
+			domain: 'calendar',
+			academicYear: String(academicYear || ''),
+			op: 'delete',
+			documentId: String(payload.id),
+			documentType: 'SchoolEvent',
+			document: { id: String(payload.id) },
+			actorId: currentUser.id,
+		});
 		await publishSyncEventSafe({
 			tenantId: resolveTenantSyncKey({
 				schoolProfile,
@@ -337,9 +392,10 @@ export async function DELETE(request: NextRequest) {
 			academicYear: String(academicYear || ''),
 			actorId: currentUser.id,
 			reason: 'calendar-deleted',
+			seq: logged,
 		});
 
-		return NextResponse.json({ success: true });
+		return NextResponse.json({ success: true, seq: logged });
 	} catch (error) {
 		console.error('Failed to delete academic calendar event:', error);
 		return NextResponse.json(

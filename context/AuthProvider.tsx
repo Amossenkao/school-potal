@@ -11,8 +11,11 @@ import { useHasSchool } from '@/context/HasSchoolContext';
 import {
 	getAuthorizedRealtimeChannels,
 	resolveTenantSyncKey,
+	type AuthorizedRealtimeUser,
 	type RealtimeEvent,
 } from '@/lib/realtimeTypes';
+import { tryMarkEventApplied } from '@/lib/tabSync';
+import { isSyncEngineEnabled } from '@/lib/syncFeatureFlag';
 
 const ABLY_SYNC_STREAM_TOKEN_ENDPOINT = '/api/sync/stream-token';
 const SYNC_REFRESH_DEBOUNCE_MS = 60;
@@ -24,6 +27,25 @@ const SECURITY_SYNC_REASONS = new Set([
 	'user-password-reset',
 ]);
 
+const resolveEventDomain = (type: string): string => {
+	if (type === 'GRADE_CREATED' || type === 'GRADE_UPDATED') return 'grades';
+	if (type === 'GRADE_CHANGE_REQUESTED') return 'gradeRequests';
+	if (type === 'ATTENDANCE_CREATED' || type === 'ATTENDANCE_UPDATED')
+		return 'attendance';
+	if (type === 'TEACHER_ATTENDANCE_SAVED') return 'teacher_attendance';
+	if (type === 'EVENT_CREATED' || type === 'EVENT_UPDATED' || type === 'EVENT_DELETED')
+		return 'calendar';
+	if (type.startsWith('SCHEDULE_')) return 'schedules';
+	if (
+		type.startsWith('USER_') ||
+		type.startsWith('STUDENT_') ||
+		type.startsWith('CLASS_')
+	) {
+		return 'users';
+	}
+	return 'school';
+};
+
 export default function AuthProvider({
 	children,
 }: {
@@ -32,6 +54,7 @@ export default function AuthProvider({
 	const bootstrapAuth = useAuth((state) => state.bootstrapAuth);
 	const checkAuthStatus = useAuth((state) => state.checkAuthStatus);
 	const user = useAuth((state) => state.user);
+	const realtimeUser = user as AuthorizedRealtimeUser;
 	const startupResolved = useAuth((state) => state.startupResolved);
 	const isBootstrapping = useAuth((state) => state.isBootstrapping);
 	const isLoggingOut = useAuth((state) => state.isLoggingOut);
@@ -293,79 +316,106 @@ export default function AuthProvider({
 
 		const channels = getAuthorizedRealtimeChannels({
 			tenantId: tenantKey,
-			user: user as any,
+			user: realtimeUser,
 			role: user.role,
 		});
 
 		const handleRealtimeEvent = (event: RealtimeEvent) => {
-			useSchoolStore.getState().applyRealtimeEvent(event);
-			useAuth.getState().applyRealtimeEvent(event);
+			const academicYear = String(
+				event.payload?.academicYear || event.payload?.year || '',
+			).trim();
 
-			const currentUserId = String(user?.id || '').trim();
-			const targetUserIds = Array.isArray(event.payload?.targetUserIds)
-				? event.payload.targetUserIds.map((v) => String(v || '').trim())
-				: [];
-			const eventUserId = String(event.payload?.userId || '').trim();
-			const impactsCurrentUser =
-				currentUserId &&
-				(Boolean(eventUserId && eventUserId === currentUserId) ||
-					targetUserIds.includes(currentUserId));
+			const applyEvent = (evt: RealtimeEvent) => {
+				useSchoolStore.getState().applyRealtimeEvent(evt);
+				useAuth.getState().applyRealtimeEvent(evt);
 
-			if (event.type === 'USER_DISABLED' && impactsCurrentUser) {
-				return;
-			}
+				const currentUserId = String(user?.id || '').trim();
+				const targetUserIds = Array.isArray(evt.payload?.targetUserIds)
+					? evt.payload.targetUserIds.map((v) => String(v || '').trim())
+					: [];
+				const eventUserId = String(evt.payload?.userId || '').trim();
+				const impactsCurrentUser =
+					currentUserId &&
+					(Boolean(eventUserId && eventUserId === currentUserId) ||
+						targetUserIds.includes(currentUserId));
 
-			const academicYear = String(event.payload?.academicYear || '').trim();
-			const reason = String(event.payload?.reason || '').trim();
+				if (evt.type === 'USER_DISABLED' && impactsCurrentUser) {
+					return;
+				}
 
-			if (SECURITY_SYNC_REASONS.has(reason)) {
-				void runAuthRefresh({
+				const reason = String(evt.payload?.reason || '').trim();
+
+				if (SECURITY_SYNC_REASONS.has(reason)) {
+					void runAuthRefresh({
+						force: true,
+						trigger: `ably-security:${evt.type}`,
+						academicYear,
+					});
+					return;
+				}
+
+				const hasPayloadUser = Boolean(
+					evt.payload?.user && typeof evt.payload.user === 'object',
+				);
+				const isUserEvent = [
+					'USER_CREATED',
+					'USER_UPDATED',
+					'USER_DISABLED',
+					'STUDENT_ADDED',
+					'STUDENT_REMOVED',
+					'CLASS_UPDATED',
+				].includes(evt.type);
+
+				if (isUserEvent && hasPayloadUser) {
+					if (impactsCurrentUser) {
+						scheduleRefresh({
+							force: true,
+							trigger: `ably:${evt.type}`,
+							academicYear,
+						});
+					}
+					return;
+				}
+
+				// School-level changes (features toggled, settings, activation) are
+				// already applied to the school store by applyRealtimeEvent above.
+				// Skipping the auth refresh avoids applyBootstrapPayload overwriting
+				// the store with stale API data from getSchoolProfile().
+				if (
+					evt.type === 'SCHOOL_UPDATED' ||
+					evt.type === 'SCHOOL_DELETED'
+				) {
+					return;
+				}
+
+				scheduleRefresh({
 					force: true,
-					trigger: `ably-security:${event.type}`,
+					trigger: `ably:${evt.type}`,
 					academicYear,
+				});
+			};
+
+			// Events produced by the sync engine carry a monotonic seq. Dedupe
+			// them across tabs so the same seq is applied exactly once (§6.5).
+			// Gated behind the sync-engine flag; legacy events always apply.
+			if (
+				typeof event.seq === 'number' &&
+				isSyncEngineEnabled()
+			) {
+				const eventId = `${event.type}:${event.tenantId}:${event.seq}`;
+				void tryMarkEventApplied({
+					eventId,
+					domain: resolveEventDomain(event.type),
+					academicYear: academicYear || 'unknown',
+					seq: event.seq,
+				}).then((alreadyApplied) => {
+					if (alreadyApplied) return;
+					applyEvent(event);
 				});
 				return;
 			}
 
-			const hasPayloadUser = Boolean(
-				event.payload?.user && typeof event.payload.user === 'object',
-			);
-			const isUserEvent = [
-				'USER_CREATED',
-				'USER_UPDATED',
-				'USER_DISABLED',
-				'STUDENT_ADDED',
-				'STUDENT_REMOVED',
-				'CLASS_UPDATED',
-			].includes(event.type);
-
-			if (isUserEvent && hasPayloadUser) {
-				if (impactsCurrentUser) {
-					scheduleRefresh({
-						force: true,
-						trigger: `ably:${event.type}`,
-						academicYear,
-					});
-				}
-				return;
-			}
-
-			// School-level changes (features toggled, settings, activation) are
-			// already applied to the school store by applyRealtimeEvent above.
-			// Skipping the auth refresh avoids applyBootstrapPayload overwriting
-			// the store with stale API data from getSchoolProfile().
-			if (
-				event.type === 'SCHOOL_UPDATED' ||
-				event.type === 'SCHOOL_DELETED'
-			) {
-				return;
-			}
-
-			scheduleRefresh({
-				force: true,
-				trigger: `ably:${event.type}`,
-				academicYear,
-			});
+			applyEvent(event);
 		};
 
 		channels.forEach((channelName) => {
@@ -449,7 +499,11 @@ export default function AuthProvider({
 		user?.id,
 		user?.isActive,
 		user?.role,
-		user,
+		realtimeUser?.classId,
+		realtimeUser?.academicYears,
+		realtimeUser?.subjects,
+		realtimeUser?.sponsorClass,
+		realtimeUser?.parentChildren,
 	]);
 
 	if (!startupResolved || isBootstrapping || isResolvingInitialRoute) {

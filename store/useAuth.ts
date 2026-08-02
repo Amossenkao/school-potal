@@ -532,7 +532,7 @@ const applyBootstrapPayload = (
 
 	if (Array.isArray(data?.payments)) {
 		const currentUser = get().user;
-		if (currentUser) {
+		if (currentUser && !isEqual((currentUser as any)?.payments, data.payments)) {
 			const updated = { ...(currentUser as any), payments: data.payments };
 			set({ user: updated });
 		}
@@ -596,8 +596,11 @@ const applyBootstrapPayload = (
 										String(c.studentId || '') === selectedId ||
 										String(c.username || '') === selectedId,
 								)
-							: true;
-						if (selectedId && !stillSelected) {
+							: parentChildren.length === 0;
+						// After a children change, always keep a valid selection:
+						// auto-select the first available child when the current
+						// selection is empty or points to a child that was removed.
+						if (!stillSelected) {
 							const first = parentChildren[0] as any;
 							updated.studentId =
 								first?.studentId || first?.username || null;
@@ -1139,13 +1142,21 @@ const runDeferredPostLoginBootstrap = (
 							await clearSessionSensitiveStorage();
 							setDashboardStartPath();
 						}
-						if (!isEqual(data.user, get().user)) {
-							set({ user: data.user, isLoggedIn: true });
+						const currentPayments = Array.isArray((get().user as any)?.payments)
+							? (get().user as any).payments
+							: Array.isArray((data.user as any)?.payments)
+								? (data.user as any).payments
+								: null;
+						const storedUser = currentPayments
+							? { ...(data.user as any), payments: currentPayments }
+							: data.user;
+						if (!isEqual(storedUser, get().user)) {
+							set({ user: storedUser, isLoggedIn: true });
 						} else if (!get().isLoggedIn) {
 							set({ isLoggedIn: true });
 						}
 						try {
-							localStorage.setItem('auth-user', JSON.stringify(data.user));
+							localStorage.setItem('auth-user', JSON.stringify(storedUser));
 						} catch (error) {
 							console.warn('Failed to cache auth user:', error);
 						}
@@ -1245,11 +1256,24 @@ const runDeferredPostLoginBootstrap = (
 
 		setUser: (user: User | null) => {
 			const currentUser = get().user;
-			if (!isEqual(currentUser, user)) {
-				set({ user, isLoggedIn: Boolean(user?.isActive) });
+			const nextUser =
+				user && currentUser && user.id === currentUser.id
+					? {
+							...currentUser,
+							...user,
+							// Guard against API responses that omit parent-scoped
+							// fields (buildUserResponse drops them for parents) wiping
+							// the child switcher on a profile/avatar/password update.
+							parentChildren: Array.isArray((user as any)?.parentChildren)
+								? (user as any).parentChildren
+								: (currentUser as any).parentChildren,
+						}
+					: user;
+			if (!isEqual(currentUser, nextUser)) {
+				set({ user: nextUser, isLoggedIn: Boolean(nextUser?.isActive) });
 				try {
-					if (user) {
-						localStorage.setItem('auth-user', JSON.stringify(user));
+					if (nextUser) {
+						localStorage.setItem('auth-user', JSON.stringify(nextUser));
 					} else {
 						localStorage.removeItem('auth-user');
 						set({ userVersion: null });

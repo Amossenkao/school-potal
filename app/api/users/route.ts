@@ -5004,23 +5004,23 @@ export async function PUT(request: NextRequest) {
 			});
 		}
 
+		// Rehydrate the parent's child list so the switcher, scoped APIs, and
+		// session always carry a fresh parentChildren. buildUserResponse() does
+		// not include it, so without this the child switcher disappears from the
+		// parent's UI right after any profile/avatar/password self-update.
+		const isParentTarget = targetUser.role === 'parent';
+		const refreshedParentChildren = isParentTarget
+			? await buildParentChildrenList(models, updatedUser.toObject())
+			: [];
+
 		// Update sessions
 		if (!deactivatedNow) {
-			await updateAllUserSessions(
-				actualTargetUserId,
-				buildUserResponse(updatedUser.toObject()),
-			);
-		}
-
-		// Refresh parent sessions with the latest child list when studentIds changed
-		if (targetUser.role === 'parent' && filteredUserData.studentIds !== undefined) {
-			const refreshedChildren = await buildParentChildrenList(
-				models,
-				updatedUser.toObject(),
-			);
-			await updateAllUserSessions(actualTargetUserId, {
-				parentChildren: refreshedChildren,
-			});
+			const sessionUpdatePayload = buildUserResponse(updatedUser.toObject());
+			if (isParentTarget) {
+				(sessionUpdatePayload as any).parentChildren =
+					refreshedParentChildren;
+			}
+			await updateAllUserSessions(actualTargetUserId, sessionUpdatePayload);
 		}
 
 		const profileUpdated = changedProfileFields.length > 0;
@@ -5078,6 +5078,9 @@ export async function PUT(request: NextRequest) {
 		const realtimeUser = buildRealtimeUserPayload(
 			updatedUser.toObject() as any,
 		);
+		if (isParentTarget) {
+			(realtimeUser as any).parentChildren = refreshedParentChildren;
+		}
 
 		// Scope user update events to the school's own current academic year.
 		// Users without an explicit academicYears list (e.g. parents) would
@@ -5094,6 +5097,9 @@ export async function PUT(request: NextRequest) {
 			userId: String(realtimeUser.id || ''),
 			targetUserIds: [String(realtimeUser.id || '')],
 		};
+		if (isParentTarget) {
+			classTransitionPayload.parentChildren = refreshedParentChildren;
+		}
 		if (studentClassChangeOldClassIds.length > 0) {
 			classTransitionPayload.oldClassIds = studentClassChangeOldClassIds;
 			classTransitionPayload.newClassIds = filteredUserData.classId
@@ -5146,6 +5152,27 @@ export async function PUT(request: NextRequest) {
 		const responseUser = buildUserResponse(
 			refreshedUser || updatedUser.toObject(),
 		);
+		if (isParentTarget) {
+			// Preserve the parent's selected-child identity. buildUserResponse()
+			// drops these for parents, so without this the switcher would not
+			// only lose parentChildren but also the active child's scope.
+			const existingSessions = await getAllUserSessions(actualTargetUserId);
+			const currentSelectedId = String(
+				existingSessions[0]?.studentId || '',
+			).trim();
+			const selectedChild =
+				refreshedParentChildren.find(
+					(c) =>
+						c.studentId === currentSelectedId ||
+						c.username === currentSelectedId,
+				) || refreshedParentChildren[0] || null;
+			Object.assign(responseUser as any, {
+				parentChildren: refreshedParentChildren,
+				...scopedParentSessionFields(selectedChild),
+				studentType:
+					selectedChild?.studentType || (responseUser as any).studentType || 'old',
+			});
+		}
 
 		return NextResponse.json({
 			success: true,

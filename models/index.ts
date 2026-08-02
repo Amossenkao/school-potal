@@ -15,6 +15,8 @@ import SchoolEventSchema from '@/models/events/SchoolEvent';
 import AttendanceSchema from './attendance/Attendance';
 import TeacherAttendanceSchema from './attendance/TeacherAttendance';
 import PaymentSchema from './payment/Payment';
+import ChangeLogSchema from './sync/ChangeLog';
+import SyncSequenceSchema from './sync/SyncSequence';
 
 import type {
 	User,
@@ -99,6 +101,14 @@ export const getTenantModels = async (host?: string | null) => {
 		'Payment',
 		PaymentSchema,
 	);
+	const ChangeLogModel = connection.model<Document>(
+		'ChangeLog',
+		ChangeLogSchema,
+	);
+	const SyncSequenceModel = connection.model<Document>(
+		'SyncSequence',
+		SyncSequenceSchema,
+	);
 	const models = {
 		User,
 		Student: StudentModel,
@@ -114,6 +124,8 @@ export const getTenantModels = async (host?: string | null) => {
 		Attendance: AttendanceModel,
 		TeacherAttendance: TeacherAttendanceModel,
 		Payment: PaymentModel,
+		ChangeLog: ChangeLogModel,
+		SyncSequence: SyncSequenceModel,
 	};
 
 	// --- Store the compiled models in the cache ---

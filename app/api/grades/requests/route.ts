@@ -5,6 +5,9 @@ import { updateUserSessionNotifications } from '@/utils/session';
 import crypto from 'crypto';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
+import { appendChange, appendChangeIdempotent, findChangeByIdempotencyKey } from '@/lib/syncEngine';
+import { assertExpectedSeq, stampRecordSeq } from '@/lib/optimisticConcurrency';
+import { readIdempotencyKey } from '@/utils/idempotency';
 import {
 	getAcademicYearFilterValue,
 	getCurrentAcademicYearFromSchoolProfile,
@@ -379,6 +382,27 @@ export async function POST(request: NextRequest) {
 		}
 		const academicYear = yearAccess.academicYear;
 
+		const idempotencyKey = readIdempotencyKey(request);
+		if (idempotencyKey) {
+			const replay = await findChangeByIdempotencyKey({
+				domain: 'gradeRequests',
+				academicYear: String(academicYear || ''),
+				idempotencyKey,
+			});
+			if (replay) {
+				return NextResponse.json(
+					{
+						success: true,
+						message: 'Grade change request(s) already submitted.',
+						data: { createdRequests: replay.document ?? [] },
+						seq: replay.seq,
+						replayed: true,
+					},
+					{ status: 201 },
+				);
+			}
+		}
+
 		if (!isGradeChangeWindowOpen(schoolProfile, academicYear, period)) {
 			return NextResponse.json(
 				{
@@ -531,7 +555,17 @@ export async function POST(request: NextRequest) {
 			);
 			await Promise.allSettled(notificationPromises);
 		}
+		let gradesSeq = 0;
 		if (updatedGrades.length > 0) {
+			gradesSeq = await appendChange({
+				domain: 'grades',
+				academicYear: String(academicYear || ''),
+				op: 'update',
+				documentId: `${classId}:${period}`,
+				documentType: 'Grade',
+				document: updatedGrades.map((g) => g.toObject()),
+				actorId: teacher.id,
+			});
 			await publishSyncEventSafe({
 				tenantId,
 				domain: 'grades',
@@ -539,16 +573,30 @@ export async function POST(request: NextRequest) {
 				academicYear: String(academicYear || ''),
 				actorId: teacher.id,
 				reason: 'grades-updated-directly',
+				seq: gradesSeq,
 				scope: { classIds: [String(classId)] },
 			});
 		}
+		let requestsSeq = 0;
 		if (createdRequests.length > 0) {
+			const logged = await appendChangeIdempotent({
+				domain: 'gradeRequests',
+				academicYear: String(academicYear || ''),
+				op: 'create',
+				documentId: batchId,
+				documentType: 'GradeChangeRequest',
+				document: createdRequests,
+				actorId: teacher.id,
+				idempotencyKey,
+			});
+			requestsSeq = logged.seq;
 			await publishSyncEventSafe({
 				tenantId,
 				domain: 'gradeRequests',
 				academicYear: String(academicYear || ''),
 				actorId: teacher.id,
 				reason: 'grade-requests-created',
+				seq: requestsSeq,
 				scope: { classIds: [String(classId)] },
 			});
 		}
@@ -561,6 +609,7 @@ export async function POST(request: NextRequest) {
 					createdRequests: result,
 					updatedGrades: updatedGrades.map((g) => g.toObject()),
 				},
+				seq: requestsSeq || gradesSeq || undefined,
 			},
 			{ status: 201 },
 		);
@@ -590,7 +639,8 @@ export async function PATCH(request: NextRequest) {
 
 		const { Grade, GradeChangeRequest, User } = await getTenantModels();
 		const body = await request.json();
-		const { requestIds, status, adminRejectionReason } = body;
+		const { requestIds, status, adminRejectionReason, expectedSeqByRequest } =
+			body;
 
 		if (
 			!Array.isArray(requestIds) ||
@@ -607,6 +657,27 @@ export async function PATCH(request: NextRequest) {
 			const gradeRequest = await GradeChangeRequest.findById(requestId);
 			if (!gradeRequest || gradeRequest.status !== 'Pending') {
 				continue;
+			}
+
+			// Optimistic concurrency (§6.6): reject stale edits when the
+			// client supplied an expectedSeq that no longer matches.
+			const rawExpected = expectedSeqByRequest?.[String(requestId)];
+			const check = assertExpectedSeq({
+				recordSeq: gradeRequest.seq,
+				expectedSeq: rawExpected,
+			});
+			if (!check.ok) {
+				return NextResponse.json(
+					{
+						success: false,
+						conflict: true,
+						requestId,
+						currentSeq: check.currentSeq,
+						message:
+							'This request changed while you were editing. Reload and try again.',
+					},
+					{ status: 409 },
+				);
 			}
 
 			if (status === 'Approved') {
@@ -737,6 +808,58 @@ export async function PATCH(request: NextRequest) {
 				),
 			);
 
+			const gradeRequestsSeqByYear = new Map<string, number>();
+			for (const request of updatedRequests) {
+				const reqYear = String(request?.academicYear || '').trim();
+				if (!reqYear) continue;
+				const logged = await appendChange({
+					domain: 'gradeRequests',
+					academicYear: reqYear,
+					op: 'update',
+					documentId: String(request._id),
+					documentType: 'GradeChangeRequest',
+					document:
+						typeof request.toObject === 'function'
+							? request.toObject()
+							: request,
+					actorId: admin.id,
+				});
+				await stampRecordSeq(
+					GradeChangeRequest,
+					{ _id: request._id },
+					logged,
+				);
+				gradeRequestsSeqByYear.set(
+					reqYear,
+					Math.max(gradeRequestsSeqByYear.get(reqYear) ?? 0, logged),
+				);
+			}
+
+			const gradesSeqByYear = new Map<string, number>();
+			if (status === 'Approved') {
+				for (const request of updatedRequests) {
+					const reqYear = String(request?.academicYear || '').trim();
+					if (!reqYear) continue;
+					const logged = await appendChange({
+						domain: 'grades',
+						academicYear: reqYear,
+						op: 'update',
+						documentId: String(request.originalGradeId),
+						documentType: 'Grade',
+						document: {
+							originalGradeId: request.originalGradeId,
+							grade: request.requestedGrade,
+							status: 'Approved',
+						},
+						actorId: admin.id,
+					});
+					gradesSeqByYear.set(
+						reqYear,
+						Math.max(gradesSeqByYear.get(reqYear) ?? 0, logged),
+					);
+				}
+			}
+
 			await Promise.all(
 				(years.length > 0 ? years : ['']).map((academicYear) =>
 					publishSyncEventSafe({
@@ -745,6 +868,7 @@ export async function PATCH(request: NextRequest) {
 						academicYear: academicYear || null,
 						actorId: admin.id,
 						reason: 'grade-requests-processed',
+						seq: gradeRequestsSeqByYear.get(academicYear),
 						scope: { classIds },
 					}),
 				),
@@ -759,6 +883,7 @@ export async function PATCH(request: NextRequest) {
 							academicYear: academicYear || null,
 							actorId: admin.id,
 							reason: 'grades-approved-via-request',
+							seq: gradesSeqByYear.get(academicYear),
 							scope: { classIds },
 						}),
 					),
@@ -806,6 +931,9 @@ export async function PUT(request: NextRequest) {
 				requestedGrade: number;
 				reasonForChange: string;
 			}[];
+			const expectedSeqByRequest = body.expectedSeqByRequest as
+				| Record<string, number>
+				| undefined;
 
 			if (updates.length === 0) {
 				return NextResponse.json(
@@ -855,6 +983,26 @@ export async function PUT(request: NextRequest) {
 					});
 					continue;
 				}
+
+				// Optimistic concurrency (§6.6)
+				const rawExpected = expectedSeqByRequest?.[String(requestId)];
+				const check = assertExpectedSeq({
+					recordSeq: requestToUpdate.seq,
+					expectedSeq: rawExpected,
+				});
+				if (!check.ok) {
+					return NextResponse.json(
+						{
+							success: false,
+							conflict: true,
+							requestId,
+							currentSeq: check.currentSeq,
+							message:
+								'This request changed while you were editing. Reload and try again.',
+						},
+						{ status: 409 },
+					);
+				}
 				if (
 					!isGradeChangeWindowOpen(
 						schoolProfile,
@@ -895,12 +1043,37 @@ export async function PUT(request: NextRequest) {
 			}
 
 			if (classIds.size > 0) {
+				const successfulRequestIds = results
+					.filter((r) => r.success)
+					.map((r) => r.requestId);
+				const updateSeq =
+					successfulRequestIds.length > 0
+						? await appendChange({
+								domain: 'gradeRequests',
+								academicYear:
+									academicYear ||
+									getCurrentAcademicYearFromSchoolProfile(schoolProfile),
+								op: 'update',
+								documentId: `${successfulRequestIds[0]}:${successfulRequestIds.length}`,
+								documentType: 'GradeChangeRequest',
+								document: { requestIds: successfulRequestIds },
+								actorId: teacher.id,
+							})
+						: 0;
+				if (successfulRequestIds.length > 0 && updateSeq > 0) {
+					await Promise.allSettled(
+						successfulRequestIds.map((requestId) =>
+							stampRecordSeq(GradeChangeRequest, { _id: requestId }, updateSeq),
+						),
+					);
+				}
 				await publishSyncEventSafe({
 					tenantId,
 					domain: 'gradeRequests',
 					academicYear: academicYear || getCurrentAcademicYearFromSchoolProfile(schoolProfile),
 					actorId: teacher.id,
 					reason: 'grade-request-updated',
+					seq: updateSeq,
 					scope: { classIds: Array.from(classIds) },
 				});
 			}
@@ -916,7 +1089,7 @@ export async function PUT(request: NextRequest) {
 		}
 
 		// --- Single mode: { requestId, requestedGrade, reasonForChange } ---
-		const { requestId, requestedGrade, reasonForChange } = body;
+		const { requestId, requestedGrade, reasonForChange, expectedSeq } = body;
 
 		if (!requestId || requestedGrade === undefined || !reasonForChange) {
 			return NextResponse.json({ message: 'Invalid payload' }, { status: 400 });
@@ -939,6 +1112,25 @@ export async function PUT(request: NextRequest) {
 			return NextResponse.json(
 				{ message: 'Cannot edit a request that is not pending' },
 				{ status: 400 },
+			);
+		}
+
+		// Optimistic concurrency (§6.6)
+		const check = assertExpectedSeq({
+			recordSeq: requestToUpdate.seq,
+			expectedSeq,
+		});
+		if (!check.ok) {
+			return NextResponse.json(
+				{
+					success: false,
+					conflict: true,
+					requestId,
+					currentSeq: check.currentSeq,
+					message:
+						'This request changed while you were editing. Reload and try again.',
+				},
+				{ status: 409 },
 			);
 		}
 
@@ -982,12 +1174,27 @@ export async function PUT(request: NextRequest) {
 				{ status: 500 },
 			);
 		}
+		const updateSeq = await appendChange({
+			domain: 'gradeRequests',
+			academicYear: String(updatedRequest.academicYear || ''),
+			op: 'update',
+			documentId: String(updatedRequest._id),
+			documentType: 'GradeChangeRequest',
+			document:
+				typeof updatedRequest.toObject === 'function'
+					? updatedRequest.toObject()
+					: updatedRequest,
+			actorId: teacher.id,
+		});
+		await stampRecordSeq(GradeChangeRequest, { _id: requestId }, updateSeq);
+		(updatedRequest as any).seq = updateSeq;
 		await publishSyncEventSafe({
 			tenantId,
 			domain: 'gradeRequests',
 			academicYear: String(updatedRequest.academicYear || ''),
 			actorId: teacher.id,
 			reason: 'grade-request-updated',
+			seq: updateSeq,
 			scope: {
 				classIds: [String(updatedRequest.classId || '')].filter(Boolean),
 			},
@@ -997,6 +1204,7 @@ export async function PUT(request: NextRequest) {
 			success: true,
 			message: 'Request updated successfully.',
 			data: updatedRequest,
+			seq: updateSeq,
 		});
 	} catch (error: any) {
 		console.error('Error updating grade change request:', error);
@@ -1098,6 +1306,23 @@ export async function DELETE(request: NextRequest) {
 			}
 
 			if (classIds.size > 0) {
+				const successfulRequestIds = results
+					.filter((r) => r.success)
+					.map((r) => r.requestId);
+				const deleteSeq =
+					successfulRequestIds.length > 0
+						? await appendChange({
+								domain: 'gradeRequests',
+								academicYear:
+									academicYear ||
+									getCurrentAcademicYearFromSchoolProfile(schoolProfile),
+								op: 'delete',
+								documentId: `${successfulRequestIds[0]}:${successfulRequestIds.length}`,
+								documentType: 'GradeChangeRequest',
+								document: { requestIds: successfulRequestIds },
+								actorId: teacher.id,
+							})
+						: 0;
 				await publishSyncEventSafe({
 					tenantId,
 					domain: 'gradeRequests',
@@ -1106,6 +1331,7 @@ export async function DELETE(request: NextRequest) {
 						getCurrentAcademicYearFromSchoolProfile(schoolProfile),
 					actorId: teacher.id,
 					reason: 'grade-request-withdrawn',
+					seq: deleteSeq,
 					scope: { classIds: Array.from(classIds) },
 				});
 			}
@@ -1170,6 +1396,17 @@ export async function DELETE(request: NextRequest) {
 
 		const deletedRequest =
 			await GradeChangeRequest.findByIdAndDelete(requestId);
+		const deleteSeq = await appendChange({
+			domain: 'gradeRequests',
+			academicYear: String(
+				deletedRequest?.academicYear || requestToDelete.academicYear || '',
+			),
+			op: 'delete',
+			documentId: requestId,
+			documentType: 'GradeChangeRequest',
+			document: { requestId },
+			actorId: teacher.id,
+		});
 		await publishSyncEventSafe({
 			tenantId,
 			domain: 'gradeRequests',
@@ -1178,6 +1415,7 @@ export async function DELETE(request: NextRequest) {
 			),
 			actorId: teacher.id,
 			reason: 'grade-request-withdrawn',
+			seq: deleteSeq,
 			scope: {
 				classIds: [
 					String(deletedRequest?.classId || requestToDelete.classId || ''),
@@ -1188,6 +1426,7 @@ export async function DELETE(request: NextRequest) {
 		return NextResponse.json({
 			success: true,
 			message: 'Request withdrawn successfully.',
+			seq: deleteSeq,
 		});
 	} catch (error) {
 		console.error('Error withdrawing grade change request:', error);

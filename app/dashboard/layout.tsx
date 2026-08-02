@@ -55,8 +55,8 @@ export default function AdminLayout({
 		if (!('serviceWorker' in navigator)) return;
 		if (!navigator.serviceWorker.controller) return;
 		navigator.serviceWorker.controller.postMessage({
-			type: 'cache-dashboard-shell',
-			path: pathname,
+			type: 'cache-app-shell',
+			path: '/dashboard',
 		});
 	}, [isOnline, pathname]);
 

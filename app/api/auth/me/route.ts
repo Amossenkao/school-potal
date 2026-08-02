@@ -6,10 +6,41 @@ import { getSchoolMeshModels } from '@/models/schoolmesh';
 import { buildBootstrapPayload, buildSuperAdminBootstrapPayload, getDomainVersions } from '@/lib/bootstrap';
 import { resolveAcademicYearAccessContext } from '@/utils/academicYearAccess';
 import { syncDebugError, syncDebugLog, syncDebugWarn } from '@/lib/syncDebug';
+import { toHash, toSchoolVersion } from '@/utils/syncVersion';
+import { getDomainSeq } from '@/lib/syncEngine';
+import { isSyncEngineEnabled } from '@/lib/syncFeatureFlag';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const CLIENT_SESSION_PRESENT_COOKIE = 'session-present';
+
+// Phase 5 seq-cursor negotiation: current ChangeLog seq per sync domain for
+// the resolved academic year, so the client can decide whether to resync.
+const SYNC_CURSOR_DOMAINS = [
+	'users',
+	'grades',
+	'attendance',
+	'teacher_attendance',
+	'calendar',
+	'schedules',
+	'gradeRequests',
+];
+
+const getSyncCursors = async (academicYear: string) => {
+	const results = await Promise.allSettled(
+		SYNC_CURSOR_DOMAINS.map(async (domain) => ({
+			domain,
+			seq: await getDomainSeq(domain, academicYear),
+		})),
+	);
+	const cursors: Record<string, number> = {};
+	results.forEach((result) => {
+		if (result.status === 'fulfilled' && result.value.seq > 0) {
+			cursors[result.value.domain] = result.value.seq;
+		}
+	});
+	return cursors;
+};
 
 const clearSessionCookies = (response: NextResponse) => {
 	response.cookies.set('sessionId', '', {
@@ -26,29 +57,6 @@ const clearSessionCookies = (response: NextResponse) => {
 		expires: new Date(0),
 		path: '/',
 	});
-};
-
-const toHash = (value: unknown) => {
-	try {
-		const raw = JSON.stringify(value) || '';
-		let hash = 0;
-		for (let i = 0; i < raw.length; i += 1) {
-			hash = (hash * 31 + raw.charCodeAt(i)) >>> 0;
-		}
-		return String(hash);
-	} catch {
-		return '0';
-	}
-};
-
-const toSchoolVersion = (schoolProfile: any) => {
-	if (!schoolProfile) return '0';
-	const updatedAt = schoolProfile?.updatedAt
-		? new Date(schoolProfile.updatedAt).getTime()
-		: 0;
-	const id = schoolProfile?._id?.toString?.() || '';
-	if (updatedAt || id) return `${updatedAt}:${id}`;
-	return toHash(schoolProfile);
 };
 
 // ─── GET /api/auth/me ────────────────────────────────────────────────────────
@@ -300,6 +308,12 @@ export async function GET(request: NextRequest) {
 
 		const academicYear = yearAccess.academicYear;
 
+		// ── Phase 5: seq-cursor negotiation (flag-gated) ─────────────────────
+		const syncCursors =
+			isSyncEngineEnabled() && academicYear
+				? await getSyncCursors(academicYear)
+				: undefined;
+
 		// ── Compute server-side versions for all domains ─────────────────────
 		const versions = await getDomainVersions(resolvedSessionUser, academicYear);
 		const userVersion = toHash(userPayload);
@@ -383,6 +397,7 @@ export async function GET(request: NextRequest) {
 			message: 'Session valid',
 			...(includeUser ? { user: userPayload } : {}),
 			...(bootstrapPayload || {}),
+			...(syncCursors ? { syncCursors } : {}),
 			...(!bootstrapPayload
 				? {
 						academicYear,

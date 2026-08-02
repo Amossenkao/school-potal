@@ -20,6 +20,8 @@ const PaymentSchema = new Schema(
 			enum: ['success', 'pending', 'failed'],
 			default: 'success',
 		},
+		seq: { type: Number, default: 0 },
+		deletedAt: { type: Date, default: null },
 	},
 	{
 		timestamps: true,

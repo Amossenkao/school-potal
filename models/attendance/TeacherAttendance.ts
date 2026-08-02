@@ -7,6 +7,8 @@ const TeacherAttendanceSchema = new Schema<TeacherAttendance & Document>({
 	date: { type: Date, required: true },
 	status: { type: String, enum: ['present', 'late', 'absent'], required: true },
 	recordedBy: { type: String, required: false },
+	seq: { type: Number, default: 0 },
+	deletedAt: { type: Date, default: null },
 });
 
 TeacherAttendanceSchema.index(

@@ -5,6 +5,8 @@ import { authorizeUser } from '@/proxy';
 import { normalizeHost } from '@/utils/host';
 import type { Teacher } from '@/types';
 import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
+import { appendChange, appendChangeIdempotent, findChangeByIdempotencyKey } from '@/lib/syncEngine';
+import { readIdempotencyKey } from '@/utils/idempotency';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -203,6 +205,26 @@ export async function POST(request: NextRequest) {
 
 		const endOfDay = new Date(recordDate.getTime() + 24 * 60 * 60 * 1000);
 
+		const idempotencyKey = readIdempotencyKey(request);
+		if (idempotencyKey) {
+			const replay = await findChangeByIdempotencyKey({
+				domain: 'teacher_attendance',
+				academicYear,
+				idempotencyKey,
+			});
+			if (replay) {
+				return NextResponse.json(
+					{
+						success: true,
+						data: replay.document ?? [],
+						seq: replay.seq,
+						replayed: true,
+					},
+					{ status: 200 },
+				);
+			}
+		}
+
 		const bulkOps = records.map(
 			(rec: { teacherId: string; status: 'present' | 'late' | 'absent' }) => ({
 				updateOne: {
@@ -236,24 +258,38 @@ export async function POST(request: NextRequest) {
 			),
 		];
 
+		const payloadRecords = records.map(
+			(rec: { teacherId: string; status: 'present' | 'late' | 'absent' }) => ({
+				academicYear,
+				teacherId: rec.teacherId,
+				date: recordDate,
+				status: rec.status,
+				recordedBy: currentUser.id,
+			}),
+		);
+
+		const logged = await appendChangeIdempotent({
+			domain: 'teacher_attendance',
+			academicYear,
+			op: 'update',
+			documentId: `${academicYear}:${dateStr}`,
+			documentType: 'TeacherAttendance',
+			document: payloadRecords,
+			actorId: currentUser.id,
+			idempotencyKey,
+		});
+
 		await publishSyncEventSafe({
 			tenantId: cleanHost,
 			domain: 'teacher_attendance',
 			academicYear,
 			actorId: currentUser.id,
 			reason: 'teacher-attendance-saved',
+			seq: logged.seq,
 			targetUserIds: affectedTeacherIds,
 			payload: {
 				academicYear,
-				teacherAttendance: records.map(
-					(rec: { teacherId: string; status: 'present' | 'late' | 'absent' }) => ({
-						academicYear,
-						teacherId: rec.teacherId,
-						date: recordDate,
-						status: rec.status,
-						recordedBy: currentUser.id,
-					}),
-				),
+				teacherAttendance: payloadRecords,
 			},
 		});
 
@@ -265,6 +301,8 @@ export async function POST(request: NextRequest) {
 					modifiedCount: result.modifiedCount,
 					upsertedCount: result.upsertedCount,
 				},
+				seq: logged.seq,
+				replayed: logged.replayed,
 			},
 			{ status: 200 },
 		);
@@ -376,6 +414,20 @@ export async function DELETE(request: NextRequest) {
 		] as string[];
 
 		const result = await TeacherAttendance.deleteMany(filter);
+
+		await appendChange({
+			domain: 'teacher_attendance',
+			academicYear,
+			op: 'delete',
+			documentId: `${academicYear}:${teacherId ?? 'all'}:${dateStr ?? 'all'}`,
+			documentType: 'TeacherAttendance',
+			document: {
+				academicYear,
+				teacherId,
+				date: dateStr,
+			},
+			actorId: currentUser.id,
+		});
 
 		await publishSyncEventSafe({
 			tenantId: cleanHost,

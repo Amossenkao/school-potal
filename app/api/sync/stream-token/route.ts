@@ -105,6 +105,12 @@ const noStoreJson = (payload: Record<string, unknown>, status = 200) =>
 					classId: currentUser.classId ?? undefined,
 					academicYears: currentUser.academicYears ?? undefined,
 					position: currentUser.position ?? undefined,
+					// Parents subscribe to each child's class + user channels, so the
+					// token capability must include them. Session payloads carry the
+					// hydrated parentChildren (see app/api/auth/me/route.ts).
+					parentChildren: Array.isArray(currentUser.parentChildren)
+						? currentUser.parentChildren
+						: undefined,
 				},
 				role: currentUser.role,
 				clientId: userId,

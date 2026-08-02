@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v10';
+const CACHE_VERSION = 'v11';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
 const API_CACHE = `api-${CACHE_VERSION}`;
@@ -8,7 +8,8 @@ const STATIC_ASSETS = [
 	'/offline',
 	'/login',
 	'/manifest.webmanifest',
-	'/fonts/GreatVibes-Regular.ttf', // add this line
+	'/fonts/GreatVibes-Regular.ttf',
+	'/theme-restore.js',
 ];
 const API_ALLOWLIST = [
 	'/api/users',
@@ -26,6 +27,9 @@ const DB_NAME = 'pwa-queue';
 const DB_STORE = 'grade-submissions';
 const MUTATION_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 const AUTH_LOGIN_PATH = '/api/auth/login';
+const MAX_QUEUE_ATTEMPTS = 5;
+const QUEUE_BACKOFF_BASE_MS = 30 * 1000;
+const QUEUE_BACKOFF_CAP_MS = 30 * 60 * 1000;
 
 const openQueueDb = () =>
 	new Promise((resolve, reject) => {
@@ -57,16 +61,25 @@ const queueMutationRequest = async (request) => {
 	cloned.headers.forEach((value, key) => {
 		headers[key] = value;
 	});
+	if (!headers['x-idempotency-key'] && !headers['x-offline-sync-id']) {
+		headers['x-offline-sync-id'] = `${Date.now()}-${Math.random()
+			.toString(36)
+			.slice(2)}`;
+	}
+	const idempotencyKey = headers['x-idempotency-key'] || headers['x-offline-sync-id'];
 	const entry = {
-		id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		id: idempotencyKey,
 		url: request.url,
 		method: request.method,
 		headers,
 		body,
 		timestamp: Date.now(),
+		attemptCount: 0,
+		lastAttemptAt: 0,
+		dead: false,
 	};
 	await enqueueRequest(entry);
-	return new Response(JSON.stringify({ queued: true }), {
+	return new Response(JSON.stringify({ queued: true, queueId: entry.id }), {
 		status: 202,
 		headers: { 'Content-Type': 'application/json' },
 	});
@@ -102,6 +115,43 @@ const clearQueue = async () => {
 	});
 };
 
+const updateQueueEntry = async (id, patch) => {
+	const db = await openQueueDb();
+	return new Promise((resolve, reject) => {
+		const tx = db.transaction(DB_STORE, 'readwrite');
+		const store = tx.objectStore(DB_STORE);
+		const getRequest = store.get(id);
+		getRequest.onsuccess = () => {
+			const entry = getRequest.result;
+			if (!entry) {
+				resolve();
+				return;
+			}
+			store.put({ ...entry, ...patch });
+		};
+		tx.oncomplete = () => resolve();
+		tx.onerror = () => reject(tx.error);
+	});
+};
+
+const recordQueueAttempt = (id, attemptCount) =>
+	updateQueueEntry(id, { attemptCount, lastAttemptAt: Date.now() });
+
+const markQueueDead = (id, reason) =>
+	updateQueueEntry(id, {
+		dead: true,
+		deadReason: String(reason || 'unknown'),
+		lastAttemptAt: Date.now(),
+	});
+
+const getQueueBackoffMs = (entry) => {
+	const attempts = entry?.attemptCount || 0;
+	return Math.min(
+		QUEUE_BACKOFF_BASE_MS * Math.pow(2, attempts),
+		QUEUE_BACKOFF_CAP_MS,
+	);
+};
+
 const clearSessionCaches = async () => {
 	await Promise.all([
 		caches.delete(API_CACHE),
@@ -124,7 +174,18 @@ const clearAllCachesAndQueues = async () => {
 const flushQueue = async () => {
 	const entries = await readQueue();
 	let flushedCount = 0;
+	let deadCount = 0;
+	const now = Date.now();
 	for (const entry of entries) {
+		if (entry.dead) {
+			deadCount++;
+			continue;
+		}
+		const attempts = entry.attemptCount || 0;
+		const lastAttemptAt = entry.lastAttemptAt || 0;
+		if (lastAttemptAt && now - lastAttemptAt < getQueueBackoffMs(entry)) {
+			continue;
+		}
 		try {
 			const res = await fetch(entry.url, {
 				method: entry.method,
@@ -135,12 +196,35 @@ const flushQueue = async () => {
 			if (res.ok) {
 				await clearQueueItem(entry.id);
 				flushedCount++;
+			} else if (
+				res.status >= 400 &&
+				res.status < 500 &&
+				res.status !== 408 &&
+				res.status !== 429
+			) {
+				await markQueueDead(entry.id, `http-${res.status}`);
+				deadCount++;
+			} else {
+				const nextAttempts = attempts + 1;
+				if (nextAttempts >= MAX_QUEUE_ATTEMPTS) {
+					await markQueueDead(entry.id, `http-${res.status}`);
+					deadCount++;
+				} else {
+					await recordQueueAttempt(entry.id, nextAttempts);
+				}
 			}
 		} catch (error) {
 			console.warn('Queue replay failed:', error);
+			const nextAttempts = attempts + 1;
+			if (nextAttempts >= MAX_QUEUE_ATTEMPTS) {
+				await markQueueDead(entry.id, 'network');
+				deadCount++;
+			} else {
+				await recordQueueAttempt(entry.id, nextAttempts);
+			}
 		}
 	}
-	return flushedCount;
+	return { flushedCount, deadCount };
 };
 
 self.addEventListener('install', (event) => {
@@ -222,10 +306,14 @@ self.addEventListener('message', (event) => {
 	if (event?.data?.type === 'flush-grade-queue') {
 		event.waitUntil(
 			(async () => {
-				const flushedCount = await flushQueue();
+				const result = await flushQueue();
 				const client = event.source;
 				if (client) {
-					client.postMessage({ type: 'flush-grade-queue-result', flushedCount });
+					client.postMessage({
+						type: 'flush-grade-queue-result',
+						flushedCount: result.flushedCount,
+						deadCount: result.deadCount,
+					});
 				}
 			})(),
 		);
@@ -988,7 +1076,16 @@ self.addEventListener('fetch', (event) => {
 				} catch (error) {
 					const cached = await cache.match(request);
 					if (cached) return cached;
-					throw error;
+					// No cache and offline — return a synthetic 503 instead of
+					// rejecting so callers degrade via res.ok checks (school
+					// profile, notifications, etc.) without a console fetch failure.
+					return new Response(
+						JSON.stringify({ error: 'offline', message: 'Network unavailable' }),
+						{
+							status: 503,
+							headers: { 'Content-Type': 'application/json' },
+						},
+					);
 				}
 			}),
 		);

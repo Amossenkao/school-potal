@@ -4,6 +4,8 @@ import { getTenantModels } from '@/models';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { redis } from '@/lib/redis';
 import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
+import { appendChange, appendChangeIdempotent, findChangeByIdempotencyKey } from '@/lib/syncEngine';
+import { readIdempotencyKey } from '@/utils/idempotency';
 import {
 	getAcademicYearFilterValue,
 	getCurrentAcademicYearFromSchoolProfile,
@@ -380,6 +382,23 @@ export async function POST(request: NextRequest) {
 
 		const models = await getTenantModels();
 
+		const idempotencyKey = readIdempotencyKey(request);
+		if (idempotencyKey) {
+			const replay = await findChangeByIdempotencyKey({
+				domain: 'schedules',
+				academicYear: String(academicYear || ''),
+				idempotencyKey,
+			});
+			if (replay) {
+				return NextResponse.json({
+					success: true,
+					data: replay.document,
+					seq: replay.seq,
+					replayed: true,
+				});
+			}
+		}
+
 		const basePayload = {
 			eventType,
 			title: payload.title || payload.subject,
@@ -446,8 +465,19 @@ export async function POST(request: NextRequest) {
 		await redis.del(
 			`school_events:${schoolProfile?.dbName}:${eventType}:${academicYear}:all:all`
 		);
+		const logged = await appendChangeIdempotent({
+			domain: 'schedules',
+			academicYear: String(academicYear || ''),
+			op: 'create',
+			documentId: String(event._id),
+			documentType: 'SchoolEvent',
+			document:
+				typeof event.toObject === 'function' ? event.toObject() : event,
+			actorId: currentUser.id,
+			idempotencyKey,
+		});
 		await publishSyncEventSafe({
-			tenantKey: resolveTenantSyncKey({
+			tenantId: resolveTenantSyncKey({
 				schoolProfile,
 				host: request.headers.get('host'),
 			}),
@@ -455,6 +485,7 @@ export async function POST(request: NextRequest) {
 			academicYear: String(academicYear || ''),
 			actorId: currentUser.id,
 			reason: 'schedule-created',
+			seq: logged.seq,
 			scope: {
 				classIds: payload.classId ? [String(payload.classId)] : [],
 			},
@@ -463,6 +494,8 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({
 			success: true,
 			data: event,
+			seq: logged.seq,
+			replayed: logged.replayed,
 		});
 	} catch (error) {
 		console.error('Failed to create schedule:', error);
@@ -590,8 +623,20 @@ export async function POST(request: NextRequest) {
 		await redis.del(
 			`school_events:${schoolProfile?.dbName}:${eventType}:${academicYear}:all:all`
 		);
+		const logged = await appendChange({
+			domain: 'schedules',
+			academicYear: String(academicYear || ''),
+			op: 'update',
+			documentId: String(payload.id),
+			documentType: 'SchoolEvent',
+			document:
+				updated && typeof updated.toObject === 'function'
+					? updated.toObject()
+					: updated,
+			actorId: currentUser.id,
+		});
 		await publishSyncEventSafe({
-			tenantKey: resolveTenantSyncKey({
+			tenantId: resolveTenantSyncKey({
 				schoolProfile,
 				host: request.headers.get('host'),
 			}),
@@ -599,6 +644,7 @@ export async function POST(request: NextRequest) {
 			academicYear: String(academicYear || ''),
 			actorId: currentUser.id,
 			reason: 'schedule-updated',
+			seq: logged,
 			scope: {
 				classIds: (updated?.classId || payload.classId)
 					? [String(updated?.classId || payload.classId)]
@@ -609,6 +655,7 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({
 			success: true,
 			data: updated,
+			seq: logged,
 		});
 	} catch (error) {
 		console.error('Failed to update schedule:', error);
@@ -661,8 +708,17 @@ export async function DELETE(request: NextRequest) {
 		await redis.del(
 			`school_events:${schoolProfile?.dbName}:${eventType}:${academicYear}:all:all`
 		);
+		const logged = await appendChange({
+			domain: 'schedules',
+			academicYear: String(academicYear || ''),
+			op: 'delete',
+			documentId: String(payload.id),
+			documentType: 'SchoolEvent',
+			document: { id: String(payload.id) },
+			actorId: currentUser.id,
+		});
 		await publishSyncEventSafe({
-			tenantKey: resolveTenantSyncKey({
+			tenantId: resolveTenantSyncKey({
 				schoolProfile,
 				host: request.headers.get('host'),
 			}),
@@ -670,6 +726,7 @@ export async function DELETE(request: NextRequest) {
 			academicYear: String(academicYear || ''),
 			actorId: currentUser.id,
 			reason: 'schedule-deleted',
+			seq: logged,
 			scope: {
 				classIds: (deleted?.classId || payload.classId)
 					? [String(deleted?.classId || payload.classId)]
@@ -677,7 +734,7 @@ export async function DELETE(request: NextRequest) {
 			},
 		});
 
-		return NextResponse.json({ success: true, deletedCount });
+		return NextResponse.json({ success: true, deletedCount, seq: logged });
 	} catch (error) {
 		console.error('Failed to delete schedule:', error);
 		return NextResponse.json(

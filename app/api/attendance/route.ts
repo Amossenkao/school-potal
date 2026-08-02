@@ -7,6 +7,7 @@ import { authorizeUser } from '@/proxy';
 import { normalizeHost } from '@/utils/host';
 import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
 import { getSchoolProfile } from '@/lib/mongoose';
+import { appendChange } from '@/lib/syncEngine';
 import type { Student, Teacher } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -380,21 +381,17 @@ export async function POST(request: NextRequest) {
 				recordedBy: currentUser.id,
 			});
 
-			await publishSyncEventSafe({
+			const changeSeq = await publishAttendanceChange({
 				tenantId,
-				domain: 'attendance',
 				academicYear,
+				classId: bodyClassId,
 				actorId: currentUser.id,
 				reason: 'attendance-recorded',
-				payload: {
-					academicYear,
-					classId: bodyClassId,
-					attendance: [record],
-				},
+				record,
 			});
 
 			return NextResponse.json(
-				{ success: true, data: record },
+				{ success: true, data: record, seq: changeSeq },
 				{ status: 200 },
 			);
 		}
@@ -425,21 +422,17 @@ export async function POST(request: NextRequest) {
 			// Without it, ATTENDANCE_CREATED/UPDATED only reaches the school
 			// channel (admins) since attendance records have no single
 			// targetUserId the way a USER_UPDATED event does.
-			await publishSyncEventSafe({
+			const changeSeq = await publishAttendanceChange({
 				tenantId,
-				domain: 'attendance',
 				academicYear,
+				classId: bodyClassId,
 				actorId: currentUser.id,
 				reason: 'attendance-recorded',
-				payload: {
-					academicYear,
-					classId: bodyClassId,
-					attendance: [record],
-				},
+				record,
 			});
 
 			return NextResponse.json(
-				{ success: true, data: record },
+				{ success: true, data: record, seq: changeSeq },
 				{ status: 200 },
 			);
 		}
@@ -492,21 +485,17 @@ export async function POST(request: NextRequest) {
 				recordedBy: currentUser.id,
 			});
 
-			await publishSyncEventSafe({
+			const changeSeq = await publishAttendanceChange({
 				tenantId,
-				domain: 'attendance',
 				academicYear,
+				classId: bodyClassId,
 				actorId: currentUser.id,
 				reason: 'attendance-recorded',
-				payload: {
-					academicYear,
-					classId: bodyClassId,
-					attendance: [record],
-				},
+				record,
 			});
 
 			return NextResponse.json(
-				{ success: true, data: record },
+				{ success: true, data: record, seq: changeSeq },
 				{ status: 200 },
 			);
 		}
@@ -574,21 +563,17 @@ export async function POST(request: NextRequest) {
 				recordedBy: currentUser.id,
 			});
 
-			await publishSyncEventSafe({
+			const changeSeq = await publishAttendanceChange({
 				tenantId,
-				domain: 'attendance',
 				academicYear,
+				classId: studentClassId,
 				actorId: currentUser.id,
 				reason: 'attendance-recorded',
-				payload: {
-					academicYear,
-					classId: studentClassId,
-					attendance: [record],
-				},
+				record,
 			});
 
 			return NextResponse.json(
-				{ success: true, data: record },
+				{ success: true, data: record, seq: changeSeq },
 				{ status: 200 },
 			);
 		}
@@ -715,20 +700,16 @@ export async function PATCH(request: NextRequest) {
 				);
 			}
 
-			await publishSyncEventSafe({
+			const changeSeq = await publishAttendanceChange({
 				tenantId,
-				domain: 'attendance',
 				academicYear,
+				classId: bodyClassId,
 				actorId: currentUser.id,
 				reason: 'attendance-updated',
-				payload: {
-					academicYear,
-					classId: bodyClassId,
-					attendance: [record],
-				},
+				record,
 			});
 
-			return NextResponse.json({ success: true, data: record });
+			return NextResponse.json({ success: true, data: record, seq: changeSeq });
 		}
 
 		// ── teacher ───────────────────────────────────────────────────────────
@@ -792,20 +773,16 @@ export async function PATCH(request: NextRequest) {
 				);
 			}
 
-			await publishSyncEventSafe({
+			const changeSeq = await publishAttendanceChange({
 				tenantId,
-				domain: 'attendance',
 				academicYear,
+				classId: bodyClassId,
 				actorId: currentUser.id,
 				reason: 'attendance-updated',
-				payload: {
-					academicYear,
-					classId: bodyClassId,
-					attendance: [record],
-				},
+				record,
 			});
 
-			return NextResponse.json({ success: true, data: record });
+			return NextResponse.json({ success: true, data: record, seq: changeSeq });
 		}
 
 		// ── student ───────────────────────────────────────────────────────────
@@ -874,20 +851,16 @@ export async function PATCH(request: NextRequest) {
 				);
 			}
 
-			await publishSyncEventSafe({
+			const changeSeq = await publishAttendanceChange({
 				tenantId,
-				domain: 'attendance',
 				academicYear,
+				classId: studentClassId,
 				actorId: currentUser.id,
 				reason: 'attendance-updated',
-				payload: {
-					academicYear,
-					classId: studentClassId,
-					attendance: [record],
-				},
+				record,
 			});
 
-			return NextResponse.json({ success: true, data: record });
+			return NextResponse.json({ success: true, data: record, seq: changeSeq });
 		}
 
 		return NextResponse.json(
@@ -991,12 +964,13 @@ export async function DELETE(request: NextRequest) {
 			host: cleanHost,
 		});
 
-		await publishSyncEventSafe({
+		await publishAttendanceChange({
 			tenantId,
-			domain: 'attendance',
 			academicYear,
+			classId,
 			actorId: currentUser.id,
 			reason: 'attendance-deleted',
+			deleted: true,
 		});
 
 		return NextResponse.json({
@@ -1029,6 +1003,49 @@ interface AttendancePayload {
 	presentStudentIds: string[];
 	absentStudentIds: string[];
 	recordedBy: string;
+}
+
+/**
+ * Logs an attendance change to the ChangeLog and publishes the realtime event
+ * carrying the same seq, so observers can order/apply it and deltas can heal
+ * dropped events.
+ */
+async function publishAttendanceChange(params: {
+	tenantId: string;
+	academicYear: string;
+	classId: string;
+	actorId: string;
+	reason: string;
+	record?: any;
+	deleted?: boolean;
+}) {
+	const seq = await appendChange({
+		domain: 'attendance',
+		academicYear: params.academicYear,
+		op: params.deleted ? 'delete' : 'update',
+		documentId: `${params.classId}:${params.academicYear}`,
+		documentType: 'Attendance',
+		document: params.deleted
+			? { classId: params.classId }
+			: params.record ?? null,
+		actorId: params.actorId,
+	});
+
+	await publishSyncEventSafe({
+		tenantId: params.tenantId,
+		domain: 'attendance',
+		academicYear: params.academicYear,
+		actorId: params.actorId,
+		reason: params.reason,
+		seq,
+		payload: {
+			academicYear: params.academicYear,
+			classId: params.classId,
+			attendance: params.record ? [params.record] : [],
+		},
+	});
+
+	return seq;
 }
 
 /**

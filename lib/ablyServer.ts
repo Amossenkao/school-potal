@@ -56,6 +56,7 @@ export const publishRealtimeEvent = async (params: {
 	actorId?: string | null;
 	scope?: RealtimeScope;
 	targetUserIds?: string[];
+	seq?: number;
 }) => {
 	const tenantId = resolveTenantSyncKey({ tenantId: params.tenantId });
 	if (!tenantId) return;
@@ -70,6 +71,7 @@ export const publishRealtimeEvent = async (params: {
 		actorId: params.actorId,
 		scope: params.scope,
 		targetUserIds: params.targetUserIds,
+		seq: params.seq,
 	});
 	const channels = resolvePublishChannels(event);
 	const rest = getAblyRestClient();
@@ -98,6 +100,7 @@ export const publishRealtimeEventSafe = async (params: {
 	actorId?: string | null;
 	scope?: RealtimeScope;
 	targetUserIds?: string[];
+	seq?: number;
 }) => {
 	try {
 		await publishRealtimeEvent(params);
@@ -112,6 +115,7 @@ export const publishRealtimeEventSafe = async (params: {
 			type: params.type,
 			domain: params.domain,
 			reason: params.reason,
+			seq: typeof params.seq === 'number' ? params.seq : undefined,
 		});
 	}
 };
@@ -126,6 +130,7 @@ export const publishPublicRealtimeEventSafe = async (params: {
 	academicYear?: string | null;
 	actorId?: string | null;
 	scope?: RealtimeScope;
+	seq?: number;
 }) => {
 	await publishRealtimeEventSafe({
 		...params,
@@ -144,6 +149,7 @@ export const publishRealtimeEventsForAcademicYearsSafe = async (params: {
 	actorId?: string | null;
 	scope?: RealtimeScope;
 	targetUserIds?: string[];
+	seq?: number;
 }) => {
 	const years = toUniqueStrings(params.academicYears);
 	if (years.length === 0) {

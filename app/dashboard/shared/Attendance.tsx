@@ -823,7 +823,17 @@ const Attendance = () => {
 					throw new Error(errorData.message || 'Failed to save attendance');
 				}
 
-				const { data } = await res.json();
+				const result = await res.json();
+				if (result?.queued) {
+					setModal(null);
+					showNotification(
+						'You are offline. Attendance will sync when you reconnect.',
+						'success',
+					);
+					return;
+				}
+
+				const { data } = result;
 				mergeAttendanceForYear(selectedAcademicYear, [data]);
 
 				setModal(null);

@@ -41,6 +41,8 @@ const GradeChangeRequestSchema = new Schema({
 	submittedAt: { type: Date, default: Date.now },
 	resolvedAt: { type: Date },
 	lastUpdated: { type: Date, required: true },
+	seq: { type: Number, default: 0 },
+	deletedAt: { type: Date, default: null },
 });
 
 GradeChangeRequestSchema.index({ academicYear: 1, teacherUsername: 1, status: 1 });

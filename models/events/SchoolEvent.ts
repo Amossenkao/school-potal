@@ -27,6 +27,8 @@ const SchoolEventSchema = new Schema(
 		academicYear: { type: String, required: true },
 		createdBy: { type: String },
 		updatedBy: { type: String },
+		seq: { type: Number, default: 0 },
+		deletedAt: { type: Date, default: null },
 	},
 	{ timestamps: true }
 );

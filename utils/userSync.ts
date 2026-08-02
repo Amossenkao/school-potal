@@ -1,4 +1,5 @@
 import { getTenantModels } from '@/models';
+import { appendChange } from '@/lib/syncEngine';
 
 const getCurrentAcademicYear = () => {
 	const currentDate = new Date();
@@ -37,7 +38,10 @@ export const getUsersVersion = async (academicYear: string): Promise<number> => 
 	return state?.version ?? 0;
 };
 
-export const bumpUsersVersion = async (academicYears: string[]) => {
+export const bumpUsersVersion = async (
+	academicYears: string[],
+	options: { affectedUserIds?: string[] } = {},
+) => {
 	if (!academicYears || academicYears.length === 0) return;
 	const models = await getTenantModels();
 	const uniqueYears = Array.from(new Set(academicYears)).filter(Boolean);
@@ -52,5 +56,24 @@ export const bumpUsersVersion = async (academicYears: string[]) => {
 				{ upsert: true },
 			),
 		),
+	);
+	const affectedUserIds = Array.isArray(options.affectedUserIds)
+		? options.affectedUserIds
+		: [];
+	await Promise.all(
+		uniqueYears.map(async (year) => {
+			try {
+				await appendChange({
+					domain: 'users',
+					academicYear: year,
+					op: 'update',
+					documentId: affectedUserIds[0] || `users:${year}`,
+					documentType: 'User',
+					document: affectedUserIds.length > 0 ? { ids: affectedUserIds } : null,
+				});
+			} catch (error) {
+				console.warn(`Failed to log users change for ${year}.`, error);
+			}
+		}),
 	);
 };
