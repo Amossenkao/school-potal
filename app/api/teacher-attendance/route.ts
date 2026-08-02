@@ -3,6 +3,7 @@ import { Document } from 'mongoose';
 import { getTenantModels } from '@/models';
 import { authorizeUser } from '@/proxy';
 import { normalizeHost } from '@/utils/host';
+import { getSchoolProfile } from '@/lib/mongoose';
 import type { Teacher } from '@/types';
 import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
 import { appendChange, appendChangeIdempotent, findChangeByIdempotencyKey } from '@/lib/syncEngine';
@@ -279,8 +280,15 @@ export async function POST(request: NextRequest) {
 			idempotencyKey,
 		});
 
+		const schoolProfile = await getSchoolProfile();
+		const tenantId = resolveTenantSyncKey({
+			schoolProfile,
+			tenantId: currentUser.tenantId,
+			host: cleanHost,
+		});
+
 		await publishSyncEventSafe({
-			tenantId: cleanHost,
+			tenantId,
 			domain: 'teacher_attendance',
 			academicYear,
 			actorId: currentUser.id,
@@ -429,8 +437,15 @@ export async function DELETE(request: NextRequest) {
 			actorId: currentUser.id,
 		});
 
+		const schoolProfile = await getSchoolProfile();
+		const tenantId = resolveTenantSyncKey({
+			schoolProfile,
+			tenantId: currentUser.tenantId,
+			host: cleanHost,
+		});
+
 		await publishSyncEventSafe({
-			tenantId: cleanHost,
+			tenantId,
 			domain: 'teacher_attendance',
 			academicYear,
 			actorId: currentUser.id,
