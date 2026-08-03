@@ -20,6 +20,7 @@ import {
 	getAllUserSessions,
 } from '@/utils/session';
 import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
+import { getParentAcademicYearsEntries } from '@/utils/academicYearAccess';
 import {
 	publishSyncEventSafe,
 	publishSyncEventsForAcademicYearsSafe,
@@ -3078,6 +3079,25 @@ export async function POST(request: NextRequest) {
 			}
 
 			try {
+				// The parent now belongs in every academic year any of their
+				// children is enrolled in, so bump the users version for each of
+				// those years (not just the school's current one).
+				const parentYears = getParentAcademicYearsEntries(
+					refreshedChildren,
+				).map((entry) => entry.year);
+				if (parentYears.length > 0) {
+					await bumpUsersVersion(parentYears, {
+						affectedUserIds: [String(linkedParent._id)],
+					});
+				}
+			} catch (parentVersionError) {
+				console.warn(
+					'Failed to bump users version for parent children after student creation:',
+					parentVersionError,
+				);
+			}
+
+			try {
 				await updateAllUserSessions(String(linkedParent._id), {
 					parentChildren: refreshedChildren,
 				});
@@ -5001,6 +5021,25 @@ export async function PUT(request: NextRequest) {
 			}
 
 			try {
+				// The parent belongs in every academic year any of their children
+				// is enrolled in, so bump the users version for each of those
+				// years (not just the school's current one).
+				const parentYears = getParentAcademicYearsEntries(
+					refreshedChildren,
+				).map((entry) => entry.year);
+				if (parentYears.length > 0) {
+					await bumpUsersVersion(parentYears, {
+						affectedUserIds: [affectedParentId],
+					});
+				}
+			} catch (parentVersionError) {
+				console.warn(
+					'Failed to bump users version for parent children after parent change:',
+					parentVersionError,
+				);
+			}
+
+			try {
 				const existingSessions = await getAllUserSessions(
 					affectedParentId,
 				);
@@ -5172,13 +5211,20 @@ export async function PUT(request: NextRequest) {
 			(realtimeUser as any).parentChildren = refreshedParentChildren;
 		}
 
-		// Scope user update events to the school's own current academic year.
-		// Users without an explicit academicYears list (e.g. parents) would
-		// otherwise fall back to the calendar-based year, which may not match
-		// the school's configured current year.
+		// Scope user update events to the academic years the user belongs to.
+		// Users without an explicit academicYears list (e.g. parents) fall back
+		// to the school's configured current year. Parents additionally belong
+		// to every year any of their children is enrolled in.
+		const parentChildrenYears = isParentTarget
+			? getParentAcademicYearsEntries(refreshedParentChildren).map(
+					(entry) => entry.year,
+				)
+			: [];
 		const eventAcademicYears =
 			String(updatedUser?.role) === 'parent'
-				? [schoolCurrentAcademicYear]
+				? parentChildrenYears.length > 0
+					? parentChildrenYears
+					: [schoolCurrentAcademicYear]
 				: updatedUserYears;
 
 		// Build class transition metadata for real-time access revocation/granting
@@ -5222,7 +5268,11 @@ export async function PUT(request: NextRequest) {
 					: 'user-updated';
 
 		await bumpUsersVersion([
-			...new Set([...updatedUserYears, schoolCurrentAcademicYear]),
+			...new Set([
+				...updatedUserYears,
+				schoolCurrentAcademicYear,
+				...parentChildrenYears,
+			]),
 		]);
 		await publishSyncEventsForAcademicYearsSafe({
 			tenantId,

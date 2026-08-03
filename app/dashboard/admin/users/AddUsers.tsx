@@ -652,7 +652,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	).trim();
 
 	const enrollmentYearOptions = useMemo(() => {
-		const years = buildSchoolAcademicYearRange({ firstAcademicYear: school?.identity?.firstAcademicYear, currentAcademicYear: school?.identity?.currentAcademicYear });
+		const years = buildSchoolAcademicYearRange({identity: { firstAcademicYear: school?.identity?.firstAcademicYear, currentAcademicYear: school?.identity?.currentAcademicYear }});
 		return years.length > 0
 			? years
 			: currentAcademicYear

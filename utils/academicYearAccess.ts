@@ -25,6 +25,9 @@ type AnyUser = {
 		year?: string | null;
 		classes?: Array<{ classId?: string | null; subjects?: string[] | null }>;
 	}>;
+	parentChildren?: Array<{
+		academicYears?: Array<{ year?: string | null } | string>;
+	}>;
 };
 
 const toCanonicalAcademicYear = (value?: string | null) => {
@@ -72,6 +75,64 @@ export const isAcademicYearAllowed = (
 			),
 	);
 
+/**
+ * Deduplicated academic-year entries for the union of a parent's children.
+ * Each child carries the year entries from their own `academicYears` field.
+ */
+export const getParentAcademicYearsEntries = (
+	children:
+		| Array<{
+				academicYears?: Array<{ year?: string | null } | string>;
+		  }>
+		| undefined,
+): Array<{ year: string }> => {
+	const byYear = new Map<string, { year: string }>();
+	if (Array.isArray(children)) {
+		for (const child of children) {
+			if (!Array.isArray(child?.academicYears)) continue;
+			for (const entry of child.academicYears) {
+				const raw = typeof entry === 'string' ? entry : entry?.year;
+				const year = toCanonicalAcademicYear(raw);
+				if (year && !byYear.has(year)) {
+					byYear.set(year, { year });
+				}
+			}
+		}
+	}
+	return Array.from(byYear.values());
+};
+
+/**
+ * The academic years a parent can access: the union of their children's
+ * academic years (plus any years stored on the parent itself). Falls back to
+ * the school's current year so a parent with no children still resolves.
+ */
+export const getParentAccessibleAcademicYears = (
+	user: AnyUser | null | undefined,
+	schoolProfile?: SchoolProfileLike | null,
+): string[] => {
+	const currentAcademicYear =
+		getCurrentAcademicYearFromSchoolProfile(schoolProfile);
+	const years = new Set<string>();
+	const addYear = (value?: string | null) => {
+		const canonical = toCanonicalAcademicYear(value);
+		if (canonical) years.add(canonical);
+	};
+	if (Array.isArray(user?.academicYears)) {
+		user?.academicYears.forEach((entry) => addYear(entry?.year));
+	}
+	if (Array.isArray(user?.parentChildren)) {
+		for (const child of user.parentChildren) {
+			if (!Array.isArray(child?.academicYears)) continue;
+			for (const entry of child.academicYears) {
+				addYear(typeof entry === 'string' ? entry : entry?.year);
+			}
+		}
+	}
+	const sorted = sortAcademicYearsDesc(Array.from(years));
+	return sorted.length > 0 ? sorted : [currentAcademicYear];
+};
+
 export const getUserAllowedAcademicYears = (
 	user: AnyUser | null | undefined,
 	schoolProfile?: SchoolProfileLike | null,
@@ -94,13 +155,17 @@ export const getUserAllowedAcademicYears = (
 		return years.length > 0 ? years : [currentAcademicYear];
 	}
 
-	if (role === 'student' || role === 'administrator' || role === 'parent') {
+	if (role === 'student' || role === 'administrator') {
 		const years = sortAcademicYearsDesc(
 			Array.isArray(user?.academicYears)
 				? user.academicYears.map((entry) => entry?.year)
 				: [],
 		);
 		return years.length > 0 ? years : [currentAcademicYear];
+	}
+
+	if (role === 'parent') {
+		return getParentAccessibleAcademicYears(user, schoolProfile);
 	}
 
 	return [currentAcademicYear];

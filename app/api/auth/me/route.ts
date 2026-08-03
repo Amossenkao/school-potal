@@ -5,7 +5,10 @@ import { getTenantModels } from '@/models';
 import { buildParentChildrenList } from '@/lib/parentAccess';
 import { getSchoolMeshModels } from '@/models/schoolmesh';
 import { buildBootstrapPayload, buildSuperAdminBootstrapPayload, getDomainVersions } from '@/lib/bootstrap';
-import { resolveAcademicYearAccessContext } from '@/utils/academicYearAccess';
+import {
+	getParentAcademicYearsEntries,
+	resolveAcademicYearAccessContext,
+} from '@/utils/academicYearAccess';
 import { syncDebugError, syncDebugLog, syncDebugWarn } from '@/lib/syncDebug';
 import { toHash, toSchoolVersion } from '@/utils/syncVersion';
 import { getSyncCursorsForYear } from '@/lib/syncEngine';
@@ -309,9 +312,7 @@ export async function GET(request: NextRequest) {
 							classId: selectedChild?.classId ?? null,
 							className: selectedChild?.className ?? null,
 							classLevel: selectedChild?.classLevel ?? null,
-							academicYears: Array.isArray(selectedChild?.academicYears)
-								? selectedChild.academicYears
-								: [],
+							academicYears: getParentAcademicYearsEntries(parentChildren),
 							parentChildren,
 							studentType:
 								selectedChild?.studentType ||

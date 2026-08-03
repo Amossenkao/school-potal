@@ -11,7 +11,10 @@ import {
 	getDomainVersionsFromBootstrapPayload,
 } from '@/lib/bootstrap';
 import { checkRateLimit, getRequestIp } from '@/utils/rateLimit';
-import { resolveAcademicYearAccessContext } from '@/utils/academicYearAccess';
+import {
+	getParentAcademicYearsEntries,
+	resolveAcademicYearAccessContext,
+} from '@/utils/academicYearAccess';
 import { normalizeHost } from '@/utils/host';
 import { buildParentChildrenList } from '@/lib/parentAccess';
 import { toHash, toSchoolVersion } from '@/utils/syncVersion';
@@ -446,7 +449,9 @@ function buildUserResponse(user: any, host?: string) {
 					classId: selectedChild?.classId || null,
 					className: selectedChild?.className || null,
 					classLevel: selectedChild?.classLevel || null,
-					academicYears: selectedChild?.academicYears || [],
+					academicYears: getParentAcademicYearsEntries(
+						user.__parentChildren,
+					),
 					studentType: selectedChild?.studentType || 'old',
 				};
 			}

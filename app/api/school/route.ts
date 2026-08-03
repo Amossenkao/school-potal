@@ -89,7 +89,7 @@ function sanitizeTeacherSettings(raw: any): any {
 					enabled: !!v.gradeSubmission?.enabled,
 					periods: sanitizePeriods(v.gradeSubmission?.periods),
 				},
-				viewGradeSubmissions: { enabled: !!v.gradeChangeRequest?.viewGradeSubmissions?.enabled },
+				viewGradeSubmissions: { enabled: !!v.viewGradeSubmissions?.enabled },
 				gradeChangeRequest: {
 					enabled: !!v.gradeChangeRequest?.enabled,
 					periods: sanitizePeriods(v.gradeChangeRequest?.periods),

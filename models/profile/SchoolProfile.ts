@@ -267,6 +267,13 @@ const AdministratorSettingsSchema = new Schema(
 	{ _id: false },
 );
 
+const ParentSettingsSchema = new Schema(
+	{
+		loginAccess: { type: Boolean, default: true },
+	},
+	{ _id: false },
+);
+
 const SystemAdminSchema = new Schema(
 	{
 		name: { type: String, required: true, trim: true },
@@ -297,6 +304,11 @@ const SchoolProfileUserConfigSchema = new Schema(
 		administratorSettings: {
 			type: AdministratorSettingsSchema,
 			required: true,
+		},
+		parentSettings: {
+			type: ParentSettingsSchema,
+			required: true,
+			default: () => ({ loginAccess: true }),
 		},
 	},
 	{ _id: false },

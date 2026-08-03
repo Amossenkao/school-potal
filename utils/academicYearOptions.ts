@@ -1,8 +1,11 @@
 import { areAcademicYearsEqual, normalizeAcademicYear } from '@/utils/academicYear';
 
-type SchoolLike = {
-	firstAcademicYear?: string | null;
-	currentAcademicYear?: string | null;
+
+type SchoolProfileLike = {
+	identity?: {
+		currentAcademicYear?: string | null;
+		firstAcademicYear?: string | null;
+	} | null;
 };
 
 const toCanonicalAcademicYear = (value?: string | null) => {
@@ -45,10 +48,10 @@ export const sortAcademicYearsDesc = (
 	});
 };
 
-export const buildSchoolAcademicYearRange = (school?: SchoolLike | null) => {
-	const first = toCanonicalAcademicYear(school?.firstAcademicYear);
+export const buildSchoolAcademicYearRange = (school?: SchoolProfileLike | null) => {
+	const first = toCanonicalAcademicYear(school?.identity?.firstAcademicYear);
 	const current = toCanonicalAcademicYear(
-		school?.currentAcademicYear || getCurrentAcademicYearLabel(),
+		school?.identity?.currentAcademicYear || getCurrentAcademicYearLabel(),
 	);
 	const firstStart = parseAcademicYearStart(first);
 	const currentStart = parseAcademicYearStart(current);

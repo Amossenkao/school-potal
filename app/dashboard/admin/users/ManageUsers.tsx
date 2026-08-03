@@ -311,7 +311,7 @@ const UserManagementDashboard = () => {
 		);
 	}, [usersByAcademicYear]);
 	const academicYearOptions = useMemo(
-		() => buildSchoolAcademicYearRange({ firstAcademicYear: schoolProfile?.identity?.firstAcademicYear, currentAcademicYear: schoolProfile?.identity?.currentAcademicYear }),
+		() => buildSchoolAcademicYearRange({identity: { firstAcademicYear: schoolProfile?.identity?.firstAcademicYear, currentAcademicYear: schoolProfile?.identity?.currentAcademicYear }}),
 		[schoolProfile],
 	);
 	const hasMultipleAcademicYears = academicYearOptions.length > 1;
