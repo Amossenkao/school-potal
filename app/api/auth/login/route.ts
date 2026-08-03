@@ -34,8 +34,6 @@ const buildLoginBootstrapPayload = async (
 	academicYear?: string,
 ) => {
 	const schoolProfileRaw = schoolProfileInput ?? (await getSchoolProfile());
-
-	console.log(`RAW School Profile: ${schoolProfileRaw}`)
 	const schoolProfile = normalizeSchoolProfile(schoolProfileRaw);
 	const payload = await buildBootstrapPayload(currentUser, {
 		include: {

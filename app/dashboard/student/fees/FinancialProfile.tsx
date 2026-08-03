@@ -30,8 +30,9 @@ import {
 	TrendingUp,
 	TrendingDown,
 	Wallet,
-	CheckCircle,
 	RefreshCw,
+	ChevronDown,
+	CalendarClock,
 } from 'lucide-react';
 import isEqual from 'lodash/isEqual';
 
@@ -204,6 +205,69 @@ export default function FinancialProfile() {
 		return groups;
 	}, [adjustedFees]);
 
+	const categoryTotals = useMemo(() => {
+		const result: Record<string, { total: CurrencyMap; paid: CurrencyMap }> = {};
+		for (const [categoryName, fees] of Object.entries(groupedByCategory)) {
+			const total: CurrencyMap = {};
+			const paid: CurrencyMap = {};
+			for (const fee of fees) {
+				const c = fee.currency || 'LRD';
+				const paidAmt = paidByFeeName[`${fee.feeName}::${fee.currency}`] || 0;
+				const remaining = Math.max(0, fee.effectiveAmount - paidAmt);
+				if (remaining > 0) {
+					total[c] = (total[c] || 0) + fee.effectiveAmount;
+					paid[c] = (paid[c] || 0) + paidAmt;
+				}
+			}
+			result[categoryName] = { total, paid };
+		}
+		return result;
+	}, [groupedByCategory, paidByFeeName]);
+
+	const installmentCatalog = useMemo(
+		() => school?.financialConfig?.installments ?? [],
+		[school],
+	);
+
+	const installmentSummary = useMemo(() => {
+		const due: Record<string, CurrencyMap> = {};
+		const paid: Record<string, CurrencyMap> = {};
+		const payments = (user as any)?.payments || [];
+		for (const fee of adjustedFees) {
+			const c = fee.currency || 'LRD';
+			for (const s of fee.installments) {
+				if (!due[s.installmentId]) due[s.installmentId] = {};
+				const ratio = fee.amount > 0 ? s.amount / fee.amount : 0;
+				due[s.installmentId][c] = (due[s.installmentId][c] || 0) + fee.effectiveAmount * ratio;
+			}
+		}
+		for (const r of payments) {
+			if (!r.installmentId) continue;
+			const cur = r.currency || 'LRD';
+			if (!paid[r.installmentId]) paid[r.installmentId] = {};
+			paid[r.installmentId][cur] = (paid[r.installmentId][cur] || 0) + (r.paymentAmount || 0);
+		}
+		return { due, paid };
+	}, [adjustedFees, user]);
+
+	// Installments with at least one currency where (due - paid) > 0
+	const visibleInstallments = useMemo(() => {
+		return installmentCatalog.filter((inst) => {
+			const due = installmentSummary.due[inst.id] || {};
+			const paid = installmentSummary.paid[inst.id] || {};
+			const currencies = [
+				...new Set([...Object.keys(due), ...Object.keys(paid)]),
+			];
+			if (currencies.length === 0) return false;
+			return currencies.some((c) => (due[c] || 0) - (paid[c] || 0) > 0);
+		});
+	}, [installmentCatalog, installmentSummary]);
+
+	const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
+
+	const toggleCategory = (categoryName: string) =>
+		setOpenCategories((prev) => ({ ...prev, [categoryName]: !prev[categoryName] }));
+
 	const studentType: 'new' | 'old' = childView.studentType ?? 'old';
 	const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -273,17 +337,17 @@ export default function FinancialProfile() {
 	if (allResolvedFees.length === 0) {
 		return (
 			<div className="min-h-screen bg-background">
-				<div className="w-full px-4 sm:px-6 lg:px-8 py-8">
-					<div className="mb-8 rounded-2xl border border-gray-200/70 bg-white/80 p-6 shadow-sm backdrop-blur dark:border-gray-800/70 dark:bg-gray-950/70">
-						<h1 className="text-3xl sm:text-4xl font-bold mb-2">
+				<div className="w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+					<div className="mb-8 rounded-2xl border border-gray-200/70 bg-white/80 p-4 sm:p-6 shadow-sm backdrop-blur dark:border-gray-800/70 dark:bg-gray-950/70">
+						<h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">
 							Financial Profile
 						</h1>
-						<p className="text-lg text-muted-foreground">
+						<p className="text-base sm:text-lg text-muted-foreground">
 							View your fee balances and payment summary
 						</p>
 					</div>
 					<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
-						<CardContent className="p-6 text-center">
+						<CardContent className="p-4 sm:p-6 text-center">
 							<AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
 							<h3 className="text-lg font-semibold mb-2">No Fees Found</h3>
 							<p className="text-muted-foreground">
@@ -298,20 +362,20 @@ export default function FinancialProfile() {
 
 	return (
 		<div className="min-h-screen bg-background">
-			<div className="w-full px-4 sm:px-6 lg:px-8 py-8">
+			<div className="w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
 				{/* Header */}
-				<div className="mb-8 rounded-2xl border border-gray-200/70 bg-white/80 p-6 shadow-sm backdrop-blur dark:border-gray-800/70 dark:bg-gray-950/70">
-					<div className="flex flex-wrap items-center justify-between gap-4">
-						<div>
-							<h1 className="text-3xl sm:text-4xl font-bold mb-2">
+				<div className="mb-6 sm:mb-8 rounded-2xl border border-gray-200/70 bg-white/80 p-4 sm:p-6 shadow-sm backdrop-blur dark:border-gray-800/70 dark:bg-gray-950/70">
+					<div className="flex flex-wrap items-start justify-between gap-3">
+						<div className="min-w-0">
+							<h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-1 sm:mb-2">
 								Financial Profile
 							</h1>
-							<p className="text-lg text-muted-foreground">
+							<p className="text-sm sm:text-base lg:text-lg text-muted-foreground">
 								View your fee balances and payment summary
 							</p>
 						</div>
 						<div className="flex flex-wrap items-center gap-2">
-							<div className="inline-flex items-center gap-2 rounded-full border border-gray-200/80 bg-white/70 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-800/80 dark:bg-gray-900/70 dark:text-gray-300">
+							<div className="inline-flex items-center gap-2 rounded-full border border-gray-200/80 bg-white/70 px-3 py-1.5 sm:px-4 sm:py-2 text-xs font-semibold uppercase tracking-wide text-gray-600 shadow-sm dark:border-gray-800/80 dark:bg-gray-900/70 dark:text-gray-300">
 								<Wallet className="h-3 w-3" />
 								{feeGroups.length} fee group{feeGroups.length !== 1 ? 's' : ''}
 							</div>
@@ -330,12 +394,12 @@ export default function FinancialProfile() {
 				<div className="space-y-8">
 					{/* Student Info */}
 					<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
-						<CardHeader>
-							<CardTitle>Student Information</CardTitle>
+						<CardHeader className="pb-3 sm:pb-6">
+							<CardTitle className="text-base sm:text-lg">Student Information</CardTitle>
 						</CardHeader>
 						<CardContent>
-							<div className="flex gap-4 items-center border border-gray-200/70 p-4 rounded-xl bg-muted/40 dark:border-gray-800/70">
-								<Avatar className="w-14 h-14 ring-2 ring-primary/20">
+							<div className="flex gap-3 sm:gap-4 items-start border border-gray-200/70 p-3 sm:p-4 rounded-xl bg-muted/40 dark:border-gray-800/70">
+								<Avatar className="w-12 h-12 sm:w-14 sm:h-14 shrink-0 ring-2 ring-primary/20">
 									<AvatarImage
 										src={
 											childView.avatar ||
@@ -350,17 +414,17 @@ export default function FinancialProfile() {
 										{childView.name.split(' ')[1]?.[0] || ''}
 									</AvatarFallback>
 								</Avatar>
-								<div>
-									<h3 className="text-lg font-semibold">
+								<div className="flex-1 min-w-0">
+									<h3 className="text-base sm:text-lg font-semibold truncate">
 										{childView.name}
 									</h3>
-									<p className="text-sm text-muted-foreground">
+									<p className="text-xs sm:text-sm text-muted-foreground break-words">
 										Student ID: {childView.studentId}
 									</p>
-									<p className="text-sm text-muted-foreground">
+									<p className="text-xs sm:text-sm text-muted-foreground">
 										Class: {childView.className || '—'}
 									</p>
-									<p className="text-sm text-muted-foreground">
+									<p className="text-xs sm:text-sm text-muted-foreground">
 										Student Type: {studentType === 'new' ? 'New Student' : 'Old Student'}
 									</p>
 								</div>
@@ -369,7 +433,7 @@ export default function FinancialProfile() {
 					</Card>
 
 					{/* Summary Cards */}
-					<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+					<div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
 						<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
 							<CardHeader className="pb-2">
 								<CardDescription>Total Due</CardDescription>
@@ -422,82 +486,56 @@ export default function FinancialProfile() {
 						</Card>
 					</div>
 
-					{/* Fees by Category */}
-					{Object.entries(groupedByCategory).map(([categoryName, fees]) => (
-						<Card key={categoryName} className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2">
-									<BookOpen className="h-5 w-5" />
-									{categoryName}
+					{/* Installments — only show if at least one has an outstanding balance */}
+					{visibleInstallments.length > 0 && (
+						<Card className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
+							<CardHeader className="pb-3 sm:pb-6">
+								<CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+									<CalendarClock className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+									Installments
 								</CardTitle>
-								<CardDescription>{fees.length} fee{fees.length !== 1 ? 's' : ''}</CardDescription>
+								<CardDescription>
+									Payment breakdown by school-defined installment
+								</CardDescription>
 							</CardHeader>
 							<CardContent>
-								<div className="space-y-3">
-									{fees.map((fee, idx) => {
-										const paid = paidByFeeName[`${fee.feeName}::${fee.currency}`] || 0;
-										const remaining = Math.max(0, fee.effectiveAmount - paid);
-										const isCleared = paid >= fee.effectiveAmount;
-										const hasDiscount = fee.discount > 0;
+								<div className="space-y-2 sm:space-y-3">
+									{visibleInstallments.map((inst) => {
+										const due = installmentSummary.due[inst.id] || {};
+										const paid = installmentSummary.paid[inst.id] || {};
+										const currencies = [
+											...new Set([...Object.keys(due), ...Object.keys(paid)]),
+										].filter((c) => (due[c] || 0) - (paid[c] || 0) > 0);
 										return (
 											<div
-												key={idx}
-												className="flex flex-col gap-2 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+												key={inst.id}
+												className="flex flex-col gap-2 rounded-lg border p-3 sm:p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
 											>
 												<div className="min-w-0">
-													<p className="break-words font-medium">
-														{fee.feeName}
-														{isCleared && <CheckCircle className="inline h-4 w-4 ml-1.5 -mt-0.5 shrink-0 text-green-600" />}
-													</p>
-													<div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-														{fee.isRequired ? (
-															<span className="text-amber-600 dark:text-amber-400 font-medium">Required</span>
-														) : (
-															<span className="text-green-600 dark:text-green-400 font-medium">Optional</span>
-														)}
-														{fee.installments.length > 0 && (
-															<span className="break-words">
-																{fee.installments.map((s, si) => (
-																	<span key={s.installmentId}>
-																		{si > 0 && <span className="text-gray-300 dark:text-gray-600"> · </span>}
-																		{s.label}: {fee.currency} {formatCurrency(s.amount)}
-																	</span>
-																))}
-															</span>
-														)}
-													</div>
-													{fee.scholarshipNames.length > 0 && (
-														<div className="mt-1 flex flex-wrap items-center gap-1">
-															{fee.scholarshipNames.map((name) => (
-																<span key={name} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-																	{name}
-																</span>
-															))}
-															{hasDiscount && (
-																<span className="text-xs font-medium text-primary">
-																	Saved {fee.currency} {formatCurrency(fee.discount)}
-																</span>
-															)}
-														</div>
+													<p className="break-words font-medium text-sm sm:text-base">{inst.label}</p>
+													{inst.dueWindow && (
+														<p className="mt-0.5 text-xs text-muted-foreground">{inst.dueWindow}</p>
 													)}
-													<div className="mt-1 break-words text-xs text-muted-foreground">
-														{isCleared ? (
-															<span className="text-green-600 font-medium">Cleared</span>
-														) : paid > 0 ? (
-															<span>Paid {fee.currency} {formatCurrency(paid)} / Remaining {fee.currency} {formatCurrency(remaining)}</span>
-														) : null}
-													</div>
 												</div>
 												<div className="shrink-0 text-left sm:text-right">
-													{hasDiscount ? (
-														<>
-															<p className="font-semibold text-primary">{fee.currency} {formatCurrency(fee.effectiveAmount)}</p>
-															<p className="text-xs text-muted-foreground line-through">{fee.currency} {formatCurrency(fee.amount)}</p>
-														</>
-													) : (
-														<p className="font-semibold">{fee.currency} {formatCurrency(fee.effectiveAmount)}</p>
-													)}
-													<p className="text-xs text-muted-foreground">{fee.groupName}</p>
+													{currencies.map((c) => {
+														const dueVal = due[c] || 0;
+														const paidVal = paid[c] || 0;
+														const outstanding = dueVal - paidVal;
+														return (
+															<p key={c} className="text-sm">
+																<span className="font-semibold">
+																	{c} {formatCurrency(outstanding)}
+																</span>
+																<span className="text-muted-foreground"> outstanding</span>
+																{paidVal > 0 && (
+																	<span className="text-muted-foreground">
+																		{' '}· Paid {c} {formatCurrency(paidVal)}
+																	</span>
+																)}
+															</p>
+														);
+													})}
 												</div>
 											</div>
 										);
@@ -505,7 +543,139 @@ export default function FinancialProfile() {
 								</div>
 							</CardContent>
 						</Card>
-					))}
+					)}
+
+					{/* Fees by Category */}
+					{Object.entries(groupedByCategory).map(([categoryName, fees]) => {
+						// Only show fees that have an outstanding balance
+						const unpaidFees = fees.filter((fee) => {
+							const paid =
+								paidByFeeName[`${fee.feeName}::${fee.currency}`] || 0;
+							return Math.max(0, fee.effectiveAmount - paid) > 0;
+						});
+
+						// Skip the entire category card if there's nothing due
+						if (unpaidFees.length === 0) return null;
+
+						const isOpen = openCategories[categoryName] ?? false;
+						const totals = categoryTotals[categoryName] || { total: {}, paid: {} };
+						return (
+							<Card key={categoryName} className="border-gray-200/70 bg-white/90 shadow-sm dark:border-gray-800/70 dark:bg-gray-950/70">
+								<CardHeader className="pb-3 sm:pb-6">
+									<div
+										role="button"
+										tabIndex={0}
+										aria-expanded={isOpen}
+										onClick={() => toggleCategory(categoryName)}
+										onKeyDown={(e) => {
+											if (e.key === 'Enter' || e.key === ' ') {
+												e.preventDefault();
+												toggleCategory(categoryName);
+											}
+										}}
+										className="flex w-full cursor-pointer items-center justify-between gap-2 sm:gap-4"
+									>
+										<div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+											<BookOpen className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-muted-foreground" />
+											<span className="text-base sm:text-lg font-semibold">
+												{categoryName}
+											</span>
+											<span className="text-xs sm:text-sm font-normal text-muted-foreground whitespace-nowrap">
+												{unpaidFees.length} fee{unpaidFees.length !== 1 ? 's' : ''} due
+											</span>
+										</div>
+										<div className="flex shrink-0 items-center gap-2 sm:gap-3">
+											<div className="text-right">
+												{Object.entries(totals.total).map(([c, v]) => (
+													<div key={c} className="whitespace-nowrap">
+														<span className="text-sm sm:text-base font-semibold">
+															{c} {formatCurrency(v)}
+														</span>
+														{(totals.paid[c] || 0) > 0 && (
+															<span className="ml-1 text-xs text-muted-foreground hidden sm:inline">
+																· Paid {c} {formatCurrency(totals.paid[c] || 0)}
+															</span>
+														)}
+													</div>
+												))}
+											</div>
+											<ChevronDown
+												className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+											/>
+										</div>
+									</div>
+								</CardHeader>
+								{isOpen && (
+									<CardContent className="pt-0">
+										<div className="space-y-2 sm:space-y-3">
+											{unpaidFees.map((fee, idx) => {
+												const paid = paidByFeeName[`${fee.feeName}::${fee.currency}`] || 0;
+												const remaining = Math.max(0, fee.effectiveAmount - paid);
+												const hasDiscount = fee.discount > 0;
+												return (
+													<div
+														key={idx}
+														className="flex flex-col gap-2 rounded-lg border p-3 sm:p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+													>
+														<div className="min-w-0">
+															<p className="break-words font-medium text-sm sm:text-base">
+																{fee.feeName}
+															</p>
+															<div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+																{fee.isRequired ? (
+																	<span className="text-amber-600 dark:text-amber-400 font-medium">Required</span>
+																) : (
+																	<span className="text-green-600 dark:text-green-400 font-medium">Optional</span>
+																)}
+																{fee.installments.length > 0 && (
+																	<span className="break-words">
+																		{fee.installments.map((s, si) => (
+																			<span key={s.installmentId}>
+																				{si > 0 && <span className="text-gray-300 dark:text-gray-600"> · </span>}
+																				{s.label}: {fee.currency} {formatCurrency(s.amount)}
+																			</span>
+																		))}
+																	</span>
+																)}
+															</div>
+															{fee.scholarshipNames.length > 0 && (
+																<div className="mt-1 flex flex-wrap items-center gap-1">
+																	{fee.scholarshipNames.map((name) => (
+																		<span key={name} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+																			{name}
+																		</span>
+																	))}
+																	{hasDiscount && (
+																		<span className="text-xs font-medium text-primary">
+																			Saved {fee.currency} {formatCurrency(fee.discount)}
+																		</span>
+																	)}
+																</div>
+															)}
+															<div className="mt-1 break-words text-xs text-muted-foreground">
+																<span>Paid {fee.currency} {formatCurrency(paid)} / Remaining {fee.currency} {formatCurrency(remaining)}</span>
+															</div>
+														</div>
+														<div className="shrink-0 text-left sm:text-right">
+															{hasDiscount ? (
+																<>
+																	<p className="font-semibold text-primary">{fee.currency} {formatCurrency(fee.effectiveAmount)}</p>
+																	<p className="text-xs text-muted-foreground line-through">{fee.currency} {formatCurrency(fee.amount)}</p>
+																</>
+															) : (
+																<p className="font-semibold">{fee.currency} {formatCurrency(fee.effectiveAmount)}</p>
+															)}
+															<p className="text-xs text-muted-foreground">{fee.groupName}</p>
+														</div>
+													</div>
+												);
+											})}
+										</div>
+									</CardContent>
+								)}
+							</Card>
+						);
+					})}
 				</div>
 			</div>
 		</div>

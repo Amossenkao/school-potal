@@ -78,6 +78,7 @@ export async function GET(request: NextRequest) {
 		const clientSchedulesVersion = searchParams.get('v_schedules');
 		const clientGradeRequestsVersion = searchParams.get('v_grade_requests');
 		const clientAttendanceVersion = searchParams.get('v_attendance');
+		const clientPaymentsVersion = searchParams.get('v_payments');
 		const clientSchoolVersion = searchParams.get('v_school');
 		const clientUserVersion = searchParams.get('v_user');
 		const requestedAcademicYear = searchParams.get('academicYear');
@@ -103,6 +104,7 @@ export async function GET(request: NextRequest) {
 				v_schedules: clientSchedulesVersion,
 				v_grade_requests: clientGradeRequestsVersion,
 				v_attendance: clientAttendanceVersion,
+				v_payments: clientPaymentsVersion,
 				v_school: clientSchoolVersion,
 				v_user: clientUserVersion,
 				academicYear: requestedAcademicYear,
@@ -357,7 +359,12 @@ export async function GET(request: NextRequest) {
 				: undefined;
 
 		// ── Compute server-side versions for all domains ─────────────────────
-		const versions = await getDomainVersions(resolvedSessionUser, academicYear);
+		const versions = await getDomainVersions(
+			resolvedSessionUser,
+			academicYear,
+			undefined,
+			schoolProfile,
+		);
 		const userVersion = toHash(userPayload);
 
 		// ── Diff client vs server versions to decide what to include ─────────
@@ -372,6 +379,7 @@ export async function GET(request: NextRequest) {
 			grades: clientGradesVersion !== versions.grades,
 			gradeRequests: clientGradeRequestsVersion !== versions.gradeRequests,
 			attendance: clientAttendanceVersion !== versions.attendance,
+			payments: clientPaymentsVersion !== versions.payments,
 		};
 
 		// Next-gen sync short-circuit: when the engine flag is on and the client
@@ -409,6 +417,7 @@ export async function GET(request: NextRequest) {
 				grades: clientGradesVersion,
 				gradeRequests: clientGradeRequestsVersion,
 				attendance: clientAttendanceVersion,
+				payments: clientPaymentsVersion,
 				user: clientUserVersion,
 			},
 			serverVersions: {
@@ -419,6 +428,7 @@ export async function GET(request: NextRequest) {
 				grades: versions.grades,
 				gradeRequests: versions.gradeRequests,
 				attendance: versions.attendance,
+				payments: versions.payments,
 				user: userVersion,
 			},
 		});
@@ -475,6 +485,7 @@ export async function GET(request: NextRequest) {
 				grades: versions.grades,
 				gradeRequests: versions.gradeRequests,
 				attendance: versions.attendance,
+				payments: versions.payments,
 			},
 		});
 	} catch (error) {

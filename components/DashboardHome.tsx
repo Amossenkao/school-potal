@@ -25,6 +25,7 @@ import type { SchoolProfile } from '@/types/schoolProfile';
 import StudentPerformanceInsights from '@/components/dashboard/StudentPerformanceInsights';
 import TeacherPerformanceInsights from '@/components/dashboard/TeacherPerformanceInsights';
 import SystemAdminDashboard from '@/components/dashboard/SystemAdminDashboard';
+import FinancialDashboard from '@/components/dashboard/FinancialDashboard';
 
 interface DashboardHomeProps {
 	user: any;
@@ -277,6 +278,16 @@ export default function DashboardHome({
 	const config = ROLE_CONFIG[role] || ROLE_CONFIG.default;
 	const RoleIcon = config.icon;
 
+	const financialReportsEnabled =
+		schoolProfile?.featureConfig?.enabledFeatures?.includes(
+			'financial_reports',
+		) ?? false;
+	const hasFinancialReportsPermission =
+		Array.isArray(user?.permissions) &&
+		(user.permissions as string[]).includes('financial_reports');
+	const canViewFinancialDashboard =
+		isAdminRole && financialReportsEnabled && hasFinancialReportsPermission;
+
 	return (
 		<motion.div
 			variants={containerVariants}
@@ -347,7 +358,14 @@ export default function DashboardHome({
 			{/* Dashboard Insights — memoized so parent re-renders are skipped */}
 			<motion.div variants={itemVariants} className="pb-10">
 				{isAdminRole ? (
-					<SystemAdminDashboard schoolProfile={schoolProfile} user={user} />
+					canViewFinancialDashboard ? (
+						<FinancialDashboard schoolProfile={schoolProfile} />
+					) : (
+						<SystemAdminDashboard
+							schoolProfile={schoolProfile}
+							user={user}
+						/>
+					)
 				) : role === 'teacher' ? (
 					<TeacherPerformanceInsights
 						schoolProfile={schoolProfile}

@@ -1,5 +1,5 @@
 const DB_NAME = 'school-domain-cache';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_NAME = 'domains';
 const SYNC_META_STORE = 'sync-meta';
 const OUTBOX_STORE = 'outbox';
@@ -12,7 +12,8 @@ export type CachedDomain =
 	| 'schedules'
 	| 'gradeRequests'
 	| 'attendance'
-	| 'teacherAttendance';
+	| 'teacherAttendance'
+	| 'payments';
 
 type DomainRecord = {
 	key: string;

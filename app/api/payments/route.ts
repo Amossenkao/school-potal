@@ -207,9 +207,17 @@ export async function POST(req: NextRequest) {
 			return badRequest(`Student "${targetStudentId}" not found.`);
 		}
 
-		const classId = student.classId || '';
+		// Mirrors the client-side normalization (`studentType ?? 'old'` in
+		// useAuth/bootstrap/login), so group-eligible fees (tuition, registration,
+		// etc.) resolve identically when the DB record lacks the field.
+		const resolvedStudent = {
+			...student,
+			studentType: (student as any).studentType ?? 'old',
+		};
+
+		const classId = resolvedStudent.classId || '';
 		const studentGroups = schoolProfile.financialConfig?.studentGroups ?? [];
-		const groupIds = resolveStudentGroupIds(student, studentGroups);
+		const groupIds = resolveStudentGroupIds(resolvedStudent, studentGroups);
 		const feeGroups = resolveStudentFeeGroups(classId, schoolProfile, academicYear);
 
 		const allResolvedFees: Array<{

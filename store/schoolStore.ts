@@ -83,6 +83,7 @@ type SchoolStore = {
 	gradeRequestsByAcademicYear: Record<string, any[]>;
 	attendanceByAcademicYear: Record<string, any[]>;
 	teacherAttendanceByAcademicYear: Record<string, any[]>;
+	paymentsByAcademicYear: Record<string, any[]>;
 	schedulesByAcademicYear: Record<
 		string,
 		{
@@ -95,6 +96,7 @@ type SchoolStore = {
 	gradeRequestsVersionByAcademicYear: Record<string, string>;
 	attendanceVersionByAcademicYear: Record<string, string>;
 	teacherAttendanceVersionByAcademicYear: Record<string, string>;
+	paymentsVersionByAcademicYear: Record<string, string>;
 	schedulesVersionByAcademicYear: Record<string, string>;
 	syncSeqByAcademicYear: Record<
 		string,
@@ -122,6 +124,7 @@ type SchoolStore = {
 	mergeAttendanceForYear: (academicYear: string, records: any[]) => void;
 	setTeacherAttendanceForYear: (academicYear: string, records: any[]) => void;
 	mergeTeacherAttendanceForYear: (academicYear: string, records: any[]) => void;
+	setPaymentsForYear: (academicYear: string, payments: any[]) => void;
 	setDomainVersionsForYear: (
 		academicYear: string,
 		versions: {
@@ -132,6 +135,7 @@ type SchoolStore = {
 			schedules?: string;
 			attendance?: string;
 			teacherAttendance?: string;
+			payments?: string;
 		},
 	) => void;
 	setSyncSeqForYear: (
@@ -178,6 +182,7 @@ const writeMetaCache = (payload: {
 	gradeRequestsVersionByAcademicYear: Record<string, string>;
 	attendanceVersionByAcademicYear: Record<string, string>;
 	teacherAttendanceVersionByAcademicYear: Record<string, string>;
+	paymentsVersionByAcademicYear: Record<string, string>;
 	schedulesVersionByAcademicYear: Record<string, string>;
 	schoolVersion: string | null;
 }) => {
@@ -233,6 +238,7 @@ const persistMeta = (
 		| 'gradeRequestsVersionByAcademicYear'
 		| 'attendanceVersionByAcademicYear'
 		| 'teacherAttendanceVersionByAcademicYear'
+		| 'paymentsVersionByAcademicYear'
 		| 'schedulesVersionByAcademicYear'
 		| 'schoolVersion'
 	>,
@@ -246,6 +252,7 @@ const persistMeta = (
 		attendanceVersionByAcademicYear: state.attendanceVersionByAcademicYear,
 		teacherAttendanceVersionByAcademicYear:
 			state.teacherAttendanceVersionByAcademicYear,
+		paymentsVersionByAcademicYear: state.paymentsVersionByAcademicYear,
 		schedulesVersionByAcademicYear: state.schedulesVersionByAcademicYear,
 		schoolVersion: state.schoolVersion,
 	});
@@ -259,7 +266,8 @@ const persistDomainSnapshot = (
 		| 'schedules'
 		| 'gradeRequests'
 		| 'attendance'
-		| 'teacherAttendance',
+		| 'teacherAttendance'
+		| 'payments',
 	academicYear: string,
 	value: unknown,
 ) => {
@@ -393,6 +401,9 @@ const getTeacherAttendanceIdentity = (record: any) => {
 const getUserIdentity = (user: any) =>
 	String(user?.id || user?._id || '').trim();
 
+const getPaymentIdentity = (payment: any) =>
+	String(payment?.id || payment?._id || '').trim();
+
 const getUserYears = (user: any, fallbackAcademicYear?: string) => {
 	const years = new Set<string>();
 	const addYear = (year?: unknown) => {
@@ -479,12 +490,14 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	gradeRequestsByAcademicYear: {},
 	attendanceByAcademicYear: {},
 	teacherAttendanceByAcademicYear: {},
+	paymentsByAcademicYear: {},
 	schedulesByAcademicYear: {},
 	calendarVersionByAcademicYear: {},
 	gradesVersionByAcademicYear: {},
 	gradeRequestsVersionByAcademicYear: {},
 	attendanceVersionByAcademicYear: {},
 	teacherAttendanceVersionByAcademicYear: {},
+	paymentsVersionByAcademicYear: {},
 	schedulesVersionByAcademicYear: {},
 	syncSeqByAcademicYear: {},
 
@@ -966,6 +979,37 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		});
 	},
 
+	setPaymentsForYear: (academicYear, payments) => {
+		if (!academicYear) return;
+		set((state) => {
+			const existing =
+				resolveAcademicYearRecord(state.paymentsByAcademicYear, academicYear) ||
+				[];
+			const merged = new Map<string, any>();
+			existing.forEach((payment) => {
+				const key = getPaymentIdentity(payment);
+				if (key) merged.set(key, payment);
+			});
+			(Array.isArray(payments) ? payments : []).forEach((payment) => {
+				const key = getPaymentIdentity(payment);
+				if (key) merged.set(key, payment);
+			});
+			const value = Array.from(merged.values());
+			const paymentsByAcademicYear = assignAcademicYearRecord(
+				state.paymentsByAcademicYear,
+				academicYear,
+				value,
+			);
+			persistDomainSnapshot(
+				'payments',
+				getAcademicYearPrimaryKey(academicYear),
+				value,
+			);
+			persistMeta(state);
+			return { paymentsByAcademicYear };
+		});
+	},
+
 	setSchedulesForYear: (academicYear, payload) => {
 		if (!academicYear) return;
 		set((state) => {
@@ -1039,6 +1083,14 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 							versions.teacherAttendance,
 						)
 					: state.teacherAttendanceVersionByAcademicYear;
+			const paymentsVersionByAcademicYear =
+				typeof versions.payments === 'string'
+					? assignAcademicYearRecord(
+							state.paymentsVersionByAcademicYear,
+							academicYear,
+							versions.payments,
+						)
+					: state.paymentsVersionByAcademicYear;
 			const schedulesVersionByAcademicYear =
 				typeof versions.schedules === 'string'
 					? assignAcademicYearRecord(
@@ -1055,6 +1107,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				gradeRequestsVersionByAcademicYear,
 				attendanceVersionByAcademicYear,
 				teacherAttendanceVersionByAcademicYear,
+				paymentsVersionByAcademicYear,
 				schedulesVersionByAcademicYear,
 			};
 			persistMeta(next);
@@ -1065,6 +1118,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				gradeRequestsVersionByAcademicYear,
 				attendanceVersionByAcademicYear,
 				teacherAttendanceVersionByAcademicYear,
+				paymentsVersionByAcademicYear,
 				schedulesVersionByAcademicYear,
 			};
 		});
@@ -1574,12 +1628,14 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			gradeRequestsByAcademicYear: {},
 			attendanceByAcademicYear: {},
 			teacherAttendanceByAcademicYear: {},
+			paymentsByAcademicYear: {},
 			schedulesByAcademicYear: {},
 			calendarVersionByAcademicYear: {},
 			gradesVersionByAcademicYear: {},
 			gradeRequestsVersionByAcademicYear: {},
 			attendanceVersionByAcademicYear: {},
 			teacherAttendanceVersionByAcademicYear: {},
+			paymentsVersionByAcademicYear: {},
 			schedulesVersionByAcademicYear: {},
 			schoolVersion: null,
 			syncSeqByAcademicYear: {},
@@ -1617,6 +1673,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			teacherAttendanceByAcademicYear: dropYear(
 				state.teacherAttendanceByAcademicYear,
 			),
+			paymentsByAcademicYear: dropYear(state.paymentsByAcademicYear),
 			schedulesByAcademicYear: dropYear(state.schedulesByAcademicYear),
 			usersVersionByAcademicYear: dropYear(state.usersVersionByAcademicYear),
 			calendarVersionByAcademicYear: dropYear(
@@ -1633,6 +1690,9 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			),
 			teacherAttendanceVersionByAcademicYear: dropYear(
 				state.teacherAttendanceVersionByAcademicYear,
+			),
+			paymentsVersionByAcademicYear: dropYear(
+				state.paymentsVersionByAcademicYear,
 			),
 			schedulesVersionByAcademicYear: dropYear(
 				state.schedulesVersionByAcademicYear,
@@ -1674,6 +1734,9 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			const teacherAttendanceVersions = expandAcademicYearRecordMap<string>(
 				cachedMeta.teacherAttendanceVersionByAcademicYear,
 			);
+			const paymentsVersions = expandAcademicYearRecordMap<string>(
+				cachedMeta.paymentsVersionByAcademicYear,
+			);
 			const schedulesVersions = expandAcademicYearRecordMap<string>(
 				cachedMeta.schedulesVersionByAcademicYear,
 			);
@@ -1702,6 +1765,10 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 					Object.keys(teacherAttendanceVersions).length > 0
 						? teacherAttendanceVersions
 						: state.teacherAttendanceVersionByAcademicYear,
+				paymentsVersionByAcademicYear:
+					Object.keys(paymentsVersions).length > 0
+						? paymentsVersions
+						: state.paymentsVersionByAcademicYear,
 				schedulesVersionByAcademicYear:
 					Object.keys(schedulesVersions).length > 0
 						? schedulesVersions
@@ -1728,6 +1795,9 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 					};
 					const teacherAttendanceByAcademicYear = {
 						...state.teacherAttendanceByAcademicYear,
+					};
+					const paymentsByAcademicYear = {
+						...state.paymentsByAcademicYear,
 					};
 					const calendarByAcademicYear = { ...state.calendarByAcademicYear };
 					const schedulesByAcademicYear = { ...state.schedulesByAcademicYear };
@@ -1827,6 +1897,17 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 								nextTeacherAttendance,
 							);
 						}
+						if (snapshot.domain === 'payments') {
+							const value = Array.isArray(snapshot.value)
+								? (snapshot.value as any[])
+								: [];
+							const nextPayments = assignAcademicYearRecord(
+								paymentsByAcademicYear,
+								year,
+								value,
+							);
+							Object.assign(paymentsByAcademicYear, nextPayments);
+						}
 					});
 
 					return {
@@ -1835,6 +1916,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 						gradeRequestsByAcademicYear,
 						attendanceByAcademicYear,
 						teacherAttendanceByAcademicYear,
+						paymentsByAcademicYear,
 						calendarByAcademicYear,
 						schedulesByAcademicYear,
 					};

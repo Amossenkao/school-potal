@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSchoolStore } from '@/store/schoolStore';
 
 const formatCurrency = (amount: number) =>
@@ -8,33 +8,35 @@ const formatCurrency = (amount: number) =>
 
 export default function AdminPaymentHistoryPage() {
 	const schoolProfile = useSchoolStore((s) => s.school);
-	const [payments, setPayments] = useState<any[]>([]);
-	const [students, setStudents] = useState<any[]>([]);
-	const [loading, setLoading] = useState(true);
+	const paymentsByAcademicYear = useSchoolStore((s) => s.paymentsByAcademicYear);
+	const usersByAcademicYear = useSchoolStore((s) => s.usersByAcademicYear);
 	const [search, setSearch] = useState('');
 	const [feeTypeFilter, setFeeTypeFilter] = useState('');
 	const [dateFrom, setDateFrom] = useState('');
 	const [dateTo, setDateTo] = useState('');
 
-	useEffect(() => {
-		const load = async () => {
-			try {
-				const [payRes, stuRes] = await Promise.all([
-					fetch('/api/payments'),
-					fetch('/api/students'),
-				]);
-				const payJson = await payRes.json();
-				const stuJson = await stuRes.json();
-				if (payJson.success) setPayments(payJson.data.payments || []);
-				if (stuJson.success) setStudents(stuJson.data || []);
-			} catch {
-				console.error('Failed to load data');
-			} finally {
-				setLoading(false);
-			}
-		};
-		load();
-	}, []);
+	const payments = useMemo(() => {
+		const all: any[] = [];
+		Object.values(paymentsByAcademicYear || {}).forEach((yearPayments) => {
+			if (Array.isArray(yearPayments)) all.push(...yearPayments);
+		});
+		return all;
+	}, [paymentsByAcademicYear]);
+
+	const students = useMemo(() => {
+		const map: Record<string, any> = {};
+		Object.values(usersByAcademicYear || {}).forEach((yearData: any) => {
+			(Array.isArray(yearData?.students) ? yearData.students : []).forEach(
+				(student: any) => {
+					const key = String(student?.studentId || student?.username || '');
+					if (key && !map[key]) map[key] = student;
+				},
+			);
+		});
+		return Object.values(map);
+	}, [usersByAcademicYear]);
+
+	const loading = !schoolProfile;
 
 	const studentMap = useMemo(() => {
 		const map: Record<string, any> = {};

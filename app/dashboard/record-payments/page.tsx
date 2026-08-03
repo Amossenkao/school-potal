@@ -607,6 +607,8 @@ function FeeModal({
 
 export default function RecordPaymentsPage() {
 	const schoolProfile = useSchoolStore((s) => s.school);
+	const usersByAcademicYear = useSchoolStore((s) => s.usersByAcademicYear);
+	const paymentsByAcademicYear = useSchoolStore((s) => s.paymentsByAcademicYear);
 
 	const [academicYear, setAcademicYear] = useState('');
 	const [phase, setPhase] = useState<Phase>('build');
@@ -637,6 +639,17 @@ export default function RecordPaymentsPage() {
 		return buildSchoolAcademicYearRange(schoolProfile);
 	}, [schoolProfile]);
 
+	// All payments from the school store, flat across academic years. Matches the
+	// shape returned by /api/payments?studentId= (no year filter) so fee math is
+	// unchanged.
+	const allPayments = useMemo(() => {
+		const all: any[] = [];
+		Object.values(paymentsByAcademicYear || {}).forEach((yearPayments) => {
+			if (Array.isArray(yearPayments)) all.push(...yearPayments);
+		});
+		return all;
+	}, [paymentsByAcademicYear]);
+
 	useEffect(() => {
 		if (!schoolProfile) return;
 		const years = buildSchoolAcademicYearRange(schoolProfile);
@@ -659,29 +672,47 @@ export default function RecordPaymentsPage() {
 		return () => document.removeEventListener('mousedown', handler);
 	}, []);
 
-	// Debounced student search
-	const handleSearchChange = useCallback((q: string) => {
-		setSearchQuery(q);
-		if (debounceRef.current) clearTimeout(debounceRef.current);
-		if (!q.trim()) {
-			setSearchResults([]);
-			return;
-		}
-		debounceRef.current = setTimeout(async () => {
-			setSearchLoading(true);
-			try {
-				const res = await fetch(
-					`/api/students?search=${encodeURIComponent(q.trim())}&limit=20`,
-				);
-				const json = await res.json();
-				if (json.success) setSearchResults(json.data || []);
-			} catch {
-				/* ignore */
-			} finally {
-				setSearchLoading(false);
+	// Debounced student search over the store roster for the selected year
+	const handleSearchChange = useCallback(
+		(q: string) => {
+			setSearchQuery(q);
+			if (debounceRef.current) clearTimeout(debounceRef.current);
+			if (!q.trim()) {
+				setSearchResults([]);
+				return;
 			}
-		}, 300);
-	}, []);
+			debounceRef.current = setTimeout(() => {
+				setSearchLoading(true);
+				try {
+					const query = q.trim().toLowerCase();
+					const yearData =
+						usersByAcademicYear[academicYear] ||
+						Object.entries(usersByAcademicYear).find(
+							([k]) =>
+								k.replace(/\//g, '-') ===
+								academicYear.replace(/\//g, '-'),
+						)?.[1];
+					const roster = Array.isArray(yearData?.students)
+						? yearData.students
+						: [];
+					const results = roster
+						.filter((s: any) => {
+							const name = `${s.firstName || ''} ${s.lastName || ''}`
+								.toLowerCase();
+							const sid = String(
+								s.studentId || s.username || '',
+							).toLowerCase();
+							return name.includes(query) || sid.includes(query);
+						})
+						.slice(0, 20);
+					setSearchResults(results);
+				} finally {
+					setSearchLoading(false);
+				}
+			}, 300);
+		},
+		[usersByAcademicYear, academicYear],
+	);
 
 	// Open modal for a student — fetch fees if not cached
 	const openStudentModal = useCallback(
@@ -711,9 +742,9 @@ export default function RecordPaymentsPage() {
 			// Load fees
 			setModalLoadingId(sid);
 			try {
-				const res = await fetch(`/api/payments?studentId=${sid}`);
-				const json = await res.json();
-				const payments: any[] = json.success ? json.data?.payments || [] : [];
+				const payments: any[] = allPayments.filter(
+					(p) => String(p.studentId || '') === sid,
+				);
 
 				const resolvedFees = resolveFeesForStudent(
 					student,
@@ -734,7 +765,7 @@ export default function RecordPaymentsPage() {
 				setModalLoadingId(null);
 			}
 		},
-		[feeCache, schoolProfile, academicYear],
+		[feeCache, schoolProfile, academicYear, allPayments],
 	);
 
 	// Save modal selections back to cart
@@ -840,6 +871,23 @@ export default function RecordPaymentsPage() {
 				});
 				const json = await res.json();
 				results.push({ studentId, name, ok: json.success, msg: json.message });
+
+				// Keep the school store payments current so financial pages read
+				// the freshly recorded receipt without a refetch.
+				if (json.success && Array.isArray(json.data?.payments)) {
+					const byYear: Record<string, any[]> = {};
+					(json.data.payments as any[]).forEach((p: any) => {
+						const year = String(
+							p?.paymentAcademicYear || academicYear,
+						).trim();
+						if (!year) return;
+						if (!byYear[year]) byYear[year] = [];
+						byYear[year].push(p);
+					});
+					Object.entries(byYear).forEach(([year, payments]) => {
+						useSchoolStore.getState().setPaymentsForYear(year, payments);
+					});
+				}
 			} catch {
 				results.push({ studentId, name, ok: false, msg: 'Network error' });
 			}

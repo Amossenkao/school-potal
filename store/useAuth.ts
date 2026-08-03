@@ -37,6 +37,7 @@ type SyncVersions = {
 	gradeRequests?: string;
 	attendance?: string;
 	teacherAttendance?: string;
+	payments?: string;
 };
 
 type SuperAdminUserCounts = {
@@ -478,6 +479,8 @@ const applyBootstrapPayload = (
 				typeof versions.teacherAttendance === 'string'
 					? versions.teacherAttendance
 					: undefined,
+			payments:
+				typeof versions.payments === 'string' ? versions.payments : undefined,
 		});
 	}
 
@@ -535,6 +538,24 @@ const applyBootstrapPayload = (
 				data.teacherAttendance,
 			);
 		}
+	}
+
+	// Payments: bucket the flat bootstrap array by academic year and merge into
+	// the store (keyed by id) so financial pages read from state instead of
+	// refetching /api/payments on open. A payment's own paymentAcademicYear wins;
+	// fall back to the payload's academicYear for anything untyped.
+	if (Array.isArray(data?.payments) && data.payments.length > 0) {
+		const fallbackYear = String(data?.academicYear || '').trim();
+		const byYear: Record<string, any[]> = {};
+		(data.payments as any[]).forEach((payment) => {
+			const year = String(payment?.paymentAcademicYear || fallbackYear).trim();
+			if (!year) return;
+			if (!byYear[year]) byYear[year] = [];
+			byYear[year].push(payment);
+		});
+		Object.entries(byYear).forEach(([year, yearPayments]) => {
+			schoolStore.setPaymentsForYear(year, yearPayments);
+		});
 	}
 
 	if (academicYear && typeof window !== 'undefined') {
@@ -1094,6 +1115,10 @@ const runDeferredPostLoginBootstrap = (
 						schoolState.attendanceVersionByAcademicYear,
 						preferredYear,
 					);
+					const paymentsVersion = getScopedVersion(
+						schoolState.paymentsVersionByAcademicYear,
+						preferredYear,
+					);
 
 					if (typeof usersVersion === 'string') {
 						query.set('v_users', String(usersVersion));
@@ -1113,6 +1138,9 @@ const runDeferredPostLoginBootstrap = (
 					}
 					if (typeof attendanceVersion === 'string') {
 						query.set('v_attendance', attendanceVersion);
+					}
+					if (typeof paymentsVersion === 'string') {
+						query.set('v_payments', paymentsVersion);
 					}
 					if (typeof schoolState.schoolVersion === 'string') {
 						query.set('v_school', schoolState.schoolVersion);

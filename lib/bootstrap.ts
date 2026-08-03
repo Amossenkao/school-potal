@@ -70,6 +70,8 @@ const USER_BOOTSTRAP_SELECT = {
 	subjects: 1,
 	sponsorClass: 1,
 	position: 1,
+	wardTeacherId: 1,
+	scholarships: 1,
 } as const;
 
 export const getAcademicYear = (schoolProfile: any) => {
@@ -620,7 +622,41 @@ const fetchTeacherAttendanceForRole = async (
 	return TeacherAttendance.find(query).sort({ date: 1, teacherId: 1 }).lean();
 };
 
-const getRolePaymentsQuery = (currentUser: any) => {
+// Features that grant an administrator access to school-wide payments.
+// Mirrors the administrator branch of `hasFeatureAccess` in utils/componentsMap
+// so the bootstrap payload is gated the same way the menu pages are.
+const ADMIN_PAYMENT_FEATURES: string[] = ['financial_reports', 'record_payments'];
+
+const adminCanViewAllPayments = (schoolProfile: any, currentUser: any): boolean => {
+	if (currentUser?.role !== 'administrator') return false;
+	const enabledFeatures = Array.isArray(
+		schoolProfile?.featureConfig?.enabledFeatures,
+	)
+		? (schoolProfile.featureConfig.enabledFeatures as string[])
+		: [];
+	const adminPermissions = Array.isArray(currentUser?.permissions)
+		? (currentUser.permissions as string[])
+		: [];
+	const hasFeature = (feature: string) => {
+		if (!enabledFeatures.includes(feature)) return false;
+		if (adminPermissions.includes(feature)) return true;
+		if (currentUser?.isTeacher) {
+			const teacherFeatures = Array.isArray(
+				schoolProfile?.featureConfig?.roleFeatureAccess?.teacher,
+			)
+				? (schoolProfile.featureConfig.roleFeatureAccess.teacher as string[])
+				: [];
+			if (teacherFeatures.includes(feature)) return true;
+		}
+		return false;
+	};
+	return ADMIN_PAYMENT_FEATURES.some(hasFeature);
+};
+
+const getRolePaymentsQuery = (
+	currentUser: any,
+	adminCanViewPayments = false,
+) => {
 	if (currentUser?.role === 'student') {
 		const studentId = currentUser.studentId || currentUser.username;
 		if (!studentId) return null;
@@ -631,18 +667,43 @@ const getRolePaymentsQuery = (currentUser: any) => {
 		if (studentIds.length === 0) return null;
 		return { studentId: { $in: studentIds } };
 	}
+	if (currentUser?.role === 'administrator') {
+		return adminCanViewPayments ? {} : null;
+	}
 	return null;
 };
+
+const mapPaymentDocument = (p: any) => ({
+	id: p?._id?.toString?.() || p?.id,
+	receiptNumber: p.receiptNumber,
+	studentId: p.studentId,
+	classId: p.classId,
+	paidBy: p.paidBy,
+	feeType: p.feeType,
+	category: p.category,
+	installmentId: p.installmentId || undefined,
+	paymentAmount: p.paymentAmount,
+	currency: p.currency || 'LRD',
+	paymentAcademicYear: p.paymentAcademicYear,
+	paymentDate: p.paymentDate,
+	paymentTime: p.paymentTime,
+	paymentMethod: p.paymentMethod,
+});
 
 const fetchPaymentsForStudent = async (
 	models: any,
 	currentUser: any,
+	schoolProfile?: any,
 ): Promise<any[]> => {
-	const query = getRolePaymentsQuery(currentUser);
+	const query = getRolePaymentsQuery(
+		currentUser,
+		adminCanViewAllPayments(schoolProfile, currentUser),
+	);
 	if (!query) return [];
 	const { Payment } = models;
 	if (!Payment) return [];
-	return Payment.find(query).sort({ createdAt: -1 }).lean();
+	const docs = await Payment.find(query).sort({ createdAt: -1 }).lean();
+	return docs.map(mapPaymentDocument);
 };
 
 const BOOTSTRAP_GRADE_LIMIT = 10_000;
@@ -845,6 +906,7 @@ export const getDomainVersions = async (
 	currentUser: any,
 	academicYear: string,
 	usersVersion?: string,
+	schoolProfile?: any,
 ): Promise<DomainVersions> => {
 	const models = await getTenantModels();
 	const academicYearMatch = getAcademicYearMatch(academicYear);
@@ -875,7 +937,10 @@ export const getDomainVersions = async (
 	const canQueryTeacherAttendance = Boolean(
 		TeacherAttendance && teacherAttendanceQuery,
 	);
-	const paymentsQuery = getRolePaymentsQuery(currentUser);
+	const paymentsQuery = getRolePaymentsQuery(
+		currentUser,
+		adminCanViewAllPayments(schoolProfile, currentUser),
+	);
 	const canQueryPayments = Boolean(Payment && paymentsQuery);
 
 	const [
@@ -1086,7 +1151,7 @@ export const buildBootstrapPayload = async (
 			? fetchTeacherAttendanceForRole(models, currentUser, academicYear)
 			: Promise.resolve(undefined),
 		include.payments
-			? fetchPaymentsForStudent(models, currentUser)
+			? fetchPaymentsForStudent(models, currentUser, schoolProfile)
 			: Promise.resolve(undefined),
 	]);
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useSchoolStore } from '@/store/schoolStore';
 import {
 	getCurrentAcademicYearFromSchoolProfile,
@@ -20,7 +20,6 @@ import {
 	Calendar,
 	Receipt,
 	School,
-	Filter,
 } from 'lucide-react';
 
 const fmt = (n: number) =>
@@ -28,21 +27,6 @@ const fmt = (n: number) =>
 
 const pct = (part: number, total: number) =>
 	total > 0 ? Math.round((part / total) * 100) : 0;
-
-interface Payment {
-	id: string;
-	studentId: string;
-	classId?: string;
-	feeType: string;
-	category?: string;
-	paymentAmount: number;
-	currency: string;
-	paymentAcademicYear?: string;
-	paymentDate: string;
-	receiptNumber?: string;
-	paidBy?: string;
-	paymentMethod?: string;
-}
 
 interface CurrencyInfo {
 	code: string;
@@ -52,24 +36,40 @@ interface CurrencyInfo {
 
 function Accordion({
 	title,
+	isOpen,
+	onToggle,
 	defaultOpen = false,
 	children,
 }: {
 	title: React.ReactNode;
+	isOpen?: boolean;
+	onToggle?: () => void;
 	defaultOpen?: boolean;
 	children: React.ReactNode;
 }) {
 	const [open, setOpen] = useState(defaultOpen);
+	const resolvedOpen = isOpen !== undefined ? isOpen : open;
+	const toggle = () => {
+		if (onToggle) onToggle();
+		else setOpen((o) => !o);
+	};
 	return (
 		<div className="rounded-2xl border border-border">
 			<button
-				onClick={() => setOpen(!open)}
-				className="flex w-full items-center justify-between px-5 py-4 text-left"
+				onClick={toggle}
+				aria-expanded={resolvedOpen}
+				className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 text-left sm:px-5 sm:py-4"
 			>
-				<span className="font-bold">{title}</span>
-				{open ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+				<span className="min-w-0 flex-1 font-bold">{title}</span>
+				{resolvedOpen ? (
+					<ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+				) : (
+					<ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+				)}
 			</button>
-			{open && <div className="border-t border-border px-5 py-4">{children}</div>}
+			{resolvedOpen && (
+				<div className="border-t border-border px-4 py-4 sm:px-5">{children}</div>
+			)}
 		</div>
 	);
 }
@@ -108,11 +108,17 @@ function PercentBadge({ value }: { value: number }) {
 export default function FinancialOverviewPage() {
 	const schoolProfile = useSchoolStore((s) => s.school);
 	const usersByAcademicYear = useSchoolStore((s) => s.usersByAcademicYear);
+	const paymentsByAcademicYear = useSchoolStore((s) => s.paymentsByAcademicYear);
 
-	const [payments, setPayments] = useState<Payment[]>([]);
-	const [loading, setLoading] = useState(true);
 	const [activeTab, setActiveTab] = useState<'overview' | 'installments' | 'byClass'>('overview');
-	const [classFilter, setClassFilter] = useState<string>('all');
+	const [byClassSession, setByClassSession] = useState<string>('all');
+	const [byClassLevel, setByClassLevel] = useState<string>('all');
+	const [byClassClassId, setByClassClassId] = useState<string>('all');
+	const [expandedClassId, setExpandedClassId] = useState<string | null>(null);
+	const [expandedSession, setExpandedSession] = useState<string | null>(null);
+	const [expandedInstallment, setExpandedInstallment] = useState<string | null>(null);
+	const [sessionsInit, setSessionsInit] = useState(false);
+	const lastDisplayedClassesKeyRef = useRef('');
 
 	const availableYears = useMemo(() => {
 		if (!schoolProfile) return [];
@@ -126,27 +132,10 @@ export default function FinancialOverviewPage() {
 		[schoolProfile],
 	);
 	const [selectedYear, setSelectedYear] = useState<string>('');
-	const [selectedSession, setSelectedSession] = useState<string>('all');
 
 	useEffect(() => {
 		if (defaultYear && !selectedYear) setSelectedYear(defaultYear);
 	}, [defaultYear, selectedYear]);
-
-	useEffect(() => {
-		const load = async () => {
-			setLoading(true);
-			try {
-				const res = await fetch('/api/payments');
-				const json = await res.json();
-				if (json.success) setPayments(json.data.payments || []);
-			} catch {
-				console.error('Failed to load payments');
-			} finally {
-				setLoading(false);
-			}
-		};
-		load();
-	}, []);
 
 	const studentsForYear = useMemo(() => {
 		if (!selectedYear || !usersByAcademicYear) return [];
@@ -165,27 +154,16 @@ export default function FinancialOverviewPage() {
 		);
 	}, [schoolProfile, selectedYear]);
 
-	const sessionOptions = useMemo(() => {
-		if (!feeSchedule) return [];
-		return feeSchedule.sessionFeeSchedules.map((s) => s.sessionName);
-	}, [feeSchedule]);
-
-	const showSessionFilter = sessionOptions.length > 1;
-
-	useEffect(() => {
-		if (selectedSession !== 'all' && !sessionOptions.includes(selectedSession)) {
-			setSelectedSession('all');
-		}
-	}, [sessionOptions, selectedSession]);
-
 	const yearPayments = useMemo(
-		() =>
-			payments.filter((p) => {
-				const py = (p.paymentAcademicYear || '').replace(/\//g, '-');
-				const sy = selectedYear.replace(/\//g, '-');
-				return py === sy;
-			}),
-		[payments, selectedYear],
+		() => {
+			if (!selectedYear || !paymentsByAcademicYear) return [];
+			return (
+				paymentsByAcademicYear[selectedYear] ||
+				Object.entries(paymentsByAcademicYear).find(([k]) => k.replace(/\//g, '-') === selectedYear.replace(/\//g, '-'))?.[1] ||
+				[]
+			);
+		},
+		[paymentsByAcademicYear, selectedYear],
 	);
 
 	const classNameMap = useMemo(() => {
@@ -214,6 +192,54 @@ export default function FinancialOverviewPage() {
 		return map;
 	}, [schoolProfile]);
 
+	const classMeta = useMemo(() => {
+		const map: Record<string, { session: string; level: string; className: string }> = {};
+		if (!schoolProfile?.academicConfig?.classLevels) return map;
+		for (const [session, levels] of Object.entries(schoolProfile.academicConfig.classLevels)) {
+			if (!levels || typeof levels !== 'object') continue;
+			for (const [level, levelData] of Object.entries(levels)) {
+				if (!levelData || typeof levelData !== 'object') continue;
+				for (const cls of (levelData as any).classes ?? []) {
+					map[cls.classId] = {
+						session,
+						level,
+						className: cls.name || cls.classId,
+					};
+				}
+			}
+		}
+		return map;
+	}, [schoolProfile]);
+
+	// ── Profile-defined ordering for sessions, levels, and classes ─────────
+	const profileOrder = useMemo(() => {
+		const sessionOrder: string[] = [];
+		const levelOrderBySession: Record<string, string[]> = {};
+		const levelRank: Record<string, number> = {};
+		const classRank: Record<string, number> = {};
+		let rank = 0;
+		if (schoolProfile?.academicConfig?.classLevels) {
+			for (const [session, levels] of Object.entries(
+				schoolProfile.academicConfig.classLevels,
+			)) {
+				if (!levels || typeof levels !== 'object') continue;
+				sessionOrder.push(session);
+				const levelNames: string[] = [];
+				for (const [level, levelData] of Object.entries(levels)) {
+					if (!levelData || typeof levelData !== 'object') continue;
+					levelNames.push(level);
+					if (!(level in levelRank)) levelRank[level] = rank;
+					rank++;
+					for (const cls of (levelData as any).classes ?? []) {
+						classRank[cls.classId] = rank++;
+					}
+				}
+				levelOrderBySession[session] = levelNames;
+			}
+		}
+		return { sessionOrder, levelOrderBySession, levelRank, classRank };
+	}, [schoolProfile]);
+
 	const getStudentClassId = useCallback((student: any): string => {
 		const yearEntry = Array.isArray(student.academicYears)
 			? student.academicYears.find(
@@ -230,8 +256,6 @@ export default function FinancialOverviewPage() {
 		for (const student of studentsForYear) {
 			const classId = getStudentClassId(student);
 			if (!classId) continue;
-			const studentSession = classIdToSession[classId];
-			if (selectedSession !== 'all' && studentSession !== selectedSession) continue;
 			const bills = resolveStudentFees(student, schoolProfile, selectedYear, classId);
 			for (const bill of bills) {
 				if (!bill.isRequired) continue;
@@ -239,7 +263,16 @@ export default function FinancialOverviewPage() {
 			}
 		}
 		return rows;
-	}, [schoolProfile, feeSchedule, studentsForYear, selectedYear, selectedSession, classIdToSession, getStudentClassId]);
+	}, [schoolProfile, feeSchedule, studentsForYear, selectedYear, getStudentClassId]);
+
+	// ── Map feeId → feeName so payments recorded by feeId roll up to their named category ──
+	const feeNameById = useMemo(() => {
+		const map = new Map<string, string>();
+		for (const { bill } of feeRows) {
+			if (bill.feeId && !map.has(bill.feeId)) map.set(bill.feeId, bill.feeName);
+		}
+		return map;
+	}, [feeRows]);
 
 	// ── Expected income per currency (scholarships & student groups applied) ──
 	const expectedTotalByCurrency = useMemo((): Record<string, number> => {
@@ -292,29 +325,68 @@ export default function FinancialOverviewPage() {
 	// ── Installments grouped by session ────────────────────────────────────
 	const installmentsBySession = useMemo(() => {
 		if (!feeSchedule) return [];
-		const sessions = Array.from(
-			new Set(feeRows.map((r) => r.bill.sessionName || classIdToSession[getStudentClassId(r.student)] || '')),
-		).filter(Boolean);
+		const sessionNames = new Set(
+			feeRows
+				.map(
+					(r) =>
+						r.bill.sessionName ||
+						classIdToSession[getStudentClassId(r.student)] ||
+						'',
+				)
+				.filter(Boolean),
+		);
+		const sessions = [
+			...profileOrder.sessionOrder.filter((s) => sessionNames.has(s)),
+			...Array.from(sessionNames).filter((s) => !profileOrder.sessionOrder.includes(s)),
+		];
 
 		return sessions.map((sessionName) => {
 			const rows = feeRows.filter((r) => r.bill.sessionName === sessionName);
 			const installmentMap: Record<
 				string,
-				{ id: string; label: string; expectedByCur: Record<string, number>; collectedByCur: Record<string, number> }
+				{
+					id: string;
+					label: string;
+					expectedByCur: Record<string, number>;
+					collectedByCur: Record<string, number>;
+					categories: Record<
+						string,
+						{ expectedByCur: Record<string, number>; collectedByCur: Record<string, number> }
+					>;
+				}
 			> = {};
 			const ensure = (id: string, label: string) => {
 				if (!installmentMap[id]) {
-					installmentMap[id] = { id, label, expectedByCur: {}, collectedByCur: {} };
+					installmentMap[id] = {
+						id,
+						label,
+						expectedByCur: {},
+						collectedByCur: {},
+						categories: {},
+					};
 				}
 				return installmentMap[id];
 			};
-			const addExpected = (id: string, label: string, cur: string, amount: number) => {
+			const ensureCategory = (
+				bucket: (typeof installmentMap)[string],
+				category: string,
+			) => {
+				if (!bucket.categories[category]) {
+					bucket.categories[category] = { expectedByCur: {}, collectedByCur: {} };
+				}
+				return bucket.categories[category];
+			};
+			const addExpected = (id: string, label: string, cur: string, amount: number, category: string) => {
 				const bucket = ensure(id, label);
 				bucket.expectedByCur[cur] = (bucket.expectedByCur[cur] || 0) + amount;
+				const cat = ensureCategory(bucket, category);
+				cat.expectedByCur[cur] = (cat.expectedByCur[cur] || 0) + amount;
 			};
-			const addCollected = (id: string, label: string, cur: string, amount: number) => {
+			const addCollected = (id: string, label: string, cur: string, amount: number, category: string) => {
 				const bucket = ensure(id, label);
 				bucket.collectedByCur[cur] = (bucket.collectedByCur[cur] || 0) + amount;
+				const cat = ensureCategory(bucket, category);
+				cat.collectedByCur[cur] = (cat.collectedByCur[cur] || 0) + amount;
 			};
 
 			const consumed = new Set<string>();
@@ -323,10 +395,10 @@ export default function FinancialOverviewPage() {
 				const cur = bill.currency;
 
 				if (bill.installments.length === 0) {
-					addExpected('__immediate__', 'Immediate', cur, bill.effectiveAmount);
+					addExpected('__immediate__', 'Immediate', cur, bill.effectiveAmount, bill.feeName);
 				} else {
 					for (const split of bill.installments) {
-						addExpected(split.installmentId, split.label, cur, split.amount);
+						addExpected(split.installmentId, split.label, cur, split.amount, bill.feeName);
 					}
 				}
 
@@ -346,12 +418,13 @@ export default function FinancialOverviewPage() {
 						'Immediate',
 						cur,
 						feePayments.reduce((a, p) => a + p.paymentAmount, 0),
+						bill.feeName,
 					);
 				} else {
 					for (const split of bill.installments) {
 						const amount = collected[split.installmentId] || 0;
 						if (amount > 0) {
-							addCollected(split.installmentId, split.label, cur, amount);
+							addCollected(split.installmentId, split.label, cur, amount, bill.feeName);
 						}
 					}
 				}
@@ -362,7 +435,8 @@ export default function FinancialOverviewPage() {
 				if (consumed.has(p.id)) continue;
 				const paymentSession = p.classId ? classIdToSession[p.classId] : null;
 				if (paymentSession && paymentSession !== sessionName) continue;
-				addCollected('__immediate__', 'Immediate', p.currency, p.paymentAmount);
+				const category = feeNameById.get(p.feeType) || p.feeType || 'Other';
+				addCollected('__immediate__', 'Immediate', p.currency, p.paymentAmount, category);
 			}
 
 			return {
@@ -370,7 +444,7 @@ export default function FinancialOverviewPage() {
 				installments: Object.values(installmentMap),
 			};
 		});
-	}, [feeSchedule, feeRows, yearPayments, classIdToSession, getStudentClassId]);
+	}, [feeSchedule, feeRows, yearPayments, classIdToSession, getStudentClassId, feeNameById, profileOrder]);
 
 	// ── By-class breakdown (scholarship-adjusted) ──────────────────────────
 	const classSummaries = useMemo(() => {
@@ -397,13 +471,202 @@ export default function FinancialOverviewPage() {
 		const map: Record<string, Record<string, number>> = {};
 		for (const p of yearPayments) {
 			const cid = p.classId || 'unknown';
-			const session = classIdToSession[cid];
-			if (selectedSession !== 'all' && session !== selectedSession) continue;
 			if (!map[cid]) map[cid] = {};
 			map[cid][p.currency] = (map[cid][p.currency] || 0) + p.paymentAmount;
 		}
 		return map;
-	}, [yearPayments, selectedSession, classIdToSession]);
+	}, [yearPayments]);
+
+	// ── Fee type breakdown: expected + collected per category per currency ──
+	const feeTypeBreakdown = useMemo(() => {
+		const expected: Record<string, Record<string, number>> = {};
+		const collected: Record<string, Record<string, number>> = {};
+		for (const { bill } of feeRows) {
+			if (!expected[bill.feeName]) expected[bill.feeName] = {};
+			expected[bill.feeName][bill.currency] =
+				(expected[bill.feeName][bill.currency] || 0) + bill.effectiveAmount;
+		}
+		for (const p of yearPayments) {
+			const key = feeNameById.get(p.feeType) || p.feeType || 'Other';
+			if (!collected[key]) collected[key] = {};
+			collected[key][p.currency] = (collected[key][p.currency] || 0) + p.paymentAmount;
+		}
+		const categories = Array.from(
+			new Set([...Object.keys(expected), ...Object.keys(collected)]),
+		);
+		return categories
+			.map((category) => {
+				const expByCur = expected[category] || {};
+				const colByCur = collected[category] || {};
+				const currencies = Array.from(
+					new Set([...Object.keys(expByCur), ...Object.keys(colByCur)]),
+				);
+				return { category, expByCur, colByCur, currencies };
+			})
+			.sort((a, b) => {
+				const sumA = Object.values(a.expByCur).reduce((s, v) => s + v, 0);
+				const sumB = Object.values(b.expByCur).reduce((s, v) => s + v, 0);
+				return sumB - sumA;
+			});
+	}, [feeRows, yearPayments, feeNameById]);
+
+	// ── By-class category breakdown (expected + collected per class per fee) ──
+	const expectedByClassCategory = useMemo(() => {
+		const map: Record<string, Record<string, Record<string, number>>> = {};
+		for (const { student, bill } of feeRows) {
+			const classId = getStudentClassId(student);
+			if (!classId) continue;
+			if (!map[classId]) map[classId] = {};
+			if (!map[classId][bill.feeName]) map[classId][bill.feeName] = {};
+			map[classId][bill.feeName][bill.currency] =
+				(map[classId][bill.feeName][bill.currency] || 0) + bill.effectiveAmount;
+		}
+		return map;
+	}, [feeRows, getStudentClassId]);
+
+	const collectedByClassCategory = useMemo(() => {
+		const map: Record<string, Record<string, Record<string, number>>> = {};
+		for (const p of yearPayments) {
+			const cid = p.classId || 'unknown';
+			const category = feeNameById.get(p.feeType) || p.feeType || 'Other';
+			if (!map[cid]) map[cid] = {};
+			if (!map[cid][category]) map[cid][category] = {};
+			map[cid][category][p.currency] =
+				(map[cid][category][p.currency] || 0) + p.paymentAmount;
+		}
+		return map;
+	}, [yearPayments, feeNameById]);
+
+	// ── By-class filter options (session / division-level / class) ──────────
+	const byClassSessions = useMemo(() => {
+		const known = profileOrder.sessionOrder.filter((s) =>
+			classSummaries.some((c) => classMeta[c.classId]?.session === s),
+		);
+		const unknown = Array.from(
+			new Set(
+				classSummaries
+					.map((c) => classMeta[c.classId]?.session)
+					.filter((s) => s && !profileOrder.sessionOrder.includes(s)) as string[],
+			),
+		);
+		return [...known, ...unknown];
+	}, [classSummaries, classMeta, profileOrder.sessionOrder]);
+
+	const byClassLevels = useMemo(() => {
+		const inSession = classSummaries.filter(
+			(c) =>
+				byClassSession === 'all' ||
+				classMeta[c.classId]?.session === byClassSession,
+		);
+		const levelsInScope = new Set(
+			inSession
+				.map((c) => classMeta[c.classId]?.level)
+				.filter(Boolean) as string[],
+		);
+		if (byClassSession !== 'all') {
+			return (profileOrder.levelOrderBySession[byClassSession] || []).filter((l) =>
+				levelsInScope.has(l),
+			);
+		}
+		const known = Array.from(levelsInScope).filter((l) => l in profileOrder.levelRank);
+		const unknown = Array.from(levelsInScope).filter((l) => !(l in profileOrder.levelRank));
+		return [
+			...known.sort((a, b) => profileOrder.levelRank[a] - profileOrder.levelRank[b]),
+			...unknown,
+		];
+	}, [classSummaries, classMeta, byClassSession, profileOrder]);
+
+	const byClassClasses = useMemo(() => {
+		const inScope = classSummaries.filter(
+			(c) =>
+				(byClassSession === 'all' ||
+					classMeta[c.classId]?.session === byClassSession) &&
+				(byClassLevel === 'all' ||
+					classMeta[c.classId]?.level === byClassLevel),
+		);
+		return inScope
+			.map((c) => ({
+				classId: c.classId,
+				className: c.className,
+			}))
+			.sort(
+				(a, b) =>
+					(profileOrder.classRank[a.classId] ?? 0) -
+					(profileOrder.classRank[b.classId] ?? 0),
+			);
+	}, [classSummaries, classMeta, byClassSession, byClassLevel, profileOrder.classRank]);
+
+	const displayedClasses = useMemo(
+		() =>
+			classSummaries
+				.filter(
+					(c) =>
+						(byClassSession === 'all' ||
+							classMeta[c.classId]?.session === byClassSession) &&
+						(byClassLevel === 'all' ||
+							classMeta[c.classId]?.level === byClassLevel) &&
+						(byClassClassId === 'all' || c.classId === byClassClassId),
+				)
+				.sort(
+					(a, b) =>
+						(profileOrder.classRank[a.classId] ?? 0) -
+						(profileOrder.classRank[b.classId] ?? 0),
+				),
+		[
+			classSummaries,
+			classMeta,
+			byClassSession,
+			byClassLevel,
+			byClassClassId,
+			profileOrder.classRank,
+		],
+	);
+
+	// A single filtered class is expanded by default; otherwise collapsed and
+	// only one class accordion may be open at a time.
+	useEffect(() => {
+		const key = displayedClasses.map((c) => c.classId).join(',');
+		if (key !== lastDisplayedClassesKeyRef.current) {
+			lastDisplayedClassesKeyRef.current = key;
+			setExpandedClassId(
+				displayedClasses.length === 1 ? displayedClasses[0].classId : null,
+			);
+		}
+	}, [displayedClasses]);
+
+	// First installments session accordion opens by default (single-open).
+	useEffect(() => {
+		if (!sessionsInit && installmentsBySession.length > 0) {
+			setSessionsInit(true);
+			setExpandedSession((prev) => prev ?? installmentsBySession[0].sessionName);
+		}
+	}, [installmentsBySession, sessionsInit]);
+
+	const handleByClassSessionChange = (value: string) => {
+		setByClassSession(value);
+		setByClassLevel('all');
+		setByClassClassId('all');
+	};
+
+	const handleByClassLevelChange = (value: string) => {
+		setByClassLevel(value);
+		setByClassClassId('all');
+	};
+
+	const toggleClassAccordion = (classId: string) => {
+		setExpandedClassId((prev) => (prev === classId ? null : classId));
+	};
+
+	const toggleSessionAccordion = (sessionName: string) => {
+		setExpandedSession((prev) => (prev === sessionName ? null : sessionName));
+		setExpandedInstallment(null);
+	};
+
+	const toggleInstallmentAccordion = (installmentId: string) => {
+		setExpandedInstallment((prev) =>
+			prev === installmentId ? null : installmentId,
+		);
+	};
 
 	const tabs = [
 		{ id: 'overview', label: 'Overview' },
@@ -420,7 +683,7 @@ export default function FinancialOverviewPage() {
 		[expectedTotalByCurrency, collectedByCurrency],
 	);
 
-	if (loading) {
+	if (!schoolProfile) {
 		return (
 			<div className="flex min-h-[50vh] items-center justify-center">
 				<div className="text-center">
@@ -435,7 +698,7 @@ export default function FinancialOverviewPage() {
 		<div className="mx-auto max-w-7xl space-y-8 px-4 py-6 sm:px-6">
 			<div className="flex flex-wrap items-start justify-between gap-4">
 				<div>
-					<h1 className="text-2xl font-black tracking-tight">
+					<h1 className="text-2xl font-black tracking-tight sm:text-3xl">
 						Financial Overview
 					</h1>
 					<p className="mt-0.5 text-sm text-muted-foreground">
@@ -444,23 +707,6 @@ export default function FinancialOverviewPage() {
 				</div>
 
 				<div className="flex flex-wrap items-center gap-3">
-					{showSessionFilter && (
-						<div className="flex items-center gap-2">
-							<Calendar className="h-4 w-4 text-muted-foreground" />
-							<select
-								value={selectedSession}
-								onChange={(e) => setSelectedSession(e.target.value)}
-								className="rounded-xl border border-border bg-card px-3 py-2 text-sm font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
-							>
-								<option value="all">All Sessions</option>
-								{sessionOptions.map((s) => (
-									<option key={s} value={s}>
-										{s}
-									</option>
-								))}
-							</select>
-						</div>
-					)}
 					<div className="flex items-center gap-2">
 						<Calendar className="h-4 w-4 text-muted-foreground" />
 
@@ -636,93 +882,55 @@ export default function FinancialOverviewPage() {
 									Fee Type Breakdown
 								</h2>
 								<p className="text-xs text-muted-foreground">
-									Collected amounts grouped by fee type
+									Expected and collected amounts grouped by fee type
 								</p>
 							</div>
-							{yearPayments.length === 0 ? (
+							{feeTypeBreakdown.length === 0 ? (
 								<p className="text-sm text-muted-foreground">
-									No payments recorded for this year.
+									No fee data available for {selectedYear}.
 								</p>
 							) : (
 								<div className="divide-y divide-border">
-									{Object.entries(
-										yearPayments.reduce<Record<string, Record<string, number>>>(
-											(acc, p) => {
-												const key = p.feeType || 'Other';
-												if (!acc[key]) acc[key] = {};
-												acc[key][p.currency] =
-													(acc[key][p.currency] || 0) + p.paymentAmount;
-												return acc;
-											},
-											{},
-										),
-									)
-										.sort(([, a], [, b]) => {
-											const sumA = Object.values(a).reduce((s, v) => s + v, 0);
-											const sumB = Object.values(b).reduce((s, v) => s + v, 0);
-											return sumB - sumA;
-										})
-										.map(([feeType, byCur]) => (
-											<div
-												key={feeType}
-												className="flex items-center justify-between py-3"
-											>
-												<span className="text-sm font-bold text-foreground">
-													{feeType}
-												</span>
-												<span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-													{Object.entries(byCur)
-														.map(([c, a]) => `${c} ${fmt(a)}`)
-														.join(' · ')}
-												</span>
+									{feeTypeBreakdown.map(({ category, expByCur, colByCur, currencies }) => (
+										<div key={category} className="py-3">
+											<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+												<p className="min-w-0 shrink-0 break-words text-sm font-bold text-foreground sm:w-44">
+													{category}
+												</p>
+												<div className="min-w-0 flex-1 space-y-2">
+													{currencies.map((cur) => {
+														const exp = expByCur[cur] || 0;
+														const col = colByCur[cur] || 0;
+														return (
+															<div key={cur}>
+																<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
+																	<span className="font-black text-muted-foreground">
+																		{cur}
+																	</span>
+																	<span className="text-muted-foreground">
+																		Expected{' '}
+																		<span className="font-bold text-foreground">
+																			{fmt(exp)}
+																		</span>
+																	</span>
+																	<span className="text-muted-foreground">
+																		Collected{' '}
+																		<span className="font-bold text-emerald-600 dark:text-emerald-400">
+																			{fmt(col)}
+																		</span>
+																	</span>
+																	<PercentBadge value={pct(col, exp)} />
+																</div>
+																<ProgressBar value={col} max={exp} />
+															</div>
+														);
+													})}
+												</div>
 											</div>
-										))}
+										</div>
+									))}
 								</div>
 							)}
-						</div>
-
-						<div className="rounded-2xl border border-border bg-card">
-							<div className="border-b border-border px-5 py-4">
-								<h2 className="font-bold text-foreground">
-									Recent Transactions
-								</h2>
-								<p className="text-xs text-muted-foreground">
-									{yearPayments.length} total for {selectedYear}
-								</p>
-							</div>
-							<div className="divide-y divide-border">
-								{yearPayments.slice(0, 40).map((p) => (
-									<div
-										key={p.id}
-										className="flex items-center justify-between px-5 py-3"
-									>
-										<div>
-											<p className="text-sm font-bold text-foreground">
-												{p.feeType}
-											</p>
-											<p className="text-xs text-muted-foreground">
-												{p.studentId} · {p.paymentDate}
-												{p.receiptNumber ? ` · ${p.receiptNumber}` : ''}
-											</p>
-										</div>
-										<div className="text-right">
-											<p className="font-black text-emerald-600 dark:text-emerald-400">
-												{p.currency} {fmt(p.paymentAmount)}
-											</p>
-											{p.paidBy && (
-												<p className="text-xs text-muted-foreground">
-													{p.paidBy}
-												</p>
-											)}
-										</div>
-									</div>
-								))}
-								{yearPayments.length === 0 && (
-									<p className="px-5 py-6 text-center text-sm text-muted-foreground">
-										No payments recorded for {selectedYear}.
-									</p>
-								)}
-							</div>
 						</div>
 					</div>
 				)}
@@ -742,19 +950,22 @@ export default function FinancialOverviewPage() {
 								return (
 									<Accordion
 										key={session.sessionName}
+										isOpen={expandedSession === session.sessionName}
+										onToggle={() =>
+											toggleSessionAccordion(session.sessionName)
+										}
 										title={
-											<div className="flex items-center gap-2">
-												<School className="h-4 w-4 text-muted-foreground" />
+											<span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+												<School className="h-4 w-4 shrink-0 text-muted-foreground" />
 												{session.sessionName}
-												<span className="ml-2 text-xs font-normal text-muted-foreground">
+												<span className="text-xs font-normal text-muted-foreground">
 													{session.installments.length} installment
 													{session.installments.length !== 1 ? 's' : ''}
 												</span>
-											</div>
+											</span>
 										}
-										defaultOpen
 									>
-										<div className="space-y-5">
+										<div className="space-y-4">
 											{session.installments.map((inst) => {
 												const instCurrencies = Array.from(
 													new Set([
@@ -762,59 +973,149 @@ export default function FinancialOverviewPage() {
 														...Object.keys(inst.collectedByCur),
 													]),
 												);
+												const categories = Object.entries(inst.categories).map(
+													([category, catData]) => ({
+														category,
+														expectedByCur: catData.expectedByCur,
+														collectedByCur: catData.collectedByCur,
+														currencies: Array.from(
+															new Set([
+																...Object.keys(catData.expectedByCur),
+																...Object.keys(catData.collectedByCur),
+															]),
+														),
+													}),
+												);
 												return (
-													<div key={inst.id}>
-														<div className="mb-3 flex items-center gap-2">
-															<Receipt className="h-4 w-4 text-muted-foreground" />
-															<h4 className="font-bold text-foreground">
-																{inst.label}
-															</h4>
-														</div>
-														<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-															{instCurrencies.map((cur) => {
-																const exp = inst.expectedByCur[cur] ?? 0;
-																const col = inst.collectedByCur[cur] ?? 0;
-																const due = Math.max(0, exp - col);
-																const ratio = pct(col, exp);
-																return (
-																	<div
-																		key={cur}
-																		className="rounded-xl bg-muted p-4"
-																	>
-																		<p className="text-xs font-bold uppercase text-muted-foreground">
-																			{cur}
-																		</p>
-																		<div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-																			<span className="text-muted-foreground">
-																				Expected
-																			</span>
-																			<span className="text-right font-bold text-foreground">
-																				{fmt(exp)}
-																			</span>
-																			<span className="text-muted-foreground">
-																				Collected
-																			</span>
-																			<span className="text-right font-bold text-emerald-600 dark:text-emerald-400">
-																				{fmt(col)}
-																			</span>
-																			<span className="text-muted-foreground">
-																				Outstanding
-																			</span>
-																			<span
-																				className={`text-right font-bold ${due > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}
-																			>
-																				{fmt(due)}
-																			</span>
+													<Accordion
+														key={inst.id}
+														isOpen={expandedInstallment === inst.id}
+														onToggle={() =>
+															toggleInstallmentAccordion(inst.id)
+														}
+														title={
+															<span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+																<span className="flex items-center gap-2">
+																	<Receipt className="h-4 w-4 shrink-0 text-muted-foreground" />
+																	{inst.label}
+																</span>
+																<span className="text-xs font-normal text-muted-foreground">
+																	Expected{' '}
+																	{instCurrencies
+																		.map((c) => `${c} ${fmt(inst.expectedByCur[c] ?? 0)}`)
+																		.join(' · ')}
+																	{' · '}Collected{' '}
+																	{instCurrencies
+																		.map((c) => `${c} ${fmt(inst.collectedByCur[c] ?? 0)}`)
+																		.join(' · ')}
+																</span>
+															</span>
+														}
+													>
+														<div className="space-y-6">
+															{/* Per-currency totals */}
+															<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+																{instCurrencies.map((cur) => {
+																	const exp = inst.expectedByCur[cur] ?? 0;
+																	const col = inst.collectedByCur[cur] ?? 0;
+																	const due = Math.max(0, exp - col);
+																	const ratio = pct(col, exp);
+																	return (
+																		<div
+																			key={cur}
+																			className="rounded-xl bg-muted p-4"
+																		>
+																			<p className="text-xs font-bold uppercase text-muted-foreground">
+																				{cur}
+																			</p>
+																			<div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+																				<span className="text-muted-foreground">
+																					Expected
+																				</span>
+																				<span className="text-right font-bold text-foreground">
+																					{fmt(exp)}
+																				</span>
+																				<span className="text-muted-foreground">
+																					Collected
+																				</span>
+																				<span className="text-right font-bold text-emerald-600 dark:text-emerald-400">
+																					{fmt(col)}
+																				</span>
+																				<span className="text-muted-foreground">
+																					Outstanding
+																				</span>
+																				<span
+																					className={`text-right font-bold ${due > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}
+																				>
+																					{fmt(due)}
+																				</span>
+																			</div>
+																			<ProgressBar value={col} max={exp} />
+																			<p className="mt-1 text-right text-xs font-bold text-muted-foreground">
+																				{ratio}% collected
+																			</p>
 																		</div>
-																		<ProgressBar value={col} max={exp} />
-																		<p className="mt-1 text-right text-xs font-bold text-muted-foreground">
-																			{ratio}% collected
-																		</p>
+																	);
+																})}
+															</div>
+
+															{/* Category breakdown */}
+															{categories.length > 0 && (
+																<div>
+																	<h5 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+																		Category Breakdown
+																	</h5>
+																	<div className="divide-y divide-border rounded-xl border border-border">
+																		{categories.map(
+																			({
+																				category,
+																				expectedByCur,
+																				collectedByCur,
+																				currencies,
+																			}) => (
+																				<div key={category} className="p-4">
+																					<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+																						<p className="min-w-0 shrink-0 break-words text-sm font-bold text-foreground sm:w-44">
+																							{category}
+																						</p>
+																						<div className="min-w-0 flex-1 space-y-2">
+																							{currencies.map((cur) => {
+																								const exp = expectedByCur[cur] || 0;
+																								const col = collectedByCur[cur] || 0;
+																								return (
+																									<div key={cur}>
+																										<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
+																											<span className="font-black text-muted-foreground">
+																												{cur}
+																											</span>
+																											<span className="text-muted-foreground">
+																												Expected{' '}
+																												<span className="font-bold text-foreground">
+																													{fmt(exp)}
+																												</span>
+																											</span>
+																											<span className="text-muted-foreground">
+																												Collected{' '}
+																												<span className="font-bold text-emerald-600 dark:text-emerald-400">
+																													{fmt(col)}
+																												</span>
+																											</span>
+																											<PercentBadge value={pct(col, exp)} />
+																										</div>
+																										<ProgressBar value={col} max={exp} />
+																									</div>
+																								);
+																							})}
+																						</div>
+																					</div>
+																				</div>
+																			),
+																		)}
 																	</div>
-																);
-															})}
+																</div>
+															)}
 														</div>
-													</div>
+													</Accordion>
 												);
 											})}
 										</div>
@@ -827,46 +1128,48 @@ export default function FinancialOverviewPage() {
 
 				{activeTab === 'byClass' && (
 					<div className="mt-6 space-y-5">
-						<div className="flex flex-wrap items-center gap-2">
-							<Filter className="h-4 w-4 text-muted-foreground" />
-							<button
-								onClick={() => setClassFilter('all')}
-								className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
-									classFilter === 'all'
-										? 'bg-primary text-primary-foreground'
-										: 'border border-border text-muted-foreground hover:text-foreground'
-								}`}
-							>
-								All Classes
-							</button>
-							{classSummaries.map((c) => (
-								<button
-									key={c.classId}
-									onClick={() => setClassFilter(c.classId)}
-									className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
-										classFilter === c.classId
-											? 'bg-primary text-primary-foreground'
-											: 'border border-border text-muted-foreground hover:text-foreground'
-									}`}
-								>
-									{c.className}
-								</button>
-							))}
+						<div className="flex flex-wrap items-end gap-2 rounded-2xl border border-border bg-card p-3">
+							<FilterSelect
+								label="Session"
+								value={byClassSession}
+								onChange={handleByClassSessionChange}
+								options={[
+									{ label: 'All Sessions', value: 'all' },
+									...byClassSessions.map((s) => ({ label: s, value: s })),
+								]}
+							/>
+							<FilterSelect
+								label="Division/Level"
+								value={byClassLevel}
+								onChange={handleByClassLevelChange}
+								options={[
+									{ label: 'All Levels', value: 'all' },
+									...byClassLevels.map((l) => ({ label: l, value: l })),
+								]}
+							/>
+							<FilterSelect
+								label="Class"
+								value={byClassClassId}
+								onChange={(v) => setByClassClassId(v)}
+								options={[
+									{ label: 'All Classes', value: 'all' },
+									...byClassClasses.map((cl) => ({
+										label: cl.className,
+										value: cl.classId,
+									})),
+								]}
+							/>
 						</div>
 
-						{classSummaries.length === 0 ? (
+						{displayedClasses.length === 0 ? (
 							<div className="rounded-2xl border border-border bg-card p-8 text-center">
 								<p className="text-sm text-muted-foreground">
 									No class data available for {selectedYear}.
 								</p>
 							</div>
 						) : (
-							<div className="divide-y divide-border rounded-2xl border border-border bg-card">
-								{classSummaries
-									.filter(
-										(c) => classFilter === 'all' || c.classId === classFilter,
-									)
-									.map((c) => {
+							<div className="space-y-3">
+								{displayedClasses.map((c) => {
 										const collected = collectedByClass[c.classId] ?? {};
 										const currencies = Array.from(
 											new Set([
@@ -880,23 +1183,50 @@ export default function FinancialOverviewPage() {
 										const primaryCol =
 											collected[activeCurrencies[0]?.code ?? ''] ?? 0;
 
-										return (
-											<div key={c.classId} className="p-5">
-												<div className="flex flex-wrap items-start justify-between gap-2">
-													<div>
-														<h3 className="font-bold text-foreground">
-															{c.className}
-														</h3>
-														<p className="text-xs text-muted-foreground">
-															{c.studentCount} student
-															{c.studentCount !== 1 ? 's' : ''}
-														</p>
-													</div>
-													{primaryExp > 0 && (
-														<PercentBadge value={pct(primaryCol, primaryExp)} />
-													)}
-												</div>
+										const expCat = expectedByClassCategory[c.classId] || {};
+										const colCat = collectedByClassCategory[c.classId] || {};
+										const classCategories = Array.from(
+											new Set([
+												...Object.keys(expCat),
+												...Object.keys(colCat),
+											]),
+										);
 
+										return (
+											<Accordion
+												key={c.classId}
+												isOpen={expandedClassId === c.classId}
+												onToggle={() => toggleClassAccordion(c.classId)}
+												title={
+													<span className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1.5">
+														<span className="flex min-w-0 items-center gap-2">
+															<School className="h-4 w-4 shrink-0 text-muted-foreground" />
+															<span className="truncate font-bold">{c.className}</span>
+															<span className="text-xs font-normal text-muted-foreground">
+																{c.studentCount} student
+																{c.studentCount !== 1 ? 's' : ''}
+															</span>
+														</span>
+														<span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+															{currencies.map((cur) => (
+																<span key={cur} className="font-medium text-muted-foreground">
+																	{cur}{' '}
+																	<span className="font-bold text-emerald-600 dark:text-emerald-400">
+																		{fmt(collected[cur] || 0)}
+																	</span>
+																	{' / '}
+																	<span className="font-bold text-foreground">
+																		{fmt(c.expectedByCurrency[cur] || 0)}
+																	</span>
+																</span>
+															))}
+															{primaryExp > 0 && (
+																<PercentBadge value={pct(primaryCol, primaryExp)} />
+															)}
+														</span>
+													</span>
+												}
+											>
 												<div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 													{currencies.map((cur) => {
 														const exp = c.expectedByCurrency[cur] ?? 0;
@@ -937,7 +1267,75 @@ export default function FinancialOverviewPage() {
 														);
 													})}
 												</div>
-											</div>
+
+												{/* Category breakdown */}
+												{classCategories.length > 0 && (
+													<div className="mt-5">
+														<h4 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+															Payment Categories
+														</h4>
+														<div className="divide-y divide-border rounded-xl border border-border">
+															{classCategories.map((cat) => {
+																const catExp = expCat[cat] || {};
+																const catCol = colCat[cat] || {};
+																const catCurrencies = Array.from(
+																	new Set([
+																		...Object.keys(catExp),
+																		...Object.keys(catCol),
+																	]),
+																);
+																return (
+																	<div key={cat} className="p-4">
+																		<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+																			<p className="min-w-0 shrink-0 break-words text-sm font-bold text-foreground sm:w-44">
+																				{cat}
+																			</p>
+																			<div className="min-w-0 flex-1 space-y-2">
+																				{catCurrencies.map((cur) => {
+																					const exp = catExp[cur] || 0;
+																					const col = catCol[cur] || 0;
+																					const due = Math.max(0, exp - col);
+																					return (
+																						<div key={cur}>
+																							<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
+																								<span className="font-black text-muted-foreground">
+																									{cur}
+																								</span>
+																								<span className="text-muted-foreground">
+																									Expected{' '}
+																									<span className="font-bold text-foreground">
+																										{fmt(exp)}
+																									</span>
+																								</span>
+																								<span className="text-muted-foreground">
+																									Collected{' '}
+																									<span className="font-bold text-emerald-600 dark:text-emerald-400">
+																										{fmt(col)}
+																									</span>
+																								</span>
+																								<span className="text-muted-foreground">
+																									Outstanding{' '}
+																									<span
+																										className={`font-bold ${due > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}
+																									>
+																										{fmt(due)}
+																									</span>
+																								</span>
+																								<PercentBadge value={pct(col, exp)} />
+																							</div>
+																							<ProgressBar value={col} max={exp} />
+																						</div>
+																					);
+																				})}
+																			</div>
+																		</div>
+																	</div>
+																);
+															})}
+														</div>
+													</div>
+												)}
+											</Accordion>
 										);
 									})}
 							</div>
@@ -948,3 +1346,47 @@ export default function FinancialOverviewPage() {
 		</div>
 	);
 }
+
+/* ── Reusable compact filter select ── */
+interface FilterSelectProps {
+	label: string;
+	value: string;
+	onChange: (v: string) => void;
+	options: { label: string; value: string }[];
+	disabled?: boolean;
+}
+
+const FilterSelect: React.FC<FilterSelectProps> = ({
+	label,
+	value,
+	onChange,
+	options,
+	disabled,
+}) => (
+	<div className="flex flex-col gap-0.5">
+		<span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-0.5">
+			{label}
+		</span>
+		<div className="relative">
+			<select
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				disabled={disabled}
+				className={`h-8 pl-3 pr-8 rounded-lg border text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors ${
+					disabled
+						? 'bg-muted text-muted-foreground cursor-not-allowed opacity-80 border-input'
+						: 'bg-background text-foreground cursor-pointer border-input hover:border-ring/50'
+				}`}
+			>
+				{options.map((o) => (
+					<option key={o.value} value={o.value}>
+						{o.label}
+					</option>
+				))}
+			</select>
+			{!disabled && (
+				<ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+			)}
+		</div>
+	</div>
+);
