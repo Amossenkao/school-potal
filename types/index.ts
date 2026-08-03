@@ -192,6 +192,8 @@ export interface ParentChildSession {
 	classLevel?: string;
 	academicYears: string[];
 	isActive?: boolean;
+	wardTeacherId?: string;
+	scholarships?: string[];
 }
 
 export interface Parent extends User {

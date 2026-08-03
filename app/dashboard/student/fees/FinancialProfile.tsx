@@ -17,6 +17,10 @@ import {
 	resolveResolvedScheduledFees,
 } from '@/utils/resolveStudentFeeGroup';
 import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAccess';
+import {
+	applyScholarshipsToFees,
+	resolveStudentScholarshipDefinitions,
+} from '@/utils/scholarshipBilling';
 import { resolveChildView } from '@/utils/childView';
 import {
 	Loader2,
@@ -85,6 +89,7 @@ export default function FinancialProfile() {
 			sessionName: string;
 			groupName: string;
 			feeName: string;
+			categoryId: string;
 			categoryName: string;
 			amount: number;
 			currency: string;
@@ -99,6 +104,7 @@ export default function FinancialProfile() {
 					sessionName,
 					groupName: feeGroup.name,
 					feeName: rf.feeDefinition?.name || rf.scheduledFee.feeId,
+					categoryId: rf.feeDefinition?.category || '',
 					categoryName: rf.categoryName,
 					amount: rf.scheduledFee.amount.amount,
 					currency: rf.scheduledFee.amount.currency,
@@ -110,9 +116,32 @@ export default function FinancialProfile() {
 		return results;
 	}, [feeGroups, school, studentGroupIds]);
 
+	const childView = useMemo(() => resolveChildView(user), [user]);
+
+	const scholarships = useMemo(() => {
+		if (!school) return [];
+		return resolveStudentScholarshipDefinitions(
+			{ scholarships: childView.scholarships },
+			school,
+			currentAcademicYear,
+		);
+	}, [school, childView.scholarships, currentAcademicYear]);
+
+	const adjustedFees = useMemo(
+		() => applyScholarshipsToFees(allResolvedFees, scholarships),
+		[allResolvedFees, scholarships],
+	);
+
 	const totalsByCurrency = useMemo(() => {
-		const dueMap = sumByCurrency(allResolvedFees);
-		const requiredMap = sumByCurrency(allResolvedFees.filter((f) => f.isRequired));
+		const dueMap: CurrencyMap = {};
+		const requiredMap: CurrencyMap = {};
+		for (const fee of adjustedFees) {
+			const c = fee.currency || 'LRD';
+			dueMap[c] = (dueMap[c] || 0) + fee.effectiveAmount;
+			if (fee.isRequired) {
+				requiredMap[c] = (requiredMap[c] || 0) + fee.effectiveAmount;
+			}
+		}
 		const paidRecords = (user as any)?.payments || [];
 		const paidMap = sumByCurrency(paidRecords.map((r: any) => ({ amount: r.paymentAmount, currency: r.currency || 'LRD' })));
 		const allCurrencies = [...new Set([...Object.keys(dueMap), ...Object.keys(paidMap)])];
@@ -129,7 +158,7 @@ export default function FinancialProfile() {
 			};
 		}
 		return result;
-	}, [allResolvedFees, user]);
+	}, [adjustedFees, user]);
 
 	const paidByFeeName = useMemo(() => {
 		const records = (user as any)?.payments || [];
@@ -145,16 +174,14 @@ export default function FinancialProfile() {
 	}, [user]);
 
 	const groupedByCategory = useMemo(() => {
-		const groups: Record<string, typeof allResolvedFees> = {};
-		for (const fee of allResolvedFees) {
+		const groups: Record<string, typeof adjustedFees> = {};
+		for (const fee of adjustedFees) {
 			const key = fee.categoryName;
 			if (!groups[key]) groups[key] = [];
 			groups[key].push(fee);
 		}
 		return groups;
-	}, [allResolvedFees]);
-
-	const childView = useMemo(() => resolveChildView(user), [user]);
+	}, [adjustedFees]);
 
 	const studentType: 'new' | 'old' = childView.studentType ?? 'old';
 	const [isRefreshing, setIsRefreshing] = useState(false);
@@ -388,8 +415,9 @@ export default function FinancialProfile() {
 								<div className="space-y-3">
 									{fees.map((fee, idx) => {
 										const paid = paidByFeeName[`${fee.feeName}::${fee.currency}`] || 0;
-										const remaining = Math.max(0, fee.amount - paid);
-										const isCleared = paid >= fee.amount;
+										const remaining = Math.max(0, fee.effectiveAmount - paid);
+										const isCleared = paid >= fee.effectiveAmount;
+										const hasDiscount = fee.discount > 0;
 										return (
 											<div
 												key={idx}
@@ -410,6 +438,20 @@ export default function FinancialProfile() {
 															<span className="break-words">Due: {fee.installmentLabel}</span>
 														)}
 													</div>
+													{fee.scholarshipNames.length > 0 && (
+														<div className="mt-1 flex flex-wrap items-center gap-1">
+															{fee.scholarshipNames.map((name) => (
+																<span key={name} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+																	{name}
+																</span>
+															))}
+															{hasDiscount && (
+																<span className="text-xs font-medium text-primary">
+																	Saved {fee.currency} {formatCurrency(fee.discount)}
+																</span>
+															)}
+														</div>
+													)}
 													<div className="mt-1 break-words text-xs text-muted-foreground">
 														{isCleared ? (
 															<span className="text-green-600 font-medium">Cleared</span>
@@ -419,7 +461,14 @@ export default function FinancialProfile() {
 													</div>
 												</div>
 												<div className="shrink-0 text-left sm:text-right">
-													<p className="font-semibold">{fee.currency} {formatCurrency(fee.amount)}</p>
+													{hasDiscount ? (
+														<>
+															<p className="font-semibold text-primary">{fee.currency} {formatCurrency(fee.effectiveAmount)}</p>
+															<p className="text-xs text-muted-foreground line-through">{fee.currency} {formatCurrency(fee.amount)}</p>
+														</>
+													) : (
+														<p className="font-semibold">{fee.currency} {formatCurrency(fee.effectiveAmount)}</p>
+													)}
 													<p className="text-xs text-muted-foreground">{fee.groupName}</p>
 												</div>
 											</div>

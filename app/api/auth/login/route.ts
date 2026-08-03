@@ -418,6 +418,8 @@ function buildUserResponse(user: any, host?: string) {
 				shareContactWithClassmates: user.shareContactWithClassmates ?? false,
 				isLateRegistration: user.isLateRegistration ?? false,
 				academicYears: user.academicYears || [],
+				wardTeacherId: user.wardTeacherId || '',
+				scholarships: user.scholarships || [],
 			};
 		case 'teacher':
 			return {

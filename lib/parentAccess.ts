@@ -13,6 +13,8 @@ export interface ParentChild {
 	studentType?: string;
 	profilePictureUrl?: string;
 	isActive?: boolean;
+	wardTeacherId?: string;
+	scholarships?: string[];
 }
 
 /**
@@ -34,7 +36,7 @@ export const buildParentChildrenList = async (
 			],
 		})
 			.select(
-				'studentId username firstName middleName lastName fullName classId className classLevel academicYears studentType profilePictureUrl isActive',
+				'studentId username firstName middleName lastName fullName classId className classLevel academicYears studentType profilePictureUrl isActive wardTeacherId scholarships',
 			)
 			.lean();
 		return (students || [])
@@ -53,6 +55,8 @@ export const buildParentChildrenList = async (
 				studentType: s.studentType || 'old',
 				profilePictureUrl: s.profilePictureUrl || '',
 				isActive: s.isActive ?? true,
+				wardTeacherId: s.wardTeacherId || '',
+				scholarships: Array.isArray(s.scholarships) ? s.scholarships : [],
 			}))
 			.sort((a: any, b: any) =>
 				(a.fullName || '').localeCompare(b.fullName || ''),

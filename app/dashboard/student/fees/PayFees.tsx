@@ -17,6 +17,10 @@ import {
 	resolveResolvedScheduledFees,
 } from '@/utils/resolveStudentFeeGroup';
 import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAccess';
+import {
+	applyScholarshipsToFees,
+	resolveStudentScholarshipDefinitions,
+} from '@/utils/scholarshipBilling';
 import { resolveChildView } from '@/utils/childView';
 import type { PaymentRecords } from '@/types';
 import {
@@ -103,6 +107,7 @@ export default function PayFees() {
 			feeKey: string;
 			feeId: string;
 			feeName: string;
+			categoryId: string;
 			categoryName: string;
 			amount: number;
 			currency: string;
@@ -116,6 +121,7 @@ export default function PayFees() {
 					feeKey: `${feeGroup.id}-${rf.scheduledFee.feeId}-${feeIdx}`,
 					feeId: rf.scheduledFee.feeId,
 					feeName: rf.feeDefinition?.name || rf.scheduledFee.feeId,
+					categoryId: rf.feeDefinition?.category || '',
 					categoryName: rf.categoryName,
 					amount: rf.scheduledFee.amount.amount,
 					currency: rf.scheduledFee.amount.currency,
@@ -127,15 +133,31 @@ export default function PayFees() {
 		return resolved;
 	}, [feeGroups, school, studentGroupIds]);
 
+	const childView = useMemo(() => resolveChildView(user), [user]);
+
+	const scholarships = useMemo(() => {
+		if (!school) return [];
+		return resolveStudentScholarshipDefinitions(
+			{ scholarships: childView.scholarships },
+			school,
+			currentAcademicYear,
+		);
+	}, [school, childView.scholarships, currentAcademicYear]);
+
+	const adjustedFees = useMemo(
+		() => applyScholarshipsToFees(allResolvedFees, scholarships),
+		[allResolvedFees, scholarships],
+	);
+
 	const groupedByCategory = useMemo(() => {
-		const groups: Record<string, typeof allResolvedFees> = {};
-		for (const fee of allResolvedFees) {
+		const groups: Record<string, typeof adjustedFees> = {};
+		for (const fee of adjustedFees) {
 			const key = fee.categoryName;
 			if (!groups[key]) groups[key] = [];
 			groups[key].push(fee);
 		}
 		return groups;
-	}, [allResolvedFees]);
+	}, [adjustedFees]);
 
 	const paidByFeeName = useMemo(() => {
 		const records = (user as any)?.payments || [];
@@ -149,8 +171,6 @@ export default function PayFees() {
 		}
 		return map;
 	}, [user]);
-
-	const childView = useMemo(() => resolveChildView(user), [user]);
 
 	useEffect(() => {
 		if (user?.role !== 'parent') return;
@@ -215,10 +235,10 @@ export default function PayFees() {
 	const handleItemPayInFullChange = (key: string, value: boolean) => {
 		setPayInFullMap((prev) => ({ ...prev, [key]: value }));
 		setAmountError(null);
-		const fee = allResolvedFees.find((f) => f.feeKey === key);
+		const fee = adjustedFees.find((f) => f.feeKey === key);
 		if (value) {
 			const paid = fee ? paidByFeeName[`${fee.feeName}::${fee.currency}`] || 0 : 0;
-			const outstanding = fee ? Math.max(0, fee.amount - paid) : 0;
+			const outstanding = fee ? Math.max(0, fee.effectiveAmount - paid) : 0;
 			setSelected((prev) =>
 				prev.map((s) => (s.key === key ? { ...s, amount: outstanding } : s)),
 			);
@@ -269,10 +289,10 @@ export default function PayFees() {
 				setAmountError(`Please enter a valid payment amount for ${item.label}`);
 				return;
 			}
-			const fee = allResolvedFees.find((f) => f.feeKey === item.key);
+			const fee = adjustedFees.find((f) => f.feeKey === item.key);
 			if (fee) {
 				const paid = paidByFeeName[`${fee.feeName}::${fee.currency}`] || 0;
-				const outstanding = fee.amount - paid;
+				const outstanding = fee.effectiveAmount - paid;
 				if (parsed > outstanding) {
 					setAmountError(
 						`The amount ${item.currency} ${formatCurrency(parsed)} exceeds the outstanding balance of ${item.currency} ${formatCurrency(outstanding)} for ${item.label}`,
@@ -519,8 +539,8 @@ export default function PayFees() {
 										<div className="space-y-3">
 											{fees.map((fee) => {
 												const paid = paidByFeeName[`${fee.feeName}::${fee.currency}`] || 0;
-												const remaining = Math.max(0, fee.amount - paid);
-												const isCleared = paid >= fee.amount;
+												const remaining = Math.max(0, fee.effectiveAmount - paid);
+												const isCleared = paid >= fee.effectiveAmount;
 												const isSelected = selected.some(
 													(s) => s.key === fee.feeKey,
 												);
@@ -552,7 +572,7 @@ export default function PayFees() {
 															label: fee.feeName,
 															feeId: fee.feeId,
 															categoryName: fee.categoryName,
-															amount: fee.amount,
+															amount: fee.effectiveAmount,
 															currency: fee.currency,
 														})
 																	}
@@ -568,6 +588,20 @@ export default function PayFees() {
 																<p className="text-xs text-muted-foreground">
 																	{fee.groupName}
 																</p>
+																{fee.scholarshipNames.length > 0 && (
+																	<div className="mt-0.5 flex flex-wrap items-center gap-1">
+																		{fee.scholarshipNames.map((name) => (
+																			<span key={name} className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+																				{name}
+																			</span>
+																		))}
+																		{fee.discount > 0 && (
+																			<span className="text-xs font-medium text-primary">
+																				Saved {fee.currency} {formatCurrency(fee.discount)}
+																			</span>
+																		)}
+																	</div>
+																)}
 																{isCleared ? (
 																	<p className="text-xs text-green-600 font-medium mt-0.5">Cleared</p>
 																) : isCurrencyMismatch ? (
@@ -579,9 +613,22 @@ export default function PayFees() {
 																) : null}
 															</div>
 														</div>
-														<p className={`font-semibold whitespace-nowrap ${isCleared ? 'text-green-600' : ''}`}>
-															{fee.currency} {formatCurrency(fee.amount)}
-														</p>
+														<div className="text-right shrink-0">
+															{fee.discount > 0 ? (
+																<>
+																	<p className={`font-semibold whitespace-nowrap ${isCleared ? 'text-green-600' : 'text-primary'}`}>
+																		{fee.currency} {formatCurrency(fee.effectiveAmount)}
+																	</p>
+																	<p className="text-xs text-muted-foreground line-through whitespace-nowrap">
+																		{fee.currency} {formatCurrency(fee.amount)}
+																	</p>
+																</>
+															) : (
+																<p className={`font-semibold whitespace-nowrap ${isCleared ? 'text-green-600' : ''}`}>
+																	{fee.currency} {formatCurrency(fee.effectiveAmount)}
+																</p>
+															)}
+														</div>
 													</label>
 												);
 											})}
@@ -655,9 +702,9 @@ export default function PayFees() {
 										<div className="space-y-3">
 											{selected.map((item) => {
 												const isFull = payInFullMap[item.key] ?? true;
-												const fee = allResolvedFees.find((f) => f.feeKey === item.key);
+												const fee = adjustedFees.find((f) => f.feeKey === item.key);
 												const paid = fee ? paidByFeeName[`${fee.feeName}::${fee.currency}`] || 0 : 0;
-												const outstanding = fee ? Math.max(0, fee.amount - paid) : 0;
+												const outstanding = fee ? Math.max(0, fee.effectiveAmount - paid) : 0;
 												return (
 													<div key={item.key} className="flex items-center justify-between gap-2">
 														<div className="flex-1 min-w-0">
@@ -666,7 +713,7 @@ export default function PayFees() {
 																<p className="text-xs text-muted-foreground">
 																	Outstanding: {item.currency} {formatCurrency(outstanding)}
 																	{paid > 0 && (
-																		<span> of {item.currency} {formatCurrency(fee?.amount || 0)}</span>
+																		<span> of {item.currency} {formatCurrency(fee?.effectiveAmount || 0)}</span>
 																	)}
 																</p>
 															) : (

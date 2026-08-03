@@ -7,6 +7,10 @@ import {
 	resolveStudentGroupIds,
 	resolveResolvedScheduledFees,
 } from '@/utils/resolveStudentFeeGroup';
+import {
+	applyScholarshipsToFees,
+	resolveStudentScholarshipDefinitions,
+} from '@/utils/scholarshipBilling';
 import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAccess';
 import { updateAllUserSessions } from '@/utils/session';
 import crypto from 'crypto';
@@ -209,6 +213,7 @@ export async function POST(req: NextRequest) {
 		const allResolvedFees: Array<{
 			feeDefId: string;
 			feeName: string;
+			categoryId: string;
 			categoryName: string;
 			amount: number;
 			currency: string;
@@ -220,6 +225,7 @@ export async function POST(req: NextRequest) {
 				allResolvedFees.push({
 					feeDefId: rf.scheduledFee.feeId,
 					feeName: rf.feeDefinition?.name || rf.scheduledFee.feeId,
+					categoryId: rf.feeDefinition?.category || '',
 					categoryName: rf.categoryName,
 					amount: rf.scheduledFee.amount.amount,
 					currency: rf.scheduledFee.amount.currency,
@@ -230,6 +236,16 @@ export async function POST(req: NextRequest) {
 		if (allResolvedFees.length === 0) {
 			return badRequest('No fees are configured for this class this academic year.');
 		}
+
+		const studentDoc = await models.Student.findOne({
+			studentId: targetStudentId,
+		}).lean();
+		const scholarships = resolveStudentScholarshipDefinitions(
+			{ scholarships: studentDoc?.scholarships || [] },
+			schoolProfile,
+			academicYear,
+		);
+		const adjustedFees = applyScholarshipsToFees(allResolvedFees, scholarships);
 
 		const existingPayments = await models.Payment.find({ studentId: targetStudentId }).lean();
 		const paidByFeeType: Record<string, number> = {};
@@ -265,7 +281,7 @@ export async function POST(req: NextRequest) {
 			}
 
 			const feeName = item.feeName || item.label || '';
-			const matchedFee = allResolvedFees.find(
+			const matchedFee = adjustedFees.find(
 				(f) =>
 					(f.feeDefId === item.feeId || f.feeName === feeName) &&
 					f.currency === currency,
@@ -276,7 +292,7 @@ export async function POST(req: NextRequest) {
 
 			const paidKey = `${matchedFee.feeName}::${currency}`;
 			const totalPaidAlready = paidByFeeType[paidKey] || 0;
-			const outstanding = matchedFee.amount - totalPaidAlready;
+			const outstanding = Math.max(0, matchedFee.effectiveAmount - totalPaidAlready);
 
 			if (outstanding <= 0) {
 				return badRequest(`"${matchedFee.feeName}" has already been fully paid.`);

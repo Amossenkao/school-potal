@@ -182,6 +182,8 @@ function buildUserResponse(
 				canRecordAttendance: user.canRecordAttendance ?? false,
 				academicYears: user.academicYears || [],
 				studentType: user.studentType ?? 'old',
+				wardTeacherId: user.wardTeacherId || '',
+				scholarships: user.scholarships || [],
 		} as Student;
 
 		case 'teacher':

@@ -6,6 +6,7 @@ export interface FinancialChildView {
 	classId: string;
 	studentType: 'new' | 'old';
 	avatar: string;
+	scholarships: string[];
 }
 
 export interface ReportStudentView {
@@ -103,6 +104,22 @@ export const resolveChildView = (user: any): FinancialChildView => {
 		user?.avatar ||
 		user?.profilePhoto ||
 		'';
+	const scholarships = isParent
+		? Array.isArray(child?.scholarships)
+			? child.scholarships
+			: []
+		: Array.isArray(user?.scholarships)
+			? user.scholarships
+			: [];
 
-	return { isParent, name, studentId, className, classId, studentType, avatar };
+	return {
+		isParent,
+		name,
+		studentId,
+		className,
+		classId,
+		studentType,
+		avatar,
+		scholarships,
+	};
 };
