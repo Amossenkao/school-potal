@@ -15,6 +15,7 @@ import {
 	resolveStudentFeeGroups,
 	resolveStudentGroupIds,
 	resolveResolvedScheduledFees,
+	resolveFeeInstallmentAmounts,
 } from '@/utils/resolveStudentFeeGroup';
 import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAccess';
 import {
@@ -65,6 +66,7 @@ interface SelectedItem {
 	categoryName: string;
 	amount: number;
 	currency: string;
+	installmentId?: string;
 }
 
 export default function PayFees() {
@@ -79,6 +81,7 @@ export default function PayFees() {
 	const [receipts, setReceipts] = useState<PaymentRecords[]>([]);
 	const [payInFullMap, setPayInFullMap] = useState<Record<string, boolean>>({});
 	const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
+	const [installmentTargets, setInstallmentTargets] = useState<Record<string, string>>({});
 	const [amountError, setAmountError] = useState<string | null>(null);
 
 	const currentAcademicYear = useMemo(() => {
@@ -112,6 +115,8 @@ export default function PayFees() {
 			amount: number;
 			currency: string;
 			groupName: string;
+			installments: { installmentId: string; label: string; amount: number }[];
+			scholarshipId?: string;
 		}> = [];
 		let feeIdx = 0;
 		for (const { feeGroup } of feeGroups) {
@@ -126,6 +131,12 @@ export default function PayFees() {
 					amount: rf.scheduledFee.amount.amount,
 					currency: rf.scheduledFee.amount.currency,
 					groupName: feeGroup.name,
+					installments: resolveFeeInstallmentAmounts(
+						rf.scheduledFee,
+						rf.installmentCatalog,
+						rf.scheduledFee.amount.amount,
+					),
+					scholarshipId: (rf.scheduledFee as any).scholarshipId || undefined,
 				});
 				feeIdx++;
 			}
@@ -134,6 +145,15 @@ export default function PayFees() {
 	}, [feeGroups, school, studentGroupIds]);
 
 	const childView = useMemo(() => resolveChildView(user), [user]);
+
+	const feeSchedule = useMemo(() => {
+		if (!school?.financialConfig?.feeSchedules) return null;
+		return (
+			school.financialConfig.feeSchedules.find(
+				(s) => s.academicYear === currentAcademicYear,
+			) || null
+		);
+	}, [school, currentAcademicYear]);
 
 	const scholarships = useMemo(() => {
 		if (!school) return [];
@@ -145,8 +165,13 @@ export default function PayFees() {
 	}, [school, childView.scholarships, currentAcademicYear]);
 
 	const adjustedFees = useMemo(
-		() => applyScholarshipsToFees(allResolvedFees, scholarships),
-		[allResolvedFees, scholarships],
+		() =>
+			applyScholarshipsToFees(
+				allResolvedFees,
+				scholarships,
+				feeSchedule?.scholarships ?? [],
+			),
+		[allResolvedFees, scholarships, feeSchedule],
 	);
 
 	const groupedByCategory = useMemo(() => {
@@ -227,7 +252,8 @@ export default function PayFees() {
 				return;
 			}
 			const outstanding = Math.max(0, item.amount - paid);
-			setSelected((prev) => [...prev, { ...item, amount: outstanding }]);
+			const installmentId = installmentTargets[item.key] || undefined;
+			setSelected((prev) => [...prev, { ...item, amount: outstanding, installmentId }]);
 			setPayInFullMap((prev) => ({ ...prev, [item.key]: true }));
 		}
 	};
@@ -311,6 +337,7 @@ export default function PayFees() {
 			categoryName: item.categoryName,
 			amount: item.amount,
 			currency: item.currency,
+			installmentId: item.installmentId || undefined,
 		}));
 
 		let newRecords: PaymentRecords[];
@@ -588,6 +615,28 @@ export default function PayFees() {
 																<p className="text-xs text-muted-foreground">
 																	{fee.groupName}
 																</p>
+																{fee.installments.length > 0 && (
+																	<select
+																		value={installmentTargets[fee.feeKey] || ''}
+																		onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+																		onChange={(e) => {
+																			e.stopPropagation();
+																			const value = e.target.value;
+																			setInstallmentTargets((prev) => ({ ...prev, [fee.feeKey]: value }));
+																			setSelected((prev) =>
+																				prev.map((s) => (s.key === fee.feeKey ? { ...s, installmentId: value || undefined } : s)),
+																			);
+																		}}
+																		className="mt-1 block rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white"
+																	>
+																		<option value="">Whole fee</option>
+																		{fee.installments.map((inst) => (
+																			<option key={inst.installmentId} value={inst.installmentId}>
+																				{inst.label} · {fee.currency} {formatCurrency(inst.amount)}
+																			</option>
+																		))}
+																	</select>
+																)}
 																{fee.scholarshipNames.length > 0 && (
 																	<div className="mt-0.5 flex flex-wrap items-center gap-1">
 																		{fee.scholarshipNames.map((name) => (

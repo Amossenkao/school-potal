@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeUser } from '@/proxy';
 import { getTenantModels } from '@/models';
+import { getSchoolProfile } from '@/lib/mongoose';
+import { normalizeUser } from '@/lib/bootstrap';
+import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
+import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
 
 export async function GET(req: NextRequest) {
 	try {
@@ -116,6 +120,44 @@ export async function PATCH(req: NextRequest) {
 				{ success: false, message: 'Student not found.' },
 				{ status: 404 },
 			);
+		}
+
+		// Invalidate cached rosters so the change reaches other clients (and
+		// this one after a reload). Bump the users version fingerprint and
+		// publish a realtime USER_UPDATED event carrying the updated student.
+		const affectedYears = extractAcademicYears(updated);
+		try {
+			await bumpUsersVersion(affectedYears, {
+				affectedUserIds: [String(updated.studentId || '')],
+			});
+		} catch (error) {
+			console.warn('Failed to bump users version after student update:', error);
+		}
+		try {
+			const schoolProfile = await getSchoolProfile().catch(() => null);
+			const tenantId = resolveTenantSyncKey({
+				schoolProfile: schoolProfile || undefined,
+			});
+			if (tenantId) {
+				const normalizedUser = normalizeUser(updated);
+				const affectedUserId = String(
+					normalizedUser.id || updated.studentId || '',
+				);
+				await publishSyncEventSafe({
+					tenantId,
+					domain: 'users',
+					reason: 'user-updated',
+					academicYear: affectedYears[0] || null,
+					actorId: sessionUser?.id || null,
+					payload: {
+						userId: affectedUserId,
+						user: normalizedUser,
+						targetUserIds: [affectedUserId],
+					},
+				});
+			}
+		} catch (error) {
+			console.warn('Failed to publish student update realtime event:', error);
 		}
 
 		return NextResponse.json({

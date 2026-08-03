@@ -376,28 +376,12 @@ const MoneySchema = new Schema(
 	{ _id: false },
 );
 
-const PaymentInstallmentSchema = new Schema(
+// A school-wide installment (due milestone) referenced by ScheduledFee.installments
+const InstallmentSchema = new Schema(
 	{
 		id: { type: String, required: true, trim: true },
 		label: { type: String, required: true, trim: true },
-		percentage: { type: Number },
-		fixedAmount: { type: MoneySchema },
 		dueWindow: { type: String, trim: true },
-	},
-	{ _id: false },
-);
-
-const PaymentPlanSchema = new Schema(
-	{
-		id: { type: String, required: true, trim: true },
-		name: { type: String, required: true, trim: true },
-		description: { type: String, trim: true },
-		installments: {
-			type: [PaymentInstallmentSchema],
-			required: true,
-			default: [],
-		},
-		isActive: { type: Boolean, required: true, default: true },
 	},
 	{ _id: false },
 );
@@ -444,13 +428,42 @@ const StudentGroupSchema = new Schema(
 // one per academic year.
 // ============================================================================
 
+const FeeInstallmentSchema = new Schema(
+	{
+		installmentId: { type: String, required: true, trim: true },
+		// Mutually exclusive: set percentage OR fixedAmount, not both
+		percentage: { type: Number, min: 0, max: 1 },
+		fixedAmount: { type: MoneySchema },
+	},
+	{ _id: false },
+);
+
 const ScheduledFeeSchema = new Schema(
 	{
 		feeId: { type: String, required: true, trim: true },
 		amount: { type: MoneySchema, required: true },
 		isRequired: { type: Boolean, required: true, default: true },
-		// Null means due immediately / not tied to an installment
-		dueInstallmentId: { type: String, default: null, trim: true },
+		// How the fee is split across Installment.id values. Empty = due immediately (full amount).
+		// The implied total (percentage × amount, or fixedAmount) must not exceed the fee amount.
+		installments: {
+			type: [FeeInstallmentSchema],
+			default: [],
+			validate: {
+				validator: function (value: any[]) {
+					const feeAmount = (this as any).amount?.amount;
+					if (feeAmount == null || !Array.isArray(value)) return true;
+					const total = value.reduce((sum: number, entry: any) => {
+						if (!entry) return sum;
+						if (entry.fixedAmount?.amount != null) {
+							return sum + (Number(entry.fixedAmount.amount) || 0);
+						}
+						return sum + (Number(entry.percentage) || 0) * feeAmount;
+					}, 0);
+					return total <= feeAmount + 0.000001;
+				},
+				message: 'Total of all installments cannot exceed the fee amount.',
+			},
+		},
 		// Empty array = applies to all students in the group
 		applicableStudentGroupIds: { type: [String], default: [] },
 	},
@@ -462,7 +475,6 @@ const FeeGroupSchema = new Schema(
 		id: { type: String, required: true, trim: true },
 		name: { type: String, required: true, trim: true },
 		appliesToClassIds: { type: [String], required: true, default: [] },
-		paymentPlanId: { type: String, required: true, trim: true },
 		scheduledFees: { type: [ScheduledFeeSchema], required: true, default: [] },
 	},
 	{ _id: false },
@@ -485,6 +497,9 @@ const ScholarshipSchema = new Schema(
 		amount: { type: Number, required: true },
 		currency: { type: String, trim: true },
 		appliesTo: { type: [String], required: true, default: [] },
+		// How a fixedPayment scholarship's amount is split across installments.
+		// Mirrored onto the generated "{name} Payment" scheduled fee by the admin form.
+		installments: { type: [FeeInstallmentSchema], default: [] },
 	},
 	{ _id: false },
 );
@@ -531,7 +546,7 @@ const SchoolProfileFinancialConfigSchema = new Schema(
 			required: true,
 			default: [],
 		},
-		paymentPlans: { type: [PaymentPlanSchema], required: true, default: [] },
+		installments: { type: [InstallmentSchema], required: true, default: [] },
 		studentGroups: { type: [StudentGroupSchema], required: true, default: [] },
 		feeSchedules: { type: [FeeScheduleSchema], required: true, default: [] },
 	},

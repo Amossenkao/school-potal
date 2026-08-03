@@ -114,7 +114,7 @@ const normalizeSchoolFormState = (school: any): SchoolFormState => {
 			currencies: fi.currencies || school?.currencies || [],
 			paymentCategories: fi.paymentCategories || school?.paymentCategories || [],
 			feeDefinitions: fi.feeDefinitions || school?.feeDefinitions || [],
-			paymentPlans: fi.paymentPlans || school?.paymentPlans || [],
+			installments: fi.installments || school?.installments || [],
 			studentGroups: fi.studentGroups || school?.studentGroups || [],
 			feeSchedules: fi.feeSchedules || school?.feeSchedules || [],
 		},

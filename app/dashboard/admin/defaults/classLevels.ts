@@ -283,13 +283,9 @@ export const DEFAULT_FEE_DEFINITIONS = [
 	{ id: 'wednesday-dress', name: 'Wednesday Dress Code', category: 'accessories', description: 'Wednesday casual dress uniform', isActive: true },
 ];
 
-export const DEFAULT_PAYMENT_PLANS = [
-	{
-		id: 'full-payment', name: 'Full Payment', description: 'Pay all fees at registration', isActive: true,
-		installments: [
-			{ id: 'full-1st', label: '1st (During Registration)', percentage: '', fixedAmount: '', fixedAmountCurrency: 'LRD', dueWindow: '' },
-		],
-	},
+export const DEFAULT_INSTALLMENTS = [
+	{ id: 'inst-1st', label: '1st Installment', dueWindow: '' },
+	{ id: 'inst-2nd', label: '2nd Installment', dueWindow: '' },
 ];
 
 export const DEFAULT_STUDENT_GROUPS = [

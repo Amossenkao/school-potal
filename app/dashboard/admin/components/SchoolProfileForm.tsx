@@ -10,7 +10,7 @@ import {
 import {
 	DEFAULT_CLASS_LEVELS, DEFAULT_ADMIN_POSITIONS, DEFAULT_FEATURES,
 	DEFAULT_ROLE_FEATURE_ACCESS,
-	DEFAULT_CURRENCIES, DEFAULT_FEE_DEFINITIONS, DEFAULT_PAYMENT_PLANS, DEFAULT_STUDENT_GROUPS,
+	DEFAULT_CURRENCIES, DEFAULT_FEE_DEFINITIONS, DEFAULT_INSTALLMENTS, DEFAULT_STUDENT_GROUPS,
 	DEFAULT_PAYMENT_CATEGORIES,
 	buildDefaultStudentSettings, buildDefaultTeacherSettings,
 	buildDefaultFeeSchedule, getAcademicYearRange,
@@ -90,10 +90,7 @@ export interface SchoolFormState {
 		currencies: { code: string; label: string; symbol: string; isDefault: boolean }[];
 		paymentCategories: { id: string; name: string }[];
 		feeDefinitions: { id: string; name: string; category: string; description: string; isActive: boolean }[];
-		paymentPlans: {
-			id: string; name: string; description: string; isActive: boolean;
-			installments: { id: string; label: string; percentage: string; dueWindow: string }[];
-		}[];
+		installments: { id: string; label: string; dueWindow: string }[];
 		studentGroups: {
 			id: string; name: string; priority: number; isActive: boolean;
 			conditions: { field: string; operator: string; value: string }[];
@@ -123,7 +120,7 @@ export const defaultFormState: SchoolFormState = {
 		currencies: DEFAULT_CURRENCIES.map((c) => ({ ...c })),
 		paymentCategories: DEFAULT_PAYMENT_CATEGORIES.map((c) => ({ ...c })),
 		feeDefinitions: DEFAULT_FEE_DEFINITIONS.map((f) => ({ ...f })),
-		paymentPlans: DEFAULT_PAYMENT_PLANS.map((p) => ({ ...p, installments: p.installments.map((i) => ({ id: i.id, label: i.label, percentage: i.percentage, dueWindow: i.dueWindow })) })),
+		installments: DEFAULT_INSTALLMENTS.map((i) => ({ ...i })),
 		studentGroups: DEFAULT_STUDENT_GROUPS.map((g) => ({ ...g, conditions: g.conditions.map((c) => ({ ...c })) })),
 		feeSchedules: [],
 	},
@@ -189,6 +186,138 @@ function deepMerge<T extends Record<string, any>>(base: T, override: Partial<T>)
 	return result;
 }
 
+// ─── Helper: keep fixed-payment scholarship fees in sync ────────────────────────
+// For every fixed-payment scholarship, ensure a "Scholarships" fee group exists
+// in each session and a "{name} Payment" scheduled fee (linked via scholarshipId)
+// with the scholarship's amount/currency applies to all classes.
+
+function syncScholarshipPaymentFees(
+	schedules: any[],
+	classLevels: Record<string, Record<string, { isSelfContained?: boolean; classes: { classId: string; name: string }[] }>>,
+	feeDefinitions: any[],
+): { schedules: any[]; feeDefinitions: any[] } {
+	const allClassIds: string[] = [];
+	for (const session of Object.values(classLevels)) {
+		if (!session || typeof session !== 'object') continue;
+		for (const level of Object.values(session)) {
+			if (!level || typeof level !== 'object') continue;
+			for (const cls of (level as any).classes ?? []) {
+				if (cls?.classId) allClassIds.push(cls.classId);
+			}
+		}
+	}
+
+	const nextFeeDefs = [...feeDefinitions];
+
+	const nextSchedules = schedules.map((schedule: any) => {
+		const fixedPayments = (schedule.scholarships || []).filter(
+			(s: any) =>
+				s.scholarshipType === 'fixedPayment' &&
+				String(s.name || '').trim(),
+		);
+		if (fixedPayments.length === 0) return schedule;
+
+		// Ensure a fee definition "{name} Payment" exists for each scholarship.
+		const defIdByScholarship = new Map<string, string>();
+		for (const s of fixedPayments) {
+			const defName = `${String(s.name).trim()} Payment`;
+			const slug = `scholarship-${s.id}-payment`;
+			const defIdx = nextFeeDefs.findIndex(
+				(d) => d.id === slug || d.name === defName,
+			);
+			if (defIdx === -1) {
+				nextFeeDefs.push({
+					id: slug,
+					name: defName,
+					category: 'other',
+					description: `Payment for the ${String(s.name).trim()} scholarship`,
+					isActive: true,
+				});
+			} else if (nextFeeDefs[defIdx].name !== defName) {
+				nextFeeDefs[defIdx] = { ...nextFeeDefs[defIdx], name: defName };
+			}
+			const existing = nextFeeDefs.find((d) => d.id === slug || d.name === defName);
+			defIdByScholarship.set(s.id, existing!.id);
+		}
+
+		const sessions = (schedule.sessionFeeSchedules || []).map((sfs: any) => {
+			const groups = [...(sfs.feeGroups || [])];
+			let groupIdx = groups.findIndex(
+				(g: any) => String(g.name || '').trim().toLowerCase() === 'scholarships',
+			);
+			if (groupIdx === -1) {
+				groupIdx = groups.length;
+				groups.push({
+					id: `fg-scholarships-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+					name: 'Scholarships',
+					appliesToClassIds: [...allClassIds],
+					scheduledFees: [],
+				});
+			} else {
+				const currentIds = groups[groupIdx].appliesToClassIds || [];
+				const merged = Array.from(new Set([...currentIds, ...allClassIds]));
+				if (merged.length !== currentIds.length) {
+					groups[groupIdx] = { ...groups[groupIdx], appliesToClassIds: merged };
+				}
+			}
+
+			// Remove orphaned scholarship payment fees.
+			let scheduledFees = (groups[groupIdx].scheduledFees || []).filter(
+				(sf: any) =>
+					!sf.scholarshipId ||
+					fixedPayments.some((s: any) => s.id === sf.scholarshipId),
+			);
+
+			// Add/update payment fees for current fixed-payment scholarships.
+			for (const s of fixedPayments) {
+				const defId = defIdByScholarship.get(s.id)!;
+				const feeIdx = scheduledFees.findIndex(
+					(sf: any) => sf.scholarshipId === s.id || sf.feeId === defId,
+				);
+				const amount = {
+					amount: Number(s.amount) || 0,
+					currency: s.currency || 'LRD',
+				};
+				// Scholarship-level splits win; otherwise keep whatever splits the
+				// admin configured directly on the fee.
+				const scholarshipInstallments = (s.installments || []).map((en: any) => ({
+					...en,
+				}));
+				if (feeIdx >= 0) {
+					const existing = scheduledFees[feeIdx];
+					scheduledFees[feeIdx] = {
+						...existing,
+						feeId: defId,
+						amount,
+						isRequired: true,
+						scholarshipId: s.id,
+						installments:
+							scholarshipInstallments.length > 0
+								? scholarshipInstallments
+								: existing.installments || [],
+					};
+				} else {
+					scheduledFees.push({
+						feeId: defId,
+						amount,
+						isRequired: true,
+						installments: scholarshipInstallments,
+						applicableStudentGroupIds: [],
+						scholarshipId: s.id,
+					});
+				}
+			}
+
+			groups[groupIdx] = { ...groups[groupIdx], scheduledFees };
+			return { ...sfs, feeGroups: groups };
+		});
+
+		return { ...schedule, sessionFeeSchedules: sessions };
+	});
+
+	return { schedules: nextSchedules, feeDefinitions: nextFeeDefs };
+}
+
 // ─── Validation helpers ────────────────────────────────────────────────────────
 
 function isValidPhone(phone: string): boolean {
@@ -240,6 +369,51 @@ function validateStep(stepIndex: number, form: SchoolFormState): StepErrors {
 	if (stepIndex === 2) {
 		if (Object.keys(form.academicConfig.classLevels).length === 0) {
 			errors['academicConfig.classLevels'] = 'At least one class level session is required';
+		}
+	}
+
+	if (stepIndex === 5) {
+		const installmentIds = new Set(form.financialConfig.installments.map((i) => i.id).filter(Boolean));
+		for (const s of form.financialConfig.feeSchedules) {
+			for (const sfs of s.sessionFeeSchedules || []) {
+				for (const fg of sfs.feeGroups || []) {
+					for (const sf of fg.scheduledFees || []) {
+						const amount = Number(sf.amount?.amount) || 0;
+						for (const en of sf.installments || []) {
+							if (en.installmentId && !installmentIds.has(en.installmentId)) {
+								errors['financialConfig.installments'] = 'A fee split references an installment that no longer exists';
+								return errors;
+							}
+						}
+						const assigned = (sf.installments || []).reduce((sum: number, en: any) => {
+							if (en.percentage !== undefined) return sum + (Number(en.percentage) || 0) * amount;
+							return sum + (Number(en.fixedAmount) || 0);
+						}, 0);
+						if (assigned > amount + 0.000001) {
+							errors['financialConfig.installments'] = 'A fee has installment totals that exceed its amount';
+							return errors;
+						}
+					}
+				}
+			}
+			for (const sch of s.scholarships || []) {
+				if (sch.scholarshipType !== 'fixedPayment') continue;
+				const schAmount = Number(sch.amount) || 0;
+				for (const en of sch.installments || []) {
+					if (en.installmentId && !installmentIds.has(en.installmentId)) {
+						errors['financialConfig.installments'] = 'A scholarship split references an installment that no longer exists';
+						return errors;
+					}
+				}
+				const schAssigned = (sch.installments || []).reduce((sum: number, en: any) => {
+					if (en.percentage !== undefined) return sum + (Number(en.percentage) || 0) * schAmount;
+					return sum + (Number(en.fixedAmount) || 0);
+				}, 0);
+				if (schAssigned > schAmount + 0.000001) {
+					errors['financialConfig.installments'] = `A scholarship (${String(sch.name || 'unnamed').trim()}) has installment totals that exceed its amount`;
+					return errors;
+				}
+			}
 		}
 	}
 
@@ -424,6 +598,32 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 			}
 		}
 	}, [form.identity.currentAcademicYear, form.academicConfig.classLevels, update]);
+
+	// ── Keep fixed-payment scholarship payment fees in sync ──
+	useEffect(() => {
+		const synced = syncScholarshipPaymentFees(
+			form.financialConfig.feeSchedules,
+			form.academicConfig.classLevels,
+			form.financialConfig.feeDefinitions,
+		);
+		const schedulesChanged =
+			JSON.stringify(synced.schedules) !==
+			JSON.stringify(form.financialConfig.feeSchedules);
+		const defsChanged =
+			JSON.stringify(synced.feeDefinitions) !==
+			JSON.stringify(form.financialConfig.feeDefinitions);
+		if (schedulesChanged) {
+			update('financialConfig.feeSchedules', synced.schedules);
+		}
+		if (defsChanged) {
+			update('financialConfig.feeDefinitions', synced.feeDefinitions);
+		}
+	}, [
+		form.financialConfig.feeSchedules,
+		form.financialConfig.feeDefinitions,
+		form.academicConfig.classLevels,
+		update,
+	]);
 
 	return (
 		<div className="space-y-4">
@@ -821,45 +1021,32 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 						)}
 					</div>
 
-					{/* ── Payment Plans ── */}
+					{/* ── Installments ── */}
 					<div className="border-b border-gray-100 dark:border-gray-800">
-						<button type="button" onClick={() => setExpandedFinancialSections((prev) => { const next = new Set(prev); next.has('paymentPlans') ? next.delete('paymentPlans') : next.add('paymentPlans'); return next; })} className="w-full flex items-center gap-2 py-3 text-left">
-							{expandedFinancialSections.has('paymentPlans') ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />}
-							<h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex-1">Payment Plans</h4>
-							{!expandedFinancialSections.has('paymentPlans') && <span className="text-[10px] text-gray-400 font-mono">{form.financialConfig.paymentPlans.length}</span>}
+						<button type="button" onClick={() => setExpandedFinancialSections((prev) => { const next = new Set(prev); next.has('installments') ? next.delete('installments') : next.add('installments'); return next; })} className="w-full flex items-center gap-2 py-3 text-left">
+							{expandedFinancialSections.has('installments') ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />}
+							<h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex-1">Installments</h4>
+							{!expandedFinancialSections.has('installments') && <span className="text-[10px] text-gray-400 font-mono">{form.financialConfig.installments.length}</span>}
 						</button>
-						{expandedFinancialSections.has('paymentPlans') && (
+						{expandedFinancialSections.has('installments') && (
 							<div className="pb-4 pl-5 space-y-2">
-								{form.financialConfig.paymentPlans.map((plan, i) => (
+								<p className="text-[10px] text-gray-400">School-wide installment catalog. Fees split across installments reference these by id.</p>
+								{form.financialConfig.installments.map((inst, i) => (
 									<div key={i} className="rounded-lg border border-gray-200 dark:border-gray-800 p-3">
-										<div className="grid gap-2 sm:grid-cols-3 mb-2">
-											<input value={plan.name} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; next[i] = { ...next[i], name: e.target.value }; update('financialConfig.paymentPlans', next); }}
-												placeholder="Plan name" className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-											<input value={plan.description} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; next[i] = { ...next[i], description: e.target.value }; update('financialConfig.paymentPlans', next); }}
-												placeholder="Description" className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-											<div className="flex items-center gap-2">
-												<CompactToggle label="Active" checked={plan.isActive} onChange={(checked) => { const next = [...form.financialConfig.paymentPlans]; next[i] = { ...next[i], isActive: checked }; update('financialConfig.paymentPlans', next); }} />
-												<div className="ml-auto"><RemoveRow onClick={() => update('financialConfig.paymentPlans', form.financialConfig.paymentPlans.filter((_, j) => j !== i))} /></div>
-											</div>
+										<div className="grid gap-2 sm:grid-cols-3">
+											<input value={inst.id} onChange={(e) => { const next = [...form.financialConfig.installments]; next[i] = { ...next[i], id: e.target.value }; update('financialConfig.installments', next); }}
+												placeholder="ID (e.g. inst-1st)" className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+											<input value={inst.label} onChange={(e) => { const next = [...form.financialConfig.installments]; next[i] = { ...next[i], label: e.target.value }; update('financialConfig.installments', next); }}
+												placeholder="Label" className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+											<input value={inst.dueWindow} onChange={(e) => { const next = [...form.financialConfig.installments]; next[i] = { ...next[i], dueWindow: e.target.value }; update('financialConfig.installments', next); }}
+												placeholder="Due (optional)" className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 										</div>
-										<div className="space-y-1">
-											<p className="text-[10px] font-medium text-gray-400 uppercase">Installments</p>
-											{plan.installments.map((inst, ii) => (
-												<div key={ii} className="flex items-center gap-1">
-													<input value={inst.label} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; const insts = [...pi.installments]; insts[ii] = { ...insts[ii], label: e.target.value }; pi.installments = insts; next[i] = pi; update('financialConfig.paymentPlans', next); }}
-														placeholder="Label" className="flex-1 min-w-0 rounded border border-gray-200 bg-white px-2 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-													<input value={inst.percentage} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; const insts = [...pi.installments]; insts[ii] = { ...insts[ii], percentage: e.target.value }; pi.installments = insts; next[i] = pi; update('financialConfig.paymentPlans', next); }}
-														placeholder="%" className="w-12 rounded border border-gray-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-													<input value={inst.dueWindow} onChange={(e) => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; const insts = [...pi.installments]; insts[ii] = { ...insts[ii], dueWindow: e.target.value }; pi.installments = insts; next[i] = pi; update('financialConfig.paymentPlans', next); }}
-														placeholder="Due" className="w-20 rounded border border-gray-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
-													<button onClick={() => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; pi.installments = pi.installments.filter((__, j) => j !== ii); next[i] = pi; update('financialConfig.paymentPlans', next); }} className="text-gray-400 hover:text-red-500 text-[10px] p-0.5">✕</button>
-												</div>
-											))}
-											<button onClick={() => { const next = [...form.financialConfig.paymentPlans]; const pi = { ...next[i] }; pi.installments = [...pi.installments, { id: `inst-${Date.now()}`, label: '', percentage: '', dueWindow: '' }]; next[i] = pi; update('financialConfig.paymentPlans', next); }} className="text-[11px] text-[#465fff] font-medium">+ Installment</button>
+										<div className="mt-2 flex justify-end">
+											<RemoveRow onClick={() => update('financialConfig.installments', form.financialConfig.installments.filter((_, j) => j !== i))} />
 										</div>
 									</div>
 								))}
-								<AddButton label="Payment Plan" onClick={() => update('financialConfig.paymentPlans', [...form.financialConfig.paymentPlans, { id: `plan-${Date.now()}`, name: '', description: '', isActive: true, installments: [] }])} />
+								<AddButton label="Installment" onClick={() => update('financialConfig.installments', [...form.financialConfig.installments, { id: `inst-${Date.now()}`, label: '', dueWindow: '' }])} />
 							</div>
 						)}
 					</div>
@@ -992,22 +1179,6 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 																						}} placeholder="Group name (e.g. All Classes, Grade 7-9)" className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
 																					</div>
 
-																					{/* Payment Plan */}
-																					<div>
-																						<label className="text-[10px] font-medium text-gray-400 uppercase mb-1 block">Payment Plan</label>
-																						<select value={fg.paymentPlanId || ''} onChange={(e) => {
-																							const next = [...form.financialConfig.feeSchedules];
-																							const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
-																							const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
-																							fgList[fi] = { ...fgList[fi], paymentPlanId: e.target.value };
-																							sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
-																							update('financialConfig.feeSchedules', next);
-																						}} className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
-																							<option value="">No payment plan</option>
-																							{form.financialConfig.paymentPlans.filter((p) => p.isActive).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-																						</select>
-																					</div>
-
 																					{/* Applies To Classes */}
 																					<div>
 																						<div className="flex items-center gap-2 mb-1.5">
@@ -1121,6 +1292,66 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 																											})}
 																										</div>
 																									)}
+
+																									{/* Installment Split */}
+																									<div className="mt-1.5 pt-1.5 border-t border-gray-100 dark:border-gray-800 space-y-1">
+																										<div className="flex items-center gap-2">
+																											<span className="text-[10px] font-medium text-gray-400 uppercase">Installment Split</span>
+																											{(sf.installments || []).length > 0 && (
+																												<button onClick={() => updateFee({ installments: [] })} className="text-[10px] text-gray-400 hover:text-red-500 ml-auto">Clear</button>
+																											)}
+																										</div>
+																										{(sf.installments || []).map((entry: any, ei: number) => {
+																											const isPct = entry.percentage !== undefined;
+																											const setEntry = (patch: any) => {
+																												const entries = [...(sf.installments || [])];
+																												entries[ei] = { ...entries[ei], ...patch };
+																												updateFee({ installments: entries });
+																											};
+																											return (
+																												<div key={ei} className="flex flex-wrap items-center gap-1.5">
+																													<select value={entry.installmentId || ''} onChange={(e) => setEntry({ installmentId: e.target.value })}
+																														className="min-w-0 flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
+																														<option value="">Select installment</option>
+																														{form.financialConfig.installments.map((ins) => <option key={ins.id} value={ins.id}>{ins.label || ins.id}</option>)}
+																													</select>
+																													<select value={isPct ? 'pct' : 'fixed'} onChange={(e) => setEntry(e.target.value === 'pct' ? { percentage: 0, fixedAmount: undefined } : { fixedAmount: 0, percentage: undefined })}
+																														className="rounded border border-gray-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
+																														<option value="pct">%</option>
+																														<option value="fixed">Amount</option>
+																													</select>
+																													{isPct ? (
+																														<input type="number" inputMode="numeric" min={0} max={100} value={Math.round((Number(entry.percentage) || 0) * 100)} onChange={(e) => setEntry({ percentage: (Number(e.target.value) || 0) / 100 })}
+																															placeholder="%" className="w-16 rounded border border-gray-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+																													) : (
+																														<CurrencyInput value={Number(entry.fixedAmount) || 0} onChange={(num) => setEntry({ fixedAmount: num })} />
+																													)}
+																													<button onClick={() => { const entries = [...(sf.installments || [])]; entries.splice(ei, 1); updateFee({ installments: entries }); }} className="text-gray-400 hover:text-red-500 text-[10px] p-0.5">✕</button>
+																												</div>
+																											);
+																										})}
+																										<button onClick={() => updateFee({ installments: [...(sf.installments || []), { installmentId: form.financialConfig.installments[0]?.id || '', percentage: 0 }] })} className="text-[11px] text-[#465fff] font-medium">+ Split</button>
+																										{(() => {
+																											const amount = Number(sf.amount?.amount) || 0;
+																											const assigned = (sf.installments || []).reduce((sum: number, en: any) => {
+																												if (en.percentage !== undefined) return sum + (Number(en.percentage) || 0) * amount;
+																												return sum + (Number(en.fixedAmount) || 0);
+																											}, 0);
+																											const over = assigned > amount + 0.000001;
+																											const pct = amount > 0 ? Math.min(100, (assigned / amount) * 100) : 0;
+																											return (
+																												<div className="pt-1">
+																													<div className="h-1.5 w-full rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+																														<div className={`h-full rounded-full ${over ? 'bg-red-500' : assigned >= amount - 0.000001 ? 'bg-green-500' : 'bg-[#465fff]'}`} style={{ width: `${pct}%` }} />
+																													</div>
+																													<div className={`mt-1 text-[10px] ${over ? 'text-red-500' : 'text-gray-400'}`}>
+																														Assigned {Math.round(assigned)} / {Math.round(amount)} {defaultCurrency} · empty means the full amount is due immediately
+																														{over && ' · total exceeds the fee amount'}
+																													</div>
+																												</div>
+																											);
+																										})()}
+																									</div>
 																								</div>
 																							);
 																						})}
@@ -1129,7 +1360,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 																							const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
 																							const sg = { ...sessList[si] }; const fgList = [...(sg.feeGroups || [])];
 																							const sfList = [...(fgList[fi].scheduledFees || [])];
-																							sfList.push({ feeId: '', amount: { amount: 0, currency: defaultCurrency }, isRequired: true, dueInstallmentId: null, applicableStudentGroupIds: [] });
+																							sfList.push({ feeId: '', amount: { amount: 0, currency: defaultCurrency }, isRequired: true, installments: [], applicableStudentGroupIds: [] });
 																							fgList[fi] = { ...fgList[fi], scheduledFees: sfList };
 																							sg.feeGroups = fgList; sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
 																							update('financialConfig.feeSchedules', next);
@@ -1146,7 +1377,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 																const s = { ...next[i] }; const sessList = [...(s.sessionFeeSchedules || [])];
 																const sg = { ...sessList[si] };
 																const newIdx = (sg.feeGroups || []).length;
-																sg.feeGroups = [...(sg.feeGroups || []), { id: `fg-${Date.now()}`, name: '', appliesToClassIds: [], paymentPlanId: '', scheduledFees: [] }];
+																								sg.feeGroups = [...(sg.feeGroups || []), { id: `fg-${Date.now()}`, name: '', appliesToClassIds: [], scheduledFees: [] }];
 																sessList[si] = sg; s.sessionFeeSchedules = sessList; next[i] = s;
 																update('financialConfig.feeSchedules', next);
 																setExpandedFeeGroups((prev) => { const next = new Set(prev); next.add(`${i}-${si}-${newIdx}`); return next; });
@@ -1254,6 +1485,95 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 																})}
 																{form.financialConfig.paymentCategories.length === 0 && <span className="text-[10px] text-gray-400 italic">All categories</span>}
 															</div>
+															{/* Installment split for fixed-payment scholarships */}
+															{sch.scholarshipType === 'fixedPayment' && (
+																<div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 space-y-1">
+																	<div className="flex items-center gap-2">
+																		<span className="text-[10px] font-medium text-gray-400 uppercase">Installment Split</span>
+																		{(sch.installments || []).length > 0 && (
+																			<button onClick={() => {
+																				const next = [...form.financialConfig.feeSchedules];
+																				const s = { ...next[i] };
+																				const schs = [...(s.scholarships || [])];
+																				schs[sci] = { ...schs[sci], installments: [] };
+																				s.scholarships = schs; next[i] = s;
+																				update('financialConfig.feeSchedules', next);
+																			}} className="text-[10px] text-gray-400 hover:text-red-500 ml-auto">Clear</button>
+																		)}
+																	</div>
+																	{(sch.installments || []).map((entry: any, ei: number) => {
+																		const isPct = entry.percentage !== undefined;
+																		const setEntry = (patch: any) => {
+																			const next = [...form.financialConfig.feeSchedules];
+																			const s = { ...next[i] };
+																			const schs = [...(s.scholarships || [])];
+																			const entries = [...(schs[sci].installments || [])];
+																			entries[ei] = { ...entries[ei], ...patch };
+																			schs[sci] = { ...schs[sci], installments: entries };
+																			s.scholarships = schs; next[i] = s;
+																			update('financialConfig.feeSchedules', next);
+																		};
+																		return (
+																			<div key={ei} className="flex flex-wrap items-center gap-1.5">
+																				<select value={entry.installmentId || ''} onChange={(e) => setEntry({ installmentId: e.target.value })}
+																					className="min-w-0 flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
+																					<option value="">Select installment</option>
+																					{form.financialConfig.installments.map((ins) => <option key={ins.id} value={ins.id}>{ins.label || ins.id}</option>)}
+																				</select>
+																				<select value={isPct ? 'pct' : 'fixed'} onChange={(e) => setEntry(e.target.value === 'pct' ? { percentage: 0, fixedAmount: undefined } : { fixedAmount: 0, percentage: undefined })}
+																					className="rounded border border-gray-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
+																					<option value="pct">%</option>
+																					<option value="fixed">Amount</option>
+																				</select>
+																				{isPct ? (
+																					<input type="number" inputMode="numeric" min={0} max={100} value={Math.round((Number(entry.percentage) || 0) * 100)} onChange={(e) => setEntry({ percentage: (Number(e.target.value) || 0) / 100 })}
+																						placeholder="%" className="w-16 rounded border border-gray-200 bg-white px-1.5 py-1 text-[11px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+																				) : (
+																					<CurrencyInput value={Number(entry.fixedAmount) || 0} onChange={(num) => setEntry({ fixedAmount: num })} />
+																				)}
+																				<button onClick={() => {
+																					const next = [...form.financialConfig.feeSchedules];
+																					const s = { ...next[i] };
+																					const schs = [...(s.scholarships || [])];
+																					const entries = [...(schs[sci].installments || [])];
+																					entries.splice(ei, 1);
+																					schs[sci] = { ...schs[sci], installments: entries };
+																					s.scholarships = schs; next[i] = s;
+																					update('financialConfig.feeSchedules', next);
+																				}} className="text-gray-400 hover:text-red-500 text-[10px] p-0.5">✕</button>
+																			</div>
+																		);
+																	})}
+																	<button onClick={() => {
+																		const next = [...form.financialConfig.feeSchedules];
+																		const s = { ...next[i] };
+																		const schs = [...(s.scholarships || [])];
+																		schs[sci] = { ...schs[sci], installments: [...(schs[sci].installments || []), { installmentId: form.financialConfig.installments[0]?.id || '', percentage: 0 }] };
+																		s.scholarships = schs; next[i] = s;
+																		update('financialConfig.feeSchedules', next);
+																	}} className="text-[11px] text-[#465fff] font-medium">+ Split</button>
+																	{(() => {
+																		const schAmount = Number(sch.amount) || 0;
+																		const assigned = (sch.installments || []).reduce((sum: number, en: any) => {
+																			if (en.percentage !== undefined) return sum + (Number(en.percentage) || 0) * schAmount;
+																			return sum + (Number(en.fixedAmount) || 0);
+																		}, 0);
+																		const over = assigned > schAmount + 0.000001;
+																		const pct = schAmount > 0 ? Math.min(100, (assigned / schAmount) * 100) : 0;
+																		return (
+																			<div className="pt-1">
+																				<div className="h-1.5 w-full rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+																					<div className={`h-full rounded-full ${over ? 'bg-red-500' : assigned >= schAmount - 0.000001 ? 'bg-green-500' : 'bg-[#465fff]'}`} style={{ width: `${pct}%` }} />
+																				</div>
+																				<div className={`mt-1 text-[10px] ${over ? 'text-red-500' : 'text-gray-400'}`}>
+																					Assigned {Math.round(assigned)} / {Math.round(schAmount)} {sch.currency || defaultCurrency} · empty means the full fixed amount is due immediately
+																					{over && ' · total exceeds the scholarship amount'}
+																				</div>
+																			</div>
+																		);
+																	})()}
+																</div>
+															)}
 														</div>
 													))}
 													<button onClick={() => {

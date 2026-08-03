@@ -15,6 +15,7 @@ import {
 	resolveStudentFeeGroups,
 	resolveStudentGroupIds,
 	resolveResolvedScheduledFees,
+	resolveFeeInstallmentAmounts,
 } from '@/utils/resolveStudentFeeGroup';
 import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAccess';
 import {
@@ -94,7 +95,8 @@ export default function FinancialProfile() {
 			amount: number;
 			currency: string;
 			isRequired: boolean;
-			installmentLabel: string | null;
+			installments: { installmentId: string; label: string; amount: number }[];
+			scholarshipId?: string;
 		}> = [];
 
 		for (const { sessionName, feeGroup } of feeGroups) {
@@ -109,7 +111,12 @@ export default function FinancialProfile() {
 					amount: rf.scheduledFee.amount.amount,
 					currency: rf.scheduledFee.amount.currency,
 					isRequired: rf.scheduledFee.isRequired,
-					installmentLabel: rf.installmentLabel,
+					installments: resolveFeeInstallmentAmounts(
+						rf.scheduledFee,
+						rf.installmentCatalog,
+						rf.scheduledFee.amount.amount,
+					),
+					scholarshipId: (rf.scheduledFee as any).scholarshipId || undefined,
 				});
 			}
 		}
@@ -117,6 +124,15 @@ export default function FinancialProfile() {
 	}, [feeGroups, school, studentGroupIds]);
 
 	const childView = useMemo(() => resolveChildView(user), [user]);
+
+	const feeSchedule = useMemo(() => {
+		if (!school?.financialConfig?.feeSchedules) return null;
+		return (
+			school.financialConfig.feeSchedules.find(
+				(s) => s.academicYear === currentAcademicYear,
+			) || null
+		);
+	}, [school, currentAcademicYear]);
 
 	const scholarships = useMemo(() => {
 		if (!school) return [];
@@ -128,8 +144,13 @@ export default function FinancialProfile() {
 	}, [school, childView.scholarships, currentAcademicYear]);
 
 	const adjustedFees = useMemo(
-		() => applyScholarshipsToFees(allResolvedFees, scholarships),
-		[allResolvedFees, scholarships],
+		() =>
+			applyScholarshipsToFees(
+				allResolvedFees,
+				scholarships,
+				feeSchedule?.scholarships ?? [],
+			),
+		[allResolvedFees, scholarships, feeSchedule],
 	);
 
 	const totalsByCurrency = useMemo(() => {
@@ -434,8 +455,15 @@ export default function FinancialProfile() {
 														) : (
 															<span className="text-green-600 dark:text-green-400 font-medium">Optional</span>
 														)}
-														{fee.installmentLabel && (
-															<span className="break-words">Due: {fee.installmentLabel}</span>
+														{fee.installments.length > 0 && (
+															<span className="break-words">
+																{fee.installments.map((s, si) => (
+																	<span key={s.installmentId}>
+																		{si > 0 && <span className="text-gray-300 dark:text-gray-600"> · </span>}
+																		{s.label}: {fee.currency} {formatCurrency(s.amount)}
+																	</span>
+																))}
+															</span>
 														)}
 													</div>
 													{fee.scholarshipNames.length > 0 && (

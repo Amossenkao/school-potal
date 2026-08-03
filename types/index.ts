@@ -106,6 +106,7 @@ export interface PaymentRecords {
 	paidBy: string;
 	feeType: string;
 	category: string;
+	installmentId?: string;
 	paymentAmount: number;
 	currency: string;
 	paymentAcademicYear: string;

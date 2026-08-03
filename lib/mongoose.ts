@@ -5,6 +5,7 @@ import SchoolProfile from '@/types/schoolProfile';
 import { headers } from 'next/headers';
 import { redis } from '@/lib/redis';
 import { isLocalHost, normalizeHost } from '@/utils/host';
+import { migrateSchoolProfileToInstallments } from '@/utils/migrateFeeInstallments';
 
 const MONGODB_URI = process.env.MONGODB_URI || '';
 
@@ -346,7 +347,7 @@ export const getSchoolProfile = async (
 		if (!options.bypassCache) {
 			const memoryCached = readMemoryCachedSchoolProfile(cacheKey);
 			if (memoryCached) {
-				return memoryCached;
+				return migrateSchoolProfileToInstallments(memoryCached);
 			}
 		}
 
@@ -359,12 +360,14 @@ export const getSchoolProfile = async (
 						typeof cachedProfile === 'string'
 							? JSON.parse(cachedProfile)
 							: cachedProfile;
-					writeMemoryCachedSchoolProfile(cacheKey, parsedProfile);
-					return parsedProfile;
+					const migrated = migrateSchoolProfileToInstallments(parsedProfile);
+					writeMemoryCachedSchoolProfile(cacheKey, migrated);
+					return migrated;
 				} catch (error) {
 					console.warn('Failed to parse cached school profile:', error);
-					writeMemoryCachedSchoolProfile(cacheKey, cachedProfile);
-					return cachedProfile;
+					const migrated = migrateSchoolProfileToInstallments(cachedProfile);
+					writeMemoryCachedSchoolProfile(cacheKey, migrated);
+					return migrated;
 				}
 			}
 		}
@@ -404,15 +407,16 @@ export const getSchoolProfile = async (
 		}
 
 		if (profile) {
+			const migrated = migrateSchoolProfileToInstallments(profile);
 			// 4. Store in Redis cache for future requests (e.g., for 24 hours)
-			await redis.set(cacheKey, JSON.stringify(profile), {
+			await redis.set(cacheKey, JSON.stringify(migrated), {
 				ex: 60 * 60 * 24 * 30,
 			});
 			console.log(`[Cache] SET for ${host}`);
-			writeMemoryCachedSchoolProfile(cacheKey, profile);
+			writeMemoryCachedSchoolProfile(cacheKey, migrated);
 		}
 
-		return profile;
+		return migrateSchoolProfileToInstallments(profile);
 	} catch (error) {
 		console.error(`Error fetching school profile for host ${host}:`, error);
 		return null;

@@ -226,7 +226,7 @@ const flattenSchoolProfile = (school: any): any => {
 	if (school.financialConfig) {
 		flat.currencies = school.financialConfig.currencies || [];
 		flat.feeDefinitions = school.financialConfig.feeDefinitions || [];
-		flat.paymentPlans = school.financialConfig.paymentPlans || [];
+		flat.installments = school.financialConfig.installments || [];
 		flat.studentGroups = school.financialConfig.studentGroups || [];
 		flat.feeSchedules = school.financialConfig.feeSchedules || [];
 	}
@@ -461,7 +461,7 @@ export async function POST(request: NextRequest) {
 				currencies: body.financialConfig?.currencies || [],
 				paymentCategories: body.financialConfig?.paymentCategories || [],
 				feeDefinitions: body.financialConfig?.feeDefinitions || [],
-				paymentPlans: body.financialConfig?.paymentPlans || [],
+				installments: body.financialConfig?.installments || [],
 				studentGroups: body.financialConfig?.studentGroups || [],
 				feeSchedules: body.financialConfig?.feeSchedules || [],
 			},

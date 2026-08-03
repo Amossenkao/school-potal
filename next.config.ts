@@ -14,7 +14,6 @@ module.exports = withSentryConfig(nextConfig, {
 	silent: !process.env.CI,
 	widenClientFileUpload: true,
 	hideSourceMaps: true,
-	disableLogger: true,
 	tunnelRoute: '/monitoring',
 
 	webpack: {

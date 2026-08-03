@@ -4,9 +4,11 @@ import type {
 	StudentGroup,
 	RuleCondition,
 	FeeDefinition,
-	PaymentPlan,
+	Installment,
+	FeeInstallment,
 	PaymentCategory,
 	ScheduledFee,
+	Money,
 } from '@/types/schoolProfile';
 import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAccess';
 
@@ -15,12 +17,22 @@ export interface ResolvedFeeGroup {
 	feeGroup: FeeGroup;
 }
 
+export interface ResolvedInstallment {
+	installmentId: string;
+	label: string;
+	percentage?: number;
+	fixedAmount?: Money;
+}
+
 export interface ResolvedScheduledFee {
 	scheduledFee: ScheduledFee;
 	feeDefinition: FeeDefinition | undefined;
 	categoryName: string;
-	installmentLabel: string | null;
-	paymentPlan: PaymentPlan | undefined;
+	// Per-fee split entries with labels resolved from the global installment catalog.
+	// Empty array = fee is due immediately (full amount).
+	installments: ResolvedInstallment[];
+	// The school-wide installment catalog (ordered by due order).
+	installmentCatalog: readonly Installment[];
 }
 
 const getFieldValue = (obj: any, path: string): any =>
@@ -154,11 +166,10 @@ export const resolveResolvedScheduledFees = (
 	studentGroupIds?: string[],
 ): ResolvedScheduledFee[] => {
 	const feeDefinitions = schoolProfile.financialConfig?.feeDefinitions ?? [];
-	const paymentPlans = schoolProfile.financialConfig?.paymentPlans ?? [];
 	const paymentCategories = schoolProfile.financialConfig?.paymentCategories ?? [];
 	const studentGroups = schoolProfile.financialConfig?.studentGroups ?? [];
+	const installmentCatalog = schoolProfile.financialConfig?.installments ?? [];
 	const hasAnyActiveGroups = studentGroups.some((g) => g.isActive);
-	const plan = paymentPlans.find((p) => p.id === feeGroup.paymentPlanId);
 
 	return feeGroup.scheduledFees
 		.filter((sf) => {
@@ -170,15 +181,94 @@ export const resolveResolvedScheduledFees = (
 		.map((sf) => {
 			const feeDef = feeDefinitions.find((fd) => fd.id === sf.feeId);
 			const cat = paymentCategories.find((c) => c.id === feeDef?.category);
-			const installment = sf.dueInstallmentId && plan
-				? plan.installments.find((i) => i.id === sf.dueInstallmentId)
-				: null;
+			const installments = (sf.installments ?? []).map((fi) => {
+				const inst = installmentCatalog.find((i) => i.id === fi.installmentId);
+				return {
+					installmentId: fi.installmentId,
+					label: inst?.label || fi.installmentId,
+					percentage: fi.percentage,
+					fixedAmount: fi.fixedAmount,
+				};
+			});
 			return {
 				scheduledFee: sf,
 				feeDefinition: feeDef,
 				categoryName: cat?.name || feeDef?.category || 'Other',
-				installmentLabel: installment?.label ?? null,
-				paymentPlan: plan,
+				installments,
+				installmentCatalog,
 			};
 		});
+};
+
+export interface InstallmentAmount {
+	installmentId: string;
+	label: string;
+	amount: number;
+}
+
+// Computes how much of a fee's (possibly scholarship-reduced) effective amount is
+// due at each installment. Percentage entries scale with the effective amount;
+// fixed-amount entries are absolute but are scaled down proportionally if the
+// implied total would exceed the effective amount.
+export const resolveFeeInstallmentAmounts = (
+	fee: Pick<ScheduledFee, 'installments' | 'amount'>,
+	installments: readonly Installment[],
+	effectiveAmount: number,
+): InstallmentAmount[] => {
+	const splits = (fee.installments ?? []).map((fi) => {
+		const inst = installments.find((i) => i.id === fi.installmentId);
+		const label = inst?.label || fi.installmentId;
+		if (fi.fixedAmount?.amount != null) {
+			return {
+				installmentId: fi.installmentId,
+				label,
+				amount: Number(fi.fixedAmount.amount) || 0,
+				isFixed: true,
+			};
+		}
+		return {
+			installmentId: fi.installmentId,
+			label,
+			amount: (Number(fi.percentage) || 0) * effectiveAmount,
+			isFixed: false,
+		};
+	});
+
+	const fixedSum = splits.reduce((a, s) => a + (s.isFixed ? s.amount : 0), 0);
+	const pctSum = splits.reduce((a, s) => a + (s.isFixed ? 0 : s.amount), 0);
+	if (fixedSum + pctSum > effectiveAmount + 0.000001 && fixedSum > 0) {
+		const scale = Math.max(0, effectiveAmount - pctSum) / fixedSum;
+		for (const s of splits) {
+			if (s.isFixed) s.amount = s.amount * scale;
+		}
+	}
+
+	return splits.map(({ installmentId, label, amount }) => ({
+		installmentId,
+		label,
+		amount,
+	}));
+};
+
+// Greedily allocates a student's payments for a fee across its installments in
+// order: each installment's amount is satisfied before overflow rolls into the
+// next. Returns collected amount per installmentId.
+export const allocatePaymentsToInstallments = (
+	installmentAmounts: InstallmentAmount[],
+	payments: { amount: number }[],
+): Record<string, number> => {
+	const collected: Record<string, number> = {};
+	let pool = payments.reduce((a, p) => a + (Number(p.amount) || 0), 0);
+	for (const split of installmentAmounts) {
+		const take = Math.min(split.amount, Math.max(0, pool));
+		collected[split.installmentId] = take;
+		pool -= take;
+		if (pool <= 0) break;
+	}
+	for (const split of installmentAmounts) {
+		if (collected[split.installmentId] === undefined) {
+			collected[split.installmentId] = 0;
+		}
+	}
+	return collected;
 };

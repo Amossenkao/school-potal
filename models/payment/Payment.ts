@@ -7,6 +7,9 @@ const PaymentSchema = new Schema(
 		paidBy: { type: String, required: true },
 		feeType: { type: String, required: true, default: 'fee' },
 		category: { type: String, required: true },
+		// Optional: which Installment.id this payment was recorded against.
+		// Per-installment collection is still derived by greedy rollover on read.
+		installmentId: { type: String, trim: true },
 		paymentAmount: { type: Number, required: true },
 		currency: { type: String, required: false, default: 'LRD' },
 		paymentAcademicYear: { type: String, required: true },

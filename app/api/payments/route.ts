@@ -74,6 +74,7 @@ export async function GET(req: NextRequest) {
 				paidBy: p.paidBy,
 				feeType: p.feeType,
 				category: p.category,
+				installmentId: p.installmentId || undefined,
 				paymentAmount: p.paymentAmount,
 				currency: p.currency || 'LRD',
 				paymentAcademicYear: p.paymentAcademicYear,
@@ -105,6 +106,7 @@ export async function GET(req: NextRequest) {
 				paidBy: p.paidBy,
 				feeType: p.feeType,
 				category: p.category,
+				installmentId: p.installmentId || undefined,
 				paymentAmount: p.paymentAmount,
 				currency: p.currency || 'LRD',
 				paymentAcademicYear: p.paymentAcademicYear,
@@ -217,6 +219,8 @@ export async function POST(req: NextRequest) {
 			categoryName: string;
 			amount: number;
 			currency: string;
+			scholarshipId?: string;
+			installmentIds?: string[];
 		}> = [];
 
 		for (const { feeGroup } of feeGroups) {
@@ -229,6 +233,8 @@ export async function POST(req: NextRequest) {
 					categoryName: rf.categoryName,
 					amount: rf.scheduledFee.amount.amount,
 					currency: rf.scheduledFee.amount.currency,
+					scholarshipId: (rf.scheduledFee as any).scholarshipId || undefined,
+					installmentIds: rf.installments.map((i) => i.installmentId),
 				});
 			}
 		}
@@ -245,7 +251,15 @@ export async function POST(req: NextRequest) {
 			schoolProfile,
 			academicYear,
 		);
-		const adjustedFees = applyScholarshipsToFees(allResolvedFees, scholarships);
+		const feeScheduleForYear = schoolProfile.financialConfig?.feeSchedules?.find(
+			(s: any) => s.academicYear === academicYear,
+		);
+		const allScholarships = feeScheduleForYear?.scholarships ?? [];
+		const adjustedFees = applyScholarshipsToFees(
+			allResolvedFees,
+			scholarships,
+			allScholarships,
+		);
 
 		const existingPayments = await models.Payment.find({ studentId: targetStudentId }).lean();
 		const paidByFeeType: Record<string, number> = {};
@@ -290,6 +304,15 @@ export async function POST(req: NextRequest) {
 				return badRequest(`Fee "${feeName}" was not found in the fee schedule.`);
 			}
 
+			if (item.installmentId) {
+				const installmentIds = matchedFee.installmentIds ?? [];
+				if (!installmentIds.includes(item.installmentId)) {
+					return badRequest(
+						`"${item.installmentId}" is not an installment of fee "${matchedFee.feeName}".`,
+					);
+				}
+			}
+
 			const paidKey = `${matchedFee.feeName}::${currency}`;
 			const totalPaidAlready = paidByFeeType[paidKey] || 0;
 			const outstanding = Math.max(0, matchedFee.effectiveAmount - totalPaidAlready);
@@ -316,6 +339,7 @@ export async function POST(req: NextRequest) {
 			paidBy: fullName,
 			feeType: item.feeName || item.label || '',
 			category: item.categoryName || item.category || '',
+			installmentId: item.installmentId || undefined,
 			paymentAmount: Number(item.amount),
 			currency: item.currency || DEFAULT_CURRENCY,
 			paymentAcademicYear: academicYear,
@@ -341,6 +365,7 @@ export async function POST(req: NextRequest) {
 			paidBy: p.paidBy,
 			feeType: p.feeType,
 			category: p.category,
+			installmentId: p.installmentId || undefined,
 			paymentAmount: p.paymentAmount,
 			currency: p.currency,
 			paymentAcademicYear: p.paymentAcademicYear,

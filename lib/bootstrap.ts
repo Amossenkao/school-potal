@@ -76,7 +76,7 @@ export const getAcademicYear = (schoolProfile: any) => {
 	return getCurrentAcademicYearFromSchoolProfile(schoolProfile);
 };
 
-const normalizeUser = (user: any) => {
+export const normalizeUser = (user: any) => {
 	const id = user?.id || user?._id?.toString();
 	const isStudent = user?.role === 'student';
 	const shareContact = user?.shareContactWithClassmates === true;
@@ -119,6 +119,8 @@ const normalizeUser = (user: any) => {
 				shareContactWithClassmates: user.shareContactWithClassmates ?? false,
 				isLateRegistration: user.isLateRegistration ?? false,
 				academicYears: user.academicYears || [],
+				wardTeacherId: user.wardTeacherId || null,
+				scholarships: user.scholarships || [],
 			};
 		case 'teacher':
 			return {

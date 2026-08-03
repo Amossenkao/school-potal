@@ -291,28 +291,25 @@ export interface FeeDefinition {
 	readonly isActive: boolean;
 }
 
-// One installment within a payment plan. Set percentage OR fixedAmount, not both
-export interface PaymentInstallment {
-	// e.g. "1st-semester", "upfront"
+// A school-wide installment (due milestone). Referenced by ScheduledFee.installments.
+// Array order in financialConfig.installments determines due order.
+export interface Installment {
+	// e.g. "inst-1st", "upfront"
 	readonly id: string;
-	// e.g. "1st Semester", "Upfront Payment"
+	// e.g. "1st Installment", "Upfront Payment"
 	readonly label: string;
-	// 0–1; all installments in a plan should sum to 1. Mutually exclusive with fixedAmount
-	readonly percentage?: number;
-	// Fixed amount regardless of total. Mutually exclusive with percentage
-	readonly fixedAmount?: Money;
 	// Informational only, e.g. "Due by October 1"
 	readonly dueWindow?: string;
 }
 
-// Reusable payment plan template, referenced by FeeGroup.paymentPlanId
-export interface PaymentPlan {
-	readonly id: string;
-	// e.g. "Two-Semester Plan"
-	readonly name: string;
-	readonly description?: string;
-	readonly installments: readonly PaymentInstallment[];
-	readonly isActive: boolean;
+// One split of a fee paid at a specific installment. Set percentage OR fixedAmount, not both
+export interface FeeInstallment {
+	// References Installment.id
+	readonly installmentId: string;
+	// 0–1 of the fee total. Mutually exclusive with fixedAmount
+	readonly percentage?: number;
+	// Fixed amount regardless of total. Mutually exclusive with percentage
+	readonly fixedAmount?: Money;
 }
 
 // ============================================================================
@@ -363,10 +360,11 @@ export interface SchoolProfileFinancialConfig {
 	readonly paymentCategories: readonly PaymentCategory[];
 	// Catalogue of fee types — no prices here, prices live in FeeSchedule
 	readonly feeDefinitions: readonly FeeDefinition[];
-	// Reusable payment plan templates referenced by FeeGroups
-	readonly paymentPlans: readonly PaymentPlan[];
 	// Reusable student group definitions referenced by ScheduledFees
 	readonly studentGroups: readonly StudentGroup[];
+	// School-wide installment catalog (ordered; array order = due order).
+	// Referenced by ScheduledFee.installments[].installmentId
+	readonly installments: readonly Installment[];
 	// All fee schedules across every academic year
 	// Look up the active year via: feeSchedules.find(s => s.academicYear === currentAcademicYear)
 	readonly feeSchedules: readonly FeeSchedule[];
@@ -400,8 +398,9 @@ export interface ScheduledFee {
 	readonly feeId: string;
 	readonly amount: Money;
 	readonly isRequired: boolean;
-	// References PaymentInstallment.id from the parent FeeGroup's plan. Null = due immediately
-	readonly dueInstallmentId: string | null;
+	// How the fee is split across Installment.id values. Empty array = due immediately (full amount).
+	// The implied total (percentage × amount, or fixedAmount) must not exceed amount.
+	readonly installments: readonly FeeInstallment[];
 	// OR logic — empty array means applies to all students in the group
 	readonly applicableStudentGroupIds: readonly string[];
 }
@@ -413,8 +412,6 @@ export interface FeeGroup {
 	readonly name: string;
 	// Class.classId values from ClassLevels. A class may appear in only one FeeGroup per session
 	readonly appliesToClassIds: readonly string[];
-	// References PaymentPlan.id
-	readonly paymentPlanId: string;
 	readonly scheduledFees: readonly ScheduledFee[];
 }
 
@@ -440,6 +437,10 @@ export interface Scholarship {
 	readonly currency?: string;
 	// PaymentCategory.id[] — which categories this scholarship applies to. Empty = all categories
 	readonly appliesTo: readonly string[];
+	// How a fixedPayment scholarship's fixed amount is split across Installment.id values.
+	// Mirrored onto the generated "{name} Payment" scheduled fee by the admin form.
+	// Empty/absent = the full fixed amount is due at once.
+	readonly installments?: readonly FeeInstallment[];
 }
 
 // ============================================================================
