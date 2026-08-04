@@ -1436,19 +1436,53 @@ async function handleForceReassignmentEnhanced(
 	newUserId: string | null,
 	conflicts: ConflictDetails[],
 	newTeacherUsername?: string | null,
+	// Present whenever this run should refresh the displaced teacher's
+	// sessions and notify their active client so a class/subject they just
+	// lost stops being visible immediately (grades, students, grade
+	// requests, attendance). Optional so existing callers without a live
+	// realtime context still work, but every call site in this file passes it.
+	realtimeContext?: {
+		tenantId: string;
+		actorId: string;
+		schoolCurrentAcademicYear?: string;
+	},
 ) {
+	// Tracks every teacher displaced by this reassignment so we can refresh
+	// their session(s) and notify their active client exactly once each,
+	// even if they lost multiple classes/subjects across several conflicts.
+	const displaced = new Map<
+		string,
+		{ oldClassIds: Set<string>; academicYears: Set<string>; latestDoc: any }
+	>();
+	const trackDisplaced = (id: string, classId?: string | null, year?: string | null) => {
+		if (!id) return;
+		if (!displaced.has(id)) {
+			displaced.set(id, {
+				oldClassIds: new Set(),
+				academicYears: new Set(),
+				latestDoc: null,
+			});
+		}
+		const entry = displaced.get(id)!;
+		if (classId) entry.oldClassIds.add(classId);
+		if (year) entry.academicYears.add(year);
+	};
+
 	// Handle sponsorship conflicts
 	const sponsorshipConflicts = conflicts.filter(
 		(c) => c.type === 'sponsorship',
 	);
 	for (const conflict of sponsorshipConflicts) {
-		await models.Teacher.updateOne(
+		const updatedDoc = await models.Teacher.findOneAndUpdate(
 			{ _id: conflict.conflictingTeacher.id },
 			{
 				$unset: { sponsorClass: 1 },
 				$set: { updatedAt: new Date() },
 			},
+			{ new: true },
 		);
+		trackDisplaced(conflict.conflictingTeacher.id, conflict.sponsorClass);
+		if (updatedDoc) displaced.get(conflict.conflictingTeacher.id)!.latestDoc = updatedDoc;
 	}
 
 	// Handle subject assignment conflicts
@@ -1501,7 +1535,7 @@ async function handleForceReassignmentEnhanced(
 					},
 				);
 
-				await models.Teacher.updateOne(
+				const updatedDoc = await models.Teacher.findOneAndUpdate(
 					{ _id: conflict.conflictingTeacher.id },
 					{
 						$set: {
@@ -1509,25 +1543,40 @@ async function handleForceReassignmentEnhanced(
 							updatedAt: new Date(),
 						},
 					},
+					{ new: true },
 				);
+				trackDisplaced(
+					conflict.conflictingTeacher.id,
+					conflict.assignment.classId,
+					conflict.assignment.year,
+				);
+				if (updatedDoc) displaced.get(conflict.conflictingTeacher.id)!.latestDoc = updatedDoc;
 
 				if (newTeacherUsername) {
+					const reassignedMatch = {
+						academicYear: conflict.assignment!.year,
+						classId: conflict.assignment!.classId,
+						subject: { $in: conflict.assignment!.subjects || [] },
+						teacherUsername: conflict.conflictingTeacher.teacherUsername,
+					};
 					gradeUpdatePromises.push(
-						models.Grade.updateMany(
-							{
-								academicYear: conflict.assignment!.year,
-								classId: conflict.assignment!.classId,
-								subject: { $in: conflict.assignment!.subjects || [] },
-								teacherUsername: conflict.conflictingTeacher.teacherUsername,
+						models.Grade.updateMany(reassignedMatch, {
+							$set: {
+								teacherUsername: newTeacherUsername,
+								lastUpdated: new Date(),
 							},
-							{
+						}),
+					);
+					if (models.GradeChangeRequest) {
+						gradeUpdatePromises.push(
+							models.GradeChangeRequest.updateMany(reassignedMatch, {
 								$set: {
 									teacherUsername: newTeacherUsername,
-									updatedAt: new Date(),
+									lastUpdated: new Date(),
 								},
-							},
-						),
-					);
+							}),
+						);
+					}
 				}
 			}
 		}
@@ -1535,6 +1584,49 @@ async function handleForceReassignmentEnhanced(
 
 	if (gradeUpdatePromises.length > 0) {
 		await Promise.all(gradeUpdatePromises);
+	}
+
+	// Refresh each displaced teacher's active sessions and notify them in
+	// realtime so they lose access to the reassigned class(es) immediately,
+	// mirroring the direct-edit 'teacher-class-reassigned' flow in PUT.
+	if (realtimeContext && displaced.size > 0) {
+		const { tenantId, actorId, schoolCurrentAcademicYear } = realtimeContext;
+		await Promise.all(
+			Array.from(displaced.entries()).map(async ([teacherId, entry]) => {
+				try {
+					const doc =
+						entry.latestDoc || (await models.Teacher.findById(teacherId).lean());
+					if (!doc) return;
+					const plainDoc = typeof doc.toObject === 'function' ? doc.toObject() : doc;
+					await updateAllUserSessions(teacherId, buildUserResponse(plainDoc));
+					const years =
+						entry.academicYears.size > 0
+							? Array.from(entry.academicYears)
+							: [schoolCurrentAcademicYear].filter(
+									(y): y is string => Boolean(y),
+								);
+					await publishSyncEventsForAcademicYearsSafe({
+						tenantId,
+						domain: 'users',
+						academicYears: years,
+						actorId,
+						reason: 'teacher-class-reassigned',
+						payload: {
+							user: buildRealtimeUserPayload(plainDoc),
+							userId: teacherId,
+							targetUserIds: [teacherId],
+							oldClassIds: Array.from(entry.oldClassIds),
+						},
+					});
+				} catch (displacedSyncError) {
+					console.warn(
+						'Failed to refresh/notify displaced teacher after force reassignment:',
+						teacherId,
+						displacedSyncError,
+					);
+				}
+			}),
+		);
 	}
 }
 
@@ -3101,6 +3193,12 @@ export async function POST(request: NextRequest) {
 				null,
 				conflictsToHandle,
 				userData.username,
+				{
+					tenantId,
+					actorId: currentUser.id,
+					schoolCurrentAcademicYear:
+						getCurrentAcademicYearFromSchoolProfile(schoolProfile),
+				},
 			);
 		}
 
@@ -4174,6 +4272,11 @@ export async function PUT(request: NextRequest) {
 						targetUserId,
 						conflictsToHandle,
 						targetUser.username,
+						{
+							tenantId,
+							actorId: currentUser.id,
+							schoolCurrentAcademicYear,
+						},
 					);
 				}
 
@@ -4744,6 +4847,11 @@ export async function PUT(request: NextRequest) {
 				actualTargetUserId,
 				conflictsToHandle,
 				targetUser.username,
+				{
+					tenantId,
+					actorId: currentUser.id,
+					schoolCurrentAcademicYear,
+				},
 			);
 		}
 

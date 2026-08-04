@@ -16,7 +16,7 @@ import {
 	getTeacherClassSubjectPairsForAcademicYear,
 } from '@/utils/academicYearAccess';
 import { useNetworkStore } from './networkStore';
-import type { RealtimeEvent } from '@/lib/realtimeTypes';
+import { resolveTenantSyncKey, type RealtimeEvent } from '@/lib/realtimeTypes';
 
 // Set by AuthProvider when the current user's role is resolved.
 // Used in applyRealtimeEvent to prevent superadmins from having
@@ -1216,7 +1216,25 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				// Still notify listeners so dashboard components can refetch
 				// their school-specific data (stats, admins, etc.)
 			} else {
-				get().setSchool(flattenSchoolPayload(schoolPayload));
+				// SCHOOL_UPDATED/SCHOOL_DELETED events also publish on the
+				// shared platform:events channel (every client subscribes to
+				// it for cross-tenant observability broadcasts), not just
+				// this tenant's own school:{tenantId} channel. Reject
+				// anything that isn't for THIS session's school — otherwise
+				// another school's profile update (name, logo, slogan, ...)
+				// overwrites and persists over this one's.
+				const sessionTenantId = resolveTenantSyncKey({
+					schoolProfile: get().school,
+				});
+				const eventTenantId = String(event.tenantId || '').trim();
+				const isForAnotherTenant = Boolean(
+					sessionTenantId &&
+						eventTenantId &&
+						eventTenantId !== sessionTenantId,
+				);
+				if (!isForAnotherTenant) {
+					get().setSchool(flattenSchoolPayload(schoolPayload));
+				}
 			}
 		}
 

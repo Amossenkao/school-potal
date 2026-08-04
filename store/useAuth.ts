@@ -19,6 +19,7 @@ import {
 	SYNC_DOMAIN_PARAM_KEYS,
 	syncFromCursors,
 } from '@/lib/clientSync';
+import { getParentAcademicYearsEntries } from '@/utils/academicYearAccess';
 
 interface LoginData {
 	role: string;
@@ -408,6 +409,15 @@ const repairParentChildSelection = (user: any): any => {
 		? user.parentChildren
 		: [];
 	if (parentChildren.length === 0) return user;
+
+	// A parent's accessible academic years are the union across ALL of their
+	// children, not just the currently selected one — recompute it any time
+	// this runs so a child added/removed via a realtime merge (which updates
+	// parentChildren but leaves everything else alone) doesn't leave this
+	// stale, even when the current selection is still valid and no other
+	// field needs repair.
+	const unionAcademicYears = getParentAcademicYearsEntries(parentChildren);
+
 	const selectedId = String(user.studentId || '').trim();
 	const selectedStillValid = Boolean(
 		selectedId &&
@@ -417,7 +427,10 @@ const repairParentChildSelection = (user: any): any => {
 					String(c.username || '').trim() === selectedId,
 			),
 	);
-	if (selectedStillValid) return user;
+	if (selectedStillValid) {
+		if (isEqual(user.academicYears, unionAcademicYears)) return user;
+		return { ...user, academicYears: unionAcademicYears };
+	}
 	const first = parentChildren[0] as any;
 	return {
 		...user,
@@ -425,9 +438,7 @@ const repairParentChildSelection = (user: any): any => {
 		classId: first?.classId || null,
 		className: first?.className || null,
 		classLevel: first?.classLevel || null,
-		academicYears: Array.isArray(first?.academicYears)
-			? first.academicYears
-			: [],
+		academicYears: unionAcademicYears,
 		studentType: first?.studentType || 'old',
 	};
 };
