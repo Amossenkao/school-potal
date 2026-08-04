@@ -113,9 +113,19 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const usersByAcademicYearRef = useRef(usersByAcademicYear);
 	const gradesByAcademicYearRef = useRef(gradesByAcademicYear);
 	const { isOnline } = useNetworkStore();
-	const effectiveUser = toTeacherProfile(teacherInfo || userInfo) as
-		| UserInfo
-		| null;
+	// toTeacherProfile spreads into a new object for teacher/isTeacher-admin
+	// roles on every call. Without memoizing here, effectiveUser gets a new
+	// reference on every render, which cascades into every useMemo that
+	// depends on it (sessions/classLevels/classes/subjects below) and, in
+	// turn, into the fetch effects that depend on those — causing them to
+	// re-run every render. When the fetch has cached data to fall back on
+	// this is merely wasteful; when it doesn't (no students/grades for the
+	// selected class), nothing short-circuits the effect and it refetches
+	// from the API on every render, forever.
+	const effectiveUser = useMemo(
+		() => toTeacherProfile(teacherInfo || userInfo) as UserInfo | null,
+		[teacherInfo, userInfo],
+	);
 	const schoolCurrentAcademicYear =
 		currentSchool?.identity?.currentAcademicYear || currentAcademicYear;
 

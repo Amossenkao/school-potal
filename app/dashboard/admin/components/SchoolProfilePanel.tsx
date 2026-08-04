@@ -278,9 +278,28 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 	};
 
 	const lastEventTimestamp = useRef('');
+	// This panel subscribes to the superadmin broadcast channel (shared by
+	// every school, for cross-school events like school-deleted) in addition
+	// to its own school's channel — so events about OTHER schools land here
+	// too. Every branch below must check the event is actually about THIS
+	// school (host/dbName) before acting, or an unrelated school's update or
+	// deletion would corrupt or close this panel.
+	const isEventForThisSchool = useCallback(
+		(event: RealtimeEvent, eventHost?: string) => {
+			const dbName = school?.system.dbName;
+			const tenantId = String(event.tenantId || '').trim();
+			return Boolean(
+				(eventHost && eventHost === host) ||
+					(tenantId && (tenantId === host || tenantId === dbName)),
+			);
+		},
+		[host, school],
+	);
 	const handleRealtimeEvent = useCallback((event: RealtimeEvent) => {
 		const reason = String(event.payload?.reason || '').trim();
 		if (reason === 'school-deleted') {
+			const deletedHost = String(event.payload?.host || '').trim();
+			if (!isEventForThisSchool(event, deletedHost)) return;
 			removeSuperAdminSchool(host);
 			onDeleted?.(host);
 			onClose();
@@ -290,15 +309,18 @@ export default function SchoolProfilePanel({ host, onClose, onOpenAdmins, onDele
 			if (event.timestamp && event.timestamp === lastEventTimestamp.current) return;
 			lastEventTimestamp.current = event.timestamp || '';
 			const schoolData = event.payload?.school as Record<string, any> | undefined;
+			// Safe regardless of which school this event is for — upsert is
+			// keyed by schoolData.host, so it only ever touches that entry.
 			if (schoolData?.host) upsertSuperAdminSchool(schoolData);
+			if (!isEventForThisSchool(event, schoolData?.host)) return;
 			fetchSchool();
 			if (!stats) fetchStats();
 		}
 		const isUserEvent = ['user-created', 'account-deactivated', 'user-deleted'].includes(reason);
-		if (isUserEvent) {
+		if (isUserEvent && isEventForThisSchool(event)) {
 			fetchStats();
 		}
-	}, [host, removeSuperAdminSchool, stats, upsertSuperAdminSchool]);
+	}, [host, removeSuperAdminSchool, stats, upsertSuperAdminSchool, onDeleted, onClose, isEventForThisSchool]);
 
 	useSuperadminRealtime({ schoolHosts: [host], schoolTenantIds: [school?.system.dbName].filter(Boolean) as string[], onEvent: handleRealtimeEvent });
 

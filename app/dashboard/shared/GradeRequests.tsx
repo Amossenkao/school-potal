@@ -323,9 +323,15 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 	teacherInfo: teacherInfoProp,
 }) => {
 	const userInfo = useAuth((state) => state.user) as UserInfo | null;
-	const effectiveUser = toTeacherProfile(teacherInfoProp || userInfo) as
-		| UserInfo
-		| null;
+	// toTeacherProfile spreads into a new object for teacher/isTeacher-admin
+	// roles on every call — memoize so effectiveUser (and everything
+	// downstream that depends on it, e.g. teacherAcademicYears below) doesn't
+	// get a new reference on every render. See MasterGradeSheet.tsx for the
+	// same fix where this pattern caused an actual infinite fetch loop.
+	const effectiveUser = useMemo(
+		() => toTeacherProfile(teacherInfoProp || userInfo) as UserInfo | null,
+		[teacherInfoProp, userInfo],
+	);
 	const isTeacher = effectiveUser?.role === 'teacher';
 
 	const currentSchool = useSchoolStore((state) => state.school);

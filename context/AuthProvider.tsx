@@ -449,12 +449,19 @@ export default function AuthProvider({
 				) {
 					return;
 				}
-				// Events arrive on the correct channel (school:{tenantId}).
-				// The server may resolve tenantId from dbName while the client
-				// uses host — both refer to the same school. Filter only on
-				// security-relevant events (USER_DISABLED) by userId later in
-				// handleRealtimeEvent; skip the strict tenantId equality check
-				// to avoid silently dropping valid school events.
+				// Not every subscribed channel is exclusive to this tenant —
+				// platform:events (added by getAuthorizedRealtimeChannels for
+				// every user, for cross-tenant observability broadcasts) also
+				// carries other event types like SCHOOL_UPDATED/SCHOOL_DELETED
+				// for every other school. resolveTenantSyncKey is the single
+				// shared helper both client and server use to compute
+				// tenantKey, so this equality check is safe and doesn't risk
+				// dropping legitimate same-tenant events (the same check is
+				// already used successfully in components/inactive.tsx and
+				// app/login/page.tsx). Without it, another school's realtime
+				// event — e.g. a superadmin editing that school's profile —
+				// gets applied to this session too.
+				if (event.tenantId !== tenantKey) return;
 				handleRealtimeEvent(event);
 			};
 			channel.subscribe(listener);

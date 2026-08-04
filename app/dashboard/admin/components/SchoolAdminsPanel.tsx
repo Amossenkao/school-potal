@@ -108,10 +108,14 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 
 	const handleRealtimeEvent = useCallback((event: RealtimeEvent) => {
 		const reason = String(event.payload?.reason || '').trim();
-		if (reason === 'user-created' || reason === 'user-updated' || reason === 'user-deleted') {
-			fetchAdmins();
-		}
-	}, []);
+		if (reason !== 'user-created' && reason !== 'user-updated' && reason !== 'user-deleted') return;
+		// This panel also subscribes to the superadmin broadcast channel
+		// (shared by every school), so another school's user event can land
+		// here too — only refetch when it's actually about this school.
+		const tenantId = String(event.tenantId || '').trim();
+		if (tenantId && tenantId !== host && tenantId !== cachedSchool?.dbName) return;
+		fetchAdmins();
+	}, [host, cachedSchool?.dbName]);
 
 	useSuperadminRealtime({ schoolHosts: [host], schoolTenantIds: cachedSchool?.dbName ? [cachedSchool.dbName] : [], onEvent: handleRealtimeEvent });
 
