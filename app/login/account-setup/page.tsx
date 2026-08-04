@@ -200,16 +200,15 @@ export default function AccountSetupPage() {
 		timeoutMs: LOADING_POLICY.authTimeoutMs + 600,
 	});
 
+	// AuthProvider owns the routing here: it already sends a user with
+	// mustChangePassword to this page, and away from it the moment the flag
+	// clears or the user is gone. This effect used to push /login or
+	// /dashboard itself, racing AuthProvider for the same transition.
 	useEffect(() => {
 		if (!authLoading) {
-			if (!user) {
-				router.push('/login');
-			} else if (!user.mustChangePassword) {
-				router.push('/dashboard');
-			}
 			setIsInitializing(false);
 		}
-	}, [authLoading, user, router]);
+	}, [authLoading]);
 
 	const isNewUser = user && user.passwordChangedAt === null;
 	const needsProfileUpdate =
@@ -283,9 +282,13 @@ export default function AccountSetupPage() {
 				throw new Error(data.message || 'Failed to update password.');
 			}
 			setSuccess('Account setup complete! Redirecting to dashboard...');
-			setUser({ ...user, mustChangePassword: false });
+			// Clearing mustChangePassword is precisely what tells AuthProvider
+			// this user now belongs on /dashboard, so defer it until the
+			// success message has been on screen. AuthProvider then performs
+			// the single navigation — previously this page also pushed, so one
+			// completed setup produced two navigations.
 			setTimeout(() => {
-				router.push('/dashboard');
+				setUser({ ...user, mustChangePassword: false });
 			}, 2000);
 		} catch (error: any) {
 			setError(error.message);
@@ -576,9 +579,13 @@ export default function AccountSetupPage() {
 								variant="ghost"
 								size="sm"
 								className="text-muted-foreground hover:text-foreground gap-1.5"
-								onClick={async () => {
-									await logout();
-									router.replace('/login');
+								onClick={() => {
+									// No navigation here: logout() clears the auth
+									// state and AuthProvider performs the single
+									// transition to /login (holding the signing-out
+									// spinner throughout). Navigating here as well
+									// meant two navigations for one logout.
+									void logout();
 								}}
 							>
 								<LogOut className="w-3.5 h-3.5" />

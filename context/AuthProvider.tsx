@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Ably from 'ably';
 import useAuth from '@/store/useAuth';
@@ -77,8 +77,6 @@ export default function AuthProvider({
 	const syncEventDebounceRef = useRef<number | null>(null);
 	const realtimeClientRef = useRef<Ably.Realtime | null>(null);
 	const realtimeSubscriptionsRef = useRef<Array<() => void>>([]);
-	const initialRouteResolvedRef = useRef(false);
-	const [isResolvingInitialRoute, setIsResolvingInitialRoute] = useState(true);
 	const [reconnectTrigger, setReconnectTrigger] = useState(0);
 	const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -166,92 +164,71 @@ export default function AuthProvider({
 		void runInitialBootstrap();
 	}, [bootstrapAuth, ensureSchoolProfile]);
 
-	useEffect(() => {
-		if (!startupResolved || isBootstrapping) return;
-		if (initialRouteResolvedRef.current) return;
+	// ── Single owner of every auth-driven navigation decision ─────────────
+	// Startup, login and logout all resolve through this one derived
+	// destination. Previously six independent effects (three here, two in
+	// ProtectedRoute, one in the login page) could each call router.replace /
+	// router.push from partially-overlapping state, so which one won depended
+	// on React's effect ordering. That is what produced the double redirects
+	// and the momentary wrong screen.
+	const ownsRoute =
+		pathname === '/' ||
+		pathname === '/login' ||
+		pathname === '/login/account-setup' ||
+		pathname.startsWith('/dashboard');
 
-		if (hasSchool && !currentSchool) {
-			initialRouteResolvedRef.current = true;
-			setIsResolvingInitialRoute(false);
-			if (pathname !== '/') {
-				router.replace('/');
-			}
-			return;
-		}
-
-		if (!hasSchool) {
-			initialRouteResolvedRef.current = true;
-			setIsResolvingInitialRoute(false);
-			return;
-		}
-
-		const ownsStartupRoute =
-			pathname === '/' ||
-			pathname === '/login' ||
-			pathname === '/login/account-setup' ||
-			pathname.startsWith('/dashboard');
-
-		if (!ownsStartupRoute) {
-			initialRouteResolvedRef.current = true;
-			setIsResolvingInitialRoute(false);
-			return;
-		}
-
-		const destination = user?.isActive
-			? user.role !== 'system_admin' && user.mustChangePassword
-				? '/login/account-setup'
-				: pathname.startsWith('/dashboard') ? pathname : '/dashboard'
-			: '/login';
-
-		if (pathname === destination) {
-			initialRouteResolvedRef.current = true;
-			setIsResolvingInitialRoute(false);
-			return;
-		}
-
-		if (!user?.isActive) {
-			initialRouteResolvedRef.current = true;
-			setIsResolvingInitialRoute(false);
-			router.replace(destination);
-			return;
-		}
-
-		router.replace(destination);
-	}, [hasSchool, isBootstrapping, currentSchool, pathname, router, startupResolved, user]);
-
-	useEffect(() => {
-		if (!startupResolved || isBootstrapping) return;
-		if (!initialRouteResolvedRef.current) return;
-		if (isLoggingOut) return;
-		if (!hasSchool) return;
-		if (user?.isActive) return;
-		if (pathname === '/login') return;
+	const destination = useMemo<string | null>(() => {
+		// Routes we do not own (public report links, marketing pages, ...)
+		// render untouched.
+		if (!ownsRoute) return null;
+		// School host whose profile has not resolved yet: the root route
+		// server-renders the correct shell for this host.
+		if (hasSchool && !currentSchool) return '/';
+		if (!user?.isActive) return '/login';
 		if (
-			pathname === '/' ||
-			pathname.startsWith('/dashboard') ||
-			pathname.startsWith('/login')
+			user.role !== 'system_admin' &&
+			user.role !== 'superadmin' &&
+			user.mustChangePassword
 		) {
-			router.replace('/login');
+			return '/login/account-setup';
 		}
-	}, [
-		hasSchool,
-		isBootstrapping,
-		isLoggingOut,
-		pathname,
-		router,
-		startupResolved,
-		user?.isActive,
-	]);
+		return '/dashboard';
+	}, [ownsRoute, hasSchool, currentSchool, user]);
+
+	// Is the current URL already an acceptable home for `destination`?
+	const atDestination = useMemo(() => {
+		if (!destination) return true;
+		// Preserve dashboard deep links rather than collapsing them to /dashboard.
+		if (destination === '/dashboard') return pathname.startsWith('/dashboard');
+		// `/` server-renders the login screen, so an unauthenticated visitor is
+		// already home there. Redirecting `/` → `/login` is pure churn, and it
+		// is the redirect every cold PWA launch used to pay (start_url is `/`).
+		if (destination === '/login') {
+			return pathname === '/login' || pathname === '/';
+		}
+		return pathname === destination;
+	}, [destination, pathname]);
+
+	const startupSettled = startupResolved && !isBootstrapping;
+
+	// Logout clears isLoggingOut in the same commit that clears the user, but
+	// the navigation to /login lands a tick later. Without this the spinner
+	// would flip "Signing out..." → "Loading..." mid-transition; the user
+	// should see one uninterrupted signing-out spinner until /login mounts.
+	const signingOutRef = useRef(false);
+	useEffect(() => {
+		if (isLoggingOut) signingOutRef.current = true;
+		else if (atDestination) signingOutRef.current = false;
+	}, [isLoggingOut, atDestination]);
 
 	useEffect(() => {
-		if (!startupResolved || isBootstrapping) return;
-		if (!initialRouteResolvedRef.current) return;
+		if (!startupSettled) return;
+		// Logout owns its own transition: it flips state exactly once, and the
+		// next run of this effect performs the single resulting navigation.
 		if (isLoggingOut) return;
-		if (!hasSchool) return;
-		if (currentSchool) return;
-		if (pathname === '/') return;
-		router.replace('/');
-	}, [hasSchool, isBootstrapping, currentSchool, isLoggingOut, pathname, router, startupResolved]);
+		if (!destination || atDestination) return;
+		router.replace(destination);
+	}, [startupSettled, isLoggingOut, destination, atDestination, router]);
 
 	// Sync user role to schoolStore so applyRealtimeEvent can skip
 	// setSchool() for superadmins (they manage schools, they don't have one).
@@ -538,22 +515,13 @@ export default function AuthProvider({
 		(realtimeUser as any)?.isTeacher,
 	]);
 
-	if (!startupResolved || isBootstrapping || isResolvingInitialRoute) {
+	// The startup decision has not been made yet.
+	if (!startupSettled) {
 		return (
 			<PageLoading
 				variant={hasSchool ? 'school' : 'company'}
 				fullScreen={true}
 				message="Loading..."
-			/>
-		);
-	}
-
-	if (!currentSchool && hasSchool) {
-		return (
-			<PageLoading
-				variant="school"
-				fullScreen={true}
-				message="Redirecting..."
 			/>
 		);
 	}
@@ -564,6 +532,30 @@ export default function AuthProvider({
 				variant={hasSchool ? 'school' : 'company'}
 				fullScreen={true}
 				message="Signing out..."
+			/>
+		);
+	}
+
+	// A transition is pending. Holding the spinner instead of mounting the
+	// screen the user is about to leave is what guarantees exactly one screen
+	// at a time: no login flash before the dashboard, no dashboard flash
+	// before the login page. The effect above is already navigating.
+	if (!atDestination) {
+		return (
+			<PageLoading
+				variant={hasSchool ? 'school' : 'company'}
+				fullScreen={true}
+				message={signingOutRef.current ? 'Signing out...' : 'Loading...'}
+			/>
+		);
+	}
+
+	if (!currentSchool && hasSchool) {
+		return (
+			<PageLoading
+				variant="school"
+				fullScreen={true}
+				message="Loading..."
 			/>
 		);
 	}

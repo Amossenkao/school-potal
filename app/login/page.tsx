@@ -908,30 +908,15 @@ const LoginPage = () => {
 		});
 	}, [router, dismissKeyboardFocus]);
 
-useEffect(() => {
-	if (
-		startupResolved &&
-		!isBootstrapping &&
-		!isLoading &&
-		user?.isActive &&
-		isLoggedIn &&
-		!isLoggingOut &&
-		!isRedirecting &&
-		!redirectTimedOut
-	) {
-		navigateToDashboardWithSpinner();
-	}
-}, [
-	startupResolved,
-	isBootstrapping,
-	isLoading,
-	user,
-	isLoggedIn,
-	isLoggingOut,
-	isRedirecting,
-	redirectTimedOut,
-	navigateToDashboardWithSpinner,
-]);
+// NOTE: the automatic "authenticated ⇒ push to /dashboard" effect that used
+// to live here has been removed. It was a second navigator competing with
+// AuthProvider's startup resolver, so on a cold launch with a cached session
+// both fired and the login page was mounted for a beat before the dashboard —
+// the login flash. AuthProvider now owns this transition: the moment
+// user.isActive becomes true it holds a spinner (the login form is never
+// rendered) and performs exactly one router.replace('/dashboard').
+// `navigateToDashboardWithSpinner` below is retained solely for the manual
+// "still stuck?" escape hatch, which is user-initiated rather than automatic.
 
 	useEffect(() => {
 		if (!isRedirecting) {
@@ -1080,11 +1065,10 @@ useEffect(() => {
 		);
 	}, [selectedRole, currentSchool, loginType]);
 
-	useEffect(() => {
-		if (hasSchool && startupResolved && !isBootstrapping && !currentSchool) {
-			router.replace('/');
-		}
-	}, [hasSchool, startupResolved, isBootstrapping, currentSchool, router]);
+	// NOTE: the "school host without a resolved profile ⇒ replace('/')" effect
+	// that used to live here was a third navigator. AuthProvider derives the
+	// same destination and holds a spinner over this page until it lands, so
+	// this effect could only ever fire as a redundant same-path navigation.
 
 	useEffect(() => {
 		if (!selectedRole) return;
@@ -1184,15 +1168,13 @@ useEffect(() => {
 
 		const loggedInUser = await login(loginData);
 		if (loggedInUser) {
-			if (
-				loggedInUser.role !== 'system_admin' &&
-				loggedInUser.mustChangePassword
-			) {
-				dismissKeyboardFocus();
-				router.push('/login/account-setup');
-			} else {
-				navigateToDashboardWithSpinner();
-			}
+			// Navigation is AuthProvider's job — it already derives the correct
+			// destination (/dashboard or /login/account-setup) from the user
+			// that login() just committed to the store, and renders a spinner
+			// over this page until the transition lands. Routing here as well
+			// meant two navigations for one login.
+			dismissKeyboardFocus();
+			setIsRedirecting(true);
 		}
 	};
 

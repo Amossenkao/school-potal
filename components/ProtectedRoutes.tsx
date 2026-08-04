@@ -1,6 +1,6 @@
 'use client';
-import { useEffect, useMemo } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 import useAuth from '@/store/useAuth';
 import { PageLoading } from '@/components/loading';
 import type { PageLoadingProps } from '@/components/loading';
@@ -19,7 +19,6 @@ const ProtectedRoute = ({
 	spinnerVariant = 'company',
 }: ProtectedRouteProps) => {
 	const { user, startupResolved, isLoggingOut } = useAuth();
-	const router = useRouter();
 	const pathname = usePathname();
 
 	const isAuthenticated = Boolean(user?.isActive);
@@ -42,28 +41,14 @@ const ProtectedRoute = ({
 		return false;
 	}, [allowedRoles, requiredRole, user]);
 
-	useEffect(() => {
-		if (
-			!startupResolved ||
-			!user ||
-			user.role === 'system_admin' ||
-			user.role === 'superadmin' ||
-			!user.mustChangePassword ||
-			pathname === '/login/account-setup'
-		) {
-			return;
-		}
-		router.replace('/login/account-setup');
-	}, [startupResolved, pathname, router, user]);
+	// NOTE: this component intentionally performs NO navigation. AuthProvider
+	// is the single owner of every auth-driven route decision (including the
+	// account-setup and unauthenticated redirects that used to live here), and
+	// it holds a spinner instead of rendering children whenever the current
+	// URL disagrees with where the user belongs. Two components calling
+	// router.replace() from overlapping state is precisely what caused the
+	// double redirects, so everything below is a passive render guard only.
 
-	useEffect(() => {
-		if (!startupResolved || isLoggingOut || isAuthenticated) return;
-		router.replace('/login');
-	}, [startupResolved, isLoggingOut, isAuthenticated, router]);
-
-	// startupResolved is set synchronously during bootstrapAuth (which calls
-	// hydrateFromCache before setting the flag). This covers the single render
-	// tick before the first effect runs.
 	if (!startupResolved) {
 		return (
 			<PageLoading variant={spinnerVariant} fullScreen={true} message="Loading..." />

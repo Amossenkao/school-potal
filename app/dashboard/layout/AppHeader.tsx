@@ -653,8 +653,11 @@ const UserDropdown = memo(function UserDropdown() {
 		setIsOpen(false);
 		setIsLoggingOut(true);
 		try {
+			// No router.replace here: AuthProvider owns the transition to
+			// /login and performs it exactly once when logout() commits the
+			// cleared auth state. Navigating here as well produced two
+			// navigations for a single logout.
 			await logout();
-			router.replace('/login');
 		} catch (error) {
 			console.error('Logout failed:', error);
 			setIsLoggingOut(false);

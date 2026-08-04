@@ -242,6 +242,16 @@ let authBootstrapPromise: Promise<void> | null = null;
 let lastAuthCheckCompletedAt = 0;
 let authFlowEpoch = 0;
 
+// Logout barrier: once logout begins this stays raised until an explicit
+// login() lowers it. `authFlowEpoch` only invalidates results from requests
+// that were already in flight; the barrier additionally blocks every FUTURE
+// restoration path (hydrateFromCache / checkAuthStatus / bootstrapAuth) from
+// re-establishing the session we just tore down. Without it, a background
+// process that starts a moment after logout finishes (isLoggingOut is false
+// again by then) can read the cache and put the user straight back on the
+// dashboard — the "dashboard → login → dashboard" bug.
+let logoutBarrierRaised = false;
+
 const AUTH_REQUEST_TIMEOUT_MS = 15000;
 const AUTH_CHECK_DEDUP_MS = 1200;
 const CLIENT_SESSION_PRESENT_COOKIE = 'session-present';
@@ -336,6 +346,35 @@ const useAuth = create<AuthState>((set, get) => {
 				);
 			});
 		} catch {
+			return false;
+		}
+	};
+
+	// Offline logout cannot reach the server, so record the revocation in the
+	// replay queue instead. executeSyncPipeline drains it on reconnect, and
+	// hasQueuedLogoutRequest() already treats a queued DELETE as "this device
+	// is logged out" — so the session dies server-side without the user ever
+	// waiting on a request that cannot succeed.
+	const queueLogoutRequest = () => {
+		if (typeof window === 'undefined') return false;
+		try {
+			if (hasQueuedLogoutRequest()) return true;
+			const raw = window.localStorage.getItem(OFFLINE_REQUESTS_KEY);
+			const parsed = raw ? JSON.parse(raw) : [];
+			const queued = Array.isArray(parsed) ? parsed : [];
+			queued.push({
+				url: LOGOUT_ENDPOINT,
+				method: 'DELETE',
+				credentials: 'include',
+				timestamp: Date.now(),
+			});
+			window.localStorage.setItem(
+				OFFLINE_REQUESTS_KEY,
+				JSON.stringify(queued),
+			);
+			return true;
+		} catch (error) {
+			console.warn('Failed to queue offline logout request:', error);
 			return false;
 		}
 	};
@@ -809,6 +848,9 @@ const runDeferredPostLoginBootstrap = (
 		},
 		login: async (loginData: LoginData): Promise<User | null> => {
 			beginAuthMutation();
+			// An explicit login is the ONLY thing that lowers the logout
+			// barrier — see the comment on logoutBarrierRaised.
+			logoutBarrierRaised = false;
 			set({ isLoading: true, error: null });
 			try {
 				// Capture the previously cached identity BEFORE login overwrites anything.
@@ -864,9 +906,13 @@ const runDeferredPostLoginBootstrap = (
 
 				setDashboardStartPath();
 				cacheAuthUser(loginUser as User);
-				try {
-					window.history.replaceState(null, '', '/dashboard');
-				} catch {}
+				// NOTE: no window.history.replaceState here. It rewrites the
+				// address bar without telling the Next.js router, so
+				// usePathname() keeps reporting the old route and every
+				// pathname-based guard then decides on a stale value — which
+				// produced a second, redundant navigation plus a bogus history
+				// entry the Back button could restore. AuthProvider owns the
+				// transition and performs exactly one router.replace().
 
 				// Only wipe the previous session's caches if a DIFFERENT user just
 				// logged in on this device. Otherwise we'd delete the IndexedDB
@@ -897,24 +943,27 @@ const runDeferredPostLoginBootstrap = (
 		},
 
 		logout: async () => {
+			// Raise the barrier BEFORE anything can await. From this moment on
+			// no background process may restore the authenticated state, and
+			// beginAuthMutation() invalidates every request already in flight.
+			logoutBarrierRaised = true;
 			beginAuthMutation();
 			// Mark logout in progress immediately. This is the ONLY signal
-			// ProtectedRoute needs — user/isLoggedIn stay untouched until
-			// everything below has actually finished.
+			// AuthProvider needs to hold the "Signing out..." spinner —
+			// user/isLoggedIn stay untouched until everything below finishes.
 			set({ isLoading: true, isLoggingOut: true });
 
-			let wasOnline = false;
+			// Decide online/offline from state we ALREADY have. The previous
+			// implementation probed the network here, which made an offline
+			// logout sit and wait on a request that cannot succeed; offline
+			// logout must be immediate.
+			let wasOnline =
+				typeof navigator !== 'undefined' &&
+				navigator.onLine !== false &&
+				useNetworkStore.getState().isOnline;
 
-			try {
-				wasOnline =
-					typeof navigator !== 'undefined' && navigator.onLine
-						? await useNetworkStore.getState().refreshConnectivity({
-								force: true,
-								timeoutMs: 2500,
-								reason: 'logout',
-							})
-						: false;
-				if (wasOnline) {
+			if (wasOnline) {
+				try {
 					const controller = new AbortController();
 					const timeoutId = window.setTimeout(
 						() => controller.abort(createTimeoutAbortReason('Logout request')),
@@ -932,20 +981,38 @@ const runDeferredPostLoginBootstrap = (
 					} finally {
 						window.clearTimeout(timeoutId);
 					}
-				}
-			} catch (error) {
-				if (isLikelyNetworkError(error) || isAbortLikeError(error)) {
-					useNetworkStore.getState().markOffline('logout-request-failed');
-					wasOnline = false;
-				}
-				if (!isAbortLikeError(error)) {
-					console.warn('Logout request failed:', error);
+				} catch (error) {
+					if (isLikelyNetworkError(error) || isAbortLikeError(error)) {
+						useNetworkStore.getState().markOffline('logout-request-failed');
+						wasOnline = false;
+					}
+					if (!isAbortLikeError(error)) {
+						console.warn('Logout request failed:', error);
+					}
 				}
 			}
 
-			// Clear the UI state as soon as the server response is in hand. The
-			// subsequent cache/IndexedDB/Service Worker cleanup can run in the
-			// background without keeping the signing-out spinner visible.
+			// Offline (or the request failed): queue the revocation so the
+			// server session is destroyed on reconnect rather than lingering.
+			const didQueueLogout = wasOnline ? false : queueLogoutRequest();
+
+			// Clear persisted identity BEFORE flipping state. Any effect that
+			// reacts to the state change below then already observes clean
+			// storage and a cleared cookie, so it cannot rehydrate the very
+			// user we are removing. (Previously auth-user was removed inside
+			// the deferred background block, leaving a window where state said
+			// "logged out" but localStorage still said "logged in".)
+			try {
+				localStorage.removeItem('auth-user');
+			} catch (error) {
+				console.warn('Failed to clear auth user cache:', error);
+			}
+			clearClientSessionCookie();
+
+			// Single, final state transition. AuthProvider observes this and
+			// performs exactly one router.replace('/login'). No
+			// history.replaceState here — it desynced the Next.js router from
+			// the address bar (see the note in login()).
 			set({
 				user: null,
 				isLoggedIn: false,
@@ -961,20 +1028,21 @@ const runDeferredPostLoginBootstrap = (
 				superAdminSchools: [],
 				superAdminSchoolsLoaded: false,
 			});
-			clearClientSessionCookie();
-			try {
-				window.history.replaceState(null, '', '/login');
-			} catch {}
 
+			// Heavy cache/IndexedDB/Service Worker cleanup carries no auth
+			// decision, so it runs in the background without holding the
+			// signing-out spinner.
 			void (async () => {
-				try {
-					localStorage.removeItem('auth-user');
-				} catch (error) {
-					console.warn('Failed to clear auth user cache:', error);
-				}
 				useSchoolStore.getState().clearCache();
 				clearSessionScopedClientState();
-				await clearSessionSensitiveStorage('logout');
+				await clearSessionSensitiveStorage('logout', {
+					// A queued logout lives in the offline request queue, which
+					// the logout sweep would otherwise wipe along with
+					// everything else — taking the pending revocation with it.
+					...(didQueueLogout
+						? { preserveLocalStorageKeys: [OFFLINE_REQUESTS_KEY] }
+						: {}),
+				});
 
 				// Only worth re-priming the SW's cached shell if we're actually online —
 				// offline, /login is already precached, and this fetch would just hang
@@ -1043,7 +1111,9 @@ const runDeferredPostLoginBootstrap = (
 			const trigger = String(options?.trigger || '').trim();
 			const requestedAcademicYear = String(options?.academicYear || '').trim();
 
-			if (get().isLoggingOut) return;
+			// Logout wins over every background authentication process — both
+			// while it is running and permanently afterwards.
+			if (get().isLoggingOut || logoutBarrierRaised) return;
 			if (typeof window !== 'undefined' && !hasClientSessionCookie()) {
 				if (get().user || get().isLoggedIn) {
 					set({ user: null, isLoggedIn: false, userVersion: null });
@@ -1079,6 +1149,7 @@ const runDeferredPostLoginBootstrap = (
 				});
 
 				if (!isOnline) {
+					if (get().isLoggingOut || requestEpoch !== authFlowEpoch) return;
 					useNetworkStore.getState().setAuthCheckFailed(true);
 					if (!get().user) {
 						get().hydrateFromCache();
@@ -1087,6 +1158,7 @@ const runDeferredPostLoginBootstrap = (
 					return;
 				}
 			} else if (typeof navigator !== 'undefined' && !navigator.onLine) {
+				if (get().isLoggingOut || requestEpoch !== authFlowEpoch) return;
 				useNetworkStore.getState().markOffline('browser-offline');
 				useNetworkStore.getState().setAuthCheckFailed(true);
 				if (!get().user) {
@@ -1293,6 +1365,10 @@ const runDeferredPostLoginBootstrap = (
 						}
 					}
 				} catch (error) {
+					// A request that was already in flight when logout started
+					// must not fall back to the cache here — that is exactly
+					// how a torn-down session used to come back to life.
+					if (get().isLoggingOut || requestEpoch !== authFlowEpoch) return;
 					if (isLikelyNetworkError(error)) {
 						useNetworkStore.getState().markOffline('auth-check-failed');
 						if (!get().user) {
@@ -1320,11 +1396,24 @@ const runDeferredPostLoginBootstrap = (
 				return;
 			}
 
+			// Track the epoch this bootstrap belongs to. A logout (or a login)
+			// that happens while we are awaiting below bumps it, and any work
+			// after an await must then be discarded — bootstrapAuth previously
+			// had no such guard, so a remount during logout re-ran the whole
+			// hydrate-from-cache path.
+			const bootstrapEpoch = authFlowEpoch;
+			const isStale = () =>
+				bootstrapEpoch !== authFlowEpoch ||
+				logoutBarrierRaised ||
+				get().isLoggingOut;
+
 			authBootstrapPromise = (async () => {
 				useSchoolStore.getState().hydrateCache();
 				if (!useSchoolStore.getState().school) {
 					await useSchoolStore.getState().fetchSchool();
 				}
+
+				if (isStale()) return;
 
 				get().hydrateFromCache();
 				const hasCachedUser = Boolean(get().user?.isActive);
@@ -1345,6 +1434,11 @@ const runDeferredPostLoginBootstrap = (
 				if (typeof navigator !== 'undefined' && !navigator.onLine) {
 					useNetworkStore.getState().markOffline('browser-offline');
 					useNetworkStore.getState().setAuthCheckFailed(true);
+					set({ isVerifying: false });
+					return;
+				}
+
+				if (isStale()) {
 					set({ isVerifying: false });
 					return;
 				}
@@ -1402,6 +1496,15 @@ const runDeferredPostLoginBootstrap = (
 		},
 		hydrateFromCache: () => {
 			try {
+				// Logout wins: never restore an identity from cache once a
+				// logout has begun on this page instance.
+				if (logoutBarrierRaised) {
+					localStorage.removeItem('auth-user');
+					if (get().user || get().isLoggedIn) {
+						set({ user: null, isLoggedIn: false, userVersion: null });
+					}
+					return;
+				}
 				if (hasQueuedLogoutRequest()) {
 					localStorage.removeItem('auth-user');
 					set({ user: null, isLoggedIn: false, userVersion: null });

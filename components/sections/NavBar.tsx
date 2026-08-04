@@ -99,9 +99,12 @@ export default function NavBar({ skipStorageLoad = false }) {
 	const handleLogout = async () => {
 		setIsLoggingOut(true);
 		try {
+			// No router.replace here: AuthProvider owns the transition to
+			// /login and performs it exactly once when logout() commits the
+			// cleared auth state. Navigating here as well produced two
+			// navigations for a single logout.
 			await logout();
 		} finally {
-			router.replace('/login');
 			setTimeout(() => {
 				setIsLoggingOut(false);
 			}, 300);

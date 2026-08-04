@@ -232,8 +232,11 @@ const SuperAdminHeader = memo(function SuperAdminHeader({ isMobileOpen, onToggle
 
 	const handleLogout = async () => {
 		setDropdownOpen(false);
+		// No router.replace here: AuthProvider owns the transition to /login
+		// and performs it exactly once when logout() commits the cleared auth
+		// state. Navigating here as well produced two navigations for a single
+		// logout.
 		await logout();
-		router.replace('/login');
 	};
 
 	const handleChangePassword = () => {
