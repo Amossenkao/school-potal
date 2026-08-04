@@ -33,7 +33,6 @@ import {
 import type { SchoolProfile } from '@/types/schoolProfile';
 import {
 	buildAcademicYearOptions,
-	getClassNameById,
 } from '@/components/dashboard/academicYear';
 import StatCard from '@/components/dashboard/StatCard';
 import { useSchoolStore } from '@/store/schoolStore';
@@ -98,25 +97,6 @@ const getStoreYearValue = (
 		([k]) => k.replace(/\//g, '-') === selectedYear.replace(/\//g, '-'),
 	)?.[1];
 };
-
-function ProgressBar({ value, max }: { value: number; max: number }) {
-	const width = max > 0 ? Math.min(100, (value / max) * 100) : 0;
-	const ratio = pct(value, max);
-	return (
-		<div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted">
-			<div
-				className={`h-full rounded-full transition-all duration-700 ${
-					ratio >= 80
-						? 'bg-emerald-500'
-						: ratio >= 50
-							? 'bg-amber-500'
-							: 'bg-rose-500'
-				}`}
-				style={{ width: `${width}%` }}
-			/>
-		</div>
-	);
-}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -272,17 +252,6 @@ const FinancialDashboard = memo(function FinancialDashboard({
 		return totals;
 	}, [expectedTotalByCurrency, collectedByCurrency]);
 
-	const currencyInfo = useMemo(() => {
-		const map: Record<
-			string,
-			{ code: string; label: string; symbol: string }
-		> = {};
-		for (const c of schoolProfile.financialConfig?.currencies || []) {
-			map[c.code] = { code: c.code, label: c.label, symbol: c.symbol };
-		}
-		return map;
-	}, [schoolProfile]);
-
 	// ── Currencies with at least one fee quoted in them ──────────────────────
 	const activeCurrencies = useMemo(() => {
 		if (!schoolProfile?.financialConfig?.currencies) return [];
@@ -323,10 +292,6 @@ const FinancialDashboard = memo(function FinancialDashboard({
 		});
 	}, [allCurrencies, expectedTotalByCurrency, collectedByCurrency]);
 
-	const primarySymbol = primaryCurrency
-		? currencyInfo[primaryCurrency]?.symbol || primaryCurrency
-		: '';
-
 	const collectedPrimary = primaryCurrency
 		? collectedByCurrency[primaryCurrency] || 0
 		: 0;
@@ -335,32 +300,41 @@ const FinancialDashboard = memo(function FinancialDashboard({
 		: 0;
 	const collectionRate = pct(collectedPrimary, expectedPrimary);
 
-	// ── Monthly collection trend (primary currency) ──────────────────────────
-	const monthlyCollected = useMemo(() => {
-		if (!primaryCurrency) return [];
-		const totals = Array(12).fill(0);
-		for (const p of yearPayments) {
-			if ((p.currency || '') !== primaryCurrency) continue;
-			const raw = p.paymentDate || p.paymentTime || p.createdAt;
-			if (!raw) continue;
-			const date = new Date(String(raw));
-			if (Number.isNaN(date.getTime())) continue;
-			totals[date.getMonth()] += Number(p.paymentAmount) || 0;
+	// ── Per-currency monthly collection trend ──────────────────────────────
+	const monthlyDataByCurrency = useMemo(() => {
+		const map: Record<string, { month: string; collected: number }[]> = {};
+		for (const cur of activeCurrencies) {
+			const totals = Array(12).fill(0);
+			for (const p of yearPayments) {
+				if (p.currency !== cur.code) continue;
+				const raw = p.paymentDate || p.paymentTime || p.createdAt;
+				if (!raw) continue;
+				const date = new Date(String(raw));
+				if (Number.isNaN(date.getTime())) continue;
+				totals[date.getMonth()] += Number(p.paymentAmount) || 0;
+			}
+			map[cur.code] = MONTHS.map((label, idx) => ({
+				month: label,
+				collected: Number(totals[idx].toFixed(2)),
+			}));
 		}
-		return MONTHS.map((label, idx) => ({
-			month: label,
-			collected: Number(totals[idx].toFixed(2)),
-		}));
-	}, [yearPayments, primaryCurrency]);
+		return map;
+	}, [yearPayments, activeCurrencies]);
 
-	// ── Collected vs outstanding (primary currency) ──────────────────────────
-	const donutData = useMemo(() => {
-		const outstanding = Math.max(0, expectedPrimary - collectedPrimary);
-		return [
-			{ name: 'Collected', value: Number(collectedPrimary.toFixed(2)) },
-			{ name: 'Outstanding', value: Number(outstanding.toFixed(2)) },
-		];
-	}, [expectedPrimary, collectedPrimary]);
+	// ── Per-currency collected vs outstanding ──────────────────────────────
+	const donutDataByCurrency = useMemo(() => {
+		const map: Record<string, { name: string; value: number }[]> = {};
+		for (const cur of activeCurrencies) {
+			const exp = expectedTotalByCurrency[cur.code] || 0;
+			const col = collectedByCurrency[cur.code] || 0;
+			const outstanding = Math.max(0, exp - col);
+			map[cur.code] = [
+				{ name: 'Collected', value: Number(col.toFixed(2)) },
+				{ name: 'Outstanding', value: Number(outstanding.toFixed(2)) },
+			];
+		}
+		return map;
+	}, [activeCurrencies, expectedTotalByCurrency, collectedByCurrency]);
 
 	// ── Fee type breakdown: expected + collected per category per currency ───
 	const feeTypeBreakdown = useMemo(() => {
@@ -394,74 +368,21 @@ const FinancialDashboard = memo(function FinancialDashboard({
 			});
 	}, [feeRows, yearPayments, feeNameById]);
 
-	const feeTypeChartData = useMemo(() => {
-		if (!primaryCurrency) return [];
-		return feeTypeBreakdown
-			.map(({ category, expByCur, colByCur }) => ({
-				name: category,
-				Expected: Number((expByCur[primaryCurrency] || 0).toFixed(2)),
-				Collected: Number((colByCur[primaryCurrency] || 0).toFixed(2)),
-			}))
-			.filter((d) => d.Expected > 0 || d.Collected > 0)
-			.sort((a, b) => b.Expected - a.Expected)
-			.slice(0, 8);
-	}, [feeTypeBreakdown, primaryCurrency]);
-
-	// ── By-class expected/collected (primary currency) ───────────────────────
-	const classSummaries = useMemo(() => {
-		const classIds = Array.from(
-			new Set(
-				feeRows.map((r) => getStudentClassId(r.student)).filter(Boolean),
-			),
-		);
-		return classIds.map((classId) => {
-			const rows = feeRows.filter(
-				(r) => getStudentClassId(r.student) === classId,
-			);
-			const expectedByCurrency: Record<string, number> = {};
-			for (const row of rows) {
-				const cur = row.bill.currency;
-				expectedByCurrency[cur] =
-					(expectedByCurrency[cur] || 0) + row.bill.effectiveAmount;
-			}
-			return {
-				classId,
-				className: getClassNameById(schoolProfile, classId) || classId,
-				studentCount: new Set(rows.map((r) => r.student.studentId)).size,
-				expectedByCurrency,
-			};
-		});
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [feeRows, schoolProfile]);
-
-	const collectedByClass = useMemo(() => {
-		const map: Record<string, Record<string, number>> = {};
-		for (const p of yearPayments) {
-			const cid = p.classId || 'unknown';
-			if (!map[cid]) map[cid] = {};
-			map[cid][p.currency] = (map[cid][p.currency] || 0) + p.paymentAmount;
+	const feeTypeChartDataByCurrency = useMemo(() => {
+		const map: Record<string, { name: string; Expected: number; Collected: number }[]> = {};
+		for (const cur of activeCurrencies) {
+			map[cur.code] = feeTypeBreakdown
+				.map(({ category, expByCur, colByCur }) => ({
+					name: category,
+					Expected: Number((expByCur[cur.code] || 0).toFixed(2)),
+					Collected: Number((colByCur[cur.code] || 0).toFixed(2)),
+				}))
+				.filter((d) => d.Expected > 0 || d.Collected > 0)
+				.sort((a, b) => b.Expected - a.Expected)
+				.slice(0, 8);
 		}
 		return map;
-	}, [yearPayments]);
-
-	const classProgress = useMemo(() => {
-		if (!primaryCurrency) return [];
-		return classSummaries
-			.map((c) => {
-				const expected = c.expectedByCurrency[primaryCurrency] || 0;
-				const collected = collectedByClass[c.classId]?.[primaryCurrency] || 0;
-				return {
-					classId: c.classId,
-					className: c.className,
-					studentCount: c.studentCount,
-					expected,
-					collected,
-					ratio: pct(collected, expected),
-				};
-			})
-			.filter((c) => c.expected > 0)
-			.sort((a, b) => b.expected - a.expected);
-	}, [classSummaries, collectedByClass, primaryCurrency]);
+	}, [feeTypeBreakdown, activeCurrencies]);
 
 	// ── Chart configs ────────────────────────────────────────────────────────
 	const areaConfig = {
@@ -492,13 +413,6 @@ const FinancialDashboard = memo(function FinancialDashboard({
 			color: 'hsl(0, 84%, 60%)',
 		},
 	};
-
-	const currencyTooltip = (
-		value: number | string | Array<number | string>,
-	) =>
-		`${primarySymbol} ${fmt(
-			Number(Array.isArray(value) ? value[0] : value) || 0,
-		)}`;
 
 	const hasAnyData =
 		activeCurrencies.length > 0 ||
@@ -560,11 +474,11 @@ const FinancialDashboard = memo(function FinancialDashboard({
 									: activeCurrencies
 											.map(
 												(c) =>
-													`${c.symbol || c.code} ${fmt(
+													`${c.code} ${fmt(
 														collectedByCurrency[c.code] ?? 0,
 													)}`,
 											)
-											.join(' · ')
+											.join('\n')
 							}
 							helper={`${yearPayments.length} transaction${
 								yearPayments.length !== 1 ? 's' : ''
@@ -580,11 +494,11 @@ const FinancialDashboard = memo(function FinancialDashboard({
 									: activeCurrencies
 											.map(
 												(c) =>
-													`${c.symbol || c.code} ${fmt(
+													`${c.code} ${fmt(
 														expectedTotalByCurrency[c.code] ?? 0,
 													)}`,
 											)
-											.join(' · ')
+											.join('\n')
 							}
 							helper="Based on fee schedule × students"
 							icon={DollarSign}
@@ -598,14 +512,14 @@ const FinancialDashboard = memo(function FinancialDashboard({
 									: activeCurrencies
 											.map(
 												(c) =>
-													`${c.symbol || c.code} ${fmt(
+													`${c.code} ${fmt(
 														Math.max(
 															0,
 															balanceByCurrency[c.code] ?? 0,
 														),
 													)}`,
 											)
-											.join(' · ')
+											.join('\n')
 							}
 							helper="Expected minus collected"
 							icon={AlertTriangle}
@@ -630,236 +544,197 @@ const FinancialDashboard = memo(function FinancialDashboard({
 						/>
 					</div>
 
-					{/* ── Trend + collected vs outstanding ─────────────────────── */}
-					<div className="grid gap-6 lg:grid-cols-3">
-						<Card className="lg:col-span-2">
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2 text-base">
-									<CalendarDays className="h-4 w-4 text-muted-foreground" />
-									Monthly Collections
-								</CardTitle>
-								<CardDescription>
-									Amounts collected per month in {primaryCurrency}
-								</CardDescription>
-							</CardHeader>
-							<CardContent>
-								<ChartContainer config={areaConfig} className={AREA_CHART_CLASS}>
-									<AreaChart data={monthlyCollected}>
-										<defs>
-											<linearGradient
-												id="fillCollected"
-												x1="0"
-												y1="0"
-												x2="0"
-												y2="1"
-											>
-												<stop
-													offset="5%"
-													stopColor="var(--color-collected)"
-													stopOpacity={0.35}
-												/>
-												<stop
-													offset="95%"
-													stopColor="var(--color-collected)"
-													stopOpacity={0.02}
-												/>
-											</linearGradient>
-										</defs>
-										<CartesianGrid vertical={false} strokeOpacity={0.08} />
-										<XAxis
-											dataKey="month"
-											tick={{ fontSize: 11 }}
-											tickLine={false}
-											axisLine={false}
-										/>
-										<YAxis
-											tick={{ fontSize: 11 }}
-											tickLine={false}
-											axisLine={false}
-											tickFormatter={(v: number) =>
-												v >= 1000 ? `${v / 1000}k` : String(v)
-											}
-										/>
-										<ChartTooltip
-											cursor={{ stroke: 'var(--color-collected)' }}
-											content={<ChartTooltipContent formatter={currencyTooltip} />}
-										/>
-										<Area
-											type="monotone"
-											dataKey="collected"
-											stroke="var(--color-collected)"
-											strokeWidth={2.5}
-											fill="url(#fillCollected)"
-										/>
-									</AreaChart>
-								</ChartContainer>
-							</CardContent>
-						</Card>
+					{/* ── Per-currency charts ──────────────────────────────────── */}
+					{activeCurrencies.map((cur) => {
+						const curCollected = collectedByCurrency[cur.code] || 0;
+						const curExpected = expectedTotalByCurrency[cur.code] || 0;
+						const curOutstanding = Math.max(0, curExpected - curCollected);
+						const curRate = pct(curCollected, curExpected);
+						const monthlyData = monthlyDataByCurrency[cur.code] || [];
+						const donutData = donutDataByCurrency[cur.code] || [];
+						const barData = feeTypeChartDataByCurrency[cur.code] || [];
+						const makeTooltip =
+							() =>
+							(value: number | string | Array<number | string>) =>
+								`${cur.code} ${fmt(Number(Array.isArray(value) ? value[0] : value) || 0)}`;
 
-						<Card>
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2 text-base">
-									<AlertTriangle className="h-4 w-4 text-muted-foreground" />
-									Collected vs Outstanding
-								</CardTitle>
-								<CardDescription>
-									Overall progress in {primaryCurrency}
-								</CardDescription>
-							</CardHeader>
-							<CardContent>
-								<ChartContainer config={donutConfig} className={PIE_CHART_CLASS}>
-									<PieChart>
-										<ChartTooltip
-											content={<ChartTooltipContent formatter={currencyTooltip} />}
-										/>
-										<Pie
-											data={donutData}
-											dataKey="value"
-											nameKey="name"
-											innerRadius={58}
-											outerRadius={86}
-											stroke="transparent"
-											paddingAngle={3}
-											cornerRadius={6}
-											isAnimationActive
-											animationDuration={700}
-										>
-											{donutData.map((entry) => (
-												<Cell
-													key={entry.name}
-													fill={`var(--color-${entry.name})`}
-												/>
-											))}
-										</Pie>
-										<ChartLegend
-											content={<ChartLegendContent nameKey="name" />}
-										/>
-									</PieChart>
-								</ChartContainer>
-								<div className="mt-2 text-center">
-									<p className="text-xs text-muted-foreground">
-										{collectionRate}% collected ·{' '}
-										{fmt(Math.max(0, expectedPrimary - collectedPrimary))}{' '}
-										{primaryCurrency} outstanding
-									</p>
-								</div>
-							</CardContent>
-						</Card>
-					</div>
+						return (
+							<div key={cur.code} className="space-y-6">
+								<div className="grid gap-6 lg:grid-cols-3">
+									<Card className="lg:col-span-2">
+										<CardHeader>
+											<CardTitle className="flex items-center gap-2 text-base">
+												<CalendarDays className="h-4 w-4 text-muted-foreground" />
+												Monthly Collections
+											</CardTitle>
+											<CardDescription>
+												Amounts collected per month in {cur.code}
+											</CardDescription>
+										</CardHeader>
+										<CardContent>
+											<ChartContainer config={areaConfig} className={AREA_CHART_CLASS}>
+												<AreaChart data={monthlyData}>
+													<defs>
+														<linearGradient
+															id={`fillCollected-${cur.code}`}
+															x1="0"
+															y1="0"
+															x2="0"
+															y2="1"
+														>
+															<stop
+																offset="5%"
+																stopColor="var(--color-collected)"
+																stopOpacity={0.35}
+															/>
+															<stop
+																offset="95%"
+																stopColor="var(--color-collected)"
+																stopOpacity={0.02}
+															/>
+														</linearGradient>
+													</defs>
+													<CartesianGrid vertical={false} strokeOpacity={0.08} />
+													<XAxis
+														dataKey="month"
+														tick={{ fontSize: 11 }}
+														tickLine={false}
+														axisLine={false}
+													/>
+													<YAxis
+														tick={{ fontSize: 11 }}
+														tickLine={false}
+														axisLine={false}
+														tickFormatter={(v: number) =>
+															v >= 1000 ? `${v / 1000}k` : String(v)
+														}
+													/>
+													<ChartTooltip
+														cursor={{ stroke: 'var(--color-collected)' }}
+														content={<ChartTooltipContent formatter={makeTooltip()} />}
+													/>
+													<Area
+														type="monotone"
+														dataKey="collected"
+														stroke="var(--color-collected)"
+														strokeWidth={2.5}
+														fill={`url(#fillCollected-${cur.code})`}
+													/>
+												</AreaChart>
+											</ChartContainer>
+										</CardContent>
+									</Card>
 
-					{/* ── Fee type breakdown bar chart ─────────────────────────── */}
-					<Card>
-						<CardHeader>
-							<CardTitle className="flex items-center gap-2 text-base">
-								<DollarSign className="h-4 w-4 text-muted-foreground" />
-								Fee Type Breakdown
-							</CardTitle>
-							<CardDescription>
-								Expected vs collected per fee type in {primaryCurrency}
-							</CardDescription>
-						</CardHeader>
-						<CardContent>
-							{feeTypeChartData.length === 0 ? (
-								<p className="py-8 text-center text-sm text-muted-foreground">
-									No fee type data available for this year.
-								</p>
-							) : (
-								<ChartContainer config={barConfig} className={BAR_CHART_CLASS}>
-									<BarChart
-										data={feeTypeChartData}
-										margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
-									>
-										<CartesianGrid vertical={false} strokeOpacity={0.08} />
-										<XAxis
-											dataKey="name"
-											tick={{ fontSize: 10 }}
-											interval={0}
-											angle={-18}
-											textAnchor="end"
-											tickLine={false}
-											axisLine={false}
-											height={44}
-										/>
-										<YAxis
-											tick={{ fontSize: 11 }}
-											tickLine={false}
-											axisLine={false}
-											tickFormatter={(v: number) =>
-												v >= 1000 ? `${v / 1000}k` : String(v)
-											}
-										/>
-										<ChartTooltip
-											cursor={{ fill: 'rgba(0,0,0,0.04)' }}
-											content={<ChartTooltipContent formatter={currencyTooltip} />}
-										/>
-										<ChartLegend content={<ChartLegendContent />} />
-										<Bar
-											dataKey="Expected"
-											fill="var(--color-Expected)"
-											radius={[4, 4, 0, 0]}
-										/>
-										<Bar
-											dataKey="Collected"
-											fill="var(--color-Collected)"
-											radius={[4, 4, 0, 0]}
-										/>
-									</BarChart>
-								</ChartContainer>
-							)}
-						</CardContent>
-					</Card>
-
-					{/* ── Class collection progress ─────────────────────────────── */}
-					{classProgress.length > 0 && (
-						<Card>
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2 text-base">
-									<Landmark className="h-4 w-4 text-muted-foreground" />
-									Collection by Class
-								</CardTitle>
-								<CardDescription>
-									Progress per class in {primaryCurrency}
-								</CardDescription>
-							</CardHeader>
-							<CardContent>
-								<div className="grid gap-5 sm:grid-cols-2">
-									{classProgress.map((c) => (
-										<div key={c.classId} className="rounded-xl bg-muted p-4">
-											<div className="flex flex-wrap items-center justify-between gap-2">
-												<div className="min-w-0">
-													<p className="truncate text-sm font-bold text-foreground">
-														{c.className}
-													</p>
-													<p className="text-xs text-muted-foreground">
-														{c.studentCount} student
-														{c.studentCount !== 1 ? 's' : ''}
-													</p>
-												</div>
-												<span
-													className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold ${
-														c.ratio >= 80
-															? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-															: c.ratio >= 50
-																? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-																: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
-													}`}
-												>
-													{c.ratio}%
-												</span>
+									<Card>
+										<CardHeader>
+											<CardTitle className="flex items-center gap-2 text-base">
+												<AlertTriangle className="h-4 w-4 text-muted-foreground" />
+												Collected vs Outstanding
+											</CardTitle>
+											<CardDescription>
+												Overall progress in {cur.code}
+											</CardDescription>
+										</CardHeader>
+										<CardContent>
+											<ChartContainer config={donutConfig} className={PIE_CHART_CLASS}>
+												<PieChart>
+													<ChartTooltip
+														content={<ChartTooltipContent formatter={makeTooltip()} />}
+													/>
+													<Pie
+														data={donutData}
+														dataKey="value"
+														nameKey="name"
+														innerRadius={58}
+														outerRadius={86}
+														stroke="transparent"
+														paddingAngle={3}
+														cornerRadius={6}
+														isAnimationActive
+														animationDuration={700}
+													>
+														{donutData.map((entry) => (
+															<Cell
+																key={entry.name}
+																fill={`var(--color-${entry.name})`}
+															/>
+														))}
+													</Pie>
+													<ChartLegend
+														content={<ChartLegendContent nameKey="name" />}
+													/>
+												</PieChart>
+											</ChartContainer>
+											<div className="mt-2 text-center">
+												<p className="text-xs text-muted-foreground">
+													{curRate}% collected · {fmt(curOutstanding)}{' '}
+													{cur.code} outstanding
+												</p>
 											</div>
-											<ProgressBar value={c.collected} max={c.expected} />
-											<p className="mt-1.5 text-xs text-muted-foreground">
-												<span className="font-bold text-emerald-600 dark:text-emerald-400">
-													{fmt(c.collected)}
-												</span>
-												{' · '}of {fmt(c.expected)} {primaryCurrency}
-											</p>
-										</div>
-									))}
+										</CardContent>
+									</Card>
 								</div>
-							</CardContent>
-						</Card>
-					)}
+
+								{barData.length > 0 && (
+									<Card>
+										<CardHeader>
+											<CardTitle className="flex items-center gap-2 text-base">
+												<DollarSign className="h-4 w-4 text-muted-foreground" />
+												Fee Type Breakdown
+											</CardTitle>
+											<CardDescription>
+												Expected vs collected per fee type in {cur.code}
+											</CardDescription>
+										</CardHeader>
+										<CardContent>
+											<ChartContainer config={barConfig} className={BAR_CHART_CLASS}>
+												<BarChart
+													data={barData}
+													margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+												>
+													<CartesianGrid vertical={false} strokeOpacity={0.08} />
+													<XAxis
+														dataKey="name"
+														tick={{ fontSize: 10 }}
+														interval={0}
+														angle={-18}
+														textAnchor="end"
+														tickLine={false}
+														axisLine={false}
+														height={44}
+													/>
+													<YAxis
+														tick={{ fontSize: 11 }}
+														tickLine={false}
+														axisLine={false}
+														tickFormatter={(v: number) =>
+															v >= 1000 ? `${v / 1000}k` : String(v)
+														}
+													/>
+													<ChartTooltip
+														cursor={{ fill: 'rgba(0,0,0,0.04)' }}
+														content={<ChartTooltipContent formatter={makeTooltip()} />}
+													/>
+													<ChartLegend content={<ChartLegendContent />} />
+													<Bar
+														dataKey="Expected"
+														fill="var(--color-Expected)"
+														radius={[4, 4, 0, 0]}
+													/>
+													<Bar
+														dataKey="Collected"
+														fill="var(--color-Collected)"
+														radius={[4, 4, 0, 0]}
+													/>
+												</BarChart>
+											</ChartContainer>
+										</CardContent>
+									</Card>
+								)}
+							</div>
+						);
+					})}
+
 				</>
 			)}
 		</div>

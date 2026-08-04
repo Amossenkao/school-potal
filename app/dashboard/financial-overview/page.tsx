@@ -759,15 +759,15 @@ export default function FinancialOverviewPage() {
 						</p>
 						<DollarSign className="h-5 w-5 text-muted-foreground" />
 					</div>
-					<p className="mt-3 text-2xl font-black leading-tight text-foreground">
+					<p className="mt-3 text-2xl font-black leading-tight text-foreground whitespace-pre-line">
 						{activeCurrencies.length === 0
 							? '—'
 							: activeCurrencies
 									.map(
 										(c) =>
-											`${c.symbol || c.code} ${fmt(expectedTotalByCurrency[c.code] ?? 0)}`,
+											`${c.code} ${fmt(expectedTotalByCurrency[c.code] ?? 0)}`,
 									)
-									.join(' · ')}
+									.join('\n')}
 					</p>
 					<p className="mt-1 text-xs font-medium text-muted-foreground">
 						Based on fee schedule × students
@@ -780,15 +780,15 @@ export default function FinancialOverviewPage() {
 						</p>
 						<Landmark className="h-5 w-5 text-muted-foreground" />
 					</div>
-					<p className="mt-3 text-2xl font-black leading-tight text-foreground">
+					<p className="mt-3 text-2xl font-black leading-tight text-foreground whitespace-pre-line">
 						{activeCurrencies.length === 0
 							? '—'
 							: activeCurrencies
 									.map(
 										(c) =>
-											`${c.symbol || c.code} ${fmt(collectedByCurrency[c.code] ?? 0)}`,
+											`${c.code} ${fmt(collectedByCurrency[c.code] ?? 0)}`,
 									)
-									.join(' · ')}
+									.join('\n')}
 					</p>
 					<p className="mt-1 text-xs font-medium text-muted-foreground">
 						{yearPayments.length} transactions
@@ -807,15 +807,15 @@ export default function FinancialOverviewPage() {
 							}`}
 						/>
 					</div>
-					<p className="mt-3 text-2xl font-black leading-tight text-foreground">
+					<p className="mt-3 text-2xl font-black leading-tight text-foreground whitespace-pre-line">
 						{activeCurrencies.length === 0
 							? '—'
 							: activeCurrencies
 									.map(
 										(c) =>
-											`${c.symbol || c.code} ${fmt(Math.max(0, balanceByCurrency[c.code] ?? 0))}`,
+											`${c.code} ${fmt(Math.max(0, balanceByCurrency[c.code] ?? 0))}`,
 									)
-									.join(' · ')}
+									.join('\n')}
 					</p>
 					<p className="mt-1 text-xs font-medium text-muted-foreground">
 						Expected minus collected

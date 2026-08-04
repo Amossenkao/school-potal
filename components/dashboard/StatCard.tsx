@@ -37,7 +37,7 @@ export default function StatCard({
 				</div>
 			)}
 			<p className="text-xs text-muted-foreground">{label}</p>
-			<p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p>
+			<p className="mt-1 text-2xl font-semibold tracking-tight whitespace-pre-line">{value}</p>
 			{helper && (
 				<p className="mt-1 text-xs text-muted-foreground">{helper}</p>
 			)}
