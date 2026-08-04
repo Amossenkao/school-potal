@@ -3436,8 +3436,6 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 												)}
 										</div>
 									)}
-										</div>
-									)}
 								</div>
 								<div className="p-4 border-t border-border flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
 									<button
