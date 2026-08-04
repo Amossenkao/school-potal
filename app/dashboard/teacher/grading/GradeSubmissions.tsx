@@ -36,6 +36,7 @@ import {
 	getAllowedViewGradeSubmissionsAcademicYears,
 	getAllowedGradeChangeRequestPeriods,
 } from '@/utils/schoolSettingsAccess';
+import { toTeacherProfile } from '@/utils/teacherProfile';
 import type { GradesCursor } from '@/lib/bootstrap';
 import router from 'next/router';
 
@@ -1268,8 +1269,9 @@ const TeacherGradeSubmissions = () => {
 	useEffect(() => {
 		setLoading((prev) => ({ ...prev, teacherInfo: true }));
 		try {
-			if (user && user.role === 'teacher') {
-				setTeacherInfo(user as unknown as TeacherInfo);
+			const teacherProfile = toTeacherProfile(user);
+			if (teacherProfile && teacherProfile.role === 'teacher') {
+				setTeacherInfo(teacherProfile as TeacherInfo);
 			}
 			setError((prev) => ({ ...prev, teacherInfo: '' }));
 		} catch (err) {

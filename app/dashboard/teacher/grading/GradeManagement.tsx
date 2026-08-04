@@ -9,6 +9,7 @@ import GradeRequests from '../../shared/GradeRequests';
 import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
 import { getTeacherAcademicYears } from '@/utils/academicYearOptions';
+import { toTeacherProfile } from '@/utils/teacherProfile';
 import { PageLoading } from '@/components/loading';
 
 interface TeacherInfo {
@@ -39,9 +40,10 @@ const GradeManagement = () => {
 	// Fetch teacher info on component mount
 	useEffect(() => {
 		setLoading((prev) => ({ ...prev, teacherInfo: true }));
-		if (user && user.role === 'teacher') {
-			setTeacherInfo(user as TeacherInfo);
-			const teacherYears = getTeacherAcademicYears(user);
+		const teacherProfile = toTeacherProfile(user);
+		if (teacherProfile && teacherProfile.role === 'teacher') {
+			setTeacherInfo(teacherProfile as TeacherInfo);
+			const teacherYears = getTeacherAcademicYears(teacherProfile);
 			setAcademicYear(
 				teacherYears[0] ||
 					school?.identity?.currentAcademicYear ||

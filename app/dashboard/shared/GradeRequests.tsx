@@ -41,6 +41,7 @@ import {
 	sortAcademicYearsDesc,
 } from '@/utils/academicYearOptions';
 import { getAllowedGradeChangeRequestAcademicYears } from '@/utils/schoolSettingsAccess';
+import { toTeacherProfile } from '@/utils/teacherProfile';
 
 // --- TYPES ---
 interface UserInfo {
@@ -322,7 +323,9 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 	teacherInfo: teacherInfoProp,
 }) => {
 	const userInfo = useAuth((state) => state.user) as UserInfo | null;
-	const effectiveUser = (teacherInfoProp || userInfo) as UserInfo | null;
+	const effectiveUser = toTeacherProfile(teacherInfoProp || userInfo) as
+		| UserInfo
+		| null;
 	const isTeacher = effectiveUser?.role === 'teacher';
 
 	const currentSchool = useSchoolStore((state) => state.school);

@@ -19,7 +19,10 @@ import {
 	pickMostRecentAcademicYear,
 	sortAcademicYearsDesc,
 } from '@/utils/academicYearOptions';
-import { getAllowedViewMastersAcademicYears } from '@/utils/schoolSettingsAccess';
+import {
+	getAllowedViewMastersAcademicYears,
+} from '@/utils/schoolSettingsAccess';
+import { toTeacherProfile } from '@/utils/teacherProfile';
 
 // Types
 interface Student {
@@ -110,7 +113,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const usersByAcademicYearRef = useRef(usersByAcademicYear);
 	const gradesByAcademicYearRef = useRef(gradesByAcademicYear);
 	const { isOnline } = useNetworkStore();
-	const effectiveUser = (teacherInfo || userInfo) as UserInfo | null;
+	const effectiveUser = toTeacherProfile(teacherInfo || userInfo) as
+		| UserInfo
+		| null;
 	const schoolCurrentAcademicYear =
 		currentSchool?.identity?.currentAcademicYear || currentAcademicYear;
 

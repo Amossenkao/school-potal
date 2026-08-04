@@ -36,6 +36,7 @@ import {
 	getAllowedGradeSubmissionAcademicYears,
 	getAllowedGradeSubmissionPeriods,
 } from '@/utils/schoolSettingsAccess';
+import { toTeacherProfile } from '@/utils/teacherProfile';
 
 interface TeacherInfo {
 	name: string;
@@ -459,8 +460,9 @@ const SubmitGrade: React.FC = () => {
 
 	useEffect(() => {
 		setLoading((prev) => ({ ...prev, teacherInfo: true }));
-		if (user && user.role === 'teacher') {
-			setTeacherInfo(user as unknown as TeacherInfo);
+		const teacherProfile = toTeacherProfile(user);
+		if (teacherProfile && teacherProfile.role === 'teacher') {
+			setTeacherInfo(teacherProfile as TeacherInfo);
 			setError((prev) => ({ ...prev, teacherInfo: '' }));
 		} else {
 			setTeacherInfo(null);
