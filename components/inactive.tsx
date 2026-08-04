@@ -57,11 +57,15 @@ export default function Inactive() {
 		let client: Ably.Realtime | null = null;
 		let unsubscribe: (() => void) | null = null;
 		let refreshTimer: number | null = null;
-		const tenantKey =
-			publicSchoolTenantKey ||
-			resolveTenantSyncKey({
-				host: window.location.host,
-			});
+		// Only use the tenant key derived from the loaded school profile
+		// (prioritises system.dbName, matching what the token endpoint grants).
+		// Falling back to window.location.host here would produce a channel
+		// name like "school:example.vercel.app" that doesn't match the
+		// server's "school:{dbName}" publishes, so the client would connect
+		// but silently never receive events for this tenant. Once `school`
+		// loads, this effect reruns (publicSchoolTenantKey is a dependency)
+		// and connects with the correct key.
+		const tenantKey = publicSchoolTenantKey;
 
 		const clearRefreshTimer = () => {
 			if (!refreshTimer) return;

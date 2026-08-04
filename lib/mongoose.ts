@@ -29,9 +29,17 @@ type SchoolProfileCacheEntry = {
 };
 
 const schoolProfileInMemoryCache = new Map<string, SchoolProfileCacheEntry>();
+// This process-local Map is invalidated only on the serverless instance that
+// handles a given write (see clearSchoolProfileMemoryCache/setSchoolProfileMemoryCache
+// in app/api/school/route.ts). Every other warm instance keeps serving its own
+// stale copy — including gating decisions like system.isActive in proxy.ts and
+// the login route — until this TTL naturally lapses. A long TTL here previously
+// meant a school toggled inactive could still let users log in / stay logged in
+// on other instances for up to that long. Keep this short so staleness
+// self-heals in seconds once Redis (kept fresh on every write) is consulted again.
 const SCHOOL_PROFILE_MEMORY_TTL_MS = (() => {
 	const raw = process.env.SCHOOL_PROFILE_MEMORY_TTL_MS;
-	if (!raw) return 10 * 60 * 1000; // 10 minutes default
+	if (!raw) return 20 * 1000; // 20 seconds default
 	const parsed = Number.parseInt(raw, 10);
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : 10 * 60 * 1000;
 })();

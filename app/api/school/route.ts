@@ -237,6 +237,27 @@ function unauthorized() {
 	return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 }
 
+// Refresh (never drop) the cached copy of a school profile after a write.
+// Deleting the cache key here would leave every other reader (proxy tenant
+// resolution, login gating, the public school endpoint) hitting a cache miss
+// and re-querying Mongo until the next write repopulates it — instead we
+// write the just-updated document straight back in, so reads stay warm and
+// consistent immediately after superadmin edits/toggles.
+async function syncSchoolProfileCache(cleanHost: string | undefined, school: any) {
+	if (!cleanHost) return;
+	const updatedHost = normalizeHost(school?.system?.host);
+	if (updatedHost && updatedHost !== cleanHost) {
+		// Host itself changed: the old host no longer resolves to this school.
+		clearSchoolProfileMemoryCache(cleanHost);
+		await redis.del(`school_profile:${cleanHost}`);
+	}
+	const targetHost = updatedHost || cleanHost;
+	setSchoolProfileMemoryCache(targetHost, school);
+	await redis.set(`school_profile:${targetHost}`, JSON.stringify(school), {
+		ex: 60 * 60 * 24 * 30,
+	});
+}
+
 // ============================================================================
 // GET /api/school
 // - system_admin (no params): returns their school profile (existing behavior)
@@ -523,13 +544,7 @@ export async function PUT(request: NextRequest) {
 
 				if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
 
-				clearSchoolProfileMemoryCache(cleanHost);
-				await redis.del(`school_profile:${cleanHost}`);
-				const updatedHost = normalizeHost((school as any).system?.host);
-				if (updatedHost && updatedHost !== cleanHost) {
-					clearSchoolProfileMemoryCache(updatedHost);
-					await redis.del(`school_profile:${updatedHost}`);
-				}
+				await syncSchoolProfileCache(cleanHost, school);
 
 				const tenantIds = Array.from(
 					new Set(
@@ -907,13 +922,7 @@ export async function PATCH(request: NextRequest) {
 
 		if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
 
-		clearSchoolProfileMemoryCache(cleanHost);
-		await redis.del(`school_profile:${cleanHost}`);
-		const updatedHost = normalizeHost(school.system?.host);
-		if (updatedHost && updatedHost !== cleanHost) {
-			clearSchoolProfileMemoryCache(updatedHost);
-			await redis.del(`school_profile:${updatedHost}`);
-		}
+		await syncSchoolProfileCache(cleanHost, school);
 
 		const tenantIds = Array.from(
 			new Set(
