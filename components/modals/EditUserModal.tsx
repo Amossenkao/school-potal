@@ -81,6 +81,16 @@ const getLevelStyle = (level = '') => {
 	};
 };
 
+const ThemedRadio = ({ checked }: { checked: boolean }) => (
+	<div
+		className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+			checked ? 'border-primary' : 'border-border'
+		}`}
+	>
+		{checked && <div className="w-2 h-2 rounded-full bg-primary" />}
+	</div>
+);
+
 const SectionCard = ({
 	title,
 	subtitle,
@@ -361,7 +371,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	};
 
 	const isLevelSelfContained = (session, level) =>
-		!!schoolProfile?.classLevels?.[session]?.[level]?.isSelfContained ||
+		!!schoolProfile?.academicConfig?.classLevels?.[session]?.[level]?.isSelfContained ||
 		level === 'Self Contained';
 
 	const getAllClassesWithSessionAndLevel = () => {
@@ -564,9 +574,9 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				});
 				userData.subjects = Array.from(selectionMap.values());
 
-				const firstSession = schoolProfile?.classLevels
-					? Object.keys(schoolProfile.classLevels)[0]
-					: '';
+			const firstSession = schoolProfile?.academicConfig?.classLevels
+				? Object.keys(schoolProfile.academicConfig.classLevels)[0]
+				: '';
 				setActiveTeacherSession(firstSession);
 				setCarryOverActiveSession(firstSession);
 			}
@@ -694,7 +704,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	};
 
 	const getClassesBySessionAndLevel = (session, level) =>
-		schoolProfile?.classLevels?.[session]?.[level]?.classes || [];
+		schoolProfile?.academicConfig?.classLevels?.[session]?.[level]?.classes || [];
 
 	const getSelfContainedClasses = (session) => {
 		if (!session) return [];
@@ -710,9 +720,9 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	};
 
 	const getAllClassesWithLevelsForSession = (session) => {
-		if (!schoolProfile?.classLevels?.[session]) return [];
+		if (!schoolProfile?.academicConfig?.classLevels?.[session]) return [];
 		const allClasses: any[] = [];
-		Object.entries(schoolProfile.classLevels[session]).forEach(
+		Object.entries(schoolProfile.academicConfig.classLevels[session]).forEach(
 			([level, levelData]: [string, any]) => {
 				levelData.classes?.forEach((cls) => {
 					allClasses.push({ ...cls, level });
@@ -2227,68 +2237,88 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 									<h5 className="font-semibold mb-3 text-lg border-b pb-2">
 										Academic Information
 									</h5>
-									<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-										<div>
-											<label className="block text-sm font-medium text-foreground mb-1">
-												Session
-											</label>
-											<Select
-												value={formData.session || ''}
-												onValueChange={handleStudentSessionChange}
-											>
-												<SelectTrigger className={selectTriggerClass}>
-													<SelectValue placeholder="Select Session" />
-												</SelectTrigger>
-												<SelectContent>
-													{getSessions().map((session) => (
-														<SelectItem key={session} value={session}>
-															{session}
-														</SelectItem>
-													))}
-												</SelectContent>
-											</Select>
+									<div className="mb-4">
+										<p className="text-[10px] font-semibold text-foreground/70 uppercase tracking-wider mb-2">
+											Session
+										</p>
+										<div className="flex gap-2 flex-wrap">
+											{getSessions().map((s) => {
+												const isSel = formData.session === s;
+												return (
+													<button
+														key={s}
+														type="button"
+														onClick={() => handleStudentSessionChange(s)}
+														className={`px-3.5 py-2 rounded-lg border text-xs font-semibold transition-all touch-manipulation ${isSel ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/40 text-foreground'}`}
+													>
+														{isSel && (
+															<CheckCircle2 className="inline w-3 h-3 mr-1" />
+														)}
+														{s}
+													</button>
+												);
+											})}
 										</div>
-										<div>
-											<label className="block text-sm font-medium text-foreground mb-1">
-												Class
-											</label>
-											<Select
-												value={formData.classId || ''}
-												onValueChange={handleStudentClassChange}
-												disabled={!formData.session}
-											>
-												<SelectTrigger className={selectTriggerClass}>
-													<SelectValue placeholder="Select Class" />
-												</SelectTrigger>
-												<SelectContent>
-													{formData.session &&
-														getClassLevels(formData.session).map((level) => {
-															const levelStyle = getLevelStyle(level);
-															return (
-																<React.Fragment key={level}>
-																	<div
-																		className={`mx-1 mt-1 mb-1 inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${levelStyle.badge}`}
+									</div>
+
+									{formData.session && (
+										<div className="space-y-3 max-h-[45vh] sm:max-h-64 overflow-y-auto pr-0.5 mb-4">
+											{getClassLevels(formData.session).map((level) => {
+												const style = getLevelStyle(level);
+												return (
+													<div
+														key={level}
+														className={`rounded-lg border p-3 ${style.section}`}
+													>
+														<div className="mb-2">
+															<span
+																className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${style.badge}`}
+															>
+																{level}
+															</span>
+														</div>
+														<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+															{getClassesBySessionAndLevel(
+																formData.session,
+																level,
+															).map((cls: any) => {
+																const isSelected =
+																	formData.classId === cls.classId;
+																return (
+																	<motion.label
+																		key={cls.classId}
+																		whileTap={{ scale: 0.96 }}
+																		className={`relative flex items-center gap-2 rounded-lg border p-2.5 cursor-pointer text-sm transition-all touch-manipulation ${isSelected ? 'border-primary bg-primary/10 shadow-sm' : 'border-border bg-background hover:border-primary/40'}`}
 																	>
-																		{level}
-																	</div>
-																	{getAllClassesWithLevelsForSession(
-																		formData.session,
-																	)
-																		.filter((cls) => cls.level === level)
-																		.map((cls) => (
-																			<SelectItem
-																				key={cls.classId}
-																				value={cls.classId}
-																			>
-																				{cls.name}
-																			</SelectItem>
-																		))}
-																</React.Fragment>
-															);
-														})}
-												</SelectContent>
-											</Select>
+																		<input
+																			type="radio"
+																			name="studentClass"
+																			value={cls.classId}
+																			checked={isSelected}
+																			onChange={() =>
+																				handleStudentClassChange(
+																					cls.classId,
+																				)
+																			}
+																			className="absolute opacity-0 w-0 h-0"
+																		/>
+																		<ThemedRadio
+																			checked={isSelected}
+																		/>
+																		<span className="text-foreground font-medium text-xs sm:text-sm truncate">
+																			{cls.name}
+																		</span>
+																	</motion.label>
+																);
+															})}
+														</div>
+													</div>
+												);
+											})}
 										</div>
+									)}
+
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 										<div>
 											<label className="block text-sm font-medium text-foreground mb-2">
 												Late Registration Status
