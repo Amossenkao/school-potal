@@ -4,17 +4,8 @@ export const MAX_CHAT_HISTORY = 20;
 export const MAX_EVENTS = 5;
 export const MAX_SCHEDULES = 10;
 
-export const getAcademicYear = (schoolProfile: any) => {
-	const now = new Date();
-	if (schoolProfile?.identity?.currentAcademicYear) {
-		return schoolProfile.identity.currentAcademicYear;
-	}
-	const currentYear = now.getFullYear();
-	const currentMonth = now.getMonth();
-	return currentMonth >= 7
-		? `${currentYear}-${currentYear + 1}`
-		: `${currentYear - 1}-${currentYear}`;
-};
+export const getAcademicYear = (schoolProfile: any) =>
+	schoolProfile?.identity?.currentAcademicYear || '';
 
 export const formatChatHistory = (history: AIChatMessage[]) =>
 	history

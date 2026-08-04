@@ -90,18 +90,6 @@ interface Student {
 
 // --- Constants & Utilities ---
 
-const getCurrentAcademicYear = () => {
-	const currentDate = new Date();
-	const currentYear = currentDate.getFullYear();
-	const currentMonth = currentDate.getMonth() + 1;
-
-	if (currentMonth >= 8) {
-		return `${currentYear}-${currentYear + 1}`;
-	} else {
-		return `${currentYear - 1}-${currentYear}`;
-	}
-};
-
 const getDisplayClassName = (name: string) => {
 	// Keep kindergarten classes intact
 	if (['k-i', 'k-ii', 'k-1', 'k-2'].includes(name.toLocaleLowerCase())) {

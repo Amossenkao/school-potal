@@ -125,7 +125,8 @@ export async function PATCH(req: NextRequest) {
 		// Invalidate cached rosters so the change reaches other clients (and
 		// this one after a reload). Bump the users version fingerprint and
 		// publish a realtime USER_UPDATED event carrying the updated student.
-		const affectedYears = extractAcademicYears(updated);
+		const schoolProfile = await getSchoolProfile().catch(() => null);
+		const affectedYears = extractAcademicYears(updated, schoolProfile);
 		try {
 			await bumpUsersVersion(affectedYears, {
 				affectedUserIds: [String(updated.studentId || '')],
@@ -134,7 +135,6 @@ export async function PATCH(req: NextRequest) {
 			console.warn('Failed to bump users version after student update:', error);
 		}
 		try {
-			const schoolProfile = await getSchoolProfile().catch(() => null);
 			const tenantId = resolveTenantSyncKey({
 				schoolProfile: schoolProfile || undefined,
 			});

@@ -716,7 +716,7 @@ export async function PUT(request: NextRequest) {
 			const affectedYearsSet = new Set<string>();
 			const collectAffectedYears = (users: any[]) => {
 				users.forEach((user: any) => {
-					extractAcademicYears(user).forEach((year) => {
+					extractAcademicYears(user, updatedSchoolProfile).forEach((year) => {
 						if (year) affectedYearsSet.add(year);
 					});
 				});

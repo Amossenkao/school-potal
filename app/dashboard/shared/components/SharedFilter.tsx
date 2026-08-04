@@ -109,16 +109,6 @@ export interface SharedFilterProps<T extends BaseFilters> {
 
 // ─── Utility Functions ────────────────────────────────────────────────────────
 
-const getCurrentAcademicYear = () => {
-	const currentDate = new Date();
-	const currentYear = currentDate.getFullYear();
-	const currentMonth = currentDate.getMonth() + 1;
-	if (currentMonth >= 8) {
-		return `${currentYear}-${currentYear + 1}`;
-	}
-	return `${currentYear - 1}-${currentYear}`;
-};
-
 const getClassMetaById = (classLevels: any, classId?: string) => {
 	if (!classLevels || !classId) return null;
 	for (const [session, levels] of Object.entries(classLevels)) {
@@ -438,7 +428,7 @@ export const SharedFilter = <T extends BaseFilters>({
 
 	const defaultAcademicYear = useMemo(() => {
 		const schoolCurrentAcademicYear =
-			currentSchool?.identity.currentAcademicYear || getCurrentAcademicYear();
+			currentSchool?.identity.currentAcademicYear || '';
 		if (isStudent) {
 			return (
 				pickMostRecentAcademicYear(
@@ -588,7 +578,7 @@ export const SharedFilter = <T extends BaseFilters>({
 			yearEntry?.classId ||
 			(areAcademicYearsEqual(
 				filters.academicYear,
-				currentSchool?.identity.currentAcademicYear || getCurrentAcademicYear(),
+				currentSchool?.identity.currentAcademicYear || '',
 			)
 				? user.classId || ''
 				: '');

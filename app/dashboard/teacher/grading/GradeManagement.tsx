@@ -7,6 +7,8 @@ import SubmitGrade from './SubmitGrade';
 import MasterGradeSheet from '../../shared/MasterGradeSheet';
 import GradeRequests from '../../shared/GradeRequests';
 import useAuth from '@/store/useAuth';
+import { useSchoolStore } from '@/store/schoolStore';
+import { getTeacherAcademicYears } from '@/utils/academicYearOptions';
 import { PageLoading } from '@/components/loading';
 
 interface TeacherInfo {
@@ -20,6 +22,7 @@ interface TeacherInfo {
 const GradeManagement = () => {
 	const [activeTab, setActiveTab] = useState('overview');
 	const { user } = useAuth();
+	const school = useSchoolStore((state) => state.school);
 
 	// API Data States
 	const [teacherInfo, setTeacherInfo] = useState<TeacherInfo | null>(null);
@@ -33,24 +36,17 @@ const GradeManagement = () => {
 		teacherInfo: '',
 	});
 
-	const getAcademicYear = () => {
-		const now = new Date();
-		const currentYear = now.getFullYear();
-		const currentMonth = now.getMonth() + 1;
-
-		if (currentMonth >= 8) {
-			return `${currentYear}-${currentYear + 1}`;
-		} else {
-			return `${currentYear - 1}-${currentYear}`;
-		}
-	};
-
 	// Fetch teacher info on component mount
 	useEffect(() => {
 		setLoading((prev) => ({ ...prev, teacherInfo: true }));
 		if (user && user.role === 'teacher') {
 			setTeacherInfo(user as TeacherInfo);
-			setAcademicYear(getAcademicYear());
+			const teacherYears = getTeacherAcademicYears(user);
+			setAcademicYear(
+				teacherYears[0] ||
+					school?.identity?.currentAcademicYear ||
+					'',
+			);
 			setError((prev) => ({ ...prev, teacherInfo: '' }));
 		} else {
 			setTeacherInfo(null);
@@ -60,7 +56,7 @@ const GradeManagement = () => {
 			}));
 		}
 		setLoading((prev) => ({ ...prev, teacherInfo: false }));
-	}, [user]);
+	}, [user, school?.identity?.currentAcademicYear]);
 
 	const handleSwitchToSubmit = () => setActiveTab('submit');
 	const handleSwitchToOverview = () => setActiveTab('overview');

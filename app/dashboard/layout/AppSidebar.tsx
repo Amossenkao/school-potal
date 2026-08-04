@@ -32,15 +32,6 @@ interface NavItem {
 
 // ── Utilities ────────────────────────────────────────────────────────────────
 
-const getCurrentAcademicYear = () => {
-	const now = new Date();
-	const currentYear = now.getFullYear();
-	const currentMonth = now.getMonth() + 1;
-	return currentMonth >= 8
-		? `${currentYear}-${currentYear + 1}`
-		: `${currentYear - 1}-${currentYear}`;
-};
-
 const normalizeAcademicYear = (value?: string | null) =>
 	String(value || '')
 		.replace(/\//g, '-')
@@ -380,9 +371,7 @@ const AppSidebar: React.FC = () => {
 	// Pre-compute the normalized year so selectors below are stable
 	const normalizedAcademicYear = useMemo(
 		() =>
-			normalizeAcademicYear(
-				currentSchool?.identity.currentAcademicYear || getCurrentAcademicYear(),
-			),
+			normalizeAcademicYear(currentSchool?.identity.currentAcademicYear),
 		[currentSchool?.identity.currentAcademicYear],
 	);
 

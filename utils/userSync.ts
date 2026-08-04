@@ -1,18 +1,12 @@
 import { getTenantModels } from '@/models';
 import { appendChange } from '@/lib/syncEngine';
 
-const getCurrentAcademicYear = () => {
-	const currentDate = new Date();
-	const currentYear = currentDate.getFullYear();
-	const currentMonth = currentDate.getMonth() + 1;
-	return currentMonth >= 8
-		? `${currentYear}-${currentYear + 1}`
-		: `${currentYear - 1}-${currentYear}`;
-};
-
-export const extractAcademicYears = (user: any): string[] => {
+export const extractAcademicYears = (
+	user: any,
+	schoolProfile?: { identity?: { currentAcademicYear?: string | null } } | null,
+): string[] => {
 	const years = new Set<string>();
-	const addYear = (year?: string) => {
+	const addYear = (year?: string | null) => {
 		if (year) years.add(year);
 	};
 
@@ -25,7 +19,7 @@ export const extractAcademicYears = (user: any): string[] => {
 	}
 
 	if (years.size === 0) {
-		addYear(getCurrentAcademicYear());
+		addYear(schoolProfile?.identity?.currentAcademicYear);
 	}
 
 	return Array.from(years);

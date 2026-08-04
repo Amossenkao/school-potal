@@ -16,6 +16,7 @@ import {
 	UserPlus,
 } from 'lucide-react';
 import { useSchoolStore } from '@/store/schoolStore';
+import { buildSchoolAcademicYearRange } from '@/utils/academicYearOptions';
 import ConflictModal from './ConflictModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -456,33 +457,13 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		return lower.filter((cls) => normalizeClassName(cls.name) !== currentBase);
 	};
 
-	const generateAcademicYears = (yearsAhead = 5) => {
-		const years: string[] = [];
-		const currentYear = new Date().getFullYear();
-		for (let i = 0; i < yearsAhead + 3; i++) {
-			const year = currentYear - 2 + i;
-			years.push(`${year}-${year + 1}`);
-		}
-		return years;
-	};
-
-	const getAcademicYear = () => {
-		const now = new Date();
-		const currentYear = now.getFullYear();
-		const currentMonth = now.getMonth();
-		return currentMonth >= 7
-			? `${currentYear}-${currentYear + 1}`
-			: `${currentYear - 1}-${currentYear}`;
-	};
-
 	const getAcademicYearStart = (year) => {
 		if (!year || typeof year !== 'string') return null;
 		const start = Number.parseInt(year.split('-')[0], 10);
 		return Number.isFinite(start) ? start : null;
 	};
 
-	const getCurrentAcademicYear = () =>
-		schoolProfile?.identity.currentAcademicYear || getAcademicYear();
+	const getCurrentAcademicYear = () => schoolProfile?.identity.currentAcademicYear || '';
 
 	const getCurrentAndNextAcademicYears = () => {
 		const currentYear = getCurrentAcademicYear();
@@ -746,8 +727,8 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		'bg-background border-input hover:border-primary/40 focus:ring-2 focus:ring-primary/30 transition';
 
 	const adminPositions = useMemo(() => {
-		if (Array.isArray(schoolProfile?.administrativePositions)) {
-			return schoolProfile.administrativePositions
+		if (Array.isArray(schoolProfile?.userConfig.administrativePositions)) {
+			return schoolProfile.userConfig.administrativePositions
 				.map((pos: any) => pos.name)
 				.filter(Boolean);
 		}
@@ -1607,7 +1588,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	};
 
 	const getAcademicYearOptions = () => {
-		const years = new Set(generateAcademicYears());
+		const years = new Set(buildSchoolAcademicYearRange(schoolProfile));
 		if (schoolProfile?.identity.currentAcademicYear)
 			years.add(schoolProfile.identity.currentAcademicYear);
 		return Array.from(years).sort((a, b) => b.localeCompare(a));

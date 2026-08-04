@@ -23,13 +23,6 @@ const parseAcademicYearStart = (value?: string | null) => {
 	return Number(match[1]);
 };
 
-export const getCurrentAcademicYearLabel = () => {
-	const now = new Date();
-	const year = now.getFullYear();
-	const month = now.getMonth() + 1;
-	return month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
-};
-
 export const sortAcademicYearsDesc = (
 	years: Array<string | null | undefined>,
 ) => {
@@ -51,7 +44,7 @@ export const sortAcademicYearsDesc = (
 export const buildSchoolAcademicYearRange = (school?: SchoolProfileLike | null) => {
 	const first = toCanonicalAcademicYear(school?.identity?.firstAcademicYear);
 	const current = toCanonicalAcademicYear(
-		school?.identity?.currentAcademicYear || getCurrentAcademicYearLabel(),
+		school?.identity?.currentAcademicYear,
 	);
 	const firstStart = parseAcademicYearStart(first);
 	const currentStart = parseAcademicYearStart(current);

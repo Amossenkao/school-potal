@@ -5,7 +5,6 @@ import {
 } from '@/utils/academicYear';
 import {
 	buildSchoolAcademicYearRange,
-	getCurrentAcademicYearLabel,
 	pickMostRecentAcademicYear,
 	sortAcademicYearsDesc,
 } from '@/utils/academicYearOptions';
@@ -40,9 +39,7 @@ const toCanonicalAcademicYear = (value?: string | null) => {
 
 export const getCurrentAcademicYearFromSchoolProfile = (
 	schoolProfile?: SchoolProfileLike | null,
-) =>
-	toCanonicalAcademicYear(schoolProfile?.identity?.currentAcademicYear) ||
-	getCurrentAcademicYearLabel();
+) => toCanonicalAcademicYear(schoolProfile?.identity?.currentAcademicYear);
 
 export const getAcademicYearQueryValues = (academicYear?: string | null) => {
 	const canonical = toCanonicalAcademicYear(academicYear);

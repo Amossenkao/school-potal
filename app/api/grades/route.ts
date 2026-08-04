@@ -170,8 +170,8 @@ interface AllGradesReport {
 // Helper Functions (Unchanged)
 // -----------------------------------------------------------------------------
 
-function getCurrentAcademicYear() {
-	return getCurrentAcademicYearFromSchoolProfile();
+function getCurrentAcademicYear(schoolProfile?: any) {
+	return getCurrentAcademicYearFromSchoolProfile(schoolProfile);
 }
 
 function getSubmissionId(
@@ -1277,8 +1277,12 @@ export async function POST(request: NextRequest) {
 		const { Grade, User, Student } = models;
 		const body = await request.json();
 		const { classId, subject, period, grades, academicYear } = body;
-		const resolvedAcademicYear = academicYear || getCurrentAcademicYear();
-		const currentAcademicYear = getCurrentAcademicYear();
+
+		// Fetch school settings to check if grade submission is allowed
+		const schoolProfile = await getSchoolProfile();
+		const resolvedAcademicYear =
+			academicYear || getCurrentAcademicYear(schoolProfile);
+		const currentAcademicYear = getCurrentAcademicYear(schoolProfile);
 
 		if (!classId || !subject || !grades || !period) {
 			return NextResponse.json(
@@ -1287,8 +1291,6 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Fetch school settings to check if grade submission is allowed
-		const schoolProfile = await getSchoolProfile();
 		const tenantId = resolveTenantSyncKey({
 			schoolProfile,
 			tenantId: teacher.tenantId,
@@ -1733,7 +1735,7 @@ export async function PUT(request: NextRequest) {
 			);
 		}
 
-		const currentAcademicYear = getCurrentAcademicYear();
+		const currentAcademicYear = getCurrentAcademicYear(schoolProfile);
 		const submittedStudentIds: string[] = Array.from(
 			new Set(
 				grades

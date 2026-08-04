@@ -19,8 +19,14 @@ import {
 	updateUserSessionNotifications,
 	getAllUserSessions,
 } from '@/utils/session';
-import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
-import { getParentAcademicYearsEntries } from '@/utils/academicYearAccess';
+import {
+	bumpUsersVersion,
+	extractAcademicYears,
+} from '@/utils/userSync';
+import {
+	getCurrentAcademicYearFromSchoolProfile,
+	getParentAcademicYearsEntries,
+} from '@/utils/academicYearAccess';
 import {
 	publishSyncEventSafe,
 	publishSyncEventsForAcademicYearsSafe,
@@ -130,13 +136,8 @@ function valuesDiffer(previousValue: any, nextValue: any): boolean {
 	);
 }
 
-function getAcademicYear(): string {
-	const now = new Date();
-	const currentYear = now.getFullYear();
-	const currentMonth = now.getMonth();
-	return currentMonth >= 7
-		? `${currentYear}-${currentYear + 1}`
-		: `${currentYear - 1}-${currentYear}`;
+function getAcademicYear(schoolProfile?: any): string {
+	return getCurrentAcademicYearFromSchoolProfile(schoolProfile);
 }
 
 function buildUserResponse(
@@ -378,9 +379,10 @@ async function validateAdministratorData(
 	models: any,
 	baseQuery: any,
 	errors: ValidationError[],
+	schoolProfile?: any,
 ) {
 	if (userData.position) {
-		const currentAcademicYear = getAcademicYear();
+		const currentAcademicYear = getAcademicYear(schoolProfile);
 
 		// Check if position is already held in current academic year
 		const positionExists = await models.User.findOne({
@@ -424,7 +426,7 @@ async function generateIdByRole(models: any, role: string): Promise<string> {
 	};
 	const prefix = prefixes[role];
 	const idField = idFieldMap[role];
-	const academicYear = schoolProfile.identity.currentAcademicYear || getAcademicYear();
+	const academicYear = getAcademicYear(schoolProfile);
 	const year = academicYear.split('-')[0];
 
 	const idPrefixRegex = `^${prefix}${year}`;
@@ -481,10 +483,11 @@ async function buildUserData(
 	models: any,
 	userData: any,
 	currentUser: any,
+	schoolProfile?: any,
 ): Promise<any> {
 	const roleBasedId = await generateIdByRole(models, userData.role);
 	const credentials = generateCredentials(roleBasedId);
-	const academicYear = userData.enrollmentYear || getAcademicYear();
+	const academicYear = userData.enrollmentYear || getAcademicYear(schoolProfile);
 	const enrollmentSemester = userData.enrollmentSemester;
 
 	const commonData = {
@@ -781,8 +784,7 @@ async function promoteStudent(
 	models: any,
 ) {
 	const schoolProfile = await getSchoolProfile();
-	const currentAcademicYear =
-		schoolProfile.identity.currentAcademicYear || getAcademicYear();
+	const currentAcademicYear = getAcademicYear(schoolProfile);
 
 	// Validate if double promotion is allowed
 	if (promotionType === 'doublePromotion') {
@@ -918,8 +920,7 @@ async function demoteStudent(
 	models: any,
 ) {
 	const schoolProfile = await getSchoolProfile();
-	const currentAcademicYear =
-		schoolProfile.identity.currentAcademicYear || getAcademicYear();
+	const currentAcademicYear = getAcademicYear(schoolProfile);
 
 	// Validate if semester demotion is allowed
 	if (demotionType === 'semesterDemotion') {
@@ -1066,8 +1067,9 @@ async function validateTeacherData(
 	baseQuery: any,
 	errors: ValidationErrorWithConflicts[],
 	currentUserId?: string,
+	schoolProfile?: any,
 ): Promise<void> {
-	const currentAcademicYear = getAcademicYear();
+	const currentAcademicYear = getAcademicYear(schoolProfile);
 
 	// Validate class sponsorship
 	if (userData.sponsorClass) {
@@ -1205,6 +1207,7 @@ async function validateUserData(
 	isUpdate: boolean = false,
 	userId: string | null = null,
 	forceAssignments: boolean = false,
+	schoolProfile?: any,
 ): Promise<ValidationErrorWithConflicts[]> {
 	const errors: ValidationErrorWithConflicts[] = [];
 	if (userData.email !== undefined) {
@@ -1338,10 +1341,23 @@ async function validateUserData(
 	if (role && !forceAssignments) {
 		switch (role) {
 			case 'administrator':
-				await validateAdministratorData(userData, models, baseQuery, errors);
+				await validateAdministratorData(
+					userData,
+					models,
+					baseQuery,
+					errors,
+					schoolProfile,
+				);
 				break;
 			case 'teacher':
-				await validateTeacherData(userData, models, baseQuery, errors, userId);
+				await validateTeacherData(
+					userData,
+					models,
+					baseQuery,
+					errors,
+					userId,
+					schoolProfile,
+				);
 				break;
 		}
 	}
@@ -1593,8 +1609,7 @@ export async function GET(request: NextRequest) {
 		const classId = searchParams.get('classId');
 		const targetId = searchParams.get('id');
 		const schoolProfile = await getSchoolProfile();
-		const currentAcademicYear =
-			schoolProfile?.identity.currentAcademicYear || getAcademicYear();
+		const currentAcademicYear = getAcademicYear(schoolProfile);
 		const academicYear =
 			searchParams.get('academicYear') || currentAcademicYear;
 		const limit = parseInt(searchParams.get('limit') || '50000', 10);
@@ -2860,7 +2875,7 @@ export async function POST(request: NextRequest) {
 				schoolProfile: school,
 				host: cleanHost,
 			});
-			const activeAcademicYear = String((school as any).currentAcademicYear || getAcademicYear());
+			const activeAcademicYear = String(getAcademicYear(school));
 			const realtimeUser = buildRealtimeUserPayload(admin.toObject());
 			await bumpUsersVersionForTenantConnection(connection, [activeAcademicYear]);
 			await publishSyncEventSafe({
@@ -2921,6 +2936,7 @@ export async function POST(request: NextRequest) {
 			false,
 			null,
 			forceAssignments,
+			schoolProfile,
 		);
 
 		// Separate conflict errors from other errors
@@ -2995,7 +3011,12 @@ export async function POST(request: NextRequest) {
 		let finalUserData: any = null;
 		let newUser: any = null;
 		for (let attempt = 0; attempt < 3; attempt++) {
-			finalUserData = await buildUserData(models, userData, currentUser);
+			finalUserData = await buildUserData(
+				models,
+				userData,
+				currentUser,
+				schoolProfile,
+			);
 			try {
 				newUser = await models.User.create(finalUserData);
 				break;
@@ -3043,7 +3064,7 @@ export async function POST(request: NextRequest) {
 		};
 		delete responseData.defaultPassword;
 
-		const createdUserYears = extractAcademicYears(newUser);
+		const createdUserYears = extractAcademicYears(newUser, schoolProfile);
 		const realtimeUser = buildRealtimeUserPayload(newUser.toObject());
 		await bumpUsersVersion(createdUserYears);
 		await publishSyncEventsForAcademicYearsSafe({
@@ -3125,7 +3146,7 @@ export async function POST(request: NextRequest) {
 					reason: 'parent-children-updated',
 					academicYear: String(
 						(schoolProfile as any)?.identity?.currentAcademicYear ||
-							getAcademicYear(),
+							getAcademicYear(schoolProfile),
 					),
 					targetUserIds: [String(linkedParent._id)],
 					payload: {
@@ -3292,7 +3313,7 @@ export async function PUT(request: NextRequest) {
 				schoolProfile: school,
 				host: cleanHost,
 			});
-			const activeAcademicYear = String((school as any).currentAcademicYear || getAcademicYear());
+			const activeAcademicYear = String(getAcademicYear(school));
 			const realtimeUser = buildRealtimeUserPayload(admin);
 			const deactivatedNow = existing.isActive !== false && admin.isActive === false;
 			await bumpUsersVersionForTenantConnection(connection, [activeAcademicYear]);
@@ -3327,7 +3348,7 @@ export async function PUT(request: NextRequest) {
 				? JSON.parse(schoolProfileRaw)
 				: schoolProfileRaw;
 		const schoolCurrentAcademicYear = String(
-			(schoolProfile as any)?.identity?.currentAcademicYear || getAcademicYear(),
+			getAcademicYear(schoolProfile),
 		);
 		const tenantId = resolveTenantSyncKey({
 			schoolProfile,
@@ -3432,8 +3453,7 @@ export async function PUT(request: NextRequest) {
 						(student.academicYears || []).map((ay: any) => ay?.year),
 					) ||
 					student.enrollmentYear ||
-					schoolProfile?.identity.currentAcademicYear ||
-					getAcademicYear();
+					getAcademicYear(schoolProfile);
 				const latestStart = getAcademicYearStart(studentLatestAcademicYear);
 				const newStart = getAcademicYearStart(newAcademicYear);
 				if (
@@ -3549,7 +3569,7 @@ export async function PUT(request: NextRequest) {
 					buildUserResponse(result.student.toObject()),
 				);
 
-				const promotionYears = extractAcademicYears(result.student);
+				const promotionYears = extractAcademicYears(result.student, schoolProfile);
 				await bumpUsersVersion(promotionYears);
 				await publishSyncEventsForAcademicYearsSafe({
 					tenantId,
@@ -3737,7 +3757,7 @@ export async function PUT(request: NextRequest) {
 					buildUserResponse(result.student.toObject()),
 				);
 
-				const demotionYears = extractAcademicYears(result.student);
+				const demotionYears = extractAcademicYears(result.student, schoolProfile);
 				await bumpUsersVersion(demotionYears);
 				await publishSyncEventsForAcademicYearsSafe({
 					tenantId,
@@ -3902,8 +3922,7 @@ export async function PUT(request: NextRequest) {
 					getLatestAcademicYearFromValues(
 						existingSubjects.map((entry: any) => entry?.year),
 					) ||
-					schoolProfile?.identity.currentAcademicYear ||
-					getAcademicYear();
+					getAcademicYear(schoolProfile);
 				const latestStart = getAcademicYearStart(latestAcademicYear);
 
 				if (latestStart === null || newStart <= latestStart) {
@@ -3982,6 +4001,7 @@ export async function PUT(request: NextRequest) {
 					{ isActive: true, _id: { $ne: targetUserId } },
 					carryOverValidationErrors,
 					targetUserId,
+					schoolProfile,
 				);
 
 				const conflictErrors = carryOverValidationErrors.filter(
@@ -4068,7 +4088,7 @@ export async function PUT(request: NextRequest) {
 					buildUserResponse(updatedTeacher.toObject()),
 				);
 
-				const teacherCarryoverYears = extractAcademicYears(updatedTeacher);
+				const teacherCarryoverYears = extractAcademicYears(updatedTeacher, schoolProfile);
 				await bumpUsersVersion(teacherCarryoverYears);
 				await publishSyncEventsForAcademicYearsSafe({
 					tenantId,
@@ -4107,8 +4127,7 @@ export async function PUT(request: NextRequest) {
 				getLatestAcademicYearFromValues(
 					existingAcademicYears.map((entry: any) => entry?.year),
 				) ||
-			schoolProfile?.identity.currentAcademicYear ||
-			getAcademicYear();
+			getAcademicYear(schoolProfile);
 		const latestStart = getAcademicYearStart(latestAcademicYear);
 
 		if (latestStart === null || newStart <= latestStart) {
@@ -4239,7 +4258,7 @@ export async function PUT(request: NextRequest) {
 				buildUserResponse(updatedAdministrator.toObject()),
 			);
 
-			const adminCarryoverYears = extractAcademicYears(updatedAdministrator);
+			const adminCarryoverYears = extractAcademicYears(updatedAdministrator, schoolProfile);
 			await bumpUsersVersion(adminCarryoverYears);
 			await publishSyncEventsForAcademicYearsSafe({
 				tenantId,
@@ -4372,7 +4391,7 @@ export async function PUT(request: NextRequest) {
 				},
 			);
 
-			const resetYears = extractAcademicYears(updatedUser);
+			const resetYears = extractAcademicYears(updatedUser, schoolProfile);
 			await bumpUsersVersion(resetYears);
 			await publishSyncEventsForAcademicYearsSafe({
 				tenantId,
@@ -4524,6 +4543,7 @@ export async function PUT(request: NextRequest) {
 				true,
 				actualTargetUserId,
 				forceAssignments,
+				schoolProfile,
 			);
 			const parentNonConflictErrors = parentValidationErrors.filter(
 				(error) => !error.requiresConfirmation,
@@ -4555,6 +4575,7 @@ export async function PUT(request: NextRequest) {
 			true,
 			actualTargetUserId,
 			forceAssignments,
+			schoolProfile,
 		);
 
 		// Separate conflict errors
@@ -4682,8 +4703,7 @@ export async function PUT(request: NextRequest) {
 			}
 
 			const schoolProfile = await getSchoolProfile();
-			const currentAcademicYear =
-				schoolProfile.identity.currentAcademicYear || getAcademicYear();
+			const currentAcademicYear = getAcademicYear(schoolProfile);
 			if (!Array.isArray(targetUser.academicYears)) {
 				return NextResponse.json(
 					{
@@ -5205,7 +5225,7 @@ export async function PUT(request: NextRequest) {
 			);
 		}
 
-		const updatedUserYears = extractAcademicYears(updatedUser);
+		const updatedUserYears = extractAcademicYears(updatedUser, schoolProfile);
 		const realtimeUser = buildRealtimeUserPayload(
 			updatedUser.toObject() as any,
 		);
@@ -5410,7 +5430,7 @@ export async function DELETE(request: NextRequest) {
 				schoolProfile: school,
 				host: cleanHost,
 			});
-			const activeAcademicYear = String((school as any).currentAcademicYear || getAcademicYear());
+			const activeAcademicYear = String(getAcademicYear(school));
 			const realtimeUser = buildRealtimeUserPayload(admin);
 			await bumpUsersVersionForTenantConnection(connection, [activeAcademicYear]);
 			await publishSyncEventSafe({
@@ -5564,7 +5584,7 @@ export async function DELETE(request: NextRequest) {
 		// Delete the user
 		await models.User.deleteOne({ _id: targetUserId });
 
-		const deletedUserYears = extractAcademicYears(targetUser);
+		const deletedUserYears = extractAcademicYears(targetUser, schoolProfile);
 		await bumpUsersVersion(deletedUserYears);
 		await publishSyncEventsForAcademicYearsSafe({
 			tenantId,

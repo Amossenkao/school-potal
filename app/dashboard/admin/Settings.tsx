@@ -69,14 +69,6 @@ const FeedbackToast = ({ type, message, onClose }: any) => {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-const getCurrentAcademicYear = () => {
-	const now = new Date();
-	const year = now.getFullYear();
-	const month = now.getMonth() + 1;
-	if (month >= 8) return `${year}-${year + 1}`;
-	return `${year - 1}-${year}`;
-};
-
 const academicPeriodsMap = [
 	{ value: 'first', label: 'First Period' },
 	{ value: 'second', label: 'Second Period' },
@@ -127,11 +119,14 @@ const buildAcademicYearRange = (
 
 // ---------------------------------------------------------------------------
 // Academic year selector range:
-// From firstAcademicYear up to (currentCalendarYear+1)-(currentCalendarYear+2)
+// From firstAcademicYear up to the school profile's currentAcademicYear
+// (system admin's allowed range is first → current, both inclusive).
 // ---------------------------------------------------------------------------
-const getMaxSelectableAcademicYear = () => {
-	const calendarYear = new Date().getFullYear();
-	return formatAcademicYear(calendarYear + 1);
+const getMaxSelectableAcademicYear = (school: any) => {
+	const value = school?.identity?.currentAcademicYear;
+	if (!value) return '';
+	const start = parseAcademicYearStart(value);
+	return start !== null ? formatAcademicYear(start) : value;
 };
 
 // ---------------------------------------------------------------------------
@@ -1105,8 +1100,7 @@ export default function Settings() {
 
 	useEffect(() => {
 		if (school && school.userConfig) {
-			const baseAcademicYear =
-				school.identity?.currentAcademicYear || getCurrentAcademicYear();
+			const baseAcademicYear = school.identity?.currentAcademicYear || '';
 			setCurrentAcademicYear(baseAcademicYear);
 
 			const rawStudentSettings = school.userConfig.studentSettings || {};
@@ -1239,22 +1233,20 @@ export default function Settings() {
 
 	// ---------------------------------------------------------------------------
 	// Academic year range:
-	// From school.firstAcademicYear up to (currentCalendarYear+1)-(currentCalendarYear+2)
-	// The upper bound is always exactly "next calendar year - year after next"
-	// regardless of what the selected current academic year is.
+	// From school.firstAcademicYear up to the profile's currentAcademicYear.
 	// ---------------------------------------------------------------------------
 	const firstAcademicYear = useMemo(() => {
 		return (
 			school?.identity?.firstAcademicYear ||
 			school?.identity?.currentAcademicYear ||
-			getCurrentAcademicYear()
+			''
 		);
 	}, [school?.identity?.firstAcademicYear, school?.identity?.currentAcademicYear]);
 
-	// The hard upper bound for the selector: calendarYear+1 - calendarYear+2
+	// The hard upper bound for the selector: the school profile's current year
 	const maxSelectableAcademicYear = useMemo(
-		() => getMaxSelectableAcademicYear(),
-		[],
+		() => getMaxSelectableAcademicYear(school),
+		[school?.identity?.currentAcademicYear],
 	);
 
 	// All academic years between firstAcademicYear and maxSelectableAcademicYear

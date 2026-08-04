@@ -105,18 +105,6 @@ const LINK_VALIDITY_OPTIONS: Array<{
 	{ value: '1m', label: '1 month' },
 ];
 
-const getCurrentAcademicYear = () => {
-	const currentDate = new Date();
-	const currentYear = currentDate.getFullYear();
-	const currentMonth = currentDate.getMonth() + 1;
-
-	if (currentMonth >= 8) {
-		return `${currentYear}-${currentYear + 1}`;
-	} else {
-		return `${currentYear - 1}-${currentYear}`;
-	}
-};
-
 const getClassMetaById = (classLevels: any, classId?: string) => {
 	if (!classLevels || !classId) return null;
 	for (const [session, levels] of Object.entries(classLevels)) {

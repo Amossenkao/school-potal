@@ -5,7 +5,6 @@ import ConflictModal from '@/components/modals/ConflictModal';
 import { motion } from 'framer-motion';
 import {
 	buildSchoolAcademicYearRange,
-	getCurrentAcademicYearLabel,
 } from '@/utils/academicYearOptions';
 import {
 	ChevronLeft,
@@ -574,7 +573,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
 	const defaultEnrollmentSemester = '1st Semester';
 	const currentAcademicYear = String(
-		school?.identity?.currentAcademicYear || getCurrentAcademicYearLabel(),
+		school?.identity?.currentAcademicYear || '',
 	).trim();
 
 	const enrollmentYearOptions = useMemo(() => {

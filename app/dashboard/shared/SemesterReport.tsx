@@ -77,17 +77,6 @@ const semesterOptions = [
 	{ value: 'second', label: '2nd Semester' },
 ];
 
-const getCurrentAcademicYear = () => {
-	const currentDate = new Date();
-	const currentYear = currentDate.getFullYear();
-	const currentMonth = currentDate.getMonth() + 1;
-
-	if (currentMonth >= 8) {
-		return `${currentYear}-${currentYear + 1}`;
-	}
-	return `${currentYear - 1}-${currentYear}`;
-};
-
 const getClassMetaById = (classLevels: any, classId?: string) => {
 	if (!classLevels || !classId) return null;
 	for (const [session, levels] of Object.entries(classLevels)) {

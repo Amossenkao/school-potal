@@ -33,14 +33,7 @@ export const buildStudentFullName = (student: any) => {
 		.trim();
 };
 
-const toCanonicalAcademicYear = (value: string) => {
-	const normalized = String(value || '').trim();
-	if (normalized) return normalized;
-	const now = new Date();
-	const year = now.getFullYear();
-	const month = now.getMonth() + 1;
-	return month >= 8 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
-};
+const toCanonicalAcademicYear = (value: string) => String(value || '').trim();
 
 const fnv1aHash = (input: string) => {
 	let hash = 0x811c9dc5;
