@@ -397,11 +397,12 @@ const UserManagementDashboard = () => {
 	const normalizeUsers = (data: any) => {
 		if (!data) return [];
 		if (Array.isArray(data)) return data;
-		if (data.students || data.teachers || data.administrators) {
+		if (data.students || data.teachers || data.administrators || data.parents) {
 			return [
 				...(data.students || []),
 				...(data.teachers || []),
 				...(data.administrators || []),
+				...(data.parents || []),
 			];
 		}
 		return [data];
@@ -526,6 +527,7 @@ const UserManagementDashboard = () => {
 						students: userList.filter((u) => u.role === 'student'),
 						teachers: userList.filter((u) => u.role === 'teacher'),
 						administrators: userList.filter((u) => u.role === 'administrator'),
+						parents: userList.filter((u) => u.role === 'parent'),
 					};
 					setUsersForYear(selectedAcademicYear, grouped, {
 						merge: !(replace || page === 1),
@@ -630,6 +632,7 @@ const UserManagementDashboard = () => {
 				teacher: usersFromStore.filter((u) => u.role === 'teacher').length,
 				administrator: usersFromStore.filter((u) => u.role === 'administrator')
 					.length,
+				parent: usersFromStore.filter((u) => u.role === 'parent').length,
 			};
 			setUsers(usersFromStore);
 			setTotalUsers(usersFromStore.length);
@@ -837,6 +840,7 @@ const UserManagementDashboard = () => {
 					students: nextUsers.filter((u) => u.role === 'student'),
 					teachers: nextUsers.filter((u) => u.role === 'teacher'),
 					administrators: nextUsers.filter((u) => u.role === 'administrator'),
+					parents: nextUsers.filter((u) => u.role === 'parent'),
 				},
 				{ merge: false },
 			);
