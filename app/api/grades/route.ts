@@ -2007,7 +2007,7 @@ if (successfulUpdates.length > 0) {
 
     const teacherUsers = await User.find({
         username: { $in: teacherUsernames },
-        role: 'teacher',
+        $or: [{ role: 'teacher' }, { role: 'administrator', isTeacher: true }],
     })
         .select('_id username')
         .lean();

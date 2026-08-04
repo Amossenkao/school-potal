@@ -82,16 +82,26 @@ export const getClassRealtimeChannel = (tenantId: string, classId: string) =>
 export const getUserRealtimeChannel = (tenantId: string, userId: string) =>
 	`user:${sanitizeChannelSegment(tenantId)}:${sanitizeChannelSegment(userId)}`;
 
-const extractTeacherClassIds = (user: AuthorizedRealtimeUser) => {
-	const subjects = Array.isArray(user.subjects) ? user.subjects : [];
-	const subjectClassIds = subjects.flatMap((subject: any) =>
-		Array.isArray(subject?.classes)
-			? subject.classes.map((entry: any) => String(entry?.classId || ''))
+const extractClassIdsFromYearEntries = (
+	entries: unknown,
+	sponsorClass?: unknown,
+) => {
+	const yearEntries = Array.isArray(entries) ? entries : [];
+	const classIds = yearEntries.flatMap((entry: any) =>
+		Array.isArray(entry?.classes)
+			? entry.classes.map((c: any) => String(c?.classId || ''))
 			: [],
 	);
-	const sponsorClass = trim(user.sponsorClass);
-	return toUniqueStrings([...subjectClassIds, sponsorClass]);
+	return toUniqueStrings([...classIds, trim(sponsorClass)]);
 };
+
+const extractTeacherClassIds = (user: AuthorizedRealtimeUser) =>
+	extractClassIdsFromYearEntries(user.subjects, user.sponsorClass);
+
+// isTeacher administrators store their class/subject assignment in `classes`
+// (same shape as a teacher's `subjects`) — see utils/gradeActor.ts.
+const extractIsTeacherAdminClassIds = (user: AuthorizedRealtimeUser) =>
+	extractClassIdsFromYearEntries(user.classes);
 
 const extractStudentClassIds = (user: AuthorizedRealtimeUser) => {
 	const academicYears = Array.isArray(user.academicYears)
@@ -157,6 +167,14 @@ export const getAuthorizedRealtimeChannels = (options: {
 		// Wildcard channel subscriptions don't work for message delivery in Ably —
 		// wildcards are capability-only. Everything admins need arrives on the
 		// school channel once resolvePublishChannels fans out correctly.
+		if (role === 'administrator' && options.user?.isTeacher) {
+			// isTeacher administrators additionally subscribe to the class
+			// channels a teacher with the same assignment would, same as
+			// resolvePublishChannels' class-scoped fan-out for grades/attendance.
+			extractIsTeacherAdminClassIds(options.user || {}).forEach((classId) => {
+				channels.add(getClassRealtimeChannel(tenantId, classId));
+			});
+		}
 		return Array.from(channels);
 	}
 

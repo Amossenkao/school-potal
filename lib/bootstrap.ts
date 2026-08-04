@@ -13,6 +13,7 @@ import {
 } from '@/utils/academicYearAccess';
 import { getUsersVersion as getUsersSyncVersion } from '@/utils/userSync';
 import { toHash } from '@/utils/syncVersion';
+import { isTeacherActor } from '@/utils/gradeActor';
 
 const MAX_BOOTSTRAP_USERS = 5000;
 
@@ -208,6 +209,19 @@ const getParentChildClassIds = (
 const getAcademicYearMatch = (academicYear: string) =>
 	getAcademicYearFilterValue(academicYear);
 
+/**
+ * isTeacher administrators store their class/subject assignment in `classes`
+ * (same shape as a teacher's `subjects` — see utils/gradeActor.ts). Reshapes
+ * such an admin into a teacher-like record so the existing teacher-scoped
+ * helpers (getTeacherClassIdsForAcademicYear, ...PairsForAcademicYear) can be
+ * reused unchanged. Returns null for anyone who isn't a teacher-like actor.
+ */
+const toTeacherLikeUser = (currentUser: any) => {
+	if (!isTeacherActor(currentUser)) return null;
+	if (currentUser?.role === 'teacher') return currentUser;
+	return { ...currentUser, subjects: currentUser.classes || [] };
+};
+
 const getRoleClassFilter = (currentUser: any, academicYear: string) => {
 	if (currentUser.role === 'student') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
@@ -238,10 +252,10 @@ export const getRoleGradesQuery = (currentUser: any, academicYear: string) => {
 		return { academicYear: academicYearMatch, studentId: { $in: studentIds } };
 	}
 
-	if (currentUser?.role === 'teacher') {
+	if (isTeacherActor(currentUser)) {
 		if (!currentUser.username) return null;
 		const pairs = getTeacherClassSubjectPairsForAcademicYear(
-			currentUser,
+			toTeacherLikeUser(currentUser),
 			academicYear,
 		);
 		if (pairs.length === 0) return null;
@@ -267,10 +281,10 @@ export const getRoleGradesQuery = (currentUser: any, academicYear: string) => {
 
 const getRoleGradeRequestsQuery = (currentUser: any, academicYear: string) => {
 	const academicYearMatch = getAcademicYearMatch(academicYear);
-	if (currentUser?.role === 'teacher') {
+	if (isTeacherActor(currentUser)) {
 		if (!currentUser.username) return null;
 		const pairs = getTeacherClassSubjectPairsForAcademicYear(
-			currentUser,
+			toTeacherLikeUser(currentUser),
 			academicYear,
 		);
 		if (pairs.length === 0) return null;
@@ -346,8 +360,11 @@ export const getRoleAttendanceQuery = (
 		return { academicYear: academicYearMatch, classId: { $in: classIds } };
 	}
 
-	if (currentUser?.role === 'teacher') {
-		const classIds = getTeacherClassIdsForYear(currentUser, academicYear);
+	if (isTeacherActor(currentUser)) {
+		const classIds = getTeacherClassIdsForYear(
+			toTeacherLikeUser(currentUser),
+			academicYear,
+		);
 		if (classIds.length === 0) return null;
 		return {
 			academicYear: academicYearMatch,

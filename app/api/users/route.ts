@@ -1538,6 +1538,87 @@ async function handleForceReassignmentEnhanced(
 	}
 }
 
+// Shape shared by Teacher.subjects and isTeacher-administrator User.classes:
+// [{ year, classes: [{ classId, subjects: [...] }] }]
+type YearClassSubjectMap = Map<string, Map<string, Set<string>>>;
+
+function buildYearClassSubjectMap(subjects: any[]): YearClassSubjectMap {
+	const map: YearClassSubjectMap = new Map();
+	if (!Array.isArray(subjects)) return map;
+	for (const yearEntry of subjects) {
+		const year = String(yearEntry?.year || '').trim();
+		if (!year) continue;
+		if (!map.has(year)) map.set(year, new Map());
+		const classMap = map.get(year)!;
+		for (const cls of yearEntry?.classes || []) {
+			const classId = String(cls?.classId || '').trim();
+			if (!classId) continue;
+			if (!classMap.has(classId)) classMap.set(classId, new Set());
+			const subSet = classMap.get(classId)!;
+			for (const subj of cls?.subjects || []) {
+				const s = String(subj || '').trim();
+				if (s) subSet.add(s);
+			}
+		}
+	}
+	return map;
+}
+
+/**
+ * Diffs a teacher's (or isTeacher administrator's) old vs. new class/subject
+ * assignment and returns the academicYear/classId/subject combinations that
+ * are newly assigned. For a brand-new user `oldSubjects` is empty, so every
+ * assigned combination comes back as "added" — used to backfill
+ * `teacherUsername` on any pre-existing grades for that assignment (e.g.
+ * grades imported or graded before this teacher's account existed).
+ */
+function diffAddedYearClassSubjects(
+	newSubjects: any[],
+	oldSubjects: any[] = [],
+): Array<{ academicYear: string; classId: string; subjects: string[] }> {
+	const oldMap = buildYearClassSubjectMap(oldSubjects);
+	const newMap = buildYearClassSubjectMap(newSubjects);
+	const ops: Array<{ academicYear: string; classId: string; subjects: string[] }> =
+		[];
+	for (const [year, newClassMap] of newMap.entries()) {
+		const oldClassMap = oldMap.get(year);
+		for (const [classId, newSubjectSet] of newClassMap.entries()) {
+			const oldSubjectSet = oldClassMap?.get(classId) ?? new Set<string>();
+			const addedSubjects = Array.from(newSubjectSet).filter(
+				(s) => !oldSubjectSet.has(s),
+			);
+			if (addedSubjects.length === 0) continue;
+			ops.push({ academicYear: year, classId, subjects: addedSubjects });
+		}
+	}
+	return ops;
+}
+
+// Backfills teacherUsername on existing grades for newly assigned
+// class/subject/year combinations (see diffAddedYearClassSubjects).
+function buildTeacherGradeBackfillPromises(
+	Grade: any,
+	username: string,
+	newSubjects: any[],
+	oldSubjects: any[] = [],
+): Promise<any>[] {
+	return diffAddedYearClassSubjects(newSubjects, oldSubjects).map((op) =>
+		Grade.updateMany(
+			{
+				academicYear: op.academicYear,
+				classId: op.classId,
+				subject: { $in: op.subjects },
+			},
+			{
+				$set: {
+					teacherUsername: username,
+					updatedAt: new Date(),
+				},
+			},
+		),
+	);
+}
+
 function generateSysId(): string {
 	const year = new Date().getFullYear();
 	const seq = String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0');
@@ -3033,6 +3114,28 @@ export async function POST(request: NextRequest) {
 				throw error;
 			}
 		}
+
+		// Backfill teacherUsername on any pre-existing grades that match this
+		// newly created teacher's (or isTeacher administrator's) class/subject
+		// assignment — e.g. grades imported or entered before the account
+		// existed. There's no prior assignment to diff against, so every
+		// assigned class/subject/year combination counts as "added".
+		const isNewTeacherActor =
+			newUser.role === 'teacher' ||
+			(newUser.role === 'administrator' && !!newUser.isTeacher);
+		if (isNewTeacherActor) {
+			const assignedSubjects =
+				newUser.role === 'teacher' ? finalUserData.subjects : finalUserData.classes;
+			const teacherGradeBackfillPromises = buildTeacherGradeBackfillPromises(
+				models.Grade,
+				newUser.username,
+				assignedSubjects || [],
+			);
+			if (teacherGradeBackfillPromises.length > 0) {
+				await Promise.allSettled(teacherGradeBackfillPromises);
+			}
+		}
+
 		// Link or create the parent for this student (replaces the legacy embedded guardian)
 		let linkedParent: any = null;
 		if (userData.role === 'student') {
@@ -4831,59 +4934,14 @@ export async function PUT(request: NextRequest) {
 
 			// Backfill teacherUsername on existing grades for newly assigned
 			// class/subject pairs. Compare old vs new subjects per academic year.
-			type YearClassSubjectMap = Map<string, Map<string, Set<string>>>;
-			const buildYearClassSubjectMap = (subjects: any[]): YearClassSubjectMap => {
-				const map: YearClassSubjectMap = new Map();
-				if (!Array.isArray(subjects)) return map;
-				for (const yearEntry of subjects) {
-					const year = String(yearEntry?.year || '').trim();
-					if (!year) continue;
-					if (!map.has(year)) map.set(year, new Map());
-					const classMap = map.get(year)!;
-					for (const cls of yearEntry?.classes || []) {
-						const classId = String(cls?.classId || '').trim();
-						if (!classId) continue;
-						if (!classMap.has(classId)) classMap.set(classId, new Set());
-						const subSet = classMap.get(classId)!;
-						for (const subj of cls?.subjects || []) {
-							const s = String(subj || '').trim();
-							if (s) subSet.add(s);
-						}
-					}
-				}
-				return map;
-			};
-
-			const oldMap = buildYearClassSubjectMap(targetUser.subjects || []);
-			const newMap = buildYearClassSubjectMap(filteredUserData.subjects || []);
-
-			for (const [year, newClassMap] of newMap.entries()) {
-				const oldClassMap = oldMap.get(year);
-				for (const [classId, newSubjects] of newClassMap.entries()) {
-					const oldSubjects = oldClassMap?.get(classId) ?? new Set<string>();
-					// Find subjects that are newly assigned (not in old set)
-					const addedSubjects = Array.from(newSubjects).filter(
-						(s) => !oldSubjects.has(s),
-					);
-					if (addedSubjects.length === 0) continue;
-					// Update teacherUsername on existing grades for this class/subject/year
-					teacherGradeBackfillPromises.push(
-						models.Grade.updateMany(
-							{
-								academicYear: year,
-								classId,
-								subject: { $in: addedSubjects },
-							},
-							{
-								$set: {
-									teacherUsername: targetUser.username,
-									updatedAt: new Date(),
-								},
-							},
-						),
-					);
-				}
-			}
+			teacherGradeBackfillPromises.push(
+				...buildTeacherGradeBackfillPromises(
+					models.Grade,
+					targetUser.username,
+					filteredUserData.subjects || [],
+					targetUser.subjects || [],
+				),
+			);
 		}
 
 		// Handle password change for self-update
