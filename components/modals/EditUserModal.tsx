@@ -1937,89 +1937,64 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		onSponsorChange,
 		showSponsorship = true,
 	) => {
-		const scClasses = getSelfContainedClasses(session);
-		const regularLevels = getClassLevels(session).filter(
-			(l: string) => !isLevelSelfContained(session, l),
-		);
-
 		return (
 			<div className="space-y-4">
-				{scClasses.length > 0 && (
-					<SectionCard
-						title="Self-Contained Classes"
-						subtitle="Each class covers all its configured subjects."
-						icon={CheckCircle2}
-					>
-						<div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-							{scClasses.map((cls) => {
-								const isChecked = subjects.some(
-									(s) =>
-										s.classId === cls.classId &&
-										s.session === session &&
-										s.level === cls.level,
-								);
-								return (
-									<motion.label
-										key={cls.classId}
-										whileTap={{ scale: 0.97 }}
-										className={`relative flex items-center gap-2.5 rounded-lg border p-3 cursor-pointer transition-all ${isChecked ? 'border-primary bg-primary/10 shadow-sm' : 'border-border hover:border-primary/40 bg-background'}`}
+				<div className="space-y-3 max-h-[45vh] sm:max-h-64 overflow-y-auto pr-0.5">
+					{getClassLevels(session).map((level) => {
+						const style = getLevelStyle(level);
+						const isSC = isLevelSelfContained(session, level);
+						return (
+							<div
+								key={level}
+								className={`rounded-lg border p-3 ${style.section}`}
+							>
+								<div className="mb-2">
+									<span
+										className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${style.badge}`}
 									>
-										<input
-											type="checkbox"
-											checked={isChecked}
-											onChange={(e) =>
-												onSCChange(
-													cls.classId,
-													session,
-													cls.level,
-													e.target.checked,
-												)
-											}
-											className="absolute opacity-0 w-0 h-0"
-										/>
-										<ThemedCheckbox checked={isChecked} />
-										<div className="min-w-0">
-											<span className="text-sm font-medium text-foreground block truncate">
-												{cls.name}
-											</span>
-											<span className="text-[11px] text-muted-foreground">
-												{cls.level}
-											</span>
-										</div>
-									</motion.label>
-								);
-							})}
-						</div>
-					</SectionCard>
-				)}
-
-				{regularLevels.length > 0 && (
-					<SectionCard
-						title="Subjects by Level"
-						subtitle="Check subjects this teacher will deliver across all classes in that level."
-						icon={BookOpen}
-					>
-						<div className="space-y-3 max-h-[50vh] sm:max-h-64 overflow-y-auto pr-0.5">
-							{regularLevels.map((level: string) => {
-								const style = getLevelStyle(level);
-								const subjectsByLevel = getSubjectsBySessionAndLevel(
-									session,
-									level,
-								);
-								return (
-									<div
-										key={level}
-										className={`rounded-lg border p-3 ${style.section}`}
-									>
-										<div className="flex items-center gap-2 mb-2.5">
-											<span
-												className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${style.badge}`}
-											>
-												{level}
-											</span>
-										</div>
-										<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-											{subjectsByLevel.map((subject, idx) => {
+										{level}
+									</span>
+								</div>
+								<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+									{isSC
+										? getClassesBySessionAndLevel(session, level).map((cls) => {
+												const isChecked = subjects.some(
+													(s) =>
+														s.classId === cls.classId &&
+														s.session === session &&
+														s.level === level,
+												);
+												return (
+													<motion.label
+														key={cls.classId}
+														whileTap={{ scale: 0.96 }}
+														className={`relative flex items-center gap-2 rounded-lg border p-2.5 cursor-pointer text-sm transition-all ${
+															isChecked
+																? 'border-primary bg-primary/10 shadow-sm'
+																: 'border-border bg-background hover:border-primary/40'
+														}`}
+													>
+														<input
+															type="checkbox"
+															checked={isChecked}
+															onChange={(e) =>
+																onSCChange(
+																	cls.classId,
+																	session,
+																	level,
+																	e.target.checked,
+																)
+															}
+															className="absolute opacity-0 w-0 h-0"
+														/>
+														<ThemedCheckbox checked={isChecked} />
+														<span className="text-foreground font-medium text-xs sm:text-sm truncate">
+															{cls.name}
+														</span>
+													</motion.label>
+												);
+											})
+										: getSubjectsBySessionAndLevel(session, level).map((subject, idx) => {
 												const subjectName = getSubjectName(subject);
 												const isChecked = subjects.some(
 													(s) =>
@@ -2032,7 +2007,11 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 													<motion.label
 														key={`${subjectName}-${idx}`}
 														whileTap={{ scale: 0.96 }}
-														className={`relative flex items-center gap-2 rounded-md border px-2.5 py-2 cursor-pointer text-xs transition-all ${isChecked ? 'border-primary bg-primary/10 shadow-sm' : 'border-border bg-background hover:border-primary/40'}`}
+														className={`relative flex items-center gap-2 rounded-md border px-2.5 py-2 cursor-pointer text-xs transition-all ${
+															isChecked
+																? 'border-primary bg-primary/10 shadow-sm'
+																: 'border-border bg-background hover:border-primary/40'
+														}`}
 													>
 														<input
 															type="checkbox"
@@ -2054,45 +2033,44 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 													</motion.label>
 												);
 											})}
-										</div>
-									</div>
-								);
-							})}
-						</div>
-					</SectionCard>
-				)}
+								</div>
+							</div>
+						);
+					})}
+				</div>
 
-				{showSponsorship && <SectionCard
-					title="Class Sponsorship"
-					subtitle="Assign this teacher as homeroom sponsor for one class (optional)."
-					icon={Users}
-				>
-					<Select
-						value={
-							sponsorClass &&
-							getAllClassesForSession(session).find(
-								(c: any) => c.classId === sponsorClass,
-							)
-								? sponsorClass
-								: '__none__'
-						}
-						onValueChange={(val) => onSponsorChange(session, val)}
-					>
-						<SelectTrigger className={selectTriggerClass}>
-							<SelectValue placeholder="No sponsorship" />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="__none__">No sponsorship</SelectItem>
-							{getAllClassesForSession(session)
-								.filter((cls) => !isLevelSelfContained(session, cls.level))
-								.map((cls) => (
-									<SelectItem key={cls.classId} value={cls.classId}>
-										{cls.name} ({cls.level})
-									</SelectItem>
-								))}
-						</SelectContent>
-					</Select>
-				</SectionCard>}
+				{showSponsorship && (
+					<div>
+						<label className="block text-sm font-medium text-foreground mb-1.5">
+							Class Sponsorship
+						</label>
+						<Select
+							value={
+								sponsorClass &&
+								getAllClassesForSession(session).find(
+									(c: any) => c.classId === sponsorClass,
+								)
+									? sponsorClass
+									: '__none__'
+							}
+							onValueChange={(val) => onSponsorChange(session, val)}
+						>
+							<SelectTrigger className={selectTriggerClass}>
+								<SelectValue placeholder="No sponsorship" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="__none__">No sponsorship</SelectItem>
+								{getAllClassesForSession(session)
+									.filter((cls) => !isLevelSelfContained(session, cls.level))
+									.map((cls) => (
+										<SelectItem key={cls.classId} value={cls.classId}>
+											{cls.name} ({cls.level})
+										</SelectItem>
+									))}
+							</SelectContent>
+						</Select>
+					</div>
+				)}
 			</div>
 		);
 	};
@@ -2864,57 +2842,42 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 										Teaching Assignments
 									</h5>
 
-									{getSessions().length > 1 && (
-										<MobileTabStrip
-											items={getSessions().map((session) => ({
-												id: session,
-												label: session,
-												icon: BookOpen,
-											}))}
-											activeId={adminActiveSession}
-											onSelect={setAdminActiveSession}
-										/>
-									)}
-
-									<div className="flex gap-4">
-										{getSessions().length > 1 && (
-											<div className="hidden sm:flex flex-col gap-1 w-40 lg:w-44 shrink-0">
-												<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 px-1">
-													Sessions
-												</p>
-												{getSessions().map((session) => (
-													<SidebarItem
-														key={session}
-														label={session}
-														isActive={adminActiveSession === session}
-														icon={BookOpen}
-														onClick={() => setAdminActiveSession(session)}
-													/>
-												))}
-											</div>
-										)}
-
-										<div className="flex-1 min-w-0">
-											<AnimatePresence mode="wait">
-												<motion.div
-													key={adminActiveSession || getSessions()[0]}
-													initial={{ opacity: 0, x: 6 }}
-													animate={{ opacity: 1, x: 0 }}
-													transition={{ duration: 0.16 }}
-												>
-													{renderTeacherSessionPanel(
-														adminActiveSession || getSessions()[0],
-														formData.adminClasses || [],
-														null,
-														handleAdminSelfContainedSelection,
-														handleAdminSubjectChange,
-														() => {},
-														false,
-													)}
-												</motion.div>
-											</AnimatePresence>
+									<div className="mb-4">
+										<p className="text-[10px] font-semibold text-foreground/70 uppercase tracking-wider mb-2">
+											Session
+										</p>
+										<div className="flex gap-2 flex-wrap">
+											{getSessions().map((s) => {
+												const isSel =
+													adminActiveSession === s ||
+													(!adminActiveSession && getSessions()[0] === s);
+												return (
+													<button
+														key={s}
+														type="button"
+														onClick={() => setAdminActiveSession(s)}
+														className={`px-3.5 py-2 rounded-lg border text-xs font-semibold transition-all touch-manipulation ${isSel ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/40 text-foreground'}`}
+													>
+														{isSel && (
+															<CheckCircle2 className="inline w-3 h-3 mr-1" />
+														)}
+														{s}
+													</button>
+												);
+											})}
 										</div>
 									</div>
+
+									{(adminActiveSession || getSessions()[0]) &&
+										renderTeacherSessionPanel(
+											adminActiveSession || getSessions()[0],
+											formData.adminClasses || [],
+											null,
+											handleAdminSelfContainedSelection,
+											handleAdminSubjectChange,
+											() => {},
+											false,
+										)}
 								</section>
 							)}
 							<section>
@@ -3003,56 +2966,41 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 									Teaching Assignments
 								</h5>
 
-								{getSessions().length > 1 && (
-									<MobileTabStrip
-										items={getSessions().map((session) => ({
-											id: session,
-											label: session,
-											icon: BookOpen,
-										}))}
-										activeId={activeTeacherSession}
-										onSelect={setActiveTeacherSession}
-									/>
-								)}
-
-								<div className="flex gap-4">
-									{getSessions().length > 1 && (
-										<div className="hidden sm:flex flex-col gap-1 w-40 lg:w-44 shrink-0">
-											<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 px-1">
-												Sessions
-											</p>
-											{getSessions().map((session) => (
-												<SidebarItem
-													key={session}
-													label={session}
-													isActive={activeTeacherSession === session}
-													icon={BookOpen}
-													onClick={() => setActiveTeacherSession(session)}
-												/>
-											))}
-										</div>
-									)}
-
-									<div className="flex-1 min-w-0">
-										<AnimatePresence mode="wait">
-											<motion.div
-												key={activeTeacherSession}
-												initial={{ opacity: 0, x: 6 }}
-												animate={{ opacity: 1, x: 0 }}
-												transition={{ duration: 0.16 }}
-											>
-												{renderTeacherSessionPanel(
-													activeTeacherSession,
-													formData.subjects || [],
-													formData.sponsorClass,
-													handleSelfContainedSelection,
-													handleSubjectChange,
-													handleSponsorClassChange,
-												)}
-											</motion.div>
-										</AnimatePresence>
+								<div className="mb-4">
+									<p className="text-[10px] font-semibold text-foreground/70 uppercase tracking-wider mb-2">
+										Session
+									</p>
+									<div className="flex gap-2 flex-wrap">
+										{getSessions().map((s) => {
+											const isSel =
+												activeTeacherSession === s ||
+												(!activeTeacherSession && getSessions()[0] === s);
+											return (
+												<button
+													key={s}
+													type="button"
+													onClick={() => setActiveTeacherSession(s)}
+													className={`px-3.5 py-2 rounded-lg border text-xs font-semibold transition-all touch-manipulation ${isSel ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/40 text-foreground'}`}
+												>
+													{isSel && (
+														<CheckCircle2 className="inline w-3 h-3 mr-1" />
+													)}
+													{s}
+												</button>
+											);
+										})}
 									</div>
 								</div>
+
+								{(activeTeacherSession || getSessions()[0]) &&
+									renderTeacherSessionPanel(
+										activeTeacherSession || getSessions()[0],
+										formData.subjects || [],
+										formData.sponsorClass,
+										handleSelfContainedSelection,
+										handleSubjectChange,
+										handleSponsorClassChange,
+									)}
 							</section>
 						)}
 					</main>
@@ -3451,58 +3399,43 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 												</h6>
 											</div>
 
-											{getSessions().length > 1 && (
-												<MobileTabStrip
-													items={getSessions().map((session) => ({
-														id: session,
-														label: session,
-														icon: BookOpen,
-													}))}
-													activeId={carryOverActiveSession}
-													onSelect={setCarryOverActiveSession}
-												/>
-											)}
-
-											<div className="flex gap-4">
-												{getSessions().length > 1 && (
-													<div className="hidden sm:flex flex-col gap-1 w-40 lg:w-44 shrink-0">
-														<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 px-1">
-															Sessions
-														</p>
-														{getSessions().map((session) => (
-															<SidebarItem
-																key={session}
-																label={session}
-																isActive={carryOverActiveSession === session}
-																icon={BookOpen}
-																onClick={() =>
-																	setCarryOverActiveSession(session)
-																}
-															/>
-														))}
-													</div>
-												)}
-
-												<div className="flex-1 min-w-0">
-													<AnimatePresence mode="wait">
-														<motion.div
-															key={carryOverActiveSession}
-															initial={{ opacity: 0, x: 6 }}
-															animate={{ opacity: 1, x: 0 }}
-															transition={{ duration: 0.16 }}
-														>
-															{renderTeacherSessionPanel(
-																carryOverActiveSession,
-																carryOverSubjects,
-																carryOverSponsorClass,
-																handleCarryOverSelfContainedSelection,
-																handleCarryOverSubjectChange,
-																handleCarryOverSponsorClassChange,
-															)}
-														</motion.div>
-													</AnimatePresence>
+											<div>
+												<p className="text-[10px] font-semibold text-foreground/70 uppercase tracking-wider mb-2">
+													Session
+												</p>
+												<div className="flex gap-2 flex-wrap">
+													{getSessions().map((s) => {
+														const isSel =
+															carryOverActiveSession === s ||
+															(!carryOverActiveSession && getSessions()[0] === s);
+														return (
+															<button
+																key={s}
+																type="button"
+																onClick={() => setCarryOverActiveSession(s)}
+																className={`px-3.5 py-2 rounded-lg border text-xs font-semibold transition-all touch-manipulation ${isSel ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/40 text-foreground'}`}
+															>
+																{isSel && (
+																	<CheckCircle2 className="inline w-3 h-3 mr-1" />
+																)}
+																{s}
+															</button>
+														);
+													})}
 												</div>
 											</div>
+
+											{(carryOverActiveSession || getSessions()[0]) &&
+												renderTeacherSessionPanel(
+													carryOverActiveSession || getSessions()[0],
+													carryOverSubjects,
+													carryOverSponsorClass,
+													handleCarryOverSelfContainedSelection,
+													handleCarryOverSubjectChange,
+													handleCarryOverSponsorClassChange,
+												)}
+										</div>
+									)}
 										</div>
 									)}
 								</div>

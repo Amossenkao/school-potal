@@ -382,146 +382,75 @@ const TeacherSessionPanel = ({
 	isSCClassChecked,
 	handleSelfContainedSelection,
 	handleSubjectChange,
-	getSelfContainedClasses,
 	getClassLevels,
+	getClassesBySessionAndLevel,
 	isLevelSelfContained,
 	getSubjectsBySessionAndLevel,
 	getAllClassesForSession,
 	getLevelStyle: getLvlStyle,
-	uniqueSubjectNames,
-	totalTeacherClasses,
-	showSummaryInline,
 	subjects: subjectsProp,
 	showSponsorship = true,
 }: any) => {
 	const subjects = subjectsProp ?? formData.teacher.subjects;
-	const scClasses = getSelfContainedClasses(session);
-	const regularLevels = getClassLevels(session).filter(
-		(l: string) => !isLevelSelfContained(session, l),
-	);
 
 	return (
 		<div className="space-y-4">
-			{/* Inline summary strip — single session only */}
-			{showSummaryInline && subjects.length > 0 && (
-				<div className="rounded-lg border border-border bg-muted/50 px-4 py-2.5 flex flex-wrap gap-x-5 gap-y-1 text-xs">
-					<span className="text-muted-foreground">
-						Unique subjects:{' '}
-						<span className="font-bold text-foreground ml-1">
-							{uniqueSubjectNames}
-						</span>
-					</span>
-					<span className="text-muted-foreground">
-						Classes:{' '}
-						<span className="font-bold text-foreground ml-1">
-							{totalTeacherClasses}
-						</span>
-					</span>
-					{showSponsorship && formData.teacher.isSponsor && formData.teacher.sponsorClass && (
-						<span className="text-muted-foreground">
-							Sponsor Class:{' '}
-							<span className="font-bold text-primary ml-1">
-								{getAllClassesForSession(session).find(
-									(c: any) => c.classId === formData.teacher.sponsorClass,
-								)?.name ?? '—'}
-							</span>
-						</span>
-					)}
-				</div>
-			)}
-
-			{/* Self-contained classes */}
-			{scClasses.length > 0 && (
-				<SectionCard
-					title="Self-Contained Classes"
-					subtitle="Each class covers all its configured subjects. Pick any combination independently."
-					icon={CheckCircle2}
-				>
-					<div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-						{scClasses.map((cls: any) => {
-							const isChecked = isSCClassChecked(
-								cls.classId,
-								session,
-								cls.level,
-							);
-							return (
-								<motion.label
-									key={cls.classId}
-									whileTap={{ scale: 0.97 }}
-									className={`relative flex items-center gap-2.5 rounded-lg border p-3 cursor-pointer transition-all active:scale-95 touch-manipulation ${
-										isChecked
-											? 'border-primary bg-primary/10 shadow-sm'
-											: 'border-border hover:border-primary/40 bg-background'
-									}`}
+			{/* Subjects / self-contained classes by level */}
+			<div className="space-y-3 max-h-[45vh] sm:max-h-64 overflow-y-auto pr-0.5">
+				{getClassLevels(session).map((level: string) => {
+					const style = getLvlStyle(level);
+					const isSC = isLevelSelfContained(session, level);
+					return (
+						<div
+							key={level}
+							className={`rounded-lg border p-3 ${style.section}`}
+						>
+							<div className="mb-2">
+								<span
+									className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${style.badge}`}
 								>
-									<input
-										type="checkbox"
-										checked={isChecked}
-										onChange={(e) =>
-											handleSelfContainedSelection(
+									{level}
+								</span>
+							</div>
+							<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+								{isSC
+									? getClassesBySessionAndLevel(session, level).map((cls: any) => {
+											const isChecked = isSCClassChecked(
 												cls.classId,
 												session,
-												cls.level,
-												e.target.checked,
-											)
-										}
-										className="absolute opacity-0 w-0 h-0"
-									/>
-									<ThemedCheckbox checked={isChecked} />
-									<div className="min-w-0">
-										<span className="text-sm font-medium text-foreground block truncate">
-											{cls.name}
-										</span>
-										<span className="text-[11px] text-muted-foreground">
-											{cls.level}
-										</span>
-									</div>
-								</motion.label>
-							);
-						})}
-					</div>
-				</SectionCard>
-			)}
-
-			{/* Regular subjects by level */}
-			{regularLevels.length > 0 && (
-				<SectionCard
-					title="Subjects by Level"
-					subtitle="Check subjects this teacher will deliver across all classes in that level."
-					icon={BookOpen}
-				>
-					<div className="space-y-3 max-h-[50vh] sm:max-h-64 overflow-y-auto pr-0.5">
-						{regularLevels.map((level: string) => {
-							const style = getLvlStyle(level);
-							const subjectNames = getSubjectsBySessionAndLevel(session, level);
-							const checkedCount = subjectNames.filter((sub: string) =>
-								subjects.some(
-									(s: any) =>
-										s.subject === sub &&
-										s.level === level &&
-										s.session === session &&
-										!s.classId,
-								),
-							).length;
-							return (
-								<div
-									key={level}
-									className={`rounded-lg border p-3 ${style.section}`}
-								>
-									<div className="flex items-center gap-2 mb-2.5">
-										<span
-											className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${style.badge}`}
-										>
-											{level}
-										</span>
-										{checkedCount > 0 && (
-											<span className="text-xs text-muted-foreground">
-												{checkedCount}/{subjectNames.length} selected
-											</span>
-										)}
-									</div>
-									<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-										{subjectNames.map((subject: string, idx: number) => {
+												level,
+											);
+											return (
+												<motion.label
+													key={cls.classId}
+													whileTap={{ scale: 0.96 }}
+													className={`relative flex items-center gap-2 rounded-lg border p-2.5 cursor-pointer text-sm transition-all touch-manipulation ${
+														isChecked
+															? 'border-primary bg-primary/10 shadow-sm'
+															: 'border-border bg-background hover:border-primary/40'
+													}`}
+												>
+													<input
+														type="checkbox"
+														checked={isChecked}
+														onChange={(e) =>
+															handleSelfContainedSelection(
+																cls.classId,
+																session,
+																level,
+																e.target.checked,
+															)
+														}
+														className="absolute opacity-0 w-0 h-0"
+													/>
+													<ThemedCheckbox checked={isChecked} />
+													<span className="text-foreground font-medium text-xs sm:text-sm truncate">
+														{cls.name}
+													</span>
+												</motion.label>
+											);
+										})
+									: getSubjectsBySessionAndLevel(session, level).map((subject: string, idx: number) => {
 											const isChecked = subjects.some(
 												(s: any) =>
 													s.subject === subject &&
@@ -559,20 +488,17 @@ const TeacherSessionPanel = ({
 												</motion.label>
 											);
 										})}
-									</div>
-								</div>
-							);
-						})}
-					</div>
-				</SectionCard>
-			)}
+							</div>
+						</div>
+					);
+				})}
+			</div>
 
-			{showSponsorship && <>
-				<SectionCard
-					title="Class Sponsorship"
-					subtitle="Assign this teacher as homeroom sponsor for one class (optional)."
-					icon={Users}
-				>
+			{showSponsorship && (
+				<div>
+					<p className="text-[10px] font-semibold text-foreground/70 uppercase tracking-wider mb-2">
+						Class Sponsorship
+					</p>
 					<select
 						value={
 							formData.teacher.sponsorClass &&
@@ -621,8 +547,8 @@ const TeacherSessionPanel = ({
 								</option>
 							))}
 					</select>
-				</SectionCard>
-			</>}
+				</div>
+			)}
 		</div>
 	);
 };
@@ -737,7 +663,8 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	/* ── School data helpers ── */
 	const getSessions = () =>
 		school?.academicConfig?.classLevels ? Object.keys(school.academicConfig.classLevels) : [];
-	const hasMultipleSessions = getSessions().length > 1;
+	const sessionsList = getSessions();
+	const hasMultipleSessions = sessionsList.length > 1;
 
 	const getClassLevels = (session: string) =>
 		school?.academicConfig?.classLevels?.[session]
@@ -2410,198 +2337,59 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 										</p>
 									</div>
 
-									{/* Mobile session tabs */}
-									{hasMultipleSessions && (
-										<MobileTabStrip
-											items={getSessions().map((session) => ({
-												id: session,
-												label: session,
-												icon: BookOpen,
-												badge:
-													sessionSubjectCount(session) > 0 ? (
-														<span className="font-bold">
-															{sessionSubjectCount(session)}
-														</span>
-													) : undefined,
-											}))}
-											activeId={activePanel}
-											onSelect={setActivePanel}
-										/>
-									)}
-
-									<div className="flex gap-4">
-										{/* Desktop sidebar — multi-session only */}
-										{hasMultipleSessions && (
-											<div className="hidden sm:flex flex-col gap-1 w-40 lg:w-44 shrink-0">
-												<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 px-1">
-													Sessions
-												</p>
-												{getSessions().map((session) => {
-													const count = sessionSubjectCount(session);
-													const isActive = activePanel === session;
-													return (
-														<SidebarItem
-															key={session}
-															label={session}
-															isActive={isActive}
-															icon={BookOpen}
-															badge={
-																count > 0 ? (
-																	<span
-																		className={`shrink-0 text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center leading-none ${isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-primary/10 text-primary'}`}
-																	>
-																		{count}
-																	</span>
-																) : undefined
-															}
-															onClick={() => setActivePanel(session)}
-														/>
-													);
-												})}
-												{/* Sidebar summary */}
-												{formData.teacher.subjects.length > 0 && (
-													<div className="mt-3 pt-3 border-t border-border space-y-1.5">
-														<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-1">
-															Summary
-														</p>
-														<div className="rounded-lg bg-muted/60 border border-border px-3 py-2.5 space-y-1.5 text-xs">
-															<div className="flex justify-between gap-1">
-																<span className="text-muted-foreground">
-																	Subjects
-																</span>
-																<span className="font-bold text-foreground">
-																	{uniqueSubjectNames}
-																</span>
-															</div>
-															<div className="flex justify-between gap-1">
-																<span className="text-muted-foreground">
-																	Classes
-																</span>
-																<span className="font-bold text-foreground">
-																	{totalTeacherClasses}
-																</span>
-															</div>
-															<div className="flex justify-between gap-1">
-																<span className="text-muted-foreground">
-																	Sessions
-																</span>
-																<span className="font-bold text-foreground">
-																	{
-																		new Set(
-																			formData.teacher.subjects.map(
-																				(s) => s.session,
-																			),
-																		).size
-																	}
-																</span>
-															</div>
-															{formData.teacher.isSponsor &&
-																formData.teacher.sponsorClass && (
-																	<div className="pt-1 border-t border-border/50">
-																		<span className="text-muted-foreground block">
-																			Sponsor Class
-																		</span>
-																		<span className="font-bold text-primary break-words text-[11px]">
-																			{getAllClassesForSession(
-																				formData.teacher.subjects[0]?.session,
-																			).find(
-																				(c: any) =>
-																					c.classId ===
-																					formData.teacher.sponsorClass,
-																			)?.name ?? '—'}
-																		</span>
-																	</div>
-																)}
-														</div>
-													</div>
-												)}
-											</div>
-										)}
-
-										{/* Content panel */}
-										<div className="flex-1 min-w-0">
-											{!hasMultipleSessions ? (
-												<TeacherSessionPanel
-													session={getSessions()[0]}
-													formData={formData}
-													setFormData={setFormData}
-													isSCClassChecked={isSCClassChecked}
-													handleSelfContainedSelection={
-														handleSelfContainedSelection
-													}
-													handleSubjectChange={handleSubjectChange}
-													getSelfContainedClasses={getSelfContainedClasses}
-													getClassLevels={getClassLevels}
-													isLevelSelfContained={isLevelSelfContained}
-													getSubjectsBySessionAndLevel={
-														getSubjectsBySessionAndLevel
-													}
-													getAllClassesForSession={getAllClassesForSession}
-													getLevelStyle={getLevelStyle}
-													uniqueSubjectNames={uniqueSubjectNames}
-													totalTeacherClasses={totalTeacherClasses}
-													showSummaryInline
-												/>
-											) : !activePanel ? (
-												<div className="min-h-[200px] sm:min-h-[360px] flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border text-center p-6 gap-3">
-													<BookOpen className="w-8 h-8 text-muted-foreground/30" />
-													<p className="text-sm font-medium text-muted-foreground">
-														<span className="sm:hidden">
-															Tap a session above to begin
-														</span>
-														<span className="hidden sm:inline">
-															Select a session to begin
-														</span>
-													</p>
-												</div>
-											) : (
-												<motion.div
-													key={activePanel}
-													initial={{ opacity: 0, x: 6 }}
-													animate={{ opacity: 1, x: 0 }}
-													transition={{ duration: 0.16 }}
-												>
-													<TeacherSessionPanel
-														session={activePanel}
-														formData={formData}
-														setFormData={setFormData}
-														isSCClassChecked={isSCClassChecked}
-														handleSelfContainedSelection={
-															handleSelfContainedSelection
-														}
-														handleSubjectChange={handleSubjectChange}
-														getSelfContainedClasses={getSelfContainedClasses}
-														getClassLevels={getClassLevels}
-														isLevelSelfContained={isLevelSelfContained}
-														getSubjectsBySessionAndLevel={
-															getSubjectsBySessionAndLevel
-														}
-														getAllClassesForSession={getAllClassesForSession}
-														getLevelStyle={getLevelStyle}
-													/>
-												</motion.div>
-											)}
+									{/* Session pills */}
+									<div>
+										<p className="text-[10px] font-semibold text-foreground/70 uppercase tracking-wider mb-2">
+											Session
+										</p>
+										<div className="flex gap-2 flex-wrap">
+											{sessionsList.map((s) => {
+												const isSel =
+													activePanel === s ||
+													(!activePanel && sessionsList[0] === s);
+												return (
+													<button
+														key={s}
+														type="button"
+														onClick={() => setActivePanel(s)}
+														className={`px-3.5 py-2 rounded-lg border text-xs font-semibold transition-all touch-manipulation ${
+															isSel
+																? 'border-primary bg-primary/10 text-primary'
+																: 'border-border hover:border-primary/40 text-foreground'
+														}`}
+													>
+														{isSel && (
+															<CheckCircle2 className="inline w-3 h-3 mr-1" />
+														)}
+														{s}
+													</button>
+												);
+											})}
 										</div>
 									</div>
 
-									{/* Mobile summary bar — shown once anything is selected */}
-									{formData.teacher.subjects.length > 0 &&
-										hasMultipleSessions && (
-											<div className="sm:hidden rounded-lg border border-border bg-muted/50 px-4 py-2.5 flex gap-4 text-xs">
-												<span className="text-muted-foreground">
-													Subjects:{' '}
-													<span className="font-bold text-foreground">
-														{uniqueSubjectNames}
-													</span>
-												</span>
-												<span className="text-muted-foreground">
-													Classes:{' '}
-													<span className="font-bold text-foreground">
-														{totalTeacherClasses}
-													</span>
-												</span>
-											</div>
-										)}
+									{(activePanel || sessionsList[0]) && (
+										<TeacherSessionPanel
+											session={activePanel || sessionsList[0]}
+											formData={formData}
+											setFormData={setFormData}
+											isSCClassChecked={isSCClassChecked}
+											handleSelfContainedSelection={
+												handleSelfContainedSelection
+											}
+											handleSubjectChange={handleSubjectChange}
+											getClassLevels={getClassLevels}
+											getClassesBySessionAndLevel={
+												getClassesBySessionAndLevel
+											}
+											isLevelSelfContained={isLevelSelfContained}
+											getSubjectsBySessionAndLevel={
+												getSubjectsBySessionAndLevel
+											}
+											getAllClassesForSession={getAllClassesForSession}
+											getLevelStyle={getLevelStyle}
+										/>
+									)}
 
 									{errors.subjects && (
 										<motion.p
@@ -2709,177 +2497,55 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 												<div className="flex-1 h-px bg-border" />
 											</div>
 
-											{/* Mobile session tabs */}
-											{hasMultipleSessions && (
-												<MobileTabStrip
-													items={getSessions().map((session) => ({
-														id: session,
-														label: session,
-														icon: BookOpen,
-														badge:
-															adminSessionSubjectCount(session) > 0 ? (
-																<span className="font-bold">
-																	{adminSessionSubjectCount(session)}
-																</span>
-															) : undefined,
-													}))}
-													activeId={adminActivePanel}
-													onSelect={setAdminActivePanel}
-												/>
-											)}
-
-											<div className="flex gap-4">
-												{/* Desktop sidebar — multi-session only */}
-												{hasMultipleSessions && (
-													<div className="hidden sm:flex flex-col gap-1 w-40 lg:w-44 shrink-0">
-														<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5 px-1">
-															Sessions
-														</p>
-														{getSessions().map((session) => {
-															const count = adminSessionSubjectCount(session);
-															const isActive = adminActivePanel === session;
-															return (
-																<SidebarItem
-																	key={session}
-																	label={session}
-																	isActive={isActive}
-																	icon={BookOpen}
-																	badge={
-																		count > 0 ? (
-																			<span
-																				className={`shrink-0 text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center leading-none ${isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-primary/10 text-primary'}`}
-																			>
-																				{count}
-																			</span>
-																		) : undefined
-																	}
-																	onClick={() => setAdminActivePanel(session)}
-																/>
-															);
-														})}
-														{/* Sidebar summary */}
-														{formData.administrator.adminClasses.length > 0 && (
-															<div className="mt-3 pt-3 border-t border-border space-y-1.5">
-																<p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-1">
-																	Summary
-																</p>
-																<div className="rounded-lg bg-muted/60 border border-border px-3 py-2.5 space-y-1.5 text-xs">
-																	<div className="flex justify-between gap-1">
-																		<span className="text-muted-foreground">
-																			Subjects
-																		</span>
-																		<span className="font-bold text-foreground">
-																			{adminUniqueSubjectNames}
-																		</span>
-																	</div>
-																	<div className="flex justify-between gap-1">
-																		<span className="text-muted-foreground">
-																			Classes
-																		</span>
-																		<span className="font-bold text-foreground">
-																			{adminTotalTeacherClasses}
-																		</span>
-																	</div>
-																	<div className="flex justify-between gap-1">
-																		<span className="text-muted-foreground">
-																			Sessions
-																		</span>
-																		<span className="font-bold text-foreground">
-																			{
-																				new Set(
-																					formData.administrator.adminClasses.map(
-																						(s) => s.session,
-																					),
-																				).size
-																			}
-																		</span>
-																	</div>
-																</div>
-															</div>
-														)}
-													</div>
-												)}
-
-												{/* Content panel */}
-												<div className="flex-1 min-w-0">
-													{!hasMultipleSessions ? (
-														<TeacherSessionPanel
-															session={getSessions()[0]}
-															formData={formData}
-															setFormData={setFormData}
-															subjects={formData.administrator.adminClasses}
-															showSponsorship={false}
-															isSCClassChecked={isAdminSCClassChecked}
-															handleSelfContainedSelection={handleAdminSelfContainedSelection}
-															handleSubjectChange={handleAdminSubjectChange}
-															getSelfContainedClasses={getSelfContainedClasses}
-															getClassLevels={getClassLevels}
-															isLevelSelfContained={isLevelSelfContained}
-															getSubjectsBySessionAndLevel={getSubjectsBySessionAndLevel}
-															getAllClassesForSession={getAllClassesForSession}
-															getLevelStyle={getLevelStyle}
-															uniqueSubjectNames={adminUniqueSubjectNames}
-															totalTeacherClasses={adminTotalTeacherClasses}
-															showSummaryInline
-														/>
-													) : !adminActivePanel ? (
-														<div className="min-h-[200px] sm:min-h-[360px] flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border text-center p-6 gap-3">
-															<BookOpen className="w-8 h-8 text-muted-foreground/30" />
-															<p className="text-sm font-medium text-muted-foreground">
-																<span className="sm:hidden">
-																	Tap a session above to begin
-																</span>
-																<span className="hidden sm:inline">
-																	Select a session to begin
-																</span>
-															</p>
-														</div>
-													) : (
-														<motion.div
-															key={adminActivePanel}
-															initial={{ opacity: 0, x: 6 }}
-															animate={{ opacity: 1, x: 0 }}
-															transition={{ duration: 0.16 }}
-														>
-															<TeacherSessionPanel
-																session={adminActivePanel}
-																formData={formData}
-																setFormData={setFormData}
-																subjects={formData.administrator.adminClasses}
-																showSponsorship={false}
-																isSCClassChecked={isAdminSCClassChecked}
-																handleSelfContainedSelection={handleAdminSelfContainedSelection}
-																handleSubjectChange={handleAdminSubjectChange}
-																getSelfContainedClasses={getSelfContainedClasses}
-																getClassLevels={getClassLevels}
-																isLevelSelfContained={isLevelSelfContained}
-																getSubjectsBySessionAndLevel={getSubjectsBySessionAndLevel}
-																getAllClassesForSession={getAllClassesForSession}
-																getLevelStyle={getLevelStyle}
-															/>
-														</motion.div>
-													)}
+											{/* Session pills */}
+											<div>
+												<p className="text-[10px] font-semibold text-foreground/70 uppercase tracking-wider mb-2">
+													Session
+												</p>
+												<div className="flex gap-2 flex-wrap">
+													{sessionsList.map((s) => {
+														const isSel =
+															adminActivePanel === s ||
+															(!adminActivePanel && sessionsList[0] === s);
+														return (
+															<button
+																key={s}
+																type="button"
+																onClick={() => setAdminActivePanel(s)}
+																className={`px-3.5 py-2 rounded-lg border text-xs font-semibold transition-all touch-manipulation ${
+																	isSel
+																		? 'border-primary bg-primary/10 text-primary'
+																		: 'border-border hover:border-primary/40 text-foreground'
+																}`}
+															>
+																{isSel && (
+																	<CheckCircle2 className="inline w-3 h-3 mr-1" />
+																)}
+																{s}
+															</button>
+														);
+													})}
 												</div>
 											</div>
 
-											{/* Mobile summary bar — shown once anything is selected */}
-											{formData.administrator.adminClasses.length > 0 &&
-												hasMultipleSessions && (
-													<div className="sm:hidden rounded-lg border border-border bg-muted/50 px-4 py-2.5 flex gap-4 text-xs">
-														<span className="text-muted-foreground">
-															Subjects:{' '}
-															<span className="font-bold text-foreground">
-																{adminUniqueSubjectNames}
-															</span>
-														</span>
-														<span className="text-muted-foreground">
-															Classes:{' '}
-															<span className="font-bold text-foreground">
-																{adminTotalTeacherClasses}
-															</span>
-														</span>
-													</div>
-												)}
+											{(adminActivePanel || sessionsList[0]) && (
+												<TeacherSessionPanel
+													session={adminActivePanel || sessionsList[0]}
+													formData={formData}
+													setFormData={setFormData}
+													subjects={formData.administrator.adminClasses}
+													showSponsorship={false}
+													isSCClassChecked={isAdminSCClassChecked}
+													handleSelfContainedSelection={handleAdminSelfContainedSelection}
+													handleSubjectChange={handleAdminSubjectChange}
+													getClassLevels={getClassLevels}
+													getClassesBySessionAndLevel={getClassesBySessionAndLevel}
+													isLevelSelfContained={isLevelSelfContained}
+													getSubjectsBySessionAndLevel={getSubjectsBySessionAndLevel}
+													getAllClassesForSession={getAllClassesForSession}
+													getLevelStyle={getLevelStyle}
+												/>
+											)}
 										</div>
 									)}
 									<SectionCard title="Permissions" icon={Shield}>
