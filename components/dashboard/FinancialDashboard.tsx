@@ -432,7 +432,7 @@ const FinancialDashboard = memo(function FinancialDashboard({
 				</div>
 				<div className="flex flex-wrap items-center gap-3">
 					<Link
-						href="/dashboard/financial-overview"
+						href="/dashboard/financial-reports"
 						className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
 					>
 						Full report

@@ -193,27 +193,27 @@ const componentImporters: Record<string, ComponentImporter> = {
 
 	// Record Payments
 	'record-payments': () =>
-		import('@/app/dashboard/record-payments/page'),
+		import('@/app/dashboard/record-payments/RecordPayments'),
 	'scholarships': () =>
-		import('@/app/dashboard/scholarships/page'),
+		import('@/app/dashboard/scholarships/Scholarships'),
 	'clearances': () =>
-		import('@/app/dashboard/clearances/page'),
+		import('@/app/dashboard/clearances/Clearances'),
 
 	// Financial Reports (admin)
-	'financial-overview': () =>
-		import('@/app/dashboard/financial-overview/page'),
+	'financial-reports': () =>
+		import('@/app/dashboard/shared/FinancialReports'),
 	'admin-payment-history': () =>
-		import('@/app/dashboard/payment-history/page'),
+		import('@/app/dashboard/payment-history/AdminPaymentHistory'),
 
 	// Documents
 	documents: () =>
-		import('@/app/dashboard/documents/page'),
+		import('@/app/dashboard/documents/TranscriptRecommendation'),
 	attestation: () =>
-		import('@/app/dashboard/attestation/page'),
+		import('@/app/dashboard/attestation/Attestation'),
 	diploma: () =>
-		import('@/app/dashboard/diploma/page'),
+		import('@/app/dashboard/diploma/Diploma'),
 	'digital-id': () =>
-		import('@/app/dashboard/digital-id/page'),
+		import('@/app/dashboard/digital-id/DigitalId'),
 
 	// Salary
 	// 'salary/advance': dynamic(
@@ -637,15 +637,18 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		routes: {
 			administrator: [
 				{
-					key: 'financial-overview',
-					title: 'Financial Overview',
-					href: '/dashboard/financial-overview',
-					icon: FileText,
+					key: 'financial-reports',
+					title: 'Financial Reports',
+					href: '/dashboard/financial-reports',
+					icon: DollarSign,
 				},
 				{
 					key: 'admin-payment-history',
 					title: 'Payment History',
-					href: '/dashboard/payment-history',
+					// Must stay in sync with the route key: /dashboard/<key> is what
+					// the dynamic dashboard route validates against. `/dashboard/
+					// payment-history` belongs to the student fee_payment route.
+					href: '/dashboard/admin-payment-history',
 					icon: FileText,
 				},
 			],
@@ -726,7 +729,7 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 		routes: {
 			system_admin: [
 				{
-					key: 'transcript-recommendation',
+					key: 'documents',
 					title: 'Transcript & Recommendation',
 					href: '/dashboard/documents',
 					icon: FileText,
@@ -738,7 +741,7 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					icon: FileText,
 				},
 				{
-					key: 'graduation-clearance',
+					key: 'clearances',
 					title: 'Graduation Clearance',
 					href: '/dashboard/clearances',
 					icon: ClipboardCheck,
@@ -758,7 +761,7 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 			],
 			administrator: [
 				{
-					key: 'transcript-recommendation',
+					key: 'documents',
 					title: 'Transcript & Recommendation',
 					href: '/dashboard/documents',
 					icon: FileText,
@@ -770,7 +773,7 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					icon: FileText,
 				},
 				{
-					key: 'graduation-clearance',
+					key: 'clearances',
 					title: 'Graduation Clearance',
 					href: '/dashboard/clearances',
 					icon: ClipboardCheck,
@@ -1616,6 +1619,11 @@ export function validateComponentAccess(
 		return false;
 	}
 
+	// A route key may be reachable through more than one feature (e.g.
+	// "clearances" is granted by both record_payments and academic_documents),
+	// so access is granted when ANY owning feature grants it — stopping at the
+	// first owner would deny users who hold only the other feature.
+	let ownedByFeature = false;
 	for (const feature of Object.values(featureConfigurations)) {
 		const userRoutes = getFeatureRoutesForUser(
 			feature,
@@ -1627,16 +1635,23 @@ export function validateComponentAccess(
 		}
 
 		if (userRoutes.some((route) => route.key === routeKey)) {
-			return hasFeatureAccess(
-				schoolProfile,
-				userRole,
-				feature.key,
-				adminPermissions,
-				isTeacher,
-			);
+			ownedByFeature = true;
+			if (
+				hasFeatureAccess(
+					schoolProfile,
+					userRole,
+					feature.key,
+					adminPermissions,
+					isTeacher,
+				)
+			) {
+				return true;
+			}
 		}
 	}
-	console.warn(`Route key "${routeKey}" not found in any feature.`);
+	if (!ownedByFeature) {
+		console.warn(`Route key "${routeKey}" not found in any feature.`);
+	}
 	return false;
 }
 
