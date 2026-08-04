@@ -563,6 +563,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 	const [createdUserInfo, setCreatedUserInfo] = useState<any>(null);
 	const [showErrorModal, setShowErrorModal] = useState(false);
 	const [errorMessage, setErrorMessage] = useState('');
+	const [errorDetails, setErrorDetails] = useState<string[]>([]);
 	const [conflictState, setConflictState] = useState(null);
 	const [showConflictModal, setShowConflictModal] = useState(false);
 	const [pendingUserData, setPendingUserData] = useState(null);
@@ -1162,6 +1163,7 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				setActivePanel(userType === 'student' ? 'class' : '');
 			setCurrentStep((s) => s + 1);
 		} else {
+			setErrorDetails([]);
 			setErrorMessage('Please fix the errors before continuing.');
 			setShowErrorModal(true);
 		}
@@ -1191,10 +1193,26 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 				setPendingUserData(userData);
 				setShowConflictModal(true);
 			} else {
-				setErrorMessage(result.message || 'Failed to create user');
+				const rawErrors = (result?.errors || []) as any[];
+				const details: string[] = Array.from(
+					new Set(
+						rawErrors
+							.map((err: any) =>
+								String(err?.message || '').trim(),
+							)
+							.filter(Boolean),
+					),
+				);
+				setErrorDetails(details);
+				setErrorMessage(
+					details.length > 0
+						? 'Please fix the highlighted issues below and try again.'
+						: result.message || 'Failed to create user',
+				);
 				setShowErrorModal(true);
 			}
 		} catch {
+			setErrorDetails([]);
 			setErrorMessage('Network error — please try again');
 			setShowErrorModal(true);
 		} finally {
@@ -1389,10 +1407,11 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 						{onBack && (
 							<button
 								onClick={onBack}
-								className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 touch-manipulation"
+								className="p-3 rounded-lg border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 								aria-label="Go back"
+								title="Go back"
 							>
-								<ArrowLeft className="w-4 h-4" />
+								<ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
 							</button>
 						)}
 						<div className="min-w-0">
@@ -3037,6 +3056,13 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 							<p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
 								{errorMessage}
 							</p>
+							{errorDetails.length > 0 && (
+								<ul className="text-left list-disc pl-5 space-y-1 mt-3 text-sm text-destructive">
+									{errorDetails.map((detail, index) => (
+										<li key={index}>{detail}</li>
+									))}
+								</ul>
+							)}
 						</div>
 						<button
 							onClick={() => setShowErrorModal(false)}

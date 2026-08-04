@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantModels } from '@/models';
 import { authorizeUser } from '@/proxy';
+import {
+	authorizeGradeActor,
+	isTeacherActor,
+	resolveGradeTeacherRecord,
+} from '@/utils/gradeActor';
 import { updateUserSessionNotifications } from '@/utils/session';
 import { getSchoolProfile } from '@/lib/mongoose';
 import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
@@ -1021,9 +1026,16 @@ export async function GET(request: NextRequest) {
 			}
 		}
 
-		// --- Teacher ---
-		if (currentUser.role === 'teacher') {
-			const teacher = roleProfile;
+		// --- Teacher (or isTeacher administrator) ---
+		if (currentUser.role === 'teacher' || isTeacherActor(currentUser)) {
+			const teacher = isTeacherActor(currentUser)
+				? {
+						...roleProfile,
+						subjects: Array.isArray(roleProfile?.classes)
+							? roleProfile.classes
+							: [],
+					}
+				: roleProfile;
 			const yearData = getTeacherYearData(
 				teacher,
 				academicYear,
@@ -1266,7 +1278,7 @@ export async function POST(request: NextRequest) {
 	// );
 
 	try {
-		const teacher = await authorizeUser(request, ['teacher']);
+		const teacher = await authorizeGradeActor(request, ['teacher']);
 		if (!teacher) {
 			return NextResponse.json(
 				{ success: false, message: 'Unauthorized' },
@@ -1342,9 +1354,7 @@ export async function POST(request: NextRequest) {
 			}
 		}
 
-		const teacherRecord = await models.Teacher.findById(teacher.id)
-			.select('subjects')
-			.lean();
+		const teacherRecord = await resolveGradeTeacherRecord(models, teacher);
 		const teacherYearData = getTeacherYearData(
 			teacherRecord,
 			resolvedAcademicYear,
@@ -1636,7 +1646,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
 	try {
-		const currentUser = await authorizeUser(request, ['teacher']);
+		const currentUser = await authorizeGradeActor(request, ['teacher']);
 		if (!currentUser) {
 			return NextResponse.json(
 				{ success: false, message: 'Unauthorized' },

@@ -286,6 +286,33 @@ function getRoleFeatureAccess(
 	return access[role as keyof typeof access] || [];
 }
 
+/**
+ * Resolves the routes a user should see for a feature.
+ * Administrators with `isTeacher: true` additionally get the feature's
+ * teacher routes so they can access teacher-only grading/work routes.
+ */
+function getFeatureRoutesForUser(
+	featureConfig: FeatureConfig,
+	effectiveRole: string,
+	isTeacher?: boolean,
+): Array<{ key: string; title: string; href: string; icon?: any }> {
+	const roleRoutes = featureConfig.routes[effectiveRole] || [];
+	if (effectiveRole !== 'administrator' || !isTeacher) return roleRoutes;
+
+	const teacherRoutes = featureConfig.routes['teacher'] || [];
+	if (teacherRoutes.length === 0) return roleRoutes;
+
+	const merged = [...roleRoutes];
+	const seen = new Set(roleRoutes.map((route) => route.key));
+	for (const route of teacherRoutes) {
+		if (!seen.has(route.key)) {
+			merged.push(route);
+			seen.add(route.key);
+		}
+	}
+	return merged;
+}
+
 function shouldExcludeRoute(
 	feature: FeatureKey,
 	routeKey: string,
@@ -317,11 +344,12 @@ function getAccessibleRouteKeys(
 		const featureConfig = featureConfigurations[feature];
 		if (!featureConfig) return;
 
-		let routes = featureConfig.routes[effectiveRole];
-		if (!routes && effectiveRole === 'administrator') {
-			return;
-		}
-		if (!routes) return;
+		const routes = getFeatureRoutesForUser(
+			featureConfig,
+			effectiveRole,
+			isTeacher,
+		);
+		if (routes.length === 0) return;
 
 		routes.forEach((route) => {
 			if (shouldExcludeRoute(feature, route.key, schoolProfile)) return;
@@ -1226,17 +1254,13 @@ export function generateDynamicComponentsMap(
 		const featureConfig = featureConfigurations[feature];
 		if (!featureConfig) return;
 
-		// Get routes for the user's role
-		let routes = featureConfig.routes[effectiveRole];
-		if (!routes && effectiveRole === 'administrator') {
-			// If no specific routes for 'administrator' are defined for this feature,
-			// this indicates a configuration error or a feature that's not
-			// meant to have specific admin routes. We will skip it.
-			return;
-		}
-		if (!routes) {
-			return;
-		}
+		// Get routes for the user's role (teacher routes are merged in for isTeacher admins)
+		const routes = getFeatureRoutesForUser(
+			featureConfig,
+			effectiveRole,
+			isTeacher,
+		);
+		if (routes.length === 0) return;
 
 		// Add each route for this feature
 		routes.forEach((route) => {
@@ -1345,8 +1369,12 @@ export function generateNavigationItems(
 		const featureConfig = featureConfigurations[feature];
 		if (!featureConfig) return;
 
-		let routes = featureConfig.routes[effectiveRole];
-		if (!routes) return;
+		let routes = getFeatureRoutesForUser(
+			featureConfig,
+			effectiveRole,
+			isTeacher,
+		);
+		if (routes.length === 0) return;
 
 		routes.forEach((route) => {
 			if (shouldExcludeRoute(feature, route.key, schoolProfile)) return;
@@ -1589,8 +1617,12 @@ export function validateComponentAccess(
 	}
 
 	for (const feature of Object.values(featureConfigurations)) {
-		let userRoutes = feature.routes[effectiveRole];
-		if (!userRoutes) {
+		const userRoutes = getFeatureRoutesForUser(
+			feature,
+			effectiveRole,
+			isTeacher,
+		);
+		if (userRoutes.length === 0) {
 			continue;
 		}
 
@@ -1643,8 +1675,12 @@ export function getUserRoutes(
 		const featureConfig = featureConfigurations[feature];
 		if (!featureConfig) return;
 
-		let featureRoutes = featureConfig.routes[effectiveRole];
-		if (!featureRoutes) {
+		const featureRoutes = getFeatureRoutesForUser(
+			featureConfig,
+			effectiveRole,
+			isTeacher,
+		);
+		if (featureRoutes.length === 0) {
 			return;
 		}
 

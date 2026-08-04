@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantModels } from '@/models';
 import { authorizeUser } from '@/proxy';
+import {
+	authorizeGradeActor,
+	isTeacherActor,
+	resolveGradeTeacherRecord,
+} from '@/utils/gradeActor';
 import { updateUserSessionNotifications } from '@/utils/session';
 import crypto from 'crypto';
 import { getSchoolProfile } from '@/lib/mongoose';
@@ -176,8 +181,8 @@ const fetchGradeRequestReportForYear = async (
 // -----------------------------------------------------------------------------
 export async function GET(request: NextRequest) {
 	try {
-		// Authorize for both admin and teacher roles
-		const currentUser = await authorizeUser(request, [
+		// Authorize for both admin and teacher roles (isTeacher admins act as teachers)
+		const currentUser = await authorizeGradeActor(request, [
 			'system_admin',
 			'teacher',
 		]);
@@ -229,7 +234,7 @@ export async function GET(request: NextRequest) {
 		};
 
 		// If the user is a teacher, only fetch their requests
-		if (currentUser.role === 'teacher') {
+		if (currentUser.role === 'teacher' || isTeacherActor(currentUser)) {
 			query.teacherUsername = currentUser.username;
 		}
 
@@ -315,7 +320,7 @@ export async function GET(request: NextRequest) {
 // -----------------------------------------------------------------------------
 export async function POST(request: NextRequest) {
 	try {
-		const teacher = await authorizeUser(request, ['teacher']);
+		const teacher = await authorizeGradeActor(request, ['teacher']);
 		if (!teacher) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}
@@ -355,9 +360,10 @@ export async function POST(request: NextRequest) {
 			tenantId: teacher.tenantId,
 			host: request.headers.get('host'),
 		});
-		const teacherRecord = await Teacher.findById(teacher.id)
-			.select('role subjects username')
-			.lean();
+		const teacherRecord = await resolveGradeTeacherRecord(
+			{ Teacher },
+			teacher,
+		);
 		if (!teacherRecord) {
 			return NextResponse.json(
 				{ success: false, message: 'Teacher profile not found.' },
@@ -910,7 +916,7 @@ export async function PATCH(request: NextRequest) {
 // -----------------------------------------------------------------------------
 export async function PUT(request: NextRequest) {
 	try {
-		const teacher = await authorizeUser(request, ['teacher']);
+		const teacher = await authorizeGradeActor(request, ['teacher']);
 		if (!teacher) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}
@@ -1220,7 +1226,7 @@ export async function PUT(request: NextRequest) {
 // -----------------------------------------------------------------------------
 export async function DELETE(request: NextRequest) {
 	try {
-		const teacher = await authorizeUser(request, ['teacher']);
+		const teacher = await authorizeGradeActor(request, ['teacher']);
 		if (!teacher) {
 			return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
 		}

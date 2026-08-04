@@ -1362,7 +1362,16 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 						mode: 'profile-update',
 					});
 				} else if (res.status === 400 && data.errors) {
-					setValidationErrors(data.errors);
+					setValidationErrors(
+						Array.isArray(data.errors) && data.errors.length > 0
+							? data.errors
+							: [
+									{
+										message:
+											data.message || 'An unexpected error occurred.',
+									},
+								],
+					);
 				} else {
 					setValidationErrors([
 						{ message: data.message || 'An unexpected error occurred.' },
