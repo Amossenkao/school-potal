@@ -1,15 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
 	Award,
 	BadgePercent,
 	Banknote,
+	CalendarDays,
 	CheckCircle2,
 	Loader2,
 	Search,
 	Trash2,
 	Undo2,
+	UserCheck,
 	UserPlus,
 	Users,
 	Wallet,
@@ -29,19 +31,70 @@ import {
 	pickCurrentOrMostRecentAcademicYear,
 } from '@/utils/academicYearOptions';
 import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAccess';
+import StudentFinder, {
+	classIdForYear,
+	studentFullName,
+	useClassDirectory,
+} from '@/app/dashboard/shared/components/StudentFinder';
+
+const BENEFICIARY_PAGE = 25;
 
 const formatCurrency = (amount: number) =>
-	amount.toLocaleString('en-US', {
+	(Number.isFinite(amount) ? amount : 0).toLocaleString('en-US', {
 		minimumFractionDigits: 2,
 		maximumFractionDigits: 2,
 	});
 
+const normalizeYear = (value?: string) => (value || '').replace(/\//g, '-');
+
+const initials = (name: string) =>
+	name
+		.split(' ')
+		.slice(0, 2)
+		.map((part) => part[0] || '')
+		.join('')
+		.toUpperCase();
+
+/* ── Primitives ────────────────────────────────────────────────────────── */
+
+function StatTile({
+	label,
+	value,
+	icon: Icon,
+	hint,
+}: {
+	label: string;
+	value: string | number;
+	icon: any;
+	hint?: string;
+}) {
+	return (
+		<div className="rounded-2xl border border-border bg-card p-4">
+			<div className="flex items-start justify-between gap-2">
+				<p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+					{label}
+				</p>
+				<Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+			</div>
+			<p className="mt-2 text-2xl font-black tabular-nums text-foreground">
+				{value}
+			</p>
+			{hint && (
+				<p className="mt-1 text-[11px] font-medium text-muted-foreground">
+					{hint}
+				</p>
+			)}
+		</div>
+	);
+}
+
+/* ── Page ──────────────────────────────────────────────────────────────── */
+
 export default function ScholarshipsPage() {
-	const schoolProfile = useSchoolStore((s) => s.school);
-	const usersByAcademicYear = useSchoolStore((s) => s.usersByAcademicYear);
+	const schoolProfile = useSchoolStore((state) => state.school);
+	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
 
 	const [academicYear, setAcademicYear] = useState('');
-	const [search, setSearch] = useState('');
 	const [selectedStudent, setSelectedStudent] = useState<any>(null);
 	const [toggled, setToggled] = useState<Set<string>>(new Set());
 	const [wardTeacherId, setWardTeacherId] = useState('');
@@ -54,27 +107,16 @@ export default function ScholarshipsPage() {
 	const [modalScholarship, setModalScholarship] = useState<any>(null);
 	const [modalRemoved, setModalRemoved] = useState<Set<string>>(new Set());
 	const [modalSaving, setModalSaving] = useState(false);
+	const [modalQuery, setModalQuery] = useState('');
+	const [modalVisible, setModalVisible] = useState(BENEFICIARY_PAGE);
 
-	// Students come from the school store roster for the selected year instead
-	// of a fresh /api/students fetch on every open.
-	const students = useMemo(() => {
-		if (!academicYear || !usersByAcademicYear) return [];
-		return (
-			usersByAcademicYear[academicYear]?.students ||
-			Object.entries(usersByAcademicYear).find(
-				([k]) =>
-					k.replace(/\//g, '-') === academicYear.replace(/\//g, '-'),
-			)?.[1]?.students ||
-			[]
-		);
-	}, [usersByAcademicYear, academicYear]);
-
+	const directory = useClassDirectory(schoolProfile);
 	const loading = !schoolProfile;
 
-	const academicYearOptions = useMemo(() => {
-		if (!schoolProfile) return [];
-		return buildSchoolAcademicYearRange(schoolProfile);
-	}, [schoolProfile]);
+	const academicYearOptions = useMemo(
+		() => (schoolProfile ? buildSchoolAcademicYearRange(schoolProfile) : []),
+		[schoolProfile],
+	);
 
 	useEffect(() => {
 		if (!schoolProfile) return;
@@ -87,11 +129,32 @@ export default function ScholarshipsPage() {
 		);
 	}, [schoolProfile]);
 
+	const yearUsers = useMemo(() => {
+		if (!academicYear || !usersByAcademicYear) return null;
+		return (
+			usersByAcademicYear[academicYear] ||
+			Object.entries(usersByAcademicYear).find(
+				([key]) => normalizeYear(key) === normalizeYear(academicYear),
+			)?.[1] ||
+			null
+		);
+	}, [usersByAcademicYear, academicYear]);
+
+	const students = useMemo(
+		() => (Array.isArray((yearUsers as any)?.students) ? (yearUsers as any).students : []),
+		[yearUsers],
+	);
+
+	const teachers = useMemo(
+		() => (Array.isArray((yearUsers as any)?.teachers) ? (yearUsers as any).teachers : []),
+		[yearUsers],
+	);
+
 	const schedule = useMemo(() => {
 		if (!schoolProfile?.financialConfig?.feeSchedules) return null;
 		return (
 			schoolProfile.financialConfig.feeSchedules.find(
-				(s) => s.academicYear === academicYear,
+				(item) => normalizeYear(item.academicYear) === normalizeYear(academicYear),
 			) || null
 		);
 	}, [schoolProfile, academicYear]);
@@ -104,45 +167,75 @@ export default function ScholarshipsPage() {
 	);
 
 	const categoryName = useCallback(
-		(id: string) => categories.find((c) => c.id === id)?.name || id,
+		(id: string) => categories.find((item) => item.id === id)?.name || id,
 		[categories],
 	);
 
-	const filteredStudents = useMemo(() => {
-		const q = search.trim().toLowerCase();
-		if (!q) return students;
-		return students.filter(
-			(s) =>
-				`${s.firstName} ${s.lastName}`.toLowerCase().includes(q) ||
-				String(s.studentId || '').toLowerCase().includes(q),
-		);
-	}, [search, students]);
+	const definedKeys = useMemo(() => {
+		const ids = new Set(scholarships.map((item) => item.id));
+		const names = new Set(scholarships.map((item) => item.name));
+		return { ids, names };
+	}, [scholarships]);
 
-	const beneficiaryCount = useCallback(
-		(scholarship: any) =>
-			students.filter((s) =>
-				(s.scholarships || []).some(
-					(k: string) =>
-						k === scholarship.id || k === scholarship.name,
-				),
-			).length,
-		[students],
+	const holdsScholarship = useCallback(
+		(student: any, scholarship: any) =>
+			(student.scholarships || []).some(
+				(key: string) => key === scholarship.id || key === scholarship.name,
+			),
+		[],
 	);
+
+	// One pass over the roster gives every count the page needs.
+	const stats = useMemo(() => {
+		const perScholarship = new Map<string, number>();
+		let awarded = 0;
+		let warded = 0;
+		for (const student of students) {
+			let hasAny = false;
+			for (const scholarship of scholarships) {
+				if (holdsScholarship(student, scholarship)) {
+					perScholarship.set(
+						scholarship.id,
+						(perScholarship.get(scholarship.id) || 0) + 1,
+					);
+					hasAny = true;
+				}
+			}
+			if (hasAny) awarded += 1;
+			if (student.wardTeacherId) warded += 1;
+		}
+		return { perScholarship, awarded, warded };
+	}, [students, scholarships, holdsScholarship]);
 
 	const modalStudents = useMemo(() => {
 		if (!modalScholarship) return [];
-		return students.filter((s) =>
-			(s.scholarships || []).some(
-				(k: string) =>
-					k === modalScholarship.id || k === modalScholarship.name,
-			),
-		);
-	}, [students, modalScholarship]);
+		const query = modalQuery.trim().toLowerCase();
+		return students
+			.filter((student: any) => holdsScholarship(student, modalScholarship))
+			.filter((student: any) => {
+				if (!query) return true;
+				return (
+					studentFullName(student).toLowerCase().includes(query) ||
+					String(student.studentId || '').toLowerCase().includes(query)
+				);
+			})
+			.sort((a: any, b: any) =>
+				studentFullName(a).localeCompare(studentFullName(b)),
+			);
+	}, [students, modalScholarship, modalQuery, holdsScholarship]);
 
 	const openModal = (scholarship: any) => {
 		setModalScholarship(scholarship);
 		setModalRemoved(new Set());
+		setModalQuery('');
+		setModalVisible(BENEFICIARY_PAGE);
 		setMessage(null);
+	};
+
+	const closeModal = () => {
+		setModalScholarship(null);
+		setModalRemoved(new Set());
+		setModalQuery('');
 	};
 
 	const toggleModalRemove = (studentId: string) => {
@@ -156,21 +249,22 @@ export default function ScholarshipsPage() {
 
 	const handleModalSave = async () => {
 		if (!modalScholarship || modalRemoved.size === 0) {
-			setModalScholarship(null);
-			setModalRemoved(new Set());
+			closeModal();
 			return;
 		}
 		setModalSaving(true);
 		setMessage(null);
-		const targets = modalStudents.filter((s) =>
-			modalRemoved.has(s.studentId),
+		const targets = students.filter(
+			(student: any) =>
+				holdsScholarship(student, modalScholarship) &&
+				modalRemoved.has(student.studentId),
 		);
 		try {
 			let allOk = true;
 			for (const student of targets) {
 				const preserved = (student.scholarships || []).filter(
-					(k: string) =>
-						k !== modalScholarship.id && k !== modalScholarship.name,
+					(key: string) =>
+						key !== modalScholarship.id && key !== modalScholarship.name,
 				);
 				const res = await fetch('/api/students', {
 					method: 'PATCH',
@@ -189,15 +283,14 @@ export default function ScholarshipsPage() {
 					allOk = false;
 				}
 			}
-			const n = targets.length;
+			const count = targets.length;
 			setMessage({
 				type: allOk ? 'success' : 'error',
 				text: allOk
-					? `Removed ${n} student${n === 1 ? '' : 's'} from ${modalScholarship.name}.`
+					? `Removed ${count} student${count === 1 ? '' : 's'} from ${modalScholarship.name}.`
 					: 'Some students could not be removed.',
 			});
-			setModalScholarship(null);
-			setModalRemoved(new Set());
+			closeModal();
 		} catch {
 			setMessage({ type: 'error', text: 'Failed to remove students.' });
 		} finally {
@@ -205,18 +298,12 @@ export default function ScholarshipsPage() {
 		}
 	};
 
-	const definedKeys = useMemo(() => {
-		const ids = new Set(scholarships.map((s) => s.id));
-		const names = new Set(scholarships.map((s) => s.name));
-		return { ids, names };
-	}, [scholarships]);
-
 	const handleSelectStudent = (student: any) => {
 		setSelectedStudent(student);
 		const assigned = new Set<string>();
-		for (const k of student.scholarships || []) {
-			if (definedKeys.ids.has(k) || definedKeys.names.has(k)) {
-				assigned.add(k);
+		for (const key of student.scholarships || []) {
+			if (definedKeys.ids.has(key) || definedKeys.names.has(key)) {
+				assigned.add(key);
 			}
 		}
 		setToggled(assigned);
@@ -240,9 +327,10 @@ export default function ScholarshipsPage() {
 		if (!selectedStudent) return;
 		setSaving(true);
 		setMessage(null);
+		// Keys the current year's schedule doesn't define are left untouched so
+		// awards from other years survive the save.
 		const preserved = (selectedStudent.scholarships || []).filter(
-			(k: string) =>
-				!definedKeys.ids.has(k) && !definedKeys.names.has(k),
+			(key: string) => !definedKeys.ids.has(key) && !definedKeys.names.has(key),
 		);
 		const scholarshipsToSave = Array.from(
 			new Set([...preserved, ...Array.from(toggled)]),
@@ -284,130 +372,178 @@ export default function ScholarshipsPage() {
 		}
 	};
 
-	const typeBadge = (s: any) => {
-		if (s.scholarshipType === 'percentage') {
+	const typeBadge = (scholarship: any) => {
+		if (scholarship.scholarshipType === 'percentage') {
 			return { icon: BadgePercent, cls: 'bg-primary/10 text-primary' };
 		}
-		if (s.scholarshipType === 'fixedDeduction') {
+		if (scholarship.scholarshipType === 'fixedDeduction') {
 			return { icon: Wallet, cls: 'bg-amber-500/10 text-amber-600' };
 		}
 		return { icon: Banknote, cls: 'bg-teal-500/10 text-teal-600' };
 	};
 
-	const scholarshipValue = (s: any) => {
-		if (s.scholarshipType === 'percentage') {
-			return `${Math.round(s.amount * 100)}% of covered fees`;
+	const scholarshipValue = (scholarship: any) => {
+		if (scholarship.scholarshipType === 'percentage') {
+			return `${Math.round(scholarship.amount * 100)}% of covered fees`;
 		}
-		const suffix = s.scholarshipType === 'fixedPayment' ? 'cap' : 'deducted';
-		return `${s.currency || 'LRD'} ${formatCurrency(s.amount)} (${suffix})`;
+		const suffix =
+			scholarship.scholarshipType === 'fixedPayment' ? 'cap' : 'deducted';
+		return `${scholarship.currency || 'LRD'} ${formatCurrency(scholarship.amount)} (${suffix})`;
 	};
 
-	const appliesToLabel = (s: any) => {
-		if (!s.appliesTo || s.appliesTo.length === 0) {
+	const appliesToLabel = (scholarship: any) => {
+		if (!scholarship.appliesTo || scholarship.appliesTo.length === 0) {
 			return 'All fee categories';
 		}
-		return s.appliesTo.map(categoryName).join(', ');
+		return scholarship.appliesTo.map(categoryName).join(', ');
 	};
 
+	const selectedClassName = selectedStudent
+		? directory.byId[classIdForYear(selectedStudent, academicYear)]?.className ||
+			selectedStudent.className ||
+			'—'
+		: '';
+
+	const teacherName = (teacher: any) =>
+		teacher?.fullName ||
+		`${teacher?.firstName || ''} ${teacher?.lastName || ''}`.trim() ||
+		teacher?.username ||
+		'';
+
 	return (
-		<div className="mx-auto max-w-7xl space-y-6 p-6">
-			{/* Header */}
-			<div className="flex flex-wrap items-center justify-between gap-3">
+		<div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6">
+			{/* ── Header ──────────────────────────────────────────────────── */}
+			<header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 				<div>
-					<h1 className="text-2xl font-black tracking-tight text-foreground">
-						Scholarships
+					<h1 className="text-2xl font-black tracking-tight sm:text-3xl">
+						Scholarships &amp; Wards
 					</h1>
-					<p className="text-sm text-muted-foreground">
-						Configured scholarships and student assignments by academic year.
+					<p className="mt-1 text-sm text-muted-foreground">
+						Configured awards for the year, and who holds them.
 					</p>
 				</div>
 				{academicYearOptions.length > 0 && (
-					<select
-						value={academicYear}
-						onChange={(e) => setAcademicYear(e.target.value)}
-						className="rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground outline-none focus:border-primary"
-					>
-						{academicYearOptions.map((year) => (
-							<option key={year} value={year}>
-								{year}
-							</option>
-						))}
-					</select>
+					<label className="flex items-center gap-2">
+						<CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+						<span className="sr-only">Academic year</span>
+						<select
+							value={academicYear}
+							onChange={(event) => setAcademicYear(event.target.value)}
+							className="rounded-xl border border-border bg-card px-3 py-2 text-sm font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+						>
+							{academicYearOptions.map((year) => (
+								<option key={year} value={year}>
+									{year}
+								</option>
+							))}
+						</select>
+					</label>
 				)}
-			</div>
+			</header>
 
 			{message && (
 				<div
-					className={`rounded-xl border p-4 text-sm font-medium ${
+					className={`flex items-start justify-between gap-3 rounded-2xl border p-4 text-sm font-medium ${
 						message.type === 'success'
-							? 'border-success-500/20 bg-success-500/10 text-success-600'
+							? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
 							: 'border-destructive/20 bg-destructive/10 text-destructive'
 					}`}
 				>
-					{message.text}
+					<span>{message.text}</span>
+					<button
+						type="button"
+						onClick={() => setMessage(null)}
+						aria-label="Dismiss"
+						className="shrink-0 opacity-70 hover:opacity-100"
+					>
+						<X className="h-4 w-4" />
+					</button>
 				</div>
 			)}
 
-			{/* Scholarship cards */}
+			{/* ── Stats ───────────────────────────────────────────────────── */}
+			<div className="grid gap-4 sm:grid-cols-3">
+				<StatTile
+					label="Scholarships"
+					value={scholarships.length}
+					icon={Award}
+					hint={`Configured for ${academicYear || '—'}`}
+				/>
+				<StatTile
+					label="Students Awarded"
+					value={stats.awarded}
+					icon={Users}
+					hint={`of ${students.length} enrolled`}
+				/>
+				<StatTile
+					label="Wards Assigned"
+					value={stats.warded}
+					icon={UserCheck}
+					hint="Students with a ward teacher"
+				/>
+			</div>
+
+			{/* ── Scholarship cards ───────────────────────────────────────── */}
 			<section className="space-y-3">
-				<div className="flex items-center gap-2">
-					<Award className="h-4 w-4 text-muted-foreground" />
-					<h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-						Configured Scholarships ({academicYear || '…'})
-					</h2>
-				</div>
+				<h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">
+					<Award className="h-4 w-4" />
+					Configured Scholarships
+				</h2>
 				{loading ? (
-					<div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card p-10 text-sm text-muted-foreground">
+					<div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-card p-10 text-sm text-muted-foreground">
 						<Loader2 className="h-4 w-4 animate-spin" /> Loading…
 					</div>
 				) : scholarships.length === 0 ? (
-					<div className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-						No scholarships configured for{' '}
-						{academicYear || 'this academic year'}.
+					<div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+						No scholarships configured for {academicYear || 'this academic year'}.
 					</div>
 				) : (
 					<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-						{scholarships.map((s) => {
-							const badge = typeBadge(s);
+						{scholarships.map((scholarship) => {
+							const badge = typeBadge(scholarship);
 							const BadgeIcon = badge.icon;
-							const count = beneficiaryCount(s);
+							const count = stats.perScholarship.get(scholarship.id) || 0;
 							return (
 								<button
-									key={s.id}
-									onClick={() => openModal(s)}
-									className="group flex w-full flex-col rounded-xl border border-border bg-card p-4 text-left shadow-sm transition-colors hover:border-primary/50"
+									key={scholarship.id}
+									type="button"
+									onClick={() => openModal(scholarship)}
+									className="group flex w-full flex-col rounded-2xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/50"
 								>
 									<div className="flex items-start justify-between gap-2">
-										<h3 className="font-semibold text-foreground">{s.name}</h3>
+										<h3 className="min-w-0 break-words font-bold text-foreground">
+											{scholarship.name}
+										</h3>
 										<span
-											className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${badge.cls}`}
+											className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${badge.cls}`}
 										>
 											<BadgeIcon className="h-3 w-3" />
-											{s.scholarshipType}
+											{scholarship.scholarshipType}
 										</span>
 									</div>
-									<p className="mt-1 text-sm font-bold text-primary">
-										{scholarshipValue(s)}
+									<p className="mt-1 text-sm font-black text-primary">
+										{scholarshipValue(scholarship)}
 									</p>
-									{s.description && (
-										<p className="mt-2 text-xs text-muted-foreground">
-											{s.description}
+									{scholarship.description && (
+										<p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
+											{scholarship.description}
 										</p>
 									)}
 									<p className="mt-2 text-xs text-muted-foreground">
 										Applies to:{' '}
-										<span className="font-medium text-foreground">
-											{appliesToLabel(s)}
+										<span className="font-bold text-foreground">
+											{appliesToLabel(scholarship)}
 										</span>
 									</p>
-									<p className="mt-1 text-xs text-muted-foreground">
-										Beneficiaries:{' '}
-										<span className="font-semibold text-foreground">{count}</span>
-									</p>
-									<span className="mt-3 flex items-center gap-1.5 border-t border-border pt-3 text-xs font-medium text-primary opacity-80 transition-opacity group-hover:opacity-100">
-										<Users className="h-3.5 w-3.5" />
-										Manage beneficiaries
-									</span>
+									<div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+										<span className="flex items-center gap-1.5 text-xs font-bold text-primary opacity-80 transition-opacity group-hover:opacity-100">
+											<Users className="h-3.5 w-3.5" />
+											Manage beneficiaries
+										</span>
+										<span className="rounded-full bg-muted px-2 py-0.5 text-xs font-black tabular-nums text-foreground">
+											{count}
+										</span>
+									</div>
 								</button>
 							);
 						})}
@@ -415,154 +551,147 @@ export default function ScholarshipsPage() {
 				)}
 			</section>
 
-			{/* Assignments */}
-			<section className="grid gap-6 lg:grid-cols-2">
-				<div className="space-y-3">
-					<div className="flex items-center gap-2">
-						<Users className="h-4 w-4 text-muted-foreground" />
-						<h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-							Assign Scholarships
-						</h2>
-					</div>
-					<div className="relative">
-						<Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-						<input
-							type="text"
-							value={search}
-							onChange={(e) => setSearch(e.target.value)}
-							placeholder="Search by name or ID..."
-							className="w-full rounded-lg border border-border bg-card py-2.5 pl-9 pr-3 text-sm text-foreground outline-none focus:border-primary"
-						/>
-					</div>
-					<div className="max-h-[50vh] divide-y divide-border overflow-y-auto rounded-xl border border-border bg-card">
-						{filteredStudents.length === 0 ? (
-							<p className="p-4 text-center text-sm text-muted-foreground">
-								No students found.
-							</p>
-						) : (
-							filteredStudents.map((s) => {
-								const assignedCount = (s.scholarships || []).length;
-								return (
-									<button
-										key={s.studentId}
-										onClick={() => handleSelectStudent(s)}
-										className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 ${
-											selectedStudent?.studentId === s.studentId
-												? 'bg-primary/5'
-												: ''
-										}`}
-									>
-										<div className="min-w-0">
-											<p className="truncate text-sm font-medium text-foreground">
-												{s.firstName} {s.lastName}
-											</p>
-											<p className="truncate text-xs text-muted-foreground">
-												{s.studentId} · {s.className || '—'}
-											</p>
-										</div>
-										<div className="shrink-0 text-right text-xs text-muted-foreground">
-											{assignedCount > 0 && (
-												<p>
-													<span className="font-semibold text-primary">
-														{assignedCount}
-													</span>{' '}
-													assigned
-												</p>
-											)}
-											{s.wardTeacherId && <p>Ward assigned</p>}
-										</div>
-									</button>
-								);
-							})
-						)}
-					</div>
-				</div>
+			{/* ── Assignment ──────────────────────────────────────────────── */}
+			<section className="space-y-3">
+				<h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">
+					<UserPlus className="h-4 w-4" />
+					Assign to a Student
+				</h2>
 
-				{selectedStudent ? (
+				{!selectedStudent ? (
+					<StudentFinder
+						students={students}
+						schoolProfile={schoolProfile}
+						academicYear={academicYear}
+						onSelect={handleSelectStudent}
+						placeholder="Find the student to award…"
+						renderMeta={(student) => {
+							const count = scholarships.filter((scholarship) =>
+								holdsScholarship(student, scholarship),
+							).length;
+							return count > 0 ? (
+								<span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
+									<Award className="h-3 w-3" />
+									{count}
+								</span>
+							) : (
+								<span className="text-[11px] text-muted-foreground">None</span>
+							);
+						}}
+					/>
+				) : (
 					<div className="space-y-4">
-						<div className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
-							<div>
-								<p className="font-semibold text-foreground">
-									{selectedStudent.firstName} {selectedStudent.lastName}
+						{/* Selected student */}
+						<div className="flex flex-wrap items-center gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-4">
+							<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-black text-primary-foreground">
+								{initials(studentFullName(selectedStudent))}
+							</span>
+							<div className="min-w-0 flex-1">
+								<p className="truncate text-sm font-black text-foreground">
+									{studentFullName(selectedStudent)}
 								</p>
-								<p className="text-xs text-muted-foreground">
-									{selectedStudent.studentId} ·{' '}
-									{selectedStudent.className || '—'}
+								<p className="truncate text-xs text-muted-foreground">
+									{selectedStudent.studentId} · {selectedClassName}
 								</p>
 							</div>
 							<button
+								type="button"
 								onClick={() => setSelectedStudent(null)}
-								className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-								aria-label="Close student panel"
+								className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-foreground"
 							>
-								<X className="h-4 w-4" />
+								<Search className="h-3.5 w-3.5" />
+								Find another
 							</button>
 						</div>
 
-						<div className="rounded-xl border border-border bg-card p-4">
-							<h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-								<Award className="h-4 w-4 text-muted-foreground" />
-								Assigned Scholarships
-							</h3>
-							{scholarships.length === 0 ? (
-								<p className="text-sm text-muted-foreground">
-									No scholarships defined for {academicYear}.
-								</p>
-							) : (
-								<div className="space-y-2">
-									{scholarships.map((s) => {
-										const on = isAssigned(s);
-										return (
-											<label
-												key={s.id}
-												className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg border p-3 transition-colors ${
-													on
-														? 'border-primary bg-primary/5'
-														: 'border-border hover:bg-muted/50'
-												}`}
-											>
-												<div className="min-w-0">
-													<p className="text-sm font-medium text-foreground">
-														{s.name}
-													</p>
-													<p className="text-xs text-muted-foreground">
-														{scholarshipValue(s)}
-													</p>
-												</div>
-												<input
-													type="checkbox"
-													checked={on}
-													onChange={() => toggleScholarship(s.id)}
-													className="h-4 w-4 shrink-0 rounded border-input text-primary focus:ring-primary"
-												/>
-											</label>
-										);
-									})}
-								</div>
-							)}
-						</div>
+						<div className="grid gap-4 lg:grid-cols-2">
+							{/* Awards */}
+							<div className="rounded-2xl border border-border bg-card p-4">
+								<h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
+									<Award className="h-4 w-4 text-muted-foreground" />
+									Awards
+								</h3>
+								{scholarships.length === 0 ? (
+									<p className="text-sm text-muted-foreground">
+										No scholarships defined for {academicYear}.
+									</p>
+								) : (
+									<div className="space-y-2">
+										{scholarships.map((scholarship) => {
+											const on = isAssigned(scholarship);
+											return (
+												<label
+													key={scholarship.id}
+													className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 transition-colors ${
+														on
+															? 'border-primary bg-primary/5'
+															: 'border-border hover:bg-muted/50'
+													}`}
+												>
+													<span className="min-w-0">
+														<span className="block truncate text-sm font-bold text-foreground">
+															{scholarship.name}
+														</span>
+														<span className="block truncate text-xs text-muted-foreground">
+															{scholarshipValue(scholarship)}
+														</span>
+													</span>
+													<input
+														type="checkbox"
+														checked={on}
+														onChange={() => toggleScholarship(scholarship.id)}
+														className="h-4 w-4 shrink-0 rounded border-input text-primary focus:ring-primary"
+													/>
+												</label>
+											);
+										})}
+									</div>
+								)}
+							</div>
 
-						<div className="rounded-xl border border-border bg-card p-4">
-							<h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
-								<UserPlus className="h-4 w-4 text-muted-foreground" />
-								Ward Teacher
-							</h3>
-							<input
-								type="text"
-								value={wardTeacherId}
-								onChange={(e) => setWardTeacherId(e.target.value)}
-								placeholder="Teacher ID..."
-								className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
-							/>
-							<p className="mt-1 text-xs text-muted-foreground">
-								Assign a teacher as the ward/sponsor for this student.
-							</p>
+							{/* Ward teacher */}
+							<div className="rounded-2xl border border-border bg-card p-4">
+								<h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
+									<UserCheck className="h-4 w-4 text-muted-foreground" />
+									Ward Teacher
+								</h3>
+								{teachers.length > 0 ? (
+									<select
+										value={wardTeacherId}
+										onChange={(event) => setWardTeacherId(event.target.value)}
+										className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+									>
+										<option value="">No ward teacher</option>
+										{teachers.map((teacher: any) => {
+											const id = teacher.username || teacher.userId || teacher.id;
+											return (
+												<option key={id} value={id}>
+													{teacherName(teacher)} ({id})
+												</option>
+											);
+										})}
+									</select>
+								) : (
+									<input
+										type="text"
+										value={wardTeacherId}
+										onChange={(event) => setWardTeacherId(event.target.value)}
+										placeholder="Teacher ID…"
+										className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+									/>
+								)}
+								<p className="mt-2 text-xs text-muted-foreground">
+									The teacher who sponsors this student. Picked from the cached{' '}
+									{academicYear || 'current'} staff list.
+								</p>
+							</div>
 						</div>
 
 						<button
+							type="button"
 							onClick={handleSave}
 							disabled={saving}
-							className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50"
+							className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
 						>
 							{saving ? (
 								<>
@@ -575,22 +704,14 @@ export default function ScholarshipsPage() {
 							)}
 						</button>
 					</div>
-				) : (
-					<div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-						<UserPlus className="h-6 w-6" />
-						Select a student to manage scholarship assignments.
-					</div>
 				)}
 			</section>
 
-			{/* Modal: manage beneficiaries of one scholarship */}
+			{/* ── Beneficiaries dialog ────────────────────────────────────── */}
 			<Dialog
 				open={Boolean(modalScholarship)}
 				onOpenChange={(open) => {
-					if (!open && !modalSaving) {
-						setModalScholarship(null);
-						setModalRemoved(new Set());
-					}
+					if (!open && !modalSaving) closeModal();
 				}}
 			>
 				<DialogContent>
@@ -600,44 +721,68 @@ export default function ScholarshipsPage() {
 							{modalScholarship?.name}
 						</DialogTitle>
 						<DialogDescription>
-							{modalScholarship
-								? `Manage students assigned to this scholarship. Remove a student to unassign them.`
-								: ''}
+							{stats.perScholarship.get(modalScholarship?.id) || 0} student
+							{(stats.perScholarship.get(modalScholarship?.id) || 0) === 1
+								? ''
+								: 's'}{' '}
+							hold this award. Remove any who should no longer receive it.
 						</DialogDescription>
 					</DialogHeader>
 
-					<div className="max-h-[50vh] divide-y divide-border overflow-y-auto rounded-xl border border-border bg-card">
+					<div className="relative">
+						<Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+						<input
+							type="text"
+							value={modalQuery}
+							onChange={(event) => {
+								setModalQuery(event.target.value);
+								setModalVisible(BENEFICIARY_PAGE);
+							}}
+							placeholder="Filter beneficiaries…"
+							className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+						/>
+					</div>
+
+					<div className="max-h-[45vh] divide-y divide-border overflow-y-auto rounded-xl border border-border bg-card">
 						{modalStudents.length === 0 ? (
 							<p className="p-6 text-center text-sm text-muted-foreground">
-								No students are assigned to this scholarship.
+								{modalQuery.trim()
+									? `No beneficiaries match “${modalQuery.trim()}”.`
+									: 'No students are assigned to this scholarship.'}
 							</p>
 						) : (
-							modalStudents.map((s) => {
-								const removing = modalRemoved.has(s.studentId);
+							modalStudents.slice(0, modalVisible).map((student: any) => {
+								const removing = modalRemoved.has(student.studentId);
 								return (
 									<div
-										key={s.studentId}
+										key={student.studentId}
 										className={`flex items-center justify-between gap-3 px-4 py-3 ${
 											removing ? 'bg-destructive/5' : ''
 										}`}
 									>
 										<div className="min-w-0">
 											<p
-												className={`truncate text-sm font-medium ${
-													removing ? 'text-destructive line-through' : 'text-foreground'
+												className={`truncate text-sm font-bold ${
+													removing
+														? 'text-destructive line-through'
+														: 'text-foreground'
 												}`}
 											>
-												{s.firstName} {s.lastName}
+												{studentFullName(student)}
 											</p>
 											<p className="truncate text-xs text-muted-foreground">
-												{s.studentId} · {s.className || '—'}
+												{student.studentId} ·{' '}
+												{directory.byId[classIdForYear(student, academicYear)]
+													?.className ||
+													student.className ||
+													'—'}
 											</p>
 										</div>
 										<button
 											type="button"
-											onClick={() => toggleModalRemove(s.studentId)}
+											onClick={() => toggleModalRemove(student.studentId)}
 											disabled={modalSaving}
-											className={`inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
+											className={`inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors disabled:opacity-50 ${
 												removing
 													? 'bg-muted text-foreground hover:bg-muted/70'
 													: 'bg-destructive/10 text-destructive hover:bg-destructive/20'
@@ -657,6 +802,21 @@ export default function ScholarshipsPage() {
 								);
 							})
 						)}
+						{modalStudents.length > modalVisible && (
+							<button
+								type="button"
+								onClick={() =>
+									setModalVisible((count) => count + BENEFICIARY_PAGE)
+								}
+								className="w-full px-4 py-2.5 text-xs font-bold text-primary hover:bg-muted"
+							>
+								Show {Math.min(
+									BENEFICIARY_PAGE,
+									modalStudents.length - modalVisible,
+								)}{' '}
+								more ({modalVisible} of {modalStudents.length})
+							</button>
+						)}
 					</div>
 
 					{modalRemoved.size > 0 && (
@@ -669,12 +829,9 @@ export default function ScholarshipsPage() {
 					<DialogFooter>
 						<button
 							type="button"
-							onClick={() => {
-								setModalScholarship(null);
-								setModalRemoved(new Set());
-							}}
+							onClick={closeModal}
 							disabled={modalSaving}
-							className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+							className="rounded-lg border border-border px-4 py-2 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
 						>
 							Cancel
 						</button>
@@ -682,7 +839,7 @@ export default function ScholarshipsPage() {
 							type="button"
 							onClick={handleModalSave}
 							disabled={modalSaving || modalRemoved.size === 0}
-							className="flex items-center justify-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
+							className="flex items-center justify-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-bold text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
 						>
 							{modalSaving ? (
 								<>

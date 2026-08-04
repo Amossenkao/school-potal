@@ -8,7 +8,6 @@ const EPSILON = 0.01;
 
 const IMMEDIATE_ID = '__immediate__';
 const IMMEDIATE_LABEL = 'Due Immediately';
-const UNASSIGNED_SESSION = 'Unassigned';
 
 const MONTH_LABELS = [
 	'Jan',
@@ -60,7 +59,6 @@ export interface ClassRow extends AmountRow {
 	session: string;
 	level: string;
 	studentCount: number;
-	categories: CategoryRow[];
 }
 
 export interface InstallmentRow {
@@ -87,26 +85,6 @@ export interface ScholarshipRow {
 	label: string;
 	awards: number;
 	discount: number;
-}
-
-/** Expected vs collected for one fee category inside a larger bucket. */
-export interface CategoryRow {
-	key: string;
-	label: string;
-	expected: number;
-	collected: number;
-	outstanding: number;
-	rate: number;
-}
-
-/** One installment milestone, with the fee categories that make it up. */
-export interface InstallmentBucket extends InstallmentRow {
-	categories: CategoryRow[];
-}
-
-export interface SessionInstallments {
-	sessionName: string;
-	installments: InstallmentBucket[];
 }
 
 export interface CurrencySummary {
@@ -142,7 +120,6 @@ export interface CurrencyReport {
 	bySession: AmountRow[];
 	byClass: ClassRow[];
 	byInstallment: InstallmentRow[];
-	installmentsBySession: SessionInstallments[];
 	monthly: MonthRow[];
 	scholarships: ScholarshipRow[];
 }
@@ -327,38 +304,19 @@ export function buildFinancialReport({
 		let discount = 0;
 		let expected = 0;
 
-		// classId → categoryName → { expected, collected }
-		const classCategoryTotals = new Map<
-			string,
-			Map<string, { expected: number; collected: number }>
-		>();
-		const addClassCategory = (
-			classId: string,
-			category: string,
-			field: 'expected' | 'collected',
-			amount: number,
-		) => {
-			let byCategory = classCategoryTotals.get(classId);
-			if (!byCategory) {
-				byCategory = new Map();
-				classCategoryTotals.set(classId, byCategory);
-			}
-			const totals = byCategory.get(category) || { expected: 0, collected: 0 };
-			totals[field] += amount;
-			byCategory.set(category, totals);
-		};
-
 		const ensureClassRow = (classId: string): ClassRow => {
 			let row = classRows.get(classId);
 			if (!row) {
 				const meta = classMeta[classId];
 				row = {
-					...makeRow(classId, meta?.className || (classId === 'unassigned' ? 'Unassigned' : classId)),
+					...makeRow(
+						classId,
+						meta?.className || (classId === 'unassigned' ? 'Unassigned' : classId),
+					),
 					classId,
 					session: meta?.session || '—',
 					level: meta?.level || '—',
 					studentCount: 0,
-					categories: [],
 				};
 				classRows.set(classId, row);
 			}
@@ -400,7 +358,6 @@ export function buildFinancialReport({
 			classRow.gross += bill.amount;
 			classRow.discount += bill.discount;
 			classRow.expected += bill.effectiveAmount;
-			addClassCategory(classId, bill.feeName, 'expected', bill.effectiveAmount);
 
 			if (!classStudents.has(classId)) classStudents.set(classId, new Set());
 			classStudents.get(classId)!.add(studentId);
@@ -447,7 +404,6 @@ export function buildFinancialReport({
 
 			const classId = paymentClassId(payment);
 			ensureClassRow(classId).collected += amount;
-			addClassCategory(classId, feeName, 'collected', amount);
 
 			const sessionName = classMeta[classId]?.session || '—';
 			ensure(sessionRows, sessionName, sessionName).collected += amount;
@@ -477,41 +433,17 @@ export function buildFinancialReport({
 				month.amount += amount;
 				monthRows.set(monthKey, month);
 			}
-
 		}
 
-		// ── Installment performance, grouped by session ──────────────────────
-		interface RawBucket {
-			key: string;
-			label: string;
-			expected: number;
-			collected: number;
-			categories: Map<string, { expected: number; collected: number }>;
-		}
-		const sessionBuckets = new Map<string, Map<string, RawBucket>>();
-
-		const addInstallment = (
-			sessionName: string,
-			key: string,
-			label: string,
-			category: string,
-			field: 'expected' | 'collected',
-			amount: number,
-		) => {
-			let buckets = sessionBuckets.get(sessionName);
-			if (!buckets) {
-				buckets = new Map();
-				sessionBuckets.set(sessionName, buckets);
+		// ── Installment performance ──────────────────────────────────────────
+		const installmentRows = new Map<string, InstallmentRow>();
+		const ensureInstallment = (key: string, label: string) => {
+			let row = installmentRows.get(key);
+			if (!row) {
+				row = { key, label, expected: 0, collected: 0, outstanding: 0, rate: 0 };
+				installmentRows.set(key, row);
 			}
-			let bucket = buckets.get(key);
-			if (!bucket) {
-				bucket = { key, label, expected: 0, collected: 0, categories: new Map() };
-				buckets.set(key, bucket);
-			}
-			bucket[field] += amount;
-			const totals = bucket.categories.get(category) || { expected: 0, collected: 0 };
-			totals[field] += amount;
-			bucket.categories.set(category, totals);
+			return row;
 		};
 
 		const paymentsByStudent = new Map<string, PaymentLike[]>();
@@ -522,29 +454,12 @@ export function buildFinancialReport({
 		}
 
 		const consumedPaymentIds = new Set<string>();
-		for (const { studentId, classId, bill } of currencyBills) {
-			const sessionName =
-				bill.sessionName || classMeta[classId]?.session || UNASSIGNED_SESSION;
-
+		for (const { studentId, bill } of currencyBills) {
 			if (bill.installments.length === 0) {
-				addInstallment(
-					sessionName,
-					IMMEDIATE_ID,
-					IMMEDIATE_LABEL,
-					bill.feeName,
-					'expected',
-					bill.effectiveAmount,
-				);
+				ensureInstallment(IMMEDIATE_ID, IMMEDIATE_LABEL).expected += bill.effectiveAmount;
 			} else {
 				for (const split of bill.installments) {
-					addInstallment(
-						sessionName,
-						split.installmentId,
-						split.label,
-						bill.feeName,
-						'expected',
-						split.amount,
-					);
+					ensureInstallment(split.installmentId, split.label).expected += split.amount;
 				}
 			}
 
@@ -555,16 +470,9 @@ export function buildFinancialReport({
 			for (const payment of feePayments) consumedPaymentIds.add(payment.id);
 
 			if (bill.installments.length === 0) {
-				addInstallment(
-					sessionName,
-					IMMEDIATE_ID,
-					IMMEDIATE_LABEL,
-					bill.feeName,
-					'collected',
-					feePayments.reduce(
-						(total, payment) => total + (Number(payment.paymentAmount) || 0),
-						0,
-					),
+				ensureInstallment(IMMEDIATE_ID, IMMEDIATE_LABEL).collected += feePayments.reduce(
+					(total, payment) => total + (Number(payment.paymentAmount) || 0),
+					0,
 				);
 				continue;
 			}
@@ -575,55 +483,21 @@ export function buildFinancialReport({
 			for (const split of bill.installments) {
 				const amount = allocated[split.installmentId] || 0;
 				if (amount > 0) {
-					addInstallment(
-						sessionName,
-						split.installmentId,
-						split.label,
-						bill.feeName,
-						'collected',
-						amount,
-					);
+					ensureInstallment(split.installmentId, split.label).collected += amount;
 				}
 			}
 		}
-		// Legacy / unmatched payments land in the immediate bucket of the session
-		// their class belongs to, so the installment view reconciles with total
-		// collections without being counted once per session.
+		// Legacy / unmatched payments land in the immediate bucket so the
+		// installment view still reconciles with total collections.
 		for (const payment of currencyPayments) {
 			if (consumedPaymentIds.has(payment.id)) continue;
-			const sessionName =
-				classMeta[paymentClassId(payment)]?.session || UNASSIGNED_SESSION;
-			addInstallment(
-				sessionName,
-				IMMEDIATE_ID,
-				IMMEDIATE_LABEL,
-				paymentFeeName(payment),
-				'collected',
-				Number(payment.paymentAmount) || 0,
-			);
+			ensureInstallment(IMMEDIATE_ID, IMMEDIATE_LABEL).collected +=
+				Number(payment.paymentAmount) || 0;
 		}
 
 		// ── Finalize derived values ──────────────────────────────────────────
-		const toCategoryRows = (
-			totals: Map<string, { expected: number; collected: number }> | undefined,
-		): CategoryRow[] =>
-			Array.from(totals?.entries() || [])
-				.map(([label, value]) => {
-					const outstanding = Math.max(0, value.expected - value.collected);
-					return {
-						key: label,
-						label,
-						expected: value.expected,
-						collected: value.collected,
-						outstanding: outstanding < EPSILON ? 0 : outstanding,
-						rate: percentOf(value.collected, value.expected),
-					};
-				})
-				.sort((a, b) => b.expected - a.expected || b.collected - a.collected);
-
 		for (const [classId, row] of classRows) {
 			row.studentCount = classStudents.get(classId)?.size || 0;
-			row.categories = toCategoryRows(classCategoryTotals.get(classId));
 			finalizeRow(row);
 		}
 
@@ -640,7 +514,10 @@ export function buildFinancialReport({
 				const ai = sessionOrder.indexOf(a.key);
 				const bi = sessionOrder.indexOf(b.key);
 				if (ai !== -1 || bi !== -1) {
-					return (ai === -1 ? Number.MAX_SAFE_INTEGER : ai) - (bi === -1 ? Number.MAX_SAFE_INTEGER : bi);
+					return (
+						(ai === -1 ? Number.MAX_SAFE_INTEGER : ai) -
+						(bi === -1 ? Number.MAX_SAFE_INTEGER : bi)
+					);
 				}
 				return sortByExpected(a, b);
 			});
@@ -652,70 +529,23 @@ export function buildFinancialReport({
 
 		// Installments run in the school's configured due order, with anything
 		// payable up front ahead of them.
-		const byInstallmentOrder = (a: { key: string }, b: { key: string }) => {
-			if (a.key === IMMEDIATE_ID) return -1;
-			if (b.key === IMMEDIATE_ID) return 1;
-			const ai = installmentOrder.indexOf(a.key);
-			const bi = installmentOrder.indexOf(b.key);
-			return (
-				(ai === -1 ? Number.MAX_SAFE_INTEGER : ai) -
-				(bi === -1 ? Number.MAX_SAFE_INTEGER : bi)
-			);
-		};
-
-		const finalizeInstallment = (bucket: RawBucket): InstallmentBucket => {
-			const outstanding = Math.max(0, bucket.expected - bucket.collected);
-			return {
-				key: bucket.key,
-				label: bucket.label,
-				expected: bucket.expected,
-				collected: bucket.collected,
-				outstanding: outstanding < EPSILON ? 0 : outstanding,
-				rate: percentOf(bucket.collected, bucket.expected),
-				categories: toCategoryRows(bucket.categories),
-			};
-		};
-
-		const orderedSessionNames = [
-			...sessionOrder.filter((name) => sessionBuckets.has(name)),
-			...Array.from(sessionBuckets.keys()).filter(
-				(name) => !sessionOrder.includes(name),
-			),
-		];
-		const installmentsBySession: SessionInstallments[] = orderedSessionNames.map(
-			(sessionName) => ({
-				sessionName,
-				installments: Array.from(sessionBuckets.get(sessionName)!.values())
-					.map(finalizeInstallment)
-					.sort(byInstallmentOrder),
-			}),
-		);
-
-		// School-wide installment totals are the same buckets summed across sessions.
-		const flatInstallments = new Map<string, InstallmentRow>();
-		for (const session of installmentsBySession) {
-			for (const bucket of session.installments) {
-				const row = flatInstallments.get(bucket.key) || {
-					key: bucket.key,
-					label: bucket.label,
-					expected: 0,
-					collected: 0,
-					outstanding: 0,
-					rate: 0,
-				};
-				row.expected += bucket.expected;
-				row.collected += bucket.collected;
-				flatInstallments.set(bucket.key, row);
-			}
-		}
-		const byInstallment = Array.from(flatInstallments.values())
+		const byInstallment = Array.from(installmentRows.values())
 			.map((row) => {
 				row.outstanding = Math.max(0, row.expected - row.collected);
 				if (row.outstanding < EPSILON) row.outstanding = 0;
 				row.rate = percentOf(row.collected, row.expected);
 				return row;
 			})
-			.sort(byInstallmentOrder);
+			.sort((a, b) => {
+				if (a.key === IMMEDIATE_ID) return -1;
+				if (b.key === IMMEDIATE_ID) return 1;
+				const ai = installmentOrder.indexOf(a.key);
+				const bi = installmentOrder.indexOf(b.key);
+				return (
+					(ai === -1 ? Number.MAX_SAFE_INTEGER : ai) -
+					(bi === -1 ? Number.MAX_SAFE_INTEGER : bi)
+				);
+			});
 
 		let running = 0;
 		const monthly = Array.from(monthRows.values())
@@ -785,7 +615,6 @@ export function buildFinancialReport({
 			bySession,
 			byClass,
 			byInstallment,
-			installmentsBySession,
 			monthly,
 			scholarships,
 		} satisfies CurrencyReport;

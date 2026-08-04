@@ -1,18 +1,20 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
 	CheckCircle,
 	ChevronDown,
 	Loader2,
-	Search,
 	Wallet,
 	X,
 	UserPlus,
 	Trash2,
 	Users,
 	ArrowRight,
+	ArrowLeft,
 	CreditCard,
+	Pencil,
+	ReceiptText,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useSchoolStore } from '@/store/schoolStore';
@@ -24,6 +26,11 @@ import {
 	buildSchoolAcademicYearRange,
 	pickCurrentOrMostRecentAcademicYear,
 } from '@/utils/academicYearOptions';
+import StudentFinder, {
+	classIdForYear,
+	studentFullName,
+	useClassDirectory,
+} from '@/app/dashboard/shared/components/StudentFinder';
 
 // ─── Formatters ────────────────────────────────────────────────────────────────
 
@@ -621,23 +628,38 @@ export default function RecordPaymentsPage() {
 	const [modalStudentId, setModalStudentId] = useState<string | null>(null);
 	const [modalLoadingId, setModalLoadingId] = useState<string | null>(null);
 
-	// Student search
-	const [searchQuery, setSearchQuery] = useState('');
-	const [searchResults, setSearchResults] = useState<any[]>([]);
-	const [searchLoading, setSearchLoading] = useState(false);
-	const [searchFocused, setSearchFocused] = useState(false);
-	const searchRef = useRef<HTMLDivElement>(null);
-	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
 	// Per-student resolved fees cache (populated on first open)
 	const [feeCache, setFeeCache] = useState<Map<string, ResolvedFee[]>>(
 		new Map(),
 	);
 
+	const directory = useClassDirectory(schoolProfile);
+
 	const academicYearOptions = useMemo(() => {
 		if (!schoolProfile) return [];
 		return buildSchoolAcademicYearRange(schoolProfile);
 	}, [schoolProfile]);
+
+	// Roster for the selected year, straight from the store cache.
+	const roster = useMemo(() => {
+		const yearData =
+			usersByAcademicYear?.[academicYear] ||
+			Object.entries(usersByAcademicYear || {}).find(
+				([key]) =>
+					key.replace(/\//g, '-') === academicYear.replace(/\//g, '-'),
+			)?.[1];
+		return Array.isArray((yearData as any)?.students)
+			? (yearData as any).students
+			: [];
+	}, [usersByAcademicYear, academicYear]);
+
+	const classLabel = useCallback(
+		(student: any) =>
+			directory.byId[classIdForYear(student, academicYear)]?.className ||
+			student?.className ||
+			'',
+		[directory.byId, academicYear],
+	);
 
 	// All payments from the school store, flat across academic years. Matches the
 	// shape returned by /api/payments?studentId= (no year filter) so fee math is
@@ -661,66 +683,10 @@ export default function RecordPaymentsPage() {
 		);
 	}, [schoolProfile]);
 
-	// Close dropdown on outside click
-	useEffect(() => {
-		const handler = (e: MouseEvent) => {
-			if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-				setSearchFocused(false);
-			}
-		};
-		document.addEventListener('mousedown', handler);
-		return () => document.removeEventListener('mousedown', handler);
-	}, []);
-
-	// Debounced student search over the store roster for the selected year
-	const handleSearchChange = useCallback(
-		(q: string) => {
-			setSearchQuery(q);
-			if (debounceRef.current) clearTimeout(debounceRef.current);
-			if (!q.trim()) {
-				setSearchResults([]);
-				return;
-			}
-			debounceRef.current = setTimeout(() => {
-				setSearchLoading(true);
-				try {
-					const query = q.trim().toLowerCase();
-					const yearData =
-						usersByAcademicYear[academicYear] ||
-						Object.entries(usersByAcademicYear).find(
-							([k]) =>
-								k.replace(/\//g, '-') ===
-								academicYear.replace(/\//g, '-'),
-						)?.[1];
-					const roster = Array.isArray(yearData?.students)
-						? yearData.students
-						: [];
-					const results = roster
-						.filter((s: any) => {
-							const name = `${s.firstName || ''} ${s.lastName || ''}`
-								.toLowerCase();
-							const sid = String(
-								s.studentId || s.username || '',
-							).toLowerCase();
-							return name.includes(query) || sid.includes(query);
-						})
-						.slice(0, 20);
-					setSearchResults(results);
-				} finally {
-					setSearchLoading(false);
-				}
-			}, 300);
-		},
-		[usersByAcademicYear, academicYear],
-	);
-
-	// Open modal for a student — fetch fees if not cached
+	// Open modal for a student — resolve fees if not cached
 	const openStudentModal = useCallback(
 		async (student: any) => {
 			const sid = student.studentId;
-			setSearchQuery('');
-			setSearchResults([]);
-			setSearchFocused(false);
 
 			// If fees already cached, open modal immediately
 			if (feeCache.has(sid)) {
@@ -931,253 +897,212 @@ export default function RecordPaymentsPage() {
 	// ─── Render ─────────────────────────────────────────────────────────────────
 
 	return (
-		<div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
+		<div className="mx-auto max-w-4xl space-y-6 px-4 py-6 sm:px-6">
 			{/* Page header */}
-			<div>
-				<h1 className="text-2xl font-black tracking-tight text-foreground">
-					Record Payments
-				</h1>
-				<p className="text-sm text-muted-foreground">
-					Build a payment session across multiple students, then record them all
-					at once.
-				</p>
-			</div>
-
-			{/* Phase tabs + academic year */}
-			<div className="flex flex-wrap items-center gap-3">
-				<div className="flex items-center gap-1 bg-muted rounded-lg p-1 text-sm">
-					<button
-						onClick={() => phase === 'review' && setPhase('build')}
-						className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
-							phase === 'build'
-								? 'bg-background text-foreground shadow-sm'
-								: 'text-muted-foreground hover:text-foreground'
-						}`}
-					>
-						1 — Build
-					</button>
-					<ArrowRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-					<button
-						disabled={cartSummary.studentsWithItems === 0}
-						onClick={() =>
-							cartSummary.studentsWithItems > 0 && setPhase('review')
-						}
-						className={`px-3 py-1.5 rounded-md font-medium transition-colors disabled:cursor-not-allowed ${
-							phase === 'review'
-								? 'bg-background text-foreground shadow-sm'
-								: 'text-muted-foreground hover:text-foreground disabled:opacity-50'
-						}`}
-					>
-						2 — Review & Record
-					</button>
+			<header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+				<div>
+					<h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
+						Record Payments
+					</h1>
+					<p className="mt-1 text-sm text-muted-foreground">
+						Build a payment session across multiple students, then record them
+						all at once.
+					</p>
 				</div>
+				<FilterSelect
+					label="Academic Year"
+					value={academicYear}
+					onChange={(v) => {
+						setAcademicYear(v);
+						setCart(new Map());
+						setFeeCache(new Map());
+						setPhase('build');
+					}}
+					options={academicYearOptions.map((y) => ({ label: y, value: y }))}
+					disabled={academicYearOptions.length < 2}
+				/>
+			</header>
 
-				<div className="ml-auto">
-					<FilterSelect
-						label="Academic Year"
-						value={academicYear}
-						onChange={(v) => {
-							setAcademicYear(v);
-							setCart(new Map());
-							setFeeCache(new Map());
-							setPhase('build');
-						}}
-						options={academicYearOptions.map((y) => ({ label: y, value: y }))}
-						disabled={academicYearOptions.length  < 2}
-					/>
-				</div>
-			</div>
+			{/* Stepper */}
+			<ol className="flex items-center gap-2 rounded-2xl border border-border bg-card p-2">
+				{[
+					{ id: 'build' as Phase, label: 'Build session', icon: UserPlus },
+					{ id: 'review' as Phase, label: 'Review & record', icon: ReceiptText },
+				].map((step, index) => {
+					const StepIcon = step.icon;
+					const active = phase === step.id;
+					const reachable =
+						step.id === 'build' || cartSummary.studentsWithItems > 0;
+					return (
+						<li key={step.id} className="flex min-w-0 flex-1 items-center gap-2">
+							<button
+								type="button"
+								disabled={!reachable}
+								onClick={() => reachable && setPhase(step.id)}
+								className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+									active ? 'bg-primary/10' : 'hover:bg-muted'
+								}`}
+							>
+								<span
+									className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black ${
+										active
+											? 'bg-primary text-primary-foreground'
+											: 'bg-muted text-muted-foreground'
+									}`}
+								>
+									{index + 1}
+								</span>
+								<span className="min-w-0">
+									<span
+										className={`block truncate text-sm font-bold ${active ? 'text-foreground' : 'text-muted-foreground'}`}
+									>
+										{step.label}
+									</span>
+								</span>
+								<StepIcon
+									className={`ml-auto hidden h-4 w-4 shrink-0 sm:block ${active ? 'text-primary' : 'text-muted-foreground'}`}
+								/>
+							</button>
+							{index === 0 && (
+								<ArrowRight className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
+							)}
+						</li>
+					);
+				})}
+			</ol>
 
 			{/* ══════════════════════════ PHASE: BUILD ══════════════════════════ */}
 			{phase === 'build' && (
 				<div className="space-y-5">
-					<div className="bg-card border border-border rounded-xl shadow-sm">
+					{/* Session so far */}
+					<div className="bg-card border border-border rounded-2xl">
 						<div className="px-4 sm:px-5 py-3.5 border-b border-border flex items-center justify-between gap-2">
 							<div className="flex items-center gap-2">
-								<UserPlus className="h-4 w-4 text-muted-foreground" />
-								<h2 className="font-semibold text-foreground">Add Students</h2>
+								<Users className="h-4 w-4 text-muted-foreground" />
+								<h2 className="font-bold text-foreground">This Session</h2>
 							</div>
 							{cart.size > 0 && (
-								<span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">
-									{cart.size} in session
+								<span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
+									{cart.size} student{cart.size === 1 ? '' : 's'}
 								</span>
 							)}
 						</div>
 
-						<div className="p-4 sm:p-5 space-y-4">
-							{/* Selected student cards */}
-							{cartEntries.length > 0 && (
-								<div className="flex flex-col gap-2">
+						<div className="p-4 sm:p-5">
+							{cartEntries.length === 0 ? (
+								<div className="rounded-xl border-2 border-dashed border-border py-8 text-center">
+									<Users className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" />
+									<p className="text-sm font-bold text-foreground">
+										No students added yet
+									</p>
+									<p className="mt-1 text-xs text-muted-foreground">
+										Find a student below to start the session
+									</p>
+								</div>
+							) : (
+								<ul className="grid gap-2 sm:grid-cols-2">
 									{cartEntries.map(([studentId, entry]) => {
 										const totals = studentTotal(entry);
+										const empty = entry.items.length === 0;
 										return (
-											<div
+											<li
 												key={studentId}
-												className="flex items-center gap-3 rounded-xl border border-border bg-background px-3.5 py-3 hover:bg-muted/40 transition-colors group"
+												className={`group relative overflow-hidden rounded-xl border p-3.5 transition-colors ${
+													empty
+														? 'border-dashed border-border bg-background'
+														: 'border-primary/30 bg-primary/5'
+												}`}
 											>
-												{/* Clickable area — opens modal */}
 												<button
 													onClick={() => openStudentModal(entry.student)}
-													className="flex-1 min-w-0 text-left focus:outline-none"
+													className="flex w-full items-start gap-3 text-left focus:outline-none"
 												>
-													<p className="text-sm font-semibold text-foreground truncate">
-														{entry.student.firstName} {entry.student.lastName}
-													</p>
-													<p className="text-xs text-muted-foreground">
-														{entry.student.studentId}
-														{entry.student.className
-															? ` · ${entry.student.className}`
-															: ''}
-													</p>
-												</button>
-
-												{/* Totals / badge */}
-												<button
-													onClick={() => openStudentModal(entry.student)}
-													className="text-right shrink-0 focus:outline-none"
-												>
-													{entry.items.length === 0 ? (
-														<span className="text-xs text-muted-foreground italic">
-															No fees selected
+													<span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-black text-muted-foreground">
+														{studentFullName(entry.student)
+															.split(' ')
+															.slice(0, 2)
+															.map((part) => part[0] || '')
+															.join('')
+															.toUpperCase()}
+													</span>
+													<span className="min-w-0 flex-1">
+														<span className="block truncate text-sm font-bold text-foreground">
+															{studentFullName(entry.student)}
 														</span>
-													) : (
-														<>
-															{Object.entries(totals).map(([c, amt]) => (
-																<p
-																	key={c}
-																	className="text-sm font-semibold text-foreground whitespace-nowrap"
-																>
-																	{c} {formatCurrency(amt)}
-																</p>
-															))}
-															<p className="text-xs text-muted-foreground">
-																{entry.items.length} item
-																{entry.items.length !== 1 ? 's' : ''}
-															</p>
-														</>
-													)}
+														<span className="block truncate text-xs text-muted-foreground">
+															{entry.student.studentId}
+															{classLabel(entry.student)
+																? ` · ${classLabel(entry.student)}`
+																: ''}
+														</span>
+														<span className="mt-1.5 block">
+															{empty ? (
+																<span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">
+																	<Pencil className="h-3 w-3" />
+																	Choose fees
+																</span>
+															) : (
+																<>
+																	{Object.entries(totals).map(([code, amount]) => (
+																		<span
+																			key={code}
+																			className="block text-sm font-black tabular-nums text-foreground"
+																		>
+																			{code} {formatCurrency(amount)}
+																		</span>
+																	))}
+																	<span className="block text-xs text-muted-foreground">
+																		{entry.items.length} item
+																		{entry.items.length === 1 ? '' : 's'}
+																	</span>
+																</>
+															)}
+														</span>
+													</span>
 												</button>
-
-												{/* Delete */}
 												<button
 													onClick={(e) => {
 														e.stopPropagation();
 														removeStudent(studentId);
 													}}
-													className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100"
-													aria-label="Remove student"
+													className="absolute right-2 top-2 rounded-lg p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus:opacity-100 group-hover:opacity-100"
+													aria-label={`Remove ${studentFullName(entry.student)}`}
 												>
-													<Trash2 className="w-4 h-4" />
+													<Trash2 className="h-4 w-4" />
 												</button>
-											</div>
+											</li>
 										);
 									})}
-								</div>
-							)}
-
-							{/* Search */}
-							<div ref={searchRef} className="relative">
-								<div className="relative">
-									<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-									<input
-										type="text"
-										value={searchQuery}
-										onChange={(e) => handleSearchChange(e.target.value)}
-										onFocus={() => setSearchFocused(true)}
-										placeholder="Search by name, ID, or class…"
-										className="w-full h-10 pl-9 pr-9 rounded-lg border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors"
-									/>
-									{(searchLoading || modalLoadingId) && (
-										<Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
-									)}
-									{!searchLoading && !modalLoadingId && searchQuery && (
-										<button
-											type="button"
-											onClick={() => {
-												setSearchQuery('');
-												setSearchResults([]);
-											}}
-											className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
-										>
-											<X className="w-3.5 h-3.5 text-muted-foreground" />
-										</button>
-									)}
-								</div>
-
-								{/* Dropdown results */}
-								{searchFocused &&
-									searchQuery.trim() &&
-									!searchLoading &&
-									searchResults.length > 0 && (
-										<div className="absolute z-40 mt-1 w-full bg-card border border-border rounded-xl shadow-lg overflow-hidden">
-											<div className="max-h-72 overflow-y-auto divide-y divide-border">
-												{searchResults.map((s) => {
-													const alreadyInCart = cart.has(s.studentId);
-													return (
-														<button
-															key={s.studentId}
-															onClick={() => openStudentModal(s)}
-															className={`w-full text-left px-4 py-3 flex items-center justify-between gap-3 transition-colors ${
-																alreadyInCart
-																	? 'bg-primary/5'
-																	: 'hover:bg-muted/60'
-															}`}
-														>
-															<div className="min-w-0">
-																<p className="text-sm font-medium text-foreground truncate">
-																	{s.firstName} {s.lastName}
-																</p>
-																<p className="text-xs text-muted-foreground">
-																	{s.studentId}
-																	{s.className ? ` · ${s.className}` : ''}
-																</p>
-															</div>
-															{alreadyInCart ? (
-																<span className="text-xs text-primary font-medium shrink-0">
-																	Edit fees
-																</span>
-															) : (
-																<span className="text-xs text-muted-foreground shrink-0">
-																	Select
-																</span>
-															)}
-														</button>
-													);
-												})}
-											</div>
-											{searchResults.length === 20 && (
-												<div className="px-4 py-2 text-xs text-muted-foreground border-t border-border bg-muted/30">
-													Showing first 20 — narrow your search for more
-												</div>
-											)}
-										</div>
-									)}
-
-								{searchFocused &&
-									searchQuery.trim() &&
-									!searchLoading &&
-									searchResults.length === 0 && (
-										<div className="absolute z-40 mt-1 w-full bg-card border border-border rounded-xl shadow-lg p-4 text-center">
-											<p className="text-sm text-muted-foreground">
-												No students match "{searchQuery}"
-											</p>
-										</div>
-									)}
-							</div>
-
-							{/* Empty state */}
-							{cart.size === 0 && (
-								<div className="text-center py-8 border-2 border-dashed border-border rounded-xl">
-									<Users className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
-									<p className="text-sm font-medium text-foreground">
-										No students added yet
-									</p>
-									<p className="text-xs text-muted-foreground mt-1">
-										Search for a student above to get started
-									</p>
-								</div>
+								</ul>
 							)}
 						</div>
+					</div>
+
+					{/* Student finder */}
+					<div className="space-y-2">
+						<h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">
+							<UserPlus className="h-4 w-4" />
+							Add a student
+							{modalLoadingId && (
+								<Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+							)}
+						</h2>
+						<StudentFinder
+							students={roster}
+							schoolProfile={schoolProfile}
+							academicYear={academicYear}
+							onSelect={openStudentModal}
+							selectedIds={new Set(cart.keys())}
+							renderMeta={(student) =>
+								cart.has(String(student.studentId)) ? (
+									<span className="text-xs font-bold text-primary">
+										Edit fees
+									</span>
+								) : (
+									<span className="text-xs text-muted-foreground">Select</span>
+								)
+							}
+						/>
 					</div>
 
 					{/* Build error */}
@@ -1187,11 +1112,11 @@ export default function RecordPaymentsPage() {
 						</div>
 					)}
 
-					{/* Proceed CTA */}
+					{/* Proceed CTA — sticks to the bottom so the total is always in reach */}
 					{cart.size > 0 && (
-						<div className="bg-card border border-border rounded-xl shadow-sm p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3">
+						<div className="sticky bottom-4 z-30 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-4 shadow-lg backdrop-blur sm:p-5">
 							<div>
-								<p className="text-sm font-semibold text-foreground">
+								<p className="text-sm font-bold text-foreground">
 									{cartSummary.studentsWithItems} student
 									{cartSummary.studentsWithItems !== 1 ? 's' : ''}
 									{' · '}
@@ -1199,7 +1124,10 @@ export default function RecordPaymentsPage() {
 									{cartSummary.totalItems !== 1 ? 's' : ''}
 								</p>
 								{Object.entries(cartSummary.byCurrency).map(([c, amt]) => (
-									<p key={c} className="text-sm text-muted-foreground">
+									<p
+										key={c}
+										className="text-base font-black tabular-nums text-foreground"
+									>
 										{c} {formatCurrency(amt)}
 									</p>
 								))}
@@ -1207,9 +1135,9 @@ export default function RecordPaymentsPage() {
 							<button
 								onClick={proceedToReview}
 								disabled={cartSummary.studentsWithItems === 0}
-								className="flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+								className="flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
 							>
-								Review & Record
+								Review &amp; Record
 								<ArrowRight className="w-4 h-4" />
 							</button>
 						</div>
@@ -1220,16 +1148,17 @@ export default function RecordPaymentsPage() {
 			{/* ══════════════════════════ PHASE: REVIEW ═════════════════════════ */}
 			{phase === 'review' && (
 				<div className="space-y-5">
-					<div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+					<div className="bg-card border border-border rounded-2xl overflow-hidden">
 						<div className="px-4 sm:px-5 py-3.5 border-b border-border flex items-center justify-between gap-2">
-							<h2 className="font-semibold text-foreground">
+							<h2 className="font-bold text-foreground">
 								Review Payment Session
 							</h2>
 							<button
 								onClick={() => setPhase('build')}
-								className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+								className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-foreground"
 							>
-								← Back to Edit
+								<ArrowLeft className="h-3.5 w-3.5" />
+								Back to edit
 							</button>
 						</div>
 
