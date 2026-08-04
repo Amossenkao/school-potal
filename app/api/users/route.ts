@@ -1594,29 +1594,45 @@ function diffAddedYearClassSubjects(
 	return ops;
 }
 
-// Backfills teacherUsername on existing grades for newly assigned
-// class/subject/year combinations (see diffAddedYearClassSubjects).
+// Backfills teacherUsername (and, for grade change requests, teacherName)
+// on existing grades and their change requests for newly assigned
+// class/subject/year combinations (see diffAddedYearClassSubjects). Keeps
+// `lastUpdated` current so domain-version hashes (lib/bootstrap.ts) reflect
+// the change for every connected session, not just the reassigned teacher's.
 function buildTeacherGradeBackfillPromises(
-	Grade: any,
-	username: string,
+	models: { Grade: any; GradeChangeRequest?: any },
+	teacher: { username: string; fullName?: string },
 	newSubjects: any[],
 	oldSubjects: any[] = [],
 ): Promise<any>[] {
-	return diffAddedYearClassSubjects(newSubjects, oldSubjects).map((op) =>
-		Grade.updateMany(
-			{
-				academicYear: op.academicYear,
-				classId: op.classId,
-				subject: { $in: op.subjects },
-			},
-			{
+	const promises: Promise<any>[] = [];
+	for (const op of diffAddedYearClassSubjects(newSubjects, oldSubjects)) {
+		const match = {
+			academicYear: op.academicYear,
+			classId: op.classId,
+			subject: { $in: op.subjects },
+		};
+		promises.push(
+			models.Grade.updateMany(match, {
 				$set: {
-					teacherUsername: username,
-					updatedAt: new Date(),
+					teacherUsername: teacher.username,
+					lastUpdated: new Date(),
 				},
-			},
-		),
-	);
+			}),
+		);
+		if (models.GradeChangeRequest) {
+			promises.push(
+				models.GradeChangeRequest.updateMany(match, {
+					$set: {
+						teacherUsername: teacher.username,
+						...(teacher.fullName ? { teacherName: teacher.fullName } : {}),
+						lastUpdated: new Date(),
+					},
+				}),
+			);
+		}
+	}
+	return promises;
 }
 
 function generateSysId(): string {
@@ -3127,8 +3143,8 @@ export async function POST(request: NextRequest) {
 			const assignedSubjects =
 				newUser.role === 'teacher' ? finalUserData.subjects : finalUserData.classes;
 			const teacherGradeBackfillPromises = buildTeacherGradeBackfillPromises(
-				models.Grade,
-				newUser.username,
+				models,
+				{ username: newUser.username, fullName: newUser.fullName },
 				assignedSubjects || [],
 			);
 			if (teacherGradeBackfillPromises.length > 0) {
@@ -4899,14 +4915,21 @@ export async function PUT(request: NextRequest) {
 			}
 		}
 
-		// Track teacher class assignment changes for real-time access updates
+		// Track teacher (or isTeacher administrator) class assignment changes
+		// for real-time access updates. Administrators store their assignment
+		// in `classes` (same shape as a teacher's `subjects`) — see
+		// utils/gradeActor.ts.
 		let teacherClassChangeRemovedClassIds: string[] = [];
 		let teacherClassChangeAddedClassIds: string[] = [];
 		const teacherGradeBackfillPromises: Promise<any>[] = [];
-		if (
-			targetUser.role === 'teacher' &&
-			filteredUserData.hasOwnProperty('subjects')
-		) {
+		const targetIsTeacherActor =
+			targetUser.role === 'teacher' ||
+			(targetUser.role === 'administrator' &&
+				(filteredUserData.hasOwnProperty('isTeacher')
+					? !!filteredUserData.isTeacher
+					: !!(targetUser as any).isTeacher));
+		const assignmentField = targetUser.role === 'teacher' ? 'subjects' : 'classes';
+		if (targetIsTeacherActor && filteredUserData.hasOwnProperty(assignmentField)) {
 			const extractClassIdsFromSubjects = (subjects: any[]): string[] => {
 				if (!Array.isArray(subjects)) return [];
 				return Array.from(
@@ -4921,10 +4944,10 @@ export async function PUT(request: NextRequest) {
 					),
 				);
 			};
-			const oldClassIds = extractClassIdsFromSubjects(targetUser.subjects || []);
-			const newClassIds = extractClassIdsFromSubjects(
-				filteredUserData.subjects || [],
-			);
+			const oldAssignment = (targetUser as any)[assignmentField] || [];
+			const newAssignment = filteredUserData[assignmentField] || [];
+			const oldClassIds = extractClassIdsFromSubjects(oldAssignment);
+			const newClassIds = extractClassIdsFromSubjects(newAssignment);
 			teacherClassChangeRemovedClassIds = oldClassIds.filter(
 				(id) => !newClassIds.includes(id),
 			);
@@ -4932,14 +4955,15 @@ export async function PUT(request: NextRequest) {
 				(id) => !oldClassIds.includes(id),
 			);
 
-			// Backfill teacherUsername on existing grades for newly assigned
-			// class/subject pairs. Compare old vs new subjects per academic year.
+			// Backfill teacherUsername (and grade-change-request teacherName)
+			// on existing grades for newly assigned class/subject pairs.
+			// Compare old vs new assignment per academic year.
 			teacherGradeBackfillPromises.push(
 				...buildTeacherGradeBackfillPromises(
-					models.Grade,
-					targetUser.username,
-					filteredUserData.subjects || [],
-					targetUser.subjects || [],
+					models,
+					{ username: targetUser.username, fullName: (targetUser as any).fullName },
+					newAssignment,
+					oldAssignment,
 				),
 			);
 		}

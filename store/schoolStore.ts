@@ -1234,20 +1234,27 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			'EVENT_DELETED',
 			'ANNOUNCEMENT_CREATED',
 		].includes(event.type);
-		// Class transitions move grades between classes — bump grades and
-		// attendance versions so old-class peers lose access and new-class
-		// peers gain access to the student's data.
+		// Class transitions (a student moving classes, or a teacher/isTeacher
+		// administrator gaining or losing a class assignment) move access to
+		// grades/attendance/grade-requests between classes — bump those
+		// versions so old-class peers lose access and new-class peers gain
+		// access immediately. Triggers on either side of the transition: a
+		// class can be added with nothing removed (first-time assignment) or
+		// removed with nothing added (unassignment).
 		const hasClassTransition =
 			shouldTouchUsers &&
-			Array.isArray((payload as any).oldClassIds) &&
-			(payload as any).oldClassIds.length > 0;
+			((Array.isArray((payload as any).oldClassIds) &&
+				(payload as any).oldClassIds.length > 0) ||
+				(Array.isArray((payload as any).newClassIds) &&
+					(payload as any).newClassIds.length > 0));
 		const shouldTouchGrades = [
 			'GRADE_CREATED',
 			'GRADE_UPDATED',
 			'GRADE_CHANGE_REQUESTED',
 		].includes(event.type) || hasClassTransition;
 		const shouldTouchSchedules = ['CLASS_UPDATED'].includes(event.type);
-		const shouldTouchGradeRequests = event.type === 'GRADE_CHANGE_REQUESTED';
+		const shouldTouchGradeRequests =
+			event.type === 'GRADE_CHANGE_REQUESTED' || hasClassTransition;
 		const shouldTouchAttendance = [
 			'ATTENDANCE_CREATED',
 			'ATTENDANCE_UPDATED',
@@ -1534,7 +1541,10 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 	pruneGradesForUser: (user: any) => {
 		if (!user || typeof user !== 'object') return;
 		const role = String(user.role || '').trim();
-		if (role !== 'teacher' && role !== 'student') return;
+		// isTeacher administrators store their assignment in `classes` (same
+		// shape as a teacher's `subjects`) — see utils/gradeActor.ts.
+		const isTeacherLikeAdmin = role === 'administrator' && !!user.isTeacher;
+		if (role !== 'teacher' && role !== 'student' && !isTeacherLikeAdmin) return;
 
 		set((state) => {
 			let touched = false;
@@ -1544,9 +1554,12 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				const currentGrades = nextGradesByAcademicYear[academicYear];
 				if (!Array.isArray(currentGrades) || currentGrades.length === 0) return;
 
-				if (role === 'teacher') {
+				if (role === 'teacher' || isTeacherLikeAdmin) {
+					const teacherLikeUser = isTeacherLikeAdmin
+						? { ...user, subjects: user.classes || [] }
+						: user;
 					const pairs = getTeacherClassSubjectPairsForAcademicYear(
-						user,
+						teacherLikeUser,
 						academicYear,
 					);
 					if (pairs.length === 0) {

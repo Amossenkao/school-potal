@@ -524,6 +524,11 @@ export default function AuthProvider({
 		realtimeUser?.subjects,
 		realtimeUser?.sponsorClass,
 		realtimeUser?.parentChildren,
+		// isTeacher administrators store their class assignment in `classes`
+		// (see utils/gradeActor.ts) — must resubscribe channels when it changes,
+		// same as `subjects` does for teachers.
+		(realtimeUser as any)?.classes,
+		(realtimeUser as any)?.isTeacher,
 	]);
 
 	if (!startupResolved || isBootstrapping || isResolvingInitialRoute) {

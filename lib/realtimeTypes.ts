@@ -443,6 +443,19 @@ export const resolvePublishChannels = (event: RealtimeEvent) => {
 				)
 			: [];
 		if (subjectClassIds.length > 0) addClassIds(subjectClassIds);
+
+		// isTeacher administrators store their assignment in `classes` (same
+		// shape as a teacher's `subjects`) — see utils/gradeActor.ts.
+		const adminClassIds = Array.isArray(payloadUser.classes)
+			? payloadUser.classes.flatMap((s: any) =>
+					Array.isArray(s?.classes)
+						? s.classes
+								.map((c: any) => String(c?.classId || '').trim())
+								.filter(Boolean)
+						: [],
+				)
+			: [];
+		if (adminClassIds.length > 0) addClassIds(adminClassIds);
 	};
 
 	switch (event.type) {
