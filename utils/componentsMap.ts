@@ -1446,6 +1446,13 @@ export function generateNavigationItems(
 		'Grading',
 		'Academic Reports',
 		'Academic Documents',
+		// Money sits above timetables: the finance groups are worked daily,
+		// the calendar is consulted occasionally. 'Enrollment' is listed only
+		// to hold its existing position ahead of these.
+		'Enrollment',
+		'Finances',
+		'Financial',
+		'Calendar & Schedules',
 	];
 
 	const navItems: NavItem[] = [];

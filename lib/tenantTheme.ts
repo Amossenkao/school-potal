@@ -275,7 +275,46 @@ const buildDerivedThemeVariables = (
 	};
 };
 
+/**
+ * Weekday shading for schedule grids.
+ *
+ * Five tints that are clearly distinct from each other — a timetable is read by
+ * scanning across days, and a uniform grid makes that hard — while staying far
+ * enough from the foreground colour that the text on them keeps its contrast.
+ * The `-head` variants are a step stronger, for the column headers.
+ *
+ * Deliberately tenant-independent: these encode a weekday, not a brand, so a
+ * tenant's palette must not shuffle which day is which colour. A theme can still
+ * override them through its own `light`/`dark` block if it needs to.
+ */
+const LIGHT_DAY_SHADES: ThemeVariables = {
+	'--day-1': '#e3ecff',
+	'--day-1-head': '#c9dbff',
+	'--day-2': '#dff5e7',
+	'--day-2-head': '#bfe9cf',
+	'--day-3': '#fdeedb',
+	'--day-3-head': '#fadcb8',
+	'--day-4': '#efe6ff',
+	'--day-4-head': '#dccfff',
+	'--day-5': '#ffe3e7',
+	'--day-5-head': '#ffc9d1',
+};
+
+const DARK_DAY_SHADES: ThemeVariables = {
+	'--day-1': '#18253f',
+	'--day-1-head': '#22355c',
+	'--day-2': '#132a20',
+	'--day-2-head': '#1c3e2f',
+	'--day-3': '#2f2514',
+	'--day-3-head': '#45361c',
+	'--day-4': '#251b36',
+	'--day-4-head': '#36284e',
+	'--day-5': '#34181d',
+	'--day-5-head': '#4c2229',
+};
+
 const BASE_LIGHT_THEME_VARIABLES: ThemeVariables = {
+	...LIGHT_DAY_SHADES,
 	'--background': '#ffffff',
 	'--foreground': '#101828',
 	'--card': '#ffffff',
@@ -310,6 +349,7 @@ const BASE_LIGHT_THEME_VARIABLES: ThemeVariables = {
 };
 
 const BASE_DARK_THEME_VARIABLES: ThemeVariables = {
+	...DARK_DAY_SHADES,
 	'--background': '#0c111d',
 	'--foreground': '#f9fafb',
 	'--card': '#111827',

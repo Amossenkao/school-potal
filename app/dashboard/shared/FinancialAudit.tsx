@@ -5,8 +5,9 @@ import {
 	AlertTriangle,
 	ArrowLeft,
 	Ban,
-	CalendarDays,
 	ChevronDown,
+	ChevronLeft,
+	ChevronRight,
 	Filter,
 	GraduationCap,
 	Loader2,
@@ -20,14 +21,21 @@ import {
 	Wallet,
 	X,
 } from 'lucide-react';
+import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import { useSchoolStore } from '@/store/schoolStore';
 import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAccess';
 import { buildSchoolAcademicYearRange } from '@/utils/academicYearOptions';
 import StudentFinder, {
+	classIdForYear,
 	studentFullName,
+	useClassDirectory,
 } from '@/app/dashboard/shared/components/StudentFinder';
 
 const PAGE_SIZE = 50;
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
+
+/** A record that was changed after it was first written. */
+const MODIFIED_ACTIONS = ['payment.updated', 'payment.voided'];
 
 const normalizeYear = (value?: string) => (value || '').replace(/\//g, '-');
 
@@ -57,6 +65,9 @@ interface AuditEvent {
 		label: string;
 		studentId: string;
 		receiptNumber: string;
+		/** Recorded at write time; absent on entries predating that. */
+		studentName?: string;
+		className?: string;
 	};
 	before: any;
 	after: any;
@@ -166,6 +177,29 @@ const formatTime = (iso: string) => {
 		hour: 'numeric',
 		minute: '2-digit',
 	});
+};
+
+/* ── Identity resolution ───────────────────────────────────────────────── */
+
+/**
+ * Turns the IDs stored on an event into the names a person can read.
+ *
+ * Entries written from now on carry the student's name and class as a
+ * point-in-time snapshot; older ones carry only the student ID, so those fall
+ * back to a lookup in the cached roster. The snapshot wins when both exist —
+ * a student who has since been renamed or moved up a class must not have their
+ * history quietly rewritten.
+ */
+interface AuditDirectory {
+	student: (event: AuditEvent) => { id: string; name: string; className: string };
+	teacher: (id: unknown) => string;
+}
+
+/** The sentence stored at write time, with any bare student ID humanised. */
+const humanSummary = (event: AuditEvent, studentName: string) => {
+	const id = String(event.target?.studentId || '');
+	if (!id || !studentName || studentName === id) return event.summary;
+	return event.summary.split(id).join(studentName);
 };
 
 /* ── Change rendering ──────────────────────────────────────────────────── */
@@ -292,7 +326,13 @@ function ItemsChange({
 }
 
 /** Human-readable detail for one event, chosen by action. */
-function ChangeDetails({ event }: { event: AuditEvent }) {
+function ChangeDetails({
+	event,
+	directory,
+}: {
+	event: AuditEvent;
+	directory: AuditDirectory;
+}) {
 	const before = event.before || {};
 	const after = event.after || {};
 	const currency = event.amount?.currency || '';
@@ -418,8 +458,8 @@ function ChangeDetails({ event }: { event: AuditEvent }) {
 			<div className="divide-y divide-border">
 				<DetailRow label="Ward teacher">
 					<FromTo
-						from={before.wardTeacherId || 'none'}
-						to={after.wardTeacherId || 'none'}
+						from={directory.teacher(before.wardTeacherId)}
+						to={directory.teacher(after.wardTeacherId)}
 					/>
 				</DetailRow>
 			</div>
@@ -576,7 +616,13 @@ function ChangeDetails({ event }: { event: AuditEvent }) {
 	);
 }
 
-function EventRow({ event }: { event: AuditEvent }) {
+function EventRow({
+	event,
+	directory,
+}: {
+	event: AuditEvent;
+	directory: AuditDirectory;
+}) {
 	const [open, setOpen] = useState(false);
 	const style = ACTION_STYLE[event.action] || {
 		label: event.action,
@@ -586,6 +632,7 @@ function EventRow({ event }: { event: AuditEvent }) {
 	};
 	const Icon = style.icon;
 	const delta = event.amount?.delta ?? 0;
+	const student = directory.student(event);
 
 	return (
 		<li className="border-b border-border last:border-b-0">
@@ -605,6 +652,15 @@ function EventRow({ event }: { event: AuditEvent }) {
 						<span className={`text-sm font-bold ${style.tone}`}>
 							{style.label}
 						</span>
+						{student.name && (
+							<span className="inline-flex max-w-full items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+								<GraduationCap className="h-3 w-3 shrink-0" />
+								<span className="truncate">
+									{student.name}
+									{student.className ? ` · ${student.className}` : ''}
+								</span>
+							</span>
+						)}
 						{event.target.receiptNumber && (
 							<span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
 								{event.target.receiptNumber}
@@ -612,7 +668,7 @@ function EventRow({ event }: { event: AuditEvent }) {
 						)}
 					</span>
 					<span className="mt-0.5 block break-words text-sm text-foreground">
-						{event.summary}
+						{humanSummary(event, student.name)}
 					</span>
 					<span className="mt-1 block truncate text-xs text-muted-foreground">
 						{event.actor.name || 'Unknown'}
@@ -645,10 +701,18 @@ function EventRow({ event }: { event: AuditEvent }) {
 				<div className="space-y-3 border-t border-border bg-muted/20 px-4 py-3">
 					<dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
 						{[
-							{ label: 'Actor', value: event.actor.name || '—' },
-							{ label: 'Username', value: event.actor.username || '—' },
-							{ label: 'Student', value: event.target.studentId || '—' },
-							{ label: 'Year', value: event.academicYear || '—' },
+							{
+								label: 'Changed by',
+								value: event.actor.name || '—',
+								hint: event.actor.username ? `@${event.actor.username}` : '',
+							},
+							{
+								label: 'Student',
+								value: student.name || '—',
+								hint: student.id && student.id !== student.name ? student.id : '',
+							},
+							{ label: 'Class', value: student.className || '—', hint: '' },
+							{ label: 'Academic year', value: event.academicYear || '—', hint: '' },
 						].map((field) => (
 							<div key={field.label} className="min-w-0">
 								<dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -657,11 +721,16 @@ function EventRow({ event }: { event: AuditEvent }) {
 								<dd className="truncate text-sm font-bold text-foreground">
 									{field.value}
 								</dd>
+								{field.hint && (
+									<dd className="truncate text-[11px] text-muted-foreground">
+										{field.hint}
+									</dd>
+								)}
 							</div>
 						))}
 					</dl>
 					<div className="rounded-xl border border-border bg-card px-3 py-1">
-						<ChangeDetails event={event} />
+						<ChangeDetails event={event} directory={directory} />
 					</div>
 					<p className="text-[11px] text-muted-foreground">
 						Recorded {new Date(event.eventAt).toLocaleString()}
@@ -683,16 +752,22 @@ export default function FinancialAudit() {
 	const [total, setTotal] = useState(0);
 	const [cursor, setCursor] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
-	const [loadingMore, setLoadingMore] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const [category, setCategory] = useState('');
 	const [search, setSearch] = useState('');
 	const [academicYear, setAcademicYear] = useState('');
-	const [from, setFrom] = useState('');
-	const [to, setTo] = useState('');
+	const [dateRange, setDateRange] = useState<{ from: string; to: string } | null>(
+		null,
+	);
 	const [student, setStudent] = useState<any>(null);
 	const [finderOpen, setFinderOpen] = useState(false);
+	const [modifiedOnly, setModifiedOnly] = useState(false);
+
+	const [pageSize, setPageSize] = useState(PAGE_SIZE);
+	const [pageIndex, setPageIndex] = useState(0);
+	/** Starting cursor per page; page 1 starts at the top of the chain. */
+	const [cursors, setCursors] = useState<(string | null)[]>([null]);
 
 	const [chain, setChain] = useState<{
 		ok: boolean;
@@ -722,31 +797,140 @@ export default function FinancialAudit() {
 			: [];
 	}, [usersByAcademicYear, academicYear, schoolProfile]);
 
+	const classDirectory = useClassDirectory(schoolProfile);
+
+	/**
+	 * Every student and teacher the client has cached, across all years — not
+	 * just the year being filtered on, because an entry from 2023 still has to
+	 * name the person it is about.
+	 */
+	const roster = useMemo(() => {
+		const studentsById = new Map<string, any>();
+		const teachersById = new Map<string, string>();
+		for (const yearData of Object.values(usersByAcademicYear || {})) {
+			for (const entry of (yearData as any)?.students || []) {
+				const id = String(entry?.studentId || entry?.username || '');
+				if (id) studentsById.set(id, entry);
+			}
+			for (const entry of (yearData as any)?.teachers || []) {
+				const name =
+					`${entry?.firstName || ''} ${entry?.lastName || ''}`.trim() ||
+					entry?.username ||
+					'';
+				// Ward teachers are stored under whichever of these the picker used.
+				for (const key of [
+					entry?.username,
+					entry?.userId,
+					entry?.id,
+					entry?.teacherId,
+				]) {
+					if (key && name) teachersById.set(String(key), name);
+				}
+			}
+		}
+		return { studentsById, teachersById };
+	}, [usersByAcademicYear]);
+
+	const directory: AuditDirectory = useMemo(
+		() => ({
+			student: (event) => {
+				const id = String(event.target?.studentId || '');
+				// The snapshot taken at write time wins over the current roster.
+				let name = String(event.target?.studentName || '').trim();
+				let className = String(event.target?.className || '').trim();
+				const cached = id ? roster.studentsById.get(id) : null;
+				if (!name && cached) name = studentFullName(cached);
+				if (!className && cached) {
+					const cid = classIdForYear(cached, event.academicYear || '');
+					className =
+						classDirectory.byId[cid]?.className || cached.className || '';
+				}
+				return { id, name: name || id, className };
+			},
+			teacher: (id) => {
+				const key = String(id || '').trim();
+				if (!key) return 'None';
+				return roster.teachersById.get(key) || key;
+			},
+		}),
+		[roster, classDirectory],
+	);
+
+	/**
+	 * Older entries recorded only the student ID, so searching for a name would
+	 * miss them. Resolving the term against the cached roster and sending the
+	 * matching IDs lets the server find those rows too.
+	 */
+	const searchStudentIds = useMemo(() => {
+		const needle = search.trim().toLowerCase();
+		if (needle.length < 2) return [] as string[];
+		const ids: string[] = [];
+		for (const [id, entry] of roster.studentsById) {
+			if (studentFullName(entry).toLowerCase().includes(needle)) {
+				ids.push(id);
+				if (ids.length >= 50) break;
+			}
+		}
+		return ids;
+	}, [roster, search]);
+
+	/** The filter set, minus paging — a change to any of these returns to page 1. */
+	const filterKey = [
+		category,
+		search.trim(),
+		searchStudentIds.join(','),
+		academicYear,
+		dateRange?.from || '',
+		dateRange?.to || '',
+		student?.studentId || '',
+		modifiedOnly ? 'modified' : '',
+		String(pageSize),
+	].join('|');
+
+	useEffect(() => {
+		setPageIndex(0);
+		setCursors([null]);
+	}, [filterKey]);
+
 	const buildQuery = useCallback(
 		(before?: string | null) => {
 			const params = new URLSearchParams();
 			if (category) params.set('category', category);
 			if (search.trim()) params.set('search', search.trim());
+			if (searchStudentIds.length > 0) {
+				params.set('studentIds', searchStudentIds.join(','));
+			}
 			if (academicYear) params.set('academicYear', academicYear);
-			if (from) params.set('from', from);
-			if (to) params.set('to', to);
+			if (dateRange?.from) params.set('from', dateRange.from);
+			if (dateRange?.to) params.set('to', dateRange.to);
 			if (student?.studentId) params.set('studentId', String(student.studentId));
-			params.set('limit', String(PAGE_SIZE));
+			// Records that were changed after the fact: edited or voided.
+			if (modifiedOnly) params.set('actions', MODIFIED_ACTIONS.join(','));
+			params.set('limit', String(pageSize));
 			if (before) params.set('before', before);
 			return params.toString();
 		},
-		[category, search, academicYear, from, to, student],
+		[
+			category,
+			search,
+			searchStudentIds,
+			academicYear,
+			dateRange,
+			student,
+			modifiedOnly,
+			pageSize,
+		],
 	);
 
-	// Refetch from the top whenever a filter changes; debounced so typing in the
-	// search box does not fire a request per keystroke.
+	// Debounced so typing in the search box does not fire a request per keystroke.
+	const pageCursor = cursors[pageIndex] ?? null;
 	useEffect(() => {
 		let cancelled = false;
 		const timer = setTimeout(async () => {
 			setLoading(true);
 			setError(null);
 			try {
-				const res = await fetch(`/api/audit?${buildQuery()}`);
+				const res = await fetch(`/api/audit?${buildQuery(pageCursor)}`);
 				const json = await res.json();
 				if (cancelled) return;
 				if (!json.success) {
@@ -767,23 +951,26 @@ export default function FinancialAudit() {
 			cancelled = true;
 			clearTimeout(timer);
 		};
-	}, [buildQuery]);
+	}, [buildQuery, pageCursor]);
 
-	const loadMore = async () => {
-		if (!cursor || loadingMore) return;
-		setLoadingMore(true);
-		try {
-			const res = await fetch(`/api/audit?${buildQuery(cursor)}`);
-			const json = await res.json();
-			if (json.success) {
-				setEvents((prev) => [...prev, ...json.data.events]);
-				setCursor(json.data.nextCursor);
-			}
-		} catch {
-			setError('Network error loading more entries.');
-		} finally {
-			setLoadingMore(false);
-		}
+	/**
+	 * Paging walks the cursor rather than an offset: entries are appended
+	 * constantly, and an offset would quietly skip or repeat rows as the tail
+	 * grows underneath the reader. Each page's starting cursor is remembered so
+	 * going back does not mean re-walking from the top.
+	 */
+	const goToNextPage = () => {
+		if (!cursor) return;
+		setCursors((prev) => {
+			const next = [...prev];
+			next[pageIndex + 1] = cursor;
+			return next;
+		});
+		setPageIndex((index) => index + 1);
+	};
+
+	const goToPreviousPage = () => {
+		setPageIndex((index) => Math.max(0, index - 1));
 	};
 
 	const verifyChain = async () => {
@@ -815,22 +1002,27 @@ export default function FinancialAudit() {
 		(category ? 1 : 0) +
 		(search.trim() ? 1 : 0) +
 		(academicYear ? 1 : 0) +
-		(from || to ? 1 : 0) +
-		(student ? 1 : 0);
+		(dateRange?.from ? 1 : 0) +
+		(student ? 1 : 0) +
+		(modifiedOnly ? 1 : 0);
 
 	const clearFilters = () => {
 		setCategory('');
 		setSearch('');
 		setAcademicYear('');
-		setFrom('');
-		setTo('');
+		setDateRange(null);
 		setStudent(null);
+		setModifiedOnly(false);
 	};
+
+	const rangeStart = total === 0 ? 0 : pageIndex * pageSize + 1;
+	const rangeEnd = pageIndex * pageSize + events.length;
+	const totalPages = pageSize > 0 ? Math.ceil(total / pageSize) : 0;
 
 	return (
 		<div className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6">
 			{/* ── Header ──────────────────────────────────────────────────── */}
-			<header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+			<header className="space-y-4">
 				<div>
 					<h1 className="text-2xl font-black tracking-tight sm:text-3xl">
 						Audit Trail
@@ -840,19 +1032,51 @@ export default function FinancialAudit() {
 						the values were before.
 					</p>
 				</div>
-				<button
-					type="button"
-					onClick={verifyChain}
-					disabled={verifying}
-					className="inline-flex items-center gap-2 self-start rounded-xl border border-border bg-card px-3 py-2 text-sm font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-50 sm:self-auto"
-				>
-					{verifying ? (
-						<Loader2 className="h-4 w-4 animate-spin" />
-					) : (
-						<ShieldCheck className="h-4 w-4" />
+
+				{/* Period controls sit together, alongside the integrity check. */}
+				<div className="flex flex-wrap items-end gap-2">
+					{academicYearOptions.length > 0 && (
+						<label className="flex flex-col gap-0.5">
+							<span className="px-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+								Academic year
+							</span>
+							<select
+								value={academicYear}
+								onChange={(event) => setAcademicYear(event.target.value)}
+								className="h-8 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+							>
+								<option value="">All years</option>
+								{academicYearOptions.map((year) => (
+									<option key={year} value={year}>
+										{year}
+									</option>
+								))}
+							</select>
+						</label>
 					)}
-					Verify integrity
-				</button>
+
+					<DateRangePicker
+						label="Dates"
+						placeholder="Any date"
+						disableWeekends={false}
+						value={dateRange}
+						onChange={setDateRange}
+					/>
+
+					<button
+						type="button"
+						onClick={verifyChain}
+						disabled={verifying}
+						className="ml-auto inline-flex h-8 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+					>
+						{verifying ? (
+							<Loader2 className="h-4 w-4 animate-spin" />
+						) : (
+							<ShieldCheck className="h-4 w-4" />
+						)}
+						Verify integrity
+					</button>
+				</div>
 			</header>
 
 			{/* ── Chain status ────────────────────────────────────────────── */}
@@ -921,7 +1145,10 @@ export default function FinancialAudit() {
 							{studentFullName(student)}
 						</p>
 						<p className="truncate text-xs text-muted-foreground">
-							{student.studentId}
+							{classDirectory.byId[classIdForYear(student, academicYear)]
+								?.className ||
+								student.className ||
+								'No class on record'}
 						</p>
 					</div>
 					<button
@@ -962,6 +1189,8 @@ export default function FinancialAudit() {
 					schoolProfile={schoolProfile}
 					academicYear={academicYear}
 					autoFocus
+					showStudentId={false}
+					placeholder="Search by name or class…"
 					onSelect={(selected) => {
 						setStudent(selected);
 						setFinderOpen(false);
@@ -999,53 +1228,39 @@ export default function FinancialAudit() {
 								type="text"
 								value={search}
 								onChange={(event) => setSearch(event.target.value)}
-								placeholder="Person, receipt, student, description"
+								placeholder="Student name, staff name, receipt, class…"
 								className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
 							/>
 						</span>
 					</label>
-					<label className="flex flex-col gap-1">
-						<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-							Academic year
-						</span>
-						<span className="relative block">
-							<CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-							<select
-								value={academicYear}
-								onChange={(event) => setAcademicYear(event.target.value)}
-								className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+					{/* Only meaningful where records can be changed after the fact. */}
+					{(category === '' || category === 'payment') && (
+						<label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border p-3">
+							<span className="min-w-0">
+								<span className="block text-sm font-bold text-foreground">
+									Modified records only
+								</span>
+								<span className="block text-[11px] text-muted-foreground">
+									Payments that were edited or voided after they were recorded
+								</span>
+							</span>
+							<button
+								type="button"
+								role="switch"
+								aria-checked={modifiedOnly}
+								onClick={() => setModifiedOnly((on) => !on)}
+								className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+									modifiedOnly ? 'bg-primary' : 'bg-muted-foreground/30'
+								}`}
 							>
-								<option value="">All years</option>
-								{academicYearOptions.map((year) => (
-									<option key={year} value={year}>
-										{year}
-									</option>
-								))}
-							</select>
-						</span>
-					</label>
-					<label className="flex flex-col gap-1">
-						<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-							From
-						</span>
-						<input
-							type="date"
-							value={from}
-							onChange={(event) => setFrom(event.target.value)}
-							className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-						/>
-					</label>
-					<label className="flex flex-col gap-1">
-						<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-							To
-						</span>
-						<input
-							type="date"
-							value={to}
-							onChange={(event) => setTo(event.target.value)}
-							className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-						/>
-					</label>
+								<span
+									className={`inline-block h-4 w-4 transform rounded-full bg-background transition-transform ${
+										modifiedOnly ? 'translate-x-4' : 'translate-x-0.5'
+									}`}
+								/>
+							</button>
+						</label>
+					)}
 				</div>
 			</div>
 
@@ -1070,9 +1285,26 @@ export default function FinancialAudit() {
 				</div>
 			) : (
 				<div className="space-y-4">
-					<p className="text-xs text-muted-foreground">
-						Showing {events.length} of {total} entr{total === 1 ? 'y' : 'ies'}
-					</p>
+					<div className="flex flex-wrap items-center justify-between gap-2">
+						<p className="text-xs text-muted-foreground">
+							Showing {rangeStart}–{rangeEnd} of {total} entr
+							{total === 1 ? 'y' : 'ies'}
+						</p>
+						<label className="flex items-center gap-2 text-xs text-muted-foreground">
+							Rows
+							<select
+								value={pageSize}
+								onChange={(event) => setPageSize(Number(event.target.value))}
+								className="h-8 rounded-lg border border-input bg-background px-2 text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+							>
+								{PAGE_SIZE_OPTIONS.map((size) => (
+									<option key={size} value={size}>
+										{size}
+									</option>
+								))}
+							</select>
+						</label>
+					</div>
 					{groups.map(([day, dayEvents]) => (
 						<section
 							key={day}
@@ -1088,22 +1320,37 @@ export default function FinancialAudit() {
 							</header>
 							<ul>
 								{dayEvents.map((event) => (
-									<EventRow key={event.id} event={event} />
+									<EventRow key={event.id} event={event} directory={directory} />
 								))}
 							</ul>
 						</section>
 					))}
 
-					{cursor && (
-						<button
-							type="button"
-							onClick={loadMore}
-							disabled={loadingMore}
-							className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-						>
-							{loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
-							Load older entries
-						</button>
+					{(pageIndex > 0 || cursor) && (
+						<div className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-3">
+							<button
+								type="button"
+								onClick={goToPreviousPage}
+								disabled={pageIndex === 0}
+								className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+							>
+								<ChevronLeft className="h-4 w-4" />
+								Newer
+							</button>
+							<span className="text-xs font-bold text-muted-foreground">
+								Page {pageIndex + 1}
+								{totalPages > 0 ? ` of ${totalPages}` : ''}
+							</span>
+							<button
+								type="button"
+								onClick={goToNextPage}
+								disabled={!cursor}
+								className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+							>
+								Older
+								<ChevronRight className="h-4 w-4" />
+							</button>
+						</div>
 					)}
 				</div>
 			)}

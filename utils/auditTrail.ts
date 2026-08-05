@@ -23,6 +23,9 @@ export interface AuditTarget {
 	label?: string;
 	studentId?: string;
 	receiptNumber?: string;
+	/** Point-in-time identity, so the trail never has to show a bare ID. */
+	studentName?: string;
+	className?: string;
 }
 
 export interface RecordAuditEventArgs {
@@ -82,6 +85,66 @@ function canonical(value: unknown): string {
 		.join(',')}}`;
 }
 
+/**
+ * The exact target shape that enters the hash. Writer and verifier both go
+ * through here, because any drift between the two silently invalidates the
+ * chain.
+ *
+ * `studentName` and `className` collapse to `undefined` rather than `''` when
+ * absent, and `canonical` drops undefined keys — so events written before
+ * these fields existed still hash to the bytes they were signed with and stay
+ * verifiable.
+ */
+function hashableTarget(target: any) {
+	return {
+		type: target?.type || '',
+		id: target?.id || '',
+		label: target?.label || '',
+		studentId: target?.studentId || '',
+		receiptNumber: target?.receiptNumber || '',
+		studentName: target?.studentName || undefined,
+		className: target?.className || undefined,
+	};
+}
+
+/**
+ * Point-in-time identity for a student, for the audit target.
+ *
+ * Reads the class name off the student record when it is there and falls back
+ * to the profile's class tree, because `className` is denormalised and not
+ * populated on every write path.
+ */
+export function studentAuditIdentity(
+	student: any,
+	schoolProfile?: any,
+): { studentName: string; className: string } {
+	const studentName =
+		`${student?.firstName || ''} ${student?.lastName || ''}`.trim() ||
+		student?.fullName ||
+		student?.username ||
+		String(student?.studentId || '');
+
+	let className: string = student?.className || '';
+	const classId = String(student?.classId || '');
+	if (!className && classId) {
+		outer: for (const levels of Object.values(
+			schoolProfile?.academicConfig?.classLevels || {},
+		)) {
+			for (const level of Object.values((levels as any) || {})) {
+				for (const cls of (level as any)?.classes || []) {
+					if (cls?.classId === classId) {
+						className = cls.name || cls.classId;
+						break outer;
+					}
+				}
+			}
+		}
+		if (!className) className = classId;
+	}
+
+	return { studentName, className };
+}
+
 const sha256 = (input: string) =>
 	crypto.createHash('sha256').update(input).digest('hex');
 
@@ -117,13 +180,7 @@ export async function recordAuditEvent(
 				username: args.actor.username || '',
 				role: args.actor.role || '',
 			},
-			target: {
-				type: args.target.type,
-				id: args.target.id || '',
-				label: args.target.label || '',
-				studentId: args.target.studentId || '',
-				receiptNumber: args.target.receiptNumber || '',
-			},
+			target: hashableTarget(args.target),
 			before: args.before ?? null,
 			after: args.after ?? null,
 			amount: args.amount ?? null,
@@ -208,13 +265,7 @@ export async function verifyAuditChain(
 				username: event.actor?.username || '',
 				role: event.actor?.role || '',
 			},
-			target: {
-				type: event.target?.type || '',
-				id: event.target?.id || '',
-				label: event.target?.label || '',
-				studentId: event.target?.studentId || '',
-				receiptNumber: event.target?.receiptNumber || '',
-			},
+			target: hashableTarget(event.target),
 			before: event.before ?? null,
 			after: event.after ?? null,
 			amount: event.amount ?? null,

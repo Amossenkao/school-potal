@@ -30,6 +30,8 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { useSchoolStore } from '@/store/schoolStore';
+import useAuth from '@/store/useAuth';
+import { canAdministerPayments } from '@/utils/financialAccess';
 import {
 	normalizePayments,
 	type PaymentItem,
@@ -227,6 +229,18 @@ export default function AdminPaymentHistoryPage() {
 		(state) => state.paymentsByAcademicYear,
 	);
 	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
+	const currentUser = useAuth((state) => state.user);
+
+	/**
+	 * Editing or voiding a receipt takes the `record_payments` permission. The
+	 * API enforces this, but an administrator without it should not be shown
+	 * buttons that can only fail — so the same rule is evaluated here, from the
+	 * one helper the server uses.
+	 */
+	const canModifyPayments = useMemo(
+		() => canAdministerPayments(schoolProfile as any, currentUser),
+		[schoolProfile, currentUser],
+	);
 
 	const [academicYear, setAcademicYear] = useState('');
 	const [selectedStudent, setSelectedStudent] = useState<any>(null);
@@ -616,7 +630,7 @@ export default function AdminPaymentHistoryPage() {
 	return (
 		<div className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6">
 			{/* ── Header ──────────────────────────────────────────────────── */}
-			<header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+			{/* <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 				<div>
 					<h1 className="text-2xl font-black tracking-tight sm:text-3xl">
 						Payment History
@@ -643,10 +657,10 @@ export default function AdminPaymentHistoryPage() {
 						</select>
 					</label>
 				)}
-			</header>
+			</header> */}
 
 			{/* ── Totals for the current filter ───────────────────────────── */}
-			<div className="grid gap-4 sm:grid-cols-3">
+			{/* <div className="grid gap-4 sm:grid-cols-3">
 				<StatTile
 					label="Total Collected"
 					icon={Landmark}
@@ -680,7 +694,7 @@ export default function AdminPaymentHistoryPage() {
 						{totals.payers}
 					</p>
 				</StatTile>
-			</div>
+			</div> */}
 
 			{/* ── Student focus ───────────────────────────────────────────── */}
 			{selectedStudent ? (
@@ -773,6 +787,22 @@ export default function AdminPaymentHistoryPage() {
 				</div>
 
 				<div className="flex flex-wrap gap-1.5">
+						<label className="flex items-center gap-2">
+							<CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+							<span className="sr-only">Academic year</span>
+							<select
+								value={academicYear}
+							onChange={(event) => setAcademicYear(event.target.value)}
+							disabled={academicYearOptions.length <= 1}
+								className="rounded-xl border border-border bg-card px-3 py-2 text-sm font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							>
+								{academicYearOptions.map((year) => (
+									<option key={year} value={year}>
+										{year}
+									</option>
+								))}
+							</select>
+						</label>
 					{RANGES.map((option) => (
 						<button
 							key={option.id}
@@ -998,7 +1028,8 @@ export default function AdminPaymentHistoryPage() {
 													</p>
 												</div>
 												<p className="shrink-0 whitespace-nowrap text-sm font-black tabular-nums text-emerald-600 dark:text-emerald-400">
-													{openReceipt.currency} {formatCurrency(line.amountPaid)}
+													{openReceipt.currency}{' '}
+													{formatCurrency(line.amountPaid)}
 												</p>
 											</div>
 											<div className="mt-2 grid grid-cols-2 gap-2 text-xs">
@@ -1007,7 +1038,9 @@ export default function AdminPaymentHistoryPage() {
 														Fee total
 													</span>
 													<span className="font-bold tabular-nums">
-														{line.feeTotal > 0 ? formatCurrency(line.feeTotal) : '—'}
+														{line.feeTotal > 0
+															? formatCurrency(line.feeTotal)
+															: '—'}
 													</span>
 												</div>
 												<div>
@@ -1085,7 +1118,9 @@ export default function AdminPaymentHistoryPage() {
 										<p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
 											{tile.label}
 										</p>
-										<p className={`mt-1 text-base font-black tabular-nums ${tile.tone}`}>
+										<p
+											className={`mt-1 text-base font-black tabular-nums ${tile.tone}`}
+										>
 											{formatCurrency(tile.value)}
 										</p>
 									</div>
@@ -1195,22 +1230,29 @@ export default function AdminPaymentHistoryPage() {
 										</>
 									) : (
 										<>
-											<button
-												type="button"
-												onClick={startEditing}
-												className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-bold text-foreground transition-colors hover:bg-muted"
-											>
-												<Pencil className="h-4 w-4" />
-												Edit
-											</button>
-											<button
-												type="button"
-												onClick={() => setConfirm('void')}
-												className="inline-flex items-center gap-2 rounded-xl border border-destructive/30 px-3 py-2 text-sm font-bold text-destructive transition-colors hover:bg-destructive/10"
-											>
-												<Ban className="h-4 w-4" />
-												Void
-											</button>
+											{/* Both actions require `record_payments`; the API
+											    refuses them otherwise, so the buttons are not
+											    offered either. */}
+											{canModifyPayments && (
+												<>
+													<button
+														type="button"
+														onClick={startEditing}
+														className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-bold text-foreground transition-colors hover:bg-muted"
+													>
+														<Pencil className="h-4 w-4" />
+														Edit
+													</button>
+													<button
+														type="button"
+														onClick={() => setConfirm('void')}
+														className="inline-flex items-center gap-2 rounded-xl border border-destructive/30 px-3 py-2 text-sm font-bold text-destructive transition-colors hover:bg-destructive/10"
+													>
+														<Ban className="h-4 w-4" />
+														Void
+													</button>
+												</>
+											)}
 											<PaymentReceiptPDF
 												context={receiptContext}
 												school={schoolProfile}
@@ -1286,7 +1328,9 @@ export default function AdminPaymentHistoryPage() {
 					</label>
 
 					{actionError && (
-						<p className="text-sm font-medium text-destructive">{actionError}</p>
+						<p className="text-sm font-medium text-destructive">
+							{actionError}
+						</p>
 					)}
 
 					<div className="flex items-center justify-end gap-2">

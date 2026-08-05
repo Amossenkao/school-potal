@@ -5,11 +5,11 @@ import { getSchoolProfile } from '@/lib/mongoose';
 import { normalizeUser } from '@/lib/bootstrap';
 import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
 import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
-import { auditActorFrom, recordAuditEvent } from '@/utils/auditTrail';
-
-const studentLabel = (student: any) =>
-	`${student?.firstName || ''} ${student?.lastName || ''}`.trim() ||
-	String(student?.studentId || '');
+import {
+	auditActorFrom,
+	recordAuditEvent,
+	studentAuditIdentity,
+} from '@/utils/auditTrail';
 
 /**
  * Emits one audit event per financial attribute that actually changed.
@@ -25,15 +25,23 @@ async function recordScholarshipAudit(
 		wardTeacherId?: unknown;
 		scholarships?: unknown;
 		requestId?: string;
+		schoolProfile?: any;
 	},
 ) {
 	const actor = auditActorFrom(sessionUser);
+	const identity = studentAuditIdentity(after, input.schoolProfile);
 	const target = {
 		type: 'student',
 		id: String(after?.studentId || ''),
-		label: studentLabel(after),
+		label: identity.studentName,
 		studentId: String(after?.studentId || ''),
+		studentName: identity.studentName,
+		className: identity.className,
 	};
+	// "Ada Kollie (Grade 5A)" reads as a person; a student ID does not.
+	const who = `${identity.studentName}${
+		identity.className ? ` (${identity.className})` : ''
+	}`;
 
 	if (input.scholarships !== undefined) {
 		const previous: string[] = Array.isArray(before?.scholarships)
@@ -49,7 +57,7 @@ async function recordScholarshipAudit(
 			await recordAuditEvent(req, {
 				category: 'scholarship',
 				action: 'scholarship.assigned',
-				summary: `Awarded "${key}" to ${target.label} (${target.studentId})`,
+				summary: `Awarded "${key}" to ${who}`,
 				actor,
 				target,
 				before: { scholarships: previous },
@@ -61,7 +69,7 @@ async function recordScholarshipAudit(
 			await recordAuditEvent(req, {
 				category: 'scholarship',
 				action: 'scholarship.removed',
-				summary: `Removed "${key}" from ${target.label} (${target.studentId})`,
+				summary: `Removed "${key}" from ${who}`,
 				actor,
 				target,
 				before: { scholarships: previous },
@@ -78,7 +86,7 @@ async function recordScholarshipAudit(
 		await recordAuditEvent(req, {
 			category: 'scholarship',
 			action: 'ward.changed',
-			summary: `Ward teacher for ${target.label} changed from "${before?.wardTeacherId || 'none'}" to "${after?.wardTeacherId || 'none'}"`,
+			summary: `Ward teacher for ${who} changed from "${before?.wardTeacherId || 'none'}" to "${after?.wardTeacherId || 'none'}"`,
 			actor,
 			target,
 			before: { wardTeacherId: before?.wardTeacherId || '' },
@@ -210,17 +218,21 @@ export async function PATCH(req: NextRequest) {
 			);
 		}
 
+		// Fetched before the audit call as well as for the sync below: the trail
+		// resolves the student's class name from the profile's class tree.
+		const schoolProfile = await getSchoolProfile().catch(() => null);
+
 		await recordScholarshipAudit(req, sessionUser, before, updated, {
 			wardTeacherId,
 			scholarships,
 			// Lets a bulk action (one request per student) be grouped in the UI.
 			requestId: req.headers.get('x-action-id') || undefined,
+			schoolProfile,
 		});
 
 		// Invalidate cached rosters so the change reaches other clients (and
 		// this one after a reload). Bump the users version fingerprint and
 		// publish a realtime USER_UPDATED event carrying the updated student.
-		const schoolProfile = await getSchoolProfile().catch(() => null);
 		const affectedYears = extractAcademicYears(updated, schoolProfile);
 		try {
 			await bumpUsersVersion(affectedYears, {

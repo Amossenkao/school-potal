@@ -59,6 +59,13 @@ const TargetSchema = new Schema(
 		label: { type: String, default: '' },
 		studentId: { type: String, default: '' },
 		receiptNumber: { type: String, default: '' },
+		/**
+		 * Who the student was at the moment of the change. Snapshots, not joins:
+		 * the trail must still read correctly after a rename, a class move, or
+		 * the student being deleted outright.
+		 */
+		studentName: { type: String, default: '' },
+		className: { type: String, default: '' },
 	},
 	{ _id: false },
 );

@@ -74,6 +74,14 @@ export async function GET(req: NextRequest) {
 		const filter: Record<string, unknown> = {};
 		if (category) filter.category = category;
 		if (action) filter.action = action;
+
+		// `actions` narrows to a set — the "modified only" view asks for edits
+		// and voids together, which a single `action` cannot express.
+		const actions = (searchParams.get('actions') || '')
+			.split(',')
+			.map((value) => value.trim())
+			.filter(Boolean);
+		if (actions.length > 0) filter.action = { $in: actions };
 		if (studentId) filter['target.studentId'] = studentId;
 		if (actorId) filter['actor.id'] = actorId;
 		if (academicYear) filter.academicYear = academicYear;
@@ -87,13 +95,30 @@ export async function GET(req: NextRequest) {
 		if (search) {
 			const safe = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 			const pattern = new RegExp(safe, 'i');
-			filter.$or = [
+			const clauses: Record<string, unknown>[] = [
 				{ summary: pattern },
 				{ 'actor.name': pattern },
 				{ 'target.label': pattern },
 				{ 'target.receiptNumber': pattern },
+				{ 'target.studentName': pattern },
+				{ 'target.className': pattern },
 				{ 'target.studentId': pattern },
 			];
+
+			// Entries written before names were recorded carry only the student ID,
+			// so a search for a name would miss them. The client resolves the term
+			// against its cached roster and passes the matching IDs here, which is
+			// what makes name search work over the whole history.
+			const resolvedIds = (searchParams.get('studentIds') || '')
+				.split(',')
+				.map((value) => value.trim())
+				.filter(Boolean)
+				.slice(0, 50);
+			if (resolvedIds.length > 0) {
+				clauses.push({ 'target.studentId': { $in: resolvedIds } });
+			}
+
+			filter.$or = clauses;
 		}
 
 		const models = await getTenantModels();

@@ -48,6 +48,11 @@ interface StudentFinderProps {
 	/** Cap on search results before asking the user to narrow down. */
 	maxResults?: number;
 	autoFocus?: boolean;
+	/**
+	 * Show the student ID beneath the name. Off for surfaces that identify
+	 * students by name and class instead, such as the audit trail.
+	 */
+	showStudentId?: boolean;
 	/** Extra classes for the outer wrapper. */
 	className?: string;
 }
@@ -134,6 +139,7 @@ export default function StudentFinder({
 	placeholder = 'Search by name, ID, or class…',
 	maxResults = 8,
 	autoFocus = false,
+	showStudentId = true,
 	className = '',
 }: StudentFinderProps) {
 	const [mode, setMode] = useState<'search' | 'browse'>('search');
@@ -268,8 +274,9 @@ export default function StudentFinder({
 									{studentFullName(row.student)}
 								</span>
 								<span className="block truncate text-xs text-muted-foreground">
-									{row.student.studentId}
-									{row.className ? ` · ${row.className}` : ''}
+									{showStudentId
+										? `${row.student.studentId}${row.className ? ` · ${row.className}` : ''}`
+										: row.className || 'No class on record'}
 								</span>
 							</span>
 							{renderMeta ? (
@@ -458,7 +465,11 @@ export default function StudentFinder({
 	);
 }
 
-function ChipGrid({
+/**
+ * The drill-down grid used to step through sessions, levels and classes.
+ * Exported so other screens present the same control rather than a lookalike.
+ */
+export function ChipGrid({
 	items,
 	onPick,
 	emptyMessage,

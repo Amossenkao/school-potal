@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeUser } from '@/proxy';
 import { getTenantModels } from '@/models';
@@ -47,6 +48,102 @@ const timesOverlap = (startA: string, endA: string, startB: string, endB: string
 	const bEnd = timeToMinutes(endB);
 	return aStart < bEnd && bStart < aEnd;
 };
+
+/**
+ * A test schedule is published as a group: one title and one academic period
+ * covering many class/subject/day rows. Rows stay separate documents so each
+ * can be edited or removed on its own, and `groupId` is what makes them read
+ * as a single schedule.
+ */
+const TEST_ROW_FIELDS = [
+	'classId',
+	'className',
+	'subject',
+	'startDate',
+	'startTime',
+	'endTime',
+	'venue',
+] as const;
+
+const buildTestRow = (
+	row: any,
+	shared: {
+		title: string;
+		period: string;
+		groupId: string;
+		level: string;
+		session: string;
+		academicYear: string;
+		actorId: string;
+	},
+) => ({
+	eventType: 'test_schedule',
+	title: shared.title,
+	period: shared.period,
+	groupId: shared.groupId,
+	startDate: row.startDate || '',
+	endDate: row.endDate || row.startDate || '',
+	startTime: row.startTime || '',
+	endTime: row.endTime || '',
+	dayOfWeek: '',
+	classId: row.classId || '',
+	className: row.className || '',
+	subject: row.subject || '',
+	isRecess: false,
+	venue: row.venue || '',
+	location: row.location || '',
+	description: row.description || '',
+	academicYear: shared.academicYear,
+	level: shared.level,
+	session: shared.session,
+	createdBy: shared.actorId,
+	updatedBy: shared.actorId,
+});
+
+/** Every row of a test schedule needs a subject, a date and a time window. */
+const validateTestRows = (rows: any[]): string | null => {
+	if (!Array.isArray(rows) || rows.length === 0) {
+		return 'A test schedule needs at least one entry.';
+	}
+	for (const row of rows) {
+		if (!row?.subject) return 'Every entry needs a subject.';
+		if (!row?.startDate) return 'Every entry needs a date.';
+		if (!row?.startTime || !row?.endTime) {
+			return 'Every entry needs a start and end time.';
+		}
+	}
+	return null;
+};
+
+/**
+ * Clears the GET cache for a schedule scope.
+ *
+ * GET keys carry a class-scope suffix (`…:<session>:<level>:<classScope>`),
+ * which the un-suffixed deletes this route used to issue never matched — so an
+ * edit could sit invisible behind a stale entry for the full TTL. There is no
+ * pattern delete available here, so the keys a reader will actually hit are
+ * cleared explicitly. Narrower role-scoped variants (one student's own class)
+ * still age out on the five-minute TTL.
+ */
+async function invalidateScheduleCache(
+	dbName: string,
+	eventType: string,
+	academicYear: string,
+	session?: string,
+	level?: string,
+	classIds: string[] = [],
+) {
+	const base = `school_events:${dbName}:${eventType}:${academicYear}`;
+	const scopes = new Set(['all', ...classIds.filter(Boolean)]);
+	const keys = new Set<string>();
+	for (const s of new Set([session || 'all', 'all'])) {
+		for (const l of new Set([level || 'all', 'all'])) {
+			keys.add(`${base}:${s}:${l}`);
+			for (const scope of scopes) keys.add(`${base}:${s}:${l}:${scope}`);
+		}
+	}
+	await Promise.all(Array.from(keys).map((key) => redis.del(key)));
+}
 
 const getClassMetaById = (classLevels: any, classId: string) => {
 	if (!classLevels || !classId) return null;
@@ -340,6 +437,109 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
+		// ── Whole test schedule in one request ──────────────────────────────
+		// A test schedule is authored as a unit: one title, one period, many
+		// class/subject/day rows. Creating it row by row from the client would
+		// leave a half-published schedule behind if one request failed.
+		if (eventType === 'test_schedule' && Array.isArray(payload.items)) {
+			if (!payload.level || !payload.session) {
+				return NextResponse.json(
+					{ success: false, message: 'level and session are required.' },
+					{ status: 400 }
+				);
+			}
+			if (payload.level === 'Self Contained') {
+				return NextResponse.json(
+					{ success: false, message: 'Self Contained schedules are disabled.' },
+					{ status: 400 }
+				);
+			}
+			if (!payload.title) {
+				return NextResponse.json(
+					{ success: false, message: 'A test schedule needs a title.' },
+					{ status: 400 }
+				);
+			}
+			if (!payload.period) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'A test schedule must be tied to an academic period.',
+					},
+					{ status: 400 }
+				);
+			}
+			const invalid = validateTestRows(payload.items);
+			if (invalid) {
+				return NextResponse.json(
+					{ success: false, message: invalid },
+					{ status: 400 }
+				);
+			}
+
+			const models = await getTenantModels();
+			const groupId = payload.groupId || crypto.randomUUID();
+			const shared = {
+				title: payload.title,
+				period: payload.period,
+				groupId,
+				level: payload.level,
+				session: payload.session,
+				academicYear: String(academicYear || ''),
+				actorId: currentUser.id,
+			};
+
+			const created = await models.SchoolEvent.insertMany(
+				payload.items.map((row: any) => buildTestRow(row, shared))
+			);
+
+			await invalidateScheduleCache(
+				schoolProfile?.dbName,
+				eventType,
+				String(academicYear || ''),
+				payload.session,
+				payload.level,
+				created.map((row: any) => String(row.classId || ''))
+			);
+
+			let lastSeq: any = null;
+			for (const row of created) {
+				const logged = await appendChange({
+					domain: 'schedules',
+					academicYear: String(academicYear || ''),
+					op: 'create',
+					documentId: String(row._id),
+					documentType: 'SchoolEvent',
+					document: typeof row.toObject === 'function' ? row.toObject() : row,
+					actorId: currentUser.id,
+				});
+				lastSeq = logged;
+			}
+			await publishSyncEventSafe({
+				tenantId: resolveTenantSyncKey({
+					schoolProfile,
+					host: request.headers.get('host'),
+				}),
+				domain: 'schedules',
+				academicYear: String(academicYear || ''),
+				actorId: currentUser.id,
+				reason: 'schedule-created',
+				seq: lastSeq,
+				scope: {
+					classIds: created
+						.map((row: any) => String(row.classId || ''))
+						.filter(Boolean),
+				},
+			});
+
+			return NextResponse.json({
+				success: true,
+				data: created,
+				groupId,
+				seq: lastSeq,
+			});
+		}
+
 		if (!payload.level || !payload.session || !payload.subject) {
 			return NextResponse.json(
 				{
@@ -411,6 +611,8 @@ export async function POST(request: NextRequest) {
 			className: payload.className || '',
 			subject: payload.subject,
 			isRecess: payload.isRecess || false,
+			period: payload.period || '',
+			groupId: payload.groupId || '',
 			venue: payload.venue || '',
 			location: payload.location || '',
 			description: payload.description || '',
@@ -458,12 +660,13 @@ export async function POST(request: NextRequest) {
 		}
 		const event = await models.SchoolEvent.create(basePayload);
 
-		const cacheKey = `school_events:${schoolProfile?.dbName}:${eventType}:${academicYear}:${
-			payload.session || 'all'
-		}:${payload.level || 'all'}`;
-		await redis.del(cacheKey);
-		await redis.del(
-			`school_events:${schoolProfile?.dbName}:${eventType}:${academicYear}:all:all`
+		await invalidateScheduleCache(
+			schoolProfile?.dbName,
+			eventType,
+			String(academicYear || ''),
+			payload.session,
+			payload.level,
+			[String(payload.classId || '')]
 		);
 		const logged = await appendChangeIdempotent({
 			domain: 'schedules',
@@ -517,6 +720,144 @@ export async function POST(request: NextRequest) {
 			}
 
 			const payload = await request.json();
+
+			// ── Whole test schedule ─────────────────────────────────────────
+			// Rows carry no identity of their own to the author — they edit the
+			// schedule, and the diff against what is stored decides which rows
+			// are updated, added or dropped.
+			if (payload.type === 'test' && payload.groupId && Array.isArray(payload.items)) {
+				const invalidRows = validateTestRows(payload.items);
+				if (invalidRows) {
+					return NextResponse.json(
+						{ success: false, message: invalidRows },
+						{ status: 400 }
+					);
+				}
+				if (!payload.title || !payload.period) {
+					return NextResponse.json(
+						{
+							success: false,
+							message: 'A test schedule needs a title and an academic period.',
+						},
+						{ status: 400 }
+					);
+				}
+
+				const groupModels = await getTenantModels();
+				const groupProfileRaw = await getSchoolProfile();
+				const groupProfile =
+					typeof groupProfileRaw === 'string'
+						? JSON.parse(groupProfileRaw)
+						: groupProfileRaw;
+
+				const existing = await groupModels.SchoolEvent.find({
+					eventType: 'test_schedule',
+					groupId: payload.groupId,
+				}).lean();
+
+				const groupYear =
+					payload.academicYear ||
+					existing[0]?.academicYear ||
+					getCurrentAcademicYearFromSchoolProfile(groupProfile);
+				const shared = {
+					title: payload.title,
+					period: payload.period,
+					groupId: payload.groupId,
+					level: payload.level || existing[0]?.level || '',
+					session: payload.session || existing[0]?.session || '',
+					academicYear: String(groupYear || ''),
+					actorId: currentUser.id,
+				};
+
+				const submittedIds = new Set(
+					payload.items.map((row: any) => String(row.id || '')).filter(Boolean)
+				);
+				const removed = existing.filter(
+					(row: any) => !submittedIds.has(String(row._id))
+				);
+
+				const saved: any[] = [];
+				for (const row of payload.items) {
+					const body = buildTestRow(row, shared);
+					if (row.id) {
+						// `createdBy` is withheld on update so the original author survives.
+						const { createdBy: _authored, ...updatable } = body;
+						const updated = await groupModels.SchoolEvent.findByIdAndUpdate(
+							row.id,
+							updatable,
+							{ new: true }
+						);
+						if (updated) saved.push(updated);
+					} else {
+						const createdRow = await groupModels.SchoolEvent.create(body);
+						saved.push(createdRow);
+					}
+				}
+				for (const row of removed) {
+					await groupModels.SchoolEvent.findByIdAndDelete(row._id);
+				}
+
+				await invalidateScheduleCache(
+					groupProfile?.dbName,
+					'test_schedule',
+					String(groupYear || ''),
+					shared.session,
+					shared.level,
+					[
+						...saved.map((row: any) => String(row.classId || '')),
+						...removed.map((row: any) => String(row.classId || '')),
+					]
+				);
+
+				let groupSeq: any = null;
+				for (const row of saved) {
+					groupSeq = await appendChange({
+						domain: 'schedules',
+						academicYear: String(groupYear || ''),
+						op: 'update',
+						documentId: String(row._id),
+						documentType: 'SchoolEvent',
+						document:
+							typeof row.toObject === 'function' ? row.toObject() : row,
+						actorId: currentUser.id,
+					});
+				}
+				for (const row of removed) {
+					groupSeq = await appendChange({
+						domain: 'schedules',
+						academicYear: String(groupYear || ''),
+						op: 'delete',
+						documentId: String(row._id),
+						documentType: 'SchoolEvent',
+						document: { id: String(row._id) },
+						actorId: currentUser.id,
+					});
+				}
+				await publishSyncEventSafe({
+					tenantId: resolveTenantSyncKey({
+						schoolProfile: groupProfile,
+						host: request.headers.get('host'),
+					}),
+					domain: 'schedules',
+					academicYear: String(groupYear || ''),
+					actorId: currentUser.id,
+					reason: 'schedule-updated',
+					seq: groupSeq,
+					scope: {
+						classIds: saved
+							.map((row: any) => String(row.classId || ''))
+							.filter(Boolean),
+					},
+				});
+
+				return NextResponse.json({
+					success: true,
+					data: saved,
+					removed: removed.map((row: any) => String(row._id)),
+					seq: groupSeq,
+				});
+			}
+
 			if (!payload.id) {
 				return NextResponse.json(
 					{ success: false, message: 'Schedule ID is required.' },
@@ -604,6 +945,7 @@ export async function POST(request: NextRequest) {
 				level: payload.level,
 				session: payload.session,
 				updatedBy: currentUser.id,
+				...(payload.period !== undefined ? { period: payload.period } : {}),
 			},
 			{ new: true }
 		);
@@ -615,13 +957,13 @@ export async function POST(request: NextRequest) {
 		const level = updated?.level || payload.level || 'all';
 		const session = updated?.session || payload.session || 'all';
 
-		await redis.del(
-			`school_events:${schoolProfile?.dbName}:${eventType}:${academicYear}:${
-				session || 'all'
-			}:${level || 'all'}`
-		);
-		await redis.del(
-			`school_events:${schoolProfile?.dbName}:${eventType}:${academicYear}:all:all`
+		await invalidateScheduleCache(
+			schoolProfile?.dbName,
+			eventType,
+			String(academicYear || ''),
+			session,
+			level,
+			[String(updated?.classId || payload.classId || '')]
 		);
 		const logged = await appendChange({
 			domain: 'schedules',
@@ -677,6 +1019,76 @@ export async function DELETE(request: NextRequest) {
 		}
 
 		const payload = await request.json();
+
+		// ── Whole test schedule ─────────────────────────────────────────────
+		if (!payload.id && payload.groupId) {
+			const groupModels = await getTenantModels();
+			const groupProfileRaw = await getSchoolProfile();
+			const groupProfile =
+				typeof groupProfileRaw === 'string'
+					? JSON.parse(groupProfileRaw)
+					: groupProfileRaw;
+
+			const rows = await groupModels.SchoolEvent.find({
+				eventType: 'test_schedule',
+				groupId: payload.groupId,
+			}).lean();
+
+			if (rows.length === 0) {
+				return NextResponse.json({ success: true, deletedCount: 0 });
+			}
+
+			await groupModels.SchoolEvent.deleteMany({
+				eventType: 'test_schedule',
+				groupId: payload.groupId,
+			});
+
+			const groupYear = rows[0]?.academicYear || '';
+			await invalidateScheduleCache(
+				groupProfile?.dbName,
+				'test_schedule',
+				String(groupYear),
+				rows[0]?.session,
+				rows[0]?.level,
+				rows.map((row: any) => String(row.classId || ''))
+			);
+
+			let groupSeq: any = null;
+			for (const row of rows) {
+				groupSeq = await appendChange({
+					domain: 'schedules',
+					academicYear: String(groupYear),
+					op: 'delete',
+					documentId: String(row._id),
+					documentType: 'SchoolEvent',
+					document: { id: String(row._id) },
+					actorId: currentUser.id,
+				});
+			}
+			await publishSyncEventSafe({
+				tenantId: resolveTenantSyncKey({
+					schoolProfile: groupProfile,
+					host: request.headers.get('host'),
+				}),
+				domain: 'schedules',
+				academicYear: String(groupYear),
+				actorId: currentUser.id,
+				reason: 'schedule-deleted',
+				seq: groupSeq,
+				scope: {
+					classIds: rows
+						.map((row: any) => String(row.classId || ''))
+						.filter(Boolean),
+				},
+			});
+
+			return NextResponse.json({
+				success: true,
+				deletedCount: rows.length,
+				seq: groupSeq,
+			});
+		}
+
 		if (!payload.id) {
 			return NextResponse.json(
 				{ success: false, message: 'Schedule ID is required.' },
@@ -700,13 +1112,13 @@ export async function DELETE(request: NextRequest) {
 		const level = deleted?.level || payload.level || 'all';
 		const session = deleted?.session || payload.session || 'all';
 
-		await redis.del(
-			`school_events:${schoolProfile?.dbName}:${eventType}:${academicYear}:${
-				session || 'all'
-			}:${level || 'all'}`
-		);
-		await redis.del(
-			`school_events:${schoolProfile?.dbName}:${eventType}:${academicYear}:all:all`
+		await invalidateScheduleCache(
+			schoolProfile?.dbName,
+			eventType,
+			String(academicYear || ''),
+			session,
+			level,
+			[String(deleted?.classId || payload.classId || '')]
 		);
 		const logged = await appendChange({
 			domain: 'schedules',

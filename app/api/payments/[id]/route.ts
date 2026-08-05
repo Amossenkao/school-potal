@@ -11,7 +11,11 @@ import {
 	normalizePayments,
 	paymentItemRows,
 } from '@/utils/payments';
-import { auditActorFrom, recordAuditEvent } from '@/utils/auditTrail';
+import {
+	auditActorFrom,
+	recordAuditEvent,
+	studentAuditIdentity,
+} from '@/utils/auditTrail';
 import { canAdministerPayments } from '@/utils/financialAccess';
 
 /** Voided receipts survive for the record but never count as paid. */
@@ -212,10 +216,20 @@ export async function PATCH(
 
 		const after = normalizePayment(saved);
 
+		// Name and class rather than an ID: the trail is read by people, and the
+		// student record may be renamed or removed later.
+		const identity = studentAuditIdentity(
+			student || { studentId: current.studentId },
+			schoolProfile,
+		);
+		const studentLabel = `${identity.studentName}${
+			identity.className ? ` (${identity.className})` : ''
+		}`;
+
 		await recordAuditEvent(req, {
 			category: 'payment',
 			action: 'payment.updated',
-			summary: `Edited receipt ${current.receiptNumber} for ${current.studentId}: ${current.currency} ${current.totalAmount.toFixed(2)} → ${after.totalAmount.toFixed(2)}`,
+			summary: `Edited receipt ${current.receiptNumber} for ${studentLabel}: ${current.currency} ${current.totalAmount.toFixed(2)} → ${after.totalAmount.toFixed(2)}`,
 			actor: auditActorFrom(auth.sessionUser),
 			target: {
 				type: 'payment',
@@ -223,6 +237,8 @@ export async function PATCH(
 				label: current.receiptNumber,
 				studentId: current.studentId,
 				receiptNumber: current.receiptNumber,
+				studentName: identity.studentName,
+				className: identity.className,
 			},
 			before: {
 				items: current.items,
@@ -297,6 +313,22 @@ export async function DELETE(
 
 		const actor = auditActorFrom(sessionUser);
 
+		// Who the receipt belonged to, by name and class. Captured before the
+		// void so the entry still reads correctly if the student later leaves.
+		const [voidedStudent, voidProfile] = await Promise.all([
+			models.Student.findOne({ studentId: current.studentId })
+				.select('studentId firstName lastName className classId')
+				.lean(),
+			getSchoolProfile().catch(() => null),
+		]);
+		const identity = studentAuditIdentity(
+			voidedStudent || { studentId: current.studentId },
+			voidProfile,
+		);
+		const studentLabel = `${identity.studentName}${
+			identity.className ? ` (${identity.className})` : ''
+		}`;
+
 		const voided = await models.Payment.findByIdAndUpdate(
 			id,
 			{
@@ -312,7 +344,7 @@ export async function DELETE(
 		await recordAuditEvent(req, {
 			category: 'payment',
 			action: 'payment.voided',
-			summary: `Voided receipt ${current.receiptNumber} for ${current.studentId} (${current.currency} ${current.totalAmount.toFixed(2)}) — ${reason}`,
+			summary: `Voided receipt ${current.receiptNumber} for ${studentLabel} — ${current.currency} ${current.totalAmount.toFixed(2)} — ${reason}`,
 			actor,
 			target: {
 				type: 'payment',
@@ -320,6 +352,8 @@ export async function DELETE(
 				label: current.receiptNumber,
 				studentId: current.studentId,
 				receiptNumber: current.receiptNumber,
+				studentName: identity.studentName,
+				className: identity.className,
 			},
 			before: { items: current.items, totalAmount: current.totalAmount },
 			after: { voided: true, reason },

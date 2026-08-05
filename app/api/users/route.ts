@@ -5163,13 +5163,18 @@ export async function PUT(request: NextRequest) {
 		// silently rewrites the entire bill. Record it in the financial trail.
 		if (targetUser.role === 'student') {
 			const actor = auditActorFrom(currentUser);
+			const auditName =
+				`${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() ||
+				String(targetUser.studentId || '');
 			const auditTarget = {
 				type: 'student',
 				id: String(targetUser.studentId || ''),
-				label:
-					`${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() ||
-					String(targetUser.studentId || ''),
+				label: auditName,
 				studentId: String(targetUser.studentId || ''),
+				studentName: auditName,
+				// The class the student sat in *before* the change — the audit
+				// entry describes where they came from.
+				className: String(targetUser.className || ''),
 			};
 
 			if (
@@ -5806,18 +5811,24 @@ export async function DELETE(request: NextRequest) {
 							0,
 						);
 						cascadeResults.orphanedPayments = orphaned.length;
+						// The roster row is about to disappear, so the name and class
+						// have to be captured here or the entry is unreadable forever.
+						const deletedName =
+							`${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim() ||
+							String(targetUser.studentId || '');
+						const deletedClass = String(targetUser.className || '');
 						await recordAuditEvent(request, {
 							category: 'enrollment',
 							action: 'student.deleted_with_payments',
-							summary: `Deleted student ${targetUser.studentId} leaving ${orphaned.length} payment record${orphaned.length === 1 ? '' : 's'} (${orphaned[0]?.currency || ''} ${total.toFixed(2)}) with no owner`,
+							summary: `Deleted ${deletedName}${deletedClass ? ` (${deletedClass})` : ''} leaving ${orphaned.length} payment record${orphaned.length === 1 ? '' : 's'} (${orphaned[0]?.currency || ''} ${total.toFixed(2)}) with no owner`,
 							actor: auditActorFrom(currentUser),
 							target: {
 								type: 'student',
 								id: String(targetUser.studentId || ''),
-								label:
-									`${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim() ||
-									String(targetUser.studentId || ''),
+								label: deletedName,
 								studentId: String(targetUser.studentId || ''),
+								studentName: deletedName,
+								className: deletedClass,
 							},
 							before: {
 								receipts: orphaned.map((payment: any) => ({

@@ -18,7 +18,11 @@ import {
 	normalizePayments,
 	paymentItemRows,
 } from '@/utils/payments';
-import { auditActorFrom, recordAuditEvent } from '@/utils/auditTrail';
+import {
+	auditActorFrom,
+	recordAuditEvent,
+	studentAuditIdentity,
+} from '@/utils/auditTrail';
 import { canAdministerPayments, canPayOwnFees } from '@/utils/financialAccess';
 import crypto from 'crypto';
 
@@ -409,10 +413,20 @@ export async function POST(req: NextRequest) {
 		const created = await models.Payment.create(paymentDoc);
 		const createdReceipt = normalizePayments([created.toObject()])[0];
 
+		// Identify the payer by name and class, not by ID — the audit trail is
+		// read by people, and a student record can later be renamed or deleted.
+		const payerIdentity = studentAuditIdentity(
+			studentDoc || resolvedStudent,
+			schoolProfile,
+		);
+		const payerLabel = `${payerIdentity.studentName}${
+			payerIdentity.className ? ` (${payerIdentity.className})` : ''
+		}`;
+
 		await recordAuditEvent(req, {
 			category: 'payment',
 			action: 'payment.created',
-			summary: `Recorded ${createdReceipt.currency} ${createdReceipt.totalAmount.toFixed(2)} for ${targetStudentId} across ${batchItems.length} fee${batchItems.length === 1 ? '' : 's'} (receipt ${createdReceipt.receiptNumber})`,
+			summary: `Recorded ${createdReceipt.currency} ${createdReceipt.totalAmount.toFixed(2)} for ${payerLabel} across ${batchItems.length} fee${batchItems.length === 1 ? '' : 's'} (receipt ${createdReceipt.receiptNumber})`,
 			actor: auditActorFrom(sessionUser),
 			target: {
 				type: 'payment',
@@ -420,6 +434,8 @@ export async function POST(req: NextRequest) {
 				label: createdReceipt.receiptNumber,
 				studentId: targetStudentId,
 				receiptNumber: createdReceipt.receiptNumber,
+				studentName: payerIdentity.studentName,
+				className: payerIdentity.className,
 			},
 			before: null,
 			after: {

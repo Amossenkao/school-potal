@@ -860,6 +860,29 @@ span.flatpickr-weekday,
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-ring: var(--sidebar-ring);
+	/* Weekday shading for schedule grids; values live in lib/tenantTheme.ts
+	   so they switch with the active theme. */
+	--color-day-1: var(--day-1);
+	--color-day-1-head: var(--day-1-head);
+	--color-day-2: var(--day-2);
+	--color-day-2-head: var(--day-2-head);
+	--color-day-3: var(--day-3);
+	--color-day-3-head: var(--day-3-head);
+	--color-day-4: var(--day-4);
+	--color-day-4-head: var(--day-4-head);
+	--color-day-5: var(--day-5);
+	--color-day-5-head: var(--day-5-head);
+}
+
+/* Scrollable without a visible scrollbar — used where a table scrolls
+   horizontally and the bar would sit across the content. */
+.no-scrollbar {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+	display: none;
 }
 
 /*
