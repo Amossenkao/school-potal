@@ -18,10 +18,18 @@ import {
 	normalizePayments,
 	paymentItemRows,
 } from '@/utils/payments';
+import { auditActorFrom, recordAuditEvent } from '@/utils/auditTrail';
+import { canAdministerPayments, canPayOwnFees } from '@/utils/financialAccess';
 import crypto from 'crypto';
 
 const VALID_PAYMENT_METHODS = ['orange', 'lonester'];
 const DEFAULT_CURRENCY = 'LRD';
+
+/**
+ * Voided receipts are kept for the record but must never count as paid.
+ * `{ voidedAt: null }` also matches documents predating the field.
+ */
+const NOT_VOIDED = { voidedAt: null } as const;
 
 const formatReceiptNumber = () =>
 	`RCPT-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
@@ -67,7 +75,10 @@ export async function GET(req: NextRequest) {
 				}
 			}
 
-			const payments = await models.Payment.find({ studentId })
+			const payments = await models.Payment.find({
+				studentId,
+				...NOT_VOIDED,
+			})
 				.sort({ createdAt: -1 })
 				.lean();
 
@@ -81,7 +92,7 @@ export async function GET(req: NextRequest) {
 
 		if (sessionUser.role === 'administrator') {
 			const studentId = searchParams.get('studentId');
-			const filter: Record<string, unknown> = {};
+			const filter: Record<string, unknown> = { ...NOT_VOIDED };
 			if (studentId) filter.studentId = studentId;
 
 			const payments = await models.Payment.find(filter)
@@ -139,8 +150,33 @@ export async function POST(req: NextRequest) {
 
 		const isAdmin = sessionUser.role === 'administrator';
 		const isStudent = sessionUser.role === 'student';
+		const isParent = sessionUser.role === 'parent';
 
-		if (!isAdmin && !isStudent) {
+		// Authorization is by permission, not merely by role: an administrator
+		// without `record_payments` cannot touch the till, and a family can only
+		// pay when the school has online payment switched on.
+		if (isAdmin) {
+			if (!canAdministerPayments(schoolProfile, sessionUser)) {
+				return NextResponse.json(
+					{
+						success: false,
+						message:
+							'You do not have permission to record payments. Ask a system administrator for the "record payments" permission.',
+					},
+					{ status: 403 },
+				);
+			}
+		} else if (isStudent || isParent) {
+			if (!canPayOwnFees(schoolProfile, sessionUser)) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'Online payment is not available for this school.',
+					},
+					{ status: 403 },
+				);
+			}
+		} else {
 			return NextResponse.json(
 				{ success: false, message: 'Access denied.' },
 				{ status: 403 },
@@ -149,21 +185,45 @@ export async function POST(req: NextRequest) {
 
 		const { paymentMethod, phoneNumber, studentId } = payload;
 
-		if (isStudent) {
+		// Families pay through a mobile-money provider; administrators record a
+		// payment that already happened, so the provider fields do not apply.
+		if (isStudent || isParent) {
 			if (!paymentMethod || !phoneNumber) {
 				return badRequest('Missing payment method or phone number.');
 			}
 			if (!VALID_PAYMENT_METHODS.includes(paymentMethod)) {
 				return badRequest(`Invalid payment method. Accepted: ${VALID_PAYMENT_METHODS.join(', ')}.`);
 			}
-			const onlinePaymentEnabled = schoolProfile.featureConfig?.enabledFeatures?.includes('online_payment');
-			if (!onlinePaymentEnabled) {
-				return badRequest('Online payment is not available for this school.');
-			}
 		}
 
-		if (isAdmin && !studentId) {
+		// A parent's session carries the child they currently have selected, so
+		// the pay page does not need to send one explicitly.
+		const targetStudentId = isStudent
+			? sessionUser.studentId || sessionUser.username
+			: isParent
+				? studentId || sessionUser.studentId
+				: studentId;
+
+		if (!targetStudentId) {
 			return badRequest('Missing studentId.');
+		}
+
+		// A parent may only pay for a child actually linked to them. Re-checked
+		// against the database rather than trusting the cached session.
+		if (isParent) {
+			const parent = await models.Parent.findById(sessionUser.id).lean();
+			const linkedStudentIds = Array.isArray(parent?.studentIds)
+				? parent.studentIds
+				: [];
+			if (!linkedStudentIds.includes(targetStudentId)) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'You can only pay fees for your linked children.',
+					},
+					{ status: 403 },
+				);
+			}
 		}
 
 		const academicYear =
@@ -171,13 +231,11 @@ export async function POST(req: NextRequest) {
 			getCurrentAcademicYearFromSchoolProfile(schoolProfile) ||
 			'';
 
-		const targetStudentId = isStudent
-			? (sessionUser.studentId || sessionUser.username)
-			: studentId;
-
-		const student = isAdmin
-			? await models.Student.findOne({ studentId: targetStudentId }).lean()
-			: sessionUser;
+		// The student record is the billing subject; a parent's own session is
+		// not it, so only a paying student can be used directly.
+		const student = isStudent
+			? sessionUser
+			: await models.Student.findOne({ studentId: targetStudentId }).lean();
 
 		if (!student) {
 			return badRequest(`Student "${targetStudentId}" not found.`);
@@ -245,7 +303,11 @@ export async function POST(req: NextRequest) {
 			allScholarships,
 		);
 
-		const existingPayments = await models.Payment.find({ studentId: targetStudentId }).lean();
+		// Voided receipts must not occupy a fee's outstanding balance.
+		const existingPayments = await models.Payment.find({
+			studentId: targetStudentId,
+			...NOT_VOIDED,
+		}).lean();
 		const paidByFeeType: Record<string, number> = {};
 		for (const row of paymentItemRows(existingPayments)) {
 			const key = `${row.feeType}::${row.currency || DEFAULT_CURRENCY}`;
@@ -336,24 +398,65 @@ export async function POST(req: NextRequest) {
 			paymentDate,
 			paymentTime,
 			receiptNumber: formatReceiptNumber(),
-			paymentMethod: isStudent ? paymentMethod : (payload.paymentMethod || 'cash'),
-			phoneNumber: isStudent ? phoneNumber : '',
+			paymentMethod:
+				isStudent || isParent
+					? paymentMethod
+					: payload.paymentMethod || 'cash',
+			phoneNumber: isStudent || isParent ? phoneNumber : '',
 			status: 'success',
 		};
 
 		const created = await models.Payment.create(paymentDoc);
+		const createdReceipt = normalizePayments([created.toObject()])[0];
 
-		const allPayments = await models.Payment.find({ studentId: targetStudentId })
+		await recordAuditEvent(req, {
+			category: 'payment',
+			action: 'payment.created',
+			summary: `Recorded ${createdReceipt.currency} ${createdReceipt.totalAmount.toFixed(2)} for ${targetStudentId} across ${batchItems.length} fee${batchItems.length === 1 ? '' : 's'} (receipt ${createdReceipt.receiptNumber})`,
+			actor: auditActorFrom(sessionUser),
+			target: {
+				type: 'payment',
+				id: createdReceipt.id,
+				label: createdReceipt.receiptNumber,
+				studentId: targetStudentId,
+				receiptNumber: createdReceipt.receiptNumber,
+			},
+			before: null,
+			after: {
+				items: createdReceipt.items,
+				totalAmount: createdReceipt.totalAmount,
+				paymentMethod: createdReceipt.paymentMethod,
+				paymentDate: createdReceipt.paymentDate,
+			},
+			amount: {
+				currency: createdReceipt.currency,
+				delta: createdReceipt.totalAmount,
+			},
+			academicYear: academicYear,
+		});
+
+		const allPayments = await models.Payment.find({
+			studentId: targetStudentId,
+			...NOT_VOIDED,
+		})
 			.sort({ createdAt: -1 })
 			.lean();
 
 		const mappedPayments = normalizePayments(allPayments);
-		const receipt = normalizePayments([created.toObject()])[0];
+		const receipt = createdReceipt;
 
 		if (isStudent) {
 			await updateAllUserSessions(sessionUser.id, { payments: mappedPayments }, {
 				onlyUpdateFields: ['payments'],
 			});
+		} else if (isParent && (student as any)?._id) {
+			// Refresh the child's session, not the parent's — payments hang off
+			// the student record.
+			await updateAllUserSessions(
+				String((student as any)._id),
+				{ payments: mappedPayments },
+				{ onlyUpdateFields: ['payments'] },
+			);
 		}
 
 		return NextResponse.json({

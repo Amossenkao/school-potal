@@ -24,6 +24,7 @@ import {
 	resolveTenantSyncKey,
 } from '@/lib/realtimeSync';
 import { authorizeUser } from '@/proxy';
+import { auditActorFrom, recordAuditEvent } from '@/utils/auditTrail';
 import { normalizeHost } from '@/utils/host';
 import { TENANT_THEMES } from '@/lib/tenantTheme';
 import { DEFAULT_TENANT_THEME_NAME } from '@/types/tenantTheme';
@@ -102,6 +103,50 @@ function sanitizeTeacherSettings(raw: any): any {
 		loginAccess: raw.loginAccess !== undefined ? !!raw.loginAccess : true,
 		permissionsByYear,
 	};
+}
+
+/**
+ * Summarises what moved inside `financialConfig` so the audit entry says
+ * something useful ("fee schedules, scholarships") rather than just "changed".
+ */
+function describeFinancialConfigChange(before: any, after: any): string[] {
+	const parts: string[] = [];
+	const changed = (key: string) =>
+		JSON.stringify(before?.[key] ?? null) !== JSON.stringify(after?.[key] ?? null);
+
+	if (changed('feeSchedules')) parts.push('fee schedules');
+	if (changed('currencies')) parts.push('currencies');
+	if (changed('paymentCategories')) parts.push('payment categories');
+	if (changed('feeDefinitions')) parts.push('fee definitions');
+	if (changed('installments')) parts.push('installments');
+	if (changed('studentGroups')) parts.push('student groups');
+	return parts;
+}
+
+async function recordFinancialConfigAudit(
+	request: NextRequest,
+	actorUser: any,
+	before: any,
+	after: any,
+	host: string | undefined,
+	academicYear: string,
+) {
+	const changes = describeFinancialConfigChange(before, after);
+	if (changes.length === 0 || !host) return;
+
+	await recordAuditEvent(request, {
+		category: 'fee_schedule',
+		action: 'fee_schedule.updated',
+		summary: `Updated ${changes.join(', ')} for ${host}`,
+		actor: auditActorFrom(actorUser),
+		target: { type: 'school', id: host, label: host },
+		before: before ?? null,
+		after: after ?? null,
+		academicYear,
+		// Superadmin acts on an arbitrary host; write to that school's DB, not
+		// whichever tenant the request host happens to resolve to.
+		host,
+	});
 }
 
 function collectChangedYears(oldMap: any, newMap: any): string[] {
@@ -543,6 +588,18 @@ export async function PUT(request: NextRequest) {
 				).lean();
 
 				if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 });
+
+				// The whole profile is rewritten on every save, so the audit event
+				// is only emitted when the financialConfig subtree actually moved —
+				// otherwise a branding tweak would read as a fee change.
+				await recordFinancialConfigAudit(
+					request,
+					superAdminUser,
+					(previousSchool as any)?.financialConfig,
+					(school as any)?.financialConfig,
+					cleanHost,
+					(school as any)?.identity?.currentAcademicYear || '',
+				);
 
 				await syncSchoolProfileCache(cleanHost, school);
 

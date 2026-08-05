@@ -125,6 +125,8 @@ type SchoolStore = {
 	setTeacherAttendanceForYear: (academicYear: string, records: any[]) => void;
 	mergeTeacherAttendanceForYear: (academicYear: string, records: any[]) => void;
 	setPaymentsForYear: (academicYear: string, payments: any[]) => void;
+	/** Drops a single payment from the cache after it is deleted server-side. */
+	removePaymentForYear: (academicYear: string, paymentId: string) => void;
 	setDomainVersionsForYear: (
 		academicYear: string,
 		versions: {
@@ -995,6 +997,31 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				if (key) merged.set(key, payment);
 			});
 			const value = Array.from(merged.values());
+			const paymentsByAcademicYear = assignAcademicYearRecord(
+				state.paymentsByAcademicYear,
+				academicYear,
+				value,
+			);
+			persistDomainSnapshot(
+				'payments',
+				getAcademicYearPrimaryKey(academicYear),
+				value,
+			);
+			persistMeta(state);
+			return { paymentsByAcademicYear };
+		});
+	},
+
+	removePaymentForYear: (academicYear, paymentId) => {
+		if (!academicYear || !paymentId) return;
+		set((state) => {
+			const existing =
+				resolveAcademicYearRecord(state.paymentsByAcademicYear, academicYear) ||
+				[];
+			const value = existing.filter(
+				(payment: any) => getPaymentIdentity(payment) !== String(paymentId),
+			);
+			if (value.length === existing.length) return {};
 			const paymentsByAcademicYear = assignAcademicYearRecord(
 				state.paymentsByAcademicYear,
 				academicYear,

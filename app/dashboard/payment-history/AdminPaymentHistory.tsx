@@ -4,19 +4,25 @@ import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
 	ArrowLeft,
+	Ban,
 	CalendarDays,
 	ChevronDown,
 	Filter,
 	Landmark,
 	Loader2,
+	Pencil,
 	Receipt,
+	Save,
 	Search,
+	ShieldAlert,
+	Trash2,
 	TrendingUp,
 	User,
 	Users,
 	Wallet,
 	X,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import {
 	Dialog,
 	DialogContent,
@@ -24,7 +30,11 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { useSchoolStore } from '@/store/schoolStore';
-import { normalizePayments, type PaymentRecord } from '@/utils/payments';
+import {
+	normalizePayments,
+	type PaymentItem,
+	type PaymentRecord,
+} from '@/utils/payments';
 import { buildReceiptContext } from '@/utils/paymentReceipt';
 import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAccess';
 import { buildSchoolAcademicYearRange } from '@/utils/academicYearOptions';
@@ -98,6 +108,9 @@ const RANGES: { id: RangeId; label: string }[] = [
 	{ id: '30d', label: 'Last 30 days' },
 	{ id: '90d', label: 'Last 90 days' },
 ];
+
+/** An item being edited — amount stays a string so the field can be cleared. */
+type DraftItem = Omit<PaymentItem, 'amount'> & { amount: string };
 
 const initials = (name: string) =>
 	name
@@ -225,6 +238,17 @@ export default function AdminPaymentHistoryPage() {
 	const [receiptQuery, setReceiptQuery] = useState('');
 	const [visible, setVisible] = useState(PAGE_SIZE);
 
+	// ── Edit / delete ────────────────────────────────────────────────────
+	const [editing, setEditing] = useState(false);
+	const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
+	const [draftMethod, setDraftMethod] = useState('');
+	const [draftDate, setDraftDate] = useState('');
+	const [confirm, setConfirm] = useState<'update' | 'void' | null>(null);
+	const [password, setPassword] = useState('');
+	const [voidReason, setVoidReason] = useState('');
+	const [submitting, setSubmitting] = useState(false);
+	const [actionError, setActionError] = useState<string | null>(null);
+
 	const directory = useClassDirectory(schoolProfile);
 
 	const academicYearOptions = useMemo(
@@ -268,12 +292,21 @@ export default function AdminPaymentHistoryPage() {
 		return normalizePayments(Array.isArray(list) ? list : []);
 	}, [paymentsByAcademicYear, academicYear]);
 
-	// Every payment for every year — a receipt's paid-to-date figures must count
-	// the student's whole history, not just the year being browsed.
+	// Every payment for every year — a receipt's outstanding figures must count
+	// the student's whole history, not just the year being browsed. Deduped by
+	// id: the store keys years in both `2025/2026` and `2025-2026` forms, so a
+	// naive flatten counts the same receipt twice and halves every balance.
 	const allPayments = useMemo(() => {
+		const seen = new Set<string>();
 		const all: any[] = [];
 		for (const list of Object.values(paymentsByAcademicYear || {})) {
-			if (Array.isArray(list)) all.push(...list);
+			if (!Array.isArray(list)) continue;
+			for (const payment of list) {
+				const key = String((payment as any)?.id || '');
+				if (!key || seen.has(key)) continue;
+				seen.add(key);
+				all.push(payment);
+			}
 		}
 		return all;
 	}, [paymentsByAcademicYear]);
@@ -429,6 +462,127 @@ export default function AdminPaymentHistoryPage() {
 		});
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [openReceipt, schoolProfile, studentIndex, allPayments, academicYear]);
+
+	// Leaving the receipt drops any half-finished edit.
+	useEffect(() => {
+		setEditing(false);
+		setConfirm(null);
+		setPassword('');
+		setActionError(null);
+	}, [openReceipt]);
+
+	const startEditing = () => {
+		if (!openReceipt) return;
+		setDraftItems(
+			openReceipt.items.map((item) => ({
+				...item,
+				amount: String(item.amount),
+			})),
+		);
+		setDraftMethod(openReceipt.paymentMethod || '');
+		setDraftDate(openReceipt.paymentDate || '');
+		setActionError(null);
+		setEditing(true);
+	};
+
+	const updateDraftAmount = (index: number, raw: string) => {
+		// Digits and a single decimal point only.
+		const clean = raw.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
+		setDraftItems((prev) =>
+			prev.map((item, position) =>
+				position === index ? { ...item, amount: clean } : item,
+			),
+		);
+	};
+
+	const removeDraftItem = (index: number) =>
+		setDraftItems((prev) => prev.filter((_, position) => position !== index));
+
+	const draftTotal = useMemo(
+		() =>
+			draftItems.reduce((sum, item) => {
+				const parsed = Number.parseFloat(item.amount);
+				return sum + (Number.isFinite(parsed) ? parsed : 0);
+			}, 0),
+		[draftItems],
+	);
+
+	const runAction = async () => {
+		if (!openReceipt || !confirm || submitting) return;
+		setSubmitting(true);
+		setActionError(null);
+		try {
+			if (confirm === 'void') {
+				if (!voidReason.trim()) {
+					setActionError('A reason is required to void a receipt.');
+					return;
+				}
+				const res = await fetch(`/api/payments/${openReceipt.id}`, {
+					method: 'DELETE',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ password, reason: voidReason.trim() }),
+				});
+				const json = await res.json();
+				if (!json.success) {
+					setActionError(json.message || 'Could not void the receipt.');
+					return;
+				}
+				// The record survives server-side, but voided receipts are filtered
+				// out of the client cache — they live on in the audit trail.
+				useSchoolStore
+					.getState()
+					.removePaymentForYear(
+						openReceipt.paymentAcademicYear,
+						openReceipt.id,
+					);
+				toast.success('Receipt voided. See the audit trail for the record.');
+				setVoidReason('');
+				setOpenReceipt(null);
+			} else {
+				const items = draftItems.map((item) => ({
+					feeId: item.feeId,
+					feeType: item.feeType,
+					category: item.category,
+					installmentId: item.installmentId,
+					amount: Number.parseFloat(item.amount),
+				}));
+				if (items.some((item) => !Number.isFinite(item.amount) || item.amount <= 0)) {
+					setActionError('Every item needs an amount greater than zero.');
+					return;
+				}
+				const res = await fetch(`/api/payments/${openReceipt.id}`, {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						password,
+						items,
+						paymentMethod: draftMethod || undefined,
+						paymentDate: draftDate || undefined,
+					}),
+				});
+				const json = await res.json();
+				if (!json.success) {
+					setActionError(json.message || 'Could not update the transaction.');
+					return;
+				}
+				const updated = json.data?.payment;
+				if (updated) {
+					useSchoolStore
+						.getState()
+						.setPaymentsForYear(updated.paymentAcademicYear, [updated]);
+					setOpenReceipt(updated);
+				}
+				toast.success('Transaction updated.');
+				setEditing(false);
+			}
+			setConfirm(null);
+			setPassword('');
+		} catch {
+			setActionError('Network error. Please try again.');
+		} finally {
+			setSubmitting(false);
+		}
+	};
 
 	const activeFilters =
 		(selectedStudent ? 1 : 0) +
@@ -847,21 +1001,13 @@ export default function AdminPaymentHistoryPage() {
 													{openReceipt.currency} {formatCurrency(line.amountPaid)}
 												</p>
 											</div>
-											<div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+											<div className="mt-2 grid grid-cols-2 gap-2 text-xs">
 												<div>
 													<span className="block text-[10px] uppercase tracking-wider text-muted-foreground">
 														Fee total
 													</span>
 													<span className="font-bold tabular-nums">
 														{line.feeTotal > 0 ? formatCurrency(line.feeTotal) : '—'}
-													</span>
-												</div>
-												<div>
-													<span className="block text-[10px] uppercase tracking-wider text-muted-foreground">
-														Paid to date
-													</span>
-													<span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
-														{formatCurrency(line.paidToDate)}
 													</span>
 												</div>
 												<div>
@@ -914,7 +1060,7 @@ export default function AdminPaymentHistoryPage() {
 							)}
 
 							{/* Totals */}
-							<div className="grid gap-3 sm:grid-cols-4">
+							<div className="grid gap-3 sm:grid-cols-3">
 								{[
 									{
 										label: 'This receipt',
@@ -925,11 +1071,6 @@ export default function AdminPaymentHistoryPage() {
 										label: 'Assessed',
 										value: receiptContext.overall.expected,
 										tone: 'text-foreground',
-									},
-									{
-										label: 'Paid to date',
-										value: receiptContext.overall.paidToDate,
-										tone: 'text-emerald-600 dark:text-emerald-400',
 									},
 									{
 										label: 'Balance',
@@ -951,18 +1092,235 @@ export default function AdminPaymentHistoryPage() {
 								))}
 							</div>
 
+							{/* Edit form */}
+							{editing && (
+								<div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+									<h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+										Edit transaction
+									</h3>
+									<ul className="space-y-2">
+										{draftItems.map((item, index) => (
+											<li
+												key={`${item.feeType}-${index}`}
+												className="flex flex-wrap items-center gap-2"
+											>
+												<span className="min-w-0 flex-1 truncate text-sm font-bold text-foreground">
+													{item.feeType}
+													{item.installmentId ? (
+														<span className="ml-1 text-xs font-medium text-muted-foreground">
+															· {item.installmentId}
+														</span>
+													) : null}
+												</span>
+												<span className="text-xs font-bold text-muted-foreground">
+													{openReceipt.currency}
+												</span>
+												<input
+													type="text"
+													inputMode="decimal"
+													value={item.amount}
+													onChange={(event) =>
+														updateDraftAmount(index, event.target.value)
+													}
+													className="h-9 w-32 rounded-lg border border-input bg-background px-2 text-right text-sm tabular-nums text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+												/>
+												{draftItems.length > 1 && (
+													<button
+														type="button"
+														onClick={() => removeDraftItem(index)}
+														className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+														aria-label={`Remove ${item.feeType}`}
+													>
+														<Trash2 className="h-4 w-4" />
+													</button>
+												)}
+											</li>
+										))}
+									</ul>
+									<div className="grid gap-2 sm:grid-cols-2">
+										<label className="flex flex-col gap-1">
+											<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+												Method
+											</span>
+											<input
+												type="text"
+												value={draftMethod}
+												onChange={(event) => setDraftMethod(event.target.value)}
+												placeholder="cash"
+												className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+											/>
+										</label>
+										<label className="flex flex-col gap-1">
+											<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+												Date
+											</span>
+											<input
+												type="date"
+												value={draftDate}
+												onChange={(event) => setDraftDate(event.target.value)}
+												className="h-9 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+											/>
+										</label>
+									</div>
+									<p className="text-xs font-bold text-foreground">
+										New total: {openReceipt.currency}{' '}
+										{formatCurrency(draftTotal)}
+									</p>
+								</div>
+							)}
+
 							<div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
 								<p className="text-xs text-muted-foreground">
 									Amounts in {openReceipt.currency}. Balances reflect the
 									student&apos;s position now, not at the time of payment.
 								</p>
-								<PaymentReceiptPDF
-									context={receiptContext}
-									school={schoolProfile}
-								/>
+								<div className="flex flex-wrap items-center gap-2">
+									{editing ? (
+										<>
+											<button
+												type="button"
+												onClick={() => setEditing(false)}
+												className="rounded-xl border border-border px-3 py-2 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground"
+											>
+												Cancel
+											</button>
+											<button
+												type="button"
+												onClick={() => setConfirm('update')}
+												className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+											>
+												<Save className="h-4 w-4" />
+												Save changes
+											</button>
+										</>
+									) : (
+										<>
+											<button
+												type="button"
+												onClick={startEditing}
+												className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-bold text-foreground transition-colors hover:bg-muted"
+											>
+												<Pencil className="h-4 w-4" />
+												Edit
+											</button>
+											<button
+												type="button"
+												onClick={() => setConfirm('void')}
+												className="inline-flex items-center gap-2 rounded-xl border border-destructive/30 px-3 py-2 text-sm font-bold text-destructive transition-colors hover:bg-destructive/10"
+											>
+												<Ban className="h-4 w-4" />
+												Void
+											</button>
+											<PaymentReceiptPDF
+												context={receiptContext}
+												school={schoolProfile}
+											/>
+										</>
+									)}
+								</div>
 							</div>
 						</div>
 					)}
+				</DialogContent>
+			</Dialog>
+
+			{/* ── Password confirmation ───────────────────────────────────── */}
+			<Dialog
+				open={Boolean(confirm)}
+				onOpenChange={(open) => {
+					if (!open && !submitting) {
+						setConfirm(null);
+						setPassword('');
+						setVoidReason('');
+						setActionError(null);
+					}
+				}}
+			>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							<ShieldAlert
+								className={`h-5 w-5 ${confirm === 'void' ? 'text-destructive' : 'text-primary'}`}
+							/>
+							{confirm === 'void' ? 'Void receipt' : 'Save changes'}
+						</DialogTitle>
+					</DialogHeader>
+
+					<p className="text-sm text-muted-foreground">
+						{confirm === 'void'
+							? `Receipt ${openReceipt?.receiptNumber} will be marked void and stop counting as paid — the student's balance goes back up by ${openReceipt?.currency} ${formatCurrency(openReceipt?.totalAmount || 0)}. The record is kept: anyone scanning the printed receipt will be told it was voided, and the action is logged to the audit trail under your name.`
+							: `Receipt ${openReceipt?.receiptNumber} will be rewritten. Any copy already printed or downloaded will no longer match. The change is logged to the audit trail under your name.`}
+					</p>
+
+					{confirm === 'void' && (
+						<label className="flex flex-col gap-1">
+							<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+								Reason for voiding
+							</span>
+							<input
+								type="text"
+								value={voidReason}
+								onChange={(event) => setVoidReason(event.target.value)}
+								placeholder="e.g. recorded against the wrong student"
+								className="h-10 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</label>
+					)}
+
+					<label className="flex flex-col gap-1">
+						<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+							Confirm with your password
+						</span>
+						<input
+							type="password"
+							value={password}
+							autoComplete="current-password"
+							onChange={(event) => setPassword(event.target.value)}
+							onKeyDown={(event) => {
+								if (event.key === 'Enter' && password && !submitting) {
+									void runAction();
+								}
+							}}
+							className="h-10 rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+						/>
+					</label>
+
+					{actionError && (
+						<p className="text-sm font-medium text-destructive">{actionError}</p>
+					)}
+
+					<div className="flex items-center justify-end gap-2">
+						<button
+							type="button"
+							disabled={submitting}
+							onClick={() => {
+								setConfirm(null);
+								setPassword('');
+								setVoidReason('');
+								setActionError(null);
+							}}
+							className="rounded-lg border border-border px-4 py-2 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+						>
+							Cancel
+						</button>
+						<button
+							type="button"
+							disabled={
+								submitting ||
+								!password ||
+								(confirm === 'void' && !voidReason.trim())
+							}
+							onClick={runAction}
+							className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold text-white transition-colors disabled:opacity-50 ${
+								confirm === 'void'
+									? 'bg-destructive hover:bg-destructive/90'
+									: 'bg-primary hover:bg-primary/90'
+							}`}
+						>
+							{submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+							{confirm === 'void' ? 'Void receipt' : 'Confirm and save'}
+						</button>
+					</div>
 				</DialogContent>
 			</Dialog>
 		</div>

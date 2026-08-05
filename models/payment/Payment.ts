@@ -53,6 +53,23 @@ const PaymentSchema = new Schema(
 		paymentTime: { type: String, required: true },
 		paymentMethod: { type: String },
 		phoneNumber: { type: String },
+
+		// ── Void ──
+		// Receipts are external artefacts: someone may be holding a printout.
+		// Voiding keeps the record so /api/payments/verify can answer honestly,
+		// while every balance and collection read excludes it.
+		voidedAt: { type: Date, default: null },
+		voidedBy: {
+			type: new Schema(
+				{
+					id: { type: String, default: '' },
+					name: { type: String, default: '' },
+				},
+				{ _id: false },
+			),
+			default: null,
+		},
+		voidReason: { type: String, default: '' },
 		status: {
 			type: String,
 			enum: ['success', 'pending', 'failed'],

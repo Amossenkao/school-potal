@@ -1070,7 +1070,8 @@ export default function RecordPaymentsPage() {
 														e.stopPropagation();
 														removeStudent(studentId);
 													}}
-													className="absolute right-2 top-2 rounded-lg p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive focus:opacity-100 group-hover:opacity-100"
+													/* Always visible — a hover-only control is unreachable on touch. */
+													className="absolute right-2 top-2 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
 													aria-label={`Remove ${studentFullName(entry.student)}`}
 												>
 													<Trash2 className="h-4 w-4" />

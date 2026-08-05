@@ -202,6 +202,10 @@ const componentImporters: Record<string, ComponentImporter> = {
 	// Financial Reports (admin)
 	'financial-reports': () =>
 		import('@/app/dashboard/shared/FinancialReports'),
+	// Route key is `financial-audit`, not `audit`: /dashboard/audit is already a
+	// static superadmin route and would shadow the dynamic [page] route.
+	'financial-audit': () =>
+		import('@/app/dashboard/shared/FinancialAudit'),
 	'admin-payment-history': () =>
 		import('@/app/dashboard/payment-history/AdminPaymentHistory'),
 
@@ -687,6 +691,31 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					title: 'Sign for Salary',
 					href: '/salary/sign',
 					icon: FilePen,
+				},
+			],
+		},
+	},
+
+	audit: {
+		key: 'audit',
+		title: 'Audit Trail',
+		icon: Shield,
+		category: 'Financial',
+		routes: {
+			administrator: [
+				{
+					key: 'financial-audit',
+					title: 'Audit Trail',
+					href: '/dashboard/financial-audit',
+					icon: Shield,
+				},
+			],
+			system_admin: [
+				{
+					key: 'financial-audit',
+					title: 'Audit Trail',
+					href: '/dashboard/financial-audit',
+					icon: Shield,
 				},
 			],
 		},

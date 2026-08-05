@@ -286,11 +286,6 @@ export const ReceiptDocument: React.FC<{
 						<Text
 							style={[styles.cell, styles.cellHead, { flex: 1.8, textAlign: 'right' }]}
 						>
-							Paid To Date
-						</Text>
-						<Text
-							style={[styles.cell, styles.cellHead, { flex: 1.8, textAlign: 'right' }]}
-						>
 							Outstanding
 						</Text>
 					</View>
@@ -315,9 +310,6 @@ export const ReceiptDocument: React.FC<{
 								]}
 							>
 								{money(line.amountPaid)}
-							</Text>
-							<Text style={[styles.cell, { flex: 1.8, textAlign: 'right' }]}>
-								{money(line.paidToDate)}
 							</Text>
 							<Text
 								style={[
@@ -430,12 +422,6 @@ export const ReceiptDocument: React.FC<{
 					<View style={styles.summaryCard}>
 						<Text style={styles.summaryLabel}>Total Assessed ({currency})</Text>
 						<Text style={styles.summaryValue}>{money(overall.expected)}</Text>
-					</View>
-					<View style={styles.summaryCard}>
-						<Text style={styles.summaryLabel}>Paid To Date</Text>
-						<Text style={[styles.summaryValue, styles.paid]}>
-							{money(overall.paidToDate)}
-						</Text>
 					</View>
 					<View style={styles.summaryCard}>
 						<Text style={styles.summaryLabel}>Balance Outstanding</Text>

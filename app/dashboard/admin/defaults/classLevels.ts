@@ -152,7 +152,7 @@ export const DEFAULT_ROLE_FEATURE_ACCESS = {
 		'user_management', 'calendar_events', 'grade_management',
 		'class_management', 'academic_reports',
 		'student_attendance', 'ai_chat',
-		'school_settings', 'support_system',
+		'school_settings', 'support_system', 'audit',
 	],
 	teacher: [
 		'community', 'calendar_events', 'grade_management',

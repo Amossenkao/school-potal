@@ -5,6 +5,88 @@ import { getSchoolProfile } from '@/lib/mongoose';
 import { normalizeUser } from '@/lib/bootstrap';
 import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
 import { bumpUsersVersion, extractAcademicYears } from '@/utils/userSync';
+import { auditActorFrom, recordAuditEvent } from '@/utils/auditTrail';
+
+const studentLabel = (student: any) =>
+	`${student?.firstName || ''} ${student?.lastName || ''}`.trim() ||
+	String(student?.studentId || '');
+
+/**
+ * Emits one audit event per financial attribute that actually changed.
+ * Scholarship keys are stored as either the scholarship id or its name, so the
+ * diff is done on raw string sets rather than resolved definitions.
+ */
+async function recordScholarshipAudit(
+	req: NextRequest,
+	sessionUser: any,
+	before: any,
+	after: any,
+	input: {
+		wardTeacherId?: unknown;
+		scholarships?: unknown;
+		requestId?: string;
+	},
+) {
+	const actor = auditActorFrom(sessionUser);
+	const target = {
+		type: 'student',
+		id: String(after?.studentId || ''),
+		label: studentLabel(after),
+		studentId: String(after?.studentId || ''),
+	};
+
+	if (input.scholarships !== undefined) {
+		const previous: string[] = Array.isArray(before?.scholarships)
+			? before.scholarships.map(String)
+			: [];
+		const next: string[] = Array.isArray(after?.scholarships)
+			? after.scholarships.map(String)
+			: [];
+		const added = next.filter((key) => !previous.includes(key));
+		const removed = previous.filter((key) => !next.includes(key));
+
+		for (const key of added) {
+			await recordAuditEvent(req, {
+				category: 'scholarship',
+				action: 'scholarship.assigned',
+				summary: `Awarded "${key}" to ${target.label} (${target.studentId})`,
+				actor,
+				target,
+				before: { scholarships: previous },
+				after: { scholarships: next },
+				requestId: input.requestId,
+			});
+		}
+		for (const key of removed) {
+			await recordAuditEvent(req, {
+				category: 'scholarship',
+				action: 'scholarship.removed',
+				summary: `Removed "${key}" from ${target.label} (${target.studentId})`,
+				actor,
+				target,
+				before: { scholarships: previous },
+				after: { scholarships: next },
+				requestId: input.requestId,
+			});
+		}
+	}
+
+	if (
+		input.wardTeacherId !== undefined &&
+		String(before?.wardTeacherId || '') !== String(after?.wardTeacherId || '')
+	) {
+		await recordAuditEvent(req, {
+			category: 'scholarship',
+			action: 'ward.changed',
+			summary: `Ward teacher for ${target.label} changed from "${before?.wardTeacherId || 'none'}" to "${after?.wardTeacherId || 'none'}"`,
+			actor,
+			target,
+			before: { wardTeacherId: before?.wardTeacherId || '' },
+			after: { wardTeacherId: after?.wardTeacherId || '' },
+			requestId: input.requestId,
+		});
+	}
+}
 
 export async function GET(req: NextRequest) {
 	try {
@@ -109,6 +191,12 @@ export async function PATCH(req: NextRequest) {
 			);
 		}
 
+		// Pre-image for the audit trail: `{new: true}` below returns only the
+		// post-image, so the previous award list has to be read first.
+		const before = await models.Student.findOne({ studentId })
+			.select('studentId firstName lastName className scholarships wardTeacherId')
+			.lean();
+
 		const updated = await models.Student.findOneAndUpdate(
 			{ studentId },
 			{ $set: updateData },
@@ -121,6 +209,13 @@ export async function PATCH(req: NextRequest) {
 				{ status: 404 },
 			);
 		}
+
+		await recordScholarshipAudit(req, sessionUser, before, updated, {
+			wardTeacherId,
+			scholarships,
+			// Lets a bulk action (one request per student) be grouped in the UI.
+			requestId: req.headers.get('x-action-id') || undefined,
+		});
 
 		// Invalidate cached rosters so the change reaches other clients (and
 		// this one after a reload). Bump the users version fingerprint and

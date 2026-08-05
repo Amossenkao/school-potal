@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { getTenantModels } from '@/models';
 import { authorizeUser } from '@/proxy';
+import { auditActorFrom, recordAuditEvent } from '@/utils/auditTrail';
 import { getSchoolProfile, getTenantConnectionByDbName } from '@/lib/mongoose';
 import { normalizeHost } from '@/utils/host';
 import { getSchoolMeshModels } from '@/models/schoolmesh';
@@ -5158,6 +5159,51 @@ export async function PUT(request: NextRequest) {
 			);
 		}
 
+		// A student's class and type select their fee group, so changing either
+		// silently rewrites the entire bill. Record it in the financial trail.
+		if (targetUser.role === 'student') {
+			const actor = auditActorFrom(currentUser);
+			const auditTarget = {
+				type: 'student',
+				id: String(targetUser.studentId || ''),
+				label:
+					`${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() ||
+					String(targetUser.studentId || ''),
+				studentId: String(targetUser.studentId || ''),
+			};
+
+			if (
+				updateData.classId !== undefined &&
+				String(targetUser.classId || '') !== String(updatedUser.classId || '')
+			) {
+				await recordAuditEvent(request, {
+					category: 'enrollment',
+					action: 'student.class_changed',
+					summary: `Moved ${auditTarget.label} from ${targetUser.className || targetUser.classId || 'no class'} to ${updatedUser.className || updatedUser.classId || 'no class'} — fee group changes with the class`,
+					actor,
+					target: auditTarget,
+					before: { classId: targetUser.classId, className: targetUser.className },
+					after: { classId: updatedUser.classId, className: updatedUser.className },
+				});
+			}
+
+			if (
+				updateData.studentType !== undefined &&
+				String(targetUser.studentType || '') !==
+					String(updatedUser.studentType || '')
+			) {
+				await recordAuditEvent(request, {
+					category: 'enrollment',
+					action: 'student.type_changed',
+					summary: `Changed ${auditTarget.label} from "${targetUser.studentType || 'old'}" to "${updatedUser.studentType || 'old'}" — affects group-eligible fees`,
+					actor,
+					target: auditTarget,
+					before: { studentType: targetUser.studentType || 'old' },
+					after: { studentType: updatedUser.studentType || 'old' },
+				});
+			}
+		}
+
 		// Apply parent link/unlink/create for students
 		let parentChangeApplied = false;
 		let affectedParentId: string | null = null;
@@ -5743,8 +5789,54 @@ export async function DELETE(request: NextRequest) {
 					{ $pull: { studentIds: targetUser.studentId } },
 				);
 
-				// Delete student's payment records (if they exist as separate documents)
-				// This depends on your data structure - adjust as needed
+				// Payment records are deliberately NOT deleted: they are financial
+				// history and their receipts may already be in circulation. They
+				// are recorded in the audit trail below so the money stays
+				// traceable to a student who no longer exists.
+				try {
+					const orphaned = await models.Payment.find({
+						studentId: targetUser.studentId,
+					})
+						.select('receiptNumber totalAmount currency paymentAcademicYear')
+						.lean();
+
+					if (orphaned.length > 0) {
+						const total = orphaned.reduce(
+							(sum: number, payment: any) => sum + (payment.totalAmount || 0),
+							0,
+						);
+						cascadeResults.orphanedPayments = orphaned.length;
+						await recordAuditEvent(request, {
+							category: 'enrollment',
+							action: 'student.deleted_with_payments',
+							summary: `Deleted student ${targetUser.studentId} leaving ${orphaned.length} payment record${orphaned.length === 1 ? '' : 's'} (${orphaned[0]?.currency || ''} ${total.toFixed(2)}) with no owner`,
+							actor: auditActorFrom(currentUser),
+							target: {
+								type: 'student',
+								id: String(targetUser.studentId || ''),
+								label:
+									`${targetUser.firstName || ''} ${targetUser.lastName || ''}`.trim() ||
+									String(targetUser.studentId || ''),
+								studentId: String(targetUser.studentId || ''),
+							},
+							before: {
+								receipts: orphaned.map((payment: any) => ({
+									receiptNumber: payment.receiptNumber,
+									totalAmount: payment.totalAmount,
+									currency: payment.currency,
+									academicYear: payment.paymentAcademicYear,
+								})),
+							},
+							after: null,
+							amount: {
+								currency: orphaned[0]?.currency || '',
+								delta: 0,
+							},
+						});
+					}
+				} catch (error) {
+					console.error('Failed to audit orphaned payments on delete:', error);
+				}
 				break;
 
 			case 'teacher':

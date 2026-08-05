@@ -34,7 +34,15 @@ export interface PaymentRecord {
 	paymentTime: string;
 	paymentMethod?: string;
 	status?: string;
+	/** Set when the receipt has been voided; such records never count as paid. */
+	voidedAt?: string | null;
+	voidedBy?: { id: string; name: string } | null;
+	voidReason?: string;
 }
+
+/** A voided receipt is kept for the record but contributes nothing. */
+export const isVoided = (payment: { voidedAt?: string | null }): boolean =>
+	Boolean(payment?.voidedAt);
 
 /** One fee line with its batch context attached — the unit aggregations use. */
 export interface PaymentItemRow extends PaymentItem {
@@ -107,6 +115,16 @@ export function normalizePayment(raw: any): PaymentRecord {
 		paymentTime: raw?.paymentTime || '',
 		paymentMethod: raw?.paymentMethod || undefined,
 		status: raw?.status || undefined,
+		voidedAt: raw?.voidedAt
+			? new Date(raw.voidedAt).toISOString()
+			: null,
+		voidedBy: raw?.voidedBy
+			? {
+					id: raw.voidedBy.id || '',
+					name: raw.voidedBy.name || '',
+				}
+			: null,
+		voidReason: raw?.voidReason || '',
 	};
 }
 
@@ -123,6 +141,10 @@ export function paymentItemRows(payments: any[]): PaymentItemRow[] {
 	const rows: PaymentItemRow[] = [];
 	for (const raw of Array.isArray(payments) ? payments : []) {
 		const payment = normalizePayment(raw);
+		// Voided receipts are excluded from every aggregation. This is the
+		// backstop for the server-side `voidedAt: null` filters — miss one there
+		// and balances still come out right here.
+		if (isVoided(payment)) continue;
 		payment.items.forEach((item, index) => {
 			rows.push({
 				...item,
@@ -144,13 +166,13 @@ export function paymentItemRows(payments: any[]): PaymentItemRow[] {
 	return rows;
 }
 
-/** Total paid across a set of batches, in one currency. */
+/** Total paid across a set of batches, in one currency. Skips voided receipts. */
 export const sumPayments = (payments: any[], currency?: string): number =>
-	normalizePayments(payments).reduce(
-		(sum, payment) =>
-			currency && payment.currency !== currency ? sum : sum + payment.totalAmount,
-		0,
-	);
+	normalizePayments(payments).reduce((sum, payment) => {
+		if (isVoided(payment)) return sum;
+		if (currency && payment.currency !== currency) return sum;
+		return sum + payment.totalAmount;
+	}, 0);
 
 /**
  * Amount paid per `${feeType}::${currency}` key, the lookup the fee pages use

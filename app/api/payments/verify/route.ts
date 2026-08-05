@@ -56,10 +56,37 @@ export async function GET(req: NextRequest) {
 					.trim()
 			: '';
 
+		// A voided receipt still resolves — someone may be holding the printout,
+		// and "this was voided on <date>" is a far more useful answer than
+		// "no receipt matches this number".
+		if (payment.voidedAt) {
+			return NextResponse.json({
+				success: true,
+				data: {
+					valid: false,
+					voided: true,
+					receiptNumber: payment.receiptNumber,
+					schoolName: schoolProfile?.identity?.name || '',
+					studentId: payment.studentId,
+					studentName,
+					className: student?.className || '',
+					academicYear: payment.paymentAcademicYear,
+					paymentDate: payment.paymentDate,
+					currency: payment.currency,
+					totalAmount: payment.totalAmount,
+					voidedAt: payment.voidedAt,
+					voidedBy: payment.voidedBy?.name || '',
+					voidReason: payment.voidReason || '',
+					message: 'This receipt has been voided and is no longer valid.',
+				},
+			});
+		}
+
 		return NextResponse.json({
 			success: true,
 			data: {
 				valid: true,
+				voided: false,
 				receiptNumber: payment.receiptNumber,
 				schoolName: schoolProfile?.identity?.name || '',
 				studentId: payment.studentId,

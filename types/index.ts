@@ -25,6 +25,7 @@ export type FeatureKey =
 	| 'financial_reports'
 	| 'record_payments'
 	| 'online_payment'
+	| 'audit'
 	// Communication & Support
 	| 'support_system'
 	| 'community'
@@ -56,6 +57,7 @@ export const FEATURE_KEYS: FeatureKey[] = [
 	'financial_reports',
 	'record_payments',
 	'online_payment',
+	'audit',
 
 	// Communication & Support
 	'support_system',

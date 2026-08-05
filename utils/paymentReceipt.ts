@@ -19,8 +19,6 @@ export interface ReceiptLine {
 	amountPaid: number;
 	/** The fee's assessed amount after scholarships. */
 	feeTotal: number;
-	/** Paid toward this fee across every receipt, including this one. */
-	paidToDate: number;
 	/** Still owed on this fee after this receipt. */
 	outstanding: number;
 }
@@ -41,7 +39,6 @@ export interface ReceiptContext {
 	/** Whole-year position for the student, after this receipt. */
 	overall: {
 		expected: number;
-		paidToDate: number;
 		outstanding: number;
 	};
 	/** Total on this receipt. */
@@ -59,7 +56,11 @@ export interface BuildReceiptArgs {
 	payment: any;
 	student: any;
 	schoolProfile: SchoolProfile | null | undefined;
-	/** Every payment for this student, so paid-to-date is complete. */
+	/**
+	 * Every payment for this student. Deduplicated by id internally, because the
+	 * store keys payments by academic year in both `2025/2026` and `2025-2026`
+	 * forms and a naive flatten counts the same receipt twice.
+	 */
 	allPayments: any[];
 	className?: string;
 	origin?: string;
@@ -76,8 +77,8 @@ const studentName = (student: any): string =>
  * still owes afterwards, the installment position, and the student's overall
  * balance for the year.
  *
- * "Paid to date" counts every receipt for the student, not just this one, so a
- * reprinted receipt always reflects the balance as it stands now.
+ * Outstanding figures net off every receipt the student holds, not just this
+ * one, so a reprint always shows the balance as it stands now.
  */
 export function buildReceiptContext({
 	payment: rawPayment,
@@ -95,8 +96,20 @@ export function buildReceiptContext({
 		? resolveStudentFees(student, schoolProfile, academicYear, payment.classId || undefined)
 		: [];
 
-	// Every line this student has ever paid, in this receipt's currency.
-	const studentRows = paymentItemRows(allPayments).filter(
+	// Every line this student has ever paid, in this receipt's currency. The
+	// dedupe by payment id is load-bearing: the caller flattens a year-keyed
+	// map that can hold the same receipt under two spellings of the year.
+	const seenPaymentIds = new Set<string>();
+	const uniquePayments = (Array.isArray(allPayments) ? allPayments : []).filter(
+		(candidate) => {
+			const key = String(candidate?.id || candidate?._id || '');
+			if (!key || seenPaymentIds.has(key)) return false;
+			seenPaymentIds.add(key);
+			return true;
+		},
+	);
+
+	const studentRows = paymentItemRows(uniquePayments).filter(
 		(row) =>
 			String(row.studentId) === String(payment.studentId) &&
 			row.currency === currency,
@@ -122,7 +135,7 @@ export function buildReceiptContext({
 				(candidate.feeName === item.feeType || candidate.feeId === item.feeType),
 		);
 		const feeTotal = bill?.effectiveAmount ?? 0;
-		const paidToDate = paidByFee.get(item.feeType) || 0;
+		const paidAcrossReceipts = paidByFee.get(item.feeType) || 0;
 		return {
 			feeType: item.feeType,
 			category: item.category || bill?.categoryName || '',
@@ -131,8 +144,7 @@ export function buildReceiptContext({
 				: undefined,
 			amountPaid: item.amount,
 			feeTotal,
-			paidToDate,
-			outstanding: clampZero(Math.max(0, feeTotal - paidToDate)),
+			outstanding: clampZero(Math.max(0, feeTotal - paidAcrossReceipts)),
 		};
 	});
 
@@ -199,7 +211,10 @@ export function buildReceiptContext({
 	const expected = bills
 		.filter((bill) => bill.isRequired && bill.currency === currency)
 		.reduce((sum, bill) => sum + bill.effectiveAmount, 0);
-	const paidToDate = studentRows.reduce((sum, row) => sum + row.amount, 0);
+	const paidAcrossReceipts = studentRows.reduce(
+		(sum, row) => sum + row.amount,
+		0,
+	);
 
 	const verifyUrl = `${origin}/verify?receipt=${encodeURIComponent(payment.receiptNumber)}`;
 
@@ -210,8 +225,7 @@ export function buildReceiptContext({
 		installments,
 		overall: {
 			expected,
-			paidToDate,
-			outstanding: clampZero(Math.max(0, expected - paidToDate)),
+			outstanding: clampZero(Math.max(0, expected - paidAcrossReceipts)),
 		},
 		receiptTotal: payment.totalAmount,
 		student: {

@@ -675,18 +675,21 @@ const getRolePaymentsQuery = (
 	currentUser: any,
 	adminCanViewPayments = false,
 ) => {
+	// Voided receipts never reach the client cache: every balance, collection
+	// total and fee page reads from it.
+	const notVoided = { voidedAt: null };
 	if (currentUser?.role === 'student') {
 		const studentId = currentUser.studentId || currentUser.username;
 		if (!studentId) return null;
-		return { studentId };
+		return { studentId, ...notVoided };
 	}
 	if (currentUser?.role === 'parent') {
 		const studentIds = getParentChildStudentIds(currentUser);
 		if (studentIds.length === 0) return null;
-		return { studentId: { $in: studentIds } };
+		return { studentId: { $in: studentIds }, ...notVoided };
 	}
 	if (currentUser?.role === 'administrator') {
-		return adminCanViewPayments ? {} : null;
+		return adminCanViewPayments ? { ...notVoided } : null;
 	}
 	return null;
 };
