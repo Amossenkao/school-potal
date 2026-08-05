@@ -43,6 +43,7 @@ import {
 	resolveStudentFees,
 	type StudentFeeBill,
 } from '@/utils/studentFeeBilling';
+import { normalizePayments, paymentItemRows } from '@/utils/payments';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -151,6 +152,17 @@ const FinancialDashboard = memo(function FinancialDashboard({
 		return Array.isArray(value) ? value : [];
 	}, [paymentsByAcademicYear, selectedYear]);
 
+	// Payments are batches; fee-level maths runs over the exploded lines while
+	// the monthly trend stays on batches (one receipt = one payment event).
+	const paymentRows = useMemo(
+		() => paymentItemRows(yearPayments),
+		[yearPayments],
+	);
+	const paymentBatches = useMemo(
+		() => normalizePayments(yearPayments),
+		[yearPayments],
+	);
+
 	const feeSchedule = useMemo(() => {
 		if (!schoolProfile || !selectedYear) return null;
 		return (
@@ -233,11 +245,11 @@ const FinancialDashboard = memo(function FinancialDashboard({
 
 	const collectedByCurrency = useMemo(() => {
 		const totals: Record<string, number> = {};
-		for (const p of yearPayments) {
-			totals[p.currency] = (totals[p.currency] || 0) + p.paymentAmount;
+		for (const row of paymentRows) {
+			totals[row.currency] = (totals[row.currency] || 0) + row.amount;
 		}
 		return totals;
-	}, [yearPayments]);
+	}, [paymentRows]);
 
 	const balanceByCurrency = useMemo(() => {
 		const totals: Record<string, number> = {};
@@ -305,13 +317,13 @@ const FinancialDashboard = memo(function FinancialDashboard({
 		const map: Record<string, { month: string; collected: number }[]> = {};
 		for (const cur of activeCurrencies) {
 			const totals = Array(12).fill(0);
-			for (const p of yearPayments) {
-				if (p.currency !== cur.code) continue;
-				const raw = p.paymentDate || p.paymentTime || p.createdAt;
+			for (const batch of paymentBatches) {
+				if (batch.currency !== cur.code) continue;
+				const raw = batch.paymentDate;
 				if (!raw) continue;
 				const date = new Date(String(raw));
 				if (Number.isNaN(date.getTime())) continue;
-				totals[date.getMonth()] += Number(p.paymentAmount) || 0;
+				totals[date.getMonth()] += batch.totalAmount;
 			}
 			map[cur.code] = MONTHS.map((label, idx) => ({
 				month: label,
@@ -319,7 +331,7 @@ const FinancialDashboard = memo(function FinancialDashboard({
 			}));
 		}
 		return map;
-	}, [yearPayments, activeCurrencies]);
+	}, [paymentBatches, activeCurrencies]);
 
 	// ── Per-currency collected vs outstanding ──────────────────────────────
 	const donutDataByCurrency = useMemo(() => {
@@ -346,11 +358,11 @@ const FinancialDashboard = memo(function FinancialDashboard({
 				(expected[bill.feeName][bill.currency] || 0) +
 				bill.effectiveAmount;
 		}
-		for (const p of yearPayments) {
-			const key = feeNameById.get(p.feeType) || p.feeType || 'Other';
+		for (const row of paymentRows) {
+			const key = feeNameById.get(row.feeType) || row.feeType || 'Other';
 			if (!collected[key]) collected[key] = {};
-			collected[key][p.currency] =
-				(collected[key][p.currency] || 0) + p.paymentAmount;
+			collected[key][row.currency] =
+				(collected[key][row.currency] || 0) + row.amount;
 		}
 		const categories = Array.from(
 			new Set([...Object.keys(expected), ...Object.keys(collected)]),
@@ -366,7 +378,7 @@ const FinancialDashboard = memo(function FinancialDashboard({
 				const sumB = Object.values(b.expByCur).reduce((s, v) => s + v, 0);
 				return sumB - sumA;
 			});
-	}, [feeRows, yearPayments, feeNameById]);
+	}, [feeRows, paymentRows, feeNameById]);
 
 	const feeTypeChartDataByCurrency = useMemo(() => {
 		const map: Record<string, { name: string; Expected: number; Collected: number }[]> = {};

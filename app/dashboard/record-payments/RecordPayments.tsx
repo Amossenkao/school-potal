@@ -31,6 +31,7 @@ import StudentFinder, {
 	studentFullName,
 	useClassDirectory,
 } from '@/app/dashboard/shared/components/StudentFinder';
+import { paymentItemRows } from '@/utils/payments';
 
 // ─── Formatters ────────────────────────────────────────────────────────────────
 
@@ -121,16 +122,20 @@ function resolveFeesForStudent(
 		'';
 	const bills = resolveStudentFees(student, schoolProfile, year);
 
+	// Payments are batches, so what a student has paid toward a fee is the sum
+	// of the matching lines across every receipt.
+	const rows = paymentItemRows(payments);
+
 	const fees: ResolvedFee[] = [];
 	for (const bill of bills) {
 		const currency = bill.currency || 'LRD';
-		const paid = payments
+		const paid = rows
 			.filter(
-				(p) =>
-					`${p.feeType}::${p.currency || 'LRD'}` ===
+				(row) =>
+					`${row.feeType}::${row.currency || 'LRD'}` ===
 					`${bill.feeName}::${currency}`,
 			)
-			.reduce((sum, p) => sum + (p.paymentAmount || 0), 0);
+			.reduce((sum, row) => sum + row.amount, 0);
 		fees.push({
 			feeKey: bill.feeKey,
 			feeDefId: bill.feeId,

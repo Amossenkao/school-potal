@@ -58,6 +58,189 @@ const fetchImageAsBase64 = async (url: string): Promise<string | null> => {
 	}
 };
 
+// ── receipt verification ───────────────────────────────────────────────────
+
+interface VerifiedReceipt {
+	valid: boolean;
+	message?: string;
+	receiptNumber?: string;
+	schoolName?: string;
+	studentId?: string;
+	studentName?: string;
+	className?: string;
+	academicYear?: string;
+	paidBy?: string;
+	paymentDate?: string;
+	paymentTime?: string;
+	paymentMethod?: string;
+	currency?: string;
+	totalAmount?: number;
+	items?: { feeType: string; category: string; amount: number }[];
+}
+
+const formatMoney = (value: number) =>
+	(Number.isFinite(value) ? value : 0).toLocaleString('en-US', {
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2,
+	});
+
+function ReceiptVerification({ receiptNumber }: { receiptNumber: string }) {
+	const [receipt, setReceipt] = useState<VerifiedReceipt | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+
+	useEffect(() => {
+		let cancelled = false;
+		const run = async () => {
+			try {
+				const res = await fetch(
+					'/api/payments/verify?receipt=' + encodeURIComponent(receiptNumber),
+				);
+				const json = await res.json();
+				if (!res.ok || !json.success) {
+					throw new Error(json.message || 'Verification failed');
+				}
+				if (!cancelled) setReceipt(json.data);
+			} catch (err: any) {
+				if (!cancelled) setError(err.message || 'Verification failed');
+			} finally {
+				if (!cancelled) setLoading(false);
+			}
+		};
+		run();
+		return () => {
+			cancelled = true;
+		};
+	}, [receiptNumber]);
+
+	if (loading) {
+		return <PageLoading variant="school" message="Verifying receipt..." />;
+	}
+
+	const invalid = Boolean(error) || !receipt?.valid;
+
+	return (
+		<div className="min-h-screen bg-background px-4 py-10">
+			<div className="mx-auto max-w-xl">
+				<div className="mb-6 flex items-center justify-between">
+					<div className="flex items-center gap-2">
+						<ShieldCheck className="h-5 w-5 text-primary" />
+						<span className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+							Receipt Verification
+						</span>
+					</div>
+					<ThemeToggleButton />
+				</div>
+
+				<div className="overflow-hidden rounded-2xl border border-border bg-card">
+					<div
+						className={`flex items-center gap-3 px-5 py-4 ${
+							invalid
+								? 'bg-destructive/10 text-destructive'
+								: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+						}`}
+					>
+						{invalid ? (
+							<AlertCircle className="h-6 w-6 shrink-0" />
+						) : (
+							<CheckCircle className="h-6 w-6 shrink-0" />
+						)}
+						<div className="min-w-0">
+							<p className="text-base font-black">
+								{invalid ? 'Receipt not verified' : 'Authentic receipt'}
+							</p>
+							<p className="truncate text-xs opacity-80">
+								{invalid
+									? error || receipt?.message || 'No matching record found.'
+									: `Issued by ${receipt?.schoolName || 'the school'}`}
+							</p>
+						</div>
+					</div>
+
+					{!invalid && receipt && (
+						<div className="space-y-5 p-5">
+							<div>
+								<p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+									Receipt Number
+								</p>
+								<p className="font-mono text-lg font-black text-foreground">
+									{receipt.receiptNumber}
+								</p>
+							</div>
+
+							<dl className="grid grid-cols-2 gap-4">
+								{[
+									{ label: 'Student', value: receipt.studentName },
+									{ label: 'Student ID', value: receipt.studentId },
+									{ label: 'Class', value: receipt.className || '—' },
+									{ label: 'Academic Year', value: receipt.academicYear },
+									{ label: 'Received From', value: receipt.paidBy || '—' },
+									{ label: 'Method', value: receipt.paymentMethod || 'cash' },
+									{ label: 'Date', value: receipt.paymentDate },
+									{ label: 'Time', value: receipt.paymentTime || '—' },
+								].map((field) => (
+									<div key={field.label} className="min-w-0">
+										<dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+											{field.label}
+										</dt>
+										<dd className="truncate text-sm font-bold capitalize text-foreground">
+											{field.value || '—'}
+										</dd>
+									</div>
+								))}
+							</dl>
+
+							<div>
+								<p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+									Items Paid
+								</p>
+								<ul className="divide-y divide-border rounded-xl border border-border">
+									{(receipt.items || []).map((item, index) => (
+										<li
+											key={`${item.feeType}-${index}`}
+											className="flex items-center justify-between gap-3 px-3 py-2.5"
+										>
+											<span className="min-w-0">
+												<span className="block truncate text-sm font-bold text-foreground">
+													{item.feeType}
+												</span>
+												{item.category && (
+													<span className="block truncate text-xs text-muted-foreground">
+														{item.category}
+													</span>
+												)}
+											</span>
+											<span className="shrink-0 whitespace-nowrap text-sm font-black tabular-nums text-foreground">
+												{receipt.currency} {formatMoney(item.amount)}
+											</span>
+										</li>
+									))}
+								</ul>
+							</div>
+
+							<div className="flex items-center justify-between rounded-xl bg-muted px-4 py-3">
+								<span className="text-sm font-bold text-muted-foreground">
+									Total paid
+								</span>
+								<span className="text-xl font-black tabular-nums text-emerald-600 dark:text-emerald-400">
+									{receipt.currency} {formatMoney(receipt.totalAmount || 0)}
+								</span>
+							</div>
+
+							<p className="text-xs leading-relaxed text-muted-foreground">
+								This confirms the receipt exists in the school&apos;s records and
+								matches the details above. It does not show the student&apos;s
+								current balance — contact the finance office for account
+								statements.
+							</p>
+						</div>
+					)}
+				</div>
+			</div>
+		</div>
+	);
+}
+
 // ── main content ───────────────────────────────────────────────────────────
 
 function VerifyContent() {
@@ -461,6 +644,21 @@ function VerifyContent() {
 	);
 }
 
+/**
+ * `/verify` serves two kinds of QR: academic report codes (`?id=&academicYear=`)
+ * and payment receipt codes (`?receipt=`). Routing happens in its own component
+ * so each branch keeps its own hooks.
+ */
+function VerifyRouter() {
+	const searchParams = useSearchParams();
+	const receiptNumber = searchParams.get('receipt');
+
+	if (receiptNumber) {
+		return <ReceiptVerification receiptNumber={receiptNumber} />;
+	}
+	return <VerifyContent />;
+}
+
 export default function VerifyPage() {
 	return (
 		<Suspense
@@ -471,7 +669,7 @@ export default function VerifyPage() {
 				/>
 			}
 		>
-			<VerifyContent />
+			<VerifyRouter />
 		</Suspense>
 	);
 }

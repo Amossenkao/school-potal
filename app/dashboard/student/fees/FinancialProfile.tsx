@@ -23,6 +23,7 @@ import {
 	resolveStudentScholarshipDefinitions,
 } from '@/utils/scholarshipBilling';
 import { resolveChildView } from '@/utils/childView';
+import { paidByFeeKey, paymentItemRows } from '@/utils/payments';
 import {
 	Loader2,
 	AlertCircle,
@@ -165,7 +166,12 @@ export default function FinancialProfile() {
 			}
 		}
 		const paidRecords = (user as any)?.payments || [];
-		const paidMap = sumByCurrency(paidRecords.map((r: any) => ({ amount: r.paymentAmount, currency: r.currency || 'LRD' })));
+		const paidMap = sumByCurrency(
+			paymentItemRows(paidRecords).map((row) => ({
+				amount: row.amount,
+				currency: row.currency || 'LRD',
+			})),
+		);
 		const allCurrencies = [...new Set([...Object.keys(dueMap), ...Object.keys(paidMap)])];
 		const result: Record<string, { totalDue: number; requiredFees: number; optionalFees: number; paid: number; balance: number }> = {};
 		for (const c of allCurrencies) {
@@ -182,18 +188,10 @@ export default function FinancialProfile() {
 		return result;
 	}, [adjustedFees, user]);
 
-	const paidByFeeName = useMemo(() => {
-		const records = (user as any)?.payments || [];
-		const map: Record<string, number> = {};
-		for (const r of records) {
-			const cur = r.currency || 'LRD';
-			const key = r.feeType && r.feeType !== 'fee'
-				? `${r.feeType}::${cur}`
-				: `${r.category}::${cur}`;
-			map[key] = (map[key] || 0) + r.paymentAmount;
-		}
-		return map;
-	}, [user]);
+	const paidByFeeName = useMemo(
+		() => paidByFeeKey((user as any)?.payments || []),
+		[user],
+	);
 
 	const groupedByCategory = useMemo(() => {
 		const groups: Record<string, typeof adjustedFees> = {};
@@ -241,11 +239,11 @@ export default function FinancialProfile() {
 				due[s.installmentId][c] = (due[s.installmentId][c] || 0) + fee.effectiveAmount * ratio;
 			}
 		}
-		for (const r of payments) {
-			if (!r.installmentId) continue;
-			const cur = r.currency || 'LRD';
-			if (!paid[r.installmentId]) paid[r.installmentId] = {};
-			paid[r.installmentId][cur] = (paid[r.installmentId][cur] || 0) + (r.paymentAmount || 0);
+		for (const row of paymentItemRows(payments)) {
+			if (!row.installmentId) continue;
+			const cur = row.currency || 'LRD';
+			if (!paid[row.installmentId]) paid[row.installmentId] = {};
+			paid[row.installmentId][cur] = (paid[row.installmentId][cur] || 0) + row.amount;
 		}
 		return { due, paid };
 	}, [adjustedFees, user]);

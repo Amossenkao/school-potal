@@ -19,6 +19,10 @@ import {
 import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
 import { resolveChildView } from '@/utils/childView';
+import { normalizePayments as normalizePaymentRecords } from '@/utils/payments';
+import { buildReceiptContext } from '@/utils/paymentReceipt';
+import { ReceiptDocument } from '@/app/dashboard/shared/PaymentReceiptPDF';
+import QRCode from 'qrcode';
 import isEqual from 'lodash/isEqual';
 import {
 	Document,
@@ -48,153 +52,6 @@ import {
 	Receipt,
 } from 'lucide-react';
 
-const receiptStyles = StyleSheet.create({
-	page: {
-		flexDirection: 'column',
-		backgroundColor: '#FFFFFF',
-		padding: 24,
-		fontSize: 10,
-	},
-	headerRow: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'space-between',
-		marginBottom: 12,
-	},
-	logo: {
-		width: 55,
-		height: 55,
-	},
-	headerCenter: {
-		flex: 1,
-		alignItems: 'center',
-		justifyContent: 'center',
-		paddingHorizontal: 8,
-	},
-	schoolName: {
-		fontSize: 16,
-		fontWeight: 'bold',
-		textAlign: 'center',
-	},
-	schoolDetails: {
-		fontSize: 9,
-		textAlign: 'center',
-		color: '#5a5a5a',
-	},
-	divider: {
-		height: 1,
-		backgroundColor: '#e5e7eb',
-		marginVertical: 10,
-	},
-	title: {
-		fontSize: 12,
-		fontWeight: 'bold',
-		textAlign: 'center',
-		marginBottom: 12,
-	},
-	section: {
-		marginBottom: 10,
-		borderWidth: 1,
-		borderColor: '#e5e7eb',
-		padding: 10,
-		borderRadius: 6,
-	},
-	label: {
-		fontSize: 9,
-		color: '#6b7280',
-		marginBottom: 2,
-	},
-	value: {
-		fontSize: 11,
-		fontWeight: 'bold',
-	},
-	row: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		marginBottom: 6,
-		gap: 8,
-	},
-});
-
-const ReceiptDocument = ({ payment, school }: { payment: any; school: any }) => (
-	<Document>
-		<Page size="A4" style={receiptStyles.page}>
-			<View style={receiptStyles.headerRow}>
-				{school?.branding?.logoUrl ? (
-					<Image src={school.branding.logoUrl} style={receiptStyles.logo} />
-				) : (
-					<View style={receiptStyles.logo} />
-				)}
-				<View style={receiptStyles.headerCenter}>
-					<Text style={receiptStyles.schoolName}>{school?.identity?.name}</Text>
-					<Text style={receiptStyles.schoolDetails}>
-						{Array.isArray(school?.contact?.addresses)
-							? school.contact.addresses.flatMap((a: any) => a.lines || []).join('\n')
-							: ''}
-					</Text>
-				</View>
-				{school?.branding?.logoUrl2 || school?.branding?.logoUrl ? (
-					<Image
-						src={school?.branding?.logoUrl2 || school?.branding?.logoUrl}
-						style={receiptStyles.logo}
-					/>
-				) : (
-					<View style={receiptStyles.logo} />
-				)}
-			</View>
-			<View style={receiptStyles.divider} />
-			<Text style={receiptStyles.title}>Payment Receipt</Text>
-			<View style={receiptStyles.section}>
-				<View style={receiptStyles.row}>
-					<View>
-						<Text style={receiptStyles.label}>Receipt Number</Text>
-						<Text style={receiptStyles.value}>{payment.receiptNumber}</Text>
-					</View>
-					<View>
-						<Text style={receiptStyles.label}>Academic Year</Text>
-						<Text style={receiptStyles.value}>{payment.paymentAcademicYear}</Text>
-					</View>
-				</View>
-				<View style={receiptStyles.row}>
-					<View>
-						<Text style={receiptStyles.label}>Paid By</Text>
-						<Text style={receiptStyles.value}>{payment.paidBy}</Text>
-					</View>
-					<View>
-						<Text style={receiptStyles.label}>Fee Type</Text>
-						<Text style={receiptStyles.value}>{payment.feeType}</Text>
-					</View>
-				</View>
-				<View style={receiptStyles.row}>
-					<View>
-						<Text style={receiptStyles.label}>Payment Method</Text>
-						<Text style={receiptStyles.value}>{payment.category}</Text>
-					</View>
-					<View>
-						<Text style={receiptStyles.label}>Amount</Text>
-						<Text style={receiptStyles.value}>
-							{payment.currency || 'LRD'} {Number(payment.paymentAmount).toFixed(2)}
-						</Text>
-					</View>
-				</View>
-				<View style={receiptStyles.row}>
-					<View>
-						<Text style={receiptStyles.label}>Date</Text>
-						<Text style={receiptStyles.value}>{payment.paymentDate}</Text>
-					</View>
-					<View>
-						<Text style={receiptStyles.label}>Time</Text>
-						<Text style={receiptStyles.value}>{payment.paymentTime}</Text>
-					</View>
-				</View>
-			</View>
-			<Text style={receiptStyles.schoolDetails}>
-				This receipt is generated electronically and is valid without a
-				signature.
-			</Text>
-		</Page>
-	</Document>
-);
 
 export default function PaymentHistory() {
 	const { user, isLoading } = useAuth(); // Get user from global state
@@ -231,23 +88,33 @@ export default function PaymentHistory() {
 	const [selectedPayment, setSelectedPayment] = useState<any | null>(null);
 	const [showModal, setShowModal] = useState(false);
 
+	// One row per receipt (batch). Multi-fee receipts summarise their lines.
 	const normalizePayments = useMemo(() => {
-		const records = (user as any)?.payments || [];
-		return records.map((record: any) => ({
-			id: record.id,
-			type: record.feeType,
-			amount: record.paymentAmount,
-			currency: record.currency || 'LRD',
-			status: 'completed',
-			paymentMethod: record.category,
-			phoneNumber: user?.phone || 'N/A',
-			date: `${record.paymentDate}T${record.paymentTime || '00:00'}:00Z`,
-			transactionId: record.receiptNumber,
-			description: `${getPaymentTypeLabel(record.feeType)} - ${
-				record.paymentAcademicYear
-			}`,
-			raw: record,
-		}));
+		const records = normalizePaymentRecords((user as any)?.payments || []);
+		return records.map((record) => {
+			const primary = record.items[0];
+			const extra = record.items.length - 1;
+			const label = primary
+				? getPaymentTypeLabel(primary.feeType)
+				: 'Payment';
+			return {
+				id: record.id,
+				type: primary?.feeType || 'fee',
+				amount: record.totalAmount,
+				currency: record.currency || 'LRD',
+				status: 'completed',
+				paymentMethod: record.paymentMethod || primary?.category || 'cash',
+				phoneNumber: user?.phone || 'N/A',
+				date: `${record.paymentDate}T${record.paymentTime || '00:00'}:00Z`,
+				transactionId: record.receiptNumber,
+				description:
+					extra > 0
+						? `${label} +${extra} more - ${record.paymentAcademicYear}`
+						: `${label} - ${record.paymentAcademicYear}`,
+				itemCount: record.items.length,
+				raw: record,
+			};
+		});
 	}, [user]);
 
 	const childView = useMemo(() => resolveChildView(user), [user]);
@@ -438,8 +305,28 @@ export default function PaymentHistory() {
 			if (!school) return;
 			try {
 				setDownloadingReceiptId(receiptId);
+				// Same document the finance office prints, so a student's copy
+				// carries the identical items, balances, and verification QR.
+				const context = buildReceiptContext({
+					payment: paymentRecord,
+					student: user,
+					schoolProfile: school as any,
+					allPayments: (user as any)?.payments || [],
+					className: (user as any)?.className || '',
+					origin: typeof window === 'undefined' ? '' : window.location.origin,
+				});
+				const qrDataUrl = await QRCode.toDataURL(context.verifyUrl, {
+					errorCorrectionLevel: 'M',
+					margin: 1,
+					width: 256,
+					color: { dark: '#0f172a', light: '#FFFFFF' },
+				}).catch(() => null);
 				const blob = await pdf(
-					<ReceiptDocument payment={paymentRecord} school={school} />,
+					<ReceiptDocument
+						context={context}
+						school={school}
+						qrDataUrl={qrDataUrl}
+					/>,
 				).toBlob();
 				const url = URL.createObjectURL(blob);
 				const link = document.createElement('a');
@@ -455,7 +342,7 @@ export default function PaymentHistory() {
 				setDownloadingReceiptId((prev) => (prev === receiptId ? null : prev));
 			}
 		},
-		[school],
+		[school, user],
 	);
 
 	// Show loading state while user data is being fetched

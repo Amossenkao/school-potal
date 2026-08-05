@@ -1,6 +1,11 @@
 import type { SchoolProfile } from '@/types/schoolProfile';
 import { resolveStudentFees, type StudentFeeBill } from '@/utils/studentFeeBilling';
 import { allocatePaymentsToInstallments } from '@/utils/resolveStudentFeeGroup';
+import {
+	normalizePayments,
+	paymentItemRows,
+	type PaymentItemRow,
+} from '@/utils/payments';
 
 // Amounts below this are treated as zero so floating point residue from
 // percentage-based installment splits never shows up as an outstanding balance.
@@ -138,23 +143,19 @@ interface BillRow {
 	bill: StudentFeeBill;
 }
 
-interface PaymentLike {
-	id: string;
-	studentId: string;
-	classId?: string;
-	feeType: string;
-	category?: string;
-	paymentAmount: number;
-	currency: string;
-	paymentDate: string;
-	paymentMethod?: string;
-}
+/**
+ * A single fee line with its batch context. Payments arrive as batches, so
+ * every aggregation below runs over the exploded item rows — a batch covering
+ * five fees contributes five rows, exactly as five records used to.
+ */
+type PaymentLike = PaymentItemRow;
 
 export interface BuildFinancialReportArgs {
 	schoolProfile: SchoolProfile | null | undefined;
 	academicYear: string;
 	students: any[];
-	payments: PaymentLike[];
+	/** Payment batches, in either the current or the pre-batch shape. */
+	payments: any[];
 }
 
 const sameYear = (a?: string, b?: string) =>
@@ -268,10 +269,15 @@ export function buildFinancialReport({
 	const paymentClassId = (payment: PaymentLike) =>
 		payment.classId || studentClassById[payment.studentId] || 'unassigned';
 
+	// Payments arrive as batches; explode them once into per-fee rows and keep
+	// the batches alongside for anything counted per transaction.
+	const allItemRows = paymentItemRows(payments);
+	const allBatches = normalizePayments(payments);
+
 	// ── Currencies in play, ordered by the school's configured order ────────
 	const currencyCodes = new Set<string>();
 	for (const { bill } of billRows) currencyCodes.add(bill.currency);
-	for (const payment of payments || []) currencyCodes.add(payment.currency);
+	for (const batch of allBatches) currencyCodes.add(batch.currency);
 
 	const configuredCurrencies = schoolProfile.financialConfig?.currencies || [];
 	const orderedCodes = [
@@ -284,9 +290,8 @@ export function buildFinancialReport({
 	const currencies = orderedCodes.map((code) => {
 		const config = configuredCurrencies.find((c) => c.code === code);
 		const currencyBills = billRows.filter((row) => row.bill.currency === code);
-		const currencyPayments = (payments || []).filter(
-			(payment) => payment.currency === code,
-		);
+		const currencyPayments = allItemRows.filter((row) => row.currency === code);
+		const currencyBatches = allBatches.filter((batch) => batch.currency === code);
 
 		// ── Expected side ────────────────────────────────────────────────────
 		const feeRows = new Map<string, AmountRow>();
@@ -383,6 +388,9 @@ export function buildFinancialReport({
 		}
 
 		// ── Collected side ───────────────────────────────────────────────────
+		// Fee-level attribution runs over item rows; anything counted per
+		// transaction (months, active days, averages) runs over batches, so a
+		// receipt covering five fees stays one payment event.
 		const monthRows = new Map<string, MonthRow>();
 		const activeDays = new Set<string>();
 
@@ -391,48 +399,50 @@ export function buildFinancialReport({
 		let firstPaymentDate = '';
 		let lastPaymentDate = '';
 
-		for (const payment of currencyPayments) {
-			const amount = Number(payment.paymentAmount) || 0;
+		for (const row of currencyPayments) {
+			const amount = row.amount;
 			collected += amount;
-			if (amount > largestPayment) largestPayment = amount;
 
-			const feeName = paymentFeeName(payment);
+			const feeName = paymentFeeName(row);
 			ensure(feeRows, feeName, feeName).collected += amount;
 
-			const categoryName = paymentCategory(payment);
+			const categoryName = paymentCategory(row);
 			ensure(categoryRows, categoryName, categoryName).collected += amount;
 
-			const classId = paymentClassId(payment);
+			const classId = paymentClassId(row);
 			ensureClassRow(classId).collected += amount;
 
 			const sessionName = classMeta[classId]?.session || '—';
 			ensure(sessionRows, sessionName, sessionName).collected += amount;
 
-			const totals = studentTotals.get(payment.studentId) || {
+			const totals = studentTotals.get(row.studentId) || {
 				expected: 0,
 				collected: 0,
 			};
 			totals.collected += amount;
-			studentTotals.set(payment.studentId, totals);
+			studentTotals.set(row.studentId, totals);
+		}
 
-			const date = String(payment.paymentDate || '');
-			if (date) {
-				activeDays.add(date);
-				if (!firstPaymentDate || date < firstPaymentDate) firstPaymentDate = date;
-				if (!lastPaymentDate || date > lastPaymentDate) lastPaymentDate = date;
-				const monthKey = date.slice(0, 7);
-				const month = monthRows.get(monthKey) || {
-					key: monthKey,
-					label: monthLabel(monthKey),
-					transactions: 0,
-					amount: 0,
-					cumulative: 0,
-					share: 0,
-				};
-				month.transactions += 1;
-				month.amount += amount;
-				monthRows.set(monthKey, month);
-			}
+		for (const batch of currencyBatches) {
+			if (batch.totalAmount > largestPayment) largestPayment = batch.totalAmount;
+
+			const date = String(batch.paymentDate || '');
+			if (!date) continue;
+			activeDays.add(date);
+			if (!firstPaymentDate || date < firstPaymentDate) firstPaymentDate = date;
+			if (!lastPaymentDate || date > lastPaymentDate) lastPaymentDate = date;
+			const monthKey = date.slice(0, 7);
+			const month = monthRows.get(monthKey) || {
+				key: monthKey,
+				label: monthLabel(monthKey),
+				transactions: 0,
+				amount: 0,
+				cumulative: 0,
+				share: 0,
+			};
+			month.transactions += 1;
+			month.amount += batch.totalAmount;
+			monthRows.set(monthKey, month);
 		}
 
 		// ── Installment performance ──────────────────────────────────────────
@@ -453,7 +463,9 @@ export function buildFinancialReport({
 			paymentsByStudent.set(payment.studentId, list);
 		}
 
-		const consumedPaymentIds = new Set<string>();
+		// Dedup is per fee line (rowId), not per batch: one batch can pay several
+		// fees, and each line matches its own bill.
+		const consumedRowIds = new Set<string>();
 		for (const { studentId, bill } of currencyBills) {
 			if (bill.installments.length === 0) {
 				ensureInstallment(IMMEDIATE_ID, IMMEDIATE_LABEL).expected += bill.effectiveAmount;
@@ -464,21 +476,20 @@ export function buildFinancialReport({
 			}
 
 			const feePayments = (paymentsByStudent.get(studentId) || []).filter(
-				(payment) =>
-					payment.feeType === bill.feeName || payment.feeType === bill.feeId,
+				(row) => row.feeType === bill.feeName || row.feeType === bill.feeId,
 			);
-			for (const payment of feePayments) consumedPaymentIds.add(payment.id);
+			for (const row of feePayments) consumedRowIds.add(row.rowId);
 
 			if (bill.installments.length === 0) {
 				ensureInstallment(IMMEDIATE_ID, IMMEDIATE_LABEL).collected += feePayments.reduce(
-					(total, payment) => total + (Number(payment.paymentAmount) || 0),
+					(total, row) => total + row.amount,
 					0,
 				);
 				continue;
 			}
 			const allocated = allocatePaymentsToInstallments(
 				bill.installments,
-				feePayments.map((payment) => ({ amount: Number(payment.paymentAmount) || 0 })),
+				feePayments.map((row) => ({ amount: row.amount })),
 			);
 			for (const split of bill.installments) {
 				const amount = allocated[split.installmentId] || 0;
@@ -487,12 +498,11 @@ export function buildFinancialReport({
 				}
 			}
 		}
-		// Legacy / unmatched payments land in the immediate bucket so the
+		// Legacy / unmatched lines land in the immediate bucket so the
 		// installment view still reconciles with total collections.
-		for (const payment of currencyPayments) {
-			if (consumedPaymentIds.has(payment.id)) continue;
-			ensureInstallment(IMMEDIATE_ID, IMMEDIATE_LABEL).collected +=
-				Number(payment.paymentAmount) || 0;
+		for (const row of currencyPayments) {
+			if (consumedRowIds.has(row.rowId)) continue;
+			ensureInstallment(IMMEDIATE_ID, IMMEDIATE_LABEL).collected += row.amount;
 		}
 
 		// ── Finalize derived values ──────────────────────────────────────────
@@ -592,9 +602,10 @@ export function buildFinancialReport({
 			collected,
 			outstanding: outstanding < EPSILON ? 0 : outstanding,
 			rate: percentOf(collected, expected),
-			transactions: currencyPayments.length,
-			averagePayment: currencyPayments.length
-				? collected / currencyPayments.length
+			// A transaction is a receipt, not a fee line.
+			transactions: currencyBatches.length,
+			averagePayment: currencyBatches.length
+				? collected / currencyBatches.length
 				: 0,
 			largestPayment,
 			firstPaymentDate,

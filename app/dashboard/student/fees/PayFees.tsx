@@ -23,6 +23,7 @@ import {
 	resolveStudentScholarshipDefinitions,
 } from '@/utils/scholarshipBilling';
 import { resolveChildView } from '@/utils/childView';
+import { paidByFeeKey, paymentItemRows } from '@/utils/payments';
 import type { PaymentRecords } from '@/types';
 import {
 	Loader2,
@@ -200,19 +201,10 @@ export default function PayFees() {
 		return groups;
 	}, [adjustedFees]);
 
-	const paidByFeeName = useMemo(() => {
-		const records = (user as any)?.payments || [];
-		const map: Record<string, number> = {};
-		for (const r of records) {
-			const cur = r.currency || 'LRD';
-			const key =
-				r.feeType && r.feeType !== 'fee'
-					? `${r.feeType}::${cur}`
-					: `${r.category}::${cur}`;
-			map[key] = (map[key] || 0) + r.paymentAmount;
-		}
-		return map;
-	}, [user]);
+	const paidByFeeName = useMemo(
+		() => paidByFeeKey((user as any)?.payments || []),
+		[user],
+	);
 
 	const categoryTotals = useMemo(() => {
 		const result: Record<string, { total: CurrencyMap; paid: CurrencyMap }> =
@@ -253,12 +245,11 @@ export default function PayFees() {
 					(due[s.installmentId][c] || 0) + fee.effectiveAmount * ratio;
 			}
 		}
-		for (const r of payments) {
-			if (!r.installmentId) continue;
-			const cur = r.currency || 'LRD';
-			if (!paid[r.installmentId]) paid[r.installmentId] = {};
-			paid[r.installmentId][cur] =
-				(paid[r.installmentId][cur] || 0) + (r.paymentAmount || 0);
+		for (const row of paymentItemRows(payments)) {
+			if (!row.installmentId) continue;
+			const cur = row.currency || 'LRD';
+			if (!paid[row.installmentId]) paid[row.installmentId] = {};
+			paid[row.installmentId][cur] = (paid[row.installmentId][cur] || 0) + row.amount;
 		}
 		return { due, paid };
 	}, [adjustedFees, user]);
@@ -452,7 +443,11 @@ export default function PayFees() {
 				return;
 			}
 
-			newRecords = result.data.payments.slice(-selected.length);
+			// One batch per transaction — the API returns it directly; the list
+			// is newest-first, so index 0 is the fallback.
+			newRecords = result.data.receipt
+				? [result.data.receipt]
+				: result.data.payments.slice(0, 1);
 
 			const updatedUser = {
 				...user,
@@ -580,12 +575,24 @@ export default function PayFees() {
 										))}
 										has been processed.
 									</p>
-									<div className="mt-3 text-sm text-green-700/80 dark:text-green-200/80 space-y-1">
-										{receipts.map((r) => (
-											<p key={r.id} className="break-words">
-												{r.category}: {r.currency || 'LRD'}{' '}
-												{formatCurrency(r.paymentAmount)} — {r.receiptNumber}
-											</p>
+									<div className="mt-3 space-y-2 text-sm text-green-700/80 dark:text-green-200/80">
+										{receipts.map((receipt) => (
+											<div key={receipt.id} className="break-words">
+												<p className="font-semibold">
+													Receipt {receipt.receiptNumber} —{' '}
+													{receipt.currency || 'LRD'}{' '}
+													{formatCurrency(receipt.totalAmount)}
+												</p>
+												<ul className="mt-0.5 space-y-0.5 pl-3">
+													{receipt.items.map((item, index) => (
+														<li key={`${receipt.id}-${index}`}>
+															{item.feeType || item.category}:{' '}
+															{receipt.currency || 'LRD'}{' '}
+															{formatCurrency(item.amount)}
+														</li>
+													))}
+												</ul>
+											</div>
 										))}
 									</div>
 									<div className="mt-4">

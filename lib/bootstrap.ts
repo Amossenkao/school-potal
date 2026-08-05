@@ -14,6 +14,7 @@ import {
 import { getUsersVersion as getUsersSyncVersion } from '@/utils/userSync';
 import { toHash } from '@/utils/syncVersion';
 import { isTeacherActor } from '@/utils/gradeActor';
+import { normalizePayment } from '@/utils/payments';
 
 const MAX_BOOTSTRAP_USERS = 5000;
 
@@ -690,22 +691,9 @@ const getRolePaymentsQuery = (
 	return null;
 };
 
-const mapPaymentDocument = (p: any) => ({
-	id: p?._id?.toString?.() || p?.id,
-	receiptNumber: p.receiptNumber,
-	studentId: p.studentId,
-	classId: p.classId,
-	paidBy: p.paidBy,
-	feeType: p.feeType,
-	category: p.category,
-	installmentId: p.installmentId || undefined,
-	paymentAmount: p.paymentAmount,
-	currency: p.currency || 'LRD',
-	paymentAcademicYear: p.paymentAcademicYear,
-	paymentDate: p.paymentDate,
-	paymentTime: p.paymentTime,
-	paymentMethod: p.paymentMethod,
-});
+// Payments are batches; `normalizePayment` also folds pre-batch records (one
+// document per fee item) into the same shape so the client never branches.
+const mapPaymentDocument = (p: any) => normalizePayment(p);
 
 const fetchPaymentsForStudent = async (
 	models: any,

@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
 	ArrowLeft,
 	CalendarDays,
 	ChevronDown,
 	Filter,
 	Landmark,
+	Loader2,
 	Receipt,
 	Search,
 	TrendingUp,
@@ -15,7 +17,15 @@ import {
 	Wallet,
 	X,
 } from 'lucide-react';
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { useSchoolStore } from '@/store/schoolStore';
+import { normalizePayments, type PaymentRecord } from '@/utils/payments';
+import { buildReceiptContext } from '@/utils/paymentReceipt';
 import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAccess';
 import { buildSchoolAcademicYearRange } from '@/utils/academicYearOptions';
 import StudentFinder, {
@@ -23,6 +33,20 @@ import StudentFinder, {
 	studentFullName,
 	useClassDirectory,
 } from '@/app/dashboard/shared/components/StudentFinder';
+
+// react-pdf is heavy; only pull it in when a receipt is actually opened.
+const PaymentReceiptPDF = dynamic(
+	() => import('@/app/dashboard/shared/PaymentReceiptPDF'),
+	{
+		ssr: false,
+		loading: () => (
+			<span className="inline-flex items-center gap-2 rounded-xl bg-muted px-4 py-2 text-sm font-bold text-muted-foreground">
+				<Loader2 className="h-4 w-4 animate-spin" />
+				Preparing receipt…
+			</span>
+		),
+	},
+);
 
 const PAGE_SIZE = 20;
 
@@ -114,48 +138,70 @@ function StatTile({
 	);
 }
 
+/** One receipt (batch). Summarises its items; click opens the full detail. */
 function ReceiptRow({
 	payment,
 	studentName,
 	classLabel,
 	showStudent,
+	onOpen,
 }: {
-	payment: any;
+	payment: PaymentRecord;
 	studentName: string;
 	classLabel: string;
 	showStudent: boolean;
+	onOpen: () => void;
 }) {
+	const itemCount = payment.items.length;
+	const summary =
+		itemCount === 0
+			? 'Payment'
+			: itemCount === 1
+				? payment.items[0].feeType || payment.items[0].category || 'Payment'
+				: `${payment.items[0].feeType} + ${itemCount - 1} more`;
+
 	return (
-		<li className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/40">
-			<span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
-				<Receipt className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-			</span>
-			<div className="min-w-0 flex-1">
-				{showStudent && (
-					<p className="truncate text-sm font-bold text-foreground">
-						{studentName}
-					</p>
-				)}
-				<p
-					className={`truncate text-sm ${showStudent ? 'text-muted-foreground' : 'font-bold text-foreground'}`}
-				>
-					{payment.feeType || 'Payment'}
-				</p>
-				<p className="mt-0.5 truncate text-xs text-muted-foreground">
-					{payment.receiptNumber}
-					{classLabel ? ` · ${classLabel}` : ''}
-					{payment.paidBy ? ` · by ${payment.paidBy}` : ''}
-					{payment.paymentTime ? ` · ${payment.paymentTime}` : ''}
-				</p>
-			</div>
-			<div className="shrink-0 text-right">
-				<p className="whitespace-nowrap text-sm font-black tabular-nums text-emerald-600 dark:text-emerald-400">
-					{payment.currency} {formatCurrency(payment.paymentAmount)}
-				</p>
-				<p className="text-[11px] capitalize text-muted-foreground">
-					{payment.paymentMethod || 'cash'}
-				</p>
-			</div>
+		<li>
+			<button
+				type="button"
+				onClick={onOpen}
+				className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+			>
+				<span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
+					<Receipt className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+				</span>
+				<span className="min-w-0 flex-1">
+					{showStudent && (
+						<span className="block truncate text-sm font-bold text-foreground">
+							{studentName}
+						</span>
+					)}
+					<span
+						className={`block truncate text-sm ${showStudent ? 'text-muted-foreground' : 'font-bold text-foreground'}`}
+					>
+						{summary}
+						{itemCount > 1 && (
+							<span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+								{itemCount} items
+							</span>
+						)}
+					</span>
+					<span className="mt-0.5 block truncate text-xs text-muted-foreground">
+						{payment.receiptNumber}
+						{classLabel ? ` · ${classLabel}` : ''}
+						{payment.paidBy ? ` · by ${payment.paidBy}` : ''}
+						{payment.paymentTime ? ` · ${payment.paymentTime}` : ''}
+					</span>
+				</span>
+				<span className="shrink-0 text-right">
+					<span className="block whitespace-nowrap text-sm font-black tabular-nums text-emerald-600 dark:text-emerald-400">
+						{payment.currency} {formatCurrency(payment.totalAmount)}
+					</span>
+					<span className="block text-[11px] capitalize text-muted-foreground">
+						{payment.paymentMethod || 'cash'}
+					</span>
+				</span>
+			</button>
 		</li>
 	);
 }
@@ -219,16 +265,26 @@ export default function AdminPaymentHistoryPage() {
 				([key]) => normalizeYear(key) === normalizeYear(academicYear),
 			)?.[1] ||
 			[];
-		return Array.isArray(list) ? list : [];
+		return normalizePayments(Array.isArray(list) ? list : []);
 	}, [paymentsByAcademicYear, academicYear]);
+
+	// Every payment for every year — a receipt's paid-to-date figures must count
+	// the student's whole history, not just the year being browsed.
+	const allPayments = useMemo(() => {
+		const all: any[] = [];
+		for (const list of Object.values(paymentsByAcademicYear || {})) {
+			if (Array.isArray(list)) all.push(...list);
+		}
+		return all;
+	}, [paymentsByAcademicYear]);
 
 	const feeTypes = useMemo(
 		() =>
 			Array.from(
 				new Set(
-					yearPayments
-						.map((payment: any) => payment.feeType)
-						.filter(Boolean) as string[],
+					yearPayments.flatMap((payment) =>
+						payment.items.map((item) => item.feeType).filter(Boolean),
+					),
 				),
 			).sort(),
 		[yearPayments],
@@ -264,14 +320,20 @@ export default function AdminPaymentHistoryPage() {
 		const receipt = receiptQuery.trim().toLowerCase();
 
 		return yearPayments
-			.filter((payment: any) => {
+			.filter((payment) => {
 				if (
 					selectedStudent &&
 					String(payment.studentId) !== String(selectedStudent.studentId)
 				) {
 					return false;
 				}
-				if (feeType && payment.feeType !== feeType) return false;
+				// A batch matches a fee-type filter when any of its lines does.
+				if (
+					feeType &&
+					!payment.items.some((item) => item.feeType === feeType)
+				) {
+					return false;
+				}
 				if (from && String(payment.paymentDate || '') < from) return false;
 				if (to && String(payment.paymentDate || '') > to) return false;
 				if (receipt) {
@@ -286,7 +348,7 @@ export default function AdminPaymentHistoryPage() {
 				}
 				return true;
 			})
-			.sort((a: any, b: any) => {
+			.sort((a, b) => {
 				const dateDiff = String(b.paymentDate || '').localeCompare(
 					String(a.paymentDate || ''),
 				);
@@ -323,7 +385,7 @@ export default function AdminPaymentHistoryPage() {
 		const payers = new Set<string>();
 		for (const payment of filtered) {
 			byCurrency[payment.currency] =
-				(byCurrency[payment.currency] || 0) + (payment.paymentAmount || 0);
+				(byCurrency[payment.currency] || 0) + payment.totalAmount;
 			payers.add(String(payment.studentId));
 		}
 		return { byCurrency, payers: payers.size, count: filtered.length };
@@ -332,7 +394,7 @@ export default function AdminPaymentHistoryPage() {
 	// Only the visible slice is grouped and rendered — never the whole ledger.
 	const groups = useMemo(() => {
 		const slice = filtered.slice(0, visible);
-		const map = new Map<string, any[]>();
+		const map = new Map<string, PaymentRecord[]>();
 		for (const payment of slice) {
 			const key = String(payment.paymentDate || '');
 			if (!map.has(key)) map.set(key, []);
@@ -342,11 +404,31 @@ export default function AdminPaymentHistoryPage() {
 			const byCurrency: Record<string, number> = {};
 			for (const item of items) {
 				byCurrency[item.currency] =
-					(byCurrency[item.currency] || 0) + (item.paymentAmount || 0);
+					(byCurrency[item.currency] || 0) + item.totalAmount;
 			}
 			return { date, items, byCurrency };
 		});
 	}, [filtered, visible]);
+
+	// ── Receipt detail ───────────────────────────────────────────────────
+	const [openReceipt, setOpenReceipt] = useState<PaymentRecord | null>(null);
+
+	const receiptContext = useMemo(() => {
+		if (!openReceipt || !schoolProfile) return null;
+		const student =
+			studentIndex.get(String(openReceipt.studentId)) || {
+				studentId: openReceipt.studentId,
+			};
+		return buildReceiptContext({
+			payment: openReceipt,
+			student,
+			schoolProfile,
+			allPayments,
+			className: classFor(openReceipt),
+			origin: typeof window === 'undefined' ? '' : window.location.origin,
+		});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [openReceipt, schoolProfile, studentIndex, allPayments, academicYear]);
 
 	const activeFilters =
 		(selectedStudent ? 1 : 0) +
@@ -665,13 +747,14 @@ export default function AdminPaymentHistoryPage() {
 								</div>
 							</header>
 							<ul className="divide-y divide-border">
-								{group.items.map((payment: any) => (
+								{group.items.map((payment) => (
 									<ReceiptRow
 										key={payment.id}
 										payment={payment}
 										studentName={nameFor(payment.studentId)}
 										classLabel={classFor(payment)}
 										showStudent={!selectedStudent}
+										onOpen={() => setOpenReceipt(payment)}
 									/>
 								))}
 							</ul>
@@ -693,6 +776,195 @@ export default function AdminPaymentHistoryPage() {
 					)}
 				</div>
 			)}
+
+			{/* ── Receipt detail ──────────────────────────────────────────── */}
+			<Dialog
+				open={Boolean(openReceipt)}
+				onOpenChange={(open) => {
+					if (!open) setOpenReceipt(null);
+				}}
+			>
+				<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							<Receipt className="h-5 w-5 text-primary" />
+							Receipt {openReceipt?.receiptNumber}
+						</DialogTitle>
+					</DialogHeader>
+
+					{openReceipt && receiptContext && (
+						<div className="space-y-5">
+							{/* Who / when */}
+							<dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+								{[
+									{ label: 'Student', value: receiptContext.student.name },
+									{ label: 'Student ID', value: openReceipt.studentId },
+									{
+										label: 'Class',
+										value: receiptContext.student.className || '—',
+									},
+									{ label: 'Year', value: openReceipt.paymentAcademicYear },
+									{ label: 'Received from', value: openReceipt.paidBy || '—' },
+									{
+										label: 'Method',
+										value: openReceipt.paymentMethod || 'Cash',
+									},
+									{ label: 'Date', value: openReceipt.paymentDate },
+									{ label: 'Time', value: openReceipt.paymentTime || '—' },
+								].map((field) => (
+									<div key={field.label} className="min-w-0">
+										<dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+											{field.label}
+										</dt>
+										<dd className="truncate text-sm font-bold text-foreground">
+											{field.value}
+										</dd>
+									</div>
+								))}
+							</dl>
+
+							{/* Items */}
+							<div>
+								<h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+									Items paid
+								</h3>
+								<ul className="divide-y divide-border rounded-xl border border-border">
+									{receiptContext.lines.map((line, index) => (
+										<li key={`${line.feeType}-${index}`} className="p-3">
+											<div className="flex items-start justify-between gap-3">
+												<div className="min-w-0">
+													<p className="truncate text-sm font-bold text-foreground">
+														{line.feeType}
+													</p>
+													<p className="truncate text-xs text-muted-foreground">
+														{line.category}
+														{line.installmentLabel
+															? ` · ${line.installmentLabel}`
+															: ''}
+													</p>
+												</div>
+												<p className="shrink-0 whitespace-nowrap text-sm font-black tabular-nums text-emerald-600 dark:text-emerald-400">
+													{openReceipt.currency} {formatCurrency(line.amountPaid)}
+												</p>
+											</div>
+											<div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+												<div>
+													<span className="block text-[10px] uppercase tracking-wider text-muted-foreground">
+														Fee total
+													</span>
+													<span className="font-bold tabular-nums">
+														{line.feeTotal > 0 ? formatCurrency(line.feeTotal) : '—'}
+													</span>
+												</div>
+												<div>
+													<span className="block text-[10px] uppercase tracking-wider text-muted-foreground">
+														Paid to date
+													</span>
+													<span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+														{formatCurrency(line.paidToDate)}
+													</span>
+												</div>
+												<div>
+													<span className="block text-[10px] uppercase tracking-wider text-muted-foreground">
+														Outstanding
+													</span>
+													<span
+														className={`font-bold tabular-nums ${line.outstanding > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}
+													>
+														{formatCurrency(line.outstanding)}
+													</span>
+												</div>
+											</div>
+										</li>
+									))}
+								</ul>
+							</div>
+
+							{/* Installments */}
+							{receiptContext.installments.length > 0 && (
+								<div>
+									<h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+										Installment position
+									</h3>
+									<ul className="divide-y divide-border rounded-xl border border-border">
+										{receiptContext.installments.map((installment) => (
+											<li
+												key={installment.installmentId}
+												className="flex items-center justify-between gap-3 p-3 text-sm"
+											>
+												<span className="min-w-0 truncate font-bold text-foreground">
+													{installment.label}
+												</span>
+												<span className="shrink-0 tabular-nums text-muted-foreground">
+													<span className="font-bold text-emerald-600 dark:text-emerald-400">
+														{formatCurrency(installment.paid)}
+													</span>
+													{' / '}
+													{formatCurrency(installment.expected)}
+													{installment.outstanding > 0 && (
+														<span className="ml-2 font-bold text-rose-600 dark:text-rose-400">
+															{formatCurrency(installment.outstanding)} due
+														</span>
+													)}
+												</span>
+											</li>
+										))}
+									</ul>
+								</div>
+							)}
+
+							{/* Totals */}
+							<div className="grid gap-3 sm:grid-cols-4">
+								{[
+									{
+										label: 'This receipt',
+										value: receiptContext.receiptTotal,
+										tone: 'text-foreground',
+									},
+									{
+										label: 'Assessed',
+										value: receiptContext.overall.expected,
+										tone: 'text-foreground',
+									},
+									{
+										label: 'Paid to date',
+										value: receiptContext.overall.paidToDate,
+										tone: 'text-emerald-600 dark:text-emerald-400',
+									},
+									{
+										label: 'Balance',
+										value: receiptContext.overall.outstanding,
+										tone:
+											receiptContext.overall.outstanding > 0
+												? 'text-rose-600 dark:text-rose-400'
+												: 'text-emerald-600 dark:text-emerald-400',
+									},
+								].map((tile) => (
+									<div key={tile.label} className="rounded-xl bg-muted p-3">
+										<p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+											{tile.label}
+										</p>
+										<p className={`mt-1 text-base font-black tabular-nums ${tile.tone}`}>
+											{formatCurrency(tile.value)}
+										</p>
+									</div>
+								))}
+							</div>
+
+							<div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+								<p className="text-xs text-muted-foreground">
+									Amounts in {openReceipt.currency}. Balances reflect the
+									student&apos;s position now, not at the time of payment.
+								</p>
+								<PaymentReceiptPDF
+									context={receiptContext}
+									school={schoolProfile}
+								/>
+							</div>
+						</div>
+					)}
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

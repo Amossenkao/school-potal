@@ -98,20 +98,33 @@ export interface TeacherAttendance {
 	deletedAt?: Date | null;
 }
 
+/**
+ * A payment is a batch: one transaction, one receipt number, one currency, and
+ * one or more fee items. See utils/payments.ts for the normalizer that folds
+ * pre-batch records (one document per fee) into this shape on read.
+ */
+export interface PaymentItem {
+	feeId?: string;
+	feeType: string;
+	category: string;
+	installmentId?: string;
+	amount: number;
+}
+
 export interface PaymentRecords {
 	id: string;
 	receiptNumber: string;
 	studentId: string;
 	classId: string;
 	paidBy: string;
-	feeType: string;
-	category: string;
-	installmentId?: string;
-	paymentAmount: number;
+	items: PaymentItem[];
+	totalAmount: number;
 	currency: string;
 	paymentAcademicYear: string;
 	paymentDate: string;
 	paymentTime: string;
+	paymentMethod?: string;
+	status?: string;
 }
 
 export interface Class {

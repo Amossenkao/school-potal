@@ -13,6 +13,11 @@ import {
 } from '@/utils/scholarshipBilling';
 import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAccess';
 import { updateAllUserSessions } from '@/utils/session';
+import {
+	buildPaymentItems,
+	normalizePayments,
+	paymentItemRows,
+} from '@/utils/payments';
 import crypto from 'crypto';
 
 const VALID_PAYMENT_METHODS = ['orange', 'lonester'];
@@ -66,21 +71,7 @@ export async function GET(req: NextRequest) {
 				.sort({ createdAt: -1 })
 				.lean();
 
-			const mapped = payments.map((p: any) => ({
-				id: p._id.toString(),
-				receiptNumber: p.receiptNumber,
-				studentId: p.studentId,
-				classId: p.classId,
-				paidBy: p.paidBy,
-				feeType: p.feeType,
-				category: p.category,
-				installmentId: p.installmentId || undefined,
-				paymentAmount: p.paymentAmount,
-				currency: p.currency || 'LRD',
-				paymentAcademicYear: p.paymentAcademicYear,
-				paymentDate: p.paymentDate,
-				paymentTime: p.paymentTime,
-			}));
+			const mapped = normalizePayments(payments);
 
 			return NextResponse.json({
 				success: true,
@@ -98,22 +89,7 @@ export async function GET(req: NextRequest) {
 				.limit(200)
 				.lean();
 
-			const mapped = payments.map((p: any) => ({
-				id: p._id.toString(),
-				receiptNumber: p.receiptNumber,
-				studentId: p.studentId,
-				classId: p.classId,
-				paidBy: p.paidBy,
-				feeType: p.feeType,
-				category: p.category,
-				installmentId: p.installmentId || undefined,
-				paymentAmount: p.paymentAmount,
-				currency: p.currency || 'LRD',
-				paymentAcademicYear: p.paymentAcademicYear,
-				paymentDate: p.paymentDate,
-				paymentTime: p.paymentTime,
-				paymentMethod: p.paymentMethod,
-			}));
+			const mapped = normalizePayments(payments);
 
 			return NextResponse.json({
 				success: true,
@@ -271,12 +247,15 @@ export async function POST(req: NextRequest) {
 
 		const existingPayments = await models.Payment.find({ studentId: targetStudentId }).lean();
 		const paidByFeeType: Record<string, number> = {};
-		for (const p of existingPayments) {
-			const key = `${p.feeType}::${p.currency || DEFAULT_CURRENCY}`;
-			paidByFeeType[key] = (paidByFeeType[key] || 0) + p.paymentAmount;
+		for (const row of paymentItemRows(existingPayments)) {
+			const key = `${row.feeType}::${row.currency || DEFAULT_CURRENCY}`;
+			paidByFeeType[key] = (paidByFeeType[key] || 0) + row.amount;
 		}
 
 		let selectedCurrency: string | null = null;
+		// Two lines in the same batch can target the same fee, so the running
+		// total has to include what earlier lines already claimed.
+		const claimedInBatch: Record<string, number> = {};
 
 		for (const item of items) {
 			if (item.currency && !selectedCurrency) {
@@ -322,7 +301,8 @@ export async function POST(req: NextRequest) {
 			}
 
 			const paidKey = `${matchedFee.feeName}::${currency}`;
-			const totalPaidAlready = paidByFeeType[paidKey] || 0;
+			const totalPaidAlready =
+				(paidByFeeType[paidKey] || 0) + (claimedInBatch[paidKey] || 0);
 			const outstanding = Math.max(0, matchedFee.effectiveAmount - totalPaidAlready);
 
 			if (outstanding <= 0) {
@@ -334,6 +314,8 @@ export async function POST(req: NextRequest) {
 					`Payment amount for "${matchedFee.feeName}" exceeds the outstanding balance of ${currency} ${outstanding.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`,
 				);
 			}
+
+			claimedInBatch[paidKey] = (claimedInBatch[paidKey] || 0) + amount;
 		}
 
 		const now = new Date();
@@ -341,15 +323,15 @@ export async function POST(req: NextRequest) {
 		const paymentTime = now.toLocaleTimeString();
 		const fullName = `${sessionUser.firstName || ''} ${sessionUser.lastName || ''}`.trim();
 
-		const paymentDocs = items.map((item: any) => ({
+		// One batch = one document = one receipt number, covering every item.
+		const batchItems = buildPaymentItems(items);
+		const paymentDoc = {
 			studentId: targetStudentId,
 			classId,
 			paidBy: fullName,
-			feeType: item.feeName || item.label || '',
-			category: item.categoryName || item.category || '',
-			installmentId: item.installmentId || undefined,
-			paymentAmount: Number(item.amount),
-			currency: item.currency || DEFAULT_CURRENCY,
+			items: batchItems,
+			totalAmount: batchItems.reduce((sum, item) => sum + item.amount, 0),
+			currency: selectedCurrency || DEFAULT_CURRENCY,
 			paymentAcademicYear: academicYear,
 			paymentDate,
 			paymentTime,
@@ -357,29 +339,16 @@ export async function POST(req: NextRequest) {
 			paymentMethod: isStudent ? paymentMethod : (payload.paymentMethod || 'cash'),
 			phoneNumber: isStudent ? phoneNumber : '',
 			status: 'success',
-		}));
+		};
 
-		await models.Payment.insertMany(paymentDocs);
+		const created = await models.Payment.create(paymentDoc);
 
 		const allPayments = await models.Payment.find({ studentId: targetStudentId })
 			.sort({ createdAt: -1 })
 			.lean();
 
-		const mappedPayments = allPayments.map((p: any) => ({
-			id: p._id.toString(),
-			receiptNumber: p.receiptNumber,
-			studentId: p.studentId,
-			classId: p.classId,
-			paidBy: p.paidBy,
-			feeType: p.feeType,
-			category: p.category,
-			installmentId: p.installmentId || undefined,
-			paymentAmount: p.paymentAmount,
-			currency: p.currency,
-			paymentAcademicYear: p.paymentAcademicYear,
-			paymentDate: p.paymentDate,
-			paymentTime: p.paymentTime,
-		}));
+		const mappedPayments = normalizePayments(allPayments);
+		const receipt = normalizePayments([created.toObject()])[0];
 
 		if (isStudent) {
 			await updateAllUserSessions(sessionUser.id, { payments: mappedPayments }, {
@@ -390,7 +359,7 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({
 			success: true,
 			message: 'Payment processed successfully.',
-			data: { payments: mappedPayments },
+			data: { payments: mappedPayments, receipt },
 		});
 	} catch (error) {
 		console.error('Payment error:', error);
