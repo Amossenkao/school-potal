@@ -35,13 +35,21 @@
 				]
 			},
 			{
-				"lines": ["Unity Town", "Pipeline Road", "Lower Johnsonville "]
+				"lines": [
+					"Unity Town",
+					"Pipeline Road",
+					"Lower Johnsonville "
+				]
 			},
 			{
-				"lines": ["P.O Box 2523 Montserrado County Liberia "]
+				"lines": [
+					"P.O Box 2523 Montserrado County Liberia "
+				]
 			},
 			{
-				"lines": ["Email: ucacedemy2011@gmail.com"]
+				"lines": [
+					"Email: ucacedemy2011@gmail.com"
+				]
 			}
 		],
 		"phones": [],
@@ -119,11 +127,11 @@
 					"isSelfContained": true,
 					"classes": [
 						{
-							"classId": "morning_k1",
+							"classId": "morning_k_1",
 							"name": "K 1"
 						},
 						{
-							"classId": "morning_k2",
+							"classId": "morning_k_2",
 							"name": "K 2"
 						},
 						{
@@ -344,27 +352,27 @@
 					"isSelfContained": false,
 					"classes": [
 						{
-							"classId": "Morning_grade_10_a",
+							"classId": "morning_grade_10_a",
 							"name": "Grade 10-A"
 						},
 						{
-							"classId": "Morning_grade_10_b",
+							"classId": "morning_grade_10_b",
 							"name": "Grade 10-B"
 						},
 						{
-							"classId": "Morning_grade_11_a",
+							"classId": "morning_grade_11_a",
 							"name": "Grade 11-A"
 						},
 						{
-							"classId": "morning_rade_11",
+							"classId": "morning_grade_11_b",
 							"name": "Grade 11-B"
 						},
 						{
-							"classId": "morning_rade_12",
+							"classId": "morning_grade_12_a",
 							"name": "Grade 12-A"
 						},
 						{
-							"classId": "morning_rade_12",
+							"classId": "morning_grade_12_b",
 							"name": "Grade 12-B"
 						}
 					],
@@ -445,11 +453,11 @@
 					"isSelfContained": true,
 					"classes": [
 						{
-							"classId": "morning_nursery",
+							"classId": "night_nursery",
 							"name": "Nursery"
 						},
 						{
-							"classId": "morning_abc",
+							"classId": "night_abc",
 							"name": "ABC"
 						}
 					],
@@ -500,24 +508,24 @@
 					"isSelfContained": true,
 					"classes": [
 						{
-							"classId": "morning_k1",
+							"classId": "night_k_1",
 							"name": "K 1"
 						},
 						{
-							"classId": "morning_k2",
+							"classId": "night_k_2",
 							"name": "K 2"
 						},
 						{
-							"classId": "morning_grade_1",
-							"name": "Grade 1"
+							"classId": "night_grade_1_pm",
+							"name": "Grade 1-PM"
 						},
 						{
-							"classId": "morning_grade_2",
-							"name": "Grade 2"
+							"classId": "night_grade_2_pm",
+							"name": "Grade 2-PM"
 						},
 						{
-							"classId": "morning_grade_3",
-							"name": "Grade 3"
+							"classId": "night_grade_3_pm",
+							"name": "Grade 3-PM"
 						}
 					],
 					"subjects": [
@@ -575,16 +583,16 @@
 					"isSelfContained": false,
 					"classes": [
 						{
-							"classId": "morning_grade_4",
-							"name": "Grade 4"
+							"classId": "night_grade_4_pm",
+							"name": "Grade 4-PM"
 						},
 						{
-							"classId": "morning_grade_5",
-							"name": "Grade 5"
+							"classId": "night_grade_5_pm",
+							"name": "Grade 5-PM"
 						},
 						{
-							"classId": "morning_grade_6",
-							"name": "Grade 6"
+							"classId": "night_grade_6_pm",
+							"name": "Grade 6-PM"
 						}
 					],
 					"subjects": [
@@ -646,16 +654,16 @@
 					"isSelfContained": false,
 					"classes": [
 						{
-							"classId": "morning_grade_7",
-							"name": "Grade 7"
+							"classId": "night_grade_7_pm",
+							"name": "Grade 7-PM"
 						},
 						{
-							"classId": "morning_grade_8",
-							"name": "Grade 8"
+							"classId": "night_grade_8_pm",
+							"name": "Grade 8-PM"
 						},
 						{
-							"classId": "morning_grade_9",
-							"name": "Grade 9"
+							"classId": "night_grade_9_pm",
+							"name": "Grade 9-PM"
 						}
 					],
 					"subjects": [
@@ -725,16 +733,16 @@
 					"isSelfContained": false,
 					"classes": [
 						{
-							"classId": "morning_grade_10",
-							"name": "Grade 10"
+							"classId": "night_grade_10_pm",
+							"name": "Grade 10-PM"
 						},
 						{
-							"classId": "morning_grade_11",
-							"name": "Grade 11"
+							"classId": "night_grade_11_pm",
+							"name": "Grade 11-PM"
 						},
 						{
-							"classId": "morning_grade_12",
-							"name": "Grade 12"
+							"classId": "night_grade_12_pm",
+							"name": "Grade 12-PM"
 						}
 					],
 					"subjects": [
@@ -856,7 +864,10 @@
 						"sixth",
 						"sixth_period_exam"
 					],
-					"semesters": ["first", "second"]
+					"semesters": [
+						"first",
+						"second"
+					]
 				},
 				"2026-2027": {
 					"enabled": true,
@@ -871,7 +882,10 @@
 						"sixth",
 						"sixth_period_exam"
 					],
-					"semesters": ["first", "second"]
+					"semesters": [
+						"first",
+						"second"
+					]
 				}
 			}
 		},
@@ -1211,7 +1225,7 @@
 		],
 		"feeSchedules": [
 			{
-				"academicYear": "2025-2027",
+				"academicYear": "2025-2026",
 				"sessionFeeSchedules": [],
 				"scholarships": []
 			},

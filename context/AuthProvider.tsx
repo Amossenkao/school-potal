@@ -55,10 +55,53 @@ export default function AuthProvider({
 	const checkAuthStatus = useAuth((state) => state.checkAuthStatus);
 	const user = useAuth((state) => state.user);
 	const realtimeUser = user as AuthorizedRealtimeUser;
+
 	const startupResolved = useAuth((state) => state.startupResolved);
 	const isBootstrapping = useAuth((state) => state.isBootstrapping);
 	const isLoggingOut = useAuth((state) => state.isLoggingOut);
 	const currentSchool = useSchoolStore((state) => state.school);
+
+	/**
+	 * The Ably connection is keyed on *what it subscribes to*, not on the object
+	 * identities those channels were derived from.
+	 *
+	 * Every auth refresh replaces `user` and `school` with freshly parsed JSON,
+	 * so `academicYears`, `subjects`, `classes` and the school object are new
+	 * references each time even when nothing about them changed. Depending on
+	 * those directly tore the client down and rebuilt it on every refresh — and
+	 * because a successful connection itself triggers a refresh, the two fed
+	 * each other: connect → refresh → new references → teardown → connect. Ably
+	 * rejects whatever is in flight when a client closes, which is where the
+	 * "Connection closed" reports come from, and the connection rarely survived
+	 * long enough to deliver an event.
+	 *
+	 * Collapsing it to a string means the effect only re-runs when the tenant,
+	 * the user, or the actual channel list changes.
+	 */
+	const realtimeTenantKey = resolveCanonicalTenantKey({
+		schoolProfile: currentSchool,
+	});
+	const realtimeChannels = useMemo(() => {
+		if (!realtimeTenantKey || !user?.id) return [];
+		return getAuthorizedRealtimeChannels({
+			tenantId: realtimeTenantKey,
+			user: realtimeUser,
+			role: user.role,
+		});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [
+		realtimeTenantKey,
+		user?.id,
+		user?.role,
+		realtimeUser?.classId,
+		realtimeUser?.sponsorClass,
+		(realtimeUser as any)?.isTeacher,
+		JSON.stringify(realtimeUser?.academicYears ?? null),
+		JSON.stringify(realtimeUser?.subjects ?? null),
+		JSON.stringify(realtimeUser?.parentChildren ?? null),
+		JSON.stringify((realtimeUser as any)?.classes ?? null),
+	]);
+	const realtimeChannelsKey = realtimeChannels.join('|');
 	const router = useRouter();
 	const pathname = usePathname();
 
@@ -304,7 +347,7 @@ export default function AuthProvider({
 		// Profile-only, exactly as the token endpoint resolves it. Passing
 		// window.location.host as a fallback here is what produced the mismatch
 		// the comment above describes; there is now no host in this path at all.
-		const tenantKey = resolveCanonicalTenantKey({ schoolProfile: currentSchool });
+		const tenantKey = realtimeTenantKey;
 		if (!tenantKey) return;
 
 		const scheduleRefresh = (options?: {
@@ -333,11 +376,9 @@ export default function AuthProvider({
 		realtimeClientRef.current = client;
 		realtimeSubscriptionsRef.current = [];
 
-		const channels = getAuthorizedRealtimeChannels({
-			tenantId: tenantKey,
-			user: realtimeUser,
-			role: user.role,
-		});
+		// Computed above and memoised on content, so this effect is not rebuilt
+		// merely because a refresh handed back equivalent objects.
+		const channels = realtimeChannels;
 
 		const handleRealtimeEvent = (event: RealtimeEvent) => {
 			const academicYear = String(
@@ -559,7 +600,10 @@ export default function AuthProvider({
 		};
 	}, [
 		closeRealtimeClient,
-		currentSchool,
+		// A string of the channel list, so equivalent-but-new user and school
+		// objects handed back by an auth refresh do not rebuild the connection.
+		realtimeTenantKey,
+		realtimeChannelsKey,
 		runAuthRefresh,
 		reconnectTrigger,
 		setAblyState,
@@ -567,16 +611,6 @@ export default function AuthProvider({
 		user?.id,
 		user?.isActive,
 		user?.role,
-		realtimeUser?.classId,
-		realtimeUser?.academicYears,
-		realtimeUser?.subjects,
-		realtimeUser?.sponsorClass,
-		realtimeUser?.parentChildren,
-		// isTeacher administrators store their class assignment in `classes`
-		// (see utils/gradeActor.ts) — must resubscribe channels when it changes,
-		// same as `subjects` does for teachers.
-		(realtimeUser as any)?.classes,
-		(realtimeUser as any)?.isTeacher,
 	]);
 
 	// The startup decision has not been made yet.
