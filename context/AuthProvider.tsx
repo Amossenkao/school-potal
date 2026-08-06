@@ -551,6 +551,19 @@ export default function AuthProvider({
 				}
 				handleRealtimeEvent(event);
 			};
+			// A connection can be `connected` while an individual channel is
+			// refused — capability errors (40160) surface here, not on the
+			// connection, so without this an attach failure is silent.
+			channel.on((stateChange: any) =>
+				console.log(
+					'[AuthProvider] channel',
+					channelName,
+					stateChange?.current,
+					stateChange?.reason
+						? `${stateChange.reason.code}: ${stateChange.reason.message}`
+						: '',
+				),
+			);
 			channel.subscribe(listener);
 			realtimeSubscriptionsRef.current.push(() =>
 				channel.unsubscribe(listener),

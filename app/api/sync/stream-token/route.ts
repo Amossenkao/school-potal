@@ -64,9 +64,18 @@ const noStoreJson = (payload: Record<string, unknown>, status = 200) =>
 			// `system.dbName`. Better to fail here, where the client retries, than
 			// to hand back a token that cannot work.
 			const tenantKey = resolveCanonicalTenantKey({ schoolProfile });
-			if (!tenantKey) {
+			const role = String(currentUser.role || '').toLowerCase();
+			// A superadmin signs in on the platform host, which owns no school
+			// profile, so there is no tenant key to resolve — and none is needed:
+			// their capability is the wildcard set (school:*, superadmin:*,
+			// platform:events), which names no specific tenant. Requiring a key
+			// here refused their token outright with a 500 and left the console
+			// looping on "Client configured authentication provider request
+			// failed". Every other role is still held to a resolvable key.
+			if (!tenantKey && role !== 'superadmin') {
 				syncDebugWarn('stream-token', 'Unable to resolve tenant key.', {
 					requestId,
+					role,
 					userId: String(currentUser.userId || currentUser.id || ''),
 					host: request.headers.get('host') || null,
 					durationMs: Date.now() - startedAt,
