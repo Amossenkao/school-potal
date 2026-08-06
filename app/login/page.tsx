@@ -1012,12 +1012,28 @@ const LoginPage = () => {
 				publicOnly: true,
 			});
 			if (channels.length === 0) return;
+			console.log('[login] subscribing', { tenantKey, channels });
+			nextClient.connection.on((state: any) =>
+				console.log('[login] ably connection:', state?.current, state?.reason?.message || ''),
+			);
 			const cleanupFns: (() => void)[] = [];
 			channels.forEach((channelName) => {
 				const channel = nextClient.channels.get(channelName);
 				const listener = (message: any) => {
 					const event = message?.data as RealtimeEvent | undefined;
-					if (!event || event.tenantId !== tenantKey) return;
+					// Logged before the tenant filter — a silent drop here looks
+					// exactly like never receiving the message.
+					console.log('[login] message on', channelName, event?.type, {
+						eventTenantId: event?.tenantId,
+						tenantKey,
+					});
+					if (!event || event.tenantId !== tenantKey) {
+						console.warn('[login] dropped — tenant mismatch', {
+							eventTenantId: event?.tenantId,
+							tenantKey,
+						});
+						return;
+					}
 					applyRealtimeEvent(event);
 					scheduleRefresh();
 				};

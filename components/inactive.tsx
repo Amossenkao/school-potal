@@ -107,12 +107,29 @@ export default function Inactive() {
 				tenantId: tenantKey,
 				publicOnly: true,
 			});
+			console.log('[inactive] subscribing', { tenantKey, channels });
+			nextClient.connection.on((state: any) =>
+				console.log('[inactive] ably connection:', state?.current, state?.reason?.message || ''),
+			);
 			const cleanupFns: (() => void)[] = [];
 			channels.forEach((channelName) => {
 				const channel = nextClient.channels.get(channelName);
 				const listener = (message: any) => {
 					const event = message?.data as RealtimeEvent | undefined;
-					if (!event || event.tenantId !== tenantKey) return;
+					// Announce arrival before the tenant filter. Dropping silently
+					// here is indistinguishable from never receiving the message at
+					// all, which is precisely the case that needs telling apart.
+					console.log('[inactive] message on', channelName, event?.type, {
+						eventTenantId: event?.tenantId,
+						tenantKey,
+					});
+					if (!event || event.tenantId !== tenantKey) {
+						console.warn('[inactive] dropped — tenant mismatch', {
+							eventTenantId: event?.tenantId,
+							tenantKey,
+						});
+						return;
+					}
 					applyRealtimeEvent(event);
 					scheduleRefresh();
 				};
