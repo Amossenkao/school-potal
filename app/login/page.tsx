@@ -32,7 +32,7 @@ import { useHasSchool } from '@/context/HasSchoolContext';
 import SuperAdminLoginPage from '@/app/dashboard/admin/login/page';
 import {
 	getAuthorizedRealtimeChannels,
-	resolveTenantSyncKey,
+	resolveCanonicalTenantKey,
 	type RealtimeEvent,
 } from '@/lib/realtimeTypes';
 
@@ -840,10 +840,7 @@ const LoginPage = () => {
 		(state) => state.applyRealtimeEvent,
 	);
 	const publicSchoolTenantKey = useMemo(
-		() =>
-			resolveTenantSyncKey({
-				schoolProfile: currentSchool,
-			}),
+		() => resolveCanonicalTenantKey({ schoolProfile: currentSchool }),
 		[currentSchool],
 	);
 	const [loginDisabledError, setLoginDisabledError] = useState('');

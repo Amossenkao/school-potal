@@ -10,7 +10,7 @@ import { PageLoading } from '@/components/loading';
 import { useHasSchool } from '@/context/HasSchoolContext';
 import {
 	getAuthorizedRealtimeChannels,
-	resolveTenantSyncKey,
+	resolveCanonicalTenantKey,
 	type AuthorizedRealtimeUser,
 	type RealtimeEvent,
 } from '@/lib/realtimeTypes';
@@ -259,10 +259,10 @@ export default function AuthProvider({
 		// 40160 "Channel denied" error.
 		if (!currentSchool) return;
 
-		const tenantKey = resolveTenantSyncKey({
-			schoolProfile: currentSchool,
-			host: window.location.host,
-		});
+		// Profile-only, exactly as the token endpoint resolves it. Passing
+		// window.location.host as a fallback here is what produced the mismatch
+		// the comment above describes; there is now no host in this path at all.
+		const tenantKey = resolveCanonicalTenantKey({ schoolProfile: currentSchool });
 		if (!tenantKey) return;
 
 		const scheduleRefresh = (options?: {

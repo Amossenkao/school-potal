@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSchoolProfile } from '@/lib/mongoose';
 import {
 	createAblyTokenRequest,
-	resolveTenantSyncKey,
+	resolveCanonicalTenantKey,
 } from '@/lib/realtimeSync';
 import { syncDebugError, syncDebugLog, syncDebugWarn } from '@/lib/syncDebug';
 
@@ -32,13 +32,14 @@ export async function GET(request: NextRequest) {
 			typeof schoolProfileRaw === 'string'
 				? JSON.parse(schoolProfileRaw)
 				: schoolProfileRaw;
-		const tenantKey = resolveTenantSyncKey({
-			schoolProfile,
-			host: request.headers.get('host'),
-		});
+		// Profile-only — see resolveCanonicalTenantKey. The host must never stand
+		// in for the key here: the login and inactive screens name their channels
+		// from the profile, so a host-derived token is refused at subscribe time.
+		const tenantKey = resolveCanonicalTenantKey({ schoolProfile });
 		if (!tenantKey) {
 			syncDebugWarn('public-stream-token', 'Unable to resolve tenant key.', {
 				requestId,
+				host: request.headers.get('host') || null,
 				durationMs: Date.now() - startedAt,
 			});
 			return noStoreJson(

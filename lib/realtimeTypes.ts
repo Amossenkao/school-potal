@@ -68,6 +68,35 @@ export const resolveTenantSyncKey = (options: {
 	return '';
 };
 
+/**
+ * The one key Ably channels are named from — derived only from the stored
+ * school profile, never from the request host or the session's tenantId.
+ *
+ * Those two carry the *host* (`proxy.ts` compares `session.tenantId` against
+ * the request host), while channels are named from `system.dbName`. Wherever a
+ * host slipped into a channel name the subscriber asked for `school:<host>`
+ * while its token only granted `school:<dbName>`, and Ably answered 40160
+ * "Channel denied". The hosts and dbNames only ever coincide by convention
+ * (`dbName = host with . and - replaced by _`), and that convention is not
+ * enforced — `ucaliberia.vercel.app` is stored as `uca`.
+ *
+ * Returns '' when the profile cannot supply a key. Callers must treat that as
+ * "cannot do realtime yet" and stop, rather than substituting a host: a token
+ * minted for the wrong key is worse than no token, because it fails only at
+ * subscribe time and looks like an intermittent network fault.
+ */
+export const resolveCanonicalTenantKey = (options: { schoolProfile?: any }) => {
+	const candidates = [
+		options.schoolProfile?.system?.dbName,
+		options.schoolProfile?.system?.host,
+	];
+	for (const candidate of candidates) {
+		const resolved = normalizeTenantCandidate(candidate);
+		if (resolved) return resolved;
+	}
+	return '';
+};
+
 export const PLATFORM_EVENTS_CHANNEL = 'platform:events';
 
 export const getSuperadminRealtimeChannel = (superadminId: string) =>

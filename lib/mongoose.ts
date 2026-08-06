@@ -337,7 +337,21 @@ export const getTenantConnection = async (
  * @returns The profile document, or null if not found or an error occurs.
  */
 export const getSchoolProfile = async (
-	options: { bypassCache?: boolean; host?: string | null } = {},
+	options: {
+		bypassCache?: boolean;
+		/**
+		 * Skip the process-local memory cache but still read Redis.
+		 *
+		 * The memory cache is per serverless instance and is refreshed only on
+		 * the instance that handled a write, so every other warm instance keeps
+		 * serving a stale `system.isActive` until its TTL lapses. Redis is
+		 * rewritten on every profile write (see syncSchoolProfileCache), so
+		 * skipping just the memory layer gives a current answer without the
+		 * Mongo round-trip that `bypassCache` forces.
+		 */
+		skipMemoryCache?: boolean;
+		host?: string | null;
+	} = {},
 ): Promise<any> => {
 	const host =
 		normalizeHost(options.host) ||
@@ -352,7 +366,7 @@ export const getSchoolProfile = async (
 
 	try {
 		// 1. Try in-memory cache first
-		if (!options.bypassCache) {
+		if (!options.bypassCache && !options.skipMemoryCache) {
 			const memoryCached = readMemoryCachedSchoolProfile(cacheKey);
 			if (memoryCached) {
 				return migrateSchoolProfileToInstallments(memoryCached);

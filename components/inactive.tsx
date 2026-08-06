@@ -6,7 +6,7 @@ import Ably from 'ably';
 import { useSchoolStore } from '@/store/schoolStore';
 import {
 	getAuthorizedRealtimeChannels,
-	resolveTenantSyncKey,
+	resolveCanonicalTenantKey,
 	type RealtimeEvent,
 } from '@/lib/realtimeTypes';
 import {
@@ -30,16 +30,16 @@ export default function Inactive() {
 	);
 
 	const publicSchoolTenantKey = useMemo(
-		() =>
-			resolveTenantSyncKey({
-				schoolProfile: school,
-			}),
+		() => resolveCanonicalTenantKey({ schoolProfile: school }),
 		[school],
 	);
 
 	const refreshSchoolProfile = useCallback(async () => {
 		try {
-			const response = await fetch('/api/school', {
+			// `fresh=1`: bypass the answering instance's memory cache. Re-reading
+			// a stale profile here is what turned a deactivation into a flash of
+			// this screen before the app reappeared.
+			const response = await fetch('/api/school?fresh=1', {
 				cache: 'no-store',
 				headers: { 'Cache-Control': 'no-store' },
 			});

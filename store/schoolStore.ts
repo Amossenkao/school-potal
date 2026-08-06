@@ -16,7 +16,10 @@ import {
 	getTeacherClassSubjectPairsForAcademicYear,
 } from '@/utils/academicYearAccess';
 import { useNetworkStore } from './networkStore';
-import { resolveTenantSyncKey, type RealtimeEvent } from '@/lib/realtimeTypes';
+import {
+	resolveCanonicalTenantKey,
+	type RealtimeEvent,
+} from '@/lib/realtimeTypes';
 
 // Set by AuthProvider when the current user's role is resolved.
 // Used in applyRealtimeEvent to prevent superadmins from having
@@ -1250,16 +1253,23 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				// anything that isn't for THIS session's school — otherwise
 				// another school's profile update (name, logo, slogan, ...)
 				// overwrites and persists over this one's.
-				const sessionTenantId = resolveTenantSyncKey({
+				const sessionTenantId = resolveCanonicalTenantKey({
 					schoolProfile: get().school,
 				});
 				const eventTenantId = String(event.tenantId || '').trim();
-				const isForAnotherTenant = Boolean(
+				// Fail closed. This guard used to require sessionTenantId to be
+				// non-empty before it could reject anything, so a client that had
+				// not loaded its own profile yet accepted whatever arrived — and
+				// SCHOOL_UPDATED fans out to platform:events, which every client of
+				// every tenant subscribes to. Deactivating one school could push
+				// its inactive profile into an unrelated school's store and render
+				// <Inactive /> there. Only a positive match may write.
+				const isForThisTenant = Boolean(
 					sessionTenantId &&
 						eventTenantId &&
-						eventTenantId !== sessionTenantId,
+						eventTenantId === sessionTenantId,
 				);
-				if (!isForAnotherTenant) {
+				if (isForThisTenant) {
 					get().setSchool(flattenSchoolPayload(schoolPayload));
 				}
 			}

@@ -438,7 +438,13 @@ export async function GET(request: NextRequest) {
 		} // end superadmin branches
 
 		// --- Default: existing system_admin behavior (no auth required) ---
-		const profile = await getSchoolProfile();
+		// `?fresh=1` skips the per-instance memory cache and reads Redis, which
+		// every profile write refreshes. The deactivation screen polls with it:
+		// without it a warm instance can answer with a pre-deactivation copy and
+		// bounce the user straight back into the app.
+		const profile = await getSchoolProfile({
+			skipMemoryCache: url.searchParams.get('fresh') === '1',
+		});
 		if (!profile) {
 			return NextResponse.json({ error: 'School profile not found' }, { status: 404 });
 		}
@@ -996,9 +1002,24 @@ export async function PATCH(request: NextRequest) {
 
 		// When deactivating a school, destroy all tenant sessions so
 		// school users are logged out immediately (proxy blocks them anyway).
+		//
+		// Sessions are indexed by HOST, not by the realtime tenant key: login
+		// stores `tenantId: host` (app/api/auth/login/route.ts) and proxy.ts
+		// compares that value against the request host. Passing the Ably key
+		// here looked right but addressed `tenant:sessions:uca` while the
+		// sessions sat under `tenant:sessions:ucaliberia.vercel.app`, so nothing
+		// was ever revoked and deactivated users stayed logged in until their
+		// profile gating happened to catch up.
 		if (body.isActive === false) {
+			const sessionHosts = Array.from(
+				new Set(
+					[cleanHost, normalizeHost(school?.system?.host)].filter(Boolean),
+				),
+			);
 			await Promise.all(
-				tenantIds.map((tenantId) => destroyAllTenantSessions(tenantId)),
+				sessionHosts.map((sessionHost) =>
+					destroyAllTenantSessions(sessionHost as string),
+				),
 			);
 		}
 

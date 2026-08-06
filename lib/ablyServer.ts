@@ -2,6 +2,7 @@ import Ably from 'ably';
 import {
 	buildRealtimeEvent,
 	getAuthorizedRealtimeCapabilities,
+	resolveCanonicalTenantKey,
 	resolvePublishChannels,
 	resolveTenantSyncKey,
 	type AuthorizedRealtimeUser,
@@ -175,4 +176,8 @@ export const getUserSyncChannel = (tenantId: string, userId: string) =>
 export const getTenantPublicSyncChannel = (tenantId: string) =>
 	`school:${String(tenantId || '').trim()}`;
 
-export { resolveTenantSyncKey, getAuthorizedRealtimeCapabilities };
+export {
+	resolveCanonicalTenantKey,
+	resolveTenantSyncKey,
+	getAuthorizedRealtimeCapabilities,
+};

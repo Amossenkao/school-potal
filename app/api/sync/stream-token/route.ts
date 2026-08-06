@@ -3,7 +3,7 @@ import { authorizeUser } from '@/proxy';
 import { getSchoolProfile } from '@/lib/mongoose';
 import {
 	createAblyTokenRequest,
-	resolveTenantSyncKey,
+	resolveCanonicalTenantKey,
 } from '@/lib/realtimeSync';
 import { syncDebugError, syncDebugLog, syncDebugWarn } from '@/lib/syncDebug';
 
@@ -58,15 +58,17 @@ const noStoreJson = (payload: Record<string, unknown>, status = 200) =>
 				typeof schoolProfileRaw === 'string'
 					? JSON.parse(schoolProfileRaw)
 					: schoolProfileRaw;
-			const tenantKey = resolveTenantSyncKey({
-				schoolProfile,
-				tenantId: currentUser.tenantId,
-				host: request.headers.get('host'),
-			});
+			// Profile-only. `currentUser.tenantId` and the request host both carry
+			// the *host*, and a token minted for `school:<host>` is refused at
+			// subscribe time with 40160 because the client names its channels from
+			// `system.dbName`. Better to fail here, where the client retries, than
+			// to hand back a token that cannot work.
+			const tenantKey = resolveCanonicalTenantKey({ schoolProfile });
 			if (!tenantKey) {
 				syncDebugWarn('stream-token', 'Unable to resolve tenant key.', {
 					requestId,
 					userId: String(currentUser.userId || currentUser.id || ''),
+					host: request.headers.get('host') || null,
 					durationMs: Date.now() - startedAt,
 				});
 				return noStoreJson(
