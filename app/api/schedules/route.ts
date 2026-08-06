@@ -331,16 +331,45 @@ export async function GET(request: NextRequest) {
 					data: [],
 				});
 			}
-			if (classId && !assignedClassIds.includes(classId)) {
-				return NextResponse.json(
-					{
-						success: false,
-						message: 'You are not assigned to this class for this academic year.',
-					},
-					{ status: 403 }
-				);
+			/**
+			 * A teacher reads a level whole, the way an administrator does: every
+			 * class in it, plus the rows written against the level rather than
+			 * against one class — a test sitting the entire level writes carries no
+			 * classId, so scoping the query to their own classes hid it completely.
+			 *
+			 * The boundary moves from the class to the level: they may read only
+			 * levels they actually teach in. Editing stays closed to them — POST,
+			 * PATCH and DELETE all demand `system_admin`.
+			 */
+			const taughtLevels = new Set(
+				assignedClassIds
+					.map((id) => getClassMetaById(schoolProfile?.classLevels, id))
+					.filter((meta): meta is NonNullable<typeof meta> => Boolean(meta))
+					.map((meta) => `${meta.session}::${meta.level}`)
+			);
+			const deniedLevel = NextResponse.json(
+				{
+					success: false,
+					message: 'You do not teach at this level for this academic year.',
+				},
+				{ status: 403 }
+			);
+
+			if (classId) {
+				const meta = getClassMetaById(schoolProfile?.classLevels, classId);
+				if (!meta || !taughtLevels.has(`${meta.session}::${meta.level}`)) {
+					return deniedLevel;
+				}
+				classScope = [classId];
+			} else if (session && level) {
+				if (!taughtLevels.has(`${session}::${level}`)) return deniedLevel;
+				// Left empty on purpose: no classId filter, so level-wide rows and
+				// every class in the level come back.
+				classScope = [];
+			} else {
+				// No level named to check against — fall back to their own classes.
+				classScope = assignedClassIds;
 			}
-			classScope = classId ? [classId] : assignedClassIds;
 		}
 
 		if (level === 'Self Contained') {

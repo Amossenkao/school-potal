@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 
 /**
@@ -63,6 +64,15 @@ const FULL_MONTH = [
  * The trigger's styling is applied to the `<button>` itself rather than to a
  * wrapper — a button set to `display: contents` is dropped from the
  * accessibility tree by several browsers.
+ *
+ * The calendar is rendered into `document.body` rather than next to the
+ * trigger. Positioning it absolutely kept it inside whatever ancestor scrolls —
+ * and a dialog that sets `overflow-y: auto` clips the other axis too, because
+ * CSS resolves an `overflow-x` of `visible` to `auto` the moment its partner is
+ * not `visible`. The calendar therefore widened the dialog into a horizontal
+ * scrollbar and was cut off at the edge instead of floating over the form. A
+ * fixed-position portal is measured against the viewport, so it overlays
+ * everything and adds no scrollable area anywhere.
  */
 function PickerShell({
 	label,
@@ -82,16 +92,77 @@ function PickerShell({
 	className?: string;
 }) {
 	const ref = useRef<HTMLDivElement>(null);
+	const popRef = useRef<HTMLDivElement>(null);
+	const [mounted, setMounted] = useState(false);
+	const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
+	// The portal needs a DOM to land in, so it stays out of the server render.
+	useEffect(() => setMounted(true), []);
+
+	// The calendar is no longer a descendant of this wrapper, so a click inside
+	// it would read as "outside" unless both nodes are consulted.
 	useEffect(() => {
+		if (!open) return;
 		const handler = (event: MouseEvent) => {
-			if (ref.current && !ref.current.contains(event.target as Node)) {
-				setOpen(false);
-			}
+			const target = event.target as Node;
+			if (ref.current?.contains(target)) return;
+			if (popRef.current?.contains(target)) return;
+			setOpen(false);
 		};
 		document.addEventListener('mousedown', handler);
 		return () => document.removeEventListener('mousedown', handler);
-	}, [setOpen]);
+	}, [open, setOpen]);
+
+	const place = useCallback(() => {
+		const anchor = ref.current?.getBoundingClientRect();
+		if (!anchor) return;
+		const width = popRef.current?.offsetWidth || 280;
+		const height = popRef.current?.offsetHeight || 320;
+		const gap = 4;
+		const edge = 8;
+
+		// Sit under the trigger, pulled back inside whichever viewport edge it
+		// would otherwise cross, and flipped above when there is no room below.
+		const left = Math.max(
+			edge,
+			Math.min(anchor.left, window.innerWidth - width - edge),
+		);
+		let top = anchor.bottom + gap;
+		if (top + height > window.innerHeight - edge) {
+			const above = anchor.top - height - gap;
+			top =
+				above >= edge
+					? above
+					: Math.max(edge, window.innerHeight - height - edge);
+		}
+
+		setPos((prev) =>
+			prev && prev.top === top && prev.left === left ? prev : { top, left },
+		);
+	}, []);
+
+	useEffect(() => {
+		if (!open) {
+			setPos(null);
+			return;
+		}
+		place();
+		// The grid changes height between 5- and 6-week months, and the range
+		// picker grows a banner mid-selection.
+		const observer =
+			typeof ResizeObserver !== 'undefined' && popRef.current
+				? new ResizeObserver(place)
+				: null;
+		if (observer && popRef.current) observer.observe(popRef.current);
+		window.addEventListener('resize', place);
+		// Capture: the scrolling ancestor is the dialog, not the window.
+		window.addEventListener('scroll', place, true);
+		return () => {
+			observer?.disconnect();
+			window.removeEventListener('resize', place);
+			window.removeEventListener('scroll', place, true);
+		};
+	}, [open, place]);
 
 	return (
 		<div ref={ref} className={`relative flex flex-col gap-0.5 ${className}`}>
@@ -107,11 +178,28 @@ function PickerShell({
 			>
 				{trigger}
 			</button>
-			{open && (
-				<div className="absolute left-0 top-full z-[70] mt-1 w-max min-w-[280px] rounded-xl border border-border bg-card p-3 shadow-xl">
-					{children}
-				</div>
-			)}
+			{open &&
+				mounted &&
+				createPortal(
+					<div
+						ref={popRef}
+						// Radix's modal dialog marks the rest of the body inert and
+						// treats a pointerdown out here as a click outside itself, which
+						// would close the dialog under the calendar.
+						onPointerDown={(event) => event.stopPropagation()}
+						style={{
+							position: 'fixed',
+							top: pos?.top ?? 0,
+							left: pos?.left ?? 0,
+							// Hidden for the one frame before it has been measured.
+							visibility: pos ? 'visible' : 'hidden',
+						}}
+						className="pointer-events-auto z-[130] w-max min-w-[280px] max-w-[calc(100vw-1rem)] rounded-xl border border-border bg-card p-3 shadow-xl"
+					>
+						{children}
+					</div>,
+					document.body,
+				)}
 		</div>
 	);
 }
