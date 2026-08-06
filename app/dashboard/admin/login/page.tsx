@@ -114,14 +114,14 @@ export default function SuperAdminLoginPage() {
 								htmlFor="sa-username"
 								className="text-xs font-semibold text-gray-500 uppercase tracking-wider"
 							>
-								Username
+								Username or phone number
 							</label>
 							<input
 								id="sa-username"
 								type="text"
 								required
 								autoComplete="username"
-								placeholder="Enter your username"
+								placeholder="Enter your username or phone number"
 								value={username}
 								onChange={(e) => {
 									setUsername(e.target.value);

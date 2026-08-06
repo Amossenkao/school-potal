@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import mongoose from 'mongoose';
 
+// Entries are either a key spec, or { key, options } when the index needs
+// options (unique, sparse, ...).
 const INDEXES = {
 	users: [
 		{ role: 1 },
@@ -12,6 +14,10 @@ const INDEXES = {
 		{ role: 1, 'academicYears.year': 1, 'academicYears.classId': 1 },
 		{ role: 1, 'subjects.year': 1 },
 		{ role: 1, 'subjects.classes.classId': 1 },
+		// Canonical phone number, used to log in by phone. Sparse so users
+		// without one are simply absent. Existing tenants get this from
+		// scripts/backfill-phone-normalized.mjs, which resolves collisions first.
+		{ key: { phoneNormalized: 1 }, options: { unique: true, sparse: true } },
 	],
 	grades: [
 		{ academicYear: 1, classId: 1, period: 1, status: 1 },
@@ -152,6 +158,14 @@ function formatKey(key) {
 	return JSON.stringify(key);
 }
 
+/** Accepts both the bare-key and the { key, options } entry forms. */
+function normalizeIndexEntry(entry) {
+	if (entry && typeof entry === 'object' && 'key' in entry) {
+		return { key: entry.key, options: entry.options || {} };
+	}
+	return { key: entry, options: {} };
+}
+
 async function syncDbIndexes(mongoUri, dbName, dryRun = false) {
 	const conn = mongoose.createConnection(mongoUri, {
 		dbName,
@@ -162,16 +176,24 @@ async function syncDbIndexes(mongoUri, dbName, dryRun = false) {
 	let applied = 0;
 	try {
 		await conn.asPromise();
-		for (const [collectionName, keys] of Object.entries(INDEXES)) {
+		for (const [collectionName, entries] of Object.entries(INDEXES)) {
 			const collection = conn.db.collection(collectionName);
-			for (const key of keys) {
+			for (const entry of entries) {
+				const { key, options } = normalizeIndexEntry(entry);
+				const suffix = Object.keys(options).length
+					? ` ${formatKey(options)}`
+					: '';
 				if (dryRun) {
-					console.log(`[dry-run] ${dbName}.${collectionName} ${formatKey(key)}`);
+					console.log(
+						`[dry-run] ${dbName}.${collectionName} ${formatKey(key)}${suffix}`,
+					);
 					continue;
 				}
-				await collection.createIndex(key);
+				await collection.createIndex(key, options);
 				applied += 1;
-				console.log(`[applied] ${dbName}.${collectionName} ${formatKey(key)}`);
+				console.log(
+					`[applied] ${dbName}.${collectionName} ${formatKey(key)}${suffix}`,
+				);
 			}
 		}
 		return { dbName, applied, success: true };

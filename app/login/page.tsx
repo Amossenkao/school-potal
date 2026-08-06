@@ -566,7 +566,9 @@ const FormStep = ({
 				{/* Username / Phone number */}
 				<div className="flex flex-col gap-1.5">
 					<label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-						{loginType === 'parent' ? 'Phone number' : 'Username'}
+						{loginType === 'parent'
+							? 'Phone number'
+							: 'Username or phone number'}
 					</label>
 					<div className="relative">
 						<User
@@ -585,12 +587,12 @@ const FormStep = ({
 							placeholder={
 								loginType === 'parent'
 									? 'Enter your phone number'
-									: 'Enter your username'
+									: 'Enter your username or phone number'
 							}
 							required
-							autoComplete={
-								loginType === 'parent' ? 'tel' : 'username'
-							}
+							// Always "username": the field accepts either, and "tel"
+							// would make the browser offer phone numbers only.
+							autoComplete="username"
 							className="
 								w-full pl-9 pr-4 py-2.5
 								text-sm text-foreground

@@ -628,6 +628,11 @@ async function attachOrCreateParent(
 		if (!phone) {
 			throw new Error('Parent phone number is required to create an account.');
 		}
+		// This number becomes the parent's username and login identifier, so an
+		// unusable one would produce an account nobody can sign in to.
+		if (!isValidPhone(phone)) {
+			throw new Error('Parent phone number is not a valid phone number.');
+		}
 		const email = parent.email?.toString().toLowerCase().trim() || '';
 		const username = phone;
 		const firstName = parent.firstName?.toString().trim() || '';
@@ -4719,7 +4724,7 @@ export async function PUT(request: NextRequest) {
 					newCredentials: {
 						username: targetUser.username,
 						defaultPassword: defaultPassword,
-						note: 'User must change password on next login',
+						note: 'User can sign in with their username or phone number, using either as the password, and must then set a new one.',
 					},
 				},
 			});

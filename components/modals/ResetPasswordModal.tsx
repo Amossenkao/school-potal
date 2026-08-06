@@ -28,7 +28,9 @@ const ResetPasswordModal = ({
 				throw new Error(data.message || 'Failed to reset password.');
 			}
 			const result = await res.json();
-			onResetSuccess(result.data.resetInfo); // Pass the reset info up
+			// The API returns this under `newCredentials`; reading `resetInfo`
+			// meant the caller always got undefined and showed nothing.
+			onResetSuccess(result?.data?.newCredentials);
 			onClose();
 		} catch (err) {
 			setError(err.message);
@@ -50,8 +52,9 @@ const ResetPasswordModal = ({
 					<span className="font-bold">
 						{resetPasswordUser?.firstName} {resetPasswordUser?.lastName}
 					</span>
-					? This will revert it to the default password (
-					{resetPasswordUser?.username}).
+					? They will be able to sign in with their username (
+					{resetPasswordUser?.username}) or their phone number, using either
+					one as the password, and must then set a new password.
 				</p>
 				{error && <p className="text-sm text-red-500">{error}</p>}
 				<div className="flex justify-center gap-4 mt-4">

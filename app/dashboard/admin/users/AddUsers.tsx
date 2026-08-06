@@ -2071,9 +2071,9 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 												</Field>
 											</div>
 											<p className="text-[11px] text-muted-foreground mt-3">
-												A login account is created automatically. Username is the
-												email (or phone number) — the parent can change the
-												password after first login.
+												A login account is created automatically, using the phone
+												number as both the username and the first password. The
+												parent must set their own password on first login.
 											</p>
 										</>
 									)}
@@ -2963,8 +2963,12 @@ const DashboardUserForm = ({ onUserCreated, onBack }: any) => {
 											{createdUserInfo.generatedCredentials.defaultPassword}
 										</code>
 									</div>
+									<p className="text-xs text-muted-foreground pt-2 border-t border-border">
+										They can sign in with either the username above or their
+										phone number, and either one as the password.
+									</p>
 									{createdUserInfo.generatedCredentials.note && (
-										<p className="text-xs text-muted-foreground text-center pt-1 border-t border-border">
+										<p className="text-xs text-muted-foreground text-center pt-1">
 											{createdUserInfo.generatedCredentials.note}
 										</p>
 									)}

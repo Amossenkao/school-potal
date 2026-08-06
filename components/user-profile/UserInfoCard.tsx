@@ -11,6 +11,7 @@ import Spinner from '../ui/spinner';
 import Switch from '@/components/form/switch/Switch';
 import { Loader2, Pencil } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { isValidPhone } from '@/utils/phone';
 
 const InfoField = ({ label, value }: any) => (
 	<div>
@@ -118,10 +119,13 @@ export default function UserInfoCard() {
 		field: 'email' | 'phone' | 'bio' | 'nickName',
 		value: string,
 	) => {
-		const nextValue = field === 'phone' ? value.replace(/\D+/g, '') : value;
+		// Phone numbers are stored as typed — "+231 776 949463" stays that way.
+		// The server derives the canonical form used for login and uniqueness, so
+		// stripping punctuation here only used to rewrite what the user entered
+		// (and, for parents, their login identifier along with it).
 		setDraftValues((prev) => ({
 			...prev,
-			[field]: nextValue,
+			[field]: value,
 		}));
 		if (errors[field as keyof typeof errors]) {
 			setErrors((prev) => ({
@@ -160,7 +164,9 @@ export default function UserInfoCard() {
 			}
 		}
 		if (field === 'phone') {
-			if (value && (!/^\d+$/.test(value) || value.length < 10)) {
+			// Accepts "+231 776 949463" and "0776949463" alike; the server derives
+			// the canonical form from whichever was typed.
+			if (value && !isValidPhone(value)) {
 				return 'Invalid phone format';
 			}
 		}
@@ -185,9 +191,6 @@ export default function UserInfoCard() {
 		let nextValue = rawValue.trim();
 		if (field === 'email') {
 			nextValue = rawValue.replace(/\s+/g, '');
-		}
-		if (field === 'phone') {
-			nextValue = rawValue.replace(/\D+/g, '');
 		}
 
 		setFormData((prev) => ({ ...prev, [field]: nextValue }));
@@ -221,7 +224,6 @@ export default function UserInfoCard() {
 
 			let normalized = rawValue.trim();
 			if (field === 'email') normalized = rawValue.replace(/\s+/g, '');
-			if (field === 'phone') normalized = rawValue.replace(/\D+/g, '');
 
 			nextFormData[field] = normalized;
 			nextDraftValues[field] = normalized;
