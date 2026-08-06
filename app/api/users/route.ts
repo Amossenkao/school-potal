@@ -13,6 +13,16 @@ import {
 } from '@/lib/parentAccess';
 import UserSchema from '@/models/user/User';
 import SystemAdminSchema from '@/models/user/SystemAdmin';
+import {
+	buildPhoneQueryCandidates,
+	isValidPhone,
+	normalizePhone,
+} from '@/utils/phone';
+import {
+	isIdentifierPassword,
+	verifyLoginPassword,
+	MIN_PASSWORD_LENGTH,
+} from '@/utils/loginIdentity';
 import UserSyncStateSchema from '@/models/user/UserSyncState';
 import {
 	updateAllUserSessions,
@@ -78,9 +88,21 @@ function validateEmail(email: string): boolean {
 	return /\S+@\S+\.\S+/.test(email);
 }
 
+// A phone number is valid when it reduces to a canonical form. The old regex
+// accepted punctuation-only strings like "((((((((((".
 function validatePhone(phone: string): boolean {
-	return /^\+?[\d\s\-\(\)]{10,}$/.test(phone);
+	return isValidPhone(phone);
 }
+
+// Index key names are not fit for users — phoneNormalized in particular is an
+// internal derived field.
+const DUPLICATE_FIELD_LABELS: Record<string, string> = {
+	phone: 'phone number',
+	phoneNormalized: 'phone number',
+	username: 'username',
+	email: 'email address',
+	studentId: 'student ID',
+};
 
 const PROFILE_FIELD_LABELS: Record<string, string> = {
 	firstName: 'first name',
@@ -1315,10 +1337,20 @@ async function validateUserData(
 		}
 	}
 	if (userData.phone) {
-		const phoneExists = await models.User.findOne({
-			...baseQuery,
-			phone: userData.phone,
-		}).lean();
+		// Match on the canonical form, so "+231 776 949463" and "0776949463" are
+		// recognised as the same number. Deliberately not scoped to active users:
+		// the unique index is not either, and a check that is narrower than the
+		// index lets an admin through only to hit a raw E11000 from Mongo.
+		const normalizedPhone = normalizePhone(userData.phone);
+		const phoneExists = normalizedPhone
+			? await models.User.findOne({
+					...(userId ? { _id: { $ne: userId } } : {}),
+					$or: [
+						{ phoneNormalized: normalizedPhone },
+						{ phone: { $in: buildPhoneQueryCandidates(userData.phone) } },
+					],
+				}).lean()
+			: null;
 		if (phoneExists) {
 			errors.push({
 				field: 'phone',
@@ -1399,6 +1431,14 @@ async function validateUserData(
 					message: 'Parent phone number is required to create an account',
 					type: 'REQUIRED_FIELD',
 				});
+			} else if (!validatePhone(parentPhone)) {
+				// The parent's phone doubles as their username and login
+				// identifier, so an unusable one would create an unreachable account.
+				errors.push({
+					field: 'parent.phone',
+					message: 'Invalid parent phone number format',
+					type: 'FORMAT_INVALID',
+				});
 			}
 			if (parentEmail && !validateEmail(parentEmail)) {
 				errors.push({
@@ -1408,8 +1448,18 @@ async function validateUserData(
 				});
 			}
 			if (parentPhone) {
+				// A parent's username IS their phone number, so both fields have to
+				// be checked, in every stored format.
+				const normalizedParentPhone = normalizePhone(parentPhone);
+				const parentPhoneCandidates = buildPhoneQueryCandidates(parentPhone);
 				const existingUser = await models.User.findOne({
-					$or: [{ phone: parentPhone }, { username: parentPhone }],
+					$or: [
+						...(normalizedParentPhone
+							? [{ phoneNormalized: normalizedParentPhone }]
+							: []),
+						{ phone: { $in: parentPhoneCandidates } },
+						{ username: { $in: parentPhoneCandidates } },
+					],
 				}).lean();
 				if (existingUser) {
 					errors.push({
@@ -3037,6 +3087,24 @@ export async function POST(request: NextRequest) {
 				return NextResponse.json({ error: 'firstName, lastName, and phone are required' }, { status: 400 });
 			}
 
+			// This path used to skip validation entirely, so a malformed or
+			// duplicate number reached the database unchecked.
+			const trimmedPhone = String(phone).trim();
+			if (!validatePhone(trimmedPhone)) {
+				return NextResponse.json({ error: 'Invalid phone number format' }, { status: 400 });
+			}
+
+			const normalizedPhone = normalizePhone(trimmedPhone);
+			const phoneTaken = await User.findOne({
+				$or: [
+					...(normalizedPhone ? [{ phoneNormalized: normalizedPhone }] : []),
+					{ phone: { $in: buildPhoneQueryCandidates(trimmedPhone) } },
+				],
+			}).lean();
+			if (phoneTaken) {
+				return NextResponse.json({ error: 'Phone number is already in use' }, { status: 409 });
+			}
+
 			const username = await generateUniqueUsername(User.discriminators.system_admin);
 			const defaultPassword = username;
 			const hashedPassword = await bcrypt.hash(defaultPassword, 12);
@@ -3052,7 +3120,7 @@ export async function POST(request: NextRequest) {
 				password: hashedPassword,
 				defaultPassword,
 				mustChangePassword: true,
-				phone,
+				phone: trimmedPhone,
 				...(email ? { email } : {}),
 				gender: gender || 'Other',
 				dateOfBirth: dateOfBirth || '2000-01-01',
@@ -3427,7 +3495,7 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json(
 				{
 					success: false,
-					message: `A user with this ${field || 'information'} already exists.`,
+					message: `A user with this ${DUPLICATE_FIELD_LABELS[field] || field || 'information'} already exists.`,
 				},
 				{ status: 400 },
 			);
@@ -3508,6 +3576,24 @@ export async function PUT(request: NextRequest) {
 					continue;
 				}
 				updateData[field] = body[field];
+			}
+			if (updateData.phone !== undefined) {
+				// Validated here for the same reason as the create path above.
+				updateData.phone = String(updateData.phone).trim();
+				if (!validatePhone(updateData.phone)) {
+					return NextResponse.json({ error: 'Invalid phone number format' }, { status: 400 });
+				}
+				const normalizedPhone = normalizePhone(updateData.phone);
+				const phoneTaken = await User.findOne({
+					_id: { $ne: targetUserId },
+					$or: [
+						...(normalizedPhone ? [{ phoneNormalized: normalizedPhone }] : []),
+						{ phone: { $in: buildPhoneQueryCandidates(updateData.phone) } },
+					],
+				}).lean();
+				if (phoneTaken) {
+					return NextResponse.json({ error: 'Phone number is already in use' }, { status: 409 });
+				}
 			}
 			if (body.action === 'toggle_active' && body.isActive === undefined) {
 				updateData.isActive = existing.isActive === false;
@@ -5087,9 +5173,11 @@ export async function PUT(request: NextRequest) {
 				);
 			}
 
-			const isPasswordValid = await bcrypt.compare(
+			// Same check the login route uses, so a user who signed in with their
+			// phone number as the provisional password can complete setup with it.
+			const isPasswordValid = await verifyLoginPassword(
+				targetUser,
 				updateData.oldPassword,
-				targetUser.password,
 			);
 			if (!isPasswordValid) {
 				return NextResponse.json(
@@ -5098,14 +5186,27 @@ export async function PUT(request: NextRequest) {
 				);
 			}
 
+			if (String(updateData.newPassword).length < MIN_PASSWORD_LENGTH) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: `New password must be at least ${MIN_PASSWORD_LENGTH} characters long.`,
+					},
+					{ status: 400 },
+				);
+			}
+
+			// Both identifiers unlock the account while mustChangePassword is set,
+			// so neither may be adopted as the new password.
 			if (
 				targetUser.mustChangePassword &&
-				updateData.newPassword === targetUser.username
+				isIdentifierPassword(targetUser, updateData.newPassword)
 			) {
 				return NextResponse.json(
 					{
 						success: false,
-						message: 'New password cannot be the same as the default password.',
+						message:
+							'New password cannot be your username or your phone number.',
 					},
 					{ status: 400 },
 				);

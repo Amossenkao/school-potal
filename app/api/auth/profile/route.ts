@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { authorizeUser } from '@/proxy';
 import { getSchoolMeshModels } from '@/models/schoolmesh';
+import { isValidPhone } from '@/utils/phone';
 
 export async function PATCH(request: NextRequest) {
 	try {
@@ -23,7 +24,16 @@ export async function PATCH(request: NextRequest) {
 		if (middleName !== undefined) updateFields.middleName = middleName;
 		if (lastName !== undefined) updateFields.lastName = lastName;
 		if (nickName !== undefined) updateFields.nickName = nickName;
-		if (phone !== undefined) updateFields.phone = phone;
+		if (phone !== undefined) {
+			const trimmedPhone = String(phone).trim();
+			if (!isValidPhone(trimmedPhone)) {
+				return NextResponse.json(
+					{ message: 'Invalid phone number format' },
+					{ status: 400 },
+				);
+			}
+			updateFields.phone = trimmedPhone;
+		}
 		if (email !== undefined) updateFields.email = email;
 		if (address !== undefined) updateFields.address = address;
 		if (bio !== undefined) updateFields.bio = bio;
@@ -82,7 +92,7 @@ export async function PATCH(request: NextRequest) {
 	} catch (error: any) {
 		if (error?.code === 11000) {
 			const keyPattern = error.keyPattern || {};
-			if (keyPattern.phone) {
+			if (keyPattern.phone || keyPattern.phoneNormalized) {
 				return NextResponse.json(
 					{ message: 'Phone number is already in use' },
 					{ status: 409 },

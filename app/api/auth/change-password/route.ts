@@ -3,6 +3,11 @@ import type { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { authorizeUser } from '@/proxy';
 import { getSchoolMeshModels } from '@/models/schoolmesh';
+import {
+	isIdentifierPassword,
+	verifyLoginPassword,
+	MIN_PASSWORD_LENGTH,
+} from '@/utils/loginIdentity';
 
 export async function POST(request: NextRequest) {
 	try {
@@ -24,9 +29,11 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		if (newPassword.length < 6) {
+		if (newPassword.length < MIN_PASSWORD_LENGTH) {
 			return NextResponse.json(
-				{ message: 'New password must be at least 6 characters long' },
+				{
+					message: `New password must be at least ${MIN_PASSWORD_LENGTH} characters long`,
+				},
 				{ status: 400 },
 			);
 		}
@@ -40,7 +47,9 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
+		// Accepts the provisional username/phone credentials while
+		// mustChangePassword is set, matching the login route.
+		const isPasswordValid = await verifyLoginPassword(user, oldPassword);
 		if (!isPasswordValid) {
 			return NextResponse.json(
 				{ message: 'Incorrect current password' },
@@ -48,9 +57,9 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		if (user.mustChangePassword && newPassword === user.username) {
+		if (user.mustChangePassword && isIdentifierPassword(user, newPassword)) {
 			return NextResponse.json(
-				{ message: 'New password cannot be the same as the default password' },
+				{ message: 'New password cannot be your username or your phone number' },
 				{ status: 400 },
 			);
 		}

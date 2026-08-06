@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
 import { getUserModel } from '@/models';
 import { getSchoolMeshModels } from '@/models/schoolmesh';
 import { createSession, destroySession } from '@/utils/session';
@@ -11,6 +10,8 @@ import {
 	getDomainVersionsFromBootstrapPayload,
 } from '@/lib/bootstrap';
 import { checkRateLimit, getRequestIp } from '@/utils/rateLimit';
+import { buildIdentifierQuery, verifyLoginPassword } from '@/utils/loginIdentity';
+import { normalizePhone } from '@/utils/phone';
 import {
 	getParentAcademicYearsEntries,
 	resolveAcademicYearAccessContext,
@@ -87,37 +88,33 @@ export async function POST(request: NextRequest) {
 	}
 
 	const body = await request.json();
-	let { action, username, password, role, id, userId, position } = body;
+	const { action, username, password, role, id, userId, position } = body;
 	const resolvedUserId = id || userId;
 	const ip = getRequestIp(request.headers);
 
-	if (['student', 'teacher'].includes(role)) {
-		username = username.toUpperCase();
-	}
+	// Every role signs in with either their username or their phone number.
+	// The role filter is preserved, so the lookup stays unambiguous even when a
+	// student and their parent share a number.
+	const rawIdentifier = String(username || '').trim();
 
-	// Look up superadmin from schoolmesh database
 	let user: any = null;
 	if (role === 'superadmin') {
+		// Superadmins live in the separate schoolmesh database
 		const { SuperAdmin } = await getSchoolMeshModels();
 		user = resolvedUserId
 			? await SuperAdmin.findById(resolvedUserId)
-			: await SuperAdmin.findOne({ username, role: 'superadmin' });
+			: await SuperAdmin.findOne({
+					role: 'superadmin',
+					...buildIdentifierQuery(rawIdentifier),
+				});
 	} else {
 		const User = await getUserModel(host);
-		const loginIdentifier = String(username || '').trim().toLowerCase();
-		if (role === 'parent') {
-			// Parents log in strictly by phone number
-			user = resolvedUserId
-				? await User.findById(resolvedUserId)
-				: await User.findOne({
-						role: 'parent',
-						phone: loginIdentifier,
-					});
-		} else {
-			user = resolvedUserId
-				? await User.findById(resolvedUserId)
-				: await User.findOne({ username, role });
-		}
+		user = resolvedUserId
+			? await User.findById(resolvedUserId)
+			: await User.findOne({
+					role,
+					...buildIdentifierQuery(rawIdentifier),
+				});
 	}
 
 	if (
@@ -140,11 +137,12 @@ export async function POST(request: NextRequest) {
 		switch (action) {
 			case 'login':
 				{
-					const loginIdentifier = String(username || '')
-						.trim()
-						.toLowerCase();
+					// Key on the resolved identity, so retyping the same number in
+					// another format does not hand out a fresh attempt budget.
+					const limiterKey =
+						normalizePhone(rawIdentifier) ?? rawIdentifier.toUpperCase();
 					const limiter = await checkRateLimit(
-						`rl:login:${host}:${ip}:${loginIdentifier}`,
+						`rl:login:${host}:${ip}:${limiterKey}`,
 						10,
 						60,
 					);
@@ -191,7 +189,7 @@ async function handleLogin(user: any, password: string, host: string) {
 			);
 		}
 
-		const isPasswordValid = await bcrypt.compare(password, user.password);
+		const isPasswordValid = await verifyLoginPassword(user, password);
 		if (!isPasswordValid) {
 			return NextResponse.json(
 				{ message: 'Incorrect credentials' },
@@ -283,7 +281,7 @@ async function handleLogin(user: any, password: string, host: string) {
 		);
 	}
 
-	const isPasswordValid = await bcrypt.compare(password, user.password);
+	const isPasswordValid = await verifyLoginPassword(user, password);
 	if (!isPasswordValid) {
 		return NextResponse.json(
 			{ message: 'Incorrect credentials' },
@@ -363,19 +361,6 @@ function setSessionCookie(response: NextResponse, sessionId: string) {
 }
 
 function buildUserResponse(user: any, host?: string) {
-
-	if (user.username == 'UCA2026504') {
-		console.log('User data for debugging:', {
-			id: user._id.toString(),
-			username: user.username,
-			role: user.role,
-			firstName: user.firstName,
-			middleName: user.middleName,
-			lastName: user.lastName,
-			fullName: user.fullName,
-			isLateRegistration: user.isLateRegistration,
-		});
-	}
 		const baseUser = {
 			id: user._id.toString(),
 			username: user.username,

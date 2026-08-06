@@ -24,6 +24,10 @@ import AvatarPicker from '@/components/avatarPicker';
 import { Button } from '@/components/ui/button';
 import { LOADING_POLICY, useLoadingGate } from '@/hooks/useLoadingGate';
 import { useHasSchool } from '@/context/HasSchoolContext';
+import {
+	isIdentifierPassword,
+	MIN_PASSWORD_LENGTH,
+} from '@/utils/passwordPolicy';
 
 // ─── Ruled-line background texture (notebook aesthetic) ───────────────────────
 function NotebookLines() {
@@ -226,8 +230,10 @@ export default function AccountSetupPage() {
 
 	const passwordsMatch =
 		password && confirmPassword && password === confirmPassword;
-	const isPasswordValid = password.length >= 8;
-	const isNotDefault = user && password !== user.username;
+	const isPasswordValid = password.length >= MIN_PASSWORD_LENGTH;
+	// Both the username and the phone number unlock the account until this
+	// change lands, so neither may be adopted as the new password.
+	const isNotDefault = user && !isIdentifierPassword(user, password);
 	const canSubmitPassword =
 		isPasswordValid && passwordsMatch && isNotDefault && !isLoading;
 
@@ -445,11 +451,14 @@ export default function AccountSetupPage() {
 			{/* Live validation checklist */}
 			{(password || confirmPassword) && (
 				<div className="space-y-2 pl-1">
-					<ValidationRow met={isPasswordValid} label="At least 8 characters" />
+					<ValidationRow
+						met={isPasswordValid}
+						label={`At least ${MIN_PASSWORD_LENGTH} characters`}
+					/>
 					<ValidationRow met={!!passwordsMatch} label="Passwords match" />
 					<ValidationRow
 						met={!!isNotDefault}
-						label="Different from your default password"
+						label="Not your username or phone number"
 					/>
 				</div>
 			)}

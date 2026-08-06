@@ -1251,14 +1251,14 @@ export default function Settings() {
 
 	// Dropdown options: the school profile's stored current academic year,
 	// plus two academic years derived from the current calendar year
-	// (e.g. calendar year 2025 → 2026-2027, 2027-2028).
+	// (e.g. calendar year 2026 → 2026-2027, 2027-2028).
 	const currentAcademicYearOptions = useMemo(() => {
 		const schoolYear = school?.identity?.currentAcademicYear || '';
 		const currentCalendarYear = new Date().getFullYear();
 		const candidates = [
 			schoolYear,
+			formatAcademicYear(currentCalendarYear),
 			formatAcademicYear(currentCalendarYear + 1),
-			formatAcademicYear(currentCalendarYear + 2),
 		];
 		const unique: string[] = [];
 		candidates.forEach((year) => {
