@@ -143,11 +143,26 @@ export default function AuthProvider({
 	);
 
 	const closeRealtimeClient = useCallback(() => {
-		realtimeSubscriptionsRef.current.forEach((unsubscribe) => unsubscribe());
+		// Ably rejects in-flight operations with "Connection closed" when the
+		// client is torn down mid-authentication, and unsubscribe() on a channel
+		// of an already-closing client can throw too. Neither is recoverable or
+		// interesting: we are discarding this client. Left unhandled they surface
+		// as uncaught promise rejections from React's effect cleanup.
+		realtimeSubscriptionsRef.current.forEach((unsubscribe) => {
+			try {
+				unsubscribe();
+			} catch {
+				/* client already gone */
+			}
+		});
 		realtimeSubscriptionsRef.current = [];
-		if (realtimeClientRef.current) {
-			realtimeClientRef.current.close();
-			realtimeClientRef.current = null;
+		const client = realtimeClientRef.current;
+		realtimeClientRef.current = null;
+		if (!client) return;
+		try {
+			client.close();
+		} catch {
+			/* already closed */
 		}
 	}, []);
 
@@ -457,29 +472,51 @@ export default function AuthProvider({
 			void runAuthRefresh({ force: true, trigger: 'ably-connected' });
 		});
 
-		client.connection.on('failed', () => {
-			setAblyState('failed');
-			setAuthCheckFailed(true);
-			console.warn('[AuthProvider] Ably connection failed, reconnecting in 5s');
-			if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-			reconnectTimerRef.current = setTimeout(() => {
-				reconnectTimerRef.current = null;
-				closeRealtimeClient();
-				setReconnectTrigger((n) => n + 1);
-			}, 5000);
-		});
+		/**
+		 * A 401 from the token endpoint means the session is gone — the account
+		 * was disabled, or the whole school was deactivated and every tenant
+		 * session revoked with it. Retrying cannot mint a token for a session
+		 * that no longer exists, so reconnecting on a timer just loops forever
+		 * while the user sits in a shell that looks logged in but receives
+		 * nothing. Hand it to the auth check instead, which resolves the session
+		 * properly and redirects to login.
+		 */
+		const isAuthFailure = () => {
+			const code = Number(
+				(client.connection.errorReason as any)?.statusCode ?? 0,
+			);
+			return code === 401 || code === 403;
+		};
 
-		client.connection.on('suspended', () => {
-			setAblyState('suspended');
+		const scheduleReconnect = (state: string, delayMs: number) => {
+			setAblyState(state as any);
 			setAuthCheckFailed(true);
-			console.warn('[AuthProvider] Ably connection suspended, reconnecting in 10s');
 			if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+
+			if (isAuthFailure()) {
+				console.warn(
+					`[AuthProvider] Ably ${state} — token endpoint rejected the session; re-checking auth.`,
+				);
+				closeRealtimeClient();
+				if (useAuth.getState().isLoggingOut) return;
+				void runAuthRefresh({ force: true, trigger: `ably-unauthorized:${state}` });
+				return;
+			}
+
+			console.warn(
+				`[AuthProvider] Ably connection ${state}, reconnecting in ${delayMs / 1000}s`,
+			);
 			reconnectTimerRef.current = setTimeout(() => {
 				reconnectTimerRef.current = null;
 				closeRealtimeClient();
 				setReconnectTrigger((n) => n + 1);
-			}, 10000);
-		});
+			}, delayMs);
+		};
+
+		client.connection.on('failed', () => scheduleReconnect('failed', 5000));
+		client.connection.on('suspended', () =>
+			scheduleReconnect('suspended', 10000),
+		);
 
 		return () => {
 			if (reconnectTimerRef.current) {

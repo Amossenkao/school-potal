@@ -1271,6 +1271,15 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 				);
 				if (isForThisTenant) {
 					get().setSchool(flattenSchoolPayload(schoolPayload));
+				} else {
+					// Loud on purpose: a dropped same-tenant event looks exactly
+					// like "realtime is broken" from the outside, and the two keys
+					// are the only way to tell a genuine cross-tenant reject from
+					// a session whose own key failed to resolve.
+					console.warn(
+						'[schoolStore] Dropped school payload — tenant mismatch.',
+						{ sessionTenantId, eventTenantId },
+					);
 				}
 			}
 		}

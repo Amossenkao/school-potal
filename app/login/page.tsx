@@ -936,7 +936,10 @@ const LoginPage = () => {
 			}
 
 			const refreshPromise = (async () => {
-				const response = await fetch('/api/school', {
+				// `fresh=1`: skip the answering instance's memory cache, which can
+				// still hold the pre-update profile and undo what the event just
+				// applied. Same reason as components/inactive.tsx.
+				const response = await fetch('/api/school?fresh=1', {
 					cache: 'no-store',
 					headers: { 'Cache-Control': 'no-store' },
 				});
