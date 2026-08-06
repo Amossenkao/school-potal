@@ -214,6 +214,8 @@ const componentImporters: Record<string, ComponentImporter> = {
 		import('@/app/dashboard/documents/TranscriptRecommendation'),
 	attestation: () =>
 		import('@/app/dashboard/attestation/Attestation'),
+	'graduation-clearance': () =>
+		import('@/app/dashboard/graduation-clearance/GraduationClearance'),
 	diploma: () =>
 		import('@/app/dashboard/diploma/Diploma'),
 	'digital-id': () =>
@@ -655,6 +657,16 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					href: '/dashboard/admin-payment-history',
 					icon: FileText,
 				},
+				{
+					// Visibility lives here, on financial_reports; the ability to
+					// actually award or remove a scholarship is a narrower check
+					// inside the page itself, gated on the `record_payments`
+					// permission — the same authority that can record a payment.
+					key: 'scholarships',
+					title: 'Scholarships & Wards',
+					href: '/dashboard/scholarships',
+					icon: GraduationCap,
+				},
 			],
 		},
 	},
@@ -735,14 +747,12 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					icon: DollarSign,
 				},
 				{
-					key: 'scholarships',
-					title: 'Scholarships & Wards',
-					href: '/dashboard/scholarships',
-					icon: GraduationCap,
-				},
-				{
+					// Was reachable from both record_payments and academic_documents;
+					// it's really a financial document (checks real payment status),
+					// so it now lives only here — academic_documents gets the actual
+					// Graduation Clearance letter instead.
 					key: 'clearances',
-					title: 'Clearances',
+					title: 'Financial Clearance',
 					href: '/dashboard/clearances',
 					icon: ClipboardCheck,
 				},
@@ -770,10 +780,10 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					icon: FileText,
 				},
 				{
-					key: 'clearances',
+					key: 'graduation-clearance',
 					title: 'Graduation Clearance',
-					href: '/dashboard/clearances',
-					icon: ClipboardCheck,
+					href: '/dashboard/graduation-clearance',
+					icon: GraduationCap,
 				},
 				{
 					key: 'diploma',
@@ -802,10 +812,10 @@ const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
 					icon: FileText,
 				},
 				{
-					key: 'clearances',
+					key: 'graduation-clearance',
 					title: 'Graduation Clearance',
-					href: '/dashboard/clearances',
-					icon: ClipboardCheck,
+					href: '/dashboard/graduation-clearance',
+					icon: GraduationCap,
 				},
 				{
 					key: 'diploma',

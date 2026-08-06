@@ -29,6 +29,7 @@ import {
 	type DocumentFilters,
 } from '@/app/dashboard/shared/documentFilters';
 import { buildStudentFullName, normalizeStudentId } from '@/app/dashboard/digital-id/verification';
+import { resolveSignatory } from '@/utils/documentSignatory';
 
 // ── PDF styles ──────────────────────────────────────────────────────────────
 
@@ -74,22 +75,40 @@ const styles = StyleSheet.create({
 		color: '#4b5563',
 		marginTop: 2,
 	},
+	dateLine: {
+		fontSize: 11,
+		marginBottom: 18,
+	},
 	title: {
 		fontSize: 16,
 		fontWeight: 'bold',
 		textAlign: 'center',
 		textTransform: 'uppercase',
 		color: '#1e3a8a',
-		marginBottom: 30,
+		marginBottom: 6,
+	},
+	toWhom: {
+		fontSize: 12,
+		fontWeight: 'bold',
+		textAlign: 'center',
+		textTransform: 'uppercase',
+		marginBottom: 24,
 		borderBottomWidth: 1,
 		borderBottomColor: '#d1d5db',
-		paddingBottom: 10,
+		paddingBottom: 14,
 	},
 	body: {
 		lineHeight: 1.8,
 		textAlign: 'justify',
 		fontSize: 12,
 		marginBottom: 24,
+	},
+	paragraph: {
+		marginBottom: 14,
+	},
+	closing: {
+		fontSize: 12,
+		marginBottom: 4,
 	},
 	qrSection: {
 		flexDirection: 'row',
@@ -133,19 +152,23 @@ const styles = StyleSheet.create({
 		height: '100%',
 	},
 	footer: {
-		marginTop: 50,
-		flexDirection: 'row',
-		justifyContent: 'space-between',
+		marginTop: 40,
 	},
 	sigBlock: {
-		width: '40%',
+		width: '55%',
+		marginTop: 34,
 		borderTopWidth: 1,
 		borderTopColor: '#1e3a8a',
 		paddingTop: 6,
-		textAlign: 'center',
 		fontSize: 10,
 		fontWeight: 'bold',
 		color: '#1e3a8a',
+	},
+	sigTitle: {
+		fontSize: 9,
+		fontWeight: 'normal',
+		color: '#4b5563',
+		marginTop: 2,
 	},
 	motto: {
 		textAlign: 'center',
@@ -167,13 +190,6 @@ const AttestationDocument = ({ data, school }: { data: any; school: any }) => {
 		school?.contact?.addresses?.[0]?.lines?.join(', ') || '';
 	const schoolContact = (school?.contact?.phones || []).join(' / ');
 
-	const pronoun =
-		data.gender === 'male'
-			? { subject: 'he', possessive: 'his' }
-			: data.gender === 'female'
-				? { subject: 'she', possessive: 'her' }
-				: { subject: 'they', possessive: 'their' };
-
 	return (
 		<Document>
 			<Page size="A4" style={styles.page}>
@@ -192,28 +208,46 @@ const AttestationDocument = ({ data, school }: { data: any; school: any }) => {
 					</View>
 				</View>
 
-				<Text style={styles.title}>Certificate of Attestation</Text>
+				<Text style={styles.dateLine}>{data.date}</Text>
+				<Text style={styles.title}>Letter of Attestation</Text>
+				<Text style={styles.toWhom}>To Whom It May Concern</Text>
 
 				<View style={styles.body}>
-					<Text>Date: {data.date}</Text>
-					<Text style={{ marginTop: 20 }}>
-						This is to certify that{' '}
-						<Text style={{ fontWeight: 'bold' }}>{data.studentName}</Text>, who
-						enrolled in the{' '}
-						<Text style={{ fontWeight: 'bold' }}>{data.program}</Text> program
-						at this institution during the academic year {data.academicYear},
-						has demonstrated satisfactory academic progress and good conduct
-						throughout {pronoun.possessive} period of study.
+					<Text style={styles.paragraph}>
+						This letter serves as an official attestation that{' '}
+						<Text style={{ fontWeight: 'bold' }}>{data.studentName}</Text> was a
+						duly enrolled student of the {schoolName} and has successfully
+						completed all the academic and graduation requirements prescribed
+						by both the Ministry of Education and the {schoolName} for the
+						successful completion of {data.program}.
 					</Text>
-					<Text style={{ marginTop: 15 }}>
-						This attestation is issued upon the request of{' '}
-						<Text style={{ fontWeight: 'bold' }}>{data.studentName}</Text> for
-						any legal or educational purpose {pronoun.subject} may require.
+					<Text style={styles.paragraph}>
+						Having satisfactorily fulfilled all required coursework, academic
+						obligations, and institutional requirements,{' '}
+						<Text style={{ fontWeight: 'bold' }}>{data.studentName}</Text> has
+						qualified for graduation from our institution for the{' '}
+						{data.academicYear} academic year.
 					</Text>
-					<Text style={{ marginTop: 15 }}>
-						We confirm that the above information is true and correct to the
-						best of our knowledge.
+					<Text style={styles.paragraph}>
+						At the time of issuing this letter however, the student&apos;s
+						official academic transcript and High School Diploma are still
+						undergoing the school&apos;s standard processing procedures and
+						have therefore not yet been issued.
 					</Text>
+					<Text style={styles.paragraph}>
+						This letter is therefore issued at the student&apos;s request as
+						temporary official confirmation of the successful completion of
+						all graduation requirements pending the release of the
+						aforementioned documents.
+					</Text>
+					<Text style={styles.paragraph}>
+						Should you require any additional information or verification
+						regarding this attestation, please do not hesitate to contact the
+						administration of {schoolName} on the contact details provided
+						above.
+					</Text>
+					<Text style={styles.closing}>We appreciate your kind consideration.</Text>
+					<Text style={styles.closing}>Respectfully,</Text>
 				</View>
 
 				<View style={styles.qrSection}>
@@ -233,11 +267,12 @@ const AttestationDocument = ({ data, school }: { data: any; school: any }) => {
 				</View>
 
 				<View style={styles.footer}>
+					<Text style={{ fontSize: 11 }}>Signed: _____________________________</Text>
 					<View style={styles.sigBlock}>
-						<Text>Registrar</Text>
-					</View>
-					<View style={styles.sigBlock}>
-						<Text>Principal</Text>
+						<Text>{data.principal?.resolved ? data.principal.name : ' '}</Text>
+						<Text style={styles.sigTitle}>
+							{data.principal?.title || 'Principal'}, {schoolName}
+						</Text>
 					</View>
 				</View>
 
@@ -345,7 +380,7 @@ export default function AttestationPage() {
 		if (!studentId) return;
 		const url = `${window.location.origin}/verify?id=${encodeURIComponent(
 			studentId,
-		)}&academicYear=${encodeURIComponent(filters.academicYear)}`;
+		)}&academicYear=${encodeURIComponent(filters.academicYear)}&type=attestation`;
 		QRCode.toDataURL(url, {
 			errorCorrectionLevel: 'M',
 			margin: 1,
@@ -374,10 +409,13 @@ export default function AttestationPage() {
 			school?.academicConfig?.classLevels,
 			selectedStudent.className,
 		);
-		const program = classMeta?.className || selectedStudent.className || '—';
+		// "Program" here means the level of study completed (e.g. "Senior High"),
+		// not the specific class section — closer to how the letter phrases it
+		// ("...completion of Senior Secondary School") than a bare class name.
+		const program = classMeta?.level || classMeta?.className || selectedStudent.className || '—';
 		const verifyUrl = `${window.location.origin}/verify?id=${encodeURIComponent(
 			studentId,
-		)}&academicYear=${encodeURIComponent(filters.academicYear)}`;
+		)}&academicYear=${encodeURIComponent(filters.academicYear)}&type=attestation`;
 		return {
 			studentName:
 				selectedStudent.fullName ||
@@ -393,8 +431,9 @@ export default function AttestationPage() {
 			}),
 			qrDataUrl,
 			verifyUrl,
+			principal: resolveSignatory(school, usersByAcademicYear, filters.academicYear, 'principal'),
 		};
-	}, [selectedStudent, school, filters.academicYear, qrDataUrl]);
+	}, [selectedStudent, school, filters.academicYear, qrDataUrl, usersByAcademicYear]);
 
 	const handleDownload = useCallback(async () => {
 		if (!attestationData) return;

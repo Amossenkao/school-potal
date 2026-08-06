@@ -26,6 +26,8 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { useSchoolStore } from '@/store/schoolStore';
+import useAuth from '@/store/useAuth';
+import { canAdministerPayments } from '@/utils/financialAccess';
 import {
 	buildSchoolAcademicYearRange,
 	pickCurrentOrMostRecentAcademicYear,
@@ -93,6 +95,19 @@ function StatTile({
 export default function ScholarshipsPage() {
 	const schoolProfile = useSchoolStore((state) => state.school);
 	const usersByAcademicYear = useSchoolStore((state) => state.usersByAcademicYear);
+	const currentUser = useAuth((state) => state.user);
+
+	/**
+	 * The page itself is now reachable by anyone with `financial_reports`
+	 * access — awarding or removing a scholarship still takes the narrower
+	 * `record_payments` permission, since it changes what a student owes just
+	 * as recording a payment does. The API enforces this independently; this
+	 * mirrors it so a viewer is never shown a control that can only fail.
+	 */
+	const canManageScholarships = useMemo(
+		() => canAdministerPayments(schoolProfile as any, currentUser),
+		[schoolProfile, currentUser],
+	);
 
 	const [academicYear, setAcademicYear] = useState('');
 	const [selectedStudent, setSelectedStudent] = useState<any>(null);
@@ -538,7 +553,7 @@ export default function ScholarshipsPage() {
 									<div className="mt-3 flex items-center justify-between border-t border-border pt-3">
 										<span className="flex items-center gap-1.5 text-xs font-bold text-primary opacity-80 transition-opacity group-hover:opacity-100">
 											<Users className="h-3.5 w-3.5" />
-											Manage beneficiaries
+											{canManageScholarships ? 'Manage beneficiaries' : 'View recipients'}
 										</span>
 										<span className="rounded-full bg-muted px-2 py-0.5 text-xs font-black tabular-nums text-foreground">
 											{count}
@@ -551,7 +566,10 @@ export default function ScholarshipsPage() {
 				)}
 			</section>
 
-			{/* ── Assignment ──────────────────────────────────────────────── */}
+			{/* ── Assignment ──────────────────────────────────────────────────
+			    Only for administrators holding `record_payments` — a viewer
+			    never sees the student search this section is built around. */}
+			{canManageScholarships && (
 			<section className="space-y-3">
 				<h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">
 					<UserPlus className="h-4 w-4" />
@@ -706,6 +724,7 @@ export default function ScholarshipsPage() {
 					</div>
 				)}
 			</section>
+			)}
 
 			{/* ── Beneficiaries dialog ────────────────────────────────────── */}
 			<Dialog
@@ -725,7 +744,10 @@ export default function ScholarshipsPage() {
 							{(stats.perScholarship.get(modalScholarship?.id) || 0) === 1
 								? ''
 								: 's'}{' '}
-							hold this award. Remove any who should no longer receive it.
+							hold this award.
+							{canManageScholarships
+								? ' Remove any who should no longer receive it.'
+								: ''}
 						</DialogDescription>
 					</DialogHeader>
 
@@ -778,6 +800,7 @@ export default function ScholarshipsPage() {
 													'—'}
 											</p>
 										</div>
+										{canManageScholarships && (
 										<button
 											type="button"
 											onClick={() => toggleModalRemove(student.studentId)}
@@ -798,6 +821,7 @@ export default function ScholarshipsPage() {
 												</>
 											)}
 										</button>
+										)}
 									</div>
 								);
 							})
@@ -819,7 +843,7 @@ export default function ScholarshipsPage() {
 						)}
 					</div>
 
-					{modalRemoved.size > 0 && (
+					{canManageScholarships && modalRemoved.size > 0 && (
 						<p className="text-xs text-muted-foreground">
 							{modalRemoved.size} student
 							{modalRemoved.size === 1 ? '' : 's'} marked for removal.
@@ -827,30 +851,42 @@ export default function ScholarshipsPage() {
 					)}
 
 					<DialogFooter>
-						<button
-							type="button"
-							onClick={closeModal}
-							disabled={modalSaving}
-							className="rounded-lg border border-border px-4 py-2 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
-						>
-							Cancel
-						</button>
-						<button
-							type="button"
-							onClick={handleModalSave}
-							disabled={modalSaving || modalRemoved.size === 0}
-							className="flex items-center justify-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-bold text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
-						>
-							{modalSaving ? (
-								<>
-									<Loader2 className="h-4 w-4 animate-spin" /> Saving…
-								</>
-							) : (
-								<>
-									<Trash2 className="h-4 w-4" /> Save Changes
-								</>
-							)}
-						</button>
+						{canManageScholarships ? (
+							<>
+								<button
+									type="button"
+									onClick={closeModal}
+									disabled={modalSaving}
+									className="rounded-lg border border-border px-4 py-2 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+								>
+									Cancel
+								</button>
+								<button
+									type="button"
+									onClick={handleModalSave}
+									disabled={modalSaving || modalRemoved.size === 0}
+									className="flex items-center justify-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-bold text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
+								>
+									{modalSaving ? (
+										<>
+											<Loader2 className="h-4 w-4 animate-spin" /> Saving…
+										</>
+									) : (
+										<>
+											<Trash2 className="h-4 w-4" /> Save Changes
+										</>
+									)}
+								</button>
+							</>
+						) : (
+							<button
+								type="button"
+								onClick={closeModal}
+								className="rounded-lg border border-border px-4 py-2 text-sm font-bold text-muted-foreground transition-colors hover:bg-muted"
+							>
+								Close
+							</button>
+						)}
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>

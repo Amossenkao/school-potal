@@ -10,6 +10,7 @@ import {
 	recordAuditEvent,
 	studentAuditIdentity,
 } from '@/utils/auditTrail';
+import { canAdministerPayments } from '@/utils/financialAccess';
 
 /**
  * Emits one audit event per financial attribute that actually changed.
@@ -176,6 +177,26 @@ export async function PATCH(req: NextRequest) {
 			);
 		}
 
+		// Fetched once, up front: needed both to gate the write below and, later,
+		// to resolve the student's class name for the audit trail.
+		const schoolProfile = await getSchoolProfile().catch(() => null);
+
+		// Awarding a scholarship or reassigning a ward teacher changes what a
+		// student owes or who is accountable for them — the same financial
+		// weight as recording a payment, so it takes the same authority: an
+		// administrator holding `record_payments`, not merely anyone who can
+		// view this page (view access now comes from `financial_reports`).
+		if (!canAdministerPayments(schoolProfile as any, sessionUser)) {
+			return NextResponse.json(
+				{
+					success: false,
+					message:
+						'You do not have permission to modify scholarships or ward assignments. This requires the "record payments" permission.',
+				},
+				{ status: 403 },
+			);
+		}
+
 		const payload = await req.json();
 		const { studentId, wardTeacherId, scholarships } = payload;
 
@@ -217,10 +238,6 @@ export async function PATCH(req: NextRequest) {
 				{ status: 404 },
 			);
 		}
-
-		// Fetched before the audit call as well as for the sync below: the trail
-		// resolves the student's class name from the profile's class tree.
-		const schoolProfile = await getSchoolProfile().catch(() => null);
 
 		await recordScholarshipAudit(req, sessionUser, before, updated, {
 			wardTeacherId,

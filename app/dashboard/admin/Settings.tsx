@@ -1249,16 +1249,17 @@ export default function Settings() {
 		[school?.identity?.currentAcademicYear],
 	);
 
-	// All academic years between firstAcademicYear and maxSelectableAcademicYear
+	// Dropdown options tied to the current calendar year: the academic year
+	// starting in the current year (matches the school profile's current
+	// academic year and is selected by default), plus the next two academic
+	// years (e.g. in 2025: 2025-2026, 2026-2027, 2027-2028).
 	const currentAcademicYearOptions = useMemo(() => {
-		const range = buildAcademicYearRange(
-			firstAcademicYear,
-			maxSelectableAcademicYear,
-		);
-		// Fallback: if range is empty, at least include the first year
-		const values = range.length > 0 ? range : [firstAcademicYear];
-		return values.map((year) => ({ value: year, label: year }));
-	}, [firstAcademicYear, maxSelectableAcademicYear]);
+		const currentCalendarYear = new Date().getFullYear();
+		return [0, 1, 2].map((offset) => {
+			const year = formatAcademicYear(currentCalendarYear + offset);
+			return { value: year, label: year };
+		});
+	}, []);
 
 	// Ensure the selected current academic year is always a valid option.
 	// On initial load, prefer the school's stored value; fall back to the

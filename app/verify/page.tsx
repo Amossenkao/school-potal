@@ -241,6 +241,430 @@ function ReceiptVerification({ receiptNumber }: { receiptNumber: string }) {
 	);
 }
 
+// ── shared shell for the document-verification branches ────────────────────
+//
+// Attestation, Financial Clearance, Graduation Clearance, and Transcript all
+// reuse this shell rather than four bespoke layouts — same header, same
+// green/red status banner as ReceiptVerification above.
+
+function VerificationShell({
+	label,
+	loading,
+	loadingMessage,
+	invalid,
+	invalidMessage,
+	subtitle,
+	children,
+}: {
+	label: string;
+	loading: boolean;
+	loadingMessage: string;
+	invalid: boolean;
+	invalidMessage: string;
+	subtitle: string;
+	children?: React.ReactNode;
+}) {
+	if (loading) {
+		return <PageLoading variant="school" message={loadingMessage} />;
+	}
+
+	return (
+		<div className="min-h-screen bg-background px-4 py-10">
+			<div className="mx-auto max-w-xl">
+				<div className="mb-6 flex items-center justify-between">
+					<div className="flex items-center gap-2">
+						<ShieldCheck className="h-5 w-5 text-primary" />
+						<span className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+							{label}
+						</span>
+					</div>
+					<ThemeToggleButton />
+				</div>
+
+				<div className="overflow-hidden rounded-2xl border border-border bg-card">
+					<div
+						className={`flex items-center gap-3 px-5 py-4 ${
+							invalid
+								? 'bg-destructive/10 text-destructive'
+								: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+						}`}
+					>
+						{invalid ? (
+							<AlertCircle className="h-6 w-6 shrink-0" />
+						) : (
+							<CheckCircle className="h-6 w-6 shrink-0" />
+						)}
+						<div className="min-w-0">
+							<p className="text-base font-black">{invalid ? 'Not verified' : 'Verified'}</p>
+							<p className="truncate text-xs opacity-80">{invalid ? invalidMessage : subtitle}</p>
+						</div>
+					</div>
+
+					{!invalid && <div className="space-y-5 p-5">{children}</div>}
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function FieldGrid({ fields }: { fields: { label: string; value: string }[] }) {
+	return (
+		<dl className="grid grid-cols-2 gap-4">
+			{fields.map((field) => (
+				<div key={field.label} className="min-w-0">
+					<dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+						{field.label}
+					</dt>
+					<dd className="truncate text-sm font-bold text-foreground">{field.value || '—'}</dd>
+				</div>
+			))}
+		</dl>
+	);
+}
+
+const formatBalance = (byCurrency: Record<string, number>) => {
+	const entries = Object.entries(byCurrency || {});
+	if (entries.length === 0) return '—';
+	return entries.map(([currency, amount]) => `${currency} ${formatMoney(amount)}`).join(', ');
+};
+
+// ── attestation ──────────────────────────────────────────────────────────
+
+function AttestationVerification({ studentId, academicYear }: { studentId: string; academicYear: string }) {
+	const [data, setData] = useState<any>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState('');
+
+	useEffect(() => {
+		let cancelled = false;
+		fetch(`/api/documents/attestation?id=${encodeURIComponent(studentId)}&academicYear=${encodeURIComponent(academicYear)}`)
+			.then((res) => res.json())
+			.then((json) => {
+				if (cancelled) return;
+				if (!json?.success) throw new Error(json?.message || 'Verification failed.');
+				setData(json.data);
+			})
+			.catch((err) => !cancelled && setError(err.message || 'Verification failed.'))
+			.finally(() => !cancelled && setLoading(false));
+		return () => {
+			cancelled = true;
+		};
+	}, [studentId, academicYear]);
+
+	const invalid = Boolean(error) || !data?.valid;
+
+	return (
+		<VerificationShell
+			label="Attestation Verification"
+			loading={loading}
+			loadingMessage="Verifying attestation..."
+			invalid={invalid}
+			invalidMessage={error || data?.message || 'No matching record found.'}
+			subtitle={`Issued by ${data?.schoolName || 'the school'}`}
+		>
+			{data && (
+				<FieldGrid
+					fields={[
+						{ label: 'Student', value: data.studentName },
+						{ label: 'Student ID', value: data.studentId },
+						{ label: 'Class', value: data.className },
+						{ label: 'Program', value: data.program },
+						{ label: 'Academic Year', value: data.academicYear },
+					]}
+				/>
+			)}
+		</VerificationShell>
+	);
+}
+
+// ── financial clearance ──────────────────────────────────────────────────
+
+function FinancialClearanceVerification({
+	studentId,
+	academicYear,
+	period,
+	installment,
+}: {
+	studentId: string;
+	academicYear: string;
+	period: string;
+	installment: string;
+}) {
+	const [data, setData] = useState<any>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState('');
+
+	useEffect(() => {
+		let cancelled = false;
+		const params = new URLSearchParams({ id: studentId, academicYear, period, installment });
+		fetch(`/api/documents/financial-clearance?${params.toString()}`)
+			.then((res) => res.json())
+			.then((json) => {
+				if (cancelled) return;
+				if (!json?.success) throw new Error(json?.message || 'Verification failed.');
+				setData(json.data);
+			})
+			.catch((err) => !cancelled && setError(err.message || 'Verification failed.'))
+			.finally(() => !cancelled && setLoading(false));
+		return () => {
+			cancelled = true;
+		};
+	}, [studentId, academicYear, period, installment]);
+
+	const invalid = Boolean(error) || !data?.valid;
+	const cleared = data && Object.values(data.outstandingByCurrency || {}).every((v: any) => v <= 0);
+
+	return (
+		<VerificationShell
+			label="Financial Clearance Verification"
+			loading={loading}
+			loadingMessage="Checking payment records..."
+			invalid={invalid}
+			invalidMessage={error || data?.message || 'No matching record found.'}
+			subtitle={`Issued by ${data?.schoolName || 'the school'}`}
+		>
+			{data && (
+				<>
+					<FieldGrid
+						fields={[
+							{ label: 'Student', value: data.studentName },
+							{ label: 'Class', value: data.className },
+							{ label: 'Period', value: data.period || '—' },
+							{ label: 'Through installment', value: data.installment || 'Full balance' },
+						]}
+					/>
+					<div
+						className={`flex items-center justify-between rounded-xl px-4 py-3 ${
+							cleared ? 'bg-emerald-500/10' : 'bg-destructive/10'
+						}`}
+					>
+						<span className="text-sm font-bold text-muted-foreground">
+							{cleared ? 'Cleared — no balance due' : 'Outstanding balance'}
+						</span>
+						<span
+							className={`text-lg font-black tabular-nums ${
+								cleared ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'
+							}`}
+						>
+							{cleared ? formatBalance(data.expectedByCurrency) : formatBalance(data.outstandingByCurrency)}
+						</span>
+					</div>
+					<p className="text-xs leading-relaxed text-muted-foreground">
+						This balance is recomputed live from the school&apos;s current payment
+						records — it reflects the account today, not necessarily the moment
+						this slip was printed.
+					</p>
+				</>
+			)}
+		</VerificationShell>
+	);
+}
+
+// ── graduation clearance ─────────────────────────────────────────────────
+
+function GraduationClearanceVerification({
+	studentId,
+	academicYear,
+	categoryId,
+	deadline,
+	ceremony,
+	lateFee,
+	lateFeeCurrency,
+	lateFeeCutoff,
+	finalCutoff,
+}: {
+	studentId: string;
+	academicYear: string;
+	categoryId: string;
+	deadline: string;
+	ceremony: string;
+	lateFee: string;
+	lateFeeCurrency: string;
+	lateFeeCutoff: string;
+	finalCutoff: string;
+}) {
+	const [data, setData] = useState<any>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState('');
+
+	useEffect(() => {
+		let cancelled = false;
+		const params = new URLSearchParams({ id: studentId, academicYear, categoryId });
+		fetch(`/api/documents/graduation-clearance?${params.toString()}`)
+			.then((res) => res.json())
+			.then((json) => {
+				if (cancelled) return;
+				if (!json?.success) throw new Error(json?.message || 'Verification failed.');
+				setData(json.data);
+			})
+			.catch((err) => !cancelled && setError(err.message || 'Verification failed.'))
+			.finally(() => !cancelled && setLoading(false));
+		return () => {
+			cancelled = true;
+		};
+	}, [studentId, academicYear, categoryId]);
+
+	const invalid = Boolean(error) || !data?.valid;
+	const cleared = data && Object.values(data.overallOutstandingByCurrency || {}).every((v: any) => v <= 0);
+
+	return (
+		<VerificationShell
+			label="Graduation Clearance Verification"
+			loading={loading}
+			loadingMessage="Checking academic and financial records..."
+			invalid={invalid}
+			invalidMessage={error || data?.message || 'No matching record found.'}
+			subtitle={`Issued by ${data?.schoolName || 'the school'}`}
+		>
+			{data && (
+				<>
+					<FieldGrid
+						fields={[
+							{ label: 'Student', value: data.studentName },
+							{ label: 'Class', value: data.className },
+							{ label: 'Academic Year', value: data.academicYear },
+						]}
+					/>
+
+					{data.graduationFees?.lines?.length > 0 && (
+						<div>
+							<p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+								Graduation Fees
+							</p>
+							<ul className="divide-y divide-border rounded-xl border border-border">
+								{data.graduationFees.lines.map((line: any) => (
+									<li key={line.feeName} className="flex items-center justify-between gap-3 px-3 py-2.5">
+										<span className="text-sm font-bold text-foreground">{line.feeName}</span>
+										<span className="text-sm font-black tabular-nums text-foreground">
+											{line.currency} {formatMoney(line.expected)}
+										</span>
+									</li>
+								))}
+							</ul>
+						</div>
+					)}
+
+					<div
+						className={`flex items-center justify-between rounded-xl px-4 py-3 ${
+							cleared ? 'bg-emerald-500/10' : 'bg-destructive/10'
+						}`}
+					>
+						<span className="text-sm font-bold text-muted-foreground">
+							{cleared ? 'Zero balance — cleared for graduation' : 'Outstanding balance'}
+						</span>
+						<span
+							className={`text-lg font-black tabular-nums ${
+								cleared ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'
+							}`}
+						>
+							{cleared ? 'LRD 0.00' : formatBalance(data.overallOutstandingByCurrency)}
+						</span>
+					</div>
+
+					{(deadline || ceremony || lateFee || finalCutoff) && (
+						<div>
+							<p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+								As printed on this letter
+							</p>
+							<FieldGrid
+								fields={[
+									{ label: 'Payment deadline', value: deadline },
+									{ label: 'Ceremony date', value: ceremony },
+									{ label: 'Late fee', value: lateFee ? `${lateFeeCurrency} ${lateFee}${lateFeeCutoff ? ` (through ${lateFeeCutoff})` : ''}` : '—' },
+									{ label: 'Absolute cutoff', value: finalCutoff },
+								]}
+							/>
+						</div>
+					)}
+
+					<p className="text-xs leading-relaxed text-muted-foreground">
+						The fee items and balance above are recomputed live from the
+						school&apos;s current records. The deadline/ceremony/late-fee text
+						is exactly what was printed on the letter — it isn&apos;t stored
+						anywhere to look up independently.
+					</p>
+				</>
+			)}
+		</VerificationShell>
+	);
+}
+
+// ── transcript ────────────────────────────────────────────────────────────
+
+function TranscriptVerification({ studentId }: { studentId: string }) {
+	const [data, setData] = useState<any>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState('');
+
+	useEffect(() => {
+		let cancelled = false;
+		fetch(`/api/documents/transcript?id=${encodeURIComponent(studentId)}`)
+			.then((res) => res.json())
+			.then((json) => {
+				if (cancelled) return;
+				if (!json?.success) throw new Error(json?.message || 'Verification failed.');
+				setData(json.data);
+			})
+			.catch((err) => !cancelled && setError(err.message || 'Verification failed.'))
+			.finally(() => !cancelled && setLoading(false));
+		return () => {
+			cancelled = true;
+		};
+	}, [studentId]);
+
+	const invalid = Boolean(error) || !data?.valid;
+
+	return (
+		<VerificationShell
+			label="Transcript Verification"
+			loading={loading}
+			loadingMessage="Verifying transcript..."
+			invalid={invalid}
+			invalidMessage={error || data?.message || 'No matching record found.'}
+			subtitle={`Issued by ${data?.schoolName || 'the school'}`}
+		>
+			{data && (
+				<>
+					<FieldGrid
+						fields={[
+							{ label: 'Student', value: data.studentName },
+							{ label: 'Student ID', value: data.studentId },
+							{ label: 'Overall Average', value: data.overallAverage?.toFixed(1) || '—' },
+						]}
+					/>
+					<div className="space-y-3">
+						{(data.years || []).map((year: any) => (
+							<div key={year.year} className="rounded-xl border border-border p-3">
+								<div className="mb-2 flex items-center justify-between">
+									<span className="text-sm font-bold text-foreground">
+										{year.className} ({year.year})
+									</span>
+									<span className="text-xs font-bold text-muted-foreground">
+										Avg {year.yearlyAverage.toFixed(1)} · Rank #{year.rank || '—'}
+										{year.classStudentCount ? ` of ${year.classStudentCount}` : ''}
+									</span>
+								</div>
+								<div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+									{year.subjects.map((subject: any) => (
+										<div key={subject.name} className="flex items-center justify-between gap-2 text-xs">
+											<span className="truncate text-muted-foreground">{subject.name}</span>
+											<span className="font-bold text-foreground">{subject.grade.toFixed(0)}</span>
+										</div>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
+					<p className="text-xs leading-relaxed text-muted-foreground">
+						Recomputed live from the school&apos;s approved grade records — this
+						will always match the school&apos;s current authoritative history.
+					</p>
+				</>
+			)}
+		</VerificationShell>
+	);
+}
+
 // ── main content ───────────────────────────────────────────────────────────
 
 function VerifyContent() {
@@ -645,16 +1069,52 @@ function VerifyContent() {
 }
 
 /**
- * `/verify` serves two kinds of QR: academic report codes (`?id=&academicYear=`)
- * and payment receipt codes (`?receipt=`). Routing happens in its own component
- * so each branch keeps its own hooks.
+ * `/verify` serves several kinds of QR, routed by a discriminator: payment
+ * receipts (`?receipt=`), report cards (`?id=&academicYear=`, no `type` —
+ * the original, unchanged shape), and the newer document types carrying an
+ * explicit `type=`. Routing happens in its own component so each branch
+ * keeps its own hooks.
  */
 function VerifyRouter() {
 	const searchParams = useSearchParams();
 	const receiptNumber = searchParams.get('receipt');
+	const id = searchParams.get('id') || '';
+	const academicYear = searchParams.get('academicYear') || '';
+	const type = searchParams.get('type') || '';
 
 	if (receiptNumber) {
 		return <ReceiptVerification receiptNumber={receiptNumber} />;
+	}
+	if (type === 'transcript' && id) {
+		return <TranscriptVerification studentId={id} />;
+	}
+	if (type === 'attestation' && id) {
+		return <AttestationVerification studentId={id} academicYear={academicYear} />;
+	}
+	if (type === 'financial_clearance' && id) {
+		return (
+			<FinancialClearanceVerification
+				studentId={id}
+				academicYear={academicYear}
+				period={searchParams.get('period') || ''}
+				installment={searchParams.get('installment') || ''}
+			/>
+		);
+	}
+	if (type === 'graduation_clearance' && id) {
+		return (
+			<GraduationClearanceVerification
+				studentId={id}
+				academicYear={academicYear}
+				categoryId={searchParams.get('categoryId') || ''}
+				deadline={searchParams.get('deadline') || ''}
+				ceremony={searchParams.get('ceremony') || ''}
+				lateFee={searchParams.get('lateFee') || ''}
+				lateFeeCurrency={searchParams.get('lateFeeCurrency') || ''}
+				lateFeeCutoff={searchParams.get('lateFeeCutoff') || ''}
+				finalCutoff={searchParams.get('finalCutoff') || ''}
+			/>
+		);
 	}
 	return <VerifyContent />;
 }
