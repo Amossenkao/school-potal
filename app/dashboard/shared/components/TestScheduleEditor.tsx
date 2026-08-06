@@ -398,40 +398,39 @@ export default function TestScheduleEditor({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+			<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
 				<DialogHeader>
 					<DialogTitle>
 						{isEditing ? 'Edit test schedule' : 'New test schedule'}
 					</DialogTitle>
 				</DialogHeader>
 
-				<div className="space-y-5">
+				<div className="space-y-3">
 					{/* ── One title and one period for the whole schedule ─────── */}
-					<div className="space-y-4 rounded-2xl border border-border bg-muted/30 p-4">
-						<label className="block space-y-1.5">
-							<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-								Schedule title
-							</span>
-							<input
-								type="text"
-								value={title}
-								onChange={(event) => setTitle(event.target.value)}
-								placeholder='e.g. "3rd Period Examinations"'
-								className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-							/>
-						</label>
-
-						<div className="space-y-1.5">
-							<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-								Academic period
-							</span>
-							<div className="flex flex-wrap gap-1.5">
+					<div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
+						<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+							<label className="flex min-w-0 flex-1 items-center gap-1.5">
+								<span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+									Title
+								</span>
+								<input
+									type="text"
+									value={title}
+									onChange={(event) => setTitle(event.target.value)}
+									placeholder='e.g. "3rd Period Examinations"'
+									className="h-9 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+								/>
+							</label>
+							<div className="flex flex-wrap items-center gap-1.5">
+								<span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+									Period
+								</span>
 								{ACADEMIC_PERIODS.map((option) => (
 									<button
 										key={option.value}
 										type="button"
 										onClick={() => setPeriod(option.value)}
-										className={`rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
+										className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-colors ${
 											period === option.value
 												? 'bg-primary text-primary-foreground'
 												: 'bg-muted text-muted-foreground hover:text-foreground'
@@ -442,22 +441,21 @@ export default function TestScheduleEditor({
 								))}
 							</div>
 						</div>
-
-						<p className="text-xs text-muted-foreground">
+						<p className="text-[10px] text-muted-foreground">
 							{session} · {level} · {academicYear}
 						</p>
 					</div>
 
 					{/* ── Sittings: one date, many timed subjects ─────────────── */}
-					<div className="space-y-3">
-						<div>
-							<h3 className="text-sm font-bold text-foreground">
+					<div className="space-y-2">
+						<div className="flex flex-wrap items-baseline justify-between gap-2">
+							<h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
 								Sittings
-								<span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+								<span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
 									{sittings.length}
 								</span>
 							</h3>
-							<p className="text-[11px] text-muted-foreground">
+							<p className="text-[10px] text-muted-foreground">
 								One date each, with every subject written that day.
 							</p>
 						</div>
@@ -465,83 +463,75 @@ export default function TestScheduleEditor({
 						{sittings.map((sitting, index) => (
 							<div
 								key={sitting.key}
-								className="space-y-3 rounded-xl border border-border p-3"
+								className="space-y-2 rounded-xl border border-border p-2.5"
 							>
-								<div className="flex items-center justify-between gap-2">
-									<span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-										<CalendarDays className="h-3.5 w-3.5" />
+								<div className="flex flex-wrap items-center justify-between gap-2">
+									<span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+										<CalendarDays className="h-3 w-3" />
 										Day {index + 1}
 									</span>
-									{sittings.length > 1 && (
-										<button
-											type="button"
-											onClick={() =>
-												setSittings((prev) =>
-													prev.filter((item) => item.key !== sitting.key),
-												)
-											}
-											aria-label={`Remove day ${index + 1}`}
-											className="rounded-lg p-1 text-destructive transition-colors hover:bg-destructive/10"
-										>
-											<Trash2 className="h-3.5 w-3.5" />
-										</button>
-									)}
-								</div>
-
-								<div className="space-y-1.5">
-									<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-										Date
-									</span>
-									<DatePicker
-										value={sitting.date}
-										onChange={(value) => updateSitting(sitting.key, { date: value })}
-										placeholder="Pick the day"
-									/>
-								</div>
-
-								<div className="space-y-1.5">
-									<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-										Classes writing this day
-									</span>
-									<div className="flex flex-wrap gap-1.5">
-										{classOptions.map((klass) => {
-											const on = sitting.classIds.includes(klass.classId);
-											return (
-												<button
-													key={klass.classId}
-													type="button"
-													onClick={() => toggleClass(sitting.key, klass.classId)}
-													className={`rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
-														on
-															? 'bg-primary text-primary-foreground'
-															: 'bg-muted text-muted-foreground hover:text-foreground'
-													}`}
-												>
-													{klass.className}
-												</button>
-											);
-										})}
+									<div className="flex items-center gap-1.5">
+										<DatePicker
+											value={sitting.date}
+											onChange={(value) => updateSitting(sitting.key, { date: value })}
+											placeholder="Pick the day"
+											className="w-52"
+										/>
+										{sittings.length > 1 && (
+											<button
+												type="button"
+												onClick={() =>
+													setSittings((prev) =>
+														prev.filter((item) => item.key !== sitting.key),
+													)
+												}
+												aria-label={`Remove day ${index + 1}`}
+												className="rounded-md p-1.5 text-destructive transition-colors hover:bg-destructive/10"
+											>
+												<Trash2 className="h-3.5 w-3.5" />
+											</button>
+										)}
 									</div>
+								</div>
+
+								<div className="flex flex-wrap items-center gap-1.5">
+									{classOptions.map((klass) => {
+										const on = sitting.classIds.includes(klass.classId);
+										return (
+											<button
+												key={klass.classId}
+												type="button"
+												onClick={() => toggleClass(sitting.key, klass.classId)}
+												className={`rounded-full px-2 py-1 text-[11px] font-bold transition-colors ${
+													on
+														? 'bg-primary text-primary-foreground'
+														: 'bg-muted text-muted-foreground hover:text-foreground'
+												}`}
+											>
+												{klass.className}
+											</button>
+										);
+									})}
 									{sitting.classIds.length === 0 && (
-										<p className="text-[11px] text-muted-foreground">
+										<span className="text-[10px] text-muted-foreground">
 											None picked — every class in {level} writes this day.
-										</p>
+										</span>
 									)}
 								</div>
 
 								{/* Subjects for this day, each with its own window. */}
-								<div className="space-y-2 rounded-lg border border-border bg-muted/20 p-2.5">
-									<span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+								<div className="space-y-1.5 rounded-lg border border-border bg-muted/20 p-1.5">
+									<span className="block px-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
 										Subjects &amp; times
 									</span>
 
 									{sitting.papers.map((paper, paperIndex) => (
 										<div
 											key={paper.key}
-											className="grid gap-2 rounded-lg border border-border bg-card p-2.5 sm:grid-cols-[1fr_auto_auto_auto]"
+											className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-card p-1.5"
 										>
-											<label className="block space-y-1">
-												<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+											<label className="flex min-w-[9rem] flex-1 items-center gap-1.5">
+												<span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
 													Subject
 												</span>
 												{subjects.length > 0 ? (
@@ -552,7 +542,7 @@ export default function TestScheduleEditor({
 																subject: event.target.value,
 															})
 														}
-														className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+														className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
 													>
 														<option value="">Select subject</option>
 														{subjects.map((subject) => (
@@ -571,12 +561,12 @@ export default function TestScheduleEditor({
 															})
 														}
 														placeholder="Subject"
-														className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+														className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
 													/>
 												)}
 											</label>
 
-											<label className="block space-y-1">
+											<label className="flex items-center gap-1">
 												<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
 													From
 												</span>
@@ -588,11 +578,11 @@ export default function TestScheduleEditor({
 															startTime: event.target.value,
 														})
 													}
-													className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+													className="h-8 w-24 rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
 												/>
 											</label>
 
-											<label className="block space-y-1">
+											<label className="flex items-center gap-1">
 												<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
 													To
 												</span>
@@ -604,35 +594,13 @@ export default function TestScheduleEditor({
 															endTime: event.target.value,
 														})
 													}
-													className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+													className="h-8 w-24 rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
 												/>
 											</label>
 
-											<div className="flex items-end justify-end">
-												{sitting.papers.length > 1 && (
-													<button
-														type="button"
-														onClick={() =>
-															updateSitting(sitting.key, {
-																papers: sitting.papers.filter(
-																	(item) => item.key !== paper.key,
-																),
-															})
-														}
-														aria-label={`Remove subject ${paperIndex + 1}`}
-														className="rounded-lg p-2 text-destructive transition-colors hover:bg-destructive/10"
-													>
-														<Trash2 className="h-3.5 w-3.5" />
-													</button>
-												)}
-											</div>
-
-											<label className="block space-y-1 sm:col-span-4">
+											<label className="flex items-center gap-1">
 												<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-													Venue{' '}
-													<span className="font-medium normal-case">
-														(optional)
-													</span>
+													Venue
 												</span>
 												<input
 													type="text"
@@ -642,15 +610,30 @@ export default function TestScheduleEditor({
 															venue: event.target.value,
 														})
 													}
-													placeholder="e.g. Main hall"
-													className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+													placeholder="Optional"
+													className="h-8 w-28 rounded-md border border-input bg-background px-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
 												/>
 											</label>
+
+											{sitting.papers.length > 1 && (
+												<button
+													type="button"
+													onClick={() =>
+														updateSitting(sitting.key, {
+															papers: sitting.papers.filter(
+																(item) => item.key !== paper.key,
+															),
+														})
+													}
+													aria-label={`Remove subject ${paperIndex + 1}`}
+													className="rounded-md p-1.5 text-destructive transition-colors hover:bg-destructive/10"
+												>
+													<Trash2 className="h-3.5 w-3.5" />
+												</button>
+											)}
 										</div>
 									))}
 
-									{/* Sits after the last subject, so adding one does not mean
-									    scrolling back up and then down again to fill it in. */}
 									<button
 										type="button"
 										onClick={() =>
@@ -658,7 +641,7 @@ export default function TestScheduleEditor({
 												papers: [...sitting.papers, newPaper()],
 											})
 										}
-										className="inline-flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-border bg-card px-2 py-2 text-[11px] font-bold text-foreground transition-colors hover:border-primary/40 hover:bg-muted"
+										className="inline-flex h-8 w-full items-center justify-center gap-1 rounded-lg border border-dashed border-border bg-card text-[11px] font-bold text-foreground transition-colors hover:border-primary/40 hover:bg-muted"
 									>
 										<Plus className="h-3 w-3" />
 										Add subject
@@ -671,9 +654,9 @@ export default function TestScheduleEditor({
 						<button
 							type="button"
 							onClick={() => setSittings((prev) => [...prev, newSitting()])}
-							className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border px-3 py-2.5 text-xs font-bold text-foreground transition-colors hover:border-primary/40 hover:bg-muted"
+							className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-[11px] font-bold text-foreground transition-colors hover:border-primary/40 hover:bg-muted"
 						>
-							<Plus className="h-3.5 w-3.5" />
+							<Plus className="h-3 w-3" />
 							Add day
 						</button>
 					</div>

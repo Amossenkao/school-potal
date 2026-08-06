@@ -172,6 +172,47 @@ async function discoverTenantDbNames(mongoUri) {
 
 const BATCH_SIZE = 500;
 
+// Sort order the backfill relies on. The index is created up front so the
+// sorted find is served by the index instead of a blocking in-memory sort,
+// which blows past MongoDB's 32MB sort limit on big collections (and
+// `allowDiskUse` on `find` is only honored by servers >= 4.4).
+const BACKFILL_SORT = { createdAt: 1, _id: 1 };
+
+// Creates the `{ createdAt, _id }` index the backfill scan sorts by. Index
+// creation is idempotent, so running the migration again is a no-op here.
+async function ensureBackfillIndexes(db, dryRun) {
+	for (const entry of SYNC_DOMAINS) {
+		const collection = db.collection(entry.collection);
+		const hasCollection = await collection
+			.find({}, { projection: { _id: 1 } })
+			.limit(1)
+			.hasNext();
+		if (!hasCollection) continue;
+		if (dryRun) {
+			console.log(
+				`[dry-run] [index] ${entry.collection} ${JSON.stringify(BACKFILL_SORT)}`,
+			);
+			continue;
+		}
+		await collection.createIndex(BACKFILL_SORT);
+		console.log(`[index] ${entry.collection} ${JSON.stringify(BACKFILL_SORT)}`);
+	}
+
+	const users = db.collection('users');
+	const hasUsers = await users
+		.find({}, { projection: { _id: 1 } })
+		.limit(1)
+		.hasNext();
+	if (hasUsers) {
+		if (dryRun) {
+			console.log(`[dry-run] [index] users ${JSON.stringify(BACKFILL_SORT)}`);
+			return;
+		}
+		await users.createIndex(BACKFILL_SORT);
+		console.log(`[index] users ${JSON.stringify(BACKFILL_SORT)}`);
+	}
+}
+
 // Backfills `seq` (per (domain, academicYear) bucket, ordered by createdAt)
 // and `deletedAt` on the 7 sync-capable collections. Returns the per-bucket
 // seq count map keyed as `${domain}:${academicYear}`.
@@ -187,9 +228,46 @@ async function backfillSeqAndDeletedAt(db, dryRun) {
 			.hasNext();
 		if (!hasCollection) continue;
 
+		// Resume from any seq a previous (partial) run already stamped, so a
+		// re-run keeps counting up instead of re-issuing seq values the next
+		// appendChange could collide with.
+		const existingSeq = await collection
+			.aggregate(
+				[
+					{ $match: { seq: { $exists: true } } },
+					{
+						$group: {
+							_id: {
+								year: `$${entry.yearField}`,
+								eventType:
+									entry.collection === 'schoolevents' ? '$eventType' : entry.domain,
+							},
+							maxSeq: { $max: '$seq' },
+						},
+					},
+				],
+				{ allowDiskUse: true },
+			)
+			.toArray();
+		for (const row of existingSeq) {
+			const year = String(row._id?.year || '').trim();
+			if (!year) continue;
+			const domain =
+				entry.collection === 'schoolevents'
+					? EVENT_DOMAIN_BY_TYPE(row._id?.eventType)
+					: entry.domain;
+			const bucketKey = `${domain}:${year}`;
+			counters.set(
+				bucketKey,
+				Math.max(counters.get(bucketKey) || 0, row.maxSeq || 0),
+			);
+		}
+
 		const cursor = collection
 			.find({ seq: { $exists: false } })
-			.sort({ createdAt: 1, _id: 1 });
+			.sort(BACKFILL_SORT)
+			.hint(BACKFILL_SORT)
+			.allowDiskUse(true);
 
 		let ops = [];
 		let bucketCounts = 0;
@@ -245,11 +323,23 @@ async function backfillSeqAndDeletedAt(db, dryRun) {
 		.limit(1)
 		.hasNext();
 	if (hasUsers) {
+		const existingUserSeq = await users
+			.aggregate(
+				[
+					{ $match: { seq: { $exists: true } } },
+					{ $group: { _id: null, maxSeq: { $max: '$seq' } } },
+				],
+				{ allowDiskUse: true },
+			)
+			.toArray();
+		let userCount = Number(existingUserSeq[0]?.maxSeq || 0);
+
 		const cursor = users
 			.find({ seq: { $exists: false } })
-			.sort({ createdAt: 1, _id: 1 });
+			.sort(BACKFILL_SORT)
+			.hint(BACKFILL_SORT)
+			.allowDiskUse(true);
 		let ops = [];
-		let userCount = 0;
 		while (await cursor.hasNext()) {
 			const doc = await cursor.next();
 			userCount += 1;
@@ -381,6 +471,7 @@ async function migrateTenantDb(mongoUri, dbName, dryRun) {
 	try {
 		await conn.asPromise();
 		const db = conn.db;
+		await ensureBackfillIndexes(db, dryRun);
 		const counters = await backfillSeqAndDeletedAt(db, dryRun);
 		await seedSyncSequences(db, counters, dryRun);
 		await ensureIndexes(db, dryRun);

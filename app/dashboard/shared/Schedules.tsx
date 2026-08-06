@@ -1452,92 +1452,90 @@ export default function Schedules({ user, schoolProfile }: SchedulesProps) {
 							</DialogTitle>
 						</DialogHeader>
 
-						<div className="grid gap-3 sm:grid-cols-3">
-							<label className="block space-y-1.5">
-								<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-									Day
-								</span>
-								<select
-									value={slotDay}
-									onChange={(event) => setSlotDay(event.target.value)}
-									className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-								>
-									{DAYS_OF_WEEK.map((day) => (
-										<option key={day} value={day}>
-											{day}
-										</option>
-									))}
-								</select>
-							</label>
-							<label className="block space-y-1.5">
-								<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-									Start time
-								</span>
-								<input
-									type="time"
-									value={slotStart}
-									onChange={(event) => setSlotStart(event.target.value)}
-									className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-								/>
-							</label>
-							<label className="block space-y-1.5">
-								<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-									End time
-								</span>
-								<input
-									type="time"
-									value={slotEnd}
-									onChange={(event) => setSlotEnd(event.target.value)}
-									className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-								/>
-							</label>
-						</div>
+						<div className="space-y-3">
+							<div className="grid gap-2 sm:grid-cols-3">
+								<label className="block space-y-1">
+									<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+										Day
+									</span>
+									<select
+										value={slotDay}
+										onChange={(event) => setSlotDay(event.target.value)}
+										className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+									>
+										{DAYS_OF_WEEK.map((day) => (
+											<option key={day} value={day}>
+												{day}
+											</option>
+										))}
+									</select>
+								</label>
+								<label className="block space-y-1">
+									<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+										Start time
+									</span>
+									<input
+										type="time"
+										value={slotStart}
+										onChange={(event) => setSlotStart(event.target.value)}
+										className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+									/>
+								</label>
+								<label className="block space-y-1">
+									<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+										End time
+									</span>
+									<input
+										type="time"
+										value={slotEnd}
+										onChange={(event) => setSlotEnd(event.target.value)}
+										className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+									/>
+								</label>
+							</div>
 
-						<label className="flex items-center gap-2 text-sm text-muted-foreground">
-							<input
-								type="checkbox"
-								checked={slotIsRecess}
-								onChange={(event) => setSlotIsRecess(event.target.checked)}
-								className="h-4 w-4 rounded border-input text-primary focus:ring-primary"
-							/>
-							Recess for this slot
-						</label>
+							<div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-2.5 py-2">
+								<label className="flex items-center gap-2 text-xs font-medium text-foreground">
+									<input
+										type="checkbox"
+										checked={slotIsRecess}
+										onChange={(event) => setSlotIsRecess(event.target.checked)}
+										className="h-3.5 w-3.5 rounded border-input text-primary focus:ring-primary"
+									/>
+									Recess for this slot
+								</label>
+								{!slotIsRecess && (
+									<p className="text-[10px] text-muted-foreground">
+										Leave a subject blank to skip that class — no need to fill
+										every class in the level.
+									</p>
+								)}
+							</div>
 
-						{!slotIsRecess && (
-							<p className="text-xs text-muted-foreground">
-								Leave a subject blank to skip that class — no need to fill
-								every class in the level.
-							</p>
-						)}
-
-						<div className="space-y-2">
 							{slotEntries.filter((entry) => entry.classId !== '__none__').length ===
 							0 ? (
 								<p className="text-sm text-muted-foreground">
 									No classes found for this level.
 								</p>
 							) : (
-								slotEntries
-									.filter((entry) => entry.classId !== '__none__')
-									.map((entry) => (
-										<div
-											key={entry.classId}
-											className="grid gap-3 rounded-xl border border-border p-3 sm:grid-cols-2"
-										>
-											<div>
-												<p className="text-sm font-bold text-foreground">
-													{entry.className}
-												</p>
-												<p className="text-xs text-muted-foreground">
-													{entry.classId === '__all__'
-														? 'Applies to all classes'
-														: 'Class specific'}
-												</p>
-											</div>
-											<label className="block space-y-1.5">
-												<span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-													Subject
-												</span>
+								<div className="grid gap-1.5 sm:grid-cols-2">
+									{slotEntries
+										.filter((entry) => entry.classId !== '__none__')
+										.map((entry) => (
+											<div
+												key={entry.classId}
+												className="flex items-center gap-2 rounded-lg border border-border px-2.5 py-1.5"
+											>
+												<div className="min-w-0 flex-1">
+													<p className="truncate text-xs font-bold text-foreground">
+														{entry.className}
+													</p>
+													<p className="truncate text-[10px] text-muted-foreground">
+														{entry.classId === '__all__'
+															? 'Applies to all classes'
+															: 'Class specific'}
+													</p>
+												</div>
 												<select
 													value={slotIsRecess ? 'Recess' : entry.subject}
 													disabled={slotIsRecess}
@@ -1550,7 +1548,7 @@ export default function Schedules({ user, schoolProfile }: SchedulesProps) {
 															),
 														)
 													}
-													className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+													className="h-8 w-40 shrink-0 rounded-md border border-input bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
 												>
 													{slotIsRecess && <option value="Recess">Recess</option>}
 													<option value="">Select subject</option>
@@ -1560,15 +1558,15 @@ export default function Schedules({ user, schoolProfile }: SchedulesProps) {
 														</option>
 													))}
 												</select>
-											</label>
-										</div>
-									))
+											</div>
+										))}
+								</div>
+							)}
+
+							{scheduleError && (
+								<p className="text-sm font-medium text-destructive">{scheduleError}</p>
 							)}
 						</div>
-
-						{scheduleError && (
-							<p className="text-sm font-medium text-destructive">{scheduleError}</p>
-						)}
 
 						<DialogFooter className="flex-wrap gap-2 sm:justify-between">
 							<div className="flex flex-wrap gap-2">
