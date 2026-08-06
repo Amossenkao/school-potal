@@ -1,0 +1,6826 @@
+{
+	"message": "Login successful",
+	"user": {
+		"id": "698d9238d1f7b1de2a2cd3f5",
+		"username": "TEA2025007",
+		"role": "teacher",
+		"firstName": "Ishmael",
+		"middleName": "T.",
+		"lastName": "Berry",
+		"fullName": "Ishmael T. Berry",
+		"nickName": "",
+		"gender": "Male",
+		"dateOfBirth": "Sat Feb 12 1977 00:00:00 GMT+0000 (Coordinated Universal Time)",
+		"isActive": true,
+		"mustChangePassword": false,
+		"passwordChangedAt": "2026-08-06T14:30:35.887Z",
+		"phone": "0775336171",
+		"address": "Monrovia, Liberia",
+		"bio": "",
+		"avatar": "https://api.dicebear.com/9.x/open-peeps/svg?seed=Quinn&skinColor=f2d3b1&face=serious&head=hatHip&clothingColor=9ddadb&backgroundColor=d1d4f9",
+		"defaultPassword": null,
+		"notifications": [
+			{
+				"title": "Password Reset",
+				"message": "Your password was reset by Amos Senkao. Please change it after logging in.",
+				"timestamp": "2026-08-06T14:29:39.399Z",
+				"read": true,
+				"dismissed": false,
+				"type": "Security",
+				"_id": "6a749a5375dafe5e33170c87"
+			},
+			{
+				"title": "Password Changed",
+				"message": "You changed your password.",
+				"timestamp": "2026-08-06T14:30:36.785Z",
+				"read": true,
+				"dismissed": false,
+				"type": "Security",
+				"_id": "6a749a8c75dafe5e33170d51"
+			}
+		],
+		"chats": [],
+		"chatSessions": [],
+		"subjects": [
+			{
+				"year": "2025-2026",
+				"classes": []
+			},
+			{
+				"year": "2026-2027",
+				"classes": [
+					{
+						"classId": "Morning-GradeElevenA",
+						"subjects": ["Accounting", "Economics"]
+					},
+					{
+						"classId": "Morning-GradeElevenB",
+						"subjects": ["Accounting", "Economics"]
+					},
+					{
+						"classId": "Morning-GradeTenA",
+						"subjects": ["Accounting", "Economics"]
+					},
+					{
+						"classId": "Morning-GradeTenB",
+						"subjects": ["Accounting", "Economics"]
+					},
+					{
+						"classId": "Morning-GradeTwelveA",
+						"subjects": ["Accounting", "Economics"]
+					},
+					{
+						"classId": "Morning-GradeTwelveB",
+						"subjects": ["Accounting", "Economics"]
+					}
+				]
+			}
+		],
+		"sponsorClass": null
+	},
+	"academicYear": "2026-2027",
+	"defaultAcademicYear": "2026-2027",
+	"allowedAcademicYears": ["2026-2027", "2025-2026"],
+	"school": {
+		"_id": "6a6775024607094e4be5019d",
+		"system": {
+			"isActive": true,
+			"host": "ucaliberia.vercel.app",
+			"dbName": "uca"
+		},
+		"identity": {
+			"name": "Upstairs Christian Academy",
+			"shortName": "Upstairs",
+			"initials": "UCA",
+			"slogan": "Excellence in Education",
+			"studentIdPrefix": "UCA",
+			"yearFounded": 2016,
+			"firstAcademicYear": "2025-2026",
+			"currentAcademicYear": "2026-2027"
+		},
+		"branding": {
+			"themeName": "goldCircuit",
+			"logoUrl": "https://res.cloudinary.com/dcalueltd/image/upload/v1753368059/school-management-system/uca/logo.png",
+			"logoUrl2": "https://res.cloudinary.com/dcalueltd/image/upload/v1753484515/school-management-system/uca/uca_logo2_kqlgdl.png",
+			"reportCardThemes": {
+				"Lower Elementary": "pureBlack",
+				"Daycare Division": "pureBlack",
+				"Upper Elementary": "pureBlack",
+				"Senior High": "midnightSapphire",
+				"Junior High": "pureBlack"
+			}
+		},
+		"contact": {
+			"addresses": [
+				{
+					"lines": [
+						"Daycare",
+						"Nursery",
+						"Kindergarten",
+						"Elem",
+						"Junior & Senior High"
+					]
+				},
+				{
+					"lines": ["Unity Town", "Pipeline Road", "Lower Johnsonville "]
+				},
+				{
+					"lines": ["P.O Box 2523 Montserrado County Liberia "]
+				},
+				{
+					"lines": ["Email: ucacedemy2011@gmail.com"]
+				}
+			],
+			"phones": ["+231 770 123 456", "+231 880 789 012"],
+			"emails": ["info@unityca.edu.lr", "admissions@unityca.edu.lr"],
+			"website": ""
+		},
+		"academicConfig": {
+			"gradingSettings": {
+				"passMark": 70,
+				"gradeScale": {
+					"min": 60,
+					"max": 100
+				},
+				"hasSummerSchool": true,
+				"givesDoublePromotion": true
+			},
+			"classLevels": {
+				"Morning": {
+					"Daycare Division": {
+						"isSelfContained": true,
+						"classes": [
+							{
+								"classId": "Morning-Nursery",
+								"name": "Nursery"
+							},
+							{
+								"classId": "Morning-ABC",
+								"name": "ABC"
+							}
+						],
+						"subjects": [
+							{
+								"name": "Hygiene"
+							},
+							{
+								"name": "Social Skills"
+							},
+							{
+								"name": "Identifying Alphabets"
+							},
+							{
+								"name": "Identifying Numbers"
+							},
+							{
+								"name": "Tracing Numbers"
+							},
+							{
+								"name": "Physical Education"
+							},
+							{
+								"name": "Drawing"
+							},
+							{
+								"name": "Recognizing Words"
+							},
+							{
+								"name": "Phonics"
+							},
+							{
+								"name": "Bible"
+							}
+						]
+					},
+					"Lower Elementary": {
+						"isSelfContained": true,
+						"classes": [
+							{
+								"classId": "Morning-KOne",
+								"name": "K 1"
+							},
+							{
+								"classId": "Morning-KTwo",
+								"name": "K 2"
+							},
+							{
+								"classId": "Morning-GradeOne",
+								"name": "Grade 1"
+							},
+							{
+								"classId": "Morning-GradeTwo",
+								"name": "Grade 2"
+							},
+							{
+								"classId": "Morning-GradeThree",
+								"name": "Grade 3"
+							}
+						],
+						"subjects": [
+							{
+								"name": "Math"
+							},
+							{
+								"name": "General Science"
+							},
+							{
+								"name": "English"
+							},
+							{
+								"name": "Social Studies"
+							},
+							{
+								"name": "Health Science"
+							},
+							{
+								"name": "Physical Education"
+							},
+							{
+								"name": "Reading"
+							},
+							{
+								"name": "Writing"
+							},
+							{
+								"name": "Spelling"
+							},
+							{
+								"name": "Phonics"
+							},
+							{
+								"name": "Bible"
+							},
+							{
+								"name": "Drawing"
+							}
+						]
+					},
+					"Upper Elementary": {
+						"isSelfContained": false,
+						"classes": [
+							{
+								"classId": "Morning-GradeFour",
+								"name": "Grade 4"
+							},
+							{
+								"classId": "Morning-GradeFive",
+								"name": "Grade 5"
+							},
+							{
+								"classId": "Morning-GradeSix",
+								"name": "Grade 6"
+							}
+						],
+						"subjects": [
+							{
+								"name": "Math"
+							},
+							{
+								"name": "General Science"
+							},
+							{
+								"name": "English"
+							},
+							{
+								"name": "French"
+							},
+							{
+								"name": "Social Studies"
+							},
+							{
+								"name": "Health Science"
+							},
+							{
+								"name": "Physical Education"
+							},
+							{
+								"name": "Computer"
+							},
+							{
+								"name": "Reading"
+							},
+							{
+								"name": "Writing"
+							},
+							{
+								"name": "Spelling"
+							},
+							{
+								"name": "Phonics"
+							},
+							{
+								"name": "Bible"
+							}
+						]
+					},
+					"Junior High": {
+						"isSelfContained": false,
+						"classes": [
+							{
+								"classId": "Morning-GradeSeven",
+								"name": "Grade 7"
+							},
+							{
+								"classId": "Morning-GradeEight",
+								"name": "Grade 8"
+							},
+							{
+								"classId": "Morning-GradeNine",
+								"name": "Grade 9"
+							}
+						],
+						"subjects": [
+							{
+								"name": "Math"
+							},
+							{
+								"name": "General Science"
+							},
+							{
+								"name": "English"
+							},
+							{
+								"name": "French"
+							},
+							{
+								"name": "Geography"
+							},
+							{
+								"name": "Health Science"
+							},
+							{
+								"name": "Physical Education"
+							},
+							{
+								"name": "Computer"
+							},
+							{
+								"name": "History"
+							},
+							{
+								"name": "Civics"
+							},
+							{
+								"name": "Vocabulary"
+							},
+							{
+								"name": "Phonics"
+							},
+							{
+								"name": "Bible"
+							},
+							{
+								"name": "Agriculture"
+							},
+							{
+								"name": "Literature"
+							}
+						]
+					},
+					"Senior High": {
+						"isSelfContained": false,
+						"classes": [
+							{
+								"classId": "Morning-GradeTenA",
+								"name": "Grade 10-A"
+							},
+							{
+								"classId": "Morning-GradeTenB",
+								"name": "Grade 10-B"
+							},
+							{
+								"classId": "Morning-GradeElevenA",
+								"name": "Grade 11-A"
+							},
+							{
+								"classId": "Morning-GradeElevenB",
+								"name": "Grade 11-B"
+							},
+							{
+								"classId": "Morning-GradeTwelveA",
+								"name": "Grade 12-A"
+							},
+							{
+								"classId": "Morning-GradeTwelveB",
+								"name": "Grade 12-B"
+							}
+						],
+						"subjects": [
+							{
+								"name": "Math"
+							},
+							{
+								"name": "Biology"
+							},
+							{
+								"name": "English"
+							},
+							{
+								"name": "Physics"
+							},
+							{
+								"name": "Chemistry"
+							},
+							{
+								"name": "Computer"
+							},
+							{
+								"name": "Economics"
+							},
+							{
+								"name": "Government"
+							},
+							{
+								"name": "Geography"
+							},
+							{
+								"name": "History"
+							},
+							{
+								"name": "Literature"
+							},
+							{
+								"name": "Accounting"
+							},
+							{
+								"name": "Bible"
+							},
+							{
+								"name": "French"
+							},
+							{
+								"name": "Agriculture"
+							},
+							{
+								"name": "Practical"
+							},
+							{
+								"name": "R.O.T.C"
+							}
+						]
+					}
+				},
+				"Night": {
+					"Daycare Division": {
+						"isSelfContained": true,
+						"classes": [
+							{
+								"classId": "Night-Nursery",
+								"name": "Nursery"
+							},
+							{
+								"classId": "Night-ABC",
+								"name": "ABC"
+							}
+						],
+						"subjects": [
+							{
+								"name": "Hygiene"
+							},
+							{
+								"name": "Social Skills"
+							},
+							{
+								"name": "Identifying Alphabets"
+							},
+							{
+								"name": "Identifying Numbers"
+							},
+							{
+								"name": "Tracing Numbers"
+							},
+							{
+								"name": "Physical Education"
+							},
+							{
+								"name": "Drawing"
+							},
+							{
+								"name": "Recognizing Words"
+							},
+							{
+								"name": "Phonics"
+							},
+							{
+								"name": "Bible"
+							}
+						]
+					},
+					"Lower Elementary": {
+						"isSelfContained": true,
+						"classes": [
+							{
+								"classId": "Night-kOne",
+								"name": "K 1"
+							},
+							{
+								"classId": "Night-kTwo",
+								"name": "K 2"
+							},
+							{
+								"classId": "Night-GradeOne",
+								"name": "Grade 1 PM"
+							},
+							{
+								"classId": "Night-GradeTwo",
+								"name": "Grade 2 PM"
+							},
+							{
+								"classId": "Night-GradeThree",
+								"name": "Grade 3 PM"
+							}
+						],
+						"subjects": [
+							{
+								"name": "Math"
+							},
+							{
+								"name": "General Science"
+							},
+							{
+								"name": "English"
+							},
+							{
+								"name": "Social Studies"
+							},
+							{
+								"name": "Health Science"
+							},
+							{
+								"name": "Reading"
+							},
+							{
+								"name": "Writing"
+							},
+							{
+								"name": "Spelling"
+							},
+							{
+								"name": "Phonics"
+							},
+							{
+								"name": "Bible"
+							},
+							{
+								"name": "Drawing"
+							}
+						]
+					},
+					"Upper Elementary": {
+						"isSelfContained": false,
+						"classes": [
+							{
+								"classId": "Night-GradeFour",
+								"name": "Grade 4 PM"
+							},
+							{
+								"classId": "Night-GradeFive",
+								"name": "Grade 5 PM"
+							},
+							{
+								"classId": "Night-GradeSix",
+								"name": "Grade 6 PM"
+							}
+						],
+						"subjects": [
+							{
+								"name": "Math"
+							},
+							{
+								"name": "General Science"
+							},
+							{
+								"name": "English"
+							},
+							{
+								"name": "French"
+							},
+							{
+								"name": "Social Studies"
+							},
+							{
+								"name": "Health Science"
+							},
+							{
+								"name": "Reading"
+							},
+							{
+								"name": "Writing"
+							},
+							{
+								"name": "Spelling"
+							},
+							{
+								"name": "Phonics"
+							},
+							{
+								"name": "Bible"
+							}
+						]
+					},
+					"Junior High": {
+						"isSelfContained": false,
+						"classes": [
+							{
+								"classId": "Night-GradeSeven",
+								"name": "Grade 7 PM"
+							},
+							{
+								"classId": "Night-GradeEight",
+								"name": "Grade 8 PM"
+							},
+							{
+								"classId": "Night-GradeNine",
+								"name": "Grade 9 PM"
+							}
+						],
+						"subjects": [
+							{
+								"name": "Math"
+							},
+							{
+								"name": "General Science"
+							},
+							{
+								"name": "English"
+							},
+							{
+								"name": "French"
+							},
+							{
+								"name": "Geography"
+							},
+							{
+								"name": "Health Science"
+							},
+							{
+								"name": "Computer"
+							},
+							{
+								"name": "History"
+							},
+							{
+								"name": "Civics"
+							},
+							{
+								"name": "Vocabulary"
+							},
+							{
+								"name": "Phonics"
+							},
+							{
+								"name": "Bible"
+							},
+							{
+								"name": "Agriculture"
+							},
+							{
+								"name": "Literature"
+							}
+						]
+					},
+					"Senior High": {
+						"isSelfContained": false,
+						"classes": [
+							{
+								"classId": "Night-GradeTen",
+								"name": "Grade 10 PM"
+							},
+							{
+								"classId": "Night-GradeEleven",
+								"name": "Grade 11 PM"
+							},
+							{
+								"classId": "Night-GradeTwelve",
+								"name": "Grade 12 PM"
+							}
+						],
+						"subjects": [
+							{
+								"name": "Math"
+							},
+							{
+								"name": "Biology"
+							},
+							{
+								"name": "English"
+							},
+							{
+								"name": "Physics"
+							},
+							{
+								"name": "Chemistry"
+							},
+							{
+								"name": "Computer"
+							},
+							{
+								"name": "Economics"
+							},
+							{
+								"name": "Government"
+							},
+							{
+								"name": "Geography"
+							},
+							{
+								"name": "History"
+							},
+							{
+								"name": "Literature"
+							},
+							{
+								"name": "Accounting"
+							},
+							{
+								"name": "Bible"
+							},
+							{
+								"name": "French"
+							},
+							{
+								"name": "Agriculture"
+							},
+							{
+								"name": "Practical"
+							}
+						]
+					}
+				}
+			},
+			"academicYearConfigs": {}
+		},
+		"userConfig": {
+			"sysAdmin": {
+				"name": "Amos Senkao",
+				"phone": "0776949463",
+				"email": "amossenkao@gmail.com"
+			},
+			"administrativePositions": [
+				{
+					"id": "principal",
+					"name": "Principal"
+				},
+				{
+					"id": "registrar",
+					"name": "Registrar"
+				},
+				{
+					"id": "vice_principal_for_instruction",
+					"name": "Vice Principal for Instruction"
+				},
+				{
+					"id": "propeietor",
+					"name": "Proprietor"
+				}
+			],
+			"studentSettings": {
+				"loginAccess": true,
+				"reportAccessByYear": {
+					"2025-2026": {
+						"enabled": true,
+						"yearlyReportAccess": true,
+						"periods": ["first", "second", "third", "third_period_exam"],
+						"semesters": ["first"]
+					},
+					"2026-2027": {
+						"enabled": false,
+						"yearlyReportAccess": false,
+						"periods": [],
+						"semesters": []
+					}
+				}
+			},
+			"teacherSettings": {
+				"loginAccess": true,
+				"permissionsByYear": {
+					"2025-2026": {
+						"enabled": true,
+						"gradeSubmission": {
+							"enabled": true,
+							"periods": [
+								"first",
+								"second",
+								"third",
+								"third_period_exam",
+								"fourth",
+								"fifth",
+								"sixth",
+								"sixth_period_exam"
+							]
+						},
+						"viewGradeSubmissions": {
+							"enabled": true
+						},
+						"gradeChangeRequest": {
+							"enabled": true,
+							"periods": [
+								"third_period_exam",
+								"fourth",
+								"fifth",
+								"sixth",
+								"sixth_period_exam",
+								"third",
+								"first",
+								"second"
+							]
+						},
+						"viewMasters": {
+							"enabled": true
+						}
+					},
+					"2026-2027": {
+						"enabled": true,
+						"gradeSubmission": {
+							"enabled": false,
+							"periods": []
+						},
+						"viewGradeSubmissions": {
+							"enabled": true
+						},
+						"gradeChangeRequest": {
+							"enabled": true,
+							"periods": []
+						},
+						"viewMasters": {
+							"enabled": true
+						}
+					}
+				}
+			},
+			"administratorSettings": {
+				"loginAccess": true
+			},
+			"parentSettings": {
+				"loginAccess": true
+			}
+		},
+		"featureConfig": {
+			"enabledFeatures": [
+				"calendar_events",
+				"community",
+				"ai_chat",
+				"grade_management",
+				"academic_reports",
+				"school_settings",
+				"support_system",
+				"apps",
+				"student_attendance",
+				"teacher_attendance",
+				"online_payment",
+				"fee_payment",
+				"user_management",
+				"record_payments",
+				"financial_reports",
+				"academic_documents",
+				"audit"
+			],
+			"roleFeatureAccess": {
+				"student": [
+					"calendar_events",
+					"fee_payment",
+					"academic_reports",
+					"student_attendance",
+					"community",
+					"ai_chat",
+					"user_management",
+					"online_payment"
+				],
+				"teacher": [
+					"community",
+					"calendar_events",
+					"grade_management",
+					"student_attendance",
+					"ai_chat",
+					"teacher_attendance"
+				],
+				"system_admin": [
+					"user_management",
+					"calendar_events",
+					"grade_management",
+					"class_management",
+					"academic_reports",
+					"calendar_events",
+					"student_attendance",
+					"ai_chat",
+					"school_settings",
+					"support_system",
+					"teacher_attendance",
+					"academic_documents"
+				],
+				"parent": [
+					"calendar_events",
+					"fee_payment",
+					"academic_reports",
+					"student_attendance",
+					"online_payment"
+				]
+			}
+		},
+		"financialConfig": {
+			"currencies": [
+				{
+					"code": "LRD",
+					"label": "Liberian Dollar",
+					"symbol": "L$",
+					"isDefault": true
+				},
+				{
+					"code": "USD",
+					"label": "United States Dollar",
+					"symbol": "$",
+					"isDefault": false
+				}
+			],
+			"paymentCategories": [
+				{
+					"id": "tuition",
+					"name": "Tuition"
+				},
+				{
+					"id": "registration",
+					"name": "Registration"
+				},
+				{
+					"id": "requirements",
+					"name": "Requirements"
+				},
+				{
+					"id": "accessories",
+					"name": "Accessories"
+				},
+				{
+					"id": "other",
+					"name": "Other"
+				}
+			],
+			"feeDefinitions": [
+				{
+					"id": "tuition",
+					"name": "Tuition",
+					"category": "tuition",
+					"isActive": true
+				},
+				{
+					"id": "reg-1st-sem",
+					"name": "Registration (1st Semester)",
+					"category": "registration",
+					"isActive": true
+				},
+				{
+					"id": "reg-2nd-sem",
+					"name": "Registration (2nd Semester)",
+					"category": "registration",
+					"isActive": true
+				},
+				{
+					"id": "first-aid",
+					"name": "First Aid",
+					"category": "requirements",
+					"isActive": true
+				},
+				{
+					"id": "id-card",
+					"name": "Computerized ID Card",
+					"category": "requirements",
+					"isActive": true
+				},
+				{
+					"id": "pta",
+					"name": "PTA",
+					"category": "requirements",
+					"isActive": true
+				},
+				{
+					"id": "breakage-fee",
+					"name": "Breakage Fee",
+					"category": "requirements",
+					"isActive": true
+				},
+				{
+					"id": "e-portal",
+					"name": "E-Portal",
+					"category": "requirements",
+					"isActive": true
+				},
+				{
+					"id": "activities",
+					"name": "Activities",
+					"category": "requirements",
+					"isActive": true
+				},
+				{
+					"id": "field-trip",
+					"name": "Field Trip",
+					"category": "requirements",
+					"isActive": true
+				},
+				{
+					"id": "computer-literacy",
+					"name": "Computer Literacy",
+					"category": "requirements",
+					"isActive": true
+				},
+				{
+					"id": "science-lab-fee",
+					"name": "Science Lab Fee + Lab Manual + Activities",
+					"category": "requirements",
+					"isActive": true
+				},
+				{
+					"id": "prom",
+					"name": "Junior & Senior Prom",
+					"category": "other",
+					"isActive": true
+				},
+				{
+					"id": "class-project",
+					"name": "Project Fee",
+					"category": "other",
+					"isActive": true
+				},
+				{
+					"id": "uniform-set",
+					"name": "Uniform Set",
+					"category": "accessories",
+					"isActive": true
+				},
+				{
+					"id": "wednesday-dress",
+					"name": "Wednesday Dress Code",
+					"category": "accessories",
+					"isActive": true
+				},
+				{
+					"id": "track-suit",
+					"name": "Track Suit",
+					"category": "accessories",
+					"isActive": true
+				},
+				{
+					"id": "tshirt-militant",
+					"name": "T-Shirt, Militant Short Trouser & Face Cap",
+					"category": "accessories",
+					"isActive": true
+				},
+				{
+					"id": "t-shirt",
+					"name": "T-Shirt",
+					"category": "accessories",
+					"isActive": true
+				},
+				{
+					"id": "handbook",
+					"name": "Handbook",
+					"category": "other",
+					"isActive": true
+				},
+				{
+					"id": "computer-lab",
+					"name": "Computer Lab",
+					"category": "facility",
+					"isActive": true
+				},
+				{
+					"id": "extra-classes",
+					"name": "Extra Classes",
+					"category": "other",
+					"isActive": true
+				},
+				{
+					"id": "tie",
+					"name": "Tie",
+					"category": "accessories",
+					"isActive": true
+				},
+				{
+					"id": "scholarship-sch-1785917578084-payment",
+					"name": "Ward Scholarship Payment",
+					"category": "other",
+					"description": "Payment for the Ward Scholarship scholarship",
+					"isActive": true
+				}
+			],
+			"installments": [
+				{
+					"id": "morning-1st",
+					"label": "1st Installment",
+					"dueWindow": "During Registration"
+				},
+				{
+					"id": "morning-2nd",
+					"label": "2nd Installment",
+					"dueWindow": "Nov 2 - Nov 9, 2026"
+				},
+				{
+					"id": "morning-3rd",
+					"label": "3rd Installment",
+					"dueWindow": "Feb 8 - Feb 19, 2027"
+				},
+				{
+					"id": "morning-4th",
+					"label": "4th Installment",
+					"dueWindow": "Mar 22 - Apr 5, 2027"
+				}
+			],
+			"studentGroups": [
+				{
+					"id": "new-students",
+					"name": "New Students",
+					"priority": 1,
+					"conditions": [
+						{
+							"field": "studentType",
+							"operator": "equals",
+							"value": "new"
+						}
+					],
+					"isActive": true
+				},
+				{
+					"id": "returning-students",
+					"name": "old Students",
+					"priority": 2,
+					"conditions": [
+						{
+							"field": "studentType",
+							"operator": "equals",
+							"value": "old"
+						}
+					],
+					"isActive": true
+				}
+			],
+			"feeSchedules": [
+				{
+					"academicYear": "2025-2026",
+					"sessionFeeSchedules": [
+						{
+							"sessionName": "Morning",
+							"feeGroups": [
+								{
+									"id": "morning-all-classes",
+									"name": "All Classes",
+									"appliesToClassIds": [
+										"Morning-Daycare",
+										"Morning-Nursery",
+										"Morning-KOne",
+										"Morning-KTwo",
+										"Morning-GradeOne",
+										"Morning-GradeTwo",
+										"Morning-GradeThree",
+										"Morning-GradeFour",
+										"Morning-GradeFive",
+										"Morning-GradeSix",
+										"Morning-GradeSeven",
+										"Morning-GradeEight",
+										"Morning-GradeNine",
+										"Morning-GradeTenA",
+										"Morning-GradeTenB",
+										"Morning-GradeElevenA",
+										"Morning-GradeElevenB",
+										"Morning-GradeTwelveA",
+										"Morning-GradeTwelveB",
+										"Morning-ABC"
+									],
+									"scheduledFees": [
+										{
+											"feeId": "first-aid",
+											"amount": {
+												"amount": 2500,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "pta",
+											"amount": {
+												"amount": 100,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "breakage-fee",
+											"amount": {
+												"amount": 750,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "e-portal",
+											"amount": {
+												"amount": 1000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "activities",
+											"amount": {
+												"amount": 200,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "field-trip",
+											"amount": {
+												"amount": 4000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-3rd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "track-suit",
+											"amount": {
+												"amount": 6000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										}
+									]
+								},
+								{
+									"id": "morning-grade1-11",
+									"name": "Grade 1 – 11 ID Card",
+									"appliesToClassIds": [
+										"Morning-Daycare",
+										"Morning-Nursery",
+										"Morning-KOne",
+										"Morning-KTwo",
+										"Morning-GradeOne",
+										"Morning-GradeTwo",
+										"Morning-GradeThree",
+										"Morning-GradeFour",
+										"Morning-GradeFive",
+										"Morning-GradeSix",
+										"Morning-GradeSeven",
+										"Morning-GradeEight",
+										"Morning-GradeNine",
+										"Morning-GradeTenA",
+										"Morning-GradeTenB",
+										"Morning-GradeElevenA",
+										"Morning-GradeElevenB"
+									],
+									"scheduledFees": [
+										{
+											"feeId": "id-card",
+											"amount": {
+												"amount": 500,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										}
+									]
+								},
+								{
+									"id": "morning-grade4-12",
+									"name": "Grade 4 – 12",
+									"appliesToClassIds": [
+										"Morning-GradeOne",
+										"Morning-GradeTwo",
+										"Morning-GradeThree",
+										"Morning-GradeFour",
+										"Morning-GradeFive",
+										"Morning-GradeSix",
+										"Morning-GradeSeven",
+										"Morning-GradeEight",
+										"Morning-GradeNine",
+										"Morning-GradeTenA",
+										"Morning-GradeTenB",
+										"Morning-GradeElevenA",
+										"Morning-GradeElevenB",
+										"Morning-GradeTwelveA",
+										"Morning-GradeTwelveB"
+									],
+									"scheduledFees": [
+										{
+											"feeId": "computer-literacy",
+											"amount": {
+												"amount": 3000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-3rd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										}
+									]
+								},
+								{
+									"id": "morning-grade10-12",
+									"name": "Grade 10 – 12",
+									"appliesToClassIds": [
+										"Morning-GradeTenA",
+										"Morning-GradeTenB",
+										"Morning-GradeElevenA",
+										"Morning-GradeElevenB",
+										"Morning-GradeTwelveA",
+										"Morning-GradeTwelveB"
+									],
+									"scheduledFees": [
+										{
+											"feeId": "science-lab-fee",
+											"amount": {
+												"amount": 5,
+												"currency": "USD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-3rd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										}
+									]
+								},
+								{
+									"id": "morning-nursery-grade3",
+									"name": "Nursery – Grade 3",
+									"appliesToClassIds": [
+										"Morning-Daycare",
+										"Morning-Nursery",
+										"Morning-KOne",
+										"Morning-KTwo",
+										"Morning-GradeOne",
+										"Morning-GradeTwo",
+										"Morning-GradeThree",
+										"Morning-ABC"
+									],
+									"scheduledFees": [
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 8050,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 7000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 4100,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 4000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 4250,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "uniform-set",
+											"amount": {
+												"amount": 3700,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "wednesday-dress",
+											"amount": {
+												"amount": 1500,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										}
+									]
+								},
+								{
+									"id": "morning-grade4-5",
+									"name": "Grade 4 – 5",
+									"appliesToClassIds": [
+										"Morning-GradeFour",
+										"Morning-GradeFive"
+									],
+									"scheduledFees": [
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 10000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 4500,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 4000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 3950,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 3450,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "uniform-set",
+											"amount": {
+												"amount": 4000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "wednesday-dress",
+											"amount": {
+												"amount": 2000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										}
+									]
+								},
+								{
+									"id": "morning-grade6",
+									"name": "Grade 6",
+									"appliesToClassIds": ["Morning-GradeSix"],
+									"scheduledFees": [
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 10350,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 10300,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 5000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 4050,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 4000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 3700,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "extra-classes",
+											"amount": {
+												"amount": 2000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "uniform-set",
+											"amount": {
+												"amount": 4000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "wednesday-dress",
+											"amount": {
+												"amount": 2000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										}
+									]
+								},
+								{
+									"id": "morning-grade7",
+									"name": "Grade 7",
+									"appliesToClassIds": ["Morning-GradeSeven"],
+									"scheduledFees": [
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 10000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 5300,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 5000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 4750,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 4250,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "uniform-set",
+											"amount": {
+												"amount": 4700,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "wednesday-dress",
+											"amount": {
+												"amount": 2000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										}
+									]
+								},
+								{
+									"id": "morning-grade8",
+									"name": "Grade 8",
+									"appliesToClassIds": ["Morning-GradeEight"],
+									"scheduledFees": [
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 10700,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 10000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 5500,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 4750,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 4650,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "uniform-set",
+											"amount": {
+												"amount": 4700,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "wednesday-dress",
+											"amount": {
+												"amount": 2000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										}
+									]
+								},
+								{
+									"id": "morning-grade9",
+									"name": "Grade 9",
+									"appliesToClassIds": ["Morning-GradeNine"],
+									"scheduledFees": [
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 10500,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 10300,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 6500,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 6000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 4850,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 4750,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "extra-classes",
+											"amount": {
+												"amount": 2500,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "uniform-set",
+											"amount": {
+												"amount": 4700,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "wednesday-dress",
+											"amount": {
+												"amount": 2000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										}
+									]
+								},
+								{
+									"id": "morning-grade10",
+									"name": "Grade 10",
+									"appliesToClassIds": [
+										"Morning-GradeTenA",
+										"Morning-GradeTenB"
+									],
+									"scheduledFees": [
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 12000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 11550,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 6000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 5650,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 5000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "uniform-set",
+											"amount": {
+												"amount": 5000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "wednesday-dress",
+											"amount": {
+												"amount": 2000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										}
+									]
+								},
+								{
+									"id": "morning-grade11",
+									"name": "Grade 11",
+									"appliesToClassIds": [
+										"Morning-GradeElevenA",
+										"Morning-GradeElevenB"
+									],
+									"scheduledFees": [
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 12500,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 12400,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 6350,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 6000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 6000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 5650,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "prom",
+											"amount": {
+												"amount": 5000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-3rd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "uniform-set",
+											"amount": {
+												"amount": 5000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "wednesday-dress",
+											"amount": {
+												"amount": 2000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										}
+									]
+								},
+								{
+									"id": "morning-grade12",
+									"name": "Grade 12",
+									"appliesToClassIds": [
+										"Morning-GradeTwelveA",
+										"Morning-GradeTwelveB"
+									],
+									"scheduledFees": [
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 16500,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 15500,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 8000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 8250,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["new-students"]
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 7250,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": ["returning-students"]
+										},
+										{
+											"feeId": "class-project",
+											"amount": {
+												"amount": 50,
+												"currency": "USD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-3rd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "extra-classes",
+											"amount": {
+												"amount": 4000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "uniform-set",
+											"amount": {
+												"amount": 10500,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "tshirt-militant",
+											"amount": {
+												"amount": 4000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "wednesday-dress",
+											"amount": {
+												"amount": 2000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										}
+									]
+								},
+								{
+									"id": "fg-scholarships-1785917594725-q9if3",
+									"name": "Scholarships",
+									"appliesToClassIds": [
+										"Morning-Nursery",
+										"Morning-ABC",
+										"Morning-KOne",
+										"Morning-KTwo",
+										"Morning-GradeOne",
+										"Morning-GradeTwo",
+										"Morning-GradeThree",
+										"Morning-GradeFour",
+										"Morning-GradeFive",
+										"Morning-GradeSix",
+										"Morning-GradeSeven",
+										"Morning-GradeEight",
+										"Morning-GradeNine",
+										"Morning-GradeTenA",
+										"Morning-GradeTenB",
+										"Morning-GradeElevenA",
+										"Morning-GradeElevenB",
+										"Morning-GradeTwelveA",
+										"Morning-GradeTwelveB",
+										"Night-Nursery",
+										"Night-ABC",
+										"Night-kOne",
+										"Night-kTwo",
+										"Night-GradeOne",
+										"Night-GradeTwo",
+										"Night-GradeThree",
+										"Night-GradeFour",
+										"Night-GradeFive",
+										"Night-GradeSix",
+										"Night-GradeSeven",
+										"Night-GradeEight",
+										"Night-GradeNine",
+										"Night-GradeTen",
+										"Night-GradeEleven",
+										"Night-GradeTwelve"
+									],
+									"scheduledFees": [
+										{
+											"feeId": "scholarship-sch-1785917578084-payment",
+											"amount": {
+												"amount": 11,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [],
+											"applicableStudentGroupIds": []
+										}
+									]
+								}
+							]
+						},
+						{
+							"sessionName": "Night",
+							"feeGroups": [
+								{
+									"id": "night-all-classes",
+									"name": "All Classes",
+									"appliesToClassIds": [
+										"Night-kOne",
+										"Night-kTwo",
+										"Night-GradeOne",
+										"Night-GradeTwo",
+										"Night-GradeThree",
+										"Night-GradeFour",
+										"Night-GradeFive",
+										"Night-GradeSix",
+										"Night-GradeSeven",
+										"Night-GradeEight",
+										"Night-GradeNine",
+										"Night-GradeTen",
+										"Night-GradeEleven",
+										"Night-GradeTwelve",
+										"Night-Nursery",
+										"Night-ABC"
+									],
+									"scheduledFees": [
+										{
+											"feeId": "handbook",
+											"amount": {
+												"amount": 200,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "breakage-fee",
+											"amount": {
+												"amount": 750,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "t-shirt",
+											"amount": {
+												"amount": 1500,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "e-portal",
+											"amount": {
+												"amount": 700,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "activities",
+											"amount": {
+												"amount": 200,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										}
+									]
+								},
+								{
+									"id": "night-grade7-12",
+									"name": "Grade 7 – 12",
+									"appliesToClassIds": [
+										"Night-GradeSeven",
+										"Night-GradeEight",
+										"Night-GradeNine",
+										"Night-GradeTen",
+										"Night-GradeEleven",
+										"Night-GradeTwelve"
+									],
+									"scheduledFees": [
+										{
+											"feeId": "computer-lab",
+											"amount": {
+												"amount": 500,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-3rd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										}
+									]
+								},
+								{
+									"id": "night-grade1-6",
+									"name": "Grade 1 – 6",
+									"appliesToClassIds": [
+										"Night-kOne",
+										"Night-kTwo",
+										"Night-GradeOne",
+										"Night-GradeTwo",
+										"Night-GradeThree",
+										"Night-GradeFour",
+										"Night-GradeFive",
+										"Night-GradeSix"
+									],
+									"scheduledFees": [
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 4300,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 1000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 850,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "extra-classes",
+											"amount": {
+												"amount": 2000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										}
+									]
+								},
+								{
+									"id": "night-grade7-9",
+									"name": "Grade 7 – 9",
+									"appliesToClassIds": [
+										"Night-GradeSeven",
+										"Night-GradeEight",
+										"Night-GradeNine"
+									],
+									"scheduledFees": [
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 4350,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 1000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 800,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "extra-classes",
+											"amount": {
+												"amount": 2500,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										}
+									]
+								},
+								{
+									"id": "night-grade10-11",
+									"name": "Grade 10 – 11",
+									"appliesToClassIds": ["Night-GradeTen", "Night-GradeEleven"],
+									"scheduledFees": [
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 5950,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 1200,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 1000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										}
+									]
+								},
+								{
+									"id": "night-grade12",
+									"name": "Grade 12",
+									"appliesToClassIds": ["Night-GradeTwelve"],
+									"scheduledFees": [
+										{
+											"feeId": "tuition",
+											"amount": {
+												"amount": 5950,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "reg-1st-sem",
+											"amount": {
+												"amount": 1200,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "reg-2nd-sem",
+											"amount": {
+												"amount": 1000,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [
+												{
+													"installmentId": "morning-2nd",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "extra-classes",
+											"amount": {
+												"amount": 4000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "uniform-set",
+											"amount": {
+												"amount": 7500,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										},
+										{
+											"feeId": "tie",
+											"amount": {
+												"amount": 2000,
+												"currency": "LRD"
+											},
+											"isRequired": false,
+											"installments": [
+												{
+													"installmentId": "morning-1st",
+													"percentage": 1
+												}
+											],
+											"applicableStudentGroupIds": []
+										}
+									]
+								},
+								{
+									"id": "fg-scholarships-1785917594725-n2ewo",
+									"name": "Scholarships",
+									"appliesToClassIds": [
+										"Morning-Nursery",
+										"Morning-ABC",
+										"Morning-KOne",
+										"Morning-KTwo",
+										"Morning-GradeOne",
+										"Morning-GradeTwo",
+										"Morning-GradeThree",
+										"Morning-GradeFour",
+										"Morning-GradeFive",
+										"Morning-GradeSix",
+										"Morning-GradeSeven",
+										"Morning-GradeEight",
+										"Morning-GradeNine",
+										"Morning-GradeTenA",
+										"Morning-GradeTenB",
+										"Morning-GradeElevenA",
+										"Morning-GradeElevenB",
+										"Morning-GradeTwelveA",
+										"Morning-GradeTwelveB",
+										"Night-Nursery",
+										"Night-ABC",
+										"Night-kOne",
+										"Night-kTwo",
+										"Night-GradeOne",
+										"Night-GradeTwo",
+										"Night-GradeThree",
+										"Night-GradeFour",
+										"Night-GradeFive",
+										"Night-GradeSix",
+										"Night-GradeSeven",
+										"Night-GradeEight",
+										"Night-GradeNine",
+										"Night-GradeTen",
+										"Night-GradeEleven",
+										"Night-GradeTwelve"
+									],
+									"scheduledFees": [
+										{
+											"feeId": "scholarship-sch-1785917578084-payment",
+											"amount": {
+												"amount": 11,
+												"currency": "LRD"
+											},
+											"isRequired": true,
+											"installments": [],
+											"applicableStudentGroupIds": []
+										}
+									]
+								}
+							]
+						}
+					],
+					"scholarships": [
+						{
+							"id": "sch-1785917578084",
+							"name": "Ward Scholarship",
+							"description": "",
+							"scholarshipType": "fixedPayment",
+							"amount": 11,
+							"currency": "LRD",
+							"appliesTo": [],
+							"installments": []
+						}
+					]
+				}
+			]
+		},
+		"updatedAt": "2026-08-06T14:43:18.886Z"
+	},
+	"users": {
+		"students": [
+			{
+				"id": "6a308bcf748f662f9f8be639",
+				"_id": "6a308bcf748f662f9f8be639",
+				"username": "UCA2023062",
+				"role": "student",
+				"firstName": "Mawata",
+				"middleName": null,
+				"lastName": "Keita",
+				"fullName": "Mawata Keita",
+				"gender": "female",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2023062@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2023062",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be63d",
+				"_id": "6a308bcf748f662f9f8be63d",
+				"username": "UCA2022205",
+				"role": "student",
+				"firstName": "Avenna",
+				"middleName": null,
+				"lastName": "Tukpei",
+				"fullName": "Avenna Tukpei",
+				"gender": "male",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2022205@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2022205",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be63f",
+				"_id": "6a308bcf748f662f9f8be63f",
+				"username": "UCA2022173",
+				"role": "student",
+				"firstName": "Morris",
+				"middleName": "B. Y.",
+				"lastName": "Vinton",
+				"fullName": "Morris B. Y. Vinton",
+				"gender": "male",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2022173@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2022173",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be645",
+				"_id": "6a308bcf748f662f9f8be645",
+				"username": "UCA2022377",
+				"role": "student",
+				"firstName": "Tina",
+				"middleName": "M.",
+				"lastName": "Sumo",
+				"fullName": "Tina M. Sumo",
+				"gender": "male",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2022377@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2022377",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be646",
+				"_id": "6a308bcf748f662f9f8be646",
+				"username": "UCA2024186",
+				"role": "student",
+				"firstName": "Marthalyne",
+				"middleName": "M.",
+				"lastName": "Julu",
+				"fullName": "Marthalyne M. Julu",
+				"gender": "male",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2024186@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2024186",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be647",
+				"_id": "6a308bcf748f662f9f8be647",
+				"username": "UCA2022197",
+				"role": "student",
+				"firstName": "Massa",
+				"middleName": "G",
+				"lastName": "Dunor",
+				"fullName": "Massa G Dunor",
+				"gender": "female",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2022197@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2022197",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be648",
+				"_id": "6a308bcf748f662f9f8be648",
+				"username": "UCA2023176",
+				"role": "student",
+				"firstName": "Moses",
+				"middleName": "A",
+				"lastName": "Fallah",
+				"fullName": "Moses A Fallah",
+				"gender": "female",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2023176@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2023176",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be649",
+				"_id": "6a308bcf748f662f9f8be649",
+				"username": "UCA2022843",
+				"role": "student",
+				"firstName": "Samuel",
+				"middleName": "D.",
+				"lastName": "Momo",
+				"fullName": "Samuel D. Momo",
+				"gender": "male",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2022843@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2022843",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be64a",
+				"_id": "6a308bcf748f662f9f8be64a",
+				"username": "UCA2022097",
+				"role": "student",
+				"firstName": "Abraham",
+				"middleName": "A",
+				"lastName": "Pratt",
+				"fullName": "Abraham A Pratt",
+				"gender": "male",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2022097@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2022097",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be64e",
+				"_id": "6a308bcf748f662f9f8be64e",
+				"username": "UCA2022225",
+				"role": "student",
+				"firstName": "Grulee",
+				"middleName": null,
+				"lastName": "Zlanker",
+				"fullName": "Grulee Zlanker",
+				"gender": "male",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2022225@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2022225",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be64f",
+				"_id": "6a308bcf748f662f9f8be64f",
+				"username": "UCA2024113",
+				"role": "student",
+				"firstName": "Sam",
+				"middleName": "J.",
+				"lastName": "Zeh",
+				"fullName": "Sam J. Zeh",
+				"gender": "female",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2024113@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2024113",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be659",
+				"_id": "6a308bcf748f662f9f8be659",
+				"username": "UCA2026074",
+				"role": "student",
+				"firstName": "Bendu",
+				"middleName": "S.",
+				"lastName": "Tamba",
+				"fullName": "Bendu S. Tamba",
+				"gender": "female",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2026074@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2026074",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be65f",
+				"_id": "6a308bcf748f662f9f8be65f",
+				"username": "UCA2026080",
+				"role": "student",
+				"firstName": "Hannah",
+				"middleName": "G.",
+				"lastName": "Norris",
+				"fullName": "Hannah G. Norris",
+				"nickName": "",
+				"gender": "male",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": false,
+				"passwordChangedAt": "2026-08-06T14:26:23.751Z",
+				"phone": "0771403354",
+				"email": "uca2026080@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"bio": "",
+				"avatar": "https://api.dicebear.com/9.x/open-peeps/svg?seed=Leo&skinColor=694d3d&face=serious&head=short4&clothingColor=ffcf77&backgroundColor=c0aede",
+				"studentId": "UCA2026080",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": true,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be663",
+				"_id": "6a308bcf748f662f9f8be663",
+				"username": "UCA2026084",
+				"role": "student",
+				"firstName": "Naomi",
+				"middleName": "T.",
+				"lastName": "Sammie",
+				"fullName": "Naomi T. Sammie",
+				"gender": "female",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2026084@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2026084",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be669",
+				"_id": "6a308bcf748f662f9f8be669",
+				"username": "UCA2026090",
+				"role": "student",
+				"firstName": "Jairus",
+				"middleName": "G. W.",
+				"lastName": "Barchue",
+				"fullName": "Jairus G. W. Barchue",
+				"gender": "male",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2026090@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2026090",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be66f",
+				"_id": "6a308bcf748f662f9f8be66f",
+				"username": "UCA2026106",
+				"role": "student",
+				"firstName": "Moses",
+				"middleName": "T.",
+				"lastName": "Fokoe",
+				"fullName": "Moses T. Fokoe",
+				"gender": "male",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2026106@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2026106",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be670",
+				"_id": "6a308bcf748f662f9f8be670",
+				"username": "UCA2026107",
+				"role": "student",
+				"firstName": "Moses",
+				"middleName": "H.",
+				"lastName": "Hart",
+				"fullName": "Moses H. Hart",
+				"gender": "female",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2026107@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2026107",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be673",
+				"_id": "6a308bcf748f662f9f8be673",
+				"username": "UCA2026109",
+				"role": "student",
+				"firstName": "Ephraim",
+				"middleName": null,
+				"lastName": "Miller",
+				"fullName": "Ephraim Miller",
+				"gender": "female",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2026109@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2026109",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be674",
+				"_id": "6a308bcf748f662f9f8be674",
+				"username": "UCA2026010",
+				"role": "student",
+				"firstName": "D.",
+				"middleName": "Kollins",
+				"lastName": "Jallah",
+				"fullName": "D. Kollins Jallah",
+				"gender": "female",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2026010@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2026010",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a308bcf748f662f9f8be680",
+				"_id": "6a308bcf748f662f9f8be680",
+				"username": "UCA2026166",
+				"role": "student",
+				"firstName": "Jonathan",
+				"middleName": "Z.",
+				"lastName": "Mooney",
+				"fullName": "Jonathan Z. Mooney",
+				"gender": "female",
+				"dateOfBirth": "2010-01-01",
+				"isActive": true,
+				"mustChangePassword": true,
+				"email": "uca2026166@student.uca.edu.lr",
+				"address": "Student Address, Monrovia, Liberia",
+				"studentId": "UCA2026166",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "first",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a34af487f0257c30f005730",
+				"_id": "6a34af487f0257c30f005730",
+				"username": "UCA2025210",
+				"role": "student",
+				"firstName": "Lawrence",
+				"middleName": "L.",
+				"lastName": "MIah",
+				"gender": "Male",
+				"dateOfBirth": "Sat Jan 01 2000 00:00:00 GMT+0000 (Greenwich Mean Time)",
+				"isActive": true,
+				"mustChangePassword": true,
+				"passwordChangedAt": null,
+				"address": "Logan Town",
+				"studentId": "UCA2025210",
+				"studentType": "old",
+				"enrollmentYear": "2025-2026",
+				"enrollmentSemester": "1st Semester",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2025-2026",
+						"classId": "Morning-GradeElevenA",
+						"className": "Grade 11-A"
+					},
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveA",
+						"className": "Grade 12-A"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			},
+			{
+				"id": "6a748462edba9e79252c8681",
+				"_id": "6a748462edba9e79252c8681",
+				"username": "UCA20264116",
+				"role": "student",
+				"firstName": "Oliver",
+				"middleName": "J.",
+				"lastName": "Mulbah",
+				"fullName": "Oliver J. Mulbah",
+				"gender": "Male",
+				"dateOfBirth": "Wed Jun 09 2004 00:00:00 GMT+0000 (Coordinated Universal Time)",
+				"isActive": true,
+				"mustChangePassword": true,
+				"passwordChangedAt": null,
+				"address": "New Life, Johnsonville",
+				"studentId": "UCA20264116",
+				"studentType": "new",
+				"enrollmentYear": "2026-2027",
+				"enrollmentSemester": "1st Semester",
+				"enrollmentStatus": "enrolled",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"shareContactWithClassmates": false,
+				"isLateRegistration": false,
+				"academicYears": [
+					{
+						"year": "2026-2027",
+						"classId": "Morning-GradeTwelveB",
+						"className": "Grade 12-B"
+					}
+				],
+				"wardTeacherId": null,
+				"scholarships": []
+			}
+		],
+		"teachers": [
+			{
+				"id": "6988b223410a8ffc6222ecdc",
+				"_id": "6988b223410a8ffc6222ecdc",
+				"username": "TEA2025001",
+				"role": "teacher",
+				"firstName": "James",
+				"lastName": "Doe",
+				"fullName": "James Doe",
+				"nickName": "Mr Doe ",
+				"gender": "Male",
+				"dateOfBirth": "Thu Jan 11 2001 00:00:00 GMT+0000 (Greenwich Mean Time)",
+				"isActive": true,
+				"mustChangePassword": false,
+				"passwordChangedAt": "2026-02-12T11:55:41.065Z",
+				"phone": "0775849656",
+				"address": "Kpelleh Town, Lower Johnsonvilele",
+				"bio": "Biology instructor ",
+				"avatar": "https://api.dicebear.com/9.x/open-peeps/svg?seed=Alex&skinColor=ae5d29&face=serious&head=afro&clothingColor=78e185&backgroundColor=ffd5dc",
+				"subjects": [
+					{
+						"year": "2025-2026",
+						"classes": [
+							{
+								"classId": "Morning-GradeElevenA",
+								"subjects": ["Biology", "Practical"]
+							},
+							{
+								"classId": "Morning-GradeElevenB",
+								"subjects": ["Biology", "Practical"]
+							},
+							{
+								"classId": "Morning-GradeTenA",
+								"subjects": ["Biology", "Practical"]
+							},
+							{
+								"classId": "Morning-GradeTenB",
+								"subjects": ["Biology", "Practical"]
+							},
+							{
+								"classId": "Morning-GradeTwelveA",
+								"subjects": ["Biology", "Practical"]
+							},
+							{
+								"classId": "Morning-GradeTwelveB",
+								"subjects": ["Biology", "Practical"]
+							}
+						]
+					},
+					{
+						"year": "2026-2027",
+						"classes": [
+							{
+								"classId": "Morning-GradeElevenA",
+								"subjects": ["Biology", "Practical"]
+							},
+							{
+								"classId": "Morning-GradeElevenB",
+								"subjects": ["Biology", "Practical"]
+							},
+							{
+								"classId": "Morning-GradeTenA",
+								"subjects": ["Biology", "Practical"]
+							},
+							{
+								"classId": "Morning-GradeTenB",
+								"subjects": ["Biology", "Practical"]
+							},
+							{
+								"classId": "Morning-GradeTwelveA",
+								"subjects": ["Biology", "Practical"]
+							},
+							{
+								"classId": "Morning-GradeTwelveB",
+								"subjects": ["Biology", "Practical"]
+							},
+							{
+								"classId": "Night-GradeEleven",
+								"subjects": ["Biology", "Practical"]
+							},
+							{
+								"classId": "Night-GradeTen",
+								"subjects": ["Biology", "Practical"]
+							},
+							{
+								"classId": "Night-GradeTwelve",
+								"subjects": ["Biology", "Practical"]
+							}
+						]
+					}
+				],
+				"sponsorClass": null
+			},
+			{
+				"id": "698d9238d1f7b1de2a2cd3f5",
+				"_id": "698d9238d1f7b1de2a2cd3f5",
+				"username": "TEA2025007",
+				"role": "teacher",
+				"firstName": "Ishmael",
+				"middleName": "T.",
+				"lastName": "Berry",
+				"fullName": "Ishmael T. Berry",
+				"nickName": "",
+				"gender": "Male",
+				"dateOfBirth": "Sat Feb 12 1977 00:00:00 GMT+0000 (Coordinated Universal Time)",
+				"isActive": true,
+				"mustChangePassword": false,
+				"passwordChangedAt": "2026-08-06T14:30:35.887Z",
+				"phone": "0775336171",
+				"address": "Monrovia, Liberia",
+				"bio": "",
+				"avatar": "https://api.dicebear.com/9.x/open-peeps/svg?seed=Quinn&skinColor=f2d3b1&face=serious&head=hatHip&clothingColor=9ddadb&backgroundColor=d1d4f9",
+				"subjects": [
+					{
+						"year": "2025-2026",
+						"classes": []
+					},
+					{
+						"year": "2026-2027",
+						"classes": [
+							{
+								"classId": "Morning-GradeElevenA",
+								"subjects": ["Accounting", "Economics"]
+							},
+							{
+								"classId": "Morning-GradeElevenB",
+								"subjects": ["Accounting", "Economics"]
+							},
+							{
+								"classId": "Morning-GradeTenA",
+								"subjects": ["Accounting", "Economics"]
+							},
+							{
+								"classId": "Morning-GradeTenB",
+								"subjects": ["Accounting", "Economics"]
+							},
+							{
+								"classId": "Morning-GradeTwelveA",
+								"subjects": ["Accounting", "Economics"]
+							},
+							{
+								"classId": "Morning-GradeTwelveB",
+								"subjects": ["Accounting", "Economics"]
+							}
+						]
+					}
+				],
+				"sponsorClass": null
+			}
+		],
+		"administrators": [],
+		"parents": []
+	},
+	"usersVersion": "24:0:6a748462edba9e79252c8681",
+	"calendarEvents": [],
+	"schedules": {
+		"classSchedules": [
+			{
+				"_id": "6a7497a45636499f16d99863",
+				"eventType": "class_schedule",
+				"title": "Math",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "08:30",
+				"endTime": "09:15",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Math",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:18:12.137Z",
+				"updatedAt": "2026-08-06T14:18:12.137Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497a4c3617f270f5bc700",
+				"eventType": "class_schedule",
+				"title": "English",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "08:30",
+				"endTime": "09:15",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "English",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:18:12.311Z",
+				"updatedAt": "2026-08-06T14:18:12.311Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497ae5636499f16d99886",
+				"eventType": "class_schedule",
+				"title": "English",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "09:15",
+				"endTime": "10:00",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "English",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:18:22.728Z",
+				"updatedAt": "2026-08-06T14:18:22.728Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497aec3617f270f5bc770",
+				"eventType": "class_schedule",
+				"title": "Math",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "09:15",
+				"endTime": "10:00",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Math",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:18:22.872Z",
+				"updatedAt": "2026-08-06T14:18:22.872Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497bec3617f270f5bc797",
+				"eventType": "class_schedule",
+				"title": "Government",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:00",
+				"endTime": "10:45",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Government",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:18:38.831Z",
+				"updatedAt": "2026-08-06T14:18:38.831Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497bec3617f270f5bc79b",
+				"eventType": "class_schedule",
+				"title": "Physics",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:00",
+				"endTime": "10:45",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Physics",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:18:38.863Z",
+				"updatedAt": "2026-08-06T14:18:38.863Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497e057eac32641b5f638",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:19:12.951Z",
+				"updatedAt": "2026-08-06T14:19:12.951Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497e0c3617f270f5bc7bb",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:19:12.943Z",
+				"updatedAt": "2026-08-06T14:19:12.943Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497e05636499f16d998e8",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeElevenA",
+				"className": "Grade 11-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:19:12.946Z",
+				"updatedAt": "2026-08-06T14:19:12.946Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497e05636499f16d998ea",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeTenA",
+				"className": "Grade 10-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:19:12.948Z",
+				"updatedAt": "2026-08-06T14:19:12.948Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497e175dafe5e33170ac5",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeTenB",
+				"className": "Grade 10-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:19:13.257Z",
+				"updatedAt": "2026-08-06T14:19:13.257Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497e15636499f16d998f4",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeElevenB",
+				"className": "Grade 11-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:19:13.270Z",
+				"updatedAt": "2026-08-06T14:19:13.270Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497f775dafe5e33170ad4",
+				"eventType": "class_schedule",
+				"title": "Physics",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "11:15",
+				"endTime": "12:00",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Physics",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:19:35.771Z",
+				"updatedAt": "2026-08-06T14:19:35.771Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497f75636499f16d99959",
+				"eventType": "class_schedule",
+				"title": "Government",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "11:15",
+				"endTime": "12:00",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Government",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:19:35.930Z",
+				"updatedAt": "2026-08-06T14:19:35.930Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7498d875dafe5e33170af8",
+				"eventType": "class_schedule",
+				"title": "Geography",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:00",
+				"endTime": "12:45",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Geography",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:23:20.788Z",
+				"updatedAt": "2026-08-06T14:23:20.788Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7498d975dafe5e33170aff",
+				"eventType": "class_schedule",
+				"title": "Bible",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:00",
+				"endTime": "12:45",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Bible",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:23:21.217Z",
+				"updatedAt": "2026-08-06T14:23:21.217Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74990475dafe5e33170b30",
+				"eventType": "class_schedule",
+				"title": "Geography",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:45",
+				"endTime": "13:30",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Geography",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:24:04.421Z",
+				"updatedAt": "2026-08-06T14:24:04.421Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7499045636499f16d999c1",
+				"eventType": "class_schedule",
+				"title": "Bible",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:45",
+				"endTime": "13:30",
+				"dayOfWeek": "Friday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Bible",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:24:04.703Z",
+				"updatedAt": "2026-08-06T14:24:04.703Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7492a05636499f16d994be",
+				"eventType": "class_schedule",
+				"title": "Biology",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "08:30",
+				"endTime": "09:15",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Biology",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T13:56:48.586Z",
+				"updatedAt": "2026-08-06T13:56:48.586Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74929e57eac32641b5f1ea",
+				"eventType": "class_schedule",
+				"title": "Math",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "08:30",
+				"endTime": "09:15",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Math",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T13:56:46.650Z",
+				"updatedAt": "2026-08-06T13:56:46.650Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7493055636499f16d99550",
+				"eventType": "class_schedule",
+				"title": "Biology",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "09:15",
+				"endTime": "10:00",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Biology",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T13:58:29.673Z",
+				"updatedAt": "2026-08-06T13:58:29.673Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74930557eac32641b5f251",
+				"eventType": "class_schedule",
+				"title": "Math",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "09:15",
+				"endTime": "10:00",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Math",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T13:58:29.696Z",
+				"updatedAt": "2026-08-06T13:58:29.696Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74933d5636499f16d9958d",
+				"eventType": "class_schedule",
+				"title": "French",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:00",
+				"endTime": "10:45",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "French",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T13:59:25.631Z",
+				"updatedAt": "2026-08-06T13:59:25.631Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74933d57eac32641b5f275",
+				"eventType": "class_schedule",
+				"title": "Economics",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:00",
+				"endTime": "10:45",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Economics",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T13:59:25.775Z",
+				"updatedAt": "2026-08-06T13:59:25.775Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74935c5636499f16d995be",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T13:59:56.668Z",
+				"updatedAt": "2026-08-06T13:59:56.668Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74935d63d7f505683c5f05",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeTenA",
+				"className": "Grade 10-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T13:59:57.848Z",
+				"updatedAt": "2026-08-06T13:59:57.848Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74935d75dafe5e3317053b",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeElevenB",
+				"className": "Grade 11-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T13:59:57.790Z",
+				"updatedAt": "2026-08-06T13:59:57.790Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74935c5636499f16d995b7",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeElevenA",
+				"className": "Grade 11-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T13:59:56.267Z",
+				"updatedAt": "2026-08-06T13:59:56.267Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74935b57eac32641b5f2c6",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T13:59:55.491Z",
+				"updatedAt": "2026-08-06T13:59:55.491Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74935b5636499f16d995b0",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeTenB",
+				"className": "Grade 10-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T13:59:55.466Z",
+				"updatedAt": "2026-08-06T13:59:55.466Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7493c863d7f505683c5f47",
+				"eventType": "class_schedule",
+				"title": "Economics",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "11:15",
+				"endTime": "12:00",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Economics",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:01:44.085Z",
+				"updatedAt": "2026-08-06T14:04:24.102Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7493c875dafe5e331705ff",
+				"eventType": "class_schedule",
+				"title": "French",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "11:15",
+				"endTime": "12:00",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "French",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:01:44.218Z",
+				"updatedAt": "2026-08-06T14:04:24.241Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74949763d7f505683c5f9a",
+				"eventType": "class_schedule",
+				"title": "History",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:00",
+				"endTime": "12:45",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "History",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:05:11.992Z",
+				"updatedAt": "2026-08-06T14:05:11.992Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74949875dafe5e33170693",
+				"eventType": "class_schedule",
+				"title": "Agriculture",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:00",
+				"endTime": "12:45",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Agriculture",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:05:12.027Z",
+				"updatedAt": "2026-08-06T14:05:12.027Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7494b25636499f16d995dd",
+				"eventType": "class_schedule",
+				"title": "History",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:45",
+				"endTime": "13:30",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "History",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:05:38.826Z",
+				"updatedAt": "2026-08-06T14:05:38.826Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7494b275dafe5e331706e8",
+				"eventType": "class_schedule",
+				"title": "Agriculture",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:45",
+				"endTime": "13:30",
+				"dayOfWeek": "Monday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Agriculture",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:05:38.970Z",
+				"updatedAt": "2026-08-06T14:05:38.970Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74973075dafe5e331709db",
+				"eventType": "class_schedule",
+				"title": "Chemistry",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "08:30",
+				"endTime": "09:15",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Chemistry",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:16:16.099Z",
+				"updatedAt": "2026-08-06T14:16:16.099Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497305636499f16d99649",
+				"eventType": "class_schedule",
+				"title": "Practical",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "08:30",
+				"endTime": "09:15",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Practical",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:16:16.077Z",
+				"updatedAt": "2026-08-06T14:16:16.077Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74974475dafe5e331709ec",
+				"eventType": "class_schedule",
+				"title": "Chemistry",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "09:15",
+				"endTime": "10:00",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Chemistry",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:16:36.201Z",
+				"updatedAt": "2026-08-06T14:16:36.201Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497445636499f16d99699",
+				"eventType": "class_schedule",
+				"title": "Practical",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "09:15",
+				"endTime": "10:00",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Practical",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:16:36.018Z",
+				"updatedAt": "2026-08-06T14:16:36.018Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74975775dafe5e33170a3d",
+				"eventType": "class_schedule",
+				"title": "Literature",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:00",
+				"endTime": "10:45",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Literature",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:16:55.188Z",
+				"updatedAt": "2026-08-06T14:16:55.188Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497575636499f16d996a9",
+				"eventType": "class_schedule",
+				"title": "English",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:00",
+				"endTime": "10:45",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "English",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:16:55.187Z",
+				"updatedAt": "2026-08-06T14:16:55.187Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497605636499f16d99710",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:17:04.349Z",
+				"updatedAt": "2026-08-06T14:17:04.349Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7497605636499f16d99709",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeTenB",
+				"className": "Grade 10-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:17:04.075Z",
+				"updatedAt": "2026-08-06T14:17:04.075Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74975f75dafe5e33170a4b",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeElevenA",
+				"className": "Grade 11-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:17:03.769Z",
+				"updatedAt": "2026-08-06T14:17:03.769Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74975f5636499f16d996ff",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeElevenB",
+				"className": "Grade 11-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:17:03.622Z",
+				"updatedAt": "2026-08-06T14:17:03.622Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74975f5636499f16d996fa",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:17:03.498Z",
+				"updatedAt": "2026-08-06T14:17:03.498Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74975f5636499f16d996f3",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeTenA",
+				"className": "Grade 10-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:17:03.301Z",
+				"updatedAt": "2026-08-06T14:17:03.301Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74976c57eac32641b5f5df",
+				"eventType": "class_schedule",
+				"title": "Literature",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "11:15",
+				"endTime": "12:00",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Literature",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:17:16.153Z",
+				"updatedAt": "2026-08-06T14:17:16.153Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74976c5636499f16d99762",
+				"eventType": "class_schedule",
+				"title": "English",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "11:15",
+				"endTime": "12:00",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "English",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:17:16.157Z",
+				"updatedAt": "2026-08-06T14:17:16.157Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74977e57eac32641b5f602",
+				"eventType": "class_schedule",
+				"title": "French",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:00",
+				"endTime": "12:45",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "French",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:17:34.202Z",
+				"updatedAt": "2026-08-06T14:17:34.202Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74977e5636499f16d997b5",
+				"eventType": "class_schedule",
+				"title": "Accounting",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:00",
+				"endTime": "12:45",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Accounting",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:17:34.344Z",
+				"updatedAt": "2026-08-06T14:17:34.344Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74978a5636499f16d997f0",
+				"eventType": "class_schedule",
+				"title": "French",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:45",
+				"endTime": "13:30",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "French",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:17:46.636Z",
+				"updatedAt": "2026-08-06T14:17:46.636Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74978dc3617f270f5bc6b3",
+				"eventType": "class_schedule",
+				"title": "Accounting",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:45",
+				"endTime": "13:30",
+				"dayOfWeek": "Thursday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Accounting",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:17:49.080Z",
+				"updatedAt": "2026-08-06T14:17:49.080Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74953057eac32641b5f2fb",
+				"eventType": "class_schedule",
+				"title": "Chemistry",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "08:30",
+				"endTime": "09:15",
+				"dayOfWeek": "Tuesday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Chemistry",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:07:44.891Z",
+				"updatedAt": "2026-08-06T14:07:44.891Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a749530f3985f451d1701df",
+				"eventType": "class_schedule",
+				"title": "Literature",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "08:30",
+				"endTime": "09:15",
+				"dayOfWeek": "Tuesday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Literature",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:07:44.880Z",
+				"updatedAt": "2026-08-06T14:07:44.880Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74954457eac32641b5f339",
+				"eventType": "class_schedule",
+				"title": "Chemistry",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "09:15",
+				"endTime": "10:00",
+				"dayOfWeek": "Tuesday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Chemistry",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:08:04.479Z",
+				"updatedAt": "2026-08-06T14:08:04.479Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a749544f3985f451d170202",
+				"eventType": "class_schedule",
+				"title": "Literature",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "09:15",
+				"endTime": "10:00",
+				"dayOfWeek": "Tuesday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Literature",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:08:04.460Z",
+				"updatedAt": "2026-08-06T14:08:04.460Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74956257eac32641b5f376",
+				"eventType": "class_schedule",
+				"title": "Bible",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:00",
+				"endTime": "10:45",
+				"dayOfWeek": "Tuesday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Bible",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:08:34.114Z",
+				"updatedAt": "2026-08-06T14:08:34.114Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7494eb57eac32641b5f2cd",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Tuesday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:06:35.891Z",
+				"updatedAt": "2026-08-06T14:06:35.891Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7494eb5636499f16d99618",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Tuesday",
+				"classId": "Morning-GradeTenB",
+				"className": "Grade 10-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:06:35.870Z",
+				"updatedAt": "2026-08-06T14:06:35.870Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7494eef3985f451d170140",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Tuesday",
+				"classId": "Morning-GradeElevenA",
+				"className": "Grade 11-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:06:38.858Z",
+				"updatedAt": "2026-08-06T14:06:38.858Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7494ec75dafe5e33170715",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Tuesday",
+				"classId": "Morning-GradeElevenB",
+				"className": "Grade 11-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:06:36.131Z",
+				"updatedAt": "2026-08-06T14:06:36.131Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7494eb57eac32641b5f2d1",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Tuesday",
+				"classId": "Morning-GradeTenA",
+				"className": "Grade 10-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:06:35.967Z",
+				"updatedAt": "2026-08-06T14:06:35.967Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7494eb75dafe5e3317070e",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Tuesday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:06:35.874Z",
+				"updatedAt": "2026-08-06T14:06:35.874Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74956c57eac32641b5f3af",
+				"eventType": "class_schedule",
+				"title": "Bible",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "11:15",
+				"endTime": "12:00",
+				"dayOfWeek": "Tuesday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Bible",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:08:44.267Z",
+				"updatedAt": "2026-08-06T14:08:44.267Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74958457eac32641b5f3d8",
+				"eventType": "class_schedule",
+				"title": "English",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:00",
+				"endTime": "12:45",
+				"dayOfWeek": "Tuesday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "English",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:09:08.974Z",
+				"updatedAt": "2026-08-06T14:09:08.974Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74958575dafe5e33170754",
+				"eventType": "class_schedule",
+				"title": "Physics",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:00",
+				"endTime": "12:45",
+				"dayOfWeek": "Tuesday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Physics",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:09:09.314Z",
+				"updatedAt": "2026-08-06T14:09:09.314Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74959875dafe5e33170793",
+				"eventType": "class_schedule",
+				"title": "English",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:45",
+				"endTime": "13:30",
+				"dayOfWeek": "Tuesday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "English",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:09:28.102Z",
+				"updatedAt": "2026-08-06T14:09:28.102Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74959857eac32641b5f40d",
+				"eventType": "class_schedule",
+				"title": "Physics",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:45",
+				"endTime": "13:30",
+				"dayOfWeek": "Tuesday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Physics",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:09:28.111Z",
+				"updatedAt": "2026-08-06T14:09:28.111Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7495cd57eac32641b5f468",
+				"eventType": "class_schedule",
+				"title": "Biology",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "08:30",
+				"endTime": "09:15",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Biology",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:10:21.433Z",
+				"updatedAt": "2026-08-06T14:10:21.433Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7495cd75dafe5e331707ac",
+				"eventType": "class_schedule",
+				"title": "Math",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "08:30",
+				"endTime": "09:15",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Math",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:10:21.542Z",
+				"updatedAt": "2026-08-06T14:10:21.542Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74964975dafe5e331707ed",
+				"eventType": "class_schedule",
+				"title": "Biology",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "09:15",
+				"endTime": "10:00",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Biology",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:12:25.459Z",
+				"updatedAt": "2026-08-06T14:12:25.459Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74964975dafe5e331707e6",
+				"eventType": "class_schedule",
+				"title": "Math",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "09:15",
+				"endTime": "10:00",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Math",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:12:25.039Z",
+				"updatedAt": "2026-08-06T14:12:25.039Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74965b75dafe5e3317086a",
+				"eventType": "class_schedule",
+				"title": "History",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:00",
+				"endTime": "10:45",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "History",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:12:43.792Z",
+				"updatedAt": "2026-08-06T14:12:43.792Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74965b75dafe5e33170863",
+				"eventType": "class_schedule",
+				"title": "Economics",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:00",
+				"endTime": "10:45",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Economics",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:12:43.006Z",
+				"updatedAt": "2026-08-06T14:12:43.006Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74966875dafe5e3317090f",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:12:56.321Z",
+				"updatedAt": "2026-08-06T14:12:56.321Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74966875dafe5e33170908",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeElevenA",
+				"className": "Grade 11-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:12:56.075Z",
+				"updatedAt": "2026-08-06T14:12:56.075Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74966775dafe5e33170901",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeElevenB",
+				"className": "Grade 11-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:12:55.693Z",
+				"updatedAt": "2026-08-06T14:12:55.693Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74966775dafe5e331708f7",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:12:55.408Z",
+				"updatedAt": "2026-08-06T14:12:55.408Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74966757eac32641b5f4ae",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeTenB",
+				"className": "Grade 10-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:12:55.392Z",
+				"updatedAt": "2026-08-06T14:12:55.392Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74966775dafe5e331708f3",
+				"eventType": "class_schedule",
+				"title": "Recess",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "10:45",
+				"endTime": "11:15",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeTenA",
+				"className": "Grade 10-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Recess",
+				"isRecess": true,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:12:55.384Z",
+				"updatedAt": "2026-08-06T14:12:55.384Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74969e57eac32641b5f512",
+				"eventType": "class_schedule",
+				"title": "History",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "11:15",
+				"endTime": "12:00",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "History",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:13:50.732Z",
+				"updatedAt": "2026-08-06T14:13:50.732Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a74969d57eac32641b5f50b",
+				"eventType": "class_schedule",
+				"title": "Economics",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "11:15",
+				"endTime": "12:00",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Economics",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:13:49.906Z",
+				"updatedAt": "2026-08-06T14:13:49.906Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7496c075dafe5e3317095e",
+				"eventType": "class_schedule",
+				"title": "Agriculture",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:00",
+				"endTime": "12:45",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Agriculture",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:14:24.802Z",
+				"updatedAt": "2026-08-06T14:14:24.802Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7496c057eac32641b5f597",
+				"eventType": "class_schedule",
+				"title": "Geography",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:00",
+				"endTime": "12:45",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Geography",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:14:24.823Z",
+				"updatedAt": "2026-08-06T14:14:24.823Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7496d675dafe5e3317099a",
+				"eventType": "class_schedule",
+				"title": "Geography",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:45",
+				"endTime": "13:30",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeTwelveA",
+				"className": "Grade 12-A",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Geography",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:14:46.939Z",
+				"updatedAt": "2026-08-06T14:14:46.939Z",
+				"__v": 0
+			},
+			{
+				"_id": "6a7496d657eac32641b5f5cf",
+				"eventType": "class_schedule",
+				"title": "Agriculture",
+				"startDate": "",
+				"endDate": "",
+				"startTime": "12:45",
+				"endTime": "13:30",
+				"dayOfWeek": "Wednesday",
+				"classId": "Morning-GradeTwelveB",
+				"className": "Grade 12-B",
+				"level": "Senior High",
+				"session": "Morning",
+				"subject": "Agriculture",
+				"isRecess": false,
+				"period": "",
+				"groupId": "",
+				"venue": "",
+				"location": "",
+				"description": "",
+				"colorTag": "Primary",
+				"academicYear": "2026-2027",
+				"createdBy": "6887fc6a67e9f1463f346c72",
+				"updatedBy": "6887fc6a67e9f1463f346c72",
+				"seq": 0,
+				"deletedAt": null,
+				"createdAt": "2026-08-06T14:14:46.969Z",
+				"updatedAt": "2026-08-06T14:14:46.969Z",
+				"__v": 0
+			}
+		],
+		"testSchedules": []
+	},
+	"grades": [],
+	"gradesCursor": null,
+	"gradeRequests": [],
+	"attendance": [
+		{
+			"_id": "6a749b730180a8c43fcd047a",
+			"classId": "Morning-GradeTwelveA",
+			"academicYear": "2026-2027",
+			"__v": 0,
+			"absentStudentIds": [],
+			"date": "2026-08-06T00:00:00.000Z",
+			"deletedAt": null,
+			"presentStudentIds": [
+				"UCA2023062",
+				"UCA2022205",
+				"UCA2022377",
+				"UCA2024186",
+				"UCA2022197",
+				"UCA2022097",
+				"UCA2022225",
+				"UCA2026074",
+				"UCA2026080",
+				"UCA2026084",
+				"UCA2026090",
+				"UCA2026106",
+				"UCA2026107",
+				"UCA2025210"
+			],
+			"recordedBy": "6887fc6a67e9f1463f346c72",
+			"seq": 0
+		}
+	],
+	"teacherAttendance": [],
+	"payments": [],
+	"versions": {
+		"user": "1055856449",
+		"school": "1786027398886:6a6775024607094e4be5019d",
+		"users": "24:0:6a748462edba9e79252c8681",
+		"calendar": "0:0:",
+		"schedules": "c88:1786026244703:6a7499045636499f16d999c1|t0:0:",
+		"grades": "0:0:",
+		"gradeRequests": "0:0:",
+		"attendance": "1:0:6a749b730180a8c43fcd047a",
+		"teacherAttendance": "0:0:",
+		"payments": "0:0:"
+	}
+}

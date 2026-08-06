@@ -223,7 +223,45 @@ const toTeacherLikeUser = (currentUser: any) => {
 	return { ...currentUser, subjects: currentUser.classes || [] };
 };
 
-const getRoleClassFilter = (currentUser: any, academicYear: string) => {
+/**
+ * The `session::level` pairs a teacher teaches in, resolved through the class
+ * tree. Note the tree sits under `academicConfig` — `getSchoolProfile` returns
+ * the nested document, not a flattened one.
+ */
+const getTeacherLevelScopes = (
+	classIds: string[],
+	schoolProfile: any,
+): { session: string; level: string }[] => {
+	const classLevels = schoolProfile?.academicConfig?.classLevels;
+	if (!classLevels || classIds.length === 0) return [];
+	const wanted = new Set(classIds);
+	const scopes = new Map<string, { session: string; level: string }>();
+	for (const [session, levels] of Object.entries(classLevels as any)) {
+		for (const [level, data] of Object.entries((levels || {}) as any)) {
+			const classes = (data as any)?.classes || [];
+			if (classes.some((klass: any) => wanted.has(klass?.classId))) {
+				scopes.set(`${session}::${level}`, { session, level });
+			}
+		}
+	}
+	return Array.from(scopes.values());
+};
+
+/**
+ * Scopes schedule queries to what a role may read.
+ *
+ * A teacher is scoped by **level**, not by class. A test sitting the whole
+ * level writes is stored with an empty `classId`, so a `classId: { $in: [...] }`
+ * filter matched none of them and those schedules were invisible to teachers
+ * entirely. Filtering on the levels they teach returns both those rows and the
+ * other classes in the level, which is the administrator-equivalent read the
+ * general schedule view is meant to show. Writing stays admin-only.
+ */
+const getRoleClassFilter = (
+	currentUser: any,
+	academicYear: string,
+	schoolProfile?: any,
+) => {
 	if (currentUser.role === 'student') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
 		return classId ? { classId } : {};
@@ -234,7 +272,13 @@ const getRoleClassFilter = (currentUser: any, academicYear: string) => {
 	}
 	if (currentUser.role === 'teacher') {
 		const classIds = getTeacherClassIdsForYear(currentUser, academicYear);
-		return classIds.length ? { classId: { $in: classIds } } : {};
+		if (classIds.length === 0) return { classId: { $in: [] as string[] } };
+		const scopes = getTeacherLevelScopes(classIds, schoolProfile);
+		// Without the class tree no level can be resolved, so fall back to the
+		// narrower class scope rather than over-sharing.
+		return scopes.length > 0
+			? { $or: scopes.map(({ session, level }) => ({ session, level })) }
+			: { classId: { $in: classIds } };
 	}
 	return {};
 };
@@ -585,8 +629,9 @@ const fetchSchedules = async (
 	models: any,
 	currentUser: any,
 	academicYear: string,
+	schoolProfile?: any,
 ): Promise<{ classSchedules: any[]; testSchedules: any[] }> => {
-	const classFilter = getRoleClassFilter(currentUser, academicYear);
+	const classFilter = getRoleClassFilter(currentUser, academicYear, schoolProfile);
 	const academicYearMatch = getAcademicYearMatch(academicYear);
 	const baseQuery = { academicYear: academicYearMatch, ...classFilter };
 
@@ -925,7 +970,9 @@ export const getDomainVersions = async (
 	const TeacherAttendance = models.TeacherAttendance;
 	const Payment = models.Payment;
 	const usersQuery = getRoleUsersQuery(currentUser, academicYear);
-	const classFilter = getRoleClassFilter(currentUser, academicYear);
+	// Must match fetchSchedules' scope, or the version stamp drifts from the
+	// rows the client was actually given and sync churns.
+	const classFilter = getRoleClassFilter(currentUser, academicYear, schoolProfile);
 	const gradesQuery = getRoleGradesQuery(currentUser, academicYear);
 	const gradeRequestsQuery = getRoleGradeRequestsQuery(
 		currentUser,
@@ -1144,7 +1191,7 @@ export const buildBootstrapPayload = async (
 			? fetchCalendarEvents(models, academicYear)
 			: Promise.resolve(undefined),
 		include.schedules
-			? fetchSchedules(models, currentUser, academicYear)
+			? fetchSchedules(models, currentUser, academicYear, schoolProfile)
 			: Promise.resolve(undefined),
 		include.grades
 			? fetchGradesBootstrap(models, currentUser, academicYear)
