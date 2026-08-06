@@ -1,0 +1,1241 @@
+{
+	"_id": {
+		"$oid": "6a74ce148425d45a8cb5f709"
+	},
+	"system": {
+		"isActive": true,
+		"host": "ucaliberia.vercel.app",
+		"dbName": "ucaliberia_vercel_app"
+	},
+	"identity": {
+		"name": "Upstairs Christian Academy",
+		"shortName": "Upstairs",
+		"initials": "UCA",
+		"slogan": "Excellence In Education",
+		"studentIdPrefix": "UCA",
+		"yearFounded": 2016,
+		"firstAcademicYear": "2025-2026",
+		"currentAcademicYear": "2026-2027"
+	},
+	"branding": {
+		"themeName": "auroraForge",
+		"logoUrl": "https://res.cloudinary.com/dcalueltd/image/upload/v1753368059/school-management-system/uca/logo.png",
+		"logoUrl2": "https://res.cloudinary.com/dcalueltd/image/upload/v1753484515/school-management-system/uca/uca_logo2_kqlgdl.png",
+		"reportCardThemes": {}
+	},
+	"contact": {
+		"addresses": [
+			{
+				"lines": [
+					"Daycare",
+					"Nursery",
+					"Kindergarten",
+					"Elem",
+					"Junior & Senior High"
+				]
+			},
+			{
+				"lines": ["Unity Town", "Pipeline Road", "Lower Johnsonville "]
+			},
+			{
+				"lines": ["P.O Box 2523 Montserrado County Liberia "]
+			},
+			{
+				"lines": ["Email: ucacedemy2011@gmail.com"]
+			}
+		],
+		"phones": [],
+		"emails": [],
+		"website": ""
+	},
+	"academicConfig": {
+		"gradingSettings": {
+			"passMark": 70,
+			"gradeScale": {
+				"min": 60,
+				"max": 100
+			},
+			"hasSummerSchool": true,
+			"givesDoublePromotion": false
+		},
+		"classLevels": {
+			"Morning": {
+				"Daycare Division": {
+					"isSelfContained": true,
+					"classes": [
+						{
+							"classId": "morning_nursery",
+							"name": "Nursery"
+						},
+						{
+							"classId": "morning_abc",
+							"name": "ABC"
+						}
+					],
+					"subjects": [
+						{
+							"name": "Hygiene",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Social Skills",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Identifying Alphabets",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Identifying Numbers",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Tracing Numbers",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Physical Education",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Drawing",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Recognizing Words",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Phonics",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Bible",
+							"isMajorSubject": false
+						}
+					]
+				},
+				"Lower Elementary": {
+					"isSelfContained": true,
+					"classes": [
+						{
+							"classId": "morning_k1",
+							"name": "K 1"
+						},
+						{
+							"classId": "morning_k2",
+							"name": "K 2"
+						},
+						{
+							"classId": "morning_grade_1",
+							"name": "Grade 1"
+						},
+						{
+							"classId": "morning_grade_2",
+							"name": "Grade 2"
+						},
+						{
+							"classId": "morning_grade_3",
+							"name": "Grade 3"
+						}
+					],
+					"subjects": [
+						{
+							"name": "Math",
+							"isMajorSubject": false
+						},
+						{
+							"name": "General Science",
+							"isMajorSubject": false
+						},
+						{
+							"name": "English",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Social Studies",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Health Science",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Physical Education",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Reading",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Writing",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Spelling",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Phonics",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Bible",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Drawing",
+							"isMajorSubject": false
+						}
+					]
+				},
+				"Upper Elementary": {
+					"isSelfContained": false,
+					"classes": [
+						{
+							"classId": "morning_grade_4",
+							"name": "Grade 4"
+						},
+						{
+							"classId": "morning_grade_5",
+							"name": "Grade 5"
+						},
+						{
+							"classId": "morning_grade_6",
+							"name": "Grade 6"
+						}
+					],
+					"subjects": [
+						{
+							"name": "Math",
+							"isMajorSubject": false
+						},
+						{
+							"name": "General Science",
+							"isMajorSubject": false
+						},
+						{
+							"name": "English",
+							"isMajorSubject": false
+						},
+						{
+							"name": "French",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Social Studies",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Health Science",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Physical Education",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Computer",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Reading",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Writing",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Spelling",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Phonics",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Bible",
+							"isMajorSubject": false
+						}
+					]
+				},
+				"Junior High": {
+					"isSelfContained": false,
+					"classes": [
+						{
+							"classId": "morning_grade_7",
+							"name": "Grade 7"
+						},
+						{
+							"classId": "morning_grade_8",
+							"name": "Grade 8"
+						},
+						{
+							"classId": "morning_grade_9",
+							"name": "Grade 9"
+						}
+					],
+					"subjects": [
+						{
+							"name": "Math",
+							"isMajorSubject": false
+						},
+						{
+							"name": "General Science",
+							"isMajorSubject": false
+						},
+						{
+							"name": "English",
+							"isMajorSubject": false
+						},
+						{
+							"name": "French",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Geography",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Health Science",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Physical Education",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Computer",
+							"isMajorSubject": false
+						},
+						{
+							"name": "History",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Civics",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Vocabulary",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Phonics",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Bible",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Agriculture",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Literature",
+							"isMajorSubject": false
+						}
+					]
+				},
+				"Senior High": {
+					"isSelfContained": false,
+					"classes": [
+						{
+							"classId": "Morning_grade_10_a",
+							"name": "Grade 10-A"
+						},
+						{
+							"classId": "Morning_grade_10_b",
+							"name": "Grade 10-B"
+						},
+						{
+							"classId": "Morning_grade_11_a",
+							"name": "Grade 11-A"
+						},
+						{
+							"classId": "morning_rade_11",
+							"name": "Grade 11-B"
+						},
+						{
+							"classId": "morning_rade_12",
+							"name": "Grade 12-A"
+						},
+						{
+							"classId": "morning_rade_12",
+							"name": "Grade 12-B"
+						}
+					],
+					"subjects": [
+						{
+							"name": "Math",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Biology",
+							"isMajorSubject": false
+						},
+						{
+							"name": "English",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Physics",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Chemistry",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Computer",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Economics",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Government",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Geography",
+							"isMajorSubject": false
+						},
+						{
+							"name": "History",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Literature",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Accounting",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Bible",
+							"isMajorSubject": false
+						},
+						{
+							"name": "French",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Agriculture",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Practical",
+							"isMajorSubject": false
+						},
+						{
+							"name": "R.O.T.C",
+							"isMajorSubject": false
+						}
+					]
+				}
+			},
+			"Night": {
+				"Daycare Division": {
+					"isSelfContained": true,
+					"classes": [
+						{
+							"classId": "morning_nursery",
+							"name": "Nursery"
+						},
+						{
+							"classId": "morning_abc",
+							"name": "ABC"
+						}
+					],
+					"subjects": [
+						{
+							"name": "Hygiene",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Social Skills",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Identifying Alphabets",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Identifying Numbers",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Tracing Numbers",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Physical Education",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Drawing",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Recognizing Words",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Phonics",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Bible",
+							"isMajorSubject": false
+						}
+					]
+				},
+				"Lower Elementary": {
+					"isSelfContained": true,
+					"classes": [
+						{
+							"classId": "morning_k1",
+							"name": "K 1"
+						},
+						{
+							"classId": "morning_k2",
+							"name": "K 2"
+						},
+						{
+							"classId": "morning_grade_1",
+							"name": "Grade 1"
+						},
+						{
+							"classId": "morning_grade_2",
+							"name": "Grade 2"
+						},
+						{
+							"classId": "morning_grade_3",
+							"name": "Grade 3"
+						}
+					],
+					"subjects": [
+						{
+							"name": "Math",
+							"isMajorSubject": false
+						},
+						{
+							"name": "General Science",
+							"isMajorSubject": false
+						},
+						{
+							"name": "English",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Social Studies",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Health Science",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Physical Education",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Reading",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Writing",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Spelling",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Phonics",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Bible",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Drawing",
+							"isMajorSubject": false
+						}
+					]
+				},
+				"Upper Elementary": {
+					"isSelfContained": false,
+					"classes": [
+						{
+							"classId": "morning_grade_4",
+							"name": "Grade 4"
+						},
+						{
+							"classId": "morning_grade_5",
+							"name": "Grade 5"
+						},
+						{
+							"classId": "morning_grade_6",
+							"name": "Grade 6"
+						}
+					],
+					"subjects": [
+						{
+							"name": "Math",
+							"isMajorSubject": false
+						},
+						{
+							"name": "General Science",
+							"isMajorSubject": false
+						},
+						{
+							"name": "English",
+							"isMajorSubject": false
+						},
+						{
+							"name": "French",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Social Studies",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Health Science",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Physical Education",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Computer",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Reading",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Writing",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Spelling",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Phonics",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Bible",
+							"isMajorSubject": false
+						}
+					]
+				},
+				"Junior High": {
+					"isSelfContained": false,
+					"classes": [
+						{
+							"classId": "morning_grade_7",
+							"name": "Grade 7"
+						},
+						{
+							"classId": "morning_grade_8",
+							"name": "Grade 8"
+						},
+						{
+							"classId": "morning_grade_9",
+							"name": "Grade 9"
+						}
+					],
+					"subjects": [
+						{
+							"name": "Math",
+							"isMajorSubject": false
+						},
+						{
+							"name": "General Science",
+							"isMajorSubject": false
+						},
+						{
+							"name": "English",
+							"isMajorSubject": false
+						},
+						{
+							"name": "French",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Geography",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Health Science",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Physical Education",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Computer",
+							"isMajorSubject": false
+						},
+						{
+							"name": "History",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Civics",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Vocabulary",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Phonics",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Bible",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Agriculture",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Literature",
+							"isMajorSubject": false
+						}
+					]
+				},
+				"Senior High": {
+					"isSelfContained": false,
+					"classes": [
+						{
+							"classId": "morning_grade_10",
+							"name": "Grade 10"
+						},
+						{
+							"classId": "morning_grade_11",
+							"name": "Grade 11"
+						},
+						{
+							"classId": "morning_grade_12",
+							"name": "Grade 12"
+						}
+					],
+					"subjects": [
+						{
+							"name": "Math",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Biology",
+							"isMajorSubject": false
+						},
+						{
+							"name": "English",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Physics",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Chemistry",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Computer",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Economics",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Government",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Geography",
+							"isMajorSubject": false
+						},
+						{
+							"name": "History",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Literature",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Accounting",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Bible",
+							"isMajorSubject": false
+						},
+						{
+							"name": "French",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Agriculture",
+							"isMajorSubject": false
+						},
+						{
+							"name": "Practical",
+							"isMajorSubject": false
+						},
+						{
+							"name": "R.O.T.C",
+							"isMajorSubject": false
+						}
+					]
+				}
+			}
+		},
+		"academicYearConfigs": {}
+	},
+	"userConfig": {
+		"sysAdmin": {
+			"name": "Amos Senkao",
+			"phone": "0776949463",
+			"email": "senkao.a@outlook.com"
+		},
+		"administrativePositions": [
+			{
+				"id": "principal",
+				"name": "Principal"
+			},
+			{
+				"id": "registrar",
+				"name": "Registrar"
+			},
+			{
+				"id": "vice_principal_for_instruction",
+				"name": "Vice Principal for Instruction"
+			},
+			{
+				"id": "proprietor",
+				"name": "Proprietor"
+			},
+			{
+				"id": "supervisor",
+				"name": "Supervisor"
+			}
+		],
+		"studentSettings": {
+			"loginAccess": true,
+			"reportAccessByYear": {
+				"2025-2026": {
+					"enabled": true,
+					"yearlyReportAccess": true,
+					"periods": [
+						"first",
+						"second",
+						"third",
+						"third_period_exam",
+						"fourth",
+						"fifth",
+						"sixth",
+						"sixth_period_exam"
+					],
+					"semesters": ["first", "second"]
+				},
+				"2026-2027": {
+					"enabled": true,
+					"yearlyReportAccess": true,
+					"periods": [
+						"first",
+						"second",
+						"third",
+						"third_period_exam",
+						"fourth",
+						"fifth",
+						"sixth",
+						"sixth_period_exam"
+					],
+					"semesters": ["first", "second"]
+				}
+			}
+		},
+		"teacherSettings": {
+			"loginAccess": true,
+			"permissionsByYear": {
+				"2025-2026": {
+					"enabled": true,
+					"gradeSubmission": {
+						"enabled": true,
+						"periods": [
+							"first",
+							"second",
+							"third",
+							"third_period_exam",
+							"fourth",
+							"fifth",
+							"sixth",
+							"sixth_period_exam"
+						]
+					},
+					"viewGradeSubmissions": {
+						"enabled": true
+					},
+					"gradeChangeRequest": {
+						"enabled": true,
+						"periods": [
+							"first",
+							"second",
+							"third",
+							"third_period_exam",
+							"fourth",
+							"fifth",
+							"sixth",
+							"sixth_period_exam"
+						]
+					},
+					"viewMasters": {
+						"enabled": true
+					}
+				},
+				"2026-2027": {
+					"enabled": true,
+					"gradeSubmission": {
+						"enabled": true,
+						"periods": [
+							"first",
+							"second",
+							"third",
+							"third_period_exam",
+							"fourth",
+							"fifth",
+							"sixth",
+							"sixth_period_exam"
+						]
+					},
+					"viewGradeSubmissions": {
+						"enabled": true
+					},
+					"gradeChangeRequest": {
+						"enabled": true,
+						"periods": [
+							"first",
+							"second",
+							"third",
+							"third_period_exam",
+							"fourth",
+							"fifth",
+							"sixth",
+							"sixth_period_exam"
+						]
+					},
+					"viewMasters": {
+						"enabled": true
+					}
+				}
+			}
+		},
+		"administratorSettings": {
+			"loginAccess": true
+		},
+		"parentSettings": {
+			"loginAccess": true
+		}
+	},
+	"featureConfig": {
+		"enabledFeatures": [
+			"user_management",
+			"ai_chat",
+			"apps",
+			"student_attendance",
+			"teacher_attendance",
+			"grade_management",
+			"academic_reports",
+			"calendar_events",
+			"fee_payment",
+			"financial_reports",
+			"record_payments",
+			"online_payment",
+			"audit",
+			"support_system",
+			"community",
+			"academic_documents",
+			"school_settings",
+			"default_features"
+		],
+		"roleFeatureAccess": {
+			"student": [
+				"calendar_events",
+				"fee_payment",
+				"academic_reports",
+				"student_attendance",
+				"community",
+				"ai_chat"
+			],
+			"teacher": [
+				"community",
+				"calendar_events",
+				"grade_management",
+				"student_attendance",
+				"ai_chat"
+			],
+			"system_admin": [
+				"user_management",
+				"calendar_events",
+				"grade_management",
+				"class_management",
+				"academic_reports",
+				"student_attendance",
+				"ai_chat",
+				"school_settings",
+				"support_system",
+				"teacher_attendance",
+				"academic_documents"
+			],
+			"parent": [
+				"calendar_events",
+				"fee_payment",
+				"academic_reports",
+				"student_attendance"
+			]
+		}
+	},
+	"financialConfig": {
+		"currencies": [
+			{
+				"code": "LRD",
+				"label": "Liberian Dollar",
+				"symbol": "L$",
+				"isDefault": true
+			},
+			{
+				"code": "USD",
+				"label": "United States Dollar",
+				"symbol": "$",
+				"isDefault": false
+			}
+		],
+		"paymentCategories": [
+			{
+				"id": "tuition",
+				"name": "Tuition"
+			},
+			{
+				"id": "registration",
+				"name": "Registration"
+			},
+			{
+				"id": "requirements",
+				"name": "Requirements"
+			},
+			{
+				"id": "facility",
+				"name": "Facility"
+			},
+			{
+				"id": "accessories",
+				"name": "Accessories"
+			},
+			{
+				"id": "transport",
+				"name": "Transport"
+			},
+			{
+				"id": "boarding",
+				"name": "Boarding"
+			},
+			{
+				"id": "library",
+				"name": "Library"
+			},
+			{
+				"id": "documents",
+				"name": "Documents"
+			},
+			{
+				"id": "graduation",
+				"name": "Graduation"
+			},
+			{
+				"id": "other",
+				"name": "Other"
+			}
+		],
+		"feeDefinitions": [
+			{
+				"id": "tuition",
+				"name": "Tuition",
+				"category": "tuition",
+				"description": "Core academic tuition fee",
+				"isActive": true
+			},
+			{
+				"id": "reg-1st-sem",
+				"name": "Registration (1st Semester)",
+				"category": "registration",
+				"description": "First semester registration",
+				"isActive": true
+			},
+			{
+				"id": "reg-2nd-sem",
+				"name": "Registration (2nd Semester)",
+				"category": "registration",
+				"description": "Second semester registration",
+				"isActive": true
+			},
+			{
+				"id": "first-aid",
+				"name": "First Aid",
+				"category": "requirements",
+				"description": "First aid kit fee",
+				"isActive": true
+			},
+			{
+				"id": "id-card",
+				"name": "Computerized ID Card",
+				"category": "requirements",
+				"description": "Student identification card",
+				"isActive": true
+			},
+			{
+				"id": "pta",
+				"name": "PTA",
+				"category": "requirements",
+				"description": "Parent-Teacher Association fee",
+				"isActive": true
+			},
+			{
+				"id": "breakage-fee",
+				"name": "Breakage Fee",
+				"category": "requirements",
+				"description": "Lab and facility breakage deposit",
+				"isActive": true
+			},
+			{
+				"id": "e-portal",
+				"name": "E-Portal",
+				"category": "requirements",
+				"description": "Online portal access fee",
+				"isActive": true
+			},
+			{
+				"id": "activities",
+				"name": "Activities",
+				"category": "requirements",
+				"description": "School activities fee",
+				"isActive": true
+			},
+			{
+				"id": "field-trip",
+				"name": "Field Trip",
+				"category": "requirements",
+				"description": "Educational field trip fee",
+				"isActive": true
+			},
+			{
+				"id": "computer-literacy",
+				"name": "Computer Literacy",
+				"category": "requirements",
+				"description": "Computer lab and literacy fee",
+				"isActive": true
+			},
+			{
+				"id": "uniform-set",
+				"name": "Uniform Set",
+				"category": "accessories",
+				"description": "School uniform set",
+				"isActive": true
+			},
+			{
+				"id": "wednesday-dress",
+				"name": "Wednesday Dress Code",
+				"category": "accessories",
+				"description": "Wednesday casual dress uniform",
+				"isActive": true
+			}
+		],
+		"installments": [
+			{
+				"id": "inst-1st",
+				"label": "1st Installment",
+				"dueWindow": ""
+			},
+			{
+				"id": "inst-2nd",
+				"label": "2nd Installment",
+				"dueWindow": ""
+			}
+		],
+		"studentGroups": [
+			{
+				"id": "new-students",
+				"name": "New Students",
+				"priority": 1,
+				"conditions": [
+					{
+						"field": "studentType",
+						"operator": "equals",
+						"value": "new"
+					}
+				],
+				"isActive": true
+			},
+			{
+				"id": "returning-students",
+				"name": "Returning Students",
+				"priority": 2,
+				"conditions": [
+					{
+						"field": "studentType",
+						"operator": "equals",
+						"value": "returning"
+					}
+				],
+				"isActive": true
+			}
+		],
+		"feeSchedules": [
+			{
+				"academicYear": "2025-2027",
+				"sessionFeeSchedules": [],
+				"scholarships": []
+			},
+			{
+				"academicYear": "2026-2027",
+				"sessionFeeSchedules": [
+					{
+						"sessionName": "Morning",
+						"feeGroups": []
+					},
+					{
+						"sessionName": "Night",
+						"feeGroups": []
+					}
+				],
+				"scholarships": []
+			}
+		]
+	},
+	"createdAt": {
+		"$date": "2026-08-06T18:10:28.688Z"
+	},
+	"updatedAt": {
+		"$date": "2026-08-06T18:32:37.441Z"
+	},
+	"__v": 0
+}

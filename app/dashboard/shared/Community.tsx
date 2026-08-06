@@ -11,10 +11,14 @@ import {
 	BookOpen,
 	Briefcase,
 	Phone,
+	Mail,
 	User,
 	ChevronLeft,
 	ChevronRight,
 	Users,
+	LayoutGrid,
+	Rows3,
+	AlertCircle,
 } from 'lucide-react';
 import { getClientCache, setClientCache } from '@/utils/clientCache';
 import {
@@ -27,14 +31,54 @@ import {
 	sortAcademicYearsDesc,
 } from '@/utils/academicYearOptions';
 
+/**
+ * The school directory.
+ *
+ * People are the subject here, so the default view is a card grid rather than a
+ * table — a face and a name read faster than a row. The list view is kept for
+ * scanning many people at once, where density beats recognition.
+ *
+ * Both views draw from the same filtered, paginated list, so switching never
+ * changes who is on screen.
+ */
+
+type RoleKey = 'student' | 'teacher' | 'administrator';
+
+const ROLE_KEYS: RoleKey[] = ['student', 'teacher', 'administrator'];
+
+const ROLE_ICON: Record<RoleKey, typeof GraduationCap> = {
+	student: GraduationCap,
+	teacher: BookOpen,
+	administrator: Briefcase,
+};
+
 const getFullName = (user: any) =>
 	user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim();
 
-// ─── Self-contained User Modal ────────────────────────────────────────────────
+const avatarFor = (user: any, size = 128) =>
+	user.avatar ||
+	user.profilePictureUrl ||
+	`https://ui-avatars.com/api/?name=${encodeURIComponent(
+		getFullName(user),
+	)}&background=random&size=${size}`;
+
+/** Section letter a person files under. Anything unnamed sorts last, under #. */
+const initialOf = (user: any) => {
+	const letter = getFullName(user).trim().charAt(0).toUpperCase();
+	return /[A-Z]/.test(letter) ? letter : '#';
+};
+
+const roleLabelFor = (role: RoleKey, viewerRole?: string) => {
+	if (role === 'administrator') return 'Admins';
+	if (role === 'teacher') return 'Teachers';
+	return viewerRole === 'student' ? 'Classmates' : 'Students';
+};
+
+// ─── Profile panel ────────────────────────────────────────────────────────────
 
 interface UserModalProps {
 	user: any;
-	roleFilter: 'student' | 'teacher' | 'administrator';
+	roleFilter: RoleKey;
 	getClassLabel: (u: any) => string;
 	getTeacherSubjectsLabel: (u: any) => string;
 	getAdministratorPositionForYear: (u: any) => string;
@@ -50,10 +94,21 @@ const UserModal = ({
 	onClose,
 }: UserModalProps) => {
 	const name = getFullName(user);
-	const avatar =
-		user.avatar ||
-		user.profilePictureUrl ||
-		`https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&size=128`;
+	const avatar = avatarFor(user);
+
+	// Escape closes, and the page behind must not scroll while this is up.
+	useEffect(() => {
+		const onKey = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') onClose();
+		};
+		document.addEventListener('keydown', onKey);
+		const previousOverflow = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+		return () => {
+			document.removeEventListener('keydown', onKey);
+			document.body.style.overflow = previousOverflow;
+		};
+	}, [onClose]);
 
 	const fields: { label: string; value: string }[] = [];
 
@@ -79,18 +134,7 @@ const UserModal = ({
 		if (pos) fields.push({ label: 'Position', value: pos });
 	}
 
-	if (user.phone) fields.push({ label: 'Phone', value: user.phone });
-	if (user.email) fields.push({ label: 'Email', value: user.email });
-
-	const roleIcon =
-		roleFilter === 'student' ? (
-			<GraduationCap className="h-3.5 w-3.5" />
-		) : roleFilter === 'teacher' ? (
-			<BookOpen className="h-3.5 w-3.5" />
-		) : (
-			<Briefcase className="h-3.5 w-3.5" />
-		);
-
+	const RoleIcon = ROLE_ICON[roleFilter];
 	const roleLabel =
 		roleFilter === 'student'
 			? 'Student'
@@ -100,79 +144,110 @@ const UserModal = ({
 
 	return (
 		<div
-			className="fixed inset-0 z-50 flex items-center justify-center p-4"
+			className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
 			role="dialog"
 			aria-modal="true"
+			aria-label={`${name} profile`}
 		>
-			{/* Backdrop */}
 			<div
-				className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+				className="absolute inset-0 bg-foreground/30 backdrop-blur-sm"
 				onClick={onClose}
 			/>
 
-			{/* Panel */}
-			<div className="relative z-10 w-full max-w-sm rounded-2xl border border-border bg-card shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-				{/* Header band */}
-				<div className="relative h-24 bg-muted">
+			<div className="relative z-10 w-full max-w-md overflow-hidden rounded-t-3xl border border-border bg-card shadow-2xl duration-200 animate-in fade-in slide-in-from-bottom-4 sm:rounded-3xl sm:zoom-in-95 sm:slide-in-from-bottom-0">
+				{/* Banner. The avatar overlaps it, so the eye lands on the face first. */}
+				<div className="relative h-28 bg-gradient-to-br from-primary/25 via-primary/10 to-transparent">
+					<div
+						className="absolute inset-0 opacity-[0.07]"
+						style={{
+							backgroundImage:
+								'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)',
+							backgroundSize: '12px 12px',
+						}}
+					/>
 					<button
 						type="button"
 						onClick={onClose}
-						className="absolute top-3 right-3 rounded-full p-1.5 text-muted-foreground hover:bg-background/60 transition-colors"
+						className="absolute right-3 top-3 rounded-full bg-background/70 p-1.5 text-muted-foreground backdrop-blur transition-colors hover:text-foreground"
 						aria-label="Close"
 					>
 						<X className="h-4 w-4" />
 					</button>
 				</div>
 
-				{/* Avatar — straddles header/body */}
-				<div className="relative px-6 pb-4">
-					<div className="-mt-12 mb-3">
+				<div className="px-6 pb-6">
+					<div className="-mt-14 mb-4 flex items-end justify-between gap-3">
 						<img
 							src={avatar}
 							alt={name}
-							className="h-20 w-20 rounded-2xl border-4 border-card object-cover shadow-md"
+							className="h-24 w-24 rounded-3xl border-4 border-card object-cover shadow-lg"
 						/>
-					</div>
-
-					<div className="flex items-start justify-between gap-2">
-						<div>
-							<h3 className="text-lg font-semibold text-foreground leading-tight">
-								{name}
-							</h3>
-							<span className="inline-flex items-center gap-1 mt-1 rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-								{roleIcon}
-								{roleLabel}
-							</span>
-						</div>
 						{user.isActive !== undefined && (
 							<span
-								className={`mt-1 flex-shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+								className={`mb-1 inline-flex flex-shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
 									user.isActive
 										? 'bg-green-500/10 text-green-600 dark:text-green-400'
 										: 'bg-muted text-muted-foreground'
 								}`}
 							>
 								<span
-									className={`h-1.5 w-1.5 rounded-full ${user.isActive ? 'bg-green-500' : 'bg-muted-foreground'}`}
+									className={`h-1.5 w-1.5 rounded-full ${
+										user.isActive ? 'bg-green-500' : 'bg-muted-foreground'
+									}`}
 								/>
 								{user.isActive ? 'Active' : 'Inactive'}
 							</span>
 						)}
 					</div>
 
+					<h3 className="text-xl font-bold leading-tight tracking-tight text-foreground">
+						{name}
+					</h3>
+					<span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+						<RoleIcon className="h-3.5 w-3.5" />
+						{roleLabel}
+					</span>
+
 					{fields.length > 0 && (
-						<dl className="mt-4 space-y-2.5 border-t border-border pt-4">
+						<dl className="mt-5 space-y-0 divide-y divide-border rounded-2xl border border-border bg-muted/30">
 							{fields.map(({ label, value }) => (
-								<div key={label} className="flex gap-3">
-									<dt className="w-24 flex-shrink-0 text-xs font-medium text-muted-foreground uppercase tracking-wide pt-0.5">
+								<div
+									key={label}
+									className="flex gap-3 px-4 py-2.5 first:rounded-t-2xl last:rounded-b-2xl"
+								>
+									<dt className="w-24 flex-shrink-0 pt-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
 										{label}
 									</dt>
-									<dd className="text-sm text-foreground break-words">
+									<dd className="break-words text-sm font-medium text-foreground">
 										{value}
 									</dd>
 								</div>
 							))}
 						</dl>
+					)}
+
+					{/* Contact routes, actionable rather than merely printed. */}
+					{(user.phone || user.email) && (
+						<div className="mt-4 flex flex-wrap gap-2">
+							{user.phone && (
+								<a
+									href={`tel:${user.phone}`}
+									className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-primary/5"
+								>
+									<Phone className="h-4 w-4 text-primary" />
+									Call
+								</a>
+							)}
+							{user.email && (
+								<a
+									href={`mailto:${user.email}`}
+									className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-primary/5"
+								>
+									<Mail className="h-4 w-4 text-primary" />
+									Email
+								</a>
+							)}
+						</div>
 					)}
 				</div>
 			</div>
@@ -180,94 +255,110 @@ const UserModal = ({
 	);
 };
 
-// ─── Role Tab ─────────────────────────────────────────────────────────────────
+// ─── Role selector ────────────────────────────────────────────────────────────
 
-interface RoleTabProps {
-	role: 'student' | 'teacher' | 'administrator';
-	active: boolean;
-	count: number;
-	viewerRole?: string;
-	onClick: () => void;
-}
-
-const RoleTab = ({
+const RolePill = ({
 	role,
 	active,
 	count,
 	viewerRole,
 	onClick,
-}: RoleTabProps) => {
-	const label =
-		role === 'administrator'
-			? 'Admins'
-			: role === 'student' && viewerRole === 'student'
-				? 'Classmates'
-				: role === 'teacher'
-					? 'Teachers'
-					: 'Students';
-
-	const Icon =
-		role === 'student'
-			? GraduationCap
-			: role === 'teacher'
-				? BookOpen
-				: Briefcase;
-
+}: {
+	role: RoleKey;
+	active: boolean;
+	count: number;
+	viewerRole?: string;
+	onClick: () => void;
+}) => {
+	const Icon = ROLE_ICON[role];
 	return (
 		<button
 			type="button"
 			onClick={onClick}
-			className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-3 text-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+			aria-pressed={active}
+			className={`group relative flex flex-1 items-center gap-3 rounded-2xl px-4 py-3 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
 				active
-					? 'bg-card shadow-sm ring-1 ring-border text-foreground'
-					: 'text-muted-foreground hover:text-foreground hover:bg-card/50'
+					? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+					: 'bg-card text-muted-foreground ring-1 ring-border hover:bg-muted/60 hover:text-foreground'
 			}`}
 		>
-			<div className="flex items-center gap-1.5">
-				<Icon className={`h-3.5 w-3.5 ${active ? 'text-primary' : ''}`} />
-				<span className="text-xs font-semibold uppercase tracking-wide">
-					{label}
-				</span>
-			</div>
 			<span
-				className={`text-xl font-bold leading-none tabular-nums ${
-					active ? 'text-foreground' : 'text-muted-foreground/60'
+				className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition-colors ${
+					active ? 'bg-primary-foreground/15' : 'bg-muted'
 				}`}
 			>
-				{count}
+				<Icon className="h-4 w-4" />
+			</span>
+			<span className="min-w-0">
+				<span className="block truncate text-[11px] font-bold uppercase tracking-wider opacity-80">
+					{roleLabelFor(role, viewerRole)}
+				</span>
+				<span className="block text-lg font-black leading-none tabular-nums">
+					{count}
+				</span>
 			</span>
 		</button>
 	);
 };
 
-// ─── Avatar Cell ──────────────────────────────────────────────────────────────
+// ─── Person card ──────────────────────────────────────────────────────────────
 
-const AvatarCell = ({ user, onClick }: { user: any; onClick: () => void }) => {
+const PersonCard = ({
+	user,
+	meta,
+	onClick,
+}: {
+	user: any;
+	meta: string;
+	onClick: () => void;
+}) => {
 	const name = getFullName(user);
-	const src =
-		user.avatar ||
-		user.profilePictureUrl ||
-		`https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
-
 	return (
 		<button
 			type="button"
 			onClick={onClick}
-			className="flex items-center gap-3 text-left group"
+			className="group flex h-full flex-col rounded-2xl border border-border bg-card p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
 		>
-			<img
-				src={src}
-				alt={name}
-				className="h-9 w-9 rounded-xl object-cover ring-1 ring-border group-hover:ring-primary/50 transition-all flex-shrink-0"
-			/>
-			<span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate max-w-[180px]">
-				{name}
-			</span>
+			<div className="flex items-start gap-3">
+				<img
+					src={avatarFor(user, 96)}
+					alt={name}
+					className="h-12 w-12 flex-shrink-0 rounded-xl object-cover ring-1 ring-border transition-all group-hover:ring-primary/50"
+				/>
+				<div className="min-w-0 flex-1">
+					<p className="truncate text-sm font-bold text-foreground transition-colors group-hover:text-primary">
+						{name}
+					</p>
+					{meta ? (
+						<p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+							{meta}
+						</p>
+					) : (
+						<p className="mt-0.5 text-xs text-muted-foreground/50">—</p>
+					)}
+				</div>
+			</div>
+
+			<div className="mt-3 flex items-center justify-between gap-2 border-t border-border/60 pt-2.5">
+				{user.phone ? (
+					<span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+						<Phone className="h-3 w-3 flex-shrink-0 opacity-50" />
+						<span className="truncate tabular-nums">{user.phone}</span>
+					</span>
+				) : (
+					<span className="text-xs text-muted-foreground/40">No phone</span>
+				)}
+				{user.isActive === false && (
+					<span className="flex-shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+						Inactive
+					</span>
+				)}
+			</div>
 		</button>
 	);
 };
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main component ───────────────────────────────────────────────────────────
 
 const Community = () => {
 	const { user } = useAuth();
@@ -278,12 +369,11 @@ const Community = () => {
 	);
 	const setUsersForYear = useSchoolStore((state) => state.setUsersForYear);
 
-	const [roleFilter, setRoleFilter] = useState<
-		'student' | 'teacher' | 'administrator'
-	>('student');
+	const [roleFilter, setRoleFilter] = useState<RoleKey>('student');
 	const [academicYear, setAcademicYear] = useState('');
 	const [classId, setClassId] = useState('');
 	const [query, setQuery] = useState('');
+	const [view, setView] = useState<'grid' | 'list'>('grid');
 	const [communityData, setCommunityData] = useState<{
 		students: any[];
 		teachers: any[];
@@ -299,7 +389,9 @@ const Community = () => {
 
 	const getClassNameFromId = (id?: string) => {
 		if (!id || !schoolProfile?.academicConfig?.classLevels) return id || '';
-		for (const session of Object.values(schoolProfile.academicConfig?.classLevels || {})) {
+		for (const session of Object.values(
+			schoolProfile.academicConfig?.classLevels || {},
+		)) {
 			if (!session || typeof session !== 'object') continue;
 			for (const level of Object.values(session)) {
 				if (!level?.classes || !Array.isArray(level.classes)) continue;
@@ -387,7 +479,11 @@ const Community = () => {
 			);
 		}
 		return pickMostRecentAcademicYear(availableYears, null) || '';
-	}, [availableYears, schoolProfile?.identity?.currentAcademicYear, sessionUser?.role]);
+	}, [
+		availableYears,
+		schoolProfile?.identity?.currentAcademicYear,
+		sessionUser?.role,
+	]);
 
 	const availableClasses = useMemo(() => {
 		if (!sessionUser || sessionUser.role !== 'teacher' || !academicYear)
@@ -555,6 +651,15 @@ const Community = () => {
 		return uniqueSubjects.length > 0 ? uniqueSubjects.join(', ') : 'Assigned';
 	};
 
+	/** The one line under a name that says who this person is in this view. */
+	const metaFor = (u: any) => {
+		if (roleFilter === 'student') {
+			return [getClassLabel(u), u.gender].filter(Boolean).join(' · ');
+		}
+		if (roleFilter === 'teacher') return getTeacherSubjectsLabel(u);
+		return getAdministratorPositionForYear(u);
+	};
+
 	// ── Filtered / paginated lists ────────────────────────────────────────────
 
 	const filteredUsers = useMemo(() => {
@@ -617,108 +722,145 @@ const Community = () => {
 		return filteredUsers.slice(startIndex, startIndex + itemsPerPage);
 	}, [filteredUsers, currentPage, itemsPerPage]);
 
-	// ── Column headers ────────────────────────────────────────────────────────
+	/** The page's people cut into alphabetical runs, in order. */
+	const letterSections = useMemo(() => {
+		const sections: { letter: string; people: any[] }[] = [];
+		for (const person of paginatedUsers) {
+			const letter = initialOf(person);
+			const last = sections[sections.length - 1];
+			if (last && last.letter === letter) last.people.push(person);
+			else sections.push({ letter, people: [person] });
+		}
+		return sections;
+	}, [paginatedUsers]);
 
-	const renderSubheader = () => {
-		if (roleFilter === 'student')
-			return (
-				<>
-					<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-						Class
-					</th>
-					<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-						Gender
-					</th>
-				</>
-			);
-		if (roleFilter === 'teacher')
-			return (
-				<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-					Subjects
-				</th>
-			);
-		return (
-			<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-				Position
-			</th>
-		);
-	};
-
-	const renderRowCells = (u: any) => {
-		if (roleFilter === 'student')
-			return (
-				<>
-					<td className="px-4 py-3 text-sm text-muted-foreground">
-						{getClassLabel(u) || <span className="text-border">—</span>}
-					</td>
-					<td className="px-4 py-3 text-sm text-muted-foreground capitalize">
-						{u.gender || <span className="text-border">—</span>}
-					</td>
-				</>
-			);
-		if (roleFilter === 'teacher')
-			return (
-				<td className="px-4 py-3 text-sm text-muted-foreground max-w-xs">
-					<span className="line-clamp-1">{getTeacherSubjectsLabel(u)}</span>
-				</td>
-			);
-		return (
-			<td className="px-4 py-3 text-sm text-muted-foreground">
-				{getAdministratorPositionForYear(u)}
-			</td>
-		);
-	};
+	/**
+	 * List view keeps a column per attribute, the way the table always did —
+	 * density is the reason to choose it. The card view is where Class and
+	 * Gender collapse into one line, because a card has no columns to align.
+	 */
+	const listColumns: {
+		label: string;
+		value: (u: any) => string;
+		capitalize?: boolean;
+	}[] =
+		roleFilter === 'student'
+			? [
+					{ label: 'Class', value: (u) => getClassLabel(u) },
+					{ label: 'Gender', value: (u) => u.gender || '', capitalize: true },
+				]
+			: roleFilter === 'teacher'
+				? [{ label: 'Subjects', value: (u) => getTeacherSubjectsLabel(u) }]
+				: [
+						{
+							label: 'Position',
+							value: (u) => getAdministratorPositionForYear(u),
+						},
+					];
 
 	const subtitle =
 		user?.role === 'student'
 			? 'Browse classmates, teachers, and administrators.'
 			: 'Browse students, fellow teachers, and administrators.';
 
+	const showState = loading || error || filteredUsers.length === 0;
+
 	// ── Render ────────────────────────────────────────────────────────────────
 
 	return (
-		<div className="flex flex-col gap-6 px-4 sm:px-6 lg:px-8">
-			{/* Page header */}
-			<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-				<div>
-					<div className="flex items-center gap-2 mb-1">
-						<Users className="h-5 w-5 text-primary" />
-						<h2 className="text-2xl font-bold tracking-tight text-foreground">
-							Community
-						</h2>
+		<div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
+			{/* ── Masthead: identity, search, and the role switch together ── */}
+			<section className="relative overflow-hidden rounded-3xl border border-border bg-card">
+				<div className="absolute inset-0 bg-gradient-to-br from-primary/12 via-primary/5 to-transparent" />
+				<div
+					className="absolute inset-0 opacity-[0.05]"
+					style={{
+						backgroundImage:
+							'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)',
+						backgroundSize: '14px 14px',
+					}}
+				/>
+
+				<div className="relative p-5 sm:p-6">
+					<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+						<div className="min-w-0">
+							<div className="mb-1 flex items-center gap-2">
+								<span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/15">
+									<Users className="h-4 w-4 text-primary" />
+								</span>
+								<h2 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
+									Community
+								</h2>
+							</div>
+							<p className="text-sm text-muted-foreground">{subtitle}</p>
+						</div>
+
+						{/* Search leads — it is how most people find one person. */}
+						<div className="relative w-full lg:max-w-sm">
+							<Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+							<input
+								type="text"
+								value={query}
+								onChange={(e) => setQuery(e.target.value)}
+								placeholder="Search by name, phone, class…"
+								aria-label="Search the directory"
+								className="h-11 w-full rounded-2xl border border-border bg-background/80 pl-10 pr-9 text-sm shadow-sm backdrop-blur placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40"
+							/>
+							{query && (
+								<button
+									type="button"
+									onClick={() => setQuery('')}
+									aria-label="Clear search"
+									className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+								>
+									<X className="h-4 w-4" />
+								</button>
+							)}
+						</div>
 					</div>
-					<p className="text-sm text-muted-foreground">{subtitle}</p>
+
+					<div className="mt-5 flex flex-col gap-2 sm:flex-row">
+						{ROLE_KEYS.map((role) => (
+							<RolePill
+								key={role}
+								role={role}
+								active={roleFilter === role}
+								count={
+									role === 'student'
+										? communityData.students.length
+										: role === 'teacher'
+											? communityData.teachers.length
+											: communityData.administrators.length
+								}
+								viewerRole={user?.role}
+								onClick={() => setRoleFilter(role)}
+							/>
+						))}
+					</div>
 				</div>
+			</section>
 
-				{/* Controls row */}
+			{/* ── Toolbar: what is on screen, and how it is shown ── */}
+			<div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3">
+				<p className="text-sm text-muted-foreground">
+					<span className="font-bold tabular-nums text-foreground">
+						{filteredUsers.length}
+					</span>{' '}
+					{filteredUsers.length === 1 ? 'person' : 'people'}
+					{query ? (
+						<span className="ml-1 text-xs">
+							matching <em className="font-medium not-italic">“{query}”</em>
+						</span>
+					) : null}
+				</p>
+
 				<div className="flex flex-wrap items-center gap-2">
-					{/* Search */}
-					<div className="relative">
-						<Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-						<input
-							type="text"
-							value={query}
-							onChange={(e) => setQuery(e.target.value)}
-							placeholder="Search…"
-							className="h-9 w-48 sm:w-56 rounded-lg border border-border bg-background pl-9 pr-3 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/30"
-						/>
-						{query && (
-							<button
-								type="button"
-								onClick={() => setQuery('')}
-								className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-							>
-								<X className="h-3.5 w-3.5" />
-							</button>
-						)}
-					</div>
-
-					{/* Year selector */}
 					{availableYears.length > 1 && (
 						<select
 							value={academicYear}
 							onChange={(e) => setAcademicYear(e.target.value)}
-							className="h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+							aria-label="Academic year"
+							className="h-9 rounded-xl border border-border bg-background px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
 						>
 							{availableYears.map((year) => (
 								<option key={year} value={year}>
@@ -728,12 +870,12 @@ const Community = () => {
 						</select>
 					)}
 
-					{/* Class filter (teachers only) */}
 					{user?.role === 'teacher' && roleFilter === 'student' && (
 						<select
 							value={classId}
 							onChange={(e) => setClassId(e.target.value)}
-							className="h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+							aria-label="Class"
+							className="h-9 rounded-xl border border-border bg-background px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
 						>
 							<option value="">All Classes</option>
 							{availableClasses.map((id: string) => (
@@ -743,150 +885,181 @@ const Community = () => {
 							))}
 						</select>
 					)}
-				</div>
-			</div>
 
-			{/* Role tabs — live count badges */}
-			<div className="grid grid-cols-3 gap-2 rounded-2xl border border-border bg-muted/40 p-1.5">
-				{(['student', 'teacher', 'administrator'] as const).map((role) => (
-					<RoleTab
-						key={role}
-						role={role}
-						active={roleFilter === role}
-						count={
-							role === 'student'
-								? communityData.students.length
-								: role === 'teacher'
-									? communityData.teachers.length
-									: communityData.administrators.length
-						}
-						viewerRole={user?.role}
-						onClick={() => setRoleFilter(role)}
-					/>
-				))}
-			</div>
+					<select
+						value={itemsPerPage}
+						onChange={(e) => {
+							setItemsPerPage(Number(e.target.value));
+							setCurrentPage(1);
+						}}
+						aria-label="People per page"
+						className="h-9 rounded-xl border border-border bg-background px-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
+					>
+						<option value={5}>5</option>
+						<option value={10}>10</option>
+						<option value={20}>20</option>
+					</select>
 
-			{/* Table card */}
-			<div className="rounded-xl border border-border bg-card overflow-hidden">
-				{/* Table toolbar */}
-				<div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-					<p className="text-sm text-muted-foreground">
-						<span className="font-semibold text-foreground tabular-nums">
-							{filteredUsers.length}
-						</span>{' '}
-						{filteredUsers.length === 1 ? 'result' : 'results'}
-						{query ? (
-							<span className="ml-1 text-xs">
-								for <em className="not-italic font-medium">"{query}"</em>
-							</span>
-						) : null}
-					</p>
-					<div className="flex items-center gap-2">
-						<span className="text-xs text-muted-foreground">Show</span>
-						<select
-							value={itemsPerPage}
-							onChange={(e) => {
-								setItemsPerPage(Number(e.target.value));
-								setCurrentPage(1);
-							}}
-							className="h-7 rounded border border-border bg-background px-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-						>
-							<option value={5}>5</option>
-							<option value={10}>10</option>
-							<option value={20}>20</option>
-						</select>
+					{/* Cards to recognise a face, rows to scan many at once. */}
+					<div className="flex items-center gap-0.5 rounded-xl border border-border bg-background p-0.5">
+						{(
+							[
+								['grid', LayoutGrid, 'Card view'],
+								['list', Rows3, 'List view'],
+							] as const
+						).map(([key, Icon, label]) => (
+							<button
+								key={key}
+								type="button"
+								onClick={() => setView(key)}
+								aria-label={label}
+								aria-pressed={view === key}
+								className={`rounded-lg p-2 transition-colors ${
+									view === key
+										? 'bg-primary text-primary-foreground'
+										: 'text-muted-foreground hover:text-foreground'
+								}`}
+							>
+								<Icon className="h-4 w-4" />
+							</button>
+						))}
 					</div>
 				</div>
+			</div>
 
-				{/* Table */}
-				<div className="overflow-auto max-h-[60vh]">
-					<table className="w-full border-collapse text-sm">
-						<thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
-							<tr className="border-b border-border">
-								<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground min-w-[220px]">
-									Name
-								</th>
-								{renderSubheader()}
-								<th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground min-w-[150px]">
-									Phone
-								</th>
-							</tr>
-						</thead>
-
-						<tbody>
-							{/* Loading */}
-							{loading && (
-								<tr>
-									<td
-										colSpan={roleFilter === 'student' ? 5 : 4}
-										className="py-16"
-									>
-										<div className="flex flex-col items-center gap-3 text-muted-foreground">
-											<Loader2 className="h-7 w-7 animate-spin text-primary/60" />
-											<span className="text-sm">Loading…</span>
-										</div>
-									</td>
+			{/* ── People ── */}
+			{showState ? (
+				<div className="rounded-2xl border border-dashed border-border bg-card px-4 py-20">
+					{loading ? (
+						<div className="flex flex-col items-center gap-3 text-muted-foreground">
+							<Loader2 className="h-8 w-8 animate-spin text-primary/60" />
+							<span className="text-sm font-medium">Loading directory…</span>
+						</div>
+					) : error ? (
+						<div className="flex flex-col items-center gap-2 text-center">
+							<AlertCircle className="h-8 w-8 text-destructive/60" />
+							<p className="text-sm font-semibold text-destructive">{error}</p>
+						</div>
+					) : (
+						<div className="flex flex-col items-center gap-2 text-center">
+							<User className="h-9 w-9 text-muted-foreground/30" />
+							<p className="text-sm font-bold text-foreground">
+								Nobody to show
+							</p>
+							<p className="max-w-xs text-xs text-muted-foreground">
+								{query
+									? 'No one matches that search. Try a different name or clear the search.'
+									: 'There are no people in this part of the directory yet.'}
+							</p>
+						</div>
+					)}
+				</div>
+			) : view === 'grid' ? (
+				<div className="flex flex-col gap-5">
+					{letterSections.map((section) => (
+						<section key={section.letter}>
+							{/* The letter doubles as a rule across the page. */}
+							<div className="mb-2.5 flex items-center gap-3">
+								<span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-black text-primary">
+									{section.letter}
+								</span>
+								<span className="h-px flex-1 bg-border" />
+							</div>
+							<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+								{section.people.map((u) => (
+									<PersonCard
+										key={u.id || u._id}
+										user={u}
+										meta={metaFor(u)}
+										onClick={() => setViewingUser(u)}
+									/>
+								))}
+							</div>
+						</section>
+					))}
+				</div>
+			) : (
+				<div className="overflow-hidden rounded-2xl border border-border bg-card">
+					<div className="overflow-auto">
+						<table className="w-full border-collapse text-sm">
+							<thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm">
+								<tr className="border-b border-border">
+									<th className="min-w-[220px] px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">
+										Name
+									</th>
+									{listColumns.map((column) => (
+										<th
+											key={column.label}
+											className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground"
+										>
+											{column.label}
+										</th>
+									))}
+									<th className="min-w-[150px] px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">
+										Phone
+									</th>
 								</tr>
-							)}
-
-							{/* Error */}
-							{!loading && error && (
-								<tr>
-									<td
-										colSpan={roleFilter === 'student' ? 5 : 4}
-										className="py-12 text-center text-sm text-destructive"
-									>
-										{error}
-									</td>
-								</tr>
-							)}
-
-							{/* Empty */}
-							{!loading && !error && filteredUsers.length === 0 && (
-								<tr>
-									<td
-										colSpan={roleFilter === 'student' ? 5 : 4}
-										className="py-16 text-center"
-									>
-										<div className="flex flex-col items-center gap-2 text-muted-foreground">
-											<User className="h-8 w-8 opacity-30" />
-											<span className="text-sm">No users found.</span>
-										</div>
-									</td>
-								</tr>
-							)}
-
-							{/* Rows */}
-							{!loading &&
-								!error &&
-								paginatedUsers.map((u) => (
+							</thead>
+							<tbody>
+								{paginatedUsers.map((u) => (
 									<tr
 										key={u.id || u._id}
-										className="border-b border-border/60 last:border-0 hover:bg-muted/30 transition-colors"
+										onClick={() => setViewingUser(u)}
+										className="cursor-pointer border-b border-border/60 transition-colors last:border-0 hover:bg-muted/40"
 									>
-										<td className="px-4 py-3">
-											<AvatarCell user={u} onClick={() => setViewingUser(u)} />
+										<td className="px-4 py-2.5">
+											<span className="flex items-center gap-3">
+												<img
+													src={avatarFor(u, 96)}
+													alt={getFullName(u)}
+													className="h-9 w-9 flex-shrink-0 rounded-xl object-cover ring-1 ring-border"
+												/>
+												<span className="truncate text-sm font-semibold text-foreground">
+													{getFullName(u)}
+												</span>
+											</span>
 										</td>
-										{renderRowCells(u)}
-										<td className="px-4 py-3 text-sm text-muted-foreground">
+										{listColumns.map((column) => {
+											const content = column.value(u);
+											return (
+												<td
+													key={column.label}
+													className="max-w-xs px-4 py-2.5 text-sm text-muted-foreground"
+												>
+													{content ? (
+														<span
+															className={`line-clamp-1 ${column.capitalize ? 'capitalize' : ''}`}
+														>
+															{content}
+														</span>
+													) : (
+														<span className="text-muted-foreground/40">—</span>
+													)}
+												</td>
+											);
+										})}
+										<td className="px-4 py-2.5 text-sm text-muted-foreground">
 											{u.phone ? (
-												<span className="inline-flex items-center gap-1.5">
+												<span className="inline-flex items-center gap-1.5 tabular-nums">
 													<Phone className="h-3.5 w-3.5 opacity-40" />
 													{u.phone}
 												</span>
 											) : (
-												<span className="text-border">—</span>
+												<span className="text-muted-foreground/40">—</span>
 											)}
 										</td>
 									</tr>
 								))}
-						</tbody>
-					</table>
+							</tbody>
+						</table>
+					</div>
 				</div>
+			)}
 
-				{/* Pagination */}
-				<div className="flex items-center justify-between gap-4 border-t border-border px-4 py-3">
-					<p className="text-xs text-muted-foreground tabular-nums">
+			{/* ── Pagination ── */}
+			{!showState && totalPages > 1 && (
+				<div className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-card px-4 py-3">
+					<p className="text-xs font-medium tabular-nums text-muted-foreground">
 						Page {currentPage} of {totalPages}
 					</p>
 					<div className="flex items-center gap-1.5">
@@ -894,12 +1067,12 @@ const Community = () => {
 							type="button"
 							onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
 							disabled={currentPage === 1}
+							aria-label="Previous page"
 							className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
 						>
 							<ChevronLeft className="h-4 w-4" />
 						</button>
 
-						{/* Page number pills */}
 						{Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
 							const page =
 								totalPages <= 5
@@ -914,7 +1087,8 @@ const Community = () => {
 									key={page}
 									type="button"
 									onClick={() => setCurrentPage(page)}
-									className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-medium transition-colors ${
+									aria-current={page === currentPage ? 'page' : undefined}
+									className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold transition-colors ${
 										page === currentPage
 											? 'bg-primary text-primary-foreground shadow-sm'
 											: 'border border-border text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -929,13 +1103,14 @@ const Community = () => {
 							type="button"
 							onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
 							disabled={currentPage === totalPages}
+							aria-label="Next page"
 							className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
 						>
 							<ChevronRight className="h-4 w-4" />
 						</button>
 					</div>
 				</div>
-			</div>
+			)}
 
 			{viewingUser && (
 				<UserModal
