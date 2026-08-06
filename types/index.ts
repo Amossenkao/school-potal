@@ -168,6 +168,12 @@ export interface User {
 	mustChangePassword: boolean;
 	passwordChangedAt?: Date | null;
 	phone: string;
+	/**
+	 * Canonical form of `phone`, derived by `normalizePhone`. Written only by
+	 * schema middleware — never set it directly. Used for login lookups and
+	 * uniqueness; `phone` keeps whatever the user typed.
+	 */
+	phoneNormalized?: string;
 	email?: string;
 	address: string;
 	bio?: string;

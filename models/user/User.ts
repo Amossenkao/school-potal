@@ -1,6 +1,7 @@
 import { Schema, Document } from 'mongoose';
 import { User, Notification, AIChatMessage, AIChatSession } from '@/types';
 import { UserRoles } from '../constants';
+import { normalizePhone } from '@/utils/phone';
 
 const NotificationSchema = new Schema<Notification & Document>({
 	title: { type: String, required: true },
@@ -46,6 +47,8 @@ const UserSchema = new Schema<User & Document>(
 		mustChangePassword: { type: Boolean, default: false },
 		passwordChangedAt: { type: Date, default: null },
 		phone: { type: String, required: true, unique: true },
+		// Derived from `phone` by the middleware below — never assign directly.
+		phoneNormalized: { type: String },
 		email: { type: String, unique: true, sparse: true, required: false },
 		address: { type: String, required: true },
 		bio: String,
@@ -72,5 +75,44 @@ UserSchema.index({
 });
 UserSchema.index({ role: 1, 'subjects.year': 1 });
 UserSchema.index({ role: 1, 'subjects.classes.classId': 1 });
+
+// Sparse so users without a phone are simply absent from the index. Note that
+// sparse skips *missing* fields but still indexes an explicit null, which is
+// why the middleware below unsets the field rather than nulling it.
+UserSchema.index({ phoneNormalized: 1 }, { unique: true, sparse: true });
+
+// --- Keep phoneNormalized in step with phone on every write path ---
+// Registered on the base schema at module load, so the discriminators compiled
+// in models/index.ts inherit both hooks.
+
+UserSchema.pre('save', function (next) {
+	if (this.isModified('phone')) {
+		const normalized = normalizePhone(this.get('phone'));
+		// `undefined` leaves the key off the document; null would be indexed.
+		this.set('phoneNormalized', normalized ?? undefined);
+	}
+	next();
+});
+
+UserSchema.pre(
+	['findOneAndUpdate', 'updateOne', 'updateMany'],
+	function (next) {
+		const update: any = this.getUpdate() || {};
+		const phone = update.$set?.phone ?? update.phone;
+
+		if (phone !== undefined) {
+			const normalized = normalizePhone(phone);
+			if (normalized) {
+				this.set('phoneNormalized', normalized);
+			} else {
+				update.$unset = { ...(update.$unset || {}), phoneNormalized: '' };
+				if (update.$set) delete update.$set.phoneNormalized;
+				delete update.phoneNormalized;
+				this.setUpdate(update);
+			}
+		}
+		next();
+	},
+);
 
 export default UserSchema;
