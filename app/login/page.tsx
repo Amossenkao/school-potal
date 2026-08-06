@@ -980,12 +980,23 @@ const LoginPage = () => {
 		};
 
 		const closeClient = () => {
+			// Navigating away from /login after signing in tears this client down
+			// mid-flight; Ably rejects the pending operation with "Connection
+			// closed". The client is being discarded, so the rejection is noise.
 			if (unsubscribe) {
-				unsubscribe();
+				try {
+					unsubscribe();
+				} catch {
+					/* client already gone */
+				}
 				unsubscribe = null;
 			}
 			if (client) {
-				client.close();
+				try {
+					client.close();
+				} catch {
+					/* already closed */
+				}
 				client = null;
 			}
 		};

@@ -74,12 +74,23 @@ export default function Inactive() {
 		};
 
 		const closeClient = () => {
+			// Ably rejects whatever is in flight when a client closes; this one is
+			// being discarded, so neither that nor a late unsubscribe is worth
+			// surfacing as an uncaught rejection.
 			if (unsubscribe) {
-				unsubscribe();
+				try {
+					unsubscribe();
+				} catch {
+					/* client already gone */
+				}
 				unsubscribe = null;
 			}
 			if (client) {
-				client.close();
+				try {
+					client.close();
+				} catch {
+					/* already closed */
+				}
 				client = null;
 			}
 		};

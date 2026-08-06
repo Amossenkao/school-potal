@@ -376,6 +376,19 @@ export default function AuthProvider({
 		realtimeClientRef.current = client;
 		realtimeSubscriptionsRef.current = [];
 
+		console.log('[AuthProvider] subscribing', {
+			tenantKey,
+			role: user.role,
+			channels: realtimeChannels,
+		});
+		client.connection.on((state: any) =>
+			console.log(
+				'[AuthProvider] ably connection:',
+				state?.current,
+				state?.reason?.message || '',
+			),
+		);
+
 		// Computed above and memoised on content, so this effect is not rebuilt
 		// merely because a refresh handed back equivalent objects.
 		const channels = realtimeChannels;
@@ -502,11 +515,18 @@ export default function AuthProvider({
 			const channel = client.channels.get(channelName);
 			const listener = (message: any) => {
 				const event = message?.data as RealtimeEvent | undefined;
+				// Logged before any filter — a silent drop here is otherwise
+				// indistinguishable from the message never arriving.
+				console.log('[AuthProvider] message on', channelName, event?.type, {
+					eventTenantId: event?.tenantId,
+					tenantKey,
+				});
 				if (
 					!event ||
 					typeof event.type !== 'string' ||
 					typeof event.tenantId !== 'string'
 				) {
+					console.warn('[AuthProvider] dropped — malformed event', event);
 					return;
 				}
 				// Not every subscribed channel is exclusive to this tenant —
@@ -521,7 +541,14 @@ export default function AuthProvider({
 				// app/login/page.tsx). Without it, another school's realtime
 				// event — e.g. a superadmin editing that school's profile —
 				// gets applied to this session too.
-				if (event.tenantId !== tenantKey) return;
+				if (event.tenantId !== tenantKey) {
+					console.warn('[AuthProvider] dropped — tenant mismatch', {
+						eventTenantId: event.tenantId,
+						tenantKey,
+						channelName,
+					});
+					return;
+				}
 				handleRealtimeEvent(event);
 			};
 			channel.subscribe(listener);
