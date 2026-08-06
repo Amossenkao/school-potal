@@ -469,7 +469,12 @@ export async function POST(request: NextRequest) {
 					{ status: 400 }
 				);
 			}
-			const invalid = validateTestRows(payload.items);
+			// Draft rows with no subject are dropped, so a schedule can be
+			// published for the classes and papers actually filled in.
+			const rows = (Array.isArray(payload.items) ? payload.items : []).filter(
+				(row: any) => row?.subject,
+			);
+			const invalid = validateTestRows(rows);
 			if (invalid) {
 				return NextResponse.json(
 					{ success: false, message: invalid },
@@ -490,7 +495,7 @@ export async function POST(request: NextRequest) {
 			};
 
 			const created = await models.SchoolEvent.insertMany(
-				payload.items.map((row: any) => buildTestRow(row, shared))
+				rows.map((row: any) => buildTestRow(row, shared))
 			);
 
 			await invalidateScheduleCache(
@@ -726,7 +731,10 @@ export async function POST(request: NextRequest) {
 			// schedule, and the diff against what is stored decides which rows
 			// are updated, added or dropped.
 			if (payload.type === 'test' && payload.groupId && Array.isArray(payload.items)) {
-				const invalidRows = validateTestRows(payload.items);
+				// Rows without a subject are drafts; drop them before the diff
+				// so a cleared or half-filled paper is simply removed.
+				const items = (payload.items as any[]).filter((row: any) => row?.subject);
+				const invalidRows = validateTestRows(items);
 				if (invalidRows) {
 					return NextResponse.json(
 						{ success: false, message: invalidRows },
@@ -770,14 +778,14 @@ export async function POST(request: NextRequest) {
 				};
 
 				const submittedIds = new Set(
-					payload.items.map((row: any) => String(row.id || '')).filter(Boolean)
+					items.map((row: any) => String(row.id || '')).filter(Boolean)
 				);
 				const removed = existing.filter(
 					(row: any) => !submittedIds.has(String(row._id))
 				);
 
 				const saved: any[] = [];
-				for (const row of payload.items) {
+				for (const row of items) {
 					const body = buildTestRow(row, shared);
 					if (row.id) {
 						// `createdBy` is withheld on update so the original author survives.

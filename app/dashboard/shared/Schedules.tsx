@@ -845,13 +845,19 @@ export default function Schedules({ user, schoolProfile }: SchedulesProps) {
 			...entry,
 			subject: slotIsRecess ? 'Recess' : entry.subject,
 		}));
-		if (!slotIsRecess && normalized.some((entry) => !entry.subject)) {
-			setScheduleError('Enter a subject for every class.');
+		// A blank subject means the class simply is not scheduled in this slot,
+		// so a slot can be built for a few classes without having to fill the
+		// rest of the level.
+		const kept = slotIsRecess
+			? normalized
+			: normalized.filter((entry) => entry.subject.trim());
+		if (kept.length === 0) {
+			setScheduleError('Pick a subject for at least one class in this slot.');
 			return;
 		}
 		if (!slotIsRecess) {
 			const counts = new Map<string, number>();
-			normalized.forEach((entry) => {
+			kept.forEach((entry) => {
 				const key = entry.subject.trim().toLowerCase();
 				if (key) counts.set(key, (counts.get(key) || 0) + 1);
 			});
@@ -864,7 +870,7 @@ export default function Schedules({ user, schoolProfile }: SchedulesProps) {
 		}
 
 		const editingIds = new Set(slotEditingIds);
-		const conflict = normalized.some((entry) =>
+		const conflict = kept.some((entry) =>
 			levelClassSchedules.some((item) => {
 				if (editingIds.has(item.id)) return false;
 				if (item.dayOfWeek !== slotDay) return false;
@@ -883,10 +889,30 @@ export default function Schedules({ user, schoolProfile }: SchedulesProps) {
 			return;
 		}
 
+		// A class whose subject was cleared on edit no longer belongs in the slot.
+		const keptIds = new Set(kept.flatMap((entry) => (entry.id ? [entry.id] : [])));
+		const removedIds = slotEditingIds.filter((id) => !keptIds.has(id));
+
 		try {
 			setSlotSaving(true);
-			await Promise.all(
-				normalized.map(async (entry) => {
+			await Promise.all([
+				...removedIds.map(async (id) => {
+					const response = await fetch('/api/schedules', {
+						method: 'DELETE',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							id,
+							type: 'class',
+							level: activeLevel.level,
+							session: activeLevel.session,
+						}),
+					});
+					const result = await response.json();
+					if (!response.ok || !result?.success) {
+						throw new Error(result?.message || 'Failed to delete schedule.');
+					}
+				}),
+				...kept.map(async (entry) => {
 					const response = await fetch('/api/schedules', {
 						method: entry.id ? 'PATCH' : 'POST',
 						headers: { 'Content-Type': 'application/json' },
@@ -910,7 +936,7 @@ export default function Schedules({ user, schoolProfile }: SchedulesProps) {
 						throw new Error(result?.message || 'Failed to save schedule.');
 					}
 				}),
-			);
+			]);
 			setSlotOpen(false);
 			refresh();
 		} catch (error) {
@@ -1476,6 +1502,13 @@ export default function Schedules({ user, schoolProfile }: SchedulesProps) {
 							/>
 							Recess for this slot
 						</label>
+
+						{!slotIsRecess && (
+							<p className="text-xs text-muted-foreground">
+								Leave a subject blank to skip that class — no need to fill
+								every class in the level.
+							</p>
+						)}
 
 						<div className="space-y-2">
 							{slotEntries.filter((entry) => entry.classId !== '__none__').length ===

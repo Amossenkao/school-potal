@@ -13,9 +13,14 @@
 
 const LR_COUNTRY_CODE = '231';
 
-/** Liberian national significant numbers are 8-9 digits. */
+/**
+ * Liberian national significant numbers are 8-9 digits, but stored data also
+ * contains 10-digit variants (e.g. "+231-770-000-0001"). The upper bound is 10
+ * so those still shed their country code — with a narrower window the "231"
+ * survived normalization and the local form of the same number failed to match.
+ */
 const MIN_NSN_LENGTH = 7;
-const MAX_NSN_LENGTH = 9;
+const MAX_NSN_LENGTH = 10;
 
 /** Shortest value we are willing to treat as a phone number at all. */
 const MIN_USABLE_LENGTH = 6;

@@ -266,6 +266,9 @@ export default function TestScheduleEditor({
 		for (const sitting of sittings) {
 			const targets = sitting.classIds.length > 0 ? sitting.classIds : ['__all__'];
 			for (const paper of sitting.papers) {
+				// A paper left blank is a draft row, not a real sitting — only
+				// subjects actually chosen create rows.
+				if (!paper.subject) continue;
 				for (const classKey of targets) {
 					const meta = classes.find((klass) => klass.classId === classKey);
 					items.push({
@@ -294,11 +297,13 @@ export default function TestScheduleEditor({
 		for (const [index, sitting] of sittings.entries()) {
 			const label = sitting.date || `Sitting ${index + 1}`;
 			if (!sitting.date) return `${label}: pick the date for this sitting.`;
-			if (sitting.papers.length === 0) {
+			// Papers left blank are skipped on save, so laying out a day for a
+			// few classes never forces a subject on every line.
+			const filled = sitting.papers.filter((paper) => paper.subject.trim());
+			if (filled.length === 0) {
 				return `${label}: add at least one subject.`;
 			}
-			for (const paper of sitting.papers) {
-				if (!paper.subject) return `${label}: every subject must be chosen.`;
+			for (const paper of filled) {
 				if (!paper.startTime || !paper.endTime) {
 					return `${label} — ${paper.subject}: set a start and end time.`;
 				}
@@ -308,7 +313,7 @@ export default function TestScheduleEditor({
 			}
 			// Papers in one sitting are written by the same classes, so two of
 			// them cannot run at once.
-			const ordered = [...sitting.papers].sort((a, b) =>
+			const ordered = [...filled].sort((a, b) =>
 				a.startTime.localeCompare(b.startTime),
 			);
 			for (let i = 1; i < ordered.length; i += 1) {

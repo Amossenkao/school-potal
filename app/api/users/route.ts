@@ -436,7 +436,7 @@ async function validateAdministratorData(
 async function generateIdByRole(models: any, role: string): Promise<string> {
 	const schoolProfile = await getSchoolProfile();
 	const prefixes: { [key: string]: string } = {
-		student: schoolProfile.studentIdPrefix || 'STU',
+		student: schoolProfile?.identity.studentIdPrefix || 'STU',
 		teacher: 'TEA',
 		administrator: 'ADM',
 		system_admin: 'SYS',

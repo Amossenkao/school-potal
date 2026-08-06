@@ -31,7 +31,7 @@ const SUPERADMIN_COLLECTION = 'superadmins';
 
 const LR_COUNTRY_CODE = '231';
 const MIN_NSN_LENGTH = 7;
-const MAX_NSN_LENGTH = 9;
+const MAX_NSN_LENGTH = 10;
 const MIN_USABLE_LENGTH = 6;
 
 function normalizePhone(raw) {
@@ -164,22 +164,50 @@ function resolveMongoUri() {
 	return process.env.MONGODB_URI || '';
 }
 
+/**
+ * Tenant databases are registered in schoolmesh.schoolprofiles under
+ * `system.dbName` — the same place lib/mongoose.ts reads them from.
+ *
+ * The legacy `tenants.profiles` collection is checked as a fallback, but on
+ * this cluster it is empty, so anything relying on it alone finds no tenants
+ * and silently does nothing.
+ */
 async function discoverTenantDbNames(mongoUri) {
-	const conn = mongoose.createConnection(mongoUri, {
+	const fromSchoolMesh = mongoose.createConnection(mongoUri, {
+		dbName: SCHOOLMESH_DB,
+		maxPoolSize: 4,
+		minPoolSize: 0,
+		serverSelectionTimeoutMS: 5000,
+	});
+	let names = [];
+	try {
+		await fromSchoolMesh.asPromise();
+		const rows = await fromSchoolMesh.db
+			.collection('schoolprofiles')
+			.find({}, { projection: { 'system.dbName': 1, _id: 0 } })
+			.toArray();
+		names = uniqueNonEmpty(rows.map((row) => row?.system?.dbName));
+	} finally {
+		await fromSchoolMesh.close();
+	}
+
+	if (names.length > 0) return names;
+
+	const legacy = mongoose.createConnection(mongoUri, {
 		dbName: 'tenants',
 		maxPoolSize: 4,
 		minPoolSize: 0,
 		serverSelectionTimeoutMS: 5000,
 	});
 	try {
-		await conn.asPromise();
-		const rows = await conn.db
+		await legacy.asPromise();
+		const rows = await legacy.db
 			.collection('profiles')
 			.find({}, { projection: { dbName: 1, _id: 0 } })
 			.toArray();
 		return uniqueNonEmpty(rows.map((row) => row.dbName));
 	} finally {
-		await conn.close();
+		await legacy.close();
 	}
 }
 
@@ -264,11 +292,11 @@ function reportCollection(label, report) {
 }
 
 /**
- * Drop any existing phoneNormalized index before creating ours: Mongo rejects
- * a createIndex that changes the options of an existing index
- * (IndexOptionsConflict), and Mongoose's autoIndex will not rebuild it either.
+ * Dropping first also avoids IndexOptionsConflict: Mongo rejects a createIndex
+ * that changes the options of an existing index, and Mongoose's autoIndex will
+ * not rebuild it either.
  */
-async function ensureUniqueIndex(collection) {
+async function dropUniqueIndex(collection) {
 	try {
 		await collection.dropIndex('phoneNormalized_1');
 		console.log('  [index] dropped existing phoneNormalized_1');
@@ -278,6 +306,9 @@ async function ensureUniqueIndex(collection) {
 			throw error;
 		}
 	}
+}
+
+async function createUniqueIndex(collection) {
 	await collection.createIndex(
 		{ phoneNormalized: 1 },
 		{ unique: true, sparse: true, name: 'phoneNormalized_1' },
@@ -309,8 +340,17 @@ async function processDb(mongoUri, dbName, collectionName, apply) {
 		}
 
 		if (!apply) {
-			return { dbName, collisions: 0, written: 0, success: true };
+			// Report what --apply would write, so the summary agrees with the
+			// per-collection line above.
+			return { dbName, collisions: 0, written: report.writes.length, success: true };
 		}
+
+		// Drop the index before rewriting values. On a re-run the stored values
+		// change (e.g. "2317700000001" -> "7700000001"), and an unordered
+		// bulkWrite can pass through a transient state that violates uniqueness
+		// even though the final state is clean. The collision check above is what
+		// guarantees the index can be rebuilt afterwards.
+		await dropUniqueIndex(collection);
 
 		if (report.writes.length > 0) {
 			await collection.bulkWrite(report.writes, { ordered: false });
@@ -319,7 +359,7 @@ async function processDb(mongoUri, dbName, collectionName, apply) {
 			console.log('  [applied] already up to date');
 		}
 
-		await ensureUniqueIndex(collection);
+		await createUniqueIndex(collection);
 
 		return {
 			dbName,
