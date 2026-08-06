@@ -10,6 +10,8 @@ import {
 	Pencil,
 	Plus,
 	Table2,
+	User,
+	Users,
 	X,
 } from 'lucide-react';
 import {
@@ -47,6 +49,11 @@ import TestScheduleEditor, {
  * level rather than class: when every class in the level sits the same paper in
  * the same window, the cell shows only the subject, and the classes are named
  * only when they actually differ.
+ *
+ * A teacher gets two views of this. Their own schedule — the default — is the
+ * narrow one: only the days and slots they are actually due to teach, each cell
+ * naming the class to be in and the subject to teach there. The general view is
+ * the administrator's grid, limited to the levels they teach.
  */
 
 type ClassScheduleItem = {
@@ -144,6 +151,7 @@ export default function Schedules({ user, schoolProfile }: SchedulesProps) {
 	const rawUserRole = user?.role || 'student';
 	const userRole = rawUserRole === 'parent' ? 'student' : rawUserRole;
 	const canEdit = userRole === 'system_admin';
+	const isTeacher = userRole === 'teacher';
 
 	const academicYear = String(
 		schoolProfile?.identity?.currentAcademicYear || '',
@@ -427,11 +435,11 @@ export default function Schedules({ user, schoolProfile }: SchedulesProps) {
 		setReloadToken((token) => token + 1);
 	}, []);
 
-	/* ── Teacher scoping ──────────────────────────────────────────────── */
+	/* ── The teacher's own schedule ───────────────────────────────────── */
 
 	const teacherClassSubjects = useMemo(() => {
 		const map = new Map<string, Set<string>>();
-		if (userRole !== 'teacher' || !Array.isArray(user?.subjects)) return map;
+		if (!isTeacher || !Array.isArray(user?.subjects)) return map;
 		const relevant = academicYear
 			? user.subjects.filter((subject) =>
 					areAcademicYearsEqual(subject.year, academicYear),
@@ -449,28 +457,69 @@ export default function Schedules({ user, schoolProfile }: SchedulesProps) {
 			});
 		});
 		return map;
-	}, [userRole, user?.subjects, academicYear]);
+	}, [isTeacher, user?.subjects, academicYear]);
 
-	const teacherClassIds = useMemo(
-		() => new Set(Array.from(teacherClassSubjects.keys())),
-		[teacherClassSubjects],
-	);
-
-	const scopedClassSchedules = useMemo(() => {
-		if (userRole !== 'teacher') return classSchedules;
-		if (teacherClassSubjects.size === 0) return [];
+	/**
+	 * Every slot this teacher is personally due on, across all their levels —
+	 * `classSchedules` already spans them, since the fetch above covers every
+	 * level the teacher touches.
+	 *
+	 * Recess is left out. It belongs to a class's day rather than to a teacher's,
+	 * and counting it would put a teacher on a day they have nothing to teach.
+	 * A row with no class is level-wide, which cannot be one person's duty.
+	 */
+	const personalSchedules = useMemo(() => {
+		if (!isTeacher || teacherClassSubjects.size === 0) return [];
 		return classSchedules.filter((item) => {
+			if (item.isRecess) return false;
+			if (!item.startTime || !item.endTime || !item.dayOfWeek) return false;
 			const classId = (item.classId || '').trim();
 			if (!classId) return false;
 			const assigned = teacherClassSubjects.get(classId);
 			if (!assigned) return false;
-			if (item.isRecess) return true;
 			const subject = String(item.subject || '').trim().toLowerCase();
 			return subject ? assigned.has(subject) : false;
 		});
-	}, [classSchedules, userRole, teacherClassSubjects]);
+	}, [classSchedules, isTeacher, teacherClassSubjects]);
+
+	/** Only the weekdays the teacher is actually due on. */
+	const personalDays = useMemo(() => {
+		const present = new Set(personalSchedules.map((item) => item.dayOfWeek));
+		return ALL_WEEKDAYS.filter((day) => present.has(day));
+	}, [personalSchedules]);
+
+	/**
+	 * Only the slots they are due in, pooled across those days — so a teacher on
+	 * Monday 10–11 and Wednesday 12–1 gets two rows and two columns, not a full
+	 * week of empty ones.
+	 */
+	const personalSlots = useMemo(() => {
+		const slots = new Set<string>();
+		personalSchedules.forEach((item) =>
+			slots.add(`${item.startTime}-${item.endTime}`),
+		);
+		return Array.from(slots).sort();
+	}, [personalSchedules]);
+
+	const personalMatrix = useMemo(() => {
+		const map: Record<string, Record<string, ClassScheduleItem[]>> = {};
+		personalSchedules.forEach((item) => {
+			const slot = `${item.startTime}-${item.endTime}`;
+			map[slot] ??= {};
+			map[slot][item.dayOfWeek] ??= [];
+			map[slot][item.dayOfWeek].push(item);
+		});
+		return map;
+	}, [personalSchedules]);
 
 	/* ── Filters ──────────────────────────────────────────────────────── */
+
+	/**
+	 * Defaulted to the personal schedule, which only a teacher can reach — for
+	 * everyone else `personalView` below stays false whatever this holds.
+	 */
+	const [audience, setAudience] = useState<'personal' | 'general'>('personal');
+	const personalView = isTeacher && audience === 'personal';
 
 	const [view, setView] = useState<'timetable' | 'tests'>('timetable');
 	const [scope, setScope] = useState<ClassScope>({
@@ -532,26 +581,22 @@ export default function Schedules({ user, schoolProfile }: SchedulesProps) {
 
 	const levelClassSchedules = useMemo(() => {
 		if (!activeLevel) return [];
-		return scopedClassSchedules.filter(
+		return classSchedules.filter(
 			(item) =>
 				item.session === activeLevel.session && item.level === activeLevel.level,
 		);
-	}, [scopedClassSchedules, activeLevel]);
+	}, [classSchedules, activeLevel]);
 
+	/**
+	 * A student sees only their own class. Everyone else — teachers included, on
+	 * the general view — sees the level whole, which is the point of that view.
+	 */
 	const displayClasses = useMemo(() => {
 		if (userRole === 'student') {
 			const own = classesForLevel.find(
 				(klass) => klass.classId === studentClassId,
 			);
 			if (own) return [own];
-		}
-		if (userRole === 'teacher') {
-			const assigned = classesForLevel.filter((klass) =>
-				teacherClassIds.has(klass.classId),
-			);
-			return assigned.length > 0
-				? assigned
-				: [{ classId: '__none__', className: 'No assigned classes' }];
 		}
 		const list = scope.classId
 			? classesForLevel.filter((klass) => klass.classId === scope.classId)
@@ -566,7 +611,6 @@ export default function Schedules({ user, schoolProfile }: SchedulesProps) {
 		levelClassSchedules,
 		userRole,
 		studentClassId,
-		teacherClassIds,
 		scope.classId,
 	]);
 
@@ -608,20 +652,11 @@ export default function Schedules({ user, schoolProfile }: SchedulesProps) {
 		// A sitting with no class applies to the whole level.
 		if (userRole === 'student' && studentClassId) {
 			rows = rows.filter((row) => !row.classId || row.classId === studentClassId);
-		} else if (userRole === 'teacher' && teacherClassIds.size > 0) {
-			rows = rows.filter((row) => !row.classId || teacherClassIds.has(row.classId));
 		} else if (scope.classId) {
 			rows = rows.filter((row) => !row.classId || row.classId === scope.classId);
 		}
 		return rows;
-	}, [
-		testSchedules,
-		activeLevel,
-		userRole,
-		studentClassId,
-		teacherClassIds,
-		scope.classId,
-	]);
+	}, [testSchedules, activeLevel, userRole, studentClassId, scope.classId]);
 
 	/** Periods that actually have a schedule at this level. */
 	const availablePeriods = useMemo(() => {
@@ -1032,6 +1067,33 @@ export default function Schedules({ user, schoolProfile }: SchedulesProps) {
 						<CalendarRange className="h-4 w-4 text-muted-foreground" />
 						{academicYear || 'No academic year'}
 					</span>
+					{/* Whose schedule — a teacher's own duties, or the level as a
+					    whole. Only a teacher has two to choose between. */}
+					{isTeacher && (
+						<div className="inline-flex items-center gap-1 rounded-xl border border-border bg-card p-1">
+							{(
+								[
+									{ key: 'personal', label: 'My schedule', Icon: User },
+									{ key: 'general', label: 'General', Icon: Users },
+								] as const
+							).map(({ key, label, Icon }) => (
+								<button
+									key={key}
+									type="button"
+									onClick={() => setAudience(key)}
+									aria-pressed={audience === key}
+									className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-bold transition-colors ${
+										audience === key
+											? 'bg-primary text-primary-foreground'
+											: 'text-muted-foreground hover:text-foreground'
+									}`}
+								>
+									<Icon className="h-4 w-4" />
+									{label}
+								</button>
+							))}
+						</div>
+					)}
 					{canEdit && (
 						<button
 							type="button"
@@ -1068,104 +1130,189 @@ export default function Schedules({ user, schoolProfile }: SchedulesProps) {
 
 			{/* ── Filters ─────────────────────────────────────────────────────
 			    Collapsed behind a summary bar on small screens so the schedule
-			    itself gets the room; always open from `md` up. */}
-			<div className="space-y-2">
-				<button
-					type="button"
-					onClick={() => setFiltersExpanded((open) => !open)}
-					className="flex w-full items-center justify-between rounded-xl border border-border bg-card p-3 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-ring md:hidden"
-				>
-					<span className="flex items-center gap-2 overflow-hidden text-sm font-medium text-foreground">
-						<span className="truncate">{filterSummary}</span>
-					</span>
-					<ChevronDown
-						className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
-							filtersExpanded ? 'rotate-180' : ''
-						}`}
-					/>
-				</button>
+			    itself gets the room; always open from `md` up.
 
-				<div
-					className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out md:grid-rows-[1fr] md:opacity-100 ${
-						filtersExpanded
-							? 'grid-rows-[1fr] opacity-100'
-							: 'grid-rows-[0fr] opacity-0'
-					}`}
-				>
-					<div className="flex flex-col gap-4 overflow-hidden">
-						{/* What to show */}
-						<div className="flex flex-wrap gap-1.5">
-							<Chip
-								active={view === 'timetable'}
-								onClick={() => setView('timetable')}
-							>
-								<Table2 className="h-3.5 w-3.5" />
-								Class timetable
-							</Chip>
-							<Chip active={view === 'tests'} onClick={() => setView('tests')}>
-								<ClipboardList className="h-3.5 w-3.5" />
-								Test schedule
-							</Chip>
-						</div>
-
-						{/* Days */}
-						{dayChips.length > 0 && (
-							<div className="flex flex-wrap gap-1.5">
-								{dayChips.map((day) => (
-									<Chip
-										key={day}
-										active={activeDays.includes(day)}
-										onClick={() => toggleDay(day)}
-									>
-										<span className="hidden sm:inline">{day}</span>
-										<span className="sm:hidden">{day.slice(0, 3)}</span>
-									</Chip>
-								))}
-							</div>
-						)}
-
-						{/* Session > level > class */}
-						<ClassScopePicker
-							schoolProfile={schoolProfile}
-							value={scope}
-							onChange={setScope}
-							allowedLevelKeys={visibleLevelKeys}
-							// A student's (or parent's) scope is their own class; the
-							// trail tells them what they are looking at, nothing more.
-							readOnly={rawUserRole === 'student' || rawUserRole === 'parent'}
+			    The personal view has nothing to filter: its days and slots are
+			    whatever the teacher is due on. */}
+			{!personalView && (
+				<div className="space-y-2">
+					<button
+						type="button"
+						onClick={() => setFiltersExpanded((open) => !open)}
+						className="flex w-full items-center justify-between rounded-xl border border-border bg-card p-3 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-ring md:hidden"
+					>
+						<span className="flex items-center gap-2 overflow-hidden text-sm font-medium text-foreground">
+							<span className="truncate">{filterSummary}</span>
+						</span>
+						<ChevronDown
+							className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${
+								filtersExpanded ? 'rotate-180' : ''
+							}`}
 						/>
+					</button>
 
-						{/* Period — test schedules only, one at a time */}
-						{view === 'tests' && availablePeriods.length > 0 && (
-							<label className="flex flex-wrap items-center gap-2">
-								<span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-									Period
-								</span>
-								<select
-									value={selectedPeriod}
-									onChange={(event) => setSelectedPeriod(event.target.value)}
-									className="rounded-xl border border-border bg-card px-3 py-2 text-sm font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+					<div
+						className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out md:grid-rows-[1fr] md:opacity-100 ${
+							filtersExpanded
+								? 'grid-rows-[1fr] opacity-100'
+								: 'grid-rows-[0fr] opacity-0'
+						}`}
+					>
+						<div className="flex flex-col gap-4 overflow-hidden">
+							{/* What to show */}
+							<div className="flex flex-wrap gap-1.5">
+								<Chip
+									active={view === 'timetable'}
+									onClick={() => setView('timetable')}
 								>
-									{availablePeriods.map((value) => (
-										<option key={value || 'none'} value={value}>
-											{value ? periodLabel(value) : 'No period assigned'}
-										</option>
+									<Table2 className="h-3.5 w-3.5" />
+									Class timetable
+								</Chip>
+								<Chip active={view === 'tests'} onClick={() => setView('tests')}>
+									<ClipboardList className="h-3.5 w-3.5" />
+									Test schedule
+								</Chip>
+							</div>
+
+							{/* Days */}
+							{dayChips.length > 0 && (
+								<div className="flex flex-wrap gap-1.5">
+									{dayChips.map((day) => (
+										<Chip
+											key={day}
+											active={activeDays.includes(day)}
+											onClick={() => toggleDay(day)}
+										>
+											<span className="hidden sm:inline">{day}</span>
+											<span className="sm:hidden">{day.slice(0, 3)}</span>
+										</Chip>
 									))}
-								</select>
-								<span className="text-xs text-muted-foreground">
-									One period at a time.
-								</span>
-							</label>
-						)}
+								</div>
+							)}
+
+							{/* Session > level > class */}
+							<ClassScopePicker
+								schoolProfile={schoolProfile}
+								value={scope}
+								onChange={setScope}
+								allowedLevelKeys={visibleLevelKeys}
+								// A student's (or parent's) scope is their own class; the
+								// trail tells them what they are looking at, nothing more.
+								readOnly={rawUserRole === 'student' || rawUserRole === 'parent'}
+							/>
+
+							{/* Period — test schedules only, one at a time */}
+							{view === 'tests' && availablePeriods.length > 0 && (
+								<label className="flex flex-wrap items-center gap-2">
+									<span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+										Period
+									</span>
+									<select
+										value={selectedPeriod}
+										onChange={(event) => setSelectedPeriod(event.target.value)}
+										className="rounded-xl border border-border bg-card px-3 py-2 text-sm font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+									>
+										{availablePeriods.map((value) => (
+											<option key={value || 'none'} value={value}>
+												{value ? periodLabel(value) : 'No period assigned'}
+											</option>
+										))}
+									</select>
+									<span className="text-xs text-muted-foreground">
+										One period at a time.
+									</span>
+								</label>
+							)}
+						</div>
 					</div>
 				</div>
-			</div>
+			)}
 
 			{/* ── Content ─────────────────────────────────────────────────── */}
 			{isLoading ? (
 				<div className="flex min-h-[35vh] items-center justify-center">
 					<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
 				</div>
+			) : personalView ? (
+				personalSlots.length === 0 ? (
+					<div className="rounded-2xl border border-dashed border-border px-4 py-12 text-center">
+						<User className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+						<p className="text-sm font-bold text-foreground">
+							Nothing scheduled for you yet
+						</p>
+						<p className="mt-1 text-xs text-muted-foreground">
+							Once your classes are timetabled for {academicYear || 'this year'},
+							your periods will appear here. The general view shows the full
+							schedule in the meantime.
+						</p>
+					</div>
+				) : (
+					<section className="overflow-hidden rounded-2xl border border-border bg-card">
+						<header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/40 px-4 py-2.5">
+							<h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+								My schedule
+							</h2>
+							<span className="text-xs text-muted-foreground">
+								{personalSchedules.length} period
+								{personalSchedules.length === 1 ? '' : 's'} ·{' '}
+								{personalDays.length} day{personalDays.length === 1 ? '' : 's'}
+							</span>
+						</header>
+						<div className="no-scrollbar overflow-x-auto">
+							<table className="min-w-full border-collapse text-sm">
+								<thead>
+									<tr>
+										<th className="sticky left-0 z-30 w-[7.5rem] min-w-[7.5rem] whitespace-nowrap border border-border bg-muted px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground">
+											Time
+										</th>
+										{personalDays.map((day) => (
+											<th
+												key={day}
+												className={`min-w-[9rem] border border-border px-3 py-2 text-center text-xs font-bold uppercase tracking-wider text-foreground ${shadeFor(day).head}`}
+											>
+												{day}
+											</th>
+										))}
+									</tr>
+								</thead>
+								<tbody>
+									{personalSlots.map((slot) => (
+										<tr key={slot}>
+											<td className="sticky left-0 z-10 w-[7.5rem] min-w-[7.5rem] whitespace-nowrap border border-border bg-card px-3 py-2 text-xs font-bold tabular-nums text-foreground">
+												{slotLabel(slot)}
+											</td>
+											{personalDays.map((day) => {
+												const items = personalMatrix[slot]?.[day] || [];
+												return (
+													<td
+														key={`${slot}-${day}`}
+														className={`min-w-[9rem] border border-border px-2 py-2 align-top text-foreground ${shadeFor(day).cell}`}
+													>
+														{items.length === 0 ? (
+															<span className="text-xs opacity-50">—</span>
+														) : (
+															items.map((item) => (
+																<div key={item.id} className="mb-1 last:mb-0">
+																	{/* Where to be, then what to teach there. */}
+																	<p className="text-xs font-bold">
+																		{item.className || 'Unnamed class'}
+																	</p>
+																	<p className="text-[11px] opacity-75">
+																		{item.subject}
+																	</p>
+																</div>
+															))
+														)}
+													</td>
+												);
+											})}
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
+					</section>
+				)
 			) : !activeLevel ? (
 				<div className="rounded-2xl border border-dashed border-border px-4 py-12 text-center">
 					<Table2 className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
