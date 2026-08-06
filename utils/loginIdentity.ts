@@ -28,6 +28,13 @@ export { isIdentifierPassword, MIN_PASSWORD_LENGTH } from './passwordPolicy';
  */
 export function buildIdentifierQuery(rawInput: unknown) {
 	const raw = String(rawInput ?? '').trim();
+
+	// An empty identifier must match nothing rather than fall through to
+	// `{ username: { $in: [''] } }`, which could hit a malformed document.
+	// Every document has an _id, so this is an unsatisfiable filter that also
+	// avoids casting a bogus value to ObjectId.
+	if (!raw) return { _id: { $exists: false } };
+
 	const normalized = normalizePhone(raw);
 
 	const or: Record<string, unknown>[] = [

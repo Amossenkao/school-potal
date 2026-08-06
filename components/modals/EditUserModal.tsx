@@ -258,7 +258,8 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 	const [isLoading, setIsLoading] = useState(false);
 	const [validationErrors, setValidationErrors] = useState<any[]>([]);
 	const [conflictState, setConflictState] = useState<any>(null);
-	const [showPromotionModal, setShowPromotionModal] = useState(false);
+	const [promotionEnabled, setPromotionEnabled] = useState(false);
+	const [promotionError, setPromotionError] = useState('');
 	const [showDemotionModal, setShowDemotionModal] = useState(false);
 	const [showCarryOverModal, setShowCarryOverModal] = useState(false);
 	const [activeTeacherSession, setActiveTeacherSession] = useState('');
@@ -637,6 +638,8 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				className: '',
 				academicYear: '',
 			});
+			setPromotionEnabled(false);
+			setPromotionError('');
 			setDemotionForm({
 				type: 'yearlyDemotion',
 				classId: '',
@@ -1325,6 +1328,24 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		}
 		const changedData = getChangedFields(user, payload);
 
+		let promotionPayload: any = null;
+		if (user?.role === 'student' && promotionEnabled) {
+			const promotionError = getPromotionValidationError();
+			if (promotionError) {
+				setPromotionError(promotionError);
+				setIsLoading(false);
+				return;
+			}
+			promotionPayload = {
+				type: promotionForm.type,
+				classId: promotionForm.classId,
+				className: promotionForm.className,
+				...(promotionForm.type === 'yearlyPromotion' && {
+					academicYear: promotionForm.academicYear,
+				}),
+			};
+		}
+
 		if (user?.role === 'student' && parentEditAction !== 'keep') {
 			if (!validateParentAction()) {
 				setValidationErrors([
@@ -1337,7 +1358,7 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			if (parentPayload) (changedData as any).parent = parentPayload;
 		}
 
-		if (Object.keys(changedData).length === 0) {
+		if (Object.keys(changedData).length === 0 && !promotionPayload) {
 			setFeedback({ type: 'info', message: 'No changes were made.' });
 			setIsLoading(false);
 			onClose();
@@ -1348,7 +1369,11 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			const res = await fetch(`/api/users?id=${user._id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ ...changedData, forceAssignments: false }),
+				body: JSON.stringify({
+					...changedData,
+					forceAssignments: false,
+					...(promotionPayload ? { promoteStudent: promotionPayload } : {}),
+				}),
 			});
 			const data = await res.json();
 
@@ -1372,6 +1397,14 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 									},
 								],
 					);
+					if (promotionPayload && data.message) {
+						setPromotionError(data.message);
+					}
+				} else if (promotionPayload && data.message) {
+					setPromotionError(data.message);
+					setValidationErrors([
+						{ message: data.message || 'An unexpected error occurred.' },
+					]);
 				} else {
 					setValidationErrors([
 						{ message: data.message || 'An unexpected error occurred.' },
@@ -1393,10 +1426,10 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			if (data.reassignments?.performed) {
 				setFeedback({
 					type: 'success',
-					message: `User updated successfully. ${data.reassignments.count} assignment(s) were reassigned.`,
+					message: `${data.message || 'User updated successfully.'} ${data.reassignments.count} assignment(s) were reassigned.`,
 				});
 			} else {
-				setFeedback({ type: 'success', message: 'User updated successfully.' });
+				setFeedback({ type: 'success', message: data.message || 'User updated successfully.' });
 			}
 
 			if (user?.role === 'student' && parentEditAction !== 'keep') {
@@ -1482,12 +1515,26 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			}
 
 			if (!conflictState.changedData) return;
+			const retryPromotionPayload =
+				user?.role === 'student' && promotionEnabled
+					? {
+							type: promotionForm.type,
+							classId: promotionForm.classId,
+							className: promotionForm.className,
+							...(promotionForm.type === 'yearlyPromotion' && {
+								academicYear: promotionForm.academicYear,
+							}),
+						}
+					: null;
 			const res = await fetch(`/api/users?id=${user._id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					...conflictState.changedData,
 					confirmReassignments: true,
+					...(retryPromotionPayload
+						? { promoteStudent: retryPromotionPayload }
+						: {}),
 				}),
 			});
 			const data = await res.json();
@@ -1523,26 +1570,28 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		}
 	};
 
-	const handlePromotion = () => {
-		const promotionYearOptions = getPromotionAcademicYearOptions();
-		const latestStart = getLatestAcademicYearStartForUser(user);
-		const defaultPromotionYear =
-			promotionYearOptions.find((year) => {
-				const start = getAcademicYearStart(year);
-				return start !== null && latestStart !== null && start > latestStart;
-			}) ||
-			promotionYearOptions[0] ||
-			'';
+	const handlePromotionToggle = (checked: boolean) => {
+		setPromotionEnabled(checked);
+		setPromotionError('');
+		if (checked) {
+			const promotionYearOptions = getPromotionAcademicYearOptions();
+			const latestStart = getLatestAcademicYearStartForUser(user);
+			const defaultPromotionYear =
+				promotionYearOptions.find((year) => {
+					const start = getAcademicYearStart(year);
+					return start !== null && latestStart !== null && start > latestStart;
+				}) ||
+				promotionYearOptions[0] ||
+				'';
 
-		setActionError('');
-		setPromotionForm((prev) => ({
-			...prev,
-			type: allowsDoublePromotion ? prev.type : 'yearlyPromotion',
-			classId: '',
-			className: '',
-			academicYear: defaultPromotionYear,
-		}));
-		setShowPromotionModal(true);
+			setPromotionForm((prev) => ({
+				...prev,
+				type: allowsDoublePromotion ? prev.type : 'yearlyPromotion',
+				classId: '',
+				className: '',
+				academicYear: defaultPromotionYear,
+			}));
+		}
 	};
 
 	const handleDemotion = () => {
@@ -1657,43 +1706,31 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		return [...otherYears, currentYearEntry];
 	};
 
-	const handlePromotionSubmit = async () => {
-		setActionError('');
+	const getPromotionValidationError = () => {
 		const promotionYearOptions = getPromotionAcademicYearOptions();
 		if (
 			promotionForm.type === 'yearlyPromotion' &&
 			!hasYearOptionLaterThanUser(promotionYearOptions, user)
 		) {
-			setActionError(
-				'No eligible promotion year is available from the current options.',
-			);
-			return;
+			return 'No eligible promotion year is available from the current options.';
 		}
 		if (isAtHighestClass()) {
-			setActionError(
-				'Cannot promote this student because they are already in the highest possible class.',
-			);
-			return;
+			return 'Cannot promote this student because they are already in the highest possible class.';
 		}
 		if (!promotionForm.classId || !promotionForm.className) {
-			setActionError('Please select a new class.');
-			return;
+			return 'Please select a new class.';
 		}
 		if (
 			promotionForm.type === 'yearlyPromotion' &&
 			!promotionForm.academicYear
 		) {
-			setActionError('Please select the new academic year.');
-			return;
+			return 'Please select the new academic year.';
 		}
 		if (
 			promotionForm.type === 'yearlyPromotion' &&
 			!promotionYearOptions.includes(promotionForm.academicYear)
 		) {
-			setActionError(
-				'Yearly promotions must use the current academic year or the next academic year.',
-			);
-			return;
+			return 'Yearly promotions must use the current academic year or the next academic year.';
 		}
 		if (promotionForm.type === 'yearlyPromotion') {
 			const latestStart = getLatestAcademicYearStartForUser(user);
@@ -1703,48 +1740,10 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 				selectedStart !== null &&
 				selectedStart <= latestStart
 			) {
-				setActionError(
-					"The selected year must be later than the student's latest academic year.",
-				);
-				return;
+				return "The selected year must be later than the student's latest academic year.";
 			}
 		}
-
-		setActionLoading(true);
-		try {
-			const res = await fetch(
-				`/api/users?id=${user._id}&action=promote&type=${promotionForm.type}`,
-				{
-					method: 'PUT',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						promotedToClassId: promotionForm.classId,
-						promotedToClassName: promotionForm.className,
-						newAcademicYear:
-							promotionForm.type === 'yearlyPromotion'
-								? promotionForm.academicYear
-								: undefined,
-					}),
-				},
-			);
-			const data = await res.json();
-			if (!res.ok || !data.success)
-				throw new Error(data.message || 'Promotion failed.');
-
-			const updatedUser = getUpdatedUserFromResponse(data);
-			if (!updatedUser)
-				throw new Error(
-					'Promotion response did not include updated user data.',
-				);
-
-			onSave(updatedUser);
-			setFeedback({ type: 'success', message: data.message });
-			setShowPromotionModal(false);
-		} catch (err) {
-			setActionError(err instanceof Error ? err.message : 'Promotion failed.');
-		} finally {
-			setActionLoading(false);
-		}
+		return '';
 	};
 
 	const handleDemotionSubmit = async () => {
@@ -2354,6 +2353,137 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 											</div>
 										</div>
 									</div>
+								</section>
+								<section>
+									<h5 className="font-semibold mb-3 text-lg border-b pb-2">
+										Promote Student
+									</h5>
+									<label className="relative inline-flex items-center cursor-pointer w-max">
+										<input
+											type="checkbox"
+											checked={promotionEnabled}
+											onChange={(e) =>
+												handlePromotionToggle(e.target.checked)
+											}
+											className="sr-only peer"
+										/>
+										<div className="w-11 h-6 bg-border peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+										<span className="ml-3 text-sm font-medium text-foreground">
+											Promote this student when saving changes
+										</span>
+									</label>
+
+									{promotionEnabled && (
+										<div className="mt-4 space-y-4 rounded-lg border border-border p-4 bg-muted/30">
+											{promotionError && (
+												<p className="text-sm text-destructive">
+													{promotionError}
+												</p>
+											)}
+											{isAtHighestClass() ? (
+												<p className="text-sm text-muted-foreground">
+													Cannot promote this student because they are
+													already in the highest possible class.
+												</p>
+											) : (
+												<>
+													{allowsDoublePromotion ? (
+														<div>
+															<label className="block text-sm font-medium text-foreground mb-1">
+																Promotion Type
+															</label>
+															<Select
+																value={promotionForm.type}
+																onValueChange={(val) =>
+																	setPromotionForm((prev) => ({
+																		...prev,
+																		type: val,
+																	}))
+																}
+															>
+																<SelectTrigger className={selectTriggerClass}>
+																	<SelectValue placeholder="Select type" />
+																</SelectTrigger>
+																<SelectContent>
+																	<SelectItem value="yearlyPromotion">
+																		Yearly Promotion
+																	</SelectItem>
+																	<SelectItem value="doublePromotion">
+																		Semester (Double) Promotion
+																	</SelectItem>
+																</SelectContent>
+															</Select>
+														</div>
+													) : (
+														<p className="text-sm text-muted-foreground">
+															Only yearly promotion is allowed.
+														</p>
+													)}
+													<div>
+														<label className="block text-sm font-medium text-foreground mb-1">
+															New Class
+														</label>
+														<Select
+															value={promotionForm.classId}
+															onValueChange={(val) => {
+																const sel = getPromotionClassOptions().find(
+																	(c) => c.classId === val,
+																);
+																setPromotionForm((p) => ({
+																	...p,
+																	classId: val,
+																	className: sel?.name || '',
+																}));
+															}}
+														>
+															<SelectTrigger className={selectTriggerClass}>
+																<SelectValue placeholder="Select Class" />
+															</SelectTrigger>
+															<SelectContent>
+																{getPromotionClassOptions().map((cls) => (
+																	<SelectItem
+																		key={cls.classId}
+																		value={cls.classId}
+																	>
+																		{cls.name} ({cls.level} - {cls.session})
+																	</SelectItem>
+																))}
+															</SelectContent>
+														</Select>
+													</div>
+													{promotionForm.type === 'yearlyPromotion' && (
+														<div>
+															<label className="block text-sm font-medium text-foreground mb-1">
+																New Academic Year
+															</label>
+															<Select
+																value={promotionForm.academicYear}
+																onValueChange={(val) =>
+																	setPromotionForm((p) => ({
+																		...p,
+																		academicYear: val,
+																	}))
+																}
+															>
+																<SelectTrigger className={selectTriggerClass}>
+																	<SelectValue placeholder="Select Academic Year" />
+																</SelectTrigger>
+																<SelectContent>
+																	{getPromotionAcademicYearOptions().map(
+																		(year) => (
+																			<SelectItem key={year} value={year}>
+																				{year}
+																			</SelectItem>
+																		),
+																	)}
+																</SelectContent>
+															</Select>
+														</div>
+													)}
+												</>
+											)}
+										</div>
+									)}
 								</section>
 								<section>
 									<h5 className="font-semibold mb-3 text-lg border-b pb-2">
@@ -2999,13 +3129,6 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 						<div className="w-full sm:w-auto">
 							{user.role === 'student' && (
 								<div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-									<button
-										type="button"
-										onClick={handlePromotion}
-										className="w-full sm:w-auto px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-									>
-										Promote Student
-									</button>
 									{allowsDemotion && (
 										<button
 											type="button"
@@ -3052,147 +3175,6 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 							</button>
 						</div>
 					</footer>
-
-					{/* PROMOTION MODAL */}
-					{showPromotionModal && (
-						<div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-							<div className="bg-card w-full max-w-lg rounded-xl border border-border shadow-xl">
-								<div className="flex items-center justify-between p-4 border-b border-border">
-									<h5 className="text-lg font-semibold text-foreground">
-										Promote Student
-									</h5>
-									<button
-										type="button"
-										onClick={() => setShowPromotionModal(false)}
-										className="p-2 rounded-full hover:bg-muted transition-colors"
-									>
-										<X className="h-4 w-4" />
-									</button>
-								</div>
-								<div className="p-4 space-y-4">
-									{actionError && (
-										<p className="text-sm text-destructive">{actionError}</p>
-									)}
-									{isAtHighestClass() ? (
-										<p className="text-sm text-muted-foreground">
-											Cannot promote this student because they are already in
-											the highest possible class.
-										</p>
-									) : (
-										<>
-											{allowsDoublePromotion ? (
-												<div>
-													<label className="block text-sm font-medium text-foreground mb-1">
-														Promotion Type
-													</label>
-													<Select
-														value={promotionForm.type}
-														onValueChange={(val) =>
-															setPromotionForm((prev) => ({
-																...prev,
-																type: val,
-															}))
-														}
-													>
-														<SelectTrigger className={selectTriggerClass}>
-															<SelectValue placeholder="Select type" />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectItem value="yearlyPromotion">
-																Yearly Promotion
-															</SelectItem>
-															<SelectItem value="doublePromotion">
-																Semester (Double) Promotion
-															</SelectItem>
-														</SelectContent>
-													</Select>
-												</div>
-											) : (
-												<p className="text-sm text-muted-foreground">
-													Only yearly promotion is allowed.
-												</p>
-											)}
-											<div>
-												<label className="block text-sm font-medium text-foreground mb-1">
-													New Class
-												</label>
-												<Select
-													value={promotionForm.classId}
-													onValueChange={(val) => {
-														const sel = getPromotionClassOptions().find(
-															(c) => c.classId === val,
-														);
-														setPromotionForm((p) => ({
-															...p,
-															classId: val,
-															className: sel?.name || '',
-														}));
-													}}
-												>
-													<SelectTrigger className={selectTriggerClass}>
-														<SelectValue placeholder="Select Class" />
-													</SelectTrigger>
-													<SelectContent>
-														{getPromotionClassOptions().map((cls) => (
-															<SelectItem key={cls.classId} value={cls.classId}>
-																{cls.name} ({cls.level} - {cls.session})
-															</SelectItem>
-														))}
-													</SelectContent>
-												</Select>
-											</div>
-											{promotionForm.type === 'yearlyPromotion' && (
-												<div>
-													<label className="block text-sm font-medium text-foreground mb-1">
-														New Academic Year
-													</label>
-													<Select
-														value={promotionForm.academicYear}
-														onValueChange={(val) =>
-															setPromotionForm((p) => ({
-																...p,
-																academicYear: val,
-															}))
-														}
-													>
-														<SelectTrigger className={selectTriggerClass}>
-															<SelectValue placeholder="Select Academic Year" />
-														</SelectTrigger>
-														<SelectContent>
-															{getPromotionAcademicYearOptions().map((year) => (
-																<SelectItem key={year} value={year}>
-																	{year}
-																</SelectItem>
-															))}
-														</SelectContent>
-													</Select>
-												</div>
-											)}
-										</>
-									)}
-								</div>
-								<div className="p-4 border-t border-border flex justify-end gap-2">
-									<button
-										type="button"
-										onClick={() => setShowPromotionModal(false)}
-										className="px-4 py-2 rounded-lg hover:bg-muted/80"
-									>
-										Cancel
-									</button>
-									{!isAtHighestClass() && (
-										<button
-											type="button"
-											onClick={handlePromotionSubmit}
-											disabled={actionLoading}
-											className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
-										>
-											{actionLoading ? 'Saving...' : 'Confirm Promotion'}
-										</button>
-									)}
-								</div>
-							</div>
-						</div>
-					)}
 
 					{/* DEMOTION MODAL */}
 					{showDemotionModal && (

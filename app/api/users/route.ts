@@ -1067,6 +1067,83 @@ async function demoteStudent(
 	};
 }
 
+// Validates a promotion request (shared by the standalone `action=promote`
+// flow and the bundled `promoteStudent` body field on a regular profile
+// update). Returns an error message, or null when the promotion is valid.
+function validatePromotionInput(
+	student: any,
+	promotionType: string,
+	promotedToClassId: string,
+	promotedToClassName: string,
+	newAcademicYear: string | undefined,
+	schoolProfile?: any,
+): string | null {
+	if (
+		!promotionType ||
+		!['yearlyPromotion', 'doublePromotion'].includes(promotionType)
+	) {
+		return 'Valid promotion type is required (yearlyPromotion or doublePromotion)';
+	}
+
+	if (!promotedToClassId || !promotedToClassName) {
+		return 'Promoted class information is required (promotedToClassId, promotedToClassName)';
+	}
+
+	if (promotionType === 'yearlyPromotion' && !newAcademicYear) {
+		return 'New academic year is required for yearly promotion';
+	}
+
+	if (promotionType === 'yearlyPromotion') {
+		const studentLatestAcademicYear =
+			getLatestAcademicYearFromValues(
+				(student.academicYears || []).map((ay: any) => ay?.year),
+			) ||
+			student.enrollmentYear ||
+			getAcademicYear(schoolProfile);
+		const latestStart = getAcademicYearStart(studentLatestAcademicYear);
+		const newStart = getAcademicYearStart(newAcademicYear);
+		if (latestStart === null || newStart === null || newStart <= latestStart) {
+			return "Yearly promotions must use an academic year later than the student's latest academic year.";
+		}
+	}
+
+	const classLevels = schoolProfile?.academicConfig?.classLevels;
+	const currentMeta = getClassMetaById(classLevels, student.classId);
+	const targetMeta = getClassMetaById(classLevels, promotedToClassId);
+
+	if (currentMeta && isAtHighestClass(classLevels, currentMeta.classId)) {
+		return 'Cannot promote this student because they are already in the highest possible class.';
+	}
+
+	if (currentMeta && targetMeta) {
+		if (currentMeta.baseName === targetMeta.baseName) {
+			return 'Cannot promote to a different section of the same class. Use class change instead.';
+		}
+		if (currentMeta.session !== targetMeta.session) {
+			return 'Promotion must remain within the same session.';
+		}
+		const ordered = getOrderedClassesForSession(
+			classLevels,
+			currentMeta.session,
+		);
+		const currentIndex = ordered.findIndex(
+			(cls) => cls.classId === currentMeta.classId,
+		);
+		const targetIndex = ordered.findIndex(
+			(cls) => cls.classId === targetMeta.classId,
+		);
+		if (
+			currentIndex !== -1 &&
+			targetIndex !== -1 &&
+			targetIndex <= currentIndex
+		) {
+			return 'Promotion target must be a higher class than the current class.';
+		}
+	}
+
+	return null;
+}
+
 interface ConflictDetails {
 	type: 'subject' | 'sponsorship';
 	conflictingTeacher: {
@@ -4734,12 +4811,78 @@ export async function PUT(request: NextRequest) {
 		const {
 			forceAssignments = false,
 			confirmReassignments = false,
+			promoteStudent: promotionRequest,
 			...updateUserData
 		} = await request.json();
 
 		const isSystemAdmin = currentUser.role === 'system_admin';
 
 		const isSelfUpdate = currentUser.id === actualTargetUserId;
+
+		// --- Handle inline promotion bundled with a profile update ---
+		// The edit-user modal lets an admin promote a student at the same time
+		// as updating their other information, so both are applied in one save.
+		let promotionDetails: any = null;
+		if (targetUser.role === 'student' && promotionRequest) {
+			const promotionValidationMessage = validatePromotionInput(
+				targetUser,
+				promotionRequest.type,
+				promotionRequest.classId,
+				promotionRequest.className,
+				promotionRequest.academicYear,
+				schoolProfile,
+			);
+			if (promotionValidationMessage) {
+				return NextResponse.json(
+					{ success: false, message: promotionValidationMessage },
+					{ status: 400 },
+				);
+			}
+
+			try {
+				const promotionResult = await promoteStudent(
+					targetUser,
+					promotionRequest.type,
+					promotionRequest.classId,
+					promotionRequest.className,
+					promotionRequest.academicYear || null,
+					models,
+				);
+				promotionDetails = promotionResult.promotionDetails;
+
+				// The promotion already wrote classId/className/academicYears, so
+				// drop those from the profile update to avoid double-applying.
+				delete updateUserData.classId;
+				delete updateUserData.className;
+
+				// Notify the student about their promotion.
+				await models.Student.updateOne(
+					{ _id: targetUser._id },
+					{
+						$push: {
+							notifications: {
+								title: 'Promotion',
+								message: `You have been promoted to ${promotionResult.promotionDetails.toClass.className}`,
+								details: `Promotion Type: ${
+									promotionRequest.type === 'yearlyPromotion'
+										? 'Yearly Promotion'
+										: 'Double Promotion'
+								}`,
+								timestamp: new Date(),
+								read: false,
+								dismissed: false,
+								type: 'Profile',
+							},
+						},
+					},
+				);
+			} catch (error: any) {
+				return NextResponse.json(
+					{ success: false, message: error.message },
+					{ status: 400 },
+				);
+			}
+		}
 
 		// Define allowed fields based on role and permissions
 		let allowedFields: string[] = [];
@@ -5685,8 +5828,13 @@ export async function PUT(request: NextRequest) {
 
 		return NextResponse.json({
 			success: true,
-			message: 'User updated successfully',
-			data: { user: responseUser },
+			message: promotionDetails
+				? 'User updated and student promoted successfully'
+				: 'User updated successfully',
+			data: {
+				user: responseUser,
+				...(promotionDetails ? { promotion: promotionDetails } : {}),
+			},
 			reassignments:
 				conflictsToHandle.length > 0
 					? {
