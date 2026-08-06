@@ -1,12 +1,30 @@
 import { areAcademicYearsEqual, normalizeAcademicYear } from '@/utils/academicYear';
 
 
+/**
+ * Accepts the profile in either shape it circulates in.
+ *
+ * `getSchoolProfile` returns the nested document, but `flattenSchoolProfile`
+ * (the shape realtime events publish and several screens hold in the store)
+ * also hoists these two to the root. Callers were passing bare
+ * `{ firstAcademicYear, currentAcademicYear }` objects, which read as
+ * `identity === undefined` — so the range silently came back empty and every
+ * screen fell back to just the current year.
+ */
 type SchoolProfileLike = {
 	identity?: {
 		currentAcademicYear?: string | null;
 		firstAcademicYear?: string | null;
 	} | null;
+	currentAcademicYear?: string | null;
+	firstAcademicYear?: string | null;
 };
+
+const readFirstAcademicYear = (school?: SchoolProfileLike | null) =>
+	school?.identity?.firstAcademicYear ?? school?.firstAcademicYear;
+
+const readCurrentAcademicYear = (school?: SchoolProfileLike | null) =>
+	school?.identity?.currentAcademicYear ?? school?.currentAcademicYear;
 
 const toCanonicalAcademicYear = (value?: string | null) => {
 	const normalized = normalizeAcademicYear(value);
@@ -42,10 +60,8 @@ export const sortAcademicYearsDesc = (
 };
 
 export const buildSchoolAcademicYearRange = (school?: SchoolProfileLike | null) => {
-	const first = toCanonicalAcademicYear(school?.identity?.firstAcademicYear);
-	const current = toCanonicalAcademicYear(
-		school?.identity?.currentAcademicYear,
-	);
+	const first = toCanonicalAcademicYear(readFirstAcademicYear(school));
+	const current = toCanonicalAcademicYear(readCurrentAcademicYear(school));
 	const firstStart = parseAcademicYearStart(first);
 	const currentStart = parseAcademicYearStart(current);
 

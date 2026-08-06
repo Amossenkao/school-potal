@@ -224,7 +224,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	};
 
 	const availableAcademicYears = useMemo(() => {
-		const schoolYears = buildSchoolAcademicYearRange({ firstAcademicYear: currentSchool?.identity?.firstAcademicYear, currentAcademicYear: currentSchool?.identity?.currentAcademicYear });
+		const schoolYears = buildSchoolAcademicYearRange(currentSchool);
 		if (effectiveUser?.role !== 'teacher') return schoolYears;
 		return getTeacherAcademicYears(effectiveUser);
 	}, [currentSchool, effectiveUser]);

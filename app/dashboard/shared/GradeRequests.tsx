@@ -339,7 +339,7 @@ const GradeRequests: React.FC<GradeRequestsProps> = ({
 
 	// --- Academic Year Options ---
 	const schoolAcademicYearOptions = useMemo(
-		() => buildSchoolAcademicYearRange({ firstAcademicYear: currentSchool?.identity?.firstAcademicYear, currentAcademicYear: currentSchool?.identity?.currentAcademicYear }),
+		() => buildSchoolAcademicYearRange(currentSchool),
 		[currentSchool],
 	);
 	const teacherAcademicYears = useMemo(

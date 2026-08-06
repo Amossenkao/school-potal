@@ -370,7 +370,7 @@ const Community = () => {
 			);
 		}
 		if (sessionUser.role === 'system_admin') {
-			return buildSchoolAcademicYearRange({ firstAcademicYear: schoolProfile?.identity?.firstAcademicYear, currentAcademicYear: schoolProfile?.identity?.currentAcademicYear });
+			return buildSchoolAcademicYearRange(schoolProfile);
 		}
 		return sortAcademicYearsDesc([]);
 	}, [sessionUser, schoolProfile]);

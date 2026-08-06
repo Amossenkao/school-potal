@@ -414,7 +414,9 @@ export const SharedFilter = <T extends BaseFilters>({
 			});
 			return filteredOptions.map((opt: any) => opt.academicYear);
 		}
-		return buildSchoolAcademicYearRange({ firstAcademicYear: currentSchool?.identity?.firstAcademicYear, currentAcademicYear: currentSchool?.identity?.currentAcademicYear });
+		// System admins and administrators get the school's full history:
+		// first academic year through current, both inclusive.
+		return buildSchoolAcademicYearRange(currentSchool);
 	}, [
 		currentSchool,
 		isStudent,

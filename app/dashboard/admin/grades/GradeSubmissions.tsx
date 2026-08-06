@@ -117,7 +117,7 @@ const AdminGradeManagement: React.FC = () => {
 	const currentSchool = useSchoolStore((state) => state.school);
 	const currentAcademicYear = currentSchool?.identity?.currentAcademicYear || '';
 	const academicYearOptions = useMemo(
-		() => buildSchoolAcademicYearRange({ firstAcademicYear: currentSchool?.identity?.firstAcademicYear, currentAcademicYear: currentSchool?.identity?.currentAcademicYear }),
+		() => buildSchoolAcademicYearRange(currentSchool),
 		[currentSchool],
 	);
 	const usersByAcademicYear = useSchoolStore(
