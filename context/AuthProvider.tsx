@@ -166,6 +166,33 @@ export default function AuthProvider({
 		}
 	}, []);
 
+	/**
+	 * The school's active flag is a session-level event, not just a UI toggle:
+	 * deactivating revokes every tenant session server-side, so a client still
+	 * holding a user object after the flip is holding one that no longer
+	 * resolves. Nothing else notices — the inactive screen renders inside this
+	 * provider, so no navigation runs while it is up, and on reactivation the
+	 * dashboard would come back backed by a session that is already gone. Only
+	 * a reload cleared it.
+	 *
+	 * Re-checking on both edges means the inactive screen is reached with auth
+	 * already cleared, so reactivation lands on login instead of a dead shell.
+	 */
+	const schoolIsActive = currentSchool?.system?.isActive;
+	const previousSchoolActiveRef = useRef<boolean | null>(null);
+	useEffect(() => {
+		if (typeof schoolIsActive !== 'boolean') return;
+		const previous = previousSchoolActiveRef.current;
+		previousSchoolActiveRef.current = schoolIsActive;
+		// First observation is the baseline, not a transition.
+		if (previous === null || previous === schoolIsActive) return;
+		if (useAuth.getState().isLoggingOut) return;
+		void runAuthRefresh({
+			force: true,
+			trigger: `school-active-changed:${schoolIsActive}`,
+		});
+	}, [schoolIsActive, runAuthRefresh]);
+
 	// Initial bootstrap run on mount
 	useEffect(() => {
 		const runInitialBootstrap = async () => {
