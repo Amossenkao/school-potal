@@ -473,11 +473,38 @@ const upsertUserInRoster = (
 
 const gradeSyncInProgress = new Set<string>();
 
+/**
+ * The cached profile is only valid for the host it was cached from.
+ *
+ * One localStorage key is shared by every tenant a browser has visited, so
+ * without this check a leftover profile is adopted by whatever host loads
+ * next — including the superadmin platform host, which owns no school at all.
+ * That is how a deleted tenant kept supplying `system.dbName`: the store seeded
+ * `school` from the stale entry, realtime derived `school:{dbName}` from it,
+ * and the client subscribed to channels for a school that no longer exists.
+ *
+ * It also removes a hydration mismatch: the server renders the platform host
+ * with no school while the client hydrated one from storage.
+ */
 const readSchoolProfileCache = (): SchoolProfile | null => {
 	if (typeof window === 'undefined') return null;
 	try {
 		const raw = localStorage.getItem('school-profile');
-		return raw ? (JSON.parse(raw) as SchoolProfile) : null;
+		if (!raw) return null;
+		const cached = JSON.parse(raw) as SchoolProfile;
+		const cachedHost = String((cached as any)?.system?.host || '')
+			.trim()
+			.toLowerCase();
+		const currentHost = String(window.location.host || '')
+			.trim()
+			.toLowerCase();
+		// A cache entry with no host predates this check and cannot be placed,
+		// so it is discarded rather than trusted.
+		if (!cachedHost || cachedHost !== currentHost) {
+			localStorage.removeItem('school-profile');
+			return null;
+		}
+		return cached;
 	} catch (error) {
 		console.warn('Failed to read cached school profile:', error);
 		return null;

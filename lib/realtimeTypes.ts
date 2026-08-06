@@ -247,6 +247,13 @@ export const getAuthorizedRealtimeCapabilities = (options: {
 		return {
 			['school:*']: ['subscribe'],
 			['superadmin:*']: ['subscribe'],
+			// getAuthorizedRealtimeChannels subscribes every user with an id to
+			// their own `user:{tenant}:{id}` channel, superadmins included, and
+			// targeted security events are delivered there. Omitting it from the
+			// capability left that one channel rejected with 40160 while the rest
+			// of the connection looked healthy — the capability set and the
+			// channel set have to agree.
+			['user:*']: ['subscribe'],
 			[PLATFORM_EVENTS_CHANNEL]: ['subscribe'],
 		};
 	}
