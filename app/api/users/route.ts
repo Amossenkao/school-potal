@@ -116,6 +116,7 @@ const PROFILE_FIELD_LABELS: Record<string, string> = {
 	phone: 'phone number',
 	bio: 'bio',
 	address: 'address',
+	gender: 'gender',
 	avatar: 'profile photo',
 	shareContactWithClassmates: 'phone sharing preference',
 	classId: 'class assignment',
@@ -2380,7 +2381,12 @@ export async function GET(request: NextRequest) {
 					nickName: a.nickName,
 					gender: a.gender,
 					position: a.position,
+					permissions: a.permissions || [],
+					academicYears: a.academicYears || [],
+					classes: a.classes || [],
 					isTeacher: a.isTeacher || false,
+					canRecordStudentAttendance: a.canRecordStudentAttendance || false,
+					canRecordTeacherAttendance: a.canRecordTeacherAttendance || false,
 					role: 'administrator',
 				}));
 
@@ -2565,6 +2571,15 @@ export async function GET(request: NextRequest) {
 					nickName: a.nickName,
 					gender: a.gender,
 					position: a.position,
+					// The edit modal is populated straight from this roster while the
+					// paginated list refreshes in the background, so it must carry the
+					// full administrator shape or those fields render empty.
+					permissions: a.permissions || [],
+					academicYears: a.academicYears || [],
+					classes: a.classes || [],
+					isTeacher: a.isTeacher ?? false,
+					canRecordStudentAttendance: a.canRecordStudentAttendance || false,
+					canRecordTeacherAttendance: a.canRecordTeacherAttendance || false,
 					role: 'administrator',
 				})),
 			};
@@ -5121,6 +5136,7 @@ export async function PUT(request: NextRequest) {
 					'email',
 					'phone',
 					'address',
+					'gender',
 					'isActive',
 					'academicYears',
 				];

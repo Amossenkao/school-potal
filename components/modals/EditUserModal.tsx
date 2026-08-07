@@ -324,6 +324,17 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		return schoolProfile?.featureConfig?.enabledFeatures || [];
 	}, [schoolProfile]);
 
+	// Show every feature the school currently offers plus anything already granted to
+	// this administrator. Without the union, a permission whose feature was later
+	// disabled school-wide becomes invisible while still being saved back — and the
+	// whole list renders empty whenever the school profile hasn't loaded yet.
+	const permissionOptions = useMemo(() => {
+		const saved = Array.isArray(formData?.permissions)
+			? formData.permissions
+			: [];
+		return Array.from(new Set([...availablePermissions, ...saved]));
+	}, [availablePermissions, formData?.permissions]);
+
 	const getClassNameFromId = (classId) => {
 		if (!classId || !schoolProfile?.academicConfig?.classLevels) return classId;
 		for (const session of Object.values(schoolProfile.academicConfig.classLevels)) {
@@ -566,6 +577,25 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 			if (userData.role === 'administrator') {
 				userData.permissions = userData.permissions || [];
 				const activeYear = getCurrentAcademicYear();
+
+				// Position is stored per academic year; the top-level field is only a
+				// mirror of the most recent one. Prefer the entry for the active year so
+				// the select isn't blank when they differ.
+				const adminYears = Array.isArray(userData.academicYears)
+					? userData.academicYears
+					: [];
+				const activeYearEntry = adminYears.find(
+					(entry: any) => entry?.year === activeYear,
+				);
+				const latestYearEntry = adminYears
+					.slice()
+					.sort((a: any, b: any) => (b?.year || '').localeCompare(a?.year || ''))[0];
+				userData.position =
+					activeYearEntry?.position ||
+					userData.position ||
+					latestYearEntry?.position ||
+					'';
+
 				const yearClasses =
 					userData.classes?.find((entry: any) => entry.year === activeYear) ||
 					(userData.classes || [])
@@ -730,13 +760,29 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		'bg-background border-input hover:border-primary/40 focus:ring-2 focus:ring-primary/30 transition';
 
 	const adminPositions = useMemo(() => {
-		if (Array.isArray(schoolProfile?.userConfig.administrativePositions)) {
-			return schoolProfile.userConfig.administrativePositions
-				.map((pos: any) => pos.name)
-				.filter(Boolean);
-		}
-		return [];
-	}, [schoolProfile]);
+		const configured = Array.isArray(
+			schoolProfile?.userConfig?.administrativePositions,
+		)
+			? schoolProfile.userConfig.administrativePositions
+					.map((pos: any) => pos.name)
+					.filter(Boolean)
+			: [];
+		// A position that was renamed or retired in school settings would otherwise
+		// have no matching option, leaving the select blank and silently wiping the
+		// user's current position on save.
+		const current = formData?.position;
+		return current && !configured.includes(current)
+			? [...configured, current]
+			: configured;
+	}, [schoolProfile, formData?.position]);
+
+	// Only Male/Female are offered, but legacy records may hold 'Other' or a
+	// lowercase value; keep it selectable so the field isn't rendered blank.
+	const genderOptions = useMemo(() => {
+		const base = ['Male', 'Female'];
+		const current = formData?.gender;
+		return current && !base.includes(current) ? [...base, current] : base;
+	}, [formData?.gender]);
 
 	const handleInputChange = (e) => {
 		const { name, value } = e.target;
@@ -2187,6 +2233,28 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 									value={formData.phone}
 									onChange={handleInputChange}
 								/>
+								<div>
+									<label className="block text-sm font-medium text-foreground mb-1">
+										Gender
+									</label>
+									<Select
+										value={formData.gender || undefined}
+										onValueChange={(value) =>
+											handleInputChange({ target: { name: 'gender', value } })
+										}
+									>
+										<SelectTrigger className={selectTriggerClass}>
+											<SelectValue placeholder="Select Gender" />
+										</SelectTrigger>
+										<SelectContent>
+											{genderOptions.map((option) => (
+												<SelectItem key={option} value={option}>
+													{option}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
 								<div className="sm:col-span-2">
 									<InputField
 										label="Address"
@@ -3008,8 +3076,14 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 									<p className="text-xs text-muted-foreground">
 										Select which features this administrator can access.
 									</p>
+									{permissionOptions.length === 0 && (
+										<p className="text-xs text-amber-600 dark:text-amber-500">
+											No features are available yet. If this administrator has
+											saved permissions they will be preserved.
+										</p>
+									)}
 									<div className="flex flex-wrap gap-2">
-										{availablePermissions.map((feature) => {
+										{permissionOptions.map((feature) => {
 											const perms = formData.permissions || [];
 											const isSelected = perms.includes(feature);
 											return (
