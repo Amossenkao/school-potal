@@ -84,6 +84,29 @@ export const nextSeq = async (
 	return entry?.seq ?? 0;
 };
 
+/** How many times to retry a seq collision before giving up. */
+const APPEND_MAX_ATTEMPTS = 5;
+
+/**
+ * Appends a change to the log, returning the seq assigned to it.
+ *
+ * Two invariants this function must not break:
+ *
+ * 1. **A returned seq always corresponds to a persisted row.** Clients treat
+ *    the seq as a cursor, so handing one back for a change that was never
+ *    logged makes them skip it forever — and the resulting hole means their
+ *    `sinceSeq` can never reach the domain head, so /api/auth/me re-sends the
+ *    whole domain on every poll from then on. Write failures therefore throw
+ *    rather than being swallowed; the caller decides whether the mutation is
+ *    still worth reporting as a success.
+ * 2. **A failed write must not burn a seq.** The counter is bumped only after
+ *    the row is safely in place. A collision (another writer took the seq
+ *    first) is retried against a freshly allocated one.
+ *
+ * There are no Mongo transactions here — the deployment may be a standalone —
+ * so the ordering is: reserve, insert, and on conflict retry. The unique index
+ * on (domain, academicYear, seq) is what makes concurrent writers safe.
+ */
 export const appendChange = async (params: {
 	domain: string;
 	academicYear: string;
@@ -94,35 +117,46 @@ export const appendChange = async (params: {
 	actorId?: string | null;
 	idempotencyKey?: string;
 }): Promise<number> => {
-	const seq = await nextSeq(params.domain, params.academicYear);
 	const models = await getTenantModels();
-	try {
-		await models.ChangeLog.create({
-			domain: params.domain,
-			academicYear: params.academicYear,
-			seq,
-			op: params.op,
-			documentId: params.documentId,
-			documentType: params.documentType,
-			document: params.document ?? null,
-			actorId: params.actorId ?? null,
-			idempotencyKey: params.idempotencyKey ?? null,
-		});
-	} catch (error: any) {
-		if (error?.code === 11000) {
-			const existing = await models.ChangeLog.findOne({
+	let lastError: any = null;
+
+	for (let attempt = 0; attempt < APPEND_MAX_ATTEMPTS; attempt++) {
+		const seq = await nextSeq(params.domain, params.academicYear);
+		try {
+			await models.ChangeLog.create({
 				domain: params.domain,
 				academicYear: params.academicYear,
 				seq,
-			}).lean();
-			if (existing) return seq;
+				op: params.op,
+				documentId: params.documentId,
+				documentType: params.documentType,
+				document: params.document ?? null,
+				actorId: params.actorId ?? null,
+				idempotencyKey: params.idempotencyKey ?? null,
+			});
+			return seq;
+		} catch (error: any) {
+			lastError = error;
+			if (error?.code !== 11000) throw error;
+
+			// Duplicate key. Either this exact change is already logged (an
+			// idempotent replay racing itself), in which case reuse its seq, or
+			// another writer claimed this seq first, in which case retry.
+			if (params.idempotencyKey) {
+				const existing = await findChangeByIdempotencyKey({
+					domain: params.domain,
+					academicYear: params.academicYear,
+					idempotencyKey: params.idempotencyKey,
+				});
+				if (existing) return existing.seq;
+			}
 		}
-		console.warn(
-			`appendChange failed for ${params.domain}:${params.academicYear}:${seq}`,
-			error,
-		);
 	}
-	return seq;
+
+	throw new Error(
+		`appendChange exhausted ${APPEND_MAX_ATTEMPTS} attempts for ` +
+			`${params.domain}:${params.academicYear}: ${lastError?.message ?? lastError}`,
+	);
 };
 
 export type AppendChangeResult = {

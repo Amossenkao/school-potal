@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeUser } from '@/proxy';
 import { listChanges, getDomainSeq } from '@/lib/syncEngine';
+import { scopeChangesForRole } from '@/lib/syncScope';
+import { getSchoolProfile } from '@/lib/mongoose';
 
 const MAX_DELTA_LIMIT = 2000;
 
@@ -52,14 +54,46 @@ export async function GET(req: NextRequest) {
 		});
 		const currentSeq = await getDomainSeq(domain, academicYear);
 
+		// The pagination cursor must come from the RAW page, before role
+		// filtering: a page that scopes down to nothing still has to advance the
+		// client past those seqs, and advancing to `currentSeq` instead would
+		// skip every page after this one.
+		const nextSeq =
+			changes.length > 0 ? changes[changes.length - 1].seq : sinceSeq;
+
+		const scope = await scopeChangesForRole({
+			domain,
+			academicYear,
+			currentUser,
+			schoolProfile: await getSchoolProfile(),
+			changes,
+		});
+
+		// No access to this domain is not an error — the bootstrap payload simply
+		// omits it for this role. Report the head seq so the client records itself
+		// as caught up instead of retrying forever.
+		if (scope.access === 'none') {
+			return NextResponse.json({
+				success: true,
+				domain,
+				academicYear,
+				sinceSeq,
+				nextSeq: currentSeq,
+				currentSeq,
+				hasMore: false,
+				changes: [],
+			});
+		}
+
 		return NextResponse.json({
 			success: true,
 			domain,
 			academicYear,
 			sinceSeq,
+			nextSeq,
 			currentSeq,
 			hasMore,
-			changes,
+			changes: scope.changes,
 		});
 	} catch (error) {
 		console.error('GET /api/sync/delta error:', error);

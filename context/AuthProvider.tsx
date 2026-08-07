@@ -11,6 +11,7 @@ import { useHasSchool } from '@/context/HasSchoolContext';
 import {
 	getAuthorizedRealtimeChannels,
 	resolveCanonicalTenantKey,
+	resolveSyncDomain,
 	type AuthorizedRealtimeUser,
 	type RealtimeEvent,
 } from '@/lib/realtimeTypes';
@@ -31,24 +32,9 @@ const SECURITY_SYNC_REASONS = new Set([
 	'user-password-reset',
 ]);
 
-const resolveEventDomain = (type: string): string => {
-	if (type === 'GRADE_CREATED' || type === 'GRADE_UPDATED') return 'grades';
-	if (type === 'GRADE_CHANGE_REQUESTED') return 'gradeRequests';
-	if (type === 'ATTENDANCE_CREATED' || type === 'ATTENDANCE_UPDATED')
-		return 'attendance';
-	if (type === 'TEACHER_ATTENDANCE_SAVED') return 'teacher_attendance';
-	if (type === 'EVENT_CREATED' || type === 'EVENT_UPDATED' || type === 'EVENT_DELETED')
-		return 'calendar';
-	if (type.startsWith('SCHEDULE_')) return 'schedules';
-	if (
-		type.startsWith('USER_') ||
-		type.startsWith('STUDENT_') ||
-		type.startsWith('CLASS_')
-	) {
-		return 'users';
-	}
-	return 'school';
-};
+// Domain resolution lives in lib/realtimeTypes so the store, the ordering
+// buffer and this provider all agree on which cursor an event's seq belongs to.
+const resolveEventDomain = resolveSyncDomain;
 
 export default function AuthProvider({
 	children,
@@ -523,7 +509,7 @@ export default function AuthProvider({
 			// negotiates on never regress (§6.5 ordered application). Events for
 			// legacy-versioned domains (users, school) keep applying as-is.
 			const dispatchSequencedEvent = (evt: RealtimeEvent) => {
-				const domain = resolveEventDomain(evt.type);
+				const domain = resolveEventDomain(evt);
 				if (!BUFFERED_SYNC_DOMAINS.has(domain as ClientSyncDomain)) {
 					applyEvent(evt);
 					return;
@@ -542,7 +528,7 @@ export default function AuthProvider({
 				const eventId = `${event.type}:${event.tenantId}:${event.seq}`;
 				void tryMarkEventApplied({
 					eventId,
-					domain: resolveEventDomain(event.type),
+					domain: resolveEventDomain(event),
 					academicYear: academicYear || 'unknown',
 					seq: event.seq,
 				}).then((alreadyApplied) => {

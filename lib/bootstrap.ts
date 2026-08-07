@@ -257,7 +257,7 @@ const getTeacherLevelScopes = (
  * other classes in the level, which is the administrator-equivalent read the
  * general schedule view is meant to show. Writing stays admin-only.
  */
-const getRoleClassFilter = (
+export const getRoleClassFilter = (
 	currentUser: any,
 	academicYear: string,
 	schoolProfile?: any,
@@ -348,7 +348,10 @@ export const getRoleGradesQuery = (currentUser: any, academicYear: string) => {
 	return null;
 };
 
-const getRoleGradeRequestsQuery = (currentUser: any, academicYear: string) => {
+export const getRoleGradeRequestsQuery = (
+	currentUser: any,
+	academicYear: string,
+) => {
 	const academicYearMatch = getAcademicYearMatch(academicYear);
 	if (isTeacherActor(currentUser)) {
 		if (!currentUser.username) return null;
@@ -384,7 +387,7 @@ const getRoleGradeRequestsQuery = (currentUser: any, academicYear: string) => {
  * - administrator → all records for the year (admin panel access)
  * - everyone else → null (no access)
  */
-const getRoleTeacherAttendanceQuery = (
+export const getRoleTeacherAttendanceQuery = (
 	currentUser: any,
 	academicYear: string,
 ) => {
@@ -448,7 +451,7 @@ export const getRoleAttendanceQuery = (
 	return null;
 };
 
-const getRoleUsersQuery = (currentUser: any, academicYear: string) => {
+export const getRoleUsersQuery = (currentUser: any, academicYear: string) => {
 	const academicYearMatch = getAcademicYearMatch(academicYear);
 	if (currentUser.role === 'student') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);

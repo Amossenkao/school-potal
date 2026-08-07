@@ -26,6 +26,12 @@ const pendingByKey = new Map<string, Map<number, PendingEntry>>();
 const reconcileTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const reconciling = new Set<string>();
+/**
+ * Keys whose next reconcile must run even with nothing buffered — set when an
+ * event announced a seq but carried no data for its domain, so the change only
+ * exists in the ChangeLog.
+ */
+const forcedReconcile = new Set<string>();
 
 export const BUFFERED_SYNC_DOMAINS = new Set<ClientSyncDomain>([
 	'grades',
@@ -42,16 +48,32 @@ const resolveKey = (domain: string, academicYear: string) =>
 const getCursor = (domain: ClientSyncDomain, academicYear: string): number =>
 	getClientSyncSeq(CACHED_DOMAIN_BY_SYNC[domain], academicYear);
 
-const advanceCursor = (
+/**
+ * Applies an event and reports whether the store accepted its data for this
+ * domain.
+ *
+ * The store advances the domain cursor itself, but only when the event
+ * actually carried that domain's records (see schoolStore.applyRealtimeEvent).
+ * Reading the cursor back is therefore the authoritative test: if it reached
+ * `seq`, the data landed. Calendar and schedules publish a bare seq with no
+ * payload, so those events must NOT move the cursor — the change is pulled by
+ * a delta reconcile instead. Advancing here regardless would tell
+ * /api/auth/me the client is caught up on a change it never received, and the
+ * change would be lost permanently.
+ */
+const applyAndConfirm = (
 	domain: ClientSyncDomain,
 	academicYear: string,
 	seq: number,
-) => {
-	if (seq > 0) {
-		useSchoolStore.getState().setSyncSeqForYear(academicYear, {
-			[CACHED_DOMAIN_BY_SYNC[domain]]: seq,
-		});
+	entry: PendingEntry,
+): boolean => {
+	try {
+		entry.apply(entry.event);
+	} catch (error) {
+		console.warn('[realtimeBuffer] event apply threw:', error);
+		return false;
 	}
+	return getCursor(domain, academicYear) >= seq;
 };
 
 const clearTimers = (key: string) => {
@@ -63,17 +85,30 @@ const clearTimers = (key: string) => {
 	retryTimers.delete(key);
 };
 
+/**
+ * Whether this (domain, year) still needs a delta pull: either buffered events
+ * sit behind a gap, or an event announced a seq the store never applied
+ * (notification-only publishes), leaving the cursor short of the head.
+ */
+const needsReconcile = (
+	key: string,
+	domain: ClientSyncDomain,
+	academicYear: string,
+): boolean => {
+	if (forcedReconcile.has(key)) return true;
+	const pending = pendingByKey.get(key);
+	if (!pending || pending.size === 0) return false;
+	const cursor = getCursor(domain, academicYear);
+	return Math.min(...pending.keys()) > cursor + 1;
+};
+
 const scheduleGapReconcile = (domain: ClientSyncDomain, academicYear: string) => {
 	const key = resolveKey(domain, academicYear);
 	const existing = reconcileTimers.get(key);
 	if (existing) clearTimeout(existing);
 	const timer = setTimeout(() => {
 		reconcileTimers.delete(key);
-		const pending = pendingByKey.get(key);
-		if (!pending || pending.size === 0) return;
-		const cursor = getCursor(domain, academicYear);
-		const earliest = Math.min(...pending.keys());
-		if (earliest > cursor + 1) {
+		if (needsReconcile(key, domain, academicYear)) {
 			void fillGap(domain, academicYear);
 		}
 	}, GAP_RECONCILE_DEBOUNCE_MS);
@@ -86,11 +121,7 @@ const scheduleGapRetry = (domain: ClientSyncDomain, academicYear: string) => {
 	if (existing) clearTimeout(existing);
 	const timer = setTimeout(() => {
 		retryTimers.delete(key);
-		const pending = pendingByKey.get(key);
-		if (!pending || pending.size === 0) return;
-		const cursor = getCursor(domain, academicYear);
-		const earliest = Math.min(...pending.keys());
-		if (earliest > cursor + 1) {
+		if (needsReconcile(key, domain, academicYear)) {
 			void fillGap(domain, academicYear);
 		}
 	}, GAP_RETRY_MS);
@@ -100,8 +131,10 @@ const scheduleGapRetry = (domain: ClientSyncDomain, academicYear: string) => {
 const fillGap = async (domain: ClientSyncDomain, academicYear: string) => {
 	const key = resolveKey(domain, academicYear);
 	if (reconciling.has(key)) return;
-	const pending = pendingByKey.get(key);
-	if (!pending || pending.size === 0) return;
+	if (!needsReconcile(key, domain, academicYear)) return;
+	// Cleared up front: a change logged after this pull starts must be able to
+	// re-arm the flag rather than be swallowed by this in-flight reconcile.
+	forcedReconcile.delete(key);
 	reconciling.add(key);
 	try {
 		await reconcileDomain(domain, academicYear, {
@@ -114,13 +147,8 @@ const fillGap = async (domain: ClientSyncDomain, academicYear: string) => {
 	} finally {
 		reconciling.delete(key);
 	}
-	const stillPending = pendingByKey.get(key);
-	if (stillPending && stillPending.size > 0) {
-		const cursor = getCursor(domain, academicYear);
-		const earliest = Math.min(...stillPending.keys());
-		if (earliest > cursor + 1) {
-			scheduleGapRetry(domain, academicYear);
-		}
+	if (needsReconcile(key, domain, academicYear)) {
+		scheduleGapRetry(domain, academicYear);
 	}
 	flushPending(domain, academicYear);
 };
@@ -135,12 +163,16 @@ export const flushPending = (domain: ClientSyncDomain, academicYear: string) => 
 	const pending = pendingByKey.get(key);
 	if (!pending || pending.size === 0) {
 		pendingByKey.delete(key);
-		clearTimers(key);
+		// Keep the timers alive when a forced reconcile is still owed: an event
+		// may have announced a seq without shipping data, leaving nothing
+		// buffered but a pull still outstanding.
+		if (!forcedReconcile.has(key)) clearTimers(key);
 		return;
 	}
 	const sorted = [...pending.entries()].sort((a, b) => a[0] - b[0]);
 	let cursor = getCursor(domain, academicYear);
 	let advanced = false;
+	let mustReconcile = false;
 	for (const [seq, entry] of sorted) {
 		if (seq <= cursor) {
 			pending.delete(seq);
@@ -148,18 +180,24 @@ export const flushPending = (domain: ClientSyncDomain, academicYear: string) => 
 		}
 		if (seq !== cursor + 1) break;
 		pending.delete(seq);
-		try {
-			entry.apply(entry.event);
-		} catch (error) {
-			console.warn('[realtimeBuffer] event apply threw:', error);
+		if (!applyAndConfirm(domain, academicYear, seq, entry)) {
+			// Notification-only event: the data still has to be pulled, and the
+			// cursor stays put so the reconcile actually fetches it. Stop here —
+			// later seqs are no longer contiguous with the cursor.
+			forcedReconcile.add(key);
+			mustReconcile = true;
+			break;
 		}
-		advanceCursor(domain, academicYear, seq);
 		cursor = seq;
 		advanced = true;
 	}
+	if (mustReconcile) {
+		scheduleGapReconcile(domain, academicYear);
+		return;
+	}
 	if (pending.size === 0) {
 		pendingByKey.delete(key);
-		clearTimers(key);
+		if (!forcedReconcile.has(key)) clearTimers(key);
 	} else if (advanced) {
 		scheduleGapReconcile(domain, academicYear);
 	}
@@ -190,10 +228,15 @@ export const enqueueRealtimeEvent = (
 	if (seq <= cursor) return 'stale';
 
 	if (seq === cursor + 1) {
-		apply(event);
-		advanceCursor(domain, academicYear, seq);
-		flushPending(domain, academicYear);
-		return 'applied';
+		if (applyAndConfirm(domain, academicYear, seq, { event, apply })) {
+			flushPending(domain, academicYear);
+			return 'applied';
+		}
+		// The event announced seq but shipped no data for this domain. Leave the
+		// cursor where it is and pull the change from the ChangeLog.
+		forcedReconcile.add(key);
+		scheduleGapReconcile(domain, academicYear);
+		return 'buffered';
 	}
 
 	let pending = pendingByKey.get(key);

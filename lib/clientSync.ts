@@ -71,6 +71,11 @@ type DeltaResponse = {
 	domain: string;
 	academicYear: string;
 	sinceSeq: number;
+	/**
+	 * Seq of the last change in THIS page — the cursor to resume from. Distinct
+	 * from `currentSeq`, which is the domain head and may be many pages ahead.
+	 */
+	nextSeq?: number;
 	currentSeq: number;
 	hasMore: boolean;
 	changes: DeltaChange[];
@@ -431,6 +436,27 @@ const fetchVerifiedSnapshot = async (
 	);
 };
 
+/**
+ * How far a delta page advanced the cursor.
+ *
+ * Prefers the server's `nextSeq` (last seq in the page). Falls back to the
+ * highest seq actually returned, then to the request's own `sinceSeq`, so an
+ * older server that omits `nextSeq` still paginates correctly instead of
+ * skipping to the head.
+ */
+const resolvePageEnd = (delta: DeltaResponse, sinceSeq: number): number => {
+	if (typeof delta.nextSeq === 'number' && delta.nextSeq > 0) {
+		return delta.nextSeq;
+	}
+	let highest = sinceSeq;
+	for (const change of delta.changes) {
+		if (typeof change.seq === 'number' && change.seq > highest) {
+			highest = change.seq;
+		}
+	}
+	return highest;
+};
+
 const setCursor = (
 	cachedDomain: CachedDomain,
 	academicYear: string,
@@ -482,7 +508,12 @@ export const reconcileDomain = async (
 					break;
 				}
 			}
-			setCursor(cachedDomain, academicYear, delta.currentSeq);
+
+			// Advance only as far as this page actually reached. Using the
+			// domain head (`currentSeq`) here would jump the cursor past every
+			// page still queued behind `hasMore`, silently dropping them.
+			const pageEnd = resolvePageEnd(delta, sinceSeq);
+			setCursor(cachedDomain, academicYear, pageEnd);
 
 			if (needsResnapshot) {
 				const snapshot = await fetchVerifiedSnapshot(domain, academicYear);
@@ -491,8 +522,21 @@ export const reconcileDomain = async (
 				return { domain, academicYear, action: 'resnapshot' };
 			}
 
-			if (!delta.hasMore) break;
-			sinceSeq = delta.currentSeq;
+			if (!delta.hasMore) {
+				// The last page is caught up with the head by definition; settle
+				// the cursor there so filtered-out trailing changes (role scoping
+				// can empty a page) don't leave the client permanently behind.
+				setCursor(cachedDomain, academicYear, delta.currentSeq);
+				break;
+			}
+			if (pageEnd <= sinceSeq) {
+				// No forward progress despite `hasMore` — bail rather than spin.
+				console.warn(
+					`[clientSync] delta stalled for ${domain}:${academicYear} at seq ${sinceSeq}`,
+				);
+				break;
+			}
+			sinceSeq = pageEnd;
 			delta = await fetchDelta(domain, academicYear, sinceSeq);
 		}
 

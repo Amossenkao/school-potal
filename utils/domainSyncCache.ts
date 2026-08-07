@@ -256,7 +256,12 @@ export const clearSyncCursors = async (academicYear?: string) => {
 		return;
 	}
 
-	const prefix = `cursor:${academicYear}`;
+	// Cursor keys are `cursor:<domain>:<academicYear>`, so the year is a
+	// suffix — matching on a `cursor:<year>` prefix never hit anything, and
+	// clearing a year left its cursors behind. A stale cursor makes the next
+	// reconcile report "caught up" against data that was just wiped, so the
+	// year stays permanently empty.
+	const suffix = `:${academicYear}`;
 	await runWithLock('school-domain-cache:clear-cursors', async () => {
 		await new Promise<void>((resolve, reject) => {
 			const tx = db.transaction(SYNC_META_STORE, 'readwrite');
@@ -268,7 +273,7 @@ export const clearSyncCursors = async (academicYear?: string) => {
 					resolve();
 					return;
 				}
-				if (cursor.value?.key?.endsWith?.(prefix)) {
+				if (cursor.value?.key?.endsWith?.(suffix)) {
 					cursor.delete();
 				}
 				cursor.continue();

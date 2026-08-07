@@ -18,8 +18,40 @@ import {
 import { useNetworkStore } from './networkStore';
 import {
 	resolveCanonicalTenantKey,
+	resolveSyncDomain,
 	type RealtimeEvent,
 } from '@/lib/realtimeTypes';
+
+/**
+ * Sync-engine domain name (as used by the ChangeLog and /api/sync/*) → the
+ * cached-domain key the client stores its cursor under.
+ */
+const CACHED_DOMAIN_BY_SYNC_DOMAIN: Record<string, CachedDomain | undefined> = {
+	grades: 'grades',
+	attendance: 'attendance',
+	teacher_attendance: 'teacherAttendance',
+	calendar: 'calendar',
+	schedules: 'schedules',
+	gradeRequests: 'gradeRequests',
+};
+
+/**
+ * Whether a realtime payload actually carried a given domain's records. A seq
+ * may only advance a cursor when the corresponding data arrived with it.
+ */
+const DOMAIN_DATA_PRESENT: Record<
+	CachedDomain,
+	(payload: Record<string, unknown>) => boolean
+> = {
+	grades: (p) => Array.isArray(p.grades),
+	attendance: (p) => Array.isArray(p.attendance),
+	teacherAttendance: (p) => Array.isArray(p.teacherAttendance),
+	calendar: (p) => Array.isArray(p.calendarEvents),
+	schedules: (p) => !!p.schedules && typeof p.schedules === 'object',
+	gradeRequests: (p) => Array.isArray(p.gradeRequests),
+	users: (p) => Array.isArray(p.users),
+	payments: (p) => Array.isArray(p.payments),
+};
 
 // Set by AuthProvider when the current user's role is resolved.
 // Used in applyRealtimeEvent to prevent superadmins from having
@@ -1598,33 +1630,27 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 			);
 		}
 
-		// Next-gen sync: advance the ChangeLog cursor for a domain ONLY when the
-		// event actually carried that domain's data and it was applied above.
-		// The realtime seq is the primary domain's ChangeLog seq; events that
-		// merely bump version stamps (no payload data) must NOT advance the
-		// cursor, otherwise the delta reconcile would skip changes the store
-		// never received. The delta pull then applies them on the next refresh.
+		// Next-gen sync: advance the ChangeLog cursor ONLY for the domain the
+		// seq was allocated against, and only when this event actually carried
+		// that domain's data.
+		//
+		// Both halves matter. A seq belongs to exactly one (domain, year)
+		// counter, so stamping it onto whichever domains happened to ride along
+		// in the payload skips changes in those other domains — a
+		// GRADE_CHANGE_REQUESTED event carries `payload.grades`, and its
+		// gradeRequests seq would otherwise jump the *grades* cursor forward.
+		// And events that merely notify without shipping data (calendar and
+		// schedules publish a bare seq) must leave the cursor alone so the
+		// delta reconcile still pulls them; advancing there loses the change
+		// permanently, because /api/auth/me then reports the client caught up.
 		const eventSeq =
 			typeof event.seq === 'number' && Number.isFinite(event.seq)
 				? event.seq
 				: null;
 		if (academicYear && eventSeq !== null) {
-			const appliedDomains: CachedDomain[] = [];
-			if (Array.isArray(payload.grades)) appliedDomains.push('grades');
-			if (Array.isArray(payload.attendance)) appliedDomains.push('attendance');
-			if (Array.isArray(payload.teacherAttendance))
-				appliedDomains.push('teacherAttendance');
-			if (Array.isArray(payload.calendarEvents)) appliedDomains.push('calendar');
-			if (payload.schedules && typeof payload.schedules === 'object')
-				appliedDomains.push('schedules');
-			if (Array.isArray(payload.gradeRequests))
-				appliedDomains.push('gradeRequests');
-			if (appliedDomains.length > 0) {
-				const cursorPatch: Partial<Record<CachedDomain, number>> = {};
-				appliedDomains.forEach((domain) => {
-					cursorPatch[domain] = eventSeq;
-				});
-				get().setSyncSeqForYear(academicYear, cursorPatch);
+			const cachedDomain = CACHED_DOMAIN_BY_SYNC_DOMAIN[resolveSyncDomain(event)];
+			if (cachedDomain && DOMAIN_DATA_PRESENT[cachedDomain](payload)) {
+				get().setSyncSeqForYear(academicYear, { [cachedDomain]: eventSeq });
 			}
 		}
 	},

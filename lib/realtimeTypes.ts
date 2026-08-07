@@ -27,6 +27,13 @@ export type RealtimeEvent = {
 	timestamp: string;
 	source: RealtimeSource;
 	seq?: number;
+	/**
+	 * The sync domain `seq` was allocated against. Carried explicitly because
+	 * inferring it from `type` is lossy — `schedules` publishes resolve to
+	 * `CLASS_UPDATED`, which a type-based mapping reads as `users`, so the seq
+	 * would advance the wrong domain's cursor.
+	 */
+	domain?: string;
 };
 
 export type AuthorizedRealtimeUser = Pick<User, 'id' | 'role'> &
@@ -408,8 +415,46 @@ export const buildRealtimeEvent = (params: {
 		timestamp,
 		source: resolveRealtimeSource(params.source),
 		...(typeof params.seq === 'number' ? { seq: params.seq } : {}),
+		...(trim(params.domain) ? { domain: trim(params.domain) } : {}),
 	} satisfies RealtimeEvent;
 };
+
+/**
+ * Best-effort domain inference from an event type, for events published before
+ * `domain` was carried on the wire. Prefer `resolveSyncDomain(event)`.
+ */
+export const resolveEventDomainFromType = (type: string): string => {
+	if (type === 'GRADE_CREATED' || type === 'GRADE_UPDATED') return 'grades';
+	if (type === 'GRADE_CHANGE_REQUESTED') return 'gradeRequests';
+	if (type === 'ATTENDANCE_CREATED' || type === 'ATTENDANCE_UPDATED')
+		return 'attendance';
+	if (type === 'TEACHER_ATTENDANCE_SAVED') return 'teacher_attendance';
+	if (
+		type === 'EVENT_CREATED' ||
+		type === 'EVENT_UPDATED' ||
+		type === 'EVENT_DELETED'
+	)
+		return 'calendar';
+	if (type.startsWith('SCHEDULE_')) return 'schedules';
+	if (
+		type.startsWith('USER_') ||
+		type.startsWith('STUDENT_') ||
+		type.startsWith('CLASS_')
+	) {
+		return 'users';
+	}
+	return 'school';
+};
+
+/**
+ * The sync domain an event's `seq` belongs to. The publisher's own `domain` is
+ * authoritative when present; the type mapping is only a fallback.
+ */
+export const resolveSyncDomain = (event: {
+	type: string;
+	domain?: string;
+}): string =>
+	trim(event.domain) || resolveEventDomainFromType(trim(event.type));
 
 export const resolvePublishChannels = (event: RealtimeEvent) => {
 	const tenantId = sanitizeChannelSegment(event.tenantId);
