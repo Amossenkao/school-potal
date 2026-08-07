@@ -117,13 +117,45 @@ export async function POST(request: NextRequest) {
 				});
 	}
 
+	/**
+	 * Positions are stored inconsistently: some records hold the id
+	 * ("principal"), others the display name ("Principal"), and a single
+	 * account's `academicYears` can carry both across different years. The
+	 * login picker submits the id, so a strict `!==` rejected every
+	 * administrator whose record happened to hold the name — reported to the
+	 * user as "Incorrect username or password", which sent them chasing a
+	 * password problem that never existed.
+	 *
+	 * Compare on a slug of each side so "Principal", "principal" and
+	 * "Vice Principal for Instruction" all line up with their ids, and accept a
+	 * match against any year's position as well as the top-level one.
+	 */
+	const positionSlug = (value: unknown) =>
+		String(value ?? '')
+			.trim()
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, '_')
+			.replace(/^_+|_+$/g, '');
+
+	const submittedPosition = positionSlug(position);
+	const heldPositions = new Set(
+		[
+			user?.position,
+			...(Array.isArray((user as any)?.academicYears)
+				? (user as any).academicYears.map((entry: any) => entry?.position)
+				: []),
+		]
+			.map(positionSlug)
+			.filter(Boolean),
+	);
+
 	if (
 		role === 'administrator' &&
-		position &&
+		submittedPosition &&
 		user &&
 		user.role === 'administrator' &&
-		user.position &&
-		user.position !== position
+		heldPositions.size > 0 &&
+		!heldPositions.has(submittedPosition)
 	) {
 		return NextResponse.json(
 			{

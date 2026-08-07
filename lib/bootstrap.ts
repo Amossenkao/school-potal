@@ -262,13 +262,37 @@ const getRoleClassFilter = (
 	academicYear: string,
 	schoolProfile?: any,
 ) => {
+	/**
+	 * Rows written against the level rather than a class carry an empty
+	 * `classId` — a test the whole level sits, or a timetable slot shared by
+	 * every class in it. A `classId` equality filter matches none of them, so
+	 * students and parents saw their own class's rows and nothing else. Widen
+	 * to "my classes, plus anything level-wide at my level".
+	 */
+	const withLevelWide = (classIds: string[], classFilter: any) => {
+		const scopes = getTeacherLevelScopes(classIds, schoolProfile);
+		if (scopes.length === 0) return classFilter;
+		return {
+			$or: [
+				classFilter,
+				...scopes.map(({ session, level }) => ({
+					session,
+					level,
+					classId: { $in: ['', null] },
+				})),
+			],
+		};
+	};
+
 	if (currentUser.role === 'student') {
 		const classId = getStudentClassIdForYear(currentUser, academicYear);
-		return classId ? { classId } : {};
+		return classId ? withLevelWide([classId], { classId }) : {};
 	}
 	if (currentUser.role === 'parent') {
 		const classIds = getParentChildClassIds(currentUser, academicYear);
-		return classIds.length ? { classId: { $in: classIds } } : {};
+		return classIds.length
+			? withLevelWide(classIds, { classId: { $in: classIds } })
+			: {};
 	}
 	if (currentUser.role === 'teacher') {
 		const classIds = getTeacherClassIdsForYear(currentUser, academicYear);

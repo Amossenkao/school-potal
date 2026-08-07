@@ -8,7 +8,7 @@
 import { normalizePhone } from './phone';
 
 /** Minimum for every password-setting path, client and server. */
-export const MIN_PASSWORD_LENGTH = 8;
+export const MIN_PASSWORD_LENGTH = 6;
 
 /**
  * True when a proposed password is just one of the account's own identifiers.
