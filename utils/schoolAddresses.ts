@@ -1,13 +1,13 @@
 // ---------------------------------------------------------------------------
 // School address normalization.
 //
-// contact.addresses is stored canonically as `{ label?, lines: string[] }[]`,
-// but older / migrated profiles may hold a flat `string[]` where each item is
-// one address line. These helpers accept any of those shapes and return a
-// normalized form so every consumer renders lines identically.
+// contact.addresses is now stored canonically as a flat `string[]` where each
+// element is one address line. Older profiles may still hold the legacy
+// `{ label?, lines: string[] }[]` objects; these helpers accept any of those
+// shapes and always return flat lines so every consumer renders identically.
 // ---------------------------------------------------------------------------
 
-export type NormalizedSchoolAddress = {
+type NormalizedSchoolAddress = {
 	label?: string;
 	lines: string[];
 };
@@ -15,7 +15,7 @@ export type NormalizedSchoolAddress = {
 // Convert any addresses shape into `{ label?, lines: string[] }[]`.
 // Flat string[] items become lines of a single address, so multi-line
 // letterheads (which read the first address's lines) keep every row.
-export function normalizeSchoolAddresses(addresses: unknown): NormalizedSchoolAddress[] {
+function normalizeSchoolAddresses(addresses: unknown): NormalizedSchoolAddress[] {
 	if (!Array.isArray(addresses)) return [];
 	if (addresses.length === 0) return [];
 	const allStrings = addresses.every((a) => typeof a === 'string');

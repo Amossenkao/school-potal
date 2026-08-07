@@ -79,17 +79,9 @@ const SchoolProfileBrandingSchema = new Schema(
 // 1.4 Contact
 // ---------------------------------------------------------------------------
 
-const SchoolAddressSchema = new Schema(
-	{
-		label: { type: String, trim: true },
-		lines: { type: [String], required: true, default: [] },
-	},
-	{ _id: false },
-);
-
 const SchoolProfileContactSchema = new Schema(
 	{
-		addresses: { type: [SchoolAddressSchema], required: true, default: [] },
+		addresses: { type: [String], required: true, default: [] },
 		phones: { type: [String], default: [] },
 		emails: { type: [String], default: [] },
 		website: { type: String, trim: true },

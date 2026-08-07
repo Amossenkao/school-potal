@@ -202,15 +202,9 @@ export interface SchoolProfileBranding {
 // SCHOOL PROFILE — CONTACT
 // ============================================================================
 
-export interface SchoolAddress {
-	// e.g. "Main Campus", "Administrative Office"
-	readonly label?: string;
-	// First element = street; subsequent = city, country, etc.
-	readonly lines: readonly string[];
-}
-
 export interface SchoolProfileContact {
-	readonly addresses: readonly SchoolAddress[];
+	// Flat list of address lines, rendered in order (one per document line).
+	readonly addresses: readonly string[];
 	readonly phones: readonly string[];
 	readonly emails: readonly string[];
 	readonly website?: string;

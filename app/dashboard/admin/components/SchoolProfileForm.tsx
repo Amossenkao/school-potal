@@ -55,7 +55,7 @@ export interface SchoolFormState {
 		firstAcademicYear: string; currentAcademicYear: string;
 	};
 	branding: { logoUrl: string; logoUrl2: string; themeName: string; reportCardThemes: Record<string, string> };
-	contact: { addresses: { label?: string; lines: string[] }[]; phones: string[]; emails: string[]; website: string };
+	contact: { addresses: string[]; phones: string[]; emails: string[]; website: string };
 	academicConfig: {
 		classLevels: Record<string, Record<string, {
 			isSelfContained?: boolean;
@@ -730,17 +730,17 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 							<div className="space-y-4">
 								<div>
 									<p className="text-[11px] font-medium text-gray-500 mb-1.5">Addresses</p>
-									{form.contact.addresses.map((addr, i) => (
-										<div key={i} className="flex items-start gap-1.5 mb-1.5">
-											<AddressInput value={addr.lines.join('\n')} onChange={(v) => {
+									{form.contact.addresses.map((line, i) => (
+										<div key={i} className="flex items-center gap-1.5 mb-1.5">
+											<AddressInput value={line} onChange={(v) => {
 												const next = [...form.contact.addresses];
-												next[i] = { ...next[i], lines: v.split('\n') };
+												next[i] = v;
 												update('contact.addresses', next);
 											}} />
 											<RemoveRow onClick={() => update('contact.addresses', form.contact.addresses.filter((_, j) => j !== i))} />
 										</div>
 									))}
-									<AddButton label="Address" onClick={() => update('contact.addresses', [...form.contact.addresses, { lines: [''] }])} />
+									<AddButton label="Address" onClick={() => update('contact.addresses', [...form.contact.addresses, ''])} />
 								</div>
 							<div><p className="text-[11px] font-medium text-gray-500 mb-1.5">Phone Numbers</p><DynamicList values={form.contact.phones} onChange={(v) => update('contact.phones', v)} placeholder="+231 ..." inputType="tel" itemErrors={Object.fromEntries(Object.entries(errors).filter(([k]) => k.startsWith('contact.phones.')).map(([k, v]) => [Number(k.split('.')[2]), v]))} /></div>
 							<div><p className="text-[11px] font-medium text-gray-500 mb-1.5">Emails</p><DynamicList values={form.contact.emails} onChange={(v) => update('contact.emails', v)} placeholder="email@..." inputType="email" itemErrors={Object.fromEntries(Object.entries(errors).filter(([k]) => k.startsWith('contact.emails.')).map(([k, v]) => [Number(k.split('.')[2]), v]))} /></div>
@@ -2012,12 +2012,11 @@ function Field({ label, required, value, onChange, onBlur, placeholder, disabled
 }
 
 function AddressInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-	const ref = useRef<HTMLTextAreaElement>(null);
+	const ref = useRef<HTMLInputElement>(null);
 	const mounted = useRef(false);
 	useEffect(() => { if (!mounted.current) { mounted.current = true; if (!value) ref.current?.focus(); } }, []);
-	return <textarea ref={ref} value={value} onChange={(e) => onChange(e.target.value)} placeholder="Address line..."
-		rows={2}
-		className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] resize-none dark:border-gray-800 dark:bg-muted dark:text-white" />;
+	return <input ref={ref} value={value} onChange={(e) => onChange(e.target.value)} placeholder="Address line..."
+		className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />;
 }
 
 function DynamicList({ values, onChange, placeholder, itemErrors, inputType }: { values: string[]; onChange: (v: string[]) => void; placeholder: string; itemErrors?: Record<number, string>; inputType?: 'text' | 'tel' | 'email' }) {

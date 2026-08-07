@@ -537,7 +537,7 @@ export async function POST(request: NextRequest) {
 				reportCardThemes: body.branding?.reportCardThemes || {},
 			},
 			contact: {
-				addresses: body.contact?.addresses || [],
+				addresses: flattenSchoolAddressLines(body.contact?.addresses),
 				phones: body.contact?.phones || [],
 				emails: body.contact?.emails || [],
 				website: body.contact?.website || '',
@@ -586,6 +586,13 @@ export async function PUT(request: NextRequest) {
 		const hostParam = url.searchParams.get('host');
 		const { SchoolProfile } = await getSchoolMeshModels();
 		const body = await request.json();
+
+		// Normalize contact.addresses to the canonical flat string[] shape so
+		// legacy clients/caches that still submit { label, lines } objects are
+		// stored as plain lines (schema is now [String]).
+		if (body?.contact && Array.isArray(body.contact.addresses)) {
+			body.contact.addresses = flattenSchoolAddressLines(body.contact.addresses);
+		}
 
 		// --- Superadmin: update school profile ---
 		if (hostParam) {
