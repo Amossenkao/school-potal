@@ -8,13 +8,14 @@ export default function UserMetaCard() {
 	const [isSaving, setIsSaving] = useState(false);
 	const [feedback, setFeedback] = useState({ message: '', type: '' });
 
-	const handleAvatarSave = async (newAvatarUrl: string) => {
+	const persistAvatar = async (newAvatarUrl: string, successMessage: string) => {
 		if (!user) return;
 		setIsSaving(true);
 		setFeedback({ message: '', type: '' });
 
 		try {
-			// API call to update the user's avatar
+			// API call to update the user's avatar. Clearing it to '' also purges the
+			// old photo from R2 server-side, if we were the ones hosting it.
 			const response = await fetch(`/api/users/`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
@@ -32,15 +33,24 @@ export default function UserMetaCard() {
 				setUser(result.data.user);
 			}
 
-			setFeedback({ message: 'Avatar updated successfully!', type: 'success' });
+			setFeedback({ message: successMessage, type: 'success' });
 		} catch (error: any) {
 			setFeedback({ message: error.message, type: 'error' });
+			// Rethrow so AvatarPicker keeps showing the current photo rather than
+			// clearing it on a removal that never persisted.
+			throw error;
 		} finally {
 			setIsSaving(false);
 			// Hide feedback message after 3 seconds
 			setTimeout(() => setFeedback({ message: '', type: '' }), 3000);
 		}
 	};
+
+	const handleAvatarSave = (newAvatarUrl: string) =>
+		persistAvatar(newAvatarUrl, 'Avatar updated successfully!').catch(() => {});
+
+	const handleAvatarDelete = () =>
+		persistAvatar('', 'Photo removed.');
 
 	if (!user) {
 		return (
@@ -64,6 +74,8 @@ export default function UserMetaCard() {
 								gender={user.gender.toLowerCase()}
 								initialAvatarUrl={user.avatar}
 								onAvatarSelect={handleAvatarSave}
+								onAvatarDelete={handleAvatarDelete}
+								autoGenerate={false}
 							/>
 						</div>
 						<div className="order-3 text-center xl:text-left xl:order-2">

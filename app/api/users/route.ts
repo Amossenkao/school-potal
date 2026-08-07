@@ -23,6 +23,7 @@ import {
 	verifyLoginPassword,
 	MIN_PASSWORD_LENGTH,
 } from '@/utils/loginIdentity';
+import { deleteReplacedAvatar, resolveTenantSlug } from '@/lib/storage/avatar';
 import ChangeLogSchema from '@/models/sync/ChangeLog';
 import SyncSequenceSchema from '@/models/sync/SyncSequence';
 import { appendChange } from '@/lib/syncEngine';
@@ -5615,6 +5616,18 @@ export async function PUT(request: NextRequest) {
 				},
 				{ status: 404 },
 			);
+		}
+
+		// The avatar field just changed, so the photo it pointed at is now unreferenced.
+		// Drop it from R2 if we were hosting it — covers replacing an upload, switching
+		// to a generated/pasted URL, and clearing the avatar outright.
+		if (Object.prototype.hasOwnProperty.call(filteredUserData, 'avatar')) {
+			await deleteReplacedAvatar({
+				previousUrl: (targetUser as any).avatar,
+				nextUrl: (updatedUser as any).avatar,
+				tenantSlug: resolveTenantSlug(currentUser),
+				userId: String(actualTargetUserId),
+			});
 		}
 
 		// A student's class and type select their fee group, so changing either

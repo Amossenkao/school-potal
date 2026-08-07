@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { authorizeUser } from '@/proxy';
 import { getSchoolMeshModels } from '@/models/schoolmesh';
 import { isValidPhone } from '@/utils/phone';
+import { deleteReplacedAvatar, resolveTenantSlug } from '@/lib/storage/avatar';
 
 export async function PATCH(request: NextRequest) {
 	try {
@@ -47,6 +48,17 @@ export async function PATCH(request: NextRequest) {
 			updateFields.fullName = middleName ? `${fName} ${middleName} ${lName}` : `${fName} ${lName}`;
 		}
 
+		// findByIdAndUpdate below returns the post-update doc, so capture the outgoing
+		// avatar first — we need it to clean up the replaced file in R2.
+		const previousAvatar =
+			avatar !== undefined
+				? (
+						(await SuperAdmin.findById(currentUser.id)
+							.select('avatar')
+							.lean()) as any
+					)?.avatar
+				: undefined;
+
 		const updatedUser = await SuperAdmin.findByIdAndUpdate(
 			currentUser.id,
 			{ $set: updateFields },
@@ -58,6 +70,15 @@ export async function PATCH(request: NextRequest) {
 				{ message: 'User not found' },
 				{ status: 404 },
 			);
+		}
+
+		if (avatar !== undefined) {
+			await deleteReplacedAvatar({
+				previousUrl: previousAvatar,
+				nextUrl: updatedUser.avatar,
+				tenantSlug: resolveTenantSlug(currentUser),
+				userId: String(currentUser.id),
+			});
 		}
 
 		const userResponse = {

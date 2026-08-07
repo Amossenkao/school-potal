@@ -2,12 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { authorizeUser } from '@/proxy';
 import { checkRateLimit, getRequestIp } from '@/utils/rateLimit';
-import {
-	deleteObject,
-	isR2Configured,
-	keyFromPublicUrl,
-	putObject,
-} from '@/lib/storage/r2';
+import { isR2Configured, putObject } from '@/lib/storage/r2';
+import { avatarPrefix, resolveTenantSlug } from '@/lib/storage/avatar';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -48,20 +44,6 @@ function sniffImage(buffer: Buffer): SniffResult | null {
 	}
 
 	return null;
-}
-
-/**
- * Superadmins live in the central schoolmesh DB and carry no tenant host, so they get
- * their own namespace. Everyone else is scoped to their school's host.
- */
-function resolveTenantSlug(currentUser: { role?: string; tenantId?: unknown }) {
-	if (currentUser.role === 'superadmin') return 'schoolmesh';
-
-	const raw =
-		typeof currentUser.tenantId === 'string' ? currentUser.tenantId : '';
-	const host = raw.split(':')[0].toLowerCase();
-	const slug = host.replace(/[^a-z0-9.-]/g, '');
-	return slug || 'unknown';
 }
 
 export async function POST(request: NextRequest) {
@@ -147,8 +129,8 @@ export async function POST(request: NextRequest) {
 		}
 
 		const tenantSlug = resolveTenantSlug(currentUser);
-		const ownPrefix = `avatars/${tenantSlug}/${currentUser.id}/`;
-		const key = `${ownPrefix}${crypto.randomUUID()}.${sniffed.ext}`;
+		const prefix = avatarPrefix(tenantSlug, String(currentUser.id));
+		const key = `${prefix}${crypto.randomUUID()}.${sniffed.ext}`;
 
 		const url = await putObject({
 			key,
@@ -156,21 +138,10 @@ export async function POST(request: NextRequest) {
 			contentType: sniffed.contentType,
 		});
 
-		// Best-effort cleanup of the avatar being replaced. Only ever deletes objects
-		// under the caller's own prefix, so a crafted previousUrl can't touch anyone
-		// else's file.
-		const previousUrl = String(form.get('previousUrl') || '');
-		if (previousUrl) {
-			const previousKey = keyFromPublicUrl(previousUrl);
-			if (previousKey && previousKey.startsWith(ownPrefix) && previousKey !== key) {
-				try {
-					await deleteObject(previousKey);
-				} catch (error) {
-					console.error('Failed to delete previous avatar:', error);
-				}
-			}
-		}
-
+		// Note: the avatar being replaced is NOT deleted here. Cleanup happens when the
+		// new URL is persisted (see deleteReplacedAvatar), because screens that defer
+		// saving until form submit would otherwise delete a file the stored record still
+		// points at. The cost is an orphan when an upload is started and abandoned.
 		return NextResponse.json({ success: true, data: { url, key } });
 	} catch (error) {
 		console.error('Avatar upload error:', error);

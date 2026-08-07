@@ -9,6 +9,9 @@ import {
 	ImagePlus,
 	Loader2,
 	X,
+	Trash2,
+	UserRound,
+	type LucideIcon,
 } from 'lucide-react';
 import { useState, useCallback, useEffect, useRef } from 'react';
 
@@ -280,7 +283,14 @@ async function processImageFile(
 	}
 }
 
-type Tab = 'generated' | 'upload' | 'custom';
+type Tab = 'upload' | 'generated' | 'custom';
+
+// Display order of the picker tabs. The first entry is also the default.
+const TABS = [
+	{ id: 'upload', label: 'Upload', icon: Upload },
+	{ id: 'generated', label: 'Generated', icon: Sparkles },
+	{ id: 'custom', label: 'URL', icon: Link },
+] as const satisfies readonly { id: Tab; label: string; icon: LucideIcon }[];
 
 // --- AVATAR PICKER MODAL COMPONENT ---
 export function AvatarPickerModal({
@@ -296,7 +306,7 @@ export function AvatarPickerModal({
 	onSelect: (url: string) => void;
 	currentAvatar: string;
 }) {
-	const [tab, setTab] = useState<Tab>('generated');
+	const [tab, setTab] = useState<Tab>('upload');
 	const [avatars, setAvatars] = useState<string[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 
@@ -391,7 +401,6 @@ export function AvatarPickerModal({
 		try {
 			const formData = new FormData();
 			formData.append('file', processed.blob, processed.fileName);
-			if (currentAvatar) formData.append('previousUrl', currentAvatar);
 
 			const response = await fetch('/api/upload/avatar', {
 				method: 'POST',
@@ -422,7 +431,7 @@ export function AvatarPickerModal({
 	useEffect(() => {
 		if (open) {
 			generateAvatars();
-			setTab('generated');
+			setTab('upload');
 			setCustomUrl('');
 			setPreviewUrl('');
 			setPreviewError(false);
@@ -467,42 +476,21 @@ export function AvatarPickerModal({
 				{/* Tabs */}
 				<div className="px-6 pb-4">
 					<div className="grid grid-cols-3 rounded-lg bg-muted p-1 text-sm font-medium">
-						<button
-							type="button"
-							onClick={() => setTab('generated')}
-							className={`flex items-center justify-center gap-1.5 rounded-md py-2 transition-colors ${
-								tab === 'generated'
-									? 'bg-card text-foreground shadow-sm'
-									: 'text-muted-foreground hover:text-foreground'
-							}`}
-						>
-							<Sparkles size={14} />
-							Generated
-						</button>
-						<button
-							type="button"
-							onClick={() => setTab('upload')}
-							className={`flex items-center justify-center gap-1.5 rounded-md py-2 transition-colors ${
-								tab === 'upload'
-									? 'bg-card text-foreground shadow-sm'
-									: 'text-muted-foreground hover:text-foreground'
-							}`}
-						>
-							<Upload size={14} />
-							Upload
-						</button>
-						<button
-							type="button"
-							onClick={() => setTab('custom')}
-							className={`flex items-center justify-center gap-1.5 rounded-md py-2 transition-colors ${
-								tab === 'custom'
-									? 'bg-card text-foreground shadow-sm'
-									: 'text-muted-foreground hover:text-foreground'
-							}`}
-						>
-							<Link size={14} />
-							URL
-						</button>
+						{TABS.map(({ id, label, icon: Icon }) => (
+							<button
+								key={id}
+								type="button"
+								onClick={() => setTab(id)}
+								className={`flex items-center justify-center gap-1.5 rounded-md py-2 transition-colors ${
+									tab === id
+										? 'bg-card text-foreground shadow-sm'
+										: 'text-muted-foreground hover:text-foreground'
+								}`}
+							>
+								<Icon size={14} />
+								{label}
+							</button>
+						))}
 					</div>
 				</div>
 
@@ -751,21 +739,32 @@ export default function AvatarPicker({
 	gender,
 	onAvatarSelect,
 	initialAvatarUrl = '',
+	onAvatarDelete,
+	autoGenerate = true,
 }: {
 	gender?: string;
 	onAvatarSelect: (url: string) => void;
 	initialAvatarUrl?: string;
+	/** When provided, a remove button appears and the avatar may be left empty. */
+	onAvatarDelete?: () => void | Promise<void>;
+	/**
+	 * Assign a random generated avatar on mount when the user has none. Callers that
+	 * allow removal must turn this off, otherwise deleting an avatar immediately
+	 * regenerates and re-saves one.
+	 */
+	autoGenerate?: boolean;
 }) {
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [currentAvatar, setCurrentAvatar] = useState(initialAvatarUrl);
+	const [isDeleting, setIsDeleting] = useState(false);
 
 	useEffect(() => {
-		if (!initialAvatarUrl && !currentAvatar) {
+		if (autoGenerate && !initialAvatarUrl && !currentAvatar) {
 			const generated = getAvatarUrl(gender);
 			setCurrentAvatar(generated);
 			onAvatarSelect(generated);
 		}
-	}, [initialAvatarUrl, currentAvatar, gender, onAvatarSelect]);
+	}, [autoGenerate, initialAvatarUrl, currentAvatar, gender, onAvatarSelect]);
 
 	useEffect(() => {
 		if (initialAvatarUrl && initialAvatarUrl !== currentAvatar) {
@@ -778,13 +777,51 @@ export default function AvatarPicker({
 		onAvatarSelect(url);
 	};
 
+	const handleDelete = async () => {
+		if (!onAvatarDelete || isDeleting) return;
+		setIsDeleting(true);
+		try {
+			await onAvatarDelete();
+			setCurrentAvatar('');
+		} catch {
+			// The consumer owns error reporting; keep showing the existing avatar so the
+			// UI doesn't claim a removal that never persisted.
+		} finally {
+			setIsDeleting(false);
+		}
+	};
+
+	const canDelete = Boolean(onAvatarDelete) && Boolean(currentAvatar);
+
 	return (
 		<div className="relative w-32 h-32">
-			<img
-				src={currentAvatar}
-				alt="Selected Avatar"
-				className="w-full h-full rounded-full object-cover border-4 border-border shadow-md"
-			/>
+			{currentAvatar ? (
+				<img
+					src={currentAvatar}
+					alt="Selected Avatar"
+					className="w-full h-full rounded-full object-cover border-4 border-border shadow-md"
+				/>
+			) : (
+				<div className="w-full h-full rounded-full bg-muted border-4 border-border shadow-md flex items-center justify-center">
+					<UserRound size={48} className="text-muted-foreground" />
+				</div>
+			)}
+			{canDelete && (
+				<button
+					type="button"
+					onClick={handleDelete}
+					disabled={isDeleting}
+					className="absolute bottom-0 left-0 bg-card text-red-500 border border-border rounded-full p-2 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-card disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+					aria-label="Remove Avatar"
+					title="Remove photo"
+				>
+					{isDeleting ? (
+						<Loader2 size={16} className="animate-spin" />
+					) : (
+						<Trash2 size={16} />
+					)}
+				</button>
+			)}
 			<button
 				type="button"
 				onClick={() => setIsModalOpen(true)}
