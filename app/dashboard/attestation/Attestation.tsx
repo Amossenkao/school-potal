@@ -30,6 +30,7 @@ import {
 } from '@/app/dashboard/shared/documentFilters';
 import { buildStudentFullName, normalizeStudentId } from '@/app/dashboard/digital-id/verification';
 import { resolveSignatory } from '@/utils/documentSignatory';
+import { getFirstSchoolAddressLines } from '@/utils/schoolAddresses';
 
 // ── PDF styles ──────────────────────────────────────────────────────────────
 
@@ -187,7 +188,7 @@ const AttestationDocument = ({ data, school }: { data: any; school: any }) => {
 	const schoolMotto = school?.identity?.slogan || '';
 	const schoolLogo = school?.branding?.logoUrl || '';
 	const schoolAddress =
-		school?.contact?.addresses?.[0]?.lines?.join('\n') || '';
+		getFirstSchoolAddressLines(school?.contact?.addresses).join('\n');
 	const schoolContact = (school?.contact?.phones || []).join(' / ');
 
 	return (

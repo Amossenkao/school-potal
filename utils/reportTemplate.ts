@@ -1,3 +1,5 @@
+import { flattenSchoolAddressLines } from '@/utils/schoolAddresses';
+
 export type ReportTemplateType = 'yearly' | 'semester';
 type TemplateSemesterKey = 'first' | 'second';
 
@@ -45,9 +47,7 @@ export function flattenSchoolForReport(school: any): ReportTemplateSchool {
 			? school.identity.name
 			: school?.name || '';
 	const address: string[] = Array.isArray(school?.contact?.addresses)
-		? school.contact.addresses.flatMap((a: any) =>
-				Array.isArray(a?.lines) ? a.lines : [],
-			)
+		? flattenSchoolAddressLines(school.contact.addresses)
 		: Array.isArray(school?.address)
 			? school.address
 			: [];

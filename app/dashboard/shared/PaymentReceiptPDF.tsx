@@ -13,6 +13,7 @@ import {
 } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
 import type { ReceiptContext } from '@/utils/paymentReceipt';
+import { flattenSchoolAddressLines } from '@/utils/schoolAddresses';
 
 const money = (value: number) =>
 	(Number.isFinite(value) ? value : 0).toLocaleString('en-US', {
@@ -188,10 +189,7 @@ const styles = StyleSheet.create({
 });
 
 const schoolAddress = (school: any): string =>
-	(Array.isArray(school?.contact?.addresses)
-		? school.contact.addresses.flatMap((a: any) => a.lines || [])
-		: []
-	)
+	flattenSchoolAddressLines(school?.contact?.addresses)
 		.filter(Boolean)
 		.join('\n');
 

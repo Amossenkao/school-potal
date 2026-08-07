@@ -9,6 +9,7 @@ import type { RealtimeEvent } from '@/lib/realtimeTypes';
 import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
 import { DEFAULT_TENANT_THEME_NAME } from '@/types/tenantTheme';
+import { normalizeSchoolAddresses } from '@/utils/schoolAddresses';
 
 interface SchoolStats {
 	students: number;
@@ -68,10 +69,7 @@ const normalizeSchoolFormState = (school: any): SchoolFormState => {
 			reportCardThemes: br.reportCardThemes || school?.reportCardThemes || {},
 		},
 		contact: {
-			addresses: co.addresses?.map((a: any) => ({
-				label: a.label,
-				lines: a.lines || [],
-			})) || [],
+			addresses: normalizeSchoolAddresses(co.addresses),
 			phones: co.phones || school?.phones || [],
 			emails: co.emails || school?.emails || [],
 			website: co.website || school?.website || '',

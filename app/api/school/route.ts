@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Document } from 'mongoose';
 import { SchoolProfile as SchoolProfileType } from '@/types/schoolProfile';
 import SchoolProfileSchema from '@/models/profile/SchoolProfile';
+import { flattenSchoolAddressLines } from '@/utils/schoolAddresses';
 import UserSchema from '@/models/user/User';
 import { getTenantModels } from '@/models';
 import { getSchoolMeshModels } from '@/models/schoolmesh';
@@ -244,7 +245,7 @@ const flattenSchoolProfile = (school: any): any => {
 		flat.themeName = school.branding.themeName;
 	}
 	if (school.contact) {
-		flat.address = (school.contact.addresses || []).flatMap((a: any) => a.lines || []);
+		flat.address = flattenSchoolAddressLines(school.contact.addresses);
 		flat.phones = school.contact.phones || [];
 		flat.emails = school.contact.emails || [];
 		flat.website = school.contact.website;

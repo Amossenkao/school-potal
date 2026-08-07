@@ -29,6 +29,7 @@ import {
 } from '@/app/dashboard/shared/documentFilters';
 import { buildStudentFullName, normalizeStudentId } from '@/app/dashboard/digital-id/verification';
 import { resolveSignatory, type Signatory } from '@/utils/documentSignatory';
+import { getFirstSchoolAddressLines } from '@/utils/schoolAddresses';
 
 /**
  * A student's real, multi-year grade history, wired to `Grade`/`Student` via
@@ -269,7 +270,7 @@ const TranscriptYearTable = ({ year }: { year: TranscriptYear }) => {
 const PacketDocument = ({ data, school }: { data: PacketData; school: any }) => {
 	const schoolName = school?.identity?.name || 'School';
 	const schoolLogo = school?.branding?.logoUrl || '';
-	const schoolAddress = school?.contact?.addresses?.[0]?.lines?.join('\n') || '';
+	const schoolAddress = getFirstSchoolAddressLines(school?.contact?.addresses).join('\n');
 	const schoolContact = (school?.contact?.phones || []).join(' / ');
 
 	const pronoun =

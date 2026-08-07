@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import type SchoolProfile from '@/types/schoolProfile';
 import { getClassMetaById } from '@/app/api/chat/utils';
+import { getFirstSchoolAddressLines } from '@/utils/schoolAddresses';
 import {
 	buildStudentFullName,
 	buildVerificationPayload,
@@ -92,11 +93,7 @@ export default function DigitalIdCard({
 	const schoolLogo = school?.branding?.logoUrl || '';
 
 	// Address lines from school profile
-	const schoolAddressLines =
-		Array.isArray(school?.contact?.addresses) &&
-		school.contact.addresses[0]?.lines?.length
-			? school.contact.addresses[0].lines
-			: [];
+	const schoolAddressLines = getFirstSchoolAddressLines(school?.contact?.addresses);
 
 	const prefixedStudentId = useMemo(() => {
 		if (!studentId) return '—';

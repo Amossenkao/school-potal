@@ -10,6 +10,7 @@ import {
 	Image,
 } from '@react-pdf/renderer';
 import { useSchoolStore } from '@/store/schoolStore';
+import { flattenSchoolAddressLines } from '@/utils/schoolAddresses';
 
 // Types
 interface TeacherInfo {
@@ -471,10 +472,7 @@ const CoverPage: React.FC<{
 			<View style={styles.coverSchoolBlock}>
 				<Text style={styles.coverSchoolName}>{school.identity?.name || 'School'}</Text>
 				<Text style={styles.coverSchoolAddress}>
-					{(Array.isArray(school.contact?.addresses)
-						? school.contact.addresses.flatMap((a: any) => a.lines || [])
-						: []
-					)
+					{flattenSchoolAddressLines(school.contact?.addresses)
 						.filter(Boolean)
 						.join('\n')}
 				</Text>

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { isEqual } from 'lodash';
 import type SchoolProfile from '@/types/schoolProfile';
+import { flattenSchoolAddressLines } from '@/utils/schoolAddresses';
 
 import type { GradesCursor } from '@/lib/bootstrap';
 import {
@@ -84,7 +85,7 @@ const flattenSchoolPayload = (school: any): any => {
 		flat.themeName = school.branding.themeName;
 	}
 	if (school.contact) {
-		flat.address = (school.contact.addresses || []).flatMap((a: any) => a.lines || []);
+		flat.address = flattenSchoolAddressLines(school.contact.addresses);
 		flat.phones = school.contact.phones || [];
 		flat.emails = school.contact.emails || [];
 		flat.website = school.contact.website;

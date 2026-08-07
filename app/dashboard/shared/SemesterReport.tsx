@@ -43,6 +43,7 @@ import {
 	pickMostRecentAcademicYear,
 } from '@/utils/academicYearOptions';
 import { loadReportTemplateBytes } from '@/utils/reportTemplate';
+import { flattenSchoolAddressLines } from '@/utils/schoolAddresses';
 import { areGradeRowsEquivalent } from '@/utils/gradeRows';
 
 import StudentMultiSelect from './components/StudentMultiSelect';
@@ -868,7 +869,7 @@ const generateSemesterReportPdf = async ({
 			name: schoolName,
 			logoUrl: templateLogo1 || undefined,
 			logoUrl2: templateLogo2 || undefined,
-			address: Array.isArray(school?.contact?.addresses) ? school.contact.addresses.flatMap((a: any) => a.lines || []) : [],
+			address: flattenSchoolAddressLines(school?.contact?.addresses),
 		},
 		session: reportFilters.session,
 		classLevel: reportFilters.classLevel,

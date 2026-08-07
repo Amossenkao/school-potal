@@ -1,6 +1,7 @@
 'use client';
 
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
+import { getFirstSchoolAddressLines } from '@/utils/schoolAddresses';
 
 /**
  * The graduation letter itself — one titled fee item per real bill under the
@@ -167,7 +168,7 @@ export const GraduationClearanceDocument = ({
 }) => {
 	const schoolName = school?.identity?.name || 'School';
 	const schoolLogo = school?.branding?.logoUrl || '';
-	const schoolAddress = school?.contact?.addresses?.[0]?.lines?.join('\n') || '';
+	const schoolAddress = getFirstSchoolAddressLines(school?.contact?.addresses).join('\n');
 	const schoolContact = (school?.contact?.phones || []).join(' / ');
 
 	const currencies = Object.keys(data.totalsByCurrency);

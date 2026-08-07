@@ -11,6 +11,7 @@ import {
 	usePDF,
 	Image,
 } from '@react-pdf/renderer';
+import { flattenSchoolAddressLines } from '@/utils/schoolAddresses';
 import {
 	formatAmount,
 	percentOf,
@@ -386,10 +387,7 @@ const formatDate = (iso: string) => {
 };
 
 const schoolAddress = (school: any): string =>
-	(Array.isArray(school?.contact?.addresses)
-		? school.contact.addresses.flatMap((a: any) => a.lines || [])
-		: []
-	)
+	flattenSchoolAddressLines(school?.contact?.addresses)
 		.filter(Boolean)
 		.join('\n');
 

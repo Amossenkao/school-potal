@@ -3,6 +3,7 @@ import { getSchoolProfile, getTenantConnectionByDbName } from '@/lib/mongoose';
 import { getSchoolMeshModels } from '@/models/schoolmesh';
 import UserSchema from '@/models/user/User';
 import type { UserRole } from '@/types';
+import { flattenSchoolAddressLines } from '@/utils/schoolAddresses';
 import {
 	getAcademicYearFilterValue,
 	getCurrentAcademicYearFromSchoolProfile,
@@ -1336,7 +1337,7 @@ const flattenSchoolSummary = (school: any): any => {
 		flat.reportCardThemes = school.branding.reportCardThemes;
 	}
 	if (school.contact) {
-		flat.address = (school.contact.addresses || []).flatMap((a: any) => a.lines || []);
+		flat.address = flattenSchoolAddressLines(school.contact.addresses);
 		flat.phones = school.contact.phones || [];
 		flat.emails = school.contact.emails || [];
 		flat.website = school.contact.website;

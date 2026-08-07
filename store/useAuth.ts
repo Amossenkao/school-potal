@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { isEqual } from 'lodash';
 import { User } from '@/types';
+import { flattenSchoolAddressLines } from '@/utils/schoolAddresses';
 import { useSchoolStore, getClientSyncSeq } from './schoolStore';
 import { useNetworkStore } from './networkStore';
 import { clearAllClientCache } from '@/utils/clientCache';
@@ -171,7 +172,9 @@ const normalizeSuperAdminSchool = (school: any): SuperAdminSchoolSummary | null 
 		dbName: String(school?.system?.dbName || school?.dbName || '').trim() || undefined,
 		isActive: school?.system?.isActive !== false && school?.isActive !== false,
 		logoUrl: school?.branding?.logoUrl || school?.logoUrl,
-		address: school?.contact?.addresses?.flatMap((a: any) => a.lines || []) || school?.address,
+		address: school?.contact?.addresses
+			? flattenSchoolAddressLines(school.contact.addresses)
+			: school?.address,
 		phones: school?.contact?.phones || school?.phones || [],
 		emails: school?.contact?.emails || school?.emails || [],
 		administrativePositions: school?.userConfig?.administrativePositions || school?.administrativePositions || [],

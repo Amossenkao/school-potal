@@ -36,6 +36,7 @@ import {
 	type DocumentFilters,
 } from '@/app/dashboard/shared/documentFilters';
 import { buildStudentFullName, normalizeStudentId } from '@/app/dashboard/digital-id/verification';
+import { getFirstSchoolAddressLines } from '@/utils/schoolAddresses';
 
 /**
  * Financial Clearance — exam-sitting slips backed by real payment records.
@@ -119,7 +120,7 @@ export default function ClearancesPage() {
 	const schoolMeta: ClearanceSchool = useMemo(
 		() => ({
 			name: school?.identity?.name || 'School',
-			address: school?.contact?.addresses?.[0]?.lines?.join('\n') || '',
+			address: getFirstSchoolAddressLines(school?.contact?.addresses).join('\n'),
 			contact: (school?.contact?.phones || []).join(' / '),
 			logoUrl: school?.branding?.logoUrl || '',
 			logoUrl2: school?.branding?.logoUrl2 || school?.branding?.logoUrl || '',

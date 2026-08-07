@@ -1,4 +1,5 @@
 import React from 'react';
+import { flattenSchoolAddressLines } from '@/utils/schoolAddresses';
 import {
 	Document,
 	Page,
@@ -557,9 +558,7 @@ export const ReportCard = React.memo(function PDFDocument({
 	const sLogo2 = school?.logoUrl2 || school?.branding?.logoUrl2 || '';
 	const sAddress: string[] = Array.isArray(school?.address)
 		? school.address
-		: Array.isArray(school?.contact?.addresses)
-			? school.contact.addresses.flatMap((a: any) => a.lines || [])
-			: [];
+		: flattenSchoolAddressLines(school?.contact?.addresses);
 	const normalizedSchool = { name: resolvedName, logoUrl: sLogo, logoUrl2: sLogo2, address: sAddress };
 
 	const getDisplayClassName = (name: string) => {
