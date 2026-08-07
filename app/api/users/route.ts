@@ -3645,6 +3645,59 @@ export async function PUT(request: NextRequest) {
 			const existing = await User.discriminators.system_admin.findById(targetUserId).lean().exec();
 			if (!existing) return NextResponse.json({ error: 'Admin not found' }, { status: 404 });
 
+			/**
+			 * Password reset lands here, not in the shared `resetPassword` block
+			 * further down — this branch handles superadmin PUTs in full and never
+			 * falls through. It also only ever wrote `allowedFields`, which holds
+			 * no password, so the reset silently updated nothing: the old password
+			 * kept working and the default one never did.
+			 *
+			 * Mirrors the tenant-side reset: the username becomes the default
+			 * credential, `mustChangePassword` forces a change at next sign-in, and
+			 * every session is destroyed so the old password cannot outlive it.
+			 */
+			if (searchParams.get('resetPassword') === 'true') {
+				const defaultPassword = String(existing.username || '').trim();
+				if (!defaultPassword) {
+					return NextResponse.json(
+						{
+							success: false,
+							message:
+								'Password reset failed: admin is missing a default credential.',
+						},
+						{ status: 400 },
+					);
+				}
+
+				await User.discriminators.system_admin.findByIdAndUpdate(
+					targetUserId,
+					{
+						$set: {
+							password: await hashPassword(defaultPassword),
+							defaultPassword,
+							mustChangePassword: true,
+							updatedAt: new Date(),
+						},
+					},
+					{ new: true, runValidators: true },
+				);
+
+				await destroyAllUserSessions(targetUserId);
+
+				return NextResponse.json({
+					success: true,
+					message:
+						'Password reset successfully. The admin must sign in with the default credential and set a new password.',
+					data: {
+						newCredentials: {
+							username: existing.username,
+							defaultPassword,
+							note: 'Sign in with this username or the registered phone number, using the username as the password, then set a new one.',
+						},
+					},
+				});
+			}
+
 			const allowedFields = ['firstName', 'middleName', 'lastName', 'phone', 'email', 'gender', 'dateOfBirth', 'address', 'isActive'];
 			const requiredProfileFields = new Set(['gender', 'dateOfBirth', 'address']);
 			const updateData: any = {};
@@ -4678,7 +4731,13 @@ export async function PUT(request: NextRequest) {
 
 		// --- Handle Password Reset ---
 		if (resetPassword) {
-			if (currentUser.role !== 'system_admin') {
+			// A superadmin resets system admins from the platform dashboard, which
+			// is the only way in when a school's own admin is locked out — so they
+			// belong here alongside the tenant's system_admin.
+			if (
+				currentUser.role !== 'system_admin' &&
+				currentUser.role !== 'superadmin'
+			) {
 				return NextResponse.json(
 					{
 						success: false,

@@ -230,14 +230,23 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 		setResetConfirmAdmin(null);
 		try {
 			setResettingId(userId);
-			const res = await fetch(`/api/users?host=${encodeURIComponent(host)}&id=${userId}`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ action: 'reset_password' }),
-			});
+			// `resetPassword=true` is a query param, not a body action — the route
+			// has no `reset_password` action, so the old body-only call fell
+			// through to the generic update path and never touched the password.
+			// That is why the previous password kept working and the default one
+			// never did.
+			const res = await fetch(
+				`/api/users?host=${encodeURIComponent(host)}&id=${userId}&resetPassword=true`,
+				{
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({}),
+				},
+			);
 			const data = await res.json();
-			if (!res.ok) throw new Error(data.error || 'Failed to reset password');
-			setResetCredentials(data.credentials);
+			if (!res.ok)
+				throw new Error(data.message || data.error || 'Failed to reset password');
+			setResetCredentials(data.data?.newCredentials ?? null);
 			toast.success('Password reset successfully');
 		} catch (e: any) {
 			setError(e.message);
