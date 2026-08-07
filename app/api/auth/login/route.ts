@@ -20,7 +20,6 @@ import { normalizeHost } from '@/utils/host';
 import { buildParentChildrenList } from '@/lib/parentAccess';
 import { toHash, toSchoolVersion } from '@/utils/syncVersion';
 import { getSyncCursorsForYear } from '@/lib/syncEngine';
-import { isSyncEngineEnabled } from '@/lib/syncFeatureFlag';
 
 const CLIENT_SESSION_PRESENT_COOKIE = 'session-present';
 
@@ -62,10 +61,9 @@ const buildLoginBootstrapPayload = async (
 
 	// Next-gen sync: report current ChangeLog seq per domain so the client can
 	// seed its cursors without an extra /api/auth/me round trip.
-	const syncCursors =
-		isSyncEngineEnabled() && academicYear
-			? await getSyncCursorsForYear(academicYear)
-			: undefined;
+	const syncCursors = academicYear
+		? await getSyncCursorsForYear(academicYear)
+		: undefined;
 
 	return {
 		...(payload || {}),

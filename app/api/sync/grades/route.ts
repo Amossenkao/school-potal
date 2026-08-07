@@ -20,7 +20,6 @@ export async function GET(req: NextRequest) {
 			MAX_GRADE_SYNC_LIMIT,
 		);
 		const cursorRaw = searchParams.get('cursor');
-		const skipRaw = searchParams.get('skip'); // 👈 new param for parallel mode
 
 		if (!academicYear) {
 			return NextResponse.json(
@@ -39,36 +38,7 @@ export async function GET(req: NextRequest) {
 
 		const models = await getTenantModels();
 
-		// ── Parallel mode: skip-based ──────────────────────────────────────────
-		// When a numeric `skip` param is present the client is driving parallel
-		// chunk fetches. We use .skip() + .limit() on the full sorted collection
-		// so every chunk is independently addressable without needing a cursor
-		// anchor from the previous chunk.
-		if (skipRaw !== null) {
-			const skip = Math.max(0, parseInt(skipRaw, 10));
-
-			const grades = await models.Grade.find(roleQuery)
-				.sort({ lastUpdated: 1, _id: 1 })
-				.skip(skip)
-				.limit(limit)
-				.lean();
-
-			const payload = JSON.stringify({
-				success: true,
-				data: grades,
-				nextCursor: null, // not needed in parallel mode
-			});
-
-			return new Response(payload, {
-				status: 200,
-				headers: {
-					'Content-Type': 'application/json',
-					'Content-Length': String(Buffer.byteLength(payload, 'utf8')),
-				},
-			});
-		}
-
-		// ── Sequential mode: keyset/cursor-based (unchanged) ──────────────────
+		// ── Sequential mode: keyset/cursor-based ──────────────────────────────
 		const query: any = { ...roleQuery };
 
 		if (cursorRaw) {

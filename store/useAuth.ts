@@ -12,7 +12,6 @@ import {
 } from '@/utils/sessionPrivacy';
 import type { RealtimeEvent } from '@/lib/realtimeTypes';
 import { cacheAppShellDirect } from '@/utils/cacheAppShell';
-import { isSyncEngineEnabled } from '@/lib/syncFeatureFlag';
 import {
 	CLIENT_SYNC_DOMAINS,
 	CACHED_DOMAIN_BY_SYNC,
@@ -538,7 +537,17 @@ const applyBootstrapPayload = (
 	}
 
 	if (academicYear && data?.syncCursors && typeof data.syncCursors === 'object') {
-		schoolStore.setSyncSeqForYear(academicYear, data.syncCursors);
+		// Server cursor keys use sync-domain names (teacher_attendance); the
+		// store keys cursors by CachedDomain (teacherAttendance).
+		const syncCursors: Record<string, number> = { ...data.syncCursors };
+		if (
+			typeof syncCursors.teacher_attendance === 'number' &&
+			typeof syncCursors.teacherAttendance !== 'number'
+		) {
+			syncCursors.teacherAttendance = syncCursors.teacher_attendance;
+			delete syncCursors.teacher_attendance;
+		}
+		schoolStore.setSyncSeqForYear(academicYear, syncCursors);
 	}
 
 	if (academicYear && data?.users) {
@@ -1181,26 +1190,6 @@ const runDeferredPostLoginBootstrap = (
 						schoolState.usersVersionByAcademicYear,
 						preferredYear,
 					);
-					const gradesVersion = getScopedVersion(
-						schoolState.gradesVersionByAcademicYear,
-						preferredYear,
-					);
-					const calendarVersion = getScopedVersion(
-						schoolState.calendarVersionByAcademicYear,
-						preferredYear,
-					);
-					const schedulesVersion = getScopedVersion(
-						schoolState.schedulesVersionByAcademicYear,
-						preferredYear,
-					);
-					const gradeRequestsVersion = getScopedVersion(
-						schoolState.gradeRequestsVersionByAcademicYear,
-						preferredYear,
-					);
-					const attendanceVersion = getScopedVersion(
-						schoolState.attendanceVersionByAcademicYear,
-						preferredYear,
-					);
 					const paymentsVersion = getScopedVersion(
 						schoolState.paymentsVersionByAcademicYear,
 						preferredYear,
@@ -1209,21 +1198,6 @@ const runDeferredPostLoginBootstrap = (
 					if (typeof usersVersion === 'string') {
 						query.set('v_users', String(usersVersion));
 						query.set('usersVersion', String(usersVersion));
-					}
-					if (typeof gradesVersion === 'string') {
-						query.set('v_grades', gradesVersion);
-					}
-					if (typeof calendarVersion === 'string') {
-						query.set('v_calendar', calendarVersion);
-					}
-					if (typeof schedulesVersion === 'string') {
-						query.set('v_schedules', schedulesVersion);
-					}
-					if (typeof gradeRequestsVersion === 'string') {
-						query.set('v_grade_requests', gradeRequestsVersion);
-					}
-					if (typeof attendanceVersion === 'string') {
-						query.set('v_attendance', attendanceVersion);
 					}
 					if (typeof paymentsVersion === 'string') {
 						query.set('v_payments', paymentsVersion);
@@ -1242,7 +1216,7 @@ const runDeferredPostLoginBootstrap = (
 					}
 					// Next-gen sync: advertise the client's ChangeLog seq per domain
 					// so /api/auth/me can skip re-sending caught-up payloads.
-					if (preferredYear && isSyncEngineEnabled()) {
+					if (preferredYear) {
 						CLIENT_SYNC_DOMAINS.forEach((domain) => {
 							const cursor = getClientSyncSeq(
 								CACHED_DOMAIN_BY_SYNC[domain],
@@ -1304,7 +1278,7 @@ const runDeferredPostLoginBootstrap = (
 					const syncCursors = data?.syncCursors as
 						| Record<string, number>
 						| undefined;
-					if (syncYear && syncCursors && isSyncEngineEnabled()) {
+					if (syncYear && syncCursors) {
 						void syncFromCursors(syncYear, syncCursors).catch((error) => {
 							console.warn('[useAuth] next-gen sync reconcile failed:', error);
 						});

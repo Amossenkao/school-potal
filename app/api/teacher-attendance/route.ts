@@ -423,7 +423,7 @@ export async function DELETE(request: NextRequest) {
 
 		const result = await TeacherAttendance.deleteMany(filter);
 
-		await appendChange({
+		const deleteSeq = await appendChange({
 			domain: 'teacher_attendance',
 			academicYear,
 			op: 'delete',
@@ -450,6 +450,7 @@ export async function DELETE(request: NextRequest) {
 			academicYear,
 			actorId: currentUser.id,
 			reason: 'teacher-attendance-saved',
+			seq: deleteSeq,
 			targetUserIds: affectedTeacherIds,
 			payload: {
 				academicYear,

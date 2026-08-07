@@ -23,7 +23,9 @@ import {
 	verifyLoginPassword,
 	MIN_PASSWORD_LENGTH,
 } from '@/utils/loginIdentity';
-import UserSyncStateSchema from '@/models/user/UserSyncState';
+import ChangeLogSchema from '@/models/sync/ChangeLog';
+import SyncSequenceSchema from '@/models/sync/SyncSequence';
+import { appendChange } from '@/lib/syncEngine';
 import {
 	updateAllUserSessions,
 	destroyAllUserSessions,
@@ -363,27 +365,54 @@ async function hydrateParentRelationships(models: any, rows: any[] | any) {
 async function bumpUsersVersionForTenantConnection(
 	connection: any,
 	academicYears: string[],
-) {
+	options: { affectedUserIds?: string[] } = {},
+): Promise<Record<string, number>> {
 	const uniqueYears = Array.from(
 		new Set((academicYears || []).map((year) => String(year || '').trim())),
 	).filter(Boolean);
-	if (uniqueYears.length === 0) return;
+	const seqByYear: Record<string, number> = {};
+	if (uniqueYears.length === 0) return seqByYear;
 
-	const UserSyncState =
-		connection.models.UserSyncState ||
-		connection.model('UserSyncState', UserSyncStateSchema);
+	const ChangeLog =
+		connection.models.ChangeLog ||
+		connection.model('ChangeLog', ChangeLogSchema);
+	const SyncSequence =
+		connection.models.SyncSequence ||
+		connection.model('SyncSequence', SyncSequenceSchema);
+	const affectedUserIds = Array.isArray(options.affectedUserIds)
+		? options.affectedUserIds
+		: [];
 	await Promise.all(
-		uniqueYears.map((year) =>
-			UserSyncState.updateOne(
-				{ academicYear: year },
-				{
-					$inc: { version: 1 },
-					$set: { updatedAt: new Date() },
-				},
-				{ upsert: true },
-			),
-		),
+		uniqueYears.map(async (year) => {
+			try {
+				const entry = await SyncSequence.findOneAndUpdate(
+					{ domain: 'users', academicYear: year },
+					{ $inc: { seq: 1 } },
+					{ upsert: true, new: true },
+				).lean();
+				const seq = entry?.seq ?? 0;
+				await ChangeLog.create({
+					domain: 'users',
+					academicYear: year,
+					seq,
+					op: 'update',
+					documentId: affectedUserIds[0] || `users:${year}`,
+					documentType: 'User',
+					document:
+						affectedUserIds.length > 0 ? { ids: affectedUserIds } : null,
+				});
+				seqByYear[year] = seq;
+			} catch (error: any) {
+				if (error?.code !== 11000) {
+					console.warn(
+						`Failed to log users change for ${year} on tenant connection.`,
+						error,
+					);
+				}
+			}
+		}),
 	);
+	return seqByYear;
 }
 
 async function hashPassword(password: string): Promise<string> {
@@ -3278,13 +3307,16 @@ export async function POST(request: NextRequest) {
 			});
 			const activeAcademicYear = String(getAcademicYear(school));
 			const realtimeUser = buildRealtimeUserPayload(admin.toObject());
-			await bumpUsersVersionForTenantConnection(connection, [activeAcademicYear]);
+			const usersSeqs = await bumpUsersVersionForTenantConnection(connection, [
+				activeAcademicYear,
+			]);
 			await publishSyncEventSafe({
 				tenantId,
 				domain: 'users',
 				academicYear: activeAcademicYear,
 				actorId: currentUser.id,
 				reason: 'user-created',
+				seq: usersSeqs[activeAcademicYear],
 				payload: {
 					userId: String(realtimeUser.id || admin._id),
 					user: realtimeUser,
@@ -3495,7 +3527,7 @@ export async function POST(request: NextRequest) {
 
 		const createdUserYears = extractAcademicYears(newUser, schoolProfile);
 		const realtimeUser = buildRealtimeUserPayload(newUser.toObject());
-		await bumpUsersVersion(createdUserYears);
+		const usersSeqs = await bumpUsersVersion(createdUserYears);
 		await publishSyncEventsForAcademicYearsSafe({
 			tenantId,
 			domain: 'users',
@@ -3507,6 +3539,7 @@ export async function POST(request: NextRequest) {
 			},
 			actorId: currentUser.id,
 			reason: 'user-created',
+			seqByYear: usersSeqs,
 		});
 
 		// Notify the linked parent so their active session's child switcher,
@@ -3530,6 +3563,7 @@ export async function POST(request: NextRequest) {
 				);
 			}
 
+			let parentVersionSeqs: Record<string, number> = {};
 			try {
 				// The parent now belongs in every academic year any of their
 				// children is enrolled in, so bump the users version for each of
@@ -3538,7 +3572,7 @@ export async function POST(request: NextRequest) {
 					refreshedChildren,
 				).map((entry) => entry.year);
 				if (parentYears.length > 0) {
-					await bumpUsersVersion(parentYears, {
+					parentVersionSeqs = await bumpUsersVersion(parentYears, {
 						affectedUserIds: [String(linkedParent._id)],
 					});
 				}
@@ -3577,6 +3611,12 @@ export async function POST(request: NextRequest) {
 						(schoolProfile as any)?.identity?.currentAcademicYear ||
 							getAcademicYear(schoolProfile),
 					),
+					seq: parentVersionSeqs[
+						String(
+							(schoolProfile as any)?.identity?.currentAcademicYear ||
+								getAcademicYear(schoolProfile),
+						)
+					],
 					targetUserIds: [String(linkedParent._id)],
 					payload: {
 						userId: String(linkedParent._id),
@@ -3857,7 +3897,9 @@ export async function PUT(request: NextRequest) {
 			const activeAcademicYear = String(getAcademicYear(school));
 			const realtimeUser = buildRealtimeUserPayload(admin);
 			const deactivatedNow = existing.isActive !== false && admin.isActive === false;
-			await bumpUsersVersionForTenantConnection(connection, [activeAcademicYear]);
+			const usersSeqs = await bumpUsersVersionForTenantConnection(connection, [
+				activeAcademicYear,
+			]);
 			if (deactivatedNow) {
 				await destroyAllUserSessions(targetUserId, undefined, {
 					tenantId: cleanHost,
@@ -3873,6 +3915,7 @@ export async function PUT(request: NextRequest) {
 				academicYear: activeAcademicYear,
 				actorId: currentUser.id,
 				reason: deactivatedNow ? 'account-deactivated' : 'user-updated',
+				seq: usersSeqs[activeAcademicYear],
 				payload: {
 					userId: String(realtimeUser.id || admin._id),
 					user: realtimeUser,
@@ -4111,13 +4154,14 @@ export async function PUT(request: NextRequest) {
 				);
 
 				const promotionYears = extractAcademicYears(result.student, schoolProfile);
-				await bumpUsersVersion(promotionYears);
+				const usersSeqs = await bumpUsersVersion(promotionYears);
 				await publishSyncEventsForAcademicYearsSafe({
 					tenantId,
 					domain: 'users',
 					academicYears: promotionYears,
 					actorId: currentUser.id,
 					reason: 'student-promoted',
+					seqByYear: usersSeqs,
 				});
 
 				return NextResponse.json({
@@ -4299,13 +4343,14 @@ export async function PUT(request: NextRequest) {
 				);
 
 				const demotionYears = extractAcademicYears(result.student, schoolProfile);
-				await bumpUsersVersion(demotionYears);
+				const usersSeqs = await bumpUsersVersion(demotionYears);
 				await publishSyncEventsForAcademicYearsSafe({
 					tenantId,
 					domain: 'users',
 					academicYears: demotionYears,
 					actorId: currentUser.id,
 					reason: 'student-demoted',
+					seqByYear: usersSeqs,
 				});
 
 				return NextResponse.json({
@@ -4635,13 +4680,14 @@ export async function PUT(request: NextRequest) {
 				);
 
 				const teacherCarryoverYears = extractAcademicYears(updatedTeacher, schoolProfile);
-				await bumpUsersVersion(teacherCarryoverYears);
+				const usersSeqs = await bumpUsersVersion(teacherCarryoverYears);
 				await publishSyncEventsForAcademicYearsSafe({
 					tenantId,
 					domain: 'users',
 					academicYears: teacherCarryoverYears,
 					actorId: currentUser.id,
 					reason: 'teacher-academic-year-added',
+					seqByYear: usersSeqs,
 				});
 
 				return NextResponse.json({
@@ -4805,13 +4851,14 @@ export async function PUT(request: NextRequest) {
 			);
 
 			const adminCarryoverYears = extractAcademicYears(updatedAdministrator, schoolProfile);
-			await bumpUsersVersion(adminCarryoverYears);
+			const usersSeqs = await bumpUsersVersion(adminCarryoverYears);
 			await publishSyncEventsForAcademicYearsSafe({
 				tenantId,
 				domain: 'users',
 				academicYears: adminCarryoverYears,
 				actorId: currentUser.id,
 				reason: 'administrator-academic-year-added',
+				seqByYear: usersSeqs,
 			});
 
 			return NextResponse.json({
@@ -4944,13 +4991,14 @@ export async function PUT(request: NextRequest) {
 			);
 
 			const resetYears = extractAcademicYears(updatedUser, schoolProfile);
-			await bumpUsersVersion(resetYears);
+			const usersSeqs = await bumpUsersVersion(resetYears);
 			await publishSyncEventsForAcademicYearsSafe({
 				tenantId,
 				domain: 'users',
 				academicYears: resetYears,
 				actorId: currentUser.id,
 				reason: 'user-password-reset',
+				seqByYear: usersSeqs,
 			});
 
 			return NextResponse.json({
@@ -5693,6 +5741,7 @@ export async function PUT(request: NextRequest) {
 				);
 			}
 
+			let parentVersionSeqs: Record<string, number> = {};
 			try {
 				// The parent belongs in every academic year any of their children
 				// is enrolled in, so bump the users version for each of those
@@ -5701,7 +5750,7 @@ export async function PUT(request: NextRequest) {
 					refreshedChildren,
 				).map((entry) => entry.year);
 				if (parentYears.length > 0) {
-					await bumpUsersVersion(parentYears, {
+					parentVersionSeqs = await bumpUsersVersion(parentYears, {
 						affectedUserIds: [affectedParentId],
 					});
 				}
@@ -5757,6 +5806,7 @@ export async function PUT(request: NextRequest) {
 					actorId: currentUser.id,
 					reason: 'parent-children-updated',
 					academicYear: schoolCurrentAcademicYear,
+					seq: parentVersionSeqs[schoolCurrentAcademicYear],
 					targetUserIds: [affectedParentId],
 					payload: {
 						userId: affectedParentId,
@@ -5940,7 +5990,7 @@ export async function PUT(request: NextRequest) {
 					? 'teacher-class-reassigned'
 					: 'user-updated';
 
-		await bumpUsersVersion([
+		const usersSeqs = await bumpUsersVersion([
 			...new Set([
 				...updatedUserYears,
 				schoolCurrentAcademicYear,
@@ -5954,6 +6004,7 @@ export async function PUT(request: NextRequest) {
 			payload: classTransitionPayload,
 			actorId: currentUser.id,
 			reason: eventReason,
+			seqByYear: usersSeqs,
 		});
 
 		const refreshedUser =
@@ -6088,13 +6139,16 @@ export async function DELETE(request: NextRequest) {
 			});
 			const activeAcademicYear = String(getAcademicYear(school));
 			const realtimeUser = buildRealtimeUserPayload(admin);
-			await bumpUsersVersionForTenantConnection(connection, [activeAcademicYear]);
+			const usersSeqs = await bumpUsersVersionForTenantConnection(connection, [
+				activeAcademicYear,
+			]);
 			await publishSyncEventSafe({
 				tenantId,
 				domain: 'users',
 				academicYear: activeAcademicYear,
 				actorId: currentUser.id,
 				reason: 'user-deleted',
+				seq: usersSeqs[activeAcademicYear],
 				payload: {
 					userId: targetUserId,
 					user: realtimeUser,
@@ -6293,7 +6347,34 @@ export async function DELETE(request: NextRequest) {
 		await models.User.deleteOne({ _id: targetUserId });
 
 		const deletedUserYears = extractAcademicYears(targetUser, schoolProfile);
-		await bumpUsersVersion(deletedUserYears);
+		const usersSeqs = await bumpUsersVersion(deletedUserYears);
+
+		// Log the cascade-deleted grades (op 'delete') so the grades domain log
+		// stays complete and clients can purge them via the new sync engine.
+		if (cascadeResults.gradesDeleted > 0 && deletedUserYears.length > 0) {
+			await Promise.allSettled(
+				deletedUserYears.map(async (year) => {
+					try {
+						await appendChange({
+							domain: 'grades',
+							academicYear: String(year),
+							op: 'delete',
+							documentId: `student:${String(targetUser.studentId || '')}`,
+							documentType: 'Grade',
+							document: { studentId: targetUser.studentId },
+							actorId: currentUser.id,
+						});
+					} catch (gradesLogError) {
+						console.warn(
+							'Failed to log cascade-deleted grades for',
+							year,
+							gradesLogError,
+						);
+					}
+				}),
+			);
+		}
+
 		await publishSyncEventsForAcademicYearsSafe({
 			tenantId,
 			domain: 'users',
@@ -6305,6 +6386,7 @@ export async function DELETE(request: NextRequest) {
 			},
 			actorId: currentUser.id,
 			reason: 'user-deleted',
+			seqByYear: usersSeqs,
 		});
 
 		return NextResponse.json({

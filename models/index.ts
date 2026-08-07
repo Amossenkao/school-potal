@@ -7,7 +7,6 @@ import TeacherSchema from './user/Teacher';
 import AdministratorSchema from './user/Administrator';
 import SystemAdminSchema from './user/SystemAdmin';
 import ParentSchema from './user/Parent';
-import UserSyncStateSchema from './user/UserSyncState';
 import GradeSchema from './grade/Grade';
 import GradeChangeRequestSchema from './grade/GradeChangeRequest';
 import ReportShareSchema from './reports/ReportShare';
@@ -94,10 +93,6 @@ export const getTenantModels = async (host?: string | null) => {
 		'SchoolEvent',
 		SchoolEventSchema
 	);
-	const UserSyncStateModel = connection.model<Document>(
-		'UserSyncState',
-		UserSyncStateSchema
-	);
 	const PaymentModel = connection.model<Document>(
 		'Payment',
 		PaymentSchema,
@@ -125,7 +120,6 @@ export const getTenantModels = async (host?: string | null) => {
 		GradeChangeRequest: GradeChangeRequestModal,
 		ReportShare: ReportShareModel,
 		SchoolEvent: SchoolEventModel,
-		UserSyncState: UserSyncStateModel,
 		Attendance: AttendanceModel,
 		TeacherAttendance: TeacherAttendanceModel,
 		Payment: PaymentModel,

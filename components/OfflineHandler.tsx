@@ -3,6 +3,10 @@
 
 import { useEffect } from 'react';
 import { useNetworkStore } from '@/store/networkStore';
+import {
+	ensureMutationIdempotencyKey,
+	queueOfflineMutation,
+} from '@/lib/mutationOutbox';
 
 export default function OfflineHandler({
 	children,
@@ -209,6 +213,22 @@ export default function OfflineHandler({
 			}
 
 			const apiRequest = isSameOriginApiRequest(url);
+
+			// Mutations get a stable idempotency key injected up front so a
+			// network-failed attempt and its outbox replay share the same key
+			// and the server can dedupe a request that actually applied.
+			const isMutation = shouldQueueOfflineMutation(url, method);
+			const mutationRequest =
+				isMutation && !(args[0] instanceof Request)
+					? new Request(args[0], args[1])
+					: isMutation
+						? (args[0] as Request)
+						: null;
+			if (mutationRequest) {
+				ensureMutationIdempotencyKey(mutationRequest.headers);
+			}
+			const mutationClone = mutationRequest?.clone() ?? null;
+
 			let { isOnline: onlineState } = useNetworkStore.getState();
 			if (!onlineState && apiRequest) {
 				onlineState = await verifyConnectivity('offline-fetch-guard');
@@ -216,10 +236,25 @@ export default function OfflineHandler({
 
 			const cacheableGet = shouldCacheGet(url, method);
 			const request = cacheableGet ? buildCacheRequest(args[0], args[1]) : null;
-			const fetchArgs = cacheableGet && request ? [request] : args;
+			const fetchArgs =
+				cacheableGet && request
+					? [request]
+					: mutationRequest
+						? [mutationRequest]
+						: args;
 			if (!onlineState) {
-				if (shouldQueueOfflineMutation(url, method)) {
-					return originalFetch(...(args as Parameters<typeof fetch>));
+				if (mutationRequest) {
+					// The service worker may already answer with 202 (queued).
+					// If it doesn't (no SW coverage), capture into the outbox.
+					try {
+						return await originalFetch(
+							...(fetchArgs as Parameters<typeof fetch>),
+						);
+					} catch (error) {
+						return queueOfflineMutation(
+							mutationClone as Request,
+						);
+					}
 				}
 				if (!apiRequest) {
 					return originalFetch(...(args as Parameters<typeof fetch>));
@@ -267,6 +302,11 @@ export default function OfflineHandler({
 						throw error;
 					}
 					useNetworkStore.getState().markOffline('fetch-request-failed');
+					if (mutationRequest) {
+						return queueOfflineMutation(
+							mutationClone as Request,
+						);
+					}
 					if (method.toUpperCase() === 'GET' && cacheableGet) {
 						const cached = request ? await readCachedResponse(request) : null;
 						if (cached) return cached;

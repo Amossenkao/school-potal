@@ -1235,7 +1235,7 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		const version =
 			typeof event.seq === 'number'
 				? String(event.seq)
-				: event.timestamp || new Date().toISOString();
+				: null;
 		const schoolPayload =
 			payload.school && typeof payload.school === 'object'
 				? (payload.school as SchoolProfile)

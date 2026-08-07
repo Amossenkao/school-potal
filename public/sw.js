@@ -23,208 +23,21 @@ const API_ALLOWLIST = [
   '/api/attendance',
 ];
 
-const DB_NAME = 'pwa-queue';
-const DB_STORE = 'grade-submissions';
-const MUTATION_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
-const AUTH_LOGIN_PATH = '/api/auth/login';
-const MAX_QUEUE_ATTEMPTS = 5;
-const QUEUE_BACKOFF_BASE_MS = 30 * 1000;
-const QUEUE_BACKOFF_CAP_MS = 30 * 60 * 1000;
-
-const openQueueDb = () =>
-	new Promise((resolve, reject) => {
-		const request = indexedDB.open(DB_NAME, 1);
-		request.onupgradeneeded = () => {
-			const db = request.result;
-			if (!db.objectStoreNames.contains(DB_STORE)) {
-				db.createObjectStore(DB_STORE, { keyPath: 'id' });
-			}
-		};
-		request.onsuccess = () => resolve(request.result);
-		request.onerror = () => reject(request.error);
-	});
-
-const enqueueRequest = async (entry) => {
-	const db = await openQueueDb();
-	return new Promise((resolve, reject) => {
-		const tx = db.transaction(DB_STORE, 'readwrite');
-		tx.objectStore(DB_STORE).put(entry);
-		tx.oncomplete = () => resolve();
-		tx.onerror = () => reject(tx.error);
-	});
-};
-
-const queueMutationRequest = async (request) => {
-	const cloned = request.clone();
-	const body = await cloned.text();
-	const headers = {};
-	cloned.headers.forEach((value, key) => {
-		headers[key] = value;
-	});
-	if (!headers['x-idempotency-key'] && !headers['x-offline-sync-id']) {
-		headers['x-offline-sync-id'] = `${Date.now()}-${Math.random()
-			.toString(36)
-			.slice(2)}`;
-	}
-	const idempotencyKey = headers['x-idempotency-key'] || headers['x-offline-sync-id'];
-	const entry = {
-		id: idempotencyKey,
-		url: request.url,
-		method: request.method,
-		headers,
-		body,
-		timestamp: Date.now(),
-		attemptCount: 0,
-		lastAttemptAt: 0,
-		dead: false,
-	};
-	await enqueueRequest(entry);
-	return new Response(JSON.stringify({ queued: true, queueId: entry.id }), {
-		status: 202,
-		headers: { 'Content-Type': 'application/json' },
-	});
-};
-
-const readQueue = async () => {
-	const db = await openQueueDb();
-	return new Promise((resolve, reject) => {
-		const tx = db.transaction(DB_STORE, 'readonly');
-		const request = tx.objectStore(DB_STORE).getAll();
-		request.onsuccess = () => resolve(request.result || []);
-		request.onerror = () => reject(request.error);
-	});
-};
-
-const clearQueueItem = async (id) => {
-	const db = await openQueueDb();
-	return new Promise((resolve, reject) => {
-		const tx = db.transaction(DB_STORE, 'readwrite');
-		tx.objectStore(DB_STORE).delete(id);
-		tx.oncomplete = () => resolve();
-		tx.onerror = () => reject(tx.error);
-	});
-};
-
-const clearQueue = async () => {
-	const db = await openQueueDb();
-	return new Promise((resolve, reject) => {
-		const tx = db.transaction(DB_STORE, 'readwrite');
-		tx.objectStore(DB_STORE).clear();
-		tx.oncomplete = () => resolve();
-		tx.onerror = () => reject(tx.error);
-	});
-};
-
-const updateQueueEntry = async (id, patch) => {
-	const db = await openQueueDb();
-	return new Promise((resolve, reject) => {
-		const tx = db.transaction(DB_STORE, 'readwrite');
-		const store = tx.objectStore(DB_STORE);
-		const getRequest = store.get(id);
-		getRequest.onsuccess = () => {
-			const entry = getRequest.result;
-			if (!entry) {
-				resolve();
-				return;
-			}
-			store.put({ ...entry, ...patch });
-		};
-		tx.oncomplete = () => resolve();
-		tx.onerror = () => reject(tx.error);
-	});
-};
-
-const recordQueueAttempt = (id, attemptCount) =>
-	updateQueueEntry(id, { attemptCount, lastAttemptAt: Date.now() });
-
-const markQueueDead = (id, reason) =>
-	updateQueueEntry(id, {
-		dead: true,
-		deadReason: String(reason || 'unknown'),
-		lastAttemptAt: Date.now(),
-	});
-
-const getQueueBackoffMs = (entry) => {
-	const attempts = entry?.attemptCount || 0;
-	return Math.min(
-		QUEUE_BACKOFF_BASE_MS * Math.pow(2, attempts),
-		QUEUE_BACKOFF_CAP_MS,
-	);
-};
-
 const clearSessionCaches = async () => {
 	await Promise.all([
 		caches.delete(API_CACHE),
 		caches.delete(RUNTIME_CACHE),
 		caches.delete('api-runtime-v1'),
-		clearQueue().catch(() => undefined),
 	]);
 };
 
-const clearAllCachesAndQueues = async () => {
+const clearAllCaches = async () => {
 	const keys = await caches.keys();
-	await Promise.all([
-		...keys
+	await Promise.all(
+		keys
 			.filter((key) => key !== STATIC_CACHE)
 			.map((key) => caches.delete(key)),
-		clearQueue().catch(() => undefined),
-	]);
-};
-
-const flushQueue = async () => {
-	const entries = await readQueue();
-	let flushedCount = 0;
-	let deadCount = 0;
-	const now = Date.now();
-	for (const entry of entries) {
-		if (entry.dead) {
-			deadCount++;
-			continue;
-		}
-		const attempts = entry.attemptCount || 0;
-		const lastAttemptAt = entry.lastAttemptAt || 0;
-		if (lastAttemptAt && now - lastAttemptAt < getQueueBackoffMs(entry)) {
-			continue;
-		}
-		try {
-			const res = await fetch(entry.url, {
-				method: entry.method,
-				headers: entry.headers,
-				body: entry.body,
-				credentials: 'include',
-			});
-			if (res.ok) {
-				await clearQueueItem(entry.id);
-				flushedCount++;
-			} else if (
-				res.status >= 400 &&
-				res.status < 500 &&
-				res.status !== 408 &&
-				res.status !== 429
-			) {
-				await markQueueDead(entry.id, `http-${res.status}`);
-				deadCount++;
-			} else {
-				const nextAttempts = attempts + 1;
-				if (nextAttempts >= MAX_QUEUE_ATTEMPTS) {
-					await markQueueDead(entry.id, `http-${res.status}`);
-					deadCount++;
-				} else {
-					await recordQueueAttempt(entry.id, nextAttempts);
-				}
-			}
-		} catch (error) {
-			console.warn('Queue replay failed:', error);
-			const nextAttempts = attempts + 1;
-			if (nextAttempts >= MAX_QUEUE_ATTEMPTS) {
-				await markQueueDead(entry.id, 'network');
-				deadCount++;
-			} else {
-				await recordQueueAttempt(entry.id, nextAttempts);
-			}
-		}
-	}
-	return { flushedCount, deadCount };
+	);
 };
 
 self.addEventListener('install', (event) => {
@@ -303,26 +116,11 @@ self.addEventListener('message', (event) => {
 	if (event?.data?.type === 'skip-waiting') {
 		event.waitUntil(self.skipWaiting());
 	}
-	if (event?.data?.type === 'flush-grade-queue') {
-		event.waitUntil(
-			(async () => {
-				const result = await flushQueue();
-				const client = event.source;
-				if (client) {
-					client.postMessage({
-						type: 'flush-grade-queue-result',
-						flushedCount: result.flushedCount,
-						deadCount: result.deadCount,
-					});
-				}
-			})(),
-		);
-	}
 	if (event?.data?.type === 'clear-session-data') {
 		event.waitUntil(clearSessionCaches());
 	}
 	if (event?.data?.type === 'clear-all-data') {
-		event.waitUntil(clearAllCachesAndQueues());
+		event.waitUntil(clearAllCaches());
 	}
 	// sw.js — generalize the existing handler
 	if (event?.data?.type === 'cache-app-shell') {
@@ -354,57 +152,10 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('fetch', (event) => {
 	const { request } = event;
-	const isMutationRequest = MUTATION_METHODS.includes(request.method);
-	if (request.method !== 'GET' && !isMutationRequest) return;
+	if (request.method !== 'GET') return;
 
 	const url = new URL(request.url);
 	const isSameOrigin = url.origin === self.location.origin;
-
-	if (isMutationRequest && isSameOrigin && url.pathname.startsWith('/api/')) {
-		const isLoginCredentialRequest =
-			url.pathname === AUTH_LOGIN_PATH && request.method !== 'DELETE';
-		const isOffline =
-			typeof self.navigator === 'undefined' ? false : !self.navigator.onLine;
-		if (isOffline && !isLoginCredentialRequest) {
-			event.respondWith(queueMutationRequest(request));
-			return;
-		}
-		if (isOffline) {
-			event.respondWith(
-				new Response(
-					JSON.stringify({
-						message: 'Request unavailable while offline.',
-					}),
-					{
-						status: 503,
-						headers: { 'Content-Type': 'application/json' },
-					},
-				),
-			);
-			return;
-		}
-		const networkRequest = request.clone();
-		const queueRequest = request.clone();
-		event.respondWith(
-			fetch(networkRequest).catch(() => {
-				if (!isLoginCredentialRequest) {
-					return queueMutationRequest(queueRequest);
-				}
-				return new Response(
-					JSON.stringify({
-						message: 'Request unavailable while offline.',
-					}),
-					{
-						status: 503,
-						headers: { 'Content-Type': 'application/json' },
-					},
-				);
-			}),
-		);
-		return;
-	}
-
-	if (request.method !== 'GET') return;
 
 	if (request.mode === 'navigate') {
 		if (isSameOrigin && url.pathname.startsWith('/api/')) {

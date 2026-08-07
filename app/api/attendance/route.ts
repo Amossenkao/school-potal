@@ -7,7 +7,16 @@ import { authorizeUser } from '@/proxy';
 import { normalizeHost } from '@/utils/host';
 import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
 import { getSchoolProfile } from '@/lib/mongoose';
-import { appendChange } from '@/lib/syncEngine';
+import {
+	appendChangeIdempotent,
+	findChangeByIdempotencyKey,
+} from '@/lib/syncEngine';
+import { readIdempotencyKey } from '@/utils/idempotency';
+import {
+	assertExpectedSeq,
+	getRecordSeq,
+	stampRecordSeq,
+} from '@/lib/optimisticConcurrency';
 import type { Student, Teacher } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -334,7 +343,41 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
+		// ── Idempotency ───────────────────────────────────────────────────────
+		// Replay safety: if the client retries the same mutation (e.g. after a
+		// dropped response), return the already-applied change instead of
+		// double-applying it.
+		const idempotencyKey = readIdempotencyKey(request);
+		if (idempotencyKey) {
+			const replay = await findChangeByIdempotencyKey({
+				domain: 'attendance',
+				academicYear: String(academicYear),
+				idempotencyKey,
+			});
+			if (replay) {
+				return NextResponse.json(
+					{
+						success: true,
+						data: replay.document ?? null,
+						seq: replay.seq,
+						replayed: true,
+					},
+					{ status: 200 },
+				);
+			}
+		}
+
 		const { Attendance, Student, Teacher } = await getTenantModels();
+
+		// ── Optimistic concurrency (§6.6) ────────────────────────────────────
+		const versionConflict = await assertAttendanceRecordVersion({
+			Attendance,
+			academicYear: String(academicYear),
+			classId: bodyClassId,
+			date: recordDate,
+			expectedSeq: body.expectedSeq,
+		});
+		if (versionConflict) return versionConflict;
 
 		// ── Resolve tenant for sync events ────────────────────────────────────
 
@@ -388,6 +431,7 @@ export async function POST(request: NextRequest) {
 				actorId: currentUser.id,
 				reason: 'attendance-recorded',
 				record,
+				idempotencyKey,
 			});
 
 			return NextResponse.json(
@@ -429,6 +473,7 @@ export async function POST(request: NextRequest) {
 				actorId: currentUser.id,
 				reason: 'attendance-recorded',
 				record,
+				idempotencyKey,
 			});
 
 			return NextResponse.json(
@@ -492,6 +537,7 @@ export async function POST(request: NextRequest) {
 				actorId: currentUser.id,
 				reason: 'attendance-recorded',
 				record,
+				idempotencyKey,
 			});
 
 			return NextResponse.json(
@@ -570,6 +616,7 @@ export async function POST(request: NextRequest) {
 				actorId: currentUser.id,
 				reason: 'attendance-recorded',
 				record,
+				idempotencyKey,
 			});
 
 			return NextResponse.json(
@@ -669,7 +716,40 @@ export async function PATCH(request: NextRequest) {
 			);
 		}
 
+		// ── Idempotency ───────────────────────────────────────────────────────
+		// Replay safety: return the already-applied change on a retry instead of
+		// double-applying it.
+		const idempotencyKey = readIdempotencyKey(request);
+		if (idempotencyKey) {
+			const replay = await findChangeByIdempotencyKey({
+				domain: 'attendance',
+				academicYear: String(academicYear),
+				idempotencyKey,
+			});
+			if (replay) {
+				return NextResponse.json(
+					{
+						success: true,
+						data: replay.document ?? null,
+						seq: replay.seq,
+						replayed: true,
+					},
+					{ status: 200 },
+				);
+			}
+		}
+
 		const { Attendance, Student, Teacher } = await getTenantModels();
+
+		// ── Optimistic concurrency (§6.6) ────────────────────────────────────
+		const versionConflict = await assertAttendanceRecordVersion({
+			Attendance,
+			academicYear: String(academicYear),
+			classId: bodyClassId,
+			date: recordDate,
+			expectedSeq: body.expectedSeq,
+		});
+		if (versionConflict) return versionConflict;
 
 		// ── Resolve tenant for sync events ────────────────────────────────────
 
@@ -707,6 +787,7 @@ export async function PATCH(request: NextRequest) {
 				actorId: currentUser.id,
 				reason: 'attendance-updated',
 				record,
+				idempotencyKey,
 			});
 
 			return NextResponse.json({ success: true, data: record, seq: changeSeq });
@@ -780,6 +861,7 @@ export async function PATCH(request: NextRequest) {
 				actorId: currentUser.id,
 				reason: 'attendance-updated',
 				record,
+				idempotencyKey,
 			});
 
 			return NextResponse.json({ success: true, data: record, seq: changeSeq });
@@ -858,6 +940,7 @@ export async function PATCH(request: NextRequest) {
 				actorId: currentUser.id,
 				reason: 'attendance-updated',
 				record,
+				idempotencyKey,
 			});
 
 			return NextResponse.json({ success: true, data: record, seq: changeSeq });
@@ -1018,8 +1101,9 @@ async function publishAttendanceChange(params: {
 	reason: string;
 	record?: any;
 	deleted?: boolean;
+	idempotencyKey?: string;
 }) {
-	const seq = await appendChange({
+	const logged = await appendChangeIdempotent({
 		domain: 'attendance',
 		academicYear: params.academicYear,
 		op: params.deleted ? 'delete' : 'update',
@@ -1029,7 +1113,17 @@ async function publishAttendanceChange(params: {
 			? { classId: params.classId }
 			: params.record ?? null,
 		actorId: params.actorId,
+		idempotencyKey: params.idempotencyKey,
 	});
+	const seq = logged.seq;
+
+	// Phase 4 (§6.6): keep the record's `seq` aligned with the ChangeLog so
+	// later expectedSeq checks are meaningful. Deletes leave no record behind.
+	if (!params.deleted && params.record?._id && seq > 0) {
+		params.record.seq = seq;
+		const { Attendance } = await getTenantModels();
+		await stampRecordSeq(Attendance, { _id: params.record._id }, seq);
+	}
 
 	await publishSyncEventSafe({
 		tenantId: params.tenantId,
@@ -1116,4 +1210,48 @@ async function patchAttendance({
 		{ $set: patch },
 		{ new: true },
 	).lean();
+}
+
+/**
+ * Phase 4 optimistic-concurrency guard (§6.6). When the client supplies an
+ * `expectedSeq`, verifies the current record seq still matches before the
+ * mutation is applied, returning a 409 NextResponse on conflict (or null when
+ * the check passes / no expectedSeq was supplied).
+ */
+async function assertAttendanceRecordVersion(params: {
+	Attendance: any;
+	academicYear: string;
+	classId: string;
+	date: Date;
+	expectedSeq?: number | string | null;
+}): Promise<NextResponse | null> {
+	if (
+		params.expectedSeq === undefined ||
+		params.expectedSeq === null ||
+		params.expectedSeq === ''
+	) {
+		return null;
+	}
+	const currentSeq = await getRecordSeq(params.Attendance, {
+		academicYear: params.academicYear,
+		classId: params.classId,
+		date: params.date,
+	});
+	const check = assertExpectedSeq({
+		recordSeq: currentSeq,
+		expectedSeq: params.expectedSeq,
+	});
+	if (!check.ok) {
+		return NextResponse.json(
+			{
+				success: false,
+				conflict: true,
+				currentSeq: check.currentSeq,
+				message:
+					'This attendance record was changed elsewhere. Reload to see the latest data, then re-apply your edit.',
+			},
+			{ status: 409 },
+		);
+	}
+	return null;
 }

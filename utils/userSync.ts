@@ -1,5 +1,4 @@
-import { getTenantModels } from '@/models';
-import { appendChange } from '@/lib/syncEngine';
+import { appendChange, getDomainSeq } from '@/lib/syncEngine';
 
 export const extractAcademicYears = (
 	user: any,
@@ -27,37 +26,25 @@ export const extractAcademicYears = (
 
 export const getUsersVersion = async (academicYear: string): Promise<number> => {
 	if (!academicYear) return 0;
-	const models = await getTenantModels();
-	const state = await models.UserSyncState.findOne({ academicYear }).lean();
-	return state?.version ?? 0;
+	// Phase 3: UserSyncState is gone; the users-domain version is the
+	// ChangeLog seq (tail of the event log).
+	return getDomainSeq('users', academicYear);
 };
 
 export const bumpUsersVersion = async (
 	academicYears: string[],
 	options: { affectedUserIds?: string[] } = {},
-) => {
-	if (!academicYears || academicYears.length === 0) return;
-	const models = await getTenantModels();
+): Promise<Record<string, number>> => {
+	if (!academicYears || academicYears.length === 0) return {};
 	const uniqueYears = Array.from(new Set(academicYears)).filter(Boolean);
-	await Promise.all(
-		uniqueYears.map((year) =>
-			models.UserSyncState.updateOne(
-				{ academicYear: year },
-				{
-					$inc: { version: 1 },
-					$set: { updatedAt: new Date() },
-				},
-				{ upsert: true },
-			),
-		),
-	);
 	const affectedUserIds = Array.isArray(options.affectedUserIds)
 		? options.affectedUserIds
 		: [];
+	const seqByYear: Record<string, number> = {};
 	await Promise.all(
 		uniqueYears.map(async (year) => {
 			try {
-				await appendChange({
+				const seq = await appendChange({
 					domain: 'users',
 					academicYear: year,
 					op: 'update',
@@ -65,9 +52,11 @@ export const bumpUsersVersion = async (
 					documentType: 'User',
 					document: affectedUserIds.length > 0 ? { ids: affectedUserIds } : null,
 				});
+				seqByYear[year] = seq;
 			} catch (error) {
 				console.warn(`Failed to log users change for ${year}.`, error);
 			}
 		}),
 	);
+	return seqByYear;
 };

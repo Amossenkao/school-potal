@@ -251,8 +251,9 @@ export async function PATCH(req: NextRequest) {
 		// this one after a reload). Bump the users version fingerprint and
 		// publish a realtime USER_UPDATED event carrying the updated student.
 		const affectedYears = extractAcademicYears(updated, schoolProfile);
+		let affectedSeqs: Record<string, number> = {};
 		try {
-			await bumpUsersVersion(affectedYears, {
+			affectedSeqs = await bumpUsersVersion(affectedYears, {
 				affectedUserIds: [String(updated.studentId || '')],
 			});
 		} catch (error) {
@@ -272,6 +273,7 @@ export async function PATCH(req: NextRequest) {
 					domain: 'users',
 					reason: 'user-updated',
 					academicYear: affectedYears[0] || null,
+					seq: affectedSeqs[affectedYears[0] || ''],
 					actorId: sessionUser?.id || null,
 					payload: {
 						userId: affectedUserId,

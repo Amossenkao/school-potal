@@ -12,7 +12,6 @@ import {
 import { syncDebugError, syncDebugLog, syncDebugWarn } from '@/lib/syncDebug';
 import { toHash, toSchoolVersion } from '@/utils/syncVersion';
 import { getSyncCursorsForYear } from '@/lib/syncEngine';
-import { isSyncEngineEnabled } from '@/lib/syncFeatureFlag';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -71,13 +70,12 @@ export async function GET(request: NextRequest) {
 
 	try {
 		// ── Extract all client-side version tokens ──────────────────────────
+		// Next-gen domains (grades, calendar, schedules, gradeRequests,
+		// attendance, teacherAttendance) negotiate via since_<domain> ChangeLog
+		// seqs instead of legacy version fingerprints; users, payments, school
+		// and user stay legacy-versioned.
 		const clientUsersVersion =
 			searchParams.get('v_users') || searchParams.get('usersVersion');
-		const clientGradesVersion = searchParams.get('v_grades');
-		const clientCalendarVersion = searchParams.get('v_calendar');
-		const clientSchedulesVersion = searchParams.get('v_schedules');
-		const clientGradeRequestsVersion = searchParams.get('v_grade_requests');
-		const clientAttendanceVersion = searchParams.get('v_attendance');
 		const clientPaymentsVersion = searchParams.get('v_payments');
 		const clientSchoolVersion = searchParams.get('v_school');
 		const clientUserVersion = searchParams.get('v_user');
@@ -99,11 +97,6 @@ export async function GET(request: NextRequest) {
 			hasSessionCookie: Boolean(request.cookies.get('sessionId')?.value),
 			query: {
 				v_users: clientUsersVersion,
-				v_grades: clientGradesVersion,
-				v_calendar: clientCalendarVersion,
-				v_schedules: clientSchedulesVersion,
-				v_grade_requests: clientGradeRequestsVersion,
-				v_attendance: clientAttendanceVersion,
 				v_payments: clientPaymentsVersion,
 				v_school: clientSchoolVersion,
 				v_user: clientUserVersion,
@@ -352,11 +345,10 @@ export async function GET(request: NextRequest) {
 
 		const academicYear = yearAccess.academicYear;
 
-		// ── Phase 5: seq-cursor negotiation (flag-gated) ─────────────────────
-		const syncCursors =
-			isSyncEngineEnabled() && academicYear
-				? await getSyncCursorsForYear(academicYear)
-				: undefined;
+		// ── Phase 5: seq-cursor negotiation ──────────────────────────────────
+		const syncCursors = academicYear
+			? await getSyncCursorsForYear(academicYear)
+			: undefined;
 
 		// ── Compute server-side versions for all domains ─────────────────────
 		const versions = await getDomainVersions(
@@ -368,38 +360,37 @@ export async function GET(request: NextRequest) {
 		const userVersion = toHash(userPayload);
 
 		// ── Diff client vs server versions to decide what to include ─────────
+		// Next-gen domains are negotiated purely on ChangeLog seqs: when the
+		// engine is on and the client reports it is caught up on a domain
+		// (since_<domain> >= the server's current seq), skip re-sending that
+		// payload. The legacy version-fingerprint diff is retired for those
+		// domains because realtime bumps the client's version stamps, which
+		// would otherwise force a re-download of data the client already has.
+		const seqCatchUp = (syncKey: string): boolean => {
+			if (!syncCursors) return true;
+			const serverSeq = syncCursors[syncKey];
+			const sinceSeq = sinceSeqByDomain[syncKey];
+			return !(
+				typeof serverSeq === 'number' &&
+				typeof sinceSeq === 'number' &&
+				sinceSeq >= serverSeq
+			);
+		};
+
 		const include = {
 			school: clientSchoolVersion !== schoolVersion,
 			users:
 				typeof clientUsersVersion === 'string'
 					? clientUsersVersion !== versions.users
 					: true,
-			calendar: clientCalendarVersion !== versions.calendar,
-			schedules: clientSchedulesVersion !== versions.schedules,
-			grades: clientGradesVersion !== versions.grades,
-			gradeRequests: clientGradeRequestsVersion !== versions.gradeRequests,
-			attendance: clientAttendanceVersion !== versions.attendance,
+			calendar: seqCatchUp('calendar'),
+			schedules: seqCatchUp('schedules'),
+			grades: seqCatchUp('grades'),
+			gradeRequests: seqCatchUp('gradeRequests'),
+			attendance: seqCatchUp('attendance'),
+			teacherAttendance: seqCatchUp('teacher_attendance'),
 			payments: clientPaymentsVersion !== versions.payments,
 		};
-
-		// Next-gen sync short-circuit: when the engine flag is on and the client
-		// reports it is already caught up on a domain (since_<domain> >= the
-		// server's current ChangeLog seq), skip re-sending that payload. This
-		// takes precedence over the legacy version-fingerprint diff, which is
-		// stale (realtime bumps the client's version stamps, forcing re-download).
-		if (syncCursors) {
-			Object.keys(include).forEach((domain) => {
-				const serverSeq = syncCursors[domain];
-				const sinceSeq = sinceSeqByDomain[domain];
-				if (
-					typeof serverSeq === 'number' &&
-					typeof sinceSeq === 'number' &&
-					sinceSeq >= serverSeq
-				) {
-					include[domain as keyof typeof include] = false;
-				}
-			});
-		}
 		const includeUser = clientUserVersion !== userVersion;
 
 		syncDebugLog('auth-me', 'Computed include flags.', {
@@ -412,14 +403,10 @@ export async function GET(request: NextRequest) {
 			clientVersions: {
 				school: clientSchoolVersion,
 				users: clientUsersVersion,
-				calendar: clientCalendarVersion,
-				schedules: clientSchedulesVersion,
-				grades: clientGradesVersion,
-				gradeRequests: clientGradeRequestsVersion,
-				attendance: clientAttendanceVersion,
 				payments: clientPaymentsVersion,
 				user: clientUserVersion,
 			},
+			clientSeqs: sinceSeqByDomain,
 			serverVersions: {
 				school: schoolVersion,
 				users: versions.users,

@@ -27,7 +27,6 @@ import {
 	requestOutboxFlush,
 } from '@/lib/outboxSync';
 import { resolveTenantSyncKey } from '@/lib/realtimeSync';
-import { isSyncEngineEnabled } from '@/lib/syncFeatureFlag';
 import Inactive from './inactive';
 import { HasSchoolProvider } from '@/context/HasSchoolContext';
 
@@ -171,19 +170,7 @@ const executeSyncPipeline = async () => {
 		}
 
 		// -------------------------------------------------------------
-		// PHASE 3: Service Worker Synchronization
-		// -------------------------------------------------------------
-		if (
-			'serviceWorker' in navigator &&
-			navigator.serviceWorker.controller
-		) {
-			navigator.serviceWorker.controller.postMessage({
-				type: 'flush-grade-queue',
-			});
-		}
-
-		// -------------------------------------------------------------
-		// PHASE 4: Inbound Stream Catch-Up (Full Fallback Rehydration)
+		// PHASE 3: Inbound Stream Catch-Up (Full Fallback Rehydration)
 		// -------------------------------------------------------------
 		await useSchoolStore.getState().fetchSchool();
 		const activeYear =
@@ -237,8 +224,6 @@ export default function RootProviders({
 	};
 
 	useEffect(() => {
-		if (!isSyncEngineEnabled()) return;
-
 		const tenantId = resolveTenantSyncKey({
 			schoolProfile: school,
 			host: typeof window !== 'undefined' ? window.location.host : null,
@@ -283,7 +268,7 @@ export default function RootProviders({
 
 	// Follower tabs ping the leader to flush when they rehydrate.
 	useEffect(() => {
-		if (!isSyncEngineEnabled() || isTabLeader()) return;
+		if (isTabLeader()) return;
 		const timer = window.setTimeout(() => {
 			requestOutboxFlush();
 		}, 1500);
@@ -370,10 +355,9 @@ export default function RootProviders({
 	useEffect(() => {
 		const maybeRunPipeline = () => {
 			if (!useNetworkStore.getState().isOnline) return;
-			// Without the sync engine flag, run the recovery pipeline in every
-			// tab as before. With it, the leader tab owns the pipeline so two
-			// tabs never race the same catch-up.
-			if (!isSyncEngineEnabled() || isTabLeader()) {
+			// The leader tab owns the recovery pipeline so two tabs never race
+			// the same catch-up.
+			if (isTabLeader()) {
 				void executeSyncPipeline();
 			}
 		};
@@ -387,27 +371,6 @@ export default function RootProviders({
 		});
 
 		return () => unsubNetwork();
-	}, []);
-
-	useEffect(() => {
-		if (!('serviceWorker' in navigator)) return;
-		const handleMessage = (event: MessageEvent) => {
-			const data = event?.data;
-			if (data?.type !== 'flush-grade-queue-result') return;
-			if (data.deadCount > 0) {
-				console.warn(
-					`[Sync Pipeline] ${data.deadCount} queued request(s) hit the dead-letter limit and were not replayed.`,
-				);
-			}
-			if (data.flushedCount > 0) {
-				console.log(
-					`[Sync Pipeline] Replayed ${data.flushedCount} queued request(s).`,
-				);
-			}
-		};
-		navigator.serviceWorker.addEventListener('message', handleMessage);
-		return () =>
-			navigator.serviceWorker.removeEventListener('message', handleMessage);
 	}, []);
 
 	useEffect(() => {

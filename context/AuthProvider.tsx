@@ -15,7 +15,11 @@ import {
 	type RealtimeEvent,
 } from '@/lib/realtimeTypes';
 import { tryMarkEventApplied } from '@/lib/tabSync';
-import { isSyncEngineEnabled } from '@/lib/syncFeatureFlag';
+import {
+	enqueueRealtimeEvent,
+	BUFFERED_SYNC_DOMAINS,
+} from '@/lib/realtimeBuffer';
+import type { ClientSyncDomain } from '@/lib/clientSync';
 
 const ABLY_SYNC_STREAM_TOKEN_ENDPOINT = '/api/sync/stream-token';
 const SYNC_REFRESH_DEBOUNCE_MS = 60;
@@ -513,13 +517,28 @@ export default function AuthProvider({
 				});
 			};
 
+			// Seq events for the next-gen domains go through the ordering gate:
+			// the buffer holds anything arriving ahead of a seq gap and only
+			// applies contiguously, so the version maps that /api/auth/me
+			// negotiates on never regress (§6.5 ordered application). Events for
+			// legacy-versioned domains (users, school) keep applying as-is.
+			const dispatchSequencedEvent = (evt: RealtimeEvent) => {
+				const domain = resolveEventDomain(evt.type);
+				if (!BUFFERED_SYNC_DOMAINS.has(domain as ClientSyncDomain)) {
+					applyEvent(evt);
+					return;
+				}
+				enqueueRealtimeEvent(
+					domain as ClientSyncDomain,
+					academicYear,
+					evt,
+					applyEvent,
+				);
+			};
+
 			// Events produced by the sync engine carry a monotonic seq. Dedupe
 			// them across tabs so the same seq is applied exactly once (§6.5).
-			// Gated behind the sync-engine flag; legacy events always apply.
-			if (
-				typeof event.seq === 'number' &&
-				isSyncEngineEnabled()
-			) {
+			if (typeof event.seq === 'number') {
 				const eventId = `${event.type}:${event.tenantId}:${event.seq}`;
 				void tryMarkEventApplied({
 					eventId,
@@ -528,7 +547,7 @@ export default function AuthProvider({
 					seq: event.seq,
 				}).then((alreadyApplied) => {
 					if (alreadyApplied) return;
-					applyEvent(event);
+					dispatchSequencedEvent(event);
 				});
 				return;
 			}

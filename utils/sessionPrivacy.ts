@@ -30,7 +30,6 @@ const SENSITIVE_CACHE_NAMES = new Set(['api-runtime-v1']);
 const KNOWN_INDEXEDDB_NAMES = [
 	'school-domain-cache',
 	'school-portal',
-	'pwa-queue',
 ];
 
 type IndexedDbFactoryWithDatabases = IDBFactory & {

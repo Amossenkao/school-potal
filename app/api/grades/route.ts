@@ -11,6 +11,11 @@ import { getSchoolProfile } from '@/lib/mongoose';
 import { publishSyncEventSafe, resolveTenantSyncKey } from '@/lib/realtimeSync';
 import { appendChange, appendChangeIdempotent, findChangeByIdempotencyKey } from '@/lib/syncEngine';
 import { readIdempotencyKey } from '@/utils/idempotency';
+import {
+	assertExpectedSeq,
+	getRecordSeq,
+	stampRecordSeq,
+} from '@/lib/optimisticConcurrency';
 import { attachRanksToGrades } from '@/utils/gradeRanks';
 import {
 	getAcademicYearFilterValue,
@@ -1548,6 +1553,23 @@ export async function POST(request: NextRequest) {
 			idempotencyKey,
 		});
 
+		// Phase 4 (§6.6): stamp the inserted docs with the ChangeLog seq so the
+		// returned data and the published event carry a version future
+		// expectedSeq checks can validate against.
+		if (logged.seq > 0 && result.length > 0) {
+			const insertedIds = result.map((doc: any) => doc._id);
+			await Grade.updateMany(
+				{ _id: { $in: insertedIds } },
+				{ $set: { seq: logged.seq } },
+			);
+			for (const doc of result) {
+				(doc as any).seq = logged.seq;
+			}
+			for (const doc of gradeDocuments) {
+				(doc as any).seq = logged.seq;
+			}
+		}
+
 		// Notify admins per submissionId (one notification per batch/period)
 		const submissionSummary = new Map<
 			string,
@@ -1913,13 +1935,19 @@ export async function PATCH(request: NextRequest) {
 			host: request.headers.get('host'),
 		});
 
-		const { User } = await getTenantModels();
+		const { User, Grade } = await getTenantModels();
 		const body = await request.json();
 		const updates = Array.isArray(body) ? body : [body];
 
 		const results = await Promise.all(
 			updates.map(
-				async ({ submissionId, studentId, status, rejectionReason }) => {
+				async ({
+					submissionId,
+					studentId,
+					status,
+					rejectionReason,
+					expectedSeq,
+				}) => {
 					if (!submissionId || !studentId || !status) {
 						return {
 							success: false,
@@ -1927,6 +1955,34 @@ export async function PATCH(request: NextRequest) {
 							submissionId,
 							studentId,
 						};
+					}
+
+					// Phase 4 (§6.6): verify the record's seq matches what the
+					// client last saw before applying the status change.
+					if (
+						expectedSeq !== undefined &&
+						expectedSeq !== null &&
+						expectedSeq !== ''
+					) {
+						const currentSeq = await getRecordSeq(Grade, {
+							submissionId,
+							studentId,
+						});
+						const check = assertExpectedSeq({
+							recordSeq: currentSeq,
+							expectedSeq,
+						});
+						if (!check.ok) {
+							return {
+								success: false,
+								conflict: true,
+								currentSeq: check.currentSeq,
+								message:
+									'This grade was changed elsewhere. Reload to see the latest data, then re-apply your edit.',
+								submissionId,
+								studentId,
+							};
+						}
 					}
 
 					// Use the new function to update the grade status
@@ -1947,6 +2003,19 @@ export async function PATCH(request: NextRequest) {
 			),
 		);
 
+		const conflicted = results.filter((result) => result.conflict);
+		if (conflicted.length > 0) {
+			return NextResponse.json(
+				{
+					success: false,
+					conflict: true,
+					message: `${conflicted.length} update(s) conflicted.`,
+					results,
+				},
+				{ status: 409 },
+			);
+		}
+
 		const successfulUpdates = results.filter((result) => result.success);
 		const failedUpdates = results.filter((result) => !result.success);
 
@@ -1965,6 +2034,17 @@ export async function PATCH(request: NextRequest) {
 				document: data,
 				actorId: currentUser.id,
 			});
+			// Phase 4 (§6.6): keep the record's seq aligned with the ChangeLog
+			// and surface it in the published payload.
+			data.seq = logged;
+			await stampRecordSeq(
+				Grade,
+				{
+					submissionId: update.submissionId,
+					studentId: update.studentId,
+				},
+				logged,
+			);
 			seqByYear.set(
 				academicYear,
 				Math.max(seqByYear.get(academicYear) ?? 0, logged),

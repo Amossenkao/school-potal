@@ -172,6 +172,7 @@ export const publishRealtimeEventsForAcademicYearsSafe = async (params: {
 	scope?: RealtimeScope;
 	targetUserIds?: string[];
 	seq?: number;
+	seqByYear?: Record<string, number | undefined>;
 }) => {
 	const years = toUniqueStrings(params.academicYears);
 	if (years.length === 0) {
@@ -183,6 +184,7 @@ export const publishRealtimeEventsForAcademicYearsSafe = async (params: {
 			publishRealtimeEventSafe({
 				...params,
 				academicYear,
+				seq: params.seqByYear?.[academicYear] ?? params.seq,
 			}),
 		),
 	);
