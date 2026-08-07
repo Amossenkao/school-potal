@@ -187,7 +187,7 @@ const AttestationDocument = ({ data, school }: { data: any; school: any }) => {
 	const schoolMotto = school?.identity?.slogan || '';
 	const schoolLogo = school?.branding?.logoUrl || '';
 	const schoolAddress =
-		school?.contact?.addresses?.[0]?.lines?.join(', ') || '';
+		school?.contact?.addresses?.[0]?.lines?.join('\n') || '';
 	const schoolContact = (school?.contact?.phones || []).join(' / ');
 
 	return (

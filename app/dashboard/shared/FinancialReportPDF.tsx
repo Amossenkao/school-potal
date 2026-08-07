@@ -391,7 +391,7 @@ const schoolAddress = (school: any): string =>
 		: []
 	)
 		.filter(Boolean)
-		.join(', ');
+		.join('\n');
 
 const CurrencySection: React.FC<{
 	report: FinancialReport;

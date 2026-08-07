@@ -92,11 +92,11 @@ export default function DigitalIdCard({
 	const schoolLogo = school?.branding?.logoUrl || '';
 
 	// Address lines from school profile
-	const addressLine1 = school?.identity?.address?.street || '';
-	const addressLine2 = school?.identity?.address?.city
-		? `${school.identity.address.city}${school.identity.address.county ? `, ${school.identity.address.county}` : ''}`
-		: '';
-	const addressLine3 = school?.identity?.address?.country || '';
+	const schoolAddressLines =
+		Array.isArray(school?.contact?.addresses) &&
+		school.contact.addresses[0]?.lines?.length
+			? school.contact.addresses[0].lines
+			: [];
 
 	const prefixedStudentId = useMemo(() => {
 		if (!studentId) return '—';
@@ -311,11 +311,22 @@ export default function DigitalIdCard({
 								letterSpacing: '0.04em',
 							}}
 						>
-							{addressLine1 || '12 Academy Drive, Sinkor'}
-							<br />
-							{addressLine2 || 'Monrovia, Montserrado County'}
-							<br />
-							{addressLine3 || 'Liberia, West Africa'}
+							{schoolAddressLines.length > 0
+								? schoolAddressLines.slice(0, 3).map((line: string, idx: number, arr: string[]) => (
+									<span key={idx}>
+										{line}
+										{idx < arr.length - 1 && <br />}
+									</span>
+								))
+								: (
+									<>
+										{'12 Academy Drive, Sinkor'}
+										<br />
+										{'Monrovia, Montserrado County'}
+										<br />
+										{'Liberia, West Africa'}
+									</>
+								)}
 						</p>
 					</div>
 

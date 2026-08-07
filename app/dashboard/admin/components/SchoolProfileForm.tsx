@@ -731,10 +731,10 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 								<div>
 									<p className="text-[11px] font-medium text-gray-500 mb-1.5">Addresses</p>
 									{form.contact.addresses.map((addr, i) => (
-										<div key={i} className="flex items-center gap-1.5 mb-1.5">
-											<AddressInput value={addr.lines.join(', ')} onChange={(v) => {
+										<div key={i} className="flex items-start gap-1.5 mb-1.5">
+											<AddressInput value={addr.lines.join('\n')} onChange={(v) => {
 												const next = [...form.contact.addresses];
-												next[i] = { ...next[i], lines: v.split(',').map((s) => s.trimStart()) };
+												next[i] = { ...next[i], lines: v.split('\n') };
 												update('contact.addresses', next);
 											}} />
 											<RemoveRow onClick={() => update('contact.addresses', form.contact.addresses.filter((_, j) => j !== i))} />
@@ -2012,11 +2012,12 @@ function Field({ label, required, value, onChange, onBlur, placeholder, disabled
 }
 
 function AddressInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-	const ref = useRef<HTMLInputElement>(null);
+	const ref = useRef<HTMLTextAreaElement>(null);
 	const mounted = useRef(false);
 	useEffect(() => { if (!mounted.current) { mounted.current = true; if (!value) ref.current?.focus(); } }, []);
-	return <input ref={ref} value={value} onChange={(e) => onChange(e.target.value)} placeholder="Address line..."
-		className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />;
+	return <textarea ref={ref} value={value} onChange={(e) => onChange(e.target.value)} placeholder="Address line..."
+		rows={2}
+		className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#465fff] resize-none dark:border-gray-800 dark:bg-muted dark:text-white" />;
 }
 
 function DynamicList({ values, onChange, placeholder, itemErrors, inputType }: { values: string[]; onChange: (v: string[]) => void; placeholder: string; itemErrors?: Record<number, string>; inputType?: 'text' | 'tel' | 'email' }) {

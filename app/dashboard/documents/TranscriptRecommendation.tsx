@@ -269,7 +269,7 @@ const TranscriptYearTable = ({ year }: { year: TranscriptYear }) => {
 const PacketDocument = ({ data, school }: { data: PacketData; school: any }) => {
 	const schoolName = school?.identity?.name || 'School';
 	const schoolLogo = school?.branding?.logoUrl || '';
-	const schoolAddress = school?.contact?.addresses?.[0]?.lines?.join(', ') || '';
+	const schoolAddress = school?.contact?.addresses?.[0]?.lines?.join('\n') || '';
 	const schoolContact = (school?.contact?.phones || []).join(' / ');
 
 	const pronoun =

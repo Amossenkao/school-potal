@@ -193,7 +193,7 @@ const schoolAddress = (school: any): string =>
 		: []
 	)
 		.filter(Boolean)
-		.join(', ');
+		.join('\n');
 
 function Meta({ label, value }: { label: string; value: string }) {
 	return (
