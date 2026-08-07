@@ -8,13 +8,7 @@ import {
 	Wallet,
 	X,
 	UserPlus,
-	Trash2,
-	Users,
-	ArrowRight,
-	ArrowLeft,
 	CreditCard,
-	Pencil,
-	ReceiptText,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useSchoolStore } from '@/store/schoolStore';
@@ -27,9 +21,7 @@ import {
 	pickCurrentOrMostRecentAcademicYear,
 } from '@/utils/academicYearOptions';
 import StudentFinder, {
-	classIdForYear,
 	studentFullName,
-	useClassDirectory,
 } from '@/app/dashboard/shared/components/StudentFinder';
 import { paymentItemRows } from '@/utils/payments';
 
@@ -99,14 +91,6 @@ interface CartFeeItem {
 	/** raw string for the custom input (no commas) */
 	customAmount: string;
 }
-
-interface CartEntry {
-	student: any;
-	resolvedFees: ResolvedFee[];
-	items: CartFeeItem[];
-}
-
-type Phase = 'build' | 'review';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -184,34 +168,25 @@ function groupFeesByCategory(
 	return groups;
 }
 
-function studentTotal(entry: CartEntry): Record<string, number> {
-	const totals: Record<string, number> = {};
-	for (const item of entry.items) {
-		const c = item.currency || 'LRD';
-		totals[c] = (totals[c] || 0) + effectiveAmount(item);
-	}
-	return totals;
-}
-
 // ─── Fee Modal ─────────────────────────────────────────────────────────────────
 
 interface FeeModalProps {
 	student: any;
 	resolvedFees: ResolvedFee[];
-	initialItems: CartFeeItem[];
-	onSave: (items: CartFeeItem[]) => void;
+	submitting: boolean;
+	onRecord: (items: CartFeeItem[]) => void;
 	onClose: () => void;
 }
 
 function FeeModal({
 	student,
 	resolvedFees,
-	initialItems,
-	onSave,
+	submitting,
+	onRecord,
 	onClose,
 }: FeeModalProps) {
-	// Local state — committed only on "Add" / "Update"
-	const [items, setItems] = useState<CartFeeItem[]>(initialItems);
+	// Local until recorded: closing the modal discards the selection.
+	const [items, setItems] = useState<CartFeeItem[]>([]);
 	const [error, setError] = useState<string | null>(null);
 
 	// Lock scroll while modal is open
@@ -249,7 +224,9 @@ function FeeModal({
 					currency: fee.currency,
 					installments: fee.installments,
 					installmentId: undefined,
-					payInFull: false,
+					// Paying a fee off in full is the common case, so it is the
+					// default; switching the toggle off reveals the amount input.
+					payInFull: true,
 					customAmount: '',
 				},
 			]);
@@ -314,7 +291,7 @@ function FeeModal({
 				}
 			}
 		}
-		onSave(items);
+		onRecord(items);
 	};
 
 	const groupedByCategory = groupFeesByCategory(resolvedFees);
@@ -404,8 +381,17 @@ function FeeModal({
 												}`}
 											>
 												{/* Fee row: checkbox + name + amount */}
-												<div className="flex items-center justify-between gap-3">
-													<div className="flex items-center gap-3 min-w-0">
+											<div className="flex items-center justify-between gap-3">
+													{/* The whole name is the hit target, not just the 16px
+													    box — a label wrapping the input means a tap
+													    anywhere on the row toggles it. */}
+													<label
+														className={`flex items-center gap-3 min-w-0 ${
+															isCleared || isCurrencyMismatch
+																? 'cursor-default'
+																: 'cursor-pointer'
+														}`}
+													>
 														{isCleared ? (
 															<CheckCircle className="h-4 w-4 text-success-500 shrink-0" />
 														) : (
@@ -444,7 +430,7 @@ function FeeModal({
 																</p>
 															)}
 														</div>
-													</div>
+													</label>
 													<p
 														className={`text-sm font-semibold whitespace-nowrap shrink-0 ${isCleared ? 'text-success-600' : 'text-foreground'}`}
 													>
@@ -594,18 +580,29 @@ function FeeModal({
 							)}
 						</div>
 						<div className="flex items-center gap-2">
-							<button
+						<button
 								onClick={onClose}
-								className="px-4 py-2 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+								disabled={submitting}
+								className="px-4 py-2 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
 							>
 								Cancel
 							</button>
 							<button
 								onClick={handleSave}
-								disabled={items.length === 0}
+								disabled={items.length === 0 || submitting}
 								className="flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
 							>
-								{initialItems.length > 0 ? 'Update' : 'Add to session'}
+								{submitting ? (
+									<>
+										<Loader2 className="w-4 h-4 animate-spin" />
+										Recording…
+									</>
+								) : (
+									<>
+										<CreditCard className="w-4 h-4" />
+										Record payment
+									</>
+								)}
 							</button>
 						</div>
 					</div>
@@ -623,22 +620,14 @@ export default function RecordPaymentsPage() {
 	const paymentsByAcademicYear = useSchoolStore((s) => s.paymentsByAcademicYear);
 
 	const [academicYear, setAcademicYear] = useState('');
-	const [phase, setPhase] = useState<Phase>('build');
 	const [submitting, setSubmitting] = useState(false);
 
-	// Cart: studentId → CartEntry
-	const [cart, setCart] = useState<Map<string, CartEntry>>(new Map());
-
-	// Modal state
-	const [modalStudentId, setModalStudentId] = useState<string | null>(null);
+	// One student at a time: picking someone opens the modal, and recording
+	// closes it. There is no session to build up, so there is nothing to hold
+	// between selections.
+	const [modalStudent, setModalStudent] = useState<any>(null);
+	const [modalFees, setModalFees] = useState<ResolvedFee[]>([]);
 	const [modalLoadingId, setModalLoadingId] = useState<string | null>(null);
-
-	// Per-student resolved fees cache (populated on first open)
-	const [feeCache, setFeeCache] = useState<Map<string, ResolvedFee[]>>(
-		new Map(),
-	);
-
-	const directory = useClassDirectory(schoolProfile);
 
 	const academicYearOptions = useMemo(() => {
 		if (!schoolProfile) return [];
@@ -657,14 +646,6 @@ export default function RecordPaymentsPage() {
 			? (yearData as any).students
 			: [];
 	}, [usersByAcademicYear, academicYear]);
-
-	const classLabel = useCallback(
-		(student: any) =>
-			directory.byId[classIdForYear(student, academicYear)]?.className ||
-			student?.className ||
-			'',
-		[directory.byId, academicYear],
-	);
 
 	// All payments from the school store, flat across academic years. Matches the
 	// shape returned by /api/payments?studentId= (no year filter) so fee math is
@@ -688,142 +669,34 @@ export default function RecordPaymentsPage() {
 		);
 	}, [schoolProfile]);
 
-	// Open modal for a student — resolve fees if not cached
+	// Resolve this student's fees, then open the modal on them.
 	const openStudentModal = useCallback(
 		async (student: any) => {
-			const sid = student.studentId;
-
-			// If fees already cached, open modal immediately
-			if (feeCache.has(sid)) {
-				// Ensure the student is in the cart (may be first time selecting from search)
-				setCart((prev) => {
-					if (prev.has(sid)) return prev;
-					const next = new Map(prev);
-					next.set(sid, {
-						student,
-						resolvedFees: feeCache.get(sid)!,
-						items: [],
-					});
-					return next;
-				});
-				setModalStudentId(sid);
-				return;
-			}
-
-			// Load fees
+			const sid = String(student.studentId || '');
 			setModalLoadingId(sid);
 			try {
-				const payments: any[] = allPayments.filter(
+				const payments = allPayments.filter(
 					(p) => String(p.studentId || '') === sid,
 				);
-
-				const resolvedFees = resolveFeesForStudent(
-					student,
-					schoolProfile,
-					academicYear,
-					payments,
+				setModalFees(
+					resolveFeesForStudent(student, schoolProfile, academicYear, payments),
 				);
-
-				setFeeCache((prev) => new Map(prev).set(sid, resolvedFees));
-				setCart((prev) => {
-					if (prev.has(sid)) return prev;
-					const next = new Map(prev);
-					next.set(sid, { student, resolvedFees, items: [] });
-					return next;
-				});
-				setModalStudentId(sid);
+				setModalStudent(student);
 			} finally {
 				setModalLoadingId(null);
 			}
 		},
-		[feeCache, schoolProfile, academicYear, allPayments],
+		[schoolProfile, academicYear, allPayments],
 	);
 
-	// Save modal selections back to cart
-	const handleModalSave = useCallback(
-		(studentId: string, items: CartFeeItem[]) => {
-			setCart((prev) => {
-				const entry = prev.get(studentId);
-				if (!entry) return prev;
-				const next = new Map(prev);
-				next.set(studentId, { ...entry, items });
-				return next;
-			});
-			setModalStudentId(null);
-		},
-		[],
-	);
-
-	const removeStudent = useCallback(
-		(studentId: string) => {
-			setCart((prev) => {
-				const next = new Map(prev);
-				next.delete(studentId);
-				return next;
-			});
-			setFeeCache((prev) => {
-				const next = new Map(prev);
-				next.delete(studentId);
-				return next;
-			});
-			if (modalStudentId === studentId) setModalStudentId(null);
-		},
-		[modalStudentId],
-	);
-
-	// Cart totals
-	const cartSummary = useMemo(() => {
-		let totalItems = 0;
-		let studentsWithItems = 0;
-		const byCurrency: Record<string, number> = {};
-
-		for (const entry of cart.values()) {
-			if (entry.items.length > 0) {
-				studentsWithItems++;
-				for (const item of entry.items) {
-					totalItems++;
-					const amt = effectiveAmount(item);
-					const c = item.currency || 'LRD';
-					byCurrency[c] = (byCurrency[c] || 0) + amt;
-				}
-			}
-		}
-		return { totalItems, studentsWithItems, byCurrency };
-	}, [cart]);
-
-	// Active modal entry
-	const modalEntry = modalStudentId ? cart.get(modalStudentId) : null;
-
-	// Proceed to review
-	const [buildError, setBuildError] = useState<string | null>(null);
-	const proceedToReview = () => {
-		setBuildError(null);
-		if (cart.size === 0 || cartSummary.studentsWithItems === 0) {
-			setBuildError(
-				'Add at least one student with a selected fee to continue.',
-			);
-			return;
-		}
-		setPhase('review');
-		window.scrollTo({ top: 0, behavior: 'smooth' });
-	};
-
-	// Submit
-	const handleSubmit = async () => {
-		setSubmitting(true);
-
-		const results: {
-			studentId: string;
-			name: string;
-			ok: boolean;
-			msg?: string;
-		}[] = [];
-
-		for (const [studentId, entry] of cart) {
-			if (entry.items.length === 0) continue;
-			const name = `${entry.student.firstName} ${entry.student.lastName}`;
+	const handleRecord = useCallback(
+		async (items: CartFeeItem[]) => {
+			if (!modalStudent) return;
+			const studentId = String(modalStudent.studentId || '');
+			const name = studentFullName(modalStudent);
+			setSubmitting(true);
 			try {
-				const items = entry.items.map((item) => ({
+				const payload = items.map((item) => ({
 					feeId: item.feeDefId,
 					feeName: item.feeName,
 					categoryName: item.categoryName,
@@ -836,21 +709,24 @@ export default function RecordPaymentsPage() {
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
 						studentId,
-						items,
+						items: payload,
 						paymentAcademicYear: academicYear,
 					}),
 				});
 				const json = await res.json();
-				results.push({ studentId, name, ok: json.success, msg: json.message });
+				if (!json.success) {
+					toast.error(`${name} — ${json.message || 'payment failed'}`, {
+						duration: 7000,
+					});
+					return;
+				}
 
-				// Keep the school store payments current so financial pages read
-				// the freshly recorded receipt without a refetch.
-				if (json.success && Array.isArray(json.data?.payments)) {
+				// Keep the school store payments current so financial pages read the
+				// freshly recorded receipt without a refetch.
+				if (Array.isArray(json.data?.payments)) {
 					const byYear: Record<string, any[]> = {};
 					(json.data.payments as any[]).forEach((p: any) => {
-						const year = String(
-							p?.paymentAcademicYear || academicYear,
-						).trim();
+						const year = String(p?.paymentAcademicYear || academicYear).trim();
 						if (!year) return;
 						if (!byYear[year]) byYear[year] = [];
 						byYear[year].push(p);
@@ -859,59 +735,28 @@ export default function RecordPaymentsPage() {
 						useSchoolStore.getState().setPaymentsForYear(year, payments);
 					});
 				}
+
+				toast.success(`${name} — payment recorded.`, { duration: 5000 });
+				setModalStudent(null);
+				setModalFees([]);
 			} catch {
-				results.push({ studentId, name, ok: false, msg: 'Network error' });
+				toast.error(`${name} — network error.`, { duration: 7000 });
+			} finally {
+				setSubmitting(false);
 			}
-		}
-
-		const allOk = results.every((r) => r.ok);
-		const anyOk = results.some((r) => r.ok);
-		const count = results.length;
-
-		if (allOk) {
-			toast.success(
-				`Payment recorded for ${count} student${count !== 1 ? 's' : ''}.`,
-				{ duration: 5000 },
-			);
-			setCart(new Map());
-			setFeeCache(new Map());
-			setPhase('build');
-		} else if (anyOk) {
-			// Show individual results as separate toasts
-			for (const r of results) {
-				if (r.ok) {
-					toast.success(`${r.name} — payment recorded.`, { duration: 5000 });
-				} else {
-					toast.error(`${r.name} — ${r.msg || 'failed'}`, { duration: 7000 });
-				}
-			}
-		} else {
-			toast.error(
-				results.length === 1
-					? `Payment failed: ${results[0].msg || 'Unknown error'}`
-					: `All ${count} payments failed. Please try again.`,
-				{ duration: 7000 },
-			);
-		}
-
-		setSubmitting(false);
-	};
-
-	const cartEntries = Array.from(cart.entries());
-
-	// ─── Render ─────────────────────────────────────────────────────────────────
+		},
+		[modalStudent, academicYear],
+	);
 
 	return (
 		<div className="mx-auto max-w-4xl space-y-6 px-4 py-6 sm:px-6">
-			{/* Page header */}
 			<header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 				<div>
 					<h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
 						Record Payments
 					</h1>
 					<p className="mt-1 text-sm text-muted-foreground">
-						Build a payment session across multiple students, then record them
-						all at once.
+						Find a student, choose what they are paying, and record it.
 					</p>
 				</div>
 				<FilterSelect
@@ -919,390 +764,50 @@ export default function RecordPaymentsPage() {
 					value={academicYear}
 					onChange={(v) => {
 						setAcademicYear(v);
-						setCart(new Map());
-						setFeeCache(new Map());
-						setPhase('build');
+						setModalStudent(null);
+						setModalFees([]);
 					}}
 					options={academicYearOptions.map((y) => ({ label: y, value: y }))}
 					disabled={academicYearOptions.length < 2}
 				/>
 			</header>
 
-			{/* Stepper */}
-			<ol className="flex items-center gap-2 rounded-2xl border border-border bg-card p-2">
-				{[
-					{ id: 'build' as Phase, label: 'Build session', icon: UserPlus },
-					{ id: 'review' as Phase, label: 'Review & record', icon: ReceiptText },
-				].map((step, index) => {
-					const StepIcon = step.icon;
-					const active = phase === step.id;
-					const reachable =
-						step.id === 'build' || cartSummary.studentsWithItems > 0;
-					return (
-						<li key={step.id} className="flex min-w-0 flex-1 items-center gap-2">
-							<button
-								type="button"
-								disabled={!reachable}
-								onClick={() => reachable && setPhase(step.id)}
-								className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-									active ? 'bg-primary/10' : 'hover:bg-muted'
-								}`}
-							>
-								<span
-									className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black ${
-										active
-											? 'bg-primary text-primary-foreground'
-											: 'bg-muted text-muted-foreground'
-									}`}
-								>
-									{index + 1}
-								</span>
-								<span className="min-w-0">
-									<span
-										className={`block truncate text-sm font-bold ${active ? 'text-foreground' : 'text-muted-foreground'}`}
-									>
-										{step.label}
-									</span>
-								</span>
-								<StepIcon
-									className={`ml-auto hidden h-4 w-4 shrink-0 sm:block ${active ? 'text-primary' : 'text-muted-foreground'}`}
-								/>
-							</button>
-							{index === 0 && (
-								<ArrowRight className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
-							)}
-						</li>
-					);
-				})}
-			</ol>
-
-			{/* ══════════════════════════ PHASE: BUILD ══════════════════════════ */}
-			{phase === 'build' && (
-				<div className="space-y-5">
-					{/* Session so far */}
-					<div className="bg-card border border-border rounded-2xl">
-						<div className="px-4 sm:px-5 py-3.5 border-b border-border flex items-center justify-between gap-2">
-							<div className="flex items-center gap-2">
-								<Users className="h-4 w-4 text-muted-foreground" />
-								<h2 className="font-bold text-foreground">This Session</h2>
-							</div>
-							{cart.size > 0 && (
-								<span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
-									{cart.size} student{cart.size === 1 ? '' : 's'}
-								</span>
-							)}
-						</div>
-
-						<div className="p-4 sm:p-5">
-							{cartEntries.length === 0 ? (
-								<div className="rounded-xl border-2 border-dashed border-border py-8 text-center">
-									<Users className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" />
-									<p className="text-sm font-bold text-foreground">
-										No students added yet
-									</p>
-									<p className="mt-1 text-xs text-muted-foreground">
-										Find a student below to start the session
-									</p>
-								</div>
-							) : (
-								<ul className="grid gap-2 sm:grid-cols-2">
-									{cartEntries.map(([studentId, entry]) => {
-										const totals = studentTotal(entry);
-										const empty = entry.items.length === 0;
-										return (
-											<li
-												key={studentId}
-												className={`group relative overflow-hidden rounded-xl border p-3.5 transition-colors ${
-													empty
-														? 'border-dashed border-border bg-background'
-														: 'border-primary/30 bg-primary/5'
-												}`}
-											>
-												<button
-													onClick={() => openStudentModal(entry.student)}
-													className="flex w-full items-start gap-3 text-left focus:outline-none"
-												>
-													<span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-black text-muted-foreground">
-														{studentFullName(entry.student)
-															.split(' ')
-															.slice(0, 2)
-															.map((part) => part[0] || '')
-															.join('')
-															.toUpperCase()}
-													</span>
-													<span className="min-w-0 flex-1">
-														<span className="block truncate text-sm font-bold text-foreground">
-															{studentFullName(entry.student)}
-														</span>
-														<span className="block truncate text-xs text-muted-foreground">
-															{entry.student.studentId}
-															{classLabel(entry.student)
-																? ` · ${classLabel(entry.student)}`
-																: ''}
-														</span>
-														<span className="mt-1.5 block">
-															{empty ? (
-																<span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">
-																	<Pencil className="h-3 w-3" />
-																	Choose fees
-																</span>
-															) : (
-																<>
-																	{Object.entries(totals).map(([code, amount]) => (
-																		<span
-																			key={code}
-																			className="block text-sm font-black tabular-nums text-foreground"
-																		>
-																			{code} {formatCurrency(amount)}
-																		</span>
-																	))}
-																	<span className="block text-xs text-muted-foreground">
-																		{entry.items.length} item
-																		{entry.items.length === 1 ? '' : 's'}
-																	</span>
-																</>
-															)}
-														</span>
-													</span>
-												</button>
-												<button
-													onClick={(e) => {
-														e.stopPropagation();
-														removeStudent(studentId);
-													}}
-													/* Always visible — a hover-only control is unreachable on touch. */
-													className="absolute right-2 top-2 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-													aria-label={`Remove ${studentFullName(entry.student)}`}
-												>
-													<Trash2 className="h-4 w-4" />
-												</button>
-											</li>
-										);
-									})}
-								</ul>
-							)}
-						</div>
-					</div>
-
-					{/* Student finder */}
-					<div className="space-y-2">
-						<h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">
-							<UserPlus className="h-4 w-4" />
-							Add a student
-							{modalLoadingId && (
-								<Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-							)}
-						</h2>
-						<StudentFinder
-							students={roster}
-							schoolProfile={schoolProfile}
-							academicYear={academicYear}
-							onSelect={openStudentModal}
-							selectedIds={new Set(cart.keys())}
-							renderMeta={(student) =>
-								cart.has(String(student.studentId)) ? (
-									<span className="text-xs font-bold text-primary">
-										Edit fees
-									</span>
-								) : (
-									<span className="text-xs text-muted-foreground">Select</span>
-								)
-							}
-						/>
-					</div>
-
-					{/* Build error */}
-					{buildError && (
-						<div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4">
-							<p className="text-sm text-destructive">{buildError}</p>
-						</div>
+			<div className="space-y-2">
+				<h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">
+					<UserPlus className="h-4 w-4" />
+					Find a student
+					{modalLoadingId && (
+						<Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
 					)}
-
-					{/* Proceed CTA — sticks to the bottom so the total is always in reach */}
-					{cart.size > 0 && (
-						<div className="sticky bottom-4 z-30 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-4 shadow-lg backdrop-blur sm:p-5">
-							<div>
-								<p className="text-sm font-bold text-foreground">
-									{cartSummary.studentsWithItems} student
-									{cartSummary.studentsWithItems !== 1 ? 's' : ''}
-									{' · '}
-									{cartSummary.totalItems} item
-									{cartSummary.totalItems !== 1 ? 's' : ''}
-								</p>
-								{Object.entries(cartSummary.byCurrency).map(([c, amt]) => (
-									<p
-										key={c}
-										className="text-base font-black tabular-nums text-foreground"
-									>
-										{c} {formatCurrency(amt)}
-									</p>
-								))}
-							</div>
-							<button
-								onClick={proceedToReview}
-								disabled={cartSummary.studentsWithItems === 0}
-								className="flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-							>
-								Review &amp; Record
-								<ArrowRight className="w-4 h-4" />
-							</button>
-						</div>
+				</h2>
+				<StudentFinder
+					students={roster}
+					schoolProfile={schoolProfile}
+					academicYear={academicYear}
+					onSelect={openStudentModal}
+					renderMeta={() => (
+						<span className="text-xs text-muted-foreground">Record</span>
 					)}
-				</div>
-			)}
+				/>
+			</div>
 
-			{/* ══════════════════════════ PHASE: REVIEW ═════════════════════════ */}
-			{phase === 'review' && (
-				<div className="space-y-5">
-					<div className="bg-card border border-border rounded-2xl overflow-hidden">
-						<div className="px-4 sm:px-5 py-3.5 border-b border-border flex items-center justify-between gap-2">
-							<h2 className="font-bold text-foreground">
-								Review Payment Session
-							</h2>
-							<button
-								onClick={() => setPhase('build')}
-								className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-foreground"
-							>
-								<ArrowLeft className="h-3.5 w-3.5" />
-								Back to edit
-							</button>
-						</div>
-
-						<div className="divide-y divide-border">
-							{cartEntries
-								.filter(([, e]) => e.items.length > 0)
-								.map(([studentId, entry]) => {
-									const totals = studentTotal(entry);
-									return (
-										<div key={studentId} className="px-4 sm:px-5 py-4">
-											{/* Student header */}
-											<div className="flex items-start justify-between gap-3 mb-3">
-												<div>
-													<p className="font-semibold text-foreground">
-														{entry.student.firstName} {entry.student.lastName}
-													</p>
-													<p className="text-xs text-muted-foreground">
-														{entry.student.studentId}
-														{entry.student.className
-															? ` · ${entry.student.className}`
-															: ''}
-													</p>
-												</div>
-												<div className="text-right shrink-0">
-													{Object.entries(totals).map(([c, amt]) => (
-														<p
-															key={c}
-															className="text-sm font-semibold text-foreground whitespace-nowrap"
-														>
-															{c} {formatCurrency(amt)}
-														</p>
-													))}
-													<p className="text-xs text-muted-foreground">
-														{entry.items.length} item
-														{entry.items.length !== 1 ? 's' : ''}
-													</p>
-												</div>
-											</div>
-
-											{/* Fee rows */}
-											<div className="space-y-1.5">
-												{entry.items.map((item) => (
-													<div
-														key={item.feeKey}
-														className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 border border-border/60 px-3.5 py-2.5"
-													>
-														<div className="min-w-0">
-															<p className="text-sm font-medium text-foreground truncate">
-																{item.feeName}
-															</p>
-															<p className="text-xs text-muted-foreground">
-																{item.categoryName}
-																{item.installmentId
-																	? ` · ${
-																			item.installments.find(
-																				(i) => i.installmentId === item.installmentId,
-																			)?.label ?? item.installmentId
-																		}`
-																	: ''}
-																{item.payInFull
-																	? ' · Full payment'
-																	: ` · Partial (of ${item.currency} ${formatCurrency(itemMax(item))})`}
-															</p>
-														</div>
-														<p className="text-sm font-semibold text-foreground whitespace-nowrap shrink-0">
-															{item.currency}{' '}
-															{formatCurrency(effectiveAmount(item))}
-														</p>
-													</div>
-												))}
-											</div>
-										</div>
-									);
-								})}
-						</div>
-
-						{/* Session total */}
-						<div className="px-4 sm:px-5 py-3.5 border-t border-border bg-muted/30 flex items-center justify-between gap-3">
-							<div>
-								<p className="text-sm font-semibold text-foreground">
-									Session Total
-								</p>
-								<p className="text-xs text-muted-foreground">
-									{cartSummary.studentsWithItems} student
-									{cartSummary.studentsWithItems !== 1 ? 's' : ''}
-									{' · '}
-									{cartSummary.totalItems} item
-									{cartSummary.totalItems !== 1 ? 's' : ''}
-								</p>
-							</div>
-							<div className="text-right">
-								{Object.entries(cartSummary.byCurrency).map(([c, amt]) => (
-									<p
-										key={c}
-										className="text-sm font-semibold text-foreground whitespace-nowrap"
-									>
-										{c} {formatCurrency(amt)}
-									</p>
-								))}
-							</div>
-						</div>
-					</div>
-
-					{/* Submit */}
-					<button
-						onClick={handleSubmit}
-						disabled={submitting || cartSummary.studentsWithItems === 0}
-						className="w-full flex items-center justify-center gap-2 rounded-full bg-primary px-3 py-3.5 text-sm font-semibold text-primary-foreground shadow-lg transition-all duration-200 hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						{submitting ? (
-							<>
-								<Loader2 className="w-4 h-4 animate-spin" />
-								Recording…
-							</>
-						) : (
-							<>
-								<CreditCard className="w-4 h-4" />
-								Record Payment for {cartSummary.studentsWithItems} Student
-								{cartSummary.studentsWithItems !== 1 ? 's' : ''}
-							</>
-						)}
-					</button>
-				</div>
-			)}
-
-			{/* ══════════════════════════ FEE MODAL ═════════════════════════════ */}
-			{modalStudentId && modalEntry && (
+			{modalStudent && (
 				<FeeModal
-					student={modalEntry.student}
-					resolvedFees={modalEntry.resolvedFees}
-					initialItems={modalEntry.items}
-					onSave={(items) => handleModalSave(modalStudentId, items)}
-					onClose={() => setModalStudentId(null)}
+					student={modalStudent}
+					resolvedFees={modalFees}
+					submitting={submitting}
+					onRecord={handleRecord}
+					onClose={() => {
+						if (submitting) return;
+						setModalStudent(null);
+						setModalFees([]);
+					}}
 				/>
 			)}
 		</div>
 	);
 }
+
 
 // ─── Reusable: FilterSelect ────────────────────────────────────────────────────
 

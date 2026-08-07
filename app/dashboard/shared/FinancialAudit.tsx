@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
 	AlertTriangle,
 	ArrowLeft,
@@ -13,6 +13,7 @@ import {
 	Loader2,
 	Pencil,
 	Receipt,
+	RefreshCw,
 	Search,
 	Shield,
 	ShieldCheck,
@@ -22,6 +23,11 @@ import {
 	X,
 } from 'lucide-react';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
+import {
+	clearClientCacheByPrefix,
+	getClientCache,
+	setClientCache,
+} from '@/utils/clientCache';
 import { useSchoolStore } from '@/store/schoolStore';
 import { getCurrentAcademicYearFromSchoolProfile } from '@/utils/academicYearAccess';
 import { buildSchoolAcademicYearRange } from '@/utils/academicYearOptions';
@@ -776,10 +782,31 @@ export default function FinancialAudit() {
 	} | null>(null);
 	const [verifying, setVerifying] = useState(false);
 
+	/**
+	 * Bumped by the refresh button. A change forces the next fetch past the
+	 * cache; `consumedRefresh` then marks it spent, so re-renders triggered by
+	 * the fetch itself do not keep bypassing the cache forever.
+	 */
+	const [refreshToken, setRefreshToken] = useState(0);
+	const consumedRefresh = useRef(0);
+	const [refreshing, setRefreshing] = useState(false);
+	/** False until the default year has been applied, so it only happens once. */
+	const yearInitialized = useRef(false);
+
 	const academicYearOptions = useMemo(
 		() => (schoolProfile ? buildSchoolAcademicYearRange(schoolProfile) : []),
 		[schoolProfile],
 	);
+
+	// Land on the current year rather than "All years": the whole history is a
+	// slow, rarely-wanted query, and the year in progress is what an auditor
+	// almost always means. Applied once, so a later switch to "All years" sticks.
+	useEffect(() => {
+		if (yearInitialized.current || !schoolProfile) return;
+		const current = getCurrentAcademicYearFromSchoolProfile(schoolProfile) || '';
+		yearInitialized.current = true;
+		if (current) setAcademicYear(current);
+	}, [schoolProfile]);
 
 	const students = useMemo(() => {
 		const currentYear = schoolProfile
@@ -892,6 +919,8 @@ export default function FinancialAudit() {
 		setCursors([null]);
 	}, [filterKey]);
 
+	const auditCachePrefix = `audit:${academicYear || 'all'}:`;
+
 	const buildQuery = useCallback(
 		(before?: string | null) => {
 			const params = new URLSearchParams();
@@ -926,11 +955,34 @@ export default function FinancialAudit() {
 	const pageCursor = cursors[pageIndex] ?? null;
 	useEffect(() => {
 		let cancelled = false;
+		const query = buildQuery(pageCursor);
+		// Scoped by year so the refresh button can drop one year's pages without
+		// discarding every other year the reader has already paged through.
+		const cacheKey = `${auditCachePrefix}${query}`;
+		const forceNetwork = refreshToken !== consumedRefresh.current;
+
+		if (!forceNetwork) {
+			const cached = getClientCache<{
+				events: AuditEvent[];
+				nextCursor: string | null;
+				total: number;
+			}>(cacheKey);
+			if (cached) {
+				setEvents(cached.events);
+				setCursor(cached.nextCursor);
+				setTotal(cached.total);
+				setLoading(false);
+				setError(null);
+				return;
+			}
+		}
+
 		const timer = setTimeout(async () => {
+			consumedRefresh.current = refreshToken;
 			setLoading(true);
 			setError(null);
 			try {
-				const res = await fetch(`/api/audit?${buildQuery(pageCursor)}`);
+				const res = await fetch(`/api/audit?${query}`);
 				const json = await res.json();
 				if (cancelled) return;
 				if (!json.success) {
@@ -941,17 +993,32 @@ export default function FinancialAudit() {
 				setEvents(json.data.events);
 				setCursor(json.data.nextCursor);
 				setTotal(json.data.total);
+				setClientCache(cacheKey, {
+					events: json.data.events,
+					nextCursor: json.data.nextCursor,
+					total: json.data.total,
+				});
 			} catch {
 				if (!cancelled) setError('Network error loading the audit trail.');
 			} finally {
-				if (!cancelled) setLoading(false);
+				if (!cancelled) {
+					setLoading(false);
+					setRefreshing(false);
+				}
 			}
 		}, 250);
 		return () => {
 			cancelled = true;
 			clearTimeout(timer);
 		};
-	}, [buildQuery, pageCursor]);
+	}, [buildQuery, pageCursor, refreshToken, auditCachePrefix]);
+
+	/** Drops every cached page for the selected year and refetches this one. */
+	const refresh = useCallback(() => {
+		clearClientCacheByPrefix(auditCachePrefix);
+		setRefreshing(true);
+		setRefreshToken((token) => token + 1);
+	}, [auditCachePrefix]);
 
 	/**
 	 * Paging walks the cursor rather than an offset: entries are appended
@@ -1065,9 +1132,22 @@ export default function FinancialAudit() {
 
 					<button
 						type="button"
+						onClick={refresh}
+						disabled={refreshing || loading}
+						title={`Refetch ${academicYear || 'all years'}`}
+						className="ml-auto inline-flex h-8 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+					>
+						<RefreshCw
+							className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`}
+						/>
+						Refresh
+					</button>
+
+					<button
+						type="button"
 						onClick={verifyChain}
 						disabled={verifying}
-						className="ml-auto inline-flex h-8 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+						className="inline-flex h-8 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
 					>
 						{verifying ? (
 							<Loader2 className="h-4 w-4 animate-spin" />

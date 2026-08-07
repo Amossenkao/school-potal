@@ -1866,6 +1866,35 @@ function generateSysId(): string {
 	return `SYS${year}${seq}`;
 }
 
+/** Trims and lowercases a supplied username; usernames are case-insensitive. */
+function normalizeUsername(value: unknown): string {
+	return String(value ?? '').trim().toLowerCase();
+}
+
+/** Returns an error message, or '' when the username is acceptable. */
+function validateUsernameFormat(username: string): string {
+	if (username.length < 3) {
+		return 'Username must be at least 3 characters.';
+	}
+	if (username.length > 32) {
+		return 'Username must be 32 characters or fewer.';
+	}
+	if (!/^[a-z0-9._-]+$/.test(username)) {
+		return 'Username may only contain letters, numbers, dots, underscores and hyphens.';
+	}
+	return '';
+}
+
+/**
+ * Case-insensitive exact match. Stored usernames predate normalization and vary
+ * in case ("ADM2025001"), so an equality test would let "adm2025001" through as
+ * a second account that the login lookup could then resolve either way.
+ */
+function usernameQuery(username: string) {
+	const escaped = username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	return { username: { $regex: `^${escaped}$`, $options: 'i' } };
+}
+
 async function generateUniqueUsername(UserModel: any, maxAttempts = 10): Promise<string> {
 	for (let i = 0; i < maxAttempts; i++) {
 		const candidate = generateSysId();
@@ -3187,7 +3216,39 @@ export async function POST(request: NextRequest) {
 				return NextResponse.json({ error: 'Phone number is already in use' }, { status: 409 });
 			}
 
-			const username = await generateUniqueUsername(User.discriminators.system_admin);
+			/**
+			 * System admins are named, not numbered. The panel derives a username
+			 * from the person's name and sends it; only when none is supplied do we
+			 * fall back to a generated SYS id, so existing callers keep working.
+			 *
+			 * Uniqueness is checked against the whole tenant `User` collection
+			 * rather than the system_admin discriminator — usernames are the login
+			 * identifier for every role, so a clash with a student or teacher would
+			 * make the lookup in the login route ambiguous.
+			 */
+			const requestedUsername = normalizeUsername(body.username);
+			let username: string;
+			if (requestedUsername) {
+				const invalid = validateUsernameFormat(requestedUsername);
+				if (invalid) {
+					return NextResponse.json({ error: invalid }, { status: 400 });
+				}
+				const taken = await User.findOne(usernameQuery(requestedUsername))
+					.select('_id')
+					.lean();
+				if (taken) {
+					return NextResponse.json(
+						{
+							error: `The username "${requestedUsername}" is already taken in this school.`,
+							field: 'username',
+						},
+						{ status: 409 },
+					);
+				}
+				username = requestedUsername;
+			} else {
+				username = await generateUniqueUsername(User.discriminators.system_admin);
+			}
 			const defaultPassword = username;
 			const hashedPassword = await bcrypt.hash(defaultPassword, 12);
 			const fullName = middleName ? `${firstName} ${middleName} ${lastName}` : `${firstName} ${lastName}`;
@@ -3696,6 +3757,47 @@ export async function PUT(request: NextRequest) {
 						},
 					},
 				});
+			}
+
+			// Username is editable here, but never through the generic loop below:
+			// it needs normalizing and a uniqueness check first.
+			if (body.username !== undefined) {
+				const nextUsername = normalizeUsername(body.username);
+				const invalid = validateUsernameFormat(nextUsername);
+				if (invalid) {
+					return NextResponse.json({ error: invalid, field: 'username' }, { status: 400 });
+				}
+				if (nextUsername !== normalizeUsername(existing.username)) {
+					const taken = await User.findOne({
+						...usernameQuery(nextUsername),
+						_id: { $ne: targetUserId },
+					})
+						.select('_id')
+						.lean();
+					if (taken) {
+						return NextResponse.json(
+							{
+								error: `The username "${nextUsername}" is already taken in this school.`,
+								field: 'username',
+							},
+							{ status: 409 },
+						);
+					}
+					// The username doubles as the default password on a reset, so a
+					// pending reset must follow the rename rather than strand the
+					// admin on a credential that no longer exists.
+					await User.discriminators.system_admin.findByIdAndUpdate(targetUserId, {
+						$set: {
+							username: nextUsername,
+							...(existing.mustChangePassword
+								? {
+										password: await hashPassword(nextUsername),
+										defaultPassword: nextUsername,
+									}
+								: {}),
+						},
+					});
+				}
 			}
 
 			const allowedFields = ['firstName', 'middleName', 'lastName', 'phone', 'email', 'gender', 'dateOfBirth', 'address', 'isActive'];

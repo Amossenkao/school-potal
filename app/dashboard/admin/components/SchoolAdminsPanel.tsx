@@ -77,6 +77,7 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 	const [passwordSuggestion, setPasswordSuggestion] = useState('');
 
 	const [editForm, setEditForm] = useState({
+		username: '',
 		firstName: '', middleName: '', lastName: '', phone: '', email: '',
 		gender: '', dateOfBirth: '', address: '',
 	});
@@ -131,7 +132,9 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 			const res = await fetch(`/api/users?host=${encodeURIComponent(host)}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(form),
+				// The suggestion was shown but never sent, so the server fell back to
+				// a generated SYS id and the name-based username was cosmetic.
+				body: JSON.stringify({ ...form, username: usernameSuggestion.trim() }),
 			});
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.error || 'Failed to create admin');
@@ -151,6 +154,7 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 	const startEdit = (admin: SystemAdminAccount) => {
 		setEditingId(admin._id);
 		setEditForm({
+			username: admin.username || '',
 			firstName: admin.firstName,
 			middleName: admin.middleName || '',
 			lastName: admin.lastName,
@@ -166,6 +170,14 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 		try {
 			setEditSaving(true);
 			const updatePayload = {
+				// Sent only when actually changed: the server rehashes the default
+				// password to match a renamed admin who still has a pending reset,
+				// so an unchanged value should not travel at all.
+				...(editForm.username.trim() &&
+				editForm.username.trim().toLowerCase() !==
+					(admins.find((a) => a._id === userId)?.username || '').toLowerCase()
+					? { username: editForm.username.trim() }
+					: {}),
 				firstName: editForm.firstName,
 				middleName: editForm.middleName,
 				lastName: editForm.lastName,
@@ -404,7 +416,22 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 									{usernameSuggestion && (
 										<div className="flex items-center gap-2">
 											<span className="text-xs text-blue-600 dark:text-blue-400 shrink-0">Username:</span>
-											<code className="text-xs font-mono font-semibold text-blue-800 dark:text-blue-200 break-all">{usernameSuggestion}</code>
+											{/* Editable: this is the username that gets created, and the
+											    server rejects duplicates — so it has to be correctable
+											    without renaming the person. */}
+											<input
+												type="text"
+												value={usernameSuggestion}
+												onChange={(e) =>
+													setUsernameSuggestion(
+														e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ''),
+													)
+												}
+												aria-label="Username"
+												spellCheck={false}
+												autoCapitalize="none"
+												className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-2 py-1 font-mono text-xs font-semibold text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-blue-700 dark:bg-blue-950/40 dark:text-blue-100"
+											/>
 											<button onClick={() => copyToClipboard(usernameSuggestion, 'suggest-user')} className="text-blue-400 hover:text-blue-600 shrink-0">
 												{copied === 'suggest-user' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
 											</button>
@@ -574,7 +601,29 @@ export default function SchoolAdminsPanel({ host, onClose, onOpenProfile }: Scho
 											<p className="text-sm font-medium text-gray-900 dark:text-white truncate">Editing {admin.fullName}</p>
 										</div>
 										<div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2">
-											<input value={editForm.firstName} onChange={(e) => setEditForm((p) => ({ ...p, firstName: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="First name" />
+											<label className="flex flex-col gap-1 sm:col-span-2">
+											<span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+												Username — used to sign in
+											</span>
+											<input
+												value={editForm.username}
+												onChange={(e) =>
+													setEditForm((p) => ({
+														...p,
+														// Mirrors the server's accepted character set, so an
+														// invalid name cannot be typed in the first place.
+														username: e.target.value
+															.toLowerCase()
+															.replace(/[^a-z0-9._-]/g, ''),
+													}))
+												}
+												spellCheck={false}
+												autoCapitalize="none"
+												className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 font-mono text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white"
+												placeholder="Username"
+											/>
+										</label>
+										<input value={editForm.firstName} onChange={(e) => setEditForm((p) => ({ ...p, firstName: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="First name" />
 											<input value={editForm.lastName} onChange={(e) => setEditForm((p) => ({ ...p, lastName: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="Last name" />
 											<input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" placeholder="Phone" />
 											<input value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white sm:col-span-2" placeholder="Email" />
