@@ -457,14 +457,39 @@ export default function AuthProvider({
 					return;
 				}
 
-				// School-level changes (features toggled, settings, activation) are
-				// already applied to the school store by applyRealtimeEvent above.
-				// Skipping the auth refresh avoids applyBootstrapPayload overwriting
-				// the store with stale API data from getSchoolProfile().
+				// School-level changes (features toggled, settings, activation).
+				//
+				// These used to arrive with the whole profile attached, so the store
+				// had already applied them by this point and there was nothing left
+				// to do. The profile no longer travels on the event — it blew past
+				// Ably's 64KB message limit and got the publish rejected outright —
+				// so the payload now carries routing fields only and the profile has
+				// to be fetched over HTTP.
+				//
+				// The auth refresh is still skipped: applyBootstrapPayload would
+				// overwrite the store with getSchoolProfile()'s cached copy, which is
+				// the staleness the original early return existed to avoid.
 				if (
 					evt.type === 'SCHOOL_UPDATED' ||
 					evt.type === 'SCHOOL_DELETED'
 				) {
+					// Fetched directly rather than through fetchSchool(), which
+					// early-returns whenever a profile is already in the store and
+					// so can never refresh one. `fresh=1` skips the answering
+					// instance's memory cache, which can still hold the pre-update
+					// copy and would undo the very change this event announced.
+					void (async () => {
+						try {
+							const response = await fetch('/api/school?fresh=1', {
+								cache: 'no-store',
+								headers: { 'Cache-Control': 'no-store' },
+							});
+							if (!response.ok) return;
+							useSchoolStore.getState().setSchool(await response.json());
+						} catch (error) {
+							console.warn('[AuthProvider] School refresh failed:', error);
+						}
+					})();
 					return;
 				}
 
