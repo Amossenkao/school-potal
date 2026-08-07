@@ -353,11 +353,18 @@ const applyGradeRequestsChange = (
 	const existing = store.gradeRequestsByAcademicYear[academicYear] ?? [];
 
 	if (change.op === 'delete') {
-		const id = change.documentId || (change.document as any)?.requestId;
-		if (!id) return false;
+		const ids = Array.isArray((change.document as any)?.requestIds)
+			? ((change.document as any).requestIds as any[])
+			: change.documentId
+				? [change.documentId]
+				: (change.document as any)?.requestId
+					? [String((change.document as any).requestId)]
+					: [];
+		const remove = new Set(ids.map((id) => String(id ?? '')));
+		if (remove.size === 0) return false;
 		store.setGradeRequestsForYear(
 			academicYear,
-			existing.filter((request) => requestIdOf(request) !== String(id)),
+			existing.filter((request) => !remove.has(requestIdOf(request))),
 		);
 		return true;
 	}

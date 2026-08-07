@@ -585,13 +585,16 @@ export async function POST(request: NextRequest) {
 		}
 		let requestsSeq = 0;
 		if (createdRequests.length > 0) {
+			const serializedRequests = result.map((request: any) =>
+				typeof request.toObject === 'function' ? request.toObject() : request,
+			);
 			const logged = await appendChangeIdempotent({
 				domain: 'gradeRequests',
 				academicYear: String(academicYear || ''),
 				op: 'create',
 				documentId: batchId,
 				documentType: 'GradeChangeRequest',
-				document: createdRequests,
+				document: serializedRequests,
 				actorId: teacher.id,
 				idempotencyKey,
 			});
@@ -603,6 +606,7 @@ export async function POST(request: NextRequest) {
 				actorId: teacher.id,
 				reason: 'grade-requests-created',
 				seq: requestsSeq,
+				payload: { gradeRequests: serializedRequests },
 				scope: { classIds: [String(classId)] },
 			});
 		}
@@ -656,7 +660,7 @@ export async function PATCH(request: NextRequest) {
 			return NextResponse.json({ message: 'Invalid payload' }, { status: 400 });
 		}
 
-		const updatedRequests = [];
+		const updatedRequests: any[] = [];
 		const teacherNotifications = new Map(); // Group notifications by teacher
 
 		for (const requestId of requestIds) {
@@ -875,6 +879,21 @@ export async function PATCH(request: NextRequest) {
 						actorId: admin.id,
 						reason: 'grade-requests-processed',
 						seq: gradeRequestsSeqByYear.get(academicYear),
+						payload: {
+							gradeRequests: updatedRequests
+								.filter(
+									(request: any) =>
+										String(request?.academicYear || '').trim() ===
+											academicYear ||
+										(academicYear === '' &&
+											!String(request?.academicYear || '').trim()),
+								)
+								.map((request: any) =>
+									typeof request.toObject === 'function'
+										? request.toObject()
+										: request,
+								),
+						},
 						scope: { classIds },
 					}),
 				),
@@ -950,8 +969,8 @@ export async function PUT(request: NextRequest) {
 
 			const results: { requestId: string; success: boolean; message: string }[] =
 				[];
+			const updatedRequests: any[] = [];
 			const classIds = new Set<string>();
-			let academicYear = '';
 
 			for (const update of updates) {
 				const { requestId, requestedGrade, reasonForChange } = update;
@@ -1027,7 +1046,7 @@ export async function PUT(request: NextRequest) {
 					continue;
 				}
 
-				await GradeChangeRequest.findByIdAndUpdate(
+				const updatedRequest = await GradeChangeRequest.findByIdAndUpdate(
 					requestId,
 					{
 						$set: {
@@ -1036,52 +1055,71 @@ export async function PUT(request: NextRequest) {
 							lastUpdated: new Date(),
 						},
 					},
-					{ runValidators: false },
+					{ new: true, runValidators: false },
 				);
 
 				if (requestToUpdate.classId) {
 					classIds.add(String(requestToUpdate.classId));
 				}
-				if (!academicYear && requestToUpdate.academicYear) {
-					academicYear = String(requestToUpdate.academicYear);
+				if (updatedRequest) {
+					updatedRequests.push(updatedRequest);
 				}
 				results.push({ requestId, success: true, message: 'Updated' });
 			}
 
-			if (classIds.size > 0) {
-				const successfulRequestIds = results
-					.filter((r) => r.success)
-					.map((r) => r.requestId);
-				const updateSeq =
-					successfulRequestIds.length > 0
-						? await appendChange({
-								domain: 'gradeRequests',
-								academicYear:
-									academicYear ||
-									getCurrentAcademicYearFromSchoolProfile(schoolProfile),
-								op: 'update',
-								documentId: `${successfulRequestIds[0]}:${successfulRequestIds.length}`,
-								documentType: 'GradeChangeRequest',
-								document: { requestIds: successfulRequestIds },
-								actorId: teacher.id,
-							})
-						: 0;
-				if (successfulRequestIds.length > 0 && updateSeq > 0) {
-					await Promise.allSettled(
-						successfulRequestIds.map((requestId) =>
-							stampRecordSeq(GradeChangeRequest, { _id: requestId }, updateSeq),
-						),
+			if (updatedRequests.length > 0) {
+				const requestsByYear = new Map<string, any[]>();
+				const seqByYear = new Map<string, number>();
+				for (const request of updatedRequests) {
+					const reqYear = String(request.academicYear || '').trim();
+					if (!reqYear) continue;
+					const list = requestsByYear.get(reqYear) || [];
+					list.push(request);
+					requestsByYear.set(reqYear, list);
+					const logged = await appendChange({
+						domain: 'gradeRequests',
+						academicYear: reqYear,
+						op: 'update',
+						documentId: String(request._id),
+						documentType: 'GradeChangeRequest',
+						document:
+							typeof request.toObject === 'function'
+								? request.toObject()
+								: request,
+						actorId: teacher.id,
+					});
+					await stampRecordSeq(
+						GradeChangeRequest,
+						{ _id: request._id },
+						logged,
+					);
+					seqByYear.set(
+						reqYear,
+						Math.max(seqByYear.get(reqYear) ?? 0, logged),
 					);
 				}
-				await publishSyncEventSafe({
-					tenantId,
-					domain: 'gradeRequests',
-					academicYear: academicYear || getCurrentAcademicYearFromSchoolProfile(schoolProfile),
-					actorId: teacher.id,
-					reason: 'grade-request-updated',
-					seq: updateSeq,
-					scope: { classIds: Array.from(classIds) },
-				});
+				const years = Array.from(requestsByYear.keys());
+				await Promise.all(
+					(years.length > 0 ? years : ['']).map((reqYear) => {
+						const requestsForYear = requestsByYear.get(reqYear) || [];
+						return publishSyncEventSafe({
+							tenantId,
+							domain: 'gradeRequests',
+							academicYear: reqYear || null,
+							actorId: teacher.id,
+							reason: 'grade-request-updated',
+							seq: seqByYear.get(reqYear) ?? 0,
+							payload: {
+								gradeRequests: requestsForYear.map((request: any) =>
+									typeof request.toObject === 'function'
+										? request.toObject()
+										: request,
+								),
+							},
+							scope: { classIds: Array.from(classIds) },
+						});
+					}),
+				);
 			}
 
 			const allSuccess = results.every((r) => r.success);
@@ -1201,6 +1239,13 @@ export async function PUT(request: NextRequest) {
 			actorId: teacher.id,
 			reason: 'grade-request-updated',
 			seq: updateSeq,
+			payload: {
+				gradeRequests: [
+					typeof updatedRequest.toObject === 'function'
+						? updatedRequest.toObject()
+						: updatedRequest,
+				],
+			},
 			scope: {
 				classIds: [String(updatedRequest.classId || '')].filter(Boolean),
 			},
@@ -1338,6 +1383,10 @@ export async function DELETE(request: NextRequest) {
 					actorId: teacher.id,
 					reason: 'grade-request-withdrawn',
 					seq: deleteSeq,
+					payload: {
+						gradeRequests: [],
+						deletedRequestIds: successfulRequestIds,
+					},
 					scope: { classIds: Array.from(classIds) },
 				});
 			}
@@ -1422,6 +1471,10 @@ export async function DELETE(request: NextRequest) {
 			actorId: teacher.id,
 			reason: 'grade-request-withdrawn',
 			seq: deleteSeq,
+			payload: {
+				gradeRequests: [],
+				deletedRequestIds: [requestId],
+			},
 			scope: {
 				classIds: [
 					String(deletedRequest?.classId || requestToDelete.classId || ''),

@@ -48,7 +48,8 @@ const DOMAIN_DATA_PRESENT: Record<
 	teacherAttendance: (p) => Array.isArray(p.teacherAttendance),
 	calendar: (p) => Array.isArray(p.calendarEvents),
 	schedules: (p) => !!p.schedules && typeof p.schedules === 'object',
-	gradeRequests: (p) => Array.isArray(p.gradeRequests),
+	gradeRequests: (p) =>
+		Array.isArray(p.gradeRequests) || Array.isArray(p.deletedRequestIds),
 	users: (p) => Array.isArray(p.users),
 	payments: (p) => Array.isArray(p.payments),
 };
@@ -155,6 +156,11 @@ type SchoolStore = {
 		payload: SchedulesPayload,
 	) => void;
 	setGradeRequestsForYear: (academicYear: string, requests: any[]) => void;
+	mergeGradeRequestsForYear: (
+		academicYear: string,
+		requests: any[],
+		deletedRequestIds?: any[],
+	) => void;
 	setAttendanceForYear: (academicYear: string, records: any[]) => void;
 	mergeAttendanceForYear: (academicYear: string, records: any[]) => void;
 	setTeacherAttendanceForYear: (academicYear: string, records: any[]) => void;
@@ -921,6 +927,45 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		});
 	},
 
+	mergeGradeRequestsForYear: (academicYear, requests, deletedRequestIds) => {
+		if (!academicYear) return;
+		set((state) => {
+			const requestIdOf = (request: any) => String(request?._id ?? '');
+			const existing =
+				resolveAcademicYearRecord(
+					state.gradeRequestsByAcademicYear,
+					academicYear,
+				) || [];
+			const merged = new Map<string, any>();
+			existing.forEach((request) => {
+				const key = requestIdOf(request);
+				if (key) merged.set(key, request);
+			});
+			(Array.isArray(requests) ? requests : []).forEach((request) => {
+				const key = requestIdOf(request);
+				if (key) merged.set(key, request);
+			});
+			(Array.isArray(deletedRequestIds) ? deletedRequestIds : []).forEach(
+				(id) => {
+					merged.delete(String(id ?? ''));
+				},
+			);
+			const value = Array.from(merged.values());
+			const gradeRequestsByAcademicYear = assignAcademicYearRecord(
+				state.gradeRequestsByAcademicYear,
+				academicYear,
+				value,
+			);
+			persistDomainSnapshot(
+				'gradeRequests',
+				getAcademicYearPrimaryKey(academicYear),
+				value,
+			);
+			persistMeta(state);
+			return { gradeRequestsByAcademicYear };
+		});
+	},
+
 	setAttendanceForYear: (academicYear, records) => {
 		if (!academicYear) return;
 		set((state) => {
@@ -1598,10 +1643,15 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		) {
 			get().setSchedulesForYear(academicYear, payload.schedules as any);
 		}
-		if (academicYear && Array.isArray(payload.gradeRequests)) {
-			get().setGradeRequestsForYear(
+		if (
+			academicYear &&
+			(Array.isArray(payload.gradeRequests) ||
+				Array.isArray(payload.deletedRequestIds))
+		) {
+			get().mergeGradeRequestsForYear(
 				academicYear,
 				payload.gradeRequests as any[],
+				payload.deletedRequestIds as any[],
 			);
 		}
 		if (academicYear && Array.isArray(payload.attendance)) {
