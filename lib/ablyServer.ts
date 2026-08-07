@@ -60,7 +60,22 @@ export const publishRealtimeEvent = async (params: {
 	seq?: number;
 }) => {
 	const tenantId = resolveTenantSyncKey({ tenantId: params.tenantId });
-	if (!tenantId) return;
+	if (!tenantId) {
+		// Returning quietly here means an event simply never happens, with
+		// nothing in the logs to say so — the caller could not resolve a tenant
+		// key and every subscriber waits forever for a message that was never
+		// sent. Say so.
+		console.warn(
+			'[realtime-sync] Dropped event: caller supplied no tenant key.',
+			{ type: params.type, domain: params.domain, reason: params.reason },
+		);
+		syncDebugWarn('publish', 'Dropped event: no tenant key.', {
+			type: params.type,
+			domain: params.domain,
+			reason: params.reason,
+		});
+		return;
+	}
 	const event = buildRealtimeEvent({
 		type: params.type,
 		domain: params.domain,

@@ -21,7 +21,7 @@ import {
 	publishPublicSyncEventSafe,
 	publishSyncEventsForAcademicYearsSafe,
 	publishSyncEventSafe,
-	resolveTenantSyncKey,
+	resolveCanonicalTenantKey,
 } from '@/lib/realtimeSync';
 import { authorizeUser } from '@/proxy';
 import { auditActorFrom, recordAuditEvent } from '@/utils/auditTrail';
@@ -613,9 +613,8 @@ export async function PUT(request: NextRequest) {
 					new Set(
 						[previousSchool, school]
 							.map((profile) =>
-								resolveTenantSyncKey({
+								resolveCanonicalTenantKey({
 									schoolProfile: profile,
-									host: cleanHost,
 								}),
 							)
 							.filter(Boolean),
@@ -661,11 +660,9 @@ export async function PUT(request: NextRequest) {
 			return NextResponse.json({ success: false, message: 'School profile not found.' }, { status: 404 });
 		}
 
-		const tenantId = resolveTenantSyncKey({
-			schoolProfile: currentSchool,
-			tenantId: currentUser.tenantId,
-			host: cleanHost,
-		});
+		// Profile-only. currentUser.tenantId and cleanHost both carry the host,
+		// and a host-named channel is one that no subscriber ever listens on.
+		const tenantId = resolveCanonicalTenantKey({ schoolProfile: currentSchool });
 
 		const oldSettings = currentSchool?.userConfig;
 		const {
@@ -991,9 +988,8 @@ export async function PATCH(request: NextRequest) {
 			new Set(
 				[previousSchool, school]
 					.map((profile) =>
-						resolveTenantSyncKey({
+						resolveCanonicalTenantKey({
 							schoolProfile: profile,
-							host: cleanHost,
 						}),
 					)
 					.filter(Boolean),
@@ -1063,10 +1059,7 @@ export async function DELETE(request: NextRequest) {
 		clearSchoolProfileMemoryCache(cleanHost);
 		await redis.del(`school_profile:${cleanHost}`);
 
-		const tenantId = resolveTenantSyncKey({
-			schoolProfile: result,
-			host: cleanHost,
-		});
+		const tenantId = resolveCanonicalTenantKey({ schoolProfile: result });
 
 		await publishSyncEventSafe({
 			tenantId,
