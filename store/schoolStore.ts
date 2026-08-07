@@ -580,90 +580,74 @@ export const useSchoolStore = create<SchoolStore>((set, get) => ({
 		const rawCursor =
 			options.gradesCursor ?? localStorage.getItem(CURSOR_KEY) ?? null;
 
+		// The grade sync endpoint is cursor-only (keyset pagination on
+		// {lastUpdated,_id}) — the legacy parallel `skip`-chunk strategy was
+		// removed server-side, so every skip-based chunk used to return the
+		// same first page. Both modes now walk the same keyset cursor until
+		// `nextCursor` runs out; `background-parallel` additionally requires
+		// a watermark cursor to exist (cold fill is `refresh-sequential`).
+		let currentCursor: string | null = rawCursor;
+		if (currentCursor) {
+			try {
+				const parsedCursor = JSON.parse(currentCursor) as {
+					_id?: unknown;
+				} | null;
+				// Page-owned bootstrap paths seed `{ _id: '' }` as an empty
+				// anchor meaning "resume from the very beginning". The server's
+				// keyset cursor needs a real ObjectId, so an empty anchor falls
+				// back to fetching from page 1 (merges dedupe by grade key).
+				if (!parsedCursor || !parsedCursor._id) currentCursor = null;
+			} catch {
+				currentCursor = null;
+				if (mode === 'background-parallel') {
+					localStorage.removeItem(CURSOR_KEY);
+					return { status: 'error', fetchedCount: 0 };
+				}
+			}
+		}
+
+		if (mode === 'background-parallel' && !rawCursor) {
+			return { status: 'no-op', fetchedCount: 0 };
+		}
+
 		gradeSyncInProgress.add(academicYear);
 		let totalFetched = 0;
 
 		try {
-			if (mode === 'background-parallel') {
-				if (!rawCursor) return { status: 'no-op', fetchedCount: 0 };
+			let hasMore = true;
+			const CHUNK_LIMIT = 10_000;
 
-				let parsedCursor: GradesCursor | null = null;
-				try {
-					parsedCursor = JSON.parse(rawCursor);
-				} catch {
-					localStorage.removeItem(CURSOR_KEY);
-					return { status: 'error', fetchedCount: 0 };
+			while (hasMore) {
+				if (!networkStore.isOnline) {
+					if (currentCursor) localStorage.setItem(CURSOR_KEY, currentCursor);
+					break;
 				}
 
-				const { totalCount, fetchedCount, chunkSize = 10_000 } = parsedCursor;
-				const remaining = totalCount - fetchedCount;
+				const params = new URLSearchParams({
+					academicYear,
+					limit: String(CHUNK_LIMIT),
+				});
+				if (currentCursor) params.append('cursor', currentCursor);
 
-				if (remaining > 0) {
-					const chunkCount = Math.ceil(remaining / chunkSize);
-					console.log(`[Sync] Parallel background fetch: ${chunkCount} chunks`);
-
-					const fetchPromises = Array.from({ length: chunkCount }, (_, i) => {
-						const skip = fetchedCount + i * chunkSize;
-						const params = new URLSearchParams({
-							academicYear,
-							limit: String(chunkSize),
-							skip: String(skip),
-						});
-						return fetch(`/api/sync/grades?${params.toString()}`).then(
-							async (res) => {
-								if (!res.ok) throw new Error(`Server error: ${res.status}`);
-								const result = await res.json();
-								const chunk = Array.isArray(result.data) ? result.data : [];
-
-								if (chunk.length > 0) {
-									get().mergeGradesForYear(academicYear, chunk);
-									totalFetched += chunk.length;
-								}
-								return chunk;
-							},
-						);
-					});
-
-					await Promise.allSettled(fetchPromises);
+				const res = await fetch(`/api/sync/grades?${params.toString()}`);
+				if (!res.ok) {
+					console.error(`[Sync] Server error: ${res.status}`);
+					break;
 				}
-			} else if (mode === 'refresh-sequential') {
-				console.log(`[Sync] Sequential refresh for ${academicYear}`);
-				let currentCursor = rawCursor;
-				let hasMore = true;
-				const REFRESH_CHUNK_LIMIT = 10_000;
 
-				while (hasMore) {
-					if (!networkStore.isOnline) {
-						localStorage.setItem(CURSOR_KEY, currentCursor || '');
-						break;
-					}
+				const result = await res.json();
+				const chunk = Array.isArray(result.data) ? result.data : [];
 
-					const params = new URLSearchParams({
-						academicYear,
-						limit: String(REFRESH_CHUNK_LIMIT),
-					});
-					if (currentCursor) params.append('cursor', currentCursor);
+				if (chunk.length > 0) {
+					get().mergeGradesForYear(academicYear, chunk);
+					totalFetched += chunk.length;
+				}
 
-					const res = await fetch(`/api/sync/grades?${params.toString()}`);
-					if (!res.ok) {
-						console.error(`[Sync] Server error: ${res.status}`);
-						break;
-					}
-
-					const result = await res.json();
-					const chunk = Array.isArray(result.data) ? result.data : [];
-
-					if (chunk.length > 0) {
-						get().mergeGradesForYear(academicYear, chunk);
-						totalFetched += chunk.length;
-					}
-
-					if (result.nextCursor) {
-						currentCursor = result.nextCursor;
-						localStorage.setItem(CURSOR_KEY, currentCursor);
-					} else {
-						hasMore = false;
-					}
+				if (result.nextCursor) {
+					currentCursor = result.nextCursor;
+					localStorage.setItem(CURSOR_KEY, currentCursor);
+				} else {
+					hasMore = false;
 				}
 			}
 
