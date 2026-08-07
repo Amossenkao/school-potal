@@ -278,6 +278,34 @@ const flattenSchoolProfile = (school: any): any => {
 	return flat;
 };
 
+/**
+ * What a school event carries instead of the school.
+ *
+ * Ably caps a message at 64KB. These profiles run past that on their own —
+ * flattenSchoolProfile emits every field twice, once nested and once hoisted,
+ * and a full fee schedule pushes the result to ~80KB — so publishing the
+ * profile got the whole event rejected with code 40009 and no event was
+ * delivered at all. A failed publish is invisible from the browser: it looks
+ * exactly like realtime being down.
+ *
+ * Only the fields a subscriber needs to decide "is this mine, and did it
+ * change?" travel. Every client already refetches the profile on receipt
+ * (scheduleRefresh in inactive.tsx / login, handleRealtimeEvent in the admin
+ * panels), so the full document arrives over HTTP where it has no size limit.
+ * Deliberately no `school` key: a partial one here would let the store
+ * overwrite a complete profile with a stub.
+ */
+function schoolEventPayload(school: any): Record<string, unknown> {
+	return {
+		host: school?.system?.host,
+		dbName: school?.system?.dbName,
+		isActive: school?.system?.isActive,
+		name: school?.identity?.name,
+		currentAcademicYear: school?.identity?.currentAcademicYear,
+		updatedAt: school?.updatedAt,
+	};
+}
+
 function unauthorized() {
 	return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 }
@@ -621,14 +649,15 @@ export async function PUT(request: NextRequest) {
 					),
 				);
 
-				const flatSchool = flattenSchoolProfile(school);
 				await Promise.all(
 					tenantIds.map((tenantId) =>
 						publishSyncEventSafe({
 							tenantId,
 							domain: 'school',
 							reason: 'school-updated',
-							payload: { school: flatSchool },
+							// See schoolEventPayload: the profile itself is too big to
+						// send over Ably, so only the routing fields travel.
+						payload: schoolEventPayload(school),
 						}),
 					),
 				);
@@ -1025,7 +1054,7 @@ export async function PATCH(request: NextRequest) {
 					tenantId,
 					domain: 'school',
 					reason: body.isActive !== undefined ? 'school-toggled-active' : 'school-updated',
-					payload: { school: flattenSchoolProfile(school) },
+				payload: schoolEventPayload(school),
 				}),
 			),
 		);

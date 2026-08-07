@@ -97,6 +97,12 @@ export const publishRealtimeEvent = async (params: {
 			await channel.publish(event.type, event);
 		}),
 	);
+	// Ungated on purpose. The gated variant below only speaks when
+	// SYNC_DEBUG_LOGS is set, which meant a successful publish left no trace at
+	// all — indistinguishable in the logs from a publish that never ran. This
+	// one line is what tells you the event actually left the server, and on
+	// which channels.
+	console.log('[realtime-sync] Published', event.type, 'to', channels.join(', '));
 	syncDebugLog('publish', 'Published Ably realtime event.', {
 		type: event.type,
 		tenantId: event.tenantId,
