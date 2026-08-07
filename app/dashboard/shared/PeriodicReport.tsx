@@ -1724,6 +1724,7 @@ export default function PeriodicReportWrapper() {
 			gradeLevelField: 'gradeLevel',
 			nonStudentViewTitle: 'Filter Grade Sheets',
 			studentViewTitle: 'My Grade Sheet',
+			passStudentsToSubmit: true,
 			extraFilter: {
 				field: 'period',
 				label: 'Period',
