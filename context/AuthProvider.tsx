@@ -261,7 +261,6 @@ export default function AuthProvider({
 		if (hasSchool && !currentSchool) return '/';
 		if (!user?.isActive) return '/login';
 		if (
-			user.role !== 'system_admin' &&
 			user.role !== 'superadmin' &&
 			user.mustChangePassword
 		) {

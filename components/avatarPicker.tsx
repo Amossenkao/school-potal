@@ -1,6 +1,16 @@
 'use client';
-import { RotateCcw, Pencil, Link, Sparkles, AlertCircle } from 'lucide-react';
-import { useState, useCallback, useEffect } from 'react';
+import {
+	RotateCcw,
+	Pencil,
+	Link,
+	Sparkles,
+	AlertCircle,
+	Upload,
+	ImagePlus,
+	Loader2,
+	X,
+} from 'lucide-react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 // --- AVATAR GENERATION CONFIGURATION ---
 const config = {
@@ -208,7 +218,69 @@ function getAvatarUrl(gender = 'other') {
 	return `https://api.dicebear.com/9.x/open-peeps/svg?seed=${seed}&skinColor=${skinColor}&face=${face}&head=${head}&clothingColor=${clothingColor}&backgroundColor=${backgroundColor}`;
 }
 
-type Tab = 'generated' | 'custom';
+// --- UPLOAD CONFIGURATION ---
+const OUTPUT_SIZE = 512;
+const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+const MAX_INPUT_BYTES = 10 * 1024 * 1024;
+
+function formatBytes(bytes: number) {
+	if (bytes < 1024) return `${bytes} B`;
+	if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+let supportsWebpCache: boolean | null = null;
+function supportsWebp() {
+	if (supportsWebpCache !== null) return supportsWebpCache;
+	const canvas = document.createElement('canvas');
+	canvas.width = 1;
+	canvas.height = 1;
+	supportsWebpCache = canvas
+		.toDataURL('image/webp')
+		.startsWith('data:image/webp');
+	return supportsWebpCache;
+}
+
+/**
+ * Center-crops the image to a square and downscales it to 512x512 before upload, so
+ * the request body stays around 50-150 KB regardless of the original photo's size.
+ */
+async function processImageFile(
+	file: File,
+): Promise<{ blob: Blob; fileName: string }> {
+	const bitmap = await createImageBitmap(file);
+
+	try {
+		const side = Math.min(bitmap.width, bitmap.height);
+		const sx = (bitmap.width - side) / 2;
+		const sy = (bitmap.height - side) / 2;
+
+		const canvas = document.createElement('canvas');
+		canvas.width = OUTPUT_SIZE;
+		canvas.height = OUTPUT_SIZE;
+
+		const ctx = canvas.getContext('2d');
+		if (!ctx) throw new Error('Could not process this image.');
+
+		ctx.imageSmoothingEnabled = true;
+		ctx.imageSmoothingQuality = 'high';
+		ctx.drawImage(bitmap, sx, sy, side, side, 0, 0, OUTPUT_SIZE, OUTPUT_SIZE);
+
+		const useWebp = supportsWebp();
+		const mimeType = useWebp ? 'image/webp' : 'image/jpeg';
+
+		const blob = await new Promise<Blob | null>((resolve) =>
+			canvas.toBlob(resolve, mimeType, 0.85),
+		);
+		if (!blob) throw new Error('Could not process this image.');
+
+		return { blob, fileName: useWebp ? 'avatar.webp' : 'avatar.jpg' };
+	} finally {
+		bitmap.close();
+	}
+}
+
+type Tab = 'generated' | 'upload' | 'custom';
 
 // --- AVATAR PICKER MODAL COMPONENT ---
 export function AvatarPickerModal({
@@ -234,6 +306,112 @@ export function AvatarPickerModal({
 	const [previewError, setPreviewError] = useState(false);
 	const [previewLoading, setPreviewLoading] = useState(false);
 
+	// Upload tab state
+	const fileInputRef = useRef<HTMLInputElement>(null);
+	const uploadPreviewRef = useRef<string>('');
+	const [processed, setProcessed] = useState<{
+		blob: Blob;
+		fileName: string;
+	} | null>(null);
+	const [uploadPreview, setUploadPreview] = useState('');
+	const [isProcessing, setIsProcessing] = useState(false);
+	const [isUploading, setIsUploading] = useState(false);
+	const [uploadError, setUploadError] = useState('');
+	const [isDragging, setIsDragging] = useState(false);
+
+	const clearUpload = useCallback(() => {
+		if (uploadPreviewRef.current) {
+			URL.revokeObjectURL(uploadPreviewRef.current);
+			uploadPreviewRef.current = '';
+		}
+		setProcessed(null);
+		setUploadPreview('');
+		setIsProcessing(false);
+		setIsUploading(false);
+		setUploadError('');
+		setIsDragging(false);
+		if (fileInputRef.current) fileInputRef.current.value = '';
+	}, []);
+
+	// Release the last object URL when the modal unmounts.
+	useEffect(
+		() => () => {
+			if (uploadPreviewRef.current) {
+				URL.revokeObjectURL(uploadPreviewRef.current);
+				uploadPreviewRef.current = '';
+			}
+		},
+		[],
+	);
+
+	const handleFile = useCallback(
+		async (file: File | undefined | null) => {
+			if (!file) return;
+
+			setUploadError('');
+
+			if (!ACCEPTED_TYPES.includes(file.type)) {
+				setUploadError('Please choose a JPEG, PNG, WebP or GIF image.');
+				return;
+			}
+			if (file.size > MAX_INPUT_BYTES) {
+				setUploadError(
+					`That image is ${formatBytes(file.size)}. Please choose one under 10 MB.`,
+				);
+				return;
+			}
+
+			setIsProcessing(true);
+			try {
+				const result = await processImageFile(file);
+				if (uploadPreviewRef.current) {
+					URL.revokeObjectURL(uploadPreviewRef.current);
+				}
+				const objectUrl = URL.createObjectURL(result.blob);
+				uploadPreviewRef.current = objectUrl;
+				setProcessed(result);
+				setUploadPreview(objectUrl);
+			} catch (error: any) {
+				setUploadError(error?.message || 'Could not read that image.');
+				setProcessed(null);
+				setUploadPreview('');
+			} finally {
+				setIsProcessing(false);
+			}
+		},
+		[],
+	);
+
+	const handleUploadConfirm = async () => {
+		if (!processed) return;
+
+		setIsUploading(true);
+		setUploadError('');
+
+		try {
+			const formData = new FormData();
+			formData.append('file', processed.blob, processed.fileName);
+			if (currentAvatar) formData.append('previousUrl', currentAvatar);
+
+			const response = await fetch('/api/upload/avatar', {
+				method: 'POST',
+				body: formData,
+			});
+			const result = await response.json();
+
+			if (!response.ok || !result?.data?.url) {
+				throw new Error(result?.message || 'Upload failed. Please try again.');
+			}
+
+			onSelect(result.data.url);
+			onClose();
+		} catch (error: any) {
+			setUploadError(error?.message || 'Upload failed. Please try again.');
+		} finally {
+			setIsUploading(false);
+		}
+	};
+
 	const generateAvatars = useCallback(async () => {
 		setIsLoading(true);
 		await new Promise((resolve) => setTimeout(resolve, 300));
@@ -248,8 +426,9 @@ export function AvatarPickerModal({
 			setCustomUrl('');
 			setPreviewUrl('');
 			setPreviewError(false);
+			clearUpload();
 		}
-	}, [open, generateAvatars]);
+	}, [open, generateAvatars, clearUpload]);
 
 	// Debounce custom URL preview
 	useEffect(() => {
@@ -287,11 +466,11 @@ export function AvatarPickerModal({
 
 				{/* Tabs */}
 				<div className="px-6 pb-4">
-					<div className="grid grid-cols-2 rounded-lg bg-muted p-1 text-sm font-medium">
+					<div className="grid grid-cols-3 rounded-lg bg-muted p-1 text-sm font-medium">
 						<button
 							type="button"
 							onClick={() => setTab('generated')}
-							className={`flex items-center justify-center gap-2 rounded-md py-2 transition-colors ${
+							className={`flex items-center justify-center gap-1.5 rounded-md py-2 transition-colors ${
 								tab === 'generated'
 									? 'bg-card text-foreground shadow-sm'
 									: 'text-muted-foreground hover:text-foreground'
@@ -302,15 +481,27 @@ export function AvatarPickerModal({
 						</button>
 						<button
 							type="button"
+							onClick={() => setTab('upload')}
+							className={`flex items-center justify-center gap-1.5 rounded-md py-2 transition-colors ${
+								tab === 'upload'
+									? 'bg-card text-foreground shadow-sm'
+									: 'text-muted-foreground hover:text-foreground'
+							}`}
+						>
+							<Upload size={14} />
+							Upload
+						</button>
+						<button
+							type="button"
 							onClick={() => setTab('custom')}
-							className={`flex items-center justify-center gap-2 rounded-md py-2 transition-colors ${
+							className={`flex items-center justify-center gap-1.5 rounded-md py-2 transition-colors ${
 								tab === 'custom'
 									? 'bg-card text-foreground shadow-sm'
 									: 'text-muted-foreground hover:text-foreground'
 							}`}
 						>
 							<Link size={14} />
-							Custom URL
+							URL
 						</button>
 					</div>
 				</div>
@@ -364,6 +555,118 @@ export function AvatarPickerModal({
 											</button>
 										))}
 							</div>
+						</>
+					) : tab === 'upload' ? (
+						<>
+							{/* Drop zone */}
+							<input
+								ref={fileInputRef}
+								type="file"
+								accept={ACCEPTED_TYPES.join(',')}
+								className="hidden"
+								onChange={(e) => {
+									const file = e.target.files?.[0];
+									// Reset so re-picking the same file still fires onChange.
+									e.target.value = '';
+									handleFile(file);
+								}}
+							/>
+
+							{!uploadPreview ? (
+								<button
+									type="button"
+									onClick={() => fileInputRef.current?.click()}
+									onDragOver={(e) => {
+										e.preventDefault();
+										setIsDragging(true);
+									}}
+									onDragLeave={() => setIsDragging(false)}
+									onDrop={(e) => {
+										e.preventDefault();
+										setIsDragging(false);
+										handleFile(e.dataTransfer.files?.[0]);
+									}}
+									disabled={isProcessing}
+									className={`flex flex-col items-center justify-center gap-2 w-full py-10 rounded-xl border-2 border-dashed transition-colors ${
+										isDragging
+											? 'border-primary bg-primary/5'
+											: 'border-border bg-muted/40 hover:bg-muted/70'
+									} disabled:cursor-wait`}
+								>
+									{isProcessing ? (
+										<>
+											<Loader2
+												size={24}
+												className="text-muted-foreground animate-spin"
+											/>
+											<span className="text-sm text-muted-foreground">
+												Processing…
+											</span>
+										</>
+									) : (
+										<>
+											<ImagePlus size={24} className="text-muted-foreground" />
+											<span className="text-sm font-medium text-foreground">
+												Drop a photo, or click to browse
+											</span>
+											<span className="text-xs text-muted-foreground">
+												JPEG, PNG, WebP or GIF · up to 10 MB
+											</span>
+										</>
+									)}
+								</button>
+							) : (
+								<div className="flex flex-col items-center gap-3 py-2">
+									<div className="relative">
+										<img
+											src={uploadPreview}
+											alt="Upload preview"
+											className="w-24 h-24 rounded-full object-cover border-4 border-border shadow-md"
+										/>
+										<button
+											type="button"
+											onClick={clearUpload}
+											disabled={isUploading}
+											className="absolute -top-1 -right-1 rounded-full bg-muted text-foreground border border-border p-1 hover:bg-muted/80 transition-colors disabled:opacity-40"
+											aria-label="Remove photo"
+										>
+											<X size={12} />
+										</button>
+									</div>
+									<p className="text-xs text-muted-foreground text-center">
+										Saved as {OUTPUT_SIZE}×{OUTPUT_SIZE} ·{' '}
+										{formatBytes(processed?.blob.size ?? 0)}
+									</p>
+									<button
+										type="button"
+										onClick={() => fileInputRef.current?.click()}
+										disabled={isUploading}
+										className="text-xs text-primary hover:underline disabled:opacity-40"
+									>
+										Choose a different photo
+									</button>
+								</div>
+							)}
+
+							{uploadError && (
+								<div className="flex items-start gap-2 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-3 py-2">
+									<AlertCircle
+										size={14}
+										className="text-red-500 mt-0.5 shrink-0"
+									/>
+									<span className="text-xs text-red-500">{uploadError}</span>
+								</div>
+							)}
+
+							<button
+								type="button"
+								onClick={handleUploadConfirm}
+								disabled={!processed || isProcessing || isUploading}
+								className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+							>
+								{isUploading && <Loader2 size={14} className="animate-spin" />}
+								{isUploading ? 'Uploading…' : 'Use This Photo'}
+							</button>
 						</>
 					) : (
 						<>
