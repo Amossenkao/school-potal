@@ -72,14 +72,13 @@ export function useSuperadminRealtime(options: {
 		// Always subscribe to the superadmin broadcast channel
 		subscribeToChannel(SUPERADMIN_BROADCAST_CHANNEL);
 
-		// Subscribe to individual school channels.
-		// resolvePublishChannels publishes on school:{tenantId} where tenantId
-		// is resolved by resolveTenantSyncKey (prioritizes dbName over host).
-		// Subscribe to both host and tenantId channels so we receive events
-		// regardless of which identifier the server resolved.
-		const allIdentifiers = Array.from(
-			new Set([...schoolHosts, ...schoolTenantIds].filter(Boolean)),
-		);
+		// Subscribe on dbName only — the one identifier a channel is ever named
+		// from. resolveTenantSyncKey resolves `system.dbName` for every publish,
+		// so `school:{host}` is a channel nothing is published to. Subscribing to
+		// both looked like a safe hedge but only masked the mismatch: the host
+		// channels attach cleanly and stay silent forever, which reads exactly
+		// like realtime being broken.
+		const allIdentifiers = Array.from(new Set(schoolTenantIds.filter(Boolean)));
 		allIdentifiers.forEach((id) => {
 			subscribeToChannel(getSchoolRealtimeChannel(id));
 		});

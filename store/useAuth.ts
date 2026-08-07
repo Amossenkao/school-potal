@@ -167,6 +167,9 @@ const normalizeSuperAdminSchool = (school: any): SuperAdminSchoolSummary | null 
 		name: String(school?.identity?.name || school?.name || host),
 		shortName: school?.identity?.shortName || school?.shortName || '',
 		initials: school?.initials || school?.identity?.initials || String(school?.name || school?.identity?.name || host).slice(0, 2).toUpperCase(),
+		// Realtime channels are named `school:{dbName}`, so dropping this here
+		// left every superadmin subscription with nothing but hosts to work from.
+		dbName: String(school?.system?.dbName || school?.dbName || '').trim() || undefined,
 		isActive: school?.system?.isActive !== false && school?.isActive !== false,
 		logoUrl: school?.branding?.logoUrl || school?.logoUrl,
 		address: school?.contact?.addresses?.flatMap((a: any) => a.lines || []) || school?.address,
