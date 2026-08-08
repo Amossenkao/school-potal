@@ -473,10 +473,12 @@ export function ChipGrid({
 	items,
 	onPick,
 	emptyMessage,
+	columns = 'auto',
 }: {
 	items: { key: string; label: string; hint?: string }[];
 	onPick: (key: string) => void;
 	emptyMessage: string;
+	columns?: 'auto' | 'single';
 }) {
 	if (items.length === 0) {
 		return (
@@ -486,7 +488,9 @@ export function ChipGrid({
 		);
 	}
 	return (
-		<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+		<div
+			className={`grid gap-2 ${columns === 'single' ? 'grid-cols-1' : 'sm:grid-cols-2 lg:grid-cols-3'}`}
+		>
 			{items.map((item) => (
 				<button
 					key={item.key}
@@ -494,7 +498,7 @@ export function ChipGrid({
 					onClick={() => onPick(item.key)}
 					className="flex items-center justify-between gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-muted/60"
 				>
-					<span className="min-w-0 truncate text-sm font-semibold text-foreground">
+					<span className="min-w-0 break-words text-sm font-semibold text-foreground">
 						{item.label}
 					</span>
 					{item.hint !== undefined ? (

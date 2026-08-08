@@ -21,6 +21,7 @@ import {
 	pickMostRecentAcademicYear,
 } from '@/utils/academicYearOptions';
 import { StudentMultiSelect } from './StudentMultiSelect';
+import ClassScopePicker, { type ClassScope } from './ClassScopePicker';
 import { PageLoading } from '@/components/loading';
 import { getStudentAllowedAccess } from '@/utils/schoolSettingsAccess';
 import { isStudentRole } from '@/utils/effectiveRole';
@@ -467,6 +468,21 @@ export const SharedFilter = <T extends BaseFilters>({
 		availableSessions,
 	]);
 
+	// `session::level` keys the user may drill into — feeds the same progressive
+	// picker (ClassScopePicker) that Schedules uses.
+	const allowedLevelKeys = useMemo(() => {
+		const levels = currentSchool?.academicConfig.classLevels || {};
+		const keys: string[] = [];
+		userAvailableSessions.forEach((session) => {
+			const sessionLevels = levels[session];
+			if (!sessionLevels || typeof sessionLevels !== 'object') return;
+			Object.keys(sessionLevels).forEach((level) =>
+				keys.push(`${session}::${level}`),
+			);
+		});
+		return keys;
+	}, [userAvailableSessions, currentSchool?.academicConfig.classLevels]);
+
 	const availableGradeLevels = useMemo(
 		() =>
 			filters.session && currentSchool?.academicConfig.classLevels?.[filters.session]
@@ -487,6 +503,37 @@ export const SharedFilter = <T extends BaseFilters>({
 		return [];
 	}, [filters.session, filters, currentSchool?.academicConfig.classLevels, getGradeLevel]);
 
+	// ─── Class Scope (progressive picker) ─────────────────────────────────────
+
+	const scope: ClassScope = {
+		session: filters.session || '',
+		level: getGradeLevel(filters) || '',
+		classId: filters.className || '',
+	};
+
+	const handleScopeChange = useCallback(
+		(next: ClassScope) => {
+			setFilters((prev) => {
+				const prevLevel = getGradeLevel(prev) || '';
+				if (
+					prev.session === next.session &&
+					prevLevel === next.level &&
+					prev.className === next.classId
+				) {
+					return prev;
+				}
+				return {
+					...prev,
+					session: next.session,
+					[gradeLevelField]: next.level,
+					className: next.classId,
+					selectedStudents: [],
+				} as T;
+			});
+		},
+		[setFilters, getGradeLevel, gradeLevelField],
+	);
+
 	// ─── Extra Filter ─────────────────────────────────────────────────────────
 
 	const extraFilter = config.extraFilter;
@@ -503,6 +550,10 @@ export const SharedFilter = <T extends BaseFilters>({
 
 	useEffect(() => {
 		if (isStudent) return;
+		// The progressive picker drives session/level/class selection now; let it
+		// run (and auto-advance) rather than re-filling the session the instant
+		// the picker's "All" clears it.
+		if (allowedLevelKeys.length > 0) return;
 		const shouldAutoSelect = config.autoSelectSingle !== false;
 
 		// Always default to the first session when none is selected yet.
@@ -557,6 +608,7 @@ export const SharedFilter = <T extends BaseFilters>({
 	}, [
 		config.autoSelectSingle,
 		isStudent,
+		allowedLevelKeys,
 		userAvailableSessions,
 		availableGradeLevels,
 		availableClasses,
@@ -1008,20 +1060,12 @@ export const SharedFilter = <T extends BaseFilters>({
 		: !!filters.className;
 
 	// Build the filter steps for the left rail
-	const showSession = userAvailableSessions.length > 1;
-	const showGradeLevel = config.showGradeLevelWhenSingle
-		? !!(filters.session && availableGradeLevels.length >= 1)
-		: !!(filters.session && availableGradeLevels.length > 1);
-	const showClass =
-		config.showClassAlways ||
-		!!(getGradeLevel(filters) && availableClasses.length > 1);
+	const showClassScopePicker = allowedLevelKeys.length > 0;
 
 	// Step completion state
 	const yearDone = !!filters.academicYear;
 	const extraDone = !extraFilter || !!extraFilterValue;
-	const sessionDone = !showSession || !!filters.session;
-	const gradeDone = !showGradeLevel || !!getGradeLevel(filters);
-	const classDone = !!filters.className;
+	const scopeDone = !!filters.className;
 
 	type Step = {
 		key: string;
@@ -1095,106 +1139,23 @@ export const SharedFilter = <T extends BaseFilters>({
 		});
 	}
 
-	// Session step
-	if (showSession) {
-		const prevDone = yearDone && extraDone;
+	// Session → level → class progressive picker, the same control Schedules uses
+	if (showClassScopePicker) {
 		const idx = stepIndex++;
 		steps.push({
-			key: 'session',
-			label: 'Session',
+			key: 'scope',
+			label: 'Session, level, class',
 			index: idx,
-			done: !!filters.session,
-			active: prevDone,
+			done: scopeDone,
+			active: true,
 			render: () => (
-				<FilterSelect
-					label=""
-					value={filters.session}
-					onChange={(v) =>
-						setFilters(
-							(f) =>
-								({
-									...f,
-									session: v,
-									[gradeLevelField]: '',
-									className: '',
-									selectedStudents: [],
-								}) as T,
-						)
-					}
-					options={userAvailableSessions.map((s) => ({ value: s, label: s }))}
-					placeholder="Select session"
-					disabled={!prevDone}
-					done={!!filters.session}
-				/>
-			),
-		});
-	}
-
-	// Grade level step
-	if (showGradeLevel) {
-		const prevDone = yearDone && extraDone && sessionDone;
-		const idx = stepIndex++;
-		steps.push({
-			key: 'grade',
-			label: 'Grade level',
-			index: idx,
-			done: !!getGradeLevel(filters),
-			active: prevDone,
-			render: () => (
-				<FilterSelect
-					label=""
-					value={getGradeLevel(filters)}
-					onChange={(v) =>
-						setFilters(
-							(f) =>
-								({
-									...f,
-									[gradeLevelField]: v,
-									className: '',
-									selectedStudents: [],
-								}) as T,
-						)
-					}
-					options={availableGradeLevels.map((l) => ({ value: l, label: l }))}
-					placeholder="Select grade"
-					disabled={!prevDone}
-					done={!!getGradeLevel(filters)}
-				/>
-			),
-		});
-	}
-
-	// Class step
-	if (showClass) {
-		const prevDone = yearDone && extraDone && sessionDone && gradeDone;
-		const idx = stepIndex++;
-		steps.push({
-			key: 'class',
-			label: 'Class',
-			index: idx,
-			done: !!filters.className,
-			active: prevDone,
-			render: () => (
-				<FilterSelect
-					label=""
-					value={filters.className}
-					onChange={(v) =>
-						setFilters(
-							(f) =>
-								({
-									...f,
-									className: v,
-									selectedStudents: [],
-								}) as T,
-						)
-					}
-					options={availableClasses.map((c: any) => ({
-						value: c.classId,
-						label: c.name,
-					}))}
-					placeholder="Select class"
-					disabled={!prevDone}
-					done={!!filters.className}
+				<ClassScopePicker
+					schoolProfile={currentSchool}
+					value={scope}
+					onChange={handleScopeChange}
+					allowedLevelKeys={allowedLevelKeys}
+					requireClass
+					singleColumnGrid
 				/>
 			),
 		});
@@ -1207,10 +1168,10 @@ export const SharedFilter = <T extends BaseFilters>({
 		totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
 
 	return (
-		<div className="flex items-start justify-center min-h-[60vh] py-10 bg-background px-4">
+		<div className="flex items-start justify-center min-h-[60vh] pt-4 pb-10 bg-background px-4">
 			<div className="w-full max-w-4xl">
 				{/* Page-level header */}
-				<div className="mb-6">
+				<div className="mb-2">
 					<p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mb-0.5">
 						{config.nonStudentViewTitle || 'Report card'}
 					</p>
