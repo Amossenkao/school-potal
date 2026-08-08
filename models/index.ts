@@ -79,7 +79,7 @@ export const getTenantModels = async (host?: string | null) => {
 
 	const AttendanceModel = connection.model<Document>(
 		'Attendance',
-		AttendanceSchema,
+		AttendanceSchema as any,
 	);
 	const TeacherAttendanceModel = connection.model<Document>(
 		'TeacherAttendance',

@@ -55,6 +55,20 @@ const ThemedCheckbox = ({ checked }: { checked: boolean }) => (
 	</div>
 );
 
+// recordAttendanceToday is a same-day grant, not a plain boolean: the switch
+// only reads as "on" when the stored date is today's UTC calendar date,
+// matching how /api/attendance and /api/users stamp/compare it.
+function isoDateOnly(value: string | Date | null | undefined): string {
+	if (!value) return '';
+	const d = typeof value === 'string' ? new Date(value) : value;
+	if (Number.isNaN(d.getTime())) return '';
+	return d.toISOString().split('T')[0];
+}
+
+function todayIsoDate(): string {
+	return new Date().toISOString().split('T')[0];
+}
+
 const getLevelStyle = (level = '') => {
 	const n = String(level).trim().toLowerCase();
 	if (
@@ -2383,23 +2397,28 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 												<label className="relative inline-flex items-center cursor-pointer">
 													<input
 														type="checkbox"
-														name="canRecordAttendance"
-														checked={!!formData.canRecordAttendance}
+														name="recordAttendanceToday"
+														checked={isoDateOnly(formData.recordAttendanceToday) === todayIsoDate()}
 														onChange={(e) =>
-															setFormData((prev) => ({
+															setFormData((prev: any) => ({
 																...prev,
-																canRecordAttendance: e.target.checked,
+																recordAttendanceToday: e.target.checked
+																	? todayIsoDate()
+																	: null,
 															}))
 														}
 														className="sr-only peer"
 													/>
 													<div className="w-11 h-6 bg-border peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
 													<span className="ml-3 text-sm font-medium text-foreground">
-														{formData.canRecordAttendance
-															? 'Can Record Attendance'
-															: 'Cannot Record Attendance'}
+														{isoDateOnly(formData.recordAttendanceToday) === todayIsoDate()
+															? 'Can Record Attendance Today'
+															: 'Cannot Record Attendance Today'}
 													</span>
 												</label>
+												<p className="mt-1.5 text-xs text-muted-foreground">
+													This is a same-day permission — it must be switched on again each day the student should be allowed to record attendance.
+												</p>
 											</div>
 											<div className="mt-4">
 												<label className="block text-sm font-medium text-foreground mb-2">

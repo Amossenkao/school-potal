@@ -7,7 +7,14 @@ const AttendanceSchema = new Schema<Attendance & Document>({
   classId: { type: String, required: true },
   presentStudentIds: { type: [String], required: true },
   absentStudentIds: { type: [String], required: true },
-  recordedBy: { type: String, required: false },
+  recordedBy: {
+    type: {
+      userId: { type: String, required: true },
+      role: { type: String, required: true },
+      timestamp: { type: String, required: true },
+    },
+    required: false,
+  },
   seq: { type: Number, default: 0 },
   deletedAt: { type: Date, default: null },
 });

@@ -79,13 +79,19 @@ export interface ClassSchedule {
 	subject: string;
 }
 
+export interface AttendanceRecordedBy {
+	userId: string;
+	role: string;
+	timestamp: string;
+}
+
 export interface Attendance {
 	academicYear: string;
 	classId: string;
 	date: Date,
 	presentStudentIds: string[];
 	absentStudentIds: string[];
-	recordedBy?: string;
+	recordedBy?: AttendanceRecordedBy;
 	seq?: number;
 	deletedAt?: Date | null;
 }
@@ -195,7 +201,7 @@ export interface Student extends User {
 	shareContactWithClassmates: boolean;
 	isLateRegistration?: boolean;
 	academicYears: { year: string; classId: string; className?: string }[];
-	canRecordAttendance?: string;
+	recordAttendanceToday?: string | Date | null;
 	studentType?: 'old' | 'new';
 	wardTeacherId?: string;
 	scholarships?: string[];

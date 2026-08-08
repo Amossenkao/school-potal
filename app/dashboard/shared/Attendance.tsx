@@ -31,6 +31,23 @@ import { isStudentRole } from '@/utils/effectiveRole';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+const ROLE_HIERARCHY: Record<string, number> = {
+	'system_admin': 4,
+	'superadmin': 4,
+	'administrator': 3,
+	'teacher': 2,
+	'student': 1,
+};
+
+// Same-or-higher role may overwrite an existing record (mirrors the backend
+// check in /api/attendance) — same-role edits are allowed, strictly-lower
+// role is blocked.
+function canOverrideRecord(userRole: string, existingRole: string): boolean {
+	const userLevel = ROLE_HIERARCHY[userRole] || 0;
+	const existingLevel = ROLE_HIERARCHY[existingRole] || 0;
+	return userLevel >= existingLevel;
+}
+
 function fmtDate(d: Date) {
 	// Prevents local timezone shifts from .toISOString()
 	const y = d.getFullYear();
@@ -95,6 +112,14 @@ function getUTCDateString(isoString: string | Date) {
 	return str.includes('T') ? str.substring(0, 10) : str;
 }
 
+// recordAttendanceToday is a same-day grant: it only counts when it was
+// stamped today. A stale value from a prior day (switch left on, never
+// re-toggled) must NOT count as permission.
+function studentCanRecordToday(recordAttendanceToday: string | Date | null | undefined) {
+	if (!recordAttendanceToday) return false;
+	return getUTCDateString(recordAttendanceToday) === todayStr();
+}
+
 // Utility equivalents for scoped store values
 function areAcademicYearsEqual(y1?: string, y2?: string) {
 	if (!y1 || !y2) return false;
@@ -155,11 +180,24 @@ const FilterSelect = ({
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 
-const StatusChip = ({ status, compact = false }: any) => {
+const StatusChip = ({ status, compact = false, recordedBy }: any) => {
+	const roleMap: Record<string, string> = {
+		'system_admin': 'System Admin',
+		'superadmin': 'System Admin',
+		'administrator': 'Admin',
+		'teacher': 'Teacher',
+		'student': 'Student',
+	};
+
+	const tooltip = recordedBy?.role
+		? `Recorded by ${roleMap[recordedBy.role] || recordedBy.role}`
+		: '';
+
 	if (!status)
 		return (
 			<span
 				className={`${compact ? 'w-6 h-6 text-[10px]' : 'w-7 h-7 text-xs'} rounded-full flex items-center justify-center font-semibold bg-muted text-muted-foreground`}
+				title={tooltip}
 			>
 				–
 			</span>
@@ -167,11 +205,12 @@ const StatusChip = ({ status, compact = false }: any) => {
 	const isPresent = status === 'present';
 	return (
 		<span
-			className={`${compact ? 'w-6 h-6 text-[10px]' : 'w-7 h-7 text-xs'} rounded-full flex items-center justify-center font-bold transition-colors ${
+			className={`${compact ? 'w-6 h-6 text-[10px]' : 'w-7 h-7 text-xs'} rounded-full flex items-center justify-center font-bold transition-colors cursor-help ${
 				isPresent
 					? 'bg-[var(--bg-success,#dcfce7)] text-[var(--text-success,#166534)]'
 					: 'bg-[var(--bg-danger,#fee2e2)] text-[var(--text-danger,#991b1b)]'
 			}`}
+			title={tooltip}
 		>
 			{isPresent ? 'P' : 'A'}
 		</span>
@@ -695,7 +734,7 @@ const Attendance = () => {
 
 	// Construct Map directly from central store cache
 	const attendanceMap = useMemo(() => {
-		const map: Record<string, Record<string, { status: string }>> = {};
+		const map: Record<string, Record<string, { status: string; recordedBy?: any }>> = {};
 		const allAtt =
 			getScopedAcademicYearValue(attendanceByAcademicYear, selectedAcademicYear)
 				.value || [];
@@ -707,17 +746,16 @@ const Attendance = () => {
 
 			record.presentStudentIds?.forEach((id: string) => {
 				if (!map[id]) map[id] = {};
-				map[id][dateStr] = { status: 'present' };
+				map[id][dateStr] = { status: 'present', recordedBy: record.recordedBy };
 			});
 			record.absentStudentIds?.forEach((id: string) => {
 				if (!map[id]) map[id] = {};
-				map[id][dateStr] = { status: 'absent' };
+				map[id][dateStr] = { status: 'absent', recordedBy: record.recordedBy };
 			});
 		});
 		return map;
 	}, [attendanceByAcademicYear, selectedAcademicYear, selectedClassId]);
 
-	// ── permissions ───────────────────────────────────────────────────────────
 	// ── permissions ───────────────────────────────────────────────────────────
 	const canTakeAttendance = useCallback(
 		(date: string) => {
@@ -732,18 +770,23 @@ const Attendance = () => {
 
 			if (isStudentRole(user.role)) {
 				const isToday = date === todayStr();
+				if (!isToday || !studentCanRecordToday(user.recordAttendanceToday)) return false;
 
-				// Check if any attendance data exists for this specific date
-				const isAlreadyRecorded = students.some(
+				// Check if there's an existing record and whether we can override it
+				const existingRecord = students.some(
 					(s) => !!attendanceMap[s.studentId]?.[date],
 				);
+				if (!existingRecord) return true;
 
-				// Students can only record if it's today, they have permission, and it hasn't been recorded yet
-				return isToday && !!user.canRecordAttendance && !isAlreadyRecorded;
+				// If record exists, check if we can override based on role hierarchy
+				const firstRecordedBy = students
+					.map((s) => attendanceMap[s.studentId]?.[date]?.recordedBy)
+					.find(Boolean);
+				return firstRecordedBy ? canOverrideRecord(user.role, firstRecordedBy.role) : true;
 			}
 			return false;
 		},
-		[user, students, attendanceMap], // Added students and attendanceMap to dependencies
+		[user, students, attendanceMap],
 	);
 
 	const canEditAttendance = useCallback(
@@ -756,15 +799,18 @@ const Attendance = () => {
 			)
 				return true;
 
-			// Teachers can only modify attendance for today
-			if (user.role === 'teacher') return date === todayStr();
+			if (user.role === 'teacher') {
+				if (date !== todayStr()) return false;
+				// Teacher can override any existing record
+				return true;
+			}
 
-			// Students can NEVER modify attendance that has already been recorded
+			// Students can NEVER edit attendance
 			if (isStudentRole(user.role)) return false;
 
 			return false;
 		},
-		[user], // Only depends on user
+		[user],
 	);
 
 
@@ -799,6 +845,11 @@ const Attendance = () => {
 					date: new Date(date).toISOString(),
 					presentStudentIds,
 					absentStudentIds,
+					recordedBy: {
+						userId: user.id,
+						role: user.role,
+						timestamp: new Date().toISOString(),
+					},
 				};
 
 				// Determine if we're creating or patching
@@ -914,6 +965,9 @@ const Attendance = () => {
 			user.role === 'superadmin' ||
 			user.role === 'teacher') &&
 		hasClass;
+
+	// Current student ID for highlighting (students viewing as student)
+	const currentStudentId = user?.role === 'student' ? (user?.studentId || user?.id) : null;
 
 	// ── modal state ───────────────────────────────────────────────────────────
 	const modalStudents = students;
@@ -1238,14 +1292,39 @@ const Attendance = () => {
 															? 'text-yellow-600 dark:text-yellow-400 font-semibold'
 															: 'text-[var(--text-danger,#991b1b)] font-bold';
 
+											const isCurrentStudent = currentStudentId && student.studentId === currentStudentId;
 											return (
 												<tr
 													key={student.studentId}
-													className="hover:bg-muted/30 transition-colors"
+													className={`transition-colors ${
+														isCurrentStudent
+															? 'bg-primary/10 dark:bg-primary/15 hover:bg-primary/15 dark:hover:bg-primary/20 relative z-[1]'
+															: 'hover:bg-muted/30'
+													}`}
+													style={isCurrentStudent ? {
+														boxShadow: '0 0 0 1px var(--primary, #3b82f6) inset, 0 0 16px rgba(59, 130, 246, 0.25) inset',
+													} : undefined}
 												>
-													<td className="sticky left-0 z-10 border-r border-border px-3 sm:px-4 py-2.5 whitespace-nowrap bg-card transition-colors">
-														<span className="text-sm font-medium truncate max-w-[120px] sm:max-w-[200px] block text-foreground">
+													<td
+														className={`sticky left-0 z-10 px-3 sm:px-4 py-2.5 whitespace-nowrap transition-colors ${
+															isCurrentStudent
+																? 'border-r-2 border-l-4 border-l-primary border-r-primary/30'
+																: 'bg-card border-r border-border'
+														}`}
+														style={isCurrentStudent ? {
+															// Must be fully opaque: this column is sticky and overlaps the
+															// date cells scrolling beneath it on narrow screens — an alpha
+															// background (e.g. bg-primary/10) lets that content bleed through.
+															backgroundColor: 'color-mix(in oklab, var(--card) 88%, var(--primary) 12%)',
+														} : undefined}
+													>
+														<span className="text-sm font-medium truncate max-w-[120px] sm:max-w-[200px] flex items-center gap-1.5 text-foreground">
 															{student.studentName}
+															{isCurrentStudent && (
+																<span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground shrink-0">
+																	You
+																</span>
+															)}
 														</span>
 													</td>
 													{visibleDates.map((d) => {
@@ -1256,7 +1335,7 @@ const Attendance = () => {
 																className="border-r border-border px-1.5 py-2 text-center"
 															>
 																<div className="flex justify-center">
-																	<StatusChip status={rec?.status} compact />
+																	<StatusChip status={rec?.status} compact recordedBy={rec?.recordedBy} />
 																</div>
 															</td>
 														);

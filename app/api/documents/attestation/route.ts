@@ -24,9 +24,15 @@ export async function GET(req: NextRequest) {
 		}
 
 		const models = await getTenantModels();
-		const student = await models.Student.findOne({
-			$or: [{ _id: studentId }, { studentId }],
-		}).lean();
+		// New attestation QR links carry the student's internal `_id`; older
+		// links may still carry the human `studentId`. Query by the right key to
+		// avoid Mongo casting a non-ObjectId string to `_id` and throwing.
+		const isObjectId = /^[0-9a-f]{24}$/i.test(studentId);
+		const student = await models.Student.findOne(
+			isObjectId
+				? { $or: [{ _id: studentId }, { studentId }] }
+				: { studentId },
+		).lean();
 
 		if (!student) {
 			return NextResponse.json({

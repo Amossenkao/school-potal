@@ -1,6 +1,12 @@
 'use client';
 
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+	Suspense,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState,
+} from 'react';
 import {
 	Document,
 	Page,
@@ -10,12 +16,14 @@ import {
 	Image,
 	PDFViewer,
 	pdf,
+	Font,
 } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
 import { ArrowLeft, Download, ShieldCheck, X } from 'lucide-react';
 import {
 	SharedFilter,
 	type Student as FilterStudent,
+	type FilterConfig,
 } from '@/app/dashboard/shared/components/SharedFilter';
 import { PageLoading } from '@/components/loading';
 import { useSchoolStore } from '@/store/schoolStore';
@@ -28,268 +36,570 @@ import {
 	resolveDocumentStudents,
 	type DocumentFilters,
 } from '@/app/dashboard/shared/documentFilters';
-import { buildStudentFullName, normalizeStudentId } from '@/app/dashboard/digital-id/verification';
+import { buildStudentFullName } from '@/app/dashboard/digital-id/verification';
 import { resolveSignatory } from '@/utils/documentSignatory';
-import { getFirstSchoolAddressLines } from '@/utils/schoolAddresses';
+import { flattenSchoolAddressLines } from '@/utils/schoolAddresses';
 
-// ── PDF styles ──────────────────────────────────────────────────────────────
+// ── Fonts ────────────────────────────────────────────────────────────────────
+
+Font.register({
+	family: 'Great Vibes',
+	src: '/fonts/GreatVibes-Regular.ttf',
+});
+
+// ── Design tokens ─────────────────────────────────────────────────────────────
+// Clean white canvas — navy ink, gold geometry as the only accent.
+
+const T = {
+	navy: '#0F2357', // primary institution colour
+	gold: '#C9A84C', // accent rules & ornament
+	goldMid: '#D4B96A', // slightly lighter gold for the signature font
+	bodyText: '#1A1A2E',
+	black: '#000000', // ink colour reserved for the signature block
+	slate: '#6B7280',
+	slateLight: '#9CA3AF',
+	ruleMid: '#D1D5DB',
+	ruleLight: '#E5E7EB',
+	white: '#FFFFFF',
+};
+
+// ── PDF styles ────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
 	page: {
-		padding: 50,
+		paddingTop: 0,
+		paddingBottom: 0,
+		paddingHorizontal: 0,
 		fontFamily: 'Helvetica',
-		fontSize: 12,
+		fontSize: 11,
+		backgroundColor: T.white,
 	},
+
+	// ── Watermark ─────────────────────────────────────────────────────────────
 	watermark: {
 		position: 'absolute',
-		top: '25%',
-		left: '25%',
-		width: '50%',
-		opacity: 0.08,
+		top: '22%',
+		left: '20%',
+		width: '60%',
+		opacity: 0.04,
 		zIndex: -1,
 	},
-	header: {
+
+	// ── Letterhead ────────────────────────────────────────────────────────────
+	// White background. The creativity comes from rule geometry:
+	//   • a thick navy bar across the very top (3 px)
+	//   • a gold bar directly beneath it (2 px)
+	//   • logo · divider · name/address/slogan · divider · logo, grouped as one
+	//     tight, centred lockup rather than spread to the page edges
+	//   • a gold flourish (line–diamond–line) closing the header, seated above
+	//     a final navy bar
+	headerBand: {
+		backgroundColor: T.white,
+		paddingBottom: 0,
+		paddingHorizontal: 0,
+	},
+	// Stacked accent bars — the institutional "stripe" at top of page.
+	headerTopStripe: {
+		flexDirection: 'column',
+	},
+	headerStripeNavy: {
+		height: 5,
+		backgroundColor: T.navy,
+	},
+	headerStripeGold: {
+		height: 2,
+		backgroundColor: T.gold,
+	},
+
+	// Inner row: logo · divider · text block · divider · logo — centred as one
+	// compact group so the logos sit close to the name instead of pinned to
+	// the far page margins.
+	headerInner: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'center',
-		marginBottom: 30,
-		borderBottomWidth: 2,
-		borderBottomColor: '#1e3a8a',
-		paddingBottom: 15,
+		paddingHorizontal: 28,
+		paddingTop: 16,
+		paddingBottom: 14,
 	},
-	logo: {
-		width: 60,
-		height: 60,
-		marginRight: 15,
+	headerLogo: {
+		width: 56,
+		height: 56,
 	},
-	headerText: {
-		textAlign: 'center',
+	headerLogoPlaceholder: {
+		width: 56,
+		height: 56,
 	},
-	schoolName: {
+	// Slim gold rule between each logo and the name/address block.
+	headerDivider: {
+		width: 1.5,
+		height: 44,
+		backgroundColor: T.gold,
+		marginHorizontal: 14,
+	},
+	headerTextBlock: {
+		alignItems: 'center',
+		paddingHorizontal: 6,
+		maxWidth: 300,
+		flexShrink: 1,
+	},
+	headerSchoolName: {
 		fontSize: 18,
-		fontWeight: 'bold',
-		color: '#1e3a8a',
+		fontFamily: 'Helvetica-Bold',
+		color: T.navy,
+		textAlign: 'center',
 		textTransform: 'uppercase',
+		// No letterSpacing — extra spacing pushes long names to wrap
+		marginBottom: 5,
 	},
-	schoolInfo: {
+	headerAddress: {
 		fontSize: 9,
-		color: '#4b5563',
-		marginTop: 2,
+		color: T.bodyText,
+		textAlign: 'center',
+		lineHeight: 1.55,
+	},
+	// Creative touch: the school's own slogan, set in a quiet gold italic.
+	headerSlogan: {
+		fontSize: 8,
+		fontFamily: 'Helvetica-Oblique',
+		color: T.gold,
+		textAlign: 'center',
+		marginTop: 5,
+		letterSpacing: 0.5,
+	},
+
+	// Closing flourish — a short gold line, a rotated diamond, a short gold
+	// line, then a full-width navy bar for institutional weight.
+	headerBottomRules: {
+		flexDirection: 'column',
+		marginTop: 11,
+	},
+	headerOrnamentRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingHorizontal: 140,
+	},
+	headerOrnamentLine: {
+		flex: 1,
+		height: 1,
+		backgroundColor: T.gold,
+	},
+	headerOrnamentDiamond: {
+		width: 5,
+		height: 5,
+		marginHorizontal: 7,
+		backgroundColor: T.gold,
+		transform: 'rotate(45deg)',
+	},
+	headerCloseNavy: {
+		height: 3,
+		backgroundColor: T.navy,
+		marginTop: 7,
+	},
+
+	// ── Body content ──────────────────────────────────────────────────────────
+	bodyContent: {
+		paddingHorizontal: 44,
+		paddingTop: 20,
+		paddingBottom: 140, // clear the fixed footer, which now sits above the page edge
 	},
 	dateLine: {
 		fontSize: 11,
-		marginBottom: 18,
-	},
-	title: {
-		fontSize: 16,
-		fontWeight: 'bold',
-		textAlign: 'center',
-		textTransform: 'uppercase',
-		color: '#1e3a8a',
-		marginBottom: 6,
-	},
-	toWhom: {
-		fontSize: 12,
-		fontWeight: 'bold',
-		textAlign: 'center',
-		textTransform: 'uppercase',
-		marginBottom: 24,
-		borderBottomWidth: 1,
-		borderBottomColor: '#d1d5db',
-		paddingBottom: 14,
-	},
-	body: {
-		lineHeight: 1.8,
-		textAlign: 'justify',
-		fontSize: 12,
-		marginBottom: 24,
-	},
-	paragraph: {
+		color: T.bodyText,
 		marginBottom: 14,
 	},
-	closing: {
-		fontSize: 12,
-		marginBottom: 4,
+	title: {
+		fontSize: 15,
+		fontFamily: 'Helvetica-Bold',
+		textAlign: 'center',
+		textTransform: 'uppercase',
+		color: T.navy,
+		letterSpacing: 1,
+		marginBottom: 16,
 	},
-	qrSection: {
+	toWhom: {
+		fontSize: 11,
+		fontFamily: 'Helvetica-Bold',
+		textAlign: 'center',
+		textTransform: 'uppercase',
+		color: T.slate,
+		letterSpacing: 0.6,
+		marginBottom: 16,
+		paddingBottom: 10,
+		borderBottomWidth: 1,
+		borderBottomColor: T.ruleLight,
+	},
+	paragraph: {
+		lineHeight: 1.7,
+		textAlign: 'justify',
+		fontSize: 11,
+		color: T.bodyText,
+		marginBottom: 18,
+	},
+	closing: {
+		fontSize: 11,
+		color: T.bodyText,
+		marginBottom: 2,
+	},
+
+	// ── Footer ────────────────────────────────────────────────────────────────
+	// White background — framed only by rule geometry at the top.
+	// Signature (left) and QR (right) are vertically centred on the same row.
+	// Raised off the physical page edge (bottom: 24, not 0) so it reads as a
+	// proper document footer with breathing room beneath it.
+	footerStrip: {
+		position: 'absolute',
+		left: 0,
+		right: 0,
+		bottom: 24,
+		backgroundColor: T.white,
+	},
+	// Mirror of the header closing rules, inverted order.
+	footerTopRules: {
+		flexDirection: 'column',
+	},
+	footerRuleNavy: {
+		height: 3,
+		backgroundColor: T.navy,
+	},
+	footerRuleGold: {
+		height: 1.5,
+		backgroundColor: T.gold,
+	},
+	footerInner: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-between',
-		marginTop: 30,
-		borderWidth: 1,
-		borderColor: '#d1d5db',
-		borderRadius: 6,
-		padding: 14,
-		backgroundColor: '#f9fafb',
-	},
-	qrInfo: {
-		flex: 1,
-		paddingRight: 12,
-	},
-	qrLabel: {
-		fontSize: 11,
-		fontWeight: 'bold',
-		color: '#1e3a8a',
-		letterSpacing: 1,
-		textTransform: 'uppercase',
-	},
-	qrHint: {
-		fontSize: 9,
-		color: '#6b7280',
-		marginTop: 4,
-		lineHeight: 1.5,
-	},
-	verifyUrl: {
-		fontSize: 7,
-		color: '#9ca3af',
-		marginTop: 4,
-	},
-	qrBox: {
-		width: 96,
-		height: 96,
-	},
-	qr: {
-		width: '100%',
-		height: '100%',
-	},
-	footer: {
-		marginTop: 40,
-	},
-	sigBlock: {
-		width: '55%',
-		marginTop: 34,
-		borderTopWidth: 1,
-		borderTopColor: '#1e3a8a',
+		paddingHorizontal: 28,
 		paddingTop: 6,
-		fontSize: 10,
-		fontWeight: 'bold',
-		color: '#1e3a8a',
+		paddingBottom: 8,
 	},
-	sigTitle: {
-		fontSize: 9,
-		fontWeight: 'normal',
-		color: '#4b5563',
+
+	// Signature block — left side.
+	// Fixed width (not flex: 1) — a flex-growing container here would let the
+	// signature line's default stretch fill every pixel up to the QR block.
+	signatureBlock: {
+		width: 200,
+		justifyContent: 'center',
+	},
+	signedLabel: {
+		fontSize: 8.5,
+		color: T.black,
+		textTransform: 'uppercase',
+		letterSpacing: 1,
+		marginBottom: 3,
+	},
+	signatureLine: {
+		borderBottomWidth: 1,
+		borderBottomColor: T.black,
+		paddingBottom: 3,
+		marginBottom: 4,
+	},
+	signatureText: {
+		fontSize: 11,
+		fontFamily: 'Helvetica-Bold',
+		color: T.black,
+	},
+	signatureFontStyle: {
+		fontFamily: 'Great Vibes',
+		fontSize: 19,
+		color: T.black,
+		letterSpacing: 0.5,
+	},
+	// "Principal, School Name" — centred under the signature line
+	signatureTitleText: {
+		fontSize: 8.5,
+		color: T.black,
+		textAlign: 'center',
 		marginTop: 2,
 	},
-	motto: {
+
+	// QR block — right side
+	qrBlock: {
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	qrBox: {
+		borderWidth: 1,
+		borderColor: T.ruleMid,
+		borderStyle: 'dashed',
+		borderRadius: 3,
+		padding: 3,
+		backgroundColor: T.white,
+	},
+	qrImage: {
+		width: 68,
+		height: 68,
+	},
+	qrLabel: {
+		fontSize: 7.5,
+		color: T.bodyText,
+		marginTop: 3,
 		textAlign: 'center',
-		fontSize: 10,
-		fontStyle: 'italic',
-		color: '#6b7280',
-		marginTop: 20,
 	},
 });
 
-// ── PDF document ────────────────────────────────────────────────────────────
+// ── PDF document ──────────────────────────────────────────────────────────────
 
-const AttestationDocument = ({ data, school }: { data: any; school: any }) => {
+const AttestationDocument = ({
+	data,
+	school,
+}: {
+	data: any[];
+	school: any;
+}) => {
 	const schoolName = school?.identity?.name || 'School';
-	const shortName = school?.identity?.shortName || schoolName;
-	const schoolMotto = school?.identity?.slogan || '';
-	const schoolLogo = school?.branding?.logoUrl || '';
-	const schoolAddress =
-		getFirstSchoolAddressLines(school?.contact?.addresses).join('\n');
-	const schoolContact = (school?.contact?.phones || []).join(' / ');
+	const logoUrl = school?.branding?.logoUrl || '';
+	const logoUrl2 = school?.branding?.logoUrl2 || '';
+	const addressLines = flattenSchoolAddressLines(school?.contact?.addresses);
+	const addressString = addressLines.join('\n');
+	const slogan = school?.identity?.slogan || '';
+	const leftLogo = logoUrl2 || logoUrl;
+	const rightLogo = logoUrl;
 
 	return (
 		<Document>
-			<Page size="A4" style={styles.page}>
-				{schoolLogo ? <Image src={schoolLogo} style={styles.watermark} /> : null}
+			{data.map((item, index) => (
+				<Page key={item.id || index} size="A4" style={styles.page}>
+					{/* ── Watermark ─────────────────────────────────────────── */}
+					{logoUrl ? <Image src={logoUrl} style={styles.watermark} /> : null}
 
-				<View style={styles.header}>
-					{schoolLogo ? <Image src={schoolLogo} style={styles.logo} /> : null}
-					<View style={styles.headerText}>
-						<Text style={styles.schoolName}>{schoolName}</Text>
-						{schoolAddress ? (
-							<Text style={styles.schoolInfo}>{schoolAddress}</Text>
-						) : null}
-						{schoolContact ? (
-							<Text style={styles.schoolInfo}>{schoolContact}</Text>
-						) : null}
+					{/* ── Letterhead ─────────────────────────────────────────── */}
+					<View style={styles.headerBand} fixed>
+						{/* Opening stripe: navy bar → gold bar */}
+						<View style={styles.headerTopStripe}>
+							<View style={styles.headerStripeNavy} />
+							<View style={styles.headerStripeGold} />
+						</View>
+
+						{/* Logo · divider · name + address + slogan · divider · logo —
+						    grouped tightly and centred as one lockup */}
+						<View style={styles.headerInner}>
+							{leftLogo ? (
+								<Image src={leftLogo} style={styles.headerLogo} />
+							) : (
+								<View style={styles.headerLogoPlaceholder} />
+							)}
+							{leftLogo ? <View style={styles.headerDivider} /> : null}
+
+							<View style={styles.headerTextBlock}>
+								<Text style={styles.headerSchoolName}>{schoolName}</Text>
+								{addressString ? (
+									<Text style={styles.headerAddress}>{addressString}</Text>
+								) : null}
+								{slogan ? (
+									<Text style={styles.headerSlogan}>&ldquo;{slogan}&rdquo;</Text>
+								) : null}
+							</View>
+
+							{rightLogo ? <View style={styles.headerDivider} /> : null}
+							{rightLogo ? (
+								<Image src={rightLogo} style={styles.headerLogo} />
+							) : (
+								<View style={styles.headerLogoPlaceholder} />
+							)}
+						</View>
+
+						{/* Closing flourish: gold line – diamond – gold line, then navy bar */}
+						<View style={styles.headerBottomRules}>
+							<View style={styles.headerOrnamentRow}>
+								<View style={styles.headerOrnamentLine} />
+								<View style={styles.headerOrnamentDiamond} />
+								<View style={styles.headerOrnamentLine} />
+							</View>
+							<View style={styles.headerCloseNavy} />
+						</View>
 					</View>
-				</View>
 
-				<Text style={styles.dateLine}>{data.date}</Text>
-				<Text style={styles.title}>Letter of Attestation</Text>
-				<Text style={styles.toWhom}>To Whom It May Concern</Text>
+					{/* ── Body ──────────────────────────────────────────────── */}
+					<View style={styles.bodyContent}>
+						<Text style={styles.dateLine}>{item.date}</Text>
 
-				<View style={styles.body}>
-					<Text style={styles.paragraph}>
-						This letter serves as an official attestation that{' '}
-						<Text style={{ fontWeight: 'bold' }}>{data.studentName}</Text> was a
-						duly enrolled student of the {schoolName} and has successfully
-						completed all the academic and graduation requirements prescribed
-						by both the Ministry of Education and the {schoolName} for the
-						successful completion of {data.program}.
-					</Text>
-					<Text style={styles.paragraph}>
-						Having satisfactorily fulfilled all required coursework, academic
-						obligations, and institutional requirements,{' '}
-						<Text style={{ fontWeight: 'bold' }}>{data.studentName}</Text> has
-						qualified for graduation from our institution for the{' '}
-						{data.academicYear} academic year.
-					</Text>
-					<Text style={styles.paragraph}>
-						At the time of issuing this letter however, the student&apos;s
-						official academic transcript and High School Diploma are still
-						undergoing the school&apos;s standard processing procedures and
-						have therefore not yet been issued.
-					</Text>
-					<Text style={styles.paragraph}>
-						This letter is therefore issued at the student&apos;s request as
-						temporary official confirmation of the successful completion of
-						all graduation requirements pending the release of the
-						aforementioned documents.
-					</Text>
-					<Text style={styles.paragraph}>
-						Should you require any additional information or verification
-						regarding this attestation, please do not hesitate to contact the
-						administration of {schoolName} on the contact details provided
-						above.
-					</Text>
-					<Text style={styles.closing}>We appreciate your kind consideration.</Text>
-					<Text style={styles.closing}>Respectfully,</Text>
-				</View>
+						<Text style={styles.title}>Letter of Attestation</Text>
+						<Text style={styles.toWhom}>To Whom It May Concern</Text>
 
-				<View style={styles.qrSection}>
-					<View style={styles.qrInfo}>
-						<Text style={styles.qrLabel}>Scan to Verify</Text>
-						<Text style={styles.qrHint}>
-							Scan this QR code to verify the authenticity of this attestation
-							online.
+						<Text style={styles.paragraph}>
+							This letter serves as an official attestation that{' '}
+							<Text style={{ fontFamily: 'Helvetica-Bold' }}>
+								{item.studentName}
+							</Text>{' '}
+							was a duly enrolled student of the {schoolName} and has
+							successfully completed all the academic and graduation
+							requirements prescribed by both the Ministry of Education and the{' '}
+							{schoolName} for the successful completion of {item.program}.
 						</Text>
-						<Text style={styles.verifyUrl}>{data.verifyUrl}</Text>
-					</View>
-					<View style={styles.qrBox}>
-						{data.qrDataUrl ? (
-							<Image src={data.qrDataUrl} style={styles.qr} />
-						) : null}
-					</View>
-				</View>
 
-				<View style={styles.footer}>
-					<Text style={{ fontSize: 11 }}>Signed: _____________________________</Text>
-					<View style={styles.sigBlock}>
-						<Text>{data.principal?.resolved ? data.principal.name : ' '}</Text>
-						<Text style={styles.sigTitle}>
-							{data.principal?.title || 'Principal'}, {schoolName}
+						<Text style={styles.paragraph}>
+							Having satisfactorily fulfilled all required coursework, academic
+							obligations, and institutional requirements,{' '}
+							<Text style={{ fontFamily: 'Helvetica-Bold' }}>
+								{item.studentName}
+							</Text>{' '}
+							has qualified for graduation from our institution for the{' '}
+							{item.academicYear} academic year.
 						</Text>
+
+						<Text style={styles.paragraph}>
+							At the time of issuing this letter however, the student&apos;s
+							official academic transcript and High School Diploma are still
+							undergoing the school&apos;s standard processing procedures and
+							have therefore not yet been issued.
+						</Text>
+
+						<Text style={styles.paragraph}>
+							This letter is therefore issued at the student&apos;s request as
+							temporary official confirmation of the successful completion of
+							all graduation requirements pending the release of the
+							aforementioned documents.
+						</Text>
+
+						<Text style={styles.paragraph}>
+							Should you require any additional information or verification
+							regarding this attestation, please do not hesitate to contact the
+							administration of {schoolName} on the contact details provided
+							above.
+						</Text>
+
+						<Text style={styles.closing}>
+							We appreciate your kind consideration.
+						</Text>
+						<Text style={styles.closing}>Respectfully,</Text>
 					</View>
-				</View>
 
-				{schoolMotto ? <Text style={styles.motto}>{schoolMotto}</Text> : null}
+					{/* ── Footer — signature LEFT · motto CENTRE · QR RIGHT ──── */}
+					<View style={styles.footerStrip} fixed>
+						{/* Opening rules: navy bar → gold thin */}
+						<View style={styles.footerTopRules}>
+							<View style={styles.footerRuleNavy} />
+							<View style={styles.footerRuleGold} />
+						</View>
 
-				<Text
-					style={{ textAlign: 'center', fontSize: 8, color: '#9ca3af', marginTop: 12 }}
-				>
-					{shortName} · Official Document · {data.verifyUrl}
-				</Text>
-			</Page>
+						<View style={styles.footerInner}>
+							{/* Signature block */}
+							<View style={styles.signatureBlock}>
+								<Text style={styles.signedLabel}>Signed</Text>
+								{/* The signature name sits above the rule line */}
+								<View style={styles.signatureLine}>
+									{item.principalName ? (
+										<Text
+											style={
+												item.principalSignature
+													? styles.signatureFontStyle
+													: styles.signatureText
+											}
+										>
+											{item.principalSignature || item.principalName}
+										</Text>
+									) : null}
+								</View>
+								{/* Principal title — centred under the line */}
+								{item.principalName ? (
+									<Text style={styles.signatureTitleText}>
+										Principal, {schoolName}
+									</Text>
+								) : null}
+							</View>
+
+							{/* QR */}
+							<View style={styles.qrBlock}>
+								<View style={styles.qrBox}>
+									{item.qrDataUrl ? (
+										<Image src={item.qrDataUrl} style={styles.qrImage} />
+									) : null}
+								</View>
+								<Text style={styles.qrLabel}>Scan to verify</Text>
+							</View>
+						</View>
+					</View>
+				</Page>
+			))}
 		</Document>
 	);
 };
 
-// ── Page ───────────────────────────────────────────────────────────────────
+// ── Toggle ────────────────────────────────────────────────────────────────────
+
+function Toggle({
+	id,
+	checked,
+	onChange,
+	label,
+}: {
+	id: string;
+	checked: boolean;
+	onChange: (checked: boolean) => void;
+	label: string;
+}) {
+	return (
+		<label
+			htmlFor={id}
+			className="flex items-center gap-3 cursor-pointer select-none"
+		>
+			<div className="relative">
+				<input
+					id={id}
+					type="checkbox"
+					checked={checked}
+					onChange={(e) => onChange(e.target.checked)}
+					className="sr-only"
+				/>
+				<div
+					className={`w-10 h-6 rounded-full transition-colors duration-200 ${
+						checked ? 'bg-primary' : 'bg-muted'
+					}`}
+				/>
+				<div
+					className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${
+						checked ? 'translate-x-4' : 'translate-x-0'
+					}`}
+				/>
+			</div>
+			<span className="text-sm font-medium">{label}</span>
+		</label>
+	);
+}
+
+// ── Filter config ─────────────────────────────────────────────────────────────
+
+const attestationFilterConfig: FilterConfig<DocumentFilters> = {
+	...documentFilterConfig,
+	renderExtraFields: (f, setF) => {
+		if (!f.className) return null;
+		return (
+			<div className="bg-muted/50 rounded-lg p-3">
+				<label className="block text-sm font-medium mb-2">Report Options</label>
+				<div className="flex flex-col gap-3">
+					<Toggle
+						id="include-principal-signature"
+						checked={!!f.includePrincipalSignature}
+						label="Principal's Signature"
+						onChange={(checked) => {
+							setF((prev) => ({ ...prev, includePrincipalSignature: checked }));
+						}}
+					/>
+					{f.includePrincipalSignature && (
+						<input
+							id="principal-signature-value"
+							type="text"
+							value={f.principalSignatureValue}
+							onChange={(e) => {
+								const value = e.target.value;
+								setF((prev) => ({
+									...prev,
+									principalSignatureValue: value,
+								}));
+							}}
+							placeholder="e.g., Pst. Emmanuel B. Tarr, Sr."
+							className="w-full border border-border px-3 py-2 rounded bg-background text-foreground"
+						/>
+					)}
+				</div>
+			</div>
+		);
+	},
+};
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AttestationPage() {
 	const school = useSchoolStore((state) => state.school);
@@ -300,14 +610,17 @@ export default function AttestationPage() {
 	const user = useAuth((state) => state.user);
 	const isStudent = isStudentRole(user?.role);
 
-	const [filters, setFilters] = useState<DocumentFilters>(DEFAULT_DOCUMENT_FILTERS);
+	const [filters, setFilters] = useState<DocumentFilters>(
+		DEFAULT_DOCUMENT_FILTERS,
+	);
 	const [students, setStudents] = useState<any[]>([]);
 	const [step, setStep] = useState<'filter' | 'documents'>('filter');
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState('');
-	const [selectedStudentId, setSelectedStudentId] = useState('');
-	const [qrDataUrl, setQrDataUrl] = useState('');
+	const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
 	const [downloading, setDownloading] = useState(false);
+
+	// ── Filter submit ──────────────────────────────────────────────────────────
 
 	const handleFilterSubmit = useCallback(
 		async (_activeStudents?: FilterStudent[]) => {
@@ -323,13 +636,12 @@ export default function AttestationPage() {
 					usersByAcademicYear,
 					setUsersForYear,
 				});
-
 				if (records.length === 0) {
 					setError('No students found for the selected class.');
 					return;
 				}
-
 				setStudents(records);
+				setQrDataUrls({});
 				setStep('documents');
 			} catch (e) {
 				setError(e instanceof Error ? e.message : 'Failed to load students.');
@@ -354,99 +666,119 @@ export default function AttestationPage() {
 		setError('');
 	}, []);
 
-	useEffect(() => {
-		if (!students.length) {
-			setSelectedStudentId('');
-			return;
-		}
-		setSelectedStudentId((prev) =>
-			students.some((s) => s.studentId === prev) ? prev : students[0].studentId,
-		);
-	}, [students]);
-
-	const selectedStudent = useMemo(
-		() => students.find((s) => s.studentId === selectedStudentId) || null,
-		[students, selectedStudentId],
-	);
+	// ── QR generation ─────────────────────────────────────────────────────────
 
 	useEffect(() => {
 		let cancelled = false;
-		setQrDataUrl('');
-		if (!selectedStudent) return;
-		const studentId = normalizeStudentId(
-			selectedStudent.studentId,
-			selectedStudent.id,
-			selectedStudent._id,
-		);
-		if (!studentId) return;
-		const url = `${window.location.origin}/verify?id=${encodeURIComponent(
-			studentId,
-		)}&academicYear=${encodeURIComponent(filters.academicYear)}&type=attestation`;
-		QRCode.toDataURL(url, {
-			errorCorrectionLevel: 'M',
-			margin: 1,
-			width: 256,
-			color: { dark: '#111111', light: '#FFFFFF' },
-		})
-			.then((dataUrl) => {
-				if (!cancelled) setQrDataUrl(dataUrl);
-			})
-			.catch(() => {
-				/* leave QR empty */
-			});
+		if (students.length === 0) return;
+		const urlsByStudent: Record<string, string> = {};
+
+		Promise.all(
+			students.map(async (student) => {
+				const internalId = student?.id || student?._id;
+				if (!internalId) return;
+				const url =
+					`${window.location.origin}/verify` +
+					`?id=${encodeURIComponent(internalId)}` +
+					`&academicYear=${encodeURIComponent(filters.academicYear)}` +
+					`&type=attestation`;
+				try {
+					const dataUrl = await QRCode.toDataURL(url, {
+						errorCorrectionLevel: 'M',
+						margin: 1,
+						width: 256,
+						color: { dark: '#0F2357', light: '#FFFFFF' },
+					});
+					urlsByStudent[internalId] = dataUrl;
+				} catch {
+					/* leave QR empty */
+				}
+			}),
+		).then(() => {
+			if (!cancelled) setQrDataUrls(urlsByStudent);
+		});
+
 		return () => {
 			cancelled = true;
 		};
-	}, [selectedStudent, filters.academicYear]);
+	}, [students, filters.academicYear]);
 
-	const attestationData = useMemo(() => {
-		if (!selectedStudent) return null;
-		const studentId = normalizeStudentId(
-			selectedStudent.studentId,
-			selectedStudent.id,
-			selectedStudent._id,
+	// ── Attestation data ───────────────────────────────────────────────────────
+
+	const attestations = useMemo(() => {
+		if (students.length === 0) return [];
+		const date = new Date().toLocaleDateString('en-US', {
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric',
+		});
+		const principal = resolveSignatory(
+			school,
+			usersByAcademicYear,
+			filters.academicYear,
+			'principal',
 		);
-		const classMeta = getClassMetaById(
-			school?.academicConfig?.classLevels,
-			selectedStudent.className,
-		);
-		// "Program" here means the level of study completed (e.g. "Senior High"),
-		// not the specific class section — closer to how the letter phrases it
-		// ("...completion of Senior Secondary School") than a bare class name.
-		const program = classMeta?.level || classMeta?.className || selectedStudent.className || '—';
-		const verifyUrl = `${window.location.origin}/verify?id=${encodeURIComponent(
-			studentId,
-		)}&academicYear=${encodeURIComponent(filters.academicYear)}&type=attestation`;
-		return {
-			studentName:
-				selectedStudent.fullName ||
-				buildStudentFullName(selectedStudent) ||
-				'—',
-			gender: selectedStudent.gender || 'neutral',
-			program,
-			academicYear: filters.academicYear,
-			date: new Date().toLocaleDateString('en-US', {
-				year: 'numeric',
-				month: 'long',
-				day: 'numeric',
-			}),
-			qrDataUrl,
-			verifyUrl,
-			principal: resolveSignatory(school, usersByAcademicYear, filters.academicYear, 'principal'),
-		};
-	}, [selectedStudent, school, filters.academicYear, qrDataUrl, usersByAcademicYear]);
+
+		// A school may not have a formal "Principal" position assigned in the
+		// system at all — resolveSignatory degrades to { resolved: false } in
+		// that case. The manual signature toggle exists precisely as a fallback
+		// for that, so it must be able to drive the whole block on its own
+		// rather than only supplementing a name that resolveSignatory found.
+		const manualSignature = filters.includePrincipalSignature
+			? filters.principalSignatureValue.trim()
+			: '';
+		const displayName = principal?.resolved ? principal.name : manualSignature;
+
+		return students.map((student) => {
+			const internalId = student?.id || student?._id || '';
+			const classMeta = getClassMetaById(
+				school?.academicConfig?.classLevels,
+				student.className,
+			);
+			const program =
+				classMeta?.level || classMeta?.className || student.className || '—';
+			return {
+				id: internalId,
+				studentName: student.fullName || buildStudentFullName(student) || '—',
+				program,
+				academicYear: filters.academicYear,
+				date,
+				qrDataUrl: qrDataUrls[internalId] || '',
+				principalName: displayName,
+				principalSignature: manualSignature,
+			};
+		});
+	}, [
+		students,
+		school,
+		filters.academicYear,
+		filters.includePrincipalSignature,
+		filters.principalSignatureValue,
+		qrDataUrls,
+		usersByAcademicYear,
+	]);
+
+	const allQrReady =
+		attestations.length > 0 && attestations.every((item) => item.qrDataUrl);
+
+	// ── Download ───────────────────────────────────────────────────────────────
 
 	const handleDownload = useCallback(async () => {
-		if (!attestationData) return;
+		if (attestations.length === 0) return;
 		setDownloading(true);
 		try {
 			const blob = await pdf(
-				<AttestationDocument data={attestationData} school={school} />,
+				<AttestationDocument data={attestations} school={school} />,
 			).toBlob();
 			const url = URL.createObjectURL(blob);
 			const link = document.createElement('a');
+			const classSlug = (filters.className || '')
+				.replace(/[^A-Za-z0-9]+/g, '_')
+				.replace(/^_+|_+$/g, '');
 			link.href = url;
-			link.download = `Attestation_${attestationData.studentName.replace(/\s+/g, '_')}.pdf`;
+			link.download = classSlug
+				? `Attestations_${classSlug}_${filters.academicYear}.pdf`
+				: `Attestations_${filters.academicYear}.pdf`;
 			link.click();
 			URL.revokeObjectURL(url);
 		} catch (e) {
@@ -455,7 +787,9 @@ export default function AttestationPage() {
 		} finally {
 			setDownloading(false);
 		}
-	}, [attestationData, school]);
+	}, [attestations, school, filters.className, filters.academicYear]);
+
+	// ── Filter view ────────────────────────────────────────────────────────────
 
 	if (step === 'filter') {
 		return (
@@ -485,12 +819,14 @@ export default function AttestationPage() {
 						filters={filters}
 						setFilters={setFilters}
 						onSubmit={handleFilterSubmit}
-						config={documentFilterConfig}
+						config={attestationFilterConfig}
 					/>
 				)}
 			</div>
 		);
 	}
+
+	// ── Preview view ──────────────────────────────────────────────────────────
 
 	return (
 		<div className="p-4">
@@ -513,87 +849,36 @@ export default function AttestationPage() {
 						{filters.academicYear}
 					</p>
 				</div>
+				<button
+					type="button"
+					onClick={handleDownload}
+					disabled={downloading || !allQrReady}
+					className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+				>
+					<Download className="h-4 w-4" />
+					{downloading ? 'Preparing…' : 'Download PDF'}
+				</button>
 			</div>
 
-			<div className="flex flex-col gap-5 lg:flex-row">
-				{/* Student list */}
-				<div className="w-full flex-shrink-0 lg:w-72">
-					<p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-						Students
-					</p>
-					<div className="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:gap-2 lg:overflow-visible lg:pb-0">
-						{students.map((student, index) => {
-							const isActive = student.studentId === selectedStudentId;
-							return (
-								<button
-									type="button"
-									key={student?.studentId || student?.id || student?._id || index}
-									onClick={() => setSelectedStudentId(student.studentId)}
-									className={`flex min-w-0 flex-shrink-0 items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-colors lg:w-full ${
-										isActive
-											? 'border-primary/40 bg-primary/10 text-primary'
-											: 'border-border bg-card text-foreground hover:bg-muted'
-									}`}
-								>
-									<span className="min-w-0">
-										<span className="block truncate text-sm font-medium">
-											{student.fullName || '—'}
-										</span>
-										<span className="block truncate font-mono text-[11px] text-muted-foreground">
-											{student.studentId}
-										</span>
-									</span>
-								</button>
-							);
-						})}
-					</div>
-				</div>
-
-				{/* Preview */}
-				<div className="min-w-0 flex-1">
-					<div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-						<div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
-							<div className="min-w-0">
-								<p className="truncate text-sm font-semibold text-foreground">
-									{attestationData?.studentName || '—'}
-								</p>
-								<p className="text-xs text-muted-foreground">
-									Certificate preview · {filters.academicYear}
-								</p>
-							</div>
-							<button
-								type="button"
-								onClick={handleDownload}
-								disabled={downloading || !attestationData?.qrDataUrl}
-								className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-							>
-								<Download className="h-4 w-4" />
-								{downloading ? 'Preparing…' : 'Download PDF'}
-							</button>
-						</div>
-
-						{attestationData ? (
-							<Suspense
-								fallback={
-									<div className="flex h-[600px] items-center justify-center text-sm text-muted-foreground">
-										Loading certificate preview…
-									</div>
-								}
-							>
-								<PDFViewer width="100%" height="700">
-									<AttestationDocument
-										data={attestationData}
-										school={school}
-									/>
-								</PDFViewer>
-							</Suspense>
-						) : (
+			{/* PDF preview */}
+			<div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+				{attestations.length > 0 ? (
+					<Suspense
+						fallback={
 							<div className="flex h-[600px] items-center justify-center text-sm text-muted-foreground">
-								Select a student to preview their attestation.
+								Loading certificates preview…
 							</div>
-						)}
+						}
+					>
+						<PDFViewer width="100%" height="900">
+							<AttestationDocument data={attestations} school={school} />
+						</PDFViewer>
+					</Suspense>
+				) : (
+					<div className="flex h-[600px] items-center justify-center text-sm text-muted-foreground">
+						No certificates to preview.
 					</div>
-				</div>
+				)}
 			</div>
 
 			{/* Verification note */}

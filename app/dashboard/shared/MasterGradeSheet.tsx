@@ -579,6 +579,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 		const studentName =
 			student?.studentName ||
 			`${student?.firstName || ''} ${student?.lastName || ''}`.trim() ||
+			student?.fullName ||
 			student?.username ||
 			student?.studentId ||
 			String(studentId);
@@ -1139,10 +1140,10 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 				}
 			});
 
-			if (studentChanged) {
-				return { ...student, periods: updatedPeriods, changed: true };
-			}
-			return { ...student, changed: false };
+			return {
+				student: { ...student, periods: updatedPeriods },
+				changed: studentChanged,
+			};
 		};
 
 		// Single Class / Single Subject Scenario
@@ -1173,10 +1174,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 			setCombinedData((prev) => {
 				let hasChanges = false;
 				const nextState = prev.map((student) => {
-					const updated = updateStudentPeriods(student, liveGradesMap);
-					if (updated.changed) {
+					const { student: updated, changed } = updateStudentPeriods(student, liveGradesMap);
+					if (changed) {
 						hasChanges = true;
-						delete updated.changed;
 						return updated;
 					}
 					return student;
@@ -1214,10 +1214,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 					let classChanged = false;
 					const nextStudents = classData.students.map((student) => {
-						const updated = updateStudentPeriods(student, liveGradesMap);
-						if (updated.changed) {
+						const { student: updated, changed } = updateStudentPeriods(student, liveGradesMap);
+						if (changed) {
 							classChanged = true;
-							delete updated.changed;
 							return updated;
 						}
 						return student;
@@ -1262,10 +1261,9 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 
 					let subjectChanged = false;
 					const nextStudents = subjectData.students.map((student) => {
-						const updated = updateStudentPeriods(student, liveGradesMap);
-						if (updated.changed) {
+						const { student: updated, changed } = updateStudentPeriods(student, liveGradesMap);
+						if (changed) {
 							subjectChanged = true;
-							delete updated.changed;
 							return updated;
 						}
 						return student;
@@ -1357,16 +1355,15 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 	const hasError = error.students || error.grades || error.subjects;
 	const errorMessage = error.students || error.grades || error.subjects;
 	const isLoadingData = loading.students || loading.grades || loading.subjects;
-	const shouldWaitForPdf =
-		!!selectedClass &&
-		!!selectedSubject &&
-		(selectedClass === ALL_CLASSES_VALUE
+	const hasDataForSheet = combinedData.length > 0 || studentsData.length > 0;
+	const showPdfButton =
+		selectedClass === ALL_CLASSES_VALUE
 			? allClassesData.length > 0
 			: selectedSubject === ALL_SUBJECTS_VALUE
 				? allSubjectsData.length > 0
-				: combinedData.length > 0) &&
-		!isLoadingData &&
-		!hasError;
+				: hasDataForSheet;
+	const shouldWaitForPdf =
+		!!selectedClass && !!selectedSubject && showPdfButton && !isLoadingData;
 	const isPdfPreparing = shouldWaitForPdf && !pdfReady;
 	const isLoading = isLoadingData;
 
@@ -1628,7 +1625,7 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 								: selectedSubject}
 						</h3>
 						<div className="mt-2 sm:mt-0">
-							{combinedData.length > 0 && (
+							{showPdfButton && (
 								<GradesPDFDownload
 									disabled={isLoadingData || isPdfPreparing}
 									teacherInfo={resolvedTeacher}
@@ -1654,13 +1651,17 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 					</div>
 					{isLoading ? (
 						<PageLoading fullScreen={false} />
-					) : hasError ? (
-						<div className="text-destructive">{errorMessage}</div>
-					) : combinedData.length > 0 ? (
-						<div
-							className="relative overflow-x-auto border rounded-lg custom-scrollbar"
-							style={{ maxHeight: '70vh' }}
-						>
+					) : hasDataForSheet ? (
+						<>
+							{hasError && (
+								<div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+									{errorMessage}
+								</div>
+							)}
+							<div
+								className="relative overflow-x-auto border rounded-lg custom-scrollbar"
+								style={{ maxHeight: '70vh' }}
+							>
 							<table className="table-fixed w-full divide-y divide-border">
 								<thead className="bg-muted">
 									<tr>
@@ -1741,12 +1742,10 @@ const MasterGradeSheet: React.FC<GradeMasterProps> = ({
 									))}
 								</tfoot>
 							</table>
-						</div>
-					) : studentsData.length > 0 ? (
-						<div className="p-6 text-center text-muted-foreground">
-							Students loaded ({studentsData.length} students) but no grades
-							data available.
-						</div>
+							</div>
+						</>
+					) : hasError ? (
+						<div className="text-destructive">{errorMessage}</div>
 					) : (
 						<div className="p-6 text-center text-muted-foreground">
 							{loading.students

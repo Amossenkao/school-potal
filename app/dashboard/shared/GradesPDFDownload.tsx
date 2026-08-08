@@ -966,42 +966,21 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 	onReadyChange,
 }) => {
 	const school = useSchoolStore((state) => state.school);
-	const [instance, updateInstance] = usePDF({ document: null });
+	const [instance, updateInstance] = usePDF();
 	const lastRenderKeyRef = useRef<string>('');
 
 	const fileName = `${classLevel}_${subject}_${className || 'Grades'}_${
 		new Date().toISOString().split('T')[0]
 	}.pdf`;
 
-	if (!school) {
-		return (
-			<button
-				disabled={true}
-				className="px-4 py-2 bg-muted text-muted-foreground rounded-md cursor-not-allowed flex items-center gap-2"
-			>
-				<Download className="w-4 h-4" />
-				Preparing PDF...
-			</button>
-		);
-	}
-
-	if (
-		!gradeData ||
-		(!gradeData.students && !gradeData.multiClass && !gradeData.multiSubject)
-	) {
-		return (
-			<button
-				disabled={true}
-				className="px-4 py-2 bg-muted text-muted-foreground rounded-md cursor-not-allowed flex items-center gap-2"
-			>
-				<Download className="w-4 h-4" />
-				Download Grades
-			</button>
-		);
-	}
-
 	const doc = useMemo(() => {
 		if (!school) return null;
+		if (
+			!gradeData ||
+			(!gradeData.students && !gradeData.multiClass && !gradeData.multiSubject)
+		) {
+			return null;
+		}
 		return (
 			<GradesPDF
 				teacherInfo={teacherInfo}
@@ -1024,6 +1003,7 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 	]);
 
 	const docRenderKey = useMemo(() => {
+		if (!doc) return '';
 		const teacherKey = [
 			teacherInfo?.username || '',
 			teacherInfo?.name || '',
@@ -1101,10 +1081,12 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 		subject,
 		teacherInfo,
 		gradeData,
+		doc,
 	]);
 
 	useEffect(() => {
 		if (!doc || !docRenderKey) return;
+		if (instance.loading) return;
 		if (lastRenderKeyRef.current === docRenderKey) return;
 		lastRenderKeyRef.current = docRenderKey;
 
@@ -1125,12 +1107,36 @@ const GradesPDFDownload: React.FC<GradesPDFProps> = ({
 				(window as any).cancelIdleCallback(idleId);
 			}
 		};
-	}, [doc, docRenderKey, updateInstance]);
+	}, [doc, docRenderKey, updateInstance, instance.loading]);
 
-	const isReady = Boolean(instance.url) && !instance.loading;
+	const isReady = Boolean(instance.url) && !instance.loading && !!doc;
 	useEffect(() => {
 		onReadyChange?.(isReady);
 	}, [isReady, onReadyChange]);
+
+	if (!school) {
+		return (
+			<button
+				disabled={true}
+				className="px-4 py-2 bg-muted text-muted-foreground rounded-md cursor-not-allowed flex items-center gap-2"
+			>
+				<Download className="w-4 h-4" />
+				Preparing PDF...
+			</button>
+		);
+	}
+
+	if (!doc) {
+		return (
+			<button
+				disabled={true}
+				className="px-4 py-2 bg-muted text-muted-foreground rounded-md cursor-not-allowed flex items-center gap-2"
+			>
+				<Download className="w-4 h-4" />
+				Download Grades
+			</button>
+		);
+	}
 
 	return (
 		<a

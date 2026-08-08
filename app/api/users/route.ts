@@ -91,6 +91,17 @@ function validateEmail(email: string): boolean {
 	return /\S+@\S+\.\S+/.test(email);
 }
 
+/**
+ * Returns today's date as a UTC midnight Date (strips time component),
+ * matching the semantics used by /api/attendance for date comparisons.
+ */
+function todayUTC(): Date {
+	const now = new Date();
+	return new Date(
+		Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+	);
+}
+
 // A phone number is valid when it reduces to a canonical form. The old regex
 // accepted punctuation-only strings like "((((((((((".
 function validatePhone(phone: string): boolean {
@@ -207,7 +218,7 @@ function buildUserResponse(
 				classId: user.classId,
 				className: user.className,
 				shareContactWithClassmates: user.shareContactWithClassmates ?? false,
-				canRecordAttendance: user.canRecordAttendance ?? false,
+				recordAttendanceToday: user.recordAttendanceToday ?? null,
 				academicYears: user.academicYears || [],
 				studentType: user.studentType ?? 'old',
 				wardTeacherId: user.wardTeacherId || '',
@@ -582,7 +593,7 @@ async function buildUserData(
 				className: userData.className,
 				shareContactWithClassmates:
 					userData.shareContactWithClassmates ?? false,
-				canRecordAttendance: userData.canRecordAttendance ?? false,
+				recordAttendanceToday: userData.recordAttendanceToday ?? null,
 				studentType: userData.studentType ?? 'old',
 				academicYears: [
 					{
@@ -5151,7 +5162,7 @@ export async function PUT(request: NextRequest) {
 							'financialProfile',
 							"isLatestAcademicYear",
 							"isLateRegistration",
-							"canRecordAttendance",
+							"recordAttendanceToday",
 							"studentType"
 						];
 						break;
@@ -5212,6 +5223,18 @@ export async function PUT(request: NextRequest) {
 			) {
 				filteredUserData.sponsorClass = null;
 			}
+		}
+
+		// recordAttendanceToday is a same-day permission grant, not a freeform
+		// date: "switching it on" always stamps today's date server-side (never
+		// trusting a client-supplied date), and "switching it off" clears it.
+		if (
+			targetUser.role === 'student' &&
+			filteredUserData.hasOwnProperty('recordAttendanceToday')
+		) {
+			filteredUserData.recordAttendanceToday = filteredUserData.recordAttendanceToday
+				? todayUTC()
+				: null;
 		}
 
 		// Extract parent linking payload (handled separately, not persisted to the student)

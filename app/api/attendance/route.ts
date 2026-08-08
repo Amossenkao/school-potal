@@ -23,6 +23,25 @@ import type { Student, Teacher } from '@/types';
 // Helpers
 // ---------------------------------------------------------------------------
 
+const ROLE_HIERARCHY: Record<string, number> = {
+	'system_admin': 4,
+	'superadmin': 4,
+	'administrator': 3,
+	'teacher': 2,
+	'student': 1,
+};
+
+// Same-or-higher role may overwrite an existing record. Same-role is allowed
+// so a teacher/admin/student can edit a record their own role already holds
+// (e.g. a student revising today's attendance before any higher role has
+// touched it); strictly-lower is blocked so, e.g., a student can never
+// reclaim a record once a teacher/admin/system_admin has recorded over it.
+function canOverrideRecord(userRole: string, existingRole: string): boolean {
+	const userLevel = ROLE_HIERARCHY[userRole] || 0;
+	const existingLevel = ROLE_HIERARCHY[existingRole] || 0;
+	return userLevel >= existingLevel;
+}
+
 /**
  * Returns today's date as a UTC midnight Date (strips time component).
  */
@@ -50,6 +69,20 @@ function toUTCDate(value: Date | string): Date {
 function isSameDay(candidate: Date | string, reference: Date): boolean {
 	const c = toUTCDate(candidate);
 	return c.getTime() === reference.getTime();
+}
+
+/**
+ * A student is eligible to record/edit attendance only when their
+ * `recordAttendanceToday` date exactly matches today. The flag is not a
+ * standing permission — it must be re-granted (stamped with today's date)
+ * each day it should apply.
+ */
+function studentCanRecordToday(
+	recordAttendanceToday: Date | string | null | undefined,
+	today: Date,
+): boolean {
+	if (!recordAttendanceToday) return false;
+	return isSameDay(recordAttendanceToday, today);
 }
 
 // ---------------------------------------------------------------------------
@@ -414,6 +447,22 @@ export async function POST(request: NextRequest) {
 				);
 			}
 
+			// Check if record exists and if user can override it
+			const existingRecord = await Attendance.findOne({
+				academicYear,
+				classId: bodyClassId,
+				date: { $gte: recordDate, $lt: new Date(recordDate.getTime() + 24 * 60 * 60 * 1000) },
+			}).lean();
+			if (existingRecord?.recordedBy && !canOverrideRecord(currentUser.role, existingRecord.recordedBy.role)) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'A higher-priority record already exists for this date.',
+					},
+					{ status: 403 },
+				);
+			}
+
 			const record = await upsertAttendance({
 				Attendance,
 				academicYear,
@@ -421,7 +470,11 @@ export async function POST(request: NextRequest) {
 				date: recordDate,
 				presentStudentIds,
 				absentStudentIds,
-				recordedBy: currentUser.id,
+				recordedBy: {
+					userId: currentUser.id,
+					role: currentUser.role,
+					timestamp: new Date().toISOString(),
+				},
 			});
 
 			const changeSeq = await publishAttendanceChange({
@@ -442,6 +495,7 @@ export async function POST(request: NextRequest) {
 
 		// ── system_admin ──────────────────────────────────────────────────────
 		if (currentUser.role === 'system_admin') {
+			// System admin can always override
 			const record = await upsertAttendance({
 				Attendance,
 				academicYear,
@@ -449,7 +503,11 @@ export async function POST(request: NextRequest) {
 				date: recordDate,
 				presentStudentIds,
 				absentStudentIds,
-				recordedBy: currentUser.id,
+				recordedBy: {
+					userId: currentUser.id,
+					role: currentUser.role,
+					timestamp: new Date().toISOString(),
+				},
 			});
 
 			// NOTE: include the actual record in the payload so every connected
@@ -520,6 +578,22 @@ export async function POST(request: NextRequest) {
 				);
 			}
 
+			// Check if record exists and if user can override it
+			const existingRecord = await Attendance.findOne({
+				academicYear,
+				classId: bodyClassId,
+				date: { $gte: recordDate, $lt: new Date(recordDate.getTime() + 24 * 60 * 60 * 1000) },
+			}).lean();
+			if (existingRecord?.recordedBy && !canOverrideRecord(currentUser.role, existingRecord.recordedBy.role)) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'A higher-priority record already exists for this date.',
+					},
+					{ status: 403 },
+				);
+			}
+
 			const record = await upsertAttendance({
 				Attendance,
 				academicYear,
@@ -527,7 +601,11 @@ export async function POST(request: NextRequest) {
 				date: recordDate,
 				presentStudentIds,
 				absentStudentIds,
-				recordedBy: currentUser.id,
+				recordedBy: {
+					userId: currentUser.id,
+					role: currentUser.role,
+					timestamp: new Date().toISOString(),
+				},
 			});
 
 			const changeSeq = await publishAttendanceChange({
@@ -549,7 +627,7 @@ export async function POST(request: NextRequest) {
 		// ── student ───────────────────────────────────────────────────────────
 		if (currentUser.role === 'student') {
 			const student = (await Student.findById(currentUser.id)
-				.select('classId academicYears daysToRecordAttendance')
+				.select('classId academicYears recordAttendanceToday')
 				.lean()) as (Student & Document) | null;
 
 			if (!student) {
@@ -559,9 +637,8 @@ export async function POST(request: NextRequest) {
 				);
 			}
 
-			// Check permission: today must be in daysToRecordAttendance
-
-			if (!student.canRecordAttendance) {
+			// Eligibility is a same-day grant: recordAttendanceToday must equal today.
+			if (!studentCanRecordToday(student.recordAttendanceToday, today)) {
 				return NextResponse.json(
 					{
 						success: false,
@@ -599,6 +676,22 @@ export async function POST(request: NextRequest) {
 				);
 			}
 
+			// Check if record exists and if user can override it
+			const existingRecord = await Attendance.findOne({
+				academicYear,
+				classId: studentClassId,
+				date: { $gte: recordDate, $lt: new Date(recordDate.getTime() + 24 * 60 * 60 * 1000) },
+			}).lean();
+			if (existingRecord?.recordedBy && !canOverrideRecord(currentUser.role, existingRecord.recordedBy.role)) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'A higher-priority record already exists for this date.',
+					},
+					{ status: 403 },
+				);
+			}
+
 			const record = await upsertAttendance({
 				Attendance,
 				academicYear,
@@ -606,7 +699,11 @@ export async function POST(request: NextRequest) {
 				date: recordDate,
 				presentStudentIds,
 				absentStudentIds,
-				recordedBy: currentUser.id,
+				recordedBy: {
+					userId: currentUser.id,
+					role: currentUser.role,
+					timestamp: new Date().toISOString(),
+				},
 			});
 
 			const changeSeq = await publishAttendanceChange({
@@ -763,6 +860,7 @@ export async function PATCH(request: NextRequest) {
 
 		// ── system_admin ──────────────────────────────────────────────────────
 		if (currentUser.role === 'system_admin') {
+			// System admin can always override
 			const record = await patchAttendance({
 				Attendance,
 				academicYear,
@@ -770,7 +868,11 @@ export async function PATCH(request: NextRequest) {
 				date: recordDate,
 				presentStudentIds,
 				absentStudentIds,
-				recordedBy: currentUser.id,
+				recordedBy: {
+					userId: currentUser.id,
+					role: currentUser.role,
+					timestamp: new Date().toISOString(),
+				},
 			});
 
 			if (!record) {
@@ -837,6 +939,22 @@ export async function PATCH(request: NextRequest) {
 				);
 			}
 
+			// Check if record exists and if user can override it
+			const existingRecord = await Attendance.findOne({
+				academicYear,
+				classId: bodyClassId,
+				date: { $gte: recordDate, $lt: new Date(recordDate.getTime() + 24 * 60 * 60 * 1000) },
+			}).lean();
+			if (existingRecord?.recordedBy && !canOverrideRecord(currentUser.role, existingRecord.recordedBy.role)) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'A higher-priority record already exists for this date.',
+					},
+					{ status: 403 },
+				);
+			}
+
 			const record = await patchAttendance({
 				Attendance,
 				academicYear,
@@ -844,7 +962,11 @@ export async function PATCH(request: NextRequest) {
 				date: recordDate,
 				presentStudentIds,
 				absentStudentIds,
-				recordedBy: currentUser.id,
+				recordedBy: {
+					userId: currentUser.id,
+					role: currentUser.role,
+					timestamp: new Date().toISOString(),
+				},
 			});
 
 			if (!record) {
@@ -870,7 +992,7 @@ export async function PATCH(request: NextRequest) {
 		// ── student ───────────────────────────────────────────────────────────
 		if (currentUser.role === 'student') {
 			const student = (await Student.findById(currentUser.id)
-				.select('classId academicYears daysToRecordAttendance')
+				.select('classId academicYears recordAttendanceToday')
 				.lean()) as (Student & Document) | null;
 
 			if (!student) {
@@ -880,7 +1002,7 @@ export async function PATCH(request: NextRequest) {
 				);
 			}
 
-			if (!student.canRecordAttendance) {
+			if (!studentCanRecordToday(student.recordAttendanceToday, today)) {
 				return NextResponse.json(
 					{
 						success: false,
@@ -916,6 +1038,22 @@ export async function PATCH(request: NextRequest) {
 				);
 			}
 
+			// Check if record exists and if user can override it
+			const existingRecord = await Attendance.findOne({
+				academicYear,
+				classId: studentClassId,
+				date: { $gte: recordDate, $lt: new Date(recordDate.getTime() + 24 * 60 * 60 * 1000) },
+			}).lean();
+			if (existingRecord?.recordedBy && !canOverrideRecord(currentUser.role, existingRecord.recordedBy.role)) {
+				return NextResponse.json(
+					{
+						success: false,
+						message: 'A higher-priority record already exists for this date.',
+					},
+					{ status: 403 },
+				);
+			}
+
 			const record = await patchAttendance({
 				Attendance,
 				academicYear,
@@ -923,7 +1061,11 @@ export async function PATCH(request: NextRequest) {
 				date: recordDate,
 				presentStudentIds,
 				absentStudentIds,
-				recordedBy: currentUser.id,
+				recordedBy: {
+					userId: currentUser.id,
+					role: currentUser.role,
+					timestamp: new Date().toISOString(),
+				},
 			});
 
 			if (!record) {
@@ -1085,7 +1227,7 @@ interface AttendancePayload {
 	date: Date;
 	presentStudentIds: string[];
 	absentStudentIds: string[];
-	recordedBy: string;
+	recordedBy: { userId: string; role: string; timestamp: string };
 }
 
 /**

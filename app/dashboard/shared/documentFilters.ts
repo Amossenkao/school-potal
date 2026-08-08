@@ -11,6 +11,8 @@ export interface DocumentFilters {
 	session: string;
 	classLevel: string;
 	className: string;
+	includePrincipalSignature: boolean;
+	principalSignatureValue: string;
 }
 
 export const DEFAULT_DOCUMENT_FILTERS: DocumentFilters = {
@@ -19,6 +21,8 @@ export const DEFAULT_DOCUMENT_FILTERS: DocumentFilters = {
 	session: '',
 	classLevel: '',
 	className: '',
+	includePrincipalSignature: false,
+	principalSignatureValue: '',
 };
 
 // Shared by all academic-document pages (Digital ID, Attestation, Diploma, …)
