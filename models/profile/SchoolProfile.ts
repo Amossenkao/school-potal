@@ -105,6 +105,7 @@ const ClassSchema = new Schema(
 	{
 		classId: { type: String, required: true, trim: true },
 		name: { type: String, required: true, trim: true },
+		index: { type: Number, default: 0 },
 	},
 	{ _id: false },
 );
@@ -126,6 +127,14 @@ const AcademicYearConfigSchema = new Schema(
 	{ _id: false },
 );
 
+const GradingRuleSchema = new Schema(
+	{
+		maxMajor: { type: Number, required: true },
+		maxMinor: { type: Number, required: true },
+	},
+	{ _id: false },
+);
+
 const GradingSettingsSchema = new Schema(
 	{
 		passMark: { type: Number, required: true },
@@ -135,6 +144,21 @@ const GradingSettingsSchema = new Schema(
 		},
 		hasSummerSchool: { type: Boolean, required: true },
 		givesDoublePromotion: { type: Boolean, required: true },
+		promotionRules: { type: [GradingRuleSchema], default: [{ maxMajor: 0, maxMinor: 2 }] },
+		failureRules: { type: [GradingRuleSchema], default: [{ maxMajor: 2, maxMinor: 0 }] },
+		summerSchoolRules: { type: [GradingRuleSchema], default: [{ maxMajor: 1, maxMinor: 1 }] },
+		// Legacy threshold fields kept for backward compatibility
+		majorFailuresAllowed: { type: Number, default: 0 },
+		minorFailuresAllowed: { type: Number, default: 2 },
+		oneMajorWithMinorFailuresAllowed: { type: Number, default: 1 },
+	},
+	{ _id: false },
+);
+
+const NextClassAfterLastSchema = new Schema(
+	{
+		classId: { type: String, required: true, trim: true },
+		className: { type: String, required: true, trim: true },
 	},
 	{ _id: false },
 );
@@ -142,6 +166,8 @@ const GradingSettingsSchema = new Schema(
 const SchoolProfileAcademicConfigSchema = new Schema(
 	{
 		gradingSettings: { type: GradingSettingsSchema },
+		isHighSchool: { type: Boolean, default: false },
+		nextClassAfterLast: { type: NextClassAfterLastSchema, default: null },
 		// Outer key: session name; inner key: level name → LevelSchema
 		classLevels: {
 			type: Map,

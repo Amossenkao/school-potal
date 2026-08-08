@@ -435,52 +435,112 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 		return name.replace(/\s*-?\s*[A-D]$/i, '').trim();
 	};
 
-		const getOrderedClassesForSession = (session) => {
-			if (!session || !schoolProfile?.academicConfig?.classLevels?.[session]) return [];
-			const ordered: any[] = [];
-			Object.entries(schoolProfile.academicConfig.classLevels[session]).forEach(
-			([level, levelData]: [string, any]) => {
-				levelData.classes?.forEach((cls) => {
-					ordered.push({ ...cls, session, level });
+	const getAllClassesOrdered = () => {
+		if (!schoolProfile?.academicConfig?.classLevels) return [];
+		const all: any[] = [];
+		const seen = new Set<string>();
+		let fallback = 0;
+		for (const [session, levels] of Object.entries(
+			schoolProfile.academicConfig.classLevels,
+		)) {
+			if (!levels || typeof levels !== 'object') continue;
+			for (const [level, levelData] of Object.entries(
+				levels as Record<string, any>,
+			)) {
+				if (!levelData?.classes || !Array.isArray(levelData.classes)) continue;
+				levelData.classes.forEach((cls: any) => {
+					if (!cls?.classId || seen.has(cls.classId)) return;
+					seen.add(cls.classId);
+					const index =
+						typeof cls?.index === 'number' && Number.isFinite(cls.index)
+							? cls.index
+							: fallback;
+					fallback += 1;
+					all.push({
+						...cls,
+						session,
+						level,
+						baseName: normalizeClassName(cls.name),
+						index,
+					});
 				});
-			},
+			}
+		}
+		all.sort(
+			(a, b) =>
+				a.index - b.index || String(a.name).localeCompare(String(b.name)),
 		);
-		return ordered;
+		return all;
 	};
 
 	const getPromotionClassOptions = () => {
 		const current = getClassMetaById(formData?.classId || user?.classId);
 		if (!current) return getAllClassesWithSessionAndLevel();
-		const ordered = getOrderedClassesForSession(current.session);
+		const ordered = getAllClassesOrdered();
 		const index = ordered.findIndex((cls) => cls.classId === current.classId);
 		const currentBase = normalizeClassName(current.name);
-		const higher = index >= 0 ? ordered.slice(index + 1) : ordered;
-		return higher.filter((cls) => normalizeClassName(cls.name) !== currentBase);
+		if (index === -1)
+			return ordered.filter((cls) => normalizeClassName(cls.name) !== currentBase);
+		// Classes sharing an index are the same grade level (sections of one
+		// grade, or the same grade across sessions), so a class is only a
+		// promotion target when its index is strictly higher than the current
+		// class's.
+		const currentIndex = ordered[index].index;
+		const higher = ordered.filter(
+			(cls) =>
+				cls.index > currentIndex &&
+				normalizeClassName(cls.name) !== currentBase,
+		);
+		if (higher.length > 0) return higher;
+		// Last class. Only a high school's terminal class cannot be promoted from.
+		if (schoolProfile?.academicConfig?.isHighSchool) return [];
+		const nextClassAfterLast = schoolProfile?.academicConfig?.nextClassAfterLast;
+		if (nextClassAfterLast?.classId) {
+			return [
+				{
+					classId: nextClassAfterLast.classId,
+					name: nextClassAfterLast.className || nextClassAfterLast.classId,
+					session: '',
+					level: '',
+					index: Number.MAX_SAFE_INTEGER,
+				},
+			];
+		}
+		return [];
 	};
 
 	const isAtHighestClass = () => {
 		const current = getClassMetaById(formData?.classId || user?.classId);
 		if (!current) return false;
-		const ordered = getOrderedClassesForSession(current.session);
+		const ordered = getAllClassesOrdered();
 		const currentIndex = ordered.findIndex(
 			(cls) => cls.classId === current.classId,
 		);
 		if (currentIndex === -1) return false;
-		const currentBase = normalizeClassName(current.name);
-		const hasHigherBaseClass = ordered
-			.slice(currentIndex + 1)
-			.some((cls) => normalizeClassName(cls.name) !== currentBase);
-		return !hasHigherBaseClass;
+		const currentClassIndex = ordered[currentIndex].index;
+		const hasHigherGrade = ordered.some(
+			(cls) => cls.index > currentClassIndex,
+		);
+		if (hasHigherGrade) return false;
+		if (schoolProfile?.academicConfig?.isHighSchool) return true;
+		return !schoolProfile?.academicConfig?.nextClassAfterLast?.classId;
 	};
 
 	const getDemotionClassOptions = () => {
 		const current = getClassMetaById(formData?.classId || user?.classId);
 		if (!current) return getAllClassesWithSessionAndLevel();
-		const ordered = getOrderedClassesForSession(current.session);
+		const ordered = getAllClassesOrdered();
 		const index = ordered.findIndex((cls) => cls.classId === current.classId);
 		const currentBase = normalizeClassName(current.name);
-		const lower = index >= 0 ? ordered.slice(0, index) : ordered;
-		return lower.filter((cls) => normalizeClassName(cls.name) !== currentBase);
+		if (index === -1)
+			return ordered.filter((cls) => normalizeClassName(cls.name) !== currentBase);
+		const currentIndex = ordered[index].index;
+		const lower = ordered.filter(
+			(cls) =>
+				cls.index < currentIndex &&
+				normalizeClassName(cls.name) !== currentBase,
+		);
+		return lower;
 	};
 
 	const getAcademicYearStart = (year) => {
@@ -2532,7 +2592,9 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 																		key={cls.classId}
 																		value={cls.classId}
 																	>
-																		{cls.name} ({cls.level} - {cls.session})
+																		{cls.level && cls.session
+																			? `${cls.name} (${cls.level} - ${cls.session})`
+																			: cls.name}
 																	</SelectItem>
 																))}
 															</SelectContent>
@@ -3335,7 +3397,9 @@ const EditUserModal = ({ isOpen, onClose, user, onSave, setFeedback }) => {
 											<SelectContent>
 												{getDemotionClassOptions().map((cls) => (
 													<SelectItem key={cls.classId} value={cls.classId}>
-														{cls.name} ({cls.level} - {cls.session})
+														{cls.level && cls.session
+															? `${cls.name} (${cls.level} - ${cls.session})`
+															: cls.name}
 													</SelectItem>
 												))}
 											</SelectContent>

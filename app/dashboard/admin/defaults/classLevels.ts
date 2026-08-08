@@ -10,8 +10,8 @@ export const DEFAULT_CLASS_LEVELS: ClassLevels = {
 		'Daycare Division': {
 			isSelfContained: true,
 			classes: [
-				{ classId: 'morning_nursery', name: 'Nursery' },
-				{ classId: 'morning_abc', name: 'ABC' },
+				{ classId: 'morning_nursery', name: 'Nursery', index: 0 },
+				{ classId: 'morning_abc', name: 'ABC', index: 1 },
 			],
 			subjects: [
 				{ name: 'Hygiene', isMajorSubject: false },
@@ -29,11 +29,11 @@ export const DEFAULT_CLASS_LEVELS: ClassLevels = {
 		'Lower Elementary': {
 			isSelfContained: true,
 			classes: [
-				{ classId: 'morning_k1', name: 'K 1' },
-				{ classId: 'morning_k2', name: 'K 2' },
-				{ classId: 'morning_grade_1', name: 'Grade 1' },
-				{ classId: 'morning_grade_2', name: 'Grade 2' },
-				{ classId: 'morning_grade_3', name: 'Grade 3' },
+				{ classId: 'morning_k1', name: 'K 1', index: 2 },
+				{ classId: 'morning_k2', name: 'K 2', index: 3 },
+				{ classId: 'morning_grade_1', name: 'Grade 1', index: 4 },
+				{ classId: 'morning_grade_2', name: 'Grade 2', index: 5 },
+				{ classId: 'morning_grade_3', name: 'Grade 3', index: 6 },
 			],
 			subjects: [
 				{ name: 'Math', isMajorSubject: false },
@@ -52,9 +52,9 @@ export const DEFAULT_CLASS_LEVELS: ClassLevels = {
 		},
 		'Upper Elementary': {
 			classes: [
-				{ classId: 'morning_grade_4', name: 'Grade 4' },
-				{ classId: 'morning_grade_5', name: 'Grade 5' },
-				{ classId: 'morning_grade_6', name: 'Grade 6' },
+				{ classId: 'morning_grade_4', name: 'Grade 4', index: 7 },
+				{ classId: 'morning_grade_5', name: 'Grade 5', index: 8 },
+				{ classId: 'morning_grade_6', name: 'Grade 6', index: 9 },
 			],
 			subjects: [
 				{ name: 'Math', isMajorSubject: false },
@@ -74,9 +74,9 @@ export const DEFAULT_CLASS_LEVELS: ClassLevels = {
 		},
 		'Junior High': {
 			classes: [
-				{ classId: 'morning_grade_7', name: 'Grade 7' },
-				{ classId: 'morning_grade_8', name: 'Grade 8' },
-				{ classId: 'morning_grade_9', name: 'Grade 9' },
+				{ classId: 'morning_grade_7', name: 'Grade 7', index: 10 },
+				{ classId: 'morning_grade_8', name: 'Grade 8', index: 11 },
+				{ classId: 'morning_grade_9', name: 'Grade 9', index: 12 },
 			],
 			subjects: [
 				{ name: 'Math', isMajorSubject: false },
@@ -98,9 +98,9 @@ export const DEFAULT_CLASS_LEVELS: ClassLevels = {
 		},
 		'Senior High': {
 			classes: [
-				{ classId: 'morning_grade_10', name: 'Grade 10' },
-				{ classId: 'morning_grade_11', name: 'Grade 11' },
-				{ classId: 'morning_grade_12', name: 'Grade 12' },
+				{ classId: 'morning_grade_10', name: 'Grade 10', index: 13 },
+				{ classId: 'morning_grade_11', name: 'Grade 11', index: 14 },
+				{ classId: 'morning_grade_12', name: 'Grade 12', index: 15 },
 			],
 			subjects: [
 				{ name: 'Math', isMajorSubject: false },
@@ -179,9 +179,146 @@ export const DEFAULT_GRADING_SETTINGS = {
 	gradeScale: { min: 0, max: 100 },
 	summerSchoolWeight: 0,
 	failureWeight: 0,
+	hasSummerSchool: false,
 	givesDoublePromotion: false,
 	givesDemotion: false,
+	promotionRules: [{ maxMajor: 0, maxMinor: 2 }],
+	failureRules: [{ maxMajor: 2, maxMinor: 0 }],
+	summerSchoolRules: [{ maxMajor: 1, maxMinor: 1 }],
+	majorFailuresAllowed: 0,
+	minorFailuresAllowed: 2,
+	oneMajorWithMinorFailuresAllowed: 1,
 };
+
+// ---------------------------------------------------------------------------
+// Normalize grading settings to always carry the three rule arrays. Profiles
+// saved before the rule arrays existed only have the legacy threshold fields,
+// so those are mapped onto the arrays here. Existing rule arrays take
+// precedence and are kept as-is.
+// ---------------------------------------------------------------------------
+
+export function migrateLegacyGradingRules(settings: any): any {
+	const src = settings && typeof settings === 'object' ? settings : {};
+	const pickRule = (list: any): { maxMajor: number; maxMinor: number }[] => {
+		if (Array.isArray(list) && list.length > 0) {
+			return list
+				.filter(
+					(rule) =>
+						rule &&
+						typeof rule === 'object' &&
+						Number.isFinite(Number(rule.maxMajor)) &&
+						Number.isFinite(Number(rule.maxMinor)),
+				)
+				.map((rule) => ({
+					maxMajor: Math.max(0, Number(rule.maxMajor)),
+					maxMinor: Math.max(0, Number(rule.maxMinor)),
+				}));
+		}
+		return [];
+	};
+	const promotionRules = pickRule(src.promotionRules);
+	const failureRules = pickRule(src.failureRules);
+	const summerSchoolRules = pickRule(src.summerSchoolRules);
+	const majorFailuresAllowed = Number.isFinite(Number(src.majorFailuresAllowed))
+		? Math.max(0, Number(src.majorFailuresAllowed))
+		: 0;
+	const minorFailuresAllowed = Number.isFinite(Number(src.minorFailuresAllowed))
+		? Math.max(0, Number(src.minorFailuresAllowed))
+		: 2;
+	const oneMajorWithMinorFailuresAllowed = Number.isFinite(
+		Number(src.oneMajorWithMinorFailuresAllowed),
+	)
+		? Math.max(0, Number(src.oneMajorWithMinorFailuresAllowed))
+		: 1;
+	return {
+		passMark: Number.isFinite(Number(src.passMark)) ? Number(src.passMark) : 50,
+		gradeScale: {
+			min: Number.isFinite(Number(src.gradeScale?.min))
+				? Number(src.gradeScale?.min)
+				: 0,
+			max: Number.isFinite(Number(src.gradeScale?.max))
+				? Number(src.gradeScale?.max)
+				: 100,
+		},
+		hasSummerSchool: src.hasSummerSchool === true,
+		givesDoublePromotion: src.givesDoublePromotion === true,
+		promotionRules:
+			promotionRules.length > 0
+				? promotionRules
+				: [{ maxMajor: majorFailuresAllowed, maxMinor: minorFailuresAllowed }],
+		failureRules: failureRules.length > 0 ? failureRules : [{ maxMajor: 2, maxMinor: 0 }],
+		summerSchoolRules:
+			summerSchoolRules.length > 0
+				? summerSchoolRules
+				: [{ maxMajor: 1, maxMinor: oneMajorWithMinorFailuresAllowed }],
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Derive a slug id from a free-text class name. The next-class-after-last
+// class is not offered by the school itself, so its id cannot come from the
+// school's own class list; it is derived from the typed name (e.g.
+// "Grade 12-B" -> "Grade_12_B").
+// ---------------------------------------------------------------------------
+
+export function deriveClassIdFromName(name: string): string {
+	return (name || '')
+		.trim()
+		.replace(/[^a-zA-Z0-9]+/g, '_')
+		.replace(/^_+|_+$/g, '');
+}
+
+// ---------------------------------------------------------------------------
+// Backfill missing class indices (migration for profiles saved before the
+// global index existed). Existing explicit indices are preserved; classes
+// without one get the next free index in traversal order.
+// ---------------------------------------------------------------------------
+
+export function ensureClassIndices(
+	classLevels: Record<string, any>,
+): Record<string, any> {
+	const data = JSON.parse(JSON.stringify(classLevels || {}));
+	const all: any[] = [];
+	for (const session of Object.values(data)) {
+		if (!session || typeof session !== 'object') continue;
+		for (const level of Object.values(session)) {
+			if (!level?.classes || !Array.isArray(level.classes)) continue;
+			level.classes.forEach((cls: any) => all.push(cls));
+		}
+	}
+	// The index is the grade level, so classes that are sections of the same
+	// grade (11-A/11-B) or the same grade across sessions (Morning/Night
+	// Grade 11) must share it. Map normalized class names to an index so
+	// classes missing one inherit the index of their same-grade siblings.
+	const indexByName = new Map<string, number>();
+	let next = 0;
+	for (const cls of all) {
+		if (typeof cls?.index === 'number' && Number.isFinite(cls.index)) {
+			next = Math.max(next, cls.index + 1);
+			const key = normalizeClassNameForIndex(cls.name);
+			if (key && !indexByName.has(key)) indexByName.set(key, cls.index);
+		}
+	}
+	for (const cls of all) {
+		if (typeof cls?.index === 'number' && Number.isFinite(cls.index)) continue;
+		const key = normalizeClassNameForIndex(cls.name);
+		if (key && indexByName.has(key)) {
+			cls.index = indexByName.get(key);
+			continue;
+		}
+		cls.index = next;
+		if (key) indexByName.set(key, next);
+		next += 1;
+	}
+	return data;
+}
+
+const normalizeClassNameForIndex = (name?: string) =>
+	(name || '')
+		.toString()
+		.replace(/\s*-?\s*[A-D]$/i, '')
+		.trim()
+		.toLowerCase();
 
 // ---------------------------------------------------------------------------
 // Build per-year settings for a range of academic years

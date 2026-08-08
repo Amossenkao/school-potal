@@ -27,6 +27,7 @@ import {
 import { authorizeUser } from '@/proxy';
 import { auditActorFrom, recordAuditEvent } from '@/utils/auditTrail';
 import { normalizeHost } from '@/utils/host';
+import { DEFAULT_GRADING_SETTINGS } from '@/app/dashboard/admin/defaults/classLevels';
 import { TENANT_THEMES } from '@/lib/tenantTheme';
 import { DEFAULT_TENANT_THEME_NAME } from '@/types/tenantTheme';
 
@@ -264,6 +265,8 @@ const flattenSchoolProfile = (school: any): any => {
 	}
 	if (school.academicConfig) {
 		flat.classLevels = school.academicConfig.classLevels || {};
+		flat.isHighSchool = school.academicConfig.isHighSchool || false;
+		flat.nextClassAfterLast = school.academicConfig.nextClassAfterLast || null;
 	}
 	if (school.featureConfig) {
 		flat.enabledFeatures = school.featureConfig.enabledFeatures || [];
@@ -544,7 +547,9 @@ export async function POST(request: NextRequest) {
 			},
 			academicConfig: {
 				classLevels: body.academicConfig?.classLevels || {},
-				gradingSettings: body.academicConfig?.gradingSettings || { passMark: 70, gradeScale: { min: 60, max: 100 }, hasSummerSchool: false, givesDoublePromotion: false },
+				gradingSettings: body.academicConfig?.gradingSettings || DEFAULT_GRADING_SETTINGS,
+				isHighSchool: body.academicConfig?.isHighSchool ?? false,
+				nextClassAfterLast: body.academicConfig?.nextClassAfterLast || null,
 			},
 			userConfig: {
 				sysAdmin: { name: sysAdmin.name || '', phone: sysAdmin.phone || '', email: sysAdmin.email || '' },

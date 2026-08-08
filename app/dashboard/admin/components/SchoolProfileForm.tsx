@@ -5,7 +5,7 @@ import {
 	ArrowLeft, ArrowRight, Check, School, GraduationCap, Phone,
 	ToggleLeft, Loader2,
 	DollarSign, ClipboardCheck, Trash2, Wand2,
-	Pencil, ChevronDown, ChevronRight,
+	Pencil, ChevronDown, ChevronRight, ChevronUp,
 } from 'lucide-react';
 import {
 	DEFAULT_CLASS_LEVELS, DEFAULT_ADMIN_POSITIONS, DEFAULT_FEATURES,
@@ -14,6 +14,7 @@ import {
 	DEFAULT_PAYMENT_CATEGORIES,
 	buildDefaultStudentSettings, buildDefaultTeacherSettings,
 	buildDefaultFeeSchedule, getAcademicYearRange,
+	deriveClassIdFromName,
 } from '@/app/dashboard/admin/defaults/classLevels';
 import { TENANT_THEME_NAMES, DEFAULT_TENANT_THEME_NAME } from '@/types/tenantTheme';
 import { REPORT_CARD_THEMES } from '@/types/reportCardTheme';
@@ -59,7 +60,7 @@ export interface SchoolFormState {
 	academicConfig: {
 		classLevels: Record<string, Record<string, {
 			isSelfContained?: boolean;
-			classes: { classId: string; name: string }[];
+			classes: { classId: string; name: string; index: number }[];
 			subjects: { name: string; isMajorSubject?: boolean }[];
 		}>>;
 		gradingSettings: {
@@ -67,7 +68,15 @@ export interface SchoolFormState {
 			gradeScale: { min: number; max: number };
 			hasSummerSchool: boolean;
 			givesDoublePromotion: boolean;
+			promotionRules: { maxMajor: number; maxMinor: number }[];
+			failureRules: { maxMajor: number; maxMinor: number }[];
+			summerSchoolRules: { maxMajor: number; maxMinor: number }[];
+			majorFailuresAllowed?: number;
+			minorFailuresAllowed?: number;
+			oneMajorWithMinorFailuresAllowed?: number;
 		};
+		isHighSchool: boolean;
+		nextClassAfterLast?: { classId: string; className: string };
 	};
 	userConfig: {
 		administrativePositions: { id: string; name: string }[];
@@ -104,7 +113,7 @@ export const defaultFormState: SchoolFormState = {
 	identity: { name: '', shortName: '', initials: '', slogan: '', studentIdPrefix: '', yearFounded: '', firstAcademicYear: '', currentAcademicYear: '' },
 	branding: { logoUrl: '', logoUrl2: '', themeName: DEFAULT_TENANT_THEME_NAME, reportCardThemes: {} },
 	contact: { addresses: [], phones: [], emails: [], website: '' },
-	academicConfig: { classLevels: {}, gradingSettings: { passMark: 70, gradeScale: { min: 60, max: 100 }, hasSummerSchool: false, givesDoublePromotion: false } },
+	academicConfig: { classLevels: {}, gradingSettings: { passMark: 70, gradeScale: { min: 60, max: 100 }, hasSummerSchool: false, givesDoublePromotion: false, promotionRules: [{ maxMajor: 0, maxMinor: 2 }], failureRules: [{ maxMajor: 2, maxMinor: 0 }], summerSchoolRules: [{ maxMajor: 1, maxMinor: 1 }], majorFailuresAllowed: 0, minorFailuresAllowed: 2, oneMajorWithMinorFailuresAllowed: 1 }, isHighSchool: false, nextClassAfterLast: { classId: '', className: '' } },
 	userConfig: {
 		administrativePositions: [...DEFAULT_ADMIN_POSITIONS],
 		sysAdmin: { name: '', phone: '', email: '' },
@@ -839,6 +848,59 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 								<div className="px-3"><ToggleRow label="Has summer school" checked={form.academicConfig.gradingSettings.hasSummerSchool} onChange={(v) => update('academicConfig.gradingSettings.hasSummerSchool', v)} /></div>
 								<div className="px-3"><ToggleRow label="Allow double promotion" checked={form.academicConfig.gradingSettings.givesDoublePromotion} onChange={(v) => update('academicConfig.gradingSettings.givesDoublePromotion', v)} /></div>
 							</div>
+							<div className="mt-4">
+								<p className="text-[11px] font-medium text-gray-500 mb-1">Promotion / Failure / Summer-School Rules</p>
+								<p className="text-[10px] text-gray-400 mb-2.5">Each rule lists the max failed major and max failed minor subjects that match it. A student matches when both counts are at or below the rule's limits. Rules are evaluated in order: failure rules first, then summer-school rules (only when summer school is enabled), then promotion rules.</p>
+								<div className="grid gap-3 sm:grid-cols-3">
+									<GradingRulesEditor
+										title="Promotion Rules"
+										description="Passes when a rule matches."
+										rules={form.academicConfig.gradingSettings.promotionRules}
+										onChange={(rules) => update('academicConfig.gradingSettings.promotionRules', rules)}
+									/>
+									<GradingRulesEditor
+										title="Summer-School Rules"
+										description={form.academicConfig.gradingSettings.hasSummerSchool ? 'Sent to summer school when a rule matches.' : 'Only applies when summer school is enabled.'}
+										rules={form.academicConfig.gradingSettings.summerSchoolRules}
+										onChange={(rules) => update('academicConfig.gradingSettings.summerSchoolRules', rules)}
+										dimmed={!form.academicConfig.gradingSettings.hasSummerSchool}
+									/>
+									<GradingRulesEditor
+										title="Failure Rules"
+										description="Held back when a rule matches."
+										rules={form.academicConfig.gradingSettings.failureRules}
+										onChange={(rules) => update('academicConfig.gradingSettings.failureRules', rules)}
+									/>
+								</div>
+								<p className="text-[10px] text-gray-400 mt-2">Students who match no rule at all are held back.</p>
+							</div>
+							<div className="mt-3 divide-y divide-gray-100 dark:divide-gray-800 border border-gray-100 dark:border-gray-800 rounded-lg">
+								<div className="px-3"><ToggleRow label="Is a high school" checked={form.academicConfig.isHighSchool} onChange={(v) => update('academicConfig.isHighSchool', v)} /></div>
+							</div>
+							{!form.academicConfig.isHighSchool && (() => {
+								const next = form.academicConfig.nextClassAfterLast;
+								const className = next?.className || '';
+								const derivedId = deriveClassIdFromName(className);
+								return (
+									<div className="mt-3">
+										<label className="text-[11px] font-medium text-gray-500">Next class after last class (for graduating students)</label>
+										<input
+											type="text"
+											value={className}
+											onChange={(e) => {
+												const name = e.target.value;
+												const trimmed = name.trim();
+												update('academicConfig.nextClassAfterLast', trimmed ? { className: trimmed, classId: deriveClassIdFromName(trimmed) } : undefined);
+											}}
+											placeholder="e.g. Grade 13"
+											className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-sm outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white"
+										/>
+										<p className="mt-1 text-[10px] text-gray-400">
+											Students promoted past the school's last class move on to this class (e.g. when continuing at another school). Class id: <span className="font-mono">{derivedId || '—'}</span>
+										</p>
+									</div>
+								);
+							})()}
 						</div>
 						<div className="border-t border-gray-100 dark:border-gray-800 pt-4">
 							<AcademicPermissionsEditor
@@ -1706,7 +1768,18 @@ function ClassLevelsEditor({ classLevels, onChange, onUseDefaults }: {
 		if (!newClassName.trim()) return;
 		const data = JSON.parse(JSON.stringify(classLevels));
 		const classId = `${session}_${newClassName.replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}`.toLowerCase();
-		data[session][level].classes.push({ classId, name: newClassName });
+		let nextIndex = 0;
+		for (const sessionData of Object.values(data)) {
+			if (!sessionData || typeof sessionData !== 'object') continue;
+			for (const levelData of Object.values(sessionData as Record<string, any>)) {
+				for (const cls of levelData?.classes || []) {
+					if (typeof cls?.index === 'number' && Number.isFinite(cls.index)) {
+						nextIndex = Math.max(nextIndex, cls.index + 1);
+					}
+				}
+			}
+		}
+		data[session][level].classes.push({ classId, name: newClassName, index: nextIndex });
 		onChange(data);
 		setNewClassName('');
 	};
@@ -1723,6 +1796,19 @@ function ClassLevelsEditor({ classLevels, onChange, onUseDefaults }: {
 	const deleteClass = (session: string, level: string, classIdx: number) => {
 		const data = JSON.parse(JSON.stringify(classLevels));
 		data[session][level].classes.splice(classIdx, 1);
+		onChange(data);
+	};
+
+	const changeClassIndex = (session: string, level: string, classIdx: number, direction: -1 | 1) => {
+		// The index is the grade level. Multiple classes may share the same
+		// index (sections like 11-A/11-B, or the same grade across sessions),
+		// so the arrows only adjust this class's own number — they never
+		// auto-swap indices with other classes.
+		const data = JSON.parse(JSON.stringify(classLevels));
+		const cls = data[session]?.[level]?.classes?.[classIdx];
+		if (!cls) return;
+		const current = Number.isFinite(Number(cls.index)) ? Number(cls.index) : 0;
+		cls.index = Math.max(0, current + direction);
 		onChange(data);
 	};
 
@@ -1823,6 +1909,13 @@ function ClassLevelsEditor({ classLevels, onChange, onUseDefaults }: {
 													</>
 												) : (
 													<>
+														<div className="flex items-center gap-0.5" title="Grade index — classes sharing the same number are treated as the same grade (▲/▼ adjust this class's own number)">
+															<span className="w-5 text-center text-[10px] font-semibold text-gray-500 tabular-nums">{Number.isFinite(Number(cls.index)) ? cls.index : '—'}</span>
+															<div className="flex flex-col">
+																<button onClick={() => changeClassIndex(session, level, idx, -1)} className="text-gray-400 hover:text-[#465fff] leading-none"><ChevronUp className="h-2.5 w-2.5" /></button>
+																<button onClick={() => changeClassIndex(session, level, idx, 1)} className="text-gray-400 hover:text-[#465fff] leading-none"><ChevronDown className="h-2.5 w-2.5" /></button>
+															</div>
+														</div>
 														<span className="text-gray-700 dark:text-gray-300">{cls.name}</span>
 														<button onClick={() => { setEditingClass({ session, level, classIdx: idx }); setEditClassName(cls.name); }} className="text-gray-400 hover:text-gray-600"><Pencil className="h-2 w-2" /></button>
 														<button onClick={() => deleteClass(session, level, idx)} className="text-red-400 hover:text-red-500"><Trash2 className="h-2 w-2" /></button>
@@ -2127,6 +2220,55 @@ function RemoveRow({ onClick }: { onClick: () => void }) {
 		<button onClick={onClick} className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors dark:hover:bg-red-900/20 shrink-0">
 			<Trash2 className="h-3.5 w-3.5" />
 		</button>
+	);
+}
+
+function GradingRulesEditor({ title, description, rules, onChange, dimmed }: {
+	title: string;
+	description: string;
+	rules: { maxMajor: number; maxMinor: number }[];
+	onChange: (rules: { maxMajor: number; maxMinor: number }[]) => void;
+	dimmed?: boolean;
+}) {
+	const updateRule = (index: number, field: 'maxMajor' | 'maxMinor', value: number) => {
+		const next = [...rules];
+		next[index] = { ...next[index], [field]: Math.max(0, value) };
+		onChange(next);
+	};
+	const removeRule = (index: number) => onChange(rules.filter((_, i) => i !== index));
+	const addRule = () => onChange([...rules, { maxMajor: 0, maxMinor: 0 }]);
+	return (
+		<div className={`rounded-lg border border-gray-100 dark:border-gray-800 overflow-hidden ${dimmed ? 'opacity-60' : ''}`}>
+			<div className="px-3 py-2 bg-gray-50 dark:bg-muted/50 border-b border-gray-100 dark:border-gray-800">
+				<p className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">{title}</p>
+				<p className="text-[10px] text-gray-400 leading-snug">{description}</p>
+			</div>
+			<div className="divide-y divide-gray-100 dark:divide-gray-800">
+				{rules.length === 0 && (
+					<p className="px-3 py-2 text-[10px] text-gray-400">No rules — nothing matches this category.</p>
+				)}
+				{rules.map((rule, index) => (
+					<div key={index} className="flex items-end gap-1.5 px-3 py-2">
+						<div className="flex-1">
+							<label className="block text-[9px] font-medium text-gray-400 uppercase">Max majors</label>
+							<input type="number" inputMode="numeric" min={0} value={String(rule.maxMajor)}
+								onChange={(e) => updateRule(index, 'maxMajor', Number(e.target.value) || 0)}
+								className="mt-0.5 w-full rounded-md border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+						</div>
+						<div className="flex-1">
+							<label className="block text-[9px] font-medium text-gray-400 uppercase">Max minors</label>
+							<input type="number" inputMode="numeric" min={0} value={String(rule.maxMinor)}
+								onChange={(e) => updateRule(index, 'maxMinor', Number(e.target.value) || 0)}
+								className="mt-0.5 w-full rounded-md border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+						</div>
+						<RemoveRow onClick={() => removeRule(index)} />
+					</div>
+				))}
+			</div>
+			<div className="px-3 pb-2 pt-1">
+				<AddButton label="Add rule" onClick={addRule} />
+			</div>
+		</div>
 	);
 }
 

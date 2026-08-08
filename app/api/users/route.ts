@@ -801,6 +801,10 @@ function getClassMetaById(classLevels: any, classId: string) {
 						session: sessionName,
 						level: levelName,
 						baseName: normalizeClassName(found.name),
+						index:
+							typeof found.index === 'number' && Number.isFinite(found.index)
+								? found.index
+								: undefined,
 					};
 				}
 			}
@@ -809,40 +813,43 @@ function getClassMetaById(classLevels: any, classId: string) {
 	return null;
 }
 
-function getOrderedClassesForSession(classLevels: any, sessionName: string) {
-	if (!classLevels?.[sessionName]) return [];
+// Every class across all sessions/levels in one global order, sorted by index.
+// Classes missing an index fall back to their traversal position.
+function getAllClassesOrdered(classLevels: any) {
 	const ordered: any[] = [];
-	const session: any = classLevels[sessionName];
-	const levelOrder = Object.keys(session);
-	for (const levelName of levelOrder) {
-		const level = session[levelName];
-		if (level?.classes && Array.isArray(level.classes)) {
-			level.classes.forEach((cls: any) => {
-				ordered.push({
-					classId: cls.classId,
-					name: cls.name,
-					session: sessionName,
-					level: levelName,
-					baseName: normalizeClassName(cls.name),
+	const seen = new Set<string>();
+	let fallback = 0;
+	if (classLevels && typeof classLevels === 'object') {
+		for (const [sessionName, session] of Object.entries(classLevels)) {
+			if (!session || typeof session !== 'object') continue;
+			const levelOrder = Object.keys(session);
+			for (const levelName of levelOrder) {
+				const level: any = (session as any)[levelName];
+				if (!level?.classes || !Array.isArray(level.classes)) continue;
+				level.classes.forEach((cls: any) => {
+					if (!cls?.classId || seen.has(cls.classId)) return;
+					seen.add(cls.classId);
+					const index =
+						typeof cls.index === 'number' && Number.isFinite(cls.index)
+							? cls.index
+							: fallback;
+					fallback += 1;
+					ordered.push({
+						classId: cls.classId,
+						name: cls.name,
+						session: sessionName,
+						level: levelName,
+						baseName: normalizeClassName(cls.name),
+						index,
+					});
 				});
-			});
+			}
 		}
 	}
-	return ordered;
-}
-
-function isAtHighestClass(classLevels: any, classId: string) {
-	const currentMeta = getClassMetaById(classLevels, classId);
-	if (!currentMeta) return false;
-	const ordered = getOrderedClassesForSession(classLevels, currentMeta.session);
-	const currentIndex = ordered.findIndex(
-		(cls) => cls.classId === currentMeta.classId,
+	ordered.sort(
+		(a, b) => a.index - b.index || a.baseName.localeCompare(b.baseName),
 	);
-	if (currentIndex === -1) return false;
-	const hasHigherBaseClass = ordered
-		.slice(currentIndex + 1)
-		.some((cls) => cls.baseName !== currentMeta.baseName);
-	return !hasHigherBaseClass;
+	return ordered;
 }
 
 async function promoteStudent(
@@ -1153,21 +1160,11 @@ function validatePromotionInput(
 	const currentMeta = getClassMetaById(classLevels, student.classId);
 	const targetMeta = getClassMetaById(classLevels, promotedToClassId);
 
-	if (currentMeta && isAtHighestClass(classLevels, currentMeta.classId)) {
-		return 'Cannot promote this student because they are already in the highest possible class.';
-	}
-
 	if (currentMeta && targetMeta) {
 		if (currentMeta.baseName === targetMeta.baseName) {
 			return 'Cannot promote to a different section of the same class. Use class change instead.';
 		}
-		if (currentMeta.session !== targetMeta.session) {
-			return 'Promotion must remain within the same session.';
-		}
-		const ordered = getOrderedClassesForSession(
-			classLevels,
-			currentMeta.session,
-		);
+		const ordered = getAllClassesOrdered(classLevels);
 		const currentIndex = ordered.findIndex(
 			(cls) => cls.classId === currentMeta.classId,
 		);
@@ -1177,9 +1174,32 @@ function validatePromotionInput(
 		if (
 			currentIndex !== -1 &&
 			targetIndex !== -1 &&
-			targetIndex <= currentIndex
+			ordered[targetIndex].index <= ordered[currentIndex].index
 		) {
 			return 'Promotion target must be a higher class than the current class.';
+		}
+	}
+
+	// Last-class handling. A high school's terminal class cannot be promoted
+	// from; other schools promote graduates of their last class to the class
+	// configured in academicConfig.nextClassAfterLast.
+	const ordered = getAllClassesOrdered(classLevels);
+	const currentIndex = ordered.findIndex(
+		(cls) => cls.classId === currentMeta?.classId,
+	);
+	if (currentIndex !== -1) {
+		const hasHigherGrade = ordered
+			.slice(currentIndex + 1)
+			.some((cls) => cls.index > ordered[currentIndex].index);
+		if (!hasHigherGrade) {
+			const isHighSchool = schoolProfile?.academicConfig?.isHighSchool === true;
+			const nextClassAfterLast = schoolProfile?.academicConfig?.nextClassAfterLast;
+			if (isHighSchool || !nextClassAfterLast?.classId) {
+				return 'Cannot promote this student because they are already in the highest possible class.';
+			}
+			if (targetMeta?.classId !== nextClassAfterLast.classId) {
+				return `Students in the last class are promoted to ${nextClassAfterLast.className || nextClassAfterLast.classId}.`;
+			}
 		}
 	}
 
@@ -4082,20 +4102,9 @@ export async function PUT(request: NextRequest) {
 					);
 				}
 			}
-			const classLevels = schoolProfile?.classLevels;
+			const classLevels = schoolProfile?.academicConfig?.classLevels;
 			const currentMeta = getClassMetaById(classLevels, student.classId);
 			const targetMeta = getClassMetaById(classLevels, promotedToClassId);
-
-			if (currentMeta && isAtHighestClass(classLevels, currentMeta.classId)) {
-				return NextResponse.json(
-					{
-						success: false,
-						message:
-							'Cannot promote this student because they are already in the highest possible class.',
-					},
-					{ status: 400 },
-				);
-			}
 
 			if (currentMeta && targetMeta) {
 				if (currentMeta.baseName === targetMeta.baseName) {
@@ -4108,19 +4117,7 @@ export async function PUT(request: NextRequest) {
 						{ status: 400 },
 					);
 				}
-				if (currentMeta.session !== targetMeta.session) {
-					return NextResponse.json(
-						{
-							success: false,
-							message: 'Promotion must remain within the same session.',
-						},
-						{ status: 400 },
-					);
-				}
-				const ordered = getOrderedClassesForSession(
-					classLevels,
-					currentMeta.session,
-				);
+				const ordered = getAllClassesOrdered(classLevels);
 				const currentIndex = ordered.findIndex(
 					(cls) => cls.classId === currentMeta.classId,
 				);
@@ -4130,7 +4127,7 @@ export async function PUT(request: NextRequest) {
 				if (
 					currentIndex !== -1 &&
 					targetIndex !== -1 &&
-					targetIndex <= currentIndex
+					ordered[targetIndex].index <= ordered[currentIndex].index
 				) {
 					return NextResponse.json(
 						{
@@ -4140,6 +4137,43 @@ export async function PUT(request: NextRequest) {
 						},
 						{ status: 400 },
 					);
+				}
+			}
+
+			// Last-class handling: high school terminal classes can't be promoted
+			// from; other schools promote graduates to nextClassAfterLast.
+			const ordered = getAllClassesOrdered(classLevels);
+			const currentIndex = ordered.findIndex(
+				(cls) => cls.classId === currentMeta?.classId,
+			);
+			if (currentIndex !== -1) {
+				const hasHigherGrade = ordered
+					.slice(currentIndex + 1)
+					.some((cls) => cls.index > ordered[currentIndex].index);
+				if (!hasHigherGrade) {
+					const isHighSchool =
+						schoolProfile?.academicConfig?.isHighSchool === true;
+					const nextClassAfterLast =
+						schoolProfile?.academicConfig?.nextClassAfterLast;
+					if (isHighSchool || !nextClassAfterLast?.classId) {
+						return NextResponse.json(
+							{
+								success: false,
+								message:
+									'Cannot promote this student because they are already in the highest possible class.',
+							},
+							{ status: 400 },
+						);
+					}
+					if (targetMeta?.classId !== nextClassAfterLast.classId) {
+						return NextResponse.json(
+							{
+								success: false,
+								message: `Students in the last class are promoted to ${nextClassAfterLast.className || nextClassAfterLast.classId}.`,
+							},
+							{ status: 400 },
+						);
+					}
 				}
 			}
 
@@ -4282,7 +4316,7 @@ export async function PUT(request: NextRequest) {
 			}
 
 			const schoolProfile = await getSchoolProfile();
-			const classLevels = schoolProfile?.classLevels;
+			const classLevels = schoolProfile?.academicConfig?.classLevels;
 			const currentMeta = getClassMetaById(classLevels, student.classId);
 			const targetMeta = getClassMetaById(classLevels, demotedToClassId);
 
@@ -4297,19 +4331,7 @@ export async function PUT(request: NextRequest) {
 						{ status: 400 },
 					);
 				}
-				if (currentMeta.session !== targetMeta.session) {
-					return NextResponse.json(
-						{
-							success: false,
-							message: 'Demotion must remain within the same session.',
-						},
-						{ status: 400 },
-					);
-				}
-				const ordered = getOrderedClassesForSession(
-					classLevels,
-					currentMeta.session,
-				);
+				const ordered = getAllClassesOrdered(classLevels);
 				const currentIndex = ordered.findIndex(
 					(cls) => cls.classId === currentMeta.classId,
 				);
@@ -4319,7 +4341,7 @@ export async function PUT(request: NextRequest) {
 				if (
 					currentIndex !== -1 &&
 					targetIndex !== -1 &&
-					targetIndex >= currentIndex
+					ordered[targetIndex].index >= ordered[currentIndex].index
 				) {
 					return NextResponse.json(
 						{

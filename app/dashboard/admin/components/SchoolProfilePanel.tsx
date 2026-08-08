@@ -9,6 +9,7 @@ import type { RealtimeEvent } from '@/lib/realtimeTypes';
 import useAuth from '@/store/useAuth';
 import { useSchoolStore } from '@/store/schoolStore';
 import { DEFAULT_TENANT_THEME_NAME } from '@/types/tenantTheme';
+import { ensureClassIndices, migrateLegacyGradingRules, deriveClassIdFromName } from '@/app/dashboard/admin/defaults/classLevels';
 import { flattenSchoolAddressLines } from '@/utils/schoolAddresses';
 
 interface SchoolStats {
@@ -75,13 +76,23 @@ const normalizeSchoolFormState = (school: any): SchoolFormState => {
 			website: co.website || school?.website || '',
 		},
 		academicConfig: {
-			classLevels: ac.classLevels || school?.classLevels || {},
-			gradingSettings: {
-				passMark: ac.gradingSettings?.passMark ?? 50,
-				gradeScale: ac.gradingSettings?.gradeScale ?? { min: 0, max: 100 },
-				hasSummerSchool: ac.gradingSettings?.hasSummerSchool ?? false,
-				givesDoublePromotion: ac.gradingSettings?.givesDoublePromotion ?? false,
-			},
+			classLevels: ensureClassIndices(ac.classLevels || school?.classLevels || {}),
+			gradingSettings: migrateLegacyGradingRules(
+				ac.gradingSettings || {
+					passMark: 50,
+					gradeScale: { min: 0, max: 100 },
+				},
+			),
+			isHighSchool: ac.isHighSchool ?? false,
+			nextClassAfterLast: ac.nextClassAfterLast
+				? {
+						className: ac.nextClassAfterLast.className || '',
+						classId:
+							deriveClassIdFromName(ac.nextClassAfterLast.className) ||
+							ac.nextClassAfterLast.classId ||
+							'',
+					}
+				: undefined,
 		},
 		userConfig: {
 			administrativePositions: uc.administrativePositions || school?.administrativePositions || [],

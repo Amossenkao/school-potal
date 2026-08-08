@@ -23,6 +23,9 @@ export interface Subject {
 export interface Class {
 	readonly classId: string;
 	readonly name: string;
+	// Global ordering across every session and level. Promotion/demotion follow
+	// this index, so the class with index N+1 is the promotion target of index N.
+	readonly index: number;
 }
 
 // One academic level, e.g. "Grade 1". isSelfContained = single teacher handles all subjects
@@ -122,11 +125,29 @@ export interface ParentSettings {
 	readonly loginAccess: boolean;
 }
 
+// A single pass/fail threshold rule. A rule matches when the student's failed
+// major count is <= maxMajor AND their failed minor count is <= maxMinor.
+export interface GradingRule {
+	readonly maxMajor: number;
+	readonly maxMinor: number;
+}
+
 export interface GradingSettings {
 	readonly passMark: number;
 	readonly gradeScale: { readonly min: number; readonly max: number };
 	readonly hasSummerSchool: boolean;
 	readonly givesDoublePromotion: boolean;
+	// Rule arrays evaluated against the student's failed major/minor counts.
+	// Decision precedence: failureRules first, then summerSchoolRules (only when
+	// hasSummerSchool is true), then promotionRules.
+	readonly promotionRules: readonly GradingRule[];
+	readonly failureRules: readonly GradingRule[];
+	readonly summerSchoolRules: readonly GradingRule[];
+	// Legacy threshold fields — kept for backward compatibility with profiles
+	// saved before the rule arrays existed. New profiles should use the arrays.
+	readonly majorFailuresAllowed?: number;
+	readonly minorFailuresAllowed?: number;
+	readonly oneMajorWithMinorFailuresAllowed?: number;
 }
 
 // ============================================================================
@@ -219,6 +240,14 @@ export interface SchoolProfileContact {
 export interface SchoolProfileAcademicConfig {
 	readonly gradingSettings?: GradingSettings;
 	readonly classLevels: ClassLevels;
+	// True when the school's highest-index class is terminal (e.g. Grade 12) and
+	// cannot be promoted to any other class. When false, students graduating the
+	// last class are promoted to nextClassAfterLast instead.
+	readonly isHighSchool?: boolean;
+	// The class that graduates of the school's last class are promoted to when
+	// isHighSchool is false. May reference a class in another school's profile,
+	// so className is stored alongside the classId.
+	readonly nextClassAfterLast?: { readonly classId: string; readonly className: string };
 }
 
 // ============================================================================

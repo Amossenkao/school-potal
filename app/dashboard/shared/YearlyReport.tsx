@@ -61,6 +61,7 @@ import {
 import { loadReportTemplateBytes } from '@/utils/reportTemplate';
 import { flattenSchoolAddressLines } from '@/utils/schoolAddresses';
 import { areGradeRowsEquivalent } from '@/utils/gradeRows';
+import { migrateLegacyGradingRules } from '@/app/dashboard/admin/defaults/classLevels';
 
 // --- Type Definitions ---
 
@@ -1270,48 +1271,63 @@ const getClassMetaForPromotion = (classLevels: any, classId: string) => {
 				session: String(sessionName),
 				level: String(levelName),
 				baseName: normalizeClassNameForPromotion(found.name || found.classId),
+				index:
+					typeof found.index === 'number' && Number.isFinite(found.index)
+						? found.index
+						: undefined,
 			};
 		}
 	}
 	return null;
 };
 
-const getOrderedClassesForPromotionSession = (
+// Every class across all sessions/levels in one global order, sorted by index.
+// Classes missing an index fall back to their traversal position.
+const getOrderedClassesForPromotion = (
 	classLevels: any,
-	sessionName: string,
 ) => {
-	if (!classLevels?.[sessionName])
-		return [] as Array<{
-			classId: string;
-			name: string;
-			session: string;
-			level: string;
-			baseName: string;
-		}>;
-	const session = classLevels[sessionName];
 	const ordered: Array<{
 		classId: string;
 		name: string;
 		session: string;
 		level: string;
 		baseName: string;
+		index: number;
 	}> = [];
-	for (const levelName of Object.keys(session)) {
-		const level = session[levelName];
-		if (!Array.isArray(level?.classes)) continue;
-		level.classes.forEach((klass: any) => {
-			const name = String(klass?.name || klass?.classId || '').trim();
-			const classId = String(klass?.classId || '').trim();
-			if (!classId && !name) return;
-			ordered.push({
-				classId,
-				name: name || classId,
-				session: sessionName,
-				level: String(levelName),
-				baseName: normalizeClassNameForPromotion(name || classId),
-			});
-		});
+	const seen = new Set<string>();
+	let fallback = 0;
+	if (classLevels && typeof classLevels === 'object') {
+		for (const [sessionName, session] of Object.entries(classLevels)) {
+			if (!session || typeof session !== 'object') continue;
+			for (const levelName of Object.keys(session as Record<string, unknown>)) {
+				const level: any = (session as any)[levelName];
+				if (!Array.isArray(level?.classes)) continue;
+				level.classes.forEach((klass: any) => {
+					const name = String(klass?.name || klass?.classId || '').trim();
+					const classId = String(klass?.classId || '').trim();
+					if (!classId && !name) return;
+					if (seen.has(classId)) return;
+					seen.add(classId);
+					const index =
+						typeof klass?.index === 'number' && Number.isFinite(klass.index)
+							? klass.index
+							: fallback;
+					fallback += 1;
+					ordered.push({
+						classId,
+						name: name || classId,
+						session: sessionName,
+						level: String(levelName),
+						baseName: normalizeClassNameForPromotion(name || classId),
+						index,
+					});
+				});
+			}
+		}
 	}
+	ordered.sort(
+		(a, b) => a.index - b.index || a.baseName.localeCompare(b.baseName),
+	);
 	return ordered;
 };
 
@@ -1324,17 +1340,14 @@ const resolveNextClassName = ({
 	currentClassId: string;
 	currentClassName: string;
 }) => {
-	const classLevels = school?.academicConfig.classLevels;
+	const classLevels = school?.academicConfig?.classLevels;
 	const currentMeta = getClassMetaForPromotion(classLevels, currentClassId);
 
 	if (!currentMeta) {
 		return getDisplayClassName(currentClassName);
 	}
 
-	const ordered = getOrderedClassesForPromotionSession(
-		classLevels,
-		currentMeta.session,
-	);
+	const ordered = getOrderedClassesForPromotion(classLevels);
 
 	const currentIndex = ordered.findIndex(
 		(klass) => klass.classId === currentMeta.classId,
@@ -1344,30 +1357,60 @@ const resolveNextClassName = ({
 		return getDisplayClassName(currentClassName);
 	}
 
-	let nextClass = ordered
+	// Classes sharing an index are the same grade level (sections of one
+	// grade, or the same grade across sessions), so a class is only a
+	// promotion target when its index is strictly higher than the current
+	// class's.
+	const currentIndexValue = ordered[currentIndex].index;
+	const nextClass = ordered
 		.slice(currentIndex + 1)
-		.find((klass) => klass.baseName !== currentMeta.baseName);
-	
-	if (!nextClass?.name) {
-		switch (school.highestLevel) {
-			case "Elementary":
-				return "Grade 7"
-			case "Junior High":
-				return "Grade 10"
-		}
+		.find(
+			(klass) =>
+				klass.index > currentIndexValue &&
+				klass.baseName !== currentMeta.baseName,
+		);
+
+	if (nextClass?.name) {
+		return getDisplayClassName(nextClass.name);
 	}
 
-	return getDisplayClassName(nextClass?.name || currentClassName);
+	// Last base class. High school terminal classes have no next class;
+	// other schools promote graduates to the configured nextClassAfterLast.
+	if (school?.academicConfig?.isHighSchool) {
+		return getDisplayClassName(currentClassName);
+	}
+	const nextClassAfterLast = school?.academicConfig?.nextClassAfterLast;
+	if (nextClassAfterLast?.className) {
+		return getDisplayClassName(nextClassAfterLast.className);
+	}
+	if (nextClassAfterLast?.classId) {
+		return getDisplayClassName(nextClassAfterLast.classId);
+	}
+
+	return getDisplayClassName(currentClassName);
 };
 
-const isCoreMathSubject = (subject: string) => {
-	const normalized = subject.toLowerCase().replace(/[^a-z]/g, '');
-	return normalized === 'math' || normalized.includes('mathematics');
-};
-
-const isCoreEnglishSubject = (subject: string) => {
-	const normalized = subject.toLowerCase().replace(/[^a-z]/g, '');
-	return normalized === 'english' || normalized.includes('english');
+const getClassSubjectMeta = (
+	classLevels: any,
+	classId: string,
+): { subjects: { name: string; isMajor: boolean }[] } | null => {
+	if (!classLevels || !classId) return null;
+	for (const session of Object.values(classLevels)) {
+		if (!session || typeof session !== 'object') continue;
+		for (const levelData of Object.values(session as Record<string, any>)) {
+			if (!levelData?.classes || !Array.isArray(levelData.classes)) continue;
+			if (!levelData.classes.some((c: any) => c.classId === classId)) continue;
+			return {
+				subjects: Array.isArray(levelData.subjects)
+					? levelData.subjects.map((s: any) => ({
+							name: String(s?.name || '').trim(),
+							isMajor: s?.isMajorSubject === true,
+						}))
+					: [],
+			};
+		}
+	}
+	return null;
 };
 
 const hasIncompleteYearlyReport = (
@@ -1409,6 +1452,7 @@ type PromotionStatementResult = {
 	studentName: string;
 	currentClass: string;
 	nextClass: string;
+	text: string;
 };
 
 const buildPromotionStatement = ({
@@ -1442,29 +1486,58 @@ const buildPromotionStatement = ({
 			studentName: studentFullName,
 			currentClass,
 			nextClass: '',
+			text: '',
 		};
 	}
+
+	const classSubjectMeta = getClassSubjectMeta(
+		school?.academicConfig?.classLevels,
+		reportFilters.className,
+	);
+	const majorSubjectNames = new Set(
+		(classSubjectMeta?.subjects || [])
+			.filter((subject) => subject.isMajor)
+			.map((subject) => subject.name.toLowerCase()),
+	);
+	const isMajorSubject = (subject: string) =>
+		majorSubjectNames.has(String(subject || '').trim().toLowerCase());
 
 	const failedSubjects = classSubjects.filter((subject) => {
 		const yearlyAverage = getSubjectYearlyAverage(studentData, subject);
 		return yearlyAverage !== null && yearlyAverage < passMark;
 	});
-	const failedMath = failedSubjects.some(isCoreMathSubject);
-	const failedEnglish = failedSubjects.some(isCoreEnglishSubject);
-	const failedOtherCount = failedSubjects.filter(
-		(subject) => !isCoreMathSubject(subject) && !isCoreEnglishSubject(subject),
-	).length;
+	const failedMajorCount = failedSubjects.filter(isMajorSubject).length;
+	const failedMinorCount = failedSubjects.length - failedMajorCount;
 
-	let decision: Exclude<PromotionDecision, 'incomplete'> = 'promoted';
-	if (failedMath && failedEnglish) {
-		decision = 'failed';
-	} else if ((failedMath || failedEnglish) && failedOtherCount <= 1) {
+	const gradingSettings = migrateLegacyGradingRules(
+		school?.academicConfig?.gradingSettings,
+	);
+	const hasSummerSchool = gradingSettings.hasSummerSchool === true;
+	const matchesRule = (rule: { maxMajor: number; maxMinor: number }) =>
+		failedMajorCount <= Number(rule.maxMajor) &&
+		failedMinorCount <= Number(rule.maxMinor);
+
+	// Rules are configured as escalating severity tiers: the promotion band is
+	// evaluated first, then the summer-school band, then the failure band, and a
+	// student who matches no band at all falls back to failed. Evaluating
+	// promotion first means students with zero failures (who can only ever match
+	// a low-threshold failure rule) are correctly promoted.
+	let decision: Exclude<PromotionDecision, 'incomplete'> = 'failed';
+	if (
+		Array.isArray(gradingSettings.promotionRules) &&
+		gradingSettings.promotionRules.some(matchesRule)
+	) {
+		decision = 'promoted';
+	} else if (
+		hasSummerSchool &&
+		Array.isArray(gradingSettings.summerSchoolRules) &&
+		gradingSettings.summerSchoolRules.some(matchesRule)
+	) {
 		decision = 'summer_school';
-	} else if ((failedMath || failedEnglish) && failedOtherCount >= 2) {
-		decision = 'failed';
-	} else if (failedOtherCount === 3) {
-		decision = 'summer_school';
-	} else if (failedOtherCount >= 4) {
+	} else if (
+		Array.isArray(gradingSettings.failureRules) &&
+		gradingSettings.failureRules.some(matchesRule)
+	) {
 		decision = 'failed';
 	}
 
@@ -1475,6 +1548,7 @@ const buildPromotionStatement = ({
 			studentName: studentFullName,
 			currentClass,
 			nextClass: '',
+			text: `${studentFullName} is required to repeat ${currentClass}.`,
 		};
 	}
 
@@ -1484,6 +1558,7 @@ const buildPromotionStatement = ({
 			studentName: studentFullName,
 			currentClass,
 			nextClass,
+			text: `${studentFullName} is required to attend summer school.`,
 		};
 	}
 
@@ -1492,6 +1567,7 @@ const buildPromotionStatement = ({
 		studentName: studentFullName,
 		currentClass,
 		nextClass,
+		text: `${studentFullName} has successfully completed ${currentClass} and is promoted to ${nextClass}.`,
 	};
 };
 
