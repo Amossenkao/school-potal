@@ -382,6 +382,9 @@ export const SharedFilter = <T extends BaseFilters>({
 	const user = useAuth((state) => state.user);
 	const [students, setStudents] = useState<Student[]>([]);
 	const [loadingStudents, setLoadingStudents] = useState(false);
+	// Bumped every time the academic year changes so ClassScopePicker drops back
+	// to its session step instead of silently auto-advancing into the new year.
+	const [yearEditSignal, setYearEditSignal] = useState(0);
 
 	const userRole = user?.role || 'student';
 	const isSystemAdmin = userRole === 'system_admin';
@@ -1092,7 +1095,8 @@ export const SharedFilter = <T extends BaseFilters>({
 				<FilterSelect
 					label=""
 					value={filters.academicYear}
-					onChange={(v) =>
+					onChange={(v) => {
+						setYearEditSignal((n) => n + 1);
 						setFilters(
 							(f) =>
 								({
@@ -1103,8 +1107,8 @@ export const SharedFilter = <T extends BaseFilters>({
 									className: '',
 									selectedStudents: [],
 								}) as T,
-						)
-					}
+						);
+					}}
 					options={academicYearOptions.map((y) => ({ value: y, label: y }))}
 					placeholder="Select year"
 					done={yearDone}
@@ -1154,6 +1158,7 @@ export const SharedFilter = <T extends BaseFilters>({
 					value={scope}
 					onChange={handleScopeChange}
 					allowedLevelKeys={allowedLevelKeys}
+					sessionEditSignal={yearEditSignal}
 					requireClass
 					singleColumnGrid
 				/>

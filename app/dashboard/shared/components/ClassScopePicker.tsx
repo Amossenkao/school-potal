@@ -60,6 +60,15 @@ interface ClassScopePickerProps {
 	 * awkward mid-word wrap.
 	 */
 	singleColumnGrid?: boolean;
+	/**
+	 * Bump this to force the picker back onto the session step — the session
+	 * grid opens instead of the first session being auto-selected. Used when
+	 * the surrounding filters reset the scope (e.g. a change of academic
+	 * year) so the user can re-choose rather than being dropped somewhere in
+	 * the new year's chain. Only takes effect when there is actually more
+	 * than one session to choose from.
+	 */
+	sessionEditSignal?: number;
 	className?: string;
 }
 
@@ -72,6 +81,7 @@ export default function ClassScopePicker({
 	readOnly = false,
 	requireClass = false,
 	singleColumnGrid = false,
+	sessionEditSignal,
 	className = '',
 }: ClassScopePickerProps) {
 	const directory = useClassDirectory(schoolProfile);
@@ -105,6 +115,26 @@ export default function ClassScopePicker({
 	// the "Session" crumb) suspends this so the choice is actually offered; any
 	// subsequent pick of a session re-arms it.
 	const sessionEditOpen = useRef(false);
+
+	// An outside signal (academic year change) asks to be dropped back onto the
+	// session step. Must run before the auto-advance effect below so the
+	// session isn't silently re-picked. When there's only one session there's
+	// no real choice to make, so keep the existing auto-advance behavior.
+	const previousSessionEditSignal = useRef(sessionEditSignal);
+
+	useEffect(() => {
+		if (
+			sessionEditSignal === undefined ||
+			sessionEditSignal === previousSessionEditSignal.current
+		)
+			return;
+		previousSessionEditSignal.current = sessionEditSignal;
+		if (sessions.length > 1) {
+			sessionEditOpen.current = true;
+			setExpanded(true);
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [sessionEditSignal]);
 
 	useEffect(() => {
 		if (value.session) {
@@ -194,7 +224,13 @@ export default function ClassScopePicker({
 								<ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
 								<button
 									type="button"
-									onClick={openSession}
+									onClick={() =>
+										openAt({
+											session: value.session,
+											level: '',
+											classId: '',
+										})
+									}
 									className="font-bold text-primary hover:underline"
 								>
 									{value.session}
