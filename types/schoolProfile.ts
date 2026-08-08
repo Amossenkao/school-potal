@@ -125,13 +125,19 @@ export interface ParentSettings {
 	readonly loginAccess: boolean;
 }
 
-// A single pass/fail threshold rule. A rule matches when the student's failed
-// major count is >= maxMajor AND their failed minor count is >= maxMinor.
-// Rules are cumulative severity bands, so a student with zero failures never
-// matches a low-threshold failure rule.
+export type GradingRuleOperator = 'gte' | 'gt' | 'lte' | 'lt' | 'eq';
+
+export interface GradingRuleComparison {
+	readonly op: GradingRuleOperator;
+	readonly value: number;
+}
+
+// A single pass/fail rule. A rule matches when the student's failed major count
+// satisfies `majors` AND their failed minor count satisfies `minors`. Rules in
+// an array are OR'd — the first matching rule in the array decides.
 export interface GradingRule {
-	readonly maxMajor: number;
-	readonly maxMinor: number;
+	readonly majors: GradingRuleComparison;
+	readonly minors: GradingRuleComparison;
 }
 
 export interface GradingSettings {

@@ -1,4 +1,11 @@
-import type { ClassLevels, AcademicPeriod, Semester } from '@/types/schoolProfile';
+import type {
+	ClassLevels,
+	AcademicPeriod,
+	Semester,
+	GradingRule,
+	GradingRuleComparison,
+	GradingRuleOperator,
+} from '@/types/schoolProfile';
 import {FEATURE_KEYS} from "@/types"
 
 // ---------------------------------------------------------------------------
@@ -182,39 +189,62 @@ export const DEFAULT_GRADING_SETTINGS = {
 	hasSummerSchool: false,
 	givesDoublePromotion: false,
 	givesDemotion: false,
-	failureRules: [{ maxMajor: 2, maxMinor: 0 }],
-	summerSchoolRules: [{ maxMajor: 1, maxMinor: 1 }],
+	failureRules: [
+		{ majors: { op: 'gte', value: 2 }, minors: { op: 'gte', value: 0 } },
+	],
+	summerSchoolRules: [
+		{ majors: { op: 'gte', value: 1 }, minors: { op: 'gte', value: 1 } },
+	],
 	majorFailuresAllowed: 0,
 	minorFailuresAllowed: 2,
 	oneMajorWithMinorFailuresAllowed: 1,
 };
 
 // ---------------------------------------------------------------------------
-// Normalize grading settings to always carry the two rule arrays. Profiles
-// saved before the rule arrays existed only have the legacy threshold fields,
-// so those are mapped onto the arrays here. Existing rule arrays take
-// precedence and are kept as-is.
+// Normalize grading settings to always carry the two rule arrays. Each rule is
+// normalized to the per-count comparison shape ({ majors, minors }). Legacy
+// rules stored as { maxMajor, maxMinor } are interpreted as "at least" bands,
+// and profiles saved before any rule arrays existed are mapped from the legacy
+// threshold fields. Existing comparison-shape rules are kept as-is.
 // ---------------------------------------------------------------------------
+
+const GRADING_RULE_OPS: GradingRuleOperator[] = ['gte', 'gt', 'lte', 'lt', 'eq'];
+
+const toGradingRule = (rule: any): GradingRule | null => {
+	if (!rule || typeof rule !== 'object') return null;
+	const pickComparison = (comp: any, fallback: number): GradingRuleComparison => {
+		if (
+			comp &&
+			typeof comp === 'object' &&
+			(GRADING_RULE_OPS as string[]).includes(comp.op) &&
+			Number.isFinite(Number(comp.value))
+		) {
+			return { op: comp.op as GradingRuleOperator, value: Math.max(0, Number(comp.value)) };
+		}
+		return { op: 'gte', value: Math.max(0, fallback) };
+	};
+	if (rule.majors !== undefined || rule.minors !== undefined) {
+		return {
+			majors: pickComparison(rule.majors, 0),
+			minors: pickComparison(rule.minors, 0),
+		};
+	}
+	if (
+		Number.isFinite(Number(rule.maxMajor)) ||
+		Number.isFinite(Number(rule.maxMinor))
+	) {
+		return {
+			majors: { op: 'gte', value: Math.max(0, Number(rule.maxMajor)) },
+			minors: { op: 'gte', value: Math.max(0, Number(rule.maxMinor)) },
+		};
+	}
+	return null;
+};
 
 export function migrateLegacyGradingRules(settings: any): any {
 	const src = settings && typeof settings === 'object' ? settings : {};
-	const pickRule = (list: any): { maxMajor: number; maxMinor: number }[] => {
-		if (Array.isArray(list) && list.length > 0) {
-			return list
-				.filter(
-					(rule) =>
-						rule &&
-						typeof rule === 'object' &&
-						Number.isFinite(Number(rule.maxMajor)) &&
-						Number.isFinite(Number(rule.maxMinor)),
-				)
-				.map((rule) => ({
-					maxMajor: Math.max(0, Number(rule.maxMajor)),
-					maxMinor: Math.max(0, Number(rule.maxMinor)),
-				}));
-		}
-		return [];
-	};
+	const pickRule = (list: any): GradingRule[] =>
+		Array.isArray(list) ? list.map(toGradingRule).filter((r): r is GradingRule => r !== null) : [];
 	const failureRules = pickRule(src.failureRules);
 	const summerSchoolRules = pickRule(src.summerSchoolRules);
 	const majorFailuresAllowed = Number.isFinite(Number(src.majorFailuresAllowed))
@@ -244,13 +274,18 @@ export function migrateLegacyGradingRules(settings: any): any {
 			failureRules.length > 0
 				? failureRules
 				: [
-						{ maxMajor: majorFailuresAllowed + 1, maxMinor: 0 },
-						{ maxMajor: 0, maxMinor: minorFailuresAllowed + 1 },
+						{ majors: { op: 'gt', value: majorFailuresAllowed }, minors: { op: 'gte', value: 0 } },
+						{ majors: { op: 'gte', value: 0 }, minors: { op: 'gt', value: minorFailuresAllowed } },
 					],
 		summerSchoolRules:
 			summerSchoolRules.length > 0
 				? summerSchoolRules
-				: [{ maxMajor: 1, maxMinor: oneMajorWithMinorFailuresAllowed }],
+				: [
+						{
+							majors: { op: 'gte', value: 1 },
+							minors: { op: 'gte', value: oneMajorWithMinorFailuresAllowed },
+						},
+					],
 	};
 }
 

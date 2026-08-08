@@ -19,6 +19,7 @@ import {
 import { TENANT_THEME_NAMES, DEFAULT_TENANT_THEME_NAME } from '@/types/tenantTheme';
 import { REPORT_CARD_THEMES } from '@/types/reportCardTheme';
 import { FEATURE_KEYS, type FeatureKey } from '@/types';
+import type { GradingRule, GradingRuleOperator } from '@/types/schoolProfile';
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
 
@@ -68,8 +69,8 @@ export interface SchoolFormState {
 			gradeScale: { min: number; max: number };
 			hasSummerSchool: boolean;
 			givesDoublePromotion: boolean;
-			failureRules: { maxMajor: number; maxMinor: number }[];
-			summerSchoolRules: { maxMajor: number; maxMinor: number }[];
+			failureRules: GradingRule[];
+			summerSchoolRules: GradingRule[];
 			majorFailuresAllowed?: number;
 			minorFailuresAllowed?: number;
 			oneMajorWithMinorFailuresAllowed?: number;
@@ -112,7 +113,7 @@ export const defaultFormState: SchoolFormState = {
 	identity: { name: '', shortName: '', initials: '', slogan: '', studentIdPrefix: '', yearFounded: '', firstAcademicYear: '', currentAcademicYear: '' },
 	branding: { logoUrl: '', logoUrl2: '', themeName: DEFAULT_TENANT_THEME_NAME, reportCardThemes: {} },
 	contact: { addresses: [], phones: [], emails: [], website: '' },
-	academicConfig: { classLevels: {}, gradingSettings: { passMark: 70, gradeScale: { min: 60, max: 100 }, hasSummerSchool: false, givesDoublePromotion: false, failureRules: [{ maxMajor: 2, maxMinor: 0 }], summerSchoolRules: [{ maxMajor: 1, maxMinor: 1 }], majorFailuresAllowed: 0, minorFailuresAllowed: 2, oneMajorWithMinorFailuresAllowed: 1 }, isHighSchool: false, nextClassAfterLast: { classId: '', className: '' } },
+	academicConfig: { classLevels: {}, gradingSettings: { passMark: 70, gradeScale: { min: 60, max: 100 }, hasSummerSchool: false, givesDoublePromotion: false, failureRules: [{ majors: { op: 'gte', value: 2 }, minors: { op: 'gte', value: 0 } }], summerSchoolRules: [{ majors: { op: 'gte', value: 1 }, minors: { op: 'gte', value: 1 } }], majorFailuresAllowed: 0, minorFailuresAllowed: 2, oneMajorWithMinorFailuresAllowed: 1 }, isHighSchool: false, nextClassAfterLast: { classId: '', className: '' } },
 	userConfig: {
 		administrativePositions: [...DEFAULT_ADMIN_POSITIONS],
 		sysAdmin: { name: '', phone: '', email: '' },
@@ -864,7 +865,7 @@ export default function SchoolProfileForm({ initialData, onSubmit, submitLabel =
 							</div>
 							<div className="mt-4">
 								<p className="text-[11px] font-medium text-gray-500 mb-1">Failure / Summer-School Rules</p>
-								<p className="text-[10px] text-gray-400 mb-2.5">Each rule lists the minimum failed major and minimum failed minor subjects that reach it. A rule matches when both counts are at or above its limits. Rules are evaluated in order: failure rules first, then summer-school rules (only when summer school is enabled). Students who match no rule are promoted.</p>
+								<p className="text-[10px] text-gray-400 mb-2.5">Each rule defines a comparison for failed majors and a comparison for failed minors — a rule matches when both comparisons are true. Rules are evaluated in order: failure rules first, then summer-school rules (only when summer school is enabled). Students who match no rule are promoted.</p>
 								<div className="grid gap-3 sm:grid-cols-2">
 									<GradingRulesEditor
 										title="Summer-School Rules"
@@ -2233,20 +2234,39 @@ function RemoveRow({ onClick }: { onClick: () => void }) {
 	);
 }
 
+const GRADING_RULE_OPERATORS: { op: GradingRuleOperator; label: string }[] = [
+	{ op: 'gte', label: 'at least' },
+	{ op: 'gt', label: 'more than' },
+	{ op: 'lte', label: 'at most' },
+	{ op: 'lt', label: 'fewer than' },
+	{ op: 'eq', label: 'exactly' },
+];
+
 function GradingRulesEditor({ title, description, rules, onChange, dimmed }: {
 	title: string;
 	description: string;
-	rules: { maxMajor: number; maxMinor: number }[];
-	onChange: (rules: { maxMajor: number; maxMinor: number }[]) => void;
+	rules: GradingRule[];
+	onChange: (rules: GradingRule[]) => void;
 	dimmed?: boolean;
 }) {
-	const updateRule = (index: number, field: 'maxMajor' | 'maxMinor', value: number) => {
+	const updateComparison = (
+		index: number,
+		count: 'majors' | 'minors',
+		field: 'op' | 'value',
+		value: GradingRuleOperator | number,
+	) => {
 		const next = [...rules];
-		next[index] = { ...next[index], [field]: Math.max(0, value) };
+		const comp = { ...next[index][count] };
+		if (field === 'op') comp.op = value as GradingRuleOperator;
+		else comp.value = Math.max(0, Number(value) || 0);
+		next[index] = { ...next[index], [count]: comp };
 		onChange(next);
 	};
 	const removeRule = (index: number) => onChange(rules.filter((_, i) => i !== index));
-	const addRule = () => onChange([...rules, { maxMajor: 1, maxMinor: 1 }]);
+	const addRule = () => onChange([
+		...rules,
+		{ majors: { op: 'gte', value: 1 }, minors: { op: 'gte', value: 1 } },
+	]);
 	return (
 		<div className={`rounded-lg border border-gray-100 dark:border-gray-800 overflow-hidden ${dimmed ? 'opacity-60' : ''}`}>
 			<div className="px-3 py-2 bg-gray-50 dark:bg-muted/50 border-b border-gray-100 dark:border-gray-800">
@@ -2257,23 +2277,31 @@ function GradingRulesEditor({ title, description, rules, onChange, dimmed }: {
 				{rules.length === 0 && (
 					<p className="px-3 py-2 text-[10px] text-gray-400">No rules — this category never triggers.</p>
 				)}
-				{rules.map((rule, index) => (
-					<div key={index} className="flex items-end gap-1.5 px-3 py-2">
-						<div className="flex-1">
-							<label className="block text-[9px] font-medium text-gray-400 uppercase">Min majors</label>
-							<input type="number" inputMode="numeric" min={0} value={String(rule.maxMajor)}
-								onChange={(e) => updateRule(index, 'maxMajor', Number(e.target.value) || 0)}
-								className="mt-0.5 w-full rounded-md border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+				{rules.map((rule, index) => {
+					const renderComparison = (count: 'majors' | 'minors', comp: GradingRule['majors']) => (
+						<div className="flex-1 min-w-0">
+							<label className="block text-[9px] font-medium text-gray-400 uppercase">
+								{count === 'majors' ? 'Failed majors' : 'Failed minors'}
+							</label>
+							<div className="flex items-center gap-1 mt-0.5">
+								<select value={comp.op} onChange={(e) => updateComparison(index, count, 'op', e.target.value as GradingRuleOperator)}
+									className="w-[76px] shrink-0 rounded border border-gray-200 bg-white px-1 py-1 text-[10px] outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white">
+									{GRADING_RULE_OPERATORS.map((o) => <option key={o.op} value={o.op}>{o.label}</option>)}
+								</select>
+								<input type="number" inputMode="numeric" min={0} value={String(comp.value)}
+									onChange={(e) => updateComparison(index, count, 'value', Number(e.target.value) || 0)}
+									className="w-full min-w-0 rounded border border-gray-200 bg-white px-1.5 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+							</div>
 						</div>
-						<div className="flex-1">
-							<label className="block text-[9px] font-medium text-gray-400 uppercase">Min minors</label>
-							<input type="number" inputMode="numeric" min={0} value={String(rule.maxMinor)}
-								onChange={(e) => updateRule(index, 'maxMinor', Number(e.target.value) || 0)}
-								className="mt-0.5 w-full rounded-md border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-[#465fff] dark:border-gray-800 dark:bg-muted dark:text-white" />
+					);
+					return (
+						<div key={index} className="flex items-end gap-1.5 px-3 py-2">
+							{renderComparison('majors', rule.majors)}
+							{renderComparison('minors', rule.minors)}
+							<RemoveRow onClick={() => removeRule(index)} />
 						</div>
-						<RemoveRow onClick={() => removeRule(index)} />
-					</div>
-				))}
+					);
+				})}
 			</div>
 			<div className="px-3 pb-2 pt-1">
 				<AddButton label="Add rule" onClick={addRule} />

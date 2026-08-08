@@ -62,6 +62,7 @@ import { loadReportTemplateBytes } from '@/utils/reportTemplate';
 import { flattenSchoolAddressLines } from '@/utils/schoolAddresses';
 import { areGradeRowsEquivalent } from '@/utils/gradeRows';
 import { migrateLegacyGradingRules } from '@/app/dashboard/admin/defaults/classLevels';
+import type { GradingRule, GradingRuleOperator } from '@/types/schoolProfile';
 
 // --- Type Definitions ---
 
@@ -1513,12 +1514,27 @@ const buildPromotionStatement = ({
 		school?.academicConfig?.gradingSettings,
 	);
 	const hasSummerSchool = gradingSettings.hasSummerSchool === true;
-	// A rule matches when the student's failed counts reach the rule's
-	// thresholds (>= both). Rules are cumulative severity bands, so a student
-	// with zero failures never matches a low-threshold failure rule.
-	const matchesRule = (rule: { maxMajor: number; maxMinor: number }) =>
-		failedMajorCount >= Number(rule.maxMajor) &&
-		failedMinorCount >= Number(rule.maxMinor);
+	const compareCount = (count: number, comparison: { op: GradingRuleOperator; value: number }) => {
+		const value = Number(comparison.value);
+		switch (comparison.op) {
+			case 'gt':
+				return count > value;
+			case 'lte':
+				return count <= value;
+			case 'lt':
+				return count < value;
+			case 'eq':
+				return count === value;
+			case 'gte':
+			default:
+				return count >= value;
+		}
+	};
+	// A rule matches when BOTH the major comparison and the minor comparison are
+	// satisfied. Rules in an array are OR'd — the first matching rule decides.
+	const matchesRule = (rule: GradingRule) =>
+		compareCount(failedMajorCount, rule.majors) &&
+		compareCount(failedMinorCount, rule.minors);
 
 	// Decision precedence: failure rules first, then summer-school rules (only
 	// when summer school is enabled). A student who matches no rule at all is

@@ -127,10 +127,18 @@ const AcademicYearConfigSchema = new Schema(
 	{ _id: false },
 );
 
+const GradingRuleComparisonSchema = new Schema(
+	{
+		op: { type: String, enum: ['gte', 'gt', 'lte', 'lt', 'eq'], required: true },
+		value: { type: Number, required: true },
+	},
+	{ _id: false },
+);
+
 const GradingRuleSchema = new Schema(
 	{
-		maxMajor: { type: Number, required: true },
-		maxMinor: { type: Number, required: true },
+		majors: { type: GradingRuleComparisonSchema, required: true },
+		minors: { type: GradingRuleComparisonSchema, required: true },
 	},
 	{ _id: false },
 );
@@ -144,8 +152,18 @@ const GradingSettingsSchema = new Schema(
 		},
 		hasSummerSchool: { type: Boolean, required: true },
 		givesDoublePromotion: { type: Boolean, required: true },
-		failureRules: { type: [GradingRuleSchema], default: [{ maxMajor: 2, maxMinor: 0 }] },
-		summerSchoolRules: { type: [GradingRuleSchema], default: [{ maxMajor: 1, maxMinor: 1 }] },
+		failureRules: {
+			type: [GradingRuleSchema],
+			default: [
+				{ majors: { op: 'gte', value: 2 }, minors: { op: 'gte', value: 0 } },
+			],
+		},
+		summerSchoolRules: {
+			type: [GradingRuleSchema],
+			default: [
+				{ majors: { op: 'gte', value: 1 }, minors: { op: 'gte', value: 1 } },
+			],
+		},
 		// Legacy threshold fields kept for backward compatibility
 		majorFailuresAllowed: { type: Number, default: 0 },
 		minorFailuresAllowed: { type: Number, default: 2 },
