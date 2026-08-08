@@ -376,7 +376,7 @@ export default function ClearancesPage() {
 
 	if (step === 'filter') {
 		return (
-			<div className="p-4">
+			<div className="px-4 pb-4">
 				{errorBanner}
 
 				{!canGenerate && (

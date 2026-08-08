@@ -804,7 +804,7 @@ export default function AttestationPage() {
 
 	if (step === 'filter') {
 		return (
-			<div className="p-4">
+			<div className="px-4 pb-4">
 				{error && (
 					<div className="mb-4 flex items-center justify-between rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
 						<span>{error}</span>
