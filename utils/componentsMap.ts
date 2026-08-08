@@ -4,13 +4,10 @@ import dynamic from 'next/dynamic';
 import {
 	LayoutDashboard,
 	GraduationCap,
-	Users,
 	FileText,
 	CheckSquare,
-	FilePen,
 	ClipboardList,
 	CalendarDays,
-	Library,
 	Wallet,
 	AlignEndVerticalIcon,
 	Settings,
@@ -19,35 +16,59 @@ import {
 	MessageCircle,
 	UserPlus,
 	UserCheck,
-	BookOpen,
 	BellDot,
-	Book,
-	BookA,
 	BookCheck,
 	Users2,
 	ClipboardCheck,
 	DollarSign,
+	Users,
+	Library,
 } from 'lucide-react';
 import type { SchoolProfile } from '@/types/schoolProfile';
-import type {FeatureKey} from "@/types";
+import type { FeatureKey } from '@/types';
 
-// Feature configuration with UI metadata
-interface FeatureConfig {
-	key: FeatureKey;
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+type ComponentImporter = () => Promise<any>;
+
+interface RouteDefinition {
+	key: string;
+	title: string;
+	href: string;
+	icon: any;
+	/** Feature gate: route is only shown when this feature is enabled */
+	feature: FeatureKey;
+	/** Nav category used to group sidebar items */
+	category?: string;
+	/** Nav display order within its category (lower = higher) */
+	order?: number;
+	/** When true the route lives in the shared component map bucket */
+	shared?: boolean;
+	/** Extra feature that must also be enabled (e.g. online_payment for /pay) */
+	requiresFeature?: FeatureKey;
+}
+
+interface NavItem {
+	name: string;
+	icon: any;
+	href?: string;
+	isLogout?: boolean;
+	category?: string;
+	subItems?: NavItem[];
+}
+
+interface ComponentItem {
 	title: string;
 	icon: any;
 	category?: string;
-	routes: {
-		[role: string]: Array<{
-			key: string;
-			title: string;
-			href: string;
-			icon?: any;
-		}>;
-	};
+	component: any;
 }
 
-type ComponentImporter = () => Promise<any>;
+// ---------------------------------------------------------------------------
+// Loading / error UI (unchanged from original)
+// ---------------------------------------------------------------------------
 
 const DashboardSectionLoading = () =>
 	React.createElement(
@@ -62,13 +83,21 @@ const DashboardSectionLoading = () =>
 			React.createElement(
 				'div',
 				{ className: 'loader-shell h-14 w-14' },
-				React.createElement('div', { className: 'loader-ring loader-ring-outer' }),
-				React.createElement('div', { className: 'loader-ring loader-ring-middle' }),
-				React.createElement('div', { className: 'loader-ring loader-ring-inner' }),
+				React.createElement('div', {
+					className: 'loader-ring loader-ring-outer',
+				}),
+				React.createElement('div', {
+					className: 'loader-ring loader-ring-middle',
+				}),
+				React.createElement('div', {
+					className: 'loader-ring loader-ring-inner',
+				}),
 				React.createElement(
 					'div',
 					{ className: 'loader-center' },
-					React.createElement(GraduationCap, { className: 'h-5 w-5 text-primary' }),
+					React.createElement(GraduationCap, {
+						className: 'h-5 w-5 text-primary',
+					}),
 				),
 			),
 			React.createElement(
@@ -82,10 +111,7 @@ const DashboardSectionLoading = () =>
 const ChunkLoadFallback = () =>
 	React.createElement(
 		'div',
-		{
-			className:
-				'min-h-[60vh] flex items-center justify-center px-4',
-		},
+		{ className: 'min-h-[60vh] flex items-center justify-center px-4' },
 		React.createElement(
 			'div',
 			{
@@ -108,160 +134,88 @@ const ChunkLoadFallback = () =>
 const lazySection = (key: string, importer: ComponentImporter) =>
 	dynamic(
 		() =>
-			importer().catch((error) => {
+			importer().catch((error: unknown) => {
 				console.warn(`Chunk load failed for key: ${key}`, error);
 				return { default: ChunkLoadFallback };
 			}),
-		{
-			loading: () => React.createElement(DashboardSectionLoading),
-		},
+		{ loading: () => React.createElement(DashboardSectionLoading) },
 	);
+
+// ---------------------------------------------------------------------------
+// Component importers  (single source of truth for lazy imports)
+// ---------------------------------------------------------------------------
 
 const componentImporters: Record<string, ComponentImporter> = {
 	dashboard: () => import('@/components/DashboardHomePage'),
+
 	// User Management
 	'add-users': () => import('@/app/dashboard/admin/users/AddUsers'),
 	'manage-users': () => import('@/app/dashboard/admin/users/ManageUsers'),
 
 	// Grading
 	submissions: () => import('@/app/dashboard/admin/grades/GradeSubmissions'),
-	requests: () => import('@/app/dashboard/shared/GradeRequests'),
-	grading: () => import('@/app/dashboard/teacher/grading/GradeManagement'),
-	'periodic-grade': () => import('@/app/dashboard/shared/PeriodicReport'),
-	'yearly-grade': () => import('@/app/dashboard/shared/YearlyReport'),
+	'grade-submissions': () =>
+		import('@/app/dashboard/teacher/grading/GradeSubmissions'),
+	'submit-grades': () => import('@/app/dashboard/teacher/grading/SubmitGrade'),
+	'grade-requests': () => import('@/app/dashboard/shared/GradeRequests'),
+	masters: () => import('@/app/dashboard/shared/MasterGradeSheet'),
+
+	// Academic Reports
+	'periodic-reports': () => import('@/app/dashboard/shared/PeriodicReport'),
+	'yearly-reports': () => import('@/app/dashboard/shared/YearlyReport'),
+	'semester-report': () => import('@/app/dashboard/shared/SemesterReport'),
 
 	// Classes
 	'classes-overview': () =>
 		import('@/app/dashboard/admin/classes/ClassOverview'),
 	'manage-class': () => import('@/app/dashboard/admin/classes/ManageClass'),
 
-	// Academic Reports
-	'periodic-reports': () => import('@/app/dashboard/shared/PeriodicReport'),
-	'yearly-reports': () => import('@/app/dashboard/shared/YearlyReport'),
-	'semester-report': () => import('@/app/dashboard/shared/SemesterReport'),
-	masters: () => import('@/app/dashboard/shared/MasterGradeSheet'),
-
-	'grade-submissions': () =>
-		import('@/app/dashboard/teacher/grading/GradeSubmissions'),
-	'submit-grades': () =>
-		import('@/app/dashboard/teacher/grading/SubmitGrade'),
-	'grade-requests': () =>
-		import('@/app/dashboard/shared/GradeRequests'),
-
-	// Lesson Planning
-	// 'view-lessonplans': dynamic(
-	// 	() => import('@/app/dashboard/admin/ViewLessonPlans')
-	// ),
-	// 'view-schemeofwork': dynamic(
-	// 	() => import('@/app/dashboard/admin/ViewSchemeOrWork')
-	// ),
-	// 'lesson-plans/submit': dynamic(
-	// 	() => import('@/app/dashboard/teacher/SubmitLessonPlan')
-	// ),
-	// 'lesson-plans/scheme': dynamic(
-	// 	() => import('@/app/dashboard/teacher/SubmitSchemeOfWork')
-	// ),
-	// 'lesson-plans/manage': dynamic(
-	// 	() => import('@/app/dashboard/teacher/ManageLessonPlans')
-	// ),
-
-	// // Calendar
-	'calendar-academic': () => import('@/app/dashboard/shared/AcademicCalendar'),
+	// Calendar
+	'academic-calendar': () => import('@/app/dashboard/shared/AcademicCalendar'),
 	schedules: () => import('@/app/dashboard/shared/Schedules'),
 
-	// Academic Resources
-	// 'resources/view': dynamic(
-	// 	() => import('@/app/dashboard/shared/ViewResources')
-	// ),
-	// 'resources/add': dynamic(() => import('@/app/dashboard/admin/AddResource')),
-	// 'resources/add-teacher': dynamic(
-	// 	() => import('@/app/dashboard/shared/AddResource')
-	// ),
-	// 'resources/manage': dynamic(
-	// 	() => import('@/app/dashboard/admin/ManageResources')
-	// ),
-	// 'resources/manage-teacher': dynamic(
-	// 	() => import('@/app/dashboard/teacher/ManageResources')
-	// ),
-
-	// Fees Payment
+	// Student Fees
 	'financial-profile': () =>
 		import('@/app/dashboard/student/fees/FinancialProfile'),
 	pay: () => import('@/app/dashboard/student/fees/PayFees'),
 	'payment-history': () =>
 		import('@/app/dashboard/student/fees/PaymentHistory'),
 
-	// Record Payments
+	// Admin Financial
 	'record-payments': () =>
 		import('@/app/dashboard/record-payments/RecordPayments'),
-	'scholarships': () =>
-		import('@/app/dashboard/scholarships/Scholarships'),
-	'clearances': () =>
-		import('@/app/dashboard/clearances/Clearances'),
-
-	// Financial Reports (admin)
-	'financial-reports': () =>
-		import('@/app/dashboard/shared/FinancialReports'),
+	scholarships: () => import('@/app/dashboard/scholarships/Scholarships'),
+	clearances: () => import('@/app/dashboard/clearances/Clearances'),
+	'financial-reports': () => import('@/app/dashboard/shared/FinancialReports'),
 	// Route key is `financial-audit`, not `audit`: /dashboard/audit is already a
 	// static superadmin route and would shadow the dynamic [page] route.
-	'financial-audit': () =>
-		import('@/app/dashboard/shared/FinancialAudit'),
+	'financial-audit': () => import('@/app/dashboard/shared/FinancialAudit'),
 	'admin-payment-history': () =>
 		import('@/app/dashboard/payment-history/AdminPaymentHistory'),
 
-	// Documents
-	documents: () =>
-		import('@/app/dashboard/documents/TranscriptRecommendation'),
-	attestation: () =>
-		import('@/app/dashboard/attestation/Attestation'),
+	// Academic Documents
+	transcripts: () => import('@/app/dashboard/documents/TranscriptRecommendation'),
+	attestation: () => import('@/app/dashboard/attestation/Attestation'),
 	'graduation-clearance': () =>
 		import('@/app/dashboard/graduation-clearance/GraduationClearance'),
-	diploma: () =>
-		import('@/app/dashboard/diploma/Diploma'),
-	'digital-id': () =>
-		import('@/app/dashboard/digital-id/DigitalId'),
+	diploma: () => import('@/app/dashboard/diploma/Diploma'),
+	'digital-id': () => import('@/app/dashboard/digital-id/DigitalId'),
 
-	// Salary
-	// 'salary/advance': dynamic(
-	// 	() => import('@/app/dashboard/teacher/RequestSalaryAdvance')
-	// ),
-	// 'salary/sign': dynamic(() => import('@/app/dashboard/teacher/SignForSalary')),
-	// 'salary/advance-admin': dynamic(
-	// 	() => import('@/app/dashboard/administrator/requestSalaryAdvance')
-	// ),
-	// 'salary/sign-admin': dynamic(
-	// 	() => import('@/app/dashboard/administrator/signForSalary')
-	// ),
+	// Attendance
+	'student-attendance': () => import('@/app/dashboard/shared/Attendance'),
+	'teacher-attendance': () =>
+		import('@/app/dashboard/shared/TeacherAttendanceAdmin'),
+	'my-attendance': () => import('@/app/dashboard/shared/TeacherAttendanceView'),
 
-	// Events Log
+	// Shared / General
 	notifications: () => import('@/app/dashboard/shared/Notifications'),
-
-	// Settings & Support
-	settings: () => import('@/app/dashboard/admin/Settings'),
-	support: () => import('@/app/dashboard/admin/Support'),
-
-	// Shared components
 	profile: () => import('@/app/dashboard/shared/UserProfile'),
 	chat: () => import('@/app/dashboard/shared/Chat'),
 	community: () => import('@/app/dashboard/shared/Community'),
-	"student-attendance": () => import('@/app/dashboard/shared/Attendance'),
-	'teacher-attendance': () => import('@/app/dashboard/shared/TeacherAttendanceAdmin'),
-	'my-attendance': () => import('@/app/dashboard/shared/TeacherAttendanceView'),
-
-	// Dynamic Administrator pages (to be defined in school profile)
-	// 'financial-reports': dynamic(
-	// 	() => import('@/app/dashboard/admin/FinancialReports')
-	// ),
-	// 'student-records': dynamic(
-	// 	() => import('@/app/dashboard/admin/StudentRecords')
-	// ),
-	// admissions: dynamic(() => import('@/app/dashboard/admin/Admissions')),
-	// 'school-profile': dynamic(
-	// 	() => import('@/app/dashboard/admin/SchoolProfile')
-	// ),
+	settings: () => import('@/app/dashboard/admin/Settings'),
+	support: () => import('@/app/dashboard/admin/Support'),
 };
 
-// Component mappings - centralized component imports
 const componentMappings: Record<string, any> = Object.fromEntries(
 	Object.entries(componentImporters).map(([key, importer]) => [
 		key,
@@ -269,940 +223,690 @@ const componentMappings: Record<string, any> = Object.fromEntries(
 	]),
 );
 
+// ---------------------------------------------------------------------------
+// Route groups  (shared across multiple roles — define once, inherit freely)
+// ---------------------------------------------------------------------------
+
+/**
+ * Routes that appear for every authenticated user regardless of role.
+ * Listed last in nav (profile, notifications) or first (dashboard).
+ */
+const GROUP_AUTHENTICATED: RouteDefinition[] = [
+	{
+		key: 'dashboard',
+		title: 'Dashboard',
+		href: '/dashboard',
+		icon: LayoutDashboard,
+		feature: 'default_features',
+		order: 0,
+	},
+	{
+		key: 'profile',
+		title: 'Profile',
+		href: '/profile',
+		icon: UserCircle,
+		feature: 'default_features',
+		shared: true,
+		order: 900,
+	},
+	{
+		key: 'notifications',
+		title: 'Notifications',
+		href: '/notifications',
+		icon: BellDot,
+		feature: 'default_features',
+		shared: true,
+		order: 910,
+	},
+];
+
+/**
+ * Routes shared between teachers AND students (and by extension, parents).
+ */
+const GROUP_ACADEMIC_USERS: RouteDefinition[] = [
+	{
+		key: 'academic-calendar',
+		title: 'Academic Calendar',
+		href: '/academic-calendar',
+		icon: CalendarDays,
+		feature: 'calendar_events',
+		category: 'Calendar & Schedules',
+		shared: true,
+		order: 60,
+	},
+	{
+		key: 'schedules',
+		title: 'Schedules',
+		href: '/schedules',
+		icon: CalendarDays,
+		feature: 'calendar_events',
+		category: 'Calendar & Schedules',
+		shared: true,
+		order: 61,
+	},
+	{
+		key: 'community',
+		title: 'Community',
+		href: '/community',
+		icon: Users2,
+		feature: 'community',
+		order: 70,
+	},
+	{
+		key: 'chat',
+		title: 'AI Chat',
+		href: '/chat',
+		icon: MessageCircle,
+		feature: 'ai_chat',
+		category: 'AI Chat',
+		shared: true,
+		order: 920,
+	},
+];
+
+/**
+ * Grading routes for teachers (and teacher-admins).
+ */
+const GROUP_GRADING_STAFF: RouteDefinition[] = [
+
+	{
+		key: 'grade-requests',
+		title: 'Grade Requests',
+		href: '/grade-requests',
+		icon: CheckSquare,
+		feature: 'grade_management',
+		category: 'Grading',
+		order: 22,
+	},
+	{
+		key: 'masters',
+		title: 'Master Grade Sheets',
+		href: '/masters',
+		icon: ClipboardList,
+		feature: 'grade_management',
+		category: 'Grading',
+		order: 23,
+	},
+	{
+		key: 'student-attendance',
+		title: 'Student Attendance',
+		href: '/student-attendance',
+		icon: AlignEndVerticalIcon,
+		feature: 'student_attendance',
+		category: 'Attendance',
+		order: 50,
+	},
+
+];
+
+/**
+ * Academic document routes shared between system_admin and administrator.
+ */
+const GROUP_ACADEMIC_DOCUMENTS: RouteDefinition[] = [
+	{
+		key: 'transcripts',
+		title: 'Transcript & Recommendation',
+		href: '/dashboard/transcripts',
+		icon: FileText,
+		feature: 'transcripts',
+		category: 'Academic Documents',
+		order: 40,
+	},
+	{
+		key: 'attestation',
+		title: 'Attestation',
+		href: '/dashboard/attestation',
+		icon: FileText,
+		feature: 'attestations',
+		category: 'Academic Documents',
+		order: 41,
+	},
+	{
+		key: 'graduation-clearance',
+		title: 'Graduation Clearance',
+		href: '/dashboard/graduation-clearance',
+		icon: GraduationCap,
+		feature: 'graduation_clearance',
+		category: 'Academic Documents',
+		order: 42,
+	},
+	{
+		key: 'diploma',
+		title: 'Diploma',
+		href: '/dashboard/diploma',
+		icon: GraduationCap,
+		feature: 'diplomas',
+		category: 'Academic Documents',
+		order: 43,
+	},
+	{
+		key: 'digital-id',
+		title: 'Digital ID',
+		href: '/dashboard/digital-id',
+		icon: Shield,
+		feature: 'digital_id',
+		category: 'Academic Documents',
+		order: 44,
+	},
+];
+
+// ---------------------------------------------------------------------------
+// Role route tables
+// Each role declares which groups it inherits plus its own exclusive routes.
+// ---------------------------------------------------------------------------
+
+const ROLE_ROUTES: Record<
+	string,
+	{ inherits: RouteDefinition[][]; routes: RouteDefinition[] }
+> = {
+	// ── System Admin ────────────────────────────────────────────────────────
+	system_admin: {
+		inherits: [GROUP_AUTHENTICATED, GROUP_ACADEMIC_DOCUMENTS, GROUP_GRADING_STAFF],
+		routes: [
+			// User management
+			{
+				key: 'add-users',
+				title: 'Add Users',
+				href: '/add-users',
+				icon: UserPlus,
+				feature: 'user_management',
+				category: 'User Management',
+				order: 10,
+			},
+			{
+				key: 'manage-users',
+				title: 'Manage Users',
+				href: '/manage-users',
+				icon: UserCheck,
+				feature: 'user_management',
+				category: 'User Management',
+				order: 11,
+			},
+			// Grading (admin view)
+			{
+				key: 'submissions',
+				title: 'Grade Submissions',
+				href: '/submissions',
+				icon: BookCheck,
+				feature: 'grade_management',
+				category: 'Grading',
+				order: 20,
+			},
+
+			// Classes
+			{
+				key: 'classes-overview',
+				title: 'Classes Overview',
+				href: '/classes-overview',
+				icon: GraduationCap,
+				feature: 'class_management',
+				category: 'Enrollment',
+				order: 30,
+			},
+			{
+				key: 'manage-class',
+				title: 'Manage Classes',
+				href: '/manage-class',
+				icon: Settings,
+				feature: 'class_management',
+				category: 'Enrollment',
+				order: 31,
+			},
+			// Academic Reports
+			{
+				key: 'periodic-reports',
+				title: 'Periodic Reports',
+				href: '/periodic-reports',
+				icon: FileText,
+				feature: 'academic_reports',
+				category: 'Academic Reports',
+				shared: true,
+				order: 35,
+			},
+			{
+				key: 'yearly-reports',
+				title: 'Yearly Reports',
+				href: '/yearly-reports',
+				icon: FileText,
+				feature: 'academic_reports',
+				category: 'Academic Reports',
+				shared: true,
+				order: 36,
+			},
+			{
+				key: 'semester-report',
+				title: 'Semester Report',
+				href: '/semester-report',
+				icon: FileText,
+				feature: 'academic_reports',
+				category: 'Academic Reports',
+				shared: true,
+				order: 37,
+			},
+			// Calendar
+			{
+				key: 'academic-calendar',
+				title: 'Academic Calendar',
+				href: '/academic-calendar',
+				icon: CalendarDays,
+				feature: 'calendar_events',
+				category: 'Calendar & Schedules',
+				shared: true,
+				order: 60,
+			},
+			{
+				key: 'schedules',
+				title: 'Schedules',
+				href: '/schedules',
+				icon: CalendarDays,
+				feature: 'calendar_events',
+				category: 'Calendar & Schedules',
+				shared: true,
+				order: 61,
+			},
+			// Attendance
+			{
+				key: 'student-attendance',
+				title: 'Student Attendance',
+				href: '/student-attendance',
+				icon: AlignEndVerticalIcon,
+				feature: 'student_attendance',
+				category: 'Attendance',
+				order: 50,
+			},
+			{
+				key: 'teacher-attendance',
+				title: 'Teacher Attendance',
+				href: '/teacher-attendance',
+				icon: ClipboardCheck,
+				feature: 'teacher_attendance',
+				category: 'Attendance',
+				order: 51,
+			},
+			// Settings & support
+			{
+				key: 'settings',
+				title: 'School Settings',
+				href: '/settings',
+				icon: Settings,
+				feature: 'school_settings',
+				category: 'School Settings',
+				order: 800,
+			},
+			{
+				key: 'support',
+				title: 'Support',
+				href: '/support',
+				icon: Shield,
+				feature: 'support_system',
+				order: 850,
+			},
+			{
+				key: 'chat',
+				title: 'AI Chat',
+				href: '/chat',
+				icon: MessageCircle,
+				feature: 'ai_chat',
+				category: 'AI Chat',
+				shared: true,
+				order: 920,
+			},
+		],
+	},
+
+	// ── Teacher ─────────────────────────────────────────────────────────────
+	teacher: {
+		inherits: [GROUP_AUTHENTICATED, GROUP_ACADEMIC_USERS, GROUP_GRADING_STAFF],
+		routes: [
+			{
+				key: 'grade-submissions',
+				title: 'Grade Submissions',
+				href: '/grade-submissions',
+				icon: BookCheck,
+				feature: 'grade_management',
+				category: 'Grading',
+				order: 20,
+			},
+			{
+				key: 'submit-grades',
+				title: 'Submit Grades',
+				href: '/submit-grades',
+				icon: CheckSquare,
+				feature: 'grade_management',
+				category: 'Grading',
+				order: 21,
+			},
+
+			{
+				key: 'my-attendance',
+				title: 'My Attendance',
+				href: '/my-attendance',
+				icon: ClipboardCheck,
+				feature: 'teacher_attendance',
+				category: 'Attendance',
+				order: 51,
+			},
+		],
+	},
+
+	// ── Student (also used by parent via resolveEffectiveRole) ──────────────
+	student: {
+		inherits: [GROUP_AUTHENTICATED, GROUP_ACADEMIC_USERS],
+		routes: [
+			// Grades (student-facing labels)
+			{
+				key: 'periodic-reports',
+				title: 'Periodic Grades',
+				href: '/periodic-reports',
+				icon: FileText,
+				feature: 'academic_reports',
+				category: 'Academic Reports',
+				shared: true,
+				order: 35,
+			},
+			{
+				key: 'yearly-reports',
+				title: 'Yearly Grades',
+				href: '/yearly-reports',
+				icon: FileText,
+				feature: 'academic_reports',
+				category: 'Academic Reports',
+				shared: true,
+				order: 36,
+			},
+			{
+				key: 'semester-report',
+				title: 'Semester Report',
+				href: '/semester-report',
+				icon: FileText,
+				feature: 'academic_reports',
+				category: 'Academic Reports',
+				shared: true,
+				order: 37,
+			},
+			// Fees
+			{
+				key: 'financial-profile',
+				title: 'Financial Profile',
+				href: '/financial-profile',
+				icon: Wallet,
+				feature: 'finances',
+				category: 'Finances',
+				order: 55,
+			},
+			{
+				key: 'pay',
+				title: 'Pay Fees',
+				href: '/pay',
+				icon: Wallet,
+				feature: 'online_payment',
+				category: 'Finances',
+				requiresFeature: 'online_payment',
+				order: 56,
+			},
+			{
+				key: 'payment-history',
+				title: 'Payment History',
+				href: '/payment-history',
+				icon: FileText,
+				feature: 'finances',
+				category: 'Finances',
+				order: 57,
+			},
+			// Attendance (student sees own record)
+			{
+				key: 'student-attendance',
+				title: 'My Attendance',
+				href: '/student-attendance',
+				icon: AlignEndVerticalIcon,
+				feature: 'student_attendance',
+				category: 'Attendance',
+				order: 50,
+			},
+		],
+	},
+
+	// ── Administrator ────────────────────────────────────────────────────────
+	// Routes here are the full possible set; access is filtered at runtime by
+	// adminPermissions. Teacher-admins additionally inherit GROUP_GRADING_STAFF.
+	administrator: {
+		inherits: [GROUP_AUTHENTICATED, GROUP_ACADEMIC_DOCUMENTS],
+		routes: [
+			// Financial
+			{
+				key: 'financial-reports',
+				title: 'Financial Reports',
+				href: '/dashboard/financial-reports',
+				icon: DollarSign,
+				feature: 'finances',
+				category: 'Finances',
+				order: 55,
+			},
+			{
+				key: 'admin-payment-history',
+				title: 'Payment History',
+				href: '/dashboard/admin-payment-history',
+				icon: FileText,
+				feature: 'finances',
+				category: 'Finances',
+				order: 57,
+			},
+			{
+				key: 'scholarships',
+				title: 'Scholarships & Wards',
+				href: '/dashboard/scholarships',
+				icon: GraduationCap,
+				feature: 'finances',
+				category: 'Finances',
+				order: 58,
+			},
+			{
+				key: 'financial-audit',
+				title: 'Audit Trail',
+				href: '/dashboard/financial-audit',
+				icon: Shield,
+				feature: 'audit',
+				category: 'Finances',
+				order: 58,
+			},
+			{
+				key: 'clearances',
+				title: 'Test Clearance',
+				href: '/dashboard/clearances',
+				icon: ClipboardCheck,
+				feature: 'financial_clearance',
+				category: 'Finances',
+				order: 59,
+			},
+			{
+				key: 'record-payments',
+				title: 'Record Payments',
+				href: '/dashboard/record-payments',
+				icon: DollarSign,
+				feature: 'record_payments',
+				category: 'Finances',
+				order: 56,
+			},
+			// Calendar
+			{
+				key: 'academic-calendar',
+				title: 'Academic Calendar',
+				href: '/academic-calendar',
+				icon: CalendarDays,
+				feature: 'calendar_events',
+				category: 'Calendar & Schedules',
+				shared: true,
+				order: 65,
+			},
+			{
+				key: 'schedules',
+				title: 'Schedules',
+				href: '/schedules',
+				icon: CalendarDays,
+				feature: 'calendar_events',
+				category: 'Calendar & Schedules',
+				shared: true,
+				order: 66,
+			},
+			// Attendance
+			{
+				key: 'student-attendance',
+				title: 'Student Attendance',
+				href: '/student-attendance',
+				icon: AlignEndVerticalIcon,
+				feature: 'student_attendance',
+				category: 'Attendance',
+				order: 70,
+			},
+			{
+				key: 'teacher-attendance',
+				title: 'Teacher Attendance',
+				href: '/teacher-attendance',
+				icon: ClipboardCheck,
+				feature: 'teacher_attendance',
+				category: 'Attendance',
+				order: 71,
+			},
+			// Support & chat
+			{
+				key: 'support',
+				title: 'Support',
+				href: '/support',
+				icon: Shield,
+				feature: 'support_system',
+				order: 850,
+			},
+			{
+				key: 'chat',
+				title: 'AI Chat',
+				href: '/chat',
+				icon: MessageCircle,
+				feature: 'ai_chat',
+				category: 'AI Chat',
+				shared: true,
+				order: 920,
+			},
+		],
+	},
+};
+
+// ---------------------------------------------------------------------------
+// Route resolution helpers
+// ---------------------------------------------------------------------------
+
 export function resolveEffectiveRole(userRole: string): string {
 	return userRole === 'parent' ? 'student' : userRole;
 }
 
 /**
- * Resolves the feature-access list for a role from the school profile.
- * Parents use their own configured subset when present and non-empty,
- * otherwise they inherit the student feature access (backward compatible).
+ * Merges inherited groups + role-specific routes, deduplicating by key.
+ * For administrator + isTeacher, also folds in GROUP_GRADING_STAFF.
  */
+function resolveRoleRoutes(
+	role: string,
+	isTeacher?: boolean,
+): RouteDefinition[] {
+	const effectiveRole = resolveEffectiveRole(role);
+	const config = ROLE_ROUTES[effectiveRole];
+	if (!config) return [];
+
+	const groups = [...config.inherits];
+	if (effectiveRole === 'administrator' && isTeacher) {
+		groups.push(GROUP_GRADING_STAFF);
+	}
+
+	const seen = new Set<string>();
+	const merged: RouteDefinition[] = [];
+
+	for (const route of [...groups.flat(), ...config.routes]) {
+		if (!seen.has(route.key)) {
+			seen.add(route.key);
+			merged.push(route);
+		}
+	}
+
+	return merged;
+}
+
+/**
+ * Applies school-profile feature gates and per-user permission filters,
+ * returning only the routes a specific user may access.
+ */
+function filterRoutesForUser(
+	routes: RouteDefinition[],
+	schoolProfile: SchoolProfile,
+	userRole: string,
+	adminPermissions?: FeatureKey[],
+): RouteDefinition[] {
+	const effectiveRole = resolveEffectiveRole(userRole);
+	const enabled = new Set(schoolProfile.featureConfig.enabledFeatures);
+
+	return routes.filter((route) => {
+		// default_features are always on
+		if (route.feature === 'default_features') return true;
+
+		// Feature must be enabled for this school
+		if (!enabled.has(route.feature)) return false;
+
+		// Extra feature requirement (e.g. online_payment gate on /pay)
+		if (route.requiresFeature && !enabled.has(route.requiresFeature))
+			return false;
+
+		// Administrators are gated by their runtime permission list
+		if (effectiveRole === 'administrator') {
+			return adminPermissions?.includes(route.feature) ?? false;
+		}
+
+		// All other roles: check roleFeatureAccess from school profile
+		const roleAccess = getRoleFeatureAccess(schoolProfile, userRole);
+		return roleAccess.includes(route.feature);
+	});
+}
+
 function getRoleFeatureAccess(
 	schoolProfile: SchoolProfile,
 	role: string,
 ): readonly FeatureKey[] {
 	const access = schoolProfile.featureConfig.roleFeatureAccess;
 	if (role === 'parent') {
-		if (Array.isArray(access.parent) && access.parent.length > 0) {
+		if (Array.isArray(access.parent) && access.parent.length > 0)
 			return access.parent;
-		}
 		return Array.isArray(access.student) ? access.student : [];
 	}
 	return access[role as keyof typeof access] || [];
 }
 
-/**
- * Resolves the routes a user should see for a feature.
- * Administrators with `isTeacher: true` additionally get the feature's
- * teacher routes so they can access teacher-only grading/work routes.
- */
-function getFeatureRoutesForUser(
-	featureConfig: FeatureConfig,
-	effectiveRole: string,
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+export function getUserAccessibleFeatures(
+	schoolProfile: SchoolProfile,
+	userRole: string,
+	adminPermissions?: FeatureKey[],
 	isTeacher?: boolean,
-): Array<{ key: string; title: string; href: string; icon?: any }> {
-	const roleRoutes = featureConfig.routes[effectiveRole] || [];
-	if (effectiveRole !== 'administrator' || !isTeacher) return roleRoutes;
-
-	const teacherRoutes = featureConfig.routes['teacher'] || [];
-	if (teacherRoutes.length === 0) return roleRoutes;
-
-	const merged = [...roleRoutes];
-	const seen = new Set(roleRoutes.map((route) => route.key));
-	for (const route of teacherRoutes) {
-		if (!seen.has(route.key)) {
-			merged.push(route);
-			seen.add(route.key);
-		}
-	}
-	return merged;
+): FeatureKey[] {
+	const routes = resolveRoleRoutes(userRole, isTeacher);
+	const filtered = filterRoutesForUser(
+		routes,
+		schoolProfile,
+		userRole,
+		adminPermissions,
+	);
+	const features = filtered.map((r) => r.feature);
+	return [
+		'default_features',
+		...Array.from(new Set(features)).filter((f) => f !== 'default_features'),
+	];
 }
 
-function shouldExcludeRoute(
+export function isFeatureEnabled(
+	schoolProfile: SchoolProfile,
 	feature: FeatureKey,
-	routeKey: string,
-	schoolProfile: SchoolProfile,
 ): boolean {
-	if (feature === 'fee_payment' && routeKey === 'pay') {
-		return !schoolProfile.featureConfig.enabledFeatures.includes('online_payment' as FeatureKey);
-	}
-	return false;
+	return schoolProfile.featureConfig.enabledFeatures.includes(feature);
 }
 
-function getAccessibleRouteKeys(
-	schoolProfile: SchoolProfile,
-	userRole: string,
-	adminPermissions?: FeatureKey[],
-	isTeacher?: boolean,
-): string[] {
-	const routeKeys: string[] = [];
-	const effectiveRole = resolveEffectiveRole(userRole);
-	const userFeatures = getUserAccessibleFeatures(
-		schoolProfile,
-		userRole,
-		adminPermissions,
-		isTeacher,
-	);
-
-	userFeatures.forEach((feature) => {
-		if (!schoolProfile.featureConfig.enabledFeatures.includes(feature)) return;
-		const featureConfig = featureConfigurations[feature];
-		if (!featureConfig) return;
-
-		const routes = getFeatureRoutesForUser(
-			featureConfig,
-			effectiveRole,
-			isTeacher,
-		);
-		if (routes.length === 0) return;
-
-		routes.forEach((route) => {
-			if (shouldExcludeRoute(feature, route.key, schoolProfile)) return;
-			routeKeys.push(route.key);
-		});
-	});
-
-	return routeKeys;
-}
-
-export function preloadComponentsForUser(
-	schoolProfile: SchoolProfile,
-	userRole: string,
-	adminPermissions?: FeatureKey[],
-	isTeacher?: boolean,
-): void {
-	const routeKeys = getAccessibleRouteKeys(
-		schoolProfile,
-		userRole,
-		adminPermissions,
-		isTeacher,
-	);
-	const uniqueKeys = Array.from(new Set(routeKeys));
-
-	const preloadPromises = uniqueKeys.map((key) => {
-		const importer = componentImporters[key];
-		if (!importer) {
-			console.warn(`Component importer not found for key: ${key}`);
-			return Promise.resolve();
-		}
-		return importer().catch((error) => {
-			console.warn(`Preload failed for key: ${key}`, error);
-		});
-	});
-
-	void Promise.allSettled(preloadPromises);
-}
-
-// Feature configurations with navigation structure
-const featureConfigurations: Record<FeatureKey, FeatureConfig> = {
-	user_management: {
-		key: 'user_management',
-		title: 'User Management',
-		icon: Users,
-		category: 'User Management',
-		routes: {
-			system_admin: [
-				{
-					key: 'add-users',
-					title: 'Add Users',
-					href: '/add-users',
-					icon: UserPlus,
-				},
-				{
-					key: 'manage-users',
-					title: 'Manage Users',
-					href: '/manage-users',
-					icon: UserCheck,
-				},
-			],
-		},
-	},
-
-	grade_management: {
-		key: 'grade_management',
-		title: 'Grading System',
-		icon: CheckSquare,
-		category: 'Grading',
-		routes: {
-			system_admin: [
-				{
-					key: 'submissions',
-					title: 'Grade Submissions',
-					href: '/submissions',
-					icon: BookCheck,
-				},
-				{
-					key: 'requests',
-					title: 'Grade Requests',
-					href: '/requests',
-					icon: CheckSquare,
-				},
-				{
-					key: 'masters',
-					title: 'Master Grade Sheets',
-					href: '/masters',
-					icon: ClipboardList,
-				},
-			],
-			teacher: [
-				{
-					key: 'grade-submissions',
-					title: 'Grade Submissions',
-					href: '/grade-submissions',
-					icon: BookCheck,
-				},
-				{
-					key: 'submit-grades',
-					title: 'Submit Grades',
-					href: '/submit-grades',
-					icon: CheckSquare,
-				},
-				{
-					key: 'grade-requests',
-					title: 'Grade Requests',
-					href: '/grade-requests',
-					icon: CheckSquare,
-				},
-				{
-					key: 'masters',
-					title: 'Master Grade Sheets',
-					href: '/masters',
-					icon: ClipboardList,
-				},
-			],
-		},
-	},
-
-	class_management: {
-		key: 'class_management',
-		title: 'Class Management',
-		icon: GraduationCap,
-		category: 'Enrollment',
-		routes: {
-			system_admin: [
-				{
-					key: 'classes-overview',
-					title: 'Classes Overview',
-					href: '/classes-overview',
-					icon: GraduationCap,
-				},
-				{
-					key: 'manage-class',
-					title: 'Manage Classes',
-					href: '/manage-class',
-					icon: Settings,
-				},
-			],
-		},
-	},
-
-	academic_reports: {
-		key: 'academic_reports',
-		title: 'Academic Reports',
-		icon: Library,
-		category: 'Academic Reports',
-		routes: {
-			system_admin: [
-				{
-					key: 'periodic-reports',
-					title: 'Periodic Reports',
-					href: '/periodic-reports',
-					icon: FileText,
-				},
-				{
-					key: 'yearly-reports',
-					title: 'Yearly Reports',
-					href: '/yearly-reports',
-					icon: FileText,
-				},
-				{
-					key: 'semester-report',
-					title: 'Semester Report',
-					href: '/semester-report',
-					icon: FileText,
-				},
-			],
-			student: [
-				{
-					key: 'periodic-grade',
-					title: 'Periodic Grades',
-					href: '/periodic-grade',
-					icon: FileText,
-				},
-				{
-					key: 'yearly-grade',
-					title: 'Yearly Grades',
-					href: '/yearly-grade',
-					icon: FileText,
-				},
-				{
-					key: 'semester-report',
-					title: 'Semester Report',
-					href: '/semester-report',
-					icon: FileText,
-				},
-			],
-		},
-	},
-
-	calendar_events: {
-		key: 'calendar_events',
-		title: 'Calendar & Events',
-		icon: CalendarDays,
-		category: 'Calendar & Schedules',
-		routes: {
-			system_admin: [
-				{
-					key: 'calendar-academic',
-					title: 'Academic Calendar',
-					href: '/calendar-academic',
-					icon: CalendarDays,
-				},
-				{
-					key: 'schedules',
-					title: 'Schedules',
-					href: '/schedules',
-					icon: CalendarDays,
-				},
-			],
-			teacher: [
-				{
-					key: 'calendar-academic',
-					title: 'Academic Calendar',
-					href: '/calendar-academic',
-					icon: CalendarDays,
-				},
-				{
-					key: 'schedules',
-					title: 'Schedules',
-					href: '/schedules',
-					icon: CalendarDays,
-				},
-			],
-			student: [
-				{
-					key: 'schedules',
-					title: 'Schedules',
-					href: '/schedules',
-					icon: CalendarDays,
-				},
-				{
-					key: 'calendar-academic',
-					title: 'Academic Calendar',
-					href: '/calendar-academic',
-					icon: CalendarDays,
-				},
-			],
-			administrator: [
-				{
-					key: 'calendar-academic',
-					title: 'Academic Calendar',
-					href: '/calendar-academic',
-					icon: CalendarDays,
-				},
-				{
-					key: 'schedules',
-					title: 'Schedules',
-					href: '/schedules',
-					icon: CalendarDays,
-				},
-			],
-		},
-	},
-
-	fee_payment: {
-		key: 'fee_payment',
-		title: 'Fee Payment',
-		icon: Wallet,
-		category: 'Finances',
-		routes: {
-			student: [
-				{
-					key: 'financial-profile',
-					title: 'Financial Profile',
-					href: '/financial-profile',
-					icon: Wallet,
-				},
-				{ key: 'pay', title: 'Pay Fees', href: '/pay', icon: Wallet },
-				{
-					key: 'payment-history',
-					title: 'Payment History',
-					href: '/payment-history',
-					icon: FileText,
-				},
-			],
-		},
-	},
-
-	financial_reports: {
-		key: 'financial_reports',
-		title: 'Financial Reports',
-		icon: FileText,
-		category: 'Financial',
-		routes: {
-			administrator: [
-				{
-					key: 'financial-reports',
-					title: 'Financial Reports',
-					href: '/dashboard/financial-reports',
-					icon: DollarSign,
-				},
-				{
-					key: 'admin-payment-history',
-					title: 'Payment History',
-					// Must stay in sync with the route key: /dashboard/<key> is what
-					// the dynamic dashboard route validates against. `/dashboard/
-					// payment-history` belongs to the student fee_payment route.
-					href: '/dashboard/admin-payment-history',
-					icon: FileText,
-				},
-				{
-					// Visibility lives here, on financial_reports; the ability to
-					// actually award or remove a scholarship is a narrower check
-					// inside the page itself, gated on the `record_payments`
-					// permission — the same authority that can record a payment.
-					key: 'scholarships',
-					title: 'Scholarships & Wards',
-					href: '/dashboard/scholarships',
-					icon: GraduationCap,
-				},
-			],
-		},
-	},
-
-	salary_management: {
-		key: 'salary_management',
-		title: 'Salary Management',
-		icon: Wallet,
-		category: 'Salary',
-		routes: {
-			teacher: [
-				{
-					key: 'salary/advance',
-					title: 'Request Salary Advance',
-					href: '/salary/advance',
-					icon: Wallet,
-				},
-				{
-					key: 'salary/sign',
-					title: 'Sign for Salary',
-					href: '/salary/sign',
-					icon: FilePen,
-				},
-			],
-			administrator: [
-				{
-					key: 'salary/advance-admin',
-					title: 'Request Salary Advance',
-					href: '/salary/advance',
-					icon: Wallet,
-				},
-				{
-					key: 'salary/sign-admin',
-					title: 'Sign for Salary',
-					href: '/salary/sign',
-					icon: FilePen,
-				},
-			],
-		},
-	},
-
-	audit: {
-		key: 'audit',
-		title: 'Audit Trail',
-		icon: Shield,
-		category: 'Financial',
-		routes: {
-			administrator: [
-				{
-					key: 'financial-audit',
-					title: 'Audit Trail',
-					href: '/dashboard/financial-audit',
-					icon: Shield,
-				},
-			],
-			system_admin: [
-				{
-					key: 'financial-audit',
-					title: 'Audit Trail',
-					href: '/dashboard/financial-audit',
-					icon: Shield,
-				},
-			],
-		},
-	},
-
-	record_payments: {
-		key: 'record_payments',
-		title: 'Record Payments',
-		icon: DollarSign,
-		category: 'Financial',
-		routes: {
-			administrator: [
-				{
-					key: 'record-payments',
-					title: 'Record Payments',
-					href: '/dashboard/record-payments',
-					icon: DollarSign,
-				},
-				{
-					// Was reachable from both record_payments and academic_documents;
-					// it's really a financial document (checks real payment status),
-					// so it now lives only here — academic_documents gets the actual
-					// Graduation Clearance letter instead.
-					key: 'clearances',
-					title: 'Financial Clearance',
-					href: '/dashboard/clearances',
-					icon: ClipboardCheck,
-				},
-			],
-		},
-	},
-
-	academic_documents: {
-		key: 'academic_documents',
-		title: 'Academic Documents',
-		icon: FileText,
-		category: 'Academic Documents',
-		routes: {
-			system_admin: [
-				{
-					key: 'documents',
-					title: 'Transcript & Recommendation',
-					href: '/dashboard/documents',
-					icon: FileText,
-				},
-				{
-					key: 'attestation',
-					title: 'Attestation',
-					href: '/dashboard/attestation',
-					icon: FileText,
-				},
-				{
-					key: 'graduation-clearance',
-					title: 'Graduation Clearance',
-					href: '/dashboard/graduation-clearance',
-					icon: GraduationCap,
-				},
-				{
-					key: 'diploma',
-					title: 'Diploma',
-					href: '/dashboard/diploma',
-					icon: GraduationCap,
-				},
-				{
-					key: 'digital-id',
-					title: 'Digital ID',
-					href: '/dashboard/digital-id',
-					icon: Shield,
-				},
-			],
-			administrator: [
-				{
-					key: 'documents',
-					title: 'Transcript & Recommendation',
-					href: '/dashboard/documents',
-					icon: FileText,
-				},
-				{
-					key: 'attestation',
-					title: 'Attestation',
-					href: '/dashboard/attestation',
-					icon: FileText,
-				},
-				{
-					key: 'graduation-clearance',
-					title: 'Graduation Clearance',
-					href: '/dashboard/graduation-clearance',
-					icon: GraduationCap,
-				},
-				{
-					key: 'diploma',
-					title: 'Diploma',
-					href: '/dashboard/diploma',
-					icon: GraduationCap,
-				},
-				{
-					key: 'digital-id',
-					title: 'Digital ID',
-					href: '/dashboard/digital-id',
-					icon: Shield,
-				},
-			],
-		},
-	},
-
-	student_records: {
-		key: 'student_records',
-		title: 'Student Records',
-		icon: FileText,
-		category: 'Student Management',
-		routes: {
-			administrator: [
-				{
-					key: 'student-records',
-					title: 'Student Records',
-					href: '/student-records',
-					icon: FileText,
-				},
-			],
-		},
-	},
-
-	student_attendance: {
-		key: 'student_attendance',
-		title: 'Student Attendance',
-		icon: AlignEndVerticalIcon,
-		category: 'Attendance',
-		routes: {
-			system_admin: [
-				{
-					key: 'student-attendance',
-					title: 'Student Attendance',
-					href: '/student-attendance',
-					icon: AlignEndVerticalIcon,
-				},
-			],
-			teacher: [
-				{
-					key: 'student-attendance',
-					title: 'Student Attendance',
-					href: '/student-attendance',
-					icon: AlignEndVerticalIcon,
-				},
-			],
-			student: [
-				{
-					key: 'student-attendance',
-					title: 'My Attendance',
-					href: '/student-attendance',
-					icon: AlignEndVerticalIcon,
-				},
-			],
-			administrator: [
-				{
-					key: 'student-attendance',
-					title: 'Student Attendance',
-					href: '/student-attendance',
-					icon: AlignEndVerticalIcon,
-				},
-			],
-		},
-	},
-
-	teacher_attendance: {
-		key: 'teacher_attendance',
-		title: 'Teacher Attendance',
-		icon: ClipboardCheck,
-		category: 'Attendance',
-		routes: {
-			system_admin: [
-				{
-					key: 'teacher-attendance',
-					title: 'Teacher Attendance',
-					href: '/teacher-attendance',
-					icon: ClipboardCheck,
-				},
-			],
-			teacher: [
-				{
-					key: 'my-attendance',
-					title: 'My Attendance',
-					href: '/my-attendance',
-					icon: ClipboardCheck,
-				},
-			],
-			administrator: [
-				{
-					key: 'teacher-attendance',
-					title: 'Teacher Attendance',
-					href: '/teacher-attendance',
-					icon: ClipboardCheck,
-				},
-			],
-		},
-	},
-
-	community: {
-		key: 'community',
-		title: 'Community',
-		icon: Users2,
-
-		routes: {
-			teacher: [
-				{
-					key: 'community',
-					title: 'Community',
-					href: '/community',
-					icon: Users2,
-				},
-			],
-
-			student: [
-				{
-					key: 'community',
-					title: 'Community',
-					href: '/community',
-					icon: Users2,
-				},
-			],
-		},
-	},
-
-	school_settings: {
-		key: 'school_settings',
-		title: 'School Settings',
-		icon: Settings,
-		category: 'School Settings',
-		routes: {
-			system_admin: [
-				{
-					key: 'settings',
-					title: 'School Settings',
-					href: '/settings',
-					icon: Settings,
-				},
-			],
-		},
-	},
-
-	school_profile: {
-		key: 'school_profile',
-		title: 'School Profile',
-		icon: Shield,
-		routes: {
-			administrator: [
-				{
-					key: 'school-profile',
-					title: 'School Profile',
-					href: '/school-profile',
-					icon: Shield,
-				},
-			],
-		},
-	},
-
-	support_system: {
-		key: 'support_system',
-		title: 'Support System',
-		icon: Shield,
-		routes: {
-			system_admin: [
-				{ key: 'support', title: 'Support', href: '/support', icon: Shield },
-			],
-			administrator: [
-				{ key: 'support', title: 'Support', href: '/support', icon: Shield },
-			],
-		},
-	},
-
-	ai_chat: {
-		key: 'ai_chat',
-		title: 'AI Chat',
-		icon: MessageCircle,
-		category: 'AI Chat',
-		routes: {
-			system_admin: [
-				{
-					key: 'chat',
-					title: 'AI Chat',
-					href: '/chat',
-					icon: MessageCircle,
-				},
-			],
-			teacher: [
-				{
-					key: 'chat',
-					title: 'AI Chat',
-					href: '/chat',
-					icon: MessageCircle,
-				},
-			],
-			student: [
-				{
-					key: 'chat',
-					title: 'AI Chat',
-					href: '/chat',
-					icon: MessageCircle,
-				},
-			],
-			administrator: [
-				{
-					key: 'chat',
-					title: 'AI Chat',
-					href: '/chat',
-					icon: MessageCircle,
-				},
-			],
-		},
-	},
-
-	// Placeholder features
-	enrollment_info: {
-		key: 'enrollment_info',
-		title: 'Enrollment Info',
-		icon: FileText,
-		routes: {},
-	},
-	digital_signatures: {
-		key: 'digital_signatures',
-		title: 'Digital Signatures',
-		icon: FilePen,
-		routes: {},
-	},
-	financial_profile: {
-		key: 'financial_profile',
-		title: 'Financial Profile',
-		icon: Wallet,
-		routes: {},
-	},
-	scholarships_and_wards: {
-		key: 'scholarships_and_wards',
-		title: 'Scholarships',
-		icon: GraduationCap,
-		routes: {},
-	},
-	payroll_management: {
-		key: 'payroll_management',
-		title: 'Payroll Management',
-		icon: Wallet,
-		routes: {},
-	},
-	receipts_and_clearances: {
-		key: 'receipts_and_clearances',
-		title: 'Receipts & Clearances',
-		icon: FileText,
-		routes: {},
-	},
-	information_sheet: {
-		key: 'information_sheet',
-		title: 'Information Sheet',
-		icon: FileText,
-		routes: {},
-	},
-	online_verification: {
-		key: 'online_verification',
-		title: 'Online Verification',
-		icon: CheckSquare,
-		routes: {},
-	},
-	document_requests: {
-		key: 'document_requests',
-		title: 'Document Requests',
-		icon: FileText,
-		routes: {},
-	},
-	default_features: {
-		key: 'default_features',
-		title: 'Default Pages',
-		icon: LayoutDashboard,
-		category: 'General',
-		routes: {
-			student: [
-				{
-					key: 'dashboard',
-					title: 'Dashboard',
-					href: '/dashboard',
-					icon: LayoutDashboard,
-				},
-				{
-					key: 'profile',
-					title: 'Profile',
-					href: '/profile',
-					icon: UserCircle,
-				},
-				{
-					key: 'notifications',
-					title: 'Notifications',
-					href: '/notifications',
-					icon: BellDot,
-				},
-			],
-			teacher: [
-				{
-					key: 'dashboard',
-					title: 'Dashboard',
-					href: '/dashboard',
-					icon: LayoutDashboard,
-				},
-				{
-					key: 'profile',
-					title: 'Profile',
-					href: '/profile',
-					icon: UserCircle,
-				},
-				{
-					key: 'notifications',
-					title: 'Notifications',
-					href: '/notifications',
-					icon: BellDot,
-				},
-			],
-			system_admin: [
-				{
-					key: 'dashboard',
-					title: 'Dashboard',
-					href: '/dashboard',
-					icon: LayoutDashboard,
-				},
-				{
-					key: 'profile',
-					title: 'Profile',
-					href: '/profile',
-					icon: UserCircle,
-				},
-				{
-					key: 'notifications',
-					title: 'Notifications',
-					href: '/notifications',
-					icon: BellDot,
-				},
-			],
-			administrator: [
-				{
-					key: 'dashboard',
-					title: 'Dashboard',
-					href: '/dashboard',
-					icon: LayoutDashboard,
-				},
-				{
-					key: 'profile',
-					title: 'Profile',
-					href: '/profile',
-					icon: UserCircle,
-				},
-				{
-					key: 'notifications',
-					title: 'Notifications',
-					href: '/notifications',
-					icon: BellDot,
-				},
-			],
-		},
-	},
-};
-
-// Rest of the interfaces and types remain the same...
-interface NavItem {
-	name: string;
-	icon: any;
-	href?: string;
-	isLogout?: boolean;
-	category?: string;
-	subItems?: NavItem[];
-}
-
-interface ComponentItem {
-	title: string;
-	icon: any;
-	category?: string;
-	component: any;
-}
-
-/**
- * Checks if a given position is a valid administrator position for the school profile.
- */
 export function isValidAdministratorPosition(
 	schoolProfile: SchoolProfile,
 	position: string,
@@ -1211,7 +915,10 @@ export function isValidAdministratorPosition(
 }
 
 function normalizeAdministratorPosition(position: string): string {
-	return position.toLowerCase().trim().replace(/[\s-]+/g, '_');
+	return position
+		.toLowerCase()
+		.trim()
+		.replace(/[\s-]+/g, '_');
 }
 
 function getAdministratorFeatureAccess(
@@ -1219,419 +926,20 @@ function getAdministratorFeatureAccess(
 	adminPosition?: string,
 ): FeatureKey[] | null {
 	if (!adminPosition) return null;
-	const adminAccessMap = schoolProfile.featureConfig.roleFeatureAccess?.administrator;
+	const adminAccessMap =
+		schoolProfile.featureConfig.roleFeatureAccess?.administrator;
 	if (!adminAccessMap) return null;
 
-	const normalizedPosition = normalizeAdministratorPosition(adminPosition);
-	const directAccess = adminAccessMap[normalizedPosition];
+	const normalized = normalizeAdministratorPosition(adminPosition);
+	const directAccess = adminAccessMap[normalized];
 	if (directAccess) return directAccess;
 
 	const matchedKey = Object.keys(adminAccessMap).find(
-		(key) => normalizeAdministratorPosition(key) === normalizedPosition,
+		(key) => normalizeAdministratorPosition(key) === normalized,
 	);
 	return matchedKey ? adminAccessMap[matchedKey] : null;
 }
 
-/**
- * Enhanced function to check if a user has access to a specific feature
- * Administrators use their individual permissions array.
- * Other roles use roleFeatureAccess from the school profile.
- */
-function hasFeatureAccess(
-	schoolProfile: SchoolProfile,
-	userRole: string,
-	feature: FeatureKey,
-	adminPermissions?: FeatureKey[],
-	isTeacher?: boolean,
-): boolean {
-	const effectiveRole = resolveEffectiveRole(userRole);
-	if (feature === 'default_features') return true;
-	if (!schoolProfile.featureConfig.enabledFeatures.includes(feature)) return false;
-
-	if (effectiveRole === 'administrator') {
-		if (adminPermissions?.includes(feature)) return true;
-		if (isTeacher) {
-			const teacherFeatures = schoolProfile.featureConfig.roleFeatureAccess.teacher;
-			if (Array.isArray(teacherFeatures) && teacherFeatures.includes(feature)) return true;
-		}
-		return false;
-	}
-
-	const roleAccess = getRoleFeatureAccess(schoolProfile, userRole);
-	return roleAccess.includes(feature);
-}
-
-/**
- * Enhanced function to generate dynamic components map based on school profile and user role
- * Administrators use their individual permissions array.
- */
-export function generateDynamicComponentsMap(
-	schoolProfile: SchoolProfile,
-	userRole: string,
-	adminPermissions?: FeatureKey[],
-	isTeacher?: boolean,
-): any {
-	const dynamicMap: any = {
-		[userRole]: {
-			items: {},
-		},
-		shared: {
-			items: {},
-		},
-	};
-
-	// Get user's accessible features with permissions support
-	const effectiveRole = resolveEffectiveRole(userRole);
-	const userFeatures = getUserAccessibleFeatures(
-		schoolProfile,
-		userRole,
-		adminPermissions,
-		isTeacher,
-	);
-
-	userFeatures.forEach((feature) => {
-		// Check if feature is enabled for the school
-		if (feature !== 'default_features' && !schoolProfile.featureConfig.enabledFeatures.includes(feature)) return;
-
-		const featureConfig = featureConfigurations[feature];
-		if (!featureConfig) return;
-
-		// Get routes for the user's role (teacher routes are merged in for isTeacher admins)
-		const routes = getFeatureRoutesForUser(
-			featureConfig,
-			effectiveRole,
-			isTeacher,
-		);
-		if (routes.length === 0) return;
-
-		// Add each route for this feature
-		routes.forEach((route) => {
-			if (shouldExcludeRoute(feature, route.key, schoolProfile)) return;
-
-			const component = componentMappings[route.key];
-
-			if (!component) {
-				console.warn(`Component not found for key: ${route.key}`);
-				return;
-			}
-
-			const componentItem: ComponentItem = {
-				title: route.title,
-				icon: route.icon || featureConfig.icon,
-				category: featureConfig.category,
-				component: component,
-			};
-
-			// Add to role-specific section or shared section
-			if (isSharedComponent(route.key)) {
-				dynamicMap.shared.items[route.key] = componentItem;
-			} else {
-				dynamicMap[userRole].items[route.key] = componentItem;
-			}
-		});
-	});
-
-	return dynamicMap;
-}
-
-/**
- * Check if a component should be in the shared section
- */
-function isSharedComponent(key: string): boolean {
-	const sharedComponents = [
-		'profile',
-		'chat',
-		'notifications',
-		'resources/view',
-		'calendar-academic',
-		'schedules',
-		'periodic-grade',
-		'yearly-grade',
-		'periodic-reports',
-		'yearly-reports',
-		'semester-report',
-		'teacher-attendance',
-	];
-	return sharedComponents.includes(key);
-}
-
-/**
- * Enhanced navigation generation with administrator permissions support
- */
-export function generateNavigationItems(
-	schoolProfile: SchoolProfile,
-	userRole: string,
-	adminPermissions?: FeatureKey[],
-	isTeacher?: boolean,
-): NavItem[] {
-	// Helper to move an item before another item in the array
-	const moveNavItemBefore = (
-		items: NavItem[],
-		itemName: string,
-		beforeName: string,
-	) => {
-		const fromIndex = items.findIndex((item) => item.name === itemName);
-		const toIndex = items.findIndex((item) => item.name === beforeName);
-		if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return;
-		const [moved] = items.splice(fromIndex, 1);
-		const nextIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
-		items.splice(nextIndex, 0, moved);
-	};
-
-	// Get user's accessible features with permissions support
-	const effectiveRole = resolveEffectiveRole(userRole);
-	const accessibleFeatures = getUserAccessibleFeatures(
-		schoolProfile,
-		userRole,
-		adminPermissions,
-		isTeacher,
-	);
-
-	const routesByCategory: Record<
-		string,
-		Array<{
-			title: string;
-			icon: any;
-			href: string;
-			key: string;
-		}>
-	> = {};
-	const uncategorizedRoutes: Array<{
-		title: string;
-		icon: any;
-		href: string;
-		key: string;
-	}> = [];
-
-	// Process each accessible feature (skip default_features — handled separately)
-	accessibleFeatures.forEach((feature) => {
-		if (feature === 'default_features') return;
-		if (!schoolProfile.featureConfig.enabledFeatures.includes(feature)) return;
-
-		const featureConfig = featureConfigurations[feature];
-		if (!featureConfig) return;
-
-		let routes = getFeatureRoutesForUser(
-			featureConfig,
-			effectiveRole,
-			isTeacher,
-		);
-		if (routes.length === 0) return;
-
-		routes.forEach((route) => {
-			if (shouldExcludeRoute(feature, route.key, schoolProfile)) return;
-
-			const routeItem = {
-				title: route.title,
-				icon: route.icon || featureConfig.icon,
-				href: route.href,
-				key: route.key,
-			};
-
-			if (featureConfig.category) {
-				if (!routesByCategory[featureConfig.category]) {
-					routesByCategory[featureConfig.category] = [];
-				}
-				const alreadyAdded = routesByCategory[featureConfig.category].some(
-					(item) => item.href === routeItem.href,
-				);
-				if (!alreadyAdded) {
-					routesByCategory[featureConfig.category].push(routeItem);
-				}
-			} else {
-				const alreadyAdded = uncategorizedRoutes.some(
-					(item) => item.href === routeItem.href,
-				);
-				if (!alreadyAdded) {
-					uncategorizedRoutes.push(routeItem);
-				}
-			}
-		});
-	});
-
-	// Priority order for main feature categories
-	// Removed 'School Settings', 'AI Chat', and 'Support' so they can be explicitly placed at specific indexes below
-	const categoryOrder = [
-		'User Management',
-		'Grading',
-		'Academic Reports',
-		'Academic Documents',
-		// Money sits above timetables: the finance groups are worked daily,
-		// the calendar is consulted occasionally. 'Enrollment' is listed only
-		// to hold its existing position ahead of these.
-		'Enrollment',
-		'Finances',
-		'Financial',
-		'Calendar & Schedules',
-	];
-
-	const navItems: NavItem[] = [];
-
-	// 1. Dashboard always first
-	navItems.push({
-		name: 'Dashboard',
-		icon: LayoutDashboard,
-		href: '/dashboard',
-	});
-
-	// 2. Categorized items in order, excluding custom-placed categories
-	const excludedCategories = new Set(['School Settings', 'AI Chat', 'Support']);
-	const sortedCategories = [
-		...categoryOrder.filter((c) => routesByCategory[c]),
-		...Object.keys(routesByCategory).filter(
-			(c) => !categoryOrder.includes(c) && !excludedCategories.has(c),
-		),
-	];
-
-	sortedCategories.forEach((categoryName) => {
-		const routes = routesByCategory[categoryName];
-		if (!routes || routes.length === 0) return;
-		if (routes.length === 1) {
-			navItems.push({
-				name: routes[0].title,
-				icon: routes[0].icon,
-				href: routes[0].href,
-			});
-		} else {
-			navItems.push({
-				name: categoryName,
-				icon: routes[0].icon,
-				subItems: routes.map((route) => ({
-					name: route.title,
-					icon: route.icon,
-					href: route.href,
-				})),
-			});
-		}
-	});
-
-	// 3. Uncategorized routes (community, calendar, attendance, etc.)
-	const excludeKeys = new Set([
-		'profile',
-		'notifications',
-		'chat',
-		'ai_chat',
-		'support',
-	]);
-	const uncategorizedOrder = ['community'];
-	uncategorizedRoutes
-		.filter((r) => !excludeKeys.has(r.key))
-		.sort((a, b) => {
-			const aIndex = uncategorizedOrder.indexOf(a.key);
-			const bIndex = uncategorizedOrder.indexOf(b.key);
-			if (aIndex === -1 && bIndex === -1) return 0;
-			if (aIndex === -1) return 1;
-			if (bIndex === -1) return -1;
-			return aIndex - bIndex;
-		})
-		.forEach((route) => {
-			navItems.push({ name: route.title, icon: route.icon, href: route.href });
-		});
-
-	// Reorder Calendar & Attendance if present
-	const calendarNavLabel = 'Calendar & Schedules';
-	moveNavItemBefore(navItems, 'Attendance', calendarNavLabel);
-
-	// 4. School Settings — placed right before Profile
-	if (routesByCategory['School Settings']) {
-		const settingRoutes = routesByCategory['School Settings'];
-		if (settingRoutes.length === 1) {
-			navItems.push({
-				name: settingRoutes[0].title,
-				icon: settingRoutes[0].icon,
-				href: settingRoutes[0].href,
-			});
-		} else if (settingRoutes.length > 1) {
-			navItems.push({
-				name: 'School Settings',
-				icon: settingRoutes[0].icon,
-				subItems: settingRoutes.map((route) => ({
-					name: route.title,
-					icon: route.icon,
-					href: route.href,
-				})),
-			});
-		}
-	}
-
-	// 5. Profile and Notifications
-	navItems.push({ name: 'Profile', icon: UserCircle, href: '/profile' });
-	navItems.push({
-		name: 'Notifications',
-		icon: BellDot,
-		href: '/notifications',
-	});
-
-	// 6. Support — checked once via categorized or uncategorized routes to prevent duplicates
-	if (routesByCategory['Support']) {
-		const supportRoutes = routesByCategory['Support'];
-		if (supportRoutes.length === 1) {
-			navItems.push({
-				name: supportRoutes[0].title,
-				icon: supportRoutes[0].icon,
-				href: supportRoutes[0].href,
-			});
-		} else if (supportRoutes.length > 1) {
-			navItems.push({
-				name: 'Support',
-				icon: supportRoutes[0].icon,
-				subItems: supportRoutes.map((route) => ({
-					name: route.title,
-					icon: route.icon,
-					href: route.href,
-				})),
-			});
-		}
-	} else {
-		const supportRoute = uncategorizedRoutes.find((r) => r.key === 'support');
-		if (supportRoute) {
-			navItems.push({
-				name: supportRoute.title,
-				icon: supportRoute.icon,
-				href: supportRoute.href,
-			});
-		}
-	}
-
-	// 7. AI Chat — right before Logout
-	if (routesByCategory['AI Chat']) {
-		const chatRoutes = routesByCategory['AI Chat'];
-		if (chatRoutes.length === 1) {
-			navItems.push({
-				name: chatRoutes[0].title,
-				icon: chatRoutes[0].icon,
-				href: chatRoutes[0].href,
-			});
-		} else if (chatRoutes.length > 1) {
-			navItems.push({
-				name: 'AI Chat',
-				icon: chatRoutes[0].icon,
-				subItems: chatRoutes.map((route) => ({
-					name: route.title,
-					icon: route.icon,
-					href: route.href,
-				})),
-			});
-		}
-	} else {
-		const uncategorizedChat = uncategorizedRoutes.find(
-			(r) => r.key === 'chat' || r.key === 'ai_chat',
-		);
-		if (uncategorizedChat) {
-			navItems.push({
-				name: uncategorizedChat.title,
-				icon: uncategorizedChat.icon,
-				href: uncategorizedChat.href,
-			});
-		}
-	}
-
-	return navItems;
-}
-
-/**
- * Enhanced component access validation with administrator position support
- */
 export function validateComponentAccess(
 	schoolProfile: SchoolProfile,
 	userRole: string,
@@ -1639,71 +947,16 @@ export function validateComponentAccess(
 	adminPermissions?: FeatureKey[],
 	isTeacher?: boolean,
 ): boolean {
-	const effectiveRole = resolveEffectiveRole(userRole);
-	// Explicitly tie report routes to academic_reports feature access
-	const reportRouteFeatureMap: Record<string, FeatureKey> = {
-		'periodic-grade': 'academic_reports',
-		'yearly-grade': 'academic_reports',
-		'periodic-reports': 'academic_reports',
-		'yearly-reports': 'academic_reports',
-		'semester-report': 'academic_reports',
-	};
-	if (reportRouteFeatureMap[routeKey]) {
-		return hasFeatureAccess(
-			schoolProfile,
-			userRole,
-			reportRouteFeatureMap[routeKey],
-			adminPermissions,
-			isTeacher,
-		);
-	}
-
-	if (
-		routeKey === 'pay' &&
-		!schoolProfile.featureConfig.enabledFeatures.includes('online_payment' as FeatureKey)
-	) {
-		return false;
-	}
-
-	// A route key may be reachable through more than one feature (e.g.
-	// "clearances" is granted by both record_payments and academic_documents),
-	// so access is granted when ANY owning feature grants it — stopping at the
-	// first owner would deny users who hold only the other feature.
-	let ownedByFeature = false;
-	for (const feature of Object.values(featureConfigurations)) {
-		const userRoutes = getFeatureRoutesForUser(
-			feature,
-			effectiveRole,
-			isTeacher,
-		);
-		if (userRoutes.length === 0) {
-			continue;
-		}
-
-		if (userRoutes.some((route) => route.key === routeKey)) {
-			ownedByFeature = true;
-			if (
-				hasFeatureAccess(
-					schoolProfile,
-					userRole,
-					feature.key,
-					adminPermissions,
-					isTeacher,
-				)
-			) {
-				return true;
-			}
-		}
-	}
-	if (!ownedByFeature) {
-		console.warn(`Route key "${routeKey}" not found in any feature.`);
-	}
-	return false;
+	const routes = resolveRoleRoutes(userRole, isTeacher);
+	const filtered = filterRoutesForUser(
+		routes,
+		schoolProfile,
+		userRole,
+		adminPermissions,
+	);
+	return filtered.some((r) => r.key === routeKey);
 }
 
-/**
- * Enhanced user routes getter with administrator position support
- */
 export function getUserRoutes(
 	schoolProfile: SchoolProfile,
 	userRole: string,
@@ -1716,93 +969,253 @@ export function getUserRoutes(
 	icon: any;
 	category?: string;
 }> {
-	const routes: Array<{
-		key: string;
-		title: string;
-		href: string;
-		icon: any;
-		category?: string;
-	}> = [];
-
-	const effectiveRole = resolveEffectiveRole(userRole);
-	const accessibleFeatures = getUserAccessibleFeatures(
+	const routes = resolveRoleRoutes(userRole, isTeacher);
+	const filtered = filterRoutesForUser(
+		routes,
 		schoolProfile,
 		userRole,
 		adminPermissions,
-		isTeacher,
 	);
-
-	accessibleFeatures.forEach((feature) => {
-		const featureConfig = featureConfigurations[feature];
-		if (!featureConfig) return;
-
-		const featureRoutes = getFeatureRoutesForUser(
-			featureConfig,
-			effectiveRole,
-			isTeacher,
-		);
-		if (featureRoutes.length === 0) {
-			return;
-		}
-
-		featureRoutes.forEach((route) => {
-			if (shouldExcludeRoute(feature, route.key, schoolProfile)) return;
-			routes.push({
-				key: route.key,
-				title: route.title,
-				href: route.href,
-				icon: route.icon || featureConfig.icon,
-				category: featureConfig.category,
-			});
-		});
-	});
-
-	return routes;
+	return filtered.map(({ key, title, href, icon, category }) => ({
+		key,
+		title,
+		href,
+		icon,
+		category,
+	}));
 }
 
-// Export utility functions
-export function isFeatureEnabled(
-	schoolProfile: SchoolProfile,
-	feature: FeatureKey,
-): boolean {
-	return schoolProfile.featureConfig.enabledFeatures.includes(feature);
-}
-
-export function getUserAccessibleFeatures(
+export function preloadComponentsForUser(
 	schoolProfile: SchoolProfile,
 	userRole: string,
 	adminPermissions?: FeatureKey[],
 	isTeacher?: boolean,
-): FeatureKey[] {
-	const defaultFeatures: FeatureKey[] = ['default_features'];
-	const effectiveRole = resolveEffectiveRole(userRole);
-
-	if (effectiveRole === 'administrator') {
-		const features = new Set(adminPermissions || []);
-		if (isTeacher) {
-			const teacherFeatures = schoolProfile.featureConfig.roleFeatureAccess.teacher;
-			if (Array.isArray(teacherFeatures)) teacherFeatures.forEach((f) => features.add(f));
-		}
-		const enabled = Array.from(features).filter((f) =>
-			schoolProfile.featureConfig.enabledFeatures.includes(f),
-		);
-		return [...defaultFeatures, ...enabled];
-	}
-
-	const roleAccess = getRoleFeatureAccess(schoolProfile, userRole);
-	const features = Array.from(roleAccess);
-	const uniqueFeatures = Array.from(new Set(features));
-
-	const enabled = uniqueFeatures.filter((feature) =>
-		schoolProfile.featureConfig.enabledFeatures.includes(feature),
+): void {
+	const routes = resolveRoleRoutes(userRole, isTeacher);
+	const filtered = filterRoutesForUser(
+		routes,
+		schoolProfile,
+		userRole,
+		adminPermissions,
 	);
-	return [...defaultFeatures, ...enabled];
+	const uniqueKeys = Array.from(new Set(filtered.map((r) => r.key)));
+
+	void Promise.allSettled(
+		uniqueKeys.map((key) => {
+			const importer = componentImporters[key];
+			if (!importer) {
+				console.warn(`Component importer not found for key: ${key}`);
+				return Promise.resolve();
+			}
+			return importer().catch((error: unknown) => {
+				console.warn(`Preload failed for key: ${key}`, error);
+			});
+		}),
+	);
 }
 
-export function getFeatureConfig(
-	feature: FeatureKey,
-): FeatureConfig | undefined {
-	return featureConfigurations[feature];
+// ---------------------------------------------------------------------------
+// Navigation generation
+// ---------------------------------------------------------------------------
+
+/**
+ * Navigation category display order.
+ * Categories not listed here appear after, in the order they are encountered.
+ * Pinned items (Dashboard, Profile, Notifications, Support, AI Chat) are
+ * placed explicitly and excluded from this list.
+ */
+const NAV_CATEGORY_ORDER = [
+	'User Management',
+	'Grading',
+	'Academic Reports',
+	'Academic Documents',
+	'Enrollment',
+	'Finances',
+	'Financial',
+	'Attendance',
+	'Calendar & Schedules',
+];
+
+const NAV_PINNED_BOTTOM = new Set(['School Settings', 'AI Chat']);
+const NAV_EXCLUDE_KEYS = new Set([
+	'profile',
+	'notifications',
+	'dashboard',
+	'support',
+	'chat',
+]);
+
+export function generateNavigationItems(
+	schoolProfile: SchoolProfile,
+	userRole: string,
+	adminPermissions?: FeatureKey[],
+	isTeacher?: boolean,
+): NavItem[] {
+	const routes = resolveRoleRoutes(userRole, isTeacher);
+	const filtered = filterRoutesForUser(
+		routes,
+		schoolProfile,
+		userRole,
+		adminPermissions,
+	);
+
+	// Sort by order so categories are assembled in the right sequence
+	const sorted = [...filtered].sort(
+		(a, b) => (a.order ?? 999) - (b.order ?? 999),
+	);
+
+	// Build category buckets (skip pinned-position items)
+	const byCategory: Record<string, RouteDefinition[]> = {};
+
+	for (const route of sorted) {
+		if (NAV_EXCLUDE_KEYS.has(route.key)) continue;
+		const cat = route.category;
+		if (!cat) continue; // uncategorized routes without a category are skipped in nav
+		if (!byCategory[cat]) byCategory[cat] = [];
+		// Deduplicate by href within a category
+		if (!byCategory[cat].some((r) => r.href === route.href)) {
+			byCategory[cat].push(route);
+		}
+	}
+
+	const navItems: NavItem[] = [];
+
+	// 1. Dashboard always first
+	navItems.push({
+		name: 'Dashboard',
+		icon: LayoutDashboard,
+		href: '/dashboard',
+	});
+
+	// 2. Categorized items in defined order
+	const categoriesInOrder = [
+		...NAV_CATEGORY_ORDER.filter((c) => byCategory[c]),
+		...Object.keys(byCategory).filter(
+			(c) => !NAV_CATEGORY_ORDER.includes(c) && !NAV_PINNED_BOTTOM.has(c),
+		),
+	];
+
+	for (const categoryName of categoriesInOrder) {
+		const routes = byCategory[categoryName];
+		if (!routes?.length) continue;
+
+		if (routes.length === 1) {
+			navItems.push({
+				name: routes[0].title,
+				icon: routes[0].icon,
+				href: routes[0].href,
+			});
+		} else {
+			navItems.push({
+				name: categoryName,
+				icon: routes[0].icon,
+				subItems: routes.map((r) => ({
+					name: r.title,
+					icon: r.icon,
+					href: r.href,
+				})),
+			});
+		}
+	}
+
+	// 3. School Settings (pinned before Profile)
+	if (byCategory['School Settings']) {
+		const settingRoutes = byCategory['School Settings'];
+		navItems.push(
+			settingRoutes.length === 1
+				? {
+						name: settingRoutes[0].title,
+						icon: settingRoutes[0].icon,
+						href: settingRoutes[0].href,
+					}
+				: {
+						name: 'School Settings',
+						icon: settingRoutes[0].icon,
+						subItems: settingRoutes.map((r) => ({
+							name: r.title,
+							icon: r.icon,
+							href: r.href,
+						})),
+					},
+		);
+	}
+
+	// 4. Profile & Notifications (always present via GROUP_AUTHENTICATED)
+	navItems.push({ name: 'Profile', icon: UserCircle, href: '/profile' });
+	navItems.push({
+		name: 'Notifications',
+		icon: BellDot,
+		href: '/notifications',
+	});
+
+	// 5. Support
+	const supportRoute = sorted.find((r) => r.key === 'support');
+	if (supportRoute) {
+		navItems.push({
+			name: supportRoute.title,
+			icon: supportRoute.icon,
+			href: supportRoute.href,
+		});
+	}
+
+	// 6. AI Chat (always last before logout)
+	const chatRoute = sorted.find((r) => r.key === 'chat');
+	if (chatRoute) {
+		navItems.push({
+			name: chatRoute.title,
+			icon: chatRoute.icon,
+			href: chatRoute.href,
+		});
+	}
+
+	return navItems;
+}
+
+// ---------------------------------------------------------------------------
+// Dynamic component map  (consumed by the dashboard page router)
+// ---------------------------------------------------------------------------
+
+export function generateDynamicComponentsMap(
+	schoolProfile: SchoolProfile,
+	userRole: string,
+	adminPermissions?: FeatureKey[],
+	isTeacher?: boolean,
+): any {
+	const dynamicMap: any = {
+		[userRole]: { items: {} },
+		shared: { items: {} },
+	};
+
+	const routes = resolveRoleRoutes(userRole, isTeacher);
+	const filtered = filterRoutesForUser(
+		routes,
+		schoolProfile,
+		userRole,
+		adminPermissions,
+	);
+
+	for (const route of filtered) {
+		const component = componentMappings[route.key];
+		if (!component) {
+			console.warn(`Component not found for key: ${route.key}`);
+			continue;
+		}
+
+		const item: ComponentItem = {
+			title: route.title,
+			icon: route.icon,
+			category: route.category,
+			component,
+		};
+
+		if (route.shared) {
+			dynamicMap.shared.items[route.key] = item;
+		} else {
+			dynamicMap[userRole].items[route.key] = item;
+		}
+	}
+
+	return dynamicMap;
 }
 
 export default generateDynamicComponentsMap;

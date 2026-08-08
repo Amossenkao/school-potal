@@ -8,6 +8,7 @@ export interface RoleFeatureAccess {
 	readonly teacher: readonly FeatureKey[];
 	readonly system_admin: readonly FeatureKey[];
 	readonly parent?: readonly FeatureKey[];
+	readonly administrator?: Readonly<Record<string, readonly FeatureKey[]>>;
 }
 
 // ============================================================================

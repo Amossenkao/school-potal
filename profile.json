@@ -766,6 +766,7 @@
       "online_payment",
       "fee_payment",
       "record_payments",
+      "financial_clearance",
       "financial_reports",
       "academic_documents",
       "user_management"

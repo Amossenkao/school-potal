@@ -15,22 +15,27 @@ export type FeatureKey =
 	| 'apps'
 	| 'student_attendance'
 	| 'teacher_attendance'
+	| 'student_records'
 	// Academic
 	| 'grade_management'
 	| 'academic_reports'
 	| 'calendar_events'
 	| 'class_management'
 	// Financial
-	| 'fee_payment'
-	| 'financial_reports'
+	| 'finances'
 	| 'record_payments'
+	| "financial_clearance"
 	| 'online_payment'
 	| 'audit'
 	// Communication & Support
 	| 'support_system'
 	| 'community'
 	// Documents
-	| 'academic_documents'
+	| 'transcripts'
+	| 'diplomas'
+	| 'attestations'
+	| 'digital_id'
+	| 'graduation_clearance'
 
 	// System
 	| 'school_settings'
@@ -45,6 +50,7 @@ export const FEATURE_KEYS: FeatureKey[] = [
 	'apps',
 	'student_attendance',
 	'teacher_attendance',
+	'student_records',
 
 	// Academic Features
 	'grade_management',
@@ -53,8 +59,8 @@ export const FEATURE_KEYS: FeatureKey[] = [
 	'class_management',
 
 	// Financial Features
-	'fee_payment',
-	'financial_reports',
+	'finances',
+	"financial_clearance",
 	'record_payments',
 	'online_payment',
 	'audit',
@@ -64,8 +70,11 @@ export const FEATURE_KEYS: FeatureKey[] = [
 	'community',
 
 	// Documents
-	'academic_documents',
-
+	'transcripts',
+	'diplomas',
+	'attestations',
+	'digital_id',
+	'graduation_clearance',
 	// System Features
 	'school_settings',
 
