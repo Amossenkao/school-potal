@@ -126,7 +126,9 @@ export interface ParentSettings {
 }
 
 // A single pass/fail threshold rule. A rule matches when the student's failed
-// major count is <= maxMajor AND their failed minor count is <= maxMinor.
+// major count is >= maxMajor AND their failed minor count is >= maxMinor.
+// Rules are cumulative severity bands, so a student with zero failures never
+// matches a low-threshold failure rule.
 export interface GradingRule {
 	readonly maxMajor: number;
 	readonly maxMinor: number;
@@ -139,8 +141,7 @@ export interface GradingSettings {
 	readonly givesDoublePromotion: boolean;
 	// Rule arrays evaluated against the student's failed major/minor counts.
 	// Decision precedence: failureRules first, then summerSchoolRules (only when
-	// hasSummerSchool is true), then promotionRules.
-	readonly promotionRules: readonly GradingRule[];
+	// hasSummerSchool is true). Students matching no rule at all are promoted.
 	readonly failureRules: readonly GradingRule[];
 	readonly summerSchoolRules: readonly GradingRule[];
 	// Legacy threshold fields — kept for backward compatibility with profiles

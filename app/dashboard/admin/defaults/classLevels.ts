@@ -182,7 +182,6 @@ export const DEFAULT_GRADING_SETTINGS = {
 	hasSummerSchool: false,
 	givesDoublePromotion: false,
 	givesDemotion: false,
-	promotionRules: [{ maxMajor: 0, maxMinor: 2 }],
 	failureRules: [{ maxMajor: 2, maxMinor: 0 }],
 	summerSchoolRules: [{ maxMajor: 1, maxMinor: 1 }],
 	majorFailuresAllowed: 0,
@@ -191,7 +190,7 @@ export const DEFAULT_GRADING_SETTINGS = {
 };
 
 // ---------------------------------------------------------------------------
-// Normalize grading settings to always carry the three rule arrays. Profiles
+// Normalize grading settings to always carry the two rule arrays. Profiles
 // saved before the rule arrays existed only have the legacy threshold fields,
 // so those are mapped onto the arrays here. Existing rule arrays take
 // precedence and are kept as-is.
@@ -216,7 +215,6 @@ export function migrateLegacyGradingRules(settings: any): any {
 		}
 		return [];
 	};
-	const promotionRules = pickRule(src.promotionRules);
 	const failureRules = pickRule(src.failureRules);
 	const summerSchoolRules = pickRule(src.summerSchoolRules);
 	const majorFailuresAllowed = Number.isFinite(Number(src.majorFailuresAllowed))
@@ -242,11 +240,13 @@ export function migrateLegacyGradingRules(settings: any): any {
 		},
 		hasSummerSchool: src.hasSummerSchool === true,
 		givesDoublePromotion: src.givesDoublePromotion === true,
-		promotionRules:
-			promotionRules.length > 0
-				? promotionRules
-				: [{ maxMajor: majorFailuresAllowed, maxMinor: minorFailuresAllowed }],
-		failureRules: failureRules.length > 0 ? failureRules : [{ maxMajor: 2, maxMinor: 0 }],
+		failureRules:
+			failureRules.length > 0
+				? failureRules
+				: [
+						{ maxMajor: majorFailuresAllowed + 1, maxMinor: 0 },
+						{ maxMajor: 0, maxMinor: minorFailuresAllowed + 1 },
+					],
 		summerSchoolRules:
 			summerSchoolRules.length > 0
 				? summerSchoolRules

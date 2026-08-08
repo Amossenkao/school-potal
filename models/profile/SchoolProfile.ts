@@ -144,7 +144,6 @@ const GradingSettingsSchema = new Schema(
 		},
 		hasSummerSchool: { type: Boolean, required: true },
 		givesDoublePromotion: { type: Boolean, required: true },
-		promotionRules: { type: [GradingRuleSchema], default: [{ maxMajor: 0, maxMinor: 2 }] },
 		failureRules: { type: [GradingRuleSchema], default: [{ maxMajor: 2, maxMinor: 0 }] },
 		summerSchoolRules: { type: [GradingRuleSchema], default: [{ maxMajor: 1, maxMinor: 1 }] },
 		// Legacy threshold fields kept for backward compatibility

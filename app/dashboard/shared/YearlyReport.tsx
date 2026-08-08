@@ -1513,32 +1513,28 @@ const buildPromotionStatement = ({
 		school?.academicConfig?.gradingSettings,
 	);
 	const hasSummerSchool = gradingSettings.hasSummerSchool === true;
+	// A rule matches when the student's failed counts reach the rule's
+	// thresholds (>= both). Rules are cumulative severity bands, so a student
+	// with zero failures never matches a low-threshold failure rule.
 	const matchesRule = (rule: { maxMajor: number; maxMinor: number }) =>
-		failedMajorCount <= Number(rule.maxMajor) &&
-		failedMinorCount <= Number(rule.maxMinor);
+		failedMajorCount >= Number(rule.maxMajor) &&
+		failedMinorCount >= Number(rule.maxMinor);
 
-	// Rules are configured as escalating severity tiers: the promotion band is
-	// evaluated first, then the summer-school band, then the failure band, and a
-	// student who matches no band at all falls back to failed. Evaluating
-	// promotion first means students with zero failures (who can only ever match
-	// a low-threshold failure rule) are correctly promoted.
-	let decision: Exclude<PromotionDecision, 'incomplete'> = 'failed';
+	// Decision precedence: failure rules first, then summer-school rules (only
+	// when summer school is enabled). A student who matches no rule at all is
+	// promoted.
+	let decision: Exclude<PromotionDecision, 'incomplete'> = 'promoted';
 	if (
-		Array.isArray(gradingSettings.promotionRules) &&
-		gradingSettings.promotionRules.some(matchesRule)
+		Array.isArray(gradingSettings.failureRules) &&
+		gradingSettings.failureRules.some(matchesRule)
 	) {
-		decision = 'promoted';
+		decision = 'failed';
 	} else if (
 		hasSummerSchool &&
 		Array.isArray(gradingSettings.summerSchoolRules) &&
 		gradingSettings.summerSchoolRules.some(matchesRule)
 	) {
 		decision = 'summer_school';
-	} else if (
-		Array.isArray(gradingSettings.failureRules) &&
-		gradingSettings.failureRules.some(matchesRule)
-	) {
-		decision = 'failed';
 	}
 
 
