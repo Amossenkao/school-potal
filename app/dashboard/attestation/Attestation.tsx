@@ -39,6 +39,7 @@ import {
 import { buildStudentFullName } from '@/app/dashboard/digital-id/verification';
 import { resolveSignatory } from '@/utils/documentSignatory';
 import { flattenSchoolAddressLines } from '@/utils/schoolAddresses';
+import InstitutionalSeal from '@/components/pdf/InstitutionalSeal';
 
 // ── Fonts ────────────────────────────────────────────────────────────────────
 
@@ -201,7 +202,9 @@ const styles = StyleSheet.create({
 	bodyContent: {
 		paddingHorizontal: 44,
 		paddingTop: 20,
-		paddingBottom: 140, // clear the fixed footer, which now sits above the page edge
+		// Clears the fixed footer: 24 (offset from page edge) + 4.5 (rules)
+		// + 14 (inner padding) + 96 (seal, the tallest element) = 138.5.
+		paddingBottom: 152,
 	},
 	dateLine: {
 		fontSize: 11,
@@ -214,7 +217,7 @@ const styles = StyleSheet.create({
 		textAlign: 'center',
 		textTransform: 'uppercase',
 		color: T.navy,
-		letterSpacing: 1,
+		letterSpacing: 3,
 		marginBottom: 16,
 	},
 	toWhom: {
@@ -492,13 +495,21 @@ const AttestationDocument = ({
 										</Text>
 									) : null}
 								</View>
-								{/* Principal title — centred under the line */}
-								{item.principalName ? (
-									<Text style={styles.signatureTitleText}>
-										Principal, {schoolName}
-									</Text>
-								) : null}
+								{/* Principal title — always shown, even with no name/signature
+								    on file, so the line reads correctly for a wet-ink signature */}
+								<Text style={styles.signatureTitleText}>
+									Principal, {schoolName}
+								</Text>
 							</View>
+
+							{/* Gold embossed seal — the authentication mark, centred
+							    between the signature and the QR code */}
+							<InstitutionalSeal
+								name={schoolName}
+								logo={logoUrl}
+								size={96}
+								idPrefix={`seal-${index}`}
+							/>
 
 							{/* QR */}
 							<View style={styles.qrBlock}>
